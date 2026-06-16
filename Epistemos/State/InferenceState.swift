@@ -5510,11 +5510,16 @@ final class InferenceState {
         if let sanitizedModelID = sanitizedInteractiveLocalTextModelID(for: modelID) {
             return normalizedReleaseSelectableLocalTextModelID(sanitizedModelID)
         }
-        if let model = LocalTextModelID(rawValue: modelID),
-           model.isAwaitingSwiftRuntimeLoader {
-            return hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
-        }
-        return modelID
+        // The selection isn't available (nothing installed/prepared resolves it,
+        // or its runtime kind isn't active). Fall back to the recommended seed
+        // default rather than leaving an unrunnable id in place. NOTE: a staged
+        // GGUF Gemma IS resolved by sanitizedInteractiveLocalTextModelID (via
+        // supportedAvailableGemmaQATRuntimeCandidates) once its weights are
+        // detected in active/ — see detectedOnDiskActiveGgufModelIDs — so this
+        // fallback fires only for genuinely-absent models, NOT for a real Gemma
+        // pick. That is what keeps "selected Gemma → silently ran Qwen" from
+        // recurring while still degrading gracefully when nothing is installed.
+        return hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
     }
 
     private func sanitizeStoredLocalChatSelectionIfNeeded() {

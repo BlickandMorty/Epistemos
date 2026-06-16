@@ -2595,7 +2595,33 @@ final class LocalModelManager {
         // available" even when 12 real model dirs are present, which is how
         // Claude's 2026-04-22 audit surfaced the gap.
         installedIDs.formUnion(detectedOnDiskHubTextModelIDs())
+        // GGUF models load from `text/active/<slug>/<file>.gguf`, NOT from the
+        // HuggingFace hub layout `detectedOnDiskHubTextModelIDs` scans. Without
+        // this, a GGUF Gemma whose weights are present in active/ is never
+        // counted as installed, so `supportedAvailableGemmaQATRuntimeCandidates`
+        // is empty and the chat-selection sanitizer silently rewrites the
+        // Gemma pick to the Qwen default — the "I selected Gemma 12B and got
+        // Qwen answers" bug. Detect active-staged GGUF weights here too.
+        installedIDs.formUnion(detectedOnDiskActiveGgufModelIDs())
         inference.setInstalledLocalTextModelIDs(installedIDs)
+    }
+
+    /// Return every GGUF runtime-candidate ID whose weights are staged in the
+    /// canonical `active/<slug>/` load directory (the GGUF analogue of
+    /// `detectedOnDiskHubTextModelIDs`). Catalog-driven — only known GGUF
+    /// candidates surface, never a stray directory. The expected `.gguf`
+    /// filename must be present so an empty/partial dir doesn't count.
+    private func detectedOnDiskActiveGgufModelIDs() -> Set<String> {
+        var result: Set<String> = []
+        for candidate in GemmaQATRuntimeLadder.candidates {
+            let descriptor = candidate.localModelDescriptor
+            let weightFile = paths.activeDirectory(for: descriptor)
+                .appendingPathComponent(candidate.expectedFilename, isDirectory: false)
+            if fileManager.fileExists(atPath: weightFile.path) {
+                result.insert(candidate.id)
+            }
+        }
+        return result
     }
 
     /// Return every catalog text-model ID whose expected HuggingFace hub
