@@ -641,6 +641,30 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// True for models that are fully selectable when the user *explicitly*
+    /// pins them, but must never be chosen by *automatic* local routing.
+    /// The triage engine keeps the validated automatic default on the Qwen
+    /// stack; Gemma 4 is a deliberate user choice, not a silent fallback.
+    ///
+    /// This is the honest-capability-gating backstop that survives the runtime
+    /// becoming available: the dense E2B/E4B tiers now run (native Apple MLX
+    /// port + GGUF llama-cli lane), so `isAwaitingSwiftRuntimeLoader` is no
+    /// longer false-for-the-right-reason for them. Without this explicit
+    /// hold-out, flipping the loader flag would let Gemma 4 leak into the
+    /// last-resort automatic fallback — exactly the "never silently swap the
+    /// user's route to Gemma" rule the routing source guards defend. Gemma 3
+    /// is intentionally NOT held out (it has a stable loader and stays in the
+    /// automatic preferredOrder for pro/fast work).
+    var isHeldOutOfAutomaticLocalRouting: Bool {
+        switch self {
+        case .gemma4_2B4Bit, .gemma4_4B4Bit,
+             .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            true
+        default:
+            false
+        }
+    }
+
     var releasePickerVisibilityReason: String? {
         if isAwaitingSwiftRuntimeLoader {
             return "Hidden from the release picker: this Gemma 4 tier has no runnable Swift loader. The native Apple MLX port (Gemma4Text.swift) is dense-only, so the 26B-A4B Mixture-of-Experts checkpoint can't run; the 31B-JANG third-party fine-tune isn't verified against it and won't fit this device. Weights install fine but loading one would fail at runtime. The official dense E2B/E4B tiers load natively."
