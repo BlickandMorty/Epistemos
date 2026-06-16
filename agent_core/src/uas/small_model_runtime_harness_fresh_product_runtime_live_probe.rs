@@ -17,6 +17,8 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_CURSOR: &
     "small_model_runtime_harness_fresh_product_runtime_live_probe";
 pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const SAFETY_LEASE_ARTIFACT_PREFIX: &str =
     "artifact:small_model_runtime_harness_fresh_product_runtime_safety_lease:";
@@ -611,6 +613,7 @@ impl SmallModelFreshProductRuntimeLiveProbeWitness {
             self.guard_next_existing_work.as_str(),
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_CURSOR
                 | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_NEXT_CURSOR
+                | ADVANCED_RELEASE_AUDIT_CURSOR
         ) {
             return Err(SmallModelFreshProductRuntimeLiveProbeError::GuardCursorMismatch);
         }
@@ -623,6 +626,7 @@ impl SmallModelFreshProductRuntimeLiveProbeWitness {
             self.capability_next_bottleneck.as_str(),
             SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_CURSOR
                 | SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_LIVE_PROBE_NEXT_CURSOR
+                | ADVANCED_RELEASE_AUDIT_CURSOR
         ) {
             return Err(SmallModelFreshProductRuntimeLiveProbeError::CapabilityStatusMismatch);
         }
