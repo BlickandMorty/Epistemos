@@ -1896,6 +1896,41 @@ final class AppBootstrap {
                     }
                 }
 
+                // The probe above only lights up the .gguf lane when the user's
+                // PREFERRED model already happens to be GGUF — a chicken-and-egg
+                // that keeps the Gemma QAT GGUF route-integration candidates stuck
+                // as "pending" even once one is staged on disk. Completing the
+                // intent of releaseSelectableInstalledLocalTextModelIDs: if any
+                // product-route-integration Gemma candidate is prepared on disk,
+                // probe it so the .gguf lane becomes available and the candidate
+                // turns selectable. The Pro + EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0
+                // flag still governs whether it actually generates.
+                if !availableRuntimeKinds.contains(.gguf) {
+                    for candidate in GemmaQATRuntimeLadder.productRouteIntegrationCandidates {
+                        guard let candidateDescriptor = LocalModelCatalog.descriptor(for: candidate.id)
+                        else { continue }
+                        let candidateDirectory = localModelManager.paths.activeDirectory(
+                            for: candidateDescriptor
+                        )
+                        guard FileManager.default.fileExists(atPath: candidateDirectory.path) else {
+                            continue
+                        }
+                        do {
+                            _ = try await localGGUFRuntime.availability(
+                                requestedModelID: candidate.id,
+                                artifactID: candidate.expectedFilename,
+                                modelDirectory: candidateDirectory
+                            )
+                            availableRuntimeKinds.insert(.gguf)
+                            break
+                        } catch {
+                            Log.app.warning(
+                                "AppBootstrap: Gemma QAT GGUF availability probe failed for \(candidate.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            )
+                        }
+                    }
+                }
+
                 return availableRuntimeKinds
             },
             preparedGenerationRuntimeConfiguration: preparedModelRegistryState.generationRuntimeConfiguration,
