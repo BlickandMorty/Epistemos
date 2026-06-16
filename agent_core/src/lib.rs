@@ -94,6 +94,10 @@ pub mod pty;
 pub mod providers {
     pub mod claude;
     pub mod gemini;
+    // Pro-only: the on-device GGUF provider shells out to a hardened `llama-cli`
+    // subprocess, which the MAS sandbox forbids. Invisible to MAS compilation.
+    #[cfg(feature = "pro-build")]
+    pub mod gguf_cli;
     pub mod openai;
     pub mod openai_compatible;
     pub mod perplexity;
