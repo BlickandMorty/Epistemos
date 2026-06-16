@@ -185,7 +185,14 @@ struct ChatView: View {
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
-    @AppStorage("mainChat.showBrainPanel") private var showBrainPanel = false
+    // Default VISIBLE so the context panel (routing, request, loaded notes,
+    // tools-this-turn, evidence) is discoverable out of the box — users
+    // reported "I can't see the things in the sidebar." It stays fully
+    // toggleable and the choice persists, and the panel only renders sections
+    // that have data (non-essential ones collapse) so it reads as informative,
+    // not cluttered. Populated for every route (cloud + local) because the
+    // brain snapshot is captured pre-routing.
+    @AppStorage("mainChat.showBrainPanel") private var showBrainPanel = true
     @State private var transcriptRows: [ChatTranscriptRow] = []
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now

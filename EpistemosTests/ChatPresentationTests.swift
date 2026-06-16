@@ -730,7 +730,9 @@ struct ChatPresentationTests {
   func mainChatExposesAToggleableBrainSidePanelForContextTransparency() throws {
     let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
 
-    #expect(source.contains("@AppStorage(\"mainChat.showBrainPanel\") private var showBrainPanel = false"))
+    // Defaults VISIBLE so the context panel is discoverable out of the box
+    // (users couldn't find the hidden panel). Still toggleable + persists.
+    #expect(source.contains("@AppStorage(\"mainChat.showBrainPanel\") private var showBrainPanel = true"))
     #expect(source.contains("ChatBrainPanelView("))
     #expect(source.contains("chat.latestBrainSnapshot"))
     // Toolbar label uses "Context" (clear) rather than the opaque
