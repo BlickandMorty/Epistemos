@@ -1082,6 +1082,7 @@ pub async fn run_local_gguf_generation(
     prompt: String,
     system_prompt: Option<String>,
     max_output_tokens: Option<u32>,
+    temperature: Option<f32>,
     delegate: Box<dyn AgentEventDelegate>,
 ) -> Result<LocalGgufGenerationFFI, AgentErrorFFI> {
     // Mirror run_agent_session: spawn + join so a panic anywhere in the
@@ -1092,6 +1093,7 @@ pub async fn run_local_gguf_generation(
             prompt,
             system_prompt,
             max_output_tokens,
+            temperature,
             delegate,
         )
         .await
@@ -1118,6 +1120,7 @@ async fn run_local_gguf_generation_inner(
     prompt: String,
     system_prompt: Option<String>,
     max_output_tokens: Option<u32>,
+    temperature: Option<f32>,
     delegate: Box<dyn AgentEventDelegate>,
 ) -> Result<LocalGgufGenerationFFI, AgentErrorFFI> {
     use crate::provider::{ProviderRuntime, StreamEvent};
@@ -1130,7 +1133,8 @@ async fn run_local_gguf_generation_inner(
         });
     }
 
-    let provider = crate::providers::gguf_cli::GgufCliProvider::new(&model_path);
+    let provider = crate::providers::gguf_cli::GgufCliProvider::new(&model_path)
+        .with_temperature(temperature.unwrap_or(0.0));
     // Defensive: this entry exists ONLY to drive on-device providers. If a future
     // refactor ever makes the provider cloud-runtime, refuse rather than leak a
     // network path through the local seam (no-hidden-fallback).
