@@ -21,6 +21,8 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_
     "small_model_runtime_harness_fresh_product_runtime_answer_packet_probe";
 pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_wrv_probe";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const FRESH_LIVE_ARTIFACT_PREFIX: &str =
     "artifact:small_model_runtime_harness_fresh_product_runtime_live_probe:";
@@ -998,6 +1000,7 @@ impl SmallModelFreshProductRuntimeAnswerPacketProbeWitness {
             != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT_CURSOR
+        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::GuardCursorMismatch);
         }
@@ -1005,7 +1008,8 @@ impl SmallModelFreshProductRuntimeAnswerPacketProbeWitness {
             || (self.capability_next_bottleneck
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_CURSOR
                 && self.capability_next_bottleneck
-                    != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT_CURSOR)
+                    != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT_CURSOR
+        && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
         {
             return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::CapabilityStatusMismatch);
         }

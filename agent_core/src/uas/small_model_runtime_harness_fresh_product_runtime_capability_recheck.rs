@@ -15,6 +15,8 @@ pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_C
     "small_model_runtime_harness_fresh_product_runtime_capability_recheck";
 pub const SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_NEXT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_log_correlation_probe";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 
 const FRESH_WRV_ARTIFACT_PREFIX: &str =
     "artifact:small_model_runtime_harness_fresh_product_runtime_wrv_probe:";
@@ -248,6 +250,7 @@ impl SmallModelFreshProductRuntimeCapabilityRecheckWitness {
             != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_NEXT_CURSOR
+        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelFreshProductRuntimeCapabilityRecheckError::GuardCursorMismatch);
         }
@@ -256,7 +259,8 @@ impl SmallModelFreshProductRuntimeCapabilityRecheckWitness {
             || (self.capability_next_bottleneck
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_CURSOR
                 && self.capability_next_bottleneck
-                    != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_NEXT_CURSOR)
+                    != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_NEXT_CURSOR
+        && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
         {
             return Err(
                 SmallModelFreshProductRuntimeCapabilityRecheckError::CapabilityStatusMismatch,

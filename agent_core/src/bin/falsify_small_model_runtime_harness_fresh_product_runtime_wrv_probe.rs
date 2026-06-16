@@ -24,6 +24,8 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-SmallModelRuntimeHarnessFreshProductRuntimeWrvProbe";
+const ADVANCED_RELEASE_AUDIT_CURSOR: &str =
+    "release_audit_distribution_compliance_and_three_uninterrupted_zero_fail_passes";
 const FIXTURE_ID: &str = "small_model_runtime_harness_fresh_product_runtime_wrv_probe_v1";
 const COMMAND: &str =
     "Tools/falsifiers/f_small_model_runtime_harness_fresh_product_runtime_wrv_probe.sh";
@@ -149,7 +151,8 @@ fn build_artifact(
             evidence.guard_next_existing_work
                 == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_CURSOR
                 || evidence.guard_next_existing_work
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_NEXT_CURSOR,
+                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_NEXT_CURSOR
+                || evidence.guard_next_existing_work == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         ("capability_kernel_red", !evidence.capability_overall_pass),
         (
@@ -161,7 +164,8 @@ fn build_artifact(
             evidence.capability_next_bottleneck
                 == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_CURSOR
                 || evidence.capability_next_bottleneck
-                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_NEXT_CURSOR,
+                    == SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_NEXT_CURSOR
+                || evidence.capability_next_bottleneck == ADVANCED_RELEASE_AUDIT_CURSOR,
         ),
         (
             "product_status_gated",
