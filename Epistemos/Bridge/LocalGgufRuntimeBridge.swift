@@ -73,7 +73,8 @@ nonisolated func streamLocalGgufText(
     modelPath: String,
     prompt: String,
     systemPrompt: String?,
-    maxTokens: Int
+    maxTokens: Int,
+    temperature: Float
 ) -> AsyncThrowingStream<String, Error> {
     StreamingBufferPolicy.throwingStream { (continuation: AsyncThrowingStream<String, Error>.Continuation) in
         let trimmedPath = modelPath.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -90,6 +91,7 @@ nonisolated func streamLocalGgufText(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
                     maxOutputTokens: maxOutputTokens,
+                    temperature: temperature,
                     delegate: delegate
                 )
                 // onComplete already finished; this is a no-op safety net for a
@@ -119,11 +121,12 @@ enum LocalGgufCliRuntime {
     /// which honestly reports `backendUnavailable`).
     static func engineBuilderIfEnabled() -> LocalGGUFInProcessRuntime.EngineBuilder? {
         guard isEnabled else { return nil }
-        return { modelURL, _, _ in
-            // v0: deterministic temp=0 single-turn (matches the gate command
-            // card + the verified receipt). reasoningMode / modelID are not yet
-            // mapped to sampler params here.
+        return { modelURL, _, reasoningMode in
             let path = modelURL.path
+            // Map the reasoning mode to a sampler temperature. Fast stays
+            // greedy/deterministic (matches the gate command card + receipt);
+            // thinking gets a little exploration headroom.
+            let temperature = Self.temperature(for: reasoningMode)
             return LocalGGUFEngine(
                 generate: { prompt, systemPrompt, maxTokens in
                     var output = ""
@@ -131,7 +134,8 @@ enum LocalGgufCliRuntime {
                         modelPath: path,
                         prompt: prompt,
                         systemPrompt: systemPrompt,
-                        maxTokens: maxTokens
+                        maxTokens: maxTokens,
+                        temperature: temperature
                     )
                     for try await chunk in stream { output += chunk }
                     return output
@@ -141,10 +145,23 @@ enum LocalGgufCliRuntime {
                         modelPath: path,
                         prompt: prompt,
                         systemPrompt: systemPrompt,
-                        maxTokens: maxTokens
+                        maxTokens: maxTokens,
+                        temperature: temperature
                     )
                 }
             )
+        }
+    }
+
+    /// Reasoning-mode → sampler temperature. Fast = greedy/deterministic
+    /// (gate-aligned default); thinking gets mild exploration. `nonisolated`
+    /// so the `@Sendable` engine-builder closure can call it off the main actor.
+    nonisolated static func temperature(for reasoningMode: LocalReasoningMode) -> Float {
+        switch reasoningMode {
+        case .thinking:
+            return 0.7
+        default:
+            return 0.0
         }
     }
 }
@@ -156,6 +173,7 @@ private func invokeLocalGgufGeneration(
     prompt: String,
     systemPrompt: String?,
     maxOutputTokens: UInt32?,
+    temperature: Float?,
     delegate: LocalGgufTextStreamDelegate
 ) async throws {
     _ = try await runLocalGgufGeneration(
@@ -163,6 +181,7 @@ private func invokeLocalGgufGeneration(
         prompt: prompt,
         systemPrompt: systemPrompt,
         maxOutputTokens: maxOutputTokens,
+        temperature: temperature,
         delegate: delegate
     )
 }
@@ -174,6 +193,7 @@ private func invokeLocalGgufGeneration(
     prompt: String,
     systemPrompt: String?,
     maxOutputTokens: UInt32?,
+    temperature: Float?,
     delegate: LocalGgufTextStreamDelegate
 ) async throws {
     throw LocalGGUFRuntimeError.backendUnavailable
