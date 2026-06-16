@@ -396,12 +396,17 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
     case firstRuntimeHarness = "first_runtime_harness"
     case nextScaleLane = "next_scale_lane"
     case proFlagshipCandidate = "pro_flagship_candidate"
+    /// A community specialist fine-tune (not an official Google QAT model) that
+    /// rides the same Pro-gated GGUF/llama.cpp runtime lane. Carries no QAT
+    /// proof-ladder progression; recorded for the runtime-plural research lane.
+    case specialistCoderFineTune = "specialist_coder_fine_tune"
 
     var displayName: String {
         switch self {
         case .firstRuntimeHarness: "First runtime harness"
         case .nextScaleLane: "Next scale lane"
         case .proFlagshipCandidate: "Pro flagship candidate"
+        case .specialistCoderFineTune: "Specialist coder fine-tune"
         }
     }
 }
@@ -459,6 +464,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "scale route integration pending"
             case .proFlagshipCandidate:
                 return "Pro route integration pending"
+            case .specialistCoderFineTune:
+                return "specialist route integration pending"
             }
         }
         if hasCompleteRouteEvidencePacketChain {
@@ -469,12 +476,15 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "scale route evidence ready"
             case .proFlagshipCandidate:
                 return "Pro route evidence ready"
+            case .specialistCoderFineTune:
+                return "specialist route evidence ready"
             }
         }
         return "route evidence pending"
     }
 
     var acquisitionLaneArgument: String {
+        if stage == .specialistCoderFineTune { return "coder12b" }
         if id.contains("-12B-") { return "12b" }
         if id.contains("-E4B-") { return "e4b" }
         return "e2b"
@@ -488,6 +498,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             12
         case .proFlagshipCandidate:
             18
+        case .specialistCoderFineTune:
+            16
         }
     }
 
@@ -499,6 +511,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             "Gemma 4 E4B QAT GGUF scale lane. Text-only, direct local GGUF runtime; larger than E2B, still gated away from default route mutation."
         case .proFlagshipCandidate:
             "Gemma 4 12B QAT GGUF Pro lane. Text-only, direct local GGUF runtime; flagship candidate for roomier Macs after explicit user preparation."
+        case .specialistCoderFineTune:
+            "Gemma 4 12B Coder (Fable5/Composer2.5) — community specialist fine-tune (yuxinlu1), NOT official QAT. Q4_K_M GGUF is the best tier for a 16 GB Mac; rides the same Pro-gated GGUF/llama.cpp lane, text-only, receipt pending, gated away from default route mutation. Q6_K is higher quality but tight on 16 GB; the sakamakismile NVFP4 variant is NVIDIA-Blackwell/vLLM-only and does not run on Apple Silicon."
         }
     }
 
@@ -585,6 +599,32 @@ nonisolated enum GemmaQATRuntimeLadder {
             routeAnswerPacketVisibilityArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_route_answer_packet_visibility/12b/visibility.redacted.json",
             settingsDiagnosticsWRVArtifactRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/12b/wrv.redacted.json",
             releaseGateRef: "artifact:falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/12b/wrv.redacted.json"
+        ),
+        // Community specialist coder fine-tune (yuxinlu1), NOT official QAT — rides
+        // the same Pro-gated GGUF/llama.cpp lane. Q4_K_M is the best tier for a 16 GB
+        // Mac (7.38 GB; Q6_K 9.79 GB is tight, Q8_0 12.7 GB won't fit; the
+        // sakamakismile NVFP4 variant is NVIDIA-Blackwell/vLLM-only — not Apple
+        // Silicon). Provenance verified against the HF tree API 2026-06-16. No route
+        // proof artifacts yet → receipt pending; release-gated behind the
+        // runtime-plural owner-approval gate.
+        GemmaQATRuntimeCandidate(
+            id: "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+            displayName: "Gemma 4 12B Coder (Fable5/Composer2.5) GGUF",
+            sourceRepo: "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+            sourceURL: "https://huggingface.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+            sourceRevision: "1cf281b0e9874a09b3de3cd075c92ecbf99f723c",
+            expectedFilename: "gemma4-coding-Q4_K_M.gguf",
+            expectedFileBytes: 7_381_381_664,
+            expectedSHA256: "1fe90b72e105d7bc71650aa59883edece3e84751af489075217a7ae717b1fe8d",
+            blobID: "3a31b40dc84d1b3b439b132d7cb85333a85f5aab",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .specialistCoderFineTune,
+            localExecutionProofArtifactRef: nil,
+            runtimeRouterAdmissionArtifactRef: nil,
+            systemGDryRunArtifactRef: nil,
+            routeAnswerPacketVisibilityArtifactRef: nil,
+            settingsDiagnosticsWRVArtifactRef: nil,
+            releaseGateRef: "gate:runtime_plural_qat_lane_tournament_owner_approval_gate"
         ),
     ]
 

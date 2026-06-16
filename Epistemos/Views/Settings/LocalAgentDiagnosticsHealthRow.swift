@@ -440,6 +440,8 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             return .orange
         case .proFlagshipCandidate:
             return .purple
+        case .specialistCoderFineTune:
+            return .blue
         }
     }
 
@@ -1053,6 +1055,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "next receipt/runtime repeat"
         case .proFlagshipCandidate:
             return "Pro proof waits for E2B/E4B"
+        case .specialistCoderFineTune:
+            return "specialist receipt/runtime pending"
         }
     }
 
@@ -1444,6 +1448,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "next receipt/runtime repeat"
         case .proFlagshipCandidate:
             return "Pro proof waits for E2B/E4B"
+        case .specialistCoderFineTune:
+            return "specialist receipt/runtime pending"
         }
     }
 

@@ -1687,6 +1687,8 @@ struct LocalModelToolbarMenu: View {
             return "arrow.up.right.circle"
         case .proFlagshipCandidate:
             return "crown"
+        case .specialistCoderFineTune:
+            return "chevron.left.forwardslash.chevron.right"
         }
     }
 

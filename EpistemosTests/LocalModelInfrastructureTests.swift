@@ -316,35 +316,46 @@ struct LocalModelInfrastructureTests {
     func gemmaQATGGUFLadderExposes2To12BWithoutReleaseSelection() {
         let candidates = GemmaQATRuntimeLadder.candidates
 
+        // The 3 official Google QAT GGUF tiers, plus the community specialist
+        // coder fine-tune (yuxinlu1) added 2026-06-16 on the same Pro-gated GGUF
+        // lane — receipt pending (no proof artifacts), so it is NOT route-ready.
         #expect(candidates.map(\.id) == [
             "google/gemma-4-E2B-it-qat-q4_0-gguf",
             "google/gemma-4-E4B-it-qat-q4_0-gguf",
             "google/gemma-4-12B-it-qat-q4_0-gguf",
+            "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
         ])
         #expect(candidates.map(\.expectedFilename) == [
             "gemma-4-E2B_q4_0-it.gguf",
             "gemma-4-E4B_q4_0-it.gguf",
             "gemma-4-12b-it-qat-q4_0.gguf",
+            "gemma4-coding-Q4_K_M.gguf",
         ])
         #expect(candidates.map(\.expectedFileBytes) == [
             3_349_514_112,
             5_154_939_136,
             6_975_877_728,
+            7_381_381_664,
         ])
         #expect(candidates.map(\.expectedSHA256) == [
             "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd",
             "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
             "faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1",
+            "1fe90b72e105d7bc71650aa59883edece3e84751af489075217a7ae717b1fe8d",
         ])
-        #expect(candidates.map(\.acquisitionLaneArgument) == ["e2b", "e4b", "12b"])
+        #expect(candidates.map(\.acquisitionLaneArgument) == ["e2b", "e4b", "12b", "coder12b"])
         #expect(candidates.allSatisfy { $0.runtimeLane == "gguf_llama_cpp_offline" })
         #expect(candidates.allSatisfy { !$0.isReleaseSelectableForInteractiveChat })
         #expect(candidates.allSatisfy { !$0.allowsDefaultRouteMutation })
-        #expect(candidates.allSatisfy { $0.hasCompleteRouteEvidencePacketChain })
+        // The 3 QAT tiers have the full route-evidence chain; the specialist does not.
+        #expect(candidates.prefix(3).allSatisfy { $0.hasCompleteRouteEvidencePacketChain })
+        #expect(candidates.last?.hasCompleteRouteEvidencePacketChain == false)
+        #expect(candidates.last?.stage == .specialistCoderFineTune)
         #expect(candidates.map(\.routeIntegrationStatusLabel) == [
             "route integration pending",
             "scale route integration pending",
             "Pro route integration pending",
+            "route evidence pending",
         ])
         #expect(GemmaQATRuntimeLadder.firstRuntimeHarnessCandidate?.id == "google/gemma-4-E2B-it-qat-q4_0-gguf")
         #expect(GemmaQATRuntimeLadder.nextScaleCandidate?.id == "google/gemma-4-E4B-it-qat-q4_0-gguf")

@@ -3157,6 +3157,8 @@ private struct GemmaQATProofLaneSummary: View {
             return .orange
         case .proFlagshipCandidate:
             return .purple
+        case .specialistCoderFineTune:
+            return .blue
         }
     }
 }
