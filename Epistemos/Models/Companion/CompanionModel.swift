@@ -61,6 +61,34 @@ final class CompanionModel {
     /// AgentBlueprint approval raw value.
     var agentApprovalModeRaw: String?
 
+    // MARK: - Agent meta-config (osaurus-pattern, additive 2026-06-16)
+    // These extend the Companion (the tamagotchi creature) into a full
+    // per-agent meta-config builder. All optional so SwiftData applies a
+    // lightweight (additive) migration — existing Companions decode unchanged.
+
+    /// Full system-prompt OVERRIDE applied when non-empty. Distinct from
+    /// `personaPrompt`, which only AUGMENTS the composed instruction. Nil/empty
+    /// = keep the existing persona-augment behavior.
+    var customSystemPromptTemplate: String?
+    /// Per-agent structured-output contract, JSON-encoded, e.g.
+    /// `{"format":"json"|"xml"|"text","schema":{…}}`. Surfaced to the model and,
+    /// on the GGUF runtime, can drive grammar-constrained decoding
+    /// (`--json-schema`). Nil = freeform text.
+    var outputStructureJSON: String?
+    /// Per-agent MCP server config (JSON array of `{id,endpoint,auth,env}`) so a
+    /// companion can bring its own tool servers. Nil = inherit the global MCP
+    /// catalog.
+    var mcpServerConfigJSON: String?
+    /// Per-agent memory/context auto-pin pattern (glob/regex over note
+    /// titles/paths) attached to this companion's turns. Nil = no auto-pin.
+    var memoryPinPattern: String?
+    /// Tool-selection mode raw: "auto" (RAG-preflight picks relevant tools) or
+    /// "manual" (only `agentToolNames`). Nil = "manual" (current behavior).
+    var toolSelectionModeRaw: String?
+    /// Pro-only autonomous-execution grant (sandboxed code exec), JSON-encoded
+    /// `AutonomousExecConfig`. Nil = no autonomous exec — the MAS-safe default.
+    var autonomousExecConfigJSON: String?
+
     init(
         id: String = UUID().uuidString,
         name: String,
@@ -73,6 +101,12 @@ final class CompanionModel {
         agentToolNames: [String] = [],
         agentScope: AgentBlueprintScope = .currentVault,
         agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
+        customSystemPromptTemplate: String? = nil,
+        outputStructureJSON: String? = nil,
+        mcpServerConfigJSON: String? = nil,
+        memoryPinPattern: String? = nil,
+        toolSelectionMode: CompanionToolSelectionMode = .manual,
+        autonomousExecConfigJSON: String? = nil,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -87,6 +121,12 @@ final class CompanionModel {
         self.agentToolNamesRaw = Self.encodeToolNames(agentToolNames)
         self.agentScopeRaw = agentScope.rawValue
         self.agentApprovalModeRaw = agentApprovalMode.rawValue
+        self.customSystemPromptTemplate = customSystemPromptTemplate
+        self.outputStructureJSON = outputStructureJSON
+        self.mcpServerConfigJSON = mcpServerConfigJSON
+        self.memoryPinPattern = memoryPinPattern
+        self.toolSelectionModeRaw = toolSelectionMode.rawValue
+        self.autonomousExecConfigJSON = autonomousExecConfigJSON
         self.createdAt = createdAt
         self.lastInteractedAt = createdAt
         self.archivedAt = nil
@@ -128,6 +168,29 @@ final class CompanionModel {
             AgentBlueprintApprovalMode(rawValue: agentApprovalModeRaw ?? "") ?? .approveOncePerSession
         }
         set { agentApprovalModeRaw = newValue.rawValue }
+    }
+
+    var toolSelectionMode: CompanionToolSelectionMode {
+        get { CompanionToolSelectionMode(rawValue: toolSelectionModeRaw ?? "") ?? .manual }
+        set { toolSelectionModeRaw = newValue.rawValue }
+    }
+
+    /// The system instruction this companion contributes to a turn: the full
+    /// `customSystemPromptTemplate` OVERRIDE when set, otherwise the
+    /// `personaPrompt` augment (existing behavior). Trimmed; nil when neither is
+    /// meaningfully set. This is the single seam the chat pipeline reads (via
+    /// `CompanionState.activeAgentSystemInstruction()`), so a per-agent custom
+    /// prompt flows through without touching the rest of the pipeline.
+    var effectiveAgentSystemInstruction: String? {
+        if let custom = customSystemPromptTemplate?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !custom.isEmpty {
+            return custom
+        }
+        if let persona = personaPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !persona.isEmpty {
+            return persona
+        }
+        return nil
     }
 
     var isArchived: Bool { archivedAt != nil }
@@ -197,6 +260,22 @@ nonisolated enum CompanionBodyFamily: String, Codable, Sendable, CaseIterable {
     case block
     case sage
     case orb
+}
+
+/// How a companion picks tools for a turn. `.manual` uses only the explicit
+/// `agentToolNames`; `.auto` lets a RAG preflight surface the most relevant
+/// tools for the query (osaurus pattern). Default `.manual` preserves the
+/// existing honest behavior — no surprise tool exposure.
+nonisolated enum CompanionToolSelectionMode: String, Codable, Sendable, CaseIterable {
+    case manual
+    case auto
+
+    var displayName: String {
+        switch self {
+        case .manual: "Manual (pinned tools)"
+        case .auto: "Auto (RAG-selected)"
+        }
+    }
 }
 
 nonisolated enum CompanionBlockAspect: String, Codable, Sendable, CaseIterable {

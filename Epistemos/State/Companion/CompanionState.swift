@@ -259,9 +259,23 @@ final class CompanionState {
         if !role.isEmpty {
             lines.append("Agent role: \(role).")
         }
-        let persona = boundedPromptField(entry.personaPrompt ?? "", limit: 800)
-        if !persona.isEmpty {
-            lines.append("Persona directive: \(persona)")
+        // A custom system-prompt template OVERRIDES the persona augment; otherwise
+        // the persona augments. Either way the honest framing above (safety,
+        // tool-permission, approval/scope) still bounds behavior — the override
+        // steers voice/instructions, it does not grant capability.
+        let customPrompt = boundedPromptField(entry.customSystemPromptTemplate ?? "", limit: 2_000)
+        if !customPrompt.isEmpty {
+            lines.append("System prompt: \(customPrompt)")
+        } else {
+            let persona = boundedPromptField(entry.personaPrompt ?? "", limit: 800)
+            if !persona.isEmpty {
+                lines.append("Persona directive: \(persona)")
+            }
+        }
+        // Per-agent structured-output contract, if the user set one.
+        let outputContract = boundedPromptField(entry.outputStructureJSON ?? "", limit: 600)
+        if !outputContract.isEmpty {
+            lines.append("Output format contract (honor this structure): \(outputContract)")
         }
         if !entry.agentToolNames.isEmpty {
             lines.append("Preferred tools: \(entry.agentToolNames.joined(separator: ", ")).")
@@ -391,6 +405,12 @@ struct CompanionRosterEntry: Identifiable, Equatable, Sendable {
     let agentToolNames: [String]
     let agentScope: AgentBlueprintScope
     let agentApprovalMode: AgentBlueprintApprovalMode
+    // osaurus-pattern meta-config (additive 2026-06-16)
+    let customSystemPromptTemplate: String?
+    let outputStructureJSON: String?
+    let mcpServerConfigJSON: String?
+    let memoryPinPattern: String?
+    let toolSelectionMode: CompanionToolSelectionMode
     let createdAt: Date
     let lastInteractedAt: Date
     let archivedAt: Date?
@@ -408,6 +428,11 @@ struct CompanionRosterEntry: Identifiable, Equatable, Sendable {
         self.agentToolNames = model.agentToolNames
         self.agentScope = model.agentScope
         self.agentApprovalMode = model.agentApprovalMode
+        self.customSystemPromptTemplate = model.customSystemPromptTemplate
+        self.outputStructureJSON = model.outputStructureJSON
+        self.mcpServerConfigJSON = model.mcpServerConfigJSON
+        self.memoryPinPattern = model.memoryPinPattern
+        self.toolSelectionMode = model.toolSelectionMode
         self.createdAt = model.createdAt
         self.lastInteractedAt = model.lastInteractedAt
         self.archivedAt = model.archivedAt
