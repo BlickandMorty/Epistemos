@@ -327,4 +327,112 @@ struct EpistemosFoundationLineupTests {
         #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.9, operatingMode: .pro) == nil)
         #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.9, operatingMode: .agent) == nil)
     }
+
+    // MARK: - P1.4 Honest local-runtime memory gate (pure policy)
+
+    @Test("memory gate: fits only when free + headroom covers the requirement")
+    func memoryGateFits() {
+        // headroomGB == 6: availableGB + 6 must reach requiredGB.
+        #expect(LocalChatModelMemoryGate.fits(requiredGB: 8, availableGB: 5))   // 5+6 ≥ 8
+        #expect(LocalChatModelMemoryGate.fits(requiredGB: 8, availableGB: 2))   // 2+6 == 8 (boundary, runnable)
+        #expect(!LocalChatModelMemoryGate.fits(requiredGB: 8, availableGB: 1))  // 1+6 < 8
+        #expect(!LocalChatModelMemoryGate.fits(requiredGB: 16, availableGB: 2)) // 12B/coder on a starved Mac
+        #expect(LocalChatModelMemoryGate.fits(requiredGB: 16, availableGB: 64)) // roomy Mac
+    }
+
+    @Test("memory gate: missing data never blocks (honesty, not paranoia)")
+    func memoryGateMissingDataNeverBlocks() {
+        #expect(LocalChatModelMemoryGate.fits(requiredGB: 0, availableGB: 1))  // no requirement
+        #expect(LocalChatModelMemoryGate.fits(requiredGB: 8, availableGB: 0))  // unknown availability
+    }
+
+    @Test("memory gate: blocker reason names the model, the need, and the way out")
+    func memoryGateBlockerReason() {
+        let reason = LocalChatModelMemoryGate.blockerReason(
+            modelDisplayName: "Gemma 4 12B QAT GGUF",
+            requiredGB: 16,
+            availableGB: 2
+        )
+        #expect(reason.contains("Gemma 4 12B QAT GGUF"))
+        #expect(reason.contains("16 GB needed"))
+        #expect(reason.contains("2 GB free"))
+        #expect(reason.contains("route to cloud"))
+    }
+
+    // MARK: - P1.4 wired into InferenceState (deterministic via injected health)
+
+    private static func health(availableMemoryBytes: UInt64) -> LocalRuntimeHealthSnapshot {
+        LocalRuntimeHealthSnapshot(
+            requestedRuntimeKind: .gguf,
+            resolvedRuntimeKind: .gguf,
+            executionMode: .local,
+            modelID: "test",
+            artifactID: nil,
+            fallbackMode: "none",
+            executionPhase: "idle",
+            timeToFirstTokenMS: nil,
+            totalDurationMS: 0,
+            tokensPerSecond: nil,
+            outputTokenCount: 0,
+            outputCharacterCount: 0,
+            availableMemoryBytes: availableMemoryBytes,
+            runtimeResourceURL: nil
+        )
+    }
+
+    private static let gb: UInt64 = 1_073_741_824
+
+    @Test("simplified: Code tier blocks Send when the 12B coder can't fit free memory, clears when it can")
+    @MainActor func codeTierMemoryBlocker() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12, Self.vibe, Self.coder])
+        inference.setPreferredChatModelSelection(.localMLX(Self.e2b))
+
+        // Code (.pro) resolves to the 16 GB coder. With ~2 GB free it can't load:
+        // honest visible blocker, never a silent swap.
+        inference.setLatestLocalRuntimeHealth(Self.health(availableMemoryBytes: 2 * Self.gb))
+        let blocked = inference.localChatModelMemoryBlocker(for: .pro)
+        #expect(blocked != nil)
+        #expect(blocked?.contains("free memory") == true)
+
+        // Free memory recovers → the blocker clears (Send re-enables).
+        inference.setLatestLocalRuntimeHealth(Self.health(availableMemoryBytes: 32 * Self.gb))
+        #expect(inference.localChatModelMemoryBlocker(for: .pro) == nil)
+    }
+
+    @Test("simplified: Fast gates on the SMALLEST installed size, so a query the E2B can answer is never blocked")
+    @MainActor func fastTierGatesOnSmallestSize() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 16_000_000_000,
+                roundedMemoryGB: 16,
+                maxRecommendedLocalContentLength: 8_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12])
+        inference.setPreferredChatModelSelection(.localMLX(Self.b12))
+
+        // ~3 GB free: the E4B default (12 GB) would NOT fit (12 > 3+6), but the
+        // E2B (8 GB) would (8 ≤ 3+6). Fast gates on the smallest, so Send stays
+        // enabled — P1.5 can size down to the E2B for this query.
+        inference.setLatestLocalRuntimeHealth(Self.health(availableMemoryBytes: 3 * Self.gb))
+        #expect(inference.localChatModelMemoryBlocker(for: .fast) == nil)
+
+        // Truly starved (~1 GB free): even the E2B (8 GB) can't load (8 > 1+6),
+        // so Fast honestly blocks.
+        inference.setLatestLocalRuntimeHealth(Self.health(availableMemoryBytes: 1 * Self.gb))
+        #expect(inference.localChatModelMemoryBlocker(for: .fast) != nil)
+    }
 }

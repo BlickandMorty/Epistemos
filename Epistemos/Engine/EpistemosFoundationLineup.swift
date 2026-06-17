@@ -170,3 +170,33 @@ nonisolated enum EpistemosFastEffortSizing {
         return min(band, candidateCount - 1)
     }
 }
+
+/// P1.4 — honest local-runtime memory gate. Pure policy for deciding whether a
+/// local chat model can actually load into the current free-memory budget, and
+/// for the one-line reason shown to the user when it can't. Kept here (pure +
+/// nonisolated, no `InferenceState` dependency) so the decision is unit-testable
+/// on its own; `InferenceState.localChatModelMemoryBlocker` supplies the live
+/// numbers. The headroom matches the agent-tier budget check
+/// (`localAgentModelFitsCurrentMemoryBudget`) so chat and agent gate alike.
+nonisolated enum LocalChatModelMemoryGate {
+    /// GB assumed reclaimable on top of free memory before a model is judged
+    /// un-runnable — matches the agent-tier fit check so the two never disagree.
+    static let headroomGB = 6
+
+    /// Whether a model needing `requiredGB` can run with `availableGB` free.
+    /// A non-positive requirement or unknown (`<= 0`) availability is treated as
+    /// runnable: we surface a blocker only on positive evidence it can't load,
+    /// never on missing data.
+    static func fits(requiredGB: Int, availableGB: Int) -> Bool {
+        guard requiredGB > 0 else { return true }
+        guard availableGB > 0 else { return true }
+        return availableGB + headroomGB >= requiredGB
+    }
+
+    /// One-line, honest blocker reason. Names the model, the rough need, the
+    /// free memory, and the three honest ways out (free memory / smaller tier /
+    /// cloud). Used verbatim in the composer banner + Send tooltip.
+    static func blockerReason(modelDisplayName: String, requiredGB: Int, availableGB: Int) -> String {
+        "Not enough free memory for \(modelDisplayName) (~\(requiredGB) GB needed, \(availableGB) GB free). Free up memory, pick a smaller tier, or route to cloud."
+    }
+}

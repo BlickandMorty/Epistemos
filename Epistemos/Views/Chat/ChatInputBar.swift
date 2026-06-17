@@ -166,6 +166,15 @@ struct ChatInputBar: View {
         return inference.isChatSurfaceRuntimeReady(for: selectedMode)
     }
 
+    /// P1.4 — honest local-runtime blocker (#43). Non-nil when the selected local
+    /// chat model can't load into the current free-memory budget; drives a
+    /// visible banner + a disabled Send (never a silent model swap). The cloud
+    /// route button stays enabled so "route to cloud" remains a one-tap escape.
+    private var localRuntimeMemoryBlocker: String? {
+        guard let selectedMode = operatingMode?.wrappedValue else { return nil }
+        return inference.localChatModelMemoryBlocker(for: selectedMode)
+    }
+
     /// Live-detail sub-signal shown in the pill while the agent is
     /// mid-tool-call. Turns the raw tool name + JSON input into a human
     /// phrase ("Searching the web for "quantum decoherence"") via
@@ -697,6 +706,26 @@ struct ChatInputBar: View {
                 .padding(.bottom, 4)
             }
 
+            // P1.4 — honest local-runtime blocker. When the selected local model
+            // can't load into free memory, show why and disable Send; never swap
+            // models silently. "Route to cloud" stays available beside Send.
+            if let memoryBlocker = localRuntimeMemoryBlocker {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text(memoryBlocker)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 4)
+            }
+
             permissionVisibilityChip
                 .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
                 .padding(.bottom, 4)
@@ -1128,7 +1157,7 @@ struct ChatInputBar: View {
     private var sendButton: some View {
         AssistantSendButton(
             theme: theme,
-            isEnabled: isProcessing || (!trimmedText.isEmpty && selectedRuntimeReady),
+            isEnabled: isProcessing || (!trimmedText.isEmpty && selectedRuntimeReady && localRuntimeMemoryBlocker == nil),
             isProcessing: isProcessing,
             metrics: composerMetrics
         ) {
@@ -1258,7 +1287,8 @@ struct ChatInputBar: View {
             return
         }
 
-        guard !trimmedText.isEmpty, !isProcessing, selectedRuntimeReady else { return }
+        guard !trimmedText.isEmpty, !isProcessing, selectedRuntimeReady,
+              localRuntimeMemoryBlocker == nil else { return }
         let predictedCapability = ChatCapability.predictIntent(
             text: trimmedText,
             isCloudProvider: isCloudSelection
