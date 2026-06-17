@@ -442,6 +442,8 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             return .purple
         case .specialistCoderFineTune:
             return .blue
+        case .reasoningSpecialist:
+            return .teal
         }
     }
 
@@ -1057,6 +1059,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "Pro proof waits for E2B/E4B"
         case .specialistCoderFineTune:
             return "specialist receipt/runtime pending"
+        case .reasoningSpecialist:
+            return "reasoning receipt/runtime pending"
         }
     }
 
@@ -1450,6 +1454,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "Pro proof waits for E2B/E4B"
         case .specialistCoderFineTune:
             return "specialist receipt/runtime pending"
+        case .reasoningSpecialist:
+            return "reasoning receipt/runtime pending"
         }
     }
 

@@ -3159,6 +3159,8 @@ private struct GemmaQATProofLaneSummary: View {
             return .purple
         case .specialistCoderFineTune:
             return .blue
+        case .reasoningSpecialist:
+            return .teal
         }
     }
 }
