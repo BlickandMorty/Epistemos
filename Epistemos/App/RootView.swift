@@ -1560,11 +1560,25 @@ struct LocalModelToolbarMenu: View {
         }
 
         if installedSelectableModels.isEmpty {
-            Text(noLocalModelsText)
-                .font(.system(size: 11))
-                .foregroundStyle(theme.textTertiary)
-                .padding(.leading, 4)
-                .padding(.top, 2)
+            if EpistemosFoundationLineup.simplifiedLineupActive {
+                // Fresh state: no local model yet. Point straight at the
+                // one-tap foundation install instead of a dead-end message.
+                selectionRow(
+                    title: "Set up Epistemos AI",
+                    subtitle: "Download the foundation package (Gemma · VibeThinker · coder) to chat on-device.",
+                    systemImage: "arrow.down.circle",
+                    isSelected: false
+                ) {
+                    openSettings()
+                    closeAction()
+                }
+            } else {
+                Text(noLocalModelsText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.leading, 4)
+                    .padding(.top, 2)
+            }
         } else {
             ForEach(installedSelectableModels, id: \.id) { model in
                 HStack(spacing: 0) {
