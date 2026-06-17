@@ -259,9 +259,10 @@ re-read this file and harden.
 
 | ID | Item | Status |
 |----|------|--------|
-| P1.1 | Picker → three mode rows + Advanced disclosure | ☐ TODO |
-| P1.2 | Cloud as one clean toggle | ☐ TODO |
-| P1.3 | Per-query "Route to cloud" button + onSubmit override | ☐ TODO |
+| P1.1 | Picker → three mode rows + Advanced disclosure | ✅ DONE (2026-06-17) |
+| P1.1b | Fix root cause: GGUF Gemma collapsed modes to Fast-only | ✅ DONE — `operatingModeCapabilities` offers Fast/Think/Code under simplified+foundation |
+| P1.2 | Cloud as one clean toggle | ✅ DONE (folded into P1.1) |
+| P1.3 | Per-query "Route to cloud" button + onSubmit override | ☐ TODO (next) |
 | P1.4 | Honesty blocker: visible when local model can't run (#43) | ☐ TODO |
 | P1.5 | Fast "three efforts" per-query complexity sizing | ☐ TODO |
 | P2.1 | In-chat tool toggles | ☐ TODO |

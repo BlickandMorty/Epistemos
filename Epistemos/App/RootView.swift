@@ -569,6 +569,10 @@ struct LocalModelToolbarMenu: View {
     @State private var showsLocalModels = false
     @State private var showsCloudProviderOptions = false
     @State private var showsActiveCloudModelOptions = false
+    /// Simplified picker: collapses Routing / per-model details / cloud setup /
+    /// Temporary Chat behind one "Advanced" disclosure so the default popover is
+    /// just the three Epistemos efforts + a Cloud toggle.
+    @State private var showsAdvancedRuntimeOptions = false
     @State private var aboutSelection: ChatModelSelection?
     @State private var localModelSubtitleCache: [String: String] = [:]
 
@@ -1458,6 +1462,149 @@ struct LocalModelToolbarMenu: View {
 
     @ViewBuilder
     private var runtimePopover: some View {
+        Group {
+            if EpistemosFoundationLineup.simplifiedLineupActive {
+                simplifiedRuntimePopover
+            } else {
+                legacyRuntimePopover
+            }
+        }
+        .popover(item: $aboutSelection) { selection in
+            ModelAboutSheet(selection: selection)
+        }
+    }
+
+    /// Simplified picker (owner 2026-06-16): the default popover is just the
+    /// three Epistemos efforts — Fast / Think / Code — plus one Cloud toggle.
+    /// Routing, per-model details, cloud provider/model setup, and Temporary
+    /// Chat fold away under a single collapsed "Advanced" disclosure, so the
+    /// chooser reads as "pick an effort," not "configure a runtime."
+    @ViewBuilder
+    private var simplifiedRuntimePopover: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Epistemos AI")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(selectedModeSummary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                if let operatingMode {
+                    VStack(alignment: .leading, spacing: 8) {
+                        popoverSectionTitle("Mode")
+                        ForEach(displayedOperatingModes, id: \.rawValue) { option in
+                            selectionRow(
+                                title: option.displayName,
+                                subtitle: modeSubtitle(for: option, isEnabled: true),
+                                systemImage: option.systemImage,
+                                isSelected: operatingMode.wrappedValue == option,
+                                isEnabled: true
+                            ) {
+                                let sanitizedMode = sanitizedDisplayedOperatingMode(option)
+                                operatingMode.wrappedValue = sanitizedMode
+                                inference.setChatReasoningTier(
+                                    inference.chatReasoningTier,
+                                    for: sanitizedMode
+                                )
+                                isPresented = false
+                            }
+                        }
+                    }
+                    .animation(
+                        .easeInOut(duration: 0.15),
+                        value: displayedOperatingModes.map(\.rawValue).joined(separator: "|")
+                    )
+                }
+
+                cloudToggleSection
+
+                DisclosureGroup(isExpanded: $showsAdvancedRuntimeOptions) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        routingSection
+                        VStack(alignment: .leading, spacing: 8) {
+                            popoverSectionTitle("Models")
+                            localModelsDisclosure(closeAction: {
+                                isPresented = false
+                            })
+                        }
+                        pickerCloudSection
+                        if let isTemporaryChatEnabled {
+                            VStack(alignment: .leading, spacing: 8) {
+                                popoverSectionTitle("Conversation")
+                                selectionRow(
+                                    title: "Temporary Chat",
+                                    subtitle: isTemporaryChatEnabled.wrappedValue
+                                        ? "This conversation stays in memory only and will not be saved."
+                                        : "Turns off chat persistence for this thread.",
+                                    systemImage: isTemporaryChatEnabled.wrappedValue ? "eye.slash.fill" : "eye.slash",
+                                    isSelected: isTemporaryChatEnabled.wrappedValue
+                                ) {
+                                    isTemporaryChatEnabled.wrappedValue.toggle()
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, 6)
+                } label: {
+                    disclosureTitle(
+                        title: "Advanced",
+                        subtitle: "Routing, model details, cloud setup"
+                    )
+                }
+
+                Divider()
+
+                Button("Open Settings") {
+                    openSettings()
+                }
+                .buttonStyle(.borderless)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color)
+            }
+        }
+    }
+
+    /// Cloud as ONE clean on/off. When on, the provider + model detail live in
+    /// Advanced (pickerCloudSection); when off, chat stays on-device. Honest:
+    /// the subtitle names the active provider+model, or nudges to setup.
+    @ViewBuilder
+    private var cloudToggleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            popoverSectionTitle("Cloud")
+            Toggle(isOn: Binding(
+                get: { inference.cloudModelsEnabled },
+                set: { isOn in
+                    inference.setCloudModelsEnabled(isOn)
+                    if isOn { showsAdvancedRuntimeOptions = true }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Use cloud models")
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Text(cloudToggleSubtitle)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(theme.textTertiary)
+                }
+            }
+            .toggleStyle(.switch)
+        }
+    }
+
+    private var cloudToggleSubtitle: String {
+        if let provider = displayedCloudProvider,
+           inference.configuredCloudProviders.contains(provider) {
+            return "\(provider.displayName) • \(inference.preferredCloudModel(for: provider).compactDisplayName)"
+        }
+        if inference.cloudModelsEnabled {
+            return "Connect a provider in Settings → Inference"
+        }
+        return "Chat stays on-device. Turn on to route to GPT, Claude, and more."
+    }
+
+    @ViewBuilder
+    private var legacyRuntimePopover: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -1541,9 +1688,6 @@ struct LocalModelToolbarMenu: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(theme.resolved.accent.color)
             }
-        }
-        .popover(item: $aboutSelection) { selection in
-            ModelAboutSheet(selection: selection)
         }
     }
 
