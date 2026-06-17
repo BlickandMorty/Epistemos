@@ -77,12 +77,23 @@ OpenAI/Ollama-compatible server (#46); VibeThinker-3B added as Think; Gemma
 MLX/GGUF honest reconciliation; loop budgets raised 1/1/3 → 5/10/15; agentic
 system-prompt manifest when tools present; main-chat context sidebar visible;
 foundation-lineup regression tests.
+DONE 2026-06-17: PICKER SIMPLIFIED — the runtime popover now shows three mode
+rows (Fast/Think/Code) + ONE "Use cloud" toggle; Routing/Fallback/per-model
+rows/cloud detail/Temporary Chat fold under an "Advanced" disclosure
+(simplifiedRuntimePopover + cloudToggleSection in RootView, gated on
+simplifiedLineupActive). Root-cause fix: operatingModeCapabilities now offers all
+three efforts under simplified+foundation (a GGUF Gemma used to collapse modes to
+Fast-only). Search-page button shows the tier ("Epistemos Fast"), not the model.
+"Gemma 12B always selected" fixed: migration now picks the headroom-aware Fast
+model (E4B on 16 GB) not the largest; a stored 12B pick falls to E4B under Fast
+when memory-tight. Composer "Send on cloud" button (switches to cloud; strict
+per-turn-no-default-change deferred). So P1.1/P1.2/P1.3 below are ALREADY DONE.
 
 ────────────────────────────────────────────────────────────────────────
-PRIORITY 1 — THE SIMPLE PICKER  (★ the owner keeps building and STILL sees the
-ugly picker — this is the #1 broken thing. Fix it FIRST.)
+PRIORITY 1 — THE SIMPLE PICKER  (P1.1/P1.2/P1.3 ✅ DONE 2026-06-17. Remaining:
+P1.4 honesty blocker, P1.5 per-query effort sizing. START THE LOOP AT P1.5.)
 ────────────────────────────────────────────────────────────────────────
-Current state (owner screenshot 2026-06-17): the popover still shows a "Runtime"
+For history — current state was (owner screenshot 2026-06-17): the popover showed a "Runtime"
 header, a "Routing → Fast → Gemma 4 12B QAT GGUF" row, a "Fallback on failure"
 toggle, three separate Gemma model rows (E2B/E4B/12B each with "Agent OFF /
 On-device model / info"), separate "Cloud Provider" + "Cloud Model" expanders,
@@ -106,26 +117,24 @@ TARGET (the whole point):
   or into Settings. The model itself is NEVER shown as a required choice.
 
 SLICES (build + commit each):
-  P1.1  RootView.swift → LocalModelToolbarMenu.modelPopover: when
+  P1.1  ✅ DONE. RootView.swift → LocalModelToolbarMenu.modelPopover: when
         EpistemosFoundationLineup.simplifiedLineupActive, render ONLY the three
         mode rows (Fast/Think/Code) + Cloud toggle. Move Runtime header, Routing
         row, Fallback toggle, the per-Gemma model rows, and Temporary Chat into a
         collapsed "Advanced ▸" DisclosureGroup (default closed). Keep the legacy
         full popover for the non-simplified flag.
-  P1.2  Cloud as a single toggle: replace the "Cloud Provider / Cloud Model"
+  P1.2  ✅ DONE. Cloud as a single toggle: replace the "Cloud Provider / Cloud Model"
         twin expanders with one "Use cloud" Toggle bound to
         inference.setCloudModelsEnabled / activeAIProvider. When ON, show ONE
         compact "GPT-4o ▸" line that opens the provider/model detail (the
         existing pickerCloudSection) inside Advanced — not at top level.
-  P1.3  Per-query "Route to cloud" button: add a button beside Send in
-        Epistemos/Views/Chat/ChatInputBar.swift (sendButton area), visible only
-        when a cloud provider is configured. It must route THIS turn to the
-        preferred cloud model WITHOUT mutating the persistent local selection.
-        onSubmit today carries only text → add a per-turn routing override:
-        thread an optional `routeOverride: ChatModelSelection?` from
-        ChatInputBar.onSubmit → ChatView → ChatCoordinator so one send can go
-        cloud while the default stays local. Honest: if no cloud configured, no
-        button.
+  P1.3  ✅ DONE (basic). "Send on cloud" button beside Send in ChatInputBar,
+        visible only when a cloud provider is configured. CURRENT behavior:
+        switches the chat to cloud (toggle reflects/reverses it). FOLLOW-UP (not
+        yet done): strict per-turn override that leaves the local default
+        untouched — thread an optional `routeOverride: ChatModelSelection?`
+        through submitQuery → the ~11 effectiveChatSurfaceSelection resolution
+        sites so one send goes cloud while the default stays local.
   P1.4  Honesty blocker (#43): when the effective local selection can't actually
         run (dynamic free memory too low — mirror fittingLocalAgentTextModelID's
         localAgentModelFitsCurrentMemoryBudget for the primary chat model),
@@ -246,10 +255,13 @@ Research index:  docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md
 Progress:        docs/AGENT_PROGRESS.md, docs/APP_ISSUES_AUTO_FIX.md
 
 ────────────────────────────────────────────────────────────────────────
-START NOW. Begin with P1.1 (strip the picker to three mode rows + Cloud toggle,
-Advanced disclosure for the rest). Build, verify, commit, then continue down the
-list WITHOUT stopping to ask. Keep going until every priority is done, then
-re-read this file and harden.
+START NOW. P1.1/P1.2/P1.3 are DONE (picker simplified, cloud toggle, Send-on-cloud
+button, search button shows the tier, 12B no longer pinned). Begin at P1.5 (Fast
+per-query effort sizing: trivial→E2B, medium→E4B, hard→12B via
+OverseerComplexityRouter + a streamGeneral seam), then P1.4 (honesty blocker),
+then PRIORITY 2 (agentic chat surfacing). Build, verify, commit each slice, and
+continue down the list WITHOUT stopping to ask. Keep going until every priority is
+done, then re-read this file and harden.
 === END LOOP ===
 ```
 
