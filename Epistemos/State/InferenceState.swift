@@ -2785,8 +2785,8 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     var displayName: String {
         switch self {
         case .fast: "Fast"
-        case .thinking: "Thinking"
-        case .pro: "Pro"
+        case .thinking: "Think"
+        case .pro: "Code"
         case .agent: "Tools"
         }
     }
@@ -2795,7 +2795,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         switch self {
         case .fast: "bolt.fill"
         case .thinking: "brain.head.profile"
-        case .pro: "sparkles.rectangle.stack.fill"
+        case .pro: "chevron.left.forwardslash.chevron.right"
         case .agent: "cpu.fill"
         }
     }
@@ -2803,11 +2803,11 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     var helpText: String {
         switch self {
         case .fast:
-            "Stay in the same chat with the lightest reasoning overhead."
+            "Quick answers. On a local model this runs Gemma 4, sized to the task."
         case .thinking:
-            "Stay in the same chat and spend more reasoning budget before answering."
+            "Deeper reasoning. On a local model this runs VibeThinker; on cloud it spends more reasoning budget."
         case .pro:
-            "Stay in the same chat and use the provider's deepest route before falling back to on-device reasoning."
+            "Code & deepest reasoning. On a local model this runs the Gemma 4 coder; on cloud it uses the provider's deepest route."
         case .agent:
             "Keep the turn in this chat while enabling the full tools/runtime path (web search, file ops, shell/terminal commands with approval, code, computer use)."
         }
@@ -4076,6 +4076,25 @@ final class InferenceState {
 
     private func effectiveLocalTextModelID(for operatingMode: EpistemosOperatingMode) -> String? {
         guard let baseModelID = effectiveLocalTextModelID else { return nil }
+
+        // Buttons-become-tiers (owner decision 2026-06-16): a tier mode binds to
+        // its foundation model — Fast→Gemma, Think→VibeThinker, Code→coder.
+        // Tools/agent has no model tier. Respect the user's within-tier pick:
+        // if their current selection already belongs to this tier (e.g. they
+        // chose a specific Gemma size under Fast), keep it; only switch when the
+        // selection is in a DIFFERENT tier. Falls through to the base selection
+        // when the tier has no installed model yet, so nothing breaks before the
+        // foundation package lands.
+        if EpistemosFoundationLineup.simplifiedLineupActive,
+           let tier = operatingMode.epistemosModelTier {
+            if EpistemosFoundationLineup.tier(forModelID: baseModelID) == tier {
+                return baseModelID
+            }
+            if let tierModelID = installedFoundationModelID(for: tier) {
+                return tierModelID
+            }
+        }
+
         guard qwen3UnifiedPickerPairAvailable,
               let baseModel = LocalTextModelID(rawValue: baseModelID),
               baseModel == .qwen3_4B4Bit || baseModel == .qwen3_4BThinking25074Bit else {
@@ -4088,6 +4107,25 @@ final class InferenceState {
         case .fast, .pro, .agent:
             return LocalTextModelID.qwen3_4B4Bit.rawValue
         }
+    }
+
+    /// The foundation model for a tier that is actually installed and fits the
+    /// hardware, or nil. Fast (three Gemma sizes) returns the LARGEST that fits
+    /// — best quality for the Mac; per-query complexity downsizing (2B for
+    /// trivial prompts) is a separate routing optimization. Think and Code each
+    /// have a single model.
+    private func installedFoundationModelID(for tier: EpistemosModelTier) -> String? {
+        let installed = installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
+        return EpistemosFoundationLineup.candidates(for: tier)
+            .filter { installed.contains($0.id) }
+            .filter { candidate in
+                guard let descriptor = LocalModelCatalog.descriptor(for: candidate.id) else {
+                    return false
+                }
+                return hardwareCapabilitySnapshot.supports(descriptor: descriptor)
+            }
+            .max { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }?
+            .id
     }
 
     func localModelPickerDisplayName(for modelID: String) -> String {

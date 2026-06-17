@@ -225,13 +225,17 @@ struct TriageServiceTests {
         #expect(CloudTextModelID.deepseekReasoner.aboutSheetBadge == "DeepSeek")
     }
 
-    @Test("visible chat mode copy reads as one fused chat with depth controls")
-    func operatingModeCopyEmphasizesFusedChat() {
-        #expect(EpistemosOperatingMode.pro.displayName == "Pro")
+    @Test("visible chat mode copy names the Fast/Think/Code tier model + the Tools path")
+    func operatingModeCopyNamesTierModels() {
+        // Buttons became the tiers (2026-06-16): Fast/Think/Code/Tools.
+        #expect(EpistemosOperatingMode.fast.displayName == "Fast")
+        #expect(EpistemosOperatingMode.thinking.displayName == "Think")
+        #expect(EpistemosOperatingMode.pro.displayName == "Code")
         #expect(EpistemosOperatingMode.agent.displayName == "Tools")
-        #expect(EpistemosOperatingMode.fast.helpText.contains("same chat"))
-        #expect(EpistemosOperatingMode.thinking.helpText.contains("same chat"))
-        #expect(EpistemosOperatingMode.pro.helpText.contains("same chat"))
+        // Help copy names the local model each tier binds to.
+        #expect(EpistemosOperatingMode.fast.helpText.contains("Gemma"))
+        #expect(EpistemosOperatingMode.thinking.helpText.contains("VibeThinker"))
+        #expect(EpistemosOperatingMode.pro.helpText.contains("coder"))
         #expect(EpistemosOperatingMode.agent.helpText.contains("this chat"))
     }
 

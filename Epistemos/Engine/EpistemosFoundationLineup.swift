@@ -50,6 +50,21 @@ nonisolated enum EpistemosModelTier: String, Codable, Sendable, CaseIterable {
     }
 }
 
+extension EpistemosOperatingMode {
+    /// The local model tier a chat mode binds to, or nil for modes that are not
+    /// a model tier (Tools/agent = the cloud/managed runtime path). Drives the
+    /// "buttons become Fast/Think/Code/Tools" behavior: on a local selection the
+    /// mode picks its tier's foundation model.
+    var epistemosModelTier: EpistemosModelTier? {
+        switch self {
+        case .fast: .fast
+        case .thinking: .think
+        case .pro: .code
+        case .agent: nil
+        }
+    }
+}
+
 extension GemmaQATRuntimeStage {
     /// The Epistemos tier a GGUF runtime stage belongs to. Tier is *derived*
     /// from stage so the lineup auto-stays-in-sync with

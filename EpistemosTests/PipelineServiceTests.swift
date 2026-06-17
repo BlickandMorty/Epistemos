@@ -1673,7 +1673,7 @@ struct UserFacingChatErrorKindTests {
         #expect(kind == .generic)
         #expect(message.contains("DeepSeek R1 7B"))
         #expect(message.contains("Fast mode is unavailable"))
-        #expect(message.contains("Thinking"))
+        #expect(message.contains("Switch to Think"))
     }
 }
 

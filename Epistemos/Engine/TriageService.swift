@@ -932,7 +932,7 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
             return "The local model runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
         case .fastModeUnsupported(let modelID):
             let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-            return "Fast mode is unavailable for \(displayName) because this local model always emits thinking traces. Switch to Thinking or pick a different local model."
+            return "Fast mode is unavailable for \(displayName) because this local model always emits thinking traces. Switch to Think or pick a different local model."
         case .modelLoaderUnavailable(let modelID):
             let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
             let suggestion = isQwen3Small
