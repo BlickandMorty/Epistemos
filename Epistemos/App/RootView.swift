@@ -825,6 +825,23 @@ struct LocalModelToolbarMenu: View {
         return currentRouteDescription?.systemImage ?? buttonSystemImage
     }
 
+    /// Simplified lineup + a LOCAL selection: collapse the model button to an
+    /// icon (no "Qwen 3 4B" / "Gemma 4 12B" text). The Fast/Think/Code mode
+    /// button already conveys the local model, so the picker reads effort-first;
+    /// a tap still opens the full popover (foundation models + cloud) so cloud
+    /// stays reachable. Cloud / Apple Intelligence selections keep their label.
+    private var hidesLocalModelLabel: Bool {
+        guard EpistemosFoundationLineup.simplifiedLineupActive,
+              !currentRuntimeNeedsSetup else {
+            return false
+        }
+        if let selection = currentRouteDescription?.selection,
+           case .localMLX = selection {
+            return true
+        }
+        return false
+    }
+
     private var routeButtonTitle: String {
         if currentRuntimeNeedsSetup {
             return "No Model"
@@ -1059,12 +1076,12 @@ struct LocalModelToolbarMenu: View {
                 isPresented: popoverBinding(.model),
                 isActive: false,
                 variant: variant,
-                showsLabelWhenCollapsed: true,
+                showsLabelWhenCollapsed: !hidesLocalModelLabel,
                 helpText: selectedModeSummary,
                 accessibilityLabel: "\(modelButtonTitle) model",
                 idealPopoverWidth: variant == .toolbar ? 340 : 360,
                 contentPadding: 12,
-                stableWidth: modelDisclosureWidth
+                stableWidth: hidesLocalModelLabel ? nil : modelDisclosureWidth
             ) {
                 modelPopover
             }
