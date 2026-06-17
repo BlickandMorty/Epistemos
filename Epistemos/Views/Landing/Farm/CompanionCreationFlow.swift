@@ -24,6 +24,9 @@ struct CompanionCreationFlow: View {
     @State private var selectedToolNames: Set<String> = []
     @State private var scope: AgentBlueprintScope = .currentVault
     @State private var approvalMode: AgentBlueprintApprovalMode = .approveOncePerSession
+    @State private var customSystemPrompt: String = ""
+    @State private var outputStructureJSON: String = ""
+    @State private var showAdvancedConfig: Bool = false
     @State private var hydratedEditingEntryID: String?
 
     private let stepCount = 5
@@ -391,6 +394,8 @@ struct CompanionCreationFlow: View {
                 .pickerStyle(.segmented)
             }
 
+            advancedConfigSection
+
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Tools")
@@ -451,6 +456,53 @@ struct CompanionCreationFlow: View {
             .foregroundStyle(theme.textTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    // Optional power-user agent config (osaurus-style): a full system-prompt
+    // override and a JSON output-structure contract. Collapsed by default so the
+    // builder stays simple; persisted to the Companion's
+    // customSystemPromptTemplate / outputStructureJSON.
+    @ViewBuilder
+    private var advancedConfigSection: some View {
+        DisclosureGroup(isExpanded: $showAdvancedConfig) {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("System prompt override")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary)
+                    Text("Replaces the generated system prompt entirely. Leave blank to use the role + persona above.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                    TextEditor(text: $customSystemPrompt)
+                        .font(.system(size: 12, design: .monospaced))
+                        .frame(minHeight: 80)
+                        .padding(6)
+                        .background(Rectangle().fill(PixelPanelBackground.actionSurface(for: theme)))
+                        .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Output structure (JSON)")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary)
+                    Text("Optional JSON Schema the agent should match. Used as a response contract.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                    TextEditor(text: $outputStructureJSON)
+                        .font(.system(size: 12, design: .monospaced))
+                        .frame(minHeight: 60)
+                        .padding(6)
+                        .background(Rectangle().fill(PixelPanelBackground.actionSurface(for: theme)))
+                        .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
+                }
+            }
+            .padding(.top, 6)
+        } label: {
+            Text("Advanced (optional)")
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(theme.textTertiary)
+        }
+        .tint(theme.textSecondary)
     }
 
     // MARK: - Local controls
@@ -612,6 +664,9 @@ struct CompanionCreationFlow: View {
         selectedToolNames = Set(editingEntry.agentToolNames)
         scope = editingEntry.agentScope
         approvalMode = editingEntry.agentApprovalMode
+        customSystemPrompt = editingEntry.customSystemPromptTemplate ?? ""
+        outputStructureJSON = editingEntry.outputStructureJSON ?? ""
+        showAdvancedConfig = !customSystemPrompt.isEmpty || !outputStructureJSON.isEmpty
     }
 
     private func modelIcon(for choice: AgentBlueprintModelChoice) -> String {
@@ -661,6 +716,8 @@ struct CompanionCreationFlow: View {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
         let trimmedPersona = personaPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSystemPrompt = customSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedOutputJSON = outputStructureJSON.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanedTools = Array(selectedToolNames).map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
@@ -678,7 +735,9 @@ struct CompanionCreationFlow: View {
                 agentModelChoice: selectedModelChoice,
                 agentToolNames: cleanedTools,
                 agentScope: scope,
-                agentApprovalMode: approvalMode
+                agentApprovalMode: approvalMode,
+                customSystemPromptTemplate: trimmedSystemPrompt.isEmpty ? nil : trimmedSystemPrompt,
+                outputStructureJSON: trimmedOutputJSON.isEmpty ? nil : trimmedOutputJSON
             )
         } else {
             _ = companionState.createCompanion(
@@ -691,6 +750,8 @@ struct CompanionCreationFlow: View {
                 agentToolNames: cleanedTools,
                 agentScope: scope,
                 agentApprovalMode: approvalMode,
+                customSystemPromptTemplate: trimmedSystemPrompt.isEmpty ? nil : trimmedSystemPrompt,
+                outputStructureJSON: trimmedOutputJSON.isEmpty ? nil : trimmedOutputJSON,
                 activateOnCreate: true
             )
         }
