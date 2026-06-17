@@ -158,4 +158,46 @@ struct EpistemosFoundationLineupTests {
         #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .localMLX(Self.vibe))  // → VibeThinker
         #expect(inference.effectiveChatSurfaceSelection(for: .pro) == .localMLX(Self.coder))      // → coder
     }
+
+    @Test("simplified + foundation installed: the three Epistemos efforts are always offered (guards the 'only Fast' collapse)")
+    @MainActor func simplifiedOffersThreeEffortsWithFoundationInstalled() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12, Self.vibe, Self.coder])
+
+        // A GGUF Gemma selection can't map to a LocalTextModelID, which used to
+        // collapse the mode set to Fast-only (the owner's "I only see Fast"
+        // report). With a foundation model installed the three branded efforts
+        // are always offered.
+        inference.setPreferredChatModelSelection(.localMLX(Self.b12))
+        let modes = inference.availableOperatingModes
+        #expect(modes.contains(.fast))
+        #expect(modes.contains(.thinking))
+        #expect(modes.contains(.pro))
+    }
+
+    @Test("simplified but NO foundation installed: modes stay model-derived (no forced Code tier — the no-churn gate)")
+    @MainActor func simplifiedWithoutFoundationKeepsModelDerivedModes() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        // Legacy MLX-only setup (a Qwen the user still has, no foundation GGUF).
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+
+        // The branded three-tier union only fires once a foundation GGUF is
+        // installed, so a legacy model keeps its own capability-derived modes —
+        // Code (.pro) is NOT forced on. This is the gate that keeps the change
+        // from churning every legacy-model test.
+        #expect(!inference.hasInstalledFoundationModel)
+        #expect(!inference.availableOperatingModes.contains(.pro))
+    }
 }

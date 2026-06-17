@@ -4044,6 +4044,16 @@ final class InferenceState {
         sanitizeStoredLocalChatSelectionIfNeeded()
     }
 
+    /// True once at least one Epistemos foundation GGUF model (Gemma /
+    /// VibeThinker / coder) is installed and hardware-supported. Gates the
+    /// simplified-lineup behaviors — picker curation AND the branded
+    /// Fast/Think/Code mode tiers — so nothing changes before the foundation
+    /// package lands (the picker is never empty, legacy tests that install no
+    /// GGUF keep their model-derived mode set).
+    var hasInstalledFoundationModel: Bool {
+        !supportedAvailableGemmaQATRuntimeCandidates.isEmpty
+    }
+
     var releaseSelectableInstalledLocalTextModelIDs: [String] {
         var seen: Set<String> = []
         let gguf = supportedAvailableGemmaQATRuntimeCandidates.map(\.id)
@@ -4054,7 +4064,7 @@ final class InferenceState {
         // so the picker is never empty. Internal helper models are unaffected
         // (they are not chat-picker entries). Reversible via
         // EPISTEMOS_SIMPLIFIED_LINEUP=0.
-        let hideLegacyMLX = EpistemosFoundationLineup.simplifiedLineupActive && !gguf.isEmpty
+        let hideLegacyMLX = EpistemosFoundationLineup.simplifiedLineupActive && hasInstalledFoundationModel
         let mlx = hideLegacyMLX
             ? []
             : supportedAvailableLocalTextModels
@@ -4586,6 +4596,20 @@ final class InferenceState {
         var mergedModes = Set(baseOperatingModeCapabilities.availableModes)
         mergedModes.formUnion(unavailableCloudPreviewOperatingModes)
         mergedModes.formUnion(automaticCloudOperatingModes)
+        // Simplified lineup (owner 2026-06-16): the three Epistemos efforts —
+        // Fast / Think / Code — ARE the picker. They are always offered as
+        // branded tiers, each binding to its foundation model (Fast→Gemma,
+        // Think→VibeThinker, Code→coder) and gracefully using the best installed
+        // foundation model until its dedicated model lands. Without this, a GGUF
+        // Gemma selection can't map to a LocalTextModelID in
+        // `baseOperatingModeCapabilities`, so the picker collapsed to Fast-only
+        // (the "I only see Fast" report). `.agent` (Tools) still comes from the
+        // cloud merges above when an agent route exists. Gated on an installed
+        // foundation model so legacy MLX-only setups (and tests that install no
+        // GGUF) keep their model-derived mode set unchanged.
+        if EpistemosFoundationLineup.simplifiedLineupActive, hasInstalledFoundationModel {
+            mergedModes.formUnion([.fast, .thinking, .pro])
+        }
         let orderedModes = EpistemosOperatingMode.allCases.filter { mergedModes.contains($0) }
         return OperatingModeCapabilities(availableModes: orderedModes.isEmpty ? [.fast] : orderedModes)
     }
