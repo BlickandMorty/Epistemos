@@ -581,6 +581,15 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var installableSelectableModels: [LocalModelDescriptor] {
+        // Simplified lineup: the chat picker does NOT offer the legacy MLX
+        // install catalog (Qwen / DeepSeek / Llama / Mistral / 35B flagships).
+        // The foundation GGUF models are offered separately via
+        // gemmaQATRouteIntegrationCandidates + the Settings foundation package,
+        // so this stays empty and the picker is simple. Reversible via
+        // EPISTEMOS_SIMPLIFIED_LINEUP=0.
+        if EpistemosFoundationLineup.simplifiedLineupActive {
+            return []
+        }
         let shippedModelIDs = Set(LocalModelCatalog.shippedModelIDs)
         return localModelManager.textDescriptors.filter { descriptor in
             localModelManager.installRecords[descriptor.id] == nil
@@ -1607,7 +1616,12 @@ struct LocalModelToolbarMenu: View {
     private func gemmaQATRouteLaneRows(
         closeAction: @escaping () -> Void
     ) -> some View {
-        if !gemmaQATRouteIntegrationCandidates.isEmpty {
+        // Simplified lineup: the chat picker hides the GGUF route-lane
+        // diagnostics jargon (packet evidence / route-integration cursor /
+        // Open Diagnostics) — that belongs in Settings, not the model picker.
+        // Keeps the picker simple.
+        if !gemmaQATRouteIntegrationCandidates.isEmpty,
+           !EpistemosFoundationLineup.simplifiedLineupActive {
             Divider()
                 .padding(.vertical, 4)
 

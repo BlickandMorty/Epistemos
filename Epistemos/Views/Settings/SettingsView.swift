@@ -3267,56 +3267,66 @@ private struct LocalModelManagerSheet: View {
 
                 epistemosFoundationSection
 
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Legacy baseline (advanced)")
-                            .font(.headline)
-                        Text("The older Qwen / DeepSeek baseline is no longer the recommended path — the Epistemos AI foundation package above is. These stay installable for advanced or offline tool-use until you remove them.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        HStack(spacing: 8) {
-                            Button("Install Legacy Baseline") {
-                                Task {
-                                    try? await localModelManager.installRecommendedBaselineModels()
+                // Simplified lineup (default): the Settings model manager shows
+                // ONLY the Epistemos AI foundation + any legacy models still on
+                // disk (so they can be removed). The full Qwen/DeepSeek install
+                // catalog + capability-ceiling jargon are hidden — the owner
+                // asked for a simple picker, not the messy one. Set
+                // EPISTEMOS_SIMPLIFIED_LINEUP=0 to bring back the full catalog.
+                if !EpistemosFoundationLineup.simplifiedLineupActive {
+                    Section {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Recommended baseline")
+                                .font(.headline)
+                            Text("Qwen 3 4B + DeepSeek R1 7B + Qwen 2.5 Coder 7B, plus optional flagships and fallbacks.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: 8) {
+                                Button("Install Recommended Baseline") {
+                                    Task {
+                                        try? await localModelManager.installRecommendedBaselineModels()
+                                    }
                                 }
-                            }
-                            .buttonStyle(.bordered)
+                                .buttonStyle(.bordered)
 
-                            Button("Refresh") {
-                                localModelManager.refreshFromDisk()
-                                capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
+                                Button("Refresh") {
+                                    localModelManager.refreshFromDisk()
+                                    capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
+                                }
+                                .buttonStyle(.bordered)
                             }
-                            .buttonStyle(.bordered)
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
-                }
 
-                capabilityCeilingContextSection
+                    capabilityCeilingContextSection
 
-                Section("Recommended Baseline") {
-                    ForEach(curatedBaselineDescriptors, id: \.id) { descriptor in
-                        LocalModelRow(
-                            descriptor: descriptor,
-                            capabilityCeiling: capabilityCeiling
-                        )
-                    }
-                }
-
-                if !optionalBaselineDescriptors.isEmpty {
-                    Section("Optional Flagship + Fallbacks") {
-                        ForEach(optionalBaselineDescriptors, id: \.id) { descriptor in
+                    Section("Recommended Baseline") {
+                        ForEach(curatedBaselineDescriptors, id: \.id) { descriptor in
                             LocalModelRow(
                                 descriptor: descriptor,
                                 capabilityCeiling: capabilityCeiling
                             )
                         }
                     }
+
+                    if !optionalBaselineDescriptors.isEmpty {
+                        Section("Optional Flagship + Fallbacks") {
+                            ForEach(optionalBaselineDescriptors, id: \.id) { descriptor in
+                                LocalModelRow(
+                                    descriptor: descriptor,
+                                    capabilityCeiling: capabilityCeiling
+                                )
+                            }
+                        }
+                    }
                 }
 
                 if !legacyInstalledDescriptors.isEmpty {
-                    Section("Legacy Installed") {
-                        Text("These older local models stay on disk until you delete them, but Epistemos no longer promotes them for new installs or normal routing.")
+                    Section(EpistemosFoundationLineup.simplifiedLineupActive ? "Other installed models" : "Legacy Installed") {
+                        Text(EpistemosFoundationLineup.simplifiedLineupActive
+                            ? "Older models still on disk. They're hidden from chat — remove them here to free space."
+                            : "These older local models stay on disk until you delete them, but Epistemos no longer promotes them for new installs or normal routing.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
