@@ -4226,6 +4226,46 @@ final class InferenceState {
             }
     }
 
+    /// P1.4 — honest local-runtime blocker (#43). When the resolved primary chat
+    /// model for `operatingMode` is a local model that cannot load into the
+    /// current free-memory budget, returns a one-line reason for the composer to
+    /// show (and to disable Send on). Returns `nil` when the model fits, when the
+    /// selection is cloud / Apple Intelligence, or when memory data is
+    /// unavailable — we never block silently and never block on missing data, and
+    /// we never swap to a different model behind the user's back.
+    ///
+    /// For the Fast tier (P1.5 per-query sizing can drop to the smallest Gemma)
+    /// the gate checks the smallest installed Fast size, so we only block when
+    /// even that can't run — a trivial query the E2B would answer is never
+    /// refused.
+    func localChatModelMemoryBlocker(for operatingMode: EpistemosOperatingMode) -> String? {
+        guard case .localMLX(let resolvedModelID) = effectiveChatSurfaceSelection(for: operatingMode) else {
+            return nil
+        }
+        let modelID: String
+        if EpistemosFoundationLineup.simplifiedLineupActive,
+           operatingMode.epistemosModelTier == .fast,
+           let smallestFast = comfortableInstalledFastCandidatesAscending().first?.id {
+            modelID = smallestFast
+        } else {
+            modelID = resolvedModelID
+        }
+        guard let requiredGB = LocalModelCatalog.descriptor(for: modelID)?.minimumRecommendedMemoryGB,
+              requiredGB > 0 else { return nil }
+        let availableBytes = latestLocalRuntimeHealth?.availableMemoryBytes
+            ?? LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
+        guard availableBytes > 0 else { return nil }
+        let availableGB = Int(availableBytes / 1_073_741_824)
+        guard !LocalChatModelMemoryGate.fits(requiredGB: requiredGB, availableGB: availableGB) else {
+            return nil
+        }
+        return LocalChatModelMemoryGate.blockerReason(
+            modelDisplayName: localModelPickerDisplayName(for: modelID),
+            requiredGB: requiredGB,
+            availableGB: availableGB
+        )
+    }
+
     func localModelPickerDisplayName(for modelID: String) -> String {
         if qwen3UnifiedPickerPairAvailable,
            let model = LocalTextModelID(rawValue: modelID),
