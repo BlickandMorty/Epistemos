@@ -75,4 +75,87 @@ struct EpistemosFoundationLineupTests {
         #expect(EpistemosOperatingMode.pro.epistemosModelTier == .code)
         #expect(EpistemosOperatingMode.agent.epistemosModelTier == nil)
     }
+
+    @Test("simplified lineup migrates a stored legacy Qwen selection onto the foundation lineup")
+    @MainActor func simplifiedMigratesLegacySelectionOffQwen() {
+        // Guard: this behavior only holds under the simplified lineup (the
+        // default). If a runner sets EPISTEMOS_SIMPLIFIED_LINEUP=0, no migration.
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+
+        let gemmaE2B = "google/gemma-4-E2B-it-qat-q4_0-gguf"
+        let qwen = LocalTextModelID.qwen3_4B4Bit.rawValue
+
+        // Pin a legacy Qwen while a foundation GGUF is installed.
+        inference.setInstalledLocalTextModelIDs([gemmaE2B, qwen])
+        inference.setPreferredLocalTextModelID(qwen)
+
+        // The effective model migrates to the foundation lineup (never Qwen).
+        #expect(inference.effectiveLocalTextModelID == gemmaE2B)
+
+        // Without any foundation installed, the legacy selection is kept
+        // (nothing breaks before the foundation package is installed).
+        inference.setInstalledLocalTextModelIDs([qwen])
+        inference.setPreferredLocalTextModelID(qwen)
+        #expect(inference.effectiveLocalTextModelID == qwen)
+    }
+
+    @Test("simplified: an explicit within-Fast Gemma size pick is respected, never bumped to the tier default")
+    @MainActor func simplifiedRespectsWithinFastGemmaPick() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12, Self.vibe, Self.coder])
+
+        // Smallest Gemma pinned under Fast. The 64 GB cross-tier Fast default is
+        // the largest-that-fits-with-headroom (the 12B), so this proves an
+        // explicit within-tier pick is NOT silently bumped up.
+        inference.setPreferredChatModelSelection(.localMLX(Self.e2b))
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(Self.e2b))
+
+        // The largest Gemma is likewise respected when pinned.
+        inference.setPreferredChatModelSelection(.localMLX(Self.b12))
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(Self.b12))
+    }
+
+    @Test("simplified: switching modes rebinds to the tier's foundation model (Fast→Gemma, Think→VibeThinker, Code→coder)")
+    @MainActor func simplifiedModeSwitchBindsToTierFoundationModel() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12, Self.vibe, Self.coder])
+
+        // User pinned a specific Gemma (Fast tier). Switching the operating mode
+        // to a different tier rebinds to THAT tier's foundation model — the
+        // honesty guarantee that a Think/Code mode never silently serves a Fast
+        // model (and never the removed Qwen). VibeThinker/coder are reached via
+        // the installed+hardware-supported path, not the route-proof gate, so
+        // this holds for the receipt-pending Think/Code models too.
+        inference.setPreferredChatModelSelection(.localMLX(Self.e2b))
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(Self.e2b))       // within-tier pick kept
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .localMLX(Self.vibe))  // → VibeThinker
+        #expect(inference.effectiveChatSurfaceSelection(for: .pro) == .localMLX(Self.coder))      // → coder
+    }
 }
