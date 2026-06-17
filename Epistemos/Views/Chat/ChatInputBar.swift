@@ -231,6 +231,22 @@ struct ChatInputBar: View {
         return model.provider.supportsAgentTier
     }
 
+    /// The cloud model a one-tap "send on cloud" would use: the active (or first
+    /// configured) provider's preferred model. `nil` when no cloud provider is
+    /// configured — so the button never appears as a dead control (honest).
+    private var composerCloudRouteModel: CloudTextModelID? {
+        let provider = inference.activeCloudProvider ?? inference.configuredCloudProviders.first
+        guard let provider, inference.configuredCloudProviders.contains(provider) else { return nil }
+        return inference.preferredCloudModel(for: provider)
+    }
+
+    /// Show the cloud-send button only when a cloud provider is configured AND
+    /// the chat is currently on a local/AFM surface — so it reads as "escalate
+    /// THIS send to cloud," not a redundant control while already on cloud.
+    private var showsCloudRouteButton: Bool {
+        composerCloudRouteModel != nil && !isCloudSelection
+    }
+
     /// Inline nudge shown when the classifier predicts agent-tier work but
     /// the user is on a local model. Tapping the banner promotes the user
     /// to OpenAI (our default cloud provider) via
@@ -841,6 +857,10 @@ struct ChatInputBar: View {
 
                     ContextualShadowsButton(scopeKind: .chat, scopeID: contextualRecallScopeID)
 
+                    if showsCloudRouteButton {
+                        cloudRouteButton
+                    }
+
                     sendButton
                 }
                 .padding(.top, MainChatComposerLayout.controlRowTopPadding)
@@ -1120,6 +1140,38 @@ struct ChatInputBar: View {
         }
         .help(isProcessing ? "Stop" : "Send")
         .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
+    }
+
+    /// One-tap "send this on cloud." Appears beside Send only when a cloud
+    /// provider is configured and the chat is currently local (`showsCloudRouteButton`).
+    /// HONEST semantics: it switches the chat to the preferred cloud model and
+    /// sends — the cloud toggle in the picker reflects the switch and flips it
+    /// back, so there is no hidden state. (A strict per-turn override that leaves
+    /// the local default untouched needs a routing override threaded through the
+    /// ~11 `effectiveChatSurfaceSelection` resolution sites — tracked separately.)
+    private var cloudRouteButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "cloud.bolt.fill",
+            variant: .toolbar,
+            helpText: composerCloudRouteModel
+                .map { "Send on \($0.compactDisplayName) — switches this chat to cloud" }
+                ?? "Send on cloud",
+            accessibilityLabel: "Send on cloud"
+        ) {
+            submitOnCloud()
+        }
+        .disabled(trimmedText.isEmpty || isProcessing)
+    }
+
+    private func submitOnCloud() {
+        guard !trimmedText.isEmpty, !isProcessing else { return }
+        if let model = composerCloudRouteModel {
+            inference.setCloudModelsEnabled(true)
+            inference.setPreferredCloudModel(model)
+            inference.setPreferredChatModelSelection(.cloud(model))
+        }
+        submitCurrentText()
     }
 
     private func openFilePicker() {
