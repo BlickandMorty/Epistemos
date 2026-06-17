@@ -62,6 +62,8 @@ final class CompanionState {
         agentToolNames: [String] = [],
         agentScope: AgentBlueprintScope = .currentVault,
         agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
+        customSystemPromptTemplate: String? = nil,
+        outputStructureJSON: String? = nil,
         activateOnCreate: Bool = true
     ) -> CompanionRosterEntry? {
         guard let context = modelContext else {
@@ -78,7 +80,9 @@ final class CompanionState {
             agentModelChoice: agentModelChoice,
             agentToolNames: agentToolNames,
             agentScope: agentScope,
-            agentApprovalMode: agentApprovalMode
+            agentApprovalMode: agentApprovalMode,
+            customSystemPromptTemplate: customSystemPromptTemplate,
+            outputStructureJSON: outputStructureJSON
         )
         context.insert(model)
         do {
@@ -105,7 +109,9 @@ final class CompanionState {
         agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
         agentToolNames: [String] = [],
         agentScope: AgentBlueprintScope = .currentVault,
-        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession
+        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
+        customSystemPromptTemplate: String? = nil,
+        outputStructureJSON: String? = nil
     ) -> CompanionRosterEntry? {
         guard let context = modelContext else {
             Self.log.error("updateCompanion: ModelContext not attached")
@@ -122,6 +128,8 @@ final class CompanionState {
         model.agentToolNames = agentToolNames
         model.agentScope = agentScope
         model.agentApprovalMode = agentApprovalMode
+        model.customSystemPromptTemplate = customSystemPromptTemplate
+        model.outputStructureJSON = outputStructureJSON
         model.identityHash = CompanionModel.computeIdentityHash(
             id: model.id,
             bodyKindRaw: model.bodyKindRaw,
