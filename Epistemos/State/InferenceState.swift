@@ -4105,6 +4105,39 @@ final class InferenceState {
         return strongestFittingAgentModel?.rawValue ?? strongestInstalledAgentModel?.rawValue
     }
 
+    /// The strongest installed agent-capable local model that ACTUALLY fits the
+    /// current memory budget, or `nil` when none fit. Unlike
+    /// `effectiveLocalAgentTextModelID` — which falls back to the strongest
+    /// *installed* agent model even when it would OOM — this never names a model
+    /// that cannot load right now. The hidden agent tier uses it to decide
+    /// whether it can legitimately back a non-agent chat selection (e.g. a GGUF
+    /// Gemma) for tool execution. When it returns `nil`, the caller must degrade
+    /// to a direct stream on the selected model rather than silently swapping to
+    /// a model that will OOM — the user-reported "routed to Qwen again" bug
+    /// (Qwen 3 8B needs ~12 GB but only ~2 GB is free while Gemma 12B is
+    /// resident).
+    var fittingLocalAgentTextModelID: String? {
+        if let interactiveModelID = effectiveLocalTextModelID,
+           let interactiveModel = LocalTextModelID(rawValue: interactiveModelID),
+           interactiveModel.canRunLocalAgentLoop,
+           localAgentModelFitsCurrentMemoryBudget(interactiveModel) {
+            let strongestFittingAgentModel = supportedAvailableLocalAgentModels.first(
+                where: localAgentModelFitsCurrentMemoryBudget(_:)
+            )
+            if let strongestFittingAgentModel,
+               shouldPreferDedicatedLocalAgentModel(
+                strongestFittingAgentModel,
+                over: interactiveModel
+               ) {
+                return strongestFittingAgentModel.rawValue
+            }
+            return interactiveModelID
+        }
+        return supportedAvailableLocalAgentModels.first(
+            where: localAgentModelFitsCurrentMemoryBudget(_:)
+        )?.rawValue
+    }
+
     private func shouldPreferDedicatedLocalAgentModel(
         _ candidate: LocalTextModelID,
         over interactiveModel: LocalTextModelID
