@@ -1689,6 +1689,8 @@ struct LocalModelToolbarMenu: View {
             return "crown"
         case .specialistCoderFineTune:
             return "chevron.left.forwardslash.chevron.right"
+        case .reasoningSpecialist:
+            return "brain"
         }
     }
 

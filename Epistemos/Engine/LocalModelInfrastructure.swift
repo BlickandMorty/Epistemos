@@ -400,6 +400,11 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
     /// rides the same Pro-gated GGUF/llama.cpp runtime lane. Carries no QAT
     /// proof-ladder progression; recorded for the runtime-plural research lane.
     case specialistCoderFineTune = "specialist_coder_fine_tune"
+    /// A dedicated reasoning model (e.g. VibeThinker-3B) on the same proven
+    /// llama-cli GGUF lane — NOT a Gemma model. Backs the "Epistemos Think"
+    /// tier. Light enough to fit any supported Mac; carries no QAT proof-ladder
+    /// progression and stays behind the runtime-plural owner-approval gate.
+    case reasoningSpecialist = "reasoning_specialist"
 
     var displayName: String {
         switch self {
@@ -407,6 +412,7 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
         case .nextScaleLane: "Next scale lane"
         case .proFlagshipCandidate: "Pro flagship candidate"
         case .specialistCoderFineTune: "Specialist coder fine-tune"
+        case .reasoningSpecialist: "Reasoning specialist"
         }
     }
 }
@@ -466,6 +472,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "Pro route integration pending"
             case .specialistCoderFineTune:
                 return "specialist route integration pending"
+            case .reasoningSpecialist:
+                return "reasoning route integration pending"
             }
         }
         if hasCompleteRouteEvidencePacketChain {
@@ -478,12 +486,15 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "Pro route evidence ready"
             case .specialistCoderFineTune:
                 return "specialist route evidence ready"
+            case .reasoningSpecialist:
+                return "reasoning route evidence ready"
             }
         }
         return "route evidence pending"
     }
 
     var acquisitionLaneArgument: String {
+        if stage == .reasoningSpecialist { return "vibethinker" }
         if stage == .specialistCoderFineTune { return "coder12b" }
         if id.contains("-12B-") { return "12b" }
         if id.contains("-E4B-") { return "e4b" }
@@ -500,6 +511,9 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             18
         case .specialistCoderFineTune:
             16
+        case .reasoningSpecialist:
+            // ~1.9 GB Q4_K_M — fits any supported Mac with comfortable headroom.
+            6
         }
     }
 
@@ -513,6 +527,22 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             "Gemma 4 12B QAT GGUF Pro lane. Text-only, direct local GGUF runtime; flagship candidate for roomier Macs after explicit user preparation."
         case .specialistCoderFineTune:
             "Gemma 4 12B Coder (Fable5/Composer2.5) — community specialist fine-tune (yuxinlu1), NOT official QAT. Text-only, direct local GGUF runtime; Q4_K_M is the best tier for a 16 GB Mac, rides the same Pro-gated GGUF/llama.cpp lane, receipt pending, gated away from default route mutation. Q6_K is higher quality but tight on 16 GB; the sakamakismile NVFP4 variant is NVIDIA-Blackwell/vLLM-only and does not run on Apple Silicon."
+        case .reasoningSpecialist:
+            "VibeThinker 3B — a compact reasoning model (WeiboAI, Qwen2.5-3B lineage, MIT). Backs the Epistemos Think tier. Text-only, direct local GGUF runtime on the same proven llama-cli lane; ~1.9 GB Q4_K_M fits any supported Mac. Non-agent: optimized for math/logic reasoning, not multi-step tool calling. ~2K native context. Receipt pending, gated away from default route mutation."
+        }
+    }
+
+    /// Honest family label per stage — the ladder now also carries non-Gemma
+    /// GGUF models (the coder fine-tune, the VibeThinker reasoner), so this can
+    /// no longer be hardcoded to "Gemma 4 QAT GGUF".
+    var familyName: String {
+        switch stage {
+        case .firstRuntimeHarness, .nextScaleLane, .proFlagshipCandidate:
+            "Gemma 4 QAT GGUF"
+        case .specialistCoderFineTune:
+            "Gemma 4 Coder GGUF"
+        case .reasoningSpecialist:
+            "VibeThinker GGUF"
         }
     }
 
@@ -521,7 +551,7 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             id: id,
             kind: .text,
             displayName: displayName,
-            familyName: "Gemma 4 QAT GGUF",
+            familyName: familyName,
             summary: catalogSummary,
             approximateDownloadBytes: expectedFileBytes,
             minimumRecommendedMemoryGB: minimumRecommendedMemoryGB,
@@ -626,7 +656,36 @@ nonisolated enum GemmaQATRuntimeLadder {
             settingsDiagnosticsWRVArtifactRef: nil,
             releaseGateRef: "gate:runtime_plural_qat_lane_tournament_owner_approval_gate"
         ),
+        // VibeThinker-3B — compact reasoning model (WeiboAI, Qwen2.5-3B lineage,
+        // MIT). Backs the "Epistemos Think" tier. NOT a Gemma model; rides the
+        // same proven llama-cli GGUF lane. Provenance verified against the HF
+        // tree + blobs API 2026-06-16. No route proof artifacts yet → receipt
+        // pending; release-gated behind the runtime-plural owner-approval gate.
+        GemmaQATRuntimeCandidate(
+            id: "oussaber/VibeThinker-3B-Q4_K_M-GGUF",
+            displayName: "VibeThinker 3B (Reasoning) GGUF",
+            sourceRepo: "oussaber/VibeThinker-3B-Q4_K_M-GGUF",
+            sourceURL: "https://huggingface.co/oussaber/VibeThinker-3B-Q4_K_M-GGUF",
+            sourceRevision: "0a2c4bc784847f1ce4e71dfb7e134d64e063e985",
+            expectedFilename: "vibethinker-3b-q4_k_m.gguf",
+            expectedFileBytes: 1_929_902_784,
+            expectedSHA256: "9782b918cc220fb81d59e21be3e45c3ae027e5d86fb56ce7c6d537a347c80d79",
+            blobID: "75f1260c8fee376d30b577b7d374fb753cec2a2d",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .reasoningSpecialist,
+            localExecutionProofArtifactRef: nil,
+            runtimeRouterAdmissionArtifactRef: nil,
+            systemGDryRunArtifactRef: nil,
+            routeAnswerPacketVisibilityArtifactRef: nil,
+            settingsDiagnosticsWRVArtifactRef: nil,
+            releaseGateRef: "gate:runtime_plural_qat_lane_tournament_owner_approval_gate"
+        ),
     ]
+
+    /// The reasoning-tier GGUF candidate (VibeThinker) backing "Epistemos Think".
+    static var reasoningSpecialistCandidate: GemmaQATRuntimeCandidate? {
+        candidates.first { $0.stage == .reasoningSpecialist }
+    }
 
     static var firstRuntimeHarnessCandidate: GemmaQATRuntimeCandidate? {
         candidates.first { $0.stage == .firstRuntimeHarness }
