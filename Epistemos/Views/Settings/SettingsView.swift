@@ -3182,6 +3182,78 @@ private struct LocalModelManagerSheet: View {
         localModelManager.legacyInstalledDescriptors
     }
 
+    private var foundationPackageMissingCount: Int {
+        localModelManager.epistemosFoundationPackageMissingModelIDs.count
+    }
+
+    private func tierTint(_ tier: EpistemosModelTier) -> Color {
+        switch tier {
+        case .fast: .orange
+        case .think: .teal
+        case .code: .blue
+        }
+    }
+
+    // Honest Fast/Think/Code tier → model display + one-tap foundation install.
+    @ViewBuilder
+    private var epistemosFoundationSection: some View {
+        Section("Epistemos AI") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Your on-device intelligence comes in three tiers. Each runs a dedicated local model — no cloud required.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ForEach(EpistemosModelTier.allCases, id: \.rawValue) { tier in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: tier.systemImage)
+                            .foregroundStyle(tierTint(tier))
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tier.displayName)
+                                .font(.subheadline.weight(.semibold))
+                            Text(tier.tagline)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            let models = EpistemosFoundationLineup.candidates(for: tier)
+                                .map(\.displayName)
+                                .joined(separator: " · ")
+                            if !models.isEmpty {
+                                Text(models)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    Task {
+                        try? await localModelManager.installEpistemosFoundationPackage()
+                        localModelManager.refreshFromDisk()
+                    }
+                } label: {
+                    Label(
+                        foundationPackageMissingCount == 0
+                            ? "Foundation package installed"
+                            : "Download the Epistemos AI foundation package",
+                        systemImage: foundationPackageMissingCount == 0
+                            ? "checkmark.circle.fill"
+                            : "arrow.down.circle.fill"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(foundationPackageMissingCount == 0)
+
+                if foundationPackageMissingCount > 0 {
+                    Text("\(foundationPackageMissingCount) model\(foundationPackageMissingCount == 1 ? "" : "s") to download. Smaller models install first so you can start sooner.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -3193,20 +3265,22 @@ private struct LocalModelManagerSheet: View {
                     }
                 }
 
+                epistemosFoundationSection
+
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Install a stable baseline first")
+                        Text("Legacy baseline (advanced)")
                             .font(.headline)
-                        Text("Recommended: Qwen 3 4B + DeepSeek R1 7B + Qwen 2.5 Coder 7B. Optional roles: Bonsai 4B/8B for tiny fast fallback, LocalAgent 4.3 36B for local tool use, and Qwen 3.6 35B A3B for high-memory Macs.")
+                        Text("The older Qwen / DeepSeek baseline is no longer the recommended path — the Epistemos AI foundation package above is. These stay installable for advanced or offline tool-use until you remove them.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack(spacing: 8) {
-                            Button("Install Recommended Baseline") {
+                            Button("Install Legacy Baseline") {
                                 Task {
                                     try? await localModelManager.installRecommendedBaselineModels()
                                 }
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.bordered)
 
                             Button("Refresh") {
                                 localModelManager.refreshFromDisk()
