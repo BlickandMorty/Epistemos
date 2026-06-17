@@ -174,6 +174,7 @@ private func invokeLocalGgufGeneration(
     systemPrompt: String?,
     maxOutputTokens: UInt32?,
     temperature: Float?,
+    jsonSchema: String? = nil,
     delegate: LocalGgufTextStreamDelegate
 ) async throws {
     _ = try await runLocalGgufGeneration(
@@ -182,6 +183,7 @@ private func invokeLocalGgufGeneration(
         systemPrompt: systemPrompt,
         maxOutputTokens: maxOutputTokens,
         temperature: temperature,
+        jsonSchema: jsonSchema,
         delegate: delegate
     )
 }
@@ -194,6 +196,7 @@ private func invokeLocalGgufGeneration(
     systemPrompt: String?,
     maxOutputTokens: UInt32?,
     temperature: Float?,
+    jsonSchema: String? = nil,
     delegate: LocalGgufTextStreamDelegate
 ) async throws {
     throw LocalGGUFRuntimeError.backendUnavailable
