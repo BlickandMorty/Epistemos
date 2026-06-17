@@ -56,7 +56,7 @@ nonisolated enum LocalGGUFRuntimeError: LocalizedError, Equatable {
         case .backendUnavailable:
             return "The in-process GGUF backend is unavailable in this build."
         case .fastModeUnsupported(let modelID):
-            return "Fast mode is unavailable for \(modelID) because this local model always emits thinking traces. Switch to Thinking or pick a different local model."
+            return "Fast mode is unavailable for \(modelID) because this local model always emits thinking traces. Switch to Think or pick a different local model."
         }
     }
 }
