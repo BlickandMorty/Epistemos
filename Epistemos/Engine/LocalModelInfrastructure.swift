@@ -508,7 +508,11 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
         case .nextScaleLane:
             12
         case .proFlagshipCandidate:
-            18
+            // 12B QAT GGUF is ~7 GB on disk / ~10 GB resident — it runs on a
+            // 16 GB-class Mac (the ship target proves it daily), so gate at 16,
+            // not 18. Below 16 GB it won't fit; 16 makes it a real picker option
+            // instead of selectable-only-by-deliberate-override.
+            16
         case .specialistCoderFineTune:
             16
         case .reasoningSpecialist:
