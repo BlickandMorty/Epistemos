@@ -4171,6 +4171,61 @@ final class InferenceState {
         return fitting.max { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }?.id
     }
 
+    /// P1.5 — Fast "three efforts" per-query sizing. When the simplified lineup
+    /// is active and the operating mode is the Fast tier AND the user is on the
+    /// tier's headroom-aware default (not a deliberate smaller within-Fast pick),
+    /// choose the Gemma size proportional to the query's analyzed `complexity`
+    /// (0...1) among the installed candidates that fit the current hardware *with
+    /// headroom*. Returns `nil` when sizing does not apply, so the caller keeps
+    /// the default resolution.
+    ///
+    /// Never returns a memory-tight model: the candidate pool is the same
+    /// comfortable-fit set the Fast default is drawn from
+    /// (`installedFoundationModelID(for: .fast)`), so on a 16 GB Mac sizing walks
+    /// E2B ↔ E4B (the 12B is excluded for headroom) while a 64 GB Mac can reach
+    /// the 12B for hard queries. An explicit within-Fast pick (Advanced →
+    /// Models) is honored — it resolves to a model that is *not* the tier
+    /// default, so the guard below skips sizing and the pick stands.
+    func sizedFastLocalTextModelID(
+        forComplexity complexity: Double,
+        operatingMode: EpistemosOperatingMode
+    ) -> String? {
+        guard EpistemosFoundationLineup.simplifiedLineupActive,
+              operatingMode.epistemosModelTier == .fast else { return nil }
+        let candidates = comfortableInstalledFastCandidatesAscending()
+        guard candidates.count > 1 else { return nil }
+        // Only auto-size when the user is on the tier default. The default is the
+        // comfortable-fit max (== `candidates.last`, == the migrated stored pick);
+        // a deliberate smaller pick resolves to a different id and is left alone.
+        guard let resolved = effectiveLocalTextModelID(for: operatingMode),
+              resolved == candidates.last?.id else { return nil }
+        let index = EpistemosFastEffortSizing.candidateIndex(
+            forComplexity: complexity,
+            candidateCount: candidates.count
+        )
+        return candidates[index].id
+    }
+
+    /// Installed Fast-tier foundation candidates that fit the current hardware
+    /// with comfortable headroom, ascending by recommended memory. Mirrors the
+    /// headroom-aware filter `installedFoundationModelID(for: .fast)` draws its
+    /// default from, so per-query sizing never selects a model the default
+    /// resolution would reject as memory-tight.
+    private func comfortableInstalledFastCandidatesAscending() -> [GemmaQATRuntimeCandidate] {
+        let installed = installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
+        let headroomGB = 4
+        return EpistemosFoundationLineup.candidates(for: .fast)
+            .filter { installed.contains($0.id) }
+            .filter { candidate in
+                guard let descriptor = LocalModelCatalog.descriptor(for: candidate.id) else {
+                    return false
+                }
+                return hardwareCapabilitySnapshot.supports(descriptor: descriptor)
+                    && hardwareCapabilitySnapshot.roundedMemoryGB
+                        >= candidate.minimumRecommendedMemoryGB + headroomGB
+            }
+    }
+
     func localModelPickerDisplayName(for modelID: String) -> String {
         if qwen3UnifiedPickerPairAvailable,
            let model = LocalTextModelID(rawValue: modelID),
@@ -5146,16 +5201,28 @@ final class InferenceState {
     }
 
     private func effectivePolicyContext(
-        for operatingMode: EpistemosOperatingMode
+        for operatingMode: EpistemosOperatingMode,
+        sizedFastComplexity: Double? = nil
     ) -> InferencePolicyContext {
         let base = policyContext
+        // P1.5 — Fast "three efforts": when a per-query complexity is supplied,
+        // size the loaded Fast model to the task. Falls back to the stored
+        // preference for every other mode / non-default pick.
+        let resolvedPreferredLocalTextModelID = sizedFastComplexity
+            .flatMap { complexity in
+                sizedFastLocalTextModelID(
+                    forComplexity: complexity,
+                    operatingMode: operatingMode
+                )
+            }
+            ?? base.preferredLocalTextModelID
         return InferencePolicyContext(
             routingMode: base.routingMode,
             appleIntelligenceAvailable: base.appleIntelligenceAvailable,
             cloudAutoRouteEnabled: base.cloudAutoRouteEnabled,
             hasConfiguredCloudModels: base.hasConfiguredCloudModels,
             preferredChatModelSelection: effectiveChatSurfaceSelection(for: operatingMode),
-            preferredLocalTextModelID: base.preferredLocalTextModelID,
+            preferredLocalTextModelID: resolvedPreferredLocalTextModelID,
             installedLocalTextModelIDs: base.installedLocalTextModelIDs,
             hardwareCapabilitySnapshot: base.hardwareCapabilitySnapshot,
             runtimeConditions: base.runtimeConditions
@@ -5165,14 +5232,20 @@ final class InferenceState {
     func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {
         policyEngine.decide(
             profile: profile,
-            context: effectivePolicyContext(for: profile.operatingMode)
+            context: effectivePolicyContext(
+                for: profile.operatingMode,
+                sizedFastComplexity: profile.queryComplexity
+            )
         )
     }
 
     func localModelSelection(for profile: InferenceRequestProfile) -> LocalModelSelection? {
         policyEngine.localSelection(
             for: profile,
-            context: effectivePolicyContext(for: profile.operatingMode)
+            context: effectivePolicyContext(
+                for: profile.operatingMode,
+                sizedFastComplexity: profile.queryComplexity
+            )
         )
     }
 

@@ -136,3 +136,37 @@ nonisolated enum EpistemosFoundationLineup {
         candidates(for: tier).first?.id
     }
 }
+
+/// P1.5 — Fast "three efforts" per-query sizing policy. Maps a query-complexity
+/// score in `[0, 1]` to an index into an ascending-by-size candidate list
+/// (E2B → E4B → 12B): trivial → smallest, medium → middle, hard → largest.
+///
+/// Pure + deterministic, with no `InferenceState` / hardware / flag dependency,
+/// so the sizing policy is unit-testable on its own. The index is clamped to the
+/// available candidate count, so when only two sizes fit (e.g. a 16 GB Mac where
+/// the 12B is excluded for headroom) a "hard" query collapses onto the largest
+/// that fits rather than running off the end.
+nonisolated enum EpistemosFastEffortSizing {
+    /// Below this complexity → smallest model (E2B). Short factual asks land
+    /// well under here in `QueryAnalyzer.analyze(...).complexity`.
+    static let mediumThreshold = 0.30
+    /// Below this → middle model (E4B); at or above → largest (12B). Multi-entity
+    /// / multi-sentence / follow-up asks climb past here.
+    static let hardThreshold = 0.60
+
+    /// Index into an ascending-by-size candidate list for a given complexity.
+    /// `candidateCount <= 1` always returns `0` (nothing to size between).
+    static func candidateIndex(forComplexity complexity: Double, candidateCount: Int) -> Int {
+        guard candidateCount > 1 else { return 0 }
+        let clamped = min(max(complexity, 0), 1)
+        let band: Int
+        if clamped < mediumThreshold {
+            band = 0
+        } else if clamped < hardThreshold {
+            band = 1
+        } else {
+            band = 2
+        }
+        return min(band, candidateCount - 1)
+    }
+}

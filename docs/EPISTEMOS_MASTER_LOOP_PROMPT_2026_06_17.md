@@ -304,7 +304,7 @@ done, then re-read this file and harden.
 | P1.3 | Per-query "Route to cloud" button | ✅ DONE (2026-06-17) — composer "Send on cloud" button; strict no-default-change per-turn deferred |
 | P1.3b | Search button shows tier not model; stop pinning 12B | ✅ DONE (2026-06-17) — labelText→tier, migration + Fast headroom override |
 | P1.4 | Honesty blocker: visible when local model can't run (#43) | ☐ TODO |
-| P1.5 | Fast "three efforts" per-query complexity sizing | ☐ TODO |
+| P1.5 | Fast "three efforts" per-query complexity sizing | ✅ DONE (2026-06-17) — `sizedFastLocalTextModelID` at the `routeDecision`/`effectivePolicyContext` seam; trivial→E2B/medium→E4B/hard→12B, memory-safe (16 GB caps at E4B), honors explicit picks; +6 tests |
 | P2.1 | In-chat tool toggles | ☐ TODO |
 | P2.2 | Agents search memory (verify + surface) | ☐ TODO |
 | P2.3 | MCP management UI in chat | ☐ TODO |
