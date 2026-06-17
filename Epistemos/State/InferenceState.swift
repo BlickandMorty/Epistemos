@@ -3937,7 +3937,11 @@ final class InferenceState {
     }
 
     private var qwen3UnifiedPickerPairAvailable: Bool {
-        supportedAvailableLocalTextModels.contains(.qwen3_4B4Bit)
+        // The legacy "Qwen 3" unified Fast/Think pair is disabled under the
+        // simplified Fast/Think/Code lineup — the modes bind to the foundation
+        // models (Gemma / VibeThinker / coder), never Qwen.
+        guard !EpistemosFoundationLineup.simplifiedLineupActive else { return false }
+        return supportedAvailableLocalTextModels.contains(.qwen3_4B4Bit)
             && supportedAvailableLocalTextModels.contains(.qwen3_4BThinking25074Bit)
     }
 
@@ -5599,6 +5603,18 @@ final class InferenceState {
     }
 
     private func sanitizedInteractiveLocalTextModelID(for modelID: String) -> String? {
+        // Simplified lineup: migrate a stored LEGACY local selection (an MLX
+        // enum model that isn't part of the foundation lineup — e.g. a Qwen the
+        // user had pinned) onto the foundation lineup, so they land on Gemma
+        // rather than a now-hidden legacy model. Only when a foundation GGUF is
+        // actually installed; otherwise fall through and keep their selection so
+        // nothing breaks before the foundation package is installed.
+        if EpistemosFoundationLineup.simplifiedLineupActive,
+           LocalTextModelID(rawValue: modelID) != nil,
+           EpistemosFoundationLineup.tier(forModelID: modelID) == nil,
+           let foundation = supportedAvailableGemmaQATRuntimeCandidates.last?.id {
+            return foundation
+        }
         if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == modelID }) {
             return modelID
         }
