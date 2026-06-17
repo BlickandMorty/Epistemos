@@ -4008,11 +4008,21 @@ final class InferenceState {
         from ids: Set<String>
     ) -> [GemmaQATRuntimeCandidate] {
         guard availableLocalGenerationRuntimeKinds.contains(.gguf) else { return [] }
+        // Selectability policy (owner-approved 2026-06-16): ANY *installed*
+        // foundation GGUF candidate the hardware supports is manually
+        // selectable — the user explicitly downloaded it and it rides the
+        // proven llama-cli runtime. `ids` here is the installed∪prepared set
+        // (incl. on-disk active/ detection), so reaching this filter already
+        // means installed. The route-evidence proof chain
+        // (`isProductRouteIntegrationCandidate`) still gates *auto-routing* /
+        // default-route authority (TriageService, AppBootstrap availability
+        // probe, ladder statics) — it no longer blocks a manual pick. This is
+        // what makes VibeThinker (Think) and the 12B coder (Code) — both
+        // receipt-pending — selectable alongside the proof-complete Gemmas.
         return ids
             .compactMap(GemmaQATRuntimeLadder.candidate(forID:))
             .filter { candidate in
-                guard candidate.isProductRouteIntegrationCandidate,
-                      let descriptor = LocalModelCatalog.descriptor(for: candidate.id) else {
+                guard let descriptor = LocalModelCatalog.descriptor(for: candidate.id) else {
                     return false
                 }
                 return hardwareCapabilitySnapshot.supports(descriptor: descriptor)
