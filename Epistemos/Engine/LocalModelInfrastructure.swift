@@ -2487,6 +2487,41 @@ final class LocalModelManager {
         }
     }
 
+    /// Installs the curated "Epistemos AI foundation package" — the Fast / Think
+    /// / Code GGUF lineup (Gemma 4 E2B/E4B/12B + VibeThinker-3B + 12B coder) on
+    /// the proven llama-cli runtime. One-tap setup: skips models the hardware
+    /// can't fit and ones already installed; installs smallest→largest so a
+    /// usable model lands first. Surfaces per-model failures via installErrors
+    /// without aborting the whole package.
+    func installEpistemosFoundationPackage() async throws {
+        let ordered = EpistemosFoundationLineup.models
+            .sorted { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }
+        for candidate in ordered {
+            let modelID = candidate.id
+            guard let descriptor = LocalModelCatalog.descriptor(for: modelID),
+                  inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor),
+                  installRecords[modelID] == nil else {
+                continue
+            }
+            // Don't let one model's failure abort the rest of the package —
+            // install() already records the error in installErrors.
+            try? await install(modelID: modelID)
+        }
+    }
+
+    /// Foundation models that still need downloading for the full package.
+    var epistemosFoundationPackageMissingModelIDs: [String] {
+        EpistemosFoundationLineup.models
+            .map(\.id)
+            .filter { id in
+                guard let descriptor = LocalModelCatalog.descriptor(for: id),
+                      inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) else {
+                    return false
+                }
+                return installRecords[id] == nil
+            }
+    }
+
     func uninstall(modelID: String) throws {
         guard let record = installRecords.removeValue(forKey: modelID) else {
             let error = LocalModelManagerError.notInstalled(modelID)
