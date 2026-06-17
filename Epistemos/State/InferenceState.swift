@@ -4109,14 +4109,17 @@ final class InferenceState {
         }
     }
 
-    /// The foundation model for a tier that is actually installed and fits the
-    /// hardware, or nil. Fast (three Gemma sizes) returns the LARGEST that fits
-    /// — best quality for the Mac; per-query complexity downsizing (2B for
-    /// trivial prompts) is a separate routing optimization. Think and Code each
-    /// have a single model.
+    /// The foundation model a tier mode auto-selects when the user switches into
+    /// it from a different tier, or nil if none is installed/fits. Think and Code
+    /// have a single model. Fast has three Gemma sizes: it auto-picks the largest
+    /// that fits *with memory headroom* so "Fast" stays quick — e.g. on a 16 GB
+    /// Mac 12B fits but with no headroom, so Fast defaults to E4B; 12B stays
+    /// explicitly selectable (and is the target for high-complexity per-query
+    /// routing, a follow-up). The user's within-tier pick is always respected by
+    /// the caller, so this only sets the cross-tier default.
     private func installedFoundationModelID(for tier: EpistemosModelTier) -> String? {
         let installed = installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
-        return EpistemosFoundationLineup.candidates(for: tier)
+        let fitting = EpistemosFoundationLineup.candidates(for: tier)
             .filter { installed.contains($0.id) }
             .filter { candidate in
                 guard let descriptor = LocalModelCatalog.descriptor(for: candidate.id) else {
@@ -4124,8 +4127,21 @@ final class InferenceState {
                 }
                 return hardwareCapabilitySnapshot.supports(descriptor: descriptor)
             }
-            .max { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }?
-            .id
+        guard !fitting.isEmpty else { return nil }
+
+        // Fast: prefer the largest model that fits with comfortable headroom so
+        // the "quick" tier doesn't default to the heaviest (memory-tight) model.
+        if tier == .fast {
+            let headroomGB = 4
+            let comfortable = fitting.filter {
+                hardwareCapabilitySnapshot.roundedMemoryGB >= $0.minimumRecommendedMemoryGB + headroomGB
+            }
+            if let best = comfortable.max(by: { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }) {
+                return best.id
+            }
+        }
+
+        return fitting.max { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }?.id
     }
 
     func localModelPickerDisplayName(for modelID: String) -> String {
