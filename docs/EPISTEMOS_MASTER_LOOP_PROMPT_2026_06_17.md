@@ -22,6 +22,13 @@ and DO NOT stop to ask for permission or say "done and waiting." Only stop for a
 genuinely destructive/irreversible action or an architecture fork you cannot
 resolve from the code + docs.
 
+READ FIRST (one time, before the first slice): CLAUDE.md (auto-loaded — project
+rules + file map + constraints); then these memory files for current state —
+memory/foundation_lineup_pivot_2026_06_16.md, memory/gguf_runtime_seam_2026_06_16.md,
+memory/mlx_gemma4_unsupported_2026_06_16.md, memory/gemma_qwen_oom_swap_fix_2026_06_16.md,
+memory/osaurus_agent_builder_direction_2026_06_16.md, memory/system_g_runtime_map_2026_06_14.md.
+Run `git log --oneline -30` to see the latest landed work. Then start at P1.5.
+
 ────────────────────────────────────────────────────────────────────────
 LOOP DISCIPLINE (every pass)
 ────────────────────────────────────────────────────────────────────────
@@ -232,6 +239,26 @@ THEN large-model:
     CANDIDATE until explicit owner approval + MAS/Pro boundary review +
     no-hidden-fallback proof + RunEventLog + AnswerPacket + rollback + harness
     witnesses land. Do NOT arm without the owner.
+
+────────────────────────────────────────────────────────────────────────
+PRIORITY 6 — BRAND / POLISH (owner de-prioritized — do AFTER P1–P3, or when a
+slice naturally touches Settings/chat headers)
+────────────────────────────────────────────────────────────────────────
+P6.1  Real AI provider logos in Settings + chat, in a STRATEGIC BLACK-AND-WHITE
+      (monochrome) style so the app "feels legit": Google, Claude, Claude Code,
+      Anthropic, OpenAI, Apple, Kimi, Hermes. Use the Claude Code logo for
+      agent-mode-when-on-Claude. Source: lobehub @lobehub/icons (MIT, mono+color,
+      <title>/viewBox="0 0 24 24"/fill="currentColor"). The owner handed specific
+      assets to a past chat (not recoverable as files) — do NOT hunt for them;
+      complete the set from lobehub. Wire per-provider in the model picker rows,
+      Settings inference rows, and chat message headers. Honest: only show a logo
+      for the provider actually serving the turn.
+P6.2  "Run complex things from a simple query" polish: once P1.5 + P2 land,
+      verify a plain user prompt actually drives the multi-step agent loop end to
+      end (tools + memory + skills) and reads as useful, not a single shot.
+P6.3  Dependencies/package tooling as an agent capability (Pro): if the owner
+      wants the chat to manage project deps (npm/cargo/etc.), surface it as an
+      explicit Pro tool with security.rs hardening — NOT on the MAS path.
 
 ────────────────────────────────────────────────────────────────────────
 KEY FILES
