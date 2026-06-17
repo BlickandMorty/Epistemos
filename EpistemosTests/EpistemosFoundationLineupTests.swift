@@ -221,4 +221,110 @@ struct EpistemosFoundationLineupTests {
         inference.setPreferredChatModelSelection(.localMLX(Self.b12))
         #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(Self.e4b))
     }
+
+    // MARK: - P1.5 Fast "three efforts" per-query sizing (pure policy)
+
+    @Test("Fast effort sizing maps complexity bands to ascending sizes (3 candidates)")
+    func fastEffortSizingThreeCandidates() {
+        // trivial → smallest (index 0), medium → middle (1), hard → largest (2).
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.0, candidateCount: 3) == 0)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.10, candidateCount: 3) == 0)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.45, candidateCount: 3) == 1)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.80, candidateCount: 3) == 2)
+        // Threshold edges: 0.30 leaves the trivial band, 0.60 enters the hard band.
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.30, candidateCount: 3) == 1)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.60, candidateCount: 3) == 2)
+    }
+
+    @Test("Fast effort sizing clamps a hard query onto the largest that fits (2 candidates)")
+    func fastEffortSizingTwoCandidatesClamps() {
+        // 16 GB Mac: only E2B + E4B fit with headroom, so a "hard" query collapses
+        // onto the larger of the two rather than running off the end.
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.10, candidateCount: 2) == 0)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.50, candidateCount: 2) == 1)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.95, candidateCount: 2) == 1)
+    }
+
+    @Test("Fast effort sizing is safe at the degenerate edges (1 candidate, out-of-range complexity)")
+    func fastEffortSizingEdges() {
+        // Nothing to size between → always index 0.
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.9, candidateCount: 1) == 0)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 0.9, candidateCount: 0) == 0)
+        // Complexity is clamped to [0, 1] before banding.
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: -0.5, candidateCount: 3) == 0)
+        #expect(EpistemosFastEffortSizing.candidateIndex(forComplexity: 1.5, candidateCount: 3) == 2)
+    }
+
+    // MARK: - P1.5 Fast sizing wired into InferenceState
+
+    @Test("simplified: on a roomy Mac, Fast sizes the model per query (trivial→E2B, medium→E4B, hard→12B)")
+    @MainActor func simplifiedFastSizesPerQueryOnRoomyMac() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12])
+
+        // On 64 GB all three Gemma sizes fit with headroom, so the Fast default is
+        // the 12B — the per-query "on the default" gate. Sizing then walks down
+        // for easy queries and back up for hard ones.
+        inference.setPreferredLocalTextModelID(Self.b12)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.05, operatingMode: .fast) == Self.e2b)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.45, operatingMode: .fast) == Self.e4b)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.85, operatingMode: .fast) == Self.b12)
+    }
+
+    @Test("simplified: on a 16 GB Mac, Fast sizing never reaches the memory-tight 12B (caps at E4B)")
+    @MainActor func simplifiedFastSizingCapsAtE4BOn16GB() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 16_000_000_000,
+                roundedMemoryGB: 16,
+                maxRecommendedLocalContentLength: 8_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12])
+
+        // Even a stored 12B resolves to the headroom-aware E4B default on 16 GB,
+        // so sizing is "on the default" and walks E2B ↔ E4B. A hard query caps at
+        // E4B — the 12B is never auto-selected on a memory-tight Mac.
+        inference.setPreferredLocalTextModelID(Self.b12)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.05, operatingMode: .fast) == Self.e2b)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.95, operatingMode: .fast) == Self.e4b)
+    }
+
+    @Test("simplified: Fast sizing honors an explicit smaller within-Fast pick and never fires off-tier")
+    @MainActor func simplifiedFastSizingHonorsExplicitPickAndTier() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12, Self.vibe, Self.coder])
+
+        // Deliberate within-Fast pick of the smallest size: NOT the tier default
+        // (12B on 64 GB), so per-query sizing stands down and the pick is honored.
+        inference.setPreferredLocalTextModelID(Self.e2b)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.9, operatingMode: .fast) == nil)
+
+        // Sizing only applies to the Fast tier — Think/Code/Tools are untouched.
+        inference.setPreferredLocalTextModelID(Self.b12)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.9, operatingMode: .thinking) == nil)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.9, operatingMode: .pro) == nil)
+        #expect(inference.sizedFastLocalTextModelID(forComplexity: 0.9, operatingMode: .agent) == nil)
+    }
 }

@@ -980,3 +980,6 @@ real run failed — the stale checked-in `overall_pass=true` artifacts dated to
       `Tools/falsifiers/f_*.sh` scripts share `artifacts/falsifiers/*/result.json`,
       so a naive bulk run cross-contaminates; proper ordering is the CI's job. These
       15 fixes remove 15 blockers from that gate.
+
+## 2026-06-17 — P1.5 Fast "three efforts" per-query sizing
+- Fast tier now sizes the loaded Gemma to the query: trivial→E2B, medium→E4B, hard→12B, via `EpistemosFastEffortSizing.candidateIndex` (pure policy) + `InferenceState.sizedFastLocalTextModelID`, injected at the single `routeDecision`/`localModelSelection` seam through `effectivePolicyContext(sizedFastComplexity:)` (profile.queryComplexity from QueryAnalyzer). Only fires on the simplified Fast tier when the user is on the headroom-aware default — explicit within-Fast picks and Think/Code/Tools untouched. Memory-safe: candidate pool is the comfortable-fit set, so 16 GB caps at E4B (never auto-selects the tight 12B); 64 GB reaches 12B for hard queries. +6 reasoned tests (3 pure-policy, 3 InferenceState). Build + test-build green.
