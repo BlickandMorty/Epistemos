@@ -328,7 +328,20 @@ final class PipelineService {
             case .localOnly:
                 return false
             case .overseerLocalExecution:
-                return executionPlan.allowsToolExecution
+                guard executionPlan.allowsToolExecution else { return false }
+                // The chat model drives the loop directly only when it is
+                // itself agent-capable. A non-agent selection (e.g. a GGUF
+                // Gemma) must be backed by the hidden agent tier — but ONLY if
+                // an agent-capable model actually fits the current memory
+                // budget. If nothing fits, NEVER swap to a model that will OOM
+                // (the user-reported "routed to Qwen again" bug). Returning
+                // false here degrades the caller to a direct stream on the
+                // selected model, which answers from the inlined context.
+                if let model = LocalTextModelID(rawValue: modelID),
+                   model.canRunLocalAgentLoop {
+                    return true
+                }
+                return inference.fittingLocalAgentTextModelID != nil
             }
         }
 
@@ -457,14 +470,20 @@ final class PipelineService {
         let effectiveChatSelection = inference.effectiveChatSurfaceSelection(for: operatingMode)
         let modelID: String? = {
             if executionPlan?.forcesLocalExecution == true {
-                return inference.effectiveLocalAgentTextModelID
+                return inference.fittingLocalAgentTextModelID
+                    ?? inference.effectiveLocalAgentTextModelID
             }
             if case .localMLX(let id) = effectiveChatSelection,
                let model = LocalTextModelID(rawValue: id),
                model.canRunLocalAgentLoop {
                 return id
             }
-            return inference.effectiveLocalAgentTextModelID
+            // Non-agent chat selection (e.g. GGUF Gemma): back it with a model
+            // that ACTUALLY fits memory. `shouldUseToolLoop` already guaranteed
+            // a fitting model exists before we reach here, so prefer it and
+            // never fall through to a non-fitting OOM candidate.
+            return inference.fittingLocalAgentTextModelID
+                ?? inference.effectiveLocalAgentTextModelID
         }()
         let executorBridge = ToolTierBridge(
             vaultPath: vaultPath,
