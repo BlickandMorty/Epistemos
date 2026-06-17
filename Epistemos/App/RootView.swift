@@ -563,6 +563,7 @@ struct LocalModelToolbarMenu: View {
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
     @Environment(LocalModelManager.self) private var localModelManager
+    @Environment(CompanionState.self) private var companionState
     @State private var isPresented = false
     @State private var activeSplitPopover: SplitToolbarPopover?
     @State private var showsLocalModels = false
@@ -1211,11 +1212,48 @@ struct LocalModelToolbarMenu: View {
                     pickerCloudSection
                 }
 
+                agentSwitcherSection
             }
         }
         .frame(width: 320, height: 380, alignment: .topLeading)
         .popover(item: $aboutSelection) { selection in
             ModelAboutSheet(selection: selection)
+        }
+    }
+
+    /// In-chat agent switcher: activate any Companion (agent) directly from the
+    /// model picker. The active Companion's system instruction + persona already
+    /// flow into the chat (AppBootstrap wires activeCompanionInstructionProvider
+    /// into the pipeline), so switching here changes how the chat behaves — your
+    /// agents are now reachable from the chat, not just the Landing farm.
+    @ViewBuilder
+    private var agentSwitcherSection: some View {
+        if !companionState.roster.isEmpty {
+            Divider()
+                .padding(.vertical, 2)
+            VStack(alignment: .leading, spacing: 8) {
+                popoverSectionTitle("Agents")
+                selectionRow(
+                    title: "No agent (base)",
+                    subtitle: "Plain chat with the selected model.",
+                    systemImage: "person",
+                    isSelected: companionState.activeCompanionID == nil
+                ) {
+                    companionState.deactivate()
+                    activeSplitPopover = nil
+                }
+                ForEach(companionState.roster) { entry in
+                    selectionRow(
+                        title: entry.name,
+                        subtitle: entry.tagline.isEmpty ? "Custom agent" : entry.tagline,
+                        systemImage: "sparkles",
+                        isSelected: companionState.activeCompanionID == entry.id
+                    ) {
+                        companionState.activate(entry.id)
+                        activeSplitPopover = nil
+                    }
+                }
+            }
         }
     }
 
