@@ -281,11 +281,38 @@ nonisolated final class LocalModelServer: @unchecked Sendable {
     }
 
     enum ServerError: Error { case invalidPort(UInt16) }
+
+    /// Flatten an OpenAI message array into the (systemPrompt, prompt) shape the
+    /// local inference client expects. System turns are concatenated into the
+    /// system prompt; a lone user turn becomes the prompt verbatim, while a
+    /// multi-turn conversation is rendered as a labeled transcript so the local
+    /// model keeps context.
+    static func flattenForLocalGenerate(_ messages: [ChatMessage]) -> (system: String?, prompt: String) {
+        let system = messages
+            .filter { $0.role == "system" }
+            .map(\.content)
+            .joined(separator: "\n\n")
+        let conversation = messages.filter { $0.role != "system" }
+        let prompt: String
+        if conversation.count == 1, conversation[0].role == "user" {
+            prompt = conversation[0].content
+        } else {
+            prompt = conversation.map { message in
+                let label = message.role == "assistant" ? "Assistant" : "User"
+                return "\(label): \(message.content)"
+            }.joined(separator: "\n\n")
+        }
+        return (system.isEmpty ? nil : system, prompt)
+    }
 }
 
 // MARK: - Minimal HTTP/1.1 request parser
 
-private struct HTTPRequest {
+// `nonisolated` so the pure parser is callable from the NWConnection receive
+// queue (a nonisolated context). Without it, the module's default MainActor
+// isolation would make `parse` main-actor-isolated and the call from `receive`
+// would warn. All fields are `let` value types, so the struct is Sendable.
+private nonisolated struct HTTPRequest {
     let method: String
     let path: String
     let headers: [String: String]

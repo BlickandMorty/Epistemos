@@ -1571,6 +1571,9 @@ final class AppBootstrap {
     let preparedModelRegistry: PreparedModelRegistry
     let localLLMClient: any LocalConfigurableLLMClient
     let cloudLLMClient: CloudLLMClient
+    /// Loopback OpenAI/Ollama-compatible server exposing the local models.
+    /// Flag-gated OFF (`EPISTEMOS_LOCAL_MODEL_SERVER_V0`); nil when disabled.
+    private var localModelServer: LocalModelServer?
     let triageService: TriageService
     /// Transparency-only audit trail of recent Overseer planning
     /// decisions. Populated by ChatCoordinator on every main-chat turn;
@@ -1942,6 +1945,63 @@ final class AppBootstrap {
         self.localLLMClient = localLLMClient
         Task { @MainActor in
             _ = await localLLMClient.refreshRuntimeAvailability()
+        }
+
+        // Loopback OpenAI/Ollama-compatible model server (flag-gated OFF). Lets
+        // external harnesses (OpenCode/Codex) drive the LOCAL models with no
+        // fork. The generate/stream bridges hop to the @MainActor inference
+        // client; the model list is snapshotted on the main actor. Runs inside a
+        // @MainActor Task so the @MainActor reads are valid; start() itself binds
+        // the NWListener on its own queue.
+        if LocalModelServer.isEnabled {
+            let modelSnapshot = inference.releaseSelectableInstalledLocalTextModelIDs
+            let server = LocalModelServer(
+                port: 1337,
+                generate: { messages, _, maxTokens in
+                    let (system, prompt) = LocalModelServer.flattenForLocalGenerate(messages)
+                    return try await localLLMClient.generate(
+                        prompt: prompt,
+                        systemPrompt: system,
+                        maxTokens: maxTokens > 0 ? maxTokens : 1024
+                    )
+                },
+                stream: { messages, _, maxTokens in
+                    let (system, prompt) = LocalModelServer.flattenForLocalGenerate(messages)
+                    return AsyncThrowingStream { continuation in
+                        let task = Task { @MainActor in
+                            do {
+                                for try await delta in localLLMClient.stream(
+                                    prompt: prompt,
+                                    systemPrompt: system,
+                                    maxTokens: maxTokens > 0 ? maxTokens : 1024
+                                ) {
+                                    continuation.yield(delta)
+                                }
+                                continuation.finish()
+                            } catch {
+                                continuation.finish(throwing: error)
+                            }
+                        }
+                        continuation.onTermination = { _ in task.cancel() }
+                    }
+                },
+                listModels: { modelSnapshot }
+            )
+            // Retain synchronously: a direct property write is legal anywhere in
+            // init. start() defers to a Task that captures ONLY the local
+            // `server` — never `self` — so there is no definite-initialization
+            // violation even though stored properties below are not yet set.
+            self.localModelServer = server
+            Task { @MainActor in
+                do {
+                    try server.start()
+                    Log.app.info("LocalModelServer started on 127.0.0.1:1337")
+                } catch {
+                    Log.app.error(
+                        "LocalModelServer failed to start: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
         }
         let cloudLLMClient = CloudLLMClient(inference: inference)
         self.cloudLLMClient = cloudLLMClient
