@@ -262,7 +262,8 @@ re-read this file and harden.
 | P1.1 | Picker → three mode rows + Advanced disclosure | ✅ DONE (2026-06-17) |
 | P1.1b | Fix root cause: GGUF Gemma collapsed modes to Fast-only | ✅ DONE — `operatingModeCapabilities` offers Fast/Think/Code under simplified+foundation |
 | P1.2 | Cloud as one clean toggle | ✅ DONE (folded into P1.1) |
-| P1.3 | Per-query "Route to cloud" button + onSubmit override | ☐ TODO (next) |
+| P1.3 | Per-query "Route to cloud" button | ✅ DONE (2026-06-17) — composer "Send on cloud" button; strict no-default-change per-turn deferred |
+| P1.3b | Search button shows tier not model; stop pinning 12B | ✅ DONE (2026-06-17) — labelText→tier, migration + Fast headroom override |
 | P1.4 | Honesty blocker: visible when local model can't run (#43) | ☐ TODO |
 | P1.5 | Fast "three efforts" per-query complexity sizing | ☐ TODO |
 | P2.1 | In-chat tool toggles | ☐ TODO |
