@@ -4042,11 +4042,21 @@ final class InferenceState {
 
     var releaseSelectableInstalledLocalTextModelIDs: [String] {
         var seen: Set<String> = []
-        return (supportedAvailableLocalTextModels
-            .map(\.rawValue)
-            .map(normalizedReleaseSelectableLocalTextModelID)
-            + supportedAvailableGemmaQATRuntimeCandidates.map(\.id))
-            .filter { seen.insert($0).inserted }
+        let gguf = supportedAvailableGemmaQATRuntimeCandidates.map(\.id)
+        // Simplified Fast/Think/Code lineup: once at least one foundation GGUF
+        // model is installed, hide the legacy non-foundation MLX chat models so
+        // the picker shows only the Epistemos lineup (Gemma / VibeThinker /
+        // coder). Until a foundation model is installed, keep the legacy models
+        // so the picker is never empty. Internal helper models are unaffected
+        // (they are not chat-picker entries). Reversible via
+        // EPISTEMOS_SIMPLIFIED_LINEUP=0.
+        let hideLegacyMLX = EpistemosFoundationLineup.simplifiedLineupActive && !gguf.isEmpty
+        let mlx = hideLegacyMLX
+            ? []
+            : supportedAvailableLocalTextModels
+                .map(\.rawValue)
+                .map(normalizedReleaseSelectableLocalTextModelID)
+        return (mlx + gguf).filter { seen.insert($0).inserted }
     }
 
     var releaseHiddenInstalledLocalTextModelCount: Int {

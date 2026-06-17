@@ -75,6 +75,18 @@ extension GemmaQATRuntimeStage {
 /// The curated "Epistemos AI foundation" model lineup — the five GGUF models a
 /// user installs and chooses from, derived from the proven runtime ladder.
 nonisolated enum EpistemosFoundationLineup {
+    /// Whether the simplified Fast/Think/Code lineup is active (default ON).
+    /// When active, the legacy non-foundation MLX chat models are hidden from
+    /// the user-facing picker — but ONLY once at least one foundation GGUF model
+    /// is installed, so a user is never left with an empty local picker. Set
+    /// `EPISTEMOS_SIMPLIFIED_LINEUP=0` to restore the full legacy lineup
+    /// (reversible — the "hide, keep code" decision, 2026-06-16). Internal
+    /// helper models (router/draft/embeddings) are unaffected: they are not
+    /// chat-picker entries.
+    static var simplifiedLineupActive: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_SIMPLIFIED_LINEUP"] != "0"
+    }
+
     /// Every foundation model, in ladder order (Fast E2B→E4B→12B, then coder,
     /// then reasoner — matching `GemmaQATRuntimeLadder.candidates`).
     static var models: [GemmaQATRuntimeCandidate] {
