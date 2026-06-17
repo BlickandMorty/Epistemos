@@ -1083,6 +1083,11 @@ pub async fn run_local_gguf_generation(
     system_prompt: Option<String>,
     max_output_tokens: Option<u32>,
     temperature: Option<f32>,
+    // Optional JSON Schema for grammar-constrained decoding: when present the
+    // model output is GUARANTEED to be structurally valid JSON matching the
+    // schema (honest tool calls for non-tool-tuned local models like Gemma).
+    // None = unconstrained free-text chat.
+    json_schema: Option<String>,
     delegate: Box<dyn AgentEventDelegate>,
 ) -> Result<LocalGgufGenerationFFI, AgentErrorFFI> {
     // Mirror run_agent_session: spawn + join so a panic anywhere in the
@@ -1094,6 +1099,7 @@ pub async fn run_local_gguf_generation(
             system_prompt,
             max_output_tokens,
             temperature,
+            json_schema,
             delegate,
         )
         .await
@@ -1121,6 +1127,7 @@ async fn run_local_gguf_generation_inner(
     system_prompt: Option<String>,
     max_output_tokens: Option<u32>,
     temperature: Option<f32>,
+    json_schema: Option<String>,
     delegate: Box<dyn AgentEventDelegate>,
 ) -> Result<LocalGgufGenerationFFI, AgentErrorFFI> {
     use crate::provider::{ProviderRuntime, StreamEvent};
@@ -1133,8 +1140,16 @@ async fn run_local_gguf_generation_inner(
         });
     }
 
-    let provider = crate::providers::gguf_cli::GgufCliProvider::new(&model_path)
+    let mut provider = crate::providers::gguf_cli::GgufCliProvider::new(&model_path)
         .with_temperature(temperature.unwrap_or(0.0));
+    // Grammar-constrained decoding when a non-empty schema is supplied. The
+    // builder no-ops on an empty/whitespace schema, so this stays free-text for
+    // ordinary chat turns.
+    if let Some(schema) = json_schema {
+        if !schema.trim().is_empty() {
+            provider = provider.with_json_schema(schema);
+        }
+    }
     // Defensive: this entry exists ONLY to drive on-device providers. If a future
     // refactor ever makes the provider cloud-runtime, refuse rather than leak a
     // network path through the local seam (no-hidden-fallback).
