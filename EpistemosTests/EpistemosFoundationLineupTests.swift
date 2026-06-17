@@ -200,4 +200,25 @@ struct EpistemosFoundationLineupTests {
         #expect(!inference.hasInstalledFoundationModel)
         #expect(!inference.availableOperatingModes.contains(.pro))
     }
+
+    @Test("simplified: on a 16 GB Mac, a within-Fast 12B pick falls to the headroom-aware E4B (Fast stays quick, not pinned to 12B)")
+    @MainActor func simplifiedFastFallsOffMemoryTight12BOn16GB() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 16_000_000_000,
+                roundedMemoryGB: 16,
+                maxRecommendedLocalContentLength: 8_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12])
+
+        // Pin the 12B under Fast. It "fits" (16 GB ≥ 16 GB floor) but with NO
+        // headroom — exactly the case that left every 16 GB user stuck on the
+        // memory-tight 12B. Fast resolves to the headroom-aware E4B instead.
+        inference.setPreferredChatModelSelection(.localMLX(Self.b12))
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(Self.e4b))
+    }
 }

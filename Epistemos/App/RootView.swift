@@ -708,6 +708,14 @@ struct LocalModelToolbarMenu: View {
            !inference.isChatSurfaceRuntimeReady(for: operatingMode.wrappedValue) {
             return "\(operatingMode.wrappedValue.displayName) · Set Up Model"
         }
+        // Simplified picker on a LOCAL selection: the button shows the Epistemos
+        // effort (tier) and NEVER the backing model — "Epistemos Fast", not
+        // "Fast · Gemma 4 12B". Cloud / Apple Intelligence selections fall through
+        // and keep their honest model label.
+        if hidesLocalModelLabel, let operatingMode {
+            return operatingMode.wrappedValue.epistemosModelTier?.displayName
+                ?? operatingMode.wrappedValue.displayName
+        }
         let selectedModelLabel: String
         if let operatingMode {
             selectedModelLabel = inference.chatSurfaceRouteDescription(
@@ -883,6 +891,12 @@ struct LocalModelToolbarMenu: View {
     private var selectedModeSummary: String {
         if currentRuntimeNeedsSetup {
             return runtimeSetupSummary
+        }
+        // Simplified picker on a LOCAL selection: describe the effort tier
+        // ("Quick answers — Gemma 4, sized to the task"), not a pinned model
+        // size, so the summary never reads "runs directly on Gemma 4 12B".
+        if hidesLocalModelLabel, let operatingMode {
+            return operatingMode.wrappedValue.helpText
         }
         if let operatingMode {
             return inference.chatSurfaceRouteDescription(for: operatingMode.wrappedValue).summary
