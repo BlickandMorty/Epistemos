@@ -4102,6 +4102,19 @@ final class InferenceState {
         if EpistemosFoundationLineup.simplifiedLineupActive,
            let tier = operatingMode.epistemosModelTier {
             if EpistemosFoundationLineup.tier(forModelID: baseModelID) == tier {
+                // Respect the within-tier pick — EXCEPT for Fast, where a
+                // memory-tight pick (the 12B on a 16 GB Mac) defeats "quick."
+                // When the pinned Fast model doesn't fit with comfortable
+                // headroom, fall to the tier's headroom-aware default (E4B on
+                // 16 GB). This is the root of "Gemma 12B is always selected" —
+                // a stored 12B kept sticking even though Fast should stay light.
+                // Picks that DO fit (any size on a roomy Mac) are still honored.
+                if tier == .fast,
+                   let descriptor = LocalModelCatalog.descriptor(for: baseModelID),
+                   hardwareCapabilitySnapshot.roundedMemoryGB < descriptor.minimumRecommendedMemoryGB + 4,
+                   let headroomDefault = installedFoundationModelID(for: .fast) {
+                    return headroomDefault
+                }
                 return baseModelID
             }
             if let tierModelID = installedFoundationModelID(for: tier) {
@@ -5636,7 +5649,13 @@ final class InferenceState {
         if EpistemosFoundationLineup.simplifiedLineupActive,
            LocalTextModelID(rawValue: modelID) != nil,
            EpistemosFoundationLineup.tier(forModelID: modelID) == nil,
-           let foundation = supportedAvailableGemmaQATRuntimeCandidates.last?.id {
+           // Migrate onto the HARDWARE-APPROPRIATE everyday model — the Fast
+           // tier's headroom-aware pick (E4B on a 16 GB Mac), NOT the largest
+           // installed candidate. The old `.last` landed every 16 GB user on the
+           // memory-tight 12B ("Gemma 12B is always selected"). Falls back to the
+           // smallest installed foundation candidate when no Fast Gemma is present.
+           let foundation = installedFoundationModelID(for: .fast)
+               ?? supportedAvailableGemmaQATRuntimeCandidates.first?.id {
             return foundation
         }
         if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == modelID }) {
