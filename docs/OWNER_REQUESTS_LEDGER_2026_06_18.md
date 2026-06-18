@@ -379,7 +379,15 @@ should make the codebase MUCH better, never destabilize the working chat.
       loads + generates via the GGUF lane. Pairs with the B1 Variant Ladder.
 
 ## Full-port targets (owner 2026-06-18 — deeply analyze/research, then FULL port)
-- [ ] **DeerFlow 2 — research + (likely) FULL port (R-DEERFLOW)** — ByteDance's
+- [ ] **R-ASSISTANTS — survey the TOP assistant/agent apps on GitHub (owner 2026-06-18)**
+      Beyond R-APPS: deep-scan the best open-source ASSISTANT-class apps and mine
+      their system-prompts + architectures + UX. Cover: PERPLEXITY-style answer
+      engines (Perplexica, Morphic, Khoj, scira, Farfalle, Onyx), COMPUTER-USE
+      agents (Open Interpreter, self-operating-computer, UI-TARS, Agent-S,
+      browser-use, OpenClaw), and general assistant/agent apps. Verdict doc: per app
+      what to adopt natively (patterns/prompts/UX) vs skip, license. Feed the best
+      into Chat/Act/Work + the deep-research (DeerFlow) + computer-use stacks.
+- [ ] **DeerFlow 2.0 — research + (likely) FULL port (R-DEERFLOW)** — ByteDance's
       multi-agent DEEP-RESEARCH framework (planner→researcher→reporter, web+tools).
       Owner wants it ported completely, reskinned to the app's pixel-art theme, and
       connected DEEPLY to the app to add research dynamics. Deeply research first
