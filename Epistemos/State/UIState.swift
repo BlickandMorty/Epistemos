@@ -274,11 +274,21 @@ final class UIState {
 
     /// The resolved theme for the current system mode — read this everywhere.
     var theme: EpistemosTheme {
+        // Observe the typography revision so a custom-theme FONT/scale override
+        // change (which writes to UserDefaults and bumps this counter via
+        // `refreshTypographySettings()`) actually re-derives the theme and
+        // re-renders every view that reads `ui.theme`. Without this read the
+        // override persisted but nothing re-rendered — the "picking a font does
+        // nothing" bug — because `theme` only depended on `activePair`/`themeMode`/
+        // `isSystemDark`, never on the typography counter. The theme's heading
+        // font getters read `AppDisplayTypography.headingFontOverride(...)` from
+        // UserDefaults at render time, so a fresh derivation picks up the new font.
+        _ = typographySettingsRevision
         switch themeMode {
         case .systemDefault:
-            isSystemDark ? .systemDark : .systemLight
+            return isSystemDark ? .systemDark : .systemLight
         case .custom:
-            activePair.resolved(isDark: isSystemDark)
+            return activePair.resolved(isDark: isSystemDark)
         }
     }
 
