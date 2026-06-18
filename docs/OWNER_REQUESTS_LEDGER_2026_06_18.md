@@ -460,9 +460,15 @@ calls: no blanket rule — choose per case.
       RESEARCHER researcher.rs LiveSubAgentResearcher (isolated agent_core sub-agent
       loop per sub-question, reuses delegate_task SilentDelegate+run_agent_loop,
       PRO-gated like delegate_task; pure helpers sub_agent_objective+extract_findings
-      unit-tested) (7fa16cc00, 3 tests). All cargo-verified BOTH builds, INERT.
-      NEXT: (4) REPORTER = Eidos-cited synthesis turn (read sub-agent findings →
-      coherent cited output); (5) flag EPISTEMOS_DEEP_RESEARCH_V0
+      unit-tested) (7fa16cc00); slice 4 REPORTER reporter.rs findings_digest+
+      synthesis_objective+run_synthesis (2802387cc); slice 5a FLAG
+      deep_research_enabled + run.rs run_deep_research tie-together planner→
+      orchestrator→researcher→reporter (12e3fd02e); slice 5b VISIBLE SURFACE
+      DeepResearchGateStatus+DeepResearchHealthRow in SubstrateHealthPanel
+      (927dd31e6). RUST CORE COMPLETE (44 tests, BOTH builds). NEXT (5c): FFI
+      bridge for run_deep_research + Swift Research/Work-mode wiring + AnswerPacket
+      + arXiv/HF/autoresearch hookup so a query spins a real run from the UI. flag
+      EPISTEMOS_DEEP_RESEARCH_V0
       + Research/Work-mode wiring + AnswerPacket. Single-agent stays default until
       wired.
       Verdict: docs/RESEARCH_DEERFLOW_2026_06_18.md (R-DEERFLOW).**
