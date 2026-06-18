@@ -118,6 +118,25 @@ calls: no blanket rule — choose per case.
       (grep/extract, ProvenanceGate). SYSTEM PROMPT = an ANCHOR the loop EXTENDS
       (strong base system prompt, then extend), not a one-off. Make it deeply
       exquisite; wire into Chat/Act/Work. Verdict doc → port + harden.
+- [ ] **R-COLBERT-TOOLSEL: LFM2-ColBERT-350M as a smart TOOL SELECTOR + reranker
+      (owner 2026-06-18)** — owner (verbatim): *"this can all be added as a model I
+      use maybe as a tool selector. LFM2.5-ColBERT-350M is a surprisingly reliable
+      smart tool selector."* Exact repo: `LiquidAI/LFM2-ColBERT-350M` (353M;
+      ColBERT late-interaction retriever/reranker on LFM2 backbone; MaxSim; 128-dim;
+      32K ctx; 8 langs; LFM Open License v1.0 — ProvenanceGate license check). TWO
+      roles: (1) **TOOL SELECTOR** — late-interaction retrieval over the tool/MCP
+      catalog to pick which tools to surface per query; this IS the P8 "RAG-preflight
+      tool selection" + the HARNESS-SYSTEMS MCP-routing/tool-use-plumbing need above
+      — wire it there. (2) **General RERANKER** for RAG retrieval (complements Eidos/
+      Halo/TurboVec + the EML-3 eml_rerank gate; could back a stronger rerank lane).
+      ALSO add as a SELECTABLE model in the importer/registry + HF marketplace.
+      INTEGRATION CATCH (must solve, honestly): ships ONLY via PyLate (Python) — NO
+      GGUF/ONNX/llama.cpp. Python = NO-SIDECAR on MAS, so a MAS path needs a NATIVE
+      late-interaction impl: convert to MLX-Swift, OR CoreML/ONNX export, OR
+      implement ColBERT MaxSim over the existing embedding infra in Rust/Swift.
+      RESEARCH-FIRST → verdict on the native path before any Python-only dependency
+      lands on the product path; Pro/dev-gated until a native lane exists. Honest
+      gating; no fake tool-selector. Cross-ref P8 schema engine + HARNESS SYSTEMS.
 - [~] **#1 LOCAL FOR ALL MODES — BOTH SEAMS fixed 2026-06-18 (verify in-app/CI).**
       CHAT seam (effectiveChatSurfaceSelection, 0f419bd0e): all 4 modes local-first
       — .thinking + .pro joined .agent/.fast (were unconditional .cloud even with a
