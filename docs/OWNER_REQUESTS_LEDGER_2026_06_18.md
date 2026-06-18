@@ -539,12 +539,25 @@ calls: no blanket rule — choose per case.
       deep_research_enabled + run.rs run_deep_research tie-together planner→
       orchestrator→researcher→reporter (12e3fd02e); slice 5b VISIBLE SURFACE
       DeepResearchGateStatus+DeepResearchHealthRow in SubstrateHealthPanel
-      (927dd31e6). RUST CORE COMPLETE (44 tests, BOTH builds). NEXT (5c): FFI
-      bridge for run_deep_research + Swift Research/Work-mode wiring + AnswerPacket
-      + arXiv/HF/autoresearch hookup so a query spins a real run from the UI. flag
-      EPISTEMOS_DEEP_RESEARCH_V0
-      + Research/Work-mode wiring + AnswerPacket. Single-agent stays default until
-      wired.
+      (927dd31e6). RUST CORE COMPLETE (44 tests, BOTH builds). slice 5c FFI BRIDGE
+      run_deep_research_session (#[uniffi::export(async_runtime=tokio)], PRO+flag
+      gated, DeepResearchReportFFI{objective,report,sub_results}, catch_unwind
+      panic guard, deep_research_report_to_ffi pure-mapped+tested) (da02f71bd).
+      slice 5d SWIFT SEAM (THIS) Epistemos/Bridge/DeepResearchBridge.swift:
+      DeepResearchService.run(objective,providerName,vaultPath,…) builds the
+      ToolConfig + calls runDeepResearchSession → maps to Swift-native
+      DeepResearchOutcome{objective,report,[DeepResearchFinding]}. TWO honest gates
+      BOTH required: EPISTEMOS_DEEP_RESEARCH_V0 flag + a CLOUD provider (new
+      DeepResearchGateStatus.isCloudProvider explicit allowlist → deep research can
+      NEVER silently run on a route the user didn't pick, owner #1). #if
+      !EPISTEMOS_APP_STORE (mirrors pro-build cargo split) + canImport(agent_coreFFI)
+      real/else-throw, like LocalGgufRuntimeBridge. Warm build + build-for-testing
+      green; fixed a LATENT 5b test breakage (DeepResearchGateStatusTests missing
+      @testable import Epistemos — hidden by headless test-EXEC hang). 2 new
+      cloud-allowlist tests. NEXT (5e): the Research/Work UI affordance that calls
+      DeepResearchService.run + surfaces the cited report in chat + arXiv/HF/
+      autoresearch hookup so a query spins a real run from the UI.
+      Single-agent stays default until wired.
       Verdict: docs/RESEARCH_DEERFLOW_2026_06_18.md (R-DEERFLOW).**
       First REAL gap of the verdict sweep: Epistemos has every SUPPORTING piece
       (tools, compaction summarization, session memory, P8.1 schema gate, skills,

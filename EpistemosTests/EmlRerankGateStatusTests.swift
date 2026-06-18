@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+@testable import Epistemos
 
 /// P5.H (visible determinism) — locks that the EML re-rank surface reads the
 /// SAME env flag the in-process Rust re-rank (vault.rs `eml_rerank_enabled`)
