@@ -96,8 +96,10 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       ALL app skills/tools from chat, local=cloud parity. Toggle lives UPWARD at
       the TOP of the search page (not on the search bar) and turns the search page
       INTO Work/OpenCode. After the revised UX map (P7.4/P7.4a).
-- [ ] Provider logos (B&W, prefer pixel-art), context-specific, in Settings +
-      picker + chat (P6.1). NOT DONE — assets staged in docs/brand-assets/lobehub.
+- [ ] Provider logos (B&W lobehub, prefer pixel-art), context-specific, in Settings
+      + picker + chat (P6.1) — for BOTH cloud AND local models: Claude, ChatGPT,
+      Gemini, Claude Code, Codex, Gemma, Qwen, Apple, Kimi, Hermes. NOT DONE —
+      assets staged in docs/brand-assets/lobehub.
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
