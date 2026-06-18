@@ -266,17 +266,18 @@ should make the codebase MUCH better, never destabilize the working chat.
       subagents, YAML recipes). Do NOT import the Node/TS Goose DESKTOP (18GB swap
       death) — own SwiftUI skin. Powers WORK mode; engine in shared core so Act/Chat
       tap MCP/subagents too. Osaurus stays the ACT backend. Validate patches vs P8.2.
-- [ ] **OpenClaw — NATIVE adoption as the AGENT EXTENSION, NOT a vendored TS app
-      (R-OPENCLAW, owner 2026-06-18; anti-bloat clarified)** — LOCAL repo
-      ~/Downloads/openclaw-main is TS/Node, so DO NOT compile/vendor the whole app
-      (that = a Node sidecar = bloat + dual-process + MAS-forbidden; "could blow up
-      the app"). Instead REIMPLEMENT OpenClaw's BEST capabilities NATIVELY (Swift/
-      Rust) as the AGENT-EXTENSION surface — a SEPARATE slot from Work/Goose (Work=
-      code/terminal=Goose; OpenClaw=general local-first agent assistant). Reskin
-      pixel-art with the TAMAGOTCHI/Companion mascot. DECISION: OpenClaw-native vs
-      Hermes-native (R-HERMES) — pick best for LOCAL models (owner leans OpenClaw,
-      local-first + cloud). Balance: very useful + on-theme + LOW BLOAT (no Node
-      runtime). Verdict doc → native build + harden. NOT a replacement for OpenCode.
+- [ ] **OpenClaw — FULL PORT, ALL OF IT (R-OPENCLAW, owner DECISION 2026-06-18:
+      "don't care about native anymore, I want ALL the other stuff")** — bring in
+      the COMPLETE OpenClaw (~/Downloads/openclaw-main, TS/Node + ui), not a
+      cherry-pick. Since it's TS/Node, host the full app via WEBKIT (WKWebView) so
+      every feature comes along with no rewrite; RESKIN to the pixel-art theme
+      (CSS/theme injection) with the TAMAGOTCHI/Companion mascot. If it needs a Node
+      backend, gate that Pro/dev (bundled local service); MAS build shows the honest
+      "Pro only" state. Owner accepts the heavier footprint for completeness. It's
+      the AGENT-EXTENSION slot (separate from Work/Goose; NOT an OpenCode replacement).
+      Still evaluate OpenClaw vs Hermes for the LOCAL-model agent (R-HERMES), but
+      default to shipping the full OpenClaw. Verdict doc → WebKit-host port + reskin
+      + wire to local/cloud models + harness systems; per-feature harden.
 - [ ] **Hermes agent — DEEP study (R-HERMES), adopt NATIVELY, NO Hermes name** —
       study HERMES_AGENT_CORE_2_0_DESIGN + manifesto; compare vs OpenClaw for the
       LOCAL-model agent extension (see R-OPENCLAW); namespace stays purged.
