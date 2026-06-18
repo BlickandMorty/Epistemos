@@ -313,6 +313,13 @@ should make the codebase MUCH better, never destabilize the working chat.
       Osaurus config + Goose subagents), not import SDKs. Recommend the native design.
 
 ## Models (owner 2026-06-18)
+- [ ] **Add Unsloth Gemma 4 12B 2-BIT GGUF (low-RAM)** — owner wants the very-low-RAM
+      2-bit (Q2_K / IQ2) GGUF of Gemma 4 12B from Unsloth (~4-5 GB vs ~8+ at 4-bit),
+      so 12B-class quality fits comfortably on the 16 GB Mac. Find the exact Unsloth
+      repo/file (e.g. unsloth/gemma-4-12b-it-GGUF Q2_K/IQ2), wire into the GGUF lane
+      as an installable candidate alongside the existing 12B; honest memory-gate
+      (it's small so it should just fit). Pairs with the Variant Ladder + memory
+      work. Verify it loads + generates.
 - [ ] **Add Holo-3.1-4B as a computer-use VL model (huggingface.co/Hcompany/Holo-3.1-4B)**
       — H Company's Holo is a VISION-LANGUAGE model for COMPUTER USE / GUI grounding
       (screen/web-agent navigation). Research the readme; wire it into the existing
