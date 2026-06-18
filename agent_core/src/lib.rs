@@ -26,6 +26,7 @@ pub mod compaction;
 pub mod confidence_floor;
 pub mod context_compiler;
 pub mod context_loader;
+pub mod deep_research;
 pub mod dispatcher;
 pub mod effect;
 pub mod eidos;
