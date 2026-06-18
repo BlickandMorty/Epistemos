@@ -57,6 +57,10 @@ public struct SubstrateHealthPanel: View {
                 surface(falsifier: "docs/falsifiers/F-ULP-Oracle_2026_05_17.md", wRow: "W-14", weight: .heavy) {
                     AnswerPacketHealthRow()
                 }
+                // P8.5 — visible determinism: whether the P8.1 schema gate is
+                // enforcing typed-schema validation of tool calls (no falsifier;
+                // it reads the live runtime flag honestly).
+                DeterministicSchemaGateHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
