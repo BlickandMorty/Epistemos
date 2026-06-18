@@ -32,6 +32,12 @@ struct AgentToolTogglePanel: View {
     private var enabledCount: Int { agentCommandCenter.enabledToolNames.count }
     private var totalCount: Int { agentCommandCenter.availableTools.count }
 
+    /// True on the App Store (MAS) build, where git/shell/CLI-agent tools are
+    /// forbidden — so the panel honestly states they're a Pro-build capability.
+    private var showsProDeveloperNote: Bool {
+        ToolSurfacePolicy.resolvedDistribution(.currentBuild) == .coreAppStore
+    }
+
     /// P2.3 — the external (URL) MCP servers actually wired for the agent, read
     /// from the same config the Rust bridge forwards. Loaded once on appear.
     @State private var mcpServers: [MCPUrlServerDirectory.ServerInfo] = []
@@ -68,6 +74,19 @@ struct AgentToolTogglePanel: View {
                 .font(.system(size: 10))
                 .foregroundStyle(theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            // P2.5 — honest Pro-capability disclosure. Git, diff, shell, and
+            // CLI-agent tools are Pro-only (cfg(feature = "pro-build") in the
+            // Rust registry; the MAS build forbids them, locked by
+            // `mas_sandbox_registry_excludes_unbounded_tools`). On the App Store
+            // build they are intentionally absent from the list above, so state
+            // that plainly rather than show a tool the build can't run.
+            if showsProDeveloperNote {
+                Text("Git, diff, shell, and CLI-agent tools (Codex, Claude Code) run only in the Pro build.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(14)
         .frame(width: 320)
