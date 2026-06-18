@@ -17,7 +17,7 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 3. No feature is "done" until the owner can demonstrably use it.
 
 ## REOPENED — owner reports these DON'T WORK (fix first, verify in-app)
-- [ ] **#1 LOCAL FOR ALL MODES — STOP THE HIDDEN GPT ROUTE.** Owner (verbatim):
+- [~] **#1 LOCAL FOR ALL MODES (route fix landed 2026-06-18; verify in-app) — STOP THE HIDDEN GPT ROUTE.** Owner (verbatim):
       *"not even having cloud selected it goes to gpt, you should be able to use
       my local for all modes."* This is the #1 honesty-constraint violation: with
       NO cloud selected, Act/agentic still routes to GPT (cloud). FIX: the LOCAL
@@ -101,6 +101,12 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       substrate health + Knowledge Core (P5/R-ARCH) — more important than 70B.
 - [x] Auto-commit + push every slice to GitHub — verify still pushing.
 - [ ] Osaurus deep-read + full-replace eval (P3); Unsloth port + training UI (P4.1).
+- [ ] **Osaurus + Unsloth feed the MODES** (owner 2026-06-18): the Osaurus
+      deep-cherry-picks/full-port (local server + agent capabilities) and Unsloth
+      (model training) must SURFACE INSIDE Act mode — and where it fits, Chat mode
+      — not as standalone features. Act/Work run the local agent loop powered by
+      the Osaurus-adopted capabilities; training is reachable from the chat. Wire
+      them into the shared mode stack, local=cloud parity.
 - [ ] Settings decluttered + coherent (P6.4c) — verify it reads clean in-app.
 
 ## Verdict docs already produced (decisions, not yet built)

@@ -4567,8 +4567,21 @@ final class InferenceState {
 
             if !userHasExplicitPin {
                 switch operatingMode {
-                case .pro, .agent:
+                case .pro:
                     return .cloud(autoModel)
+                case .agent:
+                    // LOCAL FOR ALL MODES (owner mandate 2026-06-18): Act must
+                    // NEVER silently route to GPT/cloud when the owner has a
+                    // local agent-capable model. Cloud auto-route is an
+                    // escalation, not an override of a working local agent loop
+                    // — fall to cloud ONLY when no local model can actually run
+                    // the agent loop (mirrors the .fast guard below). When a
+                    // local agent model exists, fall through to the local
+                    // resolution at the bottom, which returns
+                    // `.localMLX(effectiveLocalAgentTextModelID)`.
+                    if effectiveLocalAgentTextModelID == nil {
+                        return .cloud(autoModel)
+                    }
                 case .thinking:
                     return .cloud(autoModel)
                 case .fast:
