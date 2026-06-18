@@ -539,8 +539,8 @@ P6.1  Real AI provider logos in Settings + chat + model picker, BIASED TO
       COMPLETE the set from lobehub @lobehub/icons (MIT; mono+color;
       <title>/viewBox="0 0 24 24"/fill="currentColor"), preferring the MONO
       variant — for BOTH cloud AND local models: Anthropic, Claude, OpenAI/ChatGPT,
-      Codex, Google, Gemini, Google Gemma, QWEN (local), Apple, Kimi, Hermes —
-      coherent set, mono default.
+      Codex, Google, Gemini, Google Gemma, QWEN (local), LiquidAI/LFM (local),
+      Apple, Kimi, Hermes — coherent set, mono default.
       CONTEXT-SPECIFIC wiring (logo MUST match what is actually serving the turn):
         • Claude Code logo → the app's Claude Code CLI surface in chat.
         • Codex logo → the app's Codex surface.

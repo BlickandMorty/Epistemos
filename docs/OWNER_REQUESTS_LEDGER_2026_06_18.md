@@ -313,6 +313,13 @@ should make the codebase MUCH better, never destabilize the working chat.
       Osaurus config + Goose subagents), not import SDKs. Recommend the native design.
 
 ## Models (owner 2026-06-18)
+- [ ] **Add LiquidAI LFM2.5-8B-A1B GGUF (huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF)**
+      — MoE, 8B total / ~1B ACTIVE = very light + fast (well within 16 GB, likely
+      MAS-viable not just Pro). Wire into the GGUF lane as an installable candidate;
+      EVALUATE best role (dedicated fast/quick local model? a Fast-tier option? a
+      cheap tool/triage model?) and document the verdict. Memory-gate honestly (it's
+      small so it should just fit). Add the LiquidAI/LFM logo to P6.1. Verify it
+      loads + generates.
 - [ ] **Add Gemma 4 26B-A4B QAT GGUF (unsloth/gemma-4-26B-A4B-it-qat-GGUF)** — owner
       wants this MoE (26B total / ~4B active) running. The MLX 4-bit variant is
       already cataloged (`gemma4_27BA4B4Bit` = mlx-community/gemma-4-26b-a4b-it-4bit,
