@@ -451,8 +451,16 @@ calls: no blanket rule — choose per case.
       browser-use, OpenClaw), and general assistant/agent apps. Verdict doc: per app
       what to adopt natively (patterns/prompts/UX) vs skip, license. Feed the best
       into Chat/Act/Work + the deep-research (DeerFlow) + computer-use stacks.
-- [~] **DeerFlow 2.0 — VERDICT done 2026-06-18 (docs/RESEARCH_DEERFLOW_2026_06_18.md);
-      NATIVE BUILD is a major workstream awaiting owner go-ahead (R-DEERFLOW).**
+- [~] **DeerFlow 2.0 — BUILD STARTED 2026-06-18 (owner go-ahead received). Native
+      Rust, incremental. SLICE 1 DONE (92e4fc145): deep_research::ResearchPlan +
+      execution_layers() parallel-batch layering + validate (cargo-verified BOTH
+      builds, 8 tests, INERT/types-only). NEXT SLICES: (2) the planner turn that
+      emits+schema-gate-validates a ResearchPlan from an objective; (3) the
+      orchestrator — run each execution layer as concurrent agent_core sub-agent
+      loops (isolated histories, capped concurrency) + compaction offload to
+      filesystem artifacts; (4) Eidos-cited synthesis turn; (5) flag + Research/
+      Work-mode wiring + AnswerPacket. Single-agent stays default until wired.
+      Verdict: docs/RESEARCH_DEERFLOW_2026_06_18.md (R-DEERFLOW).**
       First REAL gap of the verdict sweep: Epistemos has every SUPPORTING piece
       (tools, compaction summarization, session memory, P8.1 schema gate, skills,
       filesystem artifacts) but its agent_core loop is SINGLE-AGENT — it lacks the
