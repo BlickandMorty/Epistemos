@@ -313,6 +313,17 @@ should make the codebase MUCH better, never destabilize the working chat.
       Osaurus config + Goose subagents), not import SDKs. Recommend the native design.
 
 ## Models (owner 2026-06-18)
+- [ ] **BRING-YOUR-OWN-MODEL — import ANY model from HuggingFace/GitHub (owner 2026-06-18)**
+      Open-ended model import: paste a HF repo (or GitHub) URL, DETECT the format +
+      list available files/quants (MLX, GGUF Q2..Q8/IQ, safetensors), pick one, then
+      INSTALL + RUN it via the matching on-device lane — MLX-Swift (in-process, MAS-OK)
+      or the GGUF llama-cli lane (Pro, flag-gated). Reuse ModelDownloadManager + the
+      P1.8 progress UI; memory-gate honestly + the new "Run anyway" override so the
+      user can attempt larger community quants. HONEST about what actually runs
+      on-device: MLX + GGUF supported; raw PyTorch/safetensors needs an offline
+      mlx_lm.convert step (Pro/dev) — surface that, don't fake a load. This lets the
+      owner upgrade/swap to any model + grab community quants of bigger models.
+
 - [ ] **Add Unsloth Gemma 4 12B 2-BIT GGUF (low-RAM)** — owner wants the very-low-RAM
       2-bit (Q2_K / IQ2) GGUF of Gemma 4 12B from Unsloth (~4-5 GB vs ~8+ at 4-bit),
       so 12B-class quality fits comfortably on the 16 GB Mac. Find the exact Unsloth
