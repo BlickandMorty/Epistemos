@@ -574,6 +574,9 @@ struct LocalModelToolbarMenu: View {
     /// just the three Epistemos efforts + a Cloud toggle.
     @State private var showsAdvancedRuntimeOptions = false
     @State private var aboutSelection: ChatModelSelection?
+    /// P7.6 — remembers the tier (Fast/Think/Code) to return to when the user
+    /// flips the Chat/Act depth toggle back to Chat.
+    @State private var lastTierMode: EpistemosOperatingMode = .fast
     @State private var localModelSubtitleCache: [String: String] = [:]
 
     private var theme: EpistemosTheme { ui.theme }
@@ -1505,10 +1508,16 @@ struct LocalModelToolbarMenu: View {
                         .foregroundStyle(theme.textTertiary)
                 }
 
+                depthToggleSection
+
                 if let operatingMode {
                     VStack(alignment: .leading, spacing: 8) {
-                        popoverSectionTitle("Mode")
-                        ForEach(displayedOperatingModes, id: \.rawValue) { option in
+                        popoverSectionTitle("Tier")
+                        // P7.6 — the tier rows are Fast/Think/Code only; the
+                        // agent depth (.agent) is the "Act" toggle above, so it's
+                        // filtered out here to keep depth and tier separate (per
+                        // the CHAT_UX_MAP).
+                        ForEach(displayedOperatingModes.filter { $0 != .agent }, id: \.rawValue) { option in
                             selectionRow(
                                 title: option.displayName,
                                 subtitle: modeSubtitle(for: option, isEnabled: true),
@@ -1518,6 +1527,7 @@ struct LocalModelToolbarMenu: View {
                             ) {
                                 let sanitizedMode = sanitizedDisplayedOperatingMode(option)
                                 operatingMode.wrappedValue = sanitizedMode
+                                if sanitizedMode != .agent { lastTierMode = sanitizedMode }
                                 inference.setChatReasoningTier(
                                     inference.chatReasoningTier,
                                     for: sanitizedMode
@@ -1617,6 +1627,42 @@ struct LocalModelToolbarMenu: View {
             return "Connect a provider in Settings → Inference"
         }
         return "Chat stays on-device. Turn on to route to GPT, Claude, and more."
+    }
+
+    /// P7.6 — the Chat/Act depth toggle (the cowork "how it works" axis). Chat is
+    /// conversational on the selected tier; Act runs the multi-step agent loop
+    /// (`operatingMode == .agent`). Honest gating: Act is only enabled when an
+    /// agent route exists (`.agent` in the available modes — cloud/Pro); else it's
+    /// disabled with the real reason, never faking agent capability for local.
+    @ViewBuilder
+    private var depthToggleSection: some View {
+        if let operatingMode {
+            let actAvailable = CoworkChatMode.actAvailable(in: displayedOperatingModes)
+            let current = CoworkChatMode.current(for: operatingMode.wrappedValue)
+            VStack(alignment: .leading, spacing: 8) {
+                popoverSectionTitle("Mode")
+                selectionRow(
+                    title: CoworkChatMode.chat.displayName,
+                    subtitle: "Conversational — answers on your selected tier.",
+                    systemImage: CoworkChatMode.chat.systemImage,
+                    isSelected: current == .chat,
+                    isEnabled: true
+                ) {
+                    operatingMode.wrappedValue = CoworkChatMode.chat.operatingMode(rememberedTier: lastTierMode)
+                }
+                selectionRow(
+                    title: CoworkChatMode.act.displayName,
+                    subtitle: actAvailable
+                        ? "Multi-step agent loop — uses tools, memory, and skills."
+                        : CoworkChatMode.actUnavailableReason,
+                    systemImage: CoworkChatMode.act.systemImage,
+                    isSelected: current == .act,
+                    isEnabled: actAvailable
+                ) {
+                    operatingMode.wrappedValue = .agent
+                }
+            }
+        }
     }
 
     private var appleIntelligenceSelected: Bool {
