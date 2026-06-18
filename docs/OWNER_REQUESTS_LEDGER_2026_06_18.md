@@ -63,7 +63,14 @@ calls: no blanket rule — choose per case.
 3. No feature is "done" until the owner can demonstrably use it.
 
 ## REOPENED — owner reports these DON'T WORK (fix first, verify in-app)
-- [~] **PICKER IS STILL A POPOVER — MAIN CHAT DONE 2026-06-18 (378379408)**
+- [x] **PICKER IS STILL A POPOVER — DONE 2026-06-18, ALL 5 SURFACES (b8ceebabc)**
+      The model/runtime picker is now a flat inline pixel-art panel
+      (InlineRuntimePickerPanel) on ALL surfaces: main chat (378379408), landing
+      (d790bc81f), mini (a6a636b38), graph + note (b8ceebabc). No model-picker
+      popover remains anywhere (the only LocalModelToolbarMenu left is main
+      chat's split toolbar for mode/routing/effort, with its model button hidden
+      and the inline panel as the picker). Owner verifies visually (Product▸Run).
+      Original ask for the record:
       Built InlineRuntimePickerPanel — a FLAT, INLINE, pixel-art panel (hard 1.5px
       rectangular border, solid theme.card fill, monospaced/pixel titles, flat
       accent-bar selection, NO .popover) that expands in-flow in the MAIN-CHAT
