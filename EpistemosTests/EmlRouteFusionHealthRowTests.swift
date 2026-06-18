@@ -16,9 +16,21 @@ struct EmlRouteFusionHealthRowTests {
         // It must consult the router's emlRouteFusionEnabled(), not a private
         // re-read of the env var — keeps the surface honest to the runtime.
         #expect(src.contains("ConfidenceRouter.emlRouteFusionEnabled()"))
-        // Honest ON/off copy so the owner can see the state.
-        #expect(src.contains("EML route fusion: ON"))
         #expect(src.contains("EPISTEMOS_EML_ROUTE_V1"))
+    }
+
+    @Test("the row honestly states the primitive is NOT yet live")
+    func rowIsHonestAboutNotLive() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/EmlRouteFusionHealthRow.swift"
+        )
+        // ConfidenceRouter.route() is legacy/uncalled; the row must NOT claim a
+        // live routing behavior. It says "armed (not yet live)" / "not yet
+        // wired", and names the real live seam (TriageService).
+        #expect(src.contains("not yet live") || src.contains("not yet wired") || src.contains("NOT yet wired"))
+        #expect(src.contains("TriageService"))
+        // It must NOT claim local-vs-cloud routing actively fuses (the dead path).
+        #expect(!src.contains("Local-vs-cloud routing fuses"))
     }
 
     @Test("the row is surfaced in the Substrate Health panel")

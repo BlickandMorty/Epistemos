@@ -194,6 +194,15 @@ nonisolated struct ConfidenceRouter {
     /// Opt-in EML route fusion (P5.H A1 / EML-2), default OFF — same truth table
     /// as the Rust gates (1/true/yes/on). When off, `route` is byte-identical to
     /// its prior behavior (the fusion gate is skipped entirely).
+    ///
+    /// HONEST STATUS (verified 2026-06-18): `ConfidenceRouter` is a LEGACY
+    /// surface — never instantiated in production, so `route()` (and this fusion)
+    /// is exercised only by tests. The live local-vs-cloud decision is
+    /// `TriageService.InferencePolicyEngine.shouldAutoRouteToCloud`, which is
+    /// complexity-only (no confidence signal). So this is a tested, parity-locked
+    /// PRIMITIVE awaiting a live seam — it does not affect routing today.
+    /// EmlRouteFusionHealthRow surfaces this honestly. Live-wiring EML-2 needs a
+    /// confidence signal added to the triage profile first (a separate design).
     nonisolated static func emlRouteFusionEnabled(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
