@@ -174,6 +174,28 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("Do not claim a note was created, updated, or read back"))
     }
 
+    /// Founding-thesis verifiability lock (owner: determinism + grounded
+    /// evidence). The local prompt must keep vault note LOOKUPS grounded in
+    /// eidos.query (citable evidence) and forbid guessing a filesystem path from
+    /// a title — the closed-citation discipline that keeps small local models
+    /// honest. Every vault-WRITE invariant was already covered; this gap (the
+    /// vault-READ/evidence path) was not, so a drift that dropped the
+    /// eidos.query-first rule would have shipped silently.
+    @Test("system prompt grounds vault note lookups in eidos.query, never a guessed path")
+    func systemPromptGroundsVaultLookupsInEidos() {
+        let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool(), vaultReadTool()])
+
+        #expect(prompt.contains("never guess a filesystem path from a title"))
+        #expect(prompt.contains("Use eidos.query first to select citable vault evidence"))
+        #expect(prompt.contains("then vault.read with the returned vault-relative path"))
+        // Path-agnostic: the Swift fallback says "only if eidos.query is
+        // unavailable"; the agent_core base says "only as compatibility fallback
+        // if eidos.query is unavailable". Match the common substrings so the lock
+        // holds whichever prompt path (Swift fallback or Rust FFI) builds it.
+        #expect(prompt.contains("Use vault.search only"))
+        #expect(prompt.contains("eidos.query is unavailable"))
+    }
+
     @Test("system prompt includes an immediate file-tool example for smaller local tiers")
     func systemPromptIncludesImmediateFileToolExampleForSmallerLocalTiers() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [writeTool(), readTool()])
