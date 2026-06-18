@@ -401,6 +401,16 @@ is CHAT SURFACING. Build a "capability explorer" reachable from the composer:
         tool selection, output schema). Foundation landed 2f3ae4a5c +
         CompanionCreationFlow advanced config. Only expose fields wired to
         runtime (no fake config).
+  P2.7  SKILL/TOOL/MCP INSTALL + MANAGEMENT (owner 2026-06-18 — Settings appendage).
+        Better skill CREATION (improve P2.4) AND an INSTALL surface: install skills/
+        tools/superpowers/MCP servers FROM external sources — GitHub repos + MCP
+        registries (modelcontextprotocol registry, Smithery, mcp.so, glama,
+        awesome-mcp-servers, etc.). The app must actually PERSIST installed ones
+        (survive restarts) and USE them once installed (wired into the tool catalog
+        / executionPlan / MCPBridge, not just listed). A SETTINGS management pane:
+        browse/install/enable/disable/update/remove, with provenance + honest
+        gating (Pro/MAS, Keychain for any tokens, security.rs for subprocess). Pairs
+        with the BEST-OF PRESET (ship good defaults) + P2.3 MCP + P2.4 skills.
 
 ────────────────────────────────────────────────────────────────────────
 PRIORITY 3 — OSAURUS = ACT MODE: FULL IMPORT (owner DECISION 2026-06-18 — REVERSES
