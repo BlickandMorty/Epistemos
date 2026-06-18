@@ -3834,17 +3834,23 @@ private struct AppearanceDetailContainer: View {
             .formStyle(.grouped)
     }
 
+    // P6.4 (item 3) — section order mirrors `AppearanceSection.canonical`
+    // (locked by AppearanceSectionOrderTests): all look-and-feel sections
+    // (theme, custom, typography, editor) grouped first, then the graph trio as
+    // one contiguous block. Declutter only reorders — every real setting stays.
     private var appearanceForm: some View {
         Form {
+            // Look & feel
             AppearanceThemePairSection(ui: ui, theme: theme)
             if ui.themeMode == .custom && ui.activePair == .custom {
                 AppearanceCustomThemeSection(ui: ui)
             }
             AppearanceTypographySection(ui: ui)
+            AppearanceEditorSection()
+            // Graph visuals (contiguous block)
             AppearanceGraphNodeVisibilitySection()
             AppearanceGraphPerformanceSection()
             AppearanceShapedGraphSection(ui: ui)
-            AppearanceEditorSection()
         }
     }
 }
