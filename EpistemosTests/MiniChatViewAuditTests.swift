@@ -253,9 +253,15 @@ struct MiniChatViewAuditTests {
 
         #expect(miniChatSource.contains("private var supportedOperatingModes: [EpistemosOperatingMode]"))
         #expect(!miniChatSource.contains("filter { $0 != .agent }"))
-        #expect(miniChatSource.contains("availableOperatingModes("))
-        #expect(miniChatSource.contains("for: inference.preferredChatModelSelection"))
-        #expect(miniChatSource.contains("availableOperatingModes: supportedOperatingModes"))
+        // Owner 2026-06-18 (mini-chat parity): mini derives its operating modes
+        // from the SAME shared main-chat source as the main composer — NOT a
+        // narrower per-model base set — so Act/agent reaches full parity. Honest
+        // gating still lives inside `availableOperatingModes` (Act only with a
+        // real route). The inline picker drives the sanitized binding.
+        #expect(miniChatSource.contains("MainChatOperatingModePreference.supportedModes(for: inference)"))
+        // The old per-model narrowing (the restriction the owner flagged) is gone.
+        #expect(!miniChatSource.contains("availableOperatingModes(for: inference.preferredChatModelSelection)"))
+        #expect(miniChatSource.contains("operatingMode: operatingModeBinding"))
         #expect(miniChatSource.contains("case .agent, .pro:"))
         #expect(miniChatSource.contains(".onChange(of: inference.preferredChatModelSelection.rawValue)"))
         #expect(!miniChatSource.contains("UtilityWindowManager.shared.show(.omega)"))

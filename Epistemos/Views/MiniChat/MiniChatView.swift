@@ -664,11 +664,16 @@ private struct MiniChatInputBar: View {
     private var theme: EpistemosTheme { ui.theme }
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private let composerMetrics = AssistantComposerMetrics.compactChat
+    /// Owner 2026-06-18 (mini-chat parity): mini must offer the SAME operating
+    /// modes as MAIN chat — Fast/Think/Code plus Act when an agent route exists —
+    /// not the narrower per-model BASE set. Previously this used
+    /// `availableOperatingModes(for: preferredChatModelSelection)` (base caps
+    /// only), so `sanitizedMiniChatOperatingMode` would REVERT Act even when the
+    /// inline panel offered it (the panel checks the broad set). Reuse the shared
+    /// main-chat source so the two surfaces can never drift; honest gating is
+    /// already baked into `availableOperatingModes` (Act only with a real route).
     private var supportedOperatingModes: [EpistemosOperatingMode] {
-        let modes = inference.availableOperatingModes(
-            for: inference.preferredChatModelSelection
-        )
-        return modes.isEmpty ? [.fast] : modes
+        MainChatOperatingModePreference.supportedModes(for: inference)
     }
     private func sanitizedMiniChatOperatingMode(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
         guard supportedOperatingModes.contains(mode) else {
