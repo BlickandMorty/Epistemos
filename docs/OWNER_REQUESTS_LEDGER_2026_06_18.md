@@ -108,8 +108,15 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       MCP, shipped Pro) + LocalAgentCapabilityRegistry `browser` toolset already
       exist but aren't reachable from chat. Wire it in honestly (Pro-gated), so the
       agent can drive a browser / do anything on the web from chat. Also pairs with
-      the HTML canvas (P7.2). [owner asked re "obscura browser use" — confirm what
-      "obscura" specifically is; treated as browser-use until clarified.]
+      the HTML canvas (P7.2).
+- [ ] **OBSCURA BUILT-IN BROWSER (owner researched before; runtime never built)** —
+      build the actual working in-app Obscura browser (Rust browser backend /
+      WKWebView built-in browser). PRIOR RESEARCH IN-REPO (read first, build on it):
+      docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md (Tier-1 lifts LANDED),
+      HELIOS_V5_INTEGRATION_PLAN §B3 "W6-A..W6-I runtime work (Obscura + deno_core +
+      Eidos) — queued", EPISTEMOS_HERMES_MANIFESTO "WKWebView built-in browser". The
+      W6 runtime was never built — BUILD it. Pairs with Work mode + HTML canvas
+      (P7.2) + browser-use. Pro/dev-gated where it needs network/subprocess.
 - [ ] **RESEARCH-CORPUS COMPLETENESS SWEEP (owner 2026-06-18)** — the owner fears
       researched/queried items are silently dropped. The loop must SWEEP the
       owner's local research (docs/fusion/* + prior plans) AND this session's full
