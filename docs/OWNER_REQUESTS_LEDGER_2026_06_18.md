@@ -246,6 +246,34 @@ should make the codebase MUCH better, never destabilize the working chat.
       them into the shared mode stack, local=cloud parity.
 - [ ] Settings decluttered + coherent (P6.4c) — verify it reads clean in-app.
 
+## Settings / staleness / substrate-finish (owner 2026-06-18)
+- [ ] **DEEP SETTINGS REPAIR** — beyond the declutter (P6.4c): AUDIT every Settings
+      row/toggle/section for things that DON'T WORK or encode OLD ASSUMPTIONS that
+      no longer apply and actively mess things up. Fix or remove the stale ones;
+      verify each remaining control is wired to real runtime. (Views/Settings/*.)
+- [ ] **APP-WIDE STALENESS SWEEP** — there are instances around the app of
+      super-old code/assumptions. Grep for stale flags/model names/dead paths/old
+      copy and repair or remove them; honest, with regressions. Not just Settings.
+- [ ] **SUBSTRATE HEALTH PAGE makes the window SUPER LONG** — layout bug in
+      Epistemos/Views/Settings/SubstrateHealthPanel.swift (too many health rows
+      stacked). Fix: scrollable/collapsible/paginated so it doesn't blow out the
+      window height. Quick, visible win.
+- [ ] **SUBSTRATE COMPLETELY FINISHED (except the 70B runtime)** — finish ALL of
+      P5/P5.H substrate to T4+ (Cognitive DAG, provenance, Knowledge Core, Halo,
+      Simulation, GenUI, XPC, Eidos, EML). ONLY the large-local-model (70B/System G)
+      RUNTIME stays owner-gated; everything else gets done.
+- [ ] **MINE SYSTEM G LOGIC → apply to beneficial app parts (non-runtime)** —
+      Epistemos/SystemG/* (SystemGRunSeam / RealSystemGRunSeam / SystemGWiring) +
+      AnswerPacket/SovereignGate/RuntimeRouter patterns. Extract the reusable LOGIC
+      (verifiability, AnswerPacket provenance, run-event logging, sovereign gating,
+      router) and apply it to the parts of the app that truly benefit — WITHOUT
+      arming the gated 70B runtime itself.
+- [ ] **INFUSE EPISTEMOS IP INTO ACT (Osaurus) + WORK (Goose)** — Act and Work are
+      not vanilla Osaurus/Goose: wire the owner's specific capabilities/IP into
+      them (deterministic schemas P8.2, Eidos, Knowledge Core, memory/vault, the
+      determinism/verifiability gates, theme). They inherit hardening from the
+      engines AND gain Epistemos's superpowers.
+
 ## Verdict docs already produced (decisions, not yet built)
 R-VOICE (Kokoro+MOSS+filter), R-EVE (pattern only), R-OKF (export+privacy+dedup),
 R-PROMPT (cache-stable prefix + lean schemas), CHAT_UX_MAP (3 axes). These are
