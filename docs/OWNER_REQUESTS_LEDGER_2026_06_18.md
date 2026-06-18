@@ -456,10 +456,13 @@ calls: no blanket rule — choose per case.
       8 tests); slice 2 PLANNER planner.rs research_plan_schema+planner_prompt+
       parse_plan→validated ResearchPlan (c250a670b, 9 tests); slice 3 ORCHESTRATOR
       orchestrator.rs run_plan concurrent layer-by-layer fan-out + SubAgentResearcher
-      trait (b1274ae16, 5 tests incl. real peak-concurrency probe). All cargo-verified
-      BOTH builds, INERT/not-wired. NEXT: (3b) live SubAgentResearcher = isolated
-      agent_core sub-agent loop per sub-question + compaction offload to filesystem
-      artifacts; (4) Eidos-cited synthesis turn; (5) flag EPISTEMOS_DEEP_RESEARCH_V0
+      trait (b1274ae16, 5 tests incl. real peak-concurrency probe); slice 3b LIVE
+      RESEARCHER researcher.rs LiveSubAgentResearcher (isolated agent_core sub-agent
+      loop per sub-question, reuses delegate_task SilentDelegate+run_agent_loop,
+      PRO-gated like delegate_task; pure helpers sub_agent_objective+extract_findings
+      unit-tested) (7fa16cc00, 3 tests). All cargo-verified BOTH builds, INERT.
+      NEXT: (4) REPORTER = Eidos-cited synthesis turn (read sub-agent findings →
+      coherent cited output); (5) flag EPISTEMOS_DEEP_RESEARCH_V0
       + Research/Work-mode wiring + AnswerPacket. Single-agent stays default until
       wired.
       Verdict: docs/RESEARCH_DEERFLOW_2026_06_18.md (R-DEERFLOW).**
