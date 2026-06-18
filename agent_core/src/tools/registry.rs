@@ -862,6 +862,7 @@ impl ToolRegistry {
                 self.register_aider_passthrough();
                 self.register_openhands_passthrough();
                 self.register_mini_swe_agent_passthrough();
+                self.register_opencode_passthrough();
             }
         }
 
@@ -2438,6 +2439,51 @@ impl ToolRegistry {
                 "required": ["task"]
             }),
             handler: Box::new(crate::tools::cli_passthrough::MiniSweAgentHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    /// P7.4 — delegate a coding task to sst/opencode (`opencode run`). OpenCode
+    /// is a terminal coding agent with its own tool surface; this is the deep
+    /// capability reached FROM Act mode (CHAT_UX_MAP) — not a rival Code mode.
+    /// Pro-only: `#[cfg(feature = "pro-build")]` + `enable_bash`-gated, so MAS
+    /// never registers it.
+    #[cfg(feature = "pro-build")]
+    fn register_opencode_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "opencode".to_string(),
+            description: "Delegate a coding task to sst/opencode running non-interactively \
+                (`opencode run [--model provider/model] <task>`). The delegated agent has \
+                OpenCode's full tool surface (shell, file edit, git, LSP) and uses its own \
+                configured provider/model. Use for multi-step coding work where you want \
+                OpenCode's own loop to own the turn. Returns a structured receipt. If OpenCode \
+                is not installed, returns a structured install-hint.".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to OpenCode."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional model override in OpenCode's `provider/model` form (e.g. 'anthropic/claude-sonnet-4-6'). Omit to use OpenCode's default."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the OpenCode session in."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::OpenCodeHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });
@@ -4217,6 +4263,7 @@ mod tier_tests {
             "process",
             "claude_code",
             "codex",
+            "opencode",
             "imessage",
             "imessage_contacts",
             "channel_contacts",
