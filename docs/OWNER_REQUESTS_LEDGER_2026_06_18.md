@@ -177,6 +177,10 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       work GREAT; surface the determinism visibly.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
+- [ ] **Study the best chat/agent apps (R-APPS, owner 2026-06-18)** — besides
+      Osaurus: LM Studio, HuggingFace (chat-ui/transformers/candle), Unsloth, Jan,
+      Ollama, Open WebUI, Cherry Studio, LibreChat, etc. Mine their SYSTEM PROMPTS
+      + architectures + agent/tool/MCP handling; verdict doc on what to adopt.
 - [x] Auto-commit + push every slice to GitHub — verify still pushing.
 - [ ] **OSAURUS = ACT, FULL IMPORT (owner DECISION 2026-06-18, P3.0)** — bring in
       ALL of Osaurus incl. frontend, ZERO cherry-pick (completeness; don't miss
