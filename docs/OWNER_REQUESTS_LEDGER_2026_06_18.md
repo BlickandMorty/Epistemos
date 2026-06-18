@@ -44,6 +44,16 @@ core behind the Work mode + a feature flag; keep Chat/Act on their own engines;
 add regression coverage proving Chat + Act are unchanged after Goose lands. Goose
 should make the codebase MUCH better, never destabilize the working chat.
 
+**BEST-TOOL-PER-SURFACE / PERFORMANCE-AWARE (owner 2026-06-18):** be GENEROUS — do
+NOT force native everywhere. Pick the best tool PER SURFACE and optimize for
+performance + the best result, not dogma: use WEBKIT (WKWebView) where it's the
+pragmatic best (full web-app ports — OpenClaw, fieldtheory, htmlstream, kuku, the
+HTML canvas), use NATIVE Swift/Rust where it wins on performance/quality (core
+engine, MLX/GGUF inference, hot paths, the substrate/determinism). Always make the
+most performance-aware choice; lean is still prioritized but completeness/quality
+wins when the owner wants the whole thing. This refines the earlier native-vs-web
+calls: no blanket rule — choose per case.
+
 ## REALITY-AUDIT RULE (applies to every line)
 1. Build the app; actually trace the UX path the owner would take.
 2. If a feature is hidden unless cloud/Pro/some-state — that's a FAIL for a
