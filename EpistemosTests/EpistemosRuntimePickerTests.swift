@@ -87,6 +87,29 @@ struct EpistemosRuntimePickerTests {
         }
     }
 
+    @Test("per-tier foundation picks match the owner spec (Gemma sizes→Fast, VibeThinker→Think, Coder→Code)")
+    func perTierFoundationPicksMatchOwnerSpec() {
+        let fast = EpistemosFoundationLineup.candidates(for: .fast)
+        let think = EpistemosFoundationLineup.candidates(for: .think)
+        let code = EpistemosFoundationLineup.candidates(for: .code)
+
+        // Fast = the Gemma sizes (E2B/E4B/12B at minimum), all on the Fast tier,
+        // smallest-first (so complexity routing can walk up).
+        #expect(fast.count >= 3, "Fast must offer the Gemma 2B/4B/12B sizes")
+        #expect(fast.allSatisfy { $0.stage.epistemosTier == .fast })
+        // Think includes VibeThinker (the reasoning specialist).
+        #expect(think.contains { $0.stage == .reasoningSpecialist },
+                "Think must include VibeThinker (reasoningSpecialist)")
+        // Code is the Gemma 12B coder fine-tune.
+        #expect(code.contains { $0.stage == .specialistCoderFineTune },
+                "Code must include the Gemma 12B Coder (specialistCoderFineTune)")
+        #expect(code.allSatisfy { $0.stage.epistemosTier == .code })
+        // The picker surfaces these (foundation + Qwen extras + Fast's Apple
+        // Intelligence) — proven structurally by the options() tests above.
+        #expect(EpistemosRuntimePicker.options(for: .code, environment: env(installed: [], freeGB: 64))
+            .contains { $0.tier == .code })
+    }
+
     @Test("BOTH Qwen 3 4B and 8B are visible explicit Think picks (neither auto-default)")
     func bothQwensAreExplicitThinkPicks() {
         let ids = ["Qwen/Qwen3-4B-MLX-4bit", "Qwen/Qwen3-8B-MLX-4bit"]
