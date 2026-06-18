@@ -161,8 +161,51 @@ struct HologramSearchSidebar: View {
     @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openSettings) private var openSettings
     @AppStorage("epistemos.graphChatOperatingMode")
     private var graphChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
+    /// Owner 2026-06-18: graph node-chat model picker is a flat inline pixel-art
+    /// panel expanding in-flow in the sidebar — not a floating popover.
+    @State private var showInlineRuntimePicker = false
+
+    /// Compact sidebar-styled trigger for the inline picker (replaces the
+    /// single-button LocalModelToolbarMenu popover), matching the graph chat's
+    /// monospaced aesthetic.
+    private var graphInlineRuntimePickerTrigger: some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker.toggle()
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 9, weight: .bold))
+                Text(graphRuntimeTierLabel)
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .textCase(.uppercase)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 7, weight: .bold))
+                    .rotationEffect(.degrees(showInlineRuntimePicker ? 180 : 0))
+            }
+            .foregroundStyle(showInlineRuntimePicker ? graphChatAccentColor : theme.textSecondary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(theme.textSecondary.opacity(showInlineRuntimePicker ? 0 : 0.06)))
+            .overlay(Capsule().strokeBorder(showInlineRuntimePicker ? graphChatAccentColor.opacity(0.5) : Color.clear, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Pick the Epistemos brain — Fast / Think / Code")
+    }
+
+    private var graphRuntimeTierLabel: String {
+        switch graphChatOperatingModeBinding.wrappedValue {
+        case .fast: return "Fast"
+        case .thinking: return "Think"
+        case .pro: return "Code"
+        case .agent: return "Act"
+        }
+    }
     /// Persisted collapse state. Survives editor↔graph navigation and app
     /// restarts. When true the sidebar shrinks to a single expand-affordance
     /// button; when false the full Notes/Query/Chat tabs are visible.
@@ -777,12 +820,7 @@ struct HologramSearchSidebar: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                LocalModelToolbarMenu(
-                    variant: .toolbar,
-                    operatingMode: graphChatOperatingModeBinding,
-                    availableOperatingModes: supportedGraphChatOperatingModes
-                )
-                .controlSize(.small)
+                graphInlineRuntimePickerTrigger
 
                 Spacer(minLength: 8)
 
@@ -790,6 +828,23 @@ struct HologramSearchSidebar: View {
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .foregroundStyle(graphChatStatusPhase == .idle ? theme.textTertiary : graphChatAccentColor)
                     .textCase(.uppercase)
+            }
+
+            // Owner 2026-06-18: flat inline pixel-art picker in-flow in the
+            // sidebar, replacing the single-button LocalModelToolbarMenu popover.
+            if showInlineRuntimePicker {
+                InlineRuntimePickerPanel(
+                    inference: inference,
+                    operatingMode: graphChatOperatingModeBinding,
+                    onPicked: {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
+                            showInlineRuntimePicker = false
+                        }
+                    },
+                    onOpenSettings: { openSettings() },
+                    showsSettingsFooter: true
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             HStack(spacing: 8) {

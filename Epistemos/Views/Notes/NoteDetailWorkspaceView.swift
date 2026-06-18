@@ -597,11 +597,15 @@ struct NoteDetailWorkspaceView: View {
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openSettings) private var openSettings
     @Environment(\.graphSurfacePresentation) private var graphSurfacePresentation
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
+    /// Owner 2026-06-18: the note ask-bar model picker is a flat inline pixel-art
+    /// panel expanding in-flow above the ask bar — not a floating popover.
+    @State private var showInlineRuntimePicker = false
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
     @State private var persistedBody: String
@@ -2130,7 +2134,26 @@ struct NoteDetailWorkspaceView: View {
     private func toolbarChatField(width: CGFloat) -> some View {
         @Bindable var chat = noteChatState
 
-        return AssistantToolbarAskBar(
+        return VStack(alignment: .leading, spacing: 6) {
+            // Owner 2026-06-18: flat inline pixel-art picker in-flow above the
+            // ask bar, replacing the single-button LocalModelToolbarMenu popover.
+            if showInlineRuntimePicker {
+                InlineRuntimePickerPanel(
+                    inference: inference,
+                    operatingMode: noteChatOperatingModeBinding,
+                    onPicked: {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
+                            showInlineRuntimePicker = false
+                        }
+                    },
+                    onOpenSettings: { openSettings() },
+                    showsSettingsFooter: true
+                )
+                .frame(maxWidth: width)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            AssistantToolbarAskBar(
             text: $chat.inputText,
             placeholder: toolbarAskPlaceholder,
             phase: toolbarAskStatusPhase,
@@ -2148,11 +2171,7 @@ struct NoteDetailWorkspaceView: View {
             }
         ) {
             HStack(spacing: 6) {
-                LocalModelToolbarMenu(
-                    variant: .toolbar,
-                    operatingMode: noteChatOperatingModeBinding,
-                    availableOperatingModes: supportedNoteChatOperatingModes
-                )
+                noteInlineRuntimePickerTrigger
                 ChatCapabilityPill(
                     capability: toolbarAskCapability,
                     detail: toolbarAskPillDetail
@@ -2171,6 +2190,33 @@ struct NoteDetailWorkspaceView: View {
                 )
                 .help("Send this ask to main chat")
             }
+        }
+        }
+    }
+
+    /// Owner 2026-06-18: trigger for the inline runtime picker on the note ask
+    /// bar (replaces the single-button LocalModelToolbarMenu popover).
+    private var noteInlineRuntimePickerTrigger: some View {
+        ToolbarCapsuleButton(
+            title: noteRuntimeTierLabel,
+            systemImage: "cpu",
+            variant: .toolbar,
+            isActive: showInlineRuntimePicker,
+            helpText: "Pick the Epistemos brain — Fast / Think / Code",
+            accessibilityLabel: "Model picker, \(noteRuntimeTierLabel)"
+        ) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker.toggle()
+            }
+        }
+    }
+
+    private var noteRuntimeTierLabel: String {
+        switch noteChatOperatingModeBinding.wrappedValue {
+        case .fast: return "Fast"
+        case .thinking: return "Think"
+        case .pro: return "Code"
+        case .agent: return "Act"
         }
     }
 
