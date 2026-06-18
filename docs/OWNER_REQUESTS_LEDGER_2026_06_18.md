@@ -614,11 +614,14 @@ per pass). Keep until all done + hardened (rule #6/#8).
       real + 1,800+ tests, but reaching bridge.rs needs: decide `research` compiles
       into the MAS/Pro lib (or promote modules out of research/) + UniFFI export +
       Swift call-site. SIGN-OFF NEEDED before the EML/primitive batch can ship.
-- [ ] **Tier-1 fast wins** (real Rust + LOCAL, M each after the domino): A1 EML-2
-      ConfidenceRouter scoring, A2 EML-3 VaultRecall re-rank, A4 EML-1 FFI+HealthRow,
-      B1 T20 Variant Ladder (mostly live), F1 Active-Assembly minimizer, F3 Sinkhorn
-      brain_routing, F4 confidence_floors, F5 interrupt_calibration, F6 hybrid_memory
-      folder, C1 info_ir→AnswerPacket.confidence, D1 ternary KV/steering.
+- [ ] **Tier-1 fast wins** (real Rust + LOCAL, M each after the domino):
+      ✅ A1 EML-2 ConfidenceRouter scoring (b260b4da1), ✅ A2 EML-3 VaultRecall
+      re-rank, ✅ A4 EML-1 HealthRow (EmlRerankGateHealthRow 35b3b85da),
+      ✅ B1 T20 Variant Ladder (deferral terminal live), ✅ F4 confidence_floors
+      (promoted always-compiled 09136fa8a). REMAINING: F1 Active-Assembly
+      minimizer, F3 Sinkhorn brain_routing, F5 interrupt_calibration,
+      F6 hybrid_memory folder, C1 info_ir→AnswerPacket.confidence, D1 ternary
+      KV/steering.
 - [ ] Tier-2 (perf/proof/gated) + Tier-3 (E1/E2 residency, capability-ceiling, must
       NOT move bytes until owner-gated) — see the mine doc.
 
