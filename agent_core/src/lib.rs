@@ -23,6 +23,7 @@ pub mod cognitive_dag;
 pub mod cognitive_weight;
 pub mod command_center;
 pub mod compaction;
+pub mod confidence_floor;
 pub mod context_compiler;
 pub mod context_loader;
 pub mod dispatcher;
