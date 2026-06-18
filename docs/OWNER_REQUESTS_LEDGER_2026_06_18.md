@@ -325,6 +325,13 @@ should make the codebase MUCH better, never destabilize the working chat.
       can attempt it (MoE = ~4B active so it's lighter than a dense 26B). Verify it
       loads + generates via the GGUF lane. Pairs with the B1 Variant Ladder.
 
+## Full-port targets (owner 2026-06-18 — deeply analyze/research, then FULL port)
+- [ ] **PORT github.com/Alphanimble/htmlstream (R-HTMLSTREAM)** — owner wants a FULL
+      port. Deeply analyze/research first (not local — clone + read). Likely pairs
+      with P7.2 (HTML workspace + chat-drivable canvas / live viewer). Verdict doc
+      (what it is, stack, license, native-vs-WebKit mapping), then full port +
+      pixel-art reskin, ProvenanceGate + honest gating, per-feature harden.
+
 ## Field Theory port (owner 2026-06-18)
 - [ ] **PORT github.com/afar1/fieldtheory (R-FIELDTHEORY)** — owner wants the WHOLE
       thing ported into Epistemos, deeply researched first (it's not local — clone +
