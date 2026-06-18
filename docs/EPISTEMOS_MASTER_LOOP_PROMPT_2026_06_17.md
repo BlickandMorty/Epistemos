@@ -521,14 +521,16 @@ P6.1  Real AI provider logos in Settings + chat + model picker, BIASED TO
       hermesagent-color.svg, kimi-color.svg.
       COMPLETE the set from lobehub @lobehub/icons (MIT; mono+color;
       <title>/viewBox="0 0 24 24"/fill="currentColor"), preferring the MONO
-      variant: Anthropic, Claude, OpenAI/ChatGPT, Codex, Google, Gemini, Google
-      Gemma, Apple, Kimi, Hermes — coherent set, mono default.
+      variant — for BOTH cloud AND local models: Anthropic, Claude, OpenAI/ChatGPT,
+      Codex, Google, Gemini, Google Gemma, QWEN (local), Apple, Kimi, Hermes —
+      coherent set, mono default.
       CONTEXT-SPECIFIC wiring (logo MUST match what is actually serving the turn):
         • Claude Code logo → the app's Claude Code CLI surface in chat.
         • Codex logo → the app's Codex surface.
         • Regular chat → the plain provider chat icons (Claude/Anthropic,
           ChatGPT/OpenAI, Gemini/Google) per the active provider.
         • Gemma logo → local Gemma models (Fast/Code) in the picker.
+        • Qwen logo → the local Qwen 3 8B pick (Think, P1.11) in the picker.
         • Apple logo → the Apple Intelligence route (P1.7).
       Wire per-provider in the model picker rows, Settings inference rows, and
       chat message headers. Import via the asset catalog + xcodegen (NEVER edit
