@@ -189,6 +189,23 @@ PRIORITY 7 + the RESEARCH PHASES block, and it ESCALATES P3 (Osaurus) and P4.1
   Research-first: run the RESEARCH PHASES (GitHub / HuggingFace / arXiv / X) to
   source each item before building, and re-read the LOCAL non-large-model research
   + docs canon. Combine findings INTO the app — honestly, no fake surfaces.
+OWNER HOTFIX 2026-06-17f (HIGH PRIORITY — HIDDEN REROUTE; do this NEXT, before
+more P2 UI): when the user ATTACHES notes or uses a TOOL mode ("Read + Search
+vault"), chat silently routes to QWEN 3 8B even though the picked model is
+Think / VibeThinker — and the memory blocker reads "Qwen 3 8B needs ~12 GB…
+pick a smaller local model like Qwen 3 4B." Qwen is supposed to be GONE from the
+lineup; this is the exact no-hidden-route violation (owner screenshot 2026-06-17).
+ROOT: the local-agent / tool loop resolves its text model via
+inferenceState.effectiveLocalAgentTextModelID (ChatCoordinator.swift ~1374) →
+LocalModelCatalog.fallbackPrimaryAgentModel = Qwen 3 8B 4-bit (InferenceState.swift
+~314, ~3661, ~4343) instead of the foundation tier. FIX: under
+simplifiedLineupActive the agent / tool / attachment path MUST use the user's
+foundation selection (Think→VibeThinker-3B, Code→Gemma 4 12B coder, Fast→sized
+Gemma), NEVER Qwen; if it can't fit, show the P1.4 honest blocker NAMING THE REAL
+foundation model + foundation ways out (free memory / smaller Fast size / cloud),
+never "Qwen 3 4B." Audit ConfidenceRouter selectedLocalModelID, ChatTypes label
+copy (~256), and every effective*AgentTextModel / fallbackPrimaryAgentModel seam.
+See P1.10.
 
 ────────────────────────────────────────────────────────────────────────
 PRIORITY 1 — THE SIMPLE PICKER  (P1.1/P1.2/P1.3 ✅ DONE 2026-06-17. Remaining:
@@ -282,6 +299,15 @@ SLICES (build + commit each):
         high/hard → 12B (subject to memory headroom). Surface the effort in the
         composer/picker/diagnostic route reason without exposing raw model choice
         as the required default decision. Add a pure route-reason helper + tests.
+  P1.10 OWNER HOTFIX (HIGH) — kill the stale QWEN reroute on the TOOL / AGENT /
+        ATTACHMENT path. effectiveLocalAgentTextModelID + fallbackPrimaryAgentModel
+        must resolve to the foundation tier (Think/Code/Fast), NEVER Qwen 3 8B/4B,
+        when simplifiedLineupActive. Reuse P1.6's tier-representative pinning + the
+        P1.4 blocker (named for the REAL foundation model, foundation ways out).
+        REPRO (owner): pick Think, set composer to "Read + Search vault", send
+        "analyze" on low free memory → must blocker on VibeThinker/foundation, NOT
+        Qwen. Add a regression at the agent-path model-resolution + blocker-copy
+        seam (and fix the ChatTypes ~256 / blocker ~4343 Qwen-named copy).
 
 ────────────────────────────────────────────────────────────────────────
 PRIORITY 2 — FULL AGENTIC CHAT (Codex / Claude-desktop parity)
@@ -546,6 +572,7 @@ done, then re-read this file and harden.
 | P1.7 | Apple Intelligence preservation: native selectable route, not cloud, not hidden fallback | ✅ DONE (2026-06-17) — `appleIntelligenceSection` top-level in the simplified popover; selectable/unavailable-with-reason; runtime audit confirms AI never erased; +1 test |
 | P1.8 | Model download/install progress UI | ✅ DONE (2026-06-17) — `ModelInstallProgressDisplay.from(fraction:)` honest determinate/indeterminate mapping (0%→Starting, 100%→Finalizing, never frozen); per-model row + foundation one-tap aggregate spinner; +4 tests |
 | P1.9 | Fast effort visibility: low/medium/high route reason | ✅ DONE (2026-06-17) — `EpistemosFastEffortSizing.effort` (low/med/high) + `fastEffortRouteReason` + live composer hint "Fast · Medium effort → Gemma 4 E4B"; +2 tests |
+| P1.10 | Kill stale Qwen reroute on tool/agent/attachment path (hidden route) | ✅ DONE (2026-06-17) — root: `supportedAvailableLocalAgentModels` filtered to foundation tiers under simplifiedLineupActive (Qwen excluded → agent fallback nil → tool loop degrades to direct stream on the selected foundation model, never a hidden swap); blocker copy `TriageService.insufficientMemory` now names the real GGUF foundation model + foundation ways out (no "Qwen 3 4B") under the simplified lineup. +2 regression tests reproducing the owner's exact Think+tools case. |
 | P2.1 | In-chat tool toggles | ◐ BACKEND DONE (2026-06-17, `a731469a6`) — `executionPlanGatedByUserToolToggles` makes the user's OFF toggles really remove tools from the main-chat plan (default all-on, +3 tests). HONESTY GATE CLEARED. NEXT: the in-chat tool-toggle UI panel (reuse AgentCommandCenterState `availableTools`/`toggleTool`/`refreshToolCatalog`; honest cloud/Pro labels; grounded in the composer) — now safe because toggles gate runtime. |
 | P2.2 | Agents search memory (verify + surface), including "best essay in my vault" acceptance query | ◐ VERIFIED + REGRESSION (2026-06-17) — traced: "essay"+vault cue → `queryContainsExplicitNoteContext` true → `hasExplicitContext` → `buildContextAttachments`/`resolveNotesContext` implicit vault search inlines candidates AND route = `.overseerLocalExecution` (vault tools, not tool-less localOnly); locked by `ChatVaultLookupRoutingTests`. FOLLOW-UP (rule #7): superlative ranking ("the BEST essay") still keyword-searches rather than enumerate-essays-then-rank-by-evidence; and the search→rank→title/path/reason fallback only fires on pipeline error, not when a degraded direct-stream "succeeds" — add a proactive ranked answer / explicit "vault unindexed" blocker for vault-lookup turns that don't run a real tool loop. |
 | P2.3 | MCP management UI in chat | ☐ TODO |
