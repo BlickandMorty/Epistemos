@@ -731,6 +731,12 @@ non-large-model architecture.
                 Track Register T0–T15, the TURBOVEC/QAT canon, and the Knowledge
                 Core + Cognitive DAG + provenance/AnswerPacket docs — and feed
                 PRIORITY 5. EXCLUDE the large-local-model runtime (owner-gated).
+                OWNER 2026-06-18: also DEEP-MINE the LIVING INDEX
+                (EPISTEMOS_LIVING_INDEX_2026_05_24.md) + the LATTICE EXPLAINER —
+                "lots of things there." Focus on the NON-70B work: the theoretical
+                + app upgrades that use EML and the OTHER PRIMITIVES (not the large
+                local model). Pull every such upgrade into PRIORITY 5 / P8 / the
+                ledger and BUILD it; the 70B alone stays owner-gated.
   PHASE R-VOICE  (owner 2026-06-18, feeds P7.7) Voice models + filter. Owner wants
                 BOTH Kokoro-82M (everyday) AND MOSS-TTS-PNY
                 (https://huggingface.co/ZDisket/MOSS-TTS-PNY) as a special reading
