@@ -63,15 +63,18 @@ calls: no blanket rule — choose per case.
 3. No feature is "done" until the owner can demonstrably use it.
 
 ## REOPENED — owner reports these DON'T WORK (fix first, verify in-app)
-- [ ] **PICKER IS STILL A POPOVER — REOPENED (owner 2026-06-18, verified in code)**
-      P1.11 changed the popover's CONTENT (Fast/Think/Code picks) but did NOT
-      delete the popover. RootView.swift:1216 `modelPopover` + :1576
-      `simplifiedRuntimePopover` are STILL `.popover(...)` overlays — that's why the
-      owner still sees a messy floating popover. REQUIRED: DELETE the popover
-      presentation entirely; rebuild the picker as a FLAT, INLINE, pixel-art panel
-      that is a visual EXTENSION OF THE THEME / the search-composer surface (not a
-      floating overlay). VERIFY VISUALLY in a rebuilt app that the popover is gone
-      and the flat panel renders. This is the core of the owner's repeated request.
+- [~] **PICKER IS STILL A POPOVER — MAIN CHAT DONE 2026-06-18 (378379408)**
+      Built InlineRuntimePickerPanel — a FLAT, INLINE, pixel-art panel (hard 1.5px
+      rectangular border, solid theme.card fill, monospaced/pixel titles, flat
+      accent-bar selection, NO .popover) that expands in-flow in the MAIN-CHAT
+      composer (the needsCloudBanner VStack slot) toggled by a `cpu` trigger; the
+      floating split-toolbar model button is hidden there (hidesModelButton: true)
+      → exactly one picker, no popover. Self-contained on EpistemosRuntimePicker +
+      InferenceState; same Fast/Think/Code picks + honest gating as the popover.
+      REMAINING (follow-on): the single-button `simplifiedRuntimePopover` path
+      (landing/mini/note/graph) still uses its popover (hidesModelButton defaults
+      OFF = unchanged) — migrate those to the inline panel next. Owner verifies
+      the main-chat panel visually in a rebuilt app (dev-cert Product▸Run).
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
