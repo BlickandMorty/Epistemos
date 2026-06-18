@@ -128,7 +128,15 @@ calls: no blanket rule — choose per case.
       (grep/extract, ProvenanceGate). SYSTEM PROMPT = an ANCHOR the loop EXTENDS
       (strong base system prompt, then extend), not a one-off. Make it deeply
       exquisite; wire into Chat/Act/Work. Verdict doc → port + harden.
-- [ ] **R-CUA — trycua/cua (MIT) Computer-Use Agent infra (owner 2026-06-18,
+- [~] **R-CUA — VERDICT done 2026-06-18 (docs/RESEARCH_CUA_2026_06_18.md).**
+      LIFT ONE native piece: Lume (Swift + Virtualization.framework, MIT) as the
+      Act=Osaurus VM-sandbox tier (Pro/dev-gated, virtualization entitlement) —
+      folds into the Osaurus P3.0 plan. The CU loop (screenshot→model→action→
+      verify) is largely MATCHED by Epistemos's native stack (DeviceAgentService/
+      VisualVerifyLoop/Screen2AXFusion); adopt cua's unified Sandbox seam pattern
+      (VM/container/host) + pair with Holo VL. Python Agent SDK + server =
+      NO-SIDECAR (don't run). No code lifted (research-first). Original:
+      trycua/cua (MIT) Computer-Use Agent infra (owner 2026-06-18,
       normal ledger order).** "can be fused to browser-use or used aside from it."
       Key fuse = Lume's Apple Virtualization.framework VM manager into the
       Act=Osaurus sandbox plan, + the Driver/Sandbox CU loop into the native
