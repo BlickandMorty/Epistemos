@@ -20,6 +20,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+pub mod planner;
+
 /// A single decomposed research sub-question. `depends_on` lists the ids of
 /// sub-questions whose results this one needs first (e.g. a synthesis step that
 /// depends on two parallel fact-finding steps).
