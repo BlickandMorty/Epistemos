@@ -451,7 +451,18 @@ calls: no blanket rule — choose per case.
       browser-use, OpenClaw), and general assistant/agent apps. Verdict doc: per app
       what to adopt natively (patterns/prompts/UX) vs skip, license. Feed the best
       into Chat/Act/Work + the deep-research (DeerFlow) + computer-use stacks.
-- [ ] **DeerFlow 2.0 — research + (likely) FULL port (R-DEERFLOW)** — ByteDance's
+- [~] **DeerFlow 2.0 — VERDICT done 2026-06-18 (docs/RESEARCH_DEERFLOW_2026_06_18.md);
+      NATIVE BUILD is a major workstream awaiting owner go-ahead (R-DEERFLOW).**
+      First REAL gap of the verdict sweep: Epistemos has every SUPPORTING piece
+      (tools, compaction summarization, session memory, P8.1 schema gate, skills,
+      filesystem artifacts) but its agent_core loop is SINGLE-AGENT — it lacks the
+      multi-agent ORCHESTRATION (planner decompose → parallel sub-agent fanout →
+      lead synthesis). Native build path scoped in the verdict (Rust agent_core:
+      typed ResearchPlan + N concurrent sub-agent loops with isolated histories +
+      compaction offload + Eidos-cited synthesis, flag-gated, MAS-safe in-process).
+      NO Python/LangGraph sidecar. Needs owner sign-off (canon: no candidate build
+      without it). Pairs with Osaurus(ACT) + Goose(WORK) as the 3rd leg. Original:
+      ByteDance's
       multi-agent DEEP-RESEARCH framework (planner→researcher→reporter, web+tools).
       Owner wants it ported completely, reskinned to the app's pixel-art theme, and
       connected DEEPLY to the app to add research dynamics. Deeply research first
