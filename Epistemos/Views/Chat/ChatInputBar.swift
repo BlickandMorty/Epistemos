@@ -175,6 +175,22 @@ struct ChatInputBar: View {
         return inference.localChatModelMemoryBlocker(for: selectedMode)
     }
 
+    /// P1.9 — live Fast effort hint. Surfaces "Fast · Medium effort → Gemma 4 E4B"
+    /// so the user can see why this query will run E2B vs E4B vs 12B, without the
+    /// raw model being a required choice. Only shown on the Fast tier with a
+    /// non-empty draft when per-query sizing applies (else nil → hidden). The
+    /// classification reuses the same `QueryAnalyzer.complexity` the runtime sizes
+    /// on, so the hint matches what actually runs.
+    private var fastEffortHint: String? {
+        guard let selectedMode = operatingMode?.wrappedValue,
+              !trimmedText.isEmpty else { return nil }
+        let complexity = QueryAnalyzer.analyze(query: trimmedText).complexity
+        return inference.fastEffortRouteReason(
+            forComplexity: complexity,
+            operatingMode: selectedMode
+        )
+    }
+
     /// Live-detail sub-signal shown in the pill while the agent is
     /// mid-tool-call. Turns the raw tool name + JSON input into a human
     /// phrase ("Searching the web for "quantum decoherence"") via
@@ -724,6 +740,22 @@ struct ChatInputBar: View {
                 .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
                 .padding(.bottom, 4)
+            }
+
+            // P1.9 — live Fast effort hint (hidden while a memory blocker shows,
+            // to avoid stacking two model-status lines).
+            if localRuntimeMemoryBlocker == nil, let fastEffortHint {
+                HStack(spacing: 5) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(theme.textTertiary)
+                    Text(fastEffortHint)
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 2)
             }
 
             permissionVisibilityChip
