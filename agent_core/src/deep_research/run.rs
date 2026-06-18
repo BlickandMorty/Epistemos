@@ -120,12 +120,13 @@ pub async fn run_deep_research(
     let plan = run_planner(objective, provider.clone(), tool_registry.clone()).await?;
 
     // 2. Researcher: run the plan's layers as concurrent isolated sub-agents.
-    let researcher = super::researcher::LiveSubAgentResearcher::new(
-        provider.clone(),
-        tool_registry.clone(),
-        sub_agent_max_turns,
-    );
-    let results = super::orchestrator::run_plan(&plan, &researcher, max_concurrency)
+    let researcher: Arc<dyn super::orchestrator::SubAgentResearcher> =
+        Arc::new(super::researcher::LiveSubAgentResearcher::new(
+            provider.clone(),
+            tool_registry.clone(),
+            sub_agent_max_turns,
+        ));
+    let results = super::orchestrator::run_plan(&plan, researcher, max_concurrency)
         .await
         .map_err(DeepResearchRunError::Plan)?;
 
