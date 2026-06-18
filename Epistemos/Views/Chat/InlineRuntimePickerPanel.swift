@@ -29,6 +29,17 @@ struct InlineRuntimePickerPanel: View {
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
 
+    /// Owner 2026-06-18 (picker scroll/height): the panel was capped too short
+    /// and macOS auto-hides the scrollbar, so only a couple of picks showed with
+    /// no hint that more existed. We (a) raise the cap so more shows at once and
+    /// (b) measure content-vs-viewport to surface an explicit "scroll for more"
+    /// affordance whenever the content overflows — robust even if a parent
+    /// compresses the panel below the cap.
+    private let heightCap: CGFloat = 460
+    @State private var pickerContentHeight: CGFloat = 0
+    @State private var pickerViewportHeight: CGFloat = 0
+    private var pickerOverflows: Bool { pickerContentHeight > pickerViewportHeight + 1 }
+
     private var environment: EpistemosRuntimePicker.Environment {
         let bytes = LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
         let freeGB = bytes > 0 ? Int(bytes / 1_073_741_824) : 0
@@ -130,18 +141,76 @@ struct InlineRuntimePickerPanel: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // Measure the FULL (unclamped) content height so we can tell when
+            // there's more below the fold than the viewport shows.
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: PickerContentHeightKey.self,
+                        value: proxy.size.height
+                    )
+                }
+            )
         }
-        .frame(maxHeight: 320)
+        .frame(maxHeight: heightCap)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Measure the ACTUAL viewport height (after the cap + any parent
+        // constraint) — overflow = content taller than what's visible.
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: PickerViewportHeightKey.self,
+                    value: proxy.size.height
+                )
+            }
+        )
+        .onPreferenceChange(PickerContentHeightKey.self) { pickerContentHeight = $0 }
+        .onPreferenceChange(PickerViewportHeightKey.self) { pickerViewportHeight = $0 }
         // Flat pixel-art chrome: solid fill + a hard 1.5px rectangular border,
         // no rounding, no shadow — the opposite of the rounded translucent
         // popover bubble.
         .background(theme.card)
+        // Explicit "more exists" affordance: a fade + a "scroll for more" hint
+        // pinned to the bottom edge, shown ONLY when the picks overflow the
+        // viewport (so all Fast/Think/Code picks are obviously reachable even
+        // though macOS hides the scrollbar).
+        .overlay(alignment: .bottom) {
+            if pickerOverflows {
+                scrollMoreAffordance
+            }
+        }
         .overlay(
             Rectangle()
                 .strokeBorder(theme.border, lineWidth: 1.5)
         )
         .accessibilityIdentifier("InlineRuntimePickerPanel")
+    }
+
+    /// Bottom-edge "scroll for more" cue: a short fade into the card colour, then
+    /// a centered chevron + label. Non-interactive (hit-testing off) so it never
+    /// blocks taps on the last visible row. Shown only when `pickerOverflows`.
+    private var scrollMoreAffordance: some View {
+        VStack(spacing: 0) {
+            LinearGradient(
+                colors: [theme.card.opacity(0), theme.card],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 16)
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                Text("scroll for more")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .tracking(0.5)
+            }
+            .foregroundStyle(theme.textTertiary)
+            .padding(.bottom, 5)
+            .frame(maxWidth: .infinity)
+            .background(theme.card)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder
@@ -344,5 +413,21 @@ struct InlineRuntimePickerPanel: View {
             inference.setPreferredChatModelSelection(.localMLX(option.id))
         }
         onPicked()
+    }
+}
+
+/// Full (unclamped) height of the picker's scrolling content.
+private struct PickerContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// Visible viewport height of the picker after the cap + any parent constraint.
+private struct PickerViewportHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
