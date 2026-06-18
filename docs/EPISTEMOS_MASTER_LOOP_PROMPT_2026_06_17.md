@@ -424,6 +424,13 @@ functionality comes FROM Osaurus now; do not keep polishing a parallel Act.
         it with the Epistemos TAMAGOTCHI / Companion (the fluid-animation companion,
         P2.6) as the agent-creation UI/identity — adopt the tamagotchi as the face
         of agent creation, bound to Osaurus's hardened agent state.
+  P3.1b POST-IMPORT ENHANCEMENTS (owner 2026-06-18 — the work the owner planned to
+        add to Osaurus). After the full import builds: add the upgrades ON TOP of
+        the ported Osaurus — MORE MCP servers/connectors, EASIER + MORE ROBUST
+        agents, and anything that strengthens Act. ALSO bring key Osaurus
+        capabilities into a MAS-SAFE version so the App Store build gets as much
+        Osaurus value as the sandbox honestly allows (Pro/dev keeps the full
+        unsandboxed agent power). Honest gating throughout.
   P3.2  Verify the local OpenAI/Ollama server (#46, ResponseWriters/OsaurusServer
         shape) is wired + MAS-safe (no subprocess from the notarized app).
   P3.3  Sentinel stream + dynamic-tool schema → fold into agent_core tool-call
@@ -717,6 +724,42 @@ non-large-model architecture.
   strengthens the above and combine it INTO the app, honestly. For EACH research
   phase write a short docs/ note that says: take or skip, free vs paid, license,
   on-device vs cloud, and the best-UX recommendation — so the owner can choose.
+
+────────────────────────────────────────────────────────────────────────
+PRIORITY 8 — CHAT MODE = FULL EPISTEMOS CEILING + DETERMINISTIC SCHEMA ENGINE
+(owner 2026-06-18 — this is the FOUNDING THESIS made concrete; do NOT let it get
+buried). Spec: docs/DETERMINISTIC_SCHEMA_ENGINE_SPEC_2026_06_18.md.
+────────────────────────────────────────────────────────────────────────
+  P8.1  CHAT MODE = the FULL Epistemos capability ceiling. Chat is the owner's
+        everyday Epistemos chat — give it AS MUCH capability as honestly possible
+        on the MAS build (what it SHOULD be + what it CAN be on MAS), PLUS the Pro
+        additions, WITHOUT bleeding into the Osaurus/Act stuff. Keep all Epistemos
+        IP in Chat (Eidos, Knowledge Core, Halo, memory, skills, tools). Local
+        models must work GREAT here — see P8.2. (Act = Osaurus, P3; Work = OpenCode,
+        P7.4 — keep them distinct.)
+  P8.2  DETERMINISTIC SCHEMA ENGINE (the thesis core; RESEARCH-FIRST on the owner's
+        EXISTING local research/plans + the existing grammar/json-schema FFI —
+        LocalToolGrammar, with_json_schema, P4.3 — build ON them, not greenfield):
+        (a) Rust engine parses files/ASTs/tool payloads → type-safe deterministic
+            JSON schemas (the "universal knowledge core"); type-safe bridge across
+            Swift/Rust/Python/C.
+        (b) AST QUALITY GATE: validate local tool output against the schema BEFORE
+            any disk write / compile loop. Model targets an immutable typed schema,
+            never guesses.
+        (c) UniFFI boundary streams schemas Rust→Swift as async events, never
+            blocking the main SwiftUI thread.
+        (d) RAG PREFLIGHT TOOL SELECTION (Rust): pick ONLY the ~3–5 tools the turn
+            needs via local embeddings, not the whole suite — preserves Gemma 4
+            focus, prevents logic loops.
+        (e) Structured-generation constraints force Gemma 4 + Coder Adapter to emit
+            valid JSON matching the schemas (near-100% tool fidelity on Apple
+            Silicon).
+        (f) Isolate Gemma 4 reasoning tokens for UI tracing while extracting tool
+            args for execution (PRESERVE thinking blocks — never strip).
+        Deliverables per the spec doc: systems blueprint, Rust core contracts
+        (Schema Validator + Tool Router), Swift actor/coordinator integration,
+        phased checklist (stability + determinism FIRST). SURFACE the determinism
+        visibly ("why this route", schema-gated calls) — it's the app's edge.
 
 ────────────────────────────────────────────────────────────────────────
 KEY FILES
