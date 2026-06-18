@@ -629,6 +629,10 @@ the MAS path surface the honest capability, never a fake one.
         bar — put it UPWARD, at the TOP of the search page (above the search bar).
         Flipping it transforms the SEARCH PAGE INTO the Work/OpenCode surface
         (themed, pixel-art minimal), and back.
+        BACKEND (owner DECISION 2026-06-18): Work / Open Code is powered by the
+        EXTRACTED GOOSE RUST CORE (R-GOOSE) — full engine (repo loops, git,
+        test-and-fix self-correction, parallel subagents), in the shared Rust
+        backend via UniFFI; NOT the Node/TS Goose desktop. Own SwiftUI skin.
         Sequence: AFTER P7.1✅ / P7.5 / P7.6 / Osaurus(P3) / Unsloth(P4.1) /
         minimal-UI + the deterministic-schema substrate work — everything else first.
   P7.4a UNRAVEL / UX MAP — REVISE for the 3-mode decision (owner 2026-06-18, GATES
@@ -779,12 +783,22 @@ non-large-model architecture.
                 /Users/jojo/Downloads/openclaw-main (TS/Node + ui/ + container
                 setup). Mine it to perfect native capabilities; verdict doc on what
                 to adopt natively (ProvenanceGate; it's not Swift, so port patterns).
-  PHASE R-GOOSE (owner 2026-06-18) RESEARCH + LIKELY PORT Goose (Block's Rust agent,
-                github.com/block/goose). Owner wants it "absolutely or almost
-                entirely ported" — it's Rust, so a real port/vendor is feasible
-                into agent_core; evaluate fusing its UI (WebKit) with the chat or
-                keeping its UI. Deep verdict: full-port vs heavy-adopt, license
-                (Apache-2.0), what fuses into Act/Work + the agent loop.
+  PHASE R-GOOSE (owner DECISION 2026-06-18) GOOSE = the OPEN CODE / WORK backend via
+                ENGINE EXTRACTION. Goose (Block, github.com/block/goose, Apache-2.0)
+                has a high-perf RUST CORE. EXTRACT the raw Goose Rust core as a
+                dependency crate into the Epistemos Rust backend (agent_core) and
+                expose it via UniFFI — you get the FULL engine (MCP dispatchers,
+                repo indexing, git lifecycle, multi-file diffs, the DETERMINISTIC
+                test-and-fix self-correction loop, parallel subagents, YAML
+                Recipes). Do NOT import the Node/TS Goose DESKTOP (dual-process =
+                18GB-RAM swap death on M2 Pro) — use the owner's own SwiftUI.
+                MAPPING: Goose powers WORK / Open Code mode (repo loops); Osaurus
+                powers ACT (macOS accessibility + Virtualization-framework sandbox
+                VM, P3); Chat = the Epistemos engine. The Goose engine lives in the
+                shared Rust core, so Act/Chat can tap its MCP/subagent pieces too —
+                full backend power, surfaced primarily through Work. Validate Goose
+                patches against the P8.2 deterministic schemas. Deep verdict + the
+                extraction.
   Also sweep GitHub / HuggingFace / arXiv / Twitter(X) for anything that
   strengthens the above and combine it INTO the app, honestly. For EACH research
   phase write a short docs/ note that says: take or skip, free vs paid, license,

@@ -193,10 +193,13 @@ IMPLEMENTED, not just researched. Research FEEDS the build: each research verdic
       work GREAT; surface the determinism visibly.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
-- [ ] **GOOSE — research + LIKELY PORT (R-GOOSE, owner 2026-06-18)** — Block's Rust
-      agent (github.com/block/goose, Apache-2.0). Owner wants it "absolutely or
-      almost entirely ported" — Rust ⇒ real port/vendor into agent_core feasible;
-      evaluate fusing its WebKit UI with the chat. Deep verdict + port.
+- [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner
+      DECISION 2026-06-18)** — extract Goose's RUST CORE (Block, Apache-2.0) as a
+      crate into agent_core via UniFFI = the FULL engine (repo indexing, git, multi-
+      file diffs, deterministic test-and-fix self-correction loop, parallel
+      subagents, YAML recipes). Do NOT import the Node/TS Goose DESKTOP (18GB swap
+      death) — own SwiftUI skin. Powers WORK mode; engine in shared core so Act/Chat
+      tap MCP/subagents too. Osaurus stays the ACT backend. Validate patches vs P8.2.
 - [ ] **OpenClaw — study to perfect native capabilities (R-OPENCLAW)** — LOCAL repo
       ~/Downloads/openclaw-main (TS/Node + ui). Mine for native-capability ideas.
 - [ ] **Hermes agent — DEEP study (R-HERMES), adopt NATIVELY, NO Hermes name** —
