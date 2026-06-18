@@ -313,6 +313,13 @@ should make the codebase MUCH better, never destabilize the working chat.
       Osaurus config + Goose subagents), not import SDKs. Recommend the native design.
 
 ## Models (owner 2026-06-18)
+- [ ] **Add Holo-3.1-4B as a computer-use VL model (huggingface.co/Hcompany/Holo-3.1-4B)**
+      — H Company's Holo is a VISION-LANGUAGE model for COMPUTER USE / GUI grounding
+      (screen/web-agent navigation). Research the readme; wire it into the existing
+      computer-use/vision stack (Omega/Inference DeviceAgentService, VisualVerifyLoop,
+      Screen2AXFusion, ScreenCaptureService) as the visual-grounding model for the
+      agent driving the screen. 4B VLM → needs a vision runtime (mlx-vlm or similar);
+      evaluate on-device feasibility + Pro/MAS gating. Verdict doc + wire-in; honest.
 - [ ] **Add LiquidAI LFM2.5-8B-A1B GGUF (huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF)**
       — MoE, 8B total / ~1B ACTIVE = very light + fast (well within 16 GB, likely
       MAS-viable not just Pro). Wire into the GGUF lane as an installable candidate;
