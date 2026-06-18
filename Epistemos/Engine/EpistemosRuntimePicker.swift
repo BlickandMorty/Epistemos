@@ -40,12 +40,48 @@ nonisolated enum EpistemosRuntimePicker {
         let appleIntelligenceAvailable: Bool
     }
 
-    /// The picks for a tier, in display order. Fast appends Apple Intelligence as
-    /// a fourth pick. Local picks are gated on installed + memory; nothing is
-    /// hidden — a blocked pick still appears, with its reason.
+    /// An explicit non-foundation pick the owner wants visible in a tier — a
+    /// VISIBLE user choice, never a silent fallback (P1.10 still holds). Memory-
+    /// gated like any other pick (P1.4 blocker when it can't fit).
+    struct ExtraPick: Equatable, Sendable {
+        let id: String
+        let title: String
+        let tier: EpistemosModelTier
+        let minimumMemoryGB: Int
+    }
+
+    /// Owner 2026-06-18: Qwen 3 8B back as an explicit Think pick. It's a general
+    /// native-tool-call + thinking model (`LocalTextModelID.qwen3_8B4Bit`, the
+    /// `fallbackPrimaryAgentModel`; displayName "Qwen 3 8B"; min 12 GB). Source of
+    /// truth for these constants is `LocalTextModelID.qwen3_8B4Bit`.
+    static let extraPicks: [ExtraPick] = [
+        ExtraPick(id: "Qwen/Qwen3-8B-MLX-4bit", title: "Qwen 3 8B", tier: .think, minimumMemoryGB: 12),
+    ]
+
+    /// The picks for a tier, in display order: foundation models, then any
+    /// explicit extra picks for the tier, then (Fast only) Apple Intelligence.
+    /// Local picks are gated on installed + memory; nothing is hidden — a blocked
+    /// pick still appears, with its reason.
     static func options(for tier: EpistemosModelTier, environment: Environment) -> [Option] {
         var result = EpistemosFoundationLineup.candidates(for: tier).map {
-            localOption(candidate: $0, tier: tier, environment: environment)
+            gatedOption(
+                id: $0.id,
+                title: cleanTitle(for: $0.displayName),
+                tier: tier,
+                minimumMemoryGB: $0.minimumRecommendedMemoryGB,
+                isAppleIntelligence: false,
+                environment: environment
+            )
+        }
+        result += extraPicks.filter { $0.tier == tier }.map {
+            gatedOption(
+                id: $0.id,
+                title: $0.title,
+                tier: tier,
+                minimumMemoryGB: $0.minimumMemoryGB,
+                isAppleIntelligence: false,
+                environment: environment
+            )
         }
         if tier == .fast {
             result.append(appleIntelligenceOption(environment: environment))
@@ -70,13 +106,16 @@ nonisolated enum EpistemosRuntimePicker {
 
     // MARK: - Private
 
-    private static func localOption(
-        candidate: GemmaQATRuntimeCandidate,
+    private static func gatedOption(
+        id: String,
+        title: String,
         tier: EpistemosModelTier,
+        minimumMemoryGB: Int,
+        isAppleIntelligence: Bool,
         environment: Environment
     ) -> Option {
-        let installed = environment.installedModelIDs.contains(candidate.id)
-        let neededGB = Double(candidate.minimumRecommendedMemoryGB) + environment.headroomGB
+        let installed = environment.installedModelIDs.contains(id)
+        let neededGB = Double(minimumMemoryGB) + environment.headroomGB
         let fits = environment.freeMemoryGB >= neededGB
         let selectable = installed && fits
         let reason: String?
@@ -88,10 +127,10 @@ nonisolated enum EpistemosRuntimePicker {
             reason = nil
         }
         return Option(
-            id: candidate.id,
-            title: cleanTitle(for: candidate.displayName),
+            id: id,
+            title: title,
             tier: tier,
-            isAppleIntelligence: false,
+            isAppleIntelligence: isAppleIntelligence,
             isInstalled: installed,
             isSelectable: selectable,
             blockedReason: reason
