@@ -63,6 +63,14 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       TOTAL RESTART: delete the old popover wholesale (keep NOTHING — all the old
       labels go), rebuild from scratch as a pixel-art panel matching the app (not
       an intrusive overlay). Verify the options appear + switch the model in a build.
+- [ ] **DEFAULT STILL = QWEN 4B — REPAIR (owner 2026-06-18, in rebuilt app)** — the
+      picker/chat still DEFAULTS to Qwen 3 4B. Root: `InferenceState.swift:3256`
+      `var preferredLocalTextModelID = LocalTextModelID.qwen3_4B4Bit.rawValue` +
+      the "validated default stays Qwen" logic (lines ~41, ~649) + AgentCommandCenter
+      brain default lists (~580-600). Under simplifiedLineupActive the DEFAULT must
+      be a foundation FAST model (headroom-aware Gemma E2B/E4B), NEVER Qwen 4B.
+      Qwen 3 8B stays available as an EXPLICIT Think pick (not the default). Fix the
+      hardcoded default + migration + agent-brain defaults to foundation; regression.
 - [ ] **Palette preview for ALL themes** — currently gated `if pair == .custom`
       (SettingsView ~4081). Generalize `CustomThemePaletteSwatch` to every
       `ThemePairCard` so every theme shows the palette preview.
@@ -122,6 +130,15 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       owner's local research (docs/fusion/* + prior plans) AND this session's full
       query history, and ADD any researched/requested-but-untracked capability to
       THIS ledger. Recurring task — keep the ledger complete against the corpus.
+      SPECIFIC RANGE (owner 2026-06-18): cover everything from the OBSCURA era
+      (~2026-05) UP TO NOW — extract every "queued / candidate / deferred / runtime
+      phases / NOT IMPLEMENTED / W6-*" item from at least: B2/B3 lift targets
+      (B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS, B3_OBSCURA_BROWSER_LIFT_TARGETS),
+      HELIOS_V5/V6 plans, SUBSTRATE_TRACK_REGISTER + fusion/* state docs, Eidos
+      (EIDOS_V0_*), Hermes design/manifesto, KNOWN_ISSUES_REGISTER,
+      HARDENING_TRACKER, FEATURE_CHANGE_TRACKER, V1_5_IMPLEMENTATION_TRACKER,
+      PHASE_CHECKLIST. Each unfinished item → a ledger line + finish it deeply
+      (rule #6/P5.H). Write the result to docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md.
 
 ## Architecture / process
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
