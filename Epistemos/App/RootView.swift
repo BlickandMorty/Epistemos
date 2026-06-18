@@ -2033,6 +2033,8 @@ struct LocalModelToolbarMenu: View {
             return "chevron.left.forwardslash.chevron.right"
         case .reasoningSpecialist:
             return "brain"
+        case .moeFlagshipCandidate:
+            return "square.stack.3d.up"
         }
     }
 

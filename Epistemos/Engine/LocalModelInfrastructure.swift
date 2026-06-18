@@ -405,6 +405,12 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
     /// tier. Light enough to fit any supported Mac; carries no QAT proof-ladder
     /// progression and stays behind the runtime-plural owner-approval gate.
     case reasoningSpecialist = "reasoning_specialist"
+    /// The Gemma 4 26B-A4B mixture-of-experts QAT GGUF (Unsloth) — ~4B active
+    /// params, so it's far lighter at inference than a dense 26B, but the full
+    /// weights (~14 GB Q4) are tight on a 16 GB Mac → honestly memory-gated +
+    /// behind the "Run anyway" override. Rides the same Pro-gated GGUF/llama.cpp
+    /// lane; owner-requested 2026-06-18.
+    case moeFlagshipCandidate = "moe_flagship_candidate"
 
     var displayName: String {
         switch self {
@@ -413,6 +419,7 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
         case .proFlagshipCandidate: "Pro flagship candidate"
         case .specialistCoderFineTune: "Specialist coder fine-tune"
         case .reasoningSpecialist: "Reasoning specialist"
+        case .moeFlagshipCandidate: "MoE flagship candidate"
         }
     }
 }
@@ -474,6 +481,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "specialist route integration pending"
             case .reasoningSpecialist:
                 return "reasoning route integration pending"
+            case .moeFlagshipCandidate:
+                return "MoE route integration pending"
             }
         }
         if hasCompleteRouteEvidencePacketChain {
@@ -488,6 +497,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "specialist route evidence ready"
             case .reasoningSpecialist:
                 return "reasoning route evidence ready"
+            case .moeFlagshipCandidate:
+                return "MoE route evidence ready"
             }
         }
         return "route evidence pending"
@@ -496,6 +507,7 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
     var acquisitionLaneArgument: String {
         if stage == .reasoningSpecialist { return "vibethinker" }
         if stage == .specialistCoderFineTune { return "coder12b" }
+        if stage == .moeFlagshipCandidate { return "moe26b" }
         if id.contains("-12B-") { return "12b" }
         if id.contains("-E4B-") { return "e4b" }
         return "e2b"
@@ -507,6 +519,13 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             8
         case .nextScaleLane:
             12
+        case .moeFlagshipCandidate:
+            // 26B-A4B MoE QAT GGUF (UD-Q4_K_XL) is ~14 GB on disk; the full
+            // weights stay resident (MoE saves compute, not memory), so it's
+            // honestly tight on a 16 GB Mac — gate at 18 (parity with the MLX
+            // variant) and let the "Run anyway" override + the corrected
+            // available-memory estimate attempt it on 16 GB.
+            18
         case .proFlagshipCandidate:
             // 12B QAT GGUF is ~7 GB on disk / ~10 GB resident — it runs on a
             // 16 GB-class Mac (the ship target proves it daily), so gate at 16,
@@ -533,6 +552,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             "Gemma 4 12B Coder (Fable5/Composer2.5) — community specialist fine-tune (yuxinlu1), NOT official QAT. Text-only, direct local GGUF runtime; Q4_K_M is the best tier for a 16 GB Mac, rides the same Pro-gated GGUF/llama.cpp lane, receipt pending, gated away from default route mutation. Q6_K is higher quality but tight on 16 GB; the sakamakismile NVFP4 variant is NVIDIA-Blackwell/vLLM-only and does not run on Apple Silicon."
         case .reasoningSpecialist:
             "VibeThinker 3B — a compact reasoning model (WeiboAI, Qwen2.5-3B lineage, MIT). Backs the Epistemos Think tier. Text-only, direct local GGUF runtime on the same proven llama-cli lane; ~1.9 GB Q4_K_M fits any supported Mac. Non-agent: optimized for math/logic reasoning, not multi-step tool calling. ~2K native context. Receipt pending, gated away from default route mutation."
+        case .moeFlagshipCandidate:
+            "Gemma 4 26B-A4B MoE QAT GGUF (Unsloth, UD-Q4_K_XL ~14 GB). A mixture-of-experts model with ~4B active params — far lighter at inference than a dense 26B — on the same Pro-gated GGUF/llama.cpp lane. The full weights stay resident, so it's honestly tight on a 16 GB Mac: memory-gated at 18 GB, but the 'Run anyway' override + the corrected available-memory estimate let a 16 GB Mac attempt it. Text-only, explicit-only pick (never auto-routed); receipt pending, gated away from default route mutation."
         }
     }
 
@@ -541,7 +562,7 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
     /// no longer be hardcoded to "Gemma 4 QAT GGUF".
     var familyName: String {
         switch stage {
-        case .firstRuntimeHarness, .nextScaleLane, .proFlagshipCandidate:
+        case .firstRuntimeHarness, .nextScaleLane, .proFlagshipCandidate, .moeFlagshipCandidate:
             "Gemma 4 QAT GGUF"
         case .specialistCoderFineTune:
             "Gemma 4 Coder GGUF"
@@ -677,6 +698,32 @@ nonisolated enum GemmaQATRuntimeLadder {
             blobID: "75f1260c8fee376d30b577b7d374fb753cec2a2d",
             runtimeLane: "gguf_llama_cpp_offline",
             stage: .reasoningSpecialist,
+            localExecutionProofArtifactRef: nil,
+            runtimeRouterAdmissionArtifactRef: nil,
+            systemGDryRunArtifactRef: nil,
+            routeAnswerPacketVisibilityArtifactRef: nil,
+            settingsDiagnosticsWRVArtifactRef: nil,
+            releaseGateRef: "gate:runtime_plural_qat_lane_tournament_owner_approval_gate"
+        ),
+        // Gemma 4 26B-A4B MoE QAT GGUF (Unsloth). MoE with ~4B active params —
+        // lighter at inference than a dense 26B — on the same Pro-gated GGUF/
+        // llama.cpp lane. UD-Q4_K_XL full weights are ~14.25 GB → honestly tight
+        // on a 16 GB Mac (gated at 18, "Run anyway" lets it attempt). Provenance
+        // verified against the HF tree API 2026-06-18. Owner-requested; no route
+        // proof artifacts yet → receipt pending; release-gated behind the
+        // runtime-plural owner-approval gate.
+        GemmaQATRuntimeCandidate(
+            id: "unsloth/gemma-4-26B-A4B-it-qat-GGUF",
+            displayName: "Gemma 4 26B-A4B MoE QAT GGUF",
+            sourceRepo: "unsloth/gemma-4-26B-A4B-it-qat-GGUF",
+            sourceURL: "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF",
+            sourceRevision: "02749a7b272109255a4c559a80894d3d9777574c",
+            expectedFilename: "gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf",
+            expectedFileBytes: 14_249_045_120,
+            expectedSHA256: "dcf179a91153e3a7ece792e48ef872180d9d6ef9b7677f0a0bd3e83cfe624d5e",
+            blobID: "d5b6449d88f7a2c78b8c259360a662cbd0c42ce9",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .moeFlagshipCandidate,
             localExecutionProofArtifactRef: nil,
             runtimeRouterAdmissionArtifactRef: nil,
             systemGDryRunArtifactRef: nil,
