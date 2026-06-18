@@ -3665,10 +3665,15 @@ mod tier_tests {
         )
     }
 
-    #[cfg(not(feature = "pro-build"))]
+    // Available under BOTH builds: the schema-gate test below
+    // (`schema_gate_validates_input_only_when_enabled`) is NOT pro-build-gated
+    // (the P8.1 schema gate is always-compiled), so its handler must exist under
+    // pro-build too. Previously `#[cfg(not(feature = "pro-build"))]` — which
+    // broke the pro-build test build (the schema-gate test referenced a symbol
+    // that didn't exist under pro-build). register_test_tool below stays
+    // mas-only; this handler is shared.
     struct StaticOkHandler;
 
-    #[cfg(not(feature = "pro-build"))]
     #[async_trait]
     impl ToolHandler for StaticOkHandler {
         async fn execute(&self, _input: &serde_json::Value) -> Result<String, ToolError> {
@@ -4695,6 +4700,43 @@ mod tier_tests {
             RiskLevel::Destructive
         );
         assert_eq!(registry.get_tier("mini_swe_agent"), ToolTier::Agent);
+    }
+
+    /// R-LITELLM-CP verdict (2026-06-18) — the "1 place to call all agents"
+    /// invariant. Epistemos already implements LiteLLM-CP's unified
+    /// runtime-adapter pattern: every CLI runtime is a `ToolHandler` in
+    /// cli_passthrough, all registered together under one `enable_bash` block
+    /// (registry.rs:888). aider/goose/openhands/mini_swe_agent are locked
+    /// individually above, but the ORIGINALS (claude_code/codex/gemini/kimi) and
+    /// opencode were unlocked — an accidental unregister of any would silently
+    /// make that runtime unreachable (a rule-#8 reachability hole). This locks the
+    /// FULL set so the unified adapter stays complete.
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_every_cli_passthrough_runtime() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        for runtime in [
+            "claude_code",
+            "codex",
+            "gemini",
+            "kimi",
+            "goose",
+            "aider",
+            "openhands",
+            "mini_swe_agent",
+            "opencode",
+        ] {
+            assert!(
+                names.contains(runtime),
+                "Agent tier missing CLI runtime adapter '{runtime}' — a runtime became unreachable"
+            );
+        }
     }
 
     #[cfg(feature = "pro-build")]
