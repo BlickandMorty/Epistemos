@@ -57,7 +57,12 @@ LOOP DISCIPLINE (every pass)
    deep pass for architecture.
 2. ONE SLICE = one focused change + its build + its commit. Never batch unrelated
    changes. Commit after EVERY change (the owner has lost work to an un-committed
-   tree before — this is non-negotiable).
+   tree before — this is non-negotiable). THEN PUSH (owner mandate 2026-06-18):
+   after each commit run `git push origin HEAD` so every slice is backed to GitHub
+   immediately (origin = github.com/BlickandMorty/Epistemos, branch main). If push
+   fails (auth / non-fast-forward / CI gate), log it to docs/AGENT_PROGRESS.md and
+   CONTINUE — a failed push never blocks the loop, but never leave commits unpushed
+   on purpose.
 3. BUILD before commit:
    `xcodebuild -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO 2>&1 | xcbeautify`
    Reaching CodeSign/link with 0 compile errors == compile OK. For tests:
@@ -480,11 +485,68 @@ the MAS path surface the honest capability, never a fake one.
         carries the env-clear/allowlist subprocess hardening) with the security.rs
         guarantees. On MAS show the honest "not available in this build" state.
         Add tests for the I/O + hardening seam.
-  P7.4  "CODE" TOGGLE on the SEARCH screen — a toggle at the top of the search
-        screen that flips the chat into an OpenCode-style code chat, themed to the
-        app (pixel-art minimal, theme-aware). Port that surface/UX, wired to the
-        SAME honest capability stack from P7.1 (local + cloud, diff/git as Pro
-        tools). Build only AFTER P7.1 passes so it is real, not a shell.
+  P7.4  OPENCODE / CODE SURFACE — LAST in P7, and ONLY after an UNRAVEL pass (see
+        P7.4a). Owner intent (2026-06-18): the chat-type modes are CHAT + ACT (owner
+        likes these from P7.6) — keep them. "Code" is OVERLOADED: Fast/Think/Code is
+        the MODEL/effort tier and the owner ALREADY has Code (the coder model) in
+        chat, so do NOT ship a second confusing "Code" thing. SIMPLIFY THE UX:
+        decide one coherent model (recommended — OpenCode is NOT a rival mode but
+        the DEEP code/terminal capability reachable from ACT mode when the work is
+        code/terminal; the Code tier stays the model). Document the chosen UX before
+        building. VISION (owner): OpenCode = local AND cloud models with DEEP
+        TERMINAL access to the on-disk notes + research on the laptop, and access to
+        ALL the app's skills + tools from the chat. Pro/dev-gated, security.rs
+        hardened, MAS-honest. Theme-aware, pixel-art minimal. Build on the shared
+        ChatCoordinator + agent loop (P7.6), never a fork-shell. Sequence: AFTER
+        P7.1✅ / P7.5 / P7.6 / Osaurus(P3) / Unsloth(P4.1) / minimal-UI + the
+        deterministic-schema substrate work — i.e. everything else first.
+  P7.4a UNRAVEL FIRST — NO BLACK BOX (owner 2026-06-18, GATES P7.4). Before any
+        OpenCode fork/build, write docs/CHAT_UX_MAP_2026_06_18.md that untangles the
+        whole surface so the user is never confused: the chat-type MODES (Chat vs
+        Act), the MODEL tiers (Fast/Think/Code + Apple Intelligence + cloud), the
+        SURFACES (Main / Mini / Note / Graph / cowork / code), and how
+        tools/skills/memory/connectors compose across them — with the simplest
+        coherent UX (collapse overlaps, rename collisions like the "Code" overload,
+        one mental model). This map is the de-black-boxing the owner asked for; P7.4
+        cannot start until it exists and the UX is simplified.
+  P7.5  CHAT SURFACE PARITY (owner 2026-06-17, HIGH — do alongside P7.1, the
+        capability ceiling must hold on EVERY surface, not just Main). MiniChat and
+        Note chat are OUTDATED / inconsistent with Main chat. Bring every chat
+        surface to parity with the Main chat (ChatCoordinator.swift) capability
+        stack: simplified Fast/Think/Code picker, no-hidden-Qwen routing (P1.10),
+        honest memory blocker (P1.4), Fast effort visibility (P1.9), Apple
+        Intelligence route (P1.7), tool toggles (P2.1), memory/vault search (P2.2),
+        skills (P2.4). TARGETS: Epistemos/Views/MiniChat/MiniChatView.swift +
+        MiniChatWindowController.swift; Epistemos/State/NoteChatState.swift +
+        Views/Notes/NoteChatSidebar.swift; Graph chat already routes into Main via
+        AppBootstrap.routeGraphChatRequestIntoMainChat — VERIFY it stays consistent.
+        Prefer routing these surfaces THROUGH the shared ChatCoordinator capability
+        path rather than duplicating logic, so they never drift again. Add parity
+        regressions. Honest gating per surface (no fake capability where a surface
+        genuinely can't host it).
+  P7.6  CLAUDE-DESKTOP "COWORK" PARITY, FUSED WITH CODE (owner 2026-06-18,
+        screenshot). The NORTH-STAR surface: bring Claude Desktop's agentic cowork
+        affordances INTO the chat, fused with the Code/Claude-Code capabilities, so
+        one chat has EVERYTHING. Every panel must reflect REAL runtime state — never
+        a mockup. Affordances (build on the existing agent loop + executionPlan +
+        AgentCommandCenterState + MCP; surface, don't fork):
+          • ACT vs CHAT mode toggle — Act runs the real multi-step agent loop
+            (tools/memory/skills via executionPlan); Chat is single-turn. Real, not
+            a label.
+          • PROGRESS panel — live task steps (the checkmark step chain) for longer
+            agentic runs, sourced from the agent loop's actual plan/steps.
+          • WORKING FOLDER panel — the real files the run created/modified
+            (file_ops outputs), openable. Pro/file-access gated; MAS-honest.
+          • CONTEXT panel — the real tools invoked + files referenced this run
+            (agent-loop telemetry / tool catalog), not a static list.
+          • QUEUE — queue user messages while the agent is working (send-later).
+          • CONNECTORS — Slack / Gmail / Google Drive (+ more) via MCP (extends
+            P2.3). Only show connectors actually wired; OAuth tokens/keys in
+            Keychain; honest "connect" affordance, no fake data access.
+          • Keep voice input + thought-process/thinking display.
+        Theme-aware, pixel-art minimal. Gate each affordance honestly (MAS vs Pro).
+        This is the same shared ChatCoordinator stack as P7.5 — extend it, and let
+        the "Code" toggle (P7.4) flip this same surface into code mode.
   P3.5  OSAURUS FULL-REPLACE EVALUATION (escalation of P3). After P3.1's deep
         dive + P7.1, decide full-adopt vs pattern-adopt per piece via the
         ProvenanceGate, with the explicit goal of Epistemos being a COMPLETE
@@ -589,6 +651,8 @@ done, then re-read this file and harden.
 | P6.1 | Provider logos (mono/B&W) in Settings + picker + chat, context-specific; owner assets staged in docs/brand-assets/lobehub/ | ☐ TODO |
 | P7.1 | Capability ceiling: Fast→tools all legit, absolute MAS limit + Pro variant | ✅ DONE (2026-06-17) — made explicit + cargo-locked (`fast_chat_lite_capability_ceiling_is_explicit`, ran live PASS): Fast/chat_lite HAS real read/search/reason (think, vault.search, vault.read, file.read, knowledge.recall) via `apply_tier_overrides` CHAT_LITE; CANNOT mutate (no vault.write/file.patch/memory); Pro/chat_pro LIFTS to gated vault.write while keeping the reads; and the ABSOLUTE MAS limit (action.bash/action.terminal/system.process) holds across EVERY tier — it's build-gated (`not(feature="pro-build")` mas_forbidden), never tier-gated. Capability explorer already surfaces the build-scoped tools + Pro-developer note (P2.5). |
 | P7.2 | HTML workspace fix + canvas live-viewer (chat drives the screen) | ☐ TODO |
+| P7.5 | Chat surface parity: MiniChat / Note / Graph chat match Main chat stack | ☐ TODO — HIGH, owner 2026-06-17 (minichat outdated/inconsistent) |
+| P7.6 | Claude-Desktop "cowork" parity fused w/ Code: Act/Chat, Progress, Working folder, Context, Queue, connectors (Slack/Gmail/Drive via MCP) | ☐ TODO — owner 2026-06-18 screenshot |
 | P7.3 | Terminal + console actually work (Pro/dev) | ☐ TODO |
 | P7.4 | "Code" toggle on search → OpenCode-style themed code chat | ☐ TODO |
 | P3.5 | Osaurus full-replace evaluation (complete replacement decision + slices) | ☐ TODO |
