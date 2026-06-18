@@ -57,6 +57,36 @@ struct InlineRuntimePickerPanel: View {
                     }
                 }
 
+                // EFFORT (owner 2026-06-18 cross-reference — the old effort
+                // control). Single-button surfaces (showsSettingsFooter) gain the
+                // reasoning-effort picker the main-chat split toolbar already has.
+                // availableReasoningTiers is empty for Fast (correctly no effort)
+                // and [.low,.medium,.high,.heavy] for Think/Code/Act.
+                if showsSettingsFooter, let operatingMode {
+                    let tiers = inference.availableReasoningTiers(for: operatingMode.wrappedValue)
+                    if !tiers.isEmpty {
+                        Divider()
+                            .padding(.vertical, 2)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("EFFORT")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .tracking(1.5)
+                                .foregroundStyle(theme.textTertiary)
+                            let current = inference.sanitizedReasoningTier(
+                                inference.chatReasoningTier,
+                                for: operatingMode.wrappedValue
+                            )
+                            ForEach(tiers, id: \.self) { tier in
+                                effortRow(
+                                    tier,
+                                    mode: operatingMode.wrappedValue,
+                                    isSelected: current == tier
+                                )
+                            }
+                        }
+                    }
+                }
+
                 if showsSettingsFooter {
                     Divider()
                         .padding(.vertical, 2)
@@ -143,6 +173,57 @@ struct InlineRuntimePickerPanel: View {
         }
         .buttonStyle(.plain)
         .help(option.blockedReason ?? option.title)
+    }
+
+    /// A reasoning-effort (ChatReasoningTier) row. Setting effort is a refinement
+    /// of the current tier, so it does NOT collapse the panel (no onPicked) —
+    /// the owner can keep adjusting; the trigger closes it.
+    @ViewBuilder
+    private func effortRow(
+        _ tier: ChatReasoningTier,
+        mode: EpistemosOperatingMode,
+        isSelected: Bool
+    ) -> some View {
+        Button {
+            inference.setChatReasoningTier(tier, for: mode)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "gauge.medium")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(inference.reasoningTierLabel(for: tier, operatingMode: mode))
+                        .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(theme.textPrimary)
+                    Text(tier.summary)
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? theme.resolved.accent.color.opacity(0.14) : Color.clear)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Rectangle()
+                        .fill(theme.resolved.accent.color)
+                        .frame(width: 2)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(tier.summary)
     }
 
     private func isSelected(_ option: EpistemosRuntimePicker.Option) -> Bool {

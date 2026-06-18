@@ -102,6 +102,38 @@ struct InlineRuntimePickerPanelTests {
                 "landingSearchBrainTool must be a trigger, not the popover picker")
     }
 
+    @Test("the panel renders the Fast/Think/Code tier structure")
+    func panelRendersFastThinkCodeTiers() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Chat/InlineRuntimePickerPanel.swift"
+        )
+        // Owner cross-reference: the Fast/Think/Code structure must render — a
+        // section per tier with that tier's picks.
+        #expect(src.contains("ForEach(EpistemosModelTier.allCases"))
+        #expect(src.contains("tier.shortName.uppercased()"))
+        #expect(src.contains("EpistemosRuntimePicker.options(for: tier, environment: environment)"))
+        // Selecting a tier pick sets that tier's operating mode (Fast/Think/Code
+        // actually switch behavior, not just label).
+        #expect(src.contains("case .fast: return .fast"))
+        #expect(src.contains("case .think: return .thinking"))
+        #expect(src.contains("case .code: return .pro"))
+    }
+
+    @Test("the panel exposes the EFFORT control (owner-flagged gap, now present)")
+    func panelExposesEffortControl() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Chat/InlineRuntimePickerPanel.swift"
+        )
+        // The reasoning-effort picker the old picker exposed (Low/Med/High/Heavy).
+        #expect(src.contains("Text(\"EFFORT\")"))
+        #expect(src.contains("inference.availableReasoningTiers(for: operatingMode.wrappedValue)"))
+        #expect(src.contains("inference.setChatReasoningTier(tier, for: mode)"))
+        #expect(src.contains("private func effortRow("))
+        // Honest gating: only when the mode actually has effort tiers (Fast has
+        // none — availableReasoningTiers(.fast) == []), so no empty section.
+        #expect(src.contains("if !tiers.isEmpty"))
+    }
+
     @Test("mini chat migrated off the popover to the inline panel")
     func miniChatUsesInlinePanel() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
