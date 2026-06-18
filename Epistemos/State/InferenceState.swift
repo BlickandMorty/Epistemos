@@ -4592,7 +4592,16 @@ final class InferenceState {
             if !userHasExplicitPin {
                 switch operatingMode {
                 case .pro:
-                    return .cloud(autoModel)
+                    // LOCAL FOR ALL MODES (owner mandate 2026-06-18): Code/Pro
+                    // stays on the local coder tier when one can serve; cloud is
+                    // an escalation only when NO local model (nor Apple
+                    // Intelligence) can — mirrors .fast/.thinking/.agent. Closes
+                    // the hidden-GPT route for Code: picking Code with a working
+                    // local coder no longer silently routes to cloud.
+                    if effectiveLocalTextModelID(for: operatingMode) == nil
+                        && !appleIntelligenceAvailable {
+                        return .cloud(autoModel)
+                    }
                 case .agent:
                     // LOCAL FOR ALL MODES (owner mandate 2026-06-18): Act must
                     // NEVER silently route to GPT/cloud when the owner has a
@@ -4607,7 +4616,14 @@ final class InferenceState {
                         return .cloud(autoModel)
                     }
                 case .thinking:
-                    return .cloud(autoModel)
+                    // LOCAL FOR ALL MODES (owner mandate 2026-06-18): Think stays
+                    // on the local reasoning tier when one can serve; cloud is an
+                    // escalation only when none can — mirrors .fast/.pro/.agent.
+                    // Closes the hidden-GPT route for Think.
+                    if effectiveLocalTextModelID(for: operatingMode) == nil
+                        && !appleIntelligenceAvailable {
+                        return .cloud(autoModel)
+                    }
                 case .fast:
                     if effectiveLocalTextModelID == nil && !appleIntelligenceAvailable {
                         return .cloud(autoModel)
