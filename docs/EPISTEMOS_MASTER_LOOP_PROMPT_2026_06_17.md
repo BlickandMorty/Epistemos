@@ -764,6 +764,21 @@ non-large-model architecture.
                 verdict doc (what to adopt natively vs skip, license, via the
                 ProvenanceGate). Goal: take the best system-prompt + architecture
                 ideas into Epistemos honestly.
+  PHASE R-HERMES (owner 2026-06-18) DEEP-STUDY the owner's HERMES AGENT research
+                (HERMES_AGENT_CORE_2_0_DESIGN, EPISTEMOS_HERMES_MANIFESTO, etc.) for
+                ideas to PERFECT native capabilities — but adopt NATIVELY with NO
+                Hermes naming (CLAUDE.md "Hermes parity, not Hermes agent"; the
+                namespace stays purged). Study deeply, take the good architecture.
+  PHASE R-OPENCLAW (owner 2026-06-18) STUDY OpenClaw — LOCAL repo at
+                /Users/jojo/Downloads/openclaw-main (TS/Node + ui/ + container
+                setup). Mine it to perfect native capabilities; verdict doc on what
+                to adopt natively (ProvenanceGate; it's not Swift, so port patterns).
+  PHASE R-GOOSE (owner 2026-06-18) RESEARCH + LIKELY PORT Goose (Block's Rust agent,
+                github.com/block/goose). Owner wants it "absolutely or almost
+                entirely ported" — it's Rust, so a real port/vendor is feasible
+                into agent_core; evaluate fusing its UI (WebKit) with the chat or
+                keeping its UI. Deep verdict: full-port vs heavy-adopt, license
+                (Apache-2.0), what fuses into Act/Work + the agent loop.
   Also sweep GitHub / HuggingFace / arXiv / Twitter(X) for anything that
   strengthens the above and combine it INTO the app, honestly. For EACH research
   phase write a short docs/ note that says: take or skip, free vs paid, license,

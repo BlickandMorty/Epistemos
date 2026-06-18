@@ -8,6 +8,12 @@ functional for the owner's ACTUAL setup (local-first, frequently NO cloud
 configured). "Compiles + committed + tests pass" is NOT done. "Gated into
 invisibility" is NOT done. Re-audit each against the running app; fix until real.
 
+**BUILD-FROM-RESEARCH / 100% MANDATE (owner 2026-06-18):** every item in this
+ledger and the plan is something the owner WANTS — 100% of it is to be
+IMPLEMENTED, not just researched. Research FEEDS the build: each research verdict
+(R-*) must turn into shipped, in-app-verified slices. Nothing here is optional or
+"nice to have." Keep going until all of it is done and hardened (rule #6/#8).
+
 ## REALITY-AUDIT RULE (applies to every line)
 1. Build the app; actually trace the UX path the owner would take.
 2. If a feature is hidden unless cloud/Pro/some-state — that's a FAIL for a
@@ -183,6 +189,14 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       work GREAT; surface the determinism visibly.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
+- [ ] **GOOSE — research + LIKELY PORT (R-GOOSE, owner 2026-06-18)** — Block's Rust
+      agent (github.com/block/goose, Apache-2.0). Owner wants it "absolutely or
+      almost entirely ported" — Rust ⇒ real port/vendor into agent_core feasible;
+      evaluate fusing its WebKit UI with the chat. Deep verdict + port.
+- [ ] **OpenClaw — study to perfect native capabilities (R-OPENCLAW)** — LOCAL repo
+      ~/Downloads/openclaw-main (TS/Node + ui). Mine for native-capability ideas.
+- [ ] **Hermes agent — DEEP study (R-HERMES), adopt NATIVELY, NO Hermes name** —
+      study HERMES_AGENT_CORE_2_0_DESIGN + manifesto for ideas; namespace stays purged.
 - [ ] **Study the best chat/agent apps (R-APPS, owner 2026-06-18)** — besides
       Osaurus: LM Studio, HuggingFace (chat-ui/transformers/candle), Unsloth, Jan,
       Ollama, Open WebUI, Cherry Studio, LibreChat, etc. Mine their SYSTEM PROMPTS
