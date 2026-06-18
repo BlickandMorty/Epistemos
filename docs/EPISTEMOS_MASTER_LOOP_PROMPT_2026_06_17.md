@@ -89,7 +89,13 @@ LOOP DISCIPLINE (every pass)
    constraints on what you just shipped (no hidden route, no fake config, MAS/Pro
    boundary intact, keys in Keychain); (d) append a one-line "HARDENED <phase>"
    entry to docs/AGENT_PROGRESS.md naming what you verified. A phase is NOT done
-   until it is hardened.
+   until it is hardened. PER-FEATURE (owner 2026-06-18): harden EACH feature/item
+   individually too — its own regression tests + a re-verify that the items it
+   touches still work — not just a phase-level pass. This per-item hardening is the
+   ANTI-DRIFT / anti-drop mechanism: an item isn't done until it's hardened AND
+   protected from later regression. GUARDRAIL: a new backend (e.g. Goose into Work)
+   must be isolated behind its mode + flag with regression proof that Chat/Act are
+   unchanged — additions make the app better, never destabilize working surfaces.
 7. RECURSIVELY IMPROVE THIS PROMPT (owner 2026-06-17e). Each pass, also ask: does
    this file still aim at the NORTH STAR? If a priority is vague, mis-ordered, or
    missing a step toward "stellar local-first brain / real Codex+Claude
