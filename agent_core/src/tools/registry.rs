@@ -39,6 +39,22 @@ fn r5_enforce_enabled() -> bool {
     }
 }
 
+/// P8.1 — the deterministic schema gate (first slice of the schema engine).
+/// OPT-IN, default OFF so there is zero behavior change until it's promoted:
+/// `EPISTEMOS_SCHEMA_GATE_V1=1` turns it on. When on, a tool's input is
+/// validated against the tool's own declared input schema (`RegisteredTool.
+/// parameters`) BEFORE the handler runs, so the model targets an immutable typed
+/// schema instead of guessing and malformed args are rejected with
+/// `at {path}: {err}` before any side effect.
+fn schema_gate_enabled() -> bool {
+    matches!(
+        std::env::var("EPISTEMOS_SCHEMA_GATE_V1")
+            .map(|raw| raw.trim().to_ascii_lowercase())
+            .as_deref(),
+        Ok("1" | "true" | "yes" | "on")
+    )
+}
+
 #[cfg(not(feature = "pro-build"))]
 fn mas_forbidden_tool_name(name: &str) -> bool {
     matches!(
@@ -787,6 +803,22 @@ impl ToolRegistry {
                 // have a matching stored grant. Reject before the handler
                 // runs so nothing mutates.
                 return Err(ToolError::PermissionDenied);
+            }
+        }
+
+        // P8.1 — deterministic schema gate (opt-in via EPISTEMOS_SCHEMA_GATE_V1,
+        // default OFF). Validate the tool input against the tool's own declared
+        // input schema BEFORE the handler runs, so the model targets an immutable
+        // typed schema and malformed args are rejected (`at {path}: {err}`) with
+        // no side effect. Builds on the existing tools_v2 JsonSchemaValidator
+        // (jsonschema 0.28, Draft 2020-12).
+        if schema_gate_enabled() {
+            let validator = crate::tools_v2::runner::JsonSchemaValidator;
+            if let Err(err) =
+                crate::tools_v2::SchemaValidator::validate(&validator, &tool.parameters, input)
+            {
+                tracing::warn!(tool = name, error = %err, "schema gate rejected tool input");
+                return Err(ToolError::InvalidArguments(format!("schema gate: {err}")));
             }
         }
 
@@ -3660,6 +3692,51 @@ mod tier_tests {
             risk_level,
             tier: ToolTier::ChatLite,
         });
+    }
+
+    #[tokio::test]
+    async fn schema_gate_validates_input_only_when_enabled() {
+        // P8.1 — the deterministic schema gate. Register a tool with a STRICT
+        // input schema (requires a string `command`). Off (default): malformed
+        // input runs anyway (no behavior change). On: valid passes, malformed is
+        // rejected before the handler with `at {path}: {err}`.
+        let _env_guard = crate::test_support::env_lock();
+        let mut registry = build_registry(ToolTier::Full);
+        registry.register(RegisteredTool {
+            name: "strict_schema_tool".to_string(),
+            description: "test".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": { "command": { "type": "string" } },
+                "required": ["command"]
+            }),
+            handler: Box::new(StaticOkHandler),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::ChatLite,
+        });
+
+        let valid = serde_json::json!({ "command": "echo hi" });
+        let malformed = serde_json::json!({ "nope": 1 }); // missing required `command`
+
+        // Gate OFF (default): malformed input is NOT schema-checked → runs.
+        std::env::remove_var("EPISTEMOS_SCHEMA_GATE_V1");
+        assert!(registry.execute("strict_schema_tool", &malformed).await.is_ok());
+
+        // Gate ON: valid passes; malformed rejected with a schema error.
+        std::env::set_var("EPISTEMOS_SCHEMA_GATE_V1", "1");
+        assert!(registry.execute("strict_schema_tool", &valid).await.is_ok());
+        let err = registry
+            .execute("strict_schema_tool", &malformed)
+            .await
+            .unwrap_err();
+        match err {
+            ToolError::InvalidArguments(msg) => assert!(
+                msg.contains("schema gate"),
+                "expected a schema-gate rejection, got: {msg}"
+            ),
+            other => panic!("expected InvalidArguments, got {other:?}"),
+        }
+        std::env::remove_var("EPISTEMOS_SCHEMA_GATE_V1");
     }
 
     #[test]
