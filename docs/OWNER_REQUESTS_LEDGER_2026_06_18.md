@@ -96,7 +96,17 @@ calls: no blanket rule — choose per case.
       (grep/extract, ProvenanceGate). SYSTEM PROMPT = an ANCHOR the loop EXTENDS
       (strong base system prompt, then extend), not a one-off. Make it deeply
       exquisite; wire into Chat/Act/Work. Verdict doc → port + harden.
-- [~] **#1 LOCAL FOR ALL MODES (route fix landed 2026-06-18; verify in-app) — STOP THE HIDDEN GPT ROUTE.** Owner (verbatim):
+- [~] **#1 LOCAL FOR ALL MODES — CHAT SEAM fixed Fast/Think/Code/Act 2026-06-18
+      (0f419bd0e); TriageService notes/general seam flagged+deferred (a9ef2de80).**
+      CHAT route (effectiveChatSurfaceSelection): .agent was already local-first;
+      now .thinking + .pro are too (were unconditional .cloud even with a working
+      local tier model) — all 4 modes local-first, cloud only when no local can
+      serve. SECOND SEAM: TriageService.shouldAutoRouteToCloud (notes/general AI
+      ops) still routes .pro/.agent/.thinking to cloud with local installed; fix
+      recipe is in-code but the test updates (autoCloudRoutingEscalatesProChat
+      pins the OLD Pro=cloud design) need a test-runnable env — deferred, not
+      shipped with unverifiable edits. Verify in-app: no-cloud + Code/Think → local.
+      Owner (verbatim):
       *"not even having cloud selected it goes to gpt, you should be able to use
       my local for all modes."* This is the #1 honesty-constraint violation: with
       NO cloud selected, Act/agentic still routes to GPT (cloud). FIX: the LOCAL
