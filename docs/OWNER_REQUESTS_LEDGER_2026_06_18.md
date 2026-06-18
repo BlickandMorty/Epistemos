@@ -312,6 +312,19 @@ should make the codebase MUCH better, never destabilize the working chat.
       adopt PATTERNS + agent-creation UX natively (Companion/tamagotchi P2.6 +
       Osaurus config + Goose subagents), not import SDKs. Recommend the native design.
 
+## Models (owner 2026-06-18)
+- [ ] **Add Gemma 4 26B-A4B QAT GGUF (unsloth/gemma-4-26B-A4B-it-qat-GGUF)** — owner
+      wants this MoE (26B total / ~4B active) running. The MLX 4-bit variant is
+      already cataloged (`gemma4_27BA4B4Bit` = mlx-community/gemma-4-26b-a4b-it-4bit,
+      InferenceState.swift:44) but it's gated at 18 GB min (line ~287) so it's
+      blocked on the 16 GB Mac. WIRE the Unsloth QAT **GGUF** variant into the Pro
+      GGUF runtime lane (llama-cli, flag-gated EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0,
+      MAS-forbidden) — QAT GGUF is smaller than MLX 4-bit and is what the GGUF lane
+      runs. Add as an installable candidate; memory-gate honestly but allow the new
+      "Run anyway" override + the corrected available-memory estimate so a 16 GB Mac
+      can attempt it (MoE = ~4B active so it's lighter than a dense 26B). Verify it
+      loads + generates via the GGUF lane. Pairs with the B1 Variant Ladder.
+
 ## Verdict docs already produced (decisions, not yet built)
 R-VOICE (Kokoro+MOSS+filter), R-EVE (pattern only), R-OKF (export+privacy+dedup),
 R-PROMPT (cache-stable prefix + lean schemas), CHAT_UX_MAP (3 axes). These are
