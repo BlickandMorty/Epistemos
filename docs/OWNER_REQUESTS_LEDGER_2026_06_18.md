@@ -320,6 +320,14 @@ should make the codebase MUCH better, never destabilize the working chat.
       as an installable candidate alongside the existing 12B; honest memory-gate
       (it's small so it should just fit). Pairs with the Variant Ladder + memory
       work. Verify it loads + generates.
+- [ ] **Add an on-device VISION RUNTIME for Holo (mlx-vlm or best) (owner 2026-06-18)**
+      — R-HOLO verdict: the GGUF lane is text-only, so Holo-3.1-4B (VLM) needs a real
+      vision runtime. Research the best on-device option (mlx-vlm is the leading
+      Apple-Silicon VLM runtime; also consider llama.cpp multimodal/mmproj). Wire it
+      as a new vision-inference lane, then run Holo through it into the computer-use
+      stack (DeviceAgentService / VisualVerifyLoop / Screen2AXFusion) for GUI
+      grounding. Honest (real vision, no faking), Pro/MAS gating, memory-gated.
+      Verdict doc + wire-in + verify it actually does image→action grounding.
 - [ ] **Add Holo-3.1-4B as a computer-use VL model (huggingface.co/Hcompany/Holo-3.1-4B)**
       — H Company's Holo is a VISION-LANGUAGE model for COMPUTER USE / GUI grounding
       (screen/web-agent navigation). Research the readme; wire it into the existing
