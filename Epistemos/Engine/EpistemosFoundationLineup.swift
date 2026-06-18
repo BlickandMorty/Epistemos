@@ -82,7 +82,10 @@ extension GemmaQATRuntimeStage {
             // largest, explicit-only pick — effort sizing never auto-routes to
             // it (it clamps to the 12B band), so it's selected only deliberately.
             .fast
-        case .reasoningSpecialist:
+        case .reasoningSpecialist, .liquidGeneralMoe:
+            // VibeThinker (reasoning) + LFM2.5 (general MoE) both back the Think
+            // tier's "general capable" surface; Think has no Fast effort-sizing,
+            // so LFM stays an explicit-only pick.
             .think
         case .specialistCoderFineTune:
             .code

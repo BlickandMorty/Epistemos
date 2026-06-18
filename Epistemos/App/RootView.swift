@@ -2035,6 +2035,8 @@ struct LocalModelToolbarMenu: View {
             return "brain"
         case .moeFlagshipCandidate:
             return "square.stack.3d.up"
+        case .liquidGeneralMoe:
+            return "drop"
         }
     }
 
