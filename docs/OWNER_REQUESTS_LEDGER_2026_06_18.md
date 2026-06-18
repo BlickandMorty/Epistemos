@@ -14,6 +14,23 @@ IMPLEMENTED, not just researched. Research FEEDS the build: each research verdic
 (R-*) must turn into shipped, in-app-verified slices. Nothing here is optional or
 "nice to have." Keep going until all of it is done and hardened (rule #6/#8).
 
+**PER-FEATURE HARDENING + NO-DRIFT GUARANTEE (owner 2026-06-18):** EVERY feature/
+item added gets its OWN hardening phase — not just a phase-level pass. For each
+shipped item: add regression tests, re-verify the prior items it touches still
+work in-app, and log "HARDENED <item>" in AGENT_PROGRESS.md. This is the
+anti-drop/anti-drift mechanism the owner is worried about: an item is not done
+until it's hardened AND can't regress later. Re-run the recurring corpus sweep so
+nothing silently disappears under compression.
+
+**CHAT DEEP-REPAIR IS A FIRST-CLASS GOAL (owner 2026-06-18):** the messy Epistemos
+Chat must be deeply repaired (P8.1b) — clean, maintainable, full-capability.
+
+**GOOSE-INTO-OPEN-CODE GUARDRAIL (owner 2026-06-18):** adding Goose (R-GOOSE) as
+the Work/Open-Code backend must NOT break Chat or Act. Isolate the extracted Goose
+core behind the Work mode + a feature flag; keep Chat/Act on their own engines;
+add regression coverage proving Chat + Act are unchanged after Goose lands. Goose
+should make the codebase MUCH better, never destabilize the working chat.
+
 ## REALITY-AUDIT RULE (applies to every line)
 1. Build the app; actually trace the UX path the owner would take.
 2. If a feature is hidden unless cloud/Pro/some-state — that's a FAIL for a
@@ -182,6 +199,11 @@ IMPLEMENTED, not just researched. Research FEEDS the build: each research verdic
       (NOT the 70B). Pull each into the ledger + BUILD; 70B alone stays owner-gated.
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
       substrate health + Knowledge Core (P5/R-ARCH) — more important than 70B.
+- [ ] **P5.H — DEEP-HARDEN + FINISH the substrate research** (Cognitive DAG incl.
+      orphaned macaroons→dispatch, Provenance ledger+console, Knowledge Core, Halo,
+      Simulation, Schema-First GenUI, XPC). Audit-first (hidden PASSes), finish the
+      unbuilt/orphaned, promote to T4+ (reachable/visible/verified/logged), surface
+      in Chat. The owner researched these to add to chat; they're unfinished.
 - [ ] **CHAT = FULL EPISTEMOS CEILING (P8.1)** — Chat gets max capability on MAS +
       Pro additions, keep all IP (Eidos etc.), don't bleed into Osaurus/Act.
 - [ ] **DETERMINISTIC SCHEMA ENGINE (P8.2, founding thesis — DON'T BURY)** — Rust
