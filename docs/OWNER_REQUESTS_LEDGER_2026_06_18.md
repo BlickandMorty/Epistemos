@@ -423,3 +423,49 @@ per pass). Keep until all done + hardened (rule #6/#8).
 - [ ] **P5.H deep-harden + FINISH the substrate research** — Cognitive DAG,
       provenance, Knowledge Core, Halo, Simulation, GenUI, XPC: finish + deep-harden
       each (per-feature hardening). 100% mandate.
+
+## Primitive-upgrades mine → P5/P8 (2026-06-18 → docs/PRIMITIVE_UPGRADES_MINE_2026_06_18.md)
+- [ ] **FIRST DOMINO (owner decision)**: the entire agent_core/src/research/* tree is
+      #[cfg(feature="research")] default-OFF, NEVER compiled into the app. Cores are
+      real + 1,800+ tests, but reaching bridge.rs needs: decide `research` compiles
+      into the MAS/Pro lib (or promote modules out of research/) + UniFFI export +
+      Swift call-site. SIGN-OFF NEEDED before the EML/primitive batch can ship.
+- [ ] **Tier-1 fast wins** (real Rust + LOCAL, M each after the domino): A1 EML-2
+      ConfidenceRouter scoring, A2 EML-3 VaultRecall re-rank, A4 EML-1 FFI+HealthRow,
+      B1 T20 Variant Ladder (mostly live), F1 Active-Assembly minimizer, F3 Sinkhorn
+      brain_routing, F4 confidence_floors, F5 interrupt_calibration, F6 hybrid_memory
+      folder, C1 info_ir→AnswerPacket.confidence, D1 ternary KV/steering.
+- [ ] Tier-2 (perf/proof/gated) + Tier-3 (E1/E2 residency, capability-ceiling, must
+      NOT move bytes until owner-gated) — see the mine doc.
+
+## Settings / staleness / substrate-finish (owner 2026-06-18)
+- [ ] **DEEP SETTINGS REPAIR** — audit EVERY Settings row/toggle for broken or
+      stale-assumption controls; fix/remove; verify each remaining control wired to
+      real runtime. (✓ first slice: SubstrateHealthPanel collapsible 13d2b5307.)
+- [ ] **APP-WIDE STALENESS SWEEP** — find + repair/remove super-old instances
+      (stale flags/model names/dead paths/old copy) with regressions, not just
+      Settings.
+- [ ] **FINISH SUBSTRATE to T4+ (P5/P5.H)** — Cognitive DAG, provenance, Knowledge
+      Core, Halo, Simulation, GenUI, XPC, Eidos, EML all to T4+. Only the 70B/System
+      G RUNTIME stays owner-gated.
+- [ ] **MINE SYSTEM G LOGIC → app** — extract reusable logic from Epistemos/SystemG/*
+      (AnswerPacket/SovereignGate/RuntimeRouter/run-event-log/verifiability) and
+      apply to app parts that truly benefit, WITHOUT arming the gated 70B runtime.
+- [ ] **INFUSE EPISTEMOS IP INTO ACT (Osaurus) + WORK (Goose)** — wire in the
+      deterministic schemas (P8.2), Eidos, Knowledge Core, memory/vault, the
+      determinism/verifiability gates, and theme, so Act/Work inherit the engines'
+      hardening AND gain Epistemos superpowers (not vanilla).
+
+## R-CODEREVIEW + R-AGENTFW (owner 2026-06-18)
+- [ ] **R-CODEREVIEW ("thermonuclear" = a NAME for ultra-aggressive exhaustive
+      review)** — research the best deep-review method; deliver TWO ways: (a) a LOOP
+      PROCESS step that runs a whole-app deep review (correctness, dead/stale code,
+      honesty-constraint violations, perf, arch drift) → files findings; (b) an
+      IN-APP code-review feature in Work/OpenCode (review the open repo, gated by
+      P8.2 schemas + Goose's self-correction loop). Real findings only.
+- [ ] **R-AGENTFW agent-creation frameworks** — research + DELIBERATE: Vercel AI SDK
+      (TS, MIT), Google ADK/Agent Builder (open), Cursor agent (proprietary —
+      approach/UX only). Likely = ADOPT PATTERNS + agent-creation UX natively (tie
+      into Companion/tamagotchi builder + Osaurus agent config + Goose subagents),
+      NOT import SDKs. Verdict doc per framework: usable-IP vs patterns-only,
+      license, what to take, recommended native design.
