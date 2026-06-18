@@ -20,6 +20,11 @@ struct InlineRuntimePickerPanel: View {
     /// A blocked pick (not installed / won't fit memory) routes here — the
     /// honest path to install or free memory, never a silent switch.
     var onOpenSettings: () -> Void
+    /// Single-button surfaces (landing/mini/note/graph) carry the WHOLE picker
+    /// in one control, so the inline panel shows a footer linking the advanced
+    /// bits (cloud, routing, model details) to Settings. Main chat keeps those
+    /// as their own split-toolbar buttons, so it leaves this off (default).
+    var showsSettingsFooter: Bool = false
 
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
@@ -50,6 +55,28 @@ struct InlineRuntimePickerPanel: View {
                             pickRow(option, tier: tier)
                         }
                     }
+                }
+
+                if showsSettingsFooter {
+                    Divider()
+                        .padding(.vertical, 2)
+                    Button {
+                        onOpenSettings()
+                        onPicked()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Cloud, routing & model details — Settings")
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            Spacer(minLength: 0)
+                            Image(systemName: "arrow.up.forward")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .foregroundStyle(theme.resolved.accent.color)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(12)
