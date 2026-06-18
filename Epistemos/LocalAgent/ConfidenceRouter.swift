@@ -155,6 +155,9 @@ nonisolated struct ConfidenceRouter {
         case localModelCannotActAsAgent
         case structuredOutputInvalid
         case structuredOutputUnverifiable
+        // P5.H A1 (EML-2): the fused confidence×complexity-headroom energy was
+        // too weak on BOTH axes to keep local (opt-in, EPISTEMOS_EML_ROUTE_V1).
+        case localFitnessBelowThreshold
     }
 
     nonisolated struct Decision: Sendable, Equatable {
@@ -167,15 +170,60 @@ nonisolated struct ConfidenceRouter {
     let uncertaintyThreshold: Double
     let maxLocalComplexity: Double
     let maxLocalToolCount: Int
+    /// P5.H A1 (EML-2) — opt-in ceiling on the fused local-fitness energy
+    /// (`localFitnessEnergy`, smaller = better). The worst case that still
+    /// passes the individual hard gates is (confidence = uncertaintyThreshold,
+    /// headroom = 0) → energy ≈ 1/0.60 = 1.667; the default 1.50 is tighter, so
+    /// a request that is borderline on BOTH confidence and complexity defers to
+    /// cloud, while strength on EITHER axis (high confidence OR ample complexity
+    /// headroom) keeps it local. Only consulted when EPISTEMOS_EML_ROUTE_V1 is on.
+    let emlLocalFitnessCeiling: Double
 
     init(
         uncertaintyThreshold: Double = 0.60,
         maxLocalComplexity: Double = 0.40,
-        maxLocalToolCount: Int = 2
+        maxLocalToolCount: Int = 2,
+        emlLocalFitnessCeiling: Double = 1.50
     ) {
         self.uncertaintyThreshold = uncertaintyThreshold
         self.maxLocalComplexity = maxLocalComplexity
         self.maxLocalToolCount = maxLocalToolCount
+        self.emlLocalFitnessCeiling = emlLocalFitnessCeiling
+    }
+
+    /// Opt-in EML route fusion (P5.H A1 / EML-2), default OFF — same truth table
+    /// as the Rust gates (1/true/yes/on). When off, `route` is byte-identical to
+    /// its prior behavior (the fusion gate is skipped entirely).
+    nonisolated static func emlRouteFusionEnabled(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        guard let raw = environment["EPISTEMOS_EML_ROUTE_V1"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        else { return false }
+        return ["1", "true", "yes", "on"].contains(raw)
+    }
+
+    /// The fused local-fitness energy: `EmlRerank.rerankKey(confidence, headroom)`
+    /// = `1/(confidence+ε) − ln(headroom+1)`, smaller = better. `confidence` is
+    /// the dominant "more is better" signal; `headroom` = how far the task's
+    /// complexity sits below the local ceiling (`maxLocalComplexity − complexity`,
+    /// floored at 0) is the fused "more is better" signal. Byte-identical to the
+    /// Rust vault re-rank key, so Swift routing and Rust retrieval agree exactly.
+    nonisolated func localFitnessEnergy(_ classification: Classification) -> Double {
+        let headroom = max(0, maxLocalComplexity - classification.complexity)
+        return EmlRerank.rerankKey(primary: classification.confidence, secondary: headroom)
+    }
+
+    /// Pure, env-free decision core for the EML fusion gate (so the fusion logic
+    /// is unit-testable without manipulating process env). Defers to cloud only
+    /// when fusion is enabled AND the fused energy exceeds the ceiling.
+    nonisolated func shouldDeferForLocalFitness(
+        _ classification: Classification,
+        fusionEnabled: Bool,
+        ceiling: Double
+    ) -> Bool {
+        guard fusionEnabled else { return false }
+        return localFitnessEnergy(classification) > ceiling
     }
 
     func route(
@@ -245,6 +293,26 @@ nonisolated struct ConfidenceRouter {
             return Decision(
                 route: .cloudFallback,
                 reason: .tooManyToolCalls,
+                usesLocalAgentLoop: false,
+                selectedLocalModelID: nil
+            )
+        }
+
+        // P5.H A1 (EML-2) — opt-in fused-signal confirmation. Each hard gate
+        // above checks one axis in isolation; the EML key fuses confidence and
+        // complexity-headroom into one energy so a request that scrapes past
+        // every individual gate but is jointly weak defers to cloud. Default OFF
+        // (EPISTEMOS_EML_ROUTE_V1) → this block is skipped and the decision is
+        // unchanged. Note: privacy-sensitive requests already returned `.local`
+        // far above, so this can never push a private request to cloud.
+        if shouldDeferForLocalFitness(
+            classification,
+            fusionEnabled: Self.emlRouteFusionEnabled(),
+            ceiling: emlLocalFitnessCeiling
+        ) {
+            return Decision(
+                route: .cloudFallback,
+                reason: .localFitnessBelowThreshold,
                 usesLocalAgentLoop: false,
                 selectedLocalModelID: nil
             )
