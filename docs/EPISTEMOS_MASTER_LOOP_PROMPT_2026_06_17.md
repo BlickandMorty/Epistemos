@@ -318,7 +318,7 @@ done, then re-read this file and harden.
 | P1.4 | Honesty blocker: visible when local model can't run (#43) | ✅ DONE (2026-06-17) — `localChatModelMemoryBlocker` + `LocalChatModelMemoryGate`; disables Send + orange banner, "Send on cloud" stays open; Fast gates on smallest size; +5 tests |
 | P1.5 | Fast "three efforts" per-query complexity sizing | ✅ DONE (2026-06-17) — `sizedFastLocalTextModelID` at the `routeDecision`/`effectivePolicyContext` seam; trivial→E2B/medium→E4B/hard→12B, memory-safe (16 GB caps at E4B), honors explicit picks; +6 tests |
 | P1.6 | Think stale-route audit: Think must be VibeThinker, not Gemma 4 12B | ☐ TODO |
-| P2.1 | In-chat tool toggles | ☐ TODO |
+| P2.1 | In-chat tool toggles | ☐ TODO — ⚠️ HONESTY GATE: main chat tools come from `executionPlan.allowedToolNames` (Overseer plan), NOT `agentCommandCenter.toolToggles`. Wire the user's enabled set into the main-chat allowed-tool computation (ChatCoordinator) FIRST, then the UI — toggles must really gate runtime, not be fake config |
 | P2.2 | Agents search memory (verify + surface) | ☐ TODO |
 | P2.3 | MCP management UI in chat | ☐ TODO |
 | P2.4 | In-chat skill creation + browser | ☐ TODO |
