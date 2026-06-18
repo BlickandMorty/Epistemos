@@ -116,6 +116,11 @@ struct ChatInputBar: View {
     @State private var slashKeyboardIndex = 0
     @State private var selectedSlashItem: ComposerSlashCommandItem?
 
+    /// P2.1 (UI) — in-chat agent-tool control panel. The toggles really gate the
+    /// main-chat tool set (executionPlanGatedByUserToolToggles), so this is real
+    /// config, not decoration.
+    @State private var showToolPanel = false
+
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedMentionFilter: String {
@@ -918,6 +923,10 @@ struct ChatInputBar: View {
 
                     ContextualShadowsButton(scopeKind: .chat, scopeID: contextualRecallScopeID)
 
+                    if !agentCommandCenter.availableTools.isEmpty {
+                        toolPanelButton
+                    }
+
                     if showsCloudRouteButton {
                         cloudRouteButton
                     }
@@ -1210,6 +1219,24 @@ struct ChatInputBar: View {
     /// back, so there is no hidden state. (A strict per-turn override that leaves
     /// the local default untouched needs a routing override threaded through the
     /// ~11 `effectiveChatSurfaceSelection` resolution sites — tracked separately.)
+    /// P2.1 (UI) — opens the agent-tool toggle panel. Active when the user has
+    /// turned at least one tool off, so the chrome signals customized state.
+    private var toolPanelButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "slider.horizontal.3",
+            variant: .toolbar,
+            isActive: !agentCommandCenter.disabledToolNames.isEmpty,
+            helpText: "Agent tools — turn capabilities on or off for this chat",
+            accessibilityLabel: "Agent tools"
+        ) {
+            showToolPanel.toggle()
+        }
+        .popover(isPresented: $showToolPanel, arrowEdge: .top) {
+            AgentToolTogglePanel(agentCommandCenter: agentCommandCenter, theme: theme)
+        }
+    }
+
     private var cloudRouteButton: some View {
         ToolbarCapsuleButton(
             title: nil,
