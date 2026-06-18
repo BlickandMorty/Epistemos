@@ -52,11 +52,14 @@ nonisolated enum EpistemosRuntimePicker {
         let minimumMemoryGB: Int
     }
 
-    /// Owner 2026-06-18: Qwen 3 8B back as an explicit Think pick. It's a general
-    /// native-tool-call + thinking model (`LocalTextModelID.qwen3_8B4Bit`, the
-    /// `fallbackPrimaryAgentModel`; displayName "Qwen 3 8B"; min 12 GB). Source of
-    /// truth for these constants is `LocalTextModelID.qwen3_8B4Bit`.
+    /// Owner 2026-06-18: BOTH Qwen 3 4B and Qwen 3 8B back as explicit Think picks
+    /// (general native-tool-call + thinking models). NEITHER is the auto-default —
+    /// the default stays a Fast Gemma; these are visible USER choices only (P1.10
+    /// holds: never a silent fallback). Source of truth for the constants:
+    /// `LocalTextModelID.qwen3_4B4Bit` (8 GB) and `.qwen3_8B4Bit` (12 GB, the
+    /// `fallbackPrimaryAgentModel`).
     static let extraPicks: [ExtraPick] = [
+        ExtraPick(id: "Qwen/Qwen3-4B-MLX-4bit", title: "Qwen 3 4B", tier: .think, minimumMemoryGB: 8),
         ExtraPick(id: "Qwen/Qwen3-8B-MLX-4bit", title: "Qwen 3 8B", tier: .think, minimumMemoryGB: 12),
     ]
 
