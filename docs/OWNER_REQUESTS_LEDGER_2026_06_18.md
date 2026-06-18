@@ -606,3 +606,16 @@ needs it), never run a Node/Python sidecar.
       memory-gate honestly [small, should fit]). EVALUATE + document its best role
       (dedicated fast/quick local? Fast-tier option? cheap tool/triage model?). Add
       the LiquidAI/LFM logo to the P6.1 lobehub logo set. Verify loads+generates.
+
+## R-HOLO — Holo-3.1-4B VL for computer-use (2026-06-18 → docs/RESEARCH_HOLO_VL_2026_06_18.md)
+- HONEST VERDICT: Holo-3.1-4B is a VISION-language model; the GGUF lane is text-only
+  (gguf_cli.rs:348 supports_vision=false). NOT added as a fake text-GGUF candidate
+  (would fake vision). REAL GAP to build:
+- [ ] **Vision GGUF lane** (Pro) — GgufVisionCliProvider via llama-mtmd-cli + the
+      model's mmproj-*.gguf (or an MLX-VLM Swift path); supports_vision=true; behind
+      the GGUF flag + Pro gate, security.rs hardened. Then add Holo as a REAL vision
+      candidate (fetch HF provenance for both the weights + mmproj).
+- [ ] **Wire Holo → computer-use** — local vision policy in DeviceAgentService/
+      ComputerUseBridge/VisualVerifyLoop (screenshot → Holo → grounded action/
+      function-call); function-calls validated vs P8.2 deterministic schemas; honest
+      gating (Pro/dev; MAS keeps the bounded/native computer-use path).
