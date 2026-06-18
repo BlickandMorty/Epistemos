@@ -266,3 +266,40 @@ DECISIONS — the BUILD + in-app verification still has to happen.
       + a one-tap "Enable recommended power set" in P2.1 (MAS-safe subset; Pro adds
       shell/git/browser/CLI); external MCP picks only when actually wired (Keychain),
       never a fake-on toggle; prefer vendor-maintained MCPs.
+
+## Unfinished-research sweep top items (2026-06-18 → docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md)
+Local/chat, verified-against-code, not-blocked (full list + eras in the sweep doc):
+- [ ] **OBS-1/2/3 Eidos→chat wiring** — EidosBridge FFI (W-46) + closed-citation
+      emit-gate into ChatCoordinator (W-47) + "Retrieved by Eidos" panel (W-48).
+      Eidos substrate done (~472 tests); chat wiring not. HIGH value.
+- [ ] **OBS-5 Eidos cold-build Swift-6 isolation fix** — the EidosBridge/Wiring
+      MainActor-UniFFI bug (cold/CI build only). Quick win; already flagged.
+- [ ] **EML-2 / EML-3** — inject shipped EML energy into ConfidenceRouter routing
+      + vault-recall re-rank (≥2pp on F-VaultRecall-50).
+- [ ] **LF-1/2/3 kill MoLoRA/QLoRA Python subprocess** — NO-SIDECAR breach
+      (molora_inference.py + __pycache__ live); port to in-process MLX-Swift.
+- [ ] **REG-1 KV-Direct-Gate harness**, **REG-3 NightBrain bodies**, **REG-2 T20
+      Variant Ladder** (honest local routing), **REG-6 per-model memory folder +
+      chat-as-graph-node**, **SIM-4 real MLX-Swift LoRA hot-swap**, **LI-2/LI-3
+      Residency PatternBoost + ColdStream** (newest local-routing research).
+- NOTE: "EML" = elementary-math IR, NOT episodic memory (separate CoALA episode
+  track). Simulation donor mining is BLOCKED (Hermes coupling). Don't conflate/revive.
+
+## More owner asks (2026-06-18)
+- [ ] **R-APPS: study the best OSS chat/agent apps** — LM Studio, HuggingFace
+      (chat-ui / transformers / candle), Unsloth, Jan, Ollama, Open WebUI, Cherry
+      Studio, LibreChat + best others. Deep-read SYSTEM PROMPTS, architectures,
+      agent loops, tool/MCP handling, local-model + structured-output patterns, UX.
+      Write a verdict doc (adopt-natively vs skip, license, via ProvenanceGate);
+      take the best system-prompt + architecture ideas honestly. (Research phase.)
+- [ ] **P2.7: skill/tool/superpower/MCP INSTALL + MANAGEMENT surface** — install
+      from external sources (GitHub repos AND MCP registries: modelcontextprotocol
+      registry, Smithery, mcp.so, glama, awesome-mcp-servers). Must PERSIST
+      installed ones (survive restarts) AND USE them once installed (wired into the
+      tool catalog / executionPlan / MCPBridge — not just listed). Settings
+      management pane: browse / install / enable / disable / update / remove. Honest
+      gating (Pro/MAS, Keychain for tokens, security.rs for subprocess). Pairs with
+      P-BESTOF preset + P2.3 MCP + P2.4 skills.
+- [ ] **default-Qwen-4B bug repair** — something auto-defaults to Qwen 4B instead
+      of a Fast Gemma; fix the default-resolution seam (effectiveLocalTextModelID /
+      sanitizedStoredLocalChatModelID), keep both Qwens explicit-only.
