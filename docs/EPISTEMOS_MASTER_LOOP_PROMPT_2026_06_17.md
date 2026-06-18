@@ -418,6 +418,12 @@ functionality comes FROM Osaurus now; do not keep polishing a parallel Act.
         (Chat = Epistemos chat / Act = Osaurus / Work = OpenCode) binds cleanly.
         Document the import + integration in docs/OSAURUS_DEEP_DIVE_2026_06_17.md
         (now an IMPORT/INTEGRATION map, not a cherry-pick list).
+        THE ONLY "CHERRY-PICK" IS THE UI (owner 2026-06-18): import ALL the code;
+        the only selective work is reskinning Osaurus's frontend to the app's
+        MINIMAL pixel-art look. KEEP Osaurus's AGENT-CREATION capability, but FRONT
+        it with the Epistemos TAMAGOTCHI / Companion (the fluid-animation companion,
+        P2.6) as the agent-creation UI/identity — adopt the tamagotchi as the face
+        of agent creation, bound to Osaurus's hardened agent state.
   P3.2  Verify the local OpenAI/Ollama server (#46, ResponseWriters/OsaurusServer
         shape) is wired + MAS-safe (no subprocess from the notarized app).
   P3.3  Sentinel stream + dynamic-tool schema → fold into agent_core tool-call
