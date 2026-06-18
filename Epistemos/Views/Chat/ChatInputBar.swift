@@ -1233,8 +1233,28 @@ struct ChatInputBar: View {
             showToolPanel.toggle()
         }
         .popover(isPresented: $showToolPanel, arrowEdge: .top) {
-            AgentToolTogglePanel(agentCommandCenter: agentCommandCenter, theme: theme)
+            AgentToolTogglePanel(
+                agentCommandCenter: agentCommandCenter,
+                theme: theme,
+                onRunSkill: { skill in runSkillFromPanel(skill) }
+            )
         }
+    }
+
+    /// P2.4 — start a skill turn from the in-chat browser: prime the composer
+    /// with the skill's `/identifier` slash token (the same real run path the
+    /// slash menu uses), close the panel, and leave the cursor ready for the
+    /// user's request. Honest: it only stages the invocation — the user still
+    /// sends.
+    private func runSkillFromPanel(_ skill: SkillDiscoveryEntry) {
+        showToolPanel = false
+        let invocation = "/\(skill.identifier) "
+        if trimmedText.isEmpty {
+            text = invocation
+        } else if !text.hasPrefix("/") {
+            text = invocation + text
+        }
+        isFocused = true
     }
 
     private var cloudRouteButton: some View {
