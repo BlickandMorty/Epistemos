@@ -176,6 +176,10 @@ IMPLEMENTED, not just researched. Research FEEDS the build: each research verdic
       docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md.
 
 ## Architecture / process
+- [ ] **Living Index + Lattice Explainer — non-70B upgrades (owner 2026-06-18)** —
+      deep-mine EPISTEMOS_LIVING_INDEX_2026_05_24.md + the lattice explainer ("lots
+      of things there") for theoretical + app upgrades using EML + other PRIMITIVES
+      (NOT the 70B). Pull each into the ledger + BUILD; 70B alone stays owner-gated.
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
       substrate health + Knowledge Core (P5/R-ARCH) — more important than 70B.
 - [ ] **CHAT = FULL EPISTEMOS CEILING (P8.1)** — Chat gets max capability on MAS +
