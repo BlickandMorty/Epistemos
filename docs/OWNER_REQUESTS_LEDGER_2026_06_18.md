@@ -466,7 +466,18 @@ calls: no blanket rule — choose per case.
       graph / live theater) or wherever its strength lies. Verdict doc (what it is,
       stack, license, native-vs-WebKit, best home in the app), then full port +
       pixel-art reskin, ProvenanceGate + honest gating, per-feature harden.
-- [ ] **LiteLLM Agent Control Plane (R-LITELLM-CP)** — github.com/LiteLLM-Labs/
+- [x] **LiteLLM Agent Control Plane (R-LITELLM-CP)** — VERDICT 2026-06-18
+      (docs/RESEARCH_LITELLM_CP_2026_06_18.md): PATTERNS-ONLY, no port. Epistemos
+      already implements the unified runtime-adapter ("1 place to call all
+      agents") — 9 ToolHandler CLI passthroughs sharing hardened run_passthrough,
+      RuntimeRouter policy, session.rs persistence, procedural memory, CRON
+      schedule skill, Keychain vaulting — at parity-or-BETTER (9 runtimes vs 4-5;
+      Epistemos also has max_cost_usd + local-first fallback that LiteLLM-CP
+      lacks). Partial-gap = declarative "agent={runtime,tools,skills,persona}"
+      surface → folded into the Osaurus P3.0 plan (Companion-fronted). SHIPPED
+      cee830048: unblocked the pro-build test build (my P8.1 regression) + locked
+      all 9 runtime adapters registered. Superseded detail below:
+      github.com/LiteLLM-Labs/
       litellm-agent-control-plane. Deeply research; maps onto our agent
       orchestration / routing / control (RuntimeRouter + agent_core loop + Act).
       It's LiteLLM/Python → adopt the PATTERNS natively (control-plane design,
