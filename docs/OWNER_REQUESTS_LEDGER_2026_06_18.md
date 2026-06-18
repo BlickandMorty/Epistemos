@@ -325,6 +325,14 @@ should make the codebase MUCH better, never destabilize the working chat.
       can attempt it (MoE = ~4B active so it's lighter than a dense 26B). Verify it
       loads + generates via the GGUF lane. Pairs with the B1 Variant Ladder.
 
+## Field Theory port (owner 2026-06-18)
+- [ ] **PORT github.com/afar1/fieldtheory (R-FIELDTHEORY)** — owner wants the WHOLE
+      thing ported into Epistemos, deeply researched first (it's not local — clone +
+      read it). Reskin to the app's PIXEL-ART look (FONTS mainly) and update anything
+      visually inconsistent. WebKit is OK if the surface needs it. Verdict doc first:
+      what it is, language/stack, license, how it maps in (native vs WebKit), then
+      port + reskin. ProvenanceGate + honest gating; per-feature harden.
+
 ## Verdict docs already produced (decisions, not yet built)
 R-VOICE (Kokoro+MOSS+filter), R-EVE (pattern only), R-OKF (export+privacy+dedup),
 R-PROMPT (cache-stable prefix + lean schemas), CHAT_UX_MAP (3 axes). These are
