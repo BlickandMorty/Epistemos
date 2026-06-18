@@ -3186,6 +3186,14 @@ private struct LocalModelManagerSheet: View {
         localModelManager.epistemosFoundationPackageMissingModelIDs.count
     }
 
+    /// P1.8 — count of foundation-package models actively downloading right now,
+    /// so the one-tap install shows live progress instead of a static button.
+    private var foundationInstallingCount: Int {
+        EpistemosFoundationLineup.foundationModelIDs
+            .filter { localModelManager.activeInstalls.contains($0) }
+            .count
+    }
+
     private func tierTint(_ tier: EpistemosModelTier) -> Color {
         switch tier {
         case .fast: .orange
@@ -3226,6 +3234,7 @@ private struct LocalModelManagerSheet: View {
                     }
                 }
 
+                let foundationInstalling = foundationInstallingCount > 0
                 Button {
                     Task {
                         try? await localModelManager.installEpistemosFoundationPackage()
@@ -3233,18 +3242,34 @@ private struct LocalModelManagerSheet: View {
                     }
                 } label: {
                     Label(
-                        foundationPackageMissingCount == 0
-                            ? "Foundation package installed"
-                            : "Download the Epistemos AI foundation package",
-                        systemImage: foundationPackageMissingCount == 0
-                            ? "checkmark.circle.fill"
-                            : "arrow.down.circle.fill"
+                        foundationInstalling
+                            ? "Installing the foundation package…"
+                            : (foundationPackageMissingCount == 0
+                                ? "Foundation package installed"
+                                : "Download the Epistemos AI foundation package"),
+                        systemImage: foundationInstalling
+                            ? "arrow.down.circle"
+                            : (foundationPackageMissingCount == 0
+                                ? "checkmark.circle.fill"
+                                : "arrow.down.circle.fill")
                     )
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(foundationPackageMissingCount == 0)
+                // Disabled while fully installed OR mid-install (so a second tap
+                // can't double-trigger the multi-model download).
+                .disabled(foundationPackageMissingCount == 0 || foundationInstalling)
 
-                if foundationPackageMissingCount > 0 {
+                // P1.8 — live aggregate status so the one-tap install never looks
+                // frozen: a spinner + "N downloading" while models are streaming.
+                if foundationInstalling {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("\(foundationInstallingCount) model\(foundationInstallingCount == 1 ? "" : "s") downloading… smaller models finish first so you can start sooner.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if foundationPackageMissingCount > 0 {
                     Text("\(foundationPackageMissingCount) model\(foundationPackageMissingCount == 1 ? "" : "s") to download. Smaller models install first so you can start sooner.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -3467,11 +3492,32 @@ private struct LocalModelRow: View {
             .accessibilityLabel(metaAccessibilityLabel)
 
             if case .installing(let progress) = state {
-                ProgressView(value: progress)
-                    .controlSize(.small)
-                    .frame(maxWidth: 200)
-                    .accessibilityLabel("\(descriptor.displayName) install progress")
-                    .accessibilityValue("\(safePercent(progress)) percent")
+                // P1.8 — honest progress: a determinate bar only while bytes are
+                // flowing; a labeled spinner at 0% (starting) and 100% (verifying
+                // + activating) so the install never looks frozen.
+                let display = ModelInstallProgressDisplay.from(fraction: progress)
+                VStack(alignment: .leading, spacing: 3) {
+                    switch display {
+                    case .determinate(let fraction, let percent):
+                        ProgressView(value: fraction)
+                            .controlSize(.small)
+                            .frame(maxWidth: 200)
+                        Text("Downloading… \(percent)%")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    case .indeterminate(let status):
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text(status)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(descriptor.displayName) install progress")
+                .accessibilityValue("\(display.accessibilityPercent) percent")
             } else if case .prepared = state {
                 Text("Prepared runtime assets are already available for this tier. Install the snapshot only if you want a separate fallback copy.")
                     .font(.caption)

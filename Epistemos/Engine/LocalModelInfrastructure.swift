@@ -2295,6 +2295,42 @@ final class PreparedModelRegistry {
     }
 }
 
+/// P1.8 — honest install-progress display mapping (owner hotfix c). A raw
+/// `fractionCompleted` (Foundation `Progress`) of 0 — download just started, or
+/// the total size isn't known yet — or 1.0 — bytes finished but checksum
+/// verification + activation are still running — both render a *determinate* bar
+/// that looks FROZEN. This maps the raw fraction to an honest display: a
+/// determinate bar only while `0 < fraction < 1`, and an indeterminate spinner
+/// with a status word ("Starting…" / "Finalizing…") otherwise, so a download
+/// never looks stuck. Pure + `nonisolated` so it's unit-testable without the
+/// manager or the view.
+nonisolated enum ModelInstallProgressDisplay: Equatable, Sendable {
+    case determinate(fraction: Double, percent: Int)
+    case indeterminate(status: String)
+
+    static func from(fraction: Double?) -> ModelInstallProgressDisplay {
+        guard let fraction, fraction.isFinite, fraction > 0 else {
+            // 0, negative, NaN, or absent → bytes haven't started flowing yet.
+            return .indeterminate(status: "Starting…")
+        }
+        if fraction >= 1 {
+            // Bytes done; checksum verify + atomic activation still to run.
+            return .indeterminate(status: "Finalizing…")
+        }
+        let clamped = min(fraction, 1)
+        // Truncate (not round) so a determinate bar never prematurely reads 100%.
+        return .determinate(fraction: clamped, percent: Int(clamped * 100))
+    }
+
+    /// Percent for accessibility (0 while indeterminate).
+    var accessibilityPercent: Int {
+        switch self {
+        case .determinate(_, let percent): percent
+        case .indeterminate: 0
+        }
+    }
+}
+
 @MainActor @Observable
 final class LocalModelManager {
     private nonisolated static let staleStagingDirectoryGraceInterval: TimeInterval = 30 * 60
