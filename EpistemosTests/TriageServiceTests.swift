@@ -541,12 +541,14 @@ struct TriageServiceTests {
 
         InferenceState.migrateStaleGemma4Selection(defaults: defaults)
 
+        // Owner 2026-06-18: migrate a stale MLX Gemma 4 to the WORKING Fast Gemma
+        // GGUF default (same family), never Qwen.
         #expect(
-            defaults.string(forKey: localKey) == LocalTextModelID.qwen3_4B4Bit.rawValue
+            defaults.string(forKey: localKey) == EpistemosFoundationLineup.defaultChatModelID
         )
         #expect(
             defaults.string(forKey: selectionKey)
-                == ChatModelSelection.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue).rawValue
+                == ChatModelSelection.localMLX(EpistemosFoundationLineup.defaultChatModelID).rawValue
         )
     }
 
@@ -620,11 +622,13 @@ struct TriageServiceTests {
 
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.gemma4_4B4Bit.rawValue))
 
+        // Owner 2026-06-18: an unrunnable MLX Gemma 4 sanitizes to the WORKING
+        // Fast Gemma GGUF (same family), never Qwen.
         #expect(
             inference.preferredChatModelSelection
-                == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue)
+                == .localMLX(EpistemosFoundationLineup.defaultChatModelID)
         )
-        #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+        #expect(inference.preferredLocalTextModelID == EpistemosFoundationLineup.defaultChatModelID)
     }
 
     @Test("persisted Gemma 4 chat selection normalizes on inference load")

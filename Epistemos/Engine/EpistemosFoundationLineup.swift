@@ -135,6 +135,14 @@ nonisolated enum EpistemosFoundationLineup {
     static func representativeModelID(for tier: EpistemosModelTier) -> String? {
         candidates(for: tier).first?.id
     }
+
+    /// The canonical default chat model id for a fresh install / unset / stale
+    /// selection — the smallest Fast Gemma (the Fast tier representative). Owner
+    /// 2026-06-18: the default is a Fast GEMMA, never Qwen (both Qwens are
+    /// explicit-only picks). Falls back to the literal E2B GGUF id when the
+    /// ladder is somehow empty so this is always non-nil for property defaults.
+    static let defaultChatModelID: String =
+        representativeModelID(for: .fast) ?? "google/gemma-4-E2B-it-qat-q4_0-gguf"
 }
 
 /// P1.5 — Fast "three efforts" per-query sizing policy. Maps a query-complexity

@@ -3258,9 +3258,12 @@ final class InferenceState {
     /// this is an EXPLICIT user-forced load (NOT a silent swap — fully allowed).
     /// Persisted so the choice survives restarts.
     private(set) var memoryGateForcedModelIDs: Set<String> = []
-    var preferredLocalTextModelID: String = LocalTextModelID.qwen3_4B4Bit.rawValue
+    // Owner 2026-06-18: the default chat model is a Fast GEMMA, never Qwen
+    // (both Qwens are explicit-only picks). EpistemosFoundationLineup.defaultChatModelID
+    // = the Fast tier representative (smallest Gemma GGUF).
+    var preferredLocalTextModelID: String = EpistemosFoundationLineup.defaultChatModelID
     var preferredChatModelSelection: ChatModelSelection = .localMLX(
-        LocalTextModelID.qwen3_4B4Bit.rawValue
+        EpistemosFoundationLineup.defaultChatModelID
     )
     var activeAIProvider: AIProviderSelection = .openAI
     private let keychainLoad: @Sendable (String) -> String?
@@ -3666,11 +3669,13 @@ final class InferenceState {
     /// loader isn't ported yet (see `isAwaitingSwiftRuntimeLoader`), so a
     /// user pinned to Gemma 4 hits a runtime "Unsupported model type:
     /// gemma4" error every turn. Move them to the documented default
-    /// (Qwen 3 4B) so chat works again; NOT gated by a one-time flag —
-    /// if a user somehow re-pins to a Gemma 4 tier before the loader
-    /// lands, the next launch re-migrates them back to a runnable model.
+    /// (the Fast Gemma GGUF — same family, and it actually runs via the GGUF
+    /// lane) so chat works again; NOT gated by a one-time flag — if a user
+    /// somehow re-pins to an MLX Gemma 4 tier before the loader lands, the next
+    /// launch re-migrates them to the runnable Fast Gemma. (Owner 2026-06-18:
+    /// never migrate to Qwen — the default is a Fast Gemma.)
     nonisolated static func migrateStaleGemma4Selection(defaults: UserDefaults) {
-        let fallbackLocalModelID = LocalTextModelID.qwen3_4B4Bit.rawValue
+        let fallbackLocalModelID = EpistemosFoundationLineup.defaultChatModelID
 
         let localKey = "epistemos.preferredLocalTextModelID"
         if let saved = defaults.string(forKey: localKey),
@@ -5910,6 +5915,11 @@ final class InferenceState {
         // not currently runnable (the picker simply surfaces nothing effective).
         if let model = LocalTextModelID(rawValue: modelID),
            model.isAwaitingSwiftRuntimeLoader {
+            // Owner 2026-06-18: under the simplified lineup, rewrite an unrunnable
+            // MLX Gemma 4 to the WORKING Fast Gemma GGUF (same family), never Qwen.
+            if EpistemosFoundationLineup.simplifiedLineupActive {
+                return EpistemosFoundationLineup.defaultChatModelID
+            }
             return hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
         }
         return modelID
