@@ -745,6 +745,15 @@ non-large-model architecture.
                 the FOUNDING THESIS determinism: anysphere/priompt
                 (github.com/anysphere/priompt) + composer-api.formkit.workers.dev.
                 What improves our hyper-deterministic schema / context engineering?
+  PHASE R-APPS  (owner 2026-06-18) STUDY THE BEST CHAT/AGENT APPS — besides Osaurus,
+                deep-read the top open-source chat/agent apps on GitHub: LM Studio,
+                HuggingFace (chat-ui / transformers / candle), Unsloth, and the best
+                others (Jan, Ollama, Open WebUI, Cherry Studio, LibreChat, etc.).
+                Extract: their SYSTEM PROMPTS, agent-loop architecture, tool/MCP
+                handling, local-model + structured-output patterns, and UX. Write a
+                verdict doc (what to adopt natively vs skip, license, via the
+                ProvenanceGate). Goal: take the best system-prompt + architecture
+                ideas into Epistemos honestly.
   Also sweep GitHub / HuggingFace / arXiv / Twitter(X) for anything that
   strengthens the above and combine it INTO the app, honestly. For EACH research
   phase write a short docs/ note that says: take or skip, free vs paid, license,
