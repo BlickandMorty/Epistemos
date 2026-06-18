@@ -523,8 +523,12 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
       Eidos substrate done (~472 tests); chat wiring not. HIGH value.
 - [ ] **OBS-5 Eidos cold-build Swift-6 isolation fix** — the EidosBridge/Wiring
       MainActor-UniFFI bug (cold/CI build only). Quick win; already flagged.
-- [ ] **EML-2 / EML-3** — inject shipped EML energy into ConfidenceRouter routing
-      + vault-recall re-rank (≥2pp on F-VaultRecall-50).
+- [x] **EML-2 / EML-3** — DONE 2026-06-18. EML-3: eml_rerank wired LIVE into
+      vault.search (apply_eml_rerank, EPISTEMOS_EML_RERANK_V1, b260b4da1 chain)
+      + visible Substrate Health surface (EmlRerankGateHealthRow). EML-2: EML
+      fused confidence×complexity route gate in ConfidenceRouter.route()
+      (localFitnessEnergy = EmlRerank.rerankKey, EPISTEMOS_EML_ROUTE_V1, both
+      flags default OFF; Swift key byte-identical to the Rust vault key).
 - [ ] **LF-1/2/3 kill MoLoRA/QLoRA Python subprocess** — NO-SIDECAR breach
       (molora_inference.py + __pycache__ live); port to in-process MLX-Swift.
 - [ ] **REG-1 KV-Direct-Gate harness**, **REG-3 NightBrain bodies**, **REG-2 T20
