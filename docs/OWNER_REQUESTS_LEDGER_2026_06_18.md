@@ -613,6 +613,28 @@ DECISIONS — the BUILD + in-app verification still has to happen.
       shell/git/browser/CLI); external MCP picks only when actually wired (Keychain),
       never a fake-on toggle; prefer vendor-maintained MCPs.
 
+- [ ] **R-CUA: trycua/cua — Computer-Use Agent infrastructure (owner 2026-06-18)** —
+      owner (verbatim): *"this can be fused to browser use or be used aside from
+      browser use — github.com/trycua/cua."* MIT-licensed (ProvenanceGate-friendly).
+      Components: **Cua Driver** (background desktop automation macOS/Win/Linux; no
+      focus-hijack; integrates Claude Code + MCP), **Cua Sandbox** (unified VM/
+      container mgmt API), **Cua Agent** (CU agent framework — any model; Claude
+      Code/Cursor/Codex/OpenClaw), **Cua-Bench** (OSWorld/ScreenSpot/Windows Arena
+      eval), **Lume** (macOS/Linux VM manager on Apple's Virtualization.Framework,
+      Apple Silicon). Repo is multi-lang incl. Swift (6.3%) + Rust (9.2%) — MAS-
+      fusable slices exist. RESEARCH-FIRST → VERDICT doc (direct_import/adapter_wrap/
+      quarantine_reference/clean_room per F-ProprietaryCompression-ProvenanceGate).
+      FUSION TARGETS: (a) **Lume's Virtualization.Framework VM** maps directly onto
+      the owner's Act=Osaurus Virtualization SANDBOX plan — strongest fuse; (b) the
+      Driver/Sandbox computer-use loop fuses with the EXISTING native stack
+      (DeviceAgentService, VisualVerifyLoop, ScreenCaptureService, Screen2AXFusion)
+      + Holo-3.1-4B VL — either FUSED INTO browser-use or STANDALONE full-desktop
+      control, as the owner said; (c) **Cua-Bench** as a computer-use EVAL harness.
+      CONSTRAINTS: Python Agent/Bench/Driver bits are NO-SIDECAR on MAS → Pro/dev-
+      gated or reference-only; lift the Swift/Rust + Virtualization.Framework logic
+      natively (grep/extract, pinned, hardened). Honest gating; no fake CU. Verdict
+      → port/fuse the MAS-safe slices.
+
 ## Unfinished-research sweep top items (2026-06-18 → docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md)
 Local/chat, verified-against-code, not-blocked (full list + eras in the sweep doc):
 - [ ] **OBS-1/2/3 Eidos→chat wiring** — EidosBridge FFI (W-46) + closed-citation
