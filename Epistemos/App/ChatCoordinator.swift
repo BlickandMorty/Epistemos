@@ -1628,6 +1628,48 @@ final class ChatCoordinator {
     )
   }
 
+  /// P2.1 — honest in-chat tool gating. Make the user's tool toggles
+  /// (`AgentCommandCenterState`) actually gate the MAIN-chat tool set, not just
+  /// the legacy command-center surface. Any tool the user has explicitly turned
+  /// OFF is removed from the execution plan's `tool_permissions`, so the
+  /// capability manifest, the tool tier, and the tool loop all see the reduced
+  /// set — the toggle is real runtime control, not fake config.
+  ///
+  /// Default is all-on: a tool is removed ONLY when its canonical name is in
+  /// `disabledToolNames` (an explicit user OFF), so behavior is unchanged unless
+  /// the user disables something. Canonical-name matched so aliases line up with
+  /// the plan's tool names.
+  static func executionPlanGatedByUserToolToggles(
+    _ executionPlan: OverseerComplexityRouter.ExecutionPlan?,
+    disabledToolNames: Set<String>
+  ) -> OverseerComplexityRouter.ExecutionPlan? {
+    guard let executionPlan, !disabledToolNames.isEmpty else { return executionPlan }
+    let canonicalDisabled = Set(disabledToolNames.map(AgentToolNameAliases.canonical))
+    let filtered = executionPlan.plan.toolPermissions.filter { permission in
+      !canonicalDisabled.contains(AgentToolNameAliases.canonical(permission.toolName))
+    }
+    guard filtered.count != executionPlan.plan.toolPermissions.count else {
+      return executionPlan
+    }
+
+    let adjustedPlan = OverseerPlanV1(
+      version: executionPlan.plan.version,
+      route: executionPlan.plan.route,
+      maskPlan: executionPlan.plan.maskPlan,
+      loraBlendCoefficients: executionPlan.plan.loraBlendCoefficients,
+      kvPolicyFlag: executionPlan.plan.kvPolicyFlag,
+      depthBudget: executionPlan.plan.depthBudget,
+      toolPermissions: filtered,
+      contextSummary: executionPlan.plan.contextSummary
+    )
+    return OverseerComplexityRouter.ExecutionPlan(
+      route: executionPlan.route,
+      localOperatingMode: executionPlan.localOperatingMode,
+      plan: (try? adjustedPlan.validated()) ?? adjustedPlan.normalized(),
+      summary: executionPlan.summary
+    )
+  }
+
   private static func graphRouteLabel(_ route: GraphWorkspaceRoute) -> String {
     switch route {
     case .canvas:
@@ -1984,19 +2026,23 @@ final class ChatCoordinator {
         let pendingAssistantId = UUID().uuidString
         let capturedChatId = chatState.activeChatId
         let plannerHasExplicitContext = hasAttachedUserContext || hasRequestedVaultLookup
-        let executionPlan = Self.augmentedExecutionPlan(
-          await buildOverseerExecutionPlan(
-            query: effectiveQuery,
-            contentLength: effectiveQuery.count
-              + (effectiveNotesContextWithWorkspace?.count ?? 0)
-              + (conversationHistory?.count ?? 0),
-            operatingMode: operatingMode,
-            hasExplicitContext: plannerHasExplicitContext,
-            attachmentCount: userAttachments.count + turnContextAttachments.count,
-            notesContext: effectiveNotesContextWithWorkspace,
-            conversationHistory: conversationHistory
+        let executionPlan = Self.executionPlanGatedByUserToolToggles(
+          Self.augmentedExecutionPlan(
+            await buildOverseerExecutionPlan(
+              query: effectiveQuery,
+              contentLength: effectiveQuery.count
+                + (effectiveNotesContextWithWorkspace?.count ?? 0)
+                + (conversationHistory?.count ?? 0),
+              operatingMode: operatingMode,
+              hasExplicitContext: plannerHasExplicitContext,
+              attachmentCount: userAttachments.count + turnContextAttachments.count,
+              notesContext: effectiveNotesContextWithWorkspace,
+              conversationHistory: conversationHistory
+            ),
+            preferredCommand: requestedSlashCommand
           ),
-          preferredCommand: requestedSlashCommand
+          // P2.1 — the user's tool toggles really gate the main-chat tool set.
+          disabledToolNames: Set(bootstrap.agentCommandCenterState.disabledToolNames)
         )
 
         // Record the Overseer decision for Settings → Overseer

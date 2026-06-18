@@ -93,4 +93,62 @@ struct ChatVaultLookupRoutingTests {
         // No vault lookup, no attachments, short, Fast → direct local stream.
         #expect(plan.route == .localOnly)
     }
+
+    // MARK: - P2.1 user tool toggles really gate the main-chat tool set
+
+    private func toolGrantingPlan() -> OverseerComplexityRouter.ExecutionPlan {
+        let inference = Self.inferenceWithUsableLocalRuntime()
+        let router = OverseerComplexityRouter(inference: inference)
+        return router.planForMainChat(
+            query: Self.acceptanceQuery,
+            contentLength: Self.acceptanceQuery.count,
+            operatingMode: .fast,
+            hasExplicitContext: true,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+    }
+
+    @Test("no disabled tools → plan is unchanged (default all-on, no behavior change)")
+    func toolGatingDefaultAllOn() {
+        let plan = toolGrantingPlan()
+        let before = plan.allowedToolNames
+        #expect(!before.isEmpty)
+
+        let gated = ChatCoordinator.executionPlanGatedByUserToolToggles(
+            plan,
+            disabledToolNames: []
+        )
+        #expect(gated?.allowedToolNames == before)
+    }
+
+    @Test("an explicitly-disabled tool is removed from the plan's granted tools")
+    func toolGatingRemovesDisabledTool() throws {
+        let plan = toolGrantingPlan()
+        let before = plan.allowedToolNames
+        let target = try #require(before.first)
+
+        let gated = try #require(
+            ChatCoordinator.executionPlanGatedByUserToolToggles(
+                plan,
+                disabledToolNames: [target]
+            )
+        )
+        #expect(!gated.allowedToolNames.contains(target))
+        #expect(gated.allowedToolNames.count == before.count - 1)
+        // Every surviving tool is one the user did NOT disable.
+        #expect(gated.allowedToolNames.allSatisfy { before.contains($0) })
+    }
+
+    @Test("disabling a tool the plan never granted is a no-op")
+    func toolGatingUnknownToolNoop() {
+        let plan = toolGrantingPlan()
+        let before = plan.allowedToolNames
+        let gated = ChatCoordinator.executionPlanGatedByUserToolToggles(
+            plan,
+            disabledToolNames: ["definitely.not.a.real.tool.name"]
+        )
+        #expect(gated?.allowedToolNames == before)
+    }
 }
