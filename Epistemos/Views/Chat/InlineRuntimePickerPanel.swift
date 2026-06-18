@@ -35,20 +35,27 @@ struct InlineRuntimePickerPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(EpistemosModelTier.allCases, id: \.rawValue) { tier in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(tier.shortName.uppercased())
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .tracking(1.5)
-                        .foregroundStyle(theme.textTertiary)
-                    ForEach(EpistemosRuntimePicker.options(for: tier, environment: environment)) { option in
-                        pickRow(option, tier: tier)
+        // Capped + scrollable so a tier with many models (Think holds VibeThinker
+        // + Qwen 4B/8B + LFM + the 12B 2-bit) never pushes the composer off-screen
+        // — matches the old popover's 380pt scroll budget, just flat + in-flow.
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(EpistemosModelTier.allCases, id: \.rawValue) { tier in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(tier.shortName.uppercased())
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(1.5)
+                            .foregroundStyle(theme.textTertiary)
+                        ForEach(EpistemosRuntimePicker.options(for: tier, environment: environment)) { option in
+                            pickRow(option, tier: tier)
+                        }
                     }
                 }
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(12)
+        .frame(maxHeight: 320)
         .frame(maxWidth: .infinity, alignment: .leading)
         // Flat pixel-art chrome: solid fill + a hard 1.5px rectangular border,
         // no rounding, no shadow — the opposite of the rounded translucent
