@@ -1497,6 +1497,82 @@ struct LocalModelToolbarMenu: View {
     /// Chat fold away under a single collapsed "Advanced" disclosure, so the
     /// chooser reads as "pick an effort," not "configure a runtime."
     @ViewBuilder
+    // MARK: - P1.11 rebuilt runtime picker (explicit Fast/Think/Code picks)
+
+    /// Live inputs for `EpistemosRuntimePicker`, read off `InferenceState`. Free
+    /// memory comes from the same monitor the composer's memory blocker uses, so
+    /// the picker's gating matches what will actually load.
+    private var runtimePickerEnvironment: EpistemosRuntimePicker.Environment {
+        let bytes = LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
+        let freeGB = bytes > 0 ? Int(bytes / 1_073_741_824) : 0
+        return .init(
+            installedModelIDs: inference.installedLocalTextModelIDs,
+            freeMemoryGB: freeGB,
+            appleIntelligenceAvailable: inference.appleIntelligenceAvailable
+        )
+    }
+
+    private func runtimePickerOperatingMode(for tier: EpistemosModelTier) -> EpistemosOperatingMode {
+        switch tier {
+        case .fast: return .fast
+        case .think: return .thinking
+        case .code: return .pro
+        }
+    }
+
+    private func isRuntimePickSelected(_ option: EpistemosRuntimePicker.Option) -> Bool {
+        if option.isAppleIntelligence {
+            return inference.preferredChatModelSelection == .appleIntelligence
+        }
+        return inference.preferredChatModelSelection == .localMLX(option.id)
+    }
+
+    /// Select a pick: set the tier's operating mode + pin the model. A
+    /// not-installed / memory-blocked pick routes to Settings (the honest path to
+    /// install or free memory) instead of silently switching.
+    private func selectRuntimePick(_ option: EpistemosRuntimePicker.Option) {
+        guard option.isSelectable else {
+            openSettings()
+            isPresented = false
+            return
+        }
+        let mode = runtimePickerOperatingMode(for: option.tier)
+        operatingMode?.wrappedValue = mode
+        lastTierMode = mode
+        if option.isAppleIntelligence {
+            inference.setPreferredChatModelSelection(.appleIntelligence)
+        } else {
+            inference.setPreferredChatModelSelection(.localMLX(option.id))
+        }
+        isPresented = false
+    }
+
+    /// The rebuilt picker body: explicit per-tier model picks, each honestly
+    /// gated (installed + fits memory) with the blocker shown inline. Replaces
+    /// the old Fast/Think/Code mode-rows + the separate Apple Intelligence
+    /// section (Apple Intelligence is now a Fast pick).
+    @ViewBuilder
+    private var foundationPickerSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(EpistemosModelTier.allCases, id: \.rawValue) { tier in
+                VStack(alignment: .leading, spacing: 8) {
+                    popoverSectionTitle(tier.shortName)
+                    ForEach(EpistemosRuntimePicker.options(for: tier, environment: runtimePickerEnvironment)) { option in
+                        selectionRow(
+                            title: option.title,
+                            subtitle: option.blockedReason ?? tier.tagline,
+                            systemImage: option.isAppleIntelligence ? "apple.intelligence" : tier.systemImage,
+                            isSelected: isRuntimePickSelected(option),
+                            isEnabled: option.isSelectable
+                        ) {
+                            selectRuntimePick(option)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var simplifiedRuntimePopover: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -1510,41 +1586,14 @@ struct LocalModelToolbarMenu: View {
 
                 depthToggleSection
 
-                if let operatingMode {
-                    VStack(alignment: .leading, spacing: 8) {
-                        popoverSectionTitle("Tier")
-                        // P7.6 — the tier rows are Fast/Think/Code only; the
-                        // agent depth (.agent) is the "Act" toggle above, so it's
-                        // filtered out here to keep depth and tier separate (per
-                        // the CHAT_UX_MAP).
-                        ForEach(displayedOperatingModes.filter { $0 != .agent }, id: \.rawValue) { option in
-                            selectionRow(
-                                title: option.displayName,
-                                subtitle: modeSubtitle(for: option, isEnabled: true),
-                                systemImage: option.systemImage,
-                                isSelected: operatingMode.wrappedValue == option,
-                                isEnabled: true
-                            ) {
-                                let sanitizedMode = sanitizedDisplayedOperatingMode(option)
-                                operatingMode.wrappedValue = sanitizedMode
-                                if sanitizedMode != .agent { lastTierMode = sanitizedMode }
-                                inference.setChatReasoningTier(
-                                    inference.chatReasoningTier,
-                                    for: sanitizedMode
-                                )
-                                isPresented = false
-                            }
-                        }
-                    }
-                    .animation(
-                        .easeInOut(duration: 0.15),
-                        value: displayedOperatingModes.map(\.rawValue).joined(separator: "|")
-                    )
-                }
+                // P1.11 — explicit per-tier model picks (Fast = Gemma sizes +
+                // Apple Intelligence; Think = VibeThinker + Qwen 3 8B; Code =
+                // coder), driven by EpistemosRuntimePicker with honest gating.
+                // Replaces the old Tier mode-rows + the separate Apple
+                // Intelligence section.
+                foundationPickerSection
 
                 cloudToggleSection
-
-                appleIntelligenceSection
 
                 DisclosureGroup(isExpanded: $showsAdvancedRuntimeOptions) {
                     VStack(alignment: .leading, spacing: 14) {
