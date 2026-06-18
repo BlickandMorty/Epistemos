@@ -587,7 +587,7 @@ done, then re-read this file and harden.
 | P4.4 | Explicit honest routing rules | ☐ TODO |
 | P5 | Non-large-model architecture, then 70B (#17) | ☐ TODO |
 | P6.1 | Provider logos (mono/B&W) in Settings + picker + chat, context-specific; owner assets staged in docs/brand-assets/lobehub/ | ☐ TODO |
-| P7.1 | Capability ceiling: Fast→tools all legit, absolute MAS limit + Pro variant | ☐ TODO |
+| P7.1 | Capability ceiling: Fast→tools all legit, absolute MAS limit + Pro variant | ✅ DONE (2026-06-17) — made explicit + cargo-locked (`fast_chat_lite_capability_ceiling_is_explicit`, ran live PASS): Fast/chat_lite HAS real read/search/reason (think, vault.search, vault.read, file.read, knowledge.recall) via `apply_tier_overrides` CHAT_LITE; CANNOT mutate (no vault.write/file.patch/memory); Pro/chat_pro LIFTS to gated vault.write while keeping the reads; and the ABSOLUTE MAS limit (action.bash/action.terminal/system.process) holds across EVERY tier — it's build-gated (`not(feature="pro-build")` mas_forbidden), never tier-gated. Capability explorer already surfaces the build-scoped tools + Pro-developer note (P2.5). |
 | P7.2 | HTML workspace fix + canvas live-viewer (chat drives the screen) | ☐ TODO |
 | P7.3 | Terminal + console actually work (Pro/dev) | ☐ TODO |
 | P7.4 | "Code" toggle on search → OpenCode-style themed code chat | ☐ TODO |
