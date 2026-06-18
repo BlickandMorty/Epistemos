@@ -143,16 +143,28 @@ calls: no blanket rule — choose per case.
       computer-use stack (DeviceAgentService / VisualVerifyLoop / Screen2AXFusion)
       + Holo VL. Research-first verdict; Python bits = NO-SIDECAR on MAS
       (Pro/dev-gated), lift the Swift/Rust + Virtualization logic natively.
-- [ ] **R-COLBERT-TOOLSEL — LiquidAI/LFM2-ColBERT-350M (LFM Open License v1.0)
-      (owner 2026-06-18, normal order).** ColBERT late-interaction reranker (353M)
+- [~] **R-COLBERT-TOOLSEL — VERDICT done 2026-06-18 (docs/RESEARCH_COLBERT_2026_06_18.md).**
+      RESEARCH-FIRST/DEFER to Pro+dev. PyLate-only CONFIRMED (no ONNX/CoreML/GGUF/
+      MLX/LEAP) → NO-SIDECAR. Crux is the LFM2 HYBRID encoder (10 conv+6 attn+1
+      dense, not vanilla BERT) — MaxSim scoring is trivial but useless without it;
+      "MaxSim over existing embeddings" does NOT yield ColBERT (ours are
+      single-vector, not ColBERT-trained). It's an ENHANCEMENT (tool gating + EML-3
+      eml_rerank + RRF already serve tool-select + rerank), not a gap. Plan:
+      pre-build the inert feature-gated MaxSim substrate; honest single-vector
+      "tool-selector v0" interim via existing NLContextualEmbedding; native lane
+      gated on a self-exported CoreML/ONNX LFM2 encoder validated vs a PyLate
+      oracle; NEVER in the chat picker (retrieval component, not a chat model);
+      LFM1.0 via ProvenanceGate. No code lifted. Original: LiquidAI/LFM2-ColBERT-350M
+      (LFM Open License v1.0) (owner 2026-06-18, normal order).** ColBERT late-interaction reranker (353M)
       as (1) a smart TOOL SELECTOR (= P8 RAG-preflight tool-selection + harness
       MCP-routing need), (2) a general RAG reranker (complements Eidos/Halo/
       TurboVec + EML-3 eml_rerank), (3) a selectable model in the importer/registry.
       CATCH: ships only via PyLate (Python) = NO-SIDECAR on MAS → research-first
       verdict on a NATIVE late-interaction path (MLX-Swift / CoreML-ONNX / Rust
       MaxSim) before any product dependency; Pro/dev-gated until native.
-- [ ] **R-COLBERT-TOOLSEL: LFM2-ColBERT-350M as a smart TOOL SELECTOR + reranker
-      (owner 2026-06-18)** — owner (verbatim): *"this can all be added as a model I
+- [~] **R-COLBERT-TOOLSEL: VERDICT done 2026-06-18 — see docs/RESEARCH_COLBERT_2026_06_18.md
+      (defer-to-Pro+dev, native-encoder-gated, no PyLate). Orig owner ask:
+      LFM2-ColBERT-350M as a smart TOOL SELECTOR + reranker (owner 2026-06-18)** — owner (verbatim): *"this can all be added as a model I
       use maybe as a tool selector. LFM2.5-ColBERT-350M is a surprisingly reliable
       smart tool selector."* Exact repo: `LiquidAI/LFM2-ColBERT-350M` (353M;
       ColBERT late-interaction retriever/reranker on LFM2 backbone; MaxSim; 128-dim;
