@@ -87,6 +87,28 @@ calls: no blanket rule — choose per case.
       (same pattern: trigger tile + InlineRuntimePickerPanel showsSettingsFooter
       true in an in-flow slot). Owner verifies main-chat + landing visually
       (dev-cert Product▸Run).
+- [ ] **NEW PICKER MISSING CONTROLS → COMPLETE CROSS-REFERENCE (owner 2026-06-18, in
+      rebuilt app)** — owner (verbatim): *"there are also issues with new model picker
+      it doesnt have effort fast think etc. it is missing a lot so needs a complete
+      cross reference."* The inline-panel rebuild (InlineRuntimePickerPanel, b8ceebabc)
+      shipped WITHOUT carrying over controls the old popover/toolbar had: the EFFORT
+      control (Low/Med/High/Max — `effortPopover` RootView:1306, `supportsRuntime-
+      EffortButton` :700, `effortButtonTitle` :882) and the Fast/Think/Code TIER
+      selection are not surfaced in the new inline panel. ACTION — do a COMPLETE,
+      LINE-BY-LINE CROSS-REFERENCE: enumerate EVERY control the old picker path
+      (LocalModelToolbarMenu split toolbar Mode·Model·Routing·Effort·Native + the
+      old modelPopover/effortPopover) ever exposed, then prove each one is present
+      (or deliberately+honestly relocated) in InlineRuntimePickerPanel on ALL 5
+      surfaces. Nothing silently dropped. Must surface, at minimum: (a) Fast/Think/
+      Code tier toggle; (b) per-tier model picks (Fast = Gemma 2B/4B/12B/Apple,
+      Think = VibeThinker + Qwen3-8B, Code = Gemma 12B coder, + Qwen3-4B); (c) the
+      reasoning EFFORT control where the model supports it (`supportsNativeReasoning-
+      EffortControl`) — Low/Med/High/Max for think/codex, with honest hide when
+      unsupported; (d) Cloud toggle + routing/native-controls (relocate to Settings
+      footer is OK IF honest+visible). Build, run, and verify each control renders
+      AND changes behavior in-app on every surface. Harden; commit the audit table
+      to docs. DO NOT mark done until the owner can see effort + Fast/Think/Code in
+      the running picker. Cross-ref existing PICKER REDESIGN (P1.11) below.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
