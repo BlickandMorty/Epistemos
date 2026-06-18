@@ -303,3 +303,27 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
 - [ ] **default-Qwen-4B bug repair** — something auto-defaults to Qwen 4B instead
       of a Fast Gemma; fix the default-resolution seam (effectiveLocalTextModelID /
       sanitizedStoredLocalChatModelID), keep both Qwens explicit-only.
+
+## OWNER FINAL DIRECTIVE 2026-06-18 — BUILD FROM THE RESEARCH (100% wanted)
+Every R-* verdict + ledger item must become a SHIPPED, in-app-verified slice —
+nothing optional. Loop is now BUILD-FIRST: each pass ships a verified code slice
+from the TOP sweep items / R-verdicts BEFORE any new research (cap: ≤1 verdict doc
+per pass). Keep until all done + hardened (rule #6/#8).
+- [ ] **R-GOOSE: port/vendor Block's Goose into agent_core** — github.com/block/goose
+      (Apache-2.0, Rust). Owner wants it absolutely-or-almost-entirely PORTED (it's
+      Rust → vendor into agent_core, not just the existing CLI passthrough
+      GooseHandler). Evaluate fusing its WebKit UI with chat. Research-first +
+      ProvenanceGate (F-ProprietaryCompression-ProvenanceGate: quarantine→inspect→
+      benchmark→choose direct_import/adapter_wrap/clean_room). Honest, Apache-2.0
+      attribution.
+- [ ] **R-OPENCLAW: study ~/Downloads/openclaw-main (LOCAL, TS/Node + ui)** — perfect
+      native capabilities from its patterns (sandbox Dockerfiles, agent loop, UI).
+      Adopt natively (no TS fork); ProvenanceGate.
+- [ ] **R-HERMES: deep-study docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md +
+      manifesto for native-capability ideas** — adopt NATIVELY with ZERO Hermes
+      naming (namespace stays purged; use LocalAgent/Runtime prefixes). Ideas only,
+      not the name.
+- [ ] **R-APPS** (from prior msg): study LM Studio / HF chat-ui+transformers+candle /
+      Unsloth / Jan / Ollama / Open WebUI / Cherry Studio / LibreChat — system
+      prompts, architectures, agent loops, tool/MCP, local+structured-output, UX →
+      verdict doc (adopt-natively vs skip, license, ProvenanceGate).
