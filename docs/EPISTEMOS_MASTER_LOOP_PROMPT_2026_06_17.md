@@ -520,30 +520,36 @@ the MAS path surface the honest capability, never a fake one.
         carries the env-clear/allowlist subprocess hardening) with the security.rs
         guarantees. On MAS show the honest "not available in this build" state.
         Add tests for the I/O + hardening seam.
-  P7.4  OPENCODE / CODE SURFACE — LAST in P7, and ONLY after an UNRAVEL pass (see
-        P7.4a). Owner intent (2026-06-18): the chat-type modes are CHAT + ACT (owner
-        likes these from P7.6) — keep them. "Code" is OVERLOADED: Fast/Think/Code is
-        the MODEL/effort tier and the owner ALREADY has Code (the coder model) in
-        chat, so do NOT ship a second confusing "Code" thing. SIMPLIFY THE UX:
-        decide one coherent model (recommended — OpenCode is NOT a rival mode but
-        the DEEP code/terminal capability reachable from ACT mode when the work is
-        code/terminal; the Code tier stays the model). Document the chosen UX before
-        building. VISION (owner): OpenCode = local AND cloud models with DEEP
-        TERMINAL access to the on-disk notes + research on the laptop, and access to
-        ALL the app's skills + tools from the chat. Pro/dev-gated, security.rs
-        hardened, MAS-honest. Theme-aware, pixel-art minimal. Build on the shared
-        ChatCoordinator + agent loop (P7.6), never a fork-shell. Sequence: AFTER
-        P7.1✅ / P7.5 / P7.6 / Osaurus(P3) / Unsloth(P4.1) / minimal-UI + the
-        deterministic-schema substrate work — i.e. everything else first.
-  P7.4a UNRAVEL FIRST — NO BLACK BOX (owner 2026-06-18, GATES P7.4). Before any
-        OpenCode fork/build, write docs/CHAT_UX_MAP_2026_06_18.md that untangles the
-        whole surface so the user is never confused: the chat-type MODES (Chat vs
-        Act), the MODEL tiers (Fast/Think/Code + Apple Intelligence + cloud), the
-        SURFACES (Main / Mini / Note / Graph / cowork / code), and how
-        tools/skills/memory/connectors compose across them — with the simplest
-        coherent UX (collapse overlaps, rename collisions like the "Code" overload,
-        one mental model). This map is the de-black-boxing the owner asked for; P7.4
-        cannot start until it exists and the UX is simplified.
+  P7.4  "WORK" MODE — the THIRD clean chat mode (owner DECISION 2026-06-18). There
+        are THREE distinct, clean modes — do NOT cram OpenCode into Act (that was
+        the messy decision the owner rejected):
+            CHAT  — conversational, bounded read/search.
+            ACT   — the multi-step agent loop (plans, tools, progress).
+            WORK  — the deep code/terminal surface (the "OpenCode" one), named WORK
+                    to avoid colliding with the Fast/Think/CODE model tier (which
+                    stays unchanged).
+        "Mode" (Chat/Act/Work) and "model tier" (Fast/Think/Code) are SEPARATE axes
+        (see P7.4a). WORK vision (owner): local AND cloud models with DEEP TERMINAL
+        access to the on-disk notes + research on the laptop, and access to ALL the
+        app's skills + tools from chat. CRITICAL: WORK (and Act) must run on the
+        owner's LOCAL models with FULL local=cloud capability parity (rule #8 / the
+        ledger #1) — never silent GPT. Pro/dev-gated for shell/terminal,
+        security.rs hardened, MAS-honest. Theme-aware, pixel-art minimal. Build on
+        the shared ChatCoordinator + agent loop (P7.6), never a fork-shell.
+        TOGGLE PLACEMENT (owner 2026-06-18): the Work toggle is NOT on the search
+        bar — put it UPWARD, at the TOP of the search page (above the search bar).
+        Flipping it transforms the SEARCH PAGE INTO the Work/OpenCode surface
+        (themed, pixel-art minimal), and back.
+        Sequence: AFTER P7.1✅ / P7.5 / P7.6 / Osaurus(P3) / Unsloth(P4.1) /
+        minimal-UI + the deterministic-schema substrate work — everything else first.
+  P7.4a UNRAVEL / UX MAP — REVISE for the 3-mode decision (owner 2026-06-18, GATES
+        P7.4). Update docs/CHAT_UX_MAP_2026_06_18.md to the owner's final model:
+        Axis 1 MODE = THREE clean modes Chat / Act / WORK (NOT OpenCode-buried-in-Act
+        — undo that). Axis 2 MODEL TIER = Fast/Think/Code + Apple Intelligence +
+        cloud. Axis 3 SURFACE = Main/Mini/Note/Graph/cowork. Key invariant: LOCAL
+        models give the SAME capabilities as cloud in EVERY mode (no silent GPT;
+        ledger #1 / rule #8). Keep it the simplest coherent mental model; this map
+        de-black-boxes the UX and gates the Work build.
   P7.5  CHAT SURFACE PARITY (owner 2026-06-17, HIGH — do alongside P7.1, the
         capability ceiling must hold on EVERY surface, not just Main). MiniChat and
         Note chat are OUTDATED / inconsistent with Main chat. Bring every chat
