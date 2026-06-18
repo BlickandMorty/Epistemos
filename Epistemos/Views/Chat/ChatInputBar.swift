@@ -771,6 +771,19 @@ struct ChatInputBar: View {
                     Text(memoryBlocker)
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
+                    Spacer(minLength: 4)
+                    // Owner 2026-06-18 — explicit "Run anyway" force-load. Honest:
+                    // an explicit user choice (warned slow/swap), NOT a silent
+                    // swap. The blocker stays the default for everyone else.
+                    if let forceID = inference.memoryGateModelID(for: selectedOperatingMode) {
+                        Button("Run anyway") {
+                            inference.setMemoryGateForced(forceID, forced: true)
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.orange)
+                        .help("Force-load this model past the memory check. It may be slow or swap to disk.")
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
