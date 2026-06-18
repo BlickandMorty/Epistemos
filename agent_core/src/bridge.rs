@@ -1058,6 +1058,207 @@ async fn run_agent_session_inner(
     }
 }
 
+// ===================== DeerFlow deep research FFI (slice 5c) =====================
+
+/// One sub-question's result inside a deep-research report (the provenance
+/// behind a cited claim).
+#[cfg(feature = "pro-build")]
+#[derive(uniffi::Record)]
+pub struct DeepResearchSubResultFFI {
+    pub id: String,
+    pub question: String,
+    pub findings: String,
+}
+
+/// The full output of a multi-agent deep-research run, for Swift: the
+/// objective, the synthesized [id]-cited report, and the per-sub-question
+/// findings it rests on.
+#[cfg(feature = "pro-build")]
+#[derive(uniffi::Record)]
+pub struct DeepResearchReportFFI {
+    pub objective: String,
+    pub report: String,
+    pub sub_results: Vec<DeepResearchSubResultFFI>,
+}
+
+/// Pure mapping: a Rust DeepResearchReport → the FFI record, joining each
+/// SubResult with its sub-question text from the plan. Unit-tested.
+#[cfg(feature = "pro-build")]
+fn deep_research_report_to_ffi(
+    report: crate::deep_research::run::DeepResearchReport,
+) -> DeepResearchReportFFI {
+    let sub_results = report
+        .results
+        .iter()
+        .map(|r| {
+            let question = report
+                .plan
+                .sub_questions
+                .iter()
+                .find(|sq| sq.id == r.id)
+                .map(|sq| sq.question.clone())
+                .unwrap_or_default();
+            DeepResearchSubResultFFI {
+                id: r.id.clone(),
+                question,
+                findings: r.findings.clone(),
+            }
+        })
+        .collect();
+    DeepResearchReportFFI {
+        objective: report.plan.objective.clone(),
+        report: report.report.clone(),
+        sub_results,
+    }
+}
+
+/// Run a multi-agent deep-research run from Swift: planner → parallel isolated
+/// sub-agents → cited synthesis. PRO-only AND gated by EPISTEMOS_DEEP_RESEARCH_V0
+/// (returns an honest error when off — Swift falls back to the single-agent
+/// path). Mirrors run_agent_session's provider+registry setup; the run manages
+/// its own isolated sub-agent sessions internally.
+#[cfg(feature = "pro-build")]
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn run_deep_research_session(
+    objective: String,
+    provider_name: String,
+    tool_config: ToolConfig,
+    max_concurrency: u32,
+    sub_agent_max_turns: u32,
+    synthesis_max_turns: u32,
+) -> Result<DeepResearchReportFFI, AgentErrorFFI> {
+    if !crate::deep_research::deep_research_enabled() {
+        return Err(AgentErrorFFI::AgentError {
+            message: "Deep research is disabled (set EPISTEMOS_DEEP_RESEARCH_V0=1).".to_string(),
+        });
+    }
+
+    // Panic guard: catch a panic from the sub-agent loops IN PLACE and return a
+    // typed error instead of aborting the macOS process. (catch_unwind rather
+    // than tokio::task::spawn — the orchestrator's borrowed parallel-fan-out
+    // closure is not `'static`-general, so it cannot be spawned to another task;
+    // catch_unwind polls it on the current task and still traps panics.)
+    use futures::future::FutureExt;
+    let inner = run_deep_research_session_inner(
+        objective,
+        provider_name,
+        tool_config,
+        max_concurrency,
+        sub_agent_max_turns,
+        synthesis_max_turns,
+    );
+    match std::panic::AssertUnwindSafe(inner).catch_unwind().await {
+        Ok(result) => result,
+        Err(panic) => {
+            let msg = format!(
+                "Rust panic in deep research: {}",
+                panic_payload_to_string(panic)
+            );
+            tracing::error!("[ffi] {}", msg);
+            Err(AgentErrorFFI::AgentError { message: msg })
+        }
+    }
+}
+
+#[cfg(feature = "pro-build")]
+async fn run_deep_research_session_inner(
+    objective: String,
+    provider_name: String,
+    tool_config: ToolConfig,
+    max_concurrency: u32,
+    sub_agent_max_turns: u32,
+    synthesis_max_turns: u32,
+) -> Result<DeepResearchReportFFI, AgentErrorFFI> {
+    ShmPool::init();
+    let (provider, _preview) = resolve_provider_for_session(&objective, &provider_name)?;
+
+    let vault =
+        VaultStore::open(&tool_config.vault_path).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("Failed to open vault: {error}"),
+        })?;
+    let tier = tool_config
+        .tool_tier
+        .as_deref()
+        .map(crate::tools::registry::ToolTier::from_str_lossy)
+        .unwrap_or(crate::tools::registry::ToolTier::Agent);
+    let mut tool_registry = ToolRegistry::with_tier(
+        Arc::new(vault),
+        tool_config.enable_bash,
+        Some(std::path::PathBuf::from(&tool_config.vault_path)),
+        tier,
+    );
+    let _ = crate::tools::stdio_mcp::register_discovered_stdio_mcp_tools(&mut tool_registry).await;
+    if let Some(allowed) = &tool_config.allowed_tool_names {
+        let set: std::collections::HashSet<String> = allowed.iter().cloned().collect();
+        tool_registry.set_allowed_tool_names(Some(set));
+    }
+    // NOTE: no delegate_task tool here — these ARE the sub-agents; nesting
+    // sub-agent spawning inside a deep-research sub-agent is intentionally off.
+    let tool_registry = Arc::new(tool_registry);
+
+    let report = crate::deep_research::run::run_deep_research(
+        &objective,
+        provider,
+        tool_registry,
+        max_concurrency as usize,
+        sub_agent_max_turns,
+        synthesis_max_turns,
+    )
+    .await
+    .map_err(|e| AgentErrorFFI::AgentError {
+        message: e.to_string(),
+    })?;
+
+    Ok(deep_research_report_to_ffi(report))
+}
+
+#[cfg(all(test, feature = "pro-build"))]
+mod deep_research_ffi_tests {
+    use super::*;
+    use crate::deep_research::run::DeepResearchReport;
+    use crate::deep_research::{ResearchPlan, SubQuestion, SubResult};
+
+    #[test]
+    fn report_maps_to_ffi_joining_each_finding_with_its_question() {
+        let report = DeepResearchReport {
+            plan: ResearchPlan {
+                objective: "compare A and B".into(),
+                sub_questions: vec![
+                    SubQuestion {
+                        id: "q1".into(),
+                        question: "what is A?".into(),
+                        depends_on: vec![],
+                    },
+                    SubQuestion {
+                        id: "q2".into(),
+                        question: "what is B?".into(),
+                        depends_on: vec![],
+                    },
+                ],
+            },
+            results: vec![
+                SubResult {
+                    id: "q1".into(),
+                    findings: "A is apples".into(),
+                },
+                SubResult {
+                    id: "q2".into(),
+                    findings: "B is bananas".into(),
+                },
+            ],
+            report: "A is apples [q1]; B is bananas [q2]".into(),
+        };
+        let ffi = deep_research_report_to_ffi(report);
+        assert_eq!(ffi.objective, "compare A and B");
+        assert_eq!(ffi.report, "A is apples [q1]; B is bananas [q2]");
+        assert_eq!(ffi.sub_results.len(), 2);
+        assert_eq!(ffi.sub_results[0].id, "q1");
+        assert_eq!(ffi.sub_results[0].question, "what is A?");
+        assert_eq!(ffi.sub_results[0].findings, "A is apples");
+        assert_eq!(ffi.sub_results[1].question, "what is B?");
+    }
+}
+
 /// Result of a one-shot, non-agent local GGUF generation.
 #[cfg(feature = "pro-build")]
 #[derive(uniffi::Record)]
