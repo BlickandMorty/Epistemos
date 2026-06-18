@@ -526,32 +526,21 @@ nonisolated struct InferencePolicyEngine {
             return true
         }
 
-        switch profile.operatingMode {
-        case .pro, .agent:
+        // LOCAL FOR ALL MODES (owner #1 mandate 2026-06-18): every mode stays
+        // local when a local model can serve; cloud is the honest escalation ONLY
+        // when none can (no local selection + no Apple Intelligence). Previously
+        // .pro/.agent/.thinking returned cloud UNCONDITIONALLY — a silent-GPT
+        // route even with a working local model (the second seam alongside the
+        // chat seam effectiveChatSurfaceSelection). The large/oversized-context
+        // escalation above still applies — that is a genuine "local can't fit
+        // this" case, not a silent preference for cloud.
+        if localSelection == nil && !context.appleIntelligenceAvailable {
             reasonCodes.insert(.cloudAutoRoute)
             return true
-        case .thinking:
-            reasonCodes.insert(.cloudAutoRoute)
-            return true
-        case .fast:
-            if localSelection == nil && !context.appleIntelligenceAvailable {
-                reasonCodes.insert(.cloudAutoRoute)
-                return true
-            }
-            _ = complexityTier
-            return false
         }
-        // LOCAL-FOR-ALL-MODES FOLLOW-UP (owner #1, deferred 2026-06-18): this
-        // notes/general triage path STILL auto-routes .pro/.agent/.thinking to
-        // cloud even with a local model installed — a second hidden-GPT seam
-        // alongside the (now-fixed) chat seam effectiveChatSurfaceSelection. The
-        // fix mirrors .fast (cloud only when localSelection == nil && !apple), but
-        // it changes behavior that existing tests pin to the OLD "Pro = cloud"
-        // design (TriageServiceTests.autoCloudRoutingEscalatesProChat asserts
-        // .pro → .cloud WITH qwen installed). Updating those needs a
-        // test-runnable environment to verify behaviorally (headless `swift test`
-        // EXEC hangs here), so it's deferred to a focused pass rather than shipped
-        // with unverifiable test edits.
+        _ = complexityTier
+        _ = profile.operatingMode
+        return false
     }
 
     private func prefersDedicatedLocalChatRouting(
