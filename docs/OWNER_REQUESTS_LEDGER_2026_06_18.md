@@ -87,8 +87,18 @@ calls: no blanket rule — choose per case.
       (same pattern: trigger tile + InlineRuntimePickerPanel showsSettingsFooter
       true in an in-flow slot). Owner verifies main-chat + landing visually
       (dev-cert Product▸Run).
-- [ ] **NEW PICKER MISSING CONTROLS → COMPLETE CROSS-REFERENCE (owner 2026-06-18, in
-      rebuilt app)** — owner (verbatim): *"there are also issues with new model picker
+- [~] **NEW PICKER MISSING CONTROLS — AUDIT + EFFORT + MODE done 2026-06-18
+      (e7cd5f550 + fe377f01b); owner verifies render+switch in-app.** Audit table:
+      docs/INLINE_PICKER_CROSS_REFERENCE_AUDIT_2026_06_18.md (every old control
+      proven present/relocated/gap on all 5 surfaces). FIXED: Fast/Think/Code +
+      per-tier picks VERIFIED present (were already there); EFFORT control added to
+      the panel (Low/Med/High/Heavy via availableReasoningTiers, honest non-empty
+      gating — Fast shows none); Chat/Act MODE toggle added (honest Act gating).
+      Routing/cloud/native/temporary honestly relocated to the Settings footer
+      (single) / split toolbar (MC). OPEN follow-up: Companion agent-switcher not
+      yet in the panel; optional fold of MC split-toolbar buttons. Owner build+runs
+      to confirm effort + Fast/Think/Code + Act render AND switch behavior. Original:
+      owner (verbatim): *"there are also issues with new model picker
       it doesnt have effort fast think etc. it is missing a lot so needs a complete
       cross reference."* The inline-panel rebuild (InlineRuntimePickerPanel, b8ceebabc)
       shipped WITHOUT carrying over controls the old popover/toolbar had: the EFFORT
@@ -118,6 +128,21 @@ calls: no blanket rule — choose per case.
       (grep/extract, ProvenanceGate). SYSTEM PROMPT = an ANCHOR the loop EXTENDS
       (strong base system prompt, then extend), not a one-off. Make it deeply
       exquisite; wire into Chat/Act/Work. Verdict doc → port + harden.
+- [ ] **R-CUA — trycua/cua (MIT) Computer-Use Agent infra (owner 2026-06-18,
+      normal ledger order).** "can be fused to browser-use or used aside from it."
+      Key fuse = Lume's Apple Virtualization.framework VM manager into the
+      Act=Osaurus sandbox plan, + the Driver/Sandbox CU loop into the native
+      computer-use stack (DeviceAgentService / VisualVerifyLoop / Screen2AXFusion)
+      + Holo VL. Research-first verdict; Python bits = NO-SIDECAR on MAS
+      (Pro/dev-gated), lift the Swift/Rust + Virtualization logic natively.
+- [ ] **R-COLBERT-TOOLSEL — LiquidAI/LFM2-ColBERT-350M (LFM Open License v1.0)
+      (owner 2026-06-18, normal order).** ColBERT late-interaction reranker (353M)
+      as (1) a smart TOOL SELECTOR (= P8 RAG-preflight tool-selection + harness
+      MCP-routing need), (2) a general RAG reranker (complements Eidos/Halo/
+      TurboVec + EML-3 eml_rerank), (3) a selectable model in the importer/registry.
+      CATCH: ships only via PyLate (Python) = NO-SIDECAR on MAS → research-first
+      verdict on a NATIVE late-interaction path (MLX-Swift / CoreML-ONNX / Rust
+      MaxSim) before any product dependency; Pro/dev-gated until native.
 - [ ] **R-COLBERT-TOOLSEL: LFM2-ColBERT-350M as a smart TOOL SELECTOR + reranker
       (owner 2026-06-18)** — owner (verbatim): *"this can all be added as a model I
       use maybe as a tool selector. LFM2.5-ColBERT-350M is a surprisingly reliable
