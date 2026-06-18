@@ -379,6 +379,15 @@ should make the codebase MUCH better, never destabilize the working chat.
       loads + generates via the GGUF lane. Pairs with the B1 Variant Ladder.
 
 ## Full-port targets (owner 2026-06-18 — deeply analyze/research, then FULL port)
+- [ ] **DeerFlow 2 — research + (likely) FULL port (R-DEERFLOW)** — ByteDance's
+      multi-agent DEEP-RESEARCH framework (planner→researcher→reporter, web+tools).
+      Owner wants it ported completely, reskinned to the app's pixel-art theme, and
+      connected DEEPLY to the app to add research dynamics. Deeply research first
+      (clone + read; it's Python/LangGraph → adopt the multi-agent deep-research
+      ORCHESTRATION natively into agent_core, NOT a Python sidecar). Wire it into
+      the existing autoresearch loop + agents + arXiv/HF/Knowledge-Core pulls so a
+      query can spin a real multi-agent research run. Verdict doc → native port +
+      reskin, ProvenanceGate + honest gating, per-feature harden.
 - [ ] **PORT github.com/kuku-mom/kuku (R-KUKU)** — owner wants a FULL port; deeply
       research first (not local — clone + read; I don't know it off-hand). EVALUATE
       where it best fits — likely a VISUALIZATION surface (the Eidos visualizer /
