@@ -313,6 +313,19 @@ should make the codebase MUCH better, never destabilize the working chat.
       Osaurus config + Goose subagents), not import SDKs. Recommend the native design.
 
 ## Models (owner 2026-06-18)
+- [ ] **IN-APP HUGGINGFACE + GITHUB MARKETPLACE (owner 2026-06-18)** — bring the HF
+      Hub experience into the app: SEARCH/BROWSE models, ADAPTERS/LoRAs, and quants
+      (HF public API huggingface.co/api/models + GitHub search API), with one-click
+      INSTALL via the bring-your-own-model importer (MLX/GGUF lanes). Show size +
+      format + whether it fits (memory gate + Run-anyway). Adapters tie into the
+      Unsloth/training + MoLoRA lanes. Honest: only install/run on-device-supported
+      formats. This is the "HuggingFace system in the app" the owner wants.
+- [ ] **ARXIV PULL SYSTEM (owner 2026-06-18)** — easily search + pull from arXiv
+      (arxiv.org API) directly into the app; ingest papers (PDF/abstract/metadata)
+      into the vault / Knowledge Core so they're searchable + usable by chat/agents.
+      Pairs with HuggingFace (pull a paper's model) + the autoresearch loop. Honest
+      ingestion (real fetch + index), MAS-safe.
+
 - [ ] **BRING-YOUR-OWN-MODEL — import ANY model from HuggingFace/GitHub (owner 2026-06-18)**
       Open-ended model import: paste a HF repo (or GitHub) URL, DETECT the format +
       list available files/quants (MLX, GGUF Q2..Q8/IQ, safetensors), pick one, then
