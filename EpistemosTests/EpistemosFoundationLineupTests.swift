@@ -474,4 +474,37 @@ struct EpistemosFoundationLineupTests {
         #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .localMLX(Self.vibe))
         #expect(inference.isChatSurfaceRuntimeReady(for: .thinking))
     }
+
+    // MARK: - Owner hotfix 2026-06-17b — Apple Intelligence preserved as a native route
+
+    @Test("Apple Intelligence stays a distinct native route — not cloud, not overridden by the foundation-tier pin")
+    @MainActor func appleIntelligencePreservedAsNativeRoute() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        // Only the Fast Gemmas are installed — VibeThinker/coder absent (the case
+        // the hotfix pin handles). A stored 12B is the would-be leak source.
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12])
+        inference.appleIntelligenceAvailable = true
+        inference.setPreferredChatModelSelection(.appleIntelligence)
+
+        // With Apple Intelligence picked + available, every tier resolves to it —
+        // never a Fast Gemma (the pin only fires for .localMLX) and never cloud.
+        for mode in [EpistemosOperatingMode.fast, .thinking, .pro] {
+            #expect(inference.effectiveChatSurfaceSelection(for: mode) == .appleIntelligence)
+            #expect(inference.isChatSurfaceRuntimeReady(for: mode))
+        }
+
+        // It is NOT counted as cloud.
+        if case .cloud = inference.effectiveChatSurfaceSelection(for: .fast) {
+            Issue.record("Apple Intelligence must never resolve as a cloud selection")
+        }
+    }
 }
