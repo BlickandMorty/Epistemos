@@ -347,6 +347,12 @@ should make the codebase MUCH better, never destabilize the working chat.
       loads + generates via the GGUF lane. Pairs with the B1 Variant Ladder.
 
 ## Full-port targets (owner 2026-06-18 — deeply analyze/research, then FULL port)
+- [ ] **PORT github.com/kuku-mom/kuku (R-KUKU)** — owner wants a FULL port; deeply
+      research first (not local — clone + read; I don't know it off-hand). EVALUATE
+      where it best fits — likely a VISUALIZATION surface (the Eidos visualizer /
+      graph / live theater) or wherever its strength lies. Verdict doc (what it is,
+      stack, license, native-vs-WebKit, best home in the app), then full port +
+      pixel-art reskin, ProvenanceGate + honest gating, per-feature harden.
 - [ ] **LiteLLM Agent Control Plane (R-LITELLM-CP)** — github.com/LiteLLM-Labs/
       litellm-agent-control-plane. Deeply research; maps onto our agent
       orchestration / routing / control (RuntimeRouter + agent_core loop + Act).
