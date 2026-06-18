@@ -77,7 +77,10 @@ extension GemmaQATRuntimeStage {
     /// the module's default-MainActor isolation (it's a pure stage→tier map).
     nonisolated var epistemosTier: EpistemosModelTier {
         switch self {
-        case .firstRuntimeHarness, .nextScaleLane, .proFlagshipCandidate:
+        case .firstRuntimeHarness, .nextScaleLane, .proFlagshipCandidate, .moeFlagshipCandidate:
+            // The MoE flagship (26B-A4B) joins the Fast Gemma family as the
+            // largest, explicit-only pick — effort sizing never auto-routes to
+            // it (it clamps to the 12B band), so it's selected only deliberately.
             .fast
         case .reasoningSpecialist:
             .think

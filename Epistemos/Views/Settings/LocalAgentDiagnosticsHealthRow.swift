@@ -444,6 +444,8 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             return .blue
         case .reasoningSpecialist:
             return .teal
+        case .moeFlagshipCandidate:
+            return .pink
         }
     }
 
@@ -1061,6 +1063,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "specialist receipt/runtime pending"
         case .reasoningSpecialist:
             return "reasoning receipt/runtime pending"
+        case .moeFlagshipCandidate:
+            return "MoE receipt/runtime pending"
         }
     }
 
@@ -1456,6 +1460,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "specialist receipt/runtime pending"
         case .reasoningSpecialist:
             return "reasoning receipt/runtime pending"
+        case .moeFlagshipCandidate:
+            return "MoE receipt/runtime pending"
         }
     }
 
