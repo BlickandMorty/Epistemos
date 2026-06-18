@@ -31,12 +31,14 @@ nonisolated enum EpistemosRuntimePicker {
         let blockedReason: String?
     }
 
-    /// The live inputs the picker gates on.
+    /// The live inputs the picker gates on. Memory selectability mirrors the
+    /// real runtime gate (`LocalChatModelMemoryGate`) so the picker never shows a
+    /// model selectable that the composer would then block, or vice versa.
     struct Environment: Equatable, Sendable {
         let installedModelIDs: Set<String>
-        let freeMemoryGB: Double
-        /// Safety headroom kept free on top of a model's recommended memory.
-        let headroomGB: Double
+        /// Free memory in GB (rounded). `<= 0` is treated as "unknown" by the
+        /// gate → not blocked (never block on missing data).
+        let freeMemoryGB: Int
         let appleIntelligenceAvailable: Bool
     }
 
@@ -115,14 +117,19 @@ nonisolated enum EpistemosRuntimePicker {
         environment: Environment
     ) -> Option {
         let installed = environment.installedModelIDs.contains(id)
-        let neededGB = Double(minimumMemoryGB) + environment.headroomGB
-        let fits = environment.freeMemoryGB >= neededGB
+        // Mirror the real runtime gate exactly (available + headroom >= required;
+        // unknown/<=0 memory is treated as runnable) so the picker and the
+        // composer never disagree on what can load.
+        let fits = LocalChatModelMemoryGate.fits(
+            requiredGB: minimumMemoryGB,
+            availableGB: environment.freeMemoryGB
+        )
         let selectable = installed && fits
         let reason: String?
         if !installed {
             reason = "Not installed — tap to install"
         } else if !fits {
-            reason = "Needs \(Int(neededGB.rounded())) GB free (\(Int(environment.freeMemoryGB.rounded())) GB available)"
+            reason = "Needs ~\(minimumMemoryGB) GB (\(environment.freeMemoryGB) GB free)"
         } else {
             reason = nil
         }
