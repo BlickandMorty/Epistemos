@@ -356,3 +356,30 @@ per pass). Keep until all done + hardened (rule #6/#8).
       Unsloth / Jan / Ollama / Open WebUI / Cherry Studio / LibreChat — system
       prompts, architectures, agent loops, tool/MCP, local+structured-output, UX →
       verdict doc (adopt-natively vs skip, license, ProvenanceGate).
+
+## OWNER 2026-06-18 — Goose engine-extraction + per-feature hardening + guardrails
+- [ ] **R-GOOSE refined = ENGINE EXTRACTION** (CONFIRMED arch: Chat=Epistemos engine,
+      Act=Osaurus, Work/OpenCode=GOOSE). Pull the raw Goose RUST CORE (Apache-2.0,
+      github.com/block/goose) into agent_core as a crate via UniFFI = the FULL engine
+      (repo indexing, git lifecycle, multi-file diffs, deterministic test-and-fix
+      self-correction loop, parallel subagents, YAML recipes). Do NOT import the
+      Node/TS Goose DESKTOP (dual-process would swap-kill the 18GB M2 Pro) — own
+      SwiftUI skin. Goose engine lives in the shared Rust core so Act/Chat can tap
+      its MCP/subagent pieces; surfaced primarily through Work. Validate Goose code
+      patches against the P8.2 deterministic schemas. ProvenanceGate the vendor.
+- [ ] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
+      feature flag; keep Chat/Act on their own engines; add regression coverage
+      PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,
+      NEVER destabilize the working chat.
+- [ ] **PER-FEATURE HARDENING + NO-DRIFT GUARANTEE (rule #6 extension, applies to
+      ALL items)** — every feature/item gets its OWN hardening phase: own regression
+      tests + re-verify the items it touches still work in-app + a "HARDENED <item>"
+      log line. An item isn't done until hardened AND protected from later
+      regression. Keep re-running the recurring corpus sweep so nothing disappears
+      under compression.
+- [ ] **P8.1b CHAT DEEP-REPAIR (first-class)** — deeply repair the messy Epistemos
+      Chat: clean + maintainable + FULL capability, no IP loss (Eidos/KC/Halo/memory/
+      skills). Use Osaurus chat structure as the refactor reference (after import).
+- [ ] **P5.H deep-harden + FINISH the substrate research** — Cognitive DAG,
+      provenance, Knowledge Core, Halo, Simulation, GenUI, XPC: finish + deep-harden
+      each (per-feature hardening). 100% mandate.
