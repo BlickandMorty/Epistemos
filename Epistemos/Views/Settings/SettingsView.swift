@@ -4081,7 +4081,7 @@ private struct ThemePairCard: View {
                 }
 
                 if pair == .custom {
-                    CustomThemeCinematicPreview()
+                    CustomThemePaletteSwatch()
                 } else {
                     ThemePairCinematicPreview(pair: pair)
                 }
@@ -4222,61 +4222,49 @@ private struct ThemePairCinematicHalf: View {
     }
 }
 
-private struct CustomThemeCinematicPreview: View {
+/// P6.4 — the custom-theme preview is a clean COLOR-PALETTE swatch (the theme's
+/// key colors, light + dark) rather than a busy mock-UI card. Palette-only: it
+/// shows exactly the editable slots so the preview reads as "this is the
+/// palette", honest and pixel-art minimal.
+private struct CustomThemePaletteSwatch: View {
     private static let cornerRadius: CGFloat = 8
-    private static let height: CGFloat = 78
 
     var body: some View {
-        HStack(spacing: 0) {
-            CustomThemeCinematicHalf(isDark: false)
-            CustomThemeCinematicHalf(isDark: true)
+        VStack(alignment: .leading, spacing: 6) {
+            paletteRow(isDark: false, label: "Light")
+            paletteRow(isDark: true, label: "Dark")
         }
-        .frame(height: Self.height)
-        .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
-        .overlay(
+        .padding(8)
+        .background(
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
         )
-        .overlay(Rectangle().fill(Color.primary.opacity(0.18)).frame(width: 1))
     }
-}
 
-private struct CustomThemeCinematicHalf: View {
-    let isDark: Bool
-
-    var body: some View {
-        let resolved = AppCustomTheme.resolved(isDark: isDark)
-        let heroFontName = AppDisplayTypography.storedHeadingFontOverride(level: 1)
-            ?? AppDisplayTypography.matrixDisplayFontName
-        return ZStack {
-            LinearGradient(
-                colors: [
-                    resolved.background.color,
-                    resolved.card.color.opacity(0.82),
-                    resolved.accent.color.opacity(0.26),
-                ],
-                startPoint: isDark ? .topLeading : .topTrailing,
-                endPoint: isDark ? .bottomTrailing : .bottomLeading
-            )
-            VStack(alignment: .leading, spacing: 6) {
-                Text("CUSTOM")
-                    .font(.custom(heroFontName, size: 12).weight(.bold))
-                    .foregroundStyle(resolved.headingAccent.color)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                Capsule()
-                    .fill(resolved.foreground.color.opacity(0.24))
-                    .frame(width: 58, height: 4)
-                Capsule()
-                    .fill(resolved.accent.color.opacity(0.55))
-                    .frame(width: 38, height: 4)
-                Spacer(minLength: 0)
+    @ViewBuilder
+    private func paletteRow(isDark: Bool, label: String) -> some View {
+        HStack(spacing: 5) {
+            Text(label)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 34, alignment: .leading)
+            ForEach(AppCustomThemeColorSlot.allCases, id: \.rawValue) { slot in
+                swatch(slot: slot, isDark: isDark)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func swatch(slot: AppCustomThemeColorSlot, isDark: Bool) -> some View {
+        let color = Color(hex: AppCustomTheme.hex(for: slot, isDark: isDark))
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .fill(color)
+            .frame(height: 22)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+            )
+            .help(slot.title)
     }
 }
 
