@@ -274,6 +274,18 @@ should make the codebase MUCH better, never destabilize the working chat.
       determinism/verifiability gates, theme). They inherit hardening from the
       engines AND gain Epistemos's superpowers.
 
+## Code review + agent frameworks (owner 2026-06-18)
+- [ ] **"Thermonuclear" code-quality review (R-CODEREVIEW)** — it's a NAME for an
+      ultra-aggressive exhaustive review. Deliver BOTH: (1) a LOOP process step that
+      deep-reviews the whole app's quality (correctness/dead-code/honesty/perf/drift)
+      and files findings; (2) an IN-APP code-review feature in Work/Open Code mode
+      (gated by P8.2 schemas + Goose self-correction). Real findings only.
+- [ ] **Agent-creation frameworks deliberation (R-AGENTFW)** — research Vercel AI
+      SDK (TS, MIT), Google ADK/Agent Builder (open), Cursor agent (proprietary,
+      UX-only). Verdict per framework: usable IP vs patterns-only + license. Likely
+      adopt PATTERNS + agent-creation UX natively (Companion/tamagotchi P2.6 +
+      Osaurus config + Goose subagents), not import SDKs. Recommend the native design.
+
 ## Verdict docs already produced (decisions, not yet built)
 R-VOICE (Kokoro+MOSS+filter), R-EVE (pattern only), R-OKF (export+privacy+dedup),
 R-PROMPT (cache-stable prefix + lean schemas), CHAT_UX_MAP (3 axes). These are

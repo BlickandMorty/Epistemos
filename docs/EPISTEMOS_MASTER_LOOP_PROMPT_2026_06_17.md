@@ -805,6 +805,24 @@ non-large-model architecture.
                 full backend power, surfaced primarily through Work. Validate Goose
                 patches against the P8.2 deterministic schemas. Deep verdict + the
                 extraction.
+  PHASE R-CODEREVIEW (owner 2026-06-18) "THERMONUCLEAR" CODE-QUALITY REVIEW — it's
+                just a NAME (community/Cursor term) for an EXTREMELY aggressive,
+                exhaustive code review. Research the best such review prompt/method,
+                then deliver it TWO ways: (1) a LOOP PROCESS step that runs a deep
+                thermonuclear-grade quality review across the whole Epistemos app
+                (correctness, dead/stale code, honesty-constraint violations, perf,
+                arch drift) and files findings; (2) an IN-APP code-review feature in
+                WORK/Open Code mode (review the open repo, gated by P8.2 schemas +
+                Goose's self-correction loop). Honest, real findings only.
+  PHASE R-AGENTFW (owner 2026-06-18) AGENT-CREATION FRAMEWORKS — research + DELIBERATE
+                what to do for Epistemos agent creation given Vercel AI SDK (TS,
+                MIT), Google ADK / Agent Builder (Python/Java, open), and Cursor's
+                agent (proprietary — UX/approach only, not an importable SDK). For a
+                native Swift/Rust app the likely answer is ADOPT PATTERNS + the
+                agent-creation UX natively (tie into the Companion/tamagotchi
+                builder P2.6 + Osaurus agent config + Goose subagents), NOT import
+                their SDKs. Verdict doc: per framework — usable IP vs patterns-only,
+                license, what to take, and the recommended native design.
   Also sweep GitHub / HuggingFace / arXiv / Twitter(X) for anything that
   strengthens the above and combine it INTO the app, honestly. For EACH research
   phase write a short docs/ note that says: take or skip, free vs paid, license,
