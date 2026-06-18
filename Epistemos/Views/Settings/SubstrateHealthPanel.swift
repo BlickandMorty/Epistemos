@@ -13,9 +13,17 @@ public struct SubstrateHealthPanel: View {
 
     public init() {}
 
+    // Owner 2026-06-18: the 18 stacked health rows blew out the window height.
+    // The three sections are now collapsible (macOS 14+ Section(isExpanded:));
+    // the 10-row "Substrate Floor" section defaults COLLAPSED so the panel
+    // opens compact. Nothing is removed — every row is one click away.
+    @State private var showRetrieval = true
+    @State private var showAgentRuntime = true
+    @State private var showSubstrateFloor = false
+
     public var body: some View {
         Form {
-            Section("Retrieval and Indexing") {
+            Section("Retrieval and Indexing", isExpanded: $showRetrieval) {
                 SettingsDescriptionText(
                     text: "Read-only substrate health for retrieval, citations, editor assets, and cross-index search."
                 )
@@ -33,7 +41,7 @@ public struct SubstrateHealthPanel: View {
                 }
             }
 
-            Section("Agent Runtime") {
+            Section("Agent Runtime", isExpanded: $showAgentRuntime) {
                 SettingsDescriptionText(
                     text: "Local model routing, System G status, and per-turn AnswerPacket witness channels."
                 )
@@ -51,7 +59,7 @@ public struct SubstrateHealthPanel: View {
                 }
             }
 
-            Section("Substrate Floor") {
+            Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
                 SettingsDescriptionText(
                     text: "Witness rows for arithmetic, WBO accounting, EML observability, UAS/ACS, and DAG placement."
                 )
