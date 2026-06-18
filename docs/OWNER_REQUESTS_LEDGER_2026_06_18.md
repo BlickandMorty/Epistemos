@@ -94,6 +94,14 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 - [ ] Tool toggles actually gate the runtime AND are visible/usable (P2.1).
 - [ ] In-chat skills run; MCP/connectors (Slack/Gmail/Drive/Notion) actually
       connect + are usable (P2.3/P2.4/P7.6 connectors).
+- [ ] **BEST-OF PRESET — ship a curated default set of the best superpowers /
+      skills / tools / MCP servers (owner 2026-06-18).** Research + bundle a
+      starting PRESET of the best available agent powers (skills, tools, MCP
+      servers — e.g. filesystem, web/fetch, browser+stealth, git, memory/vault,
+      code-exec, popular MCPs) so the app ships powerful out of the box, not empty.
+      HONEST: only include real, working ones; Pro/MAS-gate each appropriately;
+      let the user toggle. Research-back the picks (which are best/free/safe) and
+      document the preset. Wire into the tool catalog / capability explorer (P2.1).
 
 ## Surfaces the owner asked for
 - [ ] HTML workspace is BROKEN (can't see code) → fix + HTML canvas live-viewer the
@@ -115,8 +123,16 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       chat modes (Act/Work). agent_core/src/tools/browser.rs (agent-browser + chrome
       MCP, shipped Pro) + LocalAgentCapabilityRegistry `browser` toolset already
       exist but aren't reachable from chat. Wire it in honestly (Pro-gated), so the
-      agent can drive a browser / do anything on the web from chat. Also pairs with
+      agent can drive a browser / do anything on the web from chat. Primary target:
+      the agent controls MY APP's in-app browser (Obscura, below). Also pairs with
       the HTML canvas (P7.2).
+- [ ] **Stealth / undetected browsing (owner 2026-06-18)** — the "non-scrape" thing:
+      sites should NOT detect that an agent/bot is on the page. Research the best
+      GitHub stealth-browser skill (puppeteer/playwright-stealth, undetected-
+      chromedriver, rebrowser, nodriver, etc.); if it isn't Rust-native, USE IT
+      ANYWAY via the agent-browser/chrome-MCP path and VENDOR/save it in the app.
+      Wire stealth as an option on browser-use + the Obscura browser. Pro/dev-gated.
+      (Honest: authorized use; no fake "undetectable" claims beyond what the lib does.)
 - [ ] **OBSCURA BUILT-IN BROWSER (owner researched before; runtime never built)** —
       build the actual working in-app Obscura browser (Rust browser backend /
       WKWebView built-in browser). PRIOR RESEARCH IN-REPO (read first, build on it):
