@@ -2058,7 +2058,29 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var toolbarAskPlaceholder: String {
-        noteChatState.error ?? "Ask this note"
+        // P7.5 — honest memory blocker (P1.4 parity) surfaced in the compact ask
+        // bar: when the selected local model can't load, say so right where the
+        // user types instead of silently routing to another model.
+        noteChatMemoryBlocker ?? noteChatState.error ?? "Ask this note"
+    }
+
+    /// P7.5 — chat-surface parity: NoteChat reuses the SHARED honest memory
+    /// blocker (P1.4) and Fast effort reason (P1.9) on `InferenceState`, so the
+    /// note-ask bar honors the same ceiling as Main/Mini — no fork, no silent
+    /// swap. NoteChat itself stays a lightweight inline ask that escalates to
+    /// Main chat for tool work, so it surfaces these two but not a tool panel.
+    private var noteChatMemoryBlocker: String? {
+        inference.localChatModelMemoryBlocker(for: selectedNoteChatOperatingMode)
+    }
+
+    private var noteChatFastEffortHint: String? {
+        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let complexity = QueryAnalyzer.analyze(query: trimmed).complexity
+        return inference.fastEffortRouteReason(
+            forComplexity: complexity,
+            operatingMode: selectedNoteChatOperatingMode
+        )
     }
 
     private var toolbarAskSelection: ChatModelSelection {
@@ -2092,7 +2114,12 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var toolbarAskPillDetail: String? {
-        ComposerModelToolTruth.detail(
+        // P7.5 — Fast effort visibility (P1.9 parity) takes the pill detail when
+        // the Fast tier sizes this query; otherwise the usual model/tool truth.
+        if let noteChatFastEffortHint {
+            return noteChatFastEffortHint
+        }
+        return ComposerModelToolTruth.detail(
             for: toolbarAskSelection,
             capability: toolbarAskCapability
         )
@@ -2158,7 +2185,9 @@ struct NoteDetailWorkspaceView: View {
 
     private func submitToolbarAskInline() {
         let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        // P7.5 — honest memory blocker (P1.4 parity): never submit on a local
+        // model that can't load; the placeholder explains why.
+        guard !trimmed.isEmpty, noteChatMemoryBlocker == nil else { return }
 
         // USABILITY-001 follow-up (note ask bar, 2026-05-13): when the
         // user's query looks like agent-tier work ("find my note about
