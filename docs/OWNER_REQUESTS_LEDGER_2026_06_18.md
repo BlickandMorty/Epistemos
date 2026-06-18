@@ -109,6 +109,19 @@ should make the codebase MUCH better, never destabilize the working chat.
       user-selectable local picks (owner wants BOTH) — just not the auto-default.
       Fix the hardcoded default + migration + agent-brain defaults to foundation;
       regression.
+- [ ] **MEMORY BYPASS for 12B (owner 2026-06-18) — "I generally have enough; I used
+      to run bigger models."** Two parts: (1) ADD an explicit owner OVERRIDE — a
+      "Run anyway / use it anyway" toggle/button on the memory blocker (P1.4) so the
+      user can FORCE the Gemma 12B coder + regular 12B even when the gate flags it.
+      Honest: it warns it may be slow / swap, but RESPECTS the choice (explicit
+      user-forced load is NOT a silent swap). (2) AUDIT the estimate — it's too
+      conservative: the gate uses *free* memory + a 4 GB headroom
+      (`InferenceState.swift` ~4187/4259 `headroomGB = 4`;
+      `localAgentModelFitsCurrentMemoryBudget`; the P1.4 blocker). On macOS "free"
+      undercounts AVAILABLE memory (cached/purgeable/compressed is reclaimable) —
+      compute available = free + reclaimable, and don't over-state the 12B
+      footprint, so legit 12B runs aren't blocked. Keep the honest blocker as the
+      DEFAULT, but make the override real + the estimate accurate. Regression.
 - [ ] **Palette preview for ALL themes** — currently gated `if pair == .custom`
       (SettingsView ~4081). Generalize `CustomThemePaletteSwatch` to every
       `ThemePairCard` so every theme shows the palette preview.
