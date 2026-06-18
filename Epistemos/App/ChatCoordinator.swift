@@ -4428,6 +4428,20 @@ final class ChatCoordinator {
     attachments: [ContextAttachment],
     chatState: ChatState
   ) async -> (String?, String) {
+    // OBS-1/OBS-3 — when Eidos is enabled, run a lexical Eidos retrieval for this
+    // turn's query off the main path (fire-and-forget). EidosWiring.search records
+    // into EidosMetrics, which the "Retrieved by Eidos" chat panel
+    // (EidosRetrievedSection) reads — so the panel goes live. Flag-gated
+    // (EPISTEMOS_EIDOS_V0), default OFF → zero behavior change. It does NOT yet
+    // feed the chat context or enforce the closed-citation gate (W-47) — those
+    // are the follow-on slices; this is the foundational retrieval wiring.
+    if EidosFlags.isEnabled {
+      let eidosQuery = query
+      Task.detached(priority: .utility) {
+        _ = EidosBridge.search(query: eidosQuery)
+      }
+    }
+
     let resolution = await Self.resolveAttachedContext(
       query: query,
       attachments: attachments,
