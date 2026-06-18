@@ -482,3 +482,21 @@ per pass). Keep until all done + hardened (rule #6/#8).
       into Companion/tamagotchi builder + Osaurus agent config + Goose subagents),
       NOT import SDKs. Verdict doc per framework: usable-IP vs patterns-only,
       license, what to take, recommended native design.
+
+## GUARDRAILS — ENFORCE ON EVERY PASS (owner 2026-06-18, CRITICAL)
+1. **DELETION GUARDRAIL** — thermonuclear review / hardening / dedupe may NOT
+   delete NEW or IN-PROGRESS features (they look "unused" because they're mid-build
+   / not yet wired) or ANY owner-requested ledger item. DELETION IS A LAST RESORT —
+   prefer dedupe / consolidate / WIRE-IT-UP. Only remove code that is PROVABLY dead
+   AND confirmed not part of any in-flight ledger item; when uncertain → KEEP + flag.
+   Commit deletions SEPARATELY (own commit, easy revert). (✓ already applied: the
+   appleIntelligenceSection removal was provably dead [1 self-ref] + capability
+   preserved+tested + its own commit; the legacy popovers were uncertain → KEPT +
+   flagged, not deleted.)
+2. **CODE REVIEW IS RECURRING** — run the deep whole-app review MULTIPLE times
+   (each phase + a periodic full-app pass), not once. R-CODEREVIEW loop step recurs.
+3. **NO-SIDECAR clarification (Open Code)** — NO non-Swift app. Goose is RUST →
+   compiles into agent_core via UniFFI (that's why it's the Open Code backend).
+   Vercel(TS)/Google(Py)/Cursor(proprietary) are NOT Swift/Rust → adopt their
+   PATTERNS natively, NEVER run Node/Python sidecars (NO-SIDECAR / MAS / 18GB
+   memory). Same for R-OPENCLAW (TS) and R-APPS picks: patterns only, no sidecar.
