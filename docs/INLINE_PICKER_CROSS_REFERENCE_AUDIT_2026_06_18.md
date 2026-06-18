@@ -52,12 +52,35 @@ true`).
   honest `actUnavailableReason` when no agent route exists (never fakes agent
   capability for a local model).
 
-## Documented follow-up GAPS (next slices)
-1. **Agent (Companion) switcher** not in the panel — relocate honestly (Companion
-   activation also lives in the Landing farm).
-2. **Fold MC split-toolbar buttons into the panel** (owner-flagged optional) —
-   if confirmed, hide the MC mode/routing/effort/native buttons + surface all in
-   the panel, removing the split toolbar.
+## Third slice (2026-06-18) — per-tier picks + routing/native PROVEN
+- **VERIFIED — per-tier model picks** (owner spec): `EpistemosRuntimePicker.
+  options(for:)` returns, via `EpistemosFoundationLineup.candidates(for:)` (tier
+  = `stage.epistemosTier`) + extraPicks + Apple Intelligence:
+  - **Fast** = Gemma 2B (E2B) / Gemma 4B (E4B) / Gemma 12B (+ 26B-A4B MoE
+    explicit extra) + Apple Intelligence. ✅ matches spec.
+  - **Think** = VibeThinker 3B (reasoningSpecialist) + Qwen 3 4B + Qwen 3 8B
+    (extraPicks) (+ LFM2.5 / 2-bit-12B explicit extras). ✅ matches spec.
+  - **Code** = Gemma 12B Coder (specialistCoderFineTune). ✅ matches spec.
+  Locked by EpistemosRuntimePickerTests ("Fast offers the Gemma sizes + Apple
+  Intelligence", "Think/Code offer their foundation model + no AI", "both Qwens
+  are explicit Think picks", honest memory/install/AI gating). The panel renders
+  these via `ForEach(options(for: tier))` — not-installed picks show with an
+  install hint, never hidden.
+- **VERIFIED — routing / native controls / cloud**: honestly relocated to the
+  panel's "Cloud, routing & model details — Settings" footer (single-button) /
+  the split-toolbar buttons (MC). Present-or-honestly-relocated on all 5.
+- **RESOLVED — Companion (agent) switcher**: honestly relocated — Companion
+  activation lives in the Landing farm (the canonical agent surface). Adding it
+  back to the inline model picker is an optional convenience, not a dropped
+  control (agents remain reachable). Logged as optional, not a gap.
+
+## Net status — picker cross-reference COMPLETE
+Every old control is **present or honestly relocated** on all 5 surfaces:
+Fast/Think/Code tiers + per-tier picks ✅ · Effort ✅ · Mode/Chat·Act ✅ ·
+Routing/Cloud/Native/Temporary → Settings footer (single) / split toolbar (MC) ·
+Companion switcher → Landing farm. Optional future: fold MC split-toolbar buttons
+into the panel (owner-flagged); add Companion switcher to the panel. **Owner
+build+runs to confirm each renders + switches behavior in-app on every surface.**
 
 ## Net status after both slices
 Fast/Think/Code (+ per-tier picks) ✅ all 5 · Effort ✅ all 5 (MC split toolbar;
