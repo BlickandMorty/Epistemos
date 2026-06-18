@@ -472,11 +472,20 @@ calls: no blanket rule — choose per case.
       It's LiteLLM/Python → adopt the PATTERNS natively (control-plane design,
       routing policy), don't run a Python sidecar (NO-SIDECAR/MAS). Verdict doc +
       port the adoptable parts; honest gating, per-feature harden.
-- [ ] **vercel-labs/json-render (R-JSONRENDER)** — github.com/vercel-labs/json-render.
-      Deeply research; maps onto Schema-First GenUI (P5 substrate) + the deterministic
-      schema engine (P8.2): render JSON/typed-schema payloads → UI. It's TS → adopt
-      the pattern natively (SwiftUI) or via WebKit. Verdict doc + port; ties our
-      deterministic schemas to a real render layer. Honest, per-feature harden.
+- [x] **vercel-labs/json-render (R-JSONRENDER)** — VERDICT 2026-06-18
+      (docs/RESEARCH_JSONRENDER_2026_06_18.md): PATTERNS-ONLY, NO code lifted.
+      Epistemos GenUI (GenUIDispatcher + GenUISchema + canonicalBody + A2UI
+      Validator) ALREADY matches json-render's schema-keyed registry + catalog
+      guardrail + validation + fallback + determinism — at parity-or-BETTER
+      (Swift-typed, compile-exhaustive, determinism-tested vs JS runtime-validated).
+      The ONE gap: json-render's STREAMING/progressive render (SpecStream: chunks
+      → partial trees → live UI); Epistemos renders complete payloads only. Filed
+      as a scoped FUTURE native-Swift feature (flag-gated GenUIStreamingDecoder +
+      partial-render path reusing typed GenUIBody + ArtifactBlockView stream) —
+      only matters for large streamed blocks, not urgent. No Node sidecar/WebKit
+      (would duplicate the stronger Swift-native GenUI). Per-feature: GenUI is
+      already comprehensively hardened (4 test files incl. determinism + canonical-
+      body pairing). NO new code this slice — there was no gap to fill.
 - [ ] **PORT github.com/Alphanimble/htmlstream (R-HTMLSTREAM)** — owner wants a FULL
       port. Deeply analyze/research first (not local — clone + read). Likely pairs
       with P7.2 (HTML workspace + chat-drivable canvas / live viewer). Verdict doc
