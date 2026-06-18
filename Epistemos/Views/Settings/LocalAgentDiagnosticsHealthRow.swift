@@ -448,6 +448,8 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             return .pink
         case .liquidGeneralMoe:
             return .mint
+        case .gemmaTwelveBLowMemory:
+            return .indigo
         }
     }
 
@@ -1069,6 +1071,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "MoE receipt/runtime pending"
         case .liquidGeneralMoe:
             return "Liquid receipt/runtime pending"
+        case .gemmaTwelveBLowMemory:
+            return "Gemma 12B low-mem receipt/runtime pending"
         }
     }
 
@@ -1468,6 +1472,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "MoE receipt/runtime pending"
         case .liquidGeneralMoe:
             return "Liquid receipt/runtime pending"
+        case .gemmaTwelveBLowMemory:
+            return "Gemma 12B low-mem receipt/runtime pending"
         }
     }
 

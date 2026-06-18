@@ -418,6 +418,12 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
     /// explicit-only so it never pollutes the Fast Gemma effort-sizing ladder.
     /// Owner-requested 2026-06-18.
     case liquidGeneralMoe = "liquid_general_moe"
+    /// Unsloth Gemma 4 12B at 2-bit (UD-Q2_K_XL ~4.66 GB) — a big 12B model at
+    /// low memory, so it FITS a 16 GB Mac (unlike the Q4 12B). Placed in the
+    /// Think tier (explicit-only) rather than Fast because its big-model-low-
+    /// memory profile breaks the Fast effort-sizing's memory∝capability
+    /// assumption. Owner-requested 2026-06-18.
+    case gemmaTwelveBLowMemory = "gemma_twelve_b_low_memory"
 
     var displayName: String {
         switch self {
@@ -428,6 +434,7 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
         case .reasoningSpecialist: "Reasoning specialist"
         case .moeFlagshipCandidate: "MoE flagship candidate"
         case .liquidGeneralMoe: "Liquid general MoE"
+        case .gemmaTwelveBLowMemory: "Gemma 12B low-memory (2-bit)"
         }
     }
 }
@@ -493,6 +500,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "MoE route integration pending"
             case .liquidGeneralMoe:
                 return "Liquid route integration pending"
+            case .gemmaTwelveBLowMemory:
+                return "Gemma 12B low-mem route integration pending"
             }
         }
         if hasCompleteRouteEvidencePacketChain {
@@ -511,6 +520,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "MoE route evidence ready"
             case .liquidGeneralMoe:
                 return "Liquid route evidence ready"
+            case .gemmaTwelveBLowMemory:
+                return "Gemma 12B low-mem route evidence ready"
             }
         }
         return "route evidence pending"
@@ -521,6 +532,7 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
         if stage == .specialistCoderFineTune { return "coder12b" }
         if stage == .moeFlagshipCandidate { return "moe26b" }
         if stage == .liquidGeneralMoe { return "lfm8b" }
+        if stage == .gemmaTwelveBLowMemory { return "gemma12b2bit" }
         if id.contains("-12B-") { return "12b" }
         if id.contains("-E4B-") { return "e4b" }
         return "e2b"
@@ -543,6 +555,11 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             // LFM2.5-8B-A1B Q4_K_M is only ~4.8 GB resident (light MoE) — fits a
             // 16 GB Mac comfortably, so gate at 10 (a real, selectable picker
             // option on the ship rig, not blocked).
+            10
+        case .gemmaTwelveBLowMemory:
+            // Gemma 4 12B at 2-bit (UD-Q2_K_XL) is only ~4.66 GB resident — fits
+            // a 16 GB Mac, so gate at 10 (selectable on the ship rig). The whole
+            // point of the 2-bit variant is to run a 12B on 16 GB.
             10
         case .proFlagshipCandidate:
             // 12B QAT GGUF is ~7 GB on disk / ~10 GB resident — it runs on a
@@ -574,6 +591,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             "Gemma 4 26B-A4B MoE QAT GGUF (Unsloth, UD-Q4_K_XL ~14 GB). A mixture-of-experts model with ~4B active params — far lighter at inference than a dense 26B — on the same Pro-gated GGUF/llama.cpp lane. The full weights stay resident, so it's honestly tight on a 16 GB Mac: memory-gated at 18 GB, but the 'Run anyway' override + the corrected available-memory estimate let a 16 GB Mac attempt it. Text-only, explicit-only pick (never auto-routed); receipt pending, gated away from default route mutation."
         case .liquidGeneralMoe:
             "LiquidAI LFM2.5-8B-A1B GGUF (Q4_K_M ~4.8 GB) — a light general mixture-of-experts (8B total / ~1B active), so it's fast and small enough to fit a 16 GB Mac comfortably. NOT Gemma; rides the same GGUF/llama.cpp lane. Best role: a fast/quick general local model + cheap triage. Placed in the Think tier as a general capable alternative (alongside the Qwen general models), explicit-only so it never pollutes the Fast Gemma effort-sizing. Text-only; receipt pending, gated away from default route mutation."
+        case .gemmaTwelveBLowMemory:
+            "Gemma 4 12B at 2-bit (Unsloth UD-Q2_K_XL ~4.66 GB) — a big 12B model at low memory, so it FITS a 16 GB Mac (unlike the ~7 GB Q4 12B that's tight on 16 GB). Rides the same Pro-gated GGUF/llama.cpp lane. Placed in the Think tier (explicit-only) rather than Fast: its big-model-low-memory profile would otherwise break the Fast effort-sizing's memory∝capability ladder. Text-only; receipt pending, gated away from default route mutation."
         }
     }
 
@@ -582,7 +601,7 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
     /// no longer be hardcoded to "Gemma 4 QAT GGUF".
     var familyName: String {
         switch stage {
-        case .firstRuntimeHarness, .nextScaleLane, .proFlagshipCandidate, .moeFlagshipCandidate:
+        case .firstRuntimeHarness, .nextScaleLane, .proFlagshipCandidate, .moeFlagshipCandidate, .gemmaTwelveBLowMemory:
             "Gemma 4 QAT GGUF"
         case .specialistCoderFineTune:
             "Gemma 4 Coder GGUF"
@@ -770,6 +789,29 @@ nonisolated enum GemmaQATRuntimeLadder {
             blobID: "5cd9b16c0996455ac58f5ed88bf0ff7de06068de",
             runtimeLane: "gguf_llama_cpp_offline",
             stage: .liquidGeneralMoe,
+            localExecutionProofArtifactRef: nil,
+            runtimeRouterAdmissionArtifactRef: nil,
+            systemGDryRunArtifactRef: nil,
+            routeAnswerPacketVisibilityArtifactRef: nil,
+            settingsDiagnosticsWRVArtifactRef: nil,
+            releaseGateRef: "gate:runtime_plural_qat_lane_tournament_owner_approval_gate"
+        ),
+        // Unsloth Gemma 4 12B at 2-bit (UD-Q2_K_XL ~4.66 GB) — a big 12B that
+        // FITS a 16 GB Mac. Think tier (explicit-only). Provenance verified
+        // against the HF tree API 2026-06-18. Owner-requested; receipt pending,
+        // release-gated behind the runtime-plural owner-approval gate.
+        GemmaQATRuntimeCandidate(
+            id: "unsloth/gemma-4-12b-it-GGUF",
+            displayName: "Gemma 4 12B 2-bit QAT GGUF",
+            sourceRepo: "unsloth/gemma-4-12b-it-GGUF",
+            sourceURL: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF",
+            sourceRevision: "3249fa54d5efa384afc552cc6700ad091efd5c39",
+            expectedFilename: "gemma-4-12b-it-UD-Q2_K_XL.gguf",
+            expectedFileBytes: 4_661_418_400,
+            expectedSHA256: "19ab0f2dbe76aa2dae227054c9d777dc96f11688282d705738cb9c4c70bed489",
+            blobID: "133f390dc880dc83cd5727e7f1828be5a75c2862",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .gemmaTwelveBLowMemory,
             localExecutionProofArtifactRef: nil,
             runtimeRouterAdmissionArtifactRef: nil,
             systemGDryRunArtifactRef: nil,

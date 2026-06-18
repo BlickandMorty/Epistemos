@@ -3165,6 +3165,8 @@ private struct GemmaQATProofLaneSummary: View {
             return .pink
         case .liquidGeneralMoe:
             return .mint
+        case .gemmaTwelveBLowMemory:
+            return .indigo
         }
     }
 }

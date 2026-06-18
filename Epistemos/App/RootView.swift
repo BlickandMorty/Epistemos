@@ -2037,6 +2037,8 @@ struct LocalModelToolbarMenu: View {
             return "square.stack.3d.up"
         case .liquidGeneralMoe:
             return "drop"
+        case .gemmaTwelveBLowMemory:
+            return "rectangle.compress.vertical"
         }
     }
 
