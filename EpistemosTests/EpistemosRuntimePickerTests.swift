@@ -9,11 +9,10 @@ struct EpistemosRuntimePickerTests {
 
     private func env(
         installed: Set<String>,
-        freeGB: Double,
-        ai: Bool = false,
-        headroom: Double = 2
+        freeGB: Int,
+        ai: Bool = false
     ) -> EpistemosRuntimePicker.Environment {
-        .init(installedModelIDs: installed, freeMemoryGB: freeGB, headroomGB: headroom, appleIntelligenceAvailable: ai)
+        .init(installedModelIDs: installed, freeMemoryGB: freeGB, appleIntelligenceAvailable: ai)
     }
 
     @Test("Fast offers the Gemma sizes plus Apple Intelligence (4th pick)")
