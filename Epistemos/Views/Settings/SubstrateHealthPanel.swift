@@ -36,6 +36,10 @@ public struct SubstrateHealthPanel: View {
                 surface(falsifier: "docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md", wRow: "W-20", weight: .medium) {
                     SearchFusionHealthRow()
                 }
+                // P5.H (visible determinism) — whether the EML vault re-rank
+                // (agent_core vault.rs, EPISTEMOS_EML_RERANK_V1) is fusing BM25
+                // with query coverage. Reads the live flag honestly (no falsifier).
+                EmlRerankGateHealthRow()
                 surface(falsifier: "docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md", wRow: "W-29", weight: .medium) {
                     EditorBundleHealthRow()
                 }
