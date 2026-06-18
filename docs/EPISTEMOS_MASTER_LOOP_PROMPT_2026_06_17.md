@@ -93,6 +93,21 @@ LOOP DISCIPLINE (every pass)
    replacement / determinism + verifiability," sharpen it — append or clarify,
    NEVER silently delete an owner item — and note the prompt edit in
    AGENT_PROGRESS.md. The backlog should get better every loop, not just consumed.
+8. DONE = WORKS IN THE APP, NOT "COMMITTED" (owner mandate 2026-06-18, the loop has
+   been too lazy — features were committed but gated into invisibility or not
+   wired end-to-end, and the owner could not use them). A line is DONE only when
+   the OWNER can SEE + USE it in the rebuilt app, on their ACTUAL setup
+   (LOCAL-FIRST, frequently NO cloud configured). Rules: (a) never gate a feature
+   into invisibility — if it depends on cloud/Pro/state, still make the local path
+   work and, when truly gated, show WHY (honest, visible), never vanish; (b) trace
+   the real UX path before claiming done; (c) **LOCAL FOR ALL MODES** — Chat AND
+   Act AND every cowork affordance must run on the owner's LOCAL models via
+   `LocalAgentLoop`; NEVER auto-route to GPT/cloud unless the owner explicitly
+   enabled cloud (kill the silent `chatAutoRouteToCloud`→cloud fallback when local
+   simply didn't resolve); (d) the authoritative checklist is
+   docs/OWNER_REQUESTS_LEDGER_2026_06_18.md — run a REALITY-AUDIT pass against it
+   NOW, fix the REOPENED items first (local-for-all-modes is #1), verify each in a
+   real build, before any new feature.
 
 ────────────────────────────────────────────────────────────────────────
 NON-NEGOTIABLE HONESTY CONSTRAINTS (CLAUDE.md — these beat any task)
@@ -458,6 +473,26 @@ P6.2  "Run complex things from a simple query" polish: once P1.5 + P2 land,
 P6.3  Dependencies/package tooling as an agent capability (Pro): if the owner
       wants the chat to manage project deps (npm/cargo/etc.), surface it as an
       explicit Pro tool with security.rs hardening — NOT on the MAS path.
+P6.4  THEME/SETTINGS FIXES (owner 2026-06-18, REAL BUG — prioritize). Three parts:
+      (a) BUG: custom-theme FONT won't change — picking a font in the custom theme
+          has no effect. The font getters already read
+          `AppDisplayTypography.headingFontOverride(level:)` when
+          `AppCustomTheme.isActive` (Theme/EpistemosTheme.swift displayFontName ~410
+          / headingFontName ~430 / panelFontName ~500 / ~1918), so the break is on
+          the WRITE side: the Settings custom-theme font picker
+          (Views/Settings/SettingsView.swift ~4263–4685, previewFontName/fontName)
+          isn't persisting into the headingFontOverride store, or the control is
+          disabled, or the UI doesn't re-render on change. Fix the picker→override
+          write + persistence + live re-render so every level (display/H1–H3/panel/
+          mono) actually applies. Add a regression that setting a custom font
+          changes the resolved font name.
+      (b) THEME PREVIEW is ugly — replace the busy preview UI with a clean COLOR
+          PALETTE swatch (the theme's key colors as a simple row/grid), per owner.
+          Drop the heavy mock-UI preview; palette-only is the preview.
+      (c) SETTINGS is messy — tidy the theme/appearance section (and obvious
+          nearby clutter): group related rows, remove dead/duplicate controls,
+          align with the pixel-art-minimal look. Honest — don't hide real settings,
+          just declutter.
 
 ────────────────────────────────────────────────────────────────────────
 PRIORITY 7 — ROBUSTNESS SURFACES (OWNER HOTFIX 2026-06-17e — "make my app feel
@@ -547,6 +582,26 @@ the MAS path surface the honest capability, never a fake one.
         Theme-aware, pixel-art minimal. Gate each affordance honestly (MAS vs Pro).
         This is the same shared ChatCoordinator stack as P7.5 — extend it, and let
         the "Code" toggle (P7.4) flip this same surface into code mode.
+  P7.7  VOICE (owner 2026-06-18; research-back via PHASE R-VOICE first). Add ONE
+        real voice model (TTS, plus STT for speak-to-AI) — honest, no fake voice.
+        SETTINGS auto-mode with GRANULAR toggles: (a) AUTO-READ-SCREEN — always
+        read what's on screen (reuse the existing ScreenCaptureService /
+        Screen2AXFusion computer-use capture; permission-gated, never silent
+        background capture); (b) READ-AI-REPLIES — speak the AI's responses when I
+        text it; (c) VOICE-INPUT — speak to the AI (STT). Each independently
+        on/off. PIXEL-ART RETRO VOICE FILTER: a selectable voice that runs the TTS
+        output through a retro-game/anime DSP filter (bitcrush / formant shift) so
+        it sounds like a pixel-art retro character — fits the app's pixel-art theme.
+        Prefer on-device/offline if a good model exists; keys in Keychain if cloud.
+        Theme-aware, pixel-art minimal UI. MAS/Pro-honest (mic + screen entitlements).
+        OWNER DECISION 2026-06-18: ship BOTH voices. (a) Kokoro-82M = the everyday
+        on-device voice (R-VOICE pick), with AVSpeechSynthesizer as instant
+        fallback. (b) MOSS-TTS-PNY = a SPECIAL "reading voice" the owner explicitly
+        wants — selectable for reading a page in ANY note type and for in-chat
+        reading. Pursue a REAL on-device path for MOSS (CoreML/MLX conversion); if
+        none exists, gate it Pro/dev or surface an honest blocker — never fake it,
+        never a hidden Python subprocess on MAS. Both selectable in the voice
+        picker; the retro filter applies over either.
   P3.5  OSAURUS FULL-REPLACE EVALUATION (escalation of P3). After P3.1's deep
         dive + P7.1, decide full-adopt vs pattern-adopt per piece via the
         ProvenanceGate, with the explicit goal of Epistemos being a COMPLETE
@@ -576,8 +631,34 @@ non-large-model architecture.
                 Track Register T0–T15, the TURBOVEC/QAT canon, and the Knowledge
                 Core + Cognitive DAG + provenance/AnswerPacket docs — and feed
                 PRIORITY 5. EXCLUDE the large-local-model runtime (owner-gated).
+  PHASE R-VOICE  (owner 2026-06-18, feeds P7.7) Voice models + filter. Owner wants
+                BOTH Kokoro-82M (everyday) AND MOSS-TTS-PNY
+                (https://huggingface.co/ZDisket/MOSS-TTS-PNY) as a special reading
+                voice. DEEPEN the MOSS investigation: find a real on-device path
+                (CoreML/MLX conversion, model card, license, sample quality); if it
+                only runs via Python, plan a Pro/dev lane or an honest blocker — no
+                hidden subprocess on MAS. Also spec the retro/anime VOICE FILTER
+                (bitcrush/formant DSP). Verdict per option: free?, license,
+                on-device vs cloud, UX quality.
+  PHASE R-EVE   (owner 2026-06-18) "eve" agent framework — "Next.js for agents"
+                (agent/agent.ts, instructions.md, tools/, skills/, sandbox/,
+                schedules/). What maps onto our agent_core agent loop / Companion
+                agent-builder / skills? Adopt patterns natively, ProvenanceGate.
+  PHASE R-OKF   (owner 2026-06-18) Open Knowledge Format + DEDUP + PRIVACY — pick
+                the BEST system for duplicate-handling AND privacy for the vault/
+                Knowledge Core. Sources: Google Cloud OKF blog +
+                github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf,
+                buildwithmatija.com/okf, specdog.github.io, barrasindustries.com/
+                okfind, and github.com/localai-org/privacy-filter.cpp. Verdict:
+                which to take, free?, license, best UX, MAS-safe.
+  PHASE R-PROMPT (owner 2026-06-18) Prompt/context-construction libs that sharpen
+                the FOUNDING THESIS determinism: anysphere/priompt
+                (github.com/anysphere/priompt) + composer-api.formkit.workers.dev.
+                What improves our hyper-deterministic schema / context engineering?
   Also sweep GitHub / HuggingFace / arXiv / Twitter(X) for anything that
-  strengthens the above and combine it INTO the app, honestly.
+  strengthens the above and combine it INTO the app, honestly. For EACH research
+  phase write a short docs/ note that says: take or skip, free vs paid, license,
+  on-device vs cloud, and the best-UX recommendation — so the owner can choose.
 
 ────────────────────────────────────────────────────────────────────────
 KEY FILES
@@ -653,6 +734,9 @@ done, then re-read this file and harden.
 | P7.2 | HTML workspace fix + canvas live-viewer (chat drives the screen) | ☐ TODO |
 | P7.5 | Chat surface parity: MiniChat / Note / Graph chat match Main chat stack | ☐ TODO — HIGH, owner 2026-06-17 (minichat outdated/inconsistent) |
 | P7.6 | Claude-Desktop "cowork" parity fused w/ Code: Act/Chat, Progress, Working folder, Context, Queue, connectors (Slack/Gmail/Drive via MCP) | ☐ TODO — owner 2026-06-18 screenshot |
+| P6.4 | Theme/Settings: fix custom-theme font (won't set), theme preview → color palette, declutter Settings | ☐ TODO — REAL BUG, owner 2026-06-18 |
+| P7.7 | Voice model + auto-read-screen/replies/STT granular settings + pixel-art retro voice filter | ☐ TODO — owner 2026-06-18 (research R-VOICE first) |
+| R-VOICE/R-EVE/R-OKF/R-PROMPT | Research: voice+filter / eve agent fw / OKF+dedup+privacy / priompt+composer | ☐ TODO — owner 2026-06-18, verdict docs (take?/free?/UX) |
 | P7.3 | Terminal + console actually work (Pro/dev) | ☐ TODO |
 | P7.4 | "Code" toggle on search → OpenCode-style themed code chat | ☐ TODO |
 | P3.5 | Osaurus full-replace evaluation (complete replacement decision + slices) | ☐ TODO |
