@@ -627,3 +627,16 @@ needs it), never run a Node/Python sidecar.
       ComputerUseBridge/VisualVerifyLoop (screenshot → Holo → grounded action/
       function-call); function-calls validated vs P8.2 deterministic schemas; honest
       gating (Pro/dev; MAS keeps the bounded/native computer-use path).
+
+## R-KUKU verdict (2026-06-18 → docs/RESEARCH_KUKU_2026_06_18.md)
+Kuku (kuku.mom / github.com/kukume) = a local-first AI note-taking app (Tauri +
+SolidJS/WebKit, ProseMirror, local Whisper STT, graph, wikilinks, .md; client MIT
+/ server AGPL) — Epistemos's closest sibling. VERDICT: SKIP the code (Tauri/TS, not
+native; AGPL server). ADOPT 2 patterns natively:
+- [ ] **AI MEMORY SHARING** — expose the vault/Knowledge Core/Eidos as a read-only
+      LOCAL memory endpoint (local OpenAI/Ollama server OR an MCP "epistemos-memory"
+      server) so any AI tool (Claude Desktop/Cursor/MCP clients) can query the
+      user's notes as long-term memory. Keychain-token, localhost-only, user-toggled.
+      Pairs with P-BESTOF + P2.7. (Epistemos's moat, made outward-facing.)
+- [ ] **MEETING/LECTURE NOTE** — record → on-device STT (Apple Speech / local
+      Whisper audio lane) → Epdoc note + AI summary. Slots into R-VOICE. On-device only.
