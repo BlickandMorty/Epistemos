@@ -119,6 +119,47 @@ calls: no blanket rule — choose per case.
       AND changes behavior in-app on every surface. Harden; commit the audit table
       to docs. DO NOT mark done until the owner can see effort + Fast/Think/Code in
       the running picker. Cross-ref existing PICKER REDESIGN (P1.11) below.
+- [ ] **PICKER PANEL TOO SHORT / NO SCROLL → looks like only ~2 options (owner
+      2026-06-18)** — owner (verbatim, transcribed): *"when I go to the [picker] it
+      seems like there were only two available because there's no scroll bar [and]
+      the box isn't long enough to make it seem like there's more to choose from —
+      just make sure that model picker is good."* BUG: InlineRuntimePickerPanel
+      (Epistemos/Views/Chat/InlineRuntimePickerPanel.swift) is height-capped with no
+      scroll indicator, so only ~2 of the per-tier model rows are visible and the
+      rest look like they don't exist. FIX: make the panel tall enough to show the
+      full lineup, OR a properly scrollable list with a VISIBLE scroll indicator and
+      affordance that MORE options exist (count/"N models"/fade/chevron). The owner
+      must immediately SEE all Fast/Think/Code picks are available, not just two.
+      Apply on ALL 5 surfaces (it's the same panel). Build+run verify the full set
+      is visible/reachable in-app. Part of "the picker is good" bar.
+- [ ] **ALL-SURFACE PARITY + NON-REDUCTIVE PICKER + SEARCH-PAGE CLICK REGRESSION
+      (owner 2026-06-18)** — owner (verbatim, transcribed): *"the main chat seems to
+      be the only window hardened enough and I want to make sure the mini chat also
+      still has all the capabilities as the main chat, and also the mini chat should
+      also have toggles for Act and Open Code… it should have all the things…
+      [it's] like a mini main chat. Also on the search page when you click anywhere
+      on the page a lot of that is [wrong/regressed]. The picker is too reductive
+      there as well."* FOUR parts: (1) **MINI-CHAT FULL PARITY** — mini chat must
+      have ALL main-chat capabilities (queue, context, tools, attachments, cowork
+      affordances, local-for-all-modes), not a stripped subset; it IS a mini main
+      chat. (2) **MINI-CHAT MODE TOGGLES** — surface Chat/Act/Work(Open Code) toggles
+      in mini, same three engines as main. ROOT: `MiniChatView.swift:686/1249
+      sanitizedMiniChatOperatingMode` RESTRICTS mini's operating-mode set (the
+      reductive culprit) — widen it to the full mode set with honest gating, don't
+      silently drop Act/Work. (3) **NON-REDUCTIVE PICKER ON ALL 5 SURFACES** — the
+      picker cross-reference (effort + Fast/Think/Code + per-tier picks + mode/
+      routing) landed on MAIN chat (e7cd5f550/fe377f01b/48f75f8f3) but mini
+      (MiniChatView:1004), landing/search (LandingView, HologramSearchSidebar),
+      and note (NoteDetailWorkspaceView) still host a REDUCED InlineRuntimePicker-
+      Panel. Apply the SAME full cross-reference to all 5 — every surface gets the
+      complete picker, not a reductive one (+ the scroll/height fix above). (4)
+      **SEARCH-PAGE CLICK REGRESSION** — on the landing/search page (Landing/* +
+      HologramSearchSidebar) clicking "anywhere on the page" misbehaves; audit the
+      tap/gesture handling (onTapGesture / contentShape / simultaneousGesture across
+      the Landing overlays), find what swallows or misroutes clicks, fix it. Build+
+      run verify EACH surface in-app: mini has Act/Work + full picker + parity;
+      search-page clicks behave; nothing reductive. DON'T mark done until the owner
+      can use mini exactly like main.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
