@@ -66,8 +66,10 @@ impl DelegateTaskTool {
     }
 }
 
-/// Lightweight delegate that discards events (subagent runs silently).
-struct SilentDelegate;
+/// Lightweight delegate that discards events (subagent runs silently). Shared
+/// with the deep-research orchestrator's live researcher (same isolated-subagent
+/// pattern) via `pub(crate)` instead of duplicating the ~60-line no-op impl.
+pub(crate) struct SilentDelegate;
 
 impl crate::bridge::AgentEventDelegate for SilentDelegate {
     fn on_thinking_delta(&self, _: String) {}

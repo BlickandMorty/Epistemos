@@ -22,6 +22,7 @@ use std::collections::BTreeSet;
 
 pub mod orchestrator;
 pub mod planner;
+pub mod researcher;
 
 /// The result of researching one sub-question (the orchestrator collects these
 /// per layer). `findings` is the sub-agent's structured output; later slices add
