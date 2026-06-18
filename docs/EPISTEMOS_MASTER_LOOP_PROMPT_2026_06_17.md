@@ -338,6 +338,14 @@ SLICES (build + commit each):
             effort tiers.)
           • THINK → one model (VibeThinker-3B).
           • CODE → one model (Gemma 4 12B coder).
+          • QWEN 3 8B VISIBLE AGAIN (owner 2026-06-18): re-expose `qwen3_8B4Bit` as
+            an EXPLICIT, user-selectable option under Fast OR Think — pick the slot
+            that fits its real capability profile (it's a general, native-tool-call
+            agentic model — check RuntimeRouter.agentCapabilityBadgeData; likely
+            Fast as a larger general option, or Think if its reasoning fits better).
+            This is an EXPLICIT pick, NOT a reversal of P1.10 — the no-hidden-Qwen
+            rule still holds (never a SILENT fallback); a visible user choice is
+            honest. Memory-gate it (P1.4 blocker if it can't fit).
         TOTAL REBUILD (owner 2026-06-18): "the popover needs to GO — too many old
         labels — I want a total restart, do not keep anything, rebuild it with
         pixel-art UI to match the app." So DELETE the old popover wholesale
@@ -737,6 +745,14 @@ buried). Spec: docs/DETERMINISTIC_SCHEMA_ENGINE_SPEC_2026_06_18.md.
         IP in Chat (Eidos, Knowledge Core, Halo, memory, skills, tools). Local
         models must work GREAT here — see P8.2. (Act = Osaurus, P3; Work = OpenCode,
         P7.4 — keep them distinct.)
+  P8.1b CHAT IS MESSY — DEEP-REPAIR IT USING OSAURUS AS REFERENCE (owner 2026-06-18).
+        The Epistemos chat code is messy. Once Osaurus is imported (P3.0), STUDY its
+        chat implementation (its message/stream/coordinator structure) and use it as
+        the reference pattern to deeply repair + de-clutter the Epistemos Chat —
+        refactor toward Osaurus's cleaner structure WITHOUT losing Epistemos IP
+        (Eidos/Knowledge Core/etc.). Goal: a clean, maintainable Chat that keeps all
+        capability. Identify what to replace vs keep; document the repair plan, then
+        refactor in safe, tested slices (no behavior regressions).
   P8.2  DETERMINISTIC SCHEMA ENGINE (the thesis core; RESEARCH-FIRST on the owner's
         EXISTING local research/plans + the existing grammar/json-schema FFI —
         LocalToolGrammar, with_json_schema, P4.3 — build ON them, not greenfield):

@@ -52,6 +52,11 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       cloud is the genuine active route. (SettingsView activeChatModelDisplayName /
       activeLocalTextModelDisplayName / `?? .openAI` ~1542; AgentBlueprint /
       Constellation / ModelProfile rows.)
+- [ ] **Qwen 3 8B visible again (P1.11)** — re-expose as an EXPLICIT pick under Fast
+      or Think (whichever fits); visible user choice, NOT a silent fallback (P1.10
+      still holds). Memory-gated.
+- [ ] **Chat is messy → deep-repair using Osaurus as reference (P8.1b)** — study
+      Osaurus's chat structure, refactor Epistemos Chat cleaner without losing IP.
 - [ ] **PICKER REDESIGN (P1.11)** — low/med/high effort STILL not visible. Replace
       with explicit picks: FAST → Gemma 2B / 4B / 12B / Apple Intelligence (4
       options), THINK → VibeThinker, CODE → Gemma 12B coder, + one Cloud toggle.
