@@ -688,11 +688,33 @@ private struct MiniChatInputBar: View {
     }
 
     private var canSend: Bool {
-        isProcessing || (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedRuntimeReady)
+        isProcessing
+            || (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && selectedRuntimeReady
+                && localRuntimeMemoryBlocker == nil)
     }
 
     private var selectedRuntimeReady: Bool {
         inference.isChatSurfaceRuntimeReady(for: selectedOperatingMode)
+    }
+
+    /// P7.5 — chat-surface parity: MiniChat reuses the same honest local-runtime
+    /// memory blocker as the Main chat (P1.4). Shared logic on `InferenceState`,
+    /// so this is parity, not a fork — Send disables + a banner shows when the
+    /// selected local model can't load, never a silent route to another model.
+    private var localRuntimeMemoryBlocker: String? {
+        inference.localChatModelMemoryBlocker(for: selectedOperatingMode)
+    }
+
+    /// P7.5 — Fast effort visibility parity with Main chat (P1.9).
+    private var fastEffortHint: String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let complexity = QueryAnalyzer.analyze(query: trimmed).complexity
+        return inference.fastEffortRouteReason(
+            forComplexity: complexity,
+            operatingMode: selectedOperatingMode
+        )
     }
 
     private var composerIsActive: Bool {
@@ -935,6 +957,35 @@ private struct MiniChatInputBar: View {
                             }
                         )
                     }
+
+                // P7.5 — honest memory blocker (P1.4 parity). Disables Send +
+                // explains, never a silent swap.
+                if let memoryBlocker = localRuntimeMemoryBlocker {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                        Text(memoryBlocker)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                } else if let fastEffortHint {
+                    // P7.5 — Fast effort visibility (P1.9 parity).
+                    HStack(spacing: 5) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                        Text(fastEffortHint)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                }
 
                 if needsSharedToolRouteWarning {
                     sharedToolRouteWarningBanner
@@ -1884,7 +1935,8 @@ private struct MiniChatInputBar: View {
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isProcessing, selectedRuntimeReady else { return }
+        guard !trimmed.isEmpty, !isProcessing, selectedRuntimeReady,
+              localRuntimeMemoryBlocker == nil else { return }
         let fileAttachments = pendingFileAttachments
         let requestedSlashToken = activeSelectedSlashToken
 
