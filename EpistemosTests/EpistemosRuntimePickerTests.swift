@@ -87,6 +87,31 @@ struct EpistemosRuntimePickerTests {
         }
     }
 
+    @Test("BOTH Qwen 3 4B and 8B are visible explicit Think picks (neither auto-default)")
+    func bothQwensAreExplicitThinkPicks() {
+        let ids = ["Qwen/Qwen3-4B-MLX-4bit", "Qwen/Qwen3-8B-MLX-4bit"]
+        let think = EpistemosRuntimePicker.options(
+            for: .think,
+            environment: env(installed: Set(ids), freeGB: 64)
+        )
+        for id in ids {
+            let opt = think.first { $0.id == id }
+            #expect(opt != nil)                 // both visible
+            #expect(opt?.tier == .think)
+            #expect(opt?.isSelectable == true)  // installed + fits
+            #expect(opt?.isAppleIntelligence == false)
+        }
+        // Qwen 3 4B (8 GB) fits where 8B (12 GB) doesn't, on a tight machine.
+        let tight = EpistemosRuntimePicker.options(for: .think, environment: env(installed: Set(ids), freeGB: 3))
+        #expect(tight.first { $0.id == "Qwen/Qwen3-4B-MLX-4bit" }?.isSelectable == true)   // 3+6=9 >= 8
+        #expect(tight.first { $0.id == "Qwen/Qwen3-8B-MLX-4bit" }?.isSelectable == false)  // 3+6=9 < 12
+        // Neither appears under Fast/Code.
+        for tier in [EpistemosModelTier.fast, .code] {
+            let opts = EpistemosRuntimePicker.options(for: tier, environment: env(installed: Set(ids), freeGB: 64))
+            #expect(opts.allSatisfy { !ids.contains($0.id) })
+        }
+    }
+
     @Test("Qwen 3 8B is a visible explicit Think pick, memory-gated (not a silent fallback)")
     func qwen8BIsExplicitThinkPick() {
         let qwenID = "Qwen/Qwen3-8B-MLX-4bit"
