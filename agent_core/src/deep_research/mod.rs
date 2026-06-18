@@ -24,6 +24,23 @@ pub mod orchestrator;
 pub mod planner;
 pub mod reporter;
 pub mod researcher;
+pub mod run;
+
+/// Opt-in flag for the multi-agent deep-research run (default OFF — single-agent
+/// stays the default until explicitly enabled). Same truth table as the other
+/// substrate gates (1/true/yes/on). Always-compiled so a visible surface can
+/// read it honestly, even on the MAS build (where the live run is Pro-gated).
+pub fn deep_research_enabled() -> bool {
+    deep_research_flag_value(std::env::var("EPISTEMOS_DEEP_RESEARCH_V0").ok().as_deref())
+}
+
+/// Pure truth-table for the flag (testable without mutating process env).
+pub fn deep_research_flag_value(raw: Option<&str>) -> bool {
+    matches!(
+        raw.map(str::trim).map(str::to_ascii_lowercase).as_deref(),
+        Some("1") | Some("true") | Some("yes") | Some("on")
+    )
+}
 
 /// The result of researching one sub-question (the orchestrator collects these
 /// per layer). `findings` is the sub-agent's structured output; later slices add
@@ -278,5 +295,16 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let back: ResearchPlan = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
+    }
+
+    #[test]
+    fn deep_research_flag_truth_table_defaults_off() {
+        for on in ["1", "true", "TRUE", "Yes", "on", " on "] {
+            assert!(super::deep_research_flag_value(Some(on)), "{on} should enable");
+        }
+        for off in ["0", "false", "no", "off", "", "2", "enable"] {
+            assert!(!super::deep_research_flag_value(Some(off)), "{off} should be off");
+        }
+        assert!(!super::deep_research_flag_value(None), "unset → off (default)");
     }
 }
