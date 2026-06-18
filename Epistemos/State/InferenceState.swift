@@ -3253,6 +3253,11 @@ final class InferenceState {
     /// When true, enables the automatic fallback chain across cloud providers and local models.
     var cloudAutoFallback: Bool = false
     var chatAutoRouteToCloud: Bool = false
+    /// Owner 2026-06-18: model ids the user has explicitly force-loaded past the
+    /// P1.4 memory blocker ("Run anyway"). The honest default keeps blocking;
+    /// this is an EXPLICIT user-forced load (NOT a silent swap — fully allowed).
+    /// Persisted so the choice survives restarts.
+    private(set) var memoryGateForcedModelIDs: Set<String> = []
     var preferredLocalTextModelID: String = LocalTextModelID.qwen3_4B4Bit.rawValue
     var preferredChatModelSelection: ChatModelSelection = .localMLX(
         LocalTextModelID.qwen3_4B4Bit.rawValue
@@ -3500,6 +3505,9 @@ final class InferenceState {
         )
         self.cloudAutoFallback = defaults.bool(forKey: Self.cloudAutoFallbackDefaultsKey)
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
+        if let forced = defaults.array(forKey: Self.memoryGateForcedModelIDsKey) as? [String] {
+            self.memoryGateForcedModelIDs = Set(forced)
+        }
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
     }
@@ -4281,18 +4289,29 @@ final class InferenceState {
     /// the gate checks the smallest installed Fast size, so we only block when
     /// even that can't run — a trivial query the E2B would answer is never
     /// refused.
-    func localChatModelMemoryBlocker(for operatingMode: EpistemosOperatingMode) -> String? {
+    /// The model id the P1.4 memory blocker gates for this mode (mirrors the
+    /// blocker's resolution: the smallest installed Fast candidate under the
+    /// simplified lineup, else the effective selection). nil when no local model
+    /// is selected. Shared by the blocker and the "Run anyway" override so they
+    /// always target the same model.
+    func memoryGateModelID(for operatingMode: EpistemosOperatingMode) -> String? {
         guard case .localMLX(let resolvedModelID) = effectiveChatSurfaceSelection(for: operatingMode) else {
             return nil
         }
-        let modelID: String
         if EpistemosFoundationLineup.simplifiedLineupActive,
            operatingMode.epistemosModelTier == .fast,
            let smallestFast = comfortableInstalledFastCandidatesAscending().first?.id {
-            modelID = smallestFast
-        } else {
-            modelID = resolvedModelID
+            return smallestFast
         }
+        return resolvedModelID
+    }
+
+    func localChatModelMemoryBlocker(for operatingMode: EpistemosOperatingMode) -> String? {
+        guard let modelID = memoryGateModelID(for: operatingMode) else { return nil }
+        // Owner 2026-06-18: an explicit "Run anyway" force-load overrides the
+        // gate for this model — the user accepted the slow/swap risk. Honest:
+        // it's a deliberate, recorded choice, not a silent substitution.
+        if memoryGateForcedModelIDs.contains(modelID) { return nil }
         guard let requiredGB = LocalModelCatalog.descriptor(for: modelID)?.minimumRecommendedMemoryGB,
               requiredGB > 0 else { return nil }
         let availableBytes = latestLocalRuntimeHealth?.availableMemoryBytes
@@ -5478,6 +5497,21 @@ final class InferenceState {
     func setRoutingMode(_ mode: LocalRoutingMode) {
         routingMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.localRoutingMode")
+    }
+
+    /// Owner 2026-06-18 — "Run anyway": force-load a model past the P1.4 memory
+    /// blocker (or clear the force). An explicit, persisted user choice; the
+    /// honest blocker stays the default for everything else.
+    static let memoryGateForcedModelIDsKey = "epistemos.memoryGateForcedModelIDs"
+    func setMemoryGateForced(_ modelID: String, forced: Bool) {
+        let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if forced {
+            memoryGateForcedModelIDs.insert(trimmed)
+        } else {
+            memoryGateForcedModelIDs.remove(trimmed)
+        }
+        UserDefaults.standard.set(Array(memoryGateForcedModelIDs), forKey: Self.memoryGateForcedModelIDsKey)
     }
 
     func setChatAutoRouteToCloud(_ isEnabled: Bool) {

@@ -68,9 +68,15 @@ nonisolated enum LocalInferenceMemoryPressureMonitor {
             return 0
         }
 
+        // macOS "free" badly undercounts what's actually AVAILABLE: inactive,
+        // purgeable, AND speculative (read-ahead file cache) pages are all
+        // reclaimable under pressure. Counting them matches what the OS will
+        // hand a large model load, so legit 12B runs aren't blocked on a
+        // conservative "free" reading. (Owner 2026-06-18.)
         let reclaimablePages = UInt64(statistics.free_count)
             + UInt64(statistics.inactive_count)
             + UInt64(statistics.purgeable_count)
+            + UInt64(statistics.speculative_count)
         return reclaimablePages * UInt64(pageSize)
     }
 }
