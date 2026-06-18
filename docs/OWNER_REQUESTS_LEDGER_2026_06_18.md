@@ -526,12 +526,17 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
       Eidos substrate done (~472 tests); chat wiring not. HIGH value.
 - [ ] **OBS-5 Eidos cold-build Swift-6 isolation fix** — the EidosBridge/Wiring
       MainActor-UniFFI bug (cold/CI build only). Quick win; already flagged.
-- [x] **EML-2 / EML-3** — DONE 2026-06-18. EML-3: eml_rerank wired LIVE into
-      vault.search (apply_eml_rerank, EPISTEMOS_EML_RERANK_V1, b260b4da1 chain)
-      + visible Substrate Health surface (EmlRerankGateHealthRow). EML-2: EML
-      fused confidence×complexity route gate in ConfidenceRouter.route()
-      (localFitnessEnergy = EmlRerank.rerankKey, EPISTEMOS_EML_ROUTE_V1, both
-      flags default OFF; Swift key byte-identical to the Rust vault key).
+- [~] **EML-2 / EML-3** — EML-3 DONE + LIVE; EML-2 TESTED PRIMITIVE (not live).
+      EML-3 (2026-06-18): eml_rerank wired LIVE into vault.search (apply_eml_rerank,
+      EPISTEMOS_EML_RERANK_V1, b260b4da1 chain) + visible Substrate Health surface
+      (EmlRerankGateHealthRow) — genuinely live, flag-gated OFF.
+      EML-2 (CORRECTED 2026-06-18, 38b8f9d13): the fused confidence×complexity
+      route gate was wired into ConfidenceRouter.route() — but a rule-#8 self-audit
+      found ConfidenceRouter is NEVER instantiated in production (live router =
+      TriageService.InferencePolicyEngine, which is complexity-only, no confidence
+      signal). So EML-2 is a tested, parity-locked PRIMITIVE, NOT live; the health
+      row + doc now say so honestly. LIVE-WIRING EML-2 needs a confidence signal
+      added to the triage profile first (separate design) — re-queued, not done.
 - [ ] **LF-1/2/3 kill MoLoRA/QLoRA Python subprocess** — NO-SIDECAR breach
       (molora_inference.py + __pycache__ live); port to in-process MLX-Swift.
 - [ ] **REG-1 KV-Direct-Gate harness**, **REG-3 NightBrain bodies**, **REG-2 T20
