@@ -344,6 +344,47 @@ pub struct LadderWalk<Output> {
     pub attempts: Vec<LadderAttempt>,
 }
 
+/// Why a ladder walk DEFERRED (produced no resolution) — the honest terminal
+/// step of the deterministic→…→cloud→**defer** ladder. Distinguishes "nothing
+/// could resolve this input" from "higher tiers exist but the escalation policy
+/// gated them" so a routing surface can show the truthful reason + the honest
+/// way out ("opt in to escalate to <tier>").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LadderDeferral {
+    /// Every eligible variant declined and no higher tier was available to
+    /// escalate to — the ladder honestly abstains.
+    AllDeclined,
+    /// One or more higher-tier variants were skipped by the escalation policy
+    /// (e.g. Tier 4+ under `EscalationPolicy::Never`). The ladder WOULD escalate
+    /// to `lowest_gated_tier` if the user opts in (slash command / ⌥-submit /
+    /// Settings) — it is not a dead end, it is a gated one.
+    EscalationGated { lowest_gated_tier: LadderTier },
+}
+
+impl<Output> LadderWalk<Output> {
+    /// When the walk deferred (no resolution), the honest reason; `None` when
+    /// the ladder actually resolved. Drives the "why this route deferred"
+    /// surface.
+    pub fn deferral(&self) -> Option<LadderDeferral> {
+        if self.resolution.is_some() {
+            return None;
+        }
+        let lowest_gated_tier = self
+            .attempts
+            .iter()
+            .filter(|attempt| matches!(attempt.outcome, LadderAttemptOutcome::SkippedByPolicy))
+            .map(|attempt| attempt.tier)
+            .min();
+        Some(match lowest_gated_tier {
+            Some(tier) => LadderDeferral::EscalationGated {
+                lowest_gated_tier: tier,
+            },
+            None => LadderDeferral::AllDeclined,
+        })
+    }
+}
+
 /// Result of a successful ladder resolution. Implements `Serialize`
 /// + `Deserialize` when `Output` does.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -428,6 +469,69 @@ mod tests {
         assert_eq!(res.tier, LadderTier::Embedding);
         assert_eq!(res.variant_name, "emb");
         assert_eq!(res.output, 105, "embedding tier wins, LLM never runs");
+    }
+
+    #[tokio::test]
+    async fn deferral_is_none_when_the_ladder_resolves() {
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::Embedding,
+                name: "emb",
+                return_value: 1,
+            }))
+            .unwrap();
+        let walk = ladder.resolve_walk(&5).await;
+        assert!(walk.resolution.is_some());
+        assert_eq!(walk.deferral(), None, "a resolved walk never deferred");
+    }
+
+    #[tokio::test]
+    async fn deferral_is_all_declined_when_everything_falls_through() {
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Embedding,
+                name: "emb",
+            }))
+            .unwrap();
+        let walk = ladder.resolve_walk(&5).await;
+        assert!(walk.resolution.is_none());
+        assert_eq!(walk.deferral(), Some(LadderDeferral::AllDeclined));
+    }
+
+    #[tokio::test]
+    async fn deferral_is_escalation_gated_when_a_higher_tier_is_policy_skipped() {
+        // Default policy is `Never`: a Tier-4 variant is skipped, not run.
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::SmallLLM,
+                name: "llm",
+                return_value: 1,
+            }))
+            .unwrap();
+        let walk = ladder.resolve_walk(&5).await;
+        assert!(walk.resolution.is_none(), "Tier 4 is gated under Never");
+        assert_eq!(
+            walk.deferral(),
+            Some(LadderDeferral::EscalationGated {
+                lowest_gated_tier: LadderTier::SmallLLM
+            }),
+            "the ladder would escalate to the small LLM if the user opts in"
+        );
     }
 
     #[tokio::test]
