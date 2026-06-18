@@ -341,8 +341,9 @@ SLICES (build + commit each):
             effort tiers.)
           • THINK → one model (VibeThinker-3B).
           • CODE → one model (Gemma 4 12B coder).
-          • QWEN 3 8B VISIBLE AGAIN (owner 2026-06-18): re-expose `qwen3_8B4Bit` as
-            an EXPLICIT, user-selectable option under Fast OR Think — pick the slot
+          • QWEN 3 4B + 8B BOTH SELECTABLE (owner 2026-06-18): keep `qwen3_4B4Bit`
+            AND re-expose `qwen3_8B4Bit` as EXPLICIT, user-selectable options under
+            Fast OR Think — NEITHER is the auto-default (default = Fast Gemma). Slot — pick the slot
             that fits its real capability profile (it's a general, native-tool-call
             agentic model — check RuntimeRouter.agentCapabilityBadgeData; likely
             Fast as a larger general option, or Think if its reasoning fits better).
