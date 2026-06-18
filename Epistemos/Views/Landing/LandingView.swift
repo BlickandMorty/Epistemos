@@ -331,6 +331,17 @@ struct LandingView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard !showingOverlay else { return }
+                    // Owner 2026-06-18 (search-page click regression): when the
+                    // inline runtime picker is open, an outside click must DISMISS
+                    // it — not fall through and (re)trigger search. Without this,
+                    // any click off the panel re-opened/re-focused search, so the
+                    // page "misbehaved" on every click while the picker was up.
+                    if showInlineRuntimePicker {
+                        withAnimation(reduceMotion ? nil : Motion.micro) {
+                            showInlineRuntimePicker = false
+                        }
+                        return
+                    }
                     if showingLandingStageCommand {
                         dismissLandingStageCommand()
                         return
@@ -724,8 +735,18 @@ struct LandingView: View {
         landingSearchStageTools
             .frame(
                 width: LandingSearchLayout.stageWidth,
-                height: landingToolsExpanded ? 328 : 236
+                height: landingSearchInlineStageHeight
             )
+    }
+
+    /// Owner 2026-06-18 (search-page picker reduced/clipped): the stage was a
+    /// fixed 236/328pt, which clipped the inline runtime picker to ~2 rows on the
+    /// landing search page no matter how tall the panel itself is. When the picker
+    /// is open, give the stage room for it (the panel still caps + scrolls
+    /// internally); otherwise keep the original heights.
+    private var landingSearchInlineStageHeight: CGFloat {
+        if showInlineRuntimePicker { return 540 }
+        return landingToolsExpanded ? 328 : 236
     }
 
     @ViewBuilder
