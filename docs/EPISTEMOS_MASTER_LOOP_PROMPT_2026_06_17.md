@@ -636,6 +636,11 @@ the MAS path surface the honest capability, never a fake one.
         Osaurus replacement (local OpenAI/Ollama server + agent builder). Write
         the decision + plan into docs/OSAURUS_DEEP_DIVE_2026_06_17.md, then land
         the chosen slices with deep optimization. MAS/Pro boundary intact.
+        SURFACE IN THE MODES (owner 2026-06-18): the Osaurus cherry-picks/full-port
+        (local server + agent capabilities) must POWER Act/Work mode's local agent
+        loop — and where it fits, Chat mode — not be a standalone feature. Likewise
+        Unsloth (P4.1) model training must be reachable FROM the chat/Act, not a
+        separate silo. Wire both into the shared mode stack with local=cloud parity.
 
 ────────────────────────────────────────────────────────────────────────
 RESEARCH PHASES (OWNER HOTFIX 2026-06-17e — research-first, source everything;
