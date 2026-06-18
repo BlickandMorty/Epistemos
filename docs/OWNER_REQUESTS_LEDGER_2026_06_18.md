@@ -96,6 +96,12 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 - [ ] Tool toggles actually gate the runtime AND are visible/usable (P2.1).
 - [ ] In-chat skills run; MCP/connectors (Slack/Gmail/Drive/Notion) actually
       connect + are usable (P2.3/P2.4/P7.6 connectors).
+- [ ] **Skill/tool/MCP INSTALL + management in Settings (P2.7, owner 2026-06-18)** —
+      better skill CREATION + INSTALL skills/tools/superpowers/MCP servers from
+      GitHub + MCP registries (MCP registry, Smithery, mcp.so, glama,
+      awesome-mcp-servers). PERSIST installed ones (survive restarts) and actually
+      USE them (wired into tool catalog/executionPlan/MCPBridge). Settings pane:
+      browse/install/enable/disable/update/remove; honest gating, Keychain tokens.
 - [ ] **BEST-OF PRESET — ship a curated default set of the best superpowers /
       skills / tools / MCP servers (owner 2026-06-18).** Research + bundle a
       starting PRESET of the best available agent powers (skills, tools, MCP
