@@ -70,6 +70,10 @@ public struct SubstrateHealthPanel: View {
                 // emlRouteFusionEnabled() so it can't claim a fusion off the
                 // router isn't doing).
                 EmlRouteFusionHealthRow()
+                // DeerFlow — whether the multi-agent deep-research run is armed
+                // (agent_core deep_research, EPISTEMOS_DEEP_RESEARCH_V0). Reads the
+                // same flag the in-process Rust run reads.
+                DeepResearchHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
