@@ -25,6 +25,19 @@ nothing silently disappears under compression.
 **CHAT DEEP-REPAIR IS A FIRST-CLASS GOAL (owner 2026-06-18):** the messy Epistemos
 Chat must be deeply repaired (P8.1b) — clean, maintainable, full-capability.
 
+**DELETION GUARDRAIL (owner 2026-06-18, CRITICAL — enforce; don't assume any skill
+has this caveat):** review/hardening/dedupe may NOT delete NEW or IN-PROGRESS
+features (they look "unused" because they're mid-build / not-wired-yet) or any
+owner-requested ledger item. DELETION IS A LAST RESORT — prefer dedupe / consolidate
+/ wire-it-up. Only remove code that is PROVABLY dead AND confirmed not part of any
+in-flight item; when uncertain, KEEP + flag. Commit deletions separately
+(revertible). The "thermonuclear" code review is RECURRING (run multiple times).
+
+**OPEN CODE = GOOSE (Rust, compiles in) — NOT a non-Swift app (owner 2026-06-18):**
+no non-Swift app needed. Goose's Rust core links into agent_core via UniFFI.
+Vercel(TS)/Google(Py)/Cursor(proprietary) are NOT Swift/Rust → adopt their PATTERNS
+natively; never run them as Node/Python sidecars (NO-SIDECAR/MAS + memory).
+
 **GOOSE-INTO-OPEN-CODE GUARDRAIL (owner 2026-06-18):** adding Goose (R-GOOSE) as
 the Work/Open-Code backend must NOT break Chat or Act. Isolate the extracted Goose
 core behind the Work mode + a feature flag; keep Chat/Act on their own engines;

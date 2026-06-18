@@ -814,6 +814,19 @@ non-large-model architecture.
                 arch drift) and files findings; (2) an IN-APP code-review feature in
                 WORK/Open Code mode (review the open repo, gated by P8.2 schemas +
                 Goose's self-correction loop). Honest, real findings only.
+                RUN IT MULTIPLE TIMES (owner 2026-06-18): the review is RECURRING —
+                run a thermonuclear pass periodically (e.g. each phase + a full app
+                pass every few iterations), not once.
+                ⚠ DELETION GUARDRAIL (owner 2026-06-18, CRITICAL — do NOT rely on
+                the skill having this caveat; enforce it): the review/hardening may
+                DEEPLY HARDEN, DEDUPE, and refactor, but DELETION IS A LAST RESORT.
+                NEVER delete NEW or IN-PROGRESS features (they often look "unused"
+                precisely because they're mid-build and not wired yet) or any
+                owner-requested item from the ledger. Prefer dedupe / consolidate /
+                wire-it-up over removal. Only delete code that is PROVABLY dead AND
+                confirmed not part of any in-flight ledger item; when uncertain,
+                KEEP + flag, never delete. Commit deletions separately so they're
+                easy to revert.
   PHASE R-AGENTFW (owner 2026-06-18) AGENT-CREATION FRAMEWORKS — research + DELIBERATE
                 what to do for Epistemos agent creation given Vercel AI SDK (TS,
                 MIT), Google ADK / Agent Builder (Python/Java, open), and Cursor's
