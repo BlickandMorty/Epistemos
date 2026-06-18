@@ -99,6 +99,17 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 ## Architecture / process
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
       substrate health + Knowledge Core (P5/R-ARCH) — more important than 70B.
+- [ ] **CHAT = FULL EPISTEMOS CEILING (P8.1)** — Chat gets max capability on MAS +
+      Pro additions, keep all IP (Eidos etc.), don't bleed into Osaurus/Act.
+- [ ] **DETERMINISTIC SCHEMA ENGINE (P8.2, founding thesis — DON'T BURY)** — Rust
+      schema engine + AST quality gate (validate before disk write/compile) +
+      UniFFI async stream + RAG preflight tool selection (~3-5 tools) + structured
+      gen for Gemma 4 + Coder Adapter + reasoning-token isolation. RESEARCH-FIRST on
+      the owner's EXISTING local plans + grammar/json-schema FFI; build ON them.
+      Spec: docs/DETERMINISTIC_SCHEMA_ENGINE_SPEC_2026_06_18.md. Make local models
+      work GREAT; surface the determinism visibly.
+- [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
+      agents, and a MAS-safe version of key Osaurus capabilities.
 - [x] Auto-commit + push every slice to GitHub — verify still pushing.
 - [ ] **OSAURUS = ACT, FULL IMPORT (owner DECISION 2026-06-18, P3.0)** — bring in
       ALL of Osaurus incl. frontend, ZERO cherry-pick (completeness; don't miss
