@@ -115,4 +115,24 @@ struct InlineRuntimePickerPanelTests {
         #expect(!src.contains("LocalModelToolbarMenu("),
                 "mini chat composer must use the inline panel, not the popover menu")
     }
+
+    @Test("graph node-chat sidebar migrated to the inline panel")
+    func graphSidebarUsesInlinePanel() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        #expect(src.contains("InlineRuntimePickerPanel("))
+        #expect(src.contains("showsSettingsFooter: true"))
+        #expect(src.contains("graphInlineRuntimePickerTrigger"))
+        #expect(!src.contains("LocalModelToolbarMenu("),
+                "graph sidebar must use the inline panel, not the popover menu")
+    }
+
+    @Test("note ask-bar migrated to the inline panel")
+    func noteAskBarUsesInlinePanel() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        #expect(src.contains("InlineRuntimePickerPanel("))
+        #expect(src.contains("showsSettingsFooter: true"))
+        #expect(src.contains("noteInlineRuntimePickerTrigger"))
+        #expect(!src.contains("LocalModelToolbarMenu("),
+                "note ask bar must use the inline panel, not the popover menu")
+    }
 }
