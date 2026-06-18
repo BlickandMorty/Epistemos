@@ -573,3 +573,30 @@ per pass). Keep until all done + hardened (rule #6/#8).
    Vercel(TS)/Google(Py)/Cursor(proprietary) are NOT Swift/Rust → adopt their
    PATTERNS natively, NEVER run Node/Python sidecars (NO-SIDECAR / MAS / 18GB
    memory). Same for R-OPENCLAW (TS) and R-APPS picks: patterns only, no sidecar.
+
+## Full-port + model targets (owner 2026-06-18, batch)
+Same posture for all ports: deeply research first (clone+read, NOT local), verdict
+doc (what it is / stack / license / native-Swift-Rust-vs-WebKit mapping), then FULL
+port + pixel-art reskin (fonts mainly), ProvenanceGate + honest gating, per-feature
+harden. NO-SIDECAR: TS/Py = adopt patterns natively (or WebKit where the surface
+needs it), never run a Node/Python sidecar.
+- [ ] **R-FIELDTHEORY** — github.com/afar1/fieldtheory: research + FULL port into
+      Epistemos, reskin to pixel-art (fonts), fix visual inconsistencies. WebKit OK
+      if the surface needs it.
+- [ ] **R-HTMLSTREAM** — github.com/Alphanimble/htmlstream: research + FULL port;
+      likely pairs with P7.2 (HTML workspace + chat-drivable canvas / live viewer).
+- [ ] **R-LITELLM-CP** — github.com/LiteLLM-Labs/litellm-agent-control-plane: maps
+      onto our agent orchestration/routing (RuntimeRouter + agent_core loop + Act).
+      Python → adopt the control-plane/routing-policy PATTERNS natively, NO sidecar.
+      Verdict doc + port the adoptable parts.
+- [ ] **R-JSONRENDER** — github.com/vercel-labs/json-render: maps onto Schema-First
+      GenUI (P5) + the deterministic schema engine (P8.2) — render JSON/typed-schema
+      payloads → UI. TS → adopt natively (SwiftUI) or via WebKit. Ties our
+      deterministic schemas to a real render layer. Verdict doc + port.
+- [ ] **LFM2.5-8B-A1B model** — huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF: light MoE
+      (8B total / ~1B ACTIVE, well within 16GB → likely MAS-viable, not just Pro).
+      Wire into the GGUF lane as an installable candidate (CLEAN follow-on to the
+      26B-A4B pattern just landed — fetch real HF provenance, new stage or reuse,
+      memory-gate honestly [small, should fit]). EVALUATE + document its best role
+      (dedicated fast/quick local? Fast-tier option? cheap tool/triage model?). Add
+      the LiquidAI/LFM logo to the P6.1 lobehub logo set. Verify loads+generates.
