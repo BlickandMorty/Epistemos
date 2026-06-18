@@ -71,4 +71,34 @@ struct InlineRuntimePickerPanelTests {
         // inline picker.
         #expect(root.contains("if !hidesModelButton {"))
     }
+
+    @Test("single-button surfaces get a Settings footer for the advanced bits")
+    func panelHasOptionalSettingsFooter() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Chat/InlineRuntimePickerPanel.swift"
+        )
+        // Opt-in footer (off for main chat's split toolbar, on for landing etc.).
+        #expect(src.contains("var showsSettingsFooter: Bool = false"))
+        #expect(src.contains("if showsSettingsFooter {"))
+        // The footer routes cloud/routing/model-detail to Settings honestly.
+        #expect(src.contains("Settings") && src.contains("onOpenSettings()"))
+    }
+
+    @Test("landing migrated off the popover to the inline panel")
+    func landingUsesInlinePanel() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        // The landing brain tool is now a flat trigger, NOT the ChatBrainPickerMenu
+        // popover, and renders the inline panel in-flow with the Settings footer.
+        #expect(src.contains("InlineRuntimePickerPanel("))
+        #expect(src.contains("showsSettingsFooter: true"))
+        #expect(src.contains("showInlineRuntimePicker"))
+        // landingSearchBrainTool must no longer mount the popover picker.
+        guard let brainTool = src.range(of: "private var landingSearchBrainTool") else {
+            Issue.record("expected landingSearchBrainTool to exist")
+            return
+        }
+        let brainToolBody = String(src[brainTool.lowerBound...].prefix(400))
+        #expect(!brainToolBody.contains("ChatBrainPickerMenu"),
+                "landingSearchBrainTool must be a trigger, not the popover picker")
+    }
 }

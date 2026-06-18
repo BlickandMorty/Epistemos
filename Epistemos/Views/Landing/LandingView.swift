@@ -93,6 +93,7 @@ struct LandingView: View {
     @Environment(AmbientFrequencyPlaybackState.self) private var ambientPlayback
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openSettings) private var openSettings
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
@@ -132,6 +133,10 @@ struct LandingView: View {
     @State private var landingContextAttachments: [ContextAttachment] = []
     @State private var landingFileAttachments: [FileAttachment] = []
     @State private var landingToolsExpanded = false
+    /// Owner 2026-06-18: the landing brain/model picker is a flat inline pixel-art
+    /// panel that expands in-flow under the search tools — NOT a floating popover
+    /// (the main-chat composer migrated first; this finishes the landing surface).
+    @State private var showInlineRuntimePicker = false
     @State private var landingSearchLabelHovered = false
     @State private var landingVoiceDraftPrefix: String?
     @State private var landingRecallDebounceBox = ChatRecallDebounceBox()
@@ -911,6 +916,23 @@ struct LandingView: View {
             .frame(maxWidth: LandingSearchLayout.searchLineWidth)
             .zIndex(3)
 
+            if showInlineRuntimePicker {
+                InlineRuntimePickerPanel(
+                    inference: inference,
+                    operatingMode: operatingModeBinding,
+                    onPicked: {
+                        withAnimation(reduceMotion ? nil : Motion.micro) {
+                            showInlineRuntimePicker = false
+                        }
+                    },
+                    onOpenSettings: { openSettings() },
+                    showsSettingsFooter: true
+                )
+                .frame(maxWidth: LandingSearchLayout.searchLineWidth)
+                .zIndex(4)
+                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
+
             if landingToolsExpanded {
                 landingSearchExpandedToolRow
                     .zIndex(3)
@@ -919,17 +941,36 @@ struct LandingView: View {
         }
         .frame(width: LandingSearchLayout.stageWidth)
         .animation(reduceMotion ? nil : Motion.micro, value: landingToolsExpanded)
+        .animation(reduceMotion ? nil : Motion.micro, value: showInlineRuntimePicker)
     }
 
+    /// Owner 2026-06-18: flat trigger for the inline runtime picker (replaces the
+    /// single-button ChatBrainPickerMenu popover on landing). Toggles the in-flow
+    /// pixel-art panel below the search tools instead of opening a floating popover.
     private var landingSearchBrainTool: some View {
-        ChatBrainPickerMenu(
-            operatingMode: operatingModeBinding,
-            availableOperatingModes: supportedOperatingModes,
-            isTemporaryChatEnabled: incognitoBinding,
-            preferSplitToolbarControls: false
+        LandingStageToolTile(
+            title: landingRuntimeTierLabel,
+            systemImage: "cpu",
+            theme: theme,
+            accent: theme.resolved.accent.color,
+            isActive: showInlineRuntimePicker,
+            action: {
+                withAnimation(reduceMotion ? nil : Motion.micro) {
+                    showInlineRuntimePicker.toggle()
+                }
+            }
         )
-        .controlSize(.regular)
-        .fixedSize()
+        .help("Pick the Epistemos brain — Fast / Think / Code")
+    }
+
+    /// Short tier label for the landing picker trigger, from the active mode.
+    private var landingRuntimeTierLabel: String {
+        switch operatingModeBinding.wrappedValue {
+        case .fast: return "Fast"
+        case .thinking: return "Think"
+        case .pro: return "Code"
+        case .agent: return "Act"
+        }
     }
 
     private var landingSearchCommandTool: some View {
