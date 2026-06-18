@@ -647,6 +647,8 @@ private struct MiniChatInputBar: View {
     @State private var pendingFileAttachments: [FileAttachment] = []
     @State private var showPermissionGrantPopover = false
     @State private var showSlashMenu = false
+    /// P7.5 — in-chat tool/skill capability panel parity with Main chat (P2.1/P2.4).
+    @State private var showToolPanel = false
     @State private var slashFilter = ""
     @State private var slashKeyboardIndex = 0
     @State private var selectedSlashItem: ComposerSlashCommandItem?
@@ -1007,6 +1009,9 @@ private struct MiniChatInputBar: View {
                         )
                             .accessibilityLabel("Chat model")
                         attachButton
+                        if !agentCommandCenter.availableTools.isEmpty {
+                            toolPanelButton
+                        }
                     }
 
                     Spacer(minLength: 4)
@@ -1422,6 +1427,43 @@ private struct MiniChatInputBar: View {
             openFilePicker()
         }
         .disabled(isProcessing)
+    }
+
+    /// P7.5 — the shared in-chat capability explorer (tools + MCP + skills),
+    /// parity with Main chat (P2.1/P2.4). Honest: the toggles gate the same
+    /// AgentCommandCenterState the shared-coordinator tools path reads, and
+    /// running a skill primes the composer with its real `/identifier` slash
+    /// token (which MiniChat's slash menu already executes).
+    private var toolPanelButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "slider.horizontal.3",
+            variant: .toolbar,
+            isActive: !agentCommandCenter.disabledToolNames.isEmpty,
+            helpText: "Agent tools — turn capabilities on or off for this chat",
+            accessibilityLabel: "Agent tools"
+        ) {
+            showToolPanel.toggle()
+        }
+        .disabled(isProcessing)
+        .popover(isPresented: $showToolPanel, arrowEdge: .top) {
+            AgentToolTogglePanel(
+                agentCommandCenter: agentCommandCenter,
+                theme: theme,
+                onRunSkill: { skill in runSkillFromPanel(skill) }
+            )
+        }
+    }
+
+    private func runSkillFromPanel(_ skill: SkillDiscoveryEntry) {
+        showToolPanel = false
+        let invocation = "/\(skill.identifier) "
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            text = invocation
+        } else if !text.hasPrefix("/") {
+            text = invocation + text
+        }
+        isFocused = true
     }
 
     private var slashButton: some View {
