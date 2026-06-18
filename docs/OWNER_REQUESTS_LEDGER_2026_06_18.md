@@ -100,7 +100,13 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
       substrate health + Knowledge Core (P5/R-ARCH) — more important than 70B.
 - [x] Auto-commit + push every slice to GitHub — verify still pushing.
-- [ ] Osaurus deep-read + full-replace eval (P3); Unsloth port + training UI (P4.1).
+- [ ] **OSAURUS = ACT, FULL IMPORT (owner DECISION 2026-06-18, P3.0)** — bring in
+      ALL of Osaurus incl. frontend, ZERO cherry-pick (completeness; don't miss
+      code). Clone the full MIT repo (not on disk yet), embed the COMPLETE repo as
+      the Act substrate inside Epistemos (Epistemos stays root → tests/IP stay
+      home), preserve Osaurus's entitlements/Info.plist/build verbatim, build it,
+      then reskin Act's UI to the app. STOP hand-building parallel cowork/Act
+      (P7.6) — Act comes from Osaurus. Unsloth (P4.1) training surfaces in the modes.
 - [ ] **Osaurus + Unsloth feed the MODES** (owner 2026-06-18): the Osaurus
       deep-cherry-picks/full-port (local server + agent capabilities) and Unsloth
       (model training) must SURFACE INSIDE Act mode — and where it fits, Chat mode

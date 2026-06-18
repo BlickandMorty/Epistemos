@@ -391,14 +391,33 @@ is CHAT SURFACING. Build a "capability explorer" reachable from the composer:
         runtime (no fake config).
 
 ────────────────────────────────────────────────────────────────────────
-PRIORITY 3 — OSAURUS DEEP DIVE (cherry-pick, NEVER fork)
-"so many things in osaurus that I know can be copied or cherry-picked… 400k of
-swift." Adopt patterns natively (native Swift, MIT) — do NOT port the repo.
+PRIORITY 3 — OSAURUS = ACT MODE: FULL IMPORT (owner DECISION 2026-06-18 — REVERSES
+the old "cherry-pick, never fork"). Owner's goal is COMPLETENESS: bring in ALL of
+Osaurus, INCLUDING its SwiftUI frontend, with ZERO cherry-picking (picking pieces
+out of Swift is messy and silently drops edge cases — the owner does NOT want to
+miss anything). Osaurus BECOMES Act mode. IMPLICATION: STOP hand-building the
+home-grown cowork/Act affordances (P7.6 Progress/Working-folder/etc.) — Act's
+functionality comes FROM Osaurus now; do not keep polishing a parallel Act.
 ────────────────────────────────────────────────────────────────────────
-  P3.1  Deep-read osaurus; write docs/OSAURUS_DEEP_DIVE_2026_06_17.md mapping
-        every reusable pattern → where it lands in Epistemos (agent_core / Omega
-        / Companion / local server). ~80% overlaps the existing stack; extract
-        the 20% that's genuinely new.
+  P3.0  FULL OSAURUS IMPORT (the main event; do as the next major workstream after
+        the Chat reality-audit). (1) CLONE the complete official Osaurus repo (MIT)
+        locally — it is NOT on disk yet; resolve the real URL (the repo the loop
+        already researched). (2) Bring the ENTIRE repo in as a complete, vendored
+        subtree/module — EVERY file incl. the SwiftUI frontend — and PRESERVE
+        Osaurus's Xcode settings / Info.plist / .entitlements verbatim (those
+        entitlements are what let its agent loop escape the sandbox safely — do
+        NOT overwrite them with Epistemos's). (3) HOST = keep EPISTEMOS as root so
+        the 319K-line IP + 5,342 tests stay home; embed the COMPLETE Osaurus as the
+        ACT substrate. This delivers "no code left un-added" without re-homing
+        Epistemos. (4) Get it building alongside Epistemos. (5) THEN reskin Act's UI
+        to the app's pixel-art look, binding to the REAL Osaurus agent state
+        (frontend reskin = UI work, not systems work). Reconcile duplicates
+        honestly; drop nothing.
+  P3.1  After the import builds: map Osaurus's state entry points (root
+        EnvironmentObject / agent-loop coordinators) so the three-mode router
+        (Chat = Epistemos chat / Act = Osaurus / Work = OpenCode) binds cleanly.
+        Document the import + integration in docs/OSAURUS_DEEP_DIVE_2026_06_17.md
+        (now an IMPORT/INTEGRATION map, not a cherry-pick list).
   P3.2  Verify the local OpenAI/Ollama server (#46, ResponseWriters/OsaurusServer
         shape) is wired + MAS-safe (no subprocess from the notarized app).
   P3.3  Sentinel stream + dynamic-tool schema → fold into agent_core tool-call
