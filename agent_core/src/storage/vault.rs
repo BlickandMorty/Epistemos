@@ -480,6 +480,53 @@ pub fn vault_note_content_uas_address(path: &str, content: &str) -> UasAddress {
     UasAddress::from_hash(UasKind::VaultNote, hasher.finalize(), 0)
 }
 
+/// P5.H A2 (EML-3) — whether the EML secondary re-rank is enabled. OPT-IN,
+/// default OFF (no behavior change) — `EPISTEMOS_EML_RERANK_V1=1` turns it on,
+/// mirroring the schema gate's opt-in flag.
+pub fn eml_rerank_enabled() -> bool {
+    matches!(
+        std::env::var("EPISTEMOS_EML_RERANK_V1")
+            .map(|raw| raw.trim().to_ascii_lowercase())
+            .as_deref(),
+        Ok("1" | "true" | "yes" | "on")
+    )
+}
+
+/// The secondary signal for the EML re-rank: how many DISTINCT query terms
+/// (len ≥ 2, punctuation-trimmed, case-insensitive) appear in a result's
+/// excerpt. A lexical-coverage signal orthogonal to BM25 (which weights by
+/// IDF/frequency) — "the snippet actually mentions more of what I asked".
+fn excerpt_query_coverage(query: &str, excerpt: &str) -> f64 {
+    let lower_excerpt = excerpt.to_lowercase();
+    let terms: std::collections::HashSet<String> = query
+        .split_whitespace()
+        .map(|t| {
+            t.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
+        .filter(|t| t.len() >= 2)
+        .collect();
+    if terms.is_empty() {
+        return 0.0;
+    }
+    terms
+        .iter()
+        .filter(|t| lower_excerpt.contains(t.as_str()))
+        .count() as f64
+}
+
+/// Apply the EML secondary re-rank to `results` when enabled, else return them
+/// unchanged. Fuses BM25 (`result.score`) with the excerpt query-coverage via
+/// `eml_rerank::rerank_key` (smaller energy first). Pure given the env flag.
+pub fn apply_eml_rerank(query: &str, results: Vec<SearchResult>) -> Vec<SearchResult> {
+    if !eml_rerank_enabled() {
+        return results;
+    }
+    crate::eml_rerank::rerank_by_eml(results, |result| {
+        (result.score, excerpt_query_coverage(query, &result.excerpt))
+    })
+}
+
 #[async_trait]
 pub trait VaultBackend: Send + Sync {
     async fn hybrid_search(
@@ -576,6 +623,9 @@ pub trait VaultBackend: Send + Sync {
 
     async fn search(&self, query: &str, limit: usize) -> Result<Vec<String>, VaultError> {
         let results = self.hybrid_search(query, limit, &[]).await?;
+        // P5.H A2 (EML-3) — flag-gated secondary re-rank (default OFF). Fuses
+        // BM25 with excerpt query-coverage; no behavior change when disabled.
+        let results = apply_eml_rerank(query, results);
         Ok(results
             .into_iter()
             .map(|result| {
@@ -3307,5 +3357,38 @@ mod tests {
             read_only.is_ok(),
             "read-only open should not need the index writer lock"
         );
+    }
+
+    #[test]
+    fn eml_rerank_is_flag_gated_and_fuses_excerpt_coverage() {
+        let _guard = crate::test_support::env_lock();
+        let mk = |path: &str, score: f64, excerpt: &str| super::SearchResult {
+            path: path.to_string(),
+            excerpt: excerpt.to_string(),
+            score,
+            tags: vec![],
+        };
+        let query = "vault recall";
+        // A: highest BM25 but excerpt covers NONE of the query terms.
+        // B: lower BM25 but the excerpt covers both query terms.
+        let results = vec![
+            mk("a.md", 12.0, "unrelated text here"),
+            mk("b.md", 5.0, "this note is about vault recall and memory"),
+        ];
+
+        // The secondary coverage signal.
+        assert_eq!(super::excerpt_query_coverage(query, "vault recall stuff"), 2.0);
+        assert_eq!(super::excerpt_query_coverage(query, "nothing matches"), 0.0);
+
+        // Flag OFF (default): order is the input order (no re-rank).
+        std::env::remove_var("EPISTEMOS_EML_RERANK_V1");
+        let off = super::apply_eml_rerank(query, results.clone());
+        assert_eq!(off[0].path, "a.md", "off → input order preserved");
+
+        // Flag ON: B (covers the query) is fused above A despite lower BM25.
+        std::env::set_var("EPISTEMOS_EML_RERANK_V1", "1");
+        let on = super::apply_eml_rerank(query, results);
+        assert_eq!(on[0].path, "b.md", "on → excerpt-coverage fusion promotes B");
+        std::env::remove_var("EPISTEMOS_EML_RERANK_V1");
     }
 }
