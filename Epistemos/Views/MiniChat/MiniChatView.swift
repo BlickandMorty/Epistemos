@@ -626,8 +626,12 @@ private struct MiniChatInputBar: View {
     @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openSettings) private var openSettings
     @AppStorage("epistemos.miniChatOperatingMode")
     private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
+    /// Owner 2026-06-18: mini chat's model picker is a flat inline pixel-art
+    /// panel expanding in-flow above the composer controls — not a popover.
+    @State private var showInlineRuntimePicker = false
     @State private var text = ""
     @State private var isProcessing = false
     @State private var isUsingSharedCoordinator = false
@@ -994,6 +998,25 @@ private struct MiniChatInputBar: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // Owner 2026-06-18: flat inline pixel-art model picker in-flow,
+                // replacing the single-button LocalModelToolbarMenu popover.
+                if showInlineRuntimePicker {
+                    InlineRuntimePickerPanel(
+                        inference: inference,
+                        operatingMode: operatingModeBinding,
+                        onPicked: {
+                            withAnimation(.easeInOut(duration: 0.16)) {
+                                showInlineRuntimePicker = false
+                            }
+                        },
+                        onOpenSettings: { openSettings() },
+                        showsSettingsFooter: true
+                    )
+                    .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
                         if !supportedSlashItems.isEmpty {
@@ -1002,12 +1025,7 @@ private struct MiniChatInputBar: View {
                         if let activeSelectedSlashItem {
                             selectedSlashPill(for: activeSelectedSlashItem)
                         }
-                        LocalModelToolbarMenu(
-                            variant: .toolbar,
-                            operatingMode: operatingModeBinding,
-                            availableOperatingModes: supportedOperatingModes
-                        )
-                            .accessibilityLabel("Chat model")
+                        inlineRuntimePickerTrigger
                         attachButton
                         if !agentCommandCenter.availableTools.isEmpty {
                             toolPanelButton
@@ -1464,6 +1482,32 @@ private struct MiniChatInputBar: View {
             text = invocation + text
         }
         isFocused = true
+    }
+
+    /// Owner 2026-06-18: trigger for the flat inline runtime picker (replaces the
+    /// single-button LocalModelToolbarMenu popover), labelled with the active tier.
+    private var inlineRuntimePickerTrigger: some View {
+        ToolbarCapsuleButton(
+            title: currentTierShortLabel,
+            systemImage: "cpu",
+            variant: .toolbar,
+            isActive: showInlineRuntimePicker,
+            helpText: "Pick the Epistemos brain — Fast / Think / Code",
+            accessibilityLabel: "Model picker, \(currentTierShortLabel)"
+        ) {
+            withAnimation(.easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker.toggle()
+            }
+        }
+    }
+
+    private var currentTierShortLabel: String {
+        switch operatingModeBinding.wrappedValue {
+        case .fast: return "Fast"
+        case .thinking: return "Think"
+        case .pro: return "Code"
+        case .agent: return "Act"
+        }
     }
 
     private var slashButton: some View {
