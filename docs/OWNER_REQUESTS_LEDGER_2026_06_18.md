@@ -71,10 +71,15 @@ calls: no blanket rule — choose per case.
       floating split-toolbar model button is hidden there (hidesModelButton: true)
       → exactly one picker, no popover. Self-contained on EpistemosRuntimePicker +
       InferenceState; same Fast/Think/Code picks + honest gating as the popover.
-      REMAINING (follow-on): the single-button `simplifiedRuntimePopover` path
-      (landing/mini/note/graph) still uses its popover (hidesModelButton defaults
-      OFF = unchanged) — migrate those to the inline panel next. Owner verifies
-      the main-chat panel visually in a rebuilt app (dev-cert Product▸Run).
+      MAIN CHAT + LANDING DONE (d790bc81f): landing hero chat migrated too — its
+      single-button ChatBrainPickerMenu popover replaced with a flat trigger +
+      the in-flow InlineRuntimePickerPanel (showsSettingsFooter routes cloud/
+      routing/details to Settings). REMAINING (follow-on): mini (MiniChatView:1005)
+      / note (NoteDetailWorkspaceView:2151) / graph (HologramSearchSidebar:780)
+      still use the single-button popover — migrate those to the inline panel next
+      (same pattern: trigger tile + InlineRuntimePickerPanel showsSettingsFooter
+      true in an in-flow slot). Owner verifies main-chat + landing visually
+      (dev-cert Product▸Run).
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
