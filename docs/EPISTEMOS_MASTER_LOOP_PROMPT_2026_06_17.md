@@ -78,8 +78,11 @@ LOOP DISCIPLINE (every pass)
    When you ship UI, ground it in the existing component (read the file), keep it
    behind the existing simplified-lineup flag where one exists, and never break
    the default local-only experience.
-6. HARDEN AFTER EVERY PHASE (owner mandate 2026-06-17e). When a priority/phase
-   finishes, before starting the next: (a) re-read THIS file + re-scan ALL owner
+6. HARDEN AFTER EVERY PHASE — DEEPLY (owner mandate 2026-06-17e, reinforced
+   2026-06-18: "every phase should be [hardened] deeply"). Not a shallow pass:
+   actually finish unfinished/orphaned work, promote to T4+ (real/reachable/
+   visible/verified/logged), and verify in a build — not a checkbox. When a
+   priority/phase finishes, before starting the next: (a) re-read THIS file + re-scan ALL owner
    hotfixes so no requested item silently drops — the owner's rule is "make sure
    none of my requests are missed"; (b) run the full build + Rust tests +
    compile-verify Swift tests and fix any regression; (c) grep the honesty
@@ -485,6 +488,17 @@ important than the 70B. Pick from the canonical register, research-first:
     promote only to T4+ per ARCHITECTURE_TIER_PROMOTION_CANON (compiled in the
     right scope, reachable, visible, verified, logged, rollback-bound,
     AnswerPacket-visible).
+  • P5.H  DEEP-HARDEN + FINISH THE SUBSTRATE RESEARCH (owner 2026-06-18 — "the
+    Cognitive DAG etc., all the things I researched a while back to add to my chat,
+    are UNFINISHED — harden them, deeply"). AUDIT-FIRST (don't assume finished or
+    unfinished — many claims have hidden PASSes): for EACH substrate track
+    (Cognitive DAG incl. the orphaned macaroons→dispatch wiring, Provenance ledger
+    + console, Knowledge Core, Halo/shadow, Simulation, Schema-First GenUI, XPC),
+    grep its real status + tier. FINISH the genuinely-incomplete/orphaned ones and
+    DEEP-HARDEN to T4+ (compiled-in-scope, reachable, VISIBLE, verified, logged,
+    rollback-bound, AnswerPacket-visible) — not L1/blue metadata passes. The owner
+    researched these TO ADD TO CHAT, so SURFACE the finished ones in Chat (P8.1).
+    Build + test each; one slice per track; record the honest before/after tier.
 THEN large-model:
   • P4/#17 70B System G custom runtime — already BUILT + owner-gated
     (agent_runtime_v2/system_g_runtime.rs + RealSystemGRunSeam.swift /
