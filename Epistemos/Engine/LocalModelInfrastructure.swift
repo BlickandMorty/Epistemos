@@ -411,6 +411,13 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
     /// behind the "Run anyway" override. Rides the same Pro-gated GGUF/llama.cpp
     /// lane; owner-requested 2026-06-18.
     case moeFlagshipCandidate = "moe_flagship_candidate"
+    /// LiquidAI LFM2.5-8B-A1B GGUF — a light general MoE (8B total / ~1B ACTIVE),
+    /// so it's fast + small (~4.8 GB Q4_K_M, fits a 16 GB Mac → MAS-viable, not
+    /// just Pro). NOT Gemma. Placed in the Think tier as a general capable
+    /// alternative (Think already holds the non-Gemma general models — Qwen),
+    /// explicit-only so it never pollutes the Fast Gemma effort-sizing ladder.
+    /// Owner-requested 2026-06-18.
+    case liquidGeneralMoe = "liquid_general_moe"
 
     var displayName: String {
         switch self {
@@ -420,6 +427,7 @@ nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
         case .specialistCoderFineTune: "Specialist coder fine-tune"
         case .reasoningSpecialist: "Reasoning specialist"
         case .moeFlagshipCandidate: "MoE flagship candidate"
+        case .liquidGeneralMoe: "Liquid general MoE"
         }
     }
 }
@@ -483,6 +491,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "reasoning route integration pending"
             case .moeFlagshipCandidate:
                 return "MoE route integration pending"
+            case .liquidGeneralMoe:
+                return "Liquid route integration pending"
             }
         }
         if hasCompleteRouteEvidencePacketChain {
@@ -499,6 +509,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
                 return "reasoning route evidence ready"
             case .moeFlagshipCandidate:
                 return "MoE route evidence ready"
+            case .liquidGeneralMoe:
+                return "Liquid route evidence ready"
             }
         }
         return "route evidence pending"
@@ -508,6 +520,7 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
         if stage == .reasoningSpecialist { return "vibethinker" }
         if stage == .specialistCoderFineTune { return "coder12b" }
         if stage == .moeFlagshipCandidate { return "moe26b" }
+        if stage == .liquidGeneralMoe { return "lfm8b" }
         if id.contains("-12B-") { return "12b" }
         if id.contains("-E4B-") { return "e4b" }
         return "e2b"
@@ -526,6 +539,11 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             // variant) and let the "Run anyway" override + the corrected
             // available-memory estimate attempt it on 16 GB.
             18
+        case .liquidGeneralMoe:
+            // LFM2.5-8B-A1B Q4_K_M is only ~4.8 GB resident (light MoE) — fits a
+            // 16 GB Mac comfortably, so gate at 10 (a real, selectable picker
+            // option on the ship rig, not blocked).
+            10
         case .proFlagshipCandidate:
             // 12B QAT GGUF is ~7 GB on disk / ~10 GB resident — it runs on a
             // 16 GB-class Mac (the ship target proves it daily), so gate at 16,
@@ -554,6 +572,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             "VibeThinker 3B — a compact reasoning model (WeiboAI, Qwen2.5-3B lineage, MIT). Backs the Epistemos Think tier. Text-only, direct local GGUF runtime on the same proven llama-cli lane; ~1.9 GB Q4_K_M fits any supported Mac. Non-agent: optimized for math/logic reasoning, not multi-step tool calling. ~2K native context. Receipt pending, gated away from default route mutation."
         case .moeFlagshipCandidate:
             "Gemma 4 26B-A4B MoE QAT GGUF (Unsloth, UD-Q4_K_XL ~14 GB). A mixture-of-experts model with ~4B active params — far lighter at inference than a dense 26B — on the same Pro-gated GGUF/llama.cpp lane. The full weights stay resident, so it's honestly tight on a 16 GB Mac: memory-gated at 18 GB, but the 'Run anyway' override + the corrected available-memory estimate let a 16 GB Mac attempt it. Text-only, explicit-only pick (never auto-routed); receipt pending, gated away from default route mutation."
+        case .liquidGeneralMoe:
+            "LiquidAI LFM2.5-8B-A1B GGUF (Q4_K_M ~4.8 GB) — a light general mixture-of-experts (8B total / ~1B active), so it's fast and small enough to fit a 16 GB Mac comfortably. NOT Gemma; rides the same GGUF/llama.cpp lane. Best role: a fast/quick general local model + cheap triage. Placed in the Think tier as a general capable alternative (alongside the Qwen general models), explicit-only so it never pollutes the Fast Gemma effort-sizing. Text-only; receipt pending, gated away from default route mutation."
         }
     }
 
@@ -568,6 +588,8 @@ nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Se
             "Gemma 4 Coder GGUF"
         case .reasoningSpecialist:
             "VibeThinker GGUF"
+        case .liquidGeneralMoe:
+            "LFM2.5 GGUF"
         }
     }
 
@@ -724,6 +746,30 @@ nonisolated enum GemmaQATRuntimeLadder {
             blobID: "d5b6449d88f7a2c78b8c259360a662cbd0c42ce9",
             runtimeLane: "gguf_llama_cpp_offline",
             stage: .moeFlagshipCandidate,
+            localExecutionProofArtifactRef: nil,
+            runtimeRouterAdmissionArtifactRef: nil,
+            systemGDryRunArtifactRef: nil,
+            routeAnswerPacketVisibilityArtifactRef: nil,
+            settingsDiagnosticsWRVArtifactRef: nil,
+            releaseGateRef: "gate:runtime_plural_qat_lane_tournament_owner_approval_gate"
+        ),
+        // LiquidAI LFM2.5-8B-A1B GGUF — light general MoE (8B total / ~1B active),
+        // Q4_K_M ~4.8 GB fits a 16 GB Mac → MAS-viable. NOT Gemma (familyName
+        // "LFM2.5 GGUF"); Think tier, explicit-only. Provenance verified against
+        // the HF tree API 2026-06-18. Owner-requested; receipt pending,
+        // release-gated behind the runtime-plural owner-approval gate.
+        GemmaQATRuntimeCandidate(
+            id: "LiquidAI/LFM2.5-8B-A1B-GGUF",
+            displayName: "LFM2.5 8B-A1B MoE GGUF",
+            sourceRepo: "LiquidAI/LFM2.5-8B-A1B-GGUF",
+            sourceURL: "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF",
+            sourceRevision: "dfd5fdcad7a1c0d31473fb4ca443b8befbacddf0",
+            expectedFilename: "LFM2.5-8B-A1B-Q4_K_M.gguf",
+            expectedFileBytes: 5_155_564_768,
+            expectedSHA256: "4923ec14f06b968b74d663e5949867d2d9c3bf13a20b8be1a9f9af39989b2bb0",
+            blobID: "5cd9b16c0996455ac58f5ed88bf0ff7de06068de",
+            runtimeLane: "gguf_llama_cpp_offline",
+            stage: .liquidGeneralMoe,
             localExecutionProofArtifactRef: nil,
             runtimeRouterAdmissionArtifactRef: nil,
             systemGDryRunArtifactRef: nil,
