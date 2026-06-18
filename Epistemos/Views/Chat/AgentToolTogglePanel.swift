@@ -28,6 +28,10 @@ struct AgentToolTogglePanel: View {
     private var enabledCount: Int { agentCommandCenter.enabledToolNames.count }
     private var totalCount: Int { agentCommandCenter.availableTools.count }
 
+    /// P2.3 — the external (URL) MCP servers actually wired for the agent, read
+    /// from the same config the Rust bridge forwards. Loaded once on appear.
+    @State private var mcpServers: [MCPUrlServerDirectory.ServerInfo] = []
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
@@ -45,6 +49,8 @@ struct AgentToolTogglePanel: View {
                             }
                         }
                     }
+
+                    mcpServersSection
                 }
                 .padding(.vertical, 2)
             }
@@ -59,6 +65,46 @@ struct AgentToolTogglePanel: View {
         }
         .padding(14)
         .frame(width: 320)
+        .task { mcpServers = MCPUrlServerDirectory.discover() }
+    }
+
+    /// P2.3 — read-only "MCP servers wired" view. Shows exactly the URL servers
+    /// the Rust bridge forwards (never a fake row); the empty state names the
+    /// honest next action (edit the config) rather than offering a dead button.
+    @ViewBuilder
+    private var mcpServersSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("MCP servers")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
+                .textCase(.uppercase)
+            if mcpServers.isEmpty {
+                Text("No external MCP servers configured. Add HTTPS servers to ~/.config/mcp/url_servers.json to extend the agent on cloud turns.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(mcpServers) { server in
+                    HStack(spacing: 6) {
+                        Image(systemName: "server.rack")
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.textTertiary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(server.name)
+                                .font(.system(size: 12, weight: .medium))
+                            Text(server.host)
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.textTertiary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 4)
+                        if server.declaresAuth {
+                            badge("auth", color: .green)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder
