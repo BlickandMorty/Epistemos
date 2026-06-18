@@ -88,6 +88,39 @@ struct EpistemosRuntimePickerTests {
         }
     }
 
+    @Test("Qwen 3 8B is a visible explicit Think pick, memory-gated (not a silent fallback)")
+    func qwen8BIsExplicitThinkPick() {
+        let qwenID = "Qwen/Qwen3-8B-MLX-4bit"
+
+        // Installed + plenty of memory → a selectable, visible Think option.
+        let ok = EpistemosRuntimePicker.options(
+            for: .think,
+            environment: env(installed: [qwenID], freeGB: 64)
+        )
+        let qwen = ok.first { $0.id == qwenID }
+        #expect(qwen != nil)                  // visible, not hidden
+        #expect(qwen?.title == "Qwen 3 8B")
+        #expect(qwen?.tier == .think)
+        #expect(qwen?.isSelectable == true)
+        #expect(qwen?.isAppleIntelligence == false)
+
+        // Installed but no memory → still shown, honestly blocked (P1.4), not silent.
+        let tight = EpistemosRuntimePicker.options(
+            for: .think,
+            environment: env(installed: [qwenID], freeGB: 2)
+        )
+        let blocked = tight.first { $0.id == qwenID }
+        #expect(blocked?.isInstalled == true)
+        #expect(blocked?.isSelectable == false)
+        #expect(blocked?.blockedReason?.contains("Needs") == true)
+
+        // It is NOT offered under Fast or Code (Think only).
+        #expect(EpistemosRuntimePicker.options(for: .fast, environment: env(installed: [qwenID], freeGB: 64))
+            .allSatisfy { $0.id != qwenID })
+        #expect(EpistemosRuntimePicker.options(for: .code, environment: env(installed: [qwenID], freeGB: 64))
+            .allSatisfy { $0.id != qwenID })
+    }
+
     @Test("cleanTitle simplifies the verbose GGUF display names")
     func cleanTitleSimplifies() {
         #expect(EpistemosRuntimePicker.cleanTitle(for: "Gemma 4 E2B QAT GGUF") == "Gemma 2B")
