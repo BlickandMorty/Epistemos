@@ -65,6 +65,11 @@ public struct SubstrateHealthPanel: View {
                 // enforcing typed-schema validation of tool calls (no falsifier;
                 // it reads the live runtime flag honestly).
                 DeterministicSchemaGateHealthRow()
+                // P5.H A1 (EML-2) — whether ConfidenceRouter is applying the
+                // fused confidence×complexity route gate (reads the router's own
+                // emlRouteFusionEnabled() so it can't claim a fusion off the
+                // router isn't doing).
+                EmlRouteFusionHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
