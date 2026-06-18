@@ -4111,6 +4111,72 @@ mod tier_tests {
         assert!(!names.contains(&"system.cron".to_string()));
     }
 
+    // P7.1 — the Fast capability ceiling, made explicit + cargo-locked. Fast
+    // (chat_lite) must have REAL read/search/reason capability, must NOT be able
+    // to mutate (writes are the Pro lift), and on the MAS build NO tier may cross
+    // the hard limit (shell/git/process) — that's a build-level gate, not a tier
+    // one. Runs under default features (mas-build), so it certifies the shipping
+    // App Store ceiling.
+    #[cfg(not(feature = "pro-build"))]
+    #[test]
+    fn fast_chat_lite_capability_ceiling_is_explicit() {
+        let temp = tempfile::tempdir().unwrap();
+
+        let lite: std::collections::HashSet<String> =
+            build_registry_with_root(ToolTier::ChatLite, temp.path())
+                .get_definitions()
+                .into_iter()
+                .map(|t| t.name)
+                .collect();
+
+        // Fast HAS legit read/search/reason capability — not an empty tier.
+        // (Canonical dotted tool names, as `get_definitions()` reports them.)
+        for present in ["think", "vault.search", "vault.read", "file.read", "knowledge.recall"] {
+            assert!(
+                lite.contains(present),
+                "Fast (chat_lite) must expose the read/search tool `{present}`"
+            );
+        }
+
+        // Fast CANNOT mutate: vault writes + memory are the Pro lift, and the
+        // hard MAS limit (shell/git/process) is never in any chat tier.
+        for blocked in [
+            "vault.write",
+            "file.patch",
+            "memory",
+            "action.bash",
+            "action.terminal",
+            "system.process",
+        ] {
+            assert!(
+                !lite.contains(blocked),
+                "Fast (chat_lite) must NOT expose the mutating/Pro/forbidden tool `{blocked}`"
+            );
+        }
+
+        // The Pro variant lifts the ceiling: chat_pro adds the gated vault write
+        // on top of everything Fast can do...
+        let pro: std::collections::HashSet<String> =
+            build_registry_with_root(ToolTier::ChatPro, temp.path())
+                .get_definitions()
+                .into_iter()
+                .map(|t| t.name)
+                .collect();
+        assert!(pro.contains("vault.write"), "Pro (chat_pro) lifts the ceiling to allow gated vault writes");
+        assert!(pro.contains("vault.read"), "Pro still has every Fast read tool");
+        assert!(pro.contains("vault.search"), "Pro still has every Fast read tool");
+
+        // ...but the ABSOLUTE MAS limit holds even at chat_pro: on the App Store
+        // build no chat tier exposes shell/git/process — only the pro-build
+        // feature flag lifts that, never a tier.
+        for forbidden in ["action.bash", "action.terminal", "system.process"] {
+            assert!(
+                !pro.contains(forbidden),
+                "the absolute MAS limit must hold across tiers: `{forbidden}` is build-gated, not tier-gated"
+            );
+        }
+    }
+
     #[test]
     fn computer_placeholder_handler_is_not_registered() {
         let registry = build_registry(ToolTier::Full);
