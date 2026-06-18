@@ -389,15 +389,38 @@ THEN large-model:
 PRIORITY 6 — BRAND / POLISH (owner de-prioritized — do AFTER P1–P3, or when a
 slice naturally touches Settings/chat headers)
 ────────────────────────────────────────────────────────────────────────
-P6.1  Real AI provider logos in Settings + chat, in a STRATEGIC BLACK-AND-WHITE
-      (monochrome) style so the app "feels legit": Google, Claude, Claude Code,
-      Anthropic, OpenAI, Apple, Kimi, Hermes. Use the Claude Code logo for
-      agent-mode-when-on-Claude. Source: lobehub @lobehub/icons (MIT, mono+color,
-      <title>/viewBox="0 0 24 24"/fill="currentColor"). The owner handed specific
-      assets to a past chat (not recoverable as files) — do NOT hunt for them;
-      complete the set from lobehub. Wire per-provider in the model picker rows,
-      Settings inference rows, and chat message headers. Honest: only show a logo
-      for the provider actually serving the turn.
+P6.1  Real AI provider logos in Settings + chat + model picker, BIASED TO
+      BLACK-AND-WHITE (monochrome, fill="currentColor" so they tint per theme).
+      OWNER RE-EMPHASIZED 2026-06-17e + PROVIDED ASSETS — "as many logos as I can
+      get, coherent, bias to the black-and-white ones I have."
+      OWNER ASSETS (use these FIRST; dedup the numbered "(1)/(2)" copies): the
+      owner's downloaded lobehub SVGs are staged in docs/brand-assets/lobehub/ —
+      claudecode.svg (mono), claudecode-color.svg, claudecode-text.svg,
+      hermesagent-color.svg, kimi-color.svg.
+      COMPLETE the set from lobehub @lobehub/icons (MIT; mono+color;
+      <title>/viewBox="0 0 24 24"/fill="currentColor"), preferring the MONO
+      variant: Anthropic, Claude, OpenAI/ChatGPT, Codex, Google, Gemini, Google
+      Gemma, Apple, Kimi, Hermes — coherent set, mono default.
+      CONTEXT-SPECIFIC wiring (logo MUST match what is actually serving the turn):
+        • Claude Code logo → the app's Claude Code CLI surface in chat.
+        • Codex logo → the app's Codex surface.
+        • Regular chat → the plain provider chat icons (Claude/Anthropic,
+          ChatGPT/OpenAI, Gemini/Google) per the active provider.
+        • Gemma logo → local Gemma models (Fast/Code) in the picker.
+        • Apple logo → the Apple Intelligence route (P1.7).
+      Wire per-provider in the model picker rows, Settings inference rows, and
+      chat message headers. Import via the asset catalog + xcodegen (NEVER edit
+      .xcodeproj directly). HONEST: only show a logo for the provider actually
+      serving that turn; default mono, theme-aware tint.
+      BROADER ICONOGRAPHY (owner 2026-06-17e): use REAL, legit lobehub icons for
+      brand/feature rows across SETTINGS too — not just provider logos — and keep
+      them BLACK-AND-WHITE for theme coherence so nothing looks placeholder/fake.
+      BIAS TO PIXEL-ART variants where lobehub offers them (the owner believes
+      there is a pixel-art Claude logo + other pixel-art icons), since the app's
+      look is PIXEL-ART MINIMAL: research lobehub for the pixel-art variant, prefer
+      it when it genuinely exists and fits, else fall back to the clean mono line
+      icon. NEVER ship a fake/placeholder glyph — only a real asset that looks
+      legit. Keep the entire icon set coherent and theme-aware.
 P6.2  "Run complex things from a simple query" polish: once P1.5 + P2 land,
       verify a plain user prompt actually drives the multi-step agent loop end to
       end (tools + memory + skills) and reads as useful, not a single shot.
@@ -521,7 +544,7 @@ done, then re-read this file and harden.
 | P1.5 | Fast "three efforts" per-query complexity sizing | ✅ DONE (2026-06-17) — `sizedFastLocalTextModelID` at the `routeDecision`/`effectivePolicyContext` seam; trivial→E2B/medium→E4B/hard→12B, memory-safe (16 GB caps at E4B), honors explicit picks; +6 tests |
 | P1.6 | Think stale-route audit: Think must be VibeThinker, not Gemma 4 12B | ✅ DONE (2026-06-17) — fixed resolution nil-out, tier-representative pinning, and Overseer `.pro`→`.thinking` collapse; +1 regression |
 | P1.7 | Apple Intelligence preservation: native selectable route, not cloud, not hidden fallback | ✅ DONE (2026-06-17) — `appleIntelligenceSection` top-level in the simplified popover; selectable/unavailable-with-reason; runtime audit confirms AI never erased; +1 test |
-| P1.8 | Model download/install progress UI | ☐ TODO |
+| P1.8 | Model download/install progress UI | ✅ DONE (2026-06-17) — `ModelInstallProgressDisplay.from(fraction:)` honest determinate/indeterminate mapping (0%→Starting, 100%→Finalizing, never frozen); per-model row + foundation one-tap aggregate spinner; +4 tests |
 | P1.9 | Fast effort visibility: low/medium/high route reason | ✅ DONE (2026-06-17) — `EpistemosFastEffortSizing.effort` (low/med/high) + `fastEffortRouteReason` + live composer hint "Fast · Medium effort → Gemma 4 E4B"; +2 tests |
 | P2.1 | In-chat tool toggles | ☐ TODO — ⚠️ HONESTY GATE: main chat tools come from `executionPlan.allowedToolNames` (Overseer plan), NOT `agentCommandCenter.toolToggles`. Wire the user's enabled set into the main-chat allowed-tool computation (ChatCoordinator) FIRST, then the UI — toggles must really gate runtime, not be fake config |
 | P2.2 | Agents search memory (verify + surface), including "best essay in my vault" acceptance query | ☐ TODO |
@@ -536,6 +559,7 @@ done, then re-read this file and harden.
 | P4.3 | Grammar tool loop on-device validation (#41) | ◐ FFI wired |
 | P4.4 | Explicit honest routing rules | ☐ TODO |
 | P5 | Non-large-model architecture, then 70B (#17) | ☐ TODO |
+| P6.1 | Provider logos (mono/B&W) in Settings + picker + chat, context-specific; owner assets staged in docs/brand-assets/lobehub/ | ☐ TODO |
 | P7.1 | Capability ceiling: Fast→tools all legit, absolute MAS limit + Pro variant | ☐ TODO |
 | P7.2 | HTML workspace fix + canvas live-viewer (chat drives the screen) | ☐ TODO |
 | P7.3 | Terminal + console actually work (Pro/dev) | ☐ TODO |

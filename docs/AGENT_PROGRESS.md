@@ -998,3 +998,8 @@ real run failed — the stale checked-in `overall_pass=true` artifacts dated to
 
 ## 2026-06-17 — P1.8 Honest model install progress (owner hotfix c, part 1)
 - Downloads no longer look frozen. Pure `ModelInstallProgressDisplay.from(fraction:)` maps a raw Foundation `Progress.fractionCompleted` to an honest display: indeterminate "Starting…" spinner at 0/absent/NaN, a determinate bar with truncated percent while bytes flow (never prematurely 100%), and an indeterminate "Finalizing…" spinner at ≥1.0 (checksum verify + atomic activation still running). Wired into the per-model row (SettingsView) and the one-tap foundation-package button now shows a live aggregate spinner ("N models downloading…") + is disabled mid-install so a second tap can't double-trigger. +4 reasoned tests for the mapping. Build + test-build green.
+
+## 2026-06-17 — HARDENED Priority 1 (loop rule #6)
+- Re-scanned all owner hotfixes (a Think/Code, b Apple Intelligence, c installs+effort, d acceptance query): a/b/c all landed (commits 36bdbb5d7, b6c474bd5, 72d65b9ec, ee354084e); d (vault "best essay" acceptance) is P2.2 — next, not dropped. P1.4/P1.5/P1.7/P1.8/P1.9 all done.
+- Build + test-build both green (full app compile + EpistemosTests compile). No Rust files changed this session (all Swift), so the agent_core suite is unaffected.
+- Honesty grep on every changed Swift file: no try!/print()/force-unwrap/fatalError; no new silent model substitution or hidden route (the only "silent"/"fallback" matches are honesty-fix comments); MAS/Pro boundary + GGUF flag untouched; no Keychain/UserDefaults key handling changed. P1 verified honest.
