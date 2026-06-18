@@ -16,6 +16,10 @@ import SwiftUI
 struct AgentToolTogglePanel: View {
     let agentCommandCenter: AgentCommandCenterState
     let theme: EpistemosTheme
+    /// P2.4 — run a discovered skill from chat: primes the composer with the
+    /// skill's `/identifier` slash invocation. nil → the Skills browser is
+    /// read-only (still shows what's available + the honest create path).
+    var onRunSkill: ((SkillDiscoveryEntry) -> Void)? = nil
 
     /// Tools grouped by their owning agent, agents in a stable display order.
     private var groupedTools: [(agent: String, tools: [OmegaToolDefinition])] {
@@ -51,6 +55,8 @@ struct AgentToolTogglePanel: View {
                     }
 
                     mcpServersSection
+
+                    skillsSection
                 }
                 .padding(.vertical, 2)
             }
@@ -65,7 +71,67 @@ struct AgentToolTogglePanel: View {
         }
         .padding(14)
         .frame(width: 320)
-        .task { mcpServers = MCPUrlServerDirectory.discover() }
+        .task {
+            mcpServers = MCPUrlServerDirectory.discover()
+            // P2.4 — populate the discovered-skill catalog (cached; cheap).
+            agentCommandCenter.refreshSkillCatalog()
+        }
+    }
+
+    /// P2.4 — in-chat skill browser. Lists the discovered skills (procedural
+    /// memory) so the user can see + run them without remembering to type `/`.
+    /// Running primes the composer with the skill's `/identifier` slash token —
+    /// the same real run path the slash menu uses. Creation/editing stays the
+    /// real authoring path (Settings → Skills, or asking the agent's skill tool),
+    /// surfaced honestly rather than duplicated as a half-wired form here.
+    @ViewBuilder
+    private var skillsSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Skills")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
+                .textCase(.uppercase)
+            if agentCommandCenter.availableSkills.isEmpty {
+                Text("No skills yet. Create one in Settings → Skills, or ask the agent to capture a reusable skill.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(agentCommandCenter.availableSkills) { skill in
+                    skillRow(skill)
+                }
+                Text("Create or edit skills in Settings → Skills, or ask the agent to capture one.")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.top, 1)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func skillRow(_ skill: SkillDiscoveryEntry) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "wand.and.stars")
+                .font(.system(size: 10))
+                .foregroundStyle(theme.textTertiary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(skill.title)
+                    .font(.system(size: 12, weight: .medium))
+                if !skill.description.isEmpty {
+                    Text(skill.description)
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            Spacer(minLength: 4)
+            if let onRunSkill {
+                Button("Run") { onRunSkill(skill) }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11, weight: .semibold))
+            }
+        }
     }
 
     /// P2.3 — read-only "MCP servers wired" view. Shows exactly the URL servers
