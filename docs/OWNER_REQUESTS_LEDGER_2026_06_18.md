@@ -103,6 +103,19 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
+- [ ] **Browser use — SURFACE the existing (built, Pro) browser automation** in the
+      chat modes (Act/Work). agent_core/src/tools/browser.rs (agent-browser + chrome
+      MCP, shipped Pro) + LocalAgentCapabilityRegistry `browser` toolset already
+      exist but aren't reachable from chat. Wire it in honestly (Pro-gated), so the
+      agent can drive a browser / do anything on the web from chat. Also pairs with
+      the HTML canvas (P7.2). [owner asked re "obscura browser use" — confirm what
+      "obscura" specifically is; treated as browser-use until clarified.]
+- [ ] **RESEARCH-CORPUS COMPLETENESS SWEEP (owner 2026-06-18)** — the owner fears
+      researched/queried items are silently dropped. The loop must SWEEP the
+      owner's local research (docs/fusion/* + prior plans) AND this session's full
+      query history, and ADD any researched/requested-but-untracked capability to
+      THIS ledger. Recurring task — keep the ledger complete against the corpus.
+
 ## Architecture / process
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
       substrate health + Knowledge Core (P5/R-ARCH) — more important than 70B.
