@@ -947,11 +947,20 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
                 : "Try restarting the app or switch to a smaller local model like Qwen 3 4B."
             return "The \(displayName) model couldn't finish loading. \(recovery)"
         case .insufficientMemory(let modelID, let requiredGB, let availableGB):
-            let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-            let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
-            let recovery = isQwen3Small
-                ? "Close some apps or switch to Apple Intelligence / a cloud provider until the pressure clears."
-                : "Close some apps, reduce open notes, or pick a smaller local model like Qwen 3 4B."
+            let displayName = LocalTextModelID(rawValue: modelID)?.displayName
+                ?? GemmaQATRuntimeLadder.candidate(forID: modelID)?.displayName
+                ?? modelID
+            let recovery: String
+            if EpistemosFoundationLineup.simplifiedLineupActive {
+                // Owner hotfix 2026-06-17f — honest foundation ways out, never
+                // "pick Qwen 3 4B" (Qwen was removed from the lineup).
+                recovery = "Free up memory, pick a smaller Epistemos tier (Fast runs a lighter Gemma), or route to cloud."
+            } else {
+                let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
+                recovery = isQwen3Small
+                    ? "Close some apps or switch to Apple Intelligence / a cloud provider until the pressure clears."
+                    : "Close some apps, reduce open notes, or pick a smaller local model like Qwen 3 4B."
+            }
             return "\(displayName) needs about \(requiredGB) GB of free memory but only \(availableGB) GB is available right now. \(recovery)"
         }
     }

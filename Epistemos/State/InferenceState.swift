@@ -3959,9 +3959,22 @@ final class InferenceState {
     }
 
     private var supportedAvailableLocalAgentModels: [LocalTextModelID] {
-        supportedLocalAgentTextModels(
+        let models = supportedLocalAgentTextModels(
             from: installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
         )
+        // Owner hotfix 2026-06-17f — NO hidden Qwen on the agent/tool/attachment
+        // seam. Under the simplified lineup the user picks a foundation tier
+        // (Fast→Gemma, Think→VibeThinker, Code→coder); the tool loop must NEVER
+        // resurrect a still-installed non-foundation MLX agent model (a legacy
+        // Qwen 3 8B) to back that turn — the reported "Qwen 3 8B needs ~12 GB …
+        // pick Qwen 3 4B" blocker came from exactly this fallback. Foundation
+        // tiers are GGUF (not LocalTextModelID enum cases), so this filters to an
+        // empty set and the tool loop honestly degrades to a direct stream on the
+        // SELECTED foundation model (or routes to cloud) instead of a hidden
+        // swap. If a future foundation model is an enum + agent-capable, it is
+        // kept (tier(forModelID:) != nil); everything else is dropped.
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return models }
+        return models.filter { EpistemosFoundationLineup.tier(forModelID: $0.rawValue) != nil }
     }
 
     private func supportedInteractiveLocalTextModels(

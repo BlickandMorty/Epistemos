@@ -475,6 +475,53 @@ struct EpistemosFoundationLineupTests {
         #expect(inference.isChatSurfaceRuntimeReady(for: .thinking))
     }
 
+    // MARK: - Owner hotfix 2026-06-17f — no hidden Qwen on the agent/tool seam
+
+    @Test("simplified lineup: the agent/tool/attachment path never resurrects a non-foundation Qwen")
+    @MainActor func agentPathNeverResurrectsQwen() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 16_000_000_000,
+                roundedMemoryGB: 16,
+                maxRecommendedLocalContentLength: 8_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+
+        // Reproduces the exact reported case: the user picked Think (VibeThinker)
+        // while a legacy Qwen 3 8B agent model is still installed on disk. Using
+        // tools used to silently back the turn with Qwen 8B (the "Qwen 3 8B needs
+        // ~12 GB … pick Qwen 3 4B" blocker).
+        let qwen8b = LocalTextModelID.qwen3_8B4Bit.rawValue
+        inference.setInstalledLocalTextModelIDs([Self.vibe, qwen8b])
+        inference.setPreferredLocalTextModelID(Self.vibe)
+
+        // The agent/tool path must NOT name or back the turn with Qwen — it
+        // returns nil so the loop honestly degrades to a direct stream on the
+        // selected foundation model (or routes to cloud).
+        #expect(inference.effectiveLocalAgentTextModelID != qwen8b)
+        #expect(inference.effectiveLocalAgentTextModelID == nil)
+        #expect(inference.fittingLocalAgentTextModelID == nil)
+    }
+
+    @Test("simplified lineup: the out-of-memory blocker names the real foundation model + foundation ways out, never Qwen")
+    func insufficientMemoryBlockerIsFoundationHonest() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let message = LocalInferenceRoutingError
+            .insufficientMemory(modelID: Self.b12, requiredGB: 16, availableGB: 5)
+            .errorDescription ?? ""
+
+        #expect(!message.contains("Qwen"))
+        #expect(message.contains("16 GB"))
+        #expect(message.contains("cloud"))
+        // Names the real (GGUF) foundation model via the runtime ladder, not a
+        // bare id or a Qwen fallback.
+        #expect(message.contains("Gemma"))
+    }
+
     // MARK: - Owner hotfix 2026-06-17b — Apple Intelligence preserved as a native route
 
     @Test("Apple Intelligence stays a distinct native route — not cloud, not overridden by the foundation-tier pin")
