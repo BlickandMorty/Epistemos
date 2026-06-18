@@ -154,6 +154,39 @@ nonisolated enum EpistemosFastEffortSizing {
     /// / multi-sentence / follow-up asks climb past here.
     static let hardThreshold = 0.60
 
+    /// Human-facing Fast effort band (P1.9). The user-visible explanation of why
+    /// a query ran a given Gemma size — low → E2B, medium → E4B, high → 12B
+    /// (subject to memory headroom). Derived purely from the same complexity
+    /// thresholds as `candidateIndex`, so the label and the actual size never
+    /// disagree on which band a query is in.
+    enum FastEffort: String, Sendable, CaseIterable {
+        case low
+        case medium
+        case high
+
+        var displayName: String {
+            switch self {
+            case .low: "Low"
+            case .medium: "Medium"
+            case .high: "High"
+            }
+        }
+    }
+
+    /// The effort band for a `[0, 1]` complexity score. Shares the
+    /// `candidateIndex` thresholds so "Medium effort" always lines up with the
+    /// middle candidate band.
+    static func effort(forComplexity complexity: Double) -> FastEffort {
+        let clamped = min(max(complexity, 0), 1)
+        if clamped < mediumThreshold {
+            return .low
+        }
+        if clamped < hardThreshold {
+            return .medium
+        }
+        return .high
+    }
+
     /// Index into an ascending-by-size candidate list for a given complexity.
     /// `candidateCount <= 1` always returns `0` (nothing to size between).
     static func candidateIndex(forComplexity complexity: Double, candidateCount: Int) -> Int {

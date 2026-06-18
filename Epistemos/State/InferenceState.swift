@@ -4218,6 +4218,24 @@ final class InferenceState {
         return candidates[index].id
     }
 
+    /// P1.9 — human-readable Fast effort + the model it sized to, for the
+    /// composer / picker / route-reason diagnostics. Returns e.g. "Fast · Medium
+    /// effort → Gemma 4 E4B QAT GGUF" when the Fast tier sizes this query, or nil
+    /// when sizing doesn't apply (non-Fast tier, explicit pick, <2 candidates) so
+    /// the caller can hide the hint. Makes "why E2B vs E4B vs 12B" visible without
+    /// making the raw model choice the required UX.
+    func fastEffortRouteReason(
+        forComplexity complexity: Double,
+        operatingMode: EpistemosOperatingMode
+    ) -> String? {
+        guard let sized = sizedFastLocalTextModelID(
+            forComplexity: complexity,
+            operatingMode: operatingMode
+        ) else { return nil }
+        let effort = EpistemosFastEffortSizing.effort(forComplexity: complexity)
+        return "Fast · \(effort.displayName) effort → \(localModelPickerDisplayName(for: sized))"
+    }
+
     /// Installed Fast-tier foundation candidates that fit the current hardware
     /// with comfortable headroom, ascending by recommended memory. Mirrors the
     /// headroom-aware filter `installedFoundationModelID(for: .fast)` draws its

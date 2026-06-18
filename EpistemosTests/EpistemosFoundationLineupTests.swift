@@ -507,4 +507,56 @@ struct EpistemosFoundationLineupTests {
             Issue.record("Apple Intelligence must never resolve as a cloud selection")
         }
     }
+
+    // MARK: - P1.9 Fast effort visibility (low / medium / high)
+
+    @Test("Fast effort bands map complexity to low/medium/high with stable thresholds")
+    func fastEffortBands() {
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: 0.0) == .low)
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: 0.10) == .low)
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: 0.45) == .medium)
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: 0.85) == .high)
+        // Threshold edges line up with candidateIndex bands.
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: 0.30) == .medium)
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: 0.60) == .high)
+        // Clamped at the ends.
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: -1.0) == .low)
+        #expect(EpistemosFastEffortSizing.effort(forComplexity: 2.0) == .high)
+        // Labels.
+        #expect(EpistemosFastEffortSizing.FastEffort.low.displayName == "Low")
+        #expect(EpistemosFastEffortSizing.FastEffort.medium.displayName == "Medium")
+        #expect(EpistemosFastEffortSizing.FastEffort.high.displayName == "High")
+    }
+
+    @Test("Fast effort route reason names the effort and the sized model; nil off-tier or on an explicit pick")
+    @MainActor func fastEffortRouteReasonWiring() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12])
+        // On the Fast default (12B on 64 GB) → sizing applies.
+        inference.setPreferredLocalTextModelID(Self.b12)
+
+        let low = inference.fastEffortRouteReason(forComplexity: 0.05, operatingMode: .fast)
+        #expect(low?.contains("Low effort") == true)
+        #expect(low?.contains("E2B") == true)
+
+        let high = inference.fastEffortRouteReason(forComplexity: 0.9, operatingMode: .fast)
+        #expect(high?.contains("High effort") == true)
+        #expect(high?.contains("12B") == true)
+
+        // Off-tier → nil.
+        #expect(inference.fastEffortRouteReason(forComplexity: 0.9, operatingMode: .thinking) == nil)
+
+        // Explicit within-Fast pick → sizing stands down → nil.
+        inference.setPreferredLocalTextModelID(Self.e2b)
+        #expect(inference.fastEffortRouteReason(forComplexity: 0.9, operatingMode: .fast) == nil)
+    }
 }
