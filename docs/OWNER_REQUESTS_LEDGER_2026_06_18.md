@@ -52,6 +52,12 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       cloud is the genuine active route. (SettingsView activeChatModelDisplayName /
       activeLocalTextModelDisplayName / `?? .openAI` ~1542; AgentBlueprint /
       Constellation / ModelProfile rows.)
+- [ ] **PICKER REDESIGN (P1.11)** — low/med/high effort STILL not visible. Replace
+      with explicit picks: FAST → Gemma 2B / 4B / 12B / Apple Intelligence (4
+      options), THINK → VibeThinker, CODE → Gemma 12B coder, + one Cloud toggle.
+      TOTAL RESTART: delete the old popover wholesale (keep NOTHING — all the old
+      labels go), rebuild from scratch as a pixel-art panel matching the app (not
+      an intrusive overlay). Verify the options appear + switch the model in a build.
 - [ ] **Palette preview for ALL themes** — currently gated `if pair == .custom`
       (SettingsView ~4081). Generalize `CustomThemePaletteSwatch` to every
       `ThemePairCard` so every theme shows the palette preview.

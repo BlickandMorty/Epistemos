@@ -328,6 +328,28 @@ SLICES (build + commit each):
         "analyze" on low free memory → must blocker on VibeThinker/foundation, NOT
         Qwen. Add a regression at the agent-path model-resolution + blocker-copy
         seam (and fix the ChatTypes ~256 / blocker ~4343 Qwen-named copy).
+  P1.11 PICKER REDESIGN (owner 2026-06-18, REOPENS P1.9 — the low/med/high effort
+        labels NEVER showed for the owner; replace them with EXPLICIT model picks).
+        Under the simplified popover (RootView.swift simplifiedRuntimePopover ~1500
+        / modelPopover ~1216, in LocalModelToolbarMenu):
+          • FAST → 4 selectable options: Gemma 2B (E2B), Gemma 4B (E4B), Gemma 12B,
+            and Apple Intelligence. (Auto-size can stay as the default/"Auto" pick,
+            but the 4 explicit choices must be VISIBLE + selectable — not invisible
+            effort tiers.)
+          • THINK → one model (VibeThinker-3B).
+          • CODE → one model (Gemma 4 12B coder).
+        TOTAL REBUILD (owner 2026-06-18): "the popover needs to GO — too many old
+        labels — I want a total restart, do not keep anything, rebuild it with
+        pixel-art UI to match the app." So DELETE the old popover wholesale
+        (simplifiedRuntimePopover + modelPopover + the legacy Runtime/Routing/
+        Fallback/per-model/Advanced sections and their old labels) — do NOT
+        preserve any of it — and build a FRESH, clean PIXEL-ART picker panel from
+        scratch, integrated into the app's pixel-art look (not an intrusive
+        overlay). Content of the new panel: the Fast(2B/4B/12B/Apple)/Think/Code
+        choices above + the one Cloud toggle, and nothing else at top level. Honest:
+        Apple Intelligence only shown when available; 12B only when memory fits
+        (else the P1.4 blocker). Verify in a real build that the 4 Fast options +
+        Think/Code actually appear and switch the model.
 
 ────────────────────────────────────────────────────────────────────────
 PRIORITY 2 — FULL AGENTIC CHAT (Codex / Claude-desktop parity)
