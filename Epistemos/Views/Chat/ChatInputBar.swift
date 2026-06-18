@@ -68,6 +68,12 @@ struct ChatInputBar: View {
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openSettings) private var openSettings
+
+    /// Owner 2026-06-18: the runtime/model picker is a flat inline pixel-art
+    /// panel that expands in-flow above the composer controls — NOT a floating
+    /// popover. This drives that expansion.
+    @State private var showInlineRuntimePicker = false
 
     // RCA2-P1-004 closure 2026-05-13: drop synchronous SwiftData
     // fetches out of `mentionSearchResults` (which runs on every
@@ -920,8 +926,28 @@ struct ChatInputBar: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // Owner 2026-06-18: the model/runtime picker is a flat inline
+                // pixel-art panel that expands in-flow here (above the controls),
+                // replacing the old floating .popover.
+                if showInlineRuntimePicker {
+                    InlineRuntimePickerPanel(
+                        inference: inference,
+                        operatingMode: operatingMode,
+                        onPicked: {
+                            withAnimation(.easeInOut(duration: 0.16)) {
+                                showInlineRuntimePicker = false
+                            }
+                        },
+                        onOpenSettings: { openSettings() }
+                    )
+                    .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
+                        inlineRuntimePickerTrigger
                         if !supportedSlashItems.isEmpty {
                             slashButton
                         }
@@ -932,7 +958,8 @@ struct ChatInputBar: View {
                             operatingMode: operatingMode,
                             availableOperatingModes: availableOperatingModes,
                             isTemporaryChatEnabled: incognitoBinding,
-                            preferSplitToolbarControls: true
+                            preferSplitToolbarControls: true,
+                            hidesModelButton: true
                         )
                         attachButton
                         // RCA4-P1-006 fix-pass (2026-05-13): one mic
@@ -1297,6 +1324,37 @@ struct ChatInputBar: View {
         }
         .accessibilityHint("Open the slash command menu")
         .disabled(isProcessing)
+    }
+
+    /// Owner 2026-06-18: trigger for the flat inline pixel-art runtime picker.
+    /// Toggles the in-flow panel (above the controls) instead of opening a
+    /// floating popover. Labelled with the active tier so the strip still tells
+    /// you what brain is selected, exactly like the old model button did.
+    private var inlineRuntimePickerTrigger: some View {
+        ToolbarCapsuleButton(
+            title: currentTierShortLabel,
+            systemImage: "cpu",
+            variant: .toolbar,
+            isActive: showInlineRuntimePicker,
+            helpText: "Pick the Epistemos brain — Fast / Think / Code",
+            accessibilityLabel: "Model picker, \(currentTierShortLabel)"
+        ) {
+            withAnimation(.easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker.toggle()
+            }
+        }
+        .accessibilityHint("Show the flat inline model picker")
+    }
+
+    /// Short tier label for the picker trigger, derived from the active mode.
+    private var currentTierShortLabel: String {
+        switch operatingMode?.wrappedValue {
+        case .fast: return "Fast"
+        case .thinking: return "Think"
+        case .pro: return "Code"
+        case .agent: return "Act"
+        case nil: return "AI"
+        }
     }
 
     private func selectedSlashPill(for item: ComposerSlashCommandItem) -> some View {

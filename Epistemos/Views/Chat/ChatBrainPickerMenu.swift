@@ -40,6 +40,11 @@ struct ChatBrainPickerMenu: View {
     /// single compact "Fast · Qwen" popover, same as mini/note/graph.
     /// Default off so only the opted-in caller (main chat) splits.
     var preferSplitToolbarControls: Bool = false
+    /// When the host renders its own flat inline runtime picker (the main-chat
+    /// composer does), the split toolbar's floating model button is redundant —
+    /// hide it so there's exactly one model picker. Default off → every other
+    /// surface keeps the model button unchanged.
+    var hidesModelButton: Bool = false
 
     var body: some View {
         LocalModelToolbarMenu(
@@ -47,7 +52,8 @@ struct ChatBrainPickerMenu: View {
             operatingMode: operatingMode,
             availableOperatingModes: availableOperatingModes,
             isTemporaryChatEnabled: isTemporaryChatEnabled,
-            preferSplitToolbarControls: preferSplitToolbarControls
+            preferSplitToolbarControls: preferSplitToolbarControls,
+            hidesModelButton: hidesModelButton
         )
     }
 }

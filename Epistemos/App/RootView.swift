@@ -559,6 +559,11 @@ struct LocalModelToolbarMenu: View {
     /// only make sense on main chat; the other surfaces delegate to
     /// Settings for those.
     var preferSplitToolbarControls: Bool = false
+    /// When the host renders its own flat inline runtime picker (the main-chat
+    /// composer, owner 2026-06-18), the split toolbar's floating model button is
+    /// redundant — hide it so there is exactly one model picker. Default off so
+    /// every other surface keeps the model button unchanged.
+    var hidesModelButton: Bool = false
 
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
@@ -1092,22 +1097,24 @@ struct LocalModelToolbarMenu: View {
                 .fixedSize()
             }
 
-            AnchoredPopoverButton(
-                title: modelButtonTitle,
-                systemImage: modelButtonSystemImage,
-                isPresented: popoverBinding(.model),
-                isActive: false,
-                variant: variant,
-                showsLabelWhenCollapsed: !hidesLocalModelLabel,
-                helpText: selectedModeSummary,
-                accessibilityLabel: "\(modelButtonTitle) model",
-                idealPopoverWidth: variant == .toolbar ? 340 : 360,
-                contentPadding: 12,
-                stableWidth: hidesLocalModelLabel ? nil : modelDisclosureWidth
-            ) {
-                modelPopover
+            if !hidesModelButton {
+                AnchoredPopoverButton(
+                    title: modelButtonTitle,
+                    systemImage: modelButtonSystemImage,
+                    isPresented: popoverBinding(.model),
+                    isActive: false,
+                    variant: variant,
+                    showsLabelWhenCollapsed: !hidesLocalModelLabel,
+                    helpText: selectedModeSummary,
+                    accessibilityLabel: "\(modelButtonTitle) model",
+                    idealPopoverWidth: variant == .toolbar ? 340 : 360,
+                    contentPadding: 12,
+                    stableWidth: hidesLocalModelLabel ? nil : modelDisclosureWidth
+                ) {
+                    modelPopover
+                }
+                .fixedSize()
             }
-            .fixedSize()
 
             AnchoredPopoverButton(
                 title: routeButtonTitle,
