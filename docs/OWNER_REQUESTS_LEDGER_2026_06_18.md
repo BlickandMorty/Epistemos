@@ -80,8 +80,11 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 - [ ] HTML workspace is BROKEN (can't see code) → fix + HTML canvas live-viewer the
       chat can drive (P7.2). NOT STARTED — owner flagged broken.
 - [ ] Terminal + console actually work (Pro/dev) (P7.3).
-- [ ] OpenCode = deep terminal access to on-disk notes/research + ALL app
-      skills/tools from chat, reached from Act (P7.4) — after the unravel map.
+- [ ] "WORK" mode (the OpenCode surface) = THREE clean modes Chat / Act / Work
+      (NOT buried in Act). Work = deep terminal access to on-disk notes/research +
+      ALL app skills/tools from chat, local=cloud parity. Toggle lives UPWARD at
+      the TOP of the search page (not on the search bar) and turns the search page
+      INTO Work/OpenCode. After the revised UX map (P7.4/P7.4a).
 - [ ] Provider logos (B&W, prefer pixel-art), context-specific, in Settings +
       picker + chat (P6.1). NOT DONE — assets staged in docs/brand-assets/lobehub.
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
