@@ -248,10 +248,19 @@ should make the codebase MUCH better, never destabilize the working chat.
       subagents, YAML recipes). Do NOT import the Node/TS Goose DESKTOP (18GB swap
       death) — own SwiftUI skin. Powers WORK mode; engine in shared core so Act/Chat
       tap MCP/subagents too. Osaurus stays the ACT backend. Validate patches vs P8.2.
-- [ ] **OpenClaw — study to perfect native capabilities (R-OPENCLAW)** — LOCAL repo
-      ~/Downloads/openclaw-main (TS/Node + ui). Mine for native-capability ideas.
+- [ ] **OpenClaw — ESCALATED: likely FULL PORT as an agent extension (R-OPENCLAW,
+      owner 2026-06-18)** — LOCAL repo ~/Downloads/openclaw-main (TS/Node + ui).
+      Owner wants to port OpenClaw COMPLETELY as a full agent extension/surface of
+      the app (the "agent thing", in the Hermes-agent slot), RESKIN it pixel-art with
+      the TAMAGOTCHI/Companion as its mascot. DECISION TO MAKE: which is best for
+      LOCAL models — OpenClaw vs the Hermes-agent native design (R-HERMES)? Owner
+      leans OpenClaw, MAINLY for local models (+ cloud). So evaluate OpenClaw's
+      LOCAL-model story (Ollama/llama.cpp/MLX support) head-to-head with the
+      Hermes-design; recommend the winner, then full-port it natively (TS→Swift/Rust,
+      no Node sidecar) with the tamagotchi mascot + theme. Verdict doc → port + harden.
 - [ ] **Hermes agent — DEEP study (R-HERMES), adopt NATIVELY, NO Hermes name** —
-      study HERMES_AGENT_CORE_2_0_DESIGN + manifesto for ideas; namespace stays purged.
+      study HERMES_AGENT_CORE_2_0_DESIGN + manifesto; compare vs OpenClaw for the
+      LOCAL-model agent extension (see R-OPENCLAW); namespace stays purged.
 - [ ] **Study the best chat/agent apps (R-APPS, owner 2026-06-18)** — besides
       Osaurus: LM Studio, HuggingFace (chat-ui/transformers/candle), Unsloth, Jan,
       Ollama, Open WebUI, Cherry Studio, LibreChat, etc. Mine their SYSTEM PROMPTS
