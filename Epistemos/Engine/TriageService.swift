@@ -541,6 +541,17 @@ nonisolated struct InferencePolicyEngine {
             _ = complexityTier
             return false
         }
+        // LOCAL-FOR-ALL-MODES FOLLOW-UP (owner #1, deferred 2026-06-18): this
+        // notes/general triage path STILL auto-routes .pro/.agent/.thinking to
+        // cloud even with a local model installed — a second hidden-GPT seam
+        // alongside the (now-fixed) chat seam effectiveChatSurfaceSelection. The
+        // fix mirrors .fast (cloud only when localSelection == nil && !apple), but
+        // it changes behavior that existing tests pin to the OLD "Pro = cloud"
+        // design (TriageServiceTests.autoCloudRoutingEscalatesProChat asserts
+        // .pro → .cloud WITH qwen installed). Updating those needs a
+        // test-runnable environment to verify behaviorally (headless `swift test`
+        // EXEC hangs here), so it's deferred to a focused pass rather than shipped
+        // with unverifiable test edits.
     }
 
     private func prefersDedicatedLocalChatRouting(
