@@ -157,3 +157,27 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
 R-VOICE (Kokoro+MOSS+filter), R-EVE (pattern only), R-OKF (export+privacy+dedup),
 R-PROMPT (cache-stable prefix + lean schemas), CHAT_UX_MAP (3 axes). These are
 DECISIONS — the BUILD + in-app verification still has to happen.
+
+## Surfaces — web / browser / HTML (researched; tracked so not dropped, 2026-06-18)
+- [ ] **P7.2 HTML WORKSPACE CANVAS** — fix the broken HTML workspace
+      (`Epistemos/Models/HTMLWorkspacePackage.swift`) + an HTML `<canvas>` the
+      chat can DRIVE ("be in the HTML page, do anything with HTML"). Queued
+      behind the picker/chat audit.
+- [ ] **SURFACE BROWSER USE in Act/Work** — `agent_core/src/tools/browser.rs`
+      (~52 KB, shipped Pro: browser_navigate / snapshot / click / type / scroll /
+      press / close) EXISTS but is NOT reachable from chat. Surface it in
+      Act/Work so the agent can drive a browser / act on the web from chat.
+      Pro-gated. (Will land naturally with the Osaurus Act import + tool exposure.)
+- [ ] **P-OBSCURA: build the in-app Obscura browser** — researched, runtime
+      NEVER built. READ FIRST: `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md`
+      + `docs/HELIOS_V5_INTEGRATION_PLAN_2026_05_05.md` §B3 (W6-A..W6-I: Obscura +
+      deno_core + Eidos runtime, queued) + EPISTEMOS_HERMES_MANIFESTO (WKWebView
+      built-in browser). BUILD the working in-app browser (Rust backend /
+      WKWebView), tied to WORK mode + the HTML canvas + browser-use. Pro/dev-gated.
+
+## Research-corpus completeness (RECURRING — owner mandate 2026-06-18)
+- [ ] **Recurring corpus sweep**: each loop pass, scan `docs/fusion/*` (131 files)
+      + the owner's prior plans + this session's queries, and ADD any
+      researched/requested-but-untracked item to THIS ledger so nothing the owner
+      researched is silently dropped. Do it incrementally (a few docs/pass) — this
+      is a standing task, never "done".
