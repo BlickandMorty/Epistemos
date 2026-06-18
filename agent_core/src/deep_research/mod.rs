@@ -22,6 +22,7 @@ use std::collections::BTreeSet;
 
 pub mod orchestrator;
 pub mod planner;
+pub mod reporter;
 pub mod researcher;
 
 /// The result of researching one sub-question (the orchestrator collects these
