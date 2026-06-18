@@ -807,6 +807,66 @@ impl ToolHandler for MiniSweAgentHandler {
     }
 }
 
+/// Delegates a coding task to sst/opencode in non-interactive mode
+/// (`opencode run [message]`). OpenCode is a terminal coding agent with its
+/// own tool surface (shell, file edit, git, LSP); P7.4 surfaces it as a deep
+/// capability reached from Act mode (not a rival Code mode). Pro-only — the
+/// registration is `#[cfg(feature = "pro-build")]` + `enable_bash`-gated, so
+/// the MAS build never registers it.
+pub struct OpenCodeHandler;
+
+#[async_trait]
+impl ToolHandler for OpenCodeHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let task = input
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
+            .to_string();
+        let working_dir = parse_working_dir(input)?;
+        let timeout_seconds = parse_timeout(input);
+        let model = input.get("model").and_then(Value::as_str);
+
+        let binary = match resolve_binary("opencode", &opencode_candidate_paths()) {
+            Some(path) => path,
+            None => {
+                return Ok(missing_binary_payload(
+                    "opencode",
+                    "Install OpenCode with `curl -fsSL https://opencode.ai/install | bash`, `npm i -g opencode-ai`, or `brew install sst/tap/opencode` per https://opencode.ai/docs/.",
+                ));
+            }
+        };
+
+        let args = build_opencode_args(task, model);
+
+        run_passthrough(binary, args, working_dir, timeout_seconds, "opencode").await
+    }
+}
+
+fn opencode_candidate_paths() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        // Official installer drops the binary in ~/.opencode/bin.
+        candidates.push(home.join(".opencode").join("bin").join("opencode"));
+        candidates.push(home.join(".local").join("bin").join("opencode"));
+    }
+    candidates.push(PathBuf::from("/opt/homebrew/bin/opencode"));
+    candidates.push(PathBuf::from("/usr/local/bin/opencode"));
+    candidates
+}
+
+/// `opencode run [--model provider/model] <task>` — non-interactive run.
+fn build_opencode_args(task: String, model: Option<&str>) -> Vec<String> {
+    let mut args: Vec<String> = vec!["run".to_string()];
+    if let Some(model) = model {
+        args.push("--model".to_string());
+        args.push(model.to_string());
+    }
+    args.push(task);
+    args
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -934,6 +994,37 @@ mod tests {
                 "--task",
                 "fix the issue and run tests",
             ]
+        );
+    }
+
+    #[test]
+    fn opencode_candidate_paths_include_installer_locations() {
+        let paths = opencode_candidate_paths();
+        assert!(paths.iter().any(|p| p.ends_with(".opencode/bin/opencode")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/opt/homebrew/bin/opencode")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/usr/local/bin/opencode")));
+    }
+
+    #[test]
+    fn opencode_args_default_to_run_with_task() {
+        assert_eq!(
+            build_opencode_args("refactor the parser".to_string(), None),
+            vec!["run", "refactor the parser"]
+        );
+    }
+
+    #[test]
+    fn opencode_args_include_model_when_given() {
+        assert_eq!(
+            build_opencode_args(
+                "add a test".to_string(),
+                Some("anthropic/claude-sonnet-4-6")
+            ),
+            vec!["run", "--model", "anthropic/claude-sonnet-4-6", "add a test"]
         );
     }
 
