@@ -120,6 +120,9 @@ struct ChatInputBar: View {
     /// main-chat tool set (executionPlanGatedByUserToolToggles), so this is real
     /// config, not decoration.
     @State private var showToolPanel = false
+    /// P7.6 — cowork QUEUE: a single message staged while the agent is running,
+    /// auto-submitted when the run completes.
+    @State private var messageQueue = ComposerMessageQueue()
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -771,6 +774,34 @@ struct ChatInputBar: View {
                 .padding(.bottom, 2)
             }
 
+            // P7.6 — cowork QUEUE chip: shows the staged message that will send
+            // when the current run finishes, with a cancel.
+            if let queued = messageQueue.pending {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 9))
+                        .foregroundStyle(theme.textTertiary)
+                    Text("Queued: \(queued)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 4)
+                    Button {
+                        messageQueue.clear()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.mutedForeground.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Cancel queued message")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 2)
+            }
+
             // P7.6 — cowork CONTEXT strip: the REAL tools the agent invoked +
             // notes it referenced this run (from the message's tool-use blocks +
             // loadedNoteTitles), never a mockup. Hidden when nothing was used.
@@ -958,6 +989,10 @@ struct ChatInputBar: View {
                         cloudRouteButton
                     }
 
+                    if isProcessing && !trimmedText.isEmpty {
+                        queueButton
+                    }
+
                     sendButton
                 }
                 .padding(.top, MainChatComposerLayout.controlRowTopPadding)
@@ -972,6 +1007,17 @@ struct ChatInputBar: View {
             isActive: composerIsActive,
             lightModeSurfaceTint: theme.resolved.background.color
         )
+        // P7.6 — cowork QUEUE: on the run-completion edge, auto-send the staged
+        // message (the same submit path a manual send uses).
+        .onChange(of: isProcessing) { wasProcessing, nowProcessing in
+            if let queued = messageQueue.dequeueOnCompletion(
+                wasProcessing: wasProcessing,
+                isProcessing: nowProcessing
+            ) {
+                text = queued
+                submitCurrentText()
+            }
+        }
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
                 ComposerReferencePopover(
@@ -1237,6 +1283,22 @@ struct ChatInputBar: View {
         }
         .help(isProcessing ? "Stop" : "Send")
         .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
+    }
+
+    /// P7.6 — cowork QUEUE: while the agent is running, stage the current draft to
+    /// auto-send when the run finishes (instead of waiting or interrupting). Real
+    /// behavior — `onChange(of: isProcessing)` submits it on the true→false edge.
+    private var queueButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "text.append",
+            variant: .toolbar,
+            helpText: "Queue this message — sends when the current run finishes",
+            accessibilityLabel: "Queue message"
+        ) {
+            messageQueue.enqueue(text)
+            text = ""
+        }
     }
 
     /// One-tap "send this on cloud." Appears beside Send only when a cloud
