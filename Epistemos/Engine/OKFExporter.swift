@@ -77,6 +77,38 @@ nonisolated enum OKFExporter {
         return slug(base?.isEmpty == false ? base! : fallback) + ".md"
     }
 
+    // MARK: - Mapping from a vault page
+
+    /// Map a vault page's primitives (read off the MainActor `@Model` by the
+    /// caller) into an OKF `Note`. Pure + deterministic — the caller passes the
+    /// already-loaded body and the page dates; nothing here reads the clock or
+    /// touches the model. `isJournal` selects the OKF `type` (`journal` vs
+    /// `note`) — the one required field.
+    static func note(
+        title: String,
+        body: String,
+        tags: [String],
+        isJournal: Bool,
+        createdAt: Date?,
+        updatedAt: Date?
+    ) -> Note {
+        Note(
+            type: isJournal ? "journal" : "note",
+            title: title,
+            tags: tags,
+            body: body,
+            created: createdAt.map(iso8601),
+            updated: updatedAt.map(iso8601)
+        )
+    }
+
+    /// Deterministic UTC ISO-8601 (`yyyy-MM-ddTHH:mm:ssZ`) for frontmatter dates.
+    static func iso8601(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        return formatter.string(from: date)
+    }
+
     // MARK: - YAML scalar emission
 
     /// Emit a YAML scalar: plain when it's safe, double-quoted (with escapes)
