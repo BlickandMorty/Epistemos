@@ -1250,8 +1250,12 @@ struct InferencePolicyEngineTests {
         #expect(decision.selectedRoute == .appleIntelligence)
     }
 
-    @Test("auto cloud routing escalates pro chat to cloud when configured")
+    @Test("auto cloud routing escalates pro chat to cloud ONLY when no local model can serve")
     func autoCloudRoutingEscalatesProChat() {
+        // LOCAL FOR ALL MODES (owner #1 2026-06-18): cloud is an escalation, not
+        // a default — so this escalation test must have NO usable local model
+        // (installed: [] + Apple Intelligence unavailable). With a local model
+        // installed, .pro now stays LOCAL (see proStaysLocalWhenLocalAvailable).
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -1273,13 +1277,81 @@ struct InferencePolicyEngineTests {
                 appleAvailable: false,
                 cloudAutoRouteEnabled: true,
                 hasConfiguredCloudModels: true,
-                preferredChatModelSelection: .appleIntelligence
+                preferredChatModelSelection: .appleIntelligence,
+                installed: []
             )
         )
 
         #expect(decision.selectedRoute == .cloud)
         #expect(decision.reasonCodes.contains(.cloudAutoRoute))
     }
+
+    @Test("LOCAL FOR ALL MODES: pro chat stays LOCAL when a local model is installed")
+    func proStaysLocalWhenLocalAvailable() {
+        // Owner #1 mandate: with a working local model, Code/Pro must NOT silently
+        // auto-route to cloud even when cloud is configured + auto-route is on.
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .coding,
+                contentLength: 1_400,
+                promptLength: 1_200,
+                contextBlockCount: 2,
+                estimatedTokenLoad: 420,
+                baseComplexity: 0.35,
+                queryComplexity: 0.28,
+                operatingMode: .pro,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: true,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true,
+                preferredChatModelSelection: .appleIntelligence,
+                installed: [.qwen35_2B4Bit, .qwen35_4B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
+    }
+
+    @Test("LOCAL FOR ALL MODES: think chat stays LOCAL when a local model is installed")
+    func thinkStaysLocalWhenLocalAvailable() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 900,
+                promptLength: 700,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 300,
+                baseComplexity: 0.30,
+                queryComplexity: 0.25,
+                operatingMode: .thinking,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: true,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true,
+                preferredChatModelSelection: .appleIntelligence,
+                installed: [.qwen35_2B4Bit, .qwen35_4B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
+    }
+    // (intent .simpleAsk used above — InferenceTaskIntent has no bare .ask)
 
     @Test("auto cloud routing still keeps fast chat local first")
     func autoCloudRoutingKeepsFastChatLocal() {
