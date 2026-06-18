@@ -62,6 +62,8 @@ struct AgentToolTogglePanel: View {
 
                     mcpServersSection
 
+                    connectorsSection
+
                     skillsSection
                 }
                 .padding(.vertical, 2)
@@ -189,6 +191,47 @@ struct AgentToolTogglePanel: View {
                     }
                 }
             }
+        }
+    }
+
+    /// P7.6 — cowork CONNECTORS: the well-known connectors (Slack/Gmail/Drive/
+    /// Notion) and whether each is ACTUALLY backed by a wired MCP server. A
+    /// connector reads "connected" only when a real server matches — unwired ones
+    /// point at the real config path, never a fake toggle.
+    private var connectorsSection: some View {
+        let statuses = CoworkConnectorDirectory.statuses(servers: mcpServers)
+        let connected = statuses.filter(\.isConnected).count
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("Connectors")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
+                .textCase(.uppercase)
+            ForEach(statuses) { status in
+                HStack(spacing: 6) {
+                    Image(systemName: status.connector.systemImage)
+                        .font(.system(size: 10))
+                        .foregroundStyle(status.isConnected ? theme.textPrimary : theme.textTertiary)
+                        .frame(width: 14)
+                    Text(status.connector.displayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(status.isConnected ? theme.textPrimary : theme.textTertiary)
+                    Spacer(minLength: 4)
+                    if status.isConnected {
+                        if status.declaresAuth { badge("auth", color: .green) }
+                        badge("connected", color: .green)
+                    } else {
+                        Text("not connected")
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(theme.textTertiary)
+                    }
+                }
+            }
+            Text(connected == 0
+                ? "Connect a service by adding its HTTPS MCP server to ~/.config/mcp/url_servers.json (its token is read from the Keychain/env it declares, never stored here). Connectors run on cloud agent turns."
+                : "\(connected) of \(statuses.count) connected via wired MCP servers. Add more in ~/.config/mcp/url_servers.json.")
+                .font(.system(size: 10))
+                .foregroundStyle(theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
