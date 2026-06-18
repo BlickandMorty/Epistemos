@@ -101,4 +101,18 @@ struct InlineRuntimePickerPanelTests {
         #expect(!brainToolBody.contains("ChatBrainPickerMenu"),
                 "landingSearchBrainTool must be a trigger, not the popover picker")
     }
+
+    @Test("mini chat migrated off the popover to the inline panel")
+    func miniChatUsesInlinePanel() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        // The composer renders the inline panel in-flow + a cpu trigger, and the
+        // control strip no longer mounts LocalModelToolbarMenu for the picker.
+        #expect(src.contains("InlineRuntimePickerPanel("))
+        #expect(src.contains("showsSettingsFooter: true"))
+        #expect(src.contains("inlineRuntimePickerTrigger"))
+        // The old single-button LocalModelToolbarMenu picker is gone from the
+        // composer strip (the trigger replaced it).
+        #expect(!src.contains("LocalModelToolbarMenu("),
+                "mini chat composer must use the inline panel, not the popover menu")
+    }
 }
