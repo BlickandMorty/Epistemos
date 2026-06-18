@@ -4096,9 +4096,7 @@ final class InferenceState {
         // Tools/agent has no model tier. Respect the user's within-tier pick:
         // if their current selection already belongs to this tier (e.g. they
         // chose a specific Gemma size under Fast), keep it; only switch when the
-        // selection is in a DIFFERENT tier. Falls through to the base selection
-        // when the tier has no installed model yet, so nothing breaks before the
-        // foundation package lands.
+        // selection is in a DIFFERENT tier.
         if EpistemosFoundationLineup.simplifiedLineupActive,
            let tier = operatingMode.epistemosModelTier {
             if EpistemosFoundationLineup.tier(forModelID: baseModelID) == tier {
@@ -4119,6 +4117,20 @@ final class InferenceState {
             }
             if let tierModelID = installedFoundationModelID(for: tier) {
                 return tierModelID
+            }
+            // Owner hotfix 2026-06-17: once the foundation lineup is live (≥1
+            // foundation model installed), a foundation tier whose OWN model is
+            // not installed must NOT fall through to a different tier's model.
+            // Think is VibeThinker-3B; it must NEVER resolve (or later label /
+            // prompt) as a Fast Gemma 4 12B, and Code must never serve a Fast
+            // Gemma either. Return nil so the surface is honestly "not ready"
+            // (Send disabled / install-the-tier / route to cloud) instead of
+            // silently serving the wrong-tier model. Gemma 4 12B is only ever
+            // Fast's hard-query size or the Code/coder tier — never Think.
+            // (Pre-foundation legacy MLX-only setups still fall through below so
+            // nothing breaks before the foundation package lands.)
+            if hasInstalledFoundationModel {
+                return nil
             }
         }
 
@@ -4534,6 +4546,24 @@ final class InferenceState {
                     }
                 }
             }
+        }
+
+        // Owner hotfix 2026-06-17: under the simplified lineup a foundation tier
+        // must present as ITS OWN model. When the tier's model isn't installed,
+        // `effectiveLocalTextModelID(for:)` is nil — but the generic `.localMLX`
+        // fallback below would surface the raw stored CROSS-TIER pick (e.g. a
+        // Fast Gemma 4 12B) for Think/Code. Pin to the tier's representative id
+        // instead so the label, route, and readiness check all read as the
+        // correct tier (VibeThinker for Think, coder for Code, smallest Gemma for
+        // Fast) and the surface is honestly "not ready" until that model is
+        // installed — never a wrong-tier Gemma. Skipped for `.agent` (no model
+        // tier) and whenever the tier resolves normally (non-nil above).
+        if EpistemosFoundationLineup.simplifiedLineupActive,
+           case .localMLX = preferredChatModelSelection,
+           let tier = operatingMode.epistemosModelTier,
+           effectiveLocalTextModelID(for: operatingMode) == nil,
+           let representative = EpistemosFoundationLineup.representativeModelID(for: tier) {
+            return .localMLX(representative)
         }
 
         switch preferredChatModelSelection {

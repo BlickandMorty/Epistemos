@@ -95,6 +95,11 @@ Fast-only). Search-page button shows the tier ("Epistemos Fast"), not the model.
 model (E4B on 16 GB) not the largest; a stored 12B pick falls to E4B under Fast
 when memory-tight. Composer "Send on cloud" button (switches to cloud; strict
 per-turn-no-default-change deferred). So P1.1/P1.2/P1.3 below are ALREADY DONE.
+OWNER HOTFIX 2026-06-17: stale Think routes/prompts still exist in old paths.
+Think is the actual reasoner, VibeThinker-3B. It must NEVER resolve, label, route,
+or prompt as Gemma 4 12B. Gemma 4 12B is allowed only as Fast's hard-query size
+or the Code/coder tier. Audit all `.thinking`, `Think`, `reasoning`, prompt,
+label, fallback, migration, and effective-selection paths after P1.4.
 
 ────────────────────────────────────────────────────────────────────────
 PRIORITY 1 — THE SIMPLE PICKER  (P1.1/P1.2/P1.3 ✅ DONE 2026-06-17. Remaining:
@@ -154,6 +159,13 @@ SLICES (build + commit each):
         OverseerComplexityRouter. Needs a streamGeneral seam that passes the
         per-turn sized model down. Keep the explicit within-tier pick override
         (already respected by effectiveLocalTextModelID(for:)).
+  P1.6  OWNER HOTFIX — Think stale-route audit. Search + fix every old path where
+        `.thinking` / Think / reasoning still routes, labels, migrates, or
+        prompts as Gemma 4 12B. Under the simplified foundation lineup:
+        Fast = Gemma sized by complexity, Think = VibeThinker-3B, Code = Gemma 4
+        12B coder. Add regression tests at the effective selection, prompt/label,
+        and migration/fallback seams so Think can never silently fall back to
+        Gemma 12B again.
 
 ────────────────────────────────────────────────────────────────────────
 PRIORITY 2 — FULL AGENTIC CHAT (Codex / Claude-desktop parity)
@@ -303,8 +315,9 @@ done, then re-read this file and harden.
 | P1.2 | Cloud as one clean toggle | ✅ DONE (folded into P1.1) |
 | P1.3 | Per-query "Route to cloud" button | ✅ DONE (2026-06-17) — composer "Send on cloud" button; strict no-default-change per-turn deferred |
 | P1.3b | Search button shows tier not model; stop pinning 12B | ✅ DONE (2026-06-17) — labelText→tier, migration + Fast headroom override |
-| P1.4 | Honesty blocker: visible when local model can't run (#43) | ☐ TODO |
+| P1.4 | Honesty blocker: visible when local model can't run (#43) | ✅ DONE (2026-06-17) — `localChatModelMemoryBlocker` + `LocalChatModelMemoryGate`; disables Send + orange banner, "Send on cloud" stays open; Fast gates on smallest size; +5 tests |
 | P1.5 | Fast "three efforts" per-query complexity sizing | ✅ DONE (2026-06-17) — `sizedFastLocalTextModelID` at the `routeDecision`/`effectivePolicyContext` seam; trivial→E2B/medium→E4B/hard→12B, memory-safe (16 GB caps at E4B), honors explicit picks; +6 tests |
+| P1.6 | Think stale-route audit: Think must be VibeThinker, not Gemma 4 12B | ☐ TODO |
 | P2.1 | In-chat tool toggles | ☐ TODO |
 | P2.2 | Agents search memory (verify + surface) | ☐ TODO |
 | P2.3 | MCP management UI in chat | ☐ TODO |

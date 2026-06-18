@@ -435,4 +435,43 @@ struct EpistemosFoundationLineupTests {
         inference.setLatestLocalRuntimeHealth(Self.health(availableMemoryBytes: 1 * Self.gb))
         #expect(inference.localChatModelMemoryBlocker(for: .fast) != nil)
     }
+
+    // MARK: - Owner hotfix 2026-06-17 — Think/Code never resolve as a Fast Gemma
+
+    @Test("Think presents as VibeThinker (and Code as the coder) even when only Fast Gemmas are installed — never a Fast Gemma 12B")
+    @MainActor func thinkAndCodeNeverResolveAsFastGemma() {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        // Only the Fast-tier Gemmas are installed — NOT VibeThinker, NOT the coder.
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12])
+        // Stored pick is the Fast 12B — the exact id that used to leak into Think.
+        inference.setPreferredChatModelSelection(.localMLX(Self.b12))
+
+        // Think pins to VibeThinker (its representative), NOT the Fast 12B.
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .localMLX(Self.vibe))
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) != .localMLX(Self.b12))
+        // Code pins to the coder, NOT the Fast 12B.
+        #expect(inference.effectiveChatSurfaceSelection(for: .pro) == .localMLX(Self.coder))
+        #expect(inference.effectiveChatSurfaceSelection(for: .pro) != .localMLX(Self.b12))
+        // Their dedicated models aren't installed, so those surfaces are honestly
+        // "not ready" (Send disabled) rather than silently serving a Fast Gemma.
+        #expect(!inference.isChatSurfaceRuntimeReady(for: .thinking))
+        #expect(!inference.isChatSurfaceRuntimeReady(for: .pro))
+        // Fast itself still resolves to a real installed Gemma and stays ready.
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(Self.b12))
+        #expect(inference.isChatSurfaceRuntimeReady(for: .fast))
+
+        // Install VibeThinker → Think now binds to it (the normal tier path).
+        inference.setInstalledLocalTextModelIDs([Self.e2b, Self.e4b, Self.b12, Self.vibe])
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .localMLX(Self.vibe))
+        #expect(inference.isChatSurfaceRuntimeReady(for: .thinking))
+    }
 }

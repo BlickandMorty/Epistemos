@@ -680,11 +680,21 @@ final class OverseerComplexityRouter {
         case .overseerLocalExecution:
             return .agent
         case .localOnly:
+            // Preserve the requested tier so the model binds to its own
+            // foundation model (Fast→Gemma, Think→VibeThinker, Code→coder).
+            // Collapsing .pro into .thinking (owner hotfix 2026-06-17) made the
+            // Code tier resolve through the Think tier — i.e. serve VibeThinker
+            // (or, before the resolution fix, a Fast Gemma) instead of the coder.
+            // Reasoning depth for .pro is still "thinking" downstream via
+            // `operatingMode.localReasoningMode`, so depth is unchanged.
             if requestedMode == .fast {
                 return .fast
             }
-            if requestedMode == .thinking || requestedMode == .pro {
+            if requestedMode == .thinking {
                 return .thinking
+            }
+            if requestedMode == .pro {
+                return .pro
             }
             switch intent {
             case .coding, .debugging, .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
