@@ -20,7 +20,17 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+pub mod orchestrator;
 pub mod planner;
+
+/// The result of researching one sub-question (the orchestrator collects these
+/// per layer). `findings` is the sub-agent's structured output; later slices add
+/// a filesystem artifact path + citation grounding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubResult {
+    pub id: String,
+    pub findings: String,
+}
 
 /// A single decomposed research sub-question. `depends_on` lists the ids of
 /// sub-questions whose results this one needs first (e.g. a synthesis step that
