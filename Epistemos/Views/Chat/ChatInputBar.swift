@@ -196,6 +196,28 @@ struct ChatInputBar: View {
         )
         return CoworkRunContext.summary(toolNames: toolNames, noteTitles: chat.loadedNoteTitles)
     }
+    /// P7.6 — the cowork WORKING-FOLDER panel's data: the files the agent
+    /// actually mutated this run, derived from its real `file_ops` tool-use
+    /// blocks. Because file mutation is MAS-forbidden this is empty outside the
+    /// Pro build, so the strip is naturally Pro-only (and we gate explicitly).
+    private var filesTouchedThisRun: [CoworkRunContext.TouchedFile] {
+        guard ToolSurfacePolicy.resolvedDistribution(.currentBuild) != .coreAppStore else { return [] }
+        return CoworkRunContext.filesTouched(
+            in: chat.messages.last(where: { $0.role == .assistant })?.contentBlocks
+        )
+    }
+    private var workingFolderPath: String? {
+        CoworkRunContext.workingFolder(for: filesTouchedThisRun)
+    }
+    /// Compact honest label for the WORKING-FOLDER strip: one file names the
+    /// action + file; several name the count + folder.
+    private func workingFolderStripText(files: [CoworkRunContext.TouchedFile], folder: String) -> String {
+        let folderName = (folder as NSString).lastPathComponent
+        if let only = files.first, files.count == 1 {
+            return "\(only.action.verb) \(only.fileName) in \(folderName)"
+        }
+        return "\(files.count) files in \(folderName)"
+    }
 
     private var fastEffortHint: String? {
         guard let selectedMode = operatingMode?.wrappedValue,
@@ -817,6 +839,39 @@ struct ChatInputBar: View {
                         .truncationMode(.middle)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 2)
+            }
+
+            // P7.6 — cowork WORKING-FOLDER strip: the REAL files the agent
+            // mutated this run (from its file_ops tool-use blocks), with the
+            // common working folder openable in Finder. Pro-only + hidden when
+            // nothing was written (honest — never a phantom file list).
+            if let folder = workingFolderPath {
+                let files = filesTouchedThisRun
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting(
+                        files.map { URL(fileURLWithPath: $0.path) }
+                    )
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "folder")
+                            .font(.system(size: 9))
+                            .foregroundStyle(theme.textTertiary)
+                        Text(workingFolderStripText(files: files, folder: folder))
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.textTertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Image(systemName: "arrow.up.forward.app")
+                            .font(.system(size: 8))
+                            .foregroundStyle(theme.textTertiary.opacity(0.7))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Reveal the \(files.count) file\(files.count == 1 ? "" : "s") changed this run in Finder")
                 .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
                 .padding(.bottom, 2)
             }
