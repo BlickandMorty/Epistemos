@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+@testable import Epistemos
 
 /// DeerFlow slice 5b (visible surface) — locks that the deep-research surface
 /// reads the SAME env flag the in-process Rust run (deep_research::
@@ -33,5 +34,29 @@ struct DeepResearchGateStatusTests {
         let off = DeepResearchGateStatus.status(environment: [:])
         #expect(!off.isActive)
         #expect(off.detail.contains("EPISTEMOS_DEEP_RESEARCH_V0"))
+    }
+
+    /// Slice 5d — the honest no-hidden-route gate. Deep research's sub-agents are
+    /// tool/web users (a cloud capability), so `DeepResearchService.run` runs
+    /// ONLY on a recognized cloud provider. This is an explicit ALLOWLIST so it
+    /// can never silently fire on a route the user didn't pick (owner #1).
+    @Test("cloud-provider allowlist recognizes the real resolveRustProviderName strings")
+    func cloudProviderAllowlistMatchesProviderNames() {
+        // Every cloud string ChatCoordinator.resolveRustProviderName can emit.
+        for cloud in [
+            "claude_sonnet", "claude_opus", "claude_haiku",
+            "openai_gpt54", "openai_gpt54_mini",
+            "gemini_flash", "gemini_pro",
+            "zai", "kimi_coding", "minimax", "deepseek",
+        ] {
+            #expect(DeepResearchGateStatus.isCloudProvider(cloud), "\(cloud) is cloud")
+        }
+    }
+
+    @Test("local / on-device providers are NOT cloud (no hidden-route fallback)")
+    func localProvidersAreNotCloud() {
+        for local in ["ollama", "mlx", "gguf", "apple", "local", "localOnly", "", "   "] {
+            #expect(!DeepResearchGateStatus.isCloudProvider(local), "\(local) must not be cloud")
+        }
     }
 }

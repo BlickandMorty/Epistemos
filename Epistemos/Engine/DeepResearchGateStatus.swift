@@ -22,6 +22,26 @@ nonisolated enum DeepResearchGateStatus {
         return ["1", "true", "yes", "on"].contains(normalized)
     }
 
+    /// Honest-capability gate for the run itself: deep research spawns isolated
+    /// sub-agent LOOPS that use web/tools, which is a CLOUD capability (per
+    /// CLAUDE.md, local models get fast/thinking/research — not agentic
+    /// tool-using sub-agents). So `DeepResearchService.run` refuses anything but
+    /// a recognized cloud provider. This is an explicit ALLOWLIST (not a
+    /// denylist) so deep research can NEVER silently run on a route the user
+    /// didn't pick — owner priority #1 (no hidden GPT route). The strings match
+    /// `ChatCoordinator.resolveRustProviderName` (claude_*, openai_*, gemini_*,
+    /// zai/glm, kimi_*, minimax, deepseek, perplexity); local resolves to
+    /// `ollama`/`mlx`/`gguf`/`apple`, all of which return false.
+    static func isCloudProvider(_ providerName: String) -> Bool {
+        let normalized = providerName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return false }
+        let cloudPrefixes = [
+            "claude", "anthropic", "openai", "gpt", "gemini", "google",
+            "zai", "glm", "kimi", "minimax", "deepseek", "perplexity", "sonar",
+        ]
+        return cloudPrefixes.contains { normalized.hasPrefix($0) }
+    }
+
     static func status(environment: [String: String] = ProcessInfo.processInfo.environment) -> Status {
         if isEnabled(environment[flagName]) {
             return Status(
