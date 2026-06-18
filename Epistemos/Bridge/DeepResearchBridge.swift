@@ -25,24 +25,12 @@ import Foundation
 // autoresearch). The Rust side returns the whole report at the end (no streaming
 // delegate), so this is a single `await` — simpler than `runAgentSession`.
 
+// `DeepResearchOutcome` + `DeepResearchFinding` (the pure, FFI-independent result
+// types) live in the always-compiled Epistemos/Engine/DeepResearchReport.swift
+// alongside the pure `DeepResearchReportRenderer`, so they compile + unit-test on
+// MAS too; only this FFI-calling surface is Pro-gated.
+
 #if !EPISTEMOS_APP_STORE
-
-/// One sub-question's findings inside a finished report — the provenance behind
-/// a cited `[id]` claim. Swift-native (FFI-type-independent) so the public
-/// surface compiles on test hosts that don't link `agent_coreFFI`.
-struct DeepResearchFinding: Sendable, Equatable, Identifiable {
-    let id: String
-    let question: String
-    let findings: String
-}
-
-/// The finished multi-agent report: the objective, the `[id]`-cited synthesis,
-/// and the per-sub-question findings it rests on.
-struct DeepResearchOutcome: Sendable, Equatable {
-    let objective: String
-    let report: String
-    let findings: [DeepResearchFinding]
-}
 
 enum DeepResearchServiceError: Error, LocalizedError, Sendable {
     case disabled
@@ -84,6 +72,19 @@ enum DeepResearchService {
     /// "Deep research" affordance without throwing.
     static func isAvailable(forProvider providerName: String) -> Bool {
         isEnabled && DeepResearchGateStatus.isCloudProvider(providerName)
+    }
+
+    /// Honest one-line reason a run can't start for `providerName` (flag off vs
+    /// local-only model). Used to surface a clear chat error instead of silently
+    /// doing nothing. Precedence matches `run`'s guards: flag first, then cloud.
+    static func unavailableReason(forProvider providerName: String) -> String {
+        if !isEnabled {
+            return "Deep research is off. Turn it on with \(DeepResearchGateStatus.flagName)=1 (Pro)."
+        }
+        if !DeepResearchGateStatus.isCloudProvider(providerName) {
+            return "Deep research needs a cloud model — its parallel sub-agents use web search and tools. Switch to a cloud model and try again."
+        }
+        return "Deep research is unavailable right now."
     }
 
     /// Run a deep-research session and return the finished, `[id]`-cited report.
