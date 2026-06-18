@@ -68,9 +68,11 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       `var preferredLocalTextModelID = LocalTextModelID.qwen3_4B4Bit.rawValue` +
       the "validated default stays Qwen" logic (lines ~41, ~649) + AgentCommandCenter
       brain default lists (~580-600). Under simplifiedLineupActive the DEFAULT must
-      be a foundation FAST model (headroom-aware Gemma E2B/E4B), NEVER Qwen 4B.
-      Qwen 3 8B stays available as an EXPLICIT Think pick (not the default). Fix the
-      hardcoded default + migration + agent-brain defaults to foundation; regression.
+      be a foundation FAST model (headroom-aware Gemma E2B/E4B), NEVER Qwen 4B as
+      the DEFAULT. Qwen 3 4B AND Qwen 3 8B both stay available as EXPLICIT,
+      user-selectable local picks (owner wants BOTH) — just not the auto-default.
+      Fix the hardcoded default + migration + agent-brain defaults to foundation;
+      regression.
 - [ ] **Palette preview for ALL themes** — currently gated `if pair == .custom`
       (SettingsView ~4081). Generalize `CustomThemePaletteSwatch` to every
       `ThemePairCard` so every theme shows the palette preview.
@@ -146,15 +148,20 @@ invisibility" is NOT done. Re-audit each against the running app; fix until real
       owner's local research (docs/fusion/* + prior plans) AND this session's full
       query history, and ADD any researched/requested-but-untracked capability to
       THIS ledger. Recurring task — keep the ledger complete against the corpus.
-      SPECIFIC RANGE (owner 2026-06-18): cover everything from the OBSCURA era
-      (~2026-05) UP TO NOW — extract every "queued / candidate / deferred / runtime
-      phases / NOT IMPLEMENTED / W6-*" item from at least: B2/B3 lift targets
-      (B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS, B3_OBSCURA_BROWSER_LIFT_TARGETS),
-      HELIOS_V5/V6 plans, SUBSTRATE_TRACK_REGISTER + fusion/* state docs, Eidos
-      (EIDOS_V0_*), Hermes design/manifesto, KNOWN_ISSUES_REGISTER,
-      HARDENING_TRACKER, FEATURE_CHANGE_TRACKER, V1_5_IMPLEMENTATION_TRACKER,
-      PHASE_CHECKLIST. Each unfinished item → a ledger line + finish it deeply
-      (rule #6/P5.H). Write the result to docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md.
+      SPECIFIC RANGE (owner 2026-06-18): cover the OBSCURA era, the SIMULATION era,
+      and the EML era — and BEYOND, up to now. **EXCLUDE HERMES** (the owner purged
+      it — do NOT resurrect Hermes-named work; naming-reconciliation only). Focus on
+      LOCAL research + CHAT-related research (lots got dropped). Extract every
+      "queued / candidate / deferred / runtime phases / NOT IMPLEMENTED / W6-*" item
+      from at least: B2/B3 lift targets (B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS,
+      B3_OBSCURA_BROWSER_LIFT_TARGETS), HELIOS_V5/V6 plans, SUBSTRATE_TRACK_REGISTER
+      + fusion/* state docs, Eidos (EIDOS_V0_*), SIMULATION (SIMULATION_DONOR_MINING_
+      STATUS + docs/simulation/*), EML era (EML-IR / episodic-memory-lattice, the
+      T5/T7 EML work), the LATTICE EXPLAINER + EPISTEMOS_LIVING_INDEX_2026_05_24.md,
+      KNOWN_ISSUES_REGISTER, HARDENING_TRACKER, FEATURE_CHANGE_TRACKER,
+      V1_5_IMPLEMENTATION_TRACKER, PHASE_CHECKLIST. Each unfinished item → a ledger
+      line + finish it deeply (rule #6/P5.H). Write
+      docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md.
 
 ## Architecture / process
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
@@ -214,3 +221,24 @@ DECISIONS — the BUILD + in-app verification still has to happen.
       researched/requested-but-untracked item to THIS ledger so nothing the owner
       researched is silently dropped. Do it incrementally (a few docs/pass) — this
       is a standing task, never "done".
+
+## Stealth browsing + Best-of preset (researched 2026-06-18 → docs/RESEARCH_STEALTH_AND_BESTOF_PRESET_2026_06_18.md)
+- [ ] **P-STEALTH: undetected/stealth browsing** — VERDICT: vendor
+      `vibheksoni/stealth-browser-mcp` (MIT; nodriver + CDP + FastMCP; 97 tools;
+      bypasses Cloudflare/Queue-It) via the EXISTING MCP path (MCPUrlServerDirectory/
+      MCPBridge). Pro/dev-gated (Python subprocess), pinned + hardened, authorized
+      use. Wire a `stealth` option on browser-use (browser.rs) + an Obscura
+      WKWebView "fingerprint hardening" toggle; browser-use mainly drives the
+      in-app Obscura browser, stealth-MCP is the escalation for protected sites.
+      Engines: nodriver (Chrome), Camoufox (Firefox), SeleniumBase UC Mode.
+- [ ] **P-BESTOF: best-of preset (powerful out of the box)** — curated default
+      set of the BEST real working superpowers, each Pro/MAS-gated + user-toggle,
+      wired into the P2.1 tool panel / capability explorer. Baseline = Anthropic's
+      7 reference servers + GitHub MCP + Context7 + Playwright. KEY FINDING: most
+      is ALREADY native in Epistemos (file_ops, web_fetch/search, browser.rs, Pro
+      git, code_execution, memory+vault+Knowledge Core+Eidos+Halo, think) — so the
+      preset = curate + gate + EXPOSE, not import-everything. Deliverable: a pure
+      tested EpistemosBestOfPreset manifest {id, capability, gate, source, license}
+      + a one-tap "Enable recommended power set" in P2.1 (MAS-safe subset; Pro adds
+      shell/git/browser/CLI); external MCP picks only when actually wired (Keychain),
+      never a fake-on toggle; prefer vendor-maintained MCPs.
