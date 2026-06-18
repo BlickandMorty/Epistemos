@@ -134,6 +134,21 @@ struct InlineRuntimePickerPanelTests {
         #expect(src.contains("if !tiers.isEmpty"))
     }
 
+    @Test("the panel exposes the Chat/Act mode toggle with honest Act gating")
+    func panelExposesChatActToggle() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Chat/InlineRuntimePickerPanel.swift"
+        )
+        // The old depthToggle (Chat/Act) — restores Act reachability on the
+        // single-button surfaces (tier picks only reach Fast/Think/Code).
+        #expect(src.contains("Text(\"MODE\")"))
+        #expect(src.contains("private func coworkRow("))
+        #expect(src.contains("CoworkChatMode.actAvailable(in: inference.availableOperatingModes)"))
+        // Honest: Act disabled + the real reason when no agent route exists.
+        #expect(src.contains("CoworkChatMode.actUnavailableReason"))
+        #expect(src.contains("guard available else"))
+    }
+
     @Test("mini chat migrated off the popover to the inline panel")
     func miniChatUsesInlinePanel() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")

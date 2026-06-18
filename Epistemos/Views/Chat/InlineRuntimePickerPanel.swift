@@ -57,6 +57,25 @@ struct InlineRuntimePickerPanel: View {
                     }
                 }
 
+                // MODE / Chat·Act depth (owner 2026-06-18 cross-reference — the
+                // old depthToggle). Restores Act reachability on the single-button
+                // surfaces (tier picks only reach Fast/Think/Code). Honest gating:
+                // Act is disabled with the real reason when no agent route exists.
+                if showsSettingsFooter, let operatingMode {
+                    let actAvailable = CoworkChatMode.actAvailable(in: inference.availableOperatingModes)
+                    let currentMode = CoworkChatMode.current(for: operatingMode.wrappedValue)
+                    Divider()
+                        .padding(.vertical, 2)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("MODE")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(1.5)
+                            .foregroundStyle(theme.textTertiary)
+                        coworkRow(.chat, current: currentMode, available: true, operatingMode: operatingMode)
+                        coworkRow(.act, current: currentMode, available: actAvailable, operatingMode: operatingMode)
+                    }
+                }
+
                 // EFFORT (owner 2026-06-18 cross-reference — the old effort
                 // control). Single-button surfaces (showsSettingsFooter) gain the
                 // reasoning-effort picker the main-chat split toolbar already has.
@@ -224,6 +243,74 @@ struct InlineRuntimePickerPanel: View {
         }
         .buttonStyle(.plain)
         .help(tier.summary)
+    }
+
+    /// A Chat/Act depth row. Act is disabled (with the honest reason) when no
+    /// agent route exists — never fakes agent capability for a local model.
+    @ViewBuilder
+    private func coworkRow(
+        _ mode: CoworkChatMode,
+        current: CoworkChatMode,
+        available: Bool,
+        operatingMode: Binding<EpistemosOperatingMode>
+    ) -> some View {
+        let isSelected = current == mode
+        Button {
+            guard available else {
+                onOpenSettings()
+                return
+            }
+            operatingMode.wrappedValue = mode.operatingMode(
+                rememberedTier: rememberedTier(operatingMode.wrappedValue)
+            )
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: mode.systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(available ? theme.textSecondary : theme.textTertiary)
+                    .frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(mode.displayName)
+                        .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(available ? theme.textPrimary : theme.textTertiary)
+                    if mode == .act && !available {
+                        Text(CoworkChatMode.actUnavailableReason)
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.textTertiary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 4)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? theme.resolved.accent.color.opacity(0.14) : Color.clear)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Rectangle()
+                        .fill(theme.resolved.accent.color)
+                        .frame(width: 2)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Remember which tier to return to when toggling Chat/Act: keep a real tier
+    /// mode; .agent (Act) has no tier of its own, so default to Fast.
+    private func rememberedTier(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
+        switch mode {
+        case .fast, .thinking, .pro: return mode
+        case .agent: return .fast
+        }
     }
 
     private func isSelected(_ option: EpistemosRuntimePicker.Option) -> Bool {
