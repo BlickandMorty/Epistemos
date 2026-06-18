@@ -177,11 +177,21 @@ struct CompanionCreationFlow: View {
                     .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                // P2.6 — block save on an empty name OR a malformed output schema
+                // so the agent never gets a broken response contract.
+                .disabled(
+                    name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || !outputSchemaValidation.isAcceptable
+                )
             }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
+    }
+
+    /// P2.6 — live validation of the optional output-structure JSON.
+    private var outputSchemaValidation: CompanionOutputSchemaValidation.Result {
+        CompanionOutputSchemaValidation.validate(outputStructureJSON)
     }
 
     private var canAdvance: Bool {
@@ -494,6 +504,12 @@ struct CompanionCreationFlow: View {
                         .padding(6)
                         .background(Rectangle().fill(PixelPanelBackground.actionSurface(for: theme)))
                         .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
+                    if let schemaError = outputSchemaValidation.errorMessage {
+                        Text(schemaError)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
             .padding(.top, 6)
