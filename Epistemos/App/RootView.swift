@@ -1718,49 +1718,6 @@ struct LocalModelToolbarMenu: View {
         inference.preferredChatModelSelection == .appleIntelligence
     }
 
-    /// Owner hotfix 2026-06-17b: Apple Intelligence is a first-class NATIVE route
-    /// — not Cloud, not a hidden fallback. The simplified picker surfaces it at
-    /// top level: selectable when macOS reports it available, and visibly
-    /// unavailable (with the OS reason) when not, so it is never silently erased
-    /// or substituted. Selecting it sets the chat surface to Apple Intelligence;
-    /// tapping it again reverts to the on-device Epistemos foundation model. The
-    /// honest gate stays — it cannot drive Agent/tool-calling (handled in the
-    /// capability/route layer, not here).
-    @ViewBuilder
-    private var appleIntelligenceSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            popoverSectionTitle("Apple Intelligence")
-            if inference.appleIntelligenceAvailable {
-                selectionRow(
-                    title: "Apple Intelligence",
-                    subtitle: appleIntelligenceSelected
-                        ? "On-device Apple Foundation model — chat, rewrites, summaries. Not an agent runtime."
-                        : "Native Apple on-device model. Tap to use it for this chat.",
-                    systemImage: "apple.intelligence",
-                    isSelected: appleIntelligenceSelected
-                ) {
-                    if appleIntelligenceSelected {
-                        // Toggle back to the on-device Epistemos foundation model.
-                        if let localID = inference.effectiveLocalTextModelID {
-                            inference.setPreferredChatModelSelection(.localMLX(localID))
-                        }
-                    } else {
-                        inference.setPreferredChatModelSelection(.appleIntelligence)
-                    }
-                }
-            } else {
-                selectionRow(
-                    title: "Apple Intelligence",
-                    subtitle: inference.appleIntelligenceUnavailableReason
-                        ?? "Not available on this Mac.",
-                    systemImage: "apple.intelligence",
-                    isSelected: false,
-                    isEnabled: false
-                ) {}
-            }
-        }
-    }
-
     @ViewBuilder
     private var legacyRuntimePopover: some View {
         ScrollView {
