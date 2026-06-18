@@ -53,6 +53,24 @@ should make the codebase MUCH better, never destabilize the working chat.
 3. No feature is "done" until the owner can demonstrably use it.
 
 ## REOPENED — owner reports these DON'T WORK (fix first, verify in-app)
+- [ ] **PICKER IS STILL A POPOVER — REOPENED (owner 2026-06-18, verified in code)**
+      P1.11 changed the popover's CONTENT (Fast/Think/Code picks) but did NOT
+      delete the popover. RootView.swift:1216 `modelPopover` + :1576
+      `simplifiedRuntimePopover` are STILL `.popover(...)` overlays — that's why the
+      owner still sees a messy floating popover. REQUIRED: DELETE the popover
+      presentation entirely; rebuild the picker as a FLAT, INLINE, pixel-art panel
+      that is a visual EXTENSION OF THE THEME / the search-composer surface (not a
+      floating overlay). VERIFY VISUALLY in a rebuilt app that the popover is gone
+      and the flat panel renders. This is the core of the owner's repeated request.
+- [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
+      for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
+      CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
+      caching, etc. Deep-research the best LLM harnesses/desktop apps (R-APPS /
+      R-ASSISTANTS), and PORT the best implementation OR a clever MIXTURE/mesh of
+      them natively — don't hand-roll from scratch; lift the proven code/patterns
+      (grep/extract, ProvenanceGate). SYSTEM PROMPT = an ANCHOR the loop EXTENDS
+      (strong base system prompt, then extend), not a one-off. Make it deeply
+      exquisite; wire into Chat/Act/Work. Verdict doc → port + harden.
 - [~] **#1 LOCAL FOR ALL MODES (route fix landed 2026-06-18; verify in-app) — STOP THE HIDDEN GPT ROUTE.** Owner (verbatim):
       *"not even having cloud selected it goes to gpt, you should be able to use
       my local for all modes."* This is the #1 honesty-constraint violation: with
