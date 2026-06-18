@@ -4292,6 +4292,41 @@ mod tier_tests {
 
     #[cfg(not(feature = "pro-build"))]
     #[tokio::test]
+    async fn mas_runtime_denies_terminal_process_by_name_even_if_readonly() {
+        // P7.3 — the terminal / process / shell surface is the entire point of
+        // the Pro lane; on MAS it must be unreachable. The existing runtime test
+        // only covers `bash_execute`. Here we prove the MAS *name* gate denies
+        // each terminal/process/cron tool — including the dotted canonical names
+        // (action.bash / action.terminal / system.process / system.cron) — even
+        // when the tool masquerades as a harmless ReadOnly tool. ReadOnly risk
+        // means the *risk* gate would let it through, so a denial proves the
+        // forbidden-name list (mas_forbidden_tool_name) is what's stopping it.
+        for name in [
+            "terminal",
+            "process",
+            "action.bash",
+            "action.terminal",
+            "bash_execute",
+            "run_command",
+            "run_persistent",
+            "system.process",
+            "cronjob",
+            "system.cron",
+        ] {
+            let mut registry = build_registry(ToolTier::Full);
+            register_test_tool(&mut registry, name, RiskLevel::ReadOnly);
+            let result = registry
+                .execute(name, &serde_json::json!({ "command": "echo nope" }))
+                .await;
+            assert!(
+                matches!(result, Err(ToolError::PermissionDenied)),
+                "{name} must be denied by the MAS name gate even as a ReadOnly tool"
+            );
+        }
+    }
+
+    #[cfg(not(feature = "pro-build"))]
+    #[tokio::test]
     async fn mas_runtime_denies_destructive_tool_even_if_registered() {
         let mut registry = build_registry(ToolTier::Full);
         register_test_tool(
