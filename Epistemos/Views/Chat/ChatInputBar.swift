@@ -186,6 +186,14 @@ struct ChatInputBar: View {
     /// non-empty draft when per-query sizing applies (else nil → hidden). The
     /// classification reuses the same `QueryAnalyzer.complexity` the runtime sizes
     /// on, so the hint matches what actually runs.
+    /// P7.6 — the cowork CONTEXT strip's text: real tools + notes used this run.
+    private var runContextSummary: String? {
+        let toolNames = CoworkRunContext.toolNamesUsed(
+            in: chat.messages.last(where: { $0.role == .assistant })?.contentBlocks
+        )
+        return CoworkRunContext.summary(toolNames: toolNames, noteTitles: chat.loadedNoteTitles)
+    }
+
     private var fastEffortHint: String? {
         guard let selectedMode = operatingMode?.wrappedValue,
               !trimmedText.isEmpty else { return nil }
@@ -757,6 +765,25 @@ struct ChatInputBar: View {
                     Text(fastEffortHint)
                         .font(.system(size: 10))
                         .foregroundStyle(theme.textTertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 2)
+            }
+
+            // P7.6 — cowork CONTEXT strip: the REAL tools the agent invoked +
+            // notes it referenced this run (from the message's tool-use blocks +
+            // loadedNoteTitles), never a mockup. Hidden when nothing was used.
+            if let runContextSummary {
+                HStack(spacing: 5) {
+                    Image(systemName: "rectangle.stack")
+                        .font(.system(size: 9))
+                        .foregroundStyle(theme.textTertiary)
+                    Text(runContextSummary)
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
