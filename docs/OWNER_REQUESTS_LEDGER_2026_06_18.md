@@ -63,6 +63,25 @@ calls: no blanket rule — choose per case.
 3. No feature is "done" until the owner can demonstrably use it.
 
 ## REOPENED — owner reports these DON'T WORK (fix first, verify in-app)
+- [ ] **PICKER + PARITY PASS — owner 2026-06-18 (TOP priority, do NEXT after
+      DeerFlow 5e-1 commit). Build+run verify EACH surface in-app; harden +
+      auto-commit+push each slice.**
+      1. **PICKER SCROLL/HEIGHT** — InlineRuntimePickerPanel is too short with no
+         scrollbar, so only ~2 options show. Make it tall enough OR scrollable
+         with a visible "more exists" affordance, so ALL Fast/Think/Code picks
+         are obviously available (the picks already exist + are tested; the bug
+         is they're not VISIBLE/reachable).
+      2. **MINI-CHAT PARITY** — mini chat must EQUAL main chat: all capabilities
+         + the Chat/Act/Work(Open Code) mode toggles. Root cause =
+         MiniChatView.sanitizedMiniChatOperatingMode restricting the mode set;
+         widen it (with HONEST gating — never fake a capability the surface can't
+         do).
+      3. **NON-REDUCTIVE PICKER on ALL 5 surfaces** — mini/landing/search/graph/
+         note still expose a reduced picker vs main. Bring each to full parity
+         (or honestly relocate, per the cross-reference audit).
+      4. **SEARCH-PAGE CLICK REGRESSION** — clicking anywhere on the landing/
+         search page misbehaves. Audit Landing/* + HologramSearchSidebar gesture
+         handling and fix.
 - [x] **PICKER IS STILL A POPOVER — DONE 2026-06-18, ALL 5 SURFACES (b8ceebabc)**
       The model/runtime picker is now a flat inline pixel-art panel
       (InlineRuntimePickerPanel) on ALL surfaces: main chat (378379408), landing
@@ -607,10 +626,20 @@ calls: no blanket rule — choose per case.
       real/else-throw, like LocalGgufRuntimeBridge. Warm build + build-for-testing
       green; fixed a LATENT 5b test breakage (DeepResearchGateStatusTests missing
       @testable import Epistemos — hidden by headless test-EXEC hang). 2 new
-      cloud-allowlist tests. NEXT (5e): the Research/Work UI affordance that calls
-      DeepResearchService.run + surfaces the cited report in chat + arXiv/HF/
-      autoresearch hookup so a query spins a real run from the UI.
-      Single-agent stays default until wired.
+      cloud-allowlist tests. slice 5e-1 EXECUTION PATH + RENDERER (THIS):
+      ChatCoordinator.runDeepResearch(_:chatState:operatingMode:) — appends the
+      user msg, re-checks availability (honest DeepResearchService.unavailableReason),
+      startStreaming() indeterminate progress (FFI returns whole report, no fake
+      stream), calls DeepResearchService.run, renders via the new ALWAYS-COMPILED
+      pure DeepResearchReportRenderer (Epistemos/Engine/DeepResearchReport.swift:
+      DeepResearchOutcome+DeepResearchFinding moved here so they unit-test on MAS;
+      report → [id]-cited synthesis + a Sources section resolving every cited [id]
+      to its sub-question+findings) → appendCompletedLocalAssistantMessage, errors
+      → addErrorMessage(from:). 6 pure renderer tests. app build + test build green.
+      NEXT (5e-2, QUEUED after the owner's picker+parity priority): the composer
+      "Deep research" button (ChatInputBar onDeepResearch closure + gated button +
+      ChatView wiring → runDeepResearch) so it RUNS FROM THE UI; then arXiv/HF/
+      autoresearch hookup. Single-agent stays default until wired.
       Verdict: docs/RESEARCH_DEERFLOW_2026_06_18.md (R-DEERFLOW).**
       First REAL gap of the verdict sweep: Epistemos has every SUPPORTING piece
       (tools, compaction summarization, session memory, P8.1 schema gate, skills,

@@ -3247,6 +3247,58 @@ final class ChatCoordinator {
     }
   }
 
+  /// DeerFlow slice 5e — run a multi-agent DEEP RESEARCH turn from the chat
+  /// surface: planner → parallel isolated sub-agents → `[id]`-cited synthesis,
+  /// rendered as one assistant bubble with a Sources provenance section. This is
+  /// a SEPARATE path from `handleQuery` (it does NOT use the single-agent
+  /// `run_agent_session`); it calls `DeepResearchService.run`, which is Pro-only
+  /// AND flag-gated (`EPISTEMOS_DEEP_RESEARCH_V0`) AND cloud-provider-gated.
+  ///
+  /// The user message is appended first (so the transcript is honest even when
+  /// research can't run), then availability is re-checked here (defense in depth
+  /// — the composer button is also gated). The Rust FFI returns the whole report
+  /// at the end (no token stream), so progress is an honest indeterminate
+  /// `startStreaming()` indicator, not a faked stream.
+  func runDeepResearch(
+    _ objective: String,
+    chatState: ChatState,
+    operatingMode: EpistemosOperatingMode
+  ) {
+    let trimmed = objective.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return }
+    chatState.appendLocalMessage(role: .user, content: trimmed)
+
+    #if !EPISTEMOS_APP_STORE
+    let selection = inferenceState.effectiveChatSurfaceSelection(for: operatingMode)
+    let providerName = resolveRustProviderName(for: selection)
+    guard DeepResearchService.isAvailable(forProvider: providerName) else {
+      chatState.addErrorMessage(
+        DeepResearchService.unavailableReason(forProvider: providerName)
+      )
+      return
+    }
+    let vaultPath = managedToolRuntimeVaultPath()
+    chatState.startStreaming()
+    Task { [weak self] in
+      guard self != nil else { return }
+      do {
+        let outcome = try await DeepResearchService.run(
+          objective: trimmed,
+          providerName: providerName,
+          vaultPath: vaultPath
+        )
+        chatState.appendCompletedLocalAssistantMessage(
+          content: DeepResearchReportRenderer.render(outcome)
+        )
+      } catch {
+        chatState.addErrorMessage(from: error)
+      }
+    }
+    #else
+    chatState.addErrorMessage("Deep research is a Pro feature and isn't available in this build.")
+    #endif
+  }
+
   /// Maps the current cloud provider selection to a Rust provider name string.
   private func resolveRustProviderName() -> String {
     resolveRustProviderName(for: inferenceState.activeAIProvider)
