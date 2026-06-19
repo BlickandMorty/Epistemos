@@ -448,6 +448,74 @@ final class PipelineService {
         #endif
     }
 
+    /// GGUF-Gemma grammar tool-call flag (`EPISTEMOS_GGUF_TOOL_GRAMMAR_V0`). OFF by
+    /// default: the GGUF generation is unconstrained (today's behaviour). ON: a GGUF
+    /// tool turn constrains llama-cli via `--json-schema` so Gemma emits a
+    /// structurally valid tool call. (The Rust FFI is itself flag-gated — double
+    /// gate, matching the auto-route pattern.)
+    nonisolated static var ggufToolGrammarArmed: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_GGUF_TOOL_GRAMMAR_V0"] == "1"
+    }
+
+    /// Build the GGUF dispatch candidate catalog JSON (`[{"name","description",
+    /// "keywords","schema"}]`, matching Rust `PreflightToolWithSchemaInput`) from the
+    /// tier's tools — like `autoRouteCandidatesJSON` but CARRYING each tool's
+    /// parameter schema (parsed from `schemaJson`, falling back to an empty object
+    /// schema) so `schema_gguf_tool_dispatch_json` can build the constrained
+    /// `oneOf` dispatch grammar. Returns nil for an empty catalog. Pure —
+    /// unit-testable without the FFI / env flag.
+    nonisolated static func ggufDispatchCandidatesJSON(
+        tools: [OmegaToolDefinition]
+    ) -> String? {
+        guard !tools.isEmpty else { return nil }
+        let candidates: [[String: Any]] = tools.map { tool in
+            let schemaObject: Any = {
+                if let data = tool.schemaJson.data(using: .utf8),
+                   let parsed = try? JSONSerialization.jsonObject(with: data),
+                   parsed is [String: Any] {
+                    return parsed
+                }
+                return ["type": "object", "properties": [String: Any](), "additionalProperties": false]
+            }()
+            return [
+                "name": tool.name,
+                "description": tool.description,
+                "keywords": [String](),
+                "schema": schemaObject,
+            ]
+        }
+        guard JSONSerialization.isValidJSONObject(candidates),
+              let data = try? JSONSerialization.data(withJSONObject: candidates),
+              let json = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return json
+    }
+
+    /// Compute the GGUF tool-dispatch JSON schema for `query` against `tools` (the
+    /// `--json-schema` constraint string), or nil when the flag is off / the catalog
+    /// is empty / no tool matched / the FFI is unavailable — in which case the
+    /// caller runs an UNCONSTRAINED GGUF generation (today's behaviour). This is the
+    /// Swift entry the GGUF tool turn calls before driving `LocalGgufRuntimeBridge`
+    /// (the live-wiring of that call is the follow-on).
+    nonisolated static func ggufToolDispatchSchema(
+        query: String,
+        tools: [OmegaToolDefinition]
+    ) -> String? {
+        guard ggufToolGrammarArmed else { return nil }
+        guard let candidatesJSON = ggufDispatchCandidatesJSON(tools: tools) else { return nil }
+        #if canImport(agent_coreFFI)
+        let raw = schemaGgufToolDispatchJson(
+            query: query,
+            candidatesJson: candidatesJSON,
+            max: 5
+        )
+        return raw.isEmpty ? nil : raw
+        #else
+        return nil
+        #endif
+    }
+
     private func resolvedManagedToolRuntimeVaultPath() -> String {
         FoundationSafety.managedToolRuntimeVaultDirectory(
             preferredVaultPath: vaultPathProvider()

@@ -259,6 +259,22 @@ calls: no blanket rule — choose per case.
       part 2: the Swift LIVE-WIRING — the PipelineService GGUF tool path calls
       `schemaGgufToolDispatchJson`, attaches the schema to the `GgufCliProvider`/`LocalGgufCliRuntime`
       run when non-empty, and parses the emitted JSON as a tool call. TOOLS/SKILLS item stays open.
+      ✅ PART 2(b) SWIFT INPUT BUILDER 2026-06-19: the Swift input side of the live-wiring.
+      `Epistemos/Engine/PipelineService.swift` added (nonisolated static) `ggufToolGrammarArmed`
+      (env `EPISTEMOS_GGUF_TOOL_GRAMMAR_V0`) + `ggufDispatchCandidatesJSON(tools:)` (builds the
+      `[{name,description,keywords,schema}]` payload matching Rust `PreflightToolWithSchemaInput`,
+      embedding each tool's parsed `schemaJson` as a real JSON object with an empty-object-schema
+      fallback for malformed) + `ggufToolDispatchSchema(query:tools:)` (flag-gated; calls the
+      generated FFI `schemaGgufToolDispatchJson`; returns nil when off / empty / no-match / "" so
+      the caller runs an UNCONSTRAINED GGUF generation = today's behaviour). +4 tests
+      (AutoToolRouteWiringTests: candidate shape with embedded schema OBJECT, malformed→empty-object
+      fallback, empty→nil, flag-off→nil). build-for-testing TEST BUILD SUCCEEDED (0 errors). NOTE the
+      jsonSchema is ALREADY threaded end-to-end on both sides — Swift `LocalGgufRuntimeBridge`
+      (jsonSchema param ~line 177) → `runLocalGgufGeneration` → bridge.rs:1291 `json_schema` →
+      `GgufCliProvider::with_json_schema` → llama-cli `--json-schema`. So the ONLY remaining piece is
+      the OUTPUT side: call `ggufToolDispatchSchema` at the GGUF tool-turn site, pass the non-nil
+      result as `jsonSchema` to the generation, and parse the emitted `{name,input}` JSON into a tool
+      call. TOOLS/SKILLS item stays open.
       🔎 S4 DEEP-RESEARCH AUDIT 2026-06-19 (docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md)
       — confirms the loop's local diagnosis AND adds the missing pieces: (i) **CLOUD break (specific):**
       `runCommandCenterRustAgentPath` is reached only if `cloudProvider.supportsAgentTier`, TRUE ONLY
