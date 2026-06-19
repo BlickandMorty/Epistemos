@@ -53,6 +53,31 @@ pub fn build_repair_prompt(failed_value: &Value, violations: &[String]) -> Optio
     ))
 }
 
+/// FFI: the §C.1 validate→repair gate, in ONE call. Swift passes the tool's JSON schema
+/// + the local model's emitted value (both as JSON strings); gets back EITHER an empty
+/// string (the value is VALID — proceed to execute) OR a repair prompt listing every
+/// violation (re-prompt the model with it). PURE — it does NOT touch the live loop; the
+/// Swift local agent loop calls it after a local tool-call and decides execute-vs-repair.
+/// Honest: an unparseable schema/value is reported (never silently "valid").
+#[uniffi::export]
+pub fn schema_validate_and_repair_json(schema_json: String, value_json: String) -> String {
+    let schema: Value = match serde_json::from_str(&schema_json) {
+        Ok(v) => v,
+        Err(e) => return format!("schema is not valid JSON: {e}"),
+    };
+    let value: Value = match serde_json::from_str(&value_json) {
+        Ok(v) => v,
+        Err(e) => {
+            let raw = Value::String(value_json);
+            return build_repair_prompt(&raw, &[format!("your output was not valid JSON: {e}")])
+                .unwrap_or_default();
+        }
+    };
+    let violations = all_violations(&schema, &value);
+    // Empty when valid (build_repair_prompt returns None → ""); the repair prompt when not.
+    build_repair_prompt(&value, &violations).unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -128,5 +153,35 @@ mod tests {
         assert!(!violations.is_empty());
         let prompt = build_repair_prompt(&value, &violations).expect("a repair prompt");
         assert!(prompt.contains("corrected JSON"));
+    }
+
+    #[test]
+    fn ffi_valid_value_returns_empty() {
+        let s = schema().to_string();
+        assert_eq!(
+            schema_validate_and_repair_json(s, json!({"name": "x", "count": 1}).to_string()),
+            ""
+        );
+    }
+
+    #[test]
+    fn ffi_invalid_value_returns_a_repair_prompt() {
+        let s = schema().to_string();
+        let out = schema_validate_and_repair_json(s, json!({"name": 5}).to_string());
+        assert!(!out.is_empty());
+        assert!(out.contains("corrected JSON"));
+    }
+
+    #[test]
+    fn ffi_unparseable_value_is_repaired_not_silently_valid() {
+        let out = schema_validate_and_repair_json(json!({"type": "object"}).to_string(), "not json".to_string());
+        assert!(out.contains("not valid JSON"));
+        assert!(out.contains("corrected JSON"));
+    }
+
+    #[test]
+    fn ffi_unparseable_schema_is_reported_honestly() {
+        let out = schema_validate_and_repair_json("not json".to_string(), json!({}).to_string());
+        assert!(out.contains("schema is not valid JSON"));
     }
 }

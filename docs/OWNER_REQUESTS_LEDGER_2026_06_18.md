@@ -823,6 +823,16 @@ calls: no blanket rule — choose per case.
       re-prompt`. +3 cargo tests (lists-all+shows-value+asks-json, none-when-no-
       violations, validate→repair round-trip). cargo --lib BOTH green (8/0). Wiring the
       loop into live generation is the owner-verification step.
+      ✅ §C.1 VALIDATE→REPAIR FFI 2026-06-19 (gate reachable from Swift): NEW
+      `#[uniffi::export] schema_validate_and_repair_json(schema_json, value_json) ->
+      String` — the whole §C.1 gate in ONE call: Swift passes the tool schema + the local
+      model's emitted value, gets back EITHER "" (valid → execute) OR a repair prompt
+      (re-prompt). The Swift local agent loop calls it after a local tool-call and decides
+      execute-vs-repair — PURE, no live-loop change. Honest: an unparseable schema/value
+      is reported (never silently "valid"). +4 cargo tests (valid→empty, invalid→repair
+      prompt, unparseable-value→repaired, unparseable-schema→reported). cargo --lib BOTH
+      green (12/0). Like the preflight gated FFI, this becomes app-callable once the owner
+      regenerates the UniFFI binding (build-agent-core.sh).
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner
