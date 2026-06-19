@@ -748,7 +748,11 @@ calls: no blanket rule — choose per case.
       — not as standalone features. Act/Work run the local agent loop powered by
       the Osaurus-adopted capabilities; training is reachable from the chat. Wire
       them into the shared mode stack, local=cloud parity.
-- [ ] Settings decluttered + coherent (P6.4c) — verify it reads clean in-app.
+- [~] Settings decluttered + coherent (P6.4c) — grouping/reordering landed + locked
+      (AppearanceSectionOrderTests); custom-theme editor aligned to the pixel-art look
+      (hard Rectangle, matches the palette swatch); theme-preview is pixel-art palette
+      for ALL themes (P6.4b). REMAINING (owner in-app): dead/duplicate-control sweep
+      (DELETION GUARDRAIL) + broader pixel-art alignment of the other Settings panels.
 
 ## Settings / staleness / substrate-finish (owner 2026-06-18)
 - [ ] **DEEP SETTINGS REPAIR** — beyond the declutter (P6.4c): AUDIT every Settings
