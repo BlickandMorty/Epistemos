@@ -1,8 +1,12 @@
 # OWNER REQUESTS LEDGER (2026-06-18) — the authoritative checklist
 
-> **READ-FIRST (owner 2026-06-19):** before editing/building, READ the research hub
-> `docs/research/DEEP_PLAN_AUDIT_HUB_2026_06_19.md` and every doc it indexes. A
-> continuous deep-research loop feeds it; build ON the research, never ahead of it.
+> **READ-FIRST (owner 2026-06-19):** before editing/building, READ the unified capstone
+> `docs/research/MASTER_SYNTHESIS_2026_06_19.md` (the one plan: keystone + build-once
+> primitives + governing constraints incl. the HARDENING LIFECYCLE + Phase 0→3 roadmap),
+> then the hub `docs/research/DEEP_PLAN_AUDIT_HUB_2026_06_19.md` and the per-slice docs it
+> indexes. A continuous deep-research loop feeds these; build ON the research, never ahead.
+> **HARDENING LIFECYCLE (owner 2026-06-19):** every item = harden-BEFORE → add → re-harden-AFTER
+> → after-port inspection (no gaps), enterprise-level. **Flag-OFF ≠ done.**
 
 The owner's words: *"everything I have been asking is not being done. it's being
 lazy… go back and look at my queries and requests and actually do them."* This is
@@ -2803,6 +2807,31 @@ native; AGPL server). ADOPT 2 patterns natively:
       list into R1's preference table, and DELETE the dead duplicate routers (`LocalAgent/ConfidenceRouter.swift`,
       `Omega/Inference/{DualBrainRouter,HybridRouter}.swift` — all "never instantiated in production").
       Collapse 4 routers → R1+R2. The durable fix behind the honest-nil patch.
+      🔎 FIX #2 RUNTIMEROUTER WIRING — STAGE 1 machinery + STAGE 1b mapper LANDED 2026-06-19 (the
+      durable lane-level fix, staged so the live selection path the owner iterated carefully is never
+      ripped out at once). `RuntimeRouter.route(_:)@580` chooses a RUNTIME LANE (mlx / gguf / cloud /
+      stub), NOT a model id — so it COMPLEMENTS the `sanitizedInteractiveLocalTextModelID` model-pin
+      fix (a645e6623), it doesn't replace it (lane vs model-within-lane). STAGE 1 (this) — NEW
+      `Epistemos/LocalAgent/RuntimeRouterShadow.swift`: pure, flag-gated (`EPISTEMOS_RUNTIMEROUTER_
+      LIVE_V0`, OFF), OBSERVE-ONLY machinery — `armed` + `role(forOperatingMode:)` (.fast→.quick /
+      .thinking→.reasoning / .pro→.code / .agent→.toolCaller) + `acceptedLane(from verdict:)`
+      (accept→lane / escalate→to / reject→nil — honest no-lane, never a silent fallback) +
+      `parityMatches(routerLane:liveLane:)` (by stableID; nil never matches) + `missionPacket(...)`
+      builder. STAGE 1b — `liveLane(from ResolvedBrainDescriptor:localLaneForModelID:)` maps the live
+      resolved runtime to its lane: cloud + Apple Intelligence direct, local via an INJECTED mlx/gguf
+      classifier (pure/testable — the live site passes `LocalTextModelID.runtimeKind`), `unavailable`
+      → nil. +8 tests (RuntimeRouterShadowTests). build-for-testing TEST BUILD SUCCEEDED (0 errors).
+      NO behaviour change (flag OFF = zero overhead, the router is NOT consulted). REMAINING staged
+      slices (each flag-gated, build-verified, owner-confirmed): STAGE 1c = the OBSERVE-ONLY hot-path
+      CALL at `CommandCenterRequestCompiler.ResolvedRuntime` / `QueryEngine.resolvedRuntime()` behind
+      the flag — build a MissionPacket, call a `RuntimeRouter` instance's `route`, compare
+      `acceptedLane` vs `liveLane` via `parityMatches`, record to `RuntimeRouterMetrics`, RETURN THE
+      SAME lane (still observe-only); STAGE 2 = PROMOTE (flag ON makes `route` authoritative for the
+      lane once parity is proven in-app); STAGE 3 = FOLD R2 (`TriageService.preferredAutomaticLocalModel`
+      priority list → the router's preference table, keep honest no-local→nil); STAGE 4 = DELETE the
+      dead R4 routers (ConfidenceRouter 12 refs / DualBrainRouter 3 / HybridRouter 0) AFTER rehosting
+      the diagnostic `routeProfiles()` adapter. MODEL SELECTION stays un-ticked [x] — owner confirms
+      select-X→generate-X in-app (and the lane parity) once the staged wire is promoted.
 - [ ] **R-WEBCLIP — web clipper → clean-markdown vault note (S16 gap, supersession vs Obsidian).**
       Spec: docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md. MAS core = a macOS Share Extension
       xcodegen target (`type:app-extension`, share-services, url+html; mirror `EpistemosWidgets`
