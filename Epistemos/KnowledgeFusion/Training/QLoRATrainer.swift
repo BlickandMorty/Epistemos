@@ -153,132 +153,34 @@ actor QLoRATrainer {
         config: TrainingConfig,
         progressHandler: (@Sendable (TrainingProgress) -> Void)?
     ) async throws -> AdapterMetadata {
-        var arguments = [
-            script.path,
-            "--model_path", modelPath.path,
-            "--data_path", dataPath.path,
-            "--output_path", outputPath.path,
-            "--num_iters", String(config.numIters),
-            "--seed", String(config.seed),
-            "--lora_rank", String(config.loraRank),
-            "--lora_alpha", String(config.loraAlpha),
-            "--batch_size", String(config.batchSize),
-            "--max_seq_len", String(config.maxSeqLen),
-            "--learning_rate", String(config.learningRate),
-        ]
-        if let replayPath {
-            arguments.append(contentsOf: ["--replay_path", replayPath.path])
-        }
+        // NATIVE in-process MLX LoRA training (owner 2026-06-18): the python3
+        // `Process()` subprocess is GONE — this now calls NativeLoRATrainer, which
+        // loads the base model + runs MLXLLM.LoRATrain.train in-process. The
+        // `script` URL only selects the adapter TYPE now (train_knowledge →
+        // "knowledge", train_style → "style").
+        let adapterType = script.deletingPathExtension().lastPathComponent
+            .replacingOccurrences(of: "train_", with: "")
 
         #if !EPISTEMOS_APP_STORE
-        guard FileManager.default.isExecutableFile(atPath: pythonPath) else {
-            throw QLoRATrainerError.trainingFailed("Python executable not found or not executable.")
-        }
-        guard FileManager.default.isReadableFile(atPath: script.path) else {
-            throw QLoRATrainerError.trainingFailed("Training script not found or not readable.")
-        }
-
-        let process = Process.init()
-        process.executableURL = URL(fileURLWithPath: pythonPath)
-        process.arguments = arguments
-        process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)
-
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-
-        activeProcess = process
-        defer { activeProcess = nil }
-
-        // Parse stdout in real-time for progress updates
-        let progressParser = TrainingProgressParser(
-            totalIterations: config.numIters,
-            handler: progressHandler
+        // (replay-buffer mixing is a follow-on native step; not yet threaded)
+        _ = replayPath
+        return try await NativeLoRATrainer.train(
+            modelDirectory: modelPath,
+            dataURL: dataPath,
+            outputDirectory: outputPath,
+            config: config,
+            adapterType: adapterType.isEmpty ? "knowledge" : adapterType,
+            baseModel: modelPath.lastPathComponent,
+            sourceVault: dataPath.deletingLastPathComponent().lastPathComponent,
+            progress: progressHandler
         )
-
-        let stdoutHandle = stdoutPipe.fileHandleForReading
-        let stderrHandle = stderrPipe.fileHandleForReading
-        let stderrCapture = KnowledgeFusionProcessOutputCapture()
-        stdoutHandle.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            if let line = String(data: data, encoding: .utf8) {
-                progressParser.parse(line)
-            }
-        }
-        stderrHandle.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            stderrCapture.append(data)
-        }
-
-        let timeoutSeconds = 3600.0
-        let state = ThrowingProcessContinuationState<Void>()
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                guard state.store(process: process, continuation: continuation) else {
-                    stdoutHandle.readabilityHandler = nil
-                    stderrHandle.readabilityHandler = nil
-                    continuation.resume(throwing: CancellationError())
-                    return
-                }
-
-                let timeoutTask = Task.detached(priority: .utility) {
-                    do {
-                        try await Task.sleep(for: .seconds(timeoutSeconds))
-                    } catch is CancellationError {
-                        return
-                    } catch {
-                        return
-                    }
-                    state.terminate()
-                    state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
-                }
-
-                process.terminationHandler = { proc in
-                    timeoutTask.cancel()
-                    stdoutHandle.readabilityHandler = nil
-                    stderrHandle.readabilityHandler = nil
-                    stderrCapture.consumeRemainder(from: stderrHandle)
-                    if proc.terminationStatus == 0 {
-                        state.resume(returning: ())
-                    } else {
-                        state.resume(throwing: QLoRATrainerError.trainingFailed(stderrCapture.stringValue()))
-                    }
-                }
-
-                do {
-                    try process.run()
-                } catch {
-                    timeoutTask.cancel()
-                    stdoutHandle.readabilityHandler = nil
-                    stderrHandle.readabilityHandler = nil
-                    state.resume(throwing: error)
-                }
-            }
-        } onCancel: {
-            state.terminate()
-            state.resume(throwing: CancellationError())
-        }
-
-        // Read and return metadata
-        let metadataPath = outputPath.appendingPathComponent("training_metadata.json")
-        guard FileManager.default.fileExists(atPath: metadataPath.path) else {
-            throw QLoRATrainerError.metadataNotFound(metadataPath)
-        }
-        let metadataData = try Data(contentsOf: metadataPath)
-        return try JSONDecoder().decode(AdapterMetadata.self, from: metadataData)
         #else
-        // The App Store sandbox cannot spawn /usr/bin/python3 to run
-        // the QLoRA training script. Pro/direct release keeps the
-        // training path; AppBootstrap and SettingsView already gate
-        // the KnowledgeFusion entry points out of MAS, so this
-        // surgical body gate is defense-in-depth.
-        _ = arguments
-        _ = progressHandler
+        // The App Store sandbox can't run heavy on-device training; the
+        // KnowledgeFusion entry points are already gated out of MAS (defense in
+        // depth), and NativeLoRATrainer itself is `#if !EPISTEMOS_APP_STORE`.
+        _ = (modelPath, dataPath, outputPath, replayPath, config, progressHandler, adapterType)
         throw QLoRATrainerError.trainingFailed(
-            "QLoRA training is not available in the App Store sandbox build."
+            "LoRA training is not available in the App Store sandbox build."
         )
         #endif
     }
