@@ -396,6 +396,24 @@ calls: no blanket rule — choose per case.
       mounted in SubstrateHealthPanel, rule #8) + LiteParseImportSeamTests (gate honesty,
       MAS scope, always-compiled+mounted, cross-runtime flag parity Swift↔Rust
       LITEPARSE_FLAG). build-for-testing green; existing panel asserts intact.
+      ✅ CONVERSION FFI 2026-06-19 (binding NOW fresh — owner ran build-agent-core.sh):
+      NEW `#[uniffi::export] liteparse_pdf_to_markdown(pdf_path) -> String` — JSON
+      envelope `{"ok":true,"markdown":…}` on success or `{"ok":false,"error":…}` on
+      failure (engine-not-wired / unsupported-format / failed) so the import surface
+      shows the honest outcome, NEVER a fake/empty note; non-PDF rejected, never shelled
+      out. INERT today (returns the not-wired error). +2 cargo tests; cargo --lib BOTH
+      green (7/0). The Swift import button → vault note is the next slice once the owner
+      regenerates the binding to include this export. **S2 NATIVE-BUILD RECIPE (owner
+      pipeline):** the real PDF→markdown needs (a) the PDFium binary — `pdfium-sys`
+      downloads from run-llama/pdfium-binaries (chromium/7897), runtime-loaded via
+      libloading on macOS; its build.rs ERRORS without the lib+include dirs present;
+      (b) the liteparse + pdfium + pdfium-sys crates added to agent_core/Cargo.toml with
+      `default-features = false` (NO tesseract = no Tesseract source build to start; PDF
+      text-extract works for text PDFs without OCR) and `tokio` `process` / `reqwest`
+      excluded; (c) then replace the inert `pdf_to_markdown` body with a real
+      `liteparse::LiteParse` call. That native step (binary placement + bindgen libclang
+      + linking + signing) is the owner build-verify; the agent_core seam + the FFI +
+      the Swift UI scaffold are all in place for it.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt

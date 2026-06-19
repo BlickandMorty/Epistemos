@@ -82,6 +82,26 @@ pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
     Err(LiteParseError::EngineNotWired)
 }
 
+/// FFI: convert a local PDF to Markdown for the Swift import UI. Returns a JSON envelope
+/// — `{"ok":true,"markdown":"…"}` on success, or `{"ok":false,"error":"…"}` on failure
+/// (engine not wired / unsupported format / conversion failed) so the import surface
+/// shows the honest outcome, NEVER a fake/empty note. A non-PDF is rejected
+/// (`UnsupportedFormat`), never shelled out. INERT until the liteparse crate is vendored
+/// (S2) — a PDF returns the `engine not wired` error today.
+#[uniffi::export]
+pub fn liteparse_pdf_to_markdown(pdf_path: String) -> String {
+    match pdf_to_markdown(&pdf_path) {
+        Ok(markdown) => format!(
+            "{{\"ok\":true,\"markdown\":{}}}",
+            serde_json::to_string(&markdown).unwrap_or_else(|_| "\"\"".to_string())
+        ),
+        Err(e) => format!(
+            "{{\"ok\":false,\"error\":{}}}",
+            serde_json::to_string(&e.to_string()).unwrap_or_else(|_| "\"conversion error\"".to_string())
+        ),
+    }
+}
+
 /// FFI: the liteparse seam status as JSON, for the Swift import UI to read across the
 /// UniFFI boundary. Honest — reports the engine is not yet wired + the PDF+OCR scope.
 #[uniffi::export]
@@ -138,5 +158,21 @@ mod tests {
         assert!(json.contains("pdf+ocr,no-subprocess"));
         assert!(json.contains("Apache-2.0"));
         assert!(json.contains(LITEPARSE_FLAG));
+    }
+
+    #[test]
+    fn ffi_pdf_to_markdown_returns_honest_error_envelope_when_inert() {
+        // A PDF, engine not wired → an honest error envelope (never fake markdown).
+        let out = liteparse_pdf_to_markdown("paper.pdf".to_string());
+        assert!(out.contains("\"ok\":false"));
+        assert!(out.contains("not wired"));
+        assert!(!out.contains("\"markdown\""));
+    }
+
+    #[test]
+    fn ffi_pdf_to_markdown_rejects_non_pdf_in_the_envelope() {
+        let out = liteparse_pdf_to_markdown("book.docx".to_string());
+        assert!(out.contains("\"ok\":false"));
+        assert!(out.contains("unsupported format"));
     }
 }
