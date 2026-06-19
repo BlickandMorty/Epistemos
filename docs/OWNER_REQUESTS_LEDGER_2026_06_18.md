@@ -192,6 +192,25 @@ calls: no blanket rule — choose per case.
       CLOUD path is separate (ChatCoordinator.runCommandCenterRustAgentPath) and needs its own
       tool-attachment audit. This is the careful multi-slice target for part 2 — NOT a one-line
       flip; flagged so it's fixed right, not papered over.
+      ✅ PART 2 — AUTO-ROUTE DETECTOR (deterministic core) 2026-06-19: the founding-thesis
+      "a plain query detects tool-need and invokes the right tool" decision, as a pure
+      verifiable primitive (the Swift live-wiring is the follow-on, like the preflight FFI).
+      NEW `query_needs_tools(query, candidates) -> bool` in agent_core/src/tool_preflight.rs:
+      true iff the lexical preflight finds ≥1 relevant tool for the query — so "read my file"
+      / "search my notes vault" → tools, while "what is the capital of France" → a direct
+      answer. COMPOSES the existing `select_tools` (no new scoring, no duplication). Plus a
+      flag-gated FFI `schema_auto_tool_route_json(query, candidates_json, max)` (flag
+      `EPISTEMOS_AUTO_TOOL_ROUTE_V0`, OFF) → `{"needs_tools":<bool>,"tools":[<names>]}`:
+      OFF (default) = passthrough `{"needs_tools":false,"tools":[]}` so the Swift caller
+      (ConfidenceRouter / shouldUseToolLoop) can call it UNCONDITIONALLY with zero behaviour
+      change; ON = the deterministic tool-need decision + the relevant tools (vault.search /
+      eidos.query / file.search) for a plain query. +3 cargo tests (needs-tools true for a
+      tool query, false for a plain query, FFI-off passthrough). cargo --lib BOTH green
+      (tool_preflight 21/0 each, 0 regression). NEXT for part 2: (a) wire this into the Swift
+      auto-route (ConfidenceRouter/PipelineService) flag-gated so a tool-need query enters the
+      tool loop / attaches tools — for CLOUD this means attaching the selected tools so the
+      model auto-uses them; (b) the GGUF-Gemma grammar-constrained tool-calling path so the
+      LOCAL Gemma lane can emit valid calls (canActAsAgent). Both are the live-path follow-ons.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
