@@ -382,12 +382,23 @@ calls: no blanket rule — choose per case.
       pieces are scattered into the composer, NOT the cohesive cowork LAYOUT from
       the owner's Claude-Desktop screenshot. Assemble the real surface (panels),
       reachable from chat. (P7.6)
-- [ ] **Local models "not working" → showing GPT instead of local** in Settings.
+- [~] **Local models "not working" → showing GPT instead of local** in Settings.
       Investigate WHY other local models don't load/resolve; fix the label so
       local rows show the real local model, never a cloud/GPT fallback unless
       cloud is the genuine active route. (SettingsView activeChatModelDisplayName /
       activeLocalTextModelDisplayName / `?? .openAI` ~1542; AgentBlueprint /
       Constellation / ModelProfile rows.)
+      ✅ LABEL FIXED 2026-06-18: `InferenceState.activeChatModelDisplayName` had
+      `if usesAutomaticCloudRouteForChatSurfaces { return "Auto Route" }` as its
+      FIRST statement, overriding an explicit `.localMLX` pick — so an unresolved
+      local model (`effectiveLocalTextModelID == nil`) under armed auto-route
+      rendered "Auto Route" (read as "showing GPT"). Moved the auto-route check
+      INSIDE the switch: `.localMLX` → always `activeLocalTextModelDisplayName`;
+      only a genuine `.cloud`/`.appleIntelligence` pick shows "Auto Route". Locked
+      by TriageServiceTests `unresolvedLocalChatPickNeverRendersAsAutoRouteOrCloud`.
+      Verified RootView `labelText` (723-731) already shows the local tier/model.
+      REMAINING (needs owner in-app repro): deeper "why doesn't the local model
+      resolve" root-cause + AgentBlueprint/Constellation/ModelProfile row labels.
 - [ ] **Qwen 3 8B visible again (P1.11)** — re-expose as an EXPLICIT pick under Fast
       or Think (whichever fits); visible user choice, NOT a silent fallback (P1.10
       still holds). Memory-gated.

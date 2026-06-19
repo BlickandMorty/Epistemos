@@ -4869,14 +4869,18 @@ final class InferenceState {
     }
 
     var activeChatModelDisplayName: String {
-        if usesAutomaticCloudRouteForChatSurfaces {
-            return "Auto Route"
-        }
-        return switch preferredChatModelSelection {
+        // Owner #1 (no hidden GPT route, 2026-06-18): an explicit LOCAL pick must
+        // show the local model name — never "Auto Route" or a cloud/GPT fallback.
+        // Previously the `usesAutomaticCloudRouteForChatSurfaces` check fired FIRST
+        // and returned "Auto Route" for ANY selection, so a user who picked a local
+        // model saw "Auto Route" (read as "showing GPT, not my local"). Auto-route
+        // may still escalate the chat stack to cloud, but the user's PICK is local,
+        // so the row reflects it; only a genuine cloud/Apple pick shows "Auto Route".
+        switch preferredChatModelSelection {
         case .localMLX:
-            activeLocalTextModelDisplayName
+            return activeLocalTextModelDisplayName
         case .appleIntelligence, .cloud:
-            preferredChatModelSelection.displayName
+            return usesAutomaticCloudRouteForChatSurfaces ? "Auto Route" : preferredChatModelSelection.displayName
         }
     }
 
