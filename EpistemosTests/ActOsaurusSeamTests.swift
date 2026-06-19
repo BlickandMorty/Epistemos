@@ -78,6 +78,18 @@ struct ActOsaurusSeamTests {
         #expect(server.contains("static let defaultPort: UInt16 = 1337"))
     }
 
+    @Test("S4: runTurn POSTs to the endpoint and throws honest errors — never a cloud fallback")
+    func s4RunTurnHonest() throws {
+        let bridge = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/ActOsaurusBridge.swift")
+        #expect(bridge.contains("func runTurn(model: String, messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String"))
+        #expect(bridge.contains("URLSession.shared.data(for: request)"))
+        // Every failure path is an HONEST throw — no silent cloud/GPT escalation.
+        #expect(bridge.contains("throw ActOsaurusError.serverNotEnabled"))
+        #expect(bridge.contains("ActOsaurusError.transport"))
+        #expect(bridge.contains("ActOsaurusError.requestFailed"))
+        #expect(bridge.contains("/v1/chat/completions"))
+    }
+
     #if !EPISTEMOS_APP_STORE
     @Test("S3: the INERT bridge stays honest — no endpoint, server not enabled, message round-trips")
     func s3InertBridgeHonest() {
@@ -88,6 +100,20 @@ struct ActOsaurusSeamTests {
         let msg = inert.makeRequestMessage(role: .user, content: "hello")
         #expect(msg.role == .user)
         #expect(msg.content == "hello")
+    }
+
+    @Test("S4: a turn with no running server throws an HONEST error, never a silent cloud route")
+    func s4HonestErrorNoServer() async {
+        // The inert bridge owns no server → it refuses honestly (owner #1: Act never
+        // silently falls back to a cloud/GPT route).
+        do {
+            _ = try await InertActOsaurusBridge().runTurn(model: "qwen", messages: [], maxTokens: 16)
+            Issue.record("expected serverNotEnabled — Act must never silently route to cloud")
+        } catch let error as ActOsaurusError {
+            #expect(error == .serverNotEnabled)
+        } catch {
+            Issue.record("wrong error type: \(error)")
+        }
     }
     #endif
 }
