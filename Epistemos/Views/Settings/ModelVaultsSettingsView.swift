@@ -370,6 +370,12 @@ private enum ProviderBucket: String, CaseIterable {
         if LocalTextModelID(rawValue: target.modelID) != nil {
             return .local
         }
+        // Foundation GGUF chat models (Gemma / VibeThinker / coder) are local
+        // too — they're descriptor IDs, not LocalTextModelID enum cases — so
+        // bucket them with Local Models for an honest summary count.
+        if EpistemosFoundationLineup.tier(forModelID: target.modelID) != nil {
+            return .local
+        }
 
         guard let model = CloudTextModelID.allCases.first(where: { $0.vendorModelID == target.modelID }) else {
             return nil
