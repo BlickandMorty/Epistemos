@@ -1049,6 +1049,19 @@ final class ChatState {
         syncContextWindowMetrics()
     }
 
+    /// Update a SPECIFIC message's content by id — robust to other appends (a
+    /// later user message won't be clobbered). Used by the deep-research run to
+    /// replace its in-progress placeholder with the finished report even if the
+    /// user typed something else meanwhile. No-op if the id is gone.
+    @discardableResult
+    func updateMessageContent(id: String, _ newContent: String) -> Bool {
+        guard let idx = messages.firstIndex(where: { $0.id == id }) else { return false }
+        messages[idx].content = newContent
+        markTranscriptChanged()
+        syncContextWindowMetrics()
+        return true
+    }
+
     // MARK: - Error Messages
 
     func addErrorMessage(_ message: String, kind: UserFacingChatErrorKind? = nil) {
