@@ -519,33 +519,3 @@ private struct ModelVaultDetailRow: View {
         }
     }
 }
-
-// MARK: - Vault File Row
-
-private struct VaultFileRow: View {
-    let name: String
-    let description: String
-    let availability: String
-
-    var body: some View {
-        HStack {
-            Image(systemName: "doc.text")
-                .frame(width: 20)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.body.monospaced())
-                Text(description)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Spacer()
-
-            Text(availability)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
