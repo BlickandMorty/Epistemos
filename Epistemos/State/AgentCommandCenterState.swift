@@ -567,11 +567,57 @@ final class AgentCommandCenterState {
         applySpecialist(command)
     }
 
+    /// How a per-command stored brain preference resolves against what's available.
+    nonisolated enum StoredBrainKind: Equatable {
+        /// No explicit pick (unset or the literal "auto") → use the recommendation.
+        case auto
+        /// An explicit pick that IS currently available → honor it.
+        case available
+        /// An explicit pick whose model is NOT currently available (uninstalled /
+        /// not loadable). Honest handling must not silently swap to the default.
+        case unavailableExplicitPick
+    }
+
+    /// Classify a per-command stored brain id against the available brains. Pure →
+    /// unit-testable without constructing the @MainActor state.
+    nonisolated static func classifyStoredBrain(
+        storedID: String?,
+        availableIDs: Set<String>
+    ) -> StoredBrainKind {
+        guard let storedID, storedID != "auto" else { return .auto }
+        return availableIDs.contains(storedID) ? .available : .unavailableExplicitPick
+    }
+
+    /// Honest-unavailable-specialist-pick flag (`EPISTEMOS_HONEST_UNAVAILABLE_
+    /// SPECIALIST_PICK_V0`). OFF (default) = today's behaviour exactly: an explicit
+    /// stored pick that isn't currently available silently falls to the
+    /// recommendation. ON = honest: surface NO recommendation (nil) so the picker
+    /// shows the pick as unavailable rather than swapping models behind the owner's
+    /// back. Opt-in (rather than OFF=honest like the InferenceState fix) because the
+    /// nil path flows to `selectedBrain` and the owner verifies the picker handles
+    /// it in-app before it becomes the default.
+    nonisolated static var honestUnavailableSpecialistPickArmed: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_HONEST_UNAVAILABLE_SPECIALIST_PICK_V0"] == "1"
+    }
+
     private func preferredBrain(for command: ACCSlashCommand) -> ACCBrainSelection? {
-        if let stored = storedBrainSelection(for: command) {
-            return stored
+        let storedID = userDefaults.string(
+            forKey: PersistenceKey.specialistBrainPrefix + command.rawValue
+        )
+        switch Self.classifyStoredBrain(storedID: storedID, availableIDs: Set(availableBrains.map(\.id))) {
+        case .available:
+            return storedBrainSelection(for: command)
+        case .unavailableExplicitPick:
+            // The owner picked a specific model that isn't available now. Honest
+            // (flag ON): surface no recommendation so the picker shows it as
+            // unavailable. OFF (default): today's behaviour — fall to the
+            // recommendation (byte-identical, since storedBrainSelection already
+            // returns nil here and the caller then recommends).
+            if Self.honestUnavailableSpecialistPickArmed { return nil }
+            return recommendedBrain(for: command)
+        case .auto:
+            return recommendedBrain(for: command)
         }
-        return recommendedBrain(for: command)
     }
 
     private func recommendedBrain(for command: ACCSlashCommand) -> ACCBrainSelection? {
