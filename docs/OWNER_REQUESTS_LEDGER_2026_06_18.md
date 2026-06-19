@@ -1170,10 +1170,20 @@ per pass). Keep until all done + hardened (rule #6/#8).
       SwiftUI skin. Goose engine lives in the shared Rust core so Act/Chat can tap
       its MCP/subagent pieces; surfaced primarily through Work. Validate Goose code
       patches against the P8.2 deterministic schemas. ProvenanceGate the vendor.
-- [ ] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
+- [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,
       NEVER destabilize the working chat.
+      ✅ SEAM A 2026-06-19: the isolated Work-backend seam landed (mirrors ActOsaurus
+      Seam A). Epistemos/Work/WorkBackend.swift (Pro-only protocol + WorkCapability +
+      INERT stub that THROWS engineNotWired — no fake capability, no silent fallback)
+      + WorkBackendGateStatus (flag EPISTEMOS_WORK_GOOSE_V0, OFF) + WorkBackendHealthRow
+      (visible). GUARDRAIL LOCKED BY TEST: the seam adds NO `.work` case to
+      CoworkChatMode and references NEITHER CoworkChatMode NOR ChatCoordinator →
+      Chat/Act definitionally UNCHANGED. block/goose confirmed Apache-2.0 (clean
+      ProvenanceGate). +4 tests; build green. NEXT (Goose S2): vendor block/goose's
+      Rust core into agent_core (crate via UniFFI) + a PLAN; then GooseWorkBackend
+      drives it.
 - [ ] **PER-FEATURE HARDENING + NO-DRIFT GUARANTEE (rule #6 extension, applies to
       ALL items)** — every feature/item gets its OWN hardening phase: own regression
       tests + re-verify the items it touches still work in-app + a "HARDENED <item>"
