@@ -35,6 +35,7 @@ Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply 
 - `docs/research/WHOLE_APP_FORWARD_AUDIT_2026_06_19.md` — (S6) surface inventory + readiness; **3-engine toggle doesn't exist as a primitive yet** (top prep); orphans to prune-in-pairs; ChatCoordinator+InferenceState convergence risk.
 - `docs/research/TOOL_SELECTION_COLBERT_2026_06_19.md` — (S12) lexical selector today (right shape, weak scorer); LFM2-ColBERT-350M as a learned retriever via a `ToolScorer` trait swap; in-process GGUF FFI, Pro-gated; downstream of loop-entry; LFM Open License → ProvenanceGate.
 - `docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md` — (S16) buildable specs for the 4 unmapped gaps: R-WEBCLIP (share-ext clipper, MAS), R-VAULT-MCP-SERVER (stdio MCP over the existing dispatcher, anti-Tolaria, Pro — lowest-risk win), R-SYNC (iCloud-Drive + invert SoT, high blast radius — do later), R-LIVE-ARTIFACTS (revive ArtifactHostView via HTMLWorkspace+data.json — lowest-risk win). Added as ledger items.
+- `docs/research/ENGINE_ISOLATION_PLAN_2026_06_19.md` — (S17) **the hard clause (no cross-engine import) is ALREADY TRUE** (ChatCoordinator has 0 Act/Work refs). Gaps: model the 3-engine axis (CoworkChatMode.work + ActLane) without re-coupling; registry already gives Act⊇Chat by the tier ladder; memory seam designed-but-unwired (sessions untagged, sessions/ unindexed); promote the Work guardrail into a general CI doctrine-lint gate.
 - (Appended as the loop produces them — keep this index complete.)
 
 ## METHODOLOGY — ITERATIVE DEEPENING + BREADTH (owner 2026-06-19)
@@ -66,7 +67,7 @@ sharpens. Never re-do a slice at the same depth; either go deeper or pick a new 
 | S14 | UI PORTS — AI-Elements (R-ELEMENTS), Streamdown, json-render (R-JSONRENDER), HTML canvas (P7.2), terminal (P7.3); WebKit-host vs native per port | ☐ |
 | S15 | DEEP RESEARCH engine — DeerFlow 2.0, multi-agent orchestration, LiveSubAgentResearcher | ☐ |
 | S16 | NEW GAPS from S5 — web clipper, multi-device sync, live Artifacts/dashboards, expose-vault-over-MCP + AGENTS.md (anti-Tolaria), MCP install/connectors UI | ✅ done → SUPERSESSION_GAPS_PLANS (+ 4 ledger items added) |
-| S17 | ENGINE-ISOLATION verification — engines connect only via memory+capability, never shared logic; MiniChat=MainChat ontology; session-as-native-tab | ☐ |
+| S17 | ENGINE-ISOLATION verification — engines connect only via memory+capability, never shared logic; MiniChat=MainChat ontology; session-as-native-tab | ✅ done → ENGINE_ISOLATION_PLAN |
 | S18 | APPLE INTELLIGENCE retention + foundation models for foundational features; capability ceiling (P7.1); honest gating doctrine | ☐ |
 | S19 | PROVENANCE/HONESTY moat — Eidos closed-citation, cognitive DAG, ReplayBundle, AnswerPacket, RunEventLog — surface everywhere | ☐ |
 
