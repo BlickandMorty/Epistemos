@@ -112,6 +112,34 @@ struct RuntimeRouterShadowTests {
         )
     }
 
+    @Test("lane(forRuntimeKind:) classifies a local model's runtime to its lane")
+    func laneForRuntimeKind() {
+        #expect(RuntimeRouterShadow.lane(forRuntimeKind: .gguf) == .gguf)
+        #expect(RuntimeRouterShadow.lane(forRuntimeKind: .mlx) == .mlx)
+        // .remote only appears for non-local descriptors → falls back to .mlx.
+        #expect(RuntimeRouterShadow.lane(forRuntimeKind: .remote) == .mlx)
+    }
+
+    @Test("the live composition (liveLane + lane(forRuntimeKind:)) classifies local picks end-to-end")
+    func liveLaneComposedWithRuntimeKind() {
+        // Mirrors the live site: a .local descriptor classified via runtimeKind.
+        let classify: (String) -> RuntimeLane = { id in
+            RuntimeRouterShadow.lane(forRuntimeKind: id.contains("gguf") ? .gguf : .mlx)
+        }
+        #expect(
+            RuntimeRouterShadow.liveLane(
+                from: .local(modelId: "google/gemma-4-E2B-it-qat-q4_0-gguf", displayName: "Gemma"),
+                localLaneForModelID: classify
+            ) == .gguf
+        )
+        #expect(
+            RuntimeRouterShadow.liveLane(
+                from: .local(modelId: "qwen3_4B4Bit", displayName: "Qwen"),
+                localLaneForModelID: classify
+            ) == .mlx
+        )
+    }
+
     @Test("liveLane parity: a resolved descriptor and the router's verdict agree by lane")
     func liveLaneParityRoundTrip() throws {
         let classify: (String) -> RuntimeLane = { _ in .mlx }

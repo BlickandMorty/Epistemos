@@ -2832,6 +2832,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       dead R4 routers (ConfidenceRouter 12 refs / DualBrainRouter 3 / HybridRouter 0) AFTER rehosting
       the diagnostic `routeProfiles()` adapter. MODEL SELECTION stays un-ticked [x] — owner confirms
       select-X→generate-X in-app (and the lane parity) once the staged wire is promoted.
+      ✅ STAGE 1c classifier 2026-06-19: `RuntimeRouterShadow.lane(forRuntimeKind: BackendRuntimeKind)
+      -> RuntimeLane` (.gguf→.gguf, .mlx→.mlx, .remote→.mlx) — the pure primitive the live site
+      injects into `liveLane` for a `.local` descriptor (composed: `liveLane(from: resolved) { id in
+      lane(forRuntimeKind: LocalTextModelID(rawValue: id)?.runtimeKind ?? .gguf) }`; a non-enum id is a
+      foundation GGUF descriptor → `.gguf` default). +2 tests. build-for-testing TEST BUILD SUCCEEDED
+      (0 errors). So ALL STAGE-1c PURE primitives are now built + tested (armed flag, role,
+      missionPacket, acceptedLane, liveLane, lane(forRuntimeKind:), parityMatches, RuntimeRouterMetrics).
+      The ONLY remaining piece is the ~10-line OBSERVE-ONLY hot-path CALL at the `ResolvedRuntime`
+      construction site in `CommandCenterRequestCompiler` — when `RuntimeRouterShadow.armed`, build a
+      MissionPacket, obtain a `RuntimeRouter`, `route(packet)`, compare `acceptedLane` vs the composed
+      `liveLane`, record to `RuntimeRouterMetrics`, RETURN THE SAME `ResolvedRuntime` (zero behaviour
+      change). That call is the next STAGE-1c slice (owner confirms the parity log in-app); STAGE 2+
+      promote/fold/delete as above.
 - [ ] **R-WEBCLIP — web clipper → clean-markdown vault note (S16 gap, supersession vs Obsidian).**
       Spec: docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md. MAS core = a macOS Share Extension
       xcodegen target (`type:app-extension`, share-services, url+html; mirror `EpistemosWidgets`
