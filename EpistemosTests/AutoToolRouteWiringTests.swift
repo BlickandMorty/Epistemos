@@ -150,4 +150,39 @@ struct AutoToolRouteWiringTests {
             #expect(PipelineService.ggufToolDispatchSchema(query: "find my note", tools: tools) == nil)
         }
     }
+
+    // MARK: - GGUF constrained-output parser ({name, input} → tool call)
+
+    @Test("parses a constrained {name,input} tool call into name + arguments JSON")
+    func ggufParseToolCall() throws {
+        let raw = "{\"name\":\"vault.search\",\"input\":{\"query\":\"my note\"}}"
+        let call = try #require(PipelineService.parseGgufToolCall(raw))
+        #expect(call.name == "vault.search")
+        let argData = try #require(call.argumentsJSON.data(using: .utf8))
+        let args = try #require(try JSONSerialization.jsonObject(with: argData) as? [String: Any])
+        #expect(args["query"] as? String == "my note")
+    }
+
+    @Test("a tool call with no input → empty-object arguments (a no-param tool still dispatches)")
+    func ggufParseToolCallNoInput() throws {
+        let call = try #require(PipelineService.parseGgufToolCall("{\"name\":\"refresh\"}"))
+        #expect(call.name == "refresh")
+        #expect(call.argumentsJSON == "{}")
+    }
+
+    @Test("tolerates surrounding whitespace/newlines around the JSON")
+    func ggufParseToolCallWhitespace() throws {
+        let call = try #require(PipelineService.parseGgufToolCall("\n  {\"name\":\"x\",\"input\":{}}  \n"))
+        #expect(call.name == "x")
+        #expect(call.argumentsJSON == "{}")
+    }
+
+    @Test("non-conforming output → nil (plain text, missing name, non-object input)")
+    func ggufParseToolCallNonConforming() {
+        #expect(PipelineService.parseGgufToolCall("here is your answer") == nil)
+        #expect(PipelineService.parseGgufToolCall("{\"input\":{}}") == nil)          // no name
+        #expect(PipelineService.parseGgufToolCall("{\"name\":\"\"}") == nil)         // empty name
+        #expect(PipelineService.parseGgufToolCall("{\"name\":\"x\",\"input\":5}") == nil) // non-object input
+        #expect(PipelineService.parseGgufToolCall("") == nil)
+    }
 }

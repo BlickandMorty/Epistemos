@@ -516,6 +516,42 @@ final class PipelineService {
         #endif
     }
 
+    /// Parse a GGUF Gemma's grammar-CONSTRAINED tool-call output into a dispatchable
+    /// `(name, argumentsJSON)`. When the generation is constrained by the dispatch
+    /// schema (`ggufToolDispatchSchema`), the model emits exactly
+    /// `{"name": <tool>, "input": {…}}` (the shape of Rust
+    /// `grammar::dispatch_schema_for_tools`). This turns that into the tool name +
+    /// the arguments JSON the tool-execution path consumes. Returns nil for any
+    /// non-conforming output (a plain text answer, no `name`, a non-object `input`)
+    /// so the caller treats it as a normal text response rather than a tool call.
+    /// Pure — unit-testable without the FFI / a live model.
+    nonisolated static func parseGgufToolCall(
+        _ raw: String
+    ) -> (name: String, argumentsJSON: String)? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = trimmed.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let name = obj["name"] as? String,
+              !name.isEmpty else {
+            return nil
+        }
+        // `input` is the tool's arguments object. Missing/absent → empty args (a
+        // tool with no params still dispatches); a non-object input is malformed.
+        let argumentsJSON: String
+        if let input = obj["input"] {
+            guard let inputObject = input as? [String: Any],
+                  JSONSerialization.isValidJSONObject(inputObject),
+                  let argData = try? JSONSerialization.data(withJSONObject: inputObject),
+                  let argString = String(data: argData, encoding: .utf8) else {
+                return nil
+            }
+            argumentsJSON = argString
+        } else {
+            argumentsJSON = "{}"
+        }
+        return (name: name, argumentsJSON: argumentsJSON)
+    }
+
     private func resolvedManagedToolRuntimeVaultPath() -> String {
         FoundationSafety.managedToolRuntimeVaultDirectory(
             preferredVaultPath: vaultPathProvider()
