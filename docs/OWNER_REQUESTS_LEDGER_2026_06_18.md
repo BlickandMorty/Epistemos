@@ -93,8 +93,18 @@ calls: no blanket rule — choose per case.
       4. **SEARCH-PAGE CLICK REGRESSION** — clicking anywhere on the landing/
          search page misbehaves. Audit Landing/* + HologramSearchSidebar gesture
          handling and fix.
-- [ ] **PER-MODEL VAULTS (KnowledgeFusion) — owner 2026-06-18 (queue after
-      DeerFlow 5e-2). Build+run verify new models + real status render in-app;
+- [~] **PER-MODEL VAULTS (KnowledgeFusion) — owner 2026-06-18. IN PROGRESS.
+      DONE (part 2 first cut): ModelVaultsSettingsView no longer renders generic
+      hardcoded "Present in compiled vaults" rows — new ModelVaultFileInspector
+      (always-compiled, tested) probes each target's vault dir for the canonical
+      files (real size + last-modified, honest missing), rendered as per-model
+      DisclosureGroups (name+ID+compiled-dot+total size header; per-file size +
+      relative mtime + honest "Not compiled" when expanded), compiled-first sort.
+      PENDING: part 1 (ensure NEW local models — Gemma 26B-A4B, LFM2.5, 2-bit 12B,
+      VibeThinker, Qwen3-8B, Holo — are vault TARGETS: they auto-derive from
+      LocalModelCatalog installed + isReleaseValidatedForInteractiveChat, so verify
+      each is cataloged+LocalTextModelID+validated) + sane default instructions;
+      part 2 polish (instructions.md content preview). Build+run verify in-app;
       harden + auto-commit+push.**
       (1) UPDATE KnowledgeFusion vaults for the NEW local models — Gemma 26B-A4B,
           LFM2.5, 2-bit 12B, VibeThinker, Qwen3-8B, Holo — each must be a vault
