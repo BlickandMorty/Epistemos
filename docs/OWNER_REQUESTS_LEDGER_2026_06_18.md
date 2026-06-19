@@ -806,7 +806,14 @@ calls: no blanket rule — choose per case.
       (would duplicate the stronger Swift-native GenUI). Per-feature: GenUI is
       already comprehensively hardened (4 test files incl. determinism + canonical-
       body pairing). NO new code this slice — there was no gap to fill.
-- [ ] **PORT github.com/Alphanimble/htmlstream (R-HTMLSTREAM)** — owner wants a FULL
+- [~] **R-HTMLSTREAM — VERDICT done 2026-06-18 (docs/RESEARCH_HTMLSTREAM_2026_06_18.md).**
+      StreamHtml = MIT TS/React streaming-HTML renderer (HTML counterpart to
+      Streamdown; repair pipeline + DOMPurify). PORT via the WebKit-bundle path
+      Epistemos ALREADY uses for Tiptap (dev-time build, NEVER npm-at-runtime),
+      render in a WKWebView for the P7.2 HTML workspace / rich chat-HTML; lift the
+      repair pipeline + DOMPurify, drop the AI-SDK glue, pixel-art reskin,
+      ProvenanceGate direct_import. No code lifted (research-first). Original:
+      PORT github.com/Alphanimble/htmlstream (R-HTMLSTREAM)** — owner wants a FULL
       port. Deeply analyze/research first (not local — clone + read). Likely pairs
       with P7.2 (HTML workspace + chat-drivable canvas / live viewer). Verdict doc
       (what it is, stack, license, native-vs-WebKit mapping), then full port +
@@ -1087,8 +1094,9 @@ needs it), never run a Node/Python sidecar.
 - [ ] **R-FIELDTHEORY** — github.com/afar1/fieldtheory: research + FULL port into
       Epistemos, reskin to pixel-art (fonts), fix visual inconsistencies. WebKit OK
       if the surface needs it.
-- [ ] **R-HTMLSTREAM** — github.com/Alphanimble/htmlstream: research + FULL port;
-      likely pairs with P7.2 (HTML workspace + chat-drivable canvas / live viewer).
+- [~] **R-HTMLSTREAM** — VERDICT done 2026-06-18 (docs/RESEARCH_HTMLSTREAM_2026_06_18.md):
+      WebKit-bundle port (Tiptap pattern) → P7.2 HTML workspace; lift repair
+      pipeline + DOMPurify; MIT direct_import; pixel-art reskin.
 - [ ] **R-LITELLM-CP** — github.com/LiteLLM-Labs/litellm-agent-control-plane: maps
       onto our agent orchestration/routing (RuntimeRouter + agent_core loop + Act).
       Python → adopt the control-plane/routing-policy PATTERNS natively, NO sidecar.
