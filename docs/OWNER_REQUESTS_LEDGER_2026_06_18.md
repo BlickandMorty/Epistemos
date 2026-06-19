@@ -1,5 +1,9 @@
 # OWNER REQUESTS LEDGER (2026-06-18) — the authoritative checklist
 
+> **READ-FIRST (owner 2026-06-19):** before editing/building, READ the research hub
+> `docs/research/DEEP_PLAN_AUDIT_HUB_2026_06_19.md` and every doc it indexes. A
+> continuous deep-research loop feeds it; build ON the research, never ahead of it.
+
 The owner's words: *"everything I have been asking is not being done. it's being
 lazy… go back and look at my queries and requests and actually do them."* This is
 the complete list of EVERY owner request this session. **A line is DONE only when
