@@ -1269,7 +1269,18 @@ per pass). Keep until all done + hardened (rule #6/#8).
       `read_only` defaults it). +2 cargo tests (recipe snake_case wire-form +
       skip_serializing_if round-trip; WorkRequest carries params + stays inert).
       cargo --lib BOTH green (default 72/0, pro-build 92/0 on `work`). GUARDRAIL
-      holds. NEXT (S5): the provider/format layer (deps permitting) + FFI-export the
+      holds.
+      ✅ S5 2026-06-19 (recipe Settings leaf + grew WorkRequest): vendored block/goose
+      recipe `Settings` VERBATIM (goose_provider / goose_model / temperature: f32 /
+      max_turns) into `work::vendored_goose::recipe` (Apache-2.0 direct_import; ToSchema
+      trimmed; `PartialEq` added but NOT `Eq` — `temperature: Option<f32>` isn't Eq;
+      `skip_serializing_if` preserved byte-for-byte). Grew the typed `WorkRequest` with
+      `settings: Option<Settings>` (a Work task's model config; None = engine defaults,
+      `read_only` defaults it) — and DROPPED `Eq` from `WorkRequest`'s derive (the f32
+      forbids it; `PartialEq` kept, nothing compares whole requests for Eq; documented).
+      +2 cargo tests (Settings None-skip round-trip; WorkRequest carries settings +
+      stays inert). cargo --lib BOTH green (default 74/0, pro-build 94/0). GUARDRAIL
+      holds. NEXT (S6): the provider/format layer (deps permitting) + FFI-export the
       real run_work_session.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage

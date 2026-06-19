@@ -74,9 +74,15 @@ works for block/goose, the same way Osaurus S2 vendored `ServerHealth`.
    typed `WorkRequest` with `parameters: Vec<RecipeParameter>` (a Work task's declared
    typed inputs). `run_work_session` still inert. cargo `--lib work` green BOTH profiles
    (72/0, 92/0). GUARDRAIL holds.
-4. **S5:** the provider/format layer (OpenAI/Anthropic wire formats) once its deps
+4. **S5 ✅ (2026-06-19):** vendored block/goose recipe `Settings` VERBATIM (provider/
+   model/`temperature: f32`/max_turns; `direct_import`, ToSchema trimmed, `PartialEq`
+   added but NOT `Eq` — the f32) + grew `WorkRequest` with `settings: Option<Settings>`
+   (Work task model config); dropped `Eq` from `WorkRequest` (the embedded f32),
+   `PartialEq` kept. `run_work_session` still inert. cargo `--lib work` green BOTH
+   profiles (74/0, 94/0). GUARDRAIL holds.
+5. **S6:** the provider/format layer (OpenAI/Anthropic wire formats) once its deps
    are satisfied; FFI-export the real `run_work_session`.
-5. **S6+:** the agent loop + subagents + session (the engine), behind the flag, with
+6. **S7+:** the agent loop + subagents + session (the engine), behind the flag, with
    the P8.2 schema validation gate; then the Swift `GooseWorkBackend` drives it.
 
 ## Net
