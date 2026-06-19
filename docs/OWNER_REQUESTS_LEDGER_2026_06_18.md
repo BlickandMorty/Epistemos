@@ -3052,3 +3052,18 @@ native; AGPL server). ADOPT 2 patterns natively:
       artifact offload + the MAS local-vault research mode. Deepen: docs/research/DEEP_RESEARCH_ENGINE_2026_06_19.md
       (+ the surface-reskin/fuller-clone round). Gating: web research Pro/cloud; local-vault research MAS. The
       goal — a deep-research space as polished + capable as DeerFlow 2.0's, but native + pixel-art + provenance-real.
+      📍 PLACEMENT (owner asked "where should it be fused — Act/Work/Chat?", 2026-06-19) — RECOMMENDATION: deep
+      research is a DISTINCT multi-agent WORKFLOW, so it lives as its **OWN coherent "Deep Research" space/leg**
+      (the reskinned surface above) — NOT folded invisibly into one engine. But its LIFTED PARTS map cleanly,
+      per the engine-isolation doctrine (capability shared via the registry, not duplicated): (a) **ENTRY = CHAT**
+      — keep the composer deep-research button ("research this deeply" from a conversation) as the quick path +
+      the space as the expanded view; capability-aware in MiniChat too. (b) **RUNTIME = ACT-class** — the
+      plan→parallel-sub-agents→synthesize orchestration IS an autonomous multi-agent task, exactly Act's nature
+      (Osaurus-local brain); the Deep Research space is effectively a specialized Act surface. So Act KNOWS deep-
+      research as a capability and can launch it; the engine stays the in-process LocalAgent loop (already true).
+      (c) **CODER ROLE → WORK** — DeerFlow's Coder (code-exec in a sandbox) maps to Work=Goose via the shared
+      **Sandbox seam** (Lume/Apple-container, Pro); a `coder` sub-agent routes there, never to Chat's path. (d)
+      **synthesis output → Epdoc** (post-edit) + the provenance footer. So: own space, Chat entry, Act runtime,
+      Work for code-exec, all via the SHARED registry + memory seams (no cross-engine code coupling). Owner: confirm
+      this split or redirect. Same model for **Open Code (Goose/Work)** — fully cloned app-native (lift the logic,
+      not run the program), which is the same "clone things like DeerFlow" approach the owner affirmed.
