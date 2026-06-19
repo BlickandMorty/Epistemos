@@ -158,6 +158,47 @@ pub fn schema_preflight_select_tools_json(query: String, candidates_json: String
     serde_json::to_string(&selected).unwrap_or_else(|_| "[]".to_string())
 }
 
+/// Flag that arms the live RAG-preflight narrowing (OFF by default).
+pub const SCHEMA_PREFLIGHT_FLAG: &str = "EPISTEMOS_SCHEMA_PREFLIGHT_V0";
+
+fn flag_armed(raw: Option<&str>) -> bool {
+    matches!(
+        raw.map(|s| s.trim().to_ascii_lowercase()).as_deref(),
+        Some("1") | Some("true") | Some("yes") | Some("on")
+    )
+}
+
+fn schema_preflight_armed() -> bool {
+    flag_armed(std::env::var(SCHEMA_PREFLIGHT_FLAG).ok().as_deref())
+}
+
+/// The flag-gated selection core (pure): when `armed`, narrow to the preflight-selected
+/// tools; otherwise PASS THROUGH all tool names unchanged. Lets the live caller wire the
+/// preflight in UNCONDITIONALLY with zero behavior change until the flag is flipped.
+fn gated_select_names(query: &str, inputs: Vec<PreflightToolInput>, max: usize, armed: bool) -> Vec<String> {
+    if !armed {
+        return inputs.into_iter().map(|i| i.name).collect(); // passthrough — all tools
+    }
+    let candidates: Vec<ToolCandidate> = inputs
+        .into_iter()
+        .map(|i| ToolCandidate::new(i.name, i.description, i.keywords))
+        .collect();
+    select_tools(query, &candidates, max)
+}
+
+/// FFI: FLAG-GATED RAG preflight for the LIVE agent path. Returns the preflight-selected
+/// tool names when `EPISTEMOS_SCHEMA_PREFLIGHT_V0` is armed; otherwise returns ALL the
+/// input tool names unchanged. The Swift local-tool path can call this unconditionally:
+/// flag OFF → identical to today (every tool), flag ON → the tight ~3-5 footprint — so
+/// the wiring lands safely and the owner verifies the ON behavior in-app. Honest empty
+/// `[]` on a parse error.
+#[uniffi::export]
+pub fn schema_preflight_select_tools_gated_json(query: String, candidates_json: String, max: u32) -> String {
+    let inputs: Vec<PreflightToolInput> = serde_json::from_str(&candidates_json).unwrap_or_default();
+    let names = gated_select_names(&query, inputs, max as usize, schema_preflight_armed());
+    serde_json::to_string(&names).unwrap_or_else(|_| "[]".to_string())
+}
+
 /// A candidate tool paired with its declared parameter schema (a JSON object schema),
 /// for the §C.1 preflight → dispatch-grammar pipeline.
 pub struct PreflightTool<'a> {
@@ -352,5 +393,36 @@ mod tests {
             schema_preflight_select_tools_json("xyzzy".to_string(), catalog, 5),
             "[]"
         );
+    }
+
+    #[test]
+    fn flag_armed_parses_honestly() {
+        assert!(flag_armed(Some("1")));
+        assert!(flag_armed(Some(" On ")));
+        assert!(!flag_armed(None));
+        assert!(!flag_armed(Some("0")));
+        assert!(!flag_armed(Some("")));
+    }
+
+    #[test]
+    fn gated_passes_through_all_tools_when_flag_off() {
+        // The live-wiring safety: flag OFF → EVERY tool, in input order, unchanged.
+        let inputs = vec![
+            PreflightToolInput { name: "read_file".into(), description: "Read a file".into(), keywords: vec![] },
+            PreflightToolInput { name: "web_search".into(), description: "Search".into(), keywords: vec![] },
+        ];
+        let names = gated_select_names("read my file", inputs, 5, false);
+        assert_eq!(names, vec!["read_file".to_string(), "web_search".to_string()]);
+    }
+
+    #[test]
+    fn gated_narrows_to_preflight_when_flag_on() {
+        let inputs = vec![
+            PreflightToolInput { name: "read_file".into(), description: "Read a file from disk".into(), keywords: vec!["file".into()] },
+            PreflightToolInput { name: "web_search".into(), description: "Search the web".into(), keywords: vec!["search".into()] },
+        ];
+        let names = gated_select_names("read my file", inputs, 5, true);
+        assert!(names.contains(&"read_file".to_string()));
+        assert!(!names.contains(&"web_search".to_string())); // narrowed to the relevant tool
     }
 }
