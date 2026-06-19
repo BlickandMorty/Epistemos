@@ -1116,6 +1116,18 @@ calls: no blanket rule — choose per case.
       routing (owner's explicit concern). Fuse inward (strengthen the one Osaurus-
       local lane), never a new branch. Study
       HERMES_AGENT_CORE_2_0_DESIGN + the real repo; compare/borrow, fuse natively.
+      FLUIDITY MANDATE (owner 2026-06-18, hard-won lesson): the PAST failure was
+      running Hermes as a SUBPROCESS (terminal agent) and trying to BRIDGE it to
+      SwiftUI — the glue (IPC/streaming/lifecycle) never worked. DO NOT repeat it.
+      This time: (a) **NO subprocess** — lift Hermes's agent CODE in-process into
+      LocalAgent (Rust/Swift), called by direct fn/FFI, the NO-HIDDEN-SIDECAR way;
+      (b) **NO Hermes-UI port / NO terminal→SwiftUI bridge** — take Hermes's BRAIN,
+      not its screen; the UI is already solved (native Act + OpenClaw's WebKit UI
+      drive the in-process engine). Hermes "has its own UI now" is irrelevant — we do
+      NOT adopt it. Fluidity comes from EMBED-don't-BRIDGE: LocalAgent already drives
+      the app UI, so fusing Hermes's logic in means the UI keeps working with zero new
+      wiring. (Contrast: OpenClaw IS hosted via WebKit — it's a whole TS/Node app and
+      its UI is the point; Hermes is code-to-fuse, not a UI-to-host.)
 - [ ] **Study the best chat/agent apps (R-APPS, owner 2026-06-18)** — besides
       Osaurus: LM Studio, HuggingFace (chat-ui/transformers/candle), Unsloth, Jan,
       Ollama, Open WebUI, Cherry Studio, LibreChat, etc. Mine their SYSTEM PROMPTS
