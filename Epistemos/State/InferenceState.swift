@@ -4600,6 +4600,18 @@ final class InferenceState {
         }
     }
 
+    /// P6.1 — the brand logo for a cloud provider, honoring the active account
+    /// runtime (OpenAI→Codex / Anthropic→Claude Code) the same way
+    /// `runtimeProviderDisplayName` does, so the logo matches the label.
+    func providerBrand(for provider: CloudModelProvider) -> ProviderBrand {
+        let accountRuntime: Bool = switch provider {
+        case .openAI: openAIUsesCodexAccountRuntime
+        case .anthropic: anthropicUsesClaudeCodeAccountRuntime
+        default: false
+        }
+        return ProviderBrand.cloud(provider, accountRuntime: accountRuntime)
+    }
+
     func runtimeControlTitle(for provider: CloudModelProvider) -> String {
         switch provider {
         case .openAI where openAIUsesCodexAccountRuntime:

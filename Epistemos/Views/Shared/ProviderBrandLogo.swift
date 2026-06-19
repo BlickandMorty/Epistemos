@@ -1,0 +1,93 @@
+import Foundation
+
+// P6.1 (owner 2026-06-19): the provider→logo MAP — a single TESTED source of truth
+// for which brand glyph represents each model provider (cloud + local + account
+// runtimes + Apple). Real lobehub B&W SVGs are used where staged in the asset
+// catalog; EVERY brand also has an SF-Symbol fallback so something always renders
+// (the staged SVG set is partial — render of the real logos is the owner's in-app
+// check). Pure + unit-tested; derivation honors the account-runtime distinction.
+enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
+    case claude          // Anthropic
+    case chatGPT         // OpenAI
+    case gemini          // Google
+    case claudeCode      // Anthropic account runtime
+    case codex           // OpenAI account runtime
+    case gemma           // local Google Gemma
+    case qwen            // local Alibaba Qwen
+    case apple           // Apple Intelligence
+    case kimi            // Moonshot
+    case zai             // Z.AI / GLM
+    case minimax
+    case deepseek
+    case generic         // unknown / lobehub generic
+
+    var displayName: String {
+        switch self {
+        case .claude: "Claude"
+        case .chatGPT: "ChatGPT"
+        case .gemini: "Gemini"
+        case .claudeCode: "Claude Code"
+        case .codex: "Codex"
+        case .gemma: "Gemma"
+        case .qwen: "Qwen"
+        case .apple: "Apple Intelligence"
+        case .kimi: "Kimi"
+        case .zai: "Z.AI"
+        case .minimax: "MiniMax"
+        case .deepseek: "DeepSeek"
+        case .generic: "Model"
+        }
+    }
+
+    /// Asset-catalog name for the staged lobehub SVG. nil → SF-Symbol fallback.
+    /// TODO(P6.1 follow-on): stage the remaining lobehub SVGs (Claude/ChatGPT/Gemini/
+    /// Codex/Gemma/Qwen/Apple) so these light up too.
+    var assetName: String? {
+        switch self {
+        case .claudeCode: "ProviderLogoClaudeCode"
+        case .kimi: "ProviderLogoKimi"
+        default: nil
+        }
+    }
+
+    /// SF-Symbol fallback so SOMETHING always renders (render-safe without assets).
+    var sfSymbolFallback: String {
+        switch self {
+        case .claude, .claudeCode: "sparkle"
+        case .chatGPT, .codex: "bubble.left.and.text.bubble.right"
+        case .gemini: "diamond"
+        case .gemma: "g.circle"
+        case .qwen: "q.circle"
+        case .apple: "apple.logo"
+        case .kimi: "moon.stars"
+        case .zai: "z.circle"
+        case .minimax: "m.circle"
+        case .deepseek: "d.circle"
+        case .generic: "cpu"
+        }
+    }
+
+    // MARK: - Derivation
+
+    /// The brand for a cloud provider, honoring the account-runtime distinction
+    /// (OpenAI→Codex / Anthropic→Claude Code) when those runtimes are active.
+    static func cloud(_ provider: CloudModelProvider, accountRuntime: Bool = false) -> ProviderBrand {
+        switch provider {
+        case .openAI: accountRuntime ? .codex : .chatGPT
+        case .anthropic: accountRuntime ? .claudeCode : .claude
+        case .google: .gemini
+        case .kimi: .kimi
+        case .zai: .zai
+        case .minimax: .minimax
+        case .deepseek: .deepseek
+        }
+    }
+
+    /// The brand for a local model id (best-effort by family substring).
+    static func local(modelID: String) -> ProviderBrand {
+        let id = modelID.lowercased()
+        if id.contains("gemma") { return .gemma }
+        if id.contains("qwen") || id.contains("qwopus") { return .qwen }
+        return .generic
+    }
+}
