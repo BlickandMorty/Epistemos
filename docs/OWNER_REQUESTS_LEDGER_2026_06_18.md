@@ -2300,6 +2300,21 @@ native; AGPL server). ADOPT 2 patterns natively:
       pipeline-robustness regression (reqs 8/9/10 — integrity "corrupted"/"not complete",
       the missing progress bar, resume) are SEPARATE follow-on slices — this step only
       restores the install-row VISIBILITY that was hidden.
+      (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
+      don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
+      downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
+      restored the hidden install rows; this is the explicit ACCEPTANCE BAR for it: the
+      Settings models view must visibly show **LFM2, VibeThinker, and ALL Gemma variants**
+      (plus Qwen + every other retained lineup entry) — each with state/size/RAM/uses —
+      and the owner can install each. VERIFY each named model actually renders (not just
+      the curated/optional MLX sections generically): if LFM2 / VibeThinker / a Gemma
+      variant is GGUF-foundation-only (installs via the one-tap package, not an
+      individual row), it must STILL be individually LISTED + visible in the "All models
+      (advanced)" disclosure with an honest state — not absent. If any named model is
+      missing from `EpistemosFoundationLineup` entirely, add it. Owner verifies in-app
+      once pulled; don't tick this until LFM2 + VibeThinker + the Gemma family are all
+      visibly listed. (This is the (A) follow-on individual-install audit, made concrete
+      against the owner's named models + the catalog-completeness check.)
 - [ ] **MODEL SELECTION NOT HONORED — everything routes to Qwen 3 4B regardless of
       pick (owner 2026-06-19, HIGH PRIORITY).** Owner (verbatim): *"everything is
       routing to the Qwen 3 4B most times — it never changes from it no matter what I
