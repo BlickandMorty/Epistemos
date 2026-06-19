@@ -49,6 +49,33 @@ struct WorkBackendSeamTests {
         #expect(!backend.contains("ChatCoordinator"))
     }
 
+    /// Honest-Handle FFI doctrine — cross-runtime flag parity. The Swift gate and the
+    /// Rust Work seam MUST read the exact same env-var name, or Swift arms one flag
+    /// while Rust reads another and the seam silently breaks. Read BOTH sources and
+    /// prove they agree (so a rename on either side fails CI, not in the field), and
+    /// lock the Rust seam's honest INERT posture + Apache-2.0 ProvenanceGate from here.
+    @Test("cross-runtime parity: Swift flagName == Rust WORK_GOOSE_FLAG; Rust seam stays inert + Apache-2.0")
+    func crossRuntimeFlagParityWithRustSeam() throws {
+        let rust = try loadMirroredSourceTextFile("agent_core/src/work.rs")
+        // Extract the Rust constant literal: pub const WORK_GOOSE_FLAG: &str = "…";
+        guard let opening = rust.range(of: #"WORK_GOOSE_FLAG: &str = ""#),
+              let closing = rust.range(of: "\"", range: opening.upperBound..<rust.endIndex) else {
+            Issue.record("could not find the WORK_GOOSE_FLAG literal in agent_core/src/work.rs")
+            return
+        }
+        let rustFlag = String(rust[opening.upperBound..<closing.lowerBound])
+        #expect(
+            rustFlag == WorkBackendGateStatus.flagName,
+            "flag drift: Swift '\(WorkBackendGateStatus.flagName)' != Rust '\(rustFlag)'"
+        )
+        // The Rust seam stays honestly INERT (engine not wired) — no silent Chat/Act fallback.
+        #expect(rust.contains("engine_wired"))
+        #expect(rust.contains("Err(WorkError::EngineNotWired)"))
+        // ProvenanceGate: the vendored block/goose core is Apache-2.0 (direct_import OK).
+        #expect(rust.contains("GOOSE_VENDOR_LICENSE: &str = \"Apache-2.0\""))
+        #expect(rust.contains("block/goose"))
+    }
+
     #if !EPISTEMOS_APP_STORE
     @Test("the INERT Work backend is honest — not live, no capabilities, refuses to run")
     func inertHonest() async {
