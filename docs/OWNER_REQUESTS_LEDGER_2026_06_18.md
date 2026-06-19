@@ -438,6 +438,24 @@ calls: no blanket rule — choose per case.
       honest-on-PDF). NEXT: the import SERVICE (decode → write a markdown note to the
       vault via NoteFileStorage) + the note-sidebar IMPORT button (NSOpenPanel) + bulk +
       Settings — produce a real note once S2 makes the engine return markdown.
+      ✅ IMPORT CONTROLLER 2026-06-19 (note-create logic, compile-verified): NEW
+      Epistemos/LiteParse/LiteParsePDFImportController.swift (@MainActor) — converts a PDF
+      via LiveLiteParsePDFImporter, and on a real `.markdown` result creates an SDPage
+      note by MIRRORING the proven CodeFileCreationController file-first pattern (write
+      the .md into `<vault>/Imported PDFs/<name>.md` with a unique name → SDPage(title,
+      emoji "📄") + format "markdown" + filePath + saveBody + wordCount + bodyHash +
+      needsVaultSync=false → insert + save + graphState refresh; rollback the file + body
+      on save error) — so it never guesses the vault-sync contract. HONEST: a non-PDF /
+      .notWired / .failed creates NO note + returns the reason. build-for-testing TEST
+      BUILD SUCCEEDED (compiles against the real SDPage/GraphState/NoteFileStorage). The
+      happy path (real note) runs once S2's native vendor makes the engine return markdown
+      — until then a PDF import honestly reports `.notWired`. SOLE REMAINING BLOCKER for
+      real in-app PDF import = **S2 native vendor** (liteparse NOT yet vendored, pdf_to_
+      markdown still inert): place the PDFium binary + add liteparse/pdfium/pdfium-sys to
+      agent_core/Cargo.toml default-features=false + swap the inert body for liteparse::
+      LiteParse. The Rust seam + both FFIs + the Swift live importer + decoder + this note-
+      create controller are ALL built + compile-verified — only the native engine remains.
+      NEXT (thin): an IMPORT button (NSOpenPanel→controller) in a Settings/sidebar surface.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
