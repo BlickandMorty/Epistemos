@@ -152,6 +152,85 @@ pub mod vendored_goose {
         }
         // --- END VERBATIM ---
     }
+
+    /// `RetryConfig` — the deterministic test-and-fix self-correction policy (Goose S7).
+    /// This is the owner's "deterministic test-and-fix self-correction loop" Goose pillar
+    /// as a typed, validated config.
+    ///
+    /// VERBATIM from block/goose `crates/goose/src/agents/types.rs`: the struct fields, the
+    /// `SuccessCheck` enum + its serde `tag = "type"` wire-form (incl. the `"shell"` alias),
+    /// the two default-timeout constants, and the `validate()` rules are byte-for-byte
+    /// upstream. Two faithful adaptations: the `utoipa::ToSchema` derive is dropped
+    /// (agent_core has no utoipa dep; the seam needs only serde), and `PartialEq` is added
+    /// (so it composes into `WorkRequest`'s `PartialEq`). MAS-SAFE: the `on_failure` /
+    /// `Shell { command }` strings are only CARRIED here — the inert seam executes nothing;
+    /// running the success-check / cleanup shell commands is the future Pro-gated engine lane.
+    pub mod retry {
+        use serde::{Deserialize, Serialize};
+
+        // --- BEGIN VERBATIM (block/goose agents/types.rs; ToSchema dropped, PartialEq added) ---
+        /// Default timeout for retry operations (5 minutes)
+        pub const DEFAULT_RETRY_TIMEOUT_SECONDS: u64 = 300;
+
+        /// Default timeout for on_failure operations (10 minutes - longer for on_failure tasks)
+        pub const DEFAULT_ON_FAILURE_TIMEOUT_SECONDS: u64 = 600;
+
+        /// Configuration for retry logic in recipe execution
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        pub struct RetryConfig {
+            /// Maximum number of retry attempts before giving up
+            pub max_retries: u32,
+            /// List of success checks to validate recipe completion
+            pub checks: Vec<SuccessCheck>,
+            /// Optional shell command to run on failure for cleanup
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub on_failure: Option<String>,
+            /// Timeout in seconds for individual shell commands (default: 300 seconds)
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub timeout_seconds: Option<u64>,
+            /// Timeout in seconds for on_failure commands (default: 600 seconds)
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub on_failure_timeout_seconds: Option<u64>,
+        }
+
+        impl RetryConfig {
+            /// Validates the retry configuration values
+            pub fn validate(&self) -> Result<(), String> {
+                if self.max_retries == 0 {
+                    return Err("max_retries must be greater than 0".to_string());
+                }
+
+                if let Some(timeout) = self.timeout_seconds {
+                    if timeout == 0 {
+                        return Err("timeout_seconds must be greater than 0 if specified".to_string());
+                    }
+                }
+
+                if let Some(on_failure_timeout) = self.on_failure_timeout_seconds {
+                    if on_failure_timeout == 0 {
+                        return Err(
+                            "on_failure_timeout_seconds must be greater than 0 if specified".to_string(),
+                        );
+                    }
+                }
+
+                Ok(())
+            }
+        }
+
+        /// A single success check to validate recipe completion
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        #[serde(tag = "type")]
+        pub enum SuccessCheck {
+            /// Execute a shell command and check its exit status
+            #[serde(alias = "shell")]
+            Shell {
+                /// The shell command to execute
+                command: String,
+            },
+        }
+        // --- END VERBATIM ---
+    }
 }
 
 /// First-party typed Work REQUEST (NOT vendored — the seam contract the Swift
@@ -173,6 +252,11 @@ pub struct WorkRequest {
     /// The Work task's model settings (vendored block/goose recipe `Settings` — Goose
     /// S5): provider / model / temperature / turn budget. `None` = engine defaults.
     pub settings: Option<vendored_goose::recipe::Settings>,
+    /// The deterministic test-and-fix self-correction policy (vendored block/goose
+    /// `RetryConfig` — Goose S7): the retry budget + the success checks the engine re-runs
+    /// after each attempt + the optional cleanup command. `None` = no automated retry. The
+    /// engine layer consumes it; the inert seam never executes the checks / `on_failure`.
+    pub retry: Option<vendored_goose::retry::RetryConfig>,
 }
 
 impl WorkRequest {
@@ -186,6 +270,7 @@ impl WorkRequest {
             default_permission: vendored_goose::permission::Permission::AllowOnce,
             parameters: Vec::new(),
             settings: None,
+            retry: None,
         }
     }
 }
@@ -507,6 +592,96 @@ mod tests {
         });
         assert_eq!(req.settings.as_ref().unwrap().goose_model.as_deref(), Some("gemma"));
         // Still inert — carrying settings never wires an engine or falls back.
+        assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
+    }
+
+    #[test]
+    fn vendored_retry_config_validate_matches_upstream() {
+        use vendored_goose::retry::{RetryConfig, SuccessCheck};
+        // Upstream rule set (block/goose agents/types.rs `validate()`): max_retries>0 and
+        // any *specified* timeout>0. A valid config passes; each zero is rejected with the
+        // EXACT upstream message (locks byte-faithful behaviour).
+        let ok = RetryConfig {
+            max_retries: 3,
+            checks: vec![SuccessCheck::Shell { command: "cargo test".into() }],
+            on_failure: None,
+            timeout_seconds: Some(60),
+            on_failure_timeout_seconds: Some(120),
+        };
+        assert!(ok.validate().is_ok());
+
+        let zero_retries = RetryConfig { max_retries: 0, ..ok.clone() };
+        assert_eq!(zero_retries.validate().unwrap_err(), "max_retries must be greater than 0");
+
+        let zero_timeout = RetryConfig { timeout_seconds: Some(0), ..ok.clone() };
+        assert_eq!(
+            zero_timeout.validate().unwrap_err(),
+            "timeout_seconds must be greater than 0 if specified"
+        );
+
+        let zero_onfail = RetryConfig { on_failure_timeout_seconds: Some(0), ..ok.clone() };
+        assert_eq!(
+            zero_onfail.validate().unwrap_err(),
+            "on_failure_timeout_seconds must be greater than 0 if specified"
+        );
+    }
+
+    #[test]
+    fn vendored_retry_success_check_wire_form_matches_upstream() {
+        use vendored_goose::retry::SuccessCheck;
+        // Upstream serde: internally `tag = "type"` (so `{"type":"Shell","command":"…"}`),
+        // with lowercase `"shell"` accepted as an alias on deserialize.
+        let check = SuccessCheck::Shell { command: "pytest -q".into() };
+        let json = serde_json::to_string(&check).unwrap();
+        assert!(json.contains("\"type\":\"Shell\""));
+        assert!(json.contains("\"command\":\"pytest -q\""));
+        assert_eq!(serde_json::from_str::<SuccessCheck>(&json).unwrap(), check);
+        let aliased: SuccessCheck =
+            serde_json::from_str(r#"{"type":"shell","command":"pytest -q"}"#).unwrap();
+        assert_eq!(aliased, check);
+    }
+
+    #[test]
+    fn vendored_retry_config_round_trips_and_skips_none() {
+        use vendored_goose::retry::{
+            RetryConfig, SuccessCheck, DEFAULT_ON_FAILURE_TIMEOUT_SECONDS,
+            DEFAULT_RETRY_TIMEOUT_SECONDS,
+        };
+        // The upstream default-timeout constants are preserved verbatim.
+        assert_eq!(DEFAULT_RETRY_TIMEOUT_SECONDS, 300);
+        assert_eq!(DEFAULT_ON_FAILURE_TIMEOUT_SECONDS, 600);
+        let cfg = RetryConfig {
+            max_retries: 2,
+            checks: vec![SuccessCheck::Shell { command: "make check".into() }],
+            on_failure: None,
+            timeout_seconds: None,
+            on_failure_timeout_seconds: None,
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        // `skip_serializing_if = "Option::is_none"` drops the unset fields.
+        assert!(!json.contains("on_failure"));
+        assert!(!json.contains("timeout_seconds"));
+        let back: RetryConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
+    }
+
+    #[test]
+    fn work_request_carries_retry_policy() {
+        use vendored_goose::retry::{RetryConfig, SuccessCheck};
+        // A fresh request has no automated retry.
+        let mut req = WorkRequest::read_only("fix the failing tests", vec![]);
+        assert!(req.retry.is_none());
+        // ...and can carry the deterministic self-correction policy the engine layer runs.
+        req.retry = Some(RetryConfig {
+            max_retries: 3,
+            checks: vec![SuccessCheck::Shell { command: "cargo test".into() }],
+            on_failure: Some("git checkout .".into()),
+            timeout_seconds: Some(300),
+            on_failure_timeout_seconds: None,
+        });
+        assert!(req.retry.as_ref().unwrap().validate().is_ok());
+        assert_eq!(req.retry.as_ref().unwrap().max_retries, 3);
+        // Still inert — carrying a retry policy never wires an engine or falls back.
         assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
     }
 
