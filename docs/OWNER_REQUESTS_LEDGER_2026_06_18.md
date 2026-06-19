@@ -623,6 +623,17 @@ calls: no blanket rule — choose per case.
       + gate HealthRow + MAS/Pro guard test (NO repo import yet). Then S2 vendor → S3
       link → S4 Act-turn+reskin → S5 Containerization sandbox (R-CUA Lume) → S6+
       server/MCP/plugins/relay. STOP hand-building parallel Act is recorded.
+      ✅ S2 LANDED 2026-06-19: first REAL vendored seam. `Epistemos/Vendor/Osaurus/
+      ServerHealth.swift` = VERBATIM MIT source (OsaurusCore server-health enum),
+      direct_import, full MIT license + provenance in OsaurusVendorProvenance.swift,
+      Pro-gated `#if !EPISTEMOS_APP_STORE`. Seam = ActOsaurusGateStatus (always-
+      compiled flag EPISTEMOS_ACT_OSAURUS_V0, OFF) + ActOsaurusBridge (Pro-only
+      protocol returning the vendored ServerHealth + INERT stub, never fakes live) +
+      ActOsaurusHealthRow (visible in SubstrateHealthPanel). MAS/Pro boundary clean
+      by construction (no always-compiled file references a Pro-only Osaurus type;
+      MAS Act stays in-process). +4 guard tests; build-for-testing green. NEXT (S3):
+      vendor+link OsaurusCore (the SPM package) + drive a real server capability
+      behind the no-hidden-fallback bar.
 - [ ] **Osaurus + Unsloth feed the MODES** (owner 2026-06-18): the Osaurus
       deep-cherry-picks/full-port (local server + agent capabilities) and Unsloth
       (model training) must SURFACE INSIDE Act mode — and where it fits, Chat mode
