@@ -1,13 +1,7 @@
 import Foundation
 
 // MARK: - Types
-
-struct MoLoRAAdapterConfig: Codable, Sendable {
-    let path: String
-    let type: String       // "knowledge", "style", "tool"
-    let rank: Int
-    let alpha: Int
-}
+// (MoLoRAAdapterConfig relocated to Adapters/MoLoRAAdapterConfig.swift 2026-06-18)
 
 struct MoLoRAGenerationResult: Sendable {
     let tokensGenerated: Int
