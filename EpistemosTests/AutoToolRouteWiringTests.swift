@@ -80,4 +80,74 @@ struct AutoToolRouteWiringTests {
             #expect(PipelineService.autoToolRouteArmed == false)
         }
     }
+
+    // MARK: - GGUF-Gemma grammar tool-call dispatch (part 2b Swift input builder)
+
+    @Test("GGUF dispatch candidate JSON carries name + description + keywords + embedded schema object")
+    func ggufDispatchCandidatesShape() throws {
+        let tools = [
+            OmegaToolDefinition(
+                name: "vault.search",
+                agent: "rust",
+                description: "Search the notes vault",
+                argumentsExample: "{}",
+                schemaJson: "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}}}",
+                destructive: false,
+                requiresConfirmation: false
+            )
+        ]
+        let json = try #require(PipelineService.ggufDispatchCandidatesJSON(tools: tools))
+        let data = try #require(json.data(using: .utf8))
+        let parsed = try #require(
+            try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        )
+        #expect(parsed.first?["name"] as? String == "vault.search")
+        // The schema is embedded as a real JSON OBJECT (not a string) so the Rust
+        // PreflightToolWithSchemaInput.schema deserializes to an object schema.
+        let schema = try #require(parsed.first?["schema"] as? [String: Any])
+        #expect(schema["type"] as? String == "object")
+        #expect(parsed.first?["keywords"] as? [String] == [])
+    }
+
+    @Test("GGUF dispatch builder falls back to an empty object schema for malformed schemaJson")
+    func ggufDispatchMalformedSchemaFallsBack() throws {
+        let tools = [
+            OmegaToolDefinition(
+                name: "noop",
+                agent: "rust",
+                description: "no params",
+                argumentsExample: "{}",
+                schemaJson: "not valid json",
+                destructive: false,
+                requiresConfirmation: false
+            )
+        ]
+        let json = try #require(PipelineService.ggufDispatchCandidatesJSON(tools: tools))
+        let data = try #require(json.data(using: .utf8))
+        let parsed = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let schema = try #require(parsed.first?["schema"] as? [String: Any])
+        #expect(schema["type"] as? String == "object")
+        #expect(schema["additionalProperties"] as? Bool == false)
+    }
+
+    @Test("empty tool catalog yields nil GGUF dispatch candidates JSON")
+    func ggufDispatchEmpty() {
+        #expect(PipelineService.ggufDispatchCandidatesJSON(tools: []) == nil)
+    }
+
+    @Test("GGUF tool-grammar flag is OFF by default → no dispatch schema computed")
+    func ggufFlagDefaultsOff() {
+        if ProcessInfo.processInfo.environment["EPISTEMOS_GGUF_TOOL_GRAMMAR_V0"] == nil {
+            #expect(PipelineService.ggufToolGrammarArmed == false)
+            // Flag off → ggufToolDispatchSchema short-circuits to nil regardless of tools.
+            let tools = [
+                OmegaToolDefinition(
+                    name: "vault.search", agent: "rust", description: "Search",
+                    argumentsExample: "{}", schemaJson: "{}", destructive: false,
+                    requiresConfirmation: false
+                )
+            ]
+            #expect(PipelineService.ggufToolDispatchSchema(query: "find my note", tools: tools) == nil)
+        }
+    }
 }
