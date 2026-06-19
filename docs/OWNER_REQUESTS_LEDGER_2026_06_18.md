@@ -14,6 +14,19 @@ IMPLEMENTED, not just researched. Research FEEDS the build: each research verdic
 (R-*) must turn into shipped, in-app-verified slices. Nothing here is optional or
 "nice to have." Keep going until all of it is done and hardened (rule #6/#8).
 
+**APP-NATIVE BY EMBEDDING (owner 2026-06-18, verbatim):** *"having the whole thing
+as part of my app — different from using it, actually cloning it. Same for the
+other things I'm taking for my app to be app-native."* For EVERY third-party
+capability the owner pulls in (LiteParse, Osaurus, Goose, DeerFlow, OpenClaw, MLX
+training, etc.): EMBED/CLONE the real source INTO the app as a first-class native
+part (vendor the Rust/Swift core into agent_core/the app per F-ProprietaryComp-
+ression-ProvenanceGate: direct_import / adapter_wrap / clean_room) — NOT a thin
+wrapper that shells out to an external CLI/npm/pip/service at runtime. Prefer the
+in-process MAS-native path always. If a specific piece genuinely cannot be MAS-
+safe, **Pro/dev-gate it honestly (visible, with WHY) rather than drop the feature**
+— the capability still ships, embedded; only the un-sandboxable lane is gated.
+Never omit an owner-wanted feature just because full MAS-safety is hard.
+
 **PER-FEATURE HARDENING + NO-DRIFT GUARANTEE (owner 2026-06-18):** EVERY feature/
 item added gets its OWN hardening phase — not just a phase-level pass. For each
 shipped item: add regression tests, re-verify the prior items it touches still
@@ -1392,6 +1405,21 @@ DECISIONS — the BUILD + in-app verification still has to happen.
       binary formats (Pro/dev or omit). RESEARCH-FIRST → ProvenanceGate verdict on
       direct crate-dep vs vendor; build+run verify a real PDF imports to markdown in-
       app (sidebar + bulk + Settings). Harden; honest gating; no fake parse.
+      OWNER CLARIFICATION 2026-06-18 (verbatim): *"I still want the parser
+      absolutely — it does not need to be on MAS if it can't be, but if we can please
+      try. Like having the WHOLE THING as part of my app — different from USING it,
+      actually CLONING it. Same for the other things I'm taking for my app to be
+      app-native."* MANDATE: (a) the parser is NON-NEGOTIABLE — NEVER drop it for
+      MAS-safety; if a piece genuinely can't be MAS-safe, **Pro/dev-gate it (honest,
+      visible) rather than omit** — but always PREFER the in-process MAS-native path
+      (PDFium + Tesseract) and only gate the parts that truly can't (LibreOffice/
+      ImageMagick Office/image conversion, remote OCR). (b) **EMBED, don't wrap** —
+      actually CLONE/vendor the LiteParse Rust core INTO the app (agent_core crate),
+      compiled as a first-class native part — not a thin wrapper that shells out to
+      an external `lit`/npm/pip tool. So the S2 native vendor IS the point: pursue
+      the real PDFium bind + bundled engine; if MAS can't ship PDFium in-process,
+      Pro/dev-gate the live engine but still ship it embedded. See APP-NATIVE-BY-
+      EMBEDDING principle in the header.
 
 ## Unfinished-research sweep top items (2026-06-18 → docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md)
 Local/chat, verified-against-code, not-blocked (full list + eras in the sweep doc):
