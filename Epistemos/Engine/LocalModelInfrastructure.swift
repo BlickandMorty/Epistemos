@@ -2480,6 +2480,26 @@ nonisolated enum ModelInstallProgressDisplay: Equatable, Sendable {
 final class LocalModelManager {
     private nonisolated static let staleStagingDirectoryGraceInterval: TimeInterval = 30 * 60
 
+    /// Whether a staged-install entry should be removed by the stale-staging purge.
+    ///
+    /// D2 FIX (research STOP_REINVENTING_AUDIT 2026-06-19): a `<slug>-resume`
+    /// directory is the STABLE resumable staging owned by the install/resume
+    /// lifecycle (kept on a download failure so the next attempt resumes into the
+    /// partial; verify+checksum-gated before activation so a partial is never
+    /// installed; moved on success). The 30-minute stale purge must NEVER remove it
+    /// — purging a slow/large download's partial out from under a later resume was a
+    /// root of the owner's "download corrupted / incomplete" + lost-resume reports.
+    /// Only genuinely ORPHANED unique-UUID staging (left by a crash) is stale-purged.
+    /// Pure → unit-testable.
+    nonisolated static func shouldPurgeStagedEntry(
+        name: String,
+        modificationDate: Date,
+        staleCutoff: Date
+    ) -> Bool {
+        if name.hasSuffix("-resume") { return false }
+        return modificationDate <= staleCutoff
+    }
+
     private let inference: InferenceState
     private let installer: any LocalModelArtifactInstalling
     private let fileManager: FileManager
@@ -2845,7 +2865,11 @@ final class LocalModelManager {
                 )
                 guard metadata?.isDirectory == true else { continue }
                 guard let modificationDate = metadata?.contentModificationDate,
-                      modificationDate <= staleCutoff else {
+                      Self.shouldPurgeStagedEntry(
+                          name: stagedEntry.lastPathComponent,
+                          modificationDate: modificationDate,
+                          staleCutoff: staleCutoff
+                      ) else {
                     continue
                 }
 

@@ -2510,6 +2510,20 @@ native; AGPL server). ADOPT 2 patterns natively:
       keep-don't-discard the partial + clean re-download on corruption) — true intra-file
       HTTP-Range resume of a single partially-downloaded `.gguf` would need HubClient byte-
       range support (deeper, separate). Owner verifies the end-to-end download in-app.
+      ✅ D2 STAGING-PURGE RESUME FIX 2026-06-19 (research STOP_REINVENTING_AUDIT — the actual
+      "corrupted/incomplete" + lost-resume ROOT): `LocalModelInfrastructure`'s
+      `purgeStaleStagingDirectories` (30-min grace, runs only when no install is active) was
+      removing the STABLE `<slug>-resume` partial out from under a later resume — so a slow/large
+      download (e.g. a 20 GB MoE) interrupted and reopened >30 min later found its partial purged
+      and restarted from scratch. FIX: new pure `LocalModelManager.shouldPurgeStagedEntry(name:
+      modificationDate:staleCutoff:)` — a `-resume` directory is NEVER stale-purged (its lifecycle
+      is owned by install/resume: kept-on-download-failure so the next attempt resumes,
+      verify+checksum-gated before activation so a partial is never installed, moved-on-success);
+      only genuinely ORPHANED unique-UUID staging (left by a crash) is purged on the grace cutoff.
+      Wired into the purge inner guard. +1 test (stalePurgeExemptsResumeDirs: `-resume` exempt even
+      when ancient; orphan past cutoff purged; fresh orphan kept). build-for-testing TEST BUILD
+      SUCCEEDED (0 errors). Composes with the resumable-staging work (STEP 3 / req 10). Owner
+      verifies the end-to-end resume in-app once model download is exercised.
       ✅ STEP 4 — "THE STACK" ADVERTISED-SET FOUNDATION (reqs 6/7 data layer) 2026-06-19: the
       owner-controlled advertised-set source of truth, built pure-first so the semantics are
       locked before any UI. NEW `Epistemos/Engine/AdvertisedModelStore.swift`: (a) pure
