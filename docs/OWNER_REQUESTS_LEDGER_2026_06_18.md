@@ -2277,6 +2277,29 @@ native; AGPL server). ADOPT 2 patterns natively:
       progress, completion confirmation. This is part of the SAME MODEL DOWNLOAD repair
       (the unblocker for in-app testing) — fix the pipeline so installs actually
       complete, verify, and show progress, for every advertised/installable model.
+      ✅ STEP 1 — VISIBILITY/ACCESS RESTORED 2026-06-19 (the "only the foundation package
+      is offered" symptom): DIAGNOSIS — `Epistemos/Views/Settings/SettingsView.swift:3307`
+      gated the individual-model install sections (the "Recommended Baseline" + "Optional
+      Flagship + Fallbacks" sections, each rendering `LocalModelRow`s with working install
+      buttons) behind `if !EpistemosFoundationLineup.simplifiedLineupActive { … }`. The
+      simplified lineup is ON by default, so those whole sections were HIDDEN → the owner
+      only ever saw the one-tap "Epistemos AI" foundation-package install + (empty) legacy-
+      installed list. The models were never deleted, just unreachable. FIX — moved those
+      install rows into an always-present, collapsed **"All models (advanced)"**
+      `DisclosureGroup` shown UNDER the simplified lineup (the canon foundation section
+      stays the advertised primary; every retained model — curated + optional baseline — is
+      now reachable to install under the disclosure; nothing deleted; honors KEEP-ALL req 2
+      + INSTALL-ANY req 5). +2 mirrored-source tests (EpistemosTests/ModelInstallAllModels
+      Tests.swift: the disclosure + the curated/optional install ForEachs are present under
+      the simplified branch; the foundation + baseline catalogs stay non-empty). build-for-
+      testing TEST BUILD SUCCEEDED (0 errors). HONEST REMAINING (the bigger parts, follow-
+      on slices, owner-verified in-app once pulled): the curated/optional baseline MLX
+      models are now SELECTABLE-to-install; the canon GGUF foundation models still install
+      via the one-tap package (their individual install path is the (A) follow-on audit);
+      the "stack" with owner-controlled advertise-toggles + persistence (reqs 6/7) and the
+      pipeline-robustness regression (reqs 8/9/10 — integrity "corrupted"/"not complete",
+      the missing progress bar, resume) are SEPARATE follow-on slices — this step only
+      restores the install-row VISIBILITY that was hidden.
 - [ ] **MODEL SELECTION NOT HONORED — everything routes to Qwen 3 4B regardless of
       pick (owner 2026-06-19, HIGH PRIORITY).** Owner (verbatim): *"everything is
       routing to the Qwen 3 4B most times — it never changes from it no matter what I
