@@ -2845,6 +2845,26 @@ native; AGPL server). ADOPT 2 patterns natively:
       `liveLane`, record to `RuntimeRouterMetrics`, RETURN THE SAME `ResolvedRuntime` (zero behaviour
       change). That call is the next STAGE-1c slice (owner confirms the parity log in-app); STAGE 2+
       promote/fold/delete as above.
+      🔎 AgentCommandCenterState VERIFICATION 2026-06-19 (the re-diagnosis named `AgentCommandCenterState
+      .swift:580-600 localBrain(preferredModels:)` as a suspected Qwen-override): READ the code —
+      `preferredBrain(for:)` (:570) checks `storedBrainSelection(for:)` (the per-command explicit pick,
+      persisted under `specialistBrainPrefix+command`) FIRST and only falls to `recommendedBrain` (the
+      Qwen-first preferred lists) when NO stored pick exists. So this layer is NOT a blind override — a
+      stored explicit pick DOES win, exactly the owner's requirement (preferred lists apply only in
+      auto/no-stored-pick mode). BUT it carries the SAME silent-substitute gap already fixed at the
+      InferenceState layer (a645e6623): `storedBrainSelection` returns `availableBrains.first { $0.id ==
+      storedID }`, so a stored pick whose model is NOT currently in `availableBrains` (uninstalled / not
+      loadable) returns nil → falls to the Qwen-first `recommendedBrain` → Qwen. ALSO this is the
+      SLASH-COMMAND-SPECIALIST surface (.notes/.code/.ask/…), NOT the main-chat model resolver (that's
+      `InferenceState.effectiveChatSurfaceSelection`, already fixed). TWO real follow-on fixes surfaced
+      (each its own flag-gated, build-verified slice): (1) `recommendedBrain`'s preferred lists are STALE
+      pre-foundation-pivot (Qwen-first; e.g. `.ask` returns `[.qwen3_4B4Bit, …]`) AND built on
+      `[LocalTextModelID]` which EXCLUDES the foundation GGUF lineup (Gemma/VibeThinker/coder are
+      descriptor ids, not enum cases) — so auto-mode CAN'T recommend a foundation model and defaults to
+      Qwen; fix = a foundation-brain-first recommendation that can express the GGUF lineup. (2) apply the
+      honest-no-silent-substitute pattern to the unavailable-stored-pick case here too (gate via the same
+      `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL`). Narrows the bug hunt; the main-chat pin was the
+      InferenceState resolver (done), this is the parallel specialist-path gap.
 - [ ] **R-WEBCLIP — web clipper → clean-markdown vault note (S16 gap, supersession vs Obsidian).**
       Spec: docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md. MAS core = a macOS Share Extension
       xcodegen target (`type:app-extension`, share-services, url+html; mirror `EpistemosWidgets`
