@@ -27,6 +27,23 @@ safe, **Pro/dev-gate it honestly (visible, with WHY) rather than drop the featur
 — the capability still ships, embedded; only the un-sandboxable lane is gated.
 Never omit an owner-wanted feature just because full MAS-safety is hard.
 
+**SOURCING + UPDATE POLICY (owner 2026-06-18):** *"clone first from the updated
+GitHub… the ones already on disk may be stale… and I want an easy way to update
+them… I'm not opposed to taking control / making it my own."* RULES for every
+vendored project (OpenClaw, Osaurus, Hermes, LiteParse, …): (1) **Clone the LATEST
+upstream from GitHub at vendor time** — NOT the possibly-stale on-disk copies
+(`~/Downloads/openclaw-main` etc.); pin + record the exact upstream commit SHA +
+date + license in the project's VENDOR/provenance file. (2) **TAKE CONTROL (fork/
+own), NOT a live submodule** — because we reskin/fuse/gate (heavy divergence) a
+live submodule/subtree breaks on every pull; vendor it into the repo as our own
+code. (3) **Keep updates one command** — record an `upstream` remote + pinned SHA,
+keep OUR changes as a clearly-marked overlay/patch set (reskin CSS, gating, fusion
+shims) separate from pristine upstream, and ship a per-project `update-<name>.sh`
+that fetches latest upstream → diffs → re-vendors → re-applies our overlay → re-runs
+ProvenanceGate + build + tests. (4) **Hermes is one-way fuse** (lifted into
+LocalAgent, no standalone tree): track upstream SHA + a "re-harvest checklist", not
+a tree-merge. Net: it's OUR thing, but a new upstream release is one script away.
+
 **PER-FEATURE HARDENING + NO-DRIFT GUARANTEE (owner 2026-06-18):** EVERY feature/
 item added gets its OWN hardening phase — not just a phase-level pass. For each
 shipped item: add regression tests, re-verify the prior items it touches still
@@ -104,6 +121,27 @@ calls: no blanket rule — choose per case.
       local grammar tool-call parser, ConfidenceRouter/TriageService auto-route.
       Build+run verify a real query uses tools end-to-end in-app. This is the deep-
       repair the owner asked for on the Epistemos agent + chat.
+      SCOPE BROADENED (owner 2026-06-19, verbatim): *"even with the local agent and
+      the brain of my app a lot of skills and tools are not working, and I think part
+      of that could be engineered of the skills and tools themselves or the way I coded
+      it — but that all needs to be part of the repair."* So the marshaling bug is NOT
+      assumed to be the whole story: (5) AUDIT THE SKILLS/TOOLS SUBSYSTEM ITSELF — the
+      tool/skill IMPLEMENTATIONS may be mis-engineered or mis-coded, not just the
+      arg plumbing. This applies EQUALLY to the in-process LocalAgent BRAIN path
+      (`LocalAgentLoop` → `LocalToolGrammar` → `LocalAgentToolExecutor` → the Swift
+      tool impls) AND the Rust `agent_core` cloud path. For EACH registered tool/skill,
+      verify end-to-end: (a) it is actually REGISTERED and discoverable (registry +
+      grammar schema match what the tool's execute() reads); (b) its declared JSON
+      schema matches its real arg extraction (the note_tools.rs:387 mismatch is likely
+      one instance of a class of schema↔impl drift — sweep ALL tools for it); (c) it
+      runs and returns a usable result in-app, not just in a unit fixture; (d) the
+      skill files / SKILL.md (or equivalent) are well-formed and the loader actually
+      loads them. Produce a per-tool/per-skill PASS/FAIL inventory (local brain +
+      cloud), fix every FAIL at the implementation level (not just symptoms), and add
+      a coverage test per repaired tool. Treat broken tool/skill code as a first-class
+      defect, not an edge case. NOTE: this audit also de-risks R-HERMES skills fusion
+      (`docs/research/HERMES_ACT_FUSION_MAP_2026_06_19.md` caps #1/#2) — a sound
+      skills/tools substrate is the precondition for fusing Hermes skills onto it.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
@@ -857,6 +895,82 @@ calls: no blanket rule — choose per case.
       with no-Chat/Act-regression guardrail; Act changes additive + flag-gated
       (ActOsaurus inert until opt-in flip); Eidos + IP stay wired everywhere; honesty
       constraints (no hidden sidecar, local-first, no fake) preserved throughout.
+      FOUNDATION (owner 2026-06-18, sharpened): **Osaurus IS the foundation of Act —
+      it REPLACES whatever Act runs on now** (Osaurus is the most-hardened substrate,
+      so it becomes the base). On that foundation we stack the **reskin (UI) + Local
+      Agent brain + Hermes fusion** = the best, hardened wins. PRESERVE-ALL-IP
+      (deletion guardrail, explicit): ALL IP from today's Act AND Chat — Eidos, the
+      existing Act capabilities, vault/tools, chat IP — is MIGRATED + added on top of
+      the Osaurus foundation, **never deleted**. NUANCE from research (docs/research/
+      HERMES_ACT_FUSION_MAP + OSAURUS_ACT_CONNECTION_MAP): on MAS the brain runs
+      IN-PROCESS via DeviceAgentService→LocalAgentLoop.run (NOT the Osaurus :1337
+      server, which is Pro/inert); Hermes logic fuses into LocalAgentLoop +
+      agent_core::agent_runtime, never the server lane. So "Osaurus foundation" =
+      Osaurus serving/sandbox (Pro) UNDER the in-process LocalAgent brain; on MAS the
+      brain stands on the existing in-process path until the Osaurus server lane is
+      flipped on (Pro). Either way the brain + ALL IP is the constant.
+      ── ENGINE-ISOLATION DOCTRINE (owner 2026-06-19, MOST IMPORTANT — verbatim:
+      *"most important part is making sure they do not cross-muddy each other —
+      proper isolation. Maybe connect only in terms of memory, like an Act session
+      knows about a Chat session, or Act knows about all the skills and capabilities
+      of Chat and can do the same and more — but NOT connecting logic or code per
+      se."*). HARD RULE: the three engines (Chat=Epistemos · Act=Osaurus+brain ·
+      Work=Goose) and the two Act lanes (OpenClaw · Osaurus-local) stay CODE/LOGIC
+      ISOLATED — no engine reaches into another engine's runtime, no shared mutable
+      control flow, no one lane's bug can corrupt another. They connect ONLY across
+      two sanctioned, READ-FLAVORED seams: (1) **MEMORY/CONTEXT** — an Act session can
+      be AWARE of a Chat session (and vice-versa) through the shared vault/memory
+      substrate (Knowledge-Core notes, session index, provenance ledger), NOT by
+      sharing process state or calling into the other engine's code. (2) **CAPABILITY
+      AWARENESS (superset rule)** — Act KNOWS the full set of skills/tools/capabilities
+      Chat has and can do all of them AND MORE (Act ⊇ Chat in capability), but it
+      INVOKES them through its OWN copy/registration of the skill, not by delegating
+      into Chat's engine. The skills/tools live in a SHARED, isolated registry/substrate
+      that each engine binds independently — capability is shared by DEFINITION, not by
+      cross-engine call. Anti-goal: NO entangled logic, NO one-engine-imports-another,
+      NO hidden routing where a Chat turn silently runs Act code or vice-versa. This
+      doctrine governs every fusion above (Hermes-into-LocalAgent, OpenClaw lane,
+      Osaurus serving): fuse capability + memory, isolate code + control flow. Add a
+      guardrail test that asserts no cross-engine code dependency (engine modules don't
+      import each other's runtime) and that capability-awareness flows only through the
+      shared registry/memory substrate. The existing NOTHING-BREAKS flag-isolation is
+      the floor; this superset-but-isolated model is the ceiling.
+- [ ] **WEBKIT-MAXIMIZATION PREFERENCE (owner 2026-06-19, refines native-vs-WebKit on
+      EVERY port)** — owner (verbatim): *"I want to utilize the WebKit process as much
+      as I can, because if I can have more usability with slightly less nativeness by
+      porting with WebKit, then we can do that. I just want to make sure every
+      possibility is researched and that my app rests on the best version here."*
+      POLICY: when porting any external surface (OpenClaw, AI-Elements R-ELEMENTS,
+      Streamdown, HTML canvas P7.2, terminal P7.3, future repos), the verdict doc MUST
+      explicitly weigh **WebKit-host vs full-native** and DEFAULT TO WEBKIT-HOST when it
+      delivers materially more usability/feature-completeness/upstream-trackability for
+      only a slight nativeness trade-off — the proven `EpdocEditorChromeView` +
+      custom-URL-scheme + build-time-bundle pattern is the sanctioned vehicle (see
+      docs/research/OPENCLAW_UI_EMBED_MAP_2026_06_19.md). Constraints unchanged: bundle
+      at BUILD time (never runtime npm/Node), MAS-legal (no runtime subprocess on the
+      MAS path; Node/gateway features Pro/dev-gated like LocalGgufRuntimeBridge), pixel-
+      art reskin via CSS injection driven by EpistemosTheme tokens, honest gating. Each
+      port's verdict doc must show the researched alternatives so the app rests on the
+      best-version choice, not a default. (This does NOT loosen native-first where
+      native genuinely wins — voice, inference, on-device tools — it just stops forcing
+      a full-native rewrite when WebKit-host is strictly better for that surface.)
+- [ ] **BROWSER-USE + COMPUTER-USE AS FIRST-CLASS HARDENED SKILLS (owner 2026-06-19)** —
+      owner (verbatim): *"even things like browser-use I want that to work — skills like
+      that should be first-class to my app, and my app already has the robust computer-
+      use tech. I really want to harden that and place it where it should go based on
+      all the engines."* DIRECTIVE: (1) browser-use is a FIRST-CLASS skill (not a
+      bolt-on) — it must actually work, exposed to the model as a registered tool/skill
+      through the SHARED isolated skill substrate (per the ENGINE-ISOLATION DOCTRINE
+      above), available to whichever engines should have it. (2) The app's EXISTING
+      robust computer-use stack (DeviceAgentService / VisualVerifyLoop / Screen2AXFusion
+      / the Holo + R-CUA work) must be HARDENED and PLACED correctly across the engines —
+      decide, per engine, who owns/exposes computer-use: likely Act (Osaurus-local +
+      OpenClaw automation lane) as the primary home, with capability-awareness so Chat
+      knows it exists. (3) Reconcile with R-CUA (trycua/cua, line ~1611), the stealth/
+      Obscura browser hardening (~1595), and Holo-3.1-4B computer-use VL (~1377): one
+      coherent, hardened computer-use + browser-use capability surface, isolated in code
+      but shared in capability, with the RIGHT engine as its home. Verdict doc must map
+      where each piece lands across the three engines before building.
 - [ ] **MODEL PICKER — SIMPLIFY + MODE-SCOPE (owner 2026-06-18, refines P1.11)** —
       owner (verbatim): *"for the model picker I only want the model and its uses
       visible for the right mode. Chat shows efforts and many other things — that is
