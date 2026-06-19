@@ -116,4 +116,42 @@ struct AdvertisedModelStoreTests {
     func canonDefaultsAreFoundation() {
         #expect(AdvertisedModelStore.canonDefaults == EpistemosFoundationLineup.models.map(\.id))
     }
+
+    // MARK: - Picker visibility filter (InferenceState.advertisedVisibleModelIDs)
+
+    @Test("not customized → candidates unchanged (canon default = today's picker, no regression)")
+    func visibleNotCustomized() {
+        #expect(
+            InferenceState.advertisedVisibleModelIDs(
+                candidates: ["a", "b", "c"], advertised: ["a"], isCustomized: false, selectedID: nil
+            ) == ["a", "b", "c"]
+        )
+    }
+
+    @Test("customized → only advertised candidates are shown")
+    func visibleCustomizedFilters() {
+        #expect(
+            InferenceState.advertisedVisibleModelIDs(
+                candidates: ["a", "b", "c"], advertised: ["a", "c"], isCustomized: true, selectedID: nil
+            ) == ["a", "c"]
+        )
+    }
+
+    @Test("the active pick is ALWAYS kept even if not advertised (it must never vanish)")
+    func visibleKeepsSelected() {
+        #expect(
+            InferenceState.advertisedVisibleModelIDs(
+                candidates: ["a", "b", "c"], advertised: ["a"], isCustomized: true, selectedID: "b"
+            ) == ["a", "b"]
+        )
+    }
+
+    @Test("filtering that would empty the picker falls back to the full list (never empty)")
+    func visibleNeverEmpty() {
+        #expect(
+            InferenceState.advertisedVisibleModelIDs(
+                candidates: ["a", "b"], advertised: ["zzz"], isCustomized: true, selectedID: nil
+            ) == ["a", "b"]
+        )
+    }
 }

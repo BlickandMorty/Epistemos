@@ -4096,7 +4096,39 @@ final class InferenceState {
             : supportedAvailableLocalTextModels
                 .map(\.rawValue)
                 .map(normalizedReleaseSelectableLocalTextModelID)
-        return (mlx + gguf).filter { seen.insert($0).inserted }
+        let base = (mlx + gguf).filter { seen.insert($0).inserted }
+        // reqs 6/7 — owner-advertised visibility filter (the "stack"). A TRUE
+        // no-op until the owner customizes the advertised set in Settings
+        // (isCustomized == false → canon default → today's behavior); once
+        // customized, the picker shows only advertised models, but never drops the
+        // active pick and never goes empty.
+        let advertisedStore = AdvertisedModelStore()
+        guard advertisedStore.isCustomized else { return base }
+        return Self.advertisedVisibleModelIDs(
+            candidates: base,
+            advertised: advertisedStore.effectiveAdvertised(fullCatalog: Set(base)),
+            isCustomized: true,
+            selectedID: preferredLocalTextModelID
+        )
+    }
+
+    /// reqs 6/7 — apply the owner's advertised-set visibility filter to a picker
+    /// candidate list. Pure + unit-testable (no `UserDefaults` / `InferenceState`
+    /// instance). When the owner has NOT customized the set, returns the candidates
+    /// unchanged (canon default = today's behavior). When customized, keeps only
+    /// advertised candidates — but ALWAYS keeps `selectedID` (the active pick must
+    /// never vanish from the picker) and falls back to the full list if filtering
+    /// would empty the picker (never show an empty picker).
+    nonisolated static func advertisedVisibleModelIDs(
+        candidates: [String],
+        advertised: [String],
+        isCustomized: Bool,
+        selectedID: String?
+    ) -> [String] {
+        guard isCustomized else { return candidates }
+        let advertisedSet = Set(advertised)
+        let filtered = candidates.filter { advertisedSet.contains($0) || $0 == selectedID }
+        return filtered.isEmpty ? candidates : filtered
     }
 
     var releaseHiddenInstalledLocalTextModelCount: Int {
