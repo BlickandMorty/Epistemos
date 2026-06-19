@@ -314,6 +314,25 @@ calls: no blanket rule — choose per case.
       legacy-`skills`-vs-`skill_manage` verb sets (don't blind-remove; CRUD is the only MAS one). ORDERED
       REAL FIX: (1) cloud all-provider tool attach → (2) finish 2(b) Swift GGUF-Gemma live-wiring →
       (3) skills store/path reconcile → (4) close 4 drifts → (5) fix v2 install → (6) wire/prune EditorSkill.
+      ✅ S4 FIX (1) — CLOUD PLAIN-CHAT TOOLS ON ALL PROVIDERS (flag-gated) 2026-06-19: the biggest
+      visible win + the one the owner can verify in-app NOW (cloud needs no model download). Root
+      (confirmed): `ChatCoordinator.swift:508` only routed Fast/Thinking/Pro cloud chat through the
+      tool path (`runCommandCenterRustAgentPath`) when `cloudProvider.supportsAgentTier` (TRUE only
+      OpenAI/Anthropic), so Google/Z.AI/Kimi/MiniMax/DeepSeek plain chat fell to the toolless `else`
+      (:555) despite the prompt advertising vault access. FIX: `CloudModelProvider` (InferenceState)
+      gained `supportsChatToolAttachment` (true for ALL providers — each speaks OpenAI/Google-style
+      function calling for a chat turn, distinct from `supportsAgentTier`=first-class agent-LOOP
+      driver) + a PURE static `allowsPlainChatTools(provider:allProvidersArmed:)` (armed ?
+      supportsChatToolAttachment : supportsAgentTier) + an instance `allowsPlainChatTools` reading
+      env `EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0`. The ChatCoordinator gate changed
+      `supportsAgentTier`→`allowsPlainChatTools`. OFF (default) = BYTE-IDENTICAL (OpenAI/Anthropic
+      only, today's behaviour); ON = every provider attaches chatLite/chatPro tools (tool-tier
+      mapping unchanged: .fast/.thinking→.chatLite, .pro→.chatPro; vault.write still gates
+      AgentAuthority+R5). +3 tests (CloudChatToolsGateTests: flag-off→only OpenAI/Anthropic,
+      flag-on→all 7, all support chat-tool-attachment). build-for-testing TEST BUILD SUCCEEDED (0
+      errors). OWNER IN-APP: set `EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0=1`, plain-chat a
+      non-OpenAI provider with a vault query ("find my note about X") → expect the vault.search tool
+      box + a grounded answer. Not ticked [x] — owner confirms the boxes render in-app.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
