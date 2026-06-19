@@ -3395,6 +3395,11 @@ private struct LocalModelManagerSheet: View {
                     }
                 }
 
+                // reqs 6/7 — "the stack": owner-controlled advertise toggles over
+                // the full retained catalog. Visibility control only; nothing is
+                // deleted or made un-installable (KEEP-ALL).
+                ModelStackSettingsView()
+
                 if !legacyInstalledDescriptors.isEmpty {
                     Section(EpistemosFoundationLineup.simplifiedLineupActive ? "Other installed models" : "Legacy Installed") {
                         Text(EpistemosFoundationLineup.simplifiedLineupActive
