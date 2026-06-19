@@ -199,6 +199,51 @@ pub fn schema_preflight_select_tools_gated_json(query: String, candidates_json: 
     serde_json::to_string(&names).unwrap_or_else(|_| "[]".to_string())
 }
 
+/// Tool footprint considered when deciding auto-route tool-need.
+const AUTO_ROUTE_MAX_TOOLS: usize = 5;
+
+/// Flag that arms the live AUTO-ROUTE of plain queries to tools (OFF by default).
+pub const AUTO_TOOL_ROUTE_FLAG: &str = "EPISTEMOS_AUTO_TOOL_ROUTE_V0";
+
+fn auto_tool_route_armed() -> bool {
+    flag_armed(std::env::var(AUTO_TOOL_ROUTE_FLAG).ok().as_deref())
+}
+
+/// Deterministic AUTO-ROUTE signal: does this query imply the user needs a TOOL (vault /
+/// file / eidos search, …) rather than a plain answer? True iff the lexical preflight finds
+/// at least one relevant tool for the query. This is the founding-thesis "a plain query
+/// detects tool-need and invokes the right tool" decision — pure, deterministic, side-effect
+/// free, composing `select_tools` (no new scoring, no duplication). A caller's auto-route
+/// enters the tool loop / attaches tools when true, and answers directly when false.
+pub fn query_needs_tools(query: &str, candidates: &[ToolCandidate]) -> bool {
+    !select_tools(query, candidates, AUTO_ROUTE_MAX_TOOLS).is_empty()
+}
+
+/// FFI: the FLAG-GATED auto-route decision for a plain query. Returns a JSON envelope
+/// `{"needs_tools": <bool>, "tools": [<names>]}`. Flag OFF (default) →
+/// `{"needs_tools":false,"tools":[]}` so the caller's behaviour is UNCHANGED (it may call
+/// this unconditionally); flag ON → the deterministic tool-need decision + the relevant
+/// tools, so a plain query that mentions the vault / files / notes auto-routes to
+/// vault.search / file.search / eidos.query instead of a toolless (often hallucinated)
+/// answer. Honest `needs_tools:false` on a parse error.
+#[uniffi::export]
+pub fn schema_auto_tool_route_json(query: String, candidates_json: String, max: u32) -> String {
+    if !auto_tool_route_armed() {
+        return "{\"needs_tools\":false,\"tools\":[]}".to_string();
+    }
+    let inputs: Vec<PreflightToolInput> = serde_json::from_str(&candidates_json).unwrap_or_default();
+    let candidates: Vec<ToolCandidate> = inputs
+        .into_iter()
+        .map(|i| ToolCandidate::new(i.name, i.description, i.keywords))
+        .collect();
+    let tools = select_tools(&query, &candidates, max as usize);
+    format!(
+        "{{\"needs_tools\":{},\"tools\":{}}}",
+        !tools.is_empty(),
+        serde_json::to_string(&tools).unwrap_or_else(|_| "[]".to_string())
+    )
+}
+
 /// A candidate tool paired with its declared parameter schema (a JSON object schema),
 /// for the §C.1 preflight → dispatch-grammar pipeline.
 pub struct PreflightTool<'a> {
@@ -424,5 +469,28 @@ mod tests {
         let names = gated_select_names("read my file", inputs, 5, true);
         assert!(names.contains(&"read_file".to_string()));
         assert!(!names.contains(&"web_search".to_string())); // narrowed to the relevant tool
+    }
+
+    #[test]
+    fn query_needs_tools_true_for_a_tool_query() {
+        // "read my file from disk" / "search my notes" lexically imply a tool → auto-route on.
+        assert!(query_needs_tools("read my file from disk", &catalog()));
+        assert!(query_needs_tools("search my notes vault for the meeting", &catalog()));
+    }
+
+    #[test]
+    fn query_needs_tools_false_for_a_plain_query() {
+        // A plain factual question matches no tool → answer directly, no auto-route.
+        assert!(!query_needs_tools("what is the capital of france", &catalog()));
+        assert!(!query_needs_tools("explain why the sky looks blue", &catalog()));
+    }
+
+    #[test]
+    fn auto_route_ffi_off_is_passthrough() {
+        // Flag OFF (default in the test env) → the unchanged passthrough envelope, so a
+        // caller can call it unconditionally with ZERO behaviour change until armed.
+        let catalog_json = r#"[{"name":"read_file","description":"Read a file from disk","keywords":["file"]}]"#;
+        let out = schema_auto_tool_route_json("read my file".into(), catalog_json.into(), 5);
+        assert_eq!(out, "{\"needs_tools\":false,\"tools\":[]}");
     }
 }
