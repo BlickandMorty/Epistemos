@@ -43,16 +43,33 @@ protocol LiteParsePDFImporter: Sendable {
     func importToMarkdown(pdfPath: String) -> LiteParseImportResult
 }
 
-/// INERT importer — until the `liteparse_pdf_to_markdown` FFI is in the binding AND the
-/// native PDFium engine is vendored (S2), every import honestly reports `.notWired` (a
-/// PDF) or `.unsupported` (a non-PDF — Office/image need external binaries, never shelled
-/// out). The live importer that calls the FFI is the follow-on; it reuses
-/// `LiteParseImportEnvelope.decode`.
+/// INERT importer — for the unit-test host (which doesn't link `agent_coreFFI`) and as
+/// the honest default before the binding has the FFI. A PDF → `.notWired`, a non-PDF →
+/// `.unsupported` (never shelled out).
 struct InertLiteParsePDFImporter: LiteParsePDFImporter {
     func importToMarkdown(pdfPath: String) -> LiteParseImportResult {
         guard pdfPath.lowercased().hasSuffix(".pdf") else {
             return .unsupported("Only PDF is supported here (Office/image formats need external binaries — out of scope).")
         }
         return .notWired
+    }
+}
+
+/// LIVE importer — calls the Rust `liteparse_pdf_to_markdown` FFI (now in the binding)
+/// and decodes its envelope with the same `LiteParseImportEnvelope.decode`. The actual
+/// markdown arrives once the native PDFium engine is vendored (S2); until then the FFI
+/// honestly returns the `not wired` envelope → `.notWired`. PDF-only scope is enforced
+/// BEFORE the FFI (a non-PDF is never passed down). On a test host without `agent_coreFFI`
+/// it falls back to the inert behavior so it still compiles + runs.
+struct LiveLiteParsePDFImporter: LiteParsePDFImporter {
+    func importToMarkdown(pdfPath: String) -> LiteParseImportResult {
+        guard pdfPath.lowercased().hasSuffix(".pdf") else {
+            return .unsupported("Only PDF is supported here (Office/image formats need external binaries — out of scope).")
+        }
+        #if canImport(agent_coreFFI)
+        return LiteParseImportEnvelope.decode(liteparsePdfToMarkdown(pdfPath: pdfPath))
+        #else
+        return .notWired
+        #endif
     }
 }

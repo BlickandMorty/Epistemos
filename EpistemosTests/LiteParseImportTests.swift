@@ -57,4 +57,19 @@ struct LiteParseImportTests {
             return
         }
     }
+
+    @Test("the live importer enforces PDF-only BEFORE the FFI (non-PDF never passed down)")
+    func liveImporterRejectsNonPdf() {
+        guard case .unsupported = LiveLiteParsePDFImporter().importToMarkdown(pdfPath: "/a/scan.png") else {
+            Issue.record("a non-PDF must be .unsupported, never passed to the FFI")
+            return
+        }
+    }
+
+    @Test("the live importer is honest on a PDF (engine not wired until S2)")
+    func liveImporterHonestOnPdf() {
+        // Test host has no agent_coreFFI → the fallback; with the FFI linked the inert
+        // Rust seam returns the not-wired envelope → also .notWired. Either way: honest.
+        #expect(LiveLiteParsePDFImporter().importToMarkdown(pdfPath: "/a/paper.pdf") == .notWired)
+    }
 }
