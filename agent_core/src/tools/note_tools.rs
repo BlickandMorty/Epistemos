@@ -707,9 +707,13 @@ pub fn research_collect_snippet_schema() -> crate::types::ToolSchema {
             "properties": {
                 "text": { "type": "string", "description": "Quoted passage or excerpt" },
                 "sourceUrl": { "type": "string", "description": "Source URL" },
+                "source_url": { "type": "string", "description": "snake_case alias of sourceUrl" },
                 "sourceTitle": { "type": "string", "description": "Source title" },
+                "source_title": { "type": "string", "description": "snake_case alias of sourceTitle" },
                 "sessionNotePath": { "type": "string", "description": "Vault-relative research note path; defaults to Research/Agent Research Inbox.md" },
-                "sessionNoteId": { "type": "string", "description": "Legacy alias for sessionNotePath" }
+                "session_note_path": { "type": "string", "description": "snake_case alias of sessionNotePath" },
+                "sessionNoteId": { "type": "string", "description": "Legacy alias for sessionNotePath" },
+                "session_note_id": { "type": "string", "description": "snake_case alias of sessionNoteId" }
             },
             "required": ["text", "sourceUrl"]
         }),
@@ -782,7 +786,9 @@ pub fn citation_save_schema() -> crate::types::ToolSchema {
                 "url": { "type": "string", "description": "Citation URL" },
                 "date": { "type": "string", "description": "Publication date" },
                 "sessionNotePath": { "type": "string", "description": "Vault-relative research note path; defaults to Research/Agent Research Inbox.md" },
-                "sessionNoteId": { "type": "string", "description": "Legacy alias for sessionNotePath" }
+                "session_note_path": { "type": "string", "description": "snake_case alias of sessionNotePath" },
+                "sessionNoteId": { "type": "string", "description": "Legacy alias for sessionNotePath" },
+                "session_note_id": { "type": "string", "description": "snake_case alias of sessionNoteId" }
             },
             "required": ["title", "url"]
         }),
@@ -1045,6 +1051,23 @@ mod tests {
     use crate::storage::vault::{SearchResult, VaultError};
     use async_trait::async_trait;
     use serde_json::json;
+
+    #[test]
+    fn research_schemas_declare_the_snake_case_aliases_they_read() {
+        // S4 schema↔impl drift fix (3/4 + 4/4): the handlers accept snake_case
+        // aliases (source_url/source_title/session_note_path/session_note_id) but
+        // the schemas declared only camelCase → latent drift under a strict gate.
+        let snippet = research_collect_snippet_schema();
+        let snippet_props = snippet.parameters["properties"].as_object().unwrap();
+        for key in ["source_url", "source_title", "session_note_path", "session_note_id"] {
+            assert!(snippet_props.contains_key(key), "collectsnippet missing {key}");
+        }
+        let citation = citation_save_schema();
+        let citation_props = citation.parameters["properties"].as_object().unwrap();
+        for key in ["session_note_path", "session_note_id"] {
+            assert!(citation_props.contains_key(key), "savecitation missing {key}");
+        }
+    }
     use std::collections::HashMap;
     use std::sync::Mutex;
 
