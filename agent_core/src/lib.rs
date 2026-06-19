@@ -141,6 +141,10 @@ pub mod shared_memory;
 pub mod tirith;
 pub mod undo;
 
+// Goose=WORK seam (R-GOOSE, Seam B) — isolated + inert; nothing in agent_loop /
+// agent_runtime references it (GOOSE GUARDRAIL: Chat/Act unchanged).
+pub mod work;
+
 pub mod mcp;
 
 pub mod tools {

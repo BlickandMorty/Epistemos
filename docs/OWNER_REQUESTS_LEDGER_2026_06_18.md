@@ -1170,6 +1170,17 @@ per pass). Keep until all done + hardened (rule #6/#8).
       SwiftUI skin. Goose engine lives in the shared Rust core so Act/Chat can tap
       its MCP/subagent pieces; surfaced primarily through Work. Validate Goose code
       patches against the P8.2 deterministic schemas. ProvenanceGate the vendor.
+      ✅ SEAM B 2026-06-19 (first landable Rust seam): NEW agent_core/src/work.rs
+      (always-compiled, INERT) — the Rust-side seam the Swift WorkBackend drives via
+      UniFFI: WorkError (EngineNotWired, honest, no silent fallback) + is_armed()
+      (EPISTEMOS_WORK_GOOSE_V0) + run_work_session() (inert → EngineNotWired) +
+      `#[uniffi::export] work_backend_status_json()` (the first concrete UniFFI seam).
+      `pub mod work;` added to lib.rs (additive). GUARDRAIL by construction: nothing
+      in agent_loop/agent_runtime references it → Chat/Act unchanged. +3 cargo tests;
+      `cargo test --lib` BOTH features green (default 5379 / pro-build 5641, 0 failed)
+      — zero regressions across the lib surface (a full-suite attempt hung on the
+      orphaned-falsifier-bin collision from an earlier `| tail` pipe; re-ran to FILES).
+      NEXT: the PLAN + vendoring block/goose's Rust core (the heavy arc step).
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,
