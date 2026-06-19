@@ -1200,8 +1200,22 @@ per pass). Keep until all done + hardened (rule #6/#8).
       self-contained std-only) — VERBATIM into agent_core/src/work.rs `pub mod
       vendored_goose` (direct_import, provenance + Apache-2.0 consts); run_work_session
       now takes `&[SourceRoot]` (the workspace it operates on), still inert. +1 cargo
-      test; cargo --lib BOTH green (5380 / 5642, 0 failed). GUARDRAIL holds. NEXT (S3):
-      next leaf layer + typed WorkRequest/WorkResult.
+      test; cargo --lib BOTH green (5380 / 5642, 0 failed). GUARDRAIL holds.
+      ✅ S3 2026-06-19 (next leaf + typed contract): vendored the block/goose
+      PERMISSION leaf VERBATIM — `Permission` (5 variants), `PrincipalType`,
+      `PermissionConfirmation` from crates/goose-providers/src/permission.rs
+      (Apache-2.0 `direct_import`; ONE documented adaptation — the upstream `ToSchema`
+      derive + `use utoipa` dropped, agent_core has no utoipa, it's OpenAPI-doc-only;
+      every variant/field + serde `rename_all="snake_case"` byte-for-byte upstream).
+      Added first-party typed `WorkRequest` (objective + `Vec<SourceRoot>` +
+      `default_permission`, `read_only` ctor defaults to the SAFEST `AllowOnce`, never
+      `AlwaysAllow`) + `WorkResult` (summary + files_touched); `run_work_session` now
+      takes `&WorkRequest` → `Result<WorkResult, WorkError>`, still inert
+      (EngineNotWired, never a Chat/Act fallback). +2 cargo tests (upstream-variant +
+      snake_case wire-form round-trip; safe-default posture). cargo --lib BOTH green
+      (default 70/0, pro-build 90/0 on the `work` filter). GUARDRAIL holds — work
+      module still isolated, no agent_loop/agent_runtime ref. NEXT (S4): provider/format
+      layer + FFI-export the real run_work_session.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,

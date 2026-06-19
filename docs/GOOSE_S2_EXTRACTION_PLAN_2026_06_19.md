@@ -60,8 +60,13 @@ works for block/goose, the same way Osaurus S2 vendored `ServerHealth`.
 
 ## Sequenced slices (each `cargo test --lib` green BOTH features, GUARDRAIL-safe)
 1. **S2 (this):** PLAN + vendor `SourceRoot` (leaf) + the seam takes source roots.
-2. **S3:** vendor the next leaf layer (recipe/slash-command/permission types) + a
-   typed `WorkRequest`/`WorkResult` the FFI run entry uses (still inert).
+2. **S3 ✅ (2026-06-19):** vendored the block/goose PERMISSION leaf VERBATIM
+   (`Permission`/`PrincipalType`/`PermissionConfirmation` from
+   `crates/goose-providers/src/permission.rs`, `direct_import`, `ToSchema` derive
+   trimmed — no `utoipa` in agent_core; serde wire form byte-identical) + first-party
+   typed `WorkRequest` (safe-default `AllowOnce` posture) / `WorkResult`;
+   `run_work_session(&WorkRequest) -> Result<WorkResult, WorkError>` still inert.
+   cargo `--lib work` green BOTH profiles. GUARDRAIL holds.
 3. **S4:** the provider/format layer (OpenAI/Anthropic wire formats) once its deps
    are satisfied; FFI-export the real `run_work_session`.
 4. **S5+:** the agent loop + subagents + session (the engine), behind the flag, with
