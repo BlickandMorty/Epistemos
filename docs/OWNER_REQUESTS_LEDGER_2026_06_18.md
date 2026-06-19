@@ -483,6 +483,37 @@ calls: no blanket rule — choose per case.
       remaining blocker — vendor liteparse + place PDFium, recipe above), after which the
       same wiring produces real markdown vault notes with NO further UI changes. (A
       dedicated Settings bulk-import surface can reuse this button verbatim — follow-on.)
+      ✅ S2 — REAL PDFium ENGINE VENDORED + EMBEDDED 2026-06-19 (the native engine is no
+      longer a stub): per the owner's NON-NEGOTIABLE "APP-NATIVE BY EMBEDDING — clone the
+      real source in, never wrap-and-shell; if un-sandboxable Pro/dev-gate honestly but
+      still embed" directive. RESEARCH-FIRST proved feasibility on this toolchain
+      (rustc 1.94 → edition-2024 OK; libclang present; pdfium-sys build.rs auto-downloads
+      PDFium + bindgen succeeds; a full `cargo build --features liteparse-pdf` PROBE went
+      green in 14m). THEN vendored the real run-llama/liteparse Apache-2.0 core IN-REPO at
+      `agent_core/vendor/liteparse` — 3 crates (pdfium-sys + pdfium + liteparse), 1.2 MB,
+      LICENSE + a provenance README; the napi/python/wasm binding crates intentionally
+      omitted (Epistemos calls the Rust core directly). Gated by a NEW `liteparse-pdf`
+      Cargo feature (OFF by default): MAS build links NO PDFium/bindgen and `pdf_to_markdown`
+      stays honest `EngineNotWired`; `--features liteparse-pdf` (Pro/dev) compiles the REAL
+      engine — `LiteParse::new(config{ output_format: Markdown, ocr_enabled: false,
+      quiet: true }).parse(path).await` driven on a current-thread tokio runtime → Markdown.
+      OCR off (default-features=false drops tesseract-rs) + non-PDF rejected up front, so
+      the ONLY reachable path is in-process PDFium text-extraction (no subprocess/network —
+      Office/image's LibreOffice/ImageMagick subprocess paths are unreachable). liteparse.rs:
+      shared `reject_if_not_pdf`; cfg-split real/inert `pdf_to_markdown`; `status_json`
+      `engine_wired = cfg!(feature="liteparse-pdf")`; 3 inert tests cfg-gated `not(feature)`
+      + 3 live variants. VERIFIED 4 ways (all to FILES): `cargo build --features liteparse-pdf`
+      green (real engine compiles in-repo); `cargo test --lib` 5437/0 + `--features pro-build`
+      5699/0 (ZERO regression — feature OFF so the inert path is byte-identical); `cargo test
+      --features liteparse-pdf liteparse::` 8/0 — the LIVE tests RUN the engine (a missing
+      PDF → honest `Failed`, `engine_wired:true`), proving the tokio + PDFium wiring works at
+      RUNTIME, not just compiles. HONEST REMAINING CAVEAT (owner's signed-build step, NOT a
+      stub): real in-app PDF import needs the PDFium dylib BUNDLED + code-signed into the
+      `.app` — a sandboxed MAS app can't `dlopen` from `~/Library/Caches` where pdfium-sys's
+      build.rs caches it; resolve the lib path to the bundle (PDFIUM_LIB_PATH /
+      vendor/pdfium/release/lib) in the Xcode build. Until then the engine is EMBEDDED +
+      Pro/dev-gated, honest about needing that bundling to run in MAS. Cannot tick "real PDF
+      imported in-app" until the owner's signed build; everything up to that is done + green.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt

@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+# Vendored into Epistemos for the R-LITEPARSE PDF→Markdown engine — only the PDF path
+# (pdfium-sys + pdfium + liteparse). The napi/python/wasm binding crates from upstream
+# are intentionally NOT vendored (Epistemos calls the Rust core directly). Provenance +
+# scope: agent_core/vendor/liteparse/README.md.
+members = [
+    "crates/pdfium-sys",
+    "crates/pdfium",
+    "crates/liteparse",
+]
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/run-llama/liteparse"
