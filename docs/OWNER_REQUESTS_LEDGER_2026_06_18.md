@@ -602,10 +602,16 @@ calls: no blanket rule — choose per case.
 - [ ] **APP-WIDE STALENESS SWEEP** — there are instances around the app of
       super-old code/assumptions. Grep for stale flags/model names/dead paths/old
       copy and repair or remove them; honest, with regressions. Not just Settings.
-- [ ] **SUBSTRATE HEALTH PAGE makes the window SUPER LONG** — layout bug in
+- [~] **SUBSTRATE HEALTH PAGE makes the window SUPER LONG** — layout bug in
       Epistemos/Views/Settings/SubstrateHealthPanel.swift (too many health rows
       stacked). Fix: scrollable/collapsible/paginated so it doesn't blow out the
       window height. Quick, visible win.
+      ✅ DONE (build-verified; owner visual-confirms): the 3 sections are now
+      collapsible (`Section(_:isExpanded:)`, macOS 14+) with `@State` show flags;
+      the 10-row "Substrate Floor" section defaults COLLAPSED so the panel opens
+      compact (5 Retrieval + 8 Agent Runtime rows visible, Floor one click away),
+      and the host `Form` scrolls — nothing removed. Mounted at SettingsView:498.
+      (No-drift tick: the code landed earlier this session; ledger was unticked.)
 - [ ] **SUBSTRATE COMPLETELY FINISHED (except the 70B runtime)** — finish ALL of
       P5/P5.H substrate to T4+ (Cognitive DAG, provenance, Knowledge Core, Halo,
       Simulation, GenUI, XPC, Eidos, EML). ONLY the large-local-model (70B/System G)
