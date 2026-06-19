@@ -404,9 +404,16 @@ calls: no blanket rule — choose per case.
       edge auto-sends it → discoverable BY USE. "Sends on completion" locked by
       ComposerMessageQueueTests.dequeueOnCompletionEdge; +1 wiring test;
       build-for-testing green. Owner verifies the in-app send on completion.
-- [ ] **CONTEXT** — reported not working. Only shows when tools were used + as a
+- [~] **CONTEXT** — reported not working. Only shows when tools were used + as a
       tiny composer strip. Assemble it as a real, visible panel; populate from
       actual run telemetry; show an honest empty state, not nothing.
+      ✅ 2026-06-19: NEW CoworkContextPanel aggregates the REAL telemetry — context-
+      window usage (estimatedContextTokens/maxContextTokens + a tinted bar), @-notes
+      (pendingContextAttachments), file attachments (pendingAttachments), files
+      touched this run (CoworkRunContext.filesTouched, Pro-gated) — with an HONEST
+      empty state ("Nothing attached yet…"). Reachable from chat: the context badge
+      now opens it in a popover. +2 tests; build-for-testing green. First piece of
+      the cohesive COWORK layout. Owner verifies render in-app.
 - [ ] **COWORK SURFACE** — the Act/Progress/Working-folder/Context/Queue/Connectors
       pieces are scattered into the composer, NOT the cohesive cowork LAYOUT from
       the owner's Claude-Desktop screenshot. Assemble the real surface (panels),
