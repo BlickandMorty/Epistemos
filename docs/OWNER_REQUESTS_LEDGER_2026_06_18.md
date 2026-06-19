@@ -1703,6 +1703,28 @@ per pass). Keep until all done + hardened (rule #6/#8).
       tokens intact). NEXT: the provider/message layer (rmcp/clean-room) remains the heavier
       multi-slice push, or wire a real self-contained engine sub-piece (e.g. the retry
       driver loop) clean-room.
+      ✅ S8 2026-06-19 (the self-correction DRIVER — S7's config becomes working logic):
+      took the S7-NEXT option ("wire a real self-contained engine sub-piece clean-room").
+      RESEARCH-FIRST read block/goose `agents/retry.rs` `handle_retry_logic` + `RetryManager`
+      (Apache-2.0). The deterministic control flow is cleanly separable from the async/shell:
+      upstream runs `execute_success_checks` / `execute_on_failure_command` (tokio shell) —
+      those are the un-sandboxable parts. So `clean_room_rewrite` of the DETERMINISTIC core
+      into work.rs: NEW `RetryResult` enum (Skipped / SuccessChecksPassed / MaxAttemptsReached
+      / Retried — the SAME four upstream outcomes) + `RetryManager { attempts }` with
+      `evaluate(config, checks_passed, on_failure)` mirroring `handle_retry_logic` BYTE-FOR-
+      BYTE in control flow (no config→Skipped; checks pass→SuccessChecksPassed; attempts ≥
+      max_retries→MaxAttemptsReached; else run on_failure cleanup + increment→Retried). The
+      side effects are HOISTED OUT — the caller supplies `checks_passed` (it ran the success
+      checks) + an `on_failure` callback (the cleanup hook) — so this seam EXECUTES NOTHING
+      (MAS-safe; the real shell is the future Pro lane, per APP-NATIVE-BY-EMBEDDING: embed the
+      control flow, gate the un-sandboxable execution). No force-unwrap. This turns the S7
+      `RetryConfig` into a working deterministic self-correction loop. +5 cargo tests (skip
+      w/o config / success short-circuits w/o cleanup / retries + runs on_failure when
+      attempts remain / stops at max w/o increment-or-cleanup / drives a full fail→fail→pass
+      loop then resets). cargo --lib BOTH green: default 5446/0, pro-build 5708/0 (+5 each,
+      ZERO regression). Seam still inert (run_work_session → EngineNotWired); GUARDRAIL holds.
+      NEXT: a `RetryExecutor` trait (the injected shell side, Pro-gated) to run the loop for
+      real, or the provider/message layer.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,

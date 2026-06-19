@@ -375,6 +375,84 @@ impl RepetitionGuard {
     }
 }
 
+/// Outcome of one self-correction retry evaluation (Goose S8).
+///
+/// ProvenanceGate `clean_room_rewrite` of block/goose `agents::retry::RetryResult`
+/// (Apache-2.0): the SAME four deterministic outcomes, re-expressed as a first-party enum.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RetryResult {
+    /// No retry configuration → retry logic skipped.
+    Skipped,
+    /// All success checks passed on this attempt → no retry needed.
+    SuccessChecksPassed,
+    /// `attempts >= max_retries` already → cannot retry further.
+    MaxAttemptsReached,
+    /// Checks failed and attempts remain → a retry was performed.
+    Retried,
+}
+
+/// The deterministic driver of the test-and-fix self-correction loop (Goose S8) — it turns
+/// the vendored [`vendored_goose::retry::RetryConfig`] (S7) into working control flow.
+///
+/// ProvenanceGate `clean_room_rewrite` of block/goose `agents::retry::{RetryManager,
+/// handle_retry_logic}` (agents/retry.rs, Apache-2.0): the attempt counter + the EXACT
+/// decision sequence are re-expressed against a first-party shape. Upstream's
+/// `handle_retry_logic` is async and EXECUTES shell commands (`execute_success_checks` /
+/// `execute_on_failure_command`); here the side effects are HOISTED OUT — the caller passes
+/// in whether this attempt's checks passed and an `on_failure` callback — so this seam runs
+/// NOTHING itself (MAS-safe; the real shell execution is the future Pro engine lane, per
+/// APP-NATIVE-BY-EMBEDDING: embed the control flow, gate the un-sandboxable execution).
+/// No force-unwrap (the project rule upstream's `.await?` paths sidestep differently).
+#[derive(Debug, Default)]
+pub struct RetryManager {
+    attempts: u32,
+}
+
+impl RetryManager {
+    pub fn new() -> Self {
+        Self { attempts: 0 }
+    }
+
+    /// The number of retries performed so far.
+    pub fn attempts(&self) -> u32 {
+        self.attempts
+    }
+
+    /// Reset the attempt counter (e.g. between Work sessions) — upstream `reset_attempts`.
+    pub fn reset(&mut self) {
+        self.attempts = 0;
+    }
+
+    /// Evaluate the next self-correction step, mirroring upstream `handle_retry_logic`'s
+    /// control flow byte-for-byte: no config → `Skipped`; this attempt's checks all passed
+    /// → `SuccessChecksPassed`; `attempts >= max_retries` → `MaxAttemptsReached`; otherwise
+    /// run the `on_failure` cleanup (if the config declares one), increment the attempt
+    /// counter, and return `Retried`. `checks_passed` is supplied by the caller (it ran the
+    /// success checks); `on_failure` is the caller's cleanup hook (the real shell exec in
+    /// the Pro lane, or a no-op). This function executes no shell itself.
+    pub fn evaluate(
+        &mut self,
+        config: Option<&vendored_goose::retry::RetryConfig>,
+        checks_passed: bool,
+        mut on_failure: impl FnMut(&str),
+    ) -> RetryResult {
+        let Some(config) = config else {
+            return RetryResult::Skipped;
+        };
+        if checks_passed {
+            return RetryResult::SuccessChecksPassed;
+        }
+        if self.attempts >= config.max_retries {
+            return RetryResult::MaxAttemptsReached;
+        }
+        if let Some(cmd) = &config.on_failure {
+            on_failure(cmd);
+        }
+        self.attempts += 1;
+        RetryResult::Retried
+    }
+}
+
 fn flag_is_armed(raw: Option<&str>) -> bool {
     matches!(
         raw.map(|s| s.trim().to_ascii_lowercase()).as_deref(),
@@ -683,6 +761,85 @@ mod tests {
         assert_eq!(req.retry.as_ref().unwrap().max_retries, 3);
         // Still inert — carrying a retry policy never wires an engine or falls back.
         assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
+    }
+
+    fn retry_cfg(max_retries: u32, on_failure: Option<&str>) -> vendored_goose::retry::RetryConfig {
+        vendored_goose::retry::RetryConfig {
+            max_retries,
+            checks: vec![],
+            on_failure: on_failure.map(|s| s.to_string()),
+            timeout_seconds: None,
+            on_failure_timeout_seconds: None,
+        }
+    }
+
+    #[test]
+    fn retry_manager_skips_without_config() {
+        // Upstream: no retry_config → Skipped (no counter movement, no cleanup).
+        let mut mgr = RetryManager::new();
+        let mut cleanups = 0u32;
+        assert_eq!(mgr.evaluate(None, false, |_| cleanups += 1), RetryResult::Skipped);
+        assert_eq!(mgr.attempts(), 0);
+        assert_eq!(cleanups, 0);
+    }
+
+    #[test]
+    fn retry_manager_success_short_circuits_without_cleanup() {
+        // checks passed → SuccessChecksPassed, never increments, never runs on_failure.
+        let cfg = retry_cfg(2, Some("cleanup"));
+        let mut mgr = RetryManager::new();
+        let mut cleanups = 0u32;
+        assert_eq!(
+            mgr.evaluate(Some(&cfg), true, |_| cleanups += 1),
+            RetryResult::SuccessChecksPassed
+        );
+        assert_eq!(mgr.attempts(), 0);
+        assert_eq!(cleanups, 0);
+    }
+
+    #[test]
+    fn retry_manager_retries_and_runs_on_failure_when_attempts_remain() {
+        // attempts(0) < max(2) + checks failed → Retried, increment to 1, on_failure ran.
+        let cfg = retry_cfg(2, Some("git checkout ."));
+        let mut mgr = RetryManager::new();
+        let mut cleanups: Vec<String> = vec![];
+        assert_eq!(
+            mgr.evaluate(Some(&cfg), false, |c| cleanups.push(c.to_string())),
+            RetryResult::Retried
+        );
+        assert_eq!(mgr.attempts(), 1);
+        assert_eq!(cleanups, vec!["git checkout .".to_string()]);
+    }
+
+    #[test]
+    fn retry_manager_stops_at_max_attempts_without_cleanup_or_increment() {
+        // max_retries = 1: one retry, then the next failure is MaxAttemptsReached.
+        let cfg = retry_cfg(1, Some("cleanup"));
+        let mut mgr = RetryManager::new();
+        let mut cleanups = 0u32;
+        assert_eq!(mgr.evaluate(Some(&cfg), false, |_| cleanups += 1), RetryResult::Retried);
+        assert_eq!(mgr.attempts(), 1);
+        // 1 >= 1 → MaxAttemptsReached: NO further increment, NO cleanup.
+        assert_eq!(
+            mgr.evaluate(Some(&cfg), false, |_| cleanups += 1),
+            RetryResult::MaxAttemptsReached
+        );
+        assert_eq!(mgr.attempts(), 1);
+        assert_eq!(cleanups, 1); // only the single retry ran cleanup
+    }
+
+    #[test]
+    fn retry_manager_drives_a_full_self_correction_loop_then_succeeds() {
+        // fail, fail, then pass → Retried, Retried, SuccessChecksPassed (2 retries used).
+        let cfg = retry_cfg(3, None);
+        let mut mgr = RetryManager::new();
+        assert_eq!(mgr.evaluate(Some(&cfg), false, |_| {}), RetryResult::Retried);
+        assert_eq!(mgr.evaluate(Some(&cfg), false, |_| {}), RetryResult::Retried);
+        assert_eq!(mgr.evaluate(Some(&cfg), true, |_| {}), RetryResult::SuccessChecksPassed);
+        assert_eq!(mgr.attempts(), 2);
+        // reset clears the counter for the next Work session.
+        mgr.reset();
+        assert_eq!(mgr.attempts(), 0);
     }
 
     #[test]
