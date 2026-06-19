@@ -581,6 +581,23 @@ P6.4  THEME/SETTINGS FIXES (owner 2026-06-18, REAL BUG — prioritize). Three pa
           write + persistence + live re-render so every level (display/H1–H3/panel/
           mono) actually applies. Add a regression that setting a custom font
           changes the resolved font name.
+          ◐ INVESTIGATED + REGRESSION-LOCKED 2026-06-19 (owner re-verifies in-app —
+          report may predate the re-render fix): traced ALL THREE suspected causes,
+          all CORRECT in current code. (1) PERSIST: `setHeadingFontOverride` stores
+          any `displayFontOption`-valid postScriptName; the Picker tags each row with
+          exactly that, so a pick can't silently no-op. (2) CONTROL DISABLED: no — the
+          heading-font Pickers render + are interactive, gated to `themeMode==.custom
+          && activePair==.custom` (SettingsView ~4484). (3) RE-RENDER: FIXED — the
+          `UIState.theme` getter reads `_ = typographySettingsRevision` (UIState.swift
+          ~286) with an explicit comment naming THIS exact symptom ("picking a font
+          does nothing… override persisted but nothing re-rendered"), and the
+          binding setter bumps it. Added the requested regression: NEW
+          `HeadingFontOverrideTests` (5 tests — round-trip honored under Custom, every
+          Picker option persists, custom-gating, clear, unknown-name rejected); the
+          persistence/gating layer had ZERO prior coverage. build-for-testing green.
+          STILL OPEN: if the owner still sees it, the remaining surface is the Tiptap
+          NOTE-heading CSS re-injection (epdocHeadingFontFamily) on a typography bump —
+          the editor-integration path, not the model layer (now locked).
       (b) THEME PREVIEW is ugly — replace the busy preview UI with a clean COLOR
           PALETTE swatch (the theme's key colors as a simple row/grid), per owner.
           Drop the heavy mock-UI preview; palette-only is the preview.
@@ -959,7 +976,7 @@ done, then re-read this file and harden.
 | P7.2 | HTML workspace fix + canvas live-viewer (chat drives the screen) | ☐ TODO |
 | P7.5 | Chat surface parity: MiniChat / Note / Graph chat match Main chat stack | ☐ TODO — HIGH, owner 2026-06-17 (minichat outdated/inconsistent) |
 | P7.6 | Claude-Desktop "cowork" parity fused w/ Code: Act/Chat, Progress, Working folder, Context, Queue, connectors (Slack/Gmail/Drive via MCP) | ☐ TODO — owner 2026-06-18 screenshot |
-| P6.4 | Theme/Settings: fix custom-theme font (won't set), theme preview → color palette, declutter Settings | ☐ TODO — REAL BUG, owner 2026-06-18 |
+| P6.4 | Theme/Settings: fix custom-theme font (won't set), theme preview → color palette, declutter Settings | ◐ (a) font: investigated all 3 causes (persist/disabled/re-render) — all correct; re-render fix at UIState:286 documents the exact symptom; added the requested regression (HeadingFontOverrideTests, 5 tests); owner re-verifies (note-heading CSS re-inject is the only untested surface left). (b) palette preview + (c) declutter still TODO |
 | P7.7 | Voice model + auto-read-screen/replies/STT granular settings + pixel-art retro voice filter | ☐ TODO — owner 2026-06-18 (research R-VOICE first) |
 | R-VOICE/R-EVE/R-OKF/R-PROMPT | Research: voice+filter / eve agent fw / OKF+dedup+privacy / priompt+composer | ☐ TODO — owner 2026-06-18, verdict docs (take?/free?/UX) |
 | P7.3 | Terminal + console actually work (Pro/dev) | ☐ TODO |
