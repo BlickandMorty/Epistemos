@@ -728,6 +728,23 @@ calls: no blanket rule — choose per case.
       schema-engine path (does NOT touch Swift's MLXInferenceBridge MLX-path handling —
       no duplication-in-place). +6 cargo tests; cargo --lib BOTH green (6/0). Wiring
       into the GGUF generation path is the follow-on (best with owner in-app check).
+      ✅ §C.1 PIPELINE 2026-06-19 (preflight → dispatch grammar): RESEARCH FIRST found
+      the structured-gen pieces ALREADY EXIST — json-schema VALIDATION (`jsonschema`
+      crate in tools_v2/runner.rs) + json-schema→GBNF grammar (grammar/mod.rs
+      `build_dispatch_grammar`) + structured-gen FFI (`with_json_schema` in bridge.rs).
+      So instead of duplicating, COMPOSED them: NEW `preflight_dispatch_grammar(query,
+      tools, max)` in tool_preflight.rs = the spec §C.1 "RAG Preflight Filter →
+      structured tool output" — preflight-selects the relevant tools, then builds the
+      GBNF dispatch grammar for ONLY those via the EXISTING `build_dispatch_grammar`
+      (so a local model sees a tight + schema-constrained tool set, high fidelity on the
+      selected few). Honest `EmptyDispatch` when nothing matches (caller falls back).
+      +2 cargo tests (constrains-only-selected, errors-when-nothing-matches). cargo
+      --lib BOTH green (9/0 on `tool_preflight`). NOTE: the schema-engine's clean pure
+      slices are now largely harvested (preflight + reasoning + this composition added;
+      validation + grammar + structured-gen FFI pre-existing); the remaining parts (the
+      §A AST quality gate via tree-sitter, UniFFI async stream, and wiring all of this
+      into the live agent loop / run_local_gguf_generation) are heavier / owner-
+      verification, NOT one-pass autonomous slices.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner

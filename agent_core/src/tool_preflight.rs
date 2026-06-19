@@ -12,6 +12,8 @@
 //! preflight from the spec is the follow-on that replaces `score` without changing this
 //! deterministic, side-effect-free contract.
 
+use crate::grammar::{build_dispatch_grammar, GrammarError};
+use llguidance::api::TopLevelGrammar;
 use std::collections::BTreeSet;
 
 /// A tool the preflight may select, reduced to the text the scorer reads.
@@ -89,6 +91,41 @@ pub fn select_tools(query: &str, candidates: &[ToolCandidate], max: usize) -> Ve
     scored.into_iter().take(max).map(|(_, n)| n.to_string()).collect()
 }
 
+/// A candidate tool paired with its declared parameter schema (a JSON object schema),
+/// for the §C.1 preflight → dispatch-grammar pipeline.
+pub struct PreflightTool<'a> {
+    pub candidate: ToolCandidate,
+    pub schema: &'a serde_json::Value,
+}
+
+/// The §C.1 pipeline ("RAG Preflight Filter → structured tool output"): select the
+/// tools relevant to `query`, then build the GBNF dispatch grammar (via the existing
+/// `grammar::build_dispatch_grammar`) for ONLY those tools — so a local model sees a
+/// TIGHT, schema-CONSTRAINED tool set (high tool-call fidelity on the selected few, not
+/// the whole suite). Returns the selected tool names + the dispatch grammar. Errors
+/// `EmptyDispatch` when no tool matched (the caller falls back to a default core set)
+/// or propagates a grammar build error. This COMPOSES the preflight with the existing
+/// grammar engine — it does not reimplement json-schema→grammar conversion.
+pub fn preflight_dispatch_grammar(
+    query: &str,
+    tools: &[PreflightTool<'_>],
+    max: usize,
+) -> Result<(Vec<String>, TopLevelGrammar), GrammarError> {
+    let candidates: Vec<ToolCandidate> = tools.iter().map(|t| t.candidate.clone()).collect();
+    let selected = select_tools(query, &candidates, max);
+    if selected.is_empty() {
+        return Err(GrammarError::EmptyDispatch);
+    }
+    let selected_set: BTreeSet<&str> = selected.iter().map(String::as_str).collect();
+    let dispatch: Vec<(&str, &serde_json::Value)> = tools
+        .iter()
+        .filter(|t| selected_set.contains(t.candidate.name.as_str()))
+        .map(|t| (t.candidate.name.as_str(), t.schema))
+        .collect();
+    let grammar = build_dispatch_grammar(&dispatch)?;
+    Ok((selected, grammar))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,5 +184,39 @@ mod tests {
     #[test]
     fn zero_max_returns_empty() {
         assert!(select_tools("file", &catalog(), 0).is_empty());
+    }
+
+    fn object_schema() -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": { "path": { "type": "string" } },
+            "required": ["path"]
+        })
+    }
+
+    #[test]
+    fn preflight_dispatch_grammar_constrains_only_the_selected_tools() {
+        let schema = object_schema();
+        let tools = vec![
+            PreflightTool { candidate: ToolCandidate::new("read_file", "Read a file from disk", vec!["file".into()]), schema: &schema },
+            PreflightTool { candidate: ToolCandidate::new("web_search", "Search the web", vec!["search".into()]), schema: &schema },
+        ];
+        let (selected, _grammar) = preflight_dispatch_grammar("read my file", &tools, 5)
+            .expect("a grammar should build for the selected tools");
+        assert!(selected.contains(&"read_file".to_string()));
+        assert!(!selected.contains(&"web_search".to_string())); // irrelevant → not constrained
+    }
+
+    #[test]
+    fn preflight_dispatch_grammar_errors_when_nothing_matches() {
+        let schema = object_schema();
+        let tools = vec![PreflightTool {
+            candidate: ToolCandidate::new("read_file", "Read a file", vec!["file".into()]),
+            schema: &schema,
+        }];
+        assert!(matches!(
+            preflight_dispatch_grammar("xyzzy quux", &tools, 5),
+            Err(GrammarError::EmptyDispatch)
+        ));
     }
 }
