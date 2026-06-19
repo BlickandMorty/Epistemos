@@ -76,6 +76,34 @@ calls: no blanket rule — choose per case.
 3. No feature is "done" until the owner can demonstrably use it.
 
 ## REOPENED — owner reports these DON'T WORK (fix first, verify in-app)
+- [ ] **TOOLS/SKILLS BROKEN IN CHAT+AGENT — deep repair (owner 2026-06-19, w/
+      screenshots) — HIGH PRIORITY.** Owner (verbatim): *"the tools and skills were
+      not working — they used to at least have the UI boxes like Eidos and file
+      search and vault search, but now I can't even send a regular query and have it
+      look for tools to use and use them. Local AND cloud models both just don't do
+      the things, and cloud should automatically know especially since it's there."*
+      EVIDENCE (Hegemony Research chat): the agent REQUESTS `note.research_digest` /
+      Eidos with a visible `notes` array, but execution ERRORS
+      `{"error":"invalid arguments: notes array required","success":false}` (repeated),
+      AND "No vault retrieval — No vault notes were loaded." ROOT (grounded):
+      `agent_core/src/tools/note_tools.rs:387-390` reads `input["notes"].as_array()`
+      and rejects when absent — so the model's emitted `notes` array is NOT arriving
+      as a parsed object at execute() = a TOOL-ARG MARSHALING bug between request and
+      execution (likely double-JSON-encoded args, wrong nesting/key, or a bad Swift↔
+      Rust/grammar tool-call parse). FOUR fixes, BOTH local + cloud: (1) fix the arg
+      marshaling so `input` is the parsed object the tool expects (and make the
+      extractor tolerant: accept notes whether parsed-object, JSON-string blob, or
+      wrapped key); add a regression test that drives research_digest end-to-end with
+      a real model-emitted tool call. (2) AUTO-ROUTE regular queries to tools — the
+      "Auto-routes when your prompt needs tools" path isn't firing; a plain query must
+      detect tool-need and invoke (Eidos/file-search/vault-search) automatically.
+      (3) Restore the tool UI boxes (Eidos / file search / vault search) that used to
+      show. (4) Fix "No vault retrieval" — vault notes must actually load for answers.
+      Cloud models especially must auto-use tools (keys already present). Audit the
+      whole tool-call path: registry.rs, note_tools.rs, ToolTierBridge.swift, the
+      local grammar tool-call parser, ConfidenceRouter/TriageService auto-route.
+      Build+run verify a real query uses tools end-to-end in-app. This is the deep-
+      repair the owner asked for on the Epistemos agent + chat.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
