@@ -802,12 +802,18 @@ calls: no blanket rule — choose per case.
       3-button (or 4) TOGGLE on the search page: **Chat · Act · Work** (clearly
       separated, no muddy overlap between Chat and Act). Each button switches the
       page into that mode. (A) **Chat** = Epistemos conversation. (B) **Act** = the
-      automation / long-task AGENT surface — this is WHERE OPENCLAW EMBEDS (owner Q
-      answered: OpenClaw → Act, since it's best at long tasks/automation; Work is for
-      coding, Chat is conversation). Act uses OpenClaw's reskinned WebKit UI + the
-      2-engine picker (OpenClaw vs Local Agent); Osaurus stays UNDER Act as the
-      secure sandbox/runtime, not a competing button. (C) **Work** = Open Code, Goose
-      engine. Owner to confirm OpenClaw-in-Act placement when R-OPENCLAW lands.
+      automation / long-task AGENT surface with a **2-ENGINE picker** (owner CORRECTION
+      2026-06-18 — Osaurus STAYS the Act engine, it is NOT demoted to a hidden
+      sandbox): ENGINE 1 = **OpenClaw** (long tasks/automation, its reskinned WebKit
+      UI); ENGINE 2 = **Osaurus (local)** = the FULL ported Osaurus (local model
+      serving + hardened agent + Virtualization sandbox) running the **Local Agent
+      (LocalAgent ⊕ fused Hermes)** super-agent as its brain. So Act = OpenClaw |
+      Osaurus-local — two visible engines; the Hermes-fused Local Agent lives INSIDE
+      the Osaurus lane (one routing target, NOT a separate 3rd engine → routing stays
+      clean). Act's identity = Osaurus, preserved per the original three-engine plan
+      (Chat=Epistemos, Act=Osaurus, Work=Goose). (C) **Work** = Open Code, Goose
+      engine. So: Osaurus IS Act (one of its two engines); OpenClaw is the other;
+      Goose is Work; Hermes fuses into the Osaurus-local lane. Owner-confirmed.
 - [ ] **MODEL PICKER — SIMPLIFY + MODE-SCOPE (owner 2026-06-18, refines P1.11)** —
       owner (verbatim): *"for the model picker I only want the model and its uses
       visible for the right mode. Chat shows efforts and many other things — that is
@@ -1077,21 +1083,23 @@ calls: no blanket rule — choose per case.
       "Pro only" state. Owner accepts the heavier footprint for completeness. It's
       the AGENT-EXTENSION slot (separate from Work/Goose; NOT an OpenCode replacement).
       OWNER DECISION 2026-06-18 (agent structure): adopt **shared OpenClaw UI + a
-      TWO-ENGINE picker** — the embedded, pixel-art-reskinned OpenClaw WebKit UI is
-      the ONE agent surface, with a selector for exactly TWO engines: (1) **OpenClaw**
-      (long tasks / automation), (2) **Local Agent** (local-model-first). One polished
-      front-end, both instantly usable on macOS, ONE routing decision (OpenClaw vs
-      Local Agent). Verdict doc → WebKit-host port + reskin + engine-picker wiring +
-      harness systems; per-feature harden.
+      TWO-ENGINE picker, LIVING IN ACT** (see the Chat/Act/Work toggle item) — Act's
+      two engines: (1) **OpenClaw** (long tasks / automation; its pixel-art-reskinned
+      WebKit UI), (2) **Osaurus (local)** = the full ported Osaurus runtime/sandbox
+      running the Local Agent (LocalAgent ⊕ fused Hermes) as its brain. CORRECTION
+      2026-06-18: Osaurus STAYS the Act engine (not a hidden sandbox); the picker is
+      OpenClaw vs Osaurus-local — ONE routing decision. Verdict doc → WebKit-host
+      port + reskin + engine-picker wiring + harness systems; per-feature harden.
 - [ ] **Hermes agent — FUSE INTO Local Agent (R-HERMES), super-agent, NO new route**
       — OWNER DECISION 2026-06-18: YES to the "super agent" ambition, done the CLEAN
       way. Clone the REAL updated GitHub Hermes and LIFT its proven agentic-loop /
       tool-use / long-task code INTO the existing native LocalAgent (APP-NATIVE-BY-
       EMBEDDING + ProvenanceGate; namespace stays purged, NO "Hermes" name). The
-      result `LocalAgent ⊕ Hermes` is STILL ONE routing lane — the "Local Agent"
-      engine in the OpenClaw picker above. CRITICAL: do NOT add Hermes as a separate
-      third engine/route — that would muddy routing (owner's explicit concern). Fuse
-      inward (strengthen the one Local Agent lane), never a new branch. Study
+      result `LocalAgent ⊕ Hermes` is STILL ONE routing lane — it is the BRAIN of the
+      **Osaurus-local engine** in Act's 2-engine picker (OpenClaw vs Osaurus-local).
+      CRITICAL: do NOT add Hermes as a separate third engine/route — that would muddy
+      routing (owner's explicit concern). Fuse inward (strengthen the one Osaurus-
+      local lane), never a new branch. Study
       HERMES_AGENT_CORE_2_0_DESIGN + the real repo; compare/borrow, fuse natively.
 - [ ] **Study the best chat/agent apps (R-APPS, owner 2026-06-18)** — besides
       Osaurus: LM Studio, HuggingFace (chat-ui/transformers/candle), Unsloth, Jan,
