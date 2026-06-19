@@ -96,9 +96,16 @@ public struct SubstrateHealthPanel: View {
                 WorkBackendHealthRow()
 
                 // R-LITEPARSE PDF→Markdown import — honest status of the liteparse seam
-                // (EPISTEMOS_LITEPARSE_PDF_V0). MAS-safe (in-process PDFium + Tesseract,
-                // no sidecar); inert until the run-llama/liteparse Rust core is vendored.
+                // (EPISTEMOS_LITEPARSE_PDF_V0). MAS-safe (in-process PDFium, no sidecar).
+                // S2 LANDED: the run-llama/liteparse Rust core is vendored + embedded
+                // (agent_core/vendor/liteparse); the live engine is behind the Pro/dev
+                // `liteparse-pdf` Cargo feature and still needs the PDFium dylib bundled
+                // into the signed .app to run in MAS (engine_wired reflects this).
                 LiteParseImportHealthRow()
+
+                // The Settings bulk-import surface (owner R-LITEPARSE plan #4): when the
+                // flag is armed, the same bulk PDF→Markdown import as the sidebar button.
+                LiteParseSettingsImportRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
