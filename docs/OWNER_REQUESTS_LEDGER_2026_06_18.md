@@ -1054,12 +1054,23 @@ calls: no blanket rule — choose per case.
       backend, gate that Pro/dev (bundled local service); MAS build shows the honest
       "Pro only" state. Owner accepts the heavier footprint for completeness. It's
       the AGENT-EXTENSION slot (separate from Work/Goose; NOT an OpenCode replacement).
-      Still evaluate OpenClaw vs Hermes for the LOCAL-model agent (R-HERMES), but
-      default to shipping the full OpenClaw. Verdict doc → WebKit-host port + reskin
-      + wire to local/cloud models + harness systems; per-feature harden.
-- [ ] **Hermes agent — DEEP study (R-HERMES), adopt NATIVELY, NO Hermes name** —
-      study HERMES_AGENT_CORE_2_0_DESIGN + manifesto; compare vs OpenClaw for the
-      LOCAL-model agent extension (see R-OPENCLAW); namespace stays purged.
+      OWNER DECISION 2026-06-18 (agent structure): adopt **shared OpenClaw UI + a
+      TWO-ENGINE picker** — the embedded, pixel-art-reskinned OpenClaw WebKit UI is
+      the ONE agent surface, with a selector for exactly TWO engines: (1) **OpenClaw**
+      (long tasks / automation), (2) **Local Agent** (local-model-first). One polished
+      front-end, both instantly usable on macOS, ONE routing decision (OpenClaw vs
+      Local Agent). Verdict doc → WebKit-host port + reskin + engine-picker wiring +
+      harness systems; per-feature harden.
+- [ ] **Hermes agent — FUSE INTO Local Agent (R-HERMES), super-agent, NO new route**
+      — OWNER DECISION 2026-06-18: YES to the "super agent" ambition, done the CLEAN
+      way. Clone the REAL updated GitHub Hermes and LIFT its proven agentic-loop /
+      tool-use / long-task code INTO the existing native LocalAgent (APP-NATIVE-BY-
+      EMBEDDING + ProvenanceGate; namespace stays purged, NO "Hermes" name). The
+      result `LocalAgent ⊕ Hermes` is STILL ONE routing lane — the "Local Agent"
+      engine in the OpenClaw picker above. CRITICAL: do NOT add Hermes as a separate
+      third engine/route — that would muddy routing (owner's explicit concern). Fuse
+      inward (strengthen the one Local Agent lane), never a new branch. Study
+      HERMES_AGENT_CORE_2_0_DESIGN + the real repo; compare/borrow, fuse natively.
 - [ ] **Study the best chat/agent apps (R-APPS, owner 2026-06-18)** — besides
       Osaurus: LM Studio, HuggingFace (chat-ui/transformers/candle), Unsloth, Jan,
       Ollama, Open WebUI, Cherry Studio, LibreChat, etc. Mine their SYSTEM PROMPTS
