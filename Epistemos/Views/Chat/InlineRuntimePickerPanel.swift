@@ -40,6 +40,45 @@ struct InlineRuntimePickerPanel: View {
     @State private var pickerViewportHeight: CGFloat = 0
     private var pickerOverflows: Bool { pickerContentHeight > pickerViewportHeight + 1 }
 
+    /// Total picks across all tiers — surfaced in the always-visible count header so
+    /// the lineup never *looks* like just the ~2 rows above the fold (owner 2026-06-18:
+    /// "it seems like there were only two available because there's no scroll bar").
+    private var totalModelCount: Int {
+        EpistemosModelTier.allCases.reduce(0) { sum, tier in
+            sum + EpistemosRuntimePicker.options(for: tier, environment: environment).count
+        }
+    }
+
+    /// Always-visible header pinned above the scroll area: "N models" (+ a scroll
+    /// chevron when the picks overflow the viewport). macOS hides the scrollbar and
+    /// caps the panel, so without this the full lineup reads as only the couple of
+    /// rows above the fold. This makes every Fast/Think/Code pick obviously reachable
+    /// before the owner even scrolls.
+    private var pickerCountHeader: some View {
+        HStack(spacing: 6) {
+            Text("\(totalModelCount) models")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .tracking(1)
+                .foregroundStyle(theme.textSecondary)
+            if pickerOverflows {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(theme.textTertiary)
+                Text("scroll for all")
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.card)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(theme.border.opacity(0.5)).frame(height: 1)
+        }
+    }
+
     private var environment: EpistemosRuntimePicker.Environment {
         let bytes = LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
         let freeGB = bytes > 0 ? Int(bytes / 1_073_741_824) : 0
@@ -152,6 +191,9 @@ struct InlineRuntimePickerPanel: View {
                 }
             )
         }
+        // Force the scrollbar to show (macOS auto-hides the overlay scroller — the
+        // literal "there's no scroll bar" complaint) so overflow is obvious.
+        .scrollIndicators(.visible)
         .frame(maxHeight: heightCap)
         .frame(maxWidth: .infinity, alignment: .leading)
         // Measure the ACTUAL viewport height (after the cap + any parent
@@ -166,6 +208,10 @@ struct InlineRuntimePickerPanel: View {
         )
         .onPreferenceChange(PickerContentHeightKey.self) { pickerContentHeight = $0 }
         .onPreferenceChange(PickerViewportHeightKey.self) { pickerViewportHeight = $0 }
+        // Always-visible "N models" count pinned above the scroll area (outside the
+        // height cap, so it never eats scroll budget). Owner 2026-06-18: the panel
+        // looked like only ~2 picks; the count makes the full lineup obvious.
+        .safeAreaInset(edge: .top, spacing: 0) { pickerCountHeader }
         // Flat pixel-art chrome: solid fill + a hard 1.5px rectangular border,
         // no rounding, no shadow — the opposite of the rounded translucent
         // popover bubble.

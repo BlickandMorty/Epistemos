@@ -203,4 +203,27 @@ struct InlineRuntimePickerPanelTests {
             #expect(src.contains("operatingMode:"), "\(path) passes a mode binding (MODE + EFFORT render)")
         }
     }
+
+    /// Owner 2026-06-18 (still-open report: the panel "seems like there were only two
+    /// available because there's no scroll bar"). The panel must (a) force a VISIBLE
+    /// scroll indicator (macOS auto-hides the overlay scroller) and (b) pin an
+    /// always-visible "N models" count above the scroll area so the full Fast/Think/
+    /// Code lineup is obviously reachable, not just the rows above the fold.
+    @Test("the panel forces a visible scrollbar + pins an always-visible model count")
+    func panelShowsScrollIndicatorAndModelCount() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Chat/InlineRuntimePickerPanel.swift"
+        )
+        // (a) the scrollbar is forced visible, not macOS's auto-hidden overlay.
+        #expect(src.contains(".scrollIndicators(.visible)"))
+        // (b) an always-visible count header pinned above the scroll area.
+        #expect(src.contains("pickerCountHeader"))
+        #expect(src.contains(".safeAreaInset(edge: .top"))
+        // The count is the REAL lineup size (sum of every tier's picks), surfaced as
+        // "N models" — never a guess.
+        #expect(src.contains("EpistemosModelTier.allCases.reduce(0)"))
+        #expect(src.contains("\\(totalModelCount) models"))
+        // The scroll cue only appears when the picks actually overflow the viewport.
+        #expect(src.contains("if pickerOverflows"))
+    }
 }
