@@ -3023,3 +3023,23 @@ native; AGPL server). ADOPT 2 patterns natively:
       Swift CoreML/ANE path (`kokoro-coreml`/`kokoro-swift`, host via `FluidAudio`/`mlx-audio`) + fits RAM —
       ship as a Pro installable voice AFTER the model-download fix. (F5/XTTS license-blocked; CSM/Dia/MOSS no
       Apple-Silicon Swift path yet.) Items A-C are SMALL and directly fix the owner's "plain" complaint.
+- [ ] **DEERFLOW 2.0 — RESKINNED COHERENT "DEEP RESEARCH SPACE" + FULLER CLONE (owner 2026-06-19).** Owner
+      (verbatim): *"DeerFlow 2.0 should also be reskinned to a space that is coherent with my app etc. — just
+      many things, right, fully clone as much as I can."* Two parts: (1) **A COHERENT, RESKINNED, APP-NATIVE
+      DEEP-RESEARCH SURFACE** — not just the backend Rust pipeline (S15 found the engine is genuinely wired
+      end-to-end but the only surface is a minimal report renderer). Build a proper "Deep Research" SPACE that
+      visualizes the live run: the **ResearchPlan DAG** (objective + sub-questions + depends-on), the **parallel
+      sub-agents** running (live progress per `LiveSubAgentResearcher`), and the **synthesis** with citations —
+      DeerFlow's own UI shows exactly this. Reskin it to the app's **pixel-art minimal** theme (compose with the
+      RESKIN_PLAYBOOK primitives: the EpistemosTheme tokens + — if any web view is used — the pixel CSS injector;
+      but since the engine is native Rust, the surface should likely be NATIVE SwiftUI reskinned, reusing
+      LiveActivityStrip/ToolActivityNarrator + the provenance footer). Coherent with Chat/Act/Work, honoring
+      engine-isolation (deep-research is the 3rd leg, separate path). (2) **FULLER CLONE of DeerFlow 2.0's
+      SuperAgent harness** — "clone as much as I can": today Epistemos implements the 5-stage pattern
+      (Coordinator/Planner/Researcher/Reporter); DeerFlow 2.0 also has the **Coder role, dynamic sub-agent
+      spawning, memory, filesystem artifacts, skills**. Clone/embed as much as the doctrine allows (DeerFlow is
+      **MIT** → pattern-adopt natively in Rust, NO Python/LangGraph/Docker/React runtime — app-native-by-
+      embedding). Compose with the provenance fix (S15: make `[id]` citations source-grounded) + the filesystem-
+      artifact offload + the MAS local-vault research mode. Deepen: docs/research/DEEP_RESEARCH_ENGINE_2026_06_19.md
+      (+ the surface-reskin/fuller-clone round). Gating: web research Pro/cloud; local-vault research MAS. The
+      goal — a deep-research space as polished + capable as DeerFlow 2.0's, but native + pixel-art + provenance-real.
