@@ -918,7 +918,12 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
       in the build. So the kill is WIRING, not a port. SLICE 1 DONE (9096613fb):
       LoRAChatDataConverter — pure native chat-JSONL → {"text":…} bridge (native
       loadJSONL reads only {"text":…}; Epistemos emits {"messages":[…]}), 6 tests,
-      no Python/MLX dep, INERT. Kill-order: 1✅ data bridge · 2~ SUBSTRATE done
+      no Python/MLX dep, INERT. Kill-order: 1✅ data bridge · 2✅ NATIVE TRAINING
+      WIRED — QLoRATrainer's python3 Process() body REPLACED by in-process
+      NativeLoRATrainer.train (MLXLLM.LoRATrain, d4b468b2b+a6f479ec2; subprocess
+      KILLED; watchdog-test fixed db317f42d; compile-verified, on-device run
+      pending) · 2d remove dead Python plumbing (pythonPath/TrainingProgressParser)
+      · 2(old) SUBSTRATE done
       (de094e5e7): NativeLoRAPlan (pure TrainingConfig→native hyperparams, tested)
       + gated NativeLoRATrainer building REAL LoRATrain.Parameters + LoRAConfiguration
       + prepareDataset (no Python), compile-verified vs vendored types — REMAINING
