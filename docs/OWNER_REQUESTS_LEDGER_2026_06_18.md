@@ -1266,6 +1266,27 @@ DECISIONS — the BUILD + in-app verification still has to happen.
       gated or reference-only; lift the Swift/Rust + Virtualization.Framework logic
       natively (grep/extract, pinned, hardened). Honest gating; no fake CU. Verdict
       → port/fuse the MAS-safe slices.
+- [ ] **R-LITEPARSE: dedicated PDF→Markdown import feature via run-llama/liteparse
+      (owner 2026-06-18)** — owner (verbatim): *"when you do imports, I want there to
+      be this process where all the PDFs are parsed into markdown… a dedicated
+      feature on the note sidebar, a button I press to import any PDF, do it in bulk,
+      or import a bunch of PDF files directly from Settings… a very dedicated
+      feature… it's LiteParse, I really want the best one."* LiteParse
+      (github.com/run-llama/liteparse): **84% RUST, Apache-2.0, runs ENTIRELY LOCAL/
+      OFFLINE** — PDF via PDFium, bundled Tesseract OCR, outputs Markdown (rebuilds
+      headings/tables/lists/images/links). PERFECT MAS fit: link the Rust core as a
+      crate into agent_core (like epistemos-shadow/Goose), expose `pdf_to_markdown`
+      over UniFFI — NO Python/Node sidecar at runtime. ProvenanceGate the vendor +
+      bundle PDFium honestly. SCOPE: (1) native PDF→Markdown in agent_core (PDFium +
+      Tesseract, in-process); (2) **note-sidebar button** — import a PDF → a markdown
+      note in the vault; (3) **BULK import** — many PDFs at once from the sidebar;
+      (4) **Settings bulk PDF import** surface; (5) make it a polished, dedicated
+      feature (progress, honest errors, per-file status). CAVEAT: LiteParse's Office/
+      image formats use LibreOffice/ImageMagick subprocesses — NOT MAS-safe; scope
+      the MAS feature to PDF (PDFium, in-process) + OCR, and gate/skip the external-
+      binary formats (Pro/dev or omit). RESEARCH-FIRST → ProvenanceGate verdict on
+      direct crate-dep vs vendor; build+run verify a real PDF imports to markdown in-
+      app (sidebar + bulk + Settings). Harden; honest gating; no fake parse.
 
 ## Unfinished-research sweep top items (2026-06-18 → docs/UNFINISHED_RESEARCH_SWEEP_2026_06_18.md)
 Local/chat, verified-against-code, not-blocked (full list + eras in the sweep doc):
