@@ -217,6 +217,38 @@ calls: no blanket rule — choose per case.
       native local models + configured cloud providers — not per-Osaurus-model or
       per-Goose-provider rows. (Owner can override if they want per-engine vaults
       later.) Build+run verify new models show + real status renders in-app.
+- [ ] **DATA + FINE-TUNING SUBSTRATE — deep-harden the black boxes, native MLX
+      training, Night Brain, + a data/finetune-pack MARKETPLACE (owner 2026-06-18)**
+      — owner (verbatim, transcribed): *"they should be deeply hardened because I
+      think there are black boxes and I want it to be better — maybe even use another
+      GitHub repo for MLX and other local-model training and fine-tuning and Night
+      Brain etc. Several features like that, because I feel like my app does not do a
+      good job structuring the data etc. Maybe even have a marketplace for data and
+      fine-tuning packs."* CONFIRMED BLACK BOX: the fine-tuning subsystem relies on
+      PYTHON scripts that CANNOT run in MAS (NO HIDDEN SIDECAR) → opaque/non-
+      functional stubs: KnowledgeFusion/MoLoRA/{train_router,molora_inference}.py,
+      Training/scripts/{train_knowledge,train_style}.py, MOHAWK/fill_training_gaps.py
+      (+ MoLoRAInferenceService.swift, QLoRATrainer.swift, ExperienceReplayBuffer.
+      swift). This is the demo-ish feel the owner senses. FIVE parts: (1) **KILL THE
+      PYTHON BLACK BOXES** — finish LF-1/2/3 + SIM-4: replace MoLoRA/QLoRA Python with
+      NATIVE in-process MLX-Swift training (LoRA/QLoRA via mlx-swift autograd +
+      optimizers); no .py on the product/MAS path. (2) **PORT A PROVEN TRAINING REPO**
+      — RESEARCH-FIRST verdict on ml-explore/mlx-examples (LoRA/QLoRA, MIT) +
+      ml-explore/mlx-swift training APIs (and any better OSS) → lift the proven
+      training loop natively, don't hand-roll; ProvenanceGate. (3) **DATA STRUCTURING
+      DEEP-HARDEN** — the vault/knowledge pipeline (concept_index / knowledge_profile
+      / active_context / ExperienceReplayBuffer) must actually structure data well:
+      real schemas, provenance, dedup, inspectable — unwrap every black box, honest
+      status, no opaque stubs. (4) **NIGHT BRAIN** — the idle-maintenance brain runs
+      native vault compilation + LoRA fine-tuning during idle windows (not per-
+      keystroke); visible, logged, owner-controllable, honest "what it did" record.
+      (5) **DATA + FINETUNE-PACK MARKETPLACE** — extend the HF/GitHub marketplace
+      (R-APPS/importer) to datasets + fine-tuning PACKS (LoRA adapters, instruction
+      packs, knowledge packs): browse/import/apply/share, each {id, kind, source,
+      license, gate}; ProvenanceGate + honest gating; MAS-safe (no Python at runtime).
+      RESEARCH-FIRST on each; build+run verify training actually runs natively +
+      Night Brain + marketplace are real and usable in-app. Cross-ref LF-1/2/3, SIM-4,
+      per-model vaults above, HARNESS SYSTEMS below, R-APPS importer/marketplace.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
