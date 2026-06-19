@@ -1527,9 +1527,12 @@ struct RuntimeValidationTests {
 
     @Test("subprocess timeout watchdogs stop cleanly on cancellation")
     func subprocessTimeoutWatchdogsStopCleanlyOnCancellation() throws {
+        // Owner 2026-06-18: QLoRATrainer no longer spawns a python3 subprocess —
+        // its training path is now in-process NativeLoRATrainer (MLXLLM.LoRATrain),
+        // so it has no subprocess timeout watchdog to validate here. Dropped from
+        // this list (the remaining files still shell out and keep the watchdog).
         let sourcePaths = [
             "Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift",
-            "Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift",
             "Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift",
             "Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift",
         ]
