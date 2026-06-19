@@ -291,6 +291,16 @@ calls: no blanket rule — choose per case.
       build-for-testing green. STILL ON-DEVICE FOLLOW-ON (can't headless-verify):
       the vault data-gen iteration that supplies `newExampleCount` + a persisted
       last-fine-tune marker + the actual NativeLoRATrainer run on Pro.
+      ✅ FINISHER 2026-06-19 (part 5 BROWSE surface): the marketplace had a tested
+      registry but NO UI → owner couldn't SEE it. NEW FineTunePackCatalog (first-
+      party, license-clean SEED — vault dataset / Epistemos instructions / local
+      LoRA; third-party packs added later via ProvenanceGate with REAL licenses) +
+      FineTuneMarketplaceView (lists `available(isPro:isDev:)` grouped by kind, row =
+      source/license/gate badge, honest empty state, `#if !EPISTEMOS_APP_STORE` Pro-
+      gating so the Pro LoRA pack NEVER shows on MAS) mounted in ModelVaultsSettings.
+      +4 tests; build-for-testing green. FOLLOW-ON: import/apply wiring (LoRA →
+      AdapterExporter/NativeAdapterApply; dataset/instruction → native train/vault) +
+      a real add-through-ProvenanceGate flow for public HF/GitHub packs.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
