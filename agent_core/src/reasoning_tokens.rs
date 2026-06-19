@@ -85,6 +85,27 @@ pub fn thinking_in_progress(raw: &str) -> bool {
     false
 }
 
+/// FFI: split a local model's raw output into its preserved reasoning trace + the clean
+/// answer, for the Swift UI (the GGUF / schema-engine path — Swift's `MLXInferenceBridge`
+/// MLX path is untouched). Returns a JSON envelope
+/// `{"thinking": <string|null>, "answer": <string>, "thinking_in_progress": <bool>}` so a
+/// streaming UI can render only the clean ANSWER, surface the reasoning separately, and
+/// HOLD the answer while `thinking_in_progress` is true. The reasoning is PRESERVED (never
+/// stripped) — `thinking` is `null` only when the output truly has none. This makes the
+/// schema engine's reasoning-token isolation callable from Swift (the determinism surfaced
+/// visibly); it does NOT alter any live path on its own. Pure — no fallback, no fabrication.
+#[uniffi::export]
+pub fn split_reasoning_json(raw: String) -> String {
+    let split = split_reasoning(&raw);
+    let in_progress = thinking_in_progress(&raw);
+    let thinking_json = match &split.thinking {
+        Some(t) => serde_json::to_string(t).unwrap_or_else(|_| "null".to_string()),
+        None => "null".to_string(),
+    };
+    let answer_json = serde_json::to_string(&split.answer).unwrap_or_else(|_| "\"\"".to_string());
+    format!("{{\"thinking\":{thinking_json},\"answer\":{answer_json},\"thinking_in_progress\":{in_progress}}}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,5 +178,40 @@ mod tests {
         assert!(raw.contains(&split.answer)); // not fabricated
         assert!(thinking.contains("secret reasoning")); // preserved, not stripped
         assert!(split.answer.contains("final answer"));
+    }
+
+    #[test]
+    fn ffi_envelope_for_a_complete_block() {
+        let out = split_reasoning_json("<think>reasoning here</think>the answer".to_string());
+        assert!(out.contains("\"thinking\":\"reasoning here\""));
+        assert!(out.contains("\"answer\":\"the answer\""));
+        assert!(out.contains("\"thinking_in_progress\":false"));
+    }
+
+    #[test]
+    fn ffi_envelope_holds_answer_while_thinking_in_progress() {
+        // Unclosed marker (mid-stream) → in-progress true so the UI holds the answer.
+        let out = split_reasoning_json("partial<think>still reasoning".to_string());
+        assert!(out.contains("\"thinking_in_progress\":true"));
+        assert!(out.contains("\"thinking\":\"still reasoning\""));
+        assert!(out.contains("\"answer\":\"partial\""));
+    }
+
+    #[test]
+    fn ffi_envelope_null_thinking_when_no_marker() {
+        let out = split_reasoning_json("just a plain answer".to_string());
+        assert!(out.contains("\"thinking\":null"));
+        assert!(out.contains("\"answer\":\"just a plain answer\""));
+        assert!(out.contains("\"thinking_in_progress\":false"));
+    }
+
+    #[test]
+    fn ffi_envelope_is_valid_json_and_escapes_safely() {
+        // Quotes + newlines in the content must not break the envelope.
+        let out = split_reasoning_json("<think>a \"quoted\" thought</think>line1\nline2".to_string());
+        let parsed: serde_json::Value = serde_json::from_str(&out).expect("envelope is valid JSON");
+        assert_eq!(parsed["thinking"], serde_json::json!("a \"quoted\" thought"));
+        assert_eq!(parsed["answer"], serde_json::json!("line1\nline2"));
+        assert_eq!(parsed["thinking_in_progress"], serde_json::json!(false));
     }
 }
