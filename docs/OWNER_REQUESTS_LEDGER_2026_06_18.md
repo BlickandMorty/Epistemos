@@ -2318,9 +2318,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       the returned weights (SHA256 vs the HF LFS etag — works for GGUF LFS, gracefully degrades
       to `.unverifiedChecksum`). +2 helper tests (extension-per-runtime, sidecar-requirement-
       per-runtime). build-for-testing TEST BUILD SUCCEEDED (0 errors). HONEST REMAINING:
-      req 9 (the install PROGRESS BAR — `ProgressView(value:)` exists in SettingsView; the
-      regression is the fraction not flowing per-row) + req 10 (RESUME of partial downloads —
-      no explicit resume in the HubClient call yet) are the next follow-on slices.
+      req 9 (the install PROGRESS BAR) + req 10 (RESUME of partial downloads) are the next
+      follow-on slices.
+      🔎 REQ 9 PROGRESS-BAR — CHAIN VERIFIED INTACT 2026-06-19: traced it end-to-end and it is
+      WIRED — `LocalModelManager.install` passes a `progressHandler` that sets
+      `installProgress[modelID] = progress.fractionCompleted` (LocalModelInfrastructure.swift
+      :2636-2638) → `state(for:) = .installing(progress:)` (:2566) → SettingsView renders
+      `ProgressView(value: fraction)` via `ModelInstallProgressDisplay.from(fraction:)`
+      (~:3547). So the "progress bar is gone" was almost certainly a DOWNSTREAM symptom of
+      installs FAILING FAST at verify ("corrupted") — i.e. the install never reached a
+      completing/determinate state — which STEP 2 (the GGUF integrity fix) removes. No
+      speculative change made to a working chain; owner re-verifies the bar in-app once
+      pulled (now that GGUF installs pass verification). REQ 10 RESUME remains a genuine
+      follow-on (needs HubClient-level partial-download state, not a one-pass fix).
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
