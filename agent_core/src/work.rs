@@ -453,6 +453,73 @@ impl RetryManager {
     }
 }
 
+/// Executes the SIDE-EFFECTING parts of the self-correction loop (Goose S9): running the
+/// success checks + the on_failure cleanup. Behind a trait so the deterministic
+/// [`RetryManager`] runs NOTHING itself — the MAS build carries only this interface + test
+/// mocks; the REAL shell implementation ([`ShellRetryExecutor`]) is `pro-build`-only because
+/// subprocess execution is outside the MAS sandbox. This is the APP-NATIVE-BY-EMBEDDING
+/// split made concrete: the deterministic control flow ships everywhere; the un-sandboxable
+/// execution is gated to the Pro lane.
+pub trait RetryExecutor {
+    /// Run every success check; returns `true` only if ALL pass (upstream
+    /// `execute_success_checks` semantics). An empty check list trivially passes.
+    fn run_success_checks(&mut self, checks: &[vendored_goose::retry::SuccessCheck]) -> bool;
+    /// Run the on_failure cleanup command (best-effort; the loop proceeds regardless).
+    fn run_on_failure(&mut self, command: &str);
+}
+
+/// Drive ONE self-correction cycle: run this attempt's checks via `exec`, then evaluate the
+/// next step via `manager` (which invokes `exec`'s on_failure on the `Retried` path). Pure
+/// orchestration over the injected executor — the seam itself spawns nothing; `exec` owns
+/// every side effect. With no `config` the checks are skipped entirely (the cycle is
+/// `Skipped`), matching upstream's "no retry config → skip" short-circuit.
+pub fn drive_retry_cycle(
+    manager: &mut RetryManager,
+    config: Option<&vendored_goose::retry::RetryConfig>,
+    exec: &mut dyn RetryExecutor,
+) -> RetryResult {
+    let checks_passed = match config {
+        Some(c) => exec.run_success_checks(&c.checks),
+        None => false, // evaluate(None, …) returns Skipped regardless of this value
+    };
+    manager.evaluate(config, checks_passed, |cmd| exec.run_on_failure(cmd))
+}
+
+/// Pro-gated REAL executor: runs each success-check / on_failure shell command in a HARDENED
+/// subprocess (`crate::security::harden_cli_subprocess_std` → env_clear + the canonical
+/// allowlist/denylist + process group), per the agent_core subprocess-hardening doctrine.
+/// Subprocess execution is outside the MAS sandbox, so this is `pro-build`-only; the MAS
+/// build has the trait + mocks but never this impl. (Honoring `RetryConfig.timeout_seconds`
+/// is a documented follow-on — `std::process` has no built-in timeout; the value is carried
+/// but not yet enforced here.)
+#[cfg(feature = "pro-build")]
+#[derive(Debug, Default)]
+pub struct ShellRetryExecutor;
+
+#[cfg(feature = "pro-build")]
+impl ShellRetryExecutor {
+    /// Run one shell command in a hardened subprocess; `true` iff it exits 0.
+    fn run_shell_ok(command: &str) -> bool {
+        let mut cmd = std::process::Command::new("/bin/sh");
+        cmd.arg("-c").arg(command);
+        crate::security::harden_cli_subprocess_std(&mut cmd);
+        matches!(cmd.status(), Ok(status) if status.success())
+    }
+}
+
+#[cfg(feature = "pro-build")]
+impl RetryExecutor for ShellRetryExecutor {
+    fn run_success_checks(&mut self, checks: &[vendored_goose::retry::SuccessCheck]) -> bool {
+        checks.iter().all(|check| match check {
+            vendored_goose::retry::SuccessCheck::Shell { command } => Self::run_shell_ok(command),
+        })
+    }
+
+    fn run_on_failure(&mut self, command: &str) {
+        let _ = Self::run_shell_ok(command); // best-effort cleanup; result ignored
+    }
+}
+
 fn flag_is_armed(raw: Option<&str>) -> bool {
     matches!(
         raw.map(|s| s.trim().to_ascii_lowercase()).as_deref(),
@@ -840,6 +907,97 @@ mod tests {
         // reset clears the counter for the next Work session.
         mgr.reset();
         assert_eq!(mgr.attempts(), 0);
+    }
+
+    struct MockExec {
+        check_result: bool,
+        checks_ran: u32,
+        cleanups: Vec<String>,
+    }
+    impl MockExec {
+        fn new(check_result: bool) -> Self {
+            Self { check_result, checks_ran: 0, cleanups: vec![] }
+        }
+    }
+    impl RetryExecutor for MockExec {
+        fn run_success_checks(&mut self, _checks: &[vendored_goose::retry::SuccessCheck]) -> bool {
+            self.checks_ran += 1;
+            self.check_result
+        }
+        fn run_on_failure(&mut self, command: &str) {
+            self.cleanups.push(command.to_string());
+        }
+    }
+
+    #[test]
+    fn drive_retry_cycle_succeeds_when_checks_pass() {
+        let cfg = retry_cfg(2, Some("cleanup"));
+        let mut mgr = RetryManager::new();
+        let mut exec = MockExec::new(true);
+        assert_eq!(
+            drive_retry_cycle(&mut mgr, Some(&cfg), &mut exec),
+            RetryResult::SuccessChecksPassed
+        );
+        assert_eq!(exec.checks_ran, 1);
+        assert!(exec.cleanups.is_empty());
+        assert_eq!(mgr.attempts(), 0);
+    }
+
+    #[test]
+    fn drive_retry_cycle_retries_and_runs_cleanup_when_checks_fail() {
+        let cfg = retry_cfg(2, Some("git checkout ."));
+        let mut mgr = RetryManager::new();
+        let mut exec = MockExec::new(false);
+        assert_eq!(
+            drive_retry_cycle(&mut mgr, Some(&cfg), &mut exec),
+            RetryResult::Retried
+        );
+        assert_eq!(exec.checks_ran, 1);
+        assert_eq!(exec.cleanups, vec!["git checkout .".to_string()]);
+        assert_eq!(mgr.attempts(), 1);
+    }
+
+    #[test]
+    fn drive_retry_cycle_stops_at_max_without_cleanup() {
+        let cfg = retry_cfg(1, Some("cleanup"));
+        let mut mgr = RetryManager::new();
+        let mut exec = MockExec::new(false);
+        // First failed cycle retries (attempts → 1, one cleanup).
+        assert_eq!(drive_retry_cycle(&mut mgr, Some(&cfg), &mut exec), RetryResult::Retried);
+        // Second: 1 >= max(1) → MaxAttemptsReached, NO further cleanup or increment.
+        assert_eq!(
+            drive_retry_cycle(&mut mgr, Some(&cfg), &mut exec),
+            RetryResult::MaxAttemptsReached
+        );
+        assert_eq!(exec.cleanups.len(), 1);
+        assert_eq!(mgr.attempts(), 1);
+    }
+
+    #[test]
+    fn drive_retry_cycle_skips_without_config_and_never_runs_checks() {
+        let mut mgr = RetryManager::new();
+        let mut exec = MockExec::new(false);
+        assert_eq!(drive_retry_cycle(&mut mgr, None, &mut exec), RetryResult::Skipped);
+        assert_eq!(exec.checks_ran, 0); // no config → checks never run
+        assert!(exec.cleanups.is_empty());
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn shell_retry_executor_runs_real_hardened_checks() {
+        use vendored_goose::retry::SuccessCheck;
+        let mut exec = ShellRetryExecutor;
+        // `true` exits 0 → check passes; `false` exits 1 → fails (real hardened subprocess).
+        assert!(exec.run_success_checks(&[SuccessCheck::Shell { command: "true".into() }]));
+        assert!(!exec.run_success_checks(&[SuccessCheck::Shell { command: "false".into() }]));
+        // ALL-must-pass: one failing check fails the whole set.
+        assert!(!exec.run_success_checks(&[
+            SuccessCheck::Shell { command: "true".into() },
+            SuccessCheck::Shell { command: "false".into() },
+        ]));
+        // An empty check list trivially passes; on_failure is best-effort + never panics.
+        assert!(exec.run_success_checks(&[]));
+        exec.run_on_failure("true");
     }
 
     #[test]

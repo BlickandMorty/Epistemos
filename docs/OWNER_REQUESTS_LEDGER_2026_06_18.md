@@ -1766,6 +1766,29 @@ per pass). Keep until all done + hardened (rule #6/#8).
       ZERO regression). Seam still inert (run_work_session → EngineNotWired); GUARDRAIL holds.
       NEXT: a `RetryExecutor` trait (the injected shell side, Pro-gated) to run the loop for
       real, or the provider/message layer.
+      ✅ S9 2026-06-19 (the executor — the self-correction sub-system is now RUNNABLE; took
+      S8's NEXT option): the deterministic driver (S8) needed the side-effecting half to
+      actually run. NEW `RetryExecutor` trait (`run_success_checks(&[SuccessCheck]) -> bool`
+      [ALL-must-pass, empty=pass] + `run_on_failure(&str)`) + `drive_retry_cycle(manager,
+      config, exec)` (runs this attempt's checks via `exec`, then `RetryManager::evaluate`
+      with the result + the executor's on_failure on the Retried path; no config → checks
+      skipped → Skipped). The MAS build carries ONLY the trait + drive + test mocks — the
+      REAL `ShellRetryExecutor` is `#[cfg(feature="pro-build")]` (subprocess execution is
+      outside the MAS sandbox): it runs each check / on_failure command in a HARDENED
+      subprocess via `crate::security::harden_cli_subprocess_std` (env_clear + canonical
+      allowlist/denylist + process group, per the subprocess-hardening doctrine). This is
+      the APP-NATIVE-BY-EMBEDDING split made concrete: the deterministic control flow ships
+      everywhere; the un-sandboxable execution is Pro-gated. (`timeout_seconds` enforcement
+      is a documented follow-on — std::process has no built-in timeout.) +5 cargo tests:
+      4 MAS-safe drive tests (succeeds-on-pass / retries+cleanup-on-fail / stops-at-max /
+      skips-without-config-and-never-runs-checks, via a MockExec) + 1 Pro-only test that
+      RUNS the REAL hardened executor against `true`/`false` (`true`→pass, `false`→fail,
+      all-must-pass, empty=pass, on_failure best-effort). cargo --lib BOTH green: default
+      5450/0 (+4), pro-build 5713/0 (+5, incl. the real-subprocess test). Seam still inert
+      (run_work_session → EngineNotWired); Chat/Act GUARDRAIL holds. The Goose self-
+      correction pillar is now COMPLETE end-to-end (config S7 → driver S8 → executor S9),
+      runnable in Pro + deterministic-verifiable in MAS. NEXT Goose: the provider/message
+      layer (rmcp/clean-room) to give the engine a model to drive.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,
