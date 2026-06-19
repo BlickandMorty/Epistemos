@@ -365,6 +365,25 @@ calls: no blanket rule — choose per case.
       (a nonisolated `errorDescription` referenced the MainActor `prefix` static →
       inlined the literal). build-for-testing green. The marketplace is now COMPLETE on
       all four owner-named verbs; remaining is the on-device byte fetch + apply execution.
+- [~] **R-LITEPARSE — dedicated PDF→Markdown import (owner 2026-06-19, queue in order)** —
+      run-llama/liteparse (84% Rust, Apache-2.0, fully LOCAL: PDFium in-process + bundled
+      Tesseract OCR). PERFECT MAS fit: link the Rust core as a crate into agent_core (like
+      epistemos-shadow / Goose), expose pdf_to_markdown over UniFFI, NO Python/Node
+      sidecar. CAVEAT (confirmed): liteparse Office/image formats route through LibreOffice
+      / ImageMagick / powershell SUBPROCESSES (conversion.rs) = NOT MAS-safe → scope to PDF
+      (PDFium) + OCR, gate/reject the external-binary formats. Build: (1) native PDF→md in
+      agent_core; (2) note-sidebar IMPORT button → markdown note in vault; (3) BULK import;
+      (4) Settings bulk import; (5) polished feature (progress / honest per-file status).
+      ✅ S1 2026-06-19 (ProvenanceGate verdict + MAS-safe seam): verdict
+      docs/RESEARCH_LITEPARSE_2026_06_19.md (direct_import Apache-2.0; PDF+OCR only;
+      Office/image subprocess + remote-OCR reqwest paths EXCLUDED). NEW
+      agent_core/src/liteparse.rs — always-compiled INERT seam: `pdf_to_markdown(path)`
+      returns EngineNotWired for a PDF (never fake markdown) + UnsupportedFormat for a
+      non-PDF (rejected honestly, NEVER shelled out); `is_supported_pdf` gate; flag
+      EPISTEMOS_LITEPARSE_PDF_V0; `#[uniffi::export] liteparse_status_json` (engine_wired
+      false + "pdf+ocr,no-subprocess" scope). +5 cargo tests; cargo --lib BOTH green (5/0).
+      NEXT (S2): vendor liteparse+pdfium+pdfium-sys crates (tokio process/reqwest OFF) +
+      build the PDFium link + tesseract-rs — heavy native-dep multi-pass, owner build verify.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
