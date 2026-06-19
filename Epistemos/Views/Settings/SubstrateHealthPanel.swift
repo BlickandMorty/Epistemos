@@ -89,6 +89,11 @@ public struct SubstrateHealthPanel: View {
                 // whether the local PICK is honored, was substituted (and why), or
                 // nothing local is ready. Makes "I picked X but got Y/GPT" visible.
                 LocalRouteHonestyHealthRow()
+
+                // Goose=WORK import (R-GOOSE) — whether the Work-backend seam is
+                // armed (EPISTEMOS_WORK_GOOSE_V0, Pro). Honest "Pro only" on MAS;
+                // inert until the Goose Rust core is vendored. Chat/Act unaffected.
+                WorkBackendHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
