@@ -2255,3 +2255,29 @@ native; AGPL server). ADOPT 2 patterns natively:
       owner-advertised set per mode. Keep ALL models retained (req 2); the stack just
       controls visibility + drives install. Design the stack UI well-thought-out (clear,
       pixel-art-minimal, honest install states), not demo-ish.
+- [ ] **MODEL SELECTION NOT HONORED — everything routes to Qwen 3 4B regardless of
+      pick (owner 2026-06-19, HIGH PRIORITY).** Owner (verbatim): *"everything is
+      routing to the Qwen 3 4B most times — it never changes from it no matter what I
+      select."* SYMPTOM: the model the owner SELECTS in the picker is IGNORED at
+      inference time; the runtime pins to Qwen-3-4B (a default/fallback) for nearly
+      every turn across modes. So picker selection → actual inference is BROKEN: the
+      chosen model id is not propagating to the generation call (or a router/fallback
+      is overriding it). ROOT CANDIDATES to investigate (trace the full select→generate
+      path): (a) the selected model isn't bound/persisted into `InferenceState` (the
+      picker mutates UI state but not the resolved runtime model); (b) the router
+      (`ConfidenceRouter` / `RuntimeRouter` / `TriageService` / route profiles in
+      `InferenceState+RouteProfiles`) hardcodes or defaults to Qwen-3-4B and ignores
+      the explicit selection; (c) only Qwen-3-4B is actually INSTALLED/loadable (ties
+      to the MODEL DOWNLOAD bug above — if nothing else installs, the runtime silently
+      falls back to the one model present) — but the fallback must then be HONEST, not
+      a silent override of the owner's pick; (d) a default-model constant is used at
+      the generation seam instead of the selected id. FIX: the explicitly-selected
+      model MUST be the model that runs — across Chat/Act/Work, local + cloud. An
+      explicit owner selection OVERRIDES auto-routing (auto-route only applies when the
+      owner leaves it on "auto"). If a selected model can't load, show an HONEST error/
+      state (constraint #1: no silent fallback, no fake) — never silently swap to
+      Qwen-3-4B. Add a regression test that asserts selecting model X → the generation
+      call receives model X (not the default). Diagnose first (where the selected id is
+      dropped), then fix the binding + router-override. Pairs with the MODEL DOWNLOAD/
+      INSTALL bug + the picker-simplify + Settings-stack items — together they are the
+      "model system actually works the way the owner picks" cluster.
