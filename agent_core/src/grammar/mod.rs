@@ -11,6 +11,9 @@ pub enum GrammarError {
 
     #[error("dispatch must contain at least one tool")]
     EmptyDispatch,
+
+    #[error("dispatch schema failed to serialize: {0}")]
+    Serialize(String),
 }
 
 pub fn schema_to_llg(schema: &Value) -> Result<TopLevelGrammar, GrammarError> {
