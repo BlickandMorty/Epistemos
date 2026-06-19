@@ -1180,7 +1180,15 @@ per pass). Keep until all done + hardened (rule #6/#8).
       `cargo test --lib` BOTH features green (default 5379 / pro-build 5641, 0 failed)
       — zero regressions across the lib surface (a full-suite attempt hung on the
       orphaned-falsifier-bin collision from an earlier `| tail` pipe; re-ran to FILES).
-      NEXT: the PLAN + vendoring block/goose's Rust core (the heavy arc step).
+      ✅ S2 2026-06-19 (plan + FIRST real vendor): docs/GOOSE_S2_EXTRACTION_PLAN_
+      2026_06_19.md (block/goose Apache-2.0 workspace; core = crates/goose; leaf-
+      first selective direct_import — NOT the heavy whole-crate vendor). Vendored
+      the first real block/goose type — `SourceRoot` (crates/goose/src/source_roots.rs,
+      self-contained std-only) — VERBATIM into agent_core/src/work.rs `pub mod
+      vendored_goose` (direct_import, provenance + Apache-2.0 consts); run_work_session
+      now takes `&[SourceRoot]` (the workspace it operates on), still inert. +1 cargo
+      test; cargo --lib BOTH green (5380 / 5642, 0 failed). GUARDRAIL holds. NEXT (S3):
+      next leaf layer + typed WorkRequest/WorkResult.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,

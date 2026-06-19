@@ -9,6 +9,40 @@
 /// Flag that arms the Goose Work seam (mirrors the Swift `EPISTEMOS_WORK_GOOSE_V0`).
 pub const WORK_GOOSE_FLAG: &str = "EPISTEMOS_WORK_GOOSE_V0";
 
+/// ProvenanceGate posture for the vendored block/goose source (Goose S2).
+pub const GOOSE_VENDOR_LICENSE: &str = "Apache-2.0";
+pub const GOOSE_VENDOR_SOURCE: &str = "block/goose";
+
+/// Vendored block/goose types (Apache-2.0, ProvenanceGate `direct_import`) — the
+/// FIRST real extraction of block/goose's Rust core into agent_core (Goose S2).
+/// Isolated under the `work` module, so the GOOSE GUARDRAIL (Chat/Act unchanged)
+/// holds. Leaf-first: only self-contained (std-only) types so far.
+pub mod vendored_goose {
+    //! Provenance: github.com/block/goose (Apache-2.0), crates/goose/src/source_roots.rs.
+    //! `direct_import` — the type body between the VERBATIM markers is byte-for-byte
+    //! from upstream; the `pub mod` wrapper + this header are the only additions.
+    //! See docs/GOOSE_S2_EXTRACTION_PLAN_2026_06_19.md.
+
+    // --- BEGIN VERBATIM (block/goose, Apache-2.0) ---
+    use std::path::PathBuf;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct SourceRoot {
+        pub path: PathBuf,
+        pub writable: bool,
+    }
+
+    impl SourceRoot {
+        pub fn read_only(path: PathBuf) -> Self {
+            Self {
+                path,
+                writable: false,
+            }
+        }
+    }
+    // --- END VERBATIM ---
+}
+
 /// Honest errors for a Work session — no engine wired, or the run failed. The caller
 /// surfaces these; the seam NEVER silently falls back to the Chat/Act engine.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,10 +74,15 @@ pub fn is_armed() -> bool {
     flag_is_armed(std::env::var(WORK_GOOSE_FLAG).ok().as_deref())
 }
 
-/// The honest seam: run a Work session against the Goose engine. Until block/goose is
-/// vendored, this is INERT — it returns `EngineNotWired` (NEVER a silent fallback to
-/// Chat/Act). The real engine (the vendored block/goose Rust core) replaces this body.
-pub fn run_work_session(_objective: &str, _workspace: &str) -> Result<String, WorkError> {
+/// The honest seam: run a Work session against the Goose engine over the given
+/// `source_roots` (the workspace it indexes / diffs — the first vendored block/goose
+/// type). Until the engine layer is vendored, this is INERT — it returns
+/// `EngineNotWired` (NEVER a silent fallback to Chat/Act). The real engine replaces
+/// this body.
+pub fn run_work_session(
+    _objective: &str,
+    _source_roots: &[vendored_goose::SourceRoot],
+) -> Result<String, WorkError> {
     Err(WorkError::EngineNotWired)
 }
 
@@ -76,10 +115,21 @@ mod tests {
     #[test]
     fn inert_seam_refuses_honestly_never_falls_back() {
         // No engine wired → honest EngineNotWired, NEVER a silent fallback to Chat/Act.
+        let roots = [vendored_goose::SourceRoot::read_only(std::path::PathBuf::from("/tmp/ws"))];
         assert_eq!(
-            run_work_session("do a thing", "/tmp/ws"),
+            run_work_session("do a thing", &roots),
             Err(WorkError::EngineNotWired)
         );
+    }
+
+    #[test]
+    fn vendored_goose_source_root_is_usable() {
+        // The first vendored block/goose type compiles + behaves (read_only → !writable).
+        let root = vendored_goose::SourceRoot::read_only(std::path::PathBuf::from("/repo"));
+        assert_eq!(root.path, std::path::PathBuf::from("/repo"));
+        assert!(!root.writable);
+        assert_eq!(GOOSE_VENDOR_LICENSE, "Apache-2.0");
+        assert_eq!(GOOSE_VENDOR_SOURCE, "block/goose");
     }
 
     #[test]
