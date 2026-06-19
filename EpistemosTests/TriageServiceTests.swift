@@ -335,6 +335,44 @@ struct TriageServiceTests {
         )
     }
 
+    @Test("owner #1: an UNRESOLVED local pick never renders as 'Auto Route'/GPT in the chat badge, even with auto-route-to-cloud armed")
+    @MainActor func unresolvedLocalChatPickNeverRendersAsAutoRouteOrCloud() {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        // Arm auto-route-to-cloud — the precondition that USED to flip a local
+        // pick's badge to the ambiguous "Auto Route" (the owner read it as "showing
+        // GPT, not my local model").
+        inference.setActiveAIProvider(.openAI)
+        inference.setChatAutoRouteToCloud(true)
+        #expect(inference.preferredAutoRouteCloudProvider == .openAI)
+
+        // Pick a local model that does NOT resolve (nothing installed) →
+        // effectiveLocalTextModelID == nil → usesAutomaticCloudRouteForChatSurfaces
+        // becomes true: the exact unresolved-local state behind the owner report.
+        inference.setInstalledLocalTextModelIDs([])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_8B4Bit.rawValue))
+        #expect(inference.effectiveLocalTextModelID == nil)
+
+        // The fix: an explicit .localMLX pick always renders via the LOCAL display
+        // name, never the ambiguous "Auto Route" nor any cloud provider name.
+        let badge = inference.activeChatModelDisplayName
+        #expect(badge == inference.activeLocalTextModelDisplayName)
+        #expect(badge != "Auto Route")
+        #expect(!badge.localizedCaseInsensitiveContains("gpt"))
+        #expect(!badge.localizedCaseInsensitiveContains("openai"))
+
+        // Regression guard: a GENUINE cloud pick still surfaces its cloud name —
+        // the fix is scoped to local picks; cloud honesty ("cloud is the genuine
+        // active route") is preserved.
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        #expect(inference.activeChatModelDisplayName == ChatModelSelection.cloud(.openAIGPT54).displayName)
+    }
+
     @Test("pinned always-thinking local model hides fast mode")
     @MainActor func pinnedAlwaysThinkingLocalModelHidesFastMode() {
         let inference = makeIsolatedInferenceState()
