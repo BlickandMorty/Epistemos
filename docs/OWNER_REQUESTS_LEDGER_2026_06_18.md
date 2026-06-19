@@ -2300,6 +2300,27 @@ native; AGPL server). ADOPT 2 patterns natively:
       pipeline-robustness regression (reqs 8/9/10 — integrity "corrupted"/"not complete",
       the missing progress bar, resume) are SEPARATE follow-on slices — this step only
       restores the install-row VISIBILITY that was hidden.
+      ✅ STEP 2 — GGUF INTEGRITY FALSE-POSITIVE FIXED 2026-06-19 (req 8, the "corrupted /
+      not complete" root): git-archaeology pinned the regression to the artifact-validation
+      hardening commits (`3635df095 Harden local runtime artifact validation` + `0e6ddebaf
+      Harden model download checksum verification`). `ModelDownloadManager.verifySnapshot`
+      requires `config.json` + `.safetensors` weights + a tokenizer and `modelWeightFiles`
+      counts ONLY `.safetensors` — but the canon FOUNDATION models are GGUF (a single
+      self-contained `.gguf` that EMBEDS its config + tokenizer; no sidecars, no safetensors),
+      and GGUF models DO route through this installer (it's the one `LocalModelArtifactInstalling`,
+      AppBootstrap:1790). So a COMPLETE GGUF download had hasWeights=false + no config/tokenizer
+      → `invalidInstall` → the owner's "corrupted / not complete". FIX: made the validation
+      RUNTIME-AWARE via two pure `nonisolated static` helpers — `weightFileExtension(for:)`
+      (`gguf` vs `safetensors`) + `requiresSidecarConfigAndTokenizer(for:)` (false for GGUF).
+      verifySnapshot now: GGUF → a present, non-empty `.gguf` weight IS a complete install
+      (config+tokenizer embedded); MLX/Transformers → unchanged (config+weights+tokenizer).
+      modelWeightFiles matches the right extension per runtime. Checksum verify still runs on
+      the returned weights (SHA256 vs the HF LFS etag — works for GGUF LFS, gracefully degrades
+      to `.unverifiedChecksum`). +2 helper tests (extension-per-runtime, sidecar-requirement-
+      per-runtime). build-for-testing TEST BUILD SUCCEEDED (0 errors). HONEST REMAINING:
+      req 9 (the install PROGRESS BAR — `ProgressView(value:)` exists in SettingsView; the
+      regression is the fraction not flowing per-row) + req 10 (RESUME of partial downloads —
+      no explicit resume in the HubClient call yet) are the next follow-on slices.
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1

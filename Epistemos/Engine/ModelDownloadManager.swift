@@ -103,6 +103,22 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         return HubClient(session: session, cache: cache)
     }
 
+    /// The weight-file extension for a runtime. GGUF models are a single self-contained
+    /// `.gguf` file; MLX / Transformers models ship sharded `.safetensors`. Counting only
+    /// `.safetensors` made a complete GGUF download look weightless → a false
+    /// "invalid/corrupted" reject (the artifact-validation hardening regression that broke
+    /// GGUF installs). Pure + static so it is unit-testable without the actor / filesystem.
+    nonisolated static func weightFileExtension(for runtimeKind: BackendRuntimeKind) -> String {
+        runtimeKind == .gguf ? "gguf" : "safetensors"
+    }
+
+    /// Whether a runtime requires the HuggingFace sidecar files (`config.json` + a tokenizer).
+    /// A GGUF file embeds its config + tokenizer, so a GGUF repo legitimately ships neither —
+    /// requiring them falsely rejects a complete GGUF download. MLX/Transformers still need them.
+    nonisolated static func requiresSidecarConfigAndTokenizer(for runtimeKind: BackendRuntimeKind) -> Bool {
+        runtimeKind != .gguf
+    }
+
     private func verifySnapshot(at directory: URL, descriptor: LocalModelDescriptor) throws -> SnapshotValidation {
         // Allow both full 40-char SHA revisions and branch names like "main"
         let isValidRevision = descriptor.revision == "main"
@@ -117,9 +133,21 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
             options: [.skipsHiddenFiles]
         )
 
-        let hasConfig = contents.contains { $0.lastPathComponent == "config.json" }
-        let weightFiles = try modelWeightFiles(in: directory)
+        let runtimeKind = descriptor.runtimeKind
+        let weightFiles = try modelWeightFiles(in: directory, runtimeKind: runtimeKind)
         let hasWeights = !weightFiles.isEmpty
+
+        // GGUF: a present, non-empty `.gguf` weight IS a complete install (config + tokenizer
+        // are embedded). Requiring the safetensors-era sidecars here is what reported a good
+        // GGUF download as "corrupted / not complete".
+        guard Self.requiresSidecarConfigAndTokenizer(for: runtimeKind) else {
+            guard hasWeights else {
+                throw LocalModelManagerError.invalidInstall(descriptor.id)
+            }
+            return SnapshotValidation(weightFiles: weightFiles)
+        }
+
+        let hasConfig = contents.contains { $0.lastPathComponent == "config.json" }
         let hasTokenizer = contents.contains { url in
             [
                 "tokenizer.json",
@@ -134,7 +162,8 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         return SnapshotValidation(weightFiles: weightFiles)
     }
 
-    private func modelWeightFiles(in directory: URL) throws -> [URL] {
+    private func modelWeightFiles(in directory: URL, runtimeKind: BackendRuntimeKind) throws -> [URL] {
+        let weightExtension = Self.weightFileExtension(for: runtimeKind)
         let enumerator = fileManager.enumerator(
             at: directory,
             includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
@@ -142,7 +171,7 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         )
         var files: [URL] = []
         while let file = enumerator?.nextObject() as? URL {
-            guard file.pathExtension == "safetensors" else { continue }
+            guard file.pathExtension == weightExtension else { continue }
             let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
             guard values.isRegularFile == true, (values.fileSize ?? 0) > 0 else { continue }
             files.append(file)
