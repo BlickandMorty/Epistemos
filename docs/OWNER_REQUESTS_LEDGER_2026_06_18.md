@@ -275,6 +275,20 @@ calls: no blanket rule — choose per case.
       the OUTPUT side: call `ggufToolDispatchSchema` at the GGUF tool-turn site, pass the non-nil
       result as `jsonSchema` to the generation, and parse the emitted `{name,input}` JSON into a tool
       call. TOOLS/SKILLS item stays open.
+      ✅ PART 2(b) OUTPUT PARSER 2026-06-19: the output-parse side. `PipelineService.parseGgufToolCall(_:)`
+      (nonisolated static) turns a GGUF Gemma's grammar-CONSTRAINED `{"name":<tool>,"input":{…}}`
+      output (the shape of Rust `grammar::dispatch_schema_for_tools`) into a dispatchable
+      `(name, argumentsJSON)`: nil for non-conforming output (plain text / missing-or-empty name /
+      non-object input) so the caller treats it as a normal text answer; whitespace-tolerant; missing
+      `input` → `"{}"` so a no-param tool still dispatches. +5 tests (parse name+input, no-input→{},
+      whitespace, non-conforming→nil ×5). build-for-testing TEST BUILD SUCCEEDED (0 errors). So all
+      THREE testable building blocks of part 2(b) now exist: the Rust dispatch-schema core + FFI
+      (01f88d9be), the Swift input builder (`ggufToolDispatchSchema`, cdd626fcf), and this output
+      parser. REMAINING = the LOOP INTEGRATION (a NEW GGUF tool-turn path: GGUF Gemma chat model on a
+      tool turn + flag ON → `ggufToolDispatchSchema` → pass as `jsonSchema` to
+      `LocalGgufRuntimeBridge.generate` → `parseGgufToolCall` the output → execute via ToolTierBridge
+      → feed the result back → repeat) — the in-app-verification-dependent piece, owner runs it once
+      model download works. TOOLS/SKILLS item stays open.
       🔎 S4 DEEP-RESEARCH AUDIT 2026-06-19 (docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md)
       — confirms the loop's local diagnosis AND adds the missing pieces: (i) **CLOUD break (specific):**
       `runCommandCenterRustAgentPath` is reached only if `cloudProvider.supportsAgentTier`, TRUE ONLY
