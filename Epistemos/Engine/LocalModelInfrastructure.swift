@@ -368,6 +368,16 @@ nonisolated struct LocalModelPaths: Sendable, Equatable {
             .appendingPathComponent("\(descriptor.slug)-\(UUID().uuidString)", isDirectory: true)
     }
 
+    /// A STABLE staging directory for a descriptor — the SAME path on every attempt (no
+    /// UUID), so an interrupted download can RESUME into the partial files instead of
+    /// re-downloading from scratch (req 10). Safe because the verify + checksum gates reject
+    /// any incomplete/corrupt staging before it is activated, so a partial is never installed.
+    func resumableStagingDirectory(for descriptor: LocalModelDescriptor) -> URL {
+        stagingDirectory
+            .appendingPathComponent(descriptor.kind.rawValue, isDirectory: true)
+            .appendingPathComponent("\(descriptor.slug)-resume", isDirectory: true)
+    }
+
     func ensureBaseDirectories(fileManager: FileManager = .default) throws {
         for directory in [
             rootDirectory,

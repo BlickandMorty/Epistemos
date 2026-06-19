@@ -35,7 +35,11 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         guard let repoID = Repo.ID(rawValue: descriptor.id) else {
             throw LocalModelManagerError.unknownModel(descriptor.id)
         }
-        let stagingDirectory = paths.uniqueStagingDirectory(for: descriptor)
+        // STABLE staging directory (req 10 — RESUME): the same path on every attempt, so an
+        // interrupted download resumes into the partial files instead of restarting. Safe
+        // because the verify + checksum gates below reject any incomplete/corrupt staging
+        // before it is activated, so a half-download is never installed.
+        let stagingDirectory = paths.resumableStagingDirectory(for: descriptor)
         let activeDirectory = paths.activeDirectory(for: descriptor)
         let cache = HubCache(cacheDirectory: paths.hubDirectory(for: descriptor.kind))
         let client = makeClient(cache: cache)
@@ -43,50 +47,60 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
             Set(descriptor.matchingGlobs + ["model.safetensors"])
         ).sorted()
 
-        var activated = false
-        defer {
-            if !activated, fileManager.fileExists(atPath: stagingDirectory.path) {
-                do {
-                    try fileManager.removeItem(at: stagingDirectory)
-                } catch {
-                    Log.engine.error(
-                        "ModelDownloadManager: failed to clean staging directory \(stagingDirectory.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                    )
-                }
-            }
+        // Reuse an existing partial staging (resume); create only when absent.
+        if !fileManager.fileExists(atPath: stagingDirectory.path) {
+            try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
         }
 
-        try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+        // Download. On a network/interruption failure, KEEP the partial staging so the next
+        // attempt resumes the already-downloaded files instead of starting over (req 10).
+        do {
+            _ = try await client.downloadSnapshot(
+                of: repoID,
+                kind: .model,
+                to: stagingDirectory,
+                revision: descriptor.revision,
+                matching: requestedGlobs,
+                progressHandler: progressHandler
+            )
+        } catch {
+            Log.engine.warning(
+                "ModelDownloadManager: download interrupted for \(descriptor.id, privacy: .public); keeping partial staging for resume: \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
 
-        _ = try await client.downloadSnapshot(
-            of: repoID,
-            kind: .model,
-            to: stagingDirectory,
-            revision: descriptor.revision,
-            matching: requestedGlobs,
-            progressHandler: progressHandler
-        )
+        // Verify + checksum. A "completed" download that is incomplete or corrupt cannot be
+        // repaired by resuming, so DELETE the staging here (the next attempt re-downloads
+        // cleanly) and surface the honest error.
+        let checksumVerification: LocalModelChecksumVerification
+        do {
+            let snapshot = try verifySnapshot(at: stagingDirectory, descriptor: descriptor)
+            checksumVerification = try await verifyChecksums(
+                for: snapshot.weightFiles,
+                in: stagingDirectory,
+                descriptor: descriptor,
+                repoID: repoID,
+                client: client
+            )
+        } catch {
+            try? fileManager.removeItem(at: stagingDirectory)
+            throw error
+        }
 
-        let snapshot = try verifySnapshot(at: stagingDirectory, descriptor: descriptor)
-        let checksumVerification = try await verifyChecksums(
-            for: snapshot.weightFiles,
-            in: stagingDirectory,
-            descriptor: descriptor,
-            repoID: repoID,
-            client: client
-        )
         let directorySize = try byteSize(of: stagingDirectory)
         try fileManager.createDirectory(
             at: activeDirectory.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
 
+        // Atomic finalize — move the VERIFIED staging into place. If finalize itself fails,
+        // keep the verified staging so a retry re-finalizes without re-downloading.
         if fileManager.fileExists(atPath: activeDirectory.path) {
             _ = try fileManager.replaceItemAt(activeDirectory, withItemAt: stagingDirectory)
         } else {
             try fileManager.moveItem(at: stagingDirectory, to: activeDirectory)
         }
-        activated = true
 
         return LocalModelInstallRecord(
             modelID: descriptor.id,

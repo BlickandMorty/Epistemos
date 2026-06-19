@@ -2329,8 +2329,27 @@ native; AGPL server). ADOPT 2 patterns natively:
       installs FAILING FAST at verify ("corrupted") — i.e. the install never reached a
       completing/determinate state — which STEP 2 (the GGUF integrity fix) removes. No
       speculative change made to a working chain; owner re-verifies the bar in-app once
-      pulled (now that GGUF installs pass verification). REQ 10 RESUME remains a genuine
-      follow-on (needs HubClient-level partial-download state, not a one-pass fix).
+      pulled (now that GGUF installs pass verification).
+      ✅ STEP 3 — RESUME OF INTERRUPTED DOWNLOADS 2026-06-19 (req 10): before this,
+      `install()` staged into a UUID-unique dir AND a blanket `defer` DELETED the staging on
+      ANY non-activation — so an interrupted download was thrown away (full restart, the "not
+      complete" pain). FIX: NEW `LocalModelPaths.resumableStagingDirectory(for:)` — a STABLE
+      per-descriptor path (`<slug>-resume`, no UUID) reused across attempts; `install()`
+      restructured to (a) REUSE an existing partial staging instead of recreating, (b) KEEP
+      the partial on a download/network failure so the next attempt resumes the already-
+      downloaded files (HubClient.downloadSnapshot syncs into the existing dir), (c) DELETE
+      the staging only on a verify/checksum failure (incomplete/corrupt can't be resumed →
+      clean re-download), (d) atomic finalize (move the VERIFIED staging into place) on
+      success. SAFE-BY-CONSTRUCTION: the verify + checksum gates reject any incomplete/corrupt
+      staging BEFORE activation, so a half-download is NEVER installed (a partial single-file
+      GGUF passes the non-empty check but fails the SHA256-vs-LFS-etag checksum → deleted +
+      re-downloaded). +1 test (resumable staging is STABLE across calls + ends `-resume`;
+      unique staging still differs each call). build-for-testing TEST BUILD SUCCEEDED (0
+      errors). So req 8 (integrity), atomic finalize, req 9 (progress chain), AND req 10
+      (resume) are addressed; HONEST: this is resume-by-reuse (skip already-complete files +
+      keep-don't-discard the partial + clean re-download on corruption) — true intra-file
+      HTTP-Range resume of a single partially-downloaded `.gguf` would need HubClient byte-
+      range support (deeper, separate). Owner verifies the end-to-end download in-app.
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
