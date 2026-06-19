@@ -335,6 +335,34 @@ struct TriageServiceTests {
         )
     }
 
+    @Test("MODEL SELECTION (real resolver): an explicit INSTALLED local pick resolves to THAT model")
+    @MainActor func explicitInstalledPickResolvesToItself() {
+        // select-X → generate-X at `effectiveChatSurfaceSelection` (the resolver PipelineService
+        // turns into the generation modelID) — an installed pick is honored, not Qwen-substituted.
+        let inference = makeIsolatedInferenceState()
+        let pick = LocalTextModelID.deepseekR1Distill7B.rawValue
+        inference.setInstalledLocalTextModelIDs([pick])
+        inference.setPreferredLocalTextModelID(pick)
+        inference.setPreferredChatModelSelection(.localMLX(pick))
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .localMLX(pick))
+    }
+
+    @Test("MODEL SELECTION (real resolver): an explicit UNINSTALLED pick is NOT silently substituted to Qwen-3-4B")
+    @MainActor func explicitUninstalledPickIsNotSilentlyQwen() {
+        // Before the fix, an unavailable explicit pick was silently substituted to the
+        // recommended/first-installed model (Qwen-3-4B) by sanitizedInteractiveLocalTextModelID —
+        // the "everything routes to Qwen regardless of pick" bug. With
+        // EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL OFF (default) the pick is honored / honestly
+        // unavailable / pinned to the foundation tier — never a silent Qwen-3-4B swap.
+        let inference = makeIsolatedInferenceState()
+        let qwen = LocalTextModelID.qwen3_4B4Bit.rawValue
+        let pick = LocalTextModelID.deepseekR1Distill7B.rawValue // intentionally NOT installed
+        inference.setInstalledLocalTextModelIDs([qwen]) // only Qwen is present
+        inference.setPreferredLocalTextModelID(pick)
+        inference.setPreferredChatModelSelection(.localMLX(pick))
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) != .localMLX(qwen))
+    }
+
     @Test("owner #1: an UNRESOLVED local pick never renders as 'Auto Route'/GPT in the chat badge, even with auto-route-to-cloud armed")
     @MainActor func unresolvedLocalChatPickNeverRendersAsAutoRouteOrCloud() {
         let inference = makeIsolatedInferenceState(
