@@ -831,12 +831,19 @@ calls: no blanket rule — choose per case.
       pixel-art reskin, ProvenanceGate + honest gating, per-feature harden.
 
 ## Field Theory port (owner 2026-06-18)
-- [ ] **PORT github.com/afar1/fieldtheory (R-FIELDTHEORY)** — owner wants the WHOLE
+- [~] **PORT github.com/afar1/fieldtheory (R-FIELDTHEORY)** — owner wants the WHOLE
       thing ported into Epistemos, deeply researched first (it's not local — clone +
       read it). Reskin to the app's PIXEL-ART look (FONTS mainly) and update anything
       visually inconsistent. WebKit is OK if the surface needs it. Verdict doc first:
       what it is, language/stack, license, how it maps in (native vs WebKit), then
       port + reskin. ProvenanceGate + honest gating; per-feature harden.
+      ✅ VERDICT 2026-06-18 (docs/RESEARCH_FIELDTHEORY_2026_06_18.md): the port is
+      BLOCKED by license (AGPL-3.0-or-later → viral copyleft, MAS/App-Store + closed-
+      source incompatible) AND architecture (Electron → can't MAS-sidecar). Honest
+      outcome = `research_only` + clean-room NATIVE pattern adoption; ~80% of its
+      surface already exists natively in Epistemos; build the "context launcher"
+      (frontmost-app context injection) natively as the one net-new pattern. See the
+      [~] entry under "Verdict docs" for the full finding.
 
 ## Verdict docs already produced (decisions, not yet built)
 R-VOICE (Kokoro+MOSS+filter), R-EVE (pattern only), R-OKF (export+privacy+dedup),
@@ -1102,9 +1109,20 @@ doc (what it is / stack / license / native-Swift-Rust-vs-WebKit mapping), then F
 port + pixel-art reskin (fonts mainly), ProvenanceGate + honest gating, per-feature
 harden. NO-SIDECAR: TS/Py = adopt patterns natively (or WebKit where the surface
 needs it), never run a Node/Python sidecar.
-- [ ] **R-FIELDTHEORY** — github.com/afar1/fieldtheory: research + FULL port into
+- [~] **R-FIELDTHEORY** — github.com/afar1/fieldtheory: research + FULL port into
       Epistemos, reskin to pixel-art (fonts), fix visual inconsistencies. WebKit OK
       if the surface needs it.
+      ✅ VERDICT 2026-06-18 (docs/RESEARCH_FIELDTHEORY_2026_06_18.md): `research_only`
+      / clean-room NATIVE pattern adoption — NOT a port. TWO hard blockers: (1) the
+      main repo is **AGPL-3.0-or-later** (viral copyleft → incompatible with
+      closed-source MAS+Pro distribution AND App Store terms; even WebKit-bundling
+      its TS would force Epistemos to AGPL → ProvenanceGate quarantine); (2) it's an
+      **Electron** (Node+Chromium) app → can't be a MAS sidecar (NO-SIDECAR). ~80%
+      of its features are ALREADY native in Epistemos (editor/terminal/Whisper/
+      multi-window); the one net-new pattern worth building is the "context launcher"
+      (global hotkey → inject current context into the frontmost app) as a clean-room
+      NATIVE feature on the existing AXorcist/DeviceAgentService/CGEvent substrate.
+      MIT *sibling* repos assessable individually if the owner names a component.
 - [~] **R-HTMLSTREAM** — VERDICT done 2026-06-18 (docs/RESEARCH_HTMLSTREAM_2026_06_18.md):
       WebKit-bundle port (Tiptap pattern) → P7.2 HTML workspace; lift repair
       pipeline + DOMPurify; MIT direct_import; pixel-art reskin.
