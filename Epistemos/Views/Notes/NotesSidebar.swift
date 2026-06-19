@@ -1189,6 +1189,9 @@ struct NotesSidebar: View {
                 .help("Clear search")
                 .accessibilityLabel("Clear search")
             }
+            // R-LITEPARSE: opt-in PDF → Markdown note import (hidden unless
+            // EPISTEMOS_LITEPARSE_PDF_V0 is on). Self-contained; honest until S2.
+            LiteParsePDFImportButton()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
