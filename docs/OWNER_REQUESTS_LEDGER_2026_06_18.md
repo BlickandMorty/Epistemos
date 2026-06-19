@@ -259,6 +259,31 @@ calls: no blanket rule — choose per case.
       part 2: the Swift LIVE-WIRING — the PipelineService GGUF tool path calls
       `schemaGgufToolDispatchJson`, attaches the schema to the `GgufCliProvider`/`LocalGgufCliRuntime`
       run when non-empty, and parses the emitted JSON as a tool call. TOOLS/SKILLS item stays open.
+      🔎 S4 DEEP-RESEARCH AUDIT 2026-06-19 (docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md)
+      — confirms the loop's local diagnosis AND adds the missing pieces: (i) **CLOUD break (specific):**
+      `runCommandCenterRustAgentPath` is reached only if `cloudProvider.supportsAgentTier`, TRUE ONLY
+      for OpenAI/Anthropic (`InferenceState.swift:1347-1352`); plain chat on Google/Z.AI/Kimi/MiniMax/
+      DeepSeek falls to the toolless `else` (`ChatCoordinator.swift:555`) → "cloud should auto-know"
+      fails for every non-OpenAI/Anthropic provider. FIX: attach chatLite/chatPro tools for plain chat
+      on ALL providers (or honestly per-provider gate) at `ChatCoordinator.swift:503-555`/
+      `InferenceState.swift:1347` — this is the BIGGEST visible win, lowest risk, tools already execute.
+      (ii) **SKILLS data-plumbing (NEW):** 3 disjoint stores never reconcile — the 7 authored `SKILL.md`
+      live in `.agents/skills/`, a path NO loader reads (`default_skills_dir`→`~/.epistemos/skills`;
+      SkillRouter→`<vault>/skills/`); `skills_list`/`skill_view`/`skill_manage` are pro-build-only (not in
+      MAS); `skill_manage` v2 install is unreachable (schema omits `allow_remote_skill_install` +
+      `additionalProperties:false`); `EditorSkill` `.systemPrompt`/`.toolSubset` read by nothing. FIX:
+      point the loader at `.agents/skills/` (or migrate), register the view tools in MAS, fix v2 install,
+      wire-or-prune EditorSkill. (iii) **4 latent schema↔impl DRIFTS** (harmless today, break if the
+      schema gate sets `additionalProperties:false`): `vault_recall` reads undeclared `tags`; `eidos_query`
+      reads `note_filter`; `collectsnippet`/`savecitation` read undeclared snake_case aliases — add the
+      read keys to the declared schemas. (iv) **UI boxes wire is INTACT** — gone only because no tool calls
+      fire (not a cut wire); fixing (i)+(ii)/(2b) restores them. (v) **PRUNE (dead/safe):** `ConfidenceRouter.swift`
+      (self-documented never-instantiated; live routing = `TriageService.InferencePolicyEngine`),
+      `skills_context()`, orphaned `SkillDiscovery::observe` + `self_evolution::propose_repeated_success_skill`,
+      `format::SkillManifest`, unwired `epistemos-core::skill_engine/*`; consolidate the duplicate
+      legacy-`skills`-vs-`skill_manage` verb sets (don't blind-remove; CRUD is the only MAS one). ORDERED
+      REAL FIX: (1) cloud all-provider tool attach → (2) finish 2(b) Swift GGUF-Gemma live-wiring →
+      (3) skills store/path reconcile → (4) close 4 drifts → (5) fix v2 install → (6) wire/prune EditorSkill.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
