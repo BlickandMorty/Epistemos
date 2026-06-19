@@ -30,6 +30,7 @@ Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply 
 - `docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md` — (S4) **REAL root cause of broken tools/skills: chats never ENTER the tool loop** (Gemma gated out, non-OpenAI/Anthropic cloud gets no tools); skills 3-store path mismatch; prune list.
 - `docs/research/STOP_REINVENTING_AUDIT_2026_06_19.md` — (S1) **KEYSTONE: the 4 broken areas are BUILT-THEN-NOT-WIRED** — dead RuntimeRouter (=Qwen-pin root), fake constrained decoder (T1), skills compiled-out/path-mismatch, dead self-evolution, staging-purge defeats download-resume (=corrupt root). Mostly WIRE/DELETE, not import-a-clone.
 - `docs/research/HERMES_OSAURUS_OPENCLAW_WIRING_R2_2026_06_19.md` — (S8/R2 deepen) code-level wiring for the 4 Hermes lifts + OpenClaw bridge table + Osaurus generator-swap; session-search ~70% built but wrong dir; ship compaction deterministic; 6 open questions.
+- `docs/research/COMPUTER_BROWSER_USE_2026_06_19.md` — (S10) browser-use hardened-but-starved; computer-use mature native stack; cua Lume lift + Apple-container tiers; Holo-3.1 vision lane; stealth nodriver=AGPL flag; Act=home.
 - (Appended as the loop produces them — keep this index complete.)
 
 ## METHODOLOGY — ITERATIVE DEEPENING + BREADTH (owner 2026-06-19)
@@ -54,7 +55,7 @@ sharpens. Never re-do a slice at the same depth; either go deeper or pick a new 
 | S7 | PLAN/LEDGER/DIRECTIVE consistency sweep — contradictions, gaps, dead items | ☐ |
 | S8 | OpenClaw + Osaurus + Hermes deeper passes (continuing) — nuance, edge cases | ☐ |
 | S9 | MODEL SYSTEM deep — download/install robustness, selection-honored, the "stack", per-model vaults hardening, picker simplify, catalog completeness (LFM2/VibeThinker/Gemma) | ☐ |
-| S10 | COMPUTER-USE + BROWSER-USE — trycua/cua fusion, Holo-3.1 VL lane, AXorcist/ScreenCaptureKit, stealth/Obscura browser, first-class browser-use skill, Lume VM sandbox | ☐ |
+| S10 | COMPUTER-USE + BROWSER-USE — trycua/cua fusion, Holo-3.1 VL lane, AXorcist/ScreenCaptureKit, stealth/Obscura browser, first-class browser-use skill, Lume VM sandbox | ✅ done → COMPUTER_BROWSER_USE |
 | S11 | VOICE — R-VOICE (Kokoro TTS / MOSS / Whisper STT), meeting/lecture note, EVE/OKF, on-device only | ☐ |
 | S12 | TOOL-SELECTION & ROUTING — LFM2-ColBERT-350M as tool selector, ConfidenceRouter/RuntimeRouter/TriageService, RAG-preflight (P8.2), Hermes-3 grammar | ☐ |
 | S13 | DATA + FINETUNE substrate — marketplace for data/finetune packs, MLX training, NightBrain, per-model vaults, FineTunePackImporter | ☐ |
@@ -76,4 +77,5 @@ sharpens. Never re-do a slice at the same depth; either go deeper or pick a new 
 
 ### Pass-2 (rotation: deepen + broaden)
 - **DEEPEN Hermes/Osaurus/OpenClaw (R2)** → `docs/research/HERMES_OSAURUS_OPENCLAW_WIRING_R2_2026_06_19.md` (code-level). NEW: **lift #1 session-search is ~70% built** (`SessionSearchHandler` exists) but does a plaintext scan of `<vault>/sessions/` while the shadow index crawls `<vault>/chats/` → **may return zero hits today (OQ-1, verify vault layout first)**. Ship #2 compaction as DETERMINISTIC (a model-summarize call mid-turn would deadlock the single MainActor client). Tiering: folded-skills must be CONTEXT not stable (cache busts). OpenClaw bridge contract fully maps to existing `AgentStreamEventDelegate` (NO new FFI). Osaurus = parallel `osaurusLoop` swapping ONLY the generator closure; `.osaurusLocal` decision stays in the Act picker (RuntimeLane has no `.osaurus` case). 6 open questions logged. Full doc.
-- (BROADEN S10 computer-use + browser-use still running.)
+- **S10 COMPUTER/BROWSER-USE** → `COMPUTER_BROWSER_USE_2026_06_19.md`. Browser-use is a real hardened Pro tool family (11 tools, browser.rs) but STARVED (chats don't enter the loop, S4) — highest-value win = surface it via the shared registry. Computer-use = mature native host-intercept stack (DeviceAgentService/AXorcist/ScreenCaptureKit), honestly MAS-stubbed; Holo vision lane doesn't exist yet. Act = primary home (Act⊇Chat), Work = Lume-VM sandbox tier. cua: LIFT Lume natively (Swift MIT, the macOS-desktop-guest VM) + Apple Containerization = Linux tier (two tiers, one Sandbox seam, no overlap); adopt cua's action-schema + composed grounding. Holo-3.1 = local grounding via a new GgufVisionCliProvider+mmproj (Pro). Stealth via stealth-browser-mcp (MCP path). **LEDGER CORRECTIONS: Holo base = Qwen3.5 not Qwen3-VL-4B; browser-use = MIT + Rust-cored; stealth's nodriver engine = AGPL (Pro-internal OK, swap to Patchright/playwright-stealth if shipping as a service).** Full doc.
+- (S7 plan-consistency sweep still running.)
