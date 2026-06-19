@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // DATA+FINETUNE part (5) MARKETPLACE — the BROWSE surface (rule #8: the owner can
 // SEE the marketplace). Lists the available packs (honest gating via
@@ -156,13 +157,20 @@ struct FineTuneMarketplaceView: View {
     /// registry. Honest: shows the real per-error reason; never fakes a fetch.
     private func importPack() {
         do {
-            let pack = try FineTunePackImporter.makePack(
-                spec: importSpec,
-                kind: importKind,
-                displayName: importName,
-                license: importLicense,
-                gate: importGate
-            )
+            // A pasted SHARE string carries the full descriptor (name/license/kind/gate
+            // embedded) → parse it directly; otherwise treat the field as a source spec.
+            let pack: FineTunePack
+            if FineTunePackShare.isShare(importSpec) {
+                pack = try FineTunePackShare.parse(importSpec)
+            } else {
+                pack = try FineTunePackImporter.makePack(
+                    spec: importSpec,
+                    kind: importKind,
+                    displayName: importName,
+                    license: importLicense,
+                    gate: importGate
+                )
+            }
             try registry.add(pack)
             // Persist so the import survives a relaunch (descriptors only — MAS-safe).
             try? store.append(pack)
@@ -170,6 +178,8 @@ struct FineTuneMarketplaceView: View {
             importSpec = ""
             importName = ""
             importLicense = ""
+        } catch let error as FineTunePackShareError {
+            importNote = error.errorDescription
         } catch let error as FineTunePackImportError {
             importNote = error.errorDescription
         } catch let error as FineTunePackRegistryError {
@@ -199,6 +209,16 @@ struct FineTuneMarketplaceView: View {
                 }
             }
             Spacer(minLength: 0)
+            // P5 SHARE: copy a portable, ProvenanceGate-revalidatable share string to
+            // the clipboard (paste it into another vault's import field).
+            Button {
+                sharePack(pack)
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .help("Copy a shareable pack to the clipboard")
             // P5 apply affordance: an honest per-kind apply/import button. Tapping it
             // shows what apply does + where it runs (the real execution is on-device).
             Button(pack.kind.applyAction.verb) {
@@ -208,6 +228,13 @@ struct FineTuneMarketplaceView: View {
             .controlSize(.small)
         }
         .padding(.vertical, 3)
+    }
+
+    /// Copy a portable share string for the pack to the clipboard (the SHARE verb).
+    private func sharePack(_ pack: FineTunePack) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(FineTunePackShare.export(pack), forType: .string)
+        importNote = "Copied a shareable \"\(pack.displayName)\" to the clipboard — paste it into another vault's import field."
     }
 
     private func icon(for kind: FineTunePackKind) -> String {

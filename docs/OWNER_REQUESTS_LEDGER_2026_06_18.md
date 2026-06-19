@@ -351,6 +351,20 @@ calls: no blanket rule — choose per case.
       green. The marketplace is now genuinely real+usable end-to-end (browse → import →
       persist → apply-affordance). STILL FOLLOW-ON: the network fetch of the pack bytes
       + the per-kind apply EXECUTION (both on-device).
+      ✅ FINISHER 2026-06-19 (part 5e SHARE — ALL 4 verbs done): browse/import/apply/
+      SHARE complete. NEW pure `FineTunePackShare` — `export` writes a portable,
+      versioned `epistemos-pack:v1:<json>` string; `parse` reads it back + RE-VALIDATES
+      through the ProvenanceGate (id + license required → an unlicensed/malformed/
+      non-share string is rejected with an honest error); `isShare` lets import route a
+      pasted share. Wired into FineTuneMarketplaceView: a per-pack Share button copies
+      the share string to the clipboard (`NSPasteboard`), and the import field accepts a
+      pasted share (parses the embedded descriptor instead of the source-spec form).
+      +5 FineTunePackShareTests (export/parse round-trip, non-share/malformed reject,
+      ProvenanceGate license re-validation, share→registry, view-wiring) + browse/apply/
+      import/persist asserts intact. Build caught + I fixed a real Swift-6 isolation bug
+      (a nonisolated `errorDescription` referenced the MainActor `prefix` static →
+      inlined the literal). build-for-testing green. The marketplace is now COMPLETE on
+      all four owner-named verbs; remaining is the on-device byte fetch + apply execution.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
