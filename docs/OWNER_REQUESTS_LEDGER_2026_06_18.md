@@ -388,11 +388,23 @@ calls: no blanket rule — choose per case.
       ChatCoordinator agent path, `availableOperatingModes`, `CoworkChatMode`,
       `usesAutomaticCloudRouteForChatSurfaces`, `preferredAutoRouteCloudProvider`,
       `effectiveChatSurfaceSelection`. Regression: no-cloud + Act → local, not GPT.
-- [ ] **ACT mode** — reported not working. Root: gated behind cloud/Pro
+- [~] **ACT mode** — reported not working. Root: gated behind cloud/Pro
       (`CoworkChatMode.actAvailable` / `availableOperatingModes`) AND the auto-cloud
       route above. FIX: Act runs the LOCAL multi-step agent loop by default (see
       #1); cloud only augments when explicitly chosen. Visible + togglable + works
       with zero cloud configured.
+      ✅ 2026-06-19 (research-first, smallest verifiable): traced the seams — Act is
+      ALREADY available + LOCAL for an agent-capable local model (Qwen) with ZERO
+      cloud (`.agent` ∈ availableOperatingModes via canRunLocalAgentLoop; no auto-
+      route when no provider → Act resolves `.localMLX`). The real bug was honesty:
+      `actUnavailableReason` falsely implied "connect a cloud model … to enable it."
+      Rewrote it LOCAL-FIRST ("Pick a local agent-capable model (e.g. Qwen) to run
+      on-device with zero cloud, or connect a cloud model") + a behavioral REGRESSION
+      test (qwen + zero cloud → Act available → resolves LOCAL, never GPT). +2 tests;
+      build-for-testing green. REMAINING (riskier follow-on, owner repro): if the
+      current pick is a NON-agent foundation model (Gemma), route Act to a fitting
+      LOCAL agent model as a VISIBLE substitution (needs availableOperatingModes
+      test reconciliation).
 - [~] **QUEUE** — reported not working. Only appears while `isProcessing` + draft
       non-empty. Make it discoverable and prove the staged message actually sends
       on completion in the running app.

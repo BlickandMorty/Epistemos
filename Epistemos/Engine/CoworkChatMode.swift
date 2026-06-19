@@ -46,16 +46,22 @@ nonisolated enum CoworkChatMode: String, Sendable, CaseIterable {
         }
     }
 
-    /// Act is available only when an agent route genuinely exists — i.e. the
-    /// surface's `availableOperatingModes` includes `.agent`. On a local-only
-    /// setup this is false and the toggle's Act side is disabled with an honest
-    /// reason rather than faking agent capability.
+    /// Act is available when an agent route genuinely exists — i.e. the surface's
+    /// `availableOperatingModes` includes `.agent`. This is LOCAL-FIRST (owner #1,
+    /// 2026-06-19): a local agent-capable model (e.g. Qwen) puts `.agent` in the
+    /// available modes with ZERO cloud configured, so Act runs ON-DEVICE — cloud is
+    /// NOT required. A local model that genuinely can't run the agent loop has no
+    /// `.agent`, so Act is honestly disabled rather than faked (and never silently
+    /// escalated to a cloud/GPT route).
     static func actAvailable(in availableModes: [EpistemosOperatingMode]) -> Bool {
         availableModes.contains(.agent)
     }
 
-    /// One-line honest reason shown when Act can't be selected.
+    /// One-line honest reason shown when Act can't be selected. Local-first: Act
+    /// runs the agent loop on-device on a local agent-capable model — cloud is one
+    /// option, NOT the requirement (the previous copy wrongly implied "connect a
+    /// cloud model" was the only path).
     static var actUnavailableReason: String {
-        "Act runs the multi-step agent loop — connect a cloud model (or use the Pro build) to enable it."
+        "Act runs the multi-step agent loop. Pick a local agent-capable model (e.g. Qwen) to run it on-device with zero cloud, or connect a cloud model."
     }
 }
