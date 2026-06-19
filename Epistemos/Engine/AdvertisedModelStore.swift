@@ -140,6 +140,48 @@ nonisolated struct ModelStackRow: Identifiable, Sendable, Equatable {
     let isAdvertised: Bool
 }
 
+/// A lightweight, runtime-AGNOSTIC source for one stack row. BOTH lanes map into
+/// it: the MLX/remote `LocalModelDescriptor` lane AND the foundation GGUF
+/// `GemmaQATRuntimeCandidate` lane. This is the fix for the req-11 silent drop —
+/// the foundation GGUF models (Gemma / VibeThinker / LFM / coder) have NO separate
+/// `LocalModelDescriptor` (`LocalModelCatalog.descriptor(for:)` returns nil for
+/// their ids), so a descriptor-only assembler would drop exactly the models the
+/// owner asked to see. Mapping through this struct lists every retained model.
+nonisolated struct ModelStackSource: Sendable, Equatable {
+    let id: String
+    let displayName: String
+    let summary: String
+    let approximateDownloadBytes: Int64
+    let minimumRecommendedMemoryGB: Int
+}
+
+extension LocalModelDescriptor {
+    /// The MLX/remote catalog lane → a stack source.
+    var stackSource: ModelStackSource {
+        ModelStackSource(
+            id: id,
+            displayName: displayName,
+            summary: summary,
+            approximateDownloadBytes: approximateDownloadBytes,
+            minimumRecommendedMemoryGB: minimumRecommendedMemoryGB
+        )
+    }
+}
+
+extension GemmaQATRuntimeCandidate {
+    /// The foundation GGUF lane → a stack source (summary derived from the tier
+    /// tagline; bytes from the expected single-file size).
+    var stackSource: ModelStackSource {
+        ModelStackSource(
+            id: id,
+            displayName: displayName,
+            summary: stage.epistemosTier.tagline,
+            approximateDownloadBytes: expectedFileBytes,
+            minimumRecommendedMemoryGB: minimumRecommendedMemoryGB
+        )
+    }
+}
+
 /// Pure assembler for the Settings "stack" rows (reqs 6/7). Maps the full
 /// RETAINED catalog (every model the app keeps — req 2 KEEP-ALL) to display rows,
 /// tagging each with its install state and advertised membership. No I/O, no
@@ -160,23 +202,25 @@ nonisolated enum ModelStackAssembler {
         gb > 0 ? "~\(gb) GB RAM" : "—"
     }
 
-    /// Assemble the stack rows: installed models first (the owner's working set),
-    /// then by display name, stable by id. Pure → unit-testable.
+    /// Assemble the stack rows from runtime-agnostic sources (both the MLX
+    /// descriptor lane and the foundation GGUF candidate lane): installed models
+    /// first (the owner's working set), then by display name, stable by id. Pure →
+    /// unit-testable.
     static func rows(
-        descriptors: [LocalModelDescriptor],
+        sources: [ModelStackSource],
         installedIDs: Set<String>,
         advertisedIDs: Set<String>
     ) -> [ModelStackRow] {
-        descriptors
-            .map { descriptor in
+        sources
+            .map { source in
                 ModelStackRow(
-                    id: descriptor.id,
-                    displayName: descriptor.displayName,
-                    summary: descriptor.summary,
-                    sizeText: sizeText(bytes: descriptor.approximateDownloadBytes),
-                    ramText: ramText(gb: descriptor.minimumRecommendedMemoryGB),
-                    isInstalled: installedIDs.contains(descriptor.id),
-                    isAdvertised: advertisedIDs.contains(descriptor.id)
+                    id: source.id,
+                    displayName: source.displayName,
+                    summary: source.summary,
+                    sizeText: sizeText(bytes: source.approximateDownloadBytes),
+                    ramText: ramText(gb: source.minimumRecommendedMemoryGB),
+                    isInstalled: installedIDs.contains(source.id),
+                    isAdvertised: advertisedIDs.contains(source.id)
                 )
             }
             .sorted { lhs, rhs in

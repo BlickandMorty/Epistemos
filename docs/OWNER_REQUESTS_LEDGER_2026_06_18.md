@@ -2469,6 +2469,29 @@ native; AGPL server). ADOPT 2 patterns natively:
       advertised set actually filtering the picker, in-app once pulled (and the download pipeline
       proven end-to-end). This View ALSO lists the foundation GGUF models individually → cross-
       check against req 11's acceptance below.
+      ⚠️ CORRECTION to STEP 7's "lists the foundation GGUF models" claim: as first written the View
+      did NOT — see STEP 8, which fixes a silent drop I caught verifying req 11.
+      ✅ STEP 8 — REQ 11 SILENT-DROP FIX (the foundation GGUF models are now actually listed)
+      2026-06-19: verifying req 11 against the STEP-7 View exposed a real bug in my own slice. The
+      foundation GGUF candidates (Gemma E2B/E4B/12B, the 12B coder, VibeThinker 3B, Gemma 26B-A4B,
+      LFM2.5-8B) have NO `LocalModelDescriptor` — `LocalModelCatalog.allDescriptors == textDescriptors`
+      and none of those GGUF ids is in `textDescriptors` (each id appears exactly once in the whole
+      file, as a `GemmaQATRuntimeCandidate` in `GemmaQATRuntimeLadder.candidates`). So the STEP-7
+      View's `EpistemosFoundationLineup.models.compactMap { LocalModelCatalog.descriptor(for: $0.id) }`
+      resolved to nil for every one and SILENTLY DROPPED them — exactly the models the owner said
+      they couldn't see. This is the owner's recurring "I don't see X" bug class: a UI compactMap of
+      an id→descriptor lookup that drops ids without a descriptor. FIX: a runtime-AGNOSTIC
+      `ModelStackSource` (id/displayName/summary/approximateDownloadBytes/minimumRecommendedMemoryGB)
+      that BOTH lanes map into — `LocalModelDescriptor.stackSource` (MLX/remote) AND
+      `GemmaQATRuntimeCandidate.stackSource` (foundation GGUF; summary = `stage.epistemosTier.tagline`,
+      bytes = `expectedFileBytes`). `ModelStackAssembler.rows` now takes `sources:` (not
+      `descriptors:`); the View builds `sources = textDescriptors.map(\.stackSource) +
+      EpistemosFoundationLineup.models.map(\.stackSource)` de-duped → NO descriptor lookup → nothing
+      dropped. +1 guarantee test `stackListsFoundationGGUF` (every foundation candidate survives into
+      a row; gemma/vibethinker/lfm present by id) + the existing rows test moved to `.stackSource`.
+      build-for-testing TEST BUILD SUCCEEDED (0 errors). So req 11's named models (LFM2 / VibeThinker /
+      the Gemma family) now PROVABLY reach the stack rows. Still owner-verified in-app for the final
+      render; not ticked [x].
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
