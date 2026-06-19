@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import Epistemos
 
 /// MODEL DOWNLOAD robustness (owner 2026-06-19, reqs 8/10): the artifact-validation
@@ -23,5 +24,21 @@ struct ModelDownloadGgufVerifyTests {
         // MLX/Transformers ship them separately → still required (validation unchanged).
         #expect(ModelDownloadManager.requiresSidecarConfigAndTokenizer(for: .mlx) == true)
         #expect(ModelDownloadManager.requiresSidecarConfigAndTokenizer(for: .remote) == true)
+    }
+
+    @Test("resumable staging is a STABLE path (enables resume); unique staging is not")
+    func resumableStagingIsStableForResume() throws {
+        // req 10 RESUME: install() now stages into a stable, reusable dir so an interrupted
+        // download resumes into the partial files instead of restarting from scratch.
+        let descriptor = try #require(LocalModelCatalog.textDescriptors.first)
+        let paths = LocalModelPaths(
+            rootDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        )
+        // Stable across calls → the next attempt resumes into the same partial directory.
+        #expect(paths.resumableStagingDirectory(for: descriptor) == paths.resumableStagingDirectory(for: descriptor))
+        #expect(paths.resumableStagingDirectory(for: descriptor).lastPathComponent.hasSuffix("-resume"))
+        // The old unique staging changes every call (the non-resumable behavior).
+        #expect(paths.uniqueStagingDirectory(for: descriptor) != paths.uniqueStagingDirectory(for: descriptor))
     }
 }
