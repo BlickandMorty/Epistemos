@@ -426,6 +426,18 @@ calls: no blanket rule — choose per case.
       one more build-agent-core.sh → a LiveLiteParsePDFImporter calls liteparse_pdf_to_
       markdown + reuses this decoder → the note-sidebar IMPORT button (NSOpenPanel → import
       → vault note) + bulk + Settings. S2 native vendor = real markdown.
+      ✅ LIVE FFI IMPORTER 2026-06-19 (Swift↔Rust conversion bridge now LIVE): the owner
+      regenerated again (binding 09:34 now HAS liteparse_pdf_to_markdown → Swift
+      `liteparsePdfToMarkdown(pdfPath:)`). NEW `LiveLiteParsePDFImporter` — enforces
+      PDF-only BEFORE the FFI (non-PDF → .unsupported, never passed down), then
+      `#if canImport(agent_coreFFI)` calls `liteparsePdfToMarkdown` + reuses
+      `LiteParseImportEnvelope.decode`; `#else` (test host) falls back to .notWired. The
+      FFI call COMPILES against the fresh binding (build-for-testing TEST BUILD SUCCEEDED)
+      — the conversion bridge is real; it returns .notWired today (inert Rust seam) and
+      real markdown once S2's native PDFium vendor lands. +2 tests (PDF-only-before-FFI,
+      honest-on-PDF). NEXT: the import SERVICE (decode → write a markdown note to the
+      vault via NoteFileStorage) + the note-sidebar IMPORT button (NSOpenPanel) + bulk +
+      Settings — produce a real note once S2 makes the engine return markdown.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
