@@ -1369,8 +1369,7 @@ struct RuntimeValidationTests {
         #expect(embedAndSignHelper.contains("codesign --force --sign"))
         #expect(embedAndSignHelper.contains("EXPANDED_CODE_SIGN_IDENTITY"))
         #expect(!buildScript.contains("cp ../build-rust/libepistemos_core.dylib \"$TARGET_BUILD_DIR/PackageFrameworks/libepistemos_core.dylib\""))
-        #expect(bundleAssetsScript.contains("KnowledgeFusion/Training/scripts/train_knowledge.py"))
-        #expect(bundleAssetsScript.contains("KnowledgeFusion/Training/scripts/train_style.py"))
+        // train_knowledge.py / train_style.py removed 2026-06-18 (QLoRA native).
         #expect(bundleAssetsScript.contains("KnowledgeFusion/Alignment/scripts/train_kto.py"))
         #expect(bundleAssetsScript.contains("KnowledgeFusion/MoLoRA/molora_inference.py"))
         #expect(bundleAssetsScript.contains("KnowledgeFusion/MoLoRA/sgmm_kernel.py"))
