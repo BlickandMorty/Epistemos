@@ -1673,15 +1673,14 @@ struct RuntimeValidationTests {
     func remainingProductionConcurrencyWrappersNarrowUnsafeStateInsteadOfUncheckedSendable() throws {
         let llmService = try loadRepoTextFile("Epistemos/Engine/LLMService.swift")
         let graphState = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
-        let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift")
+        // MoLoRAInferenceService removed 2026-06-18 (orphaned molora_inference.py
+        // subprocess; native NativeAdapterApply replaces it).
         let searchIndex = try loadRepoTextFile("Epistemos/Sync/SearchIndexService.swift")
 
         #expect(!llmService.contains("@unchecked Sendable"))
         #expect(llmService.contains("struct ProcessActivityToken: Sendable"))
         #expect(!graphState.contains("@unchecked Sendable"))
         #expect(graphState.contains("final class EngineHandleState: Sendable"))
-        #expect(!moLoRA.contains("@unchecked Sendable"))
-        #expect(moLoRA.contains("final class MoLoRAReadBufferState: Sendable"))
         #expect(!searchIndex.contains("@unchecked Sendable"))
         #expect(searchIndex.contains("private final class OffloadedSearchState<T: Sendable>: Sendable"))
         #expect(searchIndex.contains("private final class OffloadedSearchStateBox<T: Sendable>: Sendable"))
@@ -5162,8 +5161,9 @@ struct RuntimeValidationTests {
         // Owner 2026-06-18: QLoRATrainer no longer spawns python3 (native
         // NativeLoRATrainer / MLXLLM.LoRATrain), so it has no bounded-env
         // subprocess fallback to validate here. The rest still shell out.
+        // MoLoRAInferenceService removed 2026-06-18 (orphaned molora_inference.py
+        // subprocess gone; native NativeAdapterApply replaces it).
         let ktoTrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift")
-        let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift")
 
         #expect(pythonEnvironmentManager.contains("final class KnowledgeFusionProcessOutputCapture"))
         #expect(pythonEnvironmentManager.contains("maxBytes: Int = 64 * 1024"))
@@ -5181,11 +5181,6 @@ struct RuntimeValidationTests {
         #expect(audioTranscriber.contains("let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
         #expect(!audioTranscriber.contains("executable: \"/usr/bin/which\""))
         #expect(!audioTranscriber.contains("arguments: [\"whisper\"]"))
-
-        #expect(moLoRA.contains("proc.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)"))
-        #expect(moLoRA.contains("private let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
-        #expect(moLoRA.contains("stderrCapture.reset()"))
-        #expect(moLoRA.contains("stderr.fileHandleForReading.readabilityHandler = { [stderrCapture] handle in"))
     }
 
     #if false
