@@ -2431,6 +2431,22 @@ native; AGPL server). ADOPT 2 patterns natively:
       never-empty). build-for-testing TEST BUILD SUCCEEDED (0 errors). So the store (STEP 4) is now
       consumed by the picker; the LAST reqs-6/7 piece is the Settings "stack" UI to let the owner
       toggle advertising (then this seam goes visibly live). Owner verifies in-app once that lands.
+      ✅ STEP 6 — STACK ROW ASSEMBLER (reqs 6/7, the Settings UI data layer) 2026-06-19: built the
+      pure, testable row model the "stack" View will render, so the View stays a thin renderer.
+      Appended to `Epistemos/Engine/AdvertisedModelStore.swift`: `ModelStackRow` (Identifiable /
+      Sendable / Equatable — id / displayName / summary / sizeText / ramText / isInstalled /
+      isAdvertised) + pure `ModelStackAssembler` enum — `sizeText(bytes:)` (deterministic,
+      locale-independent GB so it's testable, honest "—" for unknown size), `ramText(gb:)` (honest
+      "—" for unknown), and `rows(descriptors:installedIDs:advertisedIDs:)` mapping the full
+      RETAINED catalog (`LocalModelCatalog.textDescriptors` — req 2 KEEP-ALL) to rows tagged with
+      install + advertised state, sorted installed-first then displayName then id. No I/O / SwiftUI
+      / InferenceState → unit-testable. +3 tests (sizeText, ramText, rows against the real catalog:
+      install/advertised tagging + installed-first order). build-for-testing TEST BUILD SUCCEEDED
+      (0 errors). REMAINING (the final reqs-6/7 slice): the actual `ModelStackSettingsView` —
+      reads the catalog + InferenceState install set, renders rows via this assembler with a
+      per-model advertise Toggle → `AdvertisedModelStore.toggleAdvertised` + a "Reset to canon"
+      button, wired into SettingsView near the "All models (advanced)" disclosure. Owner verifies
+      render + toggle in-app once that lands.
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
