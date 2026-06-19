@@ -39,13 +39,20 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         }
     }
 
-    /// Asset-catalog name for the staged lobehub SVG. nil → SF-Symbol fallback.
-    /// TODO(P6.1 follow-on): stage the remaining lobehub SVGs (Claude/ChatGPT/Gemini/
-    /// Codex/Gemma/Qwen/Apple) so these light up too.
+    /// Asset-catalog name for the staged lobehub SVG (MIT, from
+    /// lobehub/lobe-icons static-svg — the B&W marks). nil → SF-Symbol fallback.
     var assetName: String? {
         switch self {
+        case .claude: "ProviderLogoClaude"
+        case .chatGPT: "ProviderLogoOpenAI"
+        case .gemini: "ProviderLogoGemini"
         case .claudeCode: "ProviderLogoClaudeCode"
+        case .codex: "ProviderLogoCodex"
+        case .gemma: "ProviderLogoGemma"
+        case .qwen: "ProviderLogoQwen"
+        case .apple: "ProviderLogoApple"
         case .kimi: "ProviderLogoKimi"
+        // .zai / .minimax / .deepseek / .generic → SF-Symbol fallback (no SVG yet).
         default: nil
         }
     }

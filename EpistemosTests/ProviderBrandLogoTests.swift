@@ -36,12 +36,22 @@ struct ProviderBrandLogoTests {
         #expect(ProviderBrand.apple.sfSymbolFallback == "apple.logo")
     }
 
-    @Test("staged lobehub assets are referenced; un-staged brands fall back to SF Symbols")
+    @Test("the owner's full provider list references a staged lobehub SVG; only the long-tail falls back")
     func stagedAssetsReferenced() {
+        // The owner's full list now has a real lobehub B&W SVG (MIT lobe-icons).
+        #expect(ProviderBrand.claude.assetName == "ProviderLogoClaude")
+        #expect(ProviderBrand.chatGPT.assetName == "ProviderLogoOpenAI")
+        #expect(ProviderBrand.gemini.assetName == "ProviderLogoGemini")
         #expect(ProviderBrand.claudeCode.assetName == "ProviderLogoClaudeCode")
+        #expect(ProviderBrand.codex.assetName == "ProviderLogoCodex")
+        #expect(ProviderBrand.gemma.assetName == "ProviderLogoGemma")
+        #expect(ProviderBrand.qwen.assetName == "ProviderLogoQwen")
+        #expect(ProviderBrand.apple.assetName == "ProviderLogoApple")
         #expect(ProviderBrand.kimi.assetName == "ProviderLogoKimi")
-        #expect(ProviderBrand.gemma.assetName == nil)   // not staged → SF-Symbol fallback
-        #expect(ProviderBrand.claude.assetName == nil)
+        // The long-tail providers (no SVG yet) fall back to SF Symbols.
+        #expect(ProviderBrand.zai.assetName == nil)
+        #expect(ProviderBrand.minimax.assetName == nil)
+        #expect(ProviderBrand.generic.assetName == nil)
     }
 
     @MainActor

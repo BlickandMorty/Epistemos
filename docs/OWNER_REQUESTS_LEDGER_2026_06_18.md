@@ -564,10 +564,14 @@ calls: no blanket rule — choose per case.
       InlineRuntimePickerPanel.pickRow (every model pick leads with its provider
       logo) + MessageBubble.EffectiveModelBadge (every "answered by" badge shows the
       logo, via ProviderBrand.fromLabel). +2 tests; build green. The logo shows on 3
-      surfaces now (Settings + picker + chat). REMAINING: only claudecode/kimi/
-      hermesagent SVGs are on disk — the rest (Claude/ChatGPT/Gemini/Codex/Gemma/
-      Qwen/Apple) need the lobehub SVGs SOURCED (fetched-SVG render can't be headless-
-      verified → owner drops them in docs/brand-assets/lobehub, or a render-checked slice).
+      surfaces now (Settings + picker + chat).
+      ✅ SVGs STAGED 2026-06-19: fetched the B&W lobehub SVGs (lobehub/lobe-icons MIT
+      static-svg) for the FULL list — claude/openai/gemini/gemma/qwen/apple/codex (+
+      the pre-staged claudecode/kimi) → 9 Assets.xcassets imagesets; ProviderBrand.
+      assetName references them all. build-for-testing green → ACTOOL ACCEPTED all
+      SVGs (real validity gate) → the owner's full provider list now renders its REAL
+      brand logo on Settings + picker + chat. P6.1 substantially DONE (component + 9
+      real logos + 3 surfaces); owner does the final in-app render look.
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
