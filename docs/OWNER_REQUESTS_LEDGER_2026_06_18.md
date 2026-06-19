@@ -63,9 +63,20 @@ calls: no blanket rule — choose per case.
 3. No feature is "done" until the owner can demonstrably use it.
 
 ## REOPENED — owner reports these DON'T WORK (fix first, verify in-app)
-- [ ] **PICKER + PARITY PASS — owner 2026-06-18 (TOP priority, do NEXT after
-      DeerFlow 5e-1 commit). Build+run verify EACH surface in-app; harden +
-      auto-commit+push each slice.**
+- [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
+      run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
+      the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
+      overflow-aware "scroll for more" affordance (content-vs-viewport measured).
+      (2) mini parity: MiniChatView now shares MainChatOperatingModePreference.
+      supportedModes(for:) → full mode set incl. Act (was narrowed per-model,
+      reverting Act). (3) non-reductive on all 5: mini/graph/note mount the panel
+      in plain VStacks (no clip) + landing's stage was the only fixed-height clip
+      (fixed in 4); all 5 pass a mode binding + showsSettingsFooter:true (MODE +
+      EFFORT + Settings footer) — locked by a new parity test. (4) search-page
+      click regression: landing background-tap now dismisses the picker on outside
+      click instead of (re)triggering search; landing search stage grows 236→540
+      when the picker is open (was clipping it to ~2 rows). Owner verifies each
+      surface visually (Product▸Run). Original ask:**
       1. **PICKER SCROLL/HEIGHT** — InlineRuntimePickerPanel is too short with no
          scrollbar, so only ~2 options show. Make it tall enough OR scrollable
          with a visible "more exists" affordance, so ALL Fast/Think/Code picks
