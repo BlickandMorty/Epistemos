@@ -86,6 +86,10 @@ struct ThemePickerRestorationTests {
         // The busy cinematic mock-UI preview is gone for good (lock the replacement).
         #expect(!settings.contains("ThemePairCinematicPreview"))
         #expect(!settings.contains("ThemePairCinematicHalf"))
+        // Owner P6.4c: the custom-theme editor aligns with the pixel-art-minimal look
+        // (hard rectangles) — same identity as the palette swatch above it.
+        #expect(settings.contains("Pixel-art custom-theme editor"))
+        #expect(settings.contains("Pixel-art custom-theme live preview"))
         #expect(settings.contains("ui.setPair(pair)"))
         #expect(!settings.contains("Toggle(\"Follow macOS\""))
         #expect(!settings.contains("Follows macOS"))

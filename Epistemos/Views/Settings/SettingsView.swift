@@ -4325,7 +4325,8 @@ private struct CustomThemeColorTile: View {
             }
         }
         .padding(8)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        // Pixel-art custom-theme editor (owner P6.4c): hard rectangle, no rounding.
+        .background(.quaternary, in: Rectangle())
     }
 }
 
@@ -4343,10 +4344,10 @@ private struct CustomThemeLivePreview: View {
                 .font(.custom(fontName, size: 15).weight(.bold))
                 .foregroundStyle(resolved.headingAccent.color)
             HStack(spacing: 6) {
-                Capsule()
+                Rectangle()
                     .fill(resolved.accent.color)
                     .frame(width: 42, height: 7)
-                Capsule()
+                Rectangle()
                     .fill(resolved.foreground.color.opacity(0.28))
                     .frame(width: 72, height: 7)
             }
@@ -4355,11 +4356,11 @@ private struct CustomThemeLivePreview: View {
                 .foregroundStyle(resolved.foreground.color.opacity(0.82))
                 .lineLimit(2)
             HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                Rectangle()
                     .fill(noteSurface.color)
                     .frame(width: 52, height: 20)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        Rectangle()
                             .stroke(resolved.border.color.opacity(0.7), lineWidth: 1)
                     )
                 Text(isDark ? "Dark note surface" : "Light note surface")
@@ -4369,9 +4370,10 @@ private struct CustomThemeLivePreview: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(resolved.background.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        // Pixel-art custom-theme live preview (owner P6.4c): hard rectangle frame.
+        .background(resolved.background.color, in: Rectangle())
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            Rectangle()
                 .stroke(resolved.border.color, lineWidth: 1)
         )
     }
