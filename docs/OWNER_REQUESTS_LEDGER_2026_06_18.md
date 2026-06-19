@@ -2391,3 +2391,22 @@ native; AGPL server). ADOPT 2 patterns natively:
       dropped), then fix the binding + router-override. Pairs with the MODEL DOWNLOAD/
       INSTALL bug + the picker-simplify + Settings-stack items — together they are the
       "model system actually works the way the owner picks" cluster.
+      ✅ FIX — NO SILENT QWEN SUBSTITUTE FOR AN EXPLICIT PICK 2026-06-19 (root candidate (c)):
+      traced select→generate. `TriageService.localSelection` is the resolver: for a local
+      pick, `shouldUseAutomaticLocalRouting` is FALSE (a `.localMLX` selection is honored, not
+      auto-routed), so it calls `resolvedPreferredLocalSelection` — which returns nil when the
+      picked model is NOT in `installedLocalTextModelIDs` (or can't run in the requested mode).
+      THE BUG: on that nil, `localSelection` SILENTLY fell through to `automaticLocalSelection`,
+      which picks the best INSTALLED model — and when only the foundation/Qwen path is installed
+      (the MODEL DOWNLOAD bug above), that is Qwen-3-4B → "everything routes to Qwen 3 4B
+      regardless of pick." FIX: when an EXPLICITLY-picked local model can't be resolved, return
+      an HONEST nil (`.preferredLocalModelUnavailable`) instead of silently substituting another
+      model — constraint #1, no silent fallback. Flag-gated: OFF by default = honest (no
+      substitute); `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` restores the legacy smart-fallback
+      for anyone who wants it. So: select-X → run X (if installed/loadable), else an honest
+      "unavailable" the UI surfaces (install it / pick another) — NEVER a silent Qwen-3-4B swap.
+      +2 regression tests (TriageServiceTests: explicit INSTALLED pick runs THAT model not Qwen;
+      explicit UNINSTALLED pick is NOT silently substituted to Qwen). build-for-testing TEST
+      BUILD SUCCEEDED (0 errors); no existing test encoded the old auto-substitute (no regression).
+      This composes with the MODEL DOWNLOAD fix: now that all models install, an honored pick
+      actually has its model present. Owner verifies select-X→generate-X in-app once pulled.

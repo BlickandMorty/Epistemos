@@ -452,18 +452,38 @@ nonisolated struct InferencePolicyEngine {
             return (preferred, false)
         }
 
+        // The user EXPLICITLY picked a local model — this branch is only reached when the
+        // selection is `.localMLX` (cloud / Apple Intelligence took the automatic-routing
+        // branch above). The pick could not be resolved (not installed, or can't run in the
+        // requested mode). DO NOT silently fall back to an automatic (Qwen-3-4B) selection:
+        // that is the owner-reported "everything routes to Qwen 3 4B regardless of what I
+        // pick" bug. Surface the honest unavailability (nil) so the caller can tell the user
+        // to install the model or choose another — the SELECTED model runs, or an honest
+        // error shows, never a silent substitute. `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1`
+        // restores the old auto-substitution for anyone who wants smart fallback.
         reasonCodes.insert(.preferredLocalModelUnavailable)
-        return (
-            automaticLocalSelection(
-                for: profile,
-                context: context,
-                installedModels: installedModels,
-                reasoningMode: selectedReasoningMode,
-                complexityTier: complexityTier,
-                contextTier: contextTier
-            ),
-            false
-        )
+        if Self.autoSubstituteUnavailableLocalModel {
+            return (
+                automaticLocalSelection(
+                    for: profile,
+                    context: context,
+                    installedModels: installedModels,
+                    reasoningMode: selectedReasoningMode,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                ),
+                false
+            )
+        }
+        return (nil, false)
+    }
+
+    /// Owner 2026-06-19: when an EXPLICITLY-selected local model can't be resolved, honor the
+    /// pick with an honest "unavailable" instead of silently substituting another model
+    /// (the Qwen-3-4B pinning bug). Off by default = no silent substitution. Set
+    /// `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` to restore the legacy auto-substitute.
+    nonisolated static var autoSubstituteUnavailableLocalModel: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL"] == "1"
     }
 
     private func reasoningMode(
