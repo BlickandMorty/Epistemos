@@ -41,4 +41,31 @@ struct ModelDownloadGgufVerifyTests {
         // The old unique staging changes every call (the non-resumable behavior).
         #expect(paths.uniqueStagingDirectory(for: descriptor) != paths.uniqueStagingDirectory(for: descriptor))
     }
+
+    @Test("D2 fix: the stale-staging purge NEVER removes a -resume dir, but still purges orphans")
+    func stalePurgeExemptsResumeDirs() {
+        let ancient = Date(timeIntervalSince1970: 0)
+        let cutoff = Date(timeIntervalSince1970: 1_000_000)
+        let fresh = Date(timeIntervalSince1970: 2_000_000)
+
+        // A -resume partial is EXEMPT even when far older than the cutoff (resume
+        // must survive a slow/large download interrupted >30 min ago).
+        #expect(
+            LocalModelManager.shouldPurgeStagedEntry(
+                name: "qwen3-4b-resume", modificationDate: ancient, staleCutoff: cutoff
+            ) == false
+        )
+        // A genuinely orphaned unique-UUID staging older than the cutoff IS purged.
+        #expect(
+            LocalModelManager.shouldPurgeStagedEntry(
+                name: "qwen3-4b-3F2A-UUID", modificationDate: ancient, staleCutoff: cutoff
+            ) == true
+        )
+        // A fresh orphan (newer than the cutoff) is kept.
+        #expect(
+            LocalModelManager.shouldPurgeStagedEntry(
+                name: "qwen3-4b-3F2A-UUID", modificationDate: fresh, staleCutoff: cutoff
+            ) == false
+        )
+    }
 }
