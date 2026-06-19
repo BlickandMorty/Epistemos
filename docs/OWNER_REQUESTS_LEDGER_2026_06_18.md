@@ -2866,3 +2866,29 @@ native; AGPL server). ADOPT 2 patterns natively:
       existing `vault_git.rs`. Avoid CloudKit as primary (kills the open-vault differentiator); CRDT overkill.
       Honesty: conflicts via VaultSyncConflict UI never silent-LWW; "eventual not real-time". Touches
       `VaultSyncService` (176KB, highest blast radius) — NOT concurrent with the engine-toggle/tools work.
+- [ ] **HARDENING LIFECYCLE — every item, before AND after (owner 2026-06-19, GOVERNING).** Owner
+      (verbatim): *"make sure every new thing is deeply hardened before and after it's added, and the
+      app is repaired before and after, to do an after-port inspection — this should leave no space for
+      gaps while making it deeply hardened, enterprise-level."* MANDATE for EVERY roadmap item (see
+      docs/research/MASTER_SYNTHESIS_2026_06_19.md §3.7): (i) **harden BEFORE** — repair/secure the
+      surrounding code + add the guard/witness/test BEFORE adding the new thing; (ii) **add**; (iii)
+      **re-harden AFTER** — security/perf/honesty pass on the added code; (iv) **AFTER-PORT INSPECTION**
+      — a gap-hunt asserting no seam/fallback/leak/honesty-hole was introduced (WKWebView teardown,
+      no-silent-fallback, isLive honesty, provenance recorded, flag state, rollback-bound). No item is
+      DONE until its after-port inspection passes with ZERO gaps. Composes with flag-OFF≠done + the
+      T4/witness promotion rule. Enterprise-level robustness is the bar throughout.
+- [ ] **HTML-WORKSPACE CAN'T EDIT — owner-confirmed, OLD + STILL UNRESOLVED (owner 2026-06-19).** Owner
+      (verbatim): *"html workspace still can't edit — so that was one issue that's old but still not
+      resolved."* GROUNDED ROOT (S14 docs/research/UI_PORTS_2026_06_19.md): the HTMLWorkspace surface is
+      substantially BUILT + wired, but editing is broken by FOUR things — (1) the code panes are a plain
+      `NSTextView` with NO syntax highlighting (`HTMLWorkspaceCodeEditor.swift:129 applyPlainTextAttributes`)
+      = the "can't see/edit code" complaint; (2) the `safeAPI` WKScriptMessageHandler is an EMPTY STUB
+      (`HTMLWorkspacePreviewView.swift:145-149 didReceive` does nothing) — the two-way app-bridge the chat/
+      editor would use to drive edits isn't implemented; (3) the preview uses `loadHTMLString(…, baseURL:nil)`
+      (`:69`) NOT the proven `epistemos-doc:` custom-URL-scheme path → relative assets/scripts/CSP behave
+      inconsistently; (4) no live patch→WKWebView push (patches mutate the doc but don't re-render live).
+      FIX ALL FOUR: wire the tree-sitter highlighter into the code panes (the same one-wire fix as chat +
+      Streamdown — MASTER_SYNTHESIS primitive (c)); implement the `safeAPI` bridge; move preview to the
+      EpdocEditorURLSchemeHandler-style scheme (Brotli/CSP/shared processPool); add the live patch→WKWebView
+      push (R-LIVE-ARTIFACTS path). MAS core. Owner verifies edit works in-app. This is Phase 0 #8 in the
+      master roadmap (a fix-the-broken item, not a new feature).

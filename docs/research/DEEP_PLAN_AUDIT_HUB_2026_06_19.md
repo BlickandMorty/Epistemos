@@ -17,6 +17,13 @@ and pruned of unnecessary things. Make the chats truly engage with the app's ski
 (all working). Target: an AI-native note-taking app that SUPERSEDES Obsidian-fused-with-
 Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply integrated.
 
+## ★ READ-FIRST CAPSTONE — the unified plan
+- **`docs/research/MASTER_SYNTHESIS_2026_06_19.md`** — UNIFIES all 15 research docs into ONE plan:
+  the keystone (built-then-not-wired), the 6 build-once-reuse primitives, the governing constraints
+  (incl. the OWNER HARDENING LIFECYCLE: harden→add→re-harden→after-port-inspect, no gaps, enterprise),
+  and a 31-item dependency-ordered Phase 0→3 roadmap + top-10 actions. **Read this FIRST**, then the
+  per-slice docs below for detail.
+
 ## Index of ALL research docs (read every one before building)
 - `docs/research/HERMES_ACT_FUSION_MAP_2026_06_19.md` — Hermes capabilities → seams.
 - `docs/research/OSAURUS_ACT_CONNECTION_MAP_2026_06_19.md` — Osaurus as Act engine.
@@ -37,6 +44,7 @@ Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply 
 - `docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md` — (S16) buildable specs for the 4 unmapped gaps: R-WEBCLIP (share-ext clipper, MAS), R-VAULT-MCP-SERVER (stdio MCP over the existing dispatcher, anti-Tolaria, Pro — lowest-risk win), R-SYNC (iCloud-Drive + invert SoT, high blast radius — do later), R-LIVE-ARTIFACTS (revive ArtifactHostView via HTMLWorkspace+data.json — lowest-risk win). Added as ledger items.
 - `docs/research/ENGINE_ISOLATION_PLAN_2026_06_19.md` — (S17) **the hard clause (no cross-engine import) is ALREADY TRUE** (ChatCoordinator has 0 Act/Work refs). Gaps: model the 3-engine axis (CoworkChatMode.work + ActLane) without re-coupling; registry already gives Act⊇Chat by the tier ladder; memory seam designed-but-unwired (sessions untagged, sessions/ unindexed); promote the Work guardrail into a general CI doctrine-lint gate.
 - `docs/research/UI_PORTS_2026_06_19.md` — (S14) AI-Elements + json-render = patterns-only (native wins/closed); Streamdown = patterns-only native + tiny WebKit for Mermaid; HTML canvas (P7.2) is already built+wired (fixes: code-pane highlight, URL-scheme, safeAPI bridge, live-patch push); terminal (P7.3) = backend done, port xterm.js UI (WebKit, home in Work). **Build ONCE & reuse: scheme handler + pixel-skin injector + tree-sitter highlighter — the latter is one wire fixing chat+canvas+streamdown code-highlight.**
+- `docs/research/DATA_FINETUNE_SUBSTRATE_2026_06_19.md` — (S13) same keystone: a REAL in-process MLX LoRA trainer (NativeLoRATrainer) + a wired marketplace (FineTunePack*) + NightBrain — but the LoRA trainer is UNPROVEN on-device, NightBrain's LoRA job is a no-op stub, per-model vaults are prompt-context not training data (the vault→LoRA loop is unwired), "CloudKnowledgeDistillation" is a misnomer (no real distillation). Keep app-native in-process (no separate repo). Pro-gated.
 - (Appended as the loop produces them — keep this index complete.)
 
 ## METHODOLOGY — ITERATIVE DEEPENING + BREADTH (owner 2026-06-19)
@@ -64,7 +72,7 @@ sharpens. Never re-do a slice at the same depth; either go deeper or pick a new 
 | S10 | COMPUTER-USE + BROWSER-USE — trycua/cua fusion, Holo-3.1 VL lane, AXorcist/ScreenCaptureKit, stealth/Obscura browser, first-class browser-use skill, Lume VM sandbox | ✅ done → COMPUTER_BROWSER_USE |
 | S11 | VOICE — R-VOICE (Kokoro TTS / MOSS / Whisper STT), meeting/lecture note, EVE/OKF, on-device only | ☐ |
 | S12 | TOOL-SELECTION & ROUTING — LFM2-ColBERT-350M as tool selector, ConfidenceRouter/RuntimeRouter/TriageService, RAG-preflight (P8.2), Hermes-3 grammar | ✅ done → TOOL_SELECTION_COLBERT |
-| S13 | DATA + FINETUNE substrate — marketplace for data/finetune packs, MLX training, NightBrain, per-model vaults, FineTunePackImporter | ☐ |
+| S13 | DATA + FINETUNE substrate — marketplace for data/finetune packs, MLX training, NightBrain, per-model vaults, FineTunePackImporter | ✅ done → DATA_FINETUNE_SUBSTRATE |
 | S14 | UI PORTS — AI-Elements (R-ELEMENTS), Streamdown, json-render (R-JSONRENDER), HTML canvas (P7.2), terminal (P7.3); WebKit-host vs native per port | ✅ done → UI_PORTS |
 | S15 | DEEP RESEARCH engine — DeerFlow 2.0, multi-agent orchestration, LiveSubAgentResearcher | ☐ |
 | S16 | NEW GAPS from S5 — web clipper, multi-device sync, live Artifacts/dashboards, expose-vault-over-MCP + AGENTS.md (anti-Tolaria), MCP install/connectors UI | ✅ done → SUPERSESSION_GAPS_PLANS (+ 4 ledger items added) |
