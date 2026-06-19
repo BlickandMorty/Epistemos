@@ -67,4 +67,18 @@ struct NightBrainLoRAFineTuneTests {
         }
         #expect(r.contains(NightBrainLoRAGateStatus.flagName))  // flag reason wins
     }
+
+    @Test("NightBrainService wires the LoRA fine-tune as a soft, flag-gated, injected job")
+    func nightBrainWiresLoRAJob() throws {
+        let svc = try loadMirroredSourceTextFile("Epistemos/State/NightBrainService.swift")
+        // The Job case exists (runs in the idle pipeline via Job.allCases).
+        #expect(svc.contains(#"case nativeKnowledgeAdapterFineTune = "native_knowledge_adapter_fine_tune""#))
+        // An OPTIONAL injected provider (like cloudKnowledgeJob) → soft, not a hard
+        // dependency, so missingDependency never blocks the pipeline on it.
+        #expect(svc.contains("private let loraFineTuneJob: (@Sendable () async throws -> Void)?"))
+        #expect(svc.contains("loraFineTuneJob: (@Sendable () async throws -> Void)? = nil"))
+        // Flag-gated soft-skip: returns (never throws) when off or unwired.
+        #expect(svc.contains("guard NightBrainLoRAGateStatus.status().isActive, let loraFineTuneJob else {"))
+        #expect(svc.contains("try await loraFineTuneJob()"))
+    }
 }
