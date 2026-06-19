@@ -2202,3 +2202,37 @@ native; AGPL server). ADOPT 2 patterns natively:
       Pairs with P-BESTOF + P2.7. (Epistemos's moat, made outward-facing.)
 - [ ] **MEETING/LECTURE NOTE** — record → on-device STT (Apple Speech / local
       Whisper audio lane) → Epdoc note + AI summary. Slots into R-VOICE. On-device only.
+- [ ] **MODEL DOWNLOAD/INSTALL BROKEN — can't download ANY model except the
+      foundation package (owner 2026-06-19, HIGH PRIORITY — blocks owner's in-app
+      testing).** Owner (verbatim): *"I can't download any models, so there are many
+      things I need to fix before I can get proper tests. I of course want it to code
+      as much as it can without tests, but once it's ready I need to make sure my app
+      can download and install all the models I want — all the ones that are advertised.
+      Right now it only allows me to get the foundation package or something like
+      that."* + REFINEMENT (verbatim): *"I still want to keep all the models my app
+      has — even the ones we hid, I want those — but of course only advertise the ones
+      that are canon."* SYMPTOM: in-app the model download/install UI only offers the
+      "foundation package" (likely the single bundled Apple-Foundation / foundation
+      GGUF pack); none of the OTHER advertised models actually download or install.
+      REQUIREMENTS: (1) **Download + install must work for ALL ADVERTISED (canon)
+      models** — every model surfaced in the catalog/picker must have a working
+      download → verify → install → ready path (use/extend `ModelDownloadManager` +
+      the install-progress P1.8 surface, ledger ~line 1491/904). Not just the
+      foundation package. (2) **KEEP ALL MODELS — DELETE NOTHING** (honors the
+      never-delete-owner-features doctrine): the old/previously-hidden models STAY in
+      the app; do NOT remove them. Only the CANON set is ADVERTISED (visible in the
+      picker/catalog); the rest remain present but un-advertised (hidden / Pro / dev-
+      gated), retrievable, never deleted. So: advertise = canon-only; retain = all. (3)
+      Reconcile the catalog so advertised = the canon model set (cross-ref the model
+      picker simplify item ~line 912 + per-model-vaults ~line 314 + route profiles
+      `InferenceState+RouteProfiles`); the catalog is the single source for what's
+      advertised vs retained. (4) HONEST gating: a model that can't yet download shows
+      an honest state, never a fake "available". TESTING CONSTRAINT (owner-stated):
+      until model download/install works the owner CANNOT run proper in-app tests —
+      so the loop should KEEP CODING as much as it can WITHOUT requiring in-app test
+      verification for now (cargo --lib + build remain the gate), AND PRIORITIZE making
+      model download/install work because it is the unblocker for all the owner's
+      "build+run verify in-app" steps (incl. the TOOLS/SKILLS repair confirmation).
+      Verdict/diagnosis first: why only the foundation package downloads (catalog
+      filter? entitlement? URL/manifest? install pipeline?), then fix the pipeline so
+      every advertised model installs.
