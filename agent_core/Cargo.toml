@@ -34,6 +34,12 @@ cognitive-dag-redb = ["redb"]
 # Legacy alias kept for compatibility with anything still referencing
 # `mas-sandbox`. New code should use `mas-build`.
 mas-sandbox = []
+# R-LITEPARSE PDF→Markdown engine (owner 2026-06-19, NON-NEGOTIABLE). Embeds the
+# run-llama/liteparse Apache-2.0 core as a first-class native dep (PDFium in-process via
+# libloading, OCR off → no Tesseract/subprocess/network). OFF by default so the MAS build
+# stays inert + honest (pdf_to_markdown → EngineNotWired); enable for the Pro/dev live
+# engine. The source is embedded under vendor/liteparse; only the LIVE engine is gated.
+liteparse-pdf = ["dep:liteparse"]
 
 [lib]
 name = "agent_core"
@@ -681,6 +687,9 @@ path = "src/bin/falsifier_validator.rs"
 
 [dependencies]
 anyhow = "1.0"
+# R-LITEPARSE — optional, behind the `liteparse-pdf` feature (OFF by default). PDF-only
+# (default-features=false drops the tesseract OCR build); the live engine is Pro/dev-gated.
+liteparse = { path = "vendor/liteparse/crates/liteparse", default-features = false, optional = true }
 apalis = "=1.0.0-rc.7"
 apalis-sqlite = "=1.0.0-rc.7"
 async-stream = "0.3"

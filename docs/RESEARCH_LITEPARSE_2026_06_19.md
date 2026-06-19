@@ -70,3 +70,38 @@ The ONLY hazard is the Office/image **subprocess** + remote-OCR paths, which the
 PDF-only scope excludes from day 1. S1 (verdict + inert MAS-safe seam) lands now; the
 native-dep vendor (PDFium/Tesseract build) is the heavy multi-pass follow-on needing owner
 build verification.
+
+## S2 LANDED — real PDFium engine vendored + embedded (2026-06-19)
+Per the owner's APP-NATIVE-BY-EMBEDDING directive ("clone the real source in, never
+wrap-and-shell; if un-sandboxable, Pro/dev-gate honestly but still embed"), S2 is no longer
+deferred — the native engine is embedded and verified, not a stub.
+
+**Feasibility (research-first, this toolchain):** rustc 1.94 compiles edition-2024 deps;
+`libclang` present; `pdfium-sys`'s `build.rs` resolves the PDFium binary by env override →
+`vendor/pdfium/release/` → **auto-download to `~/Library/Caches/pdfium-rs/<tag>/
+pdfium-mac-arm64/`**, and ships a checked-in `bindings.rs` so bindgen succeeds. A full
+`cargo build --features liteparse-pdf` probe went green in 14m (0 errors).
+
+**Vendored:** `agent_core/vendor/liteparse` = the real run-llama/liteparse Apache-2.0 core,
+3 crates only (`pdfium-sys` + `pdfium` + `liteparse`), 1.2 MB, with `LICENSE` + a provenance
+`README.md`. The napi/python/wasm binding crates are intentionally omitted (the Rust core is
+called directly). Workspace `members` trimmed to the 3 so `edition.workspace = true` resolves.
+
+**Gating (honest, no false-green):** a new `liteparse-pdf` Cargo feature, **OFF by default**.
+- OFF (MAS): no PDFium/bindgen linked; `pdf_to_markdown` → `EngineNotWired`; `engine_wired:false`.
+- ON (`--features liteparse-pdf`, Pro/dev): real `LiteParse::new(config{ output_format:
+  Markdown, ocr_enabled:false, quiet:true }).parse(path).await` on a current-thread tokio
+  runtime → `result.text`. OCR off (`default-features=false` drops `tesseract-rs`) + non-PDF
+  rejected up front ⇒ the only reachable path is **in-process PDFium text-extraction** (no
+  subprocess, no network).
+
+**Verified (all to files):** `cargo build --features liteparse-pdf` green; `cargo test --lib`
+5437/0 and `--features pro-build` 5699/0 (ZERO regression — feature OFF ⇒ inert path
+byte-identical); `cargo test --features liteparse-pdf liteparse::` 8/0 with the LIVE tests
+running the engine (missing PDF → honest `Failed`; `engine_wired:true`).
+
+**Remaining (owner's signed-build step — the engine is embedded, NOT a stub):** a sandboxed
+MAS app cannot `dlopen` PDFium from `~/Library/Caches`. To ship the live engine, **bundle +
+code-sign the PDFium dylib into the `.app`** and resolve the lib path to the bundle
+(`PDFIUM_LIB_PATH` or `vendor/pdfium/release/lib`) in the Xcode build. Until then the engine
+is EMBEDDED + Pro/dev-gated, honest about needing that bundling to run in MAS.

@@ -70,16 +70,54 @@ pub fn is_supported_pdf(path: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// The honest seam: a local PDF → Markdown (PDFium + in-process OCR). A non-PDF input is
-/// rejected with `UnsupportedFormat` (never shelled out). Until the liteparse crate is
-/// vendored this is INERT — a PDF returns `EngineNotWired` (NEVER fake markdown). The
-/// real engine replaces this body.
-pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
+/// Reject a non-PDF input honestly (Office/image need external binaries → out of scope).
+/// Shared by both the inert and the live engine bodies so the MAS scope is enforced
+/// identically regardless of build.
+fn reject_if_not_pdf(pdf_path: &str) -> Result<(), LiteParseError> {
     if !is_supported_pdf(pdf_path) {
         let ext = pdf_path.rsplit('.').next().unwrap_or("").to_string();
         return Err(LiteParseError::UnsupportedFormat(ext));
     }
+    Ok(())
+}
+
+/// The honest seam: a local PDF → Markdown (PDFium, in-process). A non-PDF input is
+/// rejected with `UnsupportedFormat` (never shelled out).
+///
+/// INERT build (default / MAS): a PDF returns `EngineNotWired` — NEVER fake markdown. The
+/// real PDFium engine is compiled only under the `liteparse-pdf` feature (Pro/dev), so the
+/// MAS binary does not link PDFium/bindgen and stays honest about not having the engine.
+#[cfg(not(feature = "liteparse-pdf"))]
+pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
+    reject_if_not_pdf(pdf_path)?;
     Err(LiteParseError::EngineNotWired)
+}
+
+/// LIVE build (`--features liteparse-pdf`, Pro/dev): the embedded run-llama/liteparse core
+/// extracts the PDF's spatial text via in-process PDFium (OCR OFF — no Tesseract, no
+/// subprocess, no network) and renders Markdown. The async `parse` is driven on a
+/// dedicated current-thread tokio runtime so the synchronous UniFFI export stays sync.
+/// A non-PDF is still rejected up front; a real conversion failure → honest `Failed`.
+#[cfg(feature = "liteparse-pdf")]
+pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
+    reject_if_not_pdf(pdf_path)?;
+    use liteparse::config::{LiteParseConfig, OutputFormat};
+    use liteparse::parser::LiteParse;
+    let config = LiteParseConfig {
+        output_format: OutputFormat::Markdown,
+        // OCR off → pure PDFium text extraction, no Tesseract/subprocess/network (MAS-safe core).
+        ocr_enabled: false,
+        quiet: true,
+        ..Default::default()
+    };
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| LiteParseError::Failed(format!("tokio runtime: {e}")))?;
+    let result = runtime
+        .block_on(async { LiteParse::new(config).parse(pdf_path).await })
+        .map_err(|e| LiteParseError::Failed(e.to_string()))?;
+    Ok(result.text)
 }
 
 /// FFI: convert a local PDF to Markdown for the Swift import UI. Returns a JSON envelope
@@ -106,8 +144,15 @@ pub fn liteparse_pdf_to_markdown(pdf_path: String) -> String {
 /// UniFFI boundary. Honest — reports the engine is not yet wired + the PDF+OCR scope.
 #[uniffi::export]
 pub fn liteparse_status_json() -> String {
+    // `engine_wired` is true only when the real PDFium engine is compiled in (the
+    // `liteparse-pdf` feature, Pro/dev). The default MAS build links no engine → false,
+    // matching the inert `pdf_to_markdown`. The scope literal "pdf+ocr,no-subprocess" is
+    // the DESIGN boundary (PDF + in-process OCR, never a subprocess); OCR is currently
+    // compile-disabled (default-features=false drops tesseract) per vendor/liteparse/README.
+    let engine_wired = cfg!(feature = "liteparse-pdf");
     format!(
-        "{{\"engine_wired\":false,\"armed\":{},\"flag\":\"{}\",\"license\":\"{}\",\"source\":\"{}\",\"scope\":\"pdf+ocr,no-subprocess\"}}",
+        "{{\"engine_wired\":{},\"armed\":{},\"flag\":\"{}\",\"license\":\"{}\",\"source\":\"{}\",\"scope\":\"pdf+ocr,no-subprocess\"}}",
+        engine_wired,
         is_armed(),
         LITEPARSE_FLAG,
         LITEPARSE_VENDOR_LICENSE,
@@ -136,10 +181,23 @@ mod tests {
         assert!(!is_supported_pdf("noext"));
     }
 
+    #[cfg(not(feature = "liteparse-pdf"))]
     #[test]
     fn inert_seam_refuses_honestly_never_fakes_markdown() {
-        // A PDF, but no engine wired → honest EngineNotWired (NEVER fabricated markdown).
+        // INERT build: a PDF, but no engine wired → honest EngineNotWired (NEVER fabricated markdown).
         assert_eq!(pdf_to_markdown("paper.pdf"), Err(LiteParseError::EngineNotWired));
+    }
+
+    #[cfg(feature = "liteparse-pdf")]
+    #[test]
+    fn live_engine_fails_honestly_on_missing_pdf_never_fakes_markdown() {
+        // LIVE build: a PDF *path* that does not exist → the real engine runs and returns an
+        // honest Failed (NEVER EngineNotWired, NEVER fabricated markdown, NEVER a panic). Any
+        // failure path (missing file or PDFium not loadable) maps to Failed, so this is robust.
+        match pdf_to_markdown("/nonexistent/epistemos-liteparse-probe.pdf") {
+            Err(LiteParseError::Failed(_)) => {}
+            other => panic!("expected Failed for a missing PDF, got {other:?}"),
+        }
     }
 
     #[test]
@@ -152,20 +210,47 @@ mod tests {
     }
 
     #[test]
-    fn status_json_reports_engine_not_wired_and_scope() {
+    fn status_json_reports_scope_and_provenance() {
+        // Build-agnostic: the MAS scope boundary + Apache-2.0 ProvenanceGate + flag are
+        // always reported (the Swift seam test mirrors these literals).
         let json = liteparse_status_json();
-        assert!(json.contains("\"engine_wired\":false"));
         assert!(json.contains("pdf+ocr,no-subprocess"));
         assert!(json.contains("Apache-2.0"));
         assert!(json.contains(LITEPARSE_FLAG));
     }
 
+    #[cfg(not(feature = "liteparse-pdf"))]
+    #[test]
+    fn status_json_reports_engine_not_wired_when_inert() {
+        // Default MAS build links no engine → honest engine_wired:false.
+        assert!(liteparse_status_json().contains("\"engine_wired\":false"));
+    }
+
+    #[cfg(feature = "liteparse-pdf")]
+    #[test]
+    fn status_json_reports_engine_wired_when_live() {
+        // Pro/dev build with the real PDFium engine compiled in → engine_wired:true.
+        assert!(liteparse_status_json().contains("\"engine_wired\":true"));
+    }
+
+    #[cfg(not(feature = "liteparse-pdf"))]
     #[test]
     fn ffi_pdf_to_markdown_returns_honest_error_envelope_when_inert() {
-        // A PDF, engine not wired → an honest error envelope (never fake markdown).
+        // INERT: a PDF, engine not wired → an honest error envelope (never fake markdown).
         let out = liteparse_pdf_to_markdown("paper.pdf".to_string());
         assert!(out.contains("\"ok\":false"));
         assert!(out.contains("not wired"));
+        assert!(!out.contains("\"markdown\""));
+    }
+
+    #[cfg(feature = "liteparse-pdf")]
+    #[test]
+    fn ffi_pdf_to_markdown_envelope_is_honest_failure_on_missing_pdf() {
+        // LIVE: a missing PDF path → the engine runs and fails honestly (ok:false), never
+        // "not wired", never a fabricated markdown key.
+        let out = liteparse_pdf_to_markdown("/nonexistent/epistemos-liteparse-probe.pdf".to_string());
+        assert!(out.contains("\"ok\":false"));
+        assert!(!out.contains("not wired"));
         assert!(!out.contains("\"markdown\""));
     }
 
