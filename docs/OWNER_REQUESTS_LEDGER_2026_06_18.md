@@ -2447,6 +2447,28 @@ native; AGPL server). ADOPT 2 patterns natively:
       per-model advertise Toggle → `AdvertisedModelStore.toggleAdvertised` + a "Reset to canon"
       button, wired into SettingsView near the "All models (advanced)" disclosure. Owner verifies
       render + toggle in-app once that lands.
+      ✅ STEP 7 — SETTINGS "STACK" UI VIEW (reqs 6/7 COMPLETE IN CODE; owner verifies in-app)
+      2026-06-19: the render surface. NEW `Epistemos/Views/Settings/ModelStackSettingsView.swift`
+      — a `Section`-returning view (drops into the `LocalModelManagerSheet` Form; inherits its
+      `@Environment(InferenceState.self)`) that lists the full RETAINED catalog =
+      `LocalModelCatalog.textDescriptors` ∪ the foundation GGUF descriptors (via
+      `EpistemosFoundationLineup.models` → `LocalModelCatalog.descriptor(for:)`, de-duped by id —
+      so LFM2 / VibeThinker / the Gemma family appear too, which also advances req 11), builds
+      rows via `ModelStackAssembler.rows(...)`, and renders each (displayName + Installed/Not-
+      installed badge + summary + "size · ram") with an advertise `Toggle` →
+      `AdvertisedModelStore().toggleAdvertised(id, fullCatalog:)`, backed by a local `@State`
+      advertised mirror refreshed on appear + after each toggle (UserDefaults isn't @Observable),
+      plus a "Reset to canon" button (disabled unless `isCustomized`) and an honest header
+      ("Advertised models (the stack)") + footer ("…this only controls picker visibility"). Wired
+      into `SettingsView.swift` after the model if/else (~line 3396, before the legacy section):
+      `ModelStackSettingsView()`. build-for-testing TEST BUILD SUCCEEDED (0 errors). So reqs 6/7
+      are now END-TO-END IN CODE: store (STEP 4, 532cbb699) → picker visibility wiring (STEP 5,
+      6b26319fe) → row assembler (STEP 6, fa9f17f59) → this View. The owner can now (in-app)
+      install ANY retained model and toggle which ones the picker advertises; canon is the default,
+      the owner's choice persists + wins. NOT ticked [x] — owner verifies render + toggle + the
+      advertised set actually filtering the picker, in-app once pulled (and the download pipeline
+      proven end-to-end). This View ALSO lists the foundation GGUF models individually → cross-
+      check against req 11's acceptance below.
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
