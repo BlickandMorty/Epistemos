@@ -157,6 +157,11 @@ pub mod reasoning_tokens;
 // collect ALL violations of an emitted value vs its schema, for a model repair loop.
 pub mod schema_validation;
 
+// R-LITEPARSE seam (owner 2026-06-19): dedicated PDF→Markdown import via the
+// run-llama/liteparse Rust core (Apache-2.0, in-process PDFium + Tesseract OCR, MAS-safe;
+// Office/image subprocess formats OUT OF SCOPE). Always-compiled + INERT until vendored.
+pub mod liteparse;
+
 // AST quality gate (Deterministic Schema Engine, P8.2 spec §A): reject syntactically
 // broken generated code (tree-sitter ERROR/MISSING) BEFORE any disk write. Gated behind
 // `lsp-runtime` (reuses the LSP runtime's tree-sitter grammars — no new deps).
