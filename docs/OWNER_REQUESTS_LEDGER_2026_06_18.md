@@ -211,6 +211,25 @@ calls: no blanket rule — choose per case.
       tool loop / attaches tools — for CLOUD this means attaching the selected tools so the
       model auto-uses them; (b) the GGUF-Gemma grammar-constrained tool-calling path so the
       LOCAL Gemma lane can emit valid calls (canActAsAgent). Both are the live-path follow-ons.
+      ✅ PART 2(a) — AUTO-ROUTE LIVE-WIRING (local PipelineService path) 2026-06-19: the detector
+      now drives a real decision. `Epistemos/Engine/PipelineService.swift` `shouldUseToolLoop`
+      takes `query:` and, in the NO-execution-plan branch ONLY (the "regular query" Fast/Thinking
+      chat path the owner described), when `EPISTEMOS_AUTO_TOOL_ROUTE_V0` is armed, consults the
+      Rust detector via the generated `schemaAutoToolRouteJson` FFI — candidate JSON built from
+      the tier's ToolTierBridge tools — so `needs_tools` decides loop-vs-direct: "find my note
+      about X" keeps the tool loop (vault.search) while pure chat ("write a haiku") direct-streams.
+      OFF by default = BYTE-IDENTICAL: the detector + the candidate-tool load run ONLY inside
+      `if Self.autoToolRouteArmed`, and a nil verdict (flag off / FFI down / parse fail) preserves
+      today's "a loop-capable model always loops." The execution-plan branches (managedAgent /
+      overseerLocalExecution) are UNTOUCHED — those are explicit agent routes, not regular queries.
+      Pure, unit-testable helpers split out: `autoToolRouteArmed` / `autoRouteCandidatesJSON`
+      (matches Rust `PreflightToolInput` shape) / `parseAutoRouteVerdict` / `autoRouteNeedsTools`.
+      +6 deterministic tests (EpistemosTests/AutoToolRouteWiringTests.swift): candidate JSON
+      shape, empty→nil, verdict true/false/malformed→nil, flag-default-off — NO FFI / env / in-app
+      dependence (the detector's own selection logic is the Rust tool_preflight tests). build-for-
+      testing TEST BUILD SUCCEEDED, 0 errors, 0 regression. REMAINING for part 2: sub-item (b) the
+      GGUF-Gemma grammar-constrained tool-call emit path (canActAsAgent local lane) + the CLOUD
+      tool-attachment variant — so the whole TOOLS/SKILLS item stays open (not ticked).
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an

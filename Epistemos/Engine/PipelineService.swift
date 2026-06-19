@@ -209,6 +209,7 @@ final class PipelineService {
                     )
 
                     let useToolLoop = shouldUseToolLoop(
+                        query: query,
                         operatingMode: operatingMode,
                         executionPlan: executionPlan,
                         effectiveChatSelection: effectiveChatSelection
@@ -313,6 +314,7 @@ final class PipelineService {
     /// local model client is wired. Agent mode goes through the Rust
     /// agent loop instead (handled by ChatCoordinator, not here).
     private func shouldUseToolLoop(
+        query: String,
         operatingMode: EpistemosOperatingMode,
         executionPlan: OverseerComplexityRouter.ExecutionPlan?,
         effectiveChatSelection: ChatModelSelection
@@ -361,9 +363,89 @@ final class PipelineService {
         // through this Pipeline branch.
         if let model = LocalTextModelID(rawValue: modelID),
            model.canRunLocalAgentLoop {
+            // AUTO-ROUTE v0 (EPISTEMOS_AUTO_TOOL_ROUTE_V0, OFF=unchanged): for a
+            // plain query (no execution plan) the deterministic Rust tool-need
+            // detector decides loop-vs-direct, so "find my note about X" keeps the
+            // tool loop (vault.search) while pure chat ("write a haiku") direct-
+            // streams. The detector + the candidate-tool load run ONLY when the flag
+            // is armed; a nil verdict (flag off / FFI down / parse fail) preserves
+            // today's "a loop-capable model always loops" behaviour.
+            if Self.autoToolRouteArmed {
+                let tier = Self.localToolTier(for: operatingMode, executionPlan: nil)
+                let candidateTools = ToolTierBridge(
+                    vaultPath: resolvedManagedToolRuntimeVaultPath(),
+                    tier: tier
+                ).loadTools()
+                if let needsTools = Self.autoRouteNeedsTools(
+                    query: query,
+                    tools: candidateTools
+                ) {
+                    return needsTools
+                }
+            }
             return true
         }
         return false
+    }
+
+    /// AUTO-ROUTE v0 flag (`EPISTEMOS_AUTO_TOOL_ROUTE_V0`). OFF by default: the
+    /// tool-loop decision is unchanged. ON: a plain local query consults the
+    /// deterministic Rust tool-need detector so tool-needing queries route to the
+    /// loop and pure chat does not. (The Rust FFI is itself flag-gated, so this is a
+    /// double gate — Swift won't even load candidates unless armed.)
+    nonisolated static var autoToolRouteArmed: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_AUTO_TOOL_ROUTE_V0"] == "1"
+    }
+
+    /// Build the detector's candidate catalog JSON (`[{"name","description",
+    /// "keywords"}]`, matching Rust `PreflightToolInput`) from the tier's tools.
+    /// Returns nil for an empty catalog (the caller keeps its existing decision).
+    /// Pure — unit-testable without the FFI / env flag.
+    nonisolated static func autoRouteCandidatesJSON(
+        tools: [OmegaToolDefinition]
+    ) -> String? {
+        guard !tools.isEmpty else { return nil }
+        let candidates: [[String: Any]] = tools.map {
+            ["name": $0.name, "description": $0.description, "keywords": [String]()]
+        }
+        guard JSONSerialization.isValidJSONObject(candidates),
+              let data = try? JSONSerialization.data(withJSONObject: candidates),
+              let json = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return json
+    }
+
+    /// Parse the detector envelope `{"needs_tools":<bool>,"tools":[…]}` → the bool,
+    /// or nil when the payload is malformed (the caller keeps its existing decision).
+    /// Pure — unit-testable without the FFI / env flag.
+    nonisolated static func parseAutoRouteVerdict(_ raw: String) -> Bool? {
+        guard let data = raw.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let needsTools = obj["needs_tools"] as? Bool else {
+            return nil
+        }
+        return needsTools
+    }
+
+    /// Consult the deterministic Rust tool-need detector for `query` against `tools`.
+    /// Returns the verdict, or nil when the catalog is empty / the FFI is unavailable
+    /// / the payload is malformed (the caller keeps its existing decision).
+    nonisolated static func autoRouteNeedsTools(
+        query: String,
+        tools: [OmegaToolDefinition]
+    ) -> Bool? {
+        guard let candidatesJSON = autoRouteCandidatesJSON(tools: tools) else { return nil }
+        #if canImport(agent_coreFFI)
+        let raw = schemaAutoToolRouteJson(
+            query: query,
+            candidatesJson: candidatesJSON,
+            max: 5
+        )
+        return parseAutoRouteVerdict(raw)
+        #else
+        return nil
+        #endif
     }
 
     private func resolvedManagedToolRuntimeVaultPath() -> String {
