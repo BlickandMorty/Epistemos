@@ -1,0 +1,44 @@
+# COMPUTER-USE + BROWSER-USE as first-class hardened skills (S10, 2026-06-19)
+
+Read-only research (subagent), code-grounded + upstream June-2026. Feeds DEEP_PLAN_AUDIT_HUB.
+
+## Current state (grounded)
+- **Browser-use: built + hardened + Pro-gated, but STARVED.** `agent_core/src/tools/browser.rs` = 11 real tools (navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console) over a user-installed `agent-browser` CLI on a per-session Unix socket; genuinely hardened (`harden_cli_subprocess_extending:547`, SSRF `validate_url:220`, output caps + credential redaction :794-840). Registered ONLY under `#[cfg(pro-build)]` (`registry.rs:2661-2740`), Agent tier, click/type/press = Destructive; `browser_vision` requires explicit cloud-egress ack. The break: even where registered, **chats often never enter the tool loop** (S4) so it doesn't reach chat. The `BrowserEngine` trait (`browser_engine/mod.rs:84`) has only a Mock; WebKit/Obscura adapters are comments, not code.
+- **Computer-use: real, mature, host-intercept native stack; honestly stubbed on MAS.** `DeviceAgentService.swift` (AX-resolve+verify, ANE embedding fast path), `Screen2AXFusion.swift` (AX-first + Vision-OCR), `VisualVerifyLoop`, `ScreenCaptureService` (ScreenCaptureKit), `AXorcistBridge` (real SPM dep `steipete/AXorcist`) + omega-ax CGEvent. Live path wired end-to-end: `agent_loop.rs:982` intercepts `name=="computer"` → `delegate.execute_computer_action` → Swift `ComputerUseBridge.execute` (checks `AXIsProcessTrusted()`, records provenance). Honesty enforced by tests: Rust `ComputerUseTool` deliberately errors + a test asserts it's NEVER registered (`registry.rs:4458`); `agent_loop.rs:974` hard-denies `computer` on non-pro. MAS = full deny-stubs (`AppStoreComputerUseStubs.swift`). **Holo vision lane does NOT exist** (GGUF text-only, `gguf_cli.rs:348 supports_vision:false`; ANE action backend disabled).
+
+## Where it lives across engines (engine-isolation respected)
+- **Act = PRIMARY HOME** for both (autonomous side-effecting execution; Osaurus-local + OpenClaw lanes). Tools register into the SHARED registry that Act binds; Act ⊇ Chat.
+- **Chat = capability-AWARE, opt-in invoke** — knows the tools exist, invokes via its OWN registry binding (not Act's code); browser-use exposed as a first-class Pro-gated, approval-required tool so "do X on the web" works mid-chat. Prereq = the S4 tool-loop fix.
+- **Work = heaviest isolation** — the Lume VM sandbox tier; binds the same shared tools but routes execution through the sandbox seam.
+- **The primitive:** ONE shared capability-tagged registration for `browser.*` + `computer` (RiskLevel + Pro/MAS profile already present), bound independently per engine; a `Sandbox` seam (host / Lume-VM / Apple-container) picks WHERE execution lands. `LocalAgentGatewaySurface.browserComputerUse` already classifies both as `.proResearch` (network+subprocess) — the gating primitive exists. Add the engine-isolation guardrail test (no cross-engine runtime imports).
+
+## trycua/cua — ADOPT vs already-have (R-CUA verdict confirmed)
+cua (MIT mono-repo): **Lume** (Swift, MIT — full-VM manager on Virtualization.framework) = the ONE substantial native LIFT; the CU loop + action schema = already MATCHED (DeviceAgentService/VisualVerifyLoop = same loop, adopt patterns only); Computer SDK / cua-agent = Python sidecars = NO-SIDECAR (forbidden on MAS).
+- **Lume vs Apple Containerization = BOTH, different tiers (no real overlap):** Lume = full long-lived VMs (macOS *or* Linux) with snapshot/clone — **the only one that can run a real macOS desktop guest** (the AX tree a computer-use agent needs); needs virtualization+vm.networking entitlements → **NOT MAS-shippable** (signed CLI/Homebrew, Pro/dev). Apple Containerization (apache-2.0, v1.0.0 2026-06-09) = per-container Linux micro-VMs, headless code-exec (Work/Goose), no desktop GUI. Decision: two tiers behind one `Sandbox` seam. Vendor Lume's Swift via ProvenanceGate (MIT direct_import).
+- **ADOPT (logic not code):** cua's composed grounding-model→planner architecture (= the Holo wiring); cua's fuller action-schema union (Click/DoubleClick/Drag/KeyPress/Move/Screenshot/Scroll/Type/Wait + mouse down/up) — widen Epistemos's `DeviceActionType`/`Phase4Bridge` (currently only axPress/cgClick/keyInject); AX-tree-alongside-pixel-clicks discipline (Epistemos already AX-first).
+
+## Holo-3.1-4B vision lane (R-HOLO confirmed; 2 corrections)
+- **Base is Qwen3.5, NOT Qwen3-VL-4B** (ledger correction). Holo-3.1 family (0.8B/4B/9B/35B-A3B), Apache-2.0, image-text-to-text; core skill = UI grounding (screenshot+instruction → click X,Y) + native function-calling; benchmark ScreenSpot-Pro.
+- **GGUF+mmproj is real:** official GGUF for 35B-A3B, community for 0.8B/4B; needs main GGUF + `mmproj` vision projector via llama.cpp multimodal (`--mmproj`); on Apple Silicon llama.cpp+mmproj on Metal is the proven lane (MLX-VLM unsupported by H Company → llama.cpp first).
+- **Wiring:** build a `GgufVisionCliProvider` (separate from text `gguf_cli.rs`, `--mmproj --image`, `supports_vision:true`, Pro-gated subprocess, hardened) → wire as DeviceAgentService's LOCAL grounding policy (fits `DeviceInferenceBackend` protocol :251); validate function-calls vs P8.2 schemas. Realizes the cua composed/grounding pattern natively.
+
+## Stealth / Obscura (R-STEALTH confirmed + licensing nuance)
+- Vendor `vibheksoni/stealth-browser-mcp` (MIT, ~97 tools) via the EXISTING MCP path (zero new transport). **BUT its engine is `nodriver` = AGPL-3.0** — fine for authorized Pro/internal; if ever shipped as a network service to third parties, AGPL disclosure attaches. **If AGPL is a non-starter, swap to Patchright (Apache-2.0) or playwright-stealth-Python (MIT)** behind the same wrapper. (New nuance — not in the prior doc.)
+- Two honest targets: (a) heavy anti-bot bypass → the nodriver MCP (Pro/dev, subprocess, MAS-forbidden); (b) in-app Obscura WKWebView → only "fingerprint hardening" (UA, `navigator.webdriver` removal, canvas/WebGL noise) — label honestly, NOT full bypass. Wire `stealth:bool` on browser.rs + an Obscura toggle.
+- **Obscura runtime = doctrine-landed, never built** (no `obscura-*`/`deno_core` crates). Per WEBKIT-MAXIMIZATION: ship `WebKitBrowserEngine` (Apple-native, MAS-clean) FIRST; keep `ObscuraBrowserEngine` (V8/deno_core, stealth) as Pro-experimental.
+- **browser-use (MIT, now Rust-cored v0.13 — ledger correction):** adopt its interactive-element detection + numeric-index↔selector_map + compact AX-like snapshot + click[index]/recovery loop (re-implement, don't depend); Epistemos's `browser_snapshot` already returns `@e5`-style refs — harden with browser-use's `ClickableElementDetector` heuristics.
+
+## MAS/Pro gating + ordered plan
+All of computer-use/browser-use/Lume/Holo-vision/stealth-MCP are ALREADY `#if !EPISTEMOS_APP_STORE` / `pro-build` / `Profile::ProOnly` with MAS deny-stubs — preserve, don't weaken.
+1. **Unblock the tool loop (prereq, S4)** — attach tools for plain chat on all cloud providers; live-wire local GGUF tool path. Nothing below matters until chats enter the loop.
+2. **Surface the existing browser-use family** as a first-class Pro-gated approval-required skill via the shared registry, exposed to Chat (aware) + Act (home) + a reachability test. Highest-value lowest-cost win — code already exists.
+3. **Define the `Sandbox` seam** (host / Lume-VM / Apple-container), bind per engine; add the engine-isolation guardrail test.
+4. **Adopt cua action-schema + composed grounding** — widen DeviceActionType/Phase4Bridge.
+5. **Build the Holo vision lane** (`GgufVisionCliProvider`+mmproj, Pro) as DeviceAgentService's local grounding; validate vs P8.2.
+6. **Lift Lume natively** (Swift MIT, Pro/dev) into Act/Work sandbox tier; Apple Containerization = Linux code-exec tier.
+7. **Stealth:** vendor stealth-browser-mcp via MCP (Pro/dev); Obscura "fingerprint hardening" honestly labeled; decide nodriver-AGPL vs Patchright-Apache for shipping.
+8. **Obscura W6:** WebKitBrowserEngine first, ObscuraBrowserEngine Pro-experimental.
+
+**LEDGER CORRECTIONS:** Holo base = Qwen3.5 (not Qwen3-VL-4B); browser-use = MIT + Rust-cored. **NEW licensing flag:** stealth's nodriver engine = AGPL (Pro-internal OK; swap to Patchright/playwright-stealth if shipping as a service).
+
+Key files: `agent_core/src/tools/{browser.rs,computer_use.rs,registry.rs:2661/4458}` · `agent_core/src/agent_loop.rs:974-1004` · `agent_core/src/{tools_v2/v2_catalog/browser_navigate.rs,browser_engine/mod.rs}` · `Epistemos/Omega/Inference/DeviceAgentService.swift` · `Epistemos/Omega/Vision/{Screen2AXFusion,VisualVerifyLoop,AXorcistBridge}.swift` · `Epistemos/Bridge/{ComputerUseBridge,Phase4Bridge,StreamingDelegate}.swift` · `Epistemos/AppStore/AppStoreComputerUseStubs.swift` · `Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift` · docs RESEARCH_CUA/HOLO_VL/STEALTH + B3_OBSCURA.
