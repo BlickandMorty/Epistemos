@@ -338,8 +338,19 @@ calls: no blanket rule — choose per case.
       the actual byte download are the on-device follow-on. +5 FineTunePackImporter
       Tests (parse hosts/reject junk, makePack valid, 4 honest errors, register
       round-trip + dedup, view-wiring) + the browse/apply mirrored-source asserts
-      intact. build-for-testing green. STILL FOLLOW-ON: cross-launch persistence (a
-      saved pack store) + the network fetch of the pack bytes (on-device).
+      intact. build-for-testing green.
+      ✅ FINISHER 2026-06-19 (part 5d PERSISTENCE): imported packs now SURVIVE a
+      relaunch. NEW `FineTunePackStore` (Codable descriptors → JSON in the sandbox
+      Application Support container; MAS-safe — descriptors only, never the pack bytes;
+      injectable URL for tests) with `load` (honest empty on missing/corrupt, never a
+      crash), `save` (atomic, creates the dir), `append` (dedup by id). Wired into
+      FineTuneMarketplaceView: `.onAppear` reloads persisted imports into the registry
+      (idempotent), import persists via `store.append`. +6 FineTunePackStoreTests
+      (save/load round-trip, append dedup, missing/corrupt→empty, import→store→reload
+      survives, view-wiring) + the browse/apply/import asserts intact. build-for-testing
+      green. The marketplace is now genuinely real+usable end-to-end (browse → import →
+      persist → apply-affordance). STILL FOLLOW-ON: the network fetch of the pack bytes
+      + the per-kind apply EXECUTION (both on-device).
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt

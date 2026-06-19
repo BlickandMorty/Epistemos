@@ -23,6 +23,9 @@ struct FineTuneMarketplaceView: View {
     @State private var importKind: FineTunePackKind = .dataset
     @State private var importGate: FineTunePackGate = .free
     @State private var importNote: String?
+    // Cross-launch persistence: imported packs are reloaded into the registry on appear
+    // and saved on import, so they survive a relaunch (descriptors only — MAS-safe).
+    @State private var store = FineTunePackStore(url: FineTunePackStore.defaultURL())
 
     // Honest gating: Pro packs only appear in a Pro/dev build, never on the MAS
     // surface (owner #1 — never offer what can't run here).
@@ -99,6 +102,16 @@ struct FineTuneMarketplaceView: View {
         } message: { pack in
             Text(pack.applyConfirmation)
         }
+        .onAppear { loadPersistedImports() }
+    }
+
+    /// Reload previously-imported packs from the on-disk store into the session
+    /// registry so they survive a relaunch. Idempotent — re-adds are deduped by the
+    /// registry (try? swallows the expected duplicate on a second appear).
+    private func loadPersistedImports() {
+        for pack in store.load() {
+            try? registry.add(pack)
+        }
     }
 
     // P5 import affordance (rule #8 — the owner can SEE + USE import). Parses a public
@@ -151,6 +164,8 @@ struct FineTuneMarketplaceView: View {
                 gate: importGate
             )
             try registry.add(pack)
+            // Persist so the import survives a relaunch (descriptors only — MAS-safe).
+            try? store.append(pack)
             importNote = "Added \"\(pack.displayName)\" — \(pack.source.displayName) · \(pack.license)."
             importSpec = ""
             importName = ""
