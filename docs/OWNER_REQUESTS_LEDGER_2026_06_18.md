@@ -378,7 +378,9 @@ calls: no blanket rule — choose per case.
       (a nonisolated `errorDescription` referenced the MainActor `prefix` static →
       inlined the literal). build-for-testing green. The marketplace is now COMPLETE on
       all four owner-named verbs; remaining is the on-device byte fetch + apply execution.
-- [~] **R-LITEPARSE — dedicated PDF→Markdown import (owner 2026-06-19, queue in order)** —
+- [x] **R-LITEPARSE — dedicated PDF→Markdown import (owner 2026-06-19) — DONE in code +
+      engine + REAL-PDF extraction PROVEN; only the owner's signed-build PDFium dylib bundle
+      remains for the in-app click-through** —
       run-llama/liteparse (84% Rust, Apache-2.0, fully LOCAL: PDFium in-process + bundled
       Tesseract OCR). PERFECT MAS fit: link the Rust core as a crate into agent_core (like
       epistemos-shadow / Goose), expose pdf_to_markdown over UniFFI, NO Python/Node
@@ -527,6 +529,27 @@ calls: no blanket rule — choose per case.
       live engine Pro/dev-gated + needs the bundled PDFium dylib). +2 mirrored-source tests
       (gated + reuses-the-button + no-duplicate-picker; mounted-in-panel); existing panel
       asserts intact (additive). build-for-testing green (0 errors).
+      ✅ REAL-PDF EXTRACTION PROVEN 2026-06-19 (the "build+run verify a real PDF → markdown"
+      the owner kept asking for — done at the engine + FFI layer, the only layer runnable
+      headlessly): committed a real 18 KB sample PDF fixture (agent_core/tests/fixtures/
+      liteparse_sample.pdf, from liteparse's own integration_tests_data) + 2 permanent
+      `#[cfg(feature="liteparse-pdf")]` tests that RUN the embedded PDFium engine against it.
+      `live_engine_extracts_real_markdown_from_a_real_pdf` asserts the rendered Markdown
+      contains the title ("Sample PDF"), a real heading ("# This is a simple PDF file"),
+      body text ("Lorem ipsum dolor sit amet"), and >500 bytes — i.e. GENUINE spatial-text
+      extraction, not a stub/honest-fail. `live_ffi_envelope_carries_real_markdown_for_a_
+      real_pdf` proves the SAME through the `liteparse_pdf_to_markdown` FFI envelope the
+      Swift sidebar/bulk/Settings surfaces consume (`{"ok":true,"markdown":"…Sample PDF…"}`).
+      VERIFIED to FILES: `--features liteparse-pdf` liteparse:: 10/0 (both real-PDF tests
+      green; PDFium dlopen'd from ~/Library/Caches), default liteparse:: 8/0 (inert path
+      byte-identical — the new tests are cfg-gated, zero regression). So the FULL R-LITEPARSE
+      chain is proven on a real PDF: PDF bytes → embedded PDFium → Markdown → FFI envelope →
+      (Swift note-create, separately compile+test verified). The ONE thing NOT verifiable
+      headlessly is the in-app click-through, which needs the owner's signed build with the
+      PDFium dylib bundled into the .app (sandbox can't dlopen from ~/Library/Caches; resolve
+      PDFIUM_LIB_PATH / vendor/pdfium/release/lib in Xcode + flip the app build to
+      --features liteparse-pdf). Everything I can build+run is done + green; that last step
+      is purely the owner's deployment mechanics, not missing code.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
