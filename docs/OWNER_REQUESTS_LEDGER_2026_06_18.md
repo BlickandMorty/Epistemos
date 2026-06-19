@@ -514,6 +514,19 @@ calls: no blanket rule — choose per case.
       vendor/pdfium/release/lib) in the Xcode build. Until then the engine is EMBEDDED +
       Pro/dev-gated, honest about needing that bundling to run in MAS. Cannot tick "real PDF
       imported in-app" until the owner's signed build; everything up to that is done + green.
+      ✅ SETTINGS BULK-IMPORT SURFACE 2026-06-19 (owner R-LITEPARSE plan #4 — UI triad now
+      complete: sidebar + bulk + Settings): NEW Epistemos/Views/Settings/
+      LiteParseSettingsImportRow.swift — a labeled Settings row that, when the flag is armed,
+      EMBEDS the same LiteParsePDFImportButton (one import path — no duplicated NSOpenPanel/
+      controller logic). Flag-gated (LiteParseImportGateStatus.status().isActive): hidden +
+      not even constructed when off, so the default build / previews never require the
+      vault/graph/modelContext env (only accessed when the owner arms the flag in a real
+      session). Mounted in SubstrateHealthPanel beneath LiteParseImportHealthRow (the one
+      mount site, SettingsView:498, where the env is ambient). Also refreshed the now-stale
+      "inert until vendored" health-row comment to the S2 truth (core vendored + embedded,
+      live engine Pro/dev-gated + needs the bundled PDFium dylib). +2 mirrored-source tests
+      (gated + reuses-the-button + no-duplicate-picker; mounted-in-panel); existing panel
+      asserts intact (additive). build-for-testing green (0 errors).
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
