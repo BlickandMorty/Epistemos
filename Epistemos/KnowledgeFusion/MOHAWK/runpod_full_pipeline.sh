@@ -41,7 +41,6 @@ if [ ! -f "$RAW_DATA_DIR/train.jsonl" ]; then
     echo "  Generating raw training data..."
     python3 generate_epistemos_training_data.py --output "$RAW_DATA_DIR"
     python3 generate_advanced_training_data.py --output "$RAW_DATA_DIR"
-    python3 fill_training_gaps.py --output "$RAW_DATA_DIR"
 fi
 
 # Step 0b: ALWAYS validate before upload — raw data is NEVER used directly
