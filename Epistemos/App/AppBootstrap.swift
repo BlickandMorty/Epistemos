@@ -1080,6 +1080,44 @@ final class AppBootstrap {
     private var _nightBrain: NightBrainService?
     var nightBrain: NightBrainService { Self.requireInitialized(_nightBrain, name: "nightBrain") }
 
+    /// DATA+FINETUNE (4) — the Night Brain native idle LoRA fine-tune provider,
+    /// injected into `NightBrainService` (below). `executeJob` only invokes this
+    /// when the `EPISTEMOS_NIGHTBRAIN_LORA_V0` flag is active (default OFF →
+    /// INERT in production), so this is the safe finisher that COMPLETES the
+    /// Job → provider wiring chain (it was `nil` before → the Job could never
+    /// dispatch). It gathers the conservative fine-tune decision inputs, evaluates
+    /// `NightBrainLoRAFineTuneDecision`, and logs WHY it ran or skipped (visible/
+    /// honest — rule #8). Actual native MLX training is Pro-only and runs on the
+    /// generated vault data; that run + the vault data-gen iteration that supplies
+    /// `newExampleCount` (and a persisted last-fine-tune marker for
+    /// `daysSinceLastFineTune`) are the on-device follow-on — training cannot be
+    /// headless-verified, so this slice locks the wiring, not the run.
+    private static func runNightBrainLoRAFineTuneIfDue() async {
+        #if !EPISTEMOS_APP_STORE
+        let isPro = true
+        #else
+        let isPro = false
+        #endif
+        // AC = not on battery (training is heavy — AC only). Real power read.
+        let onAC = !PowerGate.batteryState().onBattery
+        let inputs = NightBrainLoRAFineTuneDecision.Inputs(
+            enabled: true,             // executeJob already gated on the live flag
+            isPro: isPro,
+            isIdle: true,              // runs inside the NightBrain idle pipeline
+            onACPower: onAC,
+            newExampleCount: 0,        // TODO(follow-on): vault data-gen iteration count
+            daysSinceLastFineTune: nil // TODO(follow-on): persisted last-fine-tune marker
+        )
+        switch NightBrainLoRAFineTuneDecision.evaluate(inputs) {
+        case .run:
+            Log.app.info(
+                "NightBrain LoRA fine-tune decision=run (onAC=\(onAC, privacy: .public), pro=\(isPro, privacy: .public)); native train dispatch pending on-device data-gen"
+            )
+        case .skip(let reason):
+            Log.app.info("NightBrain LoRA fine-tune skipped: \(reason, privacy: .public)")
+        }
+    }
+
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
     /// Nil when no vault is attached. Shared across all AI surfaces (main chat, MiniChat, graph inspector).
@@ -2302,6 +2340,9 @@ final class AppBootstrap {
                 },
                 ssmStateServiceProvider: { @MainActor [weak self] in
                     self?.ssmStateService
+                },
+                loraFineTuneJob: {
+                    await Self.runNightBrainLoRAFineTuneIfDue()
                 }
             )
         }

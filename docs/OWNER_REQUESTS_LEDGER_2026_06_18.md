@@ -280,6 +280,17 @@ calls: no blanket rule — choose per case.
       RESEARCH-FIRST on each; build+run verify training actually runs natively +
       Night Brain + marketplace are real and usable in-app. Cross-ref LF-1/2/3, SIM-4,
       per-model vaults above, HARNESS SYSTEMS below, R-APPS importer/marketplace.
+      ✅ FINISHER 2026-06-19 (part 4 wiring): AppBootstrap now INJECTS the Night
+      Brain `loraFineTuneJob` provider (`runNightBrainLoRAFineTuneIfDue`) — was nil,
+      so the `nativeKnowledgeAdapterFineTune` Job could never dispatch. Provider
+      gathers real inputs (Pro build flag, AC via PowerGate), evaluates the real
+      `NightBrainLoRAFineTuneDecision`, and logs the honest run/skip outcome
+      (rule #8 visible). INERT in production (EPISTEMOS_NIGHTBRAIN_LORA_V0 OFF by
+      default; executeJob gates on it). Locked by AuditFixRegressionTests
+      `nightBrainWiresVaultBackedLifecycleJobsFromAppBootstrap` (+4 wiring asserts).
+      build-for-testing green. STILL ON-DEVICE FOLLOW-ON (can't headless-verify):
+      the vault data-gen iteration that supplies `newExampleCount` + a persisted
+      last-fine-tune marker + the actual NativeLoRATrainer run on Pro.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt

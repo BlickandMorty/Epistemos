@@ -58,6 +58,15 @@ struct AuditFixRegressionTests {
         #expect(bootstrap.contains("vaultPathProvider: { @MainActor [weak vaultSync] in"))
         #expect(bootstrap.contains("vaultSync?.vaultURL?.path"))
         #expect(bootstrap.contains("ssmStateServiceProvider: { @MainActor [weak self] in"))
+
+        // DATA+FINETUNE (4): the Night Brain native LoRA fine-tune provider is now
+        // wired (was nil → the Job could never dispatch). INERT until the
+        // EPISTEMOS_NIGHTBRAIN_LORA_V0 flag is active; the provider evaluates the
+        // real NightBrainLoRAFineTuneDecision and logs the honest run/skip outcome.
+        #expect(bootstrap.contains("loraFineTuneJob: {"))
+        #expect(bootstrap.contains("await Self.runNightBrainLoRAFineTuneIfDue()"))
+        #expect(bootstrap.contains("NightBrainLoRAFineTuneDecision.evaluate(inputs)"))
+        #expect(bootstrap.contains("NightBrain LoRA fine-tune skipped:"))
     }
 
     @Test("night brain stale fallback runs the pipeline inline before recording success")
