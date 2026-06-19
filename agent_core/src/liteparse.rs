@@ -200,6 +200,35 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "liteparse-pdf")]
+    #[test]
+    fn live_engine_extracts_real_markdown_from_a_real_pdf() {
+        // END-TO-END (engine layer): the embedded PDFium engine parses a real 18 KB sample
+        // PDF (committed fixture) and renders Markdown — proving REAL extraction, not just
+        // that it compiles or honest-fails. This is the strongest headless "real PDF →
+        // markdown" proof; the in-app run-through additionally needs the owner's signed
+        // build with the PDFium dylib bundled.
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/liteparse_sample.pdf");
+        let md = pdf_to_markdown(path).expect("the real sample PDF should extract to markdown");
+        assert!(md.contains("Sample PDF"), "title text missing: {md:?}");
+        assert!(md.contains("# This is a simple PDF file"), "markdown heading missing: {md:?}");
+        assert!(md.contains("Lorem ipsum dolor sit amet"), "body text missing");
+        assert!(md.len() > 500, "expected substantial extracted text, got {} bytes", md.len());
+    }
+
+    #[cfg(feature = "liteparse-pdf")]
+    #[test]
+    fn live_ffi_envelope_carries_real_markdown_for_a_real_pdf() {
+        // END-TO-END (FFI envelope the Swift importer consumes): on a real PDF the envelope
+        // is `{"ok":true,"markdown":"…real text…"}` — so the sidebar/bulk/Settings surfaces
+        // receive genuine markdown to turn into a vault note (their note-create wiring is
+        // separately compile + test verified).
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/liteparse_sample.pdf");
+        let out = liteparse_pdf_to_markdown(path.to_string());
+        assert!(out.contains("\"ok\":true"), "envelope not ok: {out}");
+        assert!(out.contains("Sample PDF"), "envelope missing real extracted text: {out}");
+    }
+
     #[test]
     fn non_pdf_is_rejected_never_shelled_out() {
         // Office/image are rejected honestly — the seam never invokes a subprocess.
