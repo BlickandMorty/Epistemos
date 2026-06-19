@@ -79,6 +79,11 @@ public struct SubstrateHealthPanel: View {
                 // fine-tune is armed (EPISTEMOS_NIGHTBRAIN_LORA_V0). Reads the
                 // same flag the idle decision reads.
                 NightBrainLoRAHealthRow()
+
+                // Osaurus Act import (P3.0) — whether the vendored Osaurus Act
+                // seam is armed (EPISTEMOS_ACT_OSAURUS_V0, Pro). Honest "Pro only"
+                // on MAS; the runtime stays inert until it clears the bar.
+                ActOsaurusHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
