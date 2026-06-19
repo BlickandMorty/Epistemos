@@ -22,6 +22,15 @@ struct CoworkPanel: View {
     }
     private var workingFolder: String? { CoworkRunContext.workingFolder(for: filesTouched) }
 
+    /// The REAL tool/connector inventory the agent can use on THIS build — already
+    /// distribution-gated by ToolSurfacePolicy (fewer on MAS, more on Pro), so it's
+    /// honest per-build, never fake.
+    private var surfacedTools: [OmegaToolDefinition] { OmegaToolRegistry.surfacedTools() }
+    private var connectorsByAgent: [(agent: String, tools: [OmegaToolDefinition])] {
+        let groups = Dictionary(grouping: surfacedTools, by: { $0.agent })
+        return groups.keys.sorted().map { (agent: $0, tools: groups[$0] ?? []) }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -120,11 +129,29 @@ struct CoworkPanel: View {
         }
     }
 
-    /// Connectors — tools/MCP the agent surfaces. Honest forward state until a live
-    /// connector inventory is wired (no fake entries).
+    /// Connectors — the REAL tool/MCP inventory the agent can use on this build,
+    /// grouped by connector (agent), with an honest empty state.
     private var connectorsSection: some View {
         section("Connectors", systemImage: "point.3.connected.trianglepath.dotted") {
-            emptyText("MCP tools & connectors the agent uses appear here when configured.")
+            if surfacedTools.isEmpty {
+                emptyText("No tools are surfaced on this build.")
+            } else {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("\(surfacedTools.count) tool\(surfacedTools.count == 1 ? "" : "s") across \(connectorsByAgent.count) connector\(connectorsByAgent.count == 1 ? "" : "s")")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    ForEach(connectorsByAgent, id: \.agent) { group in
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(group.agent.capitalized)
+                                .font(.caption2.weight(.semibold))
+                            Text(group.tools.map(\.name).joined(separator: ", "))
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+            }
         }
     }
 
