@@ -190,6 +190,33 @@ calls: no blanket rule — choose per case.
       run verify EACH surface in-app: mini has Act/Work + full picker + parity;
       search-page clicks behave; nothing reductive. DON'T mark done until the owner
       can use mini exactly like main.
+- [ ] **PER-MODEL VAULTS — update for new models + harden (looks demo-ish) + SCOPE
+      RESOLUTION (owner 2026-06-18)** — owner (verbatim, transcribed): *"per-model
+      vaults should also be updated for the new ones and hardened because it looks
+      very demo-ish. Also how should it show up for Osaurus and Open Code? I believe
+      they have their own system — if so then only have the compiled stuff for chat,
+      but idk, let me know."* Feature = the KnowledgeFusion knowledge-distillation
+      system (Epistemos/KnowledgeFusion/* + Views/Settings/ModelVaultsSettingsView.
+      swift): distills notes + recent chats into per-model context files
+      (knowledge_profile.md / concept_index.md / active_context.md / instructions.md
+      keyed by modelID via KnowledgeProfileStore) and feeds the model's
+      augmentedSystemPrompt. THREE parts: (1) **UPDATE FOR NEW MODELS** — the new
+      local models (Gemma 26B-A4B, LFM2.5, 2-bit 12B, VibeThinker, Qwen3-8B, Holo)
+      must appear as vault targets (they key off releaseSelectableInstalledLocalText-
+      ModelIDs — ensure each is registered installed/selectable AND the compiler has
+      sane per-model default instructions). (2) **HARDEN (de-demo-ish)** — Model-
+      VaultsSettingsView renders GENERIC hardcoded file rows ("Present in compiled
+      vaults"); replace with REAL per-model status: actual file sizes, last-compiled
+      timestamps, content preview, per-model row (not one generic file list), honest
+      empty/error states. (3) **SCOPE RESOLUTION (DECIDED — owner leaning confirmed):
+      per-model vaults stay CHAT(Epistemos)-SCOPED.** Act=Osaurus and Work/Open-Code=
+      Goose bring their OWN provider/model/session systems — do NOT fork a per-model-
+      vault store/UI for them (duplication + drift). Instead they CONSUME the shared
+      Epistemos vault (notes/Eidos/Knowledge Core) via existing tool/vault access + a
+      shared system-prompt ANCHOR. So ModelVaultsSettingsView enumerates ONLY Chat's
+      native local models + configured cloud providers — not per-Osaurus-model or
+      per-Goose-provider rows. (Owner can override if they want per-engine vaults
+      later.) Build+run verify new models show + real status renders in-app.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
