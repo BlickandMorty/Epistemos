@@ -294,7 +294,14 @@ actor LocalAgentLoop {
             _ = SystemGBridge.status()
         }
 
-        let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
+        // P8.2 — flag-gated RAG preflight tool narrowing (EPISTEMOS_SCHEMA_PREFLIGHT_V0).
+        // OFF (default) → the canonicalized list is returned unchanged, so this turn is
+        // byte-for-byte identical to today; ON → the Rust selector narrows to the ~6 tools
+        // most relevant for `objective`. Non-stranding: empty/garbage selection → full list.
+        let tools = SchemaPreflightToolNarrowing.narrow(
+            AgentToolNameAliases.canonicalizedDefinitions(for: tools),
+            forObjective: objective
+        )
         let runID = Self.makeLocalAgentRunID()
         defer {
             toolCallSequenceByRunID[runID] = nil
