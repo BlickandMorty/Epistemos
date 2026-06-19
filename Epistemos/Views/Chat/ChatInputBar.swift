@@ -134,6 +134,8 @@ struct ChatInputBar: View {
     /// P7.6 — cowork QUEUE: a single message staged while the agent is running,
     /// auto-submitted when the run completes.
     @State private var messageQueue = ComposerMessageQueue()
+    // P7.6 cowork CONTEXT: tapping the context badge opens the real CoworkContextPanel.
+    @State private var showContextPanel = false
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -996,11 +998,22 @@ struct ChatInputBar: View {
                     if chat.hasMessages
                         || !chat.pendingAttachments.isEmpty
                         || !chat.pendingContextAttachments.isEmpty {
-                        ContextWindowCompactBadge(
-                            usageFraction: chat.contextUsageFraction,
-                            usedTokens: chat.estimatedContextTokens,
-                            maxTokens: chat.maxContextTokens
-                        )
+                        Button {
+                            showContextPanel.toggle()
+                        } label: {
+                            ContextWindowCompactBadge(
+                                usageFraction: chat.contextUsageFraction,
+                                usedTokens: chat.estimatedContextTokens,
+                                maxTokens: chat.maxContextTokens
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show what's in context")
+                        .popover(isPresented: $showContextPanel, arrowEdge: .top) {
+                            CoworkContextPanel()
+                                .environment(chat)
+                                .frame(width: 340)
+                        }
                         .transition(.opacity.combined(with: .scale(scale: 0.92)))
                     }
 
