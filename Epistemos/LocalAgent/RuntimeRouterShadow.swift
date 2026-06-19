@@ -79,6 +79,23 @@ nonisolated enum RuntimeRouterShadow {
         }
     }
 
+    /// Map a local model's `BackendRuntimeKind` to the local `RuntimeLane` it runs
+    /// on — the classifier the live site injects into `liveLane(from:localLaneFor
+    /// ModelID:)` for a `.local` descriptor (a GGUF model → `.gguf`, an MLX model →
+    /// `.mlx`). `.remote` only appears for non-local descriptors, so it falls back
+    /// to `.mlx`. Pure → unit-testable. The live composition is:
+    /// `liveLane(from: resolved) { id in lane(forRuntimeKind:
+    /// LocalTextModelID(rawValue: id)?.runtimeKind ?? .gguf) }` — where an id that
+    /// is NOT a `LocalTextModelID` enum case is a foundation GGUF descriptor, hence
+    /// the `.gguf` default at the live site.
+    static func lane(forRuntimeKind kind: BackendRuntimeKind) -> RuntimeLane {
+        switch kind {
+        case .gguf: .gguf
+        case .mlx: .mlx
+        case .remote: .mlx
+        }
+    }
+
     /// Build a `MissionPacket` from the signals a live chat turn carries. Pure
     /// (maps inputs to the packet shape); STAGE 1b calls this then
     /// `router.route(packet)` behind `armed`.
