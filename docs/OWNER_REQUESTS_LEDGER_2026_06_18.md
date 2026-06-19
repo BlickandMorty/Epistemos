@@ -333,6 +333,26 @@ calls: no blanket rule — choose per case.
       errors). OWNER IN-APP: set `EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0=1`, plain-chat a
       non-OpenAI provider with a vault query ("find my note about X") → expect the vault.search tool
       box + a grounded answer. Not ticked [x] — owner confirms the boxes render in-app.
+      ✅ OQ-1 SESSION-CORPUS DETECTOR + honest degrade 2026-06-19 (research HERMES_OSAURUS_OPENCLAW_
+      WIRING_R2 — the highest open question, "verify the real vault layout first"): `session_search`
+      scans `<vault>/sessions/` (agent_core SessionFolders) but the live conversation corpus is the
+      Swift SDChats under the shadow-indexed `<vault>/chats/` — TWO different stores, so a session
+      lookup returned a SILENT ZERO when the chats live in `/chats/`. FIX (Rust, contained,
+      cargo-verifiable): `agent_core/src/storage/session_store.rs` adds the pure `SessionCorpusLayout`
+      {sessions_dir_present, session_folder_count, chats_dir_present, chat_file_count} +
+      `has_corpus_mismatch()` (sessions empty AND chats present) + `detect_session_corpus(vault_root)`
+      (counts `session.json` folders under `sessions/` + recursively counts `.json` under `chats/`,
+      bounded depth 8). `SessionSearchHandler` (knowledge.rs) now returns `corpus` + an honest `hint`
+      when matches are empty and the corpus is mismatched — pointing to the chat search index instead
+      of a bare zero. +1 cargo test (detect_session_corpus_reports_both_corpora_and_the_oq1_mismatch).
+      Full-lib 5471/0 + `--features pro-build` 5734/0 (zero regression). STAGE-NEXT (the full
+      shadow-index wire, build-verifiable): Swift `SearchIndexService.fusedSessionSearch(query,limit,
+      now) -> [FusedResult]` beside `fusedSearch` (SearchIndexService.swift:902), source-filtered to
+      the chats projection (the corpus is ALREADY in the HNSW+BM25+RRF shadow index via
+      ShadowVaultBootstrapper — reuse `RRFFusionQuery`, no Rust backend) + a Rust `SessionSummarize
+      Handler` (DETERMINISTIC snippet assembly, NO model call — a mid-turn model call would deadlock
+      the single-MainActor client) + 1 prompt line "for session lookups call session.search then
+      synthesize" + degrade-to-plaintext-if-shadow-not-open (never throw).
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an

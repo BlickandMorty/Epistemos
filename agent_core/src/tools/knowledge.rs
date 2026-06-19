@@ -647,11 +647,29 @@ impl ToolHandler for SessionSearchHandler {
             }
         }
 
+        // OQ-1 reconcile: `session_search` scans <vault>/sessions/, but the live
+        // conversation corpus may be the shadow-indexed SDChats under <vault>/chats/.
+        // Surface the layout + an honest hint when sessions/ is empty but chats/ has
+        // data, so the caller degrades to the chat index instead of seeing a bare zero.
+        let corpus = crate::storage::session_store::detect_session_corpus(&self.vault_root);
+        let hint = if matches.is_empty() && corpus.has_corpus_mismatch() {
+            Some(format!(
+                "No session folders matched under <vault>/sessions/, but {} chat file(s) exist \
+                 under the shadow-indexed <vault>/chats/ corpus — search those via the chat search \
+                 index instead of session_search.",
+                corpus.chat_file_count
+            ))
+        } else {
+            None
+        };
+
         Ok(json!({
             "vault_root": self.vault_root.display().to_string(),
             "query": query,
             "count": matches.len(),
             "sessions": matches,
+            "corpus": corpus,
+            "hint": hint,
         })
         .to_string())
     }
