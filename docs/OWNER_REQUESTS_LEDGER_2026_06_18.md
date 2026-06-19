@@ -234,6 +234,31 @@ calls: no blanket rule — choose per case.
       testing TEST BUILD SUCCEEDED, 0 errors, 0 regression. REMAINING for part 2: sub-item (b) the
       GGUF-Gemma grammar-constrained tool-call emit path (canActAsAgent local lane) + the CLOUD
       tool-attachment variant — so the whole TOOLS/SKILLS item stays open (not ticked).
+      ✅ PART 2(b) — GGUF-GEMMA GRAMMAR TOOL-CALL CORE + FFI (Rust) 2026-06-19: the local-lane
+      foundation so a GGUF Gemma 4 — which does NOT speak the `<tool_call>` XML grammar — can emit
+      a STRUCTURALLY VALID tool call via llama-cli's `--json-schema` constrained decoding. NEW
+      `agent_core/src/tool_preflight.rs` `preflight_dispatch_json_schema(query, tools, max)` mirrors
+      the existing `preflight_dispatch_grammar` but returns the dispatch JSON-SCHEMA STRING (not the
+      MLX/llguidance `TopLevelGrammar`), COMPOSING the existing `grammar::dispatch_schema_for_tools`
+      (the `oneOf` over `{name: const, input: <param schema>}` per selected tool) — no new schema
+      logic. Plus flag `EPISTEMOS_GGUF_TOOL_GRAMMAR_V0` + `PreflightToolWithSchemaInput`
+      (name/description/keywords/schema, schema defaults to an empty object schema) + FFI
+      `schema_gguf_tool_dispatch_json(query, candidates_json, max) -> String`: flag OFF (default) →
+      `""` so the GGUF generation stays UNCONSTRAINED (today's behaviour, the Swift caller may
+      invoke it unconditionally and only attach the constraint when non-empty); flag ON → the
+      dispatch schema string for the query-relevant tools. Honest `""` on no-match / parse / serialize
+      error (a new `GrammarError::Serialize` variant carries the honest error rather than faking a
+      schema). This DROPS DIRECTLY into the existing GGUF seam: `GgufCliProvider::with_json_schema` /
+      `constrained_args` already pass `--json-schema <schema>` to the hardened llama-cli subprocess
+      (Pro + flag-gated — the already-approved GGUF runtime lane, no new sidecar). +3 cargo tests
+      (oneOf-for-selected-tools-only, errors-when-nothing-matches, FFI-off-by-default→""). Verified:
+      targeted tool_preflight 24/0, FULL lib 5470/0, `--features pro-build` 5733/0 (zero regression),
+      and `build-agent-core.sh` regenerates the Swift binding `schemaGgufToolDispatchJson` cleanly
+      (the bindings are a gitignored build artifact — regenerated from the Rust source at build time,
+      not committed; the bindgen run is a verification that the FFI is uniffi-valid). REMAINING for
+      part 2: the Swift LIVE-WIRING — the PipelineService GGUF tool path calls
+      `schemaGgufToolDispatchJson`, attaches the schema to the `GgufCliProvider`/`LocalGgufCliRuntime`
+      run when non-empty, and parses the emitted JSON as a tool call. TOOLS/SKILLS item stays open.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an

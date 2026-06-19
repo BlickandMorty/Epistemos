@@ -12,7 +12,7 @@
 //! preflight from the spec is the follow-on that replaces `score` without changing this
 //! deterministic, side-effect-free contract.
 
-use crate::grammar::{build_dispatch_grammar, GrammarError};
+use crate::grammar::{build_dispatch_grammar, dispatch_schema_for_tools, GrammarError};
 use llguidance::api::TopLevelGrammar;
 use std::collections::BTreeSet;
 
@@ -279,6 +279,102 @@ pub fn preflight_dispatch_grammar(
     Ok((selected, grammar))
 }
 
+/// The §C.1 pipeline for the GGUF / llama-cli lane (tools/skills part 2b): select
+/// the query-relevant tools, then build the dispatch JSON **SCHEMA** (not GBNF) for
+/// ONLY those tools, serialized to the string `GgufCliProvider::with_json_schema`
+/// feeds to llama-cli's `--json-schema`. This is what lets a GGUF Gemma 4 — which
+/// does NOT speak the `<tool_call>` XML grammar — emit a STRUCTURALLY VALID tool
+/// call (`canActAsAgent` foundation for the GGUF lane). Mirrors
+/// `preflight_dispatch_grammar` but targets the GGUF constrained-decoding arg
+/// instead of the MLX/llguidance `TopLevelGrammar`. COMPOSES the preflight with the
+/// existing `dispatch_schema_for_tools` — no new schema logic. Returns the selected
+/// tool names + the schema string. Errors `EmptyDispatch` when no tool matched (the
+/// caller does an unconstrained generation).
+pub fn preflight_dispatch_json_schema(
+    query: &str,
+    tools: &[PreflightTool<'_>],
+    max: usize,
+) -> Result<(Vec<String>, String), GrammarError> {
+    let candidates: Vec<ToolCandidate> = tools.iter().map(|t| t.candidate.clone()).collect();
+    let selected = select_tools(query, &candidates, max);
+    if selected.is_empty() {
+        return Err(GrammarError::EmptyDispatch);
+    }
+    let selected_set: BTreeSet<&str> = selected.iter().map(String::as_str).collect();
+    let dispatch: Vec<(&str, &serde_json::Value)> = tools
+        .iter()
+        .filter(|t| selected_set.contains(t.candidate.name.as_str()))
+        .map(|t| (t.candidate.name.as_str(), t.schema))
+        .collect();
+    let schema = dispatch_schema_for_tools(&dispatch)?;
+    let schema_str =
+        serde_json::to_string(&schema).map_err(|e| GrammarError::Serialize(e.to_string()))?;
+    Ok((selected, schema_str))
+}
+
+/// Flag that arms the GGUF Gemma grammar-constrained tool-call path (OFF by default).
+pub const GGUF_TOOL_GRAMMAR_FLAG: &str = "EPISTEMOS_GGUF_TOOL_GRAMMAR_V0";
+
+fn gguf_tool_grammar_armed() -> bool {
+    flag_armed(std::env::var(GGUF_TOOL_GRAMMAR_FLAG).ok().as_deref())
+}
+
+/// FFI input shape for a tool candidate that ALSO carries its parameter schema (the
+/// Swift tool catalog serializes to this for the GGUF dispatch path).
+#[derive(serde::Deserialize)]
+struct PreflightToolWithSchemaInput {
+    name: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    keywords: Vec<String>,
+    /// The tool's JSON-Schema for its parameters (a JSON object schema). Defaults to
+    /// an empty object schema so a tool with no declared params still dispatches.
+    #[serde(default = "empty_object_schema")]
+    schema: serde_json::Value,
+}
+
+fn empty_object_schema() -> serde_json::Value {
+    serde_json::json!({ "type": "object", "properties": {}, "additionalProperties": false })
+}
+
+/// FFI: FLAG-GATED GGUF tool-dispatch JSON schema for the local Gemma lane. Swift
+/// passes the query + the tool catalog WITH parameter schemas
+/// (`[{"name","description","keywords","schema"}]`) + the max tight footprint; gets
+/// back the dispatch JSON-schema STRING for the query-relevant tools (ready for
+/// `GgufCliProvider::with_json_schema` → llama-cli `--json-schema`). Flag OFF
+/// (default) → `""` so the GGUF generation stays UNCONSTRAINED (today's behaviour) —
+/// the Swift caller can invoke this unconditionally and only attach the constraint
+/// when the string is non-empty. Honest `""` on no-match / parse error / serialize
+/// error: the model generates without the tool-call grammar rather than failing.
+#[uniffi::export]
+pub fn schema_gguf_tool_dispatch_json(query: String, candidates_json: String, max: u32) -> String {
+    if !gguf_tool_grammar_armed() {
+        return String::new();
+    }
+    let inputs: Vec<PreflightToolWithSchemaInput> =
+        serde_json::from_str(&candidates_json).unwrap_or_default();
+    if inputs.is_empty() {
+        return String::new();
+    }
+    // Own the candidates + schemas so the borrowed `PreflightTool` list is valid.
+    let owned: Vec<(ToolCandidate, serde_json::Value)> = inputs
+        .into_iter()
+        .map(|i| (ToolCandidate::new(i.name, i.description, i.keywords), i.schema))
+        .collect();
+    let tools: Vec<PreflightTool<'_>> = owned
+        .iter()
+        .map(|(candidate, schema)| PreflightTool {
+            candidate: candidate.clone(),
+            schema,
+        })
+        .collect();
+    match preflight_dispatch_json_schema(&query, &tools, max as usize) {
+        Ok((_selected, schema_str)) => schema_str,
+        Err(_) => String::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,6 +467,48 @@ mod tests {
             preflight_dispatch_grammar("xyzzy quux", &tools, 5),
             Err(GrammarError::EmptyDispatch)
         ));
+    }
+
+    #[test]
+    fn preflight_dispatch_json_schema_builds_oneof_for_the_selected_tools() {
+        let schema = object_schema();
+        let tools = vec![
+            PreflightTool { candidate: ToolCandidate::new("read_file", "Read a file from disk", vec!["file".into()]), schema: &schema },
+            PreflightTool { candidate: ToolCandidate::new("web_search", "Search the web", vec!["search".into()]), schema: &schema },
+        ];
+        let (selected, schema_str) = preflight_dispatch_json_schema("read my file", &tools, 5)
+            .expect("a dispatch schema should build for the selected tools");
+        assert!(selected.contains(&"read_file".to_string()));
+        assert!(!selected.contains(&"web_search".to_string()));
+        // The GGUF --json-schema string must be a oneOf over the SELECTED tool only,
+        // pinning its name via a const so Gemma emits a structurally valid call.
+        let parsed: serde_json::Value = serde_json::from_str(&schema_str).expect("valid JSON");
+        assert!(parsed.get("oneOf").is_some());
+        assert!(schema_str.contains("read_file"));
+        assert!(!schema_str.contains("web_search")); // irrelevant tool not in the grammar
+    }
+
+    #[test]
+    fn preflight_dispatch_json_schema_errors_when_nothing_matches() {
+        let schema = object_schema();
+        let tools = vec![PreflightTool {
+            candidate: ToolCandidate::new("read_file", "Read a file", vec!["file".into()]),
+            schema: &schema,
+        }];
+        assert!(matches!(
+            preflight_dispatch_json_schema("xyzzy quux", &tools, 5),
+            Err(GrammarError::EmptyDispatch)
+        ));
+    }
+
+    #[test]
+    fn ffi_gguf_tool_dispatch_is_off_by_default() {
+        // Flag unset (default) → empty string → the GGUF generation stays
+        // unconstrained (today's behaviour); the Swift caller may invoke it
+        // unconditionally and only attach `--json-schema` when non-empty.
+        let catalog_json = r#"[{"name":"read_file","description":"Read a file from disk","keywords":["file"],"schema":{"type":"object","properties":{"path":{"type":"string"}}}}]"#;
+        let out = schema_gguf_tool_dispatch_json("read my file".into(), catalog_json.into(), 5);
+        assert!(out.is_empty());
     }
 
     #[test]
