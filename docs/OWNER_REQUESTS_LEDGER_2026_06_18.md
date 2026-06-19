@@ -2410,6 +2410,33 @@ native; AGPL server). ADOPT 2 patterns natively:
       dropped), then fix the binding + router-override. Pairs with the MODEL DOWNLOAD/
       INSTALL bug + the picker-simplify + Settings-stack items — together they are the
       "model system actually works the way the owner picks" cluster.
+      ⚠️ REOPENED — the TriageService fix below was the WRONG LAYER (owner confirms STILL
+      broken after rebuild). REAL-PATH DIAGNOSIS 2026-06-19 (the actual select→generate, per
+      owner pointers AgentCommandCenterState:580-600 + RuntimeRouter:428-431 + the generation
+      seam): RuntimeRouter.route() picks a LANE not a model id (modelPreferenceTable feeds
+      profiles/display only), and AgentCommandCenterState.localBrain(preferredModels) is the
+      ACC slash-command brain (already gated by storedBrainSelection). The LIVE chat
+      select→generate is: PipelineService:470 builds the generation `modelID` from
+      `inference.effectiveChatSurfaceSelection(for: mode)` → which gates on `userHasExplicitPin`
+      (`sanitizedStoredLocalChatModelID(for: id) == id && effectiveLocalTextModelID != nil`),
+      and the generation id passes through `sanitizedInteractiveLocalTextModelID` (InferenceState
+      ~3919, `?? original`). THE OVERRIDE: `sanitizedInteractiveLocalTextModelID`, when the
+      picked model is NOT installed (cases 4-5), falls through to
+      `hardwareCapabilitySnapshot.recommendedLocalTextModelID` / the constrained fallback — i.e.
+      it SUBSTITUTES the explicit pick with the recommended (Qwen-3-4B) model; that substitution
+      also flips `userHasExplicitPin`→false → cloud/auto-route. This is downstream of the MODEL
+      DOWNLOAD bug (uninstalled picks → substituted), but the substitution must be HONEST not
+      silent. FIX PLAN (careful, multi-function — needs fresh context, do NOT rush on the live
+      chat resolver): flag-gate (reuse EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL) the recommended/
+      constrained substitute tail of `sanitizedInteractiveLocalTextModelID` (OFF → return nil →
+      the `?? original` KEEPS the explicit pick, generator then fails HONESTLY if it can't load —
+      no silent Qwen); audit ALL sanitizer call sites + the `sanitizedStoredLocalChatModelID` /
+      `userHasExplicitPin` chain so an explicit pick stays an explicit pin; KEEP the legitimate
+      legacy→foundation migration (case 1); add a unit test on `effectiveChatSurfaceSelection`
+      (the ACTUAL resolver) that an explicit installed pick → `.localMLX(thatId)` and an explicit
+      uninstalled pick → NOT silently `.localMLX(qwen3_4B4Bit)`. Do NOT tick until owner confirms
+      in-app. (The TriageService change below stays — it's correct for ITS layer, just not the
+      one that was pinning Qwen.)
       ✅ FIX — NO SILENT QWEN SUBSTITUTE FOR AN EXPLICIT PICK 2026-06-19 (root candidate (c)):
       traced select→generate. `TriageService.localSelection` is the resolver: for a local
       pick, `shouldUseAutomaticLocalRouting` is FALSE (a `.localMLX` selection is honored, not
