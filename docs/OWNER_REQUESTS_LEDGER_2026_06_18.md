@@ -302,6 +302,15 @@ calls: no blanket rule — choose per case.
       so the drift can't silently reopen. Full-lib 5472/0 + `--features pro-build` 5735/0 (zero
       regression). REMAINING (2 of 4): `collectsnippet`/`savecitation` read undeclared snake_case
       aliases — same additive treatment.
+      ✅ S4 SCHEMA↔IMPL DRIFT — ALL 4 CLOSED 2026-06-19: the remaining two. `research_collect_snippet_
+      schema` now declares `source_url` / `source_title` / `session_note_path` / `session_note_id`
+      and `citation_save_schema` declares `session_note_path` / `session_note_id` — the snake_case
+      aliases their handlers actually accept (`ResearchCollectSnippetTool` reads `source_url`/
+      `source_title`; `research_session_note_path` reads `session_note_path`/`session_note_id`). +1
+      pin test (research_schemas_declare_the_snake_case_aliases_they_read). Full-lib 5473/0 +
+      `--features pro-build` 5736/0 (zero regression). So all 4 of the S4 audit's latent schema↔impl
+      drifts are now closed — every tool schema honestly declares the keys its handler reads, so a
+      future strict gate (`additionalProperties:false`) can't reject a valid call.
       🔎 S4 DEEP-RESEARCH AUDIT 2026-06-19 (docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md)
       — confirms the loop's local diagnosis AND adds the missing pieces: (i) **CLOUD break (specific):**
       `runCommandCenterRustAgentPath` is reached only if `cloudProvider.supportsAgentTier`, TRUE ONLY
