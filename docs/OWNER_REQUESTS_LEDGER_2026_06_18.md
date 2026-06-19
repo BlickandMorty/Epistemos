@@ -718,7 +718,7 @@ calls: no blanket rule — choose per case.
       loads + generates via the GGUF lane. Pairs with the B1 Variant Ladder.
 
 ## Full-port targets (owner 2026-06-18 — deeply analyze/research, then FULL port)
-- [ ] **R-ASSISTANTS — survey the TOP assistant/agent apps on GitHub (owner 2026-06-18)**
+- [~] **R-ASSISTANTS — survey the TOP assistant/agent apps on GitHub (owner 2026-06-18)**
       Beyond R-APPS: deep-scan the best open-source ASSISTANT-class apps and mine
       their system-prompts + architectures + UX. Cover: PERPLEXITY-style answer
       engines (Perplexica, Morphic, Khoj, scira, Farfalle, Onyx), COMPUTER-USE
@@ -726,6 +726,19 @@ calls: no blanket rule — choose per case.
       browser-use, OpenClaw), and general assistant/agent apps. Verdict doc: per app
       what to adopt natively (patterns/prompts/UX) vs skip, license. Feed the best
       into Chat/Act/Work + the deep-research (DeerFlow) + computer-use stacks.
+      ✅ VERDICT 2026-06-18→19 (docs/RESEARCH_ASSISTANTS_2026_06_18.md): PATTERN-MINE,
+      do NOT port any (all Python or TS/Next.js → NO-SIDECAR; Epistemos already owns
+      native answer-engine RAG [DeerFlow + RRF + Eidos] + computer-use [DeviceAgent/
+      AXorcist/VisualVerifyLoop]). Khoj = AGPL-3.0 → `research_only` (same block as
+      R-FIELDTHEORY); rest MIT/Apache → pattern adoption under ProvenanceGate.
+      HIGHEST-VALUE mine = the computer-use ACTION-SCHEMA + system-prompt discipline
+      (UI-TARS thought/action, Agent-S ACI, browser-use DOM-index+recovery, Open-
+      Interpreter confirm-before-exec) → fold into the native loop + deterministic
+      schemas P8.2. 2nd = web-search (SearXNG-style) + connector (Onyx) retrieval
+      SOURCES for DeerFlow. UI-TARS-1.5-7B VLM = future Pro local-GUI model (GPU/RAM-
+      heavy, not M2-Pro-16GB). Per-app table + HARNESS-SYSTEMS synthesis in the doc.
+      REMAINING: Farfalle/self-operating-computer/OpenClaw not individually fetched
+      (covered by the family verdicts; fetch if a specific port is pursued).
 - [~] **DeerFlow 2.0 — BUILD STARTED 2026-06-18 (owner go-ahead received). Native
       Rust, incremental. DONE: slice 1 ResearchPlan+execution_layers (92e4fc145,
       8 tests); slice 2 PLANNER planner.rs research_plan_schema+planner_prompt+
