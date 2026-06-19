@@ -29,6 +29,30 @@ pub fn is_valid(schema: &Value, value: &Value) -> bool {
     all_violations(schema, value).is_empty()
 }
 
+/// Build a concise REPAIR instruction for a model whose emitted JSON failed schema
+/// validation (the §C.1 "validation gate → repair" step on the live `jsonschema` path):
+/// it shows what the model produced, lists EVERY violation (from `all_violations`), and
+/// asks for corrected JSON ONLY. Deterministic — violations are listed in order.
+/// Returns `None` when there are no violations (nothing to repair).
+pub fn build_repair_prompt(failed_value: &Value, violations: &[String]) -> Option<String> {
+    if violations.is_empty() {
+        return None;
+    }
+    let produced =
+        serde_json::to_string_pretty(failed_value).unwrap_or_else(|_| failed_value.to_string());
+    let listed = violations
+        .iter()
+        .enumerate()
+        .map(|(i, v)| format!("  {}. {}", i + 1, v))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Some(format!(
+        "Your JSON did not match the required schema. You produced:\n{produced}\n\n\
+         These are ALL the problems to fix:\n{listed}\n\n\
+         Reply with ONLY the corrected JSON that fixes every problem above — no prose, no markdown."
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,5 +98,35 @@ mod tests {
         let bad_schema = json!({"type": "not-a-real-type"});
         let violations = all_violations(&bad_schema, &json!({}));
         assert!(!violations.is_empty());
+    }
+
+    #[test]
+    fn repair_prompt_lists_all_violations_shows_the_value_and_asks_for_json() {
+        let failed = json!({"name": 123});
+        let violations = vec![
+            "at /name: 123 is not of type \"string\"".to_string(),
+            "at /: \"count\" is a required property".to_string(),
+        ];
+        let prompt = build_repair_prompt(&failed, &violations).expect("a repair prompt");
+        assert!(prompt.contains("123 is not of type")); // violation 1 listed
+        assert!(prompt.contains("required property")); // violation 2 listed
+        assert!(prompt.contains("\"name\"")); // the failed value is shown
+        assert!(prompt.contains("corrected JSON")); // asks for the fix
+        assert!(prompt.contains("no prose")); // structured-output discipline
+    }
+
+    #[test]
+    fn no_violations_means_no_repair_prompt() {
+        assert!(build_repair_prompt(&json!({"ok": true}), &[]).is_none());
+    }
+
+    #[test]
+    fn validate_then_repair_round_trips() {
+        // The §C.1 flow: a value that violates → all_violations → a repair prompt.
+        let value = json!({"name": 5});
+        let violations = all_violations(&schema(), &value);
+        assert!(!violations.is_empty());
+        let prompt = build_repair_prompt(&value, &violations).expect("a repair prompt");
+        assert!(prompt.contains("corrected JSON"));
     }
 }
