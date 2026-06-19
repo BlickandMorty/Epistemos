@@ -94,6 +94,11 @@ public struct SubstrateHealthPanel: View {
                 // armed (EPISTEMOS_WORK_GOOSE_V0, Pro). Honest "Pro only" on MAS;
                 // inert until the Goose Rust core is vendored. Chat/Act unaffected.
                 WorkBackendHealthRow()
+
+                // R-LITEPARSE PDF→Markdown import — honest status of the liteparse seam
+                // (EPISTEMOS_LITEPARSE_PDF_V0). MAS-safe (in-process PDFium + Tesseract,
+                // no sidecar); inert until the run-llama/liteparse Rust core is vendored.
+                LiteParseImportHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
