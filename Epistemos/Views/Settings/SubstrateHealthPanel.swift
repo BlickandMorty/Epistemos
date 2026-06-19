@@ -74,6 +74,11 @@ public struct SubstrateHealthPanel: View {
                 // (agent_core deep_research, EPISTEMOS_DEEP_RESEARCH_V0). Reads the
                 // same flag the in-process Rust run reads.
                 DeepResearchHealthRow()
+
+                // DATA+FINETUNE (4) — whether Night Brain's native idle LoRA
+                // fine-tune is armed (EPISTEMOS_NIGHTBRAIN_LORA_V0). Reads the
+                // same flag the idle decision reads.
+                NightBrainLoRAHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
