@@ -1280,8 +1280,23 @@ per pass). Keep until all done + hardened (rule #6/#8).
       forbids it; `PartialEq` kept, nothing compares whole requests for Eq; documented).
       +2 cargo tests (Settings None-skip round-trip; WorkRequest carries settings +
       stays inert). cargo --lib BOTH green (default 74/0, pro-build 94/0). GUARDRAIL
-      holds. NEXT (S6): the provider/format layer (deps permitting) + FFI-export the
-      real run_work_session.
+      holds.
+      ✅ S6 2026-06-19 (loop-safety guard — FIRST clean_room_rewrite; verbatim leaves
+      EXHAUSTED): the easy self-contained block/goose leaves are now all vendored
+      (source_roots + permission + recipe params/Settings); the remaining types
+      (tool_monitor, model_config, message) depend on `rmcp`/internal-goose/async — NOT
+      clean direct_import leaves. So S6 pivots posture: a FIRST-PARTY `RepetitionGuard`
+      in work.rs — ProvenanceGate `clean_room_rewrite` of block/goose
+      `RepetitionInspector` (tool_monitor.rs): the same consecutive-repeat detection +
+      per-tool counts, re-expressed against a first-party tool-call shape (name +
+      `serde_json::Value` args) so it pulls NO rmcp/async-trait deps + uses no
+      force-unwrap. Real Work-engine loop safety (blocks a tool call repeated past
+      `max_repetitions` so a session can't spin forever). +5 cargo tests (blocks
+      consecutive repeats / resets on a different call / None never blocks but counts /
+      args distinguish calls / reset clears). cargo --lib BOTH green (default 79/0,
+      pro-build 99/0). GUARDRAIL holds. NEXT (S7): the provider/format layer needs rmcp
+      or a clean-room message shape — heavier, NOT a one-pass autonomous leaf; flag for
+      a focused multi-slice push.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,

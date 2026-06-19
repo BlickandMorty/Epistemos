@@ -216,6 +216,80 @@ impl std::fmt::Display for WorkError {
 }
 impl std::error::Error for WorkError {}
 
+/// Loop-safety guard for the Work engine's tool calls (Goose S6) — blocks a tool call
+/// when the SAME call (name + args) repeats CONSECUTIVELY more than `max_repetitions`
+/// times, so a Work session can't spin forever on one action. Also tracks per-tool
+/// total counts.
+///
+/// ProvenanceGate `clean_room_rewrite` of the block/goose `RepetitionInspector`
+/// algorithm (Apache-2.0, crates/goose/src/tool_monitor.rs): the consecutive-repeat
+/// detection + per-tool counting are the SAME algorithm, re-expressed against a
+/// first-party tool-call shape (name + `serde_json::Value` args) so it pulls NO
+/// `rmcp` / `async_trait` / internal-goose deps. This is a FIRST-PARTY type — NOT a
+/// vendored verbatim import — and uses no force-unwrap (the project rule the upstream
+/// `.unwrap()` would have violated).
+#[derive(Debug, Default)]
+pub struct RepetitionGuard {
+    max_repetitions: Option<u32>,
+    last_call: Option<(String, serde_json::Value)>,
+    repeat_count: u32,
+    call_counts: std::collections::HashMap<String, u32>,
+}
+
+impl RepetitionGuard {
+    pub fn new(max_repetitions: Option<u32>) -> Self {
+        Self {
+            max_repetitions,
+            last_call: None,
+            repeat_count: 0,
+            call_counts: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Record a tool call. Returns `true` if it may proceed, `false` if it exceeds the
+    /// consecutive-repetition limit (the engine should stop / change tack). With
+    /// `max_repetitions == None` it never blocks (only counts).
+    pub fn check(&mut self, name: &str, args: &serde_json::Value) -> bool {
+        *self.call_counts.entry(name.to_string()).or_insert(0) += 1;
+
+        let max = match self.max_repetitions {
+            None => {
+                self.last_call = Some((name.to_string(), args.clone()));
+                self.repeat_count = 1;
+                return true;
+            }
+            Some(max) => max,
+        };
+
+        match &self.last_call {
+            Some((last_name, last_args)) if last_name == name && last_args == args => {
+                self.repeat_count += 1;
+                if self.repeat_count > max {
+                    return false;
+                }
+            }
+            _ => {
+                self.repeat_count = 1;
+            }
+        }
+
+        self.last_call = Some((name.to_string(), args.clone()));
+        true
+    }
+
+    /// Total times a given tool has been called this session.
+    pub fn call_count(&self, name: &str) -> u32 {
+        self.call_counts.get(name).copied().unwrap_or(0)
+    }
+
+    /// Clear all repetition state (e.g. between Work sessions).
+    pub fn reset(&mut self) {
+        self.last_call = None;
+        self.repeat_count = 0;
+        self.call_counts.clear();
+    }
+}
+
 fn flag_is_armed(raw: Option<&str>) -> bool {
     matches!(
         raw.map(|s| s.trim().to_ascii_lowercase()).as_deref(),
@@ -434,5 +508,56 @@ mod tests {
         assert_eq!(req.settings.as_ref().unwrap().goose_model.as_deref(), Some("gemma"));
         // Still inert — carrying settings never wires an engine or falls back.
         assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
+    }
+
+    #[test]
+    fn repetition_guard_blocks_consecutive_repeats() {
+        let mut guard = RepetitionGuard::new(Some(2));
+        let args = serde_json::json!({"path": "a"});
+        assert!(guard.check("read", &args)); // 1st
+        assert!(guard.check("read", &args)); // 2nd (repeat_count 2, not > 2)
+        assert!(!guard.check("read", &args)); // 3rd consecutive identical → blocked
+    }
+
+    #[test]
+    fn repetition_guard_resets_on_a_different_call() {
+        let mut guard = RepetitionGuard::new(Some(1));
+        let a = serde_json::json!({"x": 1});
+        let b = serde_json::json!({"y": 2});
+        assert!(guard.check("read", &a)); // rc=1
+        assert!(!guard.check("read", &a)); // rc=2 > 1 → blocked
+        assert!(guard.check("write", &b)); // a different call resets the streak → allowed
+    }
+
+    #[test]
+    fn repetition_guard_none_never_blocks_but_counts() {
+        let mut guard = RepetitionGuard::new(None);
+        let args = serde_json::json!({});
+        for _ in 0..50 {
+            assert!(guard.check("loop", &args));
+        }
+        assert_eq!(guard.call_count("loop"), 50);
+        assert_eq!(guard.call_count("never"), 0);
+    }
+
+    #[test]
+    fn repetition_guard_args_distinguish_calls() {
+        let mut guard = RepetitionGuard::new(Some(1));
+        assert!(guard.check("read", &serde_json::json!({"f": "a"})));
+        // same name, DIFFERENT args → not a consecutive repeat → allowed
+        assert!(guard.check("read", &serde_json::json!({"f": "b"})));
+        // now the b-args repeats → blocked (rc=2 > 1)
+        assert!(!guard.check("read", &serde_json::json!({"f": "b"})));
+    }
+
+    #[test]
+    fn repetition_guard_reset_clears_state() {
+        let mut guard = RepetitionGuard::new(Some(1));
+        let args = serde_json::json!({});
+        assert!(guard.check("read", &args));
+        assert!(!guard.check("read", &args)); // blocked
+        guard.reset();
+        assert_eq!(guard.call_count("read"), 0);
+        assert!(guard.check("read", &args)); // fresh again after reset
     }
 }
