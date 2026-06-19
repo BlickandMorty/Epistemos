@@ -100,7 +100,15 @@ mis-pathed one layer down.* Almost everything is WIRE / DELETE / FLIP, not impor
 28. **ColBERT tool-selector**: `ToolScorer{lexical|colbert}` trait swap; in-process GGUF embedding FFI + Rust MaxSim; same retriever upgrades vault RAG. **Strictly downstream of loop-entry.** `[S12 · Pro]`
 29. **Streamdown/StreamHtml polish**: unterminated-block tolerance + KaTeX-in-chat + tiny WebKit Mermaid. `[S14 · MAS]`
 30. **R-SYNC (LAST)**: iCloud-Drive + invert SoT (`.md`→SoT, `.epcache` never syncs); Pro git lane via `vault_git.rs`. Highest blast radius (`VaultSyncService` 176KB). `[S16/S5 · MAS, HIGH risk]`
-31. **R-VOICE** (additive over the real Apple TTS/STT seam) + **prune orphan views IN PAIRS** with their dead Rust twins. `[S6/S5 · MAS]`
+31. **R-VOICE** (additive over the real Apple TTS/STT seam: wire the inert auto-TTS toggles + route the macOS-26 mic through the orphaned `EpistemosSpeechAnalyzer` + the meeting/lecture seam; Kokoro/Whisper as Pro installable upgrades, blocked by the download bug) + **prune orphan views IN PAIRS** with their dead Rust twins. `[S6/S5/S11 · MAS]`
+
+### PHASE ∞ — ABSOLUTELY LAST, INDEFINITE (owner 2026-06-19)
+32. **Living Index + Lattice Explainer / obscura-era-forward local-research mining.** The loop
+    recursively mines its own obscura-era→present local research corpus (EML/episodic-memory-lattice,
+    the lattice explainer, `EPISTEMOS_LIVING_INDEX_2026_05_24.md`). This is an **INDEFINITE / never-
+    terminating** research loop, so it is sequenced **ABSOLUTELY LAST** — DO NOT START until ALL of
+    Phase 0→3 above (and every finite research slice) is done. Never ahead of the broken-things repair,
+    the engines, or the supersession features. `[owner-gated · indefinite]`
 
 ---
 

@@ -1295,6 +1295,16 @@ calls: no blanket rule — choose per case.
       deep-mine EPISTEMOS_LIVING_INDEX_2026_05_24.md + the lattice explainer ("lots
       of things there") for theoretical + app upgrades using EML + other PRIMITIVES
       (NOT the 70B). Pull each into the ledger + BUILD; 70B alone stays owner-gated.
+      ⏳ **SEQUENCE ABSOLUTELY LAST (owner 2026-06-19):** *"the last research thing where
+      the loop looks for local research on the obscura era and forward — I want that to be
+      LAST because it goes into the lattice explainer and living index, so it should be
+      absolutely last since it's an indefinite research loop at that point."* This is the
+      **INDEFINITE / open-ended** research tail (the loop recursively mines its own
+      obscura-era→present local research corpus — EML/episodic-memory-lattice, the lattice
+      explainer, the living index). DO NOT START IT until ALL finite roadmap work is done
+      (MASTER_SYNTHESIS Phase 0→3 + every finite research slice). It never terminates, so
+      it must be the very LAST thing the loop turns to — never ahead of the broken-things
+      repair, the engines, or the supersession features.
 - [ ] Founding thesis everywhere: determinism + verifiability on small local models;
       substrate health + Knowledge Core (P5/R-ARCH) — more important than 70B.
 - [ ] **P5.H — DEEP-HARDEN + FINISH the substrate research** (Cognitive DAG incl.
