@@ -14,6 +14,7 @@ struct ModelVaultsSettingsView: View {
     @State private var compiledVaultCount = 0
     @State private var totalTargetCount = 0
     @State private var providerRows: [ProviderRowModel] = []
+    @State private var vaultDetails: [ModelVaultDetailModel] = []
     @State private var loadError: String?
 
     var body: some View {
@@ -131,33 +132,20 @@ struct ModelVaultsSettingsView: View {
                     }
                 }
 
-                GroupBox("Compiled Files") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        VaultFileRow(
-                            name: "knowledge_profile.md",
-                            description: "Domain map, entity graph, and writing style fingerprint",
-                            availability: compiledVaultCount == 0 ? "Not generated yet" : "Present in compiled vaults"
-                        )
-                        Divider()
-                        VaultFileRow(
-                            name: "concept_index.md",
-                            description: "Ranked concepts distilled from your notes",
-                            availability: compiledVaultCount == 0 ? "Not generated yet" : "Present in compiled vaults"
-                        )
-                        Divider()
-                        VaultFileRow(
-                            name: "active_context.md",
-                            description: "Rolling active-context window plus recent chats",
-                            availability: compiledVaultCount == 0 ? "Not generated yet" : "Present in compiled vaults"
-                        )
-                        Divider()
-                        VaultFileRow(
-                            name: "instructions.md",
-                            description: "User-editable preferences and conventions per model",
-                            availability: compiledVaultCount == 0 ? "Default instructions will be created on first compile" : "Present in compiled vaults"
-                        )
+                GroupBox("Per-Model Vault Files") {
+                    if vaultDetails.isEmpty {
+                        Text("No model targets yet — configure a cloud provider or install a local model, then Rebuild All Vaults.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .padding(4)
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(vaultDetails) { detail in
+                                ModelVaultDetailRow(detail: detail)
+                            }
+                        }
+                        .padding(4)
                     }
-                    .padding(4)
                 }
 
                 GroupBox("Background Compilation") {
@@ -236,8 +224,30 @@ struct ModelVaultsSettingsView: View {
             )
         }
 
+        // Owner 2026-06-18: real per-model file status, read from disk — not a
+        // generic "Present in compiled vaults" claim. Probe each target's vault
+        // directory for the canonical files (size + last-modified, honest
+        // missing). Compiled models sort first so the eye lands on real data.
+        let details: [ModelVaultDetailModel] = targets
+            .map { target in
+                let files = ModelVaultFileInspector.probe(
+                    directory: store.modelVaultDirectoryURL(for: target.modelID)
+                )
+                return ModelVaultDetailModel(
+                    modelID: target.modelID,
+                    displayName: target.displayName,
+                    iconName: ProviderBucket.bucket(for: target)?.icon ?? "doc.text",
+                    files: files
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.isCompiled != rhs.isCompiled { return lhs.isCompiled && !rhs.isCompiled }
+                return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+            }
+
         await MainActor.run {
             providerRows = rows
+            vaultDetails = details
             compiledVaultCount = loadedVaults.count
             totalTargetCount = targets.count
             conceptCount = loadedVaults.values.reduce(0) { $0 + $1.metadata.conceptCount }
@@ -416,6 +426,94 @@ private struct ProviderRow: View {
                     Text(lastCompiledAt, style: .relative)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Per-Model Vault Detail
+
+/// One model's real compiled-vault status (owner 2026-06-18). Wraps the on-disk
+/// file probe so the row renders honest size + timestamp data per file.
+private struct ModelVaultDetailModel: Identifiable {
+    let modelID: String
+    let displayName: String
+    let iconName: String
+    let files: [ModelVaultFileStatus]
+
+    var id: String { modelID }
+    var isCompiled: Bool { ModelVaultFileInspector.anyCompiled(files) }
+    var totalBytes: Int { ModelVaultFileInspector.totalBytes(files) }
+}
+
+/// A collapsible per-model row: name + ID + compiled dot + total size in the
+/// header; the canonical files with real size + last-modified (honest "Not
+/// compiled" per file) when expanded.
+private struct ModelVaultDetailRow: View {
+    let detail: ModelVaultDetailModel
+    @State private var expanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(detail.files) { file in
+                    HStack(spacing: 8) {
+                        Image(systemName: file.exists ? "doc.text.fill" : "doc.text")
+                            .font(.caption)
+                            .foregroundStyle(file.exists ? .secondary : .tertiary)
+                            .frame(width: 16)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(file.name)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(file.exists ? .primary : .secondary)
+                            Text(file.description)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        if file.exists {
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text(ModelVaultFileInspector.formatBytes(file.sizeBytes))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                if let modified = file.modifiedAt {
+                                    Text(modified, style: .relative)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        } else {
+                            Text("Not compiled")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+            .padding(.top, 4)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: detail.iconName)
+                    .frame(width: 20)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(detail.displayName)
+                        .font(.body)
+                    Text(detail.modelID)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(detail.isCompiled ? Color.green : Color.red)
+                        .frame(width: 7, height: 7)
+                    Text(detail.isCompiled ? ModelVaultFileInspector.formatBytes(detail.totalBytes) : "Not compiled")
+                        .font(.caption2)
+                        .foregroundStyle(detail.isCompiled ? .secondary : .tertiary)
                 }
             }
         }
