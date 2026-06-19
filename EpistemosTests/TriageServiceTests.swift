@@ -1161,6 +1161,60 @@ struct InferencePolicyEngineTests {
         #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
     }
 
+    private func explicitPickProfile() -> InferenceRequestProfile {
+        InferenceRequestProfile(
+            surface: .mainChat,
+            intent: .simpleAsk,
+            contentLength: 120,
+            promptLength: 96,
+            contextBlockCount: 0,
+            estimatedTokenLoad: 48,
+            baseComplexity: 0.20,
+            queryComplexity: 0.02,
+            operatingMode: .thinking,
+            requestedReasoningMode: .thinking,
+            explicitThinkingRequested: true,
+            explicitFastRequested: false,
+            visibleThinkingRequested: true
+        )
+    }
+
+    @Test("MODEL SELECTION HONORED: an explicit, installed local pick runs THAT model (not Qwen 3 4B)")
+    func explicitInstalledLocalPickRunsThatModel() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: explicitPickProfile(),
+            context: makeContext(
+                appleAvailable: false,
+                preferredChatModelSelection: .localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue),
+                preferredLocalTextModelID: .deepseekR1Distill7B,
+                installed: [.deepseekR1Distill7B, .qwen3_4B4Bit]
+            )
+        )
+        // select-X → generate-X: the explicitly-picked, installed model is what runs.
+        #expect(decision.localSelection?.modelID == LocalTextModelID.deepseekR1Distill7B.rawValue)
+        #expect(decision.localSelection?.modelID != LocalTextModelID.qwen3_4B4Bit.rawValue)
+    }
+
+    @Test("MODEL SELECTION HONORED: an explicit local pick that is NOT installed is honest — no silent Qwen-3-4B substitute")
+    func explicitUninstalledLocalPickIsHonestNotSubstituted() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: explicitPickProfile(),
+            context: makeContext(
+                appleAvailable: false,
+                preferredChatModelSelection: .localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue),
+                preferredLocalTextModelID: .deepseekR1Distill7B,
+                installed: [.qwen3_4B4Bit] // the picked model is NOT installed; only Qwen is
+            )
+        )
+        // The owner-reported bug was the picked-but-unavailable model silently becoming
+        // Qwen 3 4B. With auto-substitution OFF (the default), the pick is NOT silently
+        // replaced — the selection is honestly unavailable, so the UI can prompt to install
+        // it or pick another. The one thing it must NEVER be is a silent Qwen-3-4B substitute.
+        #expect(decision.localSelection?.modelID != LocalTextModelID.qwen3_4B4Bit.rawValue)
+    }
+
     @Test("local only bypasses Apple Intelligence even for trivial work")
     func localOnlyBypassesApple() {
         let engine = InferencePolicyEngine()
