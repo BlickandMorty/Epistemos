@@ -922,7 +922,7 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
       WIRED — QLoRATrainer's python3 Process() body REPLACED by in-process
       NativeLoRATrainer.train (MLXLLM.LoRATrain, d4b468b2b+a6f479ec2; subprocess
       KILLED; watchdog-test fixed db317f42d; compile-verified, on-device run
-      pending) · 2d remove dead Python plumbing (pythonPath/TrainingProgressParser)
+      pending) · 2d✅ dead Python plumbing removed (pythonPath/activeProcess/TrainingProgressParser, 01f499060; +2 mirrored-test regressions fixed) · 3 NEXT: native MoLoRA (LoRAContainer.load replaces molora_inference.py subprocess)
       · 2(old) SUBSTRATE done
       (de094e5e7): NativeLoRAPlan (pure TrainingConfig→native hyperparams, tested)
       + gated NativeLoRATrainer building REAL LoRATrain.Parameters + LoRAConfiguration
