@@ -2925,3 +2925,23 @@ native; AGPL server). ADOPT 2 patterns natively:
       EpdocEditorURLSchemeHandler-style scheme (Brotli/CSP/shared processPool); add the live patch→WKWebView
       push (R-LIVE-ARTIFACTS path). MAS core. Owner verifies edit works in-app. This is Phase 0 #8 in the
       master roadmap (a fix-the-broken item, not a new feature).
+- [ ] **PROVENANCE MOAT — make the honest-provenance substrate the VISIBLE moat (S19, the #1
+      differentiator).** Spec: docs/research/PROVENANCE_MOAT_2026_06_19.md. Epistemos has the deepest
+      honest-provenance substrate of any PKM (Eidos closed-citation w/ inverse-closure + 472 tests;
+      retraction-propagating ClaimLedger; content-addressed cognitive DAG; tamper-evident replayable
+      `.epbundle` + verify-CLI + CI gate) — but it's the SAME built-then-not-wired keystone.
+      **⚠️ HONESTY BUG (owner no-fake doctrine): AnswerPacket "verified"/VRMLabel chips are SYNTHETIC** —
+      `scope_rex/produce.rs:114-183` synthesizes claims from `(stop_reason, tokens, attention_mode)` and
+      NEVER queries the ClaimLedger, so a bubble can show "Verified/Plausible" with zero real provenance.
+      Fix this first (it's a fake-feature). Then the moat plan (each follows the HARDENING LIFECYCLE):
+      (1) universalize emission — thread `answerPacketId` through the local-MLX + local-agent completion
+      paths (`ChatCoordinator.swift:579/1327`) so EVERY answer (local+cloud) carries a packet (local
+      answers get NO chip today = cloud-only, breaking the local-first thesis); (2) make claims REAL
+      (query the live ClaimLedger; wire a live writer — the DAG mirror exists); (3) enforce closed-citation
+      on answers (W-47, `ChatCoordinator.swift:4500`) + POPULATE the Eidos index (`insertVaultNote` into
+      the vault crawl — index is opened but empty) + flip `EPISTEMOS_EIDOS_V0` + FLIP+VERIFY; (4) unify ONE
+      "why / what / prove-it" per-answer footer across Chat/Act/Work over the process-shared provenance seam
+      (not per-engine copies; guard with the isolation lint); (5) in-app **`.epbundle` "Prove it" export**
+      (FFI `export_replay_bundle_json` → `ReplayBundle::build_with_dag`+`to_epbundle_bytes`) — the headline
+      enterprise asset, zero in-app path today; (6) bind WRV chips to real falsifier artifacts (green earned).
+      Composes with engine-isolation (provenance is shared CAPABILITY, not shared logic). MAS core (#5 Pro).
