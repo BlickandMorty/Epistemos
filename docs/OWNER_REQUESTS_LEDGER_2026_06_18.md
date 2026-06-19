@@ -2413,6 +2413,16 @@ native; AGPL server). ADOPT 2 patterns natively:
       progress, completion confirmation. This is part of the SAME MODEL DOWNLOAD repair
       (the unblocker for in-app testing) — fix the pipeline so installs actually
       complete, verify, and show progress, for every advertised/installable model.
+      🔎 S1 STOP-REINVENTING ROOT (docs/research/STOP_REINVENTING_AUDIT_2026_06_19.md): the download
+      TRANSPORT is NOT reinvented — `ModelDownloadManager.install` uses the official HF
+      `HubClient.downloadSnapshot` (Range-resume + concurrent shards) + verify + atomic finalize (KEEP).
+      The likely "corrupted/incomplete" ROOT is the in-house wrapper: `Epistemos/Engine/
+      LocalModelInfrastructure.swift purgeStaleStagingDirectories` (30-min grace) SILENTLY DEFEATS
+      resume on large/slow models (20GB Qwen MoE) — partial shards get purged mid-download, so resume
+      evaporates and the next attempt reports incomplete/corrupt; plus NO auto-retry on transient
+      failure, and the full SHA-256 re-hash at finalize looks frozen ("Finalizing…"). FIX: condition the
+      purge on NOT-actively-downloading (or raise/scale the grace by model size), add bounded retry,
+      and surface the hash-verify phase in the progress bar so it isn't mistaken for a hang.
       ✅ STEP 1 — VISIBILITY/ACCESS RESTORED 2026-06-19 (the "only the foundation package
       is offered" symptom): DIAGNOSIS — `Epistemos/Views/Settings/SettingsView.swift:3307`
       gated the individual-model install sections (the "Recommended Baseline" + "Optional
@@ -2717,3 +2727,12 @@ native; AGPL server). ADOPT 2 patterns natively:
       ACTUAL live select→generate path (AgentCommandCenterState/RuntimeRouter) and asserts the picked
       model id reaches the generator. Don't tick until the OWNER confirms in-app that selecting a model
       actually changes which model answers. Likely needs the careful re-arm (touches live inference path).
+      🔎 S1 STOP-REINVENTING ROOT (docs/research/STOP_REINVENTING_AUDIT_2026_06_19.md): the deeper
+      root is BUILT-THEN-NOT-WIRED — `Epistemos/LocalAgent/RuntimeRouter.swift:580 route(_:)` (the
+      PROPER multi-lane model router, mirrors Hermes runtime_provider/Goose) has **ZERO production
+      callers**; live selection falls to `TriageService.InferencePolicyEngine.preferredAutomaticLocalModel:669`
+      (threshold-soup + hardcoded priority list) → why picks don't stick. FIX: WIRE RuntimeRouter into the
+      live dispatch (keep it the intra-local lane chooser, NOT the Act picker), fold R2's hardcoded priority
+      list into R1's preference table, and DELETE the dead duplicate routers (`LocalAgent/ConfidenceRouter.swift`,
+      `Omega/Inference/{DualBrainRouter,HybridRouter}.swift` — all "never instantiated in production").
+      Collapse 4 routers → R1+R2. The durable fix behind the honest-nil patch.
