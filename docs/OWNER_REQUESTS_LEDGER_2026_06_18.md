@@ -992,6 +992,18 @@ calls: no blanket rule — choose per case.
       or drops content (both parts come from the raw; the reasoning is preserved, not
       stripped). +3 cargo tests (in-progress true/false, content-preservation). cargo
       --lib BOTH green (9/0 on `reasoning_tokens`).
+      ✅ FFI EXPOSURE 2026-06-19 (reasoning isolation reachable from Swift): the one
+      schema-engine primitive NOT yet callable from Swift (preflight + validation already
+      had FFIs; reasoning_tokens didn't). NEW `#[uniffi::export] split_reasoning_json(raw)
+      -> String` returns `{"thinking": <string|null>, "answer": <string>,
+      "thinking_in_progress": <bool>}` so a streaming UI renders only the clean ANSWER,
+      surfaces the reasoning separately, and HOLDS the answer while thinking is in progress
+      — reasoning PRESERVED, never stripped (honesty constraint). PURE — makes the
+      determinism callable ("surface the determinism visibly") without altering any live
+      path on its own (the in-loop wiring is the owner regen + a follow-on, like the
+      preflight FFI). +4 cargo tests (complete block / in-progress hold / null-thinking /
+      valid-JSON-escaping with quotes+newlines). cargo --lib BOTH green: default 5454/0,
+      pro-build 5717/0 (+4 each, zero regression).
       ✅ §C.1 PIPELINE 2026-06-19 (preflight → dispatch grammar): RESEARCH FIRST found
       the structured-gen pieces ALREADY EXIST — json-schema VALIDATION (`jsonschema`
       crate in tools_v2/runner.rs) + json-schema→GBNF grammar (grammar/mod.rs
