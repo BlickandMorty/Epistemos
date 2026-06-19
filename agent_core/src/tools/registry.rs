@@ -88,6 +88,56 @@ fn mas_allows_bounded_internal_mutation(name: &str, input: &Value) -> bool {
     }
 }
 
+/// Tolerant tool-argument normalizer — the central fix for tool-call ARG MARSHALING.
+///
+/// A model's tool-call arguments must reach a handler as the parsed args OBJECT (so
+/// `input["notes"].as_array()` etc. work), but across the local-grammar and cloud paths the
+/// args can arrive mis-marshaled: (a) double-encoded as a JSON **string** (the FFI then
+/// parses the outer layer to a `Value::String`, so `input["x"]` is `Null` → the classic
+/// "invalid arguments: … required" even though the field WAS present), or (b) still wrapped
+/// in the `{"name": …, "arguments": {…}}` tool-call envelope. This unwraps both so every
+/// handler sees a clean object. Idempotent on a well-formed object (returns it unchanged),
+/// recursion-bounded, and never fabricates fields — a non-JSON string or an unrelated object
+/// passes through untouched.
+fn normalize_tool_input(input: &Value) -> Value {
+    normalize_tool_input_bounded(input, 4)
+}
+
+fn normalize_tool_input_bounded(input: &Value, depth: u8) -> Value {
+    if depth == 0 {
+        return input.clone();
+    }
+    // (a) Args double-encoded as a JSON string → parse and re-normalize.
+    if let Value::String(s) = input {
+        let trimmed = s.trim();
+        let looks_jsonish = (trimmed.starts_with('{') && trimmed.ends_with('}'))
+            || (trimmed.starts_with('[') && trimmed.ends_with(']'));
+        if looks_jsonish {
+            if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
+                return normalize_tool_input_bounded(&parsed, depth - 1);
+            }
+        }
+    }
+    // (b) Full tool-call envelope `{"name": …, "arguments": {…}}` → unwrap the arguments.
+    // Strict shape check (only the envelope keys, `arguments` is a container) so a legitimate
+    // args object that merely contains a `name` field is never unwrapped.
+    if let Value::Object(map) = input {
+        let only_envelope_keys = map
+            .keys()
+            .all(|k| matches!(k.as_str(), "name" | "arguments" | "id" | "type"));
+        let args_is_container = map
+            .get("arguments")
+            .map(|a| a.is_object() || a.is_array())
+            .unwrap_or(false);
+        if map.contains_key("name") && args_is_container && only_envelope_keys {
+            if let Some(args) = map.get("arguments") {
+                return normalize_tool_input_bounded(args, depth - 1);
+            }
+        }
+    }
+    input.clone()
+}
+
 #[cfg(not(feature = "pro-build"))]
 fn mas_runtime_preflight(
     tool: &RegisteredTool,
@@ -764,6 +814,13 @@ impl ToolRegistry {
         if !self.is_tool_permitted(tool) {
             return Err(ToolError::PermissionDenied);
         }
+
+        // Tool-call ARG MARSHALING repair: unwrap string-encoded / envelope-wrapped args so
+        // every downstream consumer (authz inference, schema gate, the handler) sees the
+        // clean args object. Idempotent on well-formed input. Fixes the "invalid arguments:
+        // … required" class where the field was present but the args arrived mis-marshaled.
+        let normalized_input = normalize_tool_input(input);
+        let input = &normalized_input;
 
         let authz_target = crate::resources::tool_authz::infer_tool_authz_target(
             registered_name,
@@ -3681,6 +3738,22 @@ mod tier_tests {
         }
     }
 
+    /// Mirrors `note_tools.rs` `ResearchDigestTool`: reads `input["notes"]` as an array and
+    /// errors `"notes array required"` when it isn't — the EXACT failure the arg-marshaling
+    /// bug produced. After the registry normalizes the input this must succeed; the handler
+    /// returns the note count so the test can assert the array actually arrived.
+    struct NotesProbeHandler;
+
+    #[async_trait]
+    impl ToolHandler for NotesProbeHandler {
+        async fn execute(&self, input: &serde_json::Value) -> Result<String, ToolError> {
+            let notes = input["notes"]
+                .as_array()
+                .ok_or_else(|| ToolError::InvalidArguments("notes array required".into()))?;
+            Ok(notes.len().to_string())
+        }
+    }
+
     #[cfg(not(feature = "pro-build"))]
     fn register_test_tool(registry: &mut ToolRegistry, name: &str, risk_level: RiskLevel) {
         registry.register(RegisteredTool {
@@ -3742,6 +3815,74 @@ mod tier_tests {
             other => panic!("expected InvalidArguments, got {other:?}"),
         }
         std::env::remove_var("EPISTEMOS_SCHEMA_GATE_V1");
+    }
+
+    #[test]
+    fn normalize_unwraps_double_encoded_string_args() {
+        // (a) args double-encoded as a JSON string → parsed object; the field is reachable.
+        let mis = json!("{\"notes\":[\"a\",\"b\"]}");
+        let fixed = normalize_tool_input(&mis);
+        assert_eq!(fixed["notes"].as_array().map(|a| a.len()), Some(2));
+    }
+
+    #[test]
+    fn normalize_unwraps_tool_call_envelope() {
+        // (b) the full {"name","arguments"} tool-call envelope → unwrapped to the args.
+        let mis = json!({ "name": "note.research_digest", "arguments": { "notes": ["a"] } });
+        let fixed = normalize_tool_input(&mis);
+        assert_eq!(fixed["notes"].as_array().map(|a| a.len()), Some(1));
+    }
+
+    #[test]
+    fn normalize_passes_through_clean_object_and_plain_strings() {
+        let clean = json!({ "notes": ["a"] });
+        assert_eq!(normalize_tool_input(&clean), clean); // idempotent on a good object
+        let plain = json!("just a sentence, not JSON");
+        assert_eq!(normalize_tool_input(&plain), plain); // a non-JSON string is untouched
+    }
+
+    #[test]
+    fn normalize_does_not_unwrap_legit_args_that_carry_a_name_field() {
+        // A real args object with a `name` field + other keys is NOT an envelope → untouched.
+        let legit = json!({ "name": "my note", "title": "x", "tags": ["t"] });
+        assert_eq!(normalize_tool_input(&legit), legit);
+    }
+
+    #[tokio::test]
+    async fn registry_repairs_mis_marshaled_tool_args_end_to_end() {
+        // Regression for the owner-reported bug: a model emits note.research_digest with a
+        // notes array, but the args arrive mis-marshaled and the handler errored "notes
+        // array required". The registry now normalizes so the handler sees the array.
+        let _env_guard = crate::test_support::env_lock();
+        std::env::remove_var("EPISTEMOS_SCHEMA_GATE_V1");
+        let mut registry = build_registry(ToolTier::Full);
+        registry.register(RegisteredTool {
+            name: "notes_probe".to_string(),
+            description: "test".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": { "notes": { "type": "array" } },
+                "required": ["notes"]
+            }),
+            handler: Box::new(NotesProbeHandler),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::ChatLite,
+        });
+
+        // Baseline: a clean args object works.
+        assert_eq!(
+            registry.execute("notes_probe", &json!({ "notes": ["a", "b"] })).await.unwrap(),
+            "2"
+        );
+        // The BUG (a): args double-encoded as a JSON string — previously errored "notes
+        // array required"; now normalized so the handler sees the array.
+        assert_eq!(
+            registry.execute("notes_probe", &json!("{\"notes\":[\"a\",\"b\",\"c\"]}")).await.unwrap(),
+            "3"
+        );
+        // The other marshaling mode (b): a full tool-call envelope.
+        let envelope = json!({ "name": "notes_probe", "arguments": { "notes": ["a"] } });
+        assert_eq!(registry.execute("notes_probe", &envelope).await.unwrap(), "1");
     }
 
     #[test]

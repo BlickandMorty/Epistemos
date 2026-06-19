@@ -142,6 +142,29 @@ calls: no blanket rule — choose per case.
       defect, not an edge case. NOTE: this audit also de-risks R-HERMES skills fusion
       (`docs/research/HERMES_ACT_FUSION_MAP_2026_06_19.md` caps #1/#2) — a sound
       skills/tools substrate is the precondition for fusing Hermes skills onto it.
+      ✅ FIX 1 — ARG MARSHALING (the central repair) 2026-06-19: research traced the path —
+      a tool's args reach the handler via `ToolRegistry::execute` (agent_core/src/tools/
+      registry.rs), the SHARED chokepoint for BOTH paths (local: ToolTierBridge →
+      `execute_tool_call` FFI → execute; cloud: agent_loop → execute_v2 → execute), which is
+      why ONE central fix covers "both local AND cloud". The "args not arriving as a parsed
+      object" symptom = the args arrive (a) double-encoded as a JSON STRING (the FFI parses
+      the outer layer to a `Value::String`, so `input["notes"]` is `Null` → `.as_array()` =
+      None → "notes array required" even though notes WERE present), or (b) still wrapped in
+      the `{"name","arguments"}` tool-call envelope. FIX: NEW `normalize_tool_input(&Value)`
+      — a tolerant, recursion-bounded, idempotent normalizer that unwraps BOTH modes (parses
+      a JSON-string blob; strictly unwraps an envelope only when the keys are envelope-only
+      and `arguments` is a container, so a legit args object that merely carries a `name`
+      field is NEVER unwrapped) — wired at the TOP of `execute` so EVERY downstream consumer
+      (authz inference, the schema gate, the handler) sees the clean object. +5 cargo tests:
+      4 unit + 1 END-TO-END regression (`registry_repairs_mis_marshaled_tool_args_end_to_end`)
+      that registers a `NotesProbeHandler` mirroring note_tools.rs:387 (reads
+      `input["notes"].as_array()`, errors "notes array required") and drives `registry.execute`
+      with the clean / string-encoded / envelope shapes — all now succeed. cargo --lib BOTH
+      green: default 5459/0, pro-build 5722/0 (+5 each, ZERO regression). HONEST SCOPE: this
+      is the defensive central marshaling repair (handles both known mangling modes); the
+      owner's build+run in-app confirmation + the OTHER parts — (2) auto-route queries to
+      tools, (3) restore tool UI boxes, (4) fix vault retrieval, (5) per-tool/skill PASS/FAIL
+      audit — are follow-on slices.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
