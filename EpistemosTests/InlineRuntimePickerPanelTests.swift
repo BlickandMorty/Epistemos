@@ -182,4 +182,25 @@ struct InlineRuntimePickerPanelTests {
         #expect(!src.contains("LocalModelToolbarMenu("),
                 "note ask bar must use the inline panel, not the popover menu")
     }
+
+    /// Owner 2026-06-18 (non-reductive picker on ALL 5 surfaces): every
+    /// single-button surface must mount the SAME full panel — a real
+    /// `operatingMode` binding (so the MODE Chat/Act + EFFORT sections render)
+    /// AND `showsSettingsFooter: true` (so routing/cloud/native stay reachable
+    /// via the Settings footer) — never a reduced subset of main chat. Locks
+    /// parity so a future surface edit can't silently drop a control.
+    @Test("all single-button surfaces mount the full non-reductive panel")
+    func allSingleButtonSurfacesAreNonReductive() throws {
+        for path in [
+            "Epistemos/Views/Landing/LandingView.swift",
+            "Epistemos/Views/MiniChat/MiniChatView.swift",
+            "Epistemos/Views/Graph/HologramSearchSidebar.swift",
+            "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift",
+        ] {
+            let src = try loadMirroredSourceTextFile(path)
+            #expect(src.contains("InlineRuntimePickerPanel("), "\(path) mounts the inline panel")
+            #expect(src.contains("showsSettingsFooter: true"), "\(path) keeps the Settings footer")
+            #expect(src.contains("operatingMode:"), "\(path) passes a mode binding (MODE + EFFORT render)")
+        }
+    }
 }
