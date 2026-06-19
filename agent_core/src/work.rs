@@ -92,11 +92,11 @@ pub mod vendored_goose {
         //! derive + `use utoipa` are DROPPED (agent_core has no `utoipa`); (2) the
         //! `Display` impls (which used `serde_json::to_string(self).unwrap()`) are
         //! OMITTED — a convenience not needed for the Work seam, and `.unwrap()`
-        //! violates the project no-force-unwrap rule; (3) `PartialEq, Eq` are ADDED
-        //! (not upstream) so the types compose into the `PartialEq` `WorkRequest` and
-        //! support test assertions — additive only, wire-form unchanged. Every struct
-        //! field + enum variant + the serde `rename_all = "snake_case"` is byte-for-byte
-        //! upstream.
+        //! violates the project no-force-unwrap rule; (3) `PartialEq` is ADDED (not
+        //! upstream), plus `Eq` where the field types allow (the parameter types; NOT
+        //! `Settings`, whose `temperature: Option<f32>` isn't `Eq`) — additive only,
+        //! wire-form unchanged. Every struct field + enum variant + the serde
+        //! `rename_all = "snake_case"` is byte-for-byte upstream.
 
         // --- BEGIN VERBATIM (block/goose, Apache-2.0; ToSchema+Display trimmed, Eq added) ---
         use serde::{Deserialize, Serialize};
@@ -133,6 +133,23 @@ pub mod vendored_goose {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub options: Option<Vec<String>>,
         }
+
+        /// A Work task's model SETTINGS — provider / model / temperature / turn budget.
+        /// `PartialEq` only (no `Eq`): `temperature: Option<f32>` isn't `Eq`.
+        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+        pub struct Settings {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub goose_provider: Option<String>,
+
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub goose_model: Option<String>,
+
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub temperature: Option<f32>,
+
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub max_turns: Option<usize>,
+        }
         // --- END VERBATIM ---
     }
 }
@@ -142,7 +159,10 @@ pub mod vendored_goose {
 /// engine operates on (the vendored block/goose `SourceRoot`), and the default
 /// permission posture (the vendored block/goose `Permission`). The engine layer (S4+)
 /// consumes this; until then `run_work_session` stays inert.
-#[derive(Debug, Clone, PartialEq, Eq)]
+// `Eq` is intentionally NOT derived: `settings` embeds the vendored `Settings`, whose
+// `temperature: Option<f32>` isn't `Eq`. `PartialEq` (sufficient for tests + callers)
+// is kept; nothing compares whole `WorkRequest`s for `Eq`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkRequest {
     pub objective: String,
     pub source_roots: Vec<vendored_goose::SourceRoot>,
@@ -150,18 +170,22 @@ pub struct WorkRequest {
     /// The typed parameters this Work task declares (vendored block/goose recipe
     /// parameters — Goose S4). Empty by default; the engine layer consumes them.
     pub parameters: Vec<vendored_goose::recipe::RecipeParameter>,
+    /// The Work task's model settings (vendored block/goose recipe `Settings` — Goose
+    /// S5): provider / model / temperature / turn budget. `None` = engine defaults.
+    pub settings: Option<vendored_goose::recipe::Settings>,
 }
 
 impl WorkRequest {
     /// A read-only request over the given roots with the safest default posture
-    /// (`AllowOnce` — never `AlwaysAllow`; the engine asks per action) and no
-    /// declared parameters.
+    /// (`AllowOnce` — never `AlwaysAllow`; the engine asks per action), no declared
+    /// parameters, and the engine's default model settings.
     pub fn read_only(objective: impl Into<String>, roots: Vec<vendored_goose::SourceRoot>) -> Self {
         Self {
             objective: objective.into(),
             source_roots: roots,
             default_permission: vendored_goose::permission::Permission::AllowOnce,
             parameters: Vec::new(),
+            settings: None,
         }
     }
 }
@@ -373,6 +397,42 @@ mod tests {
         assert_eq!(req.parameters.len(), 1);
         assert_eq!(req.parameters[0].key, "path");
         // Still inert — carrying parameters never wires an engine or falls back.
+        assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
+    }
+
+    #[test]
+    fn vendored_recipe_settings_round_trips() {
+        use vendored_goose::recipe::Settings;
+        // Upstream `skip_serializing_if` skips the None fields; the set ones round-trip.
+        let settings = Settings {
+            goose_provider: Some("anthropic".to_string()),
+            goose_model: None,
+            temperature: Some(0.2),
+            max_turns: Some(8),
+        };
+        let json = serde_json::to_string(&settings).unwrap();
+        assert!(!json.contains("goose_model")); // None skipped
+        assert!(json.contains("goose_provider"));
+        assert!(json.contains("temperature"));
+        let back: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, settings);
+    }
+
+    #[test]
+    fn work_request_carries_model_settings() {
+        use vendored_goose::recipe::Settings;
+        // A fresh request uses the engine's default settings (None).
+        let mut req = WorkRequest::read_only("x", vec![]);
+        assert!(req.settings.is_none());
+        // ...and can declare the vendored model settings the engine layer will consume.
+        req.settings = Some(Settings {
+            goose_provider: Some("local".to_string()),
+            goose_model: Some("gemma".to_string()),
+            temperature: None,
+            max_turns: Some(4),
+        });
+        assert_eq!(req.settings.as_ref().unwrap().goose_model.as_deref(), Some("gemma"));
+        // Still inert — carrying settings never wires an engine or falls back.
         assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
     }
 }
