@@ -13,7 +13,16 @@ struct FineTuneMarketplaceView: View {
     @State private var pendingApplyPack: FineTunePack?
     @State private var applyNote: String?
 
-    private var registry: FineTunePackRegistry { FineTunePackCatalog.seededRegistry() }
+    // P5 import: imported packs register into this SESSION registry (visible
+    // immediately, ProvenanceGate-checked); a saved store + the actual byte download
+    // are the on-device follow-on.
+    @State private var registry = FineTunePackCatalog.seededRegistry()
+    @State private var importSpec = ""
+    @State private var importName = ""
+    @State private var importLicense = ""
+    @State private var importKind: FineTunePackKind = .dataset
+    @State private var importGate: FineTunePackGate = .free
+    @State private var importNote: String?
 
     // Honest gating: Pro packs only appear in a Pro/dev build, never on the MAS
     // surface (owner #1 — never offer what can't run here).
@@ -67,6 +76,9 @@ struct FineTuneMarketplaceView: View {
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
                 }
+
+                Divider().padding(.vertical, 2)
+                importSection
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(4)
@@ -86,6 +98,69 @@ struct FineTuneMarketplaceView: View {
             Button("Cancel", role: .cancel) { pendingApplyPack = nil }
         } message: { pack in
             Text(pack.applyConfirmation)
+        }
+    }
+
+    // P5 import affordance (rule #8 — the owner can SEE + USE import). Parses a public
+    // source through FineTunePackImporter (ProvenanceGate: a license is required), then
+    // registers it into the session registry so it appears in the list immediately.
+    @ViewBuilder
+    private var importSection: some View {
+        DisclosureGroup("Import a pack") {
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("Source — owner/name, huggingface.co/…, github.com/…, or a URL", text: $importSpec)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Name", text: $importName)
+                    .textFieldStyle(.roundedBorder)
+                TextField("License — e.g. MIT, Apache-2.0 (required)", text: $importLicense)
+                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 8) {
+                    Picker("Kind", selection: $importKind) {
+                        ForEach(FineTunePackKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    }
+                    Picker("Gate", selection: $importGate) {
+                        ForEach(FineTunePackGate.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    }
+                }
+                Button("Add through ProvenanceGate") { importPack() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                Text("Imported packs are available this session; a saved store + the actual byte download are the on-device follow-on.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                if let importNote {
+                    Text(importNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.top, 4)
+        }
+        .font(.subheadline.weight(.semibold))
+    }
+
+    /// Validate the import through the ProvenanceGate + register it into the session
+    /// registry. Honest: shows the real per-error reason; never fakes a fetch.
+    private func importPack() {
+        do {
+            let pack = try FineTunePackImporter.makePack(
+                spec: importSpec,
+                kind: importKind,
+                displayName: importName,
+                license: importLicense,
+                gate: importGate
+            )
+            try registry.add(pack)
+            importNote = "Added \"\(pack.displayName)\" — \(pack.source.displayName) · \(pack.license)."
+            importSpec = ""
+            importName = ""
+            importLicense = ""
+        } catch let error as FineTunePackImportError {
+            importNote = error.errorDescription
+        } catch let error as FineTunePackRegistryError {
+            importNote = error.errorDescription
+        } catch {
+            importNote = "Import failed: \(error.localizedDescription)"
         }
     }
 

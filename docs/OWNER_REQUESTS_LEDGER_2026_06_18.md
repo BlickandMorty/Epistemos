@@ -325,6 +325,21 @@ calls: no blanket rule — choose per case.
       per-kind EXECUTION (NativeAdapterApply for .loraAdapter into a loaded model;
       dataset/instruction/knowledge into the native-train/vault pipeline) is the
       gated on-device step the affordance directs the owner toward.
+      ✅ FINISHER 2026-06-19 (part 5c IMPORT verb): browse → import → apply. NEW pure
+      `FineTunePackImporter` — `parseSource` maps a public spec (bare `owner/name`→HF,
+      `huggingface.co/…`, `github.com/…`, http(s)/file URL) into a typed
+      `FineTunePackSource` (honest: recognized hosts only, nil otherwise); `makePack`
+      validates through the ProvenanceGate (a LICENSE is REQUIRED — no license, no
+      entry) + builds a registerable descriptor with a deterministic dedup id. Wired
+      a VISIBLE, USABLE import affordance into FineTuneMarketplaceView (rule #8): an
+      "Import a pack" disclosure (source/name/license fields + kind/gate pickers + an
+      "Add through ProvenanceGate" button) registers into a SESSION `@State` registry
+      so the pack appears in the list immediately; honest note that a saved store +
+      the actual byte download are the on-device follow-on. +5 FineTunePackImporter
+      Tests (parse hosts/reject junk, makePack valid, 4 honest errors, register
+      round-trip + dedup, view-wiring) + the browse/apply mirrored-source asserts
+      intact. build-for-testing green. STILL FOLLOW-ON: cross-launch persistence (a
+      saved pack store) + the network fetch of the pack bytes (on-device).
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
