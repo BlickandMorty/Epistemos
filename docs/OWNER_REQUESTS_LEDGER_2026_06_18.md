@@ -814,6 +814,21 @@ calls: no blanket rule — choose per case.
       (Chat=Epistemos, Act=Osaurus, Work=Goose). (C) **Work** = Open Code, Goose
       engine. So: Osaurus IS Act (one of its two engines); OpenClaw is the other;
       Goose is Work; Hermes fuses into the Osaurus-local lane. Owner-confirmed.
+      LAYERING (owner 2026-06-18, "explain so nothing breaks"): the Osaurus-local
+      engine is a STACK, not a single thing — (i) **Osaurus** = the engine room
+      (fast MLX local serving + Virtualization sandbox; its real strength); (ii)
+      **Local Agent = the BRAIN** = the existing native agent loop that CARRIES ALL
+      EPISTEMOS IP — **Eidos closed-citation retrieval, vault/Knowledge-Core tools,
+      cognitive DAG, provenance ledger, MCP routing, honesty/no-fake gating** — this
+      is NOT discarded; it is what makes the local agent OURS (Osaurus's stock agent
+      is generic and IP-blind); (iii) **Hermes** = upgrade parts lifted INTO the
+      brain. So Osaurus-local = Osaurus(serve+sandbox) + LocalAgent(brain, ⊕Hermes) +
+      **Eidos + ALL owner IP fused in** — mandatory, never a vanilla Osaurus. Why
+      keep Local Agent: dropping it = losing Eidos/vault/provenance/honesty (the IP).
+      NOTHING-BREAKS GUARANTEE: Chat(Epistemos) untouched; Work(Goose) flag-isolated
+      with no-Chat/Act-regression guardrail; Act changes additive + flag-gated
+      (ActOsaurus inert until opt-in flip); Eidos + IP stay wired everywhere; honesty
+      constraints (no hidden sidecar, local-first, no fake) preserved throughout.
 - [ ] **MODEL PICKER — SIMPLIFY + MODE-SCOPE (owner 2026-06-18, refines P1.11)** —
       owner (verbatim): *"for the model picker I only want the model and its uses
       visible for the right mode. Chat shows efforts and many other things — that is
