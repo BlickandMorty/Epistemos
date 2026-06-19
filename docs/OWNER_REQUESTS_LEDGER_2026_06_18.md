@@ -920,6 +920,24 @@ calls: no blanket rule — choose per case.
       Builder replace the local tool list with the FFI result (serialize the catalog to
       `[{name,description,keywords}]`, call the gated FFI) → set EPISTEMOS_SCHEMA_
       PREFLIGHT_V0=1 → verify the picker/loop shows the tight footprint.
+      ✅ LIVE WIRING LANDED 2026-06-19 (the in-loop narrowing — the previously owner-only
+      step): RESEARCH-FIRST corrected the wiring point — `LocalAgentPromptBuilder` builds
+      the (query-INDEPENDENT) system prompt, so it is NOT where a per-query preflight
+      belongs; the right seam is `LocalAgentLoop.run`, the single per-turn entry that has
+      BOTH the user `objective` AND the assembled `tools` in hand (line 297, right after
+      `AgentToolNameAliases.canonicalizedDefinitions`). NEW
+      `Epistemos/LocalAgent/SchemaPreflightToolNarrowing.swift` — flag-gated
+      (`EPISTEMOS_SCHEMA_PREFLIGHT_V0`, OFF) narrowing: OFF (default) → returns the tool
+      list UNCHANGED before any FFI/JSON work (byte-for-byte today; Chat/Act untouched),
+      ON → calls `schema_preflight_select_tools_gated_json` and filters `tools` to the
+      selected names preserving order. NON-STRANDING: empty/garbage selection → full list
+      (never zero tools); test-host without the FFI → passthrough. Wired at LocalAgentLoop
+      .swift:297 as a one-line wrap of the canonicalized list. +6 Swift tests
+      (OFF=passthrough regression, empty-safe, cross-runtime flag parity vs Rust
+      `SCHEMA_PREFLIGHT_FLAG` via mirrored-source read, encode/decode envelope contract,
+      wired-into-live-loop). build-for-testing green (0 errors). OWNER verifies the ON
+      narrowing in-app by setting `EPISTEMOS_SCHEMA_PREFLIGHT_V0=1` (no code/regen needed —
+      the FFI was already in the regenerated binding).
       ✅ §C.1 REPAIR VALIDATION GATE 2026-06-19: NEW `agent_core/src/schema_validation.rs`
       `all_violations(schema, value) -> Vec<String>` + `is_valid` — collects EVERY way an
       emitted value violates the schema (via `jsonschema::iter_errors`) for a model
