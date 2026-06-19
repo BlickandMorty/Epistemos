@@ -2437,6 +2437,26 @@ native; AGPL server). ADOPT 2 patterns natively:
       uninstalled pick → NOT silently `.localMLX(qwen3_4B4Bit)`. Do NOT tick until owner confirms
       in-app. (The TriageService change below stays — it's correct for ITS layer, just not the
       one that was pinning Qwen.)
+      ✅ REAL-LAYER FIX LANDED 2026-06-19 (NOT ticked done — owner confirms in-app): fixed the
+      actual select→generate override. `Epistemos/State/InferenceState.swift`
+      `sanitizedInteractiveLocalTextModelID` — the recommended/constrained/first-installed
+      SUBSTITUTE tail (cases 4-6, which returned Qwen-3-4B for an unavailable pick) is now gated
+      behind `autoSubstituteUnavailableLocalModel` (env `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL`,
+      OFF=honest): when OFF an unavailable explicit pick returns `nil` instead of a substitute,
+      so every consumer KEEPS the pick — the constructor's `?? original`, `sanitizedStored
+      LocalChatModelID` returns the original modelID, `effectiveLocalTextModelID` goes nil so
+      `LocalRouteHonestyRow` honestly shows substituted/no-model, and `effectiveChatSurfaceSelection`
+      (the resolver PipelineService:470 turns into the generation modelID) resolves to the
+      foundation TIER representative (simplified lineup) or the original `.localMLX(pick)` —
+      NEVER a silent `.localMLX(qwen3_4B4Bit)`. Cases 1-3 (legacy-MLX→foundation migration +
+      keep-if-installed) UNCHANGED, so a working/installed pick still resolves to itself. This
+      also stops the stored-pick CORRUPTION (`sanitizeStoredLocalChatSelectionIfNeeded` no longer
+      rewrites an unavailable pick to Qwen on set). +2 tests on the ACTUAL resolver
+      `effectiveChatSurfaceSelection` (EpistemosTests/TriageServiceTests.swift): an explicit
+      INSTALLED pick → `.localMLX(thatId)`; an explicit UNINSTALLED pick → NOT `.localMLX(qwen3_
+      4B4Bit)`. build-for-testing TEST BUILD SUCCEEDED (0 errors), no existing-resolution-test
+      regression. Composes with the MODEL DOWNLOAD fix (the pick now actually installs). DO NOT
+      mark [x] — owner verifies select-X→generate-X in-app once model download works.
       ✅ FIX — NO SILENT QWEN SUBSTITUTE FOR AN EXPLICIT PICK 2026-06-19 (root candidate (c)):
       traced select→generate. `TriageService.localSelection` is the resolver: for a local
       pick, `shouldUseAutomaticLocalRouting` is FALSE (a `.localMLX` selection is honored, not

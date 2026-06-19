@@ -5989,6 +5989,19 @@ final class InferenceState {
         if supportedAvailableGemmaQATRuntimeCandidates.contains(where: { $0.id == modelID }) {
             return modelID
         }
+        // Owner 2026-06-19 (MODEL SELECTION HONORED — the real fix at the real layer): below
+        // here the explicit pick is NOT available as-selected. DO NOT silently SUBSTITUTE it
+        // with the recommended / constrained / first-installed model — that recommended fallback
+        // is Qwen-3-4B on most rigs and is exactly the "everything routes to Qwen regardless of
+        // what I pick" bug (this resolver feeds PipelineService's generation modelID). Return
+        // `nil` so callers KEEP the explicit pick: `sanitizedInteractive(...) ?? original` keeps
+        // it, `effectiveLocalTextModelID` becomes nil so the honest LocalRouteHonestyRow shows
+        // a substitution/no-model state, and `effectiveChatSurfaceSelection` resolves to the
+        // foundation TIER representative (simplified lineup) or the original pick — never a
+        // silent Qwen swap. `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` restores the legacy
+        // smart-substitution for anyone who prefers it.
+        guard autoSubstituteUnavailableLocalModel else { return nil }
+
         let recommendedModelID = hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
         if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == recommendedModelID }) {
             return recommendedModelID
@@ -5998,6 +6011,15 @@ final class InferenceState {
             return constrainedModelID
         }
         return supportedAvailableLocalTextModels.first?.rawValue
+    }
+
+    /// Owner 2026-06-19: when an EXPLICITLY-selected local model can't be resolved as-picked,
+    /// HONOR the pick (keep it / let it fail honestly) instead of silently substituting the
+    /// recommended model — the Qwen-3-4B pinning bug. OFF by default = no silent substitution;
+    /// `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` restores the legacy substitute cascade. Same
+    /// flag the TriageService honesty fix reads, so both layers agree.
+    nonisolated var autoSubstituteUnavailableLocalModel: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL"] == "1"
     }
 
     private func sanitizedStoredLocalChatModelID(for modelID: String) -> String {
