@@ -646,6 +646,33 @@ final class ChatState {
     /// but sending excessively long input wastes tokens and can hit local context limits.
     private static let maxQueryLength = 50_000
 
+    /// DeerFlow 5e-2 — route a composer submission to the multi-agent DEEP
+    /// RESEARCH path instead of a normal single-agent turn. Emits a distinct
+    /// event so AppCoordinator dispatches to `ChatCoordinator.runDeepResearch`,
+    /// which appends the user message AND renders the cited report itself — so we
+    /// deliberately do NOT append the user message or drive a turn here (doing so
+    /// would double the bubble). Pro + flag gating lives downstream in
+    /// `DeepResearchService`; the composer only surfaces the button when eligible.
+    func submitDeepResearch(
+        _ query: String,
+        operatingMode: EpistemosOperatingMode = .fast
+    ) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let chatId = activeChatId ?? {
+            let id = UUID().uuidString
+            activeChatId = id
+            return id
+        }()
+        eventBus?.emit(
+            .deepResearchSubmitted(
+                chatId: ChatId(chatId),
+                query: trimmed,
+                operatingMode: operatingMode
+            )
+        )
+    }
+
     func submitQuery(
         _ query: String,
         operatingMode: EpistemosOperatingMode = .fast

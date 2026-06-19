@@ -320,6 +320,9 @@ struct ChatView: View {
                     onSubmit: { query in
                         submitMainChatQuery(query, operatingMode: selectedOperatingMode)
                     },
+                    onDeepResearch: { query in
+                        submitMainChatDeepResearch(query, operatingMode: selectedOperatingMode)
+                    },
                     onStop: {
                         chat.stopStreaming()
                     },
@@ -454,6 +457,14 @@ struct ChatView: View {
             orchestrator: orchestrator,
             inference: inference
         )
+    }
+
+    /// DeerFlow 5e-2 — route the composer text to the multi-agent deep-research
+    /// path (emits `.deepResearchSubmitted` → `ChatCoordinator.runDeepResearch`)
+    /// instead of a normal turn. The composer only exposes its button when
+    /// eligible (Pro build + flag on + cloud model).
+    private func submitMainChatDeepResearch(_ query: String, operatingMode: EpistemosOperatingMode) {
+        chat.submitDeepResearch(query, operatingMode: operatingMode)
     }
 
     private func sanitizeStoredOperatingMode() {

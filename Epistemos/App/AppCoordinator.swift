@@ -73,6 +73,15 @@ final class AppCoordinator {
                     chatState: chat,
                     operatingMode: operatingMode
                 )
+            case .deepResearchSubmitted(_, let query, let operatingMode):
+                // DeerFlow 5e-2 — multi-agent deep research instead of a normal
+                // turn. runDeepResearch appends the user message + renders the
+                // cited report itself (and gates on Pro + flag + cloud provider).
+                self.chatCoordinator.runDeepResearch(
+                    query,
+                    chatState: chat,
+                    operatingMode: operatingMode
+                )
             default:
                 break
             }
