@@ -717,6 +717,17 @@ calls: no blanket rule — choose per case.
       best with owner in-app verification). The remaining parts (AST quality gate,
       UniFFI async stream, structured-gen constraints, reasoning-token isolation) are
       separate slices.
+      ✅ §B SECOND SLICE 2026-06-19 (reasoning-token isolation): NEW
+      `agent_core/src/reasoning_tokens.rs` — `split_reasoning(raw) -> ReasoningSplit
+      { thinking: Option<String>, answer: String }` separates a local model's reasoning
+      trace from the clean answer/tool-args. Per the HONESTY constraint the thinking is
+      PRESERVED (returned for UI tracing), NEVER stripped. Handles the in-tree marker
+      formats — Qwen `<think>…</think>` + Gemma `[Start thinking]…[End thinking]` —
+      incl. the unclosed/streaming case (rest = in-progress thinking) + empty-block →
+      None + no-marker → whole text is the answer. Rust-core primitive for the GGUF /
+      schema-engine path (does NOT touch Swift's MLXInferenceBridge MLX-path handling —
+      no duplication-in-place). +6 cargo tests; cargo --lib BOTH green (6/0). Wiring
+      into the GGUF generation path is the follow-on (best with owner in-app check).
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner

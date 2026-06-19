@@ -149,6 +149,10 @@ pub mod work;
 // ~3-5 tools relevant to a turn so local models keep a tight, focused tool footprint.
 pub mod tool_preflight;
 
+// Reasoning-token isolation (Deterministic Schema Engine, P8.2 spec §B): split a local
+// model's preserved thinking trace from the clean answer (Rust-core / GGUF path).
+pub mod reasoning_tokens;
+
 pub mod mcp;
 
 pub mod tools {
