@@ -2972,3 +2972,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       (FFI `export_replay_bundle_json` → `ReplayBundle::build_with_dag`+`to_epbundle_bytes`) — the headline
       enterprise asset, zero in-app path today; (6) bind WRV chips to real falsifier artifacts (green earned).
       Composes with engine-isolation (provenance is shared CAPABILITY, not shared logic). MAS core (#5 Pro).
+- [ ] **VOICE — sounds PLAIN, make it HIGH-DEF + ROBUST (owner 2026-06-19).** Owner (verbatim): *"the
+      voice is very plain… idk if Apple has a native high-def one, it should because new iPhones have the
+      new Siri voice, so it should not sound plain… I still want the other models researched plus the holo
+      one as well."* Deepen: docs/research/VOICE_2026_06_19.md. (1) **Stop sounding plain — prefer HIGH-DEF
+      Apple voices:** `EpistemosSpeechSynthesizer` tiers Premium/Enhanced/Default — but verify it actually
+      SELECTS the best AVSpeechSynthesisVoice.Quality available (`.premium`>`.enhanced`>`.default`) by
+      default, not the plain default voice; surface the honest "download a Premium/neural voice (Settings →
+      Spoken Content → Voices)" hint prominently; expose Personal Voice + the new high-def/Siri-quality voices
+      to the extent AVSpeech allows (research clarifies what 3rd-party apps can use). (2) **Research + ship the
+      OTHER TTS models** as installable Pro voice models via ModelDownloadManager: Kokoro-82M (CoreML/ANE,
+      Apache-2.0) first, then MOSS-TTSD / Kitten / Dia / Sesame / Piper / F5-TTS etc. — ranked by quality vs
+      Apple premium, license, on-device feasibility. (Blocked by the model-download bug — fix that first.)
+      (3) **Robustness hardening:** wire the inert auto-TTS toggles, route the macOS-26 mic through the
+      orphaned `EpistemosSpeechAnalyzer`, handle interruptions/route-changes. (4) **"the holo one":** Holo-3.1
+      is a computer-use VISION model (already covered S10/R-HOLO — re-affirmed wanted), NOT a TTS — research
+      clarifies the ambiguity. On-device only; honest gating; never silent cloud TTS.
