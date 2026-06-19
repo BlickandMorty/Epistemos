@@ -777,6 +777,16 @@ calls: no blanket rule — choose per case.
       introduce non-determinism. +4 cargo tests (floor-always-included, floor-skips-
       absent, floor-respects-max+dedups, order-independence). cargo --lib BOTH green
       (13/0 on `tool_preflight`).
+      ✅ FFI EXPOSURE 2026-06-19 (preflight reachable from Swift): NEW
+      `#[uniffi::export] schema_preflight_select_tools_json(query, candidates_json, max)
+      -> String` — Swift passes the query + the tool catalog as JSON + the max footprint
+      and gets the selected tool names back as a JSON array. PURE — it does NOT touch the
+      live agent loop (no regression risk); it just makes the Rust preflight CALLABLE
+      from the app so the Swift side can surface "N tools selected for this turn" (the
+      spec's "surface the determinism visibly") or feed the local tool loop when the
+      owner wires it. Honest empty `[]` on a parse error / no match. +2 cargo tests
+      (round-trip + honest-empty). cargo --lib BOTH green (15/0). The actual in-loop
+      wiring + the picker surface remain the owner-verification step.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner

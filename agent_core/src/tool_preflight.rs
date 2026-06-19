@@ -131,6 +131,33 @@ pub fn select_tools_with_floor(
     result
 }
 
+/// FFI input shape for a tool candidate (the Swift catalog serializes to this).
+#[derive(serde::Deserialize)]
+struct PreflightToolInput {
+    name: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    keywords: Vec<String>,
+}
+
+/// FFI: RAG-preflight tool selection across the UniFFI boundary. Swift passes the query,
+/// the tool catalog as JSON (`[{"name","description","keywords"}]`), and the max tight-
+/// footprint size; gets back the selected tool NAMES as a JSON array. Pure — it does NOT
+/// touch the live agent loop; the Swift side decides where to apply the selection (e.g.
+/// surface "N tools selected for this turn" in the picker — the spec's "surface the
+/// determinism visibly"). Honest empty `[]` on a parse error or no match.
+#[uniffi::export]
+pub fn schema_preflight_select_tools_json(query: String, candidates_json: String, max: u32) -> String {
+    let inputs: Vec<PreflightToolInput> = serde_json::from_str(&candidates_json).unwrap_or_default();
+    let candidates: Vec<ToolCandidate> = inputs
+        .into_iter()
+        .map(|i| ToolCandidate::new(i.name, i.description, i.keywords))
+        .collect();
+    let selected = select_tools(&query, &candidates, max as usize);
+    serde_json::to_string(&selected).unwrap_or_else(|_| "[]".to_string())
+}
+
 /// A candidate tool paired with its declared parameter schema (a JSON object schema),
 /// for the §C.1 preflight → dispatch-grammar pipeline.
 pub struct PreflightTool<'a> {
@@ -296,5 +323,34 @@ mod tests {
         assert_eq!(a, b, "tool selection must be order-independent");
         // ...and idempotent.
         assert_eq!(a, select_tools(query, &forward, 4));
+    }
+
+    #[test]
+    fn ffi_select_tools_json_round_trips() {
+        let catalog = serde_json::json!([
+            {"name": "read_file", "description": "Read a file from disk", "keywords": ["file"]},
+            {"name": "web_search", "description": "Search the web", "keywords": ["search"]}
+        ])
+        .to_string();
+        let out = schema_preflight_select_tools_json("read my file".to_string(), catalog, 5);
+        let picks: Vec<String> = serde_json::from_str(&out).expect("valid JSON array out");
+        assert!(picks.contains(&"read_file".to_string()));
+        assert!(!picks.contains(&"web_search".to_string()));
+    }
+
+    #[test]
+    fn ffi_select_tools_json_is_honest_empty_on_bad_or_no_match() {
+        // a parse error → honest empty array (never a crash, never a fake selection)
+        assert_eq!(
+            schema_preflight_select_tools_json("q".to_string(), "not json".to_string(), 5),
+            "[]"
+        );
+        // a valid catalog with no match → empty array
+        let catalog =
+            serde_json::json!([{"name": "read_file", "description": "Read a file", "keywords": []}]).to_string();
+        assert_eq!(
+            schema_preflight_select_tools_json("xyzzy".to_string(), catalog, 5),
+            "[]"
+        );
     }
 }
