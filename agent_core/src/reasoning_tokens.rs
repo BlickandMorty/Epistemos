@@ -71,6 +71,20 @@ fn non_empty(s: String) -> Option<String> {
     }
 }
 
+/// Whether the raw output is STILL inside a reasoning block — an opening marker with no
+/// matching close yet — i.e. the model is mid-thinking. A streaming UI uses this to HOLD
+/// the answer until the reasoning closes, so partial thinking never renders as the
+/// answer. `false` once the block closes, or when there is no reasoning marker.
+pub fn thinking_in_progress(raw: &str) -> bool {
+    for (open, close) in MARKER_PAIRS {
+        if let Some(open_idx) = raw.find(open) {
+            let after_open = open_idx + open.len();
+            return raw[after_open..].find(close).is_none();
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,5 +131,31 @@ mod tests {
         let split = split_reasoning("<think></think>answer only");
         assert_eq!(split.thinking, None);
         assert_eq!(split.answer, "answer only");
+    }
+
+    #[test]
+    fn thinking_in_progress_true_for_an_unclosed_block() {
+        assert!(thinking_in_progress("<think>still reasoning"));
+        assert!(thinking_in_progress("[Start thinking]planning the steps"));
+    }
+
+    #[test]
+    fn thinking_in_progress_false_when_closed_or_no_marker() {
+        assert!(!thinking_in_progress("<think>done</think>the answer"));
+        assert!(!thinking_in_progress("just a plain answer"));
+        assert!(!thinking_in_progress(""));
+    }
+
+    #[test]
+    fn split_never_fabricates_or_drops_content() {
+        // Honesty invariant: both parts come FROM the raw (no fabrication) and the
+        // reasoning is PRESERVED (not stripped).
+        let raw = "<think>the secret reasoning</think>the final answer";
+        let split = split_reasoning(raw);
+        let thinking = split.thinking.expect("thinking present");
+        assert!(raw.contains(&thinking)); // not fabricated
+        assert!(raw.contains(&split.answer)); // not fabricated
+        assert!(thinking.contains("secret reasoning")); // preserved, not stripped
+        assert!(split.answer.contains("final answer"));
     }
 }

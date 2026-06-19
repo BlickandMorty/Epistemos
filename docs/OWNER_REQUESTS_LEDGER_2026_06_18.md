@@ -728,6 +728,14 @@ calls: no blanket rule — choose per case.
       schema-engine path (does NOT touch Swift's MLXInferenceBridge MLX-path handling —
       no duplication-in-place). +6 cargo tests; cargo --lib BOTH green (6/0). Wiring
       into the GGUF generation path is the follow-on (best with owner in-app check).
+      ✅ STREAMING HELPER + HONESTY LOCK 2026-06-19: added `thinking_in_progress(raw) ->
+      bool` (true while an opening reasoning marker has no matching close yet) — a
+      streaming UI uses it to HOLD the answer until the reasoning closes, so partial
+      thinking never renders as the answer (aligns with the owner's "UniFFI streaming"
+      ask). Plus a HONESTY property test locking that `split_reasoning` never fabricates
+      or drops content (both parts come from the raw; the reasoning is preserved, not
+      stripped). +3 cargo tests (in-progress true/false, content-preservation). cargo
+      --lib BOTH green (9/0 on `reasoning_tokens`).
       ✅ §C.1 PIPELINE 2026-06-19 (preflight → dispatch grammar): RESEARCH FIRST found
       the structured-gen pieces ALREADY EXIST — json-schema VALIDATION (`jsonschema`
       crate in tools_v2/runner.rs) + json-schema→GBNF grammar (grammar/mod.rs
