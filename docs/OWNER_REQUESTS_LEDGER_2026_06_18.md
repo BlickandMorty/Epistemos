@@ -600,13 +600,29 @@ calls: no blanket rule — choose per case.
       Ollama, Open WebUI, Cherry Studio, LibreChat, etc. Mine their SYSTEM PROMPTS
       + architectures + agent/tool/MCP handling; verdict doc on what to adopt.
 - [x] Auto-commit + push every slice to GitHub — verify still pushing.
-- [ ] **OSAURUS = ACT, FULL IMPORT (owner DECISION 2026-06-18, P3.0)** — bring in
+- [~] **OSAURUS = ACT, FULL IMPORT (owner DECISION 2026-06-18, P3.0)** — bring in
       ALL of Osaurus incl. frontend, ZERO cherry-pick (completeness; don't miss
       code). Clone the full MIT repo (not on disk yet), embed the COMPLETE repo as
       the Act substrate inside Epistemos (Epistemos stays root → tests/IP stay
       home), preserve Osaurus's entitlements/Info.plist/build verbatim, build it,
       then reskin Act's UI to the app. STOP hand-building parallel cowork/Act
       (P7.6) — Act comes from Osaurus. Unsloth (P4.1) training surfaces in the modes.
+      ✅ PLAN 2026-06-19 (docs/OSAURUS_P3_IMPORT_PLAN_2026_06_19.md, research-first):
+      WebFetched the LIVE repo (dinoki-ai/osaurus ARCHIVED → `osaurus-ai/osaurus`):
+      native Swift macOS app, **MIT** (direct_import clean), 2,837 commits, full app
+      = SwiftUI UI + HTTP server :1337 (OpenAI/Anthropic/Ollama-compat) + CLI + Apple
+      **Containerization** Linux-VM sandbox + agent loop + MCP + 20+ plugins + relay;
+      core = `OsaurusCore` SPM package. CRITICAL: Osaurus's powers (VM/server/relay/
+      plugins) are OUTSIDE the MAS sandbox → **Act=Osaurus is PRO** (`#if !EPISTEMOS_
+      APP_STORE`); MAS Act stays on the in-process local-agent path; VM/server/relay
+      clear the runtime-plural bar (owner approval + no-hidden-fallback + RunEventLog
+      + AnswerPacket + rollback + harness) before live. IMPORT = vendor full repo
+      `LocalPackages/osaurus/` (mlx-swift-lm precedent) + link OsaurusCore Pro-gated +
+      reskin Act UI. SMALLEST FIRST SEAM (next verified slice): a Pro-gated
+      `ActOsaurusBridge` protocol + flag `EPISTEMOS_ACT_OSAURUS_V0` (OFF) + INERT stub
+      + gate HealthRow + MAS/Pro guard test (NO repo import yet). Then S2 vendor → S3
+      link → S4 Act-turn+reskin → S5 Containerization sandbox (R-CUA Lume) → S6+
+      server/MCP/plugins/relay. STOP hand-building parallel Act is recorded.
 - [ ] **Osaurus + Unsloth feed the MODES** (owner 2026-06-18): the Osaurus
       deep-cherry-picks/full-port (local server + agent capabilities) and Unsloth
       (model training) must SURFACE INSIDE Act mode — and where it fits, Chat mode
