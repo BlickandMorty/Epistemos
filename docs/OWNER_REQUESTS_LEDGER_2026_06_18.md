@@ -180,8 +180,19 @@ calls: no blanket rule — choose per case.
       AND changes behavior in-app on every surface. Harden; commit the audit table
       to docs. DO NOT mark done until the owner can see effort + Fast/Think/Code in
       the running picker. Cross-ref existing PICKER REDESIGN (P1.11) below.
-- [ ] **PICKER PANEL TOO SHORT / NO SCROLL → looks like only ~2 options (owner
-      2026-06-18)** — owner (verbatim, transcribed): *"when I go to the [picker] it
+- [~] **PICKER PANEL TOO SHORT / NO SCROLL → looks like only ~2 options — build-
+      verified 2026-06-19 (owner does the in-app run).** The prior pass added the
+      460 cap + a bottom fade "scroll for more" hint; this pass adds the owner's two
+      remaining explicitly-listed affordances: (a) `.scrollIndicators(.visible)` forces
+      the scrollbar to show (macOS auto-hides the overlay scroller — the literal "no
+      scroll bar"), and (b) an always-visible `pickerCountHeader` pinned above the
+      scroll area (`.safeAreaInset(edge: .top)`, OUTSIDE the height cap so it never eats
+      scroll budget) showing "N models" (real lineup size = sum of every tier's picks)
+      + a `chevron.down`/"scroll for all" cue when `pickerOverflows`. One shared panel →
+      lands on all 5 surfaces at once. +1 regression test (visible-indicator + count +
+      real-sum + overflow-gated cue); build-for-testing green. Owner verifies the full
+      lineup is visible/reachable visually (Product▸Run). Original report:
+      *"when I go to the [picker] it
       seems like there were only two available because there's no scroll bar [and]
       the box isn't long enough to make it seem like there's more to choose from —
       just make sure that model picker is good."* BUG: InlineRuntimePickerPanel
