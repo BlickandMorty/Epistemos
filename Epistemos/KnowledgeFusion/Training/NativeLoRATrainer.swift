@@ -151,9 +151,16 @@ enum NativeLoRATrainer {
             baseModel: baseModel,
             qualityScore: nil
         )
-        let metadataURL = outputDirectory.appendingPathComponent("training_metadata.json")
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        // Write adapter_config.json alongside the adapters.safetensors LoRATrain
+        // saved, so NativeAdapterApply (LoRAContainer.from(directory:)) can load
+        // this adapter natively for inference — the train→apply round-trip stays
+        // in-process, no Python.
+        try encoder.encode(loraConfig).write(to: NativeAdapterDirectory.configURL(in: outputDirectory))
+
+        let metadataURL = outputDirectory.appendingPathComponent("training_metadata.json")
         try encoder.encode(metadata).write(to: metadataURL)
         return metadata
     }
