@@ -16,6 +16,10 @@ enum AppEvent: Sendable {
 
     // Chat lifecycle events
     case querySubmitted(chatId: ChatId, query: String, operatingMode: EpistemosOperatingMode)
+    /// DeerFlow 5e-2 — a composer submission routed to the multi-agent DEEP
+    /// RESEARCH path (planner → parallel sub-agents → cited synthesis) instead of
+    /// a normal single-agent turn. Dispatched to `ChatCoordinator.runDeepResearch`.
+    case deepResearchSubmitted(chatId: ChatId, query: String, operatingMode: EpistemosOperatingMode)
     case queryCompleted(chatId: ChatId, messageId: MessageId)
     case chatCleared(chatId: ChatId)
 }

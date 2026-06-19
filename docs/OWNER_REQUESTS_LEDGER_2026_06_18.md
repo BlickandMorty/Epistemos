@@ -93,6 +93,20 @@ calls: no blanket rule — choose per case.
       4. **SEARCH-PAGE CLICK REGRESSION** — clicking anywhere on the landing/
          search page misbehaves. Audit Landing/* + HologramSearchSidebar gesture
          handling and fix.
+- [ ] **PER-MODEL VAULTS (KnowledgeFusion) — owner 2026-06-18 (queue after
+      DeerFlow 5e-2). Build+run verify new models + real status render in-app;
+      harden + auto-commit+push.**
+      (1) UPDATE KnowledgeFusion vaults for the NEW local models — Gemma 26B-A4B,
+          LFM2.5, 2-bit 12B, VibeThinker, Qwen3-8B, Holo — each must be a vault
+          TARGET with sane default instructions (not just the legacy lineup).
+      (2) HARDEN ModelVaultsSettingsView — today it renders GENERIC HARDCODED file
+          rows ("Present in compiled vaults"). Replace with REAL per-model status:
+          file sizes, last-compiled timestamps, content preview, per-model rows,
+          honest empty/error states (no fake "present" claims).
+      (3) SCOPE DECIDED (do NOT fork): per-model vaults stay CHAT/Epistemos-only.
+          Act=Osaurus and Work=Goose have their OWN systems and CONSUME the shared
+          vault via tools + a system-prompt anchor — do NOT fork per-engine vault
+          stores or UI. One shared vault, many consumers.
 - [x] **PICKER IS STILL A POPOVER — DONE 2026-06-18, ALL 5 SURFACES (b8ceebabc)**
       The model/runtime picker is now a flat inline pixel-art panel
       (InlineRuntimePickerPanel) on ALL surfaces: main chat (378379408), landing
@@ -706,10 +720,19 @@ calls: no blanket rule — choose per case.
       report → [id]-cited synthesis + a Sources section resolving every cited [id]
       to its sub-question+findings) → appendCompletedLocalAssistantMessage, errors
       → addErrorMessage(from:). 6 pure renderer tests. app build + test build green.
-      NEXT (5e-2, QUEUED after the owner's picker+parity priority): the composer
-      "Deep research" button (ChatInputBar onDeepResearch closure + gated button +
-      ChatView wiring → runDeepResearch) so it RUNS FROM THE UI; then arXiv/HF/
-      autoresearch hookup. Single-agent stays default until wired.
+      slice 5e-2 UI ENTRY POINT DONE — RUNS FROM THE UI (rule #8 last mile):
+      ChatInputBar.onDeepResearch closure + a Pro-only (#if !EPISTEMOS_APP_STORE)
+      "sparkle.magnifyingglass" deepResearchButton gated by showsDeepResearchButton
+      (onDeepResearch wired + EPISTEMOS_DEEP_RESEARCH_V0 on + isCloudSelection —
+      honest no-silent-route: reuses the cloud model the user already picked) →
+      submitDeepResearch funnels text → ChatView.submitMainChatDeepResearch →
+      ChatState.submitDeepResearch emits new AppEvent.deepResearchSubmitted (NO
+      user-bubble here — runDeepResearch owns it) → AppCoordinator dispatches to
+      ChatCoordinator.runDeepResearch (5e-1: progress + cited-report renderer).
+      5 DeepResearchEntryPointTests lock the path + gating. app build + test build
+      green. Single-agent stays default (button hidden when flag off / on local).
+      NEXT (5e-3): arXiv/HF/autoresearch hookup so the autoresearch loop can spin a
+      run; optional surfaces beyond main chat.
       Verdict: docs/RESEARCH_DEERFLOW_2026_06_18.md (R-DEERFLOW).**
       First REAL gap of the verdict sweep: Epistemos has every SUPPORTING piece
       (tools, compaction summarization, session memory, P8.1 schema gate, skills,

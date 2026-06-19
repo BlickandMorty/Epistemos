@@ -55,6 +55,11 @@ struct ComposerControlStrip<Content: View>: View {
 
 struct ChatInputBar: View {
     let onSubmit: (String) -> Void
+    /// DeerFlow 5e-2 — optional multi-agent DEEP RESEARCH entry. When wired (main
+    /// chat) AND eligible (Pro build + `EPISTEMOS_DEEP_RESEARCH_V0` on + the chat
+    /// is on a cloud model), a composer button routes the text here instead of a
+    /// normal turn. `nil` (the default) → no button, every other caller unchanged.
+    var onDeepResearch: ((String) -> Void)? = nil
     let onStop: () -> Void
     let isProcessing: Bool
     var operatingMode: Binding<EpistemosOperatingMode>? = nil
@@ -1084,6 +1089,12 @@ struct ChatInputBar: View {
                         cloudRouteButton
                     }
 
+                    #if !EPISTEMOS_APP_STORE
+                    if showsDeepResearchButton {
+                        deepResearchButton
+                    }
+                    #endif
+
                     if isProcessing && !trimmedText.isEmpty {
                         queueButton
                     }
@@ -1496,6 +1507,45 @@ struct ChatInputBar: View {
         }
         submitCurrentText()
     }
+
+    // DeerFlow 5e-2 — the deep-research composer entry (Pro-only; the FFI +
+    // `DeepResearchService` are `#if !EPISTEMOS_APP_STORE`).
+    #if !EPISTEMOS_APP_STORE
+    /// Show the deep-research button only when: a handler is wired (main chat),
+    /// `EPISTEMOS_DEEP_RESEARCH_V0` is on, AND the chat is on a cloud model — deep
+    /// research's parallel sub-agents need cloud tools (honest gating; on local,
+    /// switch to cloud first via the cloud-send button). Never silently routes:
+    /// it reuses the cloud model the user already picked.
+    private var showsDeepResearchButton: Bool {
+        onDeepResearch != nil
+            && DeepResearchGateStatus.status().isActive
+            && isCloudSelection
+    }
+
+    private var deepResearchButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "sparkle.magnifyingglass",
+            variant: .toolbar,
+            helpText: "Deep research — planner → parallel sub-agents → cited synthesis (Pro)",
+            accessibilityLabel: "Deep research"
+        ) {
+            submitDeepResearch()
+        }
+        .disabled(trimmedText.isEmpty || isProcessing)
+    }
+
+    private func submitDeepResearch() {
+        guard !trimmedText.isEmpty, !isProcessing else { return }
+        let objective = trimmedText
+        onDeepResearch?(objective)
+        // Mirror submitCurrentText's composer reset (this is a terminal submit).
+        text = ""
+        composerHeight = ChatComposerInputMetrics.minHeight
+        selectedSlashItem = nil
+        showMentionDropdown = false
+    }
+    #endif
 
     private func openFilePicker() {
         Task { @MainActor in
