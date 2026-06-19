@@ -84,6 +84,11 @@ public struct SubstrateHealthPanel: View {
                 // seam is armed (EPISTEMOS_ACT_OSAURUS_V0, Pro). Honest "Pro only"
                 // on MAS; the runtime stays inert until it clears the bar.
                 ActOsaurusHealthRow()
+
+                // Owner #1 (no hidden GPT route) — the honest local-resolve trace:
+                // whether the local PICK is honored, was substituted (and why), or
+                // nothing local is ready. Makes "I picked X but got Y/GPT" visible.
+                LocalRouteHonestyHealthRow()
             }
 
             Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
