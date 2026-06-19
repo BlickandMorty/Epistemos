@@ -1394,6 +1394,34 @@ calls: no blanket rule — choose per case.
       the app UI, so fusing Hermes's logic in means the UI keeps working with zero new
       wiring. (Contrast: OpenClaw IS hosted via WebKit — it's a whole TS/Node app and
       its UI is the point; Hermes is code-to-fuse, not a UI-to-host.)
+      ✅ DEEP RESEARCH 2026-06-19 (owner asked: don't overlap Osaurus; research the
+      non-cloned parts deeply; where does it land?) → `docs/research/HERMES_OSAURUS_
+      OVERLAP_AND_DESTINATION_2026_06_19.md` (two parallel subagents, repo-grounded).
+      FINDING — the real port is only **4 items** (huge scope cut), and **NONE of it
+      lands on Osaurus**: (1) session search→summarize-then-answer (new `session.search`
+      tool: Rust handler in `session.rs`+registry, query → Swift `SearchIndexService.
+      fusedSearch`/epistemos-shadow); (2) Swift-side summarizing context compaction
+      (new compactor beside `LocalAgentLoop.swift trimHistory:1356` — Rust's
+      `compaction.rs::compact_messages` is cloud-only because `agent_loop.rs:147
+      LocalProviderNotAllowed`); (3) named prompt-tier model stable/context/volatile
+      (`agent_runtime::prompt_format::build_system_prompt` + Swift `LocalAgentPrompt
+      Builder` mirror); (4) richer auto-skill triggers (errors/dead-ends/user-correction/
+      novel-workflow) into `agent_runtime::self_evolution.rs` (promotion stays Sovereign-
+      gated). DESTINATION (resolves owner's "Osaurus or another part?"): the lifted
+      logic fuses into the IN-PROCESS LocalAgent brain = Rust `agent_core::agent_runtime`
+      (shared algorithms, callable by local+cloud) + Swift `LocalAgentLoop` (local
+      orchestration only) — confirmed NOTHING on the Osaurus :1337 server lane (the only
+      Osaurus wire is the generation-closure swap, which replaces token serving, never
+      brain logic). OVERLAP-WITH-OSAURUS → EXCLUDE (the owner's no-overlap answer; these
+      Hermes parts are NOT cloned): code/shell exec (Osaurus OWNS the Containerization
+      VM sandbox), MCP server/client (Osaurus is already full MCP), the gateway/channels
+      server, hermes_cli TUI/Electron, cron daemon, Honcho/network memory, the provider/
+      transport layer (redundant w/ both `routing.rs` AND Osaurus). ALREADY-IN-EPISTEMOS
+      → don't re-port: ReAct loop, tool registry, the (already Hermes-3-compatible) tool-
+      call grammar, provider abstraction, todo, termination, MEMORY/USER curation,
+      skills+progressive-disclosure, delegation (in-process Tokio task, not a process).
+      So the "tedious Python→Swift/Rust port" is really 4 small clean-room algorithm
+      lifts, not a repo port. RuntimeRouter ≠ Act picker (keep distinct or 3rd-route).
 - [ ] **Study the best chat/agent apps (R-APPS, owner 2026-06-18)** — besides
       Osaurus: LM Studio, HuggingFace (chat-ui/transformers/candle), Unsloth, Jan,
       Ollama, Open WebUI, Cherry Studio, LibreChat, etc. Mine their SYSTEM PROMPTS
