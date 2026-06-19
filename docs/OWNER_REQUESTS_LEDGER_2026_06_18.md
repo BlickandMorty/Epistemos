@@ -1681,6 +1681,28 @@ per pass). Keep until all done + hardened (rule #6/#8).
       pro-build 99/0). GUARDRAIL holds. NEXT (S7): the provider/format layer needs rmcp
       or a clean-room message shape — heavier, NOT a one-pass autonomous leaf; flag for
       a focused multi-slice push.
+      ✅ S7 2026-06-19 (the self-correction pillar — a CLEAN leaf after all): the S6 note
+      flagged S7 as "heavy provider/message layer", but research found a clean self-
+      contained one: `RetryConfig` — block/goose's "deterministic test-and-fix self-
+      correction loop" (an owner Goose pillar) as a typed, validated config. VERBATIM from
+      block/goose crates/goose/src/agents/types.rs into `work::vendored_goose::retry`:
+      `RetryConfig { max_retries, checks: Vec<SuccessCheck>, on_failure, timeout_seconds,
+      on_failure_timeout_seconds }` + the `SuccessCheck` enum (serde `tag="type"` + `"shell"`
+      alias) + the two DEFAULT_*_TIMEOUT_SECONDS consts + the byte-faithful `validate()`
+      rules. Two faithful adaptations (documented inline): drop `utoipa::ToSchema` (no
+      utoipa dep), add `PartialEq` (composes into WorkRequest). MAS-SAFE: the on_failure /
+      Shell command strings are only CARRIED — the inert seam executes NOTHING; running the
+      checks / cleanup shell is the future Pro-gated engine lane (per APP-NATIVE-BY-EMBEDDING:
+      embed the type, gate the un-sandboxable execution). Wired `retry: Option<RetryConfig>`
+      into `WorkRequest` (additive; read_only → None) so a Work task can declare a self-
+      correction policy the engine will run. +4 cargo tests (validate matches upstream incl.
+      the EXACT error messages; SuccessCheck tag/alias wire-form; round-trip + skip-none +
+      the verbatim default consts; WorkRequest carries retry — still inert). cargo --lib
+      BOTH green: default 5441/0, pro-build 5703/0 (+4 each, ZERO regression). Seam stays
+      inert (run_work_session → EngineNotWired); Chat/Act GUARDRAIL holds (mirrored-source
+      tokens intact). NEXT: the provider/message layer (rmcp/clean-room) remains the heavier
+      multi-slice push, or wire a real self-contained engine sub-piece (e.g. the retry
+      driver loop) clean-room.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,
