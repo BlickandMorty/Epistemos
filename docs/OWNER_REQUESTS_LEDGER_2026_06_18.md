@@ -2414,6 +2414,23 @@ native; AGPL server). ADOPT 2 patterns natively:
       `AdvertisedModelStore.toggleAdvertised`), and wiring the picker visibility filter
       (InferenceState foundation-lineup path ~3956-4278 + EpistemosRuntimePicker) to intersect
       with `effectiveAdvertised`. Owner verifies the stack UI in-app once those land.
+      ✅ STEP 5 — PICKER VISIBILITY WIRING (reqs 6/7, the store is now LIVE) 2026-06-19: wired the
+      advertised-set into the SINGLE picker candidate-list chokepoint so it actually does
+      something. `Epistemos/State/InferenceState.swift` `releaseSelectableInstalledLocalTextModelIDs`
+      (read by the main/landing/mini/note/graph pickers + Settings + AppBootstrap) now, after
+      assembling `base = mlx+gguf`, does `guard advertisedStore.isCustomized else { return base }`
+      then applies a NEW pure `static func advertisedVisibleModelIDs(candidates:advertised:
+      isCustomized:selectedID:)`. DESIGN — a TRUE no-op until the owner customizes the advertised
+      set: `isCustomized == false` (everyone today, until the stack UI ships) → returns `base`
+      unchanged → ZERO behaviour change, ZERO regression risk. Once customized → shows only
+      advertised models, but ALWAYS keeps the active pick (`preferredLocalTextModelID` — it must
+      never vanish from its own picker) and FALLS BACK to `base` if filtering would empty the
+      picker (never an empty picker). The guard short-circuits the common path with one
+      UserDefaults read (no wasted `effectiveAdvertised` when uncustomized). +4 tests appended to
+      AdvertisedModelStoreTests (not-customized→unchanged, customized→filters, keeps-selected,
+      never-empty). build-for-testing TEST BUILD SUCCEEDED (0 errors). So the store (STEP 4) is now
+      consumed by the picker; the LAST reqs-6/7 piece is the Settings "stack" UI to let the owner
+      toggle advertising (then this seam goes visibly live). Owner verifies in-app once that lands.
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
