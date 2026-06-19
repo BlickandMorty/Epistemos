@@ -1,0 +1,28 @@
+import Testing
+import Foundation
+@testable import Epistemos
+
+/// R-LITEPARSE — the note-sidebar IMPORT button: gated, bulk-capable, routes through the
+/// honest import controller, and is mounted in the sidebar.
+@Suite("LiteParse PDF import button (sidebar)")
+struct LiteParsePDFImportButtonTests {
+
+    @Test("the button is flag-gated, bulk-capable, and routes through the import controller")
+    func buttonWiring() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParsePDFImportButton.swift")
+        // hidden unless the flag is on (opt-in; adds nothing by default)
+        #expect(src.contains("LiteParseImportGateStatus.status().isActive"))
+        // a bulk PDF picker
+        #expect(src.contains("allowedContentTypes = [.pdf]"))
+        #expect(src.contains("allowsMultipleSelection = true"))
+        // routes every file through the controller (honest per-file status, never a fake note)
+        #expect(src.contains("LiteParsePDFImportController.importPage"))
+        #expect(src.contains("case .notWired"))
+    }
+
+    @Test("the button is mounted in the notes sidebar")
+    func mountedInSidebar() throws {
+        let sidebar = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        #expect(sidebar.contains("LiteParsePDFImportButton()"))
+    }
+}

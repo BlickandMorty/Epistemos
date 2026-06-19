@@ -455,7 +455,21 @@ calls: no blanket rule — choose per case.
       agent_core/Cargo.toml default-features=false + swap the inert body for liteparse::
       LiteParse. The Rust seam + both FFIs + the Swift live importer + decoder + this note-
       create controller are ALL built + compile-verified — only the native engine remains.
-      NEXT (thin): an IMPORT button (NSOpenPanel→controller) in a Settings/sidebar surface.
+      ✅ SIDEBAR IMPORT BUTTON 2026-06-19 (UI COMPLETE): NEW
+      Epistemos/LiteParse/LiteParsePDFImportButton.swift — a self-contained, flag-gated
+      (EPISTEMOS_LITEPARSE_PDF_V0, hidden off) toolbar button: NSOpenPanel(.pdf,
+      multi-select = BULK) → for each PDF LiteParsePDFImportController.importPage(vaultURL:
+      vaultSync.vaultURL, modelContext:, graphState:) → an HONEST per-file status alert
+      ("✓ <title>" / "✗ <file>: <reason>", e.g. "engine not wired yet (pending S2)").
+      Reads vault/graph/model from the environment the sidebar already provides. MOUNTED
+      with one additive line in NotesSidebar's searchBar toolbar. +2 mirrored-source tests
+      (gated + bulk + routes-through-controller; mounted-in-sidebar); existing NotesSidebar
+      token asserts intact (additive). build-for-testing TEST BUILD SUCCEEDED. The R-
+      LITEPARSE UI is now COMPLETE end-to-end (sidebar button + bulk + honest status);
+      every PDF import honestly reports `.notWired` UNTIL the owner does **S2** (the SOLE
+      remaining blocker — vendor liteparse + place PDFium, recipe above), after which the
+      same wiring produces real markdown vault notes with NO further UI changes. (A
+      dedicated Settings bulk-import surface can reuse this button verbatim — follow-on.)
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
