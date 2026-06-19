@@ -168,6 +168,11 @@ struct ModelVaultsSettingsView: View {
                     }
                     .padding(4)
                 }
+
+                // DATA+FINETUNE part (5): the data + fine-tune PACK MARKETPLACE
+                // browse surface (registry seeded from FineTunePackCatalog; honest
+                // gating + empty state). Import/apply is the follow-on slice.
+                FineTuneMarketplaceView()
             }
             .padding(24)
         }
