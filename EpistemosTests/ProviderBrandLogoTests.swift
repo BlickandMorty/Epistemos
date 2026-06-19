@@ -59,4 +59,28 @@ struct ProviderBrandLogoTests {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/APIKeysHealthRow.swift")
         #expect(src.contains("ProviderLogoView(brand: inference.providerBrand(for: provider)"))
     }
+
+    @Test("fromLabel maps real per-message labels to the right brand")
+    func fromLabelMapping() {
+        #expect(ProviderBrand.fromLabel("Claude Opus 4.7") == .claude)
+        #expect(ProviderBrand.fromLabel("GPT-5.4") == .chatGPT)
+        #expect(ProviderBrand.fromLabel("Gemini 3.1 Pro") == .gemini)
+        #expect(ProviderBrand.fromLabel("Qwen 3 4B") == .qwen)
+        #expect(ProviderBrand.fromLabel("Gemma 4 E4B") == .gemma)
+        #expect(ProviderBrand.fromLabel("Kimi K2") == .kimi)
+        #expect(ProviderBrand.fromLabel("Apple Intelligence") == .apple)
+        // Account-runtime names win over the base brand.
+        #expect(ProviderBrand.fromLabel("Claude Code") == .claudeCode)
+        #expect(ProviderBrand.fromLabel("Codex") == .codex)
+        #expect(ProviderBrand.fromLabel("Mystery Model") == .generic)
+    }
+
+    @Test("the logo is wired into the picker rows + the chat per-message badge")
+    func wiredIntoPickerAndChat() throws {
+        let picker = try loadMirroredSourceTextFile("Epistemos/Views/Chat/InlineRuntimePickerPanel.swift")
+        #expect(picker.contains("ProviderLogoView("))
+        #expect(picker.contains("ProviderBrand.local(modelID: option.id)"))
+        let bubble = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        #expect(bubble.contains("ProviderLogoView(brand: ProviderBrand.fromLabel(label)"))
+    }
 }

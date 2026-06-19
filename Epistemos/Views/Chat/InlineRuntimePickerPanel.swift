@@ -220,10 +220,14 @@ struct InlineRuntimePickerPanel: View {
             select(option)
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: option.isAppleIntelligence ? "apple.intelligence" : tier.systemImage)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(option.isSelectable ? theme.textSecondary : theme.textTertiary)
-                    .frame(width: 16)
+                // P6.1 — the provider brand logo for this pick (the tier is already
+                // shown by the section header). Apple → apple; local model id →
+                // gemma/qwen/generic via ProviderBrand.local.
+                ProviderLogoView(
+                    brand: option.isAppleIntelligence ? .apple : ProviderBrand.local(modelID: option.id),
+                    size: 16
+                )
+                .foregroundStyle(option.isSelectable ? theme.textSecondary : theme.textTertiary)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(option.title)
                         .font(.system(size: 12.5, weight: .semibold, design: .monospaced))

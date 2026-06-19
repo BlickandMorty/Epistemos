@@ -90,4 +90,24 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         if id.contains("qwen") || id.contains("qwopus") { return .qwen }
         return .generic
     }
+
+    /// Best-effort brand from a human display LABEL (e.g. the per-message
+    /// "answered by" badge: "Claude Opus 4.7", "GPT-5.4", "Gemini 3.1 Pro",
+    /// "Qwen 3 4B"). Order matters — the account-runtime names are checked first.
+    static func fromLabel(_ label: String) -> ProviderBrand {
+        let l = label.lowercased()
+        if l.contains("claude code") { return .claudeCode }
+        if l.contains("codex") { return .codex }
+        if l.contains("claude") { return .claude }
+        if l.contains("gpt") || l.contains("chatgpt") || l.contains("openai") { return .chatGPT }
+        if l.contains("gemini") { return .gemini }
+        if l.contains("gemma") { return .gemma }
+        if l.contains("qwen") || l.contains("qwopus") { return .qwen }
+        if l.contains("kimi") || l.contains("moonshot") { return .kimi }
+        if l.contains("apple") { return .apple }
+        if l.contains("deepseek") { return .deepseek }
+        if l.contains("minimax") { return .minimax }
+        if l.contains("glm") || l.contains("z.ai") || l.contains("zai") { return .zai }
+        return .generic
+    }
 }
