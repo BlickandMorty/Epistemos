@@ -153,6 +153,10 @@ pub mod tool_preflight;
 // model's preserved thinking trace from the clean answer (Rust-core / GGUF path).
 pub mod reasoning_tokens;
 
+// Schema validation gate for REPAIR (Deterministic Schema Engine, P8.2 spec §C.1):
+// collect ALL violations of an emitted value vs its schema, for a model repair loop.
+pub mod schema_validation;
+
 // AST quality gate (Deterministic Schema Engine, P8.2 spec §A): reject syntactically
 // broken generated code (tree-sitter ERROR/MISSING) BEFORE any disk write. Gated behind
 // `lsp-runtime` (reuses the LSP runtime's tree-sitter grammars — no new deps).
