@@ -812,6 +812,17 @@ calls: no blanket rule — choose per case.
       reported, broken-schema-never-passes). cargo --lib BOTH green (5/0). Building block
       for the §C.1 "structured tool output → validation gate → repair" loop (the wiring
       of the loop is the owner-verification step).
+      ✅ §C.1 REPAIR-PROMPT BUILDER 2026-06-19: added `build_repair_prompt(failed_value,
+      violations) -> Option<String>` to schema_validation.rs — turns a failed JSON +
+      `all_violations` into a concise model repair instruction (shows what it produced,
+      lists EVERY violation numbered, asks for "ONLY the corrected JSON … no prose, no
+      markdown"). `None` when there's nothing to repair. Non-duplicating: the research-
+      tier `SchemaRepairLoop` uses a DIFFERENT custom Schema/FieldType system; this
+      pairs with the LIVE `jsonschema` path (the one tools_v2/runner uses). Completes the
+      Rust §C.1 validate→repair primitives: `all_violations → build_repair_prompt →
+      re-prompt`. +3 cargo tests (lists-all+shows-value+asks-json, none-when-no-
+      violations, validate→repair round-trip). cargo --lib BOTH green (8/0). Wiring the
+      loop into live generation is the owner-verification step.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner
