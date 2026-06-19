@@ -3278,7 +3278,15 @@ final class ChatCoordinator {
       return
     }
     let vaultPath = managedToolRuntimeVaultPath()
-    chatState.startStreaming()
+    // Deep research is a multi-minute, multi-agent pass — not a normal turn — so
+    // show a DISTINCT, informative in-progress message instead of the generic
+    // streaming dots, and replace it BY ID when done (robust if the user types
+    // something else meanwhile; falls back to a fresh message if it's gone).
+    chatState.appendLocalMessage(
+      role: .assistant,
+      content: "🔬 **Deep research running** — planner → parallel sub-agents → cited synthesis. This multi-agent pass can take a minute…"
+    )
+    let placeholderID = chatState.messages.last?.id
     Task { [weak self] in
       guard self != nil else { return }
       do {
@@ -3287,11 +3295,15 @@ final class ChatCoordinator {
           providerName: providerName,
           vaultPath: vaultPath
         )
-        chatState.appendCompletedLocalAssistantMessage(
-          content: DeepResearchReportRenderer.render(outcome)
-        )
+        let report = DeepResearchReportRenderer.render(outcome)
+        if placeholderID == nil || !chatState.updateMessageContent(id: placeholderID!, report) {
+          chatState.appendCompletedLocalAssistantMessage(content: report)
+        }
       } catch {
-        chatState.addErrorMessage(from: error)
+        let message = "Deep research couldn't finish: \(error.localizedDescription)"
+        if placeholderID == nil || !chatState.updateMessageContent(id: placeholderID!, message) {
+          chatState.addErrorMessage(from: error)
+        }
       }
     }
     #else

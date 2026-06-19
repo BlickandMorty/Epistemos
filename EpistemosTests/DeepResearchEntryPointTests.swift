@@ -60,4 +60,21 @@ struct DeepResearchEntryPointTests {
         // target appends). Guard the intent text so the contract is documented.
         #expect(src.contains("would double the bubble"))
     }
+
+    @Test("5e-3 polish: distinct in-progress message replaced by id (robust to other appends)")
+    func deepResearchProgressIsDistinctAndIdSafe() throws {
+        // ChatState gained a safe update-by-id (a later user message can't be
+        // clobbered like updateLastMessageContent would).
+        let chatState = try loadMirroredSourceTextFile("Epistemos/State/ChatState.swift")
+        #expect(chatState.contains("func updateMessageContent(id: String, _ newContent: String) -> Bool"))
+        #expect(chatState.contains("messages.firstIndex(where: { $0.id == id })"))
+
+        // runDeepResearch shows a DISTINCT deep-research placeholder + captures its
+        // id + replaces it by id on finish (not the generic streaming dots).
+        let coord = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
+        #expect(coord.contains("Deep research running"))
+        #expect(coord.contains("let placeholderID = chatState.messages.last?.id"))
+        #expect(coord.contains("chatState.updateMessageContent(id: placeholderID!, report)"))
+        #expect(coord.contains("Deep research couldn't finish:"))
+    }
 }
