@@ -8,6 +8,11 @@ import SwiftUI
 // training-data / vault path). MAS-safe: packs are descriptors, never runtime code.
 struct FineTuneMarketplaceView: View {
 
+    // P5 apply affordance: the pack the owner tapped Apply on (→ honest confirm) +
+    // the honest outcome note. The real per-kind execution is the on-device step.
+    @State private var pendingApplyPack: FineTunePack?
+    @State private var applyNote: String?
+
     private var registry: FineTunePackRegistry { FineTunePackCatalog.seededRegistry() }
 
     // Honest gating: Pro packs only appear in a Pro/dev build, never on the MAS
@@ -53,9 +58,34 @@ struct FineTuneMarketplaceView: View {
                         }
                     }
                 }
+
+                // P5: the honest outcome of the last apply tap — what apply does +
+                // where it runs. Never claims an execution the browse surface can't do.
+                if let applyNote {
+                    Text(applyNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(4)
+        }
+        .alert(
+            pendingApplyPack.map { "\($0.kind.applyAction.verb) “\($0.displayName)”?" } ?? "Apply pack?",
+            isPresented: Binding(
+                get: { pendingApplyPack != nil },
+                set: { if !$0 { pendingApplyPack = nil } }
+            ),
+            presenting: pendingApplyPack
+        ) { pack in
+            Button(pack.kind.applyAction.verb) {
+                applyNote = pack.applyConfirmation
+                pendingApplyPack = nil
+            }
+            Button("Cancel", role: .cancel) { pendingApplyPack = nil }
+        } message: { pack in
+            Text(pack.applyConfirmation)
         }
     }
 
@@ -79,6 +109,13 @@ struct FineTuneMarketplaceView: View {
                 }
             }
             Spacer(minLength: 0)
+            // P5 apply affordance: an honest per-kind apply/import button. Tapping it
+            // shows what apply does + where it runs (the real execution is on-device).
+            Button(pack.kind.applyAction.verb) {
+                pendingApplyPack = pack
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
         .padding(.vertical, 3)
     }

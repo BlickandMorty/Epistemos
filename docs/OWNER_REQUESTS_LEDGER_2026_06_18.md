@@ -301,6 +301,19 @@ calls: no blanket rule — choose per case.
       +4 tests; build-for-testing green. FOLLOW-ON: import/apply wiring (LoRA →
       AdapterExporter/NativeAdapterApply; dataset/instruction → native train/vault) +
       a real add-through-ProvenanceGate flow for public HF/GitHub packs.
+      ✅ FINISHER 2026-06-19 (part 5b APPLY affordance): browse → apply. NEW pure
+      `FineTunePackApplyAction` (.applyAdapter/.importDataset/.applyInstructions/
+      .importKnowledge) + `FineTunePackKind.applyAction` + `FineTunePack.applyConfirmation`
+      — each action carries a verb + an HONEST description naming WHERE it runs
+      (adapter/knowledge = on-device `runsOnDevice`; never fakes an execution the
+      browse surface can't do). FineTuneMarketplaceView gains a per-row Apply/Import
+      button → an honest confirm `.alert` (per-kind verb + description) → an outcome
+      note. +6 FineTunePackApplyTests (kind→action map, honest descriptions, on-device
+      flags, confirm mirrors kind, view wires the button/alert); FineTunePackCatalog
+      mirrored-source asserts intact. build-for-testing green. STILL FOLLOW-ON: the
+      per-kind EXECUTION (NativeAdapterApply for .loraAdapter into a loaded model;
+      dataset/instruction/knowledge into the native-train/vault pipeline) is the
+      gated on-device step the affordance directs the owner toward.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
