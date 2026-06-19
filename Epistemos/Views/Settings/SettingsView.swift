@@ -3304,7 +3304,49 @@ private struct LocalModelManagerSheet: View {
                 // catalog + capability-ceiling jargon are hidden — the owner
                 // asked for a simple picker, not the messy one. Set
                 // EPISTEMOS_SIMPLIFIED_LINEUP=0 to bring back the full catalog.
-                if !EpistemosFoundationLineup.simplifiedLineupActive {
+                if EpistemosFoundationLineup.simplifiedLineupActive {
+                    // Owner 2026-06-19 (MODEL DOWNLOAD/INSTALL fix): the canon foundation
+                    // lineup above is the ADVERTISED set, but every other model the app
+                    // supports stays RETAINED and DOWNLOADABLE — never deleted, never made
+                    // un-installable. Under the simplified lineup they live here in a
+                    // collapsed "All models (advanced)" disclosure (un-advertised, one tap
+                    // away) so the picker stays simple (advertise = canon) without losing
+                    // anything (retain = all). Previously this whole block was HIDDEN when
+                    // the simplified lineup was active — which is exactly why the owner could
+                    // only install the one-tap foundation package and nothing else.
+                    Section {
+                        DisclosureGroup {
+                            Button("Install Recommended Baseline") {
+                                Task {
+                                    try? await localModelManager.installRecommendedBaselineModels()
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .padding(.vertical, 4)
+
+                            ForEach(curatedBaselineDescriptors, id: \.id) { descriptor in
+                                LocalModelRow(
+                                    descriptor: descriptor,
+                                    capabilityCeiling: capabilityCeiling
+                                )
+                            }
+                            ForEach(optionalBaselineDescriptors, id: \.id) { descriptor in
+                                LocalModelRow(
+                                    descriptor: descriptor,
+                                    capabilityCeiling: capabilityCeiling
+                                )
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("All models (advanced)")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Install any model Epistemos supports — flagships, fallbacks, and specialists. Not promoted in the simple picker, but always available to download.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } else {
                     Section {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Recommended baseline")
