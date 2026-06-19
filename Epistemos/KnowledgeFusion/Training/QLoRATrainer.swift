@@ -49,12 +49,9 @@ nonisolated struct AdapterMetadata: Sendable, Codable {
 /// .safetensors files. They NEVER fuse adapters into base model weights.
 actor QLoRATrainer {
 
-    private let pythonPath: String
     private let scriptsDirectory: URL
-    private var activeProcess: Process?
 
-    init(pythonPath: String = "/usr/bin/python3", scriptsDirectory: URL? = nil) {
-        self.pythonPath = pythonPath
+    init(scriptsDirectory: URL? = nil) {
         if let dir = scriptsDirectory {
             self.scriptsDirectory = dir
         } else {
@@ -136,10 +133,10 @@ actor QLoRATrainer {
     }
 
     func cancelTraining() async {
-        if let process = activeProcess, process.isRunning {
-            process.terminate()
-        }
-        activeProcess = nil
+        // Native MLX LoRA training (NativeLoRATrainer) replaced the python3
+        // subprocess, so there's no Process to terminate. Cooperative
+        // cancellation is a follow-on via the LoRATrain progress
+        // ProgressDisposition.stop path.
     }
 
     // MARK: - Process Execution
@@ -183,72 +180,6 @@ actor QLoRATrainer {
             "LoRA training is not available in the App Store sandbox build."
         )
         #endif
-    }
-}
-
-// MARK: - Progress Parser
-
-/// Parses mlx-lm training log output format:
-/// "Iter N: train loss X.XXX, learning_rate X.Xe-XX, ..."
-private nonisolated final class TrainingProgressParser: Sendable {
-    private let totalIterations: Int
-    private let handler: (@Sendable (TrainingProgress) -> Void)?
-    private let startTime = Date()
-
-    nonisolated init(totalIterations: Int, handler: (@Sendable (TrainingProgress) -> Void)?) {
-        self.totalIterations = totalIterations
-        self.handler = handler
-    }
-
-    func parse(_ output: String) {
-        let lines = output.components(separatedBy: .newlines)
-        for line in lines {
-            guard let progress = parseIterLine(line) else { continue }
-            handler?(progress)
-        }
-    }
-
-    private func parseIterLine(_ line: String) -> TrainingProgress? {
-        // Match: "Iter N: train loss X.XXX, learning_rate X.Xe-XX"
-        // or: "Iter N (val): ..."
-        guard line.contains("Iter") && line.contains("train loss") else { return nil }
-
-        let components = line.components(separatedBy: " ")
-        guard let iterIdx = components.firstIndex(of: "Iter"),
-              iterIdx + 1 < components.count else { return nil }
-
-        let iterStr = components[iterIdx + 1].trimmingCharacters(in: CharacterSet(charactersIn: ":,"))
-        guard let iter = Int(iterStr) else { return nil }
-
-        // Parse loss
-        var loss: Double = 0
-        if let lossIdx = components.firstIndex(of: "loss"),
-           lossIdx + 1 < components.count {
-            let lossStr = components[lossIdx + 1].trimmingCharacters(in: CharacterSet(charactersIn: ","))
-            loss = Double(lossStr) ?? 0
-        }
-
-        // Parse learning rate
-        var lr: Double = 0
-        if let lrIdx = components.firstIndex(of: "learning_rate"),
-           lrIdx + 1 < components.count {
-            let lrStr = components[lrIdx + 1].trimmingCharacters(in: CharacterSet(charactersIn: ","))
-            lr = Double(lrStr) ?? 0
-        }
-
-        // Estimate time remaining
-        let elapsed = Date().timeIntervalSince(startTime)
-        let itersRemaining = totalIterations - iter
-        let timePerIter = iter > 0 ? elapsed / Double(iter) : 0
-        let estimatedRemaining = timePerIter * Double(itersRemaining)
-
-        return TrainingProgress(
-            iteration: iter,
-            totalIterations: totalIterations,
-            loss: loss,
-            learningRate: lr,
-            estimatedTimeRemaining: estimatedRemaining
-        )
     }
 }
 

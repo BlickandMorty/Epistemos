@@ -304,7 +304,6 @@ final class KnowledgeFusionViewModel {
             }
 
             let trainer = QLoRATrainer(
-                pythonPath: pyEnv.isReady ? pyEnv.pythonPath : "/usr/bin/python3",
                 scriptsDirectory: pyEnv.scriptsDirectory
             )
 
