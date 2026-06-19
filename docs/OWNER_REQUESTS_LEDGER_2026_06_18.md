@@ -93,7 +93,7 @@ calls: no blanket rule — choose per case.
       4. **SEARCH-PAGE CLICK REGRESSION** — clicking anywhere on the landing/
          search page misbehaves. Audit Landing/* + HologramSearchSidebar gesture
          handling and fix.
-- [~] **PER-MODEL VAULTS (KnowledgeFusion) — owner 2026-06-18. IN PROGRESS.
+- [x] **PER-MODEL VAULTS (KnowledgeFusion) — owner 2026-06-18. BUILD-VERIFIED COMPLETE (owner does in-app run).
       DONE (part 2 first cut): ModelVaultsSettingsView no longer renders generic
       hardcoded "Present in compiled vaults" rows — new ModelVaultFileInspector
       (always-compiled, tested) probes each target's vault dir for the canonical

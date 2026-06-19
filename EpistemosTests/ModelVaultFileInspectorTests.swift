@@ -67,6 +67,35 @@ struct ModelVaultFileInspectorTests {
         #expect(ModelVaultFileInspector.totalBytes(files) == 0)
     }
 
+    @Test("preview collapses whitespace, truncates long files, and skips missing/blank")
+    func previewReadsContent() throws {
+        let dir = try tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Multi-line content → single collapsed line.
+        let multiline = "# Instructions\n\nBe concise.\n  Prefer Swift.\n"
+        let multiURL = dir.appendingPathComponent("instructions.md")
+        try multiline.write(to: multiURL, atomically: true, encoding: .utf8)
+        let preview = try #require(ModelVaultFileInspector.preview(of: multiURL))
+        #expect(preview == "# Instructions Be concise. Prefer Swift.")
+        #expect(!preview.contains("\n"))
+
+        // Long content → truncated with an ellipsis.
+        let longURL = dir.appendingPathComponent("long.md")
+        try String(repeating: "a", count: 500).write(to: longURL, atomically: true, encoding: .utf8)
+        let longPreview = try #require(ModelVaultFileInspector.preview(of: longURL, maxChars: 50))
+        #expect(longPreview.count == 51)  // 50 + the ellipsis
+        #expect(longPreview.hasSuffix("…"))
+
+        // Blank file → nil (no empty preview row).
+        let blankURL = dir.appendingPathComponent("blank.md")
+        try "   \n\t  ".write(to: blankURL, atomically: true, encoding: .utf8)
+        #expect(ModelVaultFileInspector.preview(of: blankURL) == nil)
+
+        // Missing file → nil, never a throw.
+        #expect(ModelVaultFileInspector.preview(of: dir.appendingPathComponent("nope.md")) == nil)
+    }
+
     @Test("byte formatter is deterministic across B / KB / MB")
     func formatsBytes() {
         #expect(ModelVaultFileInspector.formatBytes(0) == "0 B")

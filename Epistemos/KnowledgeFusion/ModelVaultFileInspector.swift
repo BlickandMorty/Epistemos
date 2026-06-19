@@ -48,6 +48,25 @@ enum ModelVaultFileInspector {
         }
     }
 
+    /// A short single-line content preview of a vault file (owner 2026-06-18:
+    /// "content preview"). Reads at most a bounded prefix (never loads a large
+    /// file), collapses runs of whitespace/newlines to single spaces, and
+    /// truncates to `maxChars` with an ellipsis. Returns nil for a missing or
+    /// blank file. Pure w.r.t. the URL → unit-testable.
+    static func preview(of url: URL, maxChars: Int = 180) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        let data = (try? handle.read(upToCount: 8192)) ?? Data()
+        guard let raw = String(data: data, encoding: .utf8) else { return nil }
+        let collapsed = raw
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !collapsed.isEmpty else { return nil }
+        if collapsed.count <= maxChars { return collapsed }
+        return String(collapsed.prefix(maxChars)) + "…"
+    }
+
     /// Human-friendly, locale-independent byte size for the status rows.
     static func formatBytes(_ bytes: Int) -> String {
         if bytes <= 0 { return "0 B" }

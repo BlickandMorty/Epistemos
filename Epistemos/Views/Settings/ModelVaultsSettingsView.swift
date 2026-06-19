@@ -230,14 +230,17 @@ struct ModelVaultsSettingsView: View {
         // missing). Compiled models sort first so the eye lands on real data.
         let details: [ModelVaultDetailModel] = targets
             .map { target in
-                let files = ModelVaultFileInspector.probe(
-                    directory: store.modelVaultDirectoryURL(for: target.modelID)
+                let directory = store.modelVaultDirectoryURL(for: target.modelID)
+                let files = ModelVaultFileInspector.probe(directory: directory)
+                let preview = ModelVaultFileInspector.preview(
+                    of: directory.appendingPathComponent("instructions.md")
                 )
                 return ModelVaultDetailModel(
                     modelID: target.modelID,
                     displayName: target.displayName,
                     iconName: ProviderBucket.bucket(for: target)?.icon ?? "doc.text",
-                    files: files
+                    files: files,
+                    instructionsPreview: preview
                 )
             }
             .sorted { lhs, rhs in
@@ -447,6 +450,7 @@ private struct ModelVaultDetailModel: Identifiable {
     let displayName: String
     let iconName: String
     let files: [ModelVaultFileStatus]
+    let instructionsPreview: String?
 
     var id: String { modelID }
     var isCompiled: Bool { ModelVaultFileInspector.anyCompiled(files) }
@@ -494,6 +498,23 @@ private struct ModelVaultDetailRow: View {
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
+                    }
+                }
+
+                // Owner 2026-06-18: a real content preview of this model's
+                // instructions.md (the user-editable steering file), so the row
+                // shows what's actually in the vault — not a generic claim.
+                if let preview = detail.instructionsPreview {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("instructions.md preview")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                        Text(preview)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .textSelection(.enabled)
                     }
                 }
             }
