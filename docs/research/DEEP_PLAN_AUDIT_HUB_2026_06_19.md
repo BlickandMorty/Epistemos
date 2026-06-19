@@ -27,6 +27,7 @@ Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply 
 - `docs/research/RESKIN_PLAYBOOK_2026_06_19.md` — (S2) pixel-art reskin across SwiftUI + WebKit; consolidation not new system.
 - `docs/research/COMPETITOR_SUPERSESSION_2026_06_19.md` — (S5) gaps vs Obsidian/Claude/Codex/Tolaria/Notion + killer differentiators.
 - `docs/research/SETTINGS_REVAMP_CLONES_2026_06_19.md` — (S3) absorb OpenClaw/Osaurus/Goose settings into one native pixel-art model; consolidate MCP-install.
+- `docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md` — (S4) **REAL root cause of broken tools/skills: chats never ENTER the tool loop** (Gemma gated out, non-OpenAI/Anthropic cloud gets no tools); skills 3-store path mismatch; prune list.
 - (Appended as the loop produces them — keep this index complete.)
 
 ## METHODOLOGY — ITERATIVE DEEPENING + BREADTH (owner 2026-06-19)
@@ -45,7 +46,7 @@ sharpens. Never re-do a slice at the same depth; either go deeper or pick a new 
 | S1 | STOP-REINVENTING audit — where Epistemos hand-rolls what Osaurus/Hermes/OpenClaw/Goose already do better → switch to their proven logic | ☐ in progress |
 | S2 | Best PROVEN reskin approach (pixel-art revamp) across native + WebKit-hosted surfaces | ✅ done → RESKIN_PLAYBOOK |
 | S3 | SETTINGS revamp per cloned thing (OpenClaw, Osaurus, Goose) → deep Epistemos revamp; one coherent settings model | ✅ done → SETTINGS_REVAMP_CLONES |
-| S4 | CHAT ↔ skills/tools end-to-end integration audit + BROKEN-things debug + PRUNE unnecessary | ☐ in progress |
+| S4 | CHAT ↔ skills/tools end-to-end integration audit + BROKEN-things debug + PRUNE unnecessary | ✅ done → CHAT_TOOLS_INTEGRATION_AUDIT |
 | S5 | COMPETITOR SUPERSESSION — Obsidian, Claude-desktop, Codex/terminal-integrated, Tolaria, Notion CLI → feature gaps to beat them | ✅ done → COMPETITOR_SUPERSESSION |
 | S6 | WHOLE-APP forward audit — current parts researched for "what's to come" | ☐ |
 | S7 | PLAN/LEDGER/DIRECTIVE consistency sweep — contradictions, gaps, dead items | ☐ |
@@ -68,4 +69,5 @@ sharpens. Never re-do a slice at the same depth; either go deeper or pick a new 
 - **S2 RESKIN** → the reskin is a CONSOLIDATION, not a new system: `EpistemosTheme.resolved` is the one token source; `EpdocEditorThemeStyle.applyScript` is the proven WebKit CSS-injection precedent. Missing pieces: a `PixelSkinTokens` group (border/corner=0/shadow/image-rendering/pixel-font), hoisting `pixelPanel` out of Landing + making it theme-UNCONDITIONAL, generalizing the injector to `EpistemosWebTheme.applyScript(for:namespace:)`, a static `pixel-theme.css` per web surface. No `image-rendering:pixelated` exists yet; avoid the self-stamping DEMO fonts. Full: RESKIN_PLAYBOOK.
 - **S5 COMPETITORS** → Epistemos LEADS on architecture (in-process MLX/no-sidecar, provenance/Eidos, native computer-use substrate, in-process PDF→md) but is BEHIND on shipped-working execution (the agent tool-loop is REOPENED-broken = the #1 blocker) and has true GAPS: web-clipper, voice, sync, working canvas, MCP-install UX. Anti-Tolaria move: expose the vault over MCP + an AGENTS.md convention while keeping the in-process brain as default. Moat = local-agent-over-YOUR-vault + honest provenance + three-engine fusion. Full: COMPETITOR_SUPERSESSION.
 - **S3 SETTINGS-REVAMP** → clones get NO new settings panels: absorb each one's real knobs into existing native surfaces (model→one stack, permissions→AuthoritySettingsView, recipes/plugins→SkillsSettingsView), HIDE/HARDCODE the rest, status via the proven GateStatus+HealthRow triad in SubstrateHealthPanel. Highest-leverage move = CONSOLIDATE the scattered MCP-install into ONE surface. OpenClaw's auto-generated config-form (~20 Zod sections) must be HIDDEN (CSS + don't wire config.* bridge), never embedded. Full: SETTINGS_REVAMP_CLONES.
-- (S1 stop-reinventing + S4 chat↔tools/debug/prune still running.)
+- **S4 CHAT↔TOOLS (major)** → the REAL reason tools/skills look broken is NOT the marshaling bug (real but repaired): **chats never ENTER the tool loop** for the owner's common selections — local Gemma is gated out (`canActAsAgent=false`, no backup Qwen), and non-OpenAI/Anthropic cloud never gets tools attached for plain chat (`supportsAgentTier` only OpenAI/Anthropic). All auto-route fixes are flag-OFF. UI boxes wire is intact — gone only because no tool calls fire. Skills: 3 disjoint stores never reconcile; 7 authored SKILL.md in `.agents/skills/` (a path no loader reads). Real fixes: (1) attach tools for plain chat on ALL cloud providers; (2) Swift live-wire the GGUF-Gemma tool path + allow canActAsAgent; (3) reconcile skills stores/paths. Full: CHAT_TOOLS_INTEGRATION_AUDIT. (Fed into the TOOLS/SKILLS ledger item.)
+- (S1 stop-reinventing still running.)
