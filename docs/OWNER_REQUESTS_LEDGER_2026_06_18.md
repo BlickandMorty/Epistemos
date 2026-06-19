@@ -910,8 +910,21 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
       signal). So EML-2 is a tested, parity-locked PRIMITIVE, NOT live; the health
       row + doc now say so honestly. LIVE-WIRING EML-2 needs a confidence signal
       added to the triage profile first (separate design) — re-queued, not done.
-- [ ] **LF-1/2/3 kill MoLoRA/QLoRA Python subprocess** — NO-SIDECAR breach
+- [~] **LF-1/2/3 kill MoLoRA/QLoRA Python subprocess** — NO-SIDECAR breach
       (molora_inference.py + __pycache__ live); port to in-process MLX-Swift.
+      VERDICT done 2026-06-18 (docs/RESEARCH_FINETUNE_NATIVE_MLX_2026_06_18.md):
+      the native LoRA trainer is ALREADY VENDORED — mlx-swift-lm MLXLLM.LoRATrain +
+      loadLoRAData + MLXLMCommon LoRAConfiguration/LoRAContainer/QLoRALinear, linked
+      in the build. So the kill is WIRING, not a port. SLICE 1 DONE (9096613fb):
+      LoRAChatDataConverter — pure native chat-JSONL → {"text":…} bridge (native
+      loadJSONL reads only {"text":…}; Epistemos emits {"messages":[…]}), 6 tests,
+      no Python/MLX dep, INERT. Kill-order: 1✅ data bridge · 2 NativeLoRATrainer
+      wrapping LoRATrain.train behind the existing TrainingConfig/AdapterMetadata
+      (replaces QLoRATrainer's Process body) · 3 adapter apply via LoRAContainer
+      (deprecate molora_inference.py) · 4 native data-gen (port MOHAWK; RunPod is
+      Pro/dev infra, never MAS) · 5 DELETE the .py + PythonEnvironmentManager (own
+      grep-proven commits once native replacements ship). ProvenanceGate:
+      direct_import (package already a dependency). NEXT: slice 2 NativeLoRATrainer.
 - [ ] **REG-1 KV-Direct-Gate harness**, **REG-3 NightBrain bodies**, **REG-2 T20
       Variant Ladder** (honest local routing), **REG-6 per-model memory folder +
       chat-as-graph-node**, **SIM-4 real MLX-Swift LoRA hot-swap**, **LI-2/LI-3
