@@ -765,27 +765,10 @@ struct AppStoreHardeningTests {
                 "try process.run()",
             ]
         ),
-        KFMASGateSpec(
-            pathComponents: ["KnowledgeFusion", "Training", "QLoRATrainer.swift"],
-            markers: [
-                "Process.init(",
-                "process.executableURL",
-                "process.arguments",
-                "try process.run()",
-            ]
-        ),
-        // MoLoRAInferenceService uses `proc` as the Process variable
-        // name, so the property/method markers are `proc.*`, not
-        // `process.*`.
-        KFMASGateSpec(
-            pathComponents: ["KnowledgeFusion", "MoLoRA", "MoLoRAInferenceService.swift"],
-            markers: [
-                "Process.init(",
-                "proc.executableURL",
-                "proc.arguments",
-                "try proc.run()",
-            ]
-        ),
+        // QLoRATrainer (now in-process native NativeLoRATrainer / MLXLLM.LoRATrain)
+        // and MoLoRAInferenceService (deleted 2026-06-18 — orphaned
+        // molora_inference.py subprocess, replaced by native NativeAdapterApply)
+        // no longer spawn subprocesses, so they're removed from the MAS-gate specs.
         // PythonEnvironmentManager keeps the Pro/direct venv and pip
         // subprocess path, but must not carry runtime Homebrew/Python
         // installer-pipeline literals.
@@ -824,19 +807,12 @@ struct AppStoreHardeningTests {
         try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[1])
     }
 
-    @Test("QLoRATrainer MAS branch contains no python subprocess launch markers")
-    func qLoRATrainerMASBranchHasNoPythonLaunchMarkers() throws {
-        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[2])
-    }
-
-    @Test("MoLoRAInferenceService MAS branch contains no python subprocess launch markers")
-    func moLoRAInferenceServiceMASBranchHasNoPythonLaunchMarkers() throws {
-        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[3])
-    }
-
+    // QLoRATrainer + MoLoRAInferenceService MAS-gate tests removed 2026-06-18
+    // (QLoRA is native; MoLoRAInferenceService deleted). PythonEnvironmentManager
+    // is now spec index [2].
     @Test("PythonEnvironmentManager MAS branch contains no installer launch markers")
     func pythonEnvironmentManagerMASBranchHasNoInstallerMarkers() throws {
-        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[4])
+        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[2])
     }
 
     // MARK: - Category B regression (Phase S.2 ChunkedMCPFraming)

@@ -17,8 +17,10 @@ final class MoLoRARouter {
     /// Current routing weights per adapter (normalized to sum to 1.0).
     private(set) var routingWeights: [String: Double] = [:]
 
-    /// Path to router centroids (computed by train_router.py).
-    /// When available, enables AdaFuse decide-once routing via MoLoRAInferenceService.
+    /// Path to router centroids on disk, if present. (The Python train_router.py +
+    /// MoLoRAInferenceService AdaFuse subprocess was removed 2026-06-18; native
+    /// decide-once routing over multiple adapters is a future NativeAdapterApply
+    /// step. Single-adapter apply is already native via NativeAdapterApply.)
     var centroidsPath: URL? {
         let path = FoundationSafety.userApplicationSupportDirectory()
             .appendingPathComponent("Epistemos/MoLoRA/router_centroids.safetensors")

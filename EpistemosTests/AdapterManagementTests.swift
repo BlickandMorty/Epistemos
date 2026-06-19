@@ -306,12 +306,9 @@ struct AdapterRouterTests {
         let moloraRouter = try loadMirroredSourceTextFile(
             "Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift"
         )
-        let inferenceService = try loadMirroredSourceTextFile(
-            "Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift"
-        )
-        let pythonService = try loadMirroredSourceTextFile(
-            "Epistemos/KnowledgeFusion/MoLoRA/molora_inference.py"
-        )
+        // MoLoRAInferenceService + molora_inference.py removed 2026-06-18 (orphaned
+        // subprocess; native NativeAdapterApply replaces it). The honest-routing
+        // labels are still locked via the Swift routers below.
 
         #expect(adapterRouter.contains("Swift-side per-token MoLoRA routing is intentionally unavailable in v1"))
         #expect(adapterRouter.contains("prompt-level"))
@@ -319,17 +316,6 @@ struct AdapterRouterTests {
         #expect(!adapterRouter.contains("Routing handled by Python-side AdaFuse"))
 
         #expect(moloraRouter.contains("Whether decide-once MoLoRA routing is available"))
-        #expect(inferenceService.contains("prompt-level decide-once"))
-        #expect(inferenceService.contains("routing from layer-0 hidden states"))
-        #expect(!inferenceService.contains("routes per-token"))
-        #expect(!inferenceService.contains("Generate text with per-token MoLoRA routing"))
-        #expect(!inferenceService.contains("||" + " true"))
-
-        #expect(pythonService.contains("Decide-Once Multi-Adapter Inference Engine"))
-        #expect(pythonService.contains("prompt-level routing across multiple LoRA adapters"))
-        #expect(pythonService.contains("Generate tokens with prompt-level MoLoRA routing"))
-        #expect(!pythonService.contains("Per-Token Multi-Adapter Inference Engine"))
-        #expect(!pythonService.contains("per-token routing across multiple LoRA adapters"))
     }
 }
 
