@@ -67,9 +67,16 @@ works for block/goose, the same way Osaurus S2 vendored `ServerHealth`.
    typed `WorkRequest` (safe-default `AllowOnce` posture) / `WorkResult`;
    `run_work_session(&WorkRequest) -> Result<WorkResult, WorkError>` still inert.
    cargo `--lib work` green BOTH profiles. GUARDRAIL holds.
-3. **S4:** the provider/format layer (OpenAI/Anthropic wire formats) once its deps
+3. **S4 ✅ (2026-06-19):** vendored the block/goose recipe-PARAMETER typing system
+   VERBATIM (`RecipeParameterInputType`/`RecipeParameterRequirement`/`RecipeParameter`
+   from `crates/goose/src/recipe/mod.rs`, `direct_import`; ToSchema + `.unwrap()`-using
+   Display impls trimmed, PartialEq/Eq added; serde wire form byte-identical) + grew the
+   typed `WorkRequest` with `parameters: Vec<RecipeParameter>` (a Work task's declared
+   typed inputs). `run_work_session` still inert. cargo `--lib work` green BOTH profiles
+   (72/0, 92/0). GUARDRAIL holds.
+4. **S5:** the provider/format layer (OpenAI/Anthropic wire formats) once its deps
    are satisfied; FFI-export the real `run_work_session`.
-4. **S5+:** the agent loop + subagents + session (the engine), behind the flag, with
+5. **S6+:** the agent loop + subagents + session (the engine), behind the flag, with
    the P8.2 schema validation gate; then the Swift `GooseWorkBackend` drives it.
 
 ## Net

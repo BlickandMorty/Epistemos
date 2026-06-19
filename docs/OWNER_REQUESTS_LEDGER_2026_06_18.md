@@ -1229,8 +1229,22 @@ per pass). Keep until all done + hardened (rule #6/#8).
       (EngineNotWired, never a Chat/Act fallback). +2 cargo tests (upstream-variant +
       snake_case wire-form round-trip; safe-default posture). cargo --lib BOTH green
       (default 70/0, pro-build 90/0 on the `work` filter). GUARDRAIL holds — work
-      module still isolated, no agent_loop/agent_runtime ref. NEXT (S4): provider/format
-      layer + FFI-export the real run_work_session.
+      module still isolated, no agent_loop/agent_runtime ref.
+      ✅ S4 2026-06-19 (recipe-parameter leaf + grew WorkRequest): vendored the
+      block/goose recipe-PARAMETER typing system VERBATIM from
+      crates/goose/src/recipe/mod.rs — `RecipeParameterInputType` (string/number/
+      boolean/date/file/select), `RecipeParameterRequirement` (required/optional/
+      user_prompt), `RecipeParameter` (key/input_type/requirement/description/default/
+      options) — into `work::vendored_goose::recipe` (Apache-2.0 `direct_import`;
+      documented trims: ToSchema derive + `.unwrap()`-using Display impls dropped,
+      PartialEq/Eq added; every field/variant + serde `rename_all="snake_case"`
+      byte-for-byte). Grew the typed `WorkRequest` with `parameters:
+      Vec<RecipeParameter>` (a Work task's declared typed inputs; empty by default,
+      `read_only` defaults it). +2 cargo tests (recipe snake_case wire-form +
+      skip_serializing_if round-trip; WorkRequest carries params + stays inert).
+      cargo --lib BOTH green (default 72/0, pro-build 92/0 on `work`). GUARDRAIL
+      holds. NEXT (S5): the provider/format layer (deps permitting) + FFI-export the
+      real run_work_session.
 - [~] **GOOSE GUARDRAIL** — isolate the extracted Goose core behind Work mode + a
       feature flag; keep Chat/Act on their own engines; add regression coverage
       PROVING Chat + Act are unchanged after Goose lands. Must make Work much better,

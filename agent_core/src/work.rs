@@ -81,6 +81,60 @@ pub mod vendored_goose {
         }
         // --- END VERBATIM ---
     }
+
+    /// Vendored block/goose recipe-PARAMETER types (Goose S4) — the typed inputs a
+    /// Work recipe/task declares (key + input type + requirement + default + options).
+    /// A self-contained (serde-only) leaf; lets `WorkRequest` carry typed parameters.
+    pub mod recipe {
+        //! Provenance: github.com/block/goose (Apache-2.0),
+        //! crates/goose/src/recipe/mod.rs.
+        //! `direct_import` with documented adaptations: (1) the upstream `ToSchema`
+        //! derive + `use utoipa` are DROPPED (agent_core has no `utoipa`); (2) the
+        //! `Display` impls (which used `serde_json::to_string(self).unwrap()`) are
+        //! OMITTED — a convenience not needed for the Work seam, and `.unwrap()`
+        //! violates the project no-force-unwrap rule; (3) `PartialEq, Eq` are ADDED
+        //! (not upstream) so the types compose into the `PartialEq` `WorkRequest` and
+        //! support test assertions — additive only, wire-form unchanged. Every struct
+        //! field + enum variant + the serde `rename_all = "snake_case"` is byte-for-byte
+        //! upstream.
+
+        // --- BEGIN VERBATIM (block/goose, Apache-2.0; ToSchema+Display trimmed, Eq added) ---
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+        #[serde(rename_all = "snake_case")]
+        pub enum RecipeParameterRequirement {
+            Required,
+            Optional,
+            UserPrompt,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+        #[serde(rename_all = "snake_case")]
+        pub enum RecipeParameterInputType {
+            String,
+            Number,
+            Boolean,
+            Date,
+            /// File parameter that imports content from a file path.
+            /// Cannot have default values to prevent importing sensitive user files.
+            File,
+            Select,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+        pub struct RecipeParameter {
+            pub key: String,
+            pub input_type: RecipeParameterInputType,
+            pub requirement: RecipeParameterRequirement,
+            pub description: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub default: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub options: Option<Vec<String>>,
+        }
+        // --- END VERBATIM ---
+    }
 }
 
 /// First-party typed Work REQUEST (NOT vendored — the seam contract the Swift
@@ -93,16 +147,21 @@ pub struct WorkRequest {
     pub objective: String,
     pub source_roots: Vec<vendored_goose::SourceRoot>,
     pub default_permission: vendored_goose::permission::Permission,
+    /// The typed parameters this Work task declares (vendored block/goose recipe
+    /// parameters — Goose S4). Empty by default; the engine layer consumes them.
+    pub parameters: Vec<vendored_goose::recipe::RecipeParameter>,
 }
 
 impl WorkRequest {
     /// A read-only request over the given roots with the safest default posture
-    /// (`AllowOnce` — never `AlwaysAllow`; the engine asks per action).
+    /// (`AllowOnce` — never `AlwaysAllow`; the engine asks per action) and no
+    /// declared parameters.
     pub fn read_only(objective: impl Into<String>, roots: Vec<vendored_goose::SourceRoot>) -> Self {
         Self {
             objective: objective.into(),
             source_roots: roots,
             default_permission: vendored_goose::permission::Permission::AllowOnce,
+            parameters: Vec::new(),
         }
     }
 }
@@ -257,5 +316,63 @@ mod tests {
         let json = work_backend_status_json();
         assert!(json.contains("\"engine_wired\":false"));
         assert!(json.contains(WORK_GOOSE_FLAG));
+    }
+
+    #[test]
+    fn vendored_recipe_parameter_wire_form_matches_upstream() {
+        use vendored_goose::recipe::{
+            RecipeParameter, RecipeParameterInputType, RecipeParameterRequirement,
+        };
+        // serde snake_case wire form is byte-identical to upstream (the derive is preserved).
+        assert_eq!(
+            serde_json::to_string(&RecipeParameterInputType::Boolean).unwrap(),
+            "\"boolean\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RecipeParameterInputType::File).unwrap(),
+            "\"file\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RecipeParameterRequirement::UserPrompt).unwrap(),
+            "\"user_prompt\""
+        );
+        // RecipeParameter round-trips through serde unchanged; the optional fields keep
+        // their upstream `skip_serializing_if = "Option::is_none"` behavior.
+        let param = RecipeParameter {
+            key: "target".to_string(),
+            input_type: RecipeParameterInputType::Select,
+            requirement: RecipeParameterRequirement::Required,
+            description: "which target".to_string(),
+            default: None,
+            options: Some(vec!["a".to_string(), "b".to_string()]),
+        };
+        let json = serde_json::to_string(&param).unwrap();
+        assert!(!json.contains("\"default\"")); // None is skipped
+        assert!(json.contains("\"options\"")); // Some is present
+        let back: RecipeParameter = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, param);
+    }
+
+    #[test]
+    fn work_request_carries_typed_parameters() {
+        use vendored_goose::recipe::{
+            RecipeParameter, RecipeParameterInputType, RecipeParameterRequirement,
+        };
+        // A fresh read-only request declares NO parameters (empty by default).
+        let mut req = WorkRequest::read_only("do a thing", vec![]);
+        assert!(req.parameters.is_empty());
+        // ...and can carry the vendored typed parameters the engine layer will consume.
+        req.parameters.push(RecipeParameter {
+            key: "path".to_string(),
+            input_type: RecipeParameterInputType::File,
+            requirement: RecipeParameterRequirement::Optional,
+            description: "input file".to_string(),
+            default: None,
+            options: None,
+        });
+        assert_eq!(req.parameters.len(), 1);
+        assert_eq!(req.parameters[0].key, "path");
+        // Still inert — carrying parameters never wires an engine or falls back.
+        assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
     }
 }
