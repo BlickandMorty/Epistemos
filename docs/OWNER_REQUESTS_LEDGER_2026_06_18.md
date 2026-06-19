@@ -2865,6 +2865,23 @@ native; AGPL server). ADOPT 2 patterns natively:
       honest-no-silent-substitute pattern to the unavailable-stored-pick case here too (gate via the same
       `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL`). Narrows the bug hunt; the main-chat pin was the
       InferenceState resolver (done), this is the parallel specialist-path gap.
+      ✅ MODEL-SELECTION fix (1) — FOUNDATION-RECOMMEND (auto-mode prefers the lineup, flag-gated)
+      2026-06-19: the first of the two follow-on fixes the verification surfaced. ROOT: auto-mode
+      `recommendedBrain`'s preferred lists are `[LocalTextModelID]` enum cases that STRUCTURALLY
+      cannot express the foundation GGUF lineup (Gemma/VibeThinker/coder are descriptor ids), so
+      auto-mode could never recommend a foundation model and fell to the Qwen-first list — a real
+      contributor to "everything routes to Qwen" in auto/no-stored-pick mode. FIX: `AgentCommandCenter
+      State` adds a PURE `preferredLocalBrainID(foundationIDs:availableLocalIDs:legacyPreferred:armed:)`
+      — when armed, prefer the first AVAILABLE local id in `EpistemosFoundationLineup.foundationModelIDs`;
+      else (and when no foundation is installed) the first available legacy-preferred id. `localBrain`
+      now drives off it. Gated by `EPISTEMOS_FOUNDATION_RECOMMEND_V0`: OFF (default) = BYTE-IDENTICAL
+      to the legacy loop (safe — `matches(localModel:)` is id-equality, so "first available legacy
+      pick" == the old behaviour); ON = foundation-first. +5 pure tests (FoundationRecommendPolicyTests:
+      not-armed→legacy, armed→foundation, armed-no-foundation→legacy, neither→nil, flag-default-off).
+      build-for-testing TEST BUILD SUCCEEDED (0 errors). OWNER IN-APP: set
+      `EPISTEMOS_FOUNDATION_RECOMMEND_V0=1`, use a slash command with NO stored pick → expect a Gemma/
+      VibeThinker recommendation, not Qwen. Not ticked [x]. REMAINING fix (2): the honest-no-silent-
+      substitute for `storedBrainSelection`'s unavailable-pick case (parallel to a645e6623).
 - [ ] **R-WEBCLIP — web clipper → clean-markdown vault note (S16 gap, supersession vs Obsidian).**
       Spec: docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md. MAS core = a macOS Share Extension
       xcodegen target (`type:app-extension`, share-services, url+html; mirror `EpistemosWidgets`

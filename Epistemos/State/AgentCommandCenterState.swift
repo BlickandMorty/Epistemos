@@ -611,11 +611,51 @@ final class AgentCommandCenterState {
         }
     }
 
+    /// Foundation-recommend flag (`EPISTEMOS_FOUNDATION_RECOMMEND_V0`). OFF (default):
+    /// auto-mode recommendation is byte-identical to the legacy Qwen-first
+    /// `[LocalTextModelID]` lists. ON: an installed FOUNDATION-tier brain (Gemma /
+    /// VibeThinker / coder) is preferred first — the legacy lists are
+    /// `LocalTextModelID` enum cases that STRUCTURALLY cannot express the foundation
+    /// GGUF lineup (descriptor ids, not enum cases), so without this auto-mode can
+    /// never recommend a foundation model and defaults to Qwen.
+    nonisolated static var foundationRecommendArmed: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_FOUNDATION_RECOMMEND_V0"] == "1"
+    }
+
+    /// Pure auto-mode local-brain recommendation policy (foundation pivot). When
+    /// `armed`, prefer the FIRST available local id that is in `foundationIDs`;
+    /// otherwise (and when no foundation model is installed) fall to the FIRST
+    /// `legacyPreferred` id that is available — exactly the legacy behaviour, since
+    /// `matches(localModel:)` is id-equality. Returns nil when neither yields a hit
+    /// (the caller then uses its existing "first local brain" fallback). Pure →
+    /// unit-testable without constructing `AgentCommandCenterState`.
+    nonisolated static func preferredLocalBrainID(
+        foundationIDs: Set<String>,
+        availableLocalIDs: [String],
+        legacyPreferred: [String],
+        armed: Bool
+    ) -> String? {
+        if armed, let foundation = availableLocalIDs.first(where: { foundationIDs.contains($0) }) {
+            return foundation
+        }
+        return legacyPreferred.first(where: { availableLocalIDs.contains($0) })
+    }
+
     private func localBrain(preferredModels: [LocalTextModelID]) -> ACCBrainSelection? {
-        for model in preferredModels {
-            if let match = availableBrains.first(where: { $0.matches(localModel: model) }) {
-                return match
-            }
+        let availableLocalIDs: [String] = availableBrains.compactMap { brain in
+            if case .local(let modelId, _, _, _, _) = brain { return modelId }
+            return nil
+        }
+        if let chosenID = Self.preferredLocalBrainID(
+            foundationIDs: EpistemosFoundationLineup.foundationModelIDs,
+            availableLocalIDs: availableLocalIDs,
+            legacyPreferred: preferredModels.map(\.rawValue),
+            armed: Self.foundationRecommendArmed
+        ), let match = availableBrains.first(where: { brain in
+            if case .local(let modelId, _, _, _, _) = brain { return modelId == chosenID }
+            return false
+        }) {
+            return match
         }
         return availableBrains.first(where: \.isLocal)
     }
