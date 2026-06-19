@@ -153,6 +153,12 @@ pub mod tool_preflight;
 // model's preserved thinking trace from the clean answer (Rust-core / GGUF path).
 pub mod reasoning_tokens;
 
+// AST quality gate (Deterministic Schema Engine, P8.2 spec §A): reject syntactically
+// broken generated code (tree-sitter ERROR/MISSING) BEFORE any disk write. Gated behind
+// `lsp-runtime` (reuses the LSP runtime's tree-sitter grammars — no new deps).
+#[cfg(feature = "lsp-runtime")]
+pub mod ast_quality_gate;
+
 pub mod mcp;
 
 pub mod tools {

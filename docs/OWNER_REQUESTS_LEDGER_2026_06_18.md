@@ -745,6 +745,19 @@ calls: no blanket rule — choose per case.
       §A AST quality gate via tree-sitter, UniFFI async stream, and wiring all of this
       into the live agent loop / run_local_gguf_generation) are heavier / owner-
       verification, NOT one-pass autonomous slices.
+      ✅ §A AST QUALITY GATE 2026-06-19 (syntax layer): NEW
+      `agent_core/src/ast_quality_gate.rs` (feature-gated `lsp-runtime`, reusing the LSP
+      runtime's tree-sitter grammars — NO new deps, non-duplicating: no parse-validation
+      existed). `parse_gate(code, GateLanguage::{Rust,Swift}) -> ParseGateOutcome
+      { parses_cleanly }` + `passes_gate` — parses generated CODE with tree-sitter and
+      REJECTS it when the tree has ERROR/MISSING nodes, so a syntactically-broken
+      generation never reaches disk (the §A "validate via an AST quality gate BEFORE any
+      disk write" at the syntax level). Parser-construction failure → conservatively
+      NOT clean. +5 cargo tests (clean Rust/Swift pass, broken Rust/Swift rejected,
+      outcome both-ways). VERIFIED all 3 profiles: `--features lsp-runtime` (5/0 new
+      tests), plain `--lib` mas (5406/0, module cfg-absent → no regression), `--features
+      pro-build` (5668/0). FOLLOW-ON: deeper AST quality (beyond parse — type/structure
+      checks) + wiring into the write/compile loop are heavier / owner-verification.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner
