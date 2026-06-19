@@ -5160,7 +5160,9 @@ struct RuntimeValidationTests {
     func knowledgeFusionPythonSubprocessFallbacksUseBoundedEnvAndOutput() throws {
         let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
         let audioTranscriber = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift")
-        let qLoRATrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
+        // Owner 2026-06-18: QLoRATrainer no longer spawns python3 (native
+        // NativeLoRATrainer / MLXLLM.LoRATrain), so it has no bounded-env
+        // subprocess fallback to validate here. The rest still shell out.
         let ktoTrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift")
         let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift")
 
@@ -5168,11 +5170,6 @@ struct RuntimeValidationTests {
         #expect(pythonEnvironmentManager.contains("maxBytes: Int = 64 * 1024"))
         #expect(pythonEnvironmentManager.contains("nonisolated static func sanitizedProcessOutput("))
         #expect(pythonEnvironmentManager.contains("[redacted sensitive diagnostic line]"))
-
-        #expect(qLoRATrainer.contains("process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)"))
-        #expect(qLoRATrainer.contains("let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
-        #expect(qLoRATrainer.contains("stderrHandle.readabilityHandler = { handle in"))
-        #expect(qLoRATrainer.contains("stderrCapture.stringValue()"))
 
         #expect(ktoTrainer.contains("process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)"))
         #expect(ktoTrainer.contains("let stdoutCapture = KnowledgeFusionProcessOutputCapture()"))
@@ -5201,7 +5198,8 @@ struct RuntimeValidationTests {
     func longLivedSubprocessContinuationsHaveTimeoutAndCancellationEscapeHatches() throws {
         let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
         let audioTranscriber = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift")
-        let qLoRATrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
+        // Owner 2026-06-18: QLoRATrainer is native now (no subprocess), so there's
+        // no long-lived-subprocess continuation to validate here.
         let ktoTrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift")
         let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
 
@@ -5212,11 +5210,6 @@ struct RuntimeValidationTests {
         #expect(audioTranscriber.contains("withTaskCancellationHandler"))
         #expect(audioTranscriber.contains("ThrowingProcessContinuationState<String>()"))
         #expect(audioTranscriber.contains("TimeoutError(seconds: timeoutSeconds)"))
-
-        #expect(qLoRATrainer.contains("withTaskCancellationHandler"))
-        #expect(qLoRATrainer.contains("ThrowingProcessContinuationState<Void>()"))
-        #expect(qLoRATrainer.contains("TimeoutError(seconds: timeoutSeconds)"))
-        #expect(qLoRATrainer.contains("defer { activeProcess = nil }"))
 
         #expect(ktoTrainer.contains("withTaskCancellationHandler"))
         #expect(ktoTrainer.contains("ThrowingProcessContinuationState<Void>()"))
