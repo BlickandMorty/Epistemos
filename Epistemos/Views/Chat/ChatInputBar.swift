@@ -136,6 +136,9 @@ struct ChatInputBar: View {
     @State private var messageQueue = ComposerMessageQueue()
     // P7.6 cowork CONTEXT: tapping the context badge opens the real CoworkContextPanel.
     @State private var showContextPanel = false
+    // P7.6 cowork LAYOUT: the cohesive CoworkPanel (Progress/Context/Working-folder/
+    // Queue/Connectors), reachable from the composer.
+    @State private var showCoworkPanel = false
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -1013,6 +1016,25 @@ struct ChatInputBar: View {
                             CoworkContextPanel()
                                 .environment(chat)
                                 .frame(width: 340)
+                        }
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+
+                        // P7.6 cowork LAYOUT — the cohesive cowork panel
+                        // (Progress/Context/Working-folder/Queue/Connectors).
+                        Button {
+                            showCoworkPanel.toggle()
+                        } label: {
+                            Image(systemName: "rectangle.split.2x1")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Cowork panel — progress, context, working folder, queue")
+                        .popover(isPresented: $showCoworkPanel, arrowEdge: .top) {
+                            CoworkPanel(queuedMessage: messageQueue.pending)
+                                .environment(chat)
                         }
                         .transition(.opacity.combined(with: .scale(scale: 0.92)))
                     }

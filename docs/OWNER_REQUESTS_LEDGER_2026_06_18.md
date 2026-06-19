@@ -414,10 +414,18 @@ calls: no blanket rule — choose per case.
       empty state ("Nothing attached yet…"). Reachable from chat: the context badge
       now opens it in a popover. +2 tests; build-for-testing green. First piece of
       the cohesive COWORK layout. Owner verifies render in-app.
-- [ ] **COWORK SURFACE** — the Act/Progress/Working-folder/Context/Queue/Connectors
+- [~] **COWORK SURFACE** — the Act/Progress/Working-folder/Context/Queue/Connectors
       pieces are scattered into the composer, NOT the cohesive cowork LAYOUT from
       the owner's Claude-Desktop screenshot. Assemble the real surface (panels),
       reachable from chat. (P7.6)
+      ✅ 2026-06-19: NEW CoworkPanel — a cohesive container hosting the sections,
+      each wired to REAL telemetry with honest empty states: PROGRESS (isAgentExecuting
+      + currentCapability), CONTEXT (window bar + counts → full detail via the badge
+      popover), WORKING FOLDER (CoworkRunContext files + folder, Pro-gated), QUEUE
+      (staged ComposerMessageQueue.pending), CONNECTORS (honest forward state).
+      Reachable from chat via a new cowork button beside the context badge. +2 tests;
+      build-for-testing green. REMAINING: Connectors live inventory; ACT section +
+      Claude-Desktop visual polish. Owner verifies the layout match in-app.
 - [~] **Local models "not working" → showing GPT instead of local** in Settings.
       Investigate WHY other local models don't load/resolve; fix the label so
       local rows show the real local model, never a cloud/GPT fallback unless
