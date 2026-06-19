@@ -798,6 +798,28 @@ calls: no blanket rule — choose per case.
       ALL app skills/tools from chat, local=cloud parity. Toggle lives UPWARD at
       the TOP of the search page (not on the search bar) and turns the search page
       INTO Work/OpenCode. After the revised UX map (P7.4/P7.4a).
+      OWNER CLARIFICATION 2026-06-18: make the separation CONCRETE — a visible
+      3-button (or 4) TOGGLE on the search page: **Chat · Act · Work** (clearly
+      separated, no muddy overlap between Chat and Act). Each button switches the
+      page into that mode. (A) **Chat** = Epistemos conversation. (B) **Act** = the
+      automation / long-task AGENT surface — this is WHERE OPENCLAW EMBEDS (owner Q
+      answered: OpenClaw → Act, since it's best at long tasks/automation; Work is for
+      coding, Chat is conversation). Act uses OpenClaw's reskinned WebKit UI + the
+      2-engine picker (OpenClaw vs Local Agent); Osaurus stays UNDER Act as the
+      secure sandbox/runtime, not a competing button. (C) **Work** = Open Code, Goose
+      engine. Owner to confirm OpenClaw-in-Act placement when R-OPENCLAW lands.
+- [ ] **MODEL PICKER — SIMPLIFY + MODE-SCOPE (owner 2026-06-18, refines P1.11)** —
+      owner (verbatim): *"for the model picker I only want the model and its uses
+      visible for the right mode. Chat shows efforts and many other things — that is
+      muddy. I just want the name and the uses for the model and RAM needed etc, the
+      most important parts."* CONSCIOUS REVERSAL of the earlier add-everything
+      directive: the picker's PRIMARY content per mode = **model NAME + USES (what
+      it's good for) + RAM needed** — the essentials only. EFFORT + routing/native/
+      other controls must NOT clutter the picker; move them OUT (secondary/contextual,
+      shown only where they actually apply, e.g. effort only for a thinking model that
+      supports it). Scope visible options to the active mode (Chat/Act/Work) so each
+      mode shows only its relevant models/info. Net: clean, minimal, mode-scoped
+      picker — not the muddy everything-panel. Build+run verify per mode in-app.
 - [~] Provider logos (B&W lobehub, prefer pixel-art), context-specific, in Settings
       + picker + chat (P6.1) — for BOTH cloud AND local models: Claude, ChatGPT,
       Gemini, Claude Code, Codex, Gemma, Qwen, Apple, Kimi, Hermes.
