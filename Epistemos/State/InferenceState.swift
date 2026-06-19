@@ -1350,6 +1350,48 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
         case .google, .zai, .kimi, .minimax, .deepseek: false
         }
     }
+
+    /// Whether a plain CHAT turn (Fast / Thinking / Pro — NOT agent mode) may attach
+    /// the read/write vault tools for this provider. Distinct from
+    /// `supportsAgentTier` (the first-class agent-LOOP driver gate = OpenAI/Anthropic
+    /// only): every cloud provider here speaks OpenAI- or Google-style function
+    /// calling well enough to use vault tools within a single chat turn. Research
+    /// CHAT_TOOLS_INTEGRATION_AUDIT S4: non-OpenAI/Anthropic plain chat got NO tools
+    /// despite the system prompt advertising vault access ("Cloud should automatically
+    /// know" failed for Google/Z.AI/Kimi/MiniMax/DeepSeek).
+    var supportsChatToolAttachment: Bool {
+        // All shipped cloud providers support function/tool calling for a chat turn.
+        switch self {
+        case .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek: true
+        }
+    }
+
+    /// Flag-gated rollout for attaching plain-chat tools to ALL cloud providers
+    /// (`EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0`). OFF (default) → plain-chat
+    /// tools stay limited to `supportsAgentTier` providers (today's behaviour); ON →
+    /// every provider with `supportsChatToolAttachment` gets chat tools.
+    static var cloudChatToolsAllProvidersArmed: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0"] == "1"
+    }
+
+    /// The effective gate for attaching tools to a plain cloud chat turn, given the
+    /// flag state. Pure → unit-testable without the env flag. When the flag is off,
+    /// preserves today's `supportsAgentTier`-only behaviour; when on, opens to every
+    /// `supportsChatToolAttachment` provider.
+    static func allowsPlainChatTools(
+        provider: CloudModelProvider,
+        allProvidersArmed: Bool
+    ) -> Bool {
+        allProvidersArmed ? provider.supportsChatToolAttachment : provider.supportsAgentTier
+    }
+
+    /// The live (env-flag-aware) plain-chat tool gate for this provider.
+    var allowsPlainChatTools: Bool {
+        Self.allowsPlainChatTools(
+            provider: self,
+            allProvidersArmed: Self.cloudChatToolsAllProvidersArmed
+        )
+    }
 }
 
 nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {

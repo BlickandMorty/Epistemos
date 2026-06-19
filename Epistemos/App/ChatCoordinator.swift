@@ -505,7 +505,7 @@ final class ChatCoordinator {
                    || effectiveOperatingMode == .thinking),
                   case .cloud(let provider, _) = compiled.resolvedRuntime.resolved,
                   let cloudProvider = CloudModelProvider(rawValue: provider),
-                  cloudProvider.supportsAgentTier {
+                  cloudProvider.allowsPlainChatTools {
           // USABILITY-001 fix-pass (2026-05-13): extended the Pro+Cloud
           // Rust agent branch to ALSO catch Fast+Cloud and Thinking+Cloud
           // when the provider supports the agent tier. Previously these
