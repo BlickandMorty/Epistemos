@@ -922,7 +922,7 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
       WIRED — QLoRATrainer's python3 Process() body REPLACED by in-process
       NativeLoRATrainer.train (MLXLLM.LoRATrain, d4b468b2b+a6f479ec2; subprocess
       KILLED; watchdog-test fixed db317f42d; compile-verified, on-device run
-      pending) · 2d✅ dead Python plumbing removed (pythonPath/activeProcess/TrainingProgressParser, 01f499060; +2 mirrored-test regressions fixed) · 3 NEXT: native MoLoRA (LoRAContainer.load replaces molora_inference.py subprocess)
+      pending) · 2d✅ dead Python plumbing removed (pythonPath/activeProcess/TrainingProgressParser, 01f499060; +2 mirrored-test regressions fixed) · 3a✅ NATIVE MoLoRA apply built (NativeAdapterApply via LoRAContainer.from(directory:).load(into:) + NativeAdapterDirectory contract + trainer writes adapter_config.json; c8f8154f2; MoLoRAInferenceService is ORPHANED — never instantiated, subprocess never runs) · 3b NEXT: relocate MoLoRAAdapterConfig (shared w/ AdapterRegistry), delete orphaned MoLoRAInferenceService + molora_inference.py/train_router.py/sgmm_kernel.py, update ~7 mirrored-source tests honestly (grep EVERY assertion) · 4 train_*.py + bundle script · 5 PythonEnvironmentManager last (KTO/AudioTranscriber still use it)
       · 2(old) SUBSTRATE done
       (de094e5e7): NativeLoRAPlan (pure TrainingConfig→native hyperparams, tested)
       + gated NativeLoRATrainer building REAL LoRATrain.Parameters + LoRAConfiguration
