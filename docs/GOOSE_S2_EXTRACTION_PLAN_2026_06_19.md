@@ -80,9 +80,17 @@ works for block/goose, the same way Osaurus S2 vendored `ServerHealth`.
    (Work task model config); dropped `Eq` from `WorkRequest` (the embedded f32),
    `PartialEq` kept. `run_work_session` still inert. cargo `--lib work` green BOTH
    profiles (74/0, 94/0). GUARDRAIL holds.
-5. **S6:** the provider/format layer (OpenAI/Anthropic wire formats) once its deps
-   are satisfied; FFI-export the real `run_work_session`.
-6. **S7+:** the agent loop + subagents + session (the engine), behind the flag, with
+5. **S6 ✅ (2026-06-19) — verbatim leaves EXHAUSTED, first clean_room_rewrite:** the
+   easy self-contained leaves are all vendored; remaining types depend on rmcp/internal/
+   async. First-party `RepetitionGuard` (`clean_room_rewrite` of block/goose
+   `RepetitionInspector`, tool_monitor.rs) — same consecutive-repeat + per-tool-count
+   algorithm, re-expressed against a first-party `(name, serde_json::Value)` tool-call
+   shape so it pulls no rmcp/async deps + no force-unwrap. Real Work loop safety. cargo
+   `--lib work` green BOTH profiles (79/0, 99/0). GUARDRAIL holds.
+6. **S7:** the provider/format/message layer needs `rmcp` (heavy dep) OR a clean-room
+   message shape — a focused multi-slice push, NOT a one-pass autonomous leaf. FFI-
+   export the real `run_work_session` once a real engine path exists.
+7. **S8+:** the agent loop + subagents + session (the engine), behind the flag, with
    the P8.2 schema validation gate; then the Swift `GooseWorkBackend` drives it.
 
 ## Net
