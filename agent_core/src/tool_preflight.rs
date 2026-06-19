@@ -91,6 +91,46 @@ pub fn select_tools(query: &str, candidates: &[ToolCandidate], max: usize) -> Ve
     scored.into_iter().take(max).map(|(_, n)| n.to_string()).collect()
 }
 
+/// Select up to `max` tools for the turn, ALWAYS including the `floor` core tools (by
+/// name) even when the query doesn't lexically match them — so a local model never
+/// loses its essential capabilities (vault search, think, …) on a terse or off-topic
+/// prompt, while still keeping the footprint tight. Floor tools that exist in
+/// `candidates` are guaranteed present (in floor order); the remaining slots go to the
+/// top-scoring query matches. Deterministic; deduped; never exceeds `max`.
+pub fn select_tools_with_floor(
+    query: &str,
+    candidates: &[ToolCandidate],
+    max: usize,
+    floor: &[&str],
+) -> Vec<String> {
+    if max == 0 {
+        return Vec::new();
+    }
+    let names: BTreeSet<&str> = candidates.iter().map(|c| c.name.as_str()).collect();
+    let mut result: Vec<String> = Vec::new();
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+
+    // Floor first — the core tools are GUARANTEED present (if they exist in the catalog).
+    for &f in floor {
+        if result.len() >= max {
+            break;
+        }
+        if names.contains(f) && seen.insert(f.to_string()) {
+            result.push(f.to_string());
+        }
+    }
+    // Then the query-relevant matches fill the remaining slots.
+    for name in select_tools(query, candidates, max) {
+        if result.len() >= max {
+            break;
+        }
+        if seen.insert(name.clone()) {
+            result.push(name);
+        }
+    }
+    result
+}
+
 /// A candidate tool paired with its declared parameter schema (a JSON object schema),
 /// for the §C.1 preflight → dispatch-grammar pipeline.
 pub struct PreflightTool<'a> {
@@ -218,5 +258,43 @@ mod tests {
             preflight_dispatch_grammar("xyzzy quux", &tools, 5),
             Err(GrammarError::EmptyDispatch)
         ));
+    }
+
+    #[test]
+    fn floor_tools_are_always_included() {
+        // The query never mentions the vault, but vault_search is a floor (core) tool.
+        let picks = select_tools_with_floor("please read my file", &catalog(), 3, &["vault_search"]);
+        assert!(picks.contains(&"vault_search".to_string()));
+        assert!(picks.contains(&"read_file".to_string())); // the relevant tool is still there
+        assert!(picks.len() <= 3);
+    }
+
+    #[test]
+    fn floor_skips_tools_not_in_the_catalog() {
+        let picks = select_tools_with_floor("read a file", &catalog(), 5, &["nonexistent_tool"]);
+        assert!(!picks.contains(&"nonexistent_tool".to_string()));
+    }
+
+    #[test]
+    fn floor_respects_max_and_dedups_overlapping_tools() {
+        // read_file is BOTH relevant and a floor tool → it appears once, within `max`.
+        let picks = select_tools_with_floor("read my file", &catalog(), 2, &["read_file"]);
+        assert!(picks.len() <= 2);
+        assert_eq!(picks.iter().filter(|n| *n == "read_file").count(), 1);
+    }
+
+    #[test]
+    fn select_tools_is_deterministic_regardless_of_input_order() {
+        // The founding-thesis DETERMINISM claim: the selection must not depend on how
+        // the catalog happens to be ordered.
+        let forward = catalog();
+        let mut reversed = catalog();
+        reversed.reverse();
+        let query = "read my file and search the notes";
+        let a = select_tools(query, &forward, 4);
+        let b = select_tools(query, &reversed, 4);
+        assert_eq!(a, b, "tool selection must be order-independent");
+        // ...and idempotent.
+        assert_eq!(a, select_tools(query, &forward, 4));
     }
 }
