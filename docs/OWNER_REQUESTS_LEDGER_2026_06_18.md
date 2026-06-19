@@ -2783,3 +2783,37 @@ native; AGPL server). ADOPT 2 patterns natively:
       list into R1's preference table, and DELETE the dead duplicate routers (`LocalAgent/ConfidenceRouter.swift`,
       `Omega/Inference/{DualBrainRouter,HybridRouter}.swift` — all "never instantiated in production").
       Collapse 4 routers → R1+R2. The durable fix behind the honest-nil patch.
+- [ ] **R-WEBCLIP — web clipper → clean-markdown vault note (S16 gap, supersession vs Obsidian).**
+      Spec: docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md. MAS core = a macOS Share Extension
+      xcodegen target (`type:app-extension`, share-services, url+html; mirror `EpistemosWidgets`
+      project.yml:251) → app-group container → app file-watcher drains to SDPage+`.md` (reuse
+      `LiteParsePDFImportController.importPage`). Needs a REAL HTML→md converter (vendor a pure-Rust
+      readability+html2md crate into agent_core as `html_to_markdown` FFI beside liteparse — ProvenanceGate;
+      liteparse is PDF-only, `web_fetch html_to_text` is lossy). Frontmatter source_url/clipped_at/title/author;
+      honest "raw extraction" label on fail, never fabricate. SPA/auth/full-page = Pro. Effort: medium.
+- [ ] **R-VAULT-MCP-SERVER — host the vault over stdio MCP for external agents + auto-AGENTS.md (S16,
+      anti-Tolaria; LOWEST-RISK supersession win).** Server side does NOT exist yet (omega-mcp = in-process
+      dispatch + outbound directory; `StdioServer` test-only). Add `omega-mcp/src/bin/epistemos_mcp_server.rs`
+      (`[[bin]]`) wrapping the existing `StdioServer` around the ALREADY-BUILT `MCPDispatcher`+`VaultExecutor`
+      (path-traversal-hardened) — expose read/write/list/create_note/vault_search, NO new tool logic. Transport
+      = stdio not TCP → dodges the missing `network.server` entitlement (external CLI spawns the binary, JSON-RPC
+      over stdio, runs OUTSIDE the sandbox; app stays in-process). Auto-gen `AGENTS.md`+`.mcp.json` at vault root
+      on open. In-process brain stays default. Pro-gated. Honesty: external writes through the SAME provenance
+      recorder + path guard + approval gate. Effort: medium-LOW (wiring, not new logic).
+- [ ] **R-LIVE-ARTIFACTS — revive ArtifactHostView via htmlWorkspace route + self-refreshing data.json (S16;
+      LOWEST-RISK win, counters Claude Artifacts).** `ArtifactHostView` is a stub (every route → "Deferred in v1",
+      0 refs) but the real surface EXISTS: HTMLWorkspace (`HTMLWorkspacePackage` w/ data.json + `HTMLWorkspace
+      PatchRouter` + `HTMLWorkspacePreviewView` WKWebView). Add `ArtifactRoute.htmlWorkspace(id)` → render the
+      preview instead of the deferred panel; subscribe data.json to a vault/query source (saved `fusedSearch`/RRF
+      or DAG/provenance feed) → on change write data.json → patch-route the live WKWebView (no reload). Seed
+      table/dashboard/chart templates (json-render IDEA as Swift/WebKit binding, NOT Vercel React). MAS core
+      (local) / Pro (external feeds). Honesty: show provenance + last-refresh; stale shown explicitly; flip live
+      only at T4. Reuse shared WKProcessPool + `dismantleNSView` (leak risk). Effort: medium-LOW.
+- [ ] **R-SYNC — local-first multi-device vault (S16; HIGH blast radius — sequence AFTER engine-toggle/tools).**
+      The `.md` files are DERIVED (SwiftData is SoT) so you can't just sync the folder. Option A (recommended):
+      vault in an iCloud-Drive ubiquity container + **invert the source-of-truth so `.md` becomes SoT** (SwiftData/
+      `.epcache` become rebuilt-from-disk derived; `.epcache` MUST NEVER sync); reuse the existing
+      `syncFromVault()→[VaultSyncConflict]` reconciler; observe via `NSMetadataQuery`. Pro git-sync lane via the
+      existing `vault_git.rs`. Avoid CloudKit as primary (kills the open-vault differentiator); CRDT overkill.
+      Honesty: conflicts via VaultSyncConflict UI never silent-LWW; "eventual not real-time". Touches
+      `VaultSyncService` (176KB, highest blast radius) — NOT concurrent with the engine-toggle/tools work.
