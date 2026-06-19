@@ -49,6 +49,7 @@ actor NightBrainService {
         case sessionGraphGeneration = "session_graph_generation"
         case skillEvolutionAnalysis = "skill_evolution_analysis"
         case ssmStatePruning = "ssm_state_pruning"
+        case nativeKnowledgeAdapterFineTune = "native_knowledge_adapter_fine_tune"
         case maintenanceLog = "maintenance_log"
     }
 
@@ -74,6 +75,11 @@ actor NightBrainService {
     private let cloudKnowledgeJob: @Sendable () async throws -> Void
     private let vaultPathProvider: (@MainActor @Sendable () -> String?)?
     private let ssmStateServiceProvider: (@MainActor @Sendable () -> SSMStateService?)?
+    /// DATA+FINETUNE part (4): opt-in native LoRA fine-tune provider, run during
+    /// idle windows. nil → the job soft-skips (never fails the pipeline). The
+    /// provider itself evaluates NightBrainLoRAFineTuneDecision + invokes
+    /// NativeLoRATrainer, so NightBrainService stays generic.
+    private let loraFineTuneJob: (@Sendable () async throws -> Void)?
     private nonisolated(unsafe) var scheduler: NSBackgroundActivityScheduler?
     private var activityToken: NSObjectProtocol?
     private var currentRunId: Int64?
@@ -85,7 +91,8 @@ actor NightBrainService {
         graphMemoryProvider: @escaping @MainActor @Sendable () -> AgentGraphMemory? = { nil },
         cloudKnowledgeJob: (@Sendable () async throws -> Void)? = nil,
         vaultPathProvider: (@MainActor @Sendable () -> String?)? = nil,
-        ssmStateServiceProvider: (@MainActor @Sendable () -> SSMStateService?)? = nil
+        ssmStateServiceProvider: (@MainActor @Sendable () -> SSMStateService?)? = nil,
+        loraFineTuneJob: (@Sendable () async throws -> Void)? = nil
     ) {
         self.config = config
         self.storeProvider = storeProvider
@@ -95,6 +102,7 @@ actor NightBrainService {
         self.cloudKnowledgeJob = cloudKnowledgeJob ?? { () async throws in }
         self.vaultPathProvider = vaultPathProvider
         self.ssmStateServiceProvider = ssmStateServiceProvider
+        self.loraFineTuneJob = loraFineTuneJob
     }
 
     // MARK: - Config Reads
@@ -394,6 +402,20 @@ actor NightBrainService {
                 throw JobExecutionError.missingCloudKnowledgeJob
             }
             try await cloudKnowledgeJob()
+
+        case .nativeKnowledgeAdapterFineTune:
+            // DATA+FINETUNE part (4): opt-in native LoRA fine-tune during idle
+            // windows. Off by default (EPISTEMOS_NIGHTBRAIN_LORA_V0) and a SOFT
+            // job — never fails the pipeline. When off or unwired it simply skips;
+            // the injected provider evaluates the full NightBrainLoRAFineTuneDecision
+            // (idle/AC/data-delta/cadence) and logs the honest trained/skipped
+            // outcome. It still checkpoints in the run record, so "it ran (and did
+            // nothing)" is visible.
+            guard NightBrainLoRAGateStatus.status().isActive, let loraFineTuneJob else {
+                Self.log.info("NightBrain: native LoRA fine-tune skipped (off or not wired)")
+                return
+            }
+            try await loraFineTuneJob()
 
         case .sessionGraphGeneration:
             // Phase 4: Generate graphs for sessions that don't have one yet
