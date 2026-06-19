@@ -625,10 +625,15 @@ private struct EffectiveModelBadge: View {
         Button {
             isShowingRationale.toggle()
         } label: {
-            Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(foreground)
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                // P6.1 — the provider brand logo for the model that answered.
+                ProviderLogoView(brand: ProviderBrand.fromLabel(label), size: 11)
+                    .foregroundStyle(foreground)
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(foreground)
+                    .lineLimit(1)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Answered by \(label). Tap for routing rationale.")

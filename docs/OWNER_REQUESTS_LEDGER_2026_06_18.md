@@ -559,9 +559,15 @@ calls: no blanket rule — choose per case.
       InferenceState.providerBrand(for:). Staged the 2 AVAILABLE lobehub SVGs into
       Assets.xcassets (Claude Code + Kimi render the REAL logo; actool clean). WIRED
       visibly into APIKeysHealthRow (Settings → each cloud provider shows its brand
-      logo). +4 tests; build-for-testing green. FOLLOW-ON: stage the remaining
-      lobehub SVGs (Claude/ChatGPT/Gemini/Codex/Gemma/Qwen/Apple) + wire the view
-      into the picker + chat badge (each a focused per-surface add).
+      logo). +4 tests; build-for-testing green.
+      ✅ PICKER + CHAT 2026-06-19: ProviderLogoView now ALSO wired into
+      InlineRuntimePickerPanel.pickRow (every model pick leads with its provider
+      logo) + MessageBubble.EffectiveModelBadge (every "answered by" badge shows the
+      logo, via ProviderBrand.fromLabel). +2 tests; build green. The logo shows on 3
+      surfaces now (Settings + picker + chat). REMAINING: only claudecode/kimi/
+      hermesagent SVGs are on disk — the rest (Claude/ChatGPT/Gemini/Codex/Gemma/
+      Qwen/Apple) need the lobehub SVGs SOURCED (fetched-SVG render can't be headless-
+      verified → owner drops them in docs/brand-assets/lobehub, or a render-checked slice).
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
