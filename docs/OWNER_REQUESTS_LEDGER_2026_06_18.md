@@ -2236,3 +2236,22 @@ native; AGPL server). ADOPT 2 patterns natively:
       Verdict/diagnosis first: why only the foundation package downloads (catalog
       filter? entitlement? URL/manifest? install pipeline?), then fix the pipeline so
       every advertised model installs.
+      + REFINEMENT 2 (owner 2026-06-19, verbatim): *"I still want to be able to install
+      ANY of them and set the ones I want to be advertised — meaning in Settings have a
+      stack and select the models I want to appear on the model picker, and have it
+      well-thought-out."* This SUPERSEDES the fixed "advertise = canon-only" reading:
+      advertising is OWNER-CONTROLLED, not a hardcoded canon list. (5) **INSTALL-ANY** —
+      the owner can download+install ANY model in the app's full catalog (every retained
+      model, incl. previously-hidden ones), not just a canon subset. (6) **SETTINGS
+      MODEL MANAGER ("the stack")** — a well-designed Settings surface listing ALL
+      models (full catalog) where the owner: installs/uninstalls any model, sees install
+      state + size + RAM + uses, and TOGGLES which models are "advertised" (appear in the
+      model picker). The owner's selection is the source of truth for what the picker
+      shows. (7) **CANON = DEFAULT, not a cap** — ship a sensible default advertised set
+      (the canon models) so the picker isn't empty out of the box, but the owner can add/
+      remove any model from the advertised set via the stack; their choice always wins.
+      Persist the advertised-set selection. This composes with the model-picker simplify
+      item (~line 912, name+uses+RAM, mode-scoped) — the picker renders exactly the
+      owner-advertised set per mode. Keep ALL models retained (req 2); the stack just
+      controls visibility + drives install. Design the stack UI well-thought-out (clear,
+      pixel-art-minimal, honest install states), not demo-ish.
