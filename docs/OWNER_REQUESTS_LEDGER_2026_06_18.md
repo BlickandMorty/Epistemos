@@ -384,6 +384,18 @@ calls: no blanket rule — choose per case.
       false + "pdf+ocr,no-subprocess" scope). +5 cargo tests; cargo --lib BOTH green (5/0).
       NEXT (S2): vendor liteparse+pdfium+pdfium-sys crates (tokio process/reqwest OFF) +
       build the PDFium link + tesseract-rs — heavy native-dep multi-pass, owner build verify.
+      ✅ SEAM A 2026-06-19 (Swift import-UI scaffold, no native deps): researched S2 —
+      pdfium-sys's build.rs ERRORS without the PDFium binary (downloads from run-llama/
+      pdfium-binaries, runtime-loaded via libloading on macOS) + tesseract-rs compiles
+      Tesseract from source, so S2's real PDFium build needs the owner's build pipeline
+      (native binary + long compile + signing), NOT a headless slice. Shipped the
+      verifiable Swift Seam A instead (mirrors WorkBackend/ActOsaurus Seam A): NEW
+      LiteParseImportGateStatus (always-compiled flag enum, EPISTEMOS_LITEPARSE_PDF_V0,
+      honest "PDF import coming / armed-but-not-wired", PDF+OCR scope, Office/image OUT
+      OF SCOPE — no liteparse/native dependency) + LiteParseImportHealthRow (visible,
+      mounted in SubstrateHealthPanel, rule #8) + LiteParseImportSeamTests (gate honesty,
+      MAS scope, always-compiled+mounted, cross-runtime flag parity Swift↔Rust
+      LITEPARSE_FLAG). build-for-testing green; existing panel asserts intact.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
