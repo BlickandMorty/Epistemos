@@ -802,6 +802,16 @@ calls: no blanket rule — choose per case.
       Builder replace the local tool list with the FFI result (serialize the catalog to
       `[{name,description,keywords}]`, call the gated FFI) → set EPISTEMOS_SCHEMA_
       PREFLIGHT_V0=1 → verify the picker/loop shows the tight footprint.
+      ✅ §C.1 REPAIR VALIDATION GATE 2026-06-19: NEW `agent_core/src/schema_validation.rs`
+      `all_violations(schema, value) -> Vec<String>` + `is_valid` — collects EVERY way an
+      emitted value violates the schema (via `jsonschema::iter_errors`) for a model
+      REPAIR loop, vs the existing `tools_v2::runner::JsonSchemaValidator` which returns
+      only the FIRST error (accept/reject). Non-duplicating + complementary. A schema
+      that fails to compile is reported as a violation (never silently passes). +4 cargo
+      tests (valid→none, collects-ALL-not-just-first [≥2 type errors], missing-required
+      reported, broken-schema-never-passes). cargo --lib BOTH green (5/0). Building block
+      for the §C.1 "structured tool output → validation gate → repair" loop (the wiring
+      of the loop is the owner-verification step).
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner
