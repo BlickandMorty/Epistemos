@@ -121,6 +121,13 @@ public struct APIKeysHealthRow: View {
                 .symbolRenderingMode(.hierarchical)
                 .frame(width: 18, height: 18)
                 .foregroundStyle(.secondary)
+            // P6.1 — the provider's brand logo (lobehub SVG when staged, else an
+            // SF-Symbol fallback). Honors the active account runtime (Codex / Claude
+            // Code) via inference.providerBrand.
+            if let provider = CloudModelProvider(rawValue: probe.id) {
+                ProviderLogoView(brand: inference.providerBrand(for: provider), size: 16)
+                    .foregroundStyle(.secondary)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(probe.displayName)
                     .font(.system(size: 13, weight: .medium))

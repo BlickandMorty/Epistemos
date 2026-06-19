@@ -549,10 +549,19 @@ calls: no blanket rule — choose per case.
       ALL app skills/tools from chat, local=cloud parity. Toggle lives UPWARD at
       the TOP of the search page (not on the search bar) and turns the search page
       INTO Work/OpenCode. After the revised UX map (P7.4/P7.4a).
-- [ ] Provider logos (B&W lobehub, prefer pixel-art), context-specific, in Settings
+- [~] Provider logos (B&W lobehub, prefer pixel-art), context-specific, in Settings
       + picker + chat (P6.1) — for BOTH cloud AND local models: Claude, ChatGPT,
-      Gemini, Claude Code, Codex, Gemma, Qwen, Apple, Kimi, Hermes. NOT DONE —
-      assets staged in docs/brand-assets/lobehub.
+      Gemini, Claude Code, Codex, Gemma, Qwen, Apple, Kimi, Hermes.
+      ✅ 2026-06-19 (component + first wire): tested provider→logo MAP
+      (ProviderBrandLogo: ProviderBrand for the whole list incl. the Codex/Claude-
+      Code account-runtime distinction + local gemma/qwen + Apple) + ProviderLogoView
+      (real lobehub SVG when staged, else SF-Symbol fallback — render-safe) +
+      InferenceState.providerBrand(for:). Staged the 2 AVAILABLE lobehub SVGs into
+      Assets.xcassets (Claude Code + Kimi render the REAL logo; actool clean). WIRED
+      visibly into APIKeysHealthRow (Settings → each cloud provider shows its brand
+      logo). +4 tests; build-for-testing green. FOLLOW-ON: stage the remaining
+      lobehub SVGs (Claude/ChatGPT/Gemini/Codex/Gemma/Qwen/Apple) + wire the view
+      into the picker + chat badge (each a focused per-surface add).
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
