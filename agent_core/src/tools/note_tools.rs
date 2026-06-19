@@ -372,6 +372,41 @@ pub fn note_linker_schema() -> crate::types::ToolSchema {
 
 // ── Research Digest Tool ────────────────────────────────────────────────────
 
+/// Tolerantly extract the list of note paths from the `notes` arg (field-level arg-marshaling
+/// robustness, complementing the registry's object-level `normalize_tool_input`). Accepts the
+/// shapes a local/cloud model can emit: a JSON array of strings (canonical), a single bare
+/// string path (→ one element), or a JSON-string BLOB that decodes to an array (e.g. the model
+/// emitted `"notes": "[\"a.md\",\"b.md\"]"`). Non-string ARRAY elements are still rejected
+/// ("notes must be strings") so a genuinely malformed call is caught; an absent/empty/other
+/// value yields the honest "notes array required".
+fn extract_note_paths(value: &Value) -> Result<Vec<String>, ToolError> {
+    let items: Vec<Value> = match value {
+        Value::Array(items) => items.clone(),
+        Value::String(s) => {
+            let trimmed = s.trim();
+            if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                match serde_json::from_str::<Value>(trimmed) {
+                    Ok(Value::Array(items)) => items,
+                    _ => return Err(ToolError::InvalidArguments("notes array required".into())),
+                }
+            } else if trimmed.is_empty() {
+                return Err(ToolError::InvalidArguments("notes array required".into()));
+            } else {
+                return Ok(vec![trimmed.to_string()]); // a single bare note path
+            }
+        }
+        _ => return Err(ToolError::InvalidArguments("notes array required".into())),
+    };
+    let mut paths = Vec::with_capacity(items.len());
+    for note in &items {
+        let path = note
+            .as_str()
+            .ok_or_else(|| ToolError::InvalidArguments("notes must be strings".into()))?;
+        paths.push(path.to_string());
+    }
+    Ok(paths)
+}
+
 pub struct ResearchDigestTool {
     vault: Arc<dyn VaultBackend>,
 }
@@ -385,22 +420,12 @@ impl ResearchDigestTool {
 #[async_trait::async_trait]
 impl ToolHandler for ResearchDigestTool {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let raw_notes = input["notes"]
-            .as_array()
-            .ok_or_else(|| ToolError::InvalidArguments("notes array required".into()))?;
+        let note_paths = extract_note_paths(&input["notes"])?;
 
-        if raw_notes.len() > MAX_RESEARCH_NOTES {
+        if note_paths.len() > MAX_RESEARCH_NOTES {
             return Err(ToolError::InvalidArguments(format!(
                 "notes exceeds {MAX_RESEARCH_NOTES} item cap"
             )));
-        }
-
-        let mut note_paths = Vec::with_capacity(raw_notes.len());
-        for note in raw_notes {
-            let path = note
-                .as_str()
-                .ok_or_else(|| ToolError::InvalidArguments("notes must be strings".into()))?;
-            note_paths.push(path.to_string());
         }
 
         if note_paths.is_empty() {
@@ -1189,6 +1214,43 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("item cap"));
+    }
+
+    #[test]
+    fn extract_note_paths_accepts_canonical_array() {
+        assert_eq!(
+            extract_note_paths(&json!(["a.md", "b.md"])).unwrap(),
+            vec!["a.md".to_string(), "b.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn extract_note_paths_accepts_a_single_bare_string() {
+        // A model that emits `"notes": "A.md"` (a single path, not an array) is tolerated.
+        assert_eq!(extract_note_paths(&json!("A.md")).unwrap(), vec!["A.md".to_string()]);
+    }
+
+    #[test]
+    fn extract_note_paths_accepts_a_json_string_blob() {
+        // A model that emits the array as a JSON-encoded STRING blob is tolerated.
+        assert_eq!(
+            extract_note_paths(&json!("[\"a.md\", \"b.md\"]")).unwrap(),
+            vec!["a.md".to_string(), "b.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn extract_note_paths_still_rejects_non_string_array_elements() {
+        // Strictness preserved: a genuinely malformed array element is still rejected.
+        let err = extract_note_paths(&json!(["a.md", 42])).unwrap_err();
+        assert!(format!("{err}").contains("notes must be strings"));
+    }
+
+    #[test]
+    fn extract_note_paths_rejects_absent_or_wrong_typed_notes() {
+        assert!(format!("{}", extract_note_paths(&json!(null)).unwrap_err()).contains("notes array required"));
+        assert!(format!("{}", extract_note_paths(&json!(42)).unwrap_err()).contains("notes array required"));
+        assert!(format!("{}", extract_note_paths(&json!("")).unwrap_err()).contains("notes array required"));
     }
 
     #[tokio::test]

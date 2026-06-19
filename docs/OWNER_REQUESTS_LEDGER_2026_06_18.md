@@ -165,6 +165,33 @@ calls: no blanket rule — choose per case.
       owner's build+run in-app confirmation + the OTHER parts — (2) auto-route queries to
       tools, (3) restore tool UI boxes, (4) fix vault retrieval, (5) per-tool/skill PASS/FAIL
       audit — are follow-on slices.
+      ✅ FIX 1b — FIELD-LEVEL TOLERANT EXTRACTOR + (5) FIRST AUDIT 2026-06-19: extended the
+      tolerant-extractor ask to the FIELD level on the exact evidence tool. NEW
+      `extract_note_paths(&Value)` in note_tools.rs `ResearchDigestTool` accepts `notes` as a
+      JSON array (canonical), a single bare string path, OR a JSON-string BLOB that decodes to
+      an array (`"notes": "[\"a.md\",\"b.md\"]"`) — the shapes a model emits — while PRESERVING
+      strict rejection of non-string array elements (the existing `research_digest_rejects_
+      invalid_and_too_many_notes` test still passes). AUDIT FINDING: research_digest's schema↔
+      impl ALIGN (schema declares `notes`: required string array; impl reads exactly that) →
+      that tool's failure was PURELY marshaling (fix 1), NOT schema↔impl drift. +5 cargo tests
+      (canonical array / single bare string / JSON-string blob / still-rejects-non-string-
+      element / rejects-absent-or-wrong-type). cargo --lib BOTH green: default 5464/0,
+      pro-build 5727/0 (+5 each, ZERO regression; existing test intact).
+      🔎 AUTO-ROUTE (part 2) ROOT DIAGNOSED — LOCAL path (the owner's "regular queries don't
+      use tools"): regular local chat enters the tool loop via `PipelineService.shouldUseTool
+      Loop` (Epistemos/Engine/PipelineService.swift:315), which requires `canRunLocalAgentLoop
+      = canActAsAgent && LocalToolGrammar.supportsLocalAgentLoop` (InferenceState.swift:471).
+      The Fast foundation model is now GGUF GEMMA, whose `canActAsAgent = false` (malformed XML
+      tool calls — the documented reason it's gated). So `shouldUseToolLoop` returns false for
+      regular Gemma chat → NO tool loop → no vault.search/eidos/file-search fire (which ALSO
+      explains the missing UI boxes + "no vault retrieval" — no tool calls = nothing to show/
+      load). The SAFE fix is NOT to flip canActAsAgent (that reintroduces malformed tool calls);
+      it is the grammar-constrained tool-calling path (the Deterministic Schema Engine —
+      preflight + the GBNF dispatch grammar + json-schema-constrained decoding) so Gemma
+      reliably emits tool calls, THEN canActAsAgent can be true for the GGUF Gemma lane. The
+      CLOUD path is separate (ChatCoordinator.runCommandCenterRustAgentPath) and needs its own
+      tool-attachment audit. This is the careful multi-slice target for part 2 — NOT a one-line
+      flip; flagged so it's fixed right, not papered over.
 - [~] **PICKER + PARITY PASS — build-verified 2026-06-18 (owner does the in-app
       run). All 4 items addressed across aff6b0c21 / 9ffa66b00 / b2b5aa04b +
       the item-3 parity-lock test. (1) scroll/height: panel cap 320→460 + an
