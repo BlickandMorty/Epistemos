@@ -758,6 +758,17 @@ calls: no blanket rule — choose per case.
       tests), plain `--lib` mas (5406/0, module cfg-absent → no regression), `--features
       pro-build` (5668/0). FOLLOW-ON: deeper AST quality (beyond parse — type/structure
       checks) + wiring into the write/compile loop are heavier / owner-verification.
+      ✅ PREFLIGHT FLOOR + DETERMINISM HARDENING 2026-06-19: feature + hardening on the
+      preflight. NEW `select_tools_with_floor(query, candidates, max, floor)` — closes a
+      real gap (bare `select_tools` returns EMPTY on no lexical match): now the `floor`
+      CORE tools (vault.search / think / …) are GUARANTEED present even on a terse/
+      off-topic prompt, with the remaining tight-footprint slots going to the query
+      matches (deduped, ≤max, deterministic). Plus a DETERMINISM property test locking
+      the founding-thesis claim: `select_tools` is ORDER-INDEPENDENT (shuffle the
+      catalog → identical result) + idempotent — so a future refactor can't silently
+      introduce non-determinism. +4 cargo tests (floor-always-included, floor-skips-
+      absent, floor-respects-max+dedups, order-independence). cargo --lib BOTH green
+      (13/0 on `tool_preflight`).
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner
