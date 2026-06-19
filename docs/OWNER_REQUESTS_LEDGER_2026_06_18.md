@@ -2988,3 +2988,20 @@ native; AGPL server). ADOPT 2 patterns natively:
       orphaned `EpistemosSpeechAnalyzer`, handle interruptions/route-changes. (4) **"the holo one":** Holo-3.1
       is a computer-use VISION model (already covered S10/R-HOLO — re-affirmed wanted), NOT a TTS — research
       clarifies the ambiguity. On-device only; honest gating; never silent cloud TTS.
+      🔎 ROUND-2 GROUNDED ROOT (docs/research/VOICE_2026_06_19.md ROUND-2): the synthesizer ALREADY tiers
+      premium>enhanced>default (`EpistemosSpeechSynthesizer.swift:219-228`), so the plain voice has 3 concrete
+      causes: (1) premium/enhanced neural voices aren't installed (Apple ships Compact; the hint is buried in
+      the picker, not where it's heard); (2) the fallback FLOOR uses `AVSpeechSynthesisVoice(language:)` (`:227`)
+      → returns COMPACT; (3) no SSML/prosody (`:140` bare string) → monotone. **⚠️ CRITICAL macOS-26 REGRESSION
+      (likely the exact symptom, Apple Forums 804648/FB20271264): `AVSpeechSynthesisVoice(language:)` IGNORES the
+      selected premium voice and returns the system default — so `:227` lands on the plain voice EVEN WHEN a
+      premium voice is installed+selected.** SMALL MAS-safe FIXES (do first): (A) best-installed-quality floor
+      before the language fallback; (B) resolve/persist by IDENTIFIER never by language (dodges the regression);
+      (C) promote `voiceQualityHint()` to a dismissible banner near read-aloud + onboarding (deep-link exists
+      `ModelVoicePickerSection:195`); (D) SSML/attributedString prosody path. ALSO add
+      `AVSpeechSynthesizer.requestPersonalVoiceAuthorization()` so Personal Voices populate the picker (the new
+      neural Siri voice is NOT exposed to 3rd-party apps; Personal Voice is the legitimate "Siri-quality" path).
+      INSTALLABLE upgrade: **Kokoro-82M** is the one model that's better-than-Apple + Apache-2.0 + has a turnkey
+      Swift CoreML/ANE path (`kokoro-coreml`/`kokoro-swift`, host via `FluidAudio`/`mlx-audio`) + fits RAM —
+      ship as a Pro installable voice AFTER the model-download fix. (F5/XTTS license-blocked; CSM/Dia/MOSS no
+      Apple-Silicon Swift path yet.) Items A-C are SMALL and directly fix the owner's "plain" complaint.
