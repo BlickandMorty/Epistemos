@@ -601,6 +601,15 @@ P6.4  THEME/SETTINGS FIXES (owner 2026-06-18, REAL BUG — prioritize). Three pa
       (b) THEME PREVIEW is ugly — replace the busy preview UI with a clean COLOR
           PALETTE swatch (the theme's key colors as a simple row/grid), per owner.
           Drop the heavy mock-UI preview; palette-only is the preview.
+          ✅ DONE 2026-06-19: the busy cinematic mock-UI card was already replaced by a
+          palette swatch for ALL theme pairs (ThemePairCard → CustomThemePaletteSwatch
+          for custom, ThemePairPaletteSwatch for every other pair). This pass made it
+          PIXEL-ART per owner ("the new pixel-art palette preview"): both swatches + the
+          card chrome now use hard `Rectangle()` (no rounding), hard 1px swatch borders
+          + 1.5px container border, tighter grid — matching the app identity. ALSO
+          caught + fixed a stale-RED test: ThemePickerRestorationTests still asserted
+          the DELETED ThemePairCinematicPreview/Half tokens; retargeted to the palette
+          tokens + negative locks. build-for-testing green.
       (c) SETTINGS is messy — tidy the theme/appearance section (and obvious
           nearby clutter): group related rows, remove dead/duplicate controls,
           align with the pixel-art-minimal look. Honest — don't hide real settings,
@@ -976,7 +985,7 @@ done, then re-read this file and harden.
 | P7.2 | HTML workspace fix + canvas live-viewer (chat drives the screen) | ☐ TODO |
 | P7.5 | Chat surface parity: MiniChat / Note / Graph chat match Main chat stack | ☐ TODO — HIGH, owner 2026-06-17 (minichat outdated/inconsistent) |
 | P7.6 | Claude-Desktop "cowork" parity fused w/ Code: Act/Chat, Progress, Working folder, Context, Queue, connectors (Slack/Gmail/Drive via MCP) | ☐ TODO — owner 2026-06-18 screenshot |
-| P6.4 | Theme/Settings: fix custom-theme font (won't set), theme preview → color palette, declutter Settings | ◐ (a) font: investigated all 3 causes (persist/disabled/re-render) — all correct; re-render fix at UIState:286 documents the exact symptom; added the requested regression (HeadingFontOverrideTests, 5 tests); owner re-verifies (note-heading CSS re-inject is the only untested surface left). (b) palette preview + (c) declutter still TODO |
+| P6.4 | Theme/Settings: fix custom-theme font (won't set), theme preview → color palette, declutter Settings | ◐ (a) font: investigated all 3 causes (persist/disabled/re-render) — all correct; re-render fix at UIState:286 documents the exact symptom; added the requested regression (HeadingFontOverrideTests, 5 tests); owner re-verifies (note-heading CSS re-inject is the only untested surface left). (b) ✅ palette preview is PIXEL-ART for ALL themes (hard Rectangle, no rounding; swatches + card chrome) + fixed a stale-RED ThemePicker test (asserted deleted cinematic tokens). (c) declutter still TODO |
 | P7.7 | Voice model + auto-read-screen/replies/STT granular settings + pixel-art retro voice filter | ☐ TODO — owner 2026-06-18 (research R-VOICE first) |
 | R-VOICE/R-EVE/R-OKF/R-PROMPT | Research: voice+filter / eve agent fw / OKF+dedup+privacy / priompt+composer | ☐ TODO — owner 2026-06-18, verdict docs (take?/free?/UX) |
 | P7.3 | Terminal + console actually work (Pro/dev) | ☐ TODO |

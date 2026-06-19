@@ -4105,14 +4105,16 @@ private struct ThemePairCard: View {
             .padding(Spacing.sm)
             .background(cardBackground)
             .overlay(cardBorder)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("\(pair.displayName) theme pair"))
     }
 
+    // Pixel-art card chrome: hard rectangle, no rounding (owner P6.4b) — coherent
+    // with the pixel-art palette swatch it frames.
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
+        Rectangle()
             .fill(
                 isSelected
                     ? theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.14)
@@ -4121,12 +4123,12 @@ private struct ThemePairCard: View {
     }
 
     private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
+        Rectangle()
             .stroke(
                 isSelected
                     ? theme.resolved.accent.color.opacity(0.72)
                     : theme.resolved.border.color.opacity(theme.isDark ? 0.42 : 0.58),
-                lineWidth: isSelected ? 1.4 : 1
+                lineWidth: isSelected ? 1.6 : 1.2
             )
     }
 }
@@ -4135,9 +4137,12 @@ private struct ThemePairCard: View {
 /// colors (background / card / accent / heading / foreground / border), light
 /// then dark, as clean swatches. Replaces the busy "GREETINGS" mock-UI card so
 /// every theme reads as "this is the palette" at a glance.
+// Pixel-art palette swatch — hard rectangles, no rounding (owner P6.4b). Shows a
+// ThemePair's key resolved colors (background / card / accent / heading / foreground
+// / border), light then dark, so every theme reads as "this is the palette" at a
+// glance, in the app's pixel-art identity.
 private struct ThemePairPaletteSwatch: View {
     let pair: ThemePair
-    private static let cornerRadius: CGFloat = 8
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -4145,9 +4150,10 @@ private struct ThemePairPaletteSwatch: View {
             paletteRow(theme: pair.darkTheme, label: "Dark")
         }
         .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+        // Pixel-art: hard rectangular border, no rounding.
+        .overlay(
+            Rectangle()
+                .strokeBorder(Color.primary.opacity(0.22), lineWidth: 1.5)
         )
     }
 
@@ -4162,18 +4168,18 @@ private struct ThemePairPaletteSwatch: View {
             resolved.foreground.color,
             resolved.border.color,
         ]
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             Text(label)
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 34, alignment: .leading)
             ForEach(Array(colors.enumerated()), id: \.offset) { _, color in
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                Rectangle()
                     .fill(color)
                     .frame(height: 22)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                        Rectangle()
+                            .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1)
                     )
             }
         }
@@ -4184,24 +4190,26 @@ private struct ThemePairPaletteSwatch: View {
 /// key colors, light + dark) rather than a busy mock-UI card. Palette-only: it
 /// shows exactly the editable slots so the preview reads as "this is the
 /// palette", honest and pixel-art minimal.
+// Pixel-art palette swatch — hard rectangles, no rounding (owner P6.4b). The custom
+// theme's editable color slots (light + dark), so its preview reads as "this is the
+// palette" exactly like the other pairs, in the app's pixel-art identity.
 private struct CustomThemePaletteSwatch: View {
-    private static let cornerRadius: CGFloat = 8
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             paletteRow(isDark: false, label: "Light")
             paletteRow(isDark: true, label: "Dark")
         }
         .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+        // Pixel-art: hard rectangular border, no rounding.
+        .overlay(
+            Rectangle()
+                .strokeBorder(Color.primary.opacity(0.22), lineWidth: 1.5)
         )
     }
 
     @ViewBuilder
     private func paletteRow(isDark: Bool, label: String) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             Text(label)
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.secondary)
@@ -4215,12 +4223,12 @@ private struct CustomThemePaletteSwatch: View {
     @ViewBuilder
     private func swatch(slot: AppCustomThemeColorSlot, isDark: Bool) -> some View {
         let color = Color(hex: AppCustomTheme.hex(for: slot, isDark: isDark))
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
+        Rectangle()
             .fill(color)
             .frame(height: 22)
             .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                Rectangle()
+                    .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1)
             )
             .help(slot.title)
     }
