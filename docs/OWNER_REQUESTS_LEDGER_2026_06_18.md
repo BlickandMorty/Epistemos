@@ -2255,6 +2255,28 @@ native; AGPL server). ADOPT 2 patterns natively:
       owner-advertised set per mode. Keep ALL models retained (req 2); the stack just
       controls visibility + drives install. Design the stack UI well-thought-out (clear,
       pixel-art-minimal, honest install states), not demo-ish.
+      + REGRESSION SYMPTOMS (owner 2026-06-19, verbatim): *"when I first tried
+      downloading and installing models it would say corrupted or not complete or
+      something. The entire progress bar is gone, and it's like the download feature
+      itself has regressed a lot — I need it to be robust again."* So beyond "only the
+      foundation package is offered," the download PIPELINE ITSELF has REGRESSED: (8)
+      **INTEGRITY FAILURES** — installs report "corrupted" / "not complete" / partial;
+      the download isn't verifying or completing correctly. Restore robust integrity:
+      checksum/size verification against the manifest, atomic finalize (download to a
+      temp path → verify → move into place, never leave a half-file marked installed),
+      and RESUME of interrupted/partial downloads instead of failing. (9) **PROGRESS
+      BAR GONE — REGRESSION** — the install progress bar (the P1.8 surface, ledger
+      ~line 904 "Download/install progress visible") has DISAPPEARED; it used to show.
+      Restore a real, live progress bar (bytes/percent/state) for every install. (10)
+      **ROBUSTNESS RESTORE (treat as a regression, find what broke it)** — the download
+      feature was more robust before and has degraded; git-archaeology / diff the
+      `ModelDownloadManager` + install-progress UI to find WHAT regressed (a refactor
+      that dropped progress wiring? a manifest/URL change? a verification step that now
+      false-positives "corrupted"?), and bring it back to robust: clear error states
+      (honest, actionable — not a dead bar), retry/resume, integrity verify, visible
+      progress, completion confirmation. This is part of the SAME MODEL DOWNLOAD repair
+      (the unblocker for in-app testing) — fix the pipeline so installs actually
+      complete, verify, and show progress, for every advertised/installable model.
 - [ ] **MODEL SELECTION NOT HONORED — everything routes to Qwen 3 4B regardless of
       pick (owner 2026-06-19, HIGH PRIORITY).** Owner (verbatim): *"everything is
       routing to the Qwen 3 4B most times — it never changes from it no matter what I
