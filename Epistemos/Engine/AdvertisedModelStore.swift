@@ -125,3 +125,64 @@ nonisolated struct AdvertisedModelStore {
         defaults.removeObject(forKey: Self.persistenceKey)
     }
 }
+
+/// One row of the Settings "stack" model-manager (reqs 6/7): a retained catalog
+/// model with its honest install/size/RAM info and whether it is advertised
+/// (appears in the picker). Value type so the assembler is pure + the row drives
+/// a `ForEach` deterministically.
+nonisolated struct ModelStackRow: Identifiable, Sendable, Equatable {
+    let id: String
+    let displayName: String
+    let summary: String
+    let sizeText: String
+    let ramText: String
+    let isInstalled: Bool
+    let isAdvertised: Bool
+}
+
+/// Pure assembler for the Settings "stack" rows (reqs 6/7). Maps the full
+/// RETAINED catalog (every model the app keeps — req 2 KEEP-ALL) to display rows,
+/// tagging each with its install state and advertised membership. No I/O, no
+/// SwiftUI, no `InferenceState` — so the row model + the size/RAM formatting are
+/// unit-testable; the View just renders the rows and routes a toggle to
+/// `AdvertisedModelStore.toggleAdvertised`.
+nonisolated enum ModelStackAssembler {
+    /// Deterministic, locale-independent GB size label (so it is testable — unlike
+    /// `ByteCountFormatter`). Honest "—" for an unknown (`<= 0`) size.
+    static func sizeText(bytes: Int64) -> String {
+        guard bytes > 0 else { return "—" }
+        let gb = Double(bytes) / 1_000_000_000
+        return gb >= 0.1 ? String(format: "%.1f GB", gb) : "<0.1 GB"
+    }
+
+    /// Honest RAM label; "—" when the requirement is unknown.
+    static func ramText(gb: Int) -> String {
+        gb > 0 ? "~\(gb) GB RAM" : "—"
+    }
+
+    /// Assemble the stack rows: installed models first (the owner's working set),
+    /// then by display name, stable by id. Pure → unit-testable.
+    static func rows(
+        descriptors: [LocalModelDescriptor],
+        installedIDs: Set<String>,
+        advertisedIDs: Set<String>
+    ) -> [ModelStackRow] {
+        descriptors
+            .map { descriptor in
+                ModelStackRow(
+                    id: descriptor.id,
+                    displayName: descriptor.displayName,
+                    summary: descriptor.summary,
+                    sizeText: sizeText(bytes: descriptor.approximateDownloadBytes),
+                    ramText: ramText(gb: descriptor.minimumRecommendedMemoryGB),
+                    isInstalled: installedIDs.contains(descriptor.id),
+                    isAdvertised: advertisedIDs.contains(descriptor.id)
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.isInstalled != rhs.isInstalled { return lhs.isInstalled }
+                if lhs.displayName != rhs.displayName { return lhs.displayName < rhs.displayName }
+                return lhs.id < rhs.id
+            }
+    }
+}

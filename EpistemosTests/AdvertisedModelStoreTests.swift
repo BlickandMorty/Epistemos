@@ -154,4 +154,41 @@ struct AdvertisedModelStoreTests {
             ) == ["a", "b"]
         )
     }
+
+    // MARK: - Stack-row assembler (the Settings "stack" data layer)
+
+    @Test("size text is deterministic GB, honest for unknown sizes")
+    func stackSizeText() {
+        #expect(ModelStackAssembler.sizeText(bytes: 2_100_000_000) == "2.1 GB")
+        #expect(ModelStackAssembler.sizeText(bytes: 0) == "—")
+        #expect(ModelStackAssembler.sizeText(bytes: 50_000_000) == "<0.1 GB")
+    }
+
+    @Test("RAM text is honest for unknown requirement")
+    func stackRamText() {
+        #expect(ModelStackAssembler.ramText(gb: 6) == "~6 GB RAM")
+        #expect(ModelStackAssembler.ramText(gb: 0) == "—")
+    }
+
+    @Test("rows tag install + advertised state and sort installed-first, against the real catalog")
+    func stackRowsRealCatalog() throws {
+        let descriptors = LocalModelCatalog.textDescriptors
+        let target = try #require(descriptors.first)
+        let rows = ModelStackAssembler.rows(
+            descriptors: descriptors,
+            installedIDs: [target.id],
+            advertisedIDs: [target.id]
+        )
+        #expect(rows.count == descriptors.count)
+        let targetRow = try #require(rows.first { $0.id == target.id })
+        #expect(targetRow.isInstalled == true)
+        #expect(targetRow.isAdvertised == true)
+        #expect(targetRow.displayName == target.displayName)
+        // installed-first: the installed target sorts ahead of any uninstalled row.
+        let targetIndex = try #require(rows.firstIndex { $0.id == target.id })
+        let firstUninstalled = rows.firstIndex { !$0.isInstalled }
+        if let firstUninstalled {
+            #expect(targetIndex < firstUninstalled)
+        }
+    }
 }
