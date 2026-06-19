@@ -28,6 +28,16 @@ Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply 
 - `docs/research/COMPETITOR_SUPERSESSION_2026_06_19.md` — (S5) gaps vs Obsidian/Claude/Codex/Tolaria/Notion + killer differentiators.
 - (Appended as the loop produces them — keep this index complete.)
 
+## METHODOLOGY — ITERATIVE DEEPENING + BREADTH (owner 2026-06-19)
+Owner: *"iterate on that research and produce more research from other things I mentioned —
+after a round of research, iteratively go deeper, but add in more topics."* So each round:
+1. **DEEPEN** — take a completed slice's doc and go a level deeper (edge cases, exact wiring,
+   failure modes, concrete code-level plan, open questions surfaced last round). Mark the
+   doc with a "ROUND N DEEPENING" section; don't just re-summarize.
+2. **BROADEN** — also advance a NOT-yet-researched topic from the expanded backlog below.
+Rotate: alternate a DEEPEN pass and a new-topic pass so the research both widens and
+sharpens. Never re-do a slice at the same depth; either go deeper or pick a new topic.
+
 ## Research-slice backlog (the loop works these; mark status each pass)
 | # | Slice | Status |
 |---|---|---|
@@ -39,6 +49,17 @@ Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply 
 | S6 | WHOLE-APP forward audit — current parts researched for "what's to come" | ☐ |
 | S7 | PLAN/LEDGER/DIRECTIVE consistency sweep — contradictions, gaps, dead items | ☐ |
 | S8 | OpenClaw + Osaurus + Hermes deeper passes (continuing) — nuance, edge cases | ☐ |
+| S9 | MODEL SYSTEM deep — download/install robustness, selection-honored, the "stack", per-model vaults hardening, picker simplify, catalog completeness (LFM2/VibeThinker/Gemma) | ☐ |
+| S10 | COMPUTER-USE + BROWSER-USE — trycua/cua fusion, Holo-3.1 VL lane, AXorcist/ScreenCaptureKit, stealth/Obscura browser, first-class browser-use skill, Lume VM sandbox | ☐ |
+| S11 | VOICE — R-VOICE (Kokoro TTS / MOSS / Whisper STT), meeting/lecture note, EVE/OKF, on-device only | ☐ |
+| S12 | TOOL-SELECTION & ROUTING — LFM2-ColBERT-350M as tool selector, ConfidenceRouter/RuntimeRouter/TriageService, RAG-preflight (P8.2), Hermes-3 grammar | ☐ |
+| S13 | DATA + FINETUNE substrate — marketplace for data/finetune packs, MLX training, NightBrain, per-model vaults, FineTunePackImporter | ☐ |
+| S14 | UI PORTS — AI-Elements (R-ELEMENTS), Streamdown, json-render (R-JSONRENDER), HTML canvas (P7.2), terminal (P7.3); WebKit-host vs native per port | ☐ |
+| S15 | DEEP RESEARCH engine — DeerFlow 2.0, multi-agent orchestration, LiveSubAgentResearcher | ☐ |
+| S16 | NEW GAPS from S5 — web clipper, multi-device sync, live Artifacts/dashboards, expose-vault-over-MCP + AGENTS.md (anti-Tolaria), MCP install/connectors UI | ☐ |
+| S17 | ENGINE-ISOLATION verification — engines connect only via memory+capability, never shared logic; MiniChat=MainChat ontology; session-as-native-tab | ☐ |
+| S18 | APPLE INTELLIGENCE retention + foundation models for foundational features; capability ceiling (P7.1); honest gating doctrine | ☐ |
+| S19 | PROVENANCE/HONESTY moat — Eidos closed-citation, cognitive DAG, ReplayBundle, AnswerPacket, RunEventLog — surface everywhere | ☐ |
 
 ## FINDINGS LOG (appended each research pass — newest at bottom)
 
