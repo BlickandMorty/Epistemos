@@ -710,6 +710,14 @@ calls: no blanket rule — choose per case.
       endpoint shows in the health row (Pro). +2 tests; build-for-testing green.
       NEXT (S4): the bridge actually drives a turn through the endpoint behind the
       no-hidden-fallback bar; OR link OsaurusCore (SPM, heavy deps) when ready.
+      ✅ S4 LANDED 2026-06-19: ActOsaurusBridge.runTurn(model:messages:maxTokens:)
+      drives a REAL turn — URLSession-POSTs an OpenAI-compatible chat-completions
+      request to the endpoint + decodes the assistant text. EVERY failure throws an
+      HONEST ActOsaurusError (serverNotEnabled / transport / requestFailed / empty) —
+      NEVER a silent cloud/GPT fallback (owner #1); the INERT stub refuses honestly.
+      Pro-only. +2 tests (mirrored-source + a #if-Pro async regression: no server →
+      throws serverNotEnabled). build green. Live turn = owner's on-device check.
+      NEXT (S5): Containerization VM sandbox (R-CUA Lume) OR link OsaurusCore.
 - [ ] **Osaurus + Unsloth feed the MODES** (owner 2026-06-18): the Osaurus
       deep-cherry-picks/full-port (local server + agent capabilities) and Unsloth
       (model training) must SURFACE INSIDE Act mode — and where it fits, Chat mode

@@ -23,6 +23,38 @@ protocol ActOsaurusBridge: Sendable {
     var openAICompatibleEndpoint: URL? { get }
     /// Shape a chat message in Osaurus's vendored wire format (`OsaurusVendor.Message`).
     func makeRequestMessage(role: OsaurusVendor.MessageRole, content: String) -> OsaurusVendor.Message
+
+    /// S4 — drive a REAL Act turn through the osaurus-pattern local OpenAI-compatible
+    /// server (loopback :defaultPort) and return the assistant text. Throws an HONEST
+    /// `ActOsaurusError` when the server isn't enabled/running — NEVER a silent
+    /// cloud/GPT fallback (owner #1).
+    func runTurn(model: String, messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String
+}
+
+/// Honest errors for an Act-Osaurus turn — the local server is off, the POST failed,
+/// or the response was empty. The caller surfaces these; it NEVER silently falls
+/// back to a cloud/GPT route.
+enum ActOsaurusError: Error, Equatable {
+    case serverNotEnabled
+    case transport(String)
+    case requestFailed(status: Int)
+    case emptyResponse
+}
+
+/// OpenAI-compatible chat-completions wire shapes (match LocalModelServer's route).
+private struct ActOsaurusChatRequest: Encodable {
+    struct Msg: Encodable { let role: String; let content: String }
+    let model: String
+    let messages: [Msg]
+    let stream: Bool
+    let max_tokens: Int
+}
+private struct ActOsaurusChatResponse: Decodable {
+    struct Choice: Decodable {
+        struct Message: Decodable { let content: String }
+        let message: Message
+    }
+    let choices: [Choice]
 }
 
 /// INERT default — the seam exists + compiles + reports `ServerHealth.stopped`, and
@@ -35,6 +67,11 @@ struct InertActOsaurusBridge: ActOsaurusBridge {
     var openAICompatibleEndpoint: URL? { nil }
     func makeRequestMessage(role: OsaurusVendor.MessageRole, content: String) -> OsaurusVendor.Message {
         OsaurusVendor.Message(role: role, content: content)
+    }
+    func runTurn(model: String, messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String {
+        // Inert: it owns no running server, so it HONESTLY refuses — never a silent
+        // cloud/GPT route.
+        throw ActOsaurusError.serverNotEnabled
     }
 }
 
@@ -61,6 +98,43 @@ struct OsaurusActBridge: ActOsaurusBridge {
 
     func makeRequestMessage(role: OsaurusVendor.MessageRole, content: String) -> OsaurusVendor.Message {
         OsaurusVendor.Message(role: role, content: content)
+    }
+
+    /// S4 — the REAL Act turn: POST an OpenAI-compatible chat-completions request to
+    /// the loopback osaurus-pattern server and return the assistant text. Every
+    /// failure path throws an HONEST `ActOsaurusError` (server off / transport /
+    /// non-200 / empty) — it NEVER silently escalates to a cloud/GPT route.
+    func runTurn(model: String, messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String {
+        guard let endpoint = openAICompatibleEndpoint else {
+            throw ActOsaurusError.serverNotEnabled
+        }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body = ActOsaurusChatRequest(
+            model: model,
+            messages: messages.map { ActOsaurusChatRequest.Msg(role: $0.role.rawValue, content: $0.content) },
+            stream: false,
+            max_tokens: maxTokens
+        )
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            // The server isn't running / refused → HONEST transport error, no cloud.
+            throw ActOsaurusError.transport(error.localizedDescription)
+        }
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw ActOsaurusError.requestFailed(status: (response as? HTTPURLResponse)?.statusCode ?? -1)
+        }
+        let decoded = try JSONDecoder().decode(ActOsaurusChatResponse.self, from: data)
+        guard let content = decoded.choices.first?.message.content, !content.isEmpty else {
+            throw ActOsaurusError.emptyResponse
+        }
+        return content
     }
 }
 
