@@ -695,13 +695,28 @@ calls: no blanket rule — choose per case.
       in Chat. The owner researched these to add to chat; they're unfinished.
 - [ ] **CHAT = FULL EPISTEMOS CEILING (P8.1)** — Chat gets max capability on MAS +
       Pro additions, keep all IP (Eidos etc.), don't bleed into Osaurus/Act.
-- [ ] **DETERMINISTIC SCHEMA ENGINE (P8.2, founding thesis — DON'T BURY)** — Rust
+- [~] **DETERMINISTIC SCHEMA ENGINE (P8.2, founding thesis — DON'T BURY)** — Rust
       schema engine + AST quality gate (validate before disk write/compile) +
       UniFFI async stream + RAG preflight tool selection (~3-5 tools) + structured
       gen for Gemma 4 + Coder Adapter + reasoning-token isolation. RESEARCH-FIRST on
       the owner's EXISTING local plans + grammar/json-schema FFI; build ON them.
       Spec: docs/DETERMINISTIC_SCHEMA_ENGINE_SPEC_2026_06_18.md. Make local models
       work GREAT; surface the determinism visibly.
+      ✅ §B FIRST SLICE 2026-06-19 (RAG preflight tool selection): NEW
+      `agent_core/src/tool_preflight.rs` — `select_tools(query, candidates, max)` picks
+      the top-`max` (~3-5) tools most relevant to a turn so a local model keeps a TIGHT
+      focused footprint instead of the whole suite (the founding-thesis local-model
+      win). First slice = a DETERMINISTIC LEXICAL scorer: query-term overlap weighted
+      name=3 / keyword=2 / description=1, stopword-filtered, score-desc then name-asc
+      (total order → fully deterministic), only score>0 returned (empty = honest "no
+      tool matched", caller decides fallback). The semantic/embedding preflight is the
+      follow-on that swaps `score` behind the same side-effect-free contract. +7 cargo
+      tests (relevant-for-file-query, max footprint, name>description, no-match-empty,
+      deterministic alpha tie-break, stopwords-ignored, zero-max). cargo --lib BOTH
+      green (7/0 each). NOT yet wired into the live agent loop (that's the next slice,
+      best with owner in-app verification). The remaining parts (AST quality gate,
+      UniFFI async stream, structured-gen constraints, reasoning-token isolation) are
+      separate slices.
 - [ ] **Post-Osaurus enhancements (P3.1b)** — after import: more MCP, easier+robust
       agents, and a MAS-safe version of key Osaurus capabilities.
 - [ ] **GOOSE = OPEN CODE / WORK backend via ENGINE EXTRACTION (R-GOOSE, owner
