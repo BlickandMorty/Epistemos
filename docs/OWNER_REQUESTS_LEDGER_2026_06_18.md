@@ -2892,6 +2892,24 @@ native; AGPL server). ADOPT 2 patterns natively:
       `EPISTEMOS_FOUNDATION_RECOMMEND_V0=1`, use a slash command with NO stored pick → expect a Gemma/
       VibeThinker recommendation, not Qwen. Not ticked [x]. REMAINING fix (2): the honest-no-silent-
       substitute for `storedBrainSelection`'s unavailable-pick case (parallel to a645e6623).
+      ✅ MODEL-SELECTION fix (2) — HONEST UNAVAILABLE SPECIALIST PICK (opt-in, flag-gated) 2026-06-19:
+      the second follow-on. `storedBrainSelection` returned nil for an explicit-but-unavailable stored
+      pick, so `preferredBrain` fell to the Qwen/foundation `recommendedBrain` — silently dropping the
+      owner's explicit specialist pick. FIX: `AgentCommandCenterState` adds `StoredBrainKind`
+      (.auto / .available / .unavailableExplicitPick) + a PURE `classifyStoredBrain(storedID:
+      availableIDs:)` that DISTINGUISHES "no pick (auto)" from "explicit pick that isn't available"
+      (the old code conflated both → recommend). `preferredBrain` now switches on it: .available →
+      the stored brain; .auto → recommend; .unavailableExplicitPick → (flag
+      `EPISTEMOS_HONEST_UNAVAILABLE_SPECIALIST_PICK_V0` ON: return nil so the picker surfaces the pick
+      as unavailable rather than swapping models behind the owner's back; OFF default: recommend =
+      BYTE-IDENTICAL to today). OPT-IN (rather than OFF=honest like a645e6623) because the nil flows to
+      `selectedBrain` and the owner verifies the picker handles it in-app before it becomes default.
+      +4 pure tests (classify auto/available/unavailable + flag-default-off). build-for-testing TEST
+      BUILD SUCCEEDED (0 errors). So the MODEL-SELECTION multi-layer Qwen fix now spans EVERY layer the
+      re-diagnosis named: the InferenceState model-pin (a645e6623), the slash-specialist foundation-
+      recommend fix (1) (71aecb122), this honest-unavailable-pick fix (2), and the RuntimeRouter
+      lane-level staging (b7a0796af / 6d22f0048) — each small, flag-gated, pure-tested, un-ticked
+      pending owner in-app confirmation that selecting a model changes which model answers.
 - [ ] **R-WEBCLIP — web clipper → clean-markdown vault note (S16 gap, supersession vs Obsidian).**
       Spec: docs/research/SUPERSESSION_GAPS_PLANS_2026_06_19.md. MAS core = a macOS Share Extension
       xcodegen target (`type:app-extension`, share-services, url+html; mirror `EpistemosWidgets`

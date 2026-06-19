@@ -66,4 +66,37 @@ struct FoundationRecommendPolicyTests {
             #expect(AgentCommandCenterState.foundationRecommendArmed == false)
         }
     }
+
+    // MARK: - fix (2): stored-brain classification (honest unavailable pick)
+
+    @Test("classifyStoredBrain: nil / \"auto\" → .auto")
+    func classifyAuto() {
+        #expect(AgentCommandCenterState.classifyStoredBrain(storedID: nil, availableIDs: ["local:x"]) == .auto)
+        #expect(AgentCommandCenterState.classifyStoredBrain(storedID: "auto", availableIDs: ["local:x"]) == .auto)
+    }
+
+    @Test("classifyStoredBrain: explicit pick that IS available → .available")
+    func classifyAvailable() {
+        #expect(
+            AgentCommandCenterState.classifyStoredBrain(
+                storedID: "local:gemma", availableIDs: ["local:gemma", "local:qwen"]
+            ) == .available
+        )
+    }
+
+    @Test("classifyStoredBrain: explicit pick NOT available → .unavailableExplicitPick (no silent Qwen)")
+    func classifyUnavailable() {
+        #expect(
+            AgentCommandCenterState.classifyStoredBrain(
+                storedID: "local:gemma", availableIDs: ["local:qwen"]
+            ) == .unavailableExplicitPick
+        )
+    }
+
+    @Test("honest-unavailable-specialist-pick flag is OFF by default (today's behaviour)")
+    func honestFlagDefaultsOff() {
+        if ProcessInfo.processInfo.environment["EPISTEMOS_HONEST_UNAVAILABLE_SPECIALIST_PICK_V0"] == nil {
+            #expect(AgentCommandCenterState.honestUnavailableSpecialistPickArmed == false)
+        }
+    }
 }
