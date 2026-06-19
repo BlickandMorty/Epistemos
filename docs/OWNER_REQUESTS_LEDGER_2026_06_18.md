@@ -293,6 +293,15 @@ calls: no blanket rule — choose per case.
       `LocalGgufRuntimeBridge.generate` → `parseGgufToolCall` the output → execute via ToolTierBridge
       → feed the result back → repeat) — the in-app-verification-dependent piece, owner runs it once
       model download works. TOOLS/SKILLS item stays open.
+      ✅ S4 SCHEMA↔IMPL DRIFT (2 of 4 closed) 2026-06-19: `parse_note_filter` (knowledge.rs) reads
+      `note_filter` OR `tags`, but `eidos_query_schema` declared only `tags` and `vault_recall_schema`
+      only `note_filter` — a LATENT drift (harmless today since the schema gate doesn't set
+      `additionalProperties:false`, but a valid call would be rejected the moment it does). FIX
+      (additive, ZERO behaviour change): both schemas now declare BOTH keys (canonical `note_filter`
+      + `tags` alias). +1 pin test (eidos_query_and_vault_recall_schemas_declare_both_filter_keys)
+      so the drift can't silently reopen. Full-lib 5472/0 + `--features pro-build` 5735/0 (zero
+      regression). REMAINING (2 of 4): `collectsnippet`/`savecitation` read undeclared snake_case
+      aliases — same additive treatment.
       🔎 S4 DEEP-RESEARCH AUDIT 2026-06-19 (docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md)
       — confirms the loop's local diagnosis AND adds the missing pieces: (i) **CLOUD break (specific):**
       `runCommandCenterRustAgentPath` is reached only if `cloudProvider.supportsAgentTier`, TRUE ONLY

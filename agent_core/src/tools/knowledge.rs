@@ -319,9 +319,14 @@ pub fn eidos_query_schema() -> crate::types::ToolSchema {
                     "description": "Retrieval scope. Current production value is vault.",
                     "default": "vault"
                 },
+                "note_filter": {
+                    "type": "array",
+                    "description": "Optional tag filter (canonical key; `tags` is accepted as an alias).",
+                    "items": { "type": "string" }
+                },
                 "tags": {
                     "type": "array",
-                    "description": "Optional tag filter.",
+                    "description": "Optional tag filter (alias of `note_filter`).",
                     "items": { "type": "string" }
                 }
             },
@@ -350,7 +355,12 @@ pub fn vault_recall_schema() -> crate::types::ToolSchema {
                 },
                 "note_filter": {
                     "type": "array",
-                    "description": "Optional tag filter.",
+                    "description": "Optional tag filter (canonical key; `tags` is accepted as an alias).",
+                    "items": { "type": "string" }
+                },
+                "tags": {
+                    "type": "array",
+                    "description": "Optional tag filter (alias of `note_filter`).",
                     "items": { "type": "string" }
                 }
             },
@@ -986,6 +996,26 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("note_filter[1]"));
+    }
+
+    #[test]
+    fn eidos_query_and_vault_recall_schemas_declare_both_filter_keys() {
+        // S4 schema↔impl drift fix: parse_note_filter reads BOTH `note_filter` and
+        // `tags`, so both schemas must DECLARE both keys (else a schema gate with
+        // additionalProperties:false would reject a valid call). Pins the fix.
+        for schema in [eidos_query_schema(), vault_recall_schema()] {
+            let props = schema.parameters["properties"].as_object().unwrap();
+            assert!(
+                props.contains_key("note_filter"),
+                "{} schema missing note_filter",
+                schema.name
+            );
+            assert!(
+                props.contains_key("tags"),
+                "{} schema missing tags",
+                schema.name
+            );
+        }
     }
 
     #[tokio::test]
