@@ -18,20 +18,21 @@ struct ModelStackSettingsView: View {
 
     private let store = AdvertisedModelStore()
 
-    /// The full RETAINED catalog: the MLX/remote text descriptors PLUS the
-    /// foundation GGUF models (Gemma / VibeThinker / coder), de-duped by id, so
-    /// LFM2 / VibeThinker / the Gemma family are all listed (owner req 11).
-    private var descriptors: [LocalModelDescriptor] {
-        let base = LocalModelCatalog.textDescriptors
-        let foundationGGUF = EpistemosFoundationLineup.models.compactMap {
-            LocalModelCatalog.descriptor(for: $0.id)
-        }
+    /// The full RETAINED catalog as runtime-agnostic stack sources: the MLX/remote
+    /// text descriptors PLUS the foundation GGUF models (Gemma / VibeThinker / LFM /
+    /// coder), de-duped by id. The foundation GGUF models map via
+    /// `GemmaQATRuntimeCandidate.stackSource` — they have NO `LocalModelDescriptor`,
+    /// so going through descriptors would silently drop exactly the models the owner
+    /// asked to see (owner req 11).
+    private var sources: [ModelStackSource] {
+        let base = LocalModelCatalog.textDescriptors.map(\.stackSource)
+        let foundation = EpistemosFoundationLineup.models.map(\.stackSource)
         var seen = Set(base.map(\.id))
-        return base + foundationGGUF.filter { seen.insert($0.id).inserted }
+        return base + foundation.filter { seen.insert($0.id).inserted }
     }
 
     private var fullCatalog: Set<String> {
-        Set(descriptors.map(\.id))
+        Set(sources.map(\.id))
     }
 
     private var installedIDs: Set<String> {
@@ -40,7 +41,7 @@ struct ModelStackSettingsView: View {
 
     private var rows: [ModelStackRow] {
         ModelStackAssembler.rows(
-            descriptors: descriptors,
+            sources: sources,
             installedIDs: installedIDs,
             advertisedIDs: Set(advertisedIDs)
         )

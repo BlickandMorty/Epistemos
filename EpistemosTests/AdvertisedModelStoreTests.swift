@@ -172,14 +172,14 @@ struct AdvertisedModelStoreTests {
 
     @Test("rows tag install + advertised state and sort installed-first, against the real catalog")
     func stackRowsRealCatalog() throws {
-        let descriptors = LocalModelCatalog.textDescriptors
-        let target = try #require(descriptors.first)
+        let sources = LocalModelCatalog.textDescriptors.map(\.stackSource)
+        let target = try #require(sources.first)
         let rows = ModelStackAssembler.rows(
-            descriptors: descriptors,
+            sources: sources,
             installedIDs: [target.id],
             advertisedIDs: [target.id]
         )
-        #expect(rows.count == descriptors.count)
+        #expect(rows.count == sources.count)
         let targetRow = try #require(rows.first { $0.id == target.id })
         #expect(targetRow.isInstalled == true)
         #expect(targetRow.isAdvertised == true)
@@ -190,5 +190,30 @@ struct AdvertisedModelStoreTests {
         if let firstUninstalled {
             #expect(targetIndex < firstUninstalled)
         }
+    }
+
+    @Test("req 11 — the foundation GGUF models (Gemma/VibeThinker/LFM/coder) ARE listed as rows")
+    func stackListsFoundationGGUF() throws {
+        // The req-11 guarantee: the foundation GGUF candidates have NO LocalModel-
+        // Descriptor, so they must reach the stack via GemmaQATRuntimeCandidate.
+        // stackSource — NOT silently dropped by a descriptor-only lookup.
+        let foundationSources = EpistemosFoundationLineup.models.map(\.stackSource)
+        #expect(!foundationSources.isEmpty)
+        let rows = ModelStackAssembler.rows(
+            sources: foundationSources,
+            installedIDs: [],
+            advertisedIDs: []
+        )
+        #expect(rows.count == foundationSources.count)
+        // Each foundation model's id survives into a row (none dropped).
+        let rowIDs = Set(rows.map(\.id))
+        for source in foundationSources {
+            #expect(rowIDs.contains(source.id))
+        }
+        // Sanity: the owner's named families are present by id substring.
+        let allIDs = rowIDs.joined(separator: " ").lowercased()
+        #expect(allIDs.contains("gemma"))
+        #expect(allIDs.contains("vibethinker"))
+        #expect(allIDs.contains("lfm"))
     }
 }
