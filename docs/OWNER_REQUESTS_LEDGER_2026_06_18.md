@@ -418,8 +418,18 @@ calls: no blanket rule — choose per case.
       only a genuine `.cloud`/`.appleIntelligence` pick shows "Auto Route". Locked
       by TriageServiceTests `unresolvedLocalChatPickNeverRendersAsAutoRouteOrCloud`.
       Verified RootView `labelText` (723-731) already shows the local tier/model.
-      REMAINING (needs owner in-app repro): deeper "why doesn't the local model
-      resolve" root-cause + AgentBlueprint/Constellation/ModelProfile row labels.
+      ✅ RESOLVE-TRACE 2026-06-19: the deeper trace landed. InferenceState
+      `localModelResolutionState` / `localModelResolutionSummary` (in
+      LocalModelResolution.swift) computes whether the local PICK is honored vs
+      silently substituted vs no-local-model + the honest reason (notInstalled /
+      exceedsMemory / awaitingSwiftLoader / runtimeUnavailable), surfaced in the
+      VISIBLE LocalRouteHonestyHealthRow (SubstrateHealthPanel). Honest "honored"
+      test = `effective == pickID` (sanitize returns the pick unchanged when usable,
+      a different id when it falls back/migrates). +5 tests; build-for-testing green.
+      REMAINING (needs owner in-app repro): the deeper ROUTING decision (does an
+      explicit unresolved local pick under opted-in auto-route escalate to cloud at
+      all — gated behind chatAutoRouteToCloud today) + AgentBlueprint/Constellation/
+      ModelProfile row labels.
 - [ ] **Qwen 3 8B visible again (P1.11)** — re-expose as an EXPLICIT pick under Fast
       or Think (whichever fits); visible user choice, NOT a silent fallback (P1.10
       still holds). Memory-gated.

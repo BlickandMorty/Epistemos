@@ -4114,6 +4114,53 @@ final class InferenceState {
         sanitizedInteractiveLocalTextModelID(for: preferredLocalTextModelID)
     }
 
+    /// Owner #1 (no hidden GPT route, 2026-06-19) — the honest local-resolve trace.
+    /// Compares the user's local PICK to what actually resolves and explains any
+    /// gap, so a substitution or a "no local model" state is VISIBLE
+    /// (LocalRouteHonestyHealthRow) rather than a silent swap to a different model
+    /// or a cloud/GPT route.
+    var localModelResolutionState: LocalModelResolutionState {
+        let pickID = preferredLocalTextModelID
+        let pickName = localRouteDisplayName(for: pickID)
+        if let effective = effectiveLocalTextModelID {
+            // sanitizedInteractiveLocalTextModelID returns the pick UNCHANGED when
+            // it's usable as-selected, and a DIFFERENT id when it falls back or
+            // migrates (e.g. not-installed → recommended, legacy → foundation). So
+            // `effective == pickID` is the honest "pick is honored" test — it
+            // catches both the not-resolvable case AND a silent substitution.
+            if effective == pickID {
+                return .usingPick(displayName: pickName)
+            }
+            return .substituted(
+                pick: pickName,
+                using: localRouteDisplayName(for: effective),
+                reason: localPickUnavailableReason(for: pickID)
+            )
+        }
+        return .noLocalModel(reason: localPickUnavailableReason(for: pickID))
+    }
+
+    /// One-line honest summary of the local-resolve state — nil when the pick is
+    /// honored exactly (nothing to warn about).
+    var localModelResolutionSummary: String? { localModelResolutionState.summary }
+
+    /// Best-effort honest reason a local pick isn't usable as-selected.
+    private func localPickUnavailableReason(for pickID: String) -> LocalModelUnavailableReason {
+        if releaseSelectableInstalledLocalTextModelIDs.isEmpty {
+            return .notInstalled
+        }
+        if !hardwareCapabilitySnapshot.supports(textModelID: pickID) {
+            return .exceedsMemory
+        }
+        if let model = LocalTextModelID(rawValue: pickID) {
+            if model.isAwaitingSwiftRuntimeLoader { return .awaitingSwiftLoader }
+            if !availableLocalGenerationRuntimeKinds.contains(model.runtimeKind) {
+                return .runtimeUnavailable
+            }
+        }
+        return .notInstalled
+    }
+
     private func effectiveLocalTextModelID(for operatingMode: EpistemosOperatingMode) -> String? {
         guard let baseModelID = effectiveLocalTextModelID else { return nil }
 
