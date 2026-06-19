@@ -302,8 +302,8 @@ struct HyperparameterComplianceTests {
         let resourceRoot = try #require(hostBundleURL)
             .appendingPathComponent("Contents/Resources/KnowledgeFusion")
         let requiredAssets = [
-            "Training/scripts/train_knowledge.py",
-            "Training/scripts/train_style.py",
+            // train_knowledge.py / train_style.py removed 2026-06-18 — QLoRA is
+            // native now (NativeLoRATrainer), no longer bundled.
             "Alignment/scripts/train_kto.py",
             "MoLoRA/molora_inference.py",
             "MoLoRA/sgmm_kernel.py",
@@ -320,71 +320,26 @@ struct HyperparameterComplianceTests {
         }
     }
 
-    @Test("Knowledge training script has correct hyperparameters")
+    // Owner 2026-06-18: QLoRA training is native now (NativeLoRATrainer /
+    // MLXLLM.LoRATrain) and the train_knowledge.py / train_style.py scripts are
+    // deleted — so these lock the NATIVE TrainingConfig hyperparameters in
+    // QLoRATrainer (the source of truth the native trainer maps from), no longer
+    // the removed Python script content.
+    @Test("knowledge adapter uses the correct native TrainingConfig hyperparameters")
     func knowledgeHyperparams() throws {
-        let scriptURL = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Resources/KnowledgeFusion/Training/scripts/train_knowledge.py")
         let trainerSource = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
-
-        // Fall back to source directory if not in bundle (test environment)
-        let sourcePath = try sourceMirrorURL(
-            for: "Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py"
-        )
-
-        let url = FileManager.default.fileExists(atPath: scriptURL.path) ? scriptURL : sourcePath
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            // Script not accessible from test environment; skip
-            return
-        }
-
-        let content = try String(contentsOf: url, encoding: .utf8)
-
-        // ANCHOR 2 compliance checks
-        #expect(content.contains("DEFAULT_RANK = 16"))
-        #expect(content.contains("DEFAULT_ALPHA = 32"))
-        #expect(content.contains("gate_proj"))
-        #expect(content.contains("up_proj"))
-        #expect(content.contains("down_proj"))
-        #expect(content.contains("DEFAULT_LR = 2e-5"))
-        #expect(content.contains("REPLAY_RATIO = 0.10"))
         #expect(trainerSource.contains("static let defaultKnowledge = TrainingConfig("))
         #expect(trainerSource.contains("loraRank: 16"))
         #expect(trainerSource.contains("loraAlpha: 32"))
         #expect(trainerSource.contains("config: TrainingConfig = .defaultKnowledge"))
-
-        // ANCHOR 3, GAP 1: No fusion calls in actual code
-        #expect(!content.contains("merge_weights=True"))
-        #expect(!content.contains("merge_adapter("))
-        #expect(!content.contains(".fuse("))
     }
 
-    @Test("Style training script has correct hyperparameters")
+    @Test("style adapter uses the correct native TrainingConfig hyperparameters")
     func styleHyperparams() throws {
-        let sourcePath = try sourceMirrorURL(
-            for: "Epistemos/KnowledgeFusion/Training/scripts/train_style.py"
-        )
         let trainerSource = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
-
-        guard FileManager.default.fileExists(atPath: sourcePath.path) else { return }
-        let content = try String(contentsOf: sourcePath, encoding: .utf8)
-
-        // ANCHOR 2 compliance: style profile
-        #expect(content.contains("DEFAULT_RANK = 8"))
-        #expect(content.contains("DEFAULT_ALPHA = 16"))
-        #expect(content.contains("DEFAULT_LR = 1e-5"))
-
-        // Style must NOT target MLP layers in the TARGET_MODULES list
-        // (gate_proj may appear in comments but not in the active list)
-        #expect(content.contains("q_proj"))
-        #expect(content.contains("k_proj"))
         #expect(trainerSource.contains("static let defaultStyle = TrainingConfig("))
         #expect(trainerSource.contains("loraRank: 8"))
         #expect(trainerSource.contains("loraAlpha: 16"))
         #expect(trainerSource.contains("config: TrainingConfig = .defaultStyle"))
-
-        // ANCHOR 3, GAP 1: No fusion calls in actual code
-        #expect(!content.contains("merge_weights=True"))
-        #expect(!content.contains("merge_adapter("))
-        #expect(!content.contains(".fuse("))
     }
 }

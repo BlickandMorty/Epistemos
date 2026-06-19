@@ -37,8 +37,7 @@ struct ReleaseScriptAuditTests {
         ] {
             #expect(script.contains(font))
         }
-        #expect(script.contains("KnowledgeFusion/Training/scripts/train_knowledge.py"))
-        #expect(script.contains("KnowledgeFusion/Training/scripts/train_style.py"))
+        // train_knowledge.py / train_style.py removed 2026-06-18 (QLoRA native).
         #expect(script.contains("KnowledgeFusion/Alignment/scripts/train_kto.py"))
         #expect(script.contains("KnowledgeFusion/MoLoRA/molora_inference.py"))
         #expect(script.contains("KnowledgeFusion/MoLoRA/sgmm_kernel.py"))

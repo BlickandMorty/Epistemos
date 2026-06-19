@@ -136,10 +136,8 @@ else
     bundle_nightbrain_launchagent
 fi
 
-cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py" \
-    "$KNOWLEDGE_FUSION_DIR/Training/scripts/train_knowledge.py"
-cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_style.py" \
-    "$KNOWLEDGE_FUSION_DIR/Training/scripts/train_style.py"
+# train_knowledge.py / train_style.py removed 2026-06-18: QLoRA training is now
+# in-process native (NativeLoRATrainer / MLXLLM.LoRATrain) — no Python script.
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Alignment/scripts/train_kto.py" \
     "$KNOWLEDGE_FUSION_DIR/Alignment/scripts/train_kto.py"
 cp "$SRCROOT/Epistemos/KnowledgeFusion/MoLoRA/molora_inference.py" \
