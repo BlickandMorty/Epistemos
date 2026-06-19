@@ -18,6 +18,11 @@ struct CoworkPanelTests {
         #expect(panel.contains("workingFolderSection"))
         #expect(panel.contains("queueSection"))
         #expect(panel.contains("connectorsSection"))
+        // Connectors wired to the REAL surfaced-tools inventory (distribution-gated),
+        // grouped by connector, with an honest empty state — no fake entries.
+        #expect(panel.contains("OmegaToolRegistry.surfacedTools()"))
+        #expect(panel.contains("connectorsByAgent"))
+        #expect(panel.contains("No tools are surfaced on this build."))
         // Real telemetry sources.
         #expect(panel.contains("chat.isAgentExecuting"))
         #expect(panel.contains("chat.currentCapability.displayName"))

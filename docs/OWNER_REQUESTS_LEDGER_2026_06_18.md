@@ -436,8 +436,11 @@ calls: no blanket rule — choose per case.
       popover), WORKING FOLDER (CoworkRunContext files + folder, Pro-gated), QUEUE
       (staged ComposerMessageQueue.pending), CONNECTORS (honest forward state).
       Reachable from chat via a new cowork button beside the context badge. +2 tests;
-      build-for-testing green. REMAINING: Connectors live inventory; ACT section +
-      Claude-Desktop visual polish. Owner verifies the layout match in-app.
+      build-for-testing green. ✅ CONNECTORS LIVE 2026-06-19: the connectors section
+      now reads the REAL OmegaToolRegistry.surfacedTools() inventory (distribution-
+      gated — honest per-build), grouped by connector (agent), with real tool names +
+      an honest empty state. REMAINING: a dedicated ACT section + Claude-Desktop
+      visual polish. Owner verifies the layout match in-app.
 - [~] **Local models "not working" → showing GPT instead of local** in Settings.
       Investigate WHY other local models don't load/resolve; fix the label so
       local rows show the real local model, never a cloud/GPT fallback unless
