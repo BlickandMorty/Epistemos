@@ -2410,3 +2410,23 @@ native; AGPL server). ADOPT 2 patterns natively:
       BUILD SUCCEEDED (0 errors); no existing test encoded the old auto-substitute (no regression).
       This composes with the MODEL DOWNLOAD fix: now that all models install, an honored pick
       actually has its model present. Owner verifies select-X→generate-X in-app once pulled.
+      ❌ STILL BROKEN AFTER REBUILD (owner 2026-06-19, verbatim: "did it already fix the qwen
+      issue because it is still doing the same thing, I just rebuilt"). The TriageService fix was
+      build-verified but NOT in-app-verified, and the owner's rebuild proves the live behavior is
+      UNCHANGED — still pinned to Qwen-3-4B. GROUNDED RE-DIAGNOSIS (the fix patched the WRONG/only-one
+      layer): `TriageService.localSelection` was made honest, BUT the live chat/agent path resolves
+      its model through OTHER Qwen-preferring code the fix never touched — primarily
+      `Epistemos/State/AgentCommandCenterState.swift:580-600` (`localBrain(preferredModels: [.qwen3_4B4Bit, …])`
+      mode→model preference lists) and `Epistemos/LocalAgent/RuntimeRouter.swift:428-431` (hardcoded
+      Qwen3-4B routing targets). PROOF this is the path: if TriageService were the live resolver, the
+      honest-nil default would now show "unavailable" — instead the owner still gets Qwen, so the query
+      is served via these preferred-list/router layers that IGNORE the explicit pick. ALSO check the
+      generation seam itself (`MLXInferenceService` / `DeviceAgentService`) for an independent default,
+      and confirm the picker's selected id actually propagates into `InferenceState` and reaches these
+      resolvers. REAL FIX (multi-layer): the EXPLICIT owner pick must WIN at EVERY selection layer —
+      AgentCommandCenterState.localBrain, RuntimeRouter, TriageService, and the generation call — not
+      just one; preferred-model lists apply ONLY in true "auto" mode, never over an explicit pick.
+      The +2 cargo tests PASSED but tested the wrong layer (TriageService) — add a test that drives the
+      ACTUAL live select→generate path (AgentCommandCenterState/RuntimeRouter) and asserts the picked
+      model id reaches the generator. Don't tick until the OWNER confirms in-app that selecting a model
+      actually changes which model answers. Likely needs the careful re-arm (touches live inference path).
