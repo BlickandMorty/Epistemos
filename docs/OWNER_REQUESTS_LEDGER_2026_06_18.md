@@ -100,12 +100,19 @@ calls: no blanket rule — choose per case.
       files (real size + last-modified, honest missing), rendered as per-model
       DisclosureGroups (name+ID+compiled-dot+total size header; per-file size +
       relative mtime + honest "Not compiled" when expanded), compiled-first sort.
-      PENDING: part 1 (ensure NEW local models — Gemma 26B-A4B, LFM2.5, 2-bit 12B,
-      VibeThinker, Qwen3-8B, Holo — are vault TARGETS: they auto-derive from
-      LocalModelCatalog installed + isReleaseValidatedForInteractiveChat, so verify
-      each is cataloged+LocalTextModelID+validated) + sane default instructions;
-      part 2 polish (instructions.md content preview). Build+run verify in-app;
-      harden + auto-commit+push.**
+      DONE (part 1): modelVaultTargets() now ALSO appends the installed
+      foundation GGUF chat models (supportedAvailableGemmaQATRuntimeCandidates =
+      Gemma/VibeThinker/coder, the runnable lane) — previously excluded because
+      they're descriptor IDs, NOT LocalTextModelID enum cases. HONEST findings:
+      the MLX gemma4 enum IDs (incl. 26B-A4B) stay excluded — isReleaseValidated-
+      ForInteractiveChat=false because the MLX loader errors ("Unsupported model
+      type: gemma4"); the RUNNABLE Gemma is the GGUF lane (now included). LFM2.5 +
+      Qwen3-8B are MLX LocalTextModelID cases → already included when installed +
+      non-experimental. Vision-only Holo is NOT a text-chat foundation tier → not a
+      chat vault (honest). bucket(for:) buckets foundation GGUF as .local. Default
+      instructions auto-create on first compile (KnowledgeProfileStore.resolved-
+      Instructions). PENDING: instructions.md content preview in ModelVaultDetailRow;
+      verify defaults are sane. Build+run verify in-app.**
       (1) UPDATE KnowledgeFusion vaults for the NEW local models — Gemma 26B-A4B,
           LFM2.5, 2-bit 12B, VibeThinker, Qwen3-8B, Holo — each must be a vault
           TARGET with sane default instructions (not just the legacy lineup).

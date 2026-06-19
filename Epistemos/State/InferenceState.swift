@@ -5024,6 +5024,26 @@ final class InferenceState {
                 }
         )
 
+        // Owner 2026-06-18 (per-model vaults, part 1): the loop above only sees
+        // LocalTextModelID-backed models, so it MISSES the foundation GGUF chat
+        // lane — the runnable Gemma / VibeThinker / coder tiers, which are
+        // descriptor IDs (`google/gemma-4-…-gguf`), NOT enum cases (the MLX
+        // gemma4 enum IDs are honestly excluded above because their Swift loader
+        // errors). `supportedAvailableGemmaQATRuntimeCandidates` is exactly the
+        // INSTALLED + hardware-supported foundation candidates, so each real
+        // foundation model now gets its own vault target. Honest: vision-only or
+        // not-installed models never appear here; dedup below drops any overlap.
+        targets.append(
+            contentsOf: supportedAvailableGemmaQATRuntimeCandidates.map {
+                ModelVaultTarget(
+                    modelID: $0.id,
+                    displayName: $0.displayName,
+                    conceptLimit: 24,
+                    activeWindowDays: 7
+                )
+            }
+        )
+
         var seen = Set<String>()
         return targets.filter { seen.insert($0.modelID).inserted }
     }
