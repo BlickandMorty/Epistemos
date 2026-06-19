@@ -414,6 +414,18 @@ calls: no blanket rule — choose per case.
       `liteparse::LiteParse` call. That native step (binary placement + bindgen libclang
       + linking + signing) is the owner build-verify; the agent_core seam + the FFI +
       the Swift UI scaffold are all in place for it.
+      ✅ SWIFT IMPORT BRIDGE 2026-06-19 (the decoder the button uses): the 08:57 binding
+      regen has liteparse_status_json + the schema gates but NOT liteparse_pdf_to_markdown
+      (committed after) → the live import button needs ONE more build-agent-core.sh. Built
+      the verifiable bridge meanwhile: NEW Epistemos/LiteParse/LiteParseImport.swift —
+      `LiteParseImportResult` (.markdown/.notWired/.unsupported/.failed) +
+      `LiteParseImportEnvelope.decode` (parses the FFI JSON envelope into the typed result;
+      unreadable output → honest .failed, NEVER a fabricated note) + `LiteParsePDFImporter`
+      protocol + `InertLiteParsePDFImporter` (.notWired for a PDF, .unsupported for a
+      non-PDF — never shelled out). +6 LiteParseImportTests; build-for-testing green. NEXT:
+      one more build-agent-core.sh → a LiveLiteParsePDFImporter calls liteparse_pdf_to_
+      markdown + reuses this decoder → the note-sidebar IMPORT button (NSOpenPanel → import
+      → vault note) + bulk + Settings. S2 native vendor = real markdown.
 - [ ] **HARNESS SYSTEMS — port the best (or a mixture) of everything an LLM app does
       for the model, beyond the model (owner 2026-06-18)** — RAG, MEMORY systems,
       CONTEXT management/compaction, TOOL-USE plumbing, MCP-server ROUTING, prompt
