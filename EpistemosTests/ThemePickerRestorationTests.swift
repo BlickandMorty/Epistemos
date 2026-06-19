@@ -74,9 +74,18 @@ struct ThemePickerRestorationTests {
         #expect(settings.contains("AppearanceThemePairSection("))
         #expect(settings.contains("ForEach(ThemePair.allCases, id: \\.self)"))
         #expect(settings.contains("ThemePairCard("))
-        #expect(settings.contains("ThemePairCinematicPreview(pair: pair)"))
-        #expect(settings.contains("ThemePairCinematicHalf(theme: pair.lightTheme"))
-        #expect(settings.contains("ThemePairCinematicHalf(theme: pair.darkTheme"))
+        // Owner P6.4b: every theme pair shows the PIXEL-ART PALETTE preview (the
+        // cinematic mock-UI card was replaced). Custom shows its editable slots; every
+        // other pair shows its resolved light/dark palette — as hard pixel-art
+        // rectangles (no rounding), matching the app identity.
+        #expect(settings.contains("ThemePairPaletteSwatch(pair: pair)"))
+        #expect(settings.contains("CustomThemePaletteSwatch()"))
+        #expect(settings.contains("paletteRow(theme: pair.lightTheme, label: \"Light\")"))
+        #expect(settings.contains("paletteRow(theme: pair.darkTheme, label: \"Dark\")"))
+        #expect(settings.contains("Pixel-art palette swatch"))
+        // The busy cinematic mock-UI preview is gone for good (lock the replacement).
+        #expect(!settings.contains("ThemePairCinematicPreview"))
+        #expect(!settings.contains("ThemePairCinematicHalf"))
         #expect(settings.contains("ui.setPair(pair)"))
         #expect(!settings.contains("Toggle(\"Follow macOS\""))
         #expect(!settings.contains("Follows macOS"))
