@@ -311,6 +311,30 @@ calls: no blanket rule — choose per case.
       run verify EACH surface in-app: mini has Act/Work + full picker + parity;
       search-page clicks behave; nothing reductive. DON'T mark done until the owner
       can use mini exactly like main.
+      ── MINI = MAIN ONTOLOGY + ONGOING-PARITY INVARIANT (owner 2026-06-19, verbatim:
+      *"minichat is ontologically a mini-main-chat — that's the main ontology of it, so
+      it should quite literally BE main chat but small. It already satisfies this
+      visually; I just want to make sure that when we're doing the OTHER parts, the
+      minichat gets all that main chat gets — like Work, even the Open Code stuff."*).
+      HARD INVARIANT (not a one-time fix): MiniChat IS MainChat rendered small — same
+      ontology, same engine set, same capabilities. Therefore EVERY future engine/
+      capability build (Act=Osaurus+brain, OpenClaw lane, Hermes fusion, Work=Goose/
+      Open Code, browser-use, computer-use, voice, HTML canvas, terminal, etc.) MUST
+      flow into MiniChat AT THE SAME TIME it lands in MainChat — mini is never a
+      trailing subset. Implementation rule: mini and main must SHARE the same operating-
+      mode source, engine registry, and capability surface (one definition, two
+      renders) so new capability is parity-by-construction, not re-ported. Add/keep a
+      parity test that fails if MainChat exposes a mode/engine/tool MiniChat does not.
+      ── SESSION-AS-NATIVE-TAB META (owner 2026-06-19, verbatim: *"if we can separate
+      sessions by minichat on all engines that is the meta as well, because a new
+      session becomes a whole new native tab."*): sessions are SEPARATED per chat
+      surface ACROSS ALL ENGINES (Chat/Act/Work, both Act lanes) — each session is its
+      own isolated context, and **a NEW session opens a whole new NATIVE TAB**. This
+      composes with the ENGINE-ISOLATION DOCTRINE: per-session isolation in code/state,
+      connected only via the shared memory substrate (a new Act-session tab can be
+      AWARE of a Chat session's memory, not entangled with its runtime). Build a native
+      tab model where new-session → new-tab works uniformly on every engine, mini and
+      main alike.
 - [ ] **PER-MODEL VAULTS — update for new models + harden (looks demo-ish) + SCOPE
       RESOLUTION (owner 2026-06-18)** — owner (verbatim, transcribed): *"per-model
       vaults should also be updated for the new ones and hardened because it looks
