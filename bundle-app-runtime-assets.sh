@@ -140,10 +140,8 @@ fi
 # in-process native (NativeLoRATrainer / MLXLLM.LoRATrain) — no Python script.
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Alignment/scripts/train_kto.py" \
     "$KNOWLEDGE_FUSION_DIR/Alignment/scripts/train_kto.py"
-cp "$SRCROOT/Epistemos/KnowledgeFusion/MoLoRA/molora_inference.py" \
-    "$KNOWLEDGE_FUSION_DIR/MoLoRA/molora_inference.py"
-cp "$SRCROOT/Epistemos/KnowledgeFusion/MoLoRA/sgmm_kernel.py" \
-    "$KNOWLEDGE_FUSION_DIR/MoLoRA/sgmm_kernel.py"
+# molora_inference.py / sgmm_kernel.py removed 2026-06-18: the MoLoRA inference
+# subprocess is gone (native NativeAdapterApply via LoRAContainer replaces it).
 cp "$SRCROOT/Epistemos/KnowledgeFusion/MOHAWK/eval_bfcl.py" \
     "$KNOWLEDGE_FUSION_DIR/MOHAWK/eval_bfcl.py"
 cp "$SRCROOT/Epistemos/KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl" \

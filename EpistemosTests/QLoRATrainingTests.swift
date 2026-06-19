@@ -305,8 +305,7 @@ struct HyperparameterComplianceTests {
             // train_knowledge.py / train_style.py removed 2026-06-18 — QLoRA is
             // native now (NativeLoRATrainer), no longer bundled.
             "Alignment/scripts/train_kto.py",
-            "MoLoRA/molora_inference.py",
-            "MoLoRA/sgmm_kernel.py",
+            // MoLoRA/molora_inference.py + sgmm_kernel.py removed 2026-06-18 (native).
             "MOHAWK/eval_bfcl.py",
             "MOHAWK/embodied_data/bfcl_eval_macos.jsonl",
         ]
