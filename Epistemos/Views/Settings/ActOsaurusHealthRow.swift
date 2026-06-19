@@ -19,6 +19,18 @@ struct ActOsaurusHealthRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            #if !EPISTEMOS_APP_STORE
+            // Pro builds only: when both the Act-Osaurus flag AND the osaurus-pattern
+            // local server are enabled, show the REAL OpenAI-compatible endpoint Act
+            // would drive (honest — never shown unless the server is actually enabled).
+            if status.isActive, let endpoint = ActOsaurusBridgeFactory.resolve().openAICompatibleEndpoint {
+                Text("OpenAI-compatible endpoint: \(endpoint.absoluteString)")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            }
+            #endif
         }
     }
 }

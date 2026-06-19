@@ -641,9 +641,18 @@ calls: no blanket rule — choose per case.
       protocol returning the vendored ServerHealth + INERT stub, never fakes live) +
       ActOsaurusHealthRow (visible in SubstrateHealthPanel). MAS/Pro boundary clean
       by construction (no always-compiled file references a Pro-only Osaurus type;
-      MAS Act stays in-process). +4 guard tests; build-for-testing green. NEXT (S3):
-      vendor+link OsaurusCore (the SPM package) + drive a real server capability
-      behind the no-hidden-fallback bar.
+      MAS Act stays in-process). +4 guard tests; build-for-testing green.
+      ✅ S3 LANDED 2026-06-19: bridge toward a WORKING path, reusing the EXISTING
+      osaurus-pattern LocalModelServer (no heavy OsaurusCore link). 2nd vendored MIT
+      file OsaurusChatMessage.swift (Message/MessageRole, adapter_wrap namespaced
+      under OsaurusVendor to dodge the BrandedTypes MessageRole collision, Pro-gated).
+      LocalModelServer.defaultPort exposed. ActOsaurusBridge now publishes the REAL
+      `openAICompatibleEndpoint` (http://127.0.0.1:1337/v1/chat/completions when the
+      local server is enabled, else nil — honest, no running-state overclaim) +
+      `localServerEnabled` + `makeRequestMessage` (vendored wire format); the real
+      endpoint shows in the health row (Pro). +2 tests; build-for-testing green.
+      NEXT (S4): the bridge actually drives a turn through the endpoint behind the
+      no-hidden-fallback bar; OR link OsaurusCore (SPM, heavy deps) when ready.
 - [ ] **Osaurus + Unsloth feed the MODES** (owner 2026-06-18): the Osaurus
       deep-cherry-picks/full-port (local server + agent capabilities) and Unsloth
       (model training) must SURFACE INSIDE Act mode — and where it fits, Chat mode
