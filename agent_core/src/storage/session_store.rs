@@ -722,6 +722,91 @@ pub fn list_session_folders(vault_root: &Path) -> Result<Vec<SessionFolderInfo>,
     Ok(results)
 }
 
+/// On-disk layout of the two DISTINCT conversation corpora a session lookup may
+/// need: agent_core SESSION folders under `<vault>/sessions/<id>/` (scanned by
+/// `list_session_folders`) and the Swift SDChat JSON files under `<vault>/chats/`
+/// (the shadow-indexed corpus). `session_search` historically scanned ONLY
+/// `sessions/`, so when the live conversations are SDChats it returned a SILENT
+/// zero (research OQ-1 — "verify the real vault layout first"). This pure detector
+/// makes the layout OBSERVABLE so the lookup can degrade honestly and the full
+/// shadow-index wire (Swift `fusedSessionSearch`) can be staged.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SessionCorpusLayout {
+    pub sessions_dir_present: bool,
+    pub session_folder_count: usize,
+    pub chats_dir_present: bool,
+    pub chat_file_count: usize,
+}
+
+impl SessionCorpusLayout {
+    /// True when `session_search` would scan an EMPTY `sessions/` while the live
+    /// conversation corpus actually sits in the shadow-indexed `chats/` dir — the
+    /// exact OQ-1 mismatch. Callers should degrade to the chat search index and
+    /// say so honestly rather than return a bare zero.
+    pub fn has_corpus_mismatch(&self) -> bool {
+        self.session_folder_count == 0 && self.chat_file_count > 0
+    }
+}
+
+/// Count `.json` files anywhere under `dir` (the shadow index crawls
+/// `chats/**/*.json`), bounded to a safe recursion depth so a pathological tree
+/// can't blow the stack.
+fn count_json_files_recursive(dir: &Path, depth: usize) -> usize {
+    if depth == 0 {
+        return 0;
+    }
+    let Ok(read) = fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut count = 0;
+    for entry in read.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            count += count_json_files_recursive(&path, depth - 1);
+        } else if path.extension().and_then(|e| e.to_str()) == Some("json") {
+            count += 1;
+        }
+    }
+    count
+}
+
+/// Detect which session corpus is populated for a vault. Pure (filesystem read
+/// only) → unit-testable.
+pub fn detect_session_corpus(vault_root: &Path) -> SessionCorpusLayout {
+    let sessions_dir = vault_root.join("sessions");
+    let chats_dir = vault_root.join("chats");
+
+    let sessions_dir_present = sessions_dir.is_dir();
+    let session_folder_count = if sessions_dir_present {
+        fs::read_dir(&sessions_dir)
+            .map(|read| {
+                read.flatten()
+                    .filter(|entry| {
+                        let path = entry.path();
+                        path.is_dir() && path.join("session.json").exists()
+                    })
+                    .count()
+            })
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
+    let chats_dir_present = chats_dir.is_dir();
+    let chat_file_count = if chats_dir_present {
+        count_json_files_recursive(&chats_dir, 8)
+    } else {
+        0
+    };
+
+    SessionCorpusLayout {
+        sessions_dir_present,
+        session_folder_count,
+        chats_dir_present,
+        chat_file_count,
+    }
+}
+
 /// Read session metadata as a JSON string (for FFI).
 pub fn read_session_metadata(session_folder_path: &Path) -> Result<String, VaultError> {
     let meta_path = session_folder_path.join("session.json");
@@ -1014,5 +1099,40 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let sessions = list_session_folders(tmp.path()).unwrap();
         assert!(sessions.is_empty());
+    }
+
+    #[test]
+    fn detect_session_corpus_reports_both_corpora_and_the_oq1_mismatch() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        // Empty vault: neither corpus present, no mismatch.
+        let layout = detect_session_corpus(root);
+        assert!(!layout.sessions_dir_present);
+        assert!(!layout.chats_dir_present);
+        assert_eq!(layout.session_folder_count, 0);
+        assert_eq!(layout.chat_file_count, 0);
+        assert!(!layout.has_corpus_mismatch());
+
+        // chats/ has 2 json files (one nested) but NO sessions/ → the OQ-1 mismatch:
+        // session_search would silently return zero while the live corpus is /chats/.
+        let chats = root.join("chats");
+        fs::create_dir_all(chats.join("2026")).unwrap();
+        fs::write(chats.join("a.json"), "{}").unwrap();
+        fs::write(chats.join("2026").join("b.json"), "{}").unwrap();
+        let layout = detect_session_corpus(root);
+        assert!(layout.chats_dir_present);
+        assert_eq!(layout.chat_file_count, 2); // recursive count
+        assert_eq!(layout.session_folder_count, 0);
+        assert!(layout.has_corpus_mismatch());
+
+        // A real session folder (with session.json) → corpus populated, no mismatch.
+        let sess = root.join("sessions").join("s1");
+        fs::create_dir_all(&sess).unwrap();
+        fs::write(sess.join("session.json"), "{}").unwrap();
+        let layout = detect_session_corpus(root);
+        assert!(layout.sessions_dir_present);
+        assert_eq!(layout.session_folder_count, 1);
+        assert!(!layout.has_corpus_mismatch());
     }
 }
