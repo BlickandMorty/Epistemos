@@ -23,6 +23,11 @@ import os
 nonisolated final class LocalModelServer: @unchecked Sendable {
     static let flagKey = "EPISTEMOS_LOCAL_MODEL_SERVER_V0"
 
+    /// The canonical loopback port for the osaurus-pattern OpenAI-compatible
+    /// server (matches the `init` default + the Osaurus :1337 convention). Exposed
+    /// so the Act-Osaurus bridge can publish the real endpoint without hardcoding.
+    static let defaultPort: UInt16 = 1337
+
     static var isEnabled: Bool {
         if ProcessInfo.processInfo.environment[flagKey] == "1" { return true }
         return UserDefaults.standard.bool(forKey: flagKey)

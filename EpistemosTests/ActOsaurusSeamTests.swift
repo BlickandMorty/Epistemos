@@ -58,4 +58,36 @@ struct ActOsaurusSeamTests {
         let panel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
         #expect(panel.contains("ActOsaurusHealthRow()"))
     }
+
+    @Test("S3: the bridge publishes the REAL osaurus-pattern endpoint, honestly gated")
+    func s3EndpointWiring() throws {
+        let bridge = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/ActOsaurusBridge.swift")
+        // The real conformer reflects the actual local server (no overclaim).
+        #expect(bridge.contains("var localServerEnabled: Bool { LocalModelServer.isEnabled }"))
+        #expect(bridge.contains("guard LocalModelServer.isEnabled else { return nil }"))
+        #expect(bridge.contains("/v1/chat/completions"))
+        #expect(bridge.contains("LocalModelServer.defaultPort"))
+        // A second vendored MIT Osaurus seam (adapter_wrap, namespaced for collision).
+        let chat = try loadMirroredSourceTextFile("Epistemos/Vendor/Osaurus/OsaurusChatMessage.swift")
+        #expect(chat.contains("#if !EPISTEMOS_APP_STORE"))
+        #expect(chat.contains("enum OsaurusVendor"))
+        #expect(chat.contains("osaurus-ai/osaurus"))
+        #expect(chat.contains("adapter_wrap"))
+        // The canonical port is exposed (always-compiled) for the bridge.
+        let server = try loadMirroredSourceTextFile("Epistemos/Engine/LocalModelServer.swift")
+        #expect(server.contains("static let defaultPort: UInt16 = 1337"))
+    }
+
+    #if !EPISTEMOS_APP_STORE
+    @Test("S3: the INERT bridge stays honest — no endpoint, server not enabled, message round-trips")
+    func s3InertBridgeHonest() {
+        let inert = InertActOsaurusBridge()
+        #expect(inert.openAICompatibleEndpoint == nil)
+        #expect(!inert.localServerEnabled)
+        #expect(!inert.isLive)
+        let msg = inert.makeRequestMessage(role: .user, content: "hello")
+        #expect(msg.role == .user)
+        #expect(msg.content == "hello")
+    }
+    #endif
 }
