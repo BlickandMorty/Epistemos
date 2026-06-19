@@ -918,13 +918,17 @@ Local/chat, verified-against-code, not-blocked (full list + eras in the sweep do
       in the build. So the kill is WIRING, not a port. SLICE 1 DONE (9096613fb):
       LoRAChatDataConverter — pure native chat-JSONL → {"text":…} bridge (native
       loadJSONL reads only {"text":…}; Epistemos emits {"messages":[…]}), 6 tests,
-      no Python/MLX dep, INERT. Kill-order: 1✅ data bridge · 2 NativeLoRATrainer
-      wrapping LoRATrain.train behind the existing TrainingConfig/AdapterMetadata
-      (replaces QLoRATrainer's Process body) · 3 adapter apply via LoRAContainer
+      no Python/MLX dep, INERT. Kill-order: 1✅ data bridge · 2~ SUBSTRATE done
+      (de094e5e7): NativeLoRAPlan (pure TrainingConfig→native hyperparams, tested)
+      + gated NativeLoRATrainer building REAL LoRATrain.Parameters + LoRAConfiguration
+      + prepareDataset (no Python), compile-verified vs vendored types — REMAINING
+      in 2b: model-load (reuse MLXInferenceService) + optimizer + LoRATrain.train +
+      saveLoRAWeights/AdapterMetadata to fully replace QLoRATrainer's Process body
+      (needs on-device run) · 3 adapter apply via LoRAContainer
       (deprecate molora_inference.py) · 4 native data-gen (port MOHAWK; RunPod is
       Pro/dev infra, never MAS) · 5 DELETE the .py + PythonEnvironmentManager (own
       grep-proven commits once native replacements ship). ProvenanceGate:
-      direct_import (package already a dependency). NEXT: slice 2 NativeLoRATrainer.
+      direct_import (package already a dependency). NEXT: slice 2b train() wiring.
 - [ ] **REG-1 KV-Direct-Gate harness**, **REG-3 NightBrain bodies**, **REG-2 T20
       Variant Ladder** (honest local routing), **REG-6 per-model memory folder +
       chat-as-graph-node**, **SIM-4 real MLX-Swift LoRA hot-swap**, **LI-2/LI-3
