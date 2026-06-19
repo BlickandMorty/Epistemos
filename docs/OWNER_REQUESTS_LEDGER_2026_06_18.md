@@ -2388,6 +2388,32 @@ native; AGPL server). ADOPT 2 patterns natively:
       keep-don't-discard the partial + clean re-download on corruption) — true intra-file
       HTTP-Range resume of a single partially-downloaded `.gguf` would need HubClient byte-
       range support (deeper, separate). Owner verifies the end-to-end download in-app.
+      ✅ STEP 4 — "THE STACK" ADVERTISED-SET FOUNDATION (reqs 6/7 data layer) 2026-06-19: the
+      owner-controlled advertised-set source of truth, built pure-first so the semantics are
+      locked before any UI. NEW `Epistemos/Engine/AdvertisedModelStore.swift`: (a) pure
+      `AdvertisedModelPolicy` enum (no I/O, mirrors LocalChatModelMemoryGate / Epistemos-
+      FastEffortSizing) — `effectiveAdvertised(persisted:canonDefaults:fullCatalog:)` returns
+      the persisted owner selection if one exists ELSE canon defaults (req 7: canon is the
+      DEFAULT, not a cap), intersected with the full catalog so a stale id never lingers as a
+      phantom, order-preserving + de-duped, and an EMPTY persisted set is honored verbatim (the
+      owner deliberately cleared the picker) while only `nil` falls back to canon; plus
+      `advertising`/`unadvertising`/`toggling`/`isAdvertised` (idempotent, order-preserving).
+      (b) `AdvertisedModelStore` — thin `UserDefaults` wrapper (key `epistemos.advertisedModel
+      IDs.v1`; model IDs only, no secrets → UserDefaults is correct, Keychain stays for keys);
+      `canonDefaults = EpistemosFoundationLineup.models.map(\.id)` (the Fast/Think/Code ship
+      lineup so the picker is never empty out of the box); `persistedSelection`/`isCustomized`/
+      `effectiveAdvertised(fullCatalog:)`/`toggleAdvertised`/`resetToCanonDefaults`. DOCTRINE:
+      this is a VISIBILITY filter only — it never deletes or un-retains a model (req 2 KEEP-ALL),
+      and any model stays installable (req 5 INSTALL-ANY); advertise = which retained models the
+      picker shows. +11 tests (EpistemosTests/AdvertisedModelStoreTests.swift): pure policy
+      (default-canon, owner-override-wins, empty-honored, stale-pruning, dedupe/order, add/
+      remove/toggle) + a live `UserDefaults` round-trip on an isolated suite + canon==foundation-
+      lineup. build-for-testing TEST BUILD SUCCEEDED (0 errors). REMAINING for reqs 6/7 (follow-
+      on slices): the Settings "stack" UI (a model-manager listing the full retained catalog with
+      install-state/size/RAM/uses + a per-model advertise toggle calling
+      `AdvertisedModelStore.toggleAdvertised`), and wiring the picker visibility filter
+      (InferenceState foundation-lineup path ~3956-4278 + EpistemosRuntimePicker) to intersect
+      with `effectiveAdvertised`. Owner verifies the stack UI in-app once those land.
       (11) **ACCEPTANCE — ALL NAMED MODELS VISIBLE (owner 2026-06-19, verbatim: "I still
       don't see LFM and Gemmas and the Vibe Thinker — all the new ones — on the
       downloaded-models settings thing. I want to be able to see all of them.").** STEP 1
