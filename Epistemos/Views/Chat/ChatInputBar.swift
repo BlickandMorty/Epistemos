@@ -1631,6 +1631,19 @@ struct ChatInputBar: View {
             return
         }
 
+        // P7.6 cowork QUEUE: submitting (Enter / Send) while the agent is mid-run
+        // AUTO-QUEUES the draft instead of doing nothing — the intuitive action.
+        // The staged message auto-sends on the run-completion edge
+        // (`onChange(of: isProcessing)` → dequeueOnCompletion → submitCurrentText),
+        // so the natural keystroke just works AND the queue is discoverable by use
+        // (previously Enter-while-busy was silently dropped by the guard below).
+        if isProcessing, !trimmedText.isEmpty {
+            messageQueue.enqueue(trimmedText)
+            text = ""
+            composerHeight = ChatComposerInputMetrics.minHeight
+            return
+        }
+
         guard !trimmedText.isEmpty, !isProcessing, selectedRuntimeReady,
               localRuntimeMemoryBlocker == nil else { return }
         let predictedCapability = ChatCapability.predictIntent(

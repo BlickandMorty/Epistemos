@@ -393,9 +393,17 @@ calls: no blanket rule — choose per case.
       route above. FIX: Act runs the LOCAL multi-step agent loop by default (see
       #1); cloud only augments when explicitly chosen. Visible + togglable + works
       with zero cloud configured.
-- [ ] **QUEUE** — reported not working. Only appears while `isProcessing` + draft
+- [~] **QUEUE** — reported not working. Only appears while `isProcessing` + draft
       non-empty. Make it discoverable and prove the staged message actually sends
       on completion in the running app.
+      ✅ 2026-06-19: the queue was well-built (ComposerMessageQueue tested +
+      queueButton + auto-send on the run-completion edge) but UNINTUITIVE — hitting
+      Enter/Send while the agent ran was silently dropped by `submitCurrentText`'s
+      `guard !isProcessing`. FIX: submit-while-processing now AUTO-QUEUES the draft
+      (the natural "type + Enter while busy" action), and the existing completion
+      edge auto-sends it → discoverable BY USE. "Sends on completion" locked by
+      ComposerMessageQueueTests.dequeueOnCompletionEdge; +1 wiring test;
+      build-for-testing green. Owner verifies the in-app send on completion.
 - [ ] **CONTEXT** — reported not working. Only shows when tools were used + as a
       tiny composer strip. Assemble it as a real, visible panel; populate from
       actual run telemetry; show an honest empty state, not nothing.
