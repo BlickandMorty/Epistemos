@@ -3182,3 +3182,25 @@ native; AGPL server). ADOPT 2 patterns natively:
       Work for code-exec, all via the SHARED registry + memory seams (no cross-engine code coupling). Owner: confirm
       this split or redirect. Same model for **Open Code (Goose/Work)** — fully cloned app-native (lift the logic,
       not run the program), which is the same "clone things like DeerFlow" approach the owner affirmed.
+- [ ] **CLONED-APP SETTINGS — PRESERVE + SURFACE ALL OF THEM, reskinned, NEVER hide/delete (owner
+      2026-06-19) — CORRECTS the S3 "hide config-form / hardcode-away" recommendation.** Owner (verbatim,
+      transcribed): *"when I clone all the rebels like Osaurus / OpenClaw, I want to make sure they have
+      their system, their ACTUAL settings, in my app — and maybe their settings can be reskinned in my
+      pixel-art minimalism. I don't want to delete or hide any surfaces they have, because [hiding/stripping]
+      has messed up the functionality of their parts. I just want to make sure it has ALL their settings as
+      well, intelligently placed where it should be, then reskinned. This should apply to Open Code / Goose,
+      all of these — if their settings need to be surfaced, please make sure that happens."* DIRECTIVE: for
+      every cloned/embedded app (Osaurus, OpenClaw, Goose/Open Code, DeerFlow, Hermes, etc.), **bring in
+      their FULL native settings/system surface** — do NOT strip it down to a status row + hide the rest, and
+      do NOT hide OpenClaw's config-form or hardcode-away clone knobs (S3's `SETTINGS_REVAMP_CLONES` said to
+      hide/hardcode — **OWNER OVERRIDES THAT**: hiding their surfaces broke functionality). Instead: (1)
+      **SURFACE all of each clone's real settings** (every panel/knob the clone actually has), (2) **RESKIN
+      them to the pixel-art minimal theme** (coherent, not a foreign-looking panel — reuse the reskin
+      injector/tokens; for a WebKit-hosted clone like OpenClaw, reskin its config UI via CSS injection rather
+      than hide it), (3) **INTELLIGENTLY PLACE** them where they belong in the app's settings IA (per-engine
+      sections), (4) **NEVER delete/hide a clone's surface** — this is the never-delete doctrine extended to
+      cloned-app SETTINGS surfaces; honestly Pro/dev-gate the ones that touch subprocess/port/VM (show, don't
+      delete), and de-duplicate only where two clones expose the literally-same knob (resolve to one control,
+      still surfaced). Goal: the clone's settings WORK and are all present (their functionality intact),
+      reskinned + placed, not amputated. Updates `SETTINGS_REVAMP_CLONES_2026_06_19.md`: change "absorb +
+      HIDE/HARDCODE the rest" → "SURFACE ALL + RESKIN + intelligently place; never hide/delete."
