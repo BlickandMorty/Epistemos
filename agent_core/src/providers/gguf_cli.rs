@@ -20,7 +20,7 @@ use std::process::Stdio;
 
 use async_stream::stream;
 use async_trait::async_trait;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 
 use crate::agent_loop::{AgentConfig, AgentError};
 use crate::provider::{
@@ -31,6 +31,9 @@ use crate::types::{Message, StopReason, TokenUsage, ToolSchema, UserContent};
 const DEFAULT_LLAMA_CLI: &str = "/opt/homebrew/bin/llama-cli";
 const DEFAULT_CTX_SIZE: u32 = 4096;
 const DEFAULT_MAX_TOKENS: u32 = 512;
+/// Bounded cap on captured llama-cli stderr used only for crash classification
+/// (SS-W) — keeps a pathological stderr from ballooning the surfaced error.
+const GGUF_CLI_STDERR_DIAG_CAP: usize = 4096;
 
 /// What to do with one line of llama-cli stdout.
 #[derive(Debug, PartialEq, Eq)]
@@ -267,7 +270,10 @@ impl AgentProvider for GgufCliProvider {
                 // local-server work.
                 .arg("--log-disable")
                 .stdout(Stdio::piped())
-                .stderr(Stdio::null());
+                // SS-W: keep stderr so a fatal (e.g. an uncaught chat-template-apply
+                // throw → SIGABRT) is classifiable instead of vanishing. --log-disable
+                // keeps this tiny (only a real fatal writes here).
+                .stderr(Stdio::piped());
             // env_clear + allowlist + denylist + kill_on_drop + process_group.
             crate::security::harden_cli_subprocess(&mut cmd);
 
@@ -291,6 +297,10 @@ impl AgentProvider for GgufCliProvider {
                     return;
                 }
             };
+
+            // SS-W: hold the stderr pipe so we can drain + classify it after the
+            // stdout stream ends (a template-apply abort prints here, then aborts).
+            let mut stderr_pipe = child.stderr.take();
 
             let mut lines = BufReader::new(stdout).lines();
             let mut output_token_estimate: u32 = 0;
@@ -319,7 +329,38 @@ impl AgentProvider for GgufCliProvider {
                 }
             }
 
-            let _ = child.wait().await;
+            // SS-W (2026-06-19): drain stderr (bounded) then classify the exit.
+            // llama.cpp's `common_chat_templates_apply` can throw an uncaught C++
+            // exception while applying a GGUF model's chat template → abort()/SIGABRT.
+            // Previously the status was swallowed (`let _ = wait()`) and the turn ended
+            // "successfully" with no output, so the owner saw the model silently do
+            // nothing. Now a non-zero/signal exit that produced NO tokens surfaces as a
+            // typed, honest provider error (a partial stream that then crashes still
+            // ends the turn — the answer was already delivered).
+            let mut stderr_text = String::new();
+            if let Some(mut stderr) = stderr_pipe.take() {
+                let mut buf = Vec::new();
+                if stderr.read_to_end(&mut buf).await.is_ok() {
+                    let end = buf.len().min(GGUF_CLI_STDERR_DIAG_CAP);
+                    stderr_text = String::from_utf8_lossy(&buf[..end]).into_owned();
+                }
+            }
+            match child.wait().await {
+                Ok(status) if !status.success() && output_token_estimate == 0 => {
+                    yield Err(AgentError::Provider(classify_gguf_cli_failure(
+                        &status,
+                        &stderr_text,
+                    )));
+                    return;
+                }
+                Err(error) => {
+                    yield Err(AgentError::Provider(format!(
+                        "gguf_llama_cli wait failed: {error}"
+                    )));
+                    return;
+                }
+                _ => {}
+            }
 
             yield Ok(StreamEvent::MessageStop {
                 stop_reason: StopReason::EndTurn,
@@ -367,6 +408,53 @@ impl AgentProvider for GgufCliProvider {
     }
 }
 
+/// Turn an abnormal llama-cli exit into an honest, actionable provider error
+/// (SS-W). When the failure is llama.cpp's chat-template-apply throw (the
+/// SIGABRT vector), say so plainly and point the owner at another model/tier —
+/// never a silent empty turn.
+fn classify_gguf_cli_failure(status: &std::process::ExitStatus, stderr: &str) -> String {
+    let lower = stderr.to_lowercase();
+    let template_failure = lower.contains("chat_templates_apply")
+        || lower.contains("chat template")
+        || lower.contains("chat_template")
+        || lower.contains("minja")
+        || lower.contains("jinja");
+    let how = exit_status_detail(status);
+    if template_failure {
+        format!(
+            "This local model's chat template could not be applied by the llama.cpp \
+             runtime ({how}) — pick another model or tier. \
+             (gguf_llama_cli: chat-template apply failed)"
+        )
+    } else {
+        format!("gguf_llama_cli exited abnormally ({how}) before producing any output")
+    }
+}
+
+/// Human-readable exit detail: the signal name on Unix (SIGABRT=6 is the SS-W
+/// chat-template-apply abort), else the numeric exit code.
+fn exit_status_detail(status: &std::process::ExitStatus) -> String {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(sig) = status.signal() {
+            let name = match sig {
+                2 => "SIGINT",
+                6 => "SIGABRT",
+                9 => "SIGKILL",
+                11 => "SIGSEGV",
+                15 => "SIGTERM",
+                _ => "signal",
+            };
+            return format!("killed by {name} ({sig})");
+        }
+    }
+    match status.code() {
+        Some(code) => format!("exit code {code}"),
+        None => "unknown exit".to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,6 +466,50 @@ mod tests {
         assert_eq!(provider.runtime(), ProviderRuntime::Local);
         assert!(provider.capabilities().supports_streaming);
         assert!(!provider.capabilities().supports_mcp);
+    }
+
+    // SS-W: a SIGABRT from llama.cpp's uncaught chat-template-apply throw must be
+    // surfaced as an honest, actionable error — never swallowed into a silent
+    // empty "successful" turn.
+    #[cfg(unix)]
+    #[test]
+    fn sigabrt_template_apply_is_classified_honestly() {
+        use std::os::unix::process::ExitStatusExt;
+        // Raw wait status whose low 7 bits = signal 6 (SIGABRT) — the SS-W vector.
+        let status = std::process::ExitStatus::from_raw(6);
+        let msg = classify_gguf_cli_failure(
+            &status,
+            "terminate called after throwing an instance of 'std::runtime_error'\n\
+             common_chat_templates_apply: failed to apply the model chat template",
+        );
+        assert!(msg.to_lowercase().contains("chat template"), "{msg}");
+        assert!(msg.contains("SIGABRT"), "{msg}");
+        assert!(msg.to_lowercase().contains("pick another"), "{msg}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn nonzero_exit_without_template_marker_is_generic_not_silent() {
+        use std::os::unix::process::ExitStatusExt;
+        let status = std::process::ExitStatus::from_raw(1 << 8); // exit code 1
+        let msg = classify_gguf_cli_failure(&status, "some unrelated stderr noise");
+        assert!(msg.contains("exited abnormally"), "{msg}");
+        assert!(msg.contains("exit code 1"), "{msg}");
+        assert!(!msg.to_lowercase().contains("chat template"), "{msg}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exit_detail_names_the_signal_else_the_code() {
+        use std::os::unix::process::ExitStatusExt;
+        let aborted = std::process::ExitStatus::from_raw(6);
+        assert!(
+            exit_status_detail(&aborted).contains("SIGABRT (6)"),
+            "got {}",
+            exit_status_detail(&aborted)
+        );
+        let exited = std::process::ExitStatus::from_raw(2 << 8);
+        assert!(exit_status_detail(&exited).contains("exit code 2"));
     }
 
     fn prompt_set(prompt: &str) -> std::collections::HashSet<String> {
