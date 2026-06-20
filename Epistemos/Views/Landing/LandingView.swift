@@ -438,7 +438,9 @@ struct LandingView: View {
             // Fades in on top of the blurred greeting.
             if showingBrief {
                 dailyBriefContent
-                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    // SS-ALIVE: blur-fade overlay (no .scale fold) — cohesive with the
+                    // app's one transition language (RootView Landing↔Chat / SS-AN homepage).
+                    .transition(.blurFade())
                 .zIndex(3)
             }
 
@@ -446,14 +448,17 @@ struct LandingView: View {
             // Shows after workspace auto-restore with session summary.
             if showWelcomeBack, let info = presentedWelcomeBack {
                 welcomeBackContent(info: info)
-                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    // SS-ALIVE: blur-fade overlay (no .scale fold) — cohesive with the
+                    // app's one transition language (RootView Landing↔Chat / SS-AN homepage).
+                    .transition(.blurFade())
                     .zIndex(2)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .coordinateSpace(name: LandingCoordinateSpace.root)
-        .animation(reduceMotion ? nil : Motion.smooth, value: showingBrief)
-        .animation(reduceMotion ? nil : Motion.smooth, value: showWelcomeBack)
+        // SS-ALIVE: flat easeOut driver (no spring overshoot) to match the blur-fade feel.
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showingBrief)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showWelcomeBack)
         // Landing-wave emergence: snappier spring (response 0.18, damping 0.78)
         // chosen per user feedback that the prior Motion.smooth curve felt
         // "lack luster." Bar pops out, slight overshoot, quick settle.
