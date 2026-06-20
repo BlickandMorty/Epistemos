@@ -4045,3 +4045,27 @@ native; AGPL server). ADOPT 2 patterns natively:
       already used in 2 files → consistent). SWEEP the 8 `.menuStyle(.borderlessButton)` files, apply to icon-only ones.
       Optional [S/M] usefulness upgrade: more-robust in-file search (match count / next-prev / case-regex) on the code
       editor. [S] visual fix first (eye+gear), then sweep. NON-INVASIVE; TK2/Prose + Metal untouched. Added to TOP-UNCODED.
+- [ ] **MODEL VAULT staleness + per-model file injection (owner 2026-06-20, 3 screenshots).** *"a lot of issues with the
+      model + system portion of the note site, particularly the model portion. All the files seem outdated and stale. When
+      I add files to a model I want it to READ those files so users have granular control of how the model interprets
+      instructions and the code you give it — a subtle but very useful feature I want to respect. Harden it after we clone
+      the other surfaces so they can traverse those too, but right now particularly the chat part + the System tab + the
+      Models tab. The knowledge profile is outdated even if I'm using one model. Make sure it's all fixed and hardened."*
+      RESEARCHED → `docs/research/SS-MV_MODEL_VAULT_STALE_PER_MODEL_FILES_2026_06_20.md`. 3 CONFIRMED roots: (1) STALE —
+      only regen path is `CloudKnowledgeDistillationService.rebuildAllModelVaults()` at bootstrap (`AppBootstrap.swift:2347`)
+      + manual button; no on-note-change/periodic refresh. (2) LOCAL MODELS NEVER READ THE VAULT — `augmentedSystemPrompt`
+      injected only in `LLMService.swift:1359` (cloud) + `AppleIntelligenceService.swift:282`; local MLX path has ZERO calls.
+      (3) USER-ADDED FILES IGNORED — injection hardcoded to 4 `canonicalFiles`. FIX: inject vault context into the local
+      path; enumerate+inject user-added files with budgeting + per-file toggle; add refresh trigger + staleness badge; audit
+      System-tab writers ("No files yet"). Scope = KnowledgeFusion/* + ModeModelVaults|ModeSystem + ModelVaults* (OUTSIDE
+      Companion→Osaurus, verified). Cross-surface traversal DEFERRED until after the Companion/Osaurus clone. [M] dedicated cycle.
+- [ ] **WIKILINK-driven AUTO-RESEARCH for local + cloud models (owner 2026-06-20).** *"Google's take on Karpathy's wiki
+      link and the original wiki link — anything that references wikilink / auto-research, I want those. I really want that
+      useful for my models, local AND cloud; wikilink is one of the best ways. Logic/auto-research could launch overnight or
+      be a feature. Deep these, add to the ledgers/plan as a dedicated cycle of implementations."* RESEARCHED →
+      `docs/research/SS-WL_WIKILINK_AUTORESEARCH_2026_06_20.md`. NEW feature: no real `[[wikilink]]` parser/resolver exists
+      (the `[[` greps are mostly `[[String:Any]]`); existing `AutoresearchLoop` is a QLoRA TRAINING loop, NOT this. Build:
+      (1) wikilink parser+resolver+backlink index, (2) unresolved-link→auto-research task (local-first, honest gating),
+      (3) overnight/on-demand runner (background-activity entitlement; no hidden subprocess), (4) feed Model Vault
+      active_context/concept_index (depends on SS-MV), (5) provenance + honesty. NON-INVASIVE; dedicated cycle AFTER SS-MV +
+      current quick wins. Each sub-part = own SS-* slice + tests when picked up.
