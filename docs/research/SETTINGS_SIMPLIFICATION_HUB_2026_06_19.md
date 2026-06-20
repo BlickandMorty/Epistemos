@@ -27,7 +27,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-J | BROWSER-USE in ALL surfaces (owner 2026-06-19) — the actual github browser-use available across Act/Work/Osaurus + chat; make the app useful in those locations | ✅ done → SS-J_BROWSER_USE_EVERYWHERE |
 | SS-K | VOICE-MODEL PICKER (owner 2026-06-19) — choose voice models in Settings + a chat-surface TTS picker that only fires on TTS; robust + minimal | ✅ done → SS-K_VOICE_MODEL_PICKER |
 | SS-L | OpenAI + Cursor skills/tools/superpowers + PROVIDER AGENTS on chat (owner 2026-06-19) — OpenAI skills, Cursor skills, and OpenAI/Google/Claude AGENTS available on the chat surfaces | ✅ done → SS-L_PROVIDER_AGENTS_OPENAI_CURSOR |
-| SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ☐ |
+| SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ✅ done → SS-M_OBSCURA_SCRAPER_PRIVACY |
 | SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ☐ |
 
 ## FINDINGS LOG (appended each pass)
@@ -82,4 +82,13 @@ passes no `voiceIdentifier` so chat read-aloud always hits that fallback. **Fix 
 for highest-quality match instead of `(language:)`; pass a voiceIdentifier from a new global @AppStorage default;
 add a "Voice…" submenu to the speaker button's context menu (the contextual chat picker, zero new chrome).**
 Higher-def: Apple premium/enhanced (local, MAS-safe, the right default) → Personal Voice [L]; NO cloud/neural
-TTS now (local-first). Full: SS-K doc. (Slices SS-C/D/E/F/M/N still queued.)
+TTS now (local-first). Full: SS-K doc.
+**SS-M OBSCURA + AGENT-SCRAPER + PRIVACY** → privacy primitives + a real HTTP scraper EXIST (`web.fetch/extract/
+crawl`, MAS-safe, SSRF-guarded BFS; `nonPersistent()` WKWebView stores ×5); Obscura the stealth engine + the
+*agentic* scraper do NOT. Obscura = a trait stub returning `NotConfigured` (`browser_engine/mod.rs:319-363`; no
+`obscura-*`/`deno_core` deps). NO LLM extract-to-schema loop (web_crawl is goal-blind BFS). ZERO
+anti-fingerprinting (no UA spoof, no `WKContentRuleList`, no canvas/WebGL overrides). **Plan: WKContentRuleList
+tracker-block + customUserAgent (MAS-safe, pure WebKit, no entitlement) [S]; agentic scraper = web_crawl frontier
++ LLM extract-to-schema head (grammar-bound) [M]; WebKitBrowserEngine for SPA pages (=SS-J's [M]) [M]; Obscura
+deno_core stealth engine Pro+sign-off [L].** Local-first; stubs honestly NotConfigured. Full: SS-M doc.
+(Slices SS-C/D/E/F/N still queued.)
