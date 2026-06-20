@@ -43,14 +43,36 @@ actor AdapterRegistry {
     private let storagePath: URL
 
     init(storagePath: URL? = nil) {
-        if let path = storagePath {
-            self.storagePath = path
-        } else {
-            let appSupport = FoundationSafety.userApplicationSupportDirectory()
-            self.storagePath = appSupport
-                .appendingPathComponent("Epistemos")
-                .appendingPathComponent("adapter_registry.json")
+        self.storagePath = storagePath ?? Self.defaultStoragePath()
+    }
+
+    /// The canonical on-disk registry path (ApplicationSupport/Epistemos/
+    /// adapter_registry.json) — shared by the actor's default storage and the
+    /// stateless `activeAdapterDirectoryOnDisk` lookup so the two can't drift.
+    nonisolated static func defaultStoragePath() -> URL {
+        FoundationSafety.userApplicationSupportDirectory()
+            .appendingPathComponent("Epistemos")
+            .appendingPathComponent("adapter_registry.json")
+    }
+
+    /// SS-LS apply-gap (step 2): a STATELESS read of the on-disk registry for the
+    /// first active adapter's directory, or nil. The inference load path uses this to
+    /// attach the active adapter without coupling to a live registry actor instance.
+    /// Returns nil — so the load path stays byte-for-byte unchanged — when there is no
+    /// registry file, no active adapter, or the active adapter's directory is not a
+    /// complete loadable native adapter (validated via NativeAdapterDirectory: it must
+    /// have adapter_config.json + adapters.safetensors).
+    nonisolated static func activeAdapterDirectoryOnDisk(registryPath: URL? = nil) -> URL? {
+        let path = registryPath ?? defaultStoragePath()
+        guard let data = try? Data(contentsOf: path) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        guard let records = try? decoder.decode([AdapterRecord].self, from: data) else {
+            return nil
         }
+        guard let active = records.first(where: \.isActive) else { return nil }
+        guard NativeAdapterDirectory.isValid(active.adapterPath) else { return nil }
+        return active.adapterPath
     }
 
     // MARK: - Persistence
