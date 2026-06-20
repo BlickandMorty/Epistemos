@@ -4088,3 +4088,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       "Cleanliness Gate" (pause→scan→fix→re-verify→continue) woven into the loop cadence (every ~5 iters/end-of-cycle, NOT
       every iter) + the wiki-lint product instance (SS-WL). Never deletes owner/scope-boundary work. Added to loop discipline
       (cron) + as last-auditor checks. Cross-ref SS-WL/SS-MV/SS-BWB.
+- [ ] **EPDOC decisive editor — TAKE OVER Obsidian/Logseq/Notion/Roam (owner 2026-06-20).** *"I'm missing the boat with
+      Obsidian — not competing, but if I become better than it the others become add-ons / deeply integrated. The app must
+      compete with all of them so people use it over Obsidian and especially Notion (rich text, lots of moving parts, the
+      block stuff). Add that to the app Doc, markdown-FIRST, really robust + dynamic + rich, but super fast, highly
+      optimized, almost as minimal as the Prose editor, with all bells & whistles + native Apple (pixel-art). Research on
+      those services robust enough to completely take over Logseq/Obsidian/Notion."* RESEARCHED (web + code) →
+      `docs/research/SS-EDGE_EPDOC_DECISIVE_EDITOR_TAKEOVER_2026_06_20.md`. NOT a re-plan — md-first Epdoc is ALREADY LOCKED
+      in `EPDOC_MD_V2_BUILD_SEQUENCE_2026_06_20.md` (7 phases: md canonical, JSON/HTML = projections; Notion-like Tiptap
+      template; wikilinks/backlinks) + competitor matrix in `COMPETITOR_SUPERSESSION_2026_06_19.md`. SS-EDGE ADDS the
+      take-over ACCEPTANCE BAR: (1) Notion-parity block richness (slash/drag/callout/toggle/table/columns/embeds) each with
+      LOSSLESS md projection; (2) Logseq/Roam block-refs + transclusion + backlinks + SS-WL auto-research; (3) Bases-style
+      table/DB views over frontmatter (SS-FM); (4) clean Obsidian/Logseq vault import/export (no lock-in → "they become
+      add-ons"); (5) graph+canvas parity (fix broken P7.2). KEY ARCH DECISION: INVERT Tiptap's JSON-first default → md is
+      truth, JSON/HTML derived (the differentiator vs Notion + naive Tiptap). Speed: reuse perf wave, lazy heavy blocks,
+      opens as fast as Prose. NEVER touch TK2/Prose. Anti-mud (SS-CLEAN): one md serializer + one wikilink seam shared w/
+      SS-WL. Sequenced INSIDE EPDOC_MD_V2; SS-EDGE is the bar, not a parallel track.
