@@ -252,6 +252,37 @@ enum NoteFileStorage {
         directory.appendingPathComponent("\(pageId).md")
     }
 
+    /// SS-2S A3 (owner 2026-06-20): persist a Prose-inserted image as a managed asset so it
+    /// survives save (the old in-memory NSTextAttachment was dropped on save = data loss).
+    /// Notes are flat `<storageDirectory>/<pageId>.md`, so a shared `<storageDirectory>/assets/`
+    /// is the sibling the `![](assets/<name>)` md reference resolves against. Content-hashed
+    /// name → dedup + idempotent. Returns the relative `assets/<name>` for the md, or nil on
+    /// failure (the caller keeps a safe fallback so Prose never regresses).
+    nonisolated static func storeImageAsset(data: Data, originalFilename: String) -> String? {
+        let assetsDir = storageDirectory().appendingPathComponent("assets", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: assetsDir, withIntermediateDirectories: true)
+        } catch {
+            logger.error("SS-2S storeImageAsset: create assets dir failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        let allowed: Set<String> = ["png", "jpg", "jpeg", "gif", "heic", "heif", "webp", "tiff", "tif", "bmp"]
+        let rawExt = URL(fileURLWithPath: originalFilename).pathExtension.lowercased()
+        let ext = allowed.contains(rawExt) ? rawExt : "png"
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        let filename = "image-\(digest.prefix(16)).\(ext)"
+        let fileURL = assetsDir.appendingPathComponent(filename)
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                try data.write(to: fileURL, options: .atomic)
+            } catch {
+                logger.error("SS-2S storeImageAsset: write asset failed: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+        }
+        return "assets/\(filename)"
+    }
+
     private nonisolated static func hashURL(pageId: String) -> URL {
         integrityURL(pageId: pageId, in: storageDirectory())
     }
