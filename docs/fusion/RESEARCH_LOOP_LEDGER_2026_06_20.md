@@ -2626,3 +2626,16 @@ axes-eval + 6 passing tests, NO experiment) + a 1-line additive mod; compiles un
 committed with explicit paths only (`67b20dcaf`, `da8475dff`); the other agent's Swift WIP never touched.
 Conservatively capped at 1 module given the active auto-commit loop. All on `main`, build green, nothing
 half-written. Remaining foundation (M0 driver, falsifier-spec constants) named for later.
+
+---
+
+## SESSION CLOSEOUT — 2026-06-20 (owner Q38)
+
+**Last-cycle verification:** PASS-22 **completed and committed** on `main` (`67b20dcaf`, `da8475dff`,
+`3033d5674`). M0 harness re-verified at closeout: `cargo test --features research --lib m0_interrupt_harness`
+→ **6 passed, 0 failed**. No half-written fusion code; other agent's Swift WIP left untouched.
+
+**Research phase:** **CLOSED.** Loop **PAUSED.** Falsifier index: ~50 concrete / 0 vague / 0 missing.
+**Resume anchor:** `docs/fusion/SESSION_CHECKPOINT_2026_06_20.md` (new-session prompt + doc map + build order).
+Readout §8.6/§8.7 updated to PASS-22 final state. **Next action:** BUILD M0 experiment driver on owner
+green-light — not more deliberation.

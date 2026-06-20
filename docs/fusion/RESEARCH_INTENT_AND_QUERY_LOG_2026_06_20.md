@@ -209,6 +209,11 @@ Abstract the owner's entire body of local research (substrate / full architectur
 > PART B — MINIMAL FOUNDATION BUILD (foundation only): a FEW small isolated new Rust files in agent_core — e.g. a `primitives` scaffold (Trit, Belnap FDE, claim-state) and/or the M0 falsifier HARNESS scaffold (`falsify_interrupt_moves_loss.rs`) as a COMPILING skeleton ONLY (arg parsing + result.json schema struct + stubbed arms with TODOs — NOT the full experiment). Each must compile in isolation, no unwrap, repo conventions, committed with explicit paths. Cap: ~2–4 small new files. Prefer standalone; at most a single additive mod line.
 > DELIVERABLE: report (1) the git baseline, (2) the tightened falsifier specs, (3) which new files created + that they compile + commit hashes, (4) what foundation remains. Be conservative — if any build step risks clashing or breaking the build, STOP and report.
 
+### Q38 — Session closeout: verify last cycle + harden + checkpoint for resume (typed directive)
+> Finish the research and close it out so I can resume in another session. Give me a new session prompt,
+> list all docs we were working in, verify the last cycle (PASS 22) completed and is hardened/saved as a
+> checkpoint. Something happened where I could not finish the last cycle — make sure it's all good.
+
 ---
 
-*This log is append-only. New owner queries on this thread are added verbatim as they arrive. Last updated: 2026-06-20 (build mode — deep research + minimal foundation).*
+*This log is append-only. New owner queries on this thread are added verbatim as they arrive. Last updated: 2026-06-20 (session closeout — research phase CLOSED, checkpoint written).*
