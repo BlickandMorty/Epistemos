@@ -351,6 +351,21 @@ calls: no blanket rule — choose per case.
       + the updated sandbox assertion). MAS full-lib 5476/0 + `--features pro-build` 5739/0 (BOTH
       green, no double-registration). This COMPLETES the cargo-cheap Phase-0 fix-the-broken set:
       schema drifts 4/4 + skills path + skill_manage v2 reachability + progressive un-gate.
+      ✅ FLIP+VERIFY (Phase-0 #6) part 1 — cloud-tools + foundation-recommend ON by default 2026-06-19
+      (owner: don't slow down, SEE the fixes on rebuild). Flipped two flags from `== "1"` (opt-in) to
+      `!= "0"` (ON by default, env `0` disables): `cloudChatToolsAllProvidersArmed` (InferenceState) →
+      EVERY cloud provider now attaches plain-chat vault tools (Google/Z.AI/Kimi/MiniMax/DeepSeek, not
+      just OpenAI/Anthropic) — VISIBLE IMMEDIATELY on the owner's next rebuild, no model install needed;
+      `foundationRecommendArmed` (AgentCommandCenterState) → auto-mode recommends an installed
+      foundation model (Gemma/VibeThinker/coder) instead of the Qwen-first list (falls to legacy when
+      none installed, so no change there). DELIBERATELY NOT FLIPPED: `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_
+      MODEL` stays OFF=honest (flipping it ON would RESTORE the silent-Qwen-substitute bug just fixed);
+      `EPISTEMOS_RUNTIMEROUTER_LIVE_V0` + `EPISTEMOS_GGUF_TOOL_GRAMMAR_V0` stay OFF (no hot-path/loop
+      wire yet — flipping does nothing or risks unparsed output); `EPISTEMOS_HONEST_UNAVAILABLE_
+      SPECIALIST_PICK_V0` stays opt-in. Test updated (flagDefaultsOn). build-for-testing TEST BUILD
+      SUCCEEDED (0 errors). PART 2 (next): flip `EPISTEMOS_AUTO_TOOL_ROUTE_V0` ON (coordinated Swift
+      PipelineService.autoToolRouteArmed + Rust auto_tool_route_armed) so plain queries auto-route to
+      tools end-to-end.
       🔎 PHASE-0 REMAINING — OWNER SIGN-OFF / IN-APP (the cargo-cheap safe Phase-0 slices are done;
       these need YOU): (1) **progressive-skills un-gate** — `registry.rs` gates the progressive
       skill tools behind `#[cfg(feature="pro-build")]`, so the MAS build exposes only the legacy CRUD

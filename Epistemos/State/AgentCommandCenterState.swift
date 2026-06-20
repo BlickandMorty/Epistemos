@@ -657,15 +657,17 @@ final class AgentCommandCenterState {
         }
     }
 
-    /// Foundation-recommend flag (`EPISTEMOS_FOUNDATION_RECOMMEND_V0`). OFF (default):
-    /// auto-mode recommendation is byte-identical to the legacy Qwen-first
-    /// `[LocalTextModelID]` lists. ON: an installed FOUNDATION-tier brain (Gemma /
-    /// VibeThinker / coder) is preferred first — the legacy lists are
-    /// `LocalTextModelID` enum cases that STRUCTURALLY cannot express the foundation
-    /// GGUF lineup (descriptor ids, not enum cases), so without this auto-mode can
-    /// never recommend a foundation model and defaults to Qwen.
+    /// Foundation-recommend flag (`EPISTEMOS_FOUNDATION_RECOMMEND_V0`). FLIPPED ON by
+    /// default 2026-06-19 (owner: auto-mode should pick the foundation model, not
+    /// Qwen): an installed FOUNDATION-tier brain (Gemma / VibeThinker / coder) is
+    /// preferred first — the legacy `[LocalTextModelID]` lists are enum cases that
+    /// STRUCTURALLY cannot express the foundation GGUF lineup (descriptor ids), so
+    /// without this auto-mode could never recommend a foundation model and defaulted
+    /// to Qwen. When NO foundation is installed it still falls to the legacy list
+    /// (so no behaviour change there). Set the env var to `0` for the legacy
+    /// Qwen-first recommendation.
     nonisolated static var foundationRecommendArmed: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_FOUNDATION_RECOMMEND_V0"] == "1"
+        ProcessInfo.processInfo.environment["EPISTEMOS_FOUNDATION_RECOMMEND_V0"] != "0"
     }
 
     /// Pure auto-mode local-brain recommendation policy (foundation pivot). When

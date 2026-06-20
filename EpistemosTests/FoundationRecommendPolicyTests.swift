@@ -60,10 +60,11 @@ struct FoundationRecommendPolicyTests {
         )
     }
 
-    @Test("flag is OFF by default → legacy recommendation behaviour")
-    func flagDefaultsOff() {
+    @Test("flag is ON by default (flipped 2026-06-19) → auto-mode prefers the foundation lineup")
+    func flagDefaultsOn() {
+        // Only meaningful when the env var is unset; an explicit "0" disables it.
         if ProcessInfo.processInfo.environment["EPISTEMOS_FOUNDATION_RECOMMEND_V0"] == nil {
-            #expect(AgentCommandCenterState.foundationRecommendArmed == false)
+            #expect(AgentCommandCenterState.foundationRecommendArmed == true)
         }
     }
 
