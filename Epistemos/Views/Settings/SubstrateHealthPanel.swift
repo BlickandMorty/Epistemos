@@ -21,6 +21,11 @@ public struct SubstrateHealthPanel: View {
     @State private var showAgentRuntime = true
     @State private var showSubstrateFloor = false
 
+    // SS-SH: the single shared 1 Hz clock for the whole panel — collapses the
+    // former ~17 per-row `Task.sleep` timers onto one driver (the `.task` on the
+    // Form below). Injected into every row via `.environment(healthClock)`.
+    @State private var healthClock = SubstrateHealthClock()
+
     public var body: some View {
         Form {
             Section("Retrieval and Indexing", isExpanded: $showRetrieval) {
@@ -142,6 +147,16 @@ public struct SubstrateHealthPanel: View {
                 surface(falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md", wRow: "W-33", weight: .heavy) {
                     SubstrateDriftMonitorHealthRow()
                 }
+            }
+        }
+        .environment(healthClock)
+        .task {
+            // SS-SH: ONE shared 1 Hz clock for the whole panel — replaces the
+            // former ~17 per-row Task.sleep timers. Auto-cancels when the panel
+            // leaves the hierarchy, so all row polling stops deterministically.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                healthClock.advance()
             }
         }
     }
