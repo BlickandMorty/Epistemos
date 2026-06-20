@@ -117,6 +117,15 @@ blocker root) is fixed end-to-end.
    dialect/sampling/stop/tier/skills + benefitsDescription + pickerUseCase); cloud half seeded from LiteLLM's
    capability table (bundled offline, MAS-safe); validated, honest/no-fake, with tests. The profile is shipped +
    wired into GGUF (40b32bb22/03bd5c4a7); COMPLETE the all-model coverage. [M]
+7c. **MLX-LoRA-Studio embed + fuse** (SS-LS; owner 2026-06-20) — graft the MIT Swift fine-tuning STUDIO onto
+    Epistemos's EXISTING native `NativeLoRATrainer`/`LoRATrain` engine (NO Python sidecar — MAS/NO-HIDDEN-SIDECAR);
+    fuse the existing `KnowledgeFusion` pipeline in (delete nothing). **Keystone first = close the apply gap:**
+    `NativeAdapterApply.apply` is an ORPHAN — wire it into `MLXInferenceService.loadContainerIfNeeded:1942-2003` so
+    a trained+active adapter actually changes live tokens (the owner's literal "use the models right after they're
+    done"). Then fuse-to-ModelVault (`LoRAContainer.fuse`→`Models/text/active`→`AdvertisedModelStore`) + rescan;
+    repair the `adapters.safetensors`↔`adapter_weights.safetensors` filename mismatch + migrate `KTOTrainer` off
+    `/usr/bin/python3`; then graft the studio UI (live metrics dashboard / runs archive / algorithm guide /
+    ResourceGuard) + port net-new algos (DPO/ORPO/GRPO/full-FT/QLoRA/QAT) natively. Order [S→M] in SS-LS. [S→L]
 8. Then the editor cluster per `EPDOC_MD_V2_BUILD_SEQUENCE` + the remaining native features (PDF/voice/browser/
    redaction) + the instant-recall popup redesign (SS-IR) + the perf/vuln gates each cycle.
 
