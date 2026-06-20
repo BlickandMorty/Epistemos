@@ -113,8 +113,13 @@ enum NativeKTOTrainer {
                 loss = result[0].item(Float.self)
             }
 
-            // 4) save the adapter (adapters.safetensors) for native inference apply.
+            // 4) save the adapter — weights + adapter_config.json — so NativeAdapterApply
+            // (LoRAContainer.from(directory:)) can load it natively for inference.
             try LoRATrain.saveLoRAWeights(model: context.model, url: adapterURL)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(loraConfiguration)
+                .write(to: NativeAdapterDirectory.configURL(in: adapterURL.deletingLastPathComponent()))
             return loss
         }
 

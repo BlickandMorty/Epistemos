@@ -184,12 +184,8 @@ final class TrainingScheduler {
             let exported = try await feedbackLogger.exportToJSONL(since: since, outputPath: tempPath)
             guard exported >= 20 else { return }
 
-            // Run KTO training via Python script
-            let pyEnv = PythonEnvironmentManager.shared
-            let ktoTrainer = KTOTrainer(
-                pythonPath: pyEnv.isReady ? pyEnv.pythonPath : "/usr/bin/python3",
-                scriptsDirectory: pyEnv.scriptsDirectory
-            )
+            // Run KTO training natively (no Python).
+            let ktoTrainer = KTOTrainer()
 
             // Find the active adapter's model path
             let vm = KnowledgeFusionViewModel.shared

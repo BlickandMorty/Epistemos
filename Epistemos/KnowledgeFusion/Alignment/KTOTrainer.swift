@@ -18,23 +18,10 @@ struct KTOTrainingResult: Sendable {
 /// DPO requires paired responses + reference model in memory — too expensive.
 actor KTOTrainer {
 
-    private let pythonPath: String
-    private let scriptsDirectory: URL
     private let minimumBatch: Int
 
-    init(
-        pythonPath: String = "/usr/bin/python3",
-        scriptsDirectory: URL? = nil,
-        minimumBatch: Int = 20
-    ) {
-        self.pythonPath = pythonPath
+    init(minimumBatch: Int = 20) {
         self.minimumBatch = minimumBatch
-        if let dir = scriptsDirectory {
-            self.scriptsDirectory = dir
-        } else {
-            self.scriptsDirectory = Bundle.main.bundleURL
-                .appendingPathComponent("Contents/Resources/KnowledgeFusion/Alignment/scripts")
-        }
     }
 
     /// Export feedback signals from FeedbackLogger to KTO JSONL format.
@@ -69,127 +56,40 @@ actor KTOTrainer {
             )
         }
 
-        let script = scriptsDirectory.appendingPathComponent("train_kto.py")
-
-        var arguments = [
-            script.path,
-            "--model_path", modelPath.path,
-            "--data_path", feedbackPath.path,
-            "--output_path", outputPath.path,
-            "--num_iters", String(numIters),
-            "--kto_beta", String(ktoBeta),
-        ]
-        if let adapterPath {
-            arguments.append(contentsOf: ["--adapter_path", adapterPath.path])
-        }
-
         #if !EPISTEMOS_APP_STORE
-        guard FileManager.default.isExecutableFile(atPath: pythonPath) else {
-            throw QLoRATrainerError.trainingFailed("Python executable not found or not executable.")
-        }
-        guard FileManager.default.isReadableFile(atPath: script.path) else {
-            throw QLoRATrainerError.trainingFailed("KTO training script not found or not readable.")
-        }
-
-        let process = Process.init()
-        process.executableURL = URL(fileURLWithPath: pythonPath)
-        process.arguments = arguments
-        process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)
-
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-        let stdoutHandle = stdoutPipe.fileHandleForReading
-        let stderrHandle = stderrPipe.fileHandleForReading
-        let stdoutCapture = KnowledgeFusionProcessOutputCapture()
-        let stderrCapture = KnowledgeFusionProcessOutputCapture()
-        stdoutHandle.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            stdoutCapture.append(data)
-        }
-        stderrHandle.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            stderrCapture.append(data)
-        }
-
-        let timeoutSeconds = 1800.0
-        let state = ThrowingProcessContinuationState<Void>()
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                guard state.store(process: process, continuation: continuation) else {
-                    stdoutHandle.readabilityHandler = nil
-                    stderrHandle.readabilityHandler = nil
-                    continuation.resume(throwing: CancellationError())
-                    return
-                }
-
-                let timeoutTask = Task.detached(priority: .utility) {
-                    do {
-                        try await Task.sleep(for: .seconds(timeoutSeconds))
-                    } catch is CancellationError {
-                        return
-                    } catch {
-                        return
-                    }
-                    state.terminate()
-                    state.resume(throwing: TimeoutError(seconds: timeoutSeconds))
-                }
-
-                process.terminationHandler = { proc in
-                    timeoutTask.cancel()
-                    stdoutHandle.readabilityHandler = nil
-                    stderrHandle.readabilityHandler = nil
-                    stdoutCapture.consumeRemainder(from: stdoutHandle)
-                    stderrCapture.consumeRemainder(from: stderrHandle)
-                    if proc.terminationStatus == 0 {
-                        state.resume(returning: ())
-                    } else {
-                        state.resume(throwing: QLoRATrainerError.trainingFailed(stderrCapture.stringValue()))
-                    }
-                }
-                do {
-                    try process.run()
-                } catch {
-                    timeoutTask.cancel()
-                    stdoutHandle.readabilityHandler = nil
-                    stderrHandle.readabilityHandler = nil
-                    state.resume(throwing: error)
-                }
-            }
-        } onCancel: {
-            state.terminate()
-            state.resume(throwing: CancellationError())
-        }
-
-        // Check for "SKIPPED" in output
-        let output = stdoutCapture.stringValue()
-        if output.contains("SKIPPED") {
+        // SS-LS 1b: native in-process KTO — no Python, no subprocess at all. Parse
+        // the feedback JSONL → KTO examples and fine-tune a LoRA adapter natively
+        // (NativeKTOTrainer = NativeKTODataPrep + NativeKTOLoss + a native LoRATrain
+        // loop), writing the adapter to outputPath. Convergence is owner-verified
+        // on-device; the train→apply round-trip is fully native (no Python anywhere).
+        let examples = NativeKTODataPrep.loadFeedbackExamples(at: feedbackPath)
+        guard !examples.isEmpty else {
             return KTOTrainingResult(
-                success: true,
-                skipped: true,
-                signalsUsed: signalCount,
-                finalLoss: nil,
-                newAdapterPath: nil
+                success: true, skipped: true, signalsUsed: 0, finalLoss: nil, newAdapterPath: nil
             )
         }
-
+        try FileManager.default.createDirectory(at: outputPath, withIntermediateDirectories: true)
+        let plan = NativeLoRAPlan(
+            batchSize: 1, iterations: max(1, numIters), stepsPerReport: 10, stepsPerEval: 100,
+            validationBatches: 10, saveEvery: max(1, min(100, numIters)),
+            rank: 8, scale: 2.0, numLayers: 16, fineTuneType: "lora"
+        )
+        let result = try await NativeKTOTrainer.train(
+            modelDirectory: modelPath,
+            examples: examples,
+            adapterURL: NativeAdapterDirectory.weightsURL(in: outputPath),
+            loraConfiguration: NativeLoRATrainer.loraConfiguration(for: plan),
+            kto: NativeKTOLoss(beta: ktoBeta),
+            iterations: max(1, numIters)
+        )
         return KTOTrainingResult(
-            success: true,
-            skipped: false,
-            signalsUsed: signalCount,
-            finalLoss: nil,
-            newAdapterPath: outputPath
+            success: true, skipped: false, signalsUsed: examples.count,
+            finalLoss: result.finalLoss.map(Double.init), newAdapterPath: outputPath
         )
         #else
-        // The App Store sandbox cannot spawn /usr/bin/python3 to run
-        // the KTO trainer script. Pro/direct release keeps the
-        // training path; AppBootstrap and SettingsView already gate
-        // the KnowledgeFusion entry points out of MAS, so this
-        // surgical body gate is defense-in-depth.
-        _ = arguments
+        // The App Store sandbox cannot run local training; the KnowledgeFusion entry
+        // points are already gated out of MAS — this body gate is defense-in-depth.
+        _ = (modelPath, adapterPath, numIters, ktoBeta)
         throw QLoRATrainerError.trainingFailed(
             "KTO training is not available in the App Store sandbox build."
         )
