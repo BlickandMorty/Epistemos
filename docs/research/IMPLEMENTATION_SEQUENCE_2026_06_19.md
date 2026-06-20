@@ -80,3 +80,42 @@ work-in-app (flag-OFF≠done), simplify-not-hide, honest/no-fake, main-only, tes
 
 Each item links to its `SS-*` doc for the full file:line plan. The research is done + hardened; this is the
 order to code it. Cross-ref `SESSION_COVERAGE_MATRIX_2026_06_19.md` (every concern → slice → status).
+
+---
+
+## ▶ READINESS VERIFICATION + TOP-UNCODED (owner 2026-06-20 — "code while I sleep")
+**All research is captured + ready to convert to code:** 36 research slices (SS-A…SS-Z + AA/AB/LI/EM/PERF/SH/AL/
+UMA/IR/FM) + 2 capstones (this file + EPDOC_MD_V2_BUILD_SEQUENCE) + SESSION_COVERAGE_MATRIX, all committed to main,
+cross-linked in the hub + the loop-plan read-first banner. Every owner concern (incl. pre-compaction verbatim
+intent) is mapped to a ledger item + slice + file:line plan. Nothing research-only is left dangling.
+
+**SHIPPED this session (verified real + test-backed, each cites its slice):** logos (×2); gguf crash fix SS-W (×2:
+9edd41d12, 842286538); ModelCapabilityProfile + GGUF wiring SS-AB/Z (40b32bb22, 03bd5c4a7); SS-X chat-bar
+(1d596891a); SS-U dark/light crash (749d2c889); SS-F settings honesty (3b214c1dd). The model-run crash (the #1
+blocker root) is fixed end-to-end.
+
+**TOP UNCODED — do these next (highest owner value, all researched with file:line):**
+1. **Model-install PER-ROW Install button** (SS-G) — `ModelStackSettingsView` per-row Install wired to
+   `install(modelID:)` + `presentationState` + progress, so the named GGUF models (Gemma/LFM2/VibeThinker) install
+   individually. **The #1 owner blocker remnant** (the in-picker CTA landed `a1dd7c6ed`; the stack rows still
+   can't install). [S]
+2. **Substrate-health glitch fix** (SS-SH/PERF #1) — collapse the ~15 per-row 1Hz synchronous-FFI-on-MainActor
+   timers into ONE shared `TimelineView` clock fetching OFF the MainActor. Fixes the owner's "glitched/not working"
+   panel AND the biggest perf win, one change. [M]
+3. **Onboarding "it just works"** (SS-C/E) — wire `installEpistemosFoundationPackage()` into the wizard model step
+   + default the vault to `FirstRunBootstrap.defaultVaultURL()` (revive the dead code). [S]
+4. **Skills keystone** (SS-H) — inject the ChatLite skills catalog into local chat even when
+   `shouldUseToolLoop==false` (`PipelineService.swift:316`) + route tool-needing queries to a fitting agent-capable
+   model. The #2 owner priority. [S]
+5. **Per-model picker descriptions** (SS-AB) — `pickerUseCase` + `benefitsDescription` per model on the picker. [S]
+6. **Wire the vendored masked logit processor** (SS-Y) — `GrammarMaskedLogitProcessor` into the live MLX generator
+   (guaranteed-valid local tool calls = local>cloud). [S]
+7. **Stream local repair tokens** (SS-AL #1) — pass real `onToken` into the repair generators (kill the masked
+   `{ _ in }` decode). [S]
+8. Then the editor cluster per `EPDOC_MD_V2_BUILD_SEQUENCE` + the remaining native features (PDF/voice/browser/
+   redaction) + the instant-recall popup redesign (SS-IR) + the perf/vuln gates each cycle.
+
+**HARDENING DISCIPLINE each cycle (owner standing):** perf research before + after each feature; the thermo-nuclear
+(SS-V) + vuln-gate (SS-S) at checkpoints; tests at the end (the loop is already writing a test per fix — keep it);
+honest/no-fake/no-green-without-witness; main-only commit+push; never touch vault/graph; TK2/Prose non-invasive
+only. The only thing left is build time.
