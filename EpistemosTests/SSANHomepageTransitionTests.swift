@@ -51,11 +51,16 @@ struct SSANHomepageTransitionTests {
                 "no AppKit alpha animation on the graph canvas — set alphaValue immediately")
     }
 
-    @Test("the landing toolbar controls blur out via embeddedHomeGraphContentVisible")
-    func toolbarControlsBlurOut() throws {
+    @Test("the landing toolbar pill swaps to page-relevant buttons on graph (SS-GC revises SS-AN)")
+    func toolbarPillSwapsContentsOnGraph() throws {
         let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        #expect(root.contains(".blur(radius: embeddedHomeGraphContentVisible ? 14 : 0)"))
-        #expect(root.contains(".opacity(embeddedHomeGraphContentVisible ? 0 : 1)"))
+        // SS-GC (owner 2026-06-20) REVISES the SS-AN pill blur: the pill is no longer blurred
+        // fully away on the graph (a principal ToolbarItem keeps the window's curved corners) —
+        // it SWAPS contents instead. So the full blur-away is gone; the greeting + history are
+        // landing-only; the easeOut driver remains for the content swap.
+        #expect(!root.contains(".blur(radius: embeddedHomeGraphContentVisible ? 14 : 0)"))
+        #expect(!root.contains(".opacity(embeddedHomeGraphContentVisible ? 0 : 1)"))
+        #expect(root.contains("if !embeddedHomeGraphContentVisible {"))
         #expect(root.contains(".animation(.easeOut(duration: 0.28), value: embeddedHomeGraphContentVisible)"))
     }
 }

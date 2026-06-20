@@ -448,17 +448,21 @@ struct RootView: View {
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
             if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
+                // SS-GC (owner 2026-06-20): KEEP the pill mounted on the graph — a principal
+                // ToolbarItem is load-bearing for the window's CURVED corners (drop it and the
+                // window regresses to square). So do NOT blur the pill away on the graph (that
+                // defeats "keep it"); SWAP its contents to be PAGE-RELEVANT instead. Settings
+                // shows in BOTH states (≥1 button preserves the curve); the landing greeting +
+                // the recent-chats (history) button are landing-ONLY — the latter per owner
+                // ("it caused issues; I only want it on the landing page"). This REVISES the
+                // earlier SS-AN pill blur-out (the pill no longer fades fully away on graph).
                 ControlGroup {
                     settingsToolbarButton
-                    landingGreetingToolbarButton
-                    historyToolbarButton
+                    if !embeddedHomeGraphContentVisible {
+                        landingGreetingToolbarButton
+                        historyToolbarButton
+                    }
                 }
-                // SS-AN: the landing buttons blur away (Apple blur-replace) when the
-                // embedded graph takes over — they don't hard-cut. Same easeOut(0.28)
-                // as the home↔graph driver; in graph the controls are blurred out so
-                // "only the graph is left".
-                .blur(radius: embeddedHomeGraphContentVisible ? 14 : 0)
-                .opacity(embeddedHomeGraphContentVisible ? 0 : 1)
                 .animation(.easeOut(duration: 0.28), value: embeddedHomeGraphContentVisible)
             }
 
