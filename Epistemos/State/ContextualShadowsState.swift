@@ -462,20 +462,26 @@ final class ContextualShadowsState {
         currentResults = results
         lastQueryText = queryText
         lastErrorMessage = errorMessage
-        isPanelVisible = isVisible
+        // SS-IR (owner 2026-06-20): never AUTO-OPEN the panel from a query result — that was the
+        // "weird pixel box that overlays things" popping up mid-typing. A query still publishes its
+        // payload (which LIGHTS the button via hasPanelPayload), but only KEEPS the panel visible
+        // if the user had ALREADY opened it; `isVisible:false` (empty/error) still closes. The
+        // explicit openPanel() (button click) is now the sole path that opens the panel.
+        isPanelVisible = isVisible && isPanelVisible
         latestScopeKey = scopeKey
 
         guard let scopeKey else {
             pendingTask = nil
             return
         }
+        let scopeWasOpen = scopedPanelVisibility[scopeKey] == true
         scopedPayloads[scopeKey] = RecallPayload(
             results: results,
             queryText: queryText,
             errorMessage: errorMessage,
             isSearching: false
         )
-        scopedPanelVisibility[scopeKey] = isVisible
+        scopedPanelVisibility[scopeKey] = isVisible && scopeWasOpen
         scopedPendingTasks[scopeKey] = nil
         pendingTask = scopedPendingTasks.values.first
     }
