@@ -292,3 +292,16 @@ unwired doc; concept-lattice = aspirational N3 doctrine only). Correctly sequenc
 the rest). **Bounded first step (finite, T4-able): extend `CognitiveDagVisualizerPanel` into a read-only "Living
 Index status" surface — surface what's already living (shadow liveness + DAG counts) BEFORE any lattice engine.**
 Full: SS-LI doc. **ENTIRE research corpus now complete — including the indefinite tail.**
+**SS-EM EPDOC FORMAT CONVERGENCE (md-canonical, projections)** → today Epdoc is **JSON-canonical** (`content.pm
+.json`) with markdown as a lossy write-only shadow + NO stored HTML (render-only); the package doc-comment even
+says "Markdown is DERIVED, never canonical" — the flip inverts this. **KEY FINDING (answers the owner): the HTML
+Workspace is a SEPARATE document type (`com.epistemos.html-workspace`), opened BLANK from a starter template,
+ZERO data flow from Epdoc — it MIRRORS NOTHING.** De-risker: Tiptap 3.24 (repo's version) ships a first-party
+Markdown extension + MarkdownManager (since 3.7.0) → real md↔JSON serializer is an in-version dep add.
+**Recommended: ONE-WAY DERIVE + serialize-back (NOT CRDT — CRDT inverts the truth model).** content.md = REQUIRED
+truth; content.pm.json = derived cache; HTML = pure render; Pandoc for exports only. Hash-pinned drift detection;
+HTML-in-markdown fallback for rich-only blocks (nothing dropped); FAIL-LOUD on parse error (end silent-degrade).
+**HTML Workspace → make it a true opt-in projection** (seed index.html from a StaticRenderer projection of the
+doc + pixel-art CSS). **Plan: add @tiptap/extension-markdown + bridge getMarkdown [S]; round-trip test suite
+[S]; flip canonical + migration + drift-detector [M]; real md parser on load [M]; HTML-workspace projection [L].**
+Pixel-art kept + theme-token-driven (more dynamic, native). Full: SS-EM doc.

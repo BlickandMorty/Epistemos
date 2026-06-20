@@ -3672,3 +3672,32 @@ native; AGPL server). ADOPT 2 patterns natively:
       — it stays its own untouched editor. Study Tolaria's MD aspects (wikilinks, frontmatter, clean-md-to-disk,
       WYSIWYG↔source toggle, agent-as-git-contributor) + add as much as possible — all PATTERNS, not AGPL code.
       Cross-ref SS-O (Epdoc repair — the prereq), SS-P (graft-not-clone). Prereq: land SS-O roots #2/#3 first.
+- [ ] ‼️ **EPDOC FORMAT CONVERGENCE — MD canonical, HTML+JSON+package = DYNAMIC PROJECTIONS (owner 2026-06-19,
+      clarifies the markdown-first decision; SS-EM).** Owner (verbatim): *"make sure you do deep research on how
+      to make these all converge safely and without muddiness. Like the md-first Epdoc — json and html mirror or
+      whatever is the best combo — MD should be first and then html, json, package etc. are all DYNAMICAL
+      PROJECTIONS of md, maybe, or whatever is the best way and method… deeply research it all so I have the best.
+      Multiple cycles. ALSO the HTML workspace is on Epdoc but I'm NOT SURE IT IS ACTUAL HTML THAT IS MIRRORING
+      THE EPDOC — so make sure the JSON, HTML and whatever other formats attached to it are HARDENED, REPAIRED,
+      and deeply robust AFTER you make the upgrade to Epdoc making it MD-first. Make sure the MD is actually the
+      REAL robust one with the good code stuff. Still keep it pixel-art like how it is now, just make it MORE
+      DYNAMIC — still keep UI/UX pixel-art and native."* So: **markdown = the single source of truth; HTML
+      (render), ProseMirror-JSON (rich editor), and the `.epdoc` package are all DERIVED PROJECTIONS of the
+      canonical markdown** — research the safest convergence (one-way derive vs bidirectional mirror, conflict/
+      round-trip safety, no muddiness). **VERIFY the HTML workspace** (`Views/HTMLWorkspace/*`): is it genuinely
+      mirroring Epdoc's content, or a separate/disconnected surface? Then **harden + repair the whole format
+      stack** (md↔json↔html↔package) so projections never drift/corrupt — this hardening happens AFTER the
+      MD-first flip. **Robust MD** (CommonMark/GFM + the "good code stuff": fenced code, tables, math, wikilinks,
+      frontmatter). **Keep pixel-art UI/UX + native, just MORE DYNAMIC.** Multiple research cycles. Cross-ref the
+      EPDOC=MARKDOWN-FIRST decision above, SS-O (repair), SS-P (graft). See SS-EM doc.
+- [ ] **RECURSIVE DEEP RESEARCH — continue indefinitely, leave nothing out (owner 2026-06-19).** Owner (verbatim):
+      *"still continue to do as much deep research as you can on all the parts of my app that I am upgrading / will
+      upgrade / will edit / will add… after you research all of this mentioned please CONTINUE doing recursively
+      deep research on all the things that can be researched deeply and super-optimized and DEF added to the plan.
+      Please leave nothing out."* Standing directive: after the named slices, keep mining every subsystem for
+      deeper optimization + hardening opportunities, add each finding to the plan (ledger + research doc), so the
+      research never goes stale and the agent always has more well-researched, hardened work to code. Utilize
+      GitHub + local + remote research. (This is the indefinite research mandate — composes with the Living-Index
+      indefinite tail.) Reiteration confirmed: all concerns/queries (incl. pre-compaction) remain captured in
+      `SESSION_COVERAGE_MATRIX_2026_06_19.md`; per-model capability profiles + descriptions + picker use-case copy
+      = SS-AB (the loop shipped `ModelCapabilityProfile` 40b32bb22).
