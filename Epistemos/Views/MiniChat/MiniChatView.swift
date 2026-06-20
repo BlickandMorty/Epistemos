@@ -1214,29 +1214,11 @@ private struct MiniChatInputBar: View {
     }
 
     private func scheduleContextualShadowsRecall(for snapshotText: String) {
+        // SS-IR (owner 2026-06-20): recall is scoped to the EDITORS (Epdoc + TK2), NOT mini-chat.
+        // Stop feeding Surface B here — cancel any pending query + clear the mini-chat-scope payload
+        // so no recall chrome appears. The recall brain stays; only this surface stops feeding it.
         recallDebounceBox.task?.cancel()
-        guard contextualShadows.isEnabled else { return }
-        guard let bootstrap = AppBootstrap.shared else { return }
-        let instantRecall = bootstrap.instantRecallService
-        let searchIndexService = bootstrap.vaultSync.searchService
-        let scopeID = contextualRecallScopeID
-        let originId = UUID(uuidString: chatID) ?? UUID()
-        let state = contextualShadows
-        recallDebounceBox.task = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            guard !Task.isCancelled else { return }
-            let snapshot = RecallContextSnapshot(
-                text: snapshotText,
-                kind: .chat,
-                originId: originId,
-                originDocId: scopeID
-            )
-            state.requestRecall(
-                snapshot: snapshot,
-                instantRecall: instantRecall,
-                searchIndexService: searchIndexService
-            )
-        }
+        contextualShadows.closePanel(kind: .chat, originDocId: contextualRecallScopeID)
     }
 
     private func openContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
