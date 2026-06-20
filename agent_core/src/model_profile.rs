@@ -139,6 +139,47 @@ impl ModelCapabilityProfile {
         };
         self.context_window.min(cap)
     }
+
+    /// A compact human label for the native context window: 128_000 → "128K",
+    /// 1_048_576 → "1M", 32_768 → "32K". K truncates so a power-of-two window reads
+    /// colloquially; M snaps to a whole million within 0.1M. Mirrors the Swift
+    /// picker badge formatter so the two surfaces agree.
+    pub fn context_window_label(&self) -> String {
+        let t = self.context_window;
+        if t >= 1_000_000 {
+            if t % 1_000_000 < 100_000 {
+                format!("{}M", t / 1_000_000)
+            } else {
+                format!("{:.1}M", t as f64 / 1_000_000.0)
+            }
+        } else if t >= 1_000 {
+            format!("{}K", t / 1_000)
+        } else {
+            t.to_string()
+        }
+    }
+
+    /// A richer one-line "why pick this model" description for a model-details
+    /// surface (the short `picker_use_case` is the tagline; this expands it with the
+    /// real context window + the runtime lane). Derived from the profile's real
+    /// fields — ONE source of truth, consistent + honest across every local AND
+    /// cloud model, with no hand-maintained per-model blurb to drift (SS-AB/SS-Z;
+    /// owner 2026-06-20 "benefitsDescription per model").
+    pub fn benefits_description(&self) -> String {
+        let lane = match self.lane {
+            ModelLane::Mlx => "Apple MLX",
+            ModelLane::Gguf => "llama.cpp GGUF",
+            ModelLane::Research => "research",
+            ModelLane::Cloud => "cloud",
+        };
+        format!(
+            "{}: {}. {} context window on the {} lane.",
+            self.display_name,
+            self.picker_use_case,
+            self.context_window_label(),
+            lane
+        )
+    }
 }
 
 /// The canonical profile set (SS-AB's definitive table). Honest + real — no fake
@@ -1057,6 +1098,35 @@ mod tests {
             "mlx-community/mamba2-2.7b-4bit",
         ] {
             assert_ne!(profile_for(id).id, "unknown", "{id} still resolves to unknown");
+        }
+    }
+
+    #[test]
+    fn benefits_description_is_informative_and_derived_per_model() {
+        // Derived from the profile's real fields — names the model, its use-case,
+        // the real context-window label, and the runtime lane. One source of truth,
+        // consistent across local + cloud (SS-AB/SS-Z benefitsDescription).
+        let gemma = find("gemma-4-e2b").benefits_description();
+        assert!(gemma.contains("Gemma 4 E2B"));
+        assert!(gemma.contains("128K"));
+        assert!(gemma.contains("Apple MLX"));
+
+        let coder = find("gemma-4-12b-coder").benefits_description();
+        assert!(coder.contains("llama.cpp GGUF")); // the GGUF-lane label
+
+        // Cloud profile: names the cloud lane + the provider's real context window.
+        let claude = cloud_profile("anthropic").benefits_description();
+        assert!(claude.contains("Claude"));
+        assert!(claude.contains("cloud"));
+        assert!(claude.contains("200K"));
+
+        // The context-window label formatter: K truncation + whole-million snap.
+        assert_eq!(find("qwen3-4b").context_window_label(), "32K");
+        assert_eq!(cloud_profile("google").context_window_label(), "1M"); // 1_048_576
+
+        // Never empty for any real profile (local or cloud).
+        for p in CANON.iter().chain(CLOUD_CANON.iter()) {
+            assert!(!p.benefits_description().is_empty(), "{} empty benefits", p.id);
         }
     }
 }

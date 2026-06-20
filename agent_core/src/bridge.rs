@@ -284,6 +284,18 @@ pub fn model_context_window(model_id: String) -> u32 {
     crate::model_profile::context_window_for(&model_id)
 }
 
+/// SS-AB/SS-Z (owner 2026-06-20 "benefitsDescription per model"): the richer
+/// one-line model-details description for a model id (local OR cloud), derived from
+/// the single Rust ModelCapabilityProfile (display name + use-case + real context +
+/// runtime lane). Empty for an id neither lane recognizes. One source of truth —
+/// `ModelCapabilityProfile::benefits_description`.
+#[uniffi::export]
+pub fn model_benefits_description(model_id: String) -> String {
+    crate::model_profile::resolve_profile(&model_id)
+        .map(|p| p.benefits_description())
+        .unwrap_or_default()
+}
+
 #[derive(uniffi::Record)]
 pub struct ReasoningTrajectoryMetricsFFI {
     pub displacement: f64,
