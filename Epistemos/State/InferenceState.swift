@@ -1366,12 +1366,14 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// Flag-gated rollout for attaching plain-chat tools to ALL cloud providers
-    /// (`EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0`). OFF (default) → plain-chat
-    /// tools stay limited to `supportsAgentTier` providers (today's behaviour); ON →
-    /// every provider with `supportsChatToolAttachment` gets chat tools.
+    /// Attach plain-chat tools to ALL cloud providers
+    /// (`EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0`). FLIPPED ON by default
+    /// 2026-06-19 (owner: make the tools fire on every cloud provider) — every
+    /// provider with `supportsChatToolAttachment` gets chat tools. Set the env var
+    /// to `0` to restore the legacy `supportsAgentTier`-only (OpenAI/Anthropic)
+    /// behaviour.
     static var cloudChatToolsAllProvidersArmed: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0"] == "1"
+        ProcessInfo.processInfo.environment["EPISTEMOS_CLOUD_CHAT_TOOLS_ALL_PROVIDERS_V0"] != "0"
     }
 
     /// The effective gate for attaching tools to a plain cloud chat turn, given the
