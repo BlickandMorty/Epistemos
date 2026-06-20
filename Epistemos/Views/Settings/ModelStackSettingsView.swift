@@ -13,6 +13,11 @@ import SwiftUI
 /// `UserDefaults` is not `@Observable`.
 struct ModelStackSettingsView: View {
     @Environment(InferenceState.self) private var inference
+    // SS-G (#1 owner-blocker remnant): the stack rows could SEE "Not installed" but
+    // not install. LocalModelManager (injected by the same AppEnvironment as
+    // inference; this view lives inside LocalModelManagerSheet) drives a per-row
+    // Install affordance.
+    @Environment(LocalModelManager.self) private var localModelManager
 
     @State private var advertisedIDs: [String] = []
 
@@ -103,6 +108,7 @@ struct ModelStackSettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
+            installControl(row)
             Toggle("", isOn: Binding(
                 get: { row.isAdvertised },
                 set: { _ in
@@ -113,6 +119,34 @@ struct ModelStackSettingsView: View {
             .labelsHidden()
         }
         .padding(.vertical, 2)
+    }
+
+    /// SS-G: per-row Install. A retained-but-uninstalled model installs from its own
+    /// row — descriptor models (MLX/remote) via `install(modelID:)`; the foundation
+    /// GGUF models (Gemma / VibeThinker / LFM / coder — no `LocalModelDescriptor`)
+    /// via the one-tap `installEpistemosFoundationPackage()` (the only mechanism that
+    /// installs them). Shows live "Installing…" + disables while active; the row's
+    /// "Installed" badge flips reactively when it lands. Advertising (the toggle)
+    /// stays independent — keep-all, this only adds the missing install action.
+    @ViewBuilder
+    private func installControl(_ row: ModelStackRow) -> some View {
+        if !row.isInstalled {
+            let descriptor = LocalModelCatalog.descriptor(for: row.id)
+            let installing = localModelManager.activeInstalls.contains(row.id)
+                || (descriptor == nil && !localModelManager.activeInstalls.isEmpty)
+            Button(installing ? "Installing…" : "Install") {
+                Task {
+                    if let descriptor {
+                        try? await localModelManager.install(modelID: descriptor.id)
+                    } else {
+                        try? await localModelManager.installEpistemosFoundationPackage()
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(installing)
+        }
     }
 
     private func refresh() {
