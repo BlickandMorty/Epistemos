@@ -103,3 +103,21 @@ the deferred stuff CODED, not deferred. And commit before editing so it can be s
   (the cache IS the safety; on-device visual confirm is a nice-to-have, not a blocker). SS-2S full inline-image render →
   research the offset-safe async-attachment approach + code (the chip was the interim). SS-HW main-chat auto-link →
   owner-preference, keep explicit-target-only default + proceed.
+
+---
+
+## HIDDEN-RULE GAP: capability SURFACE-PARITY scan (owner 2026-06-20 — "our checks have NOT been working")
+Owner flagged a real miss: the ~50 chat tools + cowork are fully built but invisible on the landing SEARCH page (SS-VIS).
+Nothing was broken — a capability lived in ONE surface (chat) and was hidden from another where the user expects it. The
+muddiness gate's "dead-flag/orphan" scan did NOT catch this because the feature isn't dead — it's *present-but-not-surfaced*.
+ADD a scan dimension:
+- **Capability surface-parity:** for each user-facing capability (tool picker, cowork, model picker, recall, TTS, etc.),
+  list the surfaces where a user could reasonably invoke it (chat, landing/search, mini-chat, graph tunnel, editors) and
+  check it's REACHABLE from each appropriate surface — not just the one it was first built in. A capability mounted in only
+  one surface when it belongs in several = a HIDDEN-RULE violation (muddy + hidden), even though no code is dead.
+- **Detection heuristic:** when a picker/panel/launcher component exists, grep which views mount it; if a peer surface that
+  should expose it doesn't (e.g. `AgentToolTogglePanel` in ChatInputBar but not LandingView), flag it. Reuse the SAME
+  component across surfaces (one source of truth) — never clone a second list.
+- **Why the prior checks missed it:** they scanned for *orphans* (nothing mounts X) and *dupes* (two X's), not *asymmetry*
+  (X mounted in surface A but not peer surface B). Surface-parity is now an explicit gate item. First application = SS-VIS
+  (mount AgentToolTogglePanel + cowork on landing search + sweep mini-chat/graph/editor surfaces).

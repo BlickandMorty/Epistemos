@@ -4183,3 +4183,17 @@ native; AGPL server). ADOPT 2 patterns natively:
       SS-TC→UN-DEFERRED (SS-THX cache landed = the safety); SS-2S full inline-image render→research offset-safe attachment +
       code; SS-HW main-chat auto-link→owner-preference (default explicit-target-only, proceed). EXCEPTIONS that may wait: genuine
       owner-preference choices + items gated on an external fact (e.g. API key) — everything else is research-to-safety + code.
+- [ ] **SURFACE ALL CHAT CAPABILITIES (tools + cowork) ON THE SEARCH PAGE + everywhere (owner 2026-06-20).** *"I want the
+      tools and cowork stuff — all things attached to the chat — VISIBLE on the search page, so a user can start off using a
+      tool. Also they are not working. The ~50 tools should be there (maybe in a popover still) + the cowork stuff —
+      literally ALL capable chat stuff should be not only in chat but on the search page and all places it should be. This
+      falls under the HIDDEN RULE where things are muddy and hidden — meaning our checks have NOT been working. This is a
+      huge thing."* RESEARCHED (Explore, file:line) → `docs/research/SS-VIS_CHAT_CAPABILITIES_ON_SEARCH_2026_06_20.md`.
+      GROUND TRUTH: nothing broken — the picker is ONLY mounted in chat. Single source of truth = `AgentCommandCenterState.availableTools`
+      (← ToolTierBridge ← Rust registry.rs, ~50 tools / 33 MAS); one reusable picker = `AgentToolTogglePanel` (tools+MCP+cowork+skills);
+      LandingView already injects `agentCommandCenter` (:87, used for Farm :430) but never mounts the picker. FIX (safe-additive,
+      one registry/one picker): mount `AgentToolTogglePanel` on the landing search (landingSearchExpandedToolRow :1086 /
+      landingSearchStageTools :943) + a start-with-a-tool handoff into the existing `submitLandingSearch()` (:1890); cowork via
+      `CoworkChatMode`/`CoworkPanel` reuse; sweep mini-chat/graph/editor surfaces. VERIFY tools actually execute from search
+      (catalog non-empty per tier). HIDDEN-RULE GAP recorded in SS-CLEAN: added a CAPABILITY SURFACE-PARITY scan (prior checks
+      caught orphans/dupes but NOT asymmetry = built in one surface, hidden from a peer). [S→M].
