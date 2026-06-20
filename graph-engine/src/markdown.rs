@@ -44,6 +44,12 @@ pub enum StyleKind {
     BlockReference = 24,
     BlockReferenceBrackets = 25,
     DisplayMath = 26,
+    // SS-2S (owner 2026-06-20): markdown images `![alt](src)`. Previously there was no
+    // image arm, so md images were silently DROPPED from the Prose/TextKit2 surface (they
+    // only rendered in Epdoc) — the confusing asymmetry the owner flagged. Emitting the
+    // span lets Swift (MarkdownContentStorage) render it as an inline attachment; until that
+    // lands the span is simply an unmapped StyleKind Swift ignores, so this is additive.
+    Image = 27,
 }
 
 /// A styled range returned to Swift via FFI.
@@ -147,6 +153,18 @@ fn parse_markdown(text: &str) -> Vec<StyleSpan> {
                                 style: StyleKind::MarkdownLink as u8,
                                 depth: 0,
                                 group: 1, // text content
+                                _pad: 0,
+                            });
+                        }
+                        TagEnd::Image => {
+                            // SS-2S: full image span ![alt](src) — emitted so the Prose
+                            // surface can render it as an inline attachment (was dropped).
+                            spans.push(StyleSpan {
+                                start: start as u32,
+                                end: end as u32,
+                                style: StyleKind::Image as u8,
+                                depth: 0,
+                                group: 0,
                                 _pad: 0,
                             });
                         }
@@ -1182,6 +1200,19 @@ mod tests {
         let captured = &text[display[0].start as usize..display[0].end as usize];
         assert!(captured.starts_with("$$"));
         assert!(captured.ends_with("$$"));
+    }
+
+    #[test]
+    fn image_emits_image_span() {
+        // SS-2S: `![alt](src)` now yields an Image span (was dropped → md images were
+        // invisible in the Prose/TextKit2 surface). The span covers the full image syntax.
+        let text = "see ![a cat](assets/cat.png) here";
+        let spans = parse(text);
+        let images: Vec<_> = spans_of_kind(&spans, StyleKind::Image);
+        assert_eq!(images.len(), 1);
+        let captured = &text[images[0].start as usize..images[0].end as usize];
+        assert!(captured.starts_with("!["));
+        assert!(captured.contains("assets/cat.png"));
     }
 
     #[test]
