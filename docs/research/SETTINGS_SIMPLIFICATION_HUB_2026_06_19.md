@@ -28,7 +28,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-K | VOICE-MODEL PICKER (owner 2026-06-19) — choose voice models in Settings + a chat-surface TTS picker that only fires on TTS; robust + minimal | ✅ done → SS-K_VOICE_MODEL_PICKER |
 | SS-L | OpenAI + Cursor skills/tools/superpowers + PROVIDER AGENTS on chat (owner 2026-06-19) — OpenAI skills, Cursor skills, and OpenAI/Google/Claude AGENTS available on the chat surfaces | ✅ done → SS-L_PROVIDER_AGENTS_OPENAI_CURSOR |
 | SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ✅ done → SS-M_OBSCURA_SCRAPER_PRIVACY |
-| SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ☐ |
+| SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ✅ done → SS-N_SENSITIVE_INFO_REDACTION |
 
 ## FINDINGS LOG (appended each pass)
 **SS-A CLONED-APP SETTINGS** → the machinery already ships (`SettingsDisclosureSection` = the literal 'Advanced' container; GateStatus+HealthRow triad; native absorbers ModelStack/Authority/Skills). Pattern = a reusable `EngineSettingsSection` (curated native simple front: model→stack, perms→Authority, skills→Skills, MCP→ONE consolidated panel) + a `… · Advanced` disclosure with the full surface. Per clone: auto-default the plumbing (ports/dirs/keys/sandbox), surface ~3-5 knobs simply, full settings under Advanced. **OpenClaw (33-section config) = reskin its config-form via CSS injection + keep it under `OpenClaw · Advanced` — never hide it (reverses S3).** Top move = consolidate MCP-install into one panel. Full: SS-A doc.
@@ -91,4 +91,13 @@ anti-fingerprinting (no UA spoof, no `WKContentRuleList`, no canvas/WebGL overri
 tracker-block + customUserAgent (MAS-safe, pure WebKit, no entitlement) [S]; agentic scraper = web_crawl frontier
 + LLM extract-to-schema head (grammar-bound) [M]; WebKitBrowserEngine for SPA pages (=SS-J's [M]) [M]; Obscura
 deno_core stealth engine Pro+sign-off [L].** Local-first; stubs honestly NotConfigured. Full: SS-M doc.
-(Slices SS-C/D/E/F/N still queued.)
+**SS-N SENSITIVE-INFO REDACTION** → mostly-new. Secret/credential redaction EXISTS (regex `PIIRedactor` scoped
+to FeedbackLogger; Rust `redact_credentials`; error-string redactors) + the NER primitives EXIST (NLTagger
+`.nameType`, NSDataDetector) but are wired to note-insight NOT redaction; NO PII model at the cloud-egress seam.
+**The owner's "OpenAI model" is REAL = OpenAI Privacy Filter (Apr 2026, Apache-2.0, gpt-oss-derived, on-device,
+8 PII categories) — BUT ONNX/safetensors only, no MLX/GGUF → not drop-in today.** Honest mapping: ship Apple
+NLTagger NER + NSDataDetector + Rust regex (MAS-safe, default-on, covers 6/8 categories) NOW; gate Privacy-Filter
+as Pro/Research pending an MLX/CoreML port. **Plan: shared `SensitiveInfoRedactor` + flagged pre-egress hook at
+`claude.rs:284` (+openai/gemini) [S]; wire existing NER in [S]; reversible tokenize→restore + settings toggles
+[M]; Privacy-Filter/local-LLM embed [L/Pro].** NEVER cloud-detect PII; witness with egress no-PII test. Full:
+SS-N doc. (Slices SS-C/D/E/F still queued.)
