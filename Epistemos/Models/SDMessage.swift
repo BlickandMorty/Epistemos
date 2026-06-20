@@ -311,10 +311,10 @@ extension SDMessage {
     /// preview path (ChatTypes.swift), so the per-call allocation was pure, repeated
     /// waste. Both use the DEFAULT configuration (no date/data strategy) — identical to
     /// the previous inline instances — so encode/decode output stays byte-for-byte
-    /// unchanged. Safe to share: JSONDecoder/JSONEncoder support concurrent use when never
-    /// mutated, and these are only ever read (and here, only from @MainActor accessors).
-    /// Matches the established static-coder pattern in the codebase (RustShadowFFIClient,
-    /// ReadableBlocksIndex).
-    nonisolated(unsafe) static let sharedDecoder = JSONDecoder()
-    nonisolated(unsafe) static let sharedEncoder = JSONEncoder()
+    /// unchanged. JSONDecoder/JSONEncoder are Sendable in this SDK, so plain `nonisolated`
+    /// shared statics are concurrency-safe (no `unsafe` needed) — and they're only ever
+    /// read here, from @MainActor accessors. Matches the established static-coder pattern
+    /// in the codebase (RustShadowFFIClient, ReadableBlocksIndex).
+    nonisolated static let sharedDecoder = JSONDecoder()
+    nonisolated static let sharedEncoder = JSONEncoder()
 }
