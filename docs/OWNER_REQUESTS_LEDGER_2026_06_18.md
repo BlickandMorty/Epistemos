@@ -3865,3 +3865,25 @@ native; AGPL server). ADOPT 2 patterns natively:
       DoRA-on-quantized kept-separate; algo priority SFT/LoRA→DoRA→DPO→ORPO/GRPO→QAT; mlx-lm-lora Apache-2.0 =
       loss-logic source). Animation repair = HIGH-PRIORITY repair (bump up). Cross-ref SS-LS (apply-gap, the
       substrate this builds on), SS-AB. Added to TOP-UNCODED.
+- [ ] **DUAL-BRAIN PARALLEL-WORK COORDINATION + COHESIVE ANIMATION POLISH + AUTO-CHECK + AUTO-BUILD (owner 2026-06-20).**
+      Verbatim (core): *"I'm working on the dual brain architecture… I wanna know if I'm able to work on that while
+      the agent is working its loop or should I just leave it alone? This is stuff I'll work on in cursor… make sure
+      it doesn't interact or overlap with the agent's loop… also it can def do blur replace and the apple blur
+      animations so try to find other places that have ugly or glitchy animations or transitions and polish it up
+      deeply, also research to make it all feel cohesive… make sure your research is added to the ledgers/docs, make
+      sure nothing slipped or is lost — auto check for that so I don't have to remind — also auto build the app if u
+      can periodically."*
+      **Resolution:** (1) DUAL-BRAIN is the OWNER's Cursor domain (M0 = `falsify_interrupt_moves_loss` w/ vanilla-SSM;
+      research durably saved in `docs/fusion/{RESEARCH_INTENT_AND_QUERY_LOG,RESEARCH_LOOP_LEDGER,ARCHITECTURE_READOUT}
+      _2026_06_20.md` — verified COMMITTED + clean, §8 present). The build-loop must NEVER touch the dual-brain files
+      (`research/*.rs` mamba3/attention_sinks/interrupt_*/engram, `signal_bus.rs`, `answer_packet.rs`,
+      `epistemos-research/*`, `active_assembly/*`, anything M0/M1/bus) — SCOPE BOUNDARY added to the monitor steer.
+      Owner works dual-brain in a SEPARATE GIT WORKTREE (`../Epistemos-dualbrain`, branch `dual-brain`) so the loop's
+      `git add -A`+commit+push on main can't sweep up in-progress M0 code; integrate later when the loop is paused
+      (cherry-pick/merge; M0 is mostly NEW files = low conflict). Logical overlap is LOW (different regions); the only
+      hazard was the shared checkout. (2) COHESIVE ANIMATION POLISH (extends SS-AN) — after SS-AN core, the loop
+      sweeps the app for OTHER ugly/glitchy animations + transitions and applies the Apple blur-replace pattern app-
+      wide for cohesion; research-backed. (3) AUTO-CHECK research-in-docs — baked into the monitor (each fire verify
+      ledger/slices/fusion docs committed + 0 ledger deletions + no important uncommitted docs at risk). (4) AUTO-
+      BUILD — periodic full app build when the loop is idle so a FRESH RUNNABLE .app exists (the owner's running app
+      was stale Jun-18); idle-gated to avoid build contention; ~15G DerivedData (fixed, overwrites, not accumulating).
