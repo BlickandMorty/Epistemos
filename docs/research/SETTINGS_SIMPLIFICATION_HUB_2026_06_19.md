@@ -25,7 +25,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ✅ done → SS-H_CROSS_ENGINE_TOOL_SKILL_SHARING |
 | SS-I | EXTERNAL SKILL ECOSYSTEMS — Anthropic/Vercel/Google | ✅ done → SS-I_EXTERNAL_SKILL_ECOSYSTEMS |
 | SS-J | BROWSER-USE in ALL surfaces (owner 2026-06-19) — the actual github browser-use available across Act/Work/Osaurus + chat; make the app useful in those locations | ✅ done → SS-J_BROWSER_USE_EVERYWHERE |
-| SS-K | VOICE-MODEL PICKER (owner 2026-06-19) — choose voice models in Settings + a chat-surface TTS picker that only fires on TTS; robust + minimal | ☐ |
+| SS-K | VOICE-MODEL PICKER (owner 2026-06-19) — choose voice models in Settings + a chat-surface TTS picker that only fires on TTS; robust + minimal | ✅ done → SS-K_VOICE_MODEL_PICKER |
 | SS-L | OpenAI + Cursor skills/tools/superpowers + PROVIDER AGENTS on chat (owner 2026-06-19) — OpenAI skills, Cursor skills, and OpenAI/Google/Claude AGENTS available on the chat surfaces | ✅ done → SS-L_PROVIDER_AGENTS_OPENAI_CURSOR |
 | SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ☐ |
 | SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ☐ |
@@ -72,4 +72,14 @@ path. One tool registers once (`registry.rs:2672`), reaches all engines via the 
 **Plan: surface existing browser.* to Chat [S]; build WebKitBrowserEngine + re-route off the CLI + add to
 coreAppStoreAllowedToolNames [M]; widen DeviceActionType DSL [M]; Obscura Pro adapter [L].** Lift browser-use
 v0.13's ClickableElementDetector clean-room (MIT); Playwright/Chromium subprocess is the un-portable part.
-Full: SS-J doc. (Slices SS-C/D/E/F/K/M/N still queued.)
+Full: SS-J doc.
+**SS-K VOICE-MODEL PICKER** → MOSTLY EXISTS: real Apple-native TTS stack + per-model voice picker grouped by
+quality tier (`ModelVoicePickerSection`) + Settings home (Cognitive) + chat speaker button (`ReadAloudButton`
+on `MessageBubble:407`) + Pro-gated `say` agent tool. **The owner's "plain/low-def voice" = a ~2-line fallback
+bug:** `preferredVoice()` (`EpistemosSpeechSynthesizer.swift:227`) falls to the macOS-26-regressing
+`AVSpeechSynthesisVoice(language:)` path (returns Compact even when premium installed); AND `MessageBubble`
+passes no `voiceIdentifier` so chat read-aloud always hits that fallback. **Fix (all [S]): scan speechVoices()
+for highest-quality match instead of `(language:)`; pass a voiceIdentifier from a new global @AppStorage default;
+add a "Voice…" submenu to the speaker button's context menu (the contextual chat picker, zero new chrome).**
+Higher-def: Apple premium/enhanced (local, MAS-safe, the right default) → Personal Voice [L]; NO cloud/neural
+TTS now (local-first). Full: SS-K doc. (Slices SS-C/D/E/F/M/N still queued.)
