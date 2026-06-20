@@ -85,4 +85,22 @@ struct SubstrateHealthClockTests {
         #expect(row.contains("@Environment(SubstrateHealthClock.self)"))
         #expect(row.contains("_ = healthClock?.tick"))
     }
+
+    @Test("the 3 timer-bearing rows outside the collapse are NOT SubstrateHealthPanel rows")
+    func nonCollapsedTimerRowsAreNotPanelRows() throws {
+        let panel = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/SubstrateHealthPanel.swift"
+        )
+        // A grep of startTimer/Task.sleep still matches 3 *HealthRow files, but none is
+        // a panel row, so the collapse is genuinely complete for every mounted row:
+        //  - CognitiveDagHealthRow + HyperdynamicLoopHealthRow: dead orphans (0 mounts).
+        //    (Distinct from the migrated CognitiveDagCountsHealthRow, which IS in the panel.)
+        //  - BackgroundIndexingHealthRow: a separate live row in SettingsView, own cadence.
+        // None may silently re-enter the panel's shared-clock contention set.
+        #expect(!panel.contains("CognitiveDagHealthRow()"))
+        #expect(!panel.contains("HyperdynamicLoopHealthRow()"))
+        #expect(!panel.contains("BackgroundIndexingHealthRow()"))
+        // Sanity: the migrated counts row IS still mounted (we didn't break the panel).
+        #expect(panel.contains("CognitiveDagCountsHealthRow()"))
+    }
 }
