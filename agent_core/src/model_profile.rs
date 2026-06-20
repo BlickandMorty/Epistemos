@@ -282,6 +282,67 @@ pub const CANON: &[ModelCapabilityProfile] = &[
         picker_use_case: "Enterprise-clean tool/RAG model",
         advertised: false,
     },
+    // SS-AB/SS-Z all-models coverage (owner 2026-06-20): the remaining shipped
+    // LocalTextModelID families that previously fell through to DEFAULT_PROFILE
+    // ("unknown"). MLX-lane, so PromptDialect::None (the MLX tokenizer template is
+    // used, not a llama-cli override) — except QwQ which is genuinely ChatML.
+    // Context windows are the models' advertised native windows (the 16 GB KV
+    // budget cap is applied at runtime by gguf_runtime_ctx, not stored here).
+    ModelCapabilityProfile {
+        id: "llama-3-instruct",
+        display_name: "Llama 3.2 Instruct",
+        context_window: 128_000,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Meta Llama 3 · 128K general chat",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "llama-4-scout",
+        display_name: "Llama 4 Scout 17B-16E",
+        context_window: 10_000_000,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Llama 4 Scout · 10M context MoE",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "mistral-small",
+        display_name: "Mistral Small 3.1 24B",
+        context_window: 128_000,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Mistral Small · 128K, vision",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "devstral-coder",
+        display_name: "Devstral Small",
+        context_window: 128_000,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Code,
+        picker_use_case: "Mistral Devstral · 128K coding agent",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "qwq-reasoning",
+        display_name: "QwQ 32B",
+        context_window: 32_768,
+        max_output_tokens: 8192,
+        prompt_dialect: PromptDialect::Chatml,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Think,
+        picker_use_case: "Qwen QwQ · 32K deep reasoning",
+        advertised: false,
+    },
 ];
 
 /// A conservative default for an id that matches no canonical family — honest
@@ -448,6 +509,25 @@ pub fn profile_for(model_id: &str) -> ModelCapabilityProfile {
     }
     if id.contains("granite") {
         return *find("granite-4-nano-1b");
+    }
+    // SS-AB/SS-Z all-models coverage. These families all fall through the blocks
+    // above (none overlap them), so order among themselves only needs to put a
+    // specialist identity before a generic one — `devstral` before `mistral`
+    // (Devstral is Mistral-based) and the Llama-4 Scout branch inside `llama`.
+    if id.contains("qwq") {
+        return *find("qwq-reasoning");
+    }
+    if id.contains("devstral") {
+        return *find("devstral-coder");
+    }
+    if id.contains("mistral") {
+        return *find("mistral-small");
+    }
+    if id.contains("llama") {
+        if id.contains("scout") || id.contains("llama-4") || id.contains("llama4") {
+            return *find("llama-4-scout");
+        }
+        return *find("llama-3-instruct");
     }
     DEFAULT_PROFILE
 }
@@ -802,5 +882,46 @@ mod tests {
         assert_eq!(profile_for("qwen3-4b").prompt_dialect, PromptDialect::Chatml);
         assert_eq!(profile_for("phi-4-mini").prompt_dialect, PromptDialect::Phi);
         assert_eq!(profile_for("granite-4-nano").prompt_dialect, PromptDialect::Granite);
+    }
+
+    #[test]
+    fn ss_ab_coverage_resolves_the_newly_added_local_families() {
+        // SS-AB/SS-Z all-models coverage (owner 2026-06-20): these shipped
+        // LocalTextModelID ids previously fell through to DEFAULT_PROFILE
+        // ("unknown") — now each resolves to a real hardened profile with the right
+        // tier + a sane (non-default) context window. Ids are the actual
+        // LocalTextModelID rawValues from InferenceState.swift.
+        let llama3 = profile_for("mlx-community/Llama-3.2-3B-Instruct-4bit");
+        assert_eq!(llama3.id, "llama-3-instruct");
+        assert_eq!(llama3.tier, CapabilityTier::Fast);
+        assert_eq!(llama3.context_window, 128_000);
+
+        let scout = profile_for("mlx-community/meta-llama-Llama-4-Scout-17B-16E-4bit");
+        assert_eq!(scout.id, "llama-4-scout");
+        assert!(scout.context_window >= 1_000_000); // 10M MoE, distinct from Llama 3
+
+        let mistral = profile_for("mlx-community/Mistral-Small-3.1-24B-Instruct-2503-4bit");
+        assert_eq!(mistral.id, "mistral-small");
+        assert_eq!(mistral.context_window, 128_000);
+
+        let devstral = profile_for("mlx-community/Devstral-Small-2505-4bit");
+        assert_eq!(devstral.id, "devstral-coder");
+        assert_eq!(devstral.tier, CapabilityTier::Code);
+
+        let qwq = profile_for("mlx-community/QwQ-32B-4bit");
+        assert_eq!(qwq.id, "qwq-reasoning");
+        assert_eq!(qwq.tier, CapabilityTier::Think);
+        assert_eq!(qwq.prompt_dialect, PromptDialect::Chatml); // genuinely Qwen/ChatML
+
+        // None of these is the generic unknown fallback anymore.
+        for id in [
+            "mlx-community/Llama-3.2-3B-Instruct-4bit",
+            "mlx-community/meta-llama-Llama-4-Scout-17B-16E-4bit",
+            "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-4bit",
+            "mlx-community/Devstral-Small-2505-4bit",
+            "mlx-community/QwQ-32B-4bit",
+        ] {
+            assert_ne!(profile_for(id).id, "unknown", "{id} still resolves to unknown");
+        }
     }
 }
