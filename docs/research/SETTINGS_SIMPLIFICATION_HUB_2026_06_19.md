@@ -19,7 +19,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 |---|---|---|
 | SS-A | Cloned-app setup/settings simplification + robustness + integration | ✅ done → SS-A_CLONED_APP_SETTINGS_SIMPLIFY |
 | SS-B | Epistemos's OWN settings — simplify the sprawl | ✅ done → SS-B_APP_SETTINGS_SIMPLIFY |
-| SS-C | SETUP / ONBOARDING flow — first-run + per-feature auto-config for everything added (models/engines/MCP/voice/logos): the "it just works" path | ☐ |
+| SS-C | SETUP / ONBOARDING flow — first-run + per-feature auto-config for everything added (models/engines/MCP/voice/logos): the "it just works" path | ✅ done → SS-C_ONBOARDING_SETUP |
 | SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ☐ |
 | SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
 | SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ✅ done → SS-F_SETTINGS_ROBUSTNESS |
@@ -232,3 +232,12 @@ the dep)** = guaranteed-valid tool calls (mandatory for Gemma = no native dialec
 `pickerUseCase` shown on the picker (best advertised, all installable, no-fake). Plan: chatTemplate+stop+ctx [S];
 bundled JSON + descriptions [S]; llguidance both lanes + dialect auto-detect [M]; surface pickerUseCase + profiles
 [M]; unify tiers/skills [M]; collapse universes [L]; tests-at-end (no-empty-template falsifier). Full: SS-AB doc.
+**SS-C ONBOARDING/SETUP** → a 4-step wizard EXISTS (`SetupAssistantView` welcome→vault→model→cloud→done, honest+
+persistent) but TWO gaps: (1) the #1 blocker — **local-model install — is OFF-FLOW**: the model step punts to
+"Open Settings → Inference" (`:202`) instead of installing; (2) the default-vault auto-config
+(`FirstRunBootstrap.defaultVaultURL → ~/Documents/Epistemos` + scaffold, `:58-133`) is **DEAD CODE, zero
+callers** — the wizard always asks via NSOpenPanel. Plus no reusable "feature ready/needs-setup/one-tap-enable"
+card (closest = `CloudProviderSetupCard`); two overlapping welcome surfaces (SS-B). **Fix: wire defaultVaultURL
+as a "Use Default Vault" button [S]; replace the model-step punt with an in-wizard "Install Recommended AI"
+calling the existing `installEpistemosFoundationPackage()` (RAM-tiered, SS-AB) [S]; extract a reusable
+FeatureSetupCard [M]; lazy point-of-use permissions [L].** Setup state persists honestly (SS-F). Full: SS-C doc.
