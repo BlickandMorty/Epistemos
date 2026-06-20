@@ -34,7 +34,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-O | EPDOC REPAIR (owner 2026-06-19) — root-cause the glitchy/demo-ish WKWebView/Tiptap Epdoc editor (autosave/JS-bridge/render race) + harden + bring Notion/Tolaria-style rich UI/UX; NEVER touch TK2/Prose | ✅ done → SS-O_EPDOC_REPAIR |
 | SS-P | v2 WEBKIT MD EDITOR (owner 2026-06-19) — optional SECOND md editor cloned from Tolaria on WebKit, pixel-art minimal + macOS-26 style + fonts; standalone or fused with Epdoc; never touch TK2/Prose | ☐ |
 | SS-Q | VOICE CLONING + BITCRUSH DSP (owner 2026-06-19) — Apple Personal Voice cloning (macOS-26 viability) + a bitcrush AVAudioEngine effect over any voice + custom branded system voice; premium-default | ✅ done → SS-Q_VOICE_CLONING_BITCRUSH |
-| SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ☐ |
+| SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ✅ done → SS-R_MORE_LOCAL_MODELS |
 | SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ☐ |
 | SS-T | PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19) — PDFKit live viewer + QuickLook + sweep VisionKit/Translation/PencilKit/AppIntents/etc., integrate the high-value MAS-safe ones | ✅ done → SS-T_PDF_VIEWER_APPLE_NATIVE |
 | SS-U | DARK/LIGHT MODE CRASH (owner 2026-06-19) — root-cause the appearance-switch crash (WKWebView colorScheme re-render/teardown race, theme CSS re-inject, force-unwraps) + harden the crashing surfaces | ✅ done → SS-U_DARK_LIGHT_MODE_CRASH |
@@ -204,3 +204,11 @@ instead of reverting to chatml). **CRITICAL: Gemma — the model the GGUF lane a
 dialect → constrained decoding is MANDATORY for it.** Plan: chatTemplate required+resolved + `--chat-template-file`
 + per-model stop [S]; bundled ModelCapabilityProfile JSON [S]; template-driven dialect auto-detect [M]; GGUF
 constrained-decoding v1 [M]; unify on llguidance [L]. Full: SS-AA doc.
+**SS-R MORE LOCAL MODELS** → honest shortlist for 16GB Apple Silicon. **Cleanest adds (Apache-2.0 + MLX
+in-process):** Qwen3 (0.6/1.7/4B, think-toggle+tools), SmolLM3-3B (hybrid reasoning+native tools), SmolLM2-360M
+(ultra-Fast), Gemma 4 E2B/E4B QAT (already in catalog, "Gemma 4" is REAL not an alias), Granite 4 Nano; Phi-4-mini
++ R1-Distill-1.5B are MIT. **LFM2/2.5 now has MLX (BOTH lanes) — license catch: free commercial only ≤$10M
+revenue (flag legal); tool-dialect = pythonic.** **Bonsai + BitNet are HONESTLY research/Pro-only** (Bonsai
+base-only+16-bit, Ternary-Bonsai GGUF fails to load "ggml type 41", BitNet needs the separate bitnet.cpp fork) —
+never on the Fast/Think happy path. VibeThinker-1.5B (owner pick, top tiny math reasoning) KEEP but verify
+license. Each maps to SS-AA ModelCapabilityProfile (ctx/template/toolDialect). Full: SS-R doc.
