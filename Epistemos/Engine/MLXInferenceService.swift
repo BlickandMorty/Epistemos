@@ -1457,6 +1457,9 @@ actor MLXInferenceService: LocalMLXRuntime {
     private var metalRuntimeManager: MetalRuntimeManager?
     private(set) var container: ModelContainer?
     private var loadedModelID: String?
+    /// Directory of the currently-loaded model (set on load). SS-Y slice 5c reads
+    /// `<dir>/tokenizer.json` + `config.json` to build the grammar masking matcher.
+    private(set) var loadedModelDirectory: URL?
     private var scheduledUnloadTask: Task<Void, Never>?
     private var lastRunProfile: LocalMLXRunProfile?
     private var runtimeConditions: LocalRuntimeConditions
@@ -1891,6 +1894,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         cancelScheduledUnload()
         container = nil
         loadedModelID = nil
+        loadedModelDirectory = nil
         persistentSSMSession = nil
         persistentSSMModelID = nil
         persistentSSMSessionID = nil
@@ -2008,6 +2012,7 @@ actor MLXInferenceService: LocalMLXRuntime {
             throw LocalInferenceRoutingError.modelLoadStalled(modelID: request.modelID)
         }
         loadedModelID = request.modelID
+        loadedModelDirectory = request.modelDirectory
         self.container = container
         await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
         return (container, true, start.duration(to: ContinuousClock.now).millisecondsValue)
