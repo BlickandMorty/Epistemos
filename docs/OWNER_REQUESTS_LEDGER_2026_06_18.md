@@ -3974,3 +3974,33 @@ native; AGPL server). ADOPT 2 patterns natively:
       `AppCustomThemeColorSlot`, default unset→inherit `text` (noteSurface pattern), wire in `resolved`; the theme-
       editor grid is `allCases`-driven so new pickers appear automatically; MessageBubble already reads the token. [S]
       All NON-INVASIVE (TK2/Prose + Metal untouched), MAS-safe. Added to TOP-UNCODED.
+- [ ] **THEME-SWITCH HANG + INITIATIVE BIG-WINS + QUICK-CAPTURE UPGRADE + TTS READ-BACK (owner 2026-06-20).** Verbatim:
+      *"theme switching is still lacking, it hangs sometimes, the colors never change because of the theme process when
+      turning dark to light and vice versa. any part of the app in terms of IP — the already-working parts and the
+      parts I am and will research and code — should have proper research; this is your initiative role/control:
+      research deliberately all the parts you think deserve research that I skipped over, plus the ones I mentioned.
+      multiple recursive research cycles on big wins / obvious wins — literally things any sane person would obviously
+      know needs a total revamp, upgrades, hardening, UI/UX upgrades, optimization, performance. /loop 2m. also the
+      quick capture — I like that it prioritizes the prose editor but I want more options, presets on what it should go
+      to / what it should be used for, still minimal but more robust; it was an afterthought and needs a deep upgrade.
+      also add the model text-to-speech as well, so when you type something have it read back to you automatically or
+      manually."* RESEARCHED (3 slices):
+      • `SS-THX_THEME_SWITCH_HANG_2026_06_20.md` — HANG root = `AppCustomTheme.resolved` is UNCACHED (~15-20 UserDefaults
+      reads per token-deref × whole-tree invalidation on toggle = thousands of sync reads on MainActor); NO-UPDATE root =
+      HTMLWorkspace reads `@Environment(\.colorScheme)` not `ui.theme`. FIX: cache the custom-theme resolve (one per
+      `appearanceSyncKey`), fix the workspace dependency, push-not-reload preview palette, defer toggle work. ⚠ SS-TC
+      (granular colors) ADDS to the uncached path → do the caching WITH/BEFORE SS-TC. HIGH priority (it's a hang). [S]
+      • `SS-QC_QUICK_CAPTURE_PRESETS_TTS_2026_06_20.md` — (C) quick-capture is hardcoded to a Prose SDPage
+      (`TextCapturePipeline.persistNote`); add destination PRESETS via a `destination:` param (default proseNote =
+      backward-compat) + a minimal preset Menu; destinations exist (note/Epdoc/chat/code via ArtifactKind+MiniChat).
+      (D) TTS read-back: ONLY AVSpeechSynthesizer today (NO neural/MLX/Kokoro TTS — "model voice" = AVSpeech persona;
+      neural TTS = separate SS-Q item); reuse `ReadAloudButton` (manual) + a `quickCaptureReadBack` pref + debounced
+      auto-speak-on-type (`agentResponseTTS==.auto` is defined-but-unconsumed → new wiring). [S]
+      • `SS-BWB_BIG_WIN_BACKLOG_2026_06_20.md` — the INITIATIVE backlog (13 genuinely-new big-win candidates, prioritized):
+      #1 Settings monolith (5128 lines + shipped "(legacy)"/"Experimental"), #2 accessibility+Dynamic-Type (51/259 views,
+      1208 hardcoded font sizes), #3 ⌘K command palette + shortcuts, #4 vault export/backup (none exists), #5 unified
+      search surface (zero `.searchable`), #6 standardized error/empty/loading states, #7 chat error/retry UX, #8 model
+      picker/status discoverability, #9 first-run time-to-value, #10 notify-on-complete, #11 ChatInputBar(2317) decompose,
+      #12 notes-editor sprawl (3 prose editors), #13 MiniChat(2721) divergence. Loop pulls from this AFTER the quick wins;
+      research each into its own SS-* slice when picked up. All NON-INVASIVE, off the two owner scope-boundary domains.
+      Added to TOP-UNCODED + the standing initiative.
