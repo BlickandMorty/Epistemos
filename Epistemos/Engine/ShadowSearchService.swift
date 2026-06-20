@@ -49,6 +49,14 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
         /// flips the surface back to operational without app restart.
         public let lastInitFailureClass: String?
         public let lastInitFailureAt: Date?
+        /// SS-IR install preconditions (recorded by AppBootstrap at shadow-backend init), so
+        /// "why is Instant Recall empty?" is answerable without Console: is a vault active, did
+        /// the Rust FFI open + the search service install, and how many documents are indexed.
+        /// `serviceInstalled == false` is the #1 cause of "I don't see recall" (no vault / FFI
+        /// open failed → no search service → no chrome).
+        public let vaultPresent: Bool
+        public let serviceInstalled: Bool
+        public let indexedDocumentCount: Int?
 
         public var isDegraded: Bool {
             if lastInitFailureAt != nil, lastInitFailureClass != nil {
@@ -76,7 +84,10 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
             lastFailureAt: nil,
             lastFailureClass: nil,
             lastInitFailureClass: nil,
-            lastInitFailureAt: nil
+            lastInitFailureAt: nil,
+            vaultPresent: false,
+            serviceInstalled: false,
+            indexedDocumentCount: nil
         )
     }
 
@@ -109,7 +120,10 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
             lastFailureAt: current.lastFailureAt,
             lastFailureClass: nil,
             lastInitFailureClass: current.lastInitFailureClass,
-            lastInitFailureAt: current.lastInitFailureAt
+            lastInitFailureAt: current.lastInitFailureAt,
+            vaultPresent: current.vaultPresent,
+            serviceInstalled: current.serviceInstalled,
+            indexedDocumentCount: current.indexedDocumentCount
         )
         current = next
         lock.unlock()
@@ -129,7 +143,10 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
             lastFailureAt: Date(),
             lastFailureClass: failureClass.rawValue,
             lastInitFailureClass: current.lastInitFailureClass,
-            lastInitFailureAt: current.lastInitFailureAt
+            lastInitFailureAt: current.lastInitFailureAt,
+            vaultPresent: current.vaultPresent,
+            serviceInstalled: current.serviceInstalled,
+            indexedDocumentCount: current.indexedDocumentCount
         )
         current = next
         lock.unlock()
@@ -153,7 +170,36 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
             lastFailureAt: current.lastFailureAt,
             lastFailureClass: current.lastFailureClass,
             lastInitFailureClass: failureClass.rawValue,
-            lastInitFailureAt: Date()
+            lastInitFailureAt: Date(),
+            vaultPresent: current.vaultPresent,
+            serviceInstalled: current.serviceInstalled,
+            indexedDocumentCount: current.indexedDocumentCount
+        )
+        current = next
+        lock.unlock()
+        postChange()
+    }
+
+    /// SS-IR (owner 2026-06-20): record the shadow-backend install preconditions the owner needs
+    /// to answer "I don't see Instant Recall — is it working?". Called by AppBootstrap after the
+    /// active-vault check + Rust FFI open + search-service install. Preserves all telemetry fields.
+    public func recordInstall(vaultPresent: Bool, serviceInstalled: Bool, indexedDocumentCount: Int?) {
+        lock.lock()
+        let next = Snapshot(
+            totalSearches: current.totalSearches,
+            totalFailures: current.totalFailures,
+            consecutiveFailures: current.consecutiveFailures,
+            lastDomain: current.lastDomain,
+            lastHitCount: current.lastHitCount,
+            lastLatencyMs: current.lastLatencyMs,
+            lastSuccessAt: current.lastSuccessAt,
+            lastFailureAt: current.lastFailureAt,
+            lastFailureClass: current.lastFailureClass,
+            lastInitFailureClass: current.lastInitFailureClass,
+            lastInitFailureAt: current.lastInitFailureAt,
+            vaultPresent: vaultPresent,
+            serviceInstalled: serviceInstalled,
+            indexedDocumentCount: indexedDocumentCount
         )
         current = next
         lock.unlock()
