@@ -3942,3 +3942,35 @@ native; AGPL server). ADOPT 2 patterns natively:
       explicit option); (d) `GraphBuilder` project Epdoc/HTML as clickable `.document` nodes (the bigger piece — why
       they feel absent). Constraints honored: TK2/Prose NON-INVASIVE (untouched), Metal engine untouched, no vault
       mutation, reuse-not-duplicate. Added to TOP-UNCODED.
+- [ ] **GRAPH CHROME + HTML-WORKSPACE + GRANULAR THEME COLORS (owner 2026-06-20).** Verbatim: *"deep research on
+      ways to optimize performance + quality with the home graph tunnel… the code editor is good but it has a top
+      portion that is not the theme so there is a white bar at the top on the graph when I open the code editor. also
+      there is the pill that has the settings the greeting and the recent chats that is always there — I only want it
+      to exist on the landing page, so once I open graph I want the pill at the top to disappear as well as the other
+      surfaces… the html workspace does not work as well but idk if its marked as such, and don't forget the upgrades
+      I wanted on html workspace with DOM, the chat, etc., all the best things you'd want on html/js/css/python
+      preview, and being able to create a full web app through the built-in pipeline using html workspace. also one
+      part of the custom themes is that there is not a proper section for text color — text color of the body font and
+      the user bubbles only changes the user bubble; on dark mode if I turn text to white it's white on the text
+      editor but the user bubble in chat is also white. I want to change that color too — make it more granular: a few
+      more accessory colors and accents and surfaces I can control. it's working perfectly, just that one thing should
+      have granular color selections."* RESEARCHED (3 code-grounded slices):
+      • `SS-GC_GRAPH_CHROME_WHITEBAR_PILL_2026_06_20.md` — (B) code-editor WHITE BAR = `codeEditorTopBar` uses
+      presentation-blind `surfaceVariant(.other)` (card≈white) while the embedded surround is the landing background;
+      fix = thread themeOverride into `CodeEditorView` + use the landing/background token at `CodeEditorView.swift:2167`
+      (or hide bar for `.embeddedGraph`). (C) LANDING-ONLY PILL = `rootToolbarControls` ControlGroup (`RootView.swift
+      :448-471`); bug = gated on `showEmbeddedGraphToolbarControls` so it stays on graph (SS-AN only blurs it on
+      canvas); fix = gate on `showLandingToolbarControls` ONLY. (A) tunnel perf notes. [S]
+      • `SS-HW_HTML_WORKSPACE_STATUS_UPGRADE_2026_06_20.md` — HONEST STATUS: renders but is a one-way static renderer
+      with DEAD seams (empty app-bridge `HTMLWorkspacePreviewView.swift:145-149`, console can never show errors, static
+      not-live DOM, no Python, CSP blocks upgrades) AND it is NOT marked broken (no `HTMLWorkspaceGateStatus` despite
+      the project convention). A real agent/chat PATCH pipeline already exists+wired. UPGRADE: Step0 honest GateStatus;
+      Step1 real console/error bridge; Step2 live DOM + chat hot-reload; Step3 Python via Pyodide/WASM in WKWebView
+      (MAS-safe, vendored + URL-scheme + CSP relax + license-gate); Step4 multi-file "build a full web app" scaffold
+      pipeline. Reuse Epdoc WKWebView/bridge/URL-scheme + build-time bundle. [S→L]
+      • `SS-TC_THEME_GRANULAR_COLORS_2026_06_20.md` — ROOT: custom-theme `AppCustomTheme.resolved` reuses the single
+      `text` slot for `userBubbleText` (`EpistemosTheme.swift:1565`) → white editor text also whitens the user-bubble
+      text (presets are fine). FIX (additive/defaulted): add `userBubbleText` + accessory/accent/surface slots to
+      `AppCustomThemeColorSlot`, default unset→inherit `text` (noteSurface pattern), wire in `resolved`; the theme-
+      editor grid is `allCases`-driven so new pickers appear automatically; MessageBubble already reads the token. [S]
+      All NON-INVASIVE (TK2/Prose + Metal untouched), MAS-safe. Added to TOP-UNCODED.
