@@ -71,7 +71,8 @@ public struct CognitiveDagCountsHealthRow: View {
     }
 
     private func refresh() {
-        snapshot = SubstrateHealthUnifiedClient.snapshot()
+        // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
+        Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
     }
 
     private func startTimer() {
