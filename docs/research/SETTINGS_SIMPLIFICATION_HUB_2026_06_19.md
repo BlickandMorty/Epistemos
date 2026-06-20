@@ -34,7 +34,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-Q | VOICE CLONING + BITCRUSH DSP (owner 2026-06-19) — Apple Personal Voice cloning (macOS-26 viability) + a bitcrush AVAudioEngine effect over any voice + custom branded system voice; premium-default | ☐ |
 | SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ☐ |
 | SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ☐ |
-| SS-T | PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19) — PDFKit live viewer + QuickLook + sweep VisionKit/Translation/PencilKit/AppIntents/etc., integrate the high-value MAS-safe ones | ☐ |
+| SS-T | PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19) — PDFKit live viewer + QuickLook + sweep VisionKit/Translation/PencilKit/AppIntents/etc., integrate the high-value MAS-safe ones | ✅ done → SS-T_PDF_VIEWER_APPLE_NATIVE |
 | SS-U | DARK/LIGHT MODE CRASH (owner 2026-06-19) — root-cause the appearance-switch crash (WKWebView colorScheme re-render/teardown race, theme CSS re-inject, force-unwraps) + harden the crashing surfaces | ✅ done → SS-U_DARK_LIGHT_MODE_CRASH |
 | SS-V | AGGRESSIVE CODE-CHECKER ("nuclear …") (owner 2026-06-19) — identify the Cursor aggressive-review tool + wire an equivalent adversarial static-analysis checkpoint at MULTIPLE plan points | ☐ |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
@@ -129,4 +129,14 @@ no force-unwraps in color path, no `.sync` in callbacks, Epdoc/KaTeX WebViews ha
 Pool-swap hypothesis STALE (removed). **Fix: drop the theme hash from the `.id` + push theme via `updateNSView`
 [S] — removes roots #1+#2, tiny change; re-entrancy-safe teardown [M]; HologramOverlay guard [M]; UI test [L].**
 Crash MECHANISM needs runtime repro (no `.ips` captured; only unrelated llama-completion inference crashes
-2026-06-16 present). Full: SS-U doc. (Slices SS-C/D/E/F + SS-P/Q/R/S/T/V queued.)
+2026-06-16 present). Full: SS-U doc.
+**SS-T PDF VIEWER + APPLE-NATIVE MAX** → NO live PDF viewer exists (PDFKit is extract-only in `VaultParser
+.swift:239`, never `PDFView`); PDF is export-only (`HTMLWorkspacePDFExporter`) + import-to-markdown (LiteParse,
+honestly `.notWired`). App ALREADY uses a rich native stack (CoreSpotlight, AppIntents/Shortcuts, Vision OCR,
+Speech, **Translation** `.translationPresentation`, WidgetKit, CryptoKit, CoreML); **ABSENT: QuickLook,
+QuickLookThumbnailing, VisionKit Live Text, PencilKit, PhotosUI, MapKit, EventKit.** **Plan: PDFView viewer
+surface (NSViewRepresentable + thumbnails/outline/find/selection, reuse `PDFDocument(url:)`) [S, the #1 ask];
+QuickLook universal preview [S]; QLThumbnailGenerator [S]; OCR-over-PDF→RRF search [M]; VisionKit Live Text [M];
+send-selection-to-chat + AppIntents [M]; PencilKit/PDFAnnotation [L].** All MAS-safe, no new entitlements for
+the PDF/QuickLook/OCR path. Integrate via vault+SearchIndexService+ToolTierBridge seams. Full: SS-T doc.
+(Slices SS-C/D/E/F + SS-P/Q/R/S/V queued.)
