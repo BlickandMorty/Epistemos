@@ -30,7 +30,7 @@ enum NativeAdapterApply {
     /// file yields an honest error rather than a raw decode failure. (A usable
     /// generation needs an on-device run — not claimed here; this is the native
     /// apply path that replaces the Python subprocess.)
-    static func apply(adapterDirectory: URL, into model: any LanguageModel) throws {
+    nonisolated static func apply(adapterDirectory: URL, into model: any LanguageModel) throws {
         if let reason = NativeAdapterDirectory.invalidReason(adapterDirectory) {
             throw NativeAdapterApplyError.invalidDirectory(reason)
         }

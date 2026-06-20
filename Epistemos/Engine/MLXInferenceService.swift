@@ -2014,9 +2014,36 @@ actor MLXInferenceService: LocalMLXRuntime {
         loadedModelID = request.modelID
         loadedModelDirectory = request.modelDirectory
         self.container = container
+        #if !EPISTEMOS_APP_STORE
+        await applyActiveAdapterIfPresent(to: container)
+        #endif
         await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
         return (container, true, start.duration(to: ContinuousClock.now).millisecondsValue)
     }
+
+    #if !EPISTEMOS_APP_STORE
+    /// SS-LS apply-gap keystone ("use the models right after they're done"): after a
+    /// COLD model load, attach the user's ACTIVE LoRA adapter — if any — so a
+    /// trained+activated adapter actually changes generated tokens. (NativeAdapterApply
+    /// was real but had no caller in the live load path, so an "active" adapter never
+    /// reached inference.) GUARD: with no active adapter on disk this returns
+    /// immediately and the load path is byte-for-byte unchanged — the normal case. An
+    /// apply failure degrades to the base model (logged); it never breaks the load.
+    /// The live "tokens differ with vs without the adapter" behavior is PENDING OWNER
+    /// VERIFICATION (needs an on-device generation run; can't be witnessed headless).
+    /// Applies on cold load only; reload-on-activate (mid-session swap) is a follow-up.
+    private func applyActiveAdapterIfPresent(to container: ModelContainer) async {
+        guard let adapterDir = AdapterRegistry.activeAdapterDirectoryOnDisk() else { return }
+        do {
+            try await container.perform { context in
+                try NativeAdapterApply.apply(adapterDirectory: adapterDir, into: context.model)
+            }
+            log.info("Applied active LoRA adapter \(adapterDir.lastPathComponent, privacy: .public)")
+        } catch {
+            log.error("Active LoRA adapter apply failed; using base model: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+    #endif
 
     private nonisolated static func coldLoadTimeoutSeconds(for modelID: String) -> Double {
         switch LocalTextModelID(rawValue: modelID) {
