@@ -93,7 +93,9 @@ struct InlineAnswerDecorationOverlay: View {
 
     /// Convert a screen-space rect (from `firstRect`) to this overlay's local coordinates.
     /// Read-only; touches no editor state. Handles flipped/unflipped content views.
-    private static func localRect(fromScreen screenRect: CGRect, overlayGlobal: CGRect) -> CGRect? {
+    /// Internal (not private) so the SS-IL Metal materialize overlay reuses the exact
+    /// same conversion — single source of truth for the screen→local math.
+    static func localRect(fromScreen screenRect: CGRect, overlayGlobal: CGRect) -> CGRect? {
         guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
               let content = window.contentView else { return nil }
         let windowRect = window.convertFromScreen(screenRect)          // → window (AppKit)

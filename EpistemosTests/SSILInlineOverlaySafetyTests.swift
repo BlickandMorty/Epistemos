@@ -78,4 +78,35 @@ struct SSILInlineOverlaySafetyTests {
         // Non-interactive: never swallows typing/selection.
         #expect(src.contains("allowsHitTesting(false)"))
     }
+
+    // Guard 8 (Metal overlay): the materialize shimmer obeys the SAME safety envelope — no
+    // storage symbols, gated to streaming, reduce-motion-aware, non-interactive.
+    @Test("the Metal materialize overlay can't touch storage + is gated + reduce-motion-aware")
+    func metalMaterializeOverlayIsSafe() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/InlineStreamMaterializeOverlay.swift")
+        #expect(!src.contains("NSTextStorage"))
+        #expect(!src.contains("ProseTextView2"))
+        #expect(!src.contains("replaceCharacters"))
+        #expect(!src.contains("textStorage"))
+        // Gated to inline streaming + reduce-motion → absent.
+        #expect(src.contains("noteChat.isStreaming"))
+        #expect(src.contains("!reduceMotion"))
+        #expect(src.contains("!noteChat.useResponsePanel"))
+        // Non-interactive + reuses the shared screen→local conversion (single source of truth).
+        #expect(src.contains("allowsHitTesting(false)"))
+        #expect(src.contains("InlineAnswerDecorationOverlay.localRect"))
+    }
+
+    // Guard 9 (Metal): the stitchable `.colorEffect` glow lives in ThinkingGlow.metal (already in
+    // default.metallib), so `ShaderLibrary.inline_stream_materialize` always resolves at runtime.
+    @Test("the inline_stream_materialize stitchable shader exists in ThinkingGlow.metal")
+    func materializeShaderExistsInMetallib() throws {
+        let metal = try loadMirroredSourceTextFile("Epistemos/Shaders/ThinkingGlow.metal")
+        #expect(metal.contains("[[ stitchable ]] half4 inline_stream_materialize"))
+        // The Swift call site must match the shader's extra-arg order (size, time, intensity, color).
+        let swift = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/InlineStreamMaterializeOverlay.swift")
+        #expect(swift.contains("ShaderLibrary.inline_stream_materialize"))
+    }
 }

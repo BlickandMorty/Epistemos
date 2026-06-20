@@ -1020,6 +1020,13 @@ struct NoteDetailWorkspaceView: View {
                 // The streaming pipeline is provably untouched (SSILInlineOverlaySafetyTests).
                 InlineAnswerDecorationOverlay(theme: ui.theme)
             }
+            .overlay {
+                // SS-IL Metal streaming overlay: the inline answer "materializes" under a soft
+                // Metal scan band while it streams, then dissolves to plain editable text. Same
+                // safety envelope — reads read-only NoteChatState + the rect provider, paints
+                // light, allowsHitTesting(false); reduce-motion → absent.
+                InlineStreamMaterializeOverlay(theme: ui.theme)
+            }
             .onAppear {
                 Task { @MainActor in
                     noteChatState.loadPersistedMessages(modelContext)

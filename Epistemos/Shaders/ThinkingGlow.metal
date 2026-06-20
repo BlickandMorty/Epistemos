@@ -80,3 +80,40 @@ fragment float4 thinking_glow_fragment(
 
     return color;
 }
+
+// MARK: - SS-IL inline-stream materialize (SwiftUI stitchable .colorEffect)
+//
+// A soft "materialize" shimmer for the inline note-AI answer while it streams: a
+// scan band sweeps down the answer region, modulated by ThinkingGlow's breathe
+// pulse (reusing the same aesthetic + math as the fragment above). Lives in this
+// file (already compiled into default.metallib — see thinking_glow_* membership)
+// so SwiftUI's `ShaderLibrary.inline_stream_materialize` always resolves at
+// runtime. Pure light: composited over the faint cold-box wash, additive.
+//
+// `.colorEffect` signature: (float2 position, half4 color, <extra args…>) -> half4.
+// position is in the effect view's local point space; we pass `size` to normalize.
+[[ stitchable ]] half4 inline_stream_materialize(
+    float2 position,
+    half4 color,
+    float2 size,
+    float time,
+    float intensity,
+    half4 glowColor
+) {
+    float2 uv = position / max(size, float2(1.0, 1.0));   // → 0…1
+
+    // Scan band sweeps top→bottom on a ~1.4 s loop (the answer "materializing").
+    float sweep = fract(time / 1.4);
+    float band = 1.0 - smoothstep(0.0, 0.16, fabs(uv.y - sweep));
+
+    // Breathe pulse (identical cadence to thinking_glow_fragment) modulates energy.
+    float breathe = 0.5 + 0.5 * sin(time * 3.14159);
+
+    float glow = clamp(band * (0.55 + 0.45 * breathe) * intensity, 0.0, 1.0);
+
+    half4 lit = glowColor;
+    lit.a *= half(glow);
+    lit.rgb *= lit.a;                       // premultiplied
+    // Composite the glow light over the incoming (near-transparent) source.
+    return color * half(1.0 - float(lit.a)) + lit;
+}
