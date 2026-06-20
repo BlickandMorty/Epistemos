@@ -63,4 +63,19 @@ struct SSILInlineOverlaySafetyTests {
         let tv = try loadMirroredSourceTextFile("Epistemos/Views/Notes/ProseTextView2.swift")
         #expect(tv.contains("hasProtectedInlineResponseDivider"))
     }
+
+    // Guard 7 (slice c): the send-bar streaming ring is SCOPED to `.noteAskBar`, reduce-motion-aware,
+    // and non-interactive — it can't affect other composer consumers or swallow typing.
+    @Test("the note ask-bar streaming ring is scoped + reduce-motion-aware + non-interactive")
+    func sendBarStreamingRingIsScopedAndSafe() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
+        #expect(src.contains("noteAskBarStreamingRing"))
+        // Scoped: only renders for the note ask-bar tuning + only while streaming.
+        #expect(src.contains("if isStreaming, chromeTuning == .noteAskBar"))
+        // Reduce-motion path exists (static ring, no TimelineView redraw).
+        #expect(src.contains("if reduceMotion"))
+        #expect(src.contains("@Environment(\\.accessibilityReduceMotion)"))
+        // Non-interactive: never swallows typing/selection.
+        #expect(src.contains("allowsHitTesting(false)"))
+    }
 }

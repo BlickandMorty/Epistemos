@@ -412,6 +412,7 @@ private enum AssistantToolbarAskBarMetrics {
 
 struct AssistantToolbarAskBar<Leading: View>: View {
     @Binding var text: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let placeholder: String
     let phase: AssistantComposerStatusPhase
@@ -505,6 +506,31 @@ struct AssistantToolbarAskBar<Leading: View>: View {
 
     private var trimmedTextIsEmpty: Bool {
         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// SS-IL (owner 2026-06-20, slice c): a streaming "breathing" accent ring on
+    /// the note ask bar while the inline answer streams — a calm send-bar signal
+    /// that the brain is working. Scoped to `.noteAskBar` so NO other composer
+    /// consumer changes; reduce-motion → a static ring (no animation, no redraw).
+    /// Triangle pulse (no `sin`) keeps it import-free.
+    @ViewBuilder
+    private var noteAskBarStreamingRing: some View {
+        if isStreaming, chromeTuning == .noteAskBar {
+            if reduceMotion {
+                Capsule()
+                    .strokeBorder(accent.opacity(0.34), lineWidth: 1.1)
+                    .allowsHitTesting(false)
+            } else {
+                TimelineView(.animation) { ctx in
+                    let t = ctx.date.timeIntervalSinceReferenceDate
+                    let frac = t.truncatingRemainder(dividingBy: 1.6) / 1.6  // 0…1 over 1.6s
+                    let pulse = 1 - abs(frac - 0.5) * 2                       // 0→1→0 triangle
+                    Capsule()
+                        .strokeBorder(accent.opacity(0.16 + 0.30 * pulse), lineWidth: 1.1)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
     }
 
     var body: some View {
@@ -604,6 +630,7 @@ struct AssistantToolbarAskBar<Leading: View>: View {
                     y: chromeTuning.outlineShadowYOffset
                 )
         )
+        .overlay { noteAskBarStreamingRing }
         .background {
             AssistantComposerOuterHalo(style: haloStyle, accent: accent)
         }
