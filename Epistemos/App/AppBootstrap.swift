@@ -1798,6 +1798,17 @@ final class AppBootstrap {
 
         let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)
         self.localInferenceService = localInferenceService
+        #if !EPISTEMOS_APP_STORE
+        // SS-LS reload-on-activate: when the active LoRA adapter set changes (the user
+        // activates/deactivates in Knowledge Fusion), drop the loaded container if the
+        // active signature actually changed so the next generation re-applies it live.
+        // The service guards on the signature — no-active <-> no-active never reloads.
+        NotificationCenter.default.addObserver(
+            forName: .epistemosActiveAdaptersDidChange, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in await localInferenceService.reloadIfActiveAdapterChanged() }
+        }
+        #endif
         let embeddingService = graphState.embeddingService
         let localRuntimeControlPlane = BackendRuntimeControlPlane(
             policy: BackendRuntimePolicy(

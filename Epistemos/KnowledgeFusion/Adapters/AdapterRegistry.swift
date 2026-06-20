@@ -1,5 +1,13 @@
 import Foundation
 
+extension Notification.Name {
+    /// Posted when the set of ACTIVE LoRA adapters changes (activate/deactivate).
+    /// The inference service observes this to reload the loaded container so the swap
+    /// goes live mid-session (SS-LS reload-on-activate). Not posted when the active
+    /// state is unchanged.
+    nonisolated static let epistemosActiveAdaptersDidChange = Notification.Name("EpistemosActiveAdaptersDidChange")
+}
+
 // MARK: - Types
 
 enum AdapterType: String, Codable, Sendable, CaseIterable {
@@ -130,8 +138,14 @@ actor AdapterRegistry {
         guard let index = records.firstIndex(where: { $0.id == id }) else {
             throw AdapterRegistryError.adapterNotFound(id)
         }
+        let changed = records[index].isActive != active
         records[index].isActive = active
         try save()
+        if changed {
+            // SS-LS reload-on-activate: the active set actually changed — signal the
+            // inference service to drop+reload the container so the swap goes live.
+            NotificationCenter.default.post(name: .epistemosActiveAdaptersDidChange, object: nil)
+        }
     }
 
     func updateQualityScore(_ id: UUID, score: Double) throws {

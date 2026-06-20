@@ -1460,6 +1460,12 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// Directory of the currently-loaded model (set on load). SS-Y slice 5c reads
     /// `<dir>/tokenizer.json` + `config.json` to build the grammar masking matcher.
     private(set) var loadedModelDirectory: URL?
+    #if !EPISTEMOS_APP_STORE
+    // SS-LS apply-gap / reload-on-activate: the active LoRA adapter directory applied
+    // at the last cold load (nil = none). Compared on an active-adapter-change signal
+    // to decide whether to reload the container (see reloadIfActiveAdapterChanged).
+    private var lastAppliedActiveAdapter: URL?
+    #endif
     private var scheduledUnloadTask: Task<Void, Never>?
     private var lastRunProfile: LocalMLXRunProfile?
     private var runtimeConditions: LocalRuntimeConditions
@@ -2033,7 +2039,11 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// VERIFICATION (needs an on-device generation run; can't be witnessed headless).
     /// Applies on cold load only; reload-on-activate (mid-session swap) is a follow-up.
     private func applyActiveAdapterIfPresent(to container: ModelContainer) async {
-        guard let adapterDir = AdapterRegistry.activeAdapterDirectoryOnDisk() else { return }
+        let adapterDir = AdapterRegistry.activeAdapterDirectoryOnDisk()
+        // Record the active signature applied at this load (incl. nil = none) so a
+        // later activate/deactivate can decide whether a reload is actually needed.
+        lastAppliedActiveAdapter = adapterDir
+        guard let adapterDir else { return }
         do {
             try await container.perform { context in
                 try NativeAdapterApply.apply(adapterDirectory: adapterDir, into: context.model)
@@ -2042,6 +2052,29 @@ actor MLXInferenceService: LocalMLXRuntime {
         } catch {
             log.error("Active LoRA adapter apply failed; using base model: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// SS-LS reload-on-activate: pure decision — reload the container iff the active
+    /// adapter signature changed. `(nil, nil)` (no-active <-> no-active) and an
+    /// unchanged adapter both return false, so the normal path is never reloaded.
+    nonisolated static func shouldReloadForAdapterChange(lastApplied: URL?, current: URL?) -> Bool {
+        lastApplied != current
+    }
+
+    /// SS-LS reload-on-activate: when the active adapter set changes mid-session (the
+    /// Knowledge Fusion activate/deactivate signal via .epistemosActiveAdaptersDidChange),
+    /// drop the loaded container IF the active signature actually changed, so the next
+    /// generation cold-loads and re-applies the new active adapter (or none). GUARD:
+    /// nothing loaded, or an unchanged signature (incl. no-active <-> no-active), is a
+    /// no-op — the normal path is untouched. The live mid-session token swap is
+    /// PENDING OWNER VERIFICATION (needs an on-device run).
+    func reloadIfActiveAdapterChanged() async {
+        guard container != nil else { return }
+        let current = AdapterRegistry.activeAdapterDirectoryOnDisk()
+        guard Self.shouldReloadForAdapterChange(lastApplied: lastAppliedActiveAdapter, current: current) else {
+            return
+        }
+        await unload()
     }
     #endif
 
