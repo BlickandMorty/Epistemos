@@ -327,6 +327,27 @@ calls: no blanket rule — choose per case.
       (allow_remote_skill_install + additionalProperties); the project-root `.agents/skills/` caller
       wiring (the router now LOADS the convention dir vault-relative; a project-root resolver passes
       the absolute path).
+      ✅ PHASE-0 SKILL_MANAGE V2 INSTALL REACHABLE — declares allow_remote_skill_install 2026-06-19
+      (S4 audit / MASTER_SYNTHESIS Phase-0 item 5): the v2 `skills.manage` schema
+      (tools_v2/v2_catalog/skills_manage.rs) set `additionalProperties:false` but OMITTED
+      `allow_remote_skill_install` — the network-consent gate the legacy handler requires before a
+      remote install (skills.rs:1366) — so a call passing it was REJECTED and `install_from_github`/
+      `install_from_url` were UNREACHABLE. FIX (additive): `input_schema` now declares
+      `allow_remote_skill_install` (boolean). The Pro/quarantine GATING of remote install is
+      UNCHANGED — only the consent field is now passable under the strict schema. +1 pin test
+      (input_schema_declares_remote_install_consent_so_installs_are_reachable). Full-lib 5475/0 +
+      `--features pro-build` 5738/0 (zero regression).
+      🔎 PHASE-0 REMAINING — OWNER SIGN-OFF / IN-APP (the cargo-cheap safe Phase-0 slices are done;
+      these need YOU): (1) **progressive-skills un-gate** — `registry.rs` gates the progressive
+      skill tools behind `#[cfg(feature="pro-build")]`, so the MAS build exposes only the legacy CRUD
+      `skills` tool. DECISION NEEDED (MAS/Pro boundary, canon-hardening protocol — NOT flipped without
+      sign-off): promote to MAS (it's MIT clean-room, no subprocess) OR keep an honest "Pro only"
+      surface. (2) **Flip + verify the 7 flags in-app** (docs/SESSION_CHECKPOINT_2026_06_19.md) — the
+      S4 cloud-tools fix is verifiable now (no model download); the model-selection layers once a
+      model installs. (3) **CRUD/router dir unification** (`~/.epistemos/skills` vs `<vault>/skills`)
+      + the project-root `.agents/skills/` caller wiring — deeper, behaviour-affecting. (4)
+      **GGUF-Gemma tool-loop integration** + **RuntimeRouter STAGE-1c hot-path call** — both need
+      model-download / in-app verification (all primitives shipped + tested).
       🔎 S4 DEEP-RESEARCH AUDIT 2026-06-19 (docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md)
       — confirms the loop's local diagnosis AND adds the missing pieces: (i) **CLOUD break (specific):**
       `runCommandCenterRustAgentPath` is reached only if `cloudProvider.supportsAgentTier`, TRUE ONLY
