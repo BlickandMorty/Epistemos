@@ -139,6 +139,17 @@ keystone (Pro-gated `#if !EPISTEMOS_APP_STORE` — MAS build can't verify), clau
     repair the `adapters.safetensors`↔`adapter_weights.safetensors` filename mismatch + migrate `KTOTrainer` off
     `/usr/bin/python3`; then graft the studio UI (live metrics dashboard / runs archive / algorithm guide /
     ResourceGuard) + port net-new algos (DPO/ORPO/GRPO/full-FT/QLoRA/QAT) natively. Order [S→M] in SS-LS. [S→L]
+7d. **Homepage transition animation repair** (SS-AN; owner 2026-06-20, HIGH-PRIORITY REPAIR — slot EARLY) — the
+    home/landing->graph/"learning" transition SQUISHES/FOLDS/flickers. Root = `.scale(0.94)` transition on both
+    branches (`LandingView.swift:367-375`) + double-fire spring (`EpistemosApp.swift:1137` vs `LandingView.swift:459`)
+    + racing AppKit alpha fade + 420ms pop-in gate (`HomeGraphEmbeddedView.swift:350-358,404-420`). Fix = delete the
+    `.scale`, kill the double-fire, Apple blur-replace (buttons blur away, graph blur-reappears) on one fast
+    `.easeOut(0.28)`, drop pop-in/AppKit race. Visual witness PENDING OWNER. [S] each step.
+7e. **Adapter UX + agent revamp** (SS-AD; builds on SS-LS apply-gap) — Settings: select adapter -> apply to chat
+    (safer; already wired) or to a model (new `modelID->adapterID` map); per-AGENT adapter (Companions already carry
+    `CompanionModel.loraAdapterPath` but it's DEAD — wire it into `applyActiveAdapterIfPresent`); adapter explanations
+    (`AdapterRecord.description` + parse `adapter_config.json`); test-adapter A/B split-compare. Default adapter type
+    = DoRA-on-quantized kept-separate (SS-XR). [S->M]
 8. Then the editor cluster per `EPDOC_MD_V2_BUILD_SEQUENCE` + the remaining native features (PDF/voice/browser/
    redaction) + the instant-recall popup redesign (SS-IR) + the perf/vuln gates each cycle.
 

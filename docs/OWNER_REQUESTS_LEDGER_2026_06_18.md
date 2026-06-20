@@ -3827,3 +3827,41 @@ native; AGPL server). ADOPT 2 patterns natively:
       math natively (clean-room, no Python import); keep ALL existing KF code. **Status:** RESEARCHED →
       `docs/research/SS-LS_MLX_LORA_STUDIO_INTEGRATION_2026_06_20.md` (file:line graft plan + ordered steps).
       Keystone = the apply gap (the "use right after" blocker). Cross-ref SS-AB/SS-G/SS-C. Added to TOP-UNCODED.
+- [ ] **ADAPTER UX + AGENT REVAMP + EXTERNAL-PIPELINE RESEARCH + HOMEPAGE ANIMATION REPAIR (owner 2026-06-20).**
+      Verbatim: *"i want part of the app to be as simple as you go to the settings and you could just select an
+      adapter and place it on any model or you on the chat or safer since you want to interact with an agent so
+      after I create the new agent revamp, you can create, you can look at an agent you can browse to adapters and
+      you can apply adapters and you can test adapters out. You know adapter is gonna have ex explanations and also
+      my app shouldn't be the sole primitive for like the adapter robustness because there are also other apps that
+      have really robust in proven training pipelines so if you could like look on github do more research and get
+      her to look at other repos that have agent creation, agent training, model training, modifying tuning
+      adapters, and then like the type of adapters adapters that best work for my app based off of my models in the
+      architecture of my app and try to like you know max out that type of research. Also do more research as
+      today's a new day so I want to iterate on all the research we've done the previous days... add to the research
+      documents with some code in more directives... animations are a big thing as well on the homepage when I click
+      the Home graph the animation is weird. The animation of the graph itself is not the problem more so it's like
+      the transition... that entire page kind of like squishes... I want that whole animation to be more native so I
+      want the buttons to do an Apple blur replace so they blur they disappear and then everything. The only thing
+      that's left is the graph... it shouldn't do the popping and pop out animation... just have the buttons blur
+      and disappear and then the side bar button the tool bar button at the bottom, and then the graph itself just
+      blurry reappear just be a fast motion so all the things on the homepage the landing page... should just blur
+      and it shouldn't have a flicker. It shouldn't have a folding animation. That folding animation right now is a
+      big glitch... a really important hardening and repair... and of course if there's other things that you didn't
+      research or forgot research or things I interrupted make sure you go back and research those as well. deepen
+      everything deep as much as you can."*
+      **Intent (every clause):** (1) ADAPTER UX — Settings: select an adapter + apply to ANY model, or to the
+      chat/agent (safer); after the agent revamp: browse/apply/TEST adapters per agent, each with EXPLANATIONS.
+      (2) NOT-SOLE-PRIMITIVE — research GitHub repos for agent creation/training, model training, adapter tuning +
+      the best adapter TYPES for the app's MLX/GGUF small models + architecture; max out that research. (3) ITERATE
+      — re-examine/deepen all prior days' research ("cold research"), add code + directives to the docs. (4) MISSED/
+      INTERRUPTED — go back and research anything skipped/interrupted; deepen as much as possible. (5) HOMEPAGE
+      ANIMATION REPAIR (really important hardening) — the home/landing→graph/learning transition SQUISHES/FOLDS/
+      flickers; make it native Apple-blur-replace: buttons (sidebar + bottom toolbar) blur away + disappear, graph
+      blur-reappears fast, no pop/fold/flicker.
+      **Status:** RESEARCHED (3 code+web-grounded slices): `SS-AN_HOMEPAGE_TRANSITION_ANIMATION_2026_06_20.md`
+      (folding-glitch root + Apple-blur-replace fix, file:line), `SS-AD_ADAPTER_UX_AGENT_REVAMP_2026_06_20.md`
+      (Settings/agent adapter UX — Companions ARE the agents + `loraAdapterPath` already exists but is dead-wired),
+      `SS-XR_EXTERNAL_ADAPTER_TRAINING_REPOS_2026_06_20.md` (proven external pipelines + adapter-type recommendation:
+      DoRA-on-quantized kept-separate; algo priority SFT/LoRA→DoRA→DPO→ORPO/GRPO→QAT; mlx-lm-lora Apache-2.0 =
+      loss-logic source). Animation repair = HIGH-PRIORITY repair (bump up). Cross-ref SS-LS (apply-gap, the
+      substrate this builds on), SS-AB. Added to TOP-UNCODED.
