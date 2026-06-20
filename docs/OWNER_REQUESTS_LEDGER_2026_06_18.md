@@ -4069,3 +4069,22 @@ native; AGPL server). ADOPT 2 patterns natively:
       (3) overnight/on-demand runner (background-activity entitlement; no hidden subprocess), (4) feed Model Vault
       active_context/concept_index (depends on SS-MV), (5) provenance + honesty. NON-INVASIVE; dedicated cycle AFTER SS-MV +
       current quick wins. Each sub-part = own SS-* slice + tests when picked up.
+- [ ] **WIKILINK deep fork research → 100% best-of-breed (owner 2026-06-20).** *"do more research on wikilink — go to
+      different GitHub repos, see which are forks, go deep into the forks for other iterations to implement; 100% implement
+      the best parts in the best combination of all the best forks/repos, for an in-use feature AND an overnight training
+      feature, and any parts of the app that should integrate these. Make sure nothing gets messy or muddy."* RESEARCHED
+      (web) → SS-WL "GitHub/fork research" section. FINDINGS: owner's ref = **Karpathy LLM Wiki** pattern (gist) + community/
+      Google iterations. Repos mined: nashsu/llm_wiki (two-step ingest, SHA256 cache, persistent crash-safe queue, 4-signal
+      relevance, Louvain) ; penfieldlabs "what's missing" → TYPED edges (supersedes/contradicts/causes…) → map onto Epistemos
+      EXISTING `cognitive_dag` EdgeKinds (Contradicts/DerivesFrom) ; flowershow/remark-wiki-link + forks (rgruner/C1200/boehs)
+      + zetl for SYNTAX/resolution/backlinks (implement NATIVELY in Swift/Rust). BEST COMBO: (I) in-use = pure/offline native
+      parser + typed edges + backlink index + autocomplete ; (II) overnight = Karpathy ingest+lint via persistent queue,
+      unresolved-link auto-research, feeds Model Vault. Kept SEPARATE (shared AST+backlink seam) so they don't muddy.
+- [ ] **ANTI-MESSINESS / ANTI-MUDDINESS self-correction discipline (owner 2026-06-20).** *"I don't want this messy and
+      muddy. Implement the two things in different parts of the plan, and there are times where the agents will PAUSE and
+      check for messiness, check for muddiness, fix it, correct itself, and continue."* META directive → governs HOW the
+      loop works. RESEARCHED → `docs/research/SS-CLEAN_ANTI_MUDDINESS_SELF_CORRECTION_2026_06_20.md`. Defines messy/muddy
+      (dead-flag/orphan features, duplicate/divergent impls, stale artifacts, contradictions, layering mud) + a recurring
+      "Cleanliness Gate" (pause→scan→fix→re-verify→continue) woven into the loop cadence (every ~5 iters/end-of-cycle, NOT
+      every iter) + the wiki-lint product instance (SS-WL). Never deletes owner/scope-boundary work. Added to loop discipline
+      (cron) + as last-auditor checks. Cross-ref SS-WL/SS-MV/SS-BWB.

@@ -46,3 +46,60 @@ Build on SS-MV (per-model injection must work first so the researched context ac
 TK2/Prose + Metal + the two owner scope-boundary domains. Honest/test-backed/no-green-without-witness. Dedicated cycle
 AFTER the SS-MV repair + the current owner-facing quick wins (SS-SH/GC/DD/THX/TC/QC). Each sub-part = its own SS-* slice +
 tests when the loop picks it up.
+
+---
+
+## GitHub / fork research — best-of-breed combination (owner 2026-06-20: "go deep into the forks, 100% implement the best parts in the best combination, for an in-use feature AND an overnight training feature")
+
+### What the owner's reference IS: Karpathy's "LLM Wiki" pattern (+ Google/community iterations)
+The "original wikilink + Google's take on Karpathy's wikilink" = **Karpathy's LLM Wiki** pattern. Canonical mechanics
+([gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)):
+- **3 layers:** raw sources (IMMUTABLE) → wiki (LLM-maintained `.md`, interlinked) → schema (a CLAUDE.md-style config that
+  makes the LLM a *disciplined* maintainer). Maps cleanly to Epistemos vault notes → Model Vault → instructions.md.
+- **`index.md`** (catalog, one-line summary per page) + **`log.md`** (append-only ingest/query/maintenance record).
+- **Ingest:** read source → write summary page → update index → revise relevant entity/concept pages → append log;
+  ~10–15 pages cross-referenced per source. **Query:** read index first → synthesize w/ citations → SAVE valuable answers
+  as permanent pages (not lost to chat).
+- **Contradiction handling:** flag (don't silently overwrite); keep an audit trail of what was believed when.
+- **⭐ LINT step:** periodic health check for stale claims, orphan pages, missing cross-refs, contradictions — *this is
+  exactly the owner's anti-messiness/muddiness discipline*; cross-ref **SS-CLEAN**.
+
+### Repos studied (deep, incl. forks)
+- **Implementation to mine — [nashsu/llm_wiki](https://github.com/nashsu/llm_wiki)** (Tauri/Rust + React desktop; closest
+  to Epistemos's Rust core). Best implementable ideas: (a) **two-step CoT ingest** (analyze → then generate) for quality +
+  source traceability; (b) **SHA256 incremental cache** to skip unchanged sources (big token savings); (c) **persistent
+  ingest queue** — serial (no concurrent LLM calls), crash-recovery, folder auto-watch, 3× retry → the backbone of the
+  OVERNIGHT runner; (d) **4-signal relevance** (direct-link ×3.0, source-overlap ×4.0, Adamic-Adar ×1.5, type-affinity ×1.0);
+  (e) **wikilink + YAML `sources[]` frontmatter hybrid** (human nav + programmatic cascade/cleanup); (f) Louvain community
+  detection + "isolated page / sparse community" insights; (g) Obsidian-compatible export (no lock-in).
+- **Typed-edge fix — [penfieldlabs "What Karpathy's LLM Wiki Is Missing"](https://dev.to/penfieldlabs/what-karpathys-llm-wiki-is-missing-and-how-to-fix-it-1988)**:
+  plain `[[wikilink]]` carries 1 bit ("connected"). Fix = **typed wikilinks** (`obsidian-wikilink-types`, `@`-syntax, ~24
+  relationship types: `supersedes`/`contradicts`/`causes`/`supports`/`evolution_of`/`prerequisite_for`…) synced to YAML, +
+  AI-discovered relationships (a "Vault Linker" pass), + persistent KG with hybrid keyword+semantic+graph search.
+  **⭐ Epistemos ALREADY HAS this substrate** — `agent_core/src/cognitive_dag/` has 10 `EdgeKind`s incl. `Contradicts` +
+  `DerivesFrom`, resonance propagation, TruthCache. BEST COMBINATION = map typed wikilinks onto the EXISTING cognitive_dag
+  EdgeKinds instead of reinventing (NOTE: cognitive_dag/companions.rs is boundary — touch only the wikilink-relevant edges,
+  not companion code).
+- **In-use parser (study for SYNTAX + resolution; implement NATIVELY in Swift/Rust, not JS):**
+  [flowershow/remark-wiki-link](https://github.com/flowershow/remark-wiki-link) (Obsidian-style: `[[Page]]`, `[[Page|alias]]`,
+  `[[Page#section]]`, `[[Page#section|alias]]`, `![[embed]]` w/ image/media/pdf + dims; **unresolved → `new` class** =
+  the auto-research hook; resolution via permalinks map / urlResolver / `shortestPossible` Obsidian ambiguity); maintained
+  forks [rgruner/markdown-it-wikilinks-plus](https://github.com/rgruner/markdown-it-wikilinks-plus) (ESM/CJS/TS, `[[/Path/Page]]`),
+  [C1200/remark-wikilinks](https://github.com/C1200/remark-wikilinks), [boehs/markdown-it-wikilinks](https://github.com/boehs/markdown-it-wikilinks).
+  Backlink/transclusion CLI reference: [anuna/zetl](https://codeberg.org/anuna/zetl) (bidirectional graph + transclusion panel).
+
+### Best-combination spec (the two features the owner wants, kept SEPARATE so they don't muddy)
+- **(I) IN-USE FEATURE** (live, synchronous, in the editor/chat): native `[[wikilink]]` parser w/ the full flowershow syntax
+  set + `new`/unresolved styling + `shortestPossible` resolution + **typed edges** (`@type` → cognitive_dag EdgeKind) +
+  bidirectional **backlink index** + `[[`-autocomplete (pixel-art). Wire into Prose/Epdoc NON-INVASIVELY. No network on the
+  hot path — resolution is local/instant.
+- **(II) OVERNIGHT TRAINING/RESEARCH FEATURE** (async, batched, background-activity entitlement): the Karpathy ingest +
+  lint workflow driven by nashsu's **persistent queue** (serial, SHA256-cached, crash-recovery, 3× retry) — unresolved
+  `[[links]]` + a "Vault Linker" relationship-discovery pass become auto-research tasks (local-first per SS-CR routing),
+  writing summary/entity pages + typed edges + `log.md` entries + feeding Model Vault `active_context`/`concept_index`
+  (SS-MV). 4-signal relevance + Louvain clustering for surfacing. Honest provenance on every auto-written node.
+- **Keep them un-muddy:** the in-use parser is pure + synchronous + offline; the overnight runner is the ONLY thing that
+  calls models / mutates the graph in batch. Shared seam = the parser's AST + the backlink index (one source of truth),
+  never two divergent link implementations. This separation IS the anti-muddiness contract — see **SS-CLEAN**.
+
+Sources: Karpathy gist; nashsu/llm_wiki; penfieldlabs critique; flowershow/remark-wiki-link + maintained forks; zetl.
