@@ -711,6 +711,10 @@ private struct MessageToolbar: View {
     @Environment(VaultSyncService.self) private var vaultSync
     private var theme: EpistemosTheme { ui.theme }
 
+    // SS-PERF2 #5: one shared formatter for the export filename instead of allocating an
+    // ISO8601DateFormatter on every export tap (DateFormatter creation is the costly part).
+    private static let exportDateFormatter = ISO8601DateFormatter()
+
     var body: some View {
         HStack(spacing: 8) {
             // Copy the visible answer only.
@@ -759,7 +763,7 @@ private struct MessageToolbar: View {
                 ChatTextExportSupport.save(
                     fullContent,
                     suggestedFilename:
-                        "message-\(ISO8601DateFormatter().string(from: message.createdAt).prefix(10)).md",
+                        "message-\(Self.exportDateFormatter.string(from: message.createdAt).prefix(10)).md",
                     contentType: .plainText
                 )
             } label: {
