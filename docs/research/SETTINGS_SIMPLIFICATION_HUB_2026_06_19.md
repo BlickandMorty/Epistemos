@@ -38,7 +38,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-U | DARK/LIGHT MODE CRASH (owner 2026-06-19) — root-cause the appearance-switch crash (WKWebView colorScheme re-render/teardown race, theme CSS re-inject, force-unwraps) + harden the crashing surfaces | ✅ done → SS-U_DARK_LIGHT_MODE_CRASH |
 | SS-V | AGGRESSIVE CODE-CHECKER ("nuclear …") (owner 2026-06-19) — identify the Cursor aggressive-review tool + wire an equivalent adversarial static-analysis checkpoint at MULTIPLE plan points | ✅ done → SS-V_NUCLEAR_CODE_CHECKER |
 | SS-W | RECENT CRASH + LOG STUDY (owner 2026-06-19) — study DiagnosticReports + app logs (llama-completion inference crashes + any others), root-cause + add fixes to plan | ✅ done → SS-W_CRASH_LOG_STUDY |
-| SS-X | CHAT MESSAGE-BAR STILL MESSY (owner 2026-06-19) — the bottom chat bar still shows think/pro/tools old options on chat surfaces; simplify/demuddify (the picker-simplification didn't fully reach the message bar) + robust teardown/memory transitions | ☐ |
+| SS-X | CHAT MESSAGE-BAR STILL MESSY (owner 2026-06-19) — the bottom chat bar still shows think/pro/tools old options on chat surfaces; simplify/demuddify (the picker-simplification didn't fully reach the message bar) + robust teardown/memory transitions | ✅ done → SS-X_CHAT_MESSAGE_BAR_SIMPLIFY |
 | SS-Y | HYPERDYNAMIC DETERMINISM / deterministic schema for LOCAL agents (owner 2026-06-19) — make local agents MORE useful than cloud via deterministic-schema/constrained-decoding + robust agent-loop upgrades; the "playground to make local models better" | ✅ done → SS-Y_HYPERDYNAMIC_DETERMINISM |
 | SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ✅ done → SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
@@ -173,3 +173,12 @@ wire the vendored masked processor + flip isFullyConstraining [S]; connect LoopC
 LocalAgentLoop's 5 ad-hoc repairs through the bounded HyperdynamicLoop under hard mask [M]; confidence-weighted
 Best-of-N (NOT naive majority — weak for small models) [M]; evaluate vendored XGrammar backend [L].** Per-model
 dialects (SS-Z) bind to the masked decode. Full: SS-Y doc.
+**SS-X CHAT MESSAGE-BAR** → ROOT: the main-chat bar passes `preferSplitToolbarControls:true` (`ChatInputBar
+.swift:967`) which renders the legacy "Think/Code/Tools/Effort/Native" SPLIT toolbar, and `usesSplitToolbar
+Controls` (`RootView.swift:660`) is NOT gated on `simplifiedLineupActive` — so the simplification flag never
+reached the bar. Result: TWO model pickers on the main bar (flat `inlineRuntimePickerTrigger` + the split row);
+MiniChat + Landing already use the single flat picker. **Fix: drop `preferSplitToolbarControls:true` at
+ChatInputBar.swift:967 [S, the direct fix] + add `.onDisappear` to cancel the recall debounce task (mirror
+MiniChat:1080, teardown gap) [S] + gate `usesSplitToolbarControls` on `!simplifiedLineupActive` [M] + fold
+Effort/Native into the popover's Advanced disclosure (never delete) [M].** No WKWebView on chat bubbles (SS-U
+teardown doesn't extend here). Full: SS-X doc.
