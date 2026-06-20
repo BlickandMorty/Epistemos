@@ -964,13 +964,25 @@ struct ChatInputBar: View {
                         if let activeSelectedSlashItem {
                             selectedSlashPill(for: activeSelectedSlashItem)
                         }
-                        ChatBrainPickerMenu(
-                            operatingMode: operatingMode,
-                            availableOperatingModes: availableOperatingModes,
-                            isTemporaryChatEnabled: incognitoBinding,
-                            preferSplitToolbarControls: true,
-                            hidesModelButton: true
-                        )
+                        // SS-X (owner: "the bottom message bar still shows think /
+                        // pro / tools — old options I thought I simplified"): the flat
+                        // `inlineRuntimePickerTrigger` above already carries the model
+                        // + operatingMode, and routing/cloud defer to Settings (see
+                        // InlineRuntimePickerPanel onOpenSettings), so this legacy split
+                        // toolbar (Think/Code/Tools/Pro/Standard/Extended/Native) is pure
+                        // duplication when the simplified lineup is active. Hide it then —
+                        // matching MiniChat + Landing, which never render it — and restore
+                        // it under EPISTEMOS_SIMPLIFIED_LINEUP=0. Functionality is KEPT,
+                        // not deleted: the flat picker + Settings own these controls.
+                        if !EpistemosFoundationLineup.simplifiedLineupActive {
+                            ChatBrainPickerMenu(
+                                operatingMode: operatingMode,
+                                availableOperatingModes: availableOperatingModes,
+                                isTemporaryChatEnabled: incognitoBinding,
+                                preferSplitToolbarControls: true,
+                                hidesModelButton: true
+                            )
+                        }
                         attachButton
                         // RCA4-P1-006 fix-pass (2026-05-13): one mic
                         // affordance per OS. macOS 26+ uses the native
