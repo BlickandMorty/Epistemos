@@ -74,9 +74,14 @@ public struct LatticeWBOHealthRow: View {
     }
 
     public func refresh() {
-        if let snap = LatticeWBOBridge.snapshot() {
-            stats = snap
-            lastReadAt = Date()
+        // SS-SH phase 2: fetch the Rust snapshot OFF the MainActor (nonisolated
+        // bridge) so the 1Hz poll never blocks the panel; hop the result to @State.
+        Task {
+            let snap = await Task.detached { LatticeWBOBridge.snapshot() }.value
+            if let snap {
+                stats = snap
+                lastReadAt = Date()
+            }
         }
     }
 
