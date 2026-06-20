@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
 // Skill Router — Embedding-Based Skill Selection
@@ -39,22 +39,44 @@ pub struct SkillRouter {
 }
 
 impl SkillRouter {
-    /// Load skills from a vault's `skills/` directory.
+    /// Load skills from a vault's `skills/` directory AND the `.agents/skills/`
+    /// convention dir (where authored `SKILL.md` files live). Research
+    /// STOP_REINVENTING_AUDIT S3/S4: the router historically read ONLY
+    /// `<vault>/skills/`, so authored skills under the `.agents/skills/`
+    /// convention were invisible to the agent context — the load-bearing skills
+    /// path-mismatch. Additive (existing `<vault>/skills/` behaviour is unchanged
+    /// when `.agents/skills/` is absent).
     pub fn load(vault_path: &Path) -> Self {
-        let skills_dir = vault_path.join("skills");
-        let skills = if skills_dir.exists() {
-            load_skills(&skills_dir)
-        } else {
-            Vec::new()
-        };
+        Self::load_from_dirs(&[
+            vault_path.join("skills"),
+            vault_path.join(".agents").join("skills"),
+        ])
+    }
+
+    /// Load + merge skills from multiple directories. Earlier dirs win on a
+    /// name conflict (so an explicit `<vault>/skills/` override beats the
+    /// convention dir); a skill is loaded once per name. Closes the 4-way skill
+    /// path mismatch by giving the router the multi-dir capability it lacked.
+    pub fn load_from_dirs(dirs: &[PathBuf]) -> Self {
+        let mut skills: Vec<SkillEntry> = Vec::new();
+        let mut seen: HashSet<String> = HashSet::new();
+        for dir in dirs {
+            if dir.exists() {
+                for entry in load_skills(dir) {
+                    if seen.insert(entry.name.clone()) {
+                        skills.push(entry);
+                    }
+                }
+            }
+        }
 
         // Phase 8.E auto-invoke: mirror the loaded skill catalog into
-        // the cognitive DAG. Bulk-shape dispatch fires once per load()
+        // the cognitive DAG. Bulk-shape dispatch fires once per load
         // because any subsequent procedure outcome needs its parent
         // Skill node already in the DAG (see
         // `dispatch::on_procedure_recorded` doctrine note). Idempotent
         // on the SkillsMirror side via content addressing — repeated
-        // load() calls don't bloat the DAG. Doctrine §10: dispatch
+        // load calls don't bloat the DAG. Doctrine §10: dispatch
         // failures are logged but don't break the in-memory router.
         crate::cognitive_dag::dispatch::on_skills_loaded(&skills);
 
@@ -345,6 +367,42 @@ Run `git add . && git commit -m "message"`.
         let content = "# My Skill\nDo something cool.";
         let skill = parse_skill(content, Path::new("my_skill.md")).unwrap();
         assert_eq!(skill.name, "My Skill");
+    }
+
+    #[test]
+    fn load_from_dirs_merges_skill_dirs_and_dedups_by_name() {
+        use tempfile::TempDir;
+        let primary = TempDir::new().unwrap();
+        let convention = TempDir::new().unwrap();
+
+        let write_skill = |root: &Path, sub: &str, name: &str, desc: &str| {
+            let dir = root.join(sub);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                dir.join("SKILL.md"),
+                format!("---\nname: \"{name}\"\ndescription: \"{desc}\"\ntriggers: [\"x\"]\n---\n# {name}\n"),
+            )
+            .unwrap();
+        };
+
+        // primary `<vault>/skills/` has `alpha`; convention dir adds a NEW `beta`
+        // and a DUPLICATE `alpha` (which must lose — earlier dir wins).
+        write_skill(primary.path(), "alpha", "alpha", "primary alpha");
+        write_skill(convention.path(), "beta", "beta", "convention beta");
+        write_skill(convention.path(), "alpha2", "alpha", "convention alpha DUP");
+
+        let router = SkillRouter::load_from_dirs(&[
+            primary.path().to_path_buf(),
+            convention.path().to_path_buf(),
+        ]);
+
+        let names: HashSet<String> = router.skills.iter().map(|s| s.name.clone()).collect();
+        assert!(names.contains("alpha"), "the convention dir's new skill must load");
+        assert!(names.contains("beta"), "the authored .agents/skills/ skill must load");
+        // The duplicate name appears once, and the primary dir won the conflict.
+        assert_eq!(router.skills.iter().filter(|s| s.name == "alpha").count(), 1);
+        let alpha = router.skills.iter().find(|s| s.name == "alpha").unwrap();
+        assert_eq!(alpha.description, "primary alpha");
     }
 
     #[test]

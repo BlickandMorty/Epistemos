@@ -311,6 +311,22 @@ calls: no blanket rule — choose per case.
       `--features pro-build` 5736/0 (zero regression). So all 4 of the S4 audit's latent schema↔impl
       drifts are now closed — every tool schema honestly declares the keys its handler reads, so a
       future strict gate (`additionalProperties:false`) can't reject a valid call.
+      ✅ PHASE-0 SKILLS PATH FIX — SkillRouter loads `.agents/skills/` (multi-dir merge) 2026-06-19
+      (research MASTER_SYNTHESIS Phase-0 item 5 / STOP_REINVENTING_AUDIT S3 — the load-bearing skills
+      path mismatch): `SkillRouter::load` read ONLY `<vault>/skills/`, so authored `SKILL.md` under the
+      `.agents/skills/` convention (the 7 in the repo) were INVISIBLE to the agent context. FIX
+      (additive, Rust): `load` now delegates to a new `load_from_dirs(&[<vault>/skills,
+      <vault>/.agents/skills])` that merges + dedups by name (earlier dir wins, so an explicit
+      `<vault>/skills/` override beats the convention dir) — the multi-dir capability the router
+      lacked. Zero behaviour change when `.agents/skills/` is absent. +1 test
+      (load_from_dirs_merges_skill_dirs_and_dedups_by_name). Full-lib 5474/0 + `--features pro-build`
+      5737/0 (zero regression). REMAINING skills repair (each its own slice): un-gate progressive
+      skills from `#[cfg(feature="pro-build")]` (registry.rs) — SHIFTS THE MAS/Pro BOUNDARY, needs
+      owner sign-off per the canon-hardening protocol (document, don't flip); unify the CRUD
+      `~/.epistemos/skills` vs the router dirs; `skill_manage` v2 schema reachability
+      (allow_remote_skill_install + additionalProperties); the project-root `.agents/skills/` caller
+      wiring (the router now LOADS the convention dir vault-relative; a project-root resolver passes
+      the absolute path).
       🔎 S4 DEEP-RESEARCH AUDIT 2026-06-19 (docs/research/CHAT_TOOLS_INTEGRATION_AUDIT_2026_06_19.md)
       — confirms the loop's local diagnosis AND adds the missing pieces: (i) **CLOUD break (specific):**
       `runCommandCenterRustAgentPath` is reached only if `cloudProvider.supportsAgentTier`, TRUE ONLY
