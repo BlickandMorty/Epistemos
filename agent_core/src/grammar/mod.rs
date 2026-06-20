@@ -7,6 +7,9 @@ use llguidance::{Matcher, ParserFactory};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+/// SS-Y: the raw `extern "C"` FFI seam that drives the masking matcher from Swift.
+pub mod ffi;
+
 #[derive(Debug, thiserror::Error)]
 pub enum GrammarError {
     #[error("schema must be a JSON object: got {0}")]
