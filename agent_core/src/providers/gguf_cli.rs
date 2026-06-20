@@ -128,6 +128,11 @@ pub struct GgufCliProvider {
     /// behavior); the per-model VALUE is owned by the per-model framework
     /// (SS-Z) / the chatml-fallback retry that builds on this seam.
     chat_template: Option<String>,
+    /// Per-model stop strings, passed to llama-cli as `--reverse-prompt` (SS-Z:
+    /// GGUF stop tokens were MISSING). llama-cli halts generation when it emits
+    /// one — keeps a model from running past its turn end. Empty = rely on the
+    /// model's own EOG token. Resolved from `ModelCapabilityProfile` at the factory.
+    stop: Vec<String>,
 }
 
 impl GgufCliProvider {
@@ -146,6 +151,7 @@ impl GgufCliProvider {
             temperature: 0.0,
             json_schema: None,
             chat_template: None,
+            stop: Vec::new(),
         }
     }
 
@@ -192,6 +198,22 @@ impl GgufCliProvider {
             Some(name) => vec!["--chat-template".to_string(), name.clone()],
             None => Vec::new(),
         }
+    }
+
+    /// Set per-model stop strings (passed to llama-cli as `--reverse-prompt`).
+    /// Blank/whitespace entries are dropped.
+    pub fn with_stop(mut self, stop: Vec<String>) -> Self {
+        self.stop = stop.into_iter().filter(|s| !s.trim().is_empty()).collect();
+        self
+    }
+
+    /// The `--reverse-prompt <stop>` args for each per-model stop string, or an
+    /// empty vec. Pure → unit-testable.
+    fn stop_args(&self) -> Vec<String> {
+        self.stop
+            .iter()
+            .flat_map(|s| ["--reverse-prompt".to_string(), s.clone()])
+            .collect()
     }
 
     pub fn with_llama_cli_path(mut self, path: impl Into<PathBuf>) -> Self {
@@ -271,6 +293,8 @@ impl AgentProvider for GgufCliProvider {
         // SS-W seam: an explicit `--chat-template <builtin>` (empty when using
         // the GGUF's embedded template), moved into the `stream!` block below.
         let chat_template_args = self.chat_template_args();
+        // SS-Z: per-model `--reverse-prompt` stop strings (empty when none).
+        let stop_args = self.stop_args();
         // Trimmed, non-empty lines of the prompt we send, so the banner strip
         // below can drop llama-cli's echo of the prompt without depending on its
         // exact reformatting.
@@ -298,6 +322,8 @@ impl AgentProvider for GgufCliProvider {
                 // SS-W: override the embedded template when one is selected
                 // (empty otherwise → embedded, unchanged behavior).
                 .args(&chat_template_args)
+                // SS-Z: per-model stop strings (empty otherwise → model EOG only).
+                .args(&stop_args)
                 .arg("--single-turn")
                 .arg("--simple-io")
                 .arg("--no-display-prompt")
@@ -567,6 +593,26 @@ mod tests {
         // Empty / whitespace name falls back to the embedded template (no arg).
         let blank = GgufCliProvider::new("/tmp/m.gguf").with_chat_template("   ");
         assert!(blank.chat_template_args().is_empty(), "blank name = embedded");
+    }
+
+    // SS-Z: per-model stop strings become `--reverse-prompt` flags; blank entries
+    // are dropped; none by default (rely on the model EOG).
+    #[test]
+    fn stop_args_become_reverse_prompt_flags() {
+        let none = GgufCliProvider::new("/tmp/m.gguf");
+        assert!(none.stop_args().is_empty(), "default = model EOG only");
+
+        let p = GgufCliProvider::new("/tmp/m.gguf")
+            .with_stop(vec!["<|im_end|>".into(), "   ".into(), "<eos>".into()]);
+        assert_eq!(
+            p.stop_args(),
+            vec![
+                "--reverse-prompt".to_string(),
+                "<|im_end|>".to_string(),
+                "--reverse-prompt".to_string(),
+                "<eos>".to_string(),
+            ]
+        );
     }
 
     fn prompt_set(prompt: &str) -> std::collections::HashSet<String> {
