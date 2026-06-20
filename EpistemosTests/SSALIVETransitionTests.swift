@@ -36,4 +36,14 @@ struct SSALIVETransitionTests {
         // Flat fast driver (no spring overshoot → no pop); reduceMotion bypasses it.
         #expect(root.contains(".animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showChat)"))
     }
+
+    @Test("LandingView's Brief / Welcome overlay modals are blur-fades on the easeOut driver")
+    func landingOverlaysBlurFade() throws {
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        // The dailyBrief + welcomeBack overlay modals use the shared blur-fade (no .scale fold)…
+        #expect(landing.contains(".transition(.blurFade())"))
+        // …on the same flat easeOut driver as the rest of the app's transition language.
+        #expect(landing.contains(".animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showingBrief)"))
+        #expect(landing.contains(".animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showWelcomeBack)"))
+    }
 }
