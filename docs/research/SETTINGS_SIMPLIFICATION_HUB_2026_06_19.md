@@ -16,7 +16,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | # | Slice | Status |
 |---|---|---|
 | SS-A | Cloned-app setup/settings simplification + robustness + integration | ✅ done → SS-A_CLONED_APP_SETTINGS_SIMPLIFY |
-| SS-B | Epistemos's OWN settings — simplify the sprawl (~80 health rows + S7 duplicate sections), clean IA + progressive-disclosure for diagnostics, robust defaults | ☐ in progress |
+| SS-B | Epistemos's OWN settings — simplify the sprawl | ✅ done → SS-B_APP_SETTINGS_SIMPLIFY |
 | SS-C | SETUP / ONBOARDING flow — first-run + per-feature auto-config for everything added (models/engines/MCP/voice/logos): the "it just works" path | ☐ |
 | SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ☐ |
 | SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
@@ -27,4 +27,5 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 
 ## FINDINGS LOG (appended each pass)
 **SS-A CLONED-APP SETTINGS** → the machinery already ships (`SettingsDisclosureSection` = the literal 'Advanced' container; GateStatus+HealthRow triad; native absorbers ModelStack/Authority/Skills). Pattern = a reusable `EngineSettingsSection` (curated native simple front: model→stack, perms→Authority, skills→Skills, MCP→ONE consolidated panel) + a `… · Advanced` disclosure with the full surface. Per clone: auto-default the plumbing (ports/dirs/keys/sandbox), surface ~3-5 knobs simply, full settings under Advanced. **OpenClaw (33-section config) = reskin its config-form via CSS injection + keep it under `OpenClaw · Advanced` — never hide it (reverses S3).** Top move = consolidate MCP-install into one panel. Full: SS-A doc.
-- (SS-B app's-own settings + SS-I external ecosystems still running.)
+**SS-B APP'S-OWN SETTINGS** → 70 files/23.5K lines; the #1 sprawl = ~46 health rows across THREE diagnostics homes → merge into ONE default-collapsed `DiagnosticsPanel` (3 at-a-glance rows + collapsed groups). 'Models' is a label not a home → collapse 4 sections into ONE Models home (Night Brain toggle dupes; .cognitive caption mismatch). MCP scattered across 3 components → ONE 'MCP & Tools' home. Co-locate flag toggles with their witness rows. New 'Engines' section for per-engine cards. 6 cats/19 sections → 5/~10; never delete (progressive-disclose). Full: SS-B doc.
+- (SS-I external ecosystems still running.)
