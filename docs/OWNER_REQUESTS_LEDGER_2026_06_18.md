@@ -4151,3 +4151,22 @@ native; AGPL server). ADOPT 2 patterns natively:
       pipeline. (6) MINI-CHAT is the primary driver (already targets any surface via `MiniChatTarget` DocumentSurface.swift:81-109);
       MAIN-CHAT recommendation = NO implicit global link (muddiness) → explicit "target this surface" affordance only; auto-link
       DECISION DEFERRED to owner. Cross-ref SS-2S/SS-IL/SS-WL/SS-MV/SS-HGT. [M→L].
+- [ ] **METAL STREAMING OVERLAY for "Ask this note" (owner 2026-06-20; extends SS-IL).** *"Make the inline streaming more
+      interesting + dynamic. Maybe use Metal to have an overlay going on — it's hard to engineer UI on TextKit, so be
+      creative. Communicate the interestingness of inline streaming on an ACTUAL editing surface + being able to immediately
+      edit right after it's done streaming."* RESEARCHED (web + code) → SS-IL "METAL STREAMING OVERLAY" section. APPROACH:
+      a non-interactive SwiftUI overlay ABOVE the editor (TextKit2 untouched), GPU-driven by SwiftUI Metal shaders
+      (`.layerEffect`/`.colorEffect` + self-animating `TimelineView(.animation)`), `allowsHitTesting(false)` so typing passes
+      through. Reuse existing `Shaders/ThinkingGlow.metal` (port to a `[[stitchable]]` SwiftUI shader). Effect = "materialize
+      → dissolve → editable": pulse on send → shimmer rides the streaming frontier → on stream-end the shimmer DISSOLVES to
+      reveal clean native immediately-editable text (the hand-off IS the interestingness), settling into the SS-IL cold-box.
+      Bounded GPU (only during stream + dissolve, clipped, then removed; reduce-motion fallback). One reusable component
+      (also for Epdoc). Cross-ref SS-ALIVE/SS-TC/SS-PERF2/SS-CLEAN. [M].
+- [ ] **OWNER-REQUEST COVERAGE SWEEP — recurring cycle so nothing asked is left out (owner 2026-06-20).** *"Continue
+      researching. Make a cycle in the plan that makes sure nothing I asked for is left out — some things may have been
+      missed or interrupted. Make sure everything I ask is researched + added to the plan."* RESEARCHED → SS-CLEAN
+      "OWNER-REQUEST COVERAGE SWEEP" section. A SEPARATE recurring cycle (completeness of intent, distinct from the muddiness
+      gate): every directive→verbatim ledger `[ ]` (captured BEFORE work, interruption-proof); every `[ ]`→slice + build-order
+      slot; every slice→referenced (no orphans); multi-part asks decomposed per sub-bullet; gaps surfaced, never papered over.
+      Run end-of-batch + every monitor fire. FIRST SWEEP (2026-06-20): 167 open items; no owner ask found dropped; closed an
+      index gap (SS-AL/Y/FM/UMA/SH now tracked in the finalization index). Cross-ref RESEARCH_FINALIZATION_INDEX, SS-CLEAN.

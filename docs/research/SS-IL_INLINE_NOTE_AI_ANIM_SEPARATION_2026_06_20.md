@@ -44,3 +44,46 @@ purely ADDITIVE chrome + clearer separation; do NOT refactor the streaming path.
   unchanged (no-regression guard).
 Order [S→M], NON-INVASIVE; single targeted swift build. Cross-ref SS-ALIVE, SS-TC, SS-2S, SS-CLEAN (one answer-container
 component, not cloned per surface).
+
+---
+
+## METAL STREAMING OVERLAY (owner 2026-06-20): make the inline streaming itself interesting/dynamic
+Owner: *"For the 'Ask this note' streaming, make it more interesting + dynamic. Maybe use Metal to have an overlay going
+on — it's hard to engineer UI surfaces on TextKit, so be creative. Find interesting ways to communicate the
+interestingness of inline streaming happening on an ACTUAL editing surface and being able to immediately edit right after
+it's done streaming — that's so interesting."* Research-validated, NON-INVASIVE (overlay above the editor; the TextKit2
+text layer is untouched).
+
+### Why a Metal OVERLAY (not editing the TextKit render path)
+Engineering live effects INTO `NSTextView`/TextKit2 glyph rendering is brittle (the owner's point). The clean path on
+macOS 26: a **non-interactive SwiftUI overlay layer above the editor**, GPU-driven by **SwiftUI Metal shaders**
+(`.layerEffect` / `.colorEffect` / `.distortionEffect`) self-animated by `TimelineView(.animation)` — no CADisplayLink to
+babysit, `allowsHitTesting(false)` so typing/selection pass straight through to TextKit underneath. The text stays 100%
+native + editable; the "magic" is a shader skin on top that fades out to hand the text back to the user.
+- **Reuse existing infra:** the app already ships `Epistemos/Shaders/ThinkingGlow.metal` (+ a Shaders/ dir) — extend/port
+  that into a `[[stitchable]]` SwiftUI shader rather than authoring a raw `CAMetalLayer`/`MTKView`. (Today no View uses
+  `.layerEffect`/`.colorEffect` yet — this is the first; establish a tiny `ShaderLibrary` seam others can reuse → SS-ALIVE.)
+- **Precedent libs (study, don't vendor blindly):** twostraws/Inferno + SwiftUIShaders (shimmer/glitch/neon/holographic).
+
+### The effect — "materialize then hand off" (communicates the inline-streaming story)
+1. **On send:** the ask-bar emits a pixel-art pulse; a faint Metal scanline/shimmer sweeps the region where the answer
+   will land (anchored to the caret/insertion line) — signals "the surface itself is thinking here."
+2. **While streaming:** newly-arrived tokens "materialize" — a shader shimmer/glow (port of ThinkingGlow) rides the
+   streaming frontier (the growing answer's trailing edge), drawn as an overlay clipped to the answer block's rect, driven
+   by `TimelineView(.animation)` + a `startDate`/progress uniform. Pixel-art palette, theme-tinted (AI token, SS-TC).
+3. **On stream end (the key beat):** the shimmer DISSOLVES (a quick dissolve/settle shader pass) to reveal clean, fully
+   native, immediately-editable text — visually communicating "the AI wrote this; now it's yours." The caret can auto-land
+   at the answer end so the user types instantly. This "dissolve→editable" hand-off IS the interestingness the owner wants.
+4. **Cohesion with the rest of SS-IL:** the dissolved text settles INTO the "cold box" AI container (separation) with the
+   scroll-down arrow if it's below the fold. One coherent moment: pulse → materialize → dissolve → separated + editable.
+
+### Constraints / robustness
+- Overlay only; `allowsHitTesting(false)`; the streaming pipeline + persistence unchanged (no regression — same contract as
+  above). 120 Hz; respect `reduce-motion` (shader degrades to a simple fade or no-op). GPU cost bounded: shader runs ONLY
+  during streaming + the short dissolve, clipped to the answer rect, then removed — never a persistent always-on layer
+  (SS-PERF2/SS-CLEAN: no layering mud, no idle GPU). Works on the TK2/Prose surface now; the SAME overlay component is
+  reusable on Epdoc later (one component, not cloned — SS-CLEAN).
+- Tests: render/behavior — overlay mounts only while `isStreaming` (+ dissolve window) then unmounts; `hitTesting` false
+  (typing reaches TextKit during + after); reduce-motion path; no-regression on streaming completion/persistence.
+Sources: SwiftUI `.layerEffect`/`.colorEffect`/`.distortionEffect` + `TimelineView(.animation)` (Hacking with Swift, WWDC23
+Metal-for-SwiftUI); twostraws/Inferno; SwiftUIShaders. Cross-ref existing `Shaders/ThinkingGlow.metal`, SS-ALIVE, SS-TC, SS-PERF2.
