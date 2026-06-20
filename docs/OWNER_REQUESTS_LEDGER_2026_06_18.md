@@ -4211,3 +4211,20 @@ native; AGPL server). ADOPT 2 patterns natively:
       OWNER PREFERENCE (flag, don't force). LOOP unblocked either way: independently completes/wire-honestly the LOOP-SAFE rows
       (live probe vs honest fixture, never fake-green) + folds in SS-SH blank-sidebar; NEVER touches boundary-row backends
       (read-only display only). Cross-ref SS-SH/SS-CLEAN.
+- [ ] **SUBSTRATE WITHOUT THE NEW MODEL — deep research + completion (owner 2026-06-20, clarification).** *"Deep nuanced
+      research here; even the informative stuff is foreign to me and users. Not worried about dual-brain rn: if I need the NEW
+      MODEL I don't want surfaces to require that part — they can use everything else but NOT a required new model (takes a
+      long time). Everything from the substrate + the entire ontology WITHOUT the new model, and DON'T advertise it as the new
+      model — users just see the substrate. Substrate completed END-TO-END + reusable by other surfaces. Multiple research
+      cycles (local first, then online) to harden it so the agent builder can EASILY finish it. Want substrate finished BEFORE
+      other things IF beneficial; deliberate."* + *"remember all the research CURSOR did for dual brain — look at its local
+      research, all docs/folders it created/iterated."* RESEARCHED (cycle 1 local; cycle 2 online RETRY — web was down) →
+      SS-SUB "DEEP RESEARCH v2". KEY RESOLUTION: substrate is DESIGNED model-agnostic; the new model (brain-1 SSM/M0/bus/
+      lattice-safety) plugs in behind the EXISTING seam `SystemGAgentEvent::LocalModelHandoff` + `AnswerPacket.attention_mode`
+      (static_fallback today → dynamic later, ZERO consumer rework, nothing user-facing says "new model") + RuntimeRouter lanes.
+      So the model-agnostic substrate (AnswerPacket/RuntimeRouter/SystemG-runner/SovereignGate/EML/ACS/DAG/recall) can be
+      completed END-TO-END on TODAY's MLX/Gemma + interface-FROZEN + reused by all surfaces NOW — substrate-first is FAST +
+      beneficial (no new-model wait; weeks not months). Cited Cursor's 136 docs/fusion corpus (ARCHITECTURE_READOUT + canons).
+      BOUNDARY: high-value completion (RuntimeRouter promotion / AnswerPacket persistence / SystemG wiring) is in the owner's
+      Cursor domain → WHO finishes it is the open decision (loop builds it = scope reversal, vs owner-Cursor + loop does
+      loop-safe rows + explainer + interface-draft). DECISION posed to owner via AskUserQuestion (scope + sequencing).
