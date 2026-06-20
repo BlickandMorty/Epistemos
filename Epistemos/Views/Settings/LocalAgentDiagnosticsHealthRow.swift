@@ -174,8 +174,16 @@ public struct LocalAgentDiagnosticsHealthRow: View {
     }
 
     private func refresh() {
-        snapshot = LocalAgentDiagnostics.snapshot()
-        capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
+        // SS-SH phase 2: fetch both health reads OFF the MainActor (both types are
+        // `nonisolated`) so the 1Hz poll never runs the synchronous FFI/decode on the
+        // main thread — a slow read can no longer block/freeze the panel. Results hop
+        // back to @State on the MainActor.
+        Task {
+            let snap = await Task.detached { LocalAgentDiagnostics.snapshot() }.value
+            let ceiling = await Task.detached { CapabilityCeilingHealthSnapshot.load() }.value
+            snapshot = snap
+            capabilityCeiling = ceiling
+        }
     }
 
     private func startTimer() {
