@@ -79,7 +79,7 @@ final class SDMessage {
     private func decodedDualMessage() -> DualMessage? {
         guard let data = dualMessageData else { return nil }
         do {
-            return try JSONDecoder().decode(DualMessage.self, from: data)
+            return try Self.sharedDecoder.decode(DualMessage.self, from: data)
         } catch {
             Log.db.error("Failed to decode DualMessage for message \(self.id): \(error.localizedDescription)")
             return nil
@@ -90,7 +90,7 @@ final class SDMessage {
     private func decodedTruthAssessment() -> TruthAssessment? {
         guard let data = truthAssessmentData else { return nil }
         do {
-            return try JSONDecoder().decode(TruthAssessment.self, from: data)
+            return try Self.sharedDecoder.decode(TruthAssessment.self, from: data)
         } catch {
             Log.db.error("Failed to decode TruthAssessment for message \(self.id): \(error.localizedDescription)")
             return nil
@@ -101,7 +101,7 @@ final class SDMessage {
     private func decodedAttachments() -> [FileAttachment] {
         guard let attachmentsData else { return [] }
         do {
-            return try JSONDecoder().decode([FileAttachment].self, from: attachmentsData)
+            return try Self.sharedDecoder.decode([FileAttachment].self, from: attachmentsData)
         } catch {
             Log.db.error("Failed to decode [FileAttachment] for message \(self.id): \(error.localizedDescription)")
             return []
@@ -112,7 +112,7 @@ final class SDMessage {
     private func decodedLoadedNoteTitles() -> [String]? {
         guard let loadedNoteTitlesData else { return nil }
         do {
-            return try JSONDecoder().decode([String].self, from: loadedNoteTitlesData)
+            return try Self.sharedDecoder.decode([String].self, from: loadedNoteTitlesData)
         } catch {
             Log.db.error("Failed to decode loadedNoteTitles for message \(self.id): \(error.localizedDescription)")
             return nil
@@ -123,7 +123,7 @@ final class SDMessage {
     private func decodedVaultRecallTrace() -> VaultRecallTrace? {
         guard let vaultRecallTraceData else { return nil }
         do {
-            return try JSONDecoder().decode(VaultRecallTrace.self, from: vaultRecallTraceData)
+            return try Self.sharedDecoder.decode(VaultRecallTrace.self, from: vaultRecallTraceData)
         } catch {
             Log.db.error("Failed to decode VaultRecallTrace for message \(self.id): \(error.localizedDescription)")
             return nil
@@ -134,7 +134,7 @@ final class SDMessage {
     private func decodedContextAttachments() -> [ContextAttachment]? {
         guard let contextAttachmentsData else { return nil }
         do {
-            return try JSONDecoder().decode([ContextAttachment].self, from: contextAttachmentsData)
+            return try Self.sharedDecoder.decode([ContextAttachment].self, from: contextAttachmentsData)
         } catch {
             Log.db.error("Failed to decode [ContextAttachment] for message \(self.id): \(error.localizedDescription)")
             return nil
@@ -145,7 +145,7 @@ final class SDMessage {
     func decodedContentBlocks() -> [MessageContentBlock]? {
         guard let contentBlocksData else { return nil }
         do {
-            return try JSONDecoder().decode([MessageContentBlock].self, from: contentBlocksData)
+            return try Self.sharedDecoder.decode([MessageContentBlock].self, from: contentBlocksData)
         } catch {
             Log.db.error("Failed to decode [MessageContentBlock] for message \(self.id): \(error.localizedDescription)")
             return nil
@@ -159,7 +159,7 @@ final class SDMessage {
             return
         }
         do {
-            let encoded = try JSONEncoder().encode(blocks)
+            let encoded = try Self.sharedEncoder.encode(blocks)
             self.contentBlocksData = encoded
             // Keep content in sync as joined text for backward compatibility
             self.content = blocks.joinedText
@@ -174,7 +174,7 @@ final class SDMessage {
     func decodedArtifacts() -> [Artifact] {
         guard let artifactsData else { return [] }
         do {
-            return try JSONDecoder().decode([Artifact].self, from: artifactsData)
+            return try Self.sharedDecoder.decode([Artifact].self, from: artifactsData)
         } catch {
             Log.db.error("Failed to decode [Artifact] for message \(self.id): \(error.localizedDescription)")
             return []
@@ -188,7 +188,7 @@ final class SDMessage {
             return
         }
         do {
-            let encoded = try JSONEncoder().encode(artifacts)
+            let encoded = try Self.sharedEncoder.encode(artifacts)
             self.artifactsData = encoded
         } catch {
             Log.db.error("Failed to encode [Artifact] for message \(self.id): \(error.localizedDescription)")
@@ -210,7 +210,7 @@ final class SDMessage {
 
         if let dualMessage {
             do {
-                let encoded = try JSONEncoder().encode(dualMessage)
+                let encoded = try Self.sharedEncoder.encode(dualMessage)
                 self.dualMessageData = encoded
             } catch {
                 Log.db.error("Failed to encode DualMessage for message \(self.id): \(error.localizedDescription)")
@@ -222,7 +222,7 @@ final class SDMessage {
 
         if let truthAssessment {
             do {
-                let encoded = try JSONEncoder().encode(truthAssessment)
+                let encoded = try Self.sharedEncoder.encode(truthAssessment)
                 self.truthAssessmentData = encoded
             } catch {
                 Log.db.error("Failed to encode TruthAssessment for message \(self.id): \(error.localizedDescription)")
@@ -241,14 +241,14 @@ final class SDMessage {
         contextAttachments: [ContextAttachment]?
     ) {
         do {
-            let encoded = try JSONEncoder().encode(attachments)
+            let encoded = try Self.sharedEncoder.encode(attachments)
             attachmentsData = encoded
         } catch {
             Log.db.error("Failed to encode [FileAttachment] for message \(self.id): \(error.localizedDescription)")
             attachmentsData = nil
         }
         do {
-            let encoded = try JSONEncoder().encode(loadedNoteTitles ?? [])
+            let encoded = try Self.sharedEncoder.encode(loadedNoteTitles ?? [])
             loadedNoteTitlesData = encoded
         } catch {
             Log.db.error("Failed to encode loadedNoteTitles for message \(self.id): \(error.localizedDescription)")
@@ -256,7 +256,7 @@ final class SDMessage {
         }
         if let vaultRecallTrace {
             do {
-                let encoded = try JSONEncoder().encode(vaultRecallTrace)
+                let encoded = try Self.sharedEncoder.encode(vaultRecallTrace)
                 vaultRecallTraceData = encoded
             } catch {
                 Log.db.error("Failed to encode VaultRecallTrace for message \(self.id): \(error.localizedDescription)")
@@ -266,7 +266,7 @@ final class SDMessage {
             vaultRecallTraceData = nil
         }
         do {
-            let encoded = try JSONEncoder().encode(contextAttachments ?? [])
+            let encoded = try Self.sharedEncoder.encode(contextAttachments ?? [])
             contextAttachmentsData = encoded
         } catch {
             Log.db.error("Failed to encode [ContextAttachment] for message \(self.id): \(error.localizedDescription)")
@@ -301,4 +301,20 @@ final class SDMessage {
             thinkingDurationSeconds: thinkingDurationSeconds
         )
     }
+}
+
+// MARK: - Shared JSON coders (SS-PERF2 #2/#4)
+
+extension SDMessage {
+    /// One shared decoder/encoder pair instead of a fresh JSONDecoder()/JSONEncoder()
+    /// allocated per accessor call. These accessors run per-message in the chat-list
+    /// preview path (ChatTypes.swift), so the per-call allocation was pure, repeated
+    /// waste. Both use the DEFAULT configuration (no date/data strategy) — identical to
+    /// the previous inline instances — so encode/decode output stays byte-for-byte
+    /// unchanged. Safe to share: JSONDecoder/JSONEncoder support concurrent use when never
+    /// mutated, and these are only ever read (and here, only from @MainActor accessors).
+    /// Matches the established static-coder pattern in the codebase (RustShadowFFIClient,
+    /// ReadableBlocksIndex).
+    nonisolated(unsafe) static let sharedDecoder = JSONDecoder()
+    nonisolated(unsafe) static let sharedEncoder = JSONEncoder()
 }
