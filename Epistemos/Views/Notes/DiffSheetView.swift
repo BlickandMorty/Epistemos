@@ -253,6 +253,7 @@ struct DiffSheetView: View {
                         .contentShape(Rectangle())
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)  // SS-DD: clean icon-only glyph, no stray chevron
                 .frame(width: 28)
                 .accessibilityLabel("More actions")
             }

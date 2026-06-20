@@ -139,6 +139,7 @@ struct ArtifactBlockView: View {
             }
             .buttonStyle(.plain)
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)  // SS-DD: clean icon-only glyph, no stray chevron
             .help("Export artifact")
 
             Button {
