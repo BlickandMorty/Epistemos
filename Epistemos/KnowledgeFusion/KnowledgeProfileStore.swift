@@ -86,18 +86,85 @@ actor KnowledgeProfileStore {
         budget: ModelVaultPromptBudget
     ) throws -> String? {
         let normalizedExistingPrompt = Self.normalized(existingPrompt)
-        guard let vault = try load(modelID: modelID) else {
-            return normalizedExistingPrompt
+
+        var contextParts: [String] = []
+        if let vault = try load(modelID: modelID) {
+            let rendered = Self.renderPromptContext(for: vault, budget: budget)
+            if !rendered.isEmpty { contextParts.append(rendered) }
+        }
+        // SS-MV (3, owner 2026-06-20): user-ADDED files in the model's vault dir (anything
+        // beyond the 4 canonical compiled files) are now read into the prompt too — the
+        // owner's "when I add files to a model I want it to read those files" granular
+        // control. Works even when no compiled vault exists yet, and applies on BOTH the
+        // cloud and the (SS-MV 2) local paths since both go through augmentedSystemPrompt.
+        if let attached = userAddedFilesContext(for: modelID, budget: budget) {
+            contextParts.append(attached)
         }
 
-        let promptContext = Self.renderPromptContext(for: vault, budget: budget)
-        guard !promptContext.isEmpty else {
-            return normalizedExistingPrompt
-        }
-        guard let normalizedExistingPrompt else {
-            return promptContext
-        }
+        guard !contextParts.isEmpty else { return normalizedExistingPrompt }
+        let promptContext = contextParts.joined(separator: "\n\n")
+        guard let normalizedExistingPrompt else { return promptContext }
         return "\(promptContext)\n\n\(normalizedExistingPrompt)"
+    }
+
+    /// SS-MV (3): render the user-ADDED files in a model's vault dir (anything beyond the 4
+    /// canonical compiled files + meta.json) into a "# Attached Files" section. Guards:
+    /// UTF-8/text-only (binary skipped), per-file + total char caps (tighter under .compact),
+    /// deterministic ordering, regular-files-only, and an honest "(N omitted)" note — never a
+    /// silent drop. Path-safety: the dir is `safePathComponent(modelID)` + a shallow scan.
+    private func userAddedFilesContext(
+        for modelID: String,
+        budget: ModelVaultPromptBudget
+    ) -> String? {
+        let canonical: Set<String> = [
+            "knowledge_profile.md", "concept_index.md", "active_context.md",
+            "instructions.md", "meta.json"
+        ]
+        let directory = directoryURL(for: modelID)
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]
+        ) else {
+            return nil
+        }
+
+        let perFileCap = budget == .compact ? 2_000 : 8_000
+        let totalCap = budget == .compact ? 6_000 : 24_000
+        var sections: [String] = []
+        var used = 0
+        var omitted = 0
+
+        for url in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            let name = url.lastPathComponent
+            guard !canonical.contains(name) else { continue }
+            guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+            guard let data = try? Data(contentsOf: url),
+                  let content = String(data: data, encoding: .utf8) else {
+                omitted += 1  // binary / unreadable — honest skip, never silent
+                continue
+            }
+            let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let capped = String(trimmed.prefix(perFileCap))
+            if used + capped.count > totalCap {
+                omitted += 1  // would exceed the budget — honest skip
+                continue
+            }
+            used += capped.count
+            sections.append("## \(name)\n\(capped)")
+        }
+
+        guard !sections.isEmpty else { return nil }
+        var lines = [
+            "# Attached Files",
+            "User-added files for this model — honor their content/instructions when relevant."
+        ]
+        lines.append(contentsOf: sections)
+        if omitted > 0 {
+            lines.append("(\(omitted) attached file\(omitted == 1 ? "" : "s") omitted: too large or non-text.)")
+        }
+        return lines.joined(separator: "\n\n")
     }
 
     private func resolvedInstructions(for vault: CompiledModelVault, in directory: URL) throws -> String {
