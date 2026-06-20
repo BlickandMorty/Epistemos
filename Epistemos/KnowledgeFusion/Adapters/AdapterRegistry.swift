@@ -31,6 +31,10 @@ struct AdapterRecord: Codable, Sendable, Identifiable, Equatable {
     let loraRank: Int
     let parameterCount: Int
     let trainingExamples: Int
+    /// SS-AD: a human-readable explanation of what this adapter does — what it was
+    /// trained on and its effect. Auto-seeded from training metadata at registration
+    /// and editable. Optional + last field so legacy records (no key) decode to nil.
+    var description: String? = nil
 
     static func == (lhs: AdapterRecord, rhs: AdapterRecord) -> Bool {
         lhs.id == rhs.id
@@ -153,6 +157,16 @@ actor AdapterRegistry {
             throw AdapterRegistryError.adapterNotFound(id)
         }
         records[index].qualityScore = score
+        try save()
+    }
+
+    /// SS-AD: set/clear an adapter's human-readable explanation. Mirrors
+    /// updateQualityScore (atomic JSON persist).
+    func updateDescription(_ id: UUID, description: String?) throws {
+        guard let index = records.firstIndex(where: { $0.id == id }) else {
+            throw AdapterRegistryError.adapterNotFound(id)
+        }
+        records[index].description = description
         try save()
     }
 
