@@ -43,19 +43,58 @@ final class MLXConstrainedGenerator: GrammarConstrainedGenerator {
         grammar: ToolSchemaGrammar.CompiledGrammar,
         maxTokens: Int
     ) async throws -> String {
-        // Build the logit processor from the compiled grammar
-        let processor = JSONSchemaLogitProcessor(grammar: grammar)
+        // SS-Y slice 5c — flag-gated grammar masking. DEFAULT-OFF
+        // (`EPISTEMOS_GRAMMAR_MASK_V0` != "1") → the existing soft-guidance path,
+        // BYTE-FOR-BYTE unchanged: no `RustGrammarMaskedLogitProcessor` is constructed.
+        // Only when the flag is ON AND a matcher builds from the active model's
+        // tokenizer is the real grammar-masking processor used; if the matcher can't be
+        // built we fall back to soft-guidance (honest — no masking unless real).
+        //
+        // LIVE end-to-end behavior (flag ON + a real model emits grammar-valid tool
+        // calls, with the masking grammar's tool-call format aligned to the pipeline
+        // parser) is PENDING OWNER VERIFICATION — not claimed here. `isFullyConstraining`
+        // stays false.
+        let flagEnabled = RustGrammarMaskedLogitProcessor.flagEnabled
+        let matcher = flagEnabled ? await inferenceService.makeGrammarMatcher(for: grammar) : nil
 
-        // Generate using the inference service with our custom processor
-        let result = try await inferenceService.generateConstrained(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            logitProcessor: processor
-        )
-
-        return result
+        switch Self.selectProcessorKind(flagEnabled: flagEnabled, matcherPresent: matcher != nil) {
+        case .grammarMasked:
+            // matcher is guaranteed non-nil here by selectProcessorKind.
+            let processor = RustGrammarMaskedLogitProcessor(matcher: matcher!, isEnabled: true)
+            return try await inferenceService.generateConstrained(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                logitProcessor: processor
+            )
+        case .softGuidance:
+            let processor = JSONSchemaLogitProcessor(grammar: grammar)
+            return try await inferenceService.generateConstrained(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                logitProcessor: processor
+            )
+        }
     }
+
+    /// SS-Y slice 5c: which constrained-decoding processor to use. The real grammar
+    /// masking processor is selected ONLY when the masking flag is ON AND a matcher
+    /// built from the model tokenizer; otherwise the existing soft-guidance processor
+    /// (so the flag-OFF path is byte-for-byte the prior behavior). Pure + testable
+    /// without a live model.
+    nonisolated static func selectProcessorKind(flagEnabled: Bool, matcherPresent: Bool) -> ConstrainedProcessorKind {
+        (flagEnabled && matcherPresent) ? .grammarMasked : .softGuidance
+    }
+}
+
+/// Which constrained-decoding logit processor `MLXConstrainedGenerator.generate()`
+/// selected for this generation (SS-Y slice 5c).
+enum ConstrainedProcessorKind: Equatable {
+    /// Real llguidance grammar masking (flag ON + a matcher built from the model).
+    case grammarMasked
+    /// The existing `JSONSchemaLogitProcessor` soft guidance (default / fallback).
+    case softGuidance
 }
 #else
 // Stub for non-MLX builds (CI, tests without GPU)
@@ -261,6 +300,45 @@ enum JSONParserState: Hashable {
 
 #if canImport(MLXLMCommon)
 extension MLXInferenceService {
+    /// SS-Y slice 5c: build a grammar masking matcher from the active model's
+    /// tokenizer + the compiled grammar's tool names. Returns nil — so `generate()`
+    /// falls back to soft guidance — if no model is loaded, the `tokenizer.json` /
+    /// `config.json` can't be read, or the grammar yields no matcher. Honest: no
+    /// masking unless a real matcher is constructable.
+    ///
+    /// NOTE the tool-call FORMAT here is the matcher's (`{"name","input"}`); its
+    /// alignment with the pipeline's parser is PENDING OWNER VERIFICATION via a live
+    /// generation run (see docs/research/SS-Y_MASKED_LOGIT_STATUS_2026_06_20.md).
+    func makeGrammarMatcher(for grammar: ToolSchemaGrammar.CompiledGrammar) -> RustGrammarMatcher? {
+        guard let dir = loadedModelDirectory else { return nil }
+        guard
+            let tokenizerJSON = try? String(
+                contentsOf: dir.appendingPathComponent("tokenizer.json"), encoding: .utf8
+            ),
+            let eos = Self.eosTokenID(fromConfigIn: dir)
+        else { return nil }
+        let tools = grammar.validToolNames.map {
+            ["name": $0, "schema": ["type": "object"]] as [String: Any]
+        }
+        guard
+            let toolsData = try? JSONSerialization.data(withJSONObject: tools),
+            let toolsJSON = String(data: toolsData, encoding: .utf8)
+        else { return nil }
+        return RustGrammarMatcher(tokenizerJSON: tokenizerJSON, toolsJSON: toolsJSON, eosTokenID: eos)
+    }
+
+    /// Read `eos_token_id` from the model's `config.json`. Nil if absent/unreadable.
+    /// Pure (reads a passed-in dir, no actor state) → `nonisolated` so the MainActor
+    /// `makeGrammarMatcher` can call it without an isolation hop.
+    nonisolated static func eosTokenID(fromConfigIn dir: URL) -> UInt32? {
+        guard
+            let data = try? Data(contentsOf: dir.appendingPathComponent("config.json")),
+            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let eos = obj["eos_token_id"] as? Int, eos >= 0
+        else { return nil }
+        return UInt32(eos)
+    }
+
     /// Generate text with a custom LogitProcessor for constrained decoding.
     /// Bypasses ChatSession to inject the processor directly into TokenIterator.
     ///
