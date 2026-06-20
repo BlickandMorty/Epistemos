@@ -22,7 +22,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-C | SETUP / ONBOARDING flow — first-run + per-feature auto-config for everything added (models/engines/MCP/voice/logos): the "it just works" path | ☐ |
 | SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ☐ |
 | SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
-| SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ☐ |
+| SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ✅ done → SS-F_SETTINGS_ROBUSTNESS |
 | SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ✅ done → SS-G_MODEL_INSTALL_PATH |
 | SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ✅ done → SS-H_CROSS_ENGINE_TOOL_SKILL_SHARING |
 | SS-I | EXTERNAL SKILL ECOSYSTEMS — Anthropic/Vercel/Google | ✅ done → SS-I_EXTERNAL_SKILL_ECOSYSTEMS |
@@ -212,3 +212,13 @@ revenue (flag legal); tool-dialect = pythonic.** **Bonsai + BitNet are HONESTLY 
 base-only+16-bit, Ternary-Bonsai GGUF fails to load "ggml type 41", BitNet needs the separate bitnet.cpp fork) —
 never on the Fast/Think happy path. VibeThinker-1.5B (owner pick, top tiny math reasoning) KEEP but verify
 license. Each maps to SS-AA ModelCapabilityProfile (ctx/template/toolDialect). Full: SS-R doc.
+**SS-F SETTINGS ROBUSTNESS** → persistence mostly honest (the @AppStorage + *Flags.userDefaultsKey single-source
+pattern is real; Eidos/VaultRecall/SystemG/ACS/FUlp/PromptTree have verified readers). **3 concrete holes
+simplification skipped:** (1) FAKE toggle `EPISTEMOS_GRAPH_INDEX_CHATS` (`SettingsView.swift:1386`) — ZERO
+runtime readers (no-fake violation, self-admitted "status-only"); (2) REAL default-drift BUG — `summaryInterval`
+settings @State defaults 15m but the service defaults 5m (`WorkspaceSummaryService.swift:24`) → fresh install
+shows 15m while engine runs 5m; (3) two orphan HealthRows (`CognitiveDagHealthRow`/`HyperdynamicLoopHealthRow`)
+never instantiated. Plus the raw-@State cluster (`:772-783`, stale-read) + flag↔witness split (graphIndexChats/
+rrfFusion/powerUserMode have no co-located proof). **Fix: summaryInterval default + convert 3 raw-@State to
+@AppStorage [S]; demote the fake toggle to a disabled 'reserved' row OR wire it [M]; re-home/gate orphan rows
+[M]; co-locate flag→witness chips [M].** All harden, never delete. Full: SS-F doc.
