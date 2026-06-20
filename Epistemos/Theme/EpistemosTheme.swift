@@ -1503,6 +1503,8 @@ enum AppCustomTheme: Sendable {
         defaults: UserDefaults = .standard
     ) {
         defaults.set(Int(hex & 0xFFFFFF), forKey: slot.defaultsKey(isDark: isDark))
+        // SS-THX: invalidate the memoized resolve so the change repaints (and exactly once).
+        if defaults === UserDefaults.standard { bumpThemeRevision() }
     }
 
     nonisolated static func setHex(
@@ -1519,12 +1521,57 @@ enum AppCustomTheme: Sendable {
             defaults.removeObject(forKey: slot.defaultsKey(isDark: false))
             defaults.removeObject(forKey: slot.defaultsKey(isDark: true))
         }
+        // SS-THX: invalidate the memoized resolve so the reset repaints.
+        if defaults === UserDefaults.standard { bumpThemeRevision() }
+    }
+
+    // SS-THX (owner 2026-06-20): memoize the custom-theme resolve to kill the theme-switch
+    // HANG. Without this, the resolve rebuilt the whole ResolvedTheme from ~15-20 synchronous
+    // UserDefaults reads on EVERY `theme.resolved.*` access (dozens per view body × the whole
+    // tree per toggle = thousands of rebuilds on the MainActor). The cache is keyed on
+    // (revision, isDark): the revision is bumped by EVERY color writer (setHex + reset — the
+    // only writers of the slot keys, verified), so a flip recomputes ONCE per appearance, then
+    // every read is a dict hit. Only the live `.standard` store is cached; a custom UserDefaults
+    // (tests) bypasses so it always reflects the passed-in store. Prerequisite for SS-TC.
+    // SAFETY: `_revision` / `_cache` are mutated only while holding `_cacheLock`.
+    nonisolated(unsafe) private static var _revision: UInt64 = 0
+    nonisolated(unsafe) private static var _cache: [Bool: (revision: UInt64, theme: EpistemosTheme.ResolvedTheme)] = [:]
+    nonisolated private static let _cacheLock = NSLock()
+    /// Best-effort test instrumentation: how many times the UNCACHED build ran (the SS-THX
+    /// memoization test asserts that N reads do NOT trigger N rebuilds).
+    nonisolated(unsafe) static var resolveBuildCount: UInt64 = 0
+
+    /// Invalidate the memoized custom-theme resolve. Called by every color writer (setHex,
+    /// reset) so the next read rebuilds exactly once per appearance.
+    nonisolated static func bumpThemeRevision() {
+        _cacheLock.lock()
+        _revision &+= 1
+        _cacheLock.unlock()
     }
 
     nonisolated static func resolved(
         isDark: Bool,
         defaults: UserDefaults = .standard
     ) -> EpistemosTheme.ResolvedTheme {
+        guard defaults === UserDefaults.standard else {
+            return buildResolved(isDark: isDark, defaults: defaults)
+        }
+        _cacheLock.lock()
+        defer { _cacheLock.unlock() }
+        let revision = _revision
+        if let entry = _cache[isDark], entry.revision == revision {
+            return entry.theme
+        }
+        let built = buildResolved(isDark: isDark, defaults: defaults)
+        _cache[isDark] = (revision, built)
+        return built
+    }
+
+    nonisolated private static func buildResolved(
+        isDark: Bool,
+        defaults: UserDefaults
+    ) -> EpistemosTheme.ResolvedTheme {
+        resolveBuildCount &+= 1
         let background = hex(for: .background, isDark: isDark, defaults: defaults)
         let text = hex(for: .text, isDark: isDark, defaults: defaults)
         let accent = hex(for: .accent, isDark: isDark, defaults: defaults)
