@@ -299,22 +299,23 @@ entry: shadow parity passes) → **W-51 shadow recall** (+ embedding-parity; ent
 **Nothing material is left out.** Verdict UNCHANGED: **GO for M0** on owner green-light; the 4 owner
 decisions (lift docs_first · B3 spine commitment · build-env/workspace-path · M0 Pro/research scope) stand.
 
-### 8.6 Falsifier-coverage audit (PASS-21, FINAL) — consolidated index in ledger
+### 8.6 Falsifier-coverage audit (PASS-21 → PASS-22 tightened) — consolidated index in ledger
 ~50 named falsifiers across all segments (gates / Rust bus 10+6 / lease lifecycle 6 / S-UAS-COMPUTE U1–U14 /
 ternary-KV 4 / cold-assembly transport / brain-2 organs / 6 blueprint items / 15 S-PRIM primitives).
-**~45 concrete ✅ · 4 vague 🟡 · 1 missing 🔴 — none gate M0.** Full index: ledger PASS-21.
-- 🔴 **`F-HeavySkill-Deliberation` (B6)** — missing; specify before the B6 deliberation loop.
-- 🟡 Hopfield spurious-attractor bound · Geometry-IR rotor↔RoPE-equivalence · Belnap abstention-precision ·
-  Tropical region-count↔sparsity — named, criteria to be pinned during build.
-- Intentionally unpinned (build-time calibration, not gaps): M0 loss-margin ε, SpQt-non-stacking X%, sink window size.
+**PASS-22 Part A closed all gaps:** **~50 concrete ✅ · 0 vague · 0 missing.** Full index + pinned
+thresholds: ledger PASS-21 + PASS-22 Part A (B6 HeavySkill 3 sub-axes · Hopfield ε_spur≤1% · Geometry-IR
+τ_rope=1e-6 · Belnap P_abs≥0.90 · Tropical |r|≥0.7).
+- Intentionally unpinned (build-time calibration, not spec gaps): M0 loss-margin ε, SpQt-non-stacking X%,
+  sink window size, B6 absolute δ margin.
 
-### 8.7 FINAL STATE: READY FOR M0
-The research + design + hardening phase is **COMPLETE** (21 passes). The architecture is a coherent,
-honestly-tiered, falsifier-covered SPEC — not a shipped system. Falsifier coverage is ~50 named tests
-(~45 concrete); the only gaps (1 missing B6, 4 vague) do **not** block M0. **VERDICT: GO for M0** on owner
-green-light (locked vanilla-SSM toy backbone · 4 pass/fail axes · result.json schema ready). 4 owner
-decisions unchanged: lift `docs_first` · B3 spine commitment · build-env/workspace-path confirm · M0
-Pro/research scope. **The loop is now PAUSED pending the owner's build decision — the next action is to
-build M0, not more deliberation.**
+### 8.7 FINAL STATE: RESEARCH CLOSED — READY FOR M0 BUILD
+The research + design + hardening phase is **COMPLETE** (22 passes). PASS-22 Part B landed a **minimal
+foundation**: `agent_core/src/research/m0_interrupt_harness.rs` (schema + pure axes-eval + 6 passing tests;
+commit `da8475dff`) — **NOT the full M0 experiment driver**. The architecture is a coherent, honestly-tiered,
+falsifier-covered SPEC — not a shipped system. **VERDICT: GO for M0** on owner green-light (locked vanilla-SSM
+toy backbone · 4 pass/fail axes · harness scaffold ready · driver still open). 4 owner decisions unchanged:
+lift `docs_first` · B3 spine commitment · build-env/workspace-path confirm · M0 Pro/research scope.
+**Resume anchor:** `docs/fusion/SESSION_CHECKPOINT_2026_06_20.md`. **The loop is PAUSED — next action is
+BUILD M0 (experiment driver), not more deliberation.**
 
 *Bottom line: the research+design phase is COMPLETE and audited. Ready to code M0 on green-light.*
