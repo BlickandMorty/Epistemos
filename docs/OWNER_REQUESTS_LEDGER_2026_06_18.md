@@ -3701,3 +3701,52 @@ native; AGPL server). ADOPT 2 patterns natively:
       indefinite tail.) Reiteration confirmed: all concerns/queries (incl. pre-compaction) remain captured in
       `SESSION_COVERAGE_MATRIX_2026_06_19.md`; per-model capability profiles + descriptions + picker use-case copy
       = SS-AB (the loop shipped `ModelCapabilityProfile` 40b32bb22).
+- [ ] ‼️ **INSTANT-RECALL via UMA ZERO-COPY for LOCAL MODELS — make model search as fast as the 50ms FTS (owner
+      2026-06-20; SS-UMA — the novel flagship).** Owner (verbatim): *"the notes-sidebar instant search is SO FAST
+      (the FTS 50ms instant search) — I want to ADD THAT SPEED to the local models' searching. Have a process
+      where the models can look DIRECTLY into the cache or memory or whatever is being used, so fast — lower
+      abstraction by utilizing the fact that I have a Mac with UMA and local models that can take advantage of the
+      speed of all the other processes. I could replace as much of the instant app logic and engines — the FTS
+      50ms instant search etc., whatever the cocktail that makes searching so fast — but in ways that do NOT break
+      the app or the models' capabilities."* THE THESIS: leverage Apple-Silicon **UMA (unified memory)** + the
+      already-instant retrieval engines (tantivy BM25 50ms FTS + usearch HNSW + RRF fusion + the shadow index +
+      the in-memory caches) so a LOCAL model's recall/RAG taps the SAME fast in-process data path — zero-copy,
+      low-abstraction, no serialization round-trips — making model-driven search/recall as instant as the
+      notes-sidebar. = the CLAUDE.md "zero-copy / as fast as a jet" doctrine (UMA, shared buffers, IOSurface,
+      in-process, single-binary, no tensor copies, no hot-path subprocess). Research: how the local agent's
+      memory/knowledge.recall tool can read DIRECTLY from the shadow-index/FTS/cache memory (shared buffers,
+      mmap, the existing FFI) instead of a higher-abstraction query; what's safely replaceable vs what must stay;
+      keep it from breaking the app or model capability. **Do NOT touch vault, graph, or TK2/Prose.** Cross-ref
+      the Halo Shadow index + RRF + SS-H (skills/tools) + SS-PERF. See SS-UMA doc.
+- [ ] **EPDOC md-v2 — CodeMirror pixel-reskin + frontmatter/tags/side-panels + chat integration + deep hardening
+      (owner 2026-06-20; expands SS-EM/SS-O/SS-P).** Owner (verbatim): *"nuanced things like getting the
+      CodeMirror working but ALSO coded in the reskin (pixel-art minimalness), making sure the app is coherent
+      with pixel-art + all features work absolutely 100%. Frontmatter, tags etc. — all the things Obsidian/Notion/
+      Logseq/Tolaria have, with the side panels like the frontmatter [panel]. Make sure my Epdoc md-v2 will be
+      deeply hardened and literally integrated with all chats. Keep it pixel-art like now but more dynamic, native."*
+      So the md-first Epdoc (SS-EM) gains: (1) the **CodeMirror-6 source view reskinned PIXEL-ART** (coherent with
+      the app, not default CodeMirror chrome); (2) **frontmatter + tags + side panels** (Obsidian/Logseq/Notion/
+      Tolaria-style: a frontmatter/properties side panel, tag index, backlinks) — surfaced natively pixel-art;
+      (3) **literal chat integration** — the agent can read/write the Epdoc md (the SS-P agent editing command
+      family insertBlock/replaceRange/streamInto/showDiff + the doc in chat context); (4) deeply hardened, ALL
+      features 100% working. Cross-ref SS-EM (convergence), SS-O (repair), SS-P (rich UI + agent-MD), the
+      EPDOC=MARKDOWN-FIRST decision.
+- [ ] **SUBSTRATE HEALTH PAGE GLITCHED — not working in Settings (owner 2026-06-20; concrete bug).** Owner: *"the
+      substrate health page is still glitched, it is not working in settings."* The Settings → Substrate Health
+      panel (`Views/Settings/SubstrateHealthPanel.swift`) is broken/glitched (doesn't render or shows broken
+      data). Investigate + REPAIR. Likely related to SS-PERF (the ~18 simultaneous 1Hz polling timers +
+      off-screen rows not cancelling → possible hang/overload) and SS-F (orphan rows `CognitiveDagHealthRow`/
+      `HyperdynamicLoopHealthRow` never instantiated; the fake/unwired rows). Fix the panel so it renders +
+      updates correctly + honestly. Cross-ref SS-PERF (#1 timer collapse), SS-F (orphan/fake rows).
+- [ ] **PERF/OPTIMIZATION GATE — research BEFORE and AFTER every implementation (owner 2026-06-20, STANDING
+      DISCIPLINE).** Owner (verbatim): *"make sure that performance and optimization research happens BEFORE the
+      implementations AND AFTER, so that all surfaces, features, and things added to the app are deeply optimized
+      before adding and after they are there, so the app keeps its structural optimization and performance
+      increases."* So every feature/lift gets an optimization pass BEFORE it lands (design for perf/memory/zero-
+      copy up front) AND AFTER it lands (verify no regression, harvest further gains). Composes with the
+      thermo-nuclear (SS-V) + vuln-gate (SS-S) + §3.7 hardening lifecycle + SS-PERF as the standing perf catalog.
+      "Super-duper hardened, super-duper speed." Continue recursive perf-research cycles (do NOT touch vault/graph/
+      TK2-Prose).
+      → REAFFIRM (owner 2026-06-20): EVERYTHING researched + mentioned in the plan/ledgers gets CODED END-TO-END
+      100% — "I know they need to be in my app, I've done the deliberation." Make it all explicit + likely to
+      happen. See `IMPLEMENTATION_SEQUENCE_2026_06_19.md` + `SESSION_COVERAGE_MATRIX_2026_06_19.md`.
