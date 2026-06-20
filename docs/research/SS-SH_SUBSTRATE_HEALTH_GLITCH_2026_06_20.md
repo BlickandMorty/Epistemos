@@ -21,6 +21,18 @@ health page is still glitched, it is not working in settings."* Cross-refs SS-PE
 > Net: the owner's reported *glitch* is most likely already resolved; verify by opening
 > Settings → Substrate Health. The text below is the original subagent research, kept for provenance.
 
+> **✅ COLLAPSE LANDED 2026-06-20 (slices 1-5, owner-directed).** All 17 per-row 1 Hz
+> timers now run on ONE shared `SubstrateHealthClock` (new `SubstrateHealthClock.swift`:
+> an `@Observable` tick + a `.substrateHealthPoll` modifier, driven by a single `.task`
+> on the panel `Form` and injected via `.environment`). 16 rows subscribe through the
+> modifier; the tick-based `ActiveConstellationRow` reads the shared `tick` directly.
+> Deterministic teardown (the one `.task` auto-cancels when the panel leaves). Each row's
+> `refresh()` (already off-MainActor where it mattered) is unchanged, so this is a pure
+> timer/scheduler collapse — the further dedup of the 6 *identical* unified-snapshot fetches
+> (6 FFI/sec → 1) is a separate follow-up. Source-guarded in `SubstrateHealthClockTests`
+> (no row retains a `startTimer`/`Task.sleep` self-timer). Commits 561495822 → (this).
+> Live "panel no longer stutters" pass = owner-runtime (the app-hosted UI can't run headless).
+
 ## Headline (verified root)
 The panel renders structurally fine (`Form` + 3 collapsible `Section(isExpanded:)`, no broken `ForEach`/id, no
 `EmptyView`, NOT flag-gated). **The glitch = MainActor contention from ~15 simultaneous 1Hz polling timers, each
