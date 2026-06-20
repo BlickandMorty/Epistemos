@@ -149,6 +149,12 @@ public struct SubstrateHealthPanel: View {
                 }
             }
         }
+        // SS-SH regression fix (owner-diagnosed 2026-06-20): the collapsible
+        // Section(isExpanded:) rows (added in 13d2b5307) need the GROUPED form style to
+        // render — without it the whole Form collapses to a blank panel. This was never
+        // about the SS-SH clock. Matches the .formStyle(.grouped) every other Settings
+        // Form already uses (SettingsView, CognitiveSettingsSection, …).
+        .formStyle(.grouped)
         .environment(healthClock)
         .task {
             // SS-SH: ONE shared 1 Hz clock for the whole panel — replaces the former
