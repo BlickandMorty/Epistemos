@@ -24,7 +24,20 @@ Simpler alt: HIDE the top bar for `.embeddedGraph` (the graph already renders it
 `GraphWorkspaceContainer.embeddedGraphPageHeader:185`, `NoteDetailWorkspaceView.overlayGraphEmbeddedToolbar:1417` — so
 the bar duplicates it). Test: render/snapshot or assert the bar uses the embedded theme token, not `.other`.
 
-## (C) LANDING-ONLY pill — identity + fix
+## (C) PILL — ⚠ REVISED (owner 2026-06-20): KEEP it (it's load-bearing for the curved window), swap its buttons
+**OWNER NUANCE:** the pill must STAY mounted on the graph — WITHOUT a principal `ToolbarItem`, the window's unified-
+titlebar treatment drops and the window REGRESSES to square (non-curved) corners (owner-confirmed empirically; the
+toolbar's presence is what keeps the curve). So do NOT unmount it on graph (the original "landing-only/remove on graph"
+plan below is SUPERSEDED). Instead: keep the pill mounted + visible on BOTH landing and graph (≥1 button → curve
+preserved), but make its BUTTON SET PAGE-RELEVANT — landing shows the landing buttons; on the graph show graph-relevant
+controls (e.g. settings + a graph/back control), NOT the landing greeting/recent-chats set. **DROP the recent-chat
+(history) button** (`historyToolbarButton` RootView.swift:512-526) — owner says it caused issues; remove it (or make it
+landing-only). Also revise the SS-AN pill blur: do NOT blur the pill fully away on graph (that defeats "keep it") — swap
+contents instead; SS-AN's blur can remain for the OTHER non-pill toolbar items. Net: window stays curved everywhere; the
+pill's buttons are contextual; recent-chats gone. Test: pill `ToolbarItem(.principal)` is present in BOTH landing AND
+graph states (curve preserved); the button set differs by `embeddedHomeGraphContentVisible`; no history button.
+
+### (original landing-only analysis — SUPERSEDED by the curve nuance above, kept for the file:line map)
 Pill = `rootToolbarControls` `ControlGroup` (`App/RootView.swift:448-471`), `ToolbarItem(.principal)` `:300-311`:
 `settingsToolbarButton` (`:473-479`), `landingGreetingToolbarButton` (`:497-510`), `historyToolbarButton`
 (recent-chats `:512-526`). **Bug:** gated by `showLandingToolbarControls || showEmbeddedGraphToolbarControls`

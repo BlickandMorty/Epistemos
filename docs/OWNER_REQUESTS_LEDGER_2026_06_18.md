@@ -3959,8 +3959,11 @@ native; AGPL server). ADOPT 2 patterns natively:
       presentation-blind `surfaceVariant(.other)` (card≈white) while the embedded surround is the landing background;
       fix = thread themeOverride into `CodeEditorView` + use the landing/background token at `CodeEditorView.swift:2167`
       (or hide bar for `.embeddedGraph`). (C) LANDING-ONLY PILL = `rootToolbarControls` ControlGroup (`RootView.swift
-      :448-471`); bug = gated on `showEmbeddedGraphToolbarControls` so it stays on graph (SS-AN only blurs it on
-      canvas); fix = gate on `showLandingToolbarControls` ONLY. (A) tunnel perf notes. [S]
+      :448-471`). ⚠ REVISED (owner 2026-06-20): the pill is LOAD-BEARING — without a principal ToolbarItem the window
+      regresses to SQUARE (non-curved) corners, so do NOT remove it on graph. Instead KEEP it mounted+visible on both
+      landing and graph (≥1 button → curve preserved) but make its buttons PAGE-RELEVANT (graph shows graph controls,
+      not the landing greeting set) and DROP the recent-chat/history button (`RootView.swift:512-526` — caused issues).
+      Revise the SS-AN pill-blur so the pill stays (swap contents, don't blur away). (A) tunnel perf notes. [S]
       • `SS-HW_HTML_WORKSPACE_STATUS_UPGRADE_2026_06_20.md` — HONEST STATUS: renders but is a one-way static renderer
       with DEAD seams (empty app-bridge `HTMLWorkspacePreviewView.swift:145-149`, console can never show errors, static
       not-live DOM, no Python, CSP blocks upgrades) AND it is NOT marked broken (no `HTMLWorkspaceGateStatus` despite
