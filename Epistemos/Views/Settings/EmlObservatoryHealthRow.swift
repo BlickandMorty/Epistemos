@@ -9,7 +9,6 @@ import SwiftUI
 @MainActor
 public struct EmlObservatoryHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
-    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
@@ -48,14 +47,7 @@ public struct EmlObservatoryHealthRow: View {
                 detail: potentialDetail(eml)
             )
         }
-        .onAppear {
-            refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
-        }
+        .substrateHealthPoll { refresh() }
     }
 
     private var unavailableDetail: String {
@@ -70,17 +62,6 @@ public struct EmlObservatoryHealthRow: View {
     private func refresh() {
         // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
         Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
-    }
-
-    private func startTimer() {
-        refreshTask?.cancel()
-        refreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                refresh()
-            }
-        }
     }
 }
 
