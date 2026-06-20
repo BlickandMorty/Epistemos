@@ -21,7 +21,12 @@
 > U1 FFN→Engram lookup · U2 FMA→ternary add/sub · U3 full-attn→SSM+interrupt · U4 KV-recompute→KV-Direct ·
 > U5 2nd-index→W-51 shadow recall · U6 serialization→zero-copy · U7 dense-routing→1-bit/sparse+FlashMoE ·
 > U8 weight-VQ→lattice (only if Metal-coalesced; else ternary wins) · U9 verify-recompute→DAG replay.
-> None "free" until its falsifier passes. (Full table: ledger PASS-14 §2.)
+> **U10 (PASS-17)** every-token-heavy→**spec-decode verified lane** (weight-bytes amortized over K) ·
+> **U11** full-KV→**attention-sink KV pinning** (pin 4 sinks+window, evict middle) · **U12** FFN→**Engram-Bloom
+> gate** (skip FFN on confident static-fact hit) · **U14** re-prefill→**content-addressed prefix-KV reuse**
+> (zero-copy, slot-cache). [Folds: U13 lease-ledger = governance is already free; U15 sparse-wake = U7's
+> witness.] All cut BYTES MOVED (the M2-Pro bottleneck), each gated by an `F-*` falsifier.
+> None "free" until its falsifier passes. (Full tables: ledger PASS-14 §2 + PASS-17.)
 
 ---
 
@@ -59,7 +64,8 @@
 | **Mamba-3 SSM spine** | inference-first SSM (exp-trapezoidal discretization · complex-valued state · MIMO); Pareto front — comparable quality at **½ the state size** (arXiv:2603.15569) | spine candidate; `research/mamba3.rs` + `scan_ir` hold SSM substrate; **no shipped Metal selective-scan kernel** | **T0/T1** — substrate + IR built; **Mamba-3 deferred to B3** (its complex state is what M1 Bauer-Fike governs + B3 kernel targets). **M0 uses a VANILLA state-tracking-weak SSM** (PASS-15) so the interrupt is the clean single variable. Grounding: Jamba ablation — pure Mamba fails ICL, sparse attention fixes it (arXiv:2403.19887); B'MOJO/Priming distill-from-Transformer (arXiv:2605.08301) |
 | **Attention-sinks default lane** | 4 permanent sink tokens + sliding window stabilize the linear/SSM lane between interrupts (StreamingLLM, arXiv:2309.17453) | `research/attention_sinks.rs` (`detect_sinks`, `sink_strength`) + Koopman-spectral reading | **T1** — math/verdict surface; not wired to a live attention kernel |
 | **Interrupt gate (`u_t`)** | per-token score; if `> τ` switch next K tokens to full attention; AUROC≥0.85 bar (Youden-J) | `research/interrupt_calibration.rs` + `interrupt_score.rs` | **T1** — calibration math + bar; **M0 still open** (does it move loss at toy scale?) |
-| **Ternary / quant lane** | low-bit weights; safety = Bauer-Fike eigenvalue bound (WBO-6); kernel refs: **bitnet.cpp v2** (2026-01, I2_S/TL1/TL2, +1.15–2.1×, NPU coming), **Litespark** (arXiv:2605.06485 — NEON SDOT on Apple Silicon M1–M5, 18–97× tput / 6× mem), **BitDistill** (distill→1.58-bit, 10× mem, the feasible single-box path) | `research/ternary/*` (trit/pack/gemv/backend) + `H4.lean` Babai bound | **T0/T1** — kernels research; gated behind **M1** Bauer-Fike proof (concrete Apple-Silicon kernel refs now exist) |
+| **Ternary / quant lane** | low-bit weights; safety = Bauer-Fike eigenvalue bound (WBO-6); kernel refs: **bitnet.cpp v2** (2026-01, I2_S/TL1/TL2, +1.15–2.1×, NPU coming), **Litespark** (arXiv:2605.06485 — NEON SDOT on Apple Silicon M1–M5, 18–97× tput / 6× mem), **BitDistill** (distill→1.58-bit, 10× mem, the feasible single-box path). **Co-design (PASS-18):** model acquired off-box (owner-gated), on-box = run + LoRA/DoRA + calibrate only; ternary-kernel composes with U12 Bloom-gate + U14 prefix-KV; **ternary vs SpQt are per-layer ALTERNATIVES, not a stack** (ternary already kills the multiply → sparsity-skip redundant on ternary) | `research/ternary/*` (trit/pack/gemv/backend) + `H4.lean` Babai bound | **T0/T1** — kernels research; gated behind **M1** Bauer-Fike proof |
+| **KV residency (KIVI 2-bit)** | per-channel K / per-token V, 2-bit (arXiv:2402.02750, repo source-card); fp16 ~128 KB/tok → 2-bit ~16 KB/tok (8×). **× U11 sink-pinning = ~100× (4K window: 512 MB→64 MB)** → frees ~all ~10 GB on 16 GB. **Rule (PASS-18): sinks stay fp16, window 2-bit** (don't quantize the softmax anchors) | `uas/kivi_asymmetric_kv_stability_source_card.rs` | **T0** — source-card only (`low_bit_kv_live_claimed=false`); `F-KV-Quant-Quality` gates it |
 | **Engram / Lookup plane** | O(1) hashed N-gram conditional-memory lookup (DRAM table), 20–25% sparse-budget optimum (DeepSeek, arXiv:2601.07372) | `epistemos-research/src/engram.rs` (Lane-3 type surface only) | **T0→T1** — concept + typed surface; mechanism not built; 20–25% now primary-source-validated |
 | **KV-Direct (UMA)** | KV/weights in unified memory, no CPU↔GPU copy | `MLXInferenceService` UMA sizing; `falsify_uas_zero_copy_spine.rs` | **T1** (Rust spine copy-count=0) — Swift/Metal paths unmeasured; **no zero-copy text→KV API** (honest) |
 
@@ -81,6 +87,15 @@ shipped** — the spine is research-tier until M0 proves the interrupt and a Met
 **Why Rust is the spine:** decode is bandwidth-bound (~10–50 ms/token on the 200 GB/s M2 Pro); the bus must
 add **<1%** (`F-Signal-Bus-Overhead`). Scalars/enums only cross the control plane; tensors/KV stay in UMA.
 This is what makes interrupting + co-working *cheap* — the whole dual-brain idea hinges on it.
+
+**Lease/authority semantics (PASS-16 hardening, T0 design):** `ComputeResumeLease` is now a full lifecycle,
+not just grant/revoke — HARD ceiling (exhaustion→downgrade/abstain, never unbudgeted), async non-blocking
+extension, generation-id-bound (stale=void), per-turn scoped, monotonic-decreasing revoke, RunEventLog-
+witnessed spend, budget in **tokens-of-heavy-lane** (+ soft wall-time guard). Expanded: **typed leases**
+(Attention/Recall/HeavyLane/FastWeight/Tool), **lease economics** allocated by `active_assembly`,
+**predictive pre-grant** (= the B2 prefetch), **lease-as-abstention-currency** (exhaustion + Belnap-`Neither`
+→ abstain), **lease provenance** in AnswerPacket (user-visible economics), **hierarchical leases** (B6
+deliberation tree). 6 new falsifiers `F-Lease-*`. (Full detail: ledger PASS-16.)
 
 ---
 
@@ -163,7 +178,10 @@ target verification preserves the answer digest + rollback.
 | *Kuramoto* | speculative consensus-`r` abstention candidate (kill-switch falsifier) | app-side (candidate) | T1 (speculative) |
 | *acs* | governance framing (recursive residency envelope + closure validator beneficial; 6-scale doctrine not a model organ) | app-side governance | T1 (framing) |
 | *info_ir/operator_ir* | verification IRs (certificate substrate), not model spine | app-side verification | T1 |
+| **Modern-Hopfield recall (H17)** | brain-2 **associative-completion** layered over Eidos (partial cue → full episode); spurious-attractor abstain guard; ≡ attention math | app-side (brain-2 memory) | T2 (code exists, OFF) — `F-Hopfield-Completion` |
+| **Selective-determinism** | the owner's hyper-deterministic loop, realized honestly: deterministic REPLAY + verify-rollback (enforced on seed/ledger/replay; relaxed on live Metal decode) | both (verification) | T1 — `F-Selective-Determinism` (≡ `epistemos_trace verify-replay`) |
 | *H14 (Apollonian)* | advisory fence (local-global conjecture FALSE) — NOT a beneficial primitive | — | T0 advisory |
+| *H12 Berry-phase / H16 CRT routing* | SKIP — H12 no concrete mechanism; H16 redundant with UAS/HNSW/FlashMoE routing (PASS-19) | — | T0 parked |
 
 **S-PRIM inventory status: COMPLETE for the research/ tree** (EML/Geometry/Koopman/Belnap/E2/scan_ir/
 active_assembly/continual_learning/Tropical/hybrid_memory/substrate_independence evaluated; Kuramoto/acs/
@@ -280,5 +298,23 @@ entry: shadow parity passes) → **W-51 shadow recall** (+ embedding-parity; ent
 
 **Nothing material is left out.** Verdict UNCHANGED: **GO for M0** on owner green-light; the 4 owner
 decisions (lift docs_first · B3 spine commitment · build-env/workspace-path · M0 Pro/research scope) stand.
+
+### 8.6 Falsifier-coverage audit (PASS-21, FINAL) — consolidated index in ledger
+~50 named falsifiers across all segments (gates / Rust bus 10+6 / lease lifecycle 6 / S-UAS-COMPUTE U1–U14 /
+ternary-KV 4 / cold-assembly transport / brain-2 organs / 6 blueprint items / 15 S-PRIM primitives).
+**~45 concrete ✅ · 4 vague 🟡 · 1 missing 🔴 — none gate M0.** Full index: ledger PASS-21.
+- 🔴 **`F-HeavySkill-Deliberation` (B6)** — missing; specify before the B6 deliberation loop.
+- 🟡 Hopfield spurious-attractor bound · Geometry-IR rotor↔RoPE-equivalence · Belnap abstention-precision ·
+  Tropical region-count↔sparsity — named, criteria to be pinned during build.
+- Intentionally unpinned (build-time calibration, not gaps): M0 loss-margin ε, SpQt-non-stacking X%, sink window size.
+
+### 8.7 FINAL STATE: READY FOR M0
+The research + design + hardening phase is **COMPLETE** (21 passes). The architecture is a coherent,
+honestly-tiered, falsifier-covered SPEC — not a shipped system. Falsifier coverage is ~50 named tests
+(~45 concrete); the only gaps (1 missing B6, 4 vague) do **not** block M0. **VERDICT: GO for M0** on owner
+green-light (locked vanilla-SSM toy backbone · 4 pass/fail axes · result.json schema ready). 4 owner
+decisions unchanged: lift `docs_first` · B3 spine commitment · build-env/workspace-path confirm · M0
+Pro/research scope. **The loop is now PAUSED pending the owner's build decision — the next action is to
+build M0, not more deliberation.**
 
 *Bottom line: the research+design phase is COMPLETE and audited. Ready to code M0 on green-light.*

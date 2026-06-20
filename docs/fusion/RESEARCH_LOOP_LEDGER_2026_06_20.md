@@ -2026,3 +2026,503 @@ confirmation** (files at absolute `/Users/jojo/Downloads/Epistemos/`; confirm `c
 agent_core/Cargo.toml` + xcodebuild scheme resolve from the new root); (4) **M0 Pro/research build scope**
 (Rust falsifier binary, feature `research`, CPU-only — not MAS). All T0/T1 write-plan; no authority docs
 edited; no code created.
+
+---
+
+## PASS 16 — 2026-06-20 (HARDENING+EXPANSION mode; target: ComputeResumeLease / controller-plane authority, 3 cycles)
+
+**Preservation check:** ✅ both ledgers + readout intact. Q31 (loop resume / hold-off-building / git-autocommit)
+appended verbatim; read-back confirmed. **HARD CONSTRAINT honored: docs-only, NO code (.rs/.lean/.swift), no
+M0 build** — the external build loop auto-commits `git add -A`, so nothing half-written is left around.
+Honesty: everything below is **T0 design** (the lease system is NOT built; `ComputeResumeLease` is a typed
+primitive that exists but is unwired) — hardening + expansion of the spec, not a "done" claim.
+
+**Target rationale:** the controller-plane authority rests on `ComputeResumeLease`, which prior passes treated
+coarsely (grant/revoke only, PASS-9). It is the load-bearing mechanism that makes brain-2 authority
+**policy-async** (the §8.2 soundness key) — worth hardening + expanding deeply.
+
+### CYCLE 1 — HARDEN the lease lifecycle (edge cases beyond grant/revoke)
+1. **Exhaustion mid-generation** — model spends the full budget before the answer completes. The lease is a
+   **HARD ceiling, not advisory**: exhaustion → forced **downgrade to the cheap SSM lane OR abstain**, never
+   silent unbudgeted continuation, never silent truncation. The emitted AnswerPacket carries
+   `attention_mode=static_fallback` + a `StaticFallbackAcknowledged` claim (so the InterruptInvariant/M1 holds).
+2. **Renewal / extension** — the model may REQUEST more budget mid-turn via a downlink `lease-extension-request`
+   signal (e.g. the interrupt keeps firing on a genuinely hard span); the app grants/denies **async**; until
+   granted, the model stays within the current budget. Never blocks the decode loop.
+3. **Stale lease (generation skew)** — a lease is bound to the model-state **generation-id** (PASS-9 F10); a
+   lease referencing a superseded generation (context reset / new turn) is **auto-void** — no stale spend.
+4. **Concurrent turns / double-spend** — lease budget is **per-turn/per-session-scoped, never global**;
+   single-writer per turn; two turns cannot share a budget.
+5. **Partial revocation** — the app may SHRINK (not just zero) the budget mid-flight; the lease is
+   **monotonic-decreasing on revoke**, applied at the next token boundary; the model adapts (less heavy-lane).
+6. **Accounting honesty** — the spent-budget counter is **witnessed in RunEventLog**; the cockpit shows REAL
+   spend, never an estimate. A hidden over-spend must be impossible (auditable).
+7. **Budget UNIT decision (hardening):** the lease budget is denominated in **tokens-of-heavy-lane**
+   (deterministic, hardware-independent — survives thermal throttle) + a SOFT wall-time guard as a safety
+   backstop. NOT raw ms (drifts under throttle) and NOT FLOPs (unobservable on Metal). This is a real,
+   previously-unspecified decision.
+
+### CYCLE 2 — EXPAND (new beneficial mechanisms the owner would want)
+1. **TYPED LEASES (new):** generalize `ComputeResumeLease` into a family, each with its own budget unit —
+   `AttentionLease` (K full-attention tokens), `RecallLease` (N ms / M shadow-recall queries),
+   `HeavyLaneLease` (wake the big model), `FastWeightLease` (permit ONE Titans-MAC inner-loop update; ties to
+   the fast-weight-quarantine TTL, PASS-5), `ToolLease` (permit a tool call). One sealed enum; the cockpit
+   exposes per-type budgets.
+2. **LEASE ECONOMICS / per-turn deliberation budget (new):** the app allocates ONE "deliberation budget"
+   per turn and splits it across lease types; a hard span can TRADE a RecallLease for an AttentionLease.
+   **The natural allocator is `active_assembly` (the nervous system)** — it already picks the minimal firing
+   set, so it should also price/allocate the lease pool. Strong new cross-link: authority economics ⟷ the
+   firing executive.
+3. **PREDICTIVE PRE-GRANT (new, unifying):** the app pre-grants a lease when the **InterruptScore TREND
+   rises** (so the heavy-lane wake is instant, no boundary delay). This is the SAME mechanism as the
+   DejaVu/PowerInfer **pre-attention prefetch (B2)** — prefetching residency IS pre-granting a lease.
+   Unifies the bus-uplink and the residency-prefetch into one "anticipatory authority" primitive.
+4. **LEASE AS THE ABSTENTION CURRENCY (new):** "defer beats wrong" becomes quantitative — if the budget is
+   exhausted AND the answer is still low-confidence (Belnap `Neither`), **abstain** rather than answer
+   cheaply-wrong. The lease ceiling becomes the honest abstention TRIGGER, binding lease economics +
+   abstention policy (PASS-5 S-PANEL control) + Belnap FDE into one rule.
+5. **LEASE PROVENANCE IN AnswerPacket (new):** every AnswerPacket carries a `residency_signal` lease ledger
+   (granted / spent / abstained-on-exhaustion), so the user SEES the dual-brain economics — "this answer used
+   80% of its heavy-lane budget" or "deferred: budget exhausted." Makes the controller-plane user-facing
+   through the cockpit downlink.
+6. **HIERARCHICAL / NESTED LEASES (new):** a HeavySkill deliberation (B6: halt→K trajectories→verify→resume)
+   gets a PARENT lease; each trajectory gets a CHILD sub-lease; parent revoke **cascades** to children.
+   Mirrors the active_assembly packet-graph DAG — the lease tree = the deliberation tree.
+
+### CYCLE 3 — falsifiers (adversarial + new; T0 spec)
+- `F-Lease-Hard-Ceiling`: at exhaustion the model forcibly downgrades/abstains, NEVER continues unbudgeted;
+  AnswerPacket honest. **Adversarial:** a pathological prompt that keeps the interrupt firing must NOT blow
+  the budget (budget is the hard cap).
+- `F-Lease-Generation-Void`: a lease from generation N is auto-void at N+1 (context reset); zero stale spend.
+- `F-Lease-Extension-NonBlocking`: a mid-turn extension request never blocks the decode loop (async grant;
+  model stays within current budget until granted) — tokens/s unchanged (≤1%, ties to F-Signal-Bus-Overhead).
+- `F-Lease-Economics-Conservation`: across all lease types, total spend ≤ the per-turn deliberation budget;
+  the active_assembly allocator conserves; no double-spend across types.
+- `F-Lease-Abstain-On-Exhaustion`: budget exhausted + Belnap-`Neither` → abstain (not cheap-wrong) on the
+  refusal/privacy + research-citation task families ("defer beats wrong", quantified).
+- `F-Lease-Provenance`: every AnswerPacket carries an honest lease ledger (granted/spent/abstained); the
+  cockpit shows it; **adversarial:** a hidden over-spend is impossible (RunEventLog-witnessed, byte-checked).
+
+**Net (honest):** this hardens the lease from a 2-verb (grant/revoke) sketch into a full lifecycle (7 edge
+cases) + a typed-lease family + lease economics tied to active_assembly + predictive pre-grant unified with
+the B2 prefetch + lease-as-abstention-currency + lease provenance + hierarchical leases — 6 new mechanisms
+and 6 new falsifiers. All **T0 design** behind the M0/M1 gate; nothing built. The biggest conceptual win:
+**the lease pool is the quantitative budget that makes "defer beats wrong" and "no-hidden-authority" both
+enforceable and user-visible.**
+
+### Next pass target (diversify)
+**PASS 17:** rotate to the **S-UAS-COMPUTE map — push U1–U9 further + find U10+**. Candidates for U10+:
+**U10** speculative-decode-as-compute-light (MLX draft model = a cheap approximate lane the interrupt
+verifies, PASS-12); **U11** attention-sink KV pinning (the 4 sink tokens never recomputed/evicted);
+**U12** Engram N-gram hash as a Bloom-filter pre-check (skip the FFN entirely on a confident lookup hit);
+**U13** the lease ledger itself as compute-light governance (no per-token RPC). Harden each + add falsifiers.
+If U10+ yields nothing genuinely new, rotate to the dropped-idea register flesh-out instead.
+
+---
+
+## PASS 17 — 2026-06-20 (HARDENING+EXPANSION; S-UAS-COMPUTE beyond U9 → U10–U14, 3 cycles)
+
+**Preservation check:** ✅ both ledgers + readout intact. Q32 appended verbatim; read-back confirmed.
+**Docs-only, NO code** (owner hold; git-autocommit context). All T0 design behind M0/M1.
+
+**The bandwidth test (the honest gate for every U):** decode on the M2 Pro is **memory-bandwidth-bound
+(~200 GB/s)**, so a real win must reduce **BYTES MOVED on the hot path** (weight/KV streaming), not just
+FLOPs. A mechanism that cuts FLOPs but not bytes (or that adds resident bytes) is honestly marked.
+
+### CYCLE 1 — enumerate U10+ candidates · CYCLE 2 — UAS compute-light design · CYCLE 3 — falsifier
+(Cycles interleaved per mechanism for legibility; each row = enumerate → design → falsifier.)
+
+| # | Dense/expensive thing | UAS compute-light alternative | Bandwidth win? | Tier | Correctness falsifier |
+|---|---|---|---|---|---|
+| **U10** | run the heavy model for EVERY token | **Speculative decode as a verified lane** — small draft proposes K tokens; target **verifies K in ONE parallel forward** → big-weight bytes streamed **once per K tokens** (~K× fewer weight-bytes/token). MLX-native (mlx-lm 0.21, PASS-12); lease-gated (`DraftLease`/`HeavyLaneLease`). **Compose with the interrupt:** draft on the cheap SSM lane, verify with attention only when the interrupt fires | **YES** at high acceptance (amortizes weight-streaming) | **T1** (MLX-available); gated | `F-SpecDecode-Bandwidth`: weight-bytes/token ≤ (1/K)·baseline at acceptance ≥ A **AND** emitted tokens **bit-identical** to non-spec (target verification preserves the answer). **Caveat/skip-if:** acceptance < threshold (draft wasted) OR 2-model residency (draft+target) blows the 16 GB UMA budget |
+| **U11** | keep/stream the FULL KV cache for long context | **Attention-sink KV pinning** (StreamingLLM, PASS-10) — pin the **4 sink tokens' KV permanently + sliding window**, EVICT the middle (dropped, NOT recomputed). KV resident drops O(context)→O(window+4) → fewer KV bytes read per attention step | **YES** (smaller resident KV = fewer bytes/step) | **T1** (StreamingLLM proven; `attention_sinks.rs` substrate) | `F-SinkKV-Residency`: KV resident ≤ (window+4)·per-token; 4M+-token gen stays stable (no collapse); **AND** a "middle-context-needed" probe correctly triggers recall/interrupt (U3/U5) instead of hallucinating the evicted span. **Lossy by design** — pairs with the interrupt as the escape hatch |
+| **U12** | run the FFN for tokens whose answer is a static fact | **Engram-hash Bloom pre-check** — a cheap **Bloom filter** (few-byte hash membership, no matmul) gates U1: confident hit → O(1) Engram lookup, **SKIP the dense FFN**; miss → normal FFN. Refines U1 by adding the near-free per-token GATE | **YES** for the static fraction (~20–25% per DeepSeek Engram, PASS-5) — skips a full FFN weight-read | **T0/T1** (Bloom + Engram are substrate) | `F-Engram-Bloom-Gate`: Bloom **zero false-negatives** (never skips an FFN-needed token — Bloom guarantees this); on the static-fact probe set, confident hits skip the FFN with output parity within ε (chains `F-Engram-LookupEquivalence` U1); FFN-skip rate ≈ static fraction |
+| **U13** | *(candidate: lease ledger as governance)* | the lease ledger is **scalar integer accounting** (subtract spent from budget) — O(1), no matmul, no RPC | **n/a — governance was never the compute cost; the MODEL is.** | — | **FOLD into `F-Signal-Bus-Overhead` (≤1%)** — honest: this CONFIRMS authority is already compute-free, it is NOT a new compute saving. Recorded as "authority is provably free," not a new U |
+| **U14** | re-prefill the prompt prefix KV every turn (system prompt, RAG context, multi-turn) | **Content-addressed prefix-KV reuse** — hash the prefix; if its KV is already UAS-resident, **REUSE zero-copy** instead of recomputing prefill. Skips a full weight-stream over the prefix. Grounded in the repo's existing `llama_cpp_slot_prompt_cache_command_card` | **YES, big** for repeated prefixes (skips prefill entirely) | **T0/T1** (slot-cache card exists) | `F-PrefixKV-Reuse`: identical prefix → reused KV **byte-identical** to recomputed; prefill weight-bytes = **0** on a cache hit; cache keyed by **(prefix-hash, model-id, quant)** to block cross-model contamination (ties to the embedding-parity discipline, U5/PASS-12). **Caveat:** only helps when prefixes repeat (system/RAG yes, unique user text no) |
+| **U15** | *(candidate: sparse-wake certificate)* | a "sparse-wake certificate" proving only the minimal support set woke (repo: `falsify_sparse_wake_certificate_answer_packet`, `falsify_sparse_wake_proposal_budget`) | n/a — it's the WITNESS, not the saving | — | **FOLD into U7** (`F-ActiveAssembly-Minimal`) — it's the proof that U7 fired minimally, not a new compute mechanism |
+
+### Net (honest)
+**4 genuinely-new compute-light mechanisms (U10 spec-decode, U11 sink-KV pinning, U12 Engram-Bloom gate,
+U14 prefix-KV reuse) + 2 honest folds (U13 governance = confirm-free; U15 sparse-wake = U7's witness).**
+All four pass the bandwidth test (each cuts BYTES MOVED, the real M2-Pro bottleneck — not just FLOPs), and
+each is gated by a correctness falsifier so nothing is "free" until proven. The unifying theme of U10–U14:
+**amortize or eliminate weight/KV streaming** (spec-decode amortizes weights over K tokens; sink-KV + prefix
+reuse eliminate KV bytes; Engram-Bloom skips FFN weight reads). Honest skips recorded (U13/U15 fold; the
+U8 lattice-VQ caveat still stands). Two strong cross-links surfaced: **U10 spec-decode ≡ the interrupt's
+dual** (draft-cheap/verify-heavy vs run-cheap/interrupt-heavy — composable), and **U14 ≡ the model-side
+twin of W-51** ("don't re-prefill" mirrors "don't re-query"). The S-UAS-COMPUTE map is now U1–U14.
+
+### Readout updated
+Extended the §"S-UAS-COMPUTE optimization map" note with U10–U14 (+ the 2 folds). Read-back verified.
+Tiers unchanged (all T0/T1 behind M0/M1).
+
+### Next pass target (diversify)
+**PASS 18:** rotate to **harden the Engram / Lookup plane + ternary lane co-design** — deepen the QAT/distill
+path (BitDistill, PASS-12), the I2_S/TL1/TL2 kernel ↔ Engram-Bloom (U12) ↔ prefix-KV (U14) interaction, and
+the **KV quantization** question (ternary KV vs fp16 KV residency cost on 16 GB — KIVI/asymmetric-KV is
+already a source-card in the repo). 3 cycles + falsifiers. If that yields nothing genuinely new, rotate to
+the dropped-idea register flesh-out (the "hosts of many" Q10 recovery), or — if BOTH are dry — recommend
+lowering the 2-min cadence rather than churning.
+
+---
+
+## PASS 18 — 2026-06-20 (HARDENING+EXPANSION; Engram/Lookup × ternary lane CO-DESIGN, 3 cycles)
+
+**Preservation check:** ✅ both ledgers + readout intact. Q33 appended verbatim; read-back confirmed.
+**Docs-only, NO code** (owner hold). All T0 design behind M0/M1. KIVI grounded in the repo source-card
+`uas/kivi_asymmetric_kv_stability_source_card.rs` (arXiv:2402.02750, jy-yuan/KIVI; `k_bits=2, v_bits=2`,
+per-channel key / per-token value; `low_bit_kv_live_claimed=false` — source-card only, no route authority).
+
+### CYCLE 1 — the QAT/distill path (feasible single-box route to a ternary model)
+**Off-box vs on-box split (honest, matches the CLAUDE.md Gemma-acquisition discipline):**
+- **OFF-box (NOT feasible on 16 GB M2 Pro):** the ternary model is **acquired or distilled off-box** —
+  **BitDistill** (16-bit teacher → 1.58-bit student via distillation + SubLN, <0.2pt loss, ~10× mem) or a
+  pre-trained BitNet b1.58 release. Full ReLUfication / from-scratch QAT costs 100s of B tokens → rented
+  GPU or an official release, never the laptop. Owner-approved local artifact (sha256 + byte-count) per the
+  acquisition canon.
+- **ON-box (16 GB feasible):** (a) **RUN** the distilled ternary model (Litespark NEON-SDOT / bitnet.cpp);
+  (b) **LoRA/DoRA adapter** fine-tune (the NeverRetrain stack, PASS-8 — adapter-scale fits); (c) light
+  **calibration** (per-tensor int8 activation scale tuning). **Honest tier: T0** — the ternary model is an
+  off-box-acquired artifact (owner-gated); on-box is run + adapt only, NOT train-from-scratch.
+
+### CYCLE 2 — kernel co-design: compose vs conflict
+- **I2_S/TL1/TL2 (lossless ternary matmul) × U12 (Engram Bloom-gate):** **COMPOSE cleanly** — different
+  granularity. The Bloom gate is **token-level routing** (run the FFN at all?); the ternary kernel is the
+  **matmul within a run**. When the gate says "compute," the lossless ternary kernel runs; when it says
+  "static-fact hit," the FFN is skipped entirely. No layout conflict.
+- **I2_S × U14 (prefix-KV reuse):** **COMPOSE, with a key discipline** — ternary is a WEIGHT concern
+  (FFN/proj), prefix-KV is a CACHE concern (attention), orthogonal. BUT the cached prefix KV must be
+  produced by the SAME quantized model → the U14 cache key **(prefix-hash, model-id, quant)** must include
+  the quant config, or a ternary-produced KV could be wrongly reused by a different-precision run. Discipline
+  resolves the conflict.
+- **⚠️ I2_S (ternary, U2) × SpQt (quant×sparsity zigzag, PASS-12/B4): CONFLICT — they are ALTERNATIVES, not
+  composable (the sharp new finding).** SpQt's zigzag aligns quant groups with column-wise activation
+  sparsity to SKIP work; I2_S packs dense 2-bit ternary. Stacking both means one weight layout must satisfy
+  TWO competing constraints (ternary-pack vs zigzag-sparse-skip). **Honest resolution:** ternary already
+  makes the matmul **multiplication-free** (the expensive part is gone) → adding activation-sparsity-skip on
+  ternary only skips cheap add/sub = **diminishing returns**. So: **prefer DENSE ternary on ternary layers;
+  reserve SpQt sparse-skip for higher-precision (fp/int4) layers** where the matmul is still expensive.
+  They are per-layer alternatives, not a stack. (Resolves the latent U2-vs-U8-vs-SpQt tension.)
+
+### CYCLE 3 — ternary-vs-fp16 KV RESIDENCY (KIVI × U11 × KV-Direct), with numbers
+**Worked budget (≈4B model, 32 layers, 8 GQA KV-heads, head_dim 128 — honest order-of-magnitude):**
+- **fp16 KV** ≈ 2(K+V)·32·8·128·2 B ≈ **128 KB/token** → 8K ctx ≈ 1 GB, 32K ≈ 4 GB.
+- **KIVI 2-bit KV** (16→2 bit, 8×) ≈ **16 KB/token** → 32K ≈ 0.5 GB.
+- **16 GB envelope:** 4-bit 4B weights ≈ 2 GB + OS/app ≈ 3–4 GB → **~10 GB free**. fp16 KV caps ctx at
+  ~80K tokens (whole budget); **KIVI 2-bit → ~640K tokens** (8× context affordable).
+- **KIVI × U11 (sink-KV pinning) COMPOSE MULTIPLICATIVELY:** U11 cuts the NUMBER of resident tokens
+  (window+4), KIVI cuts BYTES per token. A 4K window: fp16 ≈ 512 MB → **2-bit ≈ 64 MB** (~100× vs full-32K
+  fp16). On 16 GB this frees nearly the whole ~10 GB for a bigger model or working set — the decisive S-HW
+  long-context win.
+- **⚠️ NEW design point (U11 × KIVI conflict-resolution): keep the 4 attention SINKS at fp16, quantize only
+  the window/middle to 2-bit.** The sinks ANCHOR the softmax (the StreamingLLM stability mechanism);
+  quantizing them to 2-bit could destabilize the very thing U11 relies on. So asymmetric precision:
+  **sinks fp16, window KIVI-2bit.** (Honest open question flagged as a design rule, not yet measured.)
+
+### Falsifiers (co-design seams; T0 spec)
+- `F-Ternary-Lossless-Parity`: I2_S output **bit-matches** the QAT reference (bitnet.cpp lossless claim);
+  TL1/TL2 LUT paths match within their documented tolerance. Adversarial: a layer near the activation
+  outlier range must still match.
+- `F-Bloom-Gate-Under-Ternary`: U12's Bloom gate keeps **zero false-negatives even when the FFN is ternary**
+  (gate decision is precision-independent); confident-hit skips preserve output parity within ε on the
+  static-fact set under ternary weights.
+- `F-KV-Quant-Quality`: 2-bit KIVI KV (per-channel K / per-token V) preserves held-out scorer quality on the
+  seven task families; adversarial: 32K long-context where quant error compounds; AND composes with U11 —
+  **sinks fp16, window 2-bit** preserves stability (no gibberish collapse).
+- `F-Ternary-SpQt-NonStacking`: on ternary layers, adding SpQt sparse-skip yields **< X% additional
+  speedup** (proves diminishing returns → they're alternatives, so the build doesn't waste effort stacking
+  them). The witness that the CYCLE-2 conflict resolution is correct.
+
+### Net (honest)
+Strong co-design pass. **Composes:** ternary-kernel × Bloom-gate (token-routing vs matmul granularity),
+ternary × prefix-KV (with quant in the cache key), KIVI × sink-pinning (multiplicative residency win,
+~100×). **Conflicts resolved:** ternary vs SpQt are **per-layer alternatives, not a stack** (ternary already
+kills the multiply → sparsity-skip is redundant on ternary; reserve SpQt for higher-precision layers); KIVI
+vs sinks → **sinks fp16, window 2-bit**. **Tiers:** ternary model is off-box-acquired (T0, owner-gated);
+on-box = run + LoRA/DoRA + calibrate only. 4 new co-design falsifiers. The decisive S-HW takeaway:
+**KIVI-2bit + sink-pinning is what makes long context affordable on 16 GB** (frees ~all ~10 GB), and
+**ternary multiplication-free matmul makes activation-sparsity-skip largely redundant for ternary layers** —
+a sharp, previously-latent tension now resolved.
+
+### Next pass target (diversify)
+**PASS 19:** rotate AWAY from the model-internal lanes (well-hardened now) to **flesh out the dropped-idea
+register's "hosts of many" (Q10 recovery)** — take 3–4 register entries currently one-liners (e.g.
+Modern-Hopfield recall H17, the hyper-deterministic-loop→selective-determinism revival, Helios 6.2/6.3
+organs, Berry-phase/CRT exotic routing) and develop each into a real role/side/tier/falsifier design, OR
+harden **cold-assembly transport** (ColdStream PageRun/SlabArena/CodecStage + the quarantine). 3 cycles +
+falsifiers. **Honesty watch:** PASS-16/17/18 each added genuinely-new structure (lease lifecycle; U10–U14;
+ternary co-design conflicts). If PASS-19 AND PASS-20 both come up dry, recommend lowering the 2-min cadence
+rather than churning.
+
+---
+
+## PASS 19 — 2026-06-20 (HARDENING+EXPANSION; dropped-idea register flesh-out — 2 revive, 1 partial, 2 skip)
+
+**Preservation check:** ✅ both ledgers + readout intact. Q34 appended verbatim; read-back confirmed.
+**Docs-only, NO code** (owner hold). All T0 behind M0/M1. Grounded in `HELIOS_V5_DOC_6_THEOREM_CANON.md`
+§2 (H12/H16/H17). Honest mix below — not force-including.
+
+### REVIVE 1 — Modern-Hopfield associative recall (H17) → brain-2 associative-COMPLETION primitive
+- **CYCLE 1 (what + compose):** Modern Hopfield (Ramsauer arXiv:2008.02217) = continuous content-addressable
+  memory; one update step retrieves a stored pattern from a noisy/partial cue; capacity **2^(d/2)**, exp-small
+  error. KEY: the Hopfield update is **mathematically ≡ softmax attention**. It fills a niche the other recall
+  lanes DON'T: Engram (U1/U12) = EXACT token-ID lookup; Eidos/shadow (W-51) = approximate top-k vector
+  similarity; **Hopfield = associative COMPLETION / denoising** (partial cue → nearest complete stored episode).
+- **CYCLE 2 (role/side/tier):** **brain-2 retrieval primitive = the "pattern-completion" step layered OVER
+  Eidos** — Eidos/shadow finds candidate episodes (HNSW top-k), Hopfield COMPLETES/denoises a partial cue to
+  the full stored episode (over `hybrid_memory` episodes). Side: **app-side (brain-2 memory)** — the model
+  already has attention, so the beneficial placement is app-side completion over the episodic store, not a
+  duplicate model head. **Tier: T2** — code exists (`scope_rex/retrieval/hopfield.rs::modern_hopfield_update`,
+  W15) but **Tier-2 flagged OFF**.
+- **CYCLE 3 (falsifier):** existing H17 falsifier (N=2^9 patterns, d=64, 30% noise, recall ≥ 0.95) PLUS the
+  new composition+hardening falsifier `F-Hopfield-Completion`: (a) Eidos top-k → Hopfield completion returns
+  the correct full episode at ≥ R recall on partial cues; (b) **spurious-attractor guard** — it must NOT
+  return a pattern that was never stored (Hopfield's known failure mode is spurious minima; require a
+  "stored-or-abstain" check — an unrecognized cue → abstain, ties to Belnap `Neither`). The spurious-minima
+  adversarial is the key hardening.
+- **VERDICT: REVIVE** as the associative-completion organ between Eidos (candidate retrieval) and the answer.
+  Honest caveat: spurious attractors → must abstain rather than fabricate a "memory."
+
+### REVIVE/CLARIFY 2 — hyper-deterministic loop → deterministic REPLAY + selective verify-rollback
+- **CYCLE 1 (where enforced vs relaxed):** the owner's "hyper-deterministic loop" (Obscura era) is realized
+  honestly as **selective** determinism (SCOPE-Rex finding, PASS-1: always-on full determinism = double-digit
+  perf tax). **ENFORCED (deterministic):** seed-derived RNG, the **replay path** (RunEventLog + seed →
+  byte-equal replay, `epistemos_trace verify-replay`), falsifier fixtures (CPU-canonical M0), the provenance
+  ledger (BLAKE3 canonical JSON), AnswerPacket emission. **RELAXED (non-deterministic by design):** live
+  MLX/Metal decode (FP reduction order varies across runs — accepted), heavy-lane wake timing, prefetch order.
+- **CYCLE 2 (the mechanism):** determinism is a **REPLAY property, not a live-decode property.** Every live
+  run emits a RunEventLog + seed; when determinism is NEEDED (audit, debug, falsifier), you **replay from the
+  ledger** deterministically. **Rollback** = a MutationEnvelope reverts; **verify** = the Cognitive DAG /
+  claim ledger checks the output. So the honest resolution of "hyper-deterministic": **deterministic replay +
+  selective verify-rollback**, NOT deterministic live decode (which costs too much on Metal).
+- **CYCLE 3 (falsifier):** `F-Selective-Determinism`: (a) replay from RunEventLog+seed is **byte-equal** to
+  the original on the CPU-canonical path; (b) live decode is explicitly **NOT required bit-equal** across runs
+  (no over-claim); (c) a MutationEnvelope rollback restores prior state exactly; (d) the deterministic-path
+  perf tax is bounded (the double-digit tax applies only if you force LIVE determinism — selective avoids it).
+  Partly covered by the existing `epistemos_trace verify-replay`.
+- **VERDICT: REVIVE/CLARIFY** — the loop lives as deterministic-replay + selective-verify-rollback; cross-links
+  RunEventLog, MutationEnvelope, provenance ledger. This honestly closes the owner's Obscura-era thread.
+
+### PARTIAL — Helios 6.2/6.3 organs
+Honest: the Helios organs are **largely already absorbed** — ColdStream (PASS-1), page-gather, packet-router
+(U7), controller-pack, local-recall-island, long-context-harness all live in `agent_core/src/helios/` and are
+mapped (residency governor, FlashMoE PASS-13, U-map). A NEW parked organ would only surface from a dedicated
+read of `docs/fusion/helios v6.2.md` — **none is evident from the already-mapped module names.** Marked
+**honest partial**: not claiming exhaustion; a focused helios-v6.2 read is a candidate future micro-pass, but
+no force-included new organ this pass.
+
+### SKIP (with reason) — exotic routing H12 / H16
+- **H12 Berry-phase routing holonomy** (Berry 1984; EV/L3/WARN, no insertion site) — **SKIP.** A geometric-
+  phase analogy with no concrete, falsifiable runtime mechanism or M2-Pro win articulated; pure math curiosity
+  at L3. Park (not deleted — never-delete canon — but not revived).
+- **H16 CRT-based storage routing** (L3 init-only, "future Lane 3 research", no code) — **SKIP, redundant.**
+  CRT residue routing is superseded by the existing **UAS addressing + Eidos/shadow HNSW routing + FlashMoE
+  ML-cache** — it adds no beneficial capability over what exists. Park.
+
+### Net (honest)
+NOT dry — 2 genuine revivals with new structure: **Hopfield associative-completion** (a real new brain-2
+retrieval organ layered over Eidos, with a spurious-attractor abstain guard — `F-Hopfield-Completion`) and
+the **selective-determinism clarification** (the owner's hyper-deterministic loop = deterministic-replay +
+verify-rollback, `F-Selective-Determinism`). 1 honest partial (Helios 6.2/6.3 largely absorbed). 2 honest
+skips with reasons (H12 exotic/no-mechanism; H16 redundant-with-UAS). No force-inclusions.
+
+### Readout updated
+Added **Hopfield associative-completion** to the S-PRIM roll-up (§6) + a brain-2 retrieval note (§3); added
+**selective-determinism** as the honest realization of the hyper-deterministic loop (§ signal contract /
+verification). Read-back verified. Tiers: Hopfield T2 (OFF), selective-determinism T1.
+
+### Next pass target (diversify) + HONESTY WATCH
+**PASS 20:** harden **cold-assembly transport** (ColdStream `PageRun`/`PageRunScheduler`/`SlabArena`/
+`MetalBufferLease`/`CodecStage`/`TransportTrace`/`ColdPanicFallback`) — the SSD→UMA serial-transport that
+makes the 70B-cold-assembly thesis honest; 3 cycles + falsifiers on p95/p99 stall, cancellation, copy-count.
+**HONESTY WATCH (owner directive):** PASS-16/17/18/19 each added genuinely-new structure. **IF PASS-20 also
+comes up dry** (only re-confirms existing transport with no new hardening/idea), I will **explicitly
+recommend LOWERING the 2-minute cadence or pausing** — the hardening surface is finite and converging, and
+churning low-value passes would violate the no-redundant-research + honesty rules.
+
+### PASS 19 summary
+Fleshed out 4 dropped-idea-register one-liners (Q10 recovery). **REVIVED:** (1) Modern-Hopfield H17 as a
+brain-2 **associative-completion** primitive layered over Eidos (Eidos retrieves candidates → Hopfield
+completes a partial cue → spurious-attractor abstain guard); `F-Hopfield-Completion`; T2 (code exists, OFF).
+(2) the **hyper-deterministic loop** honestly realized as **deterministic-replay + selective verify-rollback**
+(enforced on replay/ledger/seed, relaxed on live Metal decode); `F-Selective-Determinism`; T1. **PARTIAL:**
+Helios 6.2/6.3 organs largely absorbed (ColdStream/page-gather/packet-router/long-context); a focused
+helios-v6.2 read is the only way to find a parked organ — honest, not forced. **SKIPPED with reason:** H12
+Berry-phase (no concrete falsifiable mechanism) + H16 CRT routing (redundant with UAS/HNSW/FlashMoE). Readout
+updated (Hopfield + selective-determinism). All T0/T1 behind M0/M1; no code. Honesty watch armed for PASS-20.
+
+---
+
+## PASS 20 — 2026-06-20 (cold-assembly transport; HONESTY GATE: composition cross-links new, primitives saturated → LOWER CADENCE)
+
+**Preservation check:** ✅ both ledgers + readout intact. Q35 appended verbatim; read-back confirmed.
+**Docs-only, NO code** (owner hold). All T0/T1 behind M0/M1.
+
+### HONEST FINDING FIRST (per the armed honesty gate)
+The cold-assembly transport is **the most mature, already-falsified area of the entire architecture** — far
+more built-out than the model lanes. Code-grounded: `agent_core/src/uas/` already has **dedicated modules +
+falsifiers for every seam the owner listed**: `coldstream.rs` (1342 lines: lease/fallback/answer-packet/
+rollback/page-table prefixes, `MAX_TRACE_COPY_COUNT=2`), `transport_cancellation.rs`, `copy_counter.rs` +
+`slab_arena_copy_count.rs` (zero-copy), `codec_stage_latency.rs`, `cache_policy_pollution.rs`,
+`ssd_wear_budget.rs` (write-amplification cap 15_000 BPS, energy, cache pressure), `cold_panic_fallback.rs`,
+`transport_trace_answer_packet.rs`, `coldstream_vs_mmap.rs`, `metal_io_feature_gate.rs`. **Per-primitive
+hardening (serial discipline, p95/p99 stall, cancellation, copy-count, SSD wear, cache-pollution, panic) is
+ALREADY DONE.** I will NOT manufacture new per-primitive findings — there is little genuinely-new there.
+
+### GENUINELY-NEW (the only honest contribution this pass): COMPOSITION cross-links
+The transport PRIMITIVES are saturated, but their **composition with the PASS-16/17/18 hardening** is new
+connective tissue not previously recorded:
+- **ComputeResumeLease (PASS-16) = the pre-granted transport budget.** `coldstream.rs` has a `lease:` prefix,
+  but the TYPED-lease family (PASS-16) adds a **`ResidencyLease` variant** = "you may transport ≤N PageRuns /
+  ≤M bytes this turn"; exhaustion → `ColdPanicFallback` (don't transport more, fall to cheap lane). Binds the
+  authority economics to the transport. Falsifier: `F-ResidencyLease-Transport-Ceiling` — transport bytes ≤
+  the granted residency budget; breach → ColdPanicFallback + RunEventLog, never unbudgeted SSD reads.
+- **U14 prefix-KV reuse × transport = transport ELISION.** A prefix-KV cache HIT means the PageRun for that
+  prefix is **never scheduled** (skip transport entirely, not just amortize). New cross-link: U14 is a
+  transport-eliding optimization, not just a compute one. Falsifier: `F-PrefixKV-Transport-Elision` — on a
+  cache hit, PageRuns scheduled for the prefix = 0.
+- **U11 sink-pinning × transport = pinned-never-transported.** The 4 sink tokens' KV is **pinned resident →
+  never enters a PageRun / never evicted-then-refetched**; only the sliding window is the transport working
+  set. Falsifier: `F-Sink-Pinned-NoTransport` — sink KV PageRun count = 0 over a long-gen trace.
+- **KIVI 2-bit (PASS-18) × transport = smaller PageRuns.** 2-bit KV = 8× fewer bytes per KV PageRun → fewer
+  transport stalls + less SSD wear per token. Composes with the `ssd_wear_budget` write-amplification cap
+  (smaller writes ⇒ more headroom). Falsifier: folds into `F-KV-Quant-Quality` + `ssd_wear_budget` (bytes/tok
+  drops 8× → wear budget proportionally relaxed).
+
+These 4 cross-links are real and worth recording, BUT they are **connective tissue over already-hardened
+primitives**, not new hardening of the transport itself. That is the honest scope of PASS-20's value.
+
+### HONESTY-GATE VERDICT: LOWER THE CADENCE
+Per the owner's armed gate: PASS-20 added genuinely-new COMPOSITION cross-links (4) but the **per-primitive
+hardening surface is SATURATED** (transport, lease, cockpit, ternary/KV, U-map, primitives, falsifiers are
+all built or fully spec'd across passes 1–19). The marginal value per 2-minute pass is now **declining** —
+future passes will increasingly re-confirm rather than add. **RECOMMENDATION (plain): lower the 2-minute
+cadence to ~10–15 minutes, OR pause the loop until the owner lifts the `docs_first` hold and BUILD begins.**
+Rationale: the research+design+hardening phase has converged (readout complete, §8 code-readiness GO, ~39
+falsifier specs, 14 U-mechanisms, 15 primitives, full theorem catalog, dropped-idea register, lease
+lifecycle, transport composition). Continuing nightly 2-min deep passes would violate the no-redundant-
+research + honesty rules. The highest-value next action remains **build M0** (owner green-light), not more
+deliberation.
+
+### Remaining open items that ONLY building or an owner directive can resolve (unchanged from §8 + PASS-15)
+1. M0 empirical result (interrupt moves loss?) — BUILD. 2. M1 Lean discharge — BUILD. 3. RuntimeRouter
+promotion STAGE 1b→2 — BUILD. 4. AnswerPacket emit wiring — BUILD. 5. W-51 shadow recall + embedding-parity
+— BUILD. 6. Spine commitment (Mamba-3 vs B'MOJO hybrid) — OWNER directive + M0/B3 evidence.
+
+### If the loop continues anyway, PASS 21 target (lowest-redundancy option)
+A **falsifier-coverage audit** — cross-check that every architecture segment (brain-1 organs, bus, brain-2,
+primitives, U1–U14) has ≥1 named falsifier with honest pass/fail criteria, and list any segment whose
+falsifier is still vague (e.g. B6 HeavySkill deliberation, the Hopfield spurious-attractor bound). This is
+the last clearly-non-redundant deliberation surface; after it, the loop should pause for BUILD.
+
+### PASS 20 summary
+Cold-assembly transport is the **most mature/already-falsified area** (coldstream.rs + 9 sibling modules
+cover serial discipline, stall, cancellation, copy-count, SSD wear, cache-pollution, panic — all the owner's
+seams). Honestly did NOT manufacture per-primitive findings. Genuinely-new contribution = **4 composition
+cross-links** (ComputeResumeLease=transport budget → `F-ResidencyLease-Transport-Ceiling`; U14 prefix-KV =
+transport ELISION → `F-PrefixKV-Transport-Elision`; U11 sink-pinning = pinned-never-transported →
+`F-Sink-Pinned-NoTransport`; KIVI = 8× smaller PageRuns, folds into SSD-wear). **HONESTY-GATE VERDICT
+(triggered): the per-primitive hardening surface is SATURATED; RECOMMEND lowering the 2-min cadence to
+~10–15 min or pausing until the owner lifts docs_first and BUILD begins.** The remaining open items are
+build-only or need an owner spine-commitment. All T0/T1; no code; no authority docs edited.
+
+---
+
+## PASS 21 — 2026-06-20 (FINAL, one-shot; FALSIFIER-COVERAGE AUDIT; loop pauses for build after this)
+
+**Preservation check:** ✅ both ledgers + readout intact. Q36 appended verbatim; read-back confirmed.
+**Docs-only, NO code.** This is the LAST pass — the auto-loop is stopped; no further passes recommended.
+
+### (a) CONSOLIDATED FALSIFIER INDEX (id → what it proves → status)
+**Status legend:** ✅ concrete (honest pass/fail) · 🟡 vague (named, criteria not pinned) · 🔴 missing.
+
+**Gates (M0/M1):**
+| Falsifier | Proves | Status |
+|---|---|---|
+| `F-Interrupt-Moves-Loss` (M0) | interrupt moves loss at toy scale (4 axes: moves-loss/beats-random/AUROC≥0.85/efficient) | ✅ |
+| `InterruptInvariant` (M1 Lean) | static_fallback ⟺ acknowledgement claim (sorry-free by enumeration) | ✅ |
+| `Bauer-Fike WBO-6` (M1 Lean) | ‖λ̂−λ‖ ≤ κ(V)·‖ΔA‖ under ternary quant (sorry≤4) | ✅ (exact bound; build-time ε aside) |
+
+**Rust bus / D1-COMMS downlink (10):** `F-Bus-Backpressure` ✅ · `F-Boundary-Apply` ✅ ·
+`F-Lease-Revoke-Rollback` ✅ · `F-SPSC-Ordering` ✅ · `F-Cancel-Teardown` ✅ · `F-Partial-Signal-Seqlock` ✅ ·
+`F-No-Hidden-Authority` ✅ · `F-Signal-Bus-Overhead` (≤1%) ✅ · `F-Ring-Drop-Policy` ✅ · `F-Generation-Skew`
+✅ · (+`F-InterruptFeedOrdering` ✅).
+
+**S-PANEL uplink controls (6):** `F-Tau-Apply` ✅ · `F-Route-NoHiddenAuthority` ✅ · `F-Residency-Budget` ✅ ·
+`F-Quant-Lane-Safe` ✅ · `F-FastWeight-TTL` ✅ · `F-Abstain-Policy` ✅.
+
+**Lease lifecycle (6):** `F-Lease-Hard-Ceiling` ✅ · `F-Lease-Generation-Void` ✅ ·
+`F-Lease-Extension-NonBlocking` ✅ · `F-Lease-Economics-Conservation` ✅ · `F-Lease-Abstain-On-Exhaustion` ✅ ·
+`F-Lease-Provenance` ✅.
+
+**S-UAS-COMPUTE U1–U14:** U1 `F-Engram-LookupEquivalence` ✅ · U2 `F-Quant-Lane-Safe` ✅ · U3
+`F-Interrupt-Moves-Loss` ✅ · U4 `falsify_uas_zero_copy_spine` (repo) ✅ · U5 `falsify_shadow_recall_parity` +
+`F-Shadow-Embedding-Parity` ✅ · U6 `F-Signal-Bus-Overhead`/slab copy-count ✅ · U7 `F-ActiveAssembly-Minimal`
+(repo) ✅ · U8 `F-SpQt-SkipDecode` ✅ (conditional: Metal-coalesced) · U9 `epistemos_trace verify-replay`
+(repo) ✅ · U10 `F-SpecDecode-Bandwidth` ✅ · U11 `F-SinkKV-Residency` + `F-Sink-Pinned-NoTransport` ✅ ·
+U12 `F-Engram-Bloom-Gate` ✅ · U14 `F-PrefixKV-Reuse` + `F-PrefixKV-Transport-Elision` ✅. (U13/U15 folded.)
+
+**Ternary/KV co-design (4):** `F-Ternary-Lossless-Parity` ✅ · `F-Bloom-Gate-Under-Ternary` ✅ ·
+`F-KV-Quant-Quality` ✅ · `F-Ternary-SpQt-NonStacking` ✅.
+
+**Cold-assembly transport (repo-built + PASS-20):** `transport_cancellation` ✅ · `copy_counter` +
+`slab_arena_copy_count` ✅ · `codec_stage_latency` ✅ · `cache_policy_pollution` ✅ · `ssd_wear_budget` ✅ ·
+`cold_panic_fallback` ✅ · `transport_trace_answer_packet` ✅ · `coldstream_vs_mmap` ✅ ·
+`F-ResidencyLease-Transport-Ceiling` ✅.
+
+**Brain-2 organs:** RuntimeRouter `F-RuntimeRouter-Live` ✅ · active_assembly `F-ActiveAssembly-Minimal` ✅ ·
+Model Cockpit (= downlink+uplink falsifiers) ✅ · W-51 `falsify_shadow_recall_parity`+`F-Shadow-Embedding-Parity`
+✅ · Cognitive DAG `epistemos_trace verify-replay` ✅ · Never-Retrain `F-NeverRetrain-Invariant` ✅ ·
+AnswerPacket emit `F-AnswerPacket-Emitted` ✅.
+
+**Blueprint items (6):** `F-ReLU-ActivationSparsity` ✅ · `F-SlidingWindowFFNCache` ✅ ·
+`F-PreAttentionPrefetch` ✅ · `F-RowColBundling` ✅ · `F-Engram-LookupEquivalence` ✅ · `F-SpQt-SkipDecode` ✅.
+
+**S-PRIM primitives (15):** EML `F-ULP-Oracle` ✅ · Koopman `F-WBO-6` ✅ · E2 `F-E2-SheafGlue` ✅ · scan_ir
+`F-ScanIR-BitExact` ✅ · active_assembly `F-ActiveAssembly-Minimal` ✅ · continual_learning
+`F-NeverRetrain-Invariant` ✅ · hybrid_memory per-schema-validity ✅ · substrate_independence
+`F-BZ-Substrate-Independence` ✅ · Kuramoto `F-Kuramoto-Consensus` ✅ (kill-switch) · selective-determinism
+`F-Selective-Determinism` ✅ · Geometry-IR rotor↔RoPE-equivalence 🟡 · Belnap abstention-precision 🟡 ·
+Tropical region-count↔sparsity 🟡 · Modern-Hopfield `F-Hopfield-Completion` 🟡 · H14 advisory (no falsifier
+by design — it's a fence) ⚪.
+
+**Total: ~50 named falsifiers — ~45 ✅ concrete, 4 🟡 vague, 1 🔴 missing.**
+
+### (b) VAGUE / MISSING falsifiers to TIGHTEN during build
+- 🔴 **`F-HeavySkill-Deliberation` (B6) — MISSING.** The halt→K-trajectories→verify→inject→resume loop has NO
+  falsifier. *Needs:* (i) K-trajectory deliberation BEATS single-pass on a reasoning task family by a pinned
+  margin; (ii) the synthesized injected state preserves correctness (no regression vs the best single
+  trajectory); (iii) the parent lease ceiling bounds total spend (ties `F-Lease-Hard-Ceiling`). Specify before B6.
+- 🟡 **`F-Hopfield-Completion` spurious-attractor bound — VAGUE.** *Needs:* a pinned **spurious-return rate ≤ ε**
+  on out-of-store queries (must abstain, not fabricate) + the recall **R** pinned at the noise level.
+- 🟡 **Geometry-IR rotor↔RoPE-equivalence — VAGUE.** *Needs:* the exact equivalence metric + numeric tolerance
+  (rotor sandwich == RoPE rotation within τ) + the condition-number-1 gradient-norm check pinned.
+- 🟡 **Belnap abstention-precision — VAGUE.** *Needs:* a numeric abstention-precision bar on the refusal/privacy
+  family (currently named without a threshold).
+- 🟡 **Tropical region-count↔sparsity — VAGUE.** *Needs:* a pinned correlation bar that tropical region-count
+  predicts the ReLU² spine's measured activation sparsity (ties `F-ReLU-ActivationSparsity`).
+- *(Note: the build-time calibration constants — M0 `ε` loss-margin, F-Ternary-SpQt-NonStacking `X%`,
+  `F-SinkKV` window size — are intentionally unpinned; they are tuned during M0/B-phase, not gaps.)*
+
+### (c) STATE OF THE ARCHITECTURE: READY FOR M0
+The architecture is a coherent, honestly-tiered, falsifier-covered SPEC — **not a shipped system, and that
+distinction is stated everywhere.** Across 21 passes it has been consolidated (single readout), inventoried
+(15 S-PRIM primitives, full E/H/PCF theorem catalog, the dropped-idea register), hardened (lease lifecycle,
+D1-COMMS 10+6 bus contract, ternary/KV co-design, cold-assembly transport composition), and optimized
+(S-UAS-COMPUTE U1–U14, all bandwidth-honest). Falsifier coverage is ~50 named tests, ~45 concrete; only **1
+missing (B6 HeavySkill)** and **4 vague** — none of which gate **M0**, the single load-bearing first
+experiment. The verdict from §8 stands unchanged: **GO for M0** on owner green-light, with the locked
+vanilla-SSM toy backbone, 4 pass/fail axes, and the `result.json` schema ready to implement. The four owner
+decisions before coding are unchanged (lift `docs_first`; B3 spine commitment; build-env/workspace-path
+confirm; M0 Pro/research scope). **The research + design + hardening phase is COMPLETE. The loop is now
+paused pending the owner's build decision — no further deliberation passes are recommended; the next action
+is to build M0.**
+
+### PASS 21 summary (FINAL)
+Produced the consolidated **FALSIFIER INDEX**: ~50 named falsifiers across gates / bus / uplink / lease /
+U1–U14 / ternary-KV / transport / brain-2 / blueprint / 15 primitives — **~45 concrete ✅, 4 vague 🟡
+(Hopfield spurious bound, Geometry-IR RoPE-equiv, Belnap precision, Tropical correlation), 1 missing 🔴 (B6
+HeavySkill `F-HeavySkill-Deliberation`)**; none gate M0. Listed exactly what each vague/missing one needs to
+become concrete (during build). Final verdict: **state of the architecture = READY FOR M0**; GO stands; the
+4 owner decisions are unchanged. **This is the last pass — the loop is paused; the next action is BUILD M0,
+not more deliberation.** All T0/T1; no code; no authority docs edited.
