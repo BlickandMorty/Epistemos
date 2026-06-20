@@ -3,6 +3,15 @@
 Read-only research (subagent). Feeds DEEP_PLAN_AUDIT_HUB. How to absorb each clone's
 settings into ONE coherent, pixel-art, honest Epistemos model — never a foreign panel.
 
+> ‼️ **OWNER OVERRIDE (2026-06-19) — supersedes the "hide/hardcode" recommendation below.**
+> The owner wants ALL of each cloned app's REAL settings/system surface PRESERVED + SURFACED
+> (reskinned to pixel-art, intelligently placed) — NOT stripped to a status row with the rest
+> hidden, and **do NOT hide OpenClaw's config-form**. Hiding/stripping their surfaces broke
+> functionality. So: SURFACE ALL clone settings → RESKIN (CSS-injection for WebKit clones,
+> native for the rest) → INTELLIGENTLY PLACE per-engine → NEVER delete/hide (Pro/dev-gate the
+> subprocess/port/VM ones, shown not deleted; de-dup only the literally-same knob). The de-dup/
+> consolidation ideas below still apply; the "HIDE/HARDCODE the rest" disposition does NOT.
+
 ## Core finding
 Epistemos already has the whole pattern to absorb a clone's settings honestly:
 `<Engine>GateStatus` (pure, always-compiled, MAS "Pro only") + `<Engine>HealthRow`
