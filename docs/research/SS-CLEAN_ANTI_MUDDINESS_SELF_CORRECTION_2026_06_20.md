@@ -121,3 +121,18 @@ ADD a scan dimension:
 - **Why the prior checks missed it:** they scanned for *orphans* (nothing mounts X) and *dupes* (two X's), not *asymmetry*
   (X mounted in surface A but not peer surface B). Surface-parity is now an explicit gate item. First application = SS-VIS
   (mount AgentToolTogglePanel + cowork on landing search + sweep mini-chat/graph/editor surfaces).
+
+## LAUNCH-SMOKE GATE (owner 2026-06-20 — "the app keeps crashing on open"; the checks missed it)
+A build-green + unit-test-passing commit STILL crashed the app on launch (SS-CRASH: an SS-IR diagnostic precondition fired
+in `AppBootstrap.performPrimaryLaunchInitialization`). Unit-green ≠ launches. ADD a gate dimension:
+- **Any commit that touches the STARTUP path** (AppBootstrap, EpistemosApp, RootView, app-level State init, anything called
+  from `performPrimaryLaunchInitialization` / app `@main` / `@Observable` read on launch) must pass a **LAUNCH SMOKE check**:
+  the app actually OPENS (with AND without an active vault / model / index). If a real launch can't be run headlessly, at
+  minimum assert the launch-init path has NO `precondition`/`fatalError`/`try!`/force-unwrap reachable from a not-yet-init
+  service, and add a regression test that the path tolerates the "service nil / not ready" state.
+- **NEVER `precondition`/`fatalError` on a degradable runtime condition** (missing vault, FFI not open, snapshot not landed,
+  service accessed early). Those are honest "not ready" states → return them; reserve preconditions for true programmer
+  invariants that cannot occur at runtime. (This is the SS-CRASH root.)
+- Monitor/last-auditor: after a startup-touching commit, check ~/Library/Logs/DiagnosticReports for new `Epistemos-*.ips`
+  crashes; a fresh launch crash = P0, supersedes feature work. Why prior checks missed it: they verified build-green +
+  unit-tests, not "does it launch."
