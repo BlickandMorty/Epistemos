@@ -117,6 +117,12 @@ nonisolated enum RustCognitiveDagClient {
         category: "RustCognitiveDagClient"
     )
 
+    /// SS-PERF2 #8: one shared decoder instead of a fresh JSONDecoder() per stats() call —
+    /// stats() is polled by SubstrateHealthClock, so the per-poll allocation was waste.
+    /// Default configuration (identical decode); JSONDecoder is Sendable and the enum is
+    /// nonisolated, so a plain shared static is concurrency-safe.
+    static let statsDecoder = JSONDecoder()
+
     /// Fetch the current DAG stats. Cheap O(1)-per-counter + one BLAKE3
     /// walk over the snapshot. Safe to call from any thread (the
     /// underlying store is RwLock-protected).
@@ -124,7 +130,7 @@ nonisolated enum RustCognitiveDagClient {
         #if canImport(agent_coreFFI)
         do {
             let json = try cognitiveDagStatsJson()
-            return try JSONDecoder().decode(
+            return try Self.statsDecoder.decode(
                 RustCognitiveDagStats.self,
                 from: Data(json.utf8)
             )
