@@ -181,6 +181,65 @@ struct JSONSchemaLogitProcessor: LogitProcessor {
     }
 }
 
+// MARK: - Rust Grammar-Masked Logit Processor (SS-Y slice 5b)
+
+/// A real grammar-masking `LogitProcessor` — unlike `JSONSchemaLogitProcessor` (soft
+/// EOS guidance) it HARD-constrains generation to grammar-valid tool-call tokens by
+/// masking every disallowed token's logit to -inf, driven by the vendored llguidance
+/// matcher via the Rust FFI (`RustGrammarMatcher`).
+///
+/// **Default-OFF.** `isEnabled` comes from the `EPISTEMOS_GRAMMAR_MASK_V0` flag
+/// (`flagEnabled`, only ON when "1"). When disabled, `process` returns the logits
+/// UNCHANGED — a strict no-op — so the existing generation path is byte-for-byte
+/// unchanged. `MLXConstrainedGenerator.isFullyConstraining` stays `false` until a
+/// live generation witness flips it (a later slice); this processor is not yet
+/// constructed by the live `generate()` path.
+struct RustGrammarMaskedLogitProcessor: LogitProcessor {
+    private let matcher: RustGrammarMatcher
+    let isEnabled: Bool
+
+    init(matcher: RustGrammarMatcher, isEnabled: Bool) {
+        self.matcher = matcher
+        self.isEnabled = isEnabled
+    }
+
+    mutating func prompt(_ prompt: MLXArray) {}
+
+    func process(logits: MLXArray) -> MLXArray {
+        guard isEnabled else { return logits } // no-op when OFF — path unchanged
+        let allowed = matcher.allowedTokenIDs()
+        // Empty allowed-set = matcher error / no constraint: don't corrupt the
+        // distribution, fall through unchanged.
+        guard !allowed.isEmpty else { return logits }
+        let flat = logits.asArray(Float.self)
+        let masked = Self.maskedLogits(flat, allowedTokenIDs: allowed, enabled: true)
+        return MLXArray(masked).reshaped(logits.shape)
+    }
+
+    mutating func didSample(token: MLXArray) {
+        guard isEnabled else { return }
+        _ = matcher.consume(UInt32(token.item(Int.self)))
+    }
+
+    /// Pure, host-independent masking logic (unit-testable without MLX): keep the
+    /// allowed token logits, set every other to -inf. A no-op when disabled or when
+    /// there is no constraint (empty allowed-set). This is the same logic `process`
+    /// applies to the MLX logits; the test witnesses it directly.
+    static func maskedLogits(_ logits: [Float], allowedTokenIDs: [UInt32], enabled: Bool) -> [Float] {
+        guard enabled, !allowedTokenIDs.isEmpty else { return logits }
+        let allowed = Set(allowedTokenIDs)
+        return logits.enumerated().map { index, value in
+            allowed.contains(UInt32(index)) ? value : -Float.greatestFiniteMagnitude
+        }
+    }
+
+    /// Default-OFF flag — grammar masking is ON only when `EPISTEMOS_GRAMMAR_MASK_V0`
+    /// is exactly "1". Anything else (unset, "0", …) keeps the existing path.
+    static var flagEnabled: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_GRAMMAR_MASK_V0"] == "1"
+    }
+}
+
 // MARK: - JSON Parser State
 
 /// Tracks position within the JSON output for grammar-constrained decoding.
