@@ -1784,6 +1784,48 @@ struct LocalAgentLoopTests {
         #expect(answer == "tool smoke ok")
     }
 
+    @Test("standard-path invisible-turn repair streams the recovered answer instead of masking it (SS-AL)")
+    @MainActor
+    func standardInvisibleTurnRepairStreamsRecoveredAnswer() async throws {
+        // The structured generator returns an invisible turn (a think block that
+        // strips to empty), forcing the standard path into immediateRepairOutput
+        // (same trigger the unconstrained-fallback test relies on). Before SS-AL #1
+        // the repair generator's tokens went to a masked `{ _ in }` sink — the user
+        // saw a stall and the recovered text appeared only at the end. Now the
+        // repaired tokens must reach the run-level onToken.
+        let repairText = "Recovered answer after the invisible structured turn."
+        var streamed = ""
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("the structured generator handles the first pass in this test")
+                return ""
+            },
+            repairGenerator: { _, _, _, _, _, onToken in
+                // One-shot generator shape: emit the full recovered text once.
+                await onToken(repairText)
+                return repairText
+            },
+            structuredGenerator: { _, _, _, _, _, _, _ in
+                "<think>thinking only — no visible answer yet</think>"
+            },
+            toolExecutor: { name, _ in
+                Issue.record("no tool should execute for a plain repaired answer: \(name)")
+                return LocalToolResult(toolName: name, resultJson: "{}", isError: true)
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Answer the question directly.",
+            tools: [sampleTool()],
+            maxTurns: 2,
+            onToken: { token in streamed += token }
+        )
+
+        #expect(answer == repairText)
+        // The crux of SS-AL #1: the repaired tokens reached onToken (masked before).
+        #expect(streamed.contains(repairText))
+    }
+
     @Test("local loop repairs explicit note creation before accepting a hallucinated success")
     func localLoopRepairsExplicitNoteCreationBeforeAcceptingAHallucinatedSuccess() async throws {
         let promptRecorder = PromptRecorder()
