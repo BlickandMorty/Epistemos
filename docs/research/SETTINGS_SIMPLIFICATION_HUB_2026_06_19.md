@@ -20,7 +20,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-A | Cloned-app setup/settings simplification + robustness + integration | ✅ done → SS-A_CLONED_APP_SETTINGS_SIMPLIFY |
 | SS-B | Epistemos's OWN settings — simplify the sprawl | ✅ done → SS-B_APP_SETTINGS_SIMPLIFY |
 | SS-C | SETUP / ONBOARDING flow — first-run + per-feature auto-config for everything added (models/engines/MCP/voice/logos): the "it just works" path | ✅ done → SS-C_ONBOARDING_SETUP |
-| SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ☐ |
+| SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ✅ done → SS-D_SETTINGS_INTEGRATION |
 | SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
 | SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ✅ done → SS-F_SETTINGS_ROBUSTNESS |
 | SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ✅ done → SS-G_MODEL_INSTALL_PATH |
@@ -241,3 +241,13 @@ card (closest = `CloudProviderSetupCard`); two overlapping welcome surfaces (SS-
 as a "Use Default Vault" button [S]; replace the model-step punt with an in-wizard "Install Recommended AI"
 calling the existing `installEpistemosFoundationPackage()` (RAM-tiered, SS-AB) [S]; extract a reusable
 FeatureSetupCard [M]; lazy point-of-use permissions [L].** Setup state persists honestly (SS-F). Full: SS-C doc.
+**SS-D SETTINGS INTEGRATION** → HALF-integrated: the IA skeleton is already coherent (ONE `SettingsSection` enum
++ ONE `safeDetailSelection` MAS-firewall/deep-link chokepoint `:181-194` — everything routes through it), but
+content is scattered. **`AgentAuthorityStore` (@Observable, file-backed, one shared instance) is the ONE
+correctly-consolidated state = the TEMPLATE to copy.** Drift/dup points: Night Brain toggled in 2 views (same
+key, 2 homes); `AdvertisedModelStore` has a `@State advertisedIDs` mirror (2 instances, drift surface); MCP/tools
+across 3 state owners. Violations: Models across 4 sections; MCP×3; ~46 diagnostics rows ×3 homes; flags↔witness
+split. **Target (into the existing enum, NO new sidebar): ONE Models home (SS-AB profile SOT) + ONE MCP&Tools +
+ONE Diagnostics + an Engines section (SS-A EngineSettingsSection — doesn't exist yet, must build) + Privacy +
+Advanced.** Plan: de-dupe Night Brain [S]; single Diagnostics home [S]; one Models detail + AdvertisedModelStore
+→ @Observable [M]; one MCP&Tools registry [M]; Engines section [L]. Full: SS-D doc.
