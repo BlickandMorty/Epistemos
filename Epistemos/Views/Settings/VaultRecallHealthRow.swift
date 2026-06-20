@@ -24,7 +24,6 @@ import SwiftUI
 public struct VaultRecallHealthRow: View {
 
     @State private var snapshot: VaultRecallMetrics.Snapshot
-    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: VaultRecallMetrics.shared.snapshot())
@@ -86,14 +85,7 @@ public struct VaultRecallHealthRow: View {
                 )
             }
         }
-        .onAppear {
-            refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
-        }
+        .substrateHealthPoll { refresh() }
         .onReceive(NotificationCenter.default.publisher(
             for: VaultRecallMetrics.didChangeNotification,
             object: VaultRecallMetrics.shared
@@ -156,17 +148,6 @@ public struct VaultRecallHealthRow: View {
         .padding(.horizontal, 12)
         .help(pageGatherTruthTooltip)
         .accessibilityLabel(pageGatherTruthTooltip)
-    }
-
-    private func startTimer() {
-        refreshTask?.cancel()
-        refreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                refresh()
-            }
-        }
     }
 
     private var lastQueryDetail: String {

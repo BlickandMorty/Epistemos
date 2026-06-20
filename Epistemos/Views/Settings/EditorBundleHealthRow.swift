@@ -20,7 +20,6 @@ public struct EditorBundleHealthRow: View {
     @State private var bundleAvailable: Bool = false
     @State private var haloOpen: Bool = false
     @State private var haloPath: String? = nil
-    @State private var refreshTask: Task<Void, Never>?
 
     public init() {}
 
@@ -50,14 +49,7 @@ public struct EditorBundleHealthRow: View {
                     : "No active vault selected - Shadow/Halo closed"
             )
         }
-        .onAppear {
-            refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
-        }
+        .substrateHealthPoll { refresh() }
     }
 
     /// Re-probe both health indicators. Called on view appearance +
@@ -67,17 +59,6 @@ public struct EditorBundleHealthRow: View {
         let halo = Self.haloStatus()
         haloOpen = halo.isOpen
         haloPath = halo.path
-    }
-
-    private func startTimer() {
-        refreshTask?.cancel()
-        refreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                refresh()
-            }
-        }
     }
 
     @ViewBuilder
