@@ -21,12 +21,12 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ☐ |
 | SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
 | SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ☐ |
-| SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ☐ |
+| SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ✅ done → SS-G_MODEL_INSTALL_PATH |
 | SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ☐ |
 | SS-I | EXTERNAL SKILL ECOSYSTEMS — Anthropic/Vercel/Google | ✅ done → SS-I_EXTERNAL_SKILL_ECOSYSTEMS |
 | SS-J | BROWSER-USE in ALL surfaces (owner 2026-06-19) — the actual github browser-use available across Act/Work/Osaurus + chat; make the app useful in those locations | ☐ |
 | SS-K | VOICE-MODEL PICKER (owner 2026-06-19) — choose voice models in Settings + a chat-surface TTS picker that only fires on TTS; robust + minimal | ☐ |
-| SS-L | OpenAI + Cursor skills/tools/superpowers + PROVIDER AGENTS on chat (owner 2026-06-19) — OpenAI skills, Cursor skills, and OpenAI/Google/Claude AGENTS available on the chat surfaces | ☐ |
+| SS-L | OpenAI + Cursor skills/tools/superpowers + PROVIDER AGENTS on chat (owner 2026-06-19) — OpenAI skills, Cursor skills, and OpenAI/Google/Claude AGENTS available on the chat surfaces | ✅ done → SS-L_PROVIDER_AGENTS_OPENAI_CURSOR |
 | SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ☐ |
 | SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ☐ |
 
@@ -34,4 +34,21 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 **SS-A CLONED-APP SETTINGS** → the machinery already ships (`SettingsDisclosureSection` = the literal 'Advanced' container; GateStatus+HealthRow triad; native absorbers ModelStack/Authority/Skills). Pattern = a reusable `EngineSettingsSection` (curated native simple front: model→stack, perms→Authority, skills→Skills, MCP→ONE consolidated panel) + a `… · Advanced` disclosure with the full surface. Per clone: auto-default the plumbing (ports/dirs/keys/sandbox), surface ~3-5 knobs simply, full settings under Advanced. **OpenClaw (33-section config) = reskin its config-form via CSS injection + keep it under `OpenClaw · Advanced` — never hide it (reverses S3).** Top move = consolidate MCP-install into one panel. Full: SS-A doc.
 **SS-B APP'S-OWN SETTINGS** → 70 files/23.5K lines; the #1 sprawl = ~46 health rows across THREE diagnostics homes → merge into ONE default-collapsed `DiagnosticsPanel` (3 at-a-glance rows + collapsed groups). 'Models' is a label not a home → collapse 4 sections into ONE Models home (Night Brain toggle dupes; .cognitive caption mismatch). MCP scattered across 3 components → ONE 'MCP & Tools' home. Co-locate flag toggles with their witness rows. New 'Engines' section for per-engine cards. 6 cats/19 sections → 5/~10; never delete (progressive-disclose). Full: SS-B doc.
 **SS-I EXTERNAL ECOSYSTEMS** → the hard parts EXIST (Epistemos speaks SKILL.md + has the quarantine/ProvenanceGate `skill_manage` install path + MCP stdio/URL connectors + the FineTunePack marketplace template). **Anthropic Agent Skills = the ONLY true importable SKILL.md ecosystem** (Apache ones direct_import; doc-skills proprietary→quarantine). Vercel = NO skill packs (UI only) → MCP. Google = NO SKILL.md catalog → MCP. Needs: unify the 4 skill dirs (Phase-0 #5, prereq), a ½-day frontmatter compat shim, honor allowed-tools, a skill-marketplace UI cloned from FineTunePack. Full: SS-I doc.
-- (SS-G model-install path running; new slices SS-J..SS-N queued from the owner's latest.)
+**SS-G MODEL-INSTALL PATH (owner's #1 blocker)** → the engine pipeline is ROBUST (download→verify→atomic→
+resume, live progress, ungated download); the blocker is pure UX + a MISSING per-model Install button. Owner's
+named models (Gemma/LFM2/VibeThinker) are GGUF foundation models NOT in the MLX `curated/optionalBaseline`
+lists the "advanced" disclosure renders — and `ModelStackSettingsView` lists them but only with an advertise
+toggle, NO Install. The engine already supports per-GGUF `install(modelID:)` (the one-tap package proves it).
+**Fix ≈ 1 slice: (1) add a per-row Install/Installing/Installed control to `ModelStackSettingsView` wired to
+`install(modelID:)`+`presentationState`+`ModelInstallProgressDisplay` [#1 visible win] · (2) promote the
+install surface out of the modal sheet, rename Inference→Models · (3) de-dup the MLX-only disclosure · (4)
+label the verify phase + bounded retry.** Install ALWAYS downloads; gating shows on selectable-state not the
+Install button. Full: SS-G doc.
+**SS-L PROVIDER AGENTS + OpenAI/Cursor skills** → answers the owner's "at what LEVEL is an agent created":
+**NOT a file-structure / installable-skill / new agent-type** — an agent = `(mode=.agent)×(provider)` on the
+in-process loop that ALREADY exists (`agent_loop.rs:151`, cloud-only gate `:166`). ~80% built. Why it failed
+before = provider not agent-tier'd + hosted tools not wired + no agent label, NOT a missing agent format.
+NEW (all small): wire OpenAI hosted web_search (highest leverage), promote Google to agent-tier, add an
+agent-identity picker label (greys non-agent providers), Cursor `.mdc`→SKILL.md shim. REJECT hosted
+Managed-Agent containers + importing Agents-SDK/ADK (no-sidecar). Only Anthropic is a true SKILL.md source;
+OpenAI=hosted tools, Cursor=config. Full: SS-L doc. (Slices SS-C/D/E/F/H/J/K/M/N still queued.)
