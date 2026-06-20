@@ -282,3 +282,13 @@ boundary (`bridge.rs`) aborts the app → wire clippy `unwrap_used` + triage pro
 **Discipline (gate before add, composes with SS-V): grep gate → clippy/cargo-audit/cargo-geiger/SwiftLint tool
 gate → adversarial-skeptic → MAS fail-closed → provenance log.** Full: SS-S doc. **ALL backlog slices A–Z+AA/AB
 COMPLETE.**
+**SS-LI LIVING-INDEX + LATTICE (the indefinite tail, researched last)** → the SUBSTRATE exists: the shadow index
+is genuinely "living" (file-watcher + 500ms debounce → live incremental updates, `ShadowIndexingService`+
+`VaultSyncService.swift:3573`); the Cognitive DAG has resonance propagation (library-complete but NOT live-driven
+— scaffold/replay only); rich Metal/Hologram graph views + `CognitiveDagVisualizerPanel` (embryonic status
+surface). **MISSING (the open frontier): no `LivingIndex` orchestrator, no concept-lattice/FCA engine, no
+lattice-explorer UI.** "Lattice" names are false friends (`LatticeWBO` = oplog accountant; the HTML explainer =
+unwired doc; concept-lattice = aspirational N3 doctrine only). Correctly sequenced LAST (indefinite, depends on
+the rest). **Bounded first step (finite, T4-able): extend `CognitiveDagVisualizerPanel` into a read-only "Living
+Index status" surface — surface what's already living (shadow liveness + DAG counts) BEFORE any lattice engine.**
+Full: SS-LI doc. **ENTIRE research corpus now complete — including the indefinite tail.**
