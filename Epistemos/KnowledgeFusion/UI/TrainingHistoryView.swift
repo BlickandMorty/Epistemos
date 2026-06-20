@@ -99,6 +99,13 @@ struct TrainingHistoryView: View {
     @ViewBuilder
     private func expandedDetails(_ adapter: AdapterRecord) -> some View {
         VStack(alignment: .leading, spacing: 4) {
+            // SS-AD: the adapter explanation — what it is and does — always shown (its
+            // stored description, or a derived one-liner) so the user understands it.
+            Text(AdapterExplanation.text(for: adapter))
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 2)
             detailRow("Rank", "\(adapter.loraRank)")
             detailRow("Base Model", adapter.baseModel)
             detailRow("Source", adapter.sourceVault)
