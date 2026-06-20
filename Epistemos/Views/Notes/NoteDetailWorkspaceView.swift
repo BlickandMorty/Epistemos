@@ -1245,7 +1245,11 @@ struct NoteDetailWorkspaceView: View {
                     filePath: path,
                     onContentChange: { newContent in
                         saveCodeFileContent(page: page, filePath: path, content: newContent)
-                    }
+                    },
+                    // SS-GC: in the embedded home graph, give the code editor the same
+                    // landing-variant theme the prose branch gets, so its top bar paints the
+                    // graph backdrop instead of a white card. nil elsewhere = unchanged.
+                    themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
                 )
                 .id("\(page.id)::\(path)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
