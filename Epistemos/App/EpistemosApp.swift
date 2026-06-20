@@ -1127,17 +1127,12 @@ enum KnowledgeGraphShortcutDispatcher {
         bootstrap: AppBootstrap,
         reduceMotion: Bool
     ) {
-        let update = {
-            bootstrap.uiState.homeContent = visible ? .graph : .greeting
-        }
-
-        if reduceMotion {
-            update()
-        } else {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1)) {
-                update()
-            }
-        }
+        // SS-AN: do NOT wrap this in withAnimation — the LandingView's single
+        // `.animation(value: ui.homeContent)` owns the transition timing. Wrapping it
+        // here too double-fired the animation (the flicker). reduceMotion is honored by
+        // that view-level driver.
+        _ = reduceMotion
+        bootstrap.uiState.homeContent = visible ? .graph : .greeting
     }
 }
 

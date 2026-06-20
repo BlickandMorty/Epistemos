@@ -364,15 +364,11 @@ struct LandingView: View {
                     .blur(radius: showingOverlay ? 4 : 0)
                     .opacity(showingOverlay ? 0.7 : 1)
                     .allowsHitTesting(!showingOverlay)
-                    .transition(
-                        .opacity.combined(with: .scale(scale: 0.94))
-                    )
+                    .transition(.opacity)
                     .zIndex(1)
             case .graph:
                 HomeGraphEmbeddedView()
-                    .transition(
-                        .opacity.combined(with: .scale(scale: 0.94))
-                    )
+                    .transition(.opacity)
                     .zIndex(1)
             }
 
