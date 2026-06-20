@@ -4004,3 +4004,31 @@ native; AGPL server). ADOPT 2 patterns natively:
       #12 notes-editor sprawl (3 prose editors), #13 MiniChat(2721) divergence. Loop pulls from this AFTER the quick wins;
       research each into its own SS-* slice when picked up. All NON-INVASIVE, off the two owner scope-boundary domains.
       Added to TOP-UNCODED + the standing initiative.
+- [ ] **🔴 CRITICAL — CHAT "CREDENTIALS REJECTED" on local + cloud (owner 2026-06-20). #1, deep-repair BEFORE more chat
+      building.** Verbatim: *"it said credentials were rejected whenever I try to send a query to any local model, most
+      of them say that; the only one that works is the Qwen, even that may be broken. it rejects my credentials when I
+      send prompts to local AND cloud models — something fundamentally wrong with the chat, it needs deep repair before
+      any more additional building on it."* RESEARCHED → `docs/research/SS-CR_CHAT_CREDENTIALS_REPAIR_2026_06_20.md`. ROOT:
+      LOCAL picks get MIS-ROUTED into the cloud branch (`InferenceState.effectiveChatSurfaceSelection:4704` — the
+      `pendingUnavailableCloudIntentSelection` override :4705/:5843 routes cloud every turn; auto-cloud-when-local-not-
+      installed :4736-4765; foundation-tier nil-resolve :4280-4283) then fail the cloud credential gate; the local MLX/
+      GGUF path is credential-free. CLOUD also fails via a Keychain bootstrap RACE (`apiKey(for:)` :5214 returns nil while
+      the async credential snapshot loads :3598-3640). Qwen works only because it's the installed default → stays local.
+      FIX: local NEVER routes to cloud (pending-cloud = UI badge only; auto-cloud requires configured+reachable cloud AND
+      never while local can serve; foundation-tier nil → runnable local/AppleIntelligence); cloud `apiKey(for:)` does a
+      synchronous keychain read while bootstrapping. Behavior tests (local never→cloud; key read during bootstrap).
+- [ ] **TTS VOICE/MODEL PICKER ON SURFACE (owner 2026-06-20; extends SS-QC/SS-K).** *"for the text-to-speech I want to be
+      able to pick the model on the surface as well; make the default the upgraded Apple voice, still have the other
+      options, but I do want them all to be in the app."* → a voice/model picker on the read-back/voice surface; DEFAULT =
+      the best Apple voice (SS-K `preferredVoice` highest-quality scan), all voices/options selectable + present in-app.
+      (Honest: only AVSpeech voices today; a neural TTS model is a separate SS-Q item.) Folded into SS-QC(D)/SS-K.
+- [ ] **STANDING: INITIATIVE RESEARCH (perf + presentation priority) + 100% BUILD GUARANTEE (owner 2026-06-20).** *"do more
+      cycles of personal initiative research on things that should be deeply researched and upgraded, prioritize
+      PERFORMANCE and PRESENTATION… every single directive being researched should also be BUILT — 100% of the research
+      and 100% of the plan should be implemented; make sure all research inquiries are saved somewhere so it will
+      definitely be built + deliberated on."* TRACKING GUARANTEE: THIS LEDGER is the authority — every owner directive +
+      every initiative item is captured here as a `[ ]` line with its `SS-*` slice; the build loop works TOP-UNCODED
+      through them; nothing is dropped (audited each fire: 0 ledger deletions). Initiative big-wins live in `SS-BWB`
+      (perf items: SS-PERF2/SS-THX + decompositions; presentation items: settings IA, a11y/Dynamic-Type, ⌘K palette,
+      error/empty states, unified search). I deep-dive each into its own SS-* slice as it's picked up, perf+presentation
+      first. Mark items DONE only when verified user-facing end-to-end.
