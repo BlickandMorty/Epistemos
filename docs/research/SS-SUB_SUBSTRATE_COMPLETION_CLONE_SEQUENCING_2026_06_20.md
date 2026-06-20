@@ -56,3 +56,70 @@ The clone-vs-substrate ORDER is an owner preference. DEFAULT per the no-deferral
 with what's loop-safe now (non-boundary substrate honesty), and leave the boundary-substrate + clone ordering to the owner.
 If the owner wants the clone↔substrate INTERFACE frozen first (to make Option B safe), that's a small design task the owner
 can do in Cursor or ask the loop to draft (interface-only, non-boundary). Cross-ref SS-SH, SS-CLEAN, RESEARCH_FINALIZATION_INDEX.
+
+---
+
+## DEEP RESEARCH v2 — substrate WITHOUT the new model, made understandable (owner 2026-06-20)
+Owner: *"This needs research cycles — deep nuanced research; even the informative stuff is foreign to me and users. I'm not
+worried about the dual brain rn: if I need the NEW MODEL, I don't want surfaces to depend on that part — they can use all
+other things but NOT require a new model (that takes a long time). Basically everything from the substrate + that entire
+ontology WITHOUT the new model, and DON'T advertise it as the new model (users shouldn't see new-model-specific things, just
+the substrate). The substrate should be completed END-TO-END and reusable by the other surfaces. Multiple cycles of research
+(local first, then online) to harden it so the agent builder can EASILY finish it. I really want the substrate finished
+BEFORE the other things if beneficial — idk how long; let's deliberate."* + *"remember all the research Cursor did for dual
+brain — look at its local research, all the docs/folders it created/iterated."*
+
+Research cycle 1 = LOCAL (done): Explore over Cursor's corpus — **136 `docs/fusion/*` docs** (authoritative; the owner's
+Cursor work) incl. `ARCHITECTURE_READOUT_2026_06_20.md` (the spine), `RESEARCH_INTENT_AND_QUERY_LOG_2026_06_20.md`,
+`RESEARCH_LOOP_LEDGER_2026_06_20.md`, `SESSION_CHECKPOINT_2026_06_20.md`, the canons (`ARCHITECTURE_TIER_PROMOTION_CANON`,
+`TURBOVEC_QAT_RUNTIME_AGNOSTIC_INTAKE`, `MLX_QAT_TURBOVEC_LOCAL_SUBSTRATE_RESEARCH`, `UNIFIED_ACTIVE_SUBSTRATE_CANON`,
+`ADDRESSABLE_NEURAL_SUBSTRATE_CANON`, `POST_RECOVERY_SUBSTRATE_V2_PLAN`, `SUBSTRATE_READY_FOR_V2`) + the code. Cycle 2 =
+ONLINE: web search was UNAVAILABLE this pass — RETRY later to validate the decouple-behind-interface pattern (the local canon
+is authoritative regardless per CLAUDE.md research-first rule).
+
+### Plain-English explainer (the substrate is foreign because half of it is a future model's spec)
+The substrate = **brain-2** (the app's governance/verification/authority machinery) + the **Rust bus**. Its job: take ANY
+model's raw output and make it an HONEST, CITED, VERIFIABLE, rollback-safe answer. Organs (1 line each):
+- **System G** = the run harness (request → plan→tools→tokens event stream → receipt). **AnswerPacket** = the receipt on
+  every answer (claims, citations, a UI label, a witness ref). **RuntimeRouter** = picks which runtime/lane runs it
+  (MLX/GGUF/Apple/cloud), honest escalation, no silent fallback. **SovereignGate** = biometric/consent gate. **EML** =
+  retrieval re-rank + numeric sanity oracle. **ACS-admission** = the bouncer for what context is allowed in. **Cognitive
+  DAG / recall / Eidos** = the memory + provenance graph. — These are **model-agnostic** and run on TODAY's models.
+- **SSM/Mamba-3, the interrupt gate (M0), signal_bus, lattice-WBO safety, ternary/QAT** = **brain-1 = the NEW MODEL** —
+  research-tier, unproven (M0 `F-Interrupt-Moves-Loss` not yet proven; bus is a spec; no tokens generated yet). This is the
+  slow part the owner means.
+
+### THE RESOLUTION (this dissolves the owner's tension)
+The substrate was DESIGNED model-agnostic. The new model is isolated to brain-1 and plugs in behind an EXISTING seam:
+- **`SystemGAgentEvent::LocalModelHandoff`** (`agent_core/src/agent_runtime_v2/system_g_runtime.rs:81-90`) — "Rust owns route
+  admission + witnessed policy; the Swift host owns the live local model client." The model (MLX today, new SSM later) is
+  swappable behind this.
+- **`AnswerPacket.attention_mode ∈ {dynamic, static_fallback, unavailable}`** — with today's models it honestly reports
+  `static_fallback`; when the new SSM lands it flips to `dynamic` — SAME struct, ZERO consumer rework, and **nothing
+  user-facing says "new model"** (it just says the substrate's honest state). This is exactly the owner's "don't advertise
+  the new model."
+- **RuntimeRouter** already abstracts lanes ("MLX is one lane among several"); the new SSM is just another lane later.
+**So "everything from the substrate + ontology WITHOUT the new model" is achievable NOW:** drive the substrate end-to-end
+with current MLX/Gemma behind `LocalModelHandoff`, emit honest AnswerPackets, promote RuntimeRouter to live, wire the
+model-agnostic rows, and **FREEZE the AnswerPacket / RuntimeRouter / LocalModelHandoff interfaces**. Other surfaces
+(chat/notes/graph/HTML) reuse the substrate via those interfaces. The new SSM is a future lane behind the frozen seam —
+unadvertised, no rework.
+
+### Sequencing answer (substrate-first IS viable and beneficial — because it does NOT need the new model)
+The owner feared "substrate-first = slow (new model)." FALSE for the model-agnostic substrate: it doesn't need the new model,
+so substrate-first is **fast + beneficial** (every surface + the clones reuse a solid, interface-frozen substrate with no
+rework). RECOMMENDATION: **do the model-agnostic substrate completion + interface-freeze FIRST**, run the new-model (brain-1)
+research on its own slow track behind the frozen seam, never advertised. Estimate: the model-agnostic completion is
+promotion/wiring of largely-existing code (T1→T4), not greenfield — weeks-scale, not the months-scale new-model effort.
+
+### Boundary reality (who does it) — the open decision
+Most of the high-value substrate completion (RuntimeRouter promotion STAGE 1b→4, AnswerPacket persistence + claim FFI, System
+G real-provider wiring) lives in `agent_core/src/*` which is the OWNER's Cursor/dual-brain domain per the standing boundary +
+saved memories. So the question is WHO finishes it:
+- **Loop-safe NOW (no decision needed):** the diagnostic/retrieval rows (Eidos/VaultRecall/SearchFusion/LiteParse/DAG-counts/
+  EditorBundle), the SS-SH blank-sidebar, and the owner-facing EXPLAINER (make the substrate panel + docs understandable, no
+  new-model jargon). The loop can also DRAFT the interface-freeze spec (interface-only, non-implementation).
+- **Needs owner decision (scope reversal):** whether the LOOP may build the model-agnostic substrate backend (RuntimeRouter
+  promotion, AnswerPacket persistence, System G wiring) — that opens part of the previously-Cursor domain to the loop — OR
+  keep that as owner-Cursor work with the loop only enabling it via the explainer + interface-draft + loop-safe rows.
+This is the deliberation the owner asked for; the scope/sequencing fork is posed to the owner (AskUserQuestion).
