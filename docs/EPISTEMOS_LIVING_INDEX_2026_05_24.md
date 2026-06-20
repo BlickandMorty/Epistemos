@@ -8576,3 +8576,12 @@ Read these only when this index doesn't already answer your question.
 ---
 
 *This is the only doc to summon when you return. Everything else descends from §11.*
+
+---
+
+### Pointer (owner-greenlit 2026-06-20, write-plan only — no authority content edited)
+- MODEL-AGNOSTIC substrate is being BUILT by the loop (without the new model / 70B): authority
+  `docs/research/SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md`; context-optimized entry `docs/research/SUBSTRATE_RESEARCH_BUNDLE_2026_06_20.md`.
+- NEW MODEL (brain-1 SSM/M0 interrupt) + the 70B "cocktail" are PRESERVED as theoretical/available-to-build, NOT shipped:
+  `docs/research/NEW_MODEL_70B_THEORETICAL_PRESERVED_2026_06_20.md` (M0 harness scaffold `da8475dff`; build-gated on lifting
+  the `docs_first` hold). Math/falsifier authority remains this Living Index + the lattice-coordinate-explainer.

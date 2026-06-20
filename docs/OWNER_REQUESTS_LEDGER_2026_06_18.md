@@ -4240,3 +4240,22 @@ native; AGPL server). ADOPT 2 patterns natively:
       later behind LocalModelHandoff + AnswerPacket.attention_mode (static_fallback→dynamic, zero rework). Memory updated
       (project_substrate_build_authorized_2026_06_20 supersedes dual-brain-off-limits for substrate). Online research cycle
       RETRY pending (web down). Added to loop build order (cron).
+- [ ] **SUBSTRATE research-cycle-2 + context packaging + preserve new-model/70B (owner 2026-06-20, w/ Cursor PASS-22 closeout).**
+      *"These are the docs + my last query — don't try to build [M0/new model] but deeply research this too (excl. the
+      research-phase-closed M0 build). Do one more research cycle; only SUPERSEDE OR MATCH. Add it all to the loop + make sure
+      the loop has all the research — multi-level heavy backend, enormous research, package it 100% there but not overwhelming,
+      optimize for context. Make sure 70B + new model are SAVED but not in the app — theoretical research, available to build;
+      add it to the lattice explainer / living index / all the other places."* RESEARCHED (cycle 2, local; online RETRY pending)
+      → reconciled vs Cursor's PASS-22 closeout (SESSION_CHECKPOINT/ARCHITECTURE_READOUT §8-8.7/RESEARCH_LOOP_LEDGER/INTENT Q38/
+      GEMINI_70B blueprint+eval/MASTER_SYNTHESIS). VERDICT: **MATCH** — my SUBSTRATE_BUILD_SEQUENCE is the model-agnostic
+      projection of Cursor's full plan (same two-brain split, same `LocalModelHandoff`+`AnswerPacket.attention_mode` seam, same
+      EXCLUDED set); one deliberate refinement (decouple brain-2 build from the M0 gate — rework-free per the seam). ADDED:
+      B1 systems wins (sliding-window/bundling/prefetch, T1 no-model-change) pulled into substrate scope; bound named falsifiers
+      per phase (F-RuntimeRouter-Live/F-AnswerPacket-Emitted/falsify_shadow_recall_parity/verify-replay/F-UAS-CopyCount); the
+      "policy-async not decision-sync" soundness key; docs_first gates brain-1 only (brain-2 build UNBLOCKED). PACKAGED for
+      context → `docs/research/SUBSTRATE_RESEARCH_BUNDLE_2026_06_20.md` (5-doc ordered reading path <700 lines = 100% spec w/o
+      the other 131 fusion docs). PRESERVED new-model+70B → `docs/research/NEW_MODEL_70B_THEORETICAL_PRESERVED_2026_06_20.md`
+      (M0 interrupt experiment [harness da8475dff, driver gated on docs_first], Mamba-3/B'MOJO spine deferred, Gemini 70B
+      cocktail T0-deduped) — theoretical/available-to-build, NOT in app, behind the seam, never advertised. Pointer added to
+      EPISTEMOS_LIVING_INDEX (write-plan only, owner-greenlit; authority content untouched; lattice-explainer not edited).
+      ledger deletions 0.
