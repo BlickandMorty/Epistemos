@@ -3283,3 +3283,31 @@ native; AGPL server). ADOPT 2 patterns natively:
       (8) **GOVERNING:** robustness + simplicity (the big directive: get rid of complexity for an equivalent-but-
       simpler surface, WITHOUT losing functionality) applies to every item; everything goes through hardening
       phases; everything is coded end-to-end. Research slices SS-J/K/L/M/N in SETTINGS_SIMPLIFICATION_HUB.
+- [ ] **OSAURUS/ACT RIGHT-SIDE PANEL — Claude-desktop/Codex-style context+plan+tools+skills+completed-tasks
+      (owner 2026-06-19).** Owner (verbatim): *"for Osaurus I want it to have something [like] Claude where in the
+      right-side panel it has context, it has plan, tools being used, tools selected, skills, etc. — basically
+      like what Codex and Claude Desktop have on the right side: completed tasks, etc."* Build a right-side panel
+      for the Act/Osaurus surface (and applicable to the agent surfaces generally) showing the LIVE agent run:
+      **context** (what the agent is working with), the **PLAN** (the steps/todo — reuse the deep-research
+      ResearchPlan-DAG + the existing /todo), **tools being used** (live, via the streaming AgentEvent/
+      `LiveActivityStrip`/`ToolActivityNarrator`), **tools selected** (the preflight/ColBERT tool selection),
+      **skills** (active skills), and **completed tasks/turns** — mirroring Claude Desktop / Codex right-rail.
+      Compose with: the provenance footer (S19), the deep-research space (it already visualizes plan+sub-agents),
+      the cognitive DAG, engine-isolation (reads the shared run/memory state, doesn't couple engines). Pixel-art
+      reskinned. Honest (shows real run state, no fake). This is the "useful agent cockpit" surface for Act.
+- [ ] **PROVIDER-SPECIFIC AGENT — DEEP, HARDENED (owner 2026-06-19, SENSITIVE — failed before).** Owner
+      (verbatim): *"the provider-specific agent — that is a sensitive thing, it needs deep research because I
+      tried this before and it didn't work. Not sure at what level are agents created — is it just file structure,
+      an installable skill, etc.? Need to get all of this hardened."* So the SS-L provider-agent work (OpenAI/
+      Google/Claude agent on chat) must DEEPLY answer **at what LEVEL an agent is created/defined**: is it (a) a
+      file-structure/config (an AGENTS.md / agent-blueprint definition), (b) an installable SKILL/pack, (c) a
+      provider runtime (the cloud Agents-SDK/Assistants API), or (d) Epistemos's own in-process agent loop
+      (`agent_core` + `AgentBlueprint`) parameterized by provider — and which of these the owner's "OpenAI/Google/
+      Claude agent" should be. CLARIFY the failed-before cause + design the ROBUST/HARDENED version (honest gating,
+      no silent fallback, provenance, engine-isolation). This is the load-bearing nuance of SS-L — research it
+      thoroughly + harden it (own hardening phases) before building. Tie to `AgentBlueprint.swift` (the identity
+      layer) + the cloud provider lanes.
+- [ ] **BUILD-LOOP — use subagents when it can (owner 2026-06-19).** The master build loop should DELEGATE
+      parallelizable work to subagents (the Agent tool) where possible — e.g. the whole-app logo audit (many
+      buttons), the cloned-app settings surfacing (5 clones), multi-file consolidations, broad sweeps — to go
+      faster + more thoroughly. (It already does to a degree; reinforce: prefer fan-out for independent work.)
