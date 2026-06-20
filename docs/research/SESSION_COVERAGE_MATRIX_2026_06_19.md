@@ -84,3 +84,11 @@ this pass: ledger = 129 tracked items; every concern below confirmed present (gr
   (4) visible wins (logos✅, install-CTA✅); (5) editors; (6) native features. ALL coded — frequency only orders.
 
 Cross-link: referenced from `SETTINGS_SIMPLIFICATION_HUB_2026_06_19.md` + the loop-plan read-first banner.
+
+## E. NEW directive 2026-06-19 (re-issued /loop) — captured
+- **MODEL CAPABILITY PROFILE = deeply-hardened COMBO + per-model deep profiles/descriptions + picker use-case
+  copy (best advertised, every model deliberate).** → ledger item + **SS-AB** (definitive synthesis of SS-Z/AA/R).
+  Status: ✅ researched (definitive spec authored); the build loop is ALREADY coding the foundation (llguidance
+  dep added + per-model --chat-template/chatml fallback in progress).
+- **Reiteration — all concerns/queries saved + everything since last update in plan.** ✅ confirmed: this matrix
+  + the 130+ ledger items cover every concern incl. pre-compaction verbatim intent; nothing dropped.

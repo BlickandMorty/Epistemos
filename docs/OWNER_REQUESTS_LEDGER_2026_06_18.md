@@ -3602,3 +3602,27 @@ native; AGPL server). ADOPT 2 patterns natively:
       simplify/repair passes never touched + harden them (robust teardown, honest gating, no silent-fail, no
       orphan UI). Cross-ref SS-B (sprawl), SS-X (chat-bar), SS-U/SS-W (crashes), SS-Y (orphaned HyperdynamicLoop).
       This is a standing part of the REPAIR CYCLES — each cycle finds + hardens a skipped surface.
+- [ ] **MODEL CAPABILITY PROFILE = DEEPLY-HARDENED COMBO + per-model DESCRIPTIONS + picker use-case copy (owner
+      2026-06-19; SS-AB — the definitive synthesis of SS-Z/SS-AA/SS-R).** Owner (verbatim): *"for the model
+      capability profile thing make sure you have a deeply hardened combo version of all the best ones or pick
+      the best one with the best metrics — def find a way to make it work ONCE AND FOR ALL. Make sure each local
+      model has a deeply researched capability profile and description for all the benefits of the model, and on
+      the model picker there should be a brief description of its use case — the best models should be
+      advertised, and each model on the app should have deliberate descriptions and profiles."* So: (1) the
+      `ModelCapabilityProfile` is NOT just a survey — it's the DEFINITIVE hardened design = the best-of-breed
+      COMBO from SS-AA (data-driven profile like Ollama Modelfile + LiteLLM capability table + Aider override-
+      layering; **llguidance** as the single constrained-decoding equalizer across GGUF+MLX — the build loop has
+      ALREADY added the llguidance dep; llama.cpp `--chat-template-file` resolution that kills the SS-W crash;
+      per-model `stop` array). Pick the best metric per dimension, harden it, make it work once and for all.
+      (2) EVERY local + cloud model gets a **deeply-researched capability profile** (contextWindow / chatTemplate
+      / toolCallDialect / sampling / tier / skillsEnabled) AND a **benefits description** (what it's good at,
+      from SS-R's per-model notes). (3) The **model picker shows a brief use-case description per model** (e.g.
+      "Qwen3 — best all-round, think-toggle + strong tools"; "VibeThinker — tiny math reasoning"; "Gemma 4 E4B —
+      fast on-device, 128K"); the BEST models are advertised; every model has deliberate copy + a profile. No
+      fake/empty descriptions — honest, real per-model metrics. Cross-ref SS-Z (profile), SS-AA (OSS patterns +
+      llguidance), SS-R (the model shortlist + per-model data), SS-W (crash fix), the MODEL-INSTALL + advertise-
+      stack items. See `docs/research/SS-AB_MODEL_CAPABILITY_PROFILE_DEFINITIVE_2026_06_19.md`.
+- [ ] **REITERATION (owner 2026-06-19): all concerns/queries still saved + everything since the last update in
+      plan + researched deeply.** Confirmed via `SESSION_COVERAGE_MATRIX_2026_06_19.md` (updated) — every concern
+      incl. pre-compaction verbatim intent is mapped to ledger + slice + status; nothing dropped. The
+      ModelCapabilityProfile/per-model-description directive above is now captured. Standing loop continues.

@@ -44,6 +44,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-Y | HYPERDYNAMIC DETERMINISM / deterministic schema for LOCAL agents (owner 2026-06-19) — make local agents MORE useful than cloud via deterministic-schema/constrained-decoding + robust agent-loop upgrades; the "playground to make local models better" | ✅ done → SS-Y_HYPERDYNAMIC_DETERMINISM |
 | SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ✅ done → SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK |
 | SS-AA | GITHUB PER-MODEL ENGINEERING STUDY (owner 2026-06-19; extends SS-Z) — harvest proven per-model patterns (prompt/template/tool-dialect/context/sampling/adapters) from llama.cpp/Ollama/vLLM/SGLang/LiteLLM/Outlines/XGrammar/Aider/etc. | ✅ done → SS-AA_GITHUB_PER_MODEL_ENGINEERING |
+| SS-AB | MODEL CAPABILITY PROFILE — DEFINITIVE hardened combo + per-model profiles/descriptions + picker use-case copy (owner 2026-06-19) | ✅ done → SS-AB_MODEL_CAPABILITY_PROFILE_DEFINITIVE |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
 
 ## FINDINGS LOG (appended each pass)
@@ -222,3 +223,12 @@ never instantiated. Plus the raw-@State cluster (`:772-783`, stale-read) + flag�
 rrfFusion/powerUserMode have no co-located proof). **Fix: summaryInterval default + convert 3 raw-@State to
 @AppStorage [S]; demote the fake toggle to a disabled 'reserved' row OR wire it [M]; re-home/gate orphan rows
 [M]; co-locate flag→witness chips [M].** All harden, never delete. Full: SS-F doc.
+**SS-AB MODEL CAPABILITY PROFILE (DEFINITIVE)** → the once-and-for-all hardened combo (synthesis of Z/AA/R): ONE
+data-driven `ModelCapabilityProfile` (Ollama-Modelfile shape + LiteLLM capability table + Aider override-layering)
+both universes resolve to; **llguidance as the SINGLE grammar engine across GGUF+MLX (build loop ALREADY added
+the dep)** = guaranteed-valid tool calls (mandatory for Gemma = no native dialect); **llama.cpp
+`--chat-template-file` resolution makes the SS-W crash structurally unreachable**; per-model `stop` array + ctx
+(replaces hardcoded 4096). EVERY model gets a deep capability profile + benefitsDescription + a short
+`pickerUseCase` shown on the picker (best advertised, all installable, no-fake). Plan: chatTemplate+stop+ctx [S];
+bundled JSON + descriptions [S]; llguidance both lanes + dialect auto-detect [M]; surface pickerUseCase + profiles
+[M]; unify tiers/skills [M]; collapse universes [L]; tests-at-end (no-empty-template falsifier). Full: SS-AB doc.
