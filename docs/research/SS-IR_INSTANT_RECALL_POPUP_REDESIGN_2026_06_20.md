@@ -121,3 +121,30 @@ Key files: `Views/Halo/HaloButton.swift` (bubble) · `Views/Halo/ShadowPanel.swi
 {Button,Panel}.swift` (retire/converge) · `Views/Notes/ProseEditorRepresentable2.swift:990-998` (TK2 KEEP) ·
 `Views/Chat/ChatInputBar.swift` + `Views/Landing/LandingView.swift` + `Views/MiniChat/MiniChatView.swift` (REMOVE)
 · `Views/Epdoc/EpdocEditorChromeView.swift` (ADD). Cross-ref SS-UMA, SS-O/EM.
+
+---
+
+## VERIFICATION (owner 2026-06-20: "I don't see Instant Recall anymore — is it still working? + I haven't seen the new UI")
+Investigated on `main` (Explore, file:line). **The feature is NOT removed — it's wired + enabled-by-default, but invisible
+for explainable reasons, and the NEW UI in this slice is UNBUILT.**
+- **Wired + ON by default.** `ContextualShadowsState.isEnabled` defaults TRUE (`State/ContextualShadowsState.swift:91,121-127`).
+  Surface A (Halo NSPanel) mounts in TK2 (`ProseEditorRepresentable2.swift:990-998`, opens `showHaloPanel():1013-1030`);
+  Surface B (auto-show box) mounts in NoteDetail (`NoteDetailWorkspaceView.swift:996-1101`), ChatInputBar (`:1129,1193`),
+  Landing (`:1139,1350`), MiniChat. No off-flag.
+- **No "speed-for-accuracy" commit landed.** The accuracy-first direction lives ONLY in this slice (unbuilt). Reachable
+  history shows isolation/scoping commits (`b91487475` harden surface isolation 5-31; `01b1ba4bb` "Focus instant recall on
+  active text" 6-01 → per-scope payloads `ContextualShadowsState.swift:380-382,460-487`; `031e5a5cb` 6-01), none disabling.
+- **Backend bootstraps at startup** (`AppBootstrap.initializeShadowBackendIfReady() :2409, :3713-3816`) but **requires an
+  active vault** (`:3714` early-return "No active vault selected") and a successful Rust FFI open (`:3754`) to install the
+  search service via `configureShadowSearch(:3805)`. On failure it degrades to empty silently (`:3710-3712`).
+- **WHY THE OWNER DOESN'T SEE IT (most→least likely):** (1) **no recall hits → no chrome** — both buttons render ONLY with
+  payload (`ContextualShadowsButton.swift:26` needs `payload.hasPanelPayload`); zero hits = invisible by design. (2) **search
+  service never installed** — no active vault or FFI open/warm failed → `haloSearchService` nil → `dismantleHalo()` removes
+  the Halo button (`ProseEditorRepresentable2.swift:976-978`). (3) **scoping refactor** narrowed it from global to active
+  editor/doc scope (reads as "gone"). (4) **the new popover UI doesn't exist yet** — so there's nothing new to see.
+- **ADDED REQUIREMENTS for the build:** (a) make it **DISCOVERABLE even with zero hits** — a persistent, honest entry point
+  (the Halo bubble visible in a resting state on the editors with an empty-state "no matches yet", not only when results
+  exist) so the owner can always find it; (b) a **runtime health/diagnostic** surfacing whether the shadow search service
+  installed (vault present? FFI open? index size?) — wire into the Settings diagnostics rows (`BackgroundIndexingHealthRow`/
+  `EditorBundleHealthRow` pattern) so "why is it empty" is answerable; (c) THEN build the bubble→`NSPopover` redesign + add
+  the bubble to Epdoc (`EpdocEditorChromeView.swift:146`) per the plan above. Verify on-device the owner can SEE + OPEN it.

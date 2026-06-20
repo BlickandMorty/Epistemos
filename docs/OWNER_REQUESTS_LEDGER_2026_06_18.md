@@ -4121,3 +4121,33 @@ native; AGPL server). ADOPT 2 patterns natively:
       Phase 3 (no lossy JSON↔md converter); (D) quick-capture destination picker (default Prose, minimal toggle to Epdoc;
       extends SS-QC). Obsidian model = views over one md file (unify truth, differ rendering). One serializer/asset/wikilink
       seam shared (SS-CLEAN anti-mud). NEVER damage TK2/Prose. Test: insert image→save→reload→present in BOTH surfaces.
+- [ ] **INLINE note-AI: keep streaming + send animation + pixel-art scroll-down arrow + AI/user separation (owner 2026-06-20).**
+      *"Keep the inline streaming 'Ask this note' AI — reply inline (it's very good, robust, KEEP it). Add an animation: when
+      you send a query the bar animates, and a large pixel-art arrow pops up over the note pointing down + a pixel-art phrase
+      'scroll down to see answer'. Scroll down → answer, separated, in a 'cold box' obviously written by AI so the user isn't
+      confused about what's theirs vs the AI's. Robust WITHOUT losing the inline feature."* RESEARCHED →
+      `docs/research/SS-IL_INLINE_NOTE_AI_ANIM_SEPARATION_2026_06_20.md`. Inline = `NoteChatState` (submitQuery
+      `NoteDetailWorkspaceView.swift:1778`, isStreaming, "Ask this note" :2072) — ADDITIVE only: (1) send animation on the
+      bar; (2) animated pixel-art DOWN arrow + phrase shown ONLY when the answer is below the fold, auto-hides on scroll-to;
+      (3) "cold box" AI-answer container (distinct theme token + AI label + copy/insert/dismiss; nothing silently merges into
+      note body). Keep inline streaming unchanged (no regression). Cross-ref SS-ALIVE/SS-TC/SS-2S/SS-CLEAN. [S→M].
+- [ ] **INSTANT RECALL / Shadow Halo — verify still works + surface the new UI (owner 2026-06-20).** *"I don't see the
+      shadow halo instant-recall anymore. Not sure if a fix landed trading speed for accuracy. Make sure it's still working,
+      and the UI — I haven't seen the new UI, I can't access it. Make sure it's good, in the plan, deliberated."* VERIFIED
+      (Explore, file:line) → appended to `SS-IR_INSTANT_RECALL_POPUP_REDESIGN_2026_06_20.md`. FINDINGS: NOT removed — wired +
+      enabled-by-default (`ContextualShadowsState.isEnabled` defaults TRUE); NO speed-for-accuracy commit landed (that lives
+      only in the SS-IR slice, UNBUILT); backend bootstraps but needs an active vault + FFI open to install the search
+      service. Invisible because: no recall hits → no chrome / search-service not installed (no vault) / scoping refactor
+      narrowed it / the new popover UI isn't built yet. BUILD ADDS: (a) DISCOVERABLE resting bubble w/ empty-state (not only
+      when hits exist); (b) runtime health diagnostic (vault? FFI? index size?); (c) bubble→NSPopover redesign + add to Epdoc;
+      verify on-device the owner can SEE+OPEN it. [M→L].
+- [ ] **HTML WORKSPACE: chat fully rewrites surface into a website/explainer + which chat drives it (owner 2026-06-20).**
+      *"I want chat to literally completely redo the entire surface to look like a whole website/webpage — DOM, live UI,
+      animations. Even 'explain something' → explain via JSON/HTML streaming by creating a webpage/explainer from what it
+      knows. Make the surface flexible+dynamic enough. Chat via mini chat — and maybe main chat (mini works for all surfaces,
+      main isn't auto-linked). Research + document + deliberate."* RESEARCHED → SS-HW "EXPANSION" section. Adds: (5) full-
+      surface `regenerate`/`replaceDocument` patch op (atomic, versioned, reversible, AI-provenance) + streaming + explainer-
+      from-knowledge (HTML freeform or JSON-schema explainer; grounded in SS-WL/SS-MV); MAS-safe via the in-process patch
+      pipeline. (6) MINI-CHAT is the primary driver (already targets any surface via `MiniChatTarget` DocumentSurface.swift:81-109);
+      MAIN-CHAT recommendation = NO implicit global link (muddiness) → explicit "target this surface" affordance only; auto-link
+      DECISION DEFERRED to owner. Cross-ref SS-2S/SS-IL/SS-WL/SS-MV/SS-HGT. [M→L].
