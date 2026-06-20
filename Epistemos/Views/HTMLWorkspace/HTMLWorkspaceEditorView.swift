@@ -614,7 +614,19 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var previewRenderIdentity: String {
-        "\(previewPackage.manifest.id)-\(previewContentHash)-\(workspaceThemeIdentity.hashValue)"
+        // SS-U (owner: "dark/light mode often crashes"): do NOT fold the theme hash
+        // into the preview WebView's SwiftUI identity. A light/dark flip changes the
+        // theme but NOT the content — if the theme is in the `.id`, every flip
+        // changes the identity and forces SwiftUI to dismantle+recreate the
+        // WKWebView mid-render. Tearing down a WKWebView with an attached
+        // script-message handler / in-flight loadHTMLString during a re-identity is a
+        // known WebKit fault window (it fired on every toggle while the workspace
+        // preview was open → "often crashes"). With the theme OUT of the identity an
+        // appearance flip instead drives updateNSView, which re-renders the LIVE
+        // WebView with the new previewTheme (HTMLWorkspacePreviewView.loadPreview) —
+        // no teardown, no crash. Identity stays content-only, so genuine content
+        // edits still recreate as intended.
+        "\(previewPackage.manifest.id)-\(previewContentHash)"
     }
 
     private var previewContentHash: String {
