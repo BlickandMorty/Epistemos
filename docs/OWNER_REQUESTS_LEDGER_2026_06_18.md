@@ -3311,3 +3311,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       parallelizable work to subagents (the Agent tool) where possible — e.g. the whole-app logo audit (many
       buttons), the cloned-app settings surfacing (5 clones), multi-file consolidations, broad sweeps — to go
       faster + more thoroughly. (It already does to a degree; reinforce: prefer fan-out for independent work.)
+- [ ] **EXISTING SKILLS & TOOLS — REPAIR + HARDEN (owner 2026-06-19).** Owner (verbatim): *"with my skills
+      and tools I still want to make sure that they are even repaired and hardened as well."* Beyond the
+      cross-engine SHARING (SS-H) and the everywhere-availability, the app's CURRENT native skills + tools must
+      themselves be **made to actually work (repaired)** + **hardened** (the §3.7 harden-before/after lifecycle).
+      Concretely: (a) **the keystone gap** — local chat falls OUT of the tool loop for small models that aren't
+      `canRunLocalAgentLoop` (`PipelineService.swift:342-388`) → so tools/skills silently don't fire; REPAIR =
+      inject skills + route tool-needing queries to a fitting agent-capable model, no tool-less degrade.
+      (b) **skills compiled-out / path-mismatch** (the 4-way skill-dir mismatch, Phase-0 #5 — an installed pack
+      isn't read by the router) → REPAIR = unify the dirs so installed skills actually load. (c) Audit EVERY
+      registered tool (`registry.rs register_default_tools`) for **silent-fail / fake-success / unwired
+      handlers** — each must do real work or honestly gate, never green-without-witness. (d) HARDEN each
+      tool/skill: ProvenanceGate on skill install, honor `allowed-tools` whitelist, scanner on quarantine,
+      subprocess hardening on any exec tool, MAS preflight deny intact, no-fake invariants. (e) Skills/tools
+      must be REPAIRED+HARDENED for BOTH local AND cloud chat. This is the "make the superpowers real" item —
+      audit-existing-claims-first (most have hidden passes), then fix the genuinely broken, then re-harden.
+      Cross-refs: SS-H (sharing), SS-I (external ecosystems + dir unification), the TOOLS/SKILLS BROKEN item.

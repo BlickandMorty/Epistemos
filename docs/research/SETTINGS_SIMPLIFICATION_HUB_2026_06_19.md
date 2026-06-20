@@ -22,7 +22,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
 | SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ☐ |
 | SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ✅ done → SS-G_MODEL_INSTALL_PATH |
-| SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ☐ |
+| SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ✅ done → SS-H_CROSS_ENGINE_TOOL_SKILL_SHARING |
 | SS-I | EXTERNAL SKILL ECOSYSTEMS — Anthropic/Vercel/Google | ✅ done → SS-I_EXTERNAL_SKILL_ECOSYSTEMS |
 | SS-J | BROWSER-USE in ALL surfaces (owner 2026-06-19) — the actual github browser-use available across Act/Work/Osaurus + chat; make the app useful in those locations | ☐ |
 | SS-K | VOICE-MODEL PICKER (owner 2026-06-19) — choose voice models in Settings + a chat-surface TTS picker that only fires on TTS; robust + minimal | ☐ |
@@ -51,4 +51,15 @@ before = provider not agent-tier'd + hosted tools not wired + no agent label, NO
 NEW (all small): wire OpenAI hosted web_search (highest leverage), promote Google to agent-tier, add an
 agent-identity picker label (greys non-agent providers), Cursor `.mdc`→SKILL.md shim. REJECT hosted
 Managed-Agent containers + importing Agents-SDK/ADK (no-sidecar). Only Anthropic is a true SKILL.md source;
-OpenAI=hosted tools, Cursor=config. Full: SS-L doc. (Slices SS-C/D/E/F/H/J/K/M/N still queued.)
+OpenAI=hosted tools, Cursor=config. Full: SS-L doc. (Slices SS-C/D/E/F/J/K/M/N still queued.)
+**SS-H CROSS-ENGINE TOOL/SKILL SHARING** → the shared `ToolRegistry` + `ToolTier` ladder is REAL and **already
+serves BOTH local and cloud chat** (each engine binds its own tier-instance via the `ToolTierBridge`→
+`list_tools_for_tier`/`execute_tool_call` FFI; skills flow from ONE `~/.epistemos/skills/` dir — Anthropic/
+Vercel/Google SKILL.md files drop straight in). **TWO gaps:** (1) KEYSTONE — local chat drops to a tool-less/
+skill-less stream when the model's `canRunLocalAgentLoop==false` + no agent-capable backup fits memory
+(`PipelineService.swift:342-388`); (2) the cloned engines are INERT — Osaurus (`ActOsaurusBridge`) + Goose
+(`WorkBackend`) never bind the registry; omega-mcp has a true duplicate registry. **Fix (smallest first):
+inject the ChatLite skills catalog into local chat even when not looping [S]; bind Osaurus [S] + Goose [M] to
+the registry via `ToolTierBridge`; auto-route to a fitting agent-capable model when the small one can't loop
+[M]; unify omega-mcp [L].** Sharing = shared registry-by-value + shared memory, never shared logic. Honest
+gating preserved (local-never-agent-tier, MAS Pro compile-out). Full: SS-H doc.
