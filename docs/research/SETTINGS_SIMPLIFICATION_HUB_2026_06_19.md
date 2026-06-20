@@ -305,3 +305,12 @@ HTML-in-markdown fallback for rich-only blocks (nothing dropped); FAIL-LOUD on p
 doc + pixel-art CSS). **Plan: add @tiptap/extension-markdown + bridge getMarkdown [S]; round-trip test suite
 [S]; flip canonical + migration + drift-detector [M]; real md parser on load [M]; HTML-workspace projection [L].**
 Pixel-art kept + theme-token-driven (more dynamic, native). Full: SS-EM doc.
+**SS-PERF PERFORMANCE + MEMORY (recursive 'super-optimized' pass)** → app is ALREADY well-optimized (2 prior perf
+waves); this is polish. **Top gains: (1) ~18 health-row 1Hz polling timers in `SubstrateHealthPanel` all fire at
+once while Settings is open (`.onDisappear` doesn't fire for scrolled-off rows) → collapse to ONE shared
+TimelineView clock [M, #1 gain×effort]; (2) MLX KV cache only freed reactively → proactively bound by token
+length [M, 256-512MB]; (3) verify ShadowVault crawl is mtime/incremental not full re-read each launch [M];
+(4) agent_loop response_blocks.clone() grows O(turns) → move-not-clone + mid-loop token-budget compaction [M];
+(5) defer PowerGuard/EventStore into the deferred-services block [S, few ms].** Already-optimized (don't redo):
+memory-pressure FFI chain, WKProcessPool sharing, MLX idle-unload, FTS PRAGMAs, ShadowIndexing debounce, tokio
+minimal, to_string JSON. All MB figures are static estimates (no Instruments run). Full: SS-PERF doc.
