@@ -3900,3 +3900,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       Glass; flagship `matchedGeometryEffect` last/flagged). ALL non-invasive/additive, `reduceMotion`-gated, never
       over the Metal canvas or TK2/Prose, visual feel = PENDING OWNER. Added to TOP-UNCODED (cohesive-anim-polish +
       perf-each-cycle). Cross-ref SS-AN, SS-SH.
+- [ ] **COMPANION→OSAURUS REFACTOR — IP PRESERVATION + BEFORE/AFTER SHAPE (owner 2026-06-20).** Verbatim (voice):
+      *"every feature… needs a before and after shape, so things like the companion — because I am refactoring that
+      by using fully [Osaurus] and then having a lot of my IP copy to Osa[urus] or move to our service. I wanna make
+      sure that none of it is lost."* The OWNER is refactoring the Companion/agent system (moving/copying IP to
+      Osaurus / a service) in Cursor. **Two actions:** (1) BEFORE-SHAPE baseline produced →
+      `docs/research/SS-COMPANION_BEFORE_SHAPE_2026_06_20.md` (73-item IP-preservation checklist: every CompanionModel
+      field, cosmetic body-grammar, CompanionState API, creation UI, AgentBlueprint routing, inference wiring, the
+      Osaurus/Act seam, the Rust cognitive-DAG companion lifecycle, persistence) — tick each AFTER the refactor;
+      anything with no after-home = LOST. (2) HARD SCOPE BOUNDARY added to the monitor: the build-loop must NOT touch
+      the Companion/Osaurus files (Models/Companion/*, State/Companion/*, Views/Landing/Farm/*, ActOsaurus/*,
+      Vendor/Osaurus/*, LocalModelServer.swift, AgentBlueprint.swift, cognitive_dag/companions.rs) while the owner
+      refactors them — this is a CODE collision zone (loop just did SS-AD on CompanionModel.loraAdapterPath). Remaining
+      SS-AD Companion-touching steps (per-agent picker in CompanionCreationFlow) are PAUSED; the loop continues
+      non-Companion work (SS-ALIVE anim, SS-PERF2, SS-LS UI, profiles, the AdapterRegistry/Settings adapter-apply which
+      is NOT Companion). Owner does the refactor on main; "pause the loop" for focused Companion code sessions. Cross-
+      ref SS-AD (apply-gap), SS-XR. The "after shape" diff is the owner's to run once IP lands in Osaurus/the service.
