@@ -119,6 +119,15 @@ pub struct GgufCliProvider {
     /// forced at the sampler level to emit valid tool-call JSON. Real
     /// capability via decoding constraints, NOT a faked capability badge.
     json_schema: Option<String>,
+    /// Optional explicit llama-cli `--chat-template <name>` (a builtin like
+    /// "chatml" / "gemma" / "llama3") that OVERRIDES the GGUF's embedded chat
+    /// template. SS-W (fix #2 seam): a model whose embedded Jinja template
+    /// llama.cpp's minja engine can't parse aborts the process (SIGABRT) at
+    /// startup — selecting a known builtin sidesteps the broken embedded
+    /// template. Default `None` = use the embedded template (unchanged
+    /// behavior); the per-model VALUE is owned by the per-model framework
+    /// (SS-Z) / the chatml-fallback retry that builds on this seam.
+    chat_template: Option<String>,
 }
 
 impl GgufCliProvider {
@@ -136,6 +145,7 @@ impl GgufCliProvider {
             // mode via `with_temperature`.
             temperature: 0.0,
             json_schema: None,
+            chat_template: None,
         }
     }
 
@@ -157,6 +167,29 @@ impl GgufCliProvider {
     fn constrained_args(&self) -> Vec<String> {
         match &self.json_schema {
             Some(schema) => vec!["--json-schema".to_string(), schema.clone()],
+            None => Vec::new(),
+        }
+    }
+
+    /// Select an explicit llama-cli builtin chat template (e.g. "chatml",
+    /// "gemma", "llama3") that overrides the GGUF's embedded template. An empty
+    /// / whitespace-only name is treated as "use the embedded template".
+    pub fn with_chat_template(mut self, name: impl Into<String>) -> Self {
+        let name = name.into();
+        self.chat_template = if name.trim().is_empty() {
+            None
+        } else {
+            Some(name)
+        };
+        self
+    }
+
+    /// The extra llama-cli args that select an explicit chat template, or an
+    /// empty vec when using the GGUF's embedded template. Split out as a pure
+    /// function so the arg wiring is unit-testable without spawning llama-cli.
+    fn chat_template_args(&self) -> Vec<String> {
+        match &self.chat_template {
+            Some(name) => vec!["--chat-template".to_string(), name.clone()],
             None => Vec::new(),
         }
     }
@@ -235,6 +268,9 @@ impl AgentProvider for GgufCliProvider {
         // JSON-schema constraint args (empty when unconstrained). Captured here
         // so the `stream!` block below can move them in alongside the model/cli.
         let constrained_args = self.constrained_args();
+        // SS-W seam: an explicit `--chat-template <builtin>` (empty when using
+        // the GGUF's embedded template), moved into the `stream!` block below.
+        let chat_template_args = self.chat_template_args();
         // Trimmed, non-empty lines of the prompt we send, so the banner strip
         // below can drop llama-cli's echo of the prompt without depending on its
         // exact reformatting.
@@ -259,6 +295,9 @@ impl AgentProvider for GgufCliProvider {
                 // Grammar-constrained decoding (empty when unconstrained):
                 // forces structurally-valid JSON for honest local tool calls.
                 .args(&constrained_args)
+                // SS-W: override the embedded template when one is selected
+                // (empty otherwise → embedded, unchanged behavior).
+                .args(&chat_template_args)
                 .arg("--single-turn")
                 .arg("--simple-io")
                 .arg("--no-display-prompt")
@@ -510,6 +549,24 @@ mod tests {
         );
         let exited = std::process::ExitStatus::from_raw(2 << 8);
         assert!(exit_status_detail(&exited).contains("exit code 2"));
+    }
+
+    // SS-W seam: the explicit-chat-template override is wired only when selected;
+    // the default (embedded template) leaves the command untouched.
+    #[test]
+    fn chat_template_args_present_only_when_selected() {
+        let embedded = GgufCliProvider::new("/tmp/m.gguf");
+        assert!(embedded.chat_template_args().is_empty(), "default = embedded, no arg");
+
+        let chatml = GgufCliProvider::new("/tmp/m.gguf").with_chat_template("chatml");
+        assert_eq!(
+            chatml.chat_template_args(),
+            vec!["--chat-template".to_string(), "chatml".to_string()]
+        );
+
+        // Empty / whitespace name falls back to the embedded template (no arg).
+        let blank = GgufCliProvider::new("/tmp/m.gguf").with_chat_template("   ");
+        assert!(blank.chat_template_args().is_empty(), "blank name = embedded");
     }
 
     fn prompt_set(prompt: &str) -> std::collections::HashSet<String> {
