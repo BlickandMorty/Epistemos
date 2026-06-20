@@ -3420,3 +3420,62 @@ native; AGPL server). ADOPT 2 patterns natively:
       `ProseTextView2.swift` / `ProseEditorRepresentable2.swift`). Balanced approach: robustness of Tolaria +
       the Epdoc surface. Reuse the WebKit host kit + pixel CSS injector. Multiple research cycles before coding.
       (New research slices SS-O Epdoc-repair, SS-P Tolaria-v2-editor — to be added to the hub.)
+- [ ] **ALL RESEARCH → DEFINITELY CODED + plan references ALL research + deep-harden each cycle (owner
+      2026-06-19, reaffirms OMNIBUS).** Owner (verbatim): *"all of your research should be added to the plan as
+      a def code — everything should be coded. I just need deep research on how they should all be added and
+      integrated into the app with deep hardening after everything and each cycle… make sure the plan references
+      all research because I did lots of research that should all be deeply read and reread… make sure it def
+      codes all of what we researched and what we are adding and lifting."* Every SS-* slice + every research doc
+      is a BUILD COMMITMENT, not optional. The plan (this ledger + MASTER_SYNTHESIS + DEEP_PLAN_AUDIT_HUB +
+      SETTINGS_SIMPLIFICATION_HUB) must explicitly REFERENCE every research doc and the build loop must CODE each
+      one end-to-end (full-clone or Swift/Rust redo), with a **deep hardening pass after every feature AND after
+      every cycle** (§3.7 lifecycle). Keep researching to EXTEND every item + find more that can be hardened.
+      Nothing left as research-only.
+- [ ] **PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19).** Owner (verbatim): *"I
+      want a PDF live native viewer, so use all of Apple's native things like the PDF rich viewer and all the
+      things Apple natively supports to make sure I max out my app with not just the custom things but the bare
+      and still robust Apple-native tools like PDF and so many more that Apple supplies… multiple cycles until I
+      say done, and in these cycles you are also integrating everything."* Add a **live native PDF viewer via
+      PDFKit** (`PDFView`/`PDFDocument` — selection, search, thumbnails, annotations, outline) + **QuickLook**
+      (`QLPreviewController`/`QuickLookThumbnailing`) for universal file preview. Then SWEEP for every robust
+      Apple-native framework that maxes out the app without custom build: QuickLook, PDFKit, **VisionKit**
+      (live-text/document-scan), **Quick Look Thumbnailing**, **NaturalLanguage** (already used — SS-N),
+      **Translation**, **Speech**/AVSpeech (SS-K/voice), **PencilKit**, **DataDetectors**, **WeatherKit**?,
+      **MapKit**, **EventKit**, **ContactsUI**, **PhotosUI**, **CoreSpotlight** (already), **FileProvider**,
+      **UniformTypeIdentifiers**, **CryptoKit**, **AppIntents**/Shortcuts, **WidgetKit**, **PassKit**, etc. —
+      pick the ones that add real owner value, MAS-safe, local-first, integrate them (not just list). Multiple
+      research cycles until owner says done. (New slice SS-T.)
+- [ ] **AGGRESSIVE CODE-CHECKER ("nuclear …") as a MULTI-CHECKPOINT gate (owner 2026-06-19).** Owner (verbatim):
+      *"that one skill or tool that Cursor had — it's supposed to aggressively check the code, I forgot what it's
+      called, nuclear something — I want to make sure that that is used multiple times in the plan, so it should
+      be a checkpoint for multiple parts, not overdoing it because it might take a while, but def add to multiple
+      parts of the mass plan."* Identify the tool (owner recalls "nuclear …" — candidates to confirm: Cursor
+      **Bugbot**, an aggressive review agent, a deep static-analysis pass, or a literal "nuclear" linter/scanner)
+      and wire an equivalent **aggressive whole-codebase review/static-analysis checkpoint** at MULTIPLE points
+      in the build plan (e.g. after each phase / before each lift lands) — adversarial bug-hunt, not just build-
+      green. Compose with the VULNERABILITY-RESEARCH item. Not on every commit (slow) — at deliberate checkpoints.
+      (New slice SS-V: identify + integrate.)
+- [ ] **DARK/LIGHT MODE TOGGLE CRASHES THE APP (owner 2026-06-19).** Owner (verbatim): *"turning to dark and
+      light mode often crashes the app, maybe because I have lots of surfaces that don't have robust hardening or
+      something else or a combo, so make sure that is researched and also added to the plan to fix eventually."*
+      Research the appearance-switch crash root: likely WKWebView surfaces re-rendering on `colorScheme` change
+      (the 5+ Epdoc/HTML-workspace/KaTeX hosts), `@Environment(\.colorScheme)` churn re-running `makeNSView`/
+      teardown mid-layout, theme CSS re-injection races, force-unwraps in theme color resolution, or a combo.
+      Find + fix the crashing surfaces (harden, guard teardown, idempotent theme apply). (New slice SS-U.)
+- [ ] **EPDOC/TOLARIA v2 = MD + DYNAMIC HTML-WORKSPACE-DOM (GitHub-grade) + best-of-GitHub-MD + agent-MD (owner
+      2026-06-19; expands SS-P + the HTML-WORKSPACE item).** Owner (verbatim): *"for the Epdoc or Tolaria v2
+      pixel edition I want to make sure it is MD, and also add more robustness to the HTML workspace with DOM as
+      well but actually more dynamic — like the GitHub repos I see where HTML is having visuals, it looks deeply
+      robust and advanced and dynamic UI/UX on the MD surface — the full Tolaria port maybe, even just doing
+      WebKit and finding clever ways to deeply optimize it. There are also other GitHub MD [editors] I want to
+      pull from, and just make sure I have the best combo of features from all the popular MD editors on GitHub,
+      and agent MD editors as well — like the agent-and-model-to-workflow projects that easily speak to the apps.
+      I want mine to be the most robust in that field."* So SS-P expands to: (1) **full Tolaria port** on WebKit
+      (pixel-art minimal + macOS-26 style + fonts), MD-first. (2) **HTML workspace + DOM = MORE DYNAMIC** —
+      GitHub-grade rich/advanced/dynamic visuals + UI/UX on the MD surface (clever WebKit optimization).
+      (3) **Best-of-breed feature harvest** from the popular GitHub MD editors (e.g. Tiptap, Milkdown, ProseMirror,
+      CodeMirror, Lexical, Slate, TipTap-md, Obsidian-style, Notion-clones) — pull the best features. (4) **Agent
+      MD editors** — the agent/model-to-workflow projects that speak to apps (e.g. AGENTS.md-aware editors,
+      block-based agent canvases) — make Epistemos the MOST robust in that field. License-check every lift via
+      ProvenanceGate. Builds ON the SS-O repair (stabilized bridge first). NEVER touch TK2/Prose. (New slice
+      SS-P expanded; cross-ref SS-O + the HTML-WORKSPACE-CAN'T-EDIT item.)

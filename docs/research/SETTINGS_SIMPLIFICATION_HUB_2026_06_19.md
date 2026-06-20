@@ -29,11 +29,15 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-L | OpenAI + Cursor skills/tools/superpowers + PROVIDER AGENTS on chat (owner 2026-06-19) — OpenAI skills, Cursor skills, and OpenAI/Google/Claude AGENTS available on the chat surfaces | ✅ done → SS-L_PROVIDER_AGENTS_OPENAI_CURSOR |
 | SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ✅ done → SS-M_OBSCURA_SCRAPER_PRIVACY |
 | SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ✅ done → SS-N_SENSITIVE_INFO_REDACTION |
-| SS-O | EPDOC REPAIR (owner 2026-06-19) — root-cause the glitchy/demo-ish WKWebView/Tiptap Epdoc editor (autosave/JS-bridge/render race) + harden + bring Notion/Tolaria-style rich UI/UX; NEVER touch TK2/Prose | ☐ |
+| SS-O | EPDOC REPAIR (owner 2026-06-19) — root-cause the glitchy/demo-ish WKWebView/Tiptap Epdoc editor (autosave/JS-bridge/render race) + harden + bring Notion/Tolaria-style rich UI/UX; NEVER touch TK2/Prose | ✅ done → SS-O_EPDOC_REPAIR |
 | SS-P | v2 WEBKIT MD EDITOR (owner 2026-06-19) — optional SECOND md editor cloned from Tolaria on WebKit, pixel-art minimal + macOS-26 style + fonts; standalone or fused with Epdoc; never touch TK2/Prose | ☐ |
 | SS-Q | VOICE CLONING + BITCRUSH DSP (owner 2026-06-19) — Apple Personal Voice cloning (macOS-26 viability) + a bitcrush AVAudioEngine effect over any voice + custom branded system voice; premium-default | ☐ |
 | SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ☐ |
 | SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ☐ |
+| SS-T | PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19) — PDFKit live viewer + QuickLook + sweep VisionKit/Translation/PencilKit/AppIntents/etc., integrate the high-value MAS-safe ones | ☐ |
+| SS-U | DARK/LIGHT MODE CRASH (owner 2026-06-19) — root-cause the appearance-switch crash (WKWebView colorScheme re-render/teardown race, theme CSS re-inject, force-unwraps) + harden the crashing surfaces | ☐ |
+| SS-V | AGGRESSIVE CODE-CHECKER ("nuclear …") (owner 2026-06-19) — identify the Cursor aggressive-review tool + wire an equivalent adversarial static-analysis checkpoint at MULTIPLE plan points | ☐ |
+| SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
 
 ## FINDINGS LOG (appended each pass)
 **SS-A CLONED-APP SETTINGS** → the machinery already ships (`SettingsDisclosureSection` = the literal 'Advanced' container; GateStatus+HealthRow triad; native absorbers ModelStack/Authority/Skills). Pattern = a reusable `EngineSettingsSection` (curated native simple front: model→stack, perms→Authority, skills→Skills, MCP→ONE consolidated panel) + a `… · Advanced` disclosure with the full surface. Per clone: auto-default the plumbing (ports/dirs/keys/sandbox), surface ~3-5 knobs simply, full settings under Advanced. **OpenClaw (33-section config) = reskin its config-form via CSS injection + keep it under `OpenClaw · Advanced` — never hide it (reverses S3).** Top move = consolidate MCP-install into one panel. Full: SS-A doc.
@@ -105,4 +109,13 @@ NLTagger NER + NSDataDetector + Rust regex (MAS-safe, default-on, covers 6/8 cat
 as Pro/Research pending an MLX/CoreML port. **Plan: shared `SensitiveInfoRedactor` + flagged pre-egress hook at
 `claude.rs:284` (+openai/gemini) [S]; wire existing NER in [S]; reversible tokenize→restore + settings toggles
 [M]; Privacy-Filter/local-LLM embed [L/Pro].** NEVER cloud-detect PII; witness with egress no-PII test. Full:
-SS-N doc. (Slices SS-C/D/E/F still queued.)
+SS-N doc.
+**SS-O EPDOC REPAIR** → Epdoc is a REAL complete Tiptap 3.24 WKWebView editor (built+staged `editor.js.br`
+259KB, NOT a demo bundle); the "glitches/fails" are concrete roots: (1) floating panels (slash/bubble/KaTeX)
+use hardcoded pixel offsets with **NO viewport→window coord translation** (`EpdocEditorChromeView.swift:417,431,
+442`) — the dominant visible glitch; (2) **JS errors fail SILENTLY** — no WKNavigationDelegate, no
+window.onerror, empty Swift `.error` break (`:304`); (3) window-close drops the in-flight keystroke
+(`shutdown()` doesn't `flushNow()` before detach, `:774-788`); (4) lossy markdown round-trip (no md-out
+serializer). **Repair (NOT touching TK2/Prose): surface JS errors [S]; flush-on-close [S]; fix panel coords
+[M]; harden ready-handshake + watchdog [M]; WKNavigationDelegate + process-termination reload [M]; Epdoc health
+row [M].** Tolaria-class rich UI = SS-P. Full: SS-O doc. (Slices SS-C/D/E/F + SS-P/Q/R/S + new SS-T/U/V queued.)
