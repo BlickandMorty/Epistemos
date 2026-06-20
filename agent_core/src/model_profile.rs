@@ -167,8 +167,25 @@ pub const CANON: &[ModelCapabilityProfile] = &[
         advertised: true,
     },
     ModelCapabilityProfile {
+        // The general `google/gemma-4-12B-it-qat-...` GGUF — the LARGEST model in
+        // the Fast ladder (complexity routing escalates 2B → 4B → 12B). NOT the
+        // coder; that is the separate `gemma-4-12b-coder` entry below.
         id: "gemma-4-12b-qat",
         display_name: "Gemma 4 12B QAT",
+        context_window: 128_000,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::Gemma,
+        lane: ModelLane::Gguf,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Largest Gemma · 128K, for harder asks",
+        advertised: true,
+    },
+    ModelCapabilityProfile {
+        // The community 12B coder fine-tune (`yuxinlu1/gemma-4-12B-coder-...`) — the
+        // Code-tier foundation model. Same Gemma dialect/template as the general
+        // 12B; distinct tier + picker copy.
+        id: "gemma-4-12b-coder",
+        display_name: "Gemma 4 12B Coder",
         context_window: 128_000,
         max_output_tokens: 4096,
         prompt_dialect: PromptDialect::Gemma,
@@ -397,7 +414,15 @@ pub fn profile_for(model_id: &str) -> ModelCapabilityProfile {
         return *find("deepseek-r1-distill-1.5b");
     }
     if id.contains("gemma") {
-        // 12B (the GGUF coder) vs the small E2B/E4B MLX models.
+        // The community 12B coder fine-tune (id carries "coder") is the Code tier;
+        // the general it-qat 12B is the largest model in the Fast ladder. Check
+        // "coder" FIRST — the coder id also contains "12b", so the general-12B arm
+        // below would otherwise mislabel it (and vice versa, mislabel the general
+        // 12B as the coder, which was the bug).
+        if id.contains("coder") {
+            return *find("gemma-4-12b-coder");
+        }
+        // 12B/27B general vs the small E2B/E4B models.
         if id.contains("12b") || id.contains("27b") {
             return *find("gemma-4-12b-qat");
         }
@@ -667,5 +692,45 @@ mod tests {
         );
         // Neither lane recognizes it → empty (picker keeps its generic tier tagline).
         assert_eq!(picker_use_case_for("totally-made-up-zzz"), "");
+    }
+
+    #[test]
+    fn gemma_12b_general_and_coder_resolve_to_distinct_tiers() {
+        // The foundation lineup ships TWO 12B Gemmas: the general it-qat 12B (the
+        // largest Fast-ladder model) and the community coder fine-tune (Code tier).
+        // Both ids contain "gemma" + "12b", so they used to collapse onto ONE
+        // coder-labeled profile — the general 12B was mislabeled "Strongest local
+        // coder". They must now resolve to distinct tiers + copy (real ids from
+        // LocalModelInfrastructure).
+        let general = profile_for("google/gemma-4-12B-it-qat-q4_0-gguf");
+        assert_eq!(general.tier, CapabilityTier::Fast);
+        assert!(!general.picker_use_case.to_lowercase().contains("coder"));
+
+        let coder = profile_for("yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF");
+        assert_eq!(coder.tier, CapabilityTier::Code);
+        assert_eq!(coder.picker_use_case, "Strongest local coder (Pro)");
+        // The coder is still a Gemma-dialect model — template + stops unchanged.
+        assert_eq!(coder.llama_cpp_template_name(), Some("gemma"));
+        assert!(coder.stop_tokens().contains(&"<end_of_turn>"));
+    }
+
+    #[test]
+    fn canon_profiles_are_unique_and_hardened() {
+        // Owner 2026-06-20 "all profiles updated + hardened": every local CANON
+        // entry has a UNIQUE id, honest non-empty picker copy (≤60 chars), a real
+        // context window, and an output budget. Guards against a model added
+        // without a profile (or a duplicate id silently shadowing one).
+        let mut seen = std::collections::BTreeSet::new();
+        for p in CANON {
+            assert!(seen.insert(p.id), "duplicate CANON id: {}", p.id);
+            assert!(!p.picker_use_case.is_empty(), "{} empty picker copy", p.id);
+            assert!(
+                p.picker_use_case.chars().count() <= 60,
+                "{} picker copy too long",
+                p.id
+            );
+            assert!(p.context_window >= 8192, "{} ctx too small/stale", p.id);
+            assert!(p.max_output_tokens > 0, "{} no output budget", p.id);
+        }
     }
 }
