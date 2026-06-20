@@ -1327,6 +1327,22 @@ calls: no blanket rule — choose per case.
       flag that a rebuild is needed; but if it's a real render gap, fix it). Acceptance = the owner SEES
       real B&W logos on the models/providers they actually use, on Settings + picker + chat. Maximize the
       count; SF-Symbol fallback ONLY where no real logo exists anywhere (lobehub + owner ~/Downloads).
+      🔁 WHOLE-APP LOGO AUDIT + NON-MODEL LOGOS (owner 2026-06-19, later): *"there were many cloud AND local
+      logos I did not see, so make sure that's good. Also NON-model logos in Settings and throughout the app.
+      I want as many buttons as possible to be AUDITED for what can be real logos from LobeHub."* So this is
+      no longer just model/provider logos — it's a **WHOLE-APP real-logo coverage pass**: (1) **cloud + local
+      model coverage gap** — the owner still sees many model logos missing → confirm EVERY cloud provider AND
+      EVERY local model in the catalog actually renders its real logo (not SF-Symbol); close every gap.
+      (2) **NON-MODEL logos throughout the app** — LobeHub's icon set covers far more than AI providers: stage
+      + wire real B&W logos for the **engines/cloned tools** (Osaurus, Goose/Open Code, OpenClaw, DeerFlow,
+      Hermes), **integrations/channels** (Slack/Discord/Telegram/Feishu/etc.), **MCP servers**, **marketplace
+      sources** (GitHub, HuggingFace, arXiv), **tools** (browser-use, search engines Tavily/Brave/DuckDuckGo),
+      and any other named brand/service across Settings + the whole UI. (3) **AUDIT EVERY BUTTON/SURFACE** —
+      systematically go through the app's buttons/rows/badges/health-rows and, for each, decide if a real
+      LobeHub logo applies; apply it (B&W preferred). The goal = as many buttons as possible carry a real
+      brand logo, app-wide, not just the model picker. Extend `ProviderBrand`→a general `BrandLogo` registry
+      if needed so non-model brands fit the same staged-SVG + actool-validated + fallback machinery. Prefer
+      B&W; colored fallback; owner ~/Downloads ingest applies here too. Verify render in-app (owner SEES them).
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
