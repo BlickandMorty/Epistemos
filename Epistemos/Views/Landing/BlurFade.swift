@@ -15,3 +15,17 @@ struct BlurFade: ViewModifier {
             .opacity(opacity)
     }
 }
+
+extension AnyTransition {
+    /// SS-ALIVE: the cohesive blur-fade content swap — the same Apple blur-replace
+    /// feel as the SS-AN homepage greeting↔graph transition, reused for the
+    /// Landing↔Chat fold (and any sibling content swap) so the whole app breathes
+    /// the one way: blur away on removal, blur in on insertion. No `.scale` fold,
+    /// no spring pop. Pair with a flat `.easeOut(duration: 0.28)` driver.
+    static func blurFade(radius: CGFloat = 12) -> AnyTransition {
+        .modifier(
+            active: BlurFade(blur: radius, opacity: 0),
+            identity: BlurFade(blur: 0, opacity: 1)
+        )
+    }
+}

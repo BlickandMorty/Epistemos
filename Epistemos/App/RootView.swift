@@ -2607,21 +2607,25 @@ struct ContentRouter: View {
 
 private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Show chat when messages exist AND user hasn't navigated to landing.
     private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
 
     var body: some View {
         ZStack {
+            // SS-ALIVE: the Landing↔Chat swap is the cohesive blur-fade (no `.scale`
+            // fold / squish) — the same Apple blur-replace feel as the SS-AN homepage
+            // greeting↔graph transition, on the same flat easeOut driver.
             if showChat {
                 ChatView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.99)))
+                    .transition(.blurFade())
             } else {
                 LandingView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.99)))
+                    .transition(.blurFade())
             }
         }
-        .animation(Motion.smooth, value: showChat)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showChat)
     }
 }
 
