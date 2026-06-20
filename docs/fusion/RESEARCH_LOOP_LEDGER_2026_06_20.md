@@ -2588,3 +2588,41 @@ where noted). Falsifier index status update: **~50 falsifiers, ~50 concrete, 0 v
 🔴 and the 4 🟡 from PASS-21 are closed). Honest caveat: the absolute margins (B6 δ, θ_sep, the ReLU²
 sweep size) are calibration constants tuned during build — the CRITERIA and bars are pinned; the exact
 numeric calibration is a build-time step, not a spec gap.
+
+### Part B — minimal foundation build (SAFE, isolated, on main)
+**Built (1 substantive module + 1 additive mod line; conservative cap given the active auto-commit loop +
+another agent in Swift):**
+- **NEW** `agent_core/src/research/m0_interrupt_harness.rs` — the **M0 falsifier harness SCAFFOLD**
+  (`F-Interrupt-Moves-Loss`): typed `M0Arm`/`M0Measurements`/`M0Axes`/`M0Result` (serde) + the pinned
+  `thresholds` (AUROC 0.85, recovery 0.5, fire-rate 0.25, loss-delta 2% rel) + the **pure, tested**
+  `evaluate_axes` / `overall_pass` / `M0Result::from_measurements`. **No experiment** (no toy-SSM, no gate,
+  no token gen — deferred to a future `src/bin` driver behind owner green-light). No unwrap/expect/panic in
+  non-test code; no unsafe; no FFI. Gated `feature = "research"`.
+- **EDIT (additive, 1 line)** `agent_core/src/research/mod.rs` — `pub mod m0_interrupt_harness;` (between
+  `koopman` and `mamba3`).
+- **Compiles:** `cargo check --features research` → exit 0 (baseline also verified green BEFORE adding).
+  **Tested:** `cargo test --features research --lib m0_interrupt_harness` → **6 passed; 0 failed**
+  (passing-set all-axes; beats-random fail; low-AUROC fail; over-budget fire-rate fail; degenerate-gap
+  NaN-guard; JSON round-trip).
+- **Git discipline:** baseline `git status` first; committed with **EXPLICIT paths only** (never `-A`); the
+  other agent's Swift WIP (`RootView`/`BlurFade` → later `SDMessage.swift`) was NEVER touched.
+- **Commits:** `67b20dcaf` (Part A docs), `da8475dff` (M0 harness module). HEAD baseline was `21d990beb`.
+
+### Foundation that REMAINS for later (not built this pass — conservative stop)
+- The M0 **experiment driver** `src/bin/falsify_interrupt_moves_loss.rs` (the toy vanilla-SSM + interrupt
+  gate + the 4 arms filling `M0Measurements`) — needs the owner to lift `docs_first` for M0 + a `[[bin]]`
+  entry; gated.
+- The other primitives already exist in-repo (Trit `research/ternary/trit.rs`, Belnap `research/belnap.rs`,
+  ClaimStatus `provenance/ledger.rs`) — **NOT rebuilt** (would be redundant; honest no-duplication).
+- The 5 tightened falsifiers (Part A) as compiling `FalsifierSpec` constants — a clean next foundation file
+  if the owner wants the specs encoded as code.
+
+### PASS 22 summary
+BUILD MODE. Part A: tightened all 5 vague/missing falsifiers (B6 HeavySkill, Hopfield spurious bound,
+Geometry-IR rotor↔RoPE, Belnap abstention-precision, Tropical correlation) into CONCRETE pinned pass/fail
+specs → falsifier index now ~50 concrete / 0 vague / 0 missing. Part B: built ONE small, isolated,
+**test-backed** foundation module — the M0 harness scaffold (`m0_interrupt_harness.rs`, schema + pure
+axes-eval + 6 passing tests, NO experiment) + a 1-line additive mod; compiles under `--features research`;
+committed with explicit paths only (`67b20dcaf`, `da8475dff`); the other agent's Swift WIP never touched.
+Conservatively capped at 1 module given the active auto-commit loop. All on `main`, build green, nothing
+half-written. Remaining foundation (M0 driver, falsifier-spec constants) named for later.
