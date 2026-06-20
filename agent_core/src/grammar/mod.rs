@@ -2,6 +2,8 @@
 //! salvage track.
 
 use llguidance::api::TopLevelGrammar;
+use llguidance::toktrie::TokEnv;
+use llguidance::{Matcher, ParserFactory};
 use serde_json::{json, Value};
 
 #[derive(Debug, thiserror::Error)]
@@ -14,6 +16,9 @@ pub enum GrammarError {
 
     #[error("dispatch schema failed to serialize: {0}")]
     Serialize(String),
+
+    #[error("grammar parser/matcher build failed: {0}")]
+    Parser(String),
 }
 
 pub fn schema_to_llg(schema: &Value) -> Result<TopLevelGrammar, GrammarError> {
@@ -24,6 +29,29 @@ pub fn schema_to_llg(schema: &Value) -> Result<TopLevelGrammar, GrammarError> {
 pub fn build_dispatch_grammar(tools: &[(&str, &Value)]) -> Result<TopLevelGrammar, GrammarError> {
     let dispatch_schema = dispatch_schema_for_tools(tools)?;
     schema_to_llg(&dispatch_schema)
+}
+
+/// SS-Y masking CORE — build a token [`Matcher`] that CONSTRAINS generation to a
+/// valid tool-dispatch call (exactly one of `tools`) over the given tokenizer env.
+/// The vendored llguidance engine does the masking: the caller computes the
+/// allowed-token mask each step ([`Matcher::compute_mask`]) and feeds back the
+/// sampled token ([`Matcher::consume_token`]), so a model can only emit
+/// grammar-valid tool-call JSON ("guaranteed-valid tool calls = local > cloud").
+///
+/// This is the masking engine ONLY — wiring it into the live MLX `LogitProcessor`
+/// (behind a flag, then flipping `isFullyConstraining` once a witness proves valid
+/// output) is a later SS-Y slice. Nothing here touches the generation path.
+pub fn tool_dispatch_matcher(
+    tools: &[(&str, &Value)],
+    tok_env: &TokEnv,
+) -> Result<Matcher, GrammarError> {
+    let grammar = build_dispatch_grammar(tools)?;
+    let factory =
+        ParserFactory::new_simple(tok_env).map_err(|e| GrammarError::Parser(e.to_string()))?;
+    let parser = factory
+        .create_parser(grammar)
+        .map_err(|e| GrammarError::Parser(e.to_string()))?;
+    Ok(Matcher::new(Ok(parser)))
 }
 
 pub fn dispatch_schema_for_tools(tools: &[(&str, &Value)]) -> Result<Value, GrammarError> {
@@ -86,5 +114,51 @@ fn type_name(value: &Value) -> &'static str {
         Value::String(_) => "string",
         Value::Array(_) => "array",
         Value::Object(_) => "object",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use llguidance::toktrie::ApproximateTokEnv;
+
+    #[test]
+    fn tool_dispatch_matcher_accepts_valid_and_masks_invalid_tool_calls() {
+        // SS-Y witness: the vendored llguidance engine, fed the tool-dispatch
+        // grammar, accepts a valid tool call byte-for-byte and REJECTS a divergent
+        // one (an unknown tool name) before the sequence ends — i.e. the mask would
+        // forbid the invalid continuation. A single-byte tokenizer keeps the test
+        // self-contained (no model tokenizer / no network).
+        let weather_input = json!({
+            "type": "object",
+            "required": ["city"],
+            "additionalProperties": false,
+            "properties": { "city": { "type": "string" } }
+        });
+        let tools: Vec<(&str, &Value)> = vec![("get_weather", &weather_input)];
+        let tok_env = ApproximateTokEnv::single_byte_env();
+
+        // A valid dispatch call → every token is grammar-valid.
+        let mut ok = tool_dispatch_matcher(&tools, &tok_env).unwrap();
+        let valid = r#"{"name":"get_weather","input":{"city":"Paris"}}"#;
+        let valid_toks = tok_env.tokenize(valid);
+        let accepted = ok.validate_tokens(&valid_toks).unwrap();
+        assert_eq!(
+            accepted,
+            valid_toks.len(),
+            "a valid tool call must be fully grammar-accepted"
+        );
+
+        // An unknown tool name → rejected before the end (the grammar masks the
+        // divergent byte; const \"get_weather\" can't continue as \"no_such_tool\").
+        let mut bad = tool_dispatch_matcher(&tools, &tok_env).unwrap();
+        let invalid = r#"{"name":"no_such_tool","input":{}}"#;
+        let invalid_toks = tok_env.tokenize(invalid);
+        let accepted_bad = bad.validate_tokens(&invalid_toks).unwrap();
+        assert!(
+            accepted_bad < invalid_toks.len(),
+            "an unknown tool name must be rejected by the grammar (got {accepted_bad}/{} valid)",
+            invalid_toks.len()
+        );
     }
 }
