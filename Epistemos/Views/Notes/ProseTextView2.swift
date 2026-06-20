@@ -124,6 +124,11 @@ final class ProseTextView2: NSTextView {
 
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
+    /// SS-2S A3: injected by the host (ProseEditorRepresentable2) so an inserted image is
+    /// persisted as a managed asset and serialized to `![](assets/<name>)` md that survives
+    /// save. `(imageData, originalFilename) -> "assets/<name>"?`. nil → the safe legacy
+    /// in-memory-attachment fallback (no Prose regression).
+    var storeImageAsset: ((Data, String) -> String?)?
     var onMarkedTextStart: (() -> Void)?
 
     /// Closure called when user clicks a heading fold triangle. Receives the heading character offset.
@@ -1786,19 +1791,34 @@ final class ProseTextView2: NSTextView {
     func insertImageAttachment(from url: URL) {
         let insertLoc = selectedRange().location
         Task { @MainActor [weak self] in
-            guard let self,
-                let payload = await NoteImageProcessor.loadDisplayImage(from: url)
-            else { return }
+            guard let self else { return }
 
+            // SS-2S A3: persist the image as a managed asset and insert `![](assets/<name>)`
+            // md so it SURVIVES SAVE (the legacy NSTextAttachment below was dropped on save =
+            // data loss). The md then renders via the A1/A2 image path.
+            if let store = self.storeImageAsset,
+               let data = try? Data(contentsOf: url),
+               let relativePath = store(data, url.lastPathComponent) {
+                let md = "![](\(relativePath))"
+                let safeInsertLoc = min(insertLoc, self.string.utf16.count)
+                let insertRange = NSRange(location: safeInsertLoc, length: 0)
+                if self.shouldChangeText(in: insertRange, replacementString: md) {
+                    self.textStorage?.replaceCharacters(in: insertRange, with: md)
+                    self.didChangeText()
+                }
+                return
+            }
+
+            // Safe fallback (no store seam / unreadable file): the previous in-memory
+            // attachment — shows in-session, no Prose regression (no worse than before).
+            guard let payload = await NoteImageProcessor.loadDisplayImage(from: url) else { return }
             let attachment = NSTextAttachment()
             attachment.image = NSImage(cgImage: payload.cgImage, size: payload.displaySize)
-
             let attrStr = NSMutableAttributedString(attachment: attachment)
             attrStr.addAttribute(
                 NSAttributedString.Key("EpistemosImagePath"),
                 value: url.path,
                 range: NSRange(location: 0, length: attrStr.length))
-
             let safeInsertLoc = min(insertLoc, self.string.utf16.count)
             let insertRange = NSRange(location: safeInsertLoc, length: 0)
             if self.shouldChangeText(in: insertRange, replacementString: attrStr.string) {
