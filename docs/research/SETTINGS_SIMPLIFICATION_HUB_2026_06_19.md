@@ -39,7 +39,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-V | AGGRESSIVE CODE-CHECKER ("nuclear …") (owner 2026-06-19) — identify the Cursor aggressive-review tool + wire an equivalent adversarial static-analysis checkpoint at MULTIPLE plan points | ✅ done → SS-V_NUCLEAR_CODE_CHECKER |
 | SS-W | RECENT CRASH + LOG STUDY (owner 2026-06-19) — study DiagnosticReports + app logs (llama-completion inference crashes + any others), root-cause + add fixes to plan | ✅ done → SS-W_CRASH_LOG_STUDY |
 | SS-X | CHAT MESSAGE-BAR STILL MESSY (owner 2026-06-19) — the bottom chat bar still shows think/pro/tools old options on chat surfaces; simplify/demuddify (the picker-simplification didn't fully reach the message bar) + robust teardown/memory transitions | ☐ |
-| SS-Y | HYPERDYNAMIC DETERMINISM / deterministic schema for LOCAL agents (owner 2026-06-19) — make local agents MORE useful than cloud via deterministic-schema/constrained-decoding + robust agent-loop upgrades; the "playground to make local models better" | ☐ |
+| SS-Y | HYPERDYNAMIC DETERMINISM / deterministic schema for LOCAL agents (owner 2026-06-19) — make local agents MORE useful than cloud via deterministic-schema/constrained-decoding + robust agent-loop upgrades; the "playground to make local models better" | ✅ done → SS-Y_HYPERDYNAMIC_DETERMINISM |
 | SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ✅ done → SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
 
@@ -162,3 +162,14 @@ reach models only via prompt + the GGUF lane bypasses the loop. **Design: ONE `M
 `--json-schema` as the primary tool-call (SS-Y) — forced-valid-JSON makes dialect moot; wire the dead dialect
 map [S]; unify tiers+skills gate [M]; collapse the two universes [L].** Chat-first; non-clashing/additive. Full:
 SS-Z doc.
+**SS-Y HYPERDYNAMIC DETERMINISM (local>cloud)** → the thesis is architecturally reachable but UNWIRED on the live
+lane. Edge = guaranteed-valid + reproducible tool calls (GGUF `--json-schema`+`--seed 0`, `gguf_cli.rs:111-159`)
+that cloud CAN'T promise. **TWO built-but-dark levers:** (1) the live MLX generator only does SOFT EOS penalties,
+NOT hard masking (`MLXConstrainedGenerator.swift:16-18`) — but the project ALREADY vendors a real
+`GrammarMaskedLogitProcessor` that NO product code references → wiring it = guaranteed-valid local tool calls
+[S, highest leverage]; (2) the `HyperdynamicLoop` repair engine is built+tested+falsifier-proven but ORPHANED
+(`gate_*_through_loop` zero callers `mission_run.rs:331`; `HyperdynamicLoopMetrics.ingest` zero callers). **Plan:
+wire the vendored masked processor + flip isFullyConstraining [S]; connect LoopCounters→health row [S]; route
+LocalAgentLoop's 5 ad-hoc repairs through the bounded HyperdynamicLoop under hard mask [M]; confidence-weighted
+Best-of-N (NOT naive majority — weak for small models) [M]; evaluate vendored XGrammar backend [L].** Per-model
+dialects (SS-Z) bind to the masked decode. Full: SS-Y doc.
