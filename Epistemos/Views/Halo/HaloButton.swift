@@ -37,7 +37,11 @@ public struct HaloButton: View {
     }
 
     public var body: some View {
-        let visible = controller.state.isVisible && !isMutedByFocus
+        // SS-IR: `active` = results present (bright glowing orb); `resting` = dormant/sensing
+        // (a faint, always-discoverable entry point so recall is findable even with zero hits).
+        let active = controller.state.isVisible && !isMutedByFocus
+        let resting = controller.state.isRestingDiscoverable && !isMutedByFocus
+        let visible = active || resting
         Button(action: {
             controller.openPanel()
             onOpenPanel?()
@@ -47,12 +51,21 @@ public struct HaloButton: View {
                 .foregroundStyle(.tint)
                 .frame(width: 24, height: 24)
                 .background(.ultraThinMaterial, in: .circle)
+                .overlay {
+                    // Glowing-orb ring when results are available (the owner's "glowing bubble").
+                    if active {
+                        Circle().stroke(.tint.opacity(0.5), lineWidth: 1)
+                    }
+                }
+                .shadow(color: active ? Color.accentColor.opacity(0.35) : .clear,
+                        radius: active ? 5 : 0)
         }
         .buttonStyle(.plain)
-        .opacity(visible ? 1 : 0)
-        .scaleEffect(visible ? 1 : 0.85)
+        .opacity(active ? 1 : (resting ? 0.4 : 0))
+        .scaleEffect(active ? 1 : (resting ? 0.92 : 0.85))
         .allowsHitTesting(visible)
         .animation(.spring(duration: 0.18, bounce: 0.2), value: visible)
+        .animation(.easeInOut(duration: 0.2), value: active)
         // ISSUE-2026-05-12-004 — Halo button placement discoverability.
         // The button lives in the bottom-right corner of the editor, which
         // users miss. Tooltip now includes the keyboard shortcut so users

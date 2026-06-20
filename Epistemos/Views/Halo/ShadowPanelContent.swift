@@ -193,6 +193,25 @@ public struct ShadowPanelContent: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
+        } else if controller.matches.isEmpty {
+            // SS-IR: the resting bubble can open with zero hits — show an honest empty state
+            // instead of a blank panel ("I clicked it and nothing's here" → "no matches yet").
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text("No matches yet")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.primary)
+                }
+                Text("Keep typing — related notes & chats surface here as you write.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
