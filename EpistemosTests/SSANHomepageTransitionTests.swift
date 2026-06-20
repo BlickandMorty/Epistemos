@@ -28,4 +28,15 @@ struct SSANHomepageTransitionTests {
             "the home-content mutation must not be wrapped in withAnimation — the view owns timing"
         )
     }
+
+    @Test("the home↔graph transition is an Apple blur-replace on a flat easeOut driver")
+    func blurReplaceAndEaseOut() throws {
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        // Greeting/buttons blur away on removal; the graph blurs in on insertion.
+        #expect(landing.contains("BlurFade(blur: 18, opacity: 0)"))   // greeting removal
+        #expect(landing.contains("BlurFade(blur: 14, opacity: 0)"))   // graph insertion
+        #expect(landing.contains(".asymmetric("))
+        // Flat fast driver (no spring overshoot → no pop); reduceMotion still bypasses it.
+        #expect(landing.contains("reduceMotion ? nil : .easeOut(duration: 0.28)"))
+    }
 }

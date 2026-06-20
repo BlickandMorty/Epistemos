@@ -364,11 +364,27 @@ struct LandingView: View {
                     .blur(radius: showingOverlay ? 4 : 0)
                     .opacity(showingOverlay ? 0.7 : 1)
                     .allowsHitTesting(!showingOverlay)
-                    .transition(.opacity)
+                    .transition(
+                        .asymmetric(
+                            insertion: .opacity,
+                            removal: .modifier(
+                                active: BlurFade(blur: 18, opacity: 0),
+                                identity: BlurFade(blur: 0, opacity: 1)
+                            )
+                        )
+                    )
                     .zIndex(1)
             case .graph:
                 HomeGraphEmbeddedView()
-                    .transition(.opacity)
+                    .transition(
+                        .asymmetric(
+                            insertion: .modifier(
+                                active: BlurFade(blur: 14, opacity: 0),
+                                identity: BlurFade(blur: 0, opacity: 1)
+                            ),
+                            removal: .opacity
+                        )
+                    )
                     .zIndex(1)
             }
 
@@ -446,14 +462,12 @@ struct LandingView: View {
             reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.78),
             value: showingSearchPopover
         )
-        // 2026-05-20 Phase 1 — home content router cross-fade. The
-        // 0.42s / 0.84 damping spring matches Apple's view-transition
-        // feel (App Switcher push, Notification Center reveal): a
-        // brief overshoot, no bounce, lands clean. Greeting fades +
-        // scales OUT while the embedded graph fades + scales IN, both
-        // simultaneously (the cross-fade is what makes it feel native).
+        // SS-AN: one flat, fast easeOut owns the home↔graph timing — no spring overshoot
+        // (which popped) and no .scale (which folded the page). The greeting/buttons blur
+        // away (removal) and the graph blurs in (insertion) via BlurFade: an Apple-style
+        // blur-replace. reduceMotion → no animation (instant swap).
         .animation(
-            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1),
+            reduceMotion ? nil : .easeOut(duration: 0.28),
             value: ui.homeContent
         )
         .onAppear {
