@@ -197,4 +197,88 @@ a shipped system. That distinction is the point of this readout.
 ---
 
 *This readout consolidates loop passes 1–11. It is append-superseded: future passes update it in place or
-note deltas in the ledger. Last updated: 2026-06-20 (PASS 11).*
+note deltas in the ledger. Last updated: 2026-06-20 (PASS 11; Code-Readiness Audit added post-PASS-15).*
+
+---
+
+## 8. CODE-READINESS AUDIT (2026-06-20, post-PASS-15 — research STOPPED, deliberation mode)
+
+### 8.1 Completeness — owner directives Q1–Q30 all reflected (4 honest thin spots)
+Every directive Q1–Q30 (intent log) maps to a ledger pass / readout segment (cross-checked). **Thin/partial
+(none code-blocking):** (1) **PARS architecture** (Q4) named once, never explicitly resolved; (2) the
+**full dropped-idea register** (Q10 "hosts of many theoretical ones") — several revived (E2, lattice, EML,
+cold-assembly, fast-weights) but no exhaustive standalone register in the durable docs; (3) **phrase-named
+Downloads folders** (Q8) surveyed (PASS-1) but not all deep-mined (mostly pre-consolidation); (4) the
+**full E/H/F/K/W theorem catalog** (Q10) — only the load-bearing theorems (E2, H4/Bauer-Fike, H14,
+InterruptInvariant) rolled into the readout; the rest live in `HELIOS_V5_DOC_6_THEOREM_CANON.md`.
+**By-design deferrals (NOT gaps):** Living Index + lattice-explainer updates (Q10) are authority-doc
+write-plans, correctly NOT edited. Inventory complete: 15 S-PRIM primitives, M0/M1 + 16 cockpit + segment
+falsifiers, Codex/Claude mining concluded (genesis = V6.1 "Attention as Interrupt" doc), Gemini eval folded.
+
+### 8.2 Adversarial probe — tensions RESOLVED
+- **ternary-needs-QAT vs single-box training:** resolved — ternary uses a QAT'd/**distilled** model
+  (BitDistill 10× mem) acquired off-box; only adapters/QAT/distill are 16 GB-feasible, full pretrain is NOT.
+- **ATLAS (model owns compute control) vs app-owns-authority:** deliberate fork — Epistemos keeps allocation
+  authority app-side; cost is low because only the **threshold τ + lease** are app-side (cheap), the
+  per-token **score** is model-side. Defensible, not a contradiction.
+- **lattice-VQ vs ternary on M2 Pro:** resolved — ternary (Litespark NEON / bitnet.cpp) is default; lattice
+  VQ stays research unless it proves Metal-coalesced decode (U8).
+- **Mamba-3 vs vanilla-SSM for M0:** resolved (PASS-15) — vanilla at M0, Mamba-3 at B3.
+- **THE soundness key:** the bus is **policy-async, NOT decision-sync** — the app sets τ + grants a
+  `ComputeResumeLease` budget AHEAD of time; the model applies the gate + spends the lease LOCALLY per
+  token; the app revokes async if exceeded. So brain-2 authority never blocks token *t* to decide token
+  *t* → the <1% bus-overhead target is achievable and the split is deadlock-free (SPSC per direction).
+
+### 8.3 Verdict: **GO for M0** (conditional on owner green-light)
+The architecture is a coherent, honestly-tiered, falsifier-covered SPEC. The first artifact is unambiguous.
+
+**FIRST ARTIFACT — `falsify_interrupt_moves_loss` (M0):**
+- *File:* `agent_core/src/bin/falsify_interrupt_moves_loss.rs` (feature `research`, CPU-only, no Metal/MLX/
+  download). *Helpers:* `agent_core::falsifier_artifacts` (ArtifactBuilder/axes/Measurement/write_artifact);
+  reuse `research::interrupt_calibration::auc_roc` + the SSM substrate in `research::mamba3`/`scan_ir`.
+- *Backbone (LOCKED PASS-15):* a **vanilla state-tracking-weak linear SSM** (~2 layers, d_model 64–128,
+  pure-Rust f64) — NOT Mamba-3. Deterministic seed.
+- *3 arms:* always-SSM · always-attention · interrupt-gated. *Task:* synthetic copy/associative-recall
+  spans the SSM fails + ground-truth `interrupt_needed` labels.
+- *4 pass/fail axes:* `axis_moves_loss` (loss_delta_vs_ssm > ε) · `axis_beats_random` (gated < random-gate
+  at equal fire-rate) · `axis_calibrated` (interrupt_auroc ≥ 0.85) · `axis_efficient` (recovery ≥ 0.5 at
+  fire-rate ≤ 0.25). `overall_pass = all four`; exit 1 + name failing axis on fail.
+- *result.json:* `artifacts/falsifiers/interrupt_moves_loss/result.json` — `{falsifier_id, fixture_id,
+  command, created_utc, overall_pass, axes{...}, measurements[...], fallback_tier, notes}` (mirrors
+  `falsify_70b_local_cocktail_lite.rs`).
+
+**BUILD ORDER after M0 (entry criteria):** M0 PASS → **M1** (close InterruptInvariant + Bauer-Fike Lean
+`sorry`; entry: M0 green) → **AnswerPacket emit** (`StreamingDelegate`, flag `EPISTEMOS_ANSWERPACKET_EMIT_V0`;
+entry: M1 InterruptInvariant discharged) → **RuntimeRouter promotion** (STAGE 1b parity → 2 authoritative;
+entry: shadow parity passes) → **W-51 shadow recall** (+ embedding-parity; entry: independent, anytime) →
+**B1** sliding-window+bundling → **B2** prefetch → **B3** SelectiveScan.metal (Mamba-3) → **B4** ternary+SpQt
+→ **B5** Engram → **B6** HeavySkill.
+
+### 8.4 Decisions that need the OWNER before coding
+1. **Lift the `docs_first` hold** (Q10b) — M0/M1 crafting is explicitly held; nothing is built without this.
+2. **Spine commitment** for B3 (Mamba-3 vs a B'MOJO-style SSM+SWA hybrid) — NOT needed for M0 (vanilla),
+   needed before B3.
+3. **Workspace-path change** (noted 2026-06-20) — confirm the build env (xcodebuild scheme / `cargo
+   --manifest-path agent_core/Cargo.toml`) still resolves from the new workspace root; files remain at
+   absolute `/Users/jojo/Downloads/Epistemos/`.
+4. **Build-scope confirm** — M0 is a Pro/research-tier Rust falsifier binary (not MAS); confirm that target.
+
+### 8.5 Completeness closure — the 4 thin spots RESOLVED (post-PASS-15)
+1. **PARS (Q4) = the Parameter Connectome Family (PCF-1..10)** — Goodfire VPD (SPD arXiv:2506.20790 + APD
+   2501.14926), `epistemos-research/src/vpd/*`; the "parameter-connectome" lane of the V6.1 five-lanes.
+   Role: model-internal mechanistic-interpretability / parameter-graph (understand + surgically edit the
+   model's own weights). Tier T1 candidate (L3 research-only). NOT lost; now mapped. Not an M0 blocker.
+2. **Dropped-idea register** (ledger FINAL CLOSURE §2) — 15 entries with revive/skip: REVIVED (ternary/one-bit,
+   PCF, hyper-deterministic→selective-determinism, EML-with-fence, Hopfield-recall); ABSORBED (1B Hybrid
+   Mamba-2 device agent, seven theorems→E1-E7, zero-copy, Koopman, Helios organs); KEEP-Pro (TurboQuant);
+   SKIP (SOAR, cognitive-friction, Apollonian).
+3. **Phrase-named Downloads folders** — deep-surveyed; confirmed predominantly pre-consolidation (2026-03→05)
+   app-feature/training specs; architecture-relevant content already captured; **no new idea surfaced**.
+4. **Full theorem catalog** — E1–E7 (Foundational Seven) · H1–H17 (Helios) · PCF-1–10 (Parameter Connectome)
+   indexed in the ledger (id · proof state · lane · insertion site). None are product-green (T4); L1–L3
+   research/architectural. Detail in `HELIOS_V5_DOC_6_THEOREM_CANON.md` (NOT edited).
+
+**Nothing material is left out.** Verdict UNCHANGED: **GO for M0** on owner green-light; the 4 owner
+decisions (lift docs_first · B3 spine commitment · build-env/workspace-path · M0 Pro/research scope) stand.
+
+*Bottom line: the research+design phase is COMPLETE and audited. Ready to code M0 on green-light.*
