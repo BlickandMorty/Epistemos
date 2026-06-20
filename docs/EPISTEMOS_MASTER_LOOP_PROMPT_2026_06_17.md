@@ -8,6 +8,7 @@
 > 2. `docs/research/SETTINGS_SIMPLIFICATION_HUB_2026_06_19.md` — research hub (slices SS-A … SS-Z, findings log,
 >    each with exact file:line repair/build plans). Read the slice doc before coding its item.
 > 3. `docs/research/MASTER_SYNTHESIS_2026_06_19.md` + `docs/research/DEEP_PLAN_AUDIT_HUB_2026_06_19.md` — synthesis.
+> 4. `docs/research/IMPLEMENTATION_SEQUENCE_2026_06_19.md` — **CODE-NEXT ORDER** (tiered ready-to-code [S] wins across all 28 slices; Tier 0 = models install+run, in progress). Pick the next build target from here.
 > **HARD CONSTRAINTS (owner 2026-06-19):** MAIN-ONLY — no worktree/branch/merge, commit+push every slice, never
 > lose work. Everything must actually WORK in-app (flag-OFF ≠ done). Simplify/automate presentation but NEVER
 > delete/hide functionality (progressive-disclosure ≠ hiding). App-native by embedding (clone source, never run

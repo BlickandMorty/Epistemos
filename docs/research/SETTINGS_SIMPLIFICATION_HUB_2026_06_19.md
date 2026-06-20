@@ -10,6 +10,8 @@ reachable) ≠ hiding/deleting. Never amputate.** Feeds the build loop (read aft
 
 > **Cross-reference:** `SESSION_COVERAGE_MATRIX_2026_06_19.md` maps EVERY owner concern (pre-compaction + thread) → ledger + slice + status (129 items, all verified present).
 
+> **▶ CODE-NEXT ORDER:** `IMPLEMENTATION_SEQUENCE_2026_06_19.md` — the highest-leverage ready-to-code [S] wins across ALL slices, tiered (Tier 0 model-install/run → Tier 4 hardening). Read it to pick what to build next.
+
 ## Methodology — iterative deepen + broaden (rotate each pass)
 Each pass: persist completed agents' findings into a slice doc + this hub's findings log + commit;
 then advance the next slice (broaden) or deepen a done one. Cross-link new docs into the main hub.
