@@ -31,7 +31,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ✅ done → SS-N_SENSITIVE_INFO_REDACTION |
 | SS-O | EPDOC REPAIR (owner 2026-06-19) — root-cause the glitchy/demo-ish WKWebView/Tiptap Epdoc editor (autosave/JS-bridge/render race) + harden + bring Notion/Tolaria-style rich UI/UX; NEVER touch TK2/Prose | ✅ done → SS-O_EPDOC_REPAIR |
 | SS-P | v2 WEBKIT MD EDITOR (owner 2026-06-19) — optional SECOND md editor cloned from Tolaria on WebKit, pixel-art minimal + macOS-26 style + fonts; standalone or fused with Epdoc; never touch TK2/Prose | ☐ |
-| SS-Q | VOICE CLONING + BITCRUSH DSP (owner 2026-06-19) — Apple Personal Voice cloning (macOS-26 viability) + a bitcrush AVAudioEngine effect over any voice + custom branded system voice; premium-default | ☐ |
+| SS-Q | VOICE CLONING + BITCRUSH DSP (owner 2026-06-19) — Apple Personal Voice cloning (macOS-26 viability) + a bitcrush AVAudioEngine effect over any voice + custom branded system voice; premium-default | ✅ done → SS-Q_VOICE_CLONING_BITCRUSH |
 | SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ☐ |
 | SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ☐ |
 | SS-T | PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19) — PDFKit live viewer + QuickLook + sweep VisionKit/Translation/PencilKit/AppIntents/etc., integrate the high-value MAS-safe ones | ✅ done → SS-T_PDF_VIEWER_APPLE_NATIVE |
@@ -182,3 +182,11 @@ ChatInputBar.swift:967 [S, the direct fix] + add `.onDisappear` to cancel the re
 MiniChat:1080, teardown gap) [S] + gate `usesSplitToolbarControls` on `!simplifiedLineupActive` [M] + fold
 Effort/Native into the popover's Advanced disclosure (never delete) [M].** No WKWebView on chat bubbles (SS-U
 teardown doesn't extend here). Full: SS-X doc.
+**SS-Q VOICE CLONING + BITCRUSH** → mostly ASSEMBLY: USE existing Personal Voice = YES (`requestPersonalVoice
+Authorization` + `.isPersonalVoice` trait, macOS 14+); TRAIN in-app = NO (System Settings only — deep-link). The
+bitcrush DSP ALREADY EXISTS in-repo (`AmbientFrequencyLivePlayer.swift:687-702` quantize+sample-rate-hold) — only
+new work is routing `AVSpeechSynthesizer.write`→`AVAudioEngine`(player→crush→output) with int16→float32 convert.
+**Plan: extract shared `BitcrushKernel` + `VoiceEffect` enum + pixel-art preset [S]; Personal Voice auth+filter +
+picker group [S]; the write→engine effect lane on `EpistemosSpeechSynthesizer` behind optional effect param,
+no-effect fast path preserved [M]; branded system voice = base+bitcrush preset [M].** All on-device, MAS-safe,
+no cloud. Full: SS-Q doc.
