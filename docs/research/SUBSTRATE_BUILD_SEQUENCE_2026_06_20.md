@@ -58,6 +58,29 @@ AnswerPacket-visible + witnessed; never fake-green the excluded parts).
 - **Phase 7 — Honest substrate UX/explainer [S].** Make the substrate panel + any user-facing substrate text understandable
   (no new-model jargon; plain "honest, cited, verifiable local answers"). The owner + users find it foreign today.
 
+## RECONCILED vs Cursor closeout (PASS-22) — MATCH, with one deliberate refinement (owner: supersede-or-match only)
+Verified against `SESSION_CHECKPOINT_2026_06_20` + `ARCHITECTURE_READOUT §8-8.7` + `RESEARCH_LOOP_LEDGER` PASS-21/22:
+this plan is the MODEL-AGNOSTIC PROJECTION of Cursor's full plan — same two-brain split, same seam
+(`LocalModelHandoff` + `AnswerPacket.attention_mode` defaults `Unavailable` `scope_rex/answer_packet.rs:255,276`), same
+EXCLUDED set. **Refinement (not contradiction):** Cursor's order is M0-gated (M0→M1→AnswerPacket→Router…); this plan
+decouples the brain-2 half to build NOW without waiting for M0 — defensible because the seam guarantees the model attaches
+later with zero rework, and Cursor itself tags W-51 recall + B1 systems as "independent" of M0. Recorded as a refinement.
+
+## ADD (from §8-8.7 + the ~50-falsifier index) — absorb into the phases (still model-agnostic, no new model/70B)
+- **B1 systems-track wins are T1 / "no model change required" → pull INTO scope (Phase 5/6 residency-governor slice):**
+  sliding-window FFN cache (`F-SlidingWindowFFNCache`), row-column on-disk bundling (`F-RowColBundling`), pre-attention
+  predictive prefetch (`F-PreAttentionPrefetch`) — ride the existing Helios/ColdStream + UAS copy-count harness. (GEMINI_EVAL §3 B1.)
+- **Bind a NAMED FALSIFIER to each phase gate** (the ~50-index is the gate registry; these are the model-agnostic subset,
+  several already built+passing): P1 RuntimeRouter→`F-RuntimeRouter-Live`; P2 AnswerPacket→`F-AnswerPacket-Emitted`;
+  P3 System G→falsifier-witnessed; P4 DAG→`epistemos_trace verify-replay`, UAS→`F-UAS-CopyCount` (passing); P5 recall→
+  `falsify_shadow_recall_parity`+`F-Shadow-Embedding-Parity`, EML→reachable-from-vault; cross-cut→`F-NeverRetrain-Invariant`,
+  S-PANEL uplink `F-Tau-Apply`/`F-Residency-Budget`/`F-Abstain-Policy`.
+- **Soundness key (Phase 1/3 invariant):** "policy-async, not decision-sync" — the app sets τ/lease/route AHEAD of time and
+  never blocks token *t* to decide token *t* (READOUT §8.2). This is the rule that keeps RuntimeRouter live-promotion from
+  regressing the token path.
+- **docs_first hold (Q10b) is ACTIVE but gates ONLY brain-1 (M0/M1 crafting), NOT this brain-2 build** — so this sequence is
+  UNBLOCKED. (CHECKPOINT §5,§8.)
+
 ## Constraints
 NO new model, NO 70B, NO Companion-clone code. main-only; honest/no-green-without-witness; preserve thinking blocks + the
 SS-CR routing fix; flag-gate live promotions; each phase its own SS-* sub-slice + tests when picked up. Worked in-loop at the
