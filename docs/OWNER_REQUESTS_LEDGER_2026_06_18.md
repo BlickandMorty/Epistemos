@@ -3204,3 +3204,18 @@ native; AGPL server). ADOPT 2 patterns natively:
       still surfaced). Goal: the clone's settings WORK and are all present (their functionality intact),
       reskinned + placed, not amputated. Updates `SETTINGS_REVAMP_CLONES_2026_06_19.md`: change "absorb +
       HIDE/HARDCODE the rest" → "SURFACE ALL + RESKIN + intelligently place; never hide/delete."
+      ⚖️ BALANCE — SIMPLIFY/AUTOMATE without breaking/hiding (owner 2026-06-19, later): *"make sure their
+      configs and specific settings are not too complicated — so if my app can automate or simplify things,
+      make that happen. But with OpenClaw it seems complex; I want to balance simplifying with NOT breaking
+      functionality or hiding functionality."* So "surface ALL" does NOT mean dumping a raw, overwhelming
+      foreign config on the owner. THE BALANCE: (1) **a SIMPLE default surface** — automate/auto-configure
+      what the app can (sensible defaults, derive values from the app's own state instead of asking, honestly
+      HARDCODE the plumbing the owner never needs to touch like ports/paths/keys), exposing only the few knobs
+      that matter up front; (2) **the FULL settings remain REACHABLE** under a clearly-labeled **"Advanced" /
+      progressive-disclosure** section — NOT deleted. **KEY DISTINCTION: progressive-disclosure (collapsed-
+      but-reachable) ≠ hiding/deleting functionality.** Making a setting un-reachable / breaking it is
+      forbidden; tucking advanced knobs behind an Advanced disclosure so the default view is clean is
+      ENCOURAGED. (3) **OpenClaw specifically** (its ~20 Zod config sections = the complex case): a simple
+      curated front (the handful that matter, auto-defaulted) + the full config-form reskinned + reachable
+      under Advanced — never the raw foreign 20-section wall, never deleted. Net: simplify the PRESENTATION +
+      automate the defaults; preserve ALL the FUNCTIONALITY (every setting still reachable + working). Simplify ≠ amputate.
