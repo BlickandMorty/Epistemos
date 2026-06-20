@@ -7,9 +7,12 @@
 //!
 //! Follows the battle-tested raw `extern "C"` + `Arc::into_raw` handle pattern
 //! (see `rope_handle.rs`), NOT UniFFI: the handle is refcounted
-//! (`*_retain`/`*_release`); `compute_mask` heap-allocates the allowed-id array and
-//! the caller frees it via `grammar_matcher_free_mask`; every entry point is
-//! panic-guarded + null-safe. The `Mutex` makes the `&self` methods thread-safe.
+//! (`*_retain`/`*_release`); `compute_mask` heap-allocates the allowed-id buffer and
+//! returns it via an OUT-PARAMETER + length (no C-struct-return, which is ABI-unsafe
+//! across the Swift `@_silgen_name` boundary — every existing FFI client returns
+//! only pointers/primitives); the caller frees it via `grammar_matcher_free_mask`.
+//! Every entry point is panic-guarded + null-safe; the `Mutex` makes the `&self`
+//! methods thread-safe.
 //!
 //! This seam does NOT touch the generation path — the Swift wiring lands it behind
 //! a default-OFF flag in the next slice, and `isFullyConstraining` stays false until
@@ -27,24 +30,6 @@ use super::{allowed_token_ids, tool_dispatch_matcher_with_vocab, GrammarError};
 /// `*const GrammarMatcherHandle`; Rust never exposes the inner `Matcher` to Swift.
 pub struct GrammarMatcherHandle {
     inner: Mutex<Matcher>,
-}
-
-/// The allowed token ids at the current step. Heap-allocated by
-/// `grammar_matcher_compute_mask`; the caller MUST free it with
-/// `grammar_matcher_free_mask` exactly once.
-#[repr(C)]
-pub struct GrammarTokenMask {
-    ptr: *mut u32,
-    len: usize,
-}
-
-impl GrammarTokenMask {
-    fn empty() -> Self {
-        Self {
-            ptr: std::ptr::null_mut(),
-            len: 0,
-        }
-    }
 }
 
 fn handle_into_raw(matcher: Matcher) -> *const GrammarMatcherHandle {
@@ -135,57 +120,69 @@ pub unsafe extern "C" fn grammar_matcher_release(handle: *const GrammarMatcherHa
     }
 }
 
-/// Compute the allowed token ids at the current step. Result is heap-allocated; free
-/// it with `grammar_matcher_free_mask`. Empty (null ptr, 0 len) on null handle or
-/// error.
+/// Compute the allowed token ids at the current step. Writes a heap-allocated buffer
+/// pointer to `*out_ids` and returns its length; the caller frees the buffer via
+/// `grammar_matcher_free_mask(ids, len)`. Writes null + returns 0 on null
+/// handle/out-param or error. (Out-param avoids C-struct-return ABI ambiguity across
+/// the Swift `@_silgen_name` boundary.)
 ///
 /// # Safety
-/// `handle` must be a live `GrammarMatcherHandle` pointer or null.
+/// `handle` must be a live pointer or null; `out_ids` must be a valid writable
+/// `*mut *mut u32` or null.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn grammar_matcher_compute_mask(
     handle: *const GrammarMatcherHandle,
-) -> GrammarTokenMask {
+    out_ids: *mut *mut u32,
+) -> usize {
+    if out_ids.is_null() {
+        return 0;
+    }
+    // Default the out-param to null, so an early/error return is well-defined.
+    // SAFETY: caller contract — out_ids is writable.
+    unsafe {
+        *out_ids = std::ptr::null_mut();
+    }
     if handle.is_null() {
-        return GrammarTokenMask::empty();
+        return 0;
     }
     let result = std::panic::catch_unwind(|| {
         // SAFETY: caller contract.
         let h = unsafe { &*handle };
         let mut m = match h.inner.lock() {
             Ok(g) => g,
-            Err(_) => return GrammarTokenMask::empty(),
+            Err(_) => return (std::ptr::null_mut(), 0usize),
         };
         match allowed_token_ids(&mut m) {
             Ok(ids) => {
                 let mut boxed = ids.into_boxed_slice();
-                let mask = GrammarTokenMask {
-                    ptr: boxed.as_mut_ptr(),
-                    len: boxed.len(),
-                };
-                // Ownership of the allocation transfers to the caller (freed via
-                // grammar_matcher_free_mask).
+                let ptr = boxed.as_mut_ptr();
+                let len = boxed.len();
+                // Ownership transfers to the caller (freed via grammar_matcher_free_mask).
                 std::mem::forget(boxed);
-                mask
+                (ptr, len)
             }
-            Err(_) => GrammarTokenMask::empty(),
+            Err(_) => (std::ptr::null_mut(), 0usize),
         }
     });
-    result.unwrap_or_else(|_| GrammarTokenMask::empty())
+    let (ptr, len) = result.unwrap_or((std::ptr::null_mut(), 0));
+    // SAFETY: out_ids checked non-null above.
+    unsafe {
+        *out_ids = ptr;
+    }
+    len
 }
 
-/// Free a token mask returned by `grammar_matcher_compute_mask`. Idempotent on a
-/// null/empty mask.
+/// Free a buffer returned by `grammar_matcher_compute_mask`. Idempotent on null/empty.
 ///
 /// # Safety
-/// `mask` must have come from `grammar_matcher_compute_mask` and not been freed yet.
+/// `ids` must have come from `grammar_matcher_compute_mask` with the same `len`, and
+/// not been freed yet.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn grammar_matcher_free_mask(mask: GrammarTokenMask) {
-    if !mask.ptr.is_null() && mask.len > 0 {
+pub unsafe extern "C" fn grammar_matcher_free_mask(ids: *mut u32, len: usize) {
+    if !ids.is_null() && len > 0 {
         // SAFETY: reconstruct the Box<[u32]> leaked in compute_mask.
         unsafe {
-            drop(Box::from_raw(std::slice::from_raw_parts_mut(
-                mask.ptr, mask.len,
-            )));
+            drop(Box::from_raw(std::slice::from_raw_parts_mut(ids, len)));
         }
     }
 }
@@ -221,6 +218,18 @@ mod tests {
     use serde_json::json;
     use std::ffi::CString;
 
+    /// Read the allowed-id out-param into a Vec (and free the Rust buffer).
+    unsafe fn compute_mask_vec(handle: *const GrammarMatcherHandle) -> Vec<u32> {
+        let mut ids: *mut u32 = std::ptr::null_mut();
+        let len = unsafe { grammar_matcher_compute_mask(handle, &mut ids) };
+        if ids.is_null() || len == 0 {
+            return Vec::new();
+        }
+        let v = unsafe { std::slice::from_raw_parts(ids, len) }.to_vec();
+        unsafe { grammar_matcher_free_mask(ids, len) };
+        v
+    }
+
     #[test]
     fn ffi_compute_mask_and_consume_token_drive_streaming_masking() {
         // Witness the stateful FFI surface the MLX LogitProcessor drives. Vocab = all
@@ -250,15 +259,11 @@ mod tests {
         }
 
         // At the const tool-name position: get_weather allowed, no_such_tool masked.
-        let mask = unsafe { grammar_matcher_compute_mask(handle) };
-        assert!(!mask.ptr.is_null() && mask.len > 0, "mask must be non-empty");
-        let allowed = unsafe { std::slice::from_raw_parts(mask.ptr, mask.len) };
+        let allowed = unsafe { compute_mask_vec(handle) };
+        assert!(!allowed.is_empty(), "mask must be non-empty");
         assert!(allowed.contains(&get_w), "get_weather token must be allowed");
         assert!(!allowed.contains(&no_such), "no_such_tool token must be masked");
-        unsafe {
-            grammar_matcher_free_mask(mask);
-            grammar_matcher_release(handle);
-        }
+        unsafe { grammar_matcher_release(handle) };
     }
 
     #[test]
@@ -283,9 +288,12 @@ mod tests {
             grammar_matcher_retain(std::ptr::null());
             grammar_matcher_release(std::ptr::null());
             assert!(!grammar_matcher_consume_token(std::ptr::null(), 0));
-            let m = grammar_matcher_compute_mask(std::ptr::null());
-            assert!(m.ptr.is_null() && m.len == 0);
-            grammar_matcher_free_mask(m);
+            let mut p: *mut u32 = std::ptr::null_mut();
+            assert_eq!(grammar_matcher_compute_mask(std::ptr::null(), &mut p), 0);
+            assert!(p.is_null());
+            grammar_matcher_free_mask(p, 0);
+            // A null out-param is tolerated too.
+            assert_eq!(grammar_matcher_compute_mask(std::ptr::null(), std::ptr::null_mut()), 0);
         }
     }
 }
