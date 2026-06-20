@@ -16,7 +16,7 @@ import OSLog
 //
 // The performance budget per the V1 decision §"performance budget":
 //   - MainActor work per recall update: < 1 ms (hard ceiling 2 ms)
-//   - Debounce window: 200 ms (hard ceiling 250 ms)
+//   - Debounce window: 400 ms (SS-IR accuracy-first; was 200 ms V1 budget)
 //   - Query context extraction: < 0.5 ms
 //   - End-to-end recall pass: < 25 ms (hard ceiling 40 ms)
 
@@ -84,7 +84,9 @@ public final class HaloController {
 
     // MARK: - Tunables (V1 decision §"performance budget")
 
-    /// Debounce before issuing a search. 200 ms per the V1 budget.
+    /// Debounce before issuing a search. SS-IR (owner 2026-06-20): raised 200 → 400 ms for
+    /// ACCURACY-FIRST recall — the owner wants "slower OK, must be accurate." A longer window
+    /// fires the query on more-complete input (fewer wasted partial-word searches) → better hits.
     public let debounceWindowMs: Int
     /// Minimum query length before we even enter `.sensing`.
     public let minQueryChars: Int
@@ -109,7 +111,7 @@ public final class HaloController {
     public convenience init(
         search: any ShadowSearchServicing,
         telemetry: any HaloTelemetry = NullHaloTelemetry(),
-        debounceWindowMs: Int = 200,
+        debounceWindowMs: Int = 400,
         minQueryChars: Int = 3,
         scoreThreshold: Float = 0.2,
         stopWords: Set<String> = ["the", "a", "an", "and", "or", "but", "is", "are"]
@@ -130,7 +132,7 @@ public final class HaloController {
     init(
         search: any ShadowSearchServicing,
         telemetry: any HaloTelemetry = NullHaloTelemetry(),
-        debounceWindowMs: Int = 200,
+        debounceWindowMs: Int = 400,
         minQueryChars: Int = 3,
         scoreThreshold: Float = 0.2,
         stopWords: Set<String> = ["the", "a", "an", "and", "or", "but", "is", "are"],
@@ -220,7 +222,9 @@ public final class HaloController {
             let outcome = await self.search.searchReportingErrors(
                 text: captured,
                 domain: capturedDomain,
-                limit: 10
+                // SS-IR accuracy-first: 10 → 16 so the panel surfaces a wider, more complete recall
+                // set (the warm RRF/HNSW backend already ranks; more candidates = fewer misses).
+                limit: 16
             )
             if Task.isCancelled { return }
 
