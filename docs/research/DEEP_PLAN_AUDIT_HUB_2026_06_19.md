@@ -17,6 +17,9 @@ and pruned of unnecessary things. Make the chats truly engage with the app's ski
 (all working). Target: an AI-native note-taking app that SUPERSEDES Obsidian-fused-with-
 Codex / Claude-desktop / its-own-terminal, Tolaria, Notion CLI, etc. — deeply integrated.
 
+## ★ ACTIVE RESEARCH STREAM (owner 2026-06-19)
+- `docs/research/SETTINGS_SIMPLIFICATION_HUB_2026_06_19.md` — a 2-min research loop on SIMPLIFYING + HARDENING + INTEGRATING all settings/setup (cloned-app configs + the app's own settings + everything being added). Governing balance: simplify presentation + automate defaults, preserve ALL functionality (progressive-disclosure ≠ hiding).
+
 ## ★ READ-FIRST CAPSTONE — the unified plan
 - **`docs/research/MASTER_SYNTHESIS_2026_06_19.md`** — UNIFIES all 15 research docs into ONE plan:
   the keystone (built-then-not-wired), the 6 build-once-reuse primitives, the governing constraints
