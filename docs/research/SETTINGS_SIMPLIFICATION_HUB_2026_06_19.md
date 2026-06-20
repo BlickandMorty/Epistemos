@@ -35,7 +35,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-P | v2 WEBKIT MD EDITOR (owner 2026-06-19) — optional SECOND md editor cloned from Tolaria on WebKit, pixel-art minimal + macOS-26 style + fonts; standalone or fused with Epdoc; never touch TK2/Prose | ✅ done → SS-P_TOLARIA_V2_MD_EDITOR |
 | SS-Q | VOICE CLONING + BITCRUSH DSP (owner 2026-06-19) — Apple Personal Voice cloning (macOS-26 viability) + a bitcrush AVAudioEngine effect over any voice + custom branded system voice; premium-default | ✅ done → SS-Q_VOICE_CLONING_BITCRUSH |
 | SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ✅ done → SS-R_MORE_LOCAL_MODELS |
-| SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ☐ |
+| SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ✅ done → SS-S_VULNERABILITY_AUDIT |
 | SS-T | PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19) — PDFKit live viewer + QuickLook + sweep VisionKit/Translation/PencilKit/AppIntents/etc., integrate the high-value MAS-safe ones | ✅ done → SS-T_PDF_VIEWER_APPLE_NATIVE |
 | SS-U | DARK/LIGHT MODE CRASH (owner 2026-06-19) — root-cause the appearance-switch crash (WKWebView colorScheme re-render/teardown race, theme CSS re-inject, force-unwraps) + harden the crashing surfaces | ✅ done → SS-U_DARK_LIGHT_MODE_CRASH |
 | SS-V | AGGRESSIVE CODE-CHECKER ("nuclear …") (owner 2026-06-19) — identify the Cursor aggressive-review tool + wire an equivalent adversarial static-analysis checkpoint at MULTIPLE plan points | ✅ done → SS-V_NUCLEAR_CODE_CHECKER |
@@ -270,3 +270,13 @@ injector (MAS-safe). GitHub-grade DOM via Tiptap custom NodeViews (collapsibles/
 for closed code: Tolaria AGPL + BlockNote-XL GPL.** Prereq: land SS-O roots #2/#3 first. Plan: Notion template +
 DragHandle [S]; pixel skin [S]; agent editing commands [M]; Liquid-Glass [M]; GitHub-DOM [M]; CodeMirror source
 toggle + md serializer [L]. Full: SS-P doc. (EDITOR cluster SS-O/P/P+ COMPLETE.)
+**SS-S VULNERABILITY AUDIT** → posture STRONG, NO High-severity in the first pass: zero `try!`/`as!`/`main.sync`
+in Swift prod; robust SSRF guard (`web_fetch::validate_url`); subprocess hardening applied; `.bufferingNewest(256)`;
+secrets in Keychain. **MEDIUM: M1** — MAS network tools (`media`/`communication`/`browser`/`web_fetch`) gated by
+DENYLIST not allowlist (`registry.rs:59`) → reachable in MAS unless risk_level/pro-build gates them; flip to
+fail-closed allowlist. **M2** — 6k+ Rust `unwrap`/`expect` not proven test-only; an `unwrap` panic on the FFI
+boundary (`bridge.rs`) aborts the app → wire clippy `unwrap_used` + triage prod sites. LOW: regex
+`preconditionFailure` (OutlineNavigatorView:163) if user-free-text; rest are intentional tripwires/false-pos.
+**Discipline (gate before add, composes with SS-V): grep gate → clippy/cargo-audit/cargo-geiger/SwiftLint tool
+gate → adversarial-skeptic → MAS fail-closed → provenance log.** Full: SS-S doc. **ALL backlog slices A–Z+AA/AB
+COMPLETE.**
