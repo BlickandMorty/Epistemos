@@ -326,3 +326,13 @@ queries the warm RRF/HNSW = sidebar parity) + MEMORY (one tantivy index not two,
 recall hits the same RRF/HNSW fusion (Rust->Rust, no JSON round-trip); cloud keeps the tool interface.** Plan:
 provenance tag [S]; share shadow handle [S]; W-51 adapter behind a flag [M]; bench before/after [M]; zero-copy-KV
 = research-only/aspirational. Do NOT touch vault/graph/TK2-Prose. Full: SS-UMA doc.
+**SS-SH SUBSTRATE HEALTH GLITCH (owner bug, root found)** → VERIFIED ROOT: ~15 health rows each run their own
+1Hz timer doing a **SYNCHRONOUS Rust FFI round-trip ON THE MAINACTOR** + a SwiftUI invalidation, every second,
+even while their section is collapsed (collapse doesn't fire `.onDisappear` reliably in a Form) → ~15 blocking
+FFI/sec + ~15 invalidations/sec on one panel = main-thread contention → freeze/beachball/stutter (violates
+CLAUDE.md "never block @MainActor"). One slow FFI call freezes the whole panel. Panel STRUCTURE is clean (Form +
+3 Sections, no broken ForEach/EmptyView, not flag-gated); error handling is per-row honest. **FIX (= SS-PERF #1):
+collapse all per-row `startTimer()` loops into ONE shared `TimelineView(.periodic)` clock that fetches
+`SubstrateHealthUnifiedClient.snapshot()` OFF the MainActor (background actor → hop back to set @State) + fans to
+rows; ~15 FFI/sec→1.** Plus retire the 2 orphan rows (SS-F). Precedent: ApprovalModalView already converted to
+TimelineView. Full: SS-SH doc.
