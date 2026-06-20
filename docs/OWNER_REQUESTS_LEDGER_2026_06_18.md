@@ -3519,6 +3519,22 @@ native; AGPL server). ADOPT 2 patterns natively:
       [M]; pin/upgrade llama.cpp [M]; add an in-app crash recorder so app-level crashes (dark/light SS-U,
       transitions) actually get captured [S].** Study `~/Library/Logs/DiagnosticReports` + `/tmp/*build*.log` +
       app logs EACH hardening cycle. Cross-ref SS-U, SS-Z, MODEL-INSTALL.
+      ✅ FIX #1 LANDED 2026-06-19 — boundary exit classification (cargo-verified): the GgufCliProvider
+      (agent_core/src/providers/gguf_cli.rs, Pro CLI lane) made the abort INVISIBLE two ways — stderr was
+      Stdio::null() (the template-apply marker discarded) AND the exit status was swallowed
+      (`let _ = child.wait()`) then an UNCONDITIONAL MessageStop{EndTurn} was yielded, so a SIGABRT-on-load
+      became an empty "successful" turn (the owner's "model answers nothing"). NOW: stderr piped + drained
+      (4 KB cap) and the exit classified — a non-zero/signal exit that produced NO tokens yields a typed
+      AgentError::Provider; a chat-template marker (chat_templates_apply/"chat template"/minja/jinja) →
+      honest "this local model's chat template could not be applied (killed by SIGABRT (6)) — pick another
+      model or tier", else a generic "exited abnormally (…) before producing any output". A partial stream
+      that then crashes still ends the turn (answer already delivered). exit_status_detail() names the Unix
+      signal else the code. +3 unit tests (real ExitStatus via from_raw: 6=SIGABRT, code via <<8). Verified
+      in an ISOLATED CARGO_TARGET_DIR (dodging research-loop shared-lock contention): `cargo test --features
+      pro-build gguf_cli` → 12 passed/0 failed (incl. the 3), whole agent_core compiled under pro-build, 0
+      errors, CARGO_EXIT=0. STILL OPEN (this item): per-model --chat-template/--jinja + chatml fallback [S],
+      pre-flight template validation at install/selection [M], pin/upgrade llama.cpp [M], in-app crash
+      recorder [S].
 - [ ] **CHAT MESSAGE-BAR STILL MESSY — simplify/demuddify (owner 2026-06-19; SS-X).** Owner (verbatim): *"the
       controls on the chat are very messy still, particularly on the chat surfaces when I use the bottom message
       bar I still see think, pro, tools etc. — very old options that I thought I simplified. Those are important
