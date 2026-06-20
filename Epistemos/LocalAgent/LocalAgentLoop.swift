@@ -435,7 +435,8 @@ actor LocalAgentLoop {
                         requestedPath: requiredExplicitFilePath,
                         requiredNoteToolSequence: requiredNoteToolSequence,
                         requestedNoteTitle: requestedExplicitNoteTitle
-                    )
+                    ),
+                    onToken: onToken
                 )
                 toolCalls = Self.canonicalizeToolCalls(
                     Self.parseToolCalls(from: output),
@@ -738,7 +739,18 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedPath: requiredExplicitFilePath,
                 requiredNoteToolSequence: requiredNoteToolSequence,
-                requestedNoteTitle: requestedExplicitNoteTitle
+                requestedNoteTitle: requestedExplicitNoteTitle,
+                onToken: { raw in
+                    // SS-AL #1: the reflex first pass streams visible-only deltas, so
+                    // keep the repair stream consistent — strip assistant meta (think
+                    // blocks / tool-call markup) before surfacing. A repair that is
+                    // purely a tool call strips to empty and stays silent (unchanged
+                    // behavior); a recovered visible answer now streams instead of
+                    // appearing only after the stall.
+                    let visible = Self.stripAssistantMeta(from: raw)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !visible.isEmpty { onToken(visible) }
+                }
             )
             let repairedOutput = repairResult.output
             let repairedToolCalls = Self.canonicalizeToolCalls(
@@ -1031,7 +1043,8 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedPath: String?,
         requiredNoteToolSequence: [String],
-        requestedNoteTitle: String?
+        requestedNoteTitle: String?,
+        onToken: @escaping @MainActor (String) -> Void
     ) async throws -> (output: String, source: String) {
         if let structuredOutput = try await structuredReflexRepairOutput(
             promptText: promptText,
@@ -1054,7 +1067,8 @@ actor LocalAgentLoop {
                 requestedPath: requestedPath,
                 requiredNoteToolSequence: requiredNoteToolSequence,
                 requestedNoteTitle: requestedNoteTitle
-            )
+            ),
+            onToken: onToken
         )
         return (repairedOutput, "one-shot")
     }
@@ -1073,6 +1087,12 @@ actor LocalAgentLoop {
             tools: tools,
             forceThinking: forceThinking
         )
+        // SS-AL #1: the constrained/structured generator (`constrainedGenerator`)
+        // resolves its whole output through compiled-grammar decoding and does NOT
+        // invoke the per-token sink, so a real `onToken` here would be a no-op lie.
+        // Streaming this path honestly requires token-incremental constrained
+        // decoding in `ConstrainedDecodingService` — out of scope. The one-shot
+        // repair below (`immediateRepairOutput`) is the path that actually streams.
         guard let structuredOutput = try await structuredGenerator(
             promptText,
             nil,
@@ -1109,7 +1129,8 @@ actor LocalAgentLoop {
         history: [LocalMessage],
         historyBudget: Int,
         effectiveReasoningMode: LocalReasoningMode,
-        repairPrompt: String
+        repairPrompt: String,
+        onToken: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         let repairHistory = Self.trimHistory(
             history + [
@@ -1123,13 +1144,19 @@ actor LocalAgentLoop {
             history: repairHistory
         )
         let repairPromptText = Self.formatPlainMarkdownPrompt(messages: repairMessages)
+        // SS-AL #1: stream the repaired tokens instead of the old masked `{ _ in }`
+        // sink, so self-correction is visible (no mid-turn stall) and the
+        // already-spent repair compute isn't thrown away. Each caller passes the
+        // sink appropriate to its path — the standard path forwards its raw
+        // `onToken` (matching the raw first pass), the reflex path forwards a
+        // visible-text-stripped wrapper (matching its filtered first pass).
         return try await repairGenerator(
             repairPromptText,
             nil,
             maxResponseTokens,
             effectiveReasoningMode,
             modelID,
-            { _ in }
+            onToken
         )
     }
 
