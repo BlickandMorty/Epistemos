@@ -109,4 +109,29 @@ struct SSILInlineOverlaySafetyTests {
             "Epistemos/Views/Notes/InlineStreamMaterializeOverlay.swift")
         #expect(swift.contains("ShaderLibrary.inline_stream_materialize"))
     }
+
+    // Guard 10 (SS-CRASH P0, 2026-06-20): the overlays read `@Environment(NoteChatState.self)`, but
+    // `.overlay { … }` content does NOT inherit the outer `.environment(noteChatState)` (that
+    // modifier scopes to the editor subtree, not sibling overlays) — so each overlay mount MUST
+    // inject noteChatState explicitly, or the environment resolution precondition-CRASHES at launch
+    // when a note window restores. This guards against that regression returning.
+    @Test("both inline overlays are mounted with an explicit .environment(noteChatState) injection")
+    func overlaysInjectNoteChatStateEnvironment() throws {
+        let host = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        for ctor in ["InlineAnswerDecorationOverlay(theme: ui.theme)",
+                     "InlineStreamMaterializeOverlay(theme: ui.theme)"] {
+            if let r = host.range(of: ctor) {
+                // Within the overlay closure (just after the constructor) the injection must appear.
+                #expect(host[r.upperBound...].prefix(90).contains(".environment(noteChatState)"))
+            } else {
+                #expect(Bool(false), "overlay \(ctor) is not mounted")
+            }
+        }
+        // Both overlays genuinely depend on the injected Observable (so the guard is meaningful).
+        let a = try loadMirroredSourceTextFile("Epistemos/Views/Notes/InlineAnswerDecorationOverlay.swift")
+        let b = try loadMirroredSourceTextFile("Epistemos/Views/Notes/InlineStreamMaterializeOverlay.swift")
+        #expect(a.contains("@Environment(NoteChatState.self)"))
+        #expect(b.contains("@Environment(NoteChatState.self)"))
+    }
 }

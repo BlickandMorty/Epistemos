@@ -1018,14 +1018,23 @@ struct NoteDetailWorkspaceView: View {
                 // AI/user "cold box" separation + the scroll-down arrow. Reads read-only
                 // NoteChatState; allowsHitTesting(false) so typing reaches TextKit underneath.
                 // The streaming pipeline is provably untouched (SSILInlineOverlaySafetyTests).
+                //
+                // SS-CRASH (P0, 2026-06-20): `.overlay` content does NOT inherit the outer
+                // `.environment(noteChatState)` (that modifier scopes to the editor subtree, not
+                // sibling overlays), so the overlay's `@Environment(NoteChatState.self)` would
+                // precondition-crash at launch when a note window restores. Inject it explicitly
+                // here — order-independent, guaranteed in the overlay's own environment.
                 InlineAnswerDecorationOverlay(theme: ui.theme)
+                    .environment(noteChatState)
             }
             .overlay {
                 // SS-IL Metal streaming overlay: the inline answer "materializes" under a soft
                 // Metal scan band while it streams, then dissolves to plain editable text. Same
                 // safety envelope — reads read-only NoteChatState + the rect provider, paints
                 // light, allowsHitTesting(false); reduce-motion → absent.
+                // SS-CRASH (P0): inject noteChatState explicitly (see the overlay above).
                 InlineStreamMaterializeOverlay(theme: ui.theme)
+                    .environment(noteChatState)
             }
             .onAppear {
                 Task { @MainActor in
