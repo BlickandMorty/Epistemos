@@ -960,11 +960,20 @@ impl ToolRegistry {
         self.register_phase_one_file_ops();
         self.register_phase_one_todo();
         self.register_phase_one_skills_core();
+        // Owner sign-off 2026-06-19 (MASTER_SYNTHESIS Phase-0 item 5 / STOP_REINVENTING
+        // S1): progressive-disclosure skills (skills_list / skill_view / skill_manage:
+        // create/edit/delete + the consent-gated, github-host-restricted, quarantined
+        // remote install) are MIT clean-room and use NO subprocess (git via the git2
+        // library + reqwest), so they are PROMOTED to the MAS build instead of being
+        // compiled out — previously they were `#[cfg(feature="pro-build")]`-only, which
+        // is why the shipping app exposed only the legacy CRUD `skills` tool. Remote
+        // install keeps its existing `allow_remote_skill_install` consent + quarantine +
+        // github-only safety. Terminal / scheduling / custom-tools stay Pro.
+        self.register_phase_one_skills_progressive();
         #[cfg(feature = "pro-build")]
         {
             self.register_phase_one_terminal();
             self.register_phase_one_scheduling();
-            self.register_phase_one_skills_progressive();
             self.register_phase_one_custom_tools();
         }
 
@@ -1647,7 +1656,9 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(feature = "pro-build")]
+    // Owner sign-off 2026-06-19: promoted to MAS (was `#[cfg(feature="pro-build")]`).
+    // MIT clean-room, no subprocess; the call site is now unconditional. Remote
+    // install retains its consent + quarantine + github-only safety.
     fn register_phase_one_skills_progressive(&mut self) {
         use crate::agent_runtime::skills::{
             skill_manage_schema, skill_view_schema, skills_list_schema, SkillManageHandler,
@@ -4167,6 +4178,21 @@ mod tier_tests {
     }
 
     #[tokio::test]
+    async fn progressive_skill_tools_are_registered_in_the_mas_build() {
+        // MASTER_SYNTHESIS Phase-0 item 5 / owner sign-off 2026-06-19: the
+        // progressive skills (skills_list / skill_view / skill_manage) must reach
+        // the MAS build, not be compiled out behind #[cfg(feature="pro-build")].
+        // This test runs in the DEFAULT (non-pro) build, so it proves they're
+        // registered for MAS — it would fail if they were still pro-gated.
+        let vault = Arc::new(NullVault::default());
+        let registry =
+            ToolRegistry::with_tier(vault, true, None::<std::path::PathBuf>, ToolTier::Agent);
+        assert!(registry.contains_tool("skills_list"), "skills_list must be MAS-registered");
+        assert!(registry.contains_tool("skill_view"), "skill_view must be MAS-registered");
+        assert!(registry.contains_tool("skill_manage"), "skill_manage must be MAS-registered");
+    }
+
+    #[tokio::test]
     async fn vault_list_executes_through_v2_and_legacy_names() {
         let vault = Arc::new(NullVault::default());
         {
@@ -4501,7 +4527,10 @@ mod tier_tests {
             "browser_press",
             "browser_close",
             "browser_scroll",
-            "skill_manage",
+            // NOTE: `skill_manage` is intentionally NOT here — promoted to MAS
+            // (owner sign-off 2026-06-19) for create/edit/delete/local-install; its
+            // remote-install verbs return an honest "Pro only" error in MAS, so the
+            // tool is BOUNDED here. Asserted in the `allowed` set below.
             "custom_tool_manage",
             "cronjob",
             "trajectory_export",
@@ -4531,6 +4560,11 @@ mod tier_tests {
             "search_files",
             "think",
             "todo",
+            // Progressive skills promoted to MAS (owner sign-off 2026-06-19);
+            // remote install stays Pro-gated at the action level.
+            "skills_list",
+            "skill_view",
+            "skill_manage",
             "graph_query",
             "memory",
             "web_search",
