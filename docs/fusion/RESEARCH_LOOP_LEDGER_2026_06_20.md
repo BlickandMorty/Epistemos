@@ -92,6 +92,26 @@ heavy lifting; **Rust is the fast layer that makes interrupting + co-working wit
 brain (generation/spine), app = the other brain (authority/deliberation), Rust = the fast bus between
 them.** S-SPLIT/S-CONN/S-PANEL/S-HW all serve this spine; "two-brain" (owner term, PASS-4) = this framing.
 
+**NUANCED-KEYWORD MINING (owner brief 2026-06-20):** "dual brain" is a RECENT label; older research used
+different names for the same model↔app split. When mining old research/Codex/Claude/docs, ALSO search
+synonyms: *"Brain + Hands", "two-brain", "model wrapper", "coprocessor", "split brain", "J-limb/M-limb",
+"Brain 1/Brain 2", "controller plane", "device agent", "Mirror Speculative Decoding", "hands/actuator",
+"deliberator"*. AND surface the owner's ORIGINAL term for the split (do NOT assume "dual-brain").
+**Findings so far (PASS-14):** the model↔app split's older framing = **"controller plane"** (routing /
+ACS-admission / runtime decisions = brain-2 authority) + the **V6.1 "attention is an interrupt" / "five
+lanes"** thesis (May 6 2026, the genesis, PASS-10). "dual-brain" in code = the model↔**model** DualBrainRouter
+(GPU reasoning + ANE action, PASS-9). **"split-brain" is mostly a BUG term** in the Claude transcripts
+(model-ID/snapshot disagreement) — do NOT conflate it with the architecture split. "coprocessor" appears as
+*Apple AMX (CPU matrix coprocessor)*, a hardware ref. Limb metaphors (Brain+Hands / J-limb / M-limb /
+actuator) did NOT surface — the owner's split was framed as **controller-plane + interrupt**, not a limb body.
+
+**S-UAS-COMPUTE (cross-cutting lens, owner brief 2026-06-20):** exploit the Unified Address Space in EVERY
+segment to get capability with MINIMAL compute. For each segment ask *"can this be done with less compute
+via UAS instead of dense matmul?"* and prefer compute-light paths: ternary add/sub over FMA, Engram/lookup
+recall over FFN compute, lattice VQ, activation-sparsity skip, zero-copy pointer passing across
+Swift/Rust/Metal, KV-Direct residency over recompute. Optimize as deeply as HONESTLY possible; tier-flag
+each (correctness-preserving falsifier required before any compute-light path is "green").
+
 **Hard exclusions (never touch):** `~/Epistemos-RETRO/`, `src-tauri/`, `~/meta-analytical-pfc/`.
 
 **Phase-∞ honesty note:** `MASTER_SYNTHESIS_2026_06_19.md` §4 sequences "Living Index + Lattice
@@ -1457,3 +1477,449 @@ SSM, complex-valued state ↔ Koopman/Bauer-Fike M1, MIMO + half-state-size ↔ 
 SSM SPINE candidate for M0/B3) and **attention sinks / StreamingLLM** (arXiv:2309.17453 — the 4-sink +
 sliding-window stability contract for the SSM-default lane; the interrupt is its escape hatch). All T0/T1
 write-plan; no authority docs edited; no code created.
+
+---
+
+## PASS 11 — 2026-06-20 (CONSOLIDATED ARCHITECTURE READOUT; last primitives; S-PRIM inventory COMPLETE)
+
+**Preservation check (pass start):** ✅ both ledgers intact. Q26 appended verbatim (read-back confirmed).
+Created companion doc + read-back verified. No code. Dual-brain spine framing applied.
+
+### 1. CONSOLIDATED ARCHITECTURE READOUT created → `docs/fusion/ARCHITECTURE_READOUT_2026_06_20.md`
+The single coherent picture tying passes 1–11 together (NON-authority consolidation doc; read-back
+verified). Built 3 cycles deep: **cycle 1** = structure/diagram (brain1 ↔ Rust bus ↔ brain2);
+**cycle 2** = every segment filled with the real artifact path + honest tier; **cycle 3** = the honest
+gaps + the single recommended next action. Sections: §0 one-diagram picture · §1 BRAIN 1 (Mamba-3 spine /
+attention-sinks / interrupt gate / ternary / Engram / KV-Direct) · §2 RUST BUS (signal_bus.rs / M0 / M1 /
+D1-COMMS) · §3 BRAIN 2 (RuntimeRouter / active_assembly / Cockpit / W-51 / Cognitive DAG / Never-Retrain /
+InstantRecall / DualBrainRouter) · §4 signal contract · §5 build order (built vs spec'd vs ambition) ·
+§6 S-PRIM roll-up · §7 honest gaps + next action.
+
+**The readout's honest bottom line:** the architecture is a **coherent, honestly-tiered, falsifier-covered
+SPEC — a real plan, not a shipped system.** Every brain-1 organ is T1 substrate; **no end-to-end model
+generates tokens yet**; the bus is unbuilt (`signal_bus.rs` spec; AnswerPacket has no caller; RuntimeRouter
+DEAD/0-callers = keystone #1); M0 (the load-bearing "interrupt moves loss" claim) is UNPROVEN. **Single
+recommended next action (on green-light): build M0 `F-Interrupt-Moves-Loss`** — cheap, CPU-only, the gate
+every downstream milestone depends on; a PASS/FAIL either justifies or honestly kills the dual-brain bet.
+
+### 2. Last primitives evaluated → S-PRIM inventory COMPLETE (research/ tree)
+| Primitive | What it is | Lives in | Role/side | Tier | Falsifier |
+|---|---|---|---|---|---|
+| **hybrid_memory** | MD+JSON memory substrate; 4 schemas (`soul`/`skill`/`episode`/`semantic`.v1) + validators | `research/hybrid_memory.rs` | app-side **memory store format** (brain-2 persistence) | T1 | per-schema validity (`validate_per_schema`) + parser round-trip |
+| **substrate_independence** | `F-BZ-Substrate-Independence`: same computation → same answer across N substrates within tolerance; divergence metric + per-pair table | `research/substrate_independence.rs` | **cross-cutting verification** — the proof behind ternary↔Metal↔CPU agreement + M0's CPU-canonical claim | T1 | max pairwise divergence ≤ tolerance; pinpoints which (a,b) backend pair drifted |
+
+**substrate_independence is quietly important:** it's the harness that proves the ternary/Metal lanes agree
+with the CPU reference — the verification backbone under M0 (CPU-canonical) + the ternary lane (M1). Folded
+into the readout §6.
+
+**S-PRIM inventory now COMPLETE** for the `research/` tree (15 primitives evaluated across passes 3/5/7/8/
+10/11). No forced inclusions; honest caveats on Kuramoto (speculative), acs (governance framing), H14
+(advisory fence, conjecture false), info_ir/operator_ir (verification IRs).
+
+### 3. Next pass should focus on X
+**PASS 12:** the deep cycles + the readout are done — pivot to **MAINTENANCE + REFRESH mode**: (research)
+refresh the NEWEST external research (arXiv/HF/GitHub) on the load-bearing concepts with a FRESH keyword set
+(Mamba-3 follow-ons, BitNet/ternary 2026 updates, test-time-training successors, MoE-SSD-streaming, Mirror
+Speculative Decoding/ANE drafter) — surface anything published since the corpus. (re-deepen) take the
+WEAKEST readout segment and deepen it — candidate: **the Mamba-3 spine ↔ M0 link** (does the M0 toy SSM
+actually need to be Mamba-3, or is a vanilla SSM enough for the interrupt proof?) OR **the W-51 embedding-
+parity risk** (the one real integration risk flagged PASS-8). (maintenance) keep the readout in sync as new
+findings land. New keyword set required each pass.
+
+### PASS 11 summary
+Preservation honored (both ledgers intact; Q26 verbatim; readout doc created + read-back-verified; no code).
+Created `docs/fusion/ARCHITECTURE_READOUT_2026_06_20.md` — the consolidated single-coherent-picture readout
+(3 cycles deep: diagram → filled segments with real artifacts + honest tiers → gaps + single next action),
+covering brain 1 (Mamba-3 SSM spine / attention sinks / interrupt / ternary / Engram / KV-Direct), the Rust
+bus (signal_bus.rs / M0 / M1 / hardened D1-COMMS 10+6 falsifiers), brain 2 (RuntimeRouter authority /
+active_assembly / Model Cockpit / W-51 recall / Cognitive DAG / Never-Retrain), the signal contract, the
+M0→M1→B1-B6 build order (built vs spec'd vs ambition), and the full S-PRIM roll-up. Finished the last two
+primitives (hybrid_memory = brain-2 memory format; substrate_independence = the cross-backend agreement
+proof under M0/ternary) → **S-PRIM inventory COMPLETE**. Honest bottom line recorded: the architecture is a
+coherent, falsifier-covered SPEC, not a shipped system — the single highest-leverage next action is to
+build M0. All T0/T1 write-plan; no authority docs edited; no code created.
+
+---
+
+## PASS 12 — 2026-06-20 (FIRST MAINTENANCE/REFRESH PASS — external refresh; W-51 embedding-parity re-deepened 3 cycles)
+
+**Preservation check (pass start):** ✅ both ledgers + readout doc intact. Q27 appended verbatim (read-back
+confirmed). Writes double-checked at pass end. No code. Dual-brain spine + 3-cycle depth applied.
+
+### 1. External research refresh — fresh keyword set (ternary-on-Apple-Silicon + speculative decoding)
+Keyword set THIS pass: `bitnet.cpp v2 | Litespark | I2_S/TL1/TL2 | NEON SDOT ternary | mlx-lm speculative
+decoding | ANE drafter DFlash | BitDistill`. Genuinely-new findings (skip anything already covered):
+
+| Finding | Source (primary) | What's NEW vs corpus | Readout segment | Honest tier |
+|---|---|---|---|---|
+| **bitnet.cpp v2** (2026-01-15 update) | `github.com/microsoft/BitNet` + arXiv:2502.11880 | parallel kernels + configurable tiling + embedding quantization → **+1.15–2.1×** over v1; GPU kernel exists (2025-05), **NPU "coming next"**; `I2_S` lossless (matches CLAUDE.md I2_S/TL1/TL2) | BRAIN-1 **ternary lane** | strengthens; still T0/T2 behind M1 (now with a concrete v2 reference kernel) |
+| **Litespark-Inference** (arXiv **2605.06485**, 2026) | arXiv + pip lib | **NEW + directly S-HW:** multiplication-free ternary via **NEON SDOT 128-bit vectors on Apple Silicon M1–M5**; **18.15–97.46× throughput, ~6× memory reduction**; pip-installable + HF Transformers integration | BRAIN-1 **ternary lane** + **S-HW** | strengthens; the concrete Apple-Silicon CPU ternary kernel (NEON); T0/T2 (CPU lane; Metal/GPU still bitnet.cpp's path) |
+| **BitDistill** (2025-10-15) | emergentmind/BitNet table | distill→1.58-bit, **<0.2pt loss, 10× mem save** | BRAIN-1 ternary + **S-HW single-box** | strengthens the *feasible* path (distill, not full retrain — matches PASS-2 S-HW honesty) |
+| **MLX-native speculative decoding** (mlx-lm 0.21) | mlx-lm | **production-grade draft-and-verify on Apple Silicon**, integrates MLX lazy-eval overlaps | decode-acceleration (B-phase) | T1-available on MLX; a real acceleration lane |
+| **ANE drafter (DFlash, experimental)** | DFlash refs | ANE-accelerated spec decode is **technically hard** (precision mismatch, separate draft+target pipelines on heterogeneous HW) | "Mirror Spec Decode / ANE" ambition | **T0 (hard)** — honest: ANE drafting is NOT production-ready; MLX spec-decode is the practical lane |
+
+**Net:** the ternary lane (readout §1, build-order B4) gains a concrete **Apple-Silicon kernel reference**
+(Litespark NEON for CPU + bitnet.cpp v2 GPU; I2_S/TL1/TL2 already in CLAUDE.md), and the decode-acceleration
+story is corrected: **MLX spec-decode is the practical Apple-Silicon lane; ANE drafting stays T0 (hard)**.
+None of this changes a tier to green (all still behind M0/M1) — it sharpens the kernel/source evidence.
+Mamba-3 follow-ons / TTT successors / MoE-SSD-streaming: **not re-searched this pass** (budget) → queued
+for PASS 13's external sweep (honest partial; not a null result, just scoped to ternary+spec-decode).
+
+### 2. RE-DEEPEN the weakest readout segment — **W-51 embedding-parity risk** (3 cycles)
+Judged weakest: W-51 is the highest-value *buildable-now* bespoke win (PASS-8), but its one real integration
+risk — **embedding parity** — could SILENTLY break it (wrong results, not a crash). Hardening it:
+
+- **CYCLE 1 — the risk, precisely.** Eidos semantic retrieval ranks on a **precomputed query vector**
+  (`EidosQuery::with_vector`); it does NOT embed text itself. The warm `epistemos-shadow` index was built
+  with embedder **E_index**; the model's query vector is produced by embedder **E_query**. If
+  `E_index ≠ E_query` (different model, different dim, different normalization, different tokenizer, or even
+  a different *version* of the same model), cosine/HNSW similarity is **silently meaningless** — top-K comes
+  back plausible-looking but wrong. This is worse than a colder index: it's a *confidently wrong* index. The
+  sidebar avoids it because sidebar query + index use the same path; the model path could drift.
+- **CYCLE 2 — the design that mitigates.** (a) **Embedder identity stamp:** the shadow index manifest
+  records `embedder_id + dim + normalization + tokenizer_hash` (extend `EidosIndexManifest`); every query
+  carries the same stamp; `ShadowBackedSemanticIndex` **refuses** a query whose stamp ≠ the index stamp
+  (hard fail / honest abstain, never silent mismatch). (b) **Single embedder source of truth:** both index
+  build and query embedding route through ONE embedder (the shadow backend's embed path or the MLX embedder,
+  pinned) — no second embedder instantiated. (c) **Dim/normalization guard:** reject dimension mismatch +
+  enforce L2-normalization parity at insert and query. (d) **Re-embed-on-drift:** if the pinned embedder
+  version changes, the index is marked stale and rebuilt (mirrors the existing migration-key pattern).
+- **CYCLE 3 — the falsifier that RETIRES the risk.** `F-Shadow-Embedding-Parity` (a new axis on
+  `falsify_shadow_recall_parity`):
+  - `axis_stamp_match`: index manifest `embedder_id/dim/norm/tokenizer_hash` == query stamp; a deliberately
+    mismatched stamp is **rejected** (abstain + logged), never silently ranked.
+  - `axis_same_embedder`: index-build and query-embed resolve to the SAME embedder instance/version (one
+    source of truth; assert no 2nd embedder constructed).
+  - `axis_known_answer`: on a fixed corpus + fixed query with a KNOWN correct top-1, the shadow-backed path
+    returns that top-1 (proves the vectors are actually comparable, not just well-typed).
+  - `axis_drift_rebuild`: bumping the embedder version marks the index stale → rebuild; post-rebuild parity
+    restored. **Retires the risk:** parity is now a typed, enforced, falsified invariant — W-51 cannot ship a
+    silently-wrong index. Tier: lifts the W-51 embedding-parity risk from "flagged unknown" → **T1 spec with
+    a retiring falsifier**.
+
+### 3. Readout doc updated (load-bearing findings)
+Updated `ARCHITECTURE_READOUT_2026_06_20.md`: ternary-lane row now cites bitnet.cpp v2 + Litespark NEON
+(Apple Silicon) + BitDistill; added MLX-spec-decode vs ANE-drafter honesty to the build-order/decode note;
+W-51 row gains the embedding-parity invariant + `F-Shadow-Embedding-Parity`. (Tiers unchanged — still
+behind M0/M1; evidence sharpened. Read-back verified.)
+
+### 4. Robustness (PASS-12: D3-QUALITY via W-51 parity; D2-PERF via ternary kernels)
+- **D3-QUALITY:** the embedding-parity invariant is a *correctness* guard — a confidently-wrong index is the
+  worst quality failure (worse than a colder index); `F-Shadow-Embedding-Parity` makes it impossible to ship.
+- **D2-PERF:** Litespark NEON (18–97× ternary throughput, 6× memory) + bitnet.cpp v2 (+1.15–2.1×) give the
+  ternary lane concrete Apple-Silicon perf numbers — but they're CPU-NEON; the Metal/GPU ternary path on the
+  M2 Pro 19-core GPU remains the bitnet.cpp GPU kernel (measure before claiming, still behind M1).
+
+### 5. Next pass should focus on X
+**PASS 13 (refresh mode):** (external) the QUEUED sweep — **Mamba-3 follow-ons / SSM-Transformer hybrids +
+TTT/fast-weight successors + MoE-SSD-streaming** (not covered this pass), fresh primary sources. (re-deepen)
+the next-weakest segment — candidate: **the Mamba-3 ↔ M0 spine link** (does the M0 toy SSM need to be
+Mamba-3, or is a vanilla SSM enough to prove the interrupt? — affects the whole build order) OR the
+**RuntimeRouter keystone** (DEAD/0-callers, the biggest already-built-but-unwired gap). (maintenance) keep
+the readout current. Each pass: something genuinely new OR an honest null + redirect. New keyword set.
+
+### PASS 12 summary
+First maintenance/refresh pass. Preservation honored (both ledgers + readout intact; Q27 verbatim;
+read-back-verified; no code). External refresh surfaced genuinely-new ternary/Apple-Silicon evidence:
+**bitnet.cpp v2** (2026-01-15, +1.15–2.1×, NPU coming), **Litespark-Inference** (arXiv:2605.06485 —
+multiplication-free ternary via NEON SDOT on Apple Silicon M1–M5, 18–97× throughput / 6× memory),
+**BitDistill** (distill→1.58-bit, 10× mem save — the feasible single-box path), and corrected the decode-
+acceleration story (**MLX-native spec-decode is the practical Apple-Silicon lane; ANE drafting stays T0/hard**).
+Re-deepened the weakest readout segment — the **W-51 embedding-parity risk** — 3 cycles: named the
+silent-confidently-wrong-index failure, designed the mitigation (embedder identity stamp + single
+source-of-truth + dim/norm guard + re-embed-on-drift), and defined `F-Shadow-Embedding-Parity`
+(stamp-match / same-embedder / known-answer / drift-rebuild) that retires it → W-51 parity now a T1 spec
+with a retiring falsifier. Updated the readout doc accordingly (tiers unchanged, evidence sharpened; read-back
+verified). Mamba-3-followons/TTT/MoE-SSD queued for PASS 13 (honest partial). All T0/T1 write-plan; no
+authority docs edited; no code created.
+
+---
+
+## PASS 13 — 2026-06-20 (refresh: TTT/MoE-SSD sweep; RuntimeRouter keystone re-deepened 3 cycles)
+
+**Preservation check (pass start):** ✅ both ledgers + readout intact. Q28 appended verbatim (read-back
+confirmed). Writes double-checked at pass end. No code. Dual-brain spine + 3-cycle depth applied.
+
+### 1. External sweep — queued set (TTT successors + MoE-SSD-streaming)
+Keyword set: `ATLAS agentic test-time | Titans/Atlas nested learning | FlashMoE SSD expert cache |
+CPU-GPU collaborative MoE offload`. Genuinely-new (skip already-covered):
+
+| Finding | Source | What's NEW | Readout segment | Honest tier |
+|---|---|---|---|---|
+| **ATLAS — Agentic Test-time Learning-to-Allocate Scaling** | arXiv **2606.01667** (Jun 2026) | the MODEL (an LLM orchestrator) decides **how much compute per problem + when to stop** via an `explore` tool; design surface shifts from controller logic → action space; ATLAS-MM adds solver choice | interrupt / abstention / active_assembly (compute-allocation decision) | **T0** — validates the "decide compute + when to stop" mechanism BUT **places authority on the MODEL**; Epistemos keeps that authority APP-side (no-hidden-authority) → recorded as a **contrast/challenge**, not adopted as-is |
+| **FlashMoE** | arXiv **2601.17063** (2026) | offload inactive experts to **SSD** with **ML-based cache replacement** (recency+frequency, +51% hit vs LRU/LFU, 2.6×); **separates expert/non-expert weights** → loads only non-expert at startup (4× faster load) | BRAIN-2 residency governor / ColdStream + B1 sliding-window + B2 prefetch | **T0/T1** — concrete refinement of the MoE-SSD-streaming lane; the expert/non-expert split + ML-cache are adoptable policy ideas |
+| **CPU-GPU collaborative MoE** | arXiv **2512.16473** | async expert fetch + GPU-as-expert-cache, overlap compute/comm; Mixtral 8x7B on memory-limited (4.4×) | B2 prefetch (overlap) | T0 — same territory as PowerInfer-2 (PASS-6); noted, not novel enough to re-card |
+| **TITANS** | (HN/paper) | — | — | **SKIP — already covered** (PASS-3 Koopman "Titans=streaming DMD" + PASS-8 `continual_learning::titans_mac`) |
+
+**Net:** **ATLAS is the sharpest new finding** — it's the *authority-placement contrast*: ATLAS lets the
+model own the compute-allocation control loop; Epistemos's S-SPLIT deliberately keeps that authority in
+brain 2 (the app), with the model only emitting the interrupt SIGNAL. This is a genuine design fork worth
+recording (not a bug in either — a deliberate choice). **FlashMoE** gives the residency governor a concrete
+ML-cache + expert/non-expert-split policy. Neither promotes a tier to green.
+
+### 2. RE-DEEPEN — the RuntimeRouter keystone (3 cycles) — and an HONEST CORRECTION to MASTER_SYNTHESIS
+Brain-2's authority core. Re-deepening found the keystone is **further along than "DEAD/0-callers" implied**:
+
+- **CYCLE 1 — what / where / why "dead".** `RuntimeRouter.swift` (`Epistemos/LocalAgent/`) defines
+  `route(_:)` — the **intra-LANE chooser** (which RUNTIME: mlx / gguf / cloud / stub), NOT the model-id
+  picker (complementary to the `sanitizedInteractiveLocalTextModelID` model-pin fix). "Dead" = `route(_:)`
+  has **ZERO production callers**; the live lane decision fell to crude heuristics + a hardcoded list
+  (`AgentCommandCenterState`), the audit's "Qwen-pin root" at the LANE level. NOT flag-off (no live flag
+  existed); NOT broken — just **never called**. `routeProfiles()` is ALREADY rehosted to
+  `InferenceState+RouteProfiles.swift` → `RuntimeRouter.defaultRouteProfiles()` (STAGE-4 prerequisite
+  partly done).
+- **CYCLE 2 — the concrete wiring plan (it ALREADY EXISTS as a staged scaffold).**
+  `RuntimeRouterShadow.swift` is a built, flag-gated, OBSERVE-ONLY staged plan:
+  - **STAGE 1 (BUILT):** shadow machinery — build a `MissionPacket` from a live chat request, extract the
+    chosen lane from a `RouteVerdict`, parity-compare to the lane the live path used. Flag
+    `EPISTEMOS_RUNTIMEROUTER_LIVE_V0` (OFF = zero overhead; ON = compute shadow verdict for parity logging).
+  - **STAGE 1b:** call it at the live seam — `CommandCenterRequestCompiler` `ResolvedRuntime` — record
+    parity via `RuntimeRouterMetrics`, return the SAME lane (still observe-only).
+  - **STAGE 2:** promote — flag ON makes `route` AUTHORITATIVE for the lane.
+  - **STAGE 3:** fold R2 (`TriageService.preferredAutomaticLocalModel` priority list) into the router's
+    preference table; keep honest "no local → nil".
+  - **STAGE 4:** delete the dead R4 routers (`ConfidenceRouter` / `DualBrainRouter` / `HybridRouter`) after
+    rehosting the diagnostic `routeProfiles()` (already rehosted).
+  - **no-hidden-authority preserved:** the router is the APP's (brain-2's) lane authority; observe-only +
+    parity-logged until STAGE 2; "no local → nil" honest (no silent Qwen substitution). This is EXACTLY the
+    S-CONN route/lane **uplink control** (PASS-5) made live — the cockpit's route control binds here.
+- **CYCLE 3 — falsifiers that prove it's live + routing.** `F-RuntimeRouter-Live`:
+  - `axis_parity` (STAGE 1b): shadow verdict matches the live lane on a fixture corpus (safe-to-promote proof).
+  - `axis_authoritative` (STAGE 2): with the flag ON, the lane ACTUALLY used == the router's verdict (not
+    the heuristic) across the corpus.
+  - `axis_honest_nil`: "no local model → nil" survives — no silent Qwen substitution (the audit's R-2 risk).
+  - `axis_no_hidden_authority`: every lane decision emits a `RuntimeRouterMetrics`/RunEventLog event;
+    no route changes without a record.
+  - **Retires the keystone:** RuntimeRouter goes from built-but-dead → **the live, witnessed lane authority**
+    for the model↔app split.
+
+**HONEST CORRECTION to the readout (load-bearing):** PASS-11 readout §3 + §7 called RuntimeRouter
+"DEAD/0-callers (keystone #1)". More precisely: `route()` is dead on the live path, **but the wiring is
+SCAFFOLDED** — STAGE 1 shadow machinery is built behind `EPISTEMOS_RUNTIMEROUTER_LIVE_V0`, `routeProfiles()`
+is rehosted, and STAGES 1b→4 are a written plan. The gap is **promotion (1b→2), not greenfield wiring.**
+This is a meaningful upgrade to the keystone's status (and lowers the effort estimate).
+
+### 3. Readout doc updated
+`ARCHITECTURE_READOUT_2026_06_20.md`: RuntimeRouter row (§3) + keystone gap (§7) corrected from
+"DEAD/0-callers" → "dead on live path; shadow-wiring SCAFFOLDED (STAGE 1 built behind
+`EPISTEMOS_RUNTIMEROUTER_LIVE_V0`; 1b→4 pending); the gap is promotion, not greenfield". Added ATLAS
+(authority-placement contrast) + FlashMoE (residency ML-cache) to §1/§3 notes. Read-back verified.
+
+### 4. Robustness (PASS-13)
+- **D1-COMMS / authority:** the RuntimeRouter wiring IS the no-hidden-authority axiom made live — the
+  app adjudicates the lane, observe-only until promoted, every decision witnessed (`RuntimeRouterMetrics`).
+  ATLAS is the cautionary contrast (don't let the model own allocation authority).
+- **D2-PERF:** FlashMoE's ML-cache (+51% hit) + expert/non-expert split (4× load) are concrete residency-
+  governor perf policies for the MoE-SSD lane; the shadow router is zero-overhead when the flag is OFF.
+
+### 5. Next pass should focus on X
+**PASS 14 (refresh mode):** (re-deepen) the next-weakest segment — candidates: **the Mamba-3 ↔ M0 spine
+link** (does the M0 toy SSM need Mamba-3 or is a vanilla SSM enough to prove the interrupt? — still
+un-deepened) OR **the AnswerPacket "implemented-but-no-caller" gap** (the downlink primitive that needs a
+StreamingDelegate emitter to go `wired`). (external) a fresh angle if warranted (Mamba-3 follow-ons were
+NOT found this pass — search returned ATLAS/MoE, not SSM-hybrids; a dedicated "SSM-Transformer hybrid 2026"
+query is still open). **Honesty check:** this pass DID find genuinely-new material (ATLAS contrast + FlashMoE
++ the RuntimeRouter-is-scaffolded correction), so the loop continues productively; if PASS 14 finds nothing
+new on BOTH axes, recommend pausing rather than churning.
+
+### PASS 13 summary
+Refresh pass — genuinely-new material on both axes. External sweep: **ATLAS** (arXiv:2606.01667 — model-owns-
+compute-allocation; recorded as the authority-placement CONTRAST to Epistemos's app-side authority, a
+deliberate design fork) + **FlashMoE** (arXiv:2601.17063 — SSD expert offload with ML-cache +51% hit + expert/
+non-expert split 4× load; a concrete residency-governor policy); TITANS skipped (already covered); CPU-GPU
+MoE noted (PowerInfer-2 territory). Re-deepened the **RuntimeRouter keystone** 3 cycles and made an HONEST
+CORRECTION: it's not greenfield-dead — `route()` (the intra-lane mlx/gguf/cloud/stub chooser) has 0 live
+callers, BUT `RuntimeRouterShadow.swift` is a built, flag-gated (`EPISTEMOS_RUNTIMEROUTER_LIVE_V0`),
+observe-only STAGE-1 scaffold with a written STAGE 1b→4 promotion plan and `routeProfiles()` already
+rehosted; the gap is PROMOTION, not wiring-from-scratch. Defined `F-RuntimeRouter-Live` (parity /
+authoritative / honest-nil / no-hidden-authority) to retire it. Updated the readout (keystone status
+corrected; ATLAS + FlashMoE noted; read-back verified). All T0/T1 write-plan; no authority docs edited; no
+code created.
+
+---
+
+## PASS 14 — 2026-06-20 (header: nuanced-keyword + S-UAS-COMPUTE; S-UAS-COMPUTE 3-cycle deep-dive)
+
+**Preservation check (pass start):** ✅ both ledgers + readout intact. Q29 appended verbatim (incl. the two
+new directives); read-back confirmed. Header updated with NUANCED-KEYWORD MINING + S-UAS-COMPUTE items.
+Writes double-checked at pass end. No code.
+
+### 1. Nuanced-keyword mining result (genuinely-new honest finding)
+Searched the synonym set across Claude transcripts + repo docs. **The owner's ORIGINAL term for the
+model↔app split was NOT "dual-brain":**
+- **"controller plane"** — the recurring original framing (Claude transcript: *"assembly packets, selected
+  support sets · Controller plane: routing, ACS admission, runtime decisions"*) = brain-2 authority. This is
+  the load-bearing synonym to carry forward.
+- **V6.1 "attention is an interrupt" / "five lanes"** (May 6 2026) = the genesis thesis (PASS-10).
+- **"dual-brain"** in CODE = the model↔**model** `DualBrainRouter` (GPU reasoning + ANE action) — a
+  DIFFERENT axis (PASS-9).
+- **"split-brain"** = mostly a **BUG term** in transcripts (model-ID/snapshot disagreement) — do NOT
+  conflate with the architecture split. **"coprocessor"** = *Apple AMX (CPU matrix coprocessor)*, hardware.
+- Limb metaphors (Brain+Hands / J-limb / M-limb / actuator / deliberator) did **not** surface — the split
+  was framed as **controller-plane + interrupt**, not a limb/body metaphor. (Honest: a couple of synonyms
+  returned nothing, which is itself the answer — the owner didn't use them.)
+
+### 2. S-UAS-COMPUTE — 3-cycle deep-dive (the "optimize as deeply as honestly possible" directive)
+**Cycle 1 = enumerate dense-compute sites · Cycle 2 = UAS compute-light alternative · Cycle 3 = correctness
+falsifier.** The unifying principle: on a 200 GB/s bandwidth-bound M2 Pro, **compute is cheaper than memory
+movement** — so the win is to REPLACE dense matmul with (a) integer add/sub, (b) a memory lookup, or (c) a
+zero-copy pointer, and PROVE correctness is preserved.
+
+| # | Dense-compute site (baseline) | UAS compute-light alternative | Correctness falsifier | Tier |
+|---|---|---|---|---|
+| U1 | **FFN dense matmul** (largest FLOP sink, ~80% params) | **Engram lookup** (O(1) hash → DRAM table) for static facts + **activation-sparsity skip** (ReLU²/SpQt) for the rest; table mmap'd, zero-copy | `F-Engram-LookupEquivalence` (PASS-4): LUT output ≈ dense FFN within ε on held-out probe; copy-count=0 | T0/T1 |
+| U2 | **Weight FMA** (fp16 multiply-accumulate) | **Ternary add/sub** — BitNet `I2_S` / **Litespark NEON SDOT** (multiplication-free; PASS-12) | `F-Quant-Lane-Safe` (Bauer-Fike M1) + bit-exact-vs-fp ref on a fixture; abstain if bound fails | T0/T2 |
+| U3 | **Full attention QKᵀ over context** | **Mamba-3 linear SSM scan** as default + **attention only on interrupt** (sparse); **attention sinks** (4 sink toks + sliding window) keep the cheap lane stable | M0 `F-Interrupt-Moves-Loss` (`attention_fire_rate ≤ 0.25` recovers ≥½ the gap); sinks stability check | T0 (M0-gated) |
+| U4 | **KV recompute on context reuse** | **KV-Direct residency** — keep KV in UMA, reuse instead of recompute (no CPU↔GPU copy) | `falsify_uas_zero_copy_spine.rs` (copy-count=0 on the spine) + identical-logits on reuse | T1 (Rust spine) |
+| U5 | **Re-embed / re-query a 2nd index** (model's colder VaultStore) | **W-51 shadow recall** — share the ONE warm shadow handle (no 2nd tantivy index, no re-embed) + borrowed `&str` (no JSON) | `falsify_shadow_recall_parity` + `F-Shadow-Embedding-Parity` (PASS-12) | T0/T1 |
+| U6 | **Cross-Swift/Rust/Metal serialization** (copy + encode) | **Zero-copy pointer passing** — `bytesNoCopy` / IOSurface / shared-memory rings (scalars on the control plane, tensors stay in UMA) | `F-Signal-Bus-Overhead` (≤1%, no tensor crosses control plane) + slab/arena copy-count | T1 |
+| U7 | **Dense expert routing** (compute all, mask) | **1-bit packet router** (`PacketRouter1bit.metal`) + **active_assembly minimal firing set** (firing-ratio <0.50) + **FlashMoE ML-cache** SSD residency (PASS-13) | `F-ActiveAssembly-Minimal` (4-bit Hamming AND cost<0.40 AND firing<0.50) | T1 |
+| U8 | **Weight VQ decode** (codebook lookup) | **Lattice VQ** (E8/Leech, `sherry_lattice`) — but PASS-2 caveat: irregular decode can LOSE to ternary on a 200 GB/s GPU | `F-SpQt-SkipDecode` style: bit-exact vs dense AND Metal-coalesced decode ≥ ternary throughput; else **stays research** | T0 (conditional) |
+| U9 | **Verification recompute** (re-derive claims) | **Cognitive-DAG cached resonance** + `RunEventLog` replay (don't re-derive; read the witnessed state) | DAG merkle parity (`epistemos_trace verify-replay`) — replay == original | T1 |
+
+**Net (honest):** the architecture is ALREADY designed compute-light at almost every site — U1 (Engram),
+U2 (ternary), U3 (SSM+interrupt), U4/U6 (zero-copy/UMA), U7 (sparse routing) all have prior-pass specs +
+falsifiers; U5 (W-51) + U9 (DAG replay) are app-side. The S-UAS-COMPUTE lens **confirms the design's
+thesis is exactly "minimal compute via UAS"** and surfaces ONE honest caution (U8 lattice VQ: only a win if
+Metal-coalesced — otherwise ternary beats it). The deepest honest statement: **every compute-light path is
+gated by a correctness falsifier — none is "free" until its falsifier passes.** No tier promoted to green;
+this is the consolidated optimization map, not a benchmark.
+
+### 3. Readout doc updated
+Added an **S-UAS-COMPUTE optimization map** note to `ARCHITECTURE_READOUT_2026_06_20.md` (a new short §
+cross-referencing U1–U9) + corrected the spine-framing line to name **"controller plane"** as the original
+term for brain-2 authority. Read-back verified. (Tiers unchanged.)
+
+### 4. Next pass should focus on X
+**PASS 15:** (re-deepen — STILL the next-weakest) the **Mamba-3 ↔ M0 spine link** (un-deepened across 14
+passes): does the M0 toy SSM need to BE Mamba-3, or is a vanilla linear SSM sufficient to prove "the
+interrupt moves loss"? (argument: M0 should be the SIMPLEST SSM that exhibits the state-tracking weakness
+the interrupt compensates — likely vanilla, with Mamba-3 deferred to B3) — OR the **AnswerPacket
+no-caller** gap (the downlink primitive needs a StreamingDelegate emitter to go `wired`). (external) a
+dedicated **"SSM-Transformer hybrid 2026 / Jamba/Zamba successors"** query (Mamba-3 follow-ons still not
+surfaced). **Honesty check:** PASS 14 found genuinely-new material (the original-term = "controller plane"
+correction + the consolidated U1–U9 compute map), so the loop continues productively.
+
+### PASS 14 summary
+Added two permanent header items (NUANCED-KEYWORD MINING + S-UAS-COMPUTE) and logged Q29 verbatim.
+Nuanced-keyword mining produced a genuinely-new honest correction: the owner's ORIGINAL split term was
+**"controller plane"** (routing/ACS-admission/runtime decisions = brain-2 authority) + the V6.1 "attention
+is an interrupt" thesis — NOT "dual-brain" (that's the model↔model DualBrainRouter); "split-brain" is a BUG
+term, not the architecture split; limb metaphors never appeared. Delivered the **S-UAS-COMPUTE 3-cycle
+deep-dive**: 9 dense-compute sites (U1–U9: FFN matmul, weight FMA, full attention, KV recompute, 2nd-index
+re-embed, cross-language serialization, dense expert routing, weight VQ decode, verification recompute) →
+each with its UAS compute-light alternative (Engram lookup, ternary add/sub, SSM+interrupt, KV-Direct,
+shadow recall, zero-copy pointers, 1-bit/sparse routing, lattice VQ, DAG replay) → each with a correctness-
+preserving falsifier. Honest net: the architecture is already compute-light by design; the lens confirms the
+thesis and flags one caution (U8 lattice VQ only wins if Metal-coalesced). Updated the readout (S-UAS-COMPUTE
+note + "controller plane" original-term correction; read-back verified). All T0/T1 write-plan; no authority
+docs edited; no code created.
+
+---
+
+## PASS 15 — 2026-06-20 (Mamba-3↔M0 RESOLVED; AnswerPacket wiring spec'd; SSM-hybrid source-card)
+
+**Preservation check (pass start):** ✅ both ledgers + readout intact. Q30 appended verbatim (read-back
+confirmed). Writes double-checked at pass end. No code. **Genuinely-new on both axes this pass (loop
+continues productively — see §5 convergence note).**
+
+### 1. SSM-Transformer HYBRID external source-card (resolves the M0 spine question)
+Query: `Jamba/Zamba/Hymba/Nemotron-H/Samba/B'MOJO SSM-attention hybrid`. Findings:
+
+| Model | Hybrid strategy | Load-bearing finding | Tier/map |
+|---|---|---|---|
+| **Jamba** (arXiv:2403.19887) | inter-layer interleave Mamba+Transformer+MoE | **ABLATION: "pure Mamba struggles to develop in-context-learning; the Attention-Mamba hybrid exhibits ICL like vanilla Transformers"** — the exact weakness the interrupt compensates | the empirical proof behind "attention is an interrupt" |
+| **Hymba** (arXiv:2411.13676) | intra-layer parallel attn+SSM heads + SWA | head-wise fusion; sliding-window attention cuts cache | maps to attention-sinks + intra-layer option |
+| **Zamba** (arXiv:2405.16712) | Mamba backbone + ONE shared attention module | attention benefit at **minimal param cost** | the "sparse attention" thesis at the layer level |
+| **B'MOJO-F / Priming** (arXiv **2605.08301**, 2026 — NEW) | SSM + **Sliding-Window Attention in ONE sublayer** = fading memory (SSM) + bounded eidetic memory (SWA); **"Priming" builds hybrids FROM pre-trained Transformers** (no from-scratch) | NEW 2026: "strictly more expressive than any pure-SSM layer"; **distill-from-Transformer** = feasible single-box path | strengthens B3/B4; ties to MOHAWK (already in repo `KnowledgeFusion/MOHAWK/`) |
+| survey (arXiv:2510.04800) | systematic hybrid taxonomy | lists MOHAWK/MambaInLLaMA distillation (convert Transformer→linear) | confirms distill path (S-HW single-box) |
+
+**Genuinely-new:** B'MOJO/Priming (2026, distill-from-Transformer hybrids) + the Jamba ICL-ablation as the
+*empirical grounding* for the interrupt thesis (not previously cited in the corpus). The codebase already
+has `MOHAWK/` (a Transformer→Mamba distillation method) — cross-link noted.
+
+### 2. RE-DEEPEN Mamba-3 ↔ M0 — RESOLVED (3 cycles)
+- **CYCLE 1 — the weakness the interrupt compensates.** Pure linear SSMs (Mamba-class) **lossily compress
+  state** → they fail at **exact in-context recall / state-tracking** (copy, associative-recall, ICL) where
+  a Transformer's full attention has lossless access to the whole context. Jamba's ablation proves it
+  empirically ("pure Mamba struggles with ICL; a few attention layers fix it"). **The interrupt IS the
+  dynamic, sparse, per-token version of "inject attention exactly where the SSM's compressed state is
+  insufficient"** — fire full attention for K tokens when `InterruptScore > τ`.
+- **CYCLE 2 — the simplest M0 toy SSM (DECISION + justification).** **Use a vanilla linear SSM
+  (Mamba-2-style 1-semiseparable, or simpler), deliberately state-tracking-WEAK; do NOT use Mamba-3 for
+  M0.** Justification: (a) **Mamba-3's whole purpose** (complex-valued state + MIMO) is to *improve*
+  state-tracking — using it for M0 would SHRINK the very weakness the interrupt must demonstrate it
+  compensates for, muddying the signal; (b) M0 must isolate the **interrupt as the ONE new variable**
+  (PASS-6) — a vanilla SSM is the cleanest, cheapest, most legible baseline; (c) Mamba-3's complex state is
+  exactly what the **Bauer-Fike WBO-6 bound (M1)** governs and what the **B3 `SelectiveScan.metal` kernel**
+  targets — it belongs at B3, not in the CPU toy. **Net: M0 = vanilla SSM (weak); Mamba-3 = B3 (the real
+  spine).**
+- **CYCLE 3 — lock into the M0 spec.** Amends PASS-6 `F-Interrupt-Moves-Loss`: the **backbone is a vanilla
+  linear SSM chosen to EXHIBIT the state-tracking weakness** (e.g. fails the associative-recall span without
+  the interrupt); the synthetic "interrupt-needed" task = exactly the copy/associative-recall spans pure SSM
+  fails. This makes the M0 result interpretable: `loss_recovery_fraction` measures how much of the
+  SSM→attention ICL gap the *sparse interrupt* recovers vs always-attention. **Mamba-3 is explicitly OUT of
+  M0 scope** (deferred to B3). The M0 spec is now unambiguous for crafting. **This retires the
+  long-deferred Mamba-3↔M0 open question.**
+
+### 3. RE-DEEPEN AnswerPacket "implemented-but-no-caller" (3 cycles)
+- **CYCLE 1 — where + why dead.** `scope_rex/answer_packet.rs` defines `AnswerPacket` (claims,
+  residency_signals, ui_label, `attention_mode`, witnessed_state_ref) — `state: implemented`, **no
+  production caller**. The Swift chat reply path (`Bridge/StreamingDelegate.swift` + `App/ChatCoordinator.swift`)
+  streams TOKENS but never constructs/emits an AnswerPacket per reply. So the downlink's per-turn primitive
+  exists but nothing produces it → the cockpit (S-PANEL) has nothing to display, and the InterruptInvariant
+  (M1) has nothing to check at runtime.
+- **CYCLE 2 — concrete first-caller wiring.** At **end-of-turn** (`stop_reason == end_turn`) in
+  `StreamingDelegate`, construct an `AnswerPacket`: `attention_mode` from the active lane (dynamic if the
+  interrupt fired, static_fallback + a `StaticFallbackAcknowledged` claim if the 9:1 static path was used,
+  unavailable otherwise — exactly what `attention_mode_claims_are_consistent` checks); `claims` from the
+  reply's grounded citations (Eidos/recall); `ui_label` for the chat row; emit it to the
+  ProvenanceConsole/cockpit feed (FFI bridge → `ProvenanceConsoleProjectionService`). Promotes the type
+  `state: implemented → wired`. Flag-gate (`EPISTEMOS_ANSWERPACKET_EMIT_V0`); flag-OFF keeps today's
+  token-only stream (back-compat per the answer_packet.rs §2.5.2 note).
+- **CYCLE 3 — falsifier.** `F-AnswerPacket-Emitted`: (a) every completed chat reply produces **exactly one**
+  AnswerPacket; (b) it passes `attention_mode_claims_are_consistent` (the InterruptInvariant — static_fallback
+  ⟺ acknowledgement claim); (c) the cockpit downlink feed CONSUMES it (round-trip: emit → ProvenanceConsole
+  shows it); (d) flag-OFF emits zero (back-compat). **Retires the gap:** AnswerPacket goes implemented →
+  wired, closing the downlink half of S-CONN at runtime. Tier T1 (build on green-light).
+
+### 4. Readout doc updated
+`ARCHITECTURE_READOUT_2026_06_20.md`: BRAIN-1 spine row + build-order note now state **M0 = vanilla SSM
+(state-tracking-weak); Mamba-3 deferred to B3** (with the Jamba ICL-ablation as grounding); AnswerPacket
+gets the first-caller wiring + `F-AnswerPacket-Emitted` + the `implemented→wired` path; B'MOJO/Priming +
+MOHAWK distillation noted. Read-back verified. (Tiers unchanged; two open questions RESOLVED to spec.)
+
+### 5. Convergence / honesty note (per the owner's pause gate)
+This pass **DID find genuinely-new material on both axes** (B'MOJO/Priming 2026 + the Jamba ICL-ablation
+grounding; AND resolved the Mamba-3↔M0 + AnswerPacket-wiring questions to unambiguous spec) — so the loop
+was NOT churning this pass. **BUT the loop is now clearly converging:** the architecture readout is
+complete, the S-PRIM inventory is complete, both gates (M0/M1) are spec-locked, the cockpit is
+falsifier-covered, and the keystone is scaffolded. **The remaining open questions are now almost all
+BUILD-only or owner-directive:**
+1. **M0 empirical result** — does the interrupt actually move loss on the vanilla-SSM toy? (BUILD-only; the spec is locked.)
+2. **M1 Lean discharge** — close the InterruptInvariant + Bauer-Fike `sorry` (BUILD-only; spec locked).
+3. **RuntimeRouter promotion** STAGE 1b→2 (BUILD-only; scaffold exists).
+4. **AnswerPacket emit wiring** (BUILD-only; spec locked this pass).
+5. **W-51 shadow-recall + embedding-parity** (BUILD-only; spec + falsifier ready).
+6. **Spine commitment** (Mamba-3 vs a hybrid like B'MOJO) — needs an **owner directive** + M0/B3 evidence.
+
+**RECOMMENDATION:** the research+design loop has largely accomplished its mandate. Suggest **either** (a)
+the owner lifts the `docs_first` hold and the work shifts to BUILDING M0 (the single highest-leverage next
+action), **or** (b) keep the loop in light refresh mode (external-research-only, ~weekly) since the
+design space is now mapped. Continuing nightly deep passes risks churn — future passes should be external
+refresh + readout maintenance UNLESS a new owner directive opens a new axis. (Not pausing unilaterally;
+flagging it per the honesty gate.)
+
+### PASS 15 summary
+Genuinely-new on both axes. SSM-hybrid query source-carded Jamba/Hymba/Zamba + the NEW 2026 B'MOJO/Priming
+(SSM+SWA-in-one-sublayer; distill-from-Transformer — ties to the repo's MOHAWK), and surfaced the **Jamba
+ICL-ablation as the empirical grounding for "attention is an interrupt."** RESOLVED the long-deferred
+**Mamba-3↔M0** question: M0 toy = a **vanilla state-tracking-weak linear SSM** (NOT Mamba-3) so the
+interrupt is the clean single variable; **Mamba-3 deferred to B3** (its complex state is what M1 Bauer-Fike
+governs + B3's kernel targets) — locked into the M0 spec. Spec'd the **AnswerPacket first-caller wiring**
+(StreamingDelegate emits one per end-of-turn with honest `attention_mode`; `F-AnswerPacket-Emitted`;
+implemented→wired) closing the S-CONN downlink at runtime. Updated the readout. **Honesty/convergence note:**
+the loop is converging — remaining open questions are almost all BUILD-only (M0/M1/RuntimeRouter/
+AnswerPacket/W-51) or need an owner spine-commitment directive; recommended shifting to BUILD (M0) or light
+weekly refresh rather than nightly deep passes, to avoid churn. All T0/T1 write-plan; no authority docs
+edited; no code created.
