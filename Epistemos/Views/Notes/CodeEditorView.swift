@@ -1784,6 +1784,12 @@ struct CodeEditorView: View {
     let language: String
     let filePath: String?  // Optional: for code-to-graph linking
     let onContentChange: ((String) -> Void)?
+    /// SS-GC (owner 2026-06-20): when the code editor is mounted inside the embedded
+    /// home-graph surface, its top bar must paint the GRAPH backdrop so it isn't a white
+    /// card slab against the darker landing surround. nil = the standalone / notes /
+    /// detached-window appearance (the card top bar), unchanged. Mirrors the prose
+    /// branch's `themeOverride` (NoteDetailWorkspaceView).
+    let themeOverride: EpistemosTheme?
 
     @Environment(UIState.self) private var ui
     @Environment(NoteChatState.self) private var noteChatState: NoteChatState?
@@ -1857,14 +1863,32 @@ struct CodeEditorView: View {
         content: String,
         language: String,
         filePath: String? = nil,
-        onContentChange: ((String) -> Void)? = nil
+        onContentChange: ((String) -> Void)? = nil,
+        themeOverride: EpistemosTheme? = nil
     ) {
         self.initialContent = content
         self.language = language
         self.filePath = filePath
         self.onContentChange = onContentChange
+        self.themeOverride = themeOverride
         _text = State(initialValue: content)
         _totalLines = State(initialValue: CodeEditorLineMetrics.lineCount(content))
+    }
+
+    /// SS-GC: the code-editor top-bar fill. With a `themeOverride` (embedded home graph)
+    /// it paints the SAME window backdrop as the graph surround
+    /// (`AppWindowBackdropStyle.background`, as HomeGraphEmbeddedView does) so the bar
+    /// blends instead of popping as a white card. Without one (standalone / notes /
+    /// detached window) it keeps the existing card slab — byte-for-byte unchanged. Pure +
+    /// testable (MainActor — flatBackground is MainActor-isolated).
+    static func resolvedTopBarBackground(
+        themeOverride: EpistemosTheme?,
+        base: EpistemosTheme
+    ) -> Color {
+        if let themeOverride {
+            return AppWindowBackdropStyle.background(for: themeOverride)
+        }
+        return MarkdownPreviewSurfaceStyle.flatBackground(for: base.surfaceVariant(.other))
     }
 
     var body: some View {
@@ -2164,7 +2188,9 @@ struct CodeEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: ui.theme.surfaceVariant(.other)))
+        // SS-GC: in the embedded home graph this paints the graph backdrop (no white
+        // card slab); standalone / notes / detached keeps the card. See resolvedTopBarBackground.
+        .background(Self.resolvedTopBarBackground(themeOverride: themeOverride, base: ui.theme))
         .sheet(isPresented: $showGoToLineSheet) {
             GoToLineSheet(
                 lineNumber: $goToLineNumber,
