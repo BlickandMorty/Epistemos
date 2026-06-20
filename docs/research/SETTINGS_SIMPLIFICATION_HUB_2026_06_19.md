@@ -336,3 +336,14 @@ collapse all per-row `startTimer()` loops into ONE shared `TimelineView(.periodi
 `SubstrateHealthUnifiedClient.snapshot()` OFF the MainActor (background actor → hop back to set @State) + fans to
 rows; ~15 FFI/sec→1.** Plus retire the 2 orphan rows (SS-F). Precedent: ApprovalModalView already converted to
 TimelineView. Full: SS-SH doc.
+**SS-FM FRONTMATTER/TAGS/SIDE-PANELS (md-v2 Epdoc)** → BIG positive: Epistemos ALREADY OWNS a complete Notion-style
+typed-property model + query engine for .epdoc (`EpdocProperty.swift` 8 kinds, `EpdocDatabase.swift` sort/group/
+schema-union, manifest-backed) — but ZERO property/inspector UI + no YAML frontmatter parse. Plus a reusable
+`WikilinkResolver` (backlink resolution) + Halo shadow index for `[[note]]`. So the feature is ~95% REUSE + a
+panel, not a build-from-scratch. **Design (Tolaria-style right inspector rail, pixel-art): (a) Properties panel
+rendering EpdocPropertyMetadata read/write through the existing writer→autosave; (b) frontmatter↔manifest.metadata
+bridge (net-new, gated on SS-EM md-flip); (c) tags = frontmatter multiSelect (free tag index via EpdocDatabase
+.grouped) + an inline #tag Tiptap node; (d) clickable [[note]] + backlinks panel reusing WikilinkResolver + shadow
+index; (e) right rail w/ exclusive Properties/Backlinks/Tags/TOC tabs, Cmd+Shift+I.** Agent edits go through the
+SAME property writer (SS-EM one-writer). Plan: read-only Properties panel + frontmatter parse [S]; editable props
++ tags + tag-index [M]; wikilinks + backlinks + full inspector [L]. Never touch TK2/vault/graph. Full: SS-FM doc.
