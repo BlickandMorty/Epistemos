@@ -94,6 +94,19 @@ intent) is mapped to a ledger item + slice + file:line plan. Nothing research-on
 (1d596891a); SS-U dark/light crash (749d2c889); SS-F settings honesty (3b214c1dd). The model-run crash (the #1
 blocker root) is fixed end-to-end.
 
+**SHIPPED in the 2026-06-20 overnight /loop (8 slices, each cargo/xcodebuild-gated + committed + pushed to
+main):** substrate-health panel FFI freeze fix completed across ALL health rows (off-MainActor polling; SS-SH —
+`f983a1d92`/`3dba72114`/`a7d89767e`); cloud-profiles-in-picker FFI + the `ModelCapabilityProfile` CLOUD_CANON
+half + a single `resolve_profile` local+cloud resolver (SS-AB — `e279bfad2`); local repair-token streaming, killing
+the masked `{ _ in }` decode (SS-AL #1 — `f26924ccf`); the Gemma-4-12B-general vs 12B-Coder profile split, fixing a
+real mislabel (SS-AB — `2b2f8321b`); per-model context-window resolver + FFI + picker badge (SS-AB —
+`251f371d8`/`6f1b78aad`); cloud-provider use-case line surfaced in Settings, wiring the previously-dead cloud
+resolver branch (SS-AB — `7b5dd8eb4`); SS-W GGUF-template + family-dialect invariant guards (`9485ad7a8`). The
+picker/profile/cloud arc is now COMPLETE + hardened with one Rust source of truth. DEFERRED to owner-awake (need a
+Pro build / are too large to verify unattended): #6 SS-Y masked logit (real grammar masking), #7c LoRA-apply
+keystone (Pro-gated `#if !EPISTEMOS_APP_STORE` — MAS build can't verify), claude.rs mid-stream retry + cancellation
+(needs trait-wide token threading).
+
 **TOP UNCODED — do these next (highest owner value, all researched with file:line):**
 1. **Model-install PER-ROW Install button** (SS-G) — `ModelStackSettingsView` per-row Install wired to
    `install(modelID:)` + `presentationState` + progress, so the named GGUF models (Gemma/LFM2/VibeThinker) install
