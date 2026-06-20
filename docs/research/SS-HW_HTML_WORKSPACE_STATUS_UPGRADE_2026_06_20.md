@@ -53,3 +53,44 @@ Reuse: WKWebView+bridge+URL-scheme (Epdoc `EpdocEditorChromeView.swift:610-647`)
 GateStatus (`ActOsaurusGateStatus`); provenance (`OsaurusVendorProvenance`); agent edit pipeline (`HTMLWorkspacePatchRouter`,
 exists — extend, don't rebuild). Cross-ref SS-EM/SS-O (Epdoc), SS-HGT (host inline in the graph tunnel). Sources: Pyodide
 bundler/offline docs + CSP `wasm-unsafe-eval` (WKWebView local .wasm needs URL-scheme handler) + WKWebView CSP hardening.
+
+---
+
+## EXPANSION (owner 2026-06-20): chat fully REWRITES the surface into a website/explainer + which chat drives it
+Owner: *"I want chat to literally completely redo the entire surface to look like a whole website/webpage — the DOM, the
+live UI, animations, all of it. Even asking chat to explain something — I want it to explain using JSON/HTML streaming, by
+literally creating a webpage / an explainer based on what it knows it can do on that surface. Make the surface flexible +
+dynamic enough to do all of these. And I want to chat with it via the mini chat — and maybe the main chat. The mini chat
+works for all surfaces but the main chat isn't automatically linked to all surfaces, so I'm not sure how that should go.
+Research + document + deliberate."* Confirmed in code: NO whole-surface rewrite/regenerate or `streamHTML` path exists
+today (grep clean); the patch router does incremental edits only.
+
+### (5) FULL-SURFACE GENERATE / "Explainer mode" [M→L] — a regenerate op on top of the Step-4 scaffold
+- Add a **`regenerate`/`replaceDocument` patch op** to `HTMLWorkspacePatchCommand` (`:67`) + `HTMLWorkspacePatchRouter`
+  (`:450`) that swaps the ENTIRE multi-file package (index/style/main/data + assets/routes from Step 4) in one transaction,
+  versioned + provenance-stamped (so it's undoable and obviously AI-authored — same trust principle as SS-IL's "obviously
+  AI" separation). Chat says "make this a landing page about X" → the agent emits a full HTML/CSS/JS doc → it streams into
+  the surface and the WKWebView hot-reloads (reuse Step 2's live-apply fast path; no jarring full teardown — diff+swap).
+- **Streaming UX:** stream the generated doc with a skeleton/loading state; on completion, render. Animations/live DOM are
+  just the generated page's own CSS/JS (already supported by the WKWebView) — no special engine needed once Step 1-4 land.
+- **Explainer-from-knowledge:** "explain X" → the agent composes an HTML/JSON explainer grounded in vault/model knowledge
+  (cross-ref SS-WL recall + SS-MV vault context) and renders it as a mini web-page on the surface. JSON path = a structured
+  explainer schema the surface template renders (deterministic), HTML path = freeform doc. Honest provenance + a "generated
+  by AI" chrome (SS-IL/SS-CLEAN separation principle) so the user never confuses it with hand-authored content.
+- **Guardrails (SS-CLEAN, MAS-safe):** all generation flows through the in-process chat/patch pipeline (no runtime
+  subprocess); CSP per sandbox mode; generated JS can't escape the WKWebView; every regenerate is versioned + reversible.
+
+### (6) Which chat drives it — mini-chat (all surfaces) vs main-chat
+- **Mini-chat is the right primary driver** — it already targets ANY surface via `MiniChatTarget` (`Models/DocumentSurface.swift:81-109`:
+  carries `surfaceID`, `surfaceKind`, `pane`, `selectedRange`, `snippet`, `allowedOperations`). So "chat to rewrite/explain
+  on this HTML surface" = a mini-chat session bound to the `htmlWorkspace` surface with `regenerate` in `allowedOperations`.
+  This is the clean, already-architected path; lean on it.
+- **Main-chat linking is the open question** — the main chat is NOT auto-bound to a surface. RECOMMENDATION (research
+  verdict): do NOT auto-link the main chat to every surface (that's the muddiness the owner fears — ambiguous "which
+  surface am I editing?"). Instead add an EXPLICIT, minimal "target this surface" affordance from the main chat (a surface
+  picker / "send to HTML workspace" action that constructs the same `MiniChatTarget`). One deliberate gesture, not implicit
+  global linking. Keeps the surface-routing model honest (`ArtifactRoute` decides the surface; chat targets it explicitly).
+  Decision DEFERRED to owner if they want main-chat auto-link — flagged; default = explicit-target-only.
+- Cross-ref: SS-2S (surface coexistence), SS-IL (AI-authored separation), SS-WL/SS-MV (knowledge for explainers), SS-HGT
+  (host the HTML surface inline in the graph tunnel). Tests: regenerate swaps the whole package atomically + is reversible;
+  mini-chat bound to htmlWorkspace can issue regenerate; main-chat requires an explicit target (no implicit global edit).
