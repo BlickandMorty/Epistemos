@@ -22,6 +22,8 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
 | SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ☐ |
 | SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ☐ |
+| SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ☐ |
+| SS-I | EXTERNAL SKILL ECOSYSTEMS (owner 2026-06-19) — Anthropic/Claude Agent-Skills (SKILL.md + anthropics/skills), Vercel (AI-Elements/skills), Google, etc. — what to adopt/clone natively as skill/tool sources for the app + all engines | ☐ |
 
 ## FINDINGS LOG (appended each pass)
 _(Pass 1 in flight — SS-A cloned-app simplification + SS-B app's own settings.)_
