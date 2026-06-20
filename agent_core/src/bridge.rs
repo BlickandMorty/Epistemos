@@ -261,6 +261,22 @@ pub fn agent_core_policy_profile() -> String {
     }
 }
 
+/// SS-AB/SS-Z (owner: "on the model picker there should be a brief description of
+/// its use case"): the SHORT per-model use-case line for the model picker. ONE
+/// source of truth — resolved from `model_profile::profile_for`, so the Swift
+/// picker reads the Rust profile instead of duplicating the copy. Returns an empty
+/// string for an unknown/uncanonical model id (the picker then keeps its generic
+/// tier tagline).
+#[uniffi::export]
+pub fn model_picker_use_case(model_id: String) -> String {
+    let profile = crate::model_profile::profile_for(&model_id);
+    if profile.id == "unknown" {
+        String::new()
+    } else {
+        profile.picker_use_case.to_string()
+    }
+}
+
 #[derive(uniffi::Record)]
 pub struct ReasoningTrajectoryMetricsFFI {
     pub displacement: f64,
