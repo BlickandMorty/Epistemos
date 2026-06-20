@@ -57,4 +57,17 @@ struct PickerUseCaseTests {
         #expect(InlineRuntimePickerPanel.formatContextWindow(1_048_576) == "1M")
         #expect(InlineRuntimePickerPanel.formatContextWindow(1_500_000) == "1.5M")
     }
+
+    @Test("the Settings cloud provider rows show the use-case line from the same FFI")
+    func cloudProviderRowWiresUseCase() throws {
+        let settings = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/SettingsView.swift"
+        )
+        // The cloud provider row resolves its copy from the SAME Rust FFI as the
+        // local picker — provider.rawValue resolves by brand in picker_use_case_for,
+        // so the cloud branch of the resolver is now actually surfaced.
+        #expect(settings.contains("modelPickerUseCase(modelId: provider.rawValue)"))
+        #expect(settings.contains("cloudProviderUseCase(for: provider)"))
+        #expect(settings.contains("import agent_coreFFI"))
+    }
 }

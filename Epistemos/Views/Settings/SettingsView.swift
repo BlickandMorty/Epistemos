@@ -3,6 +3,9 @@ import AVFoundation
 import os
 import SwiftUI
 import UniformTypeIdentifiers
+#if canImport(agent_coreFFI)
+import agent_coreFFI
+#endif
 
 private let settingsViewLogger = Logger(subsystem: "Epistemos", category: "SettingsView")
 
@@ -2102,11 +2105,34 @@ private struct InferenceDetailView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
 
+            // SS-AB: the provider's cloud use-case line, resolved from the SINGLE
+            // Rust ModelCapabilityProfile cloud canon (same source as the local
+            // picker copy) so the owner can compare providers before switching.
+            if let useCase = cloudProviderUseCase(for: provider) {
+                Text(useCase)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
             if hasConfiguredAccess {
                 providerNativeControls(for: provider)
             }
         }
         .padding(.vertical, 4)
+    }
+
+    /// SS-AB: the cloud provider's SHORT use-case line for the provider rows,
+    /// resolved from the single Rust ModelCapabilityProfile cloud canon via the
+    /// `model_picker_use_case` FFI (`provider.rawValue` — "anthropic" / "openAI" /
+    /// … — resolves by brand). `nil` on an FFI-less host or an unrecognized
+    /// provider, so the row simply omits the line.
+    private func cloudProviderUseCase(for provider: CloudModelProvider) -> String? {
+        #if canImport(agent_coreFFI)
+        let line = modelPickerUseCase(modelId: provider.rawValue)
+        return line.isEmpty ? nil : line
+        #else
+        return nil
+        #endif
     }
 
     private func activeCloudModelBinding(
