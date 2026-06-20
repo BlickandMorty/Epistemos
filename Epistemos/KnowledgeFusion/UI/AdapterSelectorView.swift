@@ -9,22 +9,24 @@ struct AdapterSelectorView: View {
 
     var body: some View {
         Menu {
-            Button {
-                Task { await vm.deactivateAdapter() }
-            } label: {
-                Label("None (Base Model)", systemImage: "cpu")
-            }
-
-            Divider()
-
-            ForEach(vm.installedAdapters) { adapter in
+            // SS-AD: name the action — selecting here APPLIES the adapter to local chat
+            // (it reloads the on-disk active adapter into the next local response).
+            Section("Apply to local chat") {
                 Button {
-                    Task { await vm.activateAdapter(adapter) }
+                    Task { await vm.deactivateAdapter() }
                 } label: {
-                    HStack {
-                        Label(adapter.name, systemImage: iconForType(adapter.type))
-                        if adapter.isActive {
-                            Image(systemName: "checkmark")
+                    Label("None (Base Model)", systemImage: "cpu")
+                }
+
+                ForEach(vm.installedAdapters) { adapter in
+                    Button {
+                        Task { await vm.activateAdapter(adapter) }
+                    } label: {
+                        HStack {
+                            Label(adapter.name, systemImage: iconForType(adapter.type))
+                            if adapter.isActive {
+                                Image(systemName: "checkmark")
+                            }
                         }
                     }
                 }
