@@ -4104,3 +4104,20 @@ native; AGPL server). ADOPT 2 patterns natively:
       truth, JSON/HTML derived (the differentiator vs Notion + naive Tiptap). Speed: reuse perf wave, lazy heavy blocks,
       opens as fast as Prose. NEVER touch TK2/Prose. Anti-mud (SS-CLEAN): one md serializer + one wikilink seam shared w/
       SS-WL. Sequenced INSIDE EPDOC_MD_V2; SS-EDGE is the bar, not a parallel track.
+- [ ] **TWO-SURFACE coexistence + cross-surface fidelity, NO data loss (owner 2026-06-20).** *"Prose/TextKit2 can deviate
+      from Epdoc; if Epdoc MD-v2 is the main md editor it could or couldn't be — but there are two surfaces, respect both,
+      both have use cases. Quick capture: option to choose which surface. Granular BUT minimal choices — balance usefulness
+      with minimalism/UX; don't let it get muddy/cloned/left to rot. CRITICAL: editing in Prose then switching to Epdoc, I
+      don't want things to disappear/reappear — e.g. images embedded in md show in Epdoc but NOT in Prose/TK2 → ambiguity
+      confuses users. Want a caveat / robust UX without destroying data or regressing any surface. Upgrade the Prose editor
+      if you can, else leave/minimally upgrade."* RESEARCHED (code file:line + Obsidian UX) →
+      `docs/research/SS-2S_TWO_SURFACE_FIDELITY_PROSE_EPDOC_2026_06_20.md`. GROUND TRUTH: Prose is ALREADY md-backed
+      (SDPage + .md file); Epdoc is JSON-first (EPDOC_MD_V2 inverts it); NO surface-switch exists; image asymmetry is
+      STRUCTURAL (Rust `graph-engine/src/markdown.rs` parser has NO image token → md images invisible in Prose, render in
+      Epdoc); TWO real DATA-LOSS bugs (Prose inserted-images dropped on save `ProseTextView2.swift:1786-1808`; Epdoc
+      shadow.md lossy). FIX: (A) MUST — persist Prose inserted-images to `![](assets/…)` md + render md images in Prose
+      (add image token to the Rust parser — the "upgrade Prose" path); (B) honest non-destructive caveat chip where a
+      surface can't render something (md text always preserved); (C) explicit view-switch over ONE md AFTER EPDOC_MD_V2
+      Phase 3 (no lossy JSON↔md converter); (D) quick-capture destination picker (default Prose, minimal toggle to Epdoc;
+      extends SS-QC). Obsidian model = views over one md file (unify truth, differ rendering). One serializer/asset/wikilink
+      seam shared (SS-CLEAN anti-mud). NEVER damage TK2/Prose. Test: insert image→save→reload→present in BOTH surfaces.
