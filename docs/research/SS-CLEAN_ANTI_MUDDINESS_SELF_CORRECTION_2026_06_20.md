@@ -49,3 +49,33 @@ Self-correction NEVER deletes owner work or scope-boundary domains (dual-brain, 
 loop's own surfaces. Corrections are committed with a clear message + cite this slice. Honest: if a scan finds nothing,
 say so; if it finds something it can't safely fix inline, log it as a ledger item rather than forcing a risky edit.
 Cross-ref SS-WL, SS-MV, SS-BWB (the decomposition backlog is the structural side of the same anti-mud goal).
+
+---
+
+## OWNER-REQUEST COVERAGE SWEEP (owner 2026-06-20: "make a cycle in the plan so nothing I asked for is left out")
+A SEPARATE recurring cycle from the muddiness gate — its job is **completeness of owner intent**, not code cleanliness.
+The owner's concern: things get "missed or interrupted" mid-request (a long voice message, a compaction, a park). This
+sweep guarantees every owner ask becomes a tracked, slice-backed, built deliverable.
+
+### The cycle (run end-of-batch, and on every monitor fire as the last-auditor)
+1. **Every owner directive → a ledger `[ ]` line, verbatim.** Each new owner message is captured verbatim (not paraphrased)
+   the moment it arrives, BEFORE any work, so an interruption can't drop it.
+2. **Every ledger `[ ]` → a research slice + a place in the build order.** Sweep: does each open item name an SS-*/EPDOC
+   slice AND appear in the loop's NEXT-order (cron)? If an item has no slice → research it; if it has a slice but isn't in
+   the order → insert it; if it's done → check it off honestly (only when user-facing end-to-end).
+3. **Every slice → referenced by the ledger OR the finalization index (no orphans).** Sweep: `for each SS-*_<date>.md, is
+   it referenced?` An unreferenced slice = a deliverable that could rot unbuilt. Add it to the index.
+4. **Multi-part asks: each sub-bullet tracked.** Long owner messages often pack 3-6 asks; decompose into separate `[ ]`
+   lines so a sub-ask isn't swallowed by the headline one (e.g. the theme-hang message also carried quick-capture + TTS +
+   /loop-cadence + pill — each its own line).
+5. **Report gaps, don't paper over.** If the sweep finds an uncaptured/un-sliced/un-ordered ask, surface it as a fresh
+   ledger item + (if needed) a slice; never silently assume it's covered.
+- Scriptable sweep helpers: `grep -c '^- \[ \]' <ledger>` (open count); per-item slice-ref check; orphan scan
+  (`for s in SS-*_<date>.md; grep -l "$s" <ledger> <index>`). Run cheaply each batch; deeper pass at end-of-cycle.
+
+### First sweep result (2026-06-20)
+167 open ledger items. Slice-coverage of the recent owner asks: OK (each names its slice). Orphan scan flagged 5 slices
+not referenced in ledger/index: **SS-AL** (agent-loop robustness — DONE), **SS-Y** (masked-logit — DONE), **SS-FM**
+(frontmatter/tags — folded into EPDOC_MD_V2), **SS-UMA** (instant-recall zero-copy — folded into SS-IR), **SS-SH**
+(substrate-health — its own active item, blank-sidebar still open). Action: recorded them in the finalization index's active
+set so none rots. No owner ask found dropped — the catch was index-completeness, exactly what the sweep is for.

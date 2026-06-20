@@ -38,6 +38,18 @@ carry exact file:line evidence (SS-CR, SS-MV, SS-2S, SS-GC, SS-THX, SS-DD).
 11. ⏳ SS-ALIVE + SS-PERF2 — remaining fluid animations + perf wins.
 12. ⏳ SS-SH — blank Settings SIDEBAR (panel `.formStyle` already landed; sidebar still blank — NOT a test-only "done").
 13. ⏳ SS-LS / SS-AD / SS-XR — MLX-LoRA-Studio integration, adapter UX, external training repos (NON-Companion parts).
+14. ⏳ SS-IL — inline note-AI: keep streaming + send animation + pixel-art scroll-down arrow + "cold box" AI separation
+    + **Metal streaming overlay** (SwiftUI `.layerEffect`/`TimelineView`, reuse `Shaders/ThinkingGlow.metal`; "materialize→
+    dissolve→editable" hand-off; overlay only, `allowsHitTesting(false)`, no idle GPU).
+15. ⏳ SS-IR — instant-recall: VERIFIED wired+enabled but invisible w/o hits/vault-search-service → discoverable resting
+    bubble + empty-state + health diagnostic, then bubble→NSPopover + add to Epdoc.
+16. ⏳ SS-HW — HTML workspace: honesty GateStatus → upgrade; chat full-surface `regenerate` into website/explainer (HTML/JSON
+    streaming, atomic/versioned/reversible); mini-chat primary driver / main-chat explicit-target-only.
+
+### Coverage-completeness note (Owner-Request Coverage Sweep, SS-CLEAN)
+Previously-unindexed slices now tracked so none rots: **SS-AL** (agent-loop robustness — DONE), **SS-Y** (masked-logit —
+DONE), **SS-FM** (frontmatter/tags — folded into EPDOC_MD_V2 Phase 4), **SS-UMA** (instant-recall zero-copy — folded into
+SS-IR), **SS-SH** (substrate-health — = item 12, blank sidebar still open). The sweep is now a recurring discipline (SS-CLEAN).
 
 ## MAJOR CYCLES (sequenced after the quick wins)
 - **EPDOC md-first editor** — authority `EPDOC_MD_V2_BUILD_SEQUENCE_2026_06_20.md` (7 phases). Acceptance bar = **SS-EDGE**
