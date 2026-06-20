@@ -75,6 +75,8 @@ pub enum ModelLane {
     Gguf,
     /// Experimental / research lane (honest, not advertised as production).
     Research,
+    /// Remote cloud provider (Claude / OpenAI / Gemini / …) over its HTTP API.
+    Cloud,
 }
 
 /// The capability tier the foundation lineup advertises (Fast / Think / Code).
@@ -279,6 +281,107 @@ pub const DEFAULT_PROFILE: ModelCapabilityProfile = ModelCapabilityProfile {
     advertised: false,
 };
 
+/// Cloud-provider capability profiles (SS-AB plan #2; owner 2026-06-20 "all model
+/// profiles — local AND cloud — updated + hardened"). Context windows seeded from
+/// the public LiteLLM capability table, bundled offline (MAS-safe — no network at
+/// load). Keyed by the `CloudModelProvider` slug so the cloud lane resolves the
+/// SAME single source as the local lanes. `prompt_dialect = None`: cloud models
+/// speak their own API format, not the local llama-cli dialects (stop tokens /
+/// chat-template names don't apply). Values are current as of 2026-06 — HARDENED
+/// (no stale/fake ctx); update as providers change.
+pub const CLOUD_CANON: &[ModelCapabilityProfile] = &[
+    ModelCapabilityProfile {
+        id: "anthropic",
+        display_name: "Claude",
+        context_window: 200_000,
+        max_output_tokens: 64_000,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Cloud,
+        tier: CapabilityTier::Think,
+        picker_use_case: "Best reasoning + agentic tools (cloud)",
+        advertised: true,
+    },
+    ModelCapabilityProfile {
+        id: "openai",
+        display_name: "ChatGPT",
+        context_window: 272_000,
+        max_output_tokens: 128_000,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Cloud,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Strong all-round cloud model",
+        advertised: true,
+    },
+    ModelCapabilityProfile {
+        id: "google",
+        display_name: "Gemini",
+        context_window: 1_048_576,
+        max_output_tokens: 65_536,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Cloud,
+        tier: CapabilityTier::Think,
+        picker_use_case: "Huge context · multimodal (cloud)",
+        advertised: true,
+    },
+    ModelCapabilityProfile {
+        id: "deepseek",
+        display_name: "DeepSeek",
+        context_window: 128_000,
+        max_output_tokens: 32_000,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Cloud,
+        tier: CapabilityTier::Think,
+        picker_use_case: "Strong reasoning + coding (cloud)",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "kimi",
+        display_name: "Kimi",
+        context_window: 256_000,
+        max_output_tokens: 32_000,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Cloud,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Long-context cloud agent",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "zai",
+        display_name: "Z.AI",
+        context_window: 128_000,
+        max_output_tokens: 32_000,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Cloud,
+        tier: CapabilityTier::Code,
+        picker_use_case: "Open cloud model · strong coding",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "minimax",
+        display_name: "MiniMax",
+        context_window: 1_000_000,
+        max_output_tokens: 32_000,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Cloud,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Ultra-long-context cloud model",
+        advertised: false,
+    },
+];
+
+/// Honest generic cloud default for an unknown provider (no panic, no fake).
+pub const CLOUD_DEFAULT_PROFILE: ModelCapabilityProfile = ModelCapabilityProfile {
+    id: "cloud",
+    display_name: "Cloud model",
+    context_window: 128_000,
+    max_output_tokens: 16_384,
+    prompt_dialect: PromptDialect::None,
+    lane: ModelLane::Cloud,
+    tier: CapabilityTier::Fast,
+    picker_use_case: "Cloud model",
+    advertised: false,
+};
+
 /// Resolve a model id/path/slug to its capability profile by family (best-effort
 /// substring match, order-sensitive so e.g. a DeepSeek-R1-Distill-Qwen id maps to
 /// the reasoning profile, not Qwen). Returns [`DEFAULT_PROFILE`] for unknowns —
@@ -328,6 +431,30 @@ pub fn profile_for(model_id: &str) -> ModelCapabilityProfile {
 /// Returns a reference into [`CANON`]; falls back to [`DEFAULT_PROFILE`].
 fn find(id: &str) -> &'static ModelCapabilityProfile {
     CANON.iter().find(|p| p.id == id).unwrap_or(&DEFAULT_PROFILE)
+}
+
+/// Resolve a cloud provider slug (the `CloudModelProvider` raw value — "anthropic",
+/// "openai", "google", "zai", "kimi", "minimax", "deepseek" — or a common alias) to
+/// its capability profile from [`CLOUD_CANON`]. Falls back to [`CLOUD_DEFAULT_PROFILE`]
+/// for an unknown provider — never a panic, never fake.
+pub fn cloud_profile(provider: &str) -> ModelCapabilityProfile {
+    let key = match provider.to_lowercase().as_str() {
+        "claude" => "anthropic",
+        "chatgpt" | "gpt" => "openai",
+        "gemini" => "google",
+        "glm" => "zai",
+        "moonshot" => "kimi",
+        other => return CLOUD_CANON
+            .iter()
+            .find(|c| c.id == other)
+            .copied()
+            .unwrap_or(CLOUD_DEFAULT_PROFILE),
+    };
+    CLOUD_CANON
+        .iter()
+        .find(|c| c.id == key)
+        .copied()
+        .unwrap_or(CLOUD_DEFAULT_PROFILE)
 }
 
 /// The advertised "best" models, in canonical order (for the picker's
@@ -424,5 +551,44 @@ mod tests {
         for p in advertised() {
             assert!(p.gguf_runtime_ctx(16.0) > 4096, "{} still <=4096", p.id);
         }
+    }
+
+    #[test]
+    fn cloud_profiles_are_current_and_hardened() {
+        // Owner 2026-06-20: every cloud model gets a CURRENT + HARDENED profile —
+        // real (large) context, honest copy, the cloud lane, and NO local dialect
+        // machinery (cloud speaks its own API format).
+        assert!(!CLOUD_CANON.is_empty());
+        for c in CLOUD_CANON {
+            assert_eq!(c.lane, ModelLane::Cloud, "{} not Cloud lane", c.id);
+            assert!(c.context_window >= 100_000, "{} ctx too small/stale", c.id);
+            assert!(c.max_output_tokens > 0, "{} no output budget", c.id);
+            assert!(!c.picker_use_case.is_empty(), "{} empty picker copy", c.id);
+            assert!(
+                c.picker_use_case.chars().count() <= 60,
+                "{} picker copy too long",
+                c.id
+            );
+            // Cloud uses its own API format — no llama-cli stop tokens / template.
+            assert!(c.stop_tokens().is_empty(), "{} should have no local stops", c.id);
+            assert!(c.llama_cpp_template_name().is_none(), "{} no local template", c.id);
+        }
+    }
+
+    #[test]
+    fn cloud_profile_resolves_every_provider_and_aliases() {
+        assert_eq!(cloud_profile("anthropic").display_name, "Claude");
+        assert_eq!(cloud_profile("claude").display_name, "Claude"); // alias
+        assert_eq!(cloud_profile("openai").display_name, "ChatGPT");
+        assert_eq!(cloud_profile("gpt").display_name, "ChatGPT"); // alias
+        assert_eq!(cloud_profile("google").display_name, "Gemini");
+        assert_eq!(cloud_profile("gemini").display_name, "Gemini"); // alias
+        assert_eq!(cloud_profile("deepseek").context_window, 128_000);
+        // Gemini's huge context window is current (1M+).
+        assert!(cloud_profile("google").context_window >= 1_000_000);
+        // Claude's extended output budget is real, not the old 8K.
+        assert!(cloud_profile("anthropic").max_output_tokens >= 32_000);
+        // Unknown provider → honest cloud default, never a panic.
+        assert_eq!(cloud_profile("brand-new-cloud-v9").id, "cloud");
     }
 }
