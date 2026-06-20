@@ -453,6 +453,13 @@ struct RootView: View {
                     landingGreetingToolbarButton
                     historyToolbarButton
                 }
+                // SS-AN: the landing buttons blur away (Apple blur-replace) when the
+                // embedded graph takes over — they don't hard-cut. Same easeOut(0.28)
+                // as the home↔graph driver; in graph the controls are blurred out so
+                // "only the graph is left".
+                .blur(radius: embeddedHomeGraphContentVisible ? 14 : 0)
+                .opacity(embeddedHomeGraphContentVisible ? 0 : 1)
+                .animation(.easeOut(duration: 0.28), value: embeddedHomeGraphContentVisible)
             }
 
             if activeHomeChat {

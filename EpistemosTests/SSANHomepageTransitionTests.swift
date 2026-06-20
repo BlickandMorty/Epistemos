@@ -50,4 +50,12 @@ struct SSANHomepageTransitionTests {
         #expect(!graph.contains("view.animator()"),
                 "no AppKit alpha animation on the graph canvas — set alphaValue immediately")
     }
+
+    @Test("the landing toolbar controls blur out via embeddedHomeGraphContentVisible")
+    func toolbarControlsBlurOut() throws {
+        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+        #expect(root.contains(".blur(radius: embeddedHomeGraphContentVisible ? 14 : 0)"))
+        #expect(root.contains(".opacity(embeddedHomeGraphContentVisible ? 0 : 1)"))
+        #expect(root.contains(".animation(.easeOut(duration: 0.28), value: embeddedHomeGraphContentVisible)"))
+    }
 }
