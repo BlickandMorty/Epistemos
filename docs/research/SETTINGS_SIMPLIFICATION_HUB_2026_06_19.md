@@ -347,3 +347,15 @@ bridge (net-new, gated on SS-EM md-flip); (c) tags = frontmatter multiSelect (fr
 index; (e) right rail w/ exclusive Properties/Backlinks/Tags/TOC tabs, Cmd+Shift+I.** Agent edits go through the
 SAME property writer (SS-EM one-writer). Plan: read-only Properties panel + frontmatter parse [S]; editable props
 + tags + tag-index [M]; wikilinks + backlinks + full inspector [L]. Never touch TK2/vault/graph. Full: SS-FM doc.
+**SS-AL AGENT LOOP ROBUSTNESS (central engine deepening)** → cloud loop is SOLID (clean ReAct, real token
+streaming, thinking-block preservation, 3 compaction triggers, honest error-obs feedback, parallel tool calls,
+retries). **Local loop is where the gains are.** Confirms SS-Y with exact lines: **all local repair/structured
+generations use a no-op token sink `{ _ in }` (masked decode)** (`LocalAgentLoop:1083,1132`) → self-correction is
+invisible, user sees a stall — #1 fix = stream the repair tokens [low effort, high value]. **NEW high-value gap:
+mid-stream SSE errors are NOT retried** (`claude.rs:309` with_retry wraps only the SEND; a transport drop mid-stream
+aborts the whole agent run — `agent_loop:343`) → #2 fix = retry/resume mid-stream + thread the loop cancel.
+Confirms the SS-PERF `response_blocks.clone()` waste (L535/557/693). **CORRECTION: SS-PERF's 'no in-loop
+compaction' is partly WRONG — 3 in-loop triggers exist** (proactive 80% L296, reactive L660, MaxTokens L694).
+Also: 5 fragmented local repair builders → unify via HyperdynamicLoop (SS-Y); tool-call parser only accepts
+`<tool_call>`/JSON (SS-Z) → broaden; no outbound tool-INPUT redaction (SS-S ext). Ranked top fixes in the doc.
+Full: SS-AL doc.
