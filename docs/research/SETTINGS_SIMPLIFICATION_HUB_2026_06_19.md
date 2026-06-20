@@ -35,7 +35,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ☐ |
 | SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ☐ |
 | SS-T | PDF LIVE NATIVE VIEWER + MAX-OUT APPLE-NATIVE FRAMEWORKS (owner 2026-06-19) — PDFKit live viewer + QuickLook + sweep VisionKit/Translation/PencilKit/AppIntents/etc., integrate the high-value MAS-safe ones | ☐ |
-| SS-U | DARK/LIGHT MODE CRASH (owner 2026-06-19) — root-cause the appearance-switch crash (WKWebView colorScheme re-render/teardown race, theme CSS re-inject, force-unwraps) + harden the crashing surfaces | ☐ |
+| SS-U | DARK/LIGHT MODE CRASH (owner 2026-06-19) — root-cause the appearance-switch crash (WKWebView colorScheme re-render/teardown race, theme CSS re-inject, force-unwraps) + harden the crashing surfaces | ✅ done → SS-U_DARK_LIGHT_MODE_CRASH |
 | SS-V | AGGRESSIVE CODE-CHECKER ("nuclear …") (owner 2026-06-19) — identify the Cursor aggressive-review tool + wire an equivalent adversarial static-analysis checkpoint at MULTIPLE plan points | ☐ |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
 
@@ -118,4 +118,15 @@ window.onerror, empty Swift `.error` break (`:304`); (3) window-close drops the 
 (`shutdown()` doesn't `flushNow()` before detach, `:774-788`); (4) lossy markdown round-trip (no md-out
 serializer). **Repair (NOT touching TK2/Prose): surface JS errors [S]; flush-on-close [S]; fix panel coords
 [M]; harden ready-handshake + watchdog [M]; WKNavigationDelegate + process-termination reload [M]; Epdoc health
-row [M].** Tolaria-class rich UI = SS-P. Full: SS-O doc. (Slices SS-C/D/E/F + SS-P/Q/R/S + new SS-T/U/V queued.)
+row [M].** Tolaria-class rich UI = SS-P. Full: SS-O doc.
+**SS-U DARK/LIGHT MODE CRASH** → VERIFIED-from-code root: `HTMLWorkspacePreviewView` has `.id(previewRender
+Identity)` keyed on the **theme hash** (`HTMLWorkspaceEditorView.swift:340,617`) + `onChange(colorScheme)`
+re-stamps (`:33-35`) → every appearance flip **destroys+rebuilds the WKWebView mid-render** (`dismantleNSView`→
+`makeNSView`), the classic WebKit fault window; fires every toggle while the workspace preview is open =
+"often crashes." Root #2: `.id` recreation races the message-handler attach/detach. Root #3 (lower): Hologram
+Overlay KVO→`setLightMode` re-entering Metal mid-teardown (`:2276` missing the `==nil` guard `:934` has). CLEARED:
+no force-unwraps in color path, no `.sync` in callbacks, Epdoc/KaTeX WebViews hardened+not-recreated, WKProcess
+Pool-swap hypothesis STALE (removed). **Fix: drop the theme hash from the `.id` + push theme via `updateNSView`
+[S] — removes roots #1+#2, tiny change; re-entrancy-safe teardown [M]; HologramOverlay guard [M]; UI test [L].**
+Crash MECHANISM needs runtime repro (no `.ips` captured; only unrelated llama-completion inference crashes
+2026-06-16 present). Full: SS-U doc. (Slices SS-C/D/E/F + SS-P/Q/R/S/T/V queued.)
