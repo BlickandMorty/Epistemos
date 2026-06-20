@@ -497,6 +497,32 @@ mod tests {
     }
 
     #[test]
+    fn attention_mode_wire_values_are_frozen() {
+        // SUBSTRATE Phase 0b freeze (owner 2026-06-20, SUBSTRATE_BUILD_SEQUENCE): the serialized
+        // AttentionMode values are the CROSS-RUNTIME wire contract the Swift mirror
+        // (Epistemos/Models/AnswerPacket.swift + SubstratePhase0FreezeContractTests) and the future
+        // new model / Companion→Osaurus clones depend on. Renaming a variant is a wire break — this
+        // forces it to be a deliberate change paired with the Swift side.
+        assert_eq!(serde_json::to_string(&AttentionMode::Dynamic).unwrap(), "\"dynamic\"");
+        assert_eq!(
+            serde_json::to_string(&AttentionMode::StaticFallback).unwrap(),
+            "\"static_fallback\""
+        );
+        assert_eq!(serde_json::to_string(&AttentionMode::Unavailable).unwrap(), "\"unavailable\"");
+        // Honest default — never falsely dynamic (mirrors Swift `AttentionMode.default`).
+        assert_eq!(AttentionMode::default(), AttentionMode::Unavailable);
+        // The frozen key on the packet itself (must match Swift CodingKeys `attention_mode`).
+        let pkt = AnswerPacket::new(
+            AnswerPacketId::new("01H6XAKE0XSY1234567890ABCD"),
+            WitnessedStateId::new("ws-freeze"),
+            MutationEnvelopeId::new("me-freeze"),
+        )
+        .with_attention_mode(AttentionMode::StaticFallback);
+        let json = serde_json::to_string(&pkt).unwrap();
+        assert!(json.contains("\"attention_mode\":\"static_fallback\""));
+    }
+
+    #[test]
     fn static_fallback_attention_mode_requires_acknowledgement_claim() {
         let unacknowledged = AnswerPacket::new(
             AnswerPacketId::new("01H6XAKE0XSY1234567890ABCD"),
