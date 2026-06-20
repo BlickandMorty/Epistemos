@@ -37,9 +37,14 @@ struct SubstrateHealthClockTests {
     @Test("the migrated rows no longer own a per-row 1 Hz timer")
     func migratedRowsHaveNoSelfTimer() throws {
         let migrated = [
+            // Slice 1
             "Epistemos/Views/Settings/EmlObservatoryHealthRow.swift",
             "Epistemos/Views/Settings/CognitiveDagCountsHealthRow.swift",
             "Epistemos/Views/Settings/SubstrateDriftMonitorHealthRow.swift",
+            // Slice 2 — completes the unified-snapshot cluster
+            "Epistemos/Views/Settings/PlanePlacementHealthRow.swift",
+            "Epistemos/Views/Settings/CognitiveWeightClassHealthRow.swift",
+            "Epistemos/Views/Settings/UasAcsHealthRow.swift",
         ]
         for path in migrated {
             let row = try loadMirroredSourceTextFile(path)

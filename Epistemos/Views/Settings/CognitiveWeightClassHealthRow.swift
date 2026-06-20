@@ -7,7 +7,6 @@ import SwiftUI
 @MainActor
 public struct CognitiveWeightClassHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
-    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
@@ -47,14 +46,7 @@ public struct CognitiveWeightClassHealthRow: View {
                     : "badge taxonomy visible; enforcement remains T17/T14 follow-up"
             )
         }
-        .onAppear {
-            refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
-        }
+        .substrateHealthPoll { refresh() }
     }
 
     @ViewBuilder
@@ -95,17 +87,6 @@ public struct CognitiveWeightClassHealthRow: View {
     private func refresh() {
         // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
         Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
-    }
-
-    private func startTimer() {
-        refreshTask?.cancel()
-        refreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                refresh()
-            }
-        }
     }
 }
 
