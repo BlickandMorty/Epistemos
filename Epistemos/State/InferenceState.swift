@@ -4279,7 +4279,14 @@ final class InferenceState {
             // (Pre-foundation legacy MLX-only setups still fall through below so
             // nothing breaks before the foundation package lands.)
             if hasInstalledFoundationModel {
-                return nil
+                // SS-CR (owner 2026-06-20): degrade to a RUNNABLE local baseline instead of
+                // nil so a tier whose OWN model isn't installed serves a working local model
+                // rather than feeding the cloud mis-route / a dead "not ready" surface. Prefer
+                // the installed everyday Fast baseline; nil (no foundation baseline fits) lets
+                // routing fall to Apple Intelligence / the tier representative. The
+                // substitution stays HONEST — localModelResolutionState shows it
+                // (LocalRouteHonestyRow), so it's visible, never a silent swap.
+                return installedFoundationModelID(for: .fast)
             }
         }
 
@@ -4702,9 +4709,13 @@ final class InferenceState {
     }
 
     func effectiveChatSurfaceSelection(for operatingMode: EpistemosOperatingMode) -> ChatModelSelection {
-        if let pendingSelection = pendingUnavailableCloudIntentSelection(for: operatingMode) {
-            return pendingSelection
-        }
+        // SS-CR (owner 2026-06-20): a pending UNAVAILABLE cloud selection is UI-ONLY — the
+        // "reconnect to use X" badge, surfaced via `capabilityPreviewSelection` which keeps
+        // its own pending check. It must NEVER override EXECUTION routing. Picking a cloud
+        // model without access pins `.localMLX` (setPreferredChatModelSelection); EXECUTION
+        // must stay on that runnable local pin, else every turn routes to a cloud model with
+        // no credentials and fails "credentials rejected". The previous early return of
+        // `pendingUnavailableCloudIntentSelection` here was the live root cause — removed.
 
         if usesAutomaticCloudRouteForChatSurfaces,
            let autoModel = preferredAutoRouteCloudModel(for: operatingMode) {
@@ -4733,8 +4744,14 @@ final class InferenceState {
                     // Intelligence) can — mirrors .fast/.thinking/.agent. Closes
                     // the hidden-GPT route for Code: picking Code with a working
                     // local coder no longer silently routes to cloud.
+                    // SS-CR (owner 2026-06-20): cloud auto-escalation ALSO requires cloud to
+                    // be actually CONFIGURED — escalating to a credential-less cloud model
+                    // just fails "credentials rejected". When no local can serve AND cloud
+                    // isn't configured, fall through (Apple Intelligence / tier representative
+                    // / honest not-ready), never `.cloud`. Applied to all four tiers below.
                     if effectiveLocalTextModelID(for: operatingMode) == nil
-                        && !appleIntelligenceAvailable {
+                        && !appleIntelligenceAvailable
+                        && hasConfiguredCloudAccess(for: autoModel.provider) {
                         return .cloud(autoModel)
                     }
                 case .agent:
@@ -4747,7 +4764,8 @@ final class InferenceState {
                     // local agent model exists, fall through to the local
                     // resolution at the bottom, which returns
                     // `.localMLX(effectiveLocalAgentTextModelID)`.
-                    if effectiveLocalAgentTextModelID == nil {
+                    if effectiveLocalAgentTextModelID == nil
+                        && hasConfiguredCloudAccess(for: autoModel.provider) {
                         return .cloud(autoModel)
                     }
                 case .thinking:
@@ -4756,11 +4774,13 @@ final class InferenceState {
                     // escalation only when none can — mirrors .fast/.pro/.agent.
                     // Closes the hidden-GPT route for Think.
                     if effectiveLocalTextModelID(for: operatingMode) == nil
-                        && !appleIntelligenceAvailable {
+                        && !appleIntelligenceAvailable
+                        && hasConfiguredCloudAccess(for: autoModel.provider) {
                         return .cloud(autoModel)
                     }
                 case .fast:
-                    if effectiveLocalTextModelID == nil && !appleIntelligenceAvailable {
+                    if effectiveLocalTextModelID == nil && !appleIntelligenceAvailable
+                        && hasConfiguredCloudAccess(for: autoModel.provider) {
                         return .cloud(autoModel)
                     }
                 }
@@ -5211,7 +5231,13 @@ final class InferenceState {
         if let cached = cachedCloudAPIKeys[provider] {
             return cached
         }
-        guard !missingCloudAPIKeyProviders.contains(provider) else {
+        // SS-CR (owner 2026-06-20): `missingCloudAPIKeyProviders` is an all-"missing" SEED
+        // during the deferred bootstrap (initializeDeferredCloudCredentialState), NOT real
+        // Keychain state. Trusting it would reject a VALID key on the first send after launch
+        // ("credentials rejected" before the async snapshot lands). While bootstrapping, skip
+        // the seed and fall through to the live synchronous Keychain read below; the snapshot
+        // replaces this shortly. Once it lands, the missing-set is real and short-circuits.
+        if !isBootstrappingCloudCredentials, missingCloudAPIKeyProviders.contains(provider) {
             return nil
         }
         guard let key = keychainLoad(provider.apiKeyKeychainKey)?
