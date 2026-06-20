@@ -4259,3 +4259,14 @@ native; AGPL server). ADOPT 2 patterns natively:
       cocktail T0-deduped) — theoretical/available-to-build, NOT in app, behind the seam, never advertised. Pointer added to
       EPISTEMOS_LIVING_INDEX (write-plan only, owner-greenlit; authority content untouched; lattice-explainer not edited).
       ledger deletions 0.
+- [ ] **🔴🔴 P0 LAUNCH CRASH — app crashes as soon as it opens (owner 2026-06-20).** *"the app keeps crashing as soon as I
+      open it. Fix it + add to the plan."* DIAGNOSED (crash-log-grounded) → `docs/research/SS-CRASH_LAUNCH_CRASH_APPBOOTSTRAP_2026_06_20.md`.
+      Crash = `EXC_BREAKPOINT`/`SIGTRAP` via `_assertionFailure` (Swift precondition trap) in
+      `AppBootstrap.performPrimaryLaunchInitialization()` through a SwiftUI @Observable Attribute closure. ROOT (high conf):
+      REGRESSION from `3c89ae84f` (SS-IR Instant-Recall health diagnostic) — its stats() FFI / shadow-service access runs
+      during launch-init BEFORE the shadow backend is installed, tripping a `preconditionFailure` (AppBootstrap.swift:938
+      "accessed before initialization" and/or new diagnostic precondition ~:3071). FIX (P0): the diagnostic must DEGRADE
+      gracefully (honest "not ready" via guard/optional, NEVER precondition/fatalError); don't call stats() FFI from launch-init
+      or an observable getter — defer until after initializeShadowBackendIfReady() / lazy on Settings open; guard on
+      haloSearchService!=nil. Verify the app OPENS (with + without a vault). JUMPS AHEAD of substrate/feature work. Auditor add
+      to SS-CLEAN: startup-touching commits need a LAUNCH SMOKE check, not just unit-green (this was green-but-crashed-launch).
