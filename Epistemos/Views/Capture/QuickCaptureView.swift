@@ -306,6 +306,24 @@ struct QuickCaptureView: View {
                 .buttonStyle(.plain)
                 .disabled(isProcessing || isTranscribing)
 
+                // SS-QC (D): manual TTS read-back of the captured text. Reuses the shared
+                // AVSpeech synth via ReadAloudButton (auto-disables when empty; the live
+                // progress halo shows how much has been read). The auto-on-type read-back +
+                // voice preference are the follow-on slice. Honest note: "model voice" today
+                // is an AVSpeech persona — no neural/MLX TTS exists yet (cross-ref SS-Q).
+                ReadAloudButton(text: captureText, style: .iconWithProgress)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background {
+                        Rectangle()
+                            .fill(PixelPanelBackground.actionSurface(for: theme).opacity(0.84))
+                    }
+                    .overlay {
+                        Rectangle()
+                            .stroke(theme.border.opacity(theme.isDark ? 0.24 : 0.34), lineWidth: 1)
+                    }
+                    .help("Read the captured text aloud")
+
                 Button {
                     Task { await submitCapture() }
                 } label: {
