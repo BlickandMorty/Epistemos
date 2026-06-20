@@ -103,4 +103,28 @@ struct SubstrateHealthClockTests {
         // Sanity: the migrated counts row IS still mounted (we didn't break the panel).
         #expect(panel.contains("CognitiveDagCountsHealthRow()"))
     }
+
+    @Test("the 6 unified rows read the shared clock snapshot, not a per-tick FFI call each")
+    func unifiedRowsReadSharedSnapshotNotPerRowFFI() throws {
+        let unifiedRows = [
+            "EmlObservatoryHealthRow", "CognitiveDagCountsHealthRow",
+            "SubstrateDriftMonitorHealthRow", "PlanePlacementHealthRow",
+            "CognitiveWeightClassHealthRow", "UasAcsHealthRow",
+        ]
+        for name in unifiedRows {
+            let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/\(name).swift")
+            #expect(!row.contains("snapshotAsync()"),
+                    "\(name) still calls snapshotAsync() every tick — must read the shared clock snapshot")
+            #expect(row.contains("healthClock?.unified"),
+                    "\(name) must read the shared SubstrateHealthClock.unified snapshot")
+        }
+        // The shared clock is the SINGLE owner of the per-tick async unified fetch
+        // (6 identical FFI round-trips/sec collapsed to 1).
+        let clock = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthClock.swift")
+        #expect(clock.contains("private(set) var unified"))
+        #expect(clock.contains("func tickWithUnifiedRefresh()"))
+        let panel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
+        #expect(panel.contains("tickWithUnifiedRefresh()"),
+                "the panel driver must fetch the unified snapshot once per tick")
+    }
 }

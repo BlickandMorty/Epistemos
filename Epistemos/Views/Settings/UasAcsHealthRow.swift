@@ -13,6 +13,7 @@ import SwiftUI
 public struct UasAcsHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
     @State private var gates: UasAcsGateSnapshot
+    @Environment(SubstrateHealthClock.self) private var healthClock: SubstrateHealthClock?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
@@ -65,13 +66,10 @@ public struct UasAcsHealthRow: View {
                     : "anchor_registry.rs exists; MAS runtime adapter pending"
             )
         }
-        .substrateHealthPoll { refresh() }
-    }
-
-    private func refresh() {
-        // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
-        Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
-        gates = UasAcsGateSnapshot.load()
+        .substrateHealthPoll {
+            if let unified = healthClock?.unified { snapshot = unified }
+            gates = UasAcsGateSnapshot.load()
+        }
     }
 
     @ViewBuilder

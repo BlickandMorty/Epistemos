@@ -9,6 +9,7 @@ import SwiftUI
 @MainActor
 public struct SubstrateDriftMonitorHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
+    @Environment(SubstrateHealthClock.self) private var healthClock: SubstrateHealthClock?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
@@ -51,12 +52,7 @@ public struct SubstrateDriftMonitorHealthRow: View {
                 detail: drift.falsifierPassed ? "PASS artifact present" : "not passed on M2 Pro yet"
             )
         }
-        .substrateHealthPoll { refresh() }
-    }
-
-    private func refresh() {
-        // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
-        Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
+        .substrateHealthPoll { if let unified = healthClock?.unified { snapshot = unified } }
     }
 }
 

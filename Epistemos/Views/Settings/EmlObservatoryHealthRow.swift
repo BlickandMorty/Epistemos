@@ -9,6 +9,7 @@ import SwiftUI
 @MainActor
 public struct EmlObservatoryHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
+    @Environment(SubstrateHealthClock.self) private var healthClock: SubstrateHealthClock?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
@@ -47,7 +48,7 @@ public struct EmlObservatoryHealthRow: View {
                 detail: potentialDetail(eml)
             )
         }
-        .substrateHealthPoll { refresh() }
+        .substrateHealthPoll { if let unified = healthClock?.unified { snapshot = unified } }
     }
 
     private var unavailableDetail: String {
@@ -57,11 +58,6 @@ public struct EmlObservatoryHealthRow: View {
     private func potentialDetail(_ eml: SubstrateHealthUnifiedSnapshot.EmlObservatory) -> String {
         let mean = eml.meanPotential.map { String(format: "%.3f", $0) } ?? "n/a"
         return "n=\(eml.summaryCount) pos=\(eml.summaryPositives) neg=\(eml.summaryNegatives) mean=\(mean)"
-    }
-
-    private func refresh() {
-        // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
-        Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
     }
 }
 
