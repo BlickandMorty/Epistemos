@@ -43,7 +43,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-X | CHAT MESSAGE-BAR STILL MESSY (owner 2026-06-19) — the bottom chat bar still shows think/pro/tools old options on chat surfaces; simplify/demuddify (the picker-simplification didn't fully reach the message bar) + robust teardown/memory transitions | ✅ done → SS-X_CHAT_MESSAGE_BAR_SIMPLIFY |
 | SS-Y | HYPERDYNAMIC DETERMINISM / deterministic schema for LOCAL agents (owner 2026-06-19) — make local agents MORE useful than cloud via deterministic-schema/constrained-decoding + robust agent-loop upgrades; the "playground to make local models better" | ✅ done → SS-Y_HYPERDYNAMIC_DETERMINISM |
 | SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ✅ done → SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK |
-| SS-AA | GITHUB PER-MODEL ENGINEERING STUDY (owner 2026-06-19; extends SS-Z) — harvest proven per-model patterns (prompt/template/tool-dialect/context/sampling/adapters) from llama.cpp/Ollama/vLLM/SGLang/LiteLLM/Outlines/XGrammar/Aider/etc. | ☐ |
+| SS-AA | GITHUB PER-MODEL ENGINEERING STUDY (owner 2026-06-19; extends SS-Z) — harvest proven per-model patterns (prompt/template/tool-dialect/context/sampling/adapters) from llama.cpp/Ollama/vLLM/SGLang/LiteLLM/Outlines/XGrammar/Aider/etc. | ✅ done → SS-AA_GITHUB_PER_MODEL_ENGINEERING |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
 
 ## FINDINGS LOG (appended each pass)
@@ -193,3 +193,14 @@ new work is routing `AVSpeechSynthesizer.write`→`AVAudioEngine`(player→crush
 picker group [S]; the write→engine effect lane on `EpistemosSpeechSynthesizer` behind optional effect param,
 no-effect fast path preserved [M]; branded system voice = base+bitcrush preset [M].** All on-device, MAS-safe,
 no cloud. Full: SS-Q doc.
+**SS-AA GITHUB PER-MODEL STUDY** → 6+ leading projects (Ollama/LiteLLM/Aider/LocalAI/Cline/vLLM) INDEPENDENTLY
+converged on SS-Z's exact design: per-model profile = DATA keyed by model id + constrained decoding as the
+tool-call equalizer. **Best tools to adopt: llguidance** (MIT, Rust, native in llama.cpp via
+`-DLLAMA_LLGUIDANCE=ON` AND droppable into Epistemos's Rust core via the existing UniFFI boundary → ONE grammar
+engine across GGUF+MLX); **LiteLLM's capability table** (cloud half, bundled offline JSON, MAS-safe); **Ollama
+Modelfile** data shape (add the MISSING per-model `stop` array); **Aider override-layering**; **llama.cpp
+`--chat-template-file`** resolution. **SS-W crash root CONFIRMED = llama.cpp issue #11400** (template-apply exits
+instead of reverting to chatml). **CRITICAL: Gemma — the model the GGUF lane actually runs — has NO native tool
+dialect → constrained decoding is MANDATORY for it.** Plan: chatTemplate required+resolved + `--chat-template-file`
++ per-model stop [S]; bundled ModelCapabilityProfile JSON [S]; template-driven dialect auto-detect [M]; GGUF
+constrained-decoding v1 [M]; unify on llguidance [L]. Full: SS-AA doc.
