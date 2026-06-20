@@ -343,6 +343,78 @@ pub const CANON: &[ModelCapabilityProfile] = &[
         picker_use_case: "Qwen QwQ · 32K deep reasoning",
         advertised: false,
     },
+    // SS-AB/SS-Z coverage slice 2 — the remaining gap families. Context windows
+    // WEB-VERIFIED 2026-06-20 (no-fake witnesses): Hermes 4.3 36B = 512K (ByteDance
+    // Seed-36B base, ChatML tool-calling); AI21 Jamba Reasoning 3B = 256K; Falcon-H1
+    // / Falcon-H1R = 256K (TII hybrid Transformer+Mamba2); Ternary Bonsai = 32K
+    // (PrismML 1.58-bit). Mamba-2 2.7B is a BASE SSM with no fixed context window —
+    // 8K is the research-reported practical retrieval window (conservative, honest).
+    ModelCapabilityProfile {
+        id: "hermes-tool-agent",
+        display_name: "Hermes 4.3 36B",
+        context_window: 512_000,
+        max_output_tokens: 8192,
+        prompt_dialect: PromptDialect::Chatml,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Think,
+        picker_use_case: "Hermes · 512K reasoning + tool agent",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "jamba-reasoning",
+        display_name: "Jamba Reasoning 3B",
+        context_window: 256_000,
+        max_output_tokens: 8192,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Think,
+        picker_use_case: "AI21 Jamba · 256K hybrid reasoning",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "falcon-h1",
+        display_name: "Falcon-H1 Instruct",
+        context_window: 256_000,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Falcon-H1 · 256K hybrid instruct",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "falcon-h1r",
+        display_name: "Falcon-H1R 7B",
+        context_window: 256_000,
+        max_output_tokens: 8192,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Think,
+        picker_use_case: "Falcon-H1R · 256K math/code reasoning",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "ternary-bonsai",
+        display_name: "Ternary Bonsai",
+        context_window: 32_000,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Ternary 1.58-bit · 32K compact",
+        advertised: false,
+    },
+    ModelCapabilityProfile {
+        id: "mamba2-ssm",
+        display_name: "Mamba-2 2.7B",
+        context_window: 8192,
+        max_output_tokens: 4096,
+        prompt_dialect: PromptDialect::None,
+        lane: ModelLane::Mlx,
+        tier: CapabilityTier::Fast,
+        picker_use_case: "Mamba-2 SSM base · compact",
+        advertised: false,
+    },
 ];
 
 /// A conservative default for an id that matches no canonical family — honest
@@ -528,6 +600,25 @@ pub fn profile_for(model_id: &str) -> ModelCapabilityProfile {
             return *find("llama-4-scout");
         }
         return *find("llama-3-instruct");
+    }
+    if id.contains("hermes") {
+        return *find("hermes-tool-agent");
+    }
+    if id.contains("jamba") {
+        return *find("jamba-reasoning");
+    }
+    if id.contains("falcon") {
+        // Falcon-H1R is the reasoning variant; the base Falcon-H1 is general instruct.
+        if id.contains("h1r") {
+            return *find("falcon-h1r");
+        }
+        return *find("falcon-h1");
+    }
+    if id.contains("bonsai") {
+        return *find("ternary-bonsai");
+    }
+    if id.contains("mamba") {
+        return *find("mamba2-ssm");
     }
     DEFAULT_PROFILE
 }
@@ -920,6 +1011,50 @@ mod tests {
             "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-4bit",
             "mlx-community/Devstral-Small-2505-4bit",
             "mlx-community/QwQ-32B-4bit",
+        ] {
+            assert_ne!(profile_for(id).id, "unknown", "{id} still resolves to unknown");
+        }
+    }
+
+    #[test]
+    fn ss_ab_coverage_slice2_resolves_the_remaining_gap_families() {
+        // SS-AB/SS-Z coverage slice 2: the remaining shipped LocalTextModelID
+        // families. Context windows WEB-VERIFIED 2026-06-20 (no-fake witnesses):
+        // Hermes 4.3 36B = 512K (ChatML); Jamba Reasoning 3B = 256K; Falcon-H1 /
+        // Falcon-H1R = 256K; Ternary Bonsai = 32K; Mamba-2 (base SSM) ~8K.
+        let hermes = profile_for("leonsarmiento/Hermes-4.3-36B-4bit-mlx");
+        assert_eq!(hermes.id, "hermes-tool-agent");
+        assert_eq!(hermes.context_window, 512_000);
+        assert_eq!(hermes.prompt_dialect, PromptDialect::Chatml);
+
+        let jamba = profile_for("mlx-community/AI21-Jamba-Reasoning-3B-bf16");
+        assert_eq!(jamba.id, "jamba-reasoning");
+        assert_eq!(jamba.context_window, 256_000);
+        assert_eq!(jamba.tier, CapabilityTier::Think);
+
+        let falcon_base = profile_for("mlx-community/Falcon-H1-1.5B-Instruct-4bit");
+        assert_eq!(falcon_base.id, "falcon-h1");
+        assert_eq!(falcon_base.tier, CapabilityTier::Fast);
+
+        let falcon_r = profile_for("mlx-community/Falcon-H1R-7B-4bit");
+        assert_eq!(falcon_r.id, "falcon-h1r"); // the reasoning variant is distinct
+        assert_eq!(falcon_r.tier, CapabilityTier::Think);
+
+        let bonsai = profile_for("prism-ml/Ternary-Bonsai-4B-mlx-2bit");
+        assert_eq!(bonsai.id, "ternary-bonsai");
+        assert_eq!(bonsai.context_window, 32_000);
+
+        let mamba = profile_for("mlx-community/mamba2-2.7b-4bit");
+        assert_eq!(mamba.id, "mamba2-ssm");
+
+        // Every remaining gap family now resolves to a real profile (not "unknown").
+        for id in [
+            "leonsarmiento/Hermes-4.3-36B-4bit-mlx",
+            "mlx-community/AI21-Jamba-Reasoning-3B-bf16",
+            "mlx-community/Falcon-H1-1.5B-Instruct-4bit",
+            "mlx-community/Falcon-H1R-7B-4bit",
+            "prism-ml/Ternary-Bonsai-4B-mlx-2bit",
+            "mlx-community/mamba2-2.7b-4bit",
         ] {
             assert_ne!(profile_for(id).id, "unknown", "{id} still resolves to unknown");
         }
