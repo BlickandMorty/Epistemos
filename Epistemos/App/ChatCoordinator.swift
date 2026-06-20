@@ -3493,10 +3493,14 @@ final class ChatCoordinator {
     _ tools: [OmegaToolDefinition]
   ) -> String? {
     let schemas = tools.map(\.planningSchema)
+    // SS-PERF2 #1: compact (no .prettyPrinted) — this JSON is embedded in the prompt sent
+    // to the model every tool turn, so pretty whitespace was pure wasted INPUT tokens
+    // (slower prefill + higher cost). .sortedKeys kept for deterministic output; the model
+    // parses the identical structure regardless of whitespace.
     guard !schemas.isEmpty,
       let data = try? JSONSerialization.data(
         withJSONObject: schemas,
-        options: [.prettyPrinted, .sortedKeys]
+        options: [.sortedKeys]
       )
     else {
       return nil
