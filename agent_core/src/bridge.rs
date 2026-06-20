@@ -274,6 +274,16 @@ pub fn model_picker_use_case(model_id: String) -> String {
     crate::model_profile::picker_use_case_for(&model_id).to_string()
 }
 
+/// SS-AB: the effective context window for a model id (local OR cloud), for the
+/// picker's per-model context badge. Local values are the 16 GB KV-cache-budget-
+/// capped windows; cloud values are the provider's real advertised context. Returns
+/// 0 for an id neither lane recognizes (the picker then shows no badge). One source
+/// of truth — `model_profile::context_window_for`.
+#[uniffi::export]
+pub fn model_context_window(model_id: String) -> u32 {
+    crate::model_profile::context_window_for(&model_id)
+}
+
 #[derive(uniffi::Record)]
 pub struct ReasoningTrajectoryMetricsFFI {
     pub displacement: f64,

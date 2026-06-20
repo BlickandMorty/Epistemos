@@ -482,42 +482,58 @@ pub fn cloud_profile(provider: &str) -> ModelCapabilityProfile {
         .unwrap_or(CLOUD_DEFAULT_PROFILE)
 }
 
-/// Resolve the SHORT picker use-case line for ANY model id — local lane first
-/// (family substring via [`profile_for`]), then the cloud lane (provider brand
-/// substring → [`cloud_profile`]). Returns `""` only when neither lane recognizes
-/// the id, so the Swift picker keeps its generic tier tagline. This is the ONE
-/// source the picker FFI (`model_picker_use_case`) reads for both local AND cloud
-/// copy (SS-AB; owner 2026-06-20 "all model profiles — local and cloud").
+/// Provider-brand tokens that can appear inside a cloud model id — the
+/// [`CLOUD_CANON`] ids plus the [`cloud_profile`] aliases. Keep in sync when a
+/// cloud provider is added.
+const CLOUD_BRANDS: &[&str] = &[
+    "anthropic", "claude",
+    "openai", "chatgpt", "gpt",
+    "google", "gemini",
+    "deepseek",
+    "kimi", "moonshot",
+    "zai", "glm",
+    "minimax",
+];
+
+/// Resolve ANY model id to its capability profile — local lane first (family
+/// substring via [`profile_for`]), then the cloud lane (provider brand substring →
+/// [`cloud_profile`]). Returns `None` only when neither lane recognizes the id, so
+/// picker surfaces can fall back to their generic copy / hide a badge.
 ///
 /// Local is tried FIRST so a local reasoning/HF-org id (e.g.
-/// `deepseek-r1-distill-qwen`, `google/gemma-4-12b`) keeps its on-device copy
-/// instead of being mistaken for the `deepseek`/`google` cloud provider. `BRANDS`
-/// mirrors the [`CLOUD_CANON`] ids + [`cloud_profile`] aliases — keep it in sync
-/// when a cloud provider is added.
-pub fn picker_use_case_for(model_id: &str) -> &'static str {
+/// `deepseek-r1-distill-qwen`, `google/gemma-4-12b`) keeps its on-device profile
+/// instead of being mistaken for the `deepseek`/`google` cloud provider. This is
+/// the ONE resolver the picker FFIs read for both local AND cloud (SS-AB; owner
+/// 2026-06-20 "all model profiles — local and cloud").
+pub fn resolve_profile(model_id: &str) -> Option<ModelCapabilityProfile> {
     let local = profile_for(model_id);
     if local.id != "unknown" {
-        return local.picker_use_case;
+        return Some(local);
     }
     let id = model_id.to_lowercase();
-    const BRANDS: &[&str] = &[
-        "anthropic", "claude",
-        "openai", "chatgpt", "gpt",
-        "google", "gemini",
-        "deepseek",
-        "kimi", "moonshot",
-        "zai", "glm",
-        "minimax",
-    ];
-    for brand in BRANDS {
+    for brand in CLOUD_BRANDS {
         if id.contains(brand) {
             let cloud = cloud_profile(brand);
             if cloud.id != CLOUD_DEFAULT_PROFILE.id {
-                return cloud.picker_use_case;
+                return Some(cloud);
             }
         }
     }
-    ""
+    None
+}
+
+/// The SHORT picker use-case line for ANY model id (local or cloud). Returns `""`
+/// when neither lane recognizes the id, so the picker keeps its generic tagline.
+pub fn picker_use_case_for(model_id: &str) -> &'static str {
+    resolve_profile(model_id).map_or("", |p| p.picker_use_case)
+}
+
+/// The effective context window for ANY model id (local or cloud), for the picker's
+/// per-model context badge. Local windows are the 16 GB-budget-capped values; cloud
+/// windows are the provider's real advertised context. Returns `0` when neither lane
+/// recognizes the id (the picker then shows no badge).
+pub fn context_window_for(model_id: &str) -> u32 {
+    resolve_profile(model_id).map_or(0, |p| p.context_window)
 }
 
 /// The advertised "best" models, in canonical order (for the picker's
@@ -692,6 +708,25 @@ mod tests {
         );
         // Neither lane recognizes it → empty (picker keeps its generic tier tagline).
         assert_eq!(picker_use_case_for("totally-made-up-zzz"), "");
+    }
+
+    #[test]
+    fn context_window_for_resolves_local_and_cloud() {
+        // Local: the 16 GB-budget-capped windows (Qwen capped to 32K, Gemma 128K).
+        assert_eq!(context_window_for("qwen3-4b"), 32_768);
+        assert_eq!(context_window_for("gemma-4-e2b-it"), 128_000);
+        // Cloud: the provider's real advertised window (resolved by brand substring).
+        assert_eq!(
+            context_window_for("claude-opus-4-8"),
+            cloud_profile("anthropic").context_window
+        );
+        assert_eq!(
+            context_window_for("gemini-2.5-pro"),
+            cloud_profile("google").context_window
+        );
+        assert!(context_window_for("gemini-2.5-pro") >= 1_000_000); // Gemini's 1M+
+        // Neither lane recognizes it → 0 (the picker shows no context badge).
+        assert_eq!(context_window_for("totally-made-up-zzz"), 0);
     }
 
     #[test]
