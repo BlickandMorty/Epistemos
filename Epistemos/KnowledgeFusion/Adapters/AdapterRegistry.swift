@@ -41,6 +41,28 @@ struct AdapterRecord: Codable, Sendable, Identifiable, Equatable {
     }
 }
 
+/// SS-AD: a human-readable explanation for an adapter — its stored `description` when
+/// set, else a derived one-liner from the record so the user ALWAYS sees what an
+/// adapter is and does (even before descriptions are seeded). Pure + testable.
+nonisolated enum AdapterExplanation {
+    static func text(for adapter: AdapterRecord) -> String {
+        if let stored = adapter.description?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !stored.isEmpty {
+            return stored
+        }
+        let kind: String
+        switch adapter.type {
+        case .knowledge: kind = "knowledge"
+        case .style: kind = "style"
+        case .tool: kind = "tool-use"
+        case .kto: kind = "preference (KTO)"
+        }
+        let n = adapter.trainingExamples
+        return "A \(kind) LoRA adapter for \(adapter.baseModel) (rank \(adapter.loraRank)), "
+            + "trained on \(n) example\(n == 1 ? "" : "s") from \(adapter.sourceVault)."
+    }
+}
+
 // MARK: - AdapterRegistry
 
 /// Central source of truth for all installed adapters.

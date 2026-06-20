@@ -49,6 +49,23 @@ struct SSADAdapterDescriptionTests {
         #expect(decodedLegacy.description == nil)
     }
 
+    @Test("the explanation uses the stored description when set, else derives one")
+    func explanationStoredOrDerived() {
+        // Stored description wins.
+        #expect(
+            AdapterExplanation.text(for: makeRecord(description: "Mimics my writing voice"))
+                == "Mimics my writing voice"
+        )
+        // No description → derived one-liner mentions kind / base / source / "LoRA adapter".
+        let derived = AdapterExplanation.text(for: makeRecord(description: nil))
+        #expect(derived.contains("style"))        // makeRecord uses .style
+        #expect(derived.contains("model"))        // baseModel
+        #expect(derived.contains("vault"))        // sourceVault
+        #expect(derived.contains("LoRA adapter"))
+        // A blank/whitespace description falls back to the derived explanation.
+        #expect(AdapterExplanation.text(for: makeRecord(description: "   ")) == derived)
+    }
+
     @Test("updateDescription persists the explanation")
     func updateDescriptionPersists() async throws {
         let fm = FileManager.default
