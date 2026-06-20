@@ -10,6 +10,8 @@ reachable) ≠ hiding/deleting. Never amputate.** Feeds the build loop (read aft
 
 > **Cross-reference:** `SESSION_COVERAGE_MATRIX_2026_06_19.md` maps EVERY owner concern (pre-compaction + thread) → ledger + slice + status (129 items, all verified present).
 
+> **▶ EPDOC BUILD ORDER:** `EPDOC_MD_V2_BUILD_SEQUENCE_2026_06_20.md` — the 7-phase dependency-ordered build plan consolidating SS-O/EM/FM/IR/P (repair→serializer→canonical-flip→frontmatter→recall→rich-UI→backlinks). Read before coding any Epdoc item.
+>
 > **▶ CODE-NEXT ORDER:** `IMPLEMENTATION_SEQUENCE_2026_06_19.md` — the highest-leverage ready-to-code [S] wins across ALL slices, tiered (Tier 0 model-install/run → Tier 4 hardening). Read it to pick what to build next.
 
 ## Methodology — iterative deepen + broaden (rotate each pass)
