@@ -1401,6 +1401,24 @@ calls: no blanket rule — choose per case.
       brand logo, app-wide, not just the model picker. Extend `ProviderBrand`→a general `BrandLogo` registry
       if needed so non-model brands fit the same staged-SVG + actool-validated + fallback machinery. Prefer
       B&W; colored fallback; owner ~/Downloads ingest applies here too. Verify render in-app (owner SEES them).
+      ✅ P6.2 MODEL-LOGO GAPS CLOSED 2026-06-19 (the named gaps in item (1) + the ‼️ "actively fetch max real
+      B&W SVGs" concern): the build loop fetched + staged 6 MORE real lobehub B&W marks (lobehub/lobe-icons MIT
+      static-svg, fill="currentColor" template-rendered — byte-confirmed against the existing staged set's CDN)
+      into Assets.xcassets → DeepSeek, MiniMax, Z.AI/GLM, Llama (Meta mark), Mistral, LFM/Liquid. ProviderBrand
+      now maps ALL 15 branded cases to a real imageset (+3 cases: llama/mistral/liquid with displayName + SF
+      fallback so render-safety holds); only `.generic` (truly-unknown) keeps an SF Symbol. BUG FIXED:
+      `local(modelID:)` + `fromLabel(_:)` now check "deepseek" BEFORE "qwen" — DeepSeek-R1-Distill-Qwen ids/labels
+      contain "qwen" and were wrongly showing the Qwen logo; added llama / mistral+devstral / lfm+liquid family
+      branches too. Tests: flipped the three `assetName == nil` assertions (zai/minimax now real) + added the 4
+      new-brand assertions + local/fromLabel regression coverage (incl. the DeepSeek-Distill-Qwen case) + a NEW
+      on-disk check that every non-nil assetName has a real .imageset in Assets.xcassets (no dangling refs).
+      build-for-testing SUCCEEDED, 0 errors → actool ACCEPTED all 6 SVGs (real validity gate). VibeThinker has
+      NO lobehub mark → stays generic (honest, not faked); Grok/Perplexity aren't wired as selectable providers →
+      skipped (no render path = no dead assets). STILL OPEN for this item (honest): the rest of the roster
+      (Google-distinct, Microsoft/Phi, Hermes/Nous, Bonsai) (2) colored-fallback policy (3) ~/Downloads ingest
+      path (4) EVERYWHERE render (model-stack rows + per-model-vaults) (5) the WHOLE-APP NON-MODEL logos
+      (engines/integrations/MCP/marketplace/tools via a general BrandLogo registry) — follow-on slices. Owner
+      verifies the real B&W logos render on next rebuild.
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
