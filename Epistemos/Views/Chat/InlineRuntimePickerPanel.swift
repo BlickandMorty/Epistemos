@@ -380,7 +380,7 @@ struct InlineRuntimePickerPanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(option.blockedReason ?? option.title)
+        .help(option.blockedReason ?? modelBenefitsLine(for: option.id) ?? option.title)
     }
 
     /// SS-AB: the short per-model use-case line for the picker, resolved from the
@@ -391,6 +391,19 @@ struct InlineRuntimePickerPanel: View {
     private func modelUseCaseLine(for modelID: String) -> String? {
         #if canImport(agent_coreFFI)
         let line = modelPickerUseCase(modelId: modelID)
+        return line.isEmpty ? nil : line
+        #else
+        return nil
+        #endif
+    }
+
+    /// SS-AB: the richer model-details description (display name + use-case + real
+    /// context window + runtime lane) for the row's hover tooltip, resolved from the
+    /// single Rust `ModelCapabilityProfile` via `model_benefits_description`. `nil`
+    /// for an unknown id or a non-FFI host, so the row falls back to its title.
+    private func modelBenefitsLine(for modelID: String) -> String? {
+        #if canImport(agent_coreFFI)
+        let line = modelBenefitsDescription(modelId: modelID)
         return line.isEmpty ? nil : line
         #else
         return nil

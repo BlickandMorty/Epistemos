@@ -70,4 +70,17 @@ struct PickerUseCaseTests {
         #expect(settings.contains("cloudProviderUseCase(for: provider)"))
         #expect(settings.contains("import agent_coreFFI"))
     }
+
+    @Test("the picker row tooltip shows the richer benefits description from the FFI")
+    func pickerWiresBenefitsTooltip() throws {
+        let picker = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Chat/InlineRuntimePickerPanel.swift"
+        )
+        // The hover tooltip surfaces the derived benefits description (one Rust
+        // source), falling back to the title for an unknown id / non-FFI host.
+        #expect(picker.contains("modelBenefitsLine(for: option.id) ?? option.title"))
+        #expect(picker.contains("modelBenefitsDescription(modelId: modelID)"))
+        let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
+        #expect(bridge.contains("pub fn model_benefits_description(model_id: String) -> String"))
+    }
 }
