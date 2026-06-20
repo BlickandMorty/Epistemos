@@ -1419,6 +1419,18 @@ calls: no blanket rule — choose per case.
       path (4) EVERYWHERE render (model-stack rows + per-model-vaults) (5) the WHOLE-APP NON-MODEL logos
       (engines/integrations/MCP/marketplace/tools via a general BrandLogo registry) — follow-on slices. Owner
       verifies the real B&W logos render on next rebuild.
+      ✅ P6.2-ROSTER 2026-06-19 (completes the SELECTABLE-model coverage): CLOUD is now 7/7 — all
+      CloudModelProvider cases (OpenAI/Anthropic/Google/Z.AI/Kimi/MiniMax/DeepSeek) carry a real lobehub mark.
+      LOCAL roster closed for every selectable family that HAS a real lobehub mark: +SmolLM→HuggingFace,
+      +Jamba→AI21, +Falcon→TII (Technology Innovation Institute) marks staged into Assets.xcassets (3 more real
+      lobehub/lobe-icons MIT static-svg currentColor imagesets; actool-validated). CORRECTNESS FIX: QwQ
+      (`qwqFlagship32B`) is Alibaba's QwQ reasoning line = Qwen family but its id contains "qwq" not "qwen" →
+      was showing the generic "cpu" glyph; now routes to the Qwen mark (local + fromLabel). HONEST gaps kept:
+      Mamba, Bonsai (no lobehub mark) and localAgent (the app's own agent brand — respects the Hermes→LocalAgent
+      purge) stay generic, NOT faked. +3 ProviderBrand cases (smolLM/jamba/falcon) + tests (roster + the QwQ fix
+      + the honest-generic Mamba/Bonsai assertions); the on-disk imageset check auto-covers the new marks.
+      build-for-testing SUCCEEDED, 0 app errors. STILL OPEN for this item: the WHOLE-APP NON-MODEL logos
+      (engines/integrations/MCP/marketplace/tools) + EVERYWHERE-render wiring + ~/Downloads ingest — follow-ons.
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
