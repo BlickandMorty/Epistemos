@@ -611,6 +611,32 @@ mod tests {
     }
 
     #[test]
+    fn local_model_handoff_wire_contract_is_frozen() {
+        // SUBSTRATE Phase 0 freeze (owner 2026-06-20, SUBSTRATE_BUILD_SEQUENCE): the
+        // LocalModelHandoff seam is where Rust hands route admission + the witnessed provider
+        // policy to the Swift-hosted local model client (MLX/GGUF today, the new SSM model
+        // later, Companion→Osaurus clones via the same contract). Its wire shape is frozen — the
+        // Swift decoder rejects unknown kinds, so a `kind`/field rename breaks the handoff
+        // silently. A deliberate change must move this test + the Swift mirror in lockstep.
+        let event = SystemGAgentEvent::LocalModelHandoff {
+            turn_id: "t-freeze".to_string(),
+            model_id: "m-freeze".to_string(),
+            provider_policy_json: "{}".to_string(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        // Frozen discriminator + field names (snake_case; Swift matches kind == this string).
+        assert!(json.contains("\"kind\":\"local_model_handoff\""));
+        assert!(json.contains("\"turn_id\":\"t-freeze\""));
+        assert!(json.contains("\"model_id\":\"m-freeze\""));
+        assert!(json.contains("\"provider_policy_json\":"));
+        // Round-trips back to the same event (no drift across encode/decode).
+        let parsed: SystemGAgentEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, event);
+        // Terminal for the Rust leg — the Swift host continues with token_chunk + complete.
+        assert!(event.is_terminal());
+    }
+
+    #[test]
     fn start_run_rejects_malformed_mission_json() {
         let err = start_run("{ not json").expect_err("must reject");
         assert!(matches!(err, SystemGRuntimeError::Decode(_)));
