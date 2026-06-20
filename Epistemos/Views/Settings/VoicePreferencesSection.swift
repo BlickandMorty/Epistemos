@@ -55,6 +55,12 @@ public struct VoicePreferencesSection: View {
                 binding: $prefs.perModelVoicePersona,
                 preview: "This is how a model's bound voice persona sounds."
             )
+            row(
+                title: "Read each sentence aloud in Quick Capture",
+                key: VoicePreferenceKeys.quickCaptureReadBack,
+                binding: $prefs.quickCaptureReadBack,
+                preview: "This is what auto read-back sounds like as you finish a sentence."
+            )
         }
     }
 

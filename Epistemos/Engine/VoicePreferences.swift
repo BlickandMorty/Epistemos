@@ -75,6 +75,11 @@ public enum VoicePreferenceKeys {
     /// TTS uses the user's chosen system default voice.
     public static let perModelVoicePersona =
         "com.epistemos.voice.perModelVoicePersona"
+
+    /// When `auto`, Quick Capture reads each completed sentence aloud as you
+    /// pause typing. When `manual`, read-back only happens via the speaker button.
+    public static let quickCaptureReadBack =
+        "com.epistemos.voice.quickCaptureReadBack"
 }
 
 // MARK: - Preferences singleton
@@ -106,6 +111,9 @@ public final class VoicePreferences {
         if d.object(forKey: VoicePreferenceKeys.perModelVoicePersona) == nil {
             d.set(VoiceDecisionMode.auto.rawValue, forKey: VoicePreferenceKeys.perModelVoicePersona)
         }
+        if d.object(forKey: VoicePreferenceKeys.quickCaptureReadBack) == nil {
+            d.set(VoiceDecisionMode.manual.rawValue, forKey: VoicePreferenceKeys.quickCaptureReadBack)
+        }
     }
 
     public var agentResponseTTS: VoiceDecisionMode {
@@ -133,6 +141,11 @@ public final class VoicePreferences {
         set { encode(newValue, forKey: VoicePreferenceKeys.perModelVoicePersona) }
     }
 
+    public var quickCaptureReadBack: VoiceDecisionMode {
+        get { decode(forKey: VoicePreferenceKeys.quickCaptureReadBack, default: .manual) }
+        set { encode(newValue, forKey: VoicePreferenceKeys.quickCaptureReadBack) }
+    }
+
     // MARK: - Rationale strings (W11.4 Manual-mode "Why?" surface)
 
     public func rationale(for key: String) -> String {
@@ -156,6 +169,10 @@ public final class VoicePreferences {
         case VoicePreferenceKeys.perModelVoicePersona:
             return """
             Auto mode uses each model's bound voice persona (set per-model in Model Profile → Voice). Manual mode forces all TTS to use the system default voice regardless of which model produced the response.
+            """
+        case VoicePreferenceKeys.quickCaptureReadBack:
+            return """
+            Auto mode reads each completed sentence aloud as you pause typing in Quick Capture — a hands-free 'hear it back' loop. Manual mode keeps read-back opt-in via the speaker button. Manual is the conservative default. Note: this uses the Apple system voice (no neural TTS yet).
             """
         default:
             return ""
