@@ -3239,3 +3239,32 @@ native; AGPL server). ADOPT 2 patterns natively:
       So a chat (or any engine) can use app-native skills + Anthropic/Vercel/Google skills alike. Research:
       SS-H (cross-engine sharing) + SS-I (external ecosystems) in SETTINGS_SIMPLIFICATION_HUB. Honest gating
       (Pro for subprocess/network skills); never fake a skill that isn't wired.
+- [ ] **OMNIBUS OWNER DIRECTIVE (2026-06-19) — everything researched → hardened → built end-to-end,
+      no nuance lost.** Owner HARD RULE (verbatim, transcribed): *"every query I'm sending — it's in the
+      plan, has its own research, has its own hardening phases, and certainly WILL be added to the app and
+      coded end-to-end. Everything I asked for I want added to the app, planned, researched, etc., coded end-
+      to-end."* Each item below gets: a ledger line + research + its own HARDENING phases (per the §3.7
+      lifecycle: harden-before→add→re-harden-after→after-port inspection) + actually shipped. NEW/REINFORCED items:
+      (1) **BROWSER-USE in ALL surfaces** — the ACTUAL github browser-use must be available across Act/Work/
+      Osaurus + chat ("make the app more useful in those locations"). Reinforces R-CUA/"surface browser-use";
+      now it's an ALL-engine capability via the shared registry. (SS-J)
+      (2) **VOICE-MODEL PICKER** — choose different voice models in SETTINGS + a picker ON THE CHAT SURFACES
+      that only fires when you use TTS; robust + simplified + minimal without losing functionality. Composes
+      with the VOICE high-def item + the model stack. (SS-K)
+      (3) **OpenAI + Cursor skills/tools/superpowers** — add OpenAI skills/tools AND Cursor skills/superpowers
+      as native importable skill/tool sources (extend SS-I beyond Anthropic — research OpenAI's tool/skill
+      surface + Cursor's rules/skills; adopt via SKILL.md/MCP/native per license). (SS-L)
+      (4) **PROVIDER AGENTS on the chat surfaces** — an actual OpenAI agent / Google agent / Claude agent
+      available on the chat surfaces (Chat/MiniChat) as selectable agents (research what's available — the
+      agent SDKs/APIs — and how they sit on the chat surfaces; honest gating). (SS-L)
+      (5) **OBSCURA browser + AGENT-SCRAPER + PRIVACY stack via WebKit** — research + harden the Obscura WKWebView
+      browser + web scraping + the privacy stack; utilize WebKit for the browser. Reinforces the Obscura/stealth
+      items. (SS-M)
+      (6) **SENSITIVE-INFO REDACTION MODEL** — the OpenAI open-source model that detects/"outs"/redacts SENSITIVE
+      INFO (PII) — research + add + harden, on-device, privacy-first (a previously-mentioned item). (SS-N)
+      (7) **PRESERVE IP — Eidos, Cognitive DAG, provenance, ALL of it** — re-affirmed deletion guardrail: NONE of
+      the owner's IP (Eidos closed-citation, cognitive DAG, provenance ledger, etc.) is deleted/diminished as the
+      clones/skills/agents are added; everything is ADDED ON TOP, never amputated.
+      (8) **GOVERNING:** robustness + simplicity (the big directive: get rid of complexity for an equivalent-but-
+      simpler surface, WITHOUT losing functionality) applies to every item; everything goes through hardening
+      phases; everything is coded end-to-end. Research slices SS-J/K/L/M/N in SETTINGS_SIMPLIFICATION_HUB.
