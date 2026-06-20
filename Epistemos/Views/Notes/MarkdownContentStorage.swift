@@ -50,6 +50,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         24,  // BlockReference
         25,  // BlockReferenceBrackets
         26,  // DisplayMath
+        27,  // Image (SS-2S)
     ]
 
     /// Number of classified lines after most recent reparse.
@@ -733,6 +734,33 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                                 .underlineColor: linkAccent.withAlphaComponent(0.30),
                             ], range: textRange)
+                    }
+                }
+            }
+
+        case 27:  // SS-2S Image ![alt](src) — ghost the syntax, accent-chip the alt so md
+                  // images are VISIBLE / signaled in Prose (they were silently dropped — only
+                  // Epdoc rendered them; the asymmetry the owner flagged). The md text is
+                  // always preserved; the full inline-attachment render is the A2 follow-on
+                  // (it needs offset-safe attachment insertion + async asset loading). Mirrors
+                  // the MarkdownLink treatment.
+            attrStr.addAttributes(ghost, range: range)
+            if range.length > 5 {
+                let imgStr = (attrStr.string as NSString).substring(with: range)
+                if let openBracket = imgStr.firstIndex(of: "["),
+                   let closeBracket = imgStr.firstIndex(of: "]"),
+                   openBracket < closeBracket {
+                    let altStart = imgStr.index(after: openBracket)
+                    let altLen = imgStr.distance(from: altStart, to: closeBracket)
+                    let altOffset = imgStr.distance(from: imgStr.startIndex, to: altStart)
+                    if altLen > 0 {
+                        let altRange = NSRange(location: range.location + altOffset, length: altLen)
+                        attrStr.addAttributes(
+                            [
+                                .font: existingFont,
+                                .foregroundColor: linkAccent,
+                                .backgroundColor: linkAccent.withAlphaComponent(theme.isDark ? 0.12 : 0.09),
+                            ], range: altRange)
                     }
                 }
             }
