@@ -29,7 +29,9 @@ carry exact file:line evidence (SS-CR, SS-MV, SS-2S, SS-GC, SS-THX, SS-DD).
 3. ✅ SS-THX — theme-switch hang: cached `AppCustomTheme.resolved` (4a) + HTMLWorkspace theme repaint (4b).
 4. 🔧 SS-DD — remove eye/gear dropdown chevrons (`.menuIndicator(.hidden)`) + sweep borderlessButton icon-menus.
 5. ⏳ SS-MV — model-vault repair: inject vault into LOCAL MLX path; user-added files; staleness refresh; System-tab audit.
-6. ⏸ SS-TC — theme granular color slots (userBubbleText). **DEFERRED** until owner confirms theme hang gone on-device.
+6. ⏳ SS-TC — theme granular color slots (userBubbleText). **UN-DEFERRED** (owner no-risk-deferral rule): the SS-THX cache
+   landed (`EpistemosTheme.swift:295` resolvedCache + invalidation :1506) so the uncached-hot-path concern is resolved →
+   safe to code now; on-device visual confirm is a nice-to-have, not a blocker.
 7. ⏳ SS-QC — quick-capture destination presets + TTS read-back + voice/model picker. (now also surface-choice via SS-2S.)
 8. ⏳ SS-2S — two-surface fidelity: (A) Prose inserted-image persistence + md-image rendering, (B) honest caveat chip,
    (C) view-switch after EPDOC_MD_V2 Ph3, (D) capture surface picker. *Data-loss fixes (A) are independent + high-value.*
