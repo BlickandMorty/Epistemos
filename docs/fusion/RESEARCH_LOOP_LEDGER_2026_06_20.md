@@ -2526,3 +2526,65 @@ HeavySkill `F-HeavySkill-Deliberation`)**; none gate M0. Listed exactly what eac
 become concrete (during build). Final verdict: **state of the architecture = READY FOR M0**; GO stands; the
 4 owner decisions are unchanged. **This is the last pass — the loop is paused; the next action is BUILD M0,
 not more deliberation.** All T0/T1; no code; no authority docs edited.
+
+---
+
+## PASS 22 — 2026-06-20 (BUILD MODE; Part A: tighten the 5 vague/missing falsifiers into concrete specs)
+
+**Preservation check:** ✅ both ledgers + readout intact. Q37 appended verbatim; read-back confirmed.
+**Git baseline (STEP 0):** `main` up-to-date with origin; HEAD `21d990beb` (my docs commit). Tree dirty with
+the OTHER agent's Swift WIP (`RootView.swift`, `BlurFade.swift` modified; `SSALIVETransitionTests.swift`
+untracked) — **NOT touched.** I commit only my own files with EXPLICIT paths (never `git add -A`).
+
+### Part A — tightened falsifier specs (concrete pass/fail; build-calibratable)
+
+**🔴→✅ `F-HeavySkill-Deliberation` (B6) — now CONCRETE (3 sub-axes):**
+- *Cycle 1 — what it must prove:* the halt→K-trajectories→verify→inject→resume loop is worth its cost.
+- *Cycle 2 — mechanism→criteria:*
+  1. **beats-single-pass:** with K=4 trajectories, held-out score on the coding-patch-planning +
+     research-citation families ≥ single-pass + **δ**, where **δ ≥ 2× the single-pass run-to-run stdev**
+     (so it's signal, not noise) AND ≥ a pinned absolute margin (build-calibrated, e.g. ≥5 scorer points).
+  2. **injected-state-preserves-correctness:** the synthesized answer scores **≥ max(individual trajectory
+     scores) − ε_reg** with **ε_reg = 0** (synthesis must never do worse than picking the best trajectory).
+  3. **lease-ceiling:** total spend across K trajectories + synthesis **≤ the granted `HeavySkillLease`**;
+     exhaustion → return best-so-far + abstain flag, never unbudgeted (chains `F-Lease-Hard-Ceiling`).
+- *Cycle 3 — adversarial:* (a) all-K-agree-but-WRONG → synthesis must NOT inflate confidence (calibration
+  check: confidence tracks correctness); (b) **K=1 degenerates to single-pass with ≤1% overhead** (no tax
+  when deliberation is off). **Status: CONCRETE** (δ/ε_reg/lease pinned; absolute margins build-calibrated).
+
+**🟡→✅ Hopfield spurious-attractor bound (`F-Hopfield-Completion`) — now CONCRETE:**
+- store N ≤ **2^(d/2)** patterns (Ramsauer capacity). Three probes:
+  1. **in-store recall:** stored pattern + 30% noise → recall **≥ R = 0.95** (existing H17 bar).
+  2. **out-of-store spurious guard:** a pattern NOT in store (random, or a 50/50 blend of two stored) →
+     must return the true nearest-stored within margin OR **abstain** (Belnap `Neither`); **spurious-return
+     rate ≤ ε_spur = 0.01** (≤1% confident returns of a pattern that is neither query nor stored).
+  3. **separation margin:** confident return requires top-1 vs top-2 energy gap **> θ_sep**; below θ_sep →
+     abstain. **Status: CONCRETE** (R=0.95, ε_spur≤1%, θ_sep gate).
+
+**🟡→✅ Geometry-IR rotor↔RoPE equivalence (metric+tolerance) — now CONCRETE:**
+- for each RoPE frequency pair (2D block), the Clifford rotor sandwich `R v R̃` with `R = exp(θ/2·e₁₂)`
+  must equal the RoPE rotation `[[cosθ,−sinθ],[sinθ,cosθ]]·v` within **max-abs-elementwise ≤ τ_rope = 1e-6**
+  (f64), over random θ ∈ [−π,π] and random v. PLUS gradient-norm preservation: **‖R‖·‖R⁻¹‖ = 1 ± 1e-9**
+  (rotor is unit orthogonal). **Status: CONCRETE** (τ_rope=1e-6, cond=1±1e-9).
+
+**🟡→✅ Belnap abstention-precision bar — now CONCRETE:**
+- on the refusal/privacy family, route `Neither` (missing/insufficient) + `Both` (contradiction) → ABSTAIN.
+  1. **abstention precision ≥ P_abs = 0.90** (≥90% of abstained cases would have been WRONG if answered —
+     "defer beats wrong").
+  2. **over-abstention ≤ 5%** (of cases with sufficient consistent `True`/`False` evidence, abstain on ≤5%
+     — don't refuse answerable questions).
+  3. **`Both`→abstain = 100%** (hard rule: a detected contradiction never answers). **Status: CONCRETE.**
+
+**🟡→✅ Tropical region-count↔sparsity correlation bar — now CONCRETE:**
+- per Zhang-Naitzat-Lim (ReLU net ≡ tropical rational fn), across a sweep of ReLU² FFN layers the tropical
+  **region-count (or log) must correlate with measured held-out activation sparsity at Pearson |r| ≥ 0.7
+  AND Spearman ρ ≥ 0.7** (monotone predictive). **Kill condition (honest):** if |r| < 0.7 the tropical lens
+  does NOT predict the spine's sparsity → it earns no design leverage and is demoted to theory-only.
+  Chains `F-ReLU-ActivationSparsity`. **Status: CONCRETE** (|r|≥0.7, ρ≥0.7, + kill condition).
+
+### Part A net
+All 5 vague/missing falsifiers are now **CONCRETE** with pinned thresholds (build-calibratable constants
+where noted). Falsifier index status update: **~50 falsifiers, ~50 concrete, 0 vague, 0 missing** (the B6
+🔴 and the 4 🟡 from PASS-21 are closed). Honest caveat: the absolute margins (B6 δ, θ_sep, the ReLU²
+sweep size) are calibration constants tuned during build — the CRITERIA and bars are pinned; the exact
+numeric calibration is a build-time step, not a spec gap.
