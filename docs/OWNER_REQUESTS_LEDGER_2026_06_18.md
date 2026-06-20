@@ -3887,3 +3887,16 @@ native; AGPL server). ADOPT 2 patterns natively:
       ledger/slices/fusion docs committed + 0 ledger deletions + no important uncommitted docs at risk). (4) AUTO-
       BUILD — periodic full app build when the loop is idle so a FRESH RUNNABLE .app exists (the owner's running app
       was stale Jun-18); idle-gated to avoid build contention; ~15G DerivedData (fixed, overwrites, not accumulating).
+- [ ] **DEEP PERF + FLUID NATIVE "FEEL-ALIVE" ANIMATIONS (owner 2026-06-20).** Verbatim: *"just continue research…
+      truly get as much deep research as you can — get into the deep optimizations, performance upgrades, native
+      animations and even good fluid animations that make the app feel alive but don't damage anything."* RESEARCHED
+      (2 code-grounded slices): `SS-PERF2_REMAINING_PERF_WINS_2026_06_20.md` (12 remaining non-invasive perf wins —
+      top: compact tool-schema JSON in the LLM prompt `ChatCoordinator.swift:3499` = fewer input tokens/turn; shared
+      JSON coders on `SDMessage`; memoize RawThoughts grouping; off-main settings reads; timer focus-gating) and
+      `SS-ALIVE_FLUID_NATIVE_ANIMATIONS_2026_06_20.md` (macOS-26 → all modern anim APIs available; the SS-AN `.scale`-
+      fold pattern is REPEATED at `RootView.swift:2616` Landing↔Chat + 7 LandingView overlays + CompanionView/
+      PhysicsModifiers/ChatSidebar → apply the BlurFade house style; add `.contentTransition(.numericText())`,
+      `.symbolEffect` for conceptual spinners, `.scrollTransition` list fade-in, broaden NativeButtonStyles/Liquid
+      Glass; flagship `matchedGeometryEffect` last/flagged). ALL non-invasive/additive, `reduceMotion`-gated, never
+      over the Metal canvas or TK2/Prose, visual feel = PENDING OWNER. Added to TOP-UNCODED (cohesive-anim-polish +
+      perf-each-cycle). Cross-ref SS-AN, SS-SH.

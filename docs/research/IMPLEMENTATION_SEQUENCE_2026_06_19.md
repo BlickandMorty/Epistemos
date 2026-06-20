@@ -150,6 +150,16 @@ keystone (Pro-gated `#if !EPISTEMOS_APP_STORE` — MAS build can't verify), clau
     `CompanionModel.loraAdapterPath` but it's DEAD — wire it into `applyActiveAdapterIfPresent`); adapter explanations
     (`AdapterRecord.description` + parse `adapter_config.json`); test-adapter A/B split-compare. Default adapter type
     = DoRA-on-quantized kept-separate (SS-XR). [S->M]
+7f. **Cohesive fluid "feel-alive" animations** (SS-ALIVE; owner 2026-06-20) — apply the SS-AN BlurFade house style to
+    the REPEATED `.scale`-fold sites (HomeRouter Landing↔Chat `RootView.swift:2616`, 7 LandingView overlays,
+    CompanionView/PhysicsModifiers/ChatSidebar origin-pops) + add `.contentTransition(.numericText())`, `.symbolEffect`
+    for conceptual spinners, Settings detail cross-fade, `.scrollTransition` list fade-in, broaden NativeButtonStyles/
+    Liquid Glass; flagship `matchedGeometryEffect` (graph node→inspector) LAST + flagged. All reduceMotion-gated,
+    additive, never over Metal canvas; visual feel PENDING OWNER. Tier S→L in SS-ALIVE. [S→L]
+7g. **Remaining perf wins** (SS-PERF2; standing each cycle) — top: compact tool-schema JSON in the LLM prompt
+    (`ChatCoordinator.swift:3499`, fewer input tokens/turn), shared JSON coders on `SDMessage`, memoize RawThoughts
+    grouping, off-main settings reads, timer focus-gating. All non-invasive; #6 (MessageBubble Equatable) last + behind
+    a focused test. [S]
 8. Then the editor cluster per `EPDOC_MD_V2_BUILD_SEQUENCE` + the remaining native features (PDF/voice/browser/
    redaction) + the instant-recall popup redesign (SS-IR) + the perf/vuln gates each cycle.
 
