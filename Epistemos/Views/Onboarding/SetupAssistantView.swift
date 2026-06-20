@@ -10,6 +10,9 @@ struct SetupAssistantView: View {
 
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
+    // SS-C #1 blocker: install the foundation model IN the wizard. LocalModelManager
+    // is injected by the same AppEnvironment as inference/ui above (safe to read).
+    @Environment(LocalModelManager.self) private var localModelManager
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -196,9 +199,14 @@ struct SetupAssistantView: View {
                 .background(.green.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
             } else {
-                Text("You can install a model later in Settings → Inference.")
+                // SS-C (#1 blocker): show the live install/download state here when an
+                // install is running, instead of "install later in Settings".
+                Text(localModelManager.activeInstalls.isEmpty
+                     ? "Install the Epistemos AI foundation model to enable note chat, summarization, and analysis."
+                     : "Installing… \(runtimeStatusLabel)")
                     .font(captionFont)
                     .foregroundStyle(theme.textTertiary)
+                    .multilineTextAlignment(.center)
             }
 
             Spacer()
@@ -207,10 +215,20 @@ struct SetupAssistantView: View {
                 Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
                 if !hasModel {
-                    Button("Open Settings → Inference") {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    // SS-C #1 blocker: install the foundation model IN the wizard via the
+                    // SAME one-tap call the model manager uses (installEpistemosFoundation
+                    // Package) — no leaving the flow. hasModel flips true when it lands.
+                    let installing = !localModelManager.activeInstalls.isEmpty
+                    Button(installing ? "Installing…" : "Install Epistemos AI") {
+                        Task { try? await localModelManager.installEpistemosFoundationPackage() }
                     }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
+                    .disabled(installing)
+                    // Advanced: the full model manager (all models) stays one tap away.
+                    Button("More Models") {
+                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    }
+                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
                 }
                 if hasModel {
                     Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
