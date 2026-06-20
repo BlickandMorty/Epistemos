@@ -127,6 +127,26 @@ struct HaloControllerTests {
         #expect(ctrl.domain == .notes)
     }
 
+    // MARK: - SS-IR accuracy-first tuning (owner 2026-06-20: "slower OK, must be accurate")
+
+    @Test("SS-IR: the default debounce is 400 ms (accuracy-first, raised from 200)")
+    func defaultDebounceIsAccuracyFirst() {
+        // Production constructs `HaloController(search:)` with all defaults — assert the default.
+        let ctrl = HaloController(search: MockShadowSearchService())
+        #expect(ctrl.debounceWindowMs == 400)
+    }
+
+    @Test("SS-IR: a search requests the widened limit of 16")
+    func searchUsesWidenedLimit() async {
+        let (ctrl, mock) = mockController(results: [sampleHit("n1", score: 0.5)])
+        ctrl.editorTextDidChange("hello kant world", domain: .notes)
+        await Self.waitForState(ctrl) { state in
+            if case .available = state { return true }
+            return false
+        }
+        #expect(mock.lastLimit == 16)
+    }
+
     // MARK: - Dormant → Sensing → Available
 
     @Test("typing meaningful text drives Dormant → Sensing → Available")
