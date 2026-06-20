@@ -39,6 +39,15 @@ struct ProviderBrandLogoTests {
         #expect(ProviderBrand.local(modelID: "Mistral-Small-3.1-24B") == .mistral)
         #expect(ProviderBrand.local(modelID: "Devstral-Small-2505") == .mistral)
         #expect(ProviderBrand.local(modelID: "LFM2-24B") == .liquid)
+        // QwQ is Alibaba's Qwen reasoning line (was falling to generic); the niche
+        // local families now carry their maker's lobehub mark.
+        #expect(ProviderBrand.local(modelID: "qwqFlagship32B4Bit") == .qwen)
+        #expect(ProviderBrand.local(modelID: "smolLM3_3B4Bit") == .smolLM)
+        #expect(ProviderBrand.local(modelID: "jamba3B") == .jamba)
+        #expect(ProviderBrand.local(modelID: "falconH1R_7B4Bit") == .falcon)
+        // Families with no real lobehub mark honestly stay generic (not faked).
+        #expect(ProviderBrand.local(modelID: "mamba2_2B4Bit") == .generic)
+        #expect(ProviderBrand.local(modelID: "bonsai8B2Bit") == .generic)
         // Apple is its own brand.
         #expect(ProviderBrand.apple.displayName == "Apple Intelligence")
         #expect(ProviderBrand.apple.sfSymbolFallback == "apple.logo")
@@ -64,6 +73,10 @@ struct ProviderBrandLogoTests {
         #expect(ProviderBrand.llama.assetName == "ProviderLogoLlama")
         #expect(ProviderBrand.mistral.assetName == "ProviderLogoMistral")
         #expect(ProviderBrand.liquid.assetName == "ProviderLogoLiquid")
+        // Niche local families carry their maker's lobehub mark (HF/AI21/TII).
+        #expect(ProviderBrand.smolLM.assetName == "ProviderLogoHuggingFace")
+        #expect(ProviderBrand.jamba.assetName == "ProviderLogoAI21")
+        #expect(ProviderBrand.falcon.assetName == "ProviderLogoFalcon")
         // Only the unknown/generic brand still falls back to an SF Symbol.
         #expect(ProviderBrand.generic.assetName == nil)
     }
