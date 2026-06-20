@@ -314,3 +314,15 @@ length [M, 256-512MB]; (3) verify ShadowVault crawl is mtime/incremental not ful
 (5) defer PowerGuard/EventStore into the deferred-services block [S, few ms].** Already-optimized (don't redo):
 memory-pressure FFI chain, WKProcessPool sharing, MLX idle-unload, FTS PRAGMAs, ShadowIndexing debounce, tokio
 minimal, to_string JSON. All MB figures are static estimates (no Instruments run). Full: SS-PERF doc.
+**SS-UMA INSTANT-RECALL via UMA ZERO-COPY (flagship, honest)** → the sidebar is fast via 2 in-process engines
+(FTS5 BM25 + epistemos-shadow tantivy/usearch/RRF k=60) + InstantRecallService (<3ms). **THE GAP: the local
+model does NOT use any of them** — `vault_recall`/`eidos.query` use a SEPARATE VaultStore + an in-memory semantic
+index (the shadow/HNSW backing is NOT-STARTED, W-51), so the model queries a colder DUPLICATE index. **UMA
+honesty: zero-copy is real for MLX weights/KV but zero-copy of retrieved TEXT into the model's KV is NOT
+achievable today (MLX-Swift takes `prompt:String`, no borrowed-buffer API). And the real bottleneck is token
+GENERATION (100s ms-sec), not retrieval (already sub-10ms)** — so the honest win is QUALITY (model finally
+queries the warm RRF/HNSW = sidebar parity) + MEMORY (one tantivy index not two, ~15MB), NOT a dramatic speedup.
+**Design: ONE warm shadow handle, two consumers; implement the W-51 shadow-backed VaultBackend adapter so model
+recall hits the same RRF/HNSW fusion (Rust->Rust, no JSON round-trip); cloud keeps the tool interface.** Plan:
+provenance tag [S]; share shadow handle [S]; W-51 adapter behind a flag [M]; bench before/after [M]; zero-copy-KV
+= research-only/aspirational. Do NOT touch vault/graph/TK2-Prose. Full: SS-UMA doc.
