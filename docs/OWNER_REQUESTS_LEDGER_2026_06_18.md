@@ -337,6 +337,20 @@ calls: no blanket rule — choose per case.
       UNCHANGED — only the consent field is now passable under the strict schema. +1 pin test
       (input_schema_declares_remote_install_consent_so_installs_are_reachable). Full-lib 5475/0 +
       `--features pro-build` 5738/0 (zero regression).
+      ✅ PHASE-0 PROGRESSIVE SKILLS UN-GATED TO MAS (owner sign-off 2026-06-19; remote install stays
+      Pro): `registry.rs` promoted `register_phase_one_skills_progressive` OUT of the
+      `#[cfg(feature="pro-build")]` cfg (both the call site and the fn definition), so
+      `skills_list` / `skill_view` / `skill_manage` now register in the MAS build (handlers/schemas
+      are non-pro in `tools/skills.rs`; MIT clean-room, no subprocess — git2 library + reqwest).
+      SAFETY PRESERVED: `skill_manage`'s remote-install verbs (`install_from_github` /
+      `install_from_url`) return an HONEST "Pro only" error in the MAS build (the cfg-gated action
+      arms + `remote_skill_install_pro_only`), so the tool is BOUNDED in MAS (create/edit/delete/
+      install_from_local_path work) — the mas-sandbox "no unbounded tools" invariant holds, and
+      `skill_manage` moved blocked→ALLOWED in `mas_sandbox_registry_excludes_unbounded_tools`. The
+      install fns carry `#[allow(dead_code)]` (compiled for pro + tests). +2 tests (MAS-registration
+      + the updated sandbox assertion). MAS full-lib 5476/0 + `--features pro-build` 5739/0 (BOTH
+      green, no double-registration). This COMPLETES the cargo-cheap Phase-0 fix-the-broken set:
+      schema drifts 4/4 + skills path + skill_manage v2 reachability + progressive un-gate.
       🔎 PHASE-0 REMAINING — OWNER SIGN-OFF / IN-APP (the cargo-cheap safe Phase-0 slices are done;
       these need YOU): (1) **progressive-skills un-gate** — `registry.rs` gates the progressive
       skill tools behind `#[cfg(feature="pro-build")]`, so the MAS build exposes only the legacy CRUD

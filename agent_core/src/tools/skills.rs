@@ -743,8 +743,33 @@ impl ToolHandler for SkillManageHandler {
             "create" => create_skill(&self.skills_dir, input),
             "edit" => edit_skill(&self.skills_dir, input),
             "delete" => delete_skill(&self.skills_dir, input),
-            "install_from_github" => install_skill_from_github(&self.skills_dir, input).await,
-            "install_from_url" => install_skill_from_url(&self.skills_dir, input).await,
+            // Remote install (network clone/fetch of arbitrary github content) stays
+            // Pro-only even though skill management is promoted to MAS (owner sign-off
+            // 2026-06-19) — App Store builds must not auto-clone remote code. The MAS
+            // build returns an honest "Pro only" error; create/edit/delete and
+            // install_from_local_path remain available. This keeps `skill_manage`
+            // BOUNDED in MAS (the mas-sandbox safety invariant) while exposing the
+            // useful management actions.
+            "install_from_github" => {
+                #[cfg(feature = "pro-build")]
+                {
+                    install_skill_from_github(&self.skills_dir, input).await
+                }
+                #[cfg(not(feature = "pro-build"))]
+                {
+                    Err(remote_skill_install_pro_only("install_from_github"))
+                }
+            }
+            "install_from_url" => {
+                #[cfg(feature = "pro-build")]
+                {
+                    install_skill_from_url(&self.skills_dir, input).await
+                }
+                #[cfg(not(feature = "pro-build"))]
+                {
+                    Err(remote_skill_install_pro_only("install_from_url"))
+                }
+            }
             "install_from_local_path" => {
                 install_skill_from_local_path(&self.skills_dir, input).await
             }
@@ -907,6 +932,21 @@ fn delete_skill(skills_dir: &Path, input: &Value) -> Result<String, super::regis
 
 const GITHUB_HOSTS: &[&str] = &["github.com", "www.github.com"];
 
+/// Honest "remote skill install is Pro-only" error for the MAS build. `skill_manage`
+/// is promoted to MAS (create/edit/delete/local install), but the remote-install
+/// verbs stay Pro-gated so App Store builds never auto-clone arbitrary github content.
+#[cfg(not(feature = "pro-build"))]
+fn remote_skill_install_pro_only(action: &str) -> super::registry::ToolError {
+    super::registry::ToolError::InvalidArguments(format!(
+        "remote skill install ({action}) requires the Pro build — this App Store build \
+         supports create / edit / delete / install_from_local_path only"
+    ))
+}
+
+// Compiled in all builds (the pro-build action arm + the in-crate tests call it);
+// `allow(dead_code)` silences the unused-in-MAS-release warning since the MAS action
+// arm returns the Pro-only error above instead of calling this.
+#[allow(dead_code)]
 async fn install_skill_from_github(
     skills_dir: &Path,
     input: &Value,
@@ -993,6 +1033,7 @@ async fn install_skill_from_github(
     .to_string())
 }
 
+#[allow(dead_code)]
 async fn install_skill_from_url(
     skills_dir: &Path,
     input: &Value,
