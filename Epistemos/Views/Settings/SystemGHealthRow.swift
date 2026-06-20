@@ -104,14 +104,27 @@ public struct SystemGHealthRow: View {
     }
 
     public func refresh() {
+        // SS-SH phase 2: the local Metrics read stays on-main (cheap); the Rust
+        // registryStats() FFI moves OFF the MainActor (nonisolated bridge) so the 1Hz
+        // poll can't block the panel. The Result's Error isn't Sendable, so map to a
+        // Sendable (stats?, error?) before hopping back; a failure keeps the last-good
+        // stats (unchanged behavior).
         snapshot = SystemGMetrics.shared.snapshot()
-        let result = SystemGBridge.registryStats()
-        switch result {
-        case .success(let stats):
-            registryStats = stats
-            registryError = nil
-        case .failure(let error):
-            registryError = String(describing: error)
+        Task {
+            let outcome = await Task.detached { () -> (stats: SystemGRegistryStats?, error: String?) in
+                switch SystemGBridge.registryStats() {
+                case .success(let stats):
+                    return (stats, nil)
+                case .failure(let error):
+                    return (nil, String(describing: error))
+                }
+            }.value
+            if let stats = outcome.stats {
+                registryStats = stats
+                registryError = nil
+            } else {
+                registryError = outcome.error
+            }
         }
     }
 

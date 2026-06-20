@@ -56,4 +56,22 @@ struct SubstrateHealthOffMainTests {
         // The old synchronous on-MainActor fetch is gone.
         #expect(!src.contains("snapshot = LocalAgentDiagnostics.snapshot()"))
     }
+
+    @Test("LatticeWBO + SystemG health rows fetch their Rust FFI off the MainActor (phase 2)")
+    func latticeAndSystemGOffMain() throws {
+        let lattice = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/LatticeWBOHealthRow.swift"
+        )
+        #expect(lattice.contains("await Task.detached { LatticeWBOBridge.snapshot() }.value"))
+        #expect(!lattice.contains("if let snap = LatticeWBOBridge.snapshot() {"))
+
+        let systemG = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/SystemGHealthRow.swift"
+        )
+        // registryStats() FFI moves off-main (the local Metrics read stays on main).
+        #expect(systemG.contains("await Task.detached {"))
+        #expect(systemG.contains("SystemGBridge.registryStats()"))
+        // The old synchronous on-main FFI assignment is gone.
+        #expect(!systemG.contains("let result = SystemGBridge.registryStats()"))
+    }
 }
