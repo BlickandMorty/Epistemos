@@ -457,6 +457,44 @@ pub fn cloud_profile(provider: &str) -> ModelCapabilityProfile {
         .unwrap_or(CLOUD_DEFAULT_PROFILE)
 }
 
+/// Resolve the SHORT picker use-case line for ANY model id — local lane first
+/// (family substring via [`profile_for`]), then the cloud lane (provider brand
+/// substring → [`cloud_profile`]). Returns `""` only when neither lane recognizes
+/// the id, so the Swift picker keeps its generic tier tagline. This is the ONE
+/// source the picker FFI (`model_picker_use_case`) reads for both local AND cloud
+/// copy (SS-AB; owner 2026-06-20 "all model profiles — local and cloud").
+///
+/// Local is tried FIRST so a local reasoning/HF-org id (e.g.
+/// `deepseek-r1-distill-qwen`, `google/gemma-4-12b`) keeps its on-device copy
+/// instead of being mistaken for the `deepseek`/`google` cloud provider. `BRANDS`
+/// mirrors the [`CLOUD_CANON`] ids + [`cloud_profile`] aliases — keep it in sync
+/// when a cloud provider is added.
+pub fn picker_use_case_for(model_id: &str) -> &'static str {
+    let local = profile_for(model_id);
+    if local.id != "unknown" {
+        return local.picker_use_case;
+    }
+    let id = model_id.to_lowercase();
+    const BRANDS: &[&str] = &[
+        "anthropic", "claude",
+        "openai", "chatgpt", "gpt",
+        "google", "gemini",
+        "deepseek",
+        "kimi", "moonshot",
+        "zai", "glm",
+        "minimax",
+    ];
+    for brand in BRANDS {
+        if id.contains(brand) {
+            let cloud = cloud_profile(brand);
+            if cloud.id != CLOUD_DEFAULT_PROFILE.id {
+                return cloud.picker_use_case;
+            }
+        }
+    }
+    ""
+}
+
 /// The advertised "best" models, in canonical order (for the picker's
 /// advertise-stack).
 pub fn advertised() -> impl Iterator<Item = &'static ModelCapabilityProfile> {
@@ -590,5 +628,44 @@ mod tests {
         assert!(cloud_profile("anthropic").max_output_tokens >= 32_000);
         // Unknown provider → honest cloud default, never a panic.
         assert_eq!(cloud_profile("brand-new-cloud-v9").id, "cloud");
+    }
+
+    #[test]
+    fn picker_use_case_for_resolves_local_then_cloud() {
+        // Local lane wins first: a canonical on-device family returns its copy.
+        assert_eq!(
+            picker_use_case_for("gemma-4-12b-qat"),
+            find("gemma-4-12b-qat").picker_use_case
+        );
+        assert!(!picker_use_case_for("qwen3-4b").is_empty());
+        // A local reasoning id is NOT mistaken for the `deepseek` cloud provider.
+        assert_eq!(
+            picker_use_case_for("deepseek-r1-distill-qwen-1.5b"),
+            find("deepseek-r1-distill-1.5b").picker_use_case
+        );
+        // Cloud lane: a bare provider slug resolves to its cloud copy...
+        assert_eq!(
+            picker_use_case_for("anthropic"),
+            cloud_profile("anthropic").picker_use_case
+        );
+        // ...and a FULL cloud model id resolves by provider-brand substring.
+        assert_eq!(
+            picker_use_case_for("claude-opus-4-8"),
+            cloud_profile("anthropic").picker_use_case
+        );
+        assert_eq!(picker_use_case_for("gpt-5.2"), cloud_profile("openai").picker_use_case);
+        assert_eq!(
+            picker_use_case_for("gemini-2.5-pro"),
+            cloud_profile("google").picker_use_case
+        );
+        assert_eq!(picker_use_case_for("glm-4.6"), cloud_profile("zai").picker_use_case);
+        assert_eq!(picker_use_case_for("kimi-k2"), cloud_profile("kimi").picker_use_case);
+        // A local HF-org-prefixed gemma keeps its LOCAL copy (not the google cloud).
+        assert_eq!(
+            picker_use_case_for("google/gemma-4-12b-qat"),
+            find("gemma-4-12b-qat").picker_use_case
+        );
+        // Neither lane recognizes it → empty (picker keeps its generic tier tagline).
+        assert_eq!(picker_use_case_for("totally-made-up-zzz"), "");
     }
 }
