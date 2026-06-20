@@ -2233,6 +2233,27 @@ final class TriageService {
 
     // MARK: - Local MLX Fallback
 
+    // SS-MV (2, owner 2026-06-20): the per-model vault context for the LOCAL chat path.
+    // augmentedSystemPrompt was injected only on the cloud (LLMService:1359) + Apple
+    // Intelligence (AppleIntelligenceService:282) paths, so local models NEVER read their
+    // model vault. The default store points at the SAME ApplicationSupport/.../ModelVaults
+    // dir the cloud path + the distillation compiler use, so the chat reads the compiled
+    // instructions / knowledge profile / concept index / active context the user expects.
+    private let knowledgeProfileStore = KnowledgeProfileStore()
+
+    /// SS-MV (2): the system prompt enriched with the selected model's vault context,
+    /// mirroring the cloud call sites. `.compact` budget for tight local context windows;
+    /// on any failure or no vault it returns the original prompt UNCHANGED — guarded, so it
+    /// never perturbs SS-CR routing and degrades to the plain prompt.
+    private func vaultAugmentedLocalSystemPrompt(_ systemPrompt: String?, modelID: String?) async -> String? {
+        guard let modelID else { return systemPrompt }
+        return (try? await knowledgeProfileStore.augmentedSystemPrompt(
+            existingPrompt: systemPrompt,
+            modelID: modelID,
+            budget: .compact
+        )) ?? systemPrompt
+    }
+
     private func localGenerateOrFallback(
         prompt: String,
         systemPrompt: String?,
@@ -2246,8 +2267,10 @@ final class TriageService {
             throw LocalInferenceRoutingError.runtimeUnavailable
         }
 
+        let vaultSystemPrompt = await vaultAugmentedLocalSystemPrompt(
+            systemPrompt, modelID: selection.modelID)
         let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
-            systemPrompt,
+            vaultSystemPrompt,
             modelID: selection.modelID,
             reasoningMode: selection.reasoningMode
         )
@@ -2299,14 +2322,18 @@ final class TriageService {
             }
         }
         let resolvedLocalLLMService = localLLMService
-        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
-            systemPrompt,
-            modelID: selection.modelID,
-            reasoningMode: selection.reasoningMode
-        )
         return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 do {
+                    // SS-MV (2): enrich with the model's vault INSIDE the async task — the
+                    // actor-isolated augment needs await, which this sync stream factory can't.
+                    let vaultSystemPrompt = await self.vaultAugmentedLocalSystemPrompt(
+                        systemPrompt, modelID: selection.modelID)
+                    let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
+                        vaultSystemPrompt,
+                        modelID: selection.modelID,
+                        reasoningMode: selection.reasoningMode
+                    )
                     let stream: AsyncThrowingStream<String, Error>
                     if let configurable = resolvedLocalLLMService as? any LocalConfigurableLLMClient {
                         stream = configurable.stream(
