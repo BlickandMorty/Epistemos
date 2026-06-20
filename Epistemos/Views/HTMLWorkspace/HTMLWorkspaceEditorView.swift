@@ -33,6 +33,14 @@ struct HTMLWorkspaceEditorView: View {
         .onChange(of: colorScheme) { _, _ in
             previewPackage = package
         }
+        .onChange(of: theme) { _, _ in
+            // SS-THX (owner 2026-06-20): the preview palette tracked only @Environment(\.colorScheme)
+            // (OS appearance), so changing the in-app theme/PAIR — which flows in via the `theme`
+            // prop from HTMLWorkspaceDocumentThemedRoot's ui.theme — never repainted the preview
+            // ("never changes because of the theme process"). Refresh the preview snapshot on the
+            // theme prop too, mirroring the colorScheme refresh.
+            previewPackage = package
+        }
         .onDisappear {
             previewUpdateTask?.cancel()
             previewUpdateTask = nil
