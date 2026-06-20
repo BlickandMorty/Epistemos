@@ -248,6 +248,7 @@ struct HTMLWorkspaceEditorView: View {
             }
             .labelStyle(.iconOnly)
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)  // SS-DD: clean icon-only glyph, no stray chevron
             .help("Pane actions")
             Button {
                 copyPatchContext(for: selectedPane)

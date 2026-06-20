@@ -2990,6 +2990,10 @@ struct CodeEditorView: View {
                 .foregroundStyle(.secondary)
         }
         .menuStyle(.borderlessButton)
+        // SS-DD (owner 2026-06-20): hide the default Menu chevron so the icon-only eye/gear
+        // render as clean glyphs (the chevron overlapped the SF Symbol → "deformed"). The
+        // menu still opens on click; functionality unchanged.
+        .menuIndicator(.hidden)
         .frame(width: toolbarMenuWidth)
     }
 
@@ -3009,6 +3013,10 @@ struct CodeEditorView: View {
                 .foregroundStyle(.secondary)
         }
         .menuStyle(.borderlessButton)
+        // SS-DD (owner 2026-06-20): hide the default Menu chevron so the icon-only eye/gear
+        // render as clean glyphs (the chevron overlapped the SF Symbol → "deformed"). The
+        // menu still opens on click; functionality unchanged.
+        .menuIndicator(.hidden)
         .frame(width: toolbarMenuWidth)
     }
 
