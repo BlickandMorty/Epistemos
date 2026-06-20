@@ -4035,3 +4035,13 @@ native; AGPL server). ADOPT 2 patterns natively:
       (perf items: SS-PERF2/SS-THX + decompositions; presentation items: settings IA, a11y/Dynamic-Type, ⌘K palette,
       error/empty states, unified search). I deep-dive each into its own SS-* slice as it's picked up, perf+presentation
       first. Mark items DONE only when verified user-facing end-to-end.
+- [ ] **DROPDOWN-ARROW CLEANUP on icon menus (owner 2026-06-20, screenshot).** *"two icons in the code editor — an eye
+      and a settings icon — both have a weird drop-down arrow inside them so they look deformed. Get rid of the
+      drop-down arrow, don't lose the functionality, upgrade the usefulness (searching parts of the file), and get rid
+      of them everywhere they interfere/overlap other UI, mainly the one I screenshotted."* RESEARCHED →
+      `docs/research/SS-DD_DROPDOWN_ARROW_CLEANUP_2026_06_20.md`. ROOT: icon-only `Menu`s with `.menuStyle(.borderlessButton)`
+      render the default menu-indicator chevron over the glyph — `CodeEditorView.swift:2998-3011` (eye `viewOptionsMenu`)
+      + `:2950-2992` (gear `editorSettingsMenu`). FIX: `.menuIndicator(.hidden)` (keeps the menu, removes the chevron;
+      already used in 2 files → consistent). SWEEP the 8 `.menuStyle(.borderlessButton)` files, apply to icon-only ones.
+      Optional [S/M] usefulness upgrade: more-robust in-file search (match count / next-prev / case-regex) on the code
+      editor. [S] visual fix first (eye+gear), then sweep. NON-INVASIVE; TK2/Prose + Metal untouched. Added to TOP-UNCODED.
