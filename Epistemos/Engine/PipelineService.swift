@@ -385,7 +385,43 @@ final class PipelineService {
             }
             return true
         }
+        // SS-H PART 2: a non-agent local model (e.g. a GGUF Gemma) with no execution
+        // plan used to ALWAYS degrade to a tool-less stream here. Now, when the query
+        // actually needs tools AND an agent-capable model fits memory, route to the
+        // tool loop (backed by the fitting agent tier) instead — symmetric with the
+        // overseerLocalExecution branch above. NEVER swaps to a model that OOMs:
+        // `fittingLocalAgentTextModelID` only returns a model that fits the budget.
+        // When it stays a direct stream, PART 1 still injects the skills CATALOG, so
+        // nothing is hidden from the model.
+        if Self.autoToolRouteArmed, inference.fittingLocalAgentTextModelID != nil {
+            let tier = Self.localToolTier(for: operatingMode, executionPlan: nil)
+            let candidateTools = ToolTierBridge(
+                vaultPath: resolvedManagedToolRuntimeVaultPath(),
+                tier: tier
+            ).loadTools()
+            if Self.autoRouteNeedsTools(query: query, tools: candidateTools) == true {
+                return true
+            }
+        }
         return false
+    }
+
+    /// SS-H keystone: a read-only CATALOG of the ChatLite skills/tools the model
+    /// could use, for injection into the DIRECT (tool-loop-less) system prompt so a
+    /// small local model that can't drive the tool loop still SEES what's available
+    /// (skills as CONTEXT). Names + one-line descriptions only — not the tool-call
+    /// schemas — so the model is aware without being prompted to emit calls it can't
+    /// run. nil when no tools resolve (e.g. FFI down) → the prompt is unchanged.
+    private func chatLiteSkillsCatalogBlock(operatingMode: EpistemosOperatingMode) -> String? {
+        let tier = Self.localToolTier(for: operatingMode, executionPlan: nil)
+        let tools = ToolTierBridge(
+            vaultPath: resolvedManagedToolRuntimeVaultPath(),
+            tier: tier
+        ).loadTools()
+        guard !tools.isEmpty else { return nil }
+        let lines = tools.prefix(24).map { "• \($0.name) — \($0.description)" }
+        return "Skills available to Epistemos (a larger local model or a cloud model "
+            + "can run these for you on request):\n" + lines.joined(separator: "\n")
     }
 
     /// AUTO-ROUTE v0 flag (`EPISTEMOS_AUTO_TOOL_ROUTE_V0`). FLIPPED ON by default
@@ -1100,6 +1136,14 @@ final class PipelineService {
         // chats too, matching the local-agent loop. Absent skills → no change.
         if let skills = LocalAgentPromptBuilder.proceduralMemoryBlock() {
             systemParts.append(skills)
+        }
+        // SS-H keystone: even on the direct (tool-loop-less) stream, show the model
+        // the ChatLite skills catalog so a small local model that can't drive the
+        // loop is still AWARE of what's available (skills as context, not requiring
+        // the loop). Pairs with shouldUseToolLoop PART 2 (tool-needing queries route
+        // to a fitting agent model when one fits).
+        if let catalog = chatLiteSkillsCatalogBlock(operatingMode: operatingMode) {
+            systemParts.append(catalog)
         }
         let systemPrompt: String? = systemParts.isEmpty
             ? nil
