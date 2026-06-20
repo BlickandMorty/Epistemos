@@ -19,6 +19,9 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
     case zai             // Z.AI / GLM
     case minimax
     case deepseek
+    case llama           // local Meta Llama
+    case mistral         // local Mistral / Devstral
+    case liquid          // local Liquid LFM
     case generic         // unknown / lobehub generic
 
     var displayName: String {
@@ -35,6 +38,9 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         case .zai: "Z.AI"
         case .minimax: "MiniMax"
         case .deepseek: "DeepSeek"
+        case .llama: "Llama"
+        case .mistral: "Mistral"
+        case .liquid: "LFM"
         case .generic: "Model"
         }
     }
@@ -52,7 +58,13 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         case .qwen: "ProviderLogoQwen"
         case .apple: "ProviderLogoApple"
         case .kimi: "ProviderLogoKimi"
-        // .zai / .minimax / .deepseek / .generic → SF-Symbol fallback (no SVG yet).
+        case .zai: "ProviderLogoZai"
+        case .minimax: "ProviderLogoMiniMax"
+        case .deepseek: "ProviderLogoDeepSeek"
+        case .llama: "ProviderLogoLlama"
+        case .mistral: "ProviderLogoMistral"
+        case .liquid: "ProviderLogoLiquid"
+        // .generic → SF-Symbol fallback (no brand SVG).
         default: nil
         }
     }
@@ -70,6 +82,9 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         case .zai: "z.circle"
         case .minimax: "m.circle"
         case .deepseek: "d.circle"
+        case .llama: "l.circle"
+        case .mistral: "wind"
+        case .liquid: "drop"
         case .generic: "cpu"
         }
     }
@@ -94,7 +109,16 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
     static func local(modelID: String) -> ProviderBrand {
         let id = modelID.lowercased()
         if id.contains("gemma") { return .gemma }
+        // deepseek BEFORE qwen: the R1-Distill-Qwen ids contain "qwen" but are
+        // DeepSeek models — checking qwen first mislabeled them with the Qwen logo.
+        if id.contains("deepseek") { return .deepseek }
         if id.contains("qwen") || id.contains("qwopus") { return .qwen }
+        if id.contains("llama") { return .llama }
+        if id.contains("mistral") || id.contains("devstral") { return .mistral }
+        if id.contains("lfm") || id.contains("liquid") { return .liquid }
+        if id.contains("minimax") { return .minimax }
+        if id.contains("glm") || id.contains("zhipu") { return .zai }
+        if id.contains("kimi") { return .kimi }
         return .generic
     }
 
@@ -109,10 +133,14 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         if l.contains("gpt") || l.contains("chatgpt") || l.contains("openai") { return .chatGPT }
         if l.contains("gemini") { return .gemini }
         if l.contains("gemma") { return .gemma }
+        // deepseek BEFORE qwen (R1-Distill-Qwen labels contain "qwen").
+        if l.contains("deepseek") { return .deepseek }
         if l.contains("qwen") || l.contains("qwopus") { return .qwen }
+        if l.contains("llama") { return .llama }
+        if l.contains("mistral") || l.contains("devstral") { return .mistral }
+        if l.contains("lfm") || l.contains("liquid") { return .liquid }
         if l.contains("kimi") || l.contains("moonshot") { return .kimi }
         if l.contains("apple") { return .apple }
-        if l.contains("deepseek") { return .deepseek }
         if l.contains("minimax") { return .minimax }
         if l.contains("glm") || l.contains("z.ai") || l.contains("zai") { return .zai }
         return .generic

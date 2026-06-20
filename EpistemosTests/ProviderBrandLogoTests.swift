@@ -31,6 +31,14 @@ struct ProviderBrandLogoTests {
         #expect(ProviderBrand.local(modelID: "qwen3_4B4Bit") == .qwen)
         #expect(ProviderBrand.local(modelID: "qwopus27Bv3") == .qwen)
         #expect(ProviderBrand.local(modelID: "something-else") == .generic)
+        // Local long-tail families (P6.2): each gets its own brand mark. The
+        // DeepSeek-R1-Distill-Qwen ids contain "qwen" but resolve to DeepSeek —
+        // the matcher checks deepseek BEFORE qwen (was mislabeling them Qwen).
+        #expect(ProviderBrand.local(modelID: "DeepSeek-R1-Distill-Qwen-7B-4bit") == .deepseek)
+        #expect(ProviderBrand.local(modelID: "Llama-3.2-3B-Instruct") == .llama)
+        #expect(ProviderBrand.local(modelID: "Mistral-Small-3.1-24B") == .mistral)
+        #expect(ProviderBrand.local(modelID: "Devstral-Small-2505") == .mistral)
+        #expect(ProviderBrand.local(modelID: "LFM2-24B") == .liquid)
         // Apple is its own brand.
         #expect(ProviderBrand.apple.displayName == "Apple Intelligence")
         #expect(ProviderBrand.apple.sfSymbolFallback == "apple.logo")
@@ -48,10 +56,28 @@ struct ProviderBrandLogoTests {
         #expect(ProviderBrand.qwen.assetName == "ProviderLogoQwen")
         #expect(ProviderBrand.apple.assetName == "ProviderLogoApple")
         #expect(ProviderBrand.kimi.assetName == "ProviderLogoKimi")
-        // The long-tail providers (no SVG yet) fall back to SF Symbols.
-        #expect(ProviderBrand.zai.assetName == nil)
-        #expect(ProviderBrand.minimax.assetName == nil)
+        // P6.2 — the previously-bare cloud + local-family brands now have real
+        // lobehub marks too (Z.AI, MiniMax, DeepSeek, Llama/Meta, Mistral, Liquid).
+        #expect(ProviderBrand.zai.assetName == "ProviderLogoZai")
+        #expect(ProviderBrand.minimax.assetName == "ProviderLogoMiniMax")
+        #expect(ProviderBrand.deepseek.assetName == "ProviderLogoDeepSeek")
+        #expect(ProviderBrand.llama.assetName == "ProviderLogoLlama")
+        #expect(ProviderBrand.mistral.assetName == "ProviderLogoMistral")
+        #expect(ProviderBrand.liquid.assetName == "ProviderLogoLiquid")
+        // Only the unknown/generic brand still falls back to an SF Symbol.
         #expect(ProviderBrand.generic.assetName == nil)
+    }
+
+    @Test("every brand whose assetName is set has a real imageset on disk (no dangling reference)")
+    func stagedAssetsExistOnDisk() throws {
+        for brand in ProviderBrand.allCases {
+            guard let asset = brand.assetName else { continue }
+            let url = try sourceMirrorURL(for: "Epistemos/Assets.xcassets/\(asset).imageset")
+            #expect(
+                FileManager.default.fileExists(atPath: url.path),
+                "missing imageset on disk for \(brand): \(asset).imageset"
+            )
+        }
     }
 
     @MainActor
@@ -82,6 +108,10 @@ struct ProviderBrandLogoTests {
         // Account-runtime names win over the base brand.
         #expect(ProviderBrand.fromLabel("Claude Code") == .claudeCode)
         #expect(ProviderBrand.fromLabel("Codex") == .codex)
+        // A DeepSeek label resolves to DeepSeek even when it names its Qwen base.
+        #expect(ProviderBrand.fromLabel("DeepSeek R1 Distill Qwen 7B") == .deepseek)
+        #expect(ProviderBrand.fromLabel("Llama 3.2 3B") == .llama)
+        #expect(ProviderBrand.fromLabel("Mistral Small 3.1") == .mistral)
         #expect(ProviderBrand.fromLabel("Mystery Model") == .generic)
     }
 
