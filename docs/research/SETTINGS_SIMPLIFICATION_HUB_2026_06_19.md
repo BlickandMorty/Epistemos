@@ -21,7 +21,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-B | Epistemos's OWN settings — simplify the sprawl | ✅ done → SS-B_APP_SETTINGS_SIMPLIFY |
 | SS-C | SETUP / ONBOARDING flow — first-run + per-feature auto-config for everything added (models/engines/MCP/voice/logos): the "it just works" path | ✅ done → SS-C_ONBOARDING_SETUP |
 | SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ✅ done → SS-D_SETTINGS_INTEGRATION |
-| SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ☐ |
+| SS-E | DEFAULTS & AUTOMATION audit — everywhere the app asks the owner to configure something it could derive/default; make it auto | ✅ done → SS-E_DEFAULTS_AUTOMATION |
 | SS-F | ROBUSTNESS of settings — persistence, honest gating, validation, no-fake, witness; settings that silently fail or don't apply | ✅ done → SS-F_SETTINGS_ROBUSTNESS |
 | SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ✅ done → SS-G_MODEL_INSTALL_PATH |
 | SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ✅ done → SS-H_CROSS_ENGINE_TOOL_SKILL_SHARING |
@@ -251,3 +251,11 @@ split. **Target (into the existing enum, NO new sidebar): ONE Models home (SS-AB
 ONE Diagnostics + an Engines section (SS-A EngineSettingsSection — doesn't exist yet, must build) + Privacy +
 Advanced.** Plan: de-dupe Night Brain [S]; single Diagnostics home [S]; one Models detail + AdvertisedModelStore
 → @Observable [M]; one MCP&Tools registry [M]; Engines section [L]. Full: SS-D doc.
+**SS-E DEFAULTS & AUTOMATION** → reassuring: the runtime engine is ALREADY strongly derive-first (idle-unload by
+RAM band, model-fit gate, complexity auto-sizing Fast→E2B/E4B/12B ON by default, per-model ctx + sampling, routing
+.auto — owner never sets them). ~80% of inference config is DERIVE. **The gap is ONBOARDING (converges with
+SS-C):** the 2 highest-value asks — vault path + first model — could auto-default but don't (dead
+`defaultVaultURL` + model-step punt). **Plan: wire `installEpistemosFoundationPackage` into onboarding [S];
+default vault to `~/Documents/Epistemos` (revive dead code) [S]; read GGUF n_ctx instead of 8192 fallback [M];
+reconsider heartbeat/ssm AC-gated default-ON [M].** Ports/dirs/caches already auto-defaulted (SS-A pattern).
+Flag-ON≠wired clones stay honest-inert (don't auto-ON). Full: SS-E doc. (Settings cluster A/B/C/D/E/F COMPLETE.)
