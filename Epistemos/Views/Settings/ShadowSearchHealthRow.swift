@@ -17,6 +17,14 @@ public struct ShadowSearchHealthRow: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // SS-IR: the install preconditions FIRST — this is the owner's "I don't see Instant
+            // Recall, is it working?" answer (no vault / service not installed / N docs indexed).
+            row(
+                label: "Instant Recall index",
+                symbol: installSymbol,
+                state: installState,
+                detail: installDetail
+            )
             row(
                 label: "Shadow backend",
                 symbol: snapshot.isDegraded ? "exclamationmark.triangle.fill" : "magnifyingglass.circle.fill",
@@ -58,6 +66,29 @@ public struct ShadowSearchHealthRow: View {
 
     public func refresh() {
         snapshot = ShadowSearchDiagnostics.shared.snapshot()
+    }
+
+    // SS-IR install preconditions — the "why is recall empty?" answer.
+    private var installState: SubstrateHealthSignalState {
+        if !snapshot.vaultPresent || !snapshot.serviceInstalled { return .blocked }
+        return .pass
+    }
+
+    private var installSymbol: String {
+        snapshot.serviceInstalled ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
+    }
+
+    private var installDetail: String {
+        if !snapshot.vaultPresent {
+            return "No active vault — recall has nothing to index (select a vault in Settings)"
+        }
+        if !snapshot.serviceInstalled {
+            return "Vault present, but search service not installed (Rust FFI open failed)"
+        }
+        if let count = snapshot.indexedDocumentCount {
+            return "Installed · \(count) document(s) indexed"
+        }
+        return "Installed · vault active"
     }
 
     private var backendDetail: String {

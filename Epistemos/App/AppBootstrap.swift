@@ -3721,6 +3721,9 @@ final class AppBootstrap {
             BackgroundIndexingHealthRow.recordUnavailable(
                 reason: "No active vault selected - cached local note/graph data only"
             )
+            // SS-IR: the #1 "I don't see Instant Recall" cause — no vault to index.
+            ShadowSearchDiagnostics.shared.recordInstall(
+                vaultPresent: false, serviceInstalled: false, indexedDocumentCount: nil)
             return
         }
         let vaultPath = vaultURL.path
@@ -3757,6 +3760,9 @@ final class AppBootstrap {
                     "W8.7 shadow: handle open failed at \(shadowRoot.path, privacy: .public) — \(error.localizedDescription, privacy: .public)"
                 )
                 ShadowSearchDiagnostics.shared.recordInitFailure(class: .handleOpen)
+                // SS-IR: vault present, but the Rust FFI handle failed to open → no search service.
+                ShadowSearchDiagnostics.shared.recordInstall(
+                    vaultPresent: true, serviceInstalled: false, indexedDocumentCount: nil)
                 await MainActor.run {
                     guard self?.shadowIndexingInFlightVaultPath == vaultPath else { return }
                     BackgroundIndexingHealthRow.recordFailed(
@@ -3803,6 +3809,11 @@ final class AppBootstrap {
                 let search = ShadowSearchService(client: client)
                 self.shadowIndexer = indexer
                 self.contextualShadowsState.configureShadowSearch(search)
+                // SS-IR: vault + FFI open + search service installed → recall is live (the owner's
+                // "is it working?" answer flips to operational here). Index size left nil to avoid
+                // a stats() FFI call racing the live search service; preconditions are the answer.
+                ShadowSearchDiagnostics.shared.recordInstall(
+                    vaultPresent: true, serviceInstalled: true, indexedDocumentCount: nil)
                 BackgroundIndexingHealthRow.recordEtlQueueStats(
                     initialEtlStats,
                     queuePath: etlQueuePath
