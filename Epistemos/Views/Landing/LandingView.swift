@@ -1568,30 +1568,12 @@ struct LandingView: View {
     }
 
     private func scheduleLandingContextualShadowsRecall(for snapshotText: String) {
+        // SS-IR (owner 2026-06-20): recall is scoped to the EDITORS (Epdoc + TK2), NOT the landing
+        // search. Stop feeding Surface B here — cancel any pending query + clear the landing-scope
+        // payload so no recall chrome appears on landing. The recall brain stays; only this surface
+        // stops feeding/showing it (the button needs a payload to render, so this hides it).
         landingRecallDebounceBox.task?.cancel()
-        guard contextualShadows.isEnabled else { return }
-        guard let bootstrap = AppBootstrap.shared else { return }
-        let instantRecall = bootstrap.instantRecallService
-        let searchIndexService = bootstrap.vaultSync.searchService
-        let activeChatId = chat.activeChatId
-        let scopeID = landingRecallScopeID
-        let originId = activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
-        let state = contextualShadows
-        landingRecallDebounceBox.task = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            guard !Task.isCancelled else { return }
-            let snapshot = RecallContextSnapshot(
-                text: snapshotText,
-                kind: .chat,
-                originId: originId,
-                originDocId: scopeID
-            )
-            state.requestRecall(
-                snapshot: snapshot,
-                instantRecall: instantRecall,
-                searchIndexService: searchIndexService
-            )
-        }
+        contextualShadows.closePanel(kind: .chat, originDocId: landingRecallScopeID)
     }
 
     private func refreshLandingSlashMenu(for newValue: String) {

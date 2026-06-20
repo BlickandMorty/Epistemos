@@ -1795,30 +1795,13 @@ struct ChatInputBar: View {
     // `Task.detached(priority: .utility)`. This hop only applies the 200ms
     // debounce and captures the snapshot. No-op when the V0 flag is OFF.
     private func scheduleContextualShadowsRecall(for snapshotText: String) {
+        // SS-IR (owner 2026-06-20): recall is scoped to the EDITORS (Epdoc + TK2), NOT chat. Stop
+        // feeding Surface B from the chat composer — cancel any pending query + clear the chat-scope
+        // payload so no recall chrome appears here. The recall brain (ContextualShadowsState) stays;
+        // only this surface stops feeding/showing it. `ContextualShadowsButton` needs a payload to
+        // render, so clearing it makes the chat recall affordance go away with no layout removal.
         recallDebounceBox.task?.cancel()
-        guard contextualShadows.isEnabled else { return }
-        guard let bootstrap = AppBootstrap.shared else { return }
-        let instantRecall = bootstrap.instantRecallService
-        let searchIndexService = bootstrap.vaultSync.searchService
-        let activeChatId = chat.activeChatId
-        let scopeID = contextualRecallScopeID
-        let originId = activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
-        let state = contextualShadows
-        recallDebounceBox.task = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            guard !Task.isCancelled else { return }
-            let snapshot = RecallContextSnapshot(
-                text: snapshotText,
-                kind: .chat,
-                originId: originId,
-                originDocId: scopeID
-            )
-            state.requestRecall(
-                snapshot: snapshot,
-                instantRecall: instantRecall,
-                searchIndexService: searchIndexService
-            )
-        }
+        contextualShadows.closePanel(kind: .chat, originDocId: contextualRecallScopeID)
     }
 
     /// RCA2-P1-004 closure 2026-05-13: legacy ad-hoc fetch path
