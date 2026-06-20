@@ -3341,3 +3341,67 @@ native; AGPL server). ADOPT 2 patterns natively:
       must be REPAIRED+HARDENED for BOTH local AND cloud chat. This is the "make the superpowers real" item —
       audit-existing-claims-first (most have hidden passes), then fix the genuinely broken, then re-harden.
       Cross-refs: SS-H (sharing), SS-I (external ecosystems + dir unification), the TOOLS/SKILLS BROKEN item.
+- [ ] **VOICE — premium-default + CLONING + BITCRUSH filter + custom system voice (owner 2026-06-19; expands
+      SS-K + the VOICE high-def item).** Owner (verbatim): *"that high quality voice — the Apple high-quality
+      premium by default, then you can always choose the preferred voice etc. Also the cloning the voice — idk
+      if that is still a thing with the voices but if I can create my own voice too, and/or allow the bitcrush
+      filter be placed over any voice I def want that, and for the system voice be a custom voice with the
+      filter etc."* Four parts: (1) **Apple premium/enhanced voice ON BY DEFAULT** (the SS-K `preferredVoice()`
+      fix at `EpistemosSpeechSynthesizer.swift:227` — scan `speechVoices()` for highest quality, never the
+      macOS-26 compact fallback) with the preferred-voice picker still available. (2) **VOICE CLONING** — let
+      the owner create their own voice via Apple **Personal Voice** (`requestPersonalVoiceAuthorization` +
+      `AVSpeechSynthesisProviderVoice`, on-device, MAS-entitlement) — research if still viable on macOS-26. (3)
+      **BITCRUSH DSP FILTER over ANY voice** — a real-time audio effect (AVAudioEngine + AVAudioUnit /
+      bit-depth-reduction + sample-rate-decimation) layered on AVSpeech output, applicable to any chosen voice.
+      (4) **The Epistemos system/brand voice = a custom voice WITH the bitcrush filter** (the pixel-art-audio
+      signature voice). All local/on-device, honest, no cloud TTS. Compose with SS-K's picker + the chat-surface
+      TTS picker. Research the AVAudioEngine tap on `AVSpeechSynthesizer` (write-to-buffer → effect chain →
+      playback) since AVSpeech doesn't expose a direct effect insert.
+- [ ] **VULNERABILITY RESEARCH + REPAIR-BEFORE-ADD (owner 2026-06-19).** Owner (verbatim): *"try more robust
+      research techniques to check for vulnerabilities in the code to make sure that proper repair is done
+      before anything is added, cloned, or coded etc."* Before ANY new feature/clone/code lands, run a robust
+      **security + correctness vulnerability sweep** on the touched area (and broadly): injection (prompt/tool/
+      path), SSRF (already `validate_url`), secret leakage, unsafe `unwrap`/`try!`/force-unwrap (CLAUDE.md bans
+      them), subprocess hardening gaps, MAS-sandbox escapes, unscoped capability grants, silent-fail/fake-success
+      paths, memory-safety in `unsafe` blocks (each needs `// SAFETY:`), FFI deadlocks (DispatchQueue.main.sync
+      ban). REPAIR found issues FIRST, then add. This is the harden-before-add half of §3.7 lifecycle, applied as
+      a gating discipline. (Build loop should run targeted vuln audits + adversarial verification, not just build
+      green.)
+- [ ] ‼️ **MAIN-ONLY — NO WORKTREE, NO BRANCH MERGE, NEVER LOSE WORK (owner 2026-06-19, HARD CONSTRAINT).** Owner
+      (verbatim): *"I don't want it to work in a new tree or anything because it should all be on main, because in
+      the past merging caused really bad issues. So if there is any work that was done to main make sure it's
+      committed, pushed, and that any new work from research or the plan will not cause it to lose anything at
+      all."* The master build loop + all research MUST operate **directly on `main`** — NO git worktrees, NO
+      feature branches, NO merges (past merges caused bad issues / data loss). Discipline: (a) any work on main is
+      **committed + pushed** promptly (auto-commit+push stays intact); (b) new research/plan work is path-scoped
+      and **never overwrites or drops** existing work — verify `git status` clean / in-sync before+after; (c)
+      monitor never dispatches worktree/branch agents for this repo. (Supersedes any prior worktree guidance for
+      THIS loop.)
+- [ ] **MORE USEFUL LOCAL MODELS — LFM/ternary/Bonsai expansion (owner 2026-06-19).** Owner (verbatim): *"look
+      up more useful local models, more LFM-like models like ternary Bonsai and other useful local models etc."*
+      Research + add to the retained/installable catalog: **LFM2** (Liquid), **ternary / BitNet-style** models
+      (1.58-bit), **Bonsai** (already referenced in `curatedBaselineDescriptors`), and other strong small
+      on-device models (e.g. SmolLM, Qwen3 small, Gemma 3n, Phi, Granite, MiniCPM) — Apple-Silicon-runnable
+      (MLX or GGUF/llama.cpp Pro lane per TurboVec/QAT canon). Honest: only advertise canon, but make ALL
+      installable (ties to the MODEL-INSTALL/INSTALL-ANY item + the model-stack advertise toggle). Verify runtime
+      support before claiming runnable (no-fake); GGUF/ternary lanes stay Pro-gated until route-evidence lands.
+- [ ] **EPDOC REPAIR + a TOLARIA-style v2 WebKit MD editor (owner 2026-06-19; do NOT touch TK2/Prose).** Owner
+      (verbatim): *"Epdoc seems less robust — I want deep research going into the Epdoc surface and other parts
+      of my app that can be upgraded. Apps like Tolaria have a good MD [editor] where it looks like Notion
+      because it has more rich UI and UX elements — I want that on Epdoc, and also maybe one more surface that
+      can be a v2 MD editor built on Tolaria and WebKit or something, with the pixel-art reskin and fonts of
+      course… multiple cycles of research on making things like that more robust. I don't want to touch the TK2
+      or the current Prose editor — you can likely add a second MD editor using WebKit or fuse it with the Epdoc,
+      but in a way that REPAIRS the current Epdoc because right now the editing is very demo-ish, it glitches and
+      fails etc. I really want to try the new MD editor using WebKit but with the pixel-art minimal plus the new
+      macOS-26 style. …I think it would be Epdoc but idk if that gives me the same robustness as a Tolaria, so
+      try to find a balanced approach NOT touching the current TK2 prose editor."* Deep, multi-cycle research:
+      (1) **REPAIR the current Epdoc** WKWebView/Tiptap editor (`Views/Epdoc/EpdocEditorChromeView.swift`,
+      `js-editor/`) — it glitches/fails/demo-ish; find the root (autosave/JS-bridge/render race) and harden.
+      (2) Bring **Notion-style rich UI/UX** (Tolaria-like — embed/clone Tolaria's MD approach, MIT/license-check
+      via ProvenanceGate) onto Epdoc. (3) Optionally a **v2 WebKit MD editor surface** (Tolaria + WebKit base,
+      pixel-art minimal + macOS-26 style + fonts) — a SECOND editor, either standalone or fused with Epdoc.
+      **HARD CONSTRAINT: never touch the TK2/Prose editor** (`Views/Notes/ProseEditorView.swift` /
+      `ProseTextView2.swift` / `ProseEditorRepresentable2.swift`). Balanced approach: robustness of Tolaria +
+      the Epdoc surface. Reuse the WebKit host kit + pixel CSS injector. Multiple research cycles before coding.
+      (New research slices SS-O Epdoc-repair, SS-P Tolaria-v2-editor — to be added to the hub.)
