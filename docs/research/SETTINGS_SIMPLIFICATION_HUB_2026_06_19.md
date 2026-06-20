@@ -24,7 +24,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-G | The MODEL-INSTALL setup specifically (owner's #1 blocker) — the simplest robust click-to-installed path | ✅ done → SS-G_MODEL_INSTALL_PATH |
 | SS-H | CROSS-ENGINE native tool/skill SHARING (owner 2026-06-19) — Osaurus/Goose/OpenClaw access the app's native tools+skills via the shared registry; skills/tools/"superpowers" work for BOTH local AND cloud models in chat | ✅ done → SS-H_CROSS_ENGINE_TOOL_SKILL_SHARING |
 | SS-I | EXTERNAL SKILL ECOSYSTEMS — Anthropic/Vercel/Google | ✅ done → SS-I_EXTERNAL_SKILL_ECOSYSTEMS |
-| SS-J | BROWSER-USE in ALL surfaces (owner 2026-06-19) — the actual github browser-use available across Act/Work/Osaurus + chat; make the app useful in those locations | ☐ |
+| SS-J | BROWSER-USE in ALL surfaces (owner 2026-06-19) — the actual github browser-use available across Act/Work/Osaurus + chat; make the app useful in those locations | ✅ done → SS-J_BROWSER_USE_EVERYWHERE |
 | SS-K | VOICE-MODEL PICKER (owner 2026-06-19) — choose voice models in Settings + a chat-surface TTS picker that only fires on TTS; robust + minimal | ☐ |
 | SS-L | OpenAI + Cursor skills/tools/superpowers + PROVIDER AGENTS on chat (owner 2026-06-19) — OpenAI skills, Cursor skills, and OpenAI/Google/Claude AGENTS available on the chat surfaces | ✅ done → SS-L_PROVIDER_AGENTS_OPENAI_CURSOR |
 | SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ☐ |
@@ -63,3 +63,13 @@ inject the ChatLite skills catalog into local chat even when not looping [S]; bi
 the registry via `ToolTierBridge`; auto-route to a fitting agent-capable model when the small one can't loop
 [M]; unify omega-mcp [L].** Sharing = shared registry-by-value + shared memory, never shared logic. Honest
 gating preserved (local-never-agent-tier, MAS Pro compile-out). Full: SS-H doc.
+**SS-J BROWSER-USE EVERYWHERE** → ~70% exists: a real hardened Pro-gated 11-tool `browser.*` family + the
+`BrowserEngine` trait (Mock-only; WebKit/Obscura adapters are doc comments) + the computer-use AX/vision loop
+(`DeviceAgentService`) which IS browser-use's loop. **Honesty flag: the current `browser.rs` path SPAWNS the
+foreign `agent-browser` CLI → violates no-sidecar.** App-native answer = build the in-process `WebKitBrowser
+Engine` (WKWebView + `evaluateJavaScript` DOM→`PageSnapshot` + synthetic events) = the ONLY MAS-safe browser
+path. One tool registers once (`registry.rs:2672`), reaches all engines via the tier ladder + `ToolTierBridge`.
+**Plan: surface existing browser.* to Chat [S]; build WebKitBrowserEngine + re-route off the CLI + add to
+coreAppStoreAllowedToolNames [M]; widen DeviceActionType DSL [M]; Obscura Pro adapter [L].** Lift browser-use
+v0.13's ClickableElementDetector clean-room (MIT); Playwright/Chromium subprocess is the un-portable part.
+Full: SS-J doc. (Slices SS-C/D/E/F/K/M/N still queued.)
