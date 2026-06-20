@@ -125,11 +125,21 @@ struct RawThoughtsSection: View {
         let runs: [RawThoughtsState.RunSummary]
     }
 
+    // SS-PERF2 #3: the day-bucketing DateFormatter is hoisted to one shared static
+    // instance instead of being allocated on every `groupedByDate` call (which runs each
+    // time `content` re-renders while the panel is open during runs). DateFormatter
+    // creation is the dominant cost here; the bucketing loop itself is cheap. Mirrors the
+    // sibling RawThoughtRow.timeFormatter pattern; identical config (.medium / .none).
+    private static let dateGroupFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
+
     private func groupedByDate(_ runs: [RawThoughtsState.RunSummary]) -> [DateGroup] {
         let calendar = Calendar.current
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        let formatter = Self.dateGroupFormatter
 
         var ordering: [String] = []
         var buckets: [String: [RawThoughtsState.RunSummary]] = [:]
