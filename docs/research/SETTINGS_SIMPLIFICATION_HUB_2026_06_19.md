@@ -15,7 +15,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 ## Slice backlog
 | # | Slice | Status |
 |---|---|---|
-| SS-A | Cloned-app setup/settings simplification + robustness + integration (Osaurus/OpenClaw/Goose/DeerFlow/Hermes): auto-default the plumbing, curated simple front, Advanced disclosure for the rest, connect to app state | ☐ in progress |
+| SS-A | Cloned-app setup/settings simplification + robustness + integration | ✅ done → SS-A_CLONED_APP_SETTINGS_SIMPLIFY |
 | SS-B | Epistemos's OWN settings — simplify the sprawl (~80 health rows + S7 duplicate sections), clean IA + progressive-disclosure for diagnostics, robust defaults | ☐ in progress |
 | SS-C | SETUP / ONBOARDING flow — first-run + per-feature auto-config for everything added (models/engines/MCP/voice/logos): the "it just works" path | ☐ |
 | SS-D | Settings INTEGRATION — one coherent settings model: how clone settings + app settings + new-feature settings (model stack, MCP-install, per-engine sections) cohere + share state | ☐ |
@@ -26,4 +26,5 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-I | EXTERNAL SKILL ECOSYSTEMS (owner 2026-06-19) — Anthropic/Claude Agent-Skills (SKILL.md + anthropics/skills), Vercel (AI-Elements/skills), Google, etc. — what to adopt/clone natively as skill/tool sources for the app + all engines | ☐ |
 
 ## FINDINGS LOG (appended each pass)
-_(Pass 1 in flight — SS-A cloned-app simplification + SS-B app's own settings.)_
+**SS-A CLONED-APP SETTINGS** → the machinery already ships (`SettingsDisclosureSection` = the literal 'Advanced' container; GateStatus+HealthRow triad; native absorbers ModelStack/Authority/Skills). Pattern = a reusable `EngineSettingsSection` (curated native simple front: model→stack, perms→Authority, skills→Skills, MCP→ONE consolidated panel) + a `… · Advanced` disclosure with the full surface. Per clone: auto-default the plumbing (ports/dirs/keys/sandbox), surface ~3-5 knobs simply, full settings under Advanced. **OpenClaw (33-section config) = reskin its config-form via CSS injection + keep it under `OpenClaw · Advanced` — never hide it (reverses S3).** Top move = consolidate MCP-install into one panel. Full: SS-A doc.
+- (SS-B app's-own settings + SS-I external ecosystems still running.)
