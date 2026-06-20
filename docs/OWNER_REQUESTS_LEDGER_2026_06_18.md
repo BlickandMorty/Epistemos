@@ -4197,3 +4197,17 @@ native; AGPL server). ADOPT 2 patterns natively:
       `CoworkChatMode`/`CoworkPanel` reuse; sweep mini-chat/graph/editor surfaces. VERIFY tools actually execute from search
       (catalog non-empty per tier). HIDDEN-RULE GAP recorded in SS-CLEAN: added a CAPABILITY SURFACE-PARITY scan (prior checks
       caught orphans/dupes but NOT asymmetry = built in one surface, hidden from a peer). [S→M].
+- [ ] **SUBSTRATE-HEALTH completion + clone-sequencing contemplation (owner 2026-06-20).** *"Much of the substrate health
+      is unfinished stubs, not wired. I want it all working — idk if before or after the clones, because the clones would
+      reuse this IP so it'd be advantageous to do it BEFORE, but I really want to add the clones first since substrate is
+      heavy backend. Make sure this nuance + contemplation is in the plan."* RESEARCHED → `docs/research/SS-SUB_SUBSTRATE_COMPLETION_CLONE_SEQUENCING_2026_06_20.md`.
+      KEY: SubstrateHealthPanel's ~25 rows SPLIT along the scope boundary. BOUNDARY (owner Cursor domain — loop NEVER builds;
+      this IS the clones' backend IP): SystemG/AnswerPacket/LatticeWBO/ACSAdmission/EmlObservatory/UasAcs/NightBrainLoRA
+      (dual-brain) + ActOsaurus/WorkBackend (Companion→Osaurus). LOOP-SAFE: Eidos/VaultRecall/SearchFusion/EmlRerankGate/
+      EditorBundle/LiteParse/CognitiveDagCounts/DeepResearch/FUlp/FalsifierArtifacts/ActiveConstellation/LocalRouteHonesty.
+      CONTEMPLATION RESOLVED: the clone-relevant substrate IS the owner's boundary domain, so "substrate-before-clones" = more
+      owner Cursor work first; "clones-first" (owner's lean) is viable IF the clone↔substrate seam is an INTERFACE/CONTRACT
+      (substrate firms up behind it later, no clone rework) — recommend freezing that interface before the clones. ORDER is an
+      OWNER PREFERENCE (flag, don't force). LOOP unblocked either way: independently completes/wire-honestly the LOOP-SAFE rows
+      (live probe vs honest fixture, never fake-green) + folds in SS-SH blank-sidebar; NEVER touches boundary-row backends
+      (read-only display only). Cross-ref SS-SH/SS-CLEAN.
