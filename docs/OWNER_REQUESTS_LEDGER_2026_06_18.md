@@ -3219,3 +3219,23 @@ native; AGPL server). ADOPT 2 patterns natively:
       curated front (the handful that matter, auto-defaulted) + the full config-form reskinned + reachable
       under Advanced — never the raw foreign 20-section wall, never deleted. Net: simplify the PRESENTATION +
       automate the defaults; preserve ALL the FUNCTIONALITY (every setting still reachable + working). Simplify ≠ amputate.
+- [ ] **SKILLS/TOOLS/SUPERPOWERS WORK EVERYWHERE — local+cloud, all engines, + external ecosystems
+      (owner 2026-06-19).** Owner (verbatim): *"I want the loop, skills, superpowers etc. — all of this
+      to be working in local AND cloud models in chat. Also make sure Osaurus, Goose, Open Code, OpenClaw
+      etc. have access to native tools and skills from my app, and the Claude/Anthropic skills, also Vercel,
+      also Google etc."* THREE parts: (1) **BOTH local + cloud** — every tool/skill/"superpower" must fire
+      for BOTH local models AND cloud models in chat (reinforces the TOOLS/SKILLS repair: the cloud all-
+      provider attach + the local GGUF-Gemma tool path + flip the flags — both paths live). (2) **CROSS-ENGINE
+      NATIVE SHARING** — Osaurus/Goose(Open Code)/OpenClaw/DeerFlow must have ACCESS to the app's NATIVE tools
+      + skills (Eidos, vault tools, note/file tools, the skill registry, etc.). Per the ENGINE-ISOLATION
+      DOCTRINE this is the SANCTIONED capability seam: ONE shared tool/skill registry (`register_default_tools`),
+      each engine binds its OWN instance — so every engine GETS the app's native tools by DEFINITION, not by
+      calling another engine's code. Build/verify that the engines' registries include the native tool+skill
+      set (Act⊇Chat; Work + the OpenClaw lane bind the same registry). (3) **EXTERNAL SKILL ECOSYSTEMS** —
+      adopt/clone (app-native, never run-the-program) skills/tools from the big ecosystems: **Anthropic/Claude
+      Agent Skills** (the SKILL.md open standard + github.com/anthropics/skills — Epistemos already speaks
+      SKILL.md, so import their skill packs), **Vercel** (AI-Elements/its skill surface), **Google**, and
+      others — as additional SKILL.md/tool sources installable into the shared registry (provenance-gated).
+      So a chat (or any engine) can use app-native skills + Anthropic/Vercel/Google skills alike. Research:
+      SS-H (cross-engine sharing) + SS-I (external ecosystems) in SETTINGS_SIMPLIFICATION_HUB. Honest gating
+      (Pro for subprocess/network skills); never fake a skill that isn't wired.
