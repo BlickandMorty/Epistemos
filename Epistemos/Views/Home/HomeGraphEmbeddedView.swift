@@ -345,17 +345,13 @@ struct HomeGraphEmbeddedView: View {
     }
 
     private func scheduleEmbeddedCanvasStart() {
-        guard !embeddedCanvasReady, embeddedCanvasStartTask == nil else { return }
+        guard !embeddedCanvasReady else { return }
         graphState.cancelOverlayPhysicsCycle()
-        embeddedCanvasStartTask = Task { @MainActor in
-            if !reduceMotion {
-                try? await Task.sleep(for: .milliseconds(420))
-            }
-            guard !Task.isCancelled else { return }
-            embeddedCanvasReady = true
-            graphState.startOverlayPhysicsCycle()
-            embeddedCanvasStartTask = nil
-        }
+        // SS-AN: ready IMMEDIATELY — no 420ms gate. The old delay left the graph blank
+        // during the transition, then popped. The blur-replace transition (BlurFade) now
+        // provides the visual ramp as the canvas comes up.
+        embeddedCanvasReady = true
+        graphState.startOverlayPhysicsCycle()
     }
 
     private func restoreEmbeddedRouteFreezeIfNeeded() {
@@ -403,21 +399,12 @@ private struct MetalGraphRepresentable: NSViewRepresentable {
 
             if shouldRenderCanvas {
                 if visibilityChanged || view.isHidden || view.alphaValue < 1.0 {
-                    let shouldAnimateIn = visibilityChanged || view.isHidden
                     view.isHidden = false
-                    if shouldAnimateIn {
-                        view.alphaValue = 0.0
-                    }
                     view.resumeEngine()
-                    if shouldAnimateIn {
-                        NSAnimationContext.runAnimationGroup { context in
-                            context.duration = 0.32
-                            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                            view.animator().alphaValue = 1.0
-                        }
-                    } else {
-                        view.alphaValue = 1.0
-                    }
+                    // SS-AN: no separate AppKit alpha fade — set alpha to 1 immediately and
+                    // let SwiftUI's blur-replace own the single fade. The 0.32s AppKit fade
+                    // racing the 0.28s SwiftUI fade was the main flicker source.
+                    view.alphaValue = 1.0
                 }
             } else if visibilityChanged || !view.isHidden || view.alphaValue > 0.0 {
                 view.pauseEngine()

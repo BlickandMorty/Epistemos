@@ -39,4 +39,15 @@ struct SSANHomepageTransitionTests {
         // Flat fast driver (no spring overshoot → no pop); reduceMotion still bypasses it.
         #expect(landing.contains("reduceMotion ? nil : .easeOut(duration: 0.28)"))
     }
+
+    @Test("the graph pop-in gate and the racing AppKit alpha fade are gone")
+    func noPopInGateOrAlphaRace() throws {
+        let graph = try loadMirroredSourceTextFile("Epistemos/Views/Home/HomeGraphEmbeddedView.swift")
+        #expect(!graph.contains("milliseconds(420)"),
+                "the 420ms canvas-ready gate (graph blank → pop) must be gone")
+        #expect(!graph.contains("NSAnimationContext"),
+                "the racing 0.32s AppKit alpha fade must be gone — SwiftUI owns the one fade")
+        #expect(!graph.contains("view.animator()"),
+                "no AppKit alpha animation on the graph canvas — set alphaValue immediately")
+    }
 }
