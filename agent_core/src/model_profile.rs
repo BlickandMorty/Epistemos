@@ -768,4 +768,39 @@ mod tests {
             assert!(p.max_output_tokens > 0, "{} no output budget", p.id);
         }
     }
+
+    #[test]
+    fn gguf_lane_models_always_resolve_a_template_and_stops() {
+        // SS-W invariant: a model on the GGUF/llama-cli lane MUST resolve a builtin
+        // chat-template name + stop tokens, so the runtime can always override a
+        // broken embedded template. A GGUF-lane entry with PromptDialect::None would
+        // ship the SS-W broken-template bug (the model never stops / mis-formats) —
+        // guard against it so a future GGUF model can't regress silently.
+        let gguf: Vec<_> = CANON.iter().filter(|p| p.lane == ModelLane::Gguf).collect();
+        assert!(!gguf.is_empty(), "expected at least one GGUF-lane CANON model");
+        for p in gguf {
+            assert!(
+                p.llama_cpp_template_name().is_some(),
+                "{} is GGUF-lane but resolves no llama.cpp template (SS-W risk)",
+                p.id
+            );
+            assert!(
+                !p.stop_tokens().is_empty(),
+                "{} is GGUF-lane but has no stop tokens (SS-W risk)",
+                p.id
+            );
+        }
+    }
+
+    #[test]
+    fn prompt_dialect_matches_model_family() {
+        // Lock the family → dialect mapping so a model can't silently ship on the
+        // wrong llama-cli template (e.g. a Gemma model decoded with the ChatML
+        // template — a quiet output-corruption bug).
+        assert_eq!(profile_for("gemma-4-12b-qat").prompt_dialect, PromptDialect::Gemma);
+        assert_eq!(profile_for("gemma-4-12b-coder").prompt_dialect, PromptDialect::Gemma);
+        assert_eq!(profile_for("qwen3-4b").prompt_dialect, PromptDialect::Chatml);
+        assert_eq!(profile_for("phi-4-mini").prompt_dialect, PromptDialect::Phi);
+        assert_eq!(profile_for("granite-4-nano").prompt_dialect, PromptDialect::Granite);
+    }
 }
