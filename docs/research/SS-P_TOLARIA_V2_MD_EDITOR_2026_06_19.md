@@ -116,3 +116,16 @@ Sources: github.com/refactoringhq/tolaria (+ ADR/ARCHITECTURE; HN #47882697 crea
 introducing-tolaria · TypeCellOS/BlockNote + blocknotejs.org (MPL/GPL split) · steven-tey/novel (Apache) ·
 Milkdown/milkdown (MIT) · tiptap.dev AI-Toolkit + Notion-like-template · udecode/plate · facebook/lexical ·
 codex-team/editor.js · toeverything/blocksuite · LogRocket/nikdelvin/medium Liquid-Glass-CSS. Cross-ref SS-O.
+
+## ‼️ OWNER DECISION (2026-06-19) — Epdoc = MARKDOWN-FIRST auto-mirror (Option B), NOT a separate v2 surface
+The owner's original intention is **markdown-canonical Epdoc with a forever auto-mirror** (md ↔ ProseMirror-JSON
+↔ HTML), one editor with rich + source views (the Tolaria model), NOT a confusing second "v2" editor. Today Epdoc
+is JSON-canonical + HTML-rendered with no md serializer. **Build order (serializer-first, de-risked):** Stage 1 =
+the lossless Tiptap↔markdown serializer + CodeMirror-6 source-mode toggle (closes SS-O root #6, gives md import/
+export immediately); Stage 2 = flip the stored source of truth to clean `.md` + YAML frontmatter, Epdoc maintains
+the live auto-mirror. **Rich-only blocks (charts/complex tables/callouts) → HTML-in-markdown fallback** (valid
+clean `.md`, nothing lost; Tolaria/Obsidian pattern). Study + replicate Tolaria's MD patterns (wikilinks,
+frontmatter, clean-md-to-disk, WYSIWYG↔source) — patterns not AGPL code. NEVER touch TK2/Prose. Prereq: SS-O
+roots #2/#3. (Supersedes SS-P's earlier 'graft rich UI' framing where it conflicts: the canonical-md flip is now
+in scope, sequenced after the serializer.) See ledger: "EPDOC = MARKDOWN-FIRST + FOREVER AUTO-MIRROR".
+
