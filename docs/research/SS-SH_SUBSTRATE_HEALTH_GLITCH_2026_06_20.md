@@ -4,6 +4,23 @@ Read-only research (subagent), code-grounded. Feeds the SUBSTRATE-HEALTH-GLITCH 
 health page is still glitched, it is not working in settings."* Cross-refs SS-PERF (#1 timer collapse), SS-F
 (orphan rows), SS-B (sprawl).
 
+> **⚠️ VERIFIED-CODE UPDATE 2026-06-20 (loop, supersedes the "sync-FFI-on-MainActor" root below).**
+> Ground-truth re-read of the *current* row code: the synchronous-FFI-on-MainActor freeze root this doc
+> identified is **already fixed** — the per-row FFI now polls **OFF the MainActor**:
+> `SystemGHealthRow.refresh()` (:106-122) wraps the FFI in `await Task.detached { … }.value`;
+> `EmlObservatoryHealthRow.refresh()` (:70-73) calls `SubstrateHealthUnifiedClient.snapshotAsync()`.
+> So the panel's actual *freeze/beachball* root (main-thread blocking on a slow/hung sync FFI) is gone —
+> matching `IMPLEMENTATION_SEQUENCE_2026_06_19.md:98` ("freeze fix completed across ALL health rows,
+> off-MainActor polling"). **Remaining SS-SH work is now only the marginal perf collapse** of the ~15
+> still-separate per-row 1Hz `startTimer()` clocks into one shared clock (15 invalidations/sec → 1) — a
+> ~15-file UI refactor whose correctness is **runtime-validated + SwiftUI-version-dependent** (the
+> collapse-vs-`onDisappear` question below), so it should land with the owner present to repro the panel,
+> NOT blind/unattended. The orphan rows (#3) are re-verified dead: `CognitiveDagHealthRow` +
+> `HyperdynamicLoopHealthRow` have **0 mount sites** outside their own files (still ship a dead 1Hz timer
+> loop) → recommend owner-approved retirement (files I did not author → surfaced, not deleted blind).
+> Net: the owner's reported *glitch* is most likely already resolved; verify by opening
+> Settings → Substrate Health. The text below is the original subagent research, kept for provenance.
+
 ## Headline (verified root)
 The panel renders structurally fine (`Form` + 3 collapsible `Section(isExpanded:)`, no broken `ForEach`/id, no
 `EmptyView`, NOT flag-gated). **The glitch = MainActor contention from ~15 simultaneous 1Hz polling timers, each
