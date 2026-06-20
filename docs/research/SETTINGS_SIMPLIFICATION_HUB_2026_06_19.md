@@ -8,6 +8,8 @@ will be added / repaired."* GOVERNING BALANCE (from the ledger): **simplify the 
 automate the defaults; preserve ALL the FUNCTIONALITY. Progressive-disclosure (collapsed-but-
 reachable) ≠ hiding/deleting. Never amputate.** Feeds the build loop (read after MASTER_SYNTHESIS).
 
+> **Cross-reference:** `SESSION_COVERAGE_MATRIX_2026_06_19.md` maps EVERY owner concern (pre-compaction + thread) → ledger + slice + status (129 items, all verified present).
+
 ## Methodology — iterative deepen + broaden (rotate each pass)
 Each pass: persist completed agents' findings into a slice doc + this hub's findings log + commit;
 then advance the next slice (broaden) or deepen a done one. Cross-link new docs into the main hub.
@@ -41,6 +43,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-X | CHAT MESSAGE-BAR STILL MESSY (owner 2026-06-19) — the bottom chat bar still shows think/pro/tools old options on chat surfaces; simplify/demuddify (the picker-simplification didn't fully reach the message bar) + robust teardown/memory transitions | ✅ done → SS-X_CHAT_MESSAGE_BAR_SIMPLIFY |
 | SS-Y | HYPERDYNAMIC DETERMINISM / deterministic schema for LOCAL agents (owner 2026-06-19) — make local agents MORE useful than cloud via deterministic-schema/constrained-decoding + robust agent-loop upgrades; the "playground to make local models better" | ✅ done → SS-Y_HYPERDYNAMIC_DETERMINISM |
 | SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ✅ done → SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK |
+| SS-AA | GITHUB PER-MODEL ENGINEERING STUDY (owner 2026-06-19; extends SS-Z) — harvest proven per-model patterns (prompt/template/tool-dialect/context/sampling/adapters) from llama.cpp/Ollama/vLLM/SGLang/LiteLLM/Outlines/XGrammar/Aider/etc. | ☐ |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
 
 ## FINDINGS LOG (appended each pass)

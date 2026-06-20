@@ -3576,3 +3576,29 @@ native; AGPL server). ADOPT 2 patterns natively:
       hiding/breaking (SS-A/B/X, the picker); (4) visible wins surfaced (logos, install CTA); (5) editors (Epdoc
       repair SS-O + Tolaria SS-P); (6) the new native features (voice SS-K/Q, browser SS-J, PDF SS-T, privacy
       SS-M/N). ALL still get coded — frequency only orders, never drops.
+      → See `docs/research/SESSION_COVERAGE_MATRIX_2026_06_19.md` — the definitive cross-reference mapping EVERY
+      concern (pre-compaction verbatim intent + this thread) → ledger + research slice + status. 129 ledger
+      items; all grep-verified present.
+- [ ] **GITHUB PER-MODEL ENGINEERING STUDY — harvest proven patterns (owner 2026-06-19; extends SS-Z).** Owner
+      (verbatim): *"look at all GitHub repos on how they do per-model engineering for local and cloud and study
+      so many of their techniques and patterns, add that to the plan… utilize GitHub when you can, do local and
+      remote research on all possible things that can be improved."* Study how the leading OSS projects do
+      per-model engineering (prompt format, chat template, tool-call dialect, context handling, sampling,
+      adapters): e.g. llama.cpp (chat-template/minja), Ollama (Modelfile templates), LM Studio, vLLM, SGLang,
+      LiteLLM (provider adapters), Jan, GPT4All, LocalAI, Aider/Cline/OpenHands (per-model prompt tuning),
+      Outlines/XGrammar (constrained decoding), Hermes/function-calling formats. Harvest the proven
+      techniques/patterns → fold into the SS-Z `ModelCapabilityProfile` design + SS-Y determinism. License-check
+      any lift via ProvenanceGate. (New slice SS-AA.)
+- [ ] **TESTS AT THE END (+ each cycle) — honest, real (owner 2026-06-19).** Owner (verbatim): *"need all the
+      things to be implemented, no more forgetting, always honest, do tests at the end of all of it."* After each
+      feature AND at the end: real tests — Swift Testing (compile-verify; headless Swift test EXECUTION hangs per
+      the loop prompt, so reason each assertion to certainty) + `cargo test --lib` (REAL execution for Rust
+      hardening) + the falsifiers. No green-without-witness; honest gating; zero regressions vs the 2,679-test
+      suite. Part of the §3.7 hardening lifecycle + the thermo-nuclear (SS-V) checkpoints.
+- [ ] **"LEFT UNCHANGED BY SIMPLIFICATION" ROBUSTNESS AUDIT (owner 2026-06-19).** Owner (verbatim): *"there have
+      been things totally left unchanged by simplification directives, so make sure that it is more robust and
+      check of the app."* The simplification directives skipped surfaces (e.g. the chat message-bar SS-X — the
+      flag never reached it; settings sprawl SS-B; crash surfaces SS-U/SS-W). Sweep the app for surfaces the
+      simplify/repair passes never touched + harden them (robust teardown, honest gating, no silent-fail, no
+      orphan UI). Cross-ref SS-B (sprawl), SS-X (chat-bar), SS-U/SS-W (crashes), SS-Y (orphaned HyperdynamicLoop).
+      This is a standing part of the REPAIR CYCLES — each cycle finds + hardens a skipped surface.
