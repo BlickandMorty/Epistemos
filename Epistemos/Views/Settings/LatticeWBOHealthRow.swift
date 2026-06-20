@@ -62,15 +62,7 @@ public struct LatticeWBOHealthRow: View {
                 detail: lastAppendDetail
             )
         }
-        .onAppear { refresh() }
-        .task {
-            // Light 1s poll while the row is on-screen. Cheap because
-            // the snapshot read is a single FFI mutex acquire.
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                refresh()
-            }
-        }
+        .substrateHealthPoll { refresh() }
     }
 
     public func refresh() {

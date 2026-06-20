@@ -39,7 +39,6 @@ public struct AnswerPacketHealthRow: View {
 
     @State private var snapshot: AnswerPacketEmitter.Snapshot
     @State private var refreshTask: Task<Void, Never>?
-    @State private var timerTask: Task<Void, Never>?
 
     public init() {
         // Initialize with an empty snapshot so first paint isn't blank;
@@ -131,16 +130,7 @@ public struct AnswerPacketHealthRow: View {
                 )
             }
         }
-        .onAppear {
-            refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
-            timerTask?.cancel()
-            timerTask = nil
-        }
+        .substrateHealthPoll { refresh() }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: AnswerPacketEmitter.didEmitNotification,
@@ -160,17 +150,6 @@ public struct AnswerPacketHealthRow: View {
             // Avoid pointless redraws when nothing changed.
             if next != snapshot {
                 snapshot = next
-            }
-        }
-    }
-
-    private func startTimer() {
-        timerTask?.cancel()
-        timerTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                refresh()
             }
         }
     }

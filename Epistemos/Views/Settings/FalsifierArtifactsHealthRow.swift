@@ -53,16 +53,7 @@ public struct FalsifierArtifactsHealthRow: View {
                 }
             }
         }
-        .onAppear {
-            refresh()
-        }
-        .task {
-            // 1 Hz refresh per Terminal D §step 3 contract.
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                await MainActor.run { refresh() }
-            }
-        }
+        .substrateHealthPoll { refresh() }
     }
 
     @ViewBuilder
