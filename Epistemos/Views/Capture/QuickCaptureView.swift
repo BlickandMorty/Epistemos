@@ -30,6 +30,10 @@ struct QuickCaptureView: View {
     @State private var isTranscribing = false
     @State private var isTraceInspectorPresented = false
     @State private var appearFrame = 0
+    // SS-QC (D) auto read-back: debounce task + last-spoken dedup (so a paused-typing
+    // sentence is read once, never repeatedly). Only active when the pref is .auto.
+    @State private var readBackTask: Task<Void, Never>?
+    @State private var lastSpokenSentence = ""
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -122,6 +126,9 @@ struct QuickCaptureView: View {
         }
         .onDisappear {
             cleanupTransientCaptureState()
+        }
+        .onChange(of: captureText) { _, newValue in
+            scheduleQuickCaptureReadBack(for: newValue)
         }
     }
 
@@ -465,8 +472,26 @@ struct QuickCaptureView: View {
         if audioRecorder.isRecording {
             _ = audioRecorder.stopRecording()
         }
+        readBackTask?.cancel()
+        EpistemosSpeechSynthesizer.shared.stop()
         isTextFieldFocused = false
         isTraceInspectorPresented = false
+    }
+
+    /// SS-QC (D) auto read-back: when the user opts in (pref `.auto`), speak the sentence they
+    /// JUST completed once they pause typing. Opt-in (default manual) + debounce (750 ms) + dedup
+    /// (never re-speak the same sentence) keep it calm — never a stutter of half-typed fragments.
+    private func scheduleQuickCaptureReadBack(for text: String) {
+        guard VoicePreferences.shared.quickCaptureReadBack == .auto else { return }
+        readBackTask?.cancel()
+        readBackTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(750))
+            guard !Task.isCancelled,
+                  let sentence = QuickCaptureReadBack.lastCompletedSentence(in: text),
+                  sentence != lastSpokenSentence else { return }
+            lastSpokenSentence = sentence
+            _ = EpistemosSpeechSynthesizer.shared.speak(sentence)
+        }
     }
 
     private func evidenceChip(text: String, icon: String, role: String) -> some View {
