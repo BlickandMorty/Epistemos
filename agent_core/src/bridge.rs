@@ -599,9 +599,19 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
                             .to_string(),
                 });
             }
-            Ok(Arc::new(crate::providers::gguf_cli::GgufCliProvider::new(
-                model_path,
-            )))
+            // SS-Z/SS-AB: resolve the per-model profile so the GGUF lane gets a
+            // real ctx window (budget-capped — NEVER the hardcoded 4096), a
+            // builtin chat template (overrides a broken embedded one → SS-W), and
+            // per-model stop strings — instead of one-size-fits-all defaults.
+            let profile = crate::model_profile::profile_for(model_path);
+            let mut gguf = crate::providers::gguf_cli::GgufCliProvider::new(model_path)
+                // 16 GB = the M2 Pro ship target; a live budget can refine this later.
+                .with_ctx_size(profile.gguf_runtime_ctx(16.0))
+                .with_stop(profile.stop_tokens().iter().map(|s| s.to_string()).collect());
+            if let Some(template) = profile.llama_cpp_template_name() {
+                gguf = gguf.with_chat_template(template);
+            }
+            Ok(Arc::new(gguf))
         }
         // Chinese AI providers
         "zai" | "glm" => Ok(Arc::new(OpenAICompatibleProvider::zai())),
@@ -1341,8 +1351,17 @@ async fn run_local_gguf_generation_inner(
         });
     }
 
+    // SS-Z/SS-AB: per-model profile → real budget-capped ctx (not the hardcoded
+    // 4096), per-model stop strings, and a builtin chat template that overrides a
+    // broken embedded one (SS-W). Same resolution as the `gguf:` factory arm.
+    let profile = crate::model_profile::profile_for(&model_path);
     let mut provider = crate::providers::gguf_cli::GgufCliProvider::new(&model_path)
-        .with_temperature(temperature.unwrap_or(0.0));
+        .with_temperature(temperature.unwrap_or(0.0))
+        .with_ctx_size(profile.gguf_runtime_ctx(16.0))
+        .with_stop(profile.stop_tokens().iter().map(|s| s.to_string()).collect());
+    if let Some(template) = profile.llama_cpp_template_name() {
+        provider = provider.with_chat_template(template);
+    }
     // Grammar-constrained decoding when a non-empty schema is supplied. The
     // builder no-ops on an empty/whitespace schema, so this stays free-text for
     // ordinary chat turns.

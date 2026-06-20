@@ -116,6 +116,27 @@ impl ModelCapabilityProfile {
     pub fn llama_cpp_template_name(&self) -> Option<&'static str> {
         self.prompt_dialect.llama_cpp_template_name()
     }
+
+    /// The memory-safe RUNTIME context window for the GGUF (llama-cli) lane: the
+    /// model's `context_window` capped to what the given unified-memory budget can
+    /// hold as KV cache (SS-AB: "16 GB KV-cache budget"). Replaces the GGUF
+    /// hardcoded 4096 (the SS-Z bug) with a per-model, budget-aware value —
+    /// small-window models keep their window; large ones (Gemma 128K) are capped
+    /// so they don't OOM a 16 GB Mac. Monotonic in the budget.
+    pub fn gguf_runtime_ctx(&self, memory_budget_gb: f64) -> u32 {
+        let cap: u32 = if memory_budget_gb <= 8.0 {
+            4096
+        } else if memory_budget_gb <= 16.0 {
+            8192
+        } else if memory_budget_gb <= 24.0 {
+            16_384
+        } else if memory_budget_gb <= 36.0 {
+            32_768
+        } else {
+            65_536
+        };
+        self.context_window.min(cap)
+    }
 }
 
 /// The canonical profile set (SS-AB's definitive table). Honest + real — no fake
@@ -386,5 +407,22 @@ mod tests {
         assert!(names.contains(&"VibeThinker-1.5B"));
         // A non-advertised one is excluded.
         assert!(!names.contains(&"Granite 4 Nano 1B"));
+    }
+
+    #[test]
+    fn gguf_runtime_ctx_is_per_model_and_budget_capped_never_4096_on_16gb() {
+        let gemma = profile_for("gemma-4-12b-qat"); // a 128K-window model
+        // 16 GB ship target: capped to 8192 — NOT the dangerous 128K, and a real
+        // improvement over the hardcoded-4096 SS-Z bug.
+        assert_eq!(gemma.gguf_runtime_ctx(16.0), 8192);
+        // A bigger machine lifts the cap; a small one stays conservative.
+        assert_eq!(gemma.gguf_runtime_ctx(36.0), 32_768);
+        assert_eq!(gemma.gguf_runtime_ctx(8.0), 4096);
+        // Monotonic in the budget.
+        assert!(gemma.gguf_runtime_ctx(24.0) >= gemma.gguf_runtime_ctx(16.0));
+        // Every advertised model beats the old hardcoded 4096 on a 16 GB Mac.
+        for p in advertised() {
+            assert!(p.gguf_runtime_ctx(16.0) > 4096, "{} still <=4096", p.id);
+        }
     }
 }
