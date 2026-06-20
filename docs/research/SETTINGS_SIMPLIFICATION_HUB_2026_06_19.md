@@ -40,7 +40,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-W | RECENT CRASH + LOG STUDY (owner 2026-06-19) — study DiagnosticReports + app logs (llama-completion inference crashes + any others), root-cause + add fixes to plan | ✅ done → SS-W_CRASH_LOG_STUDY |
 | SS-X | CHAT MESSAGE-BAR STILL MESSY (owner 2026-06-19) — the bottom chat bar still shows think/pro/tools old options on chat surfaces; simplify/demuddify (the picker-simplification didn't fully reach the message bar) + robust teardown/memory transitions | ☐ |
 | SS-Y | HYPERDYNAMIC DETERMINISM / deterministic schema for LOCAL agents (owner 2026-06-19) — make local agents MORE useful than cloud via deterministic-schema/constrained-decoding + robust agent-loop upgrades; the "playground to make local models better" | ☐ |
-| SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ☐ |
+| SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ✅ done → SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK |
 | SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
 
 ## FINDINGS LOG (appended each pass)
@@ -144,3 +144,21 @@ QuickLook universal preview [S]; QLThumbnailGenerator [S]; OCR-over-PDF→RRF se
 send-selection-to-chat + AppIntents [M]; PencilKit/PDFAnnotation [L].** All MAS-safe, no new entitlements for
 the PDF/QuickLook/OCR path. Integrate via vault+SearchIndexService+ToolTierBridge seams. Full: SS-T doc.
 (Slices SS-C/D/E/F + SS-P/Q/R/S/V queued.)
+**SS-W RECENT CRASH** → the captured crashes = `llama-completion` SIGABRT ×2 (2026-06-16) on llama.cpp
+`common_chat_templates_apply` (uncaught throw → abort) = the GGUF model's chat template can't be applied (the
+Pro local GGUF CLI lane). Fix: classify the subprocess exit at the Epistemos boundary (never crash/wedge the
+app) + pass an explicit per-model `--chat-template`/`--jinja` with chatml fallback + pre-flight validation + pin
+llama.cpp + add an in-app crash recorder (app-level crashes like dark/light SS-U aren't being captured as
+`.ips`). Full: SS-W doc.
+**SS-Z PER-MODEL FRAMEWORK** → per-model config is scattered across ≥4 places + split into TWO disconnected
+universes: MLX `LocalTextModelID` (rich `switch` ladders — ctx `:708`, reasoning cap, tool tier) vs GGUF
+`GemmaQATRuntimeCandidate` (**ZERO inference config** — the actual Chat local path incl. new LFM2.5/VibeThinker/
+MoE). **The SS-W crash falls right out of this:** `gguf_cli.rs:244-270` passes NO `--chat-template`/`--jinja`
+(relies on the embedded template that throws); ctx hardcoded 4096 for ALL models (`:32`); the per-model dialect
+map `NativeToolGrammar` (`LocalToolGrammar.swift:27`) is DEAD code (never wired, no Gemma/LFM2 cases); skills
+reach models only via prompt + the GGUF lane bypasses the loop. **Design: ONE `ModelCapabilityProfile`
+(ctx/promptFormat/toolCallDialect/sampling/tier/skills) both universes resolve to; use llama.cpp's
+`--jinja --chat-template-file` (the `.jinja` is already downloaded) to fix the crash [S]; keep GBNF
+`--json-schema` as the primary tool-call (SS-Y) — forced-valid-JSON makes dialect moot; wire the dead dialect
+map [S]; unify tiers+skills gate [M]; collapse the two universes [L].** Chat-first; non-clashing/additive. Full:
+SS-Z doc.
