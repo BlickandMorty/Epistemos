@@ -40,6 +40,31 @@ struct SSMVLocalVaultTests {
         // …and the vault context was prepended (longer than the bare prompt), regardless of
         // which sections .compact selects.
         #expect(text.count > "USER_BASE_PROMPT".count)
+        // The 4 canonical compiled files are vault context, NOT "Attached Files".
+        #expect(!text.contains("# Attached Files"))
+    }
+
+    @Test("a user-ADDED file in the model vault dir is read into the prompt (SS-MV 3)")
+    func userAddedFileIsRead() async throws {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ssmv3-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let store = KnowledgeProfileStore(baseDirectory: tempRoot)
+        let modelID = "ssmv3-model"
+
+        // Drop a user file into the model's vault dir — NO compiled vault needed.
+        let dir = await store.modelVaultDirectoryURL(for: modelID)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try "PROJECT_RULE_X: always use tabs"
+            .write(to: dir.appendingPathComponent("my_rules.md"), atomically: true, encoding: .utf8)
+
+        let augmented = try await store.augmentedSystemPrompt(
+            existingPrompt: "BASE_PROMPT", modelID: modelID, budget: .compact)
+        let text = try #require(augmented)
+        #expect(text.contains("# Attached Files"))
+        #expect(text.contains("my_rules.md"))
+        #expect(text.contains("PROJECT_RULE_X"))   // the model can READ the user's file
+        #expect(text.contains("BASE_PROMPT"))
     }
 
     @Test("a model with NO vault returns the prompt unchanged (the guarded fallback)")
