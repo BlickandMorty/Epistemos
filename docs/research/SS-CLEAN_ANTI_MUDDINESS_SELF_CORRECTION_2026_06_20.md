@@ -79,3 +79,27 @@ not referenced in ledger/index: **SS-AL** (agent-loop robustness — DONE), **SS
 (frontmatter/tags — folded into EPDOC_MD_V2), **SS-UMA** (instant-recall zero-copy — folded into SS-IR), **SS-SH**
 (substrate-health — its own active item, blank-sidebar still open). Action: recorded them in the finalization index's active
 set so none rots. No owner ask found dropped — the catch was index-completeness, exactly what the sweep is for.
+
+---
+
+## NO-RISK-DEFERRAL RULE + commit-before-risky-edit savepoint (owner 2026-06-20)
+Owner: *"No deferral rule. If something is deferred it needs enough research + deliberation to safely implement it — I want
+the deferred stuff CODED, not deferred. And commit before editing so it can be saved."* Two binding rules:
+1. **No RISK-based deferral.** "This surface is fragile / I might regress it" is NOT a stop — it's a trigger to RESEARCH the
+   surface deeply enough to design a PROVABLY-SAFE approach (usually a pure-additive seam that cannot touch the fragile path
+   + regression-guard tests that prove it), THEN code it. A deferral converts into: research task → safe plan → implementation
+   — never "leave it." Worked example: SS-IL was deferred for fearing the protected inline-stream path; the safe-additive
+   overlay plan + 6 regression guards removed the risk → it gets coded (see SS-IL).
+2. **Commit-before-risky-edit savepoint.** Before a risky/large edit, ensure HEAD is a clean committed savepoint (the
+   just-finished unit, build-green). Then attempt the edit; if build/tests fail, reset/checkout back to the savepoint is
+   cheap and nothing is lost — so attempting fragile work is SAFE and there's no excuse to defer. The loop commits each green
+   unit, so the savepoint usually exists; if mid-stream with uncommitted good work, commit (or stash) the safe portion first.
+   NEVER start a fragile multi-file edit on a dirty tree holding unsaved good work.
+- **What MAY still wait (NOT a risk-deferral):** (a) genuine OWNER-PREFERENCE product choices (e.g. SS-HW main-chat auto-link
+  — no "safe" answer, it's a preference) → provide a recommended default, proceed with it, flag the choice; (b) items gated
+  on an external fact code can't supply (e.g. a live API key the owner must paste). Everything else: research-to-safety + code.
+- **Applies to ALL current deferrals:** SS-IL → CODE via the safe-additive plan. SS-TC → the SS-THX cache LANDED
+  (`EpistemosTheme.swift:295` resolvedCache + invalidation :1506/1524) so the hot-path concern is resolved → UN-DEFER + CODE
+  (the cache IS the safety; on-device visual confirm is a nice-to-have, not a blocker). SS-2S full inline-image render →
+  research the offset-safe async-attachment approach + code (the chip was the interim). SS-HW main-chat auto-link →
+  owner-preference, keep explicit-target-only default + proceed.

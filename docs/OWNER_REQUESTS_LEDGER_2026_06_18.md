@@ -4170,3 +4170,16 @@ native; AGPL server). ADOPT 2 patterns natively:
       slot; every slice→referenced (no orphans); multi-part asks decomposed per sub-bullet; gaps surfaced, never papered over.
       Run end-of-batch + every monitor fire. FIRST SWEEP (2026-06-20): 167 open items; no owner ask found dropped; closed an
       index gap (SS-AL/Y/FM/UMA/SH now tracked in the finalization index). Cross-ref RESEARCH_FINALIZATION_INDEX, SS-CLEAN.
+- [ ] **NO-RISK-DEFERRAL RULE + commit-before-edit savepoint (owner 2026-06-20).** *"Research why it would defer it, and
+      deeply research to make it safe + robust the way I want — apply this to all other items, the no-deferral rule. If it's
+      deferred it needs enough research + deliberation to safely implement. I want the deferred stuff CODED, not deferred. And
+      commit before editing so it can be saved."* RESEARCHED → SS-CLEAN "NO-RISK-DEFERRAL RULE" section. (1) A risk/fragility
+      fear is NOT a stop — it triggers deep research → a PROVABLY-SAFE approach (pure-additive seam that can't touch the
+      fragile path + regression-guard tests) → then CODE it; never "leave it." (2) Commit a clean savepoint BEFORE a risky
+      edit so a failed attempt resets cheaply (nothing lost) — making fragile work safe to attempt. WORKED EXAMPLE: SS-IL was
+      deferred fearing the protected inline-stream path; deep map (Explore, file:line) → safe-additive OVERLAY plan (pure
+      overlays reading read-only NoteChatState + 1 additive read-only rect-getter; streaming path provably untouched; 6
+      regression guards) → SS-IL "SAFE-ADDITIVE IMPLEMENTATION" section → CODE IT. APPLIED to all deferrals: SS-IL→code;
+      SS-TC→UN-DEFERRED (SS-THX cache landed = the safety); SS-2S full inline-image render→research offset-safe attachment +
+      code; SS-HW main-chat auto-link→owner-preference (default explicit-target-only, proceed). EXCEPTIONS that may wait: genuine
+      owner-preference choices + items gated on an external fact (e.g. API key) — everything else is research-to-safety + code.

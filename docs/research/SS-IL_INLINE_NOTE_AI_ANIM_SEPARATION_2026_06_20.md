@@ -87,3 +87,58 @@ native + editable; the "magic" is a shader skin on top that fades out to hand th
   (typing reaches TextKit during + after); reduce-motion path; no-regression on streaming completion/persistence.
 Sources: SwiftUI `.layerEffect`/`.colorEffect`/`.distortionEffect` + `TimelineView(.animation)` (Hacking with Swift, WWDC23
 Metal-for-SwiftUI); twostraws/Inferno; SwiftUIShaders. Cross-ref existing `Shaders/ThinkingGlow.metal`, SS-ALIVE, SS-TC, SS-PERF2.
+
+---
+
+## SAFE-ADDITIVE IMPLEMENTATION (owner 2026-06-20: NO-DEFERRAL — research it to safety, then CODE it)
+The loop deferred SS-IL fearing it would touch the owner-protected inline-streaming path. Deep map (Explore, file:line)
+proves the enhancements can be **pure overlays that NEVER mutate text storage** → the regression risk is removable → no
+deferral needed. Implement via this seam.
+
+### The streaming path = text-storage + offset math (DO NOT TOUCH)
+The streamed answer flows through a divider-protected append pipeline, entirely in two files:
+- `NoteChatState.swift`: divider contract (`NoteChatInlineResponse.divider` :7, `dividerRange` :9, `editTouchesDivider` :13);
+  the 6 mutation callbacks (`onStreamStart/onTokenFlush/onStreamFinish/onAccept/onDiscard/onReplaceInlineResponse` :72-96);
+  the `useResponsePanel` gate (:65, set in `beginSubmission` :283); `finalizeResponseText`→`onReplaceInlineResponse` (:305-321).
+- `ProseEditorRepresentable2.swift`: `startNoteChatStream` :635, `appendNoteChatTokens` :655 (always appends at `ts.length`),
+  `replaceNoteChatResponse` :725, accept :686 / discard :705, all under the `isFlushingTokens` reentrancy flag.
+- `ProseTextView2.swift`: `hasProtectedInlineResponseDivider` :123 + `shouldChangeText` rejection :418-442.
+FRAGILE: anything that writes `NSTextStorage`, sets a text-storage/layout delegate, adds a glyph attribute, or inserts a
+`replaceCharacters` mid-stream regresses it (races `isFlushingTokens`, shifts `responseRange` offsets, pollutes the undo
+group). So the enhancements MUST be SwiftUI/AppKit overlays that READ state and never mutate storage.
+
+### Read-only signals an overlay consumes (zero modification)
+`NoteChatState` is `@MainActor @Observable`: `isStreaming` :58, `responseText` :60, `hasResponse` :62, `useResponsePanel`
+:65, `toolbarStatusPhase` :66, `error` :64. Missing: a published answer RECT — add it ADDITIVELY (below).
+
+### The safe seam — one overlay + one additive read-only getter
+1. **Overlay mount:** add ONE `.overlay { InlineAnswerDecorationOverlay(...) }` on the `noteCanvas` ZStack
+   (`NoteDetailWorkspaceView.swift` after :1012; the ZStack already has `.environment(noteChatState)` :1015 + sibling
+   overlays at :992/996/1001), guarded `if noteChatState.hasResponse && !noteChatState.useResponsePanel`. `.allowsHitTesting(false)`
+   except the arrow button.
+2. **Answer rect (additive, read-only):** add `var inlineResponseRectProvider: (() -> CGRect?)?` to `NoteChatState` (next to
+   the existing provider closures, after :96 — matches the documented provider pattern). Populate it in
+   `ProseEditorRepresentable2.wireNoteChatCallbacks` (:594) with a READ-ONLY helper that computes `dividerRange`→`responseRange`
+   (reuse the math at :730-734) and calls the EXISTING `ProseTextView2.firstRect(forCharacterRange:actualRange:)` (:215-242,
+   already returns screen-space NSRect). This adds a GETTER only — touches none of the 6 callbacks, no `replaceCharacters`.
+3. **Cold box:** rounded container + border drawn in the overlay clipped to the answer rect — paints OVER the inline text
+   without changing how it's stored. Reads `useResponsePanel == false` to decide to draw; never sets it. (Verdict: the
+   inline-vs-panel risk is avoided entirely — overlay-only.)
+4. **Scroll-down arrow:** positioned at the rect's bottom edge, shows only when the rect is below the viewport; the one
+   hit-testing element.
+5. **Metal glow:** `Shaders/ThinkingGlow.metal` EXISTS + has ZERO consumers (orphan scaffold → wiring is purely additive,
+   nothing to regress). Two additive routes: (a) add a `[[stitchable]]` variant + SwiftUI `.colorEffect` on the overlay
+   (the current entry points are classic vertex/fragment, so the stitchable fn is new), or (b) an `NSViewRepresentable`+`MTKView`
+   modeled on the existing `MetalGraphView.swift`. Either: `allowsHitTesting(false)`, reads only `isStreaming` + rect, gated
+   to the stream+dissolve window then removed (no idle GPU).
+
+### Regression-guard tests (PROVE inline streaming unchanged) — required before "done"
+(1) divider constant byte-equality + `editTouchesDivider` still rejects in-marker edits; (2) inline lifecycle order
+(`["replace","accept"]` suffix + visible-delta join) byte-identical WITH the overlay present; (3) `onReplaceInlineResponse`
+fires once inline / zero in panel mode; (4) invoking `inlineResponseRectProvider` changes nothing + fires zero of the 6
+callbacks; (5) append-after-divider invariant + `hasProtectedInlineResponseDivider` toggle unchanged; (6) overlay file
+imports no `NSTextStorage`/`ProseTextView2` symbols (compile-time proof it can't touch storage).
+
+### Files: NEW `Views/Notes/InlineAnswerDecorationOverlay.swift` (+ optional `ThinkingGlowMetalView.swift` / stitchable shader);
+EDIT `NoteDetailWorkspaceView.swift` (1 overlay line), `NoteChatState.swift` (1 read-only closure), `ProseEditorRepresentable2.swift`
+(populate the getter). DO-NOT-TOUCH list above. **CODE IT — do not defer; the safe seam is proven.**
