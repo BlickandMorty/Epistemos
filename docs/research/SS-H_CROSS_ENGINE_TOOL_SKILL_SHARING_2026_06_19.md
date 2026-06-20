@@ -5,6 +5,22 @@ WORK-EVERYWHERE ledger item. Owner's demand: *"the loop, skills, superpowers —
 models in chat; and Osaurus/Goose/Open Code/OpenClaw have access to the app's native tools + skills + the
 Claude/Anthropic + Vercel + Google skills."*
 
+> **✅ VERIFIED-CODE UPDATE 2026-06-20 (loop) — the KEYSTONE (plan #1) and AUTO-ROUTE
+> (plan #4) are already LANDED + TESTED; this doc's "gap" framing for them is stale.**
+> `PipelineService.chatLiteSkillsCatalogBlock(operatingMode:)` (`:415`) builds a real
+> ChatLite tool/skill catalog and is appended to the DIRECT (tool-loop-less) system
+> prompt (`:1140-1145`) — so a small tool-less Gemma now SEES the skills (plan #1,
+> the keystone). `shouldUseToolLoop` PART 2 (`:388-401`) routes a non-agent model's
+> tool-needing queries to a *fitting* agent-capable model (`fittingLocalAgentTextModelID`,
+> no OOM swap) instead of degrading to a tool-less stream (plan #4), gated by
+> `EPISTEMOS_AUTO_TOOL_ROUTE_V0` (ON by default). Witnessed by
+> `EpistemosTests/SkillsKeystoneTests.swift` (+ `AutoToolRouteWiringTests`,
+> `SkillInjectionTests`). **Remaining SS-H = the cloned-engine binding only:** plan #2
+> (bind Osaurus `ActOsaurusBridge` to the registry), #3 (Goose/Work), #5 (omega-mcp
+> dedupe), #6 (OpenClaw) — those engines stay honest-but-inert, and the higher-value
+> "skills work in local AND cloud CHAT" half is done. The plan below is the original
+> research, kept for provenance.
+
 ## Headline
 **The shared capability registry is REAL and already serves BOTH local and cloud chat** — one `ToolRegistry`
 type with a `ToolTier` ladder, bound per-engine via the `ToolTierBridge` → `list_tools_for_tier` /
