@@ -146,6 +146,14 @@ struct SetupAssistantView: View {
             HStack(spacing: 12) {
                 Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .model } }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
+                // SS-C/SS-E "derive-don't-ask": offer the auto-derived default vault
+                // (~/Documents/Epistemos via FirstRunBootstrap.defaultVaultURL — which
+                // was DEAD code, never invoked) as a one-tap "it just works" path,
+                // instead of forcing the NSOpenPanel. The manual chooser stays.
+                if vaultSync.vaultURL == nil {
+                    Button("Use Default") { useDefaultVault() }
+                        .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
+                }
                 Button(vaultSync.vaultURL != nil ? "Change Vault" : "Select Vault Folder") {
                     selectVaultFolder()
                 }
@@ -313,6 +321,17 @@ struct SetupAssistantView: View {
             Text(name)
                 .font(bodyFont)
         }
+    }
+
+    /// SS-C/SS-E: connect the auto-derived default vault (~/Documents/Epistemos)
+    /// without an NSOpenPanel — the "it just works" path. The default may not exist
+    /// yet (NSOpenPanel always returns an existing folder), so create it first; then
+    /// connect via the same path a picked empty folder takes (assess → switch →
+    /// bootstrap → persist).
+    private func useDefaultVault() {
+        let url = FirstRunBootstrap.defaultVaultURL()
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)
     }
 
     private func selectVaultFolder() {
