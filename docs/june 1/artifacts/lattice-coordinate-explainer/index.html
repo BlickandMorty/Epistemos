@@ -2221,7 +2221,7 @@ Lock phrase: <em class="k">One substrate, two builds, three motions, five planes
     <tr><td><strong>E1</strong></td><td>Density Theorem</td><td>12-plane bundle has a dense controller-policy approximation under the Morph language.</td><td>L3</td><td><span class="tag partial-pf">Partial</span></td></tr>
     <tr><td><strong>E2</strong></td><td>Ultrametric-Sheaf Gluing</td><td>Local sheaf sections glue uniquely under p-adic ultrametric coherence.</td><td>L3</td><td><span class="tag partial-pf">Partial</span></td></tr>
     <tr><td><strong>E3</strong></td><td>Storage-Disaggregated Morph Field</td><td>The Morph field is invariant under storage disaggregation; addressability survives residency moves.</td><td>L3</td><td><span class="tag partial-pf">Partial</span></td></tr>
-    <tr><td><strong>E4</strong></td><td>UST-1.5 / WBO-7 Master Inequality</td><td>End-to-end Wyner-Ziv bound: ‖output − ground-truth‖ ≤ Σ per-stage budgets.</td><td>L3</td><td><span class="tag proven">Proven (Lean)</span></td></tr>
+    <tr><td><strong>E4</strong></td><td>UST-1.5 / WBO-7 Master Inequality</td><td>End-to-end Wyner-Ziv bound: ‖output − ground-truth‖ ≤ Σ per-stage budgets.</td><td>L3</td><td><span class="tag partial-pf">Proven (paper); Lean stub open (sorry)</span></td></tr>
     <tr><td><strong>E5</strong></td><td>Duplex Fusion</td><td>Hard-compact and soft-page-backed branches admit a fusion operator with bounded routing error. <em>(Strictly more general than E5.)</em></td><td>L3</td><td><span class="tag partial-pf">Partial</span></td></tr>
     <tr><td><strong>E6</strong></td><td>Error-Enriched Convergence (Epi_ε)</td><td>Foundational language for E7 — sequences converge in an error-enriched topology.</td><td>L3</td><td><span class="tag theory">Theoretical</span></td></tr>
     <tr><td><strong>E7</strong></td><td>Autogenous Kernel Identity</td><td>Self-generating kernel identity holds under E5 + E6.</td><td>L3</td><td><span class="tag theory">Theoretical</span></td></tr>
@@ -2234,10 +2234,10 @@ Lock phrase: <em class="k">One substrate, two builds, three motions, five planes
 <table>
   <thead><tr><th>ID</th><th>Name</th><th>Severity</th><th>State</th></tr></thead>
   <tbody>
-    <tr><td><strong>H1</strong></td><td>WBO-7 Master Inequality (operational view of E4)</td><td>HALT</td><td><span class="tag proven">Proven</span></td></tr>
-    <tr><td><strong>H2</strong></td><td>Half-softmax post-not-pre rewrite</td><td>HALT</td><td><span class="tag proven">Proven</span></td></tr>
+    <tr><td><strong>H1</strong></td><td>WBO-7 Master Inequality (operational view of E4)</td><td>HALT</td><td><span class="tag partial-pf">Proven (paper); Lean stub open (sorry)</span></td></tr>
+    <tr><td><strong>H2</strong></td><td>Half-softmax post-not-pre rewrite</td><td>HALT</td><td><span class="tag partial-pf">Proven (paper); Lean stub open (sorry)</span></td></tr>
     <tr><td><strong>H3</strong></td><td>Active-Support Atlas indexing</td><td>HALT</td><td><span class="tag partial-pf">Partial</span></td></tr>
-    <tr><td><strong>H4</strong></td><td>LatticeCoder / Babai quantization</td><td>HALT</td><td><span class="tag proven">Proven</span></td></tr>
+    <tr><td><strong>H4</strong></td><td>LatticeCoder / Babai quantization</td><td>HALT</td><td><span class="tag partial-pf">Proven (paper); Lean stub open (sorry)</span></td></tr>
     <tr><td><strong>H5</strong></td><td>Morph DSL determinism</td><td>HALT</td><td><span class="tag partial-pf">Partial</span></td></tr>
     <tr><td><strong>H6</strong></td><td>TestTimeRegressor unification</td><td>HALT</td><td><span class="tag theory">Theoretical</span></td></tr>
     <tr><td><strong>H7</strong></td><td>Six-tier memory L0–L_SE eviction monotonicity</td><td>HALT</td><td><span class="tag partial-pf">Partial</span></td></tr>
@@ -2270,6 +2270,24 @@ Lock phrase: <em class="k">One substrate, two builds, three motions, five planes
     <tr><td><strong>PCF-8</strong></td><td>Parameter Connectome Sheaf Consistency</td><td>Local-to-global parameter sheaf consistency</td><td><span class="tag theory">Theoretical</span></td></tr>
     <tr><td><strong>PCF-9</strong></td><td>Connectome Distillation</td><td>Distillation preserves connectome topology</td><td><span class="tag theory">Theoretical</span></td></tr>
     <tr><td><strong>PCF-10</strong></td><td>Interpretability-to-Runtime Transfer</td><td>Interpretability findings become runtime gates</td><td><span class="tag theory">Theoretical</span></td></tr>
+  </tbody>
+</table>
+
+<!-- ============ §11B Lean sorry burn-down ============ -->
+<h2 id="lean-burndown">11B · Lean sorry burn-down (mirrors <code>research/lean/ResearchCanon.lean</code>)</h2>
+<p>Honesty ledger for the formal layer. Each row is a Lean stub in the <code>ResearchCanon</code> Lake project, its declared sorry budget, its current discharged/open status (verified 2026-06-20), and the theorem-family id it backs. <strong>Current state: 8 open / 1 trivially closed.</strong> Note: the open stubs currently <em>state</em> <code>True</code> (the substantive statement still lives in each file's doc-comment), so they do not yet assert — let alone prove — the named theorem. A second per-theorem Lean project under <code>Epistemos/lean/Epistemos/</code> (E1–E7, H1–H17, PCF) is likewise sorry-open for E4/H1/H2/H4/H17, which is why those rows above read "Lean stub open" rather than "Proven (Lean)."</p>
+<table>
+  <thead><tr><th>Lean stub</th><th>Sorry budget</th><th>Status</th><th>Backs</th></tr></thead>
+  <tbody>
+    <tr><td><code>Helios.Connectome.T28RuntimeTransfer</code></td><td>≤ 1</td><td><span class="tag theory">Open (sorry)</span></td><td>PCF-10 (interpretability→runtime transfer)</td></tr>
+    <tr><td><code>Helios.Connectome.T29EditSafetyBound</code></td><td>≤ 1</td><td><span class="tag theory">Open (sorry)</span></td><td>PCF-6 (component edit-safety bound)</td></tr>
+    <tr><td><code>Helios.Connectome.T32SheafConsistency</code></td><td>≤ 1</td><td><span class="tag theory">Open (sorry)</span></td><td>PCF-8 (connectome sheaf consistency)</td></tr>
+    <tr><td><code>Helios.Interrupt.InterruptInvariant</code></td><td>≤ 5</td><td><span class="tag theory">Open (sorry)</span></td><td>Attention-as-interrupt honesty (static-fallback acknowledgement)</td></tr>
+    <tr><td><code>Eml.Operator</code></td><td>≤ 2</td><td><span class="tag theory">Open (sorry)</span></td><td>EML operator non-commutativity</td></tr>
+    <tr><td><code>Eml.Grammar</code></td><td>0</td><td><span class="tag partial-pf">Closed (rfl, trivial)</span></td><td>EML grammar depth-finiteness (reflexivity only, not the density claim)</td></tr>
+    <tr><td><code>Eml.Density</code></td><td>≤ 1</td><td><span class="tag theory">Open (sorry)</span></td><td>EML grammar dense-in-continuous</td></tr>
+    <tr><td><code>Substrate.E3StorageDisaggregated</code></td><td>≤ 1</td><td><span class="tag theory">Open (sorry)</span></td><td>E3 (storage-disaggregated Morph field)</td></tr>
+    <tr><td><code>CMSX.NeuralBarrierFunction</code></td><td>≤ 1</td><td><span class="tag theory">Open (sorry)</span></td><td>CMS-X trajectory-stays-in-safe-region (neural barrier)</td></tr>
   </tbody>
 </table>
 
