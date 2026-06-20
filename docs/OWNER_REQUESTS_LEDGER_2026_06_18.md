@@ -3655,3 +3655,20 @@ native; AGPL server). ADOPT 2 patterns natively:
       plan + researched deeply.** Confirmed via `SESSION_COVERAGE_MATRIX_2026_06_19.md` (updated) — every concern
       incl. pre-compaction verbatim intent is mapped to ledger + slice + status; nothing dropped. The
       ModelCapabilityProfile/per-model-description directive above is now captured. Standing loop continues.
+- [ ] ‼️ **EPDOC = MARKDOWN-FIRST + FOREVER AUTO-MIRROR (owner 2026-06-19 — DECISION LOCKED; the owner's original
+      intention).** Owner (verbatim): *"I wanted Epdoc to be markdown-first and the Epdoc is a forever
+      auto-mirror — that was actually my initial intention. The Prose editor can just be its own thing, left
+      untouched. Having a v2 could be confusing for users; the tradeoff is having a more robust md, and everyone
+      loves to use md."* DECISION = **Option B (markdown-canonical auto-mirror), NOT a separate v2 surface.**
+      Today Epdoc is **JSON-canonical** (`package.contentJSON` = ProseMirror JSON) + **HTML-rendered** (Tiptap in
+      WKWebView), with NO markdown serializer (lossy md-in, no md-out — SS-O root #6). Target = flip the source of
+      truth to **markdown**: clean `.md` + YAML frontmatter on disk; Epdoc is the live **auto-mirror** markdown
+      (canonical) ↔ ProseMirror-JSON (rich editor) ↔ HTML (render). One editor, two views (rich + source), the
+      Tolaria model. **Build order (de-risked, serializer-first):** (Stage 1) build the lossless Tiptap↔markdown
+      serializer + a CodeMirror-6 source-mode toggle (this is required for B + immediately gives md import/export;
+      closes SS-O root #6); (Stage 2) make markdown the stored source of truth + the live auto-mirror. **Rich-only
+      blocks (charts/complex tables/callouts) → HTML-in-markdown fallback** (stays valid clean `.md`, nothing
+      lost — Tolaria/Obsidian pattern), NOT degradation. **NEVER touch TK2/Prose** (`ProseEditorView.swift` etc.)
+      — it stays its own untouched editor. Study Tolaria's MD aspects (wikilinks, frontmatter, clean-md-to-disk,
+      WYSIWYG↔source toggle, agent-as-git-contributor) + add as much as possible — all PATTERNS, not AGPL code.
+      Cross-ref SS-O (Epdoc repair — the prereq), SS-P (graft-not-clone). Prereq: land SS-O roots #2/#3 first.
