@@ -1165,6 +1165,21 @@ calls: no blanket rule — choose per case.
 - [x] No hidden Qwen on tool/attachment seam (P1.10) — verify in-app with attach.
 - [x] Apple Intelligence selectable native route (P1.7) — verify visible.
 - [x] Download/install progress visible (P1.8) — verify a real install shows it.
+      ✅ MODEL INSTALL DISCOVERABILITY (owner 2026-06-19, TOP blocker — "still
+      cannot find a way to install a real local model"): the install affordances
+      already existed (LocalModelManagerSheet: prominent "Download the Epistemos
+      AI foundation package" + live progress + "All models (advanced)") but were
+      BURIED behind Settings → Local AI → "Manage Local Models". FIX: an
+      unmissable in-picker CTA — `InlineRuntimePickerPanel.installModelsCTA`
+      ("Install local AI · Download Epistemos AI — Gemma · VibeThinker · coder"),
+      shown at the TOP of the runtime picker when `!hasInstalledFoundationModel`
+      (pure tested `shouldShowInstallCTA`). Tapping it posts `.openModelManager`;
+      the always-alive `HomeSceneRootContent` observes it and presents the model
+      manager sheet directly (chained after `.withAppEnvironment` so the
+      `LocalModelManager`/`UIState` env is present — no @Environment crash).
+      `LocalModelManagerSheet` made internal so the root view can present it.
+      +1 test (InstallCTADiscoverabilityTests). build-for-testing SUCCEEDED,
+      0 app errors. Owner verifies the picker→manager open in-app.
 - [x] Fast low/med/high effort visible (P1.9) — verify the composer hint shows.
 - [ ] Vault "best essay in my vault" returns ranked answer w/ title/path/reason,
       not a generic reply or empty "no vault retrieval" (P2.2 — still partial).

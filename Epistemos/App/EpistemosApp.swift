@@ -83,6 +83,10 @@ private struct HomeSceneRootContent: View {
     // vault-less, but re-fires next launch so they don't forget.
     @State private var vaultReprompDismissedThisSession = false
     @State private var setupAssistantPresented = false
+    // Owner 2026-06-19 (top blocker): the in-picker "Install local AI" CTA posts
+    // `.openModelManager`; this root view (always alive, has the AppEnvironment so
+    // LocalModelManager/UIState are present) presents the manager directly.
+    @State private var showModelManagerSheet = false
 
     var body: some View {
         LaunchIntegrityGateView(bootstrap: bootstrap) {
@@ -209,6 +213,14 @@ private struct HomeSceneRootContent: View {
                     NotificationCenter.default.publisher(for: .showQuickCapture)
                 ) { _ in
                     showQuickCapture = true
+                }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .openModelManager)
+                ) { _ in
+                    showModelManagerSheet = true
+                }
+                .sheet(isPresented: $showModelManagerSheet) {
+                    LocalModelManagerSheet()
                 }
                 .onAppear {
                     reconcileSetupAssistantPresentation()
@@ -1498,6 +1510,10 @@ extension Notification.Name {
     static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
     static let proceedWithQuit = Notification.Name("epistemos.proceedWithQuit")
     static let showQuickCapture = Notification.Name("epistemos.showQuickCapture")
+    /// Posted by the in-picker "Install local AI" CTA (owner 2026-06-19) so the
+    /// model manager is reachable from where models are chosen, not only from
+    /// Settings ▸ Local AI. Observed by the root view to present the manager.
+    static let openModelManager = Notification.Name("epistemos.openModelManager")
 }
 
 struct EpistemosCommands: Commands {

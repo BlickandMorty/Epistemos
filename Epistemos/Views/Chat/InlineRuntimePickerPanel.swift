@@ -89,12 +89,62 @@ struct InlineRuntimePickerPanel: View {
         )
     }
 
+    /// Whether to show the in-picker "install a local model" call-to-action: only
+    /// when no Epistemos foundation model is installed yet (otherwise the picker has
+    /// real local picks and the CTA would be noise). Pure → unit-testable.
+    static func shouldShowInstallCTA(hasInstalledFoundationModel: Bool) -> Bool {
+        !hasInstalledFoundationModel
+    }
+
+    /// Unmissable install entry, shown at the top of the picker when no local model
+    /// is installed. Posts `.openModelManager` (observed at the app level) so the
+    /// owner reaches the foundation-package download without hunting through
+    /// Settings ▸ Local AI ▸ Manage Local Models.
+    private var installModelsCTA: some View {
+        Button {
+            NotificationCenter.default.post(name: .openModelManager, object: nil)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.circle.fill")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Install local AI")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Download Epistemos AI — Gemma · VibeThinker · coder")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(theme.resolved.accent.color.opacity(0.14))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(theme.resolved.accent.color.opacity(0.5), lineWidth: 1)
+            )
+            .foregroundStyle(theme.resolved.accent.color)
+        }
+        .buttonStyle(.plain)
+    }
+
     var body: some View {
         // Capped + scrollable so a tier with many models (Think holds VibeThinker
         // + Qwen 4B/8B + LFM + the 12B 2-bit) never pushes the composer off-screen
         // — matches the old popover's 380pt scroll budget, just flat + in-flow.
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                // Owner 2026-06-19 (top blocker — "still cannot find a way to install
+                // a local model"): when no foundation model is installed, surface an
+                // unmissable install CTA right here in the picker (where models are
+                // chosen) that opens the model manager, instead of burying the only
+                // path in Settings ▸ Local AI ▸ Manage Local Models.
+                if Self.shouldShowInstallCTA(hasInstalledFoundationModel: inference.hasInstalledFoundationModel) {
+                    installModelsCTA
+                }
                 ForEach(EpistemosModelTier.allCases, id: \.rawValue) { tier in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(tier.shortName.uppercased())
