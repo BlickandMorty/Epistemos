@@ -778,8 +778,12 @@ private struct GeneralDetailView: View {
             ? true : defaults.bool(forKey: "epistemos.showSaveOnQuitDialog")
     }()
     @State private var summaryInterval: WorkspaceSummaryService.SummaryInterval = {
-        let raw = UserDefaults.standard.string(forKey: "epistemos.summaryInterval") ?? "15m"
-        return WorkspaceSummaryService.SummaryInterval(rawValue: raw) ?? .fifteenMinutes
+        // SS-F: match WorkspaceSummaryService's truth (it defaults to .fiveMinutes,
+        // WorkspaceSummaryService.swift:24-25). The picker previously defaulted to
+        // 15m while the service actually summarized every 5m on a fresh install —
+        // a real default-drift bug (the picker showed a value the service ignored).
+        let raw = UserDefaults.standard.string(forKey: "epistemos.summaryInterval") ?? "5m"
+        return WorkspaceSummaryService.SummaryInterval(rawValue: raw) ?? .fiveMinutes
     }()
     @State private var workspaces: [SDWorkspace] = []
     @State private var renamingWorkspace: SDWorkspace?
@@ -1405,8 +1409,13 @@ private struct ExperimentalFeaturesSettingsPanel: View {
                 flagToggle(
                     title: "Graph chat indexing",
                     key: "EPISTEMOS_GRAPH_INDEX_CHATS",
-                    detail: "Reserved UserDefaults flag; status-only until a runtime reader lands.",
-                    isOn: $graphIndexChatsEnabled
+                    // SS-F (owner: no fake toggles): there is NO runtime reader for
+                    // this flag (grep over agent_core is empty), so flipping it did
+                    // nothing. Demoted to a disabled "not yet active" row — honest
+                    // about the planned feature — instead of a fake working switch.
+                    detail: "Not yet active — the chat→graph indexer hasn't shipped (toggling has no effect).",
+                    isOn: $graphIndexChatsEnabled,
+                    disabled: true
                 )
                 flagToggle(
                     title: "Prompt tree",
@@ -1484,7 +1493,10 @@ private struct ExperimentalFeaturesSettingsPanel: View {
         title: String,
         key: String,
         detail: String,
-        isOn: Binding<Bool>
+        isOn: Binding<Bool>,
+        // SS-F: a flag with no runtime reader is demoted to a disabled row so it
+        // can't masquerade as a working switch ("no fake features"). Default false.
+        disabled: Bool = false
     ) -> some View {
         Toggle(isOn: isOn) {
             VStack(alignment: .leading, spacing: 2) {
@@ -1497,6 +1509,7 @@ private struct ExperimentalFeaturesSettingsPanel: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .disabled(disabled)
     }
 }
 
