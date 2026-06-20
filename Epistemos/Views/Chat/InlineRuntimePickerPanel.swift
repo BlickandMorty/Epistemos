@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(agent_coreFFI)
+import agent_coreFFI
+#endif
 
 /// Flat, inline, pixel-art runtime picker (owner 2026-06-18: "delete the
 /// .popover, rebuild as a flat inline pixel-art panel — modelPopover/
@@ -328,7 +331,12 @@ struct InlineRuntimePickerPanel: View {
                     Text(option.title)
                         .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
                         .foregroundStyle(option.isSelectable ? theme.textPrimary : theme.textTertiary)
-                    Text(option.blockedReason ?? tier.tagline)
+                    // SS-AB: show this model's SHORT use-case line ("Fastest
+                    // on-device · everyday chat", "Best all-round · strong tools +
+                    // reasoning", …) resolved from the single Rust ModelCapability
+                    // Profile source. Falls back to the blocked reason (if blocked)
+                    // or the generic tier tagline (unknown model / test host).
+                    Text(option.blockedReason ?? modelUseCaseLine(for: option.id) ?? tier.tagline)
                         .font(.system(size: 10))
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(2)
@@ -361,6 +369,20 @@ struct InlineRuntimePickerPanel: View {
         }
         .buttonStyle(.plain)
         .help(option.blockedReason ?? option.title)
+    }
+
+    /// SS-AB: the short per-model use-case line for the picker, resolved from the
+    /// single Rust `ModelCapabilityProfile` source via the agent_core FFI — the
+    /// Swift side does NOT duplicate the copy (one source of truth). `nil` for an
+    /// unknown model id (empty FFI result) or a target that doesn't link
+    /// `agent_coreFFI` (unit-test host), so the row keeps its generic tier tagline.
+    private func modelUseCaseLine(for modelID: String) -> String? {
+        #if canImport(agent_coreFFI)
+        let line = modelPickerUseCase(modelId: modelID)
+        return line.isEmpty ? nil : line
+        #else
+        return nil
+        #endif
     }
 
     /// A reasoning-effort (ChatReasoningTier) row. Setting effort is a refinement
