@@ -3497,3 +3497,70 @@ native; AGPL server). ADOPT 2 patterns natively:
       block-based agent canvases) — make Epistemos the MOST robust in that field. License-check every lift via
       ProvenanceGate. Builds ON the SS-O repair (stabilized bridge first). NEVER touch TK2/Prose. (New slice
       SS-P expanded; cross-ref SS-O + the HTML-WORKSPACE-CAN'T-EDIT item.)
+- [ ] **RECENT CRASH + STUDY ALL LOGS (owner 2026-06-19; SS-W done).** Owner: *"the app crashed recently —
+      research that, study recent logs, make sure all of that is researched + fixed in the plan."* FINDING
+      (SS-W): the captured crashes are **`llama-completion` SIGABRT ×2 (2026-06-16)** — the local GGUF llama-cli
+      lane aborts on `common_chat_templates_apply` (uncaught C++ throw → `ggml_uncaught_exception` → abort) =
+      the model's chat template can't be applied by the llama.cpp build. **Fix: classify the subprocess
+      exit/template-error at the Epistemos boundary (never crash/wedge the app) [S]; pass an explicit per-model
+      `--chat-template`/`--jinja` with chatml fallback [S]; pre-flight template validation at install/selection
+      [M]; pin/upgrade llama.cpp [M]; add an in-app crash recorder so app-level crashes (dark/light SS-U,
+      transitions) actually get captured [S].** Study `~/Library/Logs/DiagnosticReports` + `/tmp/*build*.log` +
+      app logs EACH hardening cycle. Cross-ref SS-U, SS-Z, MODEL-INSTALL.
+- [ ] **CHAT MESSAGE-BAR STILL MESSY — simplify/demuddify (owner 2026-06-19; SS-X).** Owner (verbatim): *"the
+      controls on the chat are very messy still, particularly on the chat surfaces when I use the bottom message
+      bar I still see think, pro, tools etc. — very old options that I thought I simplified. Those are important
+      to fix, simplify, demuddify as well as part of the repair passes and multi-cycles of nuclear cleanup. More
+      robust teardowns and memory management transitions etc."* The picker-simplification (P1.1-1.3, the
+      three-mode Fast/Think/Code popover) did NOT fully reach the **bottom message bar** (`Views/Chat/ChatInput
+      Bar.swift` + composer controls) — it still shows old think/pro/tools chips on the chat surfaces. Simplify
+      the message bar to match the simplified picker (progressive-disclosure, never delete) + harden teardown +
+      memory transitions on the chat surfaces. Part of the repair passes + the nuclear-cleanup (SS-V) multi-
+      cycles. Cross-ref the MINICHAT-3-TOGGLES item + the picker work.
+- [ ] **HYPERDYNAMIC DETERMINISM / DETERMINISTIC SCHEMA — make LOCAL agents > cloud (owner 2026-06-19; SS-Y).**
+      Owner (verbatim): *"do a lot of research on the high hyperdynamic determinism / deterministic schema in
+      ways to make local agents better — literally to make local agents MORE useful than cloud agents or cloud
+      models. I just want to make my app a playground for making local models better and using robust upgrades
+      to my agent loops."* Research + build: deterministic/constrained-schema decoding (grammar-constrained tool
+      calls — the FFI `with_json_schema`/`run_local_gguf_generation` is wired; the `LocalToolGrammar` DSL),
+      hyperdynamic loop determinism (there's an existing `HyperdynamicLoop` + `HyperdynamicLoopHealthRow`),
+      robust agent-loop upgrades (ReAct + self-correction + verification), so a LOCAL model with constrained
+      decoding + the app's skills/memory/tools beats a raw cloud model. Make the app the **playground to make
+      local models better**. Compose with SS-H (skills everywhere), SS-Z (per-model framework), the grammar tool
+      loop (#41), OverseerComplexityRouter. This is a flagship "local > cloud" thesis — deep, multi-cycle.
+- [ ] **PER-MODEL BESPOKE ENGINEERING FRAMEWORK — modernized + non-clashing (owner 2026-06-19; SS-Z).** Owner
+      (verbatim): *"in an old iteration I had a custom bespoke engineering framework for each local model and
+      each cloud model. I still want that, but in a way that doesn't clash with other things — if other GitHub
+      repos can solve the problems I'm having, I'll just do that. I added new models so there's outdated stuff
+      (like context window in a file) — a mess that worked for specific models. I want my models to all utilize
+      my skills (be able to call), but with the robust tool-call of LFM or a combination of tool-callers good for
+      specific things. Research so all my models are actually able to be used with my app."* Build a clean
+      **per-model capability profile** (context window, chat-template/prompt format, tool-call dialect — e.g.
+      LFM-style vs chatml vs Hermes vs Qwen — sampling params) for EACH local + cloud model, modernized for the
+      newly-added models (the old per-model file is outdated, e.g. wrong context windows — ties to the SS-W
+      template crash). Every model must be able to call the app's skills (SS-H) with the right tool-call format
+      per model. Prefer proven GitHub solutions over bespoke where they fit (license-check via ProvenanceGate).
+      Non-clashing: see the next item.
+- [ ] **ENGINEERING SCOPE = CHAT-FIRST; Act/Work only NON-CLASHING beneficial adds (owner 2026-06-19,
+      CONSTRAINT).** Owner (verbatim): *"the clones have their own marketplace for downloading/installing models
+      (Osaurus/Elsa? maybe OpenClaw/OpenCode). I want the engineering I'm doing to my local models to stay mainly
+      on the CHAT surface, and whatever I can add to Act and Work mode add them — but make sure they DON'T CLASH
+      because that adds complexity. The additions I told you to research should be mainly BEFORE/for the CHAT
+      service; for Work and Act only add things that won't clash and are actually beneficial."* So: the per-model
+      framework (SS-Z), hyperdynamic determinism (SS-Y), skills-everywhere (SS-H), and the new feature research
+      land **primarily on the CHAT (Epistemos) engine**; Act (Osaurus) + Work (Goose/OpenCode) get only the
+      subset that is **non-clashing + genuinely beneficial** (respect each clone's own model marketplace/install
+      — don't duplicate or fight it). Engine-isolation already enforces this (shared registry/memory, not shared
+      logic) — apply it as the scoping rule for ALL the additions.
+- [ ] ‼️ **FINAL SESSION-COVERAGE AUDIT + LOOP-PLAN INTEGRITY (owner 2026-06-19).** Owner: *"do a final check
+      that the plan has ALL my concerns from this entire session and entire thread; deep-look the real files so
+      all my queries/wires are saved + my original intent is saved. Frequency of certain requests hints at what
+      to prioritize, but ALL things should be coded/built. Check the loop + the loop plan being used is updated;
+      if you need to start a new loop since we have stalls, do so — but make sure nothing is lost and no nuance
+      or query is left out of the loop plan."* See the SESSION-COVERAGE INDEX appended below + the loop-plan
+      integrity note. PRIORITY (by request frequency this session): (1) model install/run actually works +
+      per-model engineering (crash, install, Qwen, SS-Z, SS-W) — most-repeated; (2) skills/tools work everywhere
+      local+cloud + repaired/hardened (SS-H, repair item); (3) simplify the UI/settings/chat-bar without
+      hiding/breaking (SS-A/B/X, the picker); (4) visible wins surfaced (logos, install CTA); (5) editors (Epdoc
+      repair SS-O + Tolaria SS-P); (6) the new native features (voice SS-K/Q, browser SS-J, PDF SS-T, privacy
+      SS-M/N). ALL still get coded — frequency only orders, never drops.
