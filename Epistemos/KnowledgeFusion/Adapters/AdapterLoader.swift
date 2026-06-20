@@ -36,7 +36,7 @@ actor AdapterLoader {
         }
 
         // Verify adapter files exist
-        let weightsPath = record.adapterPath.appendingPathComponent("adapter_weights.safetensors")
+        let weightsPath = NativeAdapterDirectory.weightsURL(in: record.adapterPath)
         guard FileManager.default.fileExists(atPath: weightsPath.path) else {
             throw AdapterLoaderError.weightsNotFound(weightsPath)
         }

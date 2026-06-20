@@ -5,7 +5,7 @@ import Foundation
 /// Exports and imports adapters as ".epistemos-adapter" skill pack bundles.
 ///
 /// Export format: zip archive containing:
-///   - adapter_weights.safetensors
+///   - adapters.safetensors
 ///   - adapter_config.json
 ///   - training_metadata.json
 ///   - README.md (auto-generated)
@@ -37,11 +37,11 @@ nonisolated struct AdapterExporter: Sendable {
         defer { try? fm.removeItem(at: stagingDir) }
 
         // Copy adapter files
-        let weightsSource = record.adapterPath.appendingPathComponent("adapter_weights.safetensors")
+        let weightsSource = NativeAdapterDirectory.weightsURL(in: record.adapterPath)
         let configSource = record.adapterPath.appendingPathComponent("adapter_config.json")
 
         if fm.fileExists(atPath: weightsSource.path) {
-            try fm.copyItem(at: weightsSource, to: stagingDir.appendingPathComponent("adapter_weights.safetensors"))
+            try fm.copyItem(at: weightsSource, to: NativeAdapterDirectory.weightsURL(in: stagingDir))
         }
         if fm.fileExists(atPath: configSource.path) {
             try fm.copyItem(at: configSource, to: stagingDir.appendingPathComponent("adapter_config.json"))
@@ -97,9 +97,9 @@ nonisolated struct AdapterExporter: Sendable {
         try fm.createDirectory(at: adapterDir, withIntermediateDirectories: true)
 
         // Copy files to destination
-        let weightsSource = extractDir.appendingPathComponent("adapter_weights.safetensors")
+        let weightsSource = NativeAdapterDirectory.weightsURL(in: extractDir)
         if fm.fileExists(atPath: weightsSource.path) {
-            try fm.copyItem(at: weightsSource, to: adapterDir.appendingPathComponent("adapter_weights.safetensors"))
+            try fm.copyItem(at: weightsSource, to: NativeAdapterDirectory.weightsURL(in: adapterDir))
         }
 
         let configSource = extractDir.appendingPathComponent("adapter_config.json")
@@ -134,7 +134,7 @@ nonisolated struct AdapterExporter: Sendable {
 
             // Must have at least metadata
             let metadataExists = fm.fileExists(atPath: extractDir.appendingPathComponent("training_metadata.json").path)
-            let weightsExist = fm.fileExists(atPath: extractDir.appendingPathComponent("adapter_weights.safetensors").path)
+            let weightsExist = fm.fileExists(atPath: NativeAdapterDirectory.weightsURL(in: extractDir).path)
 
             return metadataExists && weightsExist
         } catch {
