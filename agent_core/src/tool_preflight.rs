@@ -206,7 +206,12 @@ const AUTO_ROUTE_MAX_TOOLS: usize = 5;
 pub const AUTO_TOOL_ROUTE_FLAG: &str = "EPISTEMOS_AUTO_TOOL_ROUTE_V0";
 
 fn auto_tool_route_armed() -> bool {
-    flag_armed(std::env::var(AUTO_TOOL_ROUTE_FLAG).ok().as_deref())
+    // FLIPPED ON by default 2026-06-19 (owner: plain queries should auto-route to
+    // tools) — env "0" disables. Does NOT use `flag_armed` (other flags share it and
+    // must stay opt-in).
+    std::env::var(AUTO_TOOL_ROUTE_FLAG)
+        .map(|v| v != "0")
+        .unwrap_or(true)
 }
 
 /// Deterministic AUTO-ROUTE signal: does this query imply the user needs a TOOL (vault /
@@ -624,11 +629,14 @@ mod tests {
     }
 
     #[test]
-    fn auto_route_ffi_off_is_passthrough() {
-        // Flag OFF (default in the test env) → the unchanged passthrough envelope, so a
-        // caller can call it unconditionally with ZERO behaviour change until armed.
+    fn auto_route_ffi_on_by_default_returns_the_real_verdict() {
+        // FLIPPED ON by default 2026-06-19: with the env unset, the FFI returns the
+        // REAL tool-need verdict (not the legacy passthrough), so a plain query that
+        // mentions a file auto-routes to the file tool instead of a toolless answer.
         let catalog_json = r#"[{"name":"read_file","description":"Read a file from disk","keywords":["file"]}]"#;
-        let out = schema_auto_tool_route_json("read my file".into(), catalog_json.into(), 5);
-        assert_eq!(out, "{\"needs_tools\":false,\"tools\":[]}");
+        let out = schema_auto_tool_route_json("read my file from disk".into(), catalog_json.into(), 5);
+        let parsed: serde_json::Value = serde_json::from_str(&out).expect("valid JSON envelope");
+        assert_eq!(parsed["needs_tools"], serde_json::json!(true));
+        assert!(out.contains("read_file"));
     }
 }

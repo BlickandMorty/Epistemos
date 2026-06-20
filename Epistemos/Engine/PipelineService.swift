@@ -388,13 +388,13 @@ final class PipelineService {
         return false
     }
 
-    /// AUTO-ROUTE v0 flag (`EPISTEMOS_AUTO_TOOL_ROUTE_V0`). OFF by default: the
-    /// tool-loop decision is unchanged. ON: a plain local query consults the
-    /// deterministic Rust tool-need detector so tool-needing queries route to the
-    /// loop and pure chat does not. (The Rust FFI is itself flag-gated, so this is a
-    /// double gate — Swift won't even load candidates unless armed.)
+    /// AUTO-ROUTE v0 flag (`EPISTEMOS_AUTO_TOOL_ROUTE_V0`). FLIPPED ON by default
+    /// 2026-06-19 (owner: plain queries should route to tools) — env `0` disables.
+    /// A plain local query consults the deterministic Rust tool-need detector so
+    /// tool-needing queries route to the loop and pure chat does not. The Rust FFI
+    /// is now also ON by default, so the two sides agree.
     nonisolated static var autoToolRouteArmed: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_AUTO_TOOL_ROUTE_V0"] == "1"
+        ProcessInfo.processInfo.environment["EPISTEMOS_AUTO_TOOL_ROUTE_V0"] != "0"
     }
 
     /// Build the detector's candidate catalog JSON (`[{"name","description",

@@ -72,12 +72,12 @@ struct AutoToolRouteWiringTests {
         #expect(PipelineService.parseAutoRouteVerdict("") == nil)
     }
 
-    @Test("flag is OFF by default → the tool-loop decision is unchanged")
-    func flagDefaultsOff() {
-        // Default process environment has no EPISTEMOS_AUTO_TOOL_ROUTE_V0 → armed == false,
-        // so shouldUseToolLoop never loads candidates / consults the detector.
+    @Test("flag is ON by default (flipped 2026-06-19) → the detector decides loop-vs-direct")
+    func flagDefaultsOn() {
+        // Default process environment has no EPISTEMOS_AUTO_TOOL_ROUTE_V0 → armed == true,
+        // so shouldUseToolLoop consults the detector for a plain query (env "0" disables).
         if ProcessInfo.processInfo.environment["EPISTEMOS_AUTO_TOOL_ROUTE_V0"] == nil {
-            #expect(PipelineService.autoToolRouteArmed == false)
+            #expect(PipelineService.autoToolRouteArmed == true)
         }
     }
 

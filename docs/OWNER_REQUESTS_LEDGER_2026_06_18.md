@@ -366,6 +366,20 @@ calls: no blanket rule — choose per case.
       SUCCEEDED (0 errors). PART 2 (next): flip `EPISTEMOS_AUTO_TOOL_ROUTE_V0` ON (coordinated Swift
       PipelineService.autoToolRouteArmed + Rust auto_tool_route_armed) so plain queries auto-route to
       tools end-to-end.
+      ✅ FLIP+VERIFY (Phase-0 #6) part 2 — AUTO-ROUTE ON by default (Swift + Rust) 2026-06-19:
+      `EPISTEMOS_AUTO_TOOL_ROUTE_V0` flipped to ON by default on BOTH sides (env `0` disables) — Rust
+      `auto_tool_route_armed()` (agent_core/src/tool_preflight.rs) now `env != "0" || unset → true`
+      (kept OFF the shared `flag_armed` so the GGUF-grammar flag stays opt-in), and Swift
+      `PipelineService.autoToolRouteArmed` (`== "1"` → `!= "0"`). So a plain LOCAL query like "find my
+      note about X" now consults the deterministic tool-need detector and auto-routes to the tool loop
+      (vault.search) instead of a toolless answer, while pure chat ("write a haiku") still direct-
+      streams. Tests rewritten to default-ON (Rust auto_route_ffi_on_by_default_returns_the_real_verdict
+      + Swift flagDefaultsOn). cargo full-lib 5476/0 + `--features pro-build` 5739/0 + build-for-testing
+      TEST BUILD SUCCEEDED (0 errors). So FLIP+VERIFY is done for the three SAFE high-visibility fix
+      flags (cloud-tools + foundation-recommend + auto-route); the owner's next rebuild shows tools
+      firing on all cloud providers + a plain query routing to vault tools + a foundation model
+      auto-recommended. (autosubstitute stays OFF=honest; RuntimeRouter/GGUF-grammar stay OFF — no
+      live wire yet; honest-unavailable stays opt-in.)
       🔎 PHASE-0 REMAINING — OWNER SIGN-OFF / IN-APP (the cargo-cheap safe Phase-0 slices are done;
       these need YOU): (1) **progressive-skills un-gate** — `registry.rs` gates the progressive
       skill tools behind `#[cfg(feature="pro-build")]`, so the MAS build exposes only the legacy CRUD
