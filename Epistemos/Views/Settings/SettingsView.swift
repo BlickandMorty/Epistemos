@@ -4380,9 +4380,24 @@ private struct AppearanceCustomThemeSection: View {
     private func colorBinding(slot: AppCustomThemeColorSlot, isDark: Bool) -> Binding<Color> {
         Binding(
             get: {
-                let hex = slot == .noteSurface
-                    ? AppCustomTheme.noteSurfaceHex(isDark: isDark)
-                    : AppCustomTheme.hex(for: slot, isDark: isDark)
+                // SS-TC: inheriting slots show their parent's *current* value until set,
+                // so the picker swatch matches the resolved theme (no jarring default jump).
+                let hex: UInt32
+                switch slot {
+                case .noteSurface:
+                    hex = AppCustomTheme.noteSurfaceHex(isDark: isDark)
+                case .userBubbleText, .secondaryText:
+                    hex = AppCustomTheme.inheritedHex(
+                        for: slot, fallback: AppCustomTheme.hex(for: .text, isDark: isDark), isDark: isDark)
+                case .link, .border:
+                    hex = AppCustomTheme.inheritedHex(
+                        for: slot, fallback: AppCustomTheme.hex(for: .accent, isDark: isDark), isDark: isDark)
+                case .assistantBubbleBg:
+                    hex = AppCustomTheme.inheritedHex(
+                        for: slot, fallback: AppCustomTheme.hex(for: .card, isDark: isDark), isDark: isDark)
+                default:
+                    hex = AppCustomTheme.hex(for: slot, isDark: isDark)
+                }
                 return Color(hex: hex)
             },
             set: { color in

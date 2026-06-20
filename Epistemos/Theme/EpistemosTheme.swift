@@ -1377,6 +1377,14 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
     case noteSurface
     case chatSurface
     case userBubble
+    // SS-TC (owner 2026-06-20): granular accessory/text slots. Each ADDITIVE +
+    // DEFAULTED — unset → inherit the prior derived value (see buildResolved), so
+    // existing custom themes are byte-identical and presets are untouched.
+    case userBubbleText
+    case secondaryText
+    case link
+    case assistantBubbleBg
+    case border
 
     nonisolated var id: String { rawValue }
 
@@ -1390,6 +1398,11 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
         case .noteSurface: "Note Surface"
         case .chatSurface: "Chat Surface"
         case .userBubble: "User Bubble"
+        case .userBubbleText: "User Bubble Text"
+        case .secondaryText: "Secondary Text"
+        case .link: "Links"
+        case .assistantBubbleBg: "Assistant Bubble"
+        case .border: "Borders"
         }
     }
 
@@ -1403,6 +1416,11 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
         case .noteSurface: "Editor canvas and note windows"
         case .chatSurface: "Conversation backdrop"
         case .userBubble: "Your message bubble"
+        case .userBubbleText: "Text inside your message bubble"
+        case .secondaryText: "Captions and secondary labels"
+        case .link: "Markdown and inline links"
+        case .assistantBubbleBg: "Assistant message bubble fill"
+        case .border: "Dividers and outlines"
         }
     }
 
@@ -1431,6 +1449,11 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
         case .noteSurface: 0xFFFFFF
         case .chatSurface: 0xF0EEF9
         case .userBubble: 0xE4DFFF
+        case .userBubbleText: 0x161421   // inherits .text
+        case .secondaryText: 0x161421    // inherits .text
+        case .link: 0x735CFF             // inherits .accent
+        case .assistantBubbleBg: 0xFFFFFF // inherits .card (nil → no fill until set)
+        case .border: 0x735CFF           // inherits .accent
         }
     }
 
@@ -1444,6 +1467,11 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
         case .noteSurface: 0x1C1C24
         case .chatSurface: 0x141418
         case .userBubble: 0x35304E
+        case .userBubbleText: 0xF3F0FF   // inherits .text
+        case .secondaryText: 0xF3F0FF    // inherits .text
+        case .link: 0x9B7DFF             // inherits .accent
+        case .assistantBubbleBg: 0x1C1C24 // inherits .card (nil → no fill until set)
+        case .border: 0x9B7DFF           // inherits .accent
         }
     }
 }
@@ -1494,6 +1522,36 @@ enum AppCustomTheme: Sendable {
             return hex(for: slot, isDark: isDark, defaults: defaults)
         }
         return hex(for: .card, isDark: isDark, defaults: defaults)
+    }
+
+    /// SS-TC: a granular slot added after the original 8. When the user hasn't set
+    /// it, return `fallback` (the prior derived value) so existing custom themes are
+    /// byte-identical. Same inherit-until-set shape as `noteSurfaceHex`.
+    nonisolated static func inheritedHex(
+        for slot: AppCustomThemeColorSlot,
+        fallback: UInt32,
+        isDark: Bool,
+        defaults: UserDefaults = .standard
+    ) -> UInt32 {
+        if defaults.object(forKey: slot.defaultsKey(isDark: isDark)) != nil
+            || defaults.object(forKey: slot.defaultsKey) != nil {
+            return hex(for: slot, isDark: isDark, defaults: defaults)
+        }
+        return fallback
+    }
+
+    /// SS-TC: the assistant-bubble fill is `nil` (no fill) by default; only when the
+    /// user explicitly sets it does a fill appear. Preserves today's exact behavior.
+    nonisolated static func assistantBubbleBackgroundHex(
+        isDark: Bool,
+        defaults: UserDefaults = .standard
+    ) -> UInt32? {
+        let slot = AppCustomThemeColorSlot.assistantBubbleBg
+        if defaults.object(forKey: slot.defaultsKey(isDark: isDark)) != nil
+            || defaults.object(forKey: slot.defaultsKey) != nil {
+            return hex(for: slot, isDark: isDark, defaults: defaults)
+        }
+        return nil
     }
 
     nonisolated static func setHex(
@@ -1589,14 +1647,14 @@ enum AppCustomTheme: Sendable {
             accent: .hex(accent),
             headingAccentHex: heading,
             markdownHeadingAccentHex: heading,
-            preferredMarkdownLinkHex: accent,
+            preferredMarkdownLinkHex: inheritedHex(for: .link, fallback: accent, isDark: isDark, defaults: defaults),
             uiAccent: .hex(accent),
             muted: .hex(card),
-            mutedForegroundHex: text,
+            mutedForegroundHex: inheritedHex(for: .secondaryText, fallback: text, isDark: isDark, defaults: defaults),
             assistantBubbleForegroundHex: text,
-            assistantBubbleBackgroundHex: nil,
+            assistantBubbleBackgroundHex: assistantBubbleBackgroundHex(isDark: isDark, defaults: defaults),
             userBubbleBackgroundHex: userBubble,
-            border: .hex(accent, opacity: 0.28),
+            border: .hex(inheritedHex(for: .border, fallback: accent, isDark: isDark, defaults: defaults), opacity: 0.28),
             codeType: .hex(accent),
             glassBg: .hex(card, opacity: 0.88),
             glassBorder: .hex(accent, opacity: 0.22),
@@ -1609,7 +1667,7 @@ enum AppCustomTheme: Sendable {
             card: .hex(card, opacity: 0.92),
             chatSurface: .hex(chatSurface),
             userBubbleBg: .hex(userBubble),
-            userBubbleText: .hex(text, opacity: 0.96),
+            userBubbleText: .hex(inheritedHex(for: .userBubbleText, fallback: text, isDark: isDark, defaults: defaults), opacity: 0.96),
             nsBackground: .hex(background)
         )
     }
