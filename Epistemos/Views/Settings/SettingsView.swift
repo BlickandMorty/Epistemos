@@ -3171,7 +3171,9 @@ private struct GemmaQATProofLaneSummary: View {
     }
 }
 
-private struct LocalModelManagerSheet: View {
+// Internal (was private) so the in-picker "Install local AI" CTA can present it
+// from the root view via the `.openModelManager` notification (owner 2026-06-19).
+struct LocalModelManagerSheet: View {
     @Environment(LocalModelManager.self) private var localModelManager
     @Environment(UIState.self) private var ui
     @State private var capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
