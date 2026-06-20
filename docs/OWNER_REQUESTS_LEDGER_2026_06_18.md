@@ -1300,6 +1300,33 @@ calls: no blanket rule — choose per case.
       SVGs (real validity gate) → the owner's full provider list now renders its REAL
       brand logo on Settings + picker + chat. P6.1 substantially DONE (component + 9
       real logos + 3 surfaces); owner does the final in-app render look.
+      🔁 EXPAND — MORE LOGOS + EVERYWHERE + OWNER ~/Downloads (owner 2026-06-19): *"I want the
+      logos on as much as it can be — prefer black and white; Google, DeepSeek, LFM, Qwen, Gemma,
+      etc. and more. I can download some logos to my Downloads that can be added; still use LobeHub
+      to find the rest. Make sure the Claude Code mascot and other logos show in the proper chats."*
+      So: (1) STAGE THE MISSING + FULL ROSTER from lobehub/lobe-icons (B&W static SVG, MIT) — named
+      gaps **DeepSeek, LFM/LiquidAI (LFM2/LFM2.5)** + the rest of the catalog: Google (distinct from
+      Gemini if wanted), MiniMax, Z.AI/GLM, Mistral, Meta/Llama, Microsoft/Phi, Perplexity, VibeThinker,
+      Hermes/NousResearch, Bonsai, DeepSeek-R1, etc. — every provider/model in the catalog gets a brand
+      in `ProviderBrand` + an Assets imageset. (2) **PREFER B&W; colored fallback** when no B&W exists
+      (don't leave it blank). (3) **OWNER-SUPPLIED LOGOS from ~/Downloads** — add an ingest path: logos
+      the owner drops in `~/Downloads` (new/updated brands) get picked up + staged into Assets.xcassets
+      (document the naming convention so the owner can just drop a file). (4) **EVERYWHERE / as-much-as-
+      possible** — beyond the 3 surfaces, render the per-model logo in the MODEL STACK settings rows +
+      per-model-vaults + the model picker's full catalog + anywhere a model/provider is named (maximize
+      coverage; SF-Symbol fallback only when truly no logo). (5) Claude Code MASCOT + others already wired
+      into the chat "answered by" badge — verify it shows in ALL proper chat contexts (Chat/MiniChat/Act).
+      Keep the actool validity gate (real SVGs only). Pixel-art-coherent framing.
+      ‼️ OWNER SEES NO LOGOS (owner 2026-06-19, later): *"I didn't find any logos, so make sure in the
+      process the agents find as many REAL logos as they can — prefer black and white."* So: (a) the
+      build loop / its agents must ACTIVELY FETCH the maximum set of real brand SVGs from lobehub/lobe-
+      icons (B&W static-svg, MIT) — go wide across the whole catalog, not just the 9 staged; every
+      provider/model the owner could see gets a real logo. (b) **VERIFY THEY ACTUALLY RENDER IN-APP** —
+      "staged + actool-green + 9 imagesets" is NOT enough if the owner sees none: confirm the
+      provider→brand→assetName→Image path actually displays (the owner may be on a pre-logo build → also
+      flag that a rebuild is needed; but if it's a real render gap, fix it). Acceptance = the owner SEES
+      real B&W logos on the models/providers they actually use, on Settings + picker + chat. Maximize the
+      count; SF-Symbol fallback ONLY where no real logo exists anywhere (lobehub + owner ~/Downloads).
 - [ ] Voice: Kokoro + MOSS (special reading voice) + auto-read-screen / read-replies
       / STT granular toggles + pixel-art retro filter (P7.7). NOT BUILT (research only).
 
@@ -2462,7 +2489,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       Whisper audio lane) → Epdoc note + AI summary. Slots into R-VOICE. On-device only.
 - [ ] **MODEL DOWNLOAD/INSTALL BROKEN — can't download ANY model except the
       foundation package (owner 2026-06-19, HIGH PRIORITY — blocks owner's in-app
-      testing).** Owner (verbatim): *"I can't download any models, so there are many
+      testing).**
+      ‼️ STILL UNRESOLVED IN-APP (owner re-reported 2026-06-19, later): *"I can't find a way to
+      install the local models anyway."* Despite STEP-1 restoring the hidden install rows + the D2
+      resume fix + req-11 listing, the owner STILL has NO working path to install a local model in
+      the running app. This is the #1 visible blocker (it gates ALL the owner's in-app verification +
+      every installable model — incl. the voice models + ColBERT). RE-VERIFY THE WHOLE INSTALL FLOW
+      END-TO-END as the owner experiences it: is there a reachable, obvious INSTALL button/affordance
+      for a real model (not just the foundation package) that actually downloads → verifies → installs
+      → becomes usable? The "All models (advanced)" disclosure (STEP 1) must be discoverable + its
+      install buttons must actually work + show live progress. Treat "owner cannot find/use install"
+      as the acceptance bar — not "rows are present in code." Build+the owner verifies the full click-
+      to-installed path in-app. THIS IS THE TOP VISIBLE PRIORITY.
+      Owner (verbatim): *"I can't download any models, so there are many
       things I need to fix before I can get proper tests. I of course want it to code
       as much as it can without tests, but once it's ready I need to make sure my app
       can download and install all the models I want — all the ones that are advertised.
