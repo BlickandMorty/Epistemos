@@ -25,6 +25,11 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     let reasoningMode: LocalReasoningMode
     let steeringHintsJSON: String?
     let imageURLs: [URL]
+    /// SS-AD: optional per-request LoRA adapter directory override (the foregrounded
+    /// Companion's loraAdapterPath). nil = use the global AdapterRegistry active adapter
+    /// (the unchanged path). Additive + last + defaulted → existing constructors stay
+    /// backward-compatible.
+    var loraAdapterPathOverride: String? = nil
 
     /// W9.29 — Thermal-aware token budget. Routes through
     /// `ThermalMonitor.currentTokenBudgetMultiplier()` (single source of truth
@@ -2021,7 +2026,9 @@ actor MLXInferenceService: LocalMLXRuntime {
         loadedModelDirectory = request.modelDirectory
         self.container = container
         #if !EPISTEMOS_APP_STORE
-        await applyActiveAdapterIfPresent(to: container)
+        await applyActiveAdapterIfPresent(
+            to: container, companionAdapterPath: request.loraAdapterPathOverride
+        )
         #endif
         await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
         return (container, true, start.duration(to: ContinuousClock.now).millisecondsValue)
@@ -2038,8 +2045,16 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// The live "tokens differ with vs without the adapter" behavior is PENDING OWNER
     /// VERIFICATION (needs an on-device generation run; can't be witnessed headless).
     /// Applies on cold load only; reload-on-activate (mid-session swap) is a follow-up.
-    private func applyActiveAdapterIfPresent(to container: ModelContainer) async {
-        let adapterDir = AdapterRegistry.activeAdapterDirectoryOnDisk()
+    private func applyActiveAdapterIfPresent(
+        to container: ModelContainer, companionAdapterPath: String?
+    ) async {
+        // SS-AD: the foregrounded Companion's adapter takes precedence over the global
+        // registry adapter; companionAdapterPath == nil resolves to the registry adapter
+        // (byte-for-byte the unchanged path).
+        let adapterDir = Self.resolveActiveAdapterDirectory(
+            companionLoraAdapterPath: companionAdapterPath,
+            registryActiveDirectory: AdapterRegistry.activeAdapterDirectoryOnDisk()
+        )
         // Record the active signature applied at this load (incl. nil = none) so a
         // later activate/deactivate can decide whether a reload is actually needed.
         lastAppliedActiveAdapter = adapterDir
@@ -2052,6 +2067,23 @@ actor MLXInferenceService: LocalMLXRuntime {
         } catch {
             log.error("Active LoRA adapter apply failed; using base model: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// SS-AD: resolve the adapter directory to apply for a load — the foregrounded
+    /// Companion's adapter (`companionLoraAdapterPath`) when set + a complete native
+    /// adapter, else the global AdapterRegistry active adapter. A nil/blank companion
+    /// path resolves to the registry (the unchanged path), so an agent without an
+    /// adapter never changes behavior.
+    nonisolated static func resolveActiveAdapterDirectory(
+        companionLoraAdapterPath: String?,
+        registryActiveDirectory: URL?
+    ) -> URL? {
+        if let path = companionLoraAdapterPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !path.isEmpty {
+            let url = URL(fileURLWithPath: path)
+            if NativeAdapterDirectory.isValid(url) { return url }
+        }
+        return registryActiveDirectory
     }
 
     /// SS-LS reload-on-activate: pure decision — reload the container iff the active
