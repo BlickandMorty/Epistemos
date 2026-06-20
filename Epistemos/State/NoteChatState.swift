@@ -94,6 +94,13 @@ final class NoteChatState {
     var graphStateProvider: (() -> GraphState?)?
     /// Insert text at the current cursor position (panel mode accept).
     var onInsertAtCursor: ((_ text: String) -> Void)?
+    /// SS-IL (owner 2026-06-20, safe-additive): a READ-ONLY getter for the inline AI answer's
+    /// on-screen rect (screen-space NSRect from `firstRect`). Lets an additive decoration
+    /// overlay draw the AI/user "cold box" separation + the scroll-down arrow WITHOUT mutating
+    /// text storage — it computes divider→responseRange and reads the layout only, firing
+    /// NONE of the streaming callbacks above. nil when there's no inline response. The
+    /// streaming path is provably unchanged (see SSILInlineOverlaySafetyTests).
+    var inlineResponseRectProvider: (() -> CGRect?)?
     /// Test hook for overriding instant recall indexing.
     @ObservationIgnored var instantRecallIndexer: ((_ noteId: String, _ text: String) -> Void)?
     /// Test hook for overriding instant recall retrieval.

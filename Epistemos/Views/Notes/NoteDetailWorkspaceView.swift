@@ -1013,6 +1013,13 @@ struct NoteDetailWorkspaceView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(noteWorkspaceBackground)
             .environment(noteChatState)
+            .overlay {
+                // SS-IL (safe-additive): pure decoration over the inline AI answer — the
+                // AI/user "cold box" separation + the scroll-down arrow. Reads read-only
+                // NoteChatState; allowsHitTesting(false) so typing reaches TextKit underneath.
+                // The streaming pipeline is provably untouched (SSILInlineOverlaySafetyTests).
+                InlineAnswerDecorationOverlay(theme: ui.theme)
+            }
             .onAppear {
                 Task { @MainActor in
                     noteChatState.loadPersistedMessages(modelContext)

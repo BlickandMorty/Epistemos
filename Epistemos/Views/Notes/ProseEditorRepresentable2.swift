@@ -599,6 +599,21 @@ extension ProseEditorRepresentable2 {
             noteChat.noteBodyProvider = { [weak self] in
                 self?.textView?.string ?? ""
             }
+            // SS-IL (safe-additive): READ-ONLY rect of the inline AI answer for the
+            // decoration overlay. Same divider→responseRange math as replaceNoteChatResponse,
+            // then reads `firstRect` — mutates NOTHING, sets no text-storage delegate, fires
+            // none of the streaming callbacks. nil when there's no inline response.
+            noteChat.inlineResponseRectProvider = { [weak self] in
+                guard let tv = self?.textView, let ts = tv.textStorage else { return nil }
+                let str = ts.string
+                guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return nil }
+                let dividerRange = NSRange(range, in: str)
+                let responseLocation = dividerRange.location + dividerRange.length
+                let responseLength = max(0, ts.length - responseLocation)
+                guard responseLength > 0 else { return nil }
+                let responseRange = NSRange(location: responseLocation, length: responseLength)
+                return tv.firstRect(forCharacterRange: responseRange, actualRange: nil)
+            }
             noteChat.graphStateProvider = { [graphState = parent.graphState] in
                 graphState
             }
