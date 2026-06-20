@@ -21,7 +21,6 @@ import SwiftUI
 public struct EidosHealthRow: View {
 
     @State private var snapshot: EidosMetrics.Snapshot
-    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: EidosMetrics.shared.snapshot())
@@ -71,14 +70,7 @@ public struct EidosHealthRow: View {
                 )
             }
         }
-        .onAppear {
-            refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
-        }
+        .substrateHealthPoll { refresh() }
         .onReceive(NotificationCenter.default.publisher(
             for: EidosMetrics.didChangeNotification,
             object: EidosMetrics.shared
@@ -166,22 +158,6 @@ public struct EidosHealthRow: View {
         if !snapshot.isFlagEnabled { return .unavailable }
         guard snapshot.lastQueryAt != nil else { return .partial }
         return snapshot.lastCitationCount > 0 ? .pass : .blocked
-    }
-
-    // MARK: - Periodic refresh (from unify-substrate-health 2026-05-23)
-    //
-    // 1 Hz refresh so chip strip + backend label stay live without polling
-    // on the consumer side. Cancelled on view disappear.
-
-    private func startTimer() {
-        refreshTask?.cancel()
-        refreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                refresh()
-            }
-        }
     }
 
     private var lastQueryDetail: String {

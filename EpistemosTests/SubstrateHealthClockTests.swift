@@ -45,6 +45,11 @@ struct SubstrateHealthClockTests {
             "Epistemos/Views/Settings/PlanePlacementHealthRow.swift",
             "Epistemos/Views/Settings/CognitiveWeightClassHealthRow.swift",
             "Epistemos/Views/Settings/UasAcsHealthRow.swift",
+            // Slice 3 — the canonical non-unified rows (keep their .onReceive)
+            "Epistemos/Views/Settings/EidosHealthRow.swift",
+            "Epistemos/Views/Settings/VaultRecallHealthRow.swift",
+            "Epistemos/Views/Settings/FUlpHealthRow.swift",
+            "Epistemos/Views/Settings/EditorBundleHealthRow.swift",
         ]
         for path in migrated {
             let row = try loadMirroredSourceTextFile(path)
