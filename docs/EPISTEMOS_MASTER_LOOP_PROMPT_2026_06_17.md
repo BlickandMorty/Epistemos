@@ -1,5 +1,23 @@
 # EPISTEMOS MASTER LOOP PROMPT (2026-06-17)
 
+> ‼️ **READ-FIRST — LIVE AUTHORITY (added 2026-06-19, SUPERSEDES the P1–P6 backlog below for new owner asks).**
+> The P1–P6 plan below is still valid, but the owner has streamed MANY newer requests captured verbatim in the
+> AUTHORITY LEDGER. **At the top of EVERY pass, read these in order and treat them as the live build commitment
+> (every item gets coded end-to-end + hardened each cycle — nothing is research-only):**
+> 1. `docs/OWNER_REQUESTS_LEDGER_2026_06_18.md` — **THE authority** (~129 items, all owner concerns verbatim).
+> 2. `docs/research/SETTINGS_SIMPLIFICATION_HUB_2026_06_19.md` — research hub (slices SS-A … SS-Z, findings log,
+>    each with exact file:line repair/build plans). Read the slice doc before coding its item.
+> 3. `docs/research/MASTER_SYNTHESIS_2026_06_19.md` + `docs/research/DEEP_PLAN_AUDIT_HUB_2026_06_19.md` — synthesis.
+> **HARD CONSTRAINTS (owner 2026-06-19):** MAIN-ONLY — no worktree/branch/merge, commit+push every slice, never
+> lose work. Everything must actually WORK in-app (flag-OFF ≠ done). Simplify/automate presentation but NEVER
+> delete/hide functionality (progressive-disclosure ≠ hiding). App-native by embedding (clone source, never run
+> a foreign sidecar). Honest/no-fake. Preserve ALL IP. Use subagents for parallelizable work. Run the
+> adversarial "thermo-nuclear" review (SS-V) at deliberate checkpoints. PRIORITY by request frequency: model
+> install/run actually works + per-model engineering (SS-W/Z, Qwen, MODEL-INSTALL) → skills/tools work
+> everywhere + repaired/hardened (SS-H) → simplify UI/settings/chat-bar without breaking (SS-A/B/X) → visible
+> wins (logos✅, install-CTA✅) → editors (SS-O/P) → native features (SS-J/K/M/N/T). ALL get coded; frequency
+> only orders.
+>
 > **How to run this:** open a terminal in `/Users/jojo/Downloads/Epistemos`, run
 > `claude`, and paste everything from the line `=== BEGIN LOOP ===` to the end.
 > The prompt itself encodes the loop discipline. If you want it self-paced, run
