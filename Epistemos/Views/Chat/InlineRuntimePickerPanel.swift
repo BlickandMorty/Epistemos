@@ -343,6 +343,18 @@ struct InlineRuntimePickerPanel: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
+                // SS-AB: per-model context-window badge ("128K" / "1M" / "200K"),
+                // resolved from the single Rust ModelCapabilityProfile source via
+                // the model_context_window FFI. Hidden for an id neither lane knows.
+                if let badge = modelContextBadge(for: option.id) {
+                    Text(badge)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(theme.textTertiary.opacity(0.12), in: Capsule())
+                        .help("Context window")
+                }
                 if selected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
@@ -383,6 +395,37 @@ struct InlineRuntimePickerPanel: View {
         #else
         return nil
         #endif
+    }
+
+    /// SS-AB: the per-model context-window badge string ("128K", "1M", …), resolved
+    /// from the single Rust `ModelCapabilityProfile` source via the
+    /// `model_context_window` FFI. `nil` for an id neither lane knows (FFI returns 0)
+    /// or a target that doesn't link `agent_coreFFI` (unit-test host), so the row
+    /// shows no badge.
+    private func modelContextBadge(for modelID: String) -> String? {
+        #if canImport(agent_coreFFI)
+        return Self.formatContextWindow(modelContextWindow(modelId: modelID))
+        #else
+        return nil
+        #endif
+    }
+
+    /// Compact a context-window token count into a picker badge: `128_000 → "128K"`,
+    /// `1_048_576 → "1M"`, `0 → nil` (no badge). K uses truncation so a power-of-two
+    /// window reads colloquially (`32_768 → "32K"`, not "33K"); M snaps to a whole
+    /// million when within 0.1M, else one decimal.
+    static func formatContextWindow(_ tokens: UInt32) -> String? {
+        guard tokens > 0 else { return nil }
+        if tokens >= 1_000_000 {
+            if tokens % 1_000_000 < 100_000 {
+                return "\(tokens / 1_000_000)M"
+            }
+            return String(format: "%.1fM", Double(tokens) / 1_000_000.0)
+        }
+        if tokens >= 1_000 {
+            return "\(tokens / 1_000)K"
+        }
+        return "\(tokens)"
     }
 
     /// A reasoning-effort (ChatReasoningTier) row. Setting effort is a refinement
