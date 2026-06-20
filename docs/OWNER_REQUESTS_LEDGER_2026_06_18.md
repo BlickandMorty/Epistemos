@@ -3916,3 +3916,29 @@ native; AGPL server). ADOPT 2 patterns natively:
       non-Companion work (SS-ALIVE anim, SS-PERF2, SS-LS UI, profiles, the AdapterRegistry/Settings adapter-apply which
       is NOT Companion). Owner does the refactor on main; "pause the loop" for focused Companion code sessions. Cross-
       ref SS-AD (apply-gap), SS-XR. The "after shape" diff is the owner's to run once IP lands in Osaurus/the service.
+- [ ] **SS-SH REGRESSION — substrate-health panel BLANK (owner 2026-06-20, on a fresh build). NOT DONE.** Owner:
+      *"the substrate health was not fixed… the substrate health portion on settings is blank and the sidebar goes
+      blank as well; it used to just be very long, now it is completely blank. not top priority but make sure it is
+      not flagged as done."* ROOT (code-grounded, NOT the clock): `Views/Settings/SubstrateHealthPanel.swift:30` uses
+      collapsible `Section(_:isExpanded:)` WITHOUT `.formStyle(.grouped)` → on macOS the disclosure Section only
+      renders inside a grouped Form → all sections paint nothing → BLANK. Introduced by commit `13d2b5307`
+      (collapsible sections), NOT the SS-SH clock-collapse (the `SubstrateHealthClock` IS injected `:152` + ticking
+      `:153` + optional-safe). FIX = add `.formStyle(.grouped)` to the panel Form (~`:151`). The guard test
+      (`SubstrateHealthPanelLayoutGuardTests`) only substring-matches source (never renders) → missed it; harden to a
+      render/non-empty assertion. **The BLANK SIDEBAR is a SEPARATE symptom** (no sidebar consumes the clock) — needs
+      its own investigation, not part of the SS-SH surface. CORRECTION to my earlier reports: SS-SH compiled + unit-
+      tested but the LIVE panel is blank → SS-SH is NOT user-facing-done. Queued as a quick repair (one-liner), not
+      flagged done; sidebar-blank flagged for separate diagnosis.
+- [ ] **HOME-GRAPH TUNNEL — access ALL note/workspace surfaces (Epdoc + HTML workspace) inline (owner 2026-06-20).**
+      Owner: *"on the home graph I want to be able to access Epdocs and HTML workspace — literally access all note/
+      workspace surfaces through the home-graph tunnel itself. it's almost there; there are several things in the
+      detached note workspace not included in the home graph."* RESEARCHED → `docs/research/SS-HGT_HOME_GRAPH_TUNNEL_
+      2026_06_20.md`. Today the tunnel (`HomeGraphEmbeddedView`→`GraphWorkspaceContainer` switch on `GraphWorkspaceRoute`
+      = .canvas/.note/.folder) hosts notes inline (Prose/TK2, Code, MD via `NoteDetailWorkspaceView`); **Epdoc +
+      HTML-workspace are the gap** — they open DETACHED `NSDocument` windows instead of inline. Plan: (a) add
+      `.epdoc`/`.htmlWorkspace` to `GraphWorkspaceRoute`; (b) mount existing `EpdocEditorChromeView`/
+      `HTMLWorkspaceEditorView` inline in the container switch; (c) redirect open-paths (`MetalGraphView.activateNode`,
+      `HologramSearchSidebar`, `GraphHTMLWorkspaceDock` Edit) to push routes not `showWindows()` (keep window as an
+      explicit option); (d) `GraphBuilder` project Epdoc/HTML as clickable `.document` nodes (the bigger piece — why
+      they feel absent). Constraints honored: TK2/Prose NON-INVASIVE (untouched), Metal engine untouched, no vault
+      mutation, reuse-not-duplicate. Added to TOP-UNCODED.
