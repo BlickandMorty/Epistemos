@@ -37,6 +37,7 @@ pub mod hyperdynamic_schemas;
 pub mod info_ir;
 pub mod interrupt_calibration;
 pub mod koopman;
+pub mod m0_interrupt_harness;
 pub mod mamba3;
 pub mod nano_training_recipe;
 pub mod nightbrain_tasks;
