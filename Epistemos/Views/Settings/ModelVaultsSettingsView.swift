@@ -269,6 +269,22 @@ struct ModelVaultsSettingsView: View {
     }
 }
 
+// MARK: - Staleness
+
+/// SS-MV (1, owner 2026-06-20): pure, testable age-staleness check for a compiled model
+/// vault. The model-vault rows showed green ("Compiled") regardless of AGE — only
+/// completeness was reflected — so a vault that froze days ago read fresh. This flags a
+/// vault as stale once it's older than the advisory max-age, surfaced honestly in the row
+/// so the user knows to Rebuild. (The on-note-change debounced auto-recompile is the
+/// follow-on; this is the visible "it's stale" half.)
+enum ModelVaultStaleness {
+    static let staleAfter: TimeInterval = 24 * 60 * 60
+    static func isStale(lastCompiledAt: Date?, now: Date = Date()) -> Bool {
+        guard let lastCompiledAt else { return false }
+        return now.timeIntervalSince(lastCompiledAt) > staleAfter
+    }
+}
+
 // MARK: - Provider Rows
 
 private struct ProviderRowModel: Identifiable {
@@ -288,6 +304,17 @@ private struct ProviderRowModel: Identifiable {
             return .missing
         }
         return compiledCount == totalCount ? .compiled : .outdated
+    }
+
+    /// SS-MV (1, owner 2026-06-20): a compiled vault is STALE when it was compiled a while
+    /// ago — `status` only reflects COMPLETENESS (compiledCount == totalCount), so a fully
+    /// compiled but old vault read green even though the profile freezes while the notes
+    /// change ("outdated even with one model"). This surfaces age-staleness HONESTLY so the
+    /// user knows to Rebuild; the debounced on-note-change auto-recompile is the follow-on.
+    /// Advisory 24-hour max-age (the pure check lives in ModelVaultStaleness, testable).
+    var isStale: Bool {
+        guard status != .missing else { return false }
+        return ModelVaultStaleness.isStale(lastCompiledAt: lastCompiledAt)
     }
 
     var statusLabel: String {
@@ -430,16 +457,24 @@ private struct ProviderRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(row.status == .compiled ? .green : row.status == .outdated ? .orange : .red)
+                        // SS-MV (1): a compiled-but-STALE vault reads amber (not green), so
+                        // age-staleness is visible instead of hidden behind a green dot.
+                        .fill(row.status == .compiled ? (row.isStale ? .orange : .green) : row.status == .outdated ? .orange : .red)
                         .frame(width: 8, height: 8)
-                    Text(row.statusLabel)
+                    Text(row.isStale && row.status == .compiled ? "Compiled · stale" : row.statusLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 if let lastCompiledAt = row.lastCompiledAt {
-                    Text(lastCompiledAt, style: .relative)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    HStack(spacing: 3) {
+                        if row.isStale {
+                            Image(systemName: "clock.badge.exclamationmark")
+                                .font(.caption2)
+                        }
+                        Text(lastCompiledAt, style: .relative)
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(row.isStale ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
                 }
             }
         }
