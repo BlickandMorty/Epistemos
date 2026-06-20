@@ -331,7 +331,7 @@ final class TrainingScheduler {
         // Full model inference scoring requires loading the adapter into MLX and running
         // predictions — that's wired when the inference bridge supports adapter hot-swap.
         // Until then, pass if the adapter files exist on disk.
-        let weightsPath = adapterPath.appendingPathComponent("adapter_weights.safetensors")
+        let weightsPath = NativeAdapterDirectory.weightsURL(in: adapterPath)
         let adapterExists = FileManager.default.fileExists(atPath: weightsPath.path)
 
         if adapterExists {
@@ -341,7 +341,7 @@ final class TrainingScheduler {
                                     reason: "Automatic deployment disabled — activate adapters manually in Settings > Knowledge Fusion")
         } else {
             return DeployGateResult(passed: false, score: 0, baselineScore: 0,
-                                    reason: "adapter_weights.safetensors not produced by training")
+                                    reason: "adapters.safetensors not produced by training")
         }
     }
 

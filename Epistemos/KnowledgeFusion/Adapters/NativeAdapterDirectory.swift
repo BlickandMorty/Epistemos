@@ -12,29 +12,29 @@ import Foundation
 
 enum NativeAdapterDirectory {
     /// The LoRAConfiguration JSON `LoRAContainer.from(directory:)` decodes.
-    static let configFileName = "adapter_config.json"
+    nonisolated static let configFileName = "adapter_config.json"
     /// The trained LoRA weights `LoRAContainer.from(directory:)` loads.
-    static let weightsFileName = "adapters.safetensors"
+    nonisolated static let weightsFileName = "adapters.safetensors"
 
-    static func configURL(in directory: URL) -> URL {
+    nonisolated static func configURL(in directory: URL) -> URL {
         directory.appendingPathComponent(configFileName)
     }
 
-    static func weightsURL(in directory: URL) -> URL {
+    nonisolated static func weightsURL(in directory: URL) -> URL {
         directory.appendingPathComponent(weightsFileName)
     }
 
     /// True only when BOTH the config + weights files exist — i.e. the directory
     /// is a complete, loadable native adapter. A directory with just the weights
     /// (the raw LoRATrain output before the config is written) is NOT valid.
-    static func isValid(_ directory: URL, fileManager: FileManager = .default) -> Bool {
+    nonisolated static func isValid(_ directory: URL, fileManager: FileManager = .default) -> Bool {
         fileManager.fileExists(atPath: configURL(in: directory).path)
             && fileManager.fileExists(atPath: weightsURL(in: directory).path)
     }
 
     /// Honest one-line reason a directory isn't a loadable adapter, or nil if it
     /// is valid — for surfacing a clear error instead of a raw decode failure.
-    static func invalidReason(_ directory: URL, fileManager: FileManager = .default) -> String? {
+    nonisolated static func invalidReason(_ directory: URL, fileManager: FileManager = .default) -> String? {
         if !fileManager.fileExists(atPath: directory.path) {
             return "Adapter directory does not exist."
         }
