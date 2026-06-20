@@ -3638,6 +3638,19 @@ native; AGPL server). ADOPT 2 patterns natively:
       fake/empty descriptions — honest, real per-model metrics. Cross-ref SS-Z (profile), SS-AA (OSS patterns +
       llguidance), SS-R (the model shortlist + per-model data), SS-W (crash fix), the MODEL-INSTALL + advertise-
       stack items. See `docs/research/SS-AB_MODEL_CAPABILITY_PROFILE_DEFINITIVE_2026_06_19.md`.
+      ✅ FOUNDATION LANDED 2026-06-19 — the MAS-safe `ModelCapabilityProfile` floor (cargo --lib verified):
+      new `agent_core/src/model_profile.rs` (non-pro-build, no subprocess) = the single per-model resolver
+      SS-Z said was missing ("no single per-model profile anywhere"). Data-driven `CANON` table seeded from
+      SS-AB's definitive set (Gemma 4 E2B/E4B/12B, Qwen3 4B/1.7B, VibeThinker, DeepSeek-R1-Distill, SmolLM3,
+      LFM2.5, Phi-4-mini, Granite) — each with context_window (real, NEVER the GGUF hardcoded-4096 bug;
+      16GB-budget-capped, e.g. Qwen 32K), max_output_tokens, prompt_dialect, lane, tier, picker_use_case
+      (≤60-char copy), advertised. `PromptDialect` carries the two things MISSING on the GGUF lane today:
+      per-model stop tokens (Gemma <end_of_turn>, ChatML <|im_end|>, …) + the llama.cpp builtin
+      --chat-template name (gemma/chatml/llama3/…) → the GGUF lane can resolve ctx+stop+template-override
+      instead of hardcoding/crashing (SS-W). `profile_for(id)` family-matches (deepseek-r1-distill BEFORE
+      qwen; gemma 12B vs E2B/E4B), honest DEFAULT for unknowns (no panic, no fake). 6 cargo --lib tests green.
+      NEXT (this item): wire the GGUF provider (gguf_cli.rs, Pro) to resolve ctx/stop/--chat-template from the
+      profile; surface picker_use_case on the Swift model picker; seed cloud from LiteLLM; llguidance equalizer.
 - [ ] **REITERATION (owner 2026-06-19): all concerns/queries still saved + everything since the last update in
       plan + researched deeply.** Confirmed via `SESSION_COVERAGE_MATRIX_2026_06_19.md` (updated) — every concern
       incl. pre-compaction verbatim intent is mapped to ledger + slice + status; nothing dropped. The
