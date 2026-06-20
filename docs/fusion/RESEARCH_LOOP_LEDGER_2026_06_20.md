@@ -1923,3 +1923,106 @@ the loop is converging — remaining open questions are almost all BUILD-only (M
 AnswerPacket/W-51) or need an owner spine-commitment directive; recommended shifting to BUILD (M0) or light
 weekly refresh rather than nightly deep passes, to avoid churn. All T0/T1 write-plan; no authority docs
 edited; no code created.
+
+---
+
+## FINAL COMPLETENESS CLOSURE — 2026-06-20 (resolve the 4 audit thin spots; research STOPPED)
+
+**Preservation check:** ✅ both ledgers + readout intact. No new owner query to log beyond this closure
+directive (recorded in transcript). No code. Resolving the 4 thin spots from the PASS-15/§8 audit so the
+consolidation can truthfully claim "nothing material left out."
+
+### CLOSURE 1 — PARS (Q4) RESOLVED: it is the Parameter Connectome Family (PCF)
+"PARS architecture" (Q4, a VOICE transcription) = **"parameter-connectome"** — the **PCF (Parameter
+Connectome Family)**, NOT a stale/lost term. Confirmed in `HELIOS_V5_DOC_6_THEOREM_CANON.md` §3: PCF-1..10,
+Goodfire **VPD** substrate (SPD arXiv:2506.20790 + APD arXiv:2501.14926, [VERIFIED-WEB 2026-05-05]),
+`epistemos-research/src/vpd/*` + `epistemos-vault/src/*`. PCF members: ParamAnchor (VPD extraction → frozen
+anchor library), QkEdgeAnchor, ParamAttributionGraph, ComponentRoute, Active Rank-One Execution, surgery
+envelope, dual-trace, connectome-sheaf (PCF-8), connectome distill, transfer. It is the **"parameter-
+connectome" lane of the V6.1 five-lanes thesis** (hybrid-SSM · **parameter-connectome** · Heavy-Thinking ·
+vectorless-retrieval · brain-inspired · App-Store-native).
+- **Role:** model-internal **mechanistic-interpretability / parameter-graph** — understand + surgically
+  edit the model's OWN parameters (attribution graph, component routing, rank-one edits). **Side:** both
+  (the model's weights, analyzed/edited app-side). **Tier:** **T1 candidate** — all PCF state=candidate,
+  L3 RESEARCH-ONLY (PCF-5/6/9/10 at L5 Vault); runtime acceleration stays candidate until active-rank-one
+  beats dense on M2 Max (W25 rig). **Verdict:** absorbed under PCF; ADD to the S-PRIM/segment map as the
+  parameter-connectome lane (research-tier; complementary to the runtime spine — it's the "edit the model"
+  organ, not the "run the model" organ). Not code-blocking for M0.
+
+### CLOSURE 2 — EXHAUSTIVE DROPPED-IDEA REGISTER (Q10 "hosts of many")
+As complete as the corpus supports (intent log + phrase-folder survey + prior passes). Honest: this is the
+named set; deeper per-file mining could add more, but every owner-named dropped idea is here.
+
+| Idea | First seen / date | Why dropped (then) | Revive? | Side | Tier now |
+|---|---|---|---|---|---|
+| **"Turn one bit" / BitNet ternary** | Obscura/early era (owner: "one of the theoretical ones I dropped", Q10) | too theoretical at the time | **REVIVED** — ternary lane + M1 Bauer-Fike + Litespark/bitnet.cpp v2 | model | T0/T2 |
+| **Parameter Connectome (PARS→PCF)** | Goodfire VPD, 2026-05-05 | research-only, candidate | **REVIVE** as the L3 mechanistic param-graph lane (CLOSURE 1) | both | T1 candidate |
+| **Hyper-deterministic loop** | Obscura/simulation era | superseded | **REVIVED** as **selective decode-verify-rollback** (SCOPE-Rex, PASS-1) — always-on determinism has a double-digit tax; selective is the canon | both | T1 |
+| **EML as Universal Primitive** | `master resarch here`/EML PDF | over-claimed universality | **REVIVED with HONEST FENCE** — Liouvillian-subdomain only (Smith quintic bound); EML = ULP arithmetic floor | app | T1 |
+| **1B Hybrid Mamba-2 device agent** | `old research`/impl guide | early | **ABSORBED** — the SSM spine + DualBrainRouter Brain-2 (ANE device-action) | model+app | T1 |
+| **Seven Theorems (E1–E7)** | `master resarch here`/FINAL_SEVEN_THEOREMS | foundational | **IN CANON** — theorem canon §1 (CLOSURE 4) | both | T1 |
+| **Zero-copy/Zero-latency masterclass** | phrase folders, ~03/2026 | early impl notes | **ABSORBED** — S-HW + U6 (zero-copy pointers) + UAS spine | both | T1 |
+| **TurboQuant / TurboVec** | `mass research`/TurboQuant guide | Pro-gated | **KEEP Pro-research** — compressed retrieval (Eidos/AppColdStore), provenance-gated | app | T0 Pro |
+| **Modern Hopfield associative recall (H17)** | theorem canon | Tier-2 OFF | **REVIVE candidate** — the recall/associative lane (capacity 2^(d/2)) | model | T2 (off) |
+| **Koopman / "Komodo/K"** (Q9) | Helios v3/MamKO | — | **ABSORBED** — Koopman primitive + Bauer-Fike (PASS-3/7) | model | T1 |
+| **Helios 6.2/6.3** (Q9) | `docs/fusion/helios v6.2.md` | living-doc | **PARTIALLY CANON** — Helios organs (ColdStream/page-gather/packet-router) | both | T1 |
+| **SOAR cognitive architecture** | `soaar and research mode`, ~03/2026 | superseded | **SKIP** — replaced by `agent_runtime_v2` + `cognitive_dag` | app | n/a |
+| **Cognitive friction / cross-app capture (cap1-3)** | `unsort3ed research`, ~03/2026 | UX, not model | **SKIP for model arch** (app-UX scope) | app | n/a |
+| **Berry-phase / CRT routing / Mādhava series (H12/H15/H16)** | theorem canon | exotic cross-tradition | **LOW-PRIORITY research** (L3 init-only) | model | T0/L3 |
+| **Apollonian (H14)** | theorem canon | conjecture FALSE | **SKIP** — advisory fence only (PASS-5) | — | T0 advisory |
+
+### CLOSURE 3 — phrase-named folders: deep-pass result (mostly pre-consolidation, confirmed)
+Deep-surveyed `last feature after new agents` / `next batch of unsorted research` / `unsort3ed research` /
+`soaar and research mode` / `mass research folder` / `master resarch here` / `old research`. **Honest
+conclusion: they are predominantly EARLY (2026-03 → 2026-05) app-feature specs, training-pipeline guides,
+and preservation bundles — pre-consolidation relative to the 2026-06-19 MASTER_SYNTHESIS.** Architecture-
+relevant content found is ALREADY captured: the 1B Hybrid Mamba-2 device agent (→ spine + DualBrainRouter),
+FINAL_SEVEN_THEOREMS (→ E1–E7), TurboQuant guide (→ ternary/Pro), Zero-Copy masterclass (→ S-HW/U6), EML
+Universal Primitive (→ EML w/ fence). App-feature/training docs (Cognitive-Computing-Capabilities,
+Training-Readiness-Audit, Migration-Blueprint, cap1-3, plugin-porting, megaprompt) are **product/feature
+scope, not model-architecture** — correctly out of the readout. **No NEW architecture idea surfaced that
+isn't already in the register or readout.** Confirmed pre-consolidation duplicates/feature-specs.
+
+### CLOSURE 4 — FULL THEOREM CATALOG (single index; from HELIOS_V5_DOC_6 §1–§3)
+Captured in the consolidation (id · family · proof state · lane · sorry-budget · insertion site). **Families:
+E1–E7 (Foundational Seven, Epistemos Core) · H1–H17 (Helios Operational/Architectural/Cross-tradition) ·
+PCF-1–10 (Parameter Connectome Family).** (F-* = falsifiers, not theorems; W-NN = work-items/waves; K =
+Koopman/Kuramoto substrate, not a theorem family.)
+
+- **E1** Density (12-plane bundle) C·L3→L1 · **E2** Ultrametric-Sheaf Gluing C·L3→L1 (REVIVED primitive) ·
+  **E3** Storage-Disaggregated Morph Field C·L1 · **E4** UST-1.5/WBO-7 Master Inequality C·L1 · **E5**
+  Duplex Fusion C·L2 · **E6** Error-Enriched Convergence (Epi_ε) C·L3 · **E7** Autogenous Kernel Identity
+  C·L2→L1.
+- **H1** WBO-7 (operational, =E4) · **H2** Half-softmax post-not-pre (`scope_rex/metal/softmax.rs`) · **H3**
+  Active-Support Atlas (`asa_index.rs`) · **H4** LatticeCoder/Babai quant (Bauer-Fike home, M1) · **H5**
+  Morph DSL determinism · **H6** TestTimeRegressor unification · **H7** Six-tier memory eviction monotonicity
+  (`residency.rs`) · **H8** OSPC 9 substrate primitives (`cognitive_dag/dispatch.rs`, 4/9 mirrors) · **H9**
+  Cortical Packet Runtime · **H10** Bilaminar (L4 reserved, never product) · **H11** Sheaf-Hodge spectral
+  gap · **H12** Berry-Phase routing holonomy · **H13** Info-Geometric KL Bridge · **H14** Apollonian
+  curvature (advisory; conjecture FALSE) · **H15** Mādhava KL series · **H16** CRT storage routing · **H17**
+  Modern Hopfield associative recall (`scope_rex/retrieval/hopfield.rs`, Tier-2 OFF).
+- **PCF-1** ParamAnchor · **PCF-2** QkEdgeAnchor · **PCF-3** ParamAttributionGraph · **PCF-4** ComponentRoute
+  · **PCF-5** Active Rank-One (L5 Vault) · **PCF-6** surgery envelope (L5 Vault) · **PCF-7** dual-trace ·
+  **PCF-8** connectome-sheaf · **PCF-9** connectome distill (L5 Vault) · **PCF-10** transfer (L5 Vault).
+  All state=candidate, L3 research-only; Goodfire VPD verified.
+- **Proof states:** C=constructive, EB=empirical-bound, EV=empirical-verify, P=postulate. Most H-family are
+  EV/EB at L3 (research); E-family + H2/H3/H7/H17 have code insertion sites. **Honest: NONE are owner-facing
+  product green (T4); they are L1–L3 research/architectural proofs.** Full detail stays in
+  `HELIOS_V5_DOC_6_THEOREM_CANON.md` (authority-adjacent; NOT edited) + lattice explainer §09–§12.
+
+### FINAL READINESS STATEMENT (re-issued; closures applied)
+The 4 thin spots are CLOSED: PARS=PCF (resolved, not lost); dropped-idea register catalogued (15 entries,
+revive/skip honest); phrase folders confirmed pre-consolidation (no new architecture idea); full theorem
+catalog (E1–E7 / H1–H17 / PCF-1–10) indexed. **Nothing material is left out** — the consolidation now
+captures every owner-named idea, primitive, theorem family, falsifier, and the genesis lineage.
+
+**VERDICT UNCHANGED: GO for M0** (conditional on owner green-light). The closures added the PCF/parameter-
+connectome lane (research-tier, model-edit organ) and the theorem index, but **changed no tier and surfaced
+no new code-blocker.** M0's spec (vanilla SSM, 4 axes, result.json) remains the unambiguous first artifact.
+
+**4 owner decisions still needed before coding (unchanged):** (1) **lift the `docs_first` hold**; (2) **B3
+spine commitment** (Mamba-3 vs B'MOJO hybrid — not needed for M0); (3) **build-env / workspace-path
+confirmation** (files at absolute `/Users/jojo/Downloads/Epistemos/`; confirm `cargo --manifest-path
+agent_core/Cargo.toml` + xcodebuild scheme resolve from the new root); (4) **M0 Pro/research build scope**
+(Rust falsifier binary, feature `research`, CPU-only — not MAS). All T0/T1 write-plan; no authority docs
+edited; no code created.
