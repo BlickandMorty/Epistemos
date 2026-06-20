@@ -3750,3 +3750,46 @@ native; AGPL server). ADOPT 2 patterns natively:
       → REAFFIRM (owner 2026-06-20): EVERYTHING researched + mentioned in the plan/ledgers gets CODED END-TO-END
       100% — "I know they need to be in my app, I've done the deliberation." Make it all explicit + likely to
       happen. See `IMPLEMENTATION_SEQUENCE_2026_06_19.md` + `SESSION_COVERAGE_MATRIX_2026_06_19.md`.
+- [ ] **INSTANT-RECALL = ACCURACY-FIRST + NON-INVASIVE (owner 2026-06-20; refines SS-UMA).** Owner (verbatim):
+      *"for the instant recall thing I want to optimize for ACCURACY so it can be SLOWER but it must be accurate
+      and useful and NOT invasive — both for editing and for the models, more importantly for the models and more
+      usefulness for the typing aspect. In a way that is noninvasive pertaining to the instant recall and the
+      direct memory-to-model understanding."* This **REINFORCES SS-UMA's honest finding** (the win is QUALITY,
+      not speed — generation dominates). So the UMA/shadow-recall work prioritizes **accuracy + usefulness** (the
+      warm RRF/HNSW fusion, sidebar-parity-or-better quality) over raw 50ms latency; slower-but-accurate is fine.
+      Non-invasive (don't break the app or model capabilities). Most important for the MODELS (W-51 shadow-backed
+      recall) + useful for typing. Cross-ref SS-UMA, SS-AL.
+- [ ] **INSTANT-RECALL / HALO POPUP → ON THE EDITORS (Epdoc + TK2), NOT chat; redesign bubble→native-popover
+      (owner 2026-06-20; SS-IR).** Owner (verbatim): *"the instant-recall halo-shadow thing — when you type and it
+      pops up — I want that on the ACTUAL EDITORS, so Epdoc, TK2, and all the parts that you are typing/editing —
+      NOT on the chats or anything like that. Also change it to where a BUBBLE will pop up and NOT the box, and
+      when you select the bubble then the box will pop up. Make the box more robust, make it look more Apple-like
+      and LESS INVASIVE because it overlays lots of things when it's not supposed to. Maybe make it a NATIVE
+      POPOVER instead of the weird pixel box it is now — but have it start out as a glowing bubble or something
+      noticeable, then when you click it it shows the instant-recall stuff. Make it cleaner, more native-looking."*
+      So: (1) SCOPE the type-time instant-recall popup to the EDITORS (Epdoc + the TK2/Prose note editor + any
+      typing/editing surface), REMOVE it from chat/landing surfaces. (2) REDESIGN: a subtle **glowing BUBBLE**
+      affordance appears first (noticeable, non-invasive); clicking it opens the recall results in a **native
+      `NSPopover`/SwiftUI `.popover`** (Apple-like, robust, anchored, dismissible) — replacing the current "weird
+      pixel box" overlay that covers too much. Cleaner, more native, less invasive. Current code: `Views/Halo/
+      {HaloButton,ShadowPanel,ShadowPanelContent}.swift`, wired in `ChatInputBar.swift` (REMOVE), `LandingView
+      .swift` (REMOVE), `ProseEditorRepresentable2.swift` (KEEP/improve = TK2), + add to Epdoc. Keep pixel-art
+      identity on the bubble but make the result surface native + clean. Cross-ref SS-UMA (the recall data),
+      SS-O/EM (Epdoc), the TK2 non-invasive rule below.
+- [ ] **TK2/PROSE EDITOR — naming + NON-INVASIVE hardening + maybe frontmatter (owner 2026-06-20; RELAXES the
+      'never touch TK2' rule to NON-INVASIVE only).** Owner (verbatim): *"idk how the note/TK2/Prose editor should
+      be advertised… idk if it's perfect how it is now in terms of naming and hardening, because it can also have
+      the frontmatter and other things, but I was afraid before because it can't really generate or load lots of
+      UI on it, so it really is Prose fundamentally — I want to respect that. But if I can make it more robust and
+      useful while keeping it Prose, then we can do that. Maybe give it a name tangential to Prose, or maybe just
+      Prose or Note — idk because 'doc' and 'note' seem too close together. I def want to respect its place
+      because I use it the most; it's just very hardened already, so NON-INVASIVE upgrades and hardening
+      techniques are important."* **IMPORTANT POLICY UPDATE:** TK2/Prose is no longer strictly off-limits — but
+      ANY change must be **NON-INVASIVE** (it's already very hardened + the owner's most-used surface). Permitted
+      non-invasively: (a) frontmatter support (it can read/write YAML frontmatter without embedded UI — fits
+      Prose); (b) further hardening (memory/teardown/robustness); (c) the instant-recall bubble (SS-IR); (d) a
+      naming/advertising decision. **NOT permitted: loading heavy UI / embedded surfaces into TK2 (it's
+      fundamentally Prose — keep it that way).** NAMING: recommend keeping it **"Prose"** (distinct from Epdoc=
+      "doc"; avoids the doc↔note overlap; signals the focused-writing value the owner loves). Epdoc = the rich
+      markdown/doc editor; Prose = the pure focused writing editor. Research the safest non-invasive Prose
+      hardening + frontmatter path. (New slice SS-TK if researched.)

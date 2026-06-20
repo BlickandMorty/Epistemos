@@ -359,3 +359,14 @@ compaction' is partly WRONG — 3 in-loop triggers exist** (proactive 80% L296, 
 Also: 5 fragmented local repair builders → unify via HyperdynamicLoop (SS-Y); tool-call parser only accepts
 `<tool_call>`/JSON (SS-Z) → broaden; no outbound tool-INPUT redaction (SS-S ext). Ranked top fixes in the doc.
 Full: SS-AL doc.
+**SS-IR INSTANT-RECALL POPUP REDESIGN** → KEY FINDING: there are TWO recall surfaces. **Surface A (W8 Halo:
+`HaloButton`+`ShadowPanel` NSPanel)** is already editor-scoped + native + click-gated = NEAR the target. **Surface
+B (Contextual Shadows V0: `ContextualShadowsButton`+`ContextualShadowsPanel`)** is a SwiftUI overlay box that
+AUTO-SHOWS while typing on chat/landing/mini-chat = **THE "weird pixel box that overlays things."** Owner's
+complaint = Surface B (auto-shows on type `ContextualShadowsState.swift:465`; SwiftUI overlay inside the host
+layout, no AppKit reposition; 520-740px). **Redesign: (1) stop B auto-showing — bubble lights, box doesn't open
+[S]; (2) remove B from chat/landing/mini-chat [S]; (3) glow ring on HaloButton [S]; (4) slim ShadowPanelContent /
+NSPopover anchored to bubble, .transient [M]; (5) accuracy-tune (longer debounce + wider limit + dual-domain RRF
+merge — SS-UMA) [M]; (6) add bubble+popover to Epdoc via HaloEditorBridge.feed off the autosave hook [L]; (7)
+unify the two recall systems [L].** TK2 already non-invasive (sibling NSHostingView, not in the NSTextView).
+Accuracy-first confirmed (lean on warm RRF/HNSW). Full: SS-IR doc.
