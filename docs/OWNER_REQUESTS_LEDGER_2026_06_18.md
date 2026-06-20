@@ -3807,3 +3807,23 @@ native; AGPL server). ADOPT 2 patterns natively:
       (03bd5c4a7); this item = COMPLETE the coverage so ALL local + cloud models have a real, current, hardened
       profile (not just the GGUF lane). Cross-ref SS-AB (definitive design), SS-Z (per-model framework), SS-R
       (the model shortlist), SS-AA (LiteLLM cloud table). Added to the TOP-UNCODED steer.
+- [ ] **MLX-LORA-STUDIO — embed + fuse a native fine-tuning studio (owner 2026-06-20).** Verbatim: *"so this is
+      something I wanna add absolutely to my app completely clone it and infuse it with my already replace it
+      replace my my training one with this and then maybe add my training data to this new one, but I want to add
+      this new one to my app and then all the things that my app does with training just fuse it with it or add
+      this new one like add to this new one but like yeah, give it a rescan, etc. and I want this actually be
+      useful. I want to be able to actually use the models right after they're done, etc. and of course I don't
+      want to delete any any part of mine. I just wanna add mine into the new one."* Source:
+      https://github.com/Goekdeniz-Guelmez/MLX-LoRA-Studio/releases/tag/v1.0.0
+      **Intent (every clause):** clone MLX-LoRA-Studio in as a native STUDIO; make it the primary training surface;
+      FUSE the existing `KnowledgeFusion` pipeline (synth-data/vault-training/curriculum/marketplace/skill-gen/KTO/
+      ODIA/adapter-registry) INTO it; delete nothing (additive); "give it a rescan" (models/HF-cache); "use the
+      models right after they're done" = CLOSE THE APPLY GAP (`NativeAdapterApply`→`MLXInferenceService`) +
+      fuse-to-new-ModelVault + immediate rescan/select. **Constraint (CLAUDE.md OVERRIDES literal "clone"):**
+      Studio is MIT Swift/SwiftUI ~85% BUT engine = Python subprocess (`PythonJobRunner`→`vendor/mlx-lm-lora`),
+      forbidden on MAS+notarized (NO-HIDDEN-SIDECAR) — and Epistemos already has a native MLX-Swift trainer
+      (`NativeLoRATrainer`/`LoRATrain`). → APP-NATIVE BY EMBEDDING: graft the MIT Swift value (live dashboard, runs
+      archive, algorithm guide, ResourceGuard, 9 algos + QLoRA/QAT/full-FT) onto the native engine; port algorithm
+      math natively (clean-room, no Python import); keep ALL existing KF code. **Status:** RESEARCHED →
+      `docs/research/SS-LS_MLX_LORA_STUDIO_INTEGRATION_2026_06_20.md` (file:line graft plan + ordered steps).
+      Keystone = the apply gap (the "use right after" blocker). Cross-ref SS-AB/SS-G/SS-C. Added to TOP-UNCODED.
