@@ -32,6 +32,18 @@ health page is still glitched, it is not working in settings."* Cross-refs SS-PE
 > (6 FFI/sec → 1) is a separate follow-up. Source-guarded in `SubstrateHealthClockTests`
 > (no row retains a `startTimer`/`Task.sleep` self-timer). Commits 561495822 → (this).
 > Live "panel no longer stutters" pass = owner-runtime (the app-hosted UI can't run headless).
+>
+> **What is NOT collapsed (and why that's correct).** A grep of `startTimer`/`Task.sleep`
+> across `*HealthRow.swift` still matches **3 files that are NOT SubstrateHealthPanel rows**:
+> (a) `CognitiveDagHealthRow` (the orphan — distinct from the migrated
+> `CognitiveDagCountsHealthRow`) and (b) `HyperdynamicLoopHealthRow` are both **dead**
+> (0 live mount sites anywhere — verified) and ship a dead 1 Hz timer → recommend
+> owner-approved retirement (files not authored by this loop → surfaced, not deleted
+> blind); (c) `BackgroundIndexingHealthRow` is a **separate live row** mounted in
+> `SettingsView.swift:988` (a different Settings section, its own `refreshInterval` poll) —
+> one lone timer, not part of the panel's ~17-timer pileup, so out of scope. A source guard
+> in `SubstrateHealthClockTests` asserts none of the 3 is mounted in `SubstrateHealthPanel`,
+> so none can silently re-enter the panel's contention set.
 
 ## Headline (verified root)
 The panel renders structurally fine (`Form` + 3 collapsible `Section(isExpanded:)`, no broken `ForEach`/id, no
