@@ -47,6 +47,7 @@ pub mod lifecycle;
 pub mod live_files;
 #[cfg(feature = "lsp-runtime")]
 pub mod lsp_runtime;
+pub mod model_profile;
 pub mod mutations;
 pub mod neocortex;
 pub mod nightbrain;
