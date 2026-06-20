@@ -23,10 +23,31 @@ public final class SubstrateHealthClock {
     /// Monotonic 1 Hz tick. Rows observe this to re-run their refresh.
     public private(set) var tick: Int = 0
 
-    public init() {}
+    /// SS-SH dedup: the shared unified substrate-health snapshot. The 6 rows that
+    /// previously each called `SubstrateHealthUnifiedClient.snapshotAsync()` every
+    /// tick (~6 identical FFI round-trips/sec on one panel) now read this single
+    /// snapshot, fetched ONCE per tick by the panel's driver (6 FFI/sec → 1).
+    // Internal (not public): `SubstrateHealthUnifiedSnapshot` is an internal type, and
+    // the rows that read this are in-module, so `public` isn't needed (and isn't allowed).
+    private(set) var unified: SubstrateHealthUnifiedSnapshot
+
+    public init() {
+        // One sync fetch at construction so rows show data on first paint; the
+        // recurring 1 Hz refresh below runs OFF the MainActor.
+        unified = SubstrateHealthUnifiedClient.snapshot()
+    }
 
     /// Advance one tick. Called once per second by the panel's single driver.
     public func advance() {
+        tick &+= 1
+    }
+
+    /// SS-SH dedup: fetch the unified snapshot ONCE per tick OFF the MainActor, then
+    /// advance — the single shared replacement for the former 6 per-row
+    /// `snapshotAsync()` calls. Set before the tick bumps so a row's tick-driven read
+    /// sees the fresh snapshot.
+    public func tickWithUnifiedRefresh() async {
+        unified = await SubstrateHealthUnifiedClient.snapshotAsync()
         tick &+= 1
     }
 }

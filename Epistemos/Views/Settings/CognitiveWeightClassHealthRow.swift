@@ -7,6 +7,7 @@ import SwiftUI
 @MainActor
 public struct CognitiveWeightClassHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
+    @Environment(SubstrateHealthClock.self) private var healthClock: SubstrateHealthClock?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
@@ -46,7 +47,7 @@ public struct CognitiveWeightClassHealthRow: View {
                     : "badge taxonomy visible; enforcement remains T17/T14 follow-up"
             )
         }
-        .substrateHealthPoll { refresh() }
+        .substrateHealthPoll { if let unified = healthClock?.unified { snapshot = unified } }
     }
 
     @ViewBuilder
@@ -82,11 +83,6 @@ public struct CognitiveWeightClassHealthRow: View {
         case "W4": .red
         default: .secondary
         }
-    }
-
-    private func refresh() {
-        // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
-        Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
     }
 }
 

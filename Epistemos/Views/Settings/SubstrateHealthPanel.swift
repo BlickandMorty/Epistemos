@@ -151,12 +151,13 @@ public struct SubstrateHealthPanel: View {
         }
         .environment(healthClock)
         .task {
-            // SS-SH: ONE shared 1 Hz clock for the whole panel — replaces the
-            // former ~17 per-row Task.sleep timers. Auto-cancels when the panel
-            // leaves the hierarchy, so all row polling stops deterministically.
+            // SS-SH: ONE shared 1 Hz clock for the whole panel — replaces the former
+            // ~17 per-row Task.sleep timers, AND fetches the unified snapshot once per
+            // tick off-MainActor (replacing the 6 identical per-row FFI calls).
+            // Auto-cancels when the panel leaves, so all polling stops deterministically.
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                healthClock.advance()
+                await healthClock.tickWithUnifiedRefresh()
             }
         }
     }

@@ -13,6 +13,7 @@ import SwiftUI
 // Residency: ResidencyTier::CurrentApp
 public struct PlanePlacementHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
+    @Environment(SubstrateHealthClock.self) private var healthClock: SubstrateHealthClock?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
@@ -49,7 +50,7 @@ public struct PlanePlacementHealthRow: View {
                 detail: planeSummary(plane)
             )
         }
-        .substrateHealthPoll { refresh() }
+        .substrateHealthPoll { if let unified = healthClock?.unified { snapshot = unified } }
     }
 
     private func placementState(
@@ -79,11 +80,6 @@ public struct PlanePlacementHealthRow: View {
     private func chipLabel(_ p: SubstrateHealthUnifiedSnapshot.PlanePlacement) -> String {
         guard p.ffiReachable else { return "FFI unavailable" }
         return p.planeFieldsWired ? "read-only counts" : "Terminal G dependency"
-    }
-
-    private func refresh() {
-        // SS-SH: fetch OFF the MainActor so the 1Hz poll never blocks the panel.
-        Task { snapshot = await SubstrateHealthUnifiedClient.snapshotAsync() }
     }
 }
 
