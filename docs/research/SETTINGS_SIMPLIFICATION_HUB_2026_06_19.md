@@ -32,7 +32,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-M | OBSCURA browser + AGENT-SCRAPER + PRIVACY via WebKit (owner 2026-06-19) — research+harden the Obscura WebKit browser + web scraping + privacy stack | ✅ done → SS-M_OBSCURA_SCRAPER_PRIVACY |
 | SS-N | SENSITIVE-INFO REDACTION MODEL (owner 2026-06-19) — the OpenAI open-source model that detects/redacts sensitive info (PII); research + add + harden, on-device privacy | ✅ done → SS-N_SENSITIVE_INFO_REDACTION |
 | SS-O | EPDOC REPAIR (owner 2026-06-19) — root-cause the glitchy/demo-ish WKWebView/Tiptap Epdoc editor (autosave/JS-bridge/render race) + harden + bring Notion/Tolaria-style rich UI/UX; NEVER touch TK2/Prose | ✅ done → SS-O_EPDOC_REPAIR |
-| SS-P | v2 WEBKIT MD EDITOR (owner 2026-06-19) — optional SECOND md editor cloned from Tolaria on WebKit, pixel-art minimal + macOS-26 style + fonts; standalone or fused with Epdoc; never touch TK2/Prose | ☐ |
+| SS-P | v2 WEBKIT MD EDITOR (owner 2026-06-19) — optional SECOND md editor cloned from Tolaria on WebKit, pixel-art minimal + macOS-26 style + fonts; standalone or fused with Epdoc; never touch TK2/Prose | ✅ done → SS-P_TOLARIA_V2_MD_EDITOR |
 | SS-Q | VOICE CLONING + BITCRUSH DSP (owner 2026-06-19) — Apple Personal Voice cloning (macOS-26 viability) + a bitcrush AVAudioEngine effect over any voice + custom branded system voice; premium-default | ✅ done → SS-Q_VOICE_CLONING_BITCRUSH |
 | SS-R | MORE LOCAL MODELS (owner 2026-06-19) — LFM2/ternary-BitNet/Bonsai/SmolLM/Gemma3n/Phi/Granite/MiniCPM; Apple-Silicon-runnable, install-any, advertise-canon, verify-runtime no-fake | ✅ done → SS-R_MORE_LOCAL_MODELS |
 | SS-S | VULNERABILITY AUDIT techniques (owner 2026-06-19) — robust security+correctness sweep (injection/SSRF/secret-leak/unsafe-unwrap/subprocess/MAS-escape/silent-fail/FFI-deadlock); repair-before-add gating discipline | ☐ |
@@ -45,7 +45,7 @@ then advance the next slice (broaden) or deepen a done one. Cross-link new docs 
 | SS-Z | PER-MODEL BESPOKE ENGINEERING FRAMEWORK (owner 2026-06-19) — modernized per-model (local+cloud) tuning (context window, tool-call dialect like LFM, prompt format) that does NOT clash; every model utilizes the app's skills; chat-first, Act/Work only non-clashing additions | ✅ done → SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK |
 | SS-AA | GITHUB PER-MODEL ENGINEERING STUDY (owner 2026-06-19; extends SS-Z) — harvest proven per-model patterns (prompt/template/tool-dialect/context/sampling/adapters) from llama.cpp/Ollama/vLLM/SGLang/LiteLLM/Outlines/XGrammar/Aider/etc. | ✅ done → SS-AA_GITHUB_PER_MODEL_ENGINEERING |
 | SS-AB | MODEL CAPABILITY PROFILE — DEFINITIVE hardened combo + per-model profiles/descriptions + picker use-case copy (owner 2026-06-19) | ✅ done → SS-AB_MODEL_CAPABILITY_PROFILE_DEFINITIVE |
-| SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ☐ |
+| SS-P+ | TOLARIA FULL PORT + DYNAMIC HTML-WORKSPACE-DOM + best-of-GitHub-MD + agent-MD (owner 2026-06-19; expands SS-P) — full Tolaria WebKit port MD-first, GitHub-grade dynamic HTML/DOM visuals, harvest best features from popular + agent MD editors; builds on SS-O; never touch TK2/Prose | ✅ folded into SS-P (graft-not-clone; GitHub-DOM + agent-MD in SS-P plan) |
 
 ## FINDINGS LOG (appended each pass)
 **SS-A CLONED-APP SETTINGS** → the machinery already ships (`SettingsDisclosureSection` = the literal 'Advanced' container; GateStatus+HealthRow triad; native absorbers ModelStack/Authority/Skills). Pattern = a reusable `EngineSettingsSection` (curated native simple front: model→stack, perms→Authority, skills→Skills, MCP→ONE consolidated panel) + a `… · Advanced` disclosure with the full surface. Per clone: auto-default the plumbing (ports/dirs/keys/sandbox), surface ~3-5 knobs simply, full settings under Advanced. **OpenClaw (33-section config) = reskin its config-form via CSS injection + keep it under `OpenClaw · Advanced` — never hide it (reverses S3).** Top move = consolidate MCP-install into one panel. Full: SS-A doc.
@@ -259,3 +259,14 @@ SS-C):** the 2 highest-value asks — vault path + first model — could auto-de
 default vault to `~/Documents/Epistemos` (revive dead code) [S]; read GGUF n_ctx instead of 8192 fallback [M];
 reconsider heartbeat/ssm AC-gated default-ON [M].** Ports/dirs/caches already auto-defaulted (SS-A pattern).
 Flag-ON≠wired clones stay honest-inert (don't auto-ON). Full: SS-E doc. (Settings cluster A/B/C/D/E/F COMPLETE.)
+**SS-P TOLARIA v2 MD EDITOR (covers SS-P+)** → **Tolaria's "Notion editor" IS BlockNote** (Tauri/React/Rust,
+AGPL-3.0); its creator **started in Swift, hit MD-editor limits, switched to a web editor** — validating
+Epistemos's WebKit-Tiptap choice. **Recommendation (honesty-saving): do NOT clone Tolaria (AGPL-3.0 ✗ closed MAS)
+and do NOT add a 2nd WebKit surface — GRAFT Tolaria-class rich UI onto the SS-O-repaired Epdoc/Tiptap (single
+surface), harvest PATTERNS from MIT/Apache editors** (Tiptap's own Notion template, Novel Apache, Milkdown MIT,
+CodeMirror-6). Agent-MD pattern = **Tiptap AI Toolkit** (JSON doc + insert/replace/diff/stream tools, BYO-LLM)
+wired to agent_core+MCP. Pixel-art + macOS-26 Liquid-Glass both ride the EXISTING `EpdocEditorThemeStyle` CSS
+injector (MAS-safe). GitHub-grade DOM via Tiptap custom NodeViews (collapsibles/Mermaid/code-pills/ToC). **AVOID
+for closed code: Tolaria AGPL + BlockNote-XL GPL.** Prereq: land SS-O roots #2/#3 first. Plan: Notion template +
+DragHandle [S]; pixel skin [S]; agent editing commands [M]; Liquid-Glass [M]; GitHub-DOM [M]; CodeMirror source
+toggle + md serializer [L]. Full: SS-P doc. (EDITOR cluster SS-O/P/P+ COMPLETE.)
