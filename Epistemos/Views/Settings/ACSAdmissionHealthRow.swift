@@ -16,7 +16,6 @@ import SwiftUI
 public struct ACSAdmissionHealthRow: View {
 
     @State private var snapshot: ACSAdmissionMetrics.Snapshot
-    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: ACSAdmissionMetrics.shared.snapshot())
@@ -68,14 +67,9 @@ public struct ACSAdmissionHealthRow: View {
                 )
             }
         }
-        .onAppear {
+        .substrateHealthPoll {
             _ = ACSAdmissionBridge.strictPolicySummary()
             refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
         }
         .onReceive(NotificationCenter.default.publisher(
             for: ACSAdmissionMetrics.didChangeNotification,
@@ -89,18 +83,6 @@ public struct ACSAdmissionHealthRow: View {
 
     public func refresh() {
         snapshot = ACSAdmissionMetrics.shared.snapshot()
-    }
-
-    private func startTimer() {
-        refreshTask?.cancel()
-        refreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                _ = ACSAdmissionBridge.strictPolicySummary()
-                refresh()
-            }
-        }
     }
 
     private var policyDetail: String {

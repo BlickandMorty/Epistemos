@@ -50,16 +50,23 @@ struct SubstrateHealthClockTests {
             "Epistemos/Views/Settings/VaultRecallHealthRow.swift",
             "Epistemos/Views/Settings/FUlpHealthRow.swift",
             "Epistemos/Views/Settings/EditorBundleHealthRow.swift",
+            // Slice 4 — the deviating rows (bridge pre-call / dual-task / .task{})
+            "Epistemos/Views/Settings/SystemGHealthRow.swift",
+            "Epistemos/Views/Settings/ACSAdmissionHealthRow.swift",
+            "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
+            "Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift",
+            "Epistemos/Views/Settings/LatticeWBOHealthRow.swift",
+            "Epistemos/Views/Settings/FalsifierArtifactsHealthRow.swift",
         ]
         for path in migrated {
             let row = try loadMirroredSourceTextFile(path)
-            #expect(!row.contains("startTimer()"),
-                    "\(path) still defines/calls a per-row startTimer() — it must use the shared clock")
+            #expect(!row.contains("startTimer"),
+                    "\(path) still has a per-row startTimer() — it must use the shared clock")
             #expect(!row.contains("Task.sleep(for: .seconds(1))"),
                     "\(path) still runs a per-row 1 Hz Task.sleep loop")
-            #expect(!row.contains("refreshTask"),
-                    "\(path) still holds a per-row refresh Task")
-            #expect(row.contains(".substrateHealthPoll { refresh() }"),
+            #expect(!row.contains("Task.sleep(nanoseconds: 1_000_000_000)"),
+                    "\(path) still runs a per-row 1 Hz .task poll")
+            #expect(row.contains(".substrateHealthPoll {"),
                     "\(path) must subscribe to the shared clock via .substrateHealthPoll")
         }
     }
