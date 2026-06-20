@@ -4228,3 +4228,15 @@ native; AGPL server). ADOPT 2 patterns natively:
       BOUNDARY: high-value completion (RuntimeRouter promotion / AnswerPacket persistence / SystemG wiring) is in the owner's
       Cursor domain → WHO finishes it is the open decision (loop builds it = scope reversal, vs owner-Cursor + loop does
       loop-safe rows + explainer + interface-draft). DECISION posed to owner via AskUserQuestion (scope + sequencing).
+      ↳ **OWNER DECISION (2026-06-20):** *"it's not live literally we are done — I was asking you to research and for the
+      AGENT to build once it's all good. Doesn't matter [on sequencing] — just work on it in loop like all the other things,
+      I just want it completed. Do we have enough research to build the rest of the FULL substrate architecture WITHOUT the
+      new model, also without the 70B, but all the other things that are my app?"* ANSWER: YES — enough research (interfaces
+      exist + per-component promotion stages documented; promotion not greenfield). Boundary LIFTED for the substrate: the
+      LOOP now BUILDS the model-agnostic substrate in-loop. Consolidated plan → `docs/research/SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md`
+      (Phases 0-7: freeze interfaces → RuntimeRouter live → AnswerPacket persistence → System G providers → wire health rows
+      + SS-SH → EML/recall reachable → surface reuse → explainer). EXCLUDED (don't build, not advertised): the NEW MODEL
+      (SSM/M0/signal_bus/lattice-quant-safety/ternary brain-1), the 70B, Companion→Osaurus clones. Seam: new model plugs in
+      later behind LocalModelHandoff + AnswerPacket.attention_mode (static_fallback→dynamic, zero rework). Memory updated
+      (project_substrate_build_authorized_2026_06_20 supersedes dual-brain-off-limits for substrate). Online research cycle
+      RETRY pending (web down). Added to loop build order (cron).
