@@ -102,6 +102,18 @@ nonisolated public enum HaloState: Sendable, Hashable {
         }
     }
 
+    /// SS-IR (owner 2026-06-20): the resting states where the bubble should still be a FAINT,
+    /// discoverable entry point — so Instant Recall is findable even with zero hits (the owner
+    /// "couldn't see it" because it only appeared on results). Distinct from `isVisible`
+    /// (results-present → the bright/active affordance). Kept separate so `isVisible`'s
+    /// results-present semantics (mount/dismantle elsewhere) are untouched.
+    public var isRestingDiscoverable: Bool {
+        switch self {
+        case .dormant, .sensing: return true
+        default: return false
+        }
+    }
+
     /// Whether the floating panel is open (the user clicked the glyph
     /// or drilled into a result).
     public var isPanelOpen: Bool {

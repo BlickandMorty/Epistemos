@@ -262,6 +262,12 @@ public final class HaloController {
             transition(to: .open(domain: domain))
         case .errorRecoverable:
             refreshGraphProjectionReport()
+        case .dormant, .sensing:
+            // SS-IR (owner 2026-06-20): the resting bubble is a LIVE entry point — open a panel
+            // even with zero hits (it shows the "no matches yet" empty state) so recall is
+            // discoverable instead of a dead affordance.
+            refreshGraphProjectionReport()
+            transition(to: .open(domain: domain))
         default:
             return
         }
