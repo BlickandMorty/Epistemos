@@ -112,6 +112,11 @@ blocker root) is fixed end-to-end.
    (guaranteed-valid local tool calls = local>cloud). [S]
 7. **Stream local repair tokens** (SS-AL #1) — pass real `onToken` into the repair generators (kill the masked
    `{ _ in }` decode). [S]
+7b. **ALL-MODELS profile update + harden** (SS-AB/SS-Z/SS-R/SS-AA; owner 2026-06-20) — extend the shipped
+   `ModelCapabilityProfile` so EVERY local AND cloud model has a CURRENT + HARDENED profile (correct ctx/template/
+   dialect/sampling/stop/tier/skills + benefitsDescription + pickerUseCase); cloud half seeded from LiteLLM's
+   capability table (bundled offline, MAS-safe); validated, honest/no-fake, with tests. The profile is shipped +
+   wired into GGUF (40b32bb22/03bd5c4a7); COMPLETE the all-model coverage. [M]
 8. Then the editor cluster per `EPDOC_MD_V2_BUILD_SEQUENCE` + the remaining native features (PDF/voice/browser/
    redaction) + the instant-recall popup redesign (SS-IR) + the perf/vuln gates each cycle.
 

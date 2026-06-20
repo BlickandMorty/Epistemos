@@ -3793,3 +3793,17 @@ native; AGPL server). ADOPT 2 patterns natively:
       "doc"; avoids the doc↔note overlap; signals the focused-writing value the owner loves). Epdoc = the rich
       markdown/doc editor; Prose = the pure focused writing editor. Research the safest non-invasive Prose
       hardening + frontmatter path. (New slice SS-TK if researched.)
+- [ ] **ALL MODEL PROFILES — local AND cloud — UPDATED + HARDENED (owner 2026-06-20; extends SS-AB/SS-Z/SS-R/
+      SS-AA).** Owner (verbatim): *"for all the local models and even cloud models I want to make sure that the
+      profiles are updated and hardened, so add that as well."* So the `ModelCapabilityProfile` (the single
+      per-model data-driven profile, SS-AB) must cover **EVERY local model AND EVERY cloud model** (Claude/OpenAI/
+      Gemini + any others), each with a **CURRENT + HARDENED** profile: correct `contextWindow` (not the stale
+      hardcoded 4096 / drifting MLX literals), `chatTemplate`/promptFormat, `toolCallDialect`, `samplingDefaults`,
+      `stop` tokens, `capabilityTier`, `skillsEnabled`, plus the `benefitsDescription` + `pickerUseCase` (SS-AB).
+      HARDENED = validated (no stale/wrong values), honest/no-fake (a model's profile reflects what it can really
+      do), kept up to date as models are added/changed (the cloud half seeded from LiteLLM's capability table per
+      SS-AA, bundled offline/MAS-safe), with tests (profile resolution + a no-empty-template / no-wrong-ctx
+      falsifier). The loop already shipped the `ModelCapabilityProfile` (40b32bb22) + wired it into GGUF
+      (03bd5c4a7); this item = COMPLETE the coverage so ALL local + cloud models have a real, current, hardened
+      profile (not just the GGUF lane). Cross-ref SS-AB (definitive design), SS-Z (per-model framework), SS-R
+      (the model shortlist), SS-AA (LiteLLM cloud table). Added to the TOP-UNCODED steer.
