@@ -130,3 +130,8 @@ The loop now walks `MASTER_BUILD_QUEUE_2026_06_20.md` — ALL 194 open ledger it
 research/slice + canonical source BEFORE building) → NO-RISK-DEFERRAL → self-verify + ship → interleave SS-CLEAN +
 repair + nuclear-checker every ~5 items. The active list above is the near-term slice of that walk; the master queue is
 the full ordered set so nothing is "just the next N." 100%-completion: the walk doesn't end until every tier is built.
+
+## ► ENGINEERING DISCIPLINE = LOOP_HARDENED_ENGINEERING_CONTRACT_2026_06_20.md (owner 2026-06-20: "super-hardened, failproof; always read the plan")
+Every iteration: read the plan FIRST (master queue → ledger verbatim → slice/CONNECTION_MAP → this index), then follow the
+HARDENED CONTRACT (deliberate → safe-seam → savepoint → flag-gated/crash-safe/no-data-loss/no-regression build → exhaustive
+self-verify → nuclear+repair passes → ship+record → self-heal). Deeper analysis ALWAYS cites the plan; never act from memory.
