@@ -1172,9 +1172,11 @@ private struct NodeRowButton: View {
     let indent: Int
     let onSelect: (String) -> Void
     @State private var isHovered = false
+    @State private var showInlinePreview = false
     @Environment(GraphState.self) private var graphState
 
     var body: some View {
+        VStack(spacing: 4) {
         Button {
             onSelect(node.id)
         } label: {
@@ -1214,6 +1216,13 @@ private struct NodeRowButton: View {
                 } label: {
                     Label("Open in Notes", systemImage: "doc.text")
                 }
+                if GraphInlineDocPreviewFlag.enabled {
+                    Button {
+                        showInlinePreview = true
+                    } label: {
+                        Label("Preview Inline", systemImage: "doc.text.magnifyingglass")
+                    }
+                }
             }
             if node.type == .document {
                 Button {
@@ -1250,6 +1259,14 @@ private struct NodeRowButton: View {
             } label: {
                 Label("Focus on Node", systemImage: "scope")
             }
+        }
+
+        if showInlinePreview, node.type == .note, let pageId = node.sourceId {
+            GraphInlineDocPreviewCard(pageId: pageId, onClose: { showInlinePreview = false })
+                .padding(.leading, CGFloat(indent) * 16 + 12)
+                .padding(.trailing, 12)
+                .padding(.bottom, 2)
+        }
         }
     }
 }
