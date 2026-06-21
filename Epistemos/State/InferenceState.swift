@@ -3229,6 +3229,7 @@ final class InferenceState {
     /// / extended). Wire-level mapping to each provider's native field
     /// happens in LLMService; this key just holds the user's policy.
     private nonisolated static let chatReasoningTierDefaultsKey = "epistemos.chatReasoningTier"
+    private nonisolated static let fastEffortOverrideDefaultsKey = "epistemos.fastEffortOverride"
     /// One-time migration flag: users who were pinned to OpenAI GPT-5.2
     /// when 5.2 was the flagship get bumped to GPT-5.4 (the current
     /// flagship per docs/MASTER_MODEL_STACK_PLAN.md). Users who later
@@ -3374,6 +3375,12 @@ final class InferenceState {
     /// Anthropic `thinking.type`/`effort`,
     /// Google `thinkingConfig.thinkingLevel`/`thinkingBudget`.
     var chatReasoningTier: ChatReasoningTier = .medium
+    /// User-pinned Fast effort band (L1128 — "i dont see the low medium high on
+    /// fast mode"). `nil` = auto per-query sizing (the default). When set AND
+    /// `EpistemosFastEffortSizing.pickerOverrideEnabled`, the Fast auto-sizer
+    /// pins this band instead of deriving it from query complexity. Persisted
+    /// via `setFastEffortOverride`; seeded from defaults in init.
+    var fastEffortOverride: EpistemosFastEffortSizing.FastEffort?
     var googleGroundingEnabled = false
     private(set) var hasShownCloudSetupHint = false
     /// Observed mirror of the user's preferred cloud model per provider.
@@ -3540,6 +3547,10 @@ final class InferenceState {
         if let savedTier = defaults.string(forKey: Self.chatReasoningTierDefaultsKey),
            let tier = ChatReasoningTier(migrating: savedTier) {
             self.chatReasoningTier = tier
+        }
+        if let savedFastEffort = defaults.string(forKey: Self.fastEffortOverrideDefaultsKey),
+           let effort = EpistemosFastEffortSizing.FastEffort(rawValue: savedFastEffort) {
+            self.fastEffortOverride = effort
         }
         self.googleGroundingEnabled = Self.boolPreference(
             defaults: defaults,
@@ -4375,10 +4386,20 @@ final class InferenceState {
         // a deliberate smaller pick resolves to a different id and is left alone.
         guard let resolved = effectiveLocalTextModelID(for: operatingMode),
               resolved == candidates.last?.id else { return nil }
-        let index = EpistemosFastEffortSizing.candidateIndex(
-            forComplexity: complexity,
-            candidateCount: candidates.count
-        )
+        // A user-pinned Fast effort (L1128) overrides the per-query complexity
+        // band when the override picker is enabled; otherwise pure auto-sizing.
+        let index: Int
+        if EpistemosFastEffortSizing.pickerOverrideEnabled, let pinned = fastEffortOverride {
+            index = EpistemosFastEffortSizing.candidateIndex(
+                forEffort: pinned,
+                candidateCount: candidates.count
+            )
+        } else {
+            index = EpistemosFastEffortSizing.candidateIndex(
+                forComplexity: complexity,
+                candidateCount: candidates.count
+            )
+        }
         return candidates[index].id
     }
 
@@ -4396,7 +4417,12 @@ final class InferenceState {
             forComplexity: complexity,
             operatingMode: operatingMode
         ) else { return nil }
-        let effort = EpistemosFastEffortSizing.effort(forComplexity: complexity)
+        let effort: EpistemosFastEffortSizing.FastEffort
+        if EpistemosFastEffortSizing.pickerOverrideEnabled, let pinned = fastEffortOverride {
+            effort = pinned
+        } else {
+            effort = EpistemosFastEffortSizing.effort(forComplexity: complexity)
+        }
         return "Fast · \(effort.displayName) effort → \(localModelPickerDisplayName(for: sized))"
     }
 
@@ -5745,6 +5771,19 @@ final class InferenceState {
 
     func setChatReasoningTier(_ tier: ChatReasoningTier, for operatingMode: EpistemosOperatingMode) {
         setChatReasoningTier(sanitizedReasoningTier(tier, for: operatingMode))
+    }
+
+    /// Pin (or clear, with `nil` = auto) the Fast effort band (L1128). Persists
+    /// so the choice survives relaunch. Only takes routing effect when
+    /// `EpistemosFastEffortSizing.pickerOverrideEnabled`; the setter itself is
+    /// flag-independent so the stored preference is ready the moment the flag flips.
+    func setFastEffortOverride(_ effort: EpistemosFastEffortSizing.FastEffort?) {
+        fastEffortOverride = effort
+        if let effort {
+            UserDefaults.standard.set(effort.rawValue, forKey: Self.fastEffortOverrideDefaultsKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.fastEffortOverrideDefaultsKey)
+        }
     }
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {

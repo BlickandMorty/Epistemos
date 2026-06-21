@@ -206,6 +206,13 @@ struct InlineRuntimePickerPanel: View {
                                 )
                             }
                         }
+                    } else if operatingMode.wrappedValue.epistemosModelTier == .fast,
+                              EpistemosFastEffortSizing.pickerOverrideEnabled {
+                        // Fast has no thinking-budget tiers, but the owner wants the
+                        // low/med/high SIZE effort visible + pinnable on Fast (L1128).
+                        Divider()
+                            .padding(.vertical, 2)
+                        fastEffortSection
                     }
                 }
 
@@ -490,6 +497,80 @@ struct InlineRuntimePickerPanel: View {
         }
         .buttonStyle(.plain)
         .help(tier.summary)
+    }
+
+    /// Fast effort override selector (L1128 — "i dont see the low medium high on
+    /// fast mode"). Fast has no thinking-budget tiers, so this surfaces the SIZE
+    /// effort instead: Auto (per-query auto-sizing, the default) + an explicit
+    /// Low/Medium/High that pins the Gemma band (E2B/E4B/12B). Only mounted when
+    /// `EpistemosFastEffortSizing.pickerOverrideEnabled`.
+    @ViewBuilder
+    private var fastEffortSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("FAST EFFORT")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .tracking(1.5)
+                .foregroundStyle(theme.textTertiary)
+            fastEffortRow(nil, isSelected: inference.fastEffortOverride == nil)
+            ForEach(EpistemosFastEffortSizing.FastEffort.allCases, id: \.self) { effort in
+                fastEffortRow(effort, isSelected: inference.fastEffortOverride == effort)
+            }
+        }
+    }
+
+    /// One Fast effort choice. `nil` = "Auto" (clears the override → per-query
+    /// auto-sizing). A concrete effort pins the band.
+    private func fastEffortRow(
+        _ effort: EpistemosFastEffortSizing.FastEffort?,
+        isSelected: Bool
+    ) -> some View {
+        let title: String = effort?.displayName ?? "Auto"
+        let summary: String = switch effort {
+        case .none: "Size to the query automatically (default)"
+        case .some(.low): "Always the smallest Gemma — fastest, lightest"
+        case .some(.medium): "Always the mid Gemma — balanced"
+        case .some(.high): "Always the largest Gemma — most capable"
+        }
+        return Button {
+            inference.setFastEffortOverride(effort)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: effort == nil ? "wand.and.stars" : "gauge.medium")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(theme.textPrimary)
+                    Text(summary)
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? theme.resolved.accent.color.opacity(0.14) : Color.clear)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Rectangle()
+                        .fill(theme.resolved.accent.color)
+                        .frame(width: 2)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(summary)
     }
 
     /// A Chat/Act depth row. Act is disabled (with the honest reason) when no
