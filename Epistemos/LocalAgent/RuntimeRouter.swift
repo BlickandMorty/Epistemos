@@ -146,12 +146,19 @@ nonisolated public struct RuntimeRouterMetrics: Sendable, Equatable, Codable {
     public private(set) var escalationsByLane: [String: Int]
     public private(set) var acceptsByLane: [String: Int]
     public private(set) var rejectCount: Int
+    /// SUBSTRATE Phase 1 STAGE 1b: observe-only router-vs-live-path parity. Incremented when the
+    /// shadow compares the router's verdict to the lane the live path actually used. In-memory
+    /// only (these metrics are never persisted), so the additive fields are safe.
+    public private(set) var parityObservations: Int
+    public private(set) var parityMatches: Int
 
     public init() {
         self.ring = []
         self.escalationsByLane = [:]
         self.acceptsByLane = [:]
         self.rejectCount = 0
+        self.parityObservations = 0
+        self.parityMatches = 0
     }
 
     public mutating func record(_ entry: VerdictEntry) {
@@ -174,6 +181,19 @@ nonisolated public struct RuntimeRouterMetrics: Sendable, Equatable, Codable {
     /// Lane-keyed accept/escalation tally — what the chip strip renders.
     public func tally(for lane: RuntimeLane) -> (accepts: Int, escalations: Int) {
         (acceptsByLane[lane.stableID] ?? 0, escalationsByLane[lane.stableID] ?? 0)
+    }
+
+    /// STAGE 1b: record one observe-only parity comparison (did the router's chosen lane match
+    /// the lane the live path actually used?).
+    public mutating func recordParity(matched: Bool) {
+        parityObservations += 1
+        if matched { parityMatches += 1 }
+    }
+
+    /// Fraction of observed turns where the router agreed with the live path; nil until the first
+    /// observation. A low rate flags lane-decision drift BEFORE the router becomes authoritative.
+    public var parityRate: Double? {
+        parityObservations > 0 ? Double(parityMatches) / Double(parityObservations) : nil
     }
 }
 
@@ -712,6 +732,15 @@ public final class RuntimeRouter {
         metrics = snapshot
         Self.log.error("RuntimeRouter reject role=\(role.rawValue) reason=\(reason.rawValue)")
         return verdict
+    }
+
+    /// STAGE 1b (SUBSTRATE Phase 1): record one observe-only parity comparison into the router's
+    /// metrics — did the router's chosen lane match the lane the live path used? Called by the
+    /// shadow at the live dispatch seam behind the flag; never alters routing.
+    public func recordParity(matched: Bool) {
+        var snapshot = metrics
+        snapshot.recordParity(matched: matched)
+        metrics = snapshot
     }
 
     private func localPolicyEscalationReason(
