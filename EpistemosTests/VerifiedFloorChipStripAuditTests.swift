@@ -180,4 +180,138 @@ struct VerifiedFloorChipStripAuditTests {
 
         return false
     }
+
+    // ── Real-API guard (P4 honest-tier, 2026-06-20) ────────────────────────────────
+    // The `.green`-string audit above predates the current VerifiedFloorChipStrip API.
+    // The real component takes `productionWired` + `falsifierPassed` BOOLS and computes
+    // green internally as `productionWired && falsifierPassed` (no call site passes a
+    // `substrateTint:` color), so `.contains(".green")` matches ZERO real rows — the guard
+    // had gone vacuous against the actual API. This restores it: a row that HARDCODES
+    // `falsifierPassed: true` claims a primary PASS witness statically, so it must name a
+    // `falsifier:` whose artifact actually passes. Runtime-computed `falsifierPassed`
+    // (a live witness, e.g. `gateSnapshot.allPassed`) and literal `false` (never green)
+    // are honest and exempt — so this passes today (no row hardcodes a witness) and arms
+    // the guard against a future hardcoded fake-green.
+
+    @Test("the component still computes green from productionWired && falsifierPassed (the bool scan is the right lens)")
+    func componentComputesGreenFromBothBools() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/SettingsSurfaceComponents.swift")
+        #expect(src.contains("productionWired && falsifierPassed"))
+        #expect(src.contains("let productionWired: Bool"))
+        #expect(src.contains("let falsifierPassed: Bool"))
+    }
+
+    @Test("no HealthRow hardcodes falsifierPassed: true without a passing falsifier artifact (real API)")
+    func hardcodedPassWitnessRequiresPassingFalsifierArtifact() throws {
+        let healthRowURLs = try mirroredSourceFileURLs(
+            under: "Epistemos/Views/Settings",
+            includingExtensions: ["swift"]
+        )
+        .filter { $0.lastPathComponent.hasSuffix("HealthRow.swift") }
+
+        #expect(healthRowURLs.count >= 24)
+
+        var violations: [String] = []
+        for url in healthRowURLs {
+            let source = try String(contentsOf: url, encoding: .utf8)
+            violations.append(
+                contentsOf: Self.hardcodedWitnessViolations(
+                    in: source,
+                    path: url.lastPathComponent,
+                    artifactPasses: Self.falsifierArtifactPasses
+                )
+            )
+        }
+
+        #expect(violations.isEmpty, Comment(rawValue: violations.joined(separator: "\n")))
+    }
+
+    @Test("probe: hardcoded falsifierPassed: true with a missing falsifier artifact is rejected (real API)")
+    func probeHardcodedPassWithoutArtifactRejected() {
+        let probe = """
+        VerifiedFloorChipStrip(
+            flag: "on",
+            substrate: "claims a witness it does not have",
+            productionWired: true,
+            falsifierPassed: true,
+            falsifier: "missing_probe",
+            wiredToday: "x",
+            stillStub: "y"
+        )
+        """
+        let violations = Self.hardcodedWitnessViolations(
+            in: probe, path: "DishonestWitnessProbeHealthRow.swift", artifactPasses: { _ in false })
+        #expect(violations.count == 1)
+        #expect(violations[0].contains("missing or not PASS"))
+    }
+
+    @Test("probe: hardcoded falsifierPassed: true with a PASS artifact is accepted (real API)")
+    func probeHardcodedPassWithArtifactAccepted() {
+        let probe = """
+        VerifiedFloorChipStrip(
+            flag: "on",
+            substrate: "honest green",
+            productionWired: true,
+            falsifierPassed: true,
+            falsifier: "probe_pass",
+            wiredToday: "x",
+            stillStub: "y"
+        )
+        """
+        let violations = Self.hardcodedWitnessViolations(
+            in: probe, path: "HonestWitnessProbeHealthRow.swift", artifactPasses: { $0 == "probe_pass" })
+        #expect(violations.isEmpty)
+    }
+
+    @Test("probe: an orange row (productionWired: true, falsifierPassed: false) is not a green claim (real API)")
+    func probeOrangeRowIsNotGreenClaim() {
+        // The LatticeWBO / LocalAgentDiagnostics shape: always-on, no PASS witness → orange,
+        // never green. A literal-false witness must NOT require a passing falsifier artifact.
+        let probe = """
+        VerifiedFloorChipStrip(
+            flag: "n/a",
+            substrate: "always-on accountant",
+            productionWired: true,
+            falsifierPassed: false,
+            falsifier: "F_WBO_DRIFT_LEDGER_2026_05_18",
+            wiredToday: "x",
+            stillStub: "y"
+        )
+        """
+        let violations = Self.hardcodedWitnessViolations(
+            in: probe, path: "LatticeWBOHealthRow.swift", artifactPasses: { _ in false })
+        #expect(violations.isEmpty)
+    }
+
+    /// A row that HARDCODES `falsifierPassed: true` claims a primary PASS witness statically;
+    /// it must name a `falsifier:` whose artifact actually passes. Runtime-computed witnesses
+    /// and literal `false` are honest and produce no violation.
+    private static func hardcodedWitnessViolations(
+        in source: String,
+        path: String,
+        artifactPasses: (String) -> Bool
+    ) -> [String] {
+        chipStripCalls(in: source).flatMap { call -> [String] in
+            guard boolArgumentIsLiteralTrue(key: "falsifierPassed", in: call) else { return [] }
+            guard let falsifier = firstFalsifierName(in: call) else {
+                return ["\(path): VerifiedFloorChipStrip hardcodes falsifierPassed: true but is missing `falsifier:`"]
+            }
+            guard artifactPasses(falsifier) else {
+                return ["\(path): VerifiedFloorChipStrip hardcodes falsifierPassed: true, but artifacts/falsifiers/\(falsifier)/result.json is missing or not PASS"]
+            }
+            return []
+        }
+    }
+
+    /// True only when the argument for `key:` is the literal `true` (not a runtime expression).
+    /// Argument values in the real rows are simple (no nested commas/parens), so a flat scan to
+    /// the next `,`/`)` is sufficient and keeps the probe honest.
+    private static func boolArgumentIsLiteralTrue(key: String, in call: String) -> Bool {
+        guard let range = call.range(of: "\(key):") else { return false }
+        let value = call[range.upperBound...]
+            .prefix { $0 != "," && $0 != ")" }
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return value == "true"
+    }
 }
