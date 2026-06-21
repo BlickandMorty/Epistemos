@@ -885,7 +885,11 @@ struct HologramSearchSidebar: View {
                 .buttonStyle(.plain)
                 .help("Agent tools, MCP, cowork & skills — the full capability set, in the graph chat")
                 .popover(isPresented: $showGraphToolPanel, arrowEdge: .bottom) {
-                    AgentToolTogglePanel(agentCommandCenter: agentCommandCenter, theme: theme)
+                    AgentToolTogglePanel(
+                        agentCommandCenter: agentCommandCenter,
+                        theme: theme,
+                        onRunSkill: { skill in runSkillFromGraphChat(skill) }
+                    )
                 }
 
                 Button {
@@ -1023,6 +1027,19 @@ struct HologramSearchSidebar: View {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !streamingTrace.isEmpty else { return nil }
         return (streamingTrace, nil)
+    }
+
+    /// SS-VIS: run a discovered skill from the graph chat's capability panel by priming the
+    /// "Ask this node" field with its `/identifier` invocation (parity with landing / chat / mini-chat
+    /// skill-run). Closes the panel; honest — it stages the invocation, the user still sends.
+    private func runSkillFromGraphChat(_ skill: SkillDiscoveryEntry) {
+        showGraphToolPanel = false
+        let invocation = "/\(skill.identifier) "
+        if inspectorState.chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            inspectorState.chatInput = invocation
+        } else if !inspectorState.chatInput.hasPrefix("/") {
+            inspectorState.chatInput = invocation + inspectorState.chatInput
+        }
     }
 
     private func sendGraphChatMessage() {
