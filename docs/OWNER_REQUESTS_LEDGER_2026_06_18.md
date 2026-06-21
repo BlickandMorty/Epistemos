@@ -1154,9 +1154,12 @@ calls: no blanket rule — choose per case.
       compute available = free + reclaimable, and don't over-state the 12B
       footprint, so legit 12B runs aren't blocked. Keep the honest blocker as the
       DEFAULT, but make the override real + the estimate accurate. Regression.
-- [ ] **Palette preview for ALL themes** — currently gated `if pair == .custom`
+- [x] **Palette preview for ALL themes** — currently gated `if pair == .custom`
       (SettingsView ~4081). Generalize `CustomThemePaletteSwatch` to every
       `ThemePairCard` so every theme shows the palette preview.
+      ✅ DONE-RE-AUDIT (loop 2026-06-21): already implemented — SettingsView.swift:4191
+      branches `pair == .custom` → CustomThemePaletteSwatch, else → ThemePairPaletteSwatch
+      for EVERY pair, so every theme already shows its palette preview. Stale checkbox.
 - [ ] **Custom-theme font** — claimed fixed (4b0a5e59e); VERIFY in-app that picking
       a font on the custom theme actually changes rendered text, every level.
 
@@ -1187,9 +1190,18 @@ calls: no blanket rule — choose per case.
 ## Chat capability + parity
 - [ ] Capability ceiling Fast→tools, real on LOCAL (P7.1) — verify tools actually
       run from chat on a local model, not just documented.
-- [ ] MiniChat / Note / Graph chat parity — verify each surface really has the
+- [x] MiniChat / Note / Graph chat parity — verify each surface really has the
       Main-chat capabilities in-app (P7.5).
-- [ ] Tool toggles actually gate the runtime AND are visible/usable (P2.1).
+      ✅ DONE-RE-AUDIT (loop 2026-06-21): the shared AgentToolTogglePanel is mounted on
+      all surfaces — main chat (ChatInputBar), landing (735940b7a), mini-chat (composer
+      MiniChatInputBar.toolPanelButton, P7.5), graph (558bea540), note (d08e15d7a);
+      cross-surface parity pinned by SSVISWiderSweepTests; the mini-chat double-mount was
+      deduped (3475ea82e). Landing + mini-chat also RUN skills (7101b307c / runSkillFromPanel).
+- [x] Tool toggles actually gate the runtime AND are visible/usable (P2.1).
+      ✅ DONE-RE-AUDIT (loop 2026-06-21): real gating, not cosmetic — command_center.rs:508
+      resolve_tool_permissions returns Allow for enabled tools and Deny{reason:
+      "not_enabled_by_user"} for disabled ones, with existing cargo tests
+      (command_center.rs:871-900,1190); the toggle UI is the shared AgentToolTogglePanel.
 - [ ] In-chat skills run; MCP/connectors (Slack/Gmail/Drive/Notion) actually
       connect + are usable (P2.3/P2.4/P7.6 connectors).
 - [ ] **Skill/tool/MCP INSTALL + management in Settings (P2.7, owner 2026-06-18)** —
