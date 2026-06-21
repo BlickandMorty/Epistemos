@@ -536,3 +536,16 @@ Some of that is expected (reskin/animations are post-engine, not built yet) — 
    implemented (or honestly 🔴 not-yet), grounded in code + runtime. Update OSAURUS_BUILD_PROGRESS with the
    PROVEN state. No fake-green; flag anything claimed-but-not-reaching-the-user (PROVEN-DONE doctrine).
 This deep check is a standing gate: re-run it whenever a surface is claimed done.
+
+## 🆕 QUARANTINE = CODE-PRESERVED **+ UI-HIDDEN** (owner 2026-06-21) — clarifies the no-delete rule
+"Quarantine, never delete" has TWO layers, both true:
+- **CODE-LEVEL: preserved in-tree, NEVER deleted** (for the IP porting cycles).
+- **UI-LEVEL: HIDDEN from the user** — once **act is PROVEN live**, remove the old "chat" from the user-facing
+  UI so the user sees ONLY the clean **two-mode ontology: ACT + WORK**, with the press/click-to-start-convo →
+  blur → landing flow. No confusing old-chat surface shown alongside act.
+- **SEQUENCING / SAFETY:** do NOT hide chat BEFORE act is proven live (never leave a broken/empty gap). The
+  flow: act proven live (flag on, verified) → hide old chat from UI → user sees act+work only → chat CODE
+  stays quarantined for IP porting → retire code only after the 4-part bar + owner OK.
+Net: the user-facing experience converges to the two-chat (act/work) ontology + click-to-start-convo; the
+old chat is hidden (not deleted), its code preserved underneath. Early-transition both may show; the target
+is act+work only.
