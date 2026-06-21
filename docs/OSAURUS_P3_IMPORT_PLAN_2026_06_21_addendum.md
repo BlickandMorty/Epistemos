@@ -377,3 +377,13 @@ they coexist.)
   worthwhile gaps later (not now; opportunity noted), while keeping Prose's native-hardened character.
 Net: two editors that both shine (Prose hardened native + MD-V2 markdown-first), the loved notes sidebar
 preserved, Apple Notes as the quality bar + a future gap-source.
+
+## 🆕 MORE LOVED ASSETS TO PRESERVE (owner 2026-06-21)
+- **REAL TABS / easy navigation:** the app has **system tabs** AND a **full code editor with real tabs** —
+  easy to navigate. A loved asset; preserve the real-tabs navigation across system + code editor.
+- **PALETTE + FONT customization = a core differentiator:** changeable **palette AND fonts** (this is part of
+  why it feels so personal/cool). Preserve + elevate; ties to the theme-aware (incl. custom themes) directive —
+  themes drive act/work/Osaurus too.
+- **Apple Notes comparison (owner's read):** mine feels **more minimal + easier to use**; Apple has more
+  features; the real diff is **md (Epistemos) vs rich-text (Notes)** — so **hardening EPDOC MD-V2 is what
+  closes/decides that gap.** Reaffirms MD-V2 hardening as a priority pillar (md is the edge, once hardened).
