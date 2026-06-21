@@ -81,4 +81,14 @@ struct StaleDefaultModelMigrationTests {
         InferenceState.migrateStaleDefaultModel(defaults: defaults, snapshot: snapshot)
         #expect(defaults.string(forKey: "epistemos.preferredChatModelSelection") == cloudRaw)
     }
+
+    @Test("Reset Everything re-seeds the Gemma default, never the hardcoded-Qwen recommendation")
+    func resetSeedsGemmaNotQwen() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        // The reset path resolves the headroom-aware Gemma, not recommendedLocalTextModelID (Qwen).
+        #expect(src.contains("resetDefaultModelID = InferenceState.initialDefaultLocalTextModelID"))
+        #expect(src.contains("setPreferredChatModelSelection(.localMLX(resetDefaultModelID))"))
+        // The Qwen re-seed on reset is gone.
+        #expect(!src.contains(".localMLX(inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue)"))
+    }
 }

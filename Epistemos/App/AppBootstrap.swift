@@ -3415,12 +3415,14 @@ final class AppBootstrap {
         )
 
         inferenceState.setRoutingMode(.auto)
-        inferenceState.setPreferredLocalTextModelID(
-            inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        // SS-CHATMODEL P0: Reset Everything re-seeds the headroom-aware foundation Gemma default (the
+        // live chat default), never the hardcoded-Qwen recommendedLocalTextModelID — so a reset never
+        // strands the owner back on Qwen.
+        let resetDefaultModelID = InferenceState.initialDefaultLocalTextModelID(
+            for: inferenceState.hardwareCapabilitySnapshot
         )
-        inferenceState.setPreferredChatModelSelection(
-            .localMLX(inferenceState.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue)
-        )
+        inferenceState.setPreferredLocalTextModelID(resetDefaultModelID)
+        inferenceState.setPreferredChatModelSelection(.localMLX(resetDefaultModelID))
 
         uiState.setActivePanel(.home)
         uiState.needsSetup = false
