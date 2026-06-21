@@ -129,6 +129,10 @@ final class ProseTextView2: NSTextView {
     /// save. `(imageData, originalFilename) -> "assets/<name>"?`. nil → the safe legacy
     /// in-memory-attachment fallback (no Prose regression).
     var storeImageAsset: ((Data, String) -> String?)?
+    /// SS-2S A.2: injected by the host so the flag-gated inline-image render can resolve note-relative
+    /// `![](assets/<name>)` srcs against the note's directory. nil → only absolute / remote / `~/`
+    /// srcs render (honest; no guessed base). Read by the NSTextLayoutManagerDelegate fragment provider.
+    var inlineImageNoteDirectory: URL?
     var onMarkedTextStart: (() -> Void)?
 
     /// Closure called when user clicks a heading fold triangle. Receives the heading character offset.
@@ -2519,6 +2523,20 @@ extension ProseTextView2: NSTextLayoutManagerDelegate {
                 as? NSTextContentStorage
         else {
             return NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
+        }
+
+        // SS-2S A.2 (flag-gated, default OFF): draw an inline image over the `![](src)` line WITHOUT
+        // mutating the text — the persisted md is untouched. Flag OFF makes `imageURL` return nil, so
+        // this branch is skipped and the editor is byte-identical to today.
+        if let imageURL = ProseInlineImageRender.imageURL(
+            forParagraphText: (textElement as? NSTextParagraph)?.attributedString.string ?? "",
+            noteDirectory: inlineImageNoteDirectory,
+            enabled: ProseInlineImageRender.enabled
+        ) {
+            let fragment = ProseInlineImageLayoutFragment(
+                textElement: textElement, range: textElement.elementRange)
+            fragment.imageURL = imageURL
+            return fragment
         }
 
         let offset = contentStorage.offset(
