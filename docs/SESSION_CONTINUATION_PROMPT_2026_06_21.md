@@ -137,7 +137,13 @@ Every chat surface (main ChatView, MiniChat, Note chat/NoteChatSidebar, Graph ch
 ## 🆕 COMPLETENESS / DISCOVERY-SWEEP
 The named surface lists are STARTING POINTS, not exhaustive. Run a systematic discovery sweep (grep InferenceState / EpistemosRuntimePicker / setPreferredChatModelSelection / tool icons / capability pills / any prompt-sending view) to find EVERY consumer of the chat backend / inference / picker / tools. Each must be upgraded to act, or quarantined+ported, or deliberately marked out-of-scope with a reason — never silently missed. Reason about ripple effects (settings, landing, command palette, sidebars, widgets, tests). Run a "completeness critic" each cycle: "what did we miss?" -> ledger. See addendum.
 
-## 📚 COMPLETE CORPUS — WORK THROUGH ALL OF IT (owner 2026-06-21)
-`docs/MASTER_DOC_INDEX_2026-06-21.md` is the AUTO-GENERATED full index of the ENTIRE doc corpus (3028 md: 14 ledgers, 117 research, 126 fusion, all plan/queue/sequence). The CORE list above is the entry point; THIS is the exhaustive map. STANDING LOOP DIRECTIVE: do not wait for the owner to name things — systematically WORK THROUGH every open item across ALL ledgers + all research + the plan, in loop, until done. Each loop iteration: pick the next unfinished owner/plan item (Osaurus-first per sequencing), build it to the real-state done bar, commit as canon, log what remains -> ledger. Re-generate the index after new docs land:
-`{ echo "# MASTER DOC INDEX"; echo; echo "## LEDGERS"; find docs -iname "*LEDGER*.md"|sort|sed "s#^#- #"; echo; echo "## docs/"; ls docs/*.md|sort|sed "s#^#- #"; echo; echo "## research"; ls docs/research/*.md|sort|sed "s#^#- #"; echo; echo "## fusion"; ls docs/fusion/*.md|sort|sed "s#^#- #"; } > docs/MASTER_DOC_INDEX_2026-06-21.md`
-NOTHING the owner wants is optional; nothing gets dropped; the owner should NOT have to re-ask.
+## 🎯 SCOPE — ONLY WHAT MATTERS NOW (anti-drift, owner 2026-06-21)
+Work ONLY from: (1) the CORE + SUPPORTING docs above, (2) the open items in
+`docs/OWNER_REQUESTS_LEDGER_2026_06_18.md`, (3) the 2026-06-21 owner directives in this prompt.
+That is the whole job. **DO NOT trawl the 3000+ old laptop docs** (`MASTER_DOC_INDEX` is an inventory
+ONLY, not a work-list — ignore it for walk-order). **ANTI-DRIFT:** anything dated before 2026-06-19, or
+not referenced by a current directive, is HISTORICAL CONTEXT ONLY — do NOT resurrect old plans, old
+walk-orders, or stale "next" items. If a doc conflicts with the 2026-06-21 directives, the directives WIN.
+STANDING LOOP DIRECTIVE: each iteration, pick the next unfinished item from the CURRENT directive set +
+the open ledger (Osaurus-first per sequencing), build it to the real-state done bar, commit as canon,
+log what remains → ledger. Don't wait to be re-asked; don't wander into old work.

@@ -1,3 +1,7 @@
+> ⚠️ NOT A WORK-LIST / NOT WALK-ORDER. This is an inventory of ALL old laptop docs (3000+). The
+> loop must NOT trawl this. Work only from the CORE/SUPPORTING docs + the open OWNER_REQUESTS_LEDGER +
+> the 2026-06-21 directives. Anything pre-2026-06-19 = historical context only. See SESSION_CONTINUATION_PROMPT.
+
 # MASTER DOC INDEX (2026-06-21) — the COMPLETE corpus the loop works through
 
 Owner: gather ALL the things — all plan, all ledgers, all research — so the agent keeps working
