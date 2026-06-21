@@ -144,6 +144,46 @@ struct RuntimeRouterTests {
         #expect(router.metrics.parityMatches == 1)
     }
 
+    @Test("Phase 1 STAGE 1b: parityOutcome detects agreement + drift between router and live lane")
+    func phase1ParityOutcome() {
+        let classify: (String) -> RuntimeLane = { _ in .mlx }
+
+        // Agreement (local): the live path resolved to a local model (mlx); the router, with all
+        // lanes enabled, honors that lane → matched.
+        let agreeRouter = RuntimeRouter(
+            initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        let localAgree = RuntimeRouterShadow.parityOutcome(
+            operatingMode: .pro, objective: "answer", requiresTools: false, privacySensitive: false,
+            resolved: .local(modelId: "qwen3_4B4Bit", displayName: "Qwen"),
+            router: agreeRouter, localLaneForModelID: classify)
+        #expect(localAgree.liveLane == .mlx)
+        #expect(localAgree.routerLane == .mlx)
+        #expect(localAgree.matched)
+
+        // Agreement (cloud): the live path resolved to cloud; the router honors the cloud lane.
+        let cloudRouter = RuntimeRouter(
+            initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        let cloudAgree = RuntimeRouterShadow.parityOutcome(
+            operatingMode: .pro, objective: "answer", requiresTools: false, privacySensitive: false,
+            resolved: .cloud(provider: "claude", displayName: "Claude"),
+            router: cloudRouter, localLaneForModelID: classify)
+        #expect(cloudAgree.liveLane == .cloud(provider: "claude"))
+        #expect(cloudAgree.matched)
+
+        // Drift: the live path resolved to mlx, but the router has mlx DISABLED → it escalates to a
+        // different lane → parity MISMATCH (exactly the signal that must gate the live promotion).
+        let driftRouter = RuntimeRouter(
+            initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        driftRouter.setLaneEnabled(.mlx, false)
+        let drift = RuntimeRouterShadow.parityOutcome(
+            operatingMode: .pro, objective: "answer", requiresTools: false, privacySensitive: false,
+            resolved: .local(modelId: "qwen3_4B4Bit", displayName: "Qwen"),
+            router: driftRouter, localLaneForModelID: classify)
+        #expect(drift.liveLane == .mlx)
+        #expect(drift.routerLane != .mlx)
+        #expect(!drift.matched)
+    }
+
     @Test("local policy table gates MLX/GGUF before cloud fallback")
     func localPolicyTableGatesLocalLanesBeforeCloudFallback() {
         guard let policy = RuntimeRouter.localPolicyTable[.code] else {
