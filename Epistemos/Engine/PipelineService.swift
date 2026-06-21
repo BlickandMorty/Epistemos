@@ -144,6 +144,11 @@ final class PipelineService {
     private let vaultPathProvider: @MainActor () -> String?
     private let activeCompanionInstructionProvider: @MainActor () -> String?
     private let skillNamesProvider: @MainActor () -> [String]
+    /// L1187 — deterministic vault-ranking answer provider. Given the user's query it returns a
+    /// ranked title/path/reason answer, or nil when the query isn't a vault-ranking query / has no
+    /// results. nil provider = feature off (no intercept). Gated additionally by
+    /// `VaultBestEssayResponder.isEnabled` so the path is doubly default-OFF.
+    private let vaultRankingSearchProvider: (@MainActor (String) -> String?)?
     private var pipelineTask: Task<Void, Never>?
     private var activeRunID: UUID?
 
@@ -157,7 +162,8 @@ final class PipelineService {
         constrainedDecoding: ConstrainedDecodingService? = nil,
         vaultPathProvider: @escaping @MainActor () -> String? = { nil },
         activeCompanionInstructionProvider: @escaping @MainActor () -> String? = { nil },
-        skillNamesProvider: @escaping @MainActor () -> [String] = { [] }
+        skillNamesProvider: @escaping @MainActor () -> [String] = { [] },
+        vaultRankingSearchProvider: (@MainActor (String) -> String?)? = nil
     ) {
         self.pipelineState = pipelineState
         self.llmService = llmService
@@ -169,6 +175,7 @@ final class PipelineService {
         self.vaultPathProvider = vaultPathProvider
         self.activeCompanionInstructionProvider = activeCompanionInstructionProvider
         self.skillNamesProvider = skillNamesProvider
+        self.vaultRankingSearchProvider = vaultRankingSearchProvider
     }
 
     func run(
@@ -203,6 +210,31 @@ final class PipelineService {
 
                 do {
                     pipelineState.startProcessing()
+
+                    // L1187 — deterministic vault-ranking fast-path (flag-gated, default OFF). For a
+                    // recognised NL vault query ("the best essay in my vault"), answer directly from
+                    // vault search with a ranked title/path/reason list instead of a generic model
+                    // reply. OFF / non-matching / no-results → byte-identical fall-through below.
+                    if VaultBestEssayResponder.isEnabled,
+                       VaultBestEssayResponder.isVaultRankingQuery(query),
+                       let vaultRankingSearchProvider,
+                       let rankedAnswer = vaultRankingSearchProvider(query),
+                       !rankedAnswer.isEmpty {
+                        continuation.yield(.textDelta(rankedAnswer))
+                        continuation.yield(
+                            .completed(
+                                DualMessage(
+                                    rawAnalysis: rankedAnswer,
+                                    uncertaintyTags: [],
+                                    modelVsDataFlags: []
+                                ),
+                                nil
+                            )
+                        )
+                        completeActiveRunIfNeeded(runID)
+                        if finisher.tryFinish() { continuation.finish() }
+                        return
+                    }
 
                     let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
                         for: operatingMode
