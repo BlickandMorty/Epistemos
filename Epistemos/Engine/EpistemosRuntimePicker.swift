@@ -82,6 +82,17 @@ nonisolated enum EpistemosRuntimePicker {
         ExtraPick(id: "Qwen/Qwen3-8B-MLX-4bit", title: "Qwen 3 8B", tier: .think, minimumMemoryGB: 12),
     ]
 
+    /// Every id already offered by the FIXED picker (foundation lineup across all tiers + the static
+    /// extra picks). `additionalPicks` skips these so a model is never offered in two tiers (the
+    /// builder's name-heuristic tier can differ from a model's canonical static/foundation tier).
+    static var fixedLineupIDs: Set<String> {
+        var ids = Set(extraPicks.map(\.id))
+        for tier in EpistemosModelTier.allCases {
+            ids.formUnion(EpistemosFoundationLineup.candidates(for: tier).map(\.id))
+        }
+        return ids
+    }
+
     /// The picks for a tier, in display order: foundation models, then any
     /// explicit extra picks for the tier, then (Fast only) Apple Intelligence.
     /// Local picks are gated on installed + memory; nothing is hidden — a blocked
@@ -190,5 +201,55 @@ nonisolated enum EpistemosRuntimePicker {
             isSelectable: available,
             blockedReason: available ? nil : "Not available on this Mac"
         )
+    }
+}
+
+/// SS-CHATPICKER P0 — builds the runtime-picker `additionalPicks` (the user's installed models beyond
+/// the fixed lineup) so they become clickable picks. A top-level `nonisolated` enum (NOT a static on
+/// the @MainActor InferenceState) so the metadata/tier/advertised-filter truth is unit-testable. The
+/// panel calls `picks(...)` with the live installed set + the owner's advertised set; `options`
+/// dedups the result against the foundation lineup + static extras, so a lineup model passed here is
+/// harmless.
+nonisolated enum RuntimePickerExtraPicksBuilder {
+    /// Resolve a model id's picker tier. Foundation GGUF candidates carry their tier; everything else
+    /// is bucketed by a name heuristic (coder→Code, thinking/reasoning/R1/distill/QwQ→Think, else Fast)
+    /// — placement only; the select path works regardless of tier.
+    static func tier(forID id: String, displayName: String) -> EpistemosModelTier {
+        if let foundationTier = EpistemosFoundationLineup.tier(forModelID: id) {
+            return foundationTier
+        }
+        let lower = (id + " " + displayName).lowercased()
+        if lower.contains("coder") || lower.contains("code") { return .code }
+        if lower.contains("thinking") || lower.contains("reason") || lower.contains("qwq")
+            || lower.contains("-r1") || lower.contains("distill") { return .think }
+        return .fast
+    }
+
+    /// (title, memory, tier) for an installed id from the catalog. nil for an id the app doesn't
+    /// recognise (a stray on-disk dir) → it is simply not offered.
+    static func metadata(forID id: String) -> (title: String, memoryGB: Int, tier: EpistemosModelTier)? {
+        if let candidate = GemmaQATRuntimeLadder.candidate(forID: id) {
+            return (EpistemosRuntimePicker.cleanTitle(for: candidate.displayName),
+                    candidate.minimumRecommendedMemoryGB, candidate.stage.epistemosTier)
+        }
+        if let model = LocalTextModelID(rawValue: id) {
+            return (EpistemosRuntimePicker.cleanTitle(for: model.displayName),
+                    model.minimumRecommendedMemoryGB, tier(forID: id, displayName: model.displayName))
+        }
+        return nil
+    }
+
+    /// The installed (∪ prepared) models as runtime-picker extra picks. When the owner has customized
+    /// the advertised set, only advertised ids are offered (honest curation); otherwise all installed.
+    static func picks(installedIDs: Set<String>, advertised: [String], isCustomized: Bool) -> [EpistemosRuntimePicker.ExtraPick] {
+        let covered = EpistemosRuntimePicker.fixedLineupIDs
+        let advertisedSet = Set(advertised)
+        return installedIDs.sorted().compactMap { id in
+            if covered.contains(id) { return nil }  // already offered by the fixed picker in its canonical tier
+            if isCustomized && !advertisedSet.contains(id) { return nil }
+            guard let meta = metadata(forID: id) else { return nil }
+            return EpistemosRuntimePicker.ExtraPick(
+                id: id, title: meta.title, tier: meta.tier, minimumMemoryGB: meta.memoryGB)
+        }
     }
 }
