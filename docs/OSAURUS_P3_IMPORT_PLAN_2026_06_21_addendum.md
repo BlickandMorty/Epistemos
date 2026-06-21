@@ -20,3 +20,10 @@ would just need to start hardening all the things that exist after the osaurus c
 ALL existing things on the cloned surface. Hardening the everything-that-exists happens AFTER the clone,
 per owner. Cross-ref CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md (never delete the quarantined
 chat) + OSAURUS_P3_IMPORT_PLAN_2026_06_19.md (full-clone strategy + 2026-06-21 directive).
+
+## 🆕 SURFACE-WIRING RULE (owner 2026-06-21, verbatim)
+*"every osaurus surface is linked to a real front-end part of my app because i don't want things to not
+work since they are already proven to work."* EVERY Osaurus surface (settings, model stack, server,
+tools, transcript, etc.) MUST be wired to an EXISTING, already-PROVEN app front-end — no dead or
+disconnected surfaces. For each surface: map Osaurus-surface → the real app view it drives BEFORE wiring,
+then prove it works (real-state test / launch-smoke). Reuse the proven chat front-end as act's UI.
