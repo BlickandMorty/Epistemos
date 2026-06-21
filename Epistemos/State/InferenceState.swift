@@ -4483,6 +4483,22 @@ final class InferenceState {
             }
     }
 
+    /// L1128 — the Gemma a pinned Fast effort resolves to on THIS machine, for the
+    /// picker to show next to Low/Medium/High ("i dont see the low medium high on
+    /// fast mode" → now the size AND the model it maps to are visible). Uses the
+    /// same comfortable-fit candidate pool + band index as `sizedFastLocalTextModelID`,
+    /// so the label never disagrees with what the override actually runs. Returns nil
+    /// when no Fast Gemma is installed (the picker then shows the generic descriptor).
+    func fastEffortResolvedModelName(for effort: EpistemosFastEffortSizing.FastEffort) -> String? {
+        let candidates = comfortableInstalledFastCandidatesAscending()
+        guard !candidates.isEmpty else { return nil }
+        let index = EpistemosFastEffortSizing.candidateIndex(
+            forEffort: effort,
+            candidateCount: candidates.count
+        )
+        return localModelPickerDisplayName(for: candidates[index].id)
+    }
+
     /// P1.4 — honest local-runtime blocker (#43). When the resolved primary chat
     /// model for `operatingMode` is a local model that cannot load into the
     /// current free-memory budget, returns a one-line reason for the composer to

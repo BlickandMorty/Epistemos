@@ -525,12 +525,20 @@ struct InlineRuntimePickerPanel: View {
         isSelected: Bool
     ) -> some View {
         let title: String = effort?.displayName ?? "Auto"
-        let summary: String = switch effort {
+        let descriptor: String = switch effort {
         case .none: "Size to the query automatically (default)"
-        case .some(.low): "Always the smallest Gemma — fastest, lightest"
-        case .some(.medium): "Always the mid Gemma — balanced"
-        case .some(.high): "Always the largest Gemma — most capable"
+        case .some(.low): "Smallest Gemma — fastest, lightest"
+        case .some(.medium): "Mid Gemma — balanced"
+        case .some(.high): "Largest Gemma — most capable"
         }
+        // Show the model this band resolves to on THIS machine ("low/medium/high"
+        // is no longer abstract — the user sees e.g. "Smallest Gemma · Gemma 2B").
+        let summary: String = {
+            guard let effort, let model = inference.fastEffortResolvedModelName(for: effort) else {
+                return descriptor
+            }
+            return "\(descriptor) · \(model)"
+        }()
         return Button {
             inference.setFastEffortOverride(effort)
         } label: {

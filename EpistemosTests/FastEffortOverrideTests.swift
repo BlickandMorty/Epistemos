@@ -75,4 +75,16 @@ struct FastEffortOverrideTests {
         #expect(src.contains("fastEffortSection"))
         #expect(src.contains("setFastEffortOverride"))
     }
+
+    @Test("each effort row shows the Gemma it resolves to, via the same band as sizing")
+    func effortRowShowsResolvedModel() throws {
+        // The resolver shares comfortableInstalledFastCandidatesAscending + candidateIndex(forEffort:)
+        // with sizedFastLocalTextModelID, so the picker label never disagrees with what runs.
+        let state = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
+        #expect(state.contains("func fastEffortResolvedModelName"))
+        #expect(state.contains("forEffort: effort"))
+        #expect(state.contains("comfortableInstalledFastCandidatesAscending()"))
+        let picker = try loadMirroredSourceTextFile("Epistemos/Views/Chat/InlineRuntimePickerPanel.swift")
+        #expect(picker.contains("inference.fastEffortResolvedModelName(for: effort)"))
+    }
 }
