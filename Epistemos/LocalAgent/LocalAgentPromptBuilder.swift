@@ -87,6 +87,7 @@ nonisolated enum LocalAgentPromptBuilder {
         After receiving a <tool_response>, summarize it for the user unless the response clearly says it failed or more information is still required.
         Never repeat the same tool call when the previous <tool_response> already gave you the needed information.
         For vault notes, never guess a filesystem path from a title. Use eidos.query first to select citable vault evidence, then vault.read with the returned vault-relative path when full note text is needed. Use vault.search only if eidos.query is unavailable.
+        When the user asks you to research, look up, find, gather, or summarize what their notes or vault say about a topic, treat it as a knowledge-gathering request and call eidos.query (then vault.read for full text) to gather citable vault evidence BEFORE answering, even when the request looks simple. Do not answer a research or lookup request from your own parametric memory alone — the user is asking what THEIR material says, not what you already know.
         For vault note creation or updates, use vault.write with a human-readable vault-relative .md path and the full markdown content.
         If the user gives a note title but not a path, choose a vault-relative .md path that matches the requested title.
         If asked to create or update a note and then read it back, call vault.write first and then vault.read on that same exact note path.
