@@ -196,3 +196,9 @@ matched, text palette-aware, labeled "work."
 Work = embed OpenCode's actual UI (terminal/TUI look) palette-bridged to the app theme system (live, incl.
 custom themes), with Goose+Hermes+OpenClaw fused into the OpenCode engine beneath it + RustLSP wired in.
 This supersedes the feasibility doc's native-rebuild recommendation — owner chose keep-the-real-UI.
+
+### Landing-page BLUR transitions (owner 2026-06-21)
+- Initial landing → **press anywhere → BLUR animates → Osaurus (act) landing page** (Epistemos reskin).
+- On that page, **selecting the toggle → BLUR animates → OpenCode (work) landing page.**
+- The two landing pages are kept visually **separated enough** (distinct), with the blur animation as the
+  transition between them. Blur is the signature transition for landing → act, and act-landing ↔ work-landing.
