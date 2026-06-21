@@ -4367,3 +4367,13 @@ native; AGPL server). ADOPT 2 patterns natively:
       launch-smoke (SS-CRASH). PLUS every cycle hunts ONE deep PERF win (profile hot paths, measured before/after — SS-PERF2)
       + ONE deep USABILITY win (⌘K/unified-search/error-empty-retry/first-run/model-clarity/a11y — SS-BWB), shipped user-facing
       + witnessed. Monitor treats owner on-device reports as P0 repair inputs. All in the plan, not prompt-only.
+- [x] **DONE-RE-AUDIT — double-check even "done" items are ACTUALLY done + user-facing (owner 2026-06-20).** *"When things are
+      checked done I want them audited as well — even what is done is double-checked to make sure it is actually done and
+      user-facing whatever it is."* RECORDED → SS-CLEAN "DONE-RE-AUDIT GATE". The DONE list is now a RE-AUDIT QUEUE, not a
+      closed set: every repair/cleanliness cycle re-verifies a rotating slice of DONE items for REAL + reachable +
+      user-facing-or-witnessed (render/snapshot/launch-smoke/behavior, NOT just build-green/source-guard); any that aren't
+      truly user-facing get DOWNGRADED to `[ ]` + reopened (as done this session for SS-CR/SS-GC/SS-2S/SS-THX). Monitor
+      re-audits ≥1 DONE item per fire; owner on-device reports instantly downgrade the named item to P0. Pairs with
+      LAUNCH-SMOKE + SURFACE-PARITY + ROUTING-NO-REGRESSION to close the green-but-not-user-reaching hole. AUDIT UPDATE: chat
+      P0 fix (191c9291a) PASS — installed-Qwen fallback, behavior-tested (uninstalled-Gemma+Qwen→Qwen); full routing-MATRIX
+      test still owed per the no-regression gate. Theme fix (f619405b9) landed. Both pending owner on-device confirm (non-block).
