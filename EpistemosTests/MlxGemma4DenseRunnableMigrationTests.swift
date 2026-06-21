@@ -132,4 +132,43 @@ struct MlxGemma4DenseRunnableMigrationTests {
         #expect(g3.runtimeKind == .mlx)                   // ∈ availableLocalGenerationRuntimeKinds ([.mlx]) when the GGUF lane is off
         #expect(!g3.isExperimentalForEpistemos)           // not hidden behind the experimental gate
     }
+
+    // The POST-LOAD repair (owner computer-use proof 2026-06-21) is the robust half: the pre-load
+    // migration's rewrite did not land on a real launch (the GGUF-id persisted load is
+    // LocalTextModelID-gated → falls back to the GGUF foundation default), so the unrunnable GGUF
+    // arrives in-memory AFTER migration. `repairedGgufGemmaSelection` re-checks the FINAL values.
+
+    @Test("post-load repair: a GGUF Gemma selection (lane off) → runnable MLX Gemma 3 in BOTH fields")
+    func postLoadRepairFixesGgufDefault() {
+        let gguf = "google/gemma-4-E2B-it-qat-q4_0-gguf"
+        let repaired = InferenceState.repairedGgufGemmaSelection(
+            localID: gguf,
+            selection: .localMLX(gguf),
+            ggufLaneAvailable: false,
+            denseGemma4Enabled: false
+        )
+        let gemma3 = LocalTextModelID.gemma3_4BQAT4Bit.rawValue
+        #expect(repaired?.localID == gemma3)
+        #expect(repaired?.selection.rawValue == ChatModelSelection.localMLX(gemma3).rawValue)
+    }
+
+    @Test("post-load repair is a NO-OP when the GGUF lane IS available (deliberate GGUF pick honored)")
+    func postLoadRepairNoOpWhenLaneAvailable() {
+        let gguf = "google/gemma-4-E2B-it-qat-q4_0-gguf"
+        #expect(InferenceState.repairedGgufGemmaSelection(
+            localID: gguf, selection: .localMLX(gguf),
+            ggufLaneAvailable: true, denseGemma4Enabled: false) == nil)
+    }
+
+    @Test("post-load repair is idempotent — an already-runnable MLX Gemma 3 / Qwen pick is untouched")
+    func postLoadRepairIdempotent() {
+        let gemma3 = LocalTextModelID.gemma3_4BQAT4Bit.rawValue
+        #expect(InferenceState.repairedGgufGemmaSelection(
+            localID: gemma3, selection: .localMLX(gemma3),
+            ggufLaneAvailable: false, denseGemma4Enabled: false) == nil)
+        let qwen = LocalTextModelID.qwen3_4B4Bit.rawValue
+        #expect(InferenceState.repairedGgufGemmaSelection(
+            localID: qwen, selection: .localMLX(qwen),
+            ggufLaneAvailable: false, denseGemma4Enabled: false) == nil)
+    }
 }
