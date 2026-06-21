@@ -86,3 +86,14 @@ second-order effects — do not rely only on named items:
 - **Standing rule:** treat completeness as a first-class acceptance gate — a "completeness critic" pass
   each cycle asks "what surface/consumer did we miss?" and adds findings to the ledger. Nothing the owner
   didn't name should fall through the cracks.
+
+## 🆕 AGENT-STACK CONVERGENCE — ALL CLONED LOGIC MUST DEEPLY SERVE THE APP (owner 2026-06-21)
+**Owner:** keep researching OpenClaw / Hermes-agent / Goose / OpenCode + how to CONVERGE them in the app;
+all logic we clone/pull (agent loop + engine code + each app's specific benefits) must DEEPLY serve the
+app — no dead clones, no clashes. Osaurus already ~landed; deeply clone Goose + OpenCode; OpenClaw = pull
+only the hardening patterns Osaurus/Goose don't already give (rewrite in Swift), not a full clone.
+ROLES (confirm/correct in research): act = Osaurus; work = Goose/OpenCode; OpenClaw = selective runtime
+hardening; Hermes = existing in-process runtime. STANDING: maintain ONE agent-loop/runtime of record;
+dedup capabilities (don't clone the same thing twice); favor Osaurus on clashes; fix the dual-MLX clash
+(vmlx-swift vs mlx-swift-lm). Living research: docs/research/AGENT_STACK_CONVERGENCE_RESEARCH_2026_06_21.md
+(a background agent is generating it). Recurring deep-research is part of the cycle — keep it current.
