@@ -110,6 +110,33 @@ struct OsaurusActBridge: ActOsaurusBridge {
         #endif
     }
 
+    /// S4 — drive a REAL act generation turn IN-PROCESS through the linked OsaurusCore engine
+    /// (`CoreModelService.shared.generate`), NOT the loopback server. The system message becomes
+    /// the systemPrompt; the rest of the conversation folds into the prompt. Every failure throws an
+    /// HONEST `ActOsaurusError` carrying OsaurusCore's own error — NEVER a silent cloud/GPT route
+    /// (owner #1). Throws `serverNotEnabled` when OsaurusCore isn't linked (e.g. the MAS target).
+    func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String {
+        #if canImport(OsaurusCore)
+        let system = messages.first(where: { $0.role == .system })?.content
+        let conversation = messages
+            .filter { $0.role != .system }
+            .map { "\($0.role.rawValue): \($0.content)" }
+            .joined(separator: "\n")
+        do {
+            return try await OsaurusCore.CoreModelService.shared.generate(
+                prompt: conversation,
+                systemPrompt: system,
+                maxTokens: maxTokens
+            )
+        } catch {
+            // OsaurusCore failed (no model loaded / load error) → surface it HONESTLY, never cloud.
+            throw ActOsaurusError.transport("OsaurusCore generate failed: \(error.localizedDescription)")
+        }
+        #else
+        throw ActOsaurusError.serverNotEnabled
+        #endif
+    }
+
     /// REAL: reflects whether Epistemos's osaurus-pattern OpenAI-compatible server
     /// (LocalModelServer) is enabled — no overclaim of a running state.
     var localServerEnabled: Bool { LocalModelServer.isEnabled }
