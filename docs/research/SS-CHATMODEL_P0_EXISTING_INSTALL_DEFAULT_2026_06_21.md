@@ -48,3 +48,17 @@ SS-HF said to remove. The fix is NOT "make the fallback Gemma instead of Qwen" �
 4. Remove/neutralize the `recommended`-as-silent-fallback path; keep both Qwens + all Gemmas as EXPLICIT picks only.
 VERIFY against the owner's REAL state (persisted Gemma-E2B): pick loads → runs E2B; pick can't load → HONEST surfaced
 message, NEVER a silent Qwen. No hidden fallback anywhere on the chat model-resolution path.
+
+## ‼️ FURTHER GROUNDED FINDING (monitor, 2026-06-21): E2B IS installed → fallback is RUNTIME-unavailable, not missing-file
+The persisted Gemma E2B GGUF IS on disk: `~/Library/Application Support/Epistemos/Models/text/hub/
+models--google--gemma-4-E2B-it-qat-q4_0-gguf/snapshots/.../gemma-4-E2B_q4_0-it.gguf` (+ ModelQuarantine copy; 12B GGUF +
+26B staging + mlx gemma-4-e2b also present). So `localPickUnavailableReason` is NOT `.notInstalled` — it is almost
+certainly `.runtimeUnavailable` (the GGUF/llama lane is not in `availableLocalGenerationRuntimeKinds` on the live path)
+or `.exceedsMemory`. THAT is what trips the silent `sanitizedInteractiveLocalTextModelID` migration → recommended(Qwen).
+Implications for the no-fallback fix:
+- The honest point-of-use message must state the REAL reason ("Gemma E2B needs the GGUF runtime, which isn't enabled" /
+  "exceeds memory"), determined from localPickUnavailableReason — not a generic "not installed".
+- The DEFAULT must be a model runnable in an AVAILABLE runtime (e.g. an MLX Gemma when the GGUF lane is off) so the user
+  is never defaulted onto a model whose runtime can't run → which is what forces the fallback today.
+- Verify the owner's exact reason: instrument/log localPickUnavailableReason(for: gemma-4-E2B) on the real install.
+Still: NO SILENT SWAP regardless of reason — run the pick or surface honestly.
