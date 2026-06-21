@@ -4270,3 +4270,17 @@ native; AGPL server). ADOPT 2 patterns natively:
       or an observable getter — defer until after initializeShadowBackendIfReady() / lazy on Settings open; guard on
       haloSearchService!=nil. Verify the app OPENS (with + without a vault). JUMPS AHEAD of substrate/feature work. Auditor add
       to SS-CLEAN: startup-touching commits need a LAUNCH SMOKE check, not just unit-green (this was green-but-crashed-launch).
+- [ ] **LOCAL MULTI-TOOL RESEARCH RELIABILITY — Eidos/file/vault tools from Qwen 4B (owner 2026-06-20).** *"There was one
+      chat where Eidos + file/vault search all worked — Qwen 4B researching 'hegemony' thought, called Eidos tools, did
+      multiple tools. idk if we did the repair. Don't change the order but make sure we tackle it."* + *"It does NOT do that
+      anymore — exactly ONE instance where I saw tools work on chat, on a SIMPLE query, so it UNDERSTOOD THE INTENT (important
+      for users). Harden it — worked one time and never again."* RESEARCHED → `docs/research/SS-LT_LOCAL_MULTITOOL_RESEARCH_RELIABILITY_2026_06_20.md`.
+      EFFECTIVELY A REGRESSION (worked once, now broken); CRUX = INTENT RECOGNITION (local model reliably converting a
+      tool-needing query — even simple — into a tool call). Capability EXISTS (LocalAgentLoop multi-turn maxTurns=8 +
+      LocalToolGrammar + IncrementalToolCallDetector + SchemaPreflightToolNarrowing + ConfidenceRouter + Eidos/registry
+      tools). #1 SUSPECT: ConfidenceRouter gating turned ~always-direct-answer, or the local prompt no longer surfaces the
+      tools/affordance (cross-ref SS-MV local prompt + SS-CR local routing). PLAN (verify→harden→regression-test, NORMAL
+      ORDER — not reprioritized): reproduce the path, find where intent→tool drops, harden the gate + tool-surfacing + parse,
+      honest-degrade when a backend's not ready, add a falsifier (local-tier research prompt surfaces Eidos/vault/file tools +
+      LocalAgentLoop executes ≥1 tool turn). Cross-ref SS-AL/SS-H/SS-MV/SS-CR/SS-IR. NON-INVASIVE; this is the user-facing
+      payoff of the substrate (local models that actually research).
