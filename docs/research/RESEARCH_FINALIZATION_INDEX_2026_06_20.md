@@ -123,3 +123,10 @@ Two domains the active list does NOT lead with, but which ARE in the plan:
 
 So: nothing is lost. Queue = rolling priority subset; ledger = full 194; sweep = the safety net; clone backends = owner-domain
 by the scope boundary (tracked, not loop-built). Cross-ref SS-FOLLOWON, SS-CLEAN coverage sweep, SCOPE BOUNDARY.
+
+## ► WALK-ORDER AUTHORITY = MASTER_BUILD_QUEUE_2026_06_20.md (owner 2026-06-20: "queue = the entire plan, in order")
+The loop now walks `MASTER_BUILD_QUEUE_2026_06_20.md` — ALL 194 open ledger items placed in dependency order (Tier 0→5)
++ a parallel OWNER-DOMAIN track + STANDING passes. Operating contract per item: DELIBERATE-FIRST (re-read the item's
+research/slice + canonical source BEFORE building) → NO-RISK-DEFERRAL → self-verify + ship → interleave SS-CLEAN +
+repair + nuclear-checker every ~5 items. The active list above is the near-term slice of that walk; the master queue is
+the full ordered set so nothing is "just the next N." 100%-completion: the walk doesn't end until every tier is built.
