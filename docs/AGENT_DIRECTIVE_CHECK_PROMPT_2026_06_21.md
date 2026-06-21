@@ -68,3 +68,5 @@ risky or large, write it as an explicit ledger item (NOT a stash, NOT "deferred"
 Return: the implementation map, what you fixed (commits), what remains (as ordered ledger items), and any
 directive that is ambiguous / needs an owner decision. Update docs/OSAURUS_BUILD_PROGRESS_2026_06_21.md with
 the current map so it stays the living source of truth for "Osaurus and beyond."
+
+15. **ACT/WORK UI + ANIMATIONS** (per addendum): act reskin matches current-chat discipline (cream palette, monospace user bubble, Anthropic-Sans answers, flat-distinct composer, section headers, provenance inspector, vault chips); model picker + command palette + 38-tool agent panel PRESERVED; Tamagotchi agent-creation style kept + render bug fixed; per-clone settings as executive tabs (Epistemos|act|work|beyond); landing BLUR transitions; mode-entry animations (act=native blur-reveal greeting->title typewriter; work=ASCII/pixel typewriter + dynamic full-page reveal, OpenCode font); live theme incl custom drives both.

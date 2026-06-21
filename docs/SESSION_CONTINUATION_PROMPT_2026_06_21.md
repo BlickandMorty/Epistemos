@@ -147,3 +147,6 @@ walk-orders, or stale "next" items. If a doc conflicts with the 2026-06-21 direc
 STANDING LOOP DIRECTIVE: each iteration, pick the next unfinished item from the CURRENT directive set +
 the open ledger (Osaurus-first per sequencing), build it to the real-state done bar, commit as canon,
 log what remains → ledger. Don't wait to be re-asked; don't wander into old work.
+
+## 🎨 ACT/WORK UI + ANIMATION SPEC (read before ANY UI work)
+The FULL act/work UI design is in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md — READ IT before building/reskinning any surface. Covers: act reskin = current-chat-UI discipline (cream palette, MONOSPACE user bubble, Anthropic-Sans answers, flat-distinct composer, monospace section headers, provenance inspector, vault chips); PRESERVE model picker (real logos/tiers/install-state/Epistemos Picks) + command palette + 38-tool agent panel; Tamagotchi agent-creation (keep style, FIX too-small + inner-square render bug); per-clone SETTINGS as executive tabs (Epistemos | act | work | beyond); landing BLUR transitions; and MODE-ENTRY ANIMATIONS — act = native blur-reveal (greeting->title, typewriter "act"); work = ASCII/pixel-art typewriter + dynamic full-page reveal (OpenCode font OK). Live theme-aware incl custom themes drives both.
