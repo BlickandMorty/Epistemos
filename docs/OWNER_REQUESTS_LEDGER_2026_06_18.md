@@ -4322,3 +4322,13 @@ native; AGPL server). ADOPT 2 patterns natively:
       REOPEN/raise SS-2S full-render. SS-IL inline animation is BLOCKED by the chat P0 (can't test without a working model) →
       unblocks once chat answers. AUDITOR: stop marking visual/chat items PASS on tests alone — require on-device-equivalent
       witness (render/snapshot) or hold as "built, on-device-UNVERIFIED".
+- [ ] **THEME REGRESSION — custom theme takes ~3 changes before TK2 + tabs match (owner on-device 2026-06-20).** *"the custom
+      theme takes a few times before it loads the full theme — TK2 is one color and the tabs are another, then after changing
+      themes ~3 times it finally matches. Regression that wasn't there before; harden it."* RESEARCHED → SS-THX "REGRESSION"
+      section. ROOT: the SS-THX cache (28402960d) fixed the hang but a custom-COLOR edit keeps the same `.appCustom` enum case,
+      so `ProseEditorRepresentable2.updateNSView` (re-applies only when `parent.theme` VALUE changes, `tv.applyTheme` :565)
+      SKIPS the re-apply → TK2 stays stale while tabs (resolved-cache @Observable) update → diverge until ~3 toggles force it;
+      + the AppCustomTheme.resolved cache (:1610-1628) must flush all isDark/appearance keys per edit. FIX: (1) bump a
+      themeRevision token that updateNSView observes so TK2 re-applies on EVERY custom edit (sweep CodeEditorView + peers);
+      (2) fully invalidate the resolved cache in one pass. Net: ONE change → all surfaces match. Tracked, fold into SS-TC/SS-THX
+      theme work; SS-CLEAN "layering mud" (a cache that fixed one thing + broke another). NON-INVASIVE.
