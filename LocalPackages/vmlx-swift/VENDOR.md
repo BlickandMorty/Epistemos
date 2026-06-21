@@ -1,34 +1,37 @@
 # Vendored: osaurus-ai/vmlx-swift (the consolidated MLX stack for the full-Osaurus link)
 
 Take-control vendor (`.git` stripped) of Osaurus's consolidated MLX fork — the package
-OsaurusCore depends on. Vendored here so Epistemos can **consolidate onto ONE MLX** and link
-OsaurusCore without the dual-MLX module clash (see
-`docs/research/OSAURUS_MAS_ENTITLEMENTS_RESEARCH_2026_06_21.md`).
+OsaurusCore depends on. Vendored so Epistemos **consolidates onto ONE MLX** and links OsaurusCore
+without the dual-MLX module clash. See `docs/research/OSAURUS_MAS_ENTITLEMENTS_RESEARCH_2026_06_21.md`.
 
 | Field | Value |
 |-------|-------|
 | Upstream | https://github.com/osaurus-ai/vmlx-swift |
-| Pinned revision | `4453909ef453f9235fd7e65986ca3ffc62ff904d` (the revision OsaurusCore's Package.swift pins) |
+| Pinned revision | `4453909ef453f9235fd7e65986ca3ffc62ff904d` |
 | Clone date | 2026-06-21 |
 | License | **MIT** |
 | ProvenanceGate | `direct_import` |
+| Submodules (flattened in-tree) | `Source/Cmlx/mlx` = osaurus-ai/mlx @`e59d1d47` (MLX C++ core), `Source/Cmlx/mlx-c` = osaurus-ai/mlx-c @`3e013fb5`. A local SwiftPM path package needs the submodule sources PRESENT or the Cmlx C++ target fails (`compiled.cpp not found`) — so they're vendored as plain source, `.git` stripped. |
 
 ## Why this replaces `mlx-swift-lm` + `ml-explore/mlx-swift`
-`vmlx-swift` is a single consolidated package that provides the SAME module names Epistemos
-already imports — `MLX`, `MLXNN`, `MLXOptimizers`, `MLXRandom`, `MLXFast`, `MLXLLM`, `MLXLMCommon`,
-`MLXVLM`, `MLXEmbedders` — PLUS Osaurus-prefixed `VMLXTokenizers`/`VMLXJinja`/`VMLXHub`/etc.
-(renamed to avoid a swift-transformers collision). Because the `MLX*` module names match, Epistemos's
-8 MLX-importing files map 1:1 with only two friction points (below). Two packages can't BOTH define
-`MLX*` in one binary — so consolidating onto vmlx-swift removes the clash AND keeps Osaurus's own MLX
-stack (osaurus-ness intact).
+`vmlx-swift` provides the SAME module names Epistemos imports — `MLX`, `MLXNN`, `MLXOptimizers`,
+`MLXRandom`, `MLXFast`, `MLXLLM`, `MLXLMCommon`, `MLXVLM`, `MLXEmbedders` — plus Osaurus-prefixed
+`VMLXTokenizers`/`VMLXJinja`/etc. Because the `MLX*` names match, Epistemos's 8 MLX files map 1:1.
+Two packages can't both define `MLX*` in one binary, so consolidating onto vmlx-swift removes the
+clash AND keeps Osaurus's own MLX stack (osaurus-ness intact).
+
+## Import-site changes (Epistemos side)
+1. `import Tokenizers` → `import VMLXTokenizers` (`NativeKTOTrainer.swift`).
+2. `MLXStructured` package dropped (pinned ml-explore mlx-swift → would re-clash); its consumer
+   `LocalToolGrammar.swift` is `#if canImport`-guarded → degrades to omegaSoftGuidance fallback.
+
+## ⚠️ EPISTEMOS OVERLAY PATCHES (re-apply after re-vendoring)
+A re-vendor (`update-vmlx.sh`) OVERWRITES the source — re-apply these marked patches:
+- `Libraries/MLXLMCommon/ChatSession.swift` (end of file, `// MARK: - EPISTEMOS OVERLAY`):
+  adds public `ChatSession.extractKVCache()` + `injectKVCache(_:)` — ports Epistemos's SSM
+  session-resume hardening onto the vmlx engine (must live in that file for `private cache` access).
 
 ## Status
-Vendored on disk only — **NOT yet wired into project.yml.** The package-swap + the two import fixups
-(below) are the next slice, done with build verification.
-
-## The only two import-site friction points (Epistemos side, 8 files total)
-1. `import Tokenizers` (1 file) → `import VMLXTokenizers` (vmlx renamed it). Check API namespace.
-2. `import MLXStructured` (1 file) → already `#if canImport(MLXStructured)` guarded; if its package
-   (petrukha-ivan/mlx-swift-structured, built vs ml-explore MLXLMCommon) is dropped, the guard compiles
-   it out cleanly. Re-point or drop deliberately.
-All other imports (`MLX`, `MLXNN`, `MLXOptimizers`, `MLXLLM`, `MLXLMCommon`, `MLXVLM`) are unchanged.
+project.yml swapped (both targets → vmlx-swift + MLXHuggingFace for `#huggingFaceTokenizerLoader()`);
+KV-cache reconciliation complete (switch cases, kvScheme drop, loadContainer local-dir overload,
+extract/inject overlay); build verification in progress.

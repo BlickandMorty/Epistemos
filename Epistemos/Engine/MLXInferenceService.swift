@@ -15,6 +15,13 @@ import MLXLLM
 #if canImport(MLXVLM)
 import MLXVLM
 #endif
+#if canImport(MLXHuggingFace)
+// vmlx consolidation: `#huggingFaceTokenizerLoader()` is vmlx's production local-directory
+// TokenizerLoader (vmlx externalized the tokenizer loader that mlx-swift-lm loaded implicitly).
+// The macro expands to code that fully-qualifies `VMLXTokenizers.*`, so import it too.
+import MLXHuggingFace
+import VMLXTokenizers
+#endif
 
 nonisolated struct LocalMLXRequest: Sendable, Equatable {
     let modelID: String
@@ -2009,18 +2016,18 @@ actor MLXInferenceService: LocalMLXRuntime {
             #if canImport(MLXVLM)
             if isVisionModel {
                 container = try await withTimeout(seconds: coldLoadTimeout) {
-                    try await VLMModelFactory.shared.loadContainer(configuration: configuration)
+                    try await VLMModelFactory.shared.loadContainer(from: request.modelDirectory, using: #huggingFaceTokenizerLoader())
                 }
                 log.info("Loaded local VLM model \(request.modelID, privacy: .public)")
             } else {
                 container = try await withTimeout(seconds: coldLoadTimeout) {
-                    try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+                    try await LLMModelFactory.shared.loadContainer(from: request.modelDirectory, using: #huggingFaceTokenizerLoader())
                 }
                 log.info("Loaded local LLM model \(request.modelID, privacy: .public)")
             }
             #else
             container = try await withTimeout(seconds: coldLoadTimeout) {
-                try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+                try await LLMModelFactory.shared.loadContainer(from: request.modelDirectory, using: #huggingFaceTokenizerLoader())
             }
             log.info("Loaded local LLM model \(request.modelID, privacy: .public) (VLM unavailable)")
             #endif
@@ -2467,6 +2474,17 @@ actor MLXInferenceService: LocalMLXRuntime {
 
             case .toolCall:
                 continue
+
+            case .reasoning:
+                // vmlx emits chain-of-thought as a SEPARATE event from `.chunk` (the
+                // user-visible answer stays in `.chunk`, so nothing is dropped from the
+                // reply). TODO(osaurus): route `.reasoning` to the thinking pane to honor
+                // STREAM-EVERYTHING / preserve-thinking on the local path.
+                continue
+
+            case .prefillProgress:
+                // Prompt-processing progress before the first decoded token — no output.
+                continue
             }
         }
 
@@ -2492,7 +2510,10 @@ actor MLXInferenceService: LocalMLXRuntime {
         let kvSize = model?.optimalKVCacheSize ?? 1_536
         let estimatedContextTokens = Self.estimatedKVContextTokens(for: request)
         let useKIVI = KIVIPreferences.shouldUseKIVI(forContextTokens: estimatedContextTokens)
-        let kvScheme: MLXLMCommon.KVQuantScheme = useKIVI ? .kivi : .affine
+        // KIVI scheme param dropped in the vmlx consolidation (vmlx `GenerateParameters` has no
+        // `kvScheme`); the KV-cache hardening is PRESERVED via vmlx's native quantized KV —
+        // kvBits:2 + kvGroupSize:32 for long context (set below). TODO(osaurus): port the exact
+        // KIVI asymmetric scheme onto the vendored vmlx if affine 2-bit quant proves insufficient.
 
         // Use thinking temperature when in thinking mode, fast temperature otherwise
         let temp: Float
@@ -2510,7 +2531,6 @@ actor MLXInferenceService: LocalMLXRuntime {
             kvBits: useKIVI ? 2 : 4,
             kvGroupSize: useKIVI ? 32 : 64,
             quantizedKVStart: 0,
-            kvScheme: kvScheme,
             temperature: temp,
             topP: topP,
             prefillStepSize: 256

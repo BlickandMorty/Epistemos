@@ -601,3 +601,33 @@ public enum ChatSessionError: LocalizedError {
         "No KV cache is available. Call respond() or streamResponse() before saveCache(to:)."
     }
 }
+
+// MARK: - EPISTEMOS OVERLAY (vmlx vendor patch — RE-APPLY after scripts/update-vmlx.sh)
+// Ports Epistemos's SSM session-resume hardening onto the vmlx ChatSession engine (owner
+// 2026-06-21: keep the app's lightning-fast/hardened features; cherry-pick IP that works WITH
+// osaurus). `extractKVCache` hands back the realized `[KVCache]` so the host can persist it with
+// vault-staleness metadata (SSMStateService); `injectKVCache` restores a saved cache into a fresh
+// session so it generates without replaying history. Lives in THIS file because
+// `ChatSession.cache` is `private` (same-file access). Recorded in ../../VENDOR.md.
+extension ChatSession {
+    /// Extract the realized `[KVCache]` for persistence, or nil if no generation has occurred yet.
+    public func extractKVCache() async -> [any KVCache]? {
+        await cache.read { value in
+            if case .kvcache(let kv) = value { return kv }
+            return nil
+        }
+    }
+
+    /// Inject a previously-saved `[KVCache]` into a FRESH session (never clobbers an active
+    /// cache or accumulated history). Returns true if injected.
+    @discardableResult
+    public func injectKVCache(_ kv: [any KVCache]) async -> Bool {
+        await cache.update { value in
+            if case .empty = value {
+                value = .kvcache(kv)
+                return true
+            }
+            return false
+        }
+    }
+}

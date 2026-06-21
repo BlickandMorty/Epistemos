@@ -17,6 +17,10 @@ import Foundation
 import MLXLLM
 import MLXLMCommon
 import MLXOptimizers
+#if canImport(MLXHuggingFace)
+import MLXHuggingFace  // vmlx consolidation: `#huggingFaceTokenizerLoader()` for loadContainer.
+import VMLXTokenizers  // the macro expansion fully-qualifies `VMLXTokenizers.*`.
+#endif
 
 enum NativeLoRATrainerError: Error, LocalizedError {
     case emptyDataset
@@ -104,8 +108,8 @@ enum NativeLoRATrainer {
         let totalIters = plan.iterations
         let started = Date()
 
-        let configuration = ModelConfiguration(directory: modelDirectory)
-        let container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+        let container = try await LLMModelFactory.shared.loadContainer(
+            from: modelDirectory, using: #huggingFaceTokenizerLoader())
 
         try await container.perform { (context: ModelContext) in
             let model = context.model

@@ -16,7 +16,12 @@ import MLXLLM
 import MLXLMCommon
 import MLXNN
 import MLXOptimizers
-import Tokenizers
+#if canImport(MLXHuggingFace)
+import MLXHuggingFace  // vmlx consolidation: `#huggingFaceTokenizerLoader()` for loadContainer.
+import VMLXTokenizers  // the macro expansion fully-qualifies `VMLXTokenizers.*`.
+#endif
+// (Tokenizers import removed in the vmlx-swift consolidation: vmlx folds the `Tokenizer`
+// protocol + `encode(text:)` into MLXLMCommon, which is already imported above.)
 
 enum NativeKTOTrainerError: Error, LocalizedError {
     case emptyData
@@ -44,8 +49,8 @@ enum NativeKTOTrainer {
     ) async throws -> NativeKTOTrainResult {
         guard !examples.isEmpty else { throw NativeKTOTrainerError.emptyData }
 
-        let configuration = ModelConfiguration(directory: modelDirectory)
-        let container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+        let container = try await LLMModelFactory.shared.loadContainer(
+            from: modelDirectory, using: #huggingFaceTokenizerLoader())
 
         let finalLoss: Float? = try await container.perform { (context: ModelContext) -> Float? in
             let tokenizer = context.tokenizer
