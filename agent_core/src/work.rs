@@ -231,6 +231,25 @@ pub mod vendored_goose {
         }
         // --- END VERBATIM ---
     }
+
+    /// Vendored block/goose conversation message layer (Goose Phase W0, next leaf). goose's
+    /// `Message.role` is `rmcp::model::Role` (the MCP SDK re-export); this leaf matches rmcp's
+    /// wire form EXACTLY — `#[serde(rename_all = "camelCase")]` → `User`→"user",
+    /// `Assistant`→"assistant". Grounded: block/goose @d2a921a7
+    /// (`crates/goose-providers/src/conversation/message.rs`), rmcp Role in rust-sdk
+    /// `crates/rmcp/src/model.rs`. The engine layer (S4+) consumes it; the seam stays inert.
+    pub mod message {
+        use serde::{Deserialize, Serialize};
+
+        // --- BEGIN VERBATIM (rmcp::model::Role, re-exported by block/goose) ---
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        pub enum Role {
+            User,
+            Assistant,
+        }
+        // --- END VERBATIM ---
+    }
 }
 
 /// First-party typed Work REQUEST (NOT vendored — the seam contract the Swift
@@ -611,6 +630,17 @@ mod tests {
         let json = serde_json::to_string(&conf).unwrap();
         let back: PermissionConfirmation = serde_json::from_str(&json).unwrap();
         assert_eq!(back, conf);
+    }
+
+    #[test]
+    fn vendored_message_role_wire_form_matches_upstream() {
+        use vendored_goose::message::Role;
+        // goose's `Message.role` is `rmcp::model::Role`, which is `#[serde(rename_all = "camelCase")]`
+        // over User/Assistant (single-word camelCase = lowercase). Match the wire form byte-for-byte.
+        assert_eq!(serde_json::to_string(&Role::User).unwrap(), "\"user\"");
+        assert_eq!(serde_json::to_string(&Role::Assistant).unwrap(), "\"assistant\"");
+        assert_eq!(serde_json::from_str::<Role>("\"user\"").unwrap(), Role::User);
+        assert_eq!(serde_json::from_str::<Role>("\"assistant\"").unwrap(), Role::Assistant);
     }
 
     #[test]
