@@ -24,12 +24,22 @@ struct SSVISWiderSweepTests {
         #expect(mini.contains("@Environment(AgentCommandCenterState.self)"))
     }
 
+    @Test("graph-tunnel chat mounts the SHARED AgentToolTogglePanel, bound to injected agentCommandCenter")
+    func graphChatSurfacesAgentToolPanel() throws {
+        let sidebar = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        #expect(sidebar.contains("AgentToolTogglePanel("))
+        #expect(sidebar.contains("agentCommandCenter: agentCommandCenter"))
+        // Crash-safe: injected via withAppEnvironment (overlay host re-applies it; embedded inherits).
+        #expect(sidebar.contains("@Environment(AgentCommandCenterState.self)"))
+    }
+
     @Test("the SAME panel is used across chat surfaces — one registry, one picker, no clone")
     func sharedPanelAcrossSurfaces() throws {
         for path in [
             "Epistemos/Views/Chat/ChatInputBar.swift",
             "Epistemos/Views/Landing/LandingView.swift",
             "Epistemos/Views/MiniChat/MiniChatView.swift",
+            "Epistemos/Views/Graph/HologramSearchSidebar.swift",
         ] {
             let src = try loadMirroredSourceTextFile(path)
             #expect(
