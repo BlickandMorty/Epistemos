@@ -199,3 +199,27 @@ REAL PROOF for this fix = a DETERMINISTIC INTEGRATION TEST that FORCES the MAS c
 - Run the FULL model-selection init (load + POST-LOAD repair), then ASSERT the persisted value (both keys) == gemma3.
 This proves the repair RUNS (not just the pure mapping) AND persists, under the owner's exact condition, headlessly +
 deterministically — the verification a Debug launch can't give. (The existing pure-logic test only covers the mapping.)
+
+## ✅ SHIPPED (loop, 2026-06-21): the deterministic MAS-condition integration test
+`EpistemosTests/GgufGemmaPostLoadRepairIntegrationTests.swift` — exactly the test the ceiling calls for, runnable
+headlessly in the normal suite (no MLX/metallib dependency — it constructs InferenceState, which defers model loading):
+- MAS condition is the NATURAL test default: `availableLocalGenerationRuntimeKinds` keeps its `[.mlx]` value because the
+  only mutator (`setAvailableLocalGenerationRuntimeKinds`, :4296) is never called in init. The test ASSERTS
+  `inference.availableLocalGenerationRuntimeKinds == [.mlx]` as an explicit precondition (so the guard must fire).
+- Replicates the owner's EXACT polluted state: seeds `epistemos.preferredLocalTextModelID` +
+  `epistemos.preferredChatModelSelection` = `google/gemma-4-E2B-it-qat-q4_0-gguf` AND `ggufGemmaToMlxMigratedV1 = true`,
+  so the pre-load migration's once-only guard SKIPS and ONLY the post-load repair can fix it.
+- Runs the FULL init (16 GB snapshot, keychain stubbed), then asserts BOTH persisted UserDefaults keys AND the in-memory
+  `preferredLocalTextModelID` / `preferredChatModelSelection` == `mlx-community/gemma-3-4b-it-qat-4bit`. Saves/clears/restores
+  the touched keys (`.serialized` suite) so `UserDefaults.standard` is left clean.
+- Relies on `simplifiedLineupActive` (default true) so `initialDefaultLocalTextModelID` is a GGUF Gemma — the value the
+  LocalTextModelID-gated load (:3497) falls back to and the repair then rewrites.
+
+**✅ PROVEN — the test RUNS + PASSES headlessly (loop, 2026-06-21):**
+`xcodebuild test-without-building -only-testing:'EpistemosTests/GgufGemmaPostLoadRepairIntegrationTests/fullInitRepairsGgufToGemma3UnderMASCondition()'`
+→ `✔ Test "owner MAS state (persisted GGUF-E2B + polluted V1, gguf lane off) → full init persists gemma3 in BOTH keys" passed`
+→ `✔ Test run with 1 test in 1 suite passed`. (The legacy "Executed 0 tests" line is only the XCTest counter, which does not
+count Swift Testing tests — the Swift Testing runner's `✔` is authoritative.) So the POST-LOAD repair is now PROVEN, under
+the owner's exact MAS condition, headlessly + deterministically: the full init rewrites BOTH persisted keys + the in-memory
+selection to `mlx-community/gemma-3-4b-it-qat-4bit` — no Qwen, no GGUF, no env var. The verification ceiling is resolved; a
+real owner relaunch on the MAS/release build will land the same result (the test exercises the identical code path).
