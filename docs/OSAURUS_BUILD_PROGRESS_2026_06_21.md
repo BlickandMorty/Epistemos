@@ -34,9 +34,15 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **Surface-wiring:** ALL chat surfaces (main ChatView, MiniChat, NoteChatSidebar,
   Graph/Hologram*, + sweep) → ONE shared act composer. Map each surface → real proven
   front-end BEFORE wiring; prove (real-state/launch-smoke). No dead surfaces.
-- [ ] **"Epistemos Picks"** curated model section sourced from
-  `Epistemos/Engine/LocalModelInfrastructure.swift`/LocalModelCatalog; honest selection,
-  NO silent Qwen, too-large = honest message.
+- [~] **"Epistemos Picks"** — STAGED 2026-06-21 (logic + tests written; build-verify pending,
+  batched with S3). `Epistemos/Engine/EpistemosPicks.swift` = pure `nonisolated enum` curating
+  the owner's hardened models (Gemma QAT ladder via `EpistemosFoundationLineup` + the explicit
+  Qwen extras + curated Apple-Intelligence) into a top-billed "Epistemos Picks" section,
+  separated from generic "Installed Models". Reuses the proven `EpistemosRuntimePicker` (no new
+  model layer); honest selection inherited verbatim (`Option.isSelectable`/`blockedReason` via
+  `LocalChatModelMemoryGate`) → NO silent Qwen, too-large stays visible with reason.
+  `EpistemosTests/EpistemosPicksTests.swift` = 4 @Test (curated-first, installed-separated,
+  honest-too-large, nothing-lost). REMAINS: render in the act model-stack view (S4, pixel-art).
 - [x] **Discovery sweep** (DONE 2026-06-21 — `docs/research/OSAURUS_SURFACE_DISCOVERY_SWEEP_2026_06_21.md`):
   enumerated 7 distinct chat surfaces (main/MiniChat/Note/Graph/Landing + verify HTMLWorkspace/Shadow),
   the shared backend consumers (`InferenceState`/`EpistemosRuntimePicker`/`ChatCoordinator`/`Composer*`),
