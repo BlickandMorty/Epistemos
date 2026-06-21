@@ -202,3 +202,19 @@ This supersedes the feasibility doc's native-rebuild recommendation — owner ch
 - On that page, **selecting the toggle → BLUR animates → OpenCode (work) landing page.**
 - The two landing pages are kept visually **separated enough** (distinct), with the blur animation as the
   transition between them. Blur is the signature transition for landing → act, and act-landing ↔ work-landing.
+
+## 🆕 EPDOC MD-V2 (reaffirmed, owner 2026-06-21) — stays on plan
+EPDOC_MD_V2: **Markdown is the REAL, robust source of truth**; HTML / JSON / any other formats are
+DYNAMIC PROJECTIONS of the md (the md carries the good code/structure). The HTML workspace on Epdoc must
+actually mirror the md (hardened/repaired/robust). Keep the UI **pixel-art native** as it is now, just more
+dynamic. This is a real plan item (not dropped) — owner-facing, do it. Cross-ref the existing EPDOC md-first
+plan + SS-EDGE bar.
+
+## 🆕 SUBSTRATE + IP ARE CERTAIN — "LOWER IN ORDER", NOT "DEFERRED" (owner 2026-06-21)
+Owner: my substrate + IP MUST get done. Code AS MUCH AS POSSIBLE now; only the EXCESS goes **lower in the
+walk order so it isn't done too early** — but it stays fully ON THE PLAN and **is NOT labeled "deferred."**
+"Deferred" reads as droppable/forgotten (same failure mode as WIP/stash) — DO NOT use it for these. Treat
+every "deferred but certain" mention in these docs as **"sequenced lower, CERTAIN, not droppable."** The
+substrate-health + IP-repair cocktail + EPDOC MD-V2 + porting cycles are all CERTAIN deliverables, just
+positioned later in the order — never quietly dropped, never marked optional. Build maximally; push only the
+true excess down the list, still guaranteed.
