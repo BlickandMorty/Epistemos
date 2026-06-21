@@ -515,3 +515,24 @@ Cadence: a deep-optimization pass at each tier boundary / every ~5 items + dedic
 - **Optimize the clones to owner-app standard:** apply these domains to Osaurus/OpenCode/Goose code as it lands.
 - **Sequencing:** runs as a STANDING TRACK throughout + dedicated deep passes sequenced LOWER but CERTAIN (not
   "deferred"/droppable). Add found hotspots to the ledger as ordered items.
+
+## 🆕 DEEP CHECK — PROVE THE REALITY, NOT THE CLAIM (owner 2026-06-21)
+Owner observed: app defaulted to **codex**, NO Osaurus reskin, NO animations — "looks just like chat/act."
+Some of that is expected (reskin/animations are post-engine, not built yet) — but PROVE it; don't assert
+"normal." The agent MUST run this DEEP CHECK when it reaches this point (and as a standing re-verify):
+1. **Is the Osaurus engine ACTUALLY the live act path?** Check `EPISTEMOS_ACT_OSAURUS_V0` flag state + trace
+   the real runtime: when "act" runs, does it go through OsaurusCore or the OLD engine? Real-state test +
+   computer-use/runtime evidence — not "linked therefore live." If flag-off, say so plainly (it's staged,
+   not reaching the user).
+2. **WHY did it default to CODEX?** TRACE the default model/provider resolution for chat/act. Is there a
+   SILENT codex default/fallback? (Same no-hidden-fallback rule as the Qwen P0 — codex should NOT be a
+   silent default.) Fix to an honest default = the owner's pick / local-first, never a silent cloud/codex
+   substitute. Add a real-state regression test that fails if it silently defaults to codex.
+3. **Reskin + animation status — HONEST:** report exactly what's built vs not (act reskin, model picker
+   preserve, motion language, landing/mode-entry animations). Do NOT claim done on unbuilt UI. "Looks like
+   chat" right now = expected ONLY because the reskin phase hasn't run — confirm that's the reason, not a
+   silently-skipped directive.
+4. **Whole-surface reality vs directives:** for act/work/chat, verify each 2026-06-21 directive is actually
+   implemented (or honestly 🔴 not-yet), grounded in code + runtime. Update OSAURUS_BUILD_PROGRESS with the
+   PROVEN state. No fake-green; flag anything claimed-but-not-reaching-the-user (PROVEN-DONE doctrine).
+This deep check is a standing gate: re-run it whenever a surface is claimed done.
