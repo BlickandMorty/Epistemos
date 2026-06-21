@@ -3429,10 +3429,12 @@ final class InferenceState {
         self.keychainLoad = resolvedKeychainClosures.load
         self.keychainSave = resolvedKeychainClosures.save
         self.keychainDelete = resolvedKeychainClosures.delete
-        self.preferredLocalTextModelID = hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
-        self.preferredChatModelSelection = .localMLX(
-            hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
-        )
+        // L1134 — seed the fresh-install default from the headroom-aware foundation
+        // FAST Gemma (never Qwen 4B) under the simplified lineup; a saved pick loaded
+        // below still wins. Legacy lineup keeps the historical hardware recommendation.
+        let initialLocalDefault = Self.initialDefaultLocalTextModelID(for: hardwareCapabilitySnapshot)
+        self.preferredLocalTextModelID = initialLocalDefault
+        self.preferredChatModelSelection = .localMLX(initialLocalDefault)
         self.localRuntimeConditions = .current()
         self.authService = CloudProviderAuthService(
             keychainLoad: resolvedKeychainClosures.load,
@@ -4356,6 +4358,41 @@ final class InferenceState {
         }
 
         return fitting.max { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }?.id
+    }
+
+    /// L1134 — the fresh-install / unset DEFAULT local chat model. Under the
+    /// simplified Fast/Think/Code lineup (default ON) this is the headroom-aware
+    /// foundation FAST Gemma — the largest that fits with comfortable headroom
+    /// (16 GB → E2B/E4B; the 12B + MoE flagship are excluded for headroom),
+    /// NEVER Qwen 4B (both Qwens are explicit-only picks). Mirrors the installed
+    /// resolver `installedFoundationModelID(for: .fast)` headroom logic but over
+    /// ALL foundation Fast candidates, since a fresh install has none installed
+    /// yet. The legacy lineup keeps the historical hardware recommendation
+    /// (byte-identical). Only seeds the init default; an explicit SAVED pick is
+    /// loaded after init and always wins, so this never overrides a user choice.
+    nonisolated static func initialDefaultLocalTextModelID(
+        for snapshot: LocalHardwareCapabilitySnapshot
+    ) -> String {
+        guard EpistemosFoundationLineup.simplifiedLineupActive else {
+            return snapshot.recommendedLocalTextModelID.rawValue
+        }
+        let fastCandidates = EpistemosFoundationLineup.candidates(for: .fast).filter { candidate in
+            guard let descriptor = LocalModelCatalog.descriptor(for: candidate.id) else { return false }
+            return snapshot.supports(descriptor: descriptor)
+        }
+        let headroomGB = 4
+        let comfortable = fastCandidates.filter {
+            snapshot.roundedMemoryGB >= $0.minimumRecommendedMemoryGB + headroomGB
+        }
+        if let best = comfortable.max(by: { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }) {
+            return best.id
+        }
+        // Nothing fits with headroom → smallest Fast Gemma that fits at all,
+        // else the canonical E2B default. Still always a Fast Gemma, never Qwen.
+        if let smallest = fastCandidates.min(by: { $0.minimumRecommendedMemoryGB < $1.minimumRecommendedMemoryGB }) {
+            return smallest.id
+        }
+        return EpistemosFoundationLineup.defaultChatModelID
     }
 
     /// P1.5 — Fast "three efforts" per-query sizing. When the simplified lineup
