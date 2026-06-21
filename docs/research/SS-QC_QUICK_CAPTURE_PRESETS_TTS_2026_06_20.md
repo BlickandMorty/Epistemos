@@ -61,3 +61,16 @@ Premium/Enhanced Apple voices are an OS download (System Settings → Accessibil
 3. Default = `preferredVoice()` (best installed) — already correct; the picker lets the owner override among installed voices.
 Test: picker lists installed voices by quality; selecting one routes `speak()` to it; with only Default installed, the honest
 download hint shows. NON-INVASIVE. Cross-ref SS-HF (point-of-use honesty), SS-Q (neural voice is the separate bigger item).
+
+## Premium-voice DEFAULT — owner's original intent (clarified 2026-06-20)
+Owner: *"I thought Apple had a BUILT-IN premium voice — I wanted THAT to be default. But if it sounds like what I heard
+[basic], then another one can be default. That was my initial ask."* Honest reality to encode (no-black-box):
+- macOS does NOT pre-install a premium/enhanced voice — the stock system voice is a COMPACT voice (that's the "basic" sound the
+  owner heard). There is no built-in premium voice to default to until one is DOWNLOADED (System Settings → Spoken Content →
+  Manage Voices). (Siri voices are not exposed to AVSpeechSynthesis as selectable TTS voices.)
+- DEFAULT behavior to honor the intent: `preferredVoice()` already prefers Premium > Enhanced > Default, so the moment the owner
+  downloads a premium/enhanced voice it AUTO-becomes the default — no app change needed for that. Until then it honestly falls to
+  compact. The picker (above) lets the owner pick a different default among installed voices.
+- So the fix fully satisfies "premium as default": (a) auto-default to the highest-quality INSTALLED voice; (b) honest hint to
+  download a premium one so it becomes the default; (c) picker to override. If a future build bundles/streams a real neural
+  voice that's the separate SS-Q item — THAT would be a true built-in premium default.

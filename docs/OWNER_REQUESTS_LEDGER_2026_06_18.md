@@ -4396,3 +4396,10 @@ native; AGPL server). ADOPT 2 patterns natively:
       Spoken Content → Manage Voices" — SS-HF no-black-box, don't imply compact=premium); default=preferredVoice(). OWNER
       IMMEDIATE: download an Enhanced/Premium voice in macOS System Settings → Accessibility → Spoken Content → Manage Voices.
       Neural/MLX voice = separate SS-Q.
+- [ ] **Premium voice as DEFAULT — owner's original intent (clarified 2026-06-20).** *"Thought Apple had a built-in premium
+      voice, wanted THAT default; if it sounds basic then another can be default — but that was my initial ask."* → SS-QC
+      "Premium-voice DEFAULT". preferredVoice() already auto-defaults to highest-quality INSTALLED voice (so a downloaded premium
+      auto-becomes default); honest hint to download one; picker to override. True bundled premium = separate SS-Q.
+- [ ] **NUANCE-COMPLETENESS sweep (owner 2026-06-20).** *"The picker nuance slipped — check the ENTIRE plan so everything is
+      robust and nuance isn't lost to compaction/interruptions."* → SS-CLEAN "NUANCE-COMPLETENESS gate": enumerate every owner
+      message's atomic sub-asks as ledger [ ] + verify each is captured with its specific nuance + will be BUILT. Audit running.

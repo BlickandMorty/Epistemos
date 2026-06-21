@@ -184,3 +184,12 @@ not only a Settings/health row, not only a log entry. A honest fallback names wh
 "running Qwen — your pick isn't installed"); a SILENT one (black-box surface) is a bug to fix. Scan each cycle for: model/route
 substitutions surfaced only in Settings, `try?`/`?? default`/empty-catch that hide a failure as success on a user path, "for
 show" controls, no-op-on-not-ready backends. Detail → SS-HF. Pairs with surface-parity + done-re-audit + routing-no-regression.
+
+## NUANCE-COMPLETENESS gate (owner 2026-06-20: "the picker nuance slipped → check the WHOLE plan for lost nuance")
+The Owner-Request Coverage Sweep must verify NUANCE, not just slice-existence. For EVERY owner message (verbatim, incl.
+pre-compaction), enumerate each DISCRETE sub-ask as its own ledger checkbox + ensure the slice captures the SPECIFIC detail
+(not a paraphrase that drops it). A slice existing ≠ every sub-ask inside it captured + scheduled to build. Each sweep:
+1. Re-read the verbatim owner quotes (ledger + transcript). 2. For each, list the atomic sub-asks. 3. Confirm each is a ledger
+[ ] + named in a slice with its specific nuance + will be BUILT (not just researched). 4. Flag any sub-ask that is
+paraphrased-away, merged-and-lost, or research-only. Robust against compaction/interruption: verbatim quotes live in the
+ledger/slices (durable), never only in conversation. Cross-ref Owner-Request Coverage Sweep, DONE-RE-AUDIT, plan-capture.
