@@ -185,3 +185,17 @@ REAL PROOF still pending: monitor computer-use relaunch + `defaults read` should
 `epistemos.preferredLocalTextModelID` and `epistemos.preferredChatModelSelection` = `mlx-community/gemma-3-4b-it-qat-4bit`.
 The pre-load migration (V1) is kept (harmless, handles the persisted-GGUF-in-localKey case early); the post-load repair is
 the authoritative catch.
+
+## ⚠️ VERIFICATION CEILING (monitor, 2026-06-21): Debug-build computer-use CANNOT verify this runtime-guarded fix
+Re-verify of 0d935af12 via Debug launch: persisted value UNCHANGED (still GGUF) — but INCONCLUSIVE, two confounders:
+(1) 2 stray Epistemos instances were running (stale old build re-persisting GGUF) — killed. (2) availableLocalGeneration
+RuntimeKinds defaults [.mlx] (:3342) but is mutated at runtime — a Debug build OUTSIDE the MAS sandbox can spawn the
+llama/gguf subprocess → .gguf gets ADDED → the GGUF Gemma is RUNNABLE in Debug → the bug doesn't reproduce AND the
+runtime-guarded repair correctly no-ops. The owner's MAS/release app blocks the subprocess → .gguf absent → repair fires.
+So a Debug launch cannot reproduce the owner's MAS runtime; my computer-use has a CEILING for sandbox-dependent behavior.
+REAL PROOF for this fix = a DETERMINISTIC INTEGRATION TEST that FORCES the MAS condition headlessly:
+- Seed persisted preferredLocalTextModelID/Selection = google/gemma-4-E2B-it-qat-q4_0-gguf.
+- Force availableLocalGenerationRuntimeKinds = [.mlx] (gguf lane OFF, simulating MAS sandbox).
+- Run the FULL model-selection init (load + POST-LOAD repair), then ASSERT the persisted value (both keys) == gemma3.
+This proves the repair RUNS (not just the pure mapping) AND persists, under the owner's exact condition, headlessly +
+deterministically — the verification a Debug launch can't give. (The existing pure-logic test only covers the mapping.)
