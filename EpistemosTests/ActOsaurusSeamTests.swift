@@ -90,6 +90,17 @@ struct ActOsaurusSeamTests {
         #expect(bridge.contains("/v1/chat/completions"))
     }
 
+    @Test("S4: act turn runs IN-PROCESS through OsaurusCore CoreModelService — never a cloud fallback")
+    func s4InProcessThroughOsaurusCore() throws {
+        let bridge = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/ActOsaurusBridge.swift")
+        // Drives the REAL linked engine in-process, not the loopback server.
+        #expect(bridge.contains("func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String"))
+        #expect(bridge.contains("OsaurusCore.CoreModelService.shared.generate("))
+        // Honest failure: OsaurusCore's own error surfaced; NEVER a silent cloud/GPT route.
+        #expect(bridge.contains("OsaurusCore generate failed"))
+        #expect(bridge.contains("throw ActOsaurusError.serverNotEnabled"))
+    }
+
     #if !EPISTEMOS_APP_STORE
     @Test("S3: the INERT bridge stays honest — no endpoint, server not enabled, message round-trips")
     func s3InertBridgeHonest() {
