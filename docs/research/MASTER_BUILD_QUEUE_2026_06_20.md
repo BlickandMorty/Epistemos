@@ -16,10 +16,12 @@ parallel (owner's Cursor work, tracked not loop-built). Per-item detail lives in
    A deferred safe-increment is captured to SS-FOLLOWON, never dropped.
 3. **SELF-VERIFY + SHIP (owner-verification is NOT a gate):** render/behavior tests + cargo/swift + xcodebuild
    launch-smoke; honest tier (no fake-T4); "visual/live PENDING OWNER" is a non-blocking note. Commit each green.
-4. **INTERLEAVED PASSES (the "nuclear + repair" cadence):** every ~5 items / end-of-cycle run SS-CLEAN (dead-flag/orphan,
-   duplicate, stale, green-without-witness, CAPABILITY-SURFACE-PARITY, LAUNCH-SMOKE) + Owner-Request Coverage Sweep +
-   NUANCE-COMPLETENESS + FOLLOW-ON-CAPTURE + the nuclear AGGRESSIVE CODE-CHECKER (ledger 3478) + a DEEP-REPAIR pass
-   (SS-REPAIR: find→fix→verify + one perf + one usability win). P0 owner reports preempt everything.
+4. **INTERLEAVED PASSES (the "nuclear + repair" cadence) — runs in MULTIPLE places, not once:** the NUCLEAR CODE-REVIEW
+   (R-CODEREVIEW 1851/2499 = "thermonuclear"/aggressive ultra-exhaustive review + the multi-checkpoint AGGRESSIVE
+   CODE-CHECKER 3478) runs (a) every ~5 items, (b) at EVERY tier boundary (the ◆ checkpoints below), and (c) at the end of
+   the full walk. Alongside it each cycle: SS-CLEAN (dead-flag/orphan, duplicate, stale, green-without-witness,
+   CAPABILITY-SURFACE-PARITY, LAUNCH-SMOKE) + Owner-Request Coverage Sweep + NUANCE-COMPLETENESS + FOLLOW-ON-CAPTURE +
+   a DEEP-REPAIR pass (SS-REPAIR: find→fix→verify + one perf + one usability win). P0 owner reports preempt everything.
 5. **100% COMPLETION:** the walk does not end until every Tier 0–5 item is built + verified-or-honestly-tiered. The
    coverage sweep re-walks all open `[ ]` so nothing falls off. Order only sets *what's next*, never *what's dropped*.
 
@@ -29,6 +31,7 @@ parallel (owner's Cursor work, tracked not loop-built). Per-item detail lives in
 Chat "credentials rejected" 4010/4310/4335 (fix landed 191c9291a, live-send pending-owner) · P0 launch crash 4262
 (e9eb76b5c) · dark/light toggle crash 3488 · recent-crash log study 3512 · model-selection-not-honored 2897 ·
 model-download-broken 2594 · default-Qwen-4B 1134/2258 · Qwen3-8B visible 1123 · memory-bypass-12B 1144.
+◆ **NUCLEAR CODE-REVIEW CHECKPOINT** (R-CODEREVIEW 1851/2499 + aggressive checker 3478) — run at the end of this tier.
 
 ## TIER 1 — SUBSTRATE completion (model-agnostic; authority SUBSTRATE_BUILD_SEQUENCE)
 STAGE-2 RuntimeRouter LIVE flip 4417 (parity-gated) · SS-SH blank sidebar 3919/3734 (closed b3277d568 — verify) ·
@@ -36,6 +39,7 @@ P5 EML rerank + W-51 recall · P2 load-on-launch · P5.H deep-harden + FINISH su
 substrate-without-new-model 4214/4243/4200 · FIRST-DOMINO research/* note 2464 · instant-recall UMA zero-copy
 3704/3753 · OBS Eidos→chat wiring 2196/2199 · MINE SYSTEM G → app 1838/2490 · provenance moat 3171 · founding thesis
 1494 · REG harnesses 2236.
+◆ **NUCLEAR CODE-REVIEW CHECKPOINT** (R-CODEREVIEW 1851/2499 + aggressive checker 3478) — run at the end of this tier.
 
 ## TIER 2 — OWNER-FACING repairs + wins (the on-device muddiness the owner lives in)
 Chat composer minimal/Apple/fuse-tools 4345/3538 · no-hidden-fallback 4380 · SS-VIS surface-all-caps 4186 + followons
@@ -44,7 +48,10 @@ Chat composer minimal/Apple/fuse-tools 4345/3538 · no-hidden-fallback 4380 · S
 image render 4107/4414/4415 · theme regression 4325/3980 · theme palette/font 1157/1160 · SS-HW HTML workspace
 1211/2092/3156/4144/3945/3128 · SS-DD dropdown cleanup 4038 · model-picker simplify 1326/599/1128 · per-model vaults
 651/4048 · deep settings repair 1817/2481 · cloned-app settings preserve 3259 · MiniChat/Note/Graph parity 1190 ·
-tool toggles gate runtime 1192 · home-graph tunnel 3932/3762 · graph chrome + granular theme 3945 · vault best-essay 1184.
+tool toggles gate runtime 1192 · home-graph tunnel 3932/3762 · graph chrome + granular theme 3945 · vault best-essay 1184
+· chat-messy deep-repair (Osaurus reference) 1126 · SS-IL inline note-AI streaming + animation + AI/user separation 4124 ·
+SS-ALIVE/PERF2 deep-perf + fluid "feel-alive" animations 3890.
+◆ **NUCLEAR CODE-REVIEW CHECKPOINT** (R-CODEREVIEW 1851/2499 + aggressive checker 3478) — run at the end of this tier.
 
 ## TIER 3 — per-model engineering + skills + determinism (CHAT-FIRST; ledger 3572 scope rule)
 SS-Z per-model framework 3559 · SS-AA GitHub study 3598 · SS-AB/profiles + picker descriptions 3796/3621 · SS-Y
@@ -54,6 +61,7 @@ skills/tools repair+harden 104/3373/1192/1193 · skill/tool/MCP install+manage 1
 models (LFM/ternary/Bonsai) 3425/1909/1887/1916/1894/1902/2561/2573 · vision runtime + Holo 1894/1902/2577 · BYOM +
 HF/GitHub marketplace 1876/1863/1870 · data/fine-tuning substrate 678 · MLX-LoRA-Studio + adapter UX 3810/3830 ·
 provider-specific agent 3357 · AI memory sharing 2587 · per-feature hardening 2450 · model-capability-profile combo 3621.
+◆ **NUCLEAR CODE-REVIEW CHECKPOINT** (R-CODEREVIEW 1851/2499 + aggressive checker 3478) — run at the end of this tier.
 
 ## TIER 4 — MAJOR CYCLES (sequenced after the quick wins; each its own multi-pass build)
 EPDOC md-first + convergence 3658/3675/3495/3721/4091 + acceptance SS-EDGE · EPDOC/Tolaria v2 WebKit editor 3433/3779 ·
@@ -61,12 +69,14 @@ SS-WL wikilink + auto-research 4062/4072/3111 · Obscura built-in browser 1451/2
 first-class 1309/1437/2096 · stealth browsing 1444/2116 · HTML canvas P7.2 2092 + live artifacts 3128/3137 · terminal/console
 1213 · PDF live native viewer 3464/2157 · meeting/lecture note STT 2592 · arXiv pull 1870 · web clipper 3111 · vault MCP
 server 3119 · DeerFlow 2.0 deep-research space 3224 · voice neural/cloning/bitcrush 3191/3389 · metal streaming overlay 4154.
+◆ **NUCLEAR CODE-REVIEW CHECKPOINT** (R-CODEREVIEW 1851/2499 + aggressive checker 3478) — run at the end of this tier.
 
 ## TIER 5 — research-ports + big-win backlog (last; deliberate each port via ProvenanceGate)
 R-APPS study best OSS apps 1748/2244/2281 · R-KUKU port 2021 · R-CUA 2136 · R-LITEPARSE 2157 · R-LITELLM-CP 2553 ·
 R-JSONRENDER 2557 · R-LIVE-ARTIFACTS 3128 · R-SYNC multi-device 3137 · R-VAULT-MCP 3119 · agent-framework deliberation
 1856/2505 · arxiv/HF marketplace deepen 1863 · SS-BWB big-win backlog (⌘K, a11y, unified search, vault export) · living
 index + lattice explainer 1480 · webkit-maximization policy 1290.
+◆ **NUCLEAR CODE-REVIEW CHECKPOINT** (R-CODEREVIEW 1851/2499 + aggressive checker 3478) — run at the end of this tier.
 
 ## OWNER-DOMAIN TRACK (PARALLEL — tracked in the plan, NOT loop-built; owner's Cursor/clone work)
 Companion→Osaurus refactor 3903 · INFUSE Epistemos IP into ACT(Osaurus)+WORK(Goose) 1844/2493 · Osaurus+Unsloth feed
