@@ -92,7 +92,11 @@ struct SSCRChatCredentialsRepairTests {
     func foundationTierDegradesToRunnableBaseline() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
         // The not-installed-tier branch returns the installed Fast baseline, not nil.
-        #expect(src.contains("return installedFoundationModelID(for: .fast)"))
+        // The P0 FIX (owner 2026-06-20) wrapped the return in an `if let` so it only
+        // returns the baseline when one actually EXISTS (else it falls through to the
+        // runnable-local branch instead of stranding chat on nil) — assert that form.
+        #expect(src.contains("if let fastBaseline = installedFoundationModelID(for: .fast)"))
+        #expect(src.contains("return fastBaseline"))
     }
 
     @Test("apiKey gates the missing-set early-return on !isBootstrappingCloudCredentials (Fix 4)")
