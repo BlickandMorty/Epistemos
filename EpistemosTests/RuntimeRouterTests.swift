@@ -72,6 +72,55 @@ struct RuntimeRouterTests {
         #expect(router.metrics.tally(for: .mlx).accepts >= 1)
     }
 
+    // MARK: - SUBSTRATE Phase 1 — live-promotion parity (owner 2026-06-20, SUBSTRATE_BUILD_SEQUENCE)
+    //
+    // The owner's "parity test FIRST": BEFORE `route()` is promoted to the live lane authority
+    // (behind EPISTEMOS_RUNTIMEROUTER_LIVE_V0, default OFF), prove its verdict MATCHES the live
+    // path's resolved lane for the same inputs. When the live path resolved to lane L (carried as
+    // the packet's `preferredLane`) and L is available, the router must ACCEPT L — never silently
+    // substitute a different lane. This is the safety gate the live promotion builds on.
+
+    @Test("Phase 1 parity: route() honors the live-resolved local lane across every role")
+    func phase1RouteParityHonorsLiveLane() {
+        let router = RuntimeRouter(
+            initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        let liveLanes: [RuntimeLane] = [.mlx, .gguf]   // the model-agnostic local lanes shipping today
+        let modes: [EpistemosOperatingMode] = [.fast, .thinking, .pro, .agent]
+        for live in liveLanes {
+            for mode in modes {
+                let packet = RuntimeRouterShadow.missionPacket(
+                    operatingMode: mode,
+                    objective: "answer the user's question",
+                    requiresTools: false,
+                    privacySensitive: false,
+                    preferredLane: live)
+                let routerLane = RuntimeRouterShadow.acceptedLane(from: router.route(packet))
+                #expect(
+                    RuntimeRouterShadow.parityMatches(routerLane: routerLane, liveLane: live),
+                    "mode \(mode) live lane \(live.stableID): router chose \(routerLane?.stableID ?? "nil")")
+            }
+        }
+    }
+
+    @Test("Phase 1 honesty: all lanes disabled → route() rejects, never a silent accept")
+    func phase1RouteRejectsHonestlyWhenAllDisabled() {
+        let router = RuntimeRouter(
+            initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        for lane in RuntimeLane.knownLanes { router.setLaneEnabled(lane, false) }
+        let packet = RuntimeRouterShadow.missionPacket(
+            operatingMode: .pro,
+            objective: "answer the user's question",
+            requiresTools: false,
+            privacySensitive: false,
+            preferredLane: .mlx)
+        let verdict = router.route(packet)
+        // Honest reject — never a silent accept of a disabled lane (no silent fallback).
+        if case .reject = verdict {} else {
+            Issue.record("expected an honest .reject when all lanes are disabled, got \(verdict)")
+        }
+        #expect(RuntimeRouterShadow.acceptedLane(from: verdict) == nil)
+    }
+
     @Test("local policy table gates MLX/GGUF before cloud fallback")
     func localPolicyTableGatesLocalLanesBeforeCloudFallback() {
         guard let policy = RuntimeRouter.localPolicyTable[.code] else {
