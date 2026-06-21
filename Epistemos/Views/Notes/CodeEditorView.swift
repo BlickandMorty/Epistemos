@@ -2396,7 +2396,12 @@ struct CodeEditorView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(MarkdownPreviewSurfaceStyle.flatBackground(for: ui.theme.surfaceVariant(.other)))
+            // SS-GC (owner 2026-06-20, reopened): the Live Preview header is code-editor chrome
+            // that sits at the very top of a preview-capable file — it must respect themeOverride
+            // exactly like codeEditorTopBar (:2193), or it paints a white card slab over the dark
+            // embedded-graph backdrop (the "white bar at the top"). nil override (detached/notes)
+            // keeps the card, unchanged.
+            .background(Self.resolvedTopBarBackground(themeOverride: themeOverride, base: ui.theme))
 
             Divider()
 
