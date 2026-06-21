@@ -30,6 +30,17 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("HTMLWorkspaceSafeAPI.messageHandlerName"))
         #expect(!previewSource.contains("addUserScript("),
                 "HTML Workspace preview should not inject app-internal scripts; expose only an explicit safe API.")
+        // Security gate: the app-bridge handler installs ONLY when BOTH the user-enabled flag AND the
+        // per-package sandbox policy allow it — the sole barrier against arbitrary rendered HTML
+        // obtaining an app bridge. Dropping either condition is a real privilege-escalation hole, so
+        // pin the conjunction. (The safe-API channel itself is still a deferred stub — its `didReceive`
+        // path is not yet wired — but the install gate must never weaken regardless.)
+        #expect(previewSource.contains("safeAPIEnabled && package.manifest.sandboxPolicy.allowAppBridge"),
+                "App-bridge install must require BOTH safeAPIEnabled AND the package's allowAppBridge sandbox policy.")
+        // The app-bridge handler is torn down on detach — no leaked WKScriptMessageHandler across
+        // workspace swaps (an installed-but-orphaned bridge is both a leak and a latent surface).
+        #expect(previewSource.contains("removeScriptMessageHandler"))
+        #expect(previewSource.contains("messageHandlerInstalled = false"))
     }
 
     @Test("mini chat can target the active HTML workspace explicitly")
