@@ -82,6 +82,7 @@ Return external evidence as structured artifacts and provenance, not graph or Re
 After receiving a <tool_response>, summarize it for the user unless the response clearly says it failed or more information is still required.\n\
 Never repeat the same tool call when the previous <tool_response> already gave you the needed information.\n\
 For vault notes, never guess a filesystem path from a title. Use eidos.query first to select citable vault evidence, then vault.read with the returned vault-relative path when full note text is needed. Use vault.search only if eidos.query is unavailable.\n\
+When the user asks you to research, look up, find, gather, or summarize what their notes or vault say about a topic, treat it as a knowledge-gathering request and call eidos.query (then vault.read for full text) to gather citable vault evidence BEFORE answering, even when the request looks simple. Do not answer a research or lookup request from your own parametric memory alone — the user is asking what THEIR material says, not what you already know.\n\
 For vault note creation or updates, use vault.write with a human-readable vault-relative .md path and the full markdown content.\n\
 If the user gives a note title but not a path, choose a vault-relative .md path that matches the requested title.\n\
 If asked to create or update a note and then read it back, call vault.write first and then vault.read on that same exact note path.\n\
@@ -181,4 +182,45 @@ fn canonicalized_tools(tools: &[RuntimeToolDefinition]) -> Vec<RuntimeToolDefini
     }
 
     canonical_tools
+}
+
+#[cfg(test)]
+mod ss_lt_research_intent_tests {
+    use super::*;
+
+    // SS-LT (owner 2026-06-21): a research/lookup query — even a simple one — must reliably convert
+    // intent into a vault tool call. The owner saw Qwen 4B research a topic via Eidos + vault/file
+    // search exactly once, then never again ("worked one time and never again" = a nondeterministic
+    // intent gate). The research doc's prime suspect after the router is the prompt's tool affordance:
+    // if it doesn't explicitly map knowledge-gathering intent to a tool call, a small model answers
+    // a simple research query from parametric memory instead of searching the vault. This pins that
+    // the LIVE local-agent prompt makes research intent fire eidos.query.
+    #[test]
+    fn research_intent_clause_is_present_in_live_prompt() {
+        let prompt = build_system_prompt(&RuntimePromptInput::default());
+        assert!(
+            prompt.contains("research, look up, find, gather, or summarize"),
+            "research-intent trigger phrasing missing from the live local-agent prompt"
+        );
+        assert!(
+            prompt.contains("knowledge-gathering request"),
+            "research intent must be named as a knowledge-gathering request that fires a tool"
+        );
+        assert!(
+            prompt.contains(
+                "Do not answer a research or lookup request from your own parametric memory alone"
+            ),
+            "must forbid answering a research/lookup request from parametric memory alone"
+        );
+    }
+
+    // Regression guard for the whole intent→tool gate: the existing tool-call affordance the owner
+    // saw work must remain alongside the new clause (eidos.query-first + the <tool_call> contract).
+    #[test]
+    fn tool_call_affordance_survives_alongside_research_clause() {
+        let prompt = build_system_prompt(&RuntimePromptInput::default());
+        assert!(prompt.contains("eidos.query first"));
+        assert!(prompt.contains("<tool_call>"));
+        assert!(prompt.contains("function calling AI model"));
+    }
 }
