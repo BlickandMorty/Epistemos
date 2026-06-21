@@ -32,6 +32,12 @@ protocol ActOsaurusBridge: Sendable {
     /// `ActOsaurusError` when the server isn't enabled/running — NEVER a silent
     /// cloud/GPT fallback (owner #1).
     func runTurn(model: String, messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String
+
+    /// S4 (in-process) — run a REAL act turn through the LINKED OsaurusCore engine in-process
+    /// (`CoreModelService`), NOT the loopback server. This is the canonical act-turn API the act
+    /// composer consumes. Throws an HONEST `ActOsaurusError` when OsaurusCore isn't linked/usable —
+    /// NEVER a silent cloud/GPT fallback (owner #1).
+    func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String
 }
 
 /// Honest errors for an Act-Osaurus turn — the local server is off, the POST failed,
@@ -74,6 +80,10 @@ struct InertActOsaurusBridge: ActOsaurusBridge {
     func runTurn(model: String, messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String {
         // Inert: it owns no running server, so it HONESTLY refuses — never a silent
         // cloud/GPT route.
+        throw ActOsaurusError.serverNotEnabled
+    }
+    func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String {
+        // Inert / OsaurusCore not linked (e.g. MAS target) — HONESTLY refuses; never a cloud route.
         throw ActOsaurusError.serverNotEnabled
     }
 }
