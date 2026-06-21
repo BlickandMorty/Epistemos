@@ -311,3 +311,21 @@ fun, interesting — but native. (Pairs with the landing-page BLUR transitions a
 
 Net: act = native blur-reveal (connected, dynamic, native); work = ASCII/pixel-art typewriter + dynamic
 full-page element reveal (playful, terminal-flavored, OpenCode font allowed). Both feel intentional + connected.
+
+## 🆕 APP-WIDE ANIMATION INITIATIVE — "ASCII typewriter / time-machine" motion ontology (owner 2026-06-21)
+Part of the "fun up the app" initiative: MORE animations, COUPLED with the Apple blur the owner loves (blur +
+this = a layered "meta animation"). The signature motion = the **"time machine" title animation**: the
+typewrite + **ASCII reveal** (the little boxes / ascii art animating in as it types). Make it a **reusable
+motion ontology** applied across the app — not a one-off.
+- **WHERE (apply broadly, tastefully):** TITLES first (the confirmed anchor — like the time-machine box
+  title + the "before"-mentioned mode-entry typewriter), plus **settings, agent surfaces**, and other
+  **non-text-editing** reveals. Scale it to **many fonts incl. smaller body fonts** — but **adapt the font
+  per context** (NOT the time-machine title font everywhere; the same motion ontology, context-appropriate font).
+- **WHERE NOT / BALANCE:** **do NOT bloat it**; **never in text-EDITING areas**. The message bar is
+  borderline — owner leaned away from the message bar, toward **titles** (primary) and **maybe agent ANSWER
+  reveals**. FIND A BALANCE: tasteful + intentional, signature-not-spammy. Titles = yes; editing = no;
+  answers/sections = judgment call, kept light.
+- **COUPLING:** pairs with Apple blur (act = native blur-reveal); the ASCII-typewriter ontology is the more
+  expressive layer, strongest in WORK/OpenCode (ascii/pixel-art) but available app-wide as the motion accent.
+Net: one reusable typewriter+ASCII-reveal motion system, anchored on titles, sprinkled onto settings/agent/
+non-editing surfaces, font-adaptive, blur-coupled, never bloated, never in editors.
