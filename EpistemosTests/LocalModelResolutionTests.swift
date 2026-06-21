@@ -79,4 +79,29 @@ struct LocalModelResolutionTests {
         let panel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
         #expect(panel.contains("LocalRouteHonestyHealthRow()"))
     }
+
+    // P0 (owner 2026-06-20): chat returned NO answer from ANY local model. Root cause in
+    // `effectiveLocalTextModelID(for:)`: an UNCONDITIONAL `return installedFoundationModelID(for:
+    // .fast)` inside the `hasInstalledFoundationModel` block returned nil when no Fast Gemma fit
+    // (e.g. a 16 GB Mac with no Fast Gemma installed) — and that nil BYPASSED the Qwen/runnable-
+    // local fall-through below it, so a tier whose own foundation wasn't installed resolved to
+    // nil and stranded an installed, runnable Qwen → dead chat.
+    //
+    // The tier resolution is a private method gated on COMPUTED, hardware-dependent state
+    // (simplifiedLineupActive + hasInstalledFoundationModel true while BOTH .fast and the tier's
+    // foundation are absent), so a behavioral test would be fragile on this P0 path. Source-guard
+    // the fix deterministically instead — same mirrored-source technique as `wiring()` above. The
+    // owner verifies the real send on-device.
+    @Test("a foundation tier whose own model isn't installed never returns a nil Fast baseline that strands a runnable Qwen")
+    func tierWithoutFoundationDoesNotStrandRunnableLocal() throws {
+        let state = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
+        // The buggy unconditional return must be GONE...
+        #expect(
+            !state.contains("return installedFoundationModelID(for: .fast)"),
+            "the Fast-baseline return must be GUARDED, never an unconditional nil-return that strands Qwen")
+        // ...replaced by a guarded return that only fires when a Fast baseline actually exists,
+        // so a missing Fast Gemma FALLS THROUGH to the Qwen/runnable-local branch (non-nil).
+        #expect(state.contains("if let fastBaseline = installedFoundationModelID(for: .fast) {"))
+        #expect(state.contains("return fastBaseline"))
+    }
 }

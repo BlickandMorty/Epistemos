@@ -4282,11 +4282,19 @@ final class InferenceState {
                 // SS-CR (owner 2026-06-20): degrade to a RUNNABLE local baseline instead of
                 // nil so a tier whose OWN model isn't installed serves a working local model
                 // rather than feeding the cloud mis-route / a dead "not ready" surface. Prefer
-                // the installed everyday Fast baseline; nil (no foundation baseline fits) lets
-                // routing fall to Apple Intelligence / the tier representative. The
-                // substitution stays HONEST — localModelResolutionState shows it
-                // (LocalRouteHonestyRow), so it's visible, never a silent swap.
-                return installedFoundationModelID(for: .fast)
+                // the installed everyday Fast baseline; the substitution stays HONEST —
+                // localModelResolutionState shows it (LocalRouteHonestyRow), so it's visible.
+                //
+                // P0 FIX (owner 2026-06-20): only return the Fast baseline when it actually
+                // EXISTS. `installedFoundationModelID(for: .fast)` is nil when no Fast Gemma
+                // fits (e.g. a 16 GB Mac with no Fast Gemma installed). Returning that nil here
+                // stranded an installed, runnable Qwen and left chat with NO local answer from
+                // ANY model. When there is no Fast baseline, FALL THROUGH to the
+                // Qwen/runnable-local branch below — which always yields a non-nil local
+                // (baseModelID is guaranteed non-nil by the guard above) — instead of nil.
+                if let fastBaseline = installedFoundationModelID(for: .fast) {
+                    return fastBaseline
+                }
             }
         }
 
