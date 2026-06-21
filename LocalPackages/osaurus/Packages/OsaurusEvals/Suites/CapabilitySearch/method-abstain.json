@@ -1,0 +1,32 @@
+{
+  "id": "capability_search.method-abstain",
+  "domain": "capability_search",
+  "label": "capability search • method • abstain on chit-chat",
+  "query": "thanks, that's perfect",
+  "notes": "Symmetric with `capability_search.abstain-greeting` on the tools lane. FIXED + PROMOTED 2026-06-19 (W3): RRF saturation (max ≈ 0.0328 with k=60) capped the abstain-vs-recall gap to ~0.001, so no fused/cosine floor could separate this from real recall. The resolution is the pre-RRF query-intent gate (`CapabilityQueryIntent.isConversationalAbstain`), which short-circuits 'thanks, that's perfect' before any lane runs — methods lane returns empty, `maxAccepted=0` holds. Now enforced in recall_floors.json.",
+  "fixtures": {
+    "seedMethods": [
+      {
+        "id": "eval-summarize-pdf-abstain",
+        "name": "summarize_pdf",
+        "description": "Generate a summary of the contents of a PDF document",
+        "triggerText": "summarize_pdf"
+      },
+      {
+        "id": "eval-plot-data-abstain",
+        "name": "plot_data",
+        "description": "Render a graph from tabular numbers using the visualization library",
+        "triggerText": "plot_data"
+      }
+    ]
+  },
+  "expect": {
+    "capabilitySearch": {
+      "expectedMethods": {
+        "anyOf": [],
+        "minMatches": 0
+      },
+      "maxAccepted": 0
+    }
+  }
+}

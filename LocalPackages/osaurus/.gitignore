@@ -1,0 +1,178 @@
+# Xcode
+#
+# gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
+
+## User settings
+xcuserdata/
+
+## compatibility with Xcode 8 and earlier (ignoring not required starting Xcode 9)
+*.xcscmblueprint
+*.xccheckout
+
+## compatibility with Xcode 3 and earlier (ignoring not required starting Xcode 4)
+build/
+DerivedData/
+
+# `build/` above matches any directory named "build" anywhere in the tree,
+# which silently swallows our release-pipeline scripts under scripts/build/.
+# Existing scripts there were tracked before this rule existed; new files
+# (e.g. scripts/build/package_dsyms.sh) need the negations below or `git add`
+# drops them with no warning.
+!scripts/build/
+!scripts/build/**
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+## Obj-C/Swift specific
+*.hmap
+
+## App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+#
+# Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
+# Packages/
+# Package.pins
+# Package.resolved
+# *.xcodeproj
+#
+# Xcode automatically generates this directory with a .xcworkspacedata file and xcuserdata
+# hence it is not needed unless you have added a package configuration file to your project
+# .swiftpm
+
+.build/
+
+# CocoaPods
+#
+# We recommend against adding the Pods directory to your .gitignore. However
+# you should judge for yourself, the pros and cons are mentioned at:
+# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
+#
+# Pods/
+#
+# Add this line if you want to avoid checking in source code from the Xcode workspace
+# *.xcworkspace
+
+# Carthage
+#
+# Add this line if you want to avoid checking in source code from Carthage dependencies.
+# Carthage/Checkouts
+
+Carthage/Build/
+
+# Accio dependency management
+Dependencies/
+.accio/
+
+# fastlane
+#
+# It is recommended to not store the screenshots in the git repo.
+# Instead, use fastlane to re-generate the screenshots whenever they are needed.
+# For more information about the recommended setup visit:
+# https://docs.fastlane.tools/best-practices/source-control/#source-control
+
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+#
+# After new code Injection tools there's a generated folder /iOSInjectionProject
+# https://github.com/johnno1962/injectionforxcode
+
+iOSInjectionProject/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Whisper model files (large binary files)
+*.bin
+ggml-*.bin
+ggml-*.metal
+
+.env
+Packages/**/Package.resolved
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.cer
+*.pfx
+private_key.txt
+
+# Benchmarks (cloned repos — setup via `make bench-setup`)
+benchmarks/
+
+# Generated benchmark/test output
+results/
+
+# Eval scoreboards (see reports/README.md): commit ONLY the rolled-up snapshot
+# + append-only history + the crowdsourced compatibility leaderboard and its
+# per-contribution source files. Raw per-case/per-suite reports and dated run
+# dirs are large, regenerate every run, and merge-conflict across maintainers,
+# so they stay local. `reports/*` ignores all direct children (incl. run dirs);
+# the negations re-include the committed files + the community/ contributions.
+reports/*
+!reports/README.md
+!reports/SNAPSHOT.md
+!reports/SNAPSHOT.json
+!reports/history.jsonl
+!reports/COMPATIBILITY.md
+!reports/COMPATIBILITY.json
+!reports/community/
+
+# Swift test coverage artifacts
+default.profraw
+*.profraw
+
+# Local i18n tooling venv (scripts/i18n/fill-zh-hans.py)
+.venv-i18n/
+
+# Local secrets
+App/osaurus/Secrets.xcconfig
+
+# OsaurusEvals screen_context: real-app captures (made by `make
+# evals-capture-screen`) contain your actual on-screen code/text, so the
+# `local/` dir stays local. Committed synthetic fixtures live alongside it in
+# Packages/OsaurusEvals/Fixtures/ScreenContext/*.json.
+Packages/OsaurusEvals/Fixtures/ScreenContext/local/

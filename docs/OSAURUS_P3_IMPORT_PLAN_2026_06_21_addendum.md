@@ -47,6 +47,27 @@ IMPLEMENTATION INTENT: factor the act/Osaurus composer + capability set into a S
 every surface (one source of truth → no per-surface drift), each wired to its real proven front-end per
 the surface-wiring rule. The chat→act transition applies uniformly; no chat surface stays on the old path.
 
+## 🆕 CONFLICT-RESOLUTION: FAVOR OSAURUS (owner 2026-06-21, verbatim)
+**Owner (verbatim):** *"if my IP clashes or anything my app clash favor the osaurus please
+and simply cherry pick my IP or parts of my app that work with the osaurus but of course
+still make sure the front end is the minimal epistemos style."*
+
+BINDING RULE for all wiring/porting (S3+): on ANY clash between the owner's IP / existing
+app and Osaurus, **Osaurus wins** — adopt Osaurus's engine/structure. From the owner's side,
+**cherry-pick only the IP / app parts that work WITH Osaurus** and port them onto the Osaurus
+engine (don't force-fit incompatible app logic). The **front-end stays minimal Epistemos
+pixel-art native style** — reskin Osaurus views to app chrome; build new pixel-art front-ends
+only for surfaces the app lacks. This refines (does not weaken) the never-delete-chat guard:
+the quarantined chat's compatible IP is ported; retire only after the 4-part bar + owner OK.
+NOTE: this "cherry-pick the owner's compatible IP" is the COMPLEMENT of "zero cherry-pick of
+Osaurus" — Osaurus is vendored whole; the owner's side is what gets selectively integrated.
+
+## 🆕 FULL CLONE LANDED (2026-06-21)
+The entire `osaurus-ai/osaurus` repo is vendored at `LocalPackages/osaurus/` (pinned
+`ae3a3c5d…`, MIT `direct_import`, `.git` stripped = take-control). Source-on-disk only —
+NOT yet linked into the Xcode build. Next slice = S3 (xcodegen-link OsaurusCore, Pro-gated).
+See `LocalPackages/osaurus/VENDOR.md` + `scripts/update-osaurus.sh` (one-command re-vendor).
+
 ## 🆕 COMPLETENESS / DISCOVERY-SWEEP MANDATE (owner 2026-06-21)
 **Owner (verbatim):** *"i want to make sure that even things i'm not mentioning are taken into account
 because there may be other surfaces affected — make sure the plan reasons about this as well."*
