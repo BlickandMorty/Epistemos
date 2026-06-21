@@ -69,3 +69,15 @@ but certainly still do it."*
   (c) data migrated, (d) OWNER authorizes. Until all four: quarantine only.
 - **Provenance/MAS:** Osaurus vendored MIT (direct_import, LICENSE kept); act core stays MAS-native
   in-process; heavy VM/relay stay Pro/excluded.
+
+### Remaining gaps to fold in (monitor 2026-06-21, owner asked "anything missing?")
+- **WORK mode too:** clone/port for the work surface (Goose/OpenCode), not just act — same quarantine +
+  porting + surface-wiring rules apply.
+- **Streaming/thinking/tool fidelity:** act MUST honor the NON-NEGOTIABLES — stream every token, preserve
+  thinking blocks + signatures, real tool-call parsing. Carry these from chat, prove them in act.
+- **Per-model profiles in "Epistemos Picks":** each model gets its research-capability profile + a brief
+  use-case description in the picker (owner's earlier request) — port that logic, don't lose it.
+- **Skills / MCP / tool-tier + Keychain:** wire act to the existing skills/MCP/tool-tier bridges; API
+  keys stay in Keychain (never UserDefaults).
+- **Test-parity gate:** act reaches equivalent test coverage (real-state) before chat retires — part of
+  the delete-only-after bar.
