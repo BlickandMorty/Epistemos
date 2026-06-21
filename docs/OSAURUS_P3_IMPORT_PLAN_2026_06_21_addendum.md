@@ -46,3 +46,22 @@ Known surfaces (enumerate + verify none missed):
 IMPLEMENTATION INTENT: factor the act/Osaurus composer + capability set into a SHARED component reused by
 every surface (one source of truth → no per-surface drift), each wired to its real proven front-end per
 the surface-wiring rule. The chat→act transition applies uniformly; no chat surface stays on the old path.
+
+## 🆕 COMPLETENESS / DISCOVERY-SWEEP MANDATE (owner 2026-06-21)
+**Owner (verbatim):** *"i want to make sure that even things i'm not mentioning are taken into account
+because there may be other surfaces affected — make sure the plan reasons about this as well."*
+
+The enumerated lists in this plan (chat surfaces, Osaurus surfaces, IP pieces) are STARTING POINTS, NOT
+exhaustive. Before + during the act/Osaurus build, run a SYSTEMATIC DISCOVERY SWEEP and reason about
+second-order effects — do not rely only on named items:
+- **Find every consumer** of the chat backend / inference resolution / model picker / tools / capability
+  pills / streaming, by code search (e.g. grep `InferenceState`, `EpistemosRuntimePicker`,
+  `setPreferredChatModelSelection`, runtime/brain pickers, tool icons, capability pills, any view that
+  sends a prompt). Each is a candidate surface for the chat→act upgrade or the quarantine/porting cycles.
+- **Any surface that touches the old chat path** must be explicitly accounted for: upgraded to act, or
+  quarantined+ported, or deliberately marked out-of-scope with a reason — never silently missed.
+- **Reason about ripple effects:** settings, onboarding/landing, command palette, sidebars, widgets,
+  notifications, deep links, tests/fixtures, and anything depending on removed/changed chat behavior.
+- **Standing rule:** treat completeness as a first-class acceptance gate — a "completeness critic" pass
+  each cycle asks "what surface/consumer did we miss?" and adds findings to the ledger. Nothing the owner
+  didn't name should fall through the cracks.

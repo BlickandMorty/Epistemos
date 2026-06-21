@@ -115,3 +115,6 @@ unfinished work is either a canon commit or an explicit ledger item, never a flo
 
 ## 🆕 ALL CHATS GET ACT POWERS
 Every chat surface (main ChatView, MiniChat, Note chat/NoteChatSidebar, Graph chat/Hologram*) gets the SAME chat→act/Osaurus upgrade (tools, model picker + Epistemos Picks, no-fallback, streaming/thinking fidelity) via a SHARED act composer — not just main chat. Sweep for any missed chat entry point. See OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md.
+
+## 🆕 COMPLETENESS / DISCOVERY-SWEEP
+The named surface lists are STARTING POINTS, not exhaustive. Run a systematic discovery sweep (grep InferenceState / EpistemosRuntimePicker / setPreferredChatModelSelection / tool icons / capability pills / any prompt-sending view) to find EVERY consumer of the chat backend / inference / picker / tools. Each must be upgraded to act, or quarantined+ported, or deliberately marked out-of-scope with a reason — never silently missed. Reason about ripple effects (settings, landing, command palette, sidebars, widgets, tests). Run a "completeness critic" each cycle: "what did we miss?" -> ledger. See addendum.
