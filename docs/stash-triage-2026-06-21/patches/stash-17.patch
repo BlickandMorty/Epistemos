@@ -1,0 +1,367 @@
+# stash@{17}: stash@{17}: On master: wip-multi-terminal-recovery-2026-05-18: lib.rs + acs_admission/ + docs/falsifiers/
+# === TRACKED changes (filtered: no build artifacts) ===
+diff --git a/agent_core/src/lib.rs b/agent_core/src/lib.rs
+index 90a0e0d53..3d6b0e3f6 100644
+--- a/agent_core/src/lib.rs
++++ b/agent_core/src/lib.rs
+@@ -1,4 +1,5 @@
+ pub mod a2ui;
++pub mod acs_admission;
+ pub mod agent_loop;
+ pub mod agent_runtime;
+ pub mod approval;
+# === UNTRACKED new files (filtered) ===
+diff --git a/agent_core/src/acs_admission/mod.rs b/agent_core/src/acs_admission/mod.rs
+new file mode 100644
+index 000000000..67cab4839
+--- /dev/null
++++ b/agent_core/src/acs_admission/mod.rs
+@@ -0,0 +1,300 @@
++//! ACS admission field.
++//!
++//! ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack)
++//! admission is a policy boundary above SCOPE-Rex. It is intentionally
++//! pure-data: it does not call cloud providers, run inference, or apply
++//! durable state changes directly.
++
++use serde::{Deserialize, Serialize};
++
++use crate::effect::receipt::Capability;
++
++/// Risk vector evaluated by ACS admission before a request can become
++/// durable or promote into a stronger runtime lane.
++#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
++pub struct ACSRiskVector {
++    pub truth_risk: f32,
++    pub safety_risk: f32,
++    pub privacy_risk: f32,
++    pub capability_risk: f32,
++    pub durability_risk: f32,
++    pub scope_rex_risk: f32,
++    pub kernel_promotion_risk: f32,
++    pub model_adaptation_risk: f32,
++    pub evidence_present: bool,
++}
++
++impl ACSRiskVector {
++    pub const fn neutral() -> Self {
++        Self {
++            truth_risk: 0.0,
++            safety_risk: 0.0,
++            privacy_risk: 0.0,
++            capability_risk: 0.0,
++            durability_risk: 0.0,
++            scope_rex_risk: 0.0,
++            kernel_promotion_risk: 0.0,
++            model_adaptation_risk: 0.0,
++            evidence_present: true,
++        }
++    }
++
++    pub fn validate(&self) -> Result<(), ACSRiskVectorError> {
++        for (field, value) in self.fields() {
++            if !value.is_finite() {
++                return Err(ACSRiskVectorError::NonFinite { field });
++            }
++            if !(0.0..=1.0).contains(&value) {
++                return Err(ACSRiskVectorError::OutOfRange { field });
++            }
++        }
++        Ok(())
++    }
++
++    pub fn max_axis(&self) -> f32 {
++        self.fields()
++            .into_iter()
++            .map(|(_, value)| value)
++            .fold(0.0, f32::max)
++    }
++
++    fn fields(&self) -> [(&'static str, f32); 8] {
++        [
++            ("truth_risk", self.truth_risk),
++            ("safety_risk", self.safety_risk),
++            ("privacy_risk", self.privacy_risk),
++            ("capability_risk", self.capability_risk),
++            ("durability_risk", self.durability_risk),
++            ("scope_rex_risk", self.scope_rex_risk),
++            ("kernel_promotion_risk", self.kernel_promotion_risk),
++            ("model_adaptation_risk", self.model_adaptation_risk),
++        ]
++    }
++}
++
++/// Defensive validation failures for [`ACSRiskVector`].
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum ACSRiskVectorError {
++    NonFinite { field: &'static str },
++    OutOfRange { field: &'static str },
++}
++
++impl ACSRiskVectorError {
++    pub const fn cause(&self) -> &'static str {
++        match self {
++            Self::NonFinite { .. } => "non_finite_risk_axis",
++            Self::OutOfRange { .. } => "risk_axis_out_of_range",
++        }
++    }
++
++    pub const fn field(&self) -> &'static str {
++        match self {
++            Self::NonFinite { field } | Self::OutOfRange { field } => field,
++        }
++    }
++}
++
++/// Admission operation family used by policy capability rules.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
++#[serde(rename_all = "snake_case")]
++pub enum ACSOperationKind {
++    MutationEnvelope,
++    ActiveAssemblyPacket,
++    AnswerPacket,
++    MemoryWrite,
++    ToolAction,
++    KernelPromotion,
++    ModelAdaptation,
++}
++
++/// Risk thresholds for policy verdict selection.
++#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
++pub struct ACSRiskThresholds {
++    pub warn_at: f32,
++    pub defer_at: f32,
++    pub quarantine_at: f32,
++    pub reject_at: f32,
++}
++
++impl ACSRiskThresholds {
++    pub const fn standard() -> Self {
++        Self {
++            warn_at: 0.35,
++            defer_at: 0.55,
++            quarantine_at: 0.75,
++            reject_at: 0.9,
++        }
++    }
++
++    fn validate(&self) -> Result<(), ACSPolicyError> {
++        for (field, value) in [
++            ("warn_at", self.warn_at),
++            ("defer_at", self.defer_at),
++            ("quarantine_at", self.quarantine_at),
++            ("reject_at", self.reject_at),
++        ] {
++            if !value.is_finite() || !(0.0..=1.0).contains(&value) {
++                return Err(ACSPolicyError::Malformed { field });
++            }
++        }
++
++        if !(self.warn_at <= self.defer_at
++            && self.defer_at <= self.quarantine_at
++            && self.quarantine_at <= self.reject_at)
++        {
++            return Err(ACSPolicyError::Malformed {
++                field: "risk_threshold_order",
++            });
++        }
++
++        Ok(())
++    }
++}
++
++/// One capability requirement bound to an ACS operation family.
++#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
++pub struct ACSCapabilityRule {
++    pub operation: ACSOperationKind,
++    pub capability: Capability,
++}
++
++impl ACSCapabilityRule {
++    pub fn new(operation: ACSOperationKind, capability: Capability) -> Self {
++        Self {
++            operation,
++            capability,
++        }
++    }
++}
++
++/// Policy carried into ACS admission. It is data-only and request-scoped.
++#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
++pub struct ACSPolicy {
++    pub policy_id: String,
++    pub version: u32,
++    pub valid_from_ms: i64,
++    pub expires_at_ms: Option<i64>,
++    pub thresholds: ACSRiskThresholds,
++    #[serde(default)]
++    pub required_capabilities: Vec<ACSCapabilityRule>,
++}
++
++impl ACSPolicy {
++    pub fn strict(policy_id: impl Into<String>, valid_from_ms: i64) -> Self {
++        Self {
++            policy_id: policy_id.into(),
++            version: 1,
++            valid_from_ms,
++            expires_at_ms: Some(valid_from_ms + 60_000),
++            thresholds: ACSRiskThresholds::standard(),
++            required_capabilities: Vec::new(),
++        }
++    }
++
++    pub fn validate_at(&self, now_ms: i64) -> Result<(), ACSPolicyError> {
++        if self.policy_id.trim().is_empty() {
++            return Err(ACSPolicyError::Malformed { field: "policy_id" });
++        }
++        if self.version == 0 {
++            return Err(ACSPolicyError::Malformed { field: "version" });
++        }
++        if now_ms < self.valid_from_ms {
++            return Err(ACSPolicyError::NotYetValid);
++        }
++        if self.expires_at_ms.is_some_and(|expires_at_ms| now_ms > expires_at_ms) {
++            return Err(ACSPolicyError::Expired);
++        }
++        self.thresholds.validate()
++    }
++
++    pub fn require_capability(
++        mut self,
++        operation: ACSOperationKind,
++        capability: Capability,
++    ) -> Self {
++        self.required_capabilities
++            .push(ACSCapabilityRule::new(operation, capability));
++        self
++    }
++
++    pub fn required_for(&self, operation: ACSOperationKind) -> Vec<Capability> {
++        self.required_capabilities
++            .iter()
++            .filter(|rule| rule.operation == operation)
++            .map(|rule| rule.capability.clone())
++            .collect()
++    }
++}
++
++/// Defensive policy validation failures.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum ACSPolicyError {
++    Expired,
++    NotYetValid,
++    Malformed { field: &'static str },
++}
++
++impl ACSPolicyError {
++    pub const fn cause(&self) -> &'static str {
++        match self {
++            Self::Expired => "expired_policy",
++            Self::NotYetValid => "policy_not_yet_valid",
++            Self::Malformed { .. } => "malformed_policy",
++        }
++    }
++
++    pub const fn field(&self) -> Option<&'static str> {
++        match self {
++            Self::Malformed { field } => Some(field),
++            Self::Expired | Self::NotYetValid => None,
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn acs_admission_forged_risk_vector_is_rejected() {
++        let mut forged = ACSRiskVector::neutral();
++        forged.durability_risk = f32::NAN;
++
++        let err = forged.validate().unwrap_err();
++        assert_eq!(err.cause(), "non_finite_risk_axis");
++        assert_eq!(err.field(), "durability_risk");
++
++        forged.durability_risk = 1.01;
++        let err = forged.validate().unwrap_err();
++        assert_eq!(err.cause(), "risk_axis_out_of_range");
++        assert_eq!(err.field(), "durability_risk");
++    }
++
++    #[test]
++    fn acs_admission_neutral_risk_vector_is_well_formed() {
++        let risk = ACSRiskVector::neutral();
++        assert!(risk.validate().is_ok());
++        assert_eq!(risk.max_axis(), 0.0);
++        assert!(risk.evidence_present);
++    }
++
++    #[test]
++    fn acs_admission_expired_policy_is_denied() {
++        let policy = ACSPolicy::strict("policy-expired", 1_000);
++        let err = policy.validate_at(61_001).unwrap_err();
++
++        assert_eq!(err.cause(), "expired_policy");
++        assert_eq!(err.field(), None);
++    }
++
++    #[test]
++    fn acs_admission_malformed_policy_is_denied() {
++        let mut policy = ACSPolicy::strict("policy-malformed", 1_000);
++        policy.thresholds.quarantine_at = 0.4;
++        policy.thresholds.reject_at = 0.3;
++
++        let err = policy.validate_at(1_001).unwrap_err();
++        assert_eq!(err.cause(), "malformed_policy");
++        assert_eq!(err.field(), Some("risk_threshold_order"));
++    }
++}
+diff --git a/docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md b/docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md
+new file mode 100644
+index 000000000..a9642d997
+--- /dev/null
++++ b/docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md
+@@ -0,0 +1,42 @@
++---
++state: t23b-m2-pro-falsifier-handbook
++created_on: 2026-05-18
++hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s
++branch: codex/t23b-m2pro-falsifier-handbook-2026-05-18
++---
++
++# M2 Pro Verified Floor Handbook - 2026-05-18
++
++This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB unified memory, approximately 200 GB/s memory bandwidth. A gate is not marked passed unless this repo contains evidence: a commit SHA, a recorded command, and a passing output artifact.
++
++## Canon
++
++- Prompt deck: `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 `T23B - M2 Pro Falsifier Handbook`.
++- Forever-loop discipline: `docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md` §3.5.
++- Hardware lock: `docs/CLAUDE_NO_COMPROMISE_SUBSTRATE_HANDOFF_2026_05_18.md`.
++- V6.2 falsifier ladder: `docs/fusion/helios v6.2.md` §1.4 and `Falsifier order`.
++- UAS-ACS sort: `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5.
++
++## Run-First Order
++
++1. F-Eidos-ClosedCitation
++2. F-PageGather-Baseline
++3. F-UAS-CopyCount
++4. F-ULP-Oracle
++5. F-KV-Direct-Gate
++6. F-SemiseparableBlockScan
++7. F-LocalRecallIsland
++
++The remaining gates are still required and are cataloged below as the loop fills the handbook.
++
++## Falsifier Rows
++
++| Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
++|---|---|---|---|---|---|---|---|---|---|
++| F-Eidos-ClosedCitation | Prove Eidos V0 only lets chat/model output cite source IDs returned in an `EidosContextPacket`, with visible source trace. | NOT IMPLEMENTED. On this branch, `agent_core/src/eidos/` and `Epistemos/Eidos/` are absent; no closed-citation falsifier script exists. | Seed corpus with one note hit, one `.epdoc` projection hit, one code hit, one graph-neighborhood hit, one duplicate source, one fake citation ID, one empty-vault query, and one unicode query. | All generated citations must be members of the returned Eidos context packet; fake citation rejection must be explicit; empty/no-result cases defer instead of fabricating. | Source-truth is not sealed: Brain Panel/chat can display or emit unsupported citations, breaking the witness law before web augmentation. | Keep Eidos V0 local-only; block Brain Panel closed-citation claims; route through existing vault/source trace until T10/T22B land evidence. | Core now; Pro/Research web augmentation later. | `tools/falsifiers/f_eidos_closed_citation.sh` | `artifacts/falsifiers/f_eidos_closed_citation/result.json` plus the returned context packet and rejected fake-citation trace. |
++| F-VaultRecall-50 | Prove topical vault recall does not return the first irrelevant index-order notes and surfaces enough candidates plus trace to make retrieval honesty visible. | PARTIAL EVIDENCE, NOT FULLY PASSED. `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` records Fix B at commit `2281c73f0` and `cargo test --manifest-path agent_core/Cargo.toml --lib` → 1194 passed, plus `strip_query_chatter` 4/4. The broader T21 contract still requires full-manifest inventory, 50-200 candidate retrieval, and visible lexical/semantic/graph/recency/MMR trace across entry points. No T23B script exists. | Vault fixture with at least 50 notes: 7 distractor notes matching chatty terms, 3+ residency-governance target notes, unicode notes, stopword-only query, single-word query, multi-paragraph query, and no-result query. | For `Pull my notes on residency governance`, top packed context includes the residency-governance targets, never just index-order distractors; retrieval considers the full manifest, gathers 50-200 candidates before packing, emits trace components, and weak evidence asks/broadens instead of pretending. | The app still cannot be trusted to find the user's own notes; ceiling research and closed citations become decoration over broken recall. | Keep Fix B query-chatter stripping; block ship claims on full vault context until T21 proves inventory completeness, trace visibility, and broad candidate retrieval. | Core / V1 credibility gate. | `tools/falsifiers/f_vault_recall_50.sh` | `artifacts/falsifiers/f_vault_recall_50/trace.jsonl`, candidate manifest, packed context, and source-trace summary. |
++| F-PageGather-Baseline | Calibrate the M2 Pro contiguous-memory floor that every PageGather scatter threshold depends on. | NOT IMPLEMENTED as a hardware gate. `Epistemos/Shaders/PageGather.metal` and `agent_core/src/helios/page_gather.rs` exist as substrate scaffolding, but `docs/ACCEPTANCE_PROOFS_V6_1_2026_05_16.md` explicitly caveats Helios kernel hardware validation as separate; no `falsifier_calibration.toml` or T23B script exists. | STREAM-on-Metal-style contiguous read probe over 256 MB, 512 MB, and 1 GB buffers; 5 runs per size; each measurement window must be at least 1.0 s. | Record median `BW_baseline_M2Pro` per buffer and overall. Canon expects the local sustained band to drive later thresholds, commonly 63-73 GB/s after recalibration, never 70% of theoretical 200 GB/s. | Scatter gates become numerology: using theoretical or sub-second burst bandwidth would either create an impossible pass bar or hide memory-path regressions. | If `BW_baseline_M2Pro` is below 60 GB/s, lower the scatter pass band to at least 65% of the measured baseline and document the rig state; do not pretend. | Research / V2 falsifier-gated; MAS-safe only after measured floor exists. | `tools/falsifiers/f_page_gather_baseline.sh` | `artifacts/falsifiers/page_gather/baseline/falsifier_calibration.toml` plus raw per-run timing JSONL. |
++| F-PageGather-Scatter | Prove the active-support memory law by measuring PageGather scatter against the locally measured contiguous baseline. | NOT IMPLEMENTED as a hardware gate. `pageGatherScatter` and `pageGatherScatterScaled` exist in `Epistemos/Shaders/PageGather.metal`, and the CPU reference exists in `agent_core/src/helios/page_gather.rs`; no Swift dispatcher, M2 Pro timing run, or T23B script evidence exists. | Random page-stride index lists over 256 MB and 512 MB source buffers, plus sequential control indices; use the `BW_baseline_M2Pro` artifact from F-PageGather-Baseline. | Sustained scatter throughput is at least 70% of `BW_baseline_M2Pro` over windows of at least 1.0 s for the required working sets; output bytes match the CPU reference. | Active-support page movement is too slow or unverified; LocalRecallIsland and memory-tier claims cannot use PageGather as their bandwidth floor. | Do not run scatter without a baseline. If baseline is low but documented, use the documented lowered percentage route from F-PageGather-Baseline; otherwise keep PageGather feature-gated. | Research / V2 falsifier-gated; MAS Tier-2 only after gate evidence. | `tools/falsifiers/f_page_gather_scatter.sh` | `artifacts/falsifiers/page_gather/scatter/result.json`, raw timings, baseline reference, and CPU-vs-Metal correctness digest. |
++| F-UAS-CopyCount | Prove the Unified Address Space claim by counting actual copies across the Swift/Rust/Metal/MLX/KV hot path for one addressed payload. | NOT IMPLEMENTED. Canon and code contain zero-copy surfaces (`MTLStorageModeShared`, mapped note body, KV-Direct substrate), but no copy-count harness or T23B script exists. Do not promote UAS metadata into a measured zero-copy claim. | One UAS-addressed payload with stable ID, content hash, byte range, residency lease, provenance link, shared `MTLBuffer.storageModeShared` or mmap backing, and KV/Metal consumer path. | Hot path performs zero tensor/data copies after the shared backing is created; any allowed metadata copies are enumerated and byte-counted; the artifact records allocation/copy sites with stack labels. | UAS is only an address doctrine, not a verified memory substrate; KV-Direct, PageGather, and active-support claims must not inherit zero-copy language. | Fall back to boring UAS/UASA metadata first: stable addresses, content hashes, residency leases, and provenance IDs; keep model/KV pages Research-gated until copy count is measured. | Core metadata now; Research/V2 for model/KV pages. | `tools/falsifiers/f_uas_copy_count.sh` | `artifacts/falsifiers/uas_copy_count/result.json` with per-hop copy counts, byte totals, and allowed metadata-copy ledger. |
++| F-ACS-AnchorLookup | Prove ACS (Anchored Cognitive Substrate) anchors can be looked up, audited, and projected without losing theorem, plane, residency, source, or active-packet identity. | NOT IMPLEMENTED. `epistemos-research/src/acs.rs` provides research-only `AcsAnchor` and `CmsXField`, but the current anchor shape is only `anchor_id`, `theorem_id`, and `salience`; it is not the full anchor-addressing gate and no T23B script exists. | Typed anchor fixture with theorem tag, plane coordinate, residency tier, source hash, active packet ID, compatibility edge, and one intentionally invalid theorem ID. | Valid anchor round-trips through lookup, audit, and projection with all fields intact; invalid theorem IDs fail closed; ACS naming uses the canon split: Anchored Cognitive Substrate for code/structure and Autopoietic Cognitive Stack for process doctrine. | ACS becomes unfalsifiable branding; downstream admission, governance, and five-plane projection could silently lose provenance or plane placement. | Keep ACS research-only and never MAS-shipping; use UAS metadata and explicit provenance links until T18B ACS admission and anchor lookup evidence land. | Research-only now; V2 feature-gated if promoted. | `tools/falsifiers/f_acs_anchor_lookup.sh` | `artifacts/falsifiers/acs_anchor_lookup/result.json` with round-trip field digest and invalid-anchor rejection trace. |
++| F-InterruptScore-CPU | Verify the V6.2 interrupt equation on the canonical Swift CPU path, not an always-on Metal kernel. | PARTIAL EVIDENCE, NOT FULLY PASSED. `Epistemos/Engine/InterruptScoreCpu.swift` implements the five-term equation and `EpistemosTests/InterruptScoreCpuTests.swift` contains a 10,000-iteration P99 test with 500 µs CI headroom. The canon's exact falsifier remains P99 < 100 µs over 10^5 trials, and no T23B artifact script exists. | Synthetic and corpus-derived `InterruptScoreInputs` covering LOW/MED/HIGH calibration cases, NaN/Inf clamps, all-zero, all-one, and route-change observer inputs. | `u_t = 0.30H + 0.25WBO + 0.20Sheaf + 0.15ToolNeed + 0.10ConnectomeAlarm`; output in [0,1]; bucket boundaries at 0.25 and 0.65; P99 compute latency < 100 µs over 100,000 trials on the M2 Pro expected path. | Attention-as-interrupt cannot be trusted for single-token routing; GPU dispatch may be overkill and CPU path may still be too slow or incorrectly bucketed. | Keep CPU path canonical but gate routing effects; use static 9:1 fallback or batch-only Metal shadow for >=64-token lanes until the exact P99 artifact passes. | MAS-safe Tier-1 once exact P99 artifact exists. | `tools/falsifiers/f_interrupt_score_cpu.sh` | `artifacts/falsifiers/interrupt_score_cpu/result.json` with p50/p95/p99, bucket confusion table, and input-clamp checks. |

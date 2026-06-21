@@ -1,0 +1,76 @@
+# stash@{13}: stash@{13}: On codex/t11-agent-runtime-v2-2026-05-18: PRE-CURSOR-HANDOFF-1779175040
+# === TRACKED changes (filtered: no build artifacts) ===
+diff --git a/agent_core/src/agent_runtime_v2/capability.rs b/agent_core/src/agent_runtime_v2/capability.rs
+index 1fcbc55fa..afcb79e4d 100644
+--- a/agent_core/src/agent_runtime_v2/capability.rs
++++ b/agent_core/src/agent_runtime_v2/capability.rs
+@@ -2092,6 +2092,68 @@ mod tests {
+         ));
+     }
+ 
++    #[test]
++    fn restrict_appends_caveat_at_end_preserving_existing_order_byte_for_byte() {
++        // Phase 1 hardening — macaroon caveat property pin (companion
++        // to restrict_preserves_base_fields iter-560 + 5-restrict
++        // monotonicity). When restrict() runs against a macaroon that
++        // already has N caveats, the new caveat MUST land at index N
++        // (the END) and the original N caveats MUST be byte-equal to
++        // their pre-restrict positions (no reorder, no dedup, no
++        // canonicalisation).
++        //
++        // A future "let me sort caveats canonically before storing"
++        // optimisation would silently change caveat order — breaking
++        // the order-dependent ScopePrefix composition doctrine
++        // (which depends on the FIRST narrower prefix winning) and
++        // would invalidate the signature chain (HMAC processes in
++        // append order).
++        //
++        // Pin appends 3 caveats in sequence and asserts at each step
++        // that all N+1 caveats are exactly the (N earlier + new)
++        // sequence.
++        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
++        let key = root_key_a();
++        let base = issue(
++            "appends-end-session",
++            CapabilityKind::ToolInvoke("vault.read".into()),
++            CapabilityScope("vault".into()),
++            Some(10_000),
++            &key,
++        );
++        let to_apply = [
++            Caveat::ScopePrefix { prefix: "vault/notes".into() },
++            Caveat::ToolNameEq { name: "vault.read".into() },
++            Caveat::ExpiryAfter { until_ts_ms: 9_000 },
++        ];
++
++        let mut current = base.clone();
++        let mut accumulated: Vec<Caveat> = Vec::new();
++        for (i, caveat) in to_apply.iter().enumerate() {
++            current = restrict(&current, caveat.clone());
++            accumulated.push(caveat.clone());
++
++            assert_eq!(
++                current.caveats.len(),
++                accumulated.len(),
++                "step {i}: caveat count mismatch"
++            );
++            // Every caveat in `current` must byte-equal the matching
++            // index in `accumulated`. No reorder, no dedup, no rewrite.
++            for (j, expected) in accumulated.iter().enumerate() {
++                assert_eq!(
++                    &current.caveats[j], expected,
++                    "step {i}: caveat at index {j} must equal accumulated[{j}]"
++                );
++            }
++            // The newest caveat is at the END (index = step).
++            assert_eq!(
++                &current.caveats[i], caveat,
++                "step {i}: newest caveat must land at end (index {i})"
++            );
++        }
++    }
++
+     #[test]
+     fn restrict_preserves_base_fields_and_only_extends_caveats_chain_through_v2_surface() {
+         // Phase 1 hardening MILESTONE iter-560 — macaroon caveat
+# === UNTRACKED new files (filtered) ===

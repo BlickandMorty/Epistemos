@@ -1,0 +1,118 @@
+# stash@{1}: stash@{1}: On phase2-terminal-e-acs-gate-rev2-2026-05-24: preserve-terminal-e-actionable-doc-fragments-before-worktree-removal-2026-06-03
+# === TRACKED changes (filtered: no build artifacts) ===
+diff --git a/docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md b/docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md
+index 7a3ce257c..a17f36f26 100644
+--- a/docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md
++++ b/docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md
+@@ -6,6 +6,8 @@ Terminal E wires ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack
+ 
+ The Swift path calls `CSISafeguard.recordMeasurement(...)` before `CloudKnowledgeDistillationService` persists a compiled model vault. A low CSI value throws before `store.save(vault)`.
+ 
++Latest-main build hardening also marks the production `EidosBridge` static bridge methods `nonisolated` so Swift 6 default actor isolation does not break the existing W-47 citation gate. This is a build-correctness fix only; it does not change Eidos behavior.
++
+ ## Rev-2 PR Carry Fields
+ 
+ - Motion: Mutate / Promote. ACS admission decides whether a tool action or distillation write may become durable state; blocked verdicts remain witnessed without committing the action.
+@@ -14,10 +16,11 @@ The Swift path calls `CSISafeguard.recordMeasurement(...)` before `CloudKnowledg
+ - Residency: Tier 1 MAS for the production gate path. No Pro-only or Research-only runtime path is promoted by this PR.
+ - WBO: not an approximate transform, so no lattice budget is spent. Verdict accounting is the error policy: allow, warning, and blocked verdicts stay separate and auditable.
+ - Witness: `RunEventLog` ACS audit record, `SCOPERexAdmissionProof`, forged-signature test, source-order test for `CSISafeguard`, and this audit doc.
+-- Falsifier: W-46/W-47 proof boundary is tested locally. Canonical `F-ACS-Anchor-Addressing` is not claimed; it is blocked by missing `AcsAnchor` / `AnchorRegistry` / harness substrate on this branch.
++- Falsifier: W-46/W-47 proof boundary is tested locally. Canonical `F-ACS-Anchor-Addressing` PASS is not claimed because the typed-anchor harness is explicitly deferred out of Terminal E scope.
+ - Tier: Tier 1 (MAS), high risk because it gates execution and persistence.
+ - Rollback: disable `EPISTEMOS_ACS_ADMISSION_V0` for UI flag posture, revert callers to `MissionRun::record_event` / direct distillation persistence, or inject a `csiGateProvider` that returns `shouldContinue: true` while preserving the source-order seam for a follow-up fix.
+ - LLM-address granularity row: `Output schema` for typed tool-call / proof admission, plus `Whole-model call` metadata for per-model distillation vault gating. No KV-page, adapter, attention-head, parameter-anchor, or circuit addressing is claimed.
++- Incidental build fix: `EidosBridge` isolation has no new motion; it preserves the existing W-47 citation-gate witness path at `Output schema` granularity.
+ 
+ ## 7 Laws
+ 
+@@ -40,8 +43,8 @@ Data classes touched:
+ - W-46 advances to Rust-wired: `ACSRunEventLogSink::admit_and_record` fans verdicts into the OpLog, with v2 module exposure and focused tests.
+ - W-47 advances to partial-wired: `SCOPERexAdmissionProof { verdict, record_id, capability_signature }` exists under `scope_rex`, tool handoffs carry it, and forged signature mutation is rejected.
+ - W-25 advances to partial: Provenance Console rows render an inline `ACS verdict` field, but full AcsAnchor sorting/clickable detail remains blocked by missing row-level ACS anchor IDs.
+-- W-52 advances to wired-source-guarded-Xcode-cancelled: `CSISafeguard` has a production caller before distillation persistence and a low-CSI short-circuit test, but the targeted Xcode test run was cancelled during a Rust build step before Swift tests completed.
+-- F-ACS-Anchor-Addressing: unblocked at the ACS admission proof/address boundary; full M2 Pro PASS is not claimed because this branch does not contain the canonical `AcsAnchor` type, `AnchorRegistry`, or `agent_core/tests/acs_anchor_addressing.rs` harness required by `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md`.
++- W-52 advances to wired-source-guarded-Xcode-blocked: `CSISafeguard` has a production caller before distillation persistence and a low-CSI short-circuit test, but targeted Xcode verification is blocked by Swift 6 actor isolation in the test helper after three attempts.
++- F-ACS-Anchor-Addressing: unblocked only at the ACS admission proof/address boundary. Full M2 Pro PASS is not claimed because the canonical typed-anchor harness is deferred per `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`.
+ 
+ ## Tier Classification
+ 
+@@ -52,5 +55,5 @@ Tier 1 (MAS). This PR gates v2 tool execution and distillation persistence in MA
+ - PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r5_acs_tool_handoff`
+ - PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r4_acs_audit_snapshot_helper --test acs_admission_bridge`
+ - PASS: `rustup run stable cargo build --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,lsp-runtime --target x86_64-apple-darwin`
+-- CANCELLED/FAIL exit 65: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTerminalEACS -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/ProvenanceConsoleSourceGuardTests -only-testing:EpistemosTests/SearchFusionHealthRowTests test CODE_SIGNING_ALLOWED=NO -quiet`. The run reached the Rust bridge build and then reported `could not compile agent_core (lib)` with `rustc` exiting by signal 15 (`SIGTERM`), not a Rust diagnostic. The same direct Rust feature/target build above passed, so Swift test completion is not claimed.
+-- BLOCKED: canonical `F-ACS-Anchor-Addressing` M2 Pro PASS is not claimed. Required files from the falsifier spec are absent on this branch: `agent_core/src/research/acs/anchor.rs`, `agent_core/src/research/acs/anchor_registry.rs`, and `agent_core/tests/acs_anchor_addressing.rs`. See `docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`.
++- FAIL after three Xcode attempts: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/ProvenanceConsoleSourceGuardTests -only-testing:EpistemosTests/SearchFusionHealthRowTests test CODE_SIGNING_ALLOWED=NO -quiet`. The final blocker is `EpistemosTests/CloudKnowledgeDistillationTests.swift:565`, where `makeNote(...)` is main-actor isolated but called from a synchronous nonisolated provider closure. See `docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md`.
++- DEFERRED: canonical `F-ACS-Anchor-Addressing` M2 Pro PASS is not claimed. The typed-anchor four-stage harness is outside Terminal E's product-lane scope and remains deferred under D-27. See `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`.
+diff --git a/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md b/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
+index fccbddacc..f3f7cc5a1 100644
+--- a/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
++++ b/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
+@@ -350,7 +350,7 @@ load-bearing because future agents read those docs as authoritative.
+ | **W-49** | T09 audit iter-82 — `IMessageDriverService.swift` missing file-level `#if !EPISTEMOS_APP_STORE` guard | `Epistemos/Omega/iMessageDriver/IMessageDriverService.swift` | **App Store compliance — Pro-tier symbol leakage** | The `AppEnvironment.swift:39-41` `#if !EPISTEMOS_APP_STORE` guard correctly excludes the env-binding from MAS builds — but `IMessageDriverService.swift` itself has **no file-level guard**. The class compiles into App Store builds, just isn't injected. Compare to `Bridge/ComputerUseBridge.swift:1`, `Bridge/Phase4Bridge.swift:1`, `Harness/CompletionChecker.swift:1` which ALL have file-head `#if !EPISTEMOS_APP_STORE` guards. The asymmetry is the gap. Acceptance: add `#if !EPISTEMOS_APP_STORE` / `#endif` wrapping the entire file (matching the Bridge/* pattern) **OR** add CI build-matrix test that `nm` on `Epistemos.app/Contents/MacOS/Epistemos` lacks the `IMessageDriverService` symbol in App Store flavor. P2 (no current incident, but ship-hardening for Apple App Store review and a defense-in-depth). | P2 | none — fix is self-contained | NOT-STARTED |
+ | **W-50** | T09 audit iter-84 — `MemoryTier` enum vs prompt-deck canon divergence | `agent_core/src/cognitive_dag/edge.rs:118 pub enum MemoryTier` ⇆ T17B Lattice/WBO Register vocabulary | none (substrate vocabulary discipline) | Code has 5 variants (Hot=L0, Warm=L1, Cool=L2, Cold=L3, SelfEvolving=L_SE) — `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §"Preserve explicitly — Six/seven memory tiers" names 7 (L0 hot, L1 compressed residual, L2 shadow/sketch, L3 SSD oracle, **L4/L5 cascade/adapters**, L_SE self-evolving, **L7 quarantine**). 3-tier gap (L4/L5/L7) is undocumented. Per Jojo's overseer direction iter-84: **T09 must NOT add the missing variants — T17B Lattice/WBO Register canonicalizes the tier vocabulary FIRST**, then cognitive_dag mirrors. Acceptance: T17B publishes the canonical 7-tier mapping in `docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md`; cognitive_dag/edge.rs's `MemoryTier` enum is then updated to match (adds `Cascade(L4)`/`Adapter(L5)`/`Quarantine(L7)` variants), with serde-compat for old 5-tier `.epbundle` artifacts. | P2 | **DEPENDS ON T17B canonicalization** — cognitive_dag mirror waits for T17B | NOT-STARTED |
+ | **W-51** | T09 audit iter-94 — Pro-tier capability gating absent in MCP dispatch path | `omega-mcp/src/dispatcher.rs::execute` + catalog entries for `github` / `web_search` / `pty` subsystems | **Product-tier separation — Pro lane is design-only** | `rg "isPro\|ProTier\|pro_tier\|TierPro\|requirePro\|tierGate\|ProSubscription\|SubscriptionTier\|EntitlementService" /Users/jojo/Downloads/Epistemos-t09-product-ledger/Epistemos/` returns **empty** across all 252K lines of Swift. `rg "tier\|capability\|Pro\b\|gate" /Users/jojo/Downloads/Epistemos-t09-product-ledger/omega-mcp/src/catalog.rs` returns only JSON-schema descriptions, no admission gate. The `Subscription` matches in Swift are EventBus subjects (e.g. `AppCoordinator.swift:61` `// MARK: - EventBus Subscriptions`), not app-store subscriptions; no `StoreKit` import in `Epistemos/`. `omega-mcp/src/dispatcher.rs:308` performs only argument-schema validation before dispatch — github / web_search / pty all execute unconditionally for any caller that reaches the dispatcher. So the "Pro" lane labels in `docs/CURRENT_PRODUCT_ARCHITECTURE_LEDGER_2026_05_18.md` reflect **design-intent product separation**, NOT a current code gate. The falsifier `F-OmegaMCP-ProToolGating` is therefore unfalsifiable today because the feature it tests doesn't exist. Acceptance: either (i) implement an `OmegaMCPTierGate` admission layer in `dispatcher.rs::execute` that consults a `Capability::ProTier` token before invoking github/web_search/pty subsystems (plus Swift-side `EntitlementService` reading StoreKit / receipt validation), then add the falsifier as a runtime gate test; OR (ii) drop the Pro-tier lane labels from the ledger until the feature exists. | P2 | none — cross-terminal product-architecture decision; touches both Rust (`omega-mcp/src/dispatcher.rs`) and Swift (new `EntitlementService.swift`) | NOT-STARTED |
+-| **W-52** | T09 audit iter-134 — `CSISafeguard` implemented + unit-tested but not wired into the distillation pipeline | `Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift::actor CloudKnowledgeDistillationService` (write paths) | **Alignment safety — Catastrophic Subjective Interference guard is orphan** | `Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift:14 final class CSISafeguard` exists with `recordMeasurement(value:epoch:experimentId:) -> Bool` + `computeCSI() -> Double` + `reset()` + `triggerMeasurement`. `EpistemosTests/OmegaCSISafeguardTests.swift` has 8 `@Test` markers exercising the class in isolation (untriggered start / healthy CSI continues / drop below threshold halts / rapid decline detected / reset clears / computeCSI good/poor/empty arrays). **Gap**: `rg "CSISafeguard\.|safeguard\.recordMeasurement\|CSISafeguard\(" Epistemos/` (excluding `/MOHAWK/` training data) returns **only the class definition file** — zero production callers. The training-data references at `Epistemos/KnowledgeFusion/MOHAWK/*.jsonl` name `Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift` as the caller, but that file **does not exist in the repo** (`find Epistemos -name "OmegaTrainingCoordinator*"` returns empty — training data was generated against an aspirational caller that was never wired). The class is orphan; the distillation pipeline (`CloudKnowledgeDistillationService` actor at line 17) writes adapter shapes without any safeguard evaluation. Acceptance: (a) wire `CSISafeguard.recordMeasurement(...)` into every distillation-write callsite inside `CloudKnowledgeDistillationService` BEFORE the persistence step, AND (b) add an integration test that asserts a low-CSI value short-circuits the write. This satisfies CLAUDE.md "HONEST CAPABILITY GATING" — knowledge-fusion alignment must respect the safeguard, not bypass it. **P2** (no current incident; risk surface for adapter-drift catastrophic regressions). | P2 | none — self-contained in `Epistemos/KnowledgeFusion/` (Swift only) | WIRED-SOURCE-GUARDED-XCODE-CANCELLED (Terminal E adds `CSISafeguard.shared`, calls `recordMeasurement` before `store.save(vault)`, and adds low-CSI short-circuit/source-order tests. Direct Rust pro/lsp x86_64 build passes; targeted Xcode verification was cancelled during Rust bridge compile with SIGTERM before Swift tests completed.) |
++| **W-52** | T09 audit iter-134 — `CSISafeguard` implemented + unit-tested but not wired into the distillation pipeline | `Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift::actor CloudKnowledgeDistillationService` (write paths) | **Alignment safety — Catastrophic Subjective Interference guard is orphan** | `Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift:14 final class CSISafeguard` exists with `recordMeasurement(value:epoch:experimentId:) -> Bool` + `computeCSI() -> Double` + `reset()` + `triggerMeasurement`. `EpistemosTests/OmegaCSISafeguardTests.swift` has 8 `@Test` markers exercising the class in isolation (untriggered start / healthy CSI continues / drop below threshold halts / rapid decline detected / reset clears / computeCSI good/poor/empty arrays). **Gap**: `rg "CSISafeguard\.|safeguard\.recordMeasurement\|CSISafeguard\(" Epistemos/` (excluding `/MOHAWK/` training data) returns **only the class definition file** — zero production callers. The training-data references at `Epistemos/KnowledgeFusion/MOHAWK/*.jsonl` name `Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift` as the caller, but that file **does not exist in the repo** (`find Epistemos -name "OmegaTrainingCoordinator*"` returns empty — training data was generated against an aspirational caller that was never wired). The class is orphan; the distillation pipeline (`CloudKnowledgeDistillationService` actor at line 17) writes adapter shapes without any safeguard evaluation. Acceptance: (a) wire `CSISafeguard.recordMeasurement(...)` into every distillation-write callsite inside `CloudKnowledgeDistillationService` BEFORE the persistence step, AND (b) add an integration test that asserts a low-CSI value short-circuits the write. This satisfies CLAUDE.md "HONEST CAPABILITY GATING" — knowledge-fusion alignment must respect the safeguard, not bypass it. **P2** (no current incident; risk surface for adapter-drift catastrophic regressions). | P2 | none — self-contained in `Epistemos/KnowledgeFusion/` (Swift only) | WIRED-SOURCE-GUARDED-XCODE-BLOCKED (Terminal E adds `CSISafeguard.shared`, calls `recordMeasurement` before `store.save(vault)`, and adds low-CSI short-circuit/source-order tests. Rust targeted tests + direct pro/lsp x86_64 build pass. Targeted Xcode verification stopped after three failures; current blocker is Swift 6 actor isolation in `CloudKnowledgeDistillationTests.makeNote(...)` called from a nonisolated provider closure.) |
+ | **W-53** | T09 audit iter-158 — Model download `verifySnapshot` is structural-only; no SHA256 LFS hash verification before marking `installed` | `Epistemos/Engine/ModelDownloadManager.swift::verifySnapshot` (line 96-134) + external `HuggingFace.HubClient` download boundary | **Supply-chain integrity — local model weights** | Iter-741 path refresh: this worktree has no local `Epistemos/Engine/HubClient.swift`; `ModelDownloadManager.swift` imports `HuggingFace`, creates `HubCache`, and `makeClient(cache:)` returns `HubClient(session:cache:)` from that package. `rg -n "(BLAKE3\|SHA256\|sha256\|checksum\|verifyHash\|integrityHash\|x-linked-etag)" Epistemos/Engine/ModelDownloadManager.swift` returns no model-download integrity hits. SHA256 is used elsewhere in the codebase (`SDPage.swift:78` body-hash for dirty detection, `Security/CapabilityBridge.swift:234` HMAC capability signing, `MutationEnvelope.swift:295 integrityHash`, `Graph/EntityExtractor.swift:57` entity hashing) but **never in the model-download path**. The `verifySnapshot` function at `ModelDownloadManager.swift:96-134` is structural-only — checks revision-format (40-char SHA hex OR `"main"`), file presence (`config.json`, at least one non-zero `.safetensors`, a tokenizer file). No cryptographic content hash. HuggingFace LFS responses include SHA256 in the `x-linked-etag` header for LFS-tracked files, but the current `downloadSnapshot(...)` wrapper result is ignored and `ModelDownloadManager` never reads or compares that metadata. **Real security gap**: a corrupted or maliciously-substituted weights file would pass `verifySnapshot` as long as it has the right filename + non-zero size + a tokenizer alongside. Acceptance: (a) capture LFS SHA256 / `x-linked-etag` metadata at the HuggingFace download seam or wrap the snapshot download with per-file hash metadata; (b) stream response bodies through a SHA256 hasher (`CryptoKit.SHA256.update(_:)`); (c) reject installation if `streamed_hash != expected_hash`. Add a `@Test` injecting a corrupt-byte mock and asserting the install fails. P2 (no current incident; remediation deferred to security/inference). | P2 | none — local fix centers on `Epistemos/Engine/ModelDownloadManager.swift` plus the HuggingFace client adapter boundary | NOT-STARTED |
+ 
+ ## §13. Cross-references
+diff --git a/docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md b/docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md
+index c40b607e1..91b557509 100644
+--- a/docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md
++++ b/docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md
+@@ -1,5 +1,7 @@
+ # Decision Needed — ACS Anchor Addressing Scope
+ 
++Superseded by `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`. This file is preserved as the original ambiguity record; the resolved scope is Option 2, with canonical typed-anchor falsifier work deferred outside Terminal E.
++
+ ## Summary
+ 
+ Terminal E wires ACS admission as a production gate, but cannot honestly claim `F-ACS-Anchor-Addressing` PASS on this branch.
+# === UNTRACKED new files (filtered) ===
+diff --git a/docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md b/docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md
+new file mode 100644
+index 000000000..5038b0b1b
+--- /dev/null
++++ b/docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md
+@@ -0,0 +1,39 @@
++# Blocker — ACS Admission Xcode Verification
++
++## Summary
++
++Terminal E Rust verification passes on latest `main`, but targeted Xcode verification hit three consecutive build failures. Per the stop rule, no fourth Xcode attempt was run.
++
++## Passing Checks
++
++- PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r5_acs_tool_handoff`
++- PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r4_acs_audit_snapshot_helper --test acs_admission_bridge`
++- PASS: `rustup run stable cargo build --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,lsp-runtime --target x86_64-apple-darwin`
++
++## Failed Xcode Attempts
++
++Command shape for all attempts:
++
++```sh
++./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/ProvenanceConsoleSourceGuardTests -only-testing:EpistemosTests/SearchFusionHealthRowTests test CODE_SIGNING_ALLOWED=NO -quiet
++```
++
++1. DerivedData `/tmp/EpistemosTerminalEACSRev2`, result bundle `build/xcode-results/2026-05-23-231959-82228.xcresult`.
++   Failure: Swift clients could not find generated UniFFI wrapper functions (`produceAnswerPacketJson`, `cognitiveDagStatsJson`, LSP functions, provenance functions). The generated `build-rust/swift-bindings/agent_core.swift` existed after the build phase but was not in the first Xcode source filelist. Retrying after generation moved past this.
++
++2. DerivedData `/tmp/EpistemosTerminalEACSRev2b`, result bundle `build/xcode-results/2026-05-23-232907-1953.xcresult`.
++   Failure: `ChatCoordinator+EidosCitationGate.swift` called `EidosBridge.validateCitations(packet:sourceIds:)` from a nonisolated static method, while Swift 6 default isolation treated the extension method as `MainActor`.
++   Mitigation applied: `Epistemos/Eidos/EidosBridge.swift` now marks the production static bridge methods and logger as `nonisolated`.
++
++3. DerivedData `/tmp/EpistemosTerminalEACSRev2c`, result bundle `build/xcode-results/2026-05-23-233611-14264.xcresult`.
++   Failure: `EpistemosTests/CloudKnowledgeDistillationTests.swift:565` calls the helper `makeNote(...)` from inside the synchronous nonisolated `sourceNotesProvider` closure. Under Swift 6 default isolation, the helper is main-actor isolated.
++
++## Likely Next Fix
++
++Make the CSI gate test's source note construction actor-correct before running Xcode again. The lowest-risk fix is to construct the `KnowledgeSourceNote` outside `sourceNotesProvider` and have the closure return the prebuilt value, or mark the helper `makeNote(...)` `nonisolated` if all of its inputs and return type are safe for that isolation.
++
++After that fix, rerun the same targeted Xcode command once.
++
++## Stop Rule
++
++This file is the required blocker doc after three consecutive Xcode build/test failures. No success is claimed for Swift/Xcode verification.

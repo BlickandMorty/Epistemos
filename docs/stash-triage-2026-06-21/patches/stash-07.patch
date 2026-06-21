@@ -1,0 +1,219 @@
+# stash@{7}: stash@{7}: On master: auto-pre-pull-after-72-merge
+# === TRACKED changes (filtered: no build artifacts) ===
+diff --git a/Epistemos/Eidos/EidosBridge.swift b/Epistemos/Eidos/EidosBridge.swift
+index 0b6e5d5c4..0bc74ad04 100644
+--- a/Epistemos/Eidos/EidosBridge.swift
++++ b/Epistemos/Eidos/EidosBridge.swift
+@@ -213,7 +213,7 @@ extension EidosBridge {
+     /// `sourceIds` slice here BEFORE committing the message. A
+     /// rejection MUST drop or rewrite the answer; never ship a chat
+     /// row whose source_ids don't validate.
+-    public static func validateCitations(
++    nonisolated public static func validateCitations(
+         packet: EidosContextPacket,
+         sourceIds: [EidosChunkId]
+     ) -> CitationValidation {
+diff --git a/docs/audits/VAULT_RECALL_VISIBILITY_2026_05_24.md b/docs/audits/VAULT_RECALL_VISIBILITY_2026_05_24.md
+index c947913c0..816c5365e 100644
+--- a/docs/audits/VAULT_RECALL_VISIBILITY_2026_05_24.md
++++ b/docs/audits/VAULT_RECALL_VISIBILITY_2026_05_24.md
+@@ -6,14 +6,15 @@ Terminal B wires visible vault-recall provenance into chat answers and adjacent
+ Tier classification: **Tier 1 (MAS)**.
+ 
+ This work advances W-19, W-20, W-21, W-23, and W-27. It does not add Pro,
+-Research, or Vault-shipping behavior. Terminal A remains the dependency for
+-the closed-citation contract end-to-end; this pass records and exposes recall
+-trace data, but cannot claim the Eidos bridge citation contract until Terminal A
+-lands.
++Research, or Vault-shipping behavior. Terminal A's Eidos bridge is now present
++on `main`; this pass records and exposes recall trace data and fixes the batch
++validator isolation needed by the chat citation gate, but the focused tests did
++not exercise a full live chat closed-citation emit path.
+ 
+-Process note: verification stopped while the worktree was on
+-`docs/deferred-work-guarantee-2026-05-23` (`cd0c33165b`), not a fresh Terminal B
+-branch from `main`. See `VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md`.
++Process note: the first verification loop stopped on the user-defined
++three-failure rule while an older dirty branch was active. The resumed pass ran
++from current `main` on `phase2-terminal-b-vault-recall-tests-2026-05-24`; see
++`VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md` for the stop/resume trail.
+ 
+ ## Audit
+ 
+@@ -117,38 +118,49 @@ Secondary alignment:
+ 
+ Falsifiers:
+ 
+-- `F-VaultRecall-50`: must still be run on M2 Pro for final acceptance.
+-- W-23 rg gate: validates that chat retrieval surfaces do not regress to
+-  index-order `LIMIT N` context construction.
++- `F-VaultRecall-50`: passed in the resumed verification run using the explicit
++  local stable Rust toolchain selector.
++- W-23 rg gate: passed; chat retrieval surfaces did not regress to index-order
++  `LIMIT N` context construction.
+ 
+ ## Verify
+ 
+-Completed:
+-
+-- `bash scripts/check-vault-context-contract.sh` passed.
+-- Direct rg gate over `ChatCoordinator.swift`, `Epistemos/Views/Chat`, and
+-  `Epistemos/Views/Halo` returned zero hits for `LIMIT N` / first-notes
+-  patterns.
+-
+-Failed/stopped:
+-
+-- Focused Xcode tests did not complete before the stop condition. See
+-  `docs/audits/VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md`.
+-- The first attempt failed on a shared DerivedData build database lock.
+-- The second attempt failed on `EventStore.appendVaultRecallTrace` actor
+-  isolation; patched.
+-- The third attempt failed on a missing `vaultRecallTrace` argument in
+-  `MiniChatView`; patched.
+-- No fourth build/test run was started after the third consecutive failure.
+-
+-Not run:
+-
+-- `F-VaultRecall-50` remains to be run and reported honestly.
+-
+-Blocked/waived:
+-
+-- Closed-citation end-to-end remains dependent on Terminal A Eidos bridge.
+-  This is not waived for acceptance; it is a dependency boundary.
++Completed in the resumed pass:
++
++- Focused Xcode tests:
++  `./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS,arch=arm64' -derivedDataPath build/derived-data-terminal-b -only-testing:EpistemosTests/AnswerPacketBadgeTests -only-testing:EpistemosTests/VaultRecallWiringTests CODE_SIGNING_ALLOWED=NO`
++  passed.
++  - Swift Testing reported 10 tests passed across
++    `AnswerPacketBadgeTests` and `VaultRecallWiringTests`.
++  - XCTest also reported 0 selected XCTest failures.
++- W-23 gate:
++  `bash scripts/check-vault-context-contract.sh` passed with
++  "Vault context contract OK".
++- F-VaultRecall-50:
++  `cargo +stable-aarch64-apple-darwin test --manifest-path agent_core/Cargo.toml --test f_vault_recall_50 -- --nocapture`
++  passed.
++  - `canonical_chatty_prefix_row_passes_with_fix_b_trace`
++  - `summary_aggregates_run_all_outcomes_for_w21_diagnostics`
++  - `f_vault_recall_50_canonical_rows_against_seeded_vault`
++
++Earlier stopped attempts:
++
++- First attempt failed on a shared DerivedData build database lock.
++- Second attempt failed on `EventStore.appendVaultRecallTrace` actor isolation;
++  patched before this resumed pass.
++- Third attempt failed on a missing `vaultRecallTrace` argument in
++  `MiniChatView`; patched before this resumed pass.
++- Resumed attempt initially exposed Terminal A gate isolation:
++  `EidosBridge.validateCitations(packet:sourceIds:)` was main-actor isolated
++  under `-default-isolation=MainActor` while the chat gate is intentionally
++  nonisolated. This pass fixed the bridge by marking the batch validator
++  `nonisolated`.
++
++Remaining caveat:
++
++- Terminal A's Eidos bridge is now present on `main`, and this pass fixed the
++  batch validator isolation needed by the chat citation gate. The focused tests
++  did not exercise a full live chat closed-citation emit path.
+ 
+ ## Harden
+ 
+diff --git a/docs/audits/VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md b/docs/audits/VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md
+index 6ef18bfc1..d714361f9 100644
+--- a/docs/audits/VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md
++++ b/docs/audits/VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md
+@@ -19,11 +19,37 @@ Attempts:
+    the new `vaultRecallTrace` field. Patch applied:
+    `vaultRecallTrace: nil` is now provided on the no-context path.
+ 
+-No fourth build/test run was started after the third failure.
++No fourth build/test run was started after the third failure in that loop.
++
++## Resumed Verification
++
++After the user explicitly asked to continue, verification resumed from current
++`main` on branch `phase2-terminal-b-vault-recall-tests-2026-05-24`.
++
++The resumed Xcode run first exposed one additional compile issue from the
++Terminal A gate surface:
++
++- `ChatCoordinator.runEidosCitationGate` is intentionally nonisolated.
++- `EidosBridge.validateCitations(packet:sourceIds:)` was still inferred
++  main-actor isolated under the project-wide `-default-isolation=MainActor`
++  setting.
++- Patch applied: mark `EidosBridge.validateCitations(packet:sourceIds:)`
++  `nonisolated`, matching the synchronous Rust FFI validation contract.
++
++Verification after that patch:
++
++- Focused Xcode run passed:
++  `AnswerPacketBadgeTests` and `VaultRecallWiringTests`, 10 Swift Testing tests
++  passed.
++- W-23 gate passed:
++  `bash scripts/check-vault-context-contract.sh`.
++- F-VaultRecall-50 passed:
++  `cargo +stable-aarch64-apple-darwin test --manifest-path agent_core/Cargo.toml --test f_vault_recall_50 -- --nocapture`,
++  3 tests passed.
+ 
+ ## Current State
+ 
+-Implemented but not fully verified after the last patch:
++Implemented and focused-verified after resume:
+ 
+ - Chat vault recall traces are recorded and carried through chat state,
+   persisted message rows, and local RunEventLog events.
+@@ -32,40 +58,24 @@ Implemented but not fully verified after the last patch:
+ - `AnswerPacketBadge` renders per-row claim kind and confidence.
+ - Vault recall diagnostics expose the four W-21 metrics honestly.
+ - W-23 `LIMIT N` / first-notes rg gate is present in CI and passed locally
+-  before the final compile fixes.
++  after the final compile fix.
+ 
+ Process note:
+ 
+-- The worktree is currently on `docs/deferred-work-guarantee-2026-05-23`
+-  (`cd0c33165b`), not on the expected fresh Terminal B branch from `main`
+-  (`04b7331e4c`). I did not switch branches after the stop condition because
+-  the tree contains unrelated in-progress edits that must not be reverted or
+-  moved implicitly.
++- The original stop occurred on `docs/deferred-work-guarantee-2026-05-23`.
++- The resumed verification and final compile fix are on
++  `phase2-terminal-b-vault-recall-tests-2026-05-24`, branched from current
++  `main`.
++- The local Rust environment has no rustup default. The harness was therefore
++  run with explicit `+stable-aarch64-apple-darwin`, avoiding any machine-wide
++  rustup default mutation.
+ 
+ ## Required Next Action
+ 
+-Resume with a single focused verification run after this stop:
+-
+-```sh
+-./scripts/xcodebuild_epistemos.sh test \
+-  -project Epistemos.xcodeproj \
+-  -scheme Epistemos \
+-  -destination 'platform=macOS,arch=arm64' \
+-  -derivedDataPath build/derived-data-terminal-b \
+-  -only-testing:EpistemosTests/AnswerPacketBadgeTests \
+-  -only-testing:EpistemosTests/VaultRecallWiringTests \
+-  CODE_SIGNING_ALLOWED=NO
+-```
+-
+-Then run:
+-
+-```sh
+-bash scripts/check-vault-context-contract.sh
+-cargo test --manifest-path agent_core/Cargo.toml --test f_vault_recall_50 -- --nocapture
+-```
+-
+-Report `F-VaultRecall-50` honestly. The Terminal A Eidos bridge dependency
+-still blocks closed-citation end-to-end acceptance.
++No stop-condition blocker remains for the focused Terminal B verification
++slice. Remaining broader acceptance work is to exercise the live chat
++closed-citation emit path end to end once the chat call-sites invoke the Eidos
++gate.
+ 
+ ## Law / Tier / No-Orphan
+ 
+# === UNTRACKED new files (filtered) ===
