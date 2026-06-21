@@ -147,3 +147,22 @@ Act turn → shared composer across all chats), (2) build the WORK shell = OpenC
 Goose+Hermes+OpenClaw + wire RustLSP, (3) reuse-not-rebuild the existing substrate/IP into both, (4)
 substrate-health + IP-porting cycles later-but-certain, never delete quarantined chat. Pending feasibility:
 docs/research/OPENCODE_FULL_CLONE_FEASIBILITY_2026_06_21.md + AGENT_STACK_CONVERGENCE_RESEARCH_2026_06_21.md.
+
+## 🔒 SET IN STONE — MAS NON-RESTRICTIVE + SWIFT/RUST LENIENCY (GLOBAL, owner 2026-06-21)
+**Owner:** MAS is NOT a restrictive constraint — the goal is a ROBUST, highly-capable app with a LOT in
+it. Do NOT cut features, "lose the cloned app's essence," or hallucinate a "MAS sandbox" excuse to
+corner-cut. Not strict about keeping everything Swift/Rust. **This applies to EVERY repo/fusion — agent
+AND non-agent** (e.g. **Talaria + the Epdoc fuse**, and all other clones/integrations), not just
+Osaurus/OpenCode. App ships **notarized direct-distribution (non-sandboxed)** so it can carry full
+capability (incl. things MAS would block, e.g. the VM sandbox). **SUPERSEDES** the MAS/Pro-gating "NON-
+NEGOTIABLE CONSTRAINTS" in CLAUDE.md for product scope — treat that section as historical; this directive
+wins. (Still honest: REAL APIs only, no hidden fallbacks, no fake capability — leniency is about
+MAS/sandbox/language purity, NOT about honesty.)
+
+## 🆕 OPENCODE MUST BE FULLY THEME-RESPONSIVE (owner 2026-06-21)
+OpenCode (work) must match EVERY app theme AND respond LIVE to theme changes — including the user's CUSTOM
+themes. Whatever integration form Work takes, theme-responsiveness (incl. custom-theme live updates) is a
+HARD requirement, wired to the app's theme system. NOTE: this strengthens the case for a NATIVE shell
+(naturally theme-responsive via the app's theme tokens); a bundled web/Electron UI would require explicit
+theme-bridging to honor custom themes live. Decide the work-UI form per OPENCODE_FULL_CLONE_FEASIBILITY_
+2026_06_21.md (open fork: native shell over OpenCode engine vs embed OpenCode's own UI).
