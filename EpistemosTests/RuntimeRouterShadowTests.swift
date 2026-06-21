@@ -175,4 +175,14 @@ struct RuntimeRouterShadowTests {
             "Epistemos/LocalAgent/RuntimeRouterShadow.swift")
         #expect(shadow.contains("guard armed else { return }"))
     }
+
+    // The health row surfaces the observe-only parity rate so the owner can watch the router agree
+    // with the live path (toward 100%) BEFORE STAGE 2 makes it authoritative. "—" until observed.
+    @Test("RuntimeRouterHealthRow surfaces the STAGE 1b parityRate stat")
+    func healthRowSurfacesParityRate() throws {
+        let row = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/RuntimeRouterHealthRow.swift")
+        #expect(row.contains("router.metrics.parityRate"))
+        #expect(row.contains("label: \"Parity\""))
+    }
 }
