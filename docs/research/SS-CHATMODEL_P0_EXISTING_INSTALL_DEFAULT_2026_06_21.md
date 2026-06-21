@@ -92,3 +92,18 @@ Required fix ORDER (the no-swap edit CANNOT go first):
   2. THEN eliminate the silent 6252 swap + add the composer install/pick-another affordance (now safe: a runnable default
      means the swap rarely fires, and when a pick truly can't run the honest surface replaces the silent cloud-fail).
   3. Verify on the owner's real install: pick loads → runs the Gemma; pick can't load → honest surfaced message, never silent Qwen.
+
+## 🔑 CORRECTION + SHIPPED (loop, 2026-06-21): option (c) is ALREADY DONE — the MLX gemma4 loader is vendored; the gate is stale
+Re-investigating the "no runnable Gemma installed" blocker surfaced a contradiction the code flags against ITSELF:
+- The native Apple **Gemma 4 MLX loader IS vendored + registered** — `LocalPackages/mlx-swift-lm/Libraries/MLXLLM/Models/Gemma4Text.swift` + `Gemma4.swift`, registered in `LLMModelFactory` as `"gemma4"`/`"gemma4_text"` (commit `0b5312173`, 2026-06-14, replacing the prior Gemma-3n alias).
+- The owner's installed `mlx-community/gemma-4-e2b-it-4bit` `config.json` has top-level `model_type: "gemma4"` — which **matches** the registry entry. So the old "Unsupported model type: gemma4" (on-device 2026-06-16, `3ba6a5667`) predates / contradicts the current registration.
+- The code's OWN sibling property `isHeldOutOfAutomaticLocalRouting` (InferenceState.swift:661) documents the real intent verbatim: *"the dense E2B/E4B tiers now run (native Apple MLX port + GGUF llama-cli lane), so `isAwaitingSwiftRuntimeLoader` is no longer false-for-the-right-reason for them"* — i.e. dense gemma4 RUNS + is explicitly selectable, but must stay out of AUTOMATIC routing. `isAwaitingSwiftRuntimeLoader == true` for E2B/E4B is the **stale half** of that contradiction.
+- Could not prove generation headlessly: running the package's own `testGemma4E2BLoadsAndGeneratesCoherentTokens` failed at `MLX error: Failed to load the default metallib` — an env wall (MLX's Metal lib isn't loadable under bare `swift test`), NOT a gemma4 decode error. The owner's real app bundle CAN load the metallib.
+
+**Shipped this firing (flag-gated `EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0`, default OFF, reversible):**
+  - `isAwaitingSwiftRuntimeLoader` returns `!flag` for dense `.gemma4_2B4Bit`/`.gemma4_4B4Bit` (MoE 26B + 31B stay unconditionally gated). `isHeldOutOfAutomaticLocalRouting` unchanged → no automatic-route leak, source guards intact.
+  - `migrateGgufGemmaDefaultToMlx` (+ pure `mlxEquivalent(forGgufGemmaID:)`): one-time GGUF Gemma default → same-size MLX Gemma (E2B→`gemma4_2B4Bit`, E4B→`gemma4_4B4Bit`), only GGUF Gemma picks touched. So the owner's persisted `gemma-4-E2B-gguf` → runnable MLX `gemma-4-e2b-4bit` with NO Qwen substitution.
+  - Real-state tests (`MlxGemma4DenseRunnableMigrationTests`): owner's exact pick maps + migrates; flag-OFF no-op; gate default preserved (TriageServiceTests' "all 4 tiers gated" still green).
+  - **Reversible by design:** flag OFF → dense MLX tiers awaiting-loader again → `migrateStaleGemma4Selection` rewrites them to the foundation default. So a wrong on-device result does no permanent harm.
+
+**OWNER ACTION to reach you live:** set `EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0=1` and relaunch. Expected: your persisted Gemma migrates to MLX `gemma-4-e2b-it-4bit` and runs (no Qwen). If it generates coherent text → next firing flips the flag default-ON live (the static evidence says it will). If it errors → the metallib/decode truth is then known on-device and we keep the gate + pursue `gemma3_4BQAT4Bit` install instead.
