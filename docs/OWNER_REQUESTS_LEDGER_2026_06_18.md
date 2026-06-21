@@ -4387,3 +4387,12 @@ native; AGPL server). ADOPT 2 patterns natively:
       SWEEP the app for silent substitutions / try?-?? -empty-catch-as-success / for-show controls / no-op-on-not-ready → make
       each honest at the surface or remove. GATE added to SS-CLEAN (NO-HIDDEN-FALLBACK / point-of-use honesty). Part of the
       repair cycle (SS-REPAIR). Cross-ref SS-CR/SS-IR/SS-LT/SS-GE/SS-CC. NON-INVASIVE; honest > clever.
+- [ ] **VOICE PICKER + premium-voice honesty on quick capture (owner on-device 2026-06-20).** *"Tried the premium Apple-native
+      voice on quick capture, still sounds basic/low-quality — is that premium? I want to change it / pick among the custom
+      voices."* RESEARCHED → SS-QC "VOICE PICKER" section. ROOT: no Premium/Enhanced voice DOWNLOADED on the Mac (OS-managed) →
+      preferredVoice() falls to compact default; + QuickCapture read-back passes no voiceIdentifier + no picker on that surface.
+      FIX (SS-QC voice-picker, NOT done): add a VOICE PICKER on quick capture (+ global default-voice pref) from availableVoices()
+      quality-grouped → speak(voiceIdentifier:); surface voiceQualityHint() honestly ("download Premium in System Settings →
+      Spoken Content → Manage Voices" — SS-HF no-black-box, don't imply compact=premium); default=preferredVoice(). OWNER
+      IMMEDIATE: download an Enhanced/Premium voice in macOS System Settings → Accessibility → Spoken Content → Manage Voices.
+      Neural/MLX voice = separate SS-Q.
