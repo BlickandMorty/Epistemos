@@ -1025,10 +1025,26 @@ struct LandingView: View {
         .popover(isPresented: $showLandingToolPanel, arrowEdge: .top) {
             AgentToolTogglePanel(
                 agentCommandCenter: agentCommandCenter,
-                theme: theme
+                theme: theme,
+                onRunSkill: { skill in runSkillFromLanding(skill) }
             )
         }
         .help("Agent tools, MCP, cowork & skills — the full capability set, right from search")
+    }
+
+    /// SS-VIS (owner 2026-06-20): "start off using a tool" — run a discovered skill straight from the
+    /// landing search launcher by priming the search field with its `/identifier` invocation (the same
+    /// real path ChatInputBar's in-chat skills browser uses). Closes the panel + focuses the field so
+    /// the user just adds their request and submits; honest — it stages the invocation, doesn't auto-run.
+    private func runSkillFromLanding(_ skill: SkillDiscoveryEntry) {
+        showLandingToolPanel = false
+        let invocation = "/\(skill.identifier) "
+        if trimmedLandingSearchText.isEmpty {
+            landingSearchText = invocation
+        } else if !landingSearchText.hasPrefix("/") {
+            landingSearchText = invocation + landingSearchText
+        }
+        isLandingSearchFocused = true
     }
 
     /// Short tier label for the landing picker trigger, from the active mode.
