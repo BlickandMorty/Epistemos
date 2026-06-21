@@ -18,12 +18,20 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [x] **S2 — vendor the full repo** (DONE 2026-06-21, commit `ae911ea5e`):
   `LocalPackages/osaurus/` full clone @`ae3a3c5d`, MIT direct_import, `.git` stripped,
   `VENDOR.md` + `scripts/update-osaurus.sh`. **Source-on-disk only — NOT xcodegen-linked.**
-- [ ] **S3 — link `OsaurusCore` (Pro-gated) + thin real conformer** drives ONE OsaurusCore
-  service (e.g. list local MLX models) end-to-end; RunEventLog + AnswerPacket; the
-  MAS-excludes-OsaurusCore guard test. **Needs a DEDICATED verified build pass** (xcodegen +
-  xcodebuild both profiles) — do NOT half-commit it; gate strictly `#if !EPISTEMOS_APP_STORE`.
-  Lower-risk cross-cutting items (sweep ✓, Epistemos Picks, surface mapping, IP-port analysis)
-  proceed in parallel since they don't need the heavy build.
+- [!] **S3 — link the FULL `OsaurusCore` (owner 2026-06-21: full Osaurus, MAS no longer a hard
+  constraint).** Deep entitlements research done → `docs/research/OSAURUS_MAS_ENTITLEMENTS_RESEARCH_2026_06_21.md`.
+  FINDINGS: ~95% of Osaurus fits MAS by standard entitlements (server=`network.server`,
+  relay=`network.client`, MLX/MCP/SQLCipher/plugins/telemetry); the ONLY MAS blocker is the
+  **Linux-VM sandbox** (`com.apple.security.virtualization` — a RESTRICTED entitlement Apple grants
+  only to virtualization-software vendors). Per owner's rule (can't fit all → don't be strict):
+  **main app = direct-distribution (notarized, non-sandboxed) carrying the FULL Osaurus incl. the VM
+  sandbox** — no feature cut, no MAS-struct excuse. REMAINING WORK (in order):
+  1. **Resolve the dual-MLX clash** — consolidate Epistemos onto Osaurus's `vmlx-swift` (drop
+     `mlx-swift-lm`; both define `MLX*` modules → can't coexist). This is the real "no clashes" task.
+  2. Add OsaurusCore SPM dep to project.yml + adjust signing/entitlements (drop the MAS-only sandbox
+     constraint for the main build). 3. Build-verify. 4. Reskin to pixel-art (the video experience).
+  Gating note: the old `#if !EPISTEMOS_APP_STORE` Pro-gate on the seam stays (a MAS build can still
+  omit ONLY the VM sandbox), but it no longer constrains the main app.
 - [ ] **S4 — Act agent-turn through OsaurusCore** + reskin composer to pixel-art chrome.
   (Partial: `OsaurusActBridge.runTurn` already POSTs to the osaurus-PATTERN `LocalModelServer`,
   but not yet through linked OsaurusCore.)
@@ -59,6 +67,11 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   (Goose/OpenCode) clone/port too.
 
 ## Standing rules in force
+- **MAS is NOT a hard constraint (owner 2026-06-21).** Never cut an Osaurus feature or "lose its
+  osaurus-ness" to stay MAS-sandbox-compliant. Main app = direct-distribution (notarized) carrying
+  the full Osaurus incl. the VM sandbox. MAS-fit was researched by ENTITLEMENT (see entitlements
+  doc); only the restricted virtualization entitlement genuinely can't fit MAS. Do NOT use "MAS
+  structure" as an excuse to cut corners — resolve clashes properly.
 - **Conflict → favor Osaurus**; cherry-pick only the owner's *compatible* IP; front-end =
   minimal Epistemos pixel-art. (addendum, owner 2026-06-21)
 - **NEVER delete chat** — quarantine only; port IP first; retire only after IP-ported +
