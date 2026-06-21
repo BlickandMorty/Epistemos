@@ -78,6 +78,14 @@ public actor AnswerPacketEmitter {
     private var bucketCounts: [InterruptBucket: Int] = [:]
     private var claimKindCounts: [ClaimKind: Int] = [:]
 
+    /// SUBSTRATE Phase 2: durable persistence sink (additive). Lazily resolves to an app-support
+    /// JSONL log on first emit; tests + the future launch wiring override it via
+    /// `configurePersistence`. `nil` = persistence disabled (the in-memory ring still works).
+    private lazy var store: AnswerPacketStore? = Self.defaultStore()
+    /// Compact the on-disk log every N emits, keeping the last `persistMaxEntries`.
+    private static let persistCompactInterval = 200
+    private static let persistMaxEntries = 500
+
     private init() {
         ring.reserveCapacity(Self.maxRingSize)
     }
@@ -159,6 +167,51 @@ public actor AnswerPacketEmitter {
                 object: AnswerPacketEmitter.shared
             )
         }
+        // SUBSTRATE Phase 2: best-effort durable persistence (additive — the in-memory ring stays
+        // the live read path; a write failure never disrupts emit). Off-MainActor (this is an
+        // actor), bounded via periodic compaction.
+        Self.persist(
+            packet,
+            to: store,
+            totalEmitted: totalEmitted,
+            compactEvery: Self.persistCompactInterval,
+            maxEntries: Self.persistMaxEntries)
+    }
+
+    // MARK: - SUBSTRATE Phase 2 persistence
+
+    /// Override the persistence store. Tests inject a temp-file store; the future launch wiring may
+    /// point it at a vault/app-group path. `nil` disables persistence (ring still works).
+    public func configurePersistence(_ store: AnswerPacketStore?) {
+        self.store = store
+    }
+
+    /// Best-effort persist + bounded compaction. `nonisolated static` so it's unit-testable
+    /// WITHOUT the `shared` singleton (no test pollution): pass a temp-file store + counter. A
+    /// write failure is swallowed (`try?`) — persistence is durability, never a failure path.
+    nonisolated static func persist(
+        _ packet: AnswerPacket,
+        to store: AnswerPacketStore?,
+        totalEmitted: Int,
+        compactEvery: Int,
+        maxEntries: Int
+    ) {
+        guard let store else { return }
+        try? store.append(packet)
+        if compactEvery > 0, totalEmitted % compactEvery == 0 {
+            try? store.compact(maxEntries: maxEntries)
+        }
+    }
+
+    /// The default durable log location: `<Application Support>/Epistemos/answer_packets.jsonl`.
+    /// `nil` (→ persistence off) if Application Support can't be resolved — never a launch blocker.
+    nonisolated private static func defaultStore() -> AnswerPacketStore? {
+        guard let dir = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        let url = dir
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("answer_packets.jsonl")
+        return AnswerPacketStore(fileURL: url)
     }
 
     /// Snapshot of recent packets in chronological order
