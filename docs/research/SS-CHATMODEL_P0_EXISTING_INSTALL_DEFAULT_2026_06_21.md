@@ -107,3 +107,17 @@ Re-investigating the "no runnable Gemma installed" blocker surfaced a contradict
   - **Reversible by design:** flag OFF → dense MLX tiers awaiting-loader again → `migrateStaleGemma4Selection` rewrites them to the foundation default. So a wrong on-device result does no permanent harm.
 
 **OWNER ACTION to reach you live:** set `EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0=1` and relaunch. Expected: your persisted Gemma migrates to MLX `gemma-4-e2b-it-4bit` and runs (no Qwen). If it generates coherent text → next firing flips the flag default-ON live (the static evidence says it will). If it errors → the metallib/decode truth is then known on-device and we keep the gate + pursue `gemma3_4BQAT4Bit` install instead.
+
+## ‼️ ELIMINATION HALF (5273bfd3c) — real but DEFAULT-OFF = not reaching the owner (monitor audit 2026-06-21)
+5273bfd3c makes dense MLX gemma4 E2B/E4B runnable + migrates GGUF Gemma → MLX (no Qwen substitution) — BUT behind
+EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0 DEFAULT OFF, pending owner env-var validation (the headless load+generate test hit
+a metallib env-wall, not a decode error). Per PROVEN-DONE that is "staged, not reaching the user"; and "owner validates
+with one env var" CONTRADICTS the owner's "I will not check manually." NOT done.
+RESOLUTION (two concerns, separate):
+1. CHAT-WORKS-BY-DEFAULT (must reach the owner with NO flag, NO manual step): the default-on migration of the owner's
+   unrunnable GGUF Gemma must target a model ALREADY PROVEN-RUNNABLE on the live MLX path (the known-good foundation Fast
+   default) — so chat answers immediately, no Qwen substitution, no env var. This is the owner-facing fix; default ON.
+2. DENSE-MLX-GEMMA4 ENABLEMENT (improvement): keep EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0, but prove generation via
+   COMPUTER-USE (the real app bundle loads the metallib the headless test can't) — monitor builds with flag=1, launches,
+   confirms a real chat round-trip generates; if it generates, flip the flag DEFAULT ON. If it can't be proven, keep #1.
+The owner must NOT have to set an env var for chat to work. Verify #1 reaches the owner's persisted-E2B state by default.
