@@ -84,6 +84,10 @@ final class ProseTextView2: NSTextView {
     private var currentActiveLine: Int?
     private var pendingActiveLineInvalidation = false
     private nonisolated(unsafe) var boundsObserver: (any NSObjectProtocol)?
+    /// SS-2S async image load: observes ProseInlineImageCache.didLoadNotification so the editor
+    /// re-lays-out when an inline image finishes its async/downsampled load and the fragment redraws.
+    /// Registered only when the inline-image render flag is on (flag-off = no observer, byte-identical).
+    private nonisolated(unsafe) var imageLoadObserver: (any NSObjectProtocol)?
 
     // MARK: - Reparse debounce (Master Fusion Plan §C.4)
     //
@@ -167,6 +171,9 @@ final class ProseTextView2: NSTextView {
     deinit {
         if let boundsObserver {
             NotificationCenter.default.removeObserver(boundsObserver)
+        }
+        if let imageLoadObserver {
+            NotificationCenter.default.removeObserver(imageLoadObserver)
         }
     }
 
@@ -853,12 +860,33 @@ final class ProseTextView2: NSTextView {
         // Track scroll position for viewport-gated code tokenization.
         scrollView.contentView.postsBoundsChangedNotifications = true
         tv.attachBoundsObserver(to: scrollView.contentView)
+        tv.attachInlineImageObserver()
 
         scrollView.documentView = tv
         if Self.isRunningTests {
             TestFixtureRetainer.shared.retain(scrollView)
         }
         return (scrollView, tv)
+    }
+
+    /// SS-2S async image load: when an inline image finishes its async/downsampled load, the cache
+    /// posts a notification; this re-invalidates layout so the fragment redraws with the cached image.
+    /// Flag-gated — with the inline-image render off, no observer is registered (byte-identical).
+    private func attachInlineImageObserver() {
+        guard ProseInlineImageRender.enabled else { return }
+        if let imageLoadObserver {
+            NotificationCenter.default.removeObserver(imageLoadObserver)
+        }
+        imageLoadObserver = NotificationCenter.default.addObserver(
+            forName: ProseInlineImageCache.didLoadNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let tlm = self?.textLayoutManager else { return }
+                tlm.invalidateLayout(for: tlm.documentRange)
+            }
+        }
     }
 
     private func attachBoundsObserver(to contentView: NSClipView) {
