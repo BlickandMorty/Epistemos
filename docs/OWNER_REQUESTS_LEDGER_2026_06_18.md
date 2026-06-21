@@ -4284,3 +4284,17 @@ native; AGPL server). ADOPT 2 patterns natively:
       honest-degrade when a backend's not ready, add a falsifier (local-tier research prompt surfaces Eidos/vault/file tools +
       LocalAgentLoop executes ≥1 tool turn). Cross-ref SS-AL/SS-H/SS-MV/SS-CR/SS-IR. NON-INVASIVE; this is the user-facing
       payoff of the substrate (local models that actually research).
+- [ ] **GRAPH editability (both graphs) + raw-thoughts visibility + graph appearance toggles (owner 2026-06-20).** *"Like the
+      mini overlay graph, I want to EDIT the Epdoc in it. For mini-chat + home-embedded chat some surfaces aren't editable in
+      the graph and open a UTILITY instead — I want to edit ALL surfaces in BOTH graphs (not just home), and both home + the
+      embedded graph editing all surfaces. Also raw thoughts — I don't see them at all in my vault, not sure it's still a
+      thing. And the tags + all togglable things on the graph appearance setting — make sure they WORK, several I don't see at
+      all. Add to plan, non-invasive, make them all start working + surfaces editable in graphs."* RESEARCHED →
+      `docs/research/SS-GE_GRAPH_EDITABILITY_RAWTHOUGHTS_TOGGLES_2026_06_20.md`. (A) Epdoc opens a detached doc window
+      (HologramSearchSidebar.swift:1177 `EpdocDocumentOpening.openDocument`) instead of inline-editing → make all surfaces
+      inline-editable in BOTH home (HomeGraphEmbeddedView) + embedded/mini overlay graph (GraphWorkspaceContainer), reuse the
+      ONE md-first Epdoc editor (no in-graph clone). (B) raw-thoughts EXISTS (`State/RawThoughtsState.swift`) but not surfaced
+      in vault → verify it persists+displays, else wire-or-honestly-retire. (C) graph appearance toggles (tags etc. in
+      GraphFloatingControls/SettingsView) likely DEAD (flag set but MetalGraphView/HologramOverlay never reads) → wire each to
+      the renderer or remove. NON-INVASIVE, tracked, normal order. (B)+(C) are textbook SS-CLEAN dead-flag/surface-parity
+      catches — fold into the Cleanliness Gate. Cross-ref SS-HGT/SS-2S/SS-VIS/SS-SH.
