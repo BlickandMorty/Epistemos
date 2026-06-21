@@ -46,8 +46,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   - [x] Generation turn DONE (`48407b751`, compile-verified + test): `runTurnInProcess` drives
     `OsaurusCore.CoreModelService.shared.generate()` in-process (system→systemPrompt, conversation→prompt),
     honest errors, never a cloud route. Act GENERATES through Osaurus, not just links/reads it.
-  - [ ] REMAINS: wire `runTurnInProcess` into the act composer flow (so the UI uses it); then reskin
-    (current-chat discipline) + mode-entry animations (UI after engine).
+  - [x] LIVE wiring DONE (`aa0b40b57`, verified): `DeviceAgentService` constructs `LocalAgentLoop` with
+    the OsaurusCore generation closure when `EPISTEMOS_ACT_OSAURUS_V0` is ON (default OFF = proven MLX
+    path unchanged; MAS unchanged). Act runs END-TO-END through Osaurus in-process, opt-in + safe + honest.
+    Also: real engine-status surface (`2025fc876`), generation-closure (`4c5ba8f84`). S4 ENGINE complete.
+  - [ ] REMAINS (UI/streaming, after engine): token streaming via OsaurusCore's server SSE; then the act
+    composer reskin (current-chat discipline) + mode-entry blur/typewriter animations + per-clone settings.
 - [ ] **S5 — Containerization Linux-VM sandbox** (Pro/dev, virtualization entitlement, no-hidden-fallback).
 - [ ] **S6+ — server endpoints, MCP, plugins, privacy filter, identity/relay** (each gated/logged/MAS-excluded).
 
