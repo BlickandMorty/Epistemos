@@ -387,3 +387,26 @@ preserved, Apple Notes as the quality bar + a future gap-source.
 - **Apple Notes comparison (owner's read):** mine feels **more minimal + easier to use**; Apple has more
   features; the real diff is **md (Epistemos) vs rich-text (Notes)** — so **hardening EPDOC MD-V2 is what
   closes/decides that gap.** Reaffirms MD-V2 hardening as a priority pillar (md is the edge, once hardened).
+
+## 🆕 DISTRIBUTION — DUAL BUILD; ONLY ONE FEATURE IS MAS-BLOCKED (owner 2026-06-21)
+CLARITY: there is exactly **ONE** feature that cannot ship on the Mac App Store — the **Linux-VM /
+Containerization sandbox** (needs the restricted `com.apple.security.virtualization` entitlement). EVERYTHING
+ELSE — full chat/ACT (Osaurus engine, MLX inference, server, MCP, relay, plugins, storage), the editors,
+graph, themes — is MAS-grantable (~95%). So **the MAS version HAS a fully effective chat/act.** It's not
+"no chat on MAS"; it's "no local Linux-VM sandbox on MAS."
+- **DUAL BUILD:** (1) **MAS build** = full app MINUS the VM sandbox (flag that one feature off for the MAS
+  target); (2) **direct-distribution build** (notarized, non-sandboxed) = 100% incl. the VM sandbox.
+- **VERIFY:** the WORK/OpenCode bundled JS runtime (Bun) is a SEPARATE MAS check (bundled runtime/subprocess
+  is the other classic sandbox friction) — confirm before assuming work ships on MAS; may be direct-dist too.
+
+## 🆕 RESEARCH — MAS-compatible substitute for the VM sandbox (owner 2026-06-21)
+Owner asks: is there a MAS equivalent to the one blocked feature, or just live without it? HONEST: there is
+**no full local equivalent** — arbitrary Linux-container execution REQUIRES the gated virtualization
+entitlement. But for the MAS build's "agent runs code safely" need, research these PARTIAL substitutes:
+- **WASM in-process sandbox** (e.g. Pyodide for Python, QuickJS/JS) — MAS-safe, in-process, NO virtualization
+  entitlement; limited to what compiles to WASM (no native binaries/arbitrary compilers).
+- **Remote/cloud sandbox execution** — MAS-safe (just network); but not local/offline/private.
+- **Restricted App-Sandbox helper / bundled tools** — very limited; can't run arbitrary Linux.
+Verdict to confirm via a focused research pass: MAS build either uses a WASM/cloud-backed lighter code-exec
+substitute (honest about reduced power) OR omits local code-exec, with the FULL Linux-VM sandbox living in the
+direct-distribution build. Capture as an ordered research item (not deferred/droppable).
