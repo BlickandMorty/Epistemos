@@ -33,17 +33,15 @@ enum ProseInlineImageRender {
 /// Isolation: NSTextLayoutFragment's init / geometry / draw are `nonisolated` in the SDK, so the
 /// overrides must be `nonisolated` too (this module defaults to MainActor isolation). The image is
 /// loaded SYNCHRONOUSLY on first draw for local file URLs (the common case for inserted assets), so
-/// nothing crosses an isolation boundary — an async + downsampled load via
-/// `NoteImageProcessor.loadDisplayImage` (and remote `http(s)` support) is the next increment, but it
-/// requires sending non-Sendable layout state across actors, so it's deferred rather than faked here.
+/// nothing crosses an isolation boundary: the image is read synchronously from `ProseInlineImageCache`
+/// (a thread-safe NSCache), and the async + downsampled load via `NoteImageProcessor.loadDisplayImage`
+/// happens in the cache — never inside this non-Sendable fragment — with layout re-invalidation posted
+/// as a notification the editor observes. So the draw never blocks and never captures the fragment.
 final class ProseInlineImageLayoutFragment: NSTextLayoutFragment {
-    // SAFETY: `imageURL` is set once by the fragment provider on the main thread right after init;
-    // `loadedImage` / `didAttemptLoad` are only ever read or written inside draw() and the geometry
-    // getters, which AppKit always invokes on the main thread. There is no concurrent access, so the
-    // nonisolated(unsafe) storage (required because the overrides are nonisolated) is race-free.
+    // SAFETY: `imageURL` is set once by the fragment provider on the main thread right after init, then
+    // only read in draw() and the geometry getters (AppKit invokes those on the main thread). The
+    // nonisolated(unsafe) storage is required because the overrides are nonisolated; no concurrent write.
     nonisolated(unsafe) var imageURL: URL?
-    nonisolated(unsafe) private var loadedImage: NSImage?
-    nonisolated(unsafe) private var didAttemptLoad = false
     nonisolated private static let maxImageHeight: CGFloat = 240
     nonisolated private static let gap: CGFloat = 6
 
@@ -56,7 +54,8 @@ final class ProseInlineImageLayoutFragment: NSTextLayoutFragment {
     }
 
     nonisolated private func scaledSize(baseWidth: CGFloat) -> CGSize {
-        guard let img = loadedImage, img.size.width > 0, img.size.height > 0 else { return .zero }
+        guard let url = imageURL, let img = ProseInlineImageCache.image(for: url),
+              img.size.width > 0, img.size.height > 0 else { return .zero }
         let maxW = baseWidth > 1 ? baseWidth : img.size.width
         let scale = min(1, min(maxW / img.size.width, Self.maxImageHeight / img.size.height))
         return CGSize(width: img.size.width * scale, height: img.size.height * scale)
@@ -83,10 +82,17 @@ final class ProseInlineImageLayoutFragment: NSTextLayoutFragment {
 
     nonisolated override func draw(at point: CGPoint, in context: CGContext) {
         super.draw(at: point, in: context)  // the md text line — unchanged
-        loadImageIfNeeded()
         let frame = super.layoutFragmentFrame
         let size = scaledSize(baseWidth: frame.width)
-        guard let image = loadedImage, size.height > 0 else { return }
+        guard let url = imageURL, let image = ProseInlineImageCache.image(for: url), size.height > 0 else {
+            // Not cached yet → kick off the async, downsampled load (captures only the URL, never the
+            // fragment). The cache posts ProseInlineImageCache.didLoadNotification on completion; the
+            // editor observes it, re-lays-out, and this fragment redraws reading the now-cached image.
+            if let url = imageURL {
+                MainActor.assumeIsolated { ProseInlineImageCache.ensureLoaded(url) }
+            }
+            return
+        }
         let rect = CGRect(
             x: point.x, y: point.y + frame.height + Self.gap, width: size.width, height: size.height)
         NSGraphicsContext.saveGraphicsState()
@@ -95,16 +101,5 @@ final class ProseInlineImageLayoutFragment: NSTextLayoutFragment {
             in: rect, from: .zero, operation: .sourceOver, fraction: 1.0,
             respectFlipped: true, hints: nil)
         NSGraphicsContext.restoreGraphicsState()
-    }
-
-    /// Loads the image once, synchronously, for local file URLs (no network on the draw path), then
-    /// invalidates layout so the height reservation picks up the now-known size on the next pass.
-    /// Remote `http(s)` srcs are skipped here — the async-load refinement is the next increment.
-    nonisolated private func loadImageIfNeeded() {
-        guard loadedImage == nil, !didAttemptLoad, let url = imageURL else { return }
-        didAttemptLoad = true
-        guard url.isFileURL, let image = NSImage(contentsOf: url) else { return }
-        loadedImage = image
-        textLayoutManager?.invalidateLayout(for: rangeInElement)
     }
 }
