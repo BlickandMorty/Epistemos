@@ -288,3 +288,26 @@ dropped/flattened). This applies to Osaurus and BEYOND (every clone).
   discipline), not a stripped-down reimplementation. Each clone's options must be honored.
 - Ties to "preserve everything from each clone" + the surface-wiring rule (each settings surface wired to a
   real, working front-end). Standing rule for all current + future clones: bring in + respect their settings.
+
+## 🆕 MODE-ENTRY TRANSITION ANIMATIONS — act vs work (owner 2026-06-21)
+Selecting a mode is a MOVEMENT-based transition, not a hard cut. Shared concept: the greeting **backspaces /
+moves up**, then **typewriter-writes the mode name**; UI elements **blur + reveal**; **reusable elements
+persist by translating** (e.g. greeting → title moves up and stays, not redrawn). Feels CONNECTED, dynamic,
+fun, interesting — but native. (Pairs with the landing-page BLUR transitions already specced.)
+
+### ACT (Osaurus — NATIVE blur-reveal)
+- On select: greeting **moves up → becomes the title**; smaller UI elements **blur**; the message bar
+  **blurs in and appears**; all elements **blur-and-reveal**; reusable parts just **move up from greeting to
+  title** and persist. Typewriter-writes the mode name (**"act"** / "Epistemos chat").
+- Native feel via the blur reveal — connected, dynamic. (= the previously-described Osaurus animation.)
+
+### WORK (OpenCode — non-native, MORE FLEXIBLE = more playful)
+- Typewriter the mode name **"work"** in a more **ASCII / pixel-art typewriter** style; since OpenCode isn't
+  native, it's OK to **use OpenCode's OWN font** for this.
+- The elements themselves get a **more dynamic / interesting reveal** — animate the **entire UI page**
+  element-by-element into view (terminal/ASCII-flavored), more playful than act's native blur.
+- Same underlying movement idea (greeting backspaces → up → typewriter name → reveal), just a more
+  expressive ASCII/pixel-art animation for work vs act's native blur.
+
+Net: act = native blur-reveal (connected, dynamic, native); work = ASCII/pixel-art typewriter + dynamic
+full-page element reveal (playful, terminal-flavored, OpenCode font allowed). Both feel intentional + connected.
