@@ -5251,6 +5251,7 @@ mod tests {
     use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
     use super::substrate_health_unified_json;
+    use super::vault_recall_trace_json;
     use crate::nightbrain::TaskOutcome;
     use crate::storage::vault::VaultError;
     use serde_json::json;
@@ -5289,6 +5290,30 @@ mod tests {
             value["plane_placement"]["falsifier"],
             "docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md"
         );
+    }
+
+    // SUBSTRATE Phase 5 (owner 2026-06-20) — recall honesty. The Settings → Vault recall
+    // health row reports `productionWired` from the trace's backend tier (scaffold ⇒ orange,
+    // real ⇒ green). That honesty rests entirely on the bridge scaffold NEVER tagging itself
+    // as production. Lock it: the `vault_recall_trace_json` FFI must emit
+    // `ladder_tier == "scaffold-lexical"`, byte-distinguishable from the production path's
+    // `"production-hybrid"` (storage::vault::produce_vault_recall_trace). A future edit that
+    // mislabeled the scaffold would silently make VaultRecallHealthRow falsely green — this
+    // test fails first. Cargo-safe: pure FFI call, no backend, no env flag.
+    #[test]
+    fn vault_recall_ffi_scaffold_is_byte_distinguishable_from_production() {
+        let raw = vault_recall_trace_json("neural cache architecture".to_string())
+            .expect("vault recall trace JSON should encode");
+        let value: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+        // The scaffold honestly self-identifies — and is NOT the production tier.
+        assert_eq!(value["ladder_tier"], "scaffold-lexical");
+        assert_ne!(value["ladder_tier"], "production-hybrid");
+
+        // Reachability: a real (non-chatter) query runs the FFI end-to-end and produces the
+        // scaffold pool, so the trace is a live surface (not an error/empty stub).
+        assert_eq!(value["query"], "neural cache architecture");
+        assert_eq!(value["candidate_pool_size"], 2);
     }
 
     #[test]
