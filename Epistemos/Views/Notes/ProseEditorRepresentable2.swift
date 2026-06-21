@@ -22,6 +22,16 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     let pageBody: String
     let isFocused: Bool
     let theme: EpistemosTheme
+    /// SS-THX (owner 2026-06-20): the appearance sync key
+    /// (`themeMode:pair:isDark:typographyRevision`). TK2's theme guard is value-blind — a custom
+    /// COLOR edit keeps the same `.appCustom` enum, so `theme != lastTheme` is false and applyTheme
+    /// is skipped (TK2 stays stale while the tabs, which read the resolved palette, update → they
+    /// diverge until ~3 toggles force a re-apply). This key DOES change on every custom-color edit
+    /// (its typography-revision component bumps via `refreshTypographySettings`), so observing it
+    /// re-applies the theme on a single edit → all surfaces match at once. `var` + default so it's
+    /// an OPTIONAL memberwise-init param (matches the struct's other defaulted config) — existing
+    /// (test) construction sites compile unchanged; ProseEditorView passes the live key.
+    var themeSyncKey: String = ""
     let isEditable: Bool
     let isFocusMode: Bool
     var modelContext: ModelContext?
@@ -105,6 +115,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastSyncedText = body
         coord.lastPersistedText = body
         coord.lastTheme = theme
+        coord.lastThemeSyncKey = themeSyncKey
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
         coord.lastOutlineFoldMode = outlineFoldMode
@@ -272,6 +283,7 @@ extension ProseEditorRepresentable2 {
         var lastPersistedText: String = ""
         var lastIsFocused: Bool = false
         var lastTheme: EpistemosTheme = .nativeDefault
+        var lastThemeSyncKey: String = ""
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
         var lastOutlineFoldMode: OutlineFoldMode = .expanded
@@ -349,8 +361,10 @@ extension ProseEditorRepresentable2 {
                 return
             }
 
-            // Theme change
-            if parent.theme != lastTheme {
+            // Theme change — OR a custom-color edit that keeps the same `.appCustom` enum but bumps
+            // the appearance key (SS-THX regression: the value-only guard skipped custom edits, so
+            // TK2 stayed stale while the tabs updated until ~3 toggles converged).
+            if parent.theme != lastTheme || parent.themeSyncKey != lastThemeSyncKey {
                 handleThemeChange()
             }
 
@@ -520,6 +534,7 @@ extension ProseEditorRepresentable2 {
 
             // 8. Update derived state
             lastTheme = parent.theme
+            lastThemeSyncKey = parent.themeSyncKey
             lastIsFocusMode = parent.isFocusMode
             lastIsEditable = parent.isEditable
             lastOutlineFoldMode = parent.outlineFoldMode
@@ -562,6 +577,7 @@ extension ProseEditorRepresentable2 {
         func handleThemeChange() {
             guard let tv = textView else { return }
             lastTheme = parent.theme
+            lastThemeSyncKey = parent.themeSyncKey
             tv.applyTheme(parent.theme)
             parent.applyEditorBackgroundMode(to: tv, in: scrollView)
             renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
