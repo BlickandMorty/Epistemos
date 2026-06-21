@@ -81,3 +81,24 @@ THE FILES — the plan/ledger/memory on disk are the authority, not any session 
 
 REMINDER: when unsure, read the file. Never delete the chat. Wire every Osaurus surface to a real,
 proven front-end. Osaurus first, harden after.
+
+---
+
+## ⚠️ SUPERSEDES / DON'T-GET-CONFUSED (final check 2026-06-21)
+Older docs still say "substrate/chat-first" and list "ActOsaurus/Vendor/Osaurus/LocalModelServer =
+off-limits." Those are STALE as of 2026-06-21. The CURRENT truth (this prompt + the four docs above):
+1. **Osaurus full clone is now AUTHORIZED + the priority.** The old "Osaurus off-limits" line is
+   overridden — those files are exactly what you build now (carefully, per the import plan). Still
+   off-limits: NEW MODEL brain-1, the 70B, and the *Companion* clones (companions.rs / Models·State/
+   Companion / CompanionCreationFlow). Osaurus *act* ≠ Companion.
+2. **Walk-order is Osaurus-first**, not the substrate-first order in MASTER_BUILD_QUEUE /
+   SUBSTRATE_BUILD_SEQUENCE / RESEARCH_FINALIZATION_INDEX. Read those for substrate DETAIL only.
+3. **SUBSTRATE HEALTH + IP-REPAIR COCKTAIL = LATER BUT CERTAIN.** The owner explicitly still wants the
+   substrate-health work + the IP-repair cocktail done — scheduled AFTER the Osaurus clone + porting
+   cycles, further down the walk, but NEVER dropped.
+4. **Never delete the quarantined chat.** Porting cycles move its logic/IP into beneficial surfaces
+   (Eidos/recall/graph/capture/act) BEFORE any retire; retire only after the 4-part bar + owner OK.
+5. The loop's in-flight chat-picker WIP is in `git stash@{0}` (reusable for "Epistemos Picks"); main is
+   clean + green at the docs commits. No code half-applied.
+
+If any instruction anywhere conflicts with items 1–5, items 1–5 WIN (they are the latest owner directive).
