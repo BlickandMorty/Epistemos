@@ -115,4 +115,66 @@ nonisolated enum RuntimeRouterShadow {
             preferredLane: preferredLane
         )
     }
+
+    // MARK: - STAGE 1b: observe-only parity orchestration
+
+    /// Compose the shadow pieces into one parity outcome: build the packet from the live turn's
+    /// signals, ask `router.route` for its verdict, and compare its lane to the lane the live path
+    /// resolved to. `matched` is true when both pick the same lane (or both pick "no lane"). The
+    /// live path's resolution is passed as `preferredLane`, so a parity match means "the router
+    /// would honor what the live path chose." `@MainActor` because `route` is; the router metrics
+    /// are mutated by `route` (the intended observe-only recording).
+    @MainActor
+    static func parityOutcome(
+        operatingMode: EpistemosOperatingMode,
+        objective: String,
+        requiresTools: Bool,
+        privacySensitive: Bool,
+        resolved: ResolvedBrainDescriptor,
+        router: RuntimeRouter,
+        localLaneForModelID: (String) -> RuntimeLane
+    ) -> (routerLane: RuntimeLane?, liveLane: RuntimeLane?, matched: Bool) {
+        let live = liveLane(from: resolved, localLaneForModelID: localLaneForModelID)
+        let packet = missionPacket(
+            operatingMode: operatingMode,
+            objective: objective,
+            requiresTools: requiresTools,
+            privacySensitive: privacySensitive,
+            preferredLane: live)
+        let routerLane = acceptedLane(from: router.route(packet))
+        let matched: Bool = {
+            if let live { return parityMatches(routerLane: routerLane, liveLane: live) }
+            return routerLane == nil   // both resolved to "no lane" → they agree
+        }()
+        return (routerLane, live, matched)
+    }
+
+    /// The live dispatch-seam call (STAGE 1b). Flag OFF (default) → PURE NO-OP: returns
+    /// immediately, the router is never consulted, zero overhead on the hot path. Flag ON →
+    /// compute the parity outcome and RECORD it into the router's metrics; this NEVER alters the
+    /// live decision (the caller keeps using its own resolution — observe-only). The local
+    /// classifier mirrors the live site (`LocalTextModelID.runtimeKind`; a non-enum id is a
+    /// foundation GGUF descriptor → `.gguf`).
+    @MainActor
+    static func recordLiveParity(
+        operatingMode: EpistemosOperatingMode,
+        objective: String,
+        requiresTools: Bool,
+        privacySensitive: Bool,
+        resolved: ResolvedBrainDescriptor,
+        router: RuntimeRouter = .shared
+    ) {
+        guard armed else { return }
+        let outcome = parityOutcome(
+            operatingMode: operatingMode,
+            objective: objective,
+            requiresTools: requiresTools,
+            privacySensitive: privacySensitive,
+            resolved: resolved,
+            router: router,
+            localLaneForModelID: { id in
+                lane(forRuntimeKind: LocalTextModelID(rawValue: id)?.runtimeKind ?? .gguf)
+            })
+        router.recordParity(matched: outcome.matched)
+    }
 }
