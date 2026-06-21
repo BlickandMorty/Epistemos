@@ -34,15 +34,16 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **Surface-wiring:** ALL chat surfaces (main ChatView, MiniChat, NoteChatSidebar,
   Graph/Hologram*, + sweep) → ONE shared act composer. Map each surface → real proven
   front-end BEFORE wiring; prove (real-state/launch-smoke). No dead surfaces.
-- [~] **"Epistemos Picks"** — STAGED 2026-06-21 (logic + tests written; build-verify pending,
-  batched with S3). `Epistemos/Engine/EpistemosPicks.swift` = pure `nonisolated enum` curating
-  the owner's hardened models (Gemma QAT ladder via `EpistemosFoundationLineup` + the explicit
-  Qwen extras + curated Apple-Intelligence) into a top-billed "Epistemos Picks" section,
-  separated from generic "Installed Models". Reuses the proven `EpistemosRuntimePicker` (no new
-  model layer); honest selection inherited verbatim (`Option.isSelectable`/`blockedReason` via
-  `LocalChatModelMemoryGate`) → NO silent Qwen, too-large stays visible with reason.
-  `EpistemosTests/EpistemosPicksTests.swift` = 4 @Test (curated-first, installed-separated,
-  honest-too-large, nothing-lost). REMAINS: render in the act model-stack view (S4, pixel-art).
+- [x] **"Epistemos Picks"** — DONE 2026-06-21 (real-state verified, commit `519aed305`).
+  `Epistemos/Engine/EpistemosPicks.swift` = pure `nonisolated enum` curating the owner's hardened
+  models (Gemma QAT ladder via `EpistemosFoundationLineup` + explicit Qwen extras + curated
+  Apple-Intelligence) into a top-billed "Epistemos Picks" section, separated from generic
+  "Installed Models". Reuses the proven `EpistemosRuntimePicker` (no new model layer); honest
+  selection inherited verbatim (`Option.isSelectable`/`blockedReason` via `LocalChatModelMemoryGate`)
+  → NO silent Qwen, too-large stays visible with reason. **VERIFIED:** compiles into the app module
+  (0 errors) + all 4 @Test pass (curated-first, installed-separated, honest-too-large, nothing-lost)
+  via `xcodebuild test` ("** TEST SUCCEEDED **", 12/12). REMAINS: render it in the act model-stack
+  view (S4, minimal pixel-art) — that UI wiring is the not-yet-done part.
 - [x] **Discovery sweep** (DONE 2026-06-21 — `docs/research/OSAURUS_SURFACE_DISCOVERY_SWEEP_2026_06_21.md`):
   enumerated 7 distinct chat surfaces (main/MiniChat/Note/Graph/Landing + verify HTMLWorkspace/Shadow),
   the shared backend consumers (`InferenceState`/`EpistemosRuntimePicker`/`ChatCoordinator`/`Composer*`),
@@ -59,6 +60,17 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - No fake-done (real-state test, not build-green); flag-OFF = staged. main-only;
   `git add` own files only; commits Co-Authored-By Claude.
 
+## Verified build baseline (2026-06-21)
+`xcodebuild test -scheme Epistemos -destination 'platform=macOS'` (warm) → **0 errors,
+** TEST SUCCEEDED **, 12/12** (8 Osaurus-seam + 4 Epistemos-Picks). This means:
+- The full **app module compiles clean** — including the flagged **chat-picker enumeration
+  commit** (build-state was UNVERIFIED per the continuation prompt) → **now VERIFIED OK, no
+  fix/revert needed**; flag cleared.
+- `EpistemosPicks` + `ActOsaurus` seam are real-state green.
+The vendored `LocalPackages/osaurus` is NOT in this build (S3 not yet linked) — expected.
+
 ## Session log
 - 2026-06-21: triaged + dropped 24 forgotten stashes (`44f7e07df`, archive in
-  `docs/stash-triage-2026-06-21/`). Vendored full Osaurus (`ae911ea5e`, S2).
+  `docs/stash-triage-2026-06-21/`). Vendored full Osaurus (`ae911ea5e`, S2). Discovery
+  sweep (`e84fd4110`). Epistemos Picks provider+tests (`519aed305`). Verified build pass:
+  12/12 tests green, app module clean, chat-picker commit verified.
