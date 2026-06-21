@@ -1003,6 +1003,10 @@ private struct GeneralDetailView: View {
                 // + agent-patch surface, but app-bridge/live-DOM/console/Python/regenerate are deferred.
                 // The owner: "idk if its marked as such." Now it is. Read-only; no dead controls.
                 HTMLWorkspaceHealthRow()
+                // SS-M / Obscura (owner 2026-06-19): honest browser/scraper/privacy status — real HTTP
+                // fetch/extract/crawl + private web views work; the Obscura stealth engine is a
+                // NotConfigured stub (Pro, unbuilt). Read-only; no fake control.
+                BrowserCapabilityHealthRow()
                 AgentBlueprintSettingsView()
                 // ISSUE-2026-05-10-002 follow-up: per-provider cloud
                 // access visibility. Read-only, never displays credential values.
