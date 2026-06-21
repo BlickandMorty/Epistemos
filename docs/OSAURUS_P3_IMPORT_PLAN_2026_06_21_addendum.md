@@ -232,3 +232,16 @@ Request); vault-retrieval chips (real path · vault-chat-context-v1 · lexical);
 notes or chats" with Fast / Local / token chips; rounded window, soft shadow, palette-aware text.
 NOTE: the screenshots also show the LIVE Qwen fallback ("You picked Gemma 4 E2B QAT GGUF, but it's too large
 … running Qwen 3 4B instead") — confirms the P0; in act, use the owner's pick honestly, no silent substitute.
+
+### ACT reskin — typography + component design tokens (owner 2026-06-21)
+Apply ALL of the current chat's design discipline to Osaurus/act (owner hasn't seen Osaurus's UI yet — the
+CURRENT CHAT design wins, Osaurus capability is added underneath it):
+- **User message bubble = MONOSPACE font**, in the rounded coral/salmon bubble (as in current chat).
+- **Assistant/answer text = Anthropic Sans** (or the best-fit clean sans) — readable answer font.
+- **Message bar / composer = flat but still DISTINCT** design (subtle but defined, as current).
+- Plus everything already specced: warm cream palette, monospace pixel-art section headers, provenance
+  inspector, vault chips, rounded window + soft shadow, palette-aware text, live theme (incl. custom).
+- "All of it" — match the current chat's look/feel end-to-end; carefully port that discipline onto Osaurus.
+NOTE on reference screenshots: owner's 2 current-chat screenshots (2026-06-21 3.49 PM) were iCloud-offloaded
+so NOT copied into the repo. To add: open them once on Desktop (downloads), then cp into
+docs/research/ui-reference/. Until then, this written spec + the LIVE app's current chat are the reference.
