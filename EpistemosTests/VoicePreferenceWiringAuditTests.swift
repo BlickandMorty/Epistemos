@@ -14,9 +14,10 @@ import Foundation
 //     • noteReadAloud          → ProseEditorView (auto-reads a long note on open; wired 2026-06-20
 //                                 at the onAppear/onChange one-shot seam, default off)
 //
-//   NOT-YET-WIRED (Settings shows them + a rationale, but nothing reads them — a real gap):
-//     • brainDumpHotkeyDictate (auto-start dictation on the global hotkey)
-//     • perModelVoicePersona   (use the model's bound voice for read-aloud)
+//   REMOVED (2026-06-21, do-nothing with no clean/valuable seam — not shown as for-show controls):
+//     • brainDumpHotkeyDictate (no dictation-start seam exists to gate)
+//     • perModelVoicePersona   (superseded by the SS-QC global default voice; wiring needs
+//                               SwiftData/ModelProfileManager access MessageBubble lacks)
 //
 // Wiring the four is owner-present: each is an audio / mic / launch-path behavior that can't be
 // self-verified headless (e.g. a wrong one-shot for agentResponseTTS would auto-speak every
@@ -55,5 +56,18 @@ struct VoicePreferenceWiringAuditTests {
         // (default .manual = off) + a long note, speaking the markdown-stripped body.
         #expect(src.contains("VoicePreferences.shared.noteReadAloud == .auto"))
         #expect(src.contains("maybeAutoReadAloudOnOpen(noteId:"))
+    }
+
+    @Test("the 2 do-nothing toggles are REMOVED from Settings (not shown as for-show controls)")
+    func deadTogglesRemovedFromSettings() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
+        // No Settings row binds these dead toggles any more — a shown do-nothing toggle is fake.
+        #expect(!src.contains("binding: $prefs.brainDumpHotkeyDictate"))
+        #expect(!src.contains("binding: $prefs.perModelVoicePersona"))
+        // The wired toggles' rows remain.
+        #expect(src.contains("binding: $prefs.agentResponseTTS"))
+        #expect(src.contains("binding: $prefs.noteReadAloud"))
+        #expect(src.contains("binding: $prefs.dictationAutoStop"))
+        #expect(src.contains("binding: $prefs.quickCaptureReadBack"))
     }
 }
