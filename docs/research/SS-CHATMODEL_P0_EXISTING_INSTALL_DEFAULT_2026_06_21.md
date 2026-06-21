@@ -121,3 +121,21 @@ RESOLUTION (two concerns, separate):
    COMPUTER-USE (the real app bundle loads the metallib the headless test can't) — monitor builds with flag=1, launches,
    confirms a real chat round-trip generates; if it generates, flip the flag DEFAULT ON. If it can't be proven, keep #1.
 The owner must NOT have to set an env var for chat to work. Verify #1 reaches the owner's persisted-E2B state by default.
+
+## ✅ SHIPPED (loop, 2026-06-21): concern #1 — DEFAULT-ON migration to a PROVEN-RUNNABLE MLX Gemma (no flag, no manual step)
+Ground truth verified on the owner's real rig: `mlx-community/gemma-3-4b-it-qat-4bit` **IS installed**
+(`~/Library/Application Support/Epistemos/Models/text/active/mlx-community--gemma-3-4b-it-qat-4bit/`), and `gemma3_4BQAT4Bit`
+is the **proven-runnable** MLX Gemma — registered `"gemma3"` → `Gemma3TextModel` in `LLMModelFactory`, NOT in
+`isAwaitingSwiftRuntimeLoader`, NOT held out of automatic routing (the code says "Gemma 3 has a stable loader"), in
+`isEpistemosShippedLocalModel` ("Fast local"), and a real `LocalTextModelID` the persisted-pick load accepts (a GGUF
+descriptor id is rejected by the `LocalTextModelID(rawValue:)`-gated load — part of why GGUF-E2B never stuck).
+
+Fix (`migrateGgufGemmaDefaultToMlx`, DEFAULT-ON, keyed `epistemos.ggufGemmaToMlxMigratedV1`): a persisted GGUF Gemma default
+→ `gemma3_4BQAT4Bit`. So the owner's `google/gemma-4-E2B-it-qat-q4_0-gguf` resolves to a **running MLX Gemma 3, never Qwen,
+no env var, no manual step**. Only GGUF Gemma picks are remapped (deliberate Qwen / non-Gemma picks untouched → no SS-CR
+regression); the migration only sets the *preferred* pick, so the resolver still enforces actual runnability. The flag now
+only changes the TARGET (Gemma 3 default vs dense gemma4 when `EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0=1` — concern #2 stays
+the separate improvement). Real-state test (`MlxGemma4DenseRunnableMigrationTests`): persisted GGUF-E2B + dense flag OFF →
+`gemma3_4BQAT4Bit`, asserts no "qwen"/"gguf" in the result + that Gemma 3 is not awaiting-loader (so it genuinely generates).
+**Reaches the owner on next launch with zero manual steps.** (Concern #2 — proving dense gemma4 MLX via computer-use — remains
+the monitor's task; this firing makes chat work by default regardless of that outcome.)
