@@ -156,4 +156,23 @@ struct RuntimeRouterShadowTests {
         )
         #expect(RuntimeRouterShadow.parityMatches(routerLane: routerLane, liveLane: live))
     }
+
+    // MARK: - STAGE 1b LIVE WIRING (source-guard)
+
+    // The live compile() seam is FFI-backed (not unit-runnable headless), so a source-guard pins
+    // the observe-only contract: compile() calls recordLiveParity AND still returns `compiled`
+    // unchanged, and the recorder is `armed`-gated (pure no-op when the flag is OFF — the
+    // launch/hot-path safety the SS-CLEAN LAUNCH-SMOKE gate requires).
+    @Test("compile() wires observe-only recordLiveParity and returns compiled unchanged")
+    func stage1bLiveWiringIsObserveOnly() throws {
+        let compiler = try loadMirroredSourceTextFile(
+            "Epistemos/Engine/CommandCenterRequestCompiler.swift")
+        #expect(compiler.contains("RuntimeRouterShadow.recordLiveParity("))
+        #expect(compiler.contains("resolved: compiled.resolvedRuntime.resolved)"))
+        #expect(compiler.contains("return compiled"))
+        // The recorder is flag-gated → pure no-op when OFF (router never consulted on the hot path).
+        let shadow = try loadMirroredSourceTextFile(
+            "Epistemos/LocalAgent/RuntimeRouterShadow.swift")
+        #expect(shadow.contains("guard armed else { return }"))
+    }
 }
