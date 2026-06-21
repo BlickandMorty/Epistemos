@@ -9,9 +9,13 @@ parallel (owner's Cursor work, tracked not loop-built). Per-item detail lives in
 (cited by line) + its SS-* slice — this is the ORDER + the operating contract, not a re-copy.
 
 ## OPERATING CONTRACT (applies to EVERY item in the walk)
-1. **DELIBERATE-FIRST (research before build):** before coding an item, the loop reads its SS-* slice + the canonical
-   source it names (CLAUDE.md RESEARCH-FIRST + `RESEARCH_FINALIZATION_INDEX` + `docs/fusion/*`), then verifies current
-   code/logs. No building an item whose research hasn't been re-read that iteration.
+1. **DELIBERATE-FIRST (research + VERBATIM INTENT before build):** before coding an item, the loop assembles its full
+   DOSSIER — (a) the owner's **VERBATIM query/intent** (from the ledger block + `CONNECTION_MAP_2026_06_20.md` →
+   transcript/older-plan source), (b) its **research** (SS-* slice + the canonical source it names + `docs/fusion/*`),
+   (c) current code/logs. No building an item whose verbatim intent + research haven't been re-read that iteration.
+   **THIN-ITEM RECONNECT:** if an item lacks a verbatim/research link (the 68 thin items), the FIRST deliberate step is to
+   RECONNECT it (find + attach its original query + research via the connection map) BEFORE building — so the agent
+   truly understands the nuance, never builds from a bare label. The connection is the precondition, not optional.
 2. **NO-RISK-DEFERRAL:** fragile surface → safe additive seam + regression guard + commit a clean savepoint, then code.
    A deferred safe-increment is captured to SS-FOLLOWON, never dropped.
 3. **SELF-VERIFY + SHIP (owner-verification is NOT a gate):** render/behavior tests + cargo/swift + xcodebuild
