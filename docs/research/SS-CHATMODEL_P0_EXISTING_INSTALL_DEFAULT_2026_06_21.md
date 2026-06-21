@@ -62,3 +62,33 @@ Implications for the no-fallback fix:
   is never defaulted onto a model whose runtime can't run → which is what forces the fallback today.
 - Verify the owner's exact reason: instrument/log localPickUnavailableReason(for: gemma-4-E2B) on the real install.
 Still: NO SILENT SWAP regardless of reason — run the pick or surface honestly.
+
+## ✅ SHIPPED (loop, bc960d3db, 2026-06-21): the REAL-reason half is now honest + tested
+The monitor's "state the REAL reason, not a generic not-installed" ask is DONE for the GGUF Gemma case. Root, verified in
+code: `localPickUnavailableReason` (InferenceState.swift:4276) ran its runtime-unavailable check ONLY inside
+`if let model = LocalTextModelID(rawValue: pickID)`, and the owner's pick `google/gemma-4-E2B-it-qat-q4_0-gguf` is NOT a
+`LocalTextModelID` (it is a `GemmaQATRuntimeCandidate`), so it skipped the check and fell through to `.notInstalled`.
+Fix: a pure `nonisolated static ggufGemmaCandidateRuntimeReason(pickID:availableRuntimeKinds:)` returns `.runtimeUnavailable`
+for a known Gemma GGUF candidate when `.gguf` is not in the runtime set. Wired into `localPickUnavailableReason`; the composer
+note (ChatInputBar:829) + Settings `LocalRouteHonestyHealthRow` now read "its runtime isn't available on this build", not
+the false "not installed on this Mac". Real-state test (`LocalGgufPickReasonTests`) pins the owner's exact pick + every
+staged GGUF Gemma id. **Display-only — the reason flows ONLY into `.substituted`/`.noLocalModel` (verified: no routing
+consumer), so this carries zero SS-CR / routing risk** (why it shipped unguarded vs. the routing changes below).
+
+## ⏳ STILL OWNER-GATED (the routing half — items 1/2/4 above): blocked on "no runnable Gemma installed"
+The honest-REASON is now correct, but the underlying SILENT SWAP (Gemma pick → Qwen at sanitizedInteractiveLocalTextModelID:6252)
+still fires, because the ground truth on the owner's rig is: **no Gemma that is BOTH installed AND runnable in an available
+runtime exists.** The runnable MLX Gemma `gemma3_4BQAT4Bit` (mlx-community/gemma-3-4b-it-qat-4bit — NOT in the gemma4
+awaiting-loader set, so genuinely runnable today) is the candidate, but it is not installed; the installed Gemmas are all
+GGUF (lane off → `.runtimeUnavailable`) or gemma4-MLX (`isAwaitingSwiftRuntimeLoader`). So removing the swap now → resolver
+returns nil → chat auto-routes to cloud and fails on credentials → breaks chat (the exact reason the 6252 block was added).
+Required fix ORDER (the no-swap edit CANNOT go first):
+  1. Make a runnable Gemma the default — owner architecture call: (a) curate/auto-install `gemma3_4BQAT4Bit` (MLX, runnable
+     with GGUF lane off) into the Fast lineup + make it the GGUF-off default; OR (b) enable the GGUF lane for the build
+     (Pro/dev: `EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0`, MAS-sandbox-blocked); OR (c) land a working MLX gemma4 loader.
+     Default resolution must be runtime-aware (check `availableLocalGenerationRuntimeKinds`), never default onto an
+     unrunnable pick — `initialDefaultLocalTextModelID` (4412) currently filters Fast candidates by MEMORY only, so it
+     returns a GGUF Gemma even when the GGUF lane is off.
+  2. THEN eliminate the silent 6252 swap + add the composer install/pick-another affordance (now safe: a runnable default
+     means the swap rarely fires, and when a pick truly can't run the honest surface replaces the silent cloud-fail).
+  3. Verify on the owner's real install: pick loads → runs the Gemma; pick can't load → honest surfaced message, never silent Qwen.
