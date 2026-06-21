@@ -68,7 +68,15 @@ public struct UasAcsHealthRow: View {
         }
         .substrateHealthPoll {
             if let unified = healthClock?.unified { snapshot = unified }
-            gates = UasAcsGateSnapshot.load()
+            // SS-SH: move the per-tick UAS-gate load OFF the MainActor. After the unified-snapshot
+            // dedup (6 FFI/sec → 1), this `UasAcsGateSnapshot.load()` (copyCount + anchorLookup file
+            // reads) was the ONE remaining 1 Hz SYNCHRONOUS read on the main thread in the panel —
+            // the residual freeze/stutter contributor. Matches the off-MainActor pattern the other
+            // rows use (SystemGHealthRow.refresh): load on a detached task, hop the result back.
+            Task {
+                let freshGates = await Task.detached { UasAcsGateSnapshot.load() }.value
+                gates = freshGates
+            }
         }
     }
 
