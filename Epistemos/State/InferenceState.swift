@@ -3464,6 +3464,9 @@ final class InferenceState {
         let defaults = UserDefaults.standard
         Self.migrateLegacyOpenAI52To54(defaults: defaults)
         Self.migrateStaleGemma4Selection(defaults: defaults)
+        // SS-CHATMODEL P0: repair a stale auto-default Qwen on existing installs BEFORE the persisted
+        // pick loads below — so the migrated Gemma is what wins, reaching existing installs.
+        Self.migrateStaleDefaultModel(defaults: defaults, snapshot: hardwareCapabilitySnapshot)
         if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
            let mode = LocalRoutingMode(rawValue: saved) {
             self.routingMode = mode
@@ -3748,6 +3751,42 @@ final class InferenceState {
            model.isAwaitingSwiftRuntimeLoader {
             defaults.set(
                 ChatModelSelection.localMLX(fallbackLocalModelID).rawValue,
+                forKey: selectionKey
+            )
+        }
+    }
+
+    /// SS-CHATMODEL P0 (owner 2026-06-21, 5th report): one-time repair of the stale auto-default
+    /// Qwen on EXISTING installs. The prior fix (89ef5a206) only set the FRESH-install default to a
+    /// headroom-aware Gemma; an existing install with a persisted Qwen kept Qwen because the saved
+    /// pick loads after init and wins. This migrates a persisted Qwen DEFAULT → that same headroom-
+    /// aware Gemma, keyed by `epistemos.modelDefaultMigratedV2` so it runs once and never re-stomps.
+    /// Only the OLD auto-default (`qwen3_4B4Bit`) is touched — a deliberate larger/explicit Qwen pick
+    /// (e.g. `qwen3_8B4Bit`) is preserved, and the owner can always re-pick Qwen (it stays available).
+    nonisolated static func migrateStaleDefaultModel(
+        defaults: UserDefaults,
+        snapshot: LocalHardwareCapabilitySnapshot
+    ) {
+        let migratedKey = "epistemos.modelDefaultMigratedV2"
+        guard !defaults.bool(forKey: migratedKey) else { return }
+        defaults.set(true, forKey: migratedKey)
+        // Only under the simplified Fast/Think/Code lineup (the regime whose default is Gemma).
+        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
+
+        let staleDefaultQwen = LocalTextModelID.qwen3_4B4Bit.rawValue
+        let gemmaDefault = initialDefaultLocalTextModelID(for: snapshot)
+
+        let localKey = "epistemos.preferredLocalTextModelID"
+        if defaults.string(forKey: localKey) == staleDefaultQwen {
+            defaults.set(gemmaDefault, forKey: localKey)
+        }
+
+        // The chat surface's source of truth — accepts a GGUF Gemma id (unlike the LocalTextModelID-
+        // only localKey load), so this is the assignment that actually flips the live chat model.
+        let selectionKey = "epistemos.preferredChatModelSelection"
+        if defaults.string(forKey: selectionKey) == ChatModelSelection.localMLX(staleDefaultQwen).rawValue {
+            defaults.set(
+                ChatModelSelection.localMLX(gemmaDefault).rawValue,
                 forKey: selectionKey
             )
         }
