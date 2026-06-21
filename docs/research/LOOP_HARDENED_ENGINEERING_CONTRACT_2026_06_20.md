@@ -57,3 +57,10 @@ everything. Never park for owner-verification; keep building the next plan item.
 Loop builds the MODEL-AGNOSTIC substrate + chat/UI/editor/graph/recall surfaces. HARD OFF-LIMITS: NEW MODEL brain-1
 (SSM/Mamba/M0/signal_bus/lattice/research-internals), the 70B, Companion→Osaurus clone backends. Never vault writes.
 TK2/Prose non-invasive except the agreed SS-2S md-image + SS-IL overlays. Cross-ref MASTER_BUILD_QUEUE, RESEARCH_FINALIZATION_INDEX, SS-CLEAN, SCOPE BOUNDARY.
+
+## ‼️ PROVEN-DONE OVERRIDE (owner 2026-06-21) — supersedes any weaker "done" in this contract
+"Done" now requires PROVEN reach to the user's REAL state (see SS-PROVEN_DONE_DOCTRINE): real-state test (persisted/
+existing-install, not fresh) + LIVE not flag-gated-off (bug fixes default-ON once the regression guard passes) + migrate
+existing persisted state + end-to-end + witnessed-or-honestly-PENDING. Assume the user is always an EXISTING install with
+persisted prefs. Every owner-reported bug gets a regression test that WOULD HAVE CAUGHT the original report. Never mark
+[x] / say "done" on test-green or build-green alone. A default-OFF flag = "staged, not reaching the user yet," never "done."
