@@ -13,9 +13,14 @@ directive ALWAYS beats a research rec. Corrections to drift (I had followed the 
    clashes (accepted cost). The `agent_core::work::vendored_goose` hand-ports (incl. the Role leaf
    `bed6252fd`) are **SUPERSEDED** by the full-clone — STOP hand-porting wire types one at a time.
 3. **WORK = OpenCode FULL-CLONE shell, Option A (keep OpenCode's REAL terminal UI, palette-matched, live
-   themes).** NOT a native rebuild (feasibility C2/B OVERRIDDEN). Bundled OpenCode/Bun runtime = FINE (Pro).
-   Goose = engine inside OpenCode; Hermes = IP brain fused; OpenClaw = selective hardening fused; wire the
-   EXISTING `agent_core::lsp_runtime` RustLSP as work tools (don't import OpenCode's LSP).
+   themes).** NOT a native rebuild (feasibility C2/B OVERRIDDEN). HEAVINESS MITIGATION (loop prompt
+   directive #2): render OpenCode's **REAL terminal TUI in a NATIVE terminal view (SwiftTerm/PTY)** — do
+   NOT ship the Electron/Tauri web GUI (that's the bloat; OpenCode is headless-first, GUI optional). The
+   terminal look IS preserved. **Bun engine = lazy-launch on work-open, loopback, kill-on-idle.** Goose =
+   engine inside OpenCode; Hermes = IP brain fused; OpenClaw = selective hardening fused; wire the EXISTING
+   `agent_core::lsp_runtime` RustLSP as work tools (don't import OpenCode's LSP).
+   LOOP: cron `0c87db0c` now fires `AGENT_LOOP_PROMPT_2026_06_21.md` (re-read addendum every iteration);
+   the stale SESSION_CONTINUATION cron was replaced.
 4. **Tamagotchi render-fix = IN SCOPE** (keep style; fix too-small/inner-square).
 5. All other 2026-06-21 overrides hold (act reskin=current-chat; preserve picker/palette/agent-tools/
    Epistemos Picks; per-clone settings tabs; landing blur + mode-entry anim; motion triad; Prose 120fps;
