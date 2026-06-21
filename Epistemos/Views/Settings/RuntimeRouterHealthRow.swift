@@ -67,8 +67,18 @@ public struct RuntimeRouterHealthRow: View {
             stat(label: "Verdicts", value: "\(router.metrics.totalCount)")
             stat(label: "Escalations", value: "\(totalEscalations)")
             stat(label: "Rejects", value: "\(router.metrics.rejectCount)")
+            stat(label: "Parity", value: parityValue)
             Spacer()
         }
+    }
+
+    /// SUBSTRATE Phase 1 STAGE 1b observe-only parity: the fraction of turns the router agreed
+    /// with the live path's lane choice. "—" until the shadow has observed a turn (the
+    /// EPISTEMOS_RUNTIMEROUTER_LIVE_V0 flag is OFF by default, so this stays "—" until armed). A
+    /// rising-toward-100% value is the green light for STAGE 2 (making the router authoritative).
+    private var parityValue: String {
+        guard let rate = router.metrics.parityRate else { return "—" }
+        return "\(Int((rate * 100).rounded()))% (\(router.metrics.parityObservations))"
     }
 
     private var chipStrip: some View {
