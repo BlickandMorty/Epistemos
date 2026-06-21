@@ -549,3 +549,24 @@ This deep check is a standing gate: re-run it whenever a surface is claimed done
 Net: the user-facing experience converges to the two-chat (act/work) ontology + click-to-start-convo; the
 old chat is hidden (not deleted), its code preserved underneath. Early-transition both may show; the target
 is act+work only.
+
+## 🌟 INITIATIVE — ADOPT PROVEN ENGINES, LAYER MY IP (owner 2026-06-21)
+PRINCIPLE: commodity infrastructure (agent loop, model serving, tool-calling, sandbox, sync, indexing,
+LSP, etc.) is ALREADY SOLVED by proven public GitHub repos — ADOPT/clone those (like Osaurus/Goose/OpenCode)
+instead of hand-building + maintaining them. Reserve the owner's effort for the UNIQUE IP that gets LAYERED
+ON TOP. Don't reinvent what the community has perfected; differentiate where it counts.
+
+### Recurring CHECK — "ADOPT vs IP-LAYER" classification (research-grounded)
+Maintain a LIVING MAP that classifies every major capability:
+- **ADOPT** — a top public repo already does this well → vendor/clone it (cite the repo + why). e.g. agent
+  loop/serving/sandbox = Osaurus; work engine = Goose; LSP = existing rust lsp_runtime.
+- **IP-LAYER (owner differentiator — keep/build on top, never commoditize):** the BRAIN (Eidos/recall,
+  cognitive DAG, provenance, honesty gating, prompts), the UI/design/MOTION language, the EDITORS (Prose
+  120fps + MD-V2), the MODEL LAB (QAT ladder, "Epistemos Picks", per-model engineering), the GRAPH.
+- **HYBRID** — adopt the engine, layer IP on top (the default for act/work).
+PROCESS: each cycle (and at tier boundaries) RE-SCAN the public landscape (top GitHub repos) for the
+capability at hand; if something the owner is hand-building is already solved publicly AND better, switch to
+ADOPT + layer IP. If a "unique" thing is actually commodity, stop hand-maintaining it. Output a doc:
+`docs/research/ADOPT_VS_IP_LAYER_MAP_2026_06_21.md` — what's COMPLETE-elsewhere (adopt) vs OWNER-IP (layer),
+grounded + cited. Extends AGENT_STACK_CONVERGENCE_RESEARCH (which already classified Osaurus/Goose/OpenCode/
+OpenClaw/Hermes). Standing item, not droppable.
