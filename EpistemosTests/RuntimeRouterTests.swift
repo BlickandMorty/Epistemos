@@ -121,6 +121,29 @@ struct RuntimeRouterTests {
         #expect(RuntimeRouterShadow.acceptedLane(from: verdict) == nil)
     }
 
+    @Test("Phase 1 STAGE 1b: metrics record observe-only parity (rate = matches / observations)")
+    func phase1ParityMetricsRecording() {
+        var metrics = RuntimeRouterMetrics()
+        #expect(metrics.parityObservations == 0)
+        #expect(metrics.parityRate == nil)
+        metrics.recordParity(matched: true)
+        metrics.recordParity(matched: true)
+        metrics.recordParity(matched: false)
+        #expect(metrics.parityObservations == 3)
+        #expect(metrics.parityMatches == 2)
+        if let rate = metrics.parityRate {
+            #expect(abs(rate - 2.0 / 3.0) < 1e-9)
+        } else {
+            Issue.record("parityRate should be non-nil after observations")
+        }
+        // The RuntimeRouter passthrough records into its own metrics (what the live seam calls).
+        let router = RuntimeRouter(
+            initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        router.recordParity(matched: true)
+        #expect(router.metrics.parityObservations == 1)
+        #expect(router.metrics.parityMatches == 1)
+    }
+
     @Test("local policy table gates MLX/GGUF before cloud fallback")
     func localPolicyTableGatesLocalLanesBeforeCloudFallback() {
         guard let policy = RuntimeRouter.localPolicyTable[.code] else {
