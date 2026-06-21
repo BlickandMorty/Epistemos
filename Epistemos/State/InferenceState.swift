@@ -627,18 +627,34 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// decoder isn't ported yet. Callers (picker, triage, startup
     /// migration) should treat these as "not runnable today" so the user
     /// never hits the raw "Unsupported model type" error.
+    /// Owner-gated (`EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0`, default OFF): treat the dense
+    /// Gemma 4 E2B/E4B MLX tiers as runnable. The native Apple Gemma 4 MLX loader IS vendored +
+    /// registered (`LLMModelFactory` "gemma4"/"gemma4_text", commit 0b5312173, 2026-06-14) and the
+    /// installed `mlx-community/gemma-4-e2b-it-4bit` config's `model_type:"gemma4"` matches the
+    /// registry — the sibling `isHeldOutOfAutomaticLocalRouting` already documents "the dense
+    /// E2B/E4B tiers now run". OFF preserves the conservative "awaiting loader" gate byte-for-byte;
+    /// ON lets the owner validate generation on their real app bundle (which, unlike headless
+    /// `swift test`, can load the MLX metallib). It does NOT relax the automatic-routing hold-out.
+    nonisolated static var mlxGemma4DenseRunnableEnabled: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0"] == "1"
+    }
+
     var isAwaitingSwiftRuntimeLoader: Bool {
         switch self {
-        // The whole Gemma 4 MLX family is awaiting a working Swift loader: the
-        // mlx-swift-lm decoder does NOT support `gemma4` (selecting a dense
-        // E2B/E4B MLX tier errors at runtime with "Unsupported model type:
-        // gemma4", verified on-device 2026-06-16), the 26B-A4B MoE tier has no
-        // dense-only Swift path, and 31B-JANG is unverified + oversized. The
-        // runnable Gemma 4 is the separate GGUF llama-cli lane, not these MLX
-        // enum ids — so treat ALL of them as "not runnable today" so the user
-        // never hits the raw load error from the picker.
-        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+        // 26B-A4B is Mixture-of-Experts (no dense-only Swift path) and 31B-JANG is
+        // unverified + oversized — these genuinely have no runnable Swift loader and
+        // stay gated unconditionally.
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             true
+        // Dense E2B/E4B: the native Apple Gemma 4 MLX loader is vendored + registered (see
+        // `mlxGemma4DenseRunnableEnabled`), so the old "mlx-swift-lm doesn't decode gemma4"
+        // determination (on-device 2026-06-16) predates the current registration and is the
+        // stale half of a contradiction the code itself flags in `isHeldOutOfAutomaticLocalRouting`.
+        // Gated runnable behind the owner flag pending on-device confirmation; OFF keeps them
+        // "awaiting loader" so the user never hits a raw load error from an unvalidated picker.
+        // Either way `isHeldOutOfAutomaticLocalRouting` keeps them out of AUTOMATIC fallback.
+        case .gemma4_2B4Bit, .gemma4_4B4Bit:
+            !Self.mlxGemma4DenseRunnableEnabled
         default:
             false
         }
@@ -3467,6 +3483,10 @@ final class InferenceState {
         // SS-CHATMODEL P0: repair a stale auto-default Qwen on existing installs BEFORE the persisted
         // pick loads below — so the migrated Gemma is what wins, reaching existing installs.
         Self.migrateStaleDefaultModel(defaults: defaults, snapshot: hardwareCapabilitySnapshot)
+        // SS-CHATMODEL P0 (owner NO-FALLBACKS): under EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0,
+        // move a persisted GGUF Gemma default → its runnable MLX equivalent so the picked model
+        // actually runs (no silent Qwen substitution). No-op when the flag is OFF.
+        Self.migrateGgufGemmaDefaultToMlx(defaults: defaults)
         if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
            let mode = LocalRoutingMode(rawValue: saved) {
             self.routingMode = mode
@@ -3789,6 +3809,52 @@ final class InferenceState {
                 ChatModelSelection.localMLX(gemmaDefault).rawValue,
                 forKey: selectionKey
             )
+        }
+    }
+
+    /// Pure mapping: the dense MLX Gemma 4 `LocalTextModelID` raw value equivalent to a persisted
+    /// GGUF Gemma id (e.g. `google/gemma-4-E2B-it-qat-q4_0-gguf` → `mlx-community/gemma-4-e2b-it-4bit`).
+    /// Returns nil for non-Gemma ids, non-GGUF ids, an id that is already an MLX Gemma, and the 12B /
+    /// MoE GGUF tiers (which have no dense MLX equivalent) — so deliberate non-Gemma picks are never
+    /// remapped. Extracted pure so the real-state migration test can exercise the owner's exact pick.
+    nonisolated static func mlxEquivalent(forGgufGemmaID id: String) -> String? {
+        let lower = id.lowercased()
+        guard lower.contains("gguf"),
+              lower.contains("gemma-4") || lower.contains("gemma4") else { return nil }
+        if lower.contains("e2b") { return LocalTextModelID.gemma4_2B4Bit.rawValue }
+        if lower.contains("e4b") { return LocalTextModelID.gemma4_4B4Bit.rawValue }
+        return nil
+    }
+
+    /// SS-CHATMODEL P0 (owner 2026-06-21, NO-FALLBACKS): when the GGUF runtime lane is off, a
+    /// persisted GGUF Gemma pick can't run and silently resolves to Qwen. Under
+    /// `EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0` the dense MLX Gemma tiers run, so migrate a persisted
+    /// GGUF Gemma default → the same-size MLX Gemma id so the owner's Gemma actually RUNS with no
+    /// substitution. One-time (keyed `epistemos.ggufGemmaToMlxMigratedV0`); only GGUF Gemma picks are
+    /// remapped (deliberate non-Gemma picks preserved). Reversible: with the flag OFF the dense MLX
+    /// tiers are awaiting-loader again and `migrateStaleGemma4Selection` rewrites them to the
+    /// foundation default — no permanent state change from a flag the owner later turns off.
+    nonisolated static func migrateGgufGemmaDefaultToMlx(defaults: UserDefaults) {
+        migrateGgufGemmaDefaultToMlx(defaults: defaults, enabled: LocalTextModelID.mlxGemma4DenseRunnableEnabled)
+    }
+
+    nonisolated static func migrateGgufGemmaDefaultToMlx(defaults: UserDefaults, enabled: Bool) {
+        guard enabled else { return }
+        let migratedKey = "epistemos.ggufGemmaToMlxMigratedV0"
+        guard !defaults.bool(forKey: migratedKey) else { return }
+        defaults.set(true, forKey: migratedKey)
+
+        let localKey = "epistemos.preferredLocalTextModelID"
+        if let saved = defaults.string(forKey: localKey),
+           let mlx = mlxEquivalent(forGgufGemmaID: saved) {
+            defaults.set(mlx, forKey: localKey)
+        }
+
+        let selectionKey = "epistemos.preferredChatModelSelection"
+        if let saved = defaults.string(forKey: selectionKey),
+           case .localMLX(let modelID) = ChatModelSelection(rawValue: saved) ?? .appleIntelligence,
+           let mlx = mlxEquivalent(forGgufGemmaID: modelID) {
+            defaults.set(ChatModelSelection.localMLX(mlx).rawValue, forKey: selectionKey)
         }
     }
 
