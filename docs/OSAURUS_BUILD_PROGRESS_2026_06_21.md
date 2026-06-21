@@ -38,9 +38,13 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
      constraint for the main build). 3. Build-verify. 4. Reskin to pixel-art (the video experience).
   Gating note: the old `#if !EPISTEMOS_APP_STORE` Pro-gate on the seam stays (a MAS build can still
   omit ONLY the VM sandbox), but it no longer constrains the main app.
-- [ ] **S4 — Act agent-turn through OsaurusCore** + reskin composer to pixel-art chrome.
-  (Partial: `OsaurusActBridge.runTurn` already POSTs to the osaurus-PATTERN `LocalModelServer`,
-  but not yet through linked OsaurusCore.)
+- [🟡] **S4 — Act agent-turn through OsaurusCore** + reskin composer to pixel-art chrome.
+  - [x] First slice DONE (`2f6779c40`, real-state verified): `OsaurusActBridge` imports the LINKED
+    OsaurusCore + reads REAL engine data in-process (`isOsaurusCoreLinked`, `osaurusCoreRemoteProviders`
+    = `OsaurusCore.RemoteProviderType.allCases`); test `s4OsaurusCoreDrivenInProcess` passes. Act DRIVES
+    OsaurusCore, not just links it.
+  - [ ] REMAINS: a full act generation turn through OsaurusCore's ModelRuntime; then reskin (current-chat
+    discipline) + mode-entry animations.
 - [ ] **S5 — Containerization Linux-VM sandbox** (Pro/dev, virtualization entitlement, no-hidden-fallback).
 - [ ] **S6+ — server endpoints, MCP, plugins, privacy filter, identity/relay** (each gated/logged/MAS-excluded).
 
@@ -74,6 +78,17 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **PER-CLONE SETTINGS (owner 2026-06-21):** each cloned app keeps its OWN settings — surface in
   Epistemos Settings as an EXECUTIVE TAB/TOGGLE (keep the all-Epistemos tab; add `act`/`work`/beyond
   tabs exposing each clone's native settings). Preferred = another tab. Respect each clone's settings.
+- [🔴] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — ACT-surface phase (AFTER engine, do not pull ahead).
+  On select: greeting backspaces + moves UP, typewrites the mode name; reusable elements (greeting→title)
+  travel up connectedly; smaller UI + message bar BLUR then reveal. **act = native Apple blur-reveal**;
+  **work = ASCII/pixel typewriter + full-page dynamic reveal** (OpenCode not native → use its font, more
+  flexible/interesting element reveals). "epistemos chat"→act, "work"→work, written in each mode's voice.
+- [🔴] **MOTION LANGUAGE TRIAD — CROSS-CUTTING STANDING RULE (owner 2026-06-21)** = Apple blur +
+  ASCII/pixel typewriter (the "time machine" title-box style) + subtle micro-motions. Apply to **TITLES +
+  display-only text** (settings, agent surfaces, section headers, agent ANSWERS maybe — find balance),
+  hover-on-message-bar may trigger it. **Noticeable-not-bloated; NEVER in editors / text-editing fields.**
+  Body fonts get a lighter variant than title fonts. Part of the app's "fun it up" initiative. Every NEW
+  view honors this triad. (Standing rule — see "Standing rules in force".)
 - NOTE: this doc is the LIVING IMPLEMENTATION MAP for all 14 directive areas (owner audit-map 2026-06-21):
   two-modes act/work; Osaurus linked; reskin=current-chat discipline; preserve chrome + Epistemos Picks;
   Tamagotchi agents (fix render); chat quarantine; no-silent-Qwen; MAS-non-restrictive global; reuse-not-
@@ -121,6 +136,10 @@ Grounded fixes:
 WIP uncommitted on main; commit only when GREEN.
 
 ## Standing rules in force
+- **MOTION LANGUAGE TRIAD (owner 2026-06-21):** every NEW view applies the triad — Apple blur +
+  ASCII/pixel typewriter ("time machine" style) + subtle micro-motions — on TITLES + display-only text
+  (settings/agent surfaces/headers), noticeable-not-bloated, **NEVER in editors/text-editing**. UI built
+  AFTER the engine; this rule is recorded now so it's honored when UI lands. Don't pull UI ahead of engine.
 - **MAS is NOT a hard constraint (owner 2026-06-21).** Never cut an Osaurus feature or "lose its
   osaurus-ness" to stay MAS-sandbox-compliant. Main app = direct-distribution (notarized) carrying
   the full Osaurus incl. the VM sandbox. MAS-fit was researched by ENTITLEMENT (see entitlements
