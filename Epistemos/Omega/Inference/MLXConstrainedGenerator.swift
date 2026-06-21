@@ -142,7 +142,10 @@ enum ConstrainedGeneratorError: Error, LocalizedError {
 /// Current guidance: penalizes EOS tokens by -50 logits when depth > 0.
 /// This reduces premature stopping but does not guarantee valid JSON.
 #if canImport(MLXLMCommon)
-struct JSONSchemaLogitProcessor: LogitProcessor {
+// nonisolated: vmlx's `LogitProcessor` protocol is nonisolated, but Epistemos's module
+// defaults to MainActor isolation — so the conformance must be explicitly nonisolated to be
+// usable from the nonisolated `generate()`/TokenIterator path.
+nonisolated struct JSONSchemaLogitProcessor: LogitProcessor, Sendable {
     private let grammar: ToolSchemaGrammar.CompiledGrammar
     private var state: JSONParserState = .arrayStart
     private var depth: Int = 0
@@ -233,7 +236,7 @@ struct JSONSchemaLogitProcessor: LogitProcessor {
 /// unchanged. `MLXConstrainedGenerator.isFullyConstraining` stays `false` until a
 /// live generation witness flips it (a later slice); this processor is not yet
 /// constructed by the live `generate()` path.
-struct RustGrammarMaskedLogitProcessor: LogitProcessor {
+nonisolated struct RustGrammarMaskedLogitProcessor: LogitProcessor, Sendable {
     private let matcher: RustGrammarMatcher
     let isEnabled: Bool
 
@@ -348,7 +351,8 @@ extension MLXInferenceService {
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
-        logitProcessor: some LogitProcessor
+        // & Sendable: the processor is captured into vmlx's `@Sendable container.perform {}`.
+        logitProcessor: some LogitProcessor & Sendable
     ) async throws -> String {
         // Ensure a model is loaded — reuse the active container
         guard let container = self.container else {
@@ -386,8 +390,8 @@ extension MLXInferenceService {
                 tokens.append(token)
             }
 
-            // Decode tokens to string
-            let output = context.tokenizer.decode(tokens: tokens)
+            // Decode tokens to string (vmlx renamed the label `tokens:` → `tokenIds:`).
+            let output = context.tokenizer.decode(tokenIds: tokens)
             return output
         }
 

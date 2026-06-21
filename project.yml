@@ -113,21 +113,27 @@ targets:
       - package: GRDB
       - package: Grape
       - package: HuggingFace
-      - package: MLX
+      - package: vmlx-swift
         product: MLX
-      - package: MLX-LM
+      - package: vmlx-swift
+        product: MLXNN
+      - package: vmlx-swift
+        product: MLXOptimizers
+      - package: vmlx-swift
         product: MLXLMCommon
-      - package: MLX-LM
+      - package: vmlx-swift
         product: MLXLLM
-      - package: MLX-LM
+      - package: vmlx-swift
         product: MLXVLM
+      - package: vmlx-swift
+        product: MLXHuggingFace
+      - package: vmlx-swift
+        product: VMLXTokenizers
       - package: GGUFRuntimeBridge
         product: GGUFRuntimeBridge
       - package: CodeEditSourceEditor
       - package: SwiftTreeSitter
       - package: CodeEditLanguages
-      - package: MLXStructured
-        product: MLXStructured
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -219,19 +225,25 @@ targets:
       - package: GRDB
       - package: Grape
       - package: HuggingFace
-      - package: MLX
+      - package: vmlx-swift
         product: MLX
-      - package: MLX-LM
+      - package: vmlx-swift
+        product: MLXNN
+      - package: vmlx-swift
+        product: MLXOptimizers
+      - package: vmlx-swift
         product: MLXLMCommon
-      - package: MLX-LM
+      - package: vmlx-swift
         product: MLXLLM
-      - package: MLX-LM
+      - package: vmlx-swift
         product: MLXVLM
+      - package: vmlx-swift
+        product: MLXHuggingFace
+      - package: vmlx-swift
+        product: VMLXTokenizers
       - package: CodeEditSourceEditor
       - package: SwiftTreeSitter
       - package: CodeEditLanguages
-      - package: MLXStructured
-        product: MLXStructured
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -524,11 +536,13 @@ packages:
   HuggingFace:
     url: https://github.com/huggingface/swift-huggingface.git
     version: 0.9.0
-  MLX:
-    url: https://github.com/ml-explore/mlx-swift
-    revision: 6ba4827fb82c97d012eec9ab4b2de21f85c3b33d
-  MLX-LM:
-    path: LocalPackages/mlx-swift-lm
+  # Osaurus consolidation (owner 2026-06-21, full Osaurus / no dual-MLX clash):
+  # Epistemos consolidates onto Osaurus's vmlx-swift — the SAME MLX stack OsaurusCore
+  # links — so OsaurusCore links without two packages defining MLX* modules. vmlx-swift
+  # provides the same module names (MLX/MLXNN/MLXOptimizers/MLXLLM/MLXLMCommon/MLXVLM/
+  # MLXEmbedders). Replaces ml-explore/mlx-swift + LocalPackages/mlx-swift-lm.
+  vmlx-swift:
+    path: LocalPackages/vmlx-swift
   GGUFRuntimeBridge:
     path: LocalPackages/GGUFRuntimeBridge
   CodeEditSourceEditor:
@@ -547,16 +561,11 @@ packages:
   CodeEditLanguages:
     url: https://github.com/CodeEditApp/CodeEditLanguages.git
     from: "0.1.20"
-  # W9.25 — grammar-constrained logit masking. The DSL is already
-  # wired in Epistemos/LocalAgent/LocalToolGrammar.swift behind
-  # `#if canImport(MLXStructured)` guards; linking the package
-  # flips the runtime path from the omegaSoftGuidance fallback to
-  # true logit masking via xgrammar's FSA inside MLXLMCommon's
-  # TokenIterator. petrukha-ivan/mlx-swift-structured 0.0.4 was
-  # the resolved version in test_results/ci_source_packages/.
-  MLXStructured:
-    url: https://github.com/petrukha-ivan/mlx-swift-structured
-    from: "0.0.4"
+  # MLXStructured (petrukha-ivan/mlx-swift-structured) REMOVED in the Osaurus MLX
+  # consolidation (owner 2026-06-21): it pins ml-explore/mlx-swift, which would re-introduce
+  # the dual-MLX clash against vmlx-swift. Its consumer (LocalToolGrammar.swift) is
+  # `#if canImport(MLXStructured)`-guarded, so it degrades cleanly to the omegaSoftGuidance
+  # fallback. Re-evaluate once vmlx-swift's own structured/tool-parser surface is wired.
 
 schemes:
   Epistemos:

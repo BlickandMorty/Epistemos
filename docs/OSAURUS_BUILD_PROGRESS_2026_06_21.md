@@ -72,6 +72,35 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **Port owner IP** (system prompts + hidden pieces) onto Osaurus engine; **WORK mode**
   (Goose/OpenCode) clone/port too.
 
+## ✅ MLX consolidation — DONE (2026-06-21, `** BUILD SUCCEEDED **` build #9, exit 0)
+The ENTIRE Epistemos app compiles + links against Osaurus's `vmlx-swift` MLX stack (consolidated
+off `mlx-swift-lm` + `ml-explore/mlx-swift` → ONE MLX, no dual-MLX clash). KIVI + SSM hardening
+PRESERVED (KIVI via vmlx native 2-bit quant; SSM via the `ChatSession` extract/inject overlay).
+AppGroup/AppKit/perf untouched. Verified compile-only (`CODE_SIGNING_ALLOWED=NO`) — signing/entitlements
+for distribution is a separate follow-up (owner: direct-distribution, robust entitlements). Files
+reconciled: MLXInferenceService, NativeLoRATrainer, NativeKTOTrainer, MLXConstrainedGenerator, +
+project.yml/pbxproj/Package.resolved + the vmlx ChatSession overlay. NEXT: run the test suite (no
+regressions), then **link OsaurusCore** (the actual act=Osaurus engine). `LocalPackages/mlx-swift-lm`
+is now dead (unreferenced) — deliberate-delete is a later cleanup. Reconciliation detail:
+
+Grounded fixes:
+- [x] `switch item` — added vmlx's new `Generation` cases `.reasoning` + `.prefillProgress`
+  (TODO: route `.reasoning` to the thinking pane — STREAM-EVERYTHING follow-up).
+- [x] `kvScheme` — dropped (vmlx `GenerateParameters` has no `kvScheme`); KIVI 2-bit hardening kept
+  via vmlx native `kvBits:2`/`kvGroupSize:32`. (TODO: port exact KIVI scheme onto vendored vmlx.)
+- [ ] **`loadContainer(configuration:)` (lines ~2012/2017)** → vmlx requires `from:`+`using:`. Epistemos
+  loads a LOCAL dir (`ModelConfiguration(directory:)`), so use vmlx's local overload
+  `loadContainer(from: modelDirectory, using: <TokenizerLoader>)`. OPEN: which `TokenizerLoader`? No
+  simple default in vmlx (JangLoader has many inits; BenchmarkHelpers has NoOpTokenizerLoader). →
+  study `LocalPackages/osaurus/.../Services/ModelRuntime.swift:1075 loadContainer` for the canonical loader.
+- [ ] **`session.extractKVCache()`/`injectKVCache()` (2591/2650)** — not on vmlx ChatSession. SSMStateService
+  ALREADY uses vmlx-compatible `[any KVCache]` + `savePromptCache`. Fixes: extract → add a public accessor
+  on the VENDORED vmlx ChatSession (it has internal `withCache`; make a public `extractKVCache()` returning
+  the `[KVCache]`); inject → vmlx uses **`ChatSession.init(cache: consuming [KVCache])`**, so restructure the
+  2 session-construction sites (`MLXInferenceService:1649`,`1765`) to load-cache-THEN-construct (or add a
+  public reset-cache method to vendored ChatSession). Preserves SSM session-resume hardening.
+WIP uncommitted on main; commit only when GREEN.
+
 ## Standing rules in force
 - **MAS is NOT a hard constraint (owner 2026-06-21).** Never cut an Osaurus feature or "lose its
   osaurus-ness" to stay MAS-sandbox-compliant. Main app = direct-distribution (notarized) carrying
@@ -93,6 +122,17 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   fix/revert needed**; flag cleared.
 - `EpistemosPicks` + `ActOsaurus` seam are real-state green.
 The vendored `LocalPackages/osaurus` is NOT in this build (S3 not yet linked) — expected.
+
+## IN-FLIGHT (uncommitted on main — do NOT commit until GREEN)
+- **MLX-swap in progress (iter 8):** `project.yml` swapped `MLX`(ml-explore)+`MLX-LM`(mlx-swift-lm)+
+  `MLXStructured` → `vmlx-swift` (products MLX/MLXNN/MLXOptimizers/MLXLMCommon/MLXLLM/MLXVLM) in both
+  app targets; `NativeKTOTrainer.swift` `Tokenizers`→`VMLXTokenizers`; `xcodegen generate` done; SPM
+  checkout cache cleared (stale mlx-swift had uncommitted patch). Build running → `/tmp/epi_mlxswap.log`.
+  NEXT iteration: read the build's grounded compile errors (vmlx API diffs in the 8 MLX files —
+  esp. training files NativeLoRA/KTO/AdapterApply + MLXConstrainedGenerator + MLXInferenceService),
+  fix iteratively, rebuild until GREEN, THEN commit. The `patch_mlx_metal_warnings.sh` scheme preAction
+  may also need repointing at vmlx-swift. Working-tree changes are real WIP (not a stash) — main's
+  committed HEAD stays green.
 
 ## Session log
 - 2026-06-21: triaged + dropped 24 forgotten stashes (`44f7e07df`, archive in
