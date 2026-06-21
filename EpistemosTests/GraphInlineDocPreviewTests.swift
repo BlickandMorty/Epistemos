@@ -55,4 +55,25 @@ struct GraphInlineDocPreviewTests {
         // Cancel leaves edit mode without calling save.
         #expect(card.contains("Button(\"Cancel\") { isEditing = false }"))
     }
+
+    @Test("the Epdoc document preview is read-only, reading the plain.txt projection off-main")
+    func epdocPreviewIsReadOnly() throws {
+        let card = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphInlineDocPreview.swift")
+        #expect(card.contains("struct GraphEpdocDocPreviewCard"))
+        // Reads the FTS plain-text projection via the locator, off the main actor.
+        #expect(card.contains("EpdocDocumentLocator.url(forManifestID: targetID, in: vault)"))
+        #expect(card.contains("EpdocPackageEntry.Projection.plainText"))
+        #expect(card.contains("Task.detached"))
+        // Read-only: no Epdoc package WRITE from the preview (no write API surface).
+        #expect(!card.contains("EpdocPackage(") || !card.contains(".write("))
+    }
+
+    @Test("the sidebar gates the document-node inline preview behind the flag")
+    func sidebarWiresEpdocPreviewBehindFlag() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        #expect(src.contains("showInlineEpdocPreview = true"))
+        #expect(src.contains("GraphEpdocDocPreviewCard("))
+        // The document preview affordance is under the same flag as the note one.
+        #expect(src.contains("if GraphInlineDocPreviewFlag.enabled"))
+    }
 }
