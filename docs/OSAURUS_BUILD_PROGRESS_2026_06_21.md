@@ -34,6 +34,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **Surface-wiring:** ALL chat surfaces (main ChatView, MiniChat, NoteChatSidebar,
   Graph/Hologram*, + sweep) → ONE shared act composer. Map each surface → real proven
   front-end BEFORE wiring; prove (real-state/launch-smoke). No dead surfaces.
+  - [x] First surface wired (DONE 2026-06-21, real-state verified): **Epistemos Picks VIEW** —
+    `Epistemos/Views/Settings/EpistemosPicksSectionView.swift` renders the curated provider in
+    pixel-art (reuses `InlineRuntimePickerPanel`'s exact live-state→Environment mapping + honest
+    selection), mounted as a leading "Epistemos Picks" Section in the existing proven
+    `ModelStackSettingsView` (visible in the model-manager sheet). The same component the act
+    composer mounts in S4. **VERIFIED:** app target compiles clean (0 errors) + 12/12 tests green.
 - [x] **"Epistemos Picks"** — DONE 2026-06-21 (real-state verified, commit `519aed305`).
   `Epistemos/Engine/EpistemosPicks.swift` = pure `nonisolated enum` curating the owner's hardened
   models (Gemma QAT ladder via `EpistemosFoundationLineup` + explicit Qwen extras + curated

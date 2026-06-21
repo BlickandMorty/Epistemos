@@ -53,6 +53,17 @@ struct ModelStackSettingsView: View {
     }
 
     var body: some View {
+        // Epistemos Picks — the owner's curated hardened models, top-billed (owner 2026-06-21).
+        // Reuses the verified `EpistemosPicks` provider; honest selection (no silent Qwen). The
+        // same curated component the act composer's model picker mounts (S4).
+        Section {
+            EpistemosPicksSectionView(inference: inference)
+        } header: {
+            Text("Epistemos Picks")
+        } footer: {
+            Text("Your custom hardened models, curated and sized to your Mac. Pick one to use it. A model that's too large or not installed stays visible with an honest reason — never a silent swap.")
+        }
+
         Section {
             ForEach(rows) { row in
                 stackRow(row)
