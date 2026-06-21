@@ -45,3 +45,19 @@ pref + Settings row → debounced auto-speak gated on the pref. **(C) Presets SE
 CaptureDestination/CapturePreset + persist → `destination:` param + branch persist → compact preset Menu + per-destination
 "Open". Prose remains default + untouched = non-invasive. Honest: state plainly that no neural TTS exists today ("model voice"
 = AVSpeech persona); a neural-TTS model is a separate future item (SS-Q). Each step test-backed; single targeted swift build.
+
+---
+## VOICE PICKER + premium-voice honesty (owner on-device 2026-06-20: "premium still sounds basic; let me pick among custom voices")
+The read-back sounds basic because NO Premium/Enhanced voice is installed on the Mac → `EpistemosSpeechSynthesizer.preferredVoice()`
+(ranks premium>enhanced>default, `:219`) correctly falls back to the compact system default (`AVSpeechSynthesisVoice(language:)`).
+Premium/Enhanced Apple voices are an OS download (System Settings → Accessibility → Spoken Content → System Voice → Manage Voices)
+— the app cannot download them (external fact). Infra already exists: `availableVoices()` (quality-ranked, `:186`),
+`resolveVoice(identifier:)`, `voiceQualityHint()`, and a `ModelVoicePickerSection` UI. The GAPS (SS-QC voice-picker, still not done):
+1. QuickCapture read-back calls `speak()` with NO voiceIdentifier (`QuickCaptureView:493`, `ReadAloudButton`) → always the
+   fallback. ADD a VOICE PICKER on the quick-capture surface (+ a global default-voice setting in VoicePreferences) listing
+   `availableVoices()` grouped by quality; pass the chosen identifier to `speak(voiceIdentifier:)`. Reuse ModelVoicePickerSection.
+2. SURFACE `voiceQualityHint()` honestly at the picker: if best installed == Default, show "download a Premium voice in System
+   Settings → Spoken Content → Manage Voices" + a deep-link/help (no-hidden-fallback / SS-HF: don't imply compact is premium).
+3. Default = `preferredVoice()` (best installed) — already correct; the picker lets the owner override among installed voices.
+Test: picker lists installed voices by quality; selecting one routes `speak()` to it; with only Default installed, the honest
+download hint shows. NON-INVASIVE. Cross-ref SS-HF (point-of-use honesty), SS-Q (neural voice is the separate bigger item).
