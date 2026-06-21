@@ -344,7 +344,13 @@ struct HTMLWorkspaceEditorView: View {
                 HTMLWorkspacePreviewView(package: previewPackage,
                     previewTheme: previewTheme,
                     themeGuardCSSOverride: previewThemeGuardCSS,
-                    themeIdentity: workspaceThemeIdentity
+                    themeIdentity: workspaceThemeIdentity,
+                    onConsoleError: { error in
+                        // SS-HW console capture → record into the document's console pipeline (the
+                        // consolePanel reads package.consoleErrors). Only `package` is updated, never
+                        // `previewPackage`, so a runtime error never re-renders the preview (no loop).
+                        package = (try? HTMLWorkspacePatchApplier.apply(.recordConsoleError(error), to: package)) ?? package
+                    }
                 )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
