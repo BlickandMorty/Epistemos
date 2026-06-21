@@ -777,12 +777,17 @@ struct CompanionAvatarGlyph: View {
         guard x >= 0, x < gridSize, y >= 0, y < gridSize else { return }
         let cellWidth = rect.width / CGFloat(gridSize)
         let cellHeight = rect.height / CGFloat(gridSize)
-        let cell = CGRect(
-            x: floor(rect.minX + cellWidth * CGFloat(x)),
-            y: floor(rect.minY + cellHeight * CGFloat(y)),
-            width: ceil(cellWidth),
-            height: ceil(cellHeight)
-        )
+        // SHARED-EDGE rounding (owner 2026-06-21 render-fix): each cell's FAR edge is rounded the
+        // SAME way the next cell's NEAR edge is, so adjacent same-color cells always abut with NO
+        // sub-pixel gap. The old floor-origin + ceil-size gapped/overlapped unevenly when the avatar
+        // rendered below 96pt (cellWidth < 2) — those gaps showed the background THROUGH the body as
+        // the "weird small squares inside" the Tamagotchi. Edges stay integer-aligned (`.rounded()`),
+        // preserving the bit-perfect stepped pixel-art look (Invariant I-16) — now without artifacts.
+        let x0 = (rect.minX + cellWidth * CGFloat(x)).rounded()
+        let y0 = (rect.minY + cellHeight * CGFloat(y)).rounded()
+        let x1 = (rect.minX + cellWidth * CGFloat(x + 1)).rounded()
+        let y1 = (rect.minY + cellHeight * CGFloat(y + 1)).rounded()
+        let cell = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
         context.fill(Path(cell), with: .color(color))
     }
 
