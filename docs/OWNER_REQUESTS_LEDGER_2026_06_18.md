@@ -4298,3 +4298,12 @@ native; AGPL server). ADOPT 2 patterns natively:
       GraphFloatingControls/SettingsView) likely DEAD (flag set but MetalGraphView/HologramOverlay never reads) → wire each to
       the renderer or remove. NON-INVASIVE, tracked, normal order. (B)+(C) are textbook SS-CLEAN dead-flag/surface-parity
       catches — fold into the Cleanliness Gate. Cross-ref SS-HGT/SS-2S/SS-VIS/SS-SH.
+- [x] **OWNER-VERIFICATION NOT A GATE — agent works everything autonomously (owner 2026-06-20).** *"Do not use my
+      verification [to gate] — what do I need to verify/do? But I want the agent to still work on everything WITHOUT my
+      input."* POLICY (→ SS-CLEAN "OWNER-VERIFICATION IS NOT A GATE"): the loop NEVER parks/defers because an item needs
+      owner visual/on-device verify. It self-verifies with the best non-owner witness (render/behavior tests + cargo/swift
+      test + xcodebuild launch-smoke via the monitor's AUTO-BUILD) and SHIPS; "visual/live PENDING OWNER" is a non-blocking
+      note. Monitor RESUMES any park citing owner-verification. Only real external-fact (API key) or owner-preference choices
+      may wait. Supersedes earlier "PENDING OWNER → park." OWNER TO-DO (informational, non-gating) compiled separately:
+      app-launches (P0 fix), chat live-send local+cloud (SS-CR), theme switch no-hang + colors (SS-THX/SS-TC), Instant Recall
+      visible/openable (SS-IR), the visual fixes (SS-GC/SS-DD/SS-IL/SS-2S), SS-SH blank sidebar.

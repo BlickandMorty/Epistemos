@@ -136,3 +136,16 @@ in `AppBootstrap.performPrimaryLaunchInitialization`). Unit-green ≠ launches. 
 - Monitor/last-auditor: after a startup-touching commit, check ~/Library/Logs/DiagnosticReports for new `Epistemos-*.ips`
   crashes; a fresh launch crash = P0, supersedes feature work. Why prior checks missed it: they verified build-green +
   unit-tests, not "does it launch."
+
+## OWNER-VERIFICATION IS NOT A GATE (owner 2026-06-20)
+Owner: *"Do not use my verification [as a gate] — I want the agent to still work on everything WITHOUT my input."* The loop
+must NOT park or defer an item because it "needs the owner to verify visually/on-device." Build EVERYTHING autonomously:
+- For visual/launch/live items, get the best NON-owner witness the loop can produce — render/behavior tests, source guards,
+  `cargo`/`swift test`, and an actual **xcodebuild + launch-smoke** (the monitor AUTO-BUILDs when the loop parks to confirm
+  compile + that the app opens) — then SHIP the commit. "Visual/live PENDING OWNER" is a NON-BLOCKING NOTE on the commit,
+  never a reason to stop or park.
+- The ONLY legitimate waits remain: a genuine external fact the loop cannot supply (e.g. the owner pasting a live cloud API
+  key) and true owner-PREFERENCE product choices. Everything else: research-to-safety + CODE it + self-verify + move on.
+- When the loop parks citing "for when you're driving"/"owner will verify", the monitor RESUMES it immediately (owner-
+  verification is not a valid park). The owner verifies on their own time; it never blocks the build.
+This supersedes any earlier "PENDING OWNER → park" behavior for visual/launch/live items.
