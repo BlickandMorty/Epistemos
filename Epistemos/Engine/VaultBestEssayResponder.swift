@@ -93,7 +93,9 @@ enum VaultBestEssayResponder {
         guard !terms.isEmpty else { return nil }
         let results = (try? searchService.search(query: terms, limit: 5)) ?? []
         guard !results.isEmpty else { return nil }
-        let hits = results.map { result in
+        // P5 — make the EML rerank reachable for recall (flag-gated; OFF keeps raw BM25 order).
+        let ranked = EmlRecallRerank.isEnabled ? EmlRecallRerank.reranked(results) : results
+        let hits = ranked.map { result in
             RankedHit(
                 title: result.title,
                 path: pathForPage(id: result.pageId, modelContext: modelContext),
