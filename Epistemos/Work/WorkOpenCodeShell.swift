@@ -64,11 +64,16 @@ nonisolated enum WorkOpenCodeShellFactory {
         #if EPISTEMOS_APP_STORE
         return InertWorkOpenCodeShell()
         #else
-        // Armed-but-runtime-absent still resolves to inert: the gate may be ON, but
-        // until the OpenCode TUI + Bun engine are vendored there is no real shell to
-        // launch. Honest — the health row shows "armed, INERT", never "live".
-        _ = WorkOpenCodeShellGateStatus.isEnabled(environment[WorkOpenCodeShellGateStatus.flagName])
-        return InertWorkOpenCodeShell()
+        // Goes LIVE only when BOTH the gate is armed AND the OpenCode runtime is
+        // actually bundled on disk. Armed-but-runtime-absent stays inert (honest: the
+        // health row shows "armed, INERT", never "live"). The moment the vendored
+        // bundle is dropped into Resources, resolve() returns the live shell — no
+        // further wiring. Never a fake terminal before the runtime exists.
+        guard WorkOpenCodeShellGateStatus.isEnabled(environment[WorkOpenCodeShellGateStatus.flagName]),
+              let runtimeURL = WorkOpenCodeRuntime.bundledRuntimeURL() else {
+            return InertWorkOpenCodeShell()
+        }
+        return BundledWorkOpenCodeShell(runtimeURL: runtimeURL)
         #endif
     }
 }
