@@ -4307,3 +4307,18 @@ native; AGPL server). ADOPT 2 patterns natively:
       may wait. Supersedes earlier "PENDING OWNER → park." OWNER TO-DO (informational, non-gating) compiled separately:
       app-launches (P0 fix), chat live-send local+cloud (SS-CR), theme switch no-hang + colors (SS-THX/SS-TC), Instant Recall
       visible/openable (SS-IR), the visual fixes (SS-GC/SS-DD/SS-IL/SS-2S), SS-SH blank sidebar.
+- [ ] **🔴🔴 P0 CHAT STILL BROKEN — no answer from ANY model; + SS-GC white bar still there; + image not visible in Prose
+      (owner on-device 2026-06-20).** *"all work except for the local and cloud chats still can't get any answer out of any
+      model; I don't see image in prose; I can't test the inline animation without working models; I still see the white
+      bar."* THREE on-device failures (REOPEN items I'd marked PASS — green-but-not-user-reaching; my audits checked
+      build-green+tests, not on-device). (1) 🔴 CHAT P0 — diagnosed: SS-CR regression `InferenceState.swift:4289` returns a
+      NIL Gemma inside the `hasInstalledFoundationModel` block → bypasses the Qwen fallback (:4293) → `modelRequired` → no
+      answer for any tier whose Gemma isn't installed. FIX: `if let f = installedFoundationModelID(for:.fast) { return f }`
+      then fall through to Qwen; add the Gemma-not-installed→Qwen falsifier. STEERED to loop as P0. SS-CR REOPENED. (2) SS-GC
+      white bar STILL PRESENT (the 3B/3C fix didn't resolve the actual bar; CodeEditorView:2167 token region moved) → re-diagnose
+      + actually fix the graph code-editor top-bar background; verify on-device-equivalent (snapshot/render). REOPEN SS-GC.
+      (3) SS-2S image NOT VISIBLE in Prose — A2 only ghosts syntax + accent-chips alt (MarkdownContentStorage:741), owner
+      wants to SEE the image → prioritize SS-2S FULL inline-attachment render (the deferred follow-on), not just the chip.
+      REOPEN/raise SS-2S full-render. SS-IL inline animation is BLOCKED by the chat P0 (can't test without a working model) →
+      unblocks once chat answers. AUDITOR: stop marking visual/chat items PASS on tests alone — require on-device-equivalent
+      witness (render/snapshot) or hold as "built, on-device-UNVERIFIED".

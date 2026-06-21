@@ -54,3 +54,25 @@ Genuine 401s stay honestly surfaced (`LLMService.swift:585`) — no change there
 Key file: `State/InferenceState.swift` (routing 4704-4816, local-resolve 4189-4298, credential bootstrap/read 3598-3702,
 5210-5248, pending-cloud 5803-5832). Cross-ref PipelineService/LLMService/CloudProviderAuthService/TriageService. **Do this
 BEFORE any further chat work** (owner directive).
+
+---
+
+## 🔴 REGRESSION (owner on-device 2026-06-20): chat returns NO answer from ANY local model — REOPENED
+The SS-CR fix (`23076d552`) fixed credentials-rejected but INTRODUCED a worse dead-end. Owner: *"still can't get any answer
+out of any model"* (local AND cloud). Diagnosed (Explore, file:line):
+- **ROOT:** `InferenceState.swift:4281-4290` — Fix-3 returns `installedFoundationModelID(for: .fast)`, which is **nil** when
+  no Fast Gemma fits with headroom (e.g. 16GB Mac whose only installed Gemma is 12B). That `return` is INSIDE the
+  `if hasInstalledFoundationModel` block → it **bypasses the Qwen unified-picker fallback at :4293-4304** (the very branch
+  "why Qwen works"). So a tier whose Gemma isn't installed → `effectiveLocalTextModelID == nil` → policy `explicitRoute` nil
+  → autoCloud false (no creds) → `.localMLX(nil)` → `TriageService.localStreamOrFallback(selection: nil)` → `.modelRequired`
+  → empty/error bubble = "no answer." Strictly worse than pre-SS-CR (Qwen used to serve those tiers).
+- **FIX (minimal):** at `:4289` replace `return installedFoundationModelID(for: .fast)` with
+  `if let f = installedFoundationModelID(for: .fast) { return f }` then FALL THROUGH to the Qwen / runnable-local branch —
+  never return a nil Gemma that strands Qwen. Keeps SS-CR intent (prefer foundation when present) without the dead-end.
+- **Backup (cloud-only users):** the SS-CR escalation guards (`:4751-4781`, now require `hasConfiguredCloudAccess`) + no
+  pending-cloud return pin a no-creds/no-local user to `.localMLX → modelRequired`. Surface an honest "no model / reconnect
+  cloud" state (UX) — separate from the silence bug. Cloud chat with a real key in Keychain is unaffected (Fix-4 correct).
+- Build is GREEN (not a compile break); substrate commits EXONERATED (recordLiveParity no-op flag-off; AnswerPacket persist
+  off-main/try?; SS-MV vault try?). **AUDITOR LESSON:** SS-CR was marked PASS on build-green + behavior tests, but those
+  tests didn't cover the "Gemma-tier-not-installed → must still serve Qwen" path → green-but-broken-on-device. Add that
+  falsifier. REOPENED — not done until a real local send answers.
