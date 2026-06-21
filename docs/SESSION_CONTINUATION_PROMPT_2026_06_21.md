@@ -112,3 +112,6 @@ owner flagged. EARLY TASK for the fresh session: triage every stash (`git stash 
 `git stash show -p stash@{N}`). For each, deliberately EITHER commit-as-canon (with an honest message) OR
 drop it on purpose. Do NOT leave work in ephemeral stashes. No WIP/stash as a hiding place going forward —
 unfinished work is either a canon commit or an explicit ledger item, never a floating stash.
+
+## 🆕 ALL CHATS GET ACT POWERS
+Every chat surface (main ChatView, MiniChat, Note chat/NoteChatSidebar, Graph chat/Hologram*) gets the SAME chat→act/Osaurus upgrade (tools, model picker + Epistemos Picks, no-fallback, streaming/thinking fidelity) via a SHARED act composer — not just main chat. Sweep for any missed chat entry point. See OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md.

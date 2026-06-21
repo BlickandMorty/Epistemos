@@ -27,3 +27,22 @@ work since they are already proven to work."* EVERY Osaurus surface (settings, m
 tools, transcript, etc.) MUST be wired to an EXISTING, already-PROVEN app front-end — no dead or
 disconnected surfaces. For each surface: map Osaurus-surface → the real app view it drives BEFORE wiring,
 then prove it works (real-state test / launch-smoke). Reuse the proven chat front-end as act's UI.
+
+## 🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE (owner 2026-06-21)
+**Owner (verbatim):** *"the minichat, graph chat, note chat and other chats — any other chat should also
+have the upgraded osaurus powers. the note chat etc, rn it has the tools icon and the model picker so
+just so its good i want to make sure that all chats have the full chat→act transition."*
+
+EVERY chat surface in the app gets the SAME act/Osaurus capabilities (tools, model picker incl.
+"Epistemos Picks", honest no-fallback selection, streaming/thinking fidelity) — not just the main chat.
+Known surfaces (enumerate + verify none missed):
+- **Main chat** — `Epistemos/Views/Chat/ChatView.swift` (+ ChatInputBar, ChatBrainPickerMenu, ChatSidebarView).
+- **MiniChat** — `Epistemos/Views/MiniChat/MiniChatView.swift` (+ MiniChatWindowController).
+- **Note chat** — `Epistemos/Views/Notes/NoteChatSidebar.swift` (+ NoteDetailWorkspaceView) — already has
+  the tools icon + model picker; bring it to full act parity.
+- **Graph chat** — `Epistemos/Views/Graph/Hologram*` (HologramController/Overlay/SearchSidebar) + MetalGraphView.
+- Plus any other chat entry point found in a sweep — none left behind.
+
+IMPLEMENTATION INTENT: factor the act/Osaurus composer + capability set into a SHARED component reused by
+every surface (one source of truth → no per-surface drift), each wired to its real proven front-end per
+the surface-wiring rule. The chat→act transition applies uniformly; no chat surface stays on the old path.
