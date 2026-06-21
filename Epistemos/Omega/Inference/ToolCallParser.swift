@@ -47,6 +47,14 @@ nonisolated enum ToolCallParser {
             return calls
         }
 
+        // Strategy 1e: Mistral Small native `[TOOL_CALLS]name[ARGS]{...}` (+ the newer
+        // `[TOOL_CALLS][{...}]` JSON-array form). Tried after the XML strategies and BEFORE the
+        // generic JSON scan because the tool name lives before `[ARGS]`, not inside the args JSON,
+        // so the generic scan would parse the args object but lose the name → drop the call.
+        if let calls = parseMistralNativeToolCalls(text), !calls.isEmpty {
+            return calls
+        }
+
         // Strategy 2: JSON object with "name" and "arguments" at top level
         if let call = parseJsonToolCall(text) {
             return [call]
@@ -475,6 +483,43 @@ nonisolated enum ToolCallParser {
         }
 
         return nil
+    }
+
+    /// Strategy 1e helper: Mistral Small's native tool-call format. The local grammar
+    /// (`LocalToolGrammar`, Mistral profile) tells the model this form "is accepted", but it was never
+    /// parsed — a Mistral tool call silently dropped, exactly the SS-LT "tools worked once then never"
+    /// failure for that model. Classic form: `[TOOL_CALLS]tool.name[ARGS]{json-args}` — the tool NAME
+    /// precedes `[ARGS]` and the arguments are the JSON object after it (so the generic JSON scan
+    /// loses the name). Newer form: `[TOOL_CALLS][{"name":...,"arguments":...}]` or a bare object —
+    /// the JSON follows the marker directly, delegated to the existing JSON-fragment parsers. Returns
+    /// nil when there is no `[TOOL_CALLS]` marker.
+    private static func parseMistralNativeToolCalls(_ text: String) -> [ParsedToolCall]? {
+        guard let markerRange = text.range(of: "[TOOL_CALLS]") else { return nil }
+        let after = String(text[markerRange.upperBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !after.isEmpty else { return nil }
+
+        // Newer JSON form: the array/object follows the marker directly.
+        if after.hasPrefix("[") || after.hasPrefix("{") {
+            if let calls = parseEmbeddedJsonFragments(after), !calls.isEmpty {
+                return calls
+            }
+        }
+
+        // Classic form: name[ARGS]{json}.
+        guard let argsRange = after.range(of: "[ARGS]") else { return nil }
+        let name = String(after[..<argsRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+
+        let argsText = String(after[argsRange.upperBound...])
+        var arguments: [String: Any] = [:]
+        if let fragment = embeddedJsonFragments(in: argsText).first,
+           let data = fragment.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            arguments = json
+        }
+        return [ParsedToolCall(name: name, arguments: arguments)]
     }
 
     private static func parseEmbeddedJsonFragments(_ text: String) -> [ParsedToolCall]? {
