@@ -113,3 +113,37 @@ OPEN RISK to validate EARLY: can OpenCode's TS UI be themed to feel TRULY pixel-
 best UX be rebuilt natively? Decide after the feasibility deep-dive (docs/research/OPENCODE_FULL_CLONE_
 FEASIBILITY_2026_06_21.md). Other 6 convergence decisions = YES (favor-Osaurus, dedup, IP-on-top,
 existing-LSP-into-work, vmlx migration, OpenClaw skip-list).
+
+## 🆕 CRYSTALLIZED TWO-MODE ARCHITECTURE (owner 2026-06-21) — AUTHORITATIVE
+**Owner:** *"openclaw, hermes and goose would FUSE INTO the OpenCode work. while Osaurus and all of its
+parts would be ACT. add the RustLSP to whatever it needs to go to (or decide if it's even needed)."*
+MAS is NOT a constraint — goal is a ROBUST, highly-capable app; do not cut features for sandbox strictness.
+
+### The two modes
+- **ACT = Osaurus (full, all its parts).** Vendored clone → OsaurusCore + server + tools + VM sandbox +
+  MCP + plugins + privacy filter. Reskinned pixel-art native. (Already ~landed; finish dual-MLX → link.)
+- **WORK = OpenCode (full-clone shell, themed native) into which GOOSE + HERMES + OpenClaw FUSE.**
+  - OpenCode = the work SHELL + UI/UX (themed to app).
+  - Goose = the work ENGINE inside OpenCode.
+  - Hermes (legacy in-process runtime) = the owner IP brain + its 4 unique lifts, fused into work.
+  - OpenClaw = selective hardening patterns (checkpoint/resume, depth limiter, zero-config) fused in —
+    skip what Osaurus/Goose already cover.
+  → One fused work stack, not 4 parallel ones. Dedup capabilities; single runtime of record per mode.
+
+### RustLSP + similar existing logic — what to do
+- **RustLSP** = your EXISTING in-process Rust LSP (`agent_core::lsp_runtime`, tree-sitter Rust/Swift;
+  Swift bridge `Epistemos/Engine/RustLSPTransport.swift`). DO NOT import OpenCode's LSP. WIRE the existing
+  RustLSP into the WORK stack as agent code-intelligence TOOLS (hover/definition/diagnostics/edit), so the
+  work agent gets real code understanding. It's already built — reuse, don't rebuild or double up.
+- **Similar existing logic = your substrate/IP that rides on top of BOTH modes (reuse, never rebuild):**
+  Eidos/recall, cognitive DAG, provenance ledger, Halo/Shadow search, RRF fusion, AnswerPacket, System G,
+  RuntimeRouter. These are the brain/substrate beneath act+work; engines (Osaurus/OpenCode) are swappable
+  executors under them. Inventory each existing capability → wire to whichever mode benefits; clone only
+  what you don't already have.
+
+### Directive to the build agent/loop
+Update the QUEUE/plan walk to this two-mode target and WORK IT: (1) finish Osaurus act (dual-MLX → link →
+Act turn → shared composer across all chats), (2) build the WORK shell = OpenCode full-clone + fuse
+Goose+Hermes+OpenClaw + wire RustLSP, (3) reuse-not-rebuild the existing substrate/IP into both, (4)
+substrate-health + IP-porting cycles later-but-certain, never delete quarantined chat. Pending feasibility:
+docs/research/OPENCODE_FULL_CLONE_FEASIBILITY_2026_06_21.md + AGENT_STACK_CONVERGENCE_RESEARCH_2026_06_21.md.
