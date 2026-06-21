@@ -177,3 +177,10 @@ BROKEN on-device. So "done" is not trusted — it is RE-VERIFIED. Standing rule:
   on-device reports instantly downgrade the named item to a P0 repair input.
 This pairs with the LAUNCH-SMOKE + CAPABILITY-SURFACE-PARITY + ROUTING-NO-REGRESSION gates — together they close the
 "green-but-not-user-reaching" hole that this session repeatedly hit.
+
+## NO-HIDDEN-FALLBACK / POINT-OF-USE HONESTY GATE (owner 2026-06-20)
+Any fallback / substitution / degradation / capability-gating must be VISIBLE to the user AT THE SURFACE where it happens —
+not only a Settings/health row, not only a log entry. A honest fallback names what's actually running + why (e.g. chat shows
+"running Qwen — your pick isn't installed"); a SILENT one (black-box surface) is a bug to fix. Scan each cycle for: model/route
+substitutions surfaced only in Settings, `try?`/`?? default`/empty-catch that hide a failure as success on a user path, "for
+show" controls, no-op-on-not-ready backends. Detail → SS-HF. Pairs with surface-parity + done-re-audit + routing-no-regression.
