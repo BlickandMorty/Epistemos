@@ -133,6 +133,9 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         tv.storeImageAsset = { data, originalFilename in
             NoteFileStorage.storeImageAsset(data: data, originalFilename: originalFilename)
         }
+        // SS-2S A.2: the directory `![](assets/<name>)` srcs resolve against, so the flag-gated
+        // inline-image render can load assets stored as siblings of the note md.
+        tv.inlineImageNoteDirectory = NoteFileStorage.storageDirectory()
         tv.onFoldToggle = { [weak coord] offset in
             coord?.toggleFold(headingOffset: offset)
         }
