@@ -329,3 +329,13 @@ motion ontology** applied across the app — not a one-off.
   expressive layer, strongest in WORK/OpenCode (ascii/pixel-art) but available app-wide as the motion accent.
 Net: one reusable typewriter+ASCII-reveal motion system, anchored on titles, sprinkled onto settings/agent/
 non-editing surfaces, font-adaptive, blur-coupled, never bloated, never in editors.
+
+## ✅ MOTION LANGUAGE = TRIAD (owner 2026-06-21, confirmed)
+The app's motion language = the COMBO of: (1) **Apple blur**, (2) **ASCII typewriter** (time-machine
+reveal), (3) **micro-motions across the app**. One cohesive system, used together.
+- **APPLY TO:** **titles** + **subtitled / DISPLAY-ONLY parts** of the app (labels, headers, section
+  subtitles, status lines, non-interactive text). Display-only = eligible; **text-EDITING = never**.
+- **BALANCE (the rule):** **not super bloated, but interesting enough to be NOTICEABLE.** Present and
+  delightful, not spammy or distracting. Tasteful signature motion everywhere display-only.
+- This confirms + extends the ASCII-typewriter ontology above: blur + typewriter-ascii + micro-motions
+  woven across titles and display-only surfaces, app-wide, balanced toward "noticeably alive, never bloated."
