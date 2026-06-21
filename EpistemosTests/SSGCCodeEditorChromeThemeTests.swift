@@ -33,9 +33,18 @@ struct SSGCCodeEditorChromeThemeTests {
     @Test("the top bar AND the Live Preview header both resolve their fill through themeOverride")
     func chromeResolvesThroughOverride() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
-        // resolvedTopBarBackground returns the graph backdrop when an override is present, else the card.
+        // resolvedTopBarBackground returns the graph PAGE surround's fill when an override is
+        // present, else the card. It must match GraphWorkspaceContainer.embeddedPageSurface
+        // (`theme.resolved.background.color`) — NOT AppWindowBackdropStyle.background, which
+        // re-applies surfaceVariant(.mainChat) and yielded a lighter bar (the SS-GC reopened white-bar).
         #expect(src.contains("if let themeOverride {"))
-        #expect(src.contains("AppWindowBackdropStyle.background(for: themeOverride)"))
+        #expect(src.contains("return themeOverride.resolved.background.color"))
+        #expect(
+            !src.contains("AppWindowBackdropStyle.background(for: themeOverride)"),
+            "the top bar must NOT re-apply mainChat via AppWindowBackdropStyle — it pops as a white bar")
+        // The surround it must match: the embedded graph page paints theme.resolved.background.color.
+        let surround = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
+        #expect(surround.contains(".fill(theme.resolved.background.color)"))
         // Two chrome consumers: the main top bar (codeEditorTopBar) + the Live Preview header
         // (the reopened gap). Both must funnel through the one override-aware helper.
         let needle = ".background(Self.resolvedTopBarBackground(themeOverride: themeOverride, base: ui.theme))"
