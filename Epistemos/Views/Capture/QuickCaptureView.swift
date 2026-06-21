@@ -322,6 +322,13 @@ struct QuickCaptureView: View {
                 // GLOBAL default voice, so the choice applies to this read-back AND every other TTS
                 // surface. Grouped Premium > Enhanced > Default; "System default" clears it.
                 Menu {
+                    // SS-QC voice honesty (owner 2026-06-20: "tried the premium Apple-native voices"
+                    // but none was downloaded). Surface the SAME honest availability hint Settings
+                    // shows — so when no Premium/Enhanced voice is installed, the picker tells the user
+                    // exactly how to get one (System Settings → Spoken Content → Manage Voices) instead
+                    // of silently offering "Premium (download required)" with no path.
+                    Text(EpistemosSpeechSynthesizer.voiceQualityHint().message)
+                    Divider()
                     Picker("Voice", selection: $captureVoiceIdentifier) {
                         Text("System default").tag(nil as String?)
                         ForEach(
