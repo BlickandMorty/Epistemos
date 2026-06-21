@@ -637,6 +637,67 @@ mod tests {
     }
 
     #[test]
+    fn system_g_agent_event_wire_tags_are_frozen() {
+        // SUBSTRATE Phase 0 (completes the LocalModelHandoff freeze above): the FULL
+        // SystemGAgentEvent `kind` discriminator set is the cross-runtime wire contract the Swift
+        // decoder matches on (the enum's own doc: "the two mirrors MUST move in lockstep; Swift's
+        // decoder rejects unknown kinds"). Renaming/retagging ANY event kind silently breaks the
+        // Swift seam — this pins all seven + a full round-trip, so a change must be deliberate.
+        let cases: Vec<(SystemGAgentEvent, &str)> = vec![
+            (
+                SystemGAgentEvent::PlanStart { turn_id: "t".into(), plan: "p".into() },
+                "plan_start",
+            ),
+            (
+                SystemGAgentEvent::ToolStart {
+                    turn_id: "t".into(),
+                    tool_name: "x".into(),
+                    args_json: "{}".into(),
+                },
+                "tool_start",
+            ),
+            (
+                SystemGAgentEvent::ToolEnd {
+                    turn_id: "t".into(),
+                    tool_name: "x".into(),
+                    ok: true,
+                    output_json: "{}".into(),
+                },
+                "tool_end",
+            ),
+            (
+                SystemGAgentEvent::TokenChunk { turn_id: "t".into(), text: "hi".into() },
+                "token_chunk",
+            ),
+            (
+                SystemGAgentEvent::LocalModelHandoff {
+                    turn_id: "t".into(),
+                    model_id: "m".into(),
+                    provider_policy_json: "{}".into(),
+                },
+                "local_model_handoff",
+            ),
+            (
+                SystemGAgentEvent::Complete { turn_id: "t".into(), answer_packet_id: "a".into() },
+                "complete",
+            ),
+            (
+                SystemGAgentEvent::Failed { turn_id: "t".into(), error: "e".into() },
+                "failed",
+            ),
+        ];
+        for (event, tag) in cases {
+            let json = serde_json::to_string(&event).unwrap();
+            assert!(
+                json.contains(&format!("\"kind\":\"{tag}\"")),
+                "frozen wire tag `{tag}` missing from {json}"
+            );
+            let parsed: SystemGAgentEvent = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed, event, "round-trip drift for `{tag}`");
+        }
+    }
+
+    #[test]
     fn start_run_rejects_malformed_mission_json() {
         let err = start_run("{ not json").expect_err("must reject");
         assert!(matches!(err, SystemGRuntimeError::Decode(_)));
