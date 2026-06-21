@@ -149,3 +149,14 @@ must NOT park or defer an item because it "needs the owner to verify visually/on
 - When the loop parks citing "for when you're driving"/"owner will verify", the monitor RESUMES it immediately (owner-
   verification is not a valid park). The owner verifies on their own time; it never blocks the build.
 This supersedes any earlier "PENDING OWNER → park" behavior for visual/launch/live items.
+
+## ROUTING NO-REGRESSION GATE (owner 2026-06-20: "how do you add incorrect routing when removing muddiness?")
+The chat routing/model-resolution fixes have been whack-a-mole: SS-CR fixed "credentials rejected" but introduced
+local→modelRequired (9f49e90e5), and that fix was incomplete → local→cloud-auth (the no-arg path). De-muddying must NOT add
+routing bugs. GATE: any change to chat routing / model resolution (InferenceState `effectiveChatSurfaceSelection` /
+`effectiveLocalTextModelID` / `sanitizedInteractiveLocalTextModelID` / `usesAutomaticCloudRouteForChatSurfaces`, TriageService
+policy, RuntimeRouter) MUST ship with a FULL ROUTING-MATRIX regression test covering each cell — {Local, Cloud} × {target
+model installed? Y/N} × {cloud creds valid? Y/N} × {Apple-Intelligence avail? Y/N} — asserting: a runnable LOCAL is chosen
+whenever ANY local is installed (never nil-→-cloud), Local mode NEVER hits cloud auth while a local is installed, and no cell
+dead-ends to modelRequired when a runnable option exists. No routing change merges without this matrix green. (This is the
+durable end to the SS-CR churn.)

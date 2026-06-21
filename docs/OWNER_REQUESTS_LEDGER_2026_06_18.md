@@ -4332,3 +4332,28 @@ native; AGPL server). ADOPT 2 patterns natively:
       themeRevision token that updateNSView observes so TK2 re-applies on EVERY custom edit (sweep CodeEditorView + peers);
       (2) fully invalidate the resolved cache in one pass. Net: ONE change → all surfaces match. Tracked, fold into SS-TC/SS-THX
       theme work; SS-CLEAN "layering mud" (a cache that fixed one thing + broke another). NON-INVASIVE.
+- [ ] **🔴🔴 P0 CHAT — REAL root (owner screenshot 2026-06-20 22:20): LOCAL mode → "provider rejected your credentials".** My
+      first fix `9f49e90e5` was INCOMPLETE (patched tier-bound effectiveLocalTextModelID, not the no-arg path). NOT a stale
+      build (app 22:30 > fix 22:12). ROOT: owner has Qwen installed but NO foundation Gemma; simplified-lineup default pick =
+      uninstalled Fast-Gemma GGUF → `sanitizedInteractiveLocalTextModelID` (InferenceState.swift:6113) returns nil (correct
+      no-silent-Qwen-swap) → no-arg `effectiveLocalTextModelID`(:4189) nil → `usesAutomaticCloudRouteForChatSurfaces`(:4627)
+      true → `effectiveChatSurfaceSelection` auto-routes `.cloud`(:4789) → stale creds reject; installed Qwen never used. FIX:
+      sanitizedInteractiveLocalTextModelID(:6113) — before nil, if ANY local is installed/runnable return it
+      (supportedAvailableLocalTextModels.first ?? gemma QAT candidate) so Local runs Qwen, never cloud. Behavior test:
+      uninstalled-pick + Qwen-installed + Local → Qwen not cloud. STEERED P0. Detail → SS-CR "STILL BROKEN" section. (Cloud
+      chat separately needs a valid key — external.)
+- [ ] **CHAT COMPOSER (main + mini + all chats): minimal Apple-native, FUSE tools/skills/commands, fix context controls (owner
+      2026-06-20).** *"Make main + mini chat minimal. Keep context tuning. The book/cowork icon won't let me press anything —
+      just for show? Local/Cloud labels ugly → minimal + Apple-native; cloud button not needed. Context logo ugly → Apple-like.
+      Context bar too thin to hover → thicker. Tool button must WORK + have ALL tools + skills; commands + skills FUSED with the
+      agent-tools button, all working. Big de-clutter/combine pass. Check other chats too — minimal but useful."* RESEARCHED →
+      `docs/research/SS-CC_CHAT_COMPOSER_MINIMAL_APPLE_FUSE_TOOLS_2026_06_20.md`. Plan: (1) minimal Apple-native runtime control
+      (drop pill+separate cloud button+banner clutter), (2) context glyph Apple-like + thicker hit target (keep tuning), (3)
+      cowork/book button works-or-removed (dead-control = SS-CLEAN), (4) FUSE tools+skills+commands into one working
+      AgentToolTogglePanel (cross-ref SS-VIS), (5) sweep all chat surfaces (one shared composer). NON-INVASIVE, test-backed.
+- [x] **ROUTING NO-REGRESSION + PLAN-CAPTURE disciplines (owner 2026-06-20).** *"How do you add incorrect routing when you're
+      supposed to be removing muddiness? This is huge. AND add all these to the PLAN, not just prompt the agent — things are
+      missing because the plan isn't updated."* RECORDED → SS-CC "meta-concerns" + SS-CLEAN. (1) ROUTING NO-REGRESSION: any
+      chat routing/model-resolution change MUST add a full routing-matrix regression guard ({Local,Cloud}×{installed?,creds?}
+      → correct, no dead-end, no local→cloud mis-route) before shipping (the SS-CR whack-a-mole must stop). (2) PLAN-CAPTURE:
+      every owner concern → ledger + slice, NEVER only steered. (This batch IS captured here, not just prompted.)

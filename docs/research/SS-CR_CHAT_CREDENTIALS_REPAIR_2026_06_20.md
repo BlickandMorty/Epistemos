@@ -76,3 +76,25 @@ out of any model"* (local AND cloud). Diagnosed (Explore, file:line):
   off-main/try?; SS-MV vault try?). **AUDITOR LESSON:** SS-CR was marked PASS on build-green + behavior tests, but those
   tests didn't cover the "Gemma-tier-not-installed → must still serve Qwen" path → green-but-broken-on-device. Add that
   falsifier. REOPENED — not done until a real local send answers.
+
+---
+
+## 🔴🔴 STILL BROKEN after `9f49e90e5` — the REAL root (owner screenshot 2026-06-20 22:20): LOCAL mode → "provider rejected your credentials"
+My fix `9f49e90e5` was INCOMPLETE — it patched the tier-bound `effectiveLocalTextModelID(for:)` but NOT the no-arg path that
+the live Local-mode chat uses. Confirmed NOT a stale build (app built 22:30 > fix 22:12). Deep re-diagnosis (Explore, cited):
+- **Owner has Qwen installed but NO foundation Gemma GGUF.** Simplified lineup (default ON) defaults the stored local pick to
+  the **Fast Gemma GGUF** (`EpistemosFoundationLineup.defaultChatModelID:151`; property default `InferenceState.swift:3308`;
+  selection default `:3490`) — Qwen is "explicit-only", never auto-seeded (2026-06-18 decision).
+- A foundation GGUF id is NOT a `LocalTextModelID` enum case → `sanitizedInteractiveLocalTextModelID(for:)` (`:6077/:6113`)
+  returns **nil** for the uninstalled Gemma (no-silent-Qwen-swap policy correctly refuses to swap) → no-arg
+  `effectiveLocalTextModelID` (`:4189`) = nil **even though runnable Qwen is installed**.
+- nil local → `usesAutomaticCloudRouteForChatSurfaces` true (`:4627`) → `effectiveChatSurfaceSelection(.fast)` auto-route
+  returns `.cloud(autoModel)` (`:4789-4793`) → cloud turn → stale/invalid creds → `PipelineService.swift:98` "provider
+  rejected your credentials." The installed Qwen is NEVER consulted.
+- **THE FIX (real):** in `sanitizedInteractiveLocalTextModelID(for:)` (`:6113`), BEFORE returning nil — if the configured pick
+  is unavailable BUT ≥1 local is actually installed/runnable, return that installed local
+  (`supportedAvailableLocalTextModels.first?.rawValue ?? supportedAvailableGemmaQATRuntimeCandidates.first?.id`). Guarantees a
+  non-nil local whenever ANY local is installed → closes the nil-local→cloud gate at `:4627`/`:4790`. Honest (there is NO
+  installed model matching the pick; falling to the only runnable local is not a "silent swap" of an installed pick — it's the
+  only runnable option, surfaced by LocalRouteHonestyHealthRow). Behavior test: pick=uninstalled-Gemma + Qwen-installed +
+  Local → resolves Qwen, NOT cloud. STEERED to loop as P0. (Cloud chat still needs a valid key — separate, external.)
