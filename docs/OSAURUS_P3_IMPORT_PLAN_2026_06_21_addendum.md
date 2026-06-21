@@ -437,3 +437,24 @@ notarized, non-sandboxed). This is first-class + applies to the WHOLE app and EV
   this matrix, the way the owner has been gating.
 - **CI builds BOTH** profiles; a guard test asserts the MAS target does NOT link Pro-only deps (the existing
   MAS/Pro boundary guard test pattern). xcodegen/project.yml defines both targets.
+
+## ‼️ CORRECTIONS — OWNER DIRECTIVES OVERRIDE THE RESEARCH RECS (owner 2026-06-21)
+The build drifted toward the convergence/feasibility RECOMMENDATIONS. Those are INPUTS; the owner's
+decisions below WIN on any conflict. Realign now.
+1. **GOOSE = FULL CLONE, not leaf-by-leaf hand-port.** Vendor Goose like Osaurus: clone the real repo +
+   add the needed crates (goose, goose-providers, …) as REAL Cargo path/dependencies, and pull `rmcp` as a
+   REAL dependency — do NOT hand-rewrite `Role`/`Message`/provider wire types one at a time (that's the
+   cherry-pick → "never fully cloned → muddiness" failure the owner banned). Resolve dep clashes (like the
+   dual-MLX saga) — that integration cost is ACCEPTED. Leaf-porting individual types = STOP; vendor whole.
+2. **WORK = KEEP OPENCODE'S REAL TERMINAL UI (owner override beats the feasibility "native rebuild" rec).**
+   Work = OpenCode's real minimal-terminal UI, palette-matched live (named "work"), with Goose + Hermes +
+   OpenClaw fused in as the engine BENEATH it. Do NOT drop OpenCode's UI for a native SwiftUI rebuild. The
+   feasibility doc's Option C2/B (native shell) is OVERRIDDEN — owner chose Option A (keep real UI). The
+   bundled OpenCode runtime is FINE (Pro/direct-distribution build; MAS-leniency set in stone). "Goose
+   inside OpenCode" = OpenCode shell + Goose engine within, NOT Goose-shell-that-looks-like-OpenCode.
+3. **TAMAGOTCHI render-fix = IN SCOPE (owner-authorized).** Not blocked by the off-limits-Companion guard —
+   the owner directed: keep the Tamagotchi agent-creation STYLE + fix the render bug (too small + inner
+   squares). Proceed.
+4. **GENERAL RULE:** when a research doc (AGENT_STACK_CONVERGENCE / OPENCODE_FEASIBILITY / etc.) conflicts
+   with this addendum or a 2026-06-21 owner directive, the OWNER DIRECTIVE WINS. Re-read the addendum each
+   cycle; don't revert to a research recommendation the owner has already overridden.
