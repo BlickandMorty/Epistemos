@@ -22,6 +22,20 @@ IMPLEMENTED, not just researched. Research FEEDS the build: each research verdic
 (R-*) must turn into shipped, in-app-verified slices. Nothing here is optional or
 "nice to have." Keep going until all of it is done and hardened (rule #6/#8).
 
+**🔴 P0 — CHAT PICKER (owner 2026-06-21, verbatim):** *"i also have other models
+installed but they still wont let me click them"* — [ ] NOT DONE. Same recurring
+chat surface (~5th report). GROUNDED ROOT CAUSE + acceptance bar + real-state test
+in `docs/research/SS-CHATPICKER_P0_INSTALLED_MODELS_NOT_CLICKABLE_2026_06_21.md`:
+the chat runtime picker (`EpistemosRuntimePicker.options`) is hardcoded to the
+foundation lineup + 2 Qwen `extraPicks` and IGNORES the user's installed/advertised
+model stack, so installed models outside that fixed set are never clickable; a
+non-selectable row bounces to Settings instead of selecting. FIX: enumerate
+installed ∪ advertised models as selectable picks (lineup = default order), correct
+lane per model (no silent assume-MLX), honest reason when a lane is unavailable.
+Preempts the queue after the in-flight commit lands. Do NOT mark [x] without the
+real-state test + reach-the-user proof. Pairs with the proven default-RESOLUTION
+fix (SS-CHATMODEL_P0, ddbadf434).
+
 **APP-NATIVE BY EMBEDDING (owner 2026-06-18, verbatim):** *"having the whole thing
 as part of my app — different from using it, actually cloning it. Same for the
 other things I'm taking for my app to be app-native."* For EVERY third-party
