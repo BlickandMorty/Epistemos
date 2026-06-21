@@ -48,18 +48,13 @@ public struct VoicePreferencesSection: View {
                 binding: $prefs.dictationAutoStop,
                 preview: nil
             )
-            row(
-                title: "Brain-dump hotkey starts dictation",
-                key: VoicePreferenceKeys.brainDumpHotkeyDictate,
-                binding: $prefs.brainDumpHotkeyDictate,
-                preview: nil
-            )
-            row(
-                title: "Use per-model voice persona",
-                key: VoicePreferenceKeys.perModelVoicePersona,
-                binding: $prefs.perModelVoicePersona,
-                preview: "This is how a model's bound voice persona sounds."
-            )
+            // SS-QC / DONE-RE-AUDIT (owner 2026-06-21): "Brain-dump hotkey starts dictation" and
+            // "Use per-model voice persona" were do-nothing toggles (no behavior consumer). Per
+            // wire-OR-remove they are REMOVED rather than shown as for-show controls — a shown
+            // do-nothing toggle is fake. brainDumpHotkeyDictate has no dictation-start seam to gate;
+            // perModelVoicePersona is superseded by the SS-QC global default voice (one voice across
+            // every TTS surface) and would need SwiftData/ModelProfileManager access this view lacks.
+            // The VoicePreferences keys/defaults remain (harmless) for any future wiring.
             row(
                 title: "Read each sentence aloud in Quick Capture",
                 key: VoicePreferenceKeys.quickCaptureReadBack,
