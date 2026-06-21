@@ -98,7 +98,10 @@ off-limits." Those are STALE as of 2026-06-21. The CURRENT truth (this prompt + 
    cycles, further down the walk, but NEVER dropped.
 4. **Never delete the quarantined chat.** Porting cycles move its logic/IP into beneficial surfaces
    (Eidos/recall/graph/capture/act) BEFORE any retire; retire only after the 4-part bar + owner OK.
-5. The loop's in-flight chat-picker WIP is in `git stash@{0}` (reusable for "Epistemos Picks"); main is
-   clean + green at the docs commits. No code half-applied.
+5. The loop's in-flight chat-picker increment is **committed as CANON at `9d7568920`** (NOT a stash/WIP
+   — owner: WIP framing gets forgotten + regresses). Its real home is the Osaurus "Epistemos Picks"
+   section — port that logic there. HONEST: that commit's compile-state is UNVERIFIED (loop was
+   mid-edit); build-verify first; if it doesn't compile, fix or revert its 3 swift files (NOT on the
+   Osaurus critical path). Nothing is left in an ephemeral stash; main has no untracked work-in-progress.
 
 If any instruction anywhere conflicts with items 1–5, items 1–5 WIN (they are the latest owner directive).
