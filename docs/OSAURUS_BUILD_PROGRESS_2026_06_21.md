@@ -71,6 +71,14 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   over `ChatCoordinator` + `InferenceState` + `Composer*`/`ChatInputBar`.** Re-run critic each cycle.
 - [ ] **Port owner IP** (system prompts + hidden pieces) onto Osaurus engine; **WORK mode**
   (Goose/OpenCode) clone/port too.
+- [ ] **PER-CLONE SETTINGS (owner 2026-06-21):** each cloned app keeps its OWN settings — surface in
+  Epistemos Settings as an EXECUTIVE TAB/TOGGLE (keep the all-Epistemos tab; add `act`/`work`/beyond
+  tabs exposing each clone's native settings). Preferred = another tab. Respect each clone's settings.
+- NOTE: this doc is the LIVING IMPLEMENTATION MAP for all 14 directive areas (owner audit-map 2026-06-21):
+  two-modes act/work; Osaurus linked; reskin=current-chat discipline; preserve chrome + Epistemos Picks;
+  Tamagotchi agents (fix render); chat quarantine; no-silent-Qwen; MAS-non-restrictive global; reuse-not-
+  rebuild IP (RustLSP/Eidos/DAG/Halo/RRF); every-surface-wired; EPDOC MD-V2; substrate=CERTAIN-lower;
+  hygiene. Keep status grounded in file:line.
 
 ## ✅ MLX consolidation — REGRESSION CHECK PASSED (2026-06-21)
 Focused `xcodebuild test` (vmlx, signing-disabled): **40/41 green** across SSMMemorySidecar,

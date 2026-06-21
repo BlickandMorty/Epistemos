@@ -32,10 +32,10 @@ let package = Package(
         // separate MLX, inference, tokenizer, template, and transformer pins.
         // Keep this revision pinned until the package-switch gate has
         // live model, cache, parser, API, and UI evidence.
-        .package(
-            url: "https://github.com/osaurus-ai/vmlx-swift",
-            revision: "4453909ef453f9235fd7e65986ca3ffc62ff904d"
-        ),
+        // EPISTEMOS OVERLAY: point at the vendored local vmlx-swift (same pinned revision
+        // 4453909) so the app graph has ONE vmlx-swift — the local path Epistemos consolidated
+        // onto — instead of a 2nd URL-resolved copy (dual-MLX clash). Re-apply after re-vendor.
+        .package(path: "../../../vmlx-swift"),
         // FluidAudio 0.14.3 added a breaking `language:` parameter to TTS
         // calls that osaurus's `TTSService` doesn't pass. Pinning to the
         // last working version until osaurus catches up. Bumping requires
