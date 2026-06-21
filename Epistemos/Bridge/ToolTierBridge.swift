@@ -99,12 +99,25 @@ nonisolated enum AgentToolNameAliases {
         legacyNamesByV2[canonical(toolName)]?.sorted().first
     }
 
+    /// A separator/case-insensitive key for a tool name, namespaced so a stripped key only ever
+    /// matches ANOTHER stripped key (never a raw canonical/legacy name). Local models frequently vary
+    /// the separator (`web_search` / `web.search` / `websearch`) or casing; sharing this key across the
+    /// variants lets a clear-intent tool call still resolve to its registered tool — directly the
+    /// SS-LT "intent recognized but the tool call drops" failure. Empty for an all-separator string.
+    static func separatorInsensitiveKey(_ toolName: String) -> String {
+        let stripped = toolName.lowercased().filter { $0.isLetter || $0.isNumber }
+        return stripped.isEmpty ? "" : "\u{1}sep:\(stripped)"
+    }
+
     static func equivalentNames(for toolName: String) -> Set<String> {
         let canonicalName = canonical(toolName)
         var names: Set<String> = [canonicalName]
         if let legacyNames = legacyNamesByV2[canonicalName] {
             names.formUnion(legacyNames)
         }
+        // Bridge separator/case variants of the canonical name (web_search ↔ web.search ↔ websearch).
+        let separatorKey = separatorInsensitiveKey(canonicalName)
+        if !separatorKey.isEmpty { names.insert(separatorKey) }
         return names
     }
 
