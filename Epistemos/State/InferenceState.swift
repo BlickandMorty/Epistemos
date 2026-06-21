@@ -4286,7 +4286,40 @@ final class InferenceState {
                 return .runtimeUnavailable
             }
         }
+        // SS-CHATMODEL / SS-HF (owner 2026-06-21, "verify the actual reason for gemma-4-E2B"):
+        // a GGUF Gemma QAT candidate (e.g. `google/gemma-4-E2B-it-qat-q4_0-gguf` — the owner's
+        // actual persisted pick, confirmed via `defaults read`) is NOT a `LocalTextModelID`, so
+        // the runtime check above never sees it and the reason wrongly fell through to
+        // `.notInstalled` even though the model IS installed. Its honest blocker is the GGUF
+        // runtime lane being unavailable on this build (the MAS sandbox blocks the llama-cli
+        // subprocess; the lane is Pro/dev-gated, so `availableLocalGenerationRuntimeKinds`
+        // defaults to `[.mlx]`). State the REAL reason so the chat-composer honesty note reads
+        // "its runtime isn't available on this build", not the false "not installed on this Mac".
+        // Display-only: the sole callers are the `.substituted` / `.noLocalModel` honesty states
+        // (localModelResolutionState); routing / SS-CR are untouched.
+        if let ggufReason = Self.ggufGemmaCandidateRuntimeReason(
+            pickID: pickID,
+            availableRuntimeKinds: availableLocalGenerationRuntimeKinds
+        ) {
+            return ggufReason
+        }
         return .notInstalled
+    }
+
+    /// Pure honesty seam: the unavailability reason for a GGUF Gemma QAT candidate id (one that
+    /// is NOT a `LocalTextModelID`). Returns `.runtimeUnavailable` when the pick is a known Gemma
+    /// GGUF candidate but the `.gguf` runtime lane isn't available on this build, else `nil` (the
+    /// caller continues its reason cascade). Extracted as a `nonisolated static` pure function so
+    /// the real-state regression test can exercise the owner's exact persisted pick
+    /// (`google/gemma-4-E2B-it-qat-q4_0-gguf`) without standing up an InferenceState.
+    nonisolated static func ggufGemmaCandidateRuntimeReason(
+        pickID: String,
+        availableRuntimeKinds: Set<BackendRuntimeKind>
+    ) -> LocalModelUnavailableReason? {
+        guard GemmaQATRuntimeLadder.candidate(forID: pickID) != nil else { return nil }
+        // Every GemmaQATRuntimeCandidate is the GGUF llama-cli lane (runtimeLane
+        // "gguf_llama_cpp_offline"); it can only run when `.gguf` is available.
+        return availableRuntimeKinds.contains(.gguf) ? nil : .runtimeUnavailable
     }
 
     private func effectiveLocalTextModelID(for operatingMode: EpistemosOperatingMode) -> String? {
