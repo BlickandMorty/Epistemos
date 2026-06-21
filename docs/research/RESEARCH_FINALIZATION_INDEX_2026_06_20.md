@@ -64,6 +64,15 @@ SS-IR), **SS-SH** (substrate-health — = item 12, blank sidebar still open). Th
 - **SS-BWB big-win backlog** — settings split, a11y/Dynamic-Type, ⌘K palette, vault export, unified search, etc. (last).
 
 ## Owner scope boundaries (loop NEVER touches) — restated
+> **⚠️ SUPERSEDED 2026-06-20 for the MODEL-AGNOSTIC SUBSTRATE.** The owner authorized the loop to BUILD the model-agnostic
+> substrate in-loop (authority: `SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md` + the monitor SCOPE BOUNDARY + memory
+> `project_substrate_build_authorized_2026_06_20.md`). LOOP **MAY** build: `agent_runtime_v2/*` System G, `scope_rex/answer_packet.rs`
+> + Swift `AnswerPacket` mirror, `LocalAgent/RuntimeRouter*`, `uas/*` ACS-admission, `eml_rerank.rs`, `cognitive_dag/*` EXCEPT
+> `companions.rs`, `provenance/*`, recall/Eidos, ModelVaults/KnowledgeFusion, graph-engine markdown, Halo/Shadow,
+> AgentCommandCenter/ToolTierBridge. The lines below stay HARD OFF-LIMITS but ONLY for: (1) NEW MODEL brain-1 — SSM/Mamba-3,
+> M0 interrupt, `signal_bus.rs`, lattice-WBO quant-safety, ternary/QAT, `research/*.rs` interrupt internals + Mamba2 shaders;
+> (2) the 70B; (3) Companion→Osaurus clones. New model plugs in LATER behind `LocalModelHandoff` + `AnswerPacket.attention_mode`.
+> So `answer_packet.rs` below = the dual-brain research file, NOT the model-agnostic `scope_rex` one.
 - Dual-brain: research/*.rs, signal_bus.rs, answer_packet.rs, epistemos-research/*, active_assembly/*, M0/M1/bus/SSM/lattice.
 - Companion→Osaurus: Models/Companion/*, State/Companion/*, CompanionCreationFlow + companion UI, ActOsaurus/*,
   Vendor/Osaurus/*, LocalModelServer.swift, AgentBlueprint.swift, cognitive_dag/companions.rs.
@@ -79,3 +88,15 @@ SS-IR), **SS-SH** (substrate-health — = item 12, blank sidebar still open). Th
 
 **Status: research finalized.** Remaining work is implementation, sequenced above; the loop builds it with the SS-CLEAN
 gate, and the monitor audits each unit user-facing end-to-end.
+
+## Cross-reference — ALSO-ACTIVE build clusters from IMPLEMENTATION_SEQUENCE_2026_06_19 (added 2026-06-20 per nuance audit)
+These are CAPTURED-FULL with BUILD intent but live in the older `IMPLEMENTATION_SEQUENCE_2026_06_19.md` (Tiers 1–2), not above.
+They are PART OF THE ACTIVE QUEUE — do NOT treat as "finished research." The loop builds them alongside the list above:
+- **SS-Z / SS-AA / SS-AB — per-model bespoke engineering framework** (each local AND cloud model gets a tuned profile;
+  Tier-1, partly landed). Includes **SS-AB model-picker use-case descriptions** (`pickerUseCase`/`benefitsDescription`) +
+  "advertise the best models" — owner: deliberate descriptions/profiles per model on the picker.
+- **SS-Y — hyperdynamic determinism / "make local agents MORE useful than cloud" / playground thesis** (masked-logit part
+  DONE; broader local>cloud + HyperdynamicLoop de-orphaning, IMPLEMENTATION_SEQUENCE items 10–12, still ACTIVE).
+- **SS-H — skills/superpowers usable across local AND cloud engines** (keystone landed; keep reachable on chat surface).
+- **SS-I — external skill ecosystems** (Anthropic/Vercel/Google skill packs accessible to all engines) — had NO active-build
+  line in either sequence; it is hereby IN the active queue (chat-surface first, Act/Work only where non-clashing per owner).

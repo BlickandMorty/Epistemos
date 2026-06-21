@@ -1,5 +1,14 @@
 # SS-SUB — Substrate-health completion + the clone-sequencing contemplation (2026-06-20)
 
+> **⚠️ SUPERSEDED 2026-06-20 (later same day) for the MODEL-AGNOSTIC SUBSTRATE.** This slice's "loop must NEVER build/wire …
+> the IMPLEMENTATION is the owner's Cursor/clone work" wording was written BEFORE the owner authorized the loop to build the
+> model-agnostic substrate in-loop ("just work on it in loop like all the other things, I just want it completed"). Current
+> authority: `SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md` + monitor SCOPE BOUNDARY + memory `project_substrate_build_authorized_2026_06_20.md`.
+> The loop NOW MAY build System G / AnswerPacket(`scope_rex/answer_packet.rs`+Swift mirror) / RuntimeRouter / ACS-admission(`uas/*`)
+> / EML(`eml_rerank.rs`) / cognitive_dag(except companions.rs) / provenance / recall-Eidos. STILL off-limits: NEW MODEL brain-1
+> internals (SSM/Mamba/M0/`signal_bus.rs`/lattice-WBO/`research/*.rs`), the 70B, and Companion→Osaurus clones. Read the "loop NEVER"
+> lines below as applying ONLY to that residual off-limits set, not to the model-agnostic substrate.
+
 Owner: *"Much of the substrate health is unfinished stubs, not wired, etc. I really want to get that all working — idk if
 before or after the clones, because the clones would want to use this IP and it'd be most advantageous to be done BEFORE
 adding them, but idk… I really want to add them first though, because substrate is heavy backend work. So make sure this
