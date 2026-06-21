@@ -54,9 +54,23 @@ public enum IdleMemoryMode: String, CaseIterable, Sendable {
     public var explanation: String {
         switch self {
         case .keepWarm:
-            return "Graph, search indexes, and local model stay resident. Reopening the graph is instant. Idle RSS ~1–2 GB."
+            return "Keeps the local model warm for several seconds after each turn so back-to-back replies are instant, then releases memory when you pause — the balanced default."
         case .lowMemory:
-            return "After 30 s of no interaction, graph engine, MLX model, and Metal pipelines release memory. Idle RSS targets ~400–500 MB. Reopening the graph takes 1–2 s."
+            return "Releases the local model, graph engine, and Metal pipelines within ~2 seconds of inactivity to minimise idle memory. Resuming after a pause takes 1–2 s."
+        }
+    }
+
+    /// Apply this mode to the hardware-tuned idle-unload `base` delay. `.keepWarm` preserves the
+    /// balanced default (no change); `.lowMemory` caps it so the model releases promptly. This is the
+    /// wiring that makes the Performance Settings picker actually control idle memory — before it,
+    /// `PerformanceSettingsReader.idleMemoryMode` had zero consumers (a do-nothing-picker whose
+    /// `.keepWarm` copy even falsely claimed the model "stays resident").
+    public nonisolated func idleUnloadDelay(base: Duration) -> Duration {
+        switch self {
+        case .keepWarm:
+            return base
+        case .lowMemory:
+            return min(base, .seconds(2))
         }
     }
 }
@@ -159,10 +173,10 @@ public enum PerformanceSettingsReader {
         return StartupMode(rawValue: raw) ?? .instant
     }
 
-    /// Read the current idle memory mode. Safe to call from any thread.
-    /// Used by the idle watchdog to decide whether to trigger the
-    /// unload sequence after the user stops interacting.
-    public static var idleMemoryMode: IdleMemoryMode {
+    /// Read the current idle memory mode. Safe to call from any thread (UserDefaults read), so
+    /// `nonisolated` — the MLX runtime policy is computed off the main actor.
+    /// Consumed by `MLXInferenceService` to cap the idle-unload delay (`.lowMemory`).
+    public nonisolated static var idleMemoryMode: IdleMemoryMode {
         let raw = UserDefaults.standard.string(forKey: "epistemos.idle.memoryMode") ?? ""
         return IdleMemoryMode(rawValue: raw) ?? .keepWarm
     }
