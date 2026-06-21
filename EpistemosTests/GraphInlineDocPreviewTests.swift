@@ -27,13 +27,32 @@ struct GraphInlineDocPreviewTests {
         #expect(src.contains("showInlinePreview = true"))
     }
 
-    @Test("the preview is read-only — loads via loadBodyAsync, never writes the vault")
-    func previewIsReadOnly() throws {
+    @Test("loads via the from-primitives async path (read display) — no raw file read of the SDPage")
+    func loadsViaPrimitives() throws {
         let card = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphInlineDocPreview.swift")
-        #expect(card.contains("loadBodyAsync"))
-        // No write/save API in the read-only preview — the data-loss floor.
-        #expect(!card.contains("saveBody"))
+        #expect(card.contains("loadBodyAsyncFromPrimitives"))
+    }
+
+    @Test("inline EDIT persists through the EXISTING saveBody pipeline — never a raw write")
+    func editSavesViaProvenPath() throws {
+        let card = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphInlineDocPreview.swift")
+        // Edits flow through page.saveBody (→ NoteFileStorage.writeBody + derived state) then a
+        // model-context save — the SAME path the note editor uses. The data-loss floor: NO raw
+        // file write and NO insert/delete from the card itself.
+        #expect(card.contains("page.saveBody(editedBody)"))
+        #expect(card.contains("modelContext.save()"))
+        #expect(!card.contains("FileManager"))
+        #expect(!card.contains(".write(to:"))
         #expect(!card.contains("modelContext.insert"))
         #expect(!card.contains("modelContext.delete"))
+    }
+
+    @Test("editing is explicit (Edit → Save/Cancel), so no edit ever auto-writes the vault")
+    func editIsExplicit() throws {
+        let card = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphInlineDocPreview.swift")
+        #expect(card.contains("isEditing"))
+        #expect(card.contains("TextEditor(text: $editedBody)"))
+        // Cancel leaves edit mode without calling save.
+        #expect(card.contains("Button(\"Cancel\") { isEditing = false }"))
     }
 }
