@@ -1875,18 +1875,20 @@ struct CodeEditorView: View {
         _totalLines = State(initialValue: CodeEditorLineMetrics.lineCount(content))
     }
 
-    /// SS-GC: the code-editor top-bar fill. With a `themeOverride` (embedded home graph)
-    /// it paints the SAME window backdrop as the graph surround
-    /// (`AppWindowBackdropStyle.background`, as HomeGraphEmbeddedView does) so the bar
-    /// blends instead of popping as a white card. Without one (standalone / notes /
-    /// detached window) it keeps the existing card slab — byte-for-byte unchanged. Pure +
-    /// testable (MainActor — flatBackground is MainActor-isolated).
+    /// SS-GC: the code-editor top-bar fill. With a `themeOverride` (embedded home graph) it paints
+    /// the SAME fill as the graph PAGE surround the editor sits inside —
+    /// `GraphWorkspaceContainer.embeddedPageSurface`, i.e. `theme.resolved.background.color` with the
+    /// theme already `surfaceVariant(.landing)` — so the bar truly blends. (It previously used
+    /// `AppWindowBackdropStyle.background`, which re-applies `surfaceVariant(.mainChat)` on top and
+    /// yields a LIGHTER mainChat background that popped as a white bar over the darker landing page —
+    /// the reopened SS-GC white-bar.) Without an override (standalone / notes / detached window) it
+    /// keeps the existing card slab — byte-for-byte unchanged. Pure + testable.
     static func resolvedTopBarBackground(
         themeOverride: EpistemosTheme?,
         base: EpistemosTheme
     ) -> Color {
         if let themeOverride {
-            return AppWindowBackdropStyle.background(for: themeOverride)
+            return themeOverride.resolved.background.color
         }
         return MarkdownPreviewSurfaceStyle.flatBackground(for: base.surfaceVariant(.other))
     }
