@@ -1,5 +1,30 @@
 # Osaurus Act Build — Living Progress (started 2026-06-21)
 
+## 📋 14-AREA IMPLEMENTATION MAP (grounded audit, refreshed 2026-06-21 post-act-engine)
+| # | Directive | Status | Evidence (file / commit) | Next action |
+|---|---|---|---|---|
+| 1 | Two modes: act=Osaurus, work=OpenCode+Goose+Hermes+OpenClaw+RustLSP | 🟡 | act engine `aa0b40b57`; work seam `Epistemos/Work/WorkBackend.swift` | build OpenCode/Goose work fusion |
+| 2 | Osaurus landed+linked; dual-MLX consolidated; act turn via closure swap | ✅ | `f884eb0b7` (consolidate), `cf708671a` (link), `aa0b40b57` (closure swap) | streaming + UI |
+| 3 | Landing pages + BLUR transitions + act/work toggles + mode-entry anim | 🔴 | `Views/Landing/{LandingView,BlurFade,LiquidGreeting}.swift` exist; anim recorded | build after engine |
+| 4 | ACT reskin = current-chat discipline (fonts/palette/composer) | 🔴 | recorded (standing rule) | build after engine |
+| 5 | Preserve chrome (picker/palette/38-tool panel) + Epistemos Picks | 🟡 | Epistemos Picks DONE+visible `5c3d8bb66`; chrome exists | wire chrome into act |
+| 6 | Tamagotchi agent-creation: keep style + FIX render (too-small/inner-squares) | 🔴 | `Views/Landing/Farm/CompanionCreationFlow.swift` | ⚠️ Companion area partly OFF-LIMITS — owner scope check before render-fix |
+| 7 | Chat backend QUARANTINED, never deleted | ✅ | never touched this session; quarantine intact | porting cycles |
+| 8 | No silent Qwen fallback | 🟡 | act path honest (`runTurnInProcess` never cloud); Picks honest selection | live too-large→Qwen P0 is in DEFERRED quarantined chat |
+| 9 | MAS non-restrictive (global) | ✅ | `OSAURUS_MAS_ENTITLEMENTS_RESEARCH_2026_06_21.md`; direct-distribution | distribution signing |
+| 10 | Reuse-not-rebuild IP (RustLSP/Eidos/Halo/RRF/DAG) | ✅ present | `RustLSPTransport`/`EidosBridge`/`HaloController`/`RRFFusionQuery` exist | wire into both modes |
+| 11 | Every surface→real front-end + completeness sweep | 🟡 | sweep `e84fd4110`; act health real `2025fc876`; Picks visible | remaining surfaces |
+| 12 | EPDOC MD-V2 (md source, html/json projections) | 🟡 | Epdoc exists `Views/Epdoc/`; MD-V2 doc not found by name | verify/record MD-V2 |
+| 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
+| 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
+
+Prose: the **act ENGINE (#2)** is the big completion — act runs live through OsaurusCore (flag-gated,
+honest, verified). UI areas (#3/#4/#6 + mode-entry animations) are correctly 🔴 BEHIND the engine. Work
+mode (#1) and EPDOC-MD-V2 (#12) are the next non-UI build fronts. Nothing dropped/stashed/fake-done.
+⚠️ Owner decision needed: #6 Tamagotchi render-fix scope vs the OFF-LIMITS Companion clone.
+
+
+
 Single source of "done / next" for the Osaurus-first walk. Each loop iteration:
 read this, pick the next `[ ]`, build to the real-state done bar, commit, update this.
 Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_PLAN_2026_06_19.md`
