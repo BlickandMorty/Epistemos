@@ -86,3 +86,26 @@ NO new model, NO 70B, NO Companion-clone code. main-only; honest/no-green-withou
 SS-CR routing fix; flag-gate live promotions; each phase its own SS-* sub-slice + tests when picked up. Worked in-loop at the
 normal cadence (owner: "just work on it in loop like all the other things"). Cross-ref SS-SUB, SS-SH, SS-VIS, SS-CLEAN,
 ARCHITECTURE_READOUT, ARCHITECTURE_TIER_PROMOTION_CANON.
+
+## Phase 1 STAGE-2 flip — CONCRETE BLOCKER (2026-06-21, so it is not lost)
+The STAGE-2 authoritative-lane flip is CODE-COMPLETE and SAFE-BY-DEFAULT:
+`RuntimeRouterShadow.authoritativeLane(liveLane:routerLane:armed:)` + `wouldOverrideLive(...)`,
+behind `EPISTEMOS_RUNTIMEROUTER_LIVE_V0` (default OFF → live lane wins, byte-identical).
+What it is BLOCKED ON is **runtime parity evidence**, which a headless loop agent CANNOT produce:
+`RuntimeRouterMetrics.parityRate` / `parityObservations` are observe-only metrics that accumulate
+only while STAGE-1b is armed AND the app processes real turns — they are `nil` / `0` in any build or
+unit-test context. So "is parityRate solid?" is NOT answerable headlessly; flipping without that
+evidence would risk lane-decision drift.
+
+OPERATIONALIZED this firing (so the flip becomes a rigorous, observable decision, not an eyeball):
+`RuntimeRouterStage2Readiness.evaluate(parityObservations:parityRate:)` (pure, tested) — READY only
+when `parityObservations ≥ 50` AND `parityRate ≥ 0.98`, else a `.notReady(reason:)`. Surfaced in
+Settings → Runtime Router as the "STAGE-2:" readiness line (replaces the vague "rising-toward-100%").
+
+OWNER FLIP PROCEDURE (the only path that can clear this blocker):
+1. Set `EPISTEMOS_RUNTIMEROUTER_LIVE_V0=1` to ARM STAGE-1b (observe-only; live lane still wins).
+2. Use the app normally so parity accumulates; watch Settings → Runtime Router → "STAGE-2:" line.
+3. When it reads "READY to promote — parity solid", the authoritative flip is safe to roll out
+   (the armed-and-DIFFERENT case is then vanishingly rare by construction).
+If the readiness line stays "not ready — parity NN% < 98%", the router still diverges from the live
+path: do NOT promote — investigate the divergent lanes (escalation log) first.

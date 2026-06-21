@@ -30,6 +30,7 @@ public struct RuntimeRouterHealthRow: View {
         Section("Runtime Router") {
             VStack(alignment: .leading, spacing: 10) {
                 summaryRow
+                stage2ReadinessRow
                 Divider()
                 Text("Chip strip — per lane")
                     .font(.caption)
@@ -69,6 +70,30 @@ public struct RuntimeRouterHealthRow: View {
             stat(label: "Rejects", value: "\(router.metrics.rejectCount)")
             stat(label: "Parity", value: parityValue)
             Spacer()
+        }
+    }
+
+    /// STAGE-2 promotion readiness — the precise green-light for the authoritative-lane flip
+    /// (owner 2026-06-21 "flip if parityRate is solid"), replacing the eyeballed "rising-toward-
+    /// 100%". READY only once parity clears the sample + rate floors (RuntimeRouterStage2Readiness);
+    /// otherwise the honest reason it isn't ready yet.
+    private var stage2ReadinessRow: some View {
+        let ready = RuntimeRouterStage2Readiness.isReady(
+            parityObservations: router.metrics.parityObservations,
+            parityRate: router.metrics.parityRate
+        )
+        return HStack(spacing: 6) {
+            Image(systemName: ready ? "checkmark.seal.fill" : "hourglass")
+                .font(.caption)
+                .foregroundStyle(ready ? Color.green : Color.secondary)
+            Text("STAGE-2: " + RuntimeRouterStage2Readiness.summary(
+                parityObservations: router.metrics.parityObservations,
+                parityRate: router.metrics.parityRate
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
     }
 

@@ -4438,3 +4438,9 @@ Every "honest pending / next increment / deferred" note the loop made is now a t
 - [ ] **SS-2S async + downsampled + remote image load** (888761277) — NoteImageProcessor.loadDisplayImage async + http(s) (solve non-Sendable layout-state-across-actors).
 - [ ] **SS-LT full-path runtime hardening** (ce66a8d64) — parse robustness + tier surfacing + Eidos readiness across the live local multi-tool path.
 - [ ] **SUBSTRATE RuntimeRouter LIVE authoritative flip** (5a3943454) — once parityRate solid, flip EPISTEMOS_RUNTIMEROUTER_LIVE_V0 to make the router lane authoritative (contract + tests already landed).
+      ⚠️ BLOCKER (2026-06-21, captured per owner): "parityRate solid" now has a RIGOROUS gate —
+      `RuntimeRouterStage2Readiness` (parityObservations ≥ 50 AND parityRate ≥ 0.98), surfaced as the
+      "STAGE-2:" line in Settings → Runtime Router. A headless loop agent CANNOT clear this — parity is
+      a runtime observe-only metric (nil until STAGE-1b is armed + real turns run). OWNER FLIP PATH:
+      set EPISTEMOS_RUNTIMEROUTER_LIVE_V0=1 to arm, use the app until the readiness line reads "READY to
+      promote", then roll out. Full procedure: docs/research/SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md.
