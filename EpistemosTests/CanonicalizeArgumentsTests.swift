@@ -45,4 +45,33 @@ struct CanonicalizeArgumentsTests {
         #expect(out["anything"] as? String == "v")
         #expect(out.count == 1)
     }
+
+    // Type coercion: local models frequently quote scalars (`{"limit": "10"}`, `"true"`); coerce a
+    // STRING to the schema's declared scalar type so a strict tool executor doesn't reject it.
+    private let typedSchema = #"{"type":"object","properties":{"limit":{"type":"integer"},"ratio":{"type":"number"},"recursive":{"type":"boolean"},"query":{"type":"string"}}}"#
+
+    @Test("a quoted integer/number/boolean is coerced to the schema's scalar type (key variant too)")
+    func coercesQuotedScalars() {
+        let out = LocalAgentLoop.canonicalizeArguments(
+            ["limit": "10", "ratio": "0.5", "RECURSIVE": "true"], schemaJson: typedSchema)
+        #expect(out["limit"] as? Int == 10)
+        #expect(out["ratio"] as? Double == 0.5)
+        #expect(out["recursive"] as? Bool == true)  // key normalized (RECURSIVE→recursive) AND value coerced
+    }
+
+    @Test("boolean accepts true/false/yes/no/1/0; a string-typed field is left as a string")
+    func booleanAndStringHandling() {
+        #expect(LocalAgentLoop.canonicalizeArguments(["recursive": "no"], schemaJson: typedSchema)["recursive"] as? Bool == false)
+        #expect(LocalAgentLoop.canonicalizeArguments(["recursive": "1"], schemaJson: typedSchema)["recursive"] as? Bool == true)
+        // A schema-string field keeps its string value (no coercion).
+        #expect(LocalAgentLoop.canonicalizeArguments(["query": "5"], schemaJson: typedSchema)["query"] as? String == "5")
+    }
+
+    @Test("an already-typed value and an unparseable string are left unchanged (safe)")
+    func unparseableAndAlreadyTypedUntouched() {
+        // Already an Int → unchanged.
+        #expect(LocalAgentLoop.canonicalizeArguments(["limit": 7], schemaJson: typedSchema)["limit"] as? Int == 7)
+        // "ten" can't parse to an integer → left as the original string (no data loss / no crash).
+        #expect(LocalAgentLoop.canonicalizeArguments(["limit": "ten"], schemaJson: typedSchema)["limit"] as? String == "ten")
+    }
 }

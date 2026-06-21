@@ -1384,13 +1384,42 @@ actor LocalAgentLoop {
             if !key.isEmpty, byStripped[key] == nil { byStripped[key] = schemaKey }
         }
 
+        // Coerce a STRING value to the schema's declared scalar type. Local models frequently quote
+        // scalars (`{"limit": "10"}`, `{"recursive": "true"}`); a strict tool executor then rejects the
+        // string where it wants an Int/Double/Bool — again "intent recognized, tool call malformed".
+        // Only string→scalar is touched (JSON numbers already decode as NSNumber), only when the parse
+        // succeeds, and only for a single `type:` string (an array/object/null type is left untouched).
+        func coerced(_ value: Any, schema propSchema: Any?) -> Any {
+            guard let raw = value as? String,
+                  let prop = propSchema as? [String: Any],
+                  let type = prop["type"] as? String else {
+                return value
+            }
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            switch type {
+            case "integer":
+                if let i = Int(trimmed) { return i }
+            case "number":
+                if let d = Double(trimmed) { return d }
+            case "boolean":
+                switch trimmed.lowercased() {
+                case "true", "yes", "1": return true
+                case "false", "no", "0": return false
+                default: break
+                }
+            default:
+                break
+            }
+            return value
+        }
+
         var normalized: [String: Any] = [:]
         normalized.reserveCapacity(arguments.count)
         for (key, value) in arguments {
             let canonicalKey = byLower[key.lowercased()]
                 ?? byStripped[stripped(key)]
                 ?? key
-            normalized[canonicalKey] = value
+            normalized[canonicalKey] = coerced(value, schema: properties[canonicalKey])
         }
         return normalized
     }
