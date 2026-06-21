@@ -128,3 +128,36 @@ a Pro-gated `ActOsaurusBridge` protocol + flag + MAS/Pro guard test (no repo yet
 landing next. Cross-ref: LocalModelServer (osaurus-pattern server), LocalPackages/
 mlx-swift-lm (vendoring precedent), deployment-profile doctrine, R-CUA (Lume/
 Containerization sandbox), GOOSE-into-Work isolation guardrail.
+
+---
+
+## ‼️ OWNER DIRECTIVE + CORRECTION (2026-06-21) — READ FIRST, supersedes any reductive framing
+**Owner (verbatim, 2026-06-21):** *"i want the full osaurus clone … trying to do the front end back
+end thing from the beginning led to muddiness because the cloned thing would never be fully cloned …
+i want the osaurus to be in the app and then cross references the chat to work so it accurately gets
+changed. retain my ip. i still want it fully fixed and substrate finished maybe after we are done,
+before is just wasting time. i want osaurus settings osaurus everything because i am taking the entire
+app."*
+
+**What this locks in (do NOT re-reduce):**
+1. **FULL clone — the ENTIRE Osaurus app: settings, everything.** Vendor the complete repo
+   (zero cherry-pick, per the strategy above). NOT a "keep our front-end, swap only the backend"
+   split — the owner has tried that split before and it caused MUDDINESS because the clone was never
+   fully completed. Bring ALL of Osaurus in first.
+2. **Then cross-reference the existing chat** to reconcile/adapt it accurately against the full clone
+   (not the other way around).
+3. **RETAIN the owner's IP** — system prompts + the hidden pieces are preserved/ported, layered on
+   the cloned engine. Nothing of the owner's is deleted before the clone proves out.
+4. **SEQUENCING:** Osaurus full clone FIRST. The remaining substrate finish + the chat fixes
+   (incl. the hidden-Qwen-fallback kill, SS-CHATPICKER) come AFTER — doing them before the clone is
+   "wasting time" per the owner. (The fallback kill is still cheap + shared plumbing; sequence it per
+   owner, but don't drop it.)
+5. **CORRECTION:** OsaurusCore is **in-process Swift**, not a subprocess. An earlier monitor claim
+   that "Osaurus is a subprocess that MAS blocks" was a HALLUCINATION — corrected here. The
+   in-process loopback server needs only `com.apple.security.network.server` (MAS-allowed). The owner
+   wants it minimal/black-boxed; the heavy VM/relay bits may stay Pro/excluded, but the clone itself
+   goes IN the app.
+
+**ANTI-HALLUCINATION DISCIPLINE (owner flagged hallucinations 2026-06-21):** every claim about a file/
+capability MUST be grounded by reading the actual file in-repo BEFORE stating it. The plan is the sole
+authority; never reduce or reinterpret it from memory. No "proven/done" without a real-state test.
