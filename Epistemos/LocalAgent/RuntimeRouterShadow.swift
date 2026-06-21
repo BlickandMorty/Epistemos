@@ -177,4 +177,30 @@ nonisolated enum RuntimeRouterShadow {
             })
         router.recordParity(matched: outcome.matched)
     }
+
+    // MARK: - STAGE-2: authoritative-lane selection (parity-gated, behind `armed`)
+
+    /// STAGE-2 (owner 2026-06-21): the authoritative-lane selection contract. With the flag OFF
+    /// (default) the LIVE (FFI) lane wins — byte-identical to STAGE 1b, zero behavior change. With
+    /// the flag ON the ROUTER'S lane becomes authoritative; if the router produced no lane
+    /// (`.unavailable`) it falls back to the live lane so a turn is NEVER stranded (honest, no
+    /// silent no-route). Because STAGE-2 only rolls out once `parityRate` is near-100%, the
+    /// armed-and-DIFFERENT case is rare by construction and armed-and-MATCHED is a no-op (both lanes
+    /// already equal). Pure → fully headless-testable without the live FFI. The live descriptor
+    /// SWAP that consumes this (re-resolving a model for an overridden lane) is the owner's
+    /// parity-gated flip — see CommandCenterRequestCompiler.compile().
+    static func authoritativeLane(liveLane: RuntimeLane?, routerLane: RuntimeLane?, armed: Bool) -> RuntimeLane? {
+        guard armed else { return liveLane }
+        return routerLane ?? liveLane
+    }
+
+    /// Whether STAGE-2 (armed) would OVERRIDE the live lane with a DIFFERENT router lane — true only
+    /// in the rare armed-and-different case the parity gate drives toward zero. The live site uses
+    /// this to decide whether a descriptor re-resolution is needed: `false` means the live
+    /// descriptor already matches the authoritative lane → use it unchanged (the common
+    /// parity-match path), so a solid-parity rollout is a no-op.
+    static func wouldOverrideLive(liveLane: RuntimeLane?, routerLane: RuntimeLane?, armed: Bool) -> Bool {
+        guard armed, let routerLane else { return false }
+        return routerLane != liveLane
+    }
 }
