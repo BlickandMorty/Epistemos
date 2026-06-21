@@ -264,3 +264,14 @@ Owner loves these; keep + preserve ALL of it through the reskin (this is where "
   runs use a cloud model or the Pro harness. Turning a tool off removes it from this chat's agent turns."
 Preserve this chrome end-to-end in act; add Osaurus capability beneath it. (Reference screenshots were
 ephemeral/iCloud + couldn't be saved to repo — this spec + the LIVE app are the reference.)
+
+## 🆕 OSAURUS AGENT CREATION = KEEP TAMAGOTCHI STYLE + FIX RENDER BUG (owner 2026-06-21)
+Owner: the Osaurus **agent-creation** flow must keep my **Tamagotchi-style** characters/avatars (maybe in a
+"meta" section). This is owner IP/style to PRESERVE — port it onto the Osaurus agent creation (NOT an
+off-limits Companion-backend clone; this is the owner directing their avatar STYLE be kept + fixed).
+- **CURRENT BUG (fix):** the Tamagotchi sprites render **too small** and have **weird small blocks/squares
+  inside their bodies** when drawn/rendered.
+- **WANT:** **larger + dynamic**, still **flat pixel-art Tamagotchi** aesthetic, with **NO artifact squares
+  inside the bodies** — clean flat fills. Find the sprite/avatar renderer, fix the intra-body artifacts +
+  the sizing, keep the flat Tamagotchi look.
+This is part of the act surface (agent creation). Preserve the style, fix the render.
