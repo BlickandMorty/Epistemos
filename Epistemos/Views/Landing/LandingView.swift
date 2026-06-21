@@ -137,6 +137,10 @@ struct LandingView: View {
     /// panel that expands in-flow under the search tools — NOT a floating popover
     /// (the main-chat composer migrated first; this finishes the landing surface).
     @State private var showInlineRuntimePicker = false
+    /// SS-VIS (owner 2026-06-20): presents the shared AgentToolTogglePanel (the ~50 agent tools + MCP
+    /// + cowork + skills) right from the landing search surface — the same picker the chat composer
+    /// uses, so nothing is cloned and the catalog stays a single source of truth.
+    @State private var showLandingToolPanel = false
     @State private var landingSearchLabelHovered = false
     @State private var landingVoiceDraftPrefix: String?
     @State private var landingRecallDebounceBox = ChatRecallDebounceBox()
@@ -948,6 +952,7 @@ struct LandingView: View {
             HStack(spacing: 12) {
                 landingSearchBrainTool
                 landingSearchToolsToggle
+                landingSearchCapabilitiesTool
             }
             .frame(maxWidth: LandingSearchLayout.searchLineWidth)
             .zIndex(3)
@@ -997,6 +1002,33 @@ struct LandingView: View {
             }
         )
         .help("Pick the Epistemos brain — Fast / Think / Code")
+    }
+
+    /// SS-VIS (owner 2026-06-20): surface ALL chat capabilities — the ~50 agent tools + MCP servers +
+    /// cowork connectors + skills — on the landing search page, so a user can "start off using a
+    /// tool." Mounts the SAME `AgentToolTogglePanel` the chat composer uses (single registry, single
+    /// picker — no clone, no new tool list). Toggling a capability here mutates the shared
+    /// `agentCommandCenter`, so a chat started from search via `submitLandingSearch()` is already
+    /// armed with it. The chat's tool button is "Agent tools" with this same icon, so it reads as the
+    /// same control the owner already knows from chat.
+    private var landingSearchCapabilitiesTool: some View {
+        LandingStageToolTile(
+            title: "Agent",
+            systemImage: "slider.horizontal.3",
+            theme: theme,
+            accent: theme.resolved.accent.color,
+            isActive: showLandingToolPanel,
+            action: {
+                showLandingToolPanel.toggle()
+            }
+        )
+        .popover(isPresented: $showLandingToolPanel, arrowEdge: .top) {
+            AgentToolTogglePanel(
+                agentCommandCenter: agentCommandCenter,
+                theme: theme
+            )
+        }
+        .help("Agent tools, MCP, cowork & skills — the full capability set, right from search")
     }
 
     /// Short tier label for the landing picker trigger, from the active mode.
