@@ -1,0 +1,74 @@
+import Foundation
+
+// WORK = OpenCode shell — Seam A contract (owner 2026-06-21). The seam the native
+// terminal view drives against to launch the REAL OpenCode TUI in a PTY. Pure +
+// ALWAYS-compiled (no SwiftTerm / PTY / OpenCode dependency here) so it links on
+// every build; the heavy runtime (SwiftTerm terminal view, lazy Bun engine,
+// vendored OpenCode) plugs into this contract behind the Pro gate. Mirrors the
+// ActOsaurusBridge / WorkBackend seam shape: an honest-inert default that NEVER
+// fakes a terminal, and a `live` flag that is true only when a real shell can launch.
+
+/// What the native terminal view needs to spawn the OpenCode TUI in a PTY: the
+/// executable, its arguments, the workspace cwd, and the environment (which will
+/// carry the loopback Bun-engine endpoint once the lazy launcher lands). A pure
+/// value type — no process is started by constructing it.
+struct WorkShellLaunchSpec: Equatable, Sendable {
+    let executableURL: URL
+    let arguments: [String]
+    let workingDirectory: URL
+    let environment: [String: String]
+}
+
+enum WorkShellError: Error, Equatable {
+    /// The shell is not wired/armed — returned instead of faking a terminal.
+    case notWired(String)
+    /// The OpenCode binary / Bun engine is not present on disk yet.
+    case runtimeMissing(String)
+}
+
+/// The seam WORK mode's native terminal view drives against. `isReady` is an HONEST
+/// gate — true only when a real OpenCode shell can actually launch; the inert seam
+/// reports false and refuses, it never returns a bogus launch spec.
+protocol WorkOpenCodeShell: Sendable {
+    /// True only when a real OpenCode TUI + Bun engine are present AND the seam is
+    /// armed. Never reports ready for the inert seam.
+    var isReady: Bool { get }
+    /// The PTY launch spec for an OpenCode session rooted at `workspace`. Throws an
+    /// HONEST WorkShellError when the shell is not wired or the runtime is absent —
+    /// callers surface that, they don't get a fake terminal.
+    func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec
+}
+
+/// The honest-inert default: reports not-ready and refuses to produce a launch spec.
+/// The state until the OpenCode TUI + Bun engine are vendored and the native terminal
+/// view is wired. Mirrors InertWorkBackend / InertActOsaurusBridge.
+struct InertWorkOpenCodeShell: WorkOpenCodeShell {
+    var isReady: Bool { false }
+
+    func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec {
+        throw WorkShellError.notWired(
+            "OpenCode work shell is not wired yet — the native terminal view, lazy Bun engine, and vendored OpenCode TUI are the follow-on. No fake terminal is launched."
+        )
+    }
+}
+
+/// Resolves the active OpenCode shell seam. Honest by construction: returns the inert
+/// shell unless the Pro build has both the flag armed AND (eventually) a real runtime.
+/// Today it always returns inert — the live shell lands with the terminal view + Bun
+/// launcher. Centralizing resolution here (mirrors ActOsaurusBridgeFactory) means the
+/// follow-on wires ONE site, not every caller.
+nonisolated enum WorkOpenCodeShellFactory {
+    static func resolve(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> WorkOpenCodeShell {
+        #if EPISTEMOS_APP_STORE
+        return InertWorkOpenCodeShell()
+        #else
+        // Armed-but-runtime-absent still resolves to inert: the gate may be ON, but
+        // until the OpenCode TUI + Bun engine are vendored there is no real shell to
+        // launch. Honest — the health row shows "armed, INERT", never "live".
+        _ = WorkOpenCodeShellGateStatus.isEnabled(environment[WorkOpenCodeShellGateStatus.flagName])
+        return InertWorkOpenCodeShell()
+        #endif
+    }
+}
