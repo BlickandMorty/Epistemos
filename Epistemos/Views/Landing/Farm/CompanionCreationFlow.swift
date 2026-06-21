@@ -229,7 +229,8 @@ struct CompanionCreationFlow: View {
                     state: .think,
                     reduceMotionOverride: true
                 )
-                .frame(width: 76, height: 76)
+                // Larger preview (owner 2026-06-21: was too small). 96/48 = canonical 2px/cell.
+                .frame(width: 96, height: 96)
                 .padding(10)
                 .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
                 .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.24), lineWidth: theme.isDark ? 0.75 : 1))
@@ -262,7 +263,9 @@ struct CompanionCreationFlow: View {
                                 phase: bodyKind == kind ? 0.65 : 0.5,
                                 reduceMotionOverride: true
                             )
-                            .frame(width: 42, height: 42)
+                            // Larger Tamagotchi (owner 2026-06-21: was too small). 64/48 = clean
+                            // 1.33px/cell (no sub-pixel artifacts); the grid cell is ≥140pt so it fits.
+                            .frame(width: 64, height: 64)
                             Text(kind.displayName)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(theme.textPrimary)
@@ -273,7 +276,7 @@ struct CompanionCreationFlow: View {
                                 .lineLimit(2)
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 94)
+                        .frame(minHeight: 120)
                         .padding(.vertical, 12)
                         .padding(.horizontal, 8)
                         .background(
