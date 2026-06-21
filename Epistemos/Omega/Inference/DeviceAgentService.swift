@@ -376,8 +376,21 @@ final class SharedGPUBackend: DeviceInferenceBackend {
             return nil
         }
 
+        #if !EPISTEMOS_APP_STORE
+        // act = Osaurus (owner 2026-06-21): when EPISTEMOS_ACT_OSAURUS_V0 is ON, swap the generation
+        // closure to drive the LINKED OsaurusCore engine in-process (the 'generation-closure swap' —
+        // act runs through Osaurus without rewriting the agent loop). Flag OFF (default) keeps the
+        // proven MLX one-shot generator UNCHANGED. The OsaurusCore path throws honestly on failure,
+        // never a silent cloud route (owner #1).
+        let generator: LocalAgentGenerationHandler =
+            ActOsaurusGateStatus.isEnabled(ProcessInfo.processInfo.environment[ActOsaurusGateStatus.flagName])
+            ? ActOsaurusGenerationHandler.make()
+            : LocalAgentLoop.mlxOneShotGenerator(using: localModelClient)
+        #else
+        let generator = LocalAgentLoop.mlxOneShotGenerator(using: localModelClient)
+        #endif
         return LocalAgentLoop(
-            generator: LocalAgentLoop.mlxOneShotGenerator(using: localModelClient),
+            generator: generator,
             structuredGenerator: constrainedDecoding.map { LocalAgentLoop.constrainedGenerator(using: $0) },
             toolExecutor: Self.unavailableToolExecutor,
             modelID: modelID,

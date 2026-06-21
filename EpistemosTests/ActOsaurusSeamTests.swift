@@ -111,6 +111,16 @@ struct ActOsaurusSeamTests {
         #expect(row.contains("osaurusCoreStatusDescription()"))
     }
 
+    @Test("S4: act dispatch flag-swaps the LocalAgentLoop generator to OsaurusCore (default unchanged)")
+    func s4DeviceAgentFlagSwap() throws {
+        let svc = try loadMirroredSourceTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
+        // Flag ON → the act generation closure drives OsaurusCore (the live generation-closure swap).
+        #expect(svc.contains("ActOsaurusGenerationHandler.make()"))
+        #expect(svc.contains("ActOsaurusGateStatus.isEnabled"))
+        // Flag OFF (default) keeps the proven MLX one-shot generator — no silent behavior change.
+        #expect(svc.contains("LocalAgentLoop.mlxOneShotGenerator(using: localModelClient)"))
+    }
+
     #if !EPISTEMOS_APP_STORE
     @Test("S3: the INERT bridge stays honest — no endpoint, server not enabled, message round-trips")
     func s3InertBridgeHonest() {
