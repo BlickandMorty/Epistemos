@@ -250,6 +250,12 @@ struct AgentToolTogglePanel: View {
                 .buttonStyle(.borderless)
                 .font(.system(size: 11, weight: .semibold))
                 .disabled(enabledCount == totalCount)
+            if EpistemosBestOfPreset.isEnabled {
+                Button("Recommended") { agentCommandCenter.applyBestOfPreset() }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11, weight: .semibold))
+                    .help("Enable the curated best-of power set (the broadly-useful core tools)")
+            }
             Button("All off") { agentCommandCenter.disableAllTools() }
                 .buttonStyle(.borderless)
                 .font(.system(size: 11, weight: .semibold))

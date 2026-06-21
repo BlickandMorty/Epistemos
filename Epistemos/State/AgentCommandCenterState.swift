@@ -276,6 +276,17 @@ final class AgentCommandCenterState {
         }
     }
 
+    /// L1201 — enable the curated "best-of" recommended power set in one tap. ADDITIVE: it turns
+    /// the recommended tools ON and leaves every other toggle as the user left it (so it's a
+    /// "power up", not a reset). Only touches tools that exist in the live catalog, so it can
+    /// never enable a tool that isn't actually wired for this build profile.
+    func applyBestOfPreset() {
+        let recommended = Set(EpistemosBestOfPreset.recommendedToolNames(from: availableTools.map(\.name)))
+        for key in toolToggles.keys where recommended.contains(key) {
+            toolToggles[key] = true
+        }
+    }
+
     // MARK: - Catalog Refresh
 
     func refreshToolCatalog(from mcpBridge: MCPBridge, vaultPath: String) {
