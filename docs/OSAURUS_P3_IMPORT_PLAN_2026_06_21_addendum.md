@@ -245,3 +245,22 @@ CURRENT CHAT design wins, Osaurus capability is added underneath it):
 NOTE on reference screenshots: owner's 2 current-chat screenshots (2026-06-21 3.49 PM) were iCloud-offloaded
 so NOT copied into the repo. To add: open them once on Desktop (downloads), then cp into
 docs/research/ui-reference/. Until then, this written spec + the LIVE app's current chat are the reference.
+
+### ACT reskin — PRESERVE the model picker + command palette + agent-tools UI (owner 2026-06-21)
+Owner loves these; keep + preserve ALL of it through the reskin (this is where "Epistemos Picks" lives):
+- **MODEL PICKER** with REAL model LOGOS per model; tiers **FAST / THINK**; rows show name + subtitle
+  ("Fastest on-device · everyday chat"), **install state** ("Not installed — tap to install"), **memory
+  needs** ("Needs ~16 GB (5 GB free)"), **context badge** (128K / 32K), **checkmark on selected**,
+  download affordance; header "Install local AI — Download Epistemos AI — Gemma · VibeThinker · coder";
+  "N models · scroll for all"; Apple Intelligence row ("Not available on this Mac"). → the owner's custom
+  hardened models surface here as the "Epistemos Picks" section; honest selection, no silent Qwen swap.
+- **COMMAND PALETTE / LAUNCHER:** **Fast / Tools / Agent** tabs; "Ask anything… Type @ for notes or chats ·
+  Auto-routes…" search + esc + send arrow; top toggles gear / Aa (typography) / sidebar; bottom command
+  GRID: search, quick capture, workspaces, save workspace, time machine, notes, new note, mini chat, new
+  doc, new code, html workspace, home graph.
+- **AGENT TOOLS PANEL:** "Agent tools — N of N on — All on / All off"; sectioned (RUST, …); per-tool
+  toggles with **"asks first"** badges on sensitive tools (e.g. Chunk reduce, Communication channel/imessage
+  contacts, Discovery mcp/model-catalog, Eidos query); footer "Local models chat + reason; multi-step tool
+  runs use a cloud model or the Pro harness. Turning a tool off removes it from this chat's agent turns."
+Preserve this chrome end-to-end in act; add Osaurus capability beneath it. (Reference screenshots were
+ephemeral/iCloud + couldn't be saved to repo — this spec + the LIVE app are the reference.)
