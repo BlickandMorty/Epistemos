@@ -365,3 +365,15 @@ demo/toy at a glance, but with **unprecedented EXECUTION** underneath. Minimal s
 - **PROTECTED ASSET — the landing page:** a minimal **decluttering + recentering ontology** that makes the
   app feel like a **landing WORKSPACE, not a demo**. Preserve + elevate this; the act/work landing pages +
   blur transitions extend it, never cheapen it.
+
+## 🆕 PROSE EDITOR + MD-V2 COEXIST — both shine (owner 2026-06-21)
+People will use BOTH the Prose editor AND MD-V2 — they're COMPLEMENTARY, not either/or. MD-V2 does NOT
+replace Prose; both are first-class editing experiences that each shine. (Refines "MD-V2 builds on Prose":
+they coexist.)
+- **Prose 2 = native-Apple-grade, super HARDENED** — owner compares it favorably to the **Apple Notes** app;
+  it feels like a true native Apple editor. That Apple-Notes-quality feel is the bar — keep it.
+- **The notes SIDEBAR is a cool design choice — preserve it** (a deliberate, loved design element).
+- **Apple Notes as a reference:** Notes has some things Prose doesn't yet — fine to mine Apple Notes for
+  worthwhile gaps later (not now; opportunity noted), while keeping Prose's native-hardened character.
+Net: two editors that both shine (Prose hardened native + MD-V2 markdown-first), the loved notes sidebar
+preserved, Apple Notes as the quality bar + a future gap-source.
