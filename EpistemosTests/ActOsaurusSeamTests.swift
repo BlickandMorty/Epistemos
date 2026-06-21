@@ -101,6 +101,16 @@ struct ActOsaurusSeamTests {
         #expect(bridge.contains("throw ActOsaurusError.serverNotEnabled"))
     }
 
+    @Test("S4: act health surface shows REAL OsaurusCore engine status (resolveStatus, not a stub)")
+    func s4RealOsaurusCoreStatusSurface() throws {
+        let bridge = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/ActOsaurusBridge.swift")
+        #expect(bridge.contains("func osaurusCoreStatusDescription() async -> String?"))
+        #expect(bridge.contains("OsaurusCore.CoreModelService.shared.resolveStatus()"))
+        // The visible act health row consumes the REAL engine status (wired to a real front-end).
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ActOsaurusHealthRow.swift")
+        #expect(row.contains("osaurusCoreStatusDescription()"))
+    }
+
     #if !EPISTEMOS_APP_STORE
     @Test("S3: the INERT bridge stays honest — no endpoint, server not enabled, message round-trips")
     func s3InertBridgeHonest() {

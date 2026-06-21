@@ -5,6 +5,7 @@ import SwiftUI
 // MAS build). Mirrors NightBrainLoRAHealthRow / DeepResearchHealthRow.
 struct ActOsaurusHealthRow: View {
     private var status: ActOsaurusGateStatus.Status { ActOsaurusGateStatus.status() }
+    @State private var osaurusCoreStatus: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -30,7 +31,18 @@ struct ActOsaurusHealthRow: View {
                     .foregroundStyle(.tertiary)
                     .textSelection(.enabled)
             }
+            // REAL linked-OsaurusCore engine status (CoreModelService.resolveStatus) — the act
+            // surface reflects the ACTUAL engine, not a stub. Hidden when OsaurusCore isn't linked.
+            if let osaurusCoreStatus {
+                Text(osaurusCoreStatus)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             #endif
         }
+        #if !EPISTEMOS_APP_STORE
+        .task { osaurusCoreStatus = await ActOsaurusBridgeFactory.resolve().osaurusCoreStatusDescription() }
+        #endif
     }
 }
