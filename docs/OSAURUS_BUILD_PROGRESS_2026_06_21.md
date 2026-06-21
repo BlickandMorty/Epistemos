@@ -30,7 +30,7 @@ SEQUENCING: Osaurus/ACT-first (engine done → shared composer + reskin), THEN W
 ## 📋 14-AREA IMPLEMENTATION MAP (grounded audit, refreshed 2026-06-21 post-act-engine)
 | # | Directive | Status | Evidence (file / commit) | Next action |
 |---|---|---|---|---|
-| 1 | Two modes: **act=Osaurus** (done engine); **work=OpenCode FULL-CLONE shell (real UI, Option A) + Goose engine + Hermes/OpenClaw fused + RustLSP** | 🟡 | act engine `aa0b40b57`; work seam `Epistemos/Work/WorkBackend.swift`; `agent_core/src/work.rs` leaf-ports SUPERSEDED→full-clone | finish ACT (composer+reskin) FIRST; then WORK = vendor OpenCode+Goose real crates |
+| 1 | Two modes: **act=Osaurus** (done engine); **work=OpenCode FULL-CLONE shell (real UI, Option A) + Goose engine + Hermes/OpenClaw fused + RustLSP** | 🟡 | act engine `aa0b40b57`; Goose ENGINE seam `Epistemos/Work/WorkBackend.swift`; **OpenCode SHELL seam A LANDED `644303f69`** (`Epistemos/Work/WorkOpenCodeShell{,GateStatus}.swift` — PTY-launch contract + honest-inert + visible `WorkOpenCodeShellHealthRow`, 5/5 tests); `agent_core/src/work.rs` leaf-ports SUPERSEDED→full-clone | shell seam done; NEXT WORK = native SwiftTerm/PTY terminal view + lazy Bun engine + vendor OpenCode TUI/Goose real crates |
 | 2 | Osaurus landed+linked; dual-MLX consolidated; act turn via closure swap | ✅ | `f884eb0b7` (consolidate), `cf708671a` (link), `aa0b40b57` (closure swap) | streaming + UI |
 | 3 | Landing pages + BLUR transitions + act/work toggles + mode-entry anim | 🔴 | `Views/Landing/{LandingView,BlurFade,LiquidGreeting}.swift` exist; anim recorded | build after engine |
 | 4 | ACT reskin = current-chat discipline (fonts/palette/composer) | 🔴 | recorded (standing rule) | build after engine |
