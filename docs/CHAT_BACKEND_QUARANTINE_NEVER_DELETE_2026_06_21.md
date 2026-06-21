@@ -32,3 +32,40 @@ backend now (e.g. the chat-picker / Qwen-fallback patch) — that requirement mo
 
 Cross-ref: OSAURUS_P3_IMPORT_PLAN_2026_06_19.md, OWNER_REQUESTS_LEDGER_2026_06_18.md,
 SS-CHATPICKER_P0_INSTALLED_MODELS_NOT_CLICKABLE_2026_06_21.md, LOOP_HARDENED_ENGINEERING_CONTRACT.
+
+---
+
+## PRESERVE-EVERYTHING + PORTING-CYCLES DIRECTIVE (owner 2026-06-21)
+**Owner (verbatim):** *"my ip and all the things from the chat will be saved — front end down to the
+model picker, all of that i want to keep but of course with osaurus. all the parts that osaurus has that
+my app does not should be a new pixel-art native skin — whatever front end i don't have, just create it.
+the logic, the instructions etc., all of that is preserved in an isolated quarantine. have a directive
+where the chat logic and all the things being quarantined should have CYCLES OF PORTING the logic to all
+the surfaces of my app it is beneficial, BEFORE deleting it. like eidos etc. deep research. the safest
+thing is not deleting. finish the substrate and IP but it will take long so do that after / further down,
+but certainly still do it."*
+
+### Binding rules
+1. **PRESERVE EVERYTHING from the chat** — the front-end, the model picker, the logic, the instructions,
+   and the owner's IP — ALL kept, in an isolated quarantine. Nothing deleted.
+2. **BUILD MISSING FRONT-ENDS in pixel-art native:** for any Osaurus surface the app does NOT already
+   have, CREATE a new front-end in the app's pixel-art native style (fonts, chrome). For surfaces the app
+   DOES have, reuse the proven front-end (per the surface-wiring rule).
+3. **PORTING CYCLES BEFORE ANY DELETION:** run recurring cycles that port the quarantined chat logic +
+   IP into every app surface it benefits (e.g. Eidos/recall, graph, capture, act/Osaurus). Each cycle =
+   deep research → identify a beneficial port → port it → verify (real-state test). The quarantined chat
+   is retired ONLY after its useful logic/IP is ported everywhere it helps AND the owner authorizes —
+   never deleted as a shortcut. Safest default = do not delete.
+4. **SEQUENCING:** Osaurus full clone + surface wiring + porting cycles come first/now; the substrate +
+   IP FINALIZATION is long, so it runs AFTER / further down the walk — but it is CERTAIN, not dropped.
+
+### Gap-closures (added so the directive is complete)
+- **Safe cutover, not big-bang:** act runs behind a flag alongside the quarantined chat; chat stays live
+  until act proves out (real-state tests + launch-smoke + no 2,679-suite regression). Rollback always one
+  flag away.
+- **Data/persistence carry-over:** existing saved chats/sessions + user prefs migrate to act (not just
+  models/IP) — no lost history.
+- **Delete-only-after bar (all required):** (a) IP fully ported, (b) act at parity + real-state proven,
+  (c) data migrated, (d) OWNER authorizes. Until all four: quarantine only.
+- **Provenance/MAS:** Osaurus vendored MIT (direct_import, LICENSE kept); act core stays MAS-native
+  in-process; heavy VM/relay stay Pro/excluded.
