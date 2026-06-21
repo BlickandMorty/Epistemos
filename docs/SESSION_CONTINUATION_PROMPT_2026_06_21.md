@@ -9,13 +9,31 @@ You are taking over the Epistemos build (macOS PKM/agent app: Swift 6 + Rust/Uni
 `/Users/jojo/Downloads/Epistemos`. The prior session was restarted because it hallucinated. TRUST ONLY
 THE FILES — the plan/ledger/memory on disk are the authority, not any session memory.
 
-## READ FIRST (in this order — do not act before reading all five)
+## READ FIRST — CORE (in this order, before acting)
 1. `docs/OSAURUS_P3_IMPORT_PLAN_2026_06_19.md` — full-clone strategy + the **2026-06-21 OWNER DIRECTIVE
    append** at the bottom (read that append first; it supersedes any reductive framing).
-2. `docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md` — "Epistemos Picks" model section + harden-after.
-3. `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` — the hard no-delete guard.
-4. `docs/OWNER_REQUESTS_LEDGER_2026_06_18.md` — top banners (🛑 quarantine guard + 🔴 chat P0s, now deferred).
+2. `docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md` — Epistemos Picks + all-chats-get-act +
+   surface-wiring + completeness-sweep + harden-after.
+3. `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` — the hard no-delete + preserve/port guard.
+4. `docs/OWNER_REQUESTS_LEDGER_2026_06_18.md` — top banners (🛑 quarantine guard + 🔴 chat P0s, deferred).
 5. Memory `project_osaurus_full_clone_directive_2026_06_21` (auto-loaded via MEMORY.md).
+
+## READ NEXT — SUPPORTING (before building the relevant slice)
+6. `docs/research/OSAURUS_ACT_CONNECTION_MAP_2026_06_19.md` — how act wires to Osaurus (act surfaces).
+7. `docs/research/HERMES_OSAURUS_OPENCLAW_WIRING_R2_2026_06_19.md` + `..._OVERLAP_AND_DESTINATION_2026_06_19.md`
+   — Osaurus/OpenClaw wiring + overlap/destination reasoning.
+8. WORK-mode (Goose): `docs/GOOSE_S2_EXTRACTION_PLAN_2026_06_19.md`, `docs/GOOSE_REPLACEMENT_STRATEGY.md`,
+   `docs/GOOSE_AGENT_RESEARCH.md` (+ `_2`). OpenClaw: `docs/OPENCLAW_FEATURE_SPEC.md`,
+   `docs/BEST_OF_CLAW_AND_OPENCLAW.md`.
+9. Doctrine/quality bars: `docs/research/SS-PROVEN_DONE_DOCTRINE_2026_06_21.md` (real-state done bar),
+   `docs/research/SS-CHATMODEL_P0_EXISTING_INSTALL_DEFAULT_2026_06_21.md` (default-resolution history +
+   no-Qwen-fallback), `docs/research/SS-CHATPICKER_P0_INSTALLED_MODELS_NOT_CLICKABLE_2026_06_21.md`
+   (picker/fallback root cause), `docs/research/SS-AUTONOMOUS_VERIFY_SYSTEM_2026_06_21.md` (verification),
+   `docs/research/LOOP_HARDENED_ENGINEERING_CONTRACT_2026_06_20.md` (per-item discipline).
+10. Substrate DETAIL (for the later-but-certain substrate-health/IP-repair phase, NOT walk-order):
+   `docs/research/SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md`, `MASTER_BUILD_QUEUE_2026_06_20.md`,
+   `RESEARCH_FINALIZATION_INDEX_2026_06_20.md`, `CONNECTION_MAP_2026_06_20.md`.
+NOTE: if any doc names conflict, the CORE list + this prompt + the 2026-06-21 owner directives WIN.
 
 ## THE DIRECTIVE (owner 2026-06-21, do NOT re-reduce)
 - **FULL Osaurus clone — the ENTIRE app (settings, everything), zero cherry-pick, in-process Swift**
