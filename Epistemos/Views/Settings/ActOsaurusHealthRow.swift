@@ -14,6 +14,7 @@ struct ActOsaurusHealthRow: View {
                     .foregroundStyle(status.isActive ? Color.green : Color.secondary)
                 Text(status.headline)
                     .font(.callout.weight(.medium))
+                    .motionReveal()  // motion triad: blur-reveal on a display-only title (owner 2026-06-21)
                 Spacer(minLength: 0)
             }
             Text(status.detail)
