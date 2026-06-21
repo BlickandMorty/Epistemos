@@ -97,3 +97,19 @@ hardening; Hermes = existing in-process runtime. STANDING: maintain ONE agent-lo
 dedup capabilities (don't clone the same thing twice); favor Osaurus on clashes; fix the dual-MLX clash
 (vmlx-swift vs mlx-swift-lm). Living research: docs/research/AGENT_STACK_CONVERGENCE_RESEARCH_2026_06_21.md
 (a background agent is generating it). Recurring deep-research is part of the cycle — keep it current.
+
+## 🆕 OPENCODE = FULL CLONE WORK SHELL (owner 2026-06-21) — CORRECTS the convergence research
+**Owner:** loves OpenCode's UI/UX (was going to theme it to match the app — "perfect"); wants to FULLY
+clone it because it's MORE CAPABLE than Osaurus/Goose; **OpenCode is the work APP that Goose runs INSIDE
+of**; willing to be LENIENT on Swift/Rust-only to get it. Owner confirmed YES to the other 6 convergence
+decisions; OpenCode is the exception to "pattern-source only."
+
+CORRECTION to AGENT_STACK_CONVERGENCE_RESEARCH_2026_06_21.md: OpenCode is NOT pattern-source-only. It is
+the **work-mode SHELL of record**, full-cloned + themed to the app's pixel-art native look, with **Goose
+as an engine inside it** + the owner's IP brain wired in. The "can't vendor TS into agent_core (Rust)"
+fact stands, BUT since MAS is no longer a hard constraint (notarized direct-distribution), OpenCode ships
+as a bundled in-app runtime (Bun/Node), not a Cargo crate. Lenient on Swift/Rust purity for this.
+OPEN RISK to validate EARLY: can OpenCode's TS UI be themed to feel TRULY pixel-art native, or must its
+best UX be rebuilt natively? Decide after the feasibility deep-dive (docs/research/OPENCODE_FULL_CLONE_
+FEASIBILITY_2026_06_21.md). Other 6 convergence decisions = YES (favor-Osaurus, dedup, IP-on-top,
+existing-LSP-into-work, vmlx migration, OpenClaw skip-list).
