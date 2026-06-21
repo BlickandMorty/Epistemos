@@ -1173,6 +1173,7 @@ private struct NodeRowButton: View {
     let onSelect: (String) -> Void
     @State private var isHovered = false
     @State private var showInlinePreview = false
+    @State private var showInlineEpdocPreview = false
     @Environment(GraphState.self) private var graphState
 
     var body: some View {
@@ -1246,6 +1247,13 @@ private struct NodeRowButton: View {
                         systemImage: "doc.richtext"
                     )
                 }
+                if GraphInlineDocPreviewFlag.enabled {
+                    Button {
+                        showInlineEpdocPreview = true
+                    } label: {
+                        Label("Preview Inline", systemImage: "doc.richtext.fill")
+                    }
+                }
             }
             Button {
                 graphState.cleanupEphemeralNodes()
@@ -1266,6 +1274,18 @@ private struct NodeRowButton: View {
                 .padding(.leading, CGFloat(indent) * 16 + 12)
                 .padding(.trailing, 12)
                 .padding(.bottom, 2)
+        }
+        if showInlineEpdocPreview, node.type == .document {
+            GraphEpdocDocPreviewCard(
+                manifestID: node.sourceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                    ? (node.sourceId ?? node.id)
+                    : node.id,
+                vaultURL: AppBootstrap.shared?.vaultSync.vaultURL,
+                onClose: { showInlineEpdocPreview = false }
+            )
+            .padding(.leading, CGFloat(indent) * 16 + 12)
+            .padding(.trailing, 12)
+            .padding(.bottom, 2)
         }
         }
     }

@@ -155,3 +155,93 @@ struct GraphInlineDocPreviewCard: View {
         isEditing = false
     }
 }
+
+/// SS-GE (A) — read-only inline preview for an EPDOC DOCUMENT node (the .document branch, which
+/// otherwise opens a detached window). Epdoc content is a structured ProseMirror package, so this
+/// shows the package's `projections/plain.txt` (the FTS-friendly plain-text projection) — read-only,
+/// off-main, zero writes. Inline EDIT for documents needs the Epdoc package writer (a later
+/// increment); read-only here keeps the data-loss floor. Same flag (EPISTEMOS_GRAPH_INLINE_DOC_EDIT_V0).
+struct GraphEpdocDocPreviewCard: View {
+    let manifestID: String
+    let vaultURL: URL?
+    let onClose: () -> Void
+
+    @State private var title: String = ""
+    @State private var bodyText: String = ""
+    @State private var didLoad = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.richtext")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(title.isEmpty ? "Document" : title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close preview")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+
+            Divider().opacity(0.3)
+
+            ScrollView {
+                Text(displayText)
+                    .font(.system(size: 11.5))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .frame(maxHeight: 280)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.primary.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.primary.opacity(0.08), lineWidth: 1)
+        )
+        .task(id: manifestID) { await load() }
+    }
+
+    private var displayText: String {
+        if !bodyText.isEmpty { return bodyText }
+        return didLoad ? "(no text preview available for this document)" : "Loading…"
+    }
+
+    private func load() async {
+        let targetID = manifestID
+        let vault = vaultURL
+        // Resolve + read the package off the main actor (the locator crawls the vault). Captures are
+        // Sendable (String / URL?) and the result is a (String, String?) tuple — nothing non-Sendable
+        // crosses back.
+        let result: (title: String, text: String?) = await Task.detached {
+            guard let packageURL = EpdocDocumentLocator.url(forManifestID: targetID, in: vault) else {
+                return ("", nil)
+            }
+            var resolvedTitle = ""
+            let manifestURL = packageURL.appendingPathComponent(EpdocPackageEntry.manifest)
+            if let data = try? Data(contentsOf: manifestURL),
+               let manifest = try? JSONDecoder.epdocCanonical.decode(EpdocManifest.self, from: data) {
+                resolvedTitle = manifest.title ?? ""
+            }
+            let plainURL = packageURL
+                .appendingPathComponent(EpdocPackageEntry.projections)
+                .appendingPathComponent(EpdocPackageEntry.Projection.plainText)
+            let text = (try? Data(contentsOf: plainURL)).flatMap { String(data: $0, encoding: .utf8) }
+            return (resolvedTitle, text)
+        }.value
+        title = result.title
+        bodyText = result.text ?? ""
+        didLoad = true
+    }
+}
