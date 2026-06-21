@@ -20,8 +20,10 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   `VENDOR.md` + `scripts/update-osaurus.sh`. **Source-on-disk only — NOT xcodegen-linked.**
 - [ ] **S3 — link `OsaurusCore` (Pro-gated) + thin real conformer** drives ONE OsaurusCore
   service (e.g. list local MLX models) end-to-end; RunEventLog + AnswerPacket; the
-  MAS-excludes-OsaurusCore guard test. ← **NEXT.** Risk: Xcode/xcodegen build wiring; gate
-  strictly `#if !EPISTEMOS_APP_STORE`; build-verify both profiles.
+  MAS-excludes-OsaurusCore guard test. **Needs a DEDICATED verified build pass** (xcodegen +
+  xcodebuild both profiles) — do NOT half-commit it; gate strictly `#if !EPISTEMOS_APP_STORE`.
+  Lower-risk cross-cutting items (sweep ✓, Epistemos Picks, surface mapping, IP-port analysis)
+  proceed in parallel since they don't need the heavy build.
 - [ ] **S4 — Act agent-turn through OsaurusCore** + reskin composer to pixel-art chrome.
   (Partial: `OsaurusActBridge.runTurn` already POSTs to the osaurus-PATTERN `LocalModelServer`,
   but not yet through linked OsaurusCore.)
@@ -35,9 +37,11 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **"Epistemos Picks"** curated model section sourced from
   `Epistemos/Engine/LocalModelInfrastructure.swift`/LocalModelCatalog; honest selection,
   NO silent Qwen, too-large = honest message.
-- [ ] **Discovery sweep** (completeness critic each cycle): grep every consumer of chat
-  backend / inference / `EpistemosRuntimePicker` / `setPreferredChatModelSelection` / tools /
-  capability pills → each upgraded-to-act, quarantined+ported, or out-of-scope-with-reason.
+- [x] **Discovery sweep** (DONE 2026-06-21 — `docs/research/OSAURUS_SURFACE_DISCOVERY_SWEEP_2026_06_21.md`):
+  enumerated 7 distinct chat surfaces (main/MiniChat/Note/Graph/Landing + verify HTMLWorkspace/Shadow),
+  the shared backend consumers (`InferenceState`/`EpistemosRuntimePicker`/`ChatCoordinator`/`Composer*`),
+  work-mode seam, settings model surfaces, OUT list, ripple effects. **Verdict: ONE shared act composer
+  over `ChatCoordinator` + `InferenceState` + `Composer*`/`ChatInputBar`.** Re-run critic each cycle.
 - [ ] **Port owner IP** (system prompts + hidden pieces) onto Osaurus engine; **WORK mode**
   (Goose/OpenCode) clone/port too.
 
