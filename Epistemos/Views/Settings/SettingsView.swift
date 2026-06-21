@@ -134,6 +134,7 @@ struct SettingsView: View {
         case privacy = "Privacy"
         case provenance = "Provenance Console"
         case substrateHealth = "Substrate Health"
+        case actClone = "Act (Osaurus)"   // per-clone settings (owner 2026-06-21)
         case experimentalFeatures = "Experimental Features"
         // HELIOS research scaffold. Preserved for source guards and
         // deep-link compatibility, but not listed in v1 visible settings:
@@ -176,6 +177,7 @@ struct SettingsView: View {
                 .privacy,
                 .provenance,
                 .substrateHealth,
+                .actClone,
                 .experimentalFeatures,
             ]
             return sections
@@ -217,6 +219,7 @@ struct SettingsView: View {
             case .privacy: "hand.raised.fill"
             case .provenance: "list.bullet.rectangle.portrait"
             case .substrateHealth: "waveform.path.ecg.rectangle"
+            case .actClone: "bolt.horizontal.circle"
             case .experimentalFeatures: "slider.horizontal.3"
             case .heliosV5: "sparkles"
             }
@@ -248,6 +251,7 @@ struct SettingsView: View {
             case .privacy:        .privacyStore
             case .provenance:     .privacyStore
             case .substrateHealth: .advanced
+            case .actClone: .advanced
             case .experimentalFeatures: .advanced
             case .general:        .advanced
             case .heliosV5:       .advanced
@@ -297,6 +301,8 @@ struct SettingsView: View {
                 "Read-only audit trail for agent, graph, and mutation projections."
             case .substrateHealth:
                 "Unified WRV panel for substrate health, falsifiers, and drift."
+            case .actClone:
+                "The Act = Osaurus engine — gate, status, and how to arm it. Each clone's own settings, respected."
             case .experimentalFeatures:
                 "Unified UserDefaults feature flags and experimental gates."
             case .heliosV5:
@@ -344,6 +350,8 @@ struct SettingsView: View {
                 ["provenance", "event", "run", "mutation", "audit", "console"]
             case .substrateHealth:
                 ["substrate", "health", "falsifier", "wrv", "eidos", "search", "runtime"]
+            case .actClone:
+                ["act", "osaurus", "engine", "clone", "settings", "epistemos picks"]
             case .experimentalFeatures:
                 ["flags", "experiments", "gates", "feature", "defaults"]
             case .heliosV5:
@@ -499,6 +507,7 @@ struct SettingsView: View {
             case .privacy: PrivacyDetailView()
             case .provenance: ProvenanceConsoleView()
             case .substrateHealth: SubstrateHealthPanel()
+            case .actClone: ActCloneSettingsView()
             case .experimentalFeatures: ExperimentalFeaturesSettingsPanel()
             case nil: GeneralDetailView()
             }
