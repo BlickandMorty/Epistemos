@@ -38,6 +38,11 @@ protocol ActOsaurusBridge: Sendable {
     /// composer consumes. Throws an HONEST `ActOsaurusError` when OsaurusCore isn't linked/usable —
     /// NEVER a silent cloud/GPT fallback (owner #1).
     func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String
+
+    /// S4 — a REAL, human-readable status of the linked OsaurusCore engine (resolved model /
+    /// unavailable reason / breaker), or nil when OsaurusCore isn't linked. Drives the visible
+    /// ActOsaurusHealthRow honestly — the act surface reflects real engine state, not a stub.
+    func osaurusCoreStatusDescription() async -> String?
 }
 
 /// Honest errors for an Act-Osaurus turn — the local server is off, the POST failed,
@@ -86,6 +91,7 @@ struct InertActOsaurusBridge: ActOsaurusBridge {
         // Inert / OsaurusCore not linked (e.g. MAS target) — HONESTLY refuses; never a cloud route.
         throw ActOsaurusError.serverNotEnabled
     }
+    func osaurusCoreStatusDescription() async -> String? { nil }  // not linked → no real status.
 }
 
 /// The real conformer's growth point (S3+: link OsaurusCore, drive the local
@@ -144,6 +150,26 @@ struct OsaurusActBridge: ActOsaurusBridge {
         }
         #else
         throw ActOsaurusError.serverNotEnabled
+        #endif
+    }
+
+    /// S4 — REAL OsaurusCore engine status from `CoreModelService.resolveStatus()` (safe: resolves
+    /// config/route, no model load). Drives the visible ActOsaurusHealthRow so the act surface shows
+    /// the real engine state. Nil when OsaurusCore isn't linked.
+    func osaurusCoreStatusDescription() async -> String? {
+        #if canImport(OsaurusCore)
+        switch await OsaurusCore.CoreModelService.shared.resolveStatus() {
+        case .unset:
+            return "OsaurusCore engine: no core model configured"
+        case .available(let modelId, _, let effectiveModel):
+            return "OsaurusCore engine: \(effectiveModel.isEmpty ? modelId : effectiveModel) available"
+        case .unavailable(let modelId, let reason):
+            return "OsaurusCore engine: \(modelId) unavailable — \(reason)"
+        case .breakerOpen(let modelId, _):
+            return "OsaurusCore engine: breaker open for \(modelId ?? "core model")"
+        }
+        #else
+        return nil
         #endif
     }
 
