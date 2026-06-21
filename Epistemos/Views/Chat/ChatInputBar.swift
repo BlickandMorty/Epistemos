@@ -199,6 +199,19 @@ struct ChatInputBar: View {
         return inference.localChatModelMemoryBlocker(for: selectedMode)
     }
 
+    /// SS-HF (owner 2026-06-20) — point-of-use honesty for the NON-NEGOTIABLE no-hidden-fallback
+    /// rule. When the chat will actually run a LOCAL model that DIFFERS from the explicit pick
+    /// (e.g. the picked model isn't installed, so the installed Qwen runs instead — the chat P0
+    /// substitution), surface that IN THE CHAT, not only the Settings LocalRouteHonestyRow. The
+    /// substitution is a real runnable model, never a stub — but it must never be hidden/black-box
+    /// where the user actually sends. nil on cloud, when the pick is honored exactly, or when
+    /// there is no local model at all.
+    private var localModelSubstitutionNote: String? {
+        guard case .localMLX = inference.effectiveChatSurfaceSelection(for: selectedOperatingMode),
+              case .substituted = inference.localModelResolutionState else { return nil }
+        return inference.localModelResolutionSummary
+    }
+
     /// P1.9 — live Fast effort hint. Surfaces "Fast · Medium effort → Gemma 4 E4B"
     /// so the user can see why this query will run E2B vs E4B vs 12B, without the
     /// raw model being a required choice. Only shown on the Fast tier with a
@@ -809,9 +822,32 @@ struct ChatInputBar: View {
                 .padding(.bottom, 4)
             }
 
-            // P1.9 — live Fast effort hint (hidden while a memory blocker shows,
-            // to avoid stacking two model-status lines).
-            if localRuntimeMemoryBlocker == nil, let fastEffortHint {
+            // SS-HF (owner 2026-06-20) — no-hidden-fallback at the point of use: when a LOCAL
+            // model other than the explicit pick is actually running (pick not installed →
+            // installed Qwen), say so right here in the chat, not only buried in Settings. Hidden
+            // while the memory blocker shows (avoid stacking two model-status lines).
+            if localRuntimeMemoryBlocker == nil, let substitution = localModelSubstitutionNote {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.swap")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text(substitution)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    Spacer(minLength: 4)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 4)
+            }
+
+            // P1.9 — live Fast effort hint (hidden while a memory blocker OR the SS-HF
+            // substitution note shows, to avoid stacking two model-status lines).
+            if localRuntimeMemoryBlocker == nil, localModelSubstitutionNote == nil, let fastEffortHint {
                 HStack(spacing: 5) {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 9))
