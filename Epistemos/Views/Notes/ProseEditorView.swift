@@ -220,6 +220,7 @@ struct ProseEditorView: View {
             pageBody: bodyText,
             isFocused: isFocused,
             theme: themeOverride ?? ui.theme,
+            themeSyncKey: ui.appearanceSyncKey,
             isEditable: isEditable,
             isFocusMode: notesUI.isFocusMode,
             modelContext: modelContext,
