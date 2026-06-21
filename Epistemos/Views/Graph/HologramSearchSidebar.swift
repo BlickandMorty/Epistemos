@@ -160,6 +160,11 @@ struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
     @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
+    // SS-VIS wider sweep (owner 2026-06-20): agentCommandCenter is injected into this view's tree by
+    // withAppEnvironment — the overlay host re-applies it (HologramOverlay.swift:127) and the
+    // home-embedded path inherits it — and this view already depends on other withAppEnvironment
+    // state (GraphState/InferenceState), so reading it adds no new crash surface.
+    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openSettings) private var openSettings
     @AppStorage("epistemos.graphChatOperatingMode")
@@ -167,6 +172,7 @@ struct HologramSearchSidebar: View {
     /// Owner 2026-06-18: graph node-chat model picker is a flat inline pixel-art
     /// panel expanding in-flow in the sidebar — not a floating popover.
     @State private var showInlineRuntimePicker = false
+    @State private var showGraphToolPanel = false
 
     /// Compact sidebar-styled trigger for the inline picker (replaces the
     /// single-button LocalModelToolbarMenu popover), matching the graph chat's
@@ -858,6 +864,29 @@ struct HologramSearchSidebar: View {
                         guard canSubmit else { return }
                         sendGraphChatMessage()
                     }
+
+                // SS-VIS wider sweep: the SAME AgentToolTogglePanel the chat composer + landing +
+                // mini-chat use (the ~50 tools + MCP + cowork + skills) — single registry, single
+                // picker, no clone — so a user can start using a tool from the graph chat too.
+                Button { showGraphToolPanel.toggle() } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(showGraphToolPanel ? graphChatAccentColor : theme.textSecondary)
+                        .frame(width: 24, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.58 : 0.82))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .strokeBorder(theme.border.opacity(0.55), lineWidth: 0.75)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Agent tools, MCP, cowork & skills — the full capability set, in the graph chat")
+                .popover(isPresented: $showGraphToolPanel, arrowEdge: .bottom) {
+                    AgentToolTogglePanel(agentCommandCenter: agentCommandCenter, theme: theme)
+                }
 
                 Button {
                     if inspectorState.isChatStreaming {
