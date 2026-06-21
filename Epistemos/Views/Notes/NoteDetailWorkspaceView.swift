@@ -2260,7 +2260,24 @@ struct NoteDetailWorkspaceView: View {
             showNoteToolPanel.toggle()
         }
         .popover(isPresented: $showNoteToolPanel, arrowEdge: .bottom) {
-            AgentToolTogglePanel(agentCommandCenter: agentCommandCenter, theme: ui.theme)
+            AgentToolTogglePanel(
+                agentCommandCenter: agentCommandCenter,
+                theme: ui.theme,
+                onRunSkill: { skill in runSkillFromNoteChat(skill) }
+            )
+        }
+    }
+
+    /// SS-VIS: run a discovered skill from the note chat's capability panel by priming the note ask
+    /// field with its `/identifier` invocation (parity with landing / chat / mini-chat / graph
+    /// skill-run). Closes the panel; honest — it stages the invocation, the user still sends.
+    private func runSkillFromNoteChat(_ skill: SkillDiscoveryEntry) {
+        showNoteToolPanel = false
+        let invocation = "/\(skill.identifier) "
+        if noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            noteChatState.inputText = invocation
+        } else if !noteChatState.inputText.hasPrefix("/") {
+            noteChatState.inputText = invocation + noteChatState.inputText
         }
     }
 
