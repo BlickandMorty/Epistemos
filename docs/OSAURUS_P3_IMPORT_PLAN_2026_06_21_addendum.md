@@ -218,3 +218,17 @@ every "deferred but certain" mention in these docs as **"sequenced lower, CERTAI
 substrate-health + IP-repair cocktail + EPDOC MD-V2 + porting cycles are all CERTAIN deliverables, just
 positioned later in the order — never quietly dropped, never marked optional. Build maximally; push only the
 true excess down the list, still guaranteed.
+
+## 🆕 ACT RESKIN = RESPECT THE CURRENT CHAT UI (owner 2026-06-21) — visual north star
+Owner LOVES the current chat UI. When reskinning Osaurus into ACT: **take the DISCIPLINE + style of the
+current chat UI and apply it carefully to Osaurus** — add ALL of Osaurus's capability, but render it in the
+current chat's look so it feels **really Epistemos-like**. UI + themes (incl. custom) must drive Osaurus too.
+REFERENCE SCREENSHOTS (the target aesthetic — look at these before reskinning):
+`docs/research/ui-reference/current-chat-ui-act-northstar-1.png` + `-2.png`.
+Design language to preserve (see shots for exact look): warm cream/beige palette; clean minimal; **monospace
+pixel-art-style section headers** (TOOLS THIS TURN, ATTACHMENT CONTRACT, WORKSPACE AWARENESS, EXECUTION PLAN,
+EVIDENCE INTAKE); right-side **provenance/context inspector** (Summary / Runtime / Model / Mode / Captured /
+Request); vault-retrieval chips (real path · vault-chat-context-v1 · lexical); composer "Ask anything… @ for
+notes or chats" with Fast / Local / token chips; rounded window, soft shadow, palette-aware text.
+NOTE: the screenshots also show the LIVE Qwen fallback ("You picked Gemma 4 E2B QAT GGUF, but it's too large
+… running Qwen 3 4B instead") — confirms the P0; in act, use the owner's pick honestly, no silent substitute.
