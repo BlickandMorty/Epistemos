@@ -43,8 +43,11 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
     OsaurusCore + reads REAL engine data in-process (`isOsaurusCoreLinked`, `osaurusCoreRemoteProviders`
     = `OsaurusCore.RemoteProviderType.allCases`); test `s4OsaurusCoreDrivenInProcess` passes. Act DRIVES
     OsaurusCore, not just links it.
-  - [ ] REMAINS: a full act generation turn through OsaurusCore's ModelRuntime; then reskin (current-chat
-    discipline) + mode-entry animations.
+  - [x] Generation turn DONE (`48407b751`, compile-verified + test): `runTurnInProcess` drives
+    `OsaurusCore.CoreModelService.shared.generate()` in-process (system→systemPrompt, conversation→prompt),
+    honest errors, never a cloud route. Act GENERATES through Osaurus, not just links/reads it.
+  - [ ] REMAINS: wire `runTurnInProcess` into the act composer flow (so the UI uses it); then reskin
+    (current-chat discipline) + mode-entry animations (UI after engine).
 - [ ] **S5 — Containerization Linux-VM sandbox** (Pro/dev, virtualization entitlement, no-hidden-fallback).
 - [ ] **S6+ — server endpoints, MCP, plugins, privacy filter, identity/relay** (each gated/logged/MAS-excluded).
 
