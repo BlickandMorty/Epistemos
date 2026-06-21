@@ -4410,7 +4410,7 @@ native; AGPL server). ADOPT 2 patterns natively:
       SWEEP the app for silent substitutions / try?-?? -empty-catch-as-success / for-show controls / no-op-on-not-ready → make
       each honest at the surface or remove. GATE added to SS-CLEAN (NO-HIDDEN-FALLBACK / point-of-use honesty). Part of the
       repair cycle (SS-REPAIR). Cross-ref SS-CR/SS-IR/SS-LT/SS-GE/SS-CC. NON-INVASIVE; honest > clever.
-- [ ] **VOICE PICKER + premium-voice honesty on quick capture (owner on-device 2026-06-20).** *"Tried the premium Apple-native
+- [x] **VOICE PICKER + premium-voice honesty on quick capture (owner on-device 2026-06-20).** *"Tried the premium Apple-native
       voice on quick capture, still sounds basic/low-quality — is that premium? I want to change it / pick among the custom
       voices."* RESEARCHED → SS-QC "VOICE PICKER" section. ROOT: no Premium/Enhanced voice DOWNLOADED on the Mac (OS-managed) →
       preferredVoice() falls to compact default; + QuickCapture read-back passes no voiceIdentifier + no picker on that surface.
@@ -4418,6 +4418,14 @@ native; AGPL server). ADOPT 2 patterns natively:
       quality-grouped → speak(voiceIdentifier:); surface voiceQualityHint() honestly ("download Premium in System Settings →
       Spoken Content → Manage Voices" — SS-HF no-black-box, don't imply compact=premium); default=preferredVoice(). OWNER
       IMMEDIATE: download an Enhanced/Premium voice in macOS System Settings → Accessibility → Spoken Content → Manage Voices.
+      ✅ DONE-RE-AUDIT (loop 2026-06-21): every FIX part is code-confirmed. Voice PICKER at point of use
+      on quick capture (QuickCaptureView.swift ~320 Menu+Picker over EpistemosSpeechSynthesizer.voicesGroupedByTier
+      / availableVoices, grouped Premium>Enhanced>Default); GLOBAL default-voice pref
+      (globalDefaultVoiceKey + setGlobalDefaultVoiceIdentifier on change; effectiveVoiceIdentifier = explicit ??
+      globalDefault, so read-back/speak(voiceIdentifier:) honor it everywhere); HONEST premium hint surfaced on
+      that surface (b228ef391 — voiceQualityHint() in the voice menu says "Only the default Compact voice is
+      installed. Open System Settings → Spoken Content → Manage Voices…", never implying compact=premium);
+      default = preferredVoice(). The bigger Kokoro/MOSS/retro-filter vision (L1434) is separate + NOT claimed here.
       Neural/MLX voice = separate SS-Q.
 - [ ] **Premium voice as DEFAULT — owner's original intent (clarified 2026-06-20).** *"Thought Apple had a built-in premium
       voice, wanted THAT default; if it sounds basic then another can be default — but that was my initial ask."* → SS-QC
