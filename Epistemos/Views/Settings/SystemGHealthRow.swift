@@ -47,8 +47,8 @@ public struct SystemGHealthRow: View {
                 productionWired: snapshot.lastStatus != nil && registryError == nil,
                 falsifierPassed: false,
                 falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
-                wiredToday: "RealSystemGRunSeam is registered and registry stats are readable when FFI is available.",
-                stillStub: "ActiveAssembly/System G green remains blocked until a primary PASS falsifier witness exists."
+                wiredToday: "RealSystemGRunSeam is registered; local MLX/GGUF missions get a real LocalModelHandoff (the Swift host streams the live model), and cloud providers fail honestly (provider_not_bound) rather than faking a run.",
+                stillStub: "Cloud executors aren't bound in the local System G runtime, and ActiveAssembly/System G green remains blocked until a primary PASS falsifier witness exists."
             )
             row(
                 label: "Runtime mode",
