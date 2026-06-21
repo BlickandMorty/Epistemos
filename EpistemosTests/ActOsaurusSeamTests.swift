@@ -140,5 +140,20 @@ struct ActOsaurusSeamTests {
         #expect(bridge.osaurusCoreRemoteProviders.isEmpty)
         #endif
     }
+
+    @Test("S4: factory-resolved act bridge runTurnInProcess refuses HONESTLY by default — never cloud")
+    func s4FactoryRunTurnInProcessHonest() async {
+        // Flag off → the inert bridge is resolved; an OsaurusCore turn must throw honestly,
+        // never a silent cloud/GPT route (owner #1). This is the canonical act-turn API.
+        let bridge = ActOsaurusBridgeFactory.resolve(environment: [:])
+        do {
+            _ = try await bridge.runTurnInProcess(messages: [], maxTokens: 16)
+            Issue.record("expected an honest throw — act must never silently route to cloud")
+        } catch let error as ActOsaurusError {
+            #expect(error == .serverNotEnabled)
+        } catch {
+            Issue.record("wrong error type: \(error)")
+        }
+    }
     #endif
 }
