@@ -61,4 +61,27 @@ struct AnswerPacketStoreTests {
         try store.append(packet("good2"))
         #expect(try store.loadRecent(limit: 10).map(\.id) == ["good2", "good1"])
     }
+
+    // The emitter's persist seam (nonisolated static → tested WITHOUT the shared singleton).
+    @Test("AnswerPacketEmitter.persist writes through to the store; nil store is a no-op")
+    func emitterPersistHelper() throws {
+        let (store, cleanup) = tempStore(); defer { cleanup() }
+        AnswerPacketEmitter.persist(packet("p1"), to: store, totalEmitted: 1, compactEvery: 200, maxEntries: 500)
+        AnswerPacketEmitter.persist(packet("p2"), to: store, totalEmitted: 2, compactEvery: 200, maxEntries: 500)
+        #expect(try store.loadRecent(limit: 10).map(\.id) == ["p2", "p1"])
+        // nil store → no-op, never crashes (best-effort durability).
+        AnswerPacketEmitter.persist(packet("p3"), to: nil, totalEmitted: 3, compactEvery: 200, maxEntries: 500)
+        #expect(try store.loadRecent(limit: 10).count == 2)
+    }
+
+    @Test("AnswerPacketEmitter.persist compacts on the interval boundary")
+    func emitterPersistCompacts() throws {
+        let (store, cleanup) = tempStore(); defer { cleanup() }
+        for i in 1...5 {
+            AnswerPacketEmitter.persist(packet("p\(i)"), to: store, totalEmitted: i, compactEvery: 100, maxEntries: 500)
+        }
+        // totalEmitted 6 with compactEvery 6 → 6 % 6 == 0 → compact to the last 2 after appending p6.
+        AnswerPacketEmitter.persist(packet("p6"), to: store, totalEmitted: 6, compactEvery: 6, maxEntries: 2)
+        #expect(try store.loadRecent(limit: 10).map(\.id) == ["p6", "p5"])
+    }
 }
