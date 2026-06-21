@@ -376,6 +376,11 @@ nonisolated enum LocalMLXRuntimeTuning {
                 idleUnloadDelay = .seconds(1)
             }
         }
+        // Honor the user's Idle Memory Mode (Performance Settings). `.keepWarm` (the default) keeps
+        // the balanced hardware-tuned delay above; `.lowMemory` caps it so the model releases
+        // promptly to minimise idle RSS. Before this, the picker had no consumer (a do-nothing
+        // picker). `PerformanceSettingsReader.idleMemoryMode` is a UserDefaults read, safe off-main.
+        idleUnloadDelay = PerformanceSettingsReader.idleMemoryMode.idleUnloadDelay(base: idleUnloadDelay)
         return LocalMLXRuntimePolicy(
             memoryPolicy: memoryPolicy,
             idleMemoryPolicy: idleMemoryPolicy,
