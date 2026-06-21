@@ -46,6 +46,9 @@ struct ProseEditorView: View {
     @State private var lastPersistedBody: String = ""
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
+    // noteReadAloud (owner 2026-06-20): one-shot guard so an opened note is auto-read at most once
+    // (onAppear can re-fire on navigation; onChange fires on switch) — never re-read on re-render.
+    @State private var lastAutoReadNoteId: String?
 
     init(
         page: SDPage,
@@ -71,6 +74,18 @@ struct ProseEditorView: View {
     static func initialBodySnapshot(for page: SDPage, preferredBody: String? = nil) -> (bodyText: String, lastPersistedBody: String) {
         let body = currentBody(for: page, preferredBody: preferredBody)
         return (body, body)
+    }
+
+    /// noteReadAloud (owner 2026-06-20) — wire the previously do-nothing "auto-read long notes on
+    /// open" voice toggle. Called on note open (onAppear + onChange of page.id), one-shot per
+    /// note-id so a re-render never re-reads. Gated on .auto (default .manual = off) and a long
+    /// note (>500 chars, per the Settings rationale). Speaks the inline-markdown-stripped body so
+    /// the synthesizer doesn't read raw `**` / `[]()` syntax aloud.
+    private func maybeAutoReadAloudOnOpen(noteId: String, body: String) {
+        guard lastAutoReadNoteId != noteId else { return }
+        lastAutoReadNoteId = noteId
+        guard VoicePreferences.shared.noteReadAloud == .auto, body.count > 500 else { return }
+        _ = EpistemosSpeechSynthesizer.shared.speak(MarkdownRippleTextExtractor.displayText(from: body))
     }
 
     private static func currentBody(for page: SDPage, preferredBody: String? = nil) -> String {
@@ -235,6 +250,7 @@ struct ProseEditorView: View {
         .onAppear {
             repairOrphanedInlineAIResponseIfNeeded()
             syncBlocks(body: bodyText)
+            maybeAutoReadAloudOnOpen(noteId: page.id, body: bodyText)
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
@@ -244,6 +260,7 @@ struct ProseEditorView: View {
             lastPersistedBody = body
             repairOrphanedInlineAIResponseIfNeeded()
             syncBlocks(body: body)
+            maybeAutoReadAloudOnOpen(noteId: page.id, body: body)
         }
         .onChange(of: bodyText) { _, newValue in
             guard newValue != lastPersistedBody else { return }
