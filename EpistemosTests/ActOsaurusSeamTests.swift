@@ -151,6 +151,21 @@ struct ActOsaurusSeamTests {
         #endif
     }
 
+    @Test("S4: act generation-closure swap drives OsaurusCore via the bridge; flag-off throws HONESTLY")
+    func actGenerationClosureHonest() async {
+        // The closure LocalAgentLoop runs for act — with the inert bridge it must throw honestly,
+        // never a silent cloud route (owner #1). This is the 'generation-closure swap' seam.
+        let handler = ActOsaurusGenerationHandler.make(bridge: InertActOsaurusBridge())
+        do {
+            _ = try await handler("hello", nil, 16, .fast, nil) { _ in }
+            Issue.record("expected an honest throw — act must never silently route to cloud")
+        } catch let error as ActOsaurusError {
+            #expect(error == .serverNotEnabled)
+        } catch {
+            Issue.record("wrong error type: \(error)")
+        }
+    }
+
     @Test("S4: factory-resolved act bridge runTurnInProcess refuses HONESTLY by default — never cloud")
     func s4FactoryRunTurnInProcessHonest() async {
         // Flag off → the inert bridge is resolved; an OsaurusCore turn must throw honestly,

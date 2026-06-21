@@ -9,8 +9,10 @@
 import Foundation
 
 /// Namespace for vendored Osaurus wire types (keeps them off Epistemos's top-level
-/// names). The Act-Osaurus bridge shapes requests in this format.
-enum OsaurusVendor {
+/// names). The Act-Osaurus bridge shapes requests in this format. `nonisolated`: these are
+/// pure `Sendable` value types, constructed from nonisolated/@Sendable contexts (e.g. the act
+/// generation closure) — without it the module's default-MainActor isolation blocks `init`.
+nonisolated enum OsaurusVendor {
     // --- BEGIN VERBATIM bodies (osaurus-ai/osaurus, MIT) ---
 
     /// Message role for chat interactions
