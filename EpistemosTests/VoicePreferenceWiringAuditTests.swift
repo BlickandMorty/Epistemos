@@ -9,9 +9,10 @@ import Foundation
 //   WIRED (drive real behavior — LOCKED below so they can't regress to no-ops):
 //     • dictationAutoStop      → LandingView + ChatInputBar (autoStopOnSilence)
 //     • quickCaptureReadBack   → QuickCaptureView (gates the sentence read-back)
+//     • agentResponseTTS       → ChatState.completeProcessing (auto-speaks the finalized response;
+//                                 wired 2026-06-20 at the one-shot completion seam, default off)
 //
 //   NOT-YET-WIRED (Settings shows them + a rationale, but nothing reads them — a real gap):
-//     • agentResponseTTS       (auto-speak agent responses on completion)
 //     • noteReadAloud          (auto-read long notes on open)
 //     • brainDumpHotkeyDictate (auto-start dictation on the global hotkey)
 //     • perModelVoicePersona   (use the model's bound voice for read-aloud)
@@ -35,5 +36,14 @@ struct VoicePreferenceWiringAuditTests {
     func quickCaptureReadBackIsWired() throws {
         let qc = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
         #expect(qc.contains("VoicePreferences.shared.quickCaptureReadBack == .auto"))
+    }
+
+    @Test("agentResponseTTS now drives auto-speak on response completion (wired, no longer do-nothing)")
+    func agentResponseTTSIsWired() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/State/ChatState.swift")
+        // Wired at the one-shot finalize seam (completeProcessing), gated on the toggle (default
+        // .manual = off), speaking the actual final assistant text.
+        #expect(src.contains("VoicePreferences.shared.agentResponseTTS == .auto"))
+        #expect(src.contains("EpistemosSpeechSynthesizer.shared.speak(answerText)"))
     }
 }

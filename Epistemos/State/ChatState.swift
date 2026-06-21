@@ -932,6 +932,17 @@ final class ChatState {
         lastTurnCacheHitPercent = nil
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
+
+        // agentResponseTTS (owner 2026-06-20) — wire the previously do-nothing "auto-speak agent
+        // responses" voice toggle. `completeProcessing` fires exactly once when a LIVE response
+        // finalizes (every caller is a ChatCoordinator completion handler; chat-history load uses a
+        // different append path), so this is the correct ONE-SHOT seam — no view re-render / scroll
+        // / launch hazard that an onAppear-style hook would have. Default is .manual (off), so this
+        // is a no-op unless the user opts in. Honest: speaks the actual final assistant text; the
+        // synthesizer no-ops on empty text and interrupts any prior utterance.
+        if VoicePreferences.shared.agentResponseTTS == .auto {
+            _ = EpistemosSpeechSynthesizer.shared.speak(answerText)
+        }
         interruptedAssistantMessageIDs.remove(assistantMessage.id)
         markTranscriptChanged()
         syncContextWindowMetrics()
