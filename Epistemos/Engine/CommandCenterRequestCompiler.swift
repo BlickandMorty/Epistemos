@@ -118,6 +118,18 @@ struct CommandCenterRequestCompiler {
             Self.log.info(
                 "[CCRC] compiled v=\(Self.contractVersion) mentions=\(resolvedContextRefs.count) tools_allow=\(compiled.resolvedToolPermissions.filter { $0.decision == .allow }.count)/\(compiled.resolvedToolPermissions.count) runtime=\(compiled.resolvedRuntime.resolved.displayName) route=\(compiled.resolvedExecutionPolicy.route)"
             )
+            // SUBSTRATE Phase 1 STAGE 1b (owner 2026-06-20): observe-only RuntimeRouter parity.
+            // Flag OFF (default, EPISTEMOS_RUNTIMEROUTER_LIVE_V0) → PURE NO-OP inside the call (the
+            // router is never consulted). Flag ON → record whether the router would have honored
+            // the lane this compile resolved to (RuntimeRouterMetrics.parityRate). NEVER alters the
+            // decision — `compiled` is returned unchanged below. (ACCCommandRequest carries no
+            // privacy flag today → privacySensitive: false.)
+            RuntimeRouterShadow.recordLiveParity(
+                operatingMode: request.operatingMode,
+                objective: request.query,
+                requiresTools: !request.enabledToolNames.isEmpty,
+                privacySensitive: false,
+                resolved: compiled.resolvedRuntime.resolved)
             return compiled
         } catch {
             Self.log.error(
