@@ -35,7 +35,7 @@ SEQUENCING: Osaurus/ACT-first (engine done → shared composer + reskin), THEN W
 | 3 | Landing pages + BLUR transitions + act/work toggles + mode-entry anim | 🔴 | `Views/Landing/{LandingView,BlurFade,LiquidGreeting}.swift` exist; anim recorded | build after engine |
 | 4 | ACT reskin = current-chat discipline (fonts/palette/composer) | 🔴 | recorded (standing rule) | build after engine |
 | 5 | Preserve chrome (picker/palette/38-tool panel) + Epistemos Picks | 🟡 | Epistemos Picks DONE+visible `5c3d8bb66`; chrome exists | wire chrome into act |
-| 6 | Tamagotchi agent-creation: keep style + FIX render (too-small/inner-squares) | 🔴 | `Views/Landing/Farm/CompanionCreationFlow.swift` | IN SCOPE (owner 2026-06-21): keep style, fix the render bug |
+| 6 | Tamagotchi agent-creation: keep style + FIX render (too-small/inner-squares) | ✅ | render-fix `172f79e64`: `CompanionAvatarGlyph.fillCell` shared-edge rounding (no intra-body artifact squares) + sizes 42→64/76→96 | done; verified (8/8 source-guard) |
 | 7 | Chat backend QUARANTINED, never deleted | ✅ | never touched this session; quarantine intact | porting cycles |
 | 8 | No silent Qwen fallback | 🟡 | act path honest (`runTurnInProcess` never cloud); Picks honest selection | live too-large→Qwen P0 is in DEFERRED quarantined chat |
 | 9 | MAS non-restrictive (global) | ✅ | `OSAURUS_MAS_ENTITLEMENTS_RESEARCH_2026_06_21.md`; direct-distribution | distribution signing |
