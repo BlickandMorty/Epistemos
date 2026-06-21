@@ -1225,7 +1225,17 @@ private struct NodeRowButton: View {
                         vaultURL: AppBootstrap.shared?.vaultSync.vaultURL
                     )
                 } label: {
-                    Label("Open Document", systemImage: "doc.richtext")
+                    // SS-GE doc-node: an Epdoc document still opens in a SEPARATE window (the "utility"
+                    // the owner means), not inline in the graph yet — labelled HONESTLY so the user
+                    // knows it's not in-place. GraphSurfaceInlineEditability (foundation 9573a79fa) is
+                    // the authority for which kinds fall through to the utility vs open inline; consuming
+                    // it here means the day inline doc-editing lands, this label/affordance follows it.
+                    Label(
+                        GraphSurfaceInlineEditability.fallsThroughToUtility(node.type)
+                            ? "Open Document in a Window"
+                            : "Open Document",
+                        systemImage: "doc.richtext"
+                    )
                 }
             }
             Button {
