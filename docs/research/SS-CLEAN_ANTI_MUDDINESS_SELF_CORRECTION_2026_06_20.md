@@ -160,3 +160,20 @@ model installed? Y/N} × {cloud creds valid? Y/N} × {Apple-Intelligence avail? 
 whenever ANY local is installed (never nil-→-cloud), Local mode NEVER hits cloud auth while a local is installed, and no cell
 dead-ends to modelRequired when a runnable option exists. No routing change merges without this matrix green. (This is the
 durable end to the SS-CR churn.)
+
+## DONE-RE-AUDIT GATE (owner 2026-06-20: "even what is marked done should be re-audited — double-check it's ACTUALLY done + user-facing")
+Justified by this session: SS-CR / SS-GC / SS-2S / SS-THX were all marked "audited PASS" (build-green + tests) yet were
+BROKEN on-device. So "done" is not trusted — it is RE-VERIFIED. Standing rule:
+- The DONE list is a RE-AUDIT QUEUE, not a closed set. Every repair/cleanliness cycle, RE-AUDIT a rotating slice of the DONE
+  items: confirm each is REAL + reachable + USER-FACING-or-witnessed (render/snapshot/launch-smoke/behavior), not merely
+  build-green or a source-guard. Prioritize re-auditing anything the owner could SEE/USE (chat, theme, editors, graph,
+  visuals, routing) and anything whose tests are source-guard-only.
+- DOWNGRADE on failure: if a DONE item isn't actually user-facing, flip it back to `[ ]` NOT-done + reopen its slice (as done
+  this session for SS-CR/SS-GC/SS-2S/SS-THX). Honest — never leave a false green.
+- A DONE item is only TRULY done when: code reaches the user (mounted/surfaced, not behind a dead flag), the behavior works
+  end-to-end (witnessed, not just unit-green), and — for visual/launch/chat — an on-device-equivalent witness exists
+  (snapshot / launch-smoke / routing-matrix) OR it's honestly held "built, on-device-UNVERIFIED" pending the owner.
+- Monitor (last-auditor): each fire, besides auditing NEW commits, re-audit ≥1 DONE item for user-facing reality; owner
+  on-device reports instantly downgrade the named item to a P0 repair input.
+This pairs with the LAUNCH-SMOKE + CAPABILITY-SURFACE-PARITY + ROUTING-NO-REGRESSION gates — together they close the
+"green-but-not-user-reaching" hole that this session repeatedly hit.
