@@ -111,6 +111,13 @@ public struct SubstrateHealthPanel: View {
                 // inert until the Goose Rust core is vendored. Chat/Act unaffected.
                 WorkBackendHealthRow()
 
+                // WORK = OpenCode shell (owner 2026-06-21) — whether the OpenCode
+                // terminal-shell seam is armed (EPISTEMOS_WORK_OPENCODE_V0, Pro). The
+                // SHELL (UI) seam, distinct from the Goose ENGINE seam above; Goose/
+                // Hermes/OpenClaw fuse beneath it. Honest "Pro only" on MAS; INERT
+                // until the native terminal view + Bun engine + OpenCode TUI land.
+                WorkOpenCodeShellHealthRow()
+
                 // R-LITEPARSE PDF→Markdown import — honest status of the liteparse seam
                 // (EPISTEMOS_LITEPARSE_PDF_V0). MAS-safe (in-process PDFium, no sidecar).
                 // S2 LANDED: the run-llama/liteparse Rust core is vendored + embedded
