@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(OsaurusCore)
+import OsaurusCore  // S4: the LINKED Osaurus engine — driven in-process (owner: full Osaurus).
+#endif
 
 // Osaurus Act import — Seam A bridge (P3.0). The protocol Act drives against the
 // vendored Osaurus substrate, using the vendored `ServerHealth` enum. Pro-only
@@ -83,6 +86,29 @@ struct OsaurusActBridge: ActOsaurusBridge {
     private let backing = InertActOsaurusBridge()
     func serverHealth() -> ServerHealth { backing.serverHealth() }
     var isLive: Bool { false }
+
+    /// S4 — REAL in-process OsaurusCore drive: true when the linked Osaurus engine is
+    /// present in this build (the main direct-distribution target). Honest — distinct from
+    /// `isLive` (whose semantics are "the runtime/server is actually serving").
+    var isOsaurusCoreLinked: Bool {
+        #if canImport(OsaurusCore)
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    /// S4 — drive a REAL OsaurusCore service in-process: the remote-provider types the linked
+    /// Osaurus engine actually supports (openai/anthropic/ollama/…), read straight from
+    /// `OsaurusCore.RemoteProviderType`. Proves act drives the real engine, not the inert
+    /// stub. Empty when OsaurusCore isn't linked (e.g. the MAS target).
+    var osaurusCoreRemoteProviders: [String] {
+        #if canImport(OsaurusCore)
+        return OsaurusCore.RemoteProviderType.allCases.map(\.rawValue).sorted()
+        #else
+        return []
+        #endif
+    }
 
     /// REAL: reflects whether Epistemos's osaurus-pattern OpenAI-compatible server
     /// (LocalModelServer) is enabled — no overclaim of a running state.

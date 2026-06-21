@@ -115,5 +115,19 @@ struct ActOsaurusSeamTests {
             Issue.record("wrong error type: \(error)")
         }
     }
+
+    @Test("S4: the real bridge drives the LINKED OsaurusCore in-process (real providers, not the inert stub)")
+    func s4OsaurusCoreDrivenInProcess() {
+        let bridge = OsaurusActBridge()
+        #if canImport(OsaurusCore)
+        // OsaurusCore is linked into this (non-AppStore) build → the real bridge reads REAL
+        // engine data straight from OsaurusCore.RemoteProviderType (not the inert stub).
+        #expect(bridge.isOsaurusCoreLinked)
+        #expect(!bridge.osaurusCoreRemoteProviders.isEmpty)
+        #else
+        #expect(!bridge.isOsaurusCoreLinked)
+        #expect(bridge.osaurusCoreRemoteProviders.isEmpty)
+        #endif
+    }
     #endif
 }
