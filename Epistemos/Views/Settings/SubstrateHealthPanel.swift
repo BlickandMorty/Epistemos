@@ -28,6 +28,17 @@ public struct SubstrateHealthPanel: View {
 
     public var body: some View {
         Form {
+            // SUBSTRATE Phase 7 (owner 2026-06-20): a plain-language explainer so the panel isn't
+            // foreign. No new-model jargon — just what the substrate IS + how to read the colors.
+            SettingsDescriptionText(
+                text: """
+                What this is — the "substrate" is the on-device machinery behind your answers: \
+                local retrieval, citations, and the checks that keep an answer honest and \
+                verifiable. These read-only rows are its health dashboard. Green = that piece is \
+                actually wired and verified; orange/red = a placeholder, status-only, or not yet \
+                reachable. Nothing here needs action — it's for transparency, not configuration.
+                """
+            )
             Section("Retrieval and Indexing", isExpanded: $showRetrieval) {
                 SettingsDescriptionText(
                     text: "Read-only substrate health for retrieval, citations, editor assets, and cross-index search."

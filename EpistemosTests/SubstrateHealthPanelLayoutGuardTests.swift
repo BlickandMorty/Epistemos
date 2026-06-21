@@ -22,4 +22,14 @@ struct SubstrateHealthPanelLayoutGuardTests {
         #expect(src.contains("@State private var showRetrieval = true"))
         #expect(src.contains("@State private var showAgentRuntime = true"))
     }
+
+    // SUBSTRATE Phase 7 (owner 2026-06-20): a plain-language explainer at the top of the panel so
+    // it isn't "foreign" — what the substrate is + how to read the colors, no new-model jargon.
+    @Test("the panel opens with a plain-language explainer of what the substrate is")
+    func panelHasPlainLanguageExplainer() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
+        #expect(src.contains("on-device machinery behind your answers"))
+        #expect(src.contains("Green = that piece is actually wired and verified"))
+        #expect(src.contains("for transparency, not configuration"))
+    }
 }
