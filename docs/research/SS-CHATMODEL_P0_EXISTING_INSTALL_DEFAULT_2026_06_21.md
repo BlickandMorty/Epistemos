@@ -162,3 +162,26 @@ FIX REQUIREMENTS:
    value (if it's a GGUF Gemma, rewrite) rather than trusting the done-flag.
 3. Re-verify via the SAME computer-use defaults-read (launch → preferredLocalTextModelID becomes the MLX Gemma 3), not
    just a unit test. Unit-green is insufficient — proven only when the real launch rewrites the value.
+
+## ✅ SHIPPED (loop, 2026-06-21): POST-LOAD repair — the deeper root + a robust idempotent fix
+DEEPER ROOT (read in code, beyond the 3 candidates): the persisted load of `preferredLocalTextModelID` at
+InferenceState.swift:3497 is `LocalTextModelID(rawValue:)`-GATED, so a GGUF id is REJECTED and the in-memory value falls
+back to `initialDefaultLocalTextModelID` (:3452) — which itself returns a **GGUF Fast Gemma** (foundation default,
+memory-filtered only, no runtime filter). So on a real/clean launch the unrunnable GGUF arrives in-memory AFTER the
+pre-load static migration ran (keys may be unset at migration time → it sets V1=1, finds nothing to rewrite). That is why
+"V1=1 but value unchanged": the migration is structurally too early — the GGUF default is produced downstream of it.
+THE FIX (robust, idempotent, no key — strictly better than a V2 done-flag):
+- `repairedGgufGemmaSelection(localID:selection:ggufLaneAvailable:denseGemma4Enabled:)` — pure: maps an unrunnable GGUF
+  Gemma (in localID and/or `.localMLX` selection) → `gemma3_4BQAT4Bit`, returns nil when nothing needs repair.
+- `repairUnrunnableGgufGemmaSelection(defaults:)` — instance; runs at the END of model-selection init (AFTER the
+  persisted-pick load, line ~3524) on the FINAL in-memory values, rewrites the @Observable properties AND persists both
+  UserDefaults keys. Catches BOTH a persisted GGUF Gemma AND the GGUF foundation default.
+- Idempotent: gemma3 is not a GGUF id, so re-running is a no-op → NO once-only key, so NO V1-style pollution is possible;
+  it RE-CHECKS the actual value every launch (exactly the owner's "re-check, don't trust the done-flag" requirement,
+  achieved without a flag). Runtime-guarded: only fires when `.gguf ∉ availableLocalGenerationRuntimeKinds` (a runnable
+  GGUF lane leaves a deliberate GGUF pick alone). No SS-CR risk (non-Gemma / cloud picks untouched).
+- Pure-logic tests added (owner's exact GGUF id → gemma3 in both fields; lane-on no-op; idempotent on gemma3/Qwen).
+REAL PROOF still pending: monitor computer-use relaunch + `defaults read` should now show BOTH
+`epistemos.preferredLocalTextModelID` and `epistemos.preferredChatModelSelection` = `mlx-community/gemma-3-4b-it-qat-4bit`.
+The pre-load migration (V1) is kept (harmless, handles the persisted-GGUF-in-localKey case early); the post-load repair is
+the authoritative catch.
