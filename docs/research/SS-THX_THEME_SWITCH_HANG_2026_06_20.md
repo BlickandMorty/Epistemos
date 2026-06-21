@@ -50,3 +50,25 @@ views `.id()` on theme (grep none). Remaining costs = the uncached resolve (Root
    `CodeEditorView.applyGutterPreferences` (`:1937`) to the next runloop tick rather than inline in `onChange`.
 Order: #1 first (kills the hang + unblocks SS-TC), then #2/#3 (workspace repaints), then #4. Test: a perf/behavior test that
 a theme toggle triggers ONE resolve (not N), + a render check that the workspace palette tracks `ui.activePair`. NON-INVASIVE.
+
+---
+
+## 🔴 REGRESSION (owner on-device 2026-06-20): CUSTOM theme takes ~3 changes before TK2 + tabs match — staleness from the SS-THX cache
+Owner: *"the custom theme takes a few times before it loads the full theme — TK2 is one color and the tabs are another, then after changing themes ~3 times it finally matches. This is a regression that wasn't there before; harden it."* The SS-THX
+memoization (28402960d) fixed the hang but introduced a propagation/staleness bug for CUSTOM-theme color edits. Root (grounded):
+- **TK2/Prose doesn't re-apply on a custom-color edit.** `ProseEditorRepresentable2.updateNSView` re-applies theme only when
+  `parent.theme` VALUE changes (`tv.applyTheme(parent.theme)` :565). A custom-theme color edit keeps the SAME `.appCustom`
+  enum case → `parent.theme` "unchanged by value" → `updateNSView` skips `applyTheme` → TK2 keeps OLD colors. The tabs
+  (SwiftUI views reading the resolved palette via @Observable) DO update because the resolved cache was invalidated → TK2 vs
+  tabs diverge. After ~3 switches enough churn forces a re-apply → it finally matches.
+- **+ possible cache-key staleness:** `AppCustomTheme.resolved(isDark:defaults:)` caches by isDark+defaults (`:1610-1628`);
+  the change-invalidation (`:1564/:1582`) must flush BOTH isDark variants (and any per-appearance keys) on a single edit, else
+  the first read returns the stale entry.
+- **FIX (harden, NON-INVASIVE):** (1) make custom-theme edits force a re-apply on the theme-VALUE-blind surfaces — bump a
+  `themeRevision` token (or a customTheme-change signal) `ProseEditorRepresentable2.updateNSView` observes, so TK2 `applyTheme`
+  runs on EVERY custom-color edit even though the enum case is unchanged (sweep CodeEditorView + any other
+  `applyTheme`-on-value-change surface for the same pattern). (2) On a custom-theme edit, FULLY invalidate the
+  AppCustomTheme.resolved cache (all isDark/appearance keys) in one pass. Net: ONE custom-theme change → ALL surfaces (TK2,
+  tabs, editors, chat) match immediately, no 3-toggle convergence. Test: behavior — a single custom-color edit re-applies the
+  TK2 theme (themeRevision bumped) + the resolved cache returns the NEW value on first read (no stale). Tracked, normal order
+  (fold into SS-TC/SS-THX). A cache that fixed one thing + broke another = SS-CLEAN "layering mud" catch.
