@@ -139,3 +139,26 @@ the separate improvement). Real-state test (`MlxGemma4DenseRunnableMigrationTest
 `gemma3_4BQAT4Bit`, asserts no "qwen"/"gguf" in the result + that Gemma 3 is not awaiting-loader (so it genuinely generates).
 **Reaches the owner on next launch with zero manual steps.** (Concern #2 — proving dense gemma4 MLX via computer-use — remains
 the monitor's task; this firing makes chat work by default regardless of that outcome.)
+
+## 🔴🔴 COMPUTER-USE PROOF (monitor, 2026-06-21): the default-on migration (0342b016b) does NOT work on the real install
+Launched a fresh build of HEAD against the owner's REAL com.epistemos.app defaults:
+- BEFORE: preferredLocalTextModelID = google/gemma-4-E2B-it-qat-q4_0-gguf ; ggufGemmaToMlxMigratedV1 = unset
+- AFTER launch: preferredLocalTextModelID = google/gemma-4-E2B-it-qat-q4_0-gguf (UNCHANGED) ;
+  preferredChatModelSelection = ...gguf (UNCHANGED) ; ggufGemmaToMlxMigratedV1 = 1 (SET)
+VERDICT: migrateGgufGemmaDefaultToMlx RAN (its once-only key flipped to 1) but did NOT rewrite the persisted model
+value. The MlxGemma4DenseRunnableMigrationTests passed because they exercised the mapping in isolation — the real
+init-time write does not land. So the owner stays on GGUF-E2B → still falls to Qwen, AND because the key is now 1 it
+will NEVER retry. GREEN-BUT-NOT-REACHING, caught only by computer-use (the owner's exact directive).
+ROOT to find (loop): why the value write doesn't persist on real launch — candidates: (a) migration sets @Published but
+persist happens via persistPreferredChatModelSelection which isn't called / writes a different key; (b) the persisted-pick
+LOAD after init re-reads UserDefaults and overwrites the migrated @Published value (order claim 3489-before-3497 may be
+wrong at runtime, or the load re-persists the raw stored value); (c) the GGUF id stored doesn't match the migration's
+match predicate so it skips the rewrite but still sets the key.
+FIX REQUIREMENTS:
+1. Set the migrated key ONLY AFTER a successful value rewrite is persisted to UserDefaults (verify-read-back) — never
+   set the once-only key on a no-op.
+2. The flag is now POLLUTED on real installs (migratedV1=1, value still GGUF — my verify-launch set it; the owner's own
+   launches would too). The fix must RE-MIGRATE despite migratedV1=1 → use a V2 key that RE-CHECKS the actual persisted
+   value (if it's a GGUF Gemma, rewrite) rather than trusting the done-flag.
+3. Re-verify via the SAME computer-use defaults-read (launch → preferredLocalTextModelID becomes the MLX Gemma 3), not
+   just a unit test. Unit-green is insufficient — proven only when the real launch rewrites the value.
