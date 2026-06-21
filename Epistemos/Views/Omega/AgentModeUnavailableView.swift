@@ -74,9 +74,9 @@ struct AgentModeUnavailableView: View {
     private var suggestionText: String {
         switch reason {
         case .appleIntelligenceNoAgent:
-            "Cloud models (Claude, GPT, Gemini) support persistent sessions, tool execution, and memory. Larger local models like Qwen 3.5 4B+ also work."
+            "Cloud models (Claude, GPT, Gemini) support persistent sessions, tool execution, and memory. Larger local models like Qwen 3 4B+ also work."
         case .localModelLacksAgentCapability:
-            "Models like Qwen 3.5 4B+, Devstral, or Mistral Small support local tool loops. Cloud models give the most capable experience."
+            "Models like Qwen 3 4B+, Devstral, or Mistral Small support local tool loops. Cloud models give the most capable experience."
         }
     }
 }
