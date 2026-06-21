@@ -104,4 +104,23 @@ struct LocalModelResolutionTests {
         #expect(state.contains("if let fastBaseline = installedFoundationModelID(for: .fast) {"))
         #expect(state.contains("return fastBaseline"))
     }
+
+    // P0 (owner 2026-06-20, deeper root): chat STILL returned no local answer — Local mode routed
+    // to CLOUD and failed on credentials. Root: with the pick set to an uninstalled Gemma GGUF and
+    // an installed runnable Qwen, `sanitizedInteractiveLocalTextModelID` returned nil (honoring the
+    // pick, no silent swap) → no-arg effectiveLocalTextModelID nil → usesAutomaticCloudRouteForChat
+    // Surfaces → cloud reject, while the installed Qwen sat unused. Fix: when the pick can't be
+    // honored but a runnable local IS installed, resolve THAT (never nil → cloud). Behavioral.
+    @MainActor
+    @Test("an uninstalled-Gemma pick with Qwen installed resolves to the installed Qwen, never nil→cloud")
+    func uninstalledGemmaPickFallsToInstalledQwenNotCloud() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        // A real Gemma QAT GGUF candidate that is NOT installed (only Qwen is installed).
+        inference.setPreferredLocalTextModelID("google/gemma-4-E4B-it-qat-q4_0-gguf")
+        // The explicit pick can't be honored, but an installed runnable local exists → resolve it
+        // (Qwen), so effectiveLocalTextModelID is non-nil and the chat surface never auto-routes to
+        // cloud. (Before the fix this returned nil → "provider rejected your credentials".)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+    }
 }

@@ -6110,6 +6110,19 @@ final class InferenceState {
         // foundation TIER representative (simplified lineup) or the original pick — never a
         // silent Qwen swap. `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` restores the legacy
         // smart-substitution for anyone who prefers it.
+        // P0 (owner 2026-06-20): the explicit pick is unavailable here. Returning nil (the default,
+        // since autoSubstitute is OFF) makes the no-arg `effectiveLocalTextModelID` nil →
+        // `usesAutomaticCloudRouteForChatSurfaces` → the chat surface AUTO-ROUTES TO CLOUD and fails
+        // on credentials ("provider rejected your credentials"), while the user's installed, runnable
+        // LOCAL model (e.g. Qwen) sits unused. A user in LOCAL mode must run an installed local
+        // model, never silently fall to cloud. So before returning nil: if ANY local is actually
+        // installed/runnable, run it — the substitution is surfaced honestly by LocalRouteHonestyRow.
+        // Only fall through to the honest no-model nil when there is genuinely NO runnable local.
+        if let runnableLocal = supportedAvailableLocalTextModels.first?.rawValue
+            ?? supportedAvailableGemmaQATRuntimeCandidates.first?.id {
+            return runnableLocal
+        }
+
         guard autoSubstituteUnavailableLocalModel else { return nil }
 
         let recommendedModelID = hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
