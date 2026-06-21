@@ -62,11 +62,29 @@ final class RawThoughtsState {
 
     var runs: [RunSummary] = []
 
-    /// True when the user has opted into Raw Thoughts V0 emission this process.
-    /// Mirrors the Rust emitter's flag; UI that reads this should hide its
-    /// surface entirely when false.
-    var isEnabled: Bool {
+    /// Static mirror of the emission flag so a diagnostics surface can read the
+    /// state WITHOUT the @Observable instance (no @Environment dependency, so it
+    /// can live in Settings without a launch-crash risk).
+    nonisolated static var isEmissionEnabled: Bool {
         ProcessInfo.processInfo.environment["EPISTEMOS_RAW_THOUGHTS_V0"] == "1"
+    }
+
+    /// True when the user has opted into Raw Thoughts V0 emission this process.
+    /// Mirrors the Rust emitter's flag; the per-vault sidebar surface hides
+    /// entirely when false (canon), so the Settings diagnostics row is the
+    /// honest, discoverable answer to "is this still a thing?".
+    var isEnabled: Bool { Self.isEmissionEnabled }
+
+    /// SS-GE (owner 2026-06-21): an honest one-line status for the Settings
+    /// diagnostics row. The owner "didn't see raw thoughts in the vault, wasn't
+    /// sure it's still a thing" — because the per-vault surface is hidden when
+    /// emission is off. This makes the feature discoverable (what it is, whether
+    /// it's recording, how to turn it on, where to browse runs) without flipping
+    /// the default-off emitter flag or adding a do-nothing toggle.
+    nonisolated static func diagnosticStatus(isEnabled: Bool) -> String {
+        isEnabled
+            ? "On — recording each model run's raw thinking + tool calls into <vault>/Raw Thoughts/. Browse runs under a model vault row in the Notes sidebar."
+            : "Off — set EPISTEMOS_RAW_THOUGHTS_V0=1 to record each model run's raw thinking + tool calls into <vault>/Raw Thoughts/, then browse them under a model vault row."
     }
 
     // MARK: - Internals
