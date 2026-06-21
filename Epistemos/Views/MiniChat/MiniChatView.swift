@@ -17,8 +17,13 @@ struct MiniChatView: View {
     @Environment(UIState.self) private var ui
     @Environment(ThreadState.self) private var threadState
     @Environment(\.modelContext) private var modelContext
+    // SS-VIS (owner 2026-06-20, wider sweep): mini-chat is one of the "all places it should be"
+    // surfaces. AgentCommandCenterState is injected by withAppEnvironment (AppEnvironment.swift:45),
+    // which the mini-chat window applies — so reading it here is crash-safe.
+    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Query(SDChat.recentChatsDescriptor) private var recentChats: [SDChat]
     @State private var showRecentChats = false
+    @State private var showToolPanel = false
     @State private var appliedInitialContextAttachment = false
 
     let chatID: String
@@ -110,6 +115,24 @@ struct MiniChatView: View {
             }
             .buttonStyle(NativeToolbarButtonStyle())
             .help("Add Chat")
+
+            if !showRecentChats {
+                // SS-VIS wider sweep: the SAME AgentToolTogglePanel the chat composer + landing search
+                // use (the ~50 tools + MCP + cowork + skills) — single registry, single picker, no
+                // clone — so a user can start using a tool right from mini-chat too.
+                Button(action: { showToolPanel.toggle() }) {
+                    Label("Agent tools", systemImage: "slider.horizontal.3")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(NativeToolbarButtonStyle())
+                .help("Agent tools, MCP, cowork & skills — the full capability set, in mini-chat")
+                .popover(isPresented: $showToolPanel, arrowEdge: .bottom) {
+                    AgentToolTogglePanel(
+                        agentCommandCenter: agentCommandCenter,
+                        theme: theme
+                    )
+                }
+            }
         }
         .frame(height: MiniChatLayout.toolbarHeight)
     }
