@@ -131,6 +131,12 @@ targets:
         product: VMLXTokenizers
       - package: OsaurusCore
         product: OsaurusCore
+      # WORK = OpenCode shell (owner 2026-06-21): SwiftTerm = the native terminal view
+      # (NSView LocalProcessTerminalView + PTY) that renders OpenCode's REAL terminal TUI
+      # natively (Option A — keep the real terminal UI, not an Electron GUI, not a native
+      # rebuild). Drives WorkShellLaunchSpec via startProcess. Pure Swift, MIT.
+      - package: SwiftTerm
+        product: SwiftTerm
       - package: GGUFRuntimeBridge
         product: GGUFRuntimeBridge
       - package: CodeEditSourceEditor
@@ -551,6 +557,11 @@ packages:
   # resolve transitively.
   OsaurusCore:
     path: LocalPackages/osaurus/Packages/OsaurusCore
+  # WORK = OpenCode shell native terminal view (owner 2026-06-21). SwiftTerm
+  # (migueldeicaza/SwiftTerm, MIT) — the macOS NSView terminal emulator + PTY host.
+  # Vendored locally (lean ~5 MB, offline-deterministic) like osaurus/vmlx-swift.
+  SwiftTerm:
+    path: LocalPackages/SwiftTerm
   GGUFRuntimeBridge:
     path: LocalPackages/GGUFRuntimeBridge
   CodeEditSourceEditor:
