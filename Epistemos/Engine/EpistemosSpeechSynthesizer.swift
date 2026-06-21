@@ -207,11 +207,42 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     /// default) when the requested identifier is missing — common on
     /// fresh Macs where Premium voices haven't been downloaded yet.
     public static func resolveVoice(identifier: String?) -> AVSpeechSynthesisVoice? {
-        if let identifier,
-           let voice = AVSpeechSynthesisVoice(identifier: identifier) {
+        // SS-QC (owner 2026-06-20): an explicit per-call voice wins; else the user's chosen GLOBAL
+        // default voice (set in the voice picker) applies across EVERY TTS surface; else the best
+        // installed voice (premium > enhanced > default). Picking a voice once makes it the default
+        // for chat read-aloud, note read-aloud, and Quick Capture read-back alike.
+        if let resolved = effectiveVoiceIdentifier(
+            explicit: identifier,
+            globalDefault: globalDefaultVoiceIdentifier()
+        ), let voice = AVSpeechSynthesisVoice(identifier: resolved) {
             return voice
         }
         return preferredVoice()
+    }
+
+    /// Pure: which voice identifier to use — an explicit per-call pick wins; else the global
+    /// default; else nil → `preferredVoice()` picks the best installed voice. Side-effect-free and
+    /// isolation-free so it (and the global-default round-trip) is headless-testable.
+    nonisolated public static func effectiveVoiceIdentifier(explicit: String?, globalDefault: String?) -> String? {
+        explicit ?? globalDefault
+    }
+
+    /// UserDefaults key for the SS-QC global default voice.
+    nonisolated public static let globalDefaultVoiceKey = "com.epistemos.voice.globalDefaultVoiceIdentifier"
+
+    /// The user's chosen global default voice identifier (SS-QC voice picker), or nil if unset.
+    /// Persisted so it applies across launches + every TTS surface.
+    nonisolated public static func globalDefaultVoiceIdentifier(defaults: UserDefaults = .standard) -> String? {
+        defaults.string(forKey: globalDefaultVoiceKey)
+    }
+
+    /// Set the global default voice identifier (nil clears it).
+    nonisolated public static func setGlobalDefaultVoiceIdentifier(_ identifier: String?, defaults: UserDefaults = .standard) {
+        if let identifier {
+            defaults.set(identifier, forKey: globalDefaultVoiceKey)
+        } else {
+            defaults.removeObject(forKey: globalDefaultVoiceKey)
+        }
     }
 
     /// Pick the user's best-quality voice. Premium > Enhanced >

@@ -20,6 +20,11 @@ public struct VoicePreferencesSection: View {
 
     @State private var prefs = VoicePreferences.shared
     @State private var expanded: Set<String> = []
+    // SS-QC (owner 2026-06-20): the global default voice (persisted via EpistemosSpeechSynthesizer)
+    // + preview-only rate/pitch for the picker's "Hear preview" control.
+    @State private var globalVoiceIdentifier: String? = EpistemosSpeechSynthesizer.globalDefaultVoiceIdentifier()
+    @State private var voicePreviewRate: Double = 0.5
+    @State private var voicePreviewPitch: Double = 1.0
 
     public init() {}
 
@@ -61,6 +66,20 @@ public struct VoicePreferencesSection: View {
                 binding: $prefs.quickCaptureReadBack,
                 preview: "This is what auto read-back sounds like as you finish a sentence."
             )
+        }
+
+        // SS-QC (owner 2026-06-20): the global default voice + the HONEST quality hint. The picker
+        // (its own Section, quality-grouped Premium > Enhanced > Default) surfaces voiceQualityHint()
+        // — so when TTS "sounds basic" the user is told it's because no Premium voice is downloaded,
+        // and how to get one (System Settings → Spoken Content → Manage Voices). The chosen voice
+        // becomes the default for EVERY TTS surface (resolveVoice consults it).
+        ModelVoicePickerSection(
+            voiceIdentifier: $globalVoiceIdentifier,
+            rate: $voicePreviewRate,
+            pitch: $voicePreviewPitch
+        )
+        .onChange(of: globalVoiceIdentifier) { _, newValue in
+            EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)
         }
     }
 
