@@ -349,3 +349,19 @@ Positioned as a polished **public release** — a genuinely cool addition for pe
 and integrated, "all perfect" but never busy. Build priorities follow this: MD-V2 + graph + the two modes
 are the PILLARS; motion stays minimal/non-distracting (leans toward "tasteful + restrained", noticeable but
 never in the user's way). Everything serves: rival Obsidian, local-first, agentic, beautiful, minimal.
+
+## 🌟 DESIGN SOUL + PROTECTED ASSETS (owner 2026-06-21)
+**No direct competitor** (closest adjacent = Talaria, but a different shell / different direction). The bar:
+feels like a **native Apple app shipped with their devices** — the perfect amount of **minimalism**, where
+**clutter UI elements are HIDDEN BY PRIORITY** (progressive disclosure). So minimal it can look like a
+demo/toy at a glance, but with **unprecedented EXECUTION** underneath. Minimal surface, deep substance.
+- **DESIGN PRINCIPLE (apply everywhere):** priority-based progressive disclosure — show only what matters,
+  hide the rest until needed. Minimal-but-deep; never busy; "Apple-native-grade" restraint. (This governs the
+  motion language too: noticeable, never bloated.)
+- **PROTECTED ASSET — the Prose editor (v1, KEEP IT):** 50k words still scrolling at **120 fps**. This is a
+  crux asset (the performant editing core many note apps are built around). DO NOT regress its perf or
+  replace it during the Osaurus/OpenCode integration; MD-V2 builds ON it. Treat its 120fps/50k-word
+  performance as a guardrail (no regression).
+- **PROTECTED ASSET — the landing page:** a minimal **decluttering + recentering ontology** that makes the
+  app feel like a **landing WORKSPACE, not a demo**. Preserve + elevate this; the act/work landing pages +
+  blur transitions extend it, never cheapen it.
