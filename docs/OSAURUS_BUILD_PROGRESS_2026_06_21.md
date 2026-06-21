@@ -26,8 +26,14 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   only to virtualization-software vendors). Per owner's rule (can't fit all → don't be strict):
   **main app = direct-distribution (notarized, non-sandboxed) carrying the FULL Osaurus incl. the VM
   sandbox** — no feature cut, no MAS-struct excuse. REMAINING WORK (in order):
-  1. **Resolve the dual-MLX clash** — consolidate Epistemos onto Osaurus's `vmlx-swift` (drop
-     `mlx-swift-lm`; both define `MLX*` modules → can't coexist). This is the real "no clashes" task.
+  1. **Resolve the dual-MLX clash** — consolidate Epistemos onto Osaurus's `vmlx-swift`. GROUNDED
+     (read both Package.swifts): vmlx-swift provides the SAME module names (`MLX`/`MLXNN`/`MLXOptimizers`/
+     `MLXLLM`/`MLXLMCommon`/`MLXVLM`/`MLXEmbedders`), so Epistemos's **8** MLX-importing files map 1:1
+     with only TWO fixups: `import Tokenizers`→`VMLXTokenizers` (1 file) and `MLXStructured` (1 file,
+     `#if canImport` guarded → drops cleanly). **vmlx-swift now VENDORED** at `LocalPackages/vmlx-swift`
+     (pinned `4453909…`, MIT, commit pending). NEXT: project.yml swap (drop `MLX`/`MLX-LM` packages →
+     vmlx-swift) + the 2 import fixups + build-verify. Do this where the build can iterate (the swap
+     breaks the build until APIs reconcile — don't commit to main red).
   2. Add OsaurusCore SPM dep to project.yml + adjust signing/entitlements (drop the MAS-only sandbox
      constraint for the main build). 3. Build-verify. 4. Reskin to pixel-art (the video experience).
   Gating note: the old `#if !EPISTEMOS_APP_STORE` Pro-gate on the seam stays (a MAS build can still
