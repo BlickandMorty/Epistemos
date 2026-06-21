@@ -193,3 +193,10 @@ pre-compaction), enumerate each DISCRETE sub-ask as its own ledger checkbox + en
 [ ] + named in a slice with its specific nuance + will be BUILT (not just researched). 4. Flag any sub-ask that is
 paraphrased-away, merged-and-lost, or research-only. Robust against compaction/interruption: verbatim quotes live in the
 ledger/slices (durable), never only in conversation. Cross-ref Owner-Request Coverage Sweep, DONE-RE-AUDIT, plan-capture.
+
+## FOLLOW-ON-CAPTURE gate (owner 2026-06-20: "add things like this and beyond to the plan")
+Every loop commit that writes an "honest pending / next increment / deferred / not-faked / owner-flip" note must
+have that note captured as an open `[ ]` ledger item (+ in SS-FOLLOWON) in the same or next monitor pass — so no
+deferred-but-real work is lost to git history. The last-auditor harvests these each fire (grep commit bodies for
+pending/next-increment/deferred/owner-flip). A deferred safe-increment is NOT a dropped item; it is a planned one.
+Cross-ref Owner-Request Coverage Sweep + NUANCE-COMPLETENESS gate + SS-FOLLOWON.

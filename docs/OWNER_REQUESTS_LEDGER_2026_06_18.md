@@ -4403,3 +4403,15 @@ native; AGPL server). ADOPT 2 patterns natively:
 - [ ] **NUANCE-COMPLETENESS sweep (owner 2026-06-20).** *"The picker nuance slipped — check the ENTIRE plan so everything is
       robust and nuance isn't lost to compaction/interruptions."* → SS-CLEAN "NUANCE-COMPLETENESS gate": enumerate every owner
       message's atomic sub-asks as ledger [ ] + verify each is captured with its specific nuance + will be BUILT. Audit running.
+
+## FOLLOW-ON INCREMENTS — harvested from loop commit bodies (owner 2026-06-20: "add things like this and beyond to the plan")
+Every "honest pending / next increment / deferred" note the loop made is now a tracked build item (slice: SS-FOLLOWON).
+- [ ] **SS-VIS Epdoc/code mini-chat capability panel** (558bea540) — mount the same AgentToolTogglePanel on the Epdoc/code mini-chat (last sweep surface; verify env-injection first).
+- [ ] **SS-VIS start-with-a-tool / cowork-mode handoff** (735940b7a) — flip operating mode = act before submitLandingSearch so "start with a tool/cowork" enters the mode.
+- [ ] **SS-VIS cowork-panel parity** (735940b7a) — cowork reaches the same cross-surface parity as tools.
+- [ ] **SS-GE (A) document-node INLINE edit, NO detached utility** (9573a79fa) — .epdoc/.proseNote nodes still bounce to the detached window; owner wants inline edit in BOTH graphs (tunnel + embedded/mini) with no detached utility. The open risky core of SS-GE (A).
+- [ ] **SS-GE (C) Metal-renderer new appearance control + Laboratory-toggle discoverability** (68077ed69).
+- [ ] **SS-2S visible-render default-ON flip** (888761277) — flip EPISTEMOS_PROSE_INLINE_IMAGE_V0 default-on after geometry tuning + the async/remote increment, so images show without a flag.
+- [ ] **SS-2S async + downsampled + remote image load** (888761277) — NoteImageProcessor.loadDisplayImage async + http(s) (solve non-Sendable layout-state-across-actors).
+- [ ] **SS-LT full-path runtime hardening** (ce66a8d64) — parse robustness + tier surfacing + Eidos readiness across the live local multi-tool path.
+- [ ] **SUBSTRATE RuntimeRouter LIVE authoritative flip** (5a3943454) — once parityRate solid, flip EPISTEMOS_RUNTIMEROUTER_LIVE_V0 to make the router lane authoritative (contract + tests already landed).
