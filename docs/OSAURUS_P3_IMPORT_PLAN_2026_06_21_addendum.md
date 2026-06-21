@@ -339,3 +339,13 @@ reveal), (3) **micro-motions across the app**. One cohesive system, used togethe
   delightful, not spammy or distracting. Tasteful signature motion everywhere display-only.
 - This confirms + extends the ASCII-typewriter ontology above: blur + typewriter-ascii + micro-motions
   woven across titles and display-only surfaces, app-wide, balanced toward "noticeably alive, never bloated."
+
+## 🌟 NORTH STAR / PRODUCT VISION (owner 2026-06-21)
+Epistemos aims to **truly rival Obsidian** — a local-first **markdown PKM** whose foundation is **EPDOC
+MD-V2** (md = source of truth, html/json = projections) — but with what Obsidian lacks: two first-class
+agentic modes (**ACT** = Osaurus, **WORK** = OpenCode), deep **graph integration**, and a tasteful **motion
+language** (blur + ASCII typewriter + micro-motions) that is **minimal + non-distracting** to the user.
+Positioned as a polished **public release** — a genuinely cool addition for people, all major pieces present
+and integrated, "all perfect" but never busy. Build priorities follow this: MD-V2 + graph + the two modes
+are the PILLARS; motion stays minimal/non-distracting (leans toward "tasteful + restrained", noticeable but
+never in the user's way). Everything serves: rival Obsidian, local-first, agentic, beautiful, minimal.
