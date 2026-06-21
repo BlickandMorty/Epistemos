@@ -22,6 +22,19 @@ IMPLEMENTED, not just researched. Research FEEDS the build: each research verdic
 (R-*) must turn into shipped, in-app-verified slices. Nothing here is optional or
 "nice to have." Keep going until all of it is done and hardened (rule #6/#8).
 
+**🛑 HARD GUARD — CHAT BACKEND: QUARANTINE, NEVER DELETE (owner 2026-06-21,
+verbatim):** *"it is completely broken and needs to be quarantined but should never
+be deleted as of now because one might try to delete it … preserve it so that i can
+still work on IP … add it to all the parts it needs like osaurus and the goose."*
+NO agent (loop/monitor/any session) may DELETE chat / chat-backend code (resolution
+layer, picker, views, InferenceState chat paths, model wiring). Quarantine only
+(flag-OFF / off-live-path, stays IN-TREE). Preserve + PORT the owner's models + IP +
+loved chat UI into Osaurus (act) / Goose (work). Only the OWNER authorizes deletion,
+after IP is ported + Osaurus act proves out. STOP patching the dying chat backend
+(the chat-picker / Qwen-fallback P0s below are DEFERRED behind the Osaurus clone per
+owner; do NOT delete or keep grinding them now). Full rule:
+`docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md`.
+
 **🔴 P0 — CHAT PICKER (owner 2026-06-21, verbatim):** *"i also have other models
 installed but they still wont let me click them"* — [ ] NOT DONE. Same recurring
 chat surface (~5th report). GROUNDED ROOT CAUSE + acceptance bar + real-state test
@@ -35,6 +48,20 @@ lane per model (no silent assume-MLX), honest reason when a lane is unavailable.
 Preempts the queue after the in-flight commit lands. Do NOT mark [x] without the
 real-state test + reach-the-user proof. Pairs with the proven default-RESOLUTION
 fix (SS-CHATMODEL_P0, ddbadf434).
+
+**🔴 P0 — TOO-LARGE → SILENT QWEN FALLBACK (owner 2026-06-21, verbatim):** *"it
+still auto-chooses qwen when its too large literally i keep saying to fix the
+fallbacks and they are still there"* — [ ] NOT DONE (earlier "proven" fix only
+repaired persisted-pref migration, NOT the runtime too-large path — honest
+correction). ROOT CAUSE: `InferenceState.swift:3072` `recommendedLocalTextModelID`
+hardcoded to `.qwen3_4B4Bit`; the too-large/constrained chain
+(`recommendedLocalTextModelID(for:)`, `constrainedFallbackTextModelID`,
+`smallerLocalTextModelID`) anchors on Qwen, so a won't-fit model silently lands on
+Qwen. OWNER DECISION (AskUserQuestion 2026-06-21): **kill the fallback IN-PLACE,
+keep the chat, NO Osaurus pivot.** FIX: too-large → honest visible message, never a
+silent swap; remove the hardcoded Qwen anchor; real-state test that fails if the
+resolver ever returns Qwen for a too-large pick. Same chat-resolution P0 as the
+picker above. Spec: SS-CHATPICKER_P0_INSTALLED_MODELS_NOT_CLICKABLE_2026_06_21.md.
 
 **APP-NATIVE BY EMBEDDING (owner 2026-06-18, verbatim):** *"having the whole thing
 as part of my app — different from using it, actually cloning it. Same for the
