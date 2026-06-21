@@ -116,4 +116,20 @@ struct MlxGemma4DenseRunnableMigrationTests {
         // Gemma 3 is the proven-runnable MLX Gemma — never awaiting a loader regardless of any flag.
         #expect(!LocalTextModelID.gemma3_4BQAT4Bit.isAwaitingSwiftRuntimeLoader)
     }
+
+    // The migration only REACHES chat if its target survives the resolver. `migrateGgufGemmaDefaultToMlx`
+    // sets the preferred pick to gemma3_4BQAT4Bit, but `sanitizedInteractiveLocalTextModelID` only honors
+    // a pick that `supportedInteractiveLocalTextModels` (InferenceState.swift:4168) admits — otherwise it
+    // is swapped back toward Qwen and the owner-facing fix silently stops reaching. These pin exactly the
+    // predicates that filter (4173-4177) + the shipped-models preference (4184), so if any later flips the
+    // regression is caught here rather than as another "chat still defaults to Qwen" report.
+    @Test("the gemma3 migration target survives the resolver (release-validated + shipped + MLX + not awaiting) — so the fix reaches chat")
+    func gemma3MigrationTargetSurvivesResolver() {
+        let g3 = LocalTextModelID.gemma3_4BQAT4Bit
+        #expect(g3.isReleaseValidatedForInteractiveChat)  // passes the release-validation filter (not Qwen3.5 / gemma4 / experimental)
+        #expect(g3.isEpistemosShippedLocalModel)          // wins the shipped-models preference (4184)
+        #expect(!g3.isAwaitingSwiftRuntimeLoader)         // genuinely runnable (stable native gemma3 loader)
+        #expect(g3.runtimeKind == .mlx)                   // ∈ availableLocalGenerationRuntimeKinds ([.mlx]) when the GGUF lane is off
+        #expect(!g3.isExperimentalForEpistemos)           // not hidden behind the experimental gate
+    }
 }
