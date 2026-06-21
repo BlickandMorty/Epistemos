@@ -217,6 +217,32 @@ nonisolated enum EpistemosFastEffortSizing {
         }
         return min(band, candidateCount - 1)
     }
+
+    /// Index into an ascending-by-size candidate list for a user-pinned effort
+    /// band (low→smallest, medium→middle, high→largest), bypassing the per-query
+    /// complexity derivation. Mirrors `candidateIndex(forComplexity:)`'s band→
+    /// index contract so a pinned "High" lands on the same candidate a high-
+    /// complexity query auto-sizes to. The owner's "i dont see the low medium
+    /// high on fast mode" override (L1128) routes through this.
+    static func candidateIndex(forEffort effort: FastEffort, candidateCount: Int) -> Int {
+        guard candidateCount > 1 else { return 0 }
+        let band: Int
+        switch effort {
+        case .low: band = 0
+        case .medium: band = 1
+        case .high: band = 2
+        }
+        return min(band, candidateCount - 1)
+    }
+
+    /// Flag-gate (default OFF) for the user-facing Fast effort override picker
+    /// (L1128). OFF → Fast sizing stays purely per-query auto (byte-identical to
+    /// before); ON → a pinned low/med/high overrides the complexity band and the
+    /// selector appears in the runtime picker. Set
+    /// `EPISTEMOS_FAST_EFFORT_PICKER_V0=1` to enable.
+    static var pickerOverrideEnabled: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_FAST_EFFORT_PICKER_V0"] == "1"
+    }
 }
 
 /// P1.4 — honest local-runtime memory gate. Pure policy for deciding whether a
