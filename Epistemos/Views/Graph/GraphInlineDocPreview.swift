@@ -28,6 +28,8 @@ struct GraphInlineDocPreviewCard: View {
     @State private var title: String = ""
     @State private var bodyText: String = ""
     @State private var didLoad = false
+    @State private var isEditing = false
+    @State private var editedBody = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -39,6 +41,28 @@ struct GraphInlineDocPreviewCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
                 Spacer(minLength: 4)
+                if isEditing {
+                    Button("Cancel") { isEditing = false }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Button("Save") { save() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tint)
+                        .help("Save edits to the note")
+                } else if didLoad {
+                    Button {
+                        editedBody = bodyText
+                        isEditing = true
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit inline")
+                }
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
@@ -52,14 +76,22 @@ struct GraphInlineDocPreviewCard: View {
 
             Divider().opacity(0.3)
 
-            ScrollView {
-                Text(displayText)
-                    .font(.system(size: 11.5))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
+            if isEditing {
+                TextEditor(text: $editedBody)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 140, maxHeight: 280)
+                    .padding(6)
+            } else {
+                ScrollView {
+                    Text(displayText)
+                        .font(.system(size: 11.5))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                }
+                .frame(maxHeight: 280)
             }
-            .frame(maxHeight: 280)
         }
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -101,5 +133,25 @@ struct GraphInlineDocPreviewCard: View {
         title = pageTitle
         bodyText = loadedBody
         didLoad = true
+    }
+
+    /// Persist inline edits through the EXISTING note-save path: `page.saveBody` writes the
+    /// `.md` source of truth (NoteFileStorage.writeBody) + updates derived state, then the
+    /// model context is saved — the SAME path the note editor uses. NEVER a raw file write.
+    /// Re-fetches the page on the main actor so the non-Sendable SDPage never crosses an await;
+    /// `saveBody` is synchronous. Cancel simply leaves edit mode without writing.
+    @MainActor
+    private func save() {
+        let targetId = pageId
+        var descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
+        descriptor.fetchLimit = 1
+        guard let page = try? modelContext.fetch(descriptor).first else {
+            isEditing = false
+            return
+        }
+        page.saveBody(editedBody)
+        try? modelContext.save()
+        bodyText = editedBody
+        isEditing = false
     }
 }
