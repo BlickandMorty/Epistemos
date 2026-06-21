@@ -110,9 +110,15 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **S6+ — server endpoints, MCP, plugins, privacy filter, identity/relay** (each gated/logged/MAS-excluded).
 
 ## Cross-cutting (post-clone, per addendum)
-- [ ] **Surface-wiring:** ALL chat surfaces (main ChatView, MiniChat, NoteChatSidebar,
+- [🟡] **Surface-wiring:** ALL chat surfaces (main ChatView, MiniChat, NoteChatSidebar,
   Graph/Hologram*, + sweep) → ONE shared act composer. Map each surface → real proven
   front-end BEFORE wiring; prove (real-state/launch-smoke). No dead surfaces.
+  - [x] **ENGINE-LAYER shared chokepoint DONE (`e67295bc0`, real-state verified):** audit found the
+    act=Osaurus swap lived ONLY in DeviceAgentService — `ChatCoordinator`(main chat)/`PipelineService`/
+    `IMessageDriverService` all build via `LocalAgentLoop.liveLoop` and BYPASSED it (act never reached
+    the main chats). Fixed: `LocalAgentLoop.shouldRouteActThroughOsaurus()` = single source of truth,
+    applied at the liveLoop chokepoint + reused by DeviceAgentService (no divergence). 4/4 tests. REMAINS:
+    streaming-through-Osaurus (streamingGenerator still MLX until OsaurusCore SSE) + composer pixel-art reskin.
   - [x] First surface wired (DONE 2026-06-21, real-state verified): **Epistemos Picks VIEW** —
     `Epistemos/Views/Settings/EpistemosPicksSectionView.swift` renders the curated provider in
     pixel-art (reuses `InlineRuntimePickerPanel`'s exact live-state→Environment mapping + honest
