@@ -129,6 +129,8 @@ targets:
         product: MLXHuggingFace
       - package: vmlx-swift
         product: VMLXTokenizers
+      - package: OsaurusCore
+        product: OsaurusCore
       - package: GGUFRuntimeBridge
         product: GGUFRuntimeBridge
       - package: CodeEditSourceEditor
@@ -543,6 +545,12 @@ packages:
   # MLXEmbedders). Replaces ml-explore/mlx-swift + LocalPackages/mlx-swift-lm.
   vmlx-swift:
     path: LocalPackages/vmlx-swift
+  # Osaurus act engine (owner 2026-06-21, full Osaurus): the vendored OsaurusCore SPM library.
+  # Linked into the main direct-distribution target only (MAS off — owner directive). Uses the
+  # local vmlx-swift (one MLX). Heavy deps (NIO/MCP/SQLCipher/Sparkle/Sentry/Containerization)
+  # resolve transitively.
+  OsaurusCore:
+    path: LocalPackages/osaurus/Packages/OsaurusCore
   GGUFRuntimeBridge:
     path: LocalPackages/GGUFRuntimeBridge
   CodeEditSourceEditor:
