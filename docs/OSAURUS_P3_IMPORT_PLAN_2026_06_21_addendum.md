@@ -275,3 +275,16 @@ off-limits Companion-backend clone; this is the owner directing their avatar STY
   inside the bodies** — clean flat fills. Find the sprite/avatar renderer, fix the intra-body artifacts +
   the sizing, keep the flat Tamagotchi look.
 This is part of the act surface (agent creation). Preserve the style, fix the render.
+
+## 🆕 PER-CLONE SETTINGS — RESPECT EACH CLONE'S OWN SETTINGS (owner 2026-06-21)
+Each clone is its OWN app with its OWN settings — the owner wants those settings IN the app, respected (not
+dropped/flattened). This applies to Osaurus and BEYOND (every clone).
+- **Structure (owner-preferred = TABS / an executive toggle in Settings):** keep the current all-Epistemos
+  settings as one tab, then add sibling tabs per clone — **"act"** (Osaurus's full settings), **"work"**
+  (OpenCode's full settings), and **beyond** (a tab per future clone). (Owner leaned tab over a separate
+  window or a buried sub-section — but the principle is what matters: per-clone settings preserved + reachable.)
+- **Respect each clone's REAL settings surface** — port the clone's actual settings (Osaurus's settings,
+  OpenCode's settings, etc.), reskinned to the app's pixel-art native look + theme-aware (per the reskin
+  discipline), not a stripped-down reimplementation. Each clone's options must be honored.
+- Ties to "preserve everything from each clone" + the surface-wiring rule (each settings surface wired to a
+  real, working front-end). Standing rule for all current + future clones: bring in + respect their settings.
