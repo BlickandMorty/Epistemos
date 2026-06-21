@@ -1355,7 +1355,8 @@ actor LocalAgentLoop {
         }
     }
 
-    private nonisolated static func canonicalizeArguments(
+    // `internal` (not `private`) is a deliberate test seam for this pure schema-aware normalizer.
+    nonisolated static func canonicalizeArguments(
         _ arguments: [String: Any],
         schemaJson: String
     ) -> [String: Any] {
@@ -1366,17 +1367,31 @@ actor LocalAgentLoop {
             return arguments
         }
 
-        let canonicalKeys = Dictionary(
-            uniqueKeysWithValues: properties.keys.map { ($0.lowercased(), $0) }
-        )
-        var normalized: [String: Any] = [:]
-        normalized.reserveCapacity(arguments.count)
-
-        for (key, value) in arguments {
-            let canonicalKey = canonicalKeys[key.lowercased()] ?? key
-            normalized[canonicalKey] = value
+        // Map each schema property by BOTH its lowercased form and its separator/case-stripped form,
+        // so a model emitting `file_path` / `filePath` / `file-path` / `filepath` all reach the
+        // schema's canonical `filePath`. Local models vary arg-key separators/casing constantly; an
+        // unmatched key would land in the tool as an unknown arg while the required one stayed
+        // missing — the SS-LT "intent recognized but the tool call is malformed" failure, at the
+        // argument level (parallel to separator-insensitive tool-NAME matching). Lowercased wins over
+        // the stripped fallback. Built with a loop (not `uniqueKeysWithValues`) so two schema keys
+        // that lowercase-collide can't trap.
+        func stripped(_ s: String) -> String { s.lowercased().filter { $0.isLetter || $0.isNumber } }
+        var byLower: [String: String] = [:]
+        var byStripped: [String: String] = [:]
+        for schemaKey in properties.keys {
+            byLower[schemaKey.lowercased()] = schemaKey
+            let key = stripped(schemaKey)
+            if !key.isEmpty, byStripped[key] == nil { byStripped[key] = schemaKey }
         }
 
+        var normalized: [String: Any] = [:]
+        normalized.reserveCapacity(arguments.count)
+        for (key, value) in arguments {
+            let canonicalKey = byLower[key.lowercased()]
+                ?? byStripped[stripped(key)]
+                ?? key
+            normalized[canonicalKey] = value
+        }
         return normalized
     }
 
