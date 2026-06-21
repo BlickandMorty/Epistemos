@@ -84,4 +84,17 @@ struct AnswerPacketStoreTests {
         AnswerPacketEmitter.persist(packet("p6"), to: store, totalEmitted: 6, compactEvery: 6, maxEntries: 2)
         #expect(try store.loadRecent(limit: 10).map(\.id) == ["p6", "p5"])
     }
+
+    // The durable read accessor delegates to the (behavior-tested) store.loadRecent, kept separate
+    // from the in-session ring; and the health row now HONESTLY reflects that persistence is wired.
+    @Test("persistedRecent is the durable read accessor + the health row status is honest")
+    func persistedRecentAndHonestStatus() throws {
+        let emitter = try loadMirroredSourceTextFile("Epistemos/Engine/AnswerPacketEmitter.swift")
+        #expect(emitter.contains("func persistedRecent(limit: Int)"))
+        #expect(emitter.contains("store.loadRecent(limit: limit)"))
+        #expect(emitter.contains("guard let store else { return [] }"))
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AnswerPacketHealthRow.swift")
+        #expect(row.contains("durable JSONL persistence log"))
+        #expect(!row.contains("session ring only"))   // the stale "not persisted" claim is gone
+    }
 }

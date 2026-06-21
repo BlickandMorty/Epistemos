@@ -221,6 +221,15 @@ public actor AnswerPacketEmitter {
         ring
     }
 
+    /// SUBSTRATE Phase 2: the DURABLE answer-packet history (survives relaunch), read from the
+    /// persistence log. Kept SEPARATE from the in-session `recentPackets()` ring — the ring is this
+    /// process's live packets; this is the cross-session record (most-recent-first). Off-MainActor
+    /// (actor) + best-effort: `[]` when persistence is disabled or the log is absent/unreadable.
+    public func persistedRecent(limit: Int) -> [AnswerPacket] {
+        guard let store else { return [] }
+        return (try? store.loadRecent(limit: limit)) ?? []
+    }
+
     /// Most recent packet, if any.
     public var last: AnswerPacket? {
         ring.last
