@@ -67,12 +67,12 @@ public struct AnswerPacketHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: "on",
-                substrate: snapshot.totalEmitted > 0 ? "session ring only" : "idle",
+                substrate: snapshot.totalEmitted > 0 ? "session ring + durable log" : "idle",
                 productionWired: snapshot.totalEmitted > 0,
                 falsifierPassed: false,
                 falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
-                wiredToday: "In-process AnswerPacket emitter and bounded audit ring are observable.",
-                stillStub: "Canonical persistent AnswerPacket product surface and matching primary witness are pending."
+                wiredToday: "In-process AnswerPacket emitter, bounded audit ring, and a durable JSONL persistence log (off-main, bounded, best-effort) are observable; emitted packets survive relaunch.",
+                stillStub: "Load-on-launch ring restore, a canonical product/history surface, and a matching primary witness are pending."
             )
             row(
                 label: "Last 100 ring",
