@@ -382,8 +382,10 @@ final class SharedGPUBackend: DeviceInferenceBackend {
         // act runs through Osaurus without rewriting the agent loop). Flag OFF (default) keeps the
         // proven MLX one-shot generator UNCHANGED. The OsaurusCore path throws honestly on failure,
         // never a silent cloud route (owner #1).
+        // Uses the SHARED act-routing decision (owner 2026-06-21 #1) — the same one liveLoop uses, so
+        // the act=Osaurus swap can never diverge between this device-agent path and the chat surfaces.
         let generator: LocalAgentGenerationHandler =
-            ActOsaurusGateStatus.isEnabled(ProcessInfo.processInfo.environment[ActOsaurusGateStatus.flagName])
+            LocalAgentLoop.shouldRouteActThroughOsaurus()
             ? ActOsaurusGenerationHandler.make()
             : LocalAgentLoop.mlxOneShotGenerator(using: localModelClient)
         #else

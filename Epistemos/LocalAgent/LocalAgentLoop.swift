@@ -208,6 +208,21 @@ actor LocalAgentLoop {
         }
     }
 
+    /// SHARED act-routing decision (owner 2026-06-21 #1): the SINGLE source of truth for "should
+    /// local generation route through the act=Osaurus engine?" Used by BOTH `liveLoop` (every chat
+    /// surface) AND `DeviceAgentService` so the swap can never silently diverge again — the bug this
+    /// fixes was two construction sites where only one honored the flag. Always false on the App Store
+    /// build (the act-Osaurus engine is a Pro / direct-distribution surface); never a silent cloud route.
+    nonisolated static func shouldRouteActThroughOsaurus(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        #if EPISTEMOS_APP_STORE
+        return false
+        #else
+        return ActOsaurusGateStatus.isEnabled(environment[ActOsaurusGateStatus.flagName])
+        #endif
+    }
+
     @MainActor
     static func liveLoop(
         using modelClient: any LocalConfigurableLLMClient,
@@ -221,8 +236,23 @@ actor LocalAgentLoop {
     ) -> LocalAgentLoop {
         let resolvedBudget = resolvedMaxTokenBudget(requested: maxTokenBudget, modelID: modelID)
 
+        // SHARED ACT COMPOSER (owner 2026-06-21 #1): the act=Osaurus swap MUST apply at THIS shared
+        // chokepoint. ChatCoordinator (main chat), PipelineService, and IMessageDriverService all build
+        // their loop via liveLoop — wiring the swap only in DeviceAgentService left the owner's main
+        // chats on raw MLX. Routing the primary generator through the SAME shared decision makes act
+        // reach every liveLoop surface. (Streaming-through-Osaurus is the tracked next piece — the
+        // streamingGenerator stays MLX until OsaurusCore SSE lands; honest, not faked.)
+        #if !EPISTEMOS_APP_STORE
+        let primaryGenerator: LocalAgentGenerationHandler =
+            shouldRouteActThroughOsaurus()
+            ? ActOsaurusGenerationHandler.make()
+            : mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
+        #else
+        let primaryGenerator = mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
+        #endif
+
         return LocalAgentLoop(
-            generator: mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON),
+            generator: primaryGenerator,
             repairGenerator: mlxOneShotGenerator(
                 using: modelClient,
                 steeringHintsJSON: steeringHintsJSON
