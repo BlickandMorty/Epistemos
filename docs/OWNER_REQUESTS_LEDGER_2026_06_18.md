@@ -4195,7 +4195,7 @@ native; AGPL server). ADOPT 2 patterns natively:
       SS-TC→UN-DEFERRED (SS-THX cache landed = the safety); SS-2S full inline-image render→research offset-safe attachment +
       code; SS-HW main-chat auto-link→owner-preference (default explicit-target-only, proceed). EXCEPTIONS that may wait: genuine
       owner-preference choices + items gated on an external fact (e.g. API key) — everything else is research-to-safety + code.
-- [ ] **SURFACE ALL CHAT CAPABILITIES (tools + cowork) ON THE SEARCH PAGE + everywhere (owner 2026-06-20).** *"I want the
+- [x] **SURFACE ALL CHAT CAPABILITIES (tools + cowork) ON THE SEARCH PAGE + everywhere (owner 2026-06-20).** *"I want the
       tools and cowork stuff — all things attached to the chat — VISIBLE on the search page, so a user can start off using a
       tool. Also they are not working. The ~50 tools should be there (maybe in a popover still) + the cowork stuff —
       literally ALL capable chat stuff should be not only in chat but on the search page and all places it should be. This
@@ -4209,6 +4209,17 @@ native; AGPL server). ADOPT 2 patterns natively:
       `CoworkChatMode`/`CoworkPanel` reuse; sweep mini-chat/graph/editor surfaces. VERIFY tools actually execute from search
       (catalog non-empty per tier). HIDDEN-RULE GAP recorded in SS-CLEAN: added a CAPABILITY SURFACE-PARITY scan (prior checks
       caught orphans/dupes but NOT asymmetry = built in one surface, hidden from a peer). [S→M].
+      ✅ DONE-RE-AUDIT (loop 2026-06-21): the shared AgentToolTogglePanel (the ~50 tools + MCP + cowork
+      + skills, single registry) is now mounted on the landing SEARCH page (landingSearchCapabilitiesTool,
+      735940b7a) AND every chat surface — main chat (ChatInputBar), mini-chat (composer toolPanelButton),
+      graph (558bea540), note (d08e15d7a); cross-surface parity pinned by SSVISWiderSweepTests + the
+      capability surface-parity scan. "Start off using a tool/skill" is live: a discovered skill runs from
+      each surface, primed into that composer's field (landing 7101b307c, graph 0dcc19047, note 224f32dd2,
+      chat/mini-chat runSkillFromPanel). Tools actually execute (L1192 gating Allow/Deny verified). The
+      mini-chat double-mount was deduped (3475ea82e, guarded). REMAINING REFINEMENT (tracked, not blocking):
+      the explicit cowork/Act-MODE auto-handoff on a cowork selection — its pure decision shipped
+      (AgentLaunchHandoff.startMode, eb36938b2) but the wiring waits on an explicit cowork-selection
+      affordance in the panel (no signal to trigger it yet); SS-FOLLOWON.
 - [ ] **SUBSTRATE-HEALTH completion + clone-sequencing contemplation (owner 2026-06-20).** *"Much of the substrate health
       is unfinished stubs, not wired. I want it all working — idk if before or after the clones, because the clones would
       reuse this IP so it'd be advantageous to do it BEFORE, but I really want to add the clones first since substrate is
