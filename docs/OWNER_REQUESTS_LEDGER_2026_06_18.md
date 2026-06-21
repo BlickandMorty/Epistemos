@@ -4377,3 +4377,13 @@ native; AGPL server). ADOPT 2 patterns natively:
       LAUNCH-SMOKE + SURFACE-PARITY + ROUTING-NO-REGRESSION to close the green-but-not-user-reaching hole. AUDIT UPDATE: chat
       P0 fix (191c9291a) PASS — installed-Qwen fallback, behavior-tested (uninstalled-Gemma+Qwen→Qwen); full routing-MATRIX
       test still owed per the no-regression gate. Theme fix (f619405b9) landed. Both pending owner on-device confirm (non-block).
+- [ ] **NO HIDDEN FALLBACKS / de-black-box — every substitution visible AT POINT OF USE (owner 2026-06-20).** *"I didn't want
+      hidden fallbacks — if it's a fallback make sure it's not a stubborn one or any at all. idk what 'fallback' means but
+      that's important — that's part of the repair: the hiddenness of the app + black-box surfaces."* RESEARCHED →
+      `docs/research/SS-HF_NO_HIDDEN_FALLBACK_DE_BLACKBOX_2026_06_20.md`. Plain: a fallback = when your pick can't run the app
+      runs a different runnable thing; OK only if VISIBLE/honest at the point of use, never silent. The chat P0 fix runs your
+      REAL installed Qwen (not a fake) but surfaces it only via the Settings LocalRouteHonestyRow → too hidden. FIX: surface
+      the actual running model + "running Qwen — '<pick>' not installed" note IN THE CHAT (fold into SS-CC runtime control), and
+      SWEEP the app for silent substitutions / try?-?? -empty-catch-as-success / for-show controls / no-op-on-not-ready → make
+      each honest at the surface or remove. GATE added to SS-CLEAN (NO-HIDDEN-FALLBACK / point-of-use honesty). Part of the
+      repair cycle (SS-REPAIR). Cross-ref SS-CR/SS-IR/SS-LT/SS-GE/SS-CC. NON-INVASIVE; honest > clever.
