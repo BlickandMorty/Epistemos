@@ -2160,6 +2160,16 @@ final class AppBootstrap {
             },
             skillNamesProvider: { [weak agentCommandCenterState] in
                 agentCommandCenterState?.availableSkills.map(\.title).sorted() ?? []
+            },
+            vaultRankingSearchProvider: { [weak vaultSync] query in
+                // L1187 — deterministic ranked vault answer (flag-gated in the responder). Uses the
+                // installed vault search + the model container's main context to resolve note paths.
+                guard let search = vaultSync?.searchService else { return nil }
+                return VaultBestEssayResponder.liveAnswer(
+                    query: query,
+                    searchService: search,
+                    modelContext: container.mainContext
+                )
             }
         )
 
