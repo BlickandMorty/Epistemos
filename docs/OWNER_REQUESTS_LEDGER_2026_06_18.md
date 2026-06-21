@@ -4357,3 +4357,13 @@ native; AGPL server). ADOPT 2 patterns natively:
       chat routing/model-resolution change MUST add a full routing-matrix regression guard ({Local,Cloud}×{installed?,creds?}
       → correct, no dead-end, no local→cloud mis-route) before shipping (the SS-CR whack-a-mole must stop). (2) PLAN-CAPTURE:
       every owner concern → ledger + slice, NEVER only steered. (This batch IS captured here, not just prompted.)
+- [x] **DEEP REPAIR CYCLES + deep perf/usability wins (recurring discipline) (owner 2026-06-20).** *"These should be part of
+      the deep repair parts — all of these added to the repair cycles. Also deep deep wins for performance and actual
+      usability."* RECORDED → `docs/research/SS-REPAIR_DEEP_REPAIR_CYCLES_PERF_USABILITY_2026_06_20.md`. Repair is now a
+      RECURRING CYCLE (find broken/regressed/muddy on-device → fix with no-regression+savepoint → VERIFY on-device-equivalent,
+      not just unit-green → repeat), run as part of the loop's standing cadence alongside SS-CLEAN. ACTIVE repair batch (all
+      owner-reported/reopened): CHAT P0 (SS-CR sanitized:6113 + routing matrix), CHAT COMPOSER (SS-CC), THEME regression
+      (SS-THX), IMAGES full-render (SS-2S), white bar (SS-GC verify), blank sidebar (SS-SH), local tools (SS-LT), graph (SS-GE),
+      launch-smoke (SS-CRASH). PLUS every cycle hunts ONE deep PERF win (profile hot paths, measured before/after — SS-PERF2)
+      + ONE deep USABILITY win (⌘K/unified-search/error-empty-retry/first-run/model-clarity/a11y — SS-BWB), shipped user-facing
+      + witnessed. Monitor treats owner on-device reports as P0 repair inputs. All in the plan, not prompt-only.
