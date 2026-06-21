@@ -202,6 +202,19 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         }
     }
 
+    /// Group a voice list by quality tier (Premium > Enhanced > Default), dropping empty tiers.
+    /// Shared by the Settings picker (ModelVoicePickerSection) and the Quick Capture point-of-use
+    /// picker so there's ONE grouping rule, not duplicated logic. Pure → headless-testable.
+    nonisolated public static func voicesGroupedByTier(
+        _ voices: [VoiceOption]
+    ) -> [(VoiceQualityTier, [VoiceOption])] {
+        let order: [VoiceQualityTier] = [.premium, .enhanced, .default]
+        return order.compactMap { tier in
+            let entries = voices.filter { $0.quality == tier }
+            return entries.isEmpty ? nil : (tier, entries)
+        }
+    }
+
     /// Resolve a voice identifier into a concrete AVSpeechSynthesisVoice.
     /// Falls back to the user's preferred voice (premium > enhanced >
     /// default) when the requested identifier is missing — common on

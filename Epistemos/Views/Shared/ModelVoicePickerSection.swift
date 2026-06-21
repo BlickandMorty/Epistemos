@@ -86,13 +86,8 @@ public struct ModelVoicePickerSection: View {
     }
 
     private var groupedByTier: [(EpistemosSpeechSynthesizer.VoiceQualityTier, [EpistemosSpeechSynthesizer.VoiceOption])] {
-        var bucket: [EpistemosSpeechSynthesizer.VoiceQualityTier: [EpistemosSpeechSynthesizer.VoiceOption]] = [:]
-        for v in voices { bucket[v.quality, default: []].append(v) }
-        let order: [EpistemosSpeechSynthesizer.VoiceQualityTier] = [.premium, .enhanced, .default]
-        return order.compactMap { tier in
-            guard let entries = bucket[tier], !entries.isEmpty else { return nil }
-            return (tier, entries)
-        }
+        // Shared grouping (no duplicated tier logic) — see EpistemosSpeechSynthesizer.
+        EpistemosSpeechSynthesizer.voicesGroupedByTier(voices)
     }
 
     // MARK: - Rate / pitch sliders
