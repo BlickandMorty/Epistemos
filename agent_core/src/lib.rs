@@ -146,6 +146,13 @@ pub mod undo;
 // agent_runtime references it (GOOSE GUARDRAIL: Chat/Act unchanged).
 pub mod work;
 
+// WORK code-intelligence tools (owner 2026-06-21, addendum §134-137): WIRE the
+// existing lsp_runtime RustLSP into the WORK stack as agent tools — reuse, don't
+// rebuild. Gated behind the same `lsp-runtime` feature it depends on (Pro work
+// stack). Isolated like `work`; Chat/Act unchanged.
+#[cfg(feature = "lsp-runtime")]
+pub mod work_lsp_tools;
+
 // RAG preflight tool selection (Deterministic Schema Engine, P8.2 spec §B): pick the
 // ~3-5 tools relevant to a turn so local models keep a tight, focused tool footprint.
 pub mod tool_preflight;
