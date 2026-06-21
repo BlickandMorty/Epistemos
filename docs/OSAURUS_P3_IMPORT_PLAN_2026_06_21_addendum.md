@@ -410,3 +410,30 @@ entitlement. But for the MAS build's "agent runs code safely" need, research the
 Verdict to confirm via a focused research pass: MAS build either uses a WASM/cloud-backed lighter code-exec
 substitute (honest about reduced power) OR omits local code-exec, with the FULL Linux-VM sandbox living in the
 direct-distribution build. Capture as an ordered research item (not deferred/droppable).
+
+## 🔒 DUAL-BUILD DISTRIBUTION MODEL (owner 2026-06-21) — EXPLICIT, whole app + every clone
+ONE codebase → TWO builds: **MAS build** (Mac App Store, sandboxed) + **PRO build** (direct-distribution,
+notarized, non-sandboxed). This is first-class + applies to the WHOLE app and EVERY clone.
+- **MAS must be AS ROBUST AS PRO** — exclude ONLY genuinely-ungrantable features; never cut for convenience.
+- **Per-clone MAS-fit research (each clone gets its own verdict, like Osaurus did):**
+  - **Osaurus/ACT:** ~95% MAS-OK; the ONLY block = Linux-VM sandbox (restricted virtualization entitlement).
+  - **OpenCode/WORK:** Pro-only (bundled JS/Bun runtime) — **does NOT need MAS** (owner confirmed); ships in
+    the Pro build. Confirm/keep it out of the MAS target.
+  - **Goose, OpenClaw, Hermes, Talaria, Epdoc-fuse, + any future clone:** RESEARCH each for MAS-fit
+    (entitlements + runtime), tag each feature MAS-OK / Pro-only. Ordered research item, not droppable.
+- **Linux-sandbox MAS substitute:** since MAS can't do the VM, RESEARCH THE BEST MAS-compatible sandbox to
+  substitute (WASM in-process e.g. Pyodide/QuickJS, or cloud sandbox) so the MAS build still has safe code
+  execution — pick the best; MAS robustness is the goal.
+
+### HOW to build two builds of one app (process)
+- ONE codebase, TWO Xcode **targets/schemes** (or one target + two configs): "Epistemos (MAS)" + "Epistemos
+  (Pro/Direct)". The codebase ALREADY uses the gate `#if EPISTEMOS_APP_STORE` (e.g. ActOsaurusBridge wraps
+  the Osaurus seam in `#if !EPISTEMOS_APP_STORE`) — extend that pattern.
+- **Per-target ENTITLEMENTS files:** MAS = sandboxed entitlements (network.server/client, automation, etc.,
+  NO virtualization); Pro = non-sandboxed/full (incl. virtualization). Per-target Info.plist/bundle id.
+- **CAPABILITY SCHEMA = the single source of truth:** tag every feature MAS-OK / Pro-only; both builds read
+  it (compile-time `#if EPISTEMOS_APP_STORE` + a runtime capability map) so MAS auto-excludes Pro-only
+  features (VM sandbox, OpenCode/Bun, etc.) + swaps in MAS substitutes (WASM/cloud sandbox). "MAS schema" =
+  this matrix, the way the owner has been gating.
+- **CI builds BOTH** profiles; a guard test asserts the MAS target does NOT link Pro-only deps (the existing
+  MAS/Pro boundary guard test pattern). xcodegen/project.yml defines both targets.
