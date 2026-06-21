@@ -758,6 +758,49 @@ mod tests {
         );
     }
 
+    #[test]
+    fn start_run_with_cloud_provider_fails_honestly_without_fake_handoff() {
+        // SUBSTRATE Phase 3 honest-tier (owner 2026-06-20): a cloud provider routed through the
+        // LOCAL System G runtime is NOT bound — it must fail HONESTLY (`failed` /
+        // "provider_not_bound"), NEVER fake a local handoff, a Complete, or synthesized tokens.
+        // This pins "no fake-green": System G never pretends to run a cloud model it can't.
+        let _guard = test_registry_lock();
+        let cases: Vec<(ProviderPolicy, &str)> = vec![
+            (
+                ProviderPolicy::AnthropicMessages { model: "claude-opus-4-6".into() },
+                "AnthropicMessages",
+            ),
+            (
+                ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+                "OpenAIResponses",
+            ),
+        ];
+        for (policy, label) in cases {
+            reset_for_test();
+            let json = serde_json::to_string(&policy).expect("provider encode");
+            let run_id = start_run_with_provider_policy(&good_mission_json(), &json)
+                .expect("valid cloud policy dispatches (then fails honestly)");
+            let events = drain_events(&run_id).expect("drain");
+            assert!(
+                events.iter().any(|e| matches!(e,
+                    SystemGAgentEvent::Failed { error, .. } if error.contains("provider_not_bound"))),
+                "{label} must fail honestly with provider_not_bound: {events:?}"
+            );
+            assert!(
+                !events.iter().any(|e| matches!(e, SystemGAgentEvent::LocalModelHandoff { .. })),
+                "{label} must NOT fake a local handoff"
+            );
+            assert!(
+                !events.iter().any(|e| matches!(e, SystemGAgentEvent::Complete { .. })),
+                "{label} must NOT fake a Complete"
+            );
+            assert!(
+                !events.iter().any(|e| matches!(e, SystemGAgentEvent::TokenChunk { .. })),
+                "{label} must NOT synthesize token text for an unbound provider"
+            );
+        }
+    }
+
     fn assert_local_provider_handoff(
         provider_policy: ProviderPolicy,
         expected_model_id: &str,
