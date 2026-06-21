@@ -85,10 +85,19 @@ struct InlineRuntimePickerPanel: View {
     private var environment: EpistemosRuntimePicker.Environment {
         let bytes = LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
         let freeGB = bytes > 0 ? Int(bytes / 1_073_741_824) : 0
+        // SS-CHATPICKER P0 — offer the user's installed (∪ prepared) models, filtered by the owner's
+        // advertised set, so installed models outside the fixed lineup are clickable picks.
+        let installed = inference.installedLocalTextModelIDs.union(inference.preparedLocalTextModelIDs)
+        let store = AdvertisedModelStore()
         return .init(
-            installedModelIDs: inference.installedLocalTextModelIDs,
+            installedModelIDs: installed,
             freeMemoryGB: freeGB,
-            appleIntelligenceAvailable: inference.appleIntelligenceAvailable
+            appleIntelligenceAvailable: inference.appleIntelligenceAvailable,
+            additionalPicks: RuntimePickerExtraPicksBuilder.picks(
+                installedIDs: installed,
+                advertised: store.effectiveAdvertised(fullCatalog: installed),
+                isCustomized: store.isCustomized
+            )
         )
     }
 

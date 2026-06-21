@@ -68,4 +68,44 @@ struct EpistemosRuntimePickerAdditionalPicksTests {
         let baseline = EpistemosRuntimePicker.options(for: .fast, environment: env(installed: [], additional: []))
         #expect(baseline.contains { $0.isAppleIntelligence })
     }
+
+    // MARK: - RuntimePickerExtraPicksBuilder (slice 2 — the panel computes additionalPicks from this)
+
+    @Test("builder maps a known installed non-lineup model to a pick with title + memory")
+    func builderResolvesKnownModel() {
+        let id = LocalTextModelID.gemma3_4BQAT4Bit.rawValue
+        let pick = RuntimePickerExtraPicksBuilder.picks(installedIDs: [id], advertised: [], isCustomized: false).first { $0.id == id }
+        #expect(pick != nil)
+        #expect((pick?.minimumMemoryGB ?? 0) > 0)
+        #expect(pick?.title.isEmpty == false)
+    }
+
+    @Test("builder skips an unrecognised id (a stray on-disk dir) — never a phantom pick")
+    func builderSkipsUnknown() {
+        #expect(RuntimePickerExtraPicksBuilder.picks(installedIDs: ["stray/not-a-real-model"], advertised: [], isCustomized: false).isEmpty)
+    }
+
+    @Test("builder skips ids already in the fixed lineup / static extras (no cross-tier duplicate)")
+    func builderSkipsLineup() {
+        let qwen4 = "Qwen/Qwen3-4B-MLX-4bit"  // a static .think extraPick
+        #expect(RuntimePickerExtraPicksBuilder.picks(installedIDs: [qwen4], advertised: [], isCustomized: false).isEmpty)
+    }
+
+    @Test("advertised filter: when customized, only advertised non-lineup ids are offered")
+    func builderAdvertisedFilter() {
+        let g3 = LocalTextModelID.gemma3_4BQAT4Bit.rawValue
+        let llama = LocalTextModelID.llama32_3BInstruct4Bit.rawValue
+        let all = RuntimePickerExtraPicksBuilder.picks(installedIDs: [g3, llama], advertised: [], isCustomized: false)
+        #expect(all.contains { $0.id == g3 } && all.contains { $0.id == llama })
+        let filtered = RuntimePickerExtraPicksBuilder.picks(installedIDs: [g3, llama], advertised: [g3], isCustomized: true)
+        #expect(filtered.contains { $0.id == g3 })
+        #expect(!filtered.contains { $0.id == llama })
+    }
+
+    @Test("tier heuristic: coder→code, reasoning→think, plain→fast")
+    func builderTierHeuristic() {
+        #expect(RuntimePickerExtraPicksBuilder.tier(forID: "x/qwen3-coder-next", displayName: "Qwen Coder") == .code)
+        #expect(RuntimePickerExtraPicksBuilder.tier(forID: "x/deepseek-r1-distill", displayName: "DeepSeek R1") == .think)
+        #expect(RuntimePickerExtraPicksBuilder.tier(forID: "x/some-chat", displayName: "Some Chat") == .fast)
+    }
 }
