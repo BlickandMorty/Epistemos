@@ -53,7 +53,11 @@ enum SpotlightIndexer {
         )
     }
 
-    nonisolated private static func makeItem(
+    // `internal` (not `private`) is a deliberate test seam: this pure primitive lets a behavioral
+    // test pin the Spotlight attribute mapping + the 280-char `textContent` trim (the documented
+    // 30-50 MB corespotlightd memory saving on a 5K-note vault) without standing up a SwiftData
+    // ModelContainer + SDPage. The SDPage-taking overload above delegates here, so they stay identical.
+    nonisolated static func makeItem(
         pageId: String,
         title: String,
         tags: [String],
