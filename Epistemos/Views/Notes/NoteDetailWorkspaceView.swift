@@ -594,6 +594,11 @@ struct NoteDetailWorkspaceView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
+    // SS-VIS wider sweep (owner 2026-06-20; ledger 1190 Note-chat parity): agentCommandCenter is
+    // injected via withAppEnvironment (the note window applies it — NoteWindowManager:402/507 — and
+    // the embedded path inherits it), and this view already depends on other injected state, so
+    // reading it adds no new launch-crash surface.
+    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -606,6 +611,7 @@ struct NoteDetailWorkspaceView: View {
     /// Owner 2026-06-18: the note ask-bar model picker is a flat inline pixel-art
     /// panel expanding in-flow above the ask bar — not a floating popover.
     @State private var showInlineRuntimePicker = false
+    @State private var showNoteToolPanel = false
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
     @State private var persistedBody: String
@@ -2199,6 +2205,7 @@ struct NoteDetailWorkspaceView: View {
         ) {
             HStack(spacing: 6) {
                 noteInlineRuntimePickerTrigger
+                noteToolPanelTrigger
                 ChatCapabilityPill(
                     capability: toolbarAskCapability,
                     detail: toolbarAskPillDetail
@@ -2235,6 +2242,25 @@ struct NoteDetailWorkspaceView: View {
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
                 showInlineRuntimePicker.toggle()
             }
+        }
+    }
+
+    /// SS-VIS wider sweep: the SAME AgentToolTogglePanel the chat composer + landing + mini-chat +
+    /// graph chat use (the ~50 tools + MCP + cowork + skills) — single registry, single picker, no
+    /// clone — so a user can start using a tool from the note chat too (ledger 1190 Note-chat parity).
+    private var noteToolPanelTrigger: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "slider.horizontal.3",
+            variant: .toolbar,
+            isActive: showNoteToolPanel,
+            helpText: "Agent tools, MCP, cowork & skills — the full capability set, in note chat",
+            accessibilityLabel: "Agent tools"
+        ) {
+            showNoteToolPanel.toggle()
+        }
+        .popover(isPresented: $showNoteToolPanel, arrowEdge: .bottom) {
+            AgentToolTogglePanel(agentCommandCenter: agentCommandCenter, theme: ui.theme)
         }
     }
 

@@ -33,6 +33,15 @@ struct SSVISWiderSweepTests {
         #expect(sidebar.contains("@Environment(AgentCommandCenterState.self)"))
     }
 
+    @Test("note chat mounts the SHARED AgentToolTogglePanel, bound to injected agentCommandCenter")
+    func noteChatSurfacesAgentToolPanel() throws {
+        let note = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        #expect(note.contains("AgentToolTogglePanel("))
+        #expect(note.contains("agentCommandCenter: agentCommandCenter"))
+        // Crash-safe: injected via withAppEnvironment (the note window applies it; embedded inherits).
+        #expect(note.contains("@Environment(AgentCommandCenterState.self)"))
+    }
+
     @Test("the SAME panel is used across chat surfaces — one registry, one picker, no clone")
     func sharedPanelAcrossSurfaces() throws {
         for path in [
@@ -40,6 +49,7 @@ struct SSVISWiderSweepTests {
             "Epistemos/Views/Landing/LandingView.swift",
             "Epistemos/Views/MiniChat/MiniChatView.swift",
             "Epistemos/Views/Graph/HologramSearchSidebar.swift",
+            "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift",
         ] {
             let src = try loadMirroredSourceTextFile(path)
             #expect(
