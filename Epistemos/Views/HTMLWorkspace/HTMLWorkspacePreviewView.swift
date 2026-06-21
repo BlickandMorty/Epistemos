@@ -5,12 +5,46 @@ nonisolated enum HTMLWorkspaceSafeAPI {
     static let messageHandlerName = "htmlWorkspaceSafeAPI"
 }
 
+/// SS-HW seam upgrade: the JS-console / error-capture bridge that was a deferred stub. Injects a
+/// read-only capture script (window 'error' + unhandledrejection + console.error/warn → Swift) so
+/// the already-built console pipeline (HTMLWorkspaceConsoleError + .recordConsoleError + the console
+/// panel) finally shows real runtime errors. Behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0 (default OFF
+/// → the bridge is not installed, byte-identical to before) because it changes WKWebView behavior +
+/// records errors into the document.
+nonisolated enum HTMLWorkspaceConsoleBridge {
+    static let messageHandlerName = "epistemosWorkspaceConsole"
+
+    static var enabled: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0"] == "1"
+    }
+
+    /// Read-only: forwards errors, never exposes an app API. Posts {message, source, line, column}.
+    static let injectionScript = """
+    (function(){
+      function post(message, source, line, column){
+        try {
+          window.webkit.messageHandlers.epistemosWorkspaceConsole.postMessage({
+            message: String(message), source: source || null, line: line || 0, column: column || 0
+          });
+        } catch (e) {}
+      }
+      window.addEventListener('error', function(e){ post(e.message || 'Error', e.filename, e.lineno, e.colno); });
+      window.addEventListener('unhandledrejection', function(e){ post('Unhandled promise rejection: ' + e.reason, null, 0, 0); });
+      var origError = console.error;
+      console.error = function(){ post(Array.prototype.slice.call(arguments).join(' '), null, 0, 0); origError.apply(console, arguments); };
+      var origWarn = console.warn;
+      console.warn = function(){ post(Array.prototype.slice.call(arguments).join(' '), null, 0, 0); origWarn.apply(console, arguments); };
+    })();
+    """
+}
+
 struct HTMLWorkspacePreviewView: NSViewRepresentable {
     var package: HTMLWorkspacePackage
     var safeAPIEnabled: Bool = false
     var previewTheme: HTMLWorkspacePreviewTheme? = nil
     var themeGuardCSSOverride: String? = nil
     var themeIdentity: String? = nil
+    var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -18,7 +52,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             safeAPIEnabled: safeAPIEnabled,
             previewTheme: previewTheme,
             themeGuardCSSOverride: themeGuardCSSOverride,
-            themeIdentity: themeIdentity
+            themeIdentity: themeIdentity,
+            onConsoleError: onConsoleError
         )
     }
 
@@ -33,6 +68,20 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 name: HTMLWorkspaceSafeAPI.messageHandlerName
             )
             context.coordinator.messageHandlerInstalled = true
+        }
+        if HTMLWorkspaceConsoleBridge.enabled, context.coordinator.onConsoleError != nil {
+            configuration.userContentController.add(
+                context.coordinator,
+                name: HTMLWorkspaceConsoleBridge.messageHandlerName
+            )
+            configuration.userContentController.addUserScript(
+                WKUserScript(
+                    source: HTMLWorkspaceConsoleBridge.injectionScript,
+                    injectionTime: .atDocumentStart,
+                    forMainFrameOnly: true
+                )
+            )
+            context.coordinator.consoleHandlerInstalled = true
         }
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -50,6 +99,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         context.coordinator.previewTheme = previewTheme
         context.coordinator.themeGuardCSSOverride = themeGuardCSSOverride
         context.coordinator.themeIdentity = themeIdentity
+        context.coordinator.onConsoleError = onConsoleError
         context.coordinator.syncSafeAPIHandler(for: webView)
         loadPreview(into: webView, context: context)
     }
@@ -77,6 +127,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         var themeIdentity: String?
         var lastRenderedHTML: String?
         var messageHandlerInstalled = false
+        var consoleHandlerInstalled = false
+        var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
         private let allowedNetworkSchemes: Set<String> = ["http", "https"]
 
         init(
@@ -84,13 +136,15 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             safeAPIEnabled: Bool,
             previewTheme: HTMLWorkspacePreviewTheme?,
             themeGuardCSSOverride: String?,
-            themeIdentity: String?
+            themeIdentity: String?,
+            onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
         ) {
             self.package = package
             self.safeAPIEnabled = safeAPIEnabled
             self.previewTheme = previewTheme
             self.themeGuardCSSOverride = themeGuardCSSOverride
             self.themeIdentity = themeIdentity
+            self.onConsoleError = onConsoleError
         }
 
         func webView(
@@ -139,6 +193,12 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 )
                 messageHandlerInstalled = false
             }
+            if consoleHandlerInstalled {
+                webView.configuration.userContentController.removeScriptMessageHandler(
+                    forName: HTMLWorkspaceConsoleBridge.messageHandlerName
+                )
+                consoleHandlerInstalled = false
+            }
             lastRenderedHTML = nil
         }
 
@@ -146,6 +206,18 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
+            // SS-HW: the JS-console capture channel → record one runtime error into the document's
+            // console pipeline (the safeAPI channel stays a deferred stub for now).
+            guard message.name == HTMLWorkspaceConsoleBridge.messageHandlerName,
+                  let body = message.body as? [String: Any] else { return }
+            let error = HTMLWorkspaceConsoleError(
+                message: (body["message"] as? String) ?? "Console error",
+                source: body["source"] as? String,
+                line: (body["line"] as? NSNumber)?.uint32Value ?? 0,
+                column: (body["column"] as? NSNumber)?.uint32Value ?? 0,
+                timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+            )
+            onConsoleError?(error)
         }
     }
 }

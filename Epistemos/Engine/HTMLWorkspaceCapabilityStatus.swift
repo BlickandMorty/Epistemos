@@ -26,7 +26,7 @@ enum HTMLWorkspaceCapabilityStatus {
         Capability(name: "Agent chat patch pipeline", isLive: true, note: "HTMLWorkspacePatchRouter applies edits"),
         Capability(name: "Export / import / PDF / snapshot", isLive: true, note: "Wired"),
         Capability(name: "App message-bridge", isLive: false, note: "didReceive handler is an empty stub; safeAPIEnabled defaults off"),
-        Capability(name: "JS console / error capture", isLive: false, note: "No window.onerror bridge — deferred"),
+        Capability(name: "JS console / error capture", isLive: false, note: "Bridge now wired (window error + unhandledrejection + console.error/warn → the consoleErrors pipeline + panel) behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0; default off"),
         Capability(name: "Live-DOM inspection", isLive: false, note: "Static regex of source, not the runtime DOM"),
         Capability(name: "Python (Pyodide / WASM)", isLive: false, note: "Not built — research"),
         Capability(name: "Full-surface regenerate", isLive: false, note: "Incremental patches only today — research"),
