@@ -458,3 +458,26 @@ decisions below WIN on any conflict. Realign now.
 4. **GENERAL RULE:** when a research doc (AGENT_STACK_CONVERGENCE / OPENCODE_FEASIBILITY / etc.) conflicts
    with this addendum or a 2026-06-21 owner directive, the OWNER DIRECTIVE WINS. Re-read the addendum each
    cycle; don't revert to a research recommendation the owner has already overridden.
+
+## 🆕 OPENCODE "HEAVINESS" — MITIGATION (owner 2026-06-21): the Electron/Tauri bloat is OPTIONAL
+THE CAVEAT ("this isn't what we thought"): OpenCode is **headless-FIRST** (a Bun/TS server: Hono + OpenAPI +
+SSE + typed SDK). The **Electron/Tauri web GUI is just ONE optional client** — the heaviness lives THERE, and
+**we do NOT ship it.** Per the owner's Option A, the UI we want is the **terminal TUI**, which is NOT Electron
+(it's terminal-cell rendering, no Chromium). So the perceived Electron/Tauri bloat largely **evaporates**.
+Mitigations (make heaviness ~non-existent):
+1. **Drop the Electron/Tauri web GUI entirely.** Never bundle Chromium. Headless engine only.
+2. **Render OpenCode's REAL terminal TUI in a NATIVE terminal view** (SwiftTerm / embedded PTY) — terminal
+   cells, palette-matched, no browser engine. Keeps the real UI (Option A) at terminal-light weight.
+3. **Engine = Bun headless server:** bundle the single **Bun binary (~90MB, one file)** — lighter than
+   Node+Electron; **lazy-launch only when WORK opens**, **loopback-only**, **kill-on-idle** (reuse the
+   existing subprocess-hardening + idle-unload discipline). Not running at app start.
+4. **Other clones aren't affected:** Osaurus/ACT is **native Swift — zero Electron.** Heaviness is an
+   OpenCode-only concern, and it's the GUI we skip.
+HONEST CAVEATS (not zero): still ~90MB Bun on disk (Pro build only) + real RAM when work is ACTIVE (mitigated
+by spawn-on-open/kill-on-idle) + PTY/SwiftTerm bridge is real engineering. But the footprint = "a lazy
+background server + a terminal view," NOT "an Electron app inside your app."
+ULTRA-LIGHT FALLBACK (if real-TUI-in-SwiftTerm feels clunky): render a NATIVE pixel-art terminal-look view
+over the headless engine (HTTP) — zero web/PTY weight; but that leans toward native-render (owner prefers the
+REAL UI, so use this only if the real-TUI path can't hit the feel/weight bar).
+RESEARCH ITEM (ordered): confirm OpenCode's TUI renders in SwiftTerm + measure Bun disk/RAM; choose
+real-TUI-in-PTY (preferred) vs native-terminal-render fallback.
