@@ -21,8 +21,12 @@ struct SubstrateHealthOffMainTests {
         #expect(src.contains("await Task.detached { snapshot() }.value"))
     }
 
-    @Test("every unified-snapshot health row polls off the MainActor (no synchronous FFI on main)")
-    func unifiedRowsFetchOffMain() throws {
+    // SS-SH dedup (corrected 2026-06-21): the 6 rows no longer each fetch — they read ONE shared
+    // snapshot from SubstrateHealthClock (6 FFI/sec → 1), and the single off-MainActor fetch lives
+    // in the clock driver. (The prior assertion that each ROW calls `snapshotAsync()` went stale
+    // after the clock migration — compiled, but failed when run; a DONE-RE-AUDIT catch.)
+    @Test("every unified-snapshot health row reads the ONE shared clock snapshot (no per-row FFI)")
+    func unifiedRowsReadSharedClock() throws {
         let rows = [
             "CognitiveDagCountsHealthRow",
             "CognitiveWeightClassHealthRow",
@@ -33,16 +37,29 @@ struct SubstrateHealthOffMainTests {
         ]
         for row in rows {
             let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/\(row).swift")
+            #expect(src.contains("healthClock?.unified"), "\(row) does not read the shared clock snapshot")
+            // No per-row off-main fetch — the clock is the single fetcher now.
             #expect(
-                src.contains("await SubstrateHealthUnifiedClient.snapshotAsync()"),
-                "\(row) does not fetch off the MainActor"
-            )
-            // The old synchronous on-MainActor fetch is gone.
+                !src.contains("await SubstrateHealthUnifiedClient.snapshotAsync()"),
+                "\(row) still does its own snapshotAsync; the clock should be the single fetcher")
+            // The old synchronous on-MainActor assignment is gone.
             #expect(
                 !src.contains("snapshot = SubstrateHealthUnifiedClient.snapshot()"),
-                "\(row) still calls the synchronous FFI on the MainActor"
-            )
+                "\(row) still calls the synchronous FFI on the MainActor")
         }
+        // The single off-MainActor fetch lives in the clock driver, once per tick.
+        let clock = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthClock.swift")
+        #expect(clock.contains("unified = await SubstrateHealthUnifiedClient.snapshotAsync()"))
+    }
+
+    @Test("UasAcs health row loads its UAS gates off the MainActor (the residual per-tick sync read)")
+    func uasAcsGateLoadOffMain() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/UasAcsHealthRow.swift")
+        // The per-tick gate load (copyCount + anchorLookup file reads) runs on a detached task —
+        // it was the one remaining 1 Hz synchronous read on the main thread in the panel.
+        #expect(src.contains("await Task.detached { UasAcsGateSnapshot.load() }.value"))
+        // The old synchronous on-main per-tick load is gone from the poll block.
+        #expect(!src.contains("gates = UasAcsGateSnapshot.load()"))
     }
 
     @Test("LocalAgentDiagnostics health row fetches its FFI off the MainActor (phase 2)")
