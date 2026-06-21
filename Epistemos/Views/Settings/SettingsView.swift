@@ -999,6 +999,10 @@ private struct GeneralDetailView: View {
                 // so without this the owner "didn't see raw thoughts, wasn't sure
                 // it's still a thing." Read-only; no flag flip, no dead toggle.
                 RawThoughtsHealthRow()
+                // SS-HW (owner 2026-06-20): honest HTML Workspace status — works as a renderer/editor
+                // + agent-patch surface, but app-bridge/live-DOM/console/Python/regenerate are deferred.
+                // The owner: "idk if its marked as such." Now it is. Read-only; no dead controls.
+                HTMLWorkspaceHealthRow()
                 AgentBlueprintSettingsView()
                 // ISSUE-2026-05-10-002 follow-up: per-provider cloud
                 // access visibility. Read-only, never displays credential values.
