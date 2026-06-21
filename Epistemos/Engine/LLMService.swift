@@ -2,6 +2,30 @@ import Foundation
 import Observation
 import os
 
+// MARK: - OpenAIResponsesTools
+
+/// Pure builder for the OpenAI Responses `tools` array — a top-level enum (not the @MainActor
+/// LLMService) so the honest parked behavior is trivially run-provable.
+///
+/// NOTE (parity #4): `code_interpreter` is parked — NEVER attached even when its toggle is on.
+/// Production logs show the Responses API returning 400 `"Unsupported tool type: code_interpreter"`
+/// even with the `container: { type: "auto" }` schema, for at least three reasons across
+/// accounts/models: (a) the model ID doesn't support code_interpreter (most of the GPT-5.x chat
+/// line), (b) the org lacks the feature entitlement, (c) the correct schema varies by model family.
+/// Until that's detectable per selection we keep the preference user-facing (and DISCLOSE it in
+/// Settings) but do NOT attach the tool, so it can't hard-400. The Anthropic `code_execution_20250825`
+/// beta in `anthropicServerSideTools` is the working code-interpreter-parity path.
+nonisolated enum OpenAIResponsesTools {
+    static func array(webSearchEnabled: Bool, codeInterpreterEnabled: Bool) -> [[String: Any]] {
+        var tools: [[String: Any]] = []
+        if webSearchEnabled {
+            tools.append(["type": "web_search"])
+        }
+        _ = codeInterpreterEnabled  // parked — see note above; intentionally never attached.
+        return tools
+    }
+}
+
 // MARK: - LLMClientProtocol
 
 @MainActor
@@ -3028,25 +3052,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     private func openAIToolsConfiguration() -> [[String: Any]] {
-        var tools: [[String: Any]] = []
-        if inference.openAIWebSearchEnabled {
-            tools.append(["type": "web_search"])
-        }
-        // NOTE (parity #4): `code_interpreter` attach is parked. User's
-        // production logs show the Responses API returning 400
-        // `"Unsupported tool type: code_interpreter"` even with the
-        // `container: { type: "auto" }` schema. That happens for at
-        // least three reasons on different accounts/models: (a) the
-        // model ID doesn't support code_interpreter (most of the
-        // GPT-5.x chat line), (b) the org lacks the feature
-        // entitlement, (c) the correct schema varies by model family.
-        // Until we can detect which of these applies per selection,
-        // we keep the toggle user-facing but do NOT attach the tool,
-        // so the toggle becomes a no-op instead of a hard 400. The
-        // Anthropic `code_execution_20250825` beta in
-        // `anthropicServerSideTools` still works and is the
-        // currently-functional code-interpreter-parity path.
-        return tools
+        OpenAIResponsesTools.array(
+            webSearchEnabled: inference.openAIWebSearchEnabled,
+            codeInterpreterEnabled: inference.openAICodeInterpreterEnabled
+        )
     }
 
     private func openAIToolsConflictWithJSONFormat(_ tools: [[String: Any]]) -> Bool {
