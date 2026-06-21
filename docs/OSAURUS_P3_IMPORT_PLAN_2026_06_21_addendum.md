@@ -481,3 +481,37 @@ over the headless engine (HTTP) — zero web/PTY weight; but that leans toward n
 REAL UI, so use this only if the real-TUI path can't hit the feel/weight bar).
 RESEARCH ITEM (ordered): confirm OpenCode's TUI renders in SwiftTerm + measure Bun disk/RAM; choose
 real-TUI-in-PTY (preferred) vs native-terminal-render fallback.
+
+## 🆕 DEEP OPTIMIZATION CYCLES + SECTIONS (owner 2026-06-21) — recurring, comprehensive
+Owner had hand-tuned optimizations BEFORE the clones. Two mandates: (a) PRESERVE the owner's existing
+optimizations (no-regress during clone integration), and (b) DEEP-OPTIMIZE the cloned code too (Osaurus/
+OpenCode/Goose may be less tuned than the owner's app). Run as RECURRING CYCLES + standing sections — not
+one-off. Each cycle: profile → find hotspot → optimize → verify (no regression + a measured win) → commit.
+Cadence: a deep-optimization pass at each tier boundary / every ~5 items + dedicated lower-but-CERTAIN passes.
+
+### Optimization DOMAINS (cover these + tangential terms not listed)
+- **Swift concurrency:** actor isolation, `@MainActor` boundaries, **off-MainActor inference**, **Task.detached**,
+  structured concurrency, `Sendable`/`nonisolated`, QoS/priority, task cancellation, avoid main-thread blocking,
+  `DispatchQueue.main.async` (never `.sync`) in UniFFI callbacks, `AsyncStream` `.bufferingNewest`, actor
+  re-entrancy, contention/lock-free, `nonisolated(unsafe)` only where proven.
+- **Memory:** memory-pressure handlers (warning/critical), bounded caches, **idle model unload**, KV-cache drop,
+  lazy-init / computed-getter deferral, TTL eviction, ring buffers, `releaseMemory`/`shrink_memory`, weak refs,
+  copy-on-write, autorelease scoping, resident-set reduction.
+- **Metal/GPU/inference:** pipeline-state caching, `deepUnload`, binary archive, working-set release, MLX/vmlx
+  quant (KIVI) memory benefit, batch/throughput, thermal-aware scaling.
+- **UI/render perf:** the **120fps editor** (Prose, no-regress), `TimelineView` over `Timer`, shared
+  `WKProcessPool`, dismantle/teardown of views, `@Query`/fetchLimit caps, lazy view init, diffing, scroll perf,
+  off-screen pause.
+- **Rust/agent_core:** tokio minimal features, writer-heap tuning, JSON compaction (no pretty on hot paths),
+  shm-pool eviction, session prune, zero-copy/shared buffers, bounded channels.
+- **I/O + DB:** SQLite PRAGMA (cache_size/mmap), FTS tuning, Spotlight body trim, `URLCache=nil`, batched writes,
+  async I/O.
+- **Startup/launch:** AppBootstrap lazy-init, cold-start, launch-smoke, deferred service wiring.
+- **Energy/thermal/binary:** low-power-mode scaling, thermal modifiers, dep minimization, binary size.
+
+### Rules
+- **No-regress guardrails:** the 2,679-test suite, the Prose 120fps/50k-word bar, AppGroup/AppKit perf — never
+  regressed by clone integration or optimization. Each optimization proves a win + zero regression (real-state).
+- **Optimize the clones to owner-app standard:** apply these domains to Osaurus/OpenCode/Goose code as it lands.
+- **Sequencing:** runs as a STANDING TRACK throughout + dedicated deep passes sequenced LOWER but CERTAIN (not
+  "deferred"/droppable). Add found hotspots to the ledger as ordered items.
