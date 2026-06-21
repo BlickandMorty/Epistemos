@@ -1,0 +1,2481 @@
+# stash@{11}: stash@{11}: On master: auto-stash for ff pull 160254
+# === TRACKED changes (filtered: no build artifacts) ===
+diff --git a/.claude/settings.local.json b/.claude/settings.local.json
+index 81850cb71..ccc21055e 100644
+--- a/.claude/settings.local.json
++++ b/.claude/settings.local.json
+@@ -235,7 +235,8 @@
+       "Bash(/tmp/ssm_audit.txt:*)",
+       "Bash(/tmp/check_switches.swift:*)",
+       "Bash(sort -k6 -r)",
+-      "Bash(awk '{print $5, $NF}')"
++      "Bash(awk '{print $5, $NF}')",
++      "Bash([ -d \"$wt/$crate/target\" ])"
+     ],
+     "additionalDirectories": [
+       "/tmp"
+diff --git a/Epistemos/App/AppBootstrap.swift b/Epistemos/App/AppBootstrap.swift
+index e718938e1..2d1f5d684 100644
+--- a/Epistemos/App/AppBootstrap.swift
++++ b/Epistemos/App/AppBootstrap.swift
+@@ -2007,7 +2007,7 @@ final class AppBootstrap {
+         // note) moves from click-time to launch-time. Uses the canonical
+         // R.3 fallback chain so disk-only pages (production majority) are
+         // covered alongside inline-body pages.
+-        Task.detached(priority: .utility) {
++        Task.detached(priority: .userInitiated) {
+             await AppBootstrap.prewarmRecentBlockMirrors(
+                 modelContainer: container,
+                 limit: 5
+diff --git a/Epistemos/App/ChatCoordinator.swift b/Epistemos/App/ChatCoordinator.swift
+index c1d762574..eb64ae629 100644
+--- a/Epistemos/App/ChatCoordinator.swift
++++ b/Epistemos/App/ChatCoordinator.swift
+@@ -61,6 +61,25 @@ final class ChatCoordinator {
+     let loadedNoteTitles: [String]
+   }
+ 
++  nonisolated static func validateMissionPacketRuntimeContract(
++    metadata: [String: String],
++    resolvedRuntime: ResolvedBrainDescriptor
++  ) throws {
++    guard metadata["agent_blueprint"] == "true" else { return }
++    if AgentMissionPacket.requiresLocalOnlyRuntime(metadata: metadata),
++       case .cloud(let provider, _) = resolvedRuntime {
++      throw AgentRuntimeError(
++        message: "MissionPacket requires local-only runtime; refused hidden cloud fallback to \(provider)."
++      )
++    }
++    if !AgentMissionPacket.allowsExplicitCloudEscalation(metadata: metadata),
++       case .cloud(let provider, _) = resolvedRuntime {
++      throw AgentRuntimeError(
++        message: "MissionPacket does not allow explicit cloud escalation; refused cloud runtime \(provider)."
++      )
++    }
++  }
++
+   private struct VaultLookupFallbackCandidate {
+     let pageId: String
+     let title: String
+diff --git a/Epistemos/App/RootView.swift b/Epistemos/App/RootView.swift
+index 67e68eed2..130a5780b 100644
+--- a/Epistemos/App/RootView.swift
++++ b/Epistemos/App/RootView.swift
+@@ -730,8 +730,8 @@ struct LocalModelToolbarMenu: View {
+         NativeControlSystem.reservedWidth(
+             for: [
+                 "Apple Intelligence Tools",
+-                "GPT-5.4 Thinking",
+-                "GPT-5.4 Pro",
++                "GPT-4o Thinking",
++                "GPT-4o Pro",
+                 "Gemini 2.5 Pro Tools",
+                 "Qwen 35B Thinking",
+             ],
+@@ -752,7 +752,7 @@ struct LocalModelToolbarMenu: View {
+         NativeControlSystem.reservedWidth(
+             for: [
+                 "Apple Intelligence",
+-                "GPT-5.4",
++                "GPT-4o",
+                 "Qwen 34B",
+                 "DeepSeek R1 7B",
+                 "Auto Route",
+@@ -1838,7 +1838,7 @@ struct LocalModelToolbarMenu: View {
+                                     // auto-route default), leaving the chat
+                                     // primary on whatever local model the user
+                                     // had previously selected — that's the
+-                                    // "I picked GPT-5.4 but got DeepSeek R1 7B
++                                    // "I picked GPT-4o but got DeepSeek R1 7B
+                                     // memory error" regression users hit on
+                                     // 2026-04-20. Also refresh the
+                                     // auto-route cloud preference so the
+diff --git a/Epistemos/Engine/AmbientFrequencyLivePlayer.swift b/Epistemos/Engine/AmbientFrequencyLivePlayer.swift
+index 7127f0314..544d5a4b6 100644
+--- a/Epistemos/Engine/AmbientFrequencyLivePlayer.swift
++++ b/Epistemos/Engine/AmbientFrequencyLivePlayer.swift
+@@ -106,6 +106,9 @@ final class AmbientFrequencyLivePlayer {
+         let outputFormat = engine.outputNode.outputFormat(forBus: 0)
+         let sampleRate = outputFormat.sampleRate
+         let channelCount = outputFormat.channelCount
++        guard sampleRate.isFinite, sampleRate > 0 else {
++            throw AmbientFrequencyLivePlayerError.invalidOutputFormat
++        }
+ 
+         // Build a stereo render format so we can deliver per-channel L/R.
+         // Use the same sample rate the hardware chose to avoid format
+@@ -124,28 +127,31 @@ final class AmbientFrequencyLivePlayer {
+         // calls, NO allocations, NO locks. Just pointer math + libm.
+         let node = AVAudioSourceNode(format: renderFormat) { _, _, frameCount, audioBufferList in
+             let bufferList = UnsafeMutableAudioBufferListPointer(audioBufferList)
++            for buffer in bufferList {
++                if let data = buffer.mData {
++                    memset(data, 0, Int(buffer.mDataByteSize))
++                }
++            }
+ 
+             // Stereo render: write left into buffers[0], right into buffers[1].
+             // SwiftUI standard format is non-interleaved 32-bit float, so each
+             // buffer holds `frameCount` Float32 samples.
+             guard bufferList.count >= 2 else {
+-                // Fallback: zero out everything and bail.
+-                for buffer in bufferList {
+-                    if let data = buffer.mData {
+-                        memset(data, 0, Int(buffer.mDataByteSize))
+-                    }
+-                }
+                 return noErr
+             }
+ 
+             let leftPtr = bufferList[0].mData?.assumingMemoryBound(to: Float.self)
+             let rightPtr = bufferList[1].mData?.assumingMemoryBound(to: Float.self)
+             guard let leftPtr, let rightPtr else { return noErr }
++            let leftFrames = Int(bufferList[0].mDataByteSize) / MemoryLayout<Float>.stride
++            let rightFrames = Int(bufferList[1].mDataByteSize) / MemoryLayout<Float>.stride
++            let safeFrameCount = min(Int(frameCount), leftFrames, rightFrames)
++            guard safeFrameCount > 0 else { return noErr }
+ 
+             params.renderBlock(
+                 leftPtr: leftPtr,
+                 rightPtr: rightPtr,
+-                frameCount: Int(frameCount),
++                frameCount: safeFrameCount,
+                 sampleRate: Float(sampleRate)
+             )
+ 
+@@ -155,6 +161,7 @@ final class AmbientFrequencyLivePlayer {
+         engine.attach(node)
+         engine.connect(node, to: engine.mainMixerNode, format: renderFormat)
+ 
++        engine.prepare()
+         try engine.start()
+         sourceNode = node
+         isRunning = true
+@@ -193,26 +200,26 @@ final class AmbientFrequencyLivePlayer {
+ 
+     /// Set the active waveform.
+     func setWaveform(_ waveform: Waveform) {
+-        params.waveform = waveform.rawValue
++        params.waveform = Float(waveform.rawValue)
+     }
+ 
+     /// Toggle mute (gain → 0 with smoothing; doesn't reset phase).
+     func setMuted(_ muted: Bool) {
+-        params.muted = muted
++        params.muted = muted ? 1 : 0
+     }
+ 
+     /// Set live bit-depth crush. `bitDepth ∈ [1, 16]`; 16 = no effect,
+     /// 8 = Amiga/NES era, 4 = Atari 4-bit volume, 1 = PC speaker beeper.
+     /// Applied after the waveform, before pan/gain. Real-time updatable.
+     func setBitCrushDepth(_ bits: Int) {
+-        params.bitCrushDepth = min(max(bits, 1), 16)
++        params.bitCrushDepth = Float(min(max(bits, 1), 16))
+     }
+ 
+     /// Set live sample-rate reduction (zero-order hold). `holdFactor ∈ [1, 64]`;
+     /// 1 = no effect, 8 = every 8th sample held (8 kHz effective at 64 kHz).
+     /// The aliasing IS the vintage chip effect.
+     func setSampleRateHold(_ factor: Int) {
+-        params.sampleRateHold = min(max(factor, 1), 64)
++        params.sampleRateHold = Float(min(max(factor, 1), 64))
+     }
+ 
+     // MARK: - Read-only state observation (UI side)
+@@ -220,6 +227,50 @@ final class AmbientFrequencyLivePlayer {
+     var currentSmoothedFrequency: Float { params.smoothedFrequencyForUI }
+     var currentSmoothedPan: Float { params.smoothedPanForUI }
+     var currentSmoothedGain: Float { params.smoothedGainForUI }
++
++    @inline(__always)
++    static func sanitizedFrequency(_ value: Float, fallback: Float) -> Float {
++        guard value.isFinite else { return fallback.isFinite ? fallback : 440 }
++        return min(max(value, minFrequencyHz), maxFrequencyHz)
++    }
++
++    @inline(__always)
++    static func sanitizedPan(_ value: Float) -> Float {
++        guard value.isFinite else { return 0 }
++        return min(max(value, -1), 1)
++    }
++
++    @inline(__always)
++    static func sanitizedGain(_ value: Float) -> Float {
++        guard value.isFinite else { return 0 }
++        return min(max(value, 0), 1)
++    }
++
++    @inline(__always)
++    static func sanitizedWaveform(_ value: Float) -> Int {
++        guard value.isFinite else { return Waveform.sineWave.rawValue }
++        guard value >= 0, value <= Float(Waveform.whiteNoise.rawValue) else {
++            return Waveform.sineWave.rawValue
++        }
++        let raw = Int(value.rounded())
++        return Waveform(rawValue: raw) == nil ? Waveform.sineWave.rawValue : raw
++    }
++
++    @inline(__always)
++    static func sanitizedBitCrushDepth(_ value: Float) -> Int {
++        guard value.isFinite else { return 16 }
++        if value <= 1 { return 1 }
++        if value >= 16 { return 16 }
++        return Int(value.rounded())
++    }
++
++    @inline(__always)
++    static func sanitizedSampleRateHold(_ value: Float) -> Int {
++        guard value.isFinite else { return 1 }
++        if value <= 1 { return 1 }
++        if value >= 64 { return 64 }
++        return Int(value.rounded())
++    }
+ }
+ 
+ /// Shared parameter block. UI-side mutations are atomic per-field (single
+@@ -235,12 +286,12 @@ private final class LivePlayerParameters: @unchecked Sendable {
+     var targetFrequency: Float = 440
+     var targetPan: Float = 0
+     var targetGain: Float = 0.3
+-    var waveform: Int = AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue
+-    var muted: Bool = false
++    var waveform: Float = Float(AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
++    var muted: Float = 0
+     /// Bit-depth crush, [1, 16]; 16 = no effect, lower = "pixel crunch."
+-    var bitCrushDepth: Int = 16
++    var bitCrushDepth: Float = 16
+     /// Sample-rate reduction (zero-order hold), [1, 64]; 1 = no effect.
+-    var sampleRateHold: Int = 1
++    var sampleRateHold: Float = 1
+ 
+     // Smoothed values updated per-sample on audio thread; mirrored to UI
+     // for visual feedback. UI-side reads are atomic Float; small tearing OK.
+@@ -271,6 +322,11 @@ private final class LivePlayerParameters: @unchecked Sendable {
+     /// once at engine start (and on sample-rate changes if the OS swaps
+     /// audio routes).
+     func precomputeSmootherCoefficients(sampleRate: Float) {
++        guard sampleRate.isFinite, sampleRate > 0 else {
++            gainPanAlpha = 0.999
++            frequencyAlpha = 0.9998
++            return
++        }
+         // α = exp(-1 / (timeConstantSeconds · sampleRate))
+         let gainPanTimeConstant: Float = 0.020   // 20 ms — snappy
+         let frequencyTimeConstant: Float = 0.080 // 80 ms — musical pitch glide
+@@ -288,13 +344,23 @@ private final class LivePlayerParameters: @unchecked Sendable {
+     ) {
+         let halfPi: Float = .pi / 2
+         let twoPi: Double = 2.0 * .pi
+-        let mutedFlag = muted
++        let sampleRate = sampleRate.isFinite && sampleRate > 0 ? sampleRate : 48_000
++        let mutedFlag = muted >= 0.5
+ 
+         for i in 0..<frameCount {
++            let frequencyTarget = AmbientFrequencyLivePlayer.sanitizedFrequency(
++                targetFrequency,
++                fallback: smoothedFrequency
++            )
++            let panTarget = AmbientFrequencyLivePlayer.sanitizedPan(targetPan)
++            let gainTarget = mutedFlag ? 0 : AmbientFrequencyLivePlayer.sanitizedGain(targetGain)
++            let waveformTarget = AmbientFrequencyLivePlayer.sanitizedWaveform(waveform)
++            let hold = AmbientFrequencyLivePlayer.sanitizedSampleRateHold(sampleRateHold)
++            let bits = AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(bitCrushDepth)
++
+             // 1) Smooth params (one-pole IIR per sample).
+-            smoothedFrequency = frequencyAlpha * smoothedFrequency + (1 - frequencyAlpha) * targetFrequency
+-            smoothedPan = gainPanAlpha * smoothedPan + (1 - gainPanAlpha) * targetPan
+-            let gainTarget = mutedFlag ? 0 : targetGain
++            smoothedFrequency = frequencyAlpha * smoothedFrequency + (1 - frequencyAlpha) * frequencyTarget
++            smoothedPan = gainPanAlpha * smoothedPan + (1 - gainPanAlpha) * panTarget
+             smoothedGain = gainPanAlpha * smoothedGain + (1 - gainPanAlpha) * gainTarget
+ 
+             // 2) Advance phase accumulator. Phase is double-precision to
+@@ -304,7 +370,7 @@ private final class LivePlayerParameters: @unchecked Sendable {
+ 
+             // 3) Compute waveform sample at current phase.
+             let sample: Float
+-            switch waveform {
++            switch waveformTarget {
+             case 0: // sineWave
+                 sample = Float(sin(phase * twoPi))
+             case 1: // triangleWave
+@@ -331,7 +397,6 @@ private final class LivePlayerParameters: @unchecked Sendable {
+             // 4) PIXEL CRUNCH — sample-rate reduce (zero-order hold) BEFORE
+             //    bit-crush, per Sonalksis/TAL canonical Decimator topology.
+             //    Aliasing is the desired effect.
+-            let hold = sampleRateHold
+             var crunched: Float
+             if hold > 1 {
+                 if holdCounter == 0 {
+@@ -346,7 +411,6 @@ private final class LivePlayerParameters: @unchecked Sendable {
+ 
+             // 5) PIXEL CRUNCH — bit-depth crush (musicdsp.org #124 midrise).
+             //    bitDepth = 16 → no effect; 8 = Amiga/NES; 4 = Atari; 1 = PC speaker.
+-            let bits = bitCrushDepth
+             if bits < 16 {
+                 let levels = Float(1 << (bits - 1))
+                 crunched = (crunched * levels).rounded() / levels
+@@ -373,10 +437,13 @@ private final class LivePlayerParameters: @unchecked Sendable {
+ }
+ 
+ enum AmbientFrequencyLivePlayerError: Error, LocalizedError {
++    case invalidOutputFormat
+     case couldNotCreateRenderFormat
+ 
+     var errorDescription: String? {
+         switch self {
++        case .invalidOutputFormat:
++            return "Could not start live playback because the current audio output format has no valid sample rate."
+         case .couldNotCreateRenderFormat:
+             return "Could not create AVAudioFormat for live playback (stereo 32-bit float)."
+         }
+diff --git a/Epistemos/Engine/EpistemosSpeechSynthesizer.swift b/Epistemos/Engine/EpistemosSpeechSynthesizer.swift
+index 31bb822b1..a2474d72b 100644
+--- a/Epistemos/Engine/EpistemosSpeechSynthesizer.swift
++++ b/Epistemos/Engine/EpistemosSpeechSynthesizer.swift
+@@ -138,8 +138,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
+         }
+ 
+         let utterance = AVSpeechUtterance(string: cleaned)
+-        utterance.rate = rate
+-        utterance.pitchMultiplier = pitch
++        utterance.rate = Self.clampedRate(rate)
++        utterance.pitchMultiplier = Self.clampedPitch(pitch)
+         utterance.voice = Self.resolveVoice(identifier: voiceIdentifier)
+         let id = UUID().uuidString
+         inflight[id] = utterance
+@@ -271,6 +271,16 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
+         }
+     }
+ 
++    static func clampedRate(_ value: Float) -> Float {
++        guard value.isFinite else { return AVSpeechUtteranceDefaultSpeechRate }
++        return min(max(value, AVSpeechUtteranceMinimumSpeechRate), AVSpeechUtteranceMaximumSpeechRate)
++    }
++
++    static func clampedPitch(_ value: Float) -> Float {
++        guard value.isFinite else { return 1.0 }
++        return min(max(value, 0.5), 2.0)
++    }
++
+     // MARK: - AVSpeechSynthesizerDelegate
+ 
+     nonisolated public func speechSynthesizer(
+diff --git a/Epistemos/Engine/LLMService.swift b/Epistemos/Engine/LLMService.swift
+index 7f8a50b1b..7b9687ccc 100644
+--- a/Epistemos/Engine/LLMService.swift
++++ b/Epistemos/Engine/LLMService.swift
+@@ -2824,11 +2824,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
+             return nil
+         }
+ 
+-        // Non-reasoning models (GPT-4.1, o3-*) hard-400 on reasoning.effort
++        // Non-reasoning models (GPT-4o, GPT-4.1, o3-*) hard-400 on reasoning.effort
+         // per OpenAI's responses API. Gate at the model-type level.
+         let isReasoningModel: Bool
+         switch model {
+-        case .openAIGPT54, .openAIGPT52, .openAIGPT54Mini, .openAIGPT54Nano:
++        case .openAIGPT52, .openAIGPT54Nano:
+             isReasoningModel = true
+         default:
+             isReasoningModel = false
+@@ -2891,7 +2891,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
+         // because `reasoningEffort: "none"` doesn't produce summaries
+         // anyway.
+         return switch model {
+-        case .openAIGPT54, .openAIGPT52:
++        case .openAIGPT52:
+             switch operatingMode {
+             case .fast:
+                 OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
+@@ -2914,29 +2914,6 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
+                     reasoningSummary: "auto"
+                 )
+             }
+-        case .openAIGPT54Mini:
+-            switch operatingMode {
+-            case .fast:
+-                OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
+-            case .thinking:
+-                OpenAIResponseControls(
+-                    reasoningEffort: "low",
+-                    verbosity: "medium",
+-                    reasoningSummary: "auto"
+-                )
+-            case .pro:
+-                OpenAIResponseControls(
+-                    reasoningEffort: "medium",
+-                    verbosity: "medium",
+-                    reasoningSummary: "auto"
+-                )
+-            case .agent:
+-                OpenAIResponseControls(
+-                    reasoningEffort: "low",
+-                    verbosity: "low",
+-                    reasoningSummary: "auto"
+-                )
+-            }
+         case .openAIGPT54Nano:
+             switch operatingMode {
+             case .fast:
+diff --git a/Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift b/Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift
+index 267438f47..c754fd08f 100644
+--- a/Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift
++++ b/Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift
+@@ -138,9 +138,12 @@ actor AudioTranscriber {
+         }
+ 
+         let payload: AppleSpeechPayload = try await withCheckedThrowingContinuation { continuation in
++            let resumeGate = SingleResumeGate()
+             _ = recognizer.recognitionTask(with: request) { result, error in
+                 if let error {
+-                    continuation.resume(throwing: error)
++                    resumeGate.resume {
++                        continuation.resume(throwing: error)
++                    }
+                     return
+                 }
+                 guard let result, result.isFinal else { return }
+@@ -157,11 +160,13 @@ actor AudioTranscriber {
+                         speaker: nil
+                     )
+                 }
+-                continuation.resume(returning: AppleSpeechPayload(
+-                    fullText: fullText,
+-                    segments: segments,
+-                    wordsPerMinute: wpm
+-                ))
++                resumeGate.resume {
++                    continuation.resume(returning: AppleSpeechPayload(
++                        fullText: fullText,
++                        segments: segments,
++                        wordsPerMinute: wpm
++                    ))
++                }
+             }
+         }
+ 
+@@ -396,6 +401,22 @@ actor AudioTranscriber {
+     #endif // !EPISTEMOS_APP_STORE -- end of MLX Whisper / whisper.cpp / runProcess block
+ }
+ 
++private nonisolated final class SingleResumeGate: @unchecked Sendable {
++    private let lock = NSLock()
++    private var didResume = false
++
++    func resume(_ body: () -> Void) {
++        lock.lock()
++        guard !didResume else {
++            lock.unlock()
++            return
++        }
++        didResume = true
++        lock.unlock()
++        body()
++    }
++}
++
+ enum AudioTranscriberError: Error, LocalizedError {
+     case noBackendAvailable
+     case invalidOutput
+diff --git a/Epistemos/Resources/Localizable.xcstrings b/Epistemos/Resources/Localizable.xcstrings
+index 974b3bfe4..809476a1b 100644
+--- a/Epistemos/Resources/Localizable.xcstrings
++++ b/Epistemos/Resources/Localizable.xcstrings
+@@ -64,6 +64,10 @@
+     },
+     "#%lld" : {
+ 
++    },
++    "#%llu" : {
++      "comment" : "A badge displaying the sequence number of an event in an agent's run timeline.",
++      "isCommentAutoGenerated" : true
+     },
+     "%@" : {
+ 
+@@ -539,6 +543,10 @@
+     },
+     "+" : {
+ 
++    },
++    "+ %lld cold route candidates" : {
++      "comment" : "A note at the bottom of the view that indicates there are additional route candidates that are not currently being shown.",
++      "isCommentAutoGenerated" : true
+     },
+     "+ add agent" : {
+       "comment" : "A button that lets the user add a new companion.",
+@@ -676,6 +684,10 @@
+     },
+     "Active Adapter" : {
+ 
++    },
++    "Active constellation" : {
++      "comment" : "The title of a section in the Diagnostics view that displays information about the active model constellation.",
++      "isCommentAutoGenerated" : true
+     },
+     "Active Local Model" : {
+ 
+@@ -772,6 +784,10 @@
+     },
+     "Agent spend" : {
+ 
++    },
++    "AgentBlueprint" : {
++      "comment" : "The title of the main settings screen in the AgentBlueprint app.",
++      "isCommentAutoGenerated" : true
+     },
+     "AGENTS" : {
+ 
+@@ -905,6 +921,10 @@
+     },
+     "Apply Retention Now" : {
+ 
++    },
++    "Approval" : {
++      "comment" : "A label displayed above a picker for an agent's approval mode.",
++      "isCommentAutoGenerated" : true
+     },
+     "Approval modal preview" : {
+ 
+@@ -1101,6 +1121,14 @@
+     },
+     "Blocklist" : {
+ 
++    },
++    "Blueprint" : {
++      "comment" : "The title of the section within the settings view related to the agent's blueprint.",
++      "isCommentAutoGenerated" : true
++    },
++    "Blueprint submission runs through the same Command Center compiler and agent runtime path as live tool sessions." : {
++      "comment" : "A description of how blueprint submissions are handled.",
++      "isCommentAutoGenerated" : true
+     },
+     "Body" : {
+ 
+@@ -2749,6 +2777,10 @@
+     },
+     "Local" : {
+ 
++    },
++    "Local agent diagnostics" : {
++      "comment" : "The title of a section in the Local Agent Diagnostics view.",
++      "isCommentAutoGenerated" : true
+     },
+     "Local models" : {
+ 
+@@ -2832,6 +2864,18 @@
+     },
+     "Mini chat message input" : {
+ 
++    },
++    "Mission" : {
++      "comment" : "A label displayed above the text field for the mission objective.",
++      "isCommentAutoGenerated" : true
++    },
++    "Mission objective" : {
++      "comment" : "A label for the user to input the mission objective for the agent.",
++      "isCommentAutoGenerated" : true
++    },
++    "MissionPacket" : {
++      "comment" : "A label displayed above the MissionPacket section in the settings view.",
++      "isCommentAutoGenerated" : true
+     },
+     "Mistral 7B" : {
+ 
+@@ -3042,6 +3086,10 @@
+     },
+     "No commands match \"%@\"" : {
+ 
++    },
++    "No committed events" : {
++      "comment" : "A message displayed when there are no committed events in the timeline.",
++      "isCommentAutoGenerated" : true
+     },
+     "No committed provenance events yet" : {
+ 
+@@ -3084,6 +3132,10 @@
+       "comment" : "A message displayed when there are no local models installed for training.",
+       "isCommentAutoGenerated" : true
+     },
++    "No local-agent route table is available." : {
++      "comment" : "A message displayed when there is no local-agent route table available.",
++      "isCommentAutoGenerated" : true
++    },
+     "No matches" : {
+ 
+     },
+@@ -3178,6 +3230,10 @@
+     },
+     "No runs yet" : {
+ 
++    },
++    "No runtime tools are available for the active vault and build profile." : {
++      "comment" : "A message displayed when there are no runtime tools available for the active vault and build profile.",
++      "isCommentAutoGenerated" : true
+     },
+     "No saved workspaces" : {
+ 
+@@ -3879,6 +3935,14 @@
+     },
+     "Recent Message Audit" : {
+ 
++    },
++    "Recent model counters" : {
++      "comment" : "A label displayed above a list of the user's recent model counters.",
++      "isCommentAutoGenerated" : true
++    },
++    "Recent Runs" : {
++      "comment" : "A label displayed above a section of the settings view that lists recent blueprint runs.",
++      "isCommentAutoGenerated" : true
+     },
+     "Recent thread coverage" : {
+ 
+@@ -3917,6 +3981,10 @@
+       "comment" : "A button that refreshes the list of items in a sidebar.",
+       "isCommentAutoGenerated" : true
+     },
++    "Refresh RunEventLog replay status" : {
++      "comment" : "A button to refresh the status of the RunEventLog replay.",
++      "isCommentAutoGenerated" : true
++    },
+     "Refresh setup status" : {
+ 
+     },
+@@ -4063,17 +4131,36 @@
+       "comment" : "A longer description of the \"Shaped Graph (experimental)\" setting.",
+       "isCommentAutoGenerated" : true
+     },
++    "Replay" : {
++      "comment" : "A button label that triggers the replay of a mission.",
++      "isCommentAutoGenerated" : true
++    },
++    "Replay timeline" : {
++      "comment" : "A button to replay the timeline.",
++      "isCommentAutoGenerated" : true
++    },
+     "Require Healthy Power" : {
+ 
+     },
+     "Required-reason API declarations" : {
+ 
++    },
++    "Requires approval" : {
++      "comment" : "A tooltip that appears when a destructive or confirmation-required tool is toggled on. It explains that such tools require approval.",
++      "isCommentAutoGenerated" : true
+     },
+     "Research" : {
+ 
++    },
++    "Research Assistant" : {
++      "comment" : "A text field for the name of a research assistant.",
++      "isCommentAutoGenerated" : true
+     },
+     "Research Posture" : {
+ 
++    },
++    "Research role" : {
++
+     },
+     "Research scaffold only. No v1 runtime controls are exposed." : {
+ 
+@@ -4241,6 +4328,10 @@
+     },
+     "Rich matches come from your vault inventory and recent note excerpts." : {
+ 
++    },
++    "Role" : {
++      "comment" : "A label for the \"Role\" field in the Blueprint settings form.",
++      "isCommentAutoGenerated" : true
+     },
+     "Role (optional)" : {
+ 
+@@ -4271,12 +4362,24 @@
+     },
+     "Rows in Notes/Graph may be cached local data until a vault is selected." : {
+ 
++    },
++    "Run" : {
++      "comment" : "A button that runs the blueprint.",
++      "isCommentAutoGenerated" : true
+     },
+     "Run %@" : {
+ 
++    },
++    "Run a blueprint to persist a replayable MissionPacket here." : {
++      "comment" : "A message displayed when there are no recent mission records to display.",
++      "isCommentAutoGenerated" : true
+     },
+     "Run a prompt in main chat to see the Overseer's route selection, depth budget, mask plan, and tool permissions appear here." : {
+ 
++    },
++    "Run acceptance witness" : {
++      "comment" : "A button that triggers the evaluation of the F-ULP oracle.",
++      "isCommentAutoGenerated" : true
+     },
+     "Run Agent Runtime Task" : {
+ 
+@@ -4286,9 +4389,21 @@
+     },
+     "Run Native Setup" : {
+ 
++    },
++    "Run timeline" : {
++      "comment" : "A button label that initiates the running of a timeline.",
++      "isCommentAutoGenerated" : true
++    },
++    "RunEventLog" : {
++      "comment" : "A label describing the run event log.",
++      "isCommentAutoGenerated" : true
+     },
+     "Running native iMessage setup…" : {
+ 
++    },
++    "Running…" : {
++      "comment" : "The text shown while a task is running in the background.",
++      "isCommentAutoGenerated" : true
+     },
+     "Runtime" : {
+ 
+@@ -4408,6 +4523,10 @@
+     },
+     "Scanning your notes & conversations…" : {
+ 
++    },
++    "Scope" : {
++      "comment" : "A label displayed above a picker for an agent's scope.",
++      "isCommentAutoGenerated" : true
+     },
+     "Search" : {
+ 
+@@ -4827,6 +4946,22 @@
+       "comment" : "A label displayed alongside the slider in the cursor force field panel.",
+       "isCommentAutoGenerated" : true
+     },
++    "strict %lld · soft %lld · drift %lld" : {
++      "comment" : "A description of how many times a grammar was used, including how many times it was used in a strict fallback, a soft fallback, and when a schema drift event occurred.",
++      "isCommentAutoGenerated" : true,
++      "localizations" : {
++        "en" : {
++          "stringUnit" : {
++            "state" : "new",
++            "value" : "strict %1$lld · soft %2$lld · drift %3$lld"
++          }
++        }
++      }
++    },
++    "Strict grammar, schema drift, and constellation routing" : {
++      "comment" : "A description of the features included in the Local Agent Diagnostics.",
++      "isCommentAutoGenerated" : true
++    },
+     "Strikethrough" : {
+ 
+     },
+@@ -4839,6 +4974,10 @@
+     },
+     "Submit the current question." : {
+ 
++    },
++    "Submitting" : {
++      "comment" : "A button label indicating that a blueprint submission is in progress.",
++      "isCommentAutoGenerated" : true
+     },
+     "Summarise" : {
+ 
+@@ -5069,6 +5208,10 @@
+     },
+     "Tool tier" : {
+ 
++    },
++    "Tools" : {
++      "comment" : "The title of a section in the settings view related to tools.",
++      "isCommentAutoGenerated" : true
+     },
+     "Top-P" : {
+ 
+@@ -5322,6 +5465,10 @@
+     },
+     "W3C equal-power pan law — leftGain² + rightGain² = 1 (constant power, -3 dB center)." : {
+ 
++    },
++    "waiting for committed events · %@" : {
++      "comment" : "A label indicating that the run event log is still being fetched from the server. The argument is the 8-character prefix of the mission ID.",
++      "isCommentAutoGenerated" : true
+     },
+     "Warming up" : {
+ 
+diff --git a/Epistemos/State/AppDataRetentionPolicy.swift b/Epistemos/State/AppDataRetentionPolicy.swift
+index 0c59e4ce3..ab906ed57 100644
+--- a/Epistemos/State/AppDataRetentionPolicy.swift
++++ b/Epistemos/State/AppDataRetentionPolicy.swift
+@@ -29,7 +29,7 @@ nonisolated enum AppDataRetentionPolicy {
+         var auditLogRetentionDays: Int
+         var savedWorkspaceLimit: Int
+ 
+-        var eventStorePolicy: EventStore.RetentionPolicy {
++        nonisolated var eventStorePolicy: EventStore.RetentionPolicy {
+             EventStore.RetentionPolicy(
+                 timeMachineRetentionDays: timeMachineRetentionDays,
+                 timeMachineMaxSnapshots: timeMachineMaxSnapshots,
+@@ -40,7 +40,7 @@ nonisolated enum AppDataRetentionPolicy {
+         }
+     }
+ 
+-    static func current(defaults: UserDefaults = .standard) -> Snapshot {
++    nonisolated static func current(defaults: UserDefaults = .standard) -> Snapshot {
+         Snapshot(
+             timeMachineRetentionDays: boundedDays(
+                 defaults.integerOrDefault(forKey: timeMachineRetentionDaysKey, defaultValue: defaultTimeMachineRetentionDays)
+@@ -67,7 +67,7 @@ nonisolated enum AppDataRetentionPolicy {
+         )
+     }
+ 
+-    static func label(forDays days: Int) -> String {
++    nonisolated static func label(forDays days: Int) -> String {
+         switch days {
+         case 0:
+             return "Forever"
+@@ -78,11 +78,11 @@ nonisolated enum AppDataRetentionPolicy {
+         }
+     }
+ 
+-    static func savedWorkspaceLimitLabel(_ limit: Int) -> String {
++    nonisolated static func savedWorkspaceLimitLabel(_ limit: Int) -> String {
+         limit <= 0 ? "Unlimited" : "\(limit)"
+     }
+ 
+-    static func summaryLabel(eventSummary: EventStore.RetentionPruneSummary, workspaceDeletes: Int) -> String {
++    nonisolated static func summaryLabel(eventSummary: EventStore.RetentionPruneSummary, workspaceDeletes: Int) -> String {
+         let total = eventSummary.totalDeleted + workspaceDeletes
+         guard total > 0 else {
+             return "Retention is already within the selected limits."
+@@ -90,20 +90,20 @@ nonisolated enum AppDataRetentionPolicy {
+         return "Removed \(total) old item\(total == 1 ? "" : "s") from local history."
+     }
+ 
+-    private static func boundedDays(_ value: Int) -> Int {
++    private nonisolated static func boundedDays(_ value: Int) -> Int {
+         if value == 0 {
+             return 0
+         }
+         return min(max(value, 1), 3650)
+     }
+ 
+-    private static func boundedLimit(_ value: Int, minimum: Int, maximum: Int) -> Int {
++    private nonisolated static func boundedLimit(_ value: Int, minimum: Int, maximum: Int) -> Int {
+         min(max(value, minimum), maximum)
+     }
+ }
+ 
+ private extension UserDefaults {
+-    func integerOrDefault(forKey key: String, defaultValue: Int) -> Int {
++    nonisolated func integerOrDefault(forKey key: String, defaultValue: Int) -> Int {
+         object(forKey: key) == nil ? defaultValue : integer(forKey: key)
+     }
+ }
+diff --git a/Epistemos/State/InferenceState.swift b/Epistemos/State/InferenceState.swift
+index 5bf112fdd..4234fe9e3 100644
+--- a/Epistemos/State/InferenceState.swift
++++ b/Epistemos/State/InferenceState.swift
+@@ -1486,8 +1486,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+ 
+     var vendorModelID: String {
+         switch self {
+-        case .openAIGPT54: "gpt-5.4"
+-        case .openAIGPT54Mini: "gpt-5.4-mini"
++        case .openAIGPT54: "gpt-4o"
++        case .openAIGPT54Mini: "gpt-4o-mini"
+         case .openAIGPT54Nano: "gpt-5.4-nano"
+         case .openAIGPT52: "gpt-5.2"
+         case .openAIGPT41: "gpt-4.1"
+@@ -1521,8 +1521,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+ 
+     var displayName: String {
+         switch self {
+-        case .openAIGPT54: "GPT-5.4"
+-        case .openAIGPT54Mini: "GPT-5.4 Mini"
++        case .openAIGPT54: "GPT-4o"
++        case .openAIGPT54Mini: "GPT-4o Mini"
+         case .openAIGPT54Nano: "GPT-5.4 Nano"
+         case .openAIGPT52: "GPT-5.2"
+         case .openAIGPT41: "GPT-4.1"
+@@ -1556,8 +1556,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+ 
+     var compactDisplayName: String {
+         switch self {
+-        case .openAIGPT54: "GPT-5.4"
+-        case .openAIGPT54Mini: "GPT-5.4 Mini"
++        case .openAIGPT54: "GPT-4o"
++        case .openAIGPT54Mini: "GPT-4o Mini"
+         case .openAIGPT54Nano: "GPT-5.4 Nano"
+         case .openAIGPT52: "GPT-5.2"
+         case .openAIGPT41: "GPT-4.1"
+@@ -1615,9 +1615,9 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+     var aboutSheetPurposeSummary: String {
+         switch self {
+         case .openAIGPT54:
+-            "Complex reasoning, coding, and tool-heavy professional work."
++            "General-purpose multimodal OpenAI cloud work and tool-heavy chat."
+         case .openAIGPT54Mini:
+-            "Fast cloud coding, subagents, and lower-latency tool work."
++            "Fast OpenAI cloud chat, subagents, and lower-latency tool work."
+         case .openAIGPT54Nano:
+             "Cheap high-volume routing, rewrites, and lightweight automation."
+         case .openAIGPT52:
+@@ -1746,7 +1746,7 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+ 
+     var supportsNativeReasoningEffortControl: Bool {
+         switch self {
+-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52:
++        case .openAIGPT54Nano, .openAIGPT52:
+             true
+         case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+@@ -1838,7 +1838,9 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+ 
+     var maxContextTokens: Int {
+         switch self {
+-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52, .openAIGPT41:
++        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT41:
++            128_000
++        case .openAIGPT52:
+             1_048_576  // 1M tokens
+         case .openAIGPT54Nano, .openAIGPT41Mini:
+             131_072
+@@ -1931,6 +1933,14 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+     }
+ 
+     private nonisolated static let legacyMigrationMap: [String: CloudTextModelID] = [
++        "gpt-4o": .openAIGPT54,
++        "openai:gpt-4o": .openAIGPT54,
++        "gpt-4o-mini": .openAIGPT54Mini,
++        "openai:gpt-4o-mini": .openAIGPT54Mini,
++        "gpt-5.4": .openAIGPT54,
++        "openai:gpt-5.4": .openAIGPT54,
++        "gpt-5.4-mini": .openAIGPT54Mini,
++        "openai:gpt-5.4-mini": .openAIGPT54Mini,
+         "gpt-5.3": .openAIGPT54,
+         "gpt-5.2": .openAIGPT52,
+         "gpt-5.1": .openAIGPT52,
+@@ -2301,7 +2311,7 @@ extension CloudModelProvider {
+     var modelSummary: String {
+         switch self {
+         case .openAI:
+-            "GPT-5.4, GPT-5.4 Mini"
++            "GPT-4o, GPT-4o Mini"
+         case .anthropic:
+             "Claude Opus 4.7, Sonnet 4.6"
+         case .google:
+diff --git a/Epistemos/Sync/SearchIndexService.swift b/Epistemos/Sync/SearchIndexService.swift
+index 0d3c750a0..17ce67bea 100644
+--- a/Epistemos/Sync/SearchIndexService.swift
++++ b/Epistemos/Sync/SearchIndexService.swift
+@@ -167,7 +167,7 @@ actor SearchIndexService {
+                 configuration: Self.databaseConfiguration()
+             )
+         }
+-        let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .utility)
++        let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .userInitiated)
+         let queryQueue = DispatchQueue(
+             label: "com.epistemos.search-index.query",
+             qos: .userInitiated,
+diff --git a/Epistemos/Views/Notes/ModelInvolvementSheet.swift b/Epistemos/Views/Notes/ModelInvolvementSheet.swift
+index 2f9608442..51ae37603 100644
+--- a/Epistemos/Views/Notes/ModelInvolvementSheet.swift
++++ b/Epistemos/Views/Notes/ModelInvolvementSheet.swift
+@@ -375,8 +375,8 @@ nonisolated struct ModelInvolvementContributionSession: Identifiable, Equatable
+ ///
+ /// Given a `modelID`, shows every substantive `SDMessage` this model
+ /// authored across chats, worker sessions, and note flows. Cloud
+-/// models accept both the current vendor model id (`gpt-5.4`) and the
+-/// legacy provider-qualified id (`openai:gpt-5.4`) so older histories
++/// models accept both the current vendor model id (`gpt-4o`) and legacy
++/// GPT-5.4 aliases so older histories
+ /// still surface after the curated provider simplification.
+ struct ModelInvolvementSheet: View {
+     let modelID: String
+diff --git a/Epistemos/Views/Notes/ModelVaultsSidebarSection.swift b/Epistemos/Views/Notes/ModelVaultsSidebarSection.swift
+index db9f3ec00..0a3140ed1 100644
+--- a/Epistemos/Views/Notes/ModelVaultsSidebarSection.swift
++++ b/Epistemos/Views/Notes/ModelVaultsSidebarSection.swift
+@@ -1126,10 +1126,10 @@ struct ModelVaultEntry: Identifiable, Hashable {
+             return ("Claude Sonnet 4.6", "c.circle")
+         }
+         if lower.contains("gpt-5.4-mini") || lower.contains("gpt-5-4-mini") {
+-            return ("GPT-5.4 Mini", "o.circle")
++            return ("GPT-4o Mini", "o.circle")
+         }
+         if lower.contains("gpt-5.4") || lower.contains("gpt-5-4") {
+-            return ("GPT-5.4", "o.circle")
++            return ("GPT-4o", "o.circle")
+         }
+         if lower.contains("gemini-3.1-pro") || lower.contains("gemini-3-pro") {
+             return ("Gemini 3.1 Pro", "g.circle")
+@@ -1182,6 +1182,9 @@ struct ModelVaultEntry: Identifiable, Hashable {
+     private nonisolated static func cloudModel(matching value: String) -> CloudTextModelID? {
+         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+         guard !trimmed.isEmpty else { return nil }
++        if let model = CloudTextModelID.from(rawValueOrVendorID: trimmed) {
++            return model
++        }
+         return CloudTextModelID.allCases.first(where: {
+             safePathComponent($0.rawValue) == trimmed
+                 || safePathComponent($0.vendorModelID) == trimmed
+diff --git a/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift b/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift
+index 7c825f444..7f56d4265 100644
+--- a/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift
++++ b/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift
+@@ -31,6 +31,11 @@ public struct ACSAdmissionHealthRow: View {
+                     ? "EPISTEMOS_ACS_ADMISSION_V0 on (status surface only)"
+                     : "EPISTEMOS_ACS_ADMISSION_V0 off"
+             )
++            VerifiedFloorChipStrip(
++                flag: snapshot.isFlagEnabled ? "on" : "off",
++                substrate: "substrate-only",
++                substrateTint: .orange
++            )
+             row(
+                 label: "Strict policy",
+                 symbol: "lock.shield",
+@@ -78,7 +83,7 @@ public struct ACSAdmissionHealthRow: View {
+ 
+     private var policyDetail: String {
+         guard let p = snapshot.lastPolicy else { return "(no read yet)" }
+-        return "\(p.policyId) v\(p.version)"
++        return "\(p.policyId) v\(p.version) (gate not installed)"
+     }
+ 
+     private var capabilityDetail: String {
+diff --git a/Epistemos/Views/Settings/ActiveConstellationRow.swift b/Epistemos/Views/Settings/ActiveConstellationRow.swift
+index d66a0ddfd..321ab1f4e 100644
+--- a/Epistemos/Views/Settings/ActiveConstellationRow.swift
++++ b/Epistemos/Views/Settings/ActiveConstellationRow.swift
+@@ -38,9 +38,14 @@ public struct ActiveConstellationRow: View {
+                 }
+                 Spacer(minLength: 8)
+             }
++            VerifiedFloorChipStrip(
++                flag: "n/a",
++                substrate: "placeholder routes",
++                substrateTint: .orange
++            )
+ 
+             if models.isEmpty {
+-                Text("No local-agent route table is available.")
++                Text("No production route table is available yet; modelPreferenceTable/localPolicyTable wiring is pending.")
+                     .font(.system(size: 11))
+                     .foregroundStyle(.secondary)
+             } else {
+diff --git a/Epistemos/Views/Settings/AgentBlueprintSettingsView.swift b/Epistemos/Views/Settings/AgentBlueprintSettingsView.swift
+index 6ef324da7..629d5b201 100644
+--- a/Epistemos/Views/Settings/AgentBlueprintSettingsView.swift
++++ b/Epistemos/Views/Settings/AgentBlueprintSettingsView.swift
+@@ -65,15 +65,21 @@ struct AgentBlueprintSettingsView: View {
+                     ChannelStatusPill(title: diagnosticsStateLabel, tint: diagnosticsStateTint)
+                 }
+ 
+-                Text("Blueprint submission runs through the same Command Center compiler and agent runtime path as live tool sessions.")
++                Text("Blueprint submission queues a MissionPacket through the existing Command Center runtime. System G governed dispatch is not wired yet.")
+                     .font(.caption)
+                     .foregroundStyle(.secondary)
+ 
++                VerifiedFloorChipStrip(
++                    flag: "n/a",
++                    substrate: "legacy runtime",
++                    substrateTint: .orange
++                )
++
+                 HStack(spacing: 10) {
+                     Button {
+                         submitBlueprint()
+                     } label: {
+-                        Label(isSubmitting ? "Submitting" : "Run", systemImage: "play.fill")
++                        Label(isSubmitting ? "Submitting" : "Queue to Command Center", systemImage: "play.fill")
+                     }
+                     .buttonStyle(.borderedProminent)
+                     .controlSize(.small)
+@@ -368,7 +374,7 @@ struct AgentBlueprintSettingsView: View {
+                 Button {
+                     queueMissionPacket(record.packet, statusPrefix: "Replayed", persist: true)
+                 } label: {
+-                    Label("Run", systemImage: "play.fill")
++                    Label("Queue", systemImage: "play.fill")
+                 }
+                 .buttonStyle(.borderedProminent)
+                 .controlSize(.small)
+@@ -488,7 +494,7 @@ struct AgentBlueprintSettingsView: View {
+             availableBrains: commandCenter.availableBrains
+         )
+         guard !packet.model.requiresExplicitBrainOverride || packetBrain != nil else {
+-            submissionStatus = "Cannot run \(packet.id.prefix(8)); \(packet.model.displayName) is unavailable."
++            submissionStatus = "Cannot queue \(packet.id.prefix(8)); \(packet.model.displayName) is unavailable."
+             return
+         }
+ 
+@@ -515,7 +521,7 @@ struct AgentBlueprintSettingsView: View {
+             recentMissionRecords = AgentBlueprintRunStore.record(packet)
+         }
+         refreshRecentRunEvents()
+-        submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through agent runtime."
++        submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through Command Center runtime; System G dispatch pending."
+         isSubmitting = false
+     }
+ 
+diff --git a/Epistemos/Views/Settings/AmbientFrequencySettingsView.swift b/Epistemos/Views/Settings/AmbientFrequencySettingsView.swift
+index d7554451f..891c36dbb 100644
+--- a/Epistemos/Views/Settings/AmbientFrequencySettingsView.swift
++++ b/Epistemos/Views/Settings/AmbientFrequencySettingsView.swift
+@@ -374,6 +374,10 @@ struct AmbientFrequencySettingsView: View {
+             }
+         }
+         .formStyle(.grouped)
++        .onDisappear {
++            livePlayer.stop()
++            livePlayerRunning = false
++        }
+         .onChange(of: durationMinutes) { _, newValue in
+             if !newValue.isFinite {
+                 durationMinutes = 30
+diff --git a/Epistemos/Views/Settings/EidosHealthRow.swift b/Epistemos/Views/Settings/EidosHealthRow.swift
+index 09f836ce0..1e747e915 100644
+--- a/Epistemos/Views/Settings/EidosHealthRow.swift
++++ b/Epistemos/Views/Settings/EidosHealthRow.swift
+@@ -33,9 +33,14 @@ public struct EidosHealthRow: View {
+                 symbol: "flag.fill",
+                 ok: snapshot.isFlagEnabled,
+                 detail: snapshot.isFlagEnabled
+-                    ? "EPISTEMOS_EIDOS_V0 on (closed-citation path active)"
++                    ? "EPISTEMOS_EIDOS_V0 on (fixture path active)"
+                     : "EPISTEMOS_EIDOS_V0 off (legacy FTS/RRF path)"
+             )
++            VerifiedFloorChipStrip(
++                flag: snapshot.isFlagEnabled ? "on" : "off",
++                substrate: "fixture",
++                substrateTint: .orange
++            )
+             row(
+                 label: "Last query",
+                 symbol: "clock",
+@@ -54,7 +59,7 @@ public struct EidosHealthRow: View {
+                 ok: snapshot.lastCitationCount > 0 || !snapshot.isFlagEnabled,
+                 detail: snapshot.lastQueryAt == nil
+                     ? "(no Eidos query yet)"
+-                    : "\(snapshot.lastCitationCount) citation(s)"
++                    : "\(snapshot.lastCitationCount) citation(s) from fixture corpus, not vault"
+             )
+             if let err = snapshot.lastErrorDescription {
+                 row(
+diff --git a/Epistemos/Views/Settings/FUlpHealthRow.swift b/Epistemos/Views/Settings/FUlpHealthRow.swift
+index 8fc81c24d..fd96ded7a 100644
+--- a/Epistemos/Views/Settings/FUlpHealthRow.swift
++++ b/Epistemos/Views/Settings/FUlpHealthRow.swift
+@@ -32,6 +32,11 @@ public struct FUlpHealthRow: View {
+                     ? "EPISTEMOS_F_ULP_ORACLE_V0 on"
+                     : "EPISTEMOS_F_ULP_ORACLE_V0 off"
+             )
++            VerifiedFloorChipStrip(
++                flag: snapshot.isFlagEnabled ? "on" : "off",
++                substrate: "research-only",
++                substrateTint: .blue
++            )
+             row(
+                 label: "Acceptance witness",
+                 symbol: "checkmark.shield",
+diff --git a/Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift b/Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift
+index 32b27c7ce..afe59b2ad 100644
+--- a/Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift
++++ b/Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift
+@@ -25,6 +25,11 @@ public struct LocalAgentDiagnosticsHealthRow: View {
+                 }
+                 Spacer()
+             }
++            VerifiedFloorChipStrip(
++                flag: "n/a",
++                substrate: "placeholder routes",
++                substrateTint: .orange
++            )
+ 
+             diagnosticRow(
+                 label: "Strict-grammar status",
+diff --git a/Epistemos/Views/Settings/SettingsSurfaceComponents.swift b/Epistemos/Views/Settings/SettingsSurfaceComponents.swift
+index 9ab5cfdcd..28d6a1528 100644
+--- a/Epistemos/Views/Settings/SettingsSurfaceComponents.swift
++++ b/Epistemos/Views/Settings/SettingsSurfaceComponents.swift
+@@ -238,3 +238,29 @@ struct ChannelStatusPill: View {
+             }
+     }
+ }
++
++struct VerifiedFloorChipStrip: View {
++    let flag: String
++    let substrate: String
++    let substrateTint: Color
++
++    private var flagTint: Color {
++        switch flag {
++        case "on":
++            .green
++        case "off":
++            .red
++        default:
++            .secondary
++        }
++    }
++
++    var body: some View {
++        HStack(spacing: 6) {
++            ChannelStatusPill(title: "Flag: \(flag)", tint: flagTint)
++            ChannelStatusPill(title: "Substrate: \(substrate)", tint: substrateTint)
++            Spacer(minLength: 0)
++        }
++        .padding(.horizontal, 12)
++    }
++}
+diff --git a/Epistemos/Views/Settings/SystemGHealthRow.swift b/Epistemos/Views/Settings/SystemGHealthRow.swift
+index 4f42a0260..a34c65b37 100644
+--- a/Epistemos/Views/Settings/SystemGHealthRow.swift
++++ b/Epistemos/Views/Settings/SystemGHealthRow.swift
+@@ -39,6 +39,11 @@ public struct SystemGHealthRow: View {
+                     ? "EPISTEMOS_SYSTEM_G_V0 on (LocalAgentLoop breadcrumb active)"
+                     : "EPISTEMOS_SYSTEM_G_V0 off (no breadcrumb)"
+             )
++            VerifiedFloorChipStrip(
++                flag: snapshot.isFlagEnabled ? "on" : "off",
++                substrate: "status-only",
++                substrateTint: .orange
++            )
+             row(
+                 label: "Runtime mode",
+                 symbol: "cpu",
+@@ -97,7 +102,7 @@ public struct SystemGHealthRow: View {
+         }
+         let exec = status.allowsExecution ? "exec✓" : "exec✗"
+         let sub = status.allowsSubprocess ? "subprocess✓" : "subprocess✗"
+-        return "\(exec) \(sub)"
++        return "\(exec) \(sub) (status read; no production dispatch yet)"
+     }
+ 
+     private var readDetail: String {
+diff --git a/Epistemos/Views/Settings/VaultRecallHealthRow.swift b/Epistemos/Views/Settings/VaultRecallHealthRow.swift
+index 40fd6a338..9b5defcad 100644
+--- a/Epistemos/Views/Settings/VaultRecallHealthRow.swift
++++ b/Epistemos/Views/Settings/VaultRecallHealthRow.swift
+@@ -35,9 +35,14 @@ public struct VaultRecallHealthRow: View {
+                 symbol: "flag.fill",
+                 ok: snapshot.isFlagEnabled,
+                 detail: snapshot.isFlagEnabled
+-                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (T21 trace emission)"
++                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (synthetic trace emission)"
+                     : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
+             )
++            VerifiedFloorChipStrip(
++                flag: snapshot.isFlagEnabled ? "on" : "off",
++                substrate: "stub trace",
++                substrateTint: .orange
++            )
+             row(
+                 label: "Last query",
+                 symbol: "clock",
+@@ -112,7 +117,7 @@ public struct VaultRecallHealthRow: View {
+             return snapshot.lastQueryAt == nil ? "(no query yet)" : "no signals emitted"
+         }
+         let slugs = snapshot.lastSignalSummary.map { $0.rawValue }.sorted()
+-        return slugs.joined(separator: ",")
++        return "\(slugs.joined(separator: ",")) (synthetic; no vault retrieval yet)"
+     }
+ 
+     private func formatLatency(_ ms: Double) -> String {
+diff --git a/Epistemos/Views/Shared/VoiceInputButton.swift b/Epistemos/Views/Shared/VoiceInputButton.swift
+index ee9366141..525538da8 100644
+--- a/Epistemos/Views/Shared/VoiceInputButton.swift
++++ b/Epistemos/Views/Shared/VoiceInputButton.swift
+@@ -1,27 +1,20 @@
+-import AVFoundation
+-import Speech
+ import SwiftUI
+ 
+ // MARK: - VoiceInputButton (W15.X — Apple-native STT wiring)
+ //
+-// Drop-in mirror of `ReadAloudButton` (W9.1) for the speech-to-text
+-// direction. Wraps `EpistemosSpeechAnalyzer` (W10.11, macOS 26
+-// SpeechAnalyzer) so any view can offer "tap to dictate" without
+-// owning the audio engine + transcriber lifecycle.
++// Drop-in mirror of `ReadAloudButton` (W9.1) for the speech-to-text direction.
++// Uses the shared recorder/transcriber path so views can offer "tap to
++// dictate" without owning the audio lifecycle.
+ //
+ // Per the W11.4 Auto/Manual Mode contract: this control treats
+-// dictation as a Manual-mode operation by default — the user has to
+-// tap to start AND tap to stop. Auto-stop on silence is opt-in via
+-// the `autoStopOnSilence` parameter; when enabled it stops after
+-// 2 s of no `partial` updates.
++// dictation as a Manual-mode operation: the user taps to start and
++// taps to stop.
+ //
+ // Lifecycle:
+-//   tap (idle) → startLive → stream begins
+-//   partial result → calls onPartial(text) so the host UI can show a
+-//                    "..." indicator + live transcript
+-//   final result → calls onFinal(text) so the host commits the text
+-//                  into its model (text field, note body, etc.)
+-//   tap (recording) → stop → analyzer + audio engine torn down
++//   tap (idle) → recorder starts
++//   tap (recording) → recorder stops → transcriber produces final text
++//   final result → calls onFinal(text) so the host commits the text into its
++//                  model (text field, note body, etc.)
+ //
+ // The control is stateful — flips between mic / mic.fill /
+ // stop.circle.fill depending on phase. Uses the system accent color
+@@ -48,13 +41,7 @@ public struct VoiceInputButton: View {
+ 
+     @State private var phase: Phase = .idle
+     @State private var streamTask: Task<Void, Never>?
+-    @State private var lastPartial: String = ""
+-    @State private var lastUpdate: Date = .distantPast
+-    // RCA13 RCA6-P2-002: every speech partial used to spawn a fresh
+-    // 2.1s `Task.sleep` check, producing task buildup under rapid
+-    // dictation. Coalesce by holding a single in-flight silence
+-    // task and cancelling/replacing it on each partial.
+-    @State private var silenceTask: Task<Void, Never>?
++    @State private var service = ComposerVoiceInputService.shared
+     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+     @Environment(UIState.self) private var ui
+ 
+@@ -96,6 +83,16 @@ public struct VoiceInputButton: View {
+         .buttonStyle(.borderless)
+         .help(help)
+         .disabled(phase == .requesting)
++        .onChange(of: service.latestTranscript) { _, newValue in
++            guard !newValue.isEmpty else { return }
++            if let transcript = service.consumeTranscript() {
++                onFinal(transcript)
++                phase = .idle
++            }
++        }
++        .onChange(of: service.state) { _, _ in
++            syncPhaseFromService()
++        }
+         .onDisappear { stopInternal() }
+     }
+ 
+@@ -126,8 +123,8 @@ public struct VoiceInputButton: View {
+ 
+     private var help: String {
+         switch phase {
+-        case .idle:                    return "Dictate (macOS 26 on-device speech)"
+-        case .requesting:              return "Preparing speech model…"
++        case .idle:                    return "Dictate"
++        case .requesting:              return "Preparing voice capture…"
+         case .recording:               return "Stop dictation"
+         case .error(let msg):          return msg
+         }
+@@ -159,7 +156,7 @@ public struct VoiceInputButton: View {
+         case .idle, .error:
+             startInternal()
+         case .recording:
+-            stopInternal()
++            finishInternal()
+         case .requesting:
+             break
+         }
+@@ -167,87 +164,39 @@ public struct VoiceInputButton: View {
+ 
+     private func startInternal() {
+         phase = .requesting
++        streamTask?.cancel()
+         streamTask = Task {
+-            do {
+-                if #available(macOS 26.0, *) {
+-                    let stream = try await EpistemosSpeechAnalyzer.shared.startLive()
+-                    await MainActor.run {
+-                        phase = .recording
+-                        lastUpdate = Date()
+-                    }
+-                    for await result in stream {
+-                        switch result {
+-                        case .partial(let text):
+-                            await MainActor.run {
+-                                lastPartial = text
+-                                lastUpdate = Date()
+-                            }
+-                            onPartial(text)
+-                            if autoStopOnSilence {
+-                                await scheduleSilenceCheck()
+-                            }
+-                        case .final(let text):
+-                            onFinal(text)
+-                            await MainActor.run { lastPartial = "" }
+-                        }
+-                    }
+-                    await MainActor.run { phase = .idle }
+-                } else {
+-                    await MainActor.run {
+-                        phase = .error("Live dictation requires macOS 26.")
+-                    }
+-                }
+-            } catch let err as EpistemosSpeechAnalyzer.SpeechError {
+-                await MainActor.run {
+-                    switch err {
+-                    case .notAvailable(.microphonePermissionDenied):
+-                        phase = .error("Microphone access denied — open System Settings → Privacy → Microphone.")
+-                    case .notAvailable:
+-                        phase = .error("Speech recognition unavailable.")
+-                    case .audioEngineFailed(let m):
+-                        phase = .error("Audio engine: \(m)")
+-                    case .audioFormatUnavailable:
+-                        phase = .error("Speech audio format unavailable.")
+-                    case .downloadFailed(let m):
+-                        phase = .error("Model download: \(m)")
+-                    case .streamCancelled:
+-                        phase = .idle
+-                    }
+-                }
+-            } catch {
+-                await MainActor.run {
+-                    phase = .error(error.localizedDescription)
+-                }
+-            }
++            await service.toggle()
++            syncPhaseFromService()
+         }
+     }
+ 
+-    private func stopInternal() {
+-        if #available(macOS 26.0, *) {
+-            EpistemosSpeechAnalyzer.shared.stop()
++    private func finishInternal() {
++        phase = .requesting
++        streamTask?.cancel()
++        streamTask = Task {
++            await service.toggle()
++            syncPhaseFromService()
+         }
++    }
++
++    private func stopInternal() {
++        service.tearDown()
+         streamTask?.cancel()
+         streamTask = nil
+-        silenceTask?.cancel()
+-        silenceTask = nil
+         phase = .idle
+     }
+ 
+-    /// Auto-stop after 2 s of no `partial` updates. Coalesces under
+-    /// rapid partials — cancels the previous in-flight check and
+-    /// installs a single new 2.1 s sleep. Per RCA13 RCA6-P2-002:
+-    /// without coalescing, every partial spawned a fresh task that
+-    /// slept for 2.1 s, producing task buildup proportional to
+-    /// dictation speed.
+-    @MainActor
+-    private func scheduleSilenceCheck() async {
+-        silenceTask?.cancel()
+-        silenceTask = Task { @MainActor in
+-            try? await Task.sleep(nanoseconds: 2_100_000_000)  // 2.1 s
+-            if Task.isCancelled { return }
+-            if phase == .recording, Date().timeIntervalSince(lastUpdate) > 2.0 {
+-                stopInternal()
+-            }
++    private func syncPhaseFromService() {
++        switch service.state {
++        case .idle:
++            phase = .idle
++        case .requestingPermission, .transcribing:
++            phase = .requesting
++        case .recording:
++            phase = .recording
++        case .error(let message):
++            phase = .error(message)
+         }
+     }
+ }
+diff --git a/EpistemosTests/AgentBlueprintTests.swift b/EpistemosTests/AgentBlueprintTests.swift
+index 9007ec662..aa0a1daab 100644
+--- a/EpistemosTests/AgentBlueprintTests.swift
++++ b/EpistemosTests/AgentBlueprintTests.swift
+@@ -45,10 +45,10 @@ struct AgentBlueprintTests {
+         #expect(text.contains("AgentBlueprint MissionPacket"))
+         #expect(text.contains("mission_packet_id: mission-queue"))
+         #expect(text.contains("model: local:mlx-community/Qwen3-8B-4bit"))
+-        #expect(text.contains("model_badges: HONEST, LOCAL, Agent OK, Qwen XML, STRICT-GRAMMAR"))
++        #expect(text.contains("model_badges: HONEST, LOCAL, Experimental - soft guidance, Qwen XML, SOFT-GUIDED"))
+         #expect(text.contains("execution_policy: local_only"))
+         #expect(text.contains("cloud_escalation: disabled"))
+-        #expect(text.contains("strict_grammar: enabled"))
++        #expect(text.contains("strict_grammar: soft_guidance"))
+         #expect(text.contains("grammar_profile: qwen_xml"))
+         #expect(text.contains("artifact_contract: note_artifact_and_answer_packet"))
+         #expect(text.contains("scope: all_notes"))
+@@ -175,18 +175,18 @@ struct AgentBlueprintTests {
+             displayName: "DeepSeek-Coder"
+         )
+         #expect(local.badges.map(\.title).contains("LOCAL"))
+-        #expect(local.badges.contains(.init(title: "Agent OK", tone: .good)))
++        #expect(local.badges.contains(.init(title: "Experimental - soft guidance", tone: .warning)))
+         #expect(local.badges.map(\.title).contains("DeepSeek-Coder"))
+-        #expect(local.badges.map(\.tone).contains(.good))
++        #expect(local.badges.map(\.tone).contains(.warning))
+         #expect(local.requiresExplicitBrainOverride)
+ 
+         let mistral = AgentBlueprintModelChoice.local(
+             modelID: LocalTextModelID.mistralSmall31_24B4Bit.rawValue,
+             displayName: "Mistral Small"
+         )
+-        #expect(mistral.badges.contains(.init(title: "Agent OK", tone: .good)))
++        #expect(mistral.badges.contains(.init(title: "Experimental - soft guidance", tone: .warning)))
+         #expect(mistral.badges.contains(.init(title: "Mistral Small", tone: .neutral)))
+-        #expect(mistral.strictGrammarStatus == "enabled")
++        #expect(mistral.strictGrammarStatus == "soft_guidance")
+ 
+         let devstral = AgentBlueprintModelChoice.local(
+             modelID: LocalTextModelID.devstralSmall2505_4Bit.rawValue,
+diff --git a/EpistemosTests/AmbientFrequencyAudioGeneratorTests.swift b/EpistemosTests/AmbientFrequencyAudioGeneratorTests.swift
+index 53af5ca8b..b4d90547c 100644
+--- a/EpistemosTests/AmbientFrequencyAudioGeneratorTests.swift
++++ b/EpistemosTests/AmbientFrequencyAudioGeneratorTests.swift
+@@ -108,6 +108,33 @@ struct AmbientFrequencyAudioGeneratorTests {
+         #expect(detailSource.contains("32-bit float WAV"))
+     }
+ 
++    @Test("Live player sanitizes realtime parameters before modulo and bit shifting")
++    func livePlayerSanitizesRealtimeParameters() {
++        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(.nan) == 1)
++        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(0) == 1)
++        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(-8) == 1)
++        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(128) == 64)
++        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(.greatestFiniteMagnitude) == 64)
++
++        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(.nan) == 16)
++        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(0) == 1)
++        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(40) == 16)
++        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(.greatestFiniteMagnitude) == 16)
++
++        #expect(AmbientFrequencyLivePlayer.sanitizedWaveform(.nan) == AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
++        #expect(AmbientFrequencyLivePlayer.sanitizedWaveform(-1) == AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
++        #expect(AmbientFrequencyLivePlayer.sanitizedWaveform(99) == AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
++    }
++
++    @Test("Live player stops when Ambient Frequency settings disappear")
++    func livePlayerStopsWhenSettingsDisappear() throws {
++        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AmbientFrequencySettingsView.swift")
++
++        #expect(source.contains(".onDisappear"))
++        #expect(source.contains("livePlayer.stop()"))
++        #expect(source.contains("livePlayerRunning = false"))
++    }
++
+     private func temporaryOutputURL() -> URL {
+         FileManager.default.temporaryDirectory
+             .appendingPathComponent("ambient-frequency-\(UUID().uuidString)")
+diff --git a/EpistemosTests/CloudProviderAuthServiceTests.swift b/EpistemosTests/CloudProviderAuthServiceTests.swift
+index 9a9f0bcd7..7187f83ad 100644
+--- a/EpistemosTests/CloudProviderAuthServiceTests.swift
++++ b/EpistemosTests/CloudProviderAuthServiceTests.swift
+@@ -302,8 +302,8 @@ struct CloudProviderAuthServiceTests {
+     }
+ 
+     @MainActor
+-    @Test("OpenAI API requests carry native GPT-5.4 controls for pro work")
+-    func openAIAPIRequestsCarryNativeGPT54ControlsForProWork() async throws {
++    @Test("OpenAI API requests use GPT-4o without unsupported reasoning controls")
++    func openAIAPIRequestsUseGPT4OWithoutUnsupportedReasoningControls() async throws {
+         let inference = makeInferenceState(keychainValues: [
+             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+         ])
+@@ -316,12 +316,9 @@ struct CloudProviderAuthServiceTests {
+             let bodyData = try self.requestBodyData(from: request)
+             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+             #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
+-
+-            let reasoning = try #require(json["reasoning"] as? [String: Any])
+-            #expect(reasoning["effort"] as? String == "high")
+-
+-            let text = try #require(json["text"] as? [String: Any])
+-            #expect(text["verbosity"] as? String == "medium")
++            #expect(json["model"] as? String == "gpt-4o")
++            #expect(json["reasoning"] == nil)
++            #expect(json["text"] == nil)
+ 
+             let response = try #require(
+                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+@@ -345,8 +342,8 @@ struct CloudProviderAuthServiceTests {
+     }
+ 
+     @MainActor
+-    @Test("OpenAI API pro mode ignores a saved off tier and still requests the higher reasoning route")
+-    func openAIAPIProModeStillRequestsHighReasoningWhenSavedTierIsOff() async throws {
++    @Test("OpenAI API pro mode does not attach GPT-5 reasoning controls to GPT-4o")
++    func openAIAPIProModeDoesNotAttachGPT5ReasoningControlsToGPT4O() async throws {
+         let inference = makeInferenceState(keychainValues: [
+             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+         ])
+@@ -354,12 +351,9 @@ struct CloudProviderAuthServiceTests {
+         let session = makeURLSession { request in
+             let bodyData = try self.requestBodyData(from: request)
+             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+-            let reasoning = try #require(json["reasoning"] as? [String: Any])
+-            #expect(reasoning["effort"] as? String == "high")
+-            #expect(reasoning["summary"] as? String == "auto")
+-
+-            let text = try #require(json["text"] as? [String: Any])
+-            #expect(text["verbosity"] as? String == "medium")
++            #expect(json["model"] as? String == "gpt-4o")
++            #expect(json["reasoning"] == nil)
++            #expect(json["text"] == nil)
+ 
+             let url = try #require(request.url)
+             let response = try #require(
+@@ -384,8 +378,8 @@ struct CloudProviderAuthServiceTests {
+     }
+ 
+     @MainActor
+-    @Test("OpenAI API thinking route keeps GPT-5.4 instead of silently swapping to o3")
+-    func openAIAPIThinkingRouteKeepsGPT54() async throws {
++    @Test("OpenAI API thinking route keeps GPT-4o instead of silently swapping to o3")
++    func openAIAPIThinkingRouteKeepsGPT4O() async throws {
+         let inference = makeInferenceState(keychainValues: [
+             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+         ])
+@@ -394,12 +388,9 @@ struct CloudProviderAuthServiceTests {
+             let bodyData = try self.requestBodyData(from: request)
+             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+             #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
+-
+-            let reasoning = try #require(json["reasoning"] as? [String: Any])
+-            #expect(reasoning["effort"] as? String == "medium")
+-
+-            let text = try #require(json["text"] as? [String: Any])
+-            #expect(text["verbosity"] as? String == "medium")
++            #expect(json["model"] as? String == "gpt-4o")
++            #expect(json["reasoning"] == nil)
++            #expect(json["text"] == nil)
+ 
+             let response = try #require(
+                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+@@ -472,7 +463,7 @@ struct CloudProviderAuthServiceTests {
+             prompt: "Say OK.",
+             systemPrompt: nil,
+             maxTokens: 64,
+-            model: .openAIGPT54,
++            model: .openAIGPT52,
+             operatingMode: .fast
+         )
+ 
+@@ -537,7 +528,7 @@ struct CloudProviderAuthServiceTests {
+             prompt: "Say OK.",
+             systemPrompt: nil,
+             maxTokens: 64,
+-            model: .openAIGPT54,
++            model: .openAIGPT52,
+             operatingMode: .fast
+         )
+         for try await chunk in stream {
+@@ -569,9 +560,7 @@ struct CloudProviderAuthServiceTests {
+             #expect(tools.count == 1)
+             #expect(tools[0]["type"] as? String == "web_search")
+ 
+-            let text = try #require(json["text"] as? [String: Any])
+-            #expect(text["verbosity"] as? String == "low")
+-            #expect(text["format"] == nil)
++            #expect(json["text"] == nil)
+ 
+             let response = try #require(
+                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+@@ -654,8 +643,8 @@ struct CloudProviderAuthServiceTests {
+     }
+ 
+     @MainActor
+-    @Test("OpenAI Codex account requests carry native GPT-5 controls for thinking and pro work")
+-    func openAICodexRequestsCarryNativeGPT54Controls() async throws {
++    @Test("OpenAI Codex account requests use GPT-4o without unsupported token or reasoning controls")
++    func openAICodexRequestsUseGPT4OWithoutUnsupportedControls() async throws {
+         let expiration = Date(timeIntervalSinceNow: 3_600)
+         let credential = CloudProviderOAuthCredential(
+             provider: .openAI,
+@@ -681,12 +670,10 @@ struct CloudProviderAuthServiceTests {
+             let bodyData = try self.requestBodyData(from: request)
+             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+             #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
+-            let reasoning = try #require(json["reasoning"] as? [String: Any])
+-            #expect(reasoning["effort"] as? String == "high")
+-            #expect(reasoning["summary"] as? String == "auto")
+-
+-            let text = try #require(json["text"] as? [String: Any])
+-            #expect(text["verbosity"] as? String == "medium")
++            #expect(json["model"] as? String == "gpt-4o")
++            #expect(json["max_output_tokens"] == nil)
++            #expect(json["reasoning"] == nil)
++            #expect(json["text"] == nil)
+ 
+             let response = try #require(
+                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+@@ -784,7 +771,7 @@ struct CloudProviderAuthServiceTests {
+             prompt: "Say OK.",
+             systemPrompt: nil,
+             maxTokens: 64,
+-            model: .openAIGPT54,
++            model: .openAIGPT52,
+             operatingMode: .fast
+         )
+ 
+@@ -793,8 +780,8 @@ struct CloudProviderAuthServiceTests {
+     }
+ 
+     @MainActor
+-    @Test("OpenAI Codex agent mode preserves low-effort selections instead of collapsing them to standard")
+-    func openAICodexAgentModePreservesLowEffortSelection() async throws {
++    @Test("OpenAI Codex agent mode sanitizes unsupported low-effort selections")
++    func openAICodexAgentModeSanitizesUnsupportedLowEffortSelection() async throws {
+         let expiration = Date(timeIntervalSinceNow: 3_600)
+         let credential = CloudProviderOAuthCredential(
+             provider: .openAI,
+@@ -814,7 +801,7 @@ struct CloudProviderAuthServiceTests {
+             CloudModelProvider.openAI.oauthKeychainKey: encodedString
+         ])
+         inference.setActiveAIProvider(.openAI)
+-        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
++        inference.setPreferredChatModelSelection(.cloud(.openAIGPT52))
+         inference.setChatReasoningTier(.low, for: .agent)
+ 
+         let session = makeURLSession { request in
+@@ -823,9 +810,9 @@ struct CloudProviderAuthServiceTests {
+ 
+             let bodyData = try self.requestBodyData(from: request)
+             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+-            #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
++            #expect(json["model"] as? String == CloudTextModelID.openAIGPT52.vendorModelID)
+             let reasoning = try #require(json["reasoning"] as? [String: Any])
+-            #expect(reasoning["effort"] as? String == "low")
++            #expect(reasoning["effort"] as? String == "medium")
+             #expect(reasoning["summary"] as? String == "auto")
+ 
+             let text = try #require(json["text"] as? [String: Any])
+@@ -850,7 +837,7 @@ struct CloudProviderAuthServiceTests {
+             prompt: "Handle this as an agent task.",
+             systemPrompt: nil,
+             maxTokens: 256,
+-            model: .openAIGPT54,
++            model: .openAIGPT52,
+             operatingMode: .agent
+         )
+     }
+diff --git a/EpistemosTests/LocalAgentDiagnosticsTests.swift b/EpistemosTests/LocalAgentDiagnosticsTests.swift
+index 5927a824d..d24e0fb94 100644
+--- a/EpistemosTests/LocalAgentDiagnosticsTests.swift
++++ b/EpistemosTests/LocalAgentDiagnosticsTests.swift
+@@ -53,14 +53,14 @@ struct LocalAgentDiagnosticsTests {
+     func diagnosticsSnapshotExposesConstellationRouteTable() {
+         let snapshot = LocalAgentDiagnostics.snapshot()
+ 
+-        #expect(snapshot.constellationRoles.count == ConfidenceRouter.TaskClass.allCases.count)
+-        #expect(snapshot.routeProfiles.count == ConfidenceRouter.TaskClass.allCases.count)
+-        #expect(snapshot.constellationSummary.contains("task roles"))
++        #expect(snapshot.constellationRoles.isEmpty)
++        #expect(snapshot.routeProfiles.isEmpty)
++        #expect(snapshot.constellationSummary.contains("0 task roles"))
+         #expect(snapshot.constellationSummary.contains("idle unload 30s/deep"))
++        #expect(snapshot.routePolicySummary.contains("0 task-class routes"))
+         #expect(snapshot.routePolicySummary.contains("task-class routes"))
+         #expect(snapshot.routePolicySummary.contains("native grammar routes"))
+-        #expect(snapshot.hotRoleSummary.contains("Fast Chat"))
+-        #expect(snapshot.constellationRoles.first { $0.taskClass == .coding }?.primaryModelID == LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue)
++        #expect(snapshot.hotRoleSummary.contains("No router roles configured."))
+     }
+ 
+     @Test("Active constellation snapshot marks hot warm cold states")
+diff --git a/EpistemosTests/SearchFusionHealthRowTests.swift b/EpistemosTests/SearchFusionHealthRowTests.swift
+index 8ce05aaba..4b482337e 100644
+--- a/EpistemosTests/SearchFusionHealthRowTests.swift
++++ b/EpistemosTests/SearchFusionHealthRowTests.swift
+@@ -18,8 +18,8 @@ struct SearchFusionHealthRowTests {
+         #expect(!settings.contains("setenv(\"EPISTEMOS_RRF_FUSION_V1\""))
+     }
+ 
+-    @Test("Process Memory Health row is read-only and reports resident footprint honestly")
+-    func processMemoryHealthRowIsReadOnlyAndReportsResidentFootprint() throws {
++    @Test("Process Memory Health row reports resident footprint and idle-unload diagnostic honestly")
++    func processMemoryHealthRowReportsResidentFootprintAndIdleUnloadDiagnostic() throws {
+         let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ProcessMemoryHealthRow.swift")
+ 
+         #expect(row.contains("ProcessMemoryDiagnostics.liveSnapshot()"))
+@@ -27,7 +27,9 @@ struct SearchFusionHealthRowTests {
+         #expect(row.contains("task_info(mach_task_self_"))
+         #expect(row.contains("PowerGate.isMemoryPressureActive"))
+         #expect(row.contains("does not attempt to classify root allocations"))
+-        #expect(!row.contains("Button("))
++        #expect(row.contains("Button(action: triggerForceIdleUnload)"))
++        #expect(row.contains("Force Idle Unload"))
++        #expect(row.contains("bootstrap.forceIdleUnload()"))
+         #expect(!row.contains(".task {"))
+         #expect(!row.contains("Timer"))
+         #expect(!row.contains("DispatchSourceTimer"))
+@@ -90,6 +92,36 @@ struct SearchFusionHealthRowTests {
+         #expect(!row.contains("DispatchSourceTimer"))
+     }
+ 
++    @Test("scaffold health rows disclose substrate status instead of false green")
++    func scaffoldHealthRowsDiscloseSubstrateStatus() throws {
++        let component = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsSurfaceComponents.swift")
++        let eidos = try loadMirroredSourceTextFile("Epistemos/Views/Settings/EidosHealthRow.swift")
++        let vaultRecall = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VaultRecallHealthRow.swift")
++        let systemG = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SystemGHealthRow.swift")
++        let acs = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ACSAdmissionHealthRow.swift")
++        let localAgent = try loadMirroredSourceTextFile("Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift")
++        let activeConstellation = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ActiveConstellationRow.swift")
++        let blueprint = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentBlueprintSettingsView.swift")
++
++        #expect(component.contains("VerifiedFloorChipStrip"))
++        #expect(component.contains("Flag: \\(flag)"))
++        #expect(component.contains("Substrate: \\(substrate)"))
++        #expect(eidos.contains("fixture path active"))
++        #expect(eidos.contains("substrate: \"fixture\""))
++        #expect(eidos.contains("fixture corpus, not vault"))
++        #expect(vaultRecall.contains("synthetic trace emission"))
++        #expect(vaultRecall.contains("substrate: \"stub trace\""))
++        #expect(systemG.contains("substrate: \"status-only\""))
++        #expect(systemG.contains("no production dispatch yet"))
++        #expect(acs.contains("substrate: \"substrate-only\""))
++        #expect(acs.contains("gate not installed"))
++        #expect(localAgent.contains("substrate: \"placeholder routes\""))
++        #expect(activeConstellation.contains("production route table"))
++        #expect(blueprint.contains("System G governed dispatch is not wired yet"))
++        #expect(blueprint.contains("substrate: \"legacy runtime\""))
++        #expect(blueprint.contains("Queue to Command Center"))
++    }
++
+     @Test("Search Fusion metrics summarize latency, hits, and errors")
+     func searchFusionMetricsSummarizeLatencyHitsAndErrors() {
+         SearchFusionMetrics.shared.reset()
+diff --git a/EpistemosTests/TriageServiceTests.swift b/EpistemosTests/TriageServiceTests.swift
+index ac1f78bfc..b1249a3e5 100644
+--- a/EpistemosTests/TriageServiceTests.swift
++++ b/EpistemosTests/TriageServiceTests.swift
+@@ -160,6 +160,9 @@ struct TriageServiceTests {
+         let selection = ChatModelSelection(rawValue: "cloud:openai:gpt-5.4")
+         #expect(selection == .cloud(.openAIGPT54))
+         #expect(selection?.rawValue == "cloud:openai:gpt-5.4")
++
++        let currentSelection = ChatModelSelection(rawValue: "cloud:openai:gpt-4o")
++        #expect(currentSelection == .cloud(.openAIGPT54))
+     }
+ 
+     @Test("legacy cloud model selections migrate to supported cloud models")
+@@ -197,7 +200,7 @@ struct TriageServiceTests {
+ 
+     @Test("cloud runtime capability matrix stays model aware")
+     func cloudRuntimeCapabilityMatrixStaysModelAware() {
+-        #expect(CloudTextModelID.openAIGPT54.supportsNativeReasoningEffortControl)
++        #expect(!CloudTextModelID.openAIGPT54.supportsNativeReasoningEffortControl)
+         #expect(!CloudTextModelID.openAIO3.supportsNativeReasoningEffortControl)
+         #expect(CloudTextModelID.anthropicClaudeSonnet46.supportsNativeReasoningEffortControl)
+         #expect(CloudTextModelID.googleGemini31ProPreview.supportsNativeReasoningEffortControl)
+@@ -216,7 +219,7 @@ struct TriageServiceTests {
+         #expect(CloudTextModelID.openAIGPT54.aboutSheetStructuredOutputSummary == "Structured JSON")
+         #expect(
+             CloudTextModelID.openAIGPT54.aboutSheetPurposeSummary
+-                == "Complex reasoning, coding, and tool-heavy professional work."
++                == "General-purpose multimodal OpenAI cloud work and tool-heavy chat."
+         )
+         #expect(CloudTextModelID.kimiK25.aboutSheetStructuredOutputSummary == "Prompt JSON fallback")
+         #expect(CloudTextModelID.deepseekReasoner.aboutSheetBadge == "DeepSeek")
+@@ -790,16 +793,16 @@ struct TriageServiceTests {
+         )
+ 
+         inference.setPreferredChatModelSelection(ChatModelSelection.cloud(CloudTextModelID.openAIGPT54))
+-        #expect(inference.effectiveModelLabel(for: EpistemosOperatingMode.agent) == "Codex GPT-5.4")
++        #expect(inference.effectiveModelLabel(for: EpistemosOperatingMode.agent) == "Codex GPT-4o")
+         #expect(
+             inference.availableReasoningTiers(for: EpistemosOperatingMode.agent)
+-                == [.low, .medium, .high, .heavy]
++                == [.medium, .heavy]
+         )
+         #expect(
+             inference.reasoningTierLabel(
+                 for: .heavy,
+                 operatingMode: EpistemosOperatingMode.agent
+-            ) == "Extra High"
++            ) == "Heavy"
+         )
+ 
+         inference.setPreferredChatModelSelection(
+diff --git a/EpistemosTests/VoiceInputPermissionTests.swift b/EpistemosTests/VoiceInputPermissionTests.swift
+index c661abb1c..274da7781 100644
+--- a/EpistemosTests/VoiceInputPermissionTests.swift
++++ b/EpistemosTests/VoiceInputPermissionTests.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import AVFoundation
+ import Testing
+ @testable import Epistemos
+ 
+@@ -21,4 +22,31 @@ struct VoiceInputPermissionTests {
+         #expect(description?.contains("mlx-whisper") == true)
+         #expect(description?.contains("whisper.cpp") == true)
+     }
++
++    @Test("speech synthesizer clamps invalid rate and pitch before speaking")
++    func speechSynthesizerClampsInvalidRateAndPitch() {
++        #expect(EpistemosSpeechSynthesizer.clampedRate(.nan) == AVSpeechUtteranceDefaultSpeechRate)
++        #expect(EpistemosSpeechSynthesizer.clampedRate(-1) == AVSpeechUtteranceMinimumSpeechRate)
++        #expect(EpistemosSpeechSynthesizer.clampedRate(99) == AVSpeechUtteranceMaximumSpeechRate)
++        #expect(EpistemosSpeechSynthesizer.clampedPitch(.nan) == 1.0)
++        #expect(EpistemosSpeechSynthesizer.clampedPitch(0.1) == 0.5)
++        #expect(EpistemosSpeechSynthesizer.clampedPitch(3.0) == 2.0)
++    }
++
++    @Test("shared voice input button uses stable recorder pipeline instead of live audio tap")
++    func voiceInputButtonUsesStableRecorderPipeline() throws {
++        let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/VoiceInputButton.swift")
++
++        #expect(source.contains("ComposerVoiceInputService.shared"))
++        #expect(source.contains("service.toggle()"))
++        #expect(!source.contains("EpistemosSpeechAnalyzer.shared.startLive()"))
++    }
++
++    @Test("Apple Speech URL recognition continuation is single-resume guarded")
++    func appleSpeechRecognitionContinuationIsSingleResumeGuarded() throws {
++        let source = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift")
++
++        #expect(source.contains("SingleResumeGate"))
++        #expect(source.contains("resumeGate.resume"))
++    }
+ }
+diff --git a/agent_core/src/brain_export/time_machine.rs b/agent_core/src/brain_export/time_machine.rs
+index e507d6ed6..4cc4db7d3 100644
+--- a/agent_core/src/brain_export/time_machine.rs
++++ b/agent_core/src/brain_export/time_machine.rs
+@@ -29,7 +29,7 @@
+ //! base, yields the next snapshot. This makes the rebuild auditable
+ //! (replay-bundle compatible) and time-travel safe.
+ 
+-use super::{BrainExportError, BrainSnapshot, SCHEMA_V1};
++use super::{BrainExportError, BrainSnapshot};
+ use serde::{Deserialize, Serialize};
+ 
+ /// A delta between two `BrainSnapshot`s. Each field that changed
+@@ -236,6 +236,7 @@ pub fn reconstruct_chain(
+ 
+ #[cfg(test)]
+ mod tests {
++    use super::super::SCHEMA_V1;
+     use super::*;
+ 
+     fn snap(ts: u64, dag: &str) -> BrainSnapshot {
+diff --git a/agent_core/src/cache/mod.rs b/agent_core/src/cache/mod.rs
+index 9754fb168..0fa8ed11c 100644
+--- a/agent_core/src/cache/mod.rs
++++ b/agent_core/src/cache/mod.rs
+@@ -325,7 +325,7 @@ fn blob_to_vec(b: &[u8]) -> Vec<f32> {
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+-    use crate::tools::VariantId;
++    use crate::tools_v2::VariantId;
+     use serde_json::json;
+     use std::collections::HashMap;
+     use std::sync::Arc;
+diff --git a/agent_core/src/eidos/hardening_tests.rs b/agent_core/src/eidos/hardening_tests.rs
+index dd0f7e52b..0e2e8cd87 100644
+--- a/agent_core/src/eidos/hardening_tests.rs
++++ b/agent_core/src/eidos/hardening_tests.rs
+@@ -7129,7 +7129,7 @@ fn validate_citation_rejects_wire_smuggled_empty_payload_ids() {
+ 
+     // (1) Confirm the asymmetry: constructor rejects empty, but the
+     // JSON wire DOES deserialize empty payloads.
+-    use super::types::{EidosChunkId, EidosIndexManifestId, IdError};
++    use super::types::{EidosChunkId, IdError};
+     assert_eq!(EidosChunkId::new(""), Err(IdError::EmptyPayload));
+     let wire_empty_chunk = r#"{"source_id":"","manifest_id":"hardening-manifest"}"#;
+     let smuggled_chunk: EidosCitation = serde_json::from_str(wire_empty_chunk)
+@@ -7317,7 +7317,7 @@ fn validate_citations_is_consistent_with_validate_citation_lift() {
+             let singular_errs: Vec<(usize, _)> = singular
+                 .iter()
+                 .enumerate()
+-                .filter_map(|(i, r)| r.as_ref().err().map(|e| (i, e.clone())))
++                .filter_map(|(i, r)| r.as_ref().err().map(|e| (i, e)))
+                 .collect();
+             assert_eq!(
+                 errs.len(),
+diff --git a/agent_core/src/eidos/hybrid_n.rs b/agent_core/src/eidos/hybrid_n.rs
+index 8757f18ac..bb5e75ac5 100644
+--- a/agent_core/src/eidos/hybrid_n.rs
++++ b/agent_core/src/eidos/hybrid_n.rs
+@@ -405,7 +405,7 @@ mod tests {
+         //
+         // Use 4 focused Lex inners each holding only the same single
+         // doc — guaranteeing rank-1 in all four.
+-        let mut build = || -> Box<dyn EidosRetriever> {
++        let build = || -> Box<dyn EidosRetriever> {
+             let mut lex = InMemoryLexicalIndex::new(manifest());
+             lex.insert(doc("trio"), "tropical", EidosSourceKind::Note).unwrap();
+             Box::new(lex)
+diff --git a/agent_core/src/providers/claude.rs b/agent_core/src/providers/claude.rs
+index 8db4dbb24..18097453e 100644
+--- a/agent_core/src/providers/claude.rs
++++ b/agent_core/src/providers/claude.rs
+@@ -25,6 +25,7 @@ use crate::types::{
+ 
+ const ANTHROPIC_API: &str = "https://api.anthropic.com/v1/messages";
+ const ANTHROPIC_VERSION: &str = "2023-06-01";
++#[cfg(test)]
+ const MCP_CONNECTOR_BETA_HEADER: &str = "mcp-client-2025-11-20";
+ const BETA_HEADER: &str = "interleaved-thinking-2025-05-14,mcp-client-2025-11-20";
+ const ANTHROPIC_OAUTH_BETA_HEADER: &str =
+diff --git a/agent_core/src/providers/gemini.rs b/agent_core/src/providers/gemini.rs
+index 37085d00b..88f4f63aa 100644
+--- a/agent_core/src/providers/gemini.rs
++++ b/agent_core/src/providers/gemini.rs
+@@ -84,6 +84,7 @@ impl GeminiProvider {
+     }
+ }
+ 
++#[cfg(test)]
+ fn gemini_request_body(messages: &[Message], tools: &[ToolSchema], config: &AgentConfig) -> Value {
+     gemini_request_body_for_model("gemini-2.5-flash", messages, tools, config)
+ }
+diff --git a/agent_core/src/providers/openai.rs b/agent_core/src/providers/openai.rs
+index 47ac5292d..309437464 100644
+--- a/agent_core/src/providers/openai.rs
++++ b/agent_core/src/providers/openai.rs
+@@ -14,11 +14,11 @@ use async_trait::async_trait;
+ use eventsource_stream::Eventsource;
+ use futures::StreamExt;
+ use reqwest::Client;
+-use serde_json::{json, Value};
++use serde_json::{Value, json};
+ use tracing::{debug, warn};
+ 
+ use crate::agent_loop::{AgentConfig, AgentError};
+-use crate::error::{with_retry, RetryConfig};
++use crate::error::{RetryConfig, with_retry};
+ use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
+ use crate::providers::schema::normalized_strict_tool_parameters;
+ use crate::types::{
+@@ -90,11 +90,11 @@ impl OpenAIProvider {
+     }
+ 
+     pub fn gpt54() -> Self {
+-        Self::from_env("gpt-5.4", "gpt-5.4")
++        Self::from_env("gpt-4o", "gpt-4o")
+     }
+ 
+     pub fn gpt54_mini() -> Self {
+-        Self::from_env("gpt-5.4-mini", "gpt-5.4-mini")
++        Self::from_env("gpt-4o-mini", "gpt-4o-mini")
+     }
+ 
+     pub fn gpt4o() -> Self {
+@@ -106,11 +106,11 @@ impl OpenAIProvider {
+     }
+ 
+     pub fn o1() -> Self {
+-        Self::from_env("o1", "gpt-5.4")
++        Self::from_env("o1", "gpt-4o")
+     }
+ 
+     pub fn o3_mini() -> Self {
+-        Self::from_env("o3-mini", "gpt-5.4")
++        Self::from_env("o3-mini", "gpt-4o")
+     }
+ 
+     async fn stream_openai_responses(
+@@ -122,7 +122,14 @@ impl OpenAIProvider {
+     ) -> Result<MessageStream, AgentError> {
+         let input = build_openai_responses_input(messages);
+         let api_tools: Vec<Value> = tools.iter().map(tool_schema_to_responses_json).collect();
+-        let body = build_openai_responses_body(self.model.to_string(), config, input, api_tools);
++        let body = build_openai_responses_body(
++            self.model.to_string(),
++            config,
++            input,
++            api_tools,
++            matches!(&auth, OpenAIResponsesAuth::ApiKey { .. }),
++            openai_responses_model_supports_reasoning(self.model),
++        );
+ 
+         let retry_config = self.retry_config.clone();
+         let client = self.client.clone();
+@@ -605,6 +612,8 @@ fn build_openai_responses_body(
+     config: &AgentConfig,
+     input: Vec<Value>,
+     api_tools: Vec<Value>,
++    include_max_output_tokens: bool,
++    supports_reasoning: bool,
+ ) -> Value {
+     let mut body = json!({
+         "model": model,
+@@ -621,12 +630,14 @@ fn build_openai_responses_body(
+         body["parallel_tool_calls"] = json!(true);
+     }
+ 
+-    if let Some(max_tokens) = config.max_output_tokens {
+-        body["max_output_tokens"] = json!(max_tokens);
++    if include_max_output_tokens {
++        if let Some(max_tokens) = config.max_output_tokens {
++            body["max_output_tokens"] = json!(max_tokens);
++        }
+     }
+ 
+     let reasoning_effort = openai_responses_reasoning_effort(config);
+-    if reasoning_effort != "none" {
++    if supports_reasoning && reasoning_effort != "none" {
+         body["reasoning"] = json!({
+             "effort": reasoning_effort,
+             "summary": "auto",
+@@ -697,6 +708,10 @@ fn openai_responses_reasoning_effort(config: &AgentConfig) -> &'static str {
+     }
+ }
+ 
++fn openai_responses_model_supports_reasoning(model: &str) -> bool {
++    matches!(model, "gpt-5.4" | "gpt-5.4-mini")
++}
++
+ fn response_function_call_ids(item: &Value) -> Option<(String, String)> {
+     let item_id = item
+         .get("id")
+@@ -876,17 +891,17 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn legacy_gpt4o_alias_uses_current_gpt54_model() {
++    fn legacy_gpt54_alias_uses_gpt4o_model() {
+         let provider = OpenAIProvider::gpt4o();
+ 
+-        assert_eq!(provider.model, "gpt-5.4");
++        assert_eq!(provider.model, "gpt-4o");
+     }
+ 
+     #[test]
+-    fn legacy_gpt4o_mini_alias_uses_current_gpt54_mini_model() {
++    fn legacy_gpt54_mini_alias_uses_gpt4o_mini_model() {
+         let provider = OpenAIProvider::gpt4o_mini();
+ 
+-        assert_eq!(provider.model, "gpt-5.4-mini");
++        assert_eq!(provider.model, "gpt-4o-mini");
+     }
+ 
+     #[test]
+@@ -961,10 +976,12 @@ mod tests {
+         assert_eq!(input[0]["content"][0]["type"], "input_text");
+         assert_eq!(input[0]["content"][0]["text"], "What is this?");
+         assert_eq!(input[0]["content"][1]["type"], "input_image");
+-        assert!(input[0]["content"][1]["image_url"]
+-            .as_str()
+-            .unwrap()
+-            .starts_with("data:image/png;base64,"));
++        assert!(
++            input[0]["content"][1]["image_url"]
++                .as_str()
++                .unwrap()
++                .starts_with("data:image/png;base64,")
++        );
+         assert_eq!(input[1]["type"], "function_call_output");
+         assert_eq!(input[1]["call_id"], "fc_call_1");
+         assert_eq!(input[1]["output"], "found 3 results");
+@@ -1055,7 +1072,7 @@ mod tests {
+             ..Default::default()
+         };
+         let body = build_openai_responses_body(
+-            "gpt-5.4".to_string(),
++            "gpt-4o".to_string(),
+             &config,
+             vec![json!({
+                 "type": "message",
+@@ -1073,6 +1090,8 @@ mod tests {
+                     "required": ["command"]
+                 }),
+             })],
++            true,
++            false,
+         );
+ 
+         assert_eq!(body["tool_choice"], "auto");
+@@ -1089,7 +1108,7 @@ mod tests {
+             ..Default::default()
+         };
+         let body = build_openai_responses_body(
+-            "gpt-5.4".to_string(),
++            "gpt-4o".to_string(),
+             &config,
+             vec![json!({
+                 "type": "message",
+@@ -1097,11 +1116,53 @@ mod tests {
+                 "content": [{ "type": "input_text", "text": "Ping" }],
+             })],
+             Vec::new(),
++            true,
++            false,
+         );
+ 
+         assert_eq!(body["max_output_tokens"], 8192);
+     }
+ 
++    #[test]
++    fn codex_responses_request_body_omits_max_output_tokens() {
++        let config = AgentConfig {
++            max_output_tokens: Some(8192),
++            ..Default::default()
++        };
++        let body = build_openai_responses_body(
++            "gpt-4o".to_string(),
++            &config,
++            vec![json!({
++                "type": "message",
++                "role": "user",
++                "content": [{ "type": "input_text", "text": "Ping" }],
++            })],
++            Vec::new(),
++            false,
++            false,
++        );
++
++        assert!(body.get("max_output_tokens").is_none());
++    }
++
++    #[test]
++    fn gpt4o_responses_request_body_omits_reasoning_controls() {
++        let body = build_openai_responses_body(
++            "gpt-4o".to_string(),
++            &AgentConfig::default(),
++            vec![json!({
++                "type": "message",
++                "role": "user",
++                "content": [{ "type": "input_text", "text": "Ping" }],
++            })],
++            Vec::new(),
++            true,
++            openai_responses_model_supports_reasoning("gpt-4o"),
++        );
++
++        assert!(body.get("reasoning").is_none());
++    }
++
+     #[test]
+     fn responses_function_call_identity_prefers_call_id_for_tool_results() {
+         let item = json!({
+diff --git a/agent_core/src/resonance/mod.rs b/agent_core/src/resonance/mod.rs
+index 58f28ff31..448b38c71 100644
+--- a/agent_core/src/resonance/mod.rs
++++ b/agent_core/src/resonance/mod.rs
+@@ -245,7 +245,7 @@ pub fn compute_signature_full(
+     }
+ }
+ 
+-#[cfg(test)]
++#[cfg(all(test, any(feature = "pro-build", feature = "research")))]
+ mod compose_tests {
+     use super::*;
+ 
+diff --git a/agent_core/src/scope_rex/retrieval/hopfield.rs b/agent_core/src/scope_rex/retrieval/hopfield.rs
+index d92ba30cb..2f05d5277 100644
+--- a/agent_core/src/scope_rex/retrieval/hopfield.rs
++++ b/agent_core/src/scope_rex/retrieval/hopfield.rs
+@@ -113,21 +113,6 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+ mod tests {
+     use super::*;
+ 
+-    fn deterministic_random(seed: u64, n: usize) -> Vec<f32> {
+-        let mut state = seed
+-            .wrapping_mul(2862933555777941757)
+-            .wrapping_add(3037000493);
+-        let mut out = Vec::with_capacity(n);
+-        for _ in 0..n {
+-            state = state
+-                .wrapping_mul(2862933555777941757)
+-                .wrapping_add(3037000493);
+-            let f = ((state >> 8) & 0xFFFFFF) as f32 / 8_388_608.0 - 1.0;
+-            out.push(f);
+-        }
+-        out
+-    }
+-
+     #[test]
+     fn empty_stored_patterns_yield_empty_output() {
+         let q = vec![1.0_f32, 2.0, 3.0];
+diff --git a/agent_core/src/skill_discovery/mod.rs b/agent_core/src/skill_discovery/mod.rs
+index db8cfb32b..d1d5faa23 100644
+--- a/agent_core/src/skill_discovery/mod.rs
++++ b/agent_core/src/skill_discovery/mod.rs
+@@ -306,7 +306,7 @@ mod tests {
+ 
+     fn trace(seq: &[&str], duration_ms: u32, accepted: bool) -> CompositionTrace {
+         CompositionTrace {
+-            composition_id: ulid::Ulid::new().to_string(),
++            composition_id: uuid::Uuid::new_v4().to_string(),
+             ts: Utc::now(),
+             tool_sequence: seq.iter().map(|s| s.to_string()).collect(),
+             total_duration_ms: duration_ms,
+diff --git a/agent_core/src/tools/intelligence.rs b/agent_core/src/tools/intelligence.rs
+index ffd4eb09f..8888122ba 100644
+--- a/agent_core/src/tools/intelligence.rs
++++ b/agent_core/src/tools/intelligence.rs
+@@ -20,10 +20,10 @@ use async_trait::async_trait;
+ use chrono::{DateTime, Utc};
+ use reqwest::Client;
+ use serde::Deserialize;
+-use serde_json::{json, Value};
++use serde_json::{Value, json};
+ 
+ use crate::bridge::AgentEventDelegate;
+-use crate::providers::openai::{extract_openai_responses_output_text, OPENAI_RESPONSES_API};
++use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
+ 
+ use super::registry::{ToolError, ToolHandler};
+ 
+@@ -807,10 +807,9 @@ async fn ask_claude(client: &Client, problem: &str) -> Result<String, String> {
+ async fn ask_openai(client: &Client, problem: &str) -> Result<String, String> {
+     let api_key = std::env::var("OPENAI_API_KEY").map_err(|_| "OPENAI_API_KEY not set")?;
+     let body = json!({
+-        "model": "gpt-5.4",
++        "model": "gpt-4o",
+         "max_output_tokens": 1024,
+         "store": false,
+-        "text": { "verbosity": "low" },
+         "input": [{
+             "type": "message",
+             "role": "user",
+@@ -1240,9 +1239,11 @@ mod tests {
+             .unwrap();
+         let parsed: Value = serde_json::from_str(&result).unwrap();
+         let patterns = parsed["patterns"].as_array().unwrap();
+-        assert!(patterns
+-            .iter()
+-            .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool"));
++        assert!(
++            patterns
++                .iter()
++                .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool")
++        );
+     }
+ 
+     #[tokio::test]
+diff --git a/agent_core/src/tools/media.rs b/agent_core/src/tools/media.rs
+index 3de735421..9996e6a34 100644
+--- a/agent_core/src/tools/media.rs
++++ b/agent_core/src/tools/media.rs
+@@ -19,13 +19,13 @@ use std::sync::Arc;
+ use std::time::Duration;
+ 
+ use async_trait::async_trait;
+-use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
++use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+ use reqwest::Client;
+-use serde_json::{json, Value};
++use serde_json::{Value, json};
+ 
+ use super::registry::{ToolError, ToolHandler};
+ use crate::bridge::AgentEventDelegate;
+-use crate::providers::openai::{extract_openai_responses_output_text, OPENAI_RESPONSES_API};
++use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
+ 
+ const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
+ const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024; // 20MB cap for base64 encoding
+@@ -307,10 +307,9 @@ async fn openai_vision(
+         .map_err(|_| ToolError::ExecutionFailed("OPENAI_API_KEY not set".into()))?;
+ 
+     let body = json!({
+-        "model": "gpt-5.4",
++        "model": "gpt-4o",
+         "max_output_tokens": 1024,
+         "store": false,
+-        "text": { "verbosity": "low" },
+         "input": [{
+             "type": "message",
+             "role": "user",
+@@ -342,7 +341,7 @@ async fn openai_vision(
+ 
+     Ok(json!({
+         "provider": "openai",
+-        "model": "gpt-5.4",
++        "model": "gpt-4o",
+         "source": source_label,
+         "question": question,
+         "cloud_requests_authorized": true,
+@@ -374,7 +373,7 @@ pub fn vision_analyze_schema() -> crate::types::ToolSchema {
+         description: "Analyze an image (URL or local file) with an external vision LLM. \
+              Requires allow_cloud_external_requests=true because image URLs or local file \
+              bytes are sent to provider APIs. Supports provider='claude' (default, uses \
+-             ANTHROPIC_API_KEY) or 'openai' (uses OPENAI_API_KEY with gpt-5.4 Responses). Local files \
++             ANTHROPIC_API_KEY) or 'openai' (uses OPENAI_API_KEY with gpt-4o Responses). Local files \
+              are base64-encoded in-process; 20MB cap."
+             .to_string(),
+         parameters: json!({
+@@ -1169,9 +1168,11 @@ mod tests {
+             schema.parameters["required"],
+             json!(["allow_cloud_external_requests"])
+         );
+-        assert!(schema
+-            .description
+-            .contains("allow_cloud_external_requests=true"));
++        assert!(
++            schema
++                .description
++                .contains("allow_cloud_external_requests=true")
++        );
+         assert!(
+             schema.parameters["properties"]["allow_cloud_external_requests"]["description"]
+                 .as_str()
+diff --git a/agent_core/src/tools_v2/legacy_adapter.rs b/agent_core/src/tools_v2/legacy_adapter.rs
+index 54a51d725..27b08ae38 100644
+--- a/agent_core/src/tools_v2/legacy_adapter.rs
++++ b/agent_core/src/tools_v2/legacy_adapter.rs
+@@ -145,8 +145,8 @@ pub fn generic_text_or_object_output_schema() -> &'static Value {
+ mod tests {
+     use super::*;
+     use crate::tools::registry::ToolError;
+-    use crate::tools::runner::{default_ctx, run_with_variants};
+-    use crate::tools::Status;
++    use crate::tools_v2::runner::{default_ctx, run_with_variants};
++    use crate::tools_v2::Status;
+     use std::sync::OnceLock;
+     use std::time::Duration;
+ 
+diff --git a/agent_core/src/tools_v2/reason_think.rs b/agent_core/src/tools_v2/reason_think.rs
+index da2beeed3..ce9f2a4ab 100644
+--- a/agent_core/src/tools_v2/reason_think.rs
++++ b/agent_core/src/tools_v2/reason_think.rs
+@@ -112,8 +112,8 @@ impl Tool for ReasonThinkTool {
+ mod tests {
+     use super::*;
+     use crate::grammar::{build_dispatch_grammar, schema_to_llg};
+-    use crate::tools::runner::{default_ctx, run_with_variants};
+-    use crate::tools::Status;
++    use crate::tools_v2::runner::{default_ctx, run_with_variants};
++    use crate::tools_v2::Status;
+     use std::time::Duration;
+ 
+     #[tokio::test]
+@@ -157,8 +157,8 @@ mod tests {
+ 
+         // Re-validate the output against output_schema explicitly to
+         // close the loop (the runner already did this internally).
+-        let validator = crate::tools::runner::JsonSchemaValidator;
+-        use crate::tools::SchemaValidator;
++        let validator = crate::tools_v2::runner::JsonSchemaValidator;
++        use crate::tools_v2::SchemaValidator;
+         validator
+             .validate(ReasonThinkTool.output_schema(), &r.result)
+             .expect("runner output must satisfy output_schema");
+@@ -206,8 +206,8 @@ mod tests {
+         // them in the first place.
+         let oversized = "x".repeat(281);
+         let bad_input = json!({"thought": oversized});
+-        let validator = crate::tools::runner::JsonSchemaValidator;
+-        use crate::tools::SchemaValidator;
++        let validator = crate::tools_v2::runner::JsonSchemaValidator;
++        use crate::tools_v2::SchemaValidator;
+         let r = validator.validate(ReasonThinkTool.input_schema(), &bad_input);
+         assert!(r.is_err(), "281-char thought must fail input schema");
+     }
+diff --git a/agent_core/src/tools_v2/v2_catalog/mod.rs b/agent_core/src/tools_v2/v2_catalog/mod.rs
+index cee67d14c..71e51dae1 100644
+--- a/agent_core/src/tools_v2/v2_catalog/mod.rs
++++ b/agent_core/src/tools_v2/v2_catalog/mod.rs
+@@ -558,7 +558,7 @@ mod tests {
+         // Plan §1.6: action.* tools are Pro-only and never ship in the
+         // App Store dispatch grammar. This invariant lives at the SPEC
+         // level — Phase 3+ dispatch construction filters by profile.
+-        use crate::tools::Profile;
++        use crate::tools_v2::Profile;
+         assert_eq!(
+             super::action_bash::SPEC.profile,
+             Profile::ProOnly,

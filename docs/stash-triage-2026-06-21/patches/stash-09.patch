@@ -1,0 +1,1021 @@
+# stash@{9}: stash@{9}: On phase2-terminal-e-acs-gate-2026-05-24: terminal-e-pre-main-2026-05-24-rev2
+# === TRACKED changes (filtered: no build artifacts) ===
+diff --git a/Epistemos/ACSAdmission/ACSAdmissionWiring.swift b/Epistemos/ACSAdmission/ACSAdmissionWiring.swift
+index 2037927a9..9a7f6f5fd 100644
+--- a/Epistemos/ACSAdmission/ACSAdmissionWiring.swift
++++ b/Epistemos/ACSAdmission/ACSAdmissionWiring.swift
+@@ -3,20 +3,20 @@
+ // Wiring #6 (T18B ACS dispatch admission gate) — HIGH RISK Swift glue.
+ //
+ // Per the mission spec, this wiring is flagged "HIGH RISK — gates
+-// everything; ship with extra care". The initial Swift surface is
+-// therefore **status read only**: we expose the strict policy summary
+-// (id, version, capability + threshold counts, canonical verdict
+-// labels) so Settings -> Diagnostics surfaces the substrate as live.
++// everything; ship with extra care". This bridge exposes the strict
++// policy summary (id, version, capability + threshold counts,
++// canonical verdict labels) so Settings -> Diagnostics surfaces the
++// production gate state as live.
+ //
+-// **No production dispatch hooks are installed by this PR.** The
+-// actual admission gating remains in `agent_core::acs_admission` and
+-// production callers (oplog mutations, tool actions, kernel
+-// promotions) opt into the gate explicitly in follow-up wirings.
++// Production gating is installed in the v2 tool-call handoff and in
++// the distillation persistence path. This file remains the read-only
++// Swift policy-summary mirror; legacy consumers that bypass those
++// paths remain explicit follow-up wirings.
+ //
+ //   - `ACSAdmissionFlags` — UserDefaults gate
+ //     `EPISTEMOS_ACS_ADMISSION_V0` (default OFF). Flag-on only changes
+-//     the health row's status chip; it does NOT enable any production
+-//     gating.
++//     the health row's status chip; production gates are wired at their
++//     call sites, not by this flag reader.
+ //   - `ACSAdmissionMetrics` — last-good policy snapshot + read count.
+ //   - `ACSAdmissionBridge` — sync wrapper around the UniFFI export
+ //     `acsAdmissionStrictPolicySummaryJson()`.
+diff --git a/Epistemos/Engine/ProvenanceConsoleProjectionService.swift b/Epistemos/Engine/ProvenanceConsoleProjectionService.swift
+index d50805d85..196f95982 100644
+--- a/Epistemos/Engine/ProvenanceConsoleProjectionService.swift
++++ b/Epistemos/Engine/ProvenanceConsoleProjectionService.swift
+@@ -134,6 +134,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
+             ("ClaimLedger (Swift)", "\(retractionEventCount) RetractionPropagated events"),
+             ("Cognitive DAG (Rust)", cognitiveDagSummary(cognitiveDag)),
+             ("Legacy ClaimLedger bridge", "\(rustLedger.claimCount) claims, \(rustLedger.evidenceCount) evidence, \(rustLedger.eventCount) events"),
++            ("ACS verdict column", "visible; not linked until entries carry ACS record ids"),
+             ("AgentEvent", "\(agentDiagnostics.totalRows) events across \(agentDiagnostics.distinctRuns) runs"),
+             ("GraphEvent", "\(graphDiagnostics.totalRows) events across \(graphDiagnostics.distinctMutations) mutations")
+         ])
+@@ -184,6 +185,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
+             ("sequence", "\(event.sequence)"),
+             ("trigger kind", event.triggerKind),
+             ("trigger", short(event.triggeredBy)),
++            ("ACS verdict", acsVerdictUnlinked()),
+             ("claims at risk", "\(event.claimsMarkedAtRisk)"),
+             ("max depth", "\(event.maxDepthReached)"),
+             ("depth capped", event.depthCapped ? "true" : "false")
+@@ -197,6 +199,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
+             ("run", short(event.runID)),
+             ("sequence", "\(event.sequence)"),
+             ("actor", actorLabel(event.actor)),
++            ("ACS verdict", acsVerdictUnlinked()),
+             ("occurred", "\(event.occurredAtMs)ms")
+         ]
+         if let traceID = event.traceID, !traceID.isEmpty {
+@@ -215,6 +218,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
+             ("event", short(event.eventID)),
+             ("mutation", short(event.mutationID)),
+             ("sequence", "\(event.sequence)"),
++            ("ACS verdict", acsVerdictUnlinked()),
+             ("occurred", "\(event.occurredAtMs)ms")
+         ]
+         if let runID = event.runID, !runID.isEmpty {
+@@ -252,4 +256,8 @@ struct ProvenanceConsoleProjectionService: Sendable {
+         guard trimmed.count > 12 else { return trimmed.isEmpty ? "unknown" : trimmed }
+         return String(trimmed.prefix(12))
+     }
++
++    private static func acsVerdictUnlinked() -> String {
++        "not linked (no ACS record id)"
++    }
+ }
+diff --git a/Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift b/Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift
+index 0aef94eb1..a7c37c5ae 100644
+--- a/Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift
++++ b/Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift
+@@ -12,6 +12,7 @@ import Foundation
+ /// Reference: InfoRM (NeurIPS 2024) — CSI detects over-optimized latent representations.
+ @MainActor @Observable
+ final class CSISafeguard {
++    static let shared = CSISafeguard()
+ 
+     /// CSI threshold below which training is halted.
+     let threshold: Double
+diff --git a/Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift b/Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift
+index 0e561fd14..748fe526f 100644
+--- a/Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift
++++ b/Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift
+@@ -14,6 +14,15 @@ nonisolated struct CloudKnowledgeDistillationRunSummary: Sendable, Equatable {
+     let recentChatCount: Int
+ }
+ 
++nonisolated enum CloudKnowledgeDistillationError: Error, Sendable, Equatable {
++    case csiSafeguardTriggered(modelID: String, value: Double, threshold: Double)
++}
++
++nonisolated struct CloudKnowledgeDistillationCSIGateResult: Sendable, Equatable {
++    let shouldContinue: Bool
++    let threshold: Double
++}
++
+ actor CloudKnowledgeDistillationService {
+     private let modelContainer: ModelContainer
+     private let store: KnowledgeProfileStore
+@@ -21,6 +30,8 @@ actor CloudKnowledgeDistillationService {
+     private let sourceNotesProvider: (@Sendable () throws -> [KnowledgeSourceNote])?
+     private let recentChatsProvider: (@Sendable () throws -> [String])?
+     private let nowProvider: @Sendable () -> Date
++    private let csiMeasurementProvider: @Sendable (CompiledModelVault, ModelVaultTarget, Int) -> Double
++    private let csiGateProvider: @Sendable (Double, Int, String) async -> CloudKnowledgeDistillationCSIGateResult
+ 
+     init(
+         modelContainer: ModelContainer,
+@@ -30,7 +41,26 @@ actor CloudKnowledgeDistillationService {
+         },
+         sourceNotesProvider: (@Sendable () throws -> [KnowledgeSourceNote])? = nil,
+         recentChatsProvider: (@Sendable () throws -> [String])? = nil,
+-        nowProvider: @escaping @Sendable () -> Date = Date.init
++        nowProvider: @escaping @Sendable () -> Date = Date.init,
++        csiMeasurementProvider: @escaping @Sendable (CompiledModelVault, ModelVaultTarget, Int) -> Double = {
++            compilation, _, _ in
++            CloudKnowledgeDistillationService.defaultCSIMeasurement(for: compilation)
++        },
++        csiGateProvider: @escaping @Sendable (Double, Int, String) async -> CloudKnowledgeDistillationCSIGateResult = {
++            value, epoch, experimentId in
++            await MainActor.run {
++                let safeguard = CSISafeguard.shared
++                let shouldContinue = safeguard.recordMeasurement(
++                    value: value,
++                    epoch: epoch,
++                    experimentId: experimentId
++                )
++                return CloudKnowledgeDistillationCSIGateResult(
++                    shouldContinue: shouldContinue,
++                    threshold: safeguard.threshold
++                )
++            }
++        }
+     ) {
+         self.modelContainer = modelContainer
+         self.store = store
+@@ -38,6 +68,8 @@ actor CloudKnowledgeDistillationService {
+         self.sourceNotesProvider = sourceNotesProvider
+         self.recentChatsProvider = recentChatsProvider
+         self.nowProvider = nowProvider
++        self.csiMeasurementProvider = csiMeasurementProvider
++        self.csiGateProvider = csiGateProvider
+     }
+ 
+     func rebuildAllModelVaults() async throws -> CloudKnowledgeDistillationRunSummary {
+@@ -74,6 +106,16 @@ actor CloudKnowledgeDistillationService {
+                 recentChats: recentChats,
+                 instructions: nil
+             )
++            let epoch = compiledModelIDs.count + 1
++            let csiValue = csiMeasurementProvider(vault, target, epoch)
++            let csiGate = await csiGateProvider(csiValue, epoch, target.modelID)
++            guard csiGate.shouldContinue else {
++                throw CloudKnowledgeDistillationError.csiSafeguardTriggered(
++                    modelID: target.modelID,
++                    value: csiValue,
++                    threshold: csiGate.threshold
++                )
++            }
+             try await store.save(vault)
+             compiledModelIDs.append(target.modelID)
+         }
+@@ -98,6 +140,14 @@ actor CloudKnowledgeDistillationService {
+         return lhs.modelID < rhs.modelID
+     }
+ 
++    private nonisolated static func defaultCSIMeasurement(for vault: CompiledModelVault) -> Double {
++        let noteCount = max(vault.metadata.noteCount, 1)
++        let conceptCount = max(vault.metadata.conceptCount, 1)
++        let density = Double(conceptCount) / Double(noteCount)
++        guard density.isFinite else { return 1.0 }
++        return min(1.0, max(0.5, density))
++    }
++
+     private nonisolated static func loadNotes(from container: ModelContainer) async throws -> [KnowledgeSourceNote] {
+         let context = ModelContext(container)
+         context.autosaveEnabled = false
+diff --git a/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift b/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift
+index 7f56d4265..bb6dac8cf 100644
+--- a/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift
++++ b/Epistemos/Views/Settings/ACSAdmissionHealthRow.swift
+@@ -2,15 +2,15 @@ import SwiftUI
+ 
+ // MARK: - ACSAdmissionHealthRow
+ //
+-// Wiring #6 (T18B ACS dispatch admission gate) — HIGH RISK status-read
+-// surface. Mirrors EidosHealthRow / SystemGHealthRow / FUlpHealthRow
++// Wiring #6 (T18B ACS dispatch admission gate) — HIGH RISK production
++// status surface. Mirrors EidosHealthRow / SystemGHealthRow / FUlpHealthRow
+ // shape. Reads strict policy summary on appear via
+ // `ACSAdmissionBridge.strictPolicySummary()`.
+ //
+-// **No production gating is installed by this row.** The chips show
+-// substrate health only; flipping the flag does NOT enforce admission
+-// anywhere — explicit follow-up wirings install hooks per consumer
+-// (oplog mutations, tool actions, etc.).
++// The row remains read-only UI, but the underlying ACS admission path
++// is wired into the v2 tool-call handoff and the distillation write
++// path. Legacy consumers that have not adopted those paths are still
++// tracked as explicit follow-up wirings.
+ 
+ @MainActor
+ public struct ACSAdmissionHealthRow: View {
+@@ -28,13 +28,13 @@ public struct ACSAdmissionHealthRow: View {
+                 symbol: "flag.fill",
+                 ok: snapshot.isFlagEnabled,
+                 detail: snapshot.isFlagEnabled
+-                    ? "EPISTEMOS_ACS_ADMISSION_V0 on (status surface only)"
++                    ? "EPISTEMOS_ACS_ADMISSION_V0 on (production gate active)"
+                     : "EPISTEMOS_ACS_ADMISSION_V0 off"
+             )
+             VerifiedFloorChipStrip(
+                 flag: snapshot.isFlagEnabled ? "on" : "off",
+-                substrate: "substrate-only",
+-                substrateTint: .orange
++                substrate: "production gate active",
++                substrateTint: .green
+             )
+             row(
+                 label: "Strict policy",
+@@ -83,7 +83,7 @@ public struct ACSAdmissionHealthRow: View {
+ 
+     private var policyDetail: String {
+         guard let p = snapshot.lastPolicy else { return "(no read yet)" }
+-        return "\(p.policyId) v\(p.version) (gate not installed)"
++        return "\(p.policyId) v\(p.version) (production gate active)"
+     }
+ 
+     private var capabilityDetail: String {
+diff --git a/EpistemosTests/CloudKnowledgeDistillationTests.swift b/EpistemosTests/CloudKnowledgeDistillationTests.swift
+index 7851beda5..ade34b86f 100644
+--- a/EpistemosTests/CloudKnowledgeDistillationTests.swift
++++ b/EpistemosTests/CloudKnowledgeDistillationTests.swift
+@@ -536,4 +536,73 @@ struct CloudKnowledgeDistillationTests {
+         }
+         #expect(try await store.load(modelID: "gpt-5.4") == nil)
+     }
++
++    @Test("service short-circuits persistence when CSI safeguard triggers")
++    func serviceShortCircuitsPersistenceWhenCSISafeguardTriggers() async throws {
++        await MainActor.run { CSISafeguard.shared.reset() }
++        let container = try makeModelContainer()
++        let now = Date(timeIntervalSince1970: 1_775_150_400)
++        let tempRoot = FileManager.default.temporaryDirectory
++            .appendingPathComponent("cloud-knowledge-csi-gate-\(UUID().uuidString)", isDirectory: true)
++        defer { try? FileManager.default.removeItem(at: tempRoot) }
++
++        let store = KnowledgeProfileStore(baseDirectory: tempRoot)
++        let service = CloudKnowledgeDistillationService(
++            modelContainer: container,
++            store: store,
++            targetsProvider: {
++                [
++                    ModelVaultTarget(
++                        modelID: "gpt-5.4",
++                        displayName: "GPT-5.4",
++                        conceptLimit: 40,
++                        activeWindowDays: 7
++                    )
++                ]
++            },
++            sourceNotesProvider: {
++                [
++                    makeNote(
++                        id: "csi-note",
++                        title: "CSI Gate",
++                        body: "Distillation persistence must stop when CSI drops below threshold.",
++                        tags: ["alignment"],
++                        updatedAt: now
++                    )
++                ]
++            },
++            recentChatsProvider: { [] },
++            nowProvider: { now },
++            csiMeasurementProvider: { _, _, _ in 0.01 }
++        )
++
++        do {
++            _ = try await service.rebuildAllModelVaults()
++            Issue.record("Expected low CSI to trigger CloudKnowledgeDistillationError.")
++        } catch let error as CloudKnowledgeDistillationError {
++            #expect(error == .csiSafeguardTriggered(
++                modelID: "gpt-5.4",
++                value: 0.01,
++                threshold: 0.3
++            ))
++        } catch {
++            Issue.record("Expected CloudKnowledgeDistillationError, got \(error).")
++        }
++
++        #expect(try await store.load(modelID: "gpt-5.4") == nil)
++        await MainActor.run {
++            #expect(CSISafeguard.shared.isTriggered)
++            CSISafeguard.shared.reset()
++        }
++    }
++
++    @Test("distillation service source calls CSISafeguard before persistence")
++    func distillationServiceSourceCallsCSISafeguardBeforePersistence() throws {
++        let source = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift")
++        let safeguardCall = try #require(source.range(of: "safeguard.recordMeasurement("))
++        let persistenceCall = try #require(source.range(of: "try await store.save(vault)"))
++
++        #expect(source.contains("CSISafeguard.shared"))
++        #expect(safeguardCall.lowerBound < persistenceCall.lowerBound)
++    }
+ }
+diff --git a/EpistemosTests/ProvenanceConsoleSourceGuardTests.swift b/EpistemosTests/ProvenanceConsoleSourceGuardTests.swift
+index 769a81d57..84e70a373 100644
+--- a/EpistemosTests/ProvenanceConsoleSourceGuardTests.swift
++++ b/EpistemosTests/ProvenanceConsoleSourceGuardTests.swift
+@@ -61,6 +61,8 @@ struct ProvenanceConsoleSourceGuardTests {
+         #expect(source.contains("func subscribeRetractionEvents("))
+         #expect(source.contains("RetractionPropagatedProjection"))
+         #expect(source.contains("GenUIPayload.provenanceTrace("))
++        #expect(source.contains("(\"ACS verdict\""))
++        #expect(source.contains("ACS verdict column"))
+         assertForbiddenTokensAbsent(
+             [
+                 "saveAgentEvent(",
+diff --git a/EpistemosTests/SearchFusionHealthRowTests.swift b/EpistemosTests/SearchFusionHealthRowTests.swift
+index 4b482337e..ca33c37bd 100644
+--- a/EpistemosTests/SearchFusionHealthRowTests.swift
++++ b/EpistemosTests/SearchFusionHealthRowTests.swift
+@@ -113,8 +113,8 @@ struct SearchFusionHealthRowTests {
+         #expect(vaultRecall.contains("substrate: \"stub trace\""))
+         #expect(systemG.contains("substrate: \"status-only\""))
+         #expect(systemG.contains("no production dispatch yet"))
+-        #expect(acs.contains("substrate: \"substrate-only\""))
+-        #expect(acs.contains("gate not installed"))
++        #expect(acs.contains("substrate: \"production gate active\""))
++        #expect(acs.contains("production gate active"))
+         #expect(localAgent.contains("substrate: \"placeholder routes\""))
+         #expect(activeConstellation.contains("production route table"))
+         #expect(blueprint.contains("System G governed dispatch is not wired yet"))
+diff --git a/agent_core/src/acs_admission/audit_sink.rs b/agent_core/src/acs_admission/audit_sink.rs
+index c623d0234..2e98954b2 100644
+--- a/agent_core/src/acs_admission/audit_sink.rs
++++ b/agent_core/src/acs_admission/audit_sink.rs
+@@ -17,7 +17,6 @@ use crate::{
+     },
+ };
+ 
+-use super::*;
+ use super::admit::*;
+ use super::common::*;
+ use super::decision::*;
+@@ -29,6 +28,7 @@ use super::risk::*;
+ use super::validation::*;
+ use super::verdict::*;
+ use super::wire::*;
++use super::*;
+ 
+ pub trait ACSAuditSink {
+     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError>;
+@@ -110,6 +110,19 @@ impl<'a> ACSRunEventLogSink<'a> {
+     pub const fn new(run_event_log: &'a OpLog) -> Self {
+         Self { run_event_log }
+     }
++
++    pub fn admit_and_record(
++        &self,
++        input: &ACSAdmissionInput,
++        policy: &ACSPolicy,
++        now_ms: i64,
++    ) -> Result<ACSAdmissionDecision, ACSAuditError> {
++        super::admit::admit_and_record(input, policy, now_ms, self)
++    }
++
++    pub fn recorded_event_count(&self) -> usize {
++        self.run_event_log.len()
++    }
+ }
+ 
+ impl ACSAuditSink for ACSRunEventLogSink<'_> {
+@@ -221,7 +234,9 @@ pub(crate) fn run_event_log_corrupt_acs_record(run_event_log: &OpLog) -> Option<
+         })
+ }
+ 
+-pub(crate) fn audit_record_value_malformed_field(value: &serde_json::Value) -> Option<&'static str> {
++pub(crate) fn audit_record_value_malformed_field(
++    value: &serde_json::Value,
++) -> Option<&'static str> {
+     let serde_json::Value::Object(object) = value else {
+         return Some("record");
+     };
+@@ -384,20 +399,16 @@ pub fn snapshot_acs_audit_records(
+             .map(str::to_string)
+             .unwrap_or_else(|| node_id.clone());
+         let malformed_field = audit_record_value_malformed_field(&value);
+-        let record: ACSAuditRecord = serde_json::from_value(value).map_err(|_| {
+-            ACSAuditLookupError::CorruptRecord {
++        let record: ACSAuditRecord =
++            serde_json::from_value(value).map_err(|_| ACSAuditLookupError::CorruptRecord {
+                 field: malformed_field.unwrap_or("record"),
+                 record_id: fallback_record_id.clone(),
+-            }
+-        })?;
++            })?;
+         record
+             .validate()
+             .map_err(|err| ACSAuditLookupError::CorruptRecord {
+                 field: err.field(),
+-                record_id: err
+-                    .record_id()
+-                    .unwrap_or(&fallback_record_id)
+-                    .to_string(),
++                record_id: err.record_id().unwrap_or(&fallback_record_id).to_string(),
+             })?;
+         records.push(record);
+     }
+diff --git a/agent_core/src/agent_runtime_v2/mission_run.rs b/agent_core/src/agent_runtime_v2/mission_run.rs
+index a9ab80d1d..2f48a40c4 100644
+--- a/agent_core/src/agent_runtime_v2/mission_run.rs
++++ b/agent_core/src/agent_runtime_v2/mission_run.rs
+@@ -24,10 +24,89 @@
+ use super::answer::{AnswerPacket, Citation};
+ use super::blueprint::AgentBlueprintId;
+ use super::budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec};
+-use super::event::AgentEvent;
++use super::event::{AgentEvent, AgentEventErrorKind};
++use super::mission::{ToolCall, ToolCallError};
+ use super::para::StopReason;
+ use super::run_event_log::RunEventLog;
++use crate::acs_admission::{
++    ACSAdmissionInput, ACSAdmissionPayload, ACSAdmissionProofError, ACSAdmissionVerdict,
++    ACSAuditError, ACSAuditRecord, ACSOperationKind, ACSPolicy, ACSRiskVector, ACSRunEventLogSink,
++    ACSToolActionRequest,
++};
+ use crate::cognitive_dag::node::Hash;
++use crate::effect::receipt::SigningKey;
++use crate::scope_rex::admission_proof::SCOPERexAdmissionProof;
++
++#[derive(Debug, Clone, PartialEq)]
++pub struct ToolCallAdmissionHandoff {
++    pub event_ordinal: u64,
++    pub call: ToolCall,
++    pub admission_proof: SCOPERexAdmissionProof,
++    pub audit_record: ACSAuditRecord,
++}
++
++#[derive(Debug, Clone, PartialEq)]
++pub enum ToolCallAdmissionError {
++    MalformedToolCall(ToolCallError),
++    Audit(ACSAuditError),
++    Proof(ACSAdmissionProofError),
++    Blocked {
++        verdict: ACSAdmissionVerdict,
++        record_id: String,
++        reason: String,
++    },
++}
++
++impl ToolCallAdmissionError {
++    #[must_use]
++    pub const fn cause(&self) -> &'static str {
++        match self {
++            Self::MalformedToolCall(_) => "malformed_tool_call",
++            Self::Audit(error) => error.cause(),
++            Self::Proof(error) => error.cause(),
++            Self::Blocked { .. } => "acs_verdict_blocks_tool_call",
++        }
++    }
++}
++
++impl From<ToolCallError> for ToolCallAdmissionError {
++    fn from(error: ToolCallError) -> Self {
++        Self::MalformedToolCall(error)
++    }
++}
++
++impl From<ACSAuditError> for ToolCallAdmissionError {
++    fn from(error: ACSAuditError) -> Self {
++        Self::Audit(error)
++    }
++}
++
++impl From<ACSAdmissionProofError> for ToolCallAdmissionError {
++    fn from(error: ACSAdmissionProofError) -> Self {
++        Self::Proof(error)
++    }
++}
++
++fn tool_call_request_id(call: &ToolCall, submitted_at_ms: i64, audit_len: usize) -> String {
++    let mut bytes = Vec::new();
++    bytes.extend_from_slice(call.name.as_bytes());
++    bytes.push(0);
++    bytes.extend_from_slice(&serde_json::to_vec(&call.arguments).unwrap_or_default());
++    let digest = blake3::hash(&bytes).to_hex().to_string();
++    format!("tool.{}.{}.{}", submitted_at_ms, audit_len, &digest[..16])
++}
++
++fn tool_call_target(call: &ToolCall) -> String {
++    for key in ["target", "path", "address"] {
++        if let Some(target) = call.arguments.get(key).and_then(serde_json::Value::as_str) {
++            let target = target.trim();
++            if !target.is_empty() {
++                return target.to_string();
++            }
++        }
++    }
++    format!("tool.{}", call.name)
++}
+ 
+ /// Composition helper that bundles [`BudgetGate`] + [`BudgetLedger`] +
+ /// [`RunEventLog`] for a single mission run. See module doc.
+@@ -52,10 +131,73 @@ impl MissionRun {
+         }
+     }
+ 
+-    /// Append a typed `AgentEvent` to the run log. Returns the
+-    /// assigned ordinal.
++    /// Append a non-tool typed `AgentEvent` to the run log. Returns
++    /// the assigned ordinal.
++    ///
++    /// Tool calls must use [`Self::admit_and_record_tool_call`] so
++    /// every invocation receives an ACS admission verdict and proof
++    /// before it can enter the typed RunEventLog.
+     pub fn record_event(&mut self, event: AgentEvent) -> u64 {
+-        self.log.append_event(event)
++        match event {
++            AgentEvent::ToolCall { call } => self.log.append_event(AgentEvent::Error {
++                kind: AgentEventErrorKind::CapabilityDenied,
++                message: format!(
++                    "tool call {} requires ACS admission via admit_and_record_tool_call",
++                    call.name
++                ),
++            }),
++            event => self.log.append_event(event),
++        }
++    }
++
++    /// ACS-admit a tool call, write the ACS verdict to the audit
++    /// OpLog, sign a SCOPE-Rex admission proof, then append the typed
++    /// `AgentEvent::ToolCall` row. If ACS blocks the call, the audit
++    /// record remains in the OpLog and no tool row is appended.
++    pub fn admit_and_record_tool_call<K: SigningKey>(
++        &mut self,
++        call: ToolCall,
++        sink: &ACSRunEventLogSink<'_>,
++        policy: &ACSPolicy,
++        now_ms: i64,
++        signing_key: &K,
++    ) -> Result<ToolCallAdmissionHandoff, ToolCallAdmissionError> {
++        call.validate()?;
++        let submitted_at_ms = now_ms.max(0);
++        let input = ACSAdmissionInput {
++            request_id: tool_call_request_id(&call, submitted_at_ms, sink.recorded_event_count()),
++            payload: ACSAdmissionPayload::ToolAction {
++                request: ACSToolActionRequest {
++                    tool_name: call.name.clone(),
++                    target: tool_call_target(&call),
++                    mutation_envelope_id: None,
++                },
++            },
++            submitted_at_ms,
++            risk: ACSRiskVector::neutral(),
++            granted_capabilities: policy.required_for(ACSOperationKind::ToolAction),
++        };
++        let decision = sink.admit_and_record(&input, policy, now_ms)?;
++        if !decision.verdict.allows_durable_commit() {
++            return Err(ToolCallAdmissionError::Blocked {
++                verdict: decision.verdict,
++                record_id: decision.audit_record.record_id,
++                reason: decision.audit_record.reason,
++            });
++        }
++
++        let admission_proof =
++            SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, signing_key)?;
++        admission_proof.verify_against_record(&decision.audit_record, signing_key)?;
++        let event_ordinal = self
++            .log
++            .append_event(AgentEvent::ToolCall { call: call.clone() });
++        Ok(ToolCallAdmissionHandoff {
++            event_ordinal,
++            call,
++            admission_proof,
++            audit_record: decision.audit_record,
++        })
+     }
+ 
+     /// Atomic budget gate + sealed-mutation record. On success, BOTH
+diff --git a/agent_core/src/agent_runtime_v2/mod.rs b/agent_core/src/agent_runtime_v2/mod.rs
+index 8b8688938..5060d140a 100644
+--- a/agent_core/src/agent_runtime_v2/mod.rs
++++ b/agent_core/src/agent_runtime_v2/mod.rs
+@@ -38,6 +38,7 @@
+ //!   adapter path for Pro Research builds only. Must remain behind a Cargo
+ //!   feature; never compiled into the MAS bundle.
+ 
++pub mod acs_run_event_log_sink;
+ pub mod adapters;
+ pub mod answer;
+ pub mod blueprint;
+@@ -55,6 +56,7 @@ pub mod para;
+ pub mod run_event_log;
+ pub mod variant_ladder;
+ 
++pub use acs_run_event_log_sink::ACSRunEventLogSink;
+ pub use answer::{AnswerPacket, Citation};
+ pub use blueprint::{
+     AgentBlueprint, AgentBlueprintId, BlueprintModeError, CliAdapter, ProviderPolicy,
+@@ -62,10 +64,10 @@ pub use blueprint::{
+ pub use budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec, BudgetTerm};
+ pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
+ pub use compose::{ParaSeq, ParaSeqFeedback, ParaSeqOutput};
+-pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
++pub use envelope::{MutationEnvelope, MutationWriter, SealError, Sealer};
+ pub use event::{AgentEvent, AgentEventErrorKind};
+ pub use mission::{MissionPacket, MissionPromptError, ToolCall, ToolCallError};
+-pub use mission_run::MissionRun;
++pub use mission_run::{MissionRun, ToolCallAdmissionError, ToolCallAdmissionHandoff};
+ pub use mode::AgentRuntimeV2Mode;
+ pub use naming_lint::{
+     count_hits, is_path_exempt, scan_text, text_contains_rejected_name, RejectedNameMatch,
+diff --git a/agent_core/src/scope_rex/mod.rs b/agent_core/src/scope_rex/mod.rs
+index 237183e54..a5094add5 100644
+--- a/agent_core/src/scope_rex/mod.rs
++++ b/agent_core/src/scope_rex/mod.rs
+@@ -44,6 +44,7 @@
+ //!   (`state: reachable`), and the chat row surfaces its UI
+ //!   (`state: visible`)
+ 
++pub mod admission_proof;
+ pub mod answer_packet;
+ pub mod btm_semantic;
+ pub mod feature_observatory;
+diff --git a/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md b/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
+index 4436a4904..a31de2588 100644
+--- a/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
++++ b/docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
+@@ -110,12 +110,12 @@ The cognitive DAG and provenance ledger were extended by T3, but UI surfaces hav
+ | ID | Source(s) | Consumer | User Surface | Acceptance | Priority | Deps | Status |
+ |---|---|---|---|---|---|---|---|
+ | **W-24** | T3 (`UasAddress` + `AcsAnchor` types) | `agent_core/src/cognitive_dag/node.rs` (every DAG node carries a UasAddress + AcsAnchor) | DAG nodes inspectable in graph visualizer with theorem tag + residency tier | every NodeKind variant has an optional `uas: Option<UasAddress>` + `anchor: Option<AcsAnchor>` field; serialization round-trip test | P1 | merge T3 | NOT-STARTED |
+-| **W-25** | T3 (`AcsAnchor`) + Provenance Console | Provenance Console renders ACS anchor column | user sees theorem tag + plane coord + residency tier per provenance row | new ACS-anchor column in Provenance Console; sortable by theorem tag; clickable to per-anchor detail | P1 | W-03 + W-24 | NOT-STARTED |
++| **W-25** | T3 (`AcsAnchor`) + Provenance Console | Provenance Console renders ACS anchor column | user sees theorem tag + plane coord + residency tier per provenance row | new ACS-anchor column in Provenance Console; sortable by theorem tag; clickable to per-anchor detail | P1 | W-03 + W-24 | PARTIAL-ACS-VERDICT-COLUMN (Terminal E adds an inline "ACS verdict" field to Provenance Console event rows; full AcsAnchor theorem tag / plane coord / residency tier sort + clickable detail remains pending W-24 anchor IDs) |
+ | **W-26** | existing `agent_core/src/cognitive_dag/` (substrate already shipped) | new Cognitive DAG visualizer in `Epistemos/Views/Graph/` | user opens "Cognitive DAG" tab; sees live graph of NodeKinds + EdgeKinds with resonance walks | Cognitive Weight Class doctrine §4.1 tier discipline observed; nodes color-coded by NodeKind; edges by EdgeKind; resonance walk animation | P1 | merge T3 + T6 | NOT-STARTED |
+ | **W-27** | T3 (`agent_core/src/scope_rex/answer_packet.rs`) + T2 (AnswerPacket emission) | chat-row Swift code surfaces AnswerPacket badge | user sees per-emission badge in every chat row: claim_kind (synthesis / empirical / mathematical / causal / speculative) + confidence (verified / plausible / speculative / blocked) | per-row badge; cross-link to AnswerPacket detail; tied to W-14 | P0 | W-14 + merge T2 + T3 + T6 | NOT-STARTED |
+ | **W-28** | T3 (`ResidencyTier` enum: Current App / Verified Floor / Capability Ceiling) | Settings + Cognitive Weight Class badges + DAG node colors | user sees which features are ship-claimed vs research-tier vs gated; honest doctrine | every research-tier feature has a ResidencyTier indicator; substrate-floor PASS badges; cargo `--features research` gate respected | P1 | merge T3 + T6 | NOT-STARTED |
+-| **W-46** | T18B (`agent_core/src/acs_admission/`: `ACSAuditRecord`, `ACSAuditSink` trait + `InMemoryACSAuditSink`) | T11 `agent_core/src/agent_runtime_v2/` (`ACSRunEventLogSink` adapter that fans every ACS verdict into the existing `oplog::OpLog`) | none directly (substrate seam); enables W-25/W-27 (Provenance Console shows ACS verdicts inline with claims) | T18B publishes the `ACSAuditSink` trait + `InMemoryACSAuditSink` test fixture in `acs_admission/mod.rs`; T11 implements `ACSRunEventLogSink: ACSAuditSink` against the live RunEventLog; property test: every `admit_and_record` call appends one canonical `OpPayload::PropSet { key: ACS_AUDIT_RUN_EVENT_KEY, value: <ACSAuditRecord JSON> }` event; verdict ordering preserved per request_id | P1 | merge T11 + T18B; W-25 | NOT-STARTED (T18B owns L; T11 owns wire) |
+-| **W-47** | T18B (`SCOPERexAdmissionProof { verdict, record_id, capability_signature }`) | T11 agent_runtime_v2 + Provenance Console | user-visible "proof of admission" badge on every mutation/tool action that touched ACS | T18B publishes `SCOPERexAdmissionProof` shape with verdict + AuditRecordId + CapabilitySignature; T11 carries the proof on every cross-lane handoff; UI surface renders `verdict.code()` + clickable record_id that resolves via `resolve_acs_audit_record(&run_event_log, &record_id)`; forged signature property test: signature mutation rejected at proof boundary | P1 | merge T11 + T18B; W-46 | NOT-STARTED (T18B owns M; T11 owns wire) |
++| **W-46** | T18B (`agent_core/src/acs_admission/`: `ACSAuditRecord`, `ACSAuditSink` trait + `InMemoryACSAuditSink`) | T11 `agent_core/src/agent_runtime_v2/` (`ACSRunEventLogSink` adapter that fans every ACS verdict into the existing `oplog::OpLog`) | none directly (substrate seam); enables W-25/W-27 (Provenance Console shows ACS verdicts inline with claims) | T18B publishes the `ACSAuditSink` trait + `InMemoryACSAuditSink` test fixture in `acs_admission/mod.rs`; T11 implements `ACSRunEventLogSink: ACSAuditSink` against the live RunEventLog; property test: every `admit_and_record` call appends one canonical `OpPayload::PropSet { key: ACS_AUDIT_RUN_EVENT_KEY, value: <ACSAuditRecord JSON> }` event; verdict ordering preserved per request_id | P1 | merge T11 + T18B; W-25 | RUST-WIRED (Terminal E exposes `agent_runtime_v2::acs_run_event_log_sink::ACSRunEventLogSink`, adds `ACSRunEventLogSink::admit_and_record`, and verifies tool-call admissions append ACS audit records via `r5_acs_tool_handoff`; existing R4 snapshot tests still pass) |
++| **W-47** | T18B (`SCOPERexAdmissionProof { verdict, record_id, capability_signature }`) | T11 agent_runtime_v2 + Provenance Console | user-visible "proof of admission" badge on every mutation/tool action that touched ACS | T18B publishes `SCOPERexAdmissionProof` shape with verdict + AuditRecordId + CapabilitySignature; T11 carries the proof on every cross-lane handoff; UI surface renders `verdict.code()` + clickable record_id that resolves via `resolve_acs_audit_record(&run_event_log, &record_id)`; forged signature property test: signature mutation rejected at proof boundary | P1 | merge T11 + T18B; W-46 | PARTIAL-WIRED (Terminal E adds `scope_rex::admission_proof::SCOPERexAdmissionProof { verdict, record_id, capability_signature }`, carries it on v2 tool handoffs, and verifies forged signature mutation rejection; clickable record_id UI detail remains pending) |
+ 
+ ## §6. UI surface unification (P1 — T6 audited but didn't wire backend features TO UI)
+ 
+@@ -350,7 +350,7 @@ load-bearing because future agents read those docs as authoritative.
+ | **W-49** | T09 audit iter-82 — `IMessageDriverService.swift` missing file-level `#if !EPISTEMOS_APP_STORE` guard | `Epistemos/Omega/iMessageDriver/IMessageDriverService.swift` | **App Store compliance — Pro-tier symbol leakage** | The `AppEnvironment.swift:39-41` `#if !EPISTEMOS_APP_STORE` guard correctly excludes the env-binding from MAS builds — but `IMessageDriverService.swift` itself has **no file-level guard**. The class compiles into App Store builds, just isn't injected. Compare to `Bridge/ComputerUseBridge.swift:1`, `Bridge/Phase4Bridge.swift:1`, `Harness/CompletionChecker.swift:1` which ALL have file-head `#if !EPISTEMOS_APP_STORE` guards. The asymmetry is the gap. Acceptance: add `#if !EPISTEMOS_APP_STORE` / `#endif` wrapping the entire file (matching the Bridge/* pattern) **OR** add CI build-matrix test that `nm` on `Epistemos.app/Contents/MacOS/Epistemos` lacks the `IMessageDriverService` symbol in App Store flavor. P2 (no current incident, but ship-hardening for Apple App Store review and a defense-in-depth). | P2 | none — fix is self-contained | NOT-STARTED |
+ | **W-50** | T09 audit iter-84 — `MemoryTier` enum vs prompt-deck canon divergence | `agent_core/src/cognitive_dag/edge.rs:118 pub enum MemoryTier` ⇆ T17B Lattice/WBO Register vocabulary | none (substrate vocabulary discipline) | Code has 5 variants (Hot=L0, Warm=L1, Cool=L2, Cold=L3, SelfEvolving=L_SE) — `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §"Preserve explicitly — Six/seven memory tiers" names 7 (L0 hot, L1 compressed residual, L2 shadow/sketch, L3 SSD oracle, **L4/L5 cascade/adapters**, L_SE self-evolving, **L7 quarantine**). 3-tier gap (L4/L5/L7) is undocumented. Per Jojo's overseer direction iter-84: **T09 must NOT add the missing variants — T17B Lattice/WBO Register canonicalizes the tier vocabulary FIRST**, then cognitive_dag mirrors. Acceptance: T17B publishes the canonical 7-tier mapping in `docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md`; cognitive_dag/edge.rs's `MemoryTier` enum is then updated to match (adds `Cascade(L4)`/`Adapter(L5)`/`Quarantine(L7)` variants), with serde-compat for old 5-tier `.epbundle` artifacts. | P2 | **DEPENDS ON T17B canonicalization** — cognitive_dag mirror waits for T17B | NOT-STARTED |
+ | **W-51** | T09 audit iter-94 — Pro-tier capability gating absent in MCP dispatch path | `omega-mcp/src/dispatcher.rs::execute` + catalog entries for `github` / `web_search` / `pty` subsystems | **Product-tier separation — Pro lane is design-only** | `rg "isPro\|ProTier\|pro_tier\|TierPro\|requirePro\|tierGate\|ProSubscription\|SubscriptionTier\|EntitlementService" /Users/jojo/Downloads/Epistemos-t09-product-ledger/Epistemos/` returns **empty** across all 252K lines of Swift. `rg "tier\|capability\|Pro\b\|gate" /Users/jojo/Downloads/Epistemos-t09-product-ledger/omega-mcp/src/catalog.rs` returns only JSON-schema descriptions, no admission gate. The `Subscription` matches in Swift are EventBus subjects (e.g. `AppCoordinator.swift:61` `// MARK: - EventBus Subscriptions`), not app-store subscriptions; no `StoreKit` import in `Epistemos/`. `omega-mcp/src/dispatcher.rs:308` performs only argument-schema validation before dispatch — github / web_search / pty all execute unconditionally for any caller that reaches the dispatcher. So the "Pro" lane labels in `docs/CURRENT_PRODUCT_ARCHITECTURE_LEDGER_2026_05_18.md` reflect **design-intent product separation**, NOT a current code gate. The falsifier `F-OmegaMCP-ProToolGating` is therefore unfalsifiable today because the feature it tests doesn't exist. Acceptance: either (i) implement an `OmegaMCPTierGate` admission layer in `dispatcher.rs::execute` that consults a `Capability::ProTier` token before invoking github/web_search/pty subsystems (plus Swift-side `EntitlementService` reading StoreKit / receipt validation), then add the falsifier as a runtime gate test; OR (ii) drop the Pro-tier lane labels from the ledger until the feature exists. | P2 | none — cross-terminal product-architecture decision; touches both Rust (`omega-mcp/src/dispatcher.rs`) and Swift (new `EntitlementService.swift`) | NOT-STARTED |
+-| **W-52** | T09 audit iter-134 — `CSISafeguard` implemented + unit-tested but not wired into the distillation pipeline | `Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift::actor CloudKnowledgeDistillationService` (write paths) | **Alignment safety — Catastrophic Subjective Interference guard is orphan** | `Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift:14 final class CSISafeguard` exists with `recordMeasurement(value:epoch:experimentId:) -> Bool` + `computeCSI() -> Double` + `reset()` + `triggerMeasurement`. `EpistemosTests/OmegaCSISafeguardTests.swift` has 8 `@Test` markers exercising the class in isolation (untriggered start / healthy CSI continues / drop below threshold halts / rapid decline detected / reset clears / computeCSI good/poor/empty arrays). **Gap**: `rg "CSISafeguard\.|safeguard\.recordMeasurement\|CSISafeguard\(" Epistemos/` (excluding `/MOHAWK/` training data) returns **only the class definition file** — zero production callers. The training-data references at `Epistemos/KnowledgeFusion/MOHAWK/*.jsonl` name `Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift` as the caller, but that file **does not exist in the repo** (`find Epistemos -name "OmegaTrainingCoordinator*"` returns empty — training data was generated against an aspirational caller that was never wired). The class is orphan; the distillation pipeline (`CloudKnowledgeDistillationService` actor at line 17) writes adapter shapes without any safeguard evaluation. Acceptance: (a) wire `CSISafeguard.recordMeasurement(...)` into every distillation-write callsite inside `CloudKnowledgeDistillationService` BEFORE the persistence step, AND (b) add an integration test that asserts a low-CSI value short-circuits the write. This satisfies CLAUDE.md "HONEST CAPABILITY GATING" — knowledge-fusion alignment must respect the safeguard, not bypass it. **P2** (no current incident; risk surface for adapter-drift catastrophic regressions). | P2 | none — self-contained in `Epistemos/KnowledgeFusion/` (Swift only) | NOT-STARTED |
++| **W-52** | T09 audit iter-134 — `CSISafeguard` implemented + unit-tested but not wired into the distillation pipeline | `Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift::actor CloudKnowledgeDistillationService` (write paths) | **Alignment safety — Catastrophic Subjective Interference guard is orphan** | `Epistemos/KnowledgeFusion/Alignment/CSISafeguard.swift:14 final class CSISafeguard` exists with `recordMeasurement(value:epoch:experimentId:) -> Bool` + `computeCSI() -> Double` + `reset()` + `triggerMeasurement`. `EpistemosTests/OmegaCSISafeguardTests.swift` has 8 `@Test` markers exercising the class in isolation (untriggered start / healthy CSI continues / drop below threshold halts / rapid decline detected / reset clears / computeCSI good/poor/empty arrays). **Gap**: `rg "CSISafeguard\.|safeguard\.recordMeasurement\|CSISafeguard\(" Epistemos/` (excluding `/MOHAWK/` training data) returns **only the class definition file** — zero production callers. The training-data references at `Epistemos/KnowledgeFusion/MOHAWK/*.jsonl` name `Epistemos/Omega/Orchestrator/OmegaTrainingCoordinator.swift` as the caller, but that file **does not exist in the repo** (`find Epistemos -name "OmegaTrainingCoordinator*"` returns empty — training data was generated against an aspirational caller that was never wired). The class is orphan; the distillation pipeline (`CloudKnowledgeDistillationService` actor at line 17) writes adapter shapes without any safeguard evaluation. Acceptance: (a) wire `CSISafeguard.recordMeasurement(...)` into every distillation-write callsite inside `CloudKnowledgeDistillationService` BEFORE the persistence step, AND (b) add an integration test that asserts a low-CSI value short-circuits the write. This satisfies CLAUDE.md "HONEST CAPABILITY GATING" — knowledge-fusion alignment must respect the safeguard, not bypass it. **P2** (no current incident; risk surface for adapter-drift catastrophic regressions). | P2 | none — self-contained in `Epistemos/KnowledgeFusion/` (Swift only) | WIRED-SOURCE-GUARDED-XCODE-CANCELLED (Terminal E adds `CSISafeguard.shared`, calls `recordMeasurement` before `store.save(vault)`, and adds low-CSI short-circuit/source-order tests. Direct Rust pro/lsp x86_64 build passes; targeted Xcode verification was cancelled during Rust bridge compile with SIGTERM before Swift tests completed.) |
+ | **W-53** | T09 audit iter-158 — Model download `verifySnapshot` is structural-only; no SHA256 LFS hash verification before marking `installed` | `Epistemos/Engine/ModelDownloadManager.swift::verifySnapshot` (line 96-134) + external `HuggingFace.HubClient` download boundary | **Supply-chain integrity — local model weights** | Iter-741 path refresh: this worktree has no local `Epistemos/Engine/HubClient.swift`; `ModelDownloadManager.swift` imports `HuggingFace`, creates `HubCache`, and `makeClient(cache:)` returns `HubClient(session:cache:)` from that package. `rg -n "(BLAKE3\|SHA256\|sha256\|checksum\|verifyHash\|integrityHash\|x-linked-etag)" Epistemos/Engine/ModelDownloadManager.swift` returns no model-download integrity hits. SHA256 is used elsewhere in the codebase (`SDPage.swift:78` body-hash for dirty detection, `Security/CapabilityBridge.swift:234` HMAC capability signing, `MutationEnvelope.swift:295 integrityHash`, `Graph/EntityExtractor.swift:57` entity hashing) but **never in the model-download path**. The `verifySnapshot` function at `ModelDownloadManager.swift:96-134` is structural-only — checks revision-format (40-char SHA hex OR `"main"`), file presence (`config.json`, at least one non-zero `.safetensors`, a tokenizer file). No cryptographic content hash. HuggingFace LFS responses include SHA256 in the `x-linked-etag` header for LFS-tracked files, but the current `downloadSnapshot(...)` wrapper result is ignored and `ModelDownloadManager` never reads or compares that metadata. **Real security gap**: a corrupted or maliciously-substituted weights file would pass `verifySnapshot` as long as it has the right filename + non-zero size + a tokenizer alongside. Acceptance: (a) capture LFS SHA256 / `x-linked-etag` metadata at the HuggingFace download seam or wrap the snapshot download with per-file hash metadata; (b) stream response bodies through a SHA256 hasher (`CryptoKit.SHA256.update(_:)`); (c) reject installation if `streamed_hash != expected_hash`. Add a `@Test` injecting a corrupt-byte mock and asserting the install fails. P2 (no current incident; remediation deferred to security/inference). | P2 | none — local fix centers on `Epistemos/Engine/ModelDownloadManager.swift` plus the HuggingFace client adapter boundary | NOT-STARTED |
+ 
+ ## §13. Cross-references
+# === UNTRACKED new files (filtered) ===
+diff --git a/agent_core/src/agent_runtime_v2/acs_run_event_log_sink.rs b/agent_core/src/agent_runtime_v2/acs_run_event_log_sink.rs
+new file mode 100644
+index 000000000..52bd2c057
+--- /dev/null
++++ b/agent_core/src/agent_runtime_v2/acs_run_event_log_sink.rs
+@@ -0,0 +1,9 @@
++//! ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack)
++//! RunEventLog adapter for v2 tool admission.
++//!
++//! The implementation lives in `crate::acs_admission` because the sink
++//! is part of the ACS admission substrate. This module gives T11/v2
++//! callers the canonical runtime path without duplicating the write
++//! semantics.
++
++pub use crate::acs_admission::ACSRunEventLogSink;
+diff --git a/agent_core/src/scope_rex/admission_proof.rs b/agent_core/src/scope_rex/admission_proof.rs
+new file mode 100644
+index 000000000..5a738d1db
+--- /dev/null
++++ b/agent_core/src/scope_rex/admission_proof.rs
+@@ -0,0 +1,79 @@
++//! SCOPE-Rex admission proof boundary for ACS-admitted handoffs.
++//!
++//! The lower ACS admission module signs the full record binding
++//! `(verdict, operation, record_id)`. The cross-lane handoff shape
++//! intentionally exposes only the verdict, record id, and capability
++//! signature; verification rehydrates the operation from the audited
++//! record before accepting the proof.
++
++use serde::{Deserialize, Serialize};
++
++use crate::{
++    acs_admission::{
++        resolve_acs_audit_record, ACSAdmissionProofError, ACSAdmissionVerdict, ACSAuditRecord,
++        AuditRecordId, CapabilitySignature, SCOPERexAdmissionProofVerificationError,
++    },
++    effect::receipt::SigningKey,
++    oplog::OpLog,
++};
++
++#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct SCOPERexAdmissionProof {
++    pub verdict: ACSAdmissionVerdict,
++    pub record_id: AuditRecordId,
++    pub capability_signature: CapabilitySignature,
++}
++
++impl SCOPERexAdmissionProof {
++    pub fn signed_from_record<K: SigningKey>(
++        record: &ACSAuditRecord,
++        key: &K,
++    ) -> Result<Self, ACSAdmissionProofError> {
++        let proof = crate::acs_admission::SCOPERexAdmissionProof::signed_from_record(record, key)?;
++        Ok(Self::from_acs_proof(proof))
++    }
++
++    pub fn verify_against_record<K: SigningKey>(
++        &self,
++        record: &ACSAuditRecord,
++        key: &K,
++    ) -> Result<(), ACSAdmissionProofError> {
++        let proof = crate::acs_admission::SCOPERexAdmissionProof::new(
++            self.verdict,
++            record.operation,
++            self.record_id.clone(),
++            self.capability_signature.clone(),
++        )?;
++        proof.verify_against_record(record, key)
++    }
++
++    pub fn verify_against_run_event_log<K: SigningKey>(
++        &self,
++        run_event_log: &OpLog,
++        key: &K,
++    ) -> Result<ACSAuditRecord, SCOPERexAdmissionProofVerificationError> {
++        let record = resolve_acs_audit_record(run_event_log, &self.record_id).map_err(|error| {
++            let needs_fallback_record_id = error.record_id().is_none();
++            SCOPERexAdmissionProofVerificationError::Lookup {
++                error,
++                record_id: needs_fallback_record_id.then(|| self.record_id.0.clone()),
++            }
++        })?;
++        self.verify_against_record(&record, key).map_err(|error| {
++            SCOPERexAdmissionProofVerificationError::Proof {
++                error,
++                record_id: self.record_id.0.clone(),
++            }
++        })?;
++        Ok(record)
++    }
++
++    pub fn from_acs_proof(proof: crate::acs_admission::SCOPERexAdmissionProof) -> Self {
++        Self {
++            verdict: proof.verdict,
++            record_id: proof.record_id,
++            capability_signature: proof.signature,
++        }
++    }
++}
+diff --git a/agent_core/tests/r5_acs_tool_handoff.rs b/agent_core/tests/r5_acs_tool_handoff.rs
+new file mode 100644
+index 000000000..f1128a706
+--- /dev/null
++++ b/agent_core/tests/r5_acs_tool_handoff.rs
+@@ -0,0 +1,151 @@
++//! R5 (2026-05-24): ACS production gate for v2 tool calls.
++//!
++//! Pins the cross-lane contract: a `MissionRun` tool invocation must
++//! pass through `ACSRunEventLogSink::admit_and_record`, carry a
++//! SCOPE-Rex admission proof, and reject forged capability signatures
++//! at the proof boundary.
++
++use agent_core::acs_admission::{
++    snapshot_acs_audit_records, ACSAdmissionVerdict, ACSPolicy, CapabilitySignature,
++};
++use agent_core::agent_runtime_v2::{
++    ACSRunEventLogSink, AgentBlueprintId, AgentEvent, BudgetSpec, MissionRun, RunEventEntry,
++    ToolCall, ToolCallAdmissionError,
++};
++use agent_core::effect::receipt::HmacSha256SigningKey;
++use agent_core::oplog::OpLog;
++
++fn budget_spec() -> BudgetSpec {
++    BudgetSpec {
++        max_tokens: 10_000,
++        max_wall_ms: 60_000,
++        max_tool_calls: 10,
++        max_subprocess_ms: 0,
++        max_memory_bytes: 0,
++    }
++}
++
++fn tool_call() -> ToolCall {
++    ToolCall {
++        name: "vault.write".to_string(),
++        arguments: serde_json::json!({
++            "path": "notes/2026/acs.md",
++            "body": "ACS admitted write"
++        }),
++    }
++}
++
++fn signing_key() -> HmacSha256SigningKey {
++    HmacSha256SigningKey::new([0xA5; 32])
++}
++
++#[test]
++fn mission_run_tool_call_passes_through_acs_sink_and_carries_scope_rex_proof() {
++    let mut run = MissionRun::new(AgentBlueprintId("blueprint-acs-tool".into()), budget_spec());
++    let audit_log = OpLog::new("r5-acs-tool-handoff");
++    let sink = ACSRunEventLogSink::new(&audit_log);
++    let policy = ACSPolicy::strict_default(1_700_000_000_000);
++    let key = signing_key();
++
++    let handoff = run
++        .admit_and_record_tool_call(tool_call(), &sink, &policy, 1_700_000_000_100, &key)
++        .expect("tool call admitted");
++
++    assert_eq!(handoff.event_ordinal, 0);
++    assert_eq!(handoff.admission_proof.verdict, ACSAdmissionVerdict::Allow);
++    assert_eq!(handoff.audit_record.operation.code(), "tool_action");
++    assert_eq!(
++        handoff.audit_record.record_id,
++        handoff.admission_proof.record_id.0
++    );
++    handoff
++        .admission_proof
++        .verify_against_record(&handoff.audit_record, &key)
++        .expect("proof verifies against returned audit record");
++
++    let records = snapshot_acs_audit_records(&audit_log).expect("ACS audit snapshot");
++    assert_eq!(records, vec![handoff.audit_record.clone()]);
++    assert_eq!(run.run_event_log().find_tool_calls().len(), 1);
++}
++
++#[test]
++fn forged_signature_property_rejects_mutation_at_proof_boundary() {
++    let mut run = MissionRun::new(
++        AgentBlueprintId("blueprint-acs-forgery".into()),
++        budget_spec(),
++    );
++    let audit_log = OpLog::new("r5-acs-forgery");
++    let sink = ACSRunEventLogSink::new(&audit_log);
++    let policy = ACSPolicy::strict_default(1_700_000_000_100);
++    let key = signing_key();
++    let handoff = run
++        .admit_and_record_tool_call(tool_call(), &sink, &policy, 1_700_000_000_200, &key)
++        .expect("tool call admitted");
++
++    let signature = handoff.admission_proof.capability_signature.0.clone();
++    for index in 0..signature.len() {
++        let mut forged = handoff.admission_proof.clone();
++        let mut chars: Vec<char> = signature.chars().collect();
++        chars[index] = if chars[index] == '0' { '1' } else { '0' };
++        forged.capability_signature =
++            CapabilitySignature::new(chars.into_iter().collect::<String>());
++
++        let err = forged
++            .verify_against_record(&handoff.audit_record, &key)
++            .expect_err("mutated signature must be rejected");
++        assert_eq!(err.cause(), "invalid_capability_signature");
++    }
++}
++
++#[test]
++fn raw_tool_call_event_is_not_recorded_without_acs_admission() {
++    let mut run = MissionRun::new(AgentBlueprintId("blueprint-raw-tool".into()), budget_spec());
++    let ordinal = run.record_event(AgentEvent::ToolCall { call: tool_call() });
++
++    assert_eq!(ordinal, 0);
++    assert!(
++        run.run_event_log().find_tool_calls().is_empty(),
++        "raw ToolCall rows must not bypass ACS admission"
++    );
++    match &run.run_event_log().entries()[0] {
++        RunEventEntry::Event {
++            event: AgentEvent::Error { kind, message },
++            ..
++        } => {
++            assert_eq!(kind.code(), "capability_denied");
++            assert!(message.contains("requires ACS admission"));
++        }
++        other => panic!("expected capability-denied error row, got {other:?}"),
++    }
++}
++
++#[test]
++fn acs_blocked_tool_call_records_verdict_but_does_not_append_tool_event() {
++    let mut run = MissionRun::new(
++        AgentBlueprintId("blueprint-acs-block".into()),
++        budget_spec(),
++    );
++    let audit_log = OpLog::new("r5-acs-blocked");
++    let sink = ACSRunEventLogSink::new(&audit_log);
++    let policy = ACSPolicy::strict_default(1_700_000_000_100);
++    let key = signing_key();
++    let mut call = tool_call();
++    call.arguments = serde_json::json!({"target": "notes/2026/acs.md"});
++
++    let err = run
++        .admit_and_record_tool_call(call, &sink, &policy, 1_700_000_000_050, &key)
++        .expect_err("policy is not valid yet, so ACS blocks the call");
++    match err {
++        ToolCallAdmissionError::Blocked {
++            verdict, reason, ..
++        } => {
++            assert_eq!(verdict, ACSAdmissionVerdict::Reject);
++            assert_eq!(reason, "policy_not_yet_valid");
++        }
++        other => panic!("expected blocked ACS verdict, got {other:?}"),
++    }
++    let records = snapshot_acs_audit_records(&audit_log).expect("blocked verdict is still audited");
++    assert_eq!(records.len(), 1);
++    assert_eq!(records[0].verdict, ACSAdmissionVerdict::Reject);
++    assert!(run.run_event_log().find_tool_calls().is_empty());
++}
+diff --git a/docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md b/docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md
+new file mode 100644
+index 000000000..f3bc38f98
+--- /dev/null
++++ b/docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md
+@@ -0,0 +1,43 @@
++# ACS Admission Production Gate Audit — 2026-05-24
++
++## Summary
++
++Terminal E wires ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack) admission into the v2 tool-call path and stops treating `CSISafeguard` as an isolated class. The Rust path now exposes `agent_runtime_v2::acs_run_event_log_sink::ACSRunEventLogSink`, uses `ACSRunEventLogSink::admit_and_record` before a `MissionRun` can append a tool call, and carries `scope_rex::admission_proof::SCOPERexAdmissionProof { verdict, record_id, capability_signature }` on the cross-lane handoff.
++
++The Swift path calls `CSISafeguard.recordMeasurement(...)` before `CloudKnowledgeDistillationService` persists a compiled model vault. A low CSI value throws before `store.save(vault)`.
++
++## 7 Laws
++
++- Law 7 Witness: every admitted v2 tool call emits an ACS audit record into the OpLog and returns a signed proof tied to that record.
++- Law 4 Lattice-error: blocked ACS verdicts remain audited while the typed tool-call row is not appended.
++- Law 1 Density: the controller policy stays compact; `MissionRun::admit_and_record_tool_call` is the single production handoff for v2 tool calls.
++- Law 2 Address is also advanced through canonical ACS `record_id` proofs and OpLog lookup.
++
++## No-Orphan Check
++
++Data classes touched:
++
++- ACS audit records and v2 tool handoffs: UAS address is the ACS `record_id` stored as the OpLog node id; plane is controller/witness; residency is Tier 1 MAS; WBO is not approximate; WRV is wired, reachable, and verified by Rust integration tests.
++- SCOPE-Rex admission proofs: UAS address is `record_id`; plane is proof/witness; residency is Tier 1 MAS; WBO is not approximate; WRV is wired and verified through forged-signature rejection.
++- Cloud distillation CSI measurements: UAS address waiver because the CSI value is an ephemeral pre-persistence gate, not durable knowledge data; plane is alignment safety; residency is Tier 1 MAS; WBO is not approximate; WRV is product-facing through the thrown persistence error and test coverage.
++- Provenance Console ACS verdict field: UAS address is explicitly not linked until provenance rows carry ACS record ids; plane is UI witness; residency is Tier 1 MAS; WBO is not approximate; WRV is visible but partial because full clickable AcsAnchor detail remains pending.
++
++## W-Rows And Falsifiers
++
++- W-46 advances to Rust-wired: `ACSRunEventLogSink::admit_and_record` fans verdicts into the OpLog, with v2 module exposure and focused tests.
++- W-47 advances to partial-wired: `SCOPERexAdmissionProof { verdict, record_id, capability_signature }` exists under `scope_rex`, tool handoffs carry it, and forged signature mutation is rejected.
++- W-25 advances to partial: Provenance Console rows render an inline `ACS verdict` field, but full AcsAnchor sorting/clickable detail remains blocked by missing row-level ACS anchor IDs.
++- W-52 advances to wired-source-guarded-Xcode-cancelled: `CSISafeguard` has a production caller before distillation persistence and a low-CSI short-circuit test, but the targeted Xcode test run was cancelled during a Rust build step before Swift tests completed.
++- F-ACS-Anchor-Addressing: unblocked at the ACS admission proof/address boundary; full M2 Pro PASS is not claimed because this branch does not contain the canonical `AcsAnchor` type, `AnchorRegistry`, or `agent_core/tests/acs_anchor_addressing.rs` harness required by `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md`.
++
++## Tier Classification
++
++Tier 1 (MAS). This PR gates v2 tool execution and distillation persistence in MAS-reachable code paths. No Pro-only code was added. Research surfaces are untouched. Vault/speculation trail is preserved in this audit doc and the backlog row updates.
++
++## Verification
++
++- PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r5_acs_tool_handoff`
++- PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r4_acs_audit_snapshot_helper --test acs_admission_bridge`
++- PASS: `rustup run stable cargo build --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,lsp-runtime --target x86_64-apple-darwin`
++- CANCELLED/FAIL exit 65: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTerminalEACS -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/ProvenanceConsoleSourceGuardTests -only-testing:EpistemosTests/SearchFusionHealthRowTests test CODE_SIGNING_ALLOWED=NO -quiet`. The run reached the Rust bridge build and then reported `could not compile agent_core (lib)` with `rustc` exiting by signal 15 (`SIGTERM`), not a Rust diagnostic. The same direct Rust feature/target build above passed, so Swift test completion is not claimed.
++- BLOCKED: canonical `F-ACS-Anchor-Addressing` M2 Pro PASS is not claimed. Required files from the falsifier spec are absent on this branch: `agent_core/src/research/acs/anchor.rs`, `agent_core/src/research/acs/anchor_registry.rs`, and `agent_core/tests/acs_anchor_addressing.rs`. See `docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`.
+diff --git a/docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md b/docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md
+new file mode 100644
+index 000000000..6ab7ab3c3
+--- /dev/null
++++ b/docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md
+@@ -0,0 +1,36 @@
++# Decision Needed — ACS Anchor Addressing Scope
++
++## Summary
++
++Terminal E wires ACS admission as a production gate, but cannot honestly claim `F-ACS-Anchor-Addressing` PASS on this branch.
++
++The canonical falsifier at `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md` requires:
++
++- `agent_core/src/research/acs/anchor.rs` with typed `AcsAnchor { theorem_tag, plane, tier, source_hash, active_packet_id }`
++- `AnchorRegistry` lookup by `UasAddress`
++- `agent_core/tests/acs_anchor_addressing.rs` running the 1000-anchor four-stage round trip through agent runtime, lookup, audit, and projection
++
++Those files are not present in this branch. `agent_core/src/research/acs/mod.rs` currently contains the autopoiesis / governance / Kuramoto / Notch-Delta / VSM research modules only, with a reserved anchor comment.
++
++## Evidence
++
++- `find agent_core/src/research/acs -maxdepth 2 -type f` returns only `vsm.rs`, `kuramoto.rs`, `autopoiesis.rs`, `notch_delta.rs`, `mod.rs`, and `governance.rs`.
++- `ls agent_core/tests | rg 'acs|anchor'` returns only `acs_admission_bridge.rs`, `r4_acs_audit_snapshot_helper.rs`, and `r5_acs_tool_handoff.rs`.
++- `rg "pub struct AcsAnchor|AnchorRegistry|active_packet_id" agent_core/src agent_core/tests` returns no implementation hits.
++
++## Decision
++
++Pick one before claiming the falsifier:
++
++1. Import or re-land the T3 `AcsAnchor` / `AnchorRegistry` / `acs_anchor_addressing` harness into this branch, run the M2 Pro falsifier, and then update the Terminal E audit to PASS.
++2. Re-scope Terminal E acceptance so `F-ACS-Anchor-Addressing` is explicitly limited to the ACS admission proof/address boundary, while the canonical typed-anchor falsifier remains T3/Terminal G-owned.
++
++## Current Safe Claim
++
++Terminal E can claim:
++
++- W-46 Rust-wired: ACS verdicts fan into `RunEventLog`.
++- W-47 partial-wired: `SCOPERexAdmissionProof { verdict, record_id, capability_signature }` exists, is carried on v2 tool handoffs, and forged signatures are rejected.
++- W-52 wired-source-guarded: `CSISafeguard` is called before distillation persistence, with source-order and low-CSI short-circuit tests added.
++
++Terminal E cannot claim canonical `F-ACS-Anchor-Addressing` PASS until the typed anchor substrate and harness exist and pass locally.
