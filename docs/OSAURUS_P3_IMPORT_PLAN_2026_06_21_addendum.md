@@ -166,3 +166,33 @@ HARD requirement, wired to the app's theme system. NOTE: this strengthens the ca
 (naturally theme-responsive via the app's theme tokens); a bundled web/Electron UI would require explicit
 theme-bridging to honor custom themes live. Decide the work-UI form per OPENCODE_FULL_CLONE_FEASIBILITY_
 2026_06_21.md (open fork: native shell over OpenCode engine vs embed OpenCode's own UI).
+
+## ✅ RESOLVED — OPENCODE UI DECISION + WORK/ACT UX (owner 2026-06-21, AUTHORITATIVE)
+RESOLVES the open fork in OPENCODE_FULL_CLONE_FEASIBILITY: owner wants **Option A — keep OpenCode's REAL
+UI**, NOT a native rebuild. The earlier "can't feel pixel-art native" concern is MOOT: the owner LIKES the
+**minimal terminal look** — that IS the desired aesthetic. Only requirement: **match the app's color +
+palette** (palette-aware text), live incl. custom themes (OpenCode TUI is truecolor-themeable). Embedding
+OpenCode's real UI requires its bundled runtime — FINE now (MAS non-restrictive, set in stone).
+
+### Naming
+- **ACT** = Osaurus, reskinned pixel-art native, named **"act"** (or "Epistemos chat" — owner's choice).
+- **WORK** = OpenCode, real terminal UI kept + palette-matched, renamed **"work"** (never shows "OpenCode").
+
+### Where WORK (OpenCode UI) goes
+Add the real OpenCode UI to **main chat, minichat, graph chat, and all places it can go — EXCLUDING the
+NOTE chat.** (Note chat does NOT get work/OpenCode.) Chat surfaces thus offer act AND work (except note = act only).
+
+### Transition model
+Open search + type → it transitions (instead of to chat/act) to **work** (the OpenCode UI), color/palette-
+matched, text palette-aware, labeled "work."
+
+### Landing pages + toggles (keep BOTH)
+- "Press anywhere to start a convo" → auto-transition to the **Osaurus landing page, Epistemos-reskinned**.
+- A **toggle on that page instantly switches to the OpenCode landing page**. BOTH landing pages are kept
+  (Osaurus reskinned; OpenCode real, palette-matched, named "work").
+- Two toggles overall = act / work.
+
+### Implication for the build
+Work = embed OpenCode's actual UI (terminal/TUI look) palette-bridged to the app theme system (live, incl.
+custom themes), with Goose+Hermes+OpenClaw fused into the OpenCode engine beneath it + RustLSP wired in.
+This supersedes the feasibility doc's native-rebuild recommendation — owner chose keep-the-real-UI.
