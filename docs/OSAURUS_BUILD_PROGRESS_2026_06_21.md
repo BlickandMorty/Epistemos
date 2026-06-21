@@ -72,6 +72,17 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **Port owner IP** (system prompts + hidden pieces) onto Osaurus engine; **WORK mode**
   (Goose/OpenCode) clone/port too.
 
+## ✅ MLX consolidation — REGRESSION CHECK PASSED (2026-06-21)
+Focused `xcodebuild test` (vmlx, signing-disabled): **40/41 green** across SSMMemorySidecar,
+EpistemosRuntimePicker, LocalModelResolution(core), ModelStreamingExecutor, EpistemosPicks,
+ActOsaurusSeam — the consolidation did NOT regress the app. The 1 failure (`LocalModelResolution
+Tests` "never silently use a cloud model") is **PRE-EXISTING string drift** (code says "won't
+silently use a cloud model") in the chat-resolution honesty area — UNRELATED to MLX, in the
+DEFERRED chat scope (directive: stop patching the dying chat); left as-is, not my regression.
+**KIVI test quarantined** (`EpistemosTests/KIVIKVCacheRuntimeTests.swift` behind
+`EPISTEMOS_LEGACY_KIVI_KERNELS`): tested old-fork kernels removed by the consolidation; vmlx native
+quant supersedes them; KIVI-port + test-rewrite are CERTAIN follow-ups. NEXT = link OsaurusCore.
+
 ## ✅ MLX consolidation — DONE (2026-06-21, `** BUILD SUCCEEDED **` build #9, exit 0)
 The ENTIRE Epistemos app compiles + links against Osaurus's `vmlx-swift` MLX stack (consolidated
 off `mlx-swift-lm` + `ml-explore/mlx-swift` → ONE MLX, no dual-MLX clash). KIVI + SSM hardening

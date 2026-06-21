@@ -3,6 +3,14 @@ import MLX
 import MLXLMCommon
 import Testing
 
+// QUARANTINED (Osaurus MLX consolidation 2026-06-21, commit f884eb0b7): this suite tested the
+// OLD mlx-swift-lm fork's `KIVIKVCache` + `kiviScaledDotProductAttention` MLX kernels, removed when
+// Epistemos consolidated onto Osaurus's vmlx-swift (favor-osaurus on clashes). vmlx's native
+// quantized-KV now provides the KV-cache memory hardening. CERTAIN FOLLOW-UPS (NOT dropped):
+// (1) port the exact KIVI scheme onto vendored vmlx if its native 2-bit quant proves insufficient;
+// (2) rewrite this suite against vmlx's QuantizedKVCache/maybeQuantizeKVCache. Re-enable by
+// defining EPISTEMOS_LEGACY_KIVI_KERNELS once the KIVI kernels are ported onto vmlx.
+#if EPISTEMOS_LEGACY_KIVI_KERNELS
 @Suite("KIVI KV Cache Runtime")
 struct KIVIKVCacheRuntimeTests {
     private func deterministicTensor(shape: [Int], scale: Float, bias: Float) -> MLXArray {
@@ -147,3 +155,4 @@ struct KIVIKVCacheRuntimeTests {
         }
     }
 }
+#endif // EPISTEMOS_LEGACY_KIVI_KERNELS
