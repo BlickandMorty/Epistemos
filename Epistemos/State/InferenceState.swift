@@ -3521,6 +3521,12 @@ final class InferenceState {
         } else {
             self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
         }
+        // SS-CHATMODEL P0 (owner computer-use proof 2026-06-21): the pre-load migration's rewrite did
+        // not land on a real launch because the GGUF-id persisted load is LocalTextModelID-gated and
+        // falls back to the GGUF foundation default. Repair the FINAL in-memory selection here so an
+        // unrunnable GGUF Gemma (persisted OR defaulted) becomes the runnable MLX Gemma 3 — defaults
+        // read confirms it, no env var, no manual step. No-op when the GGUF lane is available.
+        repairUnrunnableGgufGemmaSelection(defaults: defaults)
         if let savedProvider = defaults.string(forKey: Self.activeAIProviderDefaultsKey),
            let provider = AIProviderSelection(rawValue: savedProvider) {
             self.activeAIProvider = normalizedVisibleAIProvider(provider)
@@ -3869,6 +3875,53 @@ final class InferenceState {
            let mlx = mlxEquivalent(forGgufGemmaID: modelID, denseGemma4Enabled: denseGemma4Enabled) {
             defaults.set(ChatModelSelection.localMLX(mlx).rawValue, forKey: selectionKey)
         }
+    }
+
+    /// Pure: given the FINAL post-load local id + chat selection, the GGUF→runnable-MLX-Gemma repaired
+    /// pair, or nil when nothing needs repair. This is the robust half of the SS-CHATMODEL P0 fix
+    /// (owner computer-use proof 2026-06-21): the pre-load static migration set its key but the rewrite
+    /// did not land on a real launch, because `preferredLocalTextModelID`'s persisted load (:3497) is
+    /// `LocalTextModelID`-gated and REJECTS a GGUF id, so the in-memory value falls back to
+    /// `initialDefaultLocalTextModelID` — which itself returns a GGUF Fast Gemma (memory-filtered only).
+    /// So the unrunnable GGUF arrives in-memory AFTER the migration ran. Re-checking the actual
+    /// post-load values catches both a persisted GGUF Gemma AND that GGUF default. Only fires when the
+    /// GGUF lane is unavailable (an installed-but-unrunnable pick); a runnable GGUF lane leaves the
+    /// pick alone (deliberate-pick honored). Idempotent: gemma3 is not a GGUF id, so re-running is a
+    /// no-op — no key needed, no V1-style pollution possible.
+    nonisolated static func repairedGgufGemmaSelection(
+        localID: String,
+        selection: ChatModelSelection,
+        ggufLaneAvailable: Bool,
+        denseGemma4Enabled: Bool
+    ) -> (localID: String, selection: ChatModelSelection)? {
+        guard !ggufLaneAvailable else { return nil }
+        let newLocal = mlxEquivalent(forGgufGemmaID: localID, denseGemma4Enabled: denseGemma4Enabled)
+        var newSelectionID: String?
+        if case .localMLX(let modelID) = selection {
+            newSelectionID = mlxEquivalent(forGgufGemmaID: modelID, denseGemma4Enabled: denseGemma4Enabled)
+        }
+        guard newLocal != nil || newSelectionID != nil else { return nil }
+        return (
+            localID: newLocal ?? localID,
+            selection: newSelectionID.map { ChatModelSelection.localMLX($0) } ?? selection
+        )
+    }
+
+    /// Instance side of `repairedGgufGemmaSelection`: rewrites the in-memory selection AND persists,
+    /// so the live session uses the runnable MLX Gemma immediately and a `defaults read` confirms it.
+    /// Runs at the END of model-selection init (after the persisted-pick load) so it sees the real
+    /// final values.
+    private func repairUnrunnableGgufGemmaSelection(defaults: UserDefaults) {
+        guard let repaired = Self.repairedGgufGemmaSelection(
+            localID: preferredLocalTextModelID,
+            selection: preferredChatModelSelection,
+            ggufLaneAvailable: availableLocalGenerationRuntimeKinds.contains(.gguf),
+            denseGemma4Enabled: LocalTextModelID.mlxGemma4DenseRunnableEnabled
+        ) else { return }
+        preferredLocalTextModelID = repaired.localID
+        preferredChatModelSelection = repaired.selection
+        defaults.set(repaired.localID, forKey: "epistemos.preferredLocalTextModelID")
+        defaults.set(repaired.selection.rawValue, forKey: "epistemos.preferredChatModelSelection")
     }
 
     /// One-time migration from the legacy OpenAI GPT-5.2 default to the
