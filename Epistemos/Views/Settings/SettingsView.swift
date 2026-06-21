@@ -2680,6 +2680,9 @@ private struct InferenceDetailView: View {
                         set: { inference.setOpenAICodeInterpreterEnabled($0) }
                     )
                 )
+                SettingsDescriptionText(
+                    text: "Currently parked for OpenAI: the Responses API returns \"Unsupported tool type: code_interpreter\" on the current GPT-5.x chat models, so this preference is saved but the tool is not attached (no silent failure). For working code-interpreter-style runs today, use Anthropic's Code Execution under a Claude model."
+                )
                 Divider().padding(.vertical, 2)
                 Toggle(
                     "Force JSON output (cross-provider)",
