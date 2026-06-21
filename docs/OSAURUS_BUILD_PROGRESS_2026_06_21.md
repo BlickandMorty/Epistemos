@@ -3,7 +3,7 @@
 ## 📋 14-AREA IMPLEMENTATION MAP (grounded audit, refreshed 2026-06-21 post-act-engine)
 | # | Directive | Status | Evidence (file / commit) | Next action |
 |---|---|---|---|---|
-| 1 | Two modes: act=Osaurus, work=OpenCode+Goose+Hermes+OpenClaw+RustLSP | 🟡 | act engine `aa0b40b57`; work seam `Epistemos/Work/WorkBackend.swift` | build OpenCode/Goose work fusion |
+| 1 | Two modes: act=Osaurus, work=Goose-in-process + native shell (OpenCode edge captured, not its Node UI) | 🟡 | act engine `aa0b40b57`; work spine `agent_core/src/work.rs` (28 cargo tests ✅); seam `Epistemos/Work/WorkBackend.swift` | Phase W0: clone block/goose → vendor provider/message leaf → light up run_work_session |
 | 2 | Osaurus landed+linked; dual-MLX consolidated; act turn via closure swap | ✅ | `f884eb0b7` (consolidate), `cf708671a` (link), `aa0b40b57` (closure swap) | streaming + UI |
 | 3 | Landing pages + BLUR transitions + act/work toggles + mode-entry anim | 🔴 | `Views/Landing/{LandingView,BlurFade,LiquidGreeting}.swift` exist; anim recorded | build after engine |
 | 4 | ACT reskin = current-chat discipline (fonts/palette/composer) | 🔴 | recorded (standing rule) | build after engine |
