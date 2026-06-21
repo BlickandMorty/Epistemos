@@ -34,3 +34,17 @@ REAL FIX (Part A is now THE critical piece, not the Qwen migration):
 3. Reachable picker so the owner can change it live.
 VERIFY AGAINST THE OWNER'S REAL STATE: persisted Gemma-E2B (+ E2B unavailable) → resolves to a real Gemma, NEVER Qwen;
 confirm via `defaults read` after launch and/or the resolution unit test seeded with E2B (not Qwen).
+
+## ‼️ OWNER REFRAME (2026-06-21): this IS a no-hidden-fallback violation (SS-HF) — eliminate it, don't re-point it
+Owner: "remember NO FALLBACKS — that literally should have been fixed." Correct. The `not-installed/unavailable pick →
+recommendedLocalTextModelID` SILENT migration in sanitizedInteractiveLocalTextModelID is precisely the hidden fallback
+SS-HF said to remove. The fix is NOT "make the fallback Gemma instead of Qwen" — it is:
+1. **NO SILENT SUBSTITUTION.** The chat runs the model the user PICKED. If that pick can't load, the app does NOT
+   silently swap to recommended/Qwen/any other model.
+2. **DEFAULT MUST BE RUNNABLE.** The fresh/headroom-aware default must be a model that is actually INSTALLED + loadable,
+   so no fallback is ever needed (if nothing capable is installed, prompt to install — honestly — don't fake a model).
+3. **HONEST AT POINT OF USE** (SS-HF, already started 8a09bdbb3): if a pick is unavailable, surface it where the user
+   is (chat composer): "Gemma E2B isn't loaded — [install] / [pick another]" — never a silent Qwen.
+4. Remove/neutralize the `recommended`-as-silent-fallback path; keep both Qwens + all Gemmas as EXPLICIT picks only.
+VERIFY against the owner's REAL state (persisted Gemma-E2B): pick loads → runs E2B; pick can't load → HONEST surfaced
+message, NEVER a silent Qwen. No hidden fallback anywhere on the chat model-resolution path.
