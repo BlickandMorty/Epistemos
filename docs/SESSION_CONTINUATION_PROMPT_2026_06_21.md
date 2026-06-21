@@ -105,3 +105,10 @@ off-limits." Those are STALE as of 2026-06-21. The CURRENT truth (this prompt + 
    Osaurus critical path). Nothing is left in an ephemeral stash; main has no untracked work-in-progress.
 
 If any instruction anywhere conflicts with items 1–5, items 1–5 WIN (they are the latest owner directive).
+
+## ⚠️ STASH TRIAGE (found 2026-06-21 — validates owner's "WIP gets forgotten" concern)
+`git stash list` shows ~24 stashes — forgotten WIP from prior sessions, exactly the regress-risk the
+owner flagged. EARLY TASK for the fresh session: triage every stash (`git stash list`; inspect each with
+`git stash show -p stash@{N}`). For each, deliberately EITHER commit-as-canon (with an honest message) OR
+drop it on purpose. Do NOT leave work in ephemeral stashes. No WIP/stash as a hiding place going forward —
+unfinished work is either a canon commit or an explicit ledger item, never a floating stash.
