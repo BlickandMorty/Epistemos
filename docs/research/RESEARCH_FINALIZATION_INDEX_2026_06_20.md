@@ -100,3 +100,26 @@ They are PART OF THE ACTIVE QUEUE — do NOT treat as "finished research." The l
 - **SS-H — skills/superpowers usable across local AND cloud engines** (keystone landed; keep reachable on chat surface).
 - **SS-I — external skill ecosystems** (Anthropic/Vercel/Google skill packs accessible to all engines) — had NO active-build
   line in either sequence; it is hereby IN the active queue (chat-surface first, Act/Work only where non-clashing per owner).
+
+## QUEUE vs FULL PLAN — and where Obscura / Act / Work live (added 2026-06-20 per owner question)
+The "active build set" above is a **priority-ordered SUBSET of LOOP-BUILDABLE work, not a cap and not the whole plan.**
+The FULL plan = the **194 open `[ ]` items in the ledger**. The Owner-Request Coverage Sweep + NUANCE-COMPLETENESS gate
+re-walk ALL 194 every ~5 iters, so anything off the active list is NOT dropped — it resurfaces until built. The active
+list just says what the loop builds NEXT, in order.
+
+Two domains the active list does NOT lead with, but which ARE in the plan:
+- **OBSCURA built-in browser — IN THE PLAN, loop-buildable, now queued.** Ledger items @1451 + @2101; prior research
+  `B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md` (Tier-1 lifts LANDED) + HELIOS_V5 §B3 (W6-A..W6-I runtime, never built)
+  + `agent_core/src/browser_engine/mod.rs` (467 lines — partial backend exists). BUILD the working in-app browser
+  (WKWebView built-in + Rust backend); network/subprocess parts Pro/dev-gated per CLAUDE.md (no hidden sidecar on MAS).
+  Tied to Work mode + HTML canvas P7.2 + browser-use. → added to the active queue (after the current SUBSTRATE/owner-facing
+  batch); the WKWebView/non-subprocess slice is loop-safe, the network runtime is Pro-gated.
+- **ACT (Osaurus) / WORK (Goose/OpenCode) — IN THE PLAN, but split by the scope boundary.** ~199 ledger mentions. The CLONE
+  BACKENDS (Osaurus/ActOsaurus, Goose port, Companion→Osaurus refactor) are **OWNER / Cursor domain = HARD OFF-LIMITS for
+  the loop** — the loop will NOT build those (by design, not a drop; see SCOPE BOUNDARY). The LOOP-BUILDABLE parts are: the
+  per-model engineering + skills landing **chat-first** (SS-Z/Y/H/I, ENGINEERING-SCOPE-CHAT-FIRST constraint) and any Act/Work
+  surface that is **non-clashing** (e.g. the Osaurus/Act right-side panel @3345 as Epistemos UI, IP-infusion seams that don't
+  edit clone code). Those loop-buildable parts ride the coverage sweep; the clone backends wait for the owner's Cursor work.
+
+So: nothing is lost. Queue = rolling priority subset; ledger = full 194; sweep = the safety net; clone backends = owner-domain
+by the scope boundary (tracked, not loop-built). Cross-ref SS-FOLLOWON, SS-CLEAN coverage sweep, SCOPE BOUNDARY.
