@@ -49,4 +49,25 @@ struct SSQCGlobalVoiceTests {
         let picker = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ModelVoicePickerSection.swift")
         #expect(picker.contains("voiceQualityHint()"))
     }
+
+    @Test("voicesGroupedByTier orders Premium > Enhanced > Default and drops empty tiers")
+    func voicesGroupedByTierOrdersAndDropsEmpty() {
+        func opt(_ q: EpistemosSpeechSynthesizer.VoiceQualityTier, _ id: String) -> EpistemosSpeechSynthesizer.VoiceOption {
+            EpistemosSpeechSynthesizer.VoiceOption(identifier: id, displayName: id, language: "en-US", quality: q)
+        }
+        let grouped = EpistemosSpeechSynthesizer.voicesGroupedByTier(
+            [opt(.default, "d1"), opt(.premium, "p1"), opt(.enhanced, "e1"), opt(.premium, "p2")])
+        #expect(grouped.map(\.0) == [.premium, .enhanced, .default])
+        #expect(grouped.first?.1.count == 2)  // both premium voices grouped together
+        // Empty tiers are dropped (only Default present → only Default returned).
+        #expect(EpistemosSpeechSynthesizer.voicesGroupedByTier([opt(.default, "d1")]).map(\.0) == [.default])
+    }
+
+    @Test("Quick Capture surfaces the voice picker at point of use + persists to the global default")
+    func quickCaptureMountsVoicePicker() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+        // A point-of-use picker over the shared grouped voices, persisting to the global default.
+        #expect(src.contains("EpistemosSpeechSynthesizer.voicesGroupedByTier(captureVoices)"))
+        #expect(src.contains("EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)"))
+    }
 }
