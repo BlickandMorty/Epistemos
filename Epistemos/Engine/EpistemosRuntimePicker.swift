@@ -40,6 +40,25 @@ nonisolated enum EpistemosRuntimePicker {
         /// gate → not blocked (never block on missing data).
         let freeMemoryGB: Int
         let appleIntelligenceAvailable: Bool
+        /// SS-CHATPICKER P0 — the user's installed + owner-advertised models BEYOND the fixed
+        /// foundation lineup, so any model the owner installed/advertised becomes a clickable pick
+        /// (the owner's "other models installed but won't let me click them"). The panel computes
+        /// these from `installedLocalTextModelIDs` ∪ prepared, filtered by the advertised set, and
+        /// `options` includes them per tier — deduped against the lineup + static `extraPicks`,
+        /// gated like any other pick. Default empty preserves today's behavior.
+        let additionalPicks: [ExtraPick]
+
+        init(
+            installedModelIDs: Set<String>,
+            freeMemoryGB: Int,
+            appleIntelligenceAvailable: Bool,
+            additionalPicks: [ExtraPick] = []
+        ) {
+            self.installedModelIDs = installedModelIDs
+            self.freeMemoryGB = freeMemoryGB
+            self.appleIntelligenceAvailable = appleIntelligenceAvailable
+            self.additionalPicks = additionalPicks
+        }
     }
 
     /// An explicit non-foundation pick the owner wants visible in a tier — a
@@ -68,25 +87,38 @@ nonisolated enum EpistemosRuntimePicker {
     /// Local picks are gated on installed + memory; nothing is hidden — a blocked
     /// pick still appears, with its reason.
     static func options(for tier: EpistemosModelTier, environment: Environment) -> [Option] {
-        var result = EpistemosFoundationLineup.candidates(for: tier).map {
-            gatedOption(
-                id: $0.id,
-                title: cleanTitle(for: $0.displayName),
+        var seenIDs = Set<String>()
+        var result: [Option] = []
+
+        // 1. Foundation lineup (the default ordering).
+        for candidate in EpistemosFoundationLineup.candidates(for: tier) {
+            guard seenIDs.insert(candidate.id).inserted else { continue }
+            result.append(gatedOption(
+                id: candidate.id,
+                title: cleanTitle(for: candidate.displayName),
                 tier: tier,
-                minimumMemoryGB: $0.minimumRecommendedMemoryGB,
+                minimumMemoryGB: candidate.minimumRecommendedMemoryGB,
                 isAppleIntelligence: false,
                 environment: environment
-            )
+            ))
         }
-        result += extraPicks.filter { $0.tier == tier }.map {
-            gatedOption(
-                id: $0.id,
-                title: $0.title,
-                tier: tier,
-                minimumMemoryGB: $0.minimumMemoryGB,
-                isAppleIntelligence: false,
-                environment: environment
-            )
+        // 2. Static extra picks (the explicit Qwen Think picks).
+        for pick in extraPicks where pick.tier == tier {
+            guard seenIDs.insert(pick.id).inserted else { continue }
+            result.append(gatedOption(
+                id: pick.id, title: pick.title, tier: tier,
+                minimumMemoryGB: pick.minimumMemoryGB, isAppleIntelligence: false, environment: environment
+            ))
+        }
+        // 3. SS-CHATPICKER P0 — the user's installed + advertised models for this tier, deduped
+        //    against the lineup + static extras. This is what makes an installed model outside the
+        //    fixed lineup a clickable pick instead of silently absent.
+        for pick in environment.additionalPicks where pick.tier == tier {
+            guard seenIDs.insert(pick.id).inserted else { continue }
+            result.append(gatedOption(
+                id: pick.id, title: pick.title, tier: tier,
+                minimumMemoryGB: pick.minimumMemoryGB, isAppleIntelligence: false, environment: environment
+            ))
         }
         if tier == .fast {
             result.append(appleIntelligenceOption(environment: environment))
