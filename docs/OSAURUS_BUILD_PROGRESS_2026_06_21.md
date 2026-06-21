@@ -1,14 +1,36 @@
 # Osaurus Act Build — Living Progress (started 2026-06-21)
 
+## ⚠️ RE-SYNC / REALIGNMENT (owner 2026-06-21) — addendum AUTHORITATIVE, overrides research recs
+**Re-read `OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md` at the START of every iteration.** Owner
+directive ALWAYS beats a research rec. Corrections to drift (I had followed the feasibility doc's C2/B):
+1. **MAS NON-RESTRICTIVE everywhere (set in stone §151).** DUAL-BUILD: Pro (direct-dist, full) + MAS
+   *as robust as Pro*, excluding ONLY the genuinely-ungrantable (today: Linux-VM sandbox) with a MAS-safe
+   substitute (WASM in-proc / cloud — research best). NEVER use "MAS sandbox" to cut capability. Supersedes
+   CLAUDE.md MAS NON-NEGOTIABLE. ⚠️ FOLLOW-UP (not a corner-cut): OsaurusCore is currently Pro-target-only;
+   per dual-build MAS must get the MAS-safe OsaurusCore (split off only VM/Sparkle/Containerization).
+2. **FULL CLONE Goose (and every clone) — NOT leaf-by-leaf.** Vendor block/goose real crates
+   (`goose` + `goose-providers`) + `rmcp` as REAL Cargo deps in agent_core, like Osaurus; resolve dep
+   clashes (accepted cost). The `agent_core::work::vendored_goose` hand-ports (incl. the Role leaf
+   `bed6252fd`) are **SUPERSEDED** by the full-clone — STOP hand-porting wire types one at a time.
+3. **WORK = OpenCode FULL-CLONE shell, Option A (keep OpenCode's REAL terminal UI, palette-matched, live
+   themes).** NOT a native rebuild (feasibility C2/B OVERRIDDEN). Bundled OpenCode/Bun runtime = FINE (Pro).
+   Goose = engine inside OpenCode; Hermes = IP brain fused; OpenClaw = selective hardening fused; wire the
+   EXISTING `agent_core::lsp_runtime` RustLSP as work tools (don't import OpenCode's LSP).
+4. **Tamagotchi render-fix = IN SCOPE** (keep style; fix too-small/inner-square).
+5. All other 2026-06-21 overrides hold (act reskin=current-chat; preserve picker/palette/agent-tools/
+   Epistemos Picks; per-clone settings tabs; landing blur + mode-entry anim; motion triad; Prose 120fps;
+   EPDOC MD-V2; chat never deleted; no fake-done; no WIP/stash; substrate+IP certain/lower-not-deferred).
+SEQUENCING: Osaurus/ACT-first (engine done → shared composer + reskin), THEN WORK (OpenCode full-clone).
+
 ## 📋 14-AREA IMPLEMENTATION MAP (grounded audit, refreshed 2026-06-21 post-act-engine)
 | # | Directive | Status | Evidence (file / commit) | Next action |
 |---|---|---|---|---|
-| 1 | Two modes: act=Osaurus, work=Goose-in-process + native shell (OpenCode edge captured, not its Node UI) | 🟡 | act engine `aa0b40b57`; work spine `agent_core/src/work.rs` (28 cargo tests ✅); seam `Epistemos/Work/WorkBackend.swift` | Phase W0: clone block/goose → vendor provider/message leaf → light up run_work_session |
+| 1 | Two modes: **act=Osaurus** (done engine); **work=OpenCode FULL-CLONE shell (real UI, Option A) + Goose engine + Hermes/OpenClaw fused + RustLSP** | 🟡 | act engine `aa0b40b57`; work seam `Epistemos/Work/WorkBackend.swift`; `agent_core/src/work.rs` leaf-ports SUPERSEDED→full-clone | finish ACT (composer+reskin) FIRST; then WORK = vendor OpenCode+Goose real crates |
 | 2 | Osaurus landed+linked; dual-MLX consolidated; act turn via closure swap | ✅ | `f884eb0b7` (consolidate), `cf708671a` (link), `aa0b40b57` (closure swap) | streaming + UI |
 | 3 | Landing pages + BLUR transitions + act/work toggles + mode-entry anim | 🔴 | `Views/Landing/{LandingView,BlurFade,LiquidGreeting}.swift` exist; anim recorded | build after engine |
 | 4 | ACT reskin = current-chat discipline (fonts/palette/composer) | 🔴 | recorded (standing rule) | build after engine |
 | 5 | Preserve chrome (picker/palette/38-tool panel) + Epistemos Picks | 🟡 | Epistemos Picks DONE+visible `5c3d8bb66`; chrome exists | wire chrome into act |
-| 6 | Tamagotchi agent-creation: keep style + FIX render (too-small/inner-squares) | 🔴 | `Views/Landing/Farm/CompanionCreationFlow.swift` | ⚠️ Companion area partly OFF-LIMITS — owner scope check before render-fix |
+| 6 | Tamagotchi agent-creation: keep style + FIX render (too-small/inner-squares) | 🔴 | `Views/Landing/Farm/CompanionCreationFlow.swift` | IN SCOPE (owner 2026-06-21): keep style, fix the render bug |
 | 7 | Chat backend QUARANTINED, never deleted | ✅ | never touched this session; quarantine intact | porting cycles |
 | 8 | No silent Qwen fallback | 🟡 | act path honest (`runTurnInProcess` never cloud); Picks honest selection | live too-large→Qwen P0 is in DEFERRED quarantined chat |
 | 9 | MAS non-restrictive (global) | ✅ | `OSAURUS_MAS_ENTITLEMENTS_RESEARCH_2026_06_21.md`; direct-distribution | distribution signing |
@@ -19,9 +41,11 @@
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
 Prose: the **act ENGINE (#2)** is the big completion — act runs live through OsaurusCore (flag-gated,
-honest, verified). UI areas (#3/#4/#6 + mode-entry animations) are correctly 🔴 BEHIND the engine. Work
-mode (#1) and EPDOC-MD-V2 (#12) are the next non-UI build fronts. Nothing dropped/stashed/fake-done.
-⚠️ Owner decision needed: #6 Tamagotchi render-fix scope vs the OFF-LIMITS Companion clone.
+honest, verified). Per the 2026-06-21 RE-SYNC: **ACT-first** — finish act (shared composer + reskin +
+mode-entry animations) BEFORE work. **WORK** = OpenCode FULL-CLONE shell (real UI) + Goose/Hermes/OpenClaw
+fused (real-crate vendor, not leaf-by-leaf). **MAS** = dual-build full-capability. #6 Tamagotchi render-fix
+is IN SCOPE (resolved). Nothing dropped/stashed/fake-done; no MAS-struct corner-cuts (OsaurusCore-on-MAS
+dual-build is a tracked follow-up, explicitly flagged — not silently cut).
 
 
 

@@ -13,10 +13,15 @@ pub const WORK_GOOSE_FLAG: &str = "EPISTEMOS_WORK_GOOSE_V0";
 pub const GOOSE_VENDOR_LICENSE: &str = "Apache-2.0";
 pub const GOOSE_VENDOR_SOURCE: &str = "block/goose";
 
-/// Vendored block/goose types (Apache-2.0, ProvenanceGate `direct_import`) — the
-/// FIRST real extraction of block/goose's Rust core into agent_core (Goose S2).
-/// Isolated under the `work` module, so the GOOSE GUARDRAIL (Chat/Act unchanged)
-/// holds. Leaf-first: only self-contained (std-only) types so far.
+/// ⚠️ SUPERSEDED APPROACH (owner re-sync 2026-06-21): leaf-by-leaf hand-porting of block/goose
+/// wire types is REPLACED by a FULL CLONE — vendor block/goose's real crates (`goose` +
+/// `goose-providers`) + `rmcp` as REAL Cargo deps in agent_core (like Osaurus), resolving dep
+/// clashes (accepted cost). DO NOT add more hand-ported leaves here. These existing leaf types
+/// (SourceRoot/Permission/recipe/retry/message::Role) stay only as the inert seam contract until
+/// the full-clone lands and replaces them. See OSAURUS_BUILD_PROGRESS RE-SYNC section.
+///
+/// Vendored block/goose types (Apache-2.0, ProvenanceGate `direct_import`) — kept as the inert
+/// seam contract; the GOOSE GUARDRAIL (Chat/Act unchanged) holds.
 pub mod vendored_goose {
     //! Provenance: github.com/block/goose (Apache-2.0), crates/goose/src/source_roots.rs.
     //! `direct_import` — the type body between the VERBATIM markers is byte-for-byte
