@@ -1,4 +1,5 @@
 import AppKit
+import OsaurusCore
 import SwiftData
 import SwiftUI
 
@@ -2622,8 +2623,11 @@ private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Show chat when messages exist AND user hasn't navigated to landing.
-    private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
+    /// ACT = OSAURUS IS THE CHAT (owner 2026-06-22). Show the conversational
+    /// surface the moment the user leaves the landing — Osaurus owns its own
+    /// landing/composer, so we no longer wait for an Epistemos-side message to
+    /// exist; tapping to start a conversation makes the Osaurus chat pop up.
+    private var showChat: Bool { !chat.showLanding }
 
     var body: some View {
         ZStack {
@@ -2631,7 +2635,10 @@ private struct HomeRouter: View {
             // fold / squish) — the same Apple blur-replace feel as the SS-AN homepage
             // greeting↔graph transition, on the same flat easeOut driver.
             if showChat {
-                ChatView()
+                // The act surface IS the real Osaurus chat UI (its own
+                // composer/thread/sidebar), hosted in-process via the public
+                // OsaurusCore seam. Replaces the old Epistemos `ChatView()`.
+                EpistemosOsaurusChatHost()
                     .transition(.blurFade())
             } else {
                 LandingView()
