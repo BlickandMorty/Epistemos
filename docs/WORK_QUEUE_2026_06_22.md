@@ -152,10 +152,18 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 - [ ] **0.17 LOCKED ACT direction** — Osaurus OWN UI reskinned + 3 grafts; SUPERSEDES option-(b) old ChatView.
   Do NOT mount `Epistemos/Views/Chat/ChatView.swift` for act. Latest 🔒/DEFINITIVE wins over older addendum.
-  →plan: "🔒🔒 DEFINITIVE ACT-UI DIRECTION" + "🔴🔴 ACT = OSAURUS IS THE CHAT".
+  **REFINED (owner P0 via auditor 2026-06-22, addendum §1829/§1861 — ACT-UI SYNTHESIS): native Epistemos SHELL
+  (toolbar/sidebar/window/message-bar) + Osaurus ENGINE-CORE.** Keep/drop heuristic: (1) engine-expressing views
+  (thinking/stream/tools) = Osaurus reskinned, don't rebuild · (2) ADOPT Osaurus genuinely-Apple-native bits
+  (voice input, larger native popovers, native controls) · (3) DROP Osaurus custom-branded/generic (message bar →
+  native composer [0.7]; landing "four blocks" → Epistemos LandingView [0.3/D2]; block fonts → cream/mono) · (4)
+  shell = native Epistemos. Does NOT reopen option-(b); does NOT relax any D-gate.
+  →plan: "🔒🔒 DEFINITIVE ACT-UI DIRECTION" + "🔴🔴 ACT = OSAURUS IS THE CHAT" + "🔴 OWNER DIRECTIVE ACT-UI SYNTHESIS §1/§2".
 
-- [ ] **0.18 Model provider registration** — `EpistemosOsaurusModelProvider` registered at bootstrap; yields
-  usable model on send path (P0-A).
+- [x] **0.18 Model provider registration** — CERTIFIED iter6 (NOT D-gated). (a) EpistemosOsaurusModelProvider.swift:28 ·
+  (b) bridges owner's MLX models via EpistemosModelBridge primitive seam · (c) AppBootstrap.swift:3155 register over live
+  MLXInferenceService + seeds coreModelName · (d) `EpistemosModelBridgeTests.registeredOwnerModelsRouteThroughBridge`
+  (success-path routing, 4/4 passed 0 skipped, bseglu4pp) · (e) live send routed to registered owner model gemma-4-e2b (P0-A).
   →plan: "🎯 PINPOINTED ActOsaurusError" + "ACT = OSAURUS IS THE CHAT" §FIX act errors.
 
 - [ ] **0.19 Chat surface deletion sequence** — mount Osaurus host → verify send/receive → port IP → delete old
