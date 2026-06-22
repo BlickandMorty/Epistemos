@@ -1189,3 +1189,33 @@ Fresh auditor took over the role this session (new 10-min cron `f40dafb6`). Veri
   the old Claude build loop + old auditor cron 34ea6526 so it is exactly ONE builder (Codex) + ONE auditor (this
   session) — else two auditors race this log + the addendum. OWNER action required (I cannot kill another session's cron).
 Check-only; touched ONLY this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
+
+## PASS 78 — 2026-06-22 (STEERING: wrote a preempting ACT CERTIFICATION BAR to the addendum; steering-channel verified WORKING)
+Owner directive: don't just log — STEER Codex when it drifts. Investigated the steering MECHANISM + deep-audited
+the in-flight act surface (read-only fan-out, 5 dimensions), then wrote a consolidated correction.
+- STEERING-CHANNEL VERDICT = **WORKS (not theater).** Driver rule 0.31 forces Codex to diff the FULL addendum
+  heading list vs the queue EVERY iteration; driver lines 88 + 319 make "P0 owner runtime reports preempt
+  everything." Code-grounded proof corrections land in the NEXT builder commits: P0-A real-LandingView restore →
+  `dc6bd3cfc` (RootView act branch now `LandingView(onEnterAct:)`, `:2723`); guard-rewrite forbidding
+  `EpistemosOsaurusChatHost()` + requiring `OsaurusActBridge.runTurnStreamingInProcess` → `dca65beb5`;
+  recent-chats-on-pill popover → `NativeActChatView.swift:82`. The guard test is the ratchet. **FAILURE MODE
+  (the hole):** `ActSurfaceOsaurusUIDirectionGuardTests` is 100% `source.contains()` (`:17-44`) → it certifies a
+  STRING IS PRESENT, not that the surface RENDERS — which is exactly how Codex marks act DONE on a distinguishable
+  minimal approximation.
+- DRIFT CAUGHT in the in-flight `NativeActChatView.swift` (uncommitted): bare monospaced `Text` transcript (no
+  `MessageBubble`/`TaggedMarkdownTextView`), raw `<think>` token leak (`:160`), missing Osaurus commands/skills
+  union (grep empty), no in-surface Configuration control, boxy window (no clip/shadow; curve-anchor suppressed),
+  invented toolbar pill, hardcoded `maxTokens:512` truncation. ON-PLAN parts ACK'd so Codex doesn't revert
+  (engine link, composed ChatInputBar, popover-pill, P0-A landing, cream).
+- CORRECTION WRITTEN → addendum `## 🔴 AUDITOR CORRECTION (P0) — ACT CERTIFICATION BAR`: 7 screenshot-gated
+  items, each citing the owner's REAL component to compose, anchored to D1-D5/0.8/0.16/0.21/4.7 so it PREEMPTS
+  (not a new numeric row); makes the auditor fresh-launch screenshot the SOLE gate (e); ACKs on-plan work;
+  explicit NON-RACE (finish-line bar, not stop-work).
+- ⚠️ HALLUCINATION CAUGHT before writing: the synthesis draft told Codex to merge
+  `OsaurusCore.SlashCommandRegistry.shared` + `SkillManager.shared` — auditor grep of `OsaurusCore/Sources`
+  for those symbols = EMPTY (they don't exist). REFRAMED CERT-3 to "locate Osaurus's REAL command/skill source
+  first, do not assume type names." (Every other citation re-verified against HEAD before writing.)
+- NEXT: verify Codex INGESTS this bar next iteration (0.31 heading-diff → queue row / D-anchor), and the moment
+  it commits an act build, do the full kill→rebuild→screencapture→Read cert vs the 7 items + Desktop refs.
+Check-only; touched ONLY the addendum + this audit log (git add of exactly those two; never -A); did NOT touch
+agent code / queue / strict-recert / in-flight files.
