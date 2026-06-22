@@ -60,6 +60,13 @@ contract (`644303f69`) → native SwiftTerm view (`5b0520917`) → bundled-runti
 theme-responsive (`3bead7af6`). **Motion ontology:** reusable `MotionTitle` (`9d1c421e6`) on both work titles
 (`3ec448552`). All honest-inert-until-real; chat quarantined.
 
+**Regression sweep (2026-06-21):** ran blast-radius suites after the shared-composer + streaming edits.
+Found + FIXED one stale source-guard I caused (`ActOsaurusSeamTests` s4DeviceAgentFlagSwap → now asserts the
+shared `shouldRouteActThroughOsaurus()`, `ee61a7e52`). TWO failures are from OTHER concurrent sessions (NOT
+mine, files I never touched) — flagged for their owners: `LocalAgentLoopTests` "repairs empty streaming
+turns" (contradicts SS-AL `f26924ccf` which now STREAMS repair tokens — that test's `visibleText.isEmpty`
+assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/python (SS-LS domain).
+
 **Context-gated remaining (NOT dropped — need a context the green-only main loop lacks):**
 - **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → CONCRETE
   BLOCKER (verified 2026-06-21): **Bun is NOT installed** (`bun not found`); Node v25/npm ARE present, but
