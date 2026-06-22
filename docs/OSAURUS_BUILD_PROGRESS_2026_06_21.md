@@ -587,3 +587,17 @@ true refusals still caught, helpful "As an AI…" spared. Tests (true-pos + 3 fa
 Found while auditing P0-area shared inference. (Priority: P0 at headless ceiling — both lane diagnostics +
 root cause pinned; act/work VISIBLE surfaces need the running app; foundational Fugu/TRINITY/system-prompts
 sequenced later + blocked on vendoring. This was a genuine safe in-area fix.)
+
+### ⚠️ PRE-EXISTING RED on main — MODEL-SELECTION domain (flagged, NOT mine, 2026-06-22)
+TriageServiceTests has 3 FAILING tests, found while checkpointing my refusal-detector fix (5b15edc2c). They are
+NOT caused by my change (which only touches `isRefusalResponse`; my 3 refusal tests PASS). They are in the
+MODEL-SELECTION domain (older commits a645e6623/020db2a17 "fix(model-selection)/(routing)"):
+1. `cloud models expose about-sheet metadata` — expects "Fast, Thinking, Pro, Inline Tools", got "Fast, Think,
+   Code, Inline Tools" → STALE test (cosmetic tier-name rename not propagated).
+2. `explicit UNINSTALLED pick is NOT silently substituted to Qwen-3-4B` — asserts selection != Qwen but it IS
+   Qwen → **POSSIBLE REAL REGRESSION** (the substitution the fix was meant to prevent still happens). Must NOT
+   be blind-"fixed" green (that would mask a real bug) — needs the model-selection domain owner.
+3. `persisted Gemma 4 chat selection normalizes on inference load` — expects Gemma→Qwen, got Gemma→Gemma →
+   STALE test (the "explicit pick wins" fix intentionally stopped Gemma→Qwen normalization).
+ACTION: flagged for the model-selection domain owner. NOT blind-fixed (another domain; #2 may be a real bug).
+My turn's commits (refusal fix 5b15edc2c + pricing per-request fix 0a4f80609) are clean + verified.
