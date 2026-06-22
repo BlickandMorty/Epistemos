@@ -48,8 +48,12 @@ beyond future clones (Talaria, Epdoc-fuse, Tamagotchi render-fix).
 9. **Health-row honesty (0.14):** `wiredToday`/`stillStub` match REAL code after every change.
 10. **Title-gen (0.16 extends 0.9):** parse `<think>`; CLASSIFY shared-vs-chat-only; CLEAN short titles.
 11. **Discovery sweep** — grep chat/inference consumers; add missed surfaces to queue.
-12. **Reverse addendum audit (0.31)** — grep addendum 🔒/DEFINITIVE/P0/MUST/BUILD-IT-HARDENED/PER-CLONE/WORK/BEYOND/ALL CHAT SURFACES; index or add queue row same iteration.
-13. **Full-plan witness (0.32, HARD GATE)** — append mandatory block to STRICT_RECERT_LOG: highest item · per-tier counts · TIER 1+ attempted YES/NO · act-only tunnel DENIED. **FORBIDDEN** end-claims: "act certified = done", "D1–D5 = done", "stop at TIER 0", "build-green = tier done".
+12. **Reverse addendum audit (0.31)** — grep addendum 🔒/DEFINITIVE/P0/MUST/BUILD-IT-HARDENED/PER-CLONE/WORK/BEYOND/ALL CHAT SURFACES/ESCALATION; index or add queue row same iteration.
+13. **Full-plan witness (0.32, HARD GATE)** — append mandatory block to STRICT_RECERT_LOG: **highest attempted item ID**
+    (e.g. `2.3`) · per-tier counts · TIER 1+ attempted YES/NO · act-only tunnel DENIED. **INCOMPLETE** if highest
+    attempted is before **1.1** unless all T0 are honest `[~]` AND you still attempted TIER 1+ same iteration.
+    **FORBIDDEN** end-claims: "act certified = done", "D1–D5 = done", "stop at TIER 0", "build-green = tier done",
+    "defer TIER 1+ to next iteration", "act blocking so skipping work/substrate".
 14. **Certify AND fix** in same walk — broken → fix to full plan spec → re-prove → `[x]`.
 15. **Narrow `[~]` bar** — ONLY if screencapture AND send-text BOTH fail (state why). Never `[x]` on build-green.
 16. **P0 owner reports** → addendum + queue + prompt same iteration, then fix first.
@@ -77,7 +81,7 @@ iteration before ending.
 | 0.3 | Epistemos landing FIRST → blur → act (D2) |
 | 0.4 | Send works — in-process, owner's model |
 | 0.5 | Mini + grab-chat; screenshot EACH |
-| 0.6 | Re-certify claimed-done bugs |
+| 0.6 | Re-certify claimed-done (engine indicator, visible errors, duplicate toggle) |
 | 0.7 | Message-bar graft |
 | 0.8 | D1–D5 runtime acceptance gate |
 | 0.9 | Act fidelity + CLASSIFY shared-vs-chat-only |
@@ -121,6 +125,12 @@ iteration before ending.
 | 2.7 | Agent-stack convergence + dual MLX clash |
 | 2.8 | BUILD-IT-HARDENED gates |
 
+## TIER 3 WALK (3.1 → 3.2) — NON-OPTIONAL
+| Item | Summary |
+|------|---------|
+| 3.1 | TRINITY native orchestrator on System G/RuntimeRouter |
+| 3.2 | Fugu optional guest provider (never the brain) |
+
 ## TIER 4 WALK (4.1 → 4.16) — NON-OPTIONAL
 | Item | Summary |
 |------|---------|
@@ -141,6 +151,13 @@ iteration before ending.
 | 4.15 | Multi-clone settings polish + data carry-over per clone |
 | 4.16 | Graph-deep-integration pillar |
 
+## TIER 5 WALK (5.1 → 5.3) — NON-OPTIONAL
+| Item | Summary |
+|------|---------|
+| 5.1 | Dual-build MAS+Pro |
+| 5.2 | Deep-optimization cycles (standing) |
+| 5.3 | MAS-safe OsaurusCore split (Pro full; MAS without VM/Sparkle) |
+
 ## D1–D5 (must all pass YOUR screencapture before act is done)
 - **D1** Curved window + soft shadow · **D2** Owner landing FIRST · **D3** Pill back · **D4** Settings work (all clone tabs) · **D5** Full reskin + picker/palette/38-tool panel
 
@@ -150,8 +167,9 @@ Ground truth: `docs/research/osa_runtime_2026_06_22.png` (see `osa_runtime_PLACE
 1. Read driver + queue in full
 2. Baseline screencapture → Read PNG; save `osa_runtime_2026_06_22.png` if missing
 3. Build/run send-text harness (0.23)
-4. Walk **0.1 → 0.32**, then **continue TIER 1→5** same iteration — no queue-jumping
-5. Reverse addendum audit (0.31) + full-plan witness (0.32)
+4. Walk **0.1 → 0.32**, then **continue TIER 1→5** same iteration — no queue-jumping. **Stopping before 1.1
+   is INCOMPLETE** unless all T0 are honest `[~]` with evidence AND you still attempted TIER 1+ before ending.
+5. Reverse addendum audit (0.31) + full-plan witness (0.32) — witness must cite **highest attempted item ID**
 6. Update queue + STRICT_RECERT_LOG; `git add` only your files; Co-Authored-By Claude
 
 **Act certified ≠ iteration done. Certify FULL PLAN, not act-only. Do not say "computer use unavailable" — use screencapture + Read + osascript.**
@@ -167,6 +185,6 @@ Re-read IN FULL: `docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md` + `docs/WO
 Pick **first unchecked item in numeric order** (0.1→0.32, then TIER 1→5). **Act certified ≠ loop done.**
 
 Every iteration: compile · send-text harness (0.23) · screencapture per surface · 5-gate bar · reverse addendum
-audit (0.31) · full-plan witness (0.32). Certify **Epistemos|act|work|beyond** per clone matrix. Continue into
-TIER 1+ after TIER 0 — FULL-PLAN-NO-ACT-TUNNEL. Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md`;
+audit (0.31) · full-plan witness (0.32, highest item ID required). Certify **Epistemos|act|work|beyond** per clone
+matrix. Continue into TIER 1+ after TIER 0 — **do NOT defer TIER 1+ to "next iteration"**. FULL-PLAN-NO-ACT-TUNNEL. Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md`;
 commit only your files; Co-Authored-By Claude. Plan wins over code.

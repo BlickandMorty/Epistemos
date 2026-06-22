@@ -70,9 +70,12 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   (main act, mini, grab-chat if present) — one PNG per surface; main-only does NOT satisfy 0.5.
   →plan: addendum mini-chat section + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING" §mini-chat + PER-SURFACE mandate.
 
-- [ ] **0.6 RE-CERTIFY claimed-done** — duplicate-toggle gone · friendly errors · scroll-blur graft ·
-  side-panel graft · white-bar/search fix · model-default seed · clean titles — file:line + runtime each.
-  →plan: pass-30/31 audit items + "ACT SURFACE — UI BUGS to fix".
+- [ ] **0.6 RE-CERTIFY claimed-done** — duplicate act/work toggle gone (ONE toggle only) · **VISIBLE engine
+  indicator** on act UI (Osaurus/MLX/Apple live — P0-B ESCALATION) · **VISIBLE send-path errors** (no silent
+  dead air — P0-A ESCALATION) · scroll-blur graft · side-panel graft · white-bar/click-to-search → Osaurus
+  landing not old search · model-default seed · clean titles — file:line + runtime each.
+  →plan: pass-30/31 audit items + "ACT SURFACE — UI BUGS to fix" + "🔴🔴 ESCALATION" P0-A/P0-B +
+  "🔴🔴🔴 P0 — RUNTIME STILL BROKEN" (duplicate toggle, click-to-search).
 
 - [ ] **0.7 Message-bar graft** — reskin Osaurus composer to Epistemos feel (owner-verify); not literal swap
   if it breaks send path. Screenshot composer.
@@ -177,20 +180,25 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🆕 PER-CLONE SETTINGS" beyond tab + Tamagotchi + Talaria/Tolaria reference + OFF-LIMITS guard.
 
 - [ ] **0.31 Reverse addendum audit (EVERY iteration — standing)** — after forward queue walk: grep addendum for
-  🔒, DEFINITIVE, P0, MUST, BUILD-IT-HARDENED, PER-CLONE, WORK, BEYOND, ALL CHAT SURFACES; verify EACH hit is
+  🔒, DEFINITIVE, P0, MUST, BUILD-IT-HARDENED, PER-CLONE, WORK, BEYOND, ALL CHAT SURFACES, ESCALATION; verify EACH hit is
   indexed in this queue or STANDING with →plan ref. Missing directive → ADD queue row same iteration. Log in
   STRICT_RECERT_LOG.
   →plan: THREE STANDING DIRECTIVES §1 + COMPLETENESS / DISCOVERY-SWEEP MANDATE.
 
 - [ ] **0.32 Full-plan iteration witness (EVERY iteration — standing, HARD GATE)** — before declaring iteration
   done, append this block to STRICT_RECERT_LOG (all fields required):
-  `Highest attempted:` · `T0/T1/T2/T3/T4/T5 [x]/[~]/[ ] counts` · `TIER 1+ attempted: YES|NO` ·
-  `If NO: evidence` · `Act-only tunnel: DENIED (explicit)` · `Forbidden end-claims avoided: YES`.
+  `Highest attempted item ID:` (e.g. `2.3`, not just "T2") · `T0/T1/T2/T3/T4/T5 [x]/[~]/[ ] counts` ·
+  `TIER 1+ attempted: YES|NO` · `If NO: evidence` · `Act-only tunnel: DENIED (explicit)` ·
+  `Forbidden end-claims avoided: YES`.
   **FORBIDDEN** without full walk attempted: "act certified = iteration done", "D1–D5 pass = done",
-  "stopping at TIER 0", "build-green = tier done". Act P0 blocking does NOT cancel TIER 1+ attempt same iteration
-  when TIER 0 is certified or honestly `[~]`. If stopped at TIER 0 only, cite screencapture/send-text evidence why
-  TIER 1+ could not be attempted — not convenience.
-  →plan: strict prompt FULL PLAN CERTIFICATION + NEVER-IDLE + FULL-PLAN-NO-ACT-TUNNEL.
+  "stopping at TIER 0", "build-green = tier done", "defer TIER 1+ to next iteration", "act is blocking so
+  skipping work/substrate", "full-plan walk complete after TIER 0", "will continue with lower tiers later".
+  **INCOMPLETE iteration** if highest attempted is before **1.1** unless every TIER 0 item is `[~]` with
+  screencapture+send-text evidence AND you still attempted TIER 1+ same iteration before ending. Act P0 blocking
+  does NOT cancel TIER 1+ attempt when TIER 0 is certified or honestly `[~]`. If stopped at TIER 0 only, cite
+  screencapture/send-text evidence why TIER 1+ could not be attempted — not convenience.
+  →plan: strict prompt FULL PLAN CERTIFICATION + NEVER-IDLE + FULL-PLAN-NO-ACT-TUNNEL + META-ESCALATION
+  (build-green ≠ works).
 
 ## TIER 1 — WORK MODE (OpenCode)
 - [ ] **1.1** OpenCode launcher binary vendored. →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED".
