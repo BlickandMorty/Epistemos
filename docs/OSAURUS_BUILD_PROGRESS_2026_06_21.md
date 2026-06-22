@@ -994,3 +994,13 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   "it's not working" becomes a DIAGNOSABLE, actionable on-screen message (auditor P0-A items #2/#3).
 - **Proof:** `PipelineServiceTests.osaurusNoModelFailuresAreDiagnosable` pins the three canonical
   errorDescriptions → asserts `.modelNotReady` + the actionable Settings → Models copy (real-state test).
+
+## Regression fix — stale act-routing tests after the default-ON flip (2026-06-22)
+- **Found (audit-verify):** the option-(b) default-ON flip (`shouldRouteActThroughOsaurus` → true on Pro,
+  no toggle) left two tests asserting the OLD default-OFF behavior, so the Pro test suite was RED:
+  `SharedActComposerTests.decisionHonesty` (`== false` for empty/flag env) and
+  `ActOsaurusSeamTests.routerHonorsOverride` (`!shouldRoute(...)`, inside `#if !EPISTEMOS_APP_STORE`).
+  Confirmed via `-only-testing` run (EXIT=65) before editing.
+- **Fixed:** both now assert the real invariant — Pro: DEFAULT-ON regardless of env/flag (option b, no
+  toggle); MAS: OFF always (OsaurusCore not linked). No production code touched — the tests were stale, not
+  the behavior. Re-ran both suites green. (Matches "real-state tests only" + "no red on main".)
