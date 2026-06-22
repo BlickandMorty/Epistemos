@@ -249,5 +249,23 @@ struct ActOsaurusSeamTests {
             Issue.record("wrong error type: \(error)")
         }
     }
+
+    @Test("ActOsaurusError surfaces a friendly, actionable message — never a raw 'error 2' code (P0-A)")
+    func actOsaurusErrorIsDiagnosable() {
+        // Owner 2026-06-22 saw the raw "Epistemos.ActOsaurusError error 2" on a real send.
+        // LocalizedError gives every case a friendly, actionable message instead of a bare code.
+        let requestFailed = ActOsaurusError.requestFailed(status: 500)
+        #expect(requestFailed.errorDescription?.isEmpty == false)
+        #expect(requestFailed.errorDescription?.contains("500") == true)
+        // The chat-facing message (the one the owner actually sees) is the friendly text, not the code.
+        let surfaced = UserFacingChatError.message(from: requestFailed)
+        #expect(surfaced.localizedCaseInsensitiveContains("retry"))
+        #expect(surfaced.localizedCaseInsensitiveContains("model"))
+        #expect(surfaced.contains("error 2") == false)
+        // Every case is described (no raw codes anywhere on the act error surface).
+        for err in [ActOsaurusError.serverNotEnabled, .transport("boom"), .emptyResponse] {
+            #expect(err.errorDescription?.isEmpty == false)
+        }
+    }
     #endif
 }

@@ -61,11 +61,31 @@ protocol ActOsaurusBridge: Sendable {
 /// Honest errors for an Act-Osaurus turn — the local server is off, the POST failed,
 /// or the response was empty. The caller surfaces these; it NEVER silently falls
 /// back to a cloud/GPT route.
-enum ActOsaurusError: Error, Equatable {
+///
+/// LocalizedError (owner 2026-06-22 P0-A): without it these bridge to the raw,
+/// undiagnosable "Epistemos.ActOsaurusError error 2" the owner saw on a real send.
+/// Each case now carries a friendly, ACTIONABLE message so the chat surfaces what
+/// went wrong + what to do — never a bare error code.
+enum ActOsaurusError: Error, Equatable, LocalizedError {
     case serverNotEnabled
     case transport(String)
     case requestFailed(status: Int)
     case emptyResponse
+
+    var errorDescription: String? {
+        switch self {
+        case .serverNotEnabled:
+            return "Act's Osaurus engine isn't available on this build. Open Settings → Models to set up a local model."
+        case .transport(let detail):
+            return "Act couldn't reach the Osaurus engine: \(detail). Retry, or reselect your model in the picker."
+        case .requestFailed(let status):
+            // Act runs IN-PROCESS — a requestFailed means a turn unexpectedly hit the local HTTP
+            // server path. Tell the owner it's recoverable + how, instead of a raw code.
+            return "Act's local model server returned an error (HTTP \(status)). Act normally runs in-process — retry the message; if it persists, reselect your model in the picker."
+        case .emptyResponse:
+            return "Act's Osaurus engine returned an empty response. Retry, or pick a different model in the picker."
+        }
+    }
 }
 
 /// OpenAI-compatible chat-completions wire shapes (match LocalModelServer's route).
