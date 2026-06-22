@@ -221,6 +221,14 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     by the SDKs incl. OpenCode's) returned `-32601 Unknown method`; some clients DROP the connection on a
     failed ping. Now returns the spec empty `{}` result; in-process + real-transport-e2e tested. stdio bin
     6/6 + e2e drives a real ping. Hardens the fusion link against client-side health-drops.
+  - ✅ **TRANSPORT-LEVEL SECURITY GUARD (`7364212c9`):** new e2e proves the COMPILED binary refuses a
+    `vault:///../../etc/passwd` resources/read over real stdio (JSON-RPC error -32602 "Path traversal not
+    allowed", no contents leaked) — locks the path-safety the dispatcher enforces, at the surface a rogue
+    external agent reaches. (Self-verify caught my own wrong test assumption — result:null always present —
+    not a bug; security holds.) **Session regression sweep CLEAN:** omega-mcp 187 lib + 6 stdio + 2 e2e,
+    agent_core work 94 + mutations 28 — zero regressions across the session's ~14 commits. AUDIT of the WORK
+    clean-room tools: RetryManager (timeout fixed), RepetitionGuard (correct), recipe (verbatim types),
+    resources/read (traversal-safe+tested) — all solid.
 - **🔴 P0 LIVE-CHAT REGRESSION (owner 2026-06-21) — partial fix + classified:** see
   `docs/research/P0_CHAT_REGRESSION_FINDINGS_2026_06_21.md`. (B) `<think>`-LEAK = SHARED inference-output bug
   (`strippingThinkingBlocks` left UNCLOSED `<think>` un-stripped) → **FIXED `c9184b4e6`** (43/43 incl. regression
