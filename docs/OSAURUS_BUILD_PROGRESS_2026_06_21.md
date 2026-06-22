@@ -918,8 +918,12 @@ don't revert). Two P0s:
     Pro — honest, never on the MAS/old-MLX path). Its tooltip carries the LIVE engine status
     (`CoreModelService.resolveStatus()` via the bridge), which doubles as the P0-A diagnostic (unset / unavailable
     + reason / available). So the owner can SEE act is Osaurus-powered + the engine state.
-  - [ ] **Follow-on:** bring Osaurus's distinctive controls/buttons/landing INTO the old UI (the larger
-    "give me the Osaurus buttons" ask). The old-UI shell stays; Osaurus's capabilities show within it.
+  - [~] **Item 4 — surface Osaurus's controls in the old UI (auditor 'next', 2026-06-22):** FIRST step — the
+    Osaurus badge is now CLICKABLE → an engine panel showing the live OsaurusCore status (model / available /
+    unavailable+reason). So Osaurus is a visible, interactive presence in the act UI (not just a tooltip).
+    REMAINING (needs owner specifics on WHICH controls + runtime-confirmed basics): bring more of Osaurus's
+    distinctive buttons/landing into the old UI. Note: the FUNCTIONAL core is already wired — the old picker's
+    model selection threads into the Osaurus engine (bd38f3132) — so selecting a model already drives Osaurus.
 
 ### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
 The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't
