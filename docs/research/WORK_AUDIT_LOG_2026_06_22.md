@@ -683,3 +683,32 @@ scope now enforced. GOOD.
 Tree mid-edit by plan-prep agent (strict prompt + 2 Localizable + AnswerPacketHealthRow uncommitted) — untouched.
 VERDICT: PASS. Spec scope fixed. Standing enforcement (pass 47) holds: I will flag any "re-cert complete" that
 only covered act once the build loop runs. Watching for the build loop's first real code commits.
+
+## PASS 49 — 2026-06-22 (RESEARCH: harden recert prompt — read-only agent, NOT editing spec)
+Owner /loop (2-min): research-only, make the strict-recert prompt robust enough to RESET + RECERTIFY THE ENTIRE
+plan + then CONTINUE building; do NOT edit (plan-prep agent owns the spec); use agents. Ran a read-only Explore
+agent over the committed prompt+queue+paste-block+addendum. KEY FINDINGS (for plan-prep agent to apply — I am NOT
+editing):
+P0-1 RESET not enforced: "pick first UNCHECKED item" self-defeats reset if any prior [x] survives; spec only says
+  "treat as []", never physically unchecks. FIX: STEP-0 physically reset all [x]/[~]→[]; make STRICT_RECERT_LOG
+  (this-phase PASS line), not the checkbox, the source of truth.
+P0-2 Infinite act/TIER-0 dwell is RULE-COMPLIANT: TIER 0 has 32 items, "one item min/loop" + TIER-0-preempt +
+  "no-tunnel satisfied by merely ATTEMPTING" → can stay in act forever legitimately. FIX: hard floor — must
+  advance highest-tier-reached every N iters; fix act IN PARALLEL, not as precondition to lower tiers.
+P0-3 [~] NEEDS-OWNER-RUNTIME is an uncapped fake-green escape (DONE bar accepts all-[~]). FIX: cap [~]≤2/phase,
+  3rd halts+pushes owner; every [~] must paste the exact failing screencapture/osascript/XCUITest cmd+output.
+P0-4 Build-green≠done has NO TEETH for substrate/orchestrator (TIER 2/3, headless: gate-e collapses to cargo
+  test). FIX: per-tier runtime rubric = real-state integration test on the LIVE wired path (AnswerPacket loaded
+  +surfaced; TRINITY route selected+logged), cite test+runtime artifact; reference ARCH_TIER_PROMOTION_CANON T4.
+P0-5 Phase can be "COMPLETE" without ever launching the app. FIX: completion preconditions = green xcodebuild
+  this phase + per-surface PNG Read this phase + send-text real reply this phase; list them in the summary.
+P0-6 Only ACT has a concrete acceptance gate (D1-D5); work/beyond/substrate cheap to [x]. FIX: add W1-W5 (work),
+  B1-B3 (beyond incl. Companion-NOT-present grep), S-gate (substrate runtime rubric); all-[~] clone ≠ certified.
+P1: driver:117 says TIER1 "1.1→1.8" but ends at 1.7 (fix); "attempted"/"bootstrap order" undefined (define);
+  STRICT_RECERT_LOG gap-fill lines pollute cert counts (separate header); post-recert forward scope undefined.
+P2 dangling →plan anchors: "DESIGN DECISION — Epistemos Picks" (real heading has quotes), "FUGU FOUNDATIONAL"
+  (real = "FUGU = FOUNDATIONAL FEATURE"); external-doc refs (SUBSTRATE_BUILD_SEQUENCE, CHAT_BACKEND) conflict
+  with "read addendum section"; MISSING queue rows: MAS-sandbox-substitute research (addendum:402), app-wide
+  ASCII/animation ontology (315) — evade 0.31 reverse-audit (grep token set too narrow; add 🆕/🌟/RESEARCH—);
+  re-capture baseline PNG each iter (don't trust stale); 0.31 must paste grep output to count as done.
+ACTION: relayed to owner in-message; NOT editing spec. No build loop running; no build-code commits this fire.
