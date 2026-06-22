@@ -1720,3 +1720,25 @@ the owner wants the literal Epistemos message-bar look/feel, that's a larger (no
 carefully (must not break Osaurus send). Scroll-blur (1) + side panel (2) delivered as real grafts; message bar
 (3) = reskin (owner judges). Plus the model-default seed (efe95c8dd) → owner's model is the act default → send
 uses their model (with the in-process host = no requestFailed).
+
+## 🔴🔴🔴 P0 (owner runtime, 2026-06-22 11:30am) — RESKIN NOT RENDERING + LANDING FLOW + mini-chat clue
+Owner screenshots, fresh Pro build. THE CORE: build-green ≠ runtime; the reskin doesn't actually render.
+1. **RESKIN NOT RENDERING (owner #1, the big one):** the act surface shows OSAURUS'S DEFAULT LIGHT THEME (white
+   bg, system buttons, dino avatar, "Good morning/How can I help you today?") — NOT the Epistemos cream/monospace
+   reskin. `ThemeManager.applyCustomTheme(persist:false)` (epistemosCreamTheme) is NOT cascading into Osaurus's
+   rendered views — they render their OWN theme/hardcoded styles regardless. KEY CLUE: the MINI CHAT (Epistemos-
+   NATIVE UI) IS correctly reskinned (cream/pixel-art) in the same build → so the reskin works on Epistemos-native
+   UI but NOT on the mounted Osaurus UI (Osaurus fights the injected theme). FIX: make the reskin ACTUALLY
+   re-theme Osaurus's rendered views (override Osaurus's ThemeManager/colors at the source, not a no-op
+   applyCustomTheme) — and RUNTIME-VERIFY it renders cream/monospace, not Osaurus default. Build-green is NOT done.
+2. **LANDING → BLUR → ACT flow:** owner wants the EPISTEMOS landing page FIRST → click → BLUR-reveal → act
+   (Osaurus). Current mount shows the Osaurus host DIRECTLY (checked before the landing branch), skipping the
+   Epistemos landing + blur. FIX: show the Epistemos LandingView while on landing; mount the Osaurus host only
+   AFTER the owner leaves the landing (enters act), with the blur transition.
+3. **MINI CHAT (+ grab chat):** owner said it's "not there" — but a screenshot shows MINI CHAT exists + reskinned.
+   So it IS present; confirm it's reachable from where the owner expects (the owner may not have found it). Verify
+   mini chat + "grab chat" are wired + discoverable.
+META (owner asked "are you hallucinating / reading the plan?"): the loop IS reading the plan + not inventing —
+but it ships UI "done" on BUILD-GREEN, which doesn't equal the rendered runtime result; the Osaurus reskin
+specifically does NOT render (Osaurus fights theme injection). STOP calling UI done on build-green; these need
+RUNTIME-rendered verification. Owner: "don't stop, keep working" — these are the top continuous work.

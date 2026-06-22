@@ -540,3 +540,13 @@ search bugs on it; runtime-verify.
   real-state tests. Closes health-row stillStub. Test EXIT=0. Co-Authored. (AppBootstrap.swift + AnswerPacketEmitter.swift + AnswerPacketStoreTests.swift)
 - **Verdict:** PASS. Loop correctly progressing substrate now that act (code-complete) + WORK (launcher-checkpoint)
   are at their bars. Act owner-runtime-verify still the key gate. No act/WORK regression.
+
+## Pass 40 (owner runtime P0, 11:30am) — 2026-06-22 — RESKIN NOT RENDERING is the core
+- Owner screenshots: act = Osaurus DEFAULT light theme (NOT cream/monospace reskin); applyCustomTheme not
+  cascading into Osaurus views. KEY CLUE: mini chat (Epistemos-native) IS reskinned in same build → reskin works
+  on native UI, fails on mounted Osaurus UI (Osaurus fights theme injection). = the real reason "still looks Osaurus".
+- 3 P0s: (1) reskin must ACTUALLY render on Osaurus views (override Osaurus theme at source, runtime-verify);
+  (2) landing→blur→act flow (mount Osaurus host only after leaving Epistemos landing, with blur); (3) confirm
+  mini-chat/grab-chat reachable (exists+reskinned per screenshot).
+- META: loop reads plan + isn't inventing, BUT ships UI done on build-green ≠ rendered runtime; STOP calling UI
+  done on build-green — need runtime-rendered verification. Re-added top P0.
