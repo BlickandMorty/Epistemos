@@ -119,6 +119,32 @@ impl ModelCapabilityProfile {
         self.prompt_dialect.llama_cpp_template_name()
     }
 
+    /// P0 (owner 2026-06-22) reasoning-model refusal/leak DIAGNOSTIC. A Think-tier model with NO stop tokens
+    /// AND NO llama.cpp template override (`PromptDialect::None`) relies ENTIRELY on its embedded GGUF chat
+    /// template — if that's broken/absent (the SS-W scenario the override exists to fix), the prompt isn't
+    /// role-framed AND generation never stops cleanly. That is the exact dual signature of the live-chat
+    /// regression: universal "I can't assist" refusals (malformed prompt) + raw `<think>`/meta-prompt leaks in
+    /// short generations (e.g. the 30-token title — no stop token). Returns a warning to LOG at the GGUF
+    /// prompt-build site so the cause is pinned at runtime. PURE + NON-BEHAVIOR-CHANGING — a diagnostic, NOT a
+    /// fix: changing a model's dialect needs per-model runtime confirmation of the correct template (don't
+    /// blind-fix), so this only surfaces the risk; the owner applies the dialect fix once confirmed.
+    pub fn reasoning_dialect_risk_warning(&self) -> Option<String> {
+        if self.tier == CapabilityTier::Think
+            && self.stop_tokens().is_empty()
+            && self.llama_cpp_template_name().is_none()
+        {
+            Some(format!(
+                "P0 reasoning-dialect risk: model {} (Think tier) is PromptDialect::None → no chat-template \
+                 override AND no stop tokens; it relies on the embedded GGUF template. If that template is \
+                 broken/absent this is the likely cause of universal refusals + raw <think>/meta-prompt leaks \
+                 in short generations. Verify the model's correct dialect (e.g. chatml for Qwen-based reasoners).",
+                self.id
+            ))
+        } else {
+            None
+        }
+    }
+
     /// The memory-safe RUNTIME context window for the GGUF (llama-cli) lane: the
     /// model's `context_window` capped to what the given unified-memory budget can
     /// hold as KV cache (SS-AB: "16 GB KV-cache budget"). Replaces the GGUF
@@ -774,6 +800,29 @@ mod tests {
             // A real context window — NEVER the hardcoded-4096 GGUF bug.
             assert!(p.context_window >= 8192, "ctx too small for {}", p.id);
             assert!(p.max_output_tokens > 0);
+        }
+    }
+
+    #[test]
+    fn reasoning_dialect_risk_warning_flags_the_p0_refusal_signature() {
+        // P0: a Think-tier reasoning model with PromptDialect::None (no template override + no stop tokens)
+        // gets flagged — the diagnostic that pins the suspected refusal/leak cause at the GGUF build site.
+        let vibe = profile_for("vibethinker-1.5b");
+        assert_eq!(vibe.tier, CapabilityTier::Think);
+        assert_eq!(vibe.prompt_dialect, PromptDialect::None);
+        let warning = vibe.reasoning_dialect_risk_warning();
+        assert!(warning.is_some(), "reasoning model with None dialect must flag the P0 risk");
+        assert!(warning.unwrap().contains("vibethinker-1.5b"));
+
+        // A dialect-bearing model (chat template + stop tokens) is NOT flagged — no false positive.
+        let qwen = profile_for("Qwen3-4B-MLX");
+        assert!(qwen.llama_cpp_template_name().is_some());
+        assert!(qwen.reasoning_dialect_risk_warning().is_none());
+
+        // A non-reasoning (Fast tier) model is never flagged regardless of dialect.
+        let fast = profile_for("gemma-4-e2b-qat-gguf");
+        if fast.tier != CapabilityTier::Think {
+            assert!(fast.reasoning_dialect_risk_warning().is_none());
         }
     }
 
