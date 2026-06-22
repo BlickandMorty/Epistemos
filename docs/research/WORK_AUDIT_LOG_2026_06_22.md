@@ -245,3 +245,16 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   = wrong build (App Store) or route off; tooltip shows engine status if send fails.
 - **Verdict:** PASS both. Remaining P0-B: surface Osaurus's distinctive LANDING/BUTTONS/features (badge is step 1).
   Plus live send verify (running app). Loop responded to escalation with real root-cause fixes.
+
+## Pass 16 — 2026-06-22 — P0-A CODE-COMPLETE
+- **Build loop:** ALIVE (xcode=1 building). HEAD `2192677b6` (5 min).
+- **AUDIT 2192677b6 (P0-A item 3) → ✅ PASS (completes make-it-work chain):** register now exposes the act
+  picker's interactiveLocalTextModelIDs() + directories (not just 1-2 prepared) → threaded requestedModel
+  resolves → owner's chosen model generates; NSLogs no-config/no-model. Also verified item 2 (visible errors)
+  ALREADY satisfied: ActOsaurusError.transport('OsaurusCore stream failed: <reason>') propagates, catch only
+  swallows CancellationError, NO silent MLX fallback on act error. Pro EXIT=0. Co-Authored.
+- **P0-A now CODE-COMPLETE:** thread model (bd38f3132) → register act-selectable models (2192677b6) → resolves +
+  errors surface. Only LIVE send confirmation (running Pro app) remains for P0-A.
+- **P0-B status:** badge done (077025921, pass 15); remaining = surface Osaurus distinctive landing/buttons/features.
+- **Verdict:** PASS. Loop responding well to escalation (root-caused + completed P0-A). Remaining: P0-B
+  landing/buttons surfacing + live send verify (owner Pro launch).
