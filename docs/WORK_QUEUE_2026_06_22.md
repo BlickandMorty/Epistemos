@@ -90,12 +90,13 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   Osaurus default landing ("Good morning" + download/provider buttons). Screenshot landing, then post-blur act.
   →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions".
 
-- [x] **0.4 SEND works (runtime)** — CERTIFIED iter2: real GUI send through running app (osascript) → prompt
-  "Reply with exactly one word: CERTIFY" → reply **"CERTIFY"** (labeled Osaurus), model **Gemma 4 e2b it 4bit**
-  (served==selected), TTFT 8.64s/2tok, NO requestFailed, NO silent Codex/Qwen. Evidence PNG
-  `/tmp/epi_iter2_send_20260622-131244.png` (Read). (a) ActOsaurusBridge.swift:199 · (c) AppBootstrap.swift:3155 ·
-  (e) runtime proven. Resolves owner P0-A. See STRICT_RECERT_LOG Iteration 2.
-  →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A".
+- [ ] **0.4 SEND works (runtime)** — (e) RUNTIME PROVEN iter2 (real GUI send → "CERTIFY"/"PROVEN", model Gemma 4
+  e2b it 4bit served==selected, no requestFailed; PNGs Read) **but reverted to `[ ]` per AUDITOR CORRECTION P0
+  (addendum c0072a78d):** gate (d) UNMET — `ActOsaurusStreamingTests` only asserts the refusal/inert path, NOT a
+  successful in-process send. Not `[x]` until **0.23 harness** asserts a successful in-process send w/
+  served==selected on the SAME entry point (`ActOsaurusBridge.generateStream` via `SharedActInference.actStreamIfArmed`),
+  0 skipped. Pairs with 0.23.
+  →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A" + "🔴 AUDITOR CORRECTION (P0) 2026-06-22".
 
 - [ ] **0.5 Mini-chat + grab-chat reachable** — wired, discoverable. **Screenshot EACH surface separately**
   (main act, mini, grab-chat if present) — one PNG per surface; main-only does NOT satisfy 0.5.
