@@ -819,3 +819,14 @@ main). 0.32 witness: highest attempted 1.8, lowest-[ ] 0.1, act-tunnel DENIED. R
 real-state (success-path asserts served==selected, no skip/xfail) — matches the (d) requirement; will re-verify
 on its committed+green result. VERDICT: PASS — the auditor↔agent correction loop is functioning exactly as
 designed (flag fake-green → addendum channel → 0.31 pickup → honest fix → re-earn). No new flags this fire.
+
+## PASS 56 — 2026-06-22 (OWNER DIRECTIVE captured: ACT-UI SYNTHESIS — native shell + Osaurus engine-core)
+Owner gave a nuanced act-UI directive (asked it be added to the plan, non-bloating). Captured as P0 owner
+directive in addendum: SHELL = native Epistemos (curved toolbar/window D1, sidebar+recent-chats native look,
+message-bar container, ALL buttons recoded flat-native); ENGINE-CORE = Osaurus (transcript/thinking/anim/tools/
+model display) KEPT + reskinned, NOT rebuilt (rebuilding engine-expressing UI = the old-chat failure mode).
+Buttons = union recoded native + delete dead-old-backend ones; composer submit wires to Osaurus send (0.4/0.23).
+Safe default: unsure → treat as engine-expressing, keep Osaurus reskinned. Refines (latest-wins) DEFINITIVE
+ACT-UI DIRECTION + 0.7/D1/D3/0.17/4.7/0.2 — no new tiers, no gate relaxed, does NOT reopen old-ChatView.
+Channel: addendum (agent 0.31 reverse-audit will queue it as a new heading). Did NOT touch queue/recertlog/code.
+Build status unchanged this fire (no new build commit beyond b221dc76a/iter3; harness build was pending green).

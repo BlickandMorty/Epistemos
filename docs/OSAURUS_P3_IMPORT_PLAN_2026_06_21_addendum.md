@@ -1823,3 +1823,35 @@ does NOT substitute for the repeatable (d) harness — that normalizes exactly t
    `SharedActInference.actStreamIfArmed` (pass50 P2-2 same-path linkage), **0 skipped/xfail**.
 3. THEN 0.4 (d) is satisfied and both 0.4 + 0.23 legitimately certify. Until then **0.4 = (d)-pending, revert to
    `[ ]`** (or `[~]` with the harness as the stated blocker). Do NOT leave 0.4 `[x]` on (e)-only.
+
+---
+
+## 🔴 OWNER DIRECTIVE (P0, via auditor 2026-06-22) — ACT-UI SYNTHESIS: NATIVE SHELL + OSAURUS ENGINE-CORE (refines DEFINITIVE ACT-UI DIRECTION; latest-owner-wins; does NOT reopen option-(b)/old-ChatView)
+Owner nuance (verbatim intent): keep the NATIVE-CONNECTED feel of the Epistemos chat (its curved top toolbar,
+sidebar, message bar, monospace) AND keep Osaurus's engine + the UI that expresses it (thinking box/animation,
+streaming, tools, model handling). Synthesis = SHELL is native Epistemos, ENGINE-CORE is Osaurus.
+
+**THE LINE (this is the trust-resolver — "UI must express the engine accurately"):**
+- **NATIVE EPISTEMOS = the SHELL/CHROME** → window (curved/native AppKit edges + soft shadow, D1), TOP TOOLBAR,
+  SIDEBAR (native look) populated with recent-chats functionality, the MESSAGE-BAR CONTAINER (the composer the
+  owner loves — native, monospace), and ALL BUTTONS/affordances.
+- **OSAURUS = the ENGINE + the ENGINE-EXPRESSING VIEWS** → streaming transcript, thinking box + thinking
+  animation, tool-call rendering, model/status display. KEEP Osaurus's structure here, RESKINNED to Epistemos
+  cream/mono/fonts. Do NOT rebuild these in native from scratch — that is exactly what broke the old chat
+  (thinking leaked to chat, tools broke). Reskin, don't rebuild, for anything that renders engine state.
+- **SAFE DEFAULT:** if unsure whether a piece is "engine-expressing" vs "pure chrome," treat it as
+  engine-expressing → keep Osaurus's reskinned version.
+
+**BUTTONS (the union, recoded native):** keep the owner's buttons that still apply + ADD Osaurus's buttons the
+old chat lacked, ALL recoded into Epistemos minimal-flat-native style and wired to Osaurus's engine; DELETE
+buttons tied to the dead old-chat backend (the two architectures differ). Composer SUBMIT wires to the Osaurus
+in-process send path (the 0.4/0.23 path), not a native re-implementation of the send.
+
+**KEEP:** blur + ASCII-typewriter + micro-motion language. **CONSTRAINT:** minimal/flat/native — do NOT bloat;
+do NOT drag back `Epistemos/Views/Chat/ChatView.swift` wholesale (its engine-coupled rendering carried the bugs).
+
+**WHERE IT LANDS (refines, does not add net-new tiers):** informs 0.1 (reskin), 0.7 (message-bar graft = NATIVE
+composer wired to Osaurus send, NOT a recolor of Osaurus's composer), 0.8/D1 (curved native window), D3 (pill),
+0.17 (locked direction), 4.7 (model picker/palette/38-tool chrome recoded native), 0.2/0.5 (sidebar+surfaces).
+The act surface is still NOT certified until its D-gates pass YOUR screencapture; this directive sharpens WHAT
+"reskinned" means (native shell + Osaurus engine-core), it does not relax any gate.
