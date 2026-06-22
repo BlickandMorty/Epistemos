@@ -482,3 +482,13 @@ search bugs on it; runtime-verify.
 - **Real UI progress noted:** per-clone settings tabs (act/work) landed; flat pixel-art panel redesign (d790bc81f).
 - **Remaining act:** 3 grafts (message bar/side panel/scroll-blur) + OWNER RUNTIME-VERIFY.
 - **Verdict:** PASS, no re-add. Watch loop delivers the grafts (not stuck in test-churn). Re-audit next commit.
+
+## Pass 35 — 2026-06-22
+- **Build loop:** ALIVE (commit landed during the fire). Doing a BROAD no-red-on-main test sweep (gate-status →
+  settings/landing → substrate-health → MAS-hardening gate). All "fix stale test after real refactor", tests-only,
+  TEST SUCCEEDED. Legit hygiene (pattern verified real in pass 34).
+- **⚠️ WATCH: 3-4 consecutive test-fix passes, NO grafts yet.** The 3 grafts (message bar/side panel/scroll-blur)
+  + the owner runtime-blocking work are the remaining act items. Test stabilization is fine, but the loop must
+  RETURN to the grafts after the sweep, not churn tests indefinitely. If next 1-2 passes are still test-only →
+  ESCALATE (stuck in test-churn vs delivering owner-facing grafts + a working runtime).
+- **Verdict:** healthy (real test hygiene); watch for return to grafts. No re-add yet. OWNER RUNTIME-VERIFY still the key gate.
