@@ -45,7 +45,7 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
 2. **TIER 1:** 1.1 → 1.7 (OpenCode/work — do NOT skip because act is broken)
 3. **TIER 2:** 2.1 → 2.8 (substrate, salvage, BUILD-IT-HARDENED)
 4. **TIER 3:** 3.1 → 3.2 (TRINITY, Fugu)
-5. **TIER 4:** 4.1 → 4.15 (settings polish, pillars, beyond clones)
+5. **TIER 4:** 4.1 → 4.16 (settings polish, pillars, beyond clones, graph integration)
 6. **TIER 5:** 5.1 → 5.3 (distribution)
 
 **Rules:**
@@ -168,7 +168,7 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 - **0.30** BEYOND tab + OFF-LIMITS vs in-scope honesty · **0.31** Reverse addendum audit (standing)
 - **0.32** Full-plan iteration witness (standing)
 - **TIER 1:** 1.1–1.7 work/OpenCode · **TIER 2:** 2.1–2.8 substrate/salvage · **TIER 3:** 3.1–3.2 · **TIER 4:**
-  4.1–4.15 · **TIER 5:** 5.1–5.3
+  4.1–4.16 · **TIER 5:** 5.1–5.3
 
 ## MANDATORY BEHAVIOR A–H (from gap audit — non-negotiable every loop)
 - **(A) D-GATE RULE:** D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7. Do NOT mark 0.1–0.7 `[x]`

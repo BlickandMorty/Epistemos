@@ -110,6 +110,25 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | Strict prompt lacked clone matrix | Added FULL PLAN CERTIFICATION section with matrix + tier walk |
 | PASTE_READY act-only | Synced: 18 non-negotiables, 0.1→0.32 table, SHORT RESUME block, clone matrix |
 | MANDATORY BEHAVIOR ended at G | Added **(H) FULL-PLAN-NO-ACT-TUNNEL** |
+| P0 CLASSIFY shared-vs-chat-only not indexed | Extended **0.9** with →plan CLASSIFY shared-vs-chat-only |
+| Graph-deep-integration pillar missing | Added **4.16** graph-deep-integration |
+| FULL-CLONE PROCESS not in standing | Added STANDING entry with →plan 🔒 FULL-CLONE PROCESS |
+| bd7717bc subagent commit | **Not found** — continued from iteration-3 partial + owner mandate |
+| Tier 4 end in strict prompt | Updated 4.1→**4.16** in tier walk |
+
+### Reverse addendum audit (iteration 4 grep)
+| Addendum section | Queue index |
+|------------------|-------------|
+| ALL CHAT SURFACES | 0.2, 0.5, 1.6 |
+| PER-CLONE SETTINGS | 0.21, 0.27, 4.1, 4.15 |
+| BUILD-IT-HARDENED | 2.8 |
+| DEFINITIVE ACT-UI | 0.17 |
+| WORK ENGINE ARCH C | 1.3, 0.29, 1.7 |
+| MAS / DUAL-BUILD | 5.1, 5.3, 4.8 |
+| FULL-CLONE PROCESS | STANDING |
+| CLASSIFY shared-vs-chat-only | 0.9 |
+| deep graph integration | 4.16 |
+| COMPANION backend | 0.30 OFF-LIMITS + STANDING |
 
 ### Pre-launch checklist (iteration 4)
 | Check | Status |
@@ -121,12 +140,15 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | Reverse addendum audit indexed (0.31) | PASS |
 | Work/beyond surfaces indexed | PASS |
 | Companion OFF-LIMITS vs work/beyond clarified | PASS |
-| PASTE_READY PRIMARY + SHORT RESUME | PASS |
+| PASTE_READY PRIMARY certifies FULL PLAN | PASS |
 | Runtime PNG in repo | FAIL (expected — agent captures) |
 
-### Still open (runtime — build agent)
+### Still open (next 3m tick / build agent)
 | Gap | Action |
 |-----|--------|
-| All queue items uncertified | Agent walks full plan 0.1→5.3 with 5-gate bar |
+| All queue items uncertified | Agent walks full plan 0.1→0.32 then TIER 1→5 with 5-gate bar |
 | `osa_runtime_2026_06_22.png` | Agent captures on first run |
 | Prior loops may have act-only `[x]` | All boxes UNCERTIFIED — re-prove from scratch |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| Build agent may still tunnel on act | Enforce 0.32 witness + owner paste block each iteration |
+| Northstar PNGs | Optional visual refs |
