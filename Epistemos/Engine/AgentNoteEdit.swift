@@ -36,6 +36,42 @@ enum AgentNoteEdit: Sendable, Equatable {
         }
     }
 
+    /// LIVE-EDITOR binding (§720 #4): resolve this edit to a `MarkdownEditorCommands.TextEdit` (NSRange +
+    /// replacement text + post-edit selection) against the editor's CURRENT buffer text, so it can be applied
+    /// to an OPEN Prose/Epdoc buffer via the existing programmatic-edit path (`applyAutomaticMarkdownEdit`) —
+    /// reuse-not-rebuild. Returns `nil` when the find/anchor is absent — the SAME honest no-silent-mangle
+    /// contract as `apply(to:)`, now against the live buffer.
+    func resolveTextEdit(in liveText: String) -> MarkdownEditorCommands.TextEdit? {
+        let ns = liveText as NSString
+        switch self {
+        case .append(let text):
+            let insertion = (liveText.isEmpty || liveText.hasSuffix("\n")) ? text : "\n" + text
+            let at = ns.length
+            return .init(
+                replacementRange: NSRange(location: at, length: 0),
+                replacementText: insertion,
+                selectedRange: NSRange(location: at + (insertion as NSString).length, length: 0))
+        case .replaceFirst(let find, let replacement):
+            guard !find.isEmpty else { return nil }
+            let r = ns.range(of: find)
+            guard r.location != NSNotFound else { return nil }
+            return .init(
+                replacementRange: r,
+                replacementText: replacement,
+                selectedRange: NSRange(location: r.location + (replacement as NSString).length, length: 0))
+        case .insertAfter(let anchor, let text):
+            guard !anchor.isEmpty else { return nil }
+            let r = ns.range(of: anchor)
+            guard r.location != NSNotFound else { return nil }
+            let at = r.location + r.length
+            let insertion = text.hasPrefix("\n") ? text : "\n" + text
+            return .init(
+                replacementRange: NSRange(location: at, length: 0),
+                replacementText: insertion,
+                selectedRange: NSRange(location: at + (insertion as NSString).length, length: 0))
+        }
+    }
+
     /// Apply a SEQUENCE of edits ATOMICALLY (in order). Returns the final content, or `nil` if ANY edit
     /// fails (a missing anchor) — all-or-nothing, so an agent's multi-edit batch can never leave a note
     /// half-applied / partially corrupted. The honest contract extended to batches: the caller re-plans
