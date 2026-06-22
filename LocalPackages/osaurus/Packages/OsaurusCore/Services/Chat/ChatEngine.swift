@@ -16,9 +16,13 @@ actor ChatEngine: Sendable, ChatEngineProtocol {
     private var inferenceSource: InferenceSource = .httpAPI
 
     init(
-        services: [ModelService] = [FoundationModelService(), MLXService()],
+        // EPISTEMOS MODEL BRIDGE (owner 2026-06-22 "owner's models in chat"): the
+        // bridged service routes generation to the owner's registered models (GGUF/
+        // QAT "Epistemos Picks"). Inert until the app registers a provider, so the
+        // default Foundation/MLX behaviour is unchanged when none is wired.
+        services: [ModelService] = [FoundationModelService(), MLXService(), EpistemosBridgedModelService()],
         installedModelsProvider: @escaping @Sendable () -> [String] = {
-            MLXService.getAvailableModels()
+            MLXService.getAvailableModels() + EpistemosModelBridge.providedModelIds()
         },
         remoteServicesProvider: @escaping @Sendable () async -> [ModelService] = {
             await MainActor.run {
