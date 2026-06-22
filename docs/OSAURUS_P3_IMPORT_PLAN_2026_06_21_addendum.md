@@ -738,3 +738,24 @@ a first-class PILLAR, deeply integrated with:
 **Treat as a PILLAR** alongside the two modes / editors / graph / model lab — deeply integrated, not bolted on.
 Research item (cited deep pass when sub-agents recover): mine Tolaria's MCP-vault schema + "types as lenses"
 for any patterns worth adopting; ensure Epistemos's vault-as-MCP matches/exceeds it.
+
+## 🔒 STANDING — THE FULL-CLONE PROCESS (Osaurus method) for EVERY adopted engine (owner 2026-06-21)
+For EVERYTHING classified ADOPT (an engine/capability Epistemos LACKS), use the SAME process as Osaurus —
+NO cherry-picking:
+1. **Full clone** the whole repo/engine (zero cherry-pick; all code, LICENSE, tests in-tree or bundled).
+2. **Reskin** to Epistemos pixel-art native (or, for OpenCode, render its real TUI palette-matched).
+3. **Per-clone SETTINGS tab** (Epistemos | act | work | beyond) — bring the clone's own settings, respected.
+4. **Couple to the relevant surface** + wire to a real proven front-end (no dead surfaces).
+5. **In-process (Swift/Rust) or bundled runtime** as fits; **MAS + Pro dual-build** (only genuinely-ungrantable
+   excluded); **IP brain layered on top**; honest, no fake-done.
+This is the repeatable method for Osaurus (done), OpenCode (Arch C), and any FUTURE adopted engine.
+
+### CLONE vs REFERENCE — the rule (so "no cherry-pick" is applied correctly)
+- **ADOPT-TARGET = engine/capability you LACK** → FULL CLONE process above (Osaurus/OpenCode/Goose-bits).
+- **REFERENCE/COMPETITOR = capability you ALREADY HAVE, better** → do NOT clone (it would DUPLICATE your own IP).
+  Mine its unique pattern + build NATIVELY. This is NOT cherry-picking — it's not-duplicating-your-IP.
+- **TOLARIA VERDICT:** REFERENCE, not a clone-target — Epistemos already has the md-PKM editor BETTER (Prose
+  120fps + MD-V2 = IP). Cloning Tolaria would duplicate/conflict with your editors. Take its ONE unique idea
+  (vault-as-MCP / agent-native vault) and build it natively = the VAULT-DEEP-INTEGRATION pillar; "couple to
+  Epdoc" = agents on the MD-V2/Epdoc + Prose surfaces natively. Overtake Tolaria WITH your editors, not its.
+The ADOPT-vs-IP-LAYER map decides which bucket each thing is in.
