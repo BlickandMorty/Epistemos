@@ -1190,3 +1190,13 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
 - CONCLUSION: all 3 grafts delivered — scroll-blur (additive overlay 3374898de) + side panel (enabled 8a8c3a2cd)
   + message bar (composer reskinned via theme, chips present). Owner runtime-verify refines depth. This closes
   the auditor's open graft item; remaining act gate = owner runtime-verify only.
+
+## WORK lane prep — fix build-opencode-runtime.sh to honestly stage the partial vendor (2026-06-22)
+- Found a real bug: build-opencode-runtime.sh stages Bun (checkpoint 1) + omega_mcp_stdio fusion server (from
+  the app's own crate), but checkpoint 2 (the pinned OpenCode launcher) is unimplemented — yet the sanity check
+  HARD-FAILED (exit 2) when opencode was missing. So the script could NEVER succeed in the intended partial
+  state (Bun + fusion ready, OpenCode pending), and would break any build step that invokes it before OpenCode
+  is vendored. Fixed: the opencode-missing case now WARNs (honest: work shell stays inert until the launcher
+  lands) instead of exit-2; CI report handles partial vs full. So the work lane is genuinely vendor-READY — the
+  Epistemos side (Bun + fusion + resolver + shell + fusion-config, all tested) stages cleanly, and the precise
+  remaining unblock is the owner providing the pinned OpenCode launcher at Resources/opencode-runtime/bin/opencode.
