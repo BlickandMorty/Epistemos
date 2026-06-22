@@ -36,9 +36,14 @@ public struct EpistemosOsaurusChatHost: View {
     ///   - agentId: the agent to bind. Defaults to Osaurus's built-in default
     ///     agent (`Agent.defaultId`).
     public init(windowId: UUID = UUID(), agentId: UUID? = nil) {
-        _windowState = StateObject(
-            wrappedValue: ChatWindowState(windowId: windowId, agentId: agentId ?? Agent.defaultId)
-        )
+        let state = ChatWindowState(windowId: windowId, agentId: agentId ?? Agent.defaultId)
+        // GRAFT — SIDE PANEL (owner must-keep 2026-06-22): Osaurus's ChatSessionSidebar defaults
+        // to HIDDEN (showSidebar = false), so the act surface would open with no side panel. Show
+        // it by default — the owner gets the loved Epistemos-style side panel (Osaurus's session
+        // sidebar, reskinned to the cream/monospace look by bootstrapAndThemeOnce). Additive; the
+        // owner can still collapse it from the chrome.
+        state.showSidebar = true
+        _windowState = StateObject(wrappedValue: state)
     }
 
     public var body: some View {
