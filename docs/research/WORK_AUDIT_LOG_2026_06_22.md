@@ -502,3 +502,16 @@ search bugs on it; runtime-verify.
 - **Remaining grafts: message bar + side panel (2 of 3).** + OWNER RUNTIME-VERIFY (send works in-process +
   Osaurus-reskinned look + grafts + no white-bar/search).
 - **Verdict:** PASS. Loop delivering grafts as expected. Re-audit message-bar + side-panel grafts next.
+
+## Pass 37 — 2026-06-22 — grafts ~complete + send-enabler
+- **Build loop:** ALIVE. HEAD `a4d430fd7` (7 min). Three commits, all real, Pro EXIT=0, Co-Authored.
+- **8a8c3a2cd (side panel graft 2/3) → ✅ PASS:** host sets ChatWindowState.showSidebar=true → Osaurus session
+  sidebar shows (reskinned), collapsible. Real.
+- **efe95c8dd (default owner model) → ✅ PASS (directly fixes 'send works with MY models'):** seeds default agent
+  model to owner's first registered model (run-once persistent flag, never re-clobbers later picker choice,
+  honest no-op if none). + in-process host = send uses owner's model, no requestFailed.
+- **a4d430fd7 (harden+test seed) → ✅ PASS:** robust to bridge timing + test.
+- **⚠️ MESSAGE-BAR graft = RESKIN of Osaurus composer (not literal swap — Osaurus owns send, structural swap not
+  additively feasible). Sound call; OWNER-VERIFY if close enough.** Scroll-blur(1)+side-panel(2) real grafts; msg-bar(3)=reskin.
+- **Verdict:** PASS. Act ~feature-complete in code. Remaining: OWNER RUNTIME-VERIFY (send works w/ my model +
+  Osaurus-reskinned look + scroll-blur + side panel + message-bar-feel + no white-bar/search).

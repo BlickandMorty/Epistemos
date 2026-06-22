@@ -1710,3 +1710,13 @@ send-fail (that was the HTTP path). GOOD. Remaining for act:
 2. **The 3 grafts:** message bar, side panel, scroll-blur onto the host (owner must-keeps).
 3. **OWNER RUNTIME-VERIFY:** does the send now WORK (in-process) + does it look like Osaurus-reskinned + are the
    white-bar/search bugs gone? Build-green ≠ done — owner Pro launch confirms.
+
+## ⚠️ MESSAGE-BAR graft = RESKIN of Osaurus composer, not literal swap (owner-verify) (2026-06-22)
+8a8c3a2cd notes: the message-bar graft is delivered as a RESKIN of Osaurus's composer (white input/cream
+border/SF Mono) — NOT swapping in the literal Epistemos composer, because Osaurus OWNS the send path and a
+structural swap isn't additively feasible without breaking send. Sound call. BUT the owner specifically loves
+"my message bar" → OWNER-VERIFY on the running app whether the reskinned Osaurus composer is close enough. If
+the owner wants the literal Epistemos message-bar look/feel, that's a larger (non-additive) follow-on to scope
+carefully (must not break Osaurus send). Scroll-blur (1) + side panel (2) delivered as real grafts; message bar
+(3) = reskin (owner judges). Plus the model-default seed (efe95c8dd) → owner's model is the act default → send
+uses their model (with the in-process host = no requestFailed).
