@@ -564,8 +564,11 @@ orchestration. Research: docs/research/FUGU_ORCHESTRATION_INTEGRATION_2026_06_22
   pricing table (req #1 modular — plugs into the EXISTING OpenAICompatibleProvider by config, no new type, no
   hardcoding). Found+fixed a cost-honesty bug: estimate_* ignored the flat per-request cost → a $10/msg provider
   looked ~$0; added `per_message_usd()` ($10.00/msg) for Settings to surface the explicit opt-in (req #2).
-- REMAINS: named Fugu config constructor + caps (cargo) → Settings UI (Keychain key+endpoint+cost label+opt-in
-  confirm) → picker/act/work + OpenCode-provider wiring → best-combo (b) native orchestration behind the same seam.
+- [x] **Slice 2 — named `OpenAICompatibleProvider::fugu()` constructor (`ba4f72a67`, cargo 17/17):** Fugu as a
+  CONFIG instance (req #1), env/Settings-overridable FUGU_API_KEY/FUGU_BASE_URL/FUGU_MODEL (req #3 easy setup);
+  honest caps (streaming on; tools/vision off until verified). OpenAI-standard → act/work/picker + OpenCode.
+- REMAINS: Settings UI (Keychain key+endpoint+cost label+opt-in confirm) → picker/act/work + OpenCode-provider
+  wiring → best-combo (b) native orchestration behind the same seam.
 
 ### ✅ camelCase bug class — fully swept + verified (2026-06-22)
 EpdocGraphProjector camelCase fix CHECKPOINT-GREEN (EpdocGraphProjectorTests 10/10, TEST SUCCEEDED). Codebase
