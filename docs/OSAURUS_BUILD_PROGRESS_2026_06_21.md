@@ -972,3 +972,11 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/â
   symbol. Fix: `#if !EPISTEMOS_APP_STORE`-guard `WorkTerminalView` + its SwiftTerm import; `WorkTerminalHostView`
   falls to the unavailable-view on MAS (where it's never instantiated). Then MAS links. (Sequenced after the
   auditor's active P0-B act work.)
+
+## MAS dual-build â€” SwiftTerm guard (2026-06-22)
+- [x] **WorkTerminalView SwiftTerm gate:** `import SwiftTerm`, the `WorkTerminalView`
+  NSViewRepresentable (uses `LocalProcessTerminalView`), and the host's two
+  `WorkTerminalView(...)` call sites are now `#if !EPISTEMOS_APP_STORE`-guarded.
+  On MAS `WorkTerminalHostView.body` falls to the honest `WorkTerminalUnavailableView`
+  (no faked terminal). Resolves the MAS SwiftTerm linker error; the real PTY terminal
+  stays a Pro/direct-distribution capability. (Verified: MAS build.)

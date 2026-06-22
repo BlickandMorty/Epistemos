@@ -1,5 +1,11 @@
 import SwiftUI
+// SwiftTerm (the real PTY terminal view) is Pro-only — it is not linked into the
+// App Store (MAS) target, so the import + the NSViewRepresentable that uses
+// LocalProcessTerminalView are guarded. On MAS the host falls to the honest
+// unavailable view (full-capability terminal is a direct-distribution feature).
+#if !EPISTEMOS_APP_STORE
 import SwiftTerm
+#endif
 
 // WORK = OpenCode shell — the NATIVE terminal view (owner 2026-06-21, Option A).
 // Renders OpenCode's REAL terminal TUI in a native macOS terminal emulator
@@ -75,6 +81,7 @@ extension WorkShellLaunchSpec {
 /// The native terminal NSView, THEME-RESPONSIVE, that spawns the launch spec's process in a PTY.
 /// The palette is re-applied on every SwiftUI update so a LIVE theme change (incl. custom) recolors
 /// the running terminal without relaunching the process (owner 2026-06-21 §162).
+#if !EPISTEMOS_APP_STORE
 struct WorkTerminalView: NSViewRepresentable {
     let spec: WorkShellLaunchSpec
     let palette: WorkTerminalPalette
@@ -105,6 +112,7 @@ struct WorkTerminalView: NSViewRepresentable {
         term.font = palette.font
     }
 }
+#endif
 
 /// The honest host: picks the REAL OpenCode shell when it's wired, the opt-in smoke
 /// shell when armed for the early de-risk, otherwise an honest placeholder — it NEVER
@@ -125,6 +133,7 @@ struct WorkTerminalHostView: View {
     private var palette: WorkTerminalPalette { WorkTerminalPalette.from(theme: ui.theme) }
 
     var body: some View {
+        #if !EPISTEMOS_APP_STORE
         if let liveSpec = try? realShellSpec() {
             WorkTerminalView(spec: liveSpec, palette: palette)
         } else if smokeEnabled {
@@ -133,6 +142,11 @@ struct WorkTerminalHostView: View {
         } else {
             WorkTerminalUnavailableView(detail: gate.detail, palette: palette)
         }
+        #else
+        // MAS: the SwiftTerm-backed PTY view is Pro-only — show the honest
+        // unavailable placeholder (never a faked terminal).
+        WorkTerminalUnavailableView(detail: gate.detail, palette: palette)
+        #endif
     }
 
     /// The live OpenCode launch spec — nil/throws until the runtime is wired (honest).
