@@ -49,7 +49,8 @@ public enum EpistemosModelBridge {
     }
 
     /// Model ids contributed by the registered provider (empty when none).
-    static func providedModelIds() -> [String] {
+    /// Public so the act UI can SURFACE the owner's Osaurus models (P0-B model stack).
+    public static func providedModelIds() -> [String] {
         current()?.availableModelIds() ?? []
     }
 }

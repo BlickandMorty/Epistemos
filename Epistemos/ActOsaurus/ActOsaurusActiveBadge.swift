@@ -1,4 +1,10 @@
 import SwiftUI
+// OsaurusCore is Pro-only — guard the import with the BUILD-CONFIG condition (bare
+// `canImport` can be true on MAS via shared DerivedData; the badge is hidden on MAS
+// anyway). Used only to read the owner's registered Osaurus model stack.
+#if !EPISTEMOS_APP_STORE
+import OsaurusCore
+#endif
 
 /// P0-B (owner 2026-06-22): a VISIBLE, CLICKABLE indicator that the act surface is
 /// genuinely powered by the Osaurus engine. After the option-(b) pivot the old UI
@@ -11,6 +17,7 @@ import SwiftUI
 /// one place. The fuller set of Osaurus's distinctive controls is the larger follow-on.
 struct ActOsaurusActiveBadge: View {
     @State private var engineStatus: String?
+    @State private var osaurusModels: [String] = []
     @State private var showPanel = false
 
     var body: some View {
@@ -38,6 +45,22 @@ struct ActOsaurusActiveBadge: View {
                 Text("Act runs on the Osaurus engine with your selected model.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+
+                if !osaurusModels.isEmpty {
+                    Divider()
+                    // P0-B model stack: the owner's models that the Osaurus engine can
+                    // serve in act (registered through the model bridge).
+                    Text("Your Osaurus models (\(osaurusModels.count))")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(osaurusModels.prefix(8), id: \.self) { id in
+                        Text("• \(id)")
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
             }
             .padding(14)
             .frame(maxWidth: 340, alignment: .leading)
@@ -49,6 +72,7 @@ struct ActOsaurusActiveBadge: View {
             // and keep the struct compiling on the App Store target.
             #if !EPISTEMOS_APP_STORE
             engineStatus = await ActOsaurusBridgeFactory.resolve().osaurusCoreStatusDescription()
+            osaurusModels = EpistemosModelBridge.providedModelIds()
             #endif
         }
     }
