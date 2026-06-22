@@ -205,3 +205,15 @@ Owner: want MY actual old UI (not a scan) + Osaurus's landing/buttons/features S
 buttons/features in the UI), (3) Osaurus engine + owner models + real working send. FIX-FORWARD (nothing lost,
 pieces exist) — revert only if fix-forward infeasible. Folds into P0-A (make it work) + P0-B (surface Osaurus,
 now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
+
+## Pass 13 — 2026-06-22
+- **Build loop:** ALIVE (claude present; last CODE commit fd21ae463 13 min ago; then one docs commit 504d59698
+  "act<->work toggle wiring plan" 8 min ago; swift/xcode=0). My P0-A/P0-B added ~5 min ago — loop hasn't picked
+  them up yet (brand new).
+- **No new build commits to audit** since the pivot. Loop was planning the act<->work toggle (lower priority).
+- **PRIORITY (crisp):** P0-A "make act actually WORK" (runtime failure — owner can't use act) is TOP, above the
+  act<->work toggle re-placement (which is a follow-up). P0-B "surface Osaurus visibly (landing/buttons/features)"
+  next. The toggle-replacement is AFTER act works + is visible.
+- **Verdict:** no re-add (P0-A/P0-B just added, are top of plan). AUDIT-WATCH next pass: does the loop BUILD the
+  P0-A runtime fix (diagnose send failure / scheme / provider-register / visible errors)? If it keeps doing
+  docs/toggle planning instead of the runtime fix → ESCALATE (loop avoiding the hard buildable owner-blocking work).
