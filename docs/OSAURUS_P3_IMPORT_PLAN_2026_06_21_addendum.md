@@ -974,3 +974,17 @@ build-ready native-orchestrator design). NO MORE owner involvement required — 
    no key + works local-first by default. Settings = easy "just set it up" if they opt into Fugu.
 This is a foundational deliverable: build it autonomously to the real-state done bar, code-more-build-less,
 no fake-done, no red on main, never delete chat. The build loop picks this up as a top item; no owner relay.
+
+## ⏱️ FUGU SEQUENCING — foundational but NOT a queue-jump (owner 2026-06-22)
+Owner clarifies: the agent jumped onto Fugu IMMEDIATELY; that was not intended. Fugu/native-orchestrator is
+FOUNDATIONAL + CERTAIN but does NOT preempt the existing priority order. Correct sequence:
+1. **P0 first:** the live-chat reasoning-model `<think>` regression (every query → "can't assist" / title
+   leak) — highest priority.
+2. **Then the current Osaurus-first walk:** act/work VISIBLE surfaces (act reskin, work TUI live, landing +
+   animations), ONE-CHOKEPOINT, vault pillar, the heavy backlog — per the existing plan.
+3. **Fugu/native-orchestrator = sequenced LATER but CERTAIN** (lower in order, not "deferred"/droppable) —
+   build it after the act/work surfaces + P0, when the orchestrator's binding points (System G/RuntimeRouter,
+   act+work) are mature. It is NOT urgent enough to interrupt the current order.
+ACTION: finish the CURRENT green increment, then RESUME the regular order on the next iteration (the loop
+re-reads this plan each iteration → it self-corrects; the owner need NOT interrupt). Do not abandon the
+current increment mid-way (no red on main); just don't start MORE Fugu work ahead of P0 + the act/work surfaces.
