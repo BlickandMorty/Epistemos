@@ -35,4 +35,17 @@ enum AgentNoteEdit: Sendable, Equatable {
             return out
         }
     }
+
+    /// Apply a SEQUENCE of edits ATOMICALLY (in order). Returns the final content, or `nil` if ANY edit
+    /// fails (a missing anchor) — all-or-nothing, so an agent's multi-edit batch can never leave a note
+    /// half-applied / partially corrupted. The honest contract extended to batches: the caller re-plans
+    /// the whole edit rather than committing a broken partial.
+    static func apply(_ edits: [AgentNoteEdit], to content: String) -> String? {
+        var current = content
+        for edit in edits {
+            guard let next = edit.apply(to: current) else { return nil }
+            current = next
+        }
+        return current
+    }
 }
