@@ -651,6 +651,10 @@ visual surfaces needing the running app, this is the buildable foundational work
 - [x] **Honest router-mode disclosure (`67f443c4c`):** `TrinityRouterMode` {Heuristic, Learned} + ACTIVE=Heuristic
   on TrinityMissionResult — the orchestrator honestly reports it's the heuristic router, never a fake "learned"
   (learned head is license/MLX-tap gated). Per the BIG-IDEA "heuristic-vs-learned disclosed honestly". **30/30.**
+- [x] **Cost-honesty (`4d210e9fe`, cargo 8/8):** `collect_stream_with_usage` + `ProviderTrinityExecutor` accumulate
+  token usage + call count per run (one model call per role turn) → costed via the shared estimate_session_cost_usd
+  (per-token + per-request fee). A multi-round TWV run reports a real non-zero cost — no hidden expensive runs.
+  **Faculty-1 coordination core = 32/32.**
 - REMAINS (runtime/app-side, sequenced): the app supplies `provider_for_tier` (model resolution + provider
   construction) + System-G/act/work/chat invoke `run_trinity_loop_async` behind the flag; slice 3b = trace →
   Swift TraceCollector; then expose as the internal orchestrator API across
