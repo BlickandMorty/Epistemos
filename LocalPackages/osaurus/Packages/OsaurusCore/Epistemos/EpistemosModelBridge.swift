@@ -53,6 +53,15 @@ public enum EpistemosModelBridge {
     public static func providedModelIds() -> [String] {
         current()?.availableModelIds() ?? []
     }
+
+    #if DEBUG
+    /// Test-only: clear the registered provider so a test's registration can't leak into other
+    /// tests (the registry is a process-global). Excluded from release builds — never production.
+    static func resetForTesting() {
+        lock.lock(); defer { lock.unlock() }
+        _provider = nil
+    }
+    #endif
 }
 
 /// In-module `ModelService` that routes generation to the registered Epistemos
