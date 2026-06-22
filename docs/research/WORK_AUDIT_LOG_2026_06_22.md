@@ -1240,3 +1240,19 @@ as "mount ChatView()."
 - Discipline: caught in-flight per the owner's explicit "steer on drift" mandate; addendum-channel (not racing
   code). ESCALATION ARMED: if Codex commits the ChatView() mount anyway next cycle → WORK_QUEUE row.
 Check-only; touched ONLY the addendum + this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
+
+## PASS 80 — 2026-06-22 (Codex STALLED on the drift ~34 min; staged reversal un-ingestable; escalated to owner)
+Status across cycles 7–10 (~34 min since pass79, no builder commit): the act drift PERSISTS unchanged — RootView
+act branch still mounts `ChatView().transition(.blurFade())` (`RootView.swift:2687/2703/2720`), `NativeActChatView`
+still DELETED, certified `OsaurusActBridge().runTurnStreamingInProcess` path still SEVERED (referenced nowhere),
+guard test still INVERTED. File mtimes show sporadic ~20-min-apart edit bursts (17:04, 17:24) with long idle gaps
+and NO commit → Codex is ALIVE but NOT SHIPPING (gate-1 stuck/idle flag).
+- ROOT BLOCK: both correction channels (addendum 0.31 + queue step-1) are read only at Codex's iteration BOUNDARY;
+  Codex is stuck PRE-boundary (no commit), so the pass78 cert bar + pass79 reversal cannot be ingested. A queue-row
+  escalation would NOT land sooner (same boundary) → withheld; also not a true "miss" (no boundary crossed). The
+  loop cannot unstick a non-committing builder via documents.
+- ESCALATED TO OWNER (desktop/push): nudge Codex to commit + re-read the addendum tail (forces the boundary where
+  the reversal lands), or restart Codex.
+- Corrections remain correctly staged + proven-to-ingest-at-boundary (P0-A `dc6bd3cfc`, guard `dca65beb5`); NO new
+  correction (pass79 covers the drift); NO cert screenshot (uncommitted, mid-edit state).
+Check-only; touched ONLY this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
