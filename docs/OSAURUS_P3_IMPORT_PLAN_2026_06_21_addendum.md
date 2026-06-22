@@ -1742,3 +1742,16 @@ META (owner asked "are you hallucinating / reading the plan?"): the loop IS read
 but it ships UI "done" on BUILD-GREEN, which doesn't equal the rendered runtime result; the Osaurus reskin
 specifically does NOT render (Osaurus fights theme injection). STOP calling UI done on build-green; these need
 RUNTIME-rendered verification. Owner: "don't stop, keep working" — these are the top continuous work.
+
+## 🎯 RESKIN FIX — edit the VENDORED Osaurus theme at SOURCE (not runtime applyCustomTheme) (owner 2026-06-22)
+Owner (frustrated, hours): "it's simple — Osaurus chat, reskinned to my look — should've been done long ago."
+CORRECT. Why it stalled: the reskin used runtime ThemeManager.applyCustomTheme(persist:false), which Osaurus's
+own views IGNORE (they render their own hardcoded theme/colors) → you get raw Osaurus, never the reskin.
+THE RELIABLE FIX (do this): Osaurus is VENDORED at LocalPackages/osaurus — so EDIT OSAURUS'S OWN THEME AT THE
+SOURCE. In LocalPackages/osaurus/.../Models/Theme/Theme.swift (+ wherever its default colors/fonts live), set
+the default/light theme's colors to the Epistemos CREAM/MONOSPACE palette (#fbfaf5/#f4f3ee surfaces, #1c1c1e
+text, ink accent, SF Mono / the app fonts) so Osaurus's views NATIVELY render the Epistemos look — exactly how
+the mini-chat (Epistemos-native) already renders correctly. NOT a runtime applyCustomTheme (proven not to
+cascade). We own the vendored copy → change its theme source directly. Then RUNTIME-VERIFY the act surface
+renders cream/monospace, not Osaurus default. This is the #1 P0 — the owner's central ask, do it now.
+- (Pairs with: landing→blur→act flow; confirm mini-chat reachable. The reskin-at-source is the unblock.)

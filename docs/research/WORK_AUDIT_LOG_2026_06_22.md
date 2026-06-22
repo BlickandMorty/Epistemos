@@ -550,3 +550,10 @@ search bugs on it; runtime-verify.
   mini-chat/grab-chat reachable (exists+reskinned per screenshot).
 - META: loop reads plan + isn't inventing, BUT ships UI done on build-green ≠ rendered runtime; STOP calling UI
   done on build-green — need runtime-rendered verification. Re-added top P0.
+
+## Pass 40b (owner — "it's simple, reskin Osaurus") — 2026-06-22
+- Owner frustrated (hours): simple goal = Osaurus chat reskinned to my look; kept being raw-Osaurus or old-chat.
+- ROOT (confirmed): runtime applyCustomTheme doesn't cascade into Osaurus's views (they render own theme).
+- PRECISE FIX added: EDIT THE VENDORED OSAURUS THEME AT SOURCE (LocalPackages/osaurus/.../Theme.swift default
+  colors/fonts → Epistemos cream/monospace) so Osaurus views NATIVELY render the look (like mini-chat does). Not
+  runtime applyCustomTheme. Runtime-verify renders cream/mono. #1 P0.
