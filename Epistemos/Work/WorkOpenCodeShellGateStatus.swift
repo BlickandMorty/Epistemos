@@ -30,22 +30,17 @@ nonisolated enum WorkOpenCodeShellGateStatus {
     }
 
     static func isEnabled(_ raw: String?) -> Bool {
-        guard let n = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else { return false }
-        return ["1", "true", "yes", "on"].contains(n)
+        FeatureGateOverride.isTruthy(raw)
     }
 
     /// The in-app toggle override, or `nil` when unset (→ defer to the env flag).
     static func override(defaults: UserDefaults = .standard) -> Bool? {
-        defaults.object(forKey: overrideDefaultsKey) as? Bool
+        FeatureGateOverride.value(forKey: overrideDefaultsKey, defaults: defaults)
     }
 
     /// Set (true/false) or CLEAR (`nil` → revert to env-flag behavior) the in-app toggle override.
     static func setOverride(_ value: Bool?, defaults: UserDefaults = .standard) {
-        if let value {
-            defaults.set(value, forKey: overrideDefaultsKey)
-        } else {
-            defaults.removeObject(forKey: overrideDefaultsKey)
-        }
+        FeatureGateOverride.set(value, forKey: overrideDefaultsKey, defaults: defaults)
     }
 
     /// Resolved arm-state: in-app override WINS; else the env flag; else off. App Store build = ALWAYS off
@@ -57,8 +52,8 @@ nonisolated enum WorkOpenCodeShellGateStatus {
         #if EPISTEMOS_APP_STORE
         return false
         #else
-        if let override = override(defaults: defaults) { return override }
-        return isEnabled(environment[flagName])
+        return FeatureGateOverride.resolved(
+            overrideKey: overrideDefaultsKey, envValue: environment[flagName], defaults: defaults)
         #endif
     }
 
