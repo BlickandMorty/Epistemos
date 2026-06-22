@@ -43,22 +43,29 @@ public struct EpistemosOsaurusChatHost: View {
 
     public var body: some View {
         ChatView(windowState: windowState)
-            .task { Self.applyEpistemosThemeOnce() }
+            .task { Self.bootstrapAndThemeOnce() }
     }
 
-    // MARK: - Epistemos reskin
+    // MARK: - Epistemos bootstrap + reskin
 
-    /// Apply the Epistemos cream/monospace palette to the Osaurus surface once
-    /// per process. Runtime-only (`persist: false`): the Osaurus theme storage
-    /// is untouched, so this is a pure presentation overlay. Every Osaurus view
-    /// reads `ThemeManager.shared.currentTheme`, so applying here reskins the
-    /// whole surface (thread, composer, sidebar, model picker).
-    @MainActor private static var didApplyEpistemosTheme = false
+    @MainActor private static var didBootstrap = false
 
+    /// Run once when the Osaurus surface first appears inside Epistemos:
+    /// (1) the launch-time registration standalone Osaurus does in its own
+    /// `AppDelegate` — which Epistemos's `AppDelegate` never runs — so the chat
+    /// has its agent configuration domains + document adapters. Both calls are
+    /// idempotent (internal latches) and side-effect-free (NO local server, NO
+    /// Sparkle/login-item — the chat generates in-process via `ChatEngine` →
+    /// `MLXService`, so the HTTP server is not needed). (2) Apply the Epistemos
+    /// cream/monospace palette runtime-only (`persist: false`); every Osaurus
+    /// view reads `ThemeManager.shared.currentTheme`, so this reskins the whole
+    /// surface (thread, composer, sidebar, model picker).
     @MainActor
-    private static func applyEpistemosThemeOnce() {
-        guard !didApplyEpistemosTheme else { return }
-        didApplyEpistemosTheme = true
+    private static func bootstrapAndThemeOnce() {
+        guard !didBootstrap else { return }
+        didBootstrap = true
+        ConfigurationDomainBootstrap.registerBuiltIns()
+        DocumentAdaptersBootstrap.registerBuiltIns()
         ThemeManager.shared.applyCustomTheme(epistemosCreamTheme, persist: false, animated: false)
     }
 
