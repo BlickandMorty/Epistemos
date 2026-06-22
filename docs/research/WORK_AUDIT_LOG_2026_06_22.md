@@ -1007,3 +1007,19 @@ MUST advance (new binary) with native act UI verified on a FRESH launch (kill→
 build is STILL 14:37 / still dark-landing-no-native next fire, the agent is stuck scope-not-ship DESPITE a clean
 unambiguous direction → log prominent ESCALATION for the owner (autonomous agent can't execute this; owner should
 drive the one native-view build directly on return). VERDICT: PASS-orientation / WATCH-delivery. Did NOT touch agent code.
+
+## PASS 66 — 2026-06-22 (Codex audit folded in + owner P0: NativeActChatView is a bare white skeleton)
+Folded Codex's instruction-debt audit into the two re-read files + addendum. FIXED stale anchors: queue 0.2
+("Osaurus act host"→ONE shared NATIVE act component, all surfaces, all-but-note work), 0.3 ("Osaurus host/click"→
+tap-ANYWHERE→native act + REMOVE click→search), 0.19 ("mount Osaurus host"→native view), driver:194 (0.17 mirror
+"Osaurus OWN UI reskinned"→native-UI-on-engine). VERIFIED: NativeActChatView.swift EXISTS (7.6KB, calls
+OsaurusActBridge.runTurnStreamingInProcess :157) + new build 15:06 → agent DID pivot into real native code (right
+path). OWNER SCREENSHOT (~15:10): NativeActChatView is LIVE but a BARE WHITE SKELETON ("Ask anything"+plain
+composer, white not cream, no sidebar/pill/ChatInputBar) — looks worse than both priors. Captured P0: COMPOSE the
+owner's EXISTING chrome components (ChatInputBar, ChatSidebarView, ChatCapabilityPill, cream, native toolbar) into
+NativeActChatView — not a skeleton, not rebuild-from-scratch (Codex's "steal Direction-A pieces"). + Codex cleanup
+items: rewrite ActSurfaceOsaurusUIDirectionGuardTests (still #expects EpistemosOsaurusChatHost — now WRONG) to
+require NativeActChatView/forbid host+ChatView; fix LandingView tap→act (kill activateLandingSearch :339/:356);
+clean RootView stale comments. Multi-surface (main/mini/graph/note act, all-but-note work) folded into 0.2 AFTER
+act acceptance. VERDICT: right architecture LIVE (thrash over) but bare skeleton → compose owner chrome. Did NOT
+touch agent code. Edited driver+queue+addendum+log (owner-authorized recursive prompt edit), my files only.

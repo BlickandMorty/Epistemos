@@ -191,7 +191,7 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 - **0.13** Shared act component · **0.14** Health-row witnesses honest (wiredToday/stillStub match code)
 - **0.15** DEEP CHECK (honest OSAURUS_BUILD_PROGRESS) · **0.16** Reasoning + title-gen (extends 0.9;
   `<think>` parse; CLEAN short titles — no model self-description garbage)
-- **0.17** LOCKED direction (Osaurus OWN UI reskinned + 3 grafts; SUPERSEDES option-b) · **0.18** Model provider registration
+- **0.17** LOCKED direction (FRESH NATIVE Epistemos UI wired to Osaurus ENGINE only; NO ChatView mount/reskin/decompose) · **0.18** Model provider registration
 - **0.19** Chat surface deletion sequence (IP preserved) · **0.20** Collapse act/chat duality
 - **0.21** Per-clone settings matrix — Epistemos|act|work|beyond (**D4 blocking — SOLE OWNER**) · **0.22** ONE inference chokepoint
 - **0.23** Send-text harness EVERY iteration · **0.24** Act UI bug bundle · **0.25** Delete old ChatView (GATED)
