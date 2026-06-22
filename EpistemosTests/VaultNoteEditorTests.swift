@@ -50,4 +50,74 @@ struct VaultNoteEditorTests {
         }
         #expect(box.writeCount == 0)
     }
+
+    // MARK: - Provenance (§720 #4) — every agent edit records a MutationEnvelope
+
+    private let context = AgentEditProvenanceContext(
+        artifactID: "note-123", runID: "run-abc", sequence: 7, title: "My Note")
+
+    @Test("the provenance envelope is a committed agent artifactUpdate over the right artifact")
+    func envelopeShape() {
+        let envelope = AgentNoteEditProvenance.envelope(
+            context: context, beforeBody: "old", afterBody: "old\nnew", createdAtMs: 1_700_000_000_000)
+        #expect(envelope.actor == .agent(runID: "run-abc"))
+        #expect(envelope.status == .committed)
+        #expect(envelope.op == .artifactUpdate(artifactID: "note-123"))
+        #expect(envelope.sequence == 7)
+        #expect(envelope.affectsBody)
+        #expect(envelope.affectsSearchProjection)
+        #expect(envelope.integrityHash.hasPrefix("sha256:"))
+        #expect(envelope.touchedArtifacts.first?.id == "note-123")
+        // deterministic: same before/after/context → identical id + hash (idempotent in the log).
+        let again = AgentNoteEditProvenance.envelope(
+            context: context, beforeBody: "old", afterBody: "old\nnew", createdAtMs: 999)
+        #expect(again.mutationID == envelope.mutationID)
+        #expect(again.integrityHash == envelope.integrityHash)
+        #expect(AgentNoteEditProvenance.traceID(for: envelope) == "tri-fusion-\(envelope.mutationID)")
+    }
+
+    @Test("a successful edit writes the body AND records the envelope once")
+    func recordsEnvelopeOnSuccess() throws {
+        let box = Box("foo")
+        let captured = Box("")  // reuse Box as a capture cell (stores the recorded artifact id)
+        let result = try editor(box).applyEdits(
+            [.replaceFirst(find: "foo", with: "bar")], to: url,
+            provenance: context, now: { 1_700_000_000_000 },
+            recordEnvelope: { envelope, _ in
+                if case .artifactUpdate(let id) = envelope.op { captured.stored = id }
+                captured.writeCount += 1
+                return true
+            })
+        #expect(result == "bar")
+        #expect(box.stored == "bar")
+        #expect(box.writeCount == 1)
+        #expect(captured.stored == "note-123")
+        #expect(captured.writeCount == 1)
+    }
+
+    @Test("a missing anchor records NOTHING and writes NOTHING (honest atomic with provenance)")
+    func noProvenanceOnFailedEdit() {
+        let box = Box("note")
+        let captured = Box("")
+        #expect(throws: VaultNoteEditError.editDidNotApply) {
+            try editor(box).applyEdits(
+                [.replaceFirst(find: "absent", with: "x")], to: url,
+                provenance: context,
+                recordEnvelope: { _, _ in captured.writeCount += 1; return true })
+        }
+        #expect(box.writeCount == 0)
+        #expect(captured.writeCount == 0)  // no edit → no provenance
+    }
+
+    @Test("a failed envelope save throws provenanceNotRecorded — but the body IS already written")
+    func provenanceFailureIsReported() {
+        let box = Box("foo")
+        #expect(throws: VaultNoteEditError.provenanceNotRecorded) {
+            try editor(box).applyEdits(
+                [.append("bar")], to: url, provenance: context,
+                recordEnvelope: { _, _ in false })  // EventStore unavailable
+        }
+        #expect(box.stored == "foo\nbar")  // body persisted (the edit is the truth)
+        #expect(box.writeCount == 1)
+    }
 }
