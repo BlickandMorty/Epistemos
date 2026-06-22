@@ -944,3 +944,17 @@ thinking/content/tool channels); native UI renders the parsed output = native lo
 broke on PARSING not rendering. ALREADY PROVEN: 0.4/0.23 = native code → Osaurus engine → reply (certified). The
 remaining act work = native UI views on the proven link. Supersedes mount+reskin (DEFINITIVE ACT-UI). Verify on
 owner's FRESH launch. Did NOT touch agent code. This is the strategic unblock for the days-long visible-surface wall.
+
+## PASS 62 — 2026-06-22 (STANDBY — pivot + corrections pending ingestion; build unchanged)
+No build commit since my pass-61/61b/61c (e3a1fe5a9 mine, 43s ago). Agent alive (2 procs), no build proc —
+mid-cycle, hasn't ingested the pivot (native-UI-linked-to-engine) or the verify-on-fresh-launch standard yet
+(landed minutes ago; 0.31 picks up next commit). Running build UNCHANGED (14:37) → same Osaurus-white state as
+pass-61 screenshot; did not re-capture an identical frame (will re-screenshot when a NEW build lands).
+RECONCILED a contradiction (reinforces the pivot, not a new correction): iter1 claimed "cream confirmed / owner's
+surface was already cream via active 'Epistemos' theme (E9150305)" — but pass-61 screenshot = WHITE. Cause: cream
+only renders if the Epistemos theme is ACTIVELY SELECTED; owner's default/active is Osaurus white. So 0.1 was
+conditional on theme selection, NOT the default-on-launch — agent ASSUMED "already cream," contradicted by the
+real surface. This is exactly why pass-61c PIVOT (native UI = cream by construction, no theme cascade) is the
+right unblock; the theme-conditional problem is MOOT under native UI. NOT adding more theme corrections (pivot
+supersedes). NEXT FIRE: re-screenshot when a new build lands; verify the agent ingested pass-61c pivot + built
+native chrome that renders on a FRESH launch. No escalation (agent mid-cycle, corrections fresh). VERDICT: STANDBY.
