@@ -2319,3 +2319,38 @@ In-flight refinement (the live theme swap, the RootView rewire, the `NativeActLa
 - **Fix the guard test to FORBID mounting any `ChatView()` as the act surface and REQUIRE the fresh native view on the certified bridge.** Do not let the test lock option-b.
 
 **This SUPERSEDES the line citations in §2266 (they pointed at the now-deleted NativeActChatView); the SEVEN requirements still hold — their target is the RESTORED native view, not `ChatView()`.** Act stays `[ ]`; the auditor will fresh-launch-screenshot the restored native surface against the owner's acceptance #1–#5.
+
+---
+
+## 🔴🔴🔴 OWNER CORRECTION (P0) — 2026-06-22 17:50 CDT — 16:45 auditor reversal is superseded: keep owner UI, Osaurus engine only
+
+**Latest owner report:** the product target is not a fixed cream/dark palette and not a fresh native approximation. It is the owner's actual Epistemos app theme and chrome: selected preset/custom theme, landing toolbar pill/controls, settings, greeting animation, recent/history, old rich chat composer, palette/tools/skills, and normal back/home behavior. The owner explicitly expects **my UI + Osa/Osaurus engine**; those are not mutually exclusive.
+
+**Therefore the 16:45 auditor correction above is stale for build direction.** Do not use it to restore `NativeActChatView` or `NativeActLandingView`. Those files were skeletal approximations and repeatedly lost owner chrome. Also do not mount vendored Osaurus UI. The current target is:
+
+1. **Landing first = real `LandingView`** with the landing toolbar ControlGroup visible on home: settings, greeting animation, recent/history. Missing pill/top controls/back-home is a P0 runtime defect.
+2. **Act after entry = owner chat chrome** from `Epistemos/Views/Chat/ChatView.swift` and its real subviews (`ChatInputBar`, `ChatSidebarView`, message chrome, palette/tools/skills), using the active `EpistemosTheme` including custom slots such as `Chat Surface`.
+3. **Osaurus = engine only.** The act send route must be proven to hit the shared Osaurus/LocalAgentLoop seam / `CoreModelService.generateStream` path and must fail honestly if the Osaurus engine/provider is unavailable. It must not silently fall back to the old chat backend.
+4. **Guard tests must lock this nuance:** forbid vendored Osaurus `OsaurusChatView` and skeletal native clones; require owner `LandingView` + owner `ChatView` chrome plus the shared Osaurus route. A source guard that blindly forbids every `ChatView()` mount is now wrong because it erases the owner's actual UI.
+5. **Fresh-launch certification remains mandatory:** kill/build/open/screencapture/read must prove home shows the landing toolbar pill/controls and entered act shows owner chat chrome on the Osaurus engine. No `[x]` from rationale or source grep alone.
+
+Act stays `[ ]` until runtime proves both halves together: **owner UI preserved + Osaurus engine active**.
+
+---
+
+## 🔴🔴🔴 OWNER DIRECTIVE (P0, via auditor — DIRECT from the owner THIS SESSION, 2026-06-22 ~18:00) — RE-ANCHOR on FULL-OSAURUS-CLONE + reskin. Old chat = REFERENCE only. §2325 (mount old ChatView) is a CONFIRMED REGRESSION, not an owner directive.
+
+**Owner, verbatim this session:** *"it did regress — it's still the old chat and it's not working again. I liked it more when it was Osa. I wanted to delete the whole thing and just clone Osa completely and literally just change the UI, and then use my old chat as a reference. That's really what I wanted."*
+
+**PROVENANCE (resolves §2073 vs §2325):** the auditor asked the owner directly. The owner CONFIRMED the running app — which mounts `ChatView()` per §2325 (`RootView.swift:2698/2714/2731`) — is the REGRESSION ("still the old chat, not working"). **§2325's self-labeled "OWNER CORRECTION — use the real ChatView" was NOT owner-confirmed** (auditor verified: no owner verbatim, no screenshot, no ledger entry — §2325 is builder-authored). Treat §2325 as SUPERSEDED. Latest-owner-directive-wins, and THIS is it, live.
+
+**THE DIRECTION (re-anchors the owner's ESTABLISHED 2026-06-21 full-Osaurus-clone — addendum §"SEQUENCING: Osaurus full clone FIRST" — and §1670 "Osaurus's OWN UI, reskinned"; supersedes §2073's "fresh-native / never Osaurus UI" UI-SOURCE stance. §2073's NON-NEGOTIABLES — Osaurus engine only, kill duality, screenshot cert — STILL HOLD):**
+1. **Act surface = Osaurus's REAL working UI, cloned into Epistemos as OWNED source** (composer, transcript, skills/commands, model handling). It already WORKS in Osaurus — that is why the owner "liked it more when it was Osa." Do NOT rebuild a fresh skeleton (the deleted `NativeActChatView` route lost functionality and chrome).
+2. **RESKIN the cloned Osaurus views to the owner's look AT THE SOURCE** — edit the cloned Swift views' colors/fonts/layout/chrome directly to the owner's cream/monospace/pill/curved design. Do NOT use a runtime `applyCustomTheme` cascade shim (driver:157 — that is THE WALL that never propagated and is exactly why every prior "reskin Osaurus" attempt failed). Owning + editing the source is what makes the reskin actually render.
+3. **The owner's old `Epistemos/Views/Chat/ChatView.swift` is a VISUAL REFERENCE ONLY** — read it to match the look (cream/mono/coral bubbles/pill/composer layout). Do NOT mount, wrap, route through, or reuse it as the act surface. That mount is the confirmed regression.
+4. **Osaurus = engine + functionality intact.** Keep the cloned views driving `CoreModelService.generateStream`; send must work and fail honestly (no silent fallback to the old chat backend).
+5. **Owner's 38 agent skills:** get the cloned-and-reskinned base WORKING first; THEN add the owner's 38 skills as DATA into the cloned skills panel as a SECOND step. The owner is unsure whether/how to merge them onto act — do NOT block the working base on this; surface it as a follow-up for explicit owner sign-off.
+
+**META — STOP OSCILLATING (this is WHY it has been "so hard"):** the act UI has flip-flopped ~5 times (option-b → reskin-Osaurus → fresh-native → mount-ChatView → ...); every flip discarded working code. COMMIT to clone-Osaurus-and-reskin-at-source and build it to completion. NO further direction pivot without explicit owner sign-off through this channel.
+
+**Acceptance (auditor fresh-launch screenshot — unchanged):** act looks like the owner's chat (cream/mono/pill, matching the old-chat reference) AND a real send streams on the Osaurus engine AND skills/commands work. No `[x]` without the auditor's fresh-launch PNG.
