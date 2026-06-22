@@ -101,6 +101,42 @@ impl VaultExecutor {
         }
     }
 
+    /// VAULT-DEEP-INTEGRATION (owner 2026-06-21 §720): enumerate the vault's markdown NOTES as
+    /// vault-relative paths (forward-slash), backing the MCP `resources/list` surface so external
+    /// agents see the vault as first-class MCP context. Bounded iterative walk — skips hidden dirs
+    /// (incl. `.epcache`/`.git`) and caps the count so a huge vault can't blow the response.
+    pub fn list_markdown_notes(&self) -> Vec<String> {
+        const MAX_NOTES: usize = 5000;
+        let mut out: Vec<String> = Vec::new();
+        let mut stack: Vec<PathBuf> = vec![self.root.clone()];
+        while let Some(dir) = stack.pop() {
+            if out.len() >= MAX_NOTES {
+                break;
+            }
+            let entries = match fs::read_dir(&dir) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with('.') {
+                    continue; // hidden dirs/files (.git, .epcache, …)
+                }
+                let path = entry.path();
+                let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+                if is_dir {
+                    stack.push(path);
+                } else if name.to_ascii_lowercase().ends_with(".md") {
+                    if let Ok(rel) = path.strip_prefix(&self.root) {
+                        out.push(rel.to_string_lossy().replace('\\', "/"));
+                    }
+                }
+            }
+        }
+        out.sort();
+        out
+    }
+
     /// Write content to a file in the vault.
     pub fn write_file(&self, path: &str, content: &str) -> ToolResult {
         let start = Instant::now();
