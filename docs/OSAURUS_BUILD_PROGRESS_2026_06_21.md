@@ -121,9 +121,12 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     (nil when anchor absent → never silently mangles) + ATOMIC batch apply (`c0991f4fe`, all-or-nothing) +
     `VaultNoteEditor` file-level applier (`6d467d1f7`, read→apply→write-only-on-success). PLUS the EXTERNAL-agent
     surface: `vault.patch_note` MCP tool (`214d7f04b`, same op model in Rust, honest missing-anchor-writes-nothing).
-    Both surfaces (in-app Swift + external MCP) tested. The same ops apply across editors + file + MCP. REMAINS
-    (UI follow-on): bind to the live editors (NSTextView/Tiptap apply the ops) + record each as an agent
-    `MutationEnvelope` (SourceOp.artifactUpdate) for provenance/EventStore (reuses the existing provenance model).
+    Both surfaces (in-app Swift + external MCP) tested. The same ops apply across editors + file + MCP.
+    **LIVE-EDITOR BINDING RESOLUTION DONE (`3ece02f93`):** `AgentNoteEdit.resolveTextEdit(in:)` maps an edit to a
+    live-buffer `MarkdownEditorCommands.TextEdit` (NSRange via NSString), applied via the EXISTING
+    `ProseTextView2.applyAutomaticMarkdownEdit` path (reuse-not-rebuild); honest nil-when-absent (no out-of-range).
+    REMAINS (thin glue): call resolveTextEdit→applyAutomaticMarkdownEdit from the agent surface + record each as an
+    agent `MutationEnvelope` (SourceOp.artifactUpdate) for provenance/EventStore (reuses the existing model).
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
   ZERO regressions (flag-off byte-identical confirmed).
