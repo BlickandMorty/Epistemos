@@ -217,3 +217,16 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
 - **Verdict:** no re-add (P0-A/P0-B just added, are top of plan). AUDIT-WATCH next pass: does the loop BUILD the
   P0-A runtime fix (diagnose send failure / scheme / provider-register / visible errors)? If it keeps doing
   docs/toggle planning instead of the runtime fix → ESCALATE (loop avoiding the hard buildable owner-blocking work).
+
+## Pass 14 — 2026-06-22 — 🔴 ESCALATION
+- **Build loop:** ALIVE. HEAD `818654aa4` "act-work surface toggle (clean, old UI)" (8 min). swift/xcode=0.
+- **818654aa4 (act<->work toggle) → ✅ PASS as work (legit), but WRONG PRIORITY:** clean act<->work surface
+  switch in old UI (WorkspaceMode, WorkTerminalHostView, persisted). Fine — but it's a follow-up, NOT P0-A.
+- **🔴 2ND PASS AVOIDING P0-A/P0-B → ESCALATED:** grep confirms (a) NO "act on Osaurus" indicator + NO error
+  surfacing exist (= why owner can't see Osaurus + send looks dead), (b) provider register IS wired
+  (AppBootstrap:3147) so failure is likely modelUnavailable/no-prepared-model/wrong-build. Re-added 🔴🔴 with
+  4 BUILDABLE-NOW actions: visible engine indicator, visible send-error surfacing, make register yield a usable
+  model + scheme check, surface Osaurus landing/buttons/features. These are code-level (build-verifiable now);
+  only final live send needs the running app.
+- **Verdict:** toggle PASS but priority wrong; ESCALATED P0-A/P0-B as buildable-now, must build BEFORE more
+  toggles/docs. AUDIT-WATCH: next pass MUST show P0-A/P0-B build progress or escalate harder (loop avoiding owner-blocking work).
