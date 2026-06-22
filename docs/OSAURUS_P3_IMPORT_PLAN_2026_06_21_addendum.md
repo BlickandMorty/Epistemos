@@ -1293,3 +1293,14 @@ jordan's-research GPT/kimi = 70B-EXCLUDED. ~/Downloads: Helios v3→v6.2 already
 triaged. NEAR CONVERGENCE — cycle 3 = confirmation: dedup GUS-6..13 vs live agent_core/, spot-check ~/Downloads
 Pasted markdown(N), glance 58 SS-* slices, confirm epistemos-vault/ fully EXCLUDED. If goldberg modules already
 shipped + residuals empty → CONVERGED.
+
+## ✅ DUAL-BRAIN CLARIFICATION — APP SIDE ONLY, never the model side (owner 2026-06-22)
+Owner, explicit: from the dual-brain architecture take ONLY the **APP-SIDE architecture = BRAIN-2**
+(authority / deliberation / decision / governance — the app's "deciding" half). Do NOT take the **MODEL SIDE
+= BRAIN-1** (the new from-scratch model: Mamba-3 spine, signal_bus, M0/M1 interrupt, ternary model-runtime,
+Engram, KIVI-KV, residency, 70B) — that is EXCLUDED, full stop (same as the 70B exclusion). This CONFIRMS the
+grand-sweep cycle-1 cut (BRAIN-1 = 70B-tied = EXCLUDED; BRAIN-2 = already today's Faculty-2). So: salvage +
+unify the dual-brain's APP-SIDE deliberation/authority architecture into System G / the Coordination faculty;
+NEVER the model-side spine. Any salvage item that turns out to depend on the new model = EXCLUDED. The app's
+"brain" is its deliberation/orchestration over EXISTING models — not a built-from-scratch model. Standing,
+no ambiguity.
