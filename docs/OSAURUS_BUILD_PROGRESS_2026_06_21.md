@@ -822,3 +822,15 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
 (4) sessions/vault/Eidos bridged into the Osaurus act chat (large integration);
 (5) MAS dual-build (pre-existing explicit-modules package-resolution failure, independent of this work);
 (6) retire old `ChatView` (blocked — it's MAS's real act surface until MAS gets Osaurus).
+
+### 🐛 ACT SURFACE UI BUGS (owner reported on the running app, 2026-06-22)
+- [x] **White bar at top + "click opens the search bar, not the Osaurus landing" — ONE root cause, fixed** —
+  `activeHomeChat` requires `!chat.messages.isEmpty`, but the Osaurus host owns its OWN message state so
+  `chat.messages` stays empty → RootView treated the Osaurus surface as the LANDING and painted the Epistemos
+  landing toolbar (the "search bar" + its `.automatic` glass background) OVER the Osaurus surface = both the
+  white top bar AND the leaked search bar. Fix: added `showingOsaurusSurface` (`!chat.showLanding`, Pro) and
+  excluded it from `showLandingToolbarControls` → the toolbar is empty + background hidden over the Osaurus
+  host, so the top is clean (old-chat look) and Osaurus's own landing/composer shows through. Epistemos landing
+  (`showLanding==true`) is unaffected. Owner to re-audit on the running app.
+- [ ] **Deeper reskin (next):** reapply the old Epistemos message bar (highest priority) + side panel + fonts
+  onto the Osaurus host (component-level overrides on `EpistemosOsaurusChatHost`, keep OsaurusCore).
