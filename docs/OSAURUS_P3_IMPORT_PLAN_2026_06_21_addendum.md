@@ -1855,3 +1855,28 @@ composer wired to Osaurus send, NOT a recolor of Osaurus's composer), 0.8/D1 (cu
 0.17 (locked direction), 4.7 (model picker/palette/38-tool chrome recoded native), 0.2/0.5 (sidebar+surfaces).
 The act surface is still NOT certified until its D-gates pass YOUR screencapture; this directive sharpens WHAT
 "reskinned" means (native shell + Osaurus engine-core), it does not relax any gate.
+
+---
+
+## 🔴 OWNER DIRECTIVE (P0, via auditor 2026-06-22) — ACT-UI SYNTHESIS §2: which Osaurus UI to KEEP vs DROP
+Extends the ACT-UI SYNTHESIS above. Owner observation: Osaurus looks GENERIC where it's front-and-center +
+custom-branded, but MORE native where it uses real Apple components ("hidden" places). So the keep/drop test:
+
+**ADOPT from Osaurus (its genuinely Apple-native, robust parts — even when they're chrome):**
+- **Voice input.**
+- **Apple-native popovers** — keep their LARGER / more-robust sizing (owner likes bigger, dynamic, not cramped —
+  consistent with the Tamagotchi "larger, not small squares" note).
+- Osaurus's real native controls generally — where they are MORE native than the old Epistemos UI, take them.
+
+**DROP from Osaurus (its custom-branded, generic, outdated surfaces → use native Epistemos instead):**
+- Osaurus's **message bar** (use the native Epistemos composer — already locked).
+- Osaurus's **landing "four blocks"** (greeting + What's configured? / Download a model / Add a provider /
+  Install a plugin grid) — this is the generic surface; the Epistemos LandingView replaces it (D2).
+- Osaurus's **block fonts / block typography** — outdated/generic; use Epistemos cream/mono type discipline.
+
+**HEURISTIC the agent applies:** Osaurus-where-it's-real-Apple-native (popover/voice/native control) → ADOPT;
+Osaurus-where-it's-custom-branded-generic (landing blocks, composer, block fonts) → DROP for native Epistemos.
+Full fusion (with §1): (1) engine-expressing views (thinking/stream/tools) = Osaurus reskinned, don't rebuild ·
+(2) Osaurus Apple-native components (voice/popovers) = adopt · (3) Osaurus custom-branded surfaces = drop →
+native · (4) shell (toolbar/sidebar/window/message-bar) = native Epistemos. Net: the app as it was + engine
+swapped to Osaurus + Osaurus's best Apple-native bits − its generic blocks/fonts/composer. Minimal, no bloat.

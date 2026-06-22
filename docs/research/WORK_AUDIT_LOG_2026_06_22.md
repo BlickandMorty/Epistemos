@@ -830,3 +830,10 @@ Safe default: unsure → treat as engine-expressing, keep Osaurus reskinned. Ref
 ACT-UI DIRECTION + 0.7/D1/D3/0.17/4.7/0.2 — no new tiers, no gate relaxed, does NOT reopen old-ChatView.
 Channel: addendum (agent 0.31 reverse-audit will queue it as a new heading). Did NOT touch queue/recertlog/code.
 Build status unchanged this fire (no new build commit beyond b221dc76a/iter3; harness build was pending green).
+
+## PASS 56b — 2026-06-22 (OWNER DIRECTIVE refinement: ACT-UI SYNTHESIS §2 keep/drop)
+Owner refined the act-UI synthesis with a keep/drop test for Osaurus's own UI. Captured in addendum §2:
+ADOPT Osaurus's Apple-native parts (voice input, native popovers incl. their larger/robust sizing, native
+controls where more-native than old Epistemos); DROP Osaurus's custom-branded generic surfaces (its message bar,
+its landing four-block grid, its block fonts) → native Epistemos. Heuristic stated for the agent. No new tiers,
+no gate change; refines ACT-UI SYNTHESIS §1 + D2 (landing). Addendum channel (0.31 picks up). My files only.
