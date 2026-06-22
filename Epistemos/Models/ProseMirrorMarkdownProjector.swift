@@ -204,19 +204,19 @@ nonisolated public enum ProseMirrorMarkdownProjector {
             visitChildren(node, state: &state, listDepth: listDepth)
             state.out.append("\n\n")
 
-        case "bullet_list":
+        case "bullet_list", "bulletList":
             visitListChildren(node, state: &state, listDepth: listDepth, ordered: false)
             if listDepth == 0 {
                 state.out.append("\n")
             }
 
-        case "ordered_list":
+        case "ordered_list", "orderedList":
             visitListChildren(node, state: &state, listDepth: listDepth, ordered: true)
             if listDepth == 0 {
                 state.out.append("\n")
             }
 
-        case "list_item":
+        case "list_item", "listItem":
             // Caller (visitListChildren) already prefixed bullet/number.
             visitChildren(node, state: &state, listDepth: listDepth)
 
@@ -243,10 +243,10 @@ nonisolated public enum ProseMirrorMarkdownProjector {
             }
             state.out.append("\n```\n\n")
 
-        case "horizontal_rule":
+        case "horizontal_rule", "horizontalRule":
             state.out.append("---\n\n")
 
-        case "hard_break":
+        case "hard_break", "hardBreak":
             state.out.append("  \n")
 
         case "text":
@@ -287,7 +287,7 @@ nonisolated public enum ProseMirrorMarkdownProjector {
             state.out.append(":::\n\n")
             state.footnoteDefs.append(contentsOf: inner.footnoteDefs)
 
-        case "task_list":
+        case "task_list", "taskList":
             // GFM task lists are bullet lists where each item starts
             // with `[ ]` or `[x]`. Render via the bullet pipeline but
             // tag the marker with the task state.
@@ -296,7 +296,7 @@ nonisolated public enum ProseMirrorMarkdownProjector {
                 state.out.append("\n")
             }
 
-        case "task_item":
+        case "task_item", "taskItem":
             // Caller (visitTaskListChildren) renders the marker.
             visitChildren(node, state: &state, listDepth: listDepth)
 
