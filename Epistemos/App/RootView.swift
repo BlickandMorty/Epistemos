@@ -1,12 +1,21 @@
 import AppKit
 import SwiftData
 import SwiftUI
+#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+import OsaurusCore
+#endif
 
-// ACT = OLD EPISTEMOS UI DRIVEN BY OSAURUS (option (b), owner 2026-06-22): the act
-// surface is the genuine old Epistemos `ChatView`; the Osaurus engine drives it
-// underneath (`LocalAgentLoop.shouldRouteActThroughOsaurus`, default-on Pro) +
-// the model bridge. RootView no longer mounts the Osaurus ChatView host, so it no
-// longer needs to `import OsaurusCore` directly.
+// ACT = OSAURUS'S OWN UI, RESKINNED (owner 2026-06-22, LOCKED direction — supersedes
+// option (b)): the act surface MOUNTS the genuine Osaurus `ChatView` via
+// `EpistemosOsaurusChatHost` (Osaurus's real landing/thread/composer/panels),
+// reskinned runtime-only to the Epistemos cream/monospace look. It generates
+// IN-PROCESS through Osaurus's `ChatEngine` → `MLXService` + the Epistemos model
+// bridge (so the owner's models work; no HTTP server path). Option (b) mounted the
+// OLD `ChatView` and the owner reported "it IS the same, just with a badge" + send
+// failures — so we mount Osaurus's real UI instead. The 3 grafts (message bar, side
+// panel, scroll-blur) are the owner-reviewed follow-on. OsaurusCore is Pro-only, so
+// the import + the host mount are `#if !EPISTEMOS_APP_STORE`-guarded (MAS keeps the
+// old ChatView).
 
 enum LandingToolbarGlyphs {
     static let greetingSymbol = "textformat"
@@ -2660,7 +2669,15 @@ private struct HomeRouter: View {
                 if workspaceMode == .work {
                     WorkTerminalHostView(workspace: Self.workWorkspaceURL)
                         .transition(.blurFade())
+                } else if LocalAgentLoop.shouldRouteActThroughOsaurus() {
+                    // ACT = Osaurus's OWN UI, reskinned (locked direction). The genuine
+                    // vendored Osaurus chat surface — loads + works + is visibly Osaurus —
+                    // not the old ChatView with a badge. Generates in-process; owner's models
+                    // work via the bridge. Replaces option-(b)'s old-ChatView mount for act.
+                    EpistemosOsaurusChatHost()
+                        .transition(.blurFade())
                 } else if showChat {
+                    // Fallback (act not Osaurus-routed — rare on Pro): the old surface.
                     ChatView().transition(.blurFade())
                 } else {
                     LandingView().transition(.blurFade())

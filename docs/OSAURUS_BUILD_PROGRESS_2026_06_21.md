@@ -1060,3 +1060,14 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   "open weights", "as an ai", "sorry,", leading "N,…" fragment); cap to 8 words / 64 chars. generateChatTitle
   now skips instead of dumping garbage. Test: ChatTitleSanitizerTests (rejects the owner's exact string; keeps
   real titles).
+
+## NEW UI DIRECTION STARTED — mount Osaurus's OWN UI as act (owner locked, auditor pass 28, 2026-06-22)
+- Auditor pass 28: point-fixes on the old ChatView are useful but the loop MUST start the locked direction —
+  REPLACE the old-ChatView act surface with OSAURUS'S OWN UI reskinned. Found EpistemosOsaurusChatHost (public,
+  OsaurusCore) already built for exactly this: mounts the genuine Osaurus ChatView, reskins it runtime-only to
+  the Epistemos cream/monospace palette (thread/composer/sidebar/model-picker), bootstraps config+doc adapters,
+  generates IN-PROCESS via ChatEngine → MLXService + the model bridge (no HTTP server). It was UNMOUNTED.
+- STARTED: RootView now mounts `EpistemosOsaurusChatHost()` as the act surface (Pro, when shouldRouteActThroughOsaurus)
+  instead of the old `ChatView()`; guarded import, MAS keeps the old surface. So act is now Osaurus's real UI
+  (loads + visibly Osaurus), and its in-process send path may also resolve the send-fail (no HTTP requestFailed).
+- Follow-on: the 3 grafts (message bar, side panel, scroll-blur) + owner runtime-verify.
