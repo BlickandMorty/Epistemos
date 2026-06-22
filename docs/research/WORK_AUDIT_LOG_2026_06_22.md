@@ -1124,3 +1124,14 @@ current open issues (real LandingView as home, full-chrome match, kill duality, 
 commands), correction channel (addendum 🔴 AUDITOR CORRECTION + 0.31 ingest; git add only own files), discipline.
 NOTE: when the owner starts the new auditor, run ONE auditor — stop this session's cron (34ea6526) to avoid two
 auditors racing the addendum. Did NOT touch agent code.
+
+## PASS 73 — 2026-06-22 (Codex BUILD goal condensed <4000 chars + new owner runtime findings folded in)
+Owner needs the Codex build goal <4000 chars. Wrote docs/CODEX_BUILD_GOAL_2026_06_22.md (3555 bytes). Folded in
+new owner runtime findings: LANDING = restore real LandingView w/ PILL on top (recent chats ON the pill), settings,
+greetings animation, press-anywhere→act; ACT regressed (engine but NO Osaurus buttons) → put Osaurus commands/
+skills/buttons + owner command palette/38-tool/38-skills into act; RECENT CHAT must NOT be a left ChatSidebarView
+on act (owner dislikes) — belongs ON THE PILL (old chrome); forever loop; computer-use manual verification (owner
+won't verify); auditor watches. Kept the grounded method (reuse real views ChatView/ChatInputBar/LandingView +
+afc34e806, separate UI/engine, Osaurus=engine-only, fresh-launch screenshot-diff). NOTE: this REVISES the earlier
+"compose ChatSidebarView into the act left side" (iter26-27) — owner now says recent-chats go on the PILL, not a
+left sidebar on act. Did NOT touch agent code.
