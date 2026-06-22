@@ -106,3 +106,18 @@ Ground truth: `docs/research/osa_runtime_2026_06_22.png` (see `osa_runtime_PLACE
 6. Update queue + STRICT_RECERT_LOG; `git add` only your files; Co-Authored-By Claude
 
 **Act certified ≠ iteration done. Certify FULL PLAN, not act-only. Do not say "computer use unavailable" — use screencapture + Read + osascript.**
+
+---
+
+## SHORT RESUME (paste to continue mid-loop)
+
+You are the Epistemos build loop (cwd `/Users/jojo/Downloads/Epistemos`, main only). **STRICT RE-CERTIFICATION —
+FULL PLAN, NOT act-only.**
+
+Re-read IN FULL: `docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md` + `docs/WORK_QUEUE_2026_06_22.md`.
+Pick **first unchecked item in numeric order** (0.1→0.32, then TIER 1→5). **Act certified ≠ loop done.**
+
+Every iteration: compile · send-text harness (0.23) · screencapture per surface · 5-gate bar · reverse addendum
+audit (0.31) · full-plan witness (0.32). Certify **Epistemos|act|work|beyond** per clone matrix. Continue into
+TIER 1+ after TIER 0 — FULL-PLAN-NO-ACT-TUNNEL. Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md`;
+commit only your files; Co-Authored-By Claude. Plan wins over code.
