@@ -99,8 +99,11 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved/
     "create-or-fix") MCP tools over a shared `parse_wikilinks` (alias/heading-aware, basename-matched,
     traversal-safe), CATALOG-REGISTERED (`d481f38ee`, discoverable), 180/180 omega-mcp tests. Agents have the
-    full link graph + unresolved-link health. REMAINS: brain-powered SEMANTIC backlinks / LLM-suggested links
-    (Eidos/recall/provenance) layered on top of this mechanical foundation.
+    full link graph + unresolved-link health. SEMANTIC layer GROUNDED 2026-06-21: the REAL brain-semantic index
+    (`epistemos-shadow` BM25+HNSW+RRF) is wired SWIFT-SIDE (`ShadowSearchService`/`RustShadowFFIClient`);
+    omega-mcp has NO shadow/agent_core dep. So brain-powered semantic backlinks = a Swift-side service over
+    `fusedSearch` OR wiring shadow into omega-mcp (cross-crate FFI/dep) — a real integration, NOT a one-iter
+    tool, and a lexical-only version would OVERCLAIM "brain-powered" (no fake). Built in the right place next.
   - [ ] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator) — NEW.
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
