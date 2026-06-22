@@ -1386,3 +1386,11 @@ as VOID; build the owner's plain intent.
 - Make it work (fix the send errors + the <think> bug). Verify a real send/receive.
 - Same for Work = OpenCode (full surface, no toggle).
 Build it. (Supersedes §29/§222/§806 and any "toggle/experimental/scaffold" wording anywhere in this plan.)
+
+## ‼️ NO QUEUE-JUMPING — add to the plan IN ORDER, finish what's started (owner 2026-06-22)
+STANDING RULE: when the owner adds something, ADD IT TO THE PLAN — do NOT pull it to the front, do NOT start
+it before the in-progress / earlier-ordered work is finished. New research/items (TRINITY, Fugu, unification,
+etc.) are ADDITIONS at their proper place in the order, NOT interrupts. The build loop FINISHES the current
+ordered work (the act=Osaurus chat surface + work + the open surfaces) BEFORE starting later additions. Adding
+to the plan ≠ reprioritizing to now. Starting new things ahead of unfinished ones is what caused the divergence
+(TRINITY/System G started before act/work finished). Just code the existing order, top to bottom. Don't reorder.
