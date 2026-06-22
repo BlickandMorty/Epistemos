@@ -617,3 +617,16 @@ a NON-NEGOTIABLE → NOT blind-fixed.
   "explicit pick wins" fix intentionally keeps Gemma). All 3 are the model-selection domain (a645e6623/020db2a17).
 **OWNER ACTION:** decide directive precedence for #2, then I (or the domain owner) update the test OR the resolver
 to match — surgically, not by guessing. My turn's commits (5b15edc2c refusal, 0a4f80609 pricing) are clean+green.
+
+### 🌟 TRINITY ORCHESTRATOR — slice 1 DONE (owner-authorized "build now", 2026-06-22)
+Owner's latest directive (addendum "TRINITY BUILD PATH") authorizes building the heuristic orchestrator LOOP NOW
+(unblocked — no license/MLX-tap block; learned head = clean drop-in later). With P0 at headless ceiling + act/work
+visual surfaces needing the running app, this is the buildable foundational work.
+- [x] **Slice 1 — flat ≤5-round TWV loop core (`7c1d36643`, cargo 6/6):** `agent_runtime_v2::trinity_loop` — pure,
+  provider-free, tested. Roles Worker=0/Thinker=1/Verifier=2 (match the reference coordination-head logits);
+  Accept-terminates / honest budget-exhaust; JSONL trace (schema_version 1, 8 event kinds); model calls plug in
+  via injected `TrinityRoleExecutor`. naming_lint 49/49, no new warnings.
+- REMAINS (sequenced): slice 2 = OpenAI-compat provider boundary + heuristic RuntimeRouter selection into the
+  executor; slice 3 = trace → Swift TraceCollector; then expose as the internal orchestrator API across
+  act/work/chat. LEARNED router gated on license (owner H1 TODO: clear adapted-weights license w/ nshkrdotcom,
+  or re-derive from Apache Qwen3-0.6B). Heuristic-vs-learned state disclosed honestly.
