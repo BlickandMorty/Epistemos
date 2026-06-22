@@ -132,12 +132,23 @@ public actor CoreModelService {
         prompt: String,
         systemPrompt: String? = nil,
         temperature: Double = 0.3,
-        maxTokens: Int = 2048
+        maxTokens: Int = 2048,
+        requestedModel: String? = nil
     ) async throws -> AsyncThrowingStream<String, Error> {
         try checkBreakerOrEnterHalfOpen()
 
-        let configured = await MainActor.run {
-            ChatConfigurationStore.load().coreModelIdentifier
+        // EPISTEMOS act P0-A (owner 2026-06-22): a per-request model (the act
+        // surface's SELECTED model) OVERRIDES the configured core model, so the
+        // owner's chosen model is the one generated — routed via ModelServiceRouter
+        // (the model bridge handles the owner's models). Falls back to the
+        // configured `coreModelIdentifier` only when no per-request model is given.
+        let configured: String?
+        if let requestedModel, !requestedModel.isEmpty {
+            configured = requestedModel
+        } else {
+            configured = await MainActor.run {
+                ChatConfigurationStore.load().coreModelIdentifier
+            }
         }
         guard let model = configured, !model.isEmpty else {
             throw CoreModelError.modelUnavailable("none")
