@@ -1698,3 +1698,15 @@ bug-1 done). BUT:
 3. Title-gen artifact + click-search→Osaurus-landing still open.
 PRIORITY: (a) make the send actually WORK (root, runtime-verified), (b) build the new UI direction. The owner
 is blocked on a WORKING act in their UI — point-fixes on the old surface don't deliver that.
+
+## ✅ pass 30 — locked UI direction STARTED + likely send fix; WATCH the re-mounted-host regressions (2026-06-22)
+41081f4f9 mounts EpistemosOsaurusChatHost (genuine Osaurus ChatView, reskinned, IN-PROCESS gen) as act,
+replacing the old ChatView() — the locked direction, started. In-process gen likely RESOLVES the requestFailed
+send-fail (that was the HTTP path). GOOD. Remaining for act:
+1. **WATCH/RE-APPLY: the white-bar + click-opens-search leak.** When the host was mounted in passes 1-8 it had
+   that bug, fixed by d427ee60d (showingOsaurusSurface suppresses the leaked landing toolbar); option-(b)
+   reverted that. The re-mount (41081f4f9) may RE-INTRODUCE the white bar + click-search-not-landing UNLESS the
+   d427ee60d toolbar-suppression is re-applied for the host. Verify it's re-applied; if not, re-add.
+2. **The 3 grafts:** message bar, side panel, scroll-blur onto the host (owner must-keeps).
+3. **OWNER RUNTIME-VERIFY:** does the send now WORK (in-process) + does it look like Osaurus-reskinned + are the
+   white-bar/search bugs gone? Build-green ≠ done — owner Pro launch confirms.
