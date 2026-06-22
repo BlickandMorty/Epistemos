@@ -6,9 +6,6 @@ import SwiftUI
 struct ActOsaurusHealthRow: View {
     private var status: ActOsaurusGateStatus.Status { ActOsaurusGateStatus.status() }
     @State private var osaurusCoreStatus: String?
-    // In-app toggle state (owner §806). Seeded from the resolved arm-state so the switch reflects reality on
-    // open; flipping it writes the UserDefaults override the router resolves — act switches live, no relaunch.
-    @State private var actOsaurusOn: Bool = ActOsaurusGateStatus.resolvedActive()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -26,22 +23,10 @@ struct ActOsaurusHealthRow: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             #if !EPISTEMOS_APP_STORE
-            // Owner §806: the EASY in-app toggle so Act-through-Osaurus can be experienced without setting an
-            // env var + relaunching. Writes the gate override (override > env > off); the router resolves it
-            // live so flipping this switches Act for the next turn. Pro builds only (Osaurus is Pro-gated).
-            Toggle(isOn: Binding(
-                get: { actOsaurusOn },
-                set: { newValue in
-                    actOsaurusOn = newValue
-                    ActOsaurusGateStatus.setOverride(newValue)
-                }
-            )) {
-                Text("Use Osaurus for Act (experimental)")
-                    .font(.caption.weight(.medium))
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .padding(.top, 2)
+            // ACT = OSAURUS IS THE CHAT (owner 2026-06-22): the experimental
+            // "Use Osaurus for Act" opt-in toggle is REMOVED — act IS the Osaurus
+            // chat surface, not an optional engine swap behind a safety switch.
+            // This row now shows the honest engine status only (no opt-in).
 
             // Pro builds only: when both the Act-Osaurus flag AND the osaurus-pattern
             // local server are enabled, show the REAL OpenAI-compatible endpoint Act

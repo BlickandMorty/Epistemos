@@ -740,7 +740,7 @@ experimental gate).
     these same packages and builds GREEN. So this is a MAS-target explicit-modules package-resolution issue that
     predates the act work. Filed under the MAS-full-capability track; re-building to "fix" it from the act side
     would be build-thrashing since the act source delta can't be the cause. **NOT claiming MAS green.**
-- [~] **Step-3 reskin the Osaurus surface to the Epistemos palette — IMPLEMENTED, pending Pro verify** — the
+- [x] **Step-3 reskin — Pro GREEN, committed `1b425eafa`** — the
   host now applies an Epistemos `CustomTheme` (cream/monospace) via `ThemeManager.applyCustomTheme(persist:false)`
   on appear; every Osaurus view reads `ThemeManager.shared.currentTheme` so the whole surface (thread/composer/
   sidebar/model-picker) reskins. Faithful to Epistemos `.systemLight`: text `#1c1c1e`, muted `#6e6e73`, ink
@@ -748,8 +748,17 @@ experimental gate).
   to Osaurus theme storage); additive (no Osaurus-type change). Inits verified (`ThemeGlass(enabled:)`,
   `ThemeMetadata`, `ThemeColors` named-param template). Sequenced behind the MAS verify to avoid two concurrent
   xcodebuilds; commit on Pro green.
-- [ ] **Step-4 work toggle (act↔work product toggle, NOT a safety gate) + remove the experimental opt-in** —
-  delete `ActOsaurusHealthRow` "experimental" UI + the default-OFF act gate; add the real act↔work toggle.
+- [x] **Step-3b runtime bootstrap (make it WORK)** — root-caused the owner's "Osaurus isn't working / send
+  errors": standalone Osaurus runs launch-time registration in its own `AppDelegate`
+  (`ConfigurationDomainBootstrap.registerBuiltIns` = Provider/Model/MCP/Plugin/Schedule/Agent config domains,
+  `DocumentAdaptersBootstrap.registerBuiltIns`), which Epistemos's `AppDelegate` never runs. The host now runs
+  both on first appear (idempotent latches, side-effect-free — NO server/Sparkle/login-item; the chat generates
+  in-process via `ChatEngine → MLXService`, so the HTTP server is not needed). Full send-verification (model
+  present + streaming) needs the owner's running app — no computer-use in this loop.
+- [~] **Step-4 remove the experimental "safety" toggle + add the real act↔work toggle** — DONE: removed the
+  `ActOsaurusHealthRow` "Use Osaurus for Act (experimental)" opt-in switch (owner: "why is there a safety in
+  this?") — the row is honest status only now. PENDING: the real act↔work PRODUCT toggle on/near the chat
+  surface ("a toggle to open the work as well"), separate from the removed safety gate.
 - [ ] **Step-5 collapse `CoworkChatMode` Chat/Act depth axis** — preserve Fast/Think/Code tier reach.
 - [ ] **Step-6 delete old Epistemos `ChatView`** once the host is verified (keep IP only — no fallback scaffold).
 - [ ] **Step-7 fix act send errors + `<think>` regression on the live path; verify a real send/receive.**
