@@ -62,6 +62,12 @@ the forbidden "parallel that won't integrate" — DO NOT build one.** Inversion 
 no-regress bar on the 120fps Prose editor. CERTAIN, needs a focused app-buildable context (not a ~15-min-
 per-build loop tick). FIRST step there: close the projector's LOSSY gap (PM→md→PM must preserve block IDs +
 the node/mark set) so md is faithful enough to BE canonical, BEFORE flipping which entry is required. | dedicated context: close projector lossy gap → flip canonical → migrate; no toy, no parallel parser |
+**LOSSY-GAP CLOSURE STARTED (incremental, §763):** the FIRST MD-V2 step (improve PM→md projector fidelity) is
+loop-appropriate (non-visual, unit-testable) — NOT the canonical flip. Closed two real fidelity gaps the
+projector silently dropped (fell through `default`/unknown-mark): **strikethrough `~~` (`4a45173b9`)** — Tiptap
+StarterKit Strike was lost; **GFM tables (`cc64cff96`)** — Tiptap ships table extensions but the projector had no
+`table` case → tables lost ALL structure; new `projectTable` emits header+separator+body. Both with real-state
+round-trip tests. More node/mark coverage = md closer to faithful-enough-to-be-canonical.
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
