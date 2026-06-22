@@ -993,3 +993,17 @@ decompose ANY ChatView (old Epistemos OR Osaurus OsaurusChatView). Concrete 5-po
 (cream landing+pill+toolbar, click-anywhere→act + NO search page, act native chrome, working send no hang, kill
 chat duality). NOTE: new agent commit a48198c5e (49s) not yet audited — will audit next fire. Edited driver+paste+
 queue-0.17+addendum (owner authorized recursive prompt edit); verifying commit touches only intended files.
+
+## PASS 65 — 2026-06-22 (iter19 PIVOT INGESTED correctly; but BUILD still 14:37 — delivery clock armed)
+Audited a48198c5e (iter19): PASS on orientation — correctly ingested the architecture pivot, log states "act UI =
+NATIVE Epistemos views LINKED to the Osaurus ENGINE... mount+reskin (EpistemosOsaurusChatHost mounting 6077-line
+ChatView) is ABANDONED." No fake-green, no ChatView drift, aligns with my pass-64 recursive fix. The mount/reskin/
+decompose thrash is resolved — agent + all docs now agree: native UI + engine only.
+LIVE SCREENSHOT (owner_state_3, build 14:37): UNCHANGED from pass-63 — dark "Greetings, Researcher" landing, no
+cream/native-chrome/pill, click→search bottom bar, Act/Work toggle. Owner's 5-point acceptance = 0/5 visible.
+CONCERN: build stuck at 14:37 ~1.5hr; iter10-19 were re-orient/scope/ingest, NO new build shipped. Agent now
+correctly oriented + contradiction removed → clock RESETS clean. DELIVERY WATCH (decisive): NEXT FIRE the build
+MUST advance (new binary) with native act UI verified on a FRESH launch (kill→rebuild→open→screencapture). If
+build is STILL 14:37 / still dark-landing-no-native next fire, the agent is stuck scope-not-ship DESPITE a clean
+unambiguous direction → log prominent ESCALATION for the owner (autonomous agent can't execute this; owner should
+drive the one native-view build directly on return). VERDICT: PASS-orientation / WATCH-delivery. Did NOT touch agent code.
