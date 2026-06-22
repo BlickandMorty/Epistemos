@@ -64,3 +64,21 @@ path/model is failing.
   prompt logging. Pure detection (string + array shapes), 4 real-state tests. → When the owner runs the app,
   the log immediately answers "does the refusing model have a chat_template?" — turning the remaining runtime
   step into a one-glance diagnosis.
+
+## 2026-06-22 — ROOT-CAUSE MECHANISM pinned (GGUF reasoning-dialect) — strongest lead, explains BOTH symptoms
+Traced the GGUF chat-template handling to pure Rust (`model_profile::PromptDialect` → `bridge.rs` GGUF build).
+**ONE mechanism explains BOTH symptoms:** a Think-tier reasoning model with `PromptDialect::None` gets NO
+llama.cpp template override AND NO stop tokens (`stop_tokens()==&[]`) → relies entirely on the embedded GGUF
+template. If that's broken/absent (the SS-W scenario):
+- (A) no role-framing → malformed prompt → universal "I can't assist" refusal;
+- (B) no `<|im_end|>`-style stop token → a 30-token title gen never stops → dumps raw `<think>` + meta-prompt.
+**VibeThinker-1.5B IS `PromptDialect::None` + Think tier** (verified `model_profile.rs:265`) → hits exactly this.
+- DIAGNOSTIC (`0225f18d9`): `reasoning_dialect_risk_warning()` (pure, tested) flags it; logged via tracing::warn
+  at the GGUF build site. NON-BEHAVIOR-CHANGING (no blind dialect change — owner confirms the correct template).
+- **OWNER FIX (one-glance, when running a model):** confirm VibeThinker's correct chat format (likely **chatml**,
+  as VibeThinker is Qwen2.5-based) → set its `prompt_dialect` from `None` to the right dialect (e.g. `Chatml`,
+  which yields the `chatml` llama.cpp override + `<|im_end|>`/`<|endoftext|>` stop tokens). That single change
+  would fix BOTH the refusal (role-framing) and the title leak (clean stop). Verify across the other
+  `PromptDialect::None` reasoning models (DeepSeek-R1-Distill) too.
+- Both local lanes now have a load/build-time diagnostic (MLX `ChatTemplateDiagnostic` 67e82080f + GGUF here),
+  so the cause is pinned automatically the moment a model runs.
