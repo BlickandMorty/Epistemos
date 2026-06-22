@@ -58,6 +58,7 @@ pub mod run_event_log;
 pub mod system_g_runtime;
 pub mod trinity_executor;
 pub mod trinity_loop;
+pub mod trinity_orchestrator;
 pub mod trinity_routing;
 pub mod trinity_trace;
 pub mod variant_ladder;
