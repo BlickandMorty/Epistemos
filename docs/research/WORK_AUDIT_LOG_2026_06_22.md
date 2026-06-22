@@ -470,3 +470,15 @@ search bugs on it; runtime-verify.
 - **Not a graft.** Remaining act items: 3 grafts (message bar/side panel/scroll-blur) + OWNER RUNTIME-VERIFY
   (send works in-process + Osaurus-reskinned look + no white-bar/search).
 - **Verdict:** PASS, no re-add. Re-audit next commit for the grafts.
+
+## Pass 34 — 2026-06-22
+- **Build loop:** ALIVE (test-stabilization phase after the act-UI refactor). HEAD `39db28c6f` (2 min).
+- **39db28c6f + 6664347ce (stale-test fixes) → ✅ PASS (real updates, NOT weakening, tests-only):**
+  SettingsCategoryTests 17→19 (actClone+workClone per-clone settings tabs ADDED, directive 4); LandingOptimization
+  dropped obsolete preferSplitToolbarControls assertion (flag removed by flat pixel-art panel redesign d790bc81f;
+  label/tools intent still asserted); SubstrateHealthPanel 'session ring + durable log' (durable JSONL added),
+  conservatism still asserted via falsifierPassed:false; single-settings-entry after runtime-popover split. No
+  production code touched, main green.
+- **Real UI progress noted:** per-clone settings tabs (act/work) landed; flat pixel-art panel redesign (d790bc81f).
+- **Remaining act:** 3 grafts (message bar/side panel/scroll-blur) + OWNER RUNTIME-VERIFY.
+- **Verdict:** PASS, no re-add. Watch loop delivers the grafts (not stuck in test-churn). Re-audit next commit.
