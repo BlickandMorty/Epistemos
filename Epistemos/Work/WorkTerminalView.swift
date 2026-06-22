@@ -14,12 +14,37 @@ import SwiftTerm
 
 #if os(macOS)
 
-/// The app's WORK terminal palette — cream paper + ink, monospace — matching the
-/// chat-reskin discipline (the full theme-responsive pass is a tracked follow-on).
-enum WorkTerminalTheme {
-    static let background = NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.92, alpha: 1.0) // cream paper
-    static let foreground = NSColor(calibratedRed: 0.13, green: 0.12, blue: 0.11, alpha: 1.0) // ink
-    static let font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+/// THEME-RESPONSIVE WORK terminal palette (owner 2026-06-21 §162: "OpenCode must be fully
+/// theme-responsive — match EVERY app theme AND respond LIVE to theme changes, incl. custom").
+/// Derived from the live `EpistemosTheme` so the terminal tracks the same tokens as the rest of
+/// the app; rebuilt on every theme change (UIState is @Observable → the host re-renders → the NSView
+/// re-applies). Monospace is kept (a terminal is monospace by definition) but its color follows the
+/// theme. A default (cream/ink) is provided only as a non-themed fallback for previews/safety.
+struct WorkTerminalPalette: Equatable {
+    let background: NSColor
+    let foreground: NSColor
+    let cursor: NSColor
+    let font: NSFont
+
+    /// The app default — cream paper + ink (used only when no theme is in the environment).
+    static let `default` = WorkTerminalPalette(
+        background: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.92, alpha: 1.0),
+        foreground: NSColor(calibratedRed: 0.13, green: 0.12, blue: 0.11, alpha: 1.0),
+        cursor: NSColor(calibratedRed: 0.13, green: 0.12, blue: 0.11, alpha: 1.0),
+        font: NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+    )
+
+    /// Map the live app theme → terminal colors. The terminal background/foreground follow the
+    /// theme's own background/foreground tokens; the cursor follows the accent — so a custom theme
+    /// (any palette) drives the terminal too.
+    static func from(theme: EpistemosTheme) -> WorkTerminalPalette {
+        WorkTerminalPalette(
+            background: theme.resolved.background.nsColor,
+            foreground: theme.resolved.foreground.nsColor,
+            cursor: theme.resolved.accent.nsColor,
+            font: NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        )
+    }
 }
 
 /// SwiftTerm wants the environment as `["KEY=VALUE"]`, not a dictionary. Pure +
@@ -47,15 +72,16 @@ extension WorkShellLaunchSpec {
     }
 }
 
-/// The native terminal NSView, themed, that spawns the launch spec's process in a PTY.
+/// The native terminal NSView, THEME-RESPONSIVE, that spawns the launch spec's process in a PTY.
+/// The palette is re-applied on every SwiftUI update so a LIVE theme change (incl. custom) recolors
+/// the running terminal without relaunching the process (owner 2026-06-21 §162).
 struct WorkTerminalView: NSViewRepresentable {
     let spec: WorkShellLaunchSpec
+    let palette: WorkTerminalPalette
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         let term = LocalProcessTerminalView(frame: .zero)
-        term.nativeBackgroundColor = WorkTerminalTheme.background
-        term.nativeForegroundColor = WorkTerminalTheme.foreground
-        term.font = WorkTerminalTheme.font
+        applyPalette(palette, to: term)
         term.startProcess(
             executable: spec.executableURL.path,
             args: spec.arguments,
@@ -67,7 +93,16 @@ struct WorkTerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
-        // The PTY process owns its own lifecycle; nothing to push on SwiftUI updates.
+        // Re-apply the (possibly changed) theme palette LIVE — recolors the running PTY in place.
+        // The PTY process owns its own lifecycle; only the colors/font follow the theme.
+        applyPalette(palette, to: nsView)
+    }
+
+    private func applyPalette(_ palette: WorkTerminalPalette, to term: LocalProcessTerminalView) {
+        term.nativeBackgroundColor = palette.background
+        term.nativeForegroundColor = palette.foreground
+        term.caretColor = palette.cursor
+        term.font = palette.font
     }
 }
 
@@ -78,20 +113,25 @@ struct WorkTerminalHostView: View {
     /// Workspace the work session is rooted at (the open vault/project dir).
     let workspace: URL
 
+    // Live app theme — reading it makes the terminal recolor on EVERY theme change (incl. custom),
+    // since UIState is @Observable (owner 2026-06-21 §162, fully theme-responsive).
+    @Environment(UIState.self) private var ui
+
     private var gate: WorkOpenCodeShellGateStatus.Status { WorkOpenCodeShellGateStatus.status() }
     private var shell: WorkOpenCodeShell { WorkOpenCodeShellFactory.resolve() }
     private var smokeEnabled: Bool {
         WorkOpenCodeShellGateStatus.isEnabled(ProcessInfo.processInfo.environment["EPISTEMOS_WORK_TERMINAL_SMOKE"])
     }
+    private var palette: WorkTerminalPalette { WorkTerminalPalette.from(theme: ui.theme) }
 
     var body: some View {
         if let liveSpec = try? realShellSpec() {
-            WorkTerminalView(spec: liveSpec)
+            WorkTerminalView(spec: liveSpec, palette: palette)
         } else if smokeEnabled {
             // Owner's EARLY de-risk: a real login-shell PTY in the themed native view.
-            WorkTerminalView(spec: .smokeLoginShell(workspace: workspace))
+            WorkTerminalView(spec: .smokeLoginShell(workspace: workspace), palette: palette)
         } else {
-            WorkTerminalUnavailableView(detail: gate.detail)
+            WorkTerminalUnavailableView(detail: gate.detail, palette: palette)
         }
     }
 
@@ -102,27 +142,29 @@ struct WorkTerminalHostView: View {
     }
 }
 
-/// Honest placeholder shown when no real terminal can launch — themed, never faked.
+/// Honest placeholder shown when no real terminal can launch — theme-driven, never faked.
 struct WorkTerminalUnavailableView: View {
     let detail: String
+    let palette: WorkTerminalPalette
 
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: "terminal")
                 .font(.system(size: 28))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color(nsColor: palette.foreground).opacity(0.55))
             Text("Work terminal not wired yet")
                 .font(.callout.weight(.medium))
+                .foregroundStyle(Color(nsColor: palette.foreground))
                 .motionReveal()  // motion triad: display-only title
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color(nsColor: palette.foreground).opacity(0.7))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 360)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: WorkTerminalTheme.background))
+        .background(Color(nsColor: palette.background))
     }
 }
 
