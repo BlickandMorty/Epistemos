@@ -369,3 +369,12 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   3. SEND fails despite badge on = genuine generation failure (P0-A runtime, not build). Need: does an error
      appear on send (no-model → "Open Settings→Models" per ac8d3974e) or silence? → no-model vs hang.
 - Updated P0 with confirmed diagnosis; loop fixes the 3 specific bugs. Build-ambiguity removed.
+
+## Pass 26c (owner screenshot — PINPOINTED) — 2026-06-22
+- Act DID generate a real reply in-process (Gemma self-describe) → routing+models+generation WORK. Then errored
+  "ActOsaurusError error 2" = requestFailed (enum: 0 serverNotEnabled/1 transport/2 requestFailed/3 emptyResponse)
+  = the HTTP loopback-server path (:1337). But option-b act is IN-PROCESS (CoreModelService) — should NEVER hit
+  the HTTP requestFailed path.
+- ROOT-CAUSE LEAD given to loop: a stray secondary call (title-gen/follow-up/non-stream completion) likely routes
+  through HTTP runTurn(:1337) → requestFailed; route ALL act generation in-process; + map the raw error friendly.
+- This is the precise P0-A. Plus 2 UI bugs (duplicate toggle under greeting; click-search→Osaurus-landing).
