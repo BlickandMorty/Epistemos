@@ -338,3 +338,13 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   of env/flag, MAS always OFF) with meaningful assertions (not gutted). gateHonest made hermetic (was reading
   host .standard persisted override). Both suites green. = honest test-update to new intended behavior. Co-Authored.
 - **Verdict:** PASS. Act P0-A/P0-B code-complete + tests green; no red on main. Only owner live-send verify remains.
+
+## Pass 25 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `38cbef90b` "Item-4 proof: owner's models route through Osaurus chat" (4 min).
+- **AUDIT 38cbef90b → ✅ PASS (real behavioral test, no stub):** EpistemosModelBridgeTests (serialized,
+  process-global registry) — registers a FakeProvider, asserts EpistemosBridgedModelService is available,
+  handles ONLY owner model ids (declines nil/unknown/apple-foundation), actually STREAMS provider tokens, inert
+  when unregistered; #if DEBUG resetForTesting() prevents leak (release-excluded). Proves item-4 (owner models
+  in chat) at real-state. swift test 3/3 EXIT=0. Co-Authored.
+- **Verdict:** PASS. Act surface now CODE-COMPLETE + TEST-BACKED (routing invariants green pass 24 + model-bridge
+  routing proven pass 25). Only owner live runtime send (MLX generation in running Pro app) remains.
