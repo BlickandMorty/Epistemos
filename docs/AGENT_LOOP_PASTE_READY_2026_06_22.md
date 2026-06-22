@@ -48,7 +48,9 @@ beyond future clones (Tolaria, Epdoc-fuse, Tamagotchi render-fix).
    mini, graph, note, work landing, each settings tab). Stale fixed-path PNG without Read does NOT count. Owner is NOT checking.
 6. **5-gate bar** per item: (a) exists file:line · (b) on-plan · (c) wired — **distinct mount/route cite, NOT same
    file:line as (a)** (pass50 P1-b) · (d) real-state tested on **same live entry point as (c)**; cite test name +
-   **"0 skipped/ignored for this item"** (fail on new xfail/ignored touching certified code) · (e) runtime proven.
+   **"0 skipped/ignored for this item"** (fail on new xfail/ignored touching certified code) · (e) runtime proven
+   (UI: screencapture/send-text; headless substrate/orchestrator: live-path integration test + runtime artifact —
+   NOT cargo-test-only; see ARCHITECTURE_TIER_PROMOTION_CANON T4).
    Append to `docs/research/STRICT_RECERT_LOG_2026_06_22.md` under **`## Certification log` only**.
 7. **D1–D5 gate (0.8):** do NOT mark 0.1–0.7 `[x]` until matching D screencapture passes. **4.7 gated on D5.**
 8. **D4/settings is TIER-0** — per-clone matrix **0.21 is sole D4 owner** (Epistemos|act|work|beyond); 0.11/0.22 reference 0.21 only; do not defer to 4.1.
@@ -178,7 +180,7 @@ iteration before ending.
 ## W/B/S ACCEPTANCE GATES (pass49 P0-4/P0-6 — mirror queue)
 | Gate | Scope | Proof |
 |------|-------|-------|
-| **W1–W5** | Work (0.28, 1.2–1.9) | Work landing/TUI/settings PNG; **REQUIRED** work send harness (W4); no Electron |
+| **W1–W5** | Work (0.28, 1.2–1.9) | W1 binary+launch PNG · W2 TUI PNG · W3 palette match · W4 **REQUIRED** work harness · W5 toggle+blur (Electron=1.8) |
 | **B1–B3** | Beyond (0.30, 4.14) | Honest stub; Companion grep clean; stub ≠ `[x]` |
 | **S1–S5** | Substrate/orchestrator (2.1–2.8, 3.1–3.2) | Live-path integration test; AnswerPacket surfaced; NOT fake-green |
 
