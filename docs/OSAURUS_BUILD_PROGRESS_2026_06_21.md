@@ -957,3 +957,18 @@ visibility.
   Live send = owner's runtime check.
 - [ ] **4c — picker visibility:** surface the owner's model ids in the Osaurus model picker catalog (ModelManager)
   so they're selectable; routing then reaches `EpistemosBridgedModelService`. Live generation = owner's runtime check.
+
+### 🟦 MAS DUAL-BUILD (directive: full-capability) — OsaurusCore dep blocker FIXED (2026-06-22)
+Root cause of the MAS (`Epistemos-AppStore`) build failure: `ActOsaurusBridge.swift` guarded `import OsaurusCore`
+with bare `#if canImport(OsaurusCore)`. `canImport` can be TRUE on the MAS target (the module is built in shared
+DerivedData even though MAS does NOT link it), so the import compiled on MAS and pulled OsaurusCore's transitive
+deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/…) that MAS can't resolve.
+- [x] **FIX (validated):** guard the import with the BUILD-CONFIG condition — `#if !EPISTEMOS_APP_STORE &&
+  canImport(OsaurusCore)` (OsaurusCore is used only inside the `!EPISTEMOS_APP_STORE` seam). Also `#if`-guarded
+  `ActOsaurusActiveBadge`'s `.task` (it uses the Pro-only `ActOsaurusBridgeFactory`; the badge is hidden on MAS
+  anyway). RESULT: the OsaurusCore-transitive dep errors are GONE — **MAS now compiles clean**; Pro unchanged (EXIT=0).
+- [ ] **REMAINING (separate, pre-existing — same canImport pattern):** MAS LINKER error — `WorkTerminalView`
+  (`import SwiftTerm`, uses `LocalProcessTerminalView`) is in MAS sources but SwiftTerm is Pro-only → undefined
+  symbol. Fix: `#if !EPISTEMOS_APP_STORE`-guard `WorkTerminalView` + its SwiftTerm import; `WorkTerminalHostView`
+  falls to the unavailable-view on MAS (where it's never instantiated). Then MAS links. (Sequenced after the
+  auditor's active P0-B act work.)

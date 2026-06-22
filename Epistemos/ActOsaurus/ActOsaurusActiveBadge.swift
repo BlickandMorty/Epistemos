@@ -43,7 +43,13 @@ struct ActOsaurusActiveBadge: View {
             .frame(maxWidth: 340, alignment: .leading)
         }
         .task {
+            // OsaurusCore engine status is a Pro-only seam (ActOsaurusBridgeFactory
+            // lives inside `#if !EPISTEMOS_APP_STORE`). On MAS the badge is never shown
+            // anyway (gated on shouldRouteActThroughOsaurus), so skip the fetch there
+            // and keep the struct compiling on the App Store target.
+            #if !EPISTEMOS_APP_STORE
             engineStatus = await ActOsaurusBridgeFactory.resolve().osaurusCoreStatusDescription()
+            #endif
         }
     }
 }
