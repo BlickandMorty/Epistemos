@@ -22,9 +22,19 @@
 > Epistemos|act|work|beyond). Items 0.11/0.22/4.1 reference 0.21 — do NOT duplicate the D4 obligation elsewhere;
 > do NOT defer D4 to queue 4.1 while leaving TIER 0.
 
-THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION. Each item POINTS to its plan section
-(read ONLY that section for the current item). Authority =
-docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).
+THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION — it is the INDEX, NOT the plan.
+
+**THE PLAN = the FULL multi-feature spec (4000+ lines of raw implementation, the owner's VERBATIM intent — work
++ Osaurus/act + ALL clones + MD-V2/Epdoc + substrate + IP + orchestrator + graph + everything; act/Osaurus is
+ONE part, NOT the whole).** It is too long to re-read every loop — THAT is why this queue exists (it indexes the
+plan). Authority chain (highest→lowest), all CURRENT (not stale):
+1. `docs/architecture/PLAN_V2.md` — architectural authority
+2. `docs/OWNER_REQUESTS_LEDGER_2026_06_18.md` (~4500 lines) — the owner's VERBATIM intent / raw multi-feature plan
+3. `docs/EPISTEMOS_FUSED_v3.md` — full build spec
+4. `docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md` — recent act/clone directives (newest 🔴 wins on conflict)
+For the CURRENT item: read its `→plan:` section AND grep the feature's VERBATIM spec in PLAN_V2 / the LEDGER (do
+NOT re-read all 4000+ lines — read the item's slice). **IMPLEMENT EVERYTHING in the plan (all tiers 0–5, all
+features), not just act.** The owner's landing/act/work-chat look is ALREADY verbatim in the plan — build to it.
 
 RULES (every loop, non-negotiable):
 - **STEP-0 RESET (pass49 — enforced):** On first iteration of each recert phase AND whenever any `[x]`/`[~]`

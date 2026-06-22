@@ -1148,3 +1148,14 @@ act; indistinguishable-from-old-chat; kill duality; multi-surface), computer-use
 Desktop refs, send-harness, no-red, auditor-watches. Auditor prompt = docs/AUDITOR_LOOP_PROMPT_2026_06_22.md
 (pass-72, comprehensive). NOTE for owner: run ONE auditor — stop this session's cron (34ea6526) when the new
 auditor starts. Did NOT touch agent code.
+
+## PASS 75 — 2026-06-22 (FINAL: anchor BOTH prompts on the LARGE multi-feature PLAN, not just act/Osaurus)
+Owner clarified definitively: THE PLAN = the large multi-day-researched 4000+ line raw multi-feature spec (work +
+Osaurus/act + ALL clones + MD-V2/Epdoc + substrate + IP + orchestrator + everything); act is ONE part. Too long
+to reread → queue is the index (that's why it exists). Identified the plan authority chain: PLAN_V2.md (1634,
+architectural) + OWNER_REQUESTS_LEDGER_2026_06_18.md (4498, verbatim intent) + EPISTEMOS_FUSED_v3.md (1044, build
+spec) + addendum (recent). Confirmed WORK_QUEUE already indexes all tiers 0-5 (act/work/substrate/orchestrator/
+clones-MD-V2/distribution). FIXED the bug (prompts referenced only the addendum, never the full plan): added the
+full-plan authority chain + "implement EVERYTHING, read the item's plan slice, plan is current not stale" to the
+WORK_QUEUE banner + the AUDITOR_LOOP_PROMPT + the Codex goal. Updated docs/CODEX_BUILD_GOAL_2026_06_22.md (3875
+bytes <4000) with THE PLAN block. Delivered both final paste-ready prompts (builder + auditor). Did NOT touch agent code.
