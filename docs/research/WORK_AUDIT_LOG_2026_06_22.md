@@ -444,3 +444,13 @@ search bugs on it; runtime-verify.
   d427ee60d toolbar-suppression is re-applied. Verify / re-add if regressed.
 - **Remaining:** 3 grafts (message bar/side panel/scroll-blur); OWNER RUNTIME-VERIFY (send works + Osaurus-reskinned look + no white-bar/search bug).
 - **Verdict:** PASS — both big items advanced (UI direction + probable send fix). Watch the re-mount regressions + grafts + runtime.
+
+## Pass 31 — 2026-06-22 — re-mount regression fixed + anti-revert guards
+- **Build loop:** ALIVE (xcode=1). HEAD `725e2036f` (5 min). Three commits, all real, Pro EXIT=0, Co-Authored.
+- **9b43d37e9 (re-apply white-bar/search fix) → ✅ PASS (real+improved):** confirmed the re-mount regression
+  (showingOsaurusSurface absent → leaked landing toolbar = white bar + search); re-applied + CORRECTED the
+  condition for the new mount (ui.homeTab==.home && shouldRouteActThroughOsaurus, not just !chat.showLanding).
+- **fe98626cb + 725e2036f (source-guards) → ✅ PASS:** ActSurfaceOsaurusUIDirectionGuardTests locks the new UI
+  direction + the white-bar fix against revert → the option-b-style churn that reverted these can't silently recur.
+- **Verdict:** PASS — pass-30 watch-item resolved + hardened against recurrence. Remaining: the 3 grafts (message
+  bar/side panel/scroll-blur); OWNER RUNTIME-VERIFY (send works in-process + Osaurus-reskinned look + no white-bar/search).
