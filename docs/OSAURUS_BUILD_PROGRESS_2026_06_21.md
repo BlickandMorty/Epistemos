@@ -95,11 +95,12 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     `graph.search_semantic/fulltext` + `graph.get_node` + `graph.traverse` + `graph.create_node/edge` +
     `graph.commit_session` — agents already traverse/query/build the graph. (Remaining: ensure it's
     populated FROM vault notes+links end-to-end.)
-  - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink graph DONE — `vault.backlinks`
-    (`d6472fe2b`, in-links) + `vault.outlinks` (`bb52bcbee`, out-links) MCP tools over a shared `parse_wikilinks`
-    (alias/heading-aware, basename-matched, traversal-safe), 13/13 tests + CATALOG-REGISTERED (`d481f38ee`,
-    discoverable via tools/list, no dead surface). Agents have the full in/out link graph.
-    REMAINS: brain-powered SEMANTIC backlinks / LLM-suggested links (Eidos/recall/provenance) layered on top.
+  - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink suite COMPLETE — `vault.backlinks`
+    (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved/
+    "create-or-fix") MCP tools over a shared `parse_wikilinks` (alias/heading-aware, basename-matched,
+    traversal-safe), CATALOG-REGISTERED (`d481f38ee`, discoverable), 180/180 omega-mcp tests. Agents have the
+    full link graph + unresolved-link health. REMAINS: brain-powered SEMANTIC backlinks / LLM-suggested links
+    (Eidos/recall/provenance) layered on top of this mechanical foundation.
   - [ ] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator) — NEW.
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
