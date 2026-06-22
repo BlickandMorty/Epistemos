@@ -635,3 +635,16 @@ higher-capability work engine: headless = zero Cargo dep-merge + crash isolation
 STRATEGIC: ~2/3 of infra is ADOPT/HYBRID; concentrate ALL owner effort on the IP ~1/3 (brain, native editors
 Prose+MD-V2, graph+Metal, model lab, UI/motion). DEEP CITED pass owed when API recovers (repo URLs/license +
 "anything-else" + Talaria) — refines, won't change C.
+
+## ⚖️ VERDICT — why OpenCode beats Goose-Rust for WORK (owner 2026-06-21)
+Goose-Rust wins are ENGINE-INTERNAL (per-line memory/type safety, in-proc footprint/speed, brain-in-proc).
+OpenCode wins are PRODUCT-level + SYSTEM-level and OUTWEIGH them for WORK: (1) more MATURE coding engine
+(75+ providers, built-in LSP, fork/share, undo-redo); (2) keeps the LITERAL terminal UI owner set in stone;
+(3) ZERO Cargo dep-merge (Goose-in-proc = the 179-dep/reqwest-conflict/build-red saga); (4) CRASH ISOLATION —
+the reframe that flips "Rust = robust": an in-proc Goose bug can crash the WHOLE app; OpenCode in its own
+process is CONTAINED, so at the SYSTEM level the process boundary gives OpenCode BETTER fault-isolation than
+in-proc Rust. Rust's per-line safety is real but doesn't stop the engine from aborting the app; isolation does.
+Footprint (Bun ~90MB) is bounded (lazy-launch + kill-on-idle = $0 when idle). AND Rust isn't abandoned: act
+engine (Osaurus) + brain (agent_core) + Goose's unique-bit TOOLS stay Rust; only the work-shell ENGINE is
+OpenCode, quarantined in its own process. → Rust-ness is NOT enough to win here because the robustness that
+reaches the USER is system-level (isolation), not per-line. C stands.
