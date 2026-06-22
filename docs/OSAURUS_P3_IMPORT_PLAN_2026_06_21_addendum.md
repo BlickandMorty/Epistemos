@@ -1330,3 +1330,43 @@ or already in the 194-item ledger).
 (2) APP "brain-2" half = the LIVE substrate (mostly already shipped), (3) the remainder = a SHORT enumerated
 safe tail (3 wirings + the GUS/UNIFY/Helios panels & hardening). The build agent builds that tail, hardened,
 after P0 + act/work. NO further research cycles — the sweep is DONE.
+
+## 🔴🔴 ACT = OSAURUS IS THE CHAT — NO TOGGLE, NO REUSE-OLD-CHATVIEW (owner 2026-06-22) — SUPERSEDES §29/§222/§806
+Owner (emphatic): ACT must BE the Osaurus chat surface itself — the FULL Osaurus UI CLONE, reskinned to the
+Epistemos theme — NOT the old Epistemos ChatView with an Osaurus engine behind an opt-in toggle. There is NO
+on/off switch (it's literally the chat, not optional). Delete the old chat — owner does NOT need it and does
+NOT want a scaffold/temporary hold. "Delete the shit and clone it." VERIFIED divergence: toggle "Use Osaurus
+for Act (experimental)" exists (ActOsaurusHealthRow.swift:39), gate defaults OFF (ActOsaurusGateStatus), RootView.swift:2634
+still mounts Epistemos `ChatView()`, and the real Osaurus UI (LocalPackages/osaurus/.../Views/, 220 files incl.
+Chat/ChatView.swift) is vendored but UNWIRED.
+
+### THIS SUPERSEDES (resolve the conflict — these were wrong/outdated for the product):
+- **§806 (the in-app toggle)** — was TEMPORARY testability scaffolding; it OUTLIVED its purpose. REMOVE it.
+  Osaurus is the default chat (Pro), NO owner-facing on/off. (A hidden Diagnostics-only override is the most
+  that may remain — not a product toggle.)
+- **§29 surface-wiring "reuse the proven Epistemos chat front-end as act's UI"** — WRONG for the product. ACT
+  mounts the OSAURUS UI clone, not the old ChatView.
+- **§222 reskin "current Epistemos chat UI wins, add Osaurus underneath"** — REFRAME: mount the OSAURUS
+  ChatView and RESKIN IT to the Epistemos look/discipline (cream palette, monospace bubble, model picker w/
+  logos, etc. — keep the AESTHETIC the owner loves) — but it's the OSAURUS surface/code, not the Epistemos
+  ChatView with an engine swap.
+
+### THE BUILD (the real thing — replaces the toggle/engine-swap path):
+1. **MOUNT the Osaurus chat UI as THE chat surface** — host LocalPackages/osaurus/.../Views/Chat/ChatView.swift
+   (+ composer/thread/ModelPickerView) with EpistemosTheme injection; RootView routes act → the Osaurus host,
+   NOT `ChatView()`. Port "Epistemos Picks" into Osaurus's ModelPickerView; bridge sessions/vault/Eidos/provenance.
+2. **REMOVE the toggle** — Osaurus default-ON (Pro), no experimental opt-in; delete the toggle UX + "experimental" copy.
+3. **COLLAPSE Chat/Act duality** — remove the CoworkChatMode Chat-vs-Act depth axis + RootView depthToggleSection;
+   one conversational surface (Osaurus act) + work. Keep act/work as the only mode axis.
+4. **DELETE the old Epistemos chat surface** (Epistemos/Views/Chat/ChatView.swift etc.) once the Osaurus host
+   works — owner authorizes deletion now; do NOT keep it as a fallback/scaffold (owner: "no need, delete it").
+   PRESERVE only the IP/logic (per the quarantine doc — IP ported, surface deleted). Sequence so there's always
+   a working surface (mount Osaurus host → verify send/receive → delete old), but with NO toggle limbo.
+5. **FIX the act errors** — owner reports act doesn't work (errors on send). This includes the P0 reasoning-model
+   `<think>` regression on the live path. Fix as part of mounting the real surface; computer-use self-verify a
+   real send/receive before claiming done.
+6. **Same pattern for WORK/OpenCode** — full section replacement (real TUI), no experimental toggle, once runtime bundled.
+MAS NOTE: the Pro-gating is technical-debt vs §151 (MAS-non-restrictive), not product intent — track the
+MAS-safe OsaurusCore split so MAS also gets Osaurus-as-chat (no owner toggle anywhere). PRIORITY: this is the
+ACT-surface P0 — the act/work VISIBLE-surface work the plan already sequences after the chat-regression P0.
+Honest: ENGINE work is real + done; the UI-clone + ontology-collapse + toggle-removal are the missing pieces.
