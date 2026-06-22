@@ -2707,52 +2707,28 @@ private struct HomeRouter: View {
                     // work via the bridge. Replaces option-(b)'s old-ChatView mount for act.
                     // D2/§1886: Epistemos LandingView FIRST → press → blur → act host.
                     if actEntered {
-                        EpistemosOsaurusChatHost()
-                            // D6 (owner P0 §pass58b): back-navigation from act → returns to the
-                            // Epistemos landing. Interim native affordance; folds into the §1 native
-                            // shell toolbar later. Top-trailing to clear Osaurus's left sidebar header
-                            // + the window traffic lights.
-                            .overlay(alignment: .topTrailing) {
-                                Button {
-                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
-                                        actEntered = false
-                                    }
-                                } label: {
-                                    Image(systemName: "chevron.backward")
-                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 7)
-                                }
-                                .buttonStyle(.plain)
-                                .background(.ultraThinMaterial, in: Capsule())
-                                .overlay(Capsule().stroke(.primary.opacity(0.12), lineWidth: 1))
-                                .padding(.trailing, 14)
-                                .padding(.top, 46)
-                                .accessibilityIdentifier("act.back")
-                                .accessibilityLabel("Back to landing")
-                                .help("Back to landing")
+                        // ACT ARCHITECTURE PIVOT (owner P0 §1994/§2029): NATIVE Epistemos act view
+                        // (cream/monospace by construction — no theme cascade) driving the Osaurus
+                        // ENGINE in-process via the CERTIFIED 0.4 link (`OsaurusActBridge.
+                        // runTurnStreamingInProcess` → CoreModelService.generateStream). This is
+                        // "fresh native views" — NOT the mounted Osaurus ChatView (the wall) and
+                        // NOT the old Epistemos ChatView (option-b). Native toolbar carries D6 back + D3 pill.
+                        NativeActChatView(onBack: {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
+                                actEntered = false
                             }
-                            .transition(.blurFade())
+                        })
+                        .transition(.blurFade())
                     } else {
-                        ZStack(alignment: .bottom) {
-                            LandingView()
-                            Button {
-                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
-                                    actEntered = true
-                                }
-                            } label: {
-                                Label("Enter act", systemImage: "arrow.forward.circle.fill")
-                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
+                        // THE ONE CRISP TARGET (owner P0 §2048): native CREAM landing in native
+                        // chrome (cream + toolbar + pill), CLICK-ANYWHERE → ACT (NO search page).
+                        // Fresh native view (§2029) — cream by construction; replaces the dark
+                        // search-first LandingView on the act surface.
+                        NativeActLandingView(onEnter: {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
+                                actEntered = true
                             }
-                            .buttonStyle(.plain)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .overlay(Capsule().stroke(.primary.opacity(0.12), lineWidth: 1))
-                            .padding(.bottom, 22)
-                            .accessibilityIdentifier("act.enter")
-                            .accessibilityLabel("Enter act")
-                        }
+                        })
                         .transition(.blurFade())
                     }
                 } else if showChat {
