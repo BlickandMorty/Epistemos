@@ -29,20 +29,29 @@ screencapture -x docs/research/osa_runtime_2026_06_22.png
 
 Then `Read` the file. Re-capture after every act-surface fix and note delta in STRICT_RECERT_LOG.
 
+## PNG freshness rule (pass50 P1-c — every iteration)
+
+- Use **unique paths per iteration:** `/tmp/epi_iter<N>_<surface>_YYYYMMDD-HHMM.png` (or
+  `docs/research/screencaps/iter<N>/` if committing artifacts).
+- **Log capture timestamp** (ISO8601) in STRICT_RECERT_LOG alongside each PNG Read.
+- **Read PNG this iteration** — a stale file at a fixed path without Read does NOT satisfy runtime gate (e).
+- Ground-truth alias `docs/research/osa_runtime_2026_06_22.png` must be **re-captured when cited**, not reused unread.
+
 ## Per-surface captures (mandatory for 0.2 / 0.5)
 
-| Surface | Suggested path |
-|---------|----------------|
-| Main act | `/tmp/epi_act_main.png` |
-| Mini chat | `/tmp/epi_act_mini.png` |
-| Graph chat | `/tmp/epi_act_graph.png` |
-| Note chat | `/tmp/epi_act_note.png` |
-| Landing (pre-blur) | `/tmp/epi_landing.png` |
-| Settings (D4) | `/tmp/epi_settings.png` |
+| Surface | Suggested path pattern |
+|---------|------------------------|
+| Main act | `/tmp/epi_iter<N>_act_main_YYYYMMDD-HHMM.png` |
+| Mini chat | `/tmp/epi_iter<N>_act_mini_YYYYMMDD-HHMM.png` |
+| Graph chat | `/tmp/epi_iter<N>_act_graph_YYYYMMDD-HHMM.png` |
+| Note chat | `/tmp/epi_iter<N>_act_note_YYYYMMDD-HHMM.png` |
+| Landing (pre-blur) | `/tmp/epi_iter<N>_landing_YYYYMMDD-HHMM.png` |
+| Settings (D4) | `/tmp/epi_iter<N>_settings_YYYYMMDD-HHMM.png` |
 
 One main-act PNG does **not** satisfy multi-surface queue items.
 
 ## Send-text harness (paired with screencapture)
 
 Every iteration also runs the headless send-text harness (queue 0.23) — screencapture proves UI; harness
-proves inference. Both must pass before `[x]` on send-related items.
+proves inference. Both must pass before `[x]` on send-related items. Harness MUST assert **served-model ID ==
+selected-model ID** (pass50 P1-a) and log both IDs. Work lane (1.7/W4): **REQUIRED** work harness — build if missing.

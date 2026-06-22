@@ -142,17 +142,22 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
      `applyCustomTheme` shim that the plan calls "proven not to cascade" does NOT satisfy (b) unless you prove
      at runtime it actually renders cream.
    - **(c) WIRED & REACHABLE** — it's on the live path / discoverable in the running app, not dead-coded or
-     flagged off.
+     flagged off. **Distinct from (a):** cite a **consumer/mount/route** file:line where the code is **invoked,
+     mounted, or routed** (e.g. `AppBootstrap` mount, `WorkspaceMode` route, SwiftUI `.sheet` host) — NOT the
+     same definition site used for (a) EXISTS. Definition-only ≠ wired (pass50 P1-b).
    - **(d) REAL-STATE TESTED** — a test exercises real behavior (not a stub / always-true / mocked-away core).
      Run the fast gate (`cargo test --lib` / targeted compile) where cheap; heavy `xcodebuild` only at
      checkpoints; never idle-block.
    - **(e) RUNTIME — YOU verify it; the owner is NOT checking the app.** You are the Claude Code CLI loop: you
      do NOT have a "computer use" button (that flag belongs to the Claude *desktop app*, a different surface —
      do not claim you have it). What you DO have and MUST use, with zero setup:
-       • **SEE the app:** `xcodebuild -scheme Epistemos … build` → `open` the .app → `screencapture -x /tmp/epi_<surface>.png`
-         → `Read` that PNG and look at it. Confirm with your own eyes: cream/monospace actually renders, the
-         landing→blur→act transition actually happens, the surface is actually present. Capture a specific window
-         with `screencapture -x -o -l$(window id)` when you need one surface.
+       • **SEE the app:** `xcodebuild -scheme Epistemos … build` → `open` the .app →
+         `screencapture -x /tmp/epi_iter<N>_<surface>_YYYYMMDD-HHMM.png` → `Read` that PNG **this iteration**
+         (log capture timestamp in STRICT_RECERT_LOG; stale fixed-path PNG without Read does NOT satisfy (e) —
+         pass50 P1-c). Confirm with your own eyes: cream/monospace actually renders, the landing→blur→act
+         transition actually happens, the surface is actually present. Capture a specific window with
+         `screencapture -x -o -l$(window id)` when you need one surface. Ground-truth alias
+         `docs/research/osa_runtime_2026_06_22.png` must be re-captured when cited, not reused unread.
        • **DRIVE the app if you must click/type:** `osascript` (AppleScript) for menu/clicks/keystrokes.
        • Prefer a **snapshot/XCUITest** that asserts rendered colors/state where a GUI launch is flaky — still
          YOU proving it. Only mark `[~] NEEDS-OWNER-RUNTIME` as a TRUE last resort (state exactly why no
@@ -204,8 +209,8 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 - **(G) PROVIDER WIRING BAR:** Item 0.11 — owner's GGUF/QAT selectable AND used on send; Configuration opens
   REAL settings; NO silent Codex default; NO silent Qwen substitution. Send must use selected model.
 - **(H) FULL-PLAN-NO-ACT-TUNNEL:** Item 0.32 — before iteration ends, append the mandatory witness block to
-  STRICT_RECERT_LOG (**highest attempted item ID** e.g. `2.3`, per-tier counts, TIER 1+ attempted YES/NO,
-  act-only tunnel DENIED). **INCOMPLETE** if highest attempted is before **1.1** unless all T0 are honest `[~]`
+  STRICT_RECERT_LOG (**highest attempted item ID** e.g. `2.3`, **`lowest still-[ ] item ID`** e.g. `0.4` — pass50
+  P0-A, per-tier counts, TIER 1+ attempted YES/NO, act-only tunnel DENIED). **INCOMPLETE** if highest attempted is before **1.1** unless all T0 are honest `[~]`
   with evidence AND you still attempted TIER 1+ same iteration. **TIER ADVANCE FLOOR:** every **3** iterations,
   highest attempted MUST reach **≥1.1** OR stall report in log (T0 still broken + T1+ attempt evidence). Act/P0
   fixes run **in parallel** with lower-tier cert — not a precondition to attempting T1+. **FORBIDDEN** end-claims: "act certified =
@@ -228,11 +233,13 @@ Regardless of which item you're on, EVERY iteration you MUST:
    never lands on main. This is the floor, not the proof.
 2. **EXERCISE THE REAL SEND TEXT, END-TO-END** — actually send a message through the live act/Osaurus inference
    path and assert a REAL non-empty reply streams back (in-process, owner's model, no HTTP requestFailed, no
-   silent Qwen substitution). This is HEADLESS and ALWAYS possible — it needs no GUI. If a CLI/test harness that
-   drives the real `CoreModelService.generateStream` / bridged-model send path doesn't exist yet, BUILD ONE
-   (a tiny test target or CLI) — that harness is itself certifiable work. Run it every iteration. The owner was
-   explicit: the send text can and must be checked exhaustively, every single time, by the loop — not audited later.
-   Log the prompt sent + the first ~80 chars of the real reply as proof.
+   silent Qwen substitution). **Also assert served-model ID == selected-model ID** — non-empty reply alone is
+   insufficient; fail harness on silent Codex/Qwen/default substitution (pass50 P1-a). This is HEADLESS and
+   ALWAYS possible — it needs no GUI. If a CLI/test harness that drives the real `CoreModelService.generateStream`
+   / bridged-model send path doesn't exist yet, BUILD ONE (a tiny test target or CLI) — that harness is itself
+   certifiable work. Run it every iteration. The owner was explicit: the send text can and must be checked
+   exhaustively, every single time, by the loop — not audited later. Log the prompt sent + the first ~80 chars of
+   the real reply + **both model IDs** as proof.
 3. If either fails, that's the top-priority fix this iteration before anything else.
 
 ## DEEP-DEEP RE-CERTIFICATION (owner: "even better than the day I first started")
@@ -258,8 +265,9 @@ of it.
 
 **Phase-complete preconditions (pass49 P0-5 — all three required in summary):**
 1. Green `xcodebuild` (or equivalent compile gate) **this recert phase**
-2. Per-surface PNG **Read this phase** (not stale `osa_runtime_2026_06_22.png` without Read)
-3. Send-text harness real reply **this phase** (prompt + ~80 chars logged)
+2. Per-surface PNG **Read this phase** with **unique per-iteration paths + logged capture timestamp** (not stale
+   `osa_runtime_2026_06_22.png` without Read this iteration — pass50 P1-c)
+3. Send-text harness real reply **this phase** (prompt + ~80 chars + **served-model == selected-model** logged)
 
 ## ▶️ FIRST ITERATION — do exactly this, in order
 1. Read this driver IN FULL + docs/WORK_QUEUE_2026_06_22.md IN FULL (every box starts UNCERTIFIED).
@@ -267,7 +275,8 @@ of it.
    `docs/research/osa_runtime_2026_06_22.png` is missing, capture and save it there (see
    `docs/research/osa_runtime_PLACEHOLDER.md`).
 3. Build/run the send-text harness (or CREATE it if missing — item 0.23) — assert a REAL reply from the
-   owner's model; log the prompt + first ~80 chars.
+   owner's model **and served-model ID == selected-model ID**; log prompt + first ~80 chars + both IDs. When
+   certifying work lane (0.29/1.7/W4), **REQUIRED** work-lane harness — build if missing (pass50 P0-C).
 4. Walk **0.1 → 0.32 in strict numeric order**, then **continue into TIER 1+ same iteration** when TIER 0 items
    pass or are honestly `[~]`. One item minimum per loop; do NOT queue-jump. For each item: read full →plan section
    · apply 5-gate bar · screencapture per-surface where UI · send-text every loop · reverse addendum audit (0.31)

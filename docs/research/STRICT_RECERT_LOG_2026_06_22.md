@@ -58,3 +58,12 @@
   INITIATIVE ADOPT PROVEN ENGINES → STANDING+FULL-CLONE; MARKET POSITION → STANDING research monitor
 - sync fix · WALK ORDER + strict prompt pick order **5.3→5.4** (queue had 5.4; text still said 5.3)
 - paste-ready · 22 non-negotiables (+ W/B/S gates #22); W/B/S table added
+
+### Gap-fill iteration 9 (docs only, 2026-06-22 — pass50 remaining gaps)
+- pass50 P0-A · **0.32 lowest still-[ ] item ID** witness field (pairs highest attempted; anti ATTEMPTED-vs-CERTIFIED gaming)
+- pass50 P0-C · **1.7/0.29 work harness REQUIRED** — removed "when available / where harness exists"; aligned with W4
+- pass50 P1-a · **send-text served-model == selected-model** assert in 0.4/0.23, strict MANDATORY PROOF, paste, placeholder
+- pass50 P1-b · **gate-(c) WIRED distinct mount/route cite** — NOT same file:line as (a) EXISTS (queue bar + strict + paste)
+- pass50 P1-c · **PNG freshness:** unique per-iter paths + timestamp log + Read-this-iteration rule (queue RUNTIME, paste #21, placeholder)
+- reverse-audit · re-grep 🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH (~64 section headers); **0 new unindexed** — SYSTEM-PROMPTS→4.2, NEVER-IDLE→STANDING, FUGU SEQUENCING→3.2 bundle, TRINITY subsections→3.1
+- sync verify · STEP-0 / `[~]` cap / TIER floor / 0.32 (highest+lowest) / W/B/S / gate-c / harness / PNG synced across three docs
