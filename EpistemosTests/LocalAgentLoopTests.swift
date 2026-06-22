@@ -1614,7 +1614,11 @@ struct LocalAgentLoopTests {
         #expect(executedCalls[0].name == "file.write")
         #expect(client.streamRequestCount == 2)
         #expect(client.generateRequestCount == 2)
-        #expect(visibleText.isEmpty)
+        // SS-AL f26924ccf ("stream invisible-turn repair tokens instead of masking them") made the one-shot
+        // repair STREAM its output instead of hiding it — so the repaired text is now VISIBLE (not empty).
+        // This stale assertion (`visibleText.isEmpty`) was left behind by that behavior change; aligned here
+        // to restore main green (it contradicted the committed behavior + this test's own name).
+        #expect(visibleText == "tool smoke ok")
         #expect(answer == "tool smoke ok")
     }
 
