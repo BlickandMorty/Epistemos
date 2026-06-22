@@ -45,13 +45,19 @@ RULES (every loop, non-negotiable):
   until you have attempted the full queue walk (0.1→0.32, then TIER 1→5) OR marked the sole remaining item(s)
   `[~]` with explicit reason. Per-clone matrix (Epistemos|act|work|beyond) applies where the plan requires.
 - **RUNTIME:** YOU verify — build → open → `screencapture` → `Read` PNG. Owner is NOT checking.
+  **PNG freshness (pass50 P1-c):** each iteration uses **unique capture paths** (e.g.
+  `/tmp/epi_iter<N>_<surface>_YYYYMMDD-HHMM.png`); log capture timestamp in STRICT_RECERT_LOG; **Read PNG this
+  iteration** — stale fixed-path PNG without Read does NOT satisfy (e). Ground-truth alias
+  `docs/research/osa_runtime_2026_06_22.png` must be re-captured when cited, not reused unread.
   `[~]` = TRUE last resort only (state why screencapture + send-text both failed). Never `[x]` on build-green.
 - Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md` each loop. Commit + push. No fake-done.
 - Never delete chat IP. main-only. Co-Authored-By Claude.
 
 STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   (a) EXISTS file:line · (b) CORRECT & ON-PLAN (mandated approach, not near-miss/drift) · (c) WIRED &
-  REACHABLE · (d) REAL-STATE TESTED · (e) RUNTIME proven by YOU (screencapture and/or send-text harness).
+  REACHABLE — **distinct from (a):** cite a **consumer/mount/route** file:line where the code is **invoked,
+  mounted, or routed** on the live path (NOT the same definition site as (a); definition-only ≠ wired) ·
+  (d) REAL-STATE TESTED · (e) RUNTIME proven by YOU (screencapture and/or send-text harness).
 
 ## TIER 0 — ACT SURFACE + FULL-PLAN CLONE BASELINE (P0 act blocking; NOT the whole plan)
 
@@ -75,7 +81,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions".
 
 - [ ] **0.4 SEND works (runtime)** — in-process reply, owner's model, no HTTP requestFailed, no silent
-  Codex/Qwen. Send-text harness every iteration; log prompt + ~80 chars of reply.
+  Codex/Qwen. Send-text harness every iteration; log prompt + ~80 chars of reply; harness MUST assert
+  **served-model ID == selected-model ID** (non-empty reply alone insufficient — pass50 P1-a).
   →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A".
 
 - [ ] **0.5 Mini-chat + grab-chat reachable** — wired, discoverable. **Screenshot EACH surface separately**
@@ -156,7 +163,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "🎯 PINPOINTED ActOsaurusError".
 
 - [ ] **0.23 Send-text harness (EVERY iteration — standing)** — build/maintain headless harness driving real
-  act inference; log prompt + ~80 chars of reply each loop. If missing, BUILD before other work.
+  act inference; log prompt + ~80 chars of reply each loop; **assert served-model ID == selected-model ID**
+  (fail on silent Codex/Qwen/default substitution — pass50 P1-a). If missing, BUILD before other work.
   →plan: strict prompt MANDATORY FUNCTIONAL PROOF + "🎯 PINPOINTED ActOsaurusError".
 
 - [ ] **0.24 Act UI bug bundle (explicit)** — remove top white bar; fix click→search (must match D2: Epistemos
@@ -183,7 +191,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 - [ ] **0.29 Per-clone inference routing** — act send → Osaurus/in-process act path; work send → OpenCode/work
   engine path; main/Epistemos triage paths unchanged where plan says; NO cross-clone silent fallback (Codex/Qwen).
-  Real-state test + send-text per lane where harness exists.
+  **REQUIRED** work-lane send-text harness when certifying work routing (pairs W4 + 1.7 — build if missing; same
+  bar as act 0.23; "when available" forbidden — pass50 P0-C).
   →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "✅ CONSENSUS — KEEP TriageService" + WORK ENGINE = ARCH C.
 
 - [ ] **0.30 BEYOND clone tab + scope honesty (in-scope vs OFF-LIMITS)** — beyond settings tab exists or is
@@ -202,9 +211,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 - [ ] **0.32 Full-plan iteration witness (EVERY iteration — standing, HARD GATE)** — before declaring iteration
   done, append this block to STRICT_RECERT_LOG (all fields required):
-  `Highest attempted item ID:` (e.g. `2.3`, not just "T2") · `T0/T1/T2/T3/T4/T5 [x]/[~]/[ ] counts` ·
-  `TIER 1+ attempted: YES|NO` · `If NO: evidence` · `Act-only tunnel: DENIED (explicit)` ·
-  `Forbidden end-claims avoided: YES`.
+  `Highest attempted item ID:` (e.g. `2.3`, not just "T2") · **`Lowest still-[ ] item ID:`** (first unchecked in
+  numeric walk order at iteration end, e.g. `0.4` — pass50 P0-A; prevents ATTEMPTED-vs-CERTIFIED gaming) ·
+  `T0/T1/T2/T3/T4/T5 [x]/[~]/[ ] counts` · `TIER 1+ attempted: YES|NO` · `If NO: evidence` ·
+  `Act-only tunnel: DENIED (explicit)` · `Forbidden end-claims avoided: YES`.
   **FORBIDDEN** without full walk attempted: "act certified = iteration done", "D1–D5 pass = done",
   "stopping at TIER 0", "build-green = tier done", "defer TIER 1+ to next iteration", "act is blocking so
   skipping work/substrate", "full-plan walk complete after TIER 0", "will continue with lower tiers later".
@@ -233,7 +243,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "✅ RESOLVED OPENCODE UI" + ALL CHAT SURFACES (work half) + mode-entry animations.
 
 - [ ] **1.7** WORK inference + send path — work lane send reaches OpenCode/Goose fused engine; distinct from
-  act/Osaurus; headless harness or real-state test when available. No silent act fallback.
+  act/Osaurus; **REQUIRED** headless work-lane send-text harness (build if missing per W4 — pass50 P0-C); log
+  prompt + ~80 chars + engine-lane identity; real-state test alone insufficient without harness proof. No silent
+  act fallback.
   →plan: "✅ DECISION WORK ENGINE = ARCH C" + 0.29 routing + Bun runtime vendored.
 
 - [ ] **1.8** OpenCode heaviness mitigation — no Electron/Tauri GUI shipped; headless Bun only; **lazy-launch when

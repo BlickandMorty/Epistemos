@@ -395,3 +395,64 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | Northstar PNGs | Optional visual refs |
 | STRICT_RECERT_LOG cert vs gap-fill headers | P1 — when first real cert lands |
 | Post-recert forward scope | P1 — define forward-only trigger |
+
+## Iteration 9 — 2026-06-22 (pass50 remaining doc gaps + reverse-audit)
+
+### Pass50 doc fixes applied (iteration 9)
+| Finding | Fix |
+|---------|-----|
+| P0-A ATTEMPTED vs CERTIFIED gaming | **0.32** adds **`Lowest still-[ ] item ID`** witness field alongside highest attempted |
+| P0-C WORK harness "when available" | **0.29/1.7** — harness **REQUIRED** (build if missing); aligned with W4; "when available" removed |
+| P1-a send-text model-id assertion | **0.4/0.23** + strict MANDATORY PROOF + paste #4 — assert **served-model ID == selected-model ID** |
+| P1-b gate-c WIRED self-attested | **5-gate (c)** — distinct **consumer/mount/route** cite; NOT same file:line as (a) EXISTS |
+| P1-c stale PNG freshness | **Unique per-iter paths** + **timestamp log** + Read-this-iteration rule (queue RUNTIME, paste #21, placeholder) |
+
+### Reverse addendum audit (iteration 9 grep — sample hits verified)
+| Addendum section | Queue index |
+|------------------|-------------|
+| 🆕 SYSTEM-PROMPTS LIBRARY (§1046) | **4.2** ✓ |
+| 🔁 NEVER-IDLE (§773) | STANDING + 0.32 ✓ |
+| ⏱️ FUGU SEQUENCING (§988) | **3.2** bundle (not queue-jump) ✓ |
+| 🌟🌟 TRINITY + port spec subsections (§1024–1090) | **3.1** ✓ |
+| 🆕 EXTERNAL RESEARCH CORPUS (§1249) | STANDING ✓ |
+| All iteration-8 hits | Still indexed ✓ |
+
+**Grep hit count (🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH tokens):** ~64 section headers in addendum; **0 unindexed** after iteration-9 verify.
+
+### STEP-0 / `[~]` cap / TIER floor / 0.32 / harness / gate-c / PNG — three-doc sync verify
+| Rule | WORK_QUEUE | STRICT prompt | PASTE_READY |
+|------|------------|---------------|-------------|
+| STEP-0 RESET | RULES + STANDING | EVERY ITERATION step 0 + STANDING | Non-negotiable #2 |
+| `[~]` CAP ≤2 | RULES + STANDING | MANDATORY (E) + STANDING | Non-negotiable #16 |
+| TIER ADVANCE FLOOR | RULES + STANDING | MANDATORY (H) + STANDING | Non-negotiable #14 |
+| 0.32 witness (highest + **lowest still-[ ]**) | **0.32** | MANDATORY (H) | Non-negotiable #14 + FIRST ACTION #5 |
+| served-model == selected-model | **0.4/0.23** | MANDATORY PROOF | Non-negotiable #4 |
+| gate-(c) distinct mount/route | CERT BAR | step 4 (c) | Non-negotiable #6 |
+| work harness REQUIRED | **0.29/1.7/W4** | FIRST ITERATION step 3 | Non-negotiable #4 + W table |
+| PNG freshness (unique path + timestamp) | RUNTIME rule | step 4 (e) + phase preconditions | Non-negotiable #21 |
+
+**Verdict:** PASS — all pass50 clusters synced across three docs.
+
+### Pre-launch checklist (iteration 9)
+| Check | Status |
+|-------|--------|
+| 0.32 lowest still-[ ] item ID | PASS |
+| 1.7/0.29 work harness REQUIRED | PASS |
+| send-text model-ID assertion | PASS |
+| gate-(c) distinct mount/route cite | PASS |
+| PNG unique path + timestamp freshness | PASS |
+| Reverse addendum audit (0 unindexed) | PASS |
+| PASTE_READY 22 non-negotiables synced | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures) |
+| Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED) |
+
+### Still open (next iteration / build agent)
+| Gap | Action |
+|-----|--------|
+| P1-d full heading diff vs token grep | 0.31 still token-grep; optional future: heading-list diff |
+| All queue items uncertified | Build agent walks full plan with 5-gate + W/B/S gates + new harness/witness rules |
+| `osa_runtime_2026_06_22.png` | Agent re-captures each iteration with unique path + timestamp |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| Northstar PNGs | Optional visual refs |
+| STRICT_RECERT_LOG cert vs gap-fill headers | P1 — when first real cert lands |
+| Post-recert forward scope | P1 — define forward-only trigger |
