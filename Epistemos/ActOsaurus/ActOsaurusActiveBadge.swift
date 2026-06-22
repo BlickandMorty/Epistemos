@@ -18,6 +18,11 @@ import OsaurusCore
 struct ActOsaurusActiveBadge: View {
     @State private var engineStatus: String?
     @State private var osaurusModels: [String] = []
+    // Distinctive Osaurus controls surfaced in the old UI (P0-B). Held as display
+    // strings (not OsaurusCore types) so this struct still compiles on MAS, where
+    // the OsaurusCore import is excluded and the badge is never shown.
+    @State private var osaurusTools: [String] = []
+    @State private var osaurusMCP: [String] = []
     @State private var showPanel = false
 
     var body: some View {
@@ -61,6 +66,33 @@ struct ActOsaurusActiveBadge: View {
                             .truncationMode(.middle)
                     }
                 }
+
+                if !osaurusTools.isEmpty {
+                    Divider()
+                    // P0-B tool controls: the tools the Osaurus engine can call in act.
+                    Text("Osaurus tools in act (\(osaurusTools.count))")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(osaurusTools.prefix(12).joined(separator: ", "))
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if !osaurusMCP.isEmpty {
+                    Divider()
+                    // P0-B MCP controls: the MCP servers the owner has wired into the engine.
+                    Text("MCP servers (\(osaurusMCP.count))")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(osaurusMCP.prefix(6), id: \.self) { srv in
+                        Text("• \(srv)")
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
             }
             .padding(14)
             .frame(maxWidth: 340, alignment: .leading)
@@ -73,6 +105,11 @@ struct ActOsaurusActiveBadge: View {
             #if !EPISTEMOS_APP_STORE
             engineStatus = await ActOsaurusBridgeFactory.resolve().osaurusCoreStatusDescription()
             osaurusModels = EpistemosModelBridge.providedModelIds()
+            // Surface the engine's enabled tools + any wired MCP servers (P0-B).
+            osaurusTools = EpistemosToolBridge.tools().filter(\.enabled).map(\.name)
+            osaurusMCP = EpistemosToolBridge.mcpServers().map { srv in
+                srv.connected ? "\(srv.name) · \(srv.toolCount) tools" : srv.name
+            }
             #endif
         }
     }
