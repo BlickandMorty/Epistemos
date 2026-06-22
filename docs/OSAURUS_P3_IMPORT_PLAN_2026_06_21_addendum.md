@@ -648,3 +648,13 @@ Footprint (Bun ~90MB) is bounded (lazy-launch + kill-on-idle = $0 when idle). AN
 engine (Osaurus) + brain (agent_core) + Goose's unique-bit TOOLS stay Rust; only the work-shell ENGINE is
 OpenCode, quarantined in its own process. → Rust-ness is NOT enough to win here because the robustness that
 reaches the USER is system-level (isolation), not per-line. C stands.
+
+## ✅ WORK LOOK = OpenCode's REAL TUI, NOT the GUI (owner 2026-06-21, confirmed)
+The work UI the owner loves = **OpenCode's real TUI** (terminal-cell, flat, monospace, "classic terminal
+flatness" + flat/cell-based animation) — **NOT** the web/Electron GUI. Build the TUI path ONLY:
+- **Bundle the entire OpenCode ENGINE** (headless Bun) + render its **REAL TUI** in a native terminal view
+  (SwiftTerm/PTY), palette-matched to the app theme (live, incl. custom themes). Named "work".
+- **DO NOT ship/build the web/Electron GUI client** (the heavy, redundant client) — engine + TUI only.
+- Accept the TUI's terminal flatness as the desired aesthetic (it's what the owner wants); do NOT try to make
+  it pixel-smooth/GUI-like. (If pixel-smooth is ever wanted later = a separate native reskin, not the TUI.)
+This is the complete OpenCode experience (full engine + real TUI), minus only the unused second client.
