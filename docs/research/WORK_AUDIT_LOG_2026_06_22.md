@@ -454,3 +454,10 @@ search bugs on it; runtime-verify.
   direction + the white-bar fix against revert → the option-b-style churn that reverted these can't silently recur.
 - **Verdict:** PASS — pass-30 watch-item resolved + hardened against recurrence. Remaining: the 3 grafts (message
   bar/side panel/scroll-blur); OWNER RUNTIME-VERIFY (send works in-process + Osaurus-reskinned look + no white-bar/search).
+
+## Pass 32 — 2026-06-22
+- **Build loop:** ALIVE, mid-build (swift=6 xcode=1 — likely the 3 grafts or a checkpoint build). HEAD = my
+  pass-31 audit; no new build commit yet (commits on green).
+- **No new commits to audit.** Not hung; no concurrent build kicked.
+- **Verdict:** healthy, no re-add. Remaining for act: 3 grafts (message bar/side panel/scroll-blur) + OWNER
+  RUNTIME-VERIFY (send works in-process + Osaurus-reskinned look + no white-bar/search). Re-audit next commit.
