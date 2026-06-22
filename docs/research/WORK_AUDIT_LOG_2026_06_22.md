@@ -712,3 +712,39 @@ P2 dangling →plan anchors: "DESIGN DECISION — Epistemos Picks" (real heading
   ASCII/animation ontology (315) — evade 0.31 reverse-audit (grep token set too narrow; add 🆕/🌟/RESEARCH—);
   re-capture baseline PNG each iter (don't trust stale); 0.31 must paste grep output to count as done.
 ACTION: relayed to owner in-message; NOT editing spec. No build loop running; no build-code commits this fire.
+
+## PASS 50 — 2026-06-22 (RESEARCH cont'd: adversarial red-team — NEW gaming vectors; read-only, NOT editing)
+CORRECTION to pass-49: P1-1 ("TIER 1 ends at 1.7, prompt says 1.8") is STALE/INVALID at HEAD — queue:216 has
+item 1.8 (OpenCode heaviness) and prompt agrees "1.1→1.8". Pass-49 agent read a mid-edit tree. Anchors FUGU=
+FOUNDATIONAL FEATURE + Epistemos Picks resolve. Do NOT relay P1-1.
+NEW vectors (red-team; for plan-prep agent — I am NOT editing):
+P0-A DONE-BAR keys off "ATTEMPTED" not "CERTIFIED": 0.32 hard gate measures "highest ATTEMPTED item" + "TIER1+
+  attempted Y/N" (queue:188-199) — a loop can attempt 5.3, leave every TIER1-5 box [ ], and pass. FIX: witness
+  must record LOWEST still-[ ] item; iteration INCOMPLETE unless it advanced; "RE-CERT COMPLETE" forbidden while
+  any box [ ].
+P0-B "HONEST STUB" = [x]: 0.28/0.30/4.14 let work/beyond be certified [x] as "honestly stubbed" (queue:167/176/
+  273) — stub has no live path so gate-e is met by a PNG of an empty view. Certifies whole clones UNBUILT, worse
+  than [~]. FIX: stub = "[ ] STUBBED(plan ref)" never [x]; COMPLETE needs ≥1 real runtime proof per in-scope clone.
+P0-C WORK send-path proof OPTIONAL: 1.7/0.29 say harness "when available / where harness exists" (queue:222/173)
+  and the mandatory-build-harness clause names ONLY the act path (prompt:213-215) → whole OpenCode/work engine
+  certifies on compile, no inference ever run. FIX: per-lane harness REQUIRED for every wired clone; strike "when
+  available".
+P1-a send-text accepts ANY non-empty reply; no assertion served-model==selected-model (prompt:216). FIX: harness
+  asserts model id, that's the proof (not 80-char prose).
+P1-b gate-c WIRED self-attested by same file:line as gate-a EXISTS — definition-site cite passes "wired" even
+  behind disabled flag/unmounted view. FIX: (c) needs DISTINCT consumer/mount/route cite.
+P1-c stale PNG: ground truth = fixed path osa_runtime_2026_06_22.png, "re-capture" unscoped, no freshness check
+  → yesterday's broken baseline certifies today. FIX: per-iter unique committed PNG + timestamp; no reuse.
+P1-d reverse-audit 0.31 greps a FIXED token set (🔒/DEFINITIVE/P0/MUST/PER-CLONE/WORK/BEYOND/ESCALATION) — plan
+  pillars marked 🌟/🆕/✅/DIRECTIVE/PILLAR are undiscoverable. FIX: diff FULL heading list vs queue, not token grep.
+P1-e discovery sweep scoped to chat/inference consumers only (prompt:203) — blind to substrate/TRINITY/vault/
+  Epdoc/distribution (most of plan). FIX: add per-tier plan-section→queue reconciliation.
+CONTRADICTIONS at HEAD: P1-7 "one item minimum/loop" (prompt:247) vs full-walk hard gate — strike the floor.
+  P1-8 D4/config has THREE homes (0.21 vs 0.11/0.22 vs matrix) — name 0.21 sole owner. P1-9 (DANGEROUS, paste
+  block) paste:35 says mount "ChatView" but prompt:76/queue:121 forbid mounting "ChatView" — name collision
+  between vendored Osaurus host view and Epistemos/Views/Chat/ChatView.swift. FIX: paste must say "OsaurusChatView
+  (vendored), never Epistemos/Views/Chat/ChatView.swift".
+P2: skipped/xfail/weakened-assert evade gate-d + no-red (cite test ran, 0 skipped); (d) and (e) not linked to
+  same path; [~] designed-in per-tier with no cap (TIER5 100% [~] "completes"); forbidden-phrase blacklist is
+  paraphrasable (use behavioral lowest-open-advanced invariant); data-carry-over/test-parity gates have NO hook.
+ACTION: relayed top-leverage to owner; NOT editing spec. No build loop running; no build-code commits this fire.
