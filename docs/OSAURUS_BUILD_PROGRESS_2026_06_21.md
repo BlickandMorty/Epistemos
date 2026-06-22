@@ -87,7 +87,12 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
   ALL inference entry points → found the NON-streaming local path (`localGenerateOrFallback`, used by
   `generateGeneral`/PinnedInspector retry) bypassed act → added `SharedActInference.actTextIfArmed` (honest:
   armed→act-text-or-throw, never silent MLX) so BOTH streaming + non-streaming local paths route act through
-  the one entry. 24/24 act suites. PHASE 2+ (later, careful): merge the fuller path + retire the
+  the one entry. 24/24 act suites. **AUDIT CONCLUSION (act-routing COMPLETE):** every CHAT surface routes
+  through the two chokepoints + both local paths route act; `ReasoningLoopService` wraps TriageService;
+  `PinnedInspector`'s direct-AppleIntelligence call is in `summarizeNode` (a node-SUMMARY task, not chat) +
+  its chat (`sendMessage`→`streamGeneral`) is covered. Non-chat tasks (summaries/synthetic-data/metrics) +
+  explicit cloud-model picks are legitimately separate routes (owner #1 forbids SILENT cloud, which the
+  local-pick→Osaurus path preserves). No further act-routing gap. PHASE 2+ (later, careful): merge the fuller path + retire the
   duplicate TriageService path (owner: "old chat/triage inference is dead, get rid of it"). CERTAIN.
 - **🌟 PILLAR — VAULT-DEEP-INTEGRATION (overtake Tolaria, §720):** STANDING RULE: full-clone every ADOPTED
   engine (Osaurus method); REFERENCE-only for capabilities already owned better (Tolaria = reference; mine
