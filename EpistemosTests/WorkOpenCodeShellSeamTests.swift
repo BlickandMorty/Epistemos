@@ -10,6 +10,49 @@ import Foundation
 /// OpenCode TUI plug into.
 @Suite("Work = OpenCode shell — Seam A (honest-inert)")
 struct WorkOpenCodeShellSeamTests {
+    #if !EPISTEMOS_APP_STORE
+    @Test("in-app toggle override resolves: override > env flag > off (owner §194, work twin of act)")
+    func workOverrideResolutionOrder() {
+        let suite = "test.work.opencode.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let on = [WorkOpenCodeShellGateStatus.flagName: "1"]
+
+        // no override → defer to env (off by default).
+        #expect(!WorkOpenCodeShellGateStatus.resolvedActive(environment: [:], defaults: defaults))
+        #expect(WorkOpenCodeShellGateStatus.resolvedActive(environment: on, defaults: defaults))
+        // override forces ON with env unset…
+        WorkOpenCodeShellGateStatus.setOverride(true, defaults: defaults)
+        #expect(WorkOpenCodeShellGateStatus.override(defaults: defaults) == true)
+        #expect(WorkOpenCodeShellGateStatus.resolvedActive(environment: [:], defaults: defaults))
+        // …and OFF even when the env flag says on (override WINS).
+        WorkOpenCodeShellGateStatus.setOverride(false, defaults: defaults)
+        #expect(!WorkOpenCodeShellGateStatus.resolvedActive(environment: on, defaults: defaults))
+        // clearing reverts to env-flag behavior.
+        WorkOpenCodeShellGateStatus.setOverride(nil, defaults: defaults)
+        #expect(WorkOpenCodeShellGateStatus.override(defaults: defaults) == nil)
+        #expect(WorkOpenCodeShellGateStatus.resolvedActive(environment: on, defaults: defaults))
+    }
+
+    @Test("status reflects the override SOURCE honestly (in-app toggle vs env)")
+    func workOverrideStatusReflectsSource() {
+        let suite = "test.work.opencode.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        WorkOpenCodeShellGateStatus.setOverride(true, defaults: defaults)
+        let on = WorkOpenCodeShellGateStatus.status(environment: [:], defaults: defaults)
+        #expect(on.isActive)
+        #expect(on.detail.contains("in-app toggle"))
+
+        WorkOpenCodeShellGateStatus.setOverride(false, defaults: defaults)
+        let off = WorkOpenCodeShellGateStatus.status(
+            environment: [WorkOpenCodeShellGateStatus.flagName: "1"], defaults: defaults)
+        #expect(!off.isActive, "override OFF beats env=1")
+        #expect(off.detail.contains("in-app toggle"))
+    }
+    #endif
+
     @Test("gate is pure + honest: off by default, arms on the Pro flag")
     func gateHonesty() {
         let off = WorkOpenCodeShellGateStatus.status(environment: [:])

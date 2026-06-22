@@ -69,7 +69,10 @@ nonisolated enum WorkOpenCodeShellFactory {
         // health row shows "armed, INERT", never "live"). The moment the vendored
         // bundle is dropped into Resources, resolve() returns the live shell — no
         // further wiring. Never a fake terminal before the runtime exists.
-        guard WorkOpenCodeShellGateStatus.isEnabled(environment[WorkOpenCodeShellGateStatus.flagName]),
+        // Resolution: in-app toggle override (owner §194) WINS, else the env flag, else off — so flipping the
+        // Work toggle arms the shell live (still gated on the runtime actually being bundled; armed-but-absent
+        // stays honestly inert). Default-absent override keeps flag-OFF behavior.
+        guard WorkOpenCodeShellGateStatus.resolvedActive(environment: environment),
               let runtimeURL = WorkOpenCodeRuntime.bundledRuntimeURL() else {
             return InertWorkOpenCodeShell()
         }
