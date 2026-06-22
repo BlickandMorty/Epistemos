@@ -2260,3 +2260,40 @@ the UI used to look like from what the code connects to (the engine). It's NOT s
 Desktop reference screenshots + `afc34e806`'s views) EXCEPT it runs on the Osaurus engine. Sidebar =
 ChatSidebarView (owner's), message bar = ChatInputBar (owner's), landing = afc34e806 LandingView (owner's),
 bubbles/toolbar/window = the owner's. ONLY the engine differs.
+
+---
+
+## 🔴 AUDITOR CORRECTION (P0) — 2026-06-22 ~16:25 — ACT CERTIFICATION BAR (consolidates P0-A + P0-B + META-RULE + ground-in-real-code into ONE screenshot-gated finish line)
+
+**This is the FINISH-LINE bar for the act surface — NOT a new low-priority queue row, NOT a stop-work order.** Per driver lines 88 + 319 (P0 owner runtime reports preempt everything), this is a P0 owner-runtime-defect bundle that slots into the already-preempting **D1–D5 / 0.8 / 0.16 / 0.21 / 4.7** anchors — it does NOT create a new TIER-1+ numeric row. The owner's recurring pain: act keeps getting marked DONE on a **distinguishable minimal approximation that passes only the `source.contains()` guard test.** `EpistemosTests/ActSurfaceOsaurusUIDirectionGuardTests.swift:17-44` are 100% source-text assertions — they prove a string is PRESENT, not that the surface RENDERS. **Act may NOT be `[x] CERTIFIED` until EVERY item below holds on the AUDITOR's fresh-launch screenshot.** (All file:line citations auditor-verified against HEAD working tree this pass.)
+
+### ✅ ACK — genuinely ON-PLAN; KEEP, do NOT revert
+The architecture correctly pivoted to fresh-native-views wired to the Osaurus engine. KEEP all of:
+- **Certified 0.4 engine link** `OsaurusActBridge().runTurnStreamingInProcess` (`NativeActChatView.swift:154`); no ChatView/monolith mount; honest throw on error, no cloud fallback.
+- **Composed owner's real `ChatInputBar`** (`NativeActChatView.swift:136`) — it is the conduit for the palette/38-tool/skills.
+- **Recent-chats ON THE PILL** = `ChatSidebarView()` in a `.popover` on the "act" capsule (`NativeActChatView.swift:82`), NOT a left rail.
+- **P0-A landed:** act home = real `LandingView(onEnterAct:)` (`RootView.swift:2723`); `NativeActLandingView` deleted/unrouted.
+- **Cream-by-construction** background (`NativeActChatView.swift:42-55`).
+
+### 🚧 BLOCKING BAR — each item names the owner's REAL component to COMPOSE (a new-invented element = regression, META-RULE)
+Composing STANDALONE components (`MessageBubble`, `TaggedMarkdownTextView`, `ChatInputBar`, `ChatSidebarView`) is ALLOWED and is NOT "decomposing ChatView" — the LOCKED rule forbids mounting/reskinning/decomposing the ChatView **monolith**, not reusing its standalone subviews.
+
+1. **(D5 / 0.16) Real markdown-bubble transcript, not bare Text rows.** Replace `NativeActChatView.swift:108-121` plain `Text(m.text)` rows with the owner's `MessageBubble` (`Epistemos/Views/Chat/MessageBubble.swift:130`, which renders markdown via `TaggedMarkdownTextView` — `MessageBubble.swift:207`, def `TaggedMarkdownTextView.swift:69`) inside the owner's centered column (`ChatLayout.messageColumnMaxWidth = 760`, `ChatView.swift:103`, applied `:272`). Screenshot must show coral/monospace bubbles + byline, indistinguishable from old chat — not a flat row list.
+
+2. **(D5 / 0.16) NO `<think>` leak (owner-flagged P0).** `handleSend` appends EVERY raw token straight to the visible bubble (`NativeActChatView.swift:160` — `messages[replyIndex].text += token`); the file's own header (`:12-14`) admits channel-splitting is "the next refinement." Split the stream: route `<think>…</think>` reasoning + tool-call channels to the owner's collapsible thinking view, route ONLY the `content` channel to the transcript. Screenshot must show NO literal `<think>` text in the answer bubble.
+
+3. **(P0-B / 4.7) Palette + 38-tool + 38 skills + Osaurus union, POPULATED.** The owner's three reach act transitively via the composed `ChatInputBar` (`SlashCommandPopover` `ChatInputBar.swift:960`; `AgentToolTogglePanel` `:1545`; skills via `agentCommandCenter.availableSkills` `:607/:619`) — but they render gated on non-empty catalogs, so **VERIFY the tool/skill catalogs actually POPULATE on the act path** (else the empty-state hides them). For the **Osaurus union**: Osaurus's own commands/skills are merged NOWHERE today (auditor grep of `Epistemos/` for a merge = empty). ⚠️ **Auditor note — do NOT assume type names:** my grep of `LocalPackages/osaurus/Packages/OsaurusCore/Sources` for `SlashCommandRegistry` / `SkillManager` came up EMPTY — those symbols likely do NOT exist. Codex must FIRST locate Osaurus's actual command/skill source in the osaurus package, THEN merge that DATA natively into the owner's palette/skills catalog. Do NOT mount Osaurus's own command/skill VIEWS (breaks native construction). Screenshot must show a populated palette + 38-tool panel + 38 skills + Osaurus entries, all in the owner's native chrome.
+
+4. **(D4 / 0.21 SOLE OWNER) In-surface Configuration → per-clone settings.** `NativeActChatView`'s toolbar (`:58-95`) has NO settings control. Add one that calls `UtilityWindowManager.shared.show(.settings)` (reuse `RootView.swift:525-526` `openSettingsWindow`) deep-linked to the act-clone tab (`SettingsView.swift:137 .actClone` → `ActCloneSettingsView()` `:518`). Global Cmd-S is NOT sufficient — the owner reported the in-surface control absent. Screenshot must show the toolbar Configuration control opening the act-clone settings.
+
+5. **(D1) Curved window + soft shadow, not boxy.** `NativeActChatView.swift:55` paints full-bleed `.ignoresSafeArea()` with no clip/shadow, and the principal-toolbar curve-anchor is suppressed while the Osaurus surface shows (`RootView.swift:248 showingOsaurusSurface`, gating at `:260`). Either stop suppressing the curve while act is entered, OR wrap the act container in a `RoundedRectangle` clip + `.shadow` (reuse the cornerRadius-22 + shadow chrome at `RootView.swift:2485-2486`). Screenshot must show curved top corners + soft shadow.
+
+6. **(D3 / META-RULE) Owner's real pill chrome + served-model label.** Replace the invented "act" capsule (`NativeActChatView.swift:72-88`) + bare-text model label (`:90-93`) with the owner's `NativePillButtonStyle` (`ChatSidebarView.swift:76`). Bind the model label to the engine's SERVED / effective model id (`ActOsaurusBridge.swift:222` — `case .available(let modelId, _, let effectiveModel)`), NOT the requested `selectedModel` — the requested value LIES on silent substitution (driver pass50 P1-a: served == selected).
+
+7. **(ground-in-real-code acceptance) No 512-token truncation.** Replace the hardcoded `maxTokens: 512` (`NativeActChatView.swift:156`) with the owner/model's configured generation budget (the same source the old ChatView path used) so normal-length answers are not silently cut off mid-stream.
+
+### 🔒 GATE (e) — the guard test does NOT certify this bar
+Keep `ActSurfaceOsaurusUIDirectionGuardTests` as the SOURCE ratchet (it covers gates a/d), but it is 100% `source.contains()` (`:17-44`) — it CANNOT detect a distinguishable approximation. **ONLY the auditor's fresh-launch screencapture certifies gate (e):** build → open → `screencapture` → `Read` the PNG → diff vs the TARGET reference screenshots + `afc34e806`'s views. No `[x]` on a green guard test alone.
+
+### 🏁 NON-RACE
+In-flight refinement (the live theme swap, the RootView rewire, the `NativeActLandingView` deletion, the guard-test rewrite) is the RIGHT direction — keep going. This bar is ONLY the finish line: act stays `[ ]` until it is runtime-indistinguishable-from-old-chat + carries the P0-B union + has no `<think>` leak, ALL proven by the auditor's fresh-launch screenshot.
