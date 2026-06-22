@@ -1804,3 +1804,22 @@ screencapture (build → open → screencapture → look). This is the authority
   38-tool agent panel). Finish the reskin so it is the owner's UI with Osaurus logic underneath.
 - **GENERAL:** owner said "so many issues" — D1–D5 are the named ones; while certifying the act surface,
   screenshot EVERY part and fix any other divergence from the owner's UI observed. Do not stop at this list.
+
+---
+
+## 🔴 AUDITOR CORRECTION (P0) — 2026-06-22 — queue 0.4 marked `[x]` but gate (d) is NOT met
+Commit `e7f4db83c` certified **0.4 SEND** with a genuine RUNTIME proof **(e)**: a real GUI-driven send through the
+running app → reply "CERTIFY", model "Gemma 4 e2b it 4bit" (served==selected), screenshot Read. **(e) is valid —
+keep it.** BUT the STRICT BAR requires ALL FIVE gates, and **(d) REAL-STATE TESTED is unmet for the certified
+behavior**: the only automated test (`ActOsaurusStreamingTests` "inert bridge HONESTLY refuses to stream") asserts
+the REFUSAL/inert path (`#expect(throws:)`), NOT a successful in-process send. The recert log itself states
+*"0.23: no headless harness yet (used GUI-drive); building one remains the (d)-enabler."* A one-off GUI-drive (e)
+does NOT substitute for the repeatable (d) harness — that normalizes exactly the fake-green the bar forbids.
+
+**REQUIRED (re-cert 0.4 + 0.23 together):** 0.4 is NOT `[x]` until (d) holds.
+1. Build the mandated send-text harness (queue 0.23, pass50 P0-C) — the agent's own named (d)-enabler.
+2. It must assert a SUCCESSFUL in-process send returns a non-empty reply with **served-model == selected-model**,
+   exercising the SAME entry point (c) cites — `ActOsaurusBridge.generateStream` via
+   `SharedActInference.actStreamIfArmed` (pass50 P2-2 same-path linkage), **0 skipped/xfail**.
+3. THEN 0.4 (d) is satisfied and both 0.4 + 0.23 legitimately certify. Until then **0.4 = (d)-pending, revert to
+   `[ ]`** (or `[~]` with the harness as the stated blocker). Do NOT leave 0.4 `[x]` on (e)-only.
