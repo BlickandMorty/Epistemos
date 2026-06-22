@@ -1,5 +1,11 @@
 # 🛑 CHAT BACKEND — QUARANTINE, NEVER DELETE (owner 2026-06-21) — HARD GUARD
 
+> **⚠️ SUPERSEDED 2026-06-22 (owner authorized deletion):** the "NEVER DELETE" below applied to the SURFACE
+> only as of 2026-06-21. The owner has since authorized DELETING the old chat SURFACE (Osaurus IS the chat,
+> no toggle/fallback). The rule now: PRESERVE the IP/logic (models, system prompts, hidden pieces, reusable
+> logic) → port it → then DELETE the old chat surface once the Osaurus chat works. "Never delete" still
+> applies to the IP (don't lose it), NOT to the surface. See addendum "ACT = OSAURUS IS THE CHAT".
+
 **Owner (verbatim, 2026-06-21):** *"all the parts of my chat can be preserved … the models the IP etc.
 and add that to all the parts it is beneficial. but rn it is completely broken and needs to be
 quarantined but should never be deleted as of now because one might try to delete it. whatever my
