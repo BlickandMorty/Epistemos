@@ -1165,3 +1165,10 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/â
   Osaurus's default agent model. Guarded by a PERSISTENT UserDefaults flag (runs exactly once ever) so it
   NEVER re-clobbers the owner's later picker choice (which auto-persists). Honest no-op when no owner model is
   registered. Directly serves the owner's #1 concern (send works with MY models).
+
+## Act runtime-verify checklist for the owner (2026-06-22)
+- The act P0 is at the buildable done-bar; the owner's mandated runtime-verify is the gate. Wrote
+  docs/ACT_SURFACE_RUNTIME_VERIFY_CHECKLIST_2026_06_22.md â€” an ordered, commit-mapped check the owner runs on
+  ONE fresh Pro launch (Osaurus UI reskinned / no white-bar / one toggle / send works with YOUR model / clean
+  title / 3 grafts). Each item names the commit that delivered it, so a failure pinpoints the exact fix. This
+  makes the owner's single launch a definitive signal (build-green can't catch runtime issues).
