@@ -5,7 +5,7 @@
 > it is complete … truly start from the very beginning of the plan and recertify/reverify, and then continue
 > … NOT a lazy continue or lazy verification — truly robust."*
 >
-> **EVERY box below is UNCERTIFIED — treat as `[ ]` regardless of any prior `[x]`/`[~]`.** Walk **0.1 → 0.22
+> **EVERY box below is UNCERTIFIED — treat as `[ ]` regardless of any prior `[x]`/`[~]`.** Walk **0.1 → 0.26
 > in numeric order** (then TIER 1, 2, …). For each item RE-CERTIFY against its →plan section with grounded
 > evidence (file:line + real-state test + screencapture for UI) BEFORE marking `[x]`. Loop driver =
 > docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md. Paste block =
@@ -123,6 +123,21 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   `requestFailed`. Pairs with 0.4/0.18.
   →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "🎯 PINPOINTED ActOsaurusError".
 
+- [ ] **0.23 Send-text harness (EVERY iteration — standing)** — build/maintain headless harness driving real
+  act inference; log prompt + ~80 chars of reply each loop. If missing, BUILD before other work.
+  →plan: strict prompt MANDATORY FUNCTIONAL PROOF + "🎯 PINPOINTED ActOsaurusError".
+
+- [ ] **0.24 Act UI bug bundle (explicit)** — remove top white bar; fix click→search (must match D2: Epistemos
+  landing first); clean title-gen (no model self-description as title). Screenshot each fix.
+  →plan: "🆕 ACT SURFACE — UI BUGS" + "🎯 CONFIRMED reproduction + TITLE bug".
+
+- [ ] **0.25 Delete old main ChatView surface (GATED)** — ONLY after 0.4+0.8+0.10+CHAT_BACKEND four-part bar:
+  remove old chat from routing; delete surface code; IP preserved in quarantine. NOT before act certified.
+  →plan: "🔴🔴 ACT = OSAURUS IS THE CHAT" §THE BUILD #4 + THREE STANDING DIRECTIVES #3 + CHAT_BACKEND.
+
+- [ ] **0.26 UI-hide quarantined chat (GATED)** — once act certified: hide old chat from user UI; act+work only.
+  →plan: "🆕 QUARANTINE = CODE-PRESERVED + UI-HIDDEN".
+
 ## TIER 1 — WORK MODE (OpenCode)
 - [ ] **1.1** OpenCode launcher binary vendored. →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED".
 - [ ] **1.2** WORK = OpenCode real TUI; mini/graph (not note); search→work; dual landing+blur.
@@ -158,10 +173,16 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "ACT reskin — PRESERVE the model picker...".
 - [ ] **4.8** Talaria + other clones; MAS non-restrictive. →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE".
 - [ ] **4.9** ACT wiring: skills+MCP+tools; Keychain for API keys. →plan: CHAT_BACKEND_QUARANTINE.
+- [ ] **4.10** Per-model Epistemos Picks profiles — research profile + use-case blurb in picker.
+  →plan: CHAT_BACKEND_QUARANTINE per-model profiles + "DESIGN DECISION — Epistemos Picks".
+- [ ] **4.11** Test-parity gate before chat surface deletion — act coverage ≥ quarantined chat.
+  →plan: CHAT_BACKEND_QUARANTINE test-parity before retire.
 
 ## TIER 5 — DISTRIBUTION + OPTIMIZATION
 - [ ] **5.1** Dual-build MAS+Pro. →plan: "🔒 DUAL-BUILD DISTRIBUTION MODEL".
 - [ ] **5.2** Deep-optimization cycles (standing). →plan: "🆕 DEEP OPTIMIZATION CYCLES".
+- [ ] **5.3** MAS-safe OsaurusCore split — Pro full; MAS package without VM/Sparkle/Containerization so act=Osaurus on MAS.
+  →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE" + DEFINITIVE ACT-UI MAS NOTE.
 
 ## STANDING (every item, every loop)
 No fake-done · screencapture+send-text every iteration · build-green ≠ done · no red on main ·

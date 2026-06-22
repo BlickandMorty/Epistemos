@@ -1,5 +1,9 @@
 # Osaurus Act Build — Living Progress (started 2026-06-21)
 
+> ## 🔴 STRICT RE-CERT (2026-06-22): all `[x]` / "done" / "COMPLETE" claims below are **PROVISIONAL**
+> until re-certified in `docs/research/STRICT_RECERT_LOG_2026_06_22.md` against `docs/WORK_QUEUE_2026_06_22.md`.
+> Owner runtime D1–D5 still failing at last check. Do NOT trust progress `[x]` as certified — walk the queue.
+
 ## ⚠️ RE-SYNC / REALIGNMENT (owner 2026-06-21) — addendum AUTHORITATIVE, overrides research recs
 **Re-read `OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md` at the START of every iteration.** Owner
 directive ALWAYS beats a research rec. Corrections to drift (I had followed the feasibility doc's C2/B):
@@ -1223,3 +1227,10 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   stay per-process). Wired at AppBootstrap (off-MainActor Task, best-effort). Added a #if DEBUG makeForTesting
   factory + 2 real-state tests (round-trip seeds oldest→newest + idempotent no-clobber; no-op when persistence
   disabled). This closes the AnswerPacketHealthRow 'load-on-launch ring restore' stillStub.
+
+## SUBSTRATE Phase 2 — honest health-row update after load-on-launch restore (2026-06-22)
+- Following the restore (4e7a49199), the AnswerPacketHealthRow stillStub ("Load-on-launch ring restore ...
+  pending") was stale. Updated: wiredToday now says emitted packets "survive relaunch AND are restored into the
+  ring on launch (load-on-launch restore wired)"; stillStub drops it, leaving the honest remaining Phase-2 work
+  (canonical product/history surface + a matching primary witness). Keeps the existing source-guard assertions
+  valid (durable-log present; 'session ring only' absent).
