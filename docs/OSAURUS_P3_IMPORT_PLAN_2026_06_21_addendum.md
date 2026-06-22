@@ -1220,3 +1220,30 @@ EXCLUDED salvage (70B/new-model/training-dependent): M2-Max SSM GPU kernels, PCF
 distillation/SEAL-DoRA/LearningMode, Lane-4 Julia oracle, the 70B dual-brain pair. NOTE: substrate-core/
 substrate-rt crates are LIVE but NOT Helios (the zero-copy perf carve-out). OPEN: iCloud R0 theorem archive
 lives outside the repo — owner to confirm. The GRAND UNIFICATION SWEEP cycles continue + cross-check this.
+
+## 🔨 BUILD-IT-HARDENED + GO-BACK-AND-UNIFY (owner 2026-06-22) — no-compromise hard gates
+Once research folds in, the agent MUST actually BUILD it — deliberate, HARDENED, no-compromise hard-gates
+engineering (real-state tests, no fake-done, additive-safe so it never breaks the hardened clones). The agent
+already STARTED TRINITY + System G BEFORE the 2nd unification + the Helios/grand-sweep findings — so it must GO
+BACK, deliberate, HARDEN, and UNIFY those in-flight pieces with the new verdict (don't leave half-built/
+pre-unification work). Standing build mandate:
+1. **Finish leftover ARCHITECTURE GAPS + EASY WINS** (the salvage items, the unification UNIFY-0..6, the Eidos
+   wiring, confidence_floor, provenance-live) — code them, hardened.
+2. **Unify DEEPER** — one orchestrator (System G) + TRINITY core + one router + ONE brain attach-point + one
+   inference chokepoint; reconcile the already-started TRINITY/System G code with the unification verdict.
+3. **Use the owner's IP in the MOST IMPORTANT PLACES** — the knowledge brain (real Eidos/recall, provenance,
+   honesty), scope_rex/resonance, the salvaged substrate — infused at the core, not bolted on.
+4. **HARDEN before integrating** (owner: can't add unfinished work to hardened clones) — each salvaged/unified
+   piece is finished + real-state-tested + additive BEFORE it touches the live/clone path.
+
+## 🆕 EXTERNAL RESEARCH CORPUS — ~/Downloads (owner permission 2026-06-22)
+Owner GRANTS permission to research OUTSIDE the repo, in /Users/jojo/Downloads. The Helios-era SOURCE docs live
+here (loose, top-level): `helios v6.2.md`, `helios v5 first.md`/`v5 updated.md`/`v5.md`, `helios v4 updated.md`,
+`EPISTEMOS_HELIOS_v4_1_AMENDMENTS.md`, `Helios third .md`, `EPISTEMOS_GRAND_MASTER_v3.md`,
+`EPISTEMOS_FINAL_SEVEN_THEOREMS.md` + `_v2_HARDENED.md`, `EPISTEMOS_V6_1_FINAL_SYNTHESIS_LOCK.md`,
+`deep-research-report (6).md`/`(7).md`, `compass_artifact_*.md`, `Pasted markdown (1/3/4).md`. Also sibling
+dirs: `Epistemos-cursor/` (another working copy), `openclaw-main/`, `AETHERLINK_APPLICATION_KIT_FULL/`. The
+GRAND UNIFICATION SWEEP MUST INCLUDE this ~/Downloads corpus (it's the original Helios v1->v6 + seven-theorems
+source the in-repo docs were derived from) — read-only for research; classify useful/superseded/too-theoretical/
+70B-excluded; salvage beneficial IP into the plan. (Pixel-art font/theme dirs in Downloads = asset refs for the
+pixel-art UI, note but lower priority.) Do NOT modify anything outside the repo; research/copy-in only.
