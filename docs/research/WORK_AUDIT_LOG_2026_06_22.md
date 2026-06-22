@@ -670,3 +670,16 @@ The build loop must walk the WHOLE plan top-to-bottom, not declare done at end o
 ACTION: NOT editing the plan/queue/prompt (other agent owns them; owner said don't). Logged here only so the
 build loop + plan-prep agent pick it up; surfaced to owner to ensure the spec makes whole-plan scope explicit.
 No build-loop commits this fire; build loop not running; tree mid-edit by plan-prep agent (untouched).
+
+## PASS 48 — 2026-06-22 (scope-correction VERIFIED in spec; build loop not yet running)
+HEALTH: main; no build loop (0 procs, no screen); NO build-loop CODE commits. Recent commits are the plan-prep
+agent's spec-hardening docs (e96c69cd5, c1535116f, 6bef516d6, d4ef67d52).
+VERIFIED (read-only) that pass-47 scope correction LANDED in d4ef67d52 "full-plan strict recert — no act-only
+tunnel": committed WORK_QUEUE has FULL-PLAN-NO-ACT-TUNNEL rule (line ~33) + TIER 0 retitled "...NOT the whole
+plan"; committed strict prompt has "FULL PLAN CERTIFICATION ... supersedes act-only tunnel vision" (line ~16),
+all 4 clones named, "don't stop after act/D1-D5 / after TIER 0" (line ~119/190), "Re-cert of the ENTIRE plan
+(all tiers, all clones) complete when every queue item..." (line ~228), "Act certified ≠ loop done." → whole-plan
+scope now enforced. GOOD.
+Tree mid-edit by plan-prep agent (strict prompt + 2 Localizable + AnswerPacketHealthRow uncommitted) — untouched.
+VERDICT: PASS. Spec scope fixed. Standing enforcement (pass 47) holds: I will flag any "re-cert complete" that
+only covered act once the build loop runs. Watching for the build loop's first real code commits.
