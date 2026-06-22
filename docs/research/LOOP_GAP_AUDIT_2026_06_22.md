@@ -334,3 +334,64 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | Northstar PNGs | Optional visual refs |
 | STRICT_RECERT_LOG gap-fill vs cert line separation | P1 — separate headers when first real cert lands |
 | Post-recert forward scope undefined | P1 — define when STRICT RE-CERT COMPLETE triggers forward-only mode |
+
+## Iteration 8 — 2026-06-22 (W/B/S gates + reverse-audit + sync verify)
+
+### Pass49 doc fixes applied (iteration 8)
+| Finding | Fix |
+|---------|-----|
+| P0-4 Substrate/orchestrator runtime rubric weak | **S-gate S1–S5** stub section in queue ACCEPTANCE GATES + strict prompt table + paste table |
+| P0-6 Work/beyond/substrate cheap to `[x]` | **W-gate W1–W5** + **B-gate B1–B3** stubs; stub ≠ `[x]` on 0.28/0.30 (pass50 P0-B) |
+| P0-5 Phase COMPLETE without app launch | **Phase-complete preconditions** in strict prompt DONE bar + queue STANDING |
+| WALK ORDER drift 5.3 vs queue 5.4 | Fixed queue RULES + strict prompt pick order to **5.4** |
+
+### Reverse addendum audit (iteration 8 grep — sample unindexed hits resolved)
+| Addendum section | Queue index |
+|------------------|-------------|
+| 🆕 ACT RESKIN — GO DEEPER (§1433) | **0.1** →plan expanded ✓ |
+| 🆕 FUGU "CLONE THE CODE" (§950) | **3.2** →plan expanded ✓ |
+| 🌟 THE BIG IDEA / GRAND CONVERGENCE (§1158) | **2.4** + research doc ✓ |
+| 🌟 INITIATIVE — ADOPT PROVEN ENGINES (§553) | STANDING + FULL-CLONE PROCESS ✓ |
+| 🌟 MARKET POSITION (§716) | STANDING research monitor (no product claim) ✓ |
+| All prior iteration-7 hits | Still indexed ✓ |
+
+**Grep hit count (🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH tokens):** ~93 section headers in addendum; **0 unindexed** after iteration-8 fixes (remaining 🌟 research-only sections covered by STANDING or tier bundles).
+
+### STEP-0 / `[~]` cap / TIER floor / 0.32 witness — three-doc sync verify
+| Rule | WORK_QUEUE | STRICT prompt | PASTE_READY |
+|------|------------|---------------|-------------|
+| STEP-0 RESET | RULES L29–32 + STANDING L313 | EVERY ITERATION step 0 L117 + STANDING L268 | Non-negotiable #2 |
+| `[~]` CAP ≤2 | RULES L33–35 + STANDING L314 | MANDATORY (E) L187–188 + STANDING L268 | Non-negotiable #16 |
+| TIER ADVANCE FLOOR | RULES L36–39 + STANDING L315 | MANDATORY (H) L197–198 + STANDING L269 | Non-negotiable #14 |
+| 0.32 witness (item ID, forbidden claims) | **0.32** L200–213 | MANDATORY (H) L194–201 | Non-negotiable #14 + FIRST ACTION #5 |
+| W/B/S gates | ACCEPTANCE GATES section | W/B/S table + STANDING | Non-negotiable #22 + table |
+
+**Verdict:** PASS — all four rule clusters synced across three docs.
+
+### Pre-launch checklist (iteration 8)
+| Check | Status |
+|-------|--------|
+| W/B/S acceptance gate stubs indexed | PASS |
+| P0-5 phase-complete preconditions | PASS |
+| stub ≠ `[x]` on work/beyond | PASS |
+| WALK ORDER 5.4 synced | PASS |
+| STEP-0 / `[~]` cap / TIER floor / 0.32 synced | PASS |
+| PASTE_READY 22 non-negotiables | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures) |
+| Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED) |
+
+### Still open (next iteration / build agent — pass50 + runtime)
+| Gap | Action |
+|-----|--------|
+| P0-A ATTEMPTED vs CERTIFIED gaming | 0.32 could add **lowest still-[ ]** witness field (pass50) — not fixed this iter |
+| P0-C WORK harness "when available" | 1.7/0.29 still say harness when available; W4 now REQUIRED in W-gate — build agent must comply |
+| P1 send-text model-id assertion | Harness should assert served-model==selected-model (pass50 P1-a) |
+| P1 gate-c WIRED distinct cite | (c) needs consumer/mount cite separate from (a) — not doc-fixed |
+| P1 stale PNG freshness | Per-iter unique PNG + timestamp — paste #21 partial only |
+| P1-d full heading diff vs token grep | 0.31 still token-grep; optional future: heading-list diff |
+| All queue items uncertified | Build agent walks full plan with 5-gate + W/B/S gates |
+| `osa_runtime_2026_06_22.png` | Agent re-captures each iteration |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| Northstar PNGs | Optional visual refs |
+| STRICT_RECERT_LOG cert vs gap-fill headers | P1 — when first real cert lands |
+| Post-recert forward scope | P1 — define forward-only trigger |

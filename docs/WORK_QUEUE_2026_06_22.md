@@ -39,7 +39,7 @@ RULES (every loop, non-negotiable):
   T1+ attempt is NOT blocked waiting for full T0 `[x]`.
 - **QUEUE = INDEX, NOT SPEC.** Open the item's full `→plan:` section; implement EVERY nuance there.
 - **KEEP QUEUE COMPLETE:** any plan directive not indexed → ADD it here + point to plan section.
-- **WALK ORDER:** first unchecked item, **numeric order** (0.1, 0.2, … 0.32, then 1.1, 2.1, … 5.3). **No early
+- **WALK ORDER:** first unchecked item, **numeric order** (0.1, 0.2, … 0.32, then 1.1, 2.1, … 5.4). **No early
   exit** after act/TIER 0 — continue through TIER 1–5 every iteration until full walk attempted or true `[~]`.
 - **FULL-PLAN-NO-ACT-TUNNEL:** do NOT declare an iteration done, stop certifying, or narrow scope to act-only
   until you have attempted the full queue walk (0.1→0.32, then TIER 1→5) OR marked the sole remaining item(s)
@@ -62,7 +62,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **0.1 Reskin at VENDORED THEME SOURCE** — edit `LocalPackages/osaurus/.../Models/Theme/Theme.swift`
   defaults so Osaurus views NATIVELY render cream/monospace (#fbfaf5/#f4f3ee, #1c1c1e, SF Mono). NOT runtime
   `applyCustomTheme` alone (proven not to cascade; ba2f8952f drift). Screenshot: cream/monospace on act.
-  →plan: "🎯 RESKIN FIX — edit the VENDORED Osaurus theme at SOURCE" + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING".
+  →plan: "🎯 RESKIN FIX — edit the VENDORED Osaurus theme at SOURCE" + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING" +
+  "🆕 ACT RESKIN — GO DEEPER" + "🆕 ACT RESKIN = RESPECT THE CURRENT CHAT UI".
 
 - [ ] **0.2 ALL chat surfaces → same Osaurus act host** — main mounted; mini still Epistemos-native; graph
   still `triageService.streamGeneral`; note unverified. Route mini+graph+note through Osaurus act host. WORK
@@ -175,8 +176,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🆕 PER-CLONE SETTINGS" (Epistemos tab) + "🆕 MORE LOVED ASSETS TO PRESERVE" + DESIGN SOUL.
 
 - [ ] **0.28 WORK clone surface reachable (TIER-0 index; build in TIER 1)** — work mode discoverable via
-  act/work toggle + search→work landing; OpenCode/work shell reachable (even if stubbed — certify honesty).
-  Screenshot work landing/TUI separately from act. Note chat = act only (no work).
+  act/work toggle + search→work landing; OpenCode/work shell reachable. **Stub = `[ ] STUBBED(plan ref)` — never
+  `[x]`** until W-gate passes (see ACCEPTANCE GATES below). Screenshot work landing/TUI separately from act.
+  Note chat = act only (no work).
   →plan: "✅ RESOLVED OPENCODE UI" + "Where WORK goes" + dual landing+blur + mode-entry animations.
 
 - [ ] **0.29 Per-clone inference routing** — act send → Osaurus/in-process act path; work send → OpenCode/work
@@ -185,9 +187,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "✅ CONSENSUS — KEEP TriageService" + WORK ENGINE = ARCH C.
 
 - [ ] **0.30 BEYOND clone tab + scope honesty (in-scope vs OFF-LIMITS)** — beyond settings tab exists or is
-  honestly stubbed with plan ref; **Companion-backend clones OFF-LIMITS** (companions.rs, CompanionCreationFlow,
-  new-model interrupt internals) — do NOT cert beyond as Companion. **Work + beyond future clones IN SCOPE**
-  (Talaria reference, Epdoc-fuse, Tamagotchi render-fix). Document what's stub vs wired.
+  honestly stubbed with plan ref; **Stub = `[ ] STUBBED(plan ref)` — never `[x]`** until B-gate passes. **Companion-
+  backend clones OFF-LIMITS** (companions.rs, CompanionCreationFlow, new-model interrupt internals) — do NOT cert
+  beyond as Companion. **Work + beyond future clones IN SCOPE** (Talaria reference, Epdoc-fuse, Tamagotchi render-
+  fix). Document what's stub vs wired.
   →plan: "🆕 PER-CLONE SETTINGS" beyond tab + Tamagotchi + Talaria/Tolaria reference + OFF-LIMITS guard.
 
 - [ ] **0.31 Reverse addendum audit (EVERY iteration — standing)** — after forward queue walk: grep addendum for
@@ -245,7 +248,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   L1 memory, InterruptScore, HW tier. →plan: "✅ HELIOS-ERA IP ... salvage list".
 - [ ] **2.3** GUS salvage 1–18 (verify absent vs live). →plan: GRAND SWEEP cycles 1–3.
 - [ ] **2.4** UNIFICATION: one orchestrator+TRINITY+router+chokepoint; fix eidos fake-green; dead code cleanup.
-  →plan: "✅ UNIFICATION VERDICT".
+  →plan: "✅ UNIFICATION VERDICT" + "🌟 THE BIG IDEA / GRAND CONVERGENCE" +
+  docs/research/THE_BIG_IDEA_GRAND_CONVERGENCE_2026_06_22.md.
 - [ ] **2.5** EML honesty gate (GUS-2) — EML/Belnap → AnswerPacket abstain gate.
   →plan: GRAND SWEEP GUS-2.
 - [ ] **2.6** Eidos recall/rerank — real wiring, NOT fake-green. →plan: GUS-5 + Helios salvage.
@@ -258,7 +262,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 ## TIER 3 — ORCHESTRATOR / FUGU / TRINITY
 - [ ] **3.1** TRINITY native orchestrator on System G/RuntimeRouter. →plan: "🌟🌟 TRINITY" + port spec.
-- [ ] **3.2** Fugu optional guest provider (never the brain). →plan: "🌟 FUGU = FOUNDATIONAL FEATURE".
+- [ ] **3.2** Fugu optional guest provider (never the brain). →plan: "🌟 FUGU = FOUNDATIONAL FEATURE" +
+  "🆕 FUGU \"CLONE THE CODE\"".
 
 ## TIER 4 — OWNER-FACING / CLONES / PILLARS
 - [ ] **4.1** Per-clone SETTINGS polish (extends 0.21). →plan: "🆕 PER-CLONE SETTINGS".
@@ -306,6 +311,34 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   MAS; honest reduced-power verdict; full Linux-VM stays Pro/direct-dist only. →plan: "🆕 RESEARCH — MAS-compatible
   substitute for the VM sandbox".
 
+## ACCEPTANCE GATES — W/B/S runtime rubric (pass49 P0-4/P0-6 stubs)
+
+> **Act has D1–D5 (0.8).** Work, beyond, and substrate/orchestrator tiers MUST NOT reach `[x]` on build-green or
+> stub PNG alone. Each gate is a **runtime acceptance test** — same 5-gate bar as act; cite test + artifact in
+> STRICT_RECERT_LOG. Pairs with queue items noted.
+
+### W-gate — WORK clone (pairs 0.28, 1.2–1.8)
+- **W1** Work landing discoverable (act/work toggle or search→work) — **screenshot separate from act**
+- **W2** Real OpenCode TUI visible + palette from live `EpistemosTheme` — screenshot work composer
+- **W3** Work settings tab opens work/OpenCode settings (not flattened/dropped) — screenshot work tab
+- **W4** Work send reaches OpenCode/Goose engine — headless harness OR real reply; log prompt + ~80 chars +
+  engine lane identity; **NO silent act fallback**
+- **W5** No Electron/Chromium bundled; lazy-launch loopback kill-on-idle — pairs **1.8**; verify bundle + process list
+
+### B-gate — BEYOND clone (pairs 0.30, 4.14)
+- **B1** Beyond tab renders with honest stub/wired label per future clone
+- **B2** Companion-backend OFF-LIMITS grep — `companions.rs`, `CompanionCreationFlow`, new-model interrupt **NOT**
+  on live beyond path (grep + route cite)
+- **B3** In-scope future clones (Talaria, Epdoc-fuse, Tamagotchi) listed with plan ref; **stub ≠ `[x]`** — use
+  `[ ] STUBBED(plan ref)` until wired + B-gate proof
+
+### S-gate — SUBSTRATE + orchestrator (pairs 2.1–2.8, 3.1–3.2)
+- **S1** AnswerPacket load-on-launch + history surface primary witness (**2.1**) — real-state test, not stub row
+- **S2** Real-state integration test on **LIVE wired path** — NOT cargo-test-only; cite test name + runtime artifact
+- **S3** TRINITY/System G route selected+logged when certifying **3.1** — integration log/RunEventLog cite, not symbol grep
+- **S4** Eidos recall/rerank + EML abstain gate (**2.5/2.6**) — NOT fake-green; conflict → abstain witness
+- **S5** BUILD-IT-HARDENED (**2.8**) real-state passes **before** integrating into live/clone paths
+
 ## STANDING (every item, every loop)
 No fake-done · screencapture+send-text every iteration · build-green ≠ done · **act certified ≠ loop done** ·
 no red on main · code-more-build-less · never delete chat IP · NO-ADDED-TERMS · NO-QUEUE-JUMPING ·
@@ -329,4 +362,9 @@ grep InferenceState/model picker/chat send consumers; add missed surfaces to que
 MANDATE) · **REVERSE ADDENDUM AUDIT each loop:** item 0.31 — grep 🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH; index or add
   queue row; paste hit count to log.
 · **FULL-CLONE PROCESS:** every adopted engine (Osaurus, OpenCode, future beyond clones) follows vendored-clone
-method per plan — not one-off shims (→plan: "🔒 STANDING — THE FULL-CLONE PROCESS").
+method per plan — not one-off shims (→plan: "🔒 STANDING — THE FULL-CLONE PROCESS" + "🌟 INITIATIVE — ADOPT
+PROVEN ENGINES, LAYER MY IP") · **W/B/S ACCEPTANCE GATES:** do NOT mark TIER 1/2/3/4 work/beyond/substrate items
+`[x]` until matching W/B/S gate passes (see ACCEPTANCE GATES section; pass49 P0-4/P0-6) · **MARKET POSITION:**
+research monitor only — no product claim until owner promotes (→plan: "🌟 MARKET POSITION") · **PHASE COMPLETE
+PRECONDITIONS (pass49 P0-5):** STRICT RE-CERT COMPLETE forbidden without green xcodebuild this phase + per-surface
+PNG Read this phase + send-text real reply this phase — list all three in summary.

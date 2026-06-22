@@ -36,7 +36,7 @@ beyond future clones (Talaria, Epdoc-fuse, Tamagotchi render-fix).
 - **SUPERSEDES option-(b)** old Epistemos `ChatView`. Do NOT mount `Epistemos/Views/Chat/ChatView.swift` for act.
 - **Landing = Epistemos `LandingView` FIRST** (D2/0.3) → blur → act. NOT Osaurus default "Good morning" landing.
 
-## NON-NEGOTIABLES — every iteration (21)
+## NON-NEGOTIABLES — every iteration (22)
 1. **FULL-PLAN-NO-ACT-TUNNEL** — attempt 0.1→0.32 then TIER 1→5; do NOT stop after act/D1–D5 or build-green
 2. **STEP-0 RESET** — revert any queue `[x]`/`[~]`→`[ ]` before walk; STRICT_RECERT_LOG = sole cert record
 3. **Compile** — no red on main (`cargo test --lib` fast; `xcodebuild` at checkpoints)
@@ -62,6 +62,8 @@ beyond future clones (Talaria, Epdoc-fuse, Tamagotchi render-fix).
 19. **Act certified ≠ loop done** — continue into TIER 1+ same iteration when TIER 0 certified or honestly blocked.
 20. **FAVOR OSAURUS on clash** · **owner messages → plan+queue** · **NEVER-IDLE** · **FULL-CLONE PROCESS** for every adopted engine · **main-only** · Co-Authored-By Claude.
 21. **Re-capture baseline PNG each iteration** — do not trust stale `osa_runtime_2026_06_22.png` without Read this loop.
+22. **W/B/S ACCEPTANCE GATES** — work/beyond/substrate items do NOT `[x]` until W1–W5 / B1–B3 / S1–S5 pass (queue
+    ACCEPTANCE GATES section); stub = `[ ] STUBBED(plan ref)` never `[x]`. Log gates attempted in 0.32 witness.
 
 ## TIER WALK — strict numeric order, NO EARLY EXIT (all tiers NON-OPTIONAL each iteration)
 
@@ -161,6 +163,13 @@ iteration before ending.
 | 5.2 | Deep-optimization cycles (standing) |
 | 5.3 | MAS-safe OsaurusCore split (Pro full; MAS without VM/Sparkle) |
 | 5.4 | MAS VM sandbox substitute research (WASM/cloud vs omit; honest MAS verdict) |
+
+## W/B/S ACCEPTANCE GATES (pass49 P0-4/P0-6 — mirror queue)
+| Gate | Scope | Proof |
+|------|-------|-------|
+| **W1–W5** | Work (0.28, 1.2–1.8) | Work landing/TUI/settings PNG; work send harness; no Electron |
+| **B1–B3** | Beyond (0.30, 4.14) | Honest stub; Companion grep clean; stub ≠ `[x]` |
+| **S1–S5** | Substrate/orchestrator (2.1–2.8, 3.1–3.2) | Live-path integration test; AnswerPacket surfaced; NOT fake-green |
 
 ## D1–D5 (must all pass YOUR screencapture before act is done)
 - **D1** Curved window + soft shadow · **D2** Owner landing FIRST · **D3** Pill back · **D4** Settings work (all clone tabs) · **D5** Full reskin + picker/palette/38-tool panel
