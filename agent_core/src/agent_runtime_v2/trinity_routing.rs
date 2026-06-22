@@ -11,6 +11,33 @@ use crate::routing::{ClassificationResult, HeuristicClassifier};
 
 use super::trinity_loop::TrinityRole;
 
+/// Which router produced a coordination run's role→model decisions — disclosed HONESTLY (owner 2026-06-22:
+/// "heuristic vs learned router state disclosed honestly"). The reference's LEARNED coordination head (a
+/// Qwen3-0.6B hidden-state tap → biasless 1024→10 head) is license-gated (the adapted-weights bundle has no
+/// declared license — owner H1) AND needs the net-new MLX hidden-state tap, so until both land the orchestrator
+/// runs on the HEURISTIC router. `ACTIVE_ROUTER_MODE` is the single source of truth a UI/trace reports.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrinityRouterMode {
+    /// Existing complexity/code heuristic over CapabilityTier (live now).
+    Heuristic,
+    /// The reference's learned coordination head (license + MLX-tap gated; a clean drop-in when both clear).
+    Learned,
+}
+
+impl TrinityRouterMode {
+    pub const fn wire_tag(self) -> &'static str {
+        match self {
+            Self::Heuristic => "heuristic",
+            Self::Learned => "learned",
+        }
+    }
+}
+
+/// The router the orchestrator is ACTUALLY using right now — heuristic, honestly (no fake "learned" claim).
+/// Flips to `Learned` only when the learned-head slice lands AND its weights are license-cleared.
+pub const ACTIVE_ROUTER_MODE: TrinityRouterMode = TrinityRouterMode::Heuristic;
+
 /// Map a TRINITY role + a task classification to the capability tier that role should run on.
 /// - **Thinker** (plan / decompose) and **Verifier** (judge / accept-or-repair) are REASONING work → `Think`.
 /// - **Worker** (execute) routes by the task: `Code` for shell/code work, `Think` for hard non-code work,
@@ -87,6 +114,17 @@ mod tests {
         assert_eq!(heuristic_role_tier(TrinityRole::Worker, &classification(0.8, false)), CapabilityTier::Think);
         // simple non-code work → Fast.
         assert_eq!(heuristic_role_tier(TrinityRole::Worker, &classification(0.2, false)), CapabilityTier::Fast);
+    }
+
+    #[test]
+    fn active_router_mode_is_honestly_heuristic() {
+        // Until the learned head + its license-cleared weights land, the orchestrator must HONESTLY report
+        // heuristic — never claim "learned".
+        assert_eq!(ACTIVE_ROUTER_MODE, TrinityRouterMode::Heuristic);
+        assert_eq!(TrinityRouterMode::Heuristic.wire_tag(), "heuristic");
+        assert_eq!(TrinityRouterMode::Learned.wire_tag(), "learned");
+        // serializes to a snake_case tag for the trace/UI.
+        assert_eq!(serde_json::to_string(&ACTIVE_ROUTER_MODE).unwrap(), "\"heuristic\"");
     }
 
     #[test]
