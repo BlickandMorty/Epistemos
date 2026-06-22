@@ -1481,3 +1481,25 @@ needed), all owner-facing, do them BEFORE more docs/WORK polish:
    no naive stub.
 These are the in-progress ACT surface (owner reported them mid-build) — NOT a queue-jump. Build them; the loop
 should NOT treat act as "done" while the owner's reported bugs + the models-in-chat gap remain.
+
+## 🌟 ACT UI = FULLY RESTORE THE OLD EPISTEMOS UI, DRIVEN BY OSAURUS (owner 2026-06-22) — clarified goal
+Owner wants the ENTIRE old Epistemos UI back — genuinely powered by the Osaurus engine. NOT the broken
+toggle-engine-swap (that was the rejected drift); NOT a thin palette tint. The GOAL (invariants):
+- **The old Epistemos UI LOOK + COMPONENTS, faithfully restored** — the flat-pixel + Apple-native SwiftUI
+  aesthetic the owner loves, end to end:
+  - **LANDING PAGE:** the Osaurus landing, RESKINNED to the old flat-pixel/Apple-native look (click-to-open
+    lands here, not a search bar).
+  - **CHAT + MESSAGE BAR:** the old Epistemos chat thread + the MESSAGE BAR the owner loves (composer look/feel,
+    chips, fonts) — restored.
+  - **SIDEBAR:** Osaurus had no sidebar → bring the OLD EPISTEMOS SIDEBAR back, wired to Osaurus data/state.
+  - **FONTS + chrome:** the full old Epistemos type system + flat-pixel chrome.
+- **GENUINELY DRIVEN BY OSAURUS** (the engine/logic) — real Osaurus, no toggle, no fake/stub. Surface Osaurus's
+  NEW features/buttons WITHIN the restored old UI (Osaurus's actions/controls the old UI didn't have).
+- **ADD new UI only for genuinely-new Osaurus capabilities** the old UI lacked; everything the old UI had → restore it.
+RECONCILIATION (latest-directive-wins): supersedes the earlier "mount the Osaurus ChatView, don't reuse the old
+UI" — that rejected the BROKEN toggle-swap, not the old UI. Owner's newest intent = old UI back + real Osaurus.
+IMPLEMENTATION (build agent's choice, must hit ALL invariants above, no drift): either (a) reskin the hosted
+Osaurus views to faithfully match the old UI + re-add the sidebar, or (b) drive the old Epistemos SwiftUI views
+(landing/chat/message-bar/sidebar) with the Osaurus engine underneath. Pick whichever gives the FAITHFUL old
+look AND genuine Osaurus power, additively, no toggle/fake. KEEP Osaurus. This is the act-surface work (current,
+owner-facing) — do it before more WORK polish; supersedes the palette-only reskin.

@@ -111,3 +111,11 @@ re-routes click-open → Osaurus landing (not search). Re-add if unaddressed/hal
   the Osaurus chat → added build item to wire owner models into act.
 - **Verdict:** doc PASS; RE-ADDED act-surface bugs + models-in-chat gap. AUDIT-WATCH: next pass, did the loop
   pick up white-bar/landing/reskin/models? If still docs/WORK instead → re-flag harder (loop avoiding buildable owner work).
+
+## Owner directive (mid-loop) — 2026-06-22: FULLY RESTORE old Epistemos UI on Osaurus
+Owner clarified: bring the WHOLE old Epistemos UI back (landing[reskinned], chat, MESSAGE BAR, SIDEBAR[Osaurus
+had none → re-add], fonts, flat-pixel+Apple-native SwiftUI look), GENUINELY driven by Osaurus, Osaurus's new
+features/buttons surfaced within it; add new UI only for genuinely-new Osaurus capabilities. Reconciles/supersedes
+earlier "mount Osaurus ChatView not old UI" (that rejected the broken toggle-swap, not the old UI) via
+latest-wins. Added to plan. AUDIT-WATCH: build loop must restore old-UI look+message-bar+SIDEBAR on a genuine
+Osaurus engine (no toggle/fake), implementation its choice but ALL invariants met; re-add if palette-only/partial.
