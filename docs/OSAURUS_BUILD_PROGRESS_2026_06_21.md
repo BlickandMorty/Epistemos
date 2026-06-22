@@ -1212,3 +1212,14 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
 - BOTH loop-prompt lanes now at their buildable bars: ACT feature-complete (auditor pass 37) + pushed; WORK
   vendor-ready + buildable-parts verified. Remaining gates are precise OWNER ACTIONS (act runtime-verify; drop
   the OpenCode launcher).
+
+## SUBSTRATE Phase 2 — AnswerPacket load-on-launch ring restore (SUBSTRATE_BUILD_SEQUENCE, 2026-06-22)
+- Engaged the substrate authority's Phase 2 (AnswerPacket end-to-end). The durable JSONL persist primitive +
+  emit()→append + persistedRecent read accessor were done; the explicit `stillStub` was LOAD-ON-LAUNCH RING
+  RESTORE (packets were persisted to disk but the in-memory ring started empty on relaunch, so per-answer
+  provenance was invisible to recentPackets/snapshot/health-row after a restart).
+- Built it: AnswerPacketEmitter.restoreFromPersistence() seeds the ring from store.loadRecent (reversed to
+  oldest→newest), ONLY when the ring is empty (never duplicates/reorders live-emitted packets; session counters
+  stay per-process). Wired at AppBootstrap (off-MainActor Task, best-effort). Added a #if DEBUG makeForTesting
+  factory + 2 real-state tests (round-trip seeds oldest→newest + idempotent no-clobber; no-op when persistence
+  disabled). This closes the AnswerPacketHealthRow 'load-on-launch ring restore' stillStub.

@@ -97,4 +97,38 @@ struct AnswerPacketStoreTests {
         #expect(row.contains("durable JSONL persistence log"))
         #expect(!row.contains("session ring only"))   // the stale "not persisted" claim is gone
     }
+
+    // SUBSTRATE Phase 2 — LOAD-ON-LAUNCH RING RESTORE (the "production wiring later" slice): on relaunch
+    // the in-memory ring started empty even though emit() had persisted the packets, so per-answer
+    // provenance was on disk but invisible. restoreFromPersistence seeds the ring from the durable log.
+    @Test("restoreFromPersistence seeds the ring oldest→newest, only when the ring is empty")
+    func restoreFromPersistenceSeedsRing() async throws {
+        let (store, cleanup) = tempStore()
+        defer { cleanup() }
+        // Persist three packets in emit order p1 → p2 → p3 (append is chronological).
+        try store.append(packet("p1"))
+        try store.append(packet("p2"))
+        try store.append(packet("p3"))
+
+        let emitter = AnswerPacketEmitter.makeForTesting()
+        await emitter.configurePersistence(store)
+
+        let restored = await emitter.restoreFromPersistence()
+        #expect(restored == 3)
+        // The ring is oldest→newest (loadRecent is most-recent-first; restore reverses it).
+        let ids = await emitter.recentPackets().map(\.id)
+        #expect(ids == ["p1", "p2", "p3"])
+
+        // Idempotent / no-clobber: a second restore is a no-op because the ring is non-empty.
+        #expect(await emitter.restoreFromPersistence() == 0)
+        #expect(await emitter.recentPackets().map(\.id) == ["p1", "p2", "p3"])
+    }
+
+    @Test("restoreFromPersistence is a no-op with persistence disabled")
+    func restoreFromPersistenceNoOpWhenDisabled() async throws {
+        let emitter = AnswerPacketEmitter.makeForTesting()
+        // No store configured → nothing to restore.
+        #expect(await emitter.restoreFromPersistence() == 0)
+        #expect(await emitter.recentPackets().isEmpty)
+    }
 }

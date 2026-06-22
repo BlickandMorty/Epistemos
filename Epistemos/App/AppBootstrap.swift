@@ -2222,6 +2222,14 @@ final class AppBootstrap {
         // to call multiple times if AppBootstrap is reconstructed.
         LatestAnswerPacketSink.shared.start()
 
+        // SUBSTRATE Phase 2 (SUBSTRATE_BUILD_SEQUENCE) — LOAD-ON-LAUNCH RING RESTORE: seed the
+        // AnswerPacketEmitter ring from the durable JSONL so per-answer provenance survives relaunch
+        // (emit() already persists; the ring just started empty on launch). Off-MainActor (actor),
+        // best-effort, only seeds when the ring is empty so it never duplicates live-emitted packets.
+        Task.detached(priority: .utility) {
+            await AnswerPacketEmitter.shared.restoreFromPersistence()
+        }
+
         // ISSUE-2026-05-12-008: amortize BlockMirror first-parse for the 5
         // most-recently-modified pages so the first-open hang (~10-200ms per
         // note) moves from click-time to launch-time. Uses the canonical
