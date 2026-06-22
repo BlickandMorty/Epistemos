@@ -640,8 +640,11 @@ visual surfaces needing the running app, this is the buildable foundational work
 - [x] **Async loop (`a4d3de41f`, cargo 3/3 tokio):** `trinity_async` = the async TWV loop + `TrinityRoleExecutorAsync`
   (async_trait) so a real async AgentProvider plugs in (sync generator can't await). Same semantics as the sync
   core. Total trinity = 22/22.
-- REMAINS (runtime, sequenced): the async executor backed by a real AgentProvider (model-per-tier + stream→String);
-  slice 3b = trace → Swift TraceCollector; then expose as the internal orchestrator API across
+- [x] **Tier→model resolution (`56e9043f4`, cargo 4/4):** `select_model_for_tier(tier, available_ids)` resolves a
+  TRINITY tier → concrete LOCAL model (CANON, advertised-preferred, local-first) or None (honest no-wrong-tier-swap).
+  Total trinity = 23/23.
+- REMAINS (runtime, sequenced): the async executor backed by a real AgentProvider (uses select_model_for_tier +
+  stream→String); slice 3b = trace → Swift TraceCollector; then expose as the internal orchestrator API across
   act/work/chat. LEARNED router gated on license (owner H1 TODO: clear adapted-weights license w/ nshkrdotcom,
   or re-derive from Apache Qwen3-0.6B). Heuristic-vs-learned state disclosed honestly.
 
