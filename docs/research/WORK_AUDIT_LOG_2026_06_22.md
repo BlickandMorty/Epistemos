@@ -83,3 +83,18 @@ not just CustomTheme palette), additive, Osaurus engine kept. Re-add if it stops
 - (b) Click-to-open opens the SEARCH BAR; owner wants it to open the OSAURUS LANDING page.
 Added to plan as ordered act-surface fixes. AUDIT-WATCH: verify the build loop removes the top white bar +
 re-routes click-open → Osaurus landing (not search). Re-add if unaddressed/half-done. Keep Osaurus engine.
+
+## Pass 6 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `cfd7fa41f` (WORK go-live) (<1 min).
+- **c57e407eb (<think> resolved) → ✅ PASS, NOT fake-green:** marked `[~]` not done; cites real code
+  (LocalReasoningCapability.swift envelope detection + ModelRuntime.swift:2758-2778 reasoning_content split);
+  live click-test explicitly PENDING (running app). Honest-tier.
+- **cfd7fa41f (WORK=OpenCode go-live, remove experimental toggle) → ✅ PASS + corrects stale finding:** OpenCode
+  runtime IS bundled (129MB opencode arm64 + Bun + omega_mcp_stdio in Resources/opencode-runtime via
+  build-opencode-runtime.sh); removed gate, live-by-default Pro, MAS inert. Consistent no-toggle. (My earlier
+  "runtime not bundled" was STALE — corrected.)
+- **⚠️ PRIORITY FLAG (not a re-add — re-ordering):** the owner-reported ACT-surface bugs (white bar, click→search-
+  not-landing) + deeper reskin are NOT yet built; loop did WORK polish instead. Owner is actively testing ACT →
+  these are higher priority. Added ⏫ PRIORITY note to plan: finish ACT surface (white bar→landing→deeper reskin)
+  BEFORE more WORK polish. AUDIT-WATCH next pass: did the loop pick up the act-surface bugs?
+- **Verdict:** PASS on both commits; re-ordered priority toward the owner's active act-surface bugs.
