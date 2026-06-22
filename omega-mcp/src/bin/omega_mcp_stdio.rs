@@ -1,0 +1,149 @@
+//! omega_mcp_stdio — a stdio MCP server exposing the app's VAULT + GRAPH tools (and vault resources) to
+//! EXTERNAL agents, primarily OpenCode's work agent (Architecture C "fuse beneath": OpenCode is the work
+//! engine; the app's vault tools + clean-room hardening fuse in via MCP). Newline-delimited JSON-RPC over
+//! stdin/stdout (the MCP stdio transport). The vault root is passed via `EPISTEMOS_VAULT_ROOT`.
+//!
+//! HONEST SCOPE: this server executes the RUST-side tools (vault read/write/search + the wikilink graph +
+//! graph verbs + vault resources) — exactly the tools `execute_vault_tool` / the dispatcher's resource
+//! handlers implement in Rust. App tools that execute Swift-side return an honest error (no fake execution);
+//! exposing the full app tool surface to an external process is the follow-on (app-hosted network MCP).
+
+use std::io::{self, BufRead, Write};
+
+use serde_json::{json, Value};
+
+fn main() {
+    let vault_root = std::env::var("EPISTEMOS_VAULT_ROOT").unwrap_or_default();
+    let dispatcher = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
+    dispatcher.register_builtin_tools(); // so tools/list advertises the catalog
+    if !vault_root.is_empty() {
+        dispatcher.set_vault_root(vault_root.clone());
+    }
+
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+
+    for line in stdin.lock().lines() {
+        let line = match line {
+            Ok(l) => l,
+            Err(_) => break,
+        };
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Some(response) = handle(&dispatcher, &vault_root, trimmed) {
+            if writeln!(out, "{response}").is_err() {
+                break;
+            }
+            let _ = out.flush();
+        }
+    }
+}
+
+/// Route one JSON-RPC line. `Some(response)` for requests; `None` for notifications (no reply).
+pub fn handle(
+    dispatcher: &omega_mcp::dispatcher::MCPDispatcher,
+    vault_root: &str,
+    line: &str,
+) -> Option<String> {
+    let req: Value = serde_json::from_str(line).ok()?;
+    let id = req.get("id").cloned().unwrap_or(Value::Null);
+    let method = req.get("method")?.as_str()?;
+    match method {
+        "initialize" => Some(
+            json!({
+                "jsonrpc": "2.0", "id": id,
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": { "tools": {}, "resources": {} },
+                    "serverInfo": { "name": "epistemos-vault", "version": env!("CARGO_PKG_VERSION") }
+                }
+            })
+            .to_string(),
+        ),
+        // Notifications (initialized, cancelled, …) carry no id and need no response.
+        m if m.starts_with("notifications/") => None,
+        "tools/call" => {
+            let params = req.get("params");
+            let name = params
+                .and_then(|p| p.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let args = params
+                .and_then(|p| p.get("arguments"))
+                .cloned()
+                .unwrap_or_else(|| json!({}));
+            // Execute the Rust-side vault/graph tool; wrap the ToolResult JSON as MCP tool content.
+            let result_json = omega_mcp::vault::execute_vault_tool(
+                vault_root.to_string(),
+                name.to_string(),
+                args.to_string(),
+            );
+            Some(
+                json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "result": { "content": [ { "type": "text", "text": result_json } ] }
+                })
+                .to_string(),
+            )
+        }
+        // tools/list + resources/list + resources/read are served by the dispatcher.
+        _ => Some(dispatcher.dispatch(line.to_string())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dispatcher_with_vault(root: &str) -> omega_mcp::dispatcher::MCPDispatcher {
+        let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
+        d.register_builtin_tools();
+        d.set_vault_root(root.to_string());
+        d
+    }
+
+    #[test]
+    fn initialize_advertises_tools_and_resources() {
+        let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
+        let resp = handle(&d, "", r#"{"jsonrpc":"2.0","method":"initialize","id":1}"#).unwrap();
+        assert!(resp.contains("epistemos-vault"), "{resp}");
+        assert!(resp.contains("\"tools\"") && resp.contains("\"resources\""), "{resp}");
+    }
+
+    #[test]
+    fn notifications_get_no_response() {
+        let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
+        assert!(handle(&d, "", r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).is_none());
+    }
+
+    #[test]
+    fn tools_call_executes_a_real_vault_tool() {
+        let dir = std::env::temp_dir().join(format!("epi_stdio_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        std::fs::write(dir.join("a.md"), "links [[b]]").unwrap();
+        std::fs::write(dir.join("b.md"), "I am b").unwrap();
+        let root = dir.to_string_lossy().to_string();
+        let d = dispatcher_with_vault(&root);
+
+        // tools/list comes from the dispatcher's catalog.
+        let listed = handle(&d, &root, r#"{"jsonrpc":"2.0","method":"tools/list","id":1}"#).unwrap();
+        assert!(listed.contains("backlinks"), "{listed}");
+
+        // tools/call executes the Rust vault tool (backlinks: a links to b).
+        let called = handle(
+            &d, &root,
+            r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"backlinks","arguments":{"target":"b"}},"id":2}"#,
+        ).unwrap();
+        assert!(called.contains("a.md"), "{called}");
+        assert!(called.contains("\"content\""), "MCP content wrapper: {called}");
+
+        // resources/list is served by the dispatcher (vault notes as resources).
+        let res = handle(&d, &root, r#"{"jsonrpc":"2.0","method":"resources/list","id":3}"#).unwrap();
+        assert!(res.contains("vault:///a.md"), "{res}");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
