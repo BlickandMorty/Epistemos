@@ -1071,3 +1071,10 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/â
   instead of the old `ChatView()`; guarded import, MAS keeps the old surface. So act is now Osaurus's real UI
   (loads + visibly Osaurus), and its in-process send path may also resolve the send-fail (no HTTP requestFailed).
 - Follow-on: the 3 grafts (message bar, side panel, scroll-blur) + owner runtime-verify.
+
+## Lock the new UI direction against revert (source-guard, 2026-06-22)
+- The owner's regression was a REVERT: option-(b) re-mounted the old ChatView, so act became "the same chat,
+  just with a badge". To prevent that recurring, added ActSurfaceOsaurusUIDirectionGuardTests â€” a deterministic
+  source-guard asserting RootView mounts `EpistemosOsaurusChatHost()` for the act surface (gated on
+  shouldRouteActThroughOsaurus, behind the `#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)` guard). A future
+  edit that drops the Osaurus-host mount for act now fails at test time.
