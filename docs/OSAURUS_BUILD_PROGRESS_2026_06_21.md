@@ -83,7 +83,11 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
 - **Act-swap in BOTH inference chokepoints** (liveLoop `e67295bc0` + TriageService `8ae27be43`) → every
   chat surface (main/Mini/Note/Graph) gets act. **🎯 ONE INFERENCE CHOKEPOINT — PHASE 1 DONE (`b28cb96e7`):**
   `SharedActInference.actStreamIfArmed` = the SINGLE act-injection entry both chokepoints now delegate into
-  (can't diverge; flag-off byte-identical). PHASE 2+ (later, careful): merge the fuller path + retire the
+  (can't diverge; flag-off byte-identical). **COMPLETENESS-CRITIC pass (`8efb98d32`, owner §38/§86):** audited
+  ALL inference entry points → found the NON-streaming local path (`localGenerateOrFallback`, used by
+  `generateGeneral`/PinnedInspector retry) bypassed act → added `SharedActInference.actTextIfArmed` (honest:
+  armed→act-text-or-throw, never silent MLX) so BOTH streaming + non-streaming local paths route act through
+  the one entry. 24/24 act suites. PHASE 2+ (later, careful): merge the fuller path + retire the
   duplicate TriageService path (owner: "old chat/triage inference is dead, get rid of it"). CERTAIN.
 - **🌟 PILLAR — VAULT-DEEP-INTEGRATION (overtake Tolaria, §720):** STANDING RULE: full-clone every ADOPTED
   engine (Osaurus method); REFERENCE-only for capabilities already owned better (Tolaria = reference; mine
