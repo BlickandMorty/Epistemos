@@ -117,6 +117,10 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     so external (OpenCode/Codex) AND in-app agents build the graph from the vault. Real-state test:
     cross-linked + dangling temp vault → counts + traverse the real link graph + idempotency + removal
     reflected. 183/183 omega-mcp lib green (+1). (Later: an in-app trigger/auto-sync on vault change.)
+    **DIRECTIONAL TRAVERSE (`0a80ac22a`):** `graph.traverse` gained `direction` out|in|**both** — agents now
+    walk BACKLINKS (in: notes linking TO this one), not just downstream (out, the default = byte-identical to
+    before). Pairs with the `links_to` edges so "what does this reach" AND "what reaches this" both work over
+    the vault graph. 186/186 lib green (+1: out/in/both + bad-direction).
   - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink suite COMPLETE — `vault.backlinks`
     (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved) +
     `vault.note_links` (`80a376b5d`, full per-note context in one call) MCP tools over a shared `parse_wikilinks`
