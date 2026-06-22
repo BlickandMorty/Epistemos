@@ -832,5 +832,31 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
   excluded it from `showLandingToolbarControls` → the toolbar is empty + background hidden over the Osaurus
   host, so the top is clean (old-chat look) and Osaurus's own landing/composer shows through. Epistemos landing
   (`showLanding==true`) is unaffected. Owner to re-audit on the running app.
-- [ ] **Deeper reskin (next):** reapply the old Epistemos message bar (highest priority) + side panel + fonts
-  onto the Osaurus host (component-level overrides on `EpistemosOsaurusChatHost`, keep OsaurusCore).
+- [ ] **Deeper reskin → CLARIFIED to "fully restore the old Epistemos UI, driven by Osaurus" (owner 1485):**
+  the owner wants the WHOLE old Epistemos UI back (landing reskinned to old flat-pixel/Apple-native look; old
+  chat thread + the loved MESSAGE BAR; the OLD EPISTEMOS SIDEBAR re-added wired to Osaurus data; full old font/
+  chrome) genuinely powered by Osaurus (no toggle/fake), surfacing Osaurus's new features within it. Supersedes
+  the palette-only reskin; supersedes "don't reuse the old UI" (that rejected the broken toggle-swap).
+  - **CHOSEN APPROACH = option (a):** reskin the hosted real Osaurus views to faithfully match the old look +
+    re-add the sidebar. Rationale: keeps "genuinely Osaurus" true BY CONSTRUCTION (the surface IS the real
+    Osaurus ChatView/engine — no deep rewiring that risks re-creating the rejected old-ChatView+engine pattern),
+    additive on the current host foundation. (Option (b) = drive the old Epistemos SwiftUI views with the
+    Osaurus engine — higher-risk deep rewiring + unverifiable; fall back to it only if (a)'s fidelity falls short.)
+  - Build order: message bar (owner fave) → fonts/flat-pixel chrome → enable/bring the sidebar → landing look.
+    Component-level overrides on the hosted Osaurus views (`FloatingInputCard`/thread/sidebar), keep OsaurusCore.
+
+### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
+The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't
+import the app; `ChatEngine(source:.chatUI)` is built at `ChatView.swift:349` with default `[FoundationModel
+Service, MLXService]`. Plan: a cross-module seam (primitive types) + an Epistemos-side provider + picker
+visibility.
+- [x] **4a — OsaurusCore seam (this build):** `EpistemosModelBridge.swift` — `public protocol
+  EpistemosModelProvider` (Sendable primitives: `availableModelIds()` + `streamGenerate(prompt:modelId:max
+  Tokens:)`), a process-global `EpistemosModelBridge` registry, and an in-module `EpistemosBridgedModelService:
+  ModelService` that flattens the OpenAI-style history → prompt and streams from the provider. Wired into
+  `ChatEngine`'s default `services` + `installedModelsProvider`. ADDITIVE + honestly INERT until a provider is
+  registered (`isAvailable()/handles()` decline → default Foundation/MLX behaviour byte-identical).
+- [ ] **4b — Epistemos provider:** implement `EpistemosModelProvider` over the app's real GGUF/MLX inference
+  (the QAT ladder), `register()` it at bootstrap. (Needs the Epistemos inference API.)
+- [ ] **4c — picker visibility:** surface the owner's model ids in the Osaurus model picker catalog (ModelManager)
+  so they're selectable; routing then reaches `EpistemosBridgedModelService`. Live generation = owner's runtime check.
