@@ -1219,3 +1219,24 @@ the in-flight act surface (read-only fan-out, 5 dimensions), then wrote a consol
   it commits an act build, do the full kill→rebuild→screencapture→Read cert vs the 7 items + Desktop refs.
 Check-only; touched ONLY the addendum + this audit log (git add of exactly those two; never -A); did NOT touch
 agent code / queue / strict-recert / in-flight files.
+
+## PASS 79 — 2026-06-22 (STEER: caught IN-FLIGHT drift — act branch mounting `ChatView()` (option-b); wrote P0 reversal)
+Caught BEFORE commit (uncommitted working tree): Codex DELETED the fresh native act view (`NativeActChatView.swift`,
+−180) and rewired the RootView act branch to mount `ChatView().transition(.blurFade())`
+(`RootView.swift:2689/2705/2722`) — option-(b), the old ChatView monolith. Misread the owner's "use my real chrome"
+as "mount ChatView()."
+- VIOLATION of the owner's LAST WORD §2073 (16:00, "supersedes EVERY prior act-UI section"): "Do NOT mount,
+  reskin, or decompose ANY ChatView… if editing/wrapping/flagging EITHER ChatView, WRONG path — STOP." Acceptance
+  #3 (NOT old ChatView) + #5 (KILL duality). Verified NO newer owner directive authorizes a mount (full heading
+  timeline §1675/§2033/§2073 + ledger + driver LOCKED line 81 all forbid it).
+- HARMS verified: (1) certified engine path SEVERED — `OsaurusActBridge().runTurnStreamingInProcess` referenced
+  NOWHERE now (was only in the deleted view); (2) chat/act DUALITY re-cemented — ChatView is the full
+  `@Environment(ChatState/Pipeline/Inference/Orchestrator)` monolith (`ChatView.swift:179-183`); (3) guard test
+  INVERTED — now requires `ChatView().transition(.blurFade())`, forbids `NativeActChatView(` (stale test locking a
+  dead direction).
+- CORRECTION → addendum `## 🔴🔴🔴 AUDITOR CORRECTION (P0) ~16:45`: do NOT commit the ChatView() mount; RESTORE the
+  fresh native act view on the certified bridge; complete the cert bar's 7 items ON it; fix the guard to forbid
+  ChatView() as act. Supersedes the §2266 line-cites (target = restored native view).
+- Discipline: caught in-flight per the owner's explicit "steer on drift" mandate; addendum-channel (not racing
+  code). ESCALATION ARMED: if Codex commits the ChatView() mount anyway next cycle → WORK_QUEUE row.
+Check-only; touched ONLY the addendum + this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
