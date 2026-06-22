@@ -274,3 +274,24 @@ streaming live; price a representative multi-step run. (Refines; the design abov
   (Keychain key + endpoint + the per-message cost label + explicit first-call opt-in confirm, per §6.3) →
   model-picker/act/work + OpenCode-provider wiring → best-combo (b): expose RuntimeRouter/System G native
   orchestration behind the SAME abstraction (the §1–§5 design here).
+
+---
+## 7. MULTI-LoRA ROUTING — adjacent pattern repos (monitor, 2026-06-22, bounded pass)
+Owner-flagged: github.com/MindLab-Research/Mixture-of-LoRA-Harness — a router + SGLang overlay serving multiple
+LoRA adapters behind ONE OpenAI-compatible endpoint, with hybrid prompt-routing + L0-L4 adapter hierarchy +
+KV-reuse across adapter switches. MIT, Python+SGLang, research-grade (~33★, low activity). [verified web]
+**FIT:** this is the route-to-best-ADAPTER variant of the orchestrator pattern — directly relevant to (a) the
+native orchestrator (§6) and (b) the owner's "custom bespoke per-model engineering" + QAT/model-lab IP.
+**CLONE-vs-REFERENCE:** Python+SGLang+PyTorch → does NOT fit MAS/in-process Swift/MLX → REFERENCE/method, NOT
+a clone-target. Adopt the PATTERN (per-task adapter/model selection behind one endpoint), implement natively.
+**Adjacent repos in this category (for the orchestrator's model/adapter-pool design):**
+- **EricLBuehler/xlora** — X-LoRA Mixture-of-LoRA-Experts (learns scaling per adapter); note: EricLBuehler also
+  authors `mistral.rs` (Rust) → most MAS-aligned LoRA-expert lead to investigate.
+- **predibase/lorax** — multi-LoRA inference server, OpenAI-compat, dynamic adapter loading (server pattern).
+- **S-LoRA/S-LoRA** — serve thousands of adapters (memory/paging techniques).
+- **SGLang / vLLM multi-LoRA** — `model:adapter` syntax over OpenAI-compat (reference for the API shape).
+**VERDICT:** these are PATTERN/method references for the native orchestrator's per-model/per-adapter routing
+(the owner's IP), NOT engines to clone (Python/CUDA stacks, not MAS-Swift). The MLX-side equivalent (LoRA on
+MLX) is the owner's model-lab IP; mine xlora/mistral.rs for the Rust/MLX-feasible expert-routing approach.
+Bounded research COMPLETE — confident the category = "reference the method, build natively." Future better
+repos: re-evaluate when they appear (no standing loop).
