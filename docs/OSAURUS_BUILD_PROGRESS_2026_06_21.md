@@ -631,8 +631,11 @@ visual surfaces needing the running app, this is the buildable foundational work
   Think/Fast by code/complexity). `select_role_tier(role, objective)`. Learned router = clean drop-in later.
 - [x] **Slice 3 — JSONL trace persistence (`a1f7e8fe8`, cargo 3/3):** `trinity_trace` serializes the TrinityEvent
   stream to JSONL (schema_version 1) + persists ATOMICALLY (temp+rename); lossless round-trip + replay reader.
-- REMAINS (sequenced): slice 2b = wire model-id + OpenAI-compat provider call into a real TrinityRoleExecutor;
-  slice 3b = trace → Swift TraceCollector; then expose as the internal orchestrator API across
+- [x] **Slice 2b — heuristic TrinityRoleExecutor (`06801d957`, cargo 4/4):** `trinity_executor` ties loop+routing
+  via role prompts + tier routing + HONEST verdict parsing (ACCEPT only on explicit bare ACCEPT → never
+  false-accept), over an injected generator. Total trinity = 16/16.
+- REMAINS (sequenced): slice 2c = wire the real provider-boundary generator; slice 3b = trace → Swift
+  TraceCollector; then expose as the internal orchestrator API across
   act/work/chat. LEARNED router gated on license (owner H1 TODO: clear adapted-weights license w/ nshkrdotcom,
   or re-derive from Apache Qwen3-0.6B). Heuristic-vs-learned state disclosed honestly.
 
