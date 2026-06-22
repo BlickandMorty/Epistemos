@@ -198,3 +198,10 @@ Osaurus engine (no toggle/fake), implementation its choice but ALL invariants me
 - RE-ADDED as P0-A (make act actually work + visible errors + scheme check) + P0-B (surface Osaurus visibly —
   owner can't see it; wanted its features/buttons). Build-audit PASS ≠ runtime PASS — pivot re-opened.
 - AUDIT-WATCH: build loop must diagnose the runtime failure, make a real send work, and surface Osaurus; re-verify.
+
+## Owner clarification (mid-loop) — 2026-06-22: MY UI + OSAURUS VISIBLE + WORKING (hybrid; fix-forward)
+Owner: want MY actual old UI (not a scan) + Osaurus's landing/buttons/features SURFACED in it + Osaurus engine
++ it WORKS. = sharpen option (b), not a flip: (1) genuine old Epistemos UI, (2) Osaurus visible (landing/
+buttons/features in the UI), (3) Osaurus engine + owner models + real working send. FIX-FORWARD (nothing lost,
+pieces exist) — revert only if fix-forward infeasible. Folds into P0-A (make it work) + P0-B (surface Osaurus,
+now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
