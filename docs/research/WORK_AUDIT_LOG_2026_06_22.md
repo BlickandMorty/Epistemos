@@ -1038,3 +1038,18 @@ host but didn't rewrite the test (Codex + pass-66 flagged; not done). Issued cor
 NativeActChatView/NativeActLandingView + OsaurusActBridge path, FORBID host/ChatView; run green.
 WATCH: ChatInputBar composed ✓; ChatSidebarView (sidebar+recent-chats) NOT yet — add it; confirm pill on act+
 landing+work. Verify cream + full chrome + real send on fresh launch next fire. Did NOT touch agent code.
+
+## PASS 68 — 2026-06-22 (pass-67 P0 RESOLVED + ChatInputBar composed & fresh-launch-verified)
+dca65beb5 (iter24-25) — all pass-67 items done:
+- GUARD TEST REWRITTEN ✓ (P0 red-on-main fixed): ActSurfaceOsaurusUIDirectionGuardTests now #expects
+  NativeActChatView(/NativeActLandingView( + OsaurusActBridge().runTurnStreamingInProcess + ChatInputBar( + cream
+  (0xFB/fbfaf5); FORBIDS EpistemosOsaurusChatHost. Locks the PIVOT, not the dead direction. All asserted strings
+  exist in code → passes (no red). Resolves my pass-67 P0.
+- ChatInputBar COMPOSED + fresh-launch-VERIFIED ✓ (pass-66): iter25 PNG epi_iter25_actrich Read shows the RICH
+  owner composer (Read+Search vault, @ notes/chats, tools, Local/model, "Vault loaded: My mind 2"), NOT skeleton;
+  app pid 67370 alive, ChatInputBar @Environment deps resolve at runtime, no crash.
+- 0.4 harness re-run GREEN 2/2 after the composer swap (send protected). BUILD SUCCEEDED.
+Correction loop tight: flag pass-67 → agent fixed iter24 (notes "same fix"). VERDICT: STRONG PASS.
+WATCH (agent's stated next): compose ChatSidebarView (sidebar+recent-chats) — NOT yet; confirm ChatCapabilityPill
+on act+landing+work; kill act/chat duality (0.20). NEXT FIRE: independent screenshot of the FULL chrome (cream +
+ChatInputBar + sidebar + pill + real send) on fresh launch when agent claims it done. Did NOT touch agent code.
