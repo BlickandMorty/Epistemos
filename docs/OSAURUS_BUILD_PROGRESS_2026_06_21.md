@@ -655,6 +655,11 @@ visual surfaces needing the running app, this is the buildable foundational work
   token usage + call count per run (one model call per role turn) → costed via the shared estimate_session_cost_usd
   (per-token + per-request fee). A multi-round TWV run reports a real non-zero cost — no hidden expensive runs.
   **Faculty-1 coordination core = 32/32.**
+- [x] **Async orchestrator entry (`41bb9133a`, cargo 4/4):** `run_mission_async(objective, trace_dir,
+  provider_for_tier)` = the REAL-provider path (System G/act/work/chat invoke this); composes async loop + provider
+  executor + trace + honest cost basis (total_usage/total_calls). **Faculty-1 core = 33/33.** The async
+  (real-provider) orchestrator API is now complete; only app-side wiring (MLX provider factory + System-G/Swift
+  invocation behind the flag) remains.
 - REMAINS (runtime/app-side, sequenced): the app supplies `provider_for_tier` (model resolution + provider
   construction) + System-G/act/work/chat invoke `run_trinity_loop_async` behind the flag; slice 3b = trace →
   Swift TraceCollector; then expose as the internal orchestrator API across
