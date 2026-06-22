@@ -97,7 +97,8 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     populated FROM vault notes+links end-to-end.)
   - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink graph DONE — `vault.backlinks`
     (`d6472fe2b`, in-links) + `vault.outlinks` (`bb52bcbee`, out-links) MCP tools over a shared `parse_wikilinks`
-    (alias/heading-aware, basename-matched, traversal-safe), 13/13 tests. Agents have the full in/out link graph.
+    (alias/heading-aware, basename-matched, traversal-safe), 13/13 tests + CATALOG-REGISTERED (`d481f38ee`,
+    discoverable via tools/list, no dead surface). Agents have the full in/out link graph.
     REMAINS: brain-powered SEMANTIC backlinks / LLM-suggested links (Eidos/recall/provenance) layered on top.
   - [ ] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator) — NEW.
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
