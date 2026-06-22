@@ -461,3 +461,12 @@ search bugs on it; runtime-verify.
 - **No new commits to audit.** Not hung; no concurrent build kicked.
 - **Verdict:** healthy, no re-add. Remaining for act: 3 grafts (message bar/side panel/scroll-blur) + OWNER
   RUNTIME-VERIFY (send works in-process + Osaurus-reskinned look + no white-bar/search). Re-audit next commit.
+
+## Pass 33 — 2026-06-22
+- **Build loop:** ALIVE (xcode=1). HEAD `26cdf5073` (9 min).
+- **26cdf5073 (gate-status test fix) → ✅ PASS (real, no fake-green):** DeepResearchGateStatusTests case-sensitive
+  contains("parallel") broke when copy → "IN PARALLEL"; fixed to localizedCaseInsensitiveContains (preserves
+  intent, case-robust); no production code touched; 12 gate-status tests green. No-red-on-main hygiene.
+- **Not a graft.** Remaining act items: 3 grafts (message bar/side panel/scroll-blur) + OWNER RUNTIME-VERIFY
+  (send works in-process + Osaurus-reskinned look + no white-bar/search).
+- **Verdict:** PASS, no re-add. Re-audit next commit for the grafts.
