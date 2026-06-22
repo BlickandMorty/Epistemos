@@ -26,7 +26,7 @@ chat) + OSAURUS_P3_IMPORT_PLAN_2026_06_19.md (full-clone strategy + 2026-06-21 d
 work since they are already proven to work."* EVERY Osaurus surface (settings, model stack, server,
 tools, transcript, etc.) MUST be wired to an EXISTING, already-PROVEN app front-end — no dead or
 disconnected surfaces. For each surface: map Osaurus-surface → the real app view it drives BEFORE wiring,
-then prove it works (real-state test / launch-smoke). Reuse the proven chat front-end as act's UI.
+then prove it works (real-state test / launch-smoke). [VOID drift-addition — ACT = the OSAURUS UI clone reskinned to the Epistemos look, NOT the old ChatView. See "ACT = OSAURUS IS THE CHAT".]
 
 ## 🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE (owner 2026-06-21)
 **Owner (verbatim):** *"the minichat, graph chat, note chat and other chats — any other chat should also
@@ -803,9 +803,9 @@ VISIBLE, testable surfaces now (the owner wants to SEE/test it):
 - **WORK UI live** — wire WorkTerminalView/WorkOpenCodeShell into a reachable, working work surface (real TUI).
 - **Landing pages + BLUR transitions + act/work toggles + mode-entry animations** (move from 🔴 to built).
 - **Motion sweep** onto titles/display-only.
-- **TESTABILITY:** once act-on-Osaurus is verified stable, FLIP `EPISTEMOS_ACT_OSAURUS_V0` ON by default (or
-  add an easy in-app toggle) so the owner can actually experience act-through-Osaurus — and add a visible
-  "act on Osaurus" indicator. Don't leave it forever flag-off-and-invisible (PROVEN-DONE: must reach the user).
+- **[VOID drift-addition — there is NO toggle and NO flag. Osaurus IS the chat, on by default. The
+  "flip flag / add in-app toggle" framing here was a drift addition that caused the divergence. See
+  "ACT = OSAURUS IS THE CHAT" + "NO ADDED TERMS". Build it as the chat, not behind a switch.]**
 These are the next heavy-backlog items per NEVER-IDLE — build them incrementally to green, commit each.
 
 ## 🔴🔴 P0 REGRESSION — reasoning-model output broken in LIVE chat (owner 2026-06-21)
