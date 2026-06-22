@@ -1200,3 +1200,15 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   lands) instead of exit-2; CI report handles partial vs full. So the work lane is genuinely vendor-READY — the
   Epistemos side (Bun + fusion + resolver + shell + fusion-config, all tested) stages cleanly, and the precise
   remaining unblock is the owner providing the pinned OpenCode launcher at Resources/opencode-runtime/bin/opencode.
+
+## WORK lane buildable parts VERIFIED (2026-06-22)
+- `cargo check --bin omega_mcp_stdio` (omega-mcp crate) → EXIT=0, clean compile. So the directive-2 fusion
+  transport (the omega_mcp_stdio MCP server that fuses Goose/Hermes/OpenClaw beneath OpenCode) is verified
+  building. Combined with: build-opencode-runtime.sh fixed (honest partial-vendor, 4069dcc74), Bun staging
+  wired, and the Epistemos-side glue tested (fusion-config / resolveRuntimeURL / shellEnvironment — 4 tests),
+  ALL the work lane's buildable parts are now verified solid. The ONLY remaining piece is the external pinned
+  OpenCode launcher (owner drops at Resources/opencode-runtime/bin/opencode + rebuild) — the work shell then
+  goes live (resolveRuntimeURL non-nil), honestly inert until then.
+- BOTH loop-prompt lanes now at their buildable bars: ACT feature-complete (auditor pass 37) + pushed; WORK
+  vendor-ready + buildable-parts verified. Remaining gates are precise OWNER ACTIONS (act runtime-verify; drop
+  the OpenCode launcher).
