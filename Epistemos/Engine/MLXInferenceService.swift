@@ -2037,6 +2037,13 @@ actor MLXInferenceService: LocalMLXRuntime {
         loadedModelID = request.modelID
         loadedModelDirectory = request.modelDirectory
         self.container = container
+        // P0 chat-template diagnostic (owner 2026-06-21/22): if the loaded model's tokenizer_config.json has no
+        // chat_template, its prompt won't be role-wrapped → the likely cause of universal refusals. Log loudly so
+        // the cause is pinned at load (the automatic form of the owner's "confirm the chat-template" check).
+        if let warning = ChatTemplateDiagnostic.loadWarning(
+            modelID: request.modelID, modelDirectory: request.modelDirectory) {
+            log.error("\(warning, privacy: .public)")
+        }
         #if !EPISTEMOS_APP_STORE
         await applyActiveAdapterIfPresent(
             to: container, companionAdapterPath: request.loraAdapterPathOverride
