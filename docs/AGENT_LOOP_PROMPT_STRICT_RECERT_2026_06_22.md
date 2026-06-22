@@ -22,6 +22,16 @@ top with robust grounded evidence, fix what's actually wrong, and only then cont
 - **NOT LAZY.** "Looks done" is not certification. Every `[x]` needs cited evidence at the strict bar below.
   A glance, a grep that a symbol exists, or trusting a commit message is NOT enough.
 
+## 🔒 LOCKED RULES (do not reinterpret)
+- **LOCKED UI DIRECTION:** ACT UI = Osaurus's OWN UI, reskinned to the Epistemos look + 3 grafts (message bar,
+  side panel, scroll-blur). This SUPERSEDES option-(b) "drive the old ChatView." Do NOT revert to the old
+  ChatView and do NOT leave raw Osaurus default. Fixing 0.1 alone does NOT close act.
+- **D1–D5 ARE GATEKEEPERS:** the act surface is NOT certifiable until D1–D5 all pass YOUR screencapture proof.
+- **PLAN WINS OVER CODE:** if code and plan disagree, fix the CODE; never edit the plan to match wrong code
+  (e.g. 0.1 must edit the vendored Theme.swift defaults, not only a runtime `applyCustomTheme` shim — ba2f8952f drift).
+- **P0 OWNER REPORTS PREEMPT:** any new owner runtime report → append it to the addendum + queue + this prompt's
+  D-section the SAME iteration, then fix it before anything else.
+
 ## 🔴 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22, grounded by screenshot docs/research/osa_runtime_2026_06_22.png)
 These are CONFIRMED broken on the running act surface RIGHT NOW. Each is a REQUIRED TIER-0 item; you may NOT
 mark the act surface certified until ALL are fixed AND re-proven by your own screencapture. Do NOT trust any
@@ -81,7 +91,8 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
          screencapture/snapshot path could observe it). Do NOT fake this and do NOT call build-green "rendered."
 5. **VERDICT:**
    - All five hold → `[x] CERTIFIED` + one-line evidence (file:line / test name / what renders).
-   - (e) unprovable headlessly, (a)-(d) hold → `[~] NEEDS-OWNER-RUNTIME` + what to verify.
+   - (e) unprovable EVEN by screencapture/snapshot (TRUE last resort, (a)-(d) hold) → `[~] NEEDS-OWNER-RUNTIME`
+     + exactly what to verify and why no automated path could observe it. This is rare, not the default.
    - Any of (a)-(d) fails → it's **BROKEN/DRIFTED**: FIX IT FOR REAL now (implement the plan's specifics the
      right way), then re-run the bar. Log the gap. Do not check it until it passes.
 6. **UPDATE docs/WORK_QUEUE_2026_06_22.md** (status + one-line result/evidence) and append a per-item line to
@@ -122,6 +133,16 @@ Re-certification of the whole plan is complete when every queue item is either `
 summary at the top of STRICT_RECERT_LOG (count certified / needs-owner / fixed-during-recert). ONLY THEN resume
 normal forward work on the lowest still-open tier. The "continue" the owner wants is *after* the robust pass,
 not instead of it.
+
+## ▶️ FIRST ITERATION — do exactly this, in order
+1. Read this driver IN FULL + docs/WORK_QUEUE_2026_06_22.md IN FULL (every box starts UNCERTIFIED).
+2. Screencapture the act surface as a BASELINE → /tmp/epi_act_baseline.png, `Read` it (this is your ground truth).
+3. Build/run the send-text harness (or CREATE it if missing) — assert a REAL reply from the owner's model; log
+   the prompt + first ~80 chars.
+4. Start 0.1 — reskin at the vendored Theme.swift SOURCE (not the applyCustomTheme shim alone); re-screenshot.
+5. Then 0.3 landing→blur→act, 0.2 all surfaces (mini/graph/note act; work everywhere but note), then D1–D5,
+   then 0.4 send re-cert, then 0.11 provider/Epistemos Picks + 0.14 health-row honesty.
+6. Update the queue + STRICT_RECERT_LOG each loop; commit only your changed files.
 
 ## STANDING (every item, every loop)
 No fake-done · build-green ≠ done (runtime-verify UI) · no red on main · code-more-build-less (fast gate per

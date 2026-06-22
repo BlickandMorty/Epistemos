@@ -629,3 +629,22 @@ hit Cursor); did NOT pursue blind keystroking — D1-D5 already grounded from pa
 complete index (TIER 0: 0.1-0.10; T1-5 unchanged). VERDICT: spec coverage repaired; still no build-loop commits
 (agent not launched). CONFIDENCE: spec/prompt now comprehensive & internally consistent (prompt+queue+addendum
 agree); the APP is NOT done (agent hasn't run) — green-light is for LAUNCHING with a complete spec, not for "done".
+
+## PASS 46 — 2026-06-22 (DEEP REPAIR — owner's gap-list fully applied; spec hardened)
+Owner forwarded a Cursor-generated gap-list ("nothing missing, 100% covered"). Applied ALL of it to my spec docs:
+QUEUE: added 0.11 provider-wiring+Epistemos-Picks (no silent Codex/Qwen swap), 0.12 surface-wiring-rule (no dead
+surfaces), 0.13 shared act component (main/mini/graph/note no drift), 0.14 health-row honesty (wiredToday vs
+stillStub match real state), 0.15 DEEP CHECK (prove live act path, no silent Codex default), 0.16 reasoning/think
+fidelity; 2.5 EML honesty gate (GUS-2), 2.6 Eidos recall/rerank (GUS-5/Helios). Clarified 0.8 D1–D5 = runtime
+acceptance tests for 0.1–0.7 (0.1 not [x] until D5 screenshot passes). Removed weak [~]/build-green default
+language (screencapture-first; [~] = TRUE last resort) in queue + strict prompt.
+PROMPT: added 🔒 LOCKED RULES (UI direction supersedes option-b; D1–D5 gatekeepers; PLAN-WINS-over-code;
+P0-preempt-same-iteration) + a ▶️ FIRST ITERATION checklist (baseline screenshot → send-text harness → 0.1 source
+reskin → 0.3/0.2 → D1–D5 → 0.4 → 0.11/0.14).
+CONSISTENCY: created docs/research/STRICT_RECERT_LOG_2026_06_22.md stub; SUPERSEDED banner on the old
+AGENT_LOOP_PROMPT_QUEUE prompt; verified osa_runtime_2026_06_22.png is tracked; verified ALL new →plan anchors
+resolve in the addendum (OWNER'S MODELS IN CHAT, DEEP CHECK, SURFACE-WIRING RULE, GUS-2, GUS-5). Killed the orphan
+/tmp/epi_watchdog.log tail (clean start). No build loop running.
+VERDICT: spec is now comprehensive + internally consistent across prompt+queue+addendum; the 3 Cursor go-gates
+(0.11–0.16 indexed · no build-green/needs-owner default · stub+screenshot exist) are MET. App still not built
+(agent not launched) — green-light is for LAUNCH, not "done".
