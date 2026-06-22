@@ -73,6 +73,13 @@ STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hol
   wire act config + per-clone settings; D5 reskin only partial (still Osaurus chrome, not owner cream/mono +
   model picker/palette/38-tool panel). →plan: "🔴 OWNER-REPORTED RUNTIME DEFECTS" in strict prompt + addendum.
 
+- [ ] **0.9 ACT FIDELITY non-negotiables** — act MUST: stream every token (no buffering); PRESERVE thinking
+  blocks + signatures (don't strip reasoning); REAL tool-call parsing. The prior "reasoning-model output broken
+  in LIVE chat" regression must NOT recur in act. Real-state test + screenshot a reasoning reply. →plan: "🔴🔴 P0
+  REGRESSION — reasoning-model output broken in LIVE chat" + CHAT_BACKEND_QUARANTINE "Streaming/thinking/tool fidelity".
+- [ ] **0.10 DATA CARRY-OVER** — existing saved chats/sessions + user prefs migrate to act (no lost history),
+  not just models/IP. →plan: CHAT_BACKEND_QUARANTINE "Data/persistence carry-over".
+
 ## TIER 1 — WORK MODE (OpenCode)
 - [ ] 1.1 OpenCode launcher binary vendored (build-opencode-runtime.sh; owner may drop at Resources/opencode-runtime/bin/opencode). →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED" + Architecture C.
 - [ ] 1.2 WORK = OpenCode real TUI, palette-matched, in mini/graph chat (not note), search→work transition, dual landing + blur. →plan: "✅ RESOLVED OPENCODE UI" + "✅ WORK LOOK = real TUI".
@@ -97,6 +104,7 @@ STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hol
 - [ ] 4.6 MOTION LANGUAGE triad (blur + ASCII typewriter + micro-motions) on titles + display-only; mode-entry animations. →plan: "✅ MOTION LANGUAGE = TRIAD".
 - [ ] 4.7 Preserve UI chrome: model picker (real logos/tiers/install/Epistemos Picks), command palette, 38-tool agent panel. →plan: "ACT reskin — PRESERVE the model picker...".
 - [ ] 4.8 Talaria + Epdoc-fuse + other clones: same full-clone process, MAS-non-restrictive global. →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE".
+- [ ] 4.9 ACT wiring: skills + MCP + tool-tier bridges wired to act (the 38-tool panel must actually drive them); API keys in macOS Keychain, NEVER UserDefaults. →plan: CHAT_BACKEND_QUARANTINE "Skills / MCP / tool-tier + Keychain".
 
 ## TIER 5 — DISTRIBUTION + OPTIMIZATION (standing/late)
 - [ ] 5.1 Dual-build: MAS (no VM, WASM/cloud sandbox substitute) + Pro (full); capability schema; CI both. →plan: "🔒 DUAL-BUILD DISTRIBUTION MODEL".
