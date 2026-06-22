@@ -113,11 +113,23 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   surface, screenshot EVERY part and fix any other divergence from the owner's UI you observe. Do not stop at
   this list if the screenshot shows more wrong.
 
+## W/B/S ACCEPTANCE GATES (pass49 P0-4/P0-6 — mirror queue ACCEPTANCE GATES section)
+
+Act has D1–D5. **Work, beyond, and substrate/orchestrator must NOT `[x]` on build-green or stub PNG alone.**
+
+| Gate | When certifying | Minimum proof |
+|------|-----------------|---------------|
+| **W1–W5** | TIER 1 work items (0.28, 1.2–1.8) | Separate work landing/TUI/settings PNG; work send harness logs engine lane; no Electron |
+| **B1–B3** | Beyond tab (0.30, 4.14) | Honest stub label; Companion-backend grep clean; stub = `[ ] STUBBED` never `[x]` |
+| **S1–S5** | TIER 2–3 substrate/orchestrator (2.1–2.8, 3.1–3.2) | Real-state integration on LIVE path; AnswerPacket surfaced; TRINITY route logged; NOT fake-green |
+
+Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongside 0.32 witness.
+
 ## EVERY ITERATION
 0. **STEP-0 RESET (pass49 — before step 1):** If any queue checkbox is `[x]` or `[~]`, revert **ALL** to `[ ]`.
    Certification lives only in STRICT_RECERT_LOG — never trust a surviving queue `[x]`.
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
-2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.8, 2.1, … 5.3). No queue-jumping.
+2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.8, 2.1, … 5.4). No queue-jumping.
    FIRST ITERATION bootstrap order below is one-time only — standing rule is strict numeric queue order through
    ALL tiers. Don't stop after act/D1–D5; don't stop after TIER 0 unless attempting TIER 1+ same iteration.
 3. **Read that item's `→plan:` section IN FULL** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md. The
@@ -244,6 +256,11 @@ recert **per tier**). ONLY THEN resume normal forward work on the lowest still-o
 alone does NOT satisfy this bar.** The "continue" the owner wants is *after* the robust full-plan pass, not instead
 of it.
 
+**Phase-complete preconditions (pass49 P0-5 — all three required in summary):**
+1. Green `xcodebuild` (or equivalent compile gate) **this recert phase**
+2. Per-surface PNG **Read this phase** (not stale `osa_runtime_2026_06_22.png` without Read)
+3. Send-text harness real reply **this phase** (prompt + ~80 chars logged)
+
 ## ▶️ FIRST ITERATION — do exactly this, in order
 1. Read this driver IN FULL + docs/WORK_QUEUE_2026_06_22.md IN FULL (every box starts UNCERTIFIED).
 2. Screencapture the act surface as a BASELINE → `/tmp/epi_act_baseline.png`, `Read` it (ground truth). If
@@ -271,7 +288,9 @@ stall report; act IN PARALLEL with T1+) · **FULL-PLAN-NO-ACT-TUNNEL** · latest
 messages → plan+queue same iteration · NEVER-IDLE (heavy = incremental slices) · external ~/Downloads corpus
 read-only when salvage needs it · 70B / NEW-MODEL brain-1 EXCLUDED · **Companion-backend OFF-LIMITS** (work +
 beyond future clones IN SCOPE) · main-only · Co-Authored-By Claude · P0 owner runtime reports preempt everything
-· discovery sweep / completeness critic every loop · **reverse addendum audit (0.31) every loop**.
+· discovery sweep / completeness critic every loop · **reverse addendum audit (0.31) every loop** · **W/B/S
+ACCEPTANCE GATES** (W1–W5 work, B1–B3 beyond, S1–S5 substrate — queue ACCEPTANCE GATES section) · **stub ≠ `[x]`**
+(use `[ ] STUBBED(plan ref)` until gate passes).
 
 ## AUTHORITY DOCS
 - Spec/authority: docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).

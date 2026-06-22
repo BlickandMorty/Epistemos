@@ -49,3 +49,12 @@
 - 0.31 · grep extended **🆕/🌟/RESEARCH** + paste hit count requirement
 - paste-ready · 21 non-negotiables synced; TIER 5 walk 5.1→5.4; STEP-0/parallel/[~] cap added
 - →plan anchors · fixed FUGU + Epistemos Picks headings to match addendum
+
+### Gap-fill iteration 8 (docs only, 2026-06-22 — pass49 P0-4/P0-6 + reverse-audit)
+- pass49 P0-4/P0-6 · **W/B/S ACCEPTANCE GATES** stub section added (W1–W5, B1–B3, S1–S5) in queue + strict prompt + paste
+- pass49 P0-5 · **PHASE COMPLETE PRECONDITIONS** in strict prompt DONE bar + queue STANDING (xcodebuild + PNG Read + send-text)
+- pass50 P0-B · **stub ≠ `[x]`** — 0.28/0.30 clarified; B3 + STANDING; honest stub uses `[ ] STUBBED(plan ref)`
+- reverse-audit · indexed: ACT RESKIN GO DEEPER → **0.1**; FUGU CLONE THE CODE → **3.2**; BIG IDEA → **2.4**;
+  INITIATIVE ADOPT PROVEN ENGINES → STANDING+FULL-CLONE; MARKET POSITION → STANDING research monitor
+- sync fix · WALK ORDER + strict prompt pick order **5.3→5.4** (queue had 5.4; text still said 5.3)
+- paste-ready · 22 non-negotiables (+ W/B/S gates #22); W/B/S table added
