@@ -144,8 +144,17 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     Tiptap holds ProseMirror RICH content (not raw markdown text), so a text-based edit doesn't map to a live Tiptap
     range — the clean MD-V2-aligned path is: agent edits the md SOURCE (`VaultNoteEditor`, built) → Epdoc REPROJECTS
     from updated md (coupled to the MD-V2 inversion #12); a lexical Tiptap-command mapping would be wrong. So Epdoc's
-    live-binding is the heavier, MD-V2-coupled follow-on. REMAINS: Epdoc-via-md-source reprojection + record each
-    agent edit as a `MutationEnvelope` (SourceOp.artifactUpdate) for provenance/EventStore (reuses the existing model).
+    live-binding is the heavier, MD-V2-coupled follow-on.
+    **AGENT-EDIT PROVENANCE DONE (`3183aa4e2`):** every in-app agent note edit now records a COMMITTED agent
+    `MutationEnvelope` (`SourceOp.artifactUpdate`) — new pure/deterministic `AgentNoteEditProvenance` (agent
+    actor, sha256 integrity hash over before/after, `affectsBody`+`affectsSearchProjection`, note as touched
+    artifact) mirroring `ModelAuthoredNoteMutation`'s shape EXACTLY (reuses the existing model + the
+    `EventStore.saveMutationEnvelope` sink — no parallel model) + a new
+    `VaultNoteEditor.applyEdits(_:to:provenance:…)` overload (read→apply→write→record; HONEST: failed edit
+    records nothing, body-wrote-but-envelope-failed throws the new `provenanceNotRecorded`, never a silent
+    audit gap). Real-state verified: xcodebuild VaultNoteEditorTests **7/7 PASS** (+4 new), TEST SUCCEEDED.
+    REMAINS (#4): Epdoc-via-md-source reprojection (MD-V2-coupled, #12); the EXTERNAL `vault.patch_note` MCP
+    surface could emit an equivalent provenance record later.
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
   ZERO regressions (flag-off byte-identical confirmed).
