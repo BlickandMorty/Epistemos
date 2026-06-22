@@ -77,3 +77,42 @@ fn fusion_stdio_real_transport_handshake_and_tool_call() {
     assert_eq!(ping["id"], 4);
     assert!(ping["result"].is_object() && ping.get("error").is_none(), "ping reply: {}", lines[3]);
 }
+
+/// Security regression guard AT THE TRANSPORT: an external agent (OpenCode) cannot read outside the vault
+/// via a crafted `vault:///../` resource URI. The in-process dispatcher test covers the logic; this proves
+/// the COMPILED binary refuses traversal over real stdio (the surface an attacker-controlled agent actually
+/// reaches), returning a JSON-RPC error and NO file contents.
+#[test]
+fn fusion_stdio_resources_read_refuses_path_traversal() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("ok.md"), "safe").unwrap();
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_omega_mcp_stdio"))
+        .env("EPISTEMOS_VAULT_ROOT", root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn omega_mcp_stdio");
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        writeln!(
+            stdin,
+            r#"{{"jsonrpc":"2.0","method":"resources/read","params":{{"uri":"vault:///../../../../etc/passwd"}},"id":1}}"#
+        )
+        .unwrap();
+    }
+    let out = child.wait_with_output().expect("wait");
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let resp: Value = serde_json::from_str(stdout.lines().next().expect("a response line")).unwrap();
+    // JSON-RPC here always carries both keys (result:null on error) — assert the ERROR is populated and no
+    // `contents` (the success payload) leaked. The error message names the traversal refusal.
+    assert!(resp["error"].is_object(), "traversal must be refused with an error: {stdout}");
+    assert!(
+        resp["error"]["message"].as_str().unwrap_or("").to_lowercase().contains("traversal"),
+        "error must name the traversal refusal: {stdout}"
+    );
+    assert!(resp["result"].get("contents").is_none(), "no contents may be returned on traversal: {stdout}");
+    assert!(!stdout.contains("root:"), "no /etc/passwd contents may leak: {stdout}");
+}
