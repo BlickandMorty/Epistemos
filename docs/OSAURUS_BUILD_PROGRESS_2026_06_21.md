@@ -406,6 +406,11 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   **CHECKPOINT BUILD ✅ (2026-06-22):** the whole two-mode component batch (ModeEntryView + picker + transition +
   selection) compiles clean into the app module (`xcodebuild build`, BUILD SUCCEEDED) — the source-guard fast-gate
   cadence held (CODE-MORE-BUILD-LESS). Two-mode component foundation = checkpoint-verified green.
+  **LANDING MOUNT (`5e7dfe44a`, source-guard + checkpoint-pending):** WorkspaceModePicker now appears in the
+  landing greeting (`greetingContent`), GATE-TIED — shown only when act or work is armed, so the protected
+  landing (§367) is BYTE-IDENTICAL by default and elevates only on opt-in. The two-mode selector is now REACHABLE
+  + live (§24). REMAINS (owner-reviewed visual): swap in the full ModeEntryView greeting→typewrite transition +
+  blur/page chrome as the elevated experience.
 - [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
   (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
   name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
