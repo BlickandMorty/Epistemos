@@ -89,10 +89,44 @@ vault/epdoc/motion/dual-build/optimization (T4–5), OpenCode (T1), substrate (2
 | Runtime PNG in repo | FAIL (expected — agent captures iteration 1) |
 | Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED until agent walks) |
 
+## Iteration 4 — 2026-06-22 (owner feedback: act-only tunnel vision)
+
+### Owner complaint
+Build loop was certifying ONLY the act surface (D1–D5 / TIER 0) instead of the ENTIRE multi-feature plan:
+all clones (Epistemos|act|work|beyond), companion OFF-LIMITS vs work/beyond in-scope, substrate, inference
+routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-IT-HARDENED, full addendum scope.
+
+### Fixed
+| Gap | Fix |
+|-----|-----|
+| TIER 0 framed as whole plan | Renamed section + banner: act P0 blocking, NOT sole scope; act certified ≠ loop done |
+| FIRST ACTION narrowed to act/D1–D5 | Strict prompt + paste: walk 0.1→0.32 then TIER 1→5; no early exit |
+| Missing clone queue items | Added **0.27–0.32** (main baseline, work reachable, per-clone routing, beyond/OFF-LIMITS, reverse audit, iteration witness) |
+| Missing work certification | Added **1.5–1.7** (work surface cert, per-surface routing, work inference) |
+| Missing beyond scope | Added **4.14–4.15** (beyond clones, multi-clone settings polish) |
+| 0.21 too thin for per-clone matrix | Expanded to Epistemos\|act\|work\|beyond with per-tab screenshot |
+| No FULL-PLAN-NO-ACT-TUNNEL rule | Added to STANDING in queue + strict prompt + paste non-negotiable #1 |
+| No reverse addendum audit | Added **0.31** + strict prompt FULL PLAN section + paste #13 |
+| Strict prompt lacked clone matrix | Added FULL PLAN CERTIFICATION section with matrix + tier walk |
+| PASTE_READY act-only | Synced: 18 non-negotiables, 0.1→0.32 table, SHORT RESUME block, clone matrix |
+| MANDATORY BEHAVIOR ended at G | Added **(H) FULL-PLAN-NO-ACT-TUNNEL** |
+
+### Pre-launch checklist (iteration 4)
+| Check | Status |
+|-------|--------|
+| Queue 0.1→0.32 numeric order | PASS |
+| Queue 1.1→1.7 numeric order | PASS |
+| FULL-PLAN-NO-ACT-TUNNEL in STANDING | PASS |
+| Clone matrix in strict prompt + paste | PASS |
+| Reverse addendum audit indexed (0.31) | PASS |
+| Work/beyond surfaces indexed | PASS |
+| Companion OFF-LIMITS vs work/beyond clarified | PASS |
+| PASTE_READY PRIMARY + SHORT RESUME | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures) |
+
 ### Still open (runtime — build agent)
 | Gap | Action |
 |-----|--------|
-| `osa_runtime_2026_06_22.png` | Build agent captures on first run per PLACEHOLDER doc |
-| All TIER 0 items uncertified | Agent walks 0.1→0.26 with 5-gate bar |
-| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites with honest state |
-| Northstar PNGs | Optional visual refs; not blocking launch |
+| All queue items uncertified | Agent walks full plan 0.1→5.3 with 5-gate bar |
+| `osa_runtime_2026_06_22.png` | Agent captures on first run |
+| Prior loops may have act-only `[x]` | All boxes UNCERTIFIED — re-prove from scratch |
