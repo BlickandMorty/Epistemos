@@ -1545,3 +1545,18 @@ RUNTIME-FAILING — exactly the live-verify that was pending. The option-(b) piv
 
 AUDITOR NOTE: build-audit PASS ≠ runtime PASS. The option-(b) pivot is re-opened as P0 until the owner can SEND
 in act on a running Pro build AND see it's Osaurus. Keep genuine-Osaurus + no-toggle + old-UI invariants.
+
+## ✅ SHARPENED GOAL (owner 2026-06-22) — MY UI + OSAURUS (visible) + WORKING. Fix-forward, don't revert.
+Owner restated: "I want it to work, and I want MY UI — not just a scan — but Osaurus, like all its landing
+page, buttons, etc." The end state is a HYBRID, all three at once (NOT a flip of direction — a refinement):
+1. **MY UI** = the genuine old Epistemos UI (landing / message bar / sidebar / fonts / flat-pixel look) — the
+   real thing the owner loves, not a palette reskin.
+2. **OSAURUS VISIBLE** = Osaurus's landing page + buttons + features SURFACED within that UI, so the owner can
+   SEE it's Osaurus (not invisible-engine-underneath). Bring Osaurus's distinctive controls/landing INTO the UI.
+3. **OSAURUS ENGINE + WORKING** = genuinely driven by the Osaurus engine + the owner's models; a real send/
+   receive actually works. No silent failure, no toggle, no fake.
+SAFE PATH = FIX-FORWARD (not revert): all pieces exist (old UI restored fe66b8af7; Osaurus engine + model
+bridge wired). Nothing is lost (full git history). So FIX the 2 gaps: P0-A make it WORK (diagnose send failure /
+scheme), P0-B SURFACE Osaurus (landing/buttons/features in the UI). Only revert to a known-good commit if
+fix-forward proves infeasible — it should not, these are bounded fixes. KEEP option-(b) direction; ADD the
+visible-Osaurus requirement. Re-verify on the running app (owner-witness/computer-use) — build-green is not enough.
