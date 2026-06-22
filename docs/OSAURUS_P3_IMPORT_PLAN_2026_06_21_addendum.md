@@ -716,3 +716,25 @@ less: local-model raw quality < frontier cloud (a choice, you can use cloud); MA
 solo maturity. But it's NOT a subset of Codex — Codex can't edit notes, hold the graph, run local QAT models,
 or be a PKM. Positioning for public release: "a local-first agentic workspace that contains a Codex-class
 engine — not a weaker Codex, a broader tool."
+
+## 🌟 PILLAR — VAULT-DEEP-INTEGRATION (overtake Tolaria) (owner 2026-06-21) — MAJOR, not a line-item
+RESEARCH (Tolaria's process, verified github.com/refactoringhq/tolaria): files-first plain .md + YAML
+frontmatter, git-versioned, "types as lenses not schemas", and an **MCP server that exposes the vault as
+context to EXTERNAL agent CLIs** (Claude Code/Codex/Gemini) — you bring your own agent; Tolaria's graph is
+thin; agents edit plain FILES (not its editor). That MCP-vault is Tolaria's CENTERPIECE.
+**OVERTAKE THESIS:** Epistemos does Tolaria's vault-agent vision but DEEPLY NATIVE + far beyond. The vault is
+a first-class PILLAR, deeply integrated with:
+1. **act + work AGENTS (BUILT-IN):** Epistemos's OWN act (Osaurus) + work (OpenCode) agents work the vault
+   NATIVELY in-app — not "bring an external CLI." PLUS expose the vault as an MCP context source for external
+   agents too (match Tolaria). So BOTH internal agents AND external-MCP.
+2. **GRAPH:** the vault's notes + links ARE the knowledge graph; agents + graph deeply integrated (Tolaria's
+   graph is weak → overtake here). Agents can traverse/query/build the graph.
+3. **LLM WIKI + WIKILINKS:** wikilinks `[[...]]` + backlinks + an LLM-augmented wiki over the vault
+   (auto-linking, LLM-suggested connections/summaries, semantic backlinks). The "llm wiki" = the brain
+   (Eidos/recall/provenance) reading + enriching the vault.
+4. **IN-EDITOR AGENT EDITING:** agents work directly on the **Prose editor AND the MD-V2/Epdoc surface** —
+   live in the real editors, not just plain files (Tolaria's external-CLI-on-files can't do this seamlessly).
+   This is the killer differentiator: native in-editor agent edits on both editing surfaces.
+**Treat as a PILLAR** alongside the two modes / editors / graph / model lab — deeply integrated, not bolted on.
+Research item (cited deep pass when sub-agents recover): mine Tolaria's MCP-vault schema + "types as lenses"
+for any patterns worth adopting; ensure Epistemos's vault-as-MCP matches/exceeds it.
