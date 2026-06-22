@@ -108,7 +108,8 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     surface these as LLM-wiki suggestions in the editor UI.
   - [~] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator): CORE DONE
     (`c61b41cac`) — `AgentNoteEdit` editor-agnostic text-based ops (append/replaceFirst/insertAfter), HONEST
-    (nil when anchor absent → never silently mangles), 3/3 tests. The same ops apply to BOTH editors. REMAINS
+    (nil when anchor absent → never silently mangles) + ATOMIC batch apply (`c0991f4fe`, all-or-nothing, no
+    partial corruption), 4/4 tests. The same ops apply to BOTH editors. REMAINS
     (UI follow-on): bind to the live editors (NSTextView/Tiptap apply the ops) + record each as an agent
     `MutationEnvelope` (SourceOp.artifactUpdate) for provenance/EventStore (reuses the existing provenance model).
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
