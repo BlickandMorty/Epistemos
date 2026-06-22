@@ -403,6 +403,9 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   GROUNDED mount point = `LandingView.greetingContent` (the `LiquidGreeting` at `LandingView.swift:712`, shown
   when `ui.homeContent == .greeting`); wire the press→blur→mode-entry flow + surface routing there. Risky
   visual surgery on the loved 2843-line landing → owner running-app judgment (not a blind source-guard edit).
+  **CHECKPOINT BUILD ✅ (2026-06-22):** the whole two-mode component batch (ModeEntryView + picker + transition +
+  selection) compiles clean into the app module (`xcodebuild build`, BUILD SUCCEEDED) — the source-guard fast-gate
+  cadence held (CODE-MORE-BUILD-LESS). Two-mode component foundation = checkpoint-verified green.
 - [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
   (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
   name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
