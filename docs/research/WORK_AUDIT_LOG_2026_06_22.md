@@ -275,3 +275,15 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   unblocked pass 17). HEAD = my pass-17 audit (no new build commit yet; commits on green).
 - **No new build commits to audit.** Not hung (13 swift-frontend procs compiling). Did NOT kick concurrent build.
 - **Verdict:** healthy, no re-add. Re-audit the next commit (expect fuller P0-B: Osaurus landing/picker/tool controls in the old UI).
+
+## Pass 19 — 2026-06-22
+- **Build loop:** ALIVE (swift=1 xcode=1). HEAD `7a5aa1aeb` (5 min). Two build commits.
+- **f810df1eb (MAS dual-build fix) → ✅ PASS (real root-cause):** MAS build failed on OsaurusCore transitive
+  deps (SQLCipher/Sentry/Sparkle/gRPC). Root cause: bare `#if canImport(OsaurusCore)` is TRUE on MAS target
+  (shared DerivedData) → import compiled on MAS + pulled unresolvable deps. Fix: `#if !EPISTEMOS_APP_STORE &&
+  canImport(OsaurusCore)` (+ guarded badge .task). MAS build now works; clean Pro-only Osaurus boundary. Pro EXIT=0.
+- **7a5aa1aeb (P0-B Osaurus on landing) → ✅ PASS (real):** ActOsaurusActiveBadge added to act LandingView
+  greeting stage, gated shouldRouteActThroughOsaurus (Pro, honest — never MAS/old-MLX). Act start surface reads
+  as Osaurus-powered (clickable engine status). Pro EXIT=0. Co-Authored.
+- **Verdict:** PASS both. Remaining P0-B: fuller Osaurus surfaces (model picker / tool controls beyond badge);
+  live send verify (owner Pro launch). MAS dual-build unblocked.
