@@ -2663,6 +2663,14 @@ private struct HomeRouter: View {
     /// native terminal. Persisted via `WorkspaceModeSelection`.
     @State private var workspaceMode: WorkspaceModeKind = WorkspaceModeSelection.current()
 
+    /// D2 (owner P0, addendum §1886 + landing→blur→act flow): the act surface shows the
+    /// Epistemos `LandingView` FIRST (replacing Osaurus's own "Good afternoon" default landing —
+    /// SYNTHESIS §2 "drop Osaurus landing-blocks → native Epistemos"). A clean press enters the
+    /// Osaurus act host (blur transition). Per-session: false on launch (landing first), set true
+    /// once entered. The host owns the certified send path (0.4); entering via a gesture keeps
+    /// send reachable without first-message state-bridging (that refinement is a follow-on step).
+    @State private var actEntered = false
+
     /// The work terminal roots at the user's home by default.
     private static var workWorkspaceURL: URL { URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true) }
 
@@ -2694,8 +2702,31 @@ private struct HomeRouter: View {
                     // vendored Osaurus chat surface — loads + works + is visibly Osaurus —
                     // not the old ChatView with a badge. Generates in-process; owner's models
                     // work via the bridge. Replaces option-(b)'s old-ChatView mount for act.
-                    EpistemosOsaurusChatHost()
+                    // D2/§1886: Epistemos LandingView FIRST → press → blur → act host.
+                    if actEntered {
+                        EpistemosOsaurusChatHost()
+                            .transition(.blurFade())
+                    } else {
+                        ZStack(alignment: .bottom) {
+                            LandingView()
+                            Button {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
+                                    actEntered = true
+                                }
+                            } label: {
+                                Label("Enter act", systemImage: "arrow.forward.circle.fill")
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.plain)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(Capsule().stroke(.primary.opacity(0.12), lineWidth: 1))
+                            .padding(.bottom, 22)
+                            .accessibilityIdentifier("act.enter")
+                        }
                         .transition(.blurFade())
+                    }
                 } else if showChat {
                     // Fallback (act not Osaurus-routed — rare on Pro): the old surface.
                     ChatView().transition(.blurFade())
