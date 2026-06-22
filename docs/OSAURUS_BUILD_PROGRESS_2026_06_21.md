@@ -1078,3 +1078,14 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   source-guard asserting RootView mounts `EpistemosOsaurusChatHost()` for the act surface (gated on
   shouldRouteActThroughOsaurus, behind the `#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)` guard). A future
   edit that drops the Osaurus-host mount for act now fails at test time.
+
+## Re-apply white-bar + click-search fix for the host re-mount (auditor pass-30 watch-item, 2026-06-22)
+- Auditor pass 30 flagged: the host re-mount (41081f4f9) may RE-INTRODUCE the white-bar + click-opens-search
+  bug that d427ee60d fixed (option-b reverted that fix). Confirmed: showingOsaurusSurface was absent, so my
+  re-mount leaks the Epistemos landing toolbar over the Osaurus surface again. Root: the host owns its own
+  message state, so chat.messages stays empty → RootView paints the landing toolbar (= white bar + search bar).
+- Re-applied showingOsaurusSurface + excluded it from showLandingToolbarControls (cascades to hide the toolbar
+  controls + .automatic glass background over the host). CORRECTED the condition vs d427ee60d: my mount shows
+  the host whenever act is Osaurus-routed (not only !chat.showLanding), so suppression = `ui.homeTab == .home
+  && shouldRouteActThroughOsaurus()` (Pro) — else the bug recurs on the landing state. Clean old-chat top;
+  Osaurus's own landing/composer shows through. (Owner runtime-verify still the final gate.)

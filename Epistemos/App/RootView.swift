@@ -240,10 +240,30 @@ struct RootView: View {
         return false
     }
 
+    /// True when the Pro act surface (the Osaurus chat HOST) owns the home tab — i.e.
+    /// act routes through Osaurus (default-on Pro). The host owns its OWN chrome
+    /// (landing/composer/thread/sidebar) + message state, so `chat.messages` stays empty
+    /// and RootView would otherwise treat this as the Epistemos landing and paint the
+    /// landing toolbar (the "search bar" + its `.automatic` glass background) OVER the
+    /// Osaurus surface — that leaked toolbar is BOTH the "white bar at the top" AND the
+    /// "click opens the search bar, not the Osaurus landing" bug (owner 2026-06-22).
+    /// Re-applies d427ee60d after option-(b) reverted it + the host re-mount (41081f4f9);
+    /// corrected condition — the host now mounts whenever act is Osaurus-routed (not only
+    /// `!chat.showLanding`), so suppression must match that, else the bug recurs on the
+    /// landing state. Auditor pass-30 watch-item.
+    private var showingOsaurusSurface: Bool {
+        #if EPISTEMOS_APP_STORE
+        return false
+        #else
+        return ui.homeTab == .home && LocalAgentLoop.shouldRouteActThroughOsaurus()
+        #endif
+    }
+
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
             && !embeddedHomeGraphContentVisible
             && (chat.showLanding || chat.messages.isEmpty)
+            && !showingOsaurusSurface
     }
 
     private var showEmbeddedGraphToolbarControls: Bool {
