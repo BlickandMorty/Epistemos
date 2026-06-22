@@ -604,3 +604,14 @@ each with code anchors so the agent can't hallucinate: D1 curved window+soft-sha
 LandingView.swift:1178 / NativePillButtonStyle ChatSidebarView.swift:76); D4 wire act config + per-clone
 settings; D5 finish reskin to owner cream/mono + preserved chrome. ACT SURFACE CANNOT be certified until all
 D1–D5 fixed AND re-proven by the agent's own screencapture. VERDICT: act surface FAIL (matches owner) — cycling.
+
+## PASS 44 — 2026-06-22 (STANDBY + consistency fix)
+HEALTH: main, HEAD=2fddd23cf; no new BUILD-loop commits since pass 43 (only my auditor docs); no screen/loop
+proc → strict re-cert agent still not committing. Build-loop uncommitted set unchanged, untouched.
+CONSISTENCY FIX: pass 43 added D1–D5 to the strict prompt + queue 0.8, but the owner interrupted before I wrote
+them into the AUTHORITY addendum — queue 0.8 →plan ref pointed at a non-existent section. Verified the gap
+(grep empty), then appended "🔴 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22)" section to
+docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md so the strict prompt's "read the →plan section / plan wins"
+rule resolves correctly. D1–D5 now canonical in all three: prompt + queue + addendum + this log.
+OPEN: act surface FAIL (D1 boxy·D2 landing·D3 pill·D4 settings·D5 partial reskin) + 0.1 reskin runtime-verify.
+VERDICT: PASS/standby; spec now internally consistent and ready for the new agent. Watching for first re-cert commits.
