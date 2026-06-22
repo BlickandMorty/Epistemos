@@ -634,8 +634,11 @@ visual surfaces needing the running app, this is the buildable foundational work
 - [x] **Slice 2b — heuristic TrinityRoleExecutor (`06801d957`, cargo 4/4):** `trinity_executor` ties loop+routing
   via role prompts + tier routing + HONEST verdict parsing (ACCEPT only on explicit bare ACCEPT → never
   false-accept), over an injected generator. Total trinity = 16/16.
-- REMAINS (sequenced): slice 2c = wire the real provider-boundary generator; slice 3b = trace → Swift
-  TraceCollector; then expose as the internal orchestrator API across
+- [x] **Orchestrator entry (`fbafccfa3`, cargo 3/3):** `trinity_orchestrator::run_mission(objective, trace_dir,
+  generate)` composes loop+executor+trace into the ONE internal API (heuristic-route → TWV loop → ACCEPT/honest-
+  exhaust → atomic JSONL trace). The pure TRINITY core is COMPLETE + cargo-tested (**19/19**).
+- REMAINS (runtime, sequenced): slice 2c = real OpenAI-compat provider-boundary generator; slice 3b = trace →
+  Swift TraceCollector; then expose as the internal orchestrator API across
   act/work/chat. LEARNED router gated on license (owner H1 TODO: clear adapted-weights license w/ nshkrdotcom,
   or re-derive from Apache Qwen3-0.6B). Heuristic-vs-learned state disclosed honestly.
 
