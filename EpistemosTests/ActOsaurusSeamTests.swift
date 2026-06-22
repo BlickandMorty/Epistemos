@@ -116,7 +116,9 @@ struct ActOsaurusSeamTests {
         let svc = try loadMirroredSourceTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
         // Flag ON → the act generation closure drives OsaurusCore (the live generation-closure swap).
         #expect(svc.contains("ActOsaurusGenerationHandler.make()"))
-        #expect(svc.contains("ActOsaurusGateStatus.isEnabled"))
+        // The flag read is now the SHARED decision `LocalAgentLoop.shouldRouteActThroughOsaurus()`
+        // (refactored 2026-06-21 so DeviceAgentService + liveLoop can't diverge — see SharedActComposerTests).
+        #expect(svc.contains("LocalAgentLoop.shouldRouteActThroughOsaurus()"))
         // Flag OFF (default) keeps the proven MLX one-shot generator — no silent behavior change.
         #expect(svc.contains("LocalAgentLoop.mlxOneShotGenerator(using: localModelClient)"))
     }
