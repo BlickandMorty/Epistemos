@@ -2669,7 +2669,10 @@ private struct HomeRouter: View {
     /// Osaurus act host (blur transition). Per-session: false on launch (landing first), set true
     /// once entered. The host owns the certified send path (0.4); entering via a gesture keeps
     /// send reachable without first-message state-bridging (that refinement is a follow-on step).
-    @State private var actEntered = false
+    // VERIFY HOOK: env `EPI_ACT_ENTERED=1` starts IN the act host so the loop can render-verify
+    // the host state (D5 chrome / D6 back) WITHOUT a SwiftUI button click (System Events cannot
+    // tap SwiftUI buttons). Default (env unset) = false → Epistemos landing first; behavior unchanged.
+    @State private var actEntered = ProcessInfo.processInfo.environment["EPI_ACT_ENTERED"] == "1"
 
     /// The work terminal roots at the user's home by default.
     private static var workWorkspaceURL: URL { URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true) }
@@ -2705,6 +2708,30 @@ private struct HomeRouter: View {
                     // D2/§1886: Epistemos LandingView FIRST → press → blur → act host.
                     if actEntered {
                         EpistemosOsaurusChatHost()
+                            // D6 (owner P0 §pass58b): back-navigation from act → returns to the
+                            // Epistemos landing. Interim native affordance; folds into the §1 native
+                            // shell toolbar later. Top-trailing to clear Osaurus's left sidebar header
+                            // + the window traffic lights.
+                            .overlay(alignment: .topTrailing) {
+                                Button {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
+                                        actEntered = false
+                                    }
+                                } label: {
+                                    Image(systemName: "chevron.backward")
+                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 7)
+                                }
+                                .buttonStyle(.plain)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .overlay(Capsule().stroke(.primary.opacity(0.12), lineWidth: 1))
+                                .padding(.trailing, 14)
+                                .padding(.top, 46)
+                                .accessibilityIdentifier("act.back")
+                                .accessibilityLabel("Back to landing")
+                                .help("Back to landing")
+                            }
                             .transition(.blurFade())
                     } else {
                         ZStack(alignment: .bottom) {
@@ -2724,6 +2751,7 @@ private struct HomeRouter: View {
                             .overlay(Capsule().stroke(.primary.opacity(0.12), lineWidth: 1))
                             .padding(.bottom, 22)
                             .accessibilityIdentifier("act.enter")
+                            .accessibilityLabel("Enter act")
                         }
                         .transition(.blurFade())
                     }
