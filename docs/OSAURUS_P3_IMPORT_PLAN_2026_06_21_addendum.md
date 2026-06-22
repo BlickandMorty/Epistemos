@@ -859,3 +859,18 @@ fixes, anything reused by act/work) — never lose it; (b) ensure ACT (+work) is
 (reskin live, P0 fixed, reachable); (c) THEN delete the chat surface/feature in favor of act+work. Do NOT
 delete the chat NOW (act isn't ready + the inference fix is shared) — but the END STATE = no chat, only
 act+work. Supersedes the prior "quarantine, never delete" for the SURFACE (the IP is still preserved).
+
+## 🔴 P0 REGRESSION — CLASSIFY shared-vs-chat-only BEFORE fixing (owner 2026-06-21)
+Owner question: is fixing this wasted (chat is being deleted) or is it needed by act/work? RESOLUTION — the
+agent must CLASSIFY FIRST, then act, so no effort is wasted either way:
+- **STEP 1 — classify the regression's location:** is the `<think>`-parsing / reasoning-output / title-gen bug
+  in the SHARED inference-output layer, or in chat-SURFACE-only code?
+- **LIKELY SHARED (fix it — NOT wasted):** reasoning-model `<think>` parsing + title generation are inference-
+  layer, used app-wide. Note chat + Graph chat (KEPT surfaces) route through the SAME shared path (TriageService).
+  ACT running local reasoning models needs the SAME parsing. So deleting chat would NOT remove the bug — act/
+  work/note/graph would inherit it. → FIX the shared layer; add the real-state regression test there.
+- **CHAT-SURFACE-ONLY (don't fix — just let it be deleted):** if the bug is purely in main-chat-surface code
+  that act fully replaces, do NOT spend effort fixing it — it goes away with the chat-surface deletion.
+- **The main chat SURFACE itself = on the deletion path** (per the act+work directive) — don't polish it; just
+  don't let it block. Fix only the SHARED plumbing act/work/note/graph need. (Same principle as the Qwen
+  fallback: fix shared plumbing, don't polish the dying surface.)
