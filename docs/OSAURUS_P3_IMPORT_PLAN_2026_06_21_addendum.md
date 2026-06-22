@@ -1988,3 +1988,38 @@ the trap; it must be RUNTIME-CONFIRMED.
 3. Owner framing to honor: "pour the full Osaurus, then make it look like my old chat." The blocker is purely
    that the look does not RENDER. Make cream/native RENDER on the owner's launch FIRST (the single immediate
    unblock), before any further cert/lower-tier work. A reskin that doesn't show on launch is 0% done.
+
+---
+
+## 🔴🔴 OWNER DIRECTIVE (P0, 2026-06-22 ~14:58) — ACT ARCHITECTURE PIVOT: NATIVE UI LINKED TO THE OSAURUS ENGINE (WebKit-bridge pattern). ABANDON mount-and-reskin.
+Owner: "use native buttons but link them to Osaurus — easy as the WebKit bridge." CORRECT + EASIER. **This
+SUPERSEDES the "mount Osaurus's whole ChatView + reskin via theme cascade" approach — that cascade is the wall
+that does NOT render (white/boxy/Osaurus-look). Abandon it.**
+
+**WHY THE WALL DISAPPEARS:** the reskin-doesn't-render bug exists ONLY because the act surface mounts Osaurus's UI
+and tries to recolor it. If the act UI is NATIVE Epistemos and simply CALLS the Osaurus ENGINE in-process, there
+is NO theme to cascade — it renders natively (cream/monospace/curved/pill) by construction.
+
+**WHY IT'S SAFE (key):** the old chat broke because ITS PARSING was broken (thinking leaked, tools broke).
+Osaurus's value is its ENGINE — it parses the stream into clean channels (thinking / content / tool-calls). A
+NATIVE UI that RENDERS Osaurus's already-parsed engine output = native look + correct behavior. You do NOT need
+Osaurus's UI to get its correctness — you need its engine's parsed output.
+
+**ALREADY PROVEN — do not treat as hypothetical:** 0.4 + 0.23 (certified send + green harness) IS native Epistemos
+code calling Osaurus's in-process `CoreModelService.generateStream` → reply. The engine link is CERTIFIED WORKING.
+The remaining act work is purely building NATIVE UI views on that proven link.
+
+**THE PIVOT (re-frames 0.1/0.2/0.3/0.7/0.8 D1–D6/0.17/4.7):**
+- Act UI = NATIVE Epistemos views — native buttons, composer/message-bar, toolbar, landing, sidebar, pill, curved
+  window. Renders natively → fixes boxy(D1)/no-pill(D3)/no-message-bar(0.7)/Osaurus-landing(D2)/white(0.1/D5) at
+  the SOURCE (native AppKit/SwiftUI = curved + cream by nature; no cascade).
+- Wire each to the Osaurus ENGINE API in-process (`CoreModelService.generateStream` / model provider / tool loop)
+  — the WebKit-bridge pattern the app already uses for the editor + the proven 0.4 path.
+- Render Osaurus's PARSED stream channels in native views: thinking→native thinking box/animation, content→native
+  answer, tool-calls→native tool rows. CONSUME the engine's clean channels; do NOT re-implement parsing (that was
+  the old-chat bug; the engine handles it). (May keep Osaurus's thinking view if its animation is loved — fed by
+  the engine — but the chrome/buttons/composer/landing/window/sidebar/pill = NATIVE.)
+- §2 still holds: adopt Osaurus's good Apple-native components (voice, popovers) as native; drop its generic
+  surfaces (Good-afternoon/four-blocks/composer/block-fonts).
+- Verify on the OWNER'S FRESH LAUNCH (pass-61): kill→rebuild→open→screencapture→Read; native cream chrome MUST
+  render. This is the EASY path — the mount+reskin path is the wall; do not return to it.
