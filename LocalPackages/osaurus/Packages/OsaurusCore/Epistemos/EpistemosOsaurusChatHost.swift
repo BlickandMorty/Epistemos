@@ -36,12 +36,19 @@ public struct EpistemosOsaurusChatHost: View {
     ///   - agentId: the agent to bind. Defaults to Osaurus's built-in default
     ///     agent (`Agent.defaultId`).
     public init(windowId: UUID = UUID(), agentId: UUID? = nil) {
+        // RESKIN (owner 2026-06-22, "the reskin isn't working — I see raw Osaurus"): apply the
+        // Epistemos cream theme HERE, BEFORE the window resolves its theme. The bug was that the
+        // reskin ran in `.task` (AFTER ChatWindowState init already resolved to Osaurus's DEFAULT
+        // theme from `currentTheme`), and `persist:false` didn't install it, so any re-resolution
+        // fell back to default. ChatWindowState.loadTheme reads `ThemeManager.shared.currentTheme`,
+        // so applying cream first makes the window — and every `@Environment(\.theme)` Osaurus view
+        // (thread/composer/sidebar/picker) — read cream from the FIRST render.
+        Self.installAndApplyEpistemosThemeOnce()
         let state = ChatWindowState(windowId: windowId, agentId: agentId ?? Agent.defaultId)
         // GRAFT — SIDE PANEL (owner must-keep 2026-06-22): Osaurus's ChatSessionSidebar defaults
         // to HIDDEN (showSidebar = false), so the act surface would open with no side panel. Show
         // it by default — the owner gets the loved Epistemos-style side panel (Osaurus's session
-        // sidebar, reskinned to the cream/monospace look by bootstrapAndThemeOnce). Additive; the
-        // owner can still collapse it from the chrome.
+        // sidebar, reskinned to the cream/monospace look). Additive; the owner can still collapse it.
         state.showSidebar = true
         _windowState = StateObject(wrappedValue: state)
     }
@@ -90,8 +97,25 @@ public struct EpistemosOsaurusChatHost: View {
         didBootstrap = true
         ConfigurationDomainBootstrap.registerBuiltIns()
         DocumentAdaptersBootstrap.registerBuiltIns()
-        ThemeManager.shared.applyCustomTheme(epistemosCreamTheme, persist: false, animated: false)
+        // (Theme is applied earlier — in init(), before the window resolves — not here.)
         seedOwnerDefaultModelOnce()
+    }
+
+    @MainActor private static var didApplyTheme = false
+
+    /// Install + persist + apply the Epistemos cream/monospace reskin so it actually takes effect on
+    /// the live Osaurus surface (owner 2026-06-22 — the prior `.task` + `persist:false` was a no-op
+    /// the window never picked up). INSTALL it into `installedThemes` (so it's a real, resolvable
+    /// theme), then `applyCustomTheme(persist: true)` so `ThemeManager.currentTheme` becomes cream AND
+    /// it's saved as the active theme — surviving any re-resolution / relaunch. Runs once ever (latch).
+    /// `ChatWindowState.theme` resolves from `currentTheme`, so this is the theme SOURCE the chat reads.
+    @MainActor
+    private static func installAndApplyEpistemosThemeOnce() {
+        guard !didApplyTheme else { return }
+        didApplyTheme = true
+        ThemeManager.shared.saveTheme(epistemosCreamTheme)
+        ThemeManager.shared.refreshInstalledThemes()
+        ThemeManager.shared.applyCustomTheme(epistemosCreamTheme, persist: true, animated: false)
     }
 
     /// Owner 2026-06-22 (#1 concern — "send works with MY models"): the new Osaurus act
