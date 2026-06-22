@@ -187,3 +187,14 @@ Osaurus engine (no toggle/fake), implementation its choice but ALL invariants me
   legit product switch); set/verify defaults. Live send verify still needs running app.
 - **Verdict:** PASS — milestone. Remaining: re-place act↔work toggle, live send verify (running app), work-mode
   reachability. Watch next pass for the toggle re-placement.
+
+## Pass 12b (owner runtime report) — 2026-06-22 — 🔴 OPTION-(b) RUNTIME FAILURE
+- Owner on running app: act looks like the OLD chat, Osaurus INVISIBLE, NOT WORKING ("regressed completely").
+- The pivot was BUILD-green but RUNTIME-FAILING (the live-verify that was pending → came back NEGATIVE).
+- Diagnosed (code): shouldRouteActThroughOsaurus() = true default on Pro / FALSE on App Store; old ChatView
+  send → TriageService → SharedActInference (Osaurus route). So either (a) owner on App Store/MAS scheme (route
+  off by design) or (b) route engages but send fails silently (provider not registered / coreModel unset /
+  CoreModelService throws).
+- RE-ADDED as P0-A (make act actually work + visible errors + scheme check) + P0-B (surface Osaurus visibly —
+  owner can't see it; wanted its features/buttons). Build-audit PASS ≠ runtime PASS — pivot re-opened.
+- AUDIT-WATCH: build loop must diagnose the runtime failure, make a real send work, and surface Osaurus; re-verify.
