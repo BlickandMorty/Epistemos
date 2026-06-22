@@ -10,7 +10,7 @@ brain** (the orchestrator) sit on **one model-agnostic substrate**, drive **swap
 (act = Osaurus, work = OpenCode, local, cloud), and surface through **two modes (act + work)** over a
 **markdown PKM (Prose + MD-V2) + graph + agent-native vault** — minimal pixel-art native, no real competitor.
 
-## IS IT ONE BRAIN, OR TWO/THREE? → ONE brain, TWO faculties, on a shared substrate (+ a separate future track)
+## IS IT ONE BRAIN, OR TWO/THREE? → ONE brain, TWO faculties, on a shared substrate (70B/new-model EXCLUDED — not part of it)
 Think of it like a human brain: one brain, distinct faculties.
 - **FACULTY 1 — COORDINATION ("which mind handles this, how"):** System G (the one orchestrator) + the TRINITY
   loop (Thinker/Worker/Verifier coordinator core) + RuntimeRouter (route-to-best-model-per-task). This is the
