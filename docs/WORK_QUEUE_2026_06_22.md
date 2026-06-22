@@ -81,13 +81,17 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   `currentBuiltInThemeSchema` 5→6 cascade (prior edits never cascaded due to disk-install cache); pending cream
   screencapture; stays `[ ]` (D-gate on D5). See STRICT_RECERT_LOG Iteration 1.
 
-- [ ] **0.2 ALL chat surfaces → same Osaurus act host** — main mounted; mini still Epistemos-native; graph
-  still `triageService.streamGeneral`; note unverified. Route mini+graph+note through Osaurus act host. WORK
-  mode in all but note. Screenshot EACH surface separately (main ≠ enough).
+- [ ] **0.2 ALL chat surfaces → ONE shared NATIVE act component (NOT an Osaurus host mount)** — main/mini/graph/
+  note ALL get ACT via the shared NATIVE Epistemos act view (NativeActChatView pattern) wired to the Osaurus
+  ENGINE; ALL BUT NOTE also get WORK. Extract ONE shared native composer/thread component + wire each surface to
+  it. mini/graph currently `triageService.streamGeneral`. SEQUENCE: after the act surface passes its fresh-launch
+  acceptance (do NOT tunnel on mini/graph before act works). Screenshot EACH surface separately (main ≠ enough).
   →plan: "🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE" + "✅ CONSENSUS — KEEP TriageService".
 
-- [ ] **0.3 LANDING → BLUR → ACT** — Epistemos `LandingView` FIRST; click → blur → Osaurus host. NOT
-  Osaurus default landing ("Good morning" + download/provider buttons). Screenshot landing, then post-blur act.
+- [ ] **0.3 LANDING → BLUR → ACT (tap ANYWHERE, NOT a button, NOT search)** — Epistemos `LandingView` FIRST
+  (cream + native toolbar + pill); **tap ANYWHERE → blur → NATIVE act (NativeActChatView)**. REMOVE the
+  click→search path for landing→act (`LandingView.activateLandingSearch`, onTapGesture :339→:356). NOT an "Enter
+  act" button, NOT an Osaurus host mount, NOT Osaurus default ("Good morning"). Screenshot landing, then post-tap act.
   · **iter10 (per P0 §1886 BUILD-NOW): first build-step landed** — RootView Osaurus branch now gates the host
   behind `actEntered`: shows Epistemos `LandingView` FIRST + "Enter act" press → blur → host (host always reachable
   on press, 0.4 send untouched). Pending build (bvi4lbj91) + screencapture-verify landing-first + harness re-run.
@@ -180,6 +184,15 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   Render the engine's PARSED channels natively (thinking→native box, content→native answer, tool-calls→native rows);
   CONSUME the engine's clean channels, do NOT re-implement parsing. This reframes 0.1/0.2/0.3/0.7/0.8/D1-D6/4.7.
   Verify on the OWNER'S FRESH LAUNCH (kill→rebuild→open→screencapture→Read — §1941), NOT transient PNGs.
+  · **§2029 HARD CLARIFICATION:** pivot is NOT option-(b) — build **FRESH native views**, NOT the old
+  `Epistemos/Views/Chat/ChatView.swift` AND NOT the mounted Osaurus ChatView. Engine link PROVEN (0.4) so the
+  prior broken-send cause is gone. FINAL approach — stop the architecture thrash.
+  · **§2048 THE ONE CRISP TARGET (owner, screenshot-grounded — D2 LANDED, Epistemos landing now shows):**
+  (1) landing in native chrome (cream + toolbar + pill), (2) click-anywhere → ACT (REMOVE the search page —
+  LandingView click→search at :339/:1380 must become →act), (3) act = native chrome + WORKING send, (4) kill
+  chat/act duality. Binary FRESH-LAUNCH acceptance. · iter20: built **`NativeActChatView`** (fresh native cream/mono
+  composer+thread+toolbar driving the certified 0.4 engine link) + wired into RootView act branch (replaces the
+  Osaurus host mount). Pending build (blhg5f29r) + fresh-launch render-verify + harness.
 
 - [x] **0.18 Model provider registration** — CERTIFIED iter6 (NOT D-gated). (a) EpistemosOsaurusModelProvider.swift:28 ·
   (b) bridges owner's MLX models via EpistemosModelBridge primitive seam · (c) AppBootstrap.swift:3155 register over live
@@ -187,8 +200,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   (success-path routing, 4/4 passed 0 skipped, bseglu4pp) · (e) live send routed to registered owner model gemma-4-e2b (P0-A).
   →plan: "🎯 PINPOINTED ActOsaurusError" + "ACT = OSAURUS IS THE CHAT" §FIX act errors.
 
-- [ ] **0.19 Chat surface deletion sequence** — mount Osaurus host → verify send/receive → port IP → delete old
-  chat SURFACE (owner authorized); preserve IP per quarantine doc; no toggle limbo.
+- [ ] **0.19 Chat surface deletion sequence** — NATIVE act view (NativeActChatView) on the engine → verify
+  send/receive → port IP → delete old chat SURFACE (owner authorized); preserve IP per quarantine doc; no toggle limbo.
   →plan: "ACT = OSAURUS IS THE CHAT" §THE BUILD steps 1–4 + QUARANTINE doc.
 
 - [ ] **0.20 Collapse act/chat duality** — remove CoworkChatMode depth axis + depth toggle; act/work only.

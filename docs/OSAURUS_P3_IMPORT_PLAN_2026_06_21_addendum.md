@@ -2097,3 +2097,42 @@ content / tool-calls into clean channels, tool loop) — **NEVER its UI.**
 4. A real send STREAMS a reply on the live act surface (engine link) — it must NOT hang.
 5. KILL the chat/act duality — act/work only (0.20). No lingering "chat".
 Until a FRESH-launch screenshot shows ALL FIVE, act is NOT done. This is THE target — build it, ship it, verify it.
+
+---
+
+## 🔴🔴 OWNER P0 RUNTIME (2026-06-22 ~15:10, screenshot) — NativeActChatView is LIVE but a BARE WHITE SKELETON; COMPOSE the owner's full chrome
+**PROGRESS (real):** the architecture pivot LANDED in code — the act surface is now **NativeActChatView** (native,
+on the certified `OsaurusActBridge.runTurnStreamingInProcess` bridge), NOT a mounted Osaurus ChatView. Right path.
+**PROBLEM (owner screenshot):** NativeActChatView renders as a near-empty **WHITE** pane — "‹ act | Act/Work |
+owner model" toolbar + "Ask anything." + a plain "Message…" field. It is **white not cream, NO sidebar/recent
+chats, NO pill, NO rich Epistemos message bar** → looks WORSE than both prior versions (a stripped skeleton).
+
+**REQUIRED — flesh out NativeActChatView by COMPOSING the owner's EXISTING chrome components** (do NOT rebuild
+from scratch, do NOT leave a skeleton, do NOT mount any ChatView):
+- **CREAM** (#fbfaf5/#f4f3ee) + monospace + native curved window — not white/boxy.
+- **Message bar = `Epistemos/Views/Chat/ChatInputBar.swift`** (the owner's real composer) — not a plain "Message…".
+- **Sidebar + recent chats = `ChatSidebarView`.**
+- **Pill = `ChatCapabilityPill`** — visible on the act surface (AND landing AND work).
+- Native toolbar chrome; render the engine's parsed channels (thinking/content/tools) in native views (keep
+  Osaurus's thinking widget ONLY if a native rewrite is unsafe).
+Compose these onto the certified bridge. The bare "Ask anything" skeleton is NOT acceptable — it must be the
+owner's RICH native chrome. (Codex: "steal UI pieces from Direction A — composer, sidebar — not ChatView wholesale.")
+
+**INSTRUCTION-DEBT CLEANUP (Codex, do this so the agent stops carrying stale directions):**
+- **Rewrite `EpistemosTests/ActSurfaceOsaurusUIDirectionGuardTests.swift`** — it still `#expect`s
+  `EpistemosOsaurusChatHost()` (line 17), which now LOCKS THE WRONG direction. Make it REQUIRE `NativeActChatView`
+  + the `OsaurusActBridge`/`CoreModelService` path, and FORBID `EpistemosOsaurusChatHost()` / `ChatView()` as the
+  Pro act surface.
+- **Fix `LandingView` background tap** (`activateLandingSearch`, onTapGesture :339→:356) → enter act
+  (`actEntered = true`); REMOVE the click→search path for landing→act.
+- **Clean stale `RootView.swift` comments** (~2685: "option (b) old Epistemos UI" / "Osaurus OWN UI reskinned").
+- All remaining descriptive "Osaurus host / mount" mentions across the docs are **SUPERSEDED** by the FINAL
+  native-UI directive (§ FINAL ACT/WORK UI DIRECTION) — treat them as archive-only.
+
+**MULTI-SURFACE (owner, fold in — do AFTER act acceptance):** main/mini/graph/note ALL get ACT via the ONE
+shared native act component; ALL BUT NOTE also get WORK. Extract the shared native composer/thread from
+NativeActChatView; wire each surface to the bridge. (0.2.)
+
+**ACCEPTANCE (fresh launch — kill→rebuild→open→screencapture→Read):** landing = cream + native toolbar + pill;
+tap anywhere → native act (no search); act = NativeActChatView with the owner's CREAM chrome + ChatInputBar +
+sidebar + pill (NOT a white skeleton); real send streams a reply; no chat/act duality.
