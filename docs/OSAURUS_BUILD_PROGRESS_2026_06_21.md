@@ -12,6 +12,13 @@ directive ALWAYS beats a research rec. Corrections to drift (I had followed the 
    (`goose` + `goose-providers`) + `rmcp` as REAL Cargo deps in agent_core, like Osaurus; resolve dep
    clashes (accepted cost). The `agent_core::work::vendored_goose` hand-ports (incl. the Role leaf
    `bed6252fd`) are **SUPERSEDED** by the full-clone — STOP hand-porting wire types one at a time.
+   **GROUNDED 2026-06-21 (`docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`):** the
+   leaf-ported types live in the HEAVY `goose` crate (**179 dep lines** incl tokio/reqwest/rmcp/sqlx/
+   oauth2), NOT the light `goose-sdk-types`. Concrete blocker = **reqwest 0.12 (agent_core) vs 0.13.2
+   (goose)** incompatible majors + 660 MB source. This is a **multi-iteration, build-red-prone** vendor →
+   per owner §446-460 it belongs in a DEDICATED build-iteration context (worktree/branch, like dual-MLX),
+   NOT committed red to the green-only main loop. Leaf-ports stay as the HONEST interim (lower-but-CERTAIN,
+   not dropped); recommended path (feature-gate `goose-clone` OFF-by-default + reqwest reconcile) in the note.
 3. **WORK = OpenCode FULL-CLONE shell, Option A (keep OpenCode's REAL terminal UI, palette-matched, live
    themes).** NOT a native rebuild (feasibility C2/B OVERRIDDEN). HEAVINESS MITIGATION (loop prompt
    directive #2): render OpenCode's **REAL terminal TUI in a NATIVE terminal view (SwiftTerm/PTY)** — do
