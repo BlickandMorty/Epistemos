@@ -6,7 +6,15 @@ whole addendum). The loop UPDATES this file every loop (mark [x] only when RUNTI
 Authority/detail = docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten it).
 
 RULES (every loop, non-negotiable):
-- Re-read THIS queue fully. Pick the FIRST unchecked item in order. Read its →plan-ref specifics. Do it for REAL.
+- **THIS QUEUE IS AN INDEX, NOT THE SPEC.** The one-line item text is ONLY a pointer. For the current item you
+  MUST open its `→plan:` section in the addendum and IMPLEMENT EVERY SPECIFIC / NUANCE written there — the
+  no-compromise-nuance initiative: do ALL of it, exactly, not a summarized version. The queue guarantees nothing
+  is FORGOTTEN; the per-item plan-read guarantees the SPECIFICS are DONE. (Before, the loop skipped specifics —
+  this is the fix: always read + do the full plan section for the item, never just the queue line.)
+- **KEEP THE QUEUE COMPLETE:** it must index EVERY open directive in the plan. If you find a plan directive not
+  represented here, ADD it as an item with its →plan ref. New owner directives go into the plan AND here.
+- Re-read THIS queue fully. Pick the FIRST unchecked item in order. Read its FULL →plan section + implement ALL
+  its specifics. Do it for REAL.
 - RUNTIME-VERIFY before [x] (build-green is NOT done; the reskin/act bugs all passed build but failed at runtime).
   If you cannot runtime-verify a UI item headlessly, mark it [~] "built, NEEDS owner/computer-use runtime-verify"
   — never [x]. Do NOT move past a broken/unverified TIER-0 item to lower tiers.
