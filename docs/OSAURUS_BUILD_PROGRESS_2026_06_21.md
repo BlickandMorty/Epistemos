@@ -1128,3 +1128,10 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   is MORE MAS-safe, not regressed. Removed the stale KTOTrainer spec + @Test (joining QLoRA/MoLoRA, already
   native) and fixed the PythonEnvironmentManager spec index [2]→[1]. Verified KTOTrainer is subprocess-free
   before touching (it's a security test — not blind-green-washed). No production code touched.
+
+## Graft 1/3 — SCROLL-BLUR on the Osaurus act surface (owner must-keep, auditor pass 35, 2026-06-22)
+- Auditor pass 35 escalated: return to the grafts (message bar / side panel / scroll-blur), stop the test sweep.
+  Delivered the most additive graft first: a top-edge progressive blur on EpistemosOsaurusChatHost — a thin
+  .ultraThinMaterial band masked by a top→clear gradient, so content blurs as it scrolls up (the loved Epistemos
+  scroll interaction) on the Osaurus surface. PURELY ADDITIVE overlay — no change to Osaurus's internal ChatView,
+  never intercepts input. Owner refines depth on the running app. Remaining grafts: message bar + side panel.
