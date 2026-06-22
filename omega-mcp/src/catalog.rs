@@ -184,6 +184,12 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
         ),
         tool!(
+            "link_candidates", "notes",
+            "Unlinked mentions: other notes whose title appears in this note's prose but isn't yet a [[wikilink]] (auto-link suggestions for the LLM wiki)",
+            r#"{"path": "relative/path.md"}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+        ),
+        tool!(
             "patch_note", "notes",
             "Structured patch of a note file (safer than overwriting): op=append|replace_first|insert_after with find/text",
             r#"{"path": "note.md", "op": "replace_first", "find": "old", "text": "new"}"#,
