@@ -774,3 +774,19 @@ REMAINING to confirm at final double-check (owner will bring Cursor's prompt bac
 buildable rows (vault→graph/LLM-wiki, RustLSP→work-tools, MD-V2 inversion+provenance, Goose-full-clone) +
 Talaria/Tolaria unify + external-doc anchor existence + P1-7/8/9 contradictions (one-item-min, D4 sole home,
 paste OsaurusChatView rename). NOT editing spec. VERDICT: PASS — hardening on track, findings landing correctly.
+
+## PASS 53 — 2026-06-22 (FINAL DOUBLE-CHECK of hardened spec — GO for launch)
+Owner brought Cursor's hardened spec back for the promised double-check. Verified COMMITTED HEAD a36e1a9aa:
+ARTIFACTS: osa_runtime_2026_06_22.png TRACKED + on disk (3.73 MB) — resolves Cursor's "missing" worry (it was
+committed pass-43; Cursor's own screencapture failed but the file is in-repo); STRICT_RECERT_LOG tracked. ✓
+WALK ORDER: TIER 0 = 0.1..0.32 strict numeric ✓; TIER 2 = 2.1..2.8 in order (2.4 before 2.5/2.6 — fixed) ✓.
+SUPERSEDED: QUEUE prompt + 2026_06_21 prompt both marked ✓.
+A–E ACCEPTANCE (all met): pass-50 P0s landed (pass52: lowest-still-[ ], stub≠[x], per-lane harness, W/B/S gates,
+gate-c distinct cite, PNG freshness, served-model==selected-model); pass-51 reconcile DONE (4 buildable rows
+indexed: vault→graph/LLM-wiki, RustLSP→work-tools, MD-V2 inversion+provenance, Goose full-clone; Talaria→Tolaria
+unified=0/7); P1 contradictions resolved (one-item-minimum struck=0; paste OsaurusChatView; D4=0.21 TIER-0 in
+queue banner); strict prompt mirrors 0.11-0.16 (10 hits); reverse-audit full-heading-diff present; per-surface
+screenshot mandate present (7 hits).
+VERDICT: DOCS READY — GO. Launch the build agent with docs/AGENT_LOOP_PASTE_READY_2026_06_22.md. Remaining items
+(fresh baseline PNG, actual queue certification) are RUNTIME work for the build agent, not doc ticks — agreed.
+Cursor gap-fill loop killed. My 15-min audit loop (413bee6a) STAYS to audit the build agent as it codes.
