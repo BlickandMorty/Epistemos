@@ -18,8 +18,9 @@
 > **D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7** — do NOT mark 0.1–0.7 `[x]` until the
 > matching D-item passes YOUR screencapture (e.g. 0.1 isn't `[x]` until D5 shows cream/monospace).
 >
-> **D4 / Configuration is TIER-0 blocking** — wire act/Osaurus config + settings in 0.11/0.22; do NOT defer
-> to queue 4.1 while leaving TIER 0.
+> **D4 / Configuration is TIER-0 blocking — queue 0.21 is the SOLE owner** (per-clone settings matrix for
+> Epistemos|act|work|beyond). Items 0.11/0.22/4.1 reference 0.21 — do NOT duplicate the D4 obligation elsewhere;
+> do NOT defer D4 to queue 4.1 while leaving TIER 0.
 
 THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION. Each item POINTS to its plan section
 (read ONLY that section for the current item). Authority =
@@ -50,14 +51,20 @@ RULES (every loop, non-negotiable):
   iteration** — stale fixed-path PNG without Read does NOT satisfy (e). Ground-truth alias
   `docs/research/osa_runtime_2026_06_22.png` must be re-captured when cited, not reused unread.
   `[~]` = TRUE last resort only (state why screencapture + send-text both failed). Never `[x]` on build-green.
-- Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md` each loop. Commit + push. No fake-done.
+- Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md` each loop (**certification lines under
+  `## Certification log` only**; gap-fill/docs edits under `## Docs-maintenance` — excluded from cert counts).
+  Commit + push. No fake-done.
 - Never delete chat IP. main-only. Co-Authored-By Claude.
 
 STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   (a) EXISTS file:line · (b) CORRECT & ON-PLAN (mandated approach, not near-miss/drift) · (c) WIRED &
   REACHABLE — **distinct from (a):** cite a **consumer/mount/route** file:line where the code is **invoked,
   mounted, or routed** on the live path (NOT the same definition site as (a); definition-only ≠ wired) ·
-  (d) REAL-STATE TESTED · (e) RUNTIME proven by YOU (screencapture and/or send-text harness).
+  (d) REAL-STATE TESTED — test exercises the **same live entry point** that (c) cites; cite test name +
+  **"0 skipped/ignored for this item"** (fail on new xfail/ignored/weakened asserts touching certified code) ·
+  (e) RUNTIME proven by YOU (screencapture and/or send-text harness for UI/inference; **headless substrate/
+  orchestrator:** live-path integration test citing a **runtime artifact** — log line / health-row value /
+  AnswerPacket field — NOT cargo-test-only; see `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` T4).
 
 ## TIER 0 — ACT SURFACE + FULL-PLAN CLONE BASELINE (P0 act blocking; NOT the whole plan)
 
@@ -110,13 +117,14 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   no `<think>` leak in titles/output; **CLASSIFY shared-vs-chat-only** before fixing regressions
   (shared pipeline bugs ≠ chat-only). Real-state test + screenshot reasoning reply.
   →plan: "🔴🔴 P0 REGRESSION — reasoning-model output broken in LIVE chat" + "🔴 P0 REGRESSION — CLASSIFY
-  shared-vs-chat-only" + CHAT_BACKEND_QUARANTINE fidelity.
+  shared-vs-chat-only" + `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` fidelity.
 
 - [ ] **0.10 DATA CARRY-OVER** — saved chats/sessions/prefs migrate to act; no lost history.
-  →plan: CHAT_BACKEND_QUARANTINE "Data/persistence carry-over".
+  →plan: `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` "Data/persistence carry-over".
 
 - [ ] **0.11 Provider wiring + Epistemos Picks** — owner GGUF/QAT selectable AND used on send; "Add a
-  provider"/Configuration opens REAL settings; NO silent Codex default. Send must use selected model.
+  provider"/Configuration opens REAL settings (D4/settings obligation owned by **0.21**); NO silent Codex default.
+  Send must use selected model.
   →plan: "OWNER'S MODELS IN CHAT" + "DEEP CHECK §2" + "DESIGN DECISION — \"Epistemos Picks\"".
 
 - [ ] **0.12 Surface-wiring rule** — every Osaurus surface (settings, model stack, tools, transcript, config)
@@ -152,10 +160,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **0.20 Collapse act/chat duality** — remove CoworkChatMode depth axis + depth toggle; act/work only.
   →plan: "ACT = OSAURUS IS THE CHAT" step 3.
 
-- [ ] **0.21 Per-clone SETTINGS matrix (D4 blocking)** — **Epistemos (main) | act | work | beyond** tabs each
-  open that clone's REAL settings (not flattened/dropped). Configuration on act opens act/Osaurus settings;
-  work tab opens OpenCode/work settings when wired; beyond tab reserved for future clones (Talaria, Epdoc-fuse,
-  etc.) per plan. Screenshot **each tab** separately. Queue 4.1 extends polish — D4 must pass in TIER 0.
+- [ ] **0.21 Per-clone SETTINGS matrix (D4 blocking — SOLE OWNER)** — **Epistemos (main) | act | work | beyond**
+  tabs each open that clone's REAL settings (not flattened/dropped). Configuration on act opens act/Osaurus settings;
+  work tab opens OpenCode/work settings when wired; beyond tab reserved for future clones (Tolaria, Epdoc-fuse,
+  etc.) per plan. Screenshot **each tab** separately. Queue 4.1 extends polish only — **D4 must pass here in TIER 0**.
   →plan: "🆕 PER-CLONE SETTINGS" + D4 in OWNER-REPORTED DEFECTS + per-clone MAS-fit research.
 
 - [ ] **0.22 ONE inference chokepoint (act path)** — single in-process path for act send; no stray HTTP server
@@ -198,15 +206,16 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **0.30 BEYOND clone tab + scope honesty (in-scope vs OFF-LIMITS)** — beyond settings tab exists or is
   honestly stubbed with plan ref; **Stub = `[ ] STUBBED(plan ref)` — never `[x]`** until B-gate passes. **Companion-
   backend clones OFF-LIMITS** (companions.rs, CompanionCreationFlow, new-model interrupt internals) — do NOT cert
-  beyond as Companion. **Work + beyond future clones IN SCOPE** (Talaria reference, Epdoc-fuse, Tamagotchi render-
-  fix). Document what's stub vs wired.
-  →plan: "🆕 PER-CLONE SETTINGS" beyond tab + Tamagotchi + Talaria/Tolaria reference + OFF-LIMITS guard.
+  beyond as Companion. **Work + beyond future clones IN SCOPE** (Tolaria reference lane, Epdoc-fuse, Tamagotchi
+  render-fix). Document what's stub vs wired.
+  →plan: "🆕 PER-CLONE SETTINGS" beyond tab + Tamagotchi + Tolaria reference + OFF-LIMITS guard.
 
-- [ ] **0.31 Reverse addendum audit (EVERY iteration — standing)** — after forward queue walk: grep addendum for
-  🔒, DEFINITIVE, P0, MUST, BUILD-IT-HARDENED, PER-CLONE, WORK, BEYOND, ALL CHAT SURFACES, ESCALATION, 🆕, 🌟,
-  RESEARCH; verify EACH hit is indexed in this queue or STANDING with →plan ref. Missing directive → ADD queue
-  row same iteration. Paste grep hit count + unindexed list (if any) into STRICT_RECERT_LOG — empty grep log
-  does NOT satisfy 0.31.
+- [ ] **0.31 Reverse addendum audit (EVERY iteration — standing)** — after forward queue walk: **diff the FULL
+  addendum heading list (`^#{1,3} ` lines in the addendum) against this queue index** — NOT token-grep alone.
+  Supplement with grep for 🔒/DEFINITIVE/P0/MUST/BUILD-IT-HARDENED/PER-CLONE/WORK/BEYOND/ALL CHAT SURFACES/
+  ESCALATION/🆕/🌟/RESEARCH; verify EACH hit is indexed here or STANDING with →plan ref. Missing directive → ADD
+  queue row same iteration. Paste **heading-diff output + grep hit count + unindexed list (if any)** into
+  STRICT_RECERT_LOG under `## Certification log` — empty audit does NOT satisfy 0.31.
   →plan: THREE STANDING DIRECTIVES §1 + COMPLETENESS / DISCOVERY-SWEEP MANDATE.
 
 - [ ] **0.32 Full-plan iteration witness (EVERY iteration — standing, HARD GATE)** — before declaring iteration
@@ -217,11 +226,15 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   `Act-only tunnel: DENIED (explicit)` · `Forbidden end-claims avoided: YES`.
   **FORBIDDEN** without full walk attempted: "act certified = iteration done", "D1–D5 pass = done",
   "stopping at TIER 0", "build-green = tier done", "defer TIER 1+ to next iteration", "act is blocking so
-  skipping work/substrate", "full-plan walk complete after TIER 0", "will continue with lower tiers later".
-  **INCOMPLETE iteration** if highest attempted is before **1.1** unless every TIER 0 item is `[~]` with
-  screencapture+send-text evidence AND you still attempted TIER 1+ same iteration before ending. Act P0 blocking
-  does NOT cancel TIER 1+ attempt when TIER 0 is certified or honestly `[~]`. If stopped at TIER 0 only, cite
-  screencapture/send-text evidence why TIER 1+ could not be attempted — not convenience.
+  skipping work/substrate", "full-plan walk complete after TIER 0", "will continue with lower tiers later",
+  **"STRICT RE-CERT COMPLETE" while ANY queue box is still `[ ]`**, or while any in-scope clone lacks ≥1 real
+  runtime proof (stubs excluded).
+  **INCOMPLETE iteration** if **lowest still-[ ] item ID** did not advance vs the prior iteration's witness
+  (unless the sole change is an honest new `[~]` with cmd+output evidence). Also INCOMPLETE if highest attempted
+  is before **1.1** unless every TIER 0 item is `[~]` with screencapture+send-text evidence AND you still
+  attempted TIER 1+ same iteration before ending. Act P0 blocking does NOT cancel TIER 1+ attempt when TIER 0 is
+  certified or honestly `[~]`. If stopped at TIER 0 only, cite screencapture/send-text evidence why TIER 1+ could
+  not be attempted — not convenience.
   →plan: strict prompt FULL PLAN CERTIFICATION + NEVER-IDLE + FULL-PLAN-NO-ACT-TUNNEL + META-ESCALATION
   (build-green ≠ works).
 
@@ -229,7 +242,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **1.1** OpenCode launcher binary vendored. →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED".
 - [ ] **1.2** WORK = OpenCode real TUI; mini/graph (not note); search→work; dual landing+blur.
   →plan: "✅ RESOLVED OPENCODE UI" + "✅ WORK LOOK = real TUI".
-- [ ] **1.3** Goose/Hermes/OpenClaw fuse beneath OpenCode. →plan: "✅ DECISION WORK ENGINE = ARCH C".
+- [ ] **1.3 Goose/Hermes/OpenClaw fuse beneath OpenCode — FULL vendored clone** — Goose is a **FULL vendored
+  clone beneath OpenCode**, NOT a leaf-by-leaf port; follow 🔒 FULL-CLONE PROCESS. Hermes/OpenClaw fuse per ARCH C.
+  →plan: "✅ DECISION WORK ENGINE = ARCH C" + "‼️ CORRECTIONS" + "🆕 GOOSE FULL-VENDOR COST".
 - [ ] **1.4** OpenCode/work terminal fully theme-responsive (palette from live EpistemosTheme).
   →plan: "🆕 OPENCODE MUST BE FULLY THEME-RESPONSIVE".
 
@@ -252,6 +267,11 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   WORK opens**, **loopback-only**, **kill-on-idle**; real TUI in SwiftTerm/PTY (palette-matched); measure disk/RAM;
   Pro-only footprint honest. Screenshot work TUI + verify no Chromium bundled.
   →plan: "🆕 OPENCODE \"HEAVINESS\" — MITIGATION" + Bun runtime vendored (1.1).
+
+- [ ] **1.9 RustLSP → work-agent code-intelligence tools** — wire existing `agent_core::lsp_runtime`
+  (hover/definition/diagnostics/edit) into the WORK stack via `RustLSPTransport`; do NOT import OpenCode's LSP.
+  Real-state test on live work-tool path + consumer cite distinct from definition site.
+  →plan: "RustLSP + similar existing logic — what to do" + "🆕 CRYSTALLIZED TWO-MODE ARCHITECTURE".
 
 ## TIER 2 — SUBSTRATE + SALVAGE
 - [ ] **2.1** SUBSTRATE Phase 2 AnswerPacket — re-cert load-on-launch; history surface + primary witness.
@@ -278,7 +298,8 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   "🆕 FUGU \"CLONE THE CODE\"".
 
 ## TIER 4 — OWNER-FACING / CLONES / PILLARS
-- [ ] **4.1** Per-clone SETTINGS polish (extends 0.21). →plan: "🆕 PER-CLONE SETTINGS".
+- [ ] **4.1** Per-clone SETTINGS polish (extends **0.21 sole D4 owner** — do not duplicate D4 obligation).
+  →plan: "🆕 PER-CLONE SETTINGS".
 - [ ] **4.2** System-prompts library + Epistemos Picks per-model prompts. →plan: "🆕 SYSTEM-PROMPTS LIBRARY".
 - [ ] **4.3** VAULT-DEEP-INTEGRATION pillar. →plan: "🌟 PILLAR — VAULT-DEEP-INTEGRATION".
 - [ ] **4.4** EPDOC MD-V2. →plan: "🆕 EPDOC MD-V2".
@@ -288,12 +309,13 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   ANIMATION INITIATIVE" + "🆕 MODE-ENTRY TRANSITION ANIMATIONS".
 - [ ] **4.7** UI chrome: model picker, command palette, 38-tool panel — NOT `[x]` until D5 screenshot proves it.
   →plan: "ACT reskin — PRESERVE the model picker...".
-- [ ] **4.8** Talaria + other clones; MAS non-restrictive. →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE".
-- [ ] **4.9** ACT wiring: skills+MCP+tools; Keychain for API keys. →plan: CHAT_BACKEND_QUARANTINE.
+- [ ] **4.8** Tolaria + other clones; MAS non-restrictive. →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE".
+- [ ] **4.9** ACT wiring: skills+MCP+tools; Keychain for API keys.
+  →plan: `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md`.
 - [ ] **4.10** Per-model Epistemos Picks profiles — research profile + use-case blurb in picker.
-  →plan: CHAT_BACKEND_QUARANTINE per-model profiles + "DESIGN DECISION — \"Epistemos Picks\"".
+  →plan: `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` per-model profiles + "DESIGN DECISION — \"Epistemos Picks\"".
 - [ ] **4.11** Test-parity gate before chat surface deletion — act coverage ≥ quarantined chat.
-  →plan: CHAT_BACKEND_QUARANTINE test-parity before retire.
+  →plan: `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` test-parity before retire.
 - [ ] **4.12** Prose editor + MD-V2 coexist — both first-class; Prose = Apple-Notes-grade native bar;
   loved notes sidebar preserved; MD-V2 does NOT replace Prose.
   →plan: "🆕 PROSE EDITOR + MD-V2 COEXIST".
@@ -302,9 +324,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🆕 MORE LOVED ASSETS TO PRESERVE" + "🌟 DESIGN SOUL + PROTECTED ASSETS".
 
 - [ ] **4.14** BEYOND clone surfaces (future integrations) — beyond tab hosts honest stubs or wired clones
-  (Talaria reference lane, Epdoc-fuse, other non-agent integrations per plan); NOT Companion-backend. MAS-fit
+  (Tolaria reference lane, Epdoc-fuse, other non-agent integrations per plan); NOT Companion-backend. MAS-fit
   research per clone before claiming green.
-  →plan: per-clone MAS-fit + Talaria/Tolaria reference + "AND non-agent" clones scope.
+  →plan: per-clone MAS-fit + Tolaria reference + "AND non-agent" clones scope.
 
 - [ ] **4.15** Multi-clone settings polish + data carry-over per clone — prefs/sessions where plan requires
   per-clone persistence; extends 0.21/4.1; screenshot all four tabs after changes.
@@ -313,6 +335,14 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **4.16** Graph-deep-integration pillar — graph chat surfaces on act/work paths; graph as first-class agent
   context (not sidebar-only); hologram/Metal graph preserved; per-surface cert pairs with 0.2/1.6.
   →plan: DESIGN SOUL "deep graph integration" + ALL CHAT SURFACES graph half.
+
+- [ ] **4.17 Vault→GRAPH population + LLM-wiki UI surfacing** — vault notes/links populate the knowledge graph;
+  LLM-wiki / wiki-link UI surfaced natively (extends 4.3 vault pillar — graph population is NOT covered by 4.3 alone).
+  →plan: "🌟 PILLAR — VAULT-DEEP-INTEGRATION" (GRAPH + LLM-wiki bullets) + addendum vault→GRAPH directives.
+
+- [ ] **4.18 EPDOC MD-V2 inversion + agent-edit provenance** — md = source of truth; html/json = projections;
+  agent edits carry provenance witness (extends generic 4.4 — inversion + provenance nuances must not silently skip).
+  →plan: "🆕 EPDOC MD-V2" + vault→GRAPH / agent-edit provenance sections + `docs/research/MD_V2_INVERSION_GROUNDING_2026_06_21.md`.
 
 ## TIER 5 — DISTRIBUTION + OPTIMIZATION
 - [ ] **5.1** Dual-build MAS+Pro. →plan: "🔒 DUAL-BUILD DISTRIBUTION MODEL".
@@ -329,24 +359,29 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 > stub PNG alone. Each gate is a **runtime acceptance test** — same 5-gate bar as act; cite test + artifact in
 > STRICT_RECERT_LOG. Pairs with queue items noted.
 
-### W-gate — WORK clone (pairs 0.28, 1.2–1.8)
-- **W1** Work landing discoverable (act/work toggle or search→work) — **screenshot separate from act**
-- **W2** Real OpenCode TUI visible + palette from live `EpistemosTheme` — screenshot work composer
-- **W3** Work settings tab opens work/OpenCode settings (not flattened/dropped) — screenshot work tab
-- **W4** Work send reaches OpenCode/Goose engine — headless harness OR real reply; log prompt + ~80 chars +
-  engine lane identity; **NO silent act fallback**
-- **W5** No Electron/Chromium bundled; lazy-launch loopback kill-on-idle — pairs **1.8**; verify bundle + process list
+### W-gate — WORK clone (pairs 0.28, 1.2–1.9)
+- **W1** OpenCode/work binary vendored + launches on WORK open — pairs **1.1**; screenshot work landing discoverable
+  (act/work toggle or search→work) — **separate PNG from act**
+- **W2** Real OpenCode TUI visible — screenshot work composer/TUI
+- **W3** Work terminal fully theme-responsive (palette from live `EpistemosTheme`) — screenshot proves palette match
+- **W4** Work send reaches OpenCode/Goose engine — **REQUIRED** headless work-lane send-text harness; log prompt +
+  ~80 chars + engine lane identity + **served-model == selected-model** where applicable; **NO silent act fallback**
+- **W5** Act↔work toggle + blur transition — screenshot BOTH landing states + transition; pairs **0.3/1.6/4.6**
+  (Electron/Chromium absence verified under **1.8**, not W5)
 
 ### B-gate — BEYOND clone (pairs 0.30, 4.14)
 - **B1** Beyond tab renders with honest stub/wired label per future clone
 - **B2** Companion-backend OFF-LIMITS grep — `companions.rs`, `CompanionCreationFlow`, new-model interrupt **NOT**
   on live beyond path (grep + route cite)
-- **B3** In-scope future clones (Talaria, Epdoc-fuse, Tamagotchi) listed with plan ref; **stub ≠ `[x]`** — use
+- **B3** In-scope future clones (Tolaria, Epdoc-fuse, Tamagotchi) listed with plan ref; **stub ≠ `[x]`** — use
   `[ ] STUBBED(plan ref)` until wired + B-gate proof
 
 ### S-gate — SUBSTRATE + orchestrator (pairs 2.1–2.8, 3.1–3.2)
 - **S1** AnswerPacket load-on-launch + history surface primary witness (**2.1**) — real-state test, not stub row
-- **S2** Real-state integration test on **LIVE wired path** — NOT cargo-test-only; cite test name + runtime artifact
+- **S2** Real-state integration test on **LIVE wired path** — NOT cargo-test-only; cite test name + **runtime artifact**
+  (log line / health-row value / AnswerPacket field). **Gate (e) for headless = this integration test**, per
+  `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` **T4** (compiled-in-scope, reachable, visible,
+  logged, AnswerPacket-visible, rollback-bound)
 - **S3** TRINITY/System G route selected+logged when certifying **3.1** — integration log/RunEventLog cite, not symbol grep
 - **S4** Eidos recall/rerank + EML abstain gate (**2.5/2.6**) — NOT fake-green; conflict → abstain witness
 - **S5** BUILD-IT-HARDENED (**2.8**) real-state passes **before** integrating into live/clone paths
@@ -370,13 +405,16 @@ engine/structure; cherry-pick owner IP that works WITH Osaurus; front-end stays 
 captured in addendum AND indexed here same iteration (→plan: THREE STANDING DIRECTIVES §1) · **EXTERNAL RESEARCH
 CORPUS:** read-only `~/Downloads` Helios/source docs when unification/salvage needs them; copy-in only, never
 modify outside repo (→plan: "🆕 EXTERNAL RESEARCH CORPUS") · **COMPLETENESS CRITIC / DISCOVERY SWEEP each loop:**
-grep InferenceState/model picker/chat send consumers; add missed surfaces to queue (→plan: DISCOVERY-SWEEP
-MANDATE) · **REVERSE ADDENDUM AUDIT each loop:** item 0.31 — grep 🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH; index or add
-  queue row; paste hit count to log.
+per-tier plan-section→queue reconciliation (TIER 0–5 — substrate/TRINITY/vault/Epdoc/distribution/clones, NOT
+chat-only) PLUS grep InferenceState/model picker/chat send consumers; add missed surfaces to queue (→plan:
+DISCOVERY-SWEEP MANDATE) · **REVERSE ADDENDUM AUDIT each loop:** item 0.31 — **full addendum heading diff** +
+supplemental grep; index or add queue row; paste diff output to log under `## Certification log` ·
 · **FULL-CLONE PROCESS:** every adopted engine (Osaurus, OpenCode, future beyond clones) follows vendored-clone
 method per plan — not one-off shims (→plan: "🔒 STANDING — THE FULL-CLONE PROCESS" + "🌟 INITIATIVE — ADOPT
 PROVEN ENGINES, LAYER MY IP") · **W/B/S ACCEPTANCE GATES:** do NOT mark TIER 1/2/3/4 work/beyond/substrate items
 `[x]` until matching W/B/S gate passes (see ACCEPTANCE GATES section; pass49 P0-4/P0-6) · **MARKET POSITION:**
 research monitor only — no product claim until owner promotes (→plan: "🌟 MARKET POSITION") · **PHASE COMPLETE
-PRECONDITIONS (pass49 P0-5):** STRICT RE-CERT COMPLETE forbidden without green xcodebuild this phase + per-surface
-PNG Read this phase + send-text real reply this phase — list all three in summary.
+PRECONDITIONS (pass49 P0-5):** **"STRICT RE-CERT COMPLETE" FORBIDDEN** while ANY queue box is still `[ ]` or while
+any in-scope clone lacks ≥1 real runtime proof (stubs excluded). When all boxes are `[x]` or honest `[~]`, phase
+ends only with green xcodebuild this phase + per-surface PNG Read this phase + send-text real reply this phase —
+list all three in summary.

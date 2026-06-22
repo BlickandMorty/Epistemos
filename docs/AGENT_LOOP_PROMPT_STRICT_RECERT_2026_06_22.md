@@ -57,10 +57,12 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
   when TIER 0 items are certified or honestly blocked with evidence.
 
 ### Reverse addendum audit (EVERY iteration — queue 0.31)
-After the forward queue walk, grep the addendum for: `🔒`, `DEFINITIVE`, `P0`, `MUST`, `BUILD-IT-HARDENED`,
-`ALL CHAT SURFACES`, `PER-CLONE`, `WORK`, `BEYOND`, `ESCALATION`, `🆕`, `🌟`, `RESEARCH`. Verify each hit is
-indexed in WORK_QUEUE or STANDING with →plan ref. Any miss → ADD queue row + log in STRICT_RECERT_LOG same
-iteration. Paste grep hit count + any unindexed hits into the log — empty audit does NOT satisfy 0.31.
+After the forward queue walk, **diff the FULL addendum heading list** (`^#{1,3} ` lines in
+docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md) against WORK_QUEUE — NOT token-grep alone. Supplement with
+grep for: `🔒`, `DEFINITIVE`, `P0`, `MUST`, `BUILD-IT-HARDENED`, `ALL CHAT SURFACES`, `PER-CLONE`, `WORK`,
+`BEYOND`, `ESCALATION`, `🆕`, `🌟`, `RESEARCH`. Verify each hit is indexed in WORK_QUEUE or STANDING with →plan
+ref. Any miss → ADD queue row + log in STRICT_RECERT_LOG under `## Certification log` same iteration. Paste
+heading-diff output + grep hit count + any unindexed hits — empty audit does NOT satisfy 0.31.
 
 ## THE PRIME RULE
 - **EVERYTHING STARTS UNCERTIFIED.** Treat every checkbox in docs/WORK_QUEUE_2026_06_22.md (and every "done"/
@@ -73,9 +75,10 @@ iteration. Paste grep hit count + any unindexed hits into the log — empty audi
   A glance, a grep that a symbol exists, or trusting a commit message is NOT enough.
 
 ## 🔒 LOCKED RULES (do not reinterpret)
-- **LOCKED UI DIRECTION:** ACT UI = Osaurus's OWN UI, reskinned to the Epistemos look + 3 grafts (message bar,
-  side panel, scroll-blur). This SUPERSEDES option-(b) "drive the old ChatView." Do NOT revert to the old
-  ChatView and do NOT leave raw Osaurus default. Fixing 0.1 alone does NOT close act.
+- **LOCKED UI DIRECTION:** ACT UI = Osaurus's OWN UI (`OsaurusChatView` in vendored LocalPackages/osaurus — NOT
+  `Epistemos/Views/Chat/ChatView.swift`), reskinned to the Epistemos look + 3 grafts (message bar, side panel,
+  scroll-blur). This SUPERSEDES option-(b) "drive the old ChatView." Do NOT revert to the old Epistemos ChatView
+  and do NOT leave raw Osaurus default. Fixing 0.1 alone does NOT close act.
 - **D1–D5 ARE GATEKEEPERS:** the act surface is NOT certifiable until D1–D5 all pass YOUR screencapture proof.
 - **PLAN WINS OVER CODE:** if code and plan disagree, fix the CODE; never edit the plan to match wrong code
   (e.g. 0.1 must edit the vendored Theme.swift defaults, not only a runtime `applyCustomTheme` shim — ba2f8952f drift).
@@ -91,7 +94,7 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 "done" on these — the owner is looking at them broken.
 - **D1 — Window is BOXY, must be CURVED.** The act window top corners are square. Plan mandates rounded window
   + soft shadow. Epistemos already has the chrome (`Epistemos/App/RootView.swift` uses RoundedRectangle
-  cornerRadius 12–22); the Osaurus `ChatView` host renders boxy. Apply the rounded/curved window + soft shadow
+  cornerRadius 12–22); the Osaurus `OsaurusChatView` host renders boxy. Apply the rounded/curved window + soft shadow
   to the act host. Screenshot-verify the top is curved.
 - **D2 — Old Epistemos LANDING is missing; it shows Osaurus's DEFAULT landing.** Running surface shows "Good
   morning / How can I help you today?" + Osaurus buttons ("What's configured?", "Download a model", "Add a
@@ -104,8 +107,9 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   (Epistemos/Views/Chat/ToolActivityNarrator.swift). Bring the owner's pill back onto the act surface.
   Screenshot-verify the pill renders.
 - **D4 — Configuration / Settings doesn't work / not visible.** "Configuration" is in the bottom bar but does
-  not open real settings. Wire act/Osaurus configuration + per-clone SETTINGS in **queue 0.21 (TIER-0
-  blocking)** — do NOT defer to queue 4.1 while leaving TIER 0. Screenshot-verify settings open and work.
+  not open real settings. **Queue 0.21 is the SOLE D4/Configuration owner** (per-clone settings matrix) — items
+  0.11/0.22/4.1 reference 0.21; do NOT defer D4 to queue 4.1 while leaving TIER 0. Screenshot-verify settings
+  open and work for all four clone tabs.
 - **D5 — Reskin only partial.** Background is lighter but the surface is still Osaurus chrome, not the owner's
   cream/monospace discipline + preserved chrome (model picker w/ real logos + Epistemos Picks, command palette,
   38-tool agent panel — queue 4.7). Finish the reskin so it's the owner's UI with Osaurus logic underneath.
@@ -119,7 +123,7 @@ Act has D1–D5. **Work, beyond, and substrate/orchestrator must NOT `[x]` on bu
 
 | Gate | When certifying | Minimum proof |
 |------|-----------------|---------------|
-| **W1–W5** | TIER 1 work items (0.28, 1.2–1.9) | Separate work landing/TUI/settings PNG; work send harness logs engine lane; no Electron |
+| **W1–W5** | TIER 1 work items (0.28, 1.2–1.9) | W1 binary vendored+launches · W2 OpenCode TUI PNG · W3 theme-responsive palette · W4 **REQUIRED** work send harness (served-model == selected-model) · W5 act↔work toggle+blur (Electron under 1.8) |
 | **B1–B3** | Beyond tab (0.30, 4.14) | Honest stub label; Companion-backend grep clean; stub = `[ ] STUBBED` never `[x]` |
 | **S1–S5** | TIER 2–3 substrate/orchestrator (2.1–2.8, 3.1–3.2) | Real-state integration on LIVE path; AnswerPacket surfaced; TRINITY route logged; NOT fake-green |
 
@@ -149,7 +153,10 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
      always-true / mocked-away core). Cite test name + **"0 skipped/ignored for this item"**; fail on new
      xfail/ignored/weakened asserts touching certified code. Run the fast gate (`cargo test --lib` / targeted
      compile) where cheap; heavy `xcodebuild` only at checkpoints; never idle-block.
-   - **(e) RUNTIME — YOU verify it; the owner is NOT checking the app.** You are the Claude Code CLI loop: you
+   - **(e) RUNTIME — YOU verify it; the owner is NOT checking the app.** UI/inference: screencapture and/or
+     send-text harness. **Headless substrate/orchestrator:** live-path integration test citing a **runtime artifact**
+     (log line / health-row value / AnswerPacket field) — NOT cargo-test-only; see
+     `docs/fusion/ARCHITECTURE_TIER_PROMOTION_CANON_2026_06_06.md` T4. You are the Claude Code CLI loop: you
      do NOT have a "computer use" button (that flag belongs to the Claude *desktop app*, a different surface —
      do not claim you have it). What you DO have and MUST use, with zero setup:
        • **SEE the app:** `xcodebuild -scheme Epistemos … build` → `open` the .app →
@@ -266,7 +273,9 @@ recert **per tier**). ONLY THEN resume normal forward work on the lowest still-o
 alone does NOT satisfy this bar.** The "continue" the owner wants is *after* the robust full-plan pass, not instead
 of it.
 
-**Phase-complete preconditions (pass49 P0-5 — all three required in summary):**
+**Phase-complete preconditions (pass49 P0-5):** **"STRICT RE-CERT COMPLETE" FORBIDDEN** while ANY queue box is
+still `[ ]` or while any in-scope clone lacks ≥1 real runtime proof (stubs excluded). When all boxes are `[x]` or
+honest `[~]`, phase ends only with all three in summary:
 1. Green `xcodebuild` (or equivalent compile gate) **this recert phase**
 2. Per-surface PNG **Read this phase** with **unique per-iteration paths + logged capture timestamp** (not stale
    `osa_runtime_2026_06_22.png` without Read this iteration — pass50 P1-c)
