@@ -1113,3 +1113,34 @@ the orchestrator as the coordination layer + one inference chokepoint), but ONLY
 unified. If beneficial → it gets BUILT (folded into the plan as a careful additive refactor, sequenced after
 P0 + act/work). PRINCIPLE: unify where it removes drift/duplication (the source of the Qwen/codex/think bugs);
 keep separate where the separation is real (cloud loop vs local loop vs orchestrator); delete dead weight.
+
+## ✅ UNIFICATION VERDICT — LAYERS not rivals; UNIFY mostly (owner 2026-06-22; full=ARCHITECTURE_UNIFICATION_SYSTEMG)
+Grounded (file:line cited). "agent_core vs System G vs agent_loop" was a category error — agent_core is the
+CRATE; the rest are MODULES inside it, arranged as LAYERS. Verdict + holistic landing of ALL pieces:
+- **MERGE / UNIFY (beneficial, build it):**
+  - **Orchestration = System G is the ONE orchestrator of record** (`agent_runtime_v2`; today a deterministic
+    3-event stub, MAS-Disabled) → grow it into the real loop.
+  - **TRINITY loop (`trinity_loop.rs`, defined+unit-tested, invoked NOWHERE) = wire in as System G's coordinator
+    core** (the native orchestrator brain). Fugu = a pool member UNDER it, never the brain.
+  - **RuntimeRouter (built-but-dead, observe-only) = promote to the ONE router** (staged behind its flag).
+  - **Converge the two LIVE local chokepoints** (`LocalAgentLoop.liveLoop` + `TriageService.localStream`) = the
+    one-inference-chokepoint directive.
+  - **UNIFY THE IP BRAIN onto ONE attach point (the real prize).** Per-model SYSTEM-PROMPTS attach to the
+    pool/orchestrator here too.
+- **KEEP SEPARATE (legitimate, do NOT force-merge):** `agent_loop.rs` (CLOUD engine, local-rejecting) +
+  `LocalAgentLoop` (LOCAL engine) stay as TWO swappable lanes UNDER System G — the honest-capability gate
+  depends on the split. `agent_runtime/` stays the shared support lib (prompt-format/tool-parse/skills).
+- **DELETE / FIX (dead weight + a real FAKE-GREEN):**
+  - `confidence_floor.rs` = fully orphaned (0 consumers) → resurrect-or-delete.
+  - `ConfidenceRouter` = test-only legacy → delete/fold.
+  - 🔴 **`eidos.query` LIVE tool BYPASSES the real `eidos/` module** (hits VaultBackend → "Eidos-in-name-only",
+    `tools/knowledge.rs:244`) → route through the real eidos/ OR rename honestly. (A genuine fake-green — owner
+    cares: it claims Eidos but isn't.)
+  - Wire the orphaned citation/provenance gate (never written by a running agent); fix STALE CLAUDE.md
+    (macaroons NOT orphaned; dispatch registers caps at init not first-use).
+TARGET = one orchestrator (System G) + TRINITY coordinator core + one brain attach-point + one router + one
+inference chokepoint + two swappable engine-lanes (cloud/local) under it. = exactly the existing plan direction
+(FUGU §6 own-Fugu-local-first, ADOPT-vs-IP, TRINITY port). SEQUENCING (conservative, additive, after P0 +
+act/work surfaces): docs/dead-code fixes → TRINITY slice 2 → staged RuntimeRouter promotion → local-chokepoint
+convergence → brain unify. Per-component PLAN ADDITIONS UNIFY-0..6 + 6 open Qs in the doc. Build the beneficial
+unifications; never force; honest no-fake-green (esp. fix eidos.query).
