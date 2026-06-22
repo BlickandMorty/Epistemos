@@ -1053,3 +1053,17 @@ Correction loop tight: flag pass-67 → agent fixed iter24 (notes "same fix"). V
 WATCH (agent's stated next): compose ChatSidebarView (sidebar+recent-chats) — NOT yet; confirm ChatCapabilityPill
 on act+landing+work; kill act/chat duality (0.20). NEXT FIRE: independent screenshot of the FULL chrome (cream +
 ChatInputBar + sidebar + pill + real send) on fresh launch when agent claims it done. Did NOT touch agent code.
+
+## PASS 68b — 2026-06-22 (OWNER P0: landing regression + missing commands/skills/38-tool panel on act)
+Owner runtime report (2 issues, both CONFIRMED in code):
+P0-A LANDING REGRESSION: RootView:2727 act-routed home shows minimal NativeActLandingView INSTEAD of the owner's
+rich original LandingView (still at 2697/2738 but bypassed on Pro/act path). Owner: "old landing should not have
+been changed — chat has nothing to do with that page." FIX: home = owner's REAL LandingView (unchanged, all app
+features); act = a MODE entered FROM it (gesture→blur→NativeActChatView), NOT a replacement. Minimal
+NativeActLandingView must not stand in for the home.
+P0-B CAPABILITIES MISSING: NativeActChatView has NO command palette / 38-tool panel / skills (grep empty); owner
+wants Osaurus's commands+skills+buttons MERGED with his 38-tool panel + command palette (union, native style, 4.7
++ §2). FIX: compose command palette + 38-tool panel + owner 38 skills + Osaurus commands/skills/buttons into the
+act surface alongside ChatInputBar.
+Captured both to addendum (agent 0.31 queues). Progress real (cream+ChatInputBar+engine) — these are next
+refinements, not restart. Did NOT touch agent code.
