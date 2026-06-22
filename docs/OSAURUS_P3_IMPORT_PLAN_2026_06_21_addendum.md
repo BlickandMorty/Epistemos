@@ -1935,3 +1935,35 @@ Owner ran the app and reported three things (all part of the visible act D-clust
 shell, not a hack; **§1 native shell** = toolbar+sidebar+recent-chats popover+pill+native Apple elements on
 act+work. The native shell is what produces the curved/native feel the owner wants — build it (pass-58), and these
 fall out of it. Screenshot-verify each surface.
+
+---
+
+## 🔴 AUDITOR CORRECTION (P0, 2026-06-22 ~14:52) — D2 claim does NOT hold in the running app; verify on the OWNER'S LAUNCH PATH
+**Grounded by auditor screencapture of the LIVE running app** (PID 4419, binary built 14:37 — AFTER the agent's
+iter13 D2 verification at 14:19). Evidence PNG: `docs/research/owner_state_check_2026_06_22_1452.png`.
+**What the running app ACTUALLY shows (matches the owner's report):** Osaurus DEFAULT — "Good afternoon / How can
+I help you today?" + the four blocks (What's configured? / Download a model / Add a provider / Install a plugin) +
+the dino + Osaurus's "Message or attach files…" composer + **BOXY window edges** + Act/Work toggle. NONE of the
+owner's UI: no Epistemos LandingView, no native message bar, no pill, no cream reskin, boxy not curved.
+
+**DISCREPANCY (P0):** iter13/pass-60 claimed "D2 landing-first SHIPPED + verified — Epistemos 'GREETINGS,
+RESEARCHER' shows FIRST not Osaurus 'Good afternoon', stable across 3 PNGs." The CURRENT BUILD (14:37, later than
+that 14:19 PNG) shows Osaurus 'Good afternoon'. So D2 is NOT delivered on the owner's actual launch — it either
+regressed, the gate isn't wired into the default launch path, or the verification captured a non-persistent state.
+This is the exact "verified-in-isolation but the running app is still broken" failure the strict bar exists to stop.
+
+**REQUIRED — fix the VERIFICATION STANDARD + actually deliver:**
+1. **Verify every D-item on the OWNER'S DEFAULT LAUNCH PATH, not a transient PNG.** Acceptance = **kill the
+   running app → rebuild → `open Epistemos.app` fresh → screencapture → Read.** On that FRESH launch the FIRST
+   screen MUST be the Epistemos LandingView (NOT Osaurus "Good afternoon"/four-blocks/dino). If a fresh launch
+   shows Osaurus default, D2 is NOT done — do not claim it.
+2. The Osaurus default landing (four blocks + "Good afternoon" + dino + Osaurus composer) is precisely what §2
+   says to DROP — it must be GONE from the owner's launch, replaced by the Epistemos landing + native composer.
+3. Confirmed STILL BROKEN in the running app (re-prioritize, screenshot-verify each on fresh launch): D1 boxy→
+   curved (whole app boxy), D3 pill (absent), 0.7 native message bar (absent), 0.1/D5 cream reskin (raw Osaurus),
+   D6 back-nav. The visible D-cluster is effectively 0% delivered to the owner's experience.
+4. From now: a D-item is only progress when a FRESH-LAUNCH screencapture (the owner's path) shows it. Internal/
+   transient PNGs that don't persist into the committed build do NOT count. Re-run 0.4 harness after each step.
+
+Re-audit: the auditor will re-screenshot the running app each fire. If a fresh launch still shows Osaurus default
+next cycle, the agent's approach is not reaching the owner's app — escalate + surface to owner for intervention.

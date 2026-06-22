@@ -911,3 +911,16 @@ RootView.swift still in-flight (native shell continuing). VERIFIED:
 WATCH (no correction): full landing→blur→act transition only partly verified (landing shows; press→act handoff
 unverified) — agent already queued the AX-addressable fix; verify when native shell (D1/D3/D6) lands. VERDICT:
 PASS — the visible-D-cluster P0 turned the agent; first screenshot-proven visible progress; discipline intact.
+
+## PASS 61 — 2026-06-22 (P0: owner runtime report GROUNDED by auditor screenshot — D2 claim ≠ running app)
+Owner: still sees Osaurus default, no message bar, no pill, boxy edges everywhere. AUDITOR SCREENSHOTTED the live
+app (PID 4419, binary 14:37) → docs/research/owner_state_check_2026_06_22_1452.png: confirms Osaurus DEFAULT
+("Good afternoon" + four blocks + dino + Osaurus composer + BOXY). OWNER IS RIGHT. DISCREPANCY: iter13/pass-60
+claimed D2 landing-first shipped+verified (Epistemos "GREETINGS, RESEARCHER" first, 3 PNGs @14:19), but the 14:37
+build (LATER) shows Osaurus "Good afternoon" → D2 NOT delivered on the owner's launch path = verified-in-isolation
+over-claim (or regression). Issued P0 AUDITOR CORRECTION: verify EVERY D-item on the OWNER'S DEFAULT LAUNCH PATH
+(kill→rebuild→open fresh→screencapture→Read; first screen MUST be Epistemos landing not Osaurus); drop Osaurus
+four-blocks/Good-afternoon/composer; D1 boxy/D3 pill/0.7 message-bar/0.1-D5 reskin/D6 all CONFIRMED still broken
+in running app (visible D-cluster ~0% delivered); transient PNGs don't count, only fresh-launch. Auditor will
+re-screenshot each fire; if next cycle still Osaurus default → escalate + surface to owner for intervention.
+Did NOT touch agent code/queue/recertlog.
