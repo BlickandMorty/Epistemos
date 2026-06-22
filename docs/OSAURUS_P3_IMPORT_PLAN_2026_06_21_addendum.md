@@ -620,3 +620,18 @@ vs OpenCode's own permissioning** — keep Goose's RetryManager/RepetitionGuard/
 (genuine hardening), but DROP Goose-permissions if OpenCode already covers it. With that single caveat,
 **Architecture C is finalized** — work-engine build may proceed. DEEP-PASS TODO when API recovers: full cited
 repo sweep + "anything-else"/Talaria + per-capability license/MAS detail (refine, won't change C).
+
+## ✅ C FINALIZED + 2 REFINEMENTS (owner 2026-06-21, deep deliberation)
+Deeper deliberation (ADOPT_VS_IP_LAYER_MAP "DEEPER DELIBERATION"; sub-agent 529'd 4× so monitor-synthesized
+from committed research) → **Architecture C is FINALIZED + strengthened** (OpenCode = lower-risk AND
+higher-capability work engine: headless = zero Cargo dep-merge + crash isolation). Two refinements that IMPROVE C:
+1. **DROP Goose `permissions`** — OpenCode (a coding agent) has its own file/shell permission gating → dedup.
+   Keep RetryManager + RepetitionGuard (cheap hardening); VERIFY `recipes` vs OpenCode's agent/command config,
+   drop if duplicated.
+2. **LSP under C = OpenCode's BUILT-IN** (auto-loads 40+ servers). Do NOT force-wire YOUR `lsp_runtime` into the
+   OpenCode work loop (double-LSP). RE-EVALUATE `work_lsp_tools.rs` (1c753902e) — likely REDUNDANT under C;
+   keep `lsp_runtime` for your NATIVE EDITORS (Prose/Epdoc), not the work loop. (Supersedes the convergence-era
+   "wire lsp_runtime into work," which assumed Goose-engine = no LSP.)
+STRATEGIC: ~2/3 of infra is ADOPT/HYBRID; concentrate ALL owner effort on the IP ~1/3 (brain, native editors
+Prose+MD-V2, graph+Metal, model lab, UI/motion). DEEP CITED pass owed when API recovers (repo URLs/license +
+"anything-else" + Talaria) — refines, won't change C.
