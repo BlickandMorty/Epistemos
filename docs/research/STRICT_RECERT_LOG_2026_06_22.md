@@ -34,3 +34,9 @@
 - 0.31 · grep extended WORK/BEYOND keywords
 - paste-ready · explicit NON-OPTIONAL tier tables 1.1→1.8, 2.1→2.8, 4.1→4.16
 - standing · ACT-before-WORK priority scoped to TIER 0 only (does not skip TIER 1+ walk)
+
+### Gap-fill iteration 6 (docs only, 2026-06-22)
+- reverse-audit · ESCALATION P0-A/P0-B was implicit in 0.6 → **explicit** engine indicator + visible send errors + →plan refs
+- 0.32 · HARDENED · highest attempted **item ID** required; INCOMPLETE if stopped before 1.1; extra forbidden deferral phrases
+- paste-ready · added TIER 3 (3.1→3.2) + TIER 5 (5.1→5.3) NON-OPTIONAL tables; FIRST ACTION stop-before-1.1 rule
+- 0.31 · grep extended **ESCALATION** keyword (queue + strict + paste)

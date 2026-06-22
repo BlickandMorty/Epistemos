@@ -207,3 +207,62 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | MAS VM sandbox substitute research | Standing-only (research, not separate queue row) |
 | MULTI-LoRA routing repos | Standing pattern ref for 3.1 (addendum says STANDING classify) |
 | Northstar PNGs | Optional visual refs |
+
+## Iteration 6 — 2026-06-22 (reverse-audit ESCALATION + tier-3/5 tables + act-tunnel hardening)
+
+### Reverse addendum audit (iteration 6 grep)
+| Addendum section | Queue index |
+|------------------|-------------|
+| ALL CHAT SURFACES | 0.2, 0.5, 1.6, 4.16 ✓ |
+| PER-CLONE SETTINGS / BEYOND | 0.21, 0.27, 0.30, 4.1, 4.14, 4.15 ✓ |
+| BUILD-IT-HARDENED | 2.8 ✓ |
+| DEFINITIVE ACT-UI | 0.17 ✓ |
+| WORK ENGINE ARCH C | 1.3, 0.28, 0.29, 1.7 ✓ |
+| MAS / DUAL-BUILD | 5.1, 5.3, 4.8 ✓ |
+| FULL-CLONE PROCESS | STANDING ✓ |
+| CLASSIFY shared-vs-chat-only | 0.9 ✓ |
+| deep graph integration | 4.16 ✓ |
+| COMPANION backend | 0.30 OFF-LIMITS + STANDING ✓ |
+| OPENCODE HEAVINESS | 1.8 ✓ |
+| ⏫ PRIORITY finish ACT before WORK | STANDING (TIER 0 only) ✓ |
+| **🔴🔴 ESCALATION P0-A/P0-B** | **Strengthened 0.6** (engine indicator, visible errors, duplicate toggle, click-to-search) |
+| **P0-B FULLER SURFACING** | 0.17 + 0.6 + 0.3/0.24 ✓ |
+| **META-ESCALATION build-green ≠ works** | 0.32 + STANDING ✓ |
+| ENGINES DONE → VISIBLE SURFACES | 0.1, 0.28, 1.2, 4.6 (priority bundle, no new row) ✓ |
+| MULTI-LoRA routing repos | STANDING pattern ref for 3.1 ✓ |
+| EXTERNAL RESEARCH CORPUS | STANDING ✓ |
+
+### Fixed
+| Gap | Fix |
+|-----|-----|
+| ESCALATION P0-A/P0-B not explicitly indexed | **0.6** expanded: VISIBLE engine indicator, VISIBLE send errors, duplicate toggle, click-to-search →plan ESCALATION + RUNTIME STILL BROKEN |
+| PASTE_READY missing TIER 3/5 item tables | Added **TIER 3 WALK (3.1→3.2)** + **TIER 5 WALK (5.1→5.3)** NON-OPTIONAL tables |
+| 0.32 witness allowed vague "highest attempted" | Requires **highest attempted item ID** (e.g. `2.3`); INCOMPLETE if stopped before 1.1 |
+| Act-tunnel deferral language still possible | Added forbidden end-claims: "defer TIER 1+ to next iteration", "act blocking so skipping work/substrate", "full-plan walk complete after TIER 0" |
+| 0.31 grep missed ESCALATION keyword | Extended grep list in queue 0.31 + strict prompt + paste #12 |
+
+### Pre-launch checklist (iteration 6)
+| Check | Status |
+|-------|--------|
+| Queue 0.1→0.32 numeric order | PASS |
+| Queue 1.1→1.8 numeric order | PASS |
+| Queue 2.1→2.8 numeric order | PASS |
+| Queue 3.1→3.2 numeric order | PASS |
+| Queue 4.1→4.16 numeric order | PASS |
+| Queue 5.1→5.3 numeric order | PASS |
+| PASTE_READY tier walks 0.1→0.32, 1.1→1.8, 2.1→2.8, 3.1→3.2, 4.1→4.16, 5.1→5.3 | PASS |
+| ESCALATION P0-A/P0-B indexed (0.6) | PASS |
+| 0.32 requires highest item ID + INCOMPLETE-before-1.1 rule | PASS |
+| FULL-PLAN-NO-ACT-TUNNEL forbidden deferral phrases | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures) |
+| Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED) |
+
+### Still open (next 3m tick / build agent)
+| Gap | Action |
+|-----|--------|
+| All queue items uncertified | Agent walks full plan 0.1→0.32 then TIER 1→5 with 5-gate bar |
+| `osa_runtime_2026_06_22.png` | Agent captures on first run |
+| Build agent act-tunnel risk | Enforce 0.32 witness with item ID; iteration INCOMPLETE if stopped before 1.1 |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| MAS VM sandbox substitute research | Standing-only (research, not separate queue row) |
+| Northstar PNGs | Optional visual refs |

@@ -58,8 +58,8 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
 
 ### Reverse addendum audit (EVERY iteration — queue 0.31)
 After the forward queue walk, grep the addendum for: `🔒`, `DEFINITIVE`, `P0`, `MUST`, `BUILD-IT-HARDENED`,
-`ALL CHAT SURFACES`, `PER-CLONE`, `WORK`, `BEYOND`. Verify each hit is indexed in WORK_QUEUE or STANDING with →plan ref. Any miss →
-ADD queue row + log in STRICT_RECERT_LOG same iteration.
+`ALL CHAT SURFACES`, `PER-CLONE`, `WORK`, `BEYOND`, `ESCALATION`. Verify each hit is indexed in WORK_QUEUE or
+STANDING with →plan ref. Any miss → ADD queue row + log in STRICT_RECERT_LOG same iteration.
 
 ## THE PRIME RULE
 - **EVERYTHING STARTS UNCERTIFIED.** Treat every checkbox in docs/WORK_QUEUE_2026_06_22.md (and every "done"/
@@ -187,9 +187,12 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 - **(G) PROVIDER WIRING BAR:** Item 0.11 — owner's GGUF/QAT selectable AND used on send; Configuration opens
   REAL settings; NO silent Codex default; NO silent Qwen substitution. Send must use selected model.
 - **(H) FULL-PLAN-NO-ACT-TUNNEL:** Item 0.32 — before iteration ends, append the mandatory witness block to
-  STRICT_RECERT_LOG (highest item, per-tier counts, TIER 1+ attempted YES/NO, act-only tunnel DENIED). **FORBIDDEN**
-  end-claims: "act certified = iteration done", "D1–D5 pass = done", "stopping at TIER 0", "build-green = tier
-  done". Confirm you attempted 0.1→0.32 then TIER 1+ (not act-only). Act certified ≠ loop done.
+  STRICT_RECERT_LOG (**highest attempted item ID** e.g. `2.3`, per-tier counts, TIER 1+ attempted YES/NO,
+  act-only tunnel DENIED). **INCOMPLETE** if highest attempted is before **1.1** unless all T0 are honest `[~]`
+  with evidence AND you still attempted TIER 1+ same iteration. **FORBIDDEN** end-claims: "act certified =
+  iteration done", "D1–D5 pass = done", "stopping at TIER 0", "build-green = tier done", "defer TIER 1+ to
+  next iteration", "act blocking so skipping work/substrate". Confirm you attempted 0.1→0.32 then TIER 1+ (not
+  act-only). Act certified ≠ loop done.
 
 ## PER-SURFACE SCREENSHOT MANDATE
 Certify **each** chat surface with its **own** PNG: main act, mini chat, graph chat, note chat (act), work
