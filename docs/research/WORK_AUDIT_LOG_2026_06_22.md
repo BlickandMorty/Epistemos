@@ -395,3 +395,13 @@ search bugs on it; runtime-verify.
   self-description dumped as title; cousin of old <think>-title leak). Must produce clean short title.
 - Both bugs → act generation routing through HTTP/:1337 instead of in-process CoreModelService. FIX: route
   turn + title-gen in-process + clean title. Direction locked (Osaurus UI reskinned + grafts).
+
+## Pass 27 — 2026-06-22
+- **Build loop:** ALIVE, mid heavy build (swift=10 xcode=1). HEAD = my pass-26d doc (30s). The fresh P0s
+  (requestFailed→in-process route, title-gen clean, DEFINITIVE UI direction = Osaurus-UI-reskinned+3-grafts,
+  duplicate-toggle, click-search→landing) were added in the last ~10 min — loop hasn't committed against them yet.
+- **No new build commit to audit.** Not hung. No concurrent build kicked.
+- **AUDIT-WATCH (next pass, important):** does the loop (a) fix the send via in-process routing (kill
+  requestFailed) + clean title, (b) START the new UI direction (Osaurus UI reskinned + message bar/side panel/
+  scroll-blur grafts), (c) stop mounting the old ChatView for act? If it keeps building the OLD option-(b)
+  old-ChatView path → flag (direction changed). Verdict: healthy, no re-add (P0s fresh).
