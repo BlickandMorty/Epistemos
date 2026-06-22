@@ -173,10 +173,37 @@ const PRICING_TABLE: &[ProviderPricing] = &[
         last_verified_iso8601: PRICING_LAST_VERIFIED_ISO8601,
         source_url: "local",
     },
+    ProviderPricing {
+        // FUGU (owner 2026-06-22, foundational): Sakana's multi-agent orchestration LLM, OpenAI-compatible.
+        // The HEADLINE cost is ~$10 PER MESSAGE (flat) — captured via request_usd_per_1k ($10/msg = $10,000 per
+        // 1k messages) so `per_message_usd` surfaces it explicitly in Settings (the cautionary opt-in). Exact
+        // per-token rates are research-pending (docs/research/FUGU_ORCHESTRATION_INTEGRATION_2026_06_22.md), left
+        // 0 so the per-message figure is the honest headline. Fugu plugs in via OpenAICompatibleProvider (config
+        // only — no hardcoding), so this entry is the single place its cost lives.
+        canonical_name: "fugu",
+        aliases: &["sakana-fugu", "sakana_fugu", "fugu-orchestrator"],
+        input_usd_per_mtok: 0.0,
+        output_usd_per_mtok: 0.0,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: None,
+        request_usd_per_1k: Some(10_000.0),
+        last_verified_iso8601: "2026-06-22",
+        source_url: "https://sakana.ai",
+    },
 ];
 
 pub fn all_pricing() -> &'static [ProviderPricing] {
     PRICING_TABLE
+}
+
+/// The flat per-MESSAGE (per-request) USD cost for a provider, if it charges one — e.g. Fugu ~$10.00/msg,
+/// Perplexity ~$0.014/msg. `request_usd_per_1k` is priced per 1,000 requests; this divides it to per-message.
+/// Surface this in Settings so an expensive orchestrator (Fugu) is an EXPLICIT, knowing opt-in — the per-token
+/// `estimate_*` paths don't include this flat cost, so a Fugu call would otherwise look ~free (owner req #2).
+pub fn per_message_usd(provider: &str) -> Option<f64> {
+    pricing_for(provider)
+        .and_then(|p| p.request_usd_per_1k)
+        .map(|per_1k| per_1k / 1000.0)
 }
 
 pub fn pricing_for(provider: &str) -> Option<&'static ProviderPricing> {
@@ -265,7 +292,24 @@ fn round_cents(value: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::pricing_for;
+    use super::{per_message_usd, pricing_for};
+
+    #[test]
+    fn pricing_includes_fugu_with_explicit_per_message_cost() {
+        // FUGU (owner req): registered as a known provider (modular — plugs into OpenAICompatibleProvider by
+        // config) with its ~$10/message cost surfaced explicitly for Settings (no silent expensive calls).
+        let p = pricing_for("fugu").expect("Fugu pricing row must exist");
+        assert_eq!(p.canonical_name, "fugu");
+        assert_eq!(p.request_usd_per_1k, Some(10_000.0));
+        // resolves via aliases too.
+        assert_eq!(pricing_for("sakana-fugu").map(|p| p.canonical_name), Some("fugu"));
+        assert_eq!(pricing_for("sakana_fugu").map(|p| p.canonical_name), Some("fugu"));
+        // the per-message helper surfaces the headline ~$10/msg (the per-token estimate would show ~$0).
+        assert_eq!(per_message_usd("fugu"), Some(10.0));
+        assert_eq!(per_message_usd("local"), None); // no flat per-message cost
+        // a per-token-only provider has no per-message cost.
+        assert!(per_message_usd("claude-sonnet-4-6").is_none());
+    }
 
     #[test]
     fn pricing_includes_codestral_latest_aliases() {
