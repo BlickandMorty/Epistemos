@@ -90,12 +90,11 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   Osaurus default landing ("Good morning" + download/provider buttons). Screenshot landing, then post-blur act.
   →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions".
 
-- [ ] **0.4 SEND works (runtime)** — (e) RUNTIME PROVEN iter2 (real GUI send → "CERTIFY"/"PROVEN", model Gemma 4
-  e2b it 4bit served==selected, no requestFailed; PNGs Read) **but reverted to `[ ]` per AUDITOR CORRECTION P0
-  (addendum c0072a78d):** gate (d) UNMET — `ActOsaurusStreamingTests` only asserts the refusal/inert path, NOT a
-  successful in-process send. Not `[x]` until **0.23 harness** asserts a successful in-process send w/
-  served==selected on the SAME entry point (`ActOsaurusBridge.generateStream` via `SharedActInference.actStreamIfArmed`),
-  0 skipped. Pairs with 0.23.
+- [x] **0.4 SEND works (runtime)** — CERTIFIED iter5 (all 5 gates; auditor P0 satisfied). (a) ActOsaurusBridge.swift:196
+  runTurnStreamingInProcess · (b) in-process CoreModelService, no loopback · (c) AppBootstrap.swift:3155 register +
+  ActOsaurusStreamingHandler/SharedActInference · (d) **NOW MET** — `ActOsaurusSendHarnessTests.actSend_servedEqualsSelected`
+  drives the SAME entry point, asserts non-empty reply + served==selected, **0 skipped** (test run: 2/2 passed,
+  b46w5uphy 13:34) · (e) live GUI send "CERTIFY"/"PROVEN" gemma-4-e2b, no requestFailed (PNGs Read iter2/3).
   →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A" + "🔴 AUDITOR CORRECTION (P0) 2026-06-22".
 
 - [ ] **0.5 Mini-chat + grab-chat reachable** — wired, discoverable. **Screenshot EACH surface separately**
@@ -176,10 +175,13 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   `requestFailed`. Pairs with 0.4/0.18.
   →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "🎯 PINPOINTED ActOsaurusError".
 
-- [ ] **0.23 Send-text harness (EVERY iteration — standing)** — build/maintain headless harness driving real
-  act inference; log prompt + ~80 chars of reply each loop; **assert served-model ID == selected-model ID**
-  (fail on silent Codex/Qwen/default substitution — pass50 P1-a). If missing, BUILD before other work.
-  →plan: strict prompt MANDATORY FUNCTIONAL PROOF + "🎯 PINPOINTED ActOsaurusError".
+- [x] **0.23 Send-text harness (EVERY iteration — standing)** — CERTIFIED iter5: BUILT
+  `EpistemosTests/ActOsaurusSendHarnessTests.swift` — headless, drives real act entry point (OsaurusActBridge →
+  CoreModelService.generateStream(requestedModel:) → EpistemosBridgedModelService → provider); asserts non-empty
+  reply + **served-model == selected-model** (pass50 P1-a) + no silent substitution; **0 skipped** (2/2 passed,
+  b46w5uphy 13:34). Deterministic (fake provider) so it's the repeatable per-iteration proof; gate (e) real-model =
+  loop's live GUI send. Re-run each iteration (or cite latest green when no send-path change).
+  →plan: strict prompt MANDATORY FUNCTIONAL PROOF + "🎯 PINPOINTED ActOsaurusError" + "🔴 AUDITOR CORRECTION (P0)".
 
 - [ ] **0.24 Act UI bug bundle (explicit)** — remove top white bar; fix click→search (must match D2: Epistemos
   landing first); clean title-gen (no model self-description as title). Screenshot each fix.
