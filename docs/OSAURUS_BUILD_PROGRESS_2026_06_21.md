@@ -183,7 +183,13 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     by the build script (alongside bun+opencode, all smoke-verified); `BundledWorkOpenCodeShell.launchSpec`
     sets `OPENCODE_CONFIG` → registers it (verified the env works against the real binary) so OpenCode's work
     agent auto-gets the vault tools. Full chain: arm flag → resolve `bin/opencode` → terminal spawns the real
-    TUI → vault tools fused. REMAINS: app-build + GUI launch-smoke (render + tools-reachable confirmation).
+    TUI → vault tools fused.
+  - ✅ **FUSION tools/list HONESTLY SCOPED (`10e25b091`):** the stdio server served tools/list from the FULL app
+    catalog (~32 tools incl. computer-use/safari/move_file) but tools/call only routes vault+graph → OpenCode saw
+    phantom tools it couldn't call ("Unknown vault tool"). FIXED: new `vault::is_vault_tool` (single source of the
+    executable vault surface, parity-tested vs execute_vault_tool) + `scope_tools_list_to_executable` retains only
+    `is_vault_tool || is_graph_tool` (fail-open). OpenCode now sees ONLY the vault+graph tools it can run (incl.
+    graph.populate_from_vault + patch_note). lib 185/185 + stdio bin 5/5 green. REMAINS: app-build + GUI launch-smoke.
 - **🔴 P0 LIVE-CHAT REGRESSION (owner 2026-06-21) — partial fix + classified:** see
   `docs/research/P0_CHAT_REGRESSION_FINDINGS_2026_06_21.md`. (B) `<think>`-LEAK = SHARED inference-output bug
   (`strippingThinkingBlocks` left UNCLOSED `<think>` un-stripped) → **FIXED `c9184b4e6`** (43/43 incl. regression
