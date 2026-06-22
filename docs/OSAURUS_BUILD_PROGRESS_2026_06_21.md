@@ -52,6 +52,22 @@ SEQUENCING: Osaurus/ACT-first (engine done → shared composer + reskin), THEN W
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
+### LOOP STATUS (2026-06-21, this session) — milestone + context-gated next steps
+**ACT ENGINE COMPLETE end-to-end:** linked → drives OsaurusCore → generates → SHARED chokepoint across all
+chats (`e67295bc0`) → **STREAMS tokens** (`0d9f3f524`). **WORK terminal stack COMPLETE (Swift):** Seam-A PTY
+contract (`644303f69`) → native SwiftTerm view (`5b0520917`) → bundled-runtime resolver, live-on-vendor
+(`38b7fbbd8`) → RustLSP work tools (`1c753902e`) → reachable via Work settings tab (`78fe1c738`) → fully
+theme-responsive (`3bead7af6`). **Motion ontology:** reusable `MotionTitle` (`9d1c421e6`) on both work titles
+(`3ec448552`). All honest-inert-until-real; chat quarantined.
+
+**Context-gated remaining (NOT dropped — need a context the green-only main loop lacks):**
+- **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → needs the Bun
+  toolchain + a build-phase step. The Swift seam/terminal/resolver go LIVE the moment that bundle lands.
+- **GOOSE full-clone** = the `goose` crate (179 deps; reqwest 0.12↔0.13 clash) → needs a build-iteration
+  context (worktree/branch), per owner §446-460 "not main red". See `docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`.
+- **MD-V2** (#12) = large mature EPDOC subsystem; no clean one-shot projection seam → needs dedicated grounding
+  (won't ship a toy projection). **Composer reskin / mode-entry / search→work** = owner's running-app visual judgment.
+
 Prose: the **act ENGINE (#2)** is the big completion — act runs live through OsaurusCore (flag-gated,
 honest, verified). Per the 2026-06-21 RE-SYNC: **ACT-first** — finish act (shared composer + reskin +
 mode-entry animations) BEFORE work. **WORK** = OpenCode FULL-CLONE shell (real UI) + Goose/Hermes/OpenClaw
