@@ -64,8 +64,9 @@ struct SharedActComposerTests {
         // not liveLoop. It must honor the SAME shouldRouteActThroughOsaurus() decision so EVERY chat surface
         // gets act/Osaurus (owner #1) — and so the two chokepoints can't diverge.
         let svc = try loadMirroredSourceTextFile("Epistemos/Engine/TriageService.swift")
-        #expect(svc.contains("LocalAgentLoop.shouldRouteActThroughOsaurus()"))
-        #expect(svc.contains("ActOsaurusStreamingHandler.make()"))
+        // TriageService delegates the act-injection to the SINGLE shared entry (one chokepoint, §692) —
+        // the SAME one liveLoop uses, so they can't diverge.
+        #expect(svc.contains("SharedActInference.actStreamIfArmed("))
         // Both surfaces really route through TriageService (so the chokepoint covers them).
         let note = try loadMirroredSourceTextFile("Epistemos/State/NoteChatState.swift")
         #expect(note.contains("triageService.stream"))
