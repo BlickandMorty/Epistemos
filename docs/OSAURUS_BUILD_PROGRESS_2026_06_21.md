@@ -65,6 +65,19 @@ the node/mark set) so md is faithful enough to BE canonical, BEFORE flipping whi
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
+### ✅ SESSION REGRESSION CHECKPOINT (2026-06-22) — cross-cutting work verified clean
+Full sweep after the session's ~26 commits (vault-deep tools, in-app+external provenance, fusion scoping/ping/
+e2e/traversal-guard, retry-timeout, act+work gate toggles, mode-entry transition, workspace-mode selection,
+atomic writes everywhere, bounded event logs): **omega-mcp 191 lib + 6 stdio + 2 e2e, agent_core work 30 +
+mutations 17 + provenance 64 — ZERO regressions.** The two-mode LOGIC foundation is complete + tested (act/work
+gates+toggles+overrides, mode-entry transition, workspace selection reading both gates). Durability posture
+complete (atomic writes across Swift+Rust+graph-store; both event logs bounded via one shared helper).
+**Remaining high-value work needs heavier contexts than a 2-min loop tick:** (a) the VISUAL two-mode landing
+integration (mount WorkspaceModePicker → ModeEntryTitleView transition → surface routing) needs running-app
+visual judgment (§842/§799); (b) MD-V2 inversion needs a focused app-buildable session (grounded in
+`MD_V2_INVERSION_GROUNDING_2026_06_21.md`); (c) OpenCode internal-theme config needs its (unverified) schema +
+visual check — base palette-match already done via WorkTerminalPalette `3bead7af6`.
+
 ### LOOP STATUS (2026-06-21, this session) — milestone + context-gated next steps
 **ACT ENGINE COMPLETE end-to-end:** linked → drives OsaurusCore → generates → SHARED chokepoint across all
 chats (`e67295bc0`) → **STREAMS tokens** (`0d9f3f524`). **WORK terminal stack COMPLETE (Swift):** Seam-A PTY
