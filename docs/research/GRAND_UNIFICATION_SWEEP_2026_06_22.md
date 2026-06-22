@@ -258,3 +258,242 @@ RESEARCH_FINALIZATION_INDEX}_2026_06_*.md`, `docs/fusion/ARCHITECTURE_READOUT_20
 `docs/OWNER_REQUESTS_LEDGER_2026_06_18.md:3918-3978`, plus `docs/fusion/` top-level header survey + the live
 code module trees `agent_core/src/{research/,cognitive_dag/,eidos/,provenance/}`. Next: cycle 2 sweeps the
 fusion deep-read + subdirectories + research/ module classification per the "regions still to sweep" list.*
+
+---
+
+## Cycle 2 — DEEP MODULE + SUBDIRECTORY + THEOREM + EXTERNAL-CORPUS SWEEP
+
+Same exclusion + anti-hallucination rules as Cycle 1. **[V]** = file read this cycle, **[I]** = inferred from
+verified facts. This cycle reads the actual code (`agent_core/src/research/` ~40 modules + `epistemos-research/`
+crate), the fusion SUBDIRECTORIES (~1,340 files), the Helios theorem catalog cross-checked against its code
+encodings, and the EXTERNAL `~/Downloads` Helios-lineage corpus (read-only, owner-granted).
+
+### 2A. `agent_core/src/research/` per-module classification (Region 2)
+
+**Gating [V]:** the entire `research/` subtree is behind `feature = "research"` — declared `pub mod research;`
+at `agent_core/src/lib.rs:69` under the research cfg, with `research = []` an empty opt-in feature at
+`agent_core/Cargo.toml:25`; bins/examples set `required-features = ["research"]`. No per-module cfg needed;
+nothing here compiles into the MAS/Pro hot path unless explicitly opted in. **So everything below is research-
+tier by construction** — "USEFUL" means a salvage *candidate* to wire forward, not a live app invariant.
+
+Classes: **EXCLUDED** (70B/new-model spine, off-limits) · **USEFUL** (app-side verification/authority/substrate
+salvage) · **THEORETICAL** (research-only math, no near-term app attach) · **SUPERSEDED** (shim/duplicate).
+
+| Module | What it is | Class | 70B? | Attach-point (if USEFUL) | Cited |
+|---|---|---|---|---|---|
+| `eml/` + `eml_integration/` + `fulp_oracle/` | `eml(x,y)=exp−ln` primitive + AnswerPacket-freeze gate + fp16 ULP oracle; `fulp_oracle` is FFI-wired to Swift `FUlpHealthRow` | **USEFUL** (strongest) | No | AnswerPacket arithmetic-floor freeze gate (= GUS-2); already partly live via Swift health row | [V] `research/{eml,eml_integration,fulp_oracle}/mod.rs` |
+| `confidence_floors.rs` | T1/T2/T3 floor ladder (0.85/0.75/0.70) + LadderLog + escalate-on-empty | **USEFUL** | No | AnswerPacket confidence gating + escalate-to-human (= UNIFY-5b confidence_floor resurrection) | [V] |
+| `belnap.rs` | 4-valued FDE bilattice (T/F/Both/Neither) + 5 directional ops | **USEFUL** | No | Claim-graph truth composition consumed by `resonance`/`cognitive_dag` (= GUS-2 Belnap abstain) | [V] |
+| `info_ir/` | Exponential-family inference + Bregman/KL projection | **USEFUL** | No | `KlProjection` → AnswerPacket.confidence labeling | [V] |
+| `run_ledger.rs` | Per-token attestation hash-chain (prev-hash linked) | **USEFUL** | No | Token-level generation attestation; complements claim-level `provenance` ledger | [V] |
+| `biometric_gate.rs` | Two-tier (mount + per-op) biometric write gate, two kill switches | **USEFUL** | No | High-stakes write-authority admission (Touch-ID-gated edit/commit) | [V] |
+| `substrate_independence.rs` | Cross-backend (CPU/GPU/ANE/Mock) divergence checker + per-pair table | **USEFUL** | No | "Same-answer-across-substrate" falsifier / numeric-tolerance audit harness | [V] |
+| `hybrid_memory.rs` + `hyperdynamic_schemas/` | MD+JSON memory parser (soul/skill/episode/semantic) + self-repairing meta-schemas | **USEFUL** | No | Memory-file persistence/validation + schema-repair on validation failure | [V] |
+| `a2ui/` | 24-component render-schema catalog + per-component validators | **USEFUL** | No | Validate answer-render envelopes before display (Swift A2UI dispatcher) | [V] |
+| `paper_registry/` + `ane_direct/` | arXiv citation registry across J1-J8; ANE telemetry types (IOKit/SMC) | **USEFUL** (UI) | No | Control-room "papers implemented?" / "ANE busy?" telemetry surfaces | [V] |
+| `nightbrain_tasks.rs` | 6 NightBrain task bodies | **USEFUL (mixed)** | mostly No | 5/6 are app-maintenance (dedupe/distill/session-graph/skill-evolution); only `ssm_state_pruning` is spine. Attach `agent_core/src/nightbrain/live.rs` | [V] |
+| `compute_steering.rs` + `page_gather/` + `brain_routing.rs` + `attention_sinks.rs` | per-call budget/early-stop; shadow-first paging; Sinkhorn→Birkhoff routing; attention-sink detection | **USEFUL/THEORETICAL (borderline)** | borderline | Policy *types* salvageable only if decoupled from the excluded runtime; their real consumers are model-internal | [V] |
+| `acs/` + `active_assembly/` + `action_to_eml.rs` + `geometry_ir/` + `operator_ir/` + `para_lens.rs` + `tropical.rs` | Kuramoto/Notch-Delta VSM governance; packet-DAG selector; Euler-Lagrange demo; Clifford rotor; DeepONet/FNO; categorical backprop; tropical max-plus | **THEORETICAL** | No | — (primitive-IR / formalism; no app decision path) | [V] |
+| `cognition_observatory/` | KV-implant / Glass-Pipe / weight-surgery / SAE hallucination probe | **EXCLUDED (mostly)** | **YES** | only the read-only SAE AUC-0.90 hallucination probe is salvageable; intervention probes mutate inference = spine | [V] |
+| `mamba3.rs`, `rwkv7.rs`, `scan_ir/`, `ternary/`, `sherry_lattice/`, `koopman.rs`, `test_time_regression.rs`, `interrupt_calibration.rs`, `m0_interrupt_harness.rs`, `nano_training_recipe.rs`, `continual_learning/` | SSM/RWKV spine refs, scan/SSM-IR, BitNet ternary kernels, 1.25-bit lattice VQ, Koopman/Bauer-Fike quant bound, model-arch unification, M0-interrupt calibration+harness, MOHAWK distillation recipe, EWC/SEAL never-retrain weight updates | **EXCLUDED** | **YES** | — (these ARE brain-1: SSM/quant/training spine, owner Cursor domain) | [V] |
+| `eml_ir/` ; `tropical_ir/` | research-island EML-IR sibling (zero external callers, KEEP-BOTH per `docs/audits/T12_EML_IR_VS_FULP_ORACLE_DECISION_2026_05_23.md`); `tropical_ir` is a `pub use super::tropical::*` shim | **SUPERSEDED/shim** | No | — | [V] |
+
+**2A headline [I]:** ~13 modules are squarely EXCLUDED (the SSM/RWKV/ternary/scan/Koopman/interrupt/training
+cluster = brain-1). ~16 are USEFUL app-side salvage — but they are **the SAME organs cycle 1 already named**
+(EML/fulp/Belnap/confidence/provenance/biometric), now confirmed AT THE CODE LEVEL with concrete attach-points.
+The genuinely-new code-level findings are the *secondary* verification primitives: **`substrate_independence`,
+`run_ledger` (token attestation), `info_ir` KL labeling, `hyperdynamic_schemas`** — additive-safe honesty
+layers, not new engines. No new EXCLUDED surface beyond the known spine cluster.
+
+### 2B. `epistemos-research/` crate confirmation (Region 3)
+
+**[V]** `epistemos-research/src/lib.rs:1-3` self-declares: *"HELIOS V5 Lane 3 (RESEARCH_FRONTIER) workspace
+member."* Its own feature gate is `research = []` (`epistemos-research/Cargo.toml [features]`), crate-type
+`rlib`. It carries the E1-E7 theorem substrate (`theorems/`), the Goodfire VPD/PCF arm (`vpd/`), `acs`,
+`shadow_memory` (explicitly *"NEVER inherits the quantum advantage"*), `cms_v2` (Constitutive Moral Substrate),
+`ternary_kernel`, `theorem_status`, `donor_distillation`, `engram`, `interrupt_score`, `kv_direct_gate`,
+`m2_max_kernels`, `five_planes`, the `v6_1*`/`v6_2` lineage, `self_evolving_l_se`, `lane4_falsifier`. **Confirmed:
+this crate is the `--features research` Lane-3 preservation home.** It is a MIXED crate, not purely brain-1:
+the `theorems/` + `vpd/` arm is app-side verification substrate (salvageable, see 2C); the `ternary_kernel` +
+`donor_distillation` + `engram` + `kv_direct_gate` + `m2_max_kernels` + `five_planes` arm is brain-1/model-spine
+(**EXCLUDED**). **The `--features research` doctrine is preserved exactly as Cycle 1 described — nothing here is
+on the MAS hot path; nothing surfaces to the user without opt-in.** No NEW salvage emerges from the crate itself
+beyond what 2C (theorems) covers.
+
+### 2C. Helios theorem catalog E1-E7 / H1-H17 / PCF-1-10 (Region 4)
+
+Cross-checked `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` against code in `epistemos-research/src/theorems/`,
+`epistemos-research/src/vpd/`, `epistemos-vault/src/`, and `agent_core/src/scope_rex/`. "LIVE INVARIANT" =
+executable Rust function + falsifier-shaped `#[test]` assertions.
+
+| Family | LIVE INVARIANTS (code + falsifier, cited) | THEORETICAL (doc-only) | App-side vs EXCLUDED |
+|---|---|---|---|
+| **E1-E7** | **E3** (`e3_morph_field.rs` `e3_resident_within_budget()`), **E4** (`e4_wbo7.rs` pre/post-softmax checks), **E5** (`e5_duplex_fusion.rs` `e5_fused_error_bound()`), **E7** (`e7_kernel_identity.rs` `e7_holds_for_sample()` ULP) | E6 (type marker; canon itself says "Hardware falsifier: none"); E1/E2 partial (type substrate + bound test, empirical falsifier doc-only) | **App-side / model-agnostic** (Stone-Weierstrass, sheaf, memory-budget, softmax-bandwidth, ULP). E4/E7 attach to Swift Metal/resonance pipeline. NOT excluded. | [V] |
+| **H1-H17** | **H1**(=E4), **H2** (`scope_rex/metal/softmax.rs` half_softmax ≤2-ULP drift), **H3** (`scope_rex/metal/asa_index.rs` merge-monotone + ULP-equality), **H17** (`scope_rex/retrieval/hopfield.rs` recall — gated OFF) ; **H7** partial (`scope_rex/residency.rs` route falsifiers live, full eviction-monotonicity doc-only) | H4,H5,H6,H8,H9,H11-H16 doc-only (future shaders/substrate); **H8** canon claims "4-of-9 OSPC mirrors" but `cognitive_dag/dispatch.rs` only mirrors ledger commits — the 9-arm MutationEnvelope is NOT there → effectively THEORETICAL (canon-vs-code DRIFT [I]) | H2/H3/H17 are **app-side, model-agnostic** (Metal numeric rewrites + associative recall — the only H-invariants that are agent_core hot-path-adjacent). **H10 = Lane-4 "never-product" (EXCLUDED-reserved).** | [V] |
+| **PCF-1-10** | **PCF-6** (`epistemos-vault/.../envelope.rs` `validate()`), **PCF-9** (`.../distill/connectome.rs` `passes_acceptance()`) | PCF-1,2,3,4,7,8 partial (`vpd/` substrate types + tests, empirical falsifier doc-only); PCF-5,10 partial | **vpd/ arm (PCF-1,2,3,4,7,8) = app-side interpretability/verification, salvageable.** **vault/ arm (PCF-5,6,9,10) = model-runtime/surgery; PCF-9 produces a NEW MODEL FILE → EXCLUDED**; PCF-5/10 are runtime exec paths (EXCLUDED-adjacent). | [V] |
+
+**2C tallies [V]:** 10 fully-live invariants (E3,E4,E5,E7,H1,H2,H3,H17,PCF-6,PCF-9); 11 partial-live; 13 doc-only-
+theoretical; EXCLUDED = H10 + PCF-5/6/9/10 (vault model-runtime/surgery). **2C verdict:** the theorem catalog is
+*mostly* substrate-math, NOT model spine — and **the live app-side invariants (E4/E7 ULP, H2/H3 Metal-numeric,
+H17 recall, the `vpd/` interpretability arm) are exactly the verification/honesty discipline already named in
+GUS-2/UNIFY-6.** They are SUPERSEDED-into-the-verification-layer, not new salvage. The one actionable NEW finding
+is a **doc-fix:** H8's "4-of-9 OSPC mirrors live" canon claim is not backed by `dispatch.rs` (drift to record).
+
+### 2D. fusion SUBDIRECTORIES (~1,340 files, Region 1-deep)
+
+| Subdir | Verdict | Note (cited) |
+|---|---|---|
+| `salvage/from-vigorous-goldberg/` | **USEFUL+RELEVANT — net-new cluster** | A near-complete app-side `agent_core` IP tree (Quick-Capture Waves 0-5): deterministic, no-LLM-first, attaches to `agent_core` w/o model spine. Source of GUS-6..13 below. [V] |
+| `salvage/from-lane-a/` | **MOSTLY PROCESS (DROP) + 1 keeper** | ~95 audits/handoffs/GO_NO_GO = DROP; the two `CLAUDE.md` are STALE pre-Hermes-purge (SUPERSEDED, do not resurface); `EPISTEMOS-NORTH-STAR.md` = historical doctrine (provenance only). [V] |
+| `salvage/from-simulation/` | **MIXED → mostly SUPERSEDED** | `reference-code/*.rs` (compaction/prompt_caching/security/think) already shipped in `agent_core`; Hermes-UI Swift = cosmetic sim views. DROP unless building Simulation Mode UI. [V] |
+| `salvage/{from-hermes-parity,from-codex-runtime-input-audit,from-stashes,from-agent-*}/` | **PROCESS (DROP)** | parity/diff/WIP-patch logs. Not IP. [V] |
+| `research/` | **USEFUL+RELEVANT (net-new specs)** | net-new governance/substrate specs (see GUS-14..16); `FINAL_SYNTHESIS.md` = reconciling canon; `cms-doctrine/` + `user-authored/` lean model-spine/SCOPE-Rex (70B-TIED or superseded). [V] |
+| `jordan's research/` (457) | **MIXED; mostly EXCLUDED** | `GPT Research/**` + `kimis deep research/epistenos/**` = full from-scratch SSM/Mamba/BitNet/ternary/KV-direct model builds = **70B-TIED EXCLUDED**; `helios v2-v6`/`ternary kernel`/`scope rex` = spine EXCLUDED; minority kimi docs are app-side governance (GUS-17); `research/math_*`/`meta_*` = THEORETICAL-DROP. [V sampled] |
+| `pasted/` (2) | **70B-TIED (EXCLUDED)** | both files = Gemini "70B Local Cocktail" blueprint+eval (SSM spine, M-Limb interrupt, Engram LUTs, ternary, model-weight Residency Governor). Already fenced T0 NON-AUTHORITY. DROP. [V] |
+| `deliberation/` (175) | **PROCESS (DROP)** | per-PR gate/approval records PR0-PR45. [V] |
+| `oversight/` (115) | **PROCESS (DROP)** | `CODEX_KIMI_OVERSIGHT_ROUND_NNN` advisory verdict logs. [V] |
+| `fleet/` (274) | **PROCESS (DROP)** | per-PR worktree/handoff fleet folders. [V] |
+| `agent-build-scaffolding/` (2) | **PROCESS (DROP)** | build workcards/lane assignments. [V] |
+| `simulation/` (8) | **USEFUL but already-known** | `DOCTRINE.md` v1.6 = canonical Simulation Mode spec (deterministic visual projection = the "felt moat"); self-declares LEGACY/bridged. Not net-new; keep as authority IF Sim-Mode UI is built. [V] |
+
+### 2E. EXTERNAL `~/Downloads` Helios-lineage corpus (Region 5, read-only)
+
+**Bottom line [V via repo grep]:** the Helios lineage (v3→v4→v5→v6.1→v6.2) is **already comprehensively
+absorbed** into the repo — several source files are carried VERBATIM under `docs/fusion/` + `docs/fusion/jordan's
+research/`, each with a 2026-05-07 intake doc + a 2026-06-01 PATTERNBOOST-LOCK legacy banner. Per-doc:
+
+| External doc | Class | Note |
+|---|---|---|
+| `helios v4 updated.md`, `Helios third .md`, `helios v5*.md`, `helios v6.2.md` | **SUPERSEDED (verbatim in repo) + model-TIED** | v5 files present in repo `docs/fusion/`; v6.2 falsifiers are `.metal` spine kernels (EXCLUDED); theorem canon already in `HELIOS_V5_DOC_6_THEOREM_CANON.md` |
+| `EPISTEMOS_GRAND_MASTER_v3.md` | **SUPERSEDED + model-TIED** | PRCDA/WBO/six-tier/UST-1.5/DAG/SCOPE-Rex/7-theorems all confirmed in-repo (resonance τ/π/λ/δ/ρ/κ/η kernels grep-VERIFIED) |
+| `EPISTEMOS_FINAL_SEVEN_THEOREMS{,_v2_HARDENED}.md` | **SUPERSEDED** | = `HELIOS_V5_DOC_6_THEOREM_CANON.md`; kernel-pack parts are spine |
+| `EPISTEMOS_V6_1_FINAL_SYNTHESIS_LOCK.md` | **SUPERSEDED (PDF in repo) + heavily model-TIED** | five-plane/interrupt-score/donor-distillation/Goodfire-VPD already intaken; most content is EXCLUDED spine |
+| `deep-research-report (6)/(7).md`, `compass_artifact_*.md` | **SUPERSEDED / THEORETICAL-DROP / model-TIED** | preservation memos + V5-canon-lock duplicates + a model-spine build manifest |
+| `Pasted markdown (1)-(4).md` | **INFERRED SUPERSEDED** | not opened (time budget); size/date cluster with the V5/V6 lock set — one remaining spot-check gap |
+
+**NET-NEW from external corpus (1 real item):**
+- **Four-gate tool-adoption discipline** — `~/Downloads/EPISTEMOS_HELIOS_v4_1_AMENDMENTS.md §A3.3` [V; grep-
+  VERIFIED ABSENT in repo]. A formal rubric to admit any external tool into canon: **Substrate** (native Apple
+  Silicon), **Containment** (no cloud/net for MAS), **Direction** (sovereign-local), **Discipline** (emits
+  SCOPE-Rex TypedArtifact/MutationEnvelope/RunEventLog headers natively), scored 4/4=canon · 3/4=research ·
+  2/4=reference · 1/4=reject. Pure app-side *process* IP, model-agnostic → not excluded. (A weak 2nd item — a
+  public-vs-internal theorem taxonomy as UI copy over `VRMLabelView.swift` — is marginal/INFERRED, noted only.)
+
+**3-dir characterization [V via ls/README]:**
+- `Epistemos-cursor/` — a full working Epistemos checkout (Swift+`agent_core`+Lean+Metal+`docs/fusion/`); it
+  already contains the Helios v5/v6.2 source verbatim + intakes. It is effectively the absorption *target*, not
+  an external corpus to salvage *from*.
+- `openclaw-main/` — third-party MIT "OpenClaw" personal-AI-assistant monorepo (pnpm/TS+Docker+Fly.io). Generic
+  agent infra, unrelated to Helios; no Epistemos-specific app IP.
+- `AETHERLINK_APPLICATION_KIT_FULL/` — a self-contained grant/application packet for "Project AetherLink"
+  (proof-carrying coordinate kernels for edge autonomy). Spin-off pitch artifact; repo already has two AetherLink
+  intake docs (Erdos-Parameter-Golf, OAS canon) → already triaged (cycle-1 T7, TOO-THEORETICAL/DROP).
+
+### 2F. NEW salvage items (GUS-6+, additive-safe, EXCLUDING 70B)
+
+All app-side, model-agnostic, behind existing flags/gates; sequenced after the P0 priorities. Sourced from
+`docs/fusion/salvage/from-vigorous-goldberg/` and `docs/fusion/research/` unless noted. **Caveat [I]:** the
+`from-vigorous-goldberg` modules predate the 2026-05-05 Hermes purge — grep current `agent_core/src/` for
+already-shipped equivalents (esp. `tools::breaker`, compaction, security) before promoting; Intent→Effect, undo,
+NightBrain-scheduler and skill_discovery appear genuinely un-promoted.
+
+```
+[GUS-6] INTENT→EFFECT typed apply pattern. salvage/from-vigorous-goldberg/agent_core_src/effect/
+  {mod,dispatcher,vault_applier,concept_applier,memory_applier}.rs — typed Intent→Effect with a
+  PRE-COMPUTED Inverse, distinct from the Cognitive DAG. Attach: agent_core runtime apply path.
+  (PLAN §8 / FINAL_SYNTHESIS §2 layer 6.) Net-new vs cycle 1.
+
+[GUS-7] SIGNED EXECUTION RECEIPT. salvage/.../effect/receipt.rs — per-Effect Ed25519-shaped signed
+  proof-of-execution (call_id/plan_hash/input_hash/output_hash/capabilities_used/signature) + a SigningKey
+  trait for Keychain keys. Sits BESIDE agent_core::provenance::ClaimLedger (which does claim-retraction, NOT
+  signed per-call receipts). Attach: agent_core::provenance. (FINAL_SYNTHESIS §5.5.)
+
+[GUS-8] UNIVERSAL UNDO LOG. salvage/.../undo/mod.rs — ⌘Z-within-24h reversal via the GUS-6 pre-computed
+  inverse Effects (undo_events.sqlite). Attach: agent_core + the apply path. (PLAN §8.5.)
+
+[GUS-9] NIGHTBRAIN IDLE SCHEDULER (shell only). salvage/.../nightbrain/mod.rs — thermal/battery/idle-gated
+  overnight maintenance worker pool, checkpoint-resumable. The APP-SIDE scheduler shell (NOT the excluded
+  nightly model fine-tune). Pairs with research/nightbrain_tasks.rs's 5 app-maintenance task bodies. Attach:
+  agent_core lifecycle/idle_monitor. (PLAN §7.1, FINAL_SYNTHESIS layer 7 "Metabolism.")
+
+[GUS-10] SKILL DISCOVERY / PROMOTION. salvage/.../skill_discovery/mod.rs — auto-draft .skill.json/.md on
+  novel+accepted+in-budget tool-sequence compositions (tool-sequence-hash novelty + no-⌘Z acceptance window),
+  user-confirmed promotion. Attach: agent_core::agent_runtime skills. (PLAN §11 Phase 12.5.)
+
+[GUS-11] DETERMINISTIC CONCEPT CANONICALIZER. salvage/.../canon/{mod,alias}.rs — no-LLM canonical-name
+  pipeline (lemmatize + sort multi-word) feeding the Cognitive DAG + search. (PLAN §3.7; one documented
+  spec-vs-example divergence note to resolve on import.)
+
+[GUS-12] SELF-HEAL Try-Heal-Retry + CircuitBreaker. salvage/.../heal/{mod,breaker,log}.rs — app-side
+  resilience loop (heal_events.sqlite). VERIFY-FIRST: heal/breaker re-exports tools::breaker which may already
+  ship — dedup before importing. (FINAL_SYNTHESIS §5.2.)
+
+[GUS-13] FOUR-VARIANT capture router (typed). salvage/.../route/{mod,variant_a,variant_b,variant_c}.rs —
+  typed Rust A/B/C/D capture ladder with JSON schemas + floor constants (relates to Swift ConfidenceRouter;
+  this is the typed Rust impl). Lower priority — overlaps GUS-2/confidence_floors; assess for dedup.
+
+[GUS-14] OVERSEER / AGENT-HIERARCHY policy doc. docs/fusion/research/OVERSEER_AND_AGENT_HIERARCHY.md —
+  "overseer is a ROLE, not a model family"; hierarchical (not swarm) coordination with review/critique/budget/
+  safety/intervention responsibilities. Model-agnostic → NOT excluded. Attach: MAS-tier orchestration policy.
+
+[GUS-15] ADAPTATION SUBSYSTEM governance spec. docs/fusion/research/ADAPTATION_SUBSYSTEM_SPEC_v1.md —
+  bounded/reversible/helper-model-FIRST adaptation: explicit allow/deny, NO base-weight mutation, NO silent
+  chat learning, adapter/session entities + canary/rollback. This is APP-SIDE GOVERNANCE OF adaptation (the
+  guardrail), NOT the excluded model spine. Attach: a governance doc + the LoRA/helper-adaptation boundary.
+
+[GUS-16] COMPUTE-STEERING policy spec. docs/fusion/research/COMPUTE_STEERING_SPEC_v1.md — policy-driven
+  selection of helper modules/masks/expert+execution budgets/KV policy/sidecar activation under telemetry,
+  kept deliberately model-agnostic. Aligns with System G / RuntimeRouter canon. Attach: RuntimeRouter compute-
+  profile layer. (Pairs with research/compute_steering.rs.)
+
+[GUS-17] FOUR-GATE TOOL-ADOPTION discipline (EXTERNAL → import as governance doc). From ~/Downloads/
+  EPISTEMOS_HELIOS_v4_1_AMENDMENTS.md §A3.3 (grep-VERIFIED absent in repo). Substrate/Containment/Direction/
+  Discipline gates, 4/4=canon→1/4=reject scoring, with an optional CI/source-guard lint flagging new deps that
+  lack the four-gate attestation. Pure app-side process IP. Attach: a docs/fusion governance doc + source-guard.
+
+[GUS-18] DOC-FIX — record the H8 OSPC drift: HELIOS_V5_DOC_6_THEOREM_CANON.md claims H8 has "4 of 9 OSPC
+  mirrors" live in agent_core/src/cognitive_dag/dispatch.rs, but dispatch.rs only mirrors ledger commits — the
+  9-arm {bind,unbind,gate,route,commit,reorder,merge,split,quarantine} MutationEnvelope is NOT there (those
+  refs live in unrelated agent_runtime_v2). Mark H8 THEORETICAL. Zero behavior change; prevents over-claiming.
+```
+
+**Confirmed SUPERSEDED / THEORETICAL (cycle 2):** the entire deliberation/oversight/fleet/agent-build-scaffolding
+subdir mass (~566 files) = PROCESS scaffolding, not IP; `pasted/` + `jordan's research/GPT|kimis-epistenos` =
+70B/new-model EXCLUDED; the Helios external lineage = absorbed-verbatim-in-repo (SUPERSEDED) save GUS-17; the
+theorem catalog's live invariants (E4/E7/H2/H3/H17/vpd-arm) = SUPERSEDED-into-the-verification-layer (= GUS-2/
+UNIFY-6, not new); `epistemos-research/` = the `--features research` Lane-3 preservation home, confirmed intact.
+
+### 2G. Regions left for Cycle 3
+
+The high-value seams (code modules, theorem catalog, salvage/ + research/ subdirs, external lineage) are now
+swept. Remaining low-probability regions, for completeness:
+
+1. **`from-vigorous-goldberg` dedup verification** — before any GUS-6..13 import, grep current `agent_core/src/`
+   for already-shipped equivalents (the one explicit caveat carried into cycle 3). Likely the highest-value
+   cycle-3 action — it converts candidates into confirmed-net-new or confirmed-superseded.
+2. **The 4 `~/Downloads/Pasted markdown (N).md` files** — not opened this cycle (INFERRED superseded by size/date
+   cluster). One spot-check closes the last external gap.
+3. **`docs/research/SS-*` slices** (58 per RESEARCH_FINALIZATION_INDEX) — confirm none hide further substrate IP
+   (cycle 1 deferred; low probability — they are code-grounded analysis slices, not raw IP).
+4. **`epistemos-vault/` crate full read** — cycle 2 touched it only via the PCF theorems; confirm it is entirely
+   the model-surgery/runtime (EXCLUDED) Lane-5 domain with no app-side spillover.
+
+**CONVERGENCE STATUS: NOT YET — but NEAR.** Cycle 2 found a real net-new cluster (GUS-6..18, concentrated in
+`salvage/from-vigorous-goldberg/` + `research/` specs + one external four-gate rubric) and confirmed no new
+EXCLUDED surface beyond the known brain-1 spine. Cycle 3's job is mostly *confirmation* (dedup the goldberg
+modules, spot-check the Pasted files, glance at SS-* + epistemos-vault); if cycle 3 finds the goldberg modules
+already shipped and the residual regions empty, the sweep CONVERGES. **The salvage opportunity remains small,
+additive-safe, and entirely app-side — exactly as cycle 1 predicted, now with code-level attach-points.**
+
+---
+
+*Cycle 2 grounded against files read 2026-06-22: `agent_core/src/research/` (all ~40 modules via mod.rs/head +
+`lib.rs:69`, `Cargo.toml:25`), `epistemos-research/src/lib.rs` + `Cargo.toml`, `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md`
+cross-checked against `epistemos-research/src/{theorems,vpd}/`, `epistemos-vault/src/`, `agent_core/src/scope_rex/`;
+the fusion subdirs `salvage/`, `research/`, `jordan's research/`, `pasted/`, `deliberation/`, `oversight/`,
+`fleet/`, `simulation/`, `agent-build-scaffolding/`; and the external read-only corpus `~/Downloads/{helios v4
+updated, Helios third, helios v5*, helios v6.2, EPISTEMOS_HELIOS_v4_1_AMENDMENTS, EPISTEMOS_GRAND_MASTER_v3,
+EPISTEMOS_FINAL_SEVEN_THEOREMS{,_v2_HARDENED}, EPISTEMOS_V6_1_FINAL_SYNTHESIS_LOCK, deep-research-report (6)/(7),
+compass_artifact_*}.md` + ls of `Epistemos-cursor/`, `openclaw-main/`, `AETHERLINK_APPLICATION_KIT_FULL/`. NOT
+committed (per the sweep directive). Next: cycle 3 = dedup-verify GUS-6..13 against live agent_core + close the
+residual regions; declare convergence if nothing new.*

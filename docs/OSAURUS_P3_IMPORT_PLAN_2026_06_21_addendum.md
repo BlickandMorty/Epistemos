@@ -1268,3 +1268,28 @@ residency quartet + T10 doctrines + ~1,340 untouched docs/fusion/ subdir files (
 pasted/ = likely IP-bearing) + per-module agent_core/src/research/ (~40 modules, 70B-tied vs app-verification)
 + epistemos-research crate + Helios theorem catalog (E1-E7/H1-H17/PCF-1-10) + the ~/Downloads Helios source
 corpus + convergence re-check.
+
+## ✅ GRAND SWEEP CYCLE 2 — salvage GUS-6..18 (owner 2026-06-22; full=GRAND_UNIFICATION_SWEEP §Cycle 2)
+NET-NEW salvage cluster found (additive-safe, app-side, EXCLUDING 70B). Highest-value = docs/fusion/salvage/
+from-vigorous-goldberg/agent_core_src/ (predates the Hermes purge — DEDUP vs live agent_core/ in cycle 3):
+- **GUS-6** Intent→Effect typed apply w/ pre-computed inverse. **GUS-7** signed Ed25519 ExecutionReceipt (beside
+  ClaimLedger; receipts≠retraction). **GUS-8** universal ⌘Z undo log. **GUS-9** NightBrain idle scheduler shell.
+  **GUS-10** skill discovery/promotion. **GUS-11** deterministic concept canonicalizer. **GUS-12** self-heal +
+  circuit-breaker. **GUS-13** typed 4-variant router.
+- governance docs (model-agnostic): **GUS-14** Overseer/Agent-Hierarchy policy, **GUS-15** Adaptation-Subsystem
+  governance, **GUS-16** Compute-Steering policy.
+- **GUS-17** Four-gate tool-adoption discipline (~/Downloads/EPISTEMOS_HELIOS_v4_1_AMENDMENTS.md §A3.3 —
+  grep-verified ABSENT in repo = net-new app-side process IP).
+- **GUS-18 doc-fix:** H8 "4-of-9 OSPC mirrors live" canon claim NOT backed by dispatch.rs → mark H8 theoretical.
+CODE CONFIRMATIONS: agent_core/src/research/ ~40 modules — ~13 EXCLUDED (mamba3/rwkv7/scan_ir/ternary/
+sherry_lattice/koopman/interrupt/m0/nano_training/continual_learning = brain-1 spine), ~16 USEFUL (mostly cycle-1
+organs + new: substrate_independence, run_ledger token-attestation, info_ir KL, hyperdynamic_schemas); whole tree
+behind --features research. epistemos-research/ = Helios V5 Lane-3 preservation crate (theorems+vpd salvageable;
+ternary/donor/engram/kv EXCLUDED) — no new salvage. THEOREMS: 10 live invariants (E3/E4/E5/E7/H1/H2/H3/H17/PCF-6/9)
+already SUPERSEDED into the verification layer (=GUS-2/UNIFY-6); EXCLUDED H10 + PCF-5/6/9/10 (vault model-surgery;
+PCF-9 produces a model file). SUPERSEDED/DROP: ~566 deliberation/oversight/fleet/process files; pasted/ +
+jordan's-research GPT/kimi = 70B-EXCLUDED. ~/Downloads: Helios v3→v6.2 already absorbed verbatim in-repo
+(SUPERSEDED) — only GUS-17 net-new; Epistemos-cursor/=absorption target, openclaw-main/=3rd-party, AETHERLINK=
+triaged. NEAR CONVERGENCE — cycle 3 = confirmation: dedup GUS-6..13 vs live agent_core/, spot-check ~/Downloads
+Pasted markdown(N), glance 58 SS-* slices, confirm epistemos-vault/ fully EXCLUDED. If goldberg modules already
+shipped + residuals empty → CONVERGED.
