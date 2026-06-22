@@ -875,6 +875,12 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
     FOLLOW-UPS: re-place the act↔work toggle as a new feature in the old UI (its gating conflicted with the
     old-UI messages-based showChat — deferred, not lost); `EpistemosOsaurusChatHost` is now an unused shell (the
     reskin/bootstrap logic is kept for reference, can be retired later). Live send/receive = owner's runtime check.
+  - **✅ "it must WORK" — coreModelIdentifier fill:** the act-Osaurus path streams via `CoreModelService.generate
+    Stream`, which has NO per-request model — it uses `ChatConfigurationStore.coreModelIdentifier` (computed from
+    the stored `coreModelName`) and throws `modelUnavailable` if unset. So when the model bridge registers (4b),
+    if no core model is configured, set `coreModelName` to the owner's first prepared model — the act send then
+    has a valid model, routed back through the bridge to the owner's model. ONLY fills if unset (never overrides
+    the owner's choice). Per-pick selection-sync (old ChatView picker → coreModelName) is a richer follow-up.
 
 ### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
 The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't

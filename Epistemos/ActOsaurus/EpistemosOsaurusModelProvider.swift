@@ -85,6 +85,19 @@ struct EpistemosOsaurusModelProvider: EpistemosModelProvider {
         }
         guard !models.isEmpty else { return }
         EpistemosModelBridge.register(EpistemosOsaurusModelProvider(service: service, models: models))
+
+        // Make it WORK (option b): the act surface drives the old Epistemos chat
+        // through the Osaurus engine, which streams via CoreModelService ->
+        // `coreModelIdentifier` (there is no per-request model). If no core model is
+        // configured yet, default it to the owner's model so the act send has a
+        // valid model — routed back to this bridge. `coreModelIdentifier` is computed
+        // from the stored `coreModelName`, so set that. ONLY fill if unset; never
+        // override the owner's own choice.
+        var config = ChatConfigurationStore.load()
+        if (config.coreModelIdentifier ?? "").isEmpty, let first = models.first?.id {
+            config.coreModelName = first
+            ChatConfigurationStore.save(config)
+        }
     }
 }
 
