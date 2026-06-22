@@ -555,3 +555,19 @@ The vendored `LocalPackages/osaurus` is NOT in this build (S3 not yet linked) �
   `docs/stash-triage-2026-06-21/`). Vendored full Osaurus (`ae911ea5e`, S2). Discovery
   sweep (`e84fd4110`). Epistemos Picks provider+tests (`519aed305`). Verified build pass:
   12/12 tests green, app module clean, chat-picker commit verified.
+
+### 🌟 FUGU (foundational, owner §892, 2026-06-22) — build started
+Sakana Fugu = multi-agent orchestration LLM, OpenAI-compatible, ~$10/msg, likely closed. Behind a clean
+provider abstraction (modular/replaceable), explicit cost, easy setup; best-combo = Fugu cloud + own native
+orchestration. Research: docs/research/FUGU_ORCHESTRATION_INTEGRATION_2026_06_22.md.
+- [x] **Slice 1 — provider registration + explicit per-message cost (`1027ffa28`, cargo 4/4):** Fugu in the
+  pricing table (req #1 modular — plugs into the EXISTING OpenAICompatibleProvider by config, no new type, no
+  hardcoding). Found+fixed a cost-honesty bug: estimate_* ignored the flat per-request cost → a $10/msg provider
+  looked ~$0; added `per_message_usd()` ($10.00/msg) for Settings to surface the explicit opt-in (req #2).
+- REMAINS: named Fugu config constructor + caps (cargo) → Settings UI (Keychain key+endpoint+cost label+opt-in
+  confirm) → picker/act/work + OpenCode-provider wiring → best-combo (b) native orchestration behind the same seam.
+
+### ✅ camelCase bug class — fully swept + verified (2026-06-22)
+EpdocGraphProjector camelCase fix CHECKPOINT-GREEN (EpdocGraphProjectorTests 10/10, TEST SUCCEEDED). Codebase
+audit clean: ProseMirrorMarkdownProjector + ReadableBlocksProjector + EpdocGraphProjector + EpdocComplexityCalculator
+all alias snake+camelCase node names. orphan_notes↔graph-view consistency locked (`b31aed88b`, cargo 193).
