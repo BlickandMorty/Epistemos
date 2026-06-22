@@ -119,8 +119,9 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
   - [~] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator): CORE DONE
     (`c61b41cac`) — `AgentNoteEdit` editor-agnostic text-based ops (append/replaceFirst/insertAfter), HONEST
     (nil when anchor absent → never silently mangles) + ATOMIC batch apply (`c0991f4fe`, all-or-nothing) +
-    `VaultNoteEditor` file-level applier (`6d467d1f7`, read→apply→write-only-on-success, injectable/tested),
-    11/11 tests. The same ops apply to BOTH editors + the file path. REMAINS
+    `VaultNoteEditor` file-level applier (`6d467d1f7`, read→apply→write-only-on-success). PLUS the EXTERNAL-agent
+    surface: `vault.patch_note` MCP tool (`214d7f04b`, same op model in Rust, honest missing-anchor-writes-nothing).
+    Both surfaces (in-app Swift + external MCP) tested. The same ops apply across editors + file + MCP. REMAINS
     (UI follow-on): bind to the live editors (NSTextView/Tiptap apply the ops) + record each as an agent
     `MutationEnvelope` (SourceOp.artifactUpdate) for provenance/EventStore (reuses the existing provenance model).
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
