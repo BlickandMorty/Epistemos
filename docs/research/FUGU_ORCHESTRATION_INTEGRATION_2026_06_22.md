@@ -259,3 +259,18 @@ orchestrator (the foundational IP brain), grounded in the existing codebase + th
 ### 6.5 Still owed by deeper passes
 Read the actual TRINITY + Conductor ICLR 2026 papers for the precise loop/verify algorithm; test Fugu API
 streaming live; price a representative multi-step run. (Refines; the design above is build-ready.)
+
+## 7. BUILD STATUS (build-side, appended by the build loop)
+- **Slice 1 DONE (`1027ffa28`, cargo 4/4):** Fugu registered as a known provider in
+  `agent_core/src/providers/pricing.rs` — reqs #1 (modular) + #2 (explicit cost) first cut. KEY GROUNDED FACTS:
+  - **Req #1 is already satisfied by the existing abstraction:** `OpenAICompatibleProvider` is the universal
+    `/v1/chat/completions` provider (serves OpenRouter/Kimi/DeepSeek/xAI/…). Fugu = a CONFIG instance
+    (base_url+api_key+model), NOT a new provider type → no hardcoding. Matches §6.3 "lanes plug in/out".
+  - **Cost-honesty BUG found + closed (req #2):** `pricing::estimate_usage_cost_*` summed per-TOKEN only and
+    IGNORED `request_usd_per_1k` (flat per-request) → a flat ~$10/msg provider estimated ~$0 (silent-expensive
+    trap). Fixed: Fugu row carries `request_usd_per_1k=10_000` ($10/msg) + new `pricing::per_message_usd()` so
+    Settings shows the explicit "$10.00 / message" opt-in headline. Per-token rates left 0 until verified.
+- **Next build slices (sequenced):** named Fugu config constructor + capability flags (cargo) → Settings UI
+  (Keychain key + endpoint + the per-message cost label + explicit first-call opt-in confirm, per §6.3) →
+  model-picker/act/work + OpenCode-provider wiring → best-combo (b): expose RuntimeRouter/System G native
+  orchestration behind the SAME abstraction (the §1–§5 design here).
