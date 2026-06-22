@@ -92,6 +92,10 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
 - **Goose NOT vendored** as a 2nd engine (avoids the 179-dep/reqwest/660MB saga). Its unique HARDENING bits
   (RetryManager/RepetitionGuard + recipe) are the **PERMANENT clean-room home** in `work.rs` (re-labeled
   `141a8d2b7`), surfaced as work-loop TOOLS, never deleted. **Goose `permission` DROPPED** (OpenCode covers it).
+  **RETRY TIMEOUTS ENFORCED (`8eb32f7e1`):** `RetryConfig.timeout_seconds`/`on_failure_timeout_seconds` were
+  carried+validated but NOT enforced (ShellRetryExecutor blocked forever on a hung check/cleanup). New
+  `run_shell_with_timeout` (spawn→poll try_wait→kill-on-overrun, hardened, std-only) bounds them; trait threads
+  the timeout; None=blocking (historical). 30/30 work tests (+2) + pro-build check clean.
 - **`work_lsp_tools` REDUNDANT under C** (OpenCode built-in LSP) — marked, kept pending vendor (`fd6c099e0`);
   `lsp_runtime` stays for the native editors.
 - **Act-swap in BOTH inference chokepoints** (liveLoop `e67295bc0` + TriageService `8ae27be43`) → every
