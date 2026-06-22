@@ -1023,3 +1023,18 @@ require NativeActChatView/forbid host+ChatView; fix LandingView tap→act (kill 
 clean RootView stale comments. Multi-surface (main/mini/graph/note act, all-but-note work) folded into 0.2 AFTER
 act acceptance. VERDICT: right architecture LIVE (thrash over) but bare skeleton → compose owner chrome. Did NOT
 touch agent code. Edited driver+queue+addendum+log (owner-authorized recursive prompt edit), my files only.
+
+## PASS 67 — 2026-06-22 (PIVOT DELIVERED + pass-66 ingested; P0: stale guard test now red/wrong)
+efae6fc60 (iter20-23) SHIPPED fresh native cream views: NativeActLandingView (cream #fbfaf5 + pill + click-
+ANYWHERE→act via .onTapGesture{onEnter()} :62, NO search) + NativeActChatView (cream pixel-verified #fbfaf5,
+certified OsaurusActBridge link), wired RootView 2716/2727 REPLACING EpistemosOsaurusChatHost(). pass-66 INGESTED:
+NativeActChatView composes the owner's ChatInputBar (:120/:126, cites §pass66). Agent mid-build (13 swift-frontend
+procs, build 15:16). This is the pivot DELIVERED + fresh-launch-verified (agent's evidence: pixel-sample #fbfaf5
+369k px, screenshots Read) — the owner's core complaints (Osaurus default, click→search, white/boxy, no cream/
+pill) addressed in shipped code. PROGRESS verdict: strong.
+P0 FLAG: ActSurfaceOsaurusUIDirectionGuardTests:17 STILL #expect EpistemosOsaurusChatHost() — RootView no longer
+calls it (only a comment) → test now FAILS = red on main AND locks the abandoned direction. Agent replaced the
+host but didn't rewrite the test (Codex + pass-66 flagged; not done). Issued correction: rewrite to REQUIRE
+NativeActChatView/NativeActLandingView + OsaurusActBridge path, FORBID host/ChatView; run green.
+WATCH: ChatInputBar composed ✓; ChatSidebarView (sidebar+recent-chats) NOT yet — add it; confirm pill on act+
+landing+work. Verify cream + full chrome + real send on fresh launch next fire. Did NOT touch agent code.
