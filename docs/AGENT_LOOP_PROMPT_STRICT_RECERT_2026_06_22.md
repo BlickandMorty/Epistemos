@@ -37,12 +37,12 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
 |-------|--------------|----------------|------------------------|---------------|
 | **Epistemos (main)** | Epistemos-native settings | TriageService / vault / graph paths | Main settings, graph, notes sidebar | 0.27, 0.21 |
 | **act** | Osaurus/act full settings | Osaurus in-process act path | Main act, mini, graph, note (act) | 0.1–0.26, D1–D5 |
-| **work** | OpenCode/work full settings | OpenCode/Goose fused engine | Work landing, TUI, act/work toggle | 0.28, 1.1–1.7 |
+| **work** | OpenCode/work full settings | OpenCode/Goose fused engine | Work landing, TUI, act/work toggle | 0.28, 1.1–1.8 |
 | **beyond** | Tab per future clone (honest stub OK) | Per-clone when wired | Beyond tab + any wired clone | 0.30, 4.14 |
 
 ### Tier walk order — NO EARLY EXIT
 1. **TIER 0:** 0.1 → 0.32 (act + clone baseline + reverse audit + iteration witness)
-2. **TIER 1:** 1.1 → 1.7 (OpenCode/work — do NOT skip because act is broken)
+2. **TIER 1:** 1.1 → 1.8 (OpenCode/work — do NOT skip because act is broken)
 3. **TIER 2:** 2.1 → 2.8 (substrate, salvage, BUILD-IT-HARDENED)
 4. **TIER 3:** 3.1 → 3.2 (TRINITY, Fugu)
 5. **TIER 4:** 4.1 → 4.16 (settings polish, pillars, beyond clones, graph integration)
@@ -58,7 +58,7 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
 
 ### Reverse addendum audit (EVERY iteration — queue 0.31)
 After the forward queue walk, grep the addendum for: `🔒`, `DEFINITIVE`, `P0`, `MUST`, `BUILD-IT-HARDENED`,
-`ALL CHAT SURFACES`, `PER-CLONE`. Verify each hit is indexed in WORK_QUEUE or STANDING with →plan ref. Any miss →
+`ALL CHAT SURFACES`, `PER-CLONE`, `WORK`, `BEYOND`. Verify each hit is indexed in WORK_QUEUE or STANDING with →plan ref. Any miss →
 ADD queue row + log in STRICT_RECERT_LOG same iteration.
 
 ## THE PRIME RULE
@@ -114,7 +114,7 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 
 ## EVERY ITERATION
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
-2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.7, 2.1, … 5.3). No queue-jumping.
+2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.8, 2.1, … 5.3). No queue-jumping.
    FIRST ITERATION bootstrap order below is one-time only — standing rule is strict numeric queue order through
    ALL tiers. Don't stop after act/D1–D5; don't stop after TIER 0 unless attempting TIER 1+ same iteration.
 3. **Read that item's `→plan:` section IN FULL** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md. The
@@ -166,8 +166,8 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 - **0.26** UI-hide quarantined chat (GATED) · **0.27** Epistemos (main) clone baseline
 - **0.28** WORK clone surface reachable · **0.29** Per-clone inference routing
 - **0.30** BEYOND tab + OFF-LIMITS vs in-scope honesty · **0.31** Reverse addendum audit (standing)
-- **0.32** Full-plan iteration witness (standing)
-- **TIER 1:** 1.1–1.7 work/OpenCode · **TIER 2:** 2.1–2.8 substrate/salvage · **TIER 3:** 3.1–3.2 · **TIER 4:**
+- **0.32** Full-plan iteration witness (standing) — **HARD GATE:** mandatory log block + forbidden end-claims
+- **TIER 1:** 1.1–1.8 work/OpenCode · **TIER 2:** 2.1–2.8 substrate/salvage · **TIER 3:** 3.1–3.2 · **TIER 4:**
   4.1–4.16 · **TIER 5:** 5.1–5.3
 
 ## MANDATORY BEHAVIOR A–H (from gap audit — non-negotiable every loop)
@@ -186,8 +186,10 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   `AnswerPacketHealthRow`, `LocalRouteHonestyHealthRow`, etc.: `wiredToday`/`stillStub` must match REAL code.
 - **(G) PROVIDER WIRING BAR:** Item 0.11 — owner's GGUF/QAT selectable AND used on send; Configuration opens
   REAL settings; NO silent Codex default; NO silent Qwen substitution. Send must use selected model.
-- **(H) FULL-PLAN-NO-ACT-TUNNEL:** Item 0.32 — before iteration ends, confirm you attempted 0.1→0.32 then TIER 1+
-  (not act-only). Log highest item reached + per-tier counts. Act certified ≠ loop done.
+- **(H) FULL-PLAN-NO-ACT-TUNNEL:** Item 0.32 — before iteration ends, append the mandatory witness block to
+  STRICT_RECERT_LOG (highest item, per-tier counts, TIER 1+ attempted YES/NO, act-only tunnel DENIED). **FORBIDDEN**
+  end-claims: "act certified = iteration done", "D1–D5 pass = done", "stopping at TIER 0", "build-green = tier
+  done". Confirm you attempted 0.1→0.32 then TIER 1+ (not act-only). Act certified ≠ loop done.
 
 ## PER-SURFACE SCREENSHOT MANDATE
 Certify **each** chat surface with its **own** PNG: main act, mini chat, graph chat, note chat (act), work
