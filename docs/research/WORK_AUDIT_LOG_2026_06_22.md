@@ -1095,3 +1095,19 @@ certified 0.4). NOT option-b (old ChatView+broken engine), NOT fresh NativeActCh
 NativeActChatView is a container it must COMPOSE the real components. Acceptance: act surface visually
 indistinguishable from the owner's old chat (vs Desktop refs + afc34e806) except engine=Osaurus. This grounds the
 recurring "reuse my chrome" asks in concrete code + a baseline commit. Did NOT touch agent code.
+
+## PASS 71 — 2026-06-22 (BUILD AGENT HANDOFF: Claude → Codex; auditor continues)
+Owner switched the BUILD agent from the Claude loop to Codex (frustrated with Claude's piecemeal approximations);
+auditor (me) STAYS. Provided owner a paste-ready Codex launch prompt (points at the 3 authoritative docs which
+carry all pass-49→70 corrections; embeds: #1 target = ground act UI in the owner's REAL existing views
+[ChatView.swift 1008-line, ChatInputBar, ChatSidebarView, LandingView@afc34e806], separate UI from engine, reuse-
+not-approximate, Osaurus=engine-only; outstanding P0s A-D [restore real LandingView, full-chrome match, kill
+duality, multi-surface]; fresh-launch verification + diff vs Desktop reference screenshots; whole-plan recert;
+auditor-watches-and-corrects-via-addendum/0.31).
+AUDIT of inherited state (iter26-27, render-verified): NativeActChatView NOW composes the owner's REAL
+ChatSidebarView (NativeActChatView.swift:51, HStack 248pt) + ChatInputBar (:135), cream, on certified bridge;
+build 15:45. So sidebar/composer = owner's real components (progress on pass-68b/69). Honest gap logged by agent:
+native-act convos not yet persisted to SDChat so sidebar→load is a follow-on. Owner's open asks (real LandingView
+as home, full-chrome-match incl. command palette/38-tool/Osaurus commands, kill duality) remain for Codex.
+Going forward: same 15-min audit loop grades CODEX's commits vs the live app + 5-gate bar; corrections via addendum.
+Did NOT touch agent code.
