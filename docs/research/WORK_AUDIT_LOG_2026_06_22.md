@@ -615,3 +615,17 @@ docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md so the strict prompt's "read 
 rule resolves correctly. D1–D5 now canonical in all three: prompt + queue + addendum + this log.
 OPEN: act surface FAIL (D1 boxy·D2 landing·D3 pill·D4 settings·D5 partial reskin) + 0.1 reskin runtime-verify.
 VERDICT: PASS/standby; spec now internally consistent and ready for the new agent. Watching for first re-cert commits.
+
+## PASS 45 — 2026-06-22 (DEEP SPEC-COMPLETENESS REPAIR — owner: "nothing missing, 100% covered")
+Owner wants the SPEC complete before launching the agent (hasn't started it). Did a full queue-vs-plan/CLAUDE.md
+coverage cross-check (extracted all queue items + all addendum headers). Most directives covered; found 3 GAPS
+that were in plan/CLAUDE.md but NOT indexed in the queue (so the agent could miss them) — now added:
+  - 0.9 ACT FIDELITY: stream every token + preserve thinking blocks/signatures + real tool-call parsing (the
+    "reasoning-model output broken in LIVE chat" regression must not recur in act). [CLAUDE.md hard rule]
+  - 0.10 DATA CARRY-OVER: saved chats/sessions + prefs migrate to act (no lost history). [quarantine gap-closure]
+  - 4.9 ACT wiring: skills/MCP/tool-tier bridges actually driven by act + API keys in Keychain not UserDefaults.
+Note: tried interactive app exploration (Cmd+, for settings) but Epistemos activate didn't take focus (keystroke
+hit Cursor); did NOT pursue blind keystroking — D1-D5 already grounded from pass 43 screenshot. Queue is now a
+complete index (TIER 0: 0.1-0.10; T1-5 unchanged). VERDICT: spec coverage repaired; still no build-loop commits
+(agent not launched). CONFIDENCE: spec/prompt now comprehensive & internally consistent (prompt+queue+addendum
+agree); the APP is NOT done (agent hasn't run) — green-light is for LAUNCHING with a complete spec, not for "done".
