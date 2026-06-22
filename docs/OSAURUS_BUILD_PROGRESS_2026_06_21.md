@@ -154,7 +154,12 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     when armed (`EPISTEMOS_WORK_OPENCODE_V0=1`):** `BundledWorkOpenCodeShell.launchSpec` → `WorkTerminalHostView`
     spawns the real OpenCode TUI in the native SwiftTerm/PTY view (reachable via the Work settings tab). Zero
     further Swift wiring — the seam/terminal/resolver were pre-built for exactly this.
-  - REMAINS (ckpt 3): app-build + GUI launch-smoke (arm flag → confirm the TUI renders in the terminal view).
+  - ✅ **FUSION transport (`da6d42422`):** `omega_mcp_stdio` — a stdio MCP server (newline-delimited JSON-RPC)
+    OpenCode's work agent spawns to work the vault NATIVELY (the "Goose/etc fuse beneath" via MCP). initialize/
+    tools-list (catalog)/tools-call (executes the Rust vault + wikilink-graph + graph tools)/resources. 3 tests.
+  - REMAINS (ckpt 3): build+bundle the `omega_mcp_stdio` binary into Resources + register it in the OpenCode
+    launch config (`BundledWorkOpenCodeShell.launchSpec`) so the TUI auto-fuses the vault tools; then app-build +
+    GUI launch-smoke (arm flag → confirm the TUI renders + the vault tools are reachable inside OpenCode).
 - **GOOSE full-clone** = the `goose` crate (179 deps; reqwest 0.12↔0.13 clash) → needs a build-iteration
   context (worktree/branch), per owner §446-460 "not main red". See `docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`.
 - **MD-V2** (#12) = large mature EPDOC subsystem; no clean one-shot projection seam → needs dedicated grounding
