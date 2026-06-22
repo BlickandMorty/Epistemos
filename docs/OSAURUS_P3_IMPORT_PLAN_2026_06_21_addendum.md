@@ -2224,3 +2224,39 @@ behind them changes:
 screenshots — toolbar, sidebar/recent-chats, message bar, bubbles, pill, commands, 38 skills — NOT one component
 at a time. Any NEW UI element invented instead of REUSING the owner's existing component = a regression. Acceptance
 = a fresh-launch screenshot that the agent diffs against the TARGET refs and matches.
+
+---
+
+## 🔴🔴🔴 OWNER P0 (2026-06-22 ~15:40) — GROUND THE ACT UI IN THE OWNER'S REAL EXISTING UI CODE (git history); separate UI from engine
+Owner: *"look at the old commits — my app's old UI is in the actual code. Be intelligent enough to separate what
+the UI used to look like from what the code connects to (the engine). It's NOT supposed to restore the old chat
+(engine) — it's supposed to RE-IMPLEMENT the real UI, but with what Osaurus uses (the engine). This is dead simple."*
+
+**THE REAL UI ALREADY EXISTS IN THE REPO (auditor archaeology — these ARE the owner's correct chrome):**
+- `Epistemos/Views/Chat/ChatView.swift` (**1008 lines — the OWNER'S real chat UI; NOT Osaurus's 6077-line ChatView**)
+- `Epistemos/Views/Chat/ChatInputBar.swift` (the rich message bar — last correct 06-20)
+- `Epistemos/Views/Chat/ChatSidebarView.swift` (the owner's real sidebar + recent-chats — stable since **05-02**;
+  USE THIS, NOT Osaurus's native sidebar — that mismatch is the current bug)
+- `Epistemos/Views/Landing/LandingView.swift` — the CORRECT pre-churn version is at commit **`afc34e806`
+  (2026-06-21, last commit before the 06-22 act-pivot churn)**. The current LandingView was muddied by 06-22
+  toggle/Osaurus-presence edits. Recover the owner's correct landing with
+  `git show afc34e806:Epistemos/Views/Landing/LandingView.swift` (same for any drifted view).
+
+**THE METHOD — separate UI from engine (this is the "be intelligent" the owner means):**
+1. The owner's real UI views above are CORRECT — RE-IMPLEMENT/REUSE them faithfully (native toolbar, monospace
+   coral bubbles, ChatSidebarView, ChatInputBar, the afc34e806 LandingView). If a current file drifted from the
+   correct look, recover that view's body from `afc34e806`.
+2. The ENGINE is the ONLY thing that changes: rip out the old send/parse wiring (TriageService / LocalAgentLoop)
+   from those views' submit/stream path and wire the SAME views to the **Osaurus engine**
+   (`OsaurusActBridge.runTurnStreamingInProcess` / `CoreModelService` — the certified 0.4 path). Render Osaurus's
+   parsed channels (thinking/content/tools) in the owner's existing bubble/thinking views.
+3. This is **NOT** "mount the old ChatView wholesale" (option-b — that dragged the old BROKEN engine). It is
+   "the owner's real UI views + Osaurus engine."
+4. This is **NOT** "build a fresh NativeActChatView approximation" (the minimal custom toolbar/sidebar that keeps
+   being wrong). If NativeActChatView is kept as a container, it must COMPOSE the owner's REAL components
+   (ChatView's chrome / ChatInputBar / ChatSidebarView), never custom minimal stand-ins.
+
+**ACCEPTANCE:** fresh-launch act surface is visually INDISTINGUISHABLE from the owner's old chat (diff vs the
+Desktop reference screenshots + `afc34e806`'s views) EXCEPT it runs on the Osaurus engine. Sidebar =
+ChatSidebarView (owner's), message bar = ChatInputBar (owner's), landing = afc34e806 LandingView (owner's),
+bubbles/toolbar/window = the owner's. ONLY the engine differs.
