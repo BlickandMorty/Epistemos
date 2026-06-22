@@ -39,8 +39,10 @@ NOTE: if any doc names conflict, the CORE list + this prompt + the 2026-06-21 ow
 - **FULL Osaurus clone — the ENTIRE app (settings, everything), zero cherry-pick, in-process Swift**
   (OsaurusCore is in-process, NOT a subprocess — an earlier "subprocess blocks MAS" claim was a
   hallucination). Vendor the complete repo, link OsaurusCore, reskin views to app chrome.
-- **Act replaces chat.** The owner LOVES the chat front-end and wants act to look exactly like it —
-  REUSE the proven chat front-end as act's UI. Likely two modes: **act + work** (work = Goose/OpenCode).
+- **Act = Osaurus IS the chat.** MOUNT the Osaurus UI clone (LocalPackages/osaurus/.../Views/Chat) as the
+  chat surface, RESKINNED to the Epistemos look the owner loves — NOT a restyle of the old Epistemos ChatView,
+  NOT an optional engine behind a toggle. Delete the old chat (IP preserved). Two modes: **act + work**
+  (work = OpenCode). See addendum "ACT = OSAURUS IS THE CHAT" + "NO ADDED TERMS".
 - **🆕 EVERY OSAURUS SURFACE MUST WIRE TO A REAL, ALREADY-PROVEN FRONT-END PART OF THE APP.** No dead
   or disconnected surfaces. If Osaurus exposes a capability (settings, model stack, server, tools,
   transcript), it must be linked to an existing, working app front-end that's already proven — the owner
@@ -57,9 +59,10 @@ NOTE: if any doc names conflict, the CORE list + this prompt + the 2026-06-21 ow
   fixes are deferred into the act build, NOT applied to the quarantined chat).
 
 ## 🛑 HARD RULES (never violate)
-- **NEVER DELETE chat / chat-backend code** (resolution layer, picker, views, InferenceState chat paths,
-  model wiring). QUARANTINE only (flag-OFF / off-live-path, stays in-tree). Only the OWNER authorizes
-  deletion, after IP is ported + act proves out.
+- **Chat backend: PRESERVE the IP, then DELETE the chat surface** (owner authorized — Osaurus IS the chat).
+  Build the Osaurus chat surface → verify a real send/receive → port the IP/logic worth keeping → DELETE the
+  old chat (resolution layer, picker, views, InferenceState chat paths, model wiring). No toggle, no fallback
+  scaffold. (The old "NEVER delete" was superseded; keep the IP, not the surface.)
 - **Ground every claim in a file READ before stating it.** No claim about a file/capability from memory.
 - **No fake-done:** mark [x] / "done" only with a REAL-STATE test (existing-install/persisted state),
   never on build-green/test-green alone. A flag-OFF bug fix is "staged," not done.
