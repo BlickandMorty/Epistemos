@@ -132,3 +132,19 @@ Osaurus engine (no toggle/fake), implementation its choice but ALL invariants me
 - **Verdict:** PASS, no re-add. Remaining act-surface: full old-UI restore (message bar + SIDEBAR + fonts), wire
   owner GGUF/QAT models into chat (Epistemos Picks), live send verify, old-ChatView delete (MAS-blocked).
   White bar + landing routing ✅.
+
+## Pass 9 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `dfd56d1ef` (docs scope-4b + UI-direction) (<1 min); build commit `c3bee6cc7` (model bridge).
+- **c3bee6cc7 (model bridge seam) → ✅ PASS (real, no stub):** EpistemosModelBridge.swift — EpistemosModelProvider
+  protocol (primitive types) + registry + EpistemosBridgedModelService:ModelService streaming from provider →
+  routes owner GGUF/QAT (Epistemos Picks) into Osaurus ChatEngine; honestly inert when unregistered. Step 4a seam;
+  4b concrete provider next. Co-Authored.
+- **dfd56d1ef (UI-direction reconsideration) → ✅ PASS (honest deliberation, NOT drift):** agent read "not a thin
+  tint → full old look," leaned option (b) [drive old Epistemos UI with Osaurus, faithful-by-construction], noted
+  shouldRouteActThroughOsaurus partly exists, flagged for owner signal before the big pivot.
+- **AUDITOR ACTION — confirmed DIRECTION = (b)** in plan (owner's clear intent + latest-wins): old Epistemos UI
+  (landing/chat/message-bar/SIDEBAR/fonts) driven by Osaurus engine; invariants set so it does NOT regress into
+  the rejected toggle/engine-swap (default, no toggle, genuinely-Osaurus, must work). Passes 1-8 engine/bridge/
+  bootstrap carry over; mounted-ChatView shell is what (b) replaces. Unblocks the agent.
+- **Verdict:** PASS both; direction (b) confirmed to unblock. Remaining: build (b) old-UI shell on Osaurus +
+  4b concrete model provider + live send verify + old-ChatView delete (MAS-blocked).
