@@ -9,8 +9,57 @@
 
 You are the Epistemos build loop (cwd /Users/jojo/Downloads/Epistemos), running in **STRICT RE-CERTIFICATION
 MODE**. The prior loop's "done" marks are NOT trusted — context may have drifted, build-green was mistaken for
-runtime-done, and approaches diverged from the plan. Your job this phase: **re-certify the whole plan from the
-top with robust grounded evidence, fix what's actually wrong, and only then continue new work.**
+runtime-done, and approaches diverged from the plan. Your job this phase: **re-certify the ENTIRE addendum plan
+top-to-bottom with robust grounded evidence, fix what's actually wrong, and only then continue new work.** Act/D1–D5
+is P0 blocking for owner pain — it is NOT the sole certification scope.
+
+## FULL PLAN CERTIFICATION (owner 2026-06-22 — supersedes act-only tunnel vision)
+
+**The loop certifies the ENTIRE multi-feature plan**, not just the act surface. Every iteration MUST attempt a
+full queue walk unless the sole remaining open items are honestly `[~]` with reason.
+
+### What "full plan" means (non-exhaustive — queue is authoritative)
+- **All clones:** Epistemos (main) | act (Osaurus) | work (OpenCode) | beyond (future clones tab)
+- **All chat surfaces:** main, mini, graph, note (act); mini+graph also work where plan says; per-surface PNG
+- **Substrate + salvage:** AnswerPacket, Helios/GUS salvage, unification, EML, Eidos, agent-stack convergence,
+  BUILD-IT-HARDENED gates
+- **Orchestrator layer:** TRINITY, Fugu, System G / RuntimeRouter honesty
+- **Owner-facing pillars:** per-clone settings, system-prompts library, vault-deep-integration, Epdoc MD-V2,
+  motion language, UI chrome (picker/palette/38-tool panel), Talaria/beyond scope, MAS boundaries
+- **Distribution:** dual-build MAS+Pro, deep-optimization cycles, MAS-safe OsaurusCore split
+- **Data + deletion sequence:** carry-over, chat surface delete gates, UI-hide quarantine
+- **Health rows + provider wiring:** honest witnesses, Epistemos Picks, no silent Codex/Qwen
+- **OFF-LIMITS vs IN-SCOPE:** Companion-backend clones OFF-LIMITS; work + beyond future clones IN SCOPE
+
+### Per-clone certification matrix (screencapture/settings/inference where plan requires)
+
+| Clone | Settings tab | Inference lane | Surfaces to screenshot | Queue anchors |
+|-------|--------------|----------------|------------------------|---------------|
+| **Epistemos (main)** | Epistemos-native settings | TriageService / vault / graph paths | Main settings, graph, notes sidebar | 0.27, 0.21 |
+| **act** | Osaurus/act full settings | Osaurus in-process act path | Main act, mini, graph, note (act) | 0.1–0.26, D1–D5 |
+| **work** | OpenCode/work full settings | OpenCode/Goose fused engine | Work landing, TUI, act/work toggle | 0.28, 1.1–1.7 |
+| **beyond** | Tab per future clone (honest stub OK) | Per-clone when wired | Beyond tab + any wired clone | 0.30, 4.14 |
+
+### Tier walk order — NO EARLY EXIT
+1. **TIER 0:** 0.1 → 0.32 (act + clone baseline + reverse audit + iteration witness)
+2. **TIER 1:** 1.1 → 1.7 (OpenCode/work — do NOT skip because act is broken)
+3. **TIER 2:** 2.1 → 2.8 (substrate, salvage, BUILD-IT-HARDENED)
+4. **TIER 3:** 3.1 → 3.2 (TRINITY, Fugu)
+5. **TIER 4:** 4.1 → 4.15 (settings polish, pillars, beyond clones)
+6. **TIER 5:** 5.1 → 5.3 (distribution)
+
+**Rules:**
+- **Act certified ≠ loop done.** D1–D5 passing does NOT permit stopping the iteration.
+- **Build-green ≠ any tier done.** Compile success is floor only.
+- **FULL-PLAN-NO-ACT-TUNNEL:** do NOT declare iteration complete after certifying act only. Continue into TIER 1+
+  every iteration until full walk attempted or true last-resort `[~]`.
+- P0 act defects preempt *within* TIER 0 — they do not cancel the obligation to attempt lower tiers same iteration
+  when TIER 0 items are certified or honestly blocked with evidence.
+
+### Reverse addendum audit (EVERY iteration — queue 0.31)
+After the forward queue walk, grep the addendum for: `🔒`, `DEFINITIVE`, `P0`, `MUST`, `BUILD-IT-HARDENED`,
+`ALL CHAT SURFACES`, `PER-CLONE`. Verify each hit is indexed in WORK_QUEUE or STANDING with →plan ref. Any miss →
+ADD queue row + log in STRICT_RECERT_LOG same iteration.
 
 ## THE PRIME RULE
 - **EVERYTHING STARTS UNCERTIFIED.** Treat every checkbox in docs/WORK_QUEUE_2026_06_22.md (and every "done"/
@@ -65,9 +114,9 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 
 ## EVERY ITERATION
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
-2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.26, then 1.1, 2.1, …). No queue-jumping.
-   FIRST ITERATION bootstrap order below is one-time only — standing rule is strict numeric queue order.
-   Don't move past an uncertified TIER-0 item.
+2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.7, 2.1, … 5.3). No queue-jumping.
+   FIRST ITERATION bootstrap order below is one-time only — standing rule is strict numeric queue order through
+   ALL tiers. Don't stop after act/D1–D5; don't stop after TIER 0 unless attempting TIER 1+ same iteration.
 3. **Read that item's `→plan:` section IN FULL** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md. The
    queue line is only a pointer; the plan section is the spec, including every SPECIFIC/nuance.
 4. **RE-CERTIFY against the STRICT BAR (all five must hold):**
@@ -105,19 +154,23 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 7. **If you find a plan directive not represented in the queue, ADD it** (keep the queue a complete index). New
    owner directives go into the plan AND the queue.
 
-## QUEUE ITEMS 0.11–0.26 (mirror — read queue for full →plan: refs)
+## QUEUE ITEMS 0.11–0.32 (mirror — read queue for full →plan: refs)
 - **0.11** Provider wiring + Epistemos Picks (no silent Codex/Qwen) · **0.12** Surface-wiring rule
 - **0.13** Shared act component · **0.14** Health-row witnesses honest (wiredToday/stillStub match code)
 - **0.15** DEEP CHECK (honest OSAURUS_BUILD_PROGRESS) · **0.16** Reasoning + title-gen (extends 0.9;
   `<think>` parse; CLEAN short titles — no model self-description garbage)
 - **0.17** LOCKED direction (Osaurus OWN UI reskinned + 3 grafts; SUPERSEDES option-b) · **0.18** Model provider registration
 - **0.19** Chat surface deletion sequence (IP preserved) · **0.20** Collapse act/chat duality
-- **0.21** Per-clone settings (D4 blocking) · **0.22** ONE inference chokepoint (no HTTP requestFailed)
-- **0.23** Send-text harness EVERY iteration (build if missing) · **0.24** Act UI bug bundle (white bar,
-  click→search, title-gen) · **0.25** Delete old main ChatView surface (GATED on 0.4+0.8+0.10+four-part bar)
-- **0.26** UI-hide quarantined chat (GATED — act certified first)
+- **0.21** Per-clone settings matrix — Epistemos|act|work|beyond (D4 blocking) · **0.22** ONE inference chokepoint
+- **0.23** Send-text harness EVERY iteration · **0.24** Act UI bug bundle · **0.25** Delete old ChatView (GATED)
+- **0.26** UI-hide quarantined chat (GATED) · **0.27** Epistemos (main) clone baseline
+- **0.28** WORK clone surface reachable · **0.29** Per-clone inference routing
+- **0.30** BEYOND tab + OFF-LIMITS vs in-scope honesty · **0.31** Reverse addendum audit (standing)
+- **0.32** Full-plan iteration witness (standing)
+- **TIER 1:** 1.1–1.7 work/OpenCode · **TIER 2:** 2.1–2.8 substrate/salvage · **TIER 3:** 3.1–3.2 · **TIER 4:**
+  4.1–4.15 · **TIER 5:** 5.1–5.3
 
-## MANDATORY BEHAVIOR A–G (from gap audit — non-negotiable every loop)
+## MANDATORY BEHAVIOR A–H (from gap audit — non-negotiable every loop)
 - **(A) D-GATE RULE:** D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7. Do NOT mark 0.1–0.7 `[x]`
   until the matching D-item passes YOUR screencapture. Queue 4.7 is likewise gated on D5.
 - **(B) PER-SURFACE SCREENSHOT MANDATE:** Certify **each** chat surface with its **own** PNG: main act, mini
@@ -133,10 +186,13 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   `AnswerPacketHealthRow`, `LocalRouteHonestyHealthRow`, etc.: `wiredToday`/`stillStub` must match REAL code.
 - **(G) PROVIDER WIRING BAR:** Item 0.11 — owner's GGUF/QAT selectable AND used on send; Configuration opens
   REAL settings; NO silent Codex default; NO silent Qwen substitution. Send must use selected model.
+- **(H) FULL-PLAN-NO-ACT-TUNNEL:** Item 0.32 — before iteration ends, confirm you attempted 0.1→0.32 then TIER 1+
+  (not act-only). Log highest item reached + per-tier counts. Act certified ≠ loop done.
 
 ## PER-SURFACE SCREENSHOT MANDATE
 Certify **each** chat surface with its **own** PNG: main act, mini chat, graph chat, note chat (act), work
-(where applicable). A single main-act screenshot does NOT satisfy 0.2 or 0.5.
+landing/TUI (where applicable), Epistemos main settings (0.27). A single main-act screenshot does NOT satisfy
+0.2, 0.5, 0.28, or 0.21.
 
 ## COMPLETENESS CRITIC (every loop, end of iteration)
 Grep consumers of `InferenceState`, model picker, chat send paths, capability pills. Any surface not in queue →
@@ -169,11 +225,12 @@ then (that IS resuming). You are not just auditing — you are deeply certifying
 robust, canonical, functionally-proven state. Keep the queue super-canonical to the plan the whole way.
 
 ## DONE-WITH-PHASE-1 BAR (when do you stop re-certifying and "continue"?)
-Re-certification of the whole plan is complete when every queue item is either `[x] CERTIFIED` or
-`[~] NEEDS-OWNER-RUNTIME` with a clear owner-verify note — and you've written a short "STRICT RE-CERT COMPLETE"
-summary at the top of STRICT_RECERT_LOG (count certified / needs-owner / fixed-during-recert). ONLY THEN resume
-normal forward work on the lowest still-open tier. The "continue" the owner wants is *after* the robust pass,
-not instead of it.
+Re-certification of the **ENTIRE plan** (all tiers, all clones) is complete when every queue item is either
+`[x] CERTIFIED` or `[~] NEEDS-OWNER-RUNTIME` with a clear owner-verify note — and you've written a short
+"STRICT RE-CERT COMPLETE" summary at the top of STRICT_RECERT_LOG (count certified / needs-owner / fixed-during-
+recert **per tier**). ONLY THEN resume normal forward work on the lowest still-open tier. **Act surface certified
+alone does NOT satisfy this bar.** The "continue" the owner wants is *after* the robust full-plan pass, not instead
+of it.
 
 ## ▶️ FIRST ITERATION — do exactly this, in order
 1. Read this driver IN FULL + docs/WORK_QUEUE_2026_06_22.md IN FULL (every box starts UNCERTIFIED).
@@ -182,22 +239,25 @@ not instead of it.
    `docs/research/osa_runtime_PLACEHOLDER.md`).
 3. Build/run the send-text harness (or CREATE it if missing — item 0.23) — assert a REAL reply from the
    owner's model; log the prompt + first ~80 chars.
-4. Walk **0.1 → 0.26 in strict numeric order** — one item per loop minimum; do NOT queue-jump. For each item:
-   read full →plan section · apply 5-gate bar · screencapture per-surface where UI · send-text every loop.
-   Key early blockers: **0.1** vendored Theme.swift SOURCE · **0.3** Epistemos landing FIRST (D2) · **0.2/0.5**
-   each surface PNG · **0.4/0.22** send + chokepoint · **0.11** provider/Epistemos Picks · **0.8** D1–D5 ·
-   **0.21** settings (D4) · **0.16** title-gen · **0.17–0.20** locked direction/registration/deletion/duality.
+4. Walk **0.1 → 0.32 in strict numeric order**, then **continue into TIER 1+ same iteration** when TIER 0 items
+   pass or are honestly `[~]`. One item minimum per loop; do NOT queue-jump. For each item: read full →plan section
+   · apply 5-gate bar · screencapture per-surface where UI · send-text every loop · reverse addendum audit (0.31)
+   at end · full-plan witness (0.32) before declaring iteration done.
+   TIER 0 act blockers remain P0: **0.1** Theme.swift SOURCE · **0.3** Epistemos landing (D2) · **0.8** D1–D5 ·
+   **0.21** per-clone settings matrix. These do NOT cancel TIER 1+ attempt once certified or blocked with evidence.
 5. Update the queue + STRICT_RECERT_LOG each loop; commit only your changed files; Co-Authored-By Claude.
 
+**Act certified ≠ iteration done. Do not stop at D1–D5 or build-green.**
+
 ## STANDING (every item, every loop)
-No fake-done · build-green ≠ done (runtime-verify UI) · no red on main · code-more-build-less (fast gate per
-increment, heavy xcodebuild at checkpoints, never idle-block) · never delete chat IP (preserve+port; surface
-delete only after the four-part bar + owner authorization) · NO-ADDED-TERMS · NO-QUEUE-JUMPING · latest-owner-
-directive-wins · FAVOR OSAURUS on clash · owner messages → plan+queue same iteration · NEVER-IDLE (heavy =
-incremental slices) · external ~/Downloads corpus read-only when salvage needs it · 70B / NEW-MODEL brain-1
-EXCLUDED · OFF-LIMITS (Companion clones / companions.rs / Models·State Companion / CompanionCreationFlow /
-new-model interrupt internals) · main-only · Co-Authored-By Claude · P0 owner runtime reports preempt everything
-· discovery sweep / completeness critic every loop (paragraph D above).
+No fake-done · build-green ≠ done · **act certified ≠ loop done** · runtime-verify UI · no red on main ·
+code-more-build-less (fast gate per increment, heavy xcodebuild at checkpoints, never idle-block) · never delete
+chat IP (preserve+port; surface delete only after the four-part bar + owner authorization) · NO-ADDED-TERMS ·
+NO-QUEUE-JUMPING · **FULL-PLAN-NO-ACT-TUNNEL** · latest-owner-directive-wins · FAVOR OSAURUS on clash · owner
+messages → plan+queue same iteration · NEVER-IDLE (heavy = incremental slices) · external ~/Downloads corpus
+read-only when salvage needs it · 70B / NEW-MODEL brain-1 EXCLUDED · **Companion-backend OFF-LIMITS** (work +
+beyond future clones IN SCOPE) · main-only · Co-Authored-By Claude · P0 owner runtime reports preempt everything
+· discovery sweep / completeness critic every loop · **reverse addendum audit (0.31) every loop**.
 
 ## AUTHORITY DOCS
 - Spec/authority: docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).
