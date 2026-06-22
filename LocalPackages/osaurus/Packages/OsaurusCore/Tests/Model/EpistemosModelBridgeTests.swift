@@ -83,4 +83,22 @@ struct EpistemosModelBridgeTests {
         #expect(svc.handles(requestedModel: "epi-qat-2b") == false)
         #expect(EpistemosModelBridge.providedModelIds().isEmpty)
     }
+
+    // Owner 2026-06-22 (#1 concern): the act surface seeds the default-agent model to the owner's
+    // first model so the FIRST send uses THEIR model. The seed decision is pure + must (a) seed the
+    // owner's first model on a fresh install, (b) NEVER re-seed once seeded (don't clobber the
+    // owner's later choice), (c) skip — WITHOUT latching — when no owner model is registered yet
+    // (so a later mount retries once the bridge is up).
+    @Test("owner default-model seed decision: seeds first model once, skips when seeded or empty")
+    func ownerDefaultModelSeedDecision() {
+        // Fresh + owner has models → seed the first.
+        #expect(EpistemosOsaurusChatHost.ownerModelToSeed(
+            alreadySeeded: false, ownerModels: ["epi-qat-2b", "epi-gguf-7b"]) == "epi-qat-2b")
+        // Already seeded → never re-seed (don't clobber the owner's later picker choice).
+        #expect(EpistemosOsaurusChatHost.ownerModelToSeed(
+            alreadySeeded: true, ownerModels: ["epi-qat-2b"]) == nil)
+        // Not seeded but no owner model yet → skip (caller must NOT latch, so it retries later).
+        #expect(EpistemosOsaurusChatHost.ownerModelToSeed(
+            alreadySeeded: false, ownerModels: []) == nil)
+    }
 }
