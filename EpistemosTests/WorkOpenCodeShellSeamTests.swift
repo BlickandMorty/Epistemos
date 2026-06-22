@@ -55,7 +55,14 @@ struct WorkOpenCodeShellSeamTests {
 
     @Test("gate is pure + honest: off by default, arms on the Pro flag")
     func gateHonesty() {
-        let off = WorkOpenCodeShellGateStatus.status(environment: [:])
+        // Hermetic: read the gate from a CLEAN defaults suite so the host app's PERSISTED in-app
+        // toggle (set during a real app run; the registry default is `.standard`) can't pollute
+        // these default/armed-state checks. Mirrors the act ActOsaurusSeamTests.gateHonest fix.
+        let suite = "test.work.opencode.gate.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let off = WorkOpenCodeShellGateStatus.status(environment: [:], defaults: defaults)
         #expect(off.isActive == false)
         #expect(off.headline.contains("OpenCode"))
 
@@ -66,12 +73,12 @@ struct WorkOpenCodeShellSeamTests {
 
         #if !EPISTEMOS_APP_STORE
         let armed = WorkOpenCodeShellGateStatus.status(
-            environment: [WorkOpenCodeShellGateStatus.flagName: "1"]
+            environment: [WorkOpenCodeShellGateStatus.flagName: "1"], defaults: defaults
         )
         #expect(armed.isActive == true)
         #expect(armed.detail.contains("INERT"))   // honest: armed ≠ live
         #else
-        let mas = WorkOpenCodeShellGateStatus.status(environment: [:])
+        let mas = WorkOpenCodeShellGateStatus.status(environment: [:], defaults: defaults)
         #expect(mas.detail.contains("Pro"))        // honest "Pro only" on MAS, never a silent cut
         #endif
     }
@@ -112,8 +119,64 @@ struct WorkOpenCodeShellSeamTests {
     func healthRowVisibleAndWired() throws {
         let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/WorkOpenCodeShellHealthRow.swift")
         #expect(row.contains("struct WorkOpenCodeShellHealthRow"))
-        #expect(row.contains("WorkOpenCodeShellGateStatus.status"))
+        // The row was refactored (owner 2026-06-22) to report the HONEST live/inert state from the
+        // ACTUAL factory resolution (no experimental gate) — so it reads WorkOpenCodeShellFactory,
+        // not WorkOpenCodeShellGateStatus. Assert the real source of truth it now wires to.
+        #expect(row.contains("WorkOpenCodeShellFactory.resolve()"))
         let panel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
         #expect(panel.contains("WorkOpenCodeShellHealthRow()"))
+    }
+
+    // MARK: - Fusion config + honest runtime gating (directive 2: Goose/Hermes/OpenClaw
+    // fuse BENEATH the OpenCode shell via the omega_mcp_stdio MCP transport)
+
+    @Test("fusion config registers the omega_mcp_stdio MCP server with the vault root (engines fuse via MCP)")
+    func fusionConfigRegistersVaultMCPServer() throws {
+        let json = WorkOpenCodeRuntime.openCodeConfigJSON(
+            stdioServerPath: "/opt/epistemos/bin/omega_mcp_stdio",
+            vaultRoot: "/Users/me/Vault")
+        let obj = try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
+        let server = (obj?["mcp"] as? [String: Any])?["epistemos-vault"] as? [String: Any]
+        #expect(obj?["$schema"] as? String == "https://opencode.ai/config.json")
+        #expect(server?["type"] as? String == "local")
+        #expect(server?["command"] as? [String] == ["/opt/epistemos/bin/omega_mcp_stdio"])
+        #expect((server?["environment"] as? [String: String])?["EPISTEMOS_VAULT_ROOT"] == "/Users/me/Vault")
+        #expect(server?["enabled"] as? Bool == true)
+    }
+
+    @Test("runtime resolver is honest: nil with no Resources + nil while the launcher is absent (inert until vendored)")
+    func runtimeResolverHonestlyNilUntilVendored() {
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: nil) == nil)
+        let emptyDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epi-work-empty-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: emptyDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: emptyDir) }
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: emptyDir) == nil)
+    }
+
+    @Test("runtime resolver returns the launcher once it is vendored (present + executable)")
+    func runtimeResolverFindsLauncherWhenPresent() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epi-work-rt-\(UUID().uuidString)", isDirectory: true)
+        let binDir = root.appendingPathComponent("opencode-runtime/bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
+        let launcher = binDir.appendingPathComponent("opencode")
+        FileManager.default.createFile(
+            atPath: launcher.path, contents: Data("#!/bin/sh\n".utf8),
+            attributes: [.posixPermissions: 0o755])
+        defer { try? FileManager.default.removeItem(at: root) }
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: root)?.path == launcher.path)
+    }
+
+    @Test("shell env pins OpenCode to loopback + prepends the bundled bin dir only when the runtime is present")
+    func shellEnvPinsLoopbackAndPath() {
+        let noRuntime = WorkOpenCodeRuntime.shellEnvironment(base: ["PATH": "/usr/bin"], runtimeURL: nil)
+        #expect(noRuntime["OPENCODE_HOST"] == "127.0.0.1")
+        #expect(noRuntime["OPENCODE_PORT"] == "4096")
+        #expect(noRuntime["PATH"] == "/usr/bin")   // unchanged when no runtime is vendored
+
+        let rtURL = URL(fileURLWithPath: "/opt/epistemos/opencode-runtime/bin/opencode")
+        let withRuntime = WorkOpenCodeRuntime.shellEnvironment(base: ["PATH": "/usr/bin"], runtimeURL: rtURL)
+        #expect(withRuntime["PATH"]?.hasPrefix("/opt/epistemos/opencode-runtime/bin:") == true)
     }
 }
