@@ -1043,3 +1043,10 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   returned an error (HTTP N). Act normally runs in-process — retry the message; if it persists, reselect your
   model in the picker." So UserFacingChatError.message(from:) surfaces the real text, never 'error 2'.
 - Test: ActOsaurusSeamTests.actOsaurusErrorIsDiagnosable pins it (surfaced message has retry+model, not 'error 2').
+
+## P0 UI: deleted the DUPLICATE act/work toggle (owner 2026-06-22, 3 screenshots)
+- Owner saw TWO act/work switches: the top "Act | Work" capsule (RootView.WorkspaceModeToggle, KEEP) and a
+  second "● act ● work" pill-row UNDER the "GREETINGS, RESEARCHER" greeting (the duplicate, DELETE). The pivot
+  (fe66b8af7) removed the toggle, then 818654aa4 re-added one → two appeared.
+- Removed the below-greeting WorkspaceModePicker block from LandingView + its now-orphaned `landingMode` @State.
+  One clean toggle only (the top capsule). The Osaurus landing badge stays.
