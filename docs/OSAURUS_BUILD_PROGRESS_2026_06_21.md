@@ -48,7 +48,12 @@ SEQUENCING: Osaurus/ACT-first (engine done → shared composer + reskin), THEN W
 | 9 | MAS non-restrictive (global) | ✅ | `OSAURUS_MAS_ENTITLEMENTS_RESEARCH_2026_06_21.md`; direct-distribution | distribution signing |
 | 10 | Reuse-not-rebuild IP (RustLSP/Eidos/Halo/RRF/DAG) | ✅ present | `RustLSPTransport`/`EidosBridge`/`HaloController`/`RRFFusionQuery` exist | wire into both modes |
 | 11 | Every surface→real front-end + completeness sweep | 🟡 | sweep `e84fd4110`; act health real `2025fc876`; Picks visible | remaining surfaces |
-| 12 | EPDOC MD-V2 (md source, html/json projections) | 🟡 | **GROUNDED 2026-06-21:** EPDOC currently stores **`contentJSON` as CANONICAL** (`EpistemosDocumentController` drives `epdoc.package.contentJSON`; `projectAndIndexBlocks(contentJSON:)` + `projectAndPersistGraph(contentJSON:)` project blocks/graph FROM the JSON). MD-V2 = **INVERT** the canonical format: markdown becomes source-of-truth, JSON/html/blocks/graph become projections OF the md. That's a subsystem inversion in `EpdocPackage`, NOT a bounded loop increment — a parallel MdV2 type would not integrate. | INVERT EpdocPackage canonical JSON→markdown in a dedicated grounding pass (cross-ref existing md-first); no toy projection |
+| 12 | EPDOC MD-V2 (md source, html/json projections) | 🟡 | **GROUNDED 2026-06-21:** EPDOC currently stores **`contentJSON` as CANONICAL** (`EpistemosDocumentController` drives `epdoc.package.contentJSON`; `projectAndIndexBlocks(contentJSON:)` + `projectAndPersistGraph(contentJSON:)` project blocks/graph FROM the JSON). MD-V2 = **INVERT** the canonical format. PRECISE SCOPE (confirmed by `Models/EpdocPackage.swift`): the package
+ALREADY has `contentJSON: Data` (REQUIRED, `content.pm.json` ProseMirror JSON = today's canonical) AND
+`shadowMarkdown: Data?` (OPTIONAL, literally `projections/shadow.md` — markdown is presently a SHADOW
+PROJECTION). MD-V2 = **promote `shadowMarkdown`→required SOURCE-OF-TRUTH + demote `contentJSON`→a projection +
+update every contentJSON-canonical reader** (DocumentController, `projectAndIndexBlocks`, graph projector,
+HTML workspace). Subsystem inversion, NOT a bounded loop increment; a parallel MdV2 type would not integrate. | promote shadowMarkdown→source / demote contentJSON→projection in a dedicated pass; no toy |
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
