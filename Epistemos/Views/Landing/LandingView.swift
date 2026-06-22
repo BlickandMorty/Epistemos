@@ -711,6 +711,18 @@ struct LandingView: View {
                         .frame(maxWidth: 220)
                         .transition(.opacity)
                 }
+
+                #if !EPISTEMOS_APP_STORE
+                // P0-B (owner 2026-06-22): Osaurus's presence on the act LANDING — a
+                // visible "Osaurus-powered" indicator (+ clickable live engine status),
+                // shown ONLY when act actually routes through the Osaurus engine.
+                // Honest — never on the MAS / old-MLX path. The act surface's start
+                // surface now reads as Osaurus, not the plain old chat.
+                if !showingLandingStageCommand, LocalAgentLoop.shouldRouteActThroughOsaurus() {
+                    ActOsaurusActiveBadge()
+                        .transition(.opacity)
+                }
+                #endif
             }
             .padding(.horizontal, Spacing.xxl)
             .allowsHitTesting(showingLandingStageCommand)
