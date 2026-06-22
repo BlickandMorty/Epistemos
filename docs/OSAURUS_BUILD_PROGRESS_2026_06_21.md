@@ -909,10 +909,15 @@ don't revert). Two P0s:
   - [ ] **REMAINING:** broaden the bridge registration so the ChatView-selectable model ids are all handled (the
     threaded model only routes if registered — today only the prepared generators are; if the selected id isn't a
     generator it throws the visible `modelUnavailable`). REAL runtime verification REQUIRED (owner/computer-use).
-- [ ] **P0-B — Osaurus is INVISIBLE** (owner can't tell it's Osaurus; feels like the dead old chat). SURFACE
-  Osaurus in the act UI: a clear "act is Osaurus-powered" indicator (`CoreModelService.resolveStatus()` already
-  returns unset/unavailable/available + reason — doubles as the P0-A diagnostic) + bring Osaurus's distinctive
-  controls/buttons/landing INTO the old UI. The old-UI shell stays; Osaurus's capabilities show within it.
+- [~] **P0-B — Osaurus is INVISIBLE** (owner can't tell it's Osaurus; feels like the dead old chat). SURFACE
+  Osaurus in the act UI.
+  - [x] **Indicator (this build):** `ActOsaurusActiveBadge` — a green "Osaurus ⚡" badge in the old `ChatView`'s
+    `.toolbar`, shown ONLY when act actually routes through Osaurus (`LocalAgentLoop.shouldRouteActThroughOsaurus()`,
+    Pro — honest, never on the MAS/old-MLX path). Its tooltip carries the LIVE engine status
+    (`CoreModelService.resolveStatus()` via the bridge), which doubles as the P0-A diagnostic (unset / unavailable
+    + reason / available). So the owner can SEE act is Osaurus-powered + the engine state.
+  - [ ] **Follow-on:** bring Osaurus's distinctive controls/buttons/landing INTO the old UI (the larger
+    "give me the Osaurus buttons" ask). The old-UI shell stays; Osaurus's capabilities show within it.
 
 ### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
 The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't
