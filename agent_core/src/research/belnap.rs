@@ -50,6 +50,19 @@ pub enum BelnapValue {
 }
 
 impl BelnapValue {
+    /// Classify EVIDENCE into a Belnap truth value (GUS-2 abstain-gate bridge): `supporting` pieces of evidence
+    /// for a claim + `refuting` pieces against it → `Both` (supported AND refuted = contradictory), `True`
+    /// (supported only), `False` (refuted only), `Neither` (no evidence). Compose with `abstains()` to get the
+    /// AnswerPacket's honest assert-vs-abstain decision directly from retrieval/verification counts.
+    pub fn from_evidence(supporting: usize, refuting: usize) -> Self {
+        match (supporting > 0, refuting > 0) {
+            (true, true) => BelnapValue::Both,
+            (true, false) => BelnapValue::True,
+            (false, true) => BelnapValue::False,
+            (false, false) => BelnapValue::Neither,
+        }
+    }
+
     /// HONESTY / ABSTAIN gate (GUS-2, owner 2026-06-22): the AnswerPacket should ABSTAIN when the evidence's
     /// truth value isn't classically decided — `Both` (CONTRADICTORY evidence: supported AND refuted) or
     /// `Neither` (NO evidence: neither supported nor refuted). Asserting on Both/Neither is exactly the
@@ -282,6 +295,22 @@ mod tests {
         for v in BelnapValue::ALL {
             assert_eq!(v.abstains(), !v.is_classical());
         }
+    }
+
+    #[test]
+    fn from_evidence_classifies_and_drives_the_abstain_gate() {
+        // supported only → True (assert); refuted only → False (assert).
+        assert_eq!(BelnapValue::from_evidence(3, 0), BelnapValue::True);
+        assert_eq!(BelnapValue::from_evidence(0, 2), BelnapValue::False);
+        assert!(!BelnapValue::from_evidence(3, 0).abstains());
+        // contradictory (both) and no-evidence (neither) → ABSTAIN.
+        assert_eq!(BelnapValue::from_evidence(2, 2), BelnapValue::Both);
+        assert_eq!(BelnapValue::from_evidence(0, 0), BelnapValue::Neither);
+        assert!(BelnapValue::from_evidence(2, 2).abstains());
+        assert!(BelnapValue::from_evidence(0, 0).abstains());
+        // end-to-end: contradictory evidence → abstain with the honest reason.
+        let v = BelnapValue::from_evidence(1, 1);
+        assert!(v.abstains() && v.abstain_reason().unwrap().contains("contradictory"));
     }
 
     #[test]
