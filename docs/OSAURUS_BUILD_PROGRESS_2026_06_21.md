@@ -1004,3 +1004,14 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
 - **Fixed:** both now assert the real invariant — Pro: DEFAULT-ON regardless of env/flag (option b, no
   toggle); MAS: OFF always (OsaurusCore not linked). No production code touched — the tests were stale, not
   the behavior. Re-ran both suites green. (Matches "real-state tests only" + "no red on main".)
+
+## Item-4 proof — owner's models route through the Osaurus chat (model bridge tested, 2026-06-22)
+- Addendum item 4 ("OWNER'S MODELS IN CHAT / Epistemos Picks gap") was code-complete via the model bridge
+  (EpistemosModelProvider seam + EpistemosBridgedModelService), but the OsaurusCore side was UNTESTED.
+- Added `EpistemosModelBridgeTests` (OsaurusCore, serialized — the registry is a process-global): a fake
+  EpistemosModelProvider is registered, then the bridged ModelService is asserted to (a) be available, (b)
+  handle ONLY the owner's model ids (decline nil/unknown/apple-foundation), (c) actually STREAM the provider's
+  tokens via streamDeltas, and (d) be honestly INERT when no provider is registered (byte-identical default).
+- Added a `#if DEBUG` `EpistemosModelBridge.resetForTesting()` so the global registration can't leak between
+  tests (excluded from release builds). Proves item-4's core invariant — the owner's GGUF/QAT models are
+  routable in act — at real-state, no naive stub.
