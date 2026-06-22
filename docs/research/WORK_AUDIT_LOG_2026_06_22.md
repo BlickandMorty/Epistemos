@@ -1135,3 +1135,16 @@ won't verify); auditor watches. Kept the grounded method (reuse real views ChatV
 afc34e806, separate UI/engine, Osaurus=engine-only, fresh-launch screenshot-diff). NOTE: this REVISES the earlier
 "compose ChatSidebarView into the act left side" (iter26-27) — owner now says recent-chats go on the PILL, not a
 left sidebar on act. Did NOT touch agent code.
+
+## PASS 74 — 2026-06-22 (FINAL two-prompt pair: hardened Codex builder goal + auditor loop)
+Owner wants the two final prompts; agent (Codex) one hardened ("super robust, no hallucinate, no drift").
+Updated docs/CODEX_BUILD_GOAL_2026_06_22.md (3917 bytes, <4000) — ADDED explicit ANTI-HALLUCINATION (never
+claim exists/works/done without grep/Read/screencapture first; every [x] cites file:line + fresh-launch PNG;
+unverified⇒[ ]; no fabricated verification) + ANTI-DRIFT (ground in real code via git show afc34e806 / Read, not
+memory; mounting/reskinning/decomposing ANY ChatView or building fresh minimal chrome = DRIFT, STOP). Kept:
+forever loop, whole-plan recert, reuse-real-views method, owner P0s (real LandingView+pill-on-top+recent-chats-
+on-pill+settings+greetings+press→act; act needs Osaurus buttons+palette+38-tool+38-skills; NO left sidebar on
+act; indistinguishable-from-old-chat; kill duality; multi-surface), computer-use fresh-launch verify + diff vs
+Desktop refs, send-harness, no-red, auditor-watches. Auditor prompt = docs/AUDITOR_LOOP_PROMPT_2026_06_22.md
+(pass-72, comprehensive). NOTE for owner: run ONE auditor — stop this session's cron (34ea6526) when the new
+auditor starts. Did NOT touch agent code.
