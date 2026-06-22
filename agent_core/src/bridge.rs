@@ -646,6 +646,12 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
             if let Some(template) = profile.llama_cpp_template_name() {
                 gguf = gguf.with_chat_template(template);
             }
+            // P0 (owner 2026-06-22): if this is a reasoning model with no template override + no stop tokens,
+            // log the refusal/leak risk so the cause is pinned at runtime (the GGUF analog of the MLX
+            // chat-template diagnostic). Diagnostic only — the dialect fix is owner-confirmed per model.
+            if let Some(warning) = profile.reasoning_dialect_risk_warning() {
+                tracing::warn!("{warning}");
+            }
             Ok(Arc::new(gguf))
         }
         // Chinese AI providers
