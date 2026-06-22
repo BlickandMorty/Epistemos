@@ -2136,3 +2136,25 @@ NativeActChatView; wire each surface to the bridge. (0.2.)
 **ACCEPTANCE (fresh launch — kill→rebuild→open→screencapture→Read):** landing = cream + native toolbar + pill;
 tap anywhere → native act (no search); act = NativeActChatView with the owner's CREAM chrome + ChatInputBar +
 sidebar + pill (NOT a white skeleton); real send streams a reply; no chat/act duality.
+
+---
+
+## 🔴 AUDITOR CORRECTION (P0, 2026-06-22 ~15:18) — REWRITE the stale guard test (now red/wrong) ; finish composing the chrome
+**Strong progress acknowledged:** iter20-23 shipped FRESH NATIVE cream views — `NativeActLandingView` (cream
+#fbfaf5 + pill + click-ANYWHERE→act, NO search) + `NativeActChatView` (cream, certified `OsaurusActBridge`
+link), wired in RootView (2716/2727) REPLACING `EpistemosOsaurusChatHost()`. And pass-66 ingested:
+NativeActChatView now composes the owner's `ChatInputBar` (:120/:126). This is the pivot DELIVERED — keep going.
+
+**P0 — stale guard test is now WRONG + RED:** `EpistemosTests/ActSurfaceOsaurusUIDirectionGuardTests.swift:17`
+still `#expect(source.contains("EpistemosOsaurusChatHost()"))` — but RootView NO LONGER calls
+`EpistemosOsaurusChatHost()` (replaced by NativeActChatView/NativeActLandingView; only a comment without parens
+remains). So this guard now FAILS (no-red-on-main violation) AND actively locks the abandoned direction.
+**REWRITE it to lock the PIVOT:** REQUIRE that RootView's Pro act branch mounts `NativeActChatView` +
+`NativeActLandingView` and that the act send routes via `OsaurusActBridge.runTurnStreamingInProcess` /
+`CoreModelService`; FORBID `EpistemosOsaurusChatHost()` and `ChatView()` as the act surface. (Codex item — was
+flagged pass-66, still not done.) Run the test green after rewrite — no red on main.
+
+**WATCH (finish the chrome):** NativeActChatView now uses `ChatInputBar` ✓ but **`ChatSidebarView` (sidebar +
+recent chats) is NOT yet composed** — add it (+ confirm `ChatCapabilityPill` renders on act AND landing AND
+work). Acceptance unchanged: fresh-launch shows cream + native toolbar + pill + the owner's ChatInputBar +
+sidebar + a real streaming send.
