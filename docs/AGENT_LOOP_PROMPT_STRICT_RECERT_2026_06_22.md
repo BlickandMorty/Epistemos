@@ -25,7 +25,7 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
   BUILD-IT-HARDENED gates
 - **Orchestrator layer:** TRINITY, Fugu, System G / RuntimeRouter honesty
 - **Owner-facing pillars:** per-clone settings, system-prompts library, vault-deep-integration, Epdoc MD-V2,
-  motion language, UI chrome (picker/palette/38-tool panel), Talaria/beyond scope, MAS boundaries
+  motion language, UI chrome (picker/palette/38-tool panel), Tolaria/beyond scope, MAS boundaries
 - **Distribution:** dual-build MAS+Pro, deep-optimization cycles, MAS-safe OsaurusCore split
 - **Data + deletion sequence:** carry-over, chat surface delete gates, UI-hide quarantine
 - **Health rows + provider wiring:** honest witnesses, Epistemos Picks, no silent Codex/Qwen
@@ -37,15 +37,15 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
 |-------|--------------|----------------|------------------------|---------------|
 | **Epistemos (main)** | Epistemos-native settings | TriageService / vault / graph paths | Main settings, graph, notes sidebar | 0.27, 0.21 |
 | **act** | Osaurus/act full settings | Osaurus in-process act path | Main act, mini, graph, note (act) | 0.1–0.26, D1–D5 |
-| **work** | OpenCode/work full settings | OpenCode/Goose fused engine | Work landing, TUI, act/work toggle | 0.28, 1.1–1.8 |
+| **work** | OpenCode/work full settings | OpenCode/Goose fused engine | Work landing, TUI, act/work toggle | 0.28, 1.1–1.9 |
 | **beyond** | Tab per future clone (honest stub OK) | Per-clone when wired | Beyond tab + any wired clone | 0.30, 4.14 |
 
 ### Tier walk order — NO EARLY EXIT
 1. **TIER 0:** 0.1 → 0.32 (act + clone baseline + reverse audit + iteration witness)
-2. **TIER 1:** 1.1 → 1.8 (OpenCode/work — do NOT skip because act is broken)
+2. **TIER 1:** 1.1 → 1.9 (OpenCode/work — do NOT skip because act is broken)
 3. **TIER 2:** 2.1 → 2.8 (substrate, salvage, BUILD-IT-HARDENED)
 4. **TIER 3:** 3.1 → 3.2 (TRINITY, Fugu)
-5. **TIER 4:** 4.1 → 4.16 (settings polish, pillars, beyond clones, graph integration)
+5. **TIER 4:** 4.1 → 4.18 (settings polish, pillars, beyond clones, graph integration, vault→GRAPH, MD-V2 inversion)
 6. **TIER 5:** 5.1 → 5.4 (distribution + MAS sandbox substitute research)
 
 **Rules:**
@@ -119,7 +119,7 @@ Act has D1–D5. **Work, beyond, and substrate/orchestrator must NOT `[x]` on bu
 
 | Gate | When certifying | Minimum proof |
 |------|-----------------|---------------|
-| **W1–W5** | TIER 1 work items (0.28, 1.2–1.8) | Separate work landing/TUI/settings PNG; work send harness logs engine lane; no Electron |
+| **W1–W5** | TIER 1 work items (0.28, 1.2–1.9) | Separate work landing/TUI/settings PNG; work send harness logs engine lane; no Electron |
 | **B1–B3** | Beyond tab (0.30, 4.14) | Honest stub label; Companion-backend grep clean; stub = `[ ] STUBBED` never `[x]` |
 | **S1–S5** | TIER 2–3 substrate/orchestrator (2.1–2.8, 3.1–3.2) | Real-state integration on LIVE path; AnswerPacket surfaced; TRINITY route logged; NOT fake-green |
 
@@ -129,7 +129,7 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 0. **STEP-0 RESET (pass49 — before step 1):** If any queue checkbox is `[x]` or `[~]`, revert **ALL** to `[ ]`.
    Certification lives only in STRICT_RECERT_LOG — never trust a surviving queue `[x]`.
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
-2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.8, 2.1, … 5.4). No queue-jumping.
+2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.9, 2.1, … 5.4). No queue-jumping.
    FIRST ITERATION bootstrap order below is one-time only — standing rule is strict numeric queue order through
    ALL tiers. Don't stop after act/D1–D5; don't stop after TIER 0 unless attempting TIER 1+ same iteration.
 3. **Read that item's `→plan:` section IN FULL** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md. The
@@ -145,9 +145,10 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
      flagged off. **Distinct from (a):** cite a **consumer/mount/route** file:line where the code is **invoked,
      mounted, or routed** (e.g. `AppBootstrap` mount, `WorkspaceMode` route, SwiftUI `.sheet` host) — NOT the
      same definition site used for (a) EXISTS. Definition-only ≠ wired (pass50 P1-b).
-   - **(d) REAL-STATE TESTED** — a test exercises real behavior (not a stub / always-true / mocked-away core).
-     Run the fast gate (`cargo test --lib` / targeted compile) where cheap; heavy `xcodebuild` only at
-     checkpoints; never idle-block.
+   - **(d) REAL-STATE TESTED** — a test exercises the **same live entry point** that (c) cites (not a stub /
+     always-true / mocked-away core). Cite test name + **"0 skipped/ignored for this item"**; fail on new
+     xfail/ignored/weakened asserts touching certified code. Run the fast gate (`cargo test --lib` / targeted
+     compile) where cheap; heavy `xcodebuild` only at checkpoints; never idle-block.
    - **(e) RUNTIME — YOU verify it; the owner is NOT checking the app.** You are the Claude Code CLI loop: you
      do NOT have a "computer use" button (that flag belongs to the Claude *desktop app*, a different surface —
      do not claim you have it). What you DO have and MUST use, with zero setup:
@@ -187,8 +188,8 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 - **0.28** WORK clone surface reachable · **0.29** Per-clone inference routing
 - **0.30** BEYOND tab + OFF-LIMITS vs in-scope honesty · **0.31** Reverse addendum audit (standing)
 - **0.32** Full-plan iteration witness (standing) — **HARD GATE:** mandatory log block + forbidden end-claims
-- **TIER 1:** 1.1–1.8 work/OpenCode · **TIER 2:** 2.1–2.8 substrate/salvage · **TIER 3:** 3.1–3.2 · **TIER 4:**
-  4.1–4.16 · **TIER 5:** 5.1–5.4
+- **TIER 1:** 1.1–1.9 work/OpenCode · **TIER 2:** 2.1–2.8 substrate/salvage · **TIER 3:** 3.1–3.2 · **TIER 4:**
+  4.1–4.18 · **TIER 5:** 5.1–5.4
 
 ## MANDATORY BEHAVIOR A–H (from gap audit — non-negotiable every loop)
 - **(A) D-GATE RULE:** D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7. Do NOT mark 0.1–0.7 `[x]`
@@ -199,7 +200,8 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 - **(C) TITLE-GEN EXPLICIT:** Item 0.16 extends 0.9 — parse `<think>`, extract real answer, produce
   CLEAN short titles (no meta-prompt leak, no model self-description as title). Real-state test + screenshot.
 - **(D) DISCOVERY SWEEP EACH LOOP:** Completeness critic at end of every iteration — grep InferenceState, model
-  picker, chat send paths, capability pills; any surface not in queue → ADD it with →plan ref.
+  picker, chat send paths, capability pills **plus per-tier plan-section→queue reconciliation** (substrate/TRINITY/
+  vault/Epdoc/distribution — not chat-only); any surface not in queue → ADD it with →plan ref.
 - **(E) NARROW DONE BAR:** `[~]` ONLY if screencapture AND send-text harness BOTH fail (state exactly why).
   **Cap: ≤2 `[~]` for entire recert phase** — 3rd HALTS pending owner. Each `[~]` MUST log exact failing
   command + output in STRICT_RECERT_LOG. Never `[x]` on build-green alone. Never claim "computer use unavailable"
@@ -207,7 +209,8 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 - **(F) HEALTH-ROW HONESTY BAR:** Item 0.14 — after every change, re-cert `ActOsaurusHealthRow`,
   `AnswerPacketHealthRow`, `LocalRouteHonestyHealthRow`, etc.: `wiredToday`/`stillStub` must match REAL code.
 - **(G) PROVIDER WIRING BAR:** Item 0.11 — owner's GGUF/QAT selectable AND used on send; Configuration opens
-  REAL settings; NO silent Codex default; NO silent Qwen substitution. Send must use selected model.
+  REAL settings; NO silent Codex default; NO silent Qwen substitution. Send must use selected model. **D4/settings
+  sole owner = queue 0.21** — 0.11/0.22 reference 0.21; do not duplicate the D4 obligation elsewhere.
 - **(H) FULL-PLAN-NO-ACT-TUNNEL:** Item 0.32 — before iteration ends, append the mandatory witness block to
   STRICT_RECERT_LOG (**highest attempted item ID** e.g. `2.3`, **`lowest still-[ ] item ID`** e.g. `0.4` — pass50
   P0-A, per-tier counts, TIER 1+ attempted YES/NO, act-only tunnel DENIED). **INCOMPLETE** if highest attempted is before **1.1** unless all T0 are honest `[~]`
@@ -278,7 +281,8 @@ of it.
    owner's model **and served-model ID == selected-model ID**; log prompt + first ~80 chars + both IDs. When
    certifying work lane (0.29/1.7/W4), **REQUIRED** work-lane harness — build if missing (pass50 P0-C).
 4. Walk **0.1 → 0.32 in strict numeric order**, then **continue into TIER 1+ same iteration** when TIER 0 items
-   pass or are honestly `[~]`. One item minimum per loop; do NOT queue-jump. For each item: read full →plan section
+   pass or are honestly `[~]`. Binding floor = **0.32 lowest still-[ ] advanced this iteration** (not "one item
+   minimum"); do NOT queue-jump. For each item: read full →plan section
    · apply 5-gate bar · screencapture per-surface where UI · send-text every loop · reverse addendum audit (0.31)
    at end · full-plan witness (0.32) before declaring iteration done.
    TIER 0 act blockers remain P0: **0.1** Theme.swift SOURCE · **0.3** Epistemos landing (D2) · **0.8** D1–D5 ·

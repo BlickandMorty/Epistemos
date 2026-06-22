@@ -13,6 +13,13 @@
 - Fixed during recert: 0
 - STRICT RE-CERT COMPLETE: no
 
+## Certification log
+
+_(Build-agent certification lines only — sole source of cert counts. Gap-fill / docs edits go under
+`## Docs-maintenance` — excluded from counts.)_
+
+## Docs-maintenance
+
 ## Iteration log
 
 ### Gap-fill pass (docs only, 2026-06-22 — iteration 1–2)
@@ -67,3 +74,14 @@
 - pass50 P1-c · **PNG freshness:** unique per-iter paths + timestamp log + Read-this-iteration rule (queue RUNTIME, paste #21, placeholder)
 - reverse-audit · re-grep 🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH (~64 section headers); **0 new unindexed** — SYSTEM-PROMPTS→4.2, NEVER-IDLE→STANDING, FUGU SEQUENCING→3.2 bundle, TRINITY subsections→3.1
 - sync verify · STEP-0 / `[~]` cap / TIER floor / 0.32 (highest+lowest) / W/B/S / gate-c / harness / PNG synced across three docs
+
+### Gap-fill iteration 10 (docs only, 2026-06-22 — CURSOR_HANDOFF A–E verify + strict/paste sync)
+- handoff · **345495263 CURSOR_HANDOFF doc committed**; no uncommitted WORK_QUEUE/STRICT/PASTE in flight at tick 6
+- A verify · lowest still-[ ] / stub≠[x] / W/B/S / harness REQUIRED / phase preconditions — **PASS** (queue + iter 8–9)
+- B verify · model-id / gate-c distinct / PNG freshness — **PASS** (iter 9); **(d)↔(c) link + xfail** synced strict+paste this iter
+- C verify · **1.9/4.17/4.18/1.3 full-clone** already in queue (pass51 prep); **Tolaria** spelling unified strict+paste;
+  **0.31 heading-diff** already in queue; **CHAT_BACKEND + SUBSTRATE_BUILD_SEQUENCE** →plan paths verified on disk
+- D verify · struck **"one item minimum"** → 0.32 lowest-open floor; **D4 sole owner 0.21** in strict+paste;
+  **OsaurusChatView** disambiguation in paste (forbidden Epistemos ChatView unchanged)
+- E verify · **## Certification log** / **## Docs-maintenance** headers landed in STRICT_RECERT_LOG; tier walks **1.9/4.18** synced paste+strict
+- discovery · per-tier plan-section reconciliation added strict+paste (not chat-only)
