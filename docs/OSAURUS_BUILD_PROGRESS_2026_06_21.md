@@ -127,8 +127,12 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     `ProseTextView2.applyAutomaticMarkdownEdit` path (reuse-not-rebuild); honest nil-when-absent (no out-of-range).
     **PROSE LIVE-EDITOR WIRED END-TO-END (`59b9e9d52`):** `ProseTextView2.applyAgentEdit(_:)` = the agent surface's
     entry — resolves vs the live buffer + applies via the existing path; honest false+no-mutation when absent. Full
-    Prose chain: AgentNoteEdit → resolveTextEdit → applyAgentEdit → live NSTextView. REMAINS: Epdoc/Tiptap analogous
-    binding (same op model, its buffer-apply path) + record each as an agent `MutationEnvelope` (provenance/EventStore).
+    Prose chain: AgentNoteEdit → resolveTextEdit → applyAgentEdit → live NSTextView. **EPDOC BINDING SCOPED:** Epdoc/
+    Tiptap holds ProseMirror RICH content (not raw markdown text), so a text-based edit doesn't map to a live Tiptap
+    range — the clean MD-V2-aligned path is: agent edits the md SOURCE (`VaultNoteEditor`, built) → Epdoc REPROJECTS
+    from updated md (coupled to the MD-V2 inversion #12); a lexical Tiptap-command mapping would be wrong. So Epdoc's
+    live-binding is the heavier, MD-V2-coupled follow-on. REMAINS: Epdoc-via-md-source reprojection + record each
+    agent edit as a `MutationEnvelope` (SourceOp.artifactUpdate) for provenance/EventStore (reuses the existing model).
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
   ZERO regressions (flag-off byte-identical confirmed).
