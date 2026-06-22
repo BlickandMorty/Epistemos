@@ -106,7 +106,11 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     `.notes` domain), self-excluded, injectable/mock-tested, 3/3 — NOT a lexical fake. #3 now has BOTH the
     mechanical wikilink graph (omega-mcp) AND brain-powered semantic relatedness (Swift/shadow). REMAINS (later):
     surface these as LLM-wiki suggestions in the editor UI.
-  - [ ] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator) — NEW.
+  - [~] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator): CORE DONE
+    (`c61b41cac`) — `AgentNoteEdit` editor-agnostic text-based ops (append/replaceFirst/insertAfter), HONEST
+    (nil when anchor absent → never silently mangles), 3/3 tests. The same ops apply to BOTH editors. REMAINS
+    (UI follow-on): bind to the live editors (NSTextView/Tiptap apply the ops) + record each as an agent
+    `MutationEnvelope` (SourceOp.artifactUpdate) for provenance/EventStore (reuses the existing provenance model).
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
   ZERO regressions (flag-off byte-identical confirmed).
