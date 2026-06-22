@@ -44,3 +44,17 @@ PASS or RE-ADD-to-plan for re-pickup; re-verify until correct. Cite file:line. C
 - **Build health:** Swift-only host change, agent verified EXIT=0 Pro; Rust untouched (cargo --lib green pass 2). No heavy re-run needed.
 - **Verdict:** PASS, no re-add. Remaining (re-audit as they land): REMOVE the experimental opt-in toggle; live
   send + `<think>` fix; delete old ChatView after host proves send/receive; MAS-safe OsaurusCore split.
+
+## Pass 4 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `df4b3653c` "act=Osaurus: runtime bootstrap + remove the experimental safety toggle" (<1 min ago).
+- **AUDIT df4b3653c → ✅ PASS (item 2 done + root-causes 'not working'):**
+  (1) RUNTIME BOOTSTRAP — host now runs Osaurus's ConfigurationDomainBootstrap.registerBuiltIns +
+  DocumentAdaptersBootstrap on first appear (Epistemos AppDelegate never did; that's why sends had no
+  provider/model config). Idempotent, side-effect-free, in-process ChatEngine->MLXService (no server/Sparkle).
+  (2) REMOVED the "Use Osaurus for Act (experimental)" toggle from ActOsaurusHealthRow (deleted Toggle/
+  setOverride/§806 copy; row = honest status only). Matches owner "no toggle, Osaurus IS the chat." EXIT=0 Pro. Co-Authored.
+- **Legitimately PENDING (not fake-green):** full LIVE send-verification (model present + streaming) needs the
+  running app — agent did NOT claim it works; owner-witnessable or computer-use. The `<think>` fix + a real
+  send/receive proof still owed.
+- **Verdict:** PASS, no re-add. Remaining: live send + `<think>` fix (verify on running app), delete old
+  ChatView after send proven, MAS-safe OsaurusCore split. Toggle removal ✅, reskin ✅, mount ✅, bootstrap ✅.
