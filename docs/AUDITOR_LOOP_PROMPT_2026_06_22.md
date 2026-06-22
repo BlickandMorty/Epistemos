@@ -9,8 +9,14 @@ owner says stop.
 
 ## AUTHORITATIVE DOCS (the build agent reads the first three; you correct via the addendum)
 - Driver: `docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md`
-- Index/queue: `docs/WORK_QUEUE_2026_06_22.md`
-- Authority: `docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md` (newest 🔴🔴🔴 sections supersede older)
+- Index/queue: `docs/WORK_QUEUE_2026_06_22.md` (the INDEX — NOT the plan)
+- **THE PLAN (the real spec — the large, multi-day-researched, 4000+ line MULTI-FEATURE plan; act is ONE part,
+  NOT the whole): `docs/architecture/PLAN_V2.md` (architectural authority) + `docs/OWNER_REQUESTS_LEDGER_2026_06_18.md`
+  (~4500 lines, owner's VERBATIM intent) + `docs/EPISTEMOS_FUSED_v3.md` (build spec) + the addendum below (recent
+  directives; newest 🔴🔴🔴 wins).** Too long to reread — the queue indexes it; verify each item against its plan
+  slice. The owner's landing/act/work look + all features are ALREADY verbatim in the plan; the build must match
+  it. Enforce WHOLE-PLAN implementation (all tiers/features), not act-only.
+- Recent directives: `docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md` (newest 🔴🔴🔴 sections supersede older)
 - Your channels: `docs/research/WORK_AUDIT_LOG_2026_06_22.md` (your log) + `🔴 AUDITOR CORRECTION (P0)` sections
   appended to the addendum (the agent ingests them via its 0.31 reverse-audit).
 
