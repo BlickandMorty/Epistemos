@@ -44,6 +44,17 @@ struct ActOsaurusStreamingTests {
         #expect(src.contains("ActOsaurusStreamingHandler.make()")) // the one act stream
         #expect(src.contains("continuation.yield(token)"))         // forwards real tokens
     }
+
+    @Test("completeness: the NON-streaming local path also routes act (no per-surface drift, §38/§86)")
+    func nonStreamingPathAlsoRoutesAct() throws {
+        let shared = try loadMirroredSourceTextFile("Epistemos/LocalAgent/SharedActInference.swift")
+        // Non-streaming sibling exists, honest (throws on act failure, never silent MLX fallback).
+        #expect(shared.contains("func actTextIfArmed("))
+        #expect(shared.contains("ActOsaurusGenerationHandler.make()"))
+        // TriageService's non-streaming local path delegates to it (so generateGeneral surfaces get act too).
+        let triage = try loadMirroredSourceTextFile("Epistemos/Engine/TriageService.swift")
+        #expect(triage.contains("SharedActInference.actTextIfArmed("))
+    }
     #endif
 
     // NOTE: `CoreModelService.generateStream` (the public streaming method on the vendored OsaurusCore

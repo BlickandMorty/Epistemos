@@ -2260,6 +2260,18 @@ final class TriageService {
         selection: LocalModelSelection?,
         steeringHintsJSON: String? = nil
     ) async throws -> String {
+        // ONE INFERENCE CHOKEPOINT / completeness (owner §38,§86): the NON-streaming local path delegates its
+        // act-injection to the SAME shared entry the streaming path uses, so a surface on `generateGeneral`
+        // (e.g. PinnedInspector's retry) gets act too — no per-surface drift. Off (default) → nil → MLX below,
+        // byte-identical; armed → act text, or an honest throw (never a silent MLX fallback).
+        if let actText = try await SharedActInference.actTextIfArmed(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: resolvedLocalOutputTokens(for: selection?.reasoningMode ?? .fast, steeringHintsJSON: steeringHintsJSON),
+            reasoningMode: selection?.reasoningMode ?? .fast
+        ) {
+            return actText
+        }
         guard let selection else {
             throw LocalInferenceRoutingError.modelRequired
         }

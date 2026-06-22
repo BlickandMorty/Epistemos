@@ -40,4 +40,25 @@ enum SharedActInference {
         return nil
         #endif
     }
+
+    /// NON-STREAMING sibling of `actStreamIfArmed` (completeness — owner's "every surface, one source of
+    /// truth"): the act=Osaurus generated TEXT when armed, else `nil` (caller uses its MLX path). Reuses the
+    /// shared `ActOsaurusGenerationHandler`. HONEST: when armed it returns the act text OR THROWS — it never
+    /// returns nil-to-fall-back-to-MLX on an act failure (no silent route swap). For the non-streaming local
+    /// path (`TriageService.localGenerateOrFallback`), so it can't diverge from the streaming path.
+    static func actTextIfArmed(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode
+    ) async throws -> String? {
+        #if !EPISTEMOS_APP_STORE
+        guard LocalAgentLoop.shouldRouteActThroughOsaurus() else { return nil }
+        let handler = await MainActor.run { ActOsaurusGenerationHandler.make() }
+        let noModelOverride: String? = nil
+        return try await handler(prompt, systemPrompt, maxTokens, reasoningMode, noModelOverride, { _ in })
+        #else
+        return nil
+        #endif
+    }
 }
