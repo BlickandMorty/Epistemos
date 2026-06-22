@@ -1144,3 +1144,23 @@ inference chokepoint + two swappable engine-lanes (cloud/local) under it. = exac
 act/work surfaces): docs/dead-code fixes → TRINITY slice 2 → staged RuntimeRouter promotion → local-chokepoint
 convergence → brain unify. Per-component PLAN ADDITIONS UNIFY-0..6 + 6 open Qs in the doc. Build the beneficial
 unifications; never force; honest no-fake-green (esp. fix eidos.query).
+
+## 🌟 THE BIG IDEA / GRAND CONVERGENCE (owner 2026-06-22) — the single unifying picture
+Full synthesis: docs/research/THE_BIG_IDEA_GRAND_CONVERGENCE_2026_06_22.md. Summary:
+- **ONE brain, TWO faculties, on ONE substrate, driving SWAPPABLE engines, via TWO modes.** Faculty 1 =
+  COORDINATION (System G + TRINITY loop + RuntimeRouter = the "own Fugu, local-first" orchestrator). Faculty 2
+  = KNOWLEDGE/MEMORY (the IP brain: Eidos/recall + cognitive DAG + provenance + honesty + per-model prompts).
+  Both attach at ONE point on the model-agnostic substrate. Engines (act=Osaurus, work=OpenCode, cloud, local,
+  MLX) are swappable muscles, kept separate on purpose. Modes = act + work over the md PKM (Prose+MD-V2) +
+  graph + agent-native vault.
+- **NOT two rival brains** — two faculties of one. The convergence = unify them onto a single orchestrator +
+  single router + single brain attach-point + single inference chokepoint (kills the drift that caused the
+  Qwen/codex/<think> bugs).
+- **70B / custom-runtime / new-model brain-1 = SEPARATE FUTURE TRACK** (off-limits now; a potential future
+  pool-lane you'd OWN, not the architecture). OPEN OWNER DECISION: if/when it re-enters scope. Slot reserved;
+  not blocking.
+- **"Eidos only worked once" = a real bug, in the plan:** live eidos.query bypasses the real eidos/ module +
+  the retriever is gated/fixture-seeded → finalize via the brain-unification step. Tracked.
+- **ALL FOLDED + no conflict.** Gaps = (1) 70B re-entry (owner decision), (2) Eidos truly-live (build, tracked),
+  (3) TRINITY license (heuristic-first, tracked). No IP missing — brain/editors/graph/model-lab/motion/vault/
+  orchestrator-as-IP all captured as IP-LAYER. The plan KNOWS it converges to ONE thing.
