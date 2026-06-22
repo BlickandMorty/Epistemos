@@ -908,3 +908,31 @@ ALL findings + best-do/limitations/best-combo go INTO that doc AND this plan. Re
    Fugu pattern as owner IP, local-first, no $10/msg lock-in). The provider abstraction makes both pluggable.
 6. **DEFINITELY BUILT:** treat as a foundational deliverable; capture best-things-to-do + best-limitations +
    best-combo into the research doc + plan so it's fully specced and gets built. Loop cadence = 7 min (was 2m).
+
+## ✅ FUGU RESEARCH DONE → directive (owner 2026-06-22, grounded; full doc = FUGU_ORCHESTRATION_INTEGRATION)
+VERIFIED: Fugu is real/GA, OpenAI-compatible — base `https://api.sakana.ai/v1`, `Authorization: Bearer $KEY`,
+`/chat/completions` + `/responses`, models `fugu` / `fugu-ultra` / `fugu-ultra-20260615`. Closed-source
+(GitHub has only a report+installer, no weights/SDK), **EU/EEA-BLOCKED (GDPR)**, routes through 3rd-party
+frontier models. Benchmarks confirmed (GPQA-D 95.1, LiveCodeBench 93.2, SWE-Bench Pro 54.2; margins thin).
+**PRICING CORRECTION (owner's "$10/msg" was WRONG):** it's PER-TOKEN — Ultra ~$5/1M input, $30/1M output
+($0.50 cached), ~DOUBLING above 272K context ($10/$45 per 1M); **orchestration sub-agent tokens are ALSO
+billed → a multi-step answer costs a MULTIPLE of one call.** Subscriptions $20/$100/$200/mo. → Settings must
+disclose the REAL per-token rates + "multi-step costs a multiple," NOT a fake "$10/message."
+
+**DECISION — BOTH, ASYMMETRIC (Fugu is a guest lane, NOT the brain):**
+- **PATH A (now, ~hours, thin + cost-honest):** add Fugu as an OPT-IN premium **guest lane / provider**, NEVER
+  a default. Add `ProviderPreset.fugu` (`LocalPackages/osaurus/.../ProviderPresets.swift`, reuse `.openaiLegacy`,
+  no new wire type) + one line in `ProviderCatalog.swift` → picker surfaces `fugu`/`fugu-ultra` (no view edits).
+  OpenCode→Fugu via `openCodeConfigJSON(...)` in `WorkOpenCodeRuntime.swift`. Keys → Keychain. EU-GATE it.
+  Real per-token cost disclosed in Settings. Behind the MODULAR provider abstraction (swappable).
+- **PATH B (the REAL bet = owner IP, foundational):** promote **RuntimeRouter** to LIVE (it exists but is
+  observe-only/dead, gated `EPISTEMOS_RUNTIMEROUTER_LIVE_V0`; live decisions currently in Rust
+  `compile_command_center_request`) + give **System G** (`agent_runtime_v2`, live orchestrator; its
+  `ProviderPolicy` already has an `OpenAICompatible{base_url,model}` variant = the binding point) a NATIVE
+  **Trinity-style Thinker/Worker/Verifier** loop across the local+cloud model pool = the Fugu PATTERN as
+  owner IP, local-first, NO per-token orchestration tax, NO Sakana dependency. TRINITY/Conductor methods
+  (Sakana's ICLR papers) are PUBLIC + re-implementable.
+- **OPEN-SOURCE orchestrators to embed instead of paying Fugu:** `lm-sys/RouteLLM`, `ulab-uiuc/LLMRouter`,
+  vLLM Semantic Router, `llm-use/llm-use`. 
+- **HARD RULE: Fugu must NEVER be the orchestration BRAIN** (that would invert "adopt engines / layer IP / no
+  per-token lock-in"). Fugu = an optional premium guest model; the BRAIN is YOUR native orchestrator.
