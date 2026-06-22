@@ -301,3 +301,16 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   landing+toolbar → clickable engine panel w/ live status + owner's model stack.
 - **Verdict:** PASS both. Remaining: live send verify (owner Pro launch); optional further Osaurus tool/feature
   surfacing. Loop steady + honest (6+ passes since escalation, all real, no fake-green).
+
+## Pass 21 — 2026-06-22 — P0-A + P0-B CODE-COMPLETE
+- **Build loop:** ALIVE (swift=13 xcode=1). HEAD `ac8d3974e` (5 min). Two build commits.
+- **21bcebd23 (P0-B tool/MCP controls) → ✅ PASS (closes full P0-B):** EpistemosToolBridge (primitive seam) →
+  engine panel lists active tools (ToolRegistry.listTools) + owner's MCP servers (MCPProviderManager) alongside
+  model stack. Full P0-B set done: landing presence + model picker/stack + tool/MCP controls. MAS-safe ([String]). Pro EXIT=0.
+- **ac8d3974e (P0-A diagnosable failures) → ✅ PASS (completes P0-A robustness):** verified act reuses chat
+  error path (visible bubble); hardened modelNotPrepared/noProvider/modelUnavailable → matched by content →
+  .modelNotReady → actionable "Open Settings → Models…" (decoupled from OsaurusCore, MAS-safe). Pro EXIT=0. Co-Authored.
+- **MILESTONE: P0-A + P0-B both CODE-COMPLETE.** P0-A: model threads+registers+resolves+visible+actionable
+  errors. P0-B: Osaurus visible (landing+toolbar→panel: status + model stack + tools + MCP). Act surface =
+  owner's full vision in code (my UI + Osaurus visible + working).
+- **Verdict:** PASS both. ONLY remaining = LIVE send verify (owner Pro launch). 8+ passes since escalation, all real, no fake-green.
