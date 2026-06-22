@@ -703,3 +703,6 @@ evidence for the owner's route-vs-rename call.
   (honest provenance string). Reuses the existing is_classical/is_inconsistent/is_gappy (no dup). The honesty
   rule as a primitive: never assert on contradictory/absent evidence. HARDENED + ADDITIVE — the AnswerPacket
   wiring (research→answer bridge) is the integration step (harden-before-integrate; built+tested first).
+- [x] **GUS-2 evidence→Belnap bridge (`4ee97fa82`, belnap 40/40):** `BelnapValue::from_evidence(supporting,
+  refuting)` → Both/True/False/Neither; composed with `abstains()` = the AnswerPacket assert-vs-abstain decision
+  straight from evidence counts (contradictory/absent → abstain w/ reason). Pure + additive.
