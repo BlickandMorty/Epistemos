@@ -6,7 +6,7 @@
 //! model id + provider call resolve at the call site (RuntimeRouter / provider boundary). The learned router is a
 //! clean DROP-IN replacement for `heuristic_role_tier` later — same (role, objective) → tier contract.
 
-use crate::model_profile::CapabilityTier;
+use crate::model_profile::{CapabilityTier, ModelCapabilityProfile, CANON};
 use crate::routing::{ClassificationResult, HeuristicClassifier};
 
 use super::trinity_loop::TrinityRole;
@@ -35,6 +35,25 @@ pub fn heuristic_role_tier(role: TrinityRole, classification: &ClassificationRes
 pub fn select_role_tier(role: TrinityRole, objective: &str) -> CapabilityTier {
     let classification = HeuristicClassifier.classify(objective);
     heuristic_role_tier(role, &classification)
+}
+
+/// Resolve a TIER to a concrete LOCAL model from the canonical profile table (`model_profile::CANON`), among
+/// the `available_ids` (installed/runnable) — the piece the real provider executor needs to turn a TRINITY
+/// role's tier into a model to call. LOCAL-FIRST (owner mandate; Fugu/cloud are pool members, not the brain):
+/// resolves only from the local CANON here. Prefers an ADVERTISED model of the tier, else any available one;
+/// returns None when no available local model serves the tier (the caller decides escalation HONESTLY — never
+/// a silent wrong-tier swap).
+pub fn select_model_for_tier(
+    tier: CapabilityTier,
+    available_ids: &[String],
+) -> Option<ModelCapabilityProfile> {
+    let avail = |p: &ModelCapabilityProfile| available_ids.iter().any(|id| id == p.id);
+    let matches = |p: &&ModelCapabilityProfile| p.tier == tier && avail(p);
+    CANON
+        .iter()
+        .find(|p| matches(p) && p.advertised)
+        .or_else(|| CANON.iter().find(matches))
+        .copied()
 }
 
 #[cfg(test)]
@@ -68,6 +87,27 @@ mod tests {
         assert_eq!(heuristic_role_tier(TrinityRole::Worker, &classification(0.8, false)), CapabilityTier::Think);
         // simple non-code work → Fast.
         assert_eq!(heuristic_role_tier(TrinityRole::Worker, &classification(0.2, false)), CapabilityTier::Fast);
+    }
+
+    #[test]
+    fn select_model_for_tier_resolves_local_and_prefers_advertised() {
+        use crate::model_profile::CANON;
+        // Derive available ids from CANON so the test is robust to table changes.
+        let think_ids: Vec<String> = CANON
+            .iter()
+            .filter(|p| p.tier == CapabilityTier::Think)
+            .map(|p| p.id.to_string())
+            .collect();
+        if let Some(picked) = select_model_for_tier(CapabilityTier::Think, &think_ids) {
+            assert_eq!(picked.tier, CapabilityTier::Think, "resolves a Think model");
+            // if any advertised Think model exists, the pick is advertised.
+            if CANON.iter().any(|p| p.tier == CapabilityTier::Think && p.advertised) {
+                assert!(picked.advertised, "prefers an advertised model of the tier");
+            }
+        }
+        // No available model of the tier → None (honest: caller escalates, never a silent wrong-tier swap).
+        assert!(select_model_for_tier(CapabilityTier::Think, &["not-a-real-model".to_string()]).is_none());
+        assert!(select_model_for_tier(CapabilityTier::Think, &[]).is_none());
     }
 
     #[test]
