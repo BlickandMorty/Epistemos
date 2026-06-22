@@ -56,6 +56,7 @@ pub mod naming_lint;
 pub mod para;
 pub mod run_event_log;
 pub mod system_g_runtime;
+pub mod trinity_loop;
 pub mod variant_ladder;
 
 pub use acs_run_event_log_sink::ACSRunEventLogSink;
