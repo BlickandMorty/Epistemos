@@ -5,15 +5,19 @@ Two symptoms (flag `EPISTEMOS_ACT_OSAURUS_V0` OFF): (A) every query → "I can't
 
 ## Classification (per the owner's shared-vs-chat-only directive cb4f63347)
 
-### (B) `<think>` LEAK → SHARED inference-output layer → FIXED (`c9184b4e6`)
-`String.strippingThinkingBlocks()` (Engine/Extensions.swift — the stripper behind `UserFacingModelOutput`,
-used by ACT + Note chat + Graph chat + title-gen) handled CLOSED `<think>…</think>` + orphan closing tags,
-but left an **UNCLOSED** opening `<think>` (a reasoning model cut off mid-think by the token budget) UNTOUCHED
-→ raw reasoning leaked. **Fixed:** strip from an unclosed opening reasoning tag to the end (keep pre-think
-text); model-agnostic. Regression test added (43/43). Shared → every surface benefits.
-- The main-chat `ChatCoordinator.generateChatTitle` (maxTokens:30, no stripper) is on the DELETION path →
-  deliberately NOT polished (owner: don't polish the dying chat surface). It will inherit the shared stripper
-  only if it routes through it; the kept surfaces (note/graph chat, act) get the fix via the shared layer.
+### (B) `<think>` LEAK — CORRECTED classification (precise tracing)
+- The **ANSWER** extractor `UserFacingModelOutput.finalVisibleText` (used by ACT / note chat / graph chat) ALREADY
+  handles an UNCLOSED `<think>` via `cleanedVisibleText(suppressIncompleteThinkingTail: true)` — so the kept
+  surfaces' ANSWERS do NOT leak reasoning. Not the bug.
+- The **TITLE** leak is in `ChatCoordinator.generateChatTitle` — which uses NEITHER `finalVisibleText` NOR
+  `strippingThinkingBlocks` (just trims) AND `maxTokens:30` (consumed entirely by the reasoning model's <think>).
+  It is called ONLY from ChatCoordinator (main chat) — note/graph chat don't title-gen. So it is MAIN-CHAT-ONLY,
+  on the DELETION path → deliberately NOT polished (owner: don't polish the dying chat surface). The user's title
+  symptom rides the dying surface and dies with it.
+- `String.strippingThinkingBlocks()` (only non-test caller: `EntityExtractor` graph entity extraction) DID leak
+  an unclosed `<think>` → **HARDENED `c9184b4e6`** (strips unclosed opener; 43/43 regression). This is a real
+  SHARED-layer hardening for a KEPT surface (graph), but it is NOT the user's reported title/answer symptom —
+  recorded honestly to avoid over-claiming the fix.
 
 ### (A) ANSWER REFUSAL → SHARED, but needs RUNTIME bisection (NOT act-injection)
 - The exact string "I can't assist with that request" is **NOT** hardcoded anywhere — it is the **model's
