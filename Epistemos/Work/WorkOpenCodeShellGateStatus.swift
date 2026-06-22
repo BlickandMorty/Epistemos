@@ -17,6 +17,12 @@ import Foundation
 nonisolated enum WorkOpenCodeShellGateStatus {
     static let flagName = "EPISTEMOS_WORK_OPENCODE_V0"
 
+    /// IN-APP TOGGLE override (owner §194 "two toggles = act/work") — the work-mode twin of the act gate's
+    /// override, so BOTH modes are runtime-toggleable (no env var + relaunch). Tri-state: ABSENT → defer to the
+    /// env flag; true/false → the toggle forces work on/off at runtime. Default-absent = flag-OFF behavior
+    /// (work stays honest-inert by default). Mirrors `ActOsaurusGateStatus`.
+    static let overrideDefaultsKey = "epistemos.work.opencode.v0.override"
+
     struct Status: Equatable, Sendable {
         let isActive: Bool
         let headline: String
@@ -28,7 +34,38 @@ nonisolated enum WorkOpenCodeShellGateStatus {
         return ["1", "true", "yes", "on"].contains(n)
     }
 
-    static func status(environment: [String: String] = ProcessInfo.processInfo.environment) -> Status {
+    /// The in-app toggle override, or `nil` when unset (→ defer to the env flag).
+    static func override(defaults: UserDefaults = .standard) -> Bool? {
+        defaults.object(forKey: overrideDefaultsKey) as? Bool
+    }
+
+    /// Set (true/false) or CLEAR (`nil` → revert to env-flag behavior) the in-app toggle override.
+    static func setOverride(_ value: Bool?, defaults: UserDefaults = .standard) {
+        if let value {
+            defaults.set(value, forKey: overrideDefaultsKey)
+        } else {
+            defaults.removeObject(forKey: overrideDefaultsKey)
+        }
+    }
+
+    /// Resolved arm-state: in-app override WINS; else the env flag; else off. App Store build = ALWAYS off
+    /// (the OpenCode/Bun runtime is Pro / direct-distribution only). Default-absent override keeps flag-OFF.
+    static func resolvedActive(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        #if EPISTEMOS_APP_STORE
+        return false
+        #else
+        if let override = override(defaults: defaults) { return override }
+        return isEnabled(environment[flagName])
+        #endif
+    }
+
+    static func status(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        defaults: UserDefaults = .standard
+    ) -> Status {
         #if EPISTEMOS_APP_STORE
         return Status(
             isActive: false,
@@ -36,18 +73,19 @@ nonisolated enum WorkOpenCodeShellGateStatus {
             detail: "The OpenCode work shell (real terminal TUI in a native terminal view, lazy Bun engine, Goose/Hermes/OpenClaw fused beneath) ships on the direct-distribution build. The MAS dual-build gets the same capability via the researched sandbox substitute — never a silent cut. Chat and Act are unaffected."
         )
         #else
-        if isEnabled(environment[flagName]) {
+        let overrideValue = override(defaults: defaults)
+        if resolvedActive(environment: environment, defaults: defaults) {
+            let source = overrideValue == true ? "in-app toggle" : "\(flagName)=1"
             return Status(
                 isActive: true,
                 headline: "Work = OpenCode terminal: ON (Pro, experimental)",
-                detail: "The OpenCode shell seam is armed (\(flagName)=1). The native terminal view (SwiftTerm/PTY), the lazy-launched Bun engine, and the vendored OpenCode TUI are the follow-on; until they land the seam is honestly INERT (no fake terminal). Chat/Act stay on their own engines."
+                detail: "The OpenCode shell seam is armed (\(source)). The native terminal view (SwiftTerm/PTY), the lazy-launched Bun engine, and the vendored OpenCode TUI go live when the runtime is bundled; until then the seam is honestly INERT (no fake terminal). Chat/Act stay on their own engines."
             )
         }
-        return Status(
-            isActive: false,
-            headline: "Work = OpenCode terminal: off (opt-in, Pro)",
-            detail: "Set \(flagName)=1 to arm the OpenCode work-shell seam (Pro). Off by default → Work's terminal is not yet wired; Chat/Act are unchanged."
-        )
+        let detail = overrideValue == false
+            ? "Turned off by the in-app toggle (overrides \(flagName)). Work's terminal stays inert; Chat/Act are unchanged."
+            : "Set \(flagName)=1 or use the in-app toggle to arm the OpenCode work-shell seam (Pro). Off by default → Work's terminal is not yet wired; Chat/Act are unchanged."
+        return Status(isActive: false, headline: "Work = OpenCode terminal: off (opt-in, Pro)", detail: detail)
         #endif
     }
 }

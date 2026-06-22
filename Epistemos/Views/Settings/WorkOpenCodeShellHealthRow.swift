@@ -8,6 +8,9 @@ import SwiftUI
 struct WorkOpenCodeShellHealthRow: View {
     private var status: WorkOpenCodeShellGateStatus.Status { WorkOpenCodeShellGateStatus.status() }
     private var shellReady: Bool { WorkOpenCodeShellFactory.resolve().isReady }
+    // In-app toggle state (owner §194 — the work twin of the act toggle). Seeded from the resolved arm-state;
+    // flipping it writes the gate override, so Work arms without an env var + relaunch.
+    @State private var workOn: Bool = WorkOpenCodeShellGateStatus.resolvedActive()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -25,6 +28,24 @@ struct WorkOpenCodeShellHealthRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            #if !EPISTEMOS_APP_STORE
+            // Owner §194: the work twin of the act toggle so the two-mode ontology is both runtime-toggleable.
+            // Writes the gate override (override > env > off); the shell factory resolves it live. Pro only.
+            Toggle(isOn: Binding(
+                get: { workOn },
+                set: { newValue in
+                    workOn = newValue
+                    WorkOpenCodeShellGateStatus.setOverride(newValue)
+                }
+            )) {
+                Text("Enable Work (OpenCode terminal, experimental)")
+                    .font(.caption.weight(.medium))
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .padding(.top, 2)
+            #endif
 
             // HONEST runtime state: even when the gate is ARMED, the shell is INERT
             // until the terminal view + Bun engine + OpenCode vendor land. Never says
