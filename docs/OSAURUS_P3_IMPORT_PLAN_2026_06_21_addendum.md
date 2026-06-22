@@ -1247,3 +1247,24 @@ GRAND UNIFICATION SWEEP MUST INCLUDE this ~/Downloads corpus (it's the original 
 source the in-repo docs were derived from) — read-only for research; classify useful/superseded/too-theoretical/
 70B-excluded; salvage beneficial IP into the plan. (Pixel-art font/theme dirs in Downloads = asset refs for the
 pixel-art UI, note but lower priority.) Do NOT modify anything outside the repo; research/copy-in only.
+
+## ✅ GRAND SWEEP CYCLE 1 — salvage GUS-1..5 (owner 2026-06-22; full=GRAND_UNIFICATION_SWEEP)
+Baseline = dual-brain readout (docs/fusion/ARCHITECTURE_READOUT_2026_06_20.md, newest). KEY CUT under the
+70B-exclusion: **BRAIN-1 (Mamba-3 spine, signal_bus, M0/M1 interrupt, ternary runtime, Engram, KIVI-KV,
+residency) = 70B-TIED → EXCLUDED**; **BRAIN-2 (authority/deliberation) = already today's Faculty-2** (absorbed).
+So the dual-brain half splits cleanly: model=excluded, app=the substrate. Living-index (8,587-line chronicle)
++ lattice-explainer HTML = chronicle/aspirational, NOT live IP; the "living" capability already exists as
+Halo/Shadow + Cognitive DAG (SUPERSEDED); concept-lattice/FCA engine = TOO-THEORETICAL/drop.
+USEFUL+RELEVANT salvage (additive-safe, attach to System G/brain/substrate, behind existing gates):
+- **GUS-1:** bounded read-only "Living Index status" panel (finite; surfaces what's already living).
+- **GUS-2:** EML/Belnap verification primitives (live under --features research) → wire as the AnswerPacket
+  honesty/abstain gate.
+- **GUS-3:** TurboVec as Eidos retrieval-compression backend (Pro-gated).
+- **GUS-4:** UAS/ACS substrate hardening (code-must-match-doc).
+- **GUS-5 / = UNIFY-4/5 prize:** Cognitive DAG + real Eidos recall + provenance ledger (the knowledge brain).
+DROP (not IP / theoretical): AetherLink/Erdos/Lean intake, concept-lattice engine, the chronicle docs, all
+CODEX/KIMI/WORKTREE process docs. Cycle 2 regions: MASTER_RESEARCH_INDEX (474KB) + 22-pass ledger + June-1
+residency quartet + T10 doctrines + ~1,340 untouched docs/fusion/ subdir files (salvage//jordan's research//
+pasted/ = likely IP-bearing) + per-module agent_core/src/research/ (~40 modules, 70B-tied vs app-verification)
++ epistemos-research crate + Helios theorem catalog (E1-E7/H1-H17/PCF-1-10) + the ~/Downloads Helios source
+corpus + convergence re-check.
