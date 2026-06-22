@@ -696,3 +696,10 @@ evidence for the owner's route-vs-rename call.
   decide_floor/FloorOutcome — the unique bits — into a real escalation decision) vs DELETE (lose them) touches
   live escalation logic → flagged with evidence for the owner's call, NOT blind-deleted (deletion of possibly-
   valuable IP without certainty + "nothing lost" mandate argue against guessing).
+
+### 🌟 GUS-2 — Belnap abstain/honesty primitive (GRAND SWEEP, 2026-06-22)
+- [x] **Belnap abstain-gate core (`199f41a42`, belnap 39/39 --features research):** `BelnapValue::abstains()`
+  (NOT classically decided — Both=contradictory, Neither=no-evidence → abstain, never assert) + `abstain_reason()`
+  (honest provenance string). Reuses the existing is_classical/is_inconsistent/is_gappy (no dup). The honesty
+  rule as a primitive: never assert on contradictory/absent evidence. HARDENED + ADDITIVE — the AnswerPacket
+  wiring (research→answer bridge) is the integration step (harden-before-integrate; built+tested first).
