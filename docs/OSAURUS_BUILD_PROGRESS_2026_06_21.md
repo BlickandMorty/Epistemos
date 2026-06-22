@@ -755,12 +755,20 @@ experimental gate).
   both on first appear (idempotent latches, side-effect-free — NO server/Sparkle/login-item; the chat generates
   in-process via `ChatEngine → MLXService`, so the HTTP server is not needed). Full send-verification (model
   present + streaming) needs the owner's running app — no computer-use in this loop.
-- [~] **Step-4 remove the experimental "safety" toggle + add the real act↔work toggle** — DONE: removed the
-  `ActOsaurusHealthRow` "Use Osaurus for Act (experimental)" opt-in switch (owner: "why is there a safety in
-  this?") — the row is honest status only now. PENDING: the real act↔work PRODUCT toggle on/near the chat
-  surface ("a toggle to open the work as well"), separate from the removed safety gate.
+- [x] **Step-4 remove the experimental "safety" toggle + add the real act↔work toggle** — DONE (`df4b3653c`):
+  removed the `ActOsaurusHealthRow` "Use Osaurus for Act (experimental)" opt-in switch (owner: "why is there a
+  safety in this?"). DONE (this commit): the real act↔work PRODUCT toggle — `HomeRouter` now overlays a clean
+  capsule `WorkspaceModeToggle` (NO armed-dot/"experimental" framing) on the chat surface; `.act` →
+  `EpistemosOsaurusChatHost` (the Osaurus chat), `.work` → `WorkTerminalHostView` (OpenCode's native terminal),
+  persisted via `WorkspaceModeSelection`. Pro only — MAS stays act-only (`ChatView`) since the Osaurus host +
+  SwiftTerm work terminal are Pro/direct-distribution (MAS-safe split = tracked debt). Pending Pro verify.
 - [ ] **Step-5 collapse `CoworkChatMode` Chat/Act depth axis** — preserve Fast/Think/Code tier reach.
-- [ ] **Step-6 delete old Epistemos `ChatView`** once the host is verified (keep IP only — no fallback scaffold).
+- [~] **Step-6 delete old Epistemos `ChatView`** — NUANCE (honest): on **Pro** the old `ChatView` is already
+  OUT of the act path (HomeRouter mounts the Osaurus host; no fallback scaffold — owner's intent honored). But
+  the **MAS** target still uses `ChatView()` as its REAL act surface (Osaurus host is Pro-only until the
+  MAS-safe OsaurusCore split). So `ChatView` can't be deleted outright without breaking MAS's chat — keeping it
+  is MAS's actual surface, not a Pro fallback. It retires when MAS gets Osaurus (the tracked MAS-full-capability
+  debt). Until then: Pro has no old-ChatView fallback; MAS keeps it as its chat.
 - [ ] **Step-7 fix act send errors + `<think>` regression on the live path; verify a real send/receive.**
 - [ ] **WORK/OpenCode — SAME regression class confirmed (audit 2026-06-22):** work surface mounted ONLY in
   Settings → Work-clone tab (`WorkCloneSettingsView.swift:38`), never routed from RootView/landing; gated OFF by
