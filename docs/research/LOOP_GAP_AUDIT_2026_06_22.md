@@ -152,3 +152,58 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
 | Build agent may still tunnel on act | Enforce 0.32 witness + owner paste block each iteration |
 | Northstar PNGs | Optional visual refs |
+
+## Iteration 5 — 2026-06-22 (reverse-audit + 0.32 hard gate + tier tables)
+
+### Reverse addendum audit (iteration 5 grep)
+| Addendum section | Queue index |
+|------------------|-------------|
+| ALL CHAT SURFACES | 0.2, 0.5, 1.6, 4.16 ✓ |
+| PER-CLONE SETTINGS / BEYOND | 0.21, 0.27, 0.30, 4.1, 4.14, 4.15 ✓ |
+| BUILD-IT-HARDENED | 2.8 ✓ |
+| DEFINITIVE ACT-UI | 0.17 ✓ |
+| WORK ENGINE ARCH C | 1.3, 0.28, 0.29, 1.7 ✓ |
+| MAS / DUAL-BUILD | 5.1, 5.3, 4.8 ✓ |
+| FULL-CLONE PROCESS | STANDING ✓ |
+| CLASSIFY shared-vs-chat-only | 0.9 ✓ |
+| deep graph integration | 4.16 ✓ |
+| COMPANION backend | 0.30 OFF-LIMITS + STANDING ✓ |
+| ⏫ PRIORITY finish ACT before WORK | STANDING (within TIER 0 only; does NOT cancel TIER 1+ walk) ✓ |
+| **OPENCODE HEAVINESS MITIGATION** | **NEW 1.8** (was unindexed) |
+
+### Fixed
+| Gap | Fix |
+|-----|-----|
+| OPENCODE heaviness mitigation unindexed | Added **1.8** (lazy-launch, loopback-only, kill-on-idle, no Electron, SwiftTerm TUI) |
+| 0.32 witness too weak for act-tunnel | HARD GATE: mandatory log block + forbidden end-claims in queue, strict prompt (H), paste #13 |
+| 0.31 grep missing WORK/BEYOND | Extended grep list in queue 0.31 + strict prompt reverse audit |
+| PASTE_READY tier walks implicit only | Added explicit NON-OPTIONAL tables: TIER 1 (1.1→1.8), TIER 2 (2.1→2.8), TIER 4 (4.1→4.16) |
+| ACT-before-WORK priority ambiguous vs full-plan | STANDING clarifies: preempts WITHIN TIER 0 only, not TIER 1+ skip |
+| TIER 1 end was 1.7 | Updated to **1.8** in strict prompt + paste clone matrix + tier walk |
+
+### Pre-launch checklist (iteration 5)
+| Check | Status |
+|-------|--------|
+| Queue 0.1→0.32 numeric order | PASS |
+| Queue 1.1→1.8 numeric order | PASS |
+| Queue 2.1→2.8 numeric order | PASS |
+| Queue 4.1→4.16 numeric order | PASS |
+| FULL-PLAN-NO-ACT-TUNNEL in STANDING | PASS |
+| 0.32 HARD GATE (forbidden end-claims) | PASS |
+| Reverse audit grep includes WORK/BEYOND | PASS |
+| OPENCODE heaviness indexed (1.8) | PASS |
+| PASTE_READY tier walks 1.1→1.8, 2.1→2.8, 4.1→4.16 NON-OPTIONAL | PASS |
+| Clone matrix + 18 non-negotiables synced | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures) |
+| Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED) |
+
+### Still open (next 3m tick / build agent)
+| Gap | Action |
+|-----|-----|
+| All queue items uncertified | Agent walks full plan 0.1→0.32 then TIER 1→5 with 5-gate bar |
+| `osa_runtime_2026_06_22.png` | Agent captures on first run |
+| Build agent act-tunnel risk | Enforce 0.32 mandatory witness block each iteration; forbidden end-claims |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| MAS VM sandbox substitute research | Standing-only (research, not separate queue row) |
+| MULTI-LoRA routing repos | Standing pattern ref for 3.1 (addendum says STANDING classify) |
+| Northstar PNGs | Optional visual refs |

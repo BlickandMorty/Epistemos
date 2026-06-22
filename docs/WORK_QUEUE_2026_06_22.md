@@ -177,14 +177,20 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🆕 PER-CLONE SETTINGS" beyond tab + Tamagotchi + Talaria/Tolaria reference + OFF-LIMITS guard.
 
 - [ ] **0.31 Reverse addendum audit (EVERY iteration — standing)** — after forward queue walk: grep addendum for
-  🔒, DEFINITIVE, P0, MUST, BUILD-IT-HARDENED, ALL CHAT SURFACES; verify EACH is indexed in this queue or
-  STANDING with →plan ref. Missing directive → ADD queue row same iteration. Log in STRICT_RECERT_LOG.
+  🔒, DEFINITIVE, P0, MUST, BUILD-IT-HARDENED, PER-CLONE, WORK, BEYOND, ALL CHAT SURFACES; verify EACH hit is
+  indexed in this queue or STANDING with →plan ref. Missing directive → ADD queue row same iteration. Log in
+  STRICT_RECERT_LOG.
   →plan: THREE STANDING DIRECTIVES §1 + COMPLETENESS / DISCOVERY-SWEEP MANDATE.
 
-- [ ] **0.32 Full-plan iteration witness (EVERY iteration — standing)** — before declaring iteration done: state
-  highest item attempted (e.g. "walked through 2.3"), count `[x]`/`[~]`/`[ ]` per tier, confirm
-  FULL-PLAN-NO-ACT-TUNNEL honored (not act-only). If stopped at TIER 0, state why next tier blocked with evidence.
-  →plan: strict prompt FULL PLAN CERTIFICATION + NEVER-IDLE.
+- [ ] **0.32 Full-plan iteration witness (EVERY iteration — standing, HARD GATE)** — before declaring iteration
+  done, append this block to STRICT_RECERT_LOG (all fields required):
+  `Highest attempted:` · `T0/T1/T2/T3/T4/T5 [x]/[~]/[ ] counts` · `TIER 1+ attempted: YES|NO` ·
+  `If NO: evidence` · `Act-only tunnel: DENIED (explicit)` · `Forbidden end-claims avoided: YES`.
+  **FORBIDDEN** without full walk attempted: "act certified = iteration done", "D1–D5 pass = done",
+  "stopping at TIER 0", "build-green = tier done". Act P0 blocking does NOT cancel TIER 1+ attempt same iteration
+  when TIER 0 is certified or honestly `[~]`. If stopped at TIER 0 only, cite screencapture/send-text evidence why
+  TIER 1+ could not be attempted — not convenience.
+  →plan: strict prompt FULL PLAN CERTIFICATION + NEVER-IDLE + FULL-PLAN-NO-ACT-TUNNEL.
 
 ## TIER 1 — WORK MODE (OpenCode)
 - [ ] **1.1** OpenCode launcher binary vendored. →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED".
@@ -206,6 +212,11 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **1.7** WORK inference + send path — work lane send reaches OpenCode/Goose fused engine; distinct from
   act/Osaurus; headless harness or real-state test when available. No silent act fallback.
   →plan: "✅ DECISION WORK ENGINE = ARCH C" + 0.29 routing + Bun runtime vendored.
+
+- [ ] **1.8** OpenCode heaviness mitigation — no Electron/Tauri GUI shipped; headless Bun only; **lazy-launch when
+  WORK opens**, **loopback-only**, **kill-on-idle**; real TUI in SwiftTerm/PTY (palette-matched); measure disk/RAM;
+  Pro-only footprint honest. Screenshot work TUI + verify no Chromium bundled.
+  →plan: "🆕 OPENCODE \"HEAVINESS\" — MITIGATION" + Bun runtime vendored (1.1).
 
 ## TIER 2 — SUBSTRATE + SALVAGE
 - [ ] **2.1** SUBSTRATE Phase 2 AnswerPacket — re-cert load-on-launch; history surface + primary witness.
@@ -277,7 +288,9 @@ latest-owner-directive-wins (🔒/DEFINITIVE beats older sections) · 70B/new-mo
 **FULL-PLAN-NO-ACT-TUNNEL:** certify ENTIRE addendum queue (0.1→0.32, TIER 1→5), not act/D1–D5 only ·
 **Companion-backend OFF-LIMITS** (companions.rs, CompanionCreationFlow, new-model interrupt) — **work + beyond
 future clones IN SCOPE** · main-only · Co-Authored-By Claude · P0 owner reports preempt · **NEVER-IDLE:** heavy
-work = incremental slices, not defer (→plan: "🔁 NEVER-IDLE") · **FAVOR OSAURUS on clash:** Osaurus wins
+work = incremental slices, not defer (→plan: "🔁 NEVER-IDLE") · **ACT-before-WORK polish WITHIN TIER 0 only:**
+finish act surface bugs before WORK polish inside TIER 0 — does NOT permit skipping TIER 1+ full walk (→plan:
+"⏫ PRIORITY finish ACT before WORK polish") · **FAVOR OSAURUS on clash:** Osaurus wins
 engine/structure; cherry-pick owner IP that works WITH Osaurus; front-end stays minimal Epistemos pixel-art
 (→plan: "🆕 CONFLICT-RESOLUTION: FAVOR OSAURUS") · **OWNER MESSAGES → PLAN+QUEUE:** every owner directive
 captured in addendum AND indexed here same iteration (→plan: THREE STANDING DIRECTIVES §1) · **EXTERNAL RESEARCH
