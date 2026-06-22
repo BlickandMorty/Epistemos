@@ -91,6 +91,23 @@ public struct EpistemosOsaurusChatHost: View {
         ConfigurationDomainBootstrap.registerBuiltIns()
         DocumentAdaptersBootstrap.registerBuiltIns()
         ThemeManager.shared.applyCustomTheme(epistemosCreamTheme, persist: false, animated: false)
+        seedOwnerDefaultModelOnce()
+    }
+
+    /// Owner 2026-06-22 (#1 concern — "send works with MY models"): the new Osaurus act
+    /// surface picks its default model from the default agent (Osaurus's), so the owner's
+    /// first send would use Osaurus's default rather than their own model. Seed the default
+    /// agent's model to the owner's first registered model so the FIRST send uses the owner's
+    /// model. Guarded by a PERSISTENT flag (not just the per-process `didBootstrap`) so this
+    /// runs exactly ONCE ever and NEVER re-clobbers the owner's later picker choice (which
+    /// auto-persists into the agent settings). Honest no-op when no owner model is registered.
+    @MainActor
+    private static func seedOwnerDefaultModelOnce() {
+        let seededKey = "epistemos.act.didSeedOwnerDefaultModel.v1"
+        guard !UserDefaults.standard.bool(forKey: seededKey) else { return }
+        UserDefaults.standard.set(true, forKey: seededKey)
+        guard let firstOwnerModel = EpistemosModelBridge.providedModelIds().first else { return }
+        AgentManager.shared.updateDefaultModel(for: Agent.defaultId, model: firstOwnerModel)
     }
 
     /// The Epistemos palette as an Osaurus `CustomTheme`. Mirrors the Epistemos
