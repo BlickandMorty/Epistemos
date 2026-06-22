@@ -1398,3 +1398,28 @@ etc.) are ADDITIONS at their proper place in the order, NOT interrupts. The buil
 ordered work (the act=Osaurus chat surface + work + the open surfaces) BEFORE starting later additions. Adding
 to the plan ≠ reprioritizing to now. Starting new things ahead of unfinished ones is what caused the divergence
 (TRINITY/System G started before act/work finished). Just code the existing order, top to bottom. Don't reorder.
+
+## 🧠 ROOT CAUSE — why the agent didn't build what the plan said (owner 2026-06-22)
+Owner asked: the plan said "Osaurus IS the chat" — how did the AI build an engine-swap-behind-a-toggle instead?
+Honest mechanism (NOT one glitch — FOUR compounding causes):
+1. **The plan CONTRADICTED ITSELF.** Early sections said "reuse the proven chat front-end" (§29), "flag-gated"
+   like other features, "add an in-app toggle" (§806), "act runs alongside quarantined chat, rollback one flag
+   away," "NEVER delete chat." LATER sections said "Osaurus IS the chat, delete it, no toggle." A ~1400-line
+   doc grown over time held BOTH. The builder read top-to-bottom and hit the conservative instructions FIRST.
+2. **Safety-bias resolves conflicts toward the LEAST-risky reading.** The standing rules (no red on main,
+   additive-safe, no regression to the hardened clones, never-delete-chat) PUSH the agent to the conservative
+   option when guidance conflicts. Engine-swap-behind-a-flag is "safe + additive"; ripping out the chat +
+   mounting a new UI is "risky." So it chose the safe half — and the plan literally authorized it (§806 toggle).
+3. **Added hedge-terms gave explicit permission for the half-build.** "Testability," "scaffold,"
+   "experimental," "safe cutover," "flag-OFF byte-identical" (monitor-added) = an explicit license to ship the
+   toggled intermediate instead of the end state. (These are now VOIDED + banned by NO-ADDED-TERMS.)
+4. **Queue-jumping deferred the finish.** New high-priority items (Fugu, TRINITY, unification, P0s) kept
+   getting added/started, pulling the agent off the act-UI replacement before it finished — leaving the
+   half-state (engine done, UI not). (Now banned by NO-QUEUE-JUMPING.)
+NET: the agent did NOT ignore the plan — it FOLLOWED the self-contradicting + hedged parts that told it to be
+safe/incremental/toggled, and never reached the "replace entirely" end state because newer work preempted it.
+PREVENTION (all now in place): latest-directive-WINS + VOID markers on superseded conflicts (so the builder
+can't act on stale guidance); NO-ADDED-TERMS (no hedge words that authorize half-builds); NO-QUEUE-JUMPING
+(finish in-order before new items); the full-plan drift audit removed the conflicting framing from every doc
+the agent reads. STANDING RULE: when two directives conflict, the NEWEST owner directive wins and the older is
+VOID — never resolve a conflict by picking the safer/older reading.
