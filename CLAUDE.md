@@ -147,10 +147,10 @@
 - Storage trait + InMemoryDagStore (capability-bound put_edge, CD-005): agent_core/src/cognitive_dag/storage.rs
 - Merkle root: agent_core/src/cognitive_dag/merkle.rs
 - Resonance propagation (DerivesFrom + Contradicts walks, TruthCache): agent_core/src/cognitive_dag/resonance.rs
-- Macaroon-style capabilities (orphan until Phase 8.H wires them into dispatch): agent_core/src/cognitive_dag/macaroons.rs
+- Macaroon-style capabilities (WIRED into dispatch — `dispatch.rs` issues/restricts the system + skills/procedural/provenance/companion mirror caps; no longer orphaned): agent_core/src/cognitive_dag/macaroons.rs
 - Companion lifecycle (Companion + Deforms edges + LoRA estimates): agent_core/src/cognitive_dag/companions.rs
 - DagMirror trait + 4 mirrors (Skills/Procedural/Provenance/Companion): agent_core/src/cognitive_dag/migration.rs
-- Auto-invoke dispatch (sentinel-cap registered on first use): agent_core/src/cognitive_dag/dispatch.rs
+- Auto-invoke dispatch (registers ALL mirror caps at DAG INIT via the OnceLock `get_or_init`, not first-use — system/skills/procedural/provenance-evidence/provenance-claim/companion): agent_core/src/cognitive_dag/dispatch.rs
 
 ### Rust agent_core — Provenance ledger (Phase 1 + Phase 8.F replay)
 - ClaimLedger (in-memory, retraction propagation): agent_core/src/provenance/ledger.rs

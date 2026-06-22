@@ -683,3 +683,16 @@ prompts.rs:16 + chat_lite), so a rename is multi-caller and a route-through need
 vault-hybrid IS the intended Eidos retrieval vs the deeper eidos/ claim layer. NOT blind-fixed (risk: break the
 live tool + prompts; possible intentional brand). Sequenced in UNIFICATION work per the directive — flagged with
 evidence for the owner's route-vs-rename call.
+
+### 🔧 UNIFY easy-wins (BUILD-IT-HARDENED item 1, 2026-06-22)
+- [x] **Stale CLAUDE.md FIXED (verified vs code):** the unification verdict flagged 2 stale claims; VERIFIED both
+  real-state and corrected: (1) macaroons are NOT orphaned — `dispatch.rs:28,86-153` issue/restrict the system +
+  skills/procedural/provenance/companion mirror caps; (2) dispatch registers ALL 6 caps at DAG INIT (the OnceLock
+  `get_or_init`, dispatch.rs:47-71), NOT "on first use". Honest doc, no code risk.
+- [~] **confidence_floor.rs orphan — VERIFIED, resurrect-vs-delete is the owner call:** confirmed the verdict —
+  `decide_floor` is called ONLY in its own tests (no production consumer), and its `ConfidenceFloor` enum is
+  DUPLICATED by a live one in `research/confidence_floors.rs` (same T1/T2/T3 + 0.85/0.75/0.70 thresholds = drift).
+  So confidence_floor.rs is the orphaned duplicate; research/confidence_floors.rs is the live one. RESURRECT (wire
+  decide_floor/FloorOutcome — the unique bits — into a real escalation decision) vs DELETE (lose them) touches
+  live escalation logic → flagged with evidence for the owner's call, NOT blind-deleted (deletion of possibly-
+  valuable IP without certainty + "nothing lost" mandate argue against guessing).
