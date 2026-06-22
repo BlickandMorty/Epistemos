@@ -529,3 +529,14 @@ search bugs on it; runtime-verify.
   honest (warns/inert). Flag so WORK never claims functional without the launcher.
 - **Verdict:** PASS both. Act code-complete (owner runtime-verify pending). WORK buildable parts solid; external
   OpenCode launcher remains. Re-audit next commit.
+
+## Pass 39 — 2026-06-22 — loop advanced to SUBSTRATE Phase 2
+- **Build loop:** ALIVE. HEAD `4e7a49199` (9 min). Walking the plan: act done → WORK launcher-checkpoint →
+  SUBSTRATE Phase 2 (the "certain, lower-in-order" substrate finish). Correct sequencing.
+- **AUDIT 4e7a49199 (AnswerPacket load-on-launch ring restore) → ✅ PASS (real, test-backed, closes a stub):**
+  packets persisted but ring started empty on relaunch (provenance invisible after restart). Built
+  AnswerPacketEmitter.restoreFromPersistence() (seeds from durable JSONL oldest→newest, ONLY when empty → no
+  duplicate of live packets; per-process counters), wired AppBootstrap off-MainActor, makeForTesting + 2
+  real-state tests. Closes health-row stillStub. Test EXIT=0. Co-Authored. (AppBootstrap.swift + AnswerPacketEmitter.swift + AnswerPacketStoreTests.swift)
+- **Verdict:** PASS. Loop correctly progressing substrate now that act (code-complete) + WORK (launcher-checkpoint)
+  are at their bars. Act owner-runtime-verify still the key gate. No act/WORK regression.
