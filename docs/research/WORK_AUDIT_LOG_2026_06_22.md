@@ -924,3 +924,12 @@ four-blocks/Good-afternoon/composer; D1 boxy/D3 pill/0.7 message-bar/0.1-D5 resk
 in running app (visible D-cluster ~0% delivered); transient PNGs don't count, only fresh-launch. Auditor will
 re-screenshot each fire; if next cycle still Osaurus default → escalate + surface to owner for intervention.
 Did NOT touch agent code/queue/recertlog.
+
+## PASS 61b — 2026-06-22 (ROOT WALL: committed cream reskin does NOT render in the running build)
+Critical: 0.1 cream edit (CustomTheme.lightDefault + schema bump, iter1 6becb2cdf) IS in the 14:37 build, yet the
+auditor screenshot shows WHITE/Osaurus-default, not cream. → the committed reskin is NOT cascading; the original
+"reskin doesn't render" wall is STILL unfixed despite source-edit+schema-bump. Issued P0: runtime-confirm cream on
+a FRESH launch (it's currently 0%, never rendered); diagnose the REAL cascade failure (does the running ChatView
+read CustomTheme.lightDefault? does schema-bump force reinstall on an EXISTING install, or does a cached theme/OS
+appearance override?); make cream RENDER on the owner's launch FIRST as the single unblock before more certs.
+This is the technical core of the owner's "why is this so hard" + trust loss. Did NOT touch agent code.
