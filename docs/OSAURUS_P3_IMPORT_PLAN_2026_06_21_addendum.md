@@ -807,3 +807,26 @@ VISIBLE, testable surfaces now (the owner wants to SEE/test it):
   add an easy in-app toggle) so the owner can actually experience act-through-Osaurus — and add a visible
   "act on Osaurus" indicator. Don't leave it forever flag-off-and-invisible (PROVEN-DONE: must reach the user).
 These are the next heavy-backlog items per NEVER-IDLE — build them incrementally to green, commit each.
+
+## 🔴🔴 P0 REGRESSION — reasoning-model output broken in LIVE chat (owner 2026-06-21)
+**Owner: EVERY query to ANY model fails.** Screenshot evidence (model = **VibeThinker 3B (Reasoning) GGUF**):
+1. **Chat answer = "I'm sorry, but I can't assist with that request"** on every query (universal refusal).
+2. **Chat TITLE = raw `<think>The user asks: "Generate a very short title (2-6 words)…"`** — the title-gen
+   META-PROMPT + the model's `<think>` reasoning are LEAKING as the title.
+**ROOT-CAUSE HYPOTHESIS (grounded):** the **reasoning-model `<think>` block handling is broken across chat** —
+the parser isn't stripping `<think>…</think>` / not extracting the real final answer, so (a) titles dump the
+raw think+prompt, and (b) the actual answer is lost → a canned "can't assist" surfaces. Reasoning models
+(VibeThinker GGUF) emit `<think>…</think>` then the answer; that split is being mishandled.
+**LIKELY SOURCE (the agent MUST find which):** this is the FLAG-OFF live path (`EPISTEMOS_ACT_OSAURUS_V0` off),
+so a NON-gated recent change regressed it — prime suspects: (a) the **dual-MLX → vmlx-swift consolidation**
+changed GGUF generation/tokenization/stop-handling for reasoning models; (b) the **act-routing / TriageService
+injection was NOT truly flag-off-byte-identical** (a real regression slipped in despite the claim). Either way
+it VIOLATES "no regression to live chat / flag-off = byte-identical."
+**FIX + HARDEN (P0, preempts):**
+- Restore correct reasoning-model output handling: strip/parse `<think>…</think>`, extract the real answer +
+  produce a CLEAN short title (no meta-prompt, no think leak). Cover both streaming + non-streaming + title-gen.
+- BISECT to the regressing commit (vmlx swap vs routing injection); prove flag-OFF is byte-identical to
+  pre-change behavior.
+- **REAL-STATE regression test** that WOULD HAVE CAUGHT this: a VibeThinker-GGUF (reasoning-model) query →
+  asserts a real (non-refusal) answer + a clean title (no `<think>`/no meta-prompt). Add for streaming + title.
+- Verify across models (not just VibeThinker) since owner says "any model."
