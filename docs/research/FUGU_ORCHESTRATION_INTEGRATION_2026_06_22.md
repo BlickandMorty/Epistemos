@@ -224,3 +224,38 @@ CONSTRAINTS: PLAN_V2 is authority; honest capability gating; no hidden fallback;
 5. **License check** — confirm RouteLLM / llm-use / vLLM-Semantic-Router licenses before lifting any code (papers/patterns are safe to re-implement).
 6. **"$10/message" provenance** — the prompt's figure is unconfirmed; treat the per-token sheet as authoritative.
 ```
+
+---
+## 6. PATH B DESIGN DEEPENING (monitor, 2026-06-22 cron iter) — the native orchestrator as owner IP
+Advancing the §3.3 gap: a concrete, build-ready design for Epistemos's OWN Trinity/Conductor-style
+orchestrator (the foundational IP brain), grounded in the existing codebase + the public method.
+
+### 6.1 Architecture (re-implement the PUBLIC TRINITY/Conductor method — no Fugu code needed)
+- **Orchestrator = a loop, not a model:** `Thinker` (decompose task → subtasks + pick model per subtask) →
+  `Worker(s)` (run each subtask on the BEST pool model: local MLX / Osaurus act / Goose-tool / cloud
+  provider / OpenCode-work) → `Verifier` (check/critique outputs) → `Synthesizer` (merge → final). Recursive:
+  a Worker may itself be the orchestrator on a sub-task (Fugu's "calls itself recursively").
+- **Binding point (verified):** System G `agent_runtime_v2` is the LIVE orchestrator; its `ProviderPolicy`
+  already has `OpenAICompatible{base_url,model}` → each pool member (local, cloud, Fugu-guest) is one policy.
+  `RuntimeRouter.swift` (currently observe-only, gated `EPISTEMOS_RUNTIMEROUTER_LIVE_V0`) becomes the
+  per-subtask model-SELECTION policy (it already has the honest-escalation-log shape).
+- **Model pool registry:** a declarative list of available lanes (MLX-local models, Osaurus, cloud providers,
+  optional Fugu) each with capability/cost/latency tags → the Thinker/router picks per subtask by tags.
+
+### 6.2 Expose as ONE internal API → convergence across act+work+chat (owner's #1 want)
+- Surface the orchestrator behind the EXISTING OpenAI-compatible internal server (LocalModelServer pattern,
+  loopback) as a virtual model id (e.g. `epistemos-orchestrator`). Then act, work (OpenCode points at it),
+  chat/note/graph all call the SAME endpoint → uniform "one brain" everywhere. This IS the convergence.
+
+### 6.3 Cost/honesty + modular (owner directives)
+- Local-first: default pool = local models → $0; cloud/Fugu lanes only when the router escalates AND the
+  user enabled them. Per-call cost (when cloud used) shown honestly. Fugu = one optional pool member, NEVER
+  the orchestrator brain. Provider abstraction = lanes plug in/out (swap if better ships).
+
+### 6.4 Honest build gaps (sequenced lower-but-certain)
+- Router quality (good per-subtask model choice) is the hard part — start with simple heuristic tags
+  (complexity/code/reasoning) + RouteLLM-style learned routing later. Recursive depth needs a guard
+  (reuse OpenClaw depth-limiter). Verifier needs a cheap-but-real check (not fake-pass). All real-state tested.
+### 6.5 Still owed by deeper passes
+Read the actual TRINITY + Conductor ICLR 2026 papers for the precise loop/verify algorithm; test Fugu API
+streaming live; price a representative multi-step run. (Refines; the design above is build-ready.)
