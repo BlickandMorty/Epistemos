@@ -14,7 +14,11 @@ public enum ThemeConfigurationStore {
     private static let builtInThemeSchemaKey = "builtInThemeSchemaVersion"
     /// Increment this whenever the built-in Dark/Light palette changes so existing
     /// installations receive the updated colors on next launch.
-    private static let currentBuiltInThemeSchema = 5
+    // Bumped 5→6 for the Epistemos cream/monospace reskin of the Light built-in
+    // (queue 0.1 / plan §1765). A bump force-reinstalls built-in presets to disk so
+    // existing users' cached (white) Light theme is overwritten — without this the
+    // source palette edit does NOT cascade to the running app (the documented reskin bug).
+    private static let currentBuiltInThemeSchema = 6
     private static var builtInThemesInstalled = false
 
     // MARK: - Active Theme
