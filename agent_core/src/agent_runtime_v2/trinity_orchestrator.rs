@@ -11,6 +11,7 @@ use crate::model_profile::CapabilityTier;
 
 use super::trinity_executor::HeuristicTrinityExecutor;
 use super::trinity_loop::{run_trinity_loop, TrinityLoopOutcome, DEFAULT_MAX_ROUNDS};
+use super::trinity_routing::{TrinityRouterMode, ACTIVE_ROUTER_MODE};
 use super::trinity_trace::write_trace_jsonl;
 
 /// Result of one orchestrated TRINITY mission.
@@ -20,6 +21,9 @@ pub struct TrinityMissionResult {
     pub outcome: TrinityLoopOutcome,
     /// Where the JSONL trace was persisted, if a `trace_dir` was configured (else None).
     pub trace_path: Option<PathBuf>,
+    /// Which router produced the role→model decisions — disclosed HONESTLY (heuristic now; learned is
+    /// license/MLX-tap gated). A UI/trace surfaces this so the user knows it's the heuristic, not the learned head.
+    pub router_mode: TrinityRouterMode,
 }
 
 /// Run one TRINITY coordination mission for `objective` using the injected `generate`. Heuristic routing selects
@@ -44,7 +48,7 @@ pub fn run_mission<G: FnMut(CapabilityTier, &str) -> String>(
         None
     };
 
-    Ok(TrinityMissionResult { outcome, trace_path })
+    Ok(TrinityMissionResult { outcome, trace_path, router_mode: ACTIVE_ROUTER_MODE })
 }
 
 #[cfg(test)]
@@ -71,6 +75,8 @@ mod tests {
         assert_eq!(result.outcome.rounds, 1);
         assert_eq!(result.outcome.final_answer, "final answer");
         assert!(result.trace_path.is_none());
+        // honest router disclosure: heuristic (not the not-yet-built learned head).
+        assert_eq!(result.router_mode, super::super::trinity_routing::TrinityRouterMode::Heuristic);
     }
 
     #[test]
