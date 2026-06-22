@@ -480,6 +480,37 @@ impl OpenAICompatibleProvider {
     pub fn together_latest() -> Self {
         Self::together("meta-llama/Llama-3.3-70B-Instruct-Turbo")
     }
+
+    // --- FUGU (owner 2026-06-22, foundational) ---
+    /// Sakana **Fugu** — a multi-agent orchestration LLM, OpenAI-compatible (~$10/message; see
+    /// `pricing::per_message_usd("fugu")`). Built as a CONFIG instance of this universal provider (req #1
+    /// modular: no new provider type, no hardcoding — swap it out by changing config). EASY SETUP (req #3):
+    /// the API key comes from `FUGU_API_KEY` and the endpoint from `FUGU_BASE_URL` (overridable from Settings),
+    /// defaulting to Sakana's OpenAI-compatible base; the model from `FUGU_MODEL`. Capabilities are conservative
+    /// + research-pending (FUGU_ORCHESTRATION_INTEGRATION_2026_06_22.md) — streaming on (OpenAI SSE), tools/
+    /// vision left off until verified so we never advertise an unconfirmed capability.
+    pub fn fugu() -> Self {
+        Self::new(
+            std::env::var("FUGU_API_KEY").unwrap_or_default(),
+            std::env::var("FUGU_BASE_URL").unwrap_or_else(|_| "https://api.sakana.ai/v1".to_string()),
+            std::env::var("FUGU_MODEL").unwrap_or_else(|_| "fugu".to_string()),
+            "Fugu",
+            ProviderCapabilities {
+                max_context_tokens: 128_000,
+                max_output_tokens: 8_192,
+                supports_thinking: false,
+                supports_vision: false,
+                supports_web_search: false,
+                supports_code_execution: false,
+                supports_computer_use: false,
+                supports_mcp: false,
+                supports_streaming: true,
+                supports_compaction: true,
+                cost_input_per_million: 0.0, // headline cost is per-MESSAGE (~$10), not per-token; see pricing.rs
+                cost_output_per_million: 0.0,
+            },
+        )
+    }
 }
 
 // ============================================================================
@@ -1183,6 +1214,21 @@ mod tests {
             openai_compatible_reasoning_delta_text(delta),
             Some("plan first")
         );
+    }
+
+    #[test]
+    fn fugu_is_a_config_instance_with_overridable_endpoint() {
+        // FUGU (owner foundational): built as a CONFIG instance of the universal provider (req #1 modular),
+        // with an env/Settings-overridable endpoint + key + model (req #3 easy setup). Streaming on; tools/
+        // vision off until verified (no unconfirmed capability advertised); per-token cost 0 (cost is
+        // per-MESSAGE, ~$10, in pricing.rs).
+        let provider = OpenAICompatibleProvider::fugu();
+        assert_eq!(provider.display_name, "Fugu");
+        assert_eq!(provider.base_url, "https://api.sakana.ai/v1"); // default when FUGU_BASE_URL unset
+        assert_eq!(provider.model, "fugu");
+        assert!(provider.capabilities.supports_streaming);
+        assert!(!provider.capabilities.supports_vision, "don't advertise unconfirmed caps");
+        assert_eq!(provider.capabilities.cost_input_per_million, 0.0, "cost is per-message, not per-token");
     }
 
     #[test]
