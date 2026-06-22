@@ -414,7 +414,9 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   blur/page chrome as the elevated experience.
 - [x] **DRY: one shared `FeatureGateOverride` (`a6527922b`):** the act + work gates carried byte-identical
   override logic (get/set/truthy/resolve override>env>off); consolidated into one helper both delegate to (zero
-  behavior change). Source-guard-gated; gate-suite test checkpoint running (batched per CODE-MORE-BUILD-LESS).
+  behavior change). **CHECKPOINT ✅: 27 tests / 3 suites TEST SUCCEEDED** (act+work gate behavior preserved).
+  Extended in-pillar: `WorkBackendGateStatus` also delegates (`bbd777133`); direct helper test
+  `FeatureGateOverrideTests` (`282ce89be`) locks the semantics — both in a follow-on checkpoint.
 - [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
   (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
   name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
