@@ -36,14 +36,16 @@ fn fusion_stdio_real_transport_handshake_and_tool_call() {
             r#"{{"jsonrpc":"2.0","method":"tools/call","params":{{"name":"backlinks","arguments":{{"target":"b"}}}},"id":3}}"#
         )
         .unwrap();
+        // a keepalive ping (MCP clients send these) must get an empty-result reply, not an error/drop.
+        writeln!(stdin, r#"{{"jsonrpc":"2.0","method":"ping","id":4}}"#).unwrap();
     } // stdin dropped here → EOF
 
     let out = child.wait_with_output().expect("wait omega_mcp_stdio");
     assert!(out.status.success(), "server exited non-zero: {:?}", out.status);
     let stdout = String::from_utf8(out.stdout).unwrap();
     let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
-    // initialize + tools/list + tools/call get replies; the notification does NOT → exactly 3 lines.
-    assert_eq!(lines.len(), 3, "expected 3 responses (notification is silent): {stdout}");
+    // initialize + tools/list + tools/call + ping get replies; the notification does NOT → exactly 4 lines.
+    assert_eq!(lines.len(), 4, "expected 4 responses (notification is silent): {stdout}");
 
     let init: Value = serde_json::from_str(lines[0]).unwrap();
     assert_eq!(init["id"], 1);
@@ -69,4 +71,9 @@ fn fusion_stdio_real_transport_handshake_and_tool_call() {
     assert_eq!(call["id"], 3);
     let text = call["result"]["content"][0]["text"].as_str().unwrap();
     assert!(text.contains("a.md"), "backlinks(b) should report a.md links to it: {text}");
+
+    // ping over the real transport → empty result, never an error (else the client drops the fusion).
+    let ping: Value = serde_json::from_str(lines[3]).unwrap();
+    assert_eq!(ping["id"], 4);
+    assert!(ping["result"].is_object() && ping.get("error").is_none(), "ping reply: {}", lines[3]);
 }

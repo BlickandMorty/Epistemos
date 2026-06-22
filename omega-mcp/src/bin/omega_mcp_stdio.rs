@@ -63,6 +63,10 @@ pub fn handle(
             })
             .to_string(),
         ),
+        // MCP `ping` (spec keepalive — the MCP SDKs send it for connection health): respond with an EMPTY
+        // result, per spec. Falling through to the dispatcher returned `-32601 Unknown method`, which some
+        // clients treat as an unhealthy server → they DROP the connection (a real fusion break, not cosmetic).
+        "ping" => Some(json!({ "jsonrpc": "2.0", "id": id, "result": {} }).to_string()),
         // Notifications (initialized, cancelled, …) carry no id and need no response.
         m if m.starts_with("notifications/") => None,
         "tools/call" => {
@@ -148,6 +152,16 @@ mod tests {
     fn notifications_get_no_response() {
         let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
         assert!(handle(&d, "", r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).is_none());
+    }
+
+    #[test]
+    fn ping_returns_empty_result_not_an_error() {
+        let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
+        let resp = handle(&d, "", r#"{"jsonrpc":"2.0","method":"ping","id":9}"#).unwrap();
+        let v: Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["id"], 9);
+        assert!(v["result"].is_object() && v["result"].as_object().unwrap().is_empty(), "{resp}");
+        assert!(v.get("error").is_none(), "ping must NOT be an error (clients drop on ping failure): {resp}");
     }
 
     #[test]
