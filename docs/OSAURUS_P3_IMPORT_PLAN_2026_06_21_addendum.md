@@ -698,7 +698,9 @@ MLX, etc.) lives in ONE place; the IP brain wraps that one point. No more parall
   savepoint first; build the unified chokepoint ADDITIVELY (both `liveLoop` and `TriageService` delegate INTO
   it, behind a flag) so flag-OFF = byte-identical to today; real-state test EVERY surface (each chat type
   routes correctly, streaming/thinking/tools intact, no regression to the 2,679-suite or the 6 triage
-  callers); then flip on + retire the duplicate path. NEVER a big-bang rewrite of live inference.
+  callers); then flip on + retire the duplicate path. NEVER a big-bang rewrite of live inference. [NOTE: this
+  flag is a TRANSIENT internal refactor-safety mechanism that is REMOVED when the path is flipped on — it is
+  NOT a product on/off toggle and NOT an optional feature. Distinct from the voided act-toggle drift.]
 - **SEQUENCING:** do this AFTER the gated act-swap lands in both chokepoints (so nothing breaks mid-way) — it
   is the consolidation that REMOVES the two-injection-point duplication. CERTAIN (not "deferred"/droppable),
   sequenced as a deliberate refactor. This is the cleanest expression of "one brain on top, engines beneath."
