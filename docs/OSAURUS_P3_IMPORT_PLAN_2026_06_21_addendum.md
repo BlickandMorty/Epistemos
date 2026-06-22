@@ -1465,3 +1465,19 @@ BLOCKING the owner's use → higher priority than further WORK/OpenCode polish. 
 4. (then) live send/<think> running-app verify; old-ChatView deletion (blocked on MAS split); WORK polish continues after.
 NOT a queue-jump — these ARE the current in-progress ACT surface work (owner reported them mid-build). Do these
 before advancing WORK further. Keep Osaurus; additive on EpistemosOsaurusChatHost/RootView.
+
+## 🔴 ACT SURFACE NOT DONE — these are BUILDABLE + OWNER-FACING, build them NEXT (auditor escalation, 2026-06-22)
+The loop wrote a "surfaces delivered" session-state doc (ad7998cb8) but the owner's reported act-surface bugs +
+reskin are NOT built (2 audit passes now). Act is NOT "delivered" — these remain, all buildable (no running app
+needed), all owner-facing, do them BEFORE more docs/WORK polish:
+1. **Remove the top WHITE BAR** on the act surface (old chat had none).
+2. **Click-to-open → Osaurus LANDING page** (currently opens the search bar).
+3. **DEEPER RESKIN:** reapply the old Epistemos MESSAGE BAR (owner fave) + SIDE PANEL + FONTS onto the Osaurus
+   host (component-level, not palette-only); fix Osaurus UI bugs with the better Epistemos UI.
+4. **🆕 OWNER'S MODELS IN CHAT (Epistemos Picks gap):** ad7998cb8 honestly records that the owner's GGUF/QAT
+   models do NOT work in the Osaurus chat — it only uses Apple Foundation / MLX / remote. WIRE the owner's
+   custom models (QAT ladder / "Epistemos Picks") into the Osaurus chat so the owner can actually use their
+   models in act (the long-standing model-picker/Epistemos-Picks requirement). Honest-tier: model bridge real,
+   no naive stub.
+These are the in-progress ACT surface (owner reported them mid-build) — NOT a queue-jump. Build them; the loop
+should NOT treat act as "done" while the owner's reported bugs + the models-in-chat gap remain.
