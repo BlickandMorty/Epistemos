@@ -329,3 +329,12 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
 - **No new build commit yet** (tests uncommitted). Nothing to audit; did not touch loop's in-flight files.
 - **Verdict:** healthy, no re-add. Re-audit the test commit when it lands (verify real behavioral tests, not
   stubs). P0-A/P0-B code-complete; only owner live-send verify remains for act.
+
+## Pass 24 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `cec9b54d6` "Fix red act-routing tests on Pro (no red on main)" (4 min).
+- **AUDIT cec9b54d6 → ✅ PASS (real test fix, NOT fake-green — verified diff):** 3 Pro test failures, NO
+  production code touched. The 2 routing tests asserted the OLD default-OFF/toggle behavior (correctly red after
+  the option-b default-ON-no-toggle pivot) → rewritten to assert the REAL invariant (Pro default-ON regardless
+  of env/flag, MAS always OFF) with meaningful assertions (not gutted). gateHonest made hermetic (was reading
+  host .standard persisted override). Both suites green. = honest test-update to new intended behavior. Co-Authored.
+- **Verdict:** PASS. Act P0-A/P0-B code-complete + tests green; no red on main. Only owner live-send verify remains.
