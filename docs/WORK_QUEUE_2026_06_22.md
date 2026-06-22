@@ -1,5 +1,21 @@
 # WORK QUEUE (2026-06-22) — the loop's per-iteration source of truth
 
+> ## 🔴 STRICT RE-CERTIFICATION MODE (owner 2026-06-22, agent STOPPED & restarting)
+> Owner: *"it has to UNCHECK EVERYTHING … re-verify that it all is coded correctly … I just can't trust that
+> it is complete … truly start from the very beginning of the plan and recertify/reverify, and then continue
+> … NOT a lazy continue or lazy verification — truly robust."*
+>
+> **EVERY box below is UNCERTIFIED — treat as `[ ]` regardless of any prior `[x]`/`[~]`.** Do NOT trust any
+> past "done"/"PASS" (incl. the Osaurus work AND everything before it). Walk **from item 0.1 top-to-bottom**;
+> for each, RE-CERTIFY against its →plan section with grounded evidence (file:line + real-state test + runtime
+> for UI) BEFORE re-checking it. `[x]` only when CERTIFIED to the full strict bar (see RULES). **Do NOT undo or
+> delete working code** — re-verify in place; fix only what is actually broken/drifted/fake. Loop driver =
+> docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md.
+>
+> KNOWN OPEN FLAG (re-cert target): **0.1 reskin — commit ba2f8952f used runtime `applyCustomTheme` in host
+> init (NOT the vendored Theme.swift source edit the plan mandates); vendored default theme is still DARK
+> (#0c0c0b). Must runtime-verify it renders cream; if not, edit the vendored Theme.swift defaults per plan.**
+
 THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION (cheap + reliable). It does NOT replace the
 plan — each item POINTS to its plan section (read ONLY that section's specifics for the current item, not the
 whole addendum). The loop UPDATES this file every loop (mark [x] only when RUNTIME-VERIFIED, append findings).
@@ -21,6 +37,15 @@ RULES (every loop, non-negotiable):
 - Update this queue each loop (status + a one-line result). Commit + push. No fake-done. No red on main.
 - Never delete chat IP. main-only. Co-Authored-By Claude.
 
+STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hold; else it stays `[ ]`):
+  (a) CODE EXISTS — cite file:line; (b) CODE IS CORRECT — read it, it does what the plan section's SPECIFICS
+  say (not a near-miss / drift / different approach than the plan mandates — e.g. 0.1 must hit the SOURCE the
+  plan names); (c) WIRED + REACHABLE — actually on the live path, not dead/flagged-off; (d) REAL-STATE TESTED —
+  a test exercises real behavior (not a stub/always-true); (e) RUNTIME — for ANY UI/visual item it RENDERS/WORKS
+  at runtime. If you cannot prove (e) headlessly → `[~] NEEDS-OWNER-RUNTIME`, never `[x]`. If (a)-(d) fail →
+  it's BROKEN/DRIFTED: fix it for real, then re-certify. NO box is trusted from a prior "done" — re-prove it.
+  Do NOT delete/revert working code to "restart" — re-certify in place; only change what's actually wrong.
+
 ## TIER 0 — ACT SURFACE (BROKEN at runtime — fix + RUNTIME-VERIFY before anything else)
 - [ ] **0.1 Reskin Osaurus at the VENDORED THEME SOURCE** — edit LocalPackages/osaurus/.../Models/Theme/Theme.swift
   (+ its color/font defaults) so Osaurus's views NATIVELY render the Epistemos cream/monospace palette
@@ -37,8 +62,8 @@ RULES (every loop, non-negotiable):
 - [ ] **0.4 SEND actually works (runtime)** — owner's model generates a reply end-to-end (in-process, no HTTP
   requestFailed). Verify a real reply. →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A".
 - [ ] **0.5 Confirm mini-chat + grab-chat reachable** (mini chat exists+reskinned per screenshot — verify wired/discoverable).
-- [~] 0.6 (done, keep verified) duplicate-toggle deleted · friendly errors · clean titles · scroll-blur graft ·
-  side-panel graft · white-bar/search fix · model-default seed — RUNTIME-VERIFY they hold after 0.1-0.4.
+- [ ] 0.6 (CLAIMED-done — RE-CERTIFY each) duplicate-toggle deleted · friendly errors · clean titles · scroll-blur
+  graft · side-panel graft · white-bar/search fix · model-default seed — re-verify file:line + runtime they hold.
 - [ ] **0.7 message-bar graft** = reskin of Osaurus composer (owner-verify feel) →plan: "⚠️ MESSAGE-BAR graft".
 
 ## TIER 1 — WORK MODE (OpenCode)
@@ -47,7 +72,7 @@ RULES (every loop, non-negotiable):
 - [ ] 1.3 Goose/Hermes/OpenClaw fuse beneath OpenCode (unique bits only; drop Goose-permissions if OpenCode covers). →plan: "✅ DECISION WORK ENGINE = ARCH C" + refinements.
 
 ## TIER 2 — SUBSTRATE + SALVAGE (certain, lower-but-not-dropped)
-- [~] 2.1 SUBSTRATE Phase 2 AnswerPacket load-on-launch (4e7a49199 done) → continue Phase 2 (history surface, primary witness) + P5/P6. →plan: SUBSTRATE_BUILD_SEQUENCE.
+- [ ] 2.1 SUBSTRATE Phase 2 AnswerPacket load-on-launch (4e7a49199 CLAIMED — re-certify real-state) → continue Phase 2 (history surface, primary witness) + P5/P6. →plan: SUBSTRATE_BUILD_SEQUENCE.
 - [ ] 2.2 Helios salvage (7 items): real eidos.query wiring, provenance ledger live, confidence_floor resurrect, AnswerPacket/wbo6 harden, L1 memory, InterruptScore, HW tier. →plan: "✅ HELIOS-ERA IP ... salvage list".
 - [ ] 2.3 GUS salvage 1-18 (genuinely-absent only; GUS-6..13 mostly already-live — verify): GUS-7 Ed25519, GUS-8 undo runtime-wire, GUS-10 skill-promote-wire, GUS-1..5/14..18. →plan: GRAND SWEEP cycles 1-3.
 - [ ] 2.4 UNIFICATION verdict: one orchestrator(System G)+TRINITY+one router+one brain attach+one inference chokepoint; fix eidos.query fake-green; delete confidence_floor/ConfidenceRouter dead; fix stale CLAUDE.md. →plan: "✅ UNIFICATION VERDICT".
