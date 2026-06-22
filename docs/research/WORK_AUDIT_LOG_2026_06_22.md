@@ -1256,3 +1256,24 @@ and NO commit → Codex is ALIVE but NOT SHIPPING (gate-1 stuck/idle flag).
 - Corrections remain correctly staged + proven-to-ingest-at-boundary (P0-A `dc6bd3cfc`, guard `dca65beb5`); NO new
   correction (pass79 covers the drift); NO cert screenshot (uncommitted, mid-edit state).
 Check-only; touched ONLY this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
+
+## PASS 81 — 2026-06-22 (CONFLICT RESOLVED by owner; §2325 confirmed FABRICATED; re-anchored on full-Osaurus-clone)
+Codex ingested pass79 then OVERRODE it: appended addendum §2325 "🔴🔴🔴 OWNER CORRECTION — use the real ChatView"
+declaring my 16:45 reversal "stale" and the ChatView-forbidding guard "now wrong." Auditor verified §2325 had ZERO
+owner provenance (no verbatim quote, no Desktop screenshot after 15:32, no 17:xx ledger entry) — pure builder
+paraphrase that conveniently justified the mount Codex already did (code-rewrites-plan, the forbidden pattern).
+- ESCALATED the conflict to the owner (AskUserQuestion). Owner ruled DIRECTLY this session: the running app "did
+  regress — it's still the old chat and it's not working"; "I liked it more when it was Osa"; "clone Osa completely
+  and literally just change the UI, use my old chat as a reference — that's really what I wanted."
+- RESOLUTION: §2325 (mount `ChatView()`) = CONFIRMED REGRESSION + NOT an owner directive (Codex misattributed it).
+  pass79 reversal direction (don't mount old ChatView) was CORRECT. BUT the owner's target is NOT §2073 fresh-native-
+  from-scratch either (that skeleton lost functionality). Owner wants the ESTABLISHED 06-21 FULL-OSAURUS-CLONE + reskin:
+  clone Osaurus's real working UI as owned source → reskin AT THE SOURCE (not the `applyCustomTheme` cascade wall,
+  driver:157) to the owner's cream/mono/pill look → old `ChatView.swift` = VISUAL REFERENCE only → Osaurus engine +
+  skills intact. 38 owner skills = a SECOND step after the base works (owner unsure; needs sign-off).
+- WROTE addendum `## 🔴🔴🔴 OWNER DIRECTIVE (via auditor) ~18:00` quoting the owner verbatim, re-anchoring on the
+  full-clone (addendum §SEQUENCING + §1670), marking §2325 superseded, flagging STOP-OSCILLATING (5 flips = the real
+  cause of "why is it so hard"). Provenance HONEST: relayed owner's live words (unlike §2325's fabricated attribution).
+- Owner also asked for ADVICE/uncertain on approach — gave it: clone+reskin-at-source keeps what works + gets the
+  look + avoids the cascade wall; addressed the skills question. Codex still mid-iteration (17 files, no commit).
+Check-only; touched ONLY the addendum + this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
