@@ -1304,3 +1304,29 @@ unify the dual-brain's APP-SIDE deliberation/authority architecture into System 
 NEVER the model-side spine. Any salvage item that turns out to depend on the new model = EXCLUDED. The app's
 "brain" is its deliberation/orchestration over EXISTING models — not a built-from-scratch model. Standing,
 no ambiguity.
+
+## 🏁 GRAND UNIFICATION SWEEP — COMPLETE / CONVERGED (owner 2026-06-22)
+Cycle 3 = CONVERGENCE confirmed. KEY RESULT: **GUS-6..13 are ~90% ALREADY SHIPPED LIVE** in agent_core/src/
+(goldberg dirs effect/ undo/ nightbrain/ canon/ heal/ route/ skill_discovery/ exist 1:1, unconditionally
+compiled, tested). Cycle-2's "un-promoted" guess REFUTED by live code. DOWNGRADE to SUPERSEDED/DONE:
+- GUS-6 Intent→Effect (effect/dispatcher.rs:47, tested), GUS-9 NightBrain (live+FFI+13 tests), GUS-11
+  canonicalizer (canon/mod.rs:27), GUS-12 self-heal (heal/breaker.rs = re-export, no dup, 16 tests),
+  GUS-13 router (richer than stub, 15 tests). = already built.
+**THE ONLY REAL BUILD WORK (3 tiny additive wirings, app-side, inside already-shipped modules):**
+- **GUS-7:** ExecutionReceipt signs with HMAC-SHA256 → add ONE Keychain-backed **Ed25519** impl (SigningKey
+  seam already correct) for public verifiability.
+- **GUS-8:** undo log built+tested (undo_events.sqlite, 24h TTL, inverse col) but NOT runtime-wired → hook ⌘Z
+  into the apply path (add the production caller).
+- **GUS-10:** skill_discovery built+tested but only test/bridge-driven → invoke the promote path from the live
+  agent loop.
+Plus the still-open GUS-1..5 / 14..18 (living-index panel, EML honesty gate, TurboVec, UAS/ACS harden,
+governance specs, 4-gate tool-adoption, H8 doc-fix) + the UNIFY-0..6 (one orchestrator/router/brain/chokepoint
++ real Eidos wiring + provenance-live + confidence_floor) + the 7 Helios salvage items. ALL app-side,
+additive-safe, behind existing gates, EXCLUDING the model side.
+CONFIRMED EXCLUDED (no app spillover): epistemos-vault/ (Lane-5 model-surgery, all #[cfg(vault)], PCF-9 makes a
+NEW model file), the brain-1 spine, the 70B. Pasted-markdown + 72 SS-* slices = no net-new IP (all superseded
+or already in the 194-item ledger). 
+**WHERE ALL THE IP LANDED (final):** (1) MODEL half = excluded/fenced (Cursor + research/vault crates),
+(2) APP "brain-2" half = the LIVE substrate (mostly already shipped), (3) the remainder = a SHORT enumerated
+safe tail (3 wirings + the GUS/UNIFY/Helios panels & hardening). The build agent builds that tail, hardened,
+after P0 + act/work. NO further research cycles — the sweep is DONE.

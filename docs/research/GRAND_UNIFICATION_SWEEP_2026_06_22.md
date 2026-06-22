@@ -497,3 +497,153 @@ EPISTEMOS_FINAL_SEVEN_THEOREMS{,_v2_HARDENED}, EPISTEMOS_V6_1_FINAL_SYNTHESIS_LO
 compass_artifact_*}.md` + ls of `Epistemos-cursor/`, `openclaw-main/`, `AETHERLINK_APPLICATION_KIT_FULL/`. NOT
 committed (per the sweep directive). Next: cycle 3 = dedup-verify GUS-6..13 against live agent_core + close the
 residual regions; declare convergence if nothing new.*
+
+---
+
+## Cycle 3 — DEDUP + RESIDUAL-REGION CONFIRMATION → CONVERGENCE CALL
+
+Same exclusion + anti-hallucination rules. **[V]** = file/dir read or grepped this cycle, **[I]** = inferred from
+verified facts. This is the convergence cycle: it (1) dedups GUS-6..13 against live `agent_core/src/` — the one
+explicit caveat carried from cycle 2 — (2) spot-checks the `~/Downloads/Pasted markdown` files, (3) scans the
+`docs/research/SS-*` slices, (4) confirms `epistemos-vault/` is fully EXCLUDED, and (5) issues the convergence call.
+
+### 3A. DEDUP — GUS-6..13 vs live `agent_core/src/` (HIGHEST VALUE)
+
+**Headline finding [V]:** the `from-vigorous-goldberg` modules are **ALREADY SHIPPED LIVE** in `agent_core/src/`.
+The live tree has every goldberg directory 1:1 (`effect/`, `undo/`, `nightbrain/`, `canon/`, `heal/`, `route/`,
+`skill_discovery/`) plus `confidence_floor.rs` + `circuit_breaker.rs`, **all unconditionally compiled** (NOT
+`--features research`-gated — verified: none appear under any `cfg` in `agent_core/src/lib.rs:1-98`). Cycle 2's
+caveat ("Intent→Effect, undo, NightBrain-scheduler and skill_discovery appear genuinely un-promoted") is **REFUTED
+by the live code** — they were promoted. Per-item:
+
+| GUS | Capability | Live path(s) | Status | Verified signature / wiring | Cited |
+|---|---|---|---|---|---|
+| **GUS-6** | Intent→Effect typed apply + pre-computed Inverse | `agent_core/src/effect/{mod,dispatcher,vault_applier,concept_applier,memory_applier}.rs` | **ALREADY-LIVE (shipped, wired)** | `dispatcher.rs:47` `async fn apply(&self, intent) -> Result<(Effect, Option<PriorState>), ApplyError>`; tested by `tests/effect_salvage.rs`; **wired** into `agent_runtime_v2/mission_run.rs` + `heal/{mod,log}.rs` | [V] |
+| **GUS-7** | Signed ExecutionReceipt (Ed25519-shaped) | `agent_core/src/effect/receipt.rs` | **ALREADY-LIVE — but crypto is HMAC-SHA256, not Ed25519 (one real residual gap)** | `receipt.rs:75-112` carries `plan_hash/input_hash(impl)/output_hash/capabilities_used/signature` + `sign<K>()`/`verify<K>()` over a `SigningKey` trait; concrete impl is `HmacSha256SigningKey` (`:138-189`). **No `ed25519`/`dalek` dep anywhere** (`Cargo.toml` grep empty). Wired into `mission_run.rs` + `acs_admission/*`. | [V] |
+| **GUS-8** | ⌘Z universal undo log (24h, inverse-driven) | `agent_core/src/undo/mod.rs` | **ALREADY-LIVE (shipped) — but NOT runtime-wired (orphaned)** | `undo/mod.rs:9` rusqlite (`undo_events.sqlite`), `:33` `DEFAULT_TTL = 24h`, `:34` `AUTO_RESEARCH_TTL = 7d`, `inverse` column/field; tested by `tests/undo_salvage.rs`. **No production caller** outside its own module + the salvage test → the ⌘Z surface is not hooked into the apply path yet. | [V] |
+| **GUS-9** | NightBrain idle scheduler (app-side shell) | `agent_core/src/nightbrain/{mod,live.rs}` | **ALREADY-LIVE (shipped, wired)** | `mod.rs:42-44` `idle_for`/`thermal_nominal`/`on_ac_or_battery_above_50`, `:12-13` checkpoint task ids, `:150-186` idle-threshold gating; 13 tests. **Wired** into `bridge.rs` (FFI) + `session.rs`. App-side only (no model fine-tune). | [V] |
+| **GUS-10** | Skill discovery / promotion (tool-seq-hash novelty) | `agent_core/src/skill_discovery/mod.rs` | **ALREADY-LIVE (shipped) — partial wiring (test/CLI-driven, not in live runtime path)** | `:71-90` `sequence_hash()` + novelty check, `:106` `existing_sequence_hashes` map, `.skill.json/.md` draft (`:6-11`); 8 tests + exercised across many `tests/*_bridge.rs`. No non-test production caller found → promotion path is built+tested but not yet invoked by the live loop. | [V] |
+| **GUS-11** | Deterministic concept canonicalizer | `agent_core/src/canon/{mod,alias.rs}` | **ALREADY-LIVE (shipped, wired)** | `mod.rs:27` `pub fn canonicalize()`, `:50` `stems.sort()` (lemmatize+sort), `alias.rs` `AliasTable`/`classify_alias_cosine`/`ALIAS_V1_ID`; tested by `tests/canon_salvage.rs`. **Wired** into `route/variant_c*.rs` + `effect/concept_applier.rs`. | [V] |
+| **GUS-12** | Self-heal Try-Heal-Retry + CircuitBreaker | `agent_core/src/heal/{mod,breaker,log.rs}` + `agent_core/src/circuit_breaker.rs` | **ALREADY-LIVE (shipped, wired) — dedup CONFIRMED** | `heal/breaker.rs:1` is a `pub use crate::circuit_breaker::{...}` re-export (the cycle-2 "dedup before importing" caveat resolved: breaker already lives at top-level `circuit_breaker.rs`, heal re-exports it — no duplicate). `heal/mod.rs:32-57` `HealLoop` w/ breaker + `max_heal_steps`; 16 tests; `heal_events` via `log.rs`. Wired via `effect`. | [V] |
+| **GUS-13** | Four-variant typed capture router | `agent_core/src/route/{mod,variant_a,variant_b,variant_b_classifiers,variant_c,variant_c_providers}.rs` | **ALREADY-LIVE (shipped, wired) — and richer than the salvage stub** | `route/mod.rs:19-31` floor consts `VARIANT_A_FLOOR=0.85`/`B=0.75`/`C=0.70` + merge/cluster gates; JSON-schema ids `:16-17`; 15 tests. Live impl adds `variant_b_classifiers`/`variant_c_providers` beyond the goldberg source. Consumes GUS-11 canon. | [V] |
+
+**3A verdict [V]:** **GUS-6, 9, 11, 12, 13 = fully SHIPPED + WIRED → DOWNGRADE to SUPERSEDED/done (not build work).**
+GUS-7, 8, 10 = **SHIPPED but with a residual gap each** (the only real cycle-3 work, all tiny/additive):
+- **GUS-7-gap:** ExecutionReceipt signs with **HMAC-SHA256, not Ed25519**. The spec said "Ed25519-shaped"; the trait
+  seam (`SigningKey`) is correct and an Ed25519 impl would drop in behind it, but the asymmetric-signature property
+  (public verifiability without the secret) is NOT yet there. Real, small: add an `Ed25519SigningKey: SigningKey`
+  (Keychain-backed) impl. [V]
+- **GUS-8-gap:** undo log is built+tested but **not runtime-wired** — no production caller hooks ⌘Z into the apply
+  path. Real, small: call `UndoLog::record` from the `effect` apply site + expose a reverse FFI. [V]
+- **GUS-10-gap:** skill_discovery is built+tested but **only test/bridge-driven** — the live agent loop doesn't yet
+  invoke the novelty→draft→promote path. Real, small: call it from `agent_runtime` post-accepted-composition. [V]
+
+So of the eight cycle-2 GUS-6..13 "salvage build items," **five are already done** and **three reduce to a one-function
+wiring/crypto-swap each** — i.e. the goldberg cluster is ~90% shipped, contradicting cycle 2's "genuinely un-promoted"
+inference. This is the single most load-bearing cycle-3 correction.
+
+### 3B. Spot-check `~/Downloads/Pasted markdown` files (closes the last external gap)
+
+**[V]** Opened all five (bare `Pasted markdown.md` + `(1)`–`(4)`), grepped distinctive phrases against the repo:
+
+| File | Date/topic | Verdict | Key proof |
+|---|---|---|---|
+| `Pasted markdown.md` | Apr-24 V1 ship-audit + "instant recall" voice-note | **SUPERSEDED** | the requested Contextual-Shadows live-recall button is shipped (`Epistemos/Views/Recall/ContextualShadowsPanel.swift`, `epistemos-core/src/instant_recall/`) [V] |
+| `(1)` | May-4 "Bow-Tie / Morph / eml★" (note: stale "Episten**o**s" spelling) | **SUPERSEDED** | `research/eml_ir/`, `theorems/e3_morph_field.rs`, `Shaders/morph_eval_reduced.metal` [V] |
+| `(2)` | May-4 fullest Morph-substrate synthesis | **SUPERSEDED** | tri-plane DAG + WBO-8 + Lean obligations all in `epistemos-research/` + `cognitive_dag/` [V] |
+| `(3)` | May-4 DAG+EML "final synthesis" (lighter dup of (2)) | **SUPERSEDED** | same signatures [V] |
+| `(4)` | May-11 HELIOS graph-engine prompt + V6.1 substrate inlined verbatim | **SUPERSEDED** | verbatim consts `RHO_MAX_T35_V6_1=0.20`, `ENGRAM_KAPPA_THRESHOLD=0.382`, kernel names in `epistemos-research/tests/canonical_consistency.rs`; file's own Part-1 is a self-audit of the repo's `epistemos-research` crate [V] |
+
+**3B bottom line [V]:** all five are pre-absorption research **drafts**, every distinctive concept already in-repo
+in more mature form. **No net-new IP. No 70B/excluded spec** (they explicitly say "do NOT make EML the whole model").
+Cycle 2's INFERRED-superseded was **correct** — now VERIFIED by opening them.
+
+### 3C. `docs/research/SS-*` slice scan
+
+**[V]** **72** SS-* slices (more than the index's "~58" — the P0/doctrine wave SS-CHATMODEL/SS-CHATPICKER/
+SS-AUTONOMOUS-VERIFY/SS-PROVEN-DONE etc. pushed the count up). Read 24 in body (every slice whose name suggested
+substrate/brain/memory/eidos/dag/acs/uas/governance), title-triaged the rest. Result: **none hide owner-IP outside
+GUS-1..18 or the active 194-item ledger queue.** [V] Categories:
+- substrate/brain-named slices are **SUPERSEDED or already mapped** — `SS-LI` IS the source for GUS-1; `SS-SUB`/`SS-SH`
+  = substrate-health surfacing (GUS-1-class); `SS-UMA`/`SS-IR` fold into Eidos (GUS-3/UNIFY-5); `SS-Y`/`SS-AL` are
+  chat-engine plumbing already queued.
+- ~50 slices are **app-feature/UI/UX/bug-fix** (settings, crashes, themes, Epdoc, pickers, voice/PDF, perf, redaction)
+  — ledger-queue work, not salvage IP.
+- governance-adjacent (`SS-AD` adapter-UX, `SS-LS` LoRA-studio, `SS-XR`) stay inside the GUS-15 adaptation-governance
+  fence; propose no new substrate engine.
+
+**3C bottom line [V]:** SS-* region is **empty of un-salvaged substrate/brain IP** — exactly the cycle-2 §2G prediction.
+
+### 3D. `epistemos-vault/` exclusion confirmation
+
+**[V]** Read every `.rs` + `Cargo.toml`. The crate self-declares **HELIOS V5 Lane 5 (SPECULATIVE_VAULT)**,
+`publish = false`, **every module `#[cfg(feature = "vault")]`-gated** (`src/lib.rs:31-41`; `default = []`), deps are
+only `serde`/`serde_json`/`thiserror` — **no app crates, no FFI, no `no_mangle`/UniFFI, no file-IO/UI/search/ledger.**
+Modules are all model-weight surgery: `surgery::envelope` (PCF-6 weight edit), `runtime::active_rank_one` (PCF-5 infer-path
+mod), `runtime::transfer` (PCF-10), `distill::connectome` (PCF-9 — verbatim *"producing a NEW model file"*, carries
+`output_model_sha256`), `cache::{hcache,kvcrush}` (KV-cache compression). The three app-IP grep "hits" were benign
+substring false-positives (an `author: String` "provenance" field, a `verified: bool` flag, a "build later" comment).
+
+**3D bottom line [V]:** `epistemos-vault` is **fully EXCLUDED (model-surgery/PCF Lane-5, vault-gated) with ZERO
+app-side spillover.** No salvage hides here. Cycle-2 finding verified.
+
+---
+
+## CONVERGENCE — sweep complete
+
+**CONVERGED: YES.** Cycle 3 found **no new USEFUL+RELEVANT salvage item and no new EXCLUDED surface.** Every region
+flagged for cycle 3 came back either *already-shipped* (the goldberg cluster) or *empty* (Pasted files, SS-*, vault).
+The only residual work is three tiny one-function gaps inside *already-shipped* modules — additive, not new IP. The
+two cycles before this already drove the salvage set to a small, concentrated, app-side, additive-safe set; cycle 3
+confirms it and closes it.
+
+### FINAL SALVAGE SET — REAL build work vs already-shipped (definitive)
+
+**ALREADY-SHIPPED / SUPERSEDED (no build work — downgrade these out of the salvage queue):**
+- **GUS-6, GUS-9, GUS-11, GUS-12, GUS-13** — Intent→Effect apply, NightBrain idle scheduler, concept canonicalizer,
+  self-heal+circuit-breaker, four-variant router: **all live, wired, tested** in `agent_core/src/{effect,nightbrain,
+  canon,heal,route}` (unconditionally compiled). [V]
+- **The brain-2 organs** (Cognitive DAG, Eidos, provenance ledger, EML/Belnap/confidence verification primitives,
+  UAS/ACS) — already the substrate / already the existing UNIFY-4/5/6 targets. [V cycles 1-2]
+- **All Helios theorem live-invariants** (E3/E4/E5/E7, H1/H2/H3/H17, PCF-6/9) — SUPERSEDED-into-verification-layer. [V c2]
+
+**REAL (small, additive) build work that survives convergence:**
+- **GUS-7-gap** — add an `Ed25519SigningKey: SigningKey` (Keychain-backed) behind the existing `effect::receipt`
+  trait seam; today the receipt signs with HMAC-SHA256 (symmetric, not publicly verifiable). One impl. [V]
+- **GUS-8-gap** — wire the (built, tested) `undo` log into the `effect` apply path + a reverse FFI for ⌘Z; today it
+  has no production caller. One call-site + one FFI. [V]
+- **GUS-10-gap** — invoke the (built, tested) `skill_discovery` novelty→draft→promote path from the live
+  `agent_runtime` loop; today it is only test/bridge-driven. One call-site. [V]
+- **GUS-1..5, GUS-14..18** — unchanged from cycles 1-2: living-index status panel (GUS-1), EML/Belnap/confidence
+  *wiring* into the AnswerPacket gate (GUS-2), TurboVec Eidos backend (GUS-3, Pro-gated), UAS/ACS harden-to-doc
+  (GUS-4), the exclusion + H8-drift doc-fixes (GUS-5/GUS-18), and the three governance docs (overseer GUS-14,
+  adaptation GUS-15, compute-steering GUS-16, four-gate tool-adoption GUS-17). All additive, behind existing gates.
+
+### Where all the IP landed — the definitive one-paragraph close
+
+The owner's entire local-research corpus resolves into three destinations and nothing is lost. (1) **The model
+half — the from-scratch SSM/Mamba-3 spine, signal_bus, M0/M1 interrupt, ternary/QAT runtime, Engram, KV-direct,
+attention-sinks, the 70B, and the whole `epistemos-vault` PCF/model-surgery Lane-5 — is EXCLUDED by owner directive**
+and lives in the owner's Cursor domain + the `--features research`/`--features vault` preservation crates
+(`agent_core/src/research/`, `epistemos-research/`, `epistemos-vault/`), compiled out of the product. (2) **The app
+half — "brain-2": authority, deliberation, memory, and verification — is already the live substrate**: the Cognitive
+DAG, Eidos recall, provenance ledger, Halo/Shadow RRF index, the EML/Belnap/confidence honesty primitives, UAS/ACS,
+and the now-confirmed-shipped goldberg cluster (Intent→Effect + signed receipts + undo + NightBrain + canonicalizer
++ self-heal + four-variant router) — all in `agent_core/src/`, unconditionally compiled, and matching the
+`ARCHITECTURE_UNIFICATION_SYSTEMG` "one brain, two faculties, one substrate" verdict. (3) **What remains as genuine,
+finishable, additive-safe work is a short tail** — three one-function wirings inside already-shipped modules (Ed25519
+receipt, ⌘Z undo wiring, skill-discovery loop hook) plus the GUS-1..5/14..18 panels, gate-wirings, and governance
+docs — every item app-side, model-agnostic, behind existing flags, and incapable of touching the hardened
+Osaurus(act)/OpenCode(work) clones or the excluded model spine. **The grand unification sweep is CONVERGED: the IP
+is fully located and classified, the excluded model half is fenced, the app half is largely shipped, and the salvage
+remainder is small, safe, and enumerated.**
+
+---
+
+*Cycle 3 grounded against files read/grepped 2026-06-22: live `agent_core/src/lib.rs` (mod table, cfg check) +
+`agent_core/src/{effect/*,undo/mod.rs,nightbrain/{mod,live}.rs,canon/{mod,alias}.rs,heal/{mod,breaker,log}.rs,
+route/mod.rs,skill_discovery/mod.rs,circuit_breaker.rs,confidence_floor.rs}` vs the goldberg source
+`docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/*`; wiring greps across `agent_core/src/` + `agent_core/tests/`;
+`~/Downloads/Pasted markdown{,(1),(2),(3),(4)}.md` (opened, repo-grep-verified superseded); `docs/research/SS-*`
+(72 slices, 24 read in body); `epistemos-vault/{Cargo.toml,src/**/*.rs}` (full read, EXCLUDED confirmed). NOT committed
+(per the sweep directive). CONVERGENCE DECLARED — no further cycle required.*
