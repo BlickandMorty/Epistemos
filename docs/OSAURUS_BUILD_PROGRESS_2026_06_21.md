@@ -409,8 +409,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   **LANDING MOUNT (`5e7dfe44a`, source-guard + checkpoint-pending):** WorkspaceModePicker now appears in the
   landing greeting (`greetingContent`), GATE-TIED — shown only when act or work is armed, so the protected
   landing (§367) is BYTE-IDENTICAL by default and elevates only on opt-in. The two-mode selector is now REACHABLE
-  + live (§24). REMAINS (owner-reviewed visual): swap in the full ModeEntryView greeting→typewrite transition +
+  + live (§24). **CHECKPOINT ✅: landing mount BUILD SUCCEEDED** (compiles green; protected-landing path
+  unchanged). REMAINS (owner-reviewed visual): swap in the full ModeEntryView greeting→typewrite transition +
   blur/page chrome as the elevated experience.
+- [x] **DRY: one shared `FeatureGateOverride` (`a6527922b`):** the act + work gates carried byte-identical
+  override logic (get/set/truthy/resolve override>env>off); consolidated into one helper both delegate to (zero
+  behavior change). Source-guard-gated; gate-suite test checkpoint running (batched per CODE-MORE-BUILD-LESS).
 - [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
   (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
   name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
