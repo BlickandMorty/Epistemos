@@ -3687,6 +3687,50 @@ final class ChatCoordinator {
   private var titleGenerationTask: Task<Void, Never>?
   private var titleGenerationTaskToken = UUID()
 
+  /// Sanitize a model-generated chat title into a CLEAN short title, or nil when the model
+  /// ignored the "short title only" instruction (self-description, refusal, or a full sentence).
+  /// Pure + testable. Owner 2026-06-22: a local model answered the title prompt with
+  /// "4, a Large Language Model developed by Google DeepMind. I am an open weights model" and it
+  /// was surfaced RAW as the chat title — reject that instead of dumping the model's self-talk.
+  nonisolated static func sanitizeGeneratedTitle(_ raw: String) -> String? {
+    // First non-empty line only — models often add a preamble or trailing explanation.
+    let firstLine = raw
+      .split(whereSeparator: \.isNewline)
+      .map { $0.trimmingCharacters(in: .whitespaces) }
+      .first(where: { !$0.isEmpty }) ?? ""
+    var title = firstLine
+      .trimmingCharacters(in: CharacterSet(charactersIn: "\"'`*#"))
+      .trimmingCharacters(in: CharacterSet(charactersIn: ".!:"))
+      .trimmingCharacters(in: .whitespaces)
+
+    // Strip a leading "Title:" / "Sure, here's a title:" style preamble.
+    if let colon = title.firstIndex(of: ":"),
+       title.distance(from: title.startIndex, to: colon) <= 24 {
+      let prefix = title[title.startIndex..<colon].lowercased()
+      if prefix.contains("title") || prefix.contains("here") || prefix.contains("sure") {
+        title = String(title[title.index(after: colon)...])
+          .trimmingCharacters(in: .whitespaces)
+          .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+      }
+    }
+    guard !title.isEmpty else { return nil }
+
+    // Reject model self-descriptions / refusals (these are answers, not titles).
+    let lower = title.lowercased()
+    let selfTalk = ["i am ", "i'm ", "as an ai", "as a language model", "developed by",
+                    "trained by", "open weights", "i cannot", "i can't", "sorry,"]
+    if selfTalk.contains(where: { lower.contains($0) }) { return nil }
+    // A leading bare number followed by a comma ("4, a …") is a mid-response fragment.
+    if let first = title.first, first.isNumber, title.dropFirst().first == "," { return nil }
+
+    // Cap to a short title: first 8 words, ≤ 64 chars.
+    let words = title.split(separator: " ")
+    if words.count > 8 { title = words.prefix(8).joined(separator: " ") }
+    if title.count > 64 { title = String(title.prefix(64)) }
+    let final = title.trimmingCharacters(in: .whitespaces)
+    return final.isEmpty ? nil : final
+  }
+
   func generateChatTitle(query: String, chatId: String?, chatState: ChatState) {
     titleGenerationTask?.cancel()
     let taskToken = UUID()
@@ -3718,10 +3762,10 @@ final class ChatCoordinator {
           systemPrompt: nil,
           maxTokens: 30
         )
-        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
-          .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-          .trimmingCharacters(in: CharacterSet(charactersIn: ".!"))
-        guard !cleaned.isEmpty else { return }
+        // Sanitize into a CLEAN short title, or skip entirely if the model ignored the
+        // instruction (self-description / sentence / refusal) — owner 2026-06-22 saw
+        // "4, a Large Language Model developed by Google DeepMind…" surfaced raw as a title.
+        guard let cleaned = Self.sanitizeGeneratedTitle(title) else { return }
 
         let originalChatTitle = chatState.chatTitle
         chatState.chatTitle = cleaned
