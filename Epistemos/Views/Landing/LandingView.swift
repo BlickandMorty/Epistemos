@@ -115,6 +115,11 @@ struct LandingView: View {
     @Query(SDPage.recentDescriptor(limit: 50))
     private var allPages: [SDPage]
 
+    // Two-mode ontology (owner §122/§194): the landing's act/work selection. Seeded from the persisted mode;
+    // the picker below the greeting is shown ONLY when act or work is armed (gate-tied) — so the protected
+    // landing is byte-identical by default and only elevates once the owner opts into a two-mode engine.
+    @State private var landingMode: WorkspaceModeKind = WorkspaceModeSelection.current()
+
     // Inline search state
     @State private var showingSearchPopover = false
     @State private var landingSearchText = ""
@@ -695,6 +700,17 @@ struct LandingView: View {
 
             VStack(spacing: 18) {
                 landingGreetingStage
+
+                // Two-mode selector (owner §194): additive + gate-tied. Hidden unless act or work is armed, so
+                // the protected landing (§367) is unchanged by default; appears once the owner opts into a mode
+                // engine via the act/work toggles. Persists the choice; the full mode-entry transition + blur
+                // chrome are the owner-reviewed follow-on (this is the reachable, live first surface).
+                if !showingLandingStageCommand,
+                   WorkspaceModeSelection.isArmed(.act) || WorkspaceModeSelection.isArmed(.work) {
+                    WorkspaceModePicker(mode: $landingMode)
+                        .frame(maxWidth: 220)
+                        .transition(.opacity)
+                }
             }
             .padding(.horizontal, Spacing.xxl)
             .allowsHitTesting(showingLandingStageCommand)
