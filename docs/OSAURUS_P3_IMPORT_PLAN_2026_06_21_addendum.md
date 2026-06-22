@@ -1442,3 +1442,15 @@ better). KEEP Osaurus (do NOT replace it) — reskin/reapply the Epistemos UI ON
 APPROACH: extend EpistemosOsaurusChatHost's theming with component-level styling/overrides (not just the
 CustomTheme palette) — reapply the Epistemos message-bar, sidebar, and font treatments to the hosted Osaurus
 views. Additive; keep Osaurus engine/behavior. This CONTINUES the current act-reskin step (NOT a queue-jump).
+
+## 🆕 ACT SURFACE — UI BUGS to fix (owner 2026-06-22, observed on the running Osaurus act surface)
+KEEP Osaurus; fix these so it matches/exceeds the old chat (reskin/override, not engine change):
+1. **WHITE BAR AT THE TOP — remove it.** The Osaurus act surface shows a white bar at the top that the old
+   Epistemos chat did NOT have. Hide/remove it (likely an Osaurus nav/title/toolbar or window chrome leaking
+   through the host) so the top matches the clean old-chat look.
+2. **CLICK-TO-OPEN should land on the OSAURUS LANDING PAGE, not the search bar.** Currently clicking to open
+   act opens the search bar; owner wants it to open the Osaurus LANDING page. Fix the entry routing so the
+   act surface presents Osaurus's landing page on open (not the search/command bar).
+3. (Continues the deeper-reskin item above: message bar, side panel, fonts, whole-look parity + fix Osaurus UI bugs.)
+All additive on the Osaurus host (EpistemosOsaurusChatHost / RootView routing); keep OsaurusCore. These extend
+the current act-surface work (NOT a queue-jump). Re-audit on the running app after the build lands.

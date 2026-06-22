@@ -77,3 +77,9 @@ fonts, whole look) onto the Osaurus surface + fix Osaurus UI bugs with the bette
 (reskin/override, not replace). Added to plan (cf55e3e05) as a continuation of the act-reskin step. AUDIT-WATCH:
 verify the build loop reapplies the message-bar/sidebar/fonts onto the hosted Osaurus views (component-level,
 not just CustomTheme palette), additive, Osaurus engine kept. Re-add if it stops at palette-only.
+
+## Owner UI-bug report (mid-loop) — 2026-06-22 (running Osaurus act surface)
+- (a) WHITE BAR at top of act surface — remove (old chat had none).
+- (b) Click-to-open opens the SEARCH BAR; owner wants it to open the OSAURUS LANDING page.
+Added to plan as ordered act-surface fixes. AUDIT-WATCH: verify the build loop removes the top white bar +
+re-routes click-open → Osaurus landing (not search). Re-add if unaddressed/half-done. Keep Osaurus engine.
