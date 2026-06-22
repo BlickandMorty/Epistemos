@@ -1590,3 +1590,23 @@ old UI lacks — brought into the old UI (additive, Pro, gated on shouldRouteAct
 Bring the obvious distinctive ones now; the owner can refine specifics later. Keep additive + honest (only when
 Osaurus-routed). This is the remaining P0-B; do it before declaring act done. (Owner can still name specific
 buttons anytime — but the loop should NOT wait idle for that.)
+
+## 🔴🔴🔴 P0 — RUNTIME STILL BROKEN (owner 2026-06-22, running app, 3rd report) — build-green ≠ works
+Owner on the running app, AGAIN: "same chat, not working when I send; TWO act/work toggles (delete the old one
+below the greeting); click-to-search opens the OLD search screen, not the Osaurus landing." Everything is
+build-green + test-green but the OWNER'S RUNTIME is still the old broken chat. THIS IS THE CORE ISSUE: nobody
+verifies at RUNTIME, so green keeps ≠ working. Three concrete bugs + a meta-fix:
+1. **TWO act/work toggles → DELETE the old one (below the greeting).** The pivot (fe66b8af7) removed the toggle,
+   then 818654aa4 re-added one → now there are TWO. Keep ONE clean toggle; delete the old/duplicate below the greeting.
+2. **Click-to-search opens the OLD search screen, NOT the Osaurus landing.** The option-(b) pivot reverted
+   RootView to the original old surface → it REGRESSED the pass-8 fix (white-bar/landing-routing). Click-to-open
+   must land on the OSAURUS LANDING (reskinned to the old look), not the old search/command screen.
+3. **Send STILL not working + still looks like plain old chat.** The recurring runtime failure. Likely: act is
+   NOT actually routing through Osaurus in the owner's build (no badge?), OR wrong/stale build, OR the route
+   engages but send fails. Must be diagnosed AT RUNTIME and actually fixed.
+**META-ESCALATION (the real fix): RUNTIME VERIFICATION IS MANDATORY — build-green is NOT done.** The loop must
+RUN the app (computer-use, if available) and verify: a real send returns a reply + the Osaurus badge shows +
+ONE toggle + click→Osaurus-landing — BEFORE marking act done. If the loop has NO computer-use, it must produce
+a definitive runtime diagnostic (what build, is shouldRouteActThroughOsaurus true at runtime, does the provider
+register, does the badge show) so the owner's one launch pinpoints it. The owner has reported runtime failure
+3x while everything was "green" — STOP relying on build-green for the act surface. Re-opened as top P0.

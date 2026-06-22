@@ -348,3 +348,15 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   in chat) at real-state. swift test 3/3 EXIT=0. Co-Authored.
 - **Verdict:** PASS. Act surface now CODE-COMPLETE + TEST-BACKED (routing invariants green pass 24 + model-bridge
   routing proven pass 25). Only owner live runtime send (MLX generation in running Pro app) remains.
+
+## Pass 26 (owner runtime report #3) — 2026-06-22 — 🔴🔴🔴 RUNTIME STILL BROKEN
+- Owner running app: same old chat, send NOT working, TWO act/work toggles (delete old one below greeting),
+  click-to-search opens OLD search screen not Osaurus landing.
+- CORE ISSUE: build-green + test-green (passes 12-25) but OWNER RUNTIME still broken — no runtime verification
+  anywhere (loop can't, I can't, owner is the failing tester each time). 3rd runtime-failure report.
+- RE-OPENED P0: (1) delete duplicate old toggle, (2) click→Osaurus landing not old search (option-b pivot
+  REGRESSED the pass-8 fix by reverting RootView), (3) send still not working (diagnose at runtime).
+- META-ESCALATION: runtime verification MANDATORY (computer-use or definitive diagnostic) — build-green is NOT
+  done for act. Stop declaring act done on green.
+- KEY DIAGNOSTIC asked of owner: which build (Pro/direct vs App Store, freshly rebuilt?) + is the green "Osaurus"
+  badge visible? (badge shows only when Osaurus-routed → its absence = wrong build / route off = explains all).
