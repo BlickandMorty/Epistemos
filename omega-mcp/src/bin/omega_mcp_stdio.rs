@@ -89,9 +89,40 @@ pub fn handle(
                 .to_string(),
             )
         }
-        // tools/list + resources/list + resources/read are served by the dispatcher.
+        // tools/list: served by the dispatcher, then HONESTLY SCOPED to the tools this server can actually
+        // EXECUTE (tools/call routes only through execute_vault_tool = vault + graph). Advertising the full
+        // app catalog here would show OpenCode phantom tools (computer-use, safari, move/delete_file, …) that
+        // execute Swift-side / in-app and would fail with "Unknown vault tool" — a dishonest surface. Scope it.
+        "tools/list" => Some(scope_tools_list_to_executable(&dispatcher.dispatch(line.to_string()))),
+        // resources/list + resources/read are served by the dispatcher.
         _ => Some(dispatcher.dispatch(line.to_string())),
     }
+}
+
+/// Filter a `tools/list` JSON-RPC response down to the tools THIS server can execute — `is_vault_tool` (vault
+/// file/search/wikilink/patch) plus `is_graph_tool` (graph verbs). Fail-OPEN: if the response can't be parsed
+/// or has no `result.tools` array, it's returned unchanged (never hide tools due to a shape surprise).
+fn scope_tools_list_to_executable(response: &str) -> String {
+    let mut value: Value = match serde_json::from_str(response) {
+        Ok(v) => v,
+        Err(_) => return response.to_string(),
+    };
+    let Some(tools) = value
+        .get_mut("result")
+        .and_then(|r| r.get_mut("tools"))
+        .and_then(Value::as_array_mut)
+    else {
+        return response.to_string();
+    };
+    tools.retain(|tool| {
+        tool.get("name")
+            .and_then(Value::as_str)
+            .map(|name| {
+                omega_mcp::vault::is_vault_tool(name) || omega_mcp::graph_tools::is_graph_tool(name)
+            })
+            .unwrap_or(false)
+    });
+    serde_json::to_string(&value).unwrap_or_else(|_| response.to_string())
 }
 
 #[cfg(test)]
@@ -145,5 +176,44 @@ mod tests {
         assert!(res.contains("vault:///a.md"), "{res}");
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tools_list_is_scoped_to_executable_tools() {
+        // HONEST SURFACE: the fusion server advertises ONLY vault + graph tools it can actually execute —
+        // never phantom computer-use/safari/move-delete tools that run in-app and would fail "Unknown vault tool".
+        let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
+        d.register_builtin_tools();
+        let listed = handle(&d, "", r#"{"jsonrpc":"2.0","method":"tools/list","id":1}"#).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&listed).unwrap();
+        let names: Vec<String> = parsed["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap().to_string())
+            .collect();
+
+        // executable tools are advertised…
+        assert!(names.iter().any(|n| n == "backlinks"), "{names:?}");
+        assert!(names.iter().any(|n| n == "graph.populate_from_vault"), "{names:?}");
+        assert!(names.iter().any(|n| n == "patch_note"), "{names:?}");
+        // …phantom (in-app / Swift-side) tools are NOT.
+        assert!(!names.iter().any(|n| n == "screenshot"), "computer-use leaked: {names:?}");
+        assert!(!names.iter().any(|n| n == "move_file"), "non-executable file tool leaked: {names:?}");
+        // every advertised tool is one the server can actually run.
+        for n in &names {
+            assert!(
+                omega_mcp::vault::is_vault_tool(n) || omega_mcp::graph_tools::is_graph_tool(n),
+                "advertised but not executable: {n}"
+            );
+        }
+    }
+
+    #[test]
+    fn scope_filter_fails_open_on_unparseable() {
+        // never hide tools because of a shape surprise — non-JSON / missing result.tools passes through.
+        assert_eq!(scope_tools_list_to_executable("not json"), "not json");
+        let no_tools = r#"{"jsonrpc":"2.0","id":1,"result":{}}"#;
+        assert_eq!(scope_tools_list_to_executable(no_tools), no_tools);
     }
 }

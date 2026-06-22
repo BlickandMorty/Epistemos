@@ -630,6 +630,26 @@ impl VaultExecutor {
 
 // ── UniFFI-exported vault functions ──────────────────────────────────────────
 
+/// True iff `execute_vault_tool` ACTUALLY executes this tool name (vault file/search/wikilink/patch ops).
+/// The single source of "what the Rust vault surface can run" — used to HONESTLY scope the stdio fusion
+/// server's `tools/list` so an external agent (OpenCode) never sees a vault tool it can't call. Keep this
+/// list in lock-step with `execute_vault_tool`'s match arms below (a parity test guards drift). Graph tools
+/// are covered separately by `graph_tools::is_graph_tool`.
+pub fn is_vault_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "file.read" | "vault.read" | "read_file" | "vault_read"
+            | "file.write" | "vault.write" | "write_file" | "vault_write"
+            | "file.list" | "vault.list" | "list_files"
+            | "file.search" | "vault.search" | "search_notes" | "vault_search"
+            | "vault.backlinks" | "backlinks" | "vault_backlinks"
+            | "vault.outlinks" | "outlinks" | "vault_outlinks"
+            | "vault.dangling_links" | "dangling_links" | "unresolved_links"
+            | "vault.note_links" | "note_links"
+            | "vault.patch_note" | "patch_note"
+    )
+}
+
 /// Execute a vault tool by name. Returns a JSON ToolResult.
 /// vault_root must be set to the user's vault directory.
 pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: String) -> String {
@@ -1152,5 +1172,37 @@ mod tests {
         let _ = exec.edit_note("n.md", "replace_first", "ABSENT", "x");
         let log3 = std::fs::read_to_string(root.join(".epistemos/mcp_vault_events.jsonl")).unwrap();
         assert_eq!(log3.lines().count(), 2, "failed edit adds no provenance record");
+    }
+
+    #[test]
+    fn test_is_vault_tool_parity_with_executor() {
+        // DRIFT GUARD: every name `is_vault_tool` claims must ACTUALLY execute (never "Unknown vault tool"),
+        // and a non-vault tool must NOT. This keeps the stdio fusion server's honest tools/list scoping true.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+        let names = [
+            "file.read", "vault.read", "read_file", "vault_read",
+            "file.write", "vault.write", "write_file", "vault_write",
+            "file.list", "vault.list", "list_files",
+            "file.search", "vault.search", "search_notes", "vault_search",
+            "vault.backlinks", "backlinks", "vault_backlinks",
+            "vault.outlinks", "outlinks", "vault_outlinks",
+            "vault.dangling_links", "dangling_links", "unresolved_links",
+            "vault.note_links", "note_links",
+            "vault.patch_note", "patch_note",
+        ];
+        for name in names {
+            assert!(is_vault_tool(name), "{name} must be is_vault_tool");
+            let out = execute_vault_tool(root.clone(), name.to_string(), "{}".to_string());
+            assert!(
+                !out.contains("Unknown vault tool"),
+                "is_vault_tool({name}) but executor reports it unknown: {out}"
+            );
+        }
+        // boundary: a real app tool that executes Swift-side / in-app is NOT a vault tool.
+        assert!(!is_vault_tool("screenshot"));
+        assert!(!is_vault_tool("move_file"));
+        let unknown = execute_vault_tool(root, "screenshot".to_string(), "{}".to_string());
+        assert!(unknown.contains("Unknown vault tool"), "{unknown}");
     }
 }
