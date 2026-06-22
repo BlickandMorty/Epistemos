@@ -933,3 +933,14 @@ a FRESH launch (it's currently 0%, never rendered); diagnose the REAL cascade fa
 read CustomTheme.lightDefault? does schema-bump force reinstall on an EXISTING install, or does a cached theme/OS
 appearance override?); make cream RENDER on the owner's launch FIRST as the single unblock before more certs.
 This is the technical core of the owner's "why is this so hard" + trust loss. Did NOT touch agent code.
+
+## PASS 61c — 2026-06-22 (OWNER DIRECTIVE: ACT ARCHITECTURE PIVOT — native UI linked to Osaurus engine)
+Owner: native buttons linked to Osaurus (WebKit-bridge pattern) — easy, abandon mount+reskin. Captured P0 PIVOT:
+the reskin-doesn't-render wall exists ONLY because act mounts Osaurus's whole ChatView + reskins via theme cascade.
+NATIVE Epistemos UI (buttons/composer/toolbar/landing/sidebar/pill/curved-window) wired to the Osaurus ENGINE
+in-process (CoreModelService.generateStream — the proven 0.4 path) has NO cascade → renders cream/curved natively
+by construction, fixing D1/D2/D3/D5/0.1/0.7 at the source. SAFE because Osaurus's value = ENGINE PARSING (clean
+thinking/content/tool channels); native UI renders the parsed output = native look + correct behavior; old chat
+broke on PARSING not rendering. ALREADY PROVEN: 0.4/0.23 = native code → Osaurus engine → reply (certified). The
+remaining act work = native UI views on the proven link. Supersedes mount+reskin (DEFINITIVE ACT-UI). Verify on
+owner's FRESH launch. Did NOT touch agent code. This is the strategic unblock for the days-long visible-surface wall.
