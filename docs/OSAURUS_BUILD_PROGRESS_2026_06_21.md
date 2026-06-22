@@ -72,6 +72,19 @@ mine, files I never touched) — flagged for their owners: `LocalAgentLoopTests`
 turns" (contradicts SS-AL `f26924ccf` which now STREAMS repair tokens — that test's `visibleText.isEmpty`
 assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/python (SS-LS domain).
 
+**✅ ARCHITECTURE C FINALIZED (owner 2026-06-21) — consensus aligned this session:**
+- WORK engine = **OpenCode** (headless Bun, own process, lazy-launch + kill-on-idle) beneath its **REAL TUI**
+  (native SwiftTerm/PTY, palette-matched). NO web/Electron GUI. IP brain rides on top via MCP. One engine.
+- **Goose NOT vendored** as a 2nd engine (avoids the 179-dep/reqwest/660MB saga). Its unique HARDENING bits
+  (RetryManager/RepetitionGuard + recipe) are the **PERMANENT clean-room home** in `work.rs` (re-labeled
+  `141a8d2b7`), surfaced as work-loop TOOLS, never deleted. **Goose `permission` DROPPED** (OpenCode covers it).
+- **`work_lsp_tools` REDUNDANT under C** (OpenCode built-in LSP) — marked, kept pending vendor (`fd6c099e0`);
+  `lsp_runtime` stays for the native editors.
+- **Act-swap now in BOTH inference chokepoints** (liveLoop `e67295bc0` + TriageService `8ae27be43`) → every
+  chat surface (main/Mini/Note/Graph) gets act. This is the **prerequisite for the next major: 🎯 ONE
+  INFERENCE CHOKEPOINT** (consolidate liveLoop + TriageService into one shared "one brain" entry, ADDITIVELY/
+  safely, then retire the duplicate — addendum §692). CERTAIN, not deferred.
+
 **Context-gated remaining (NOT dropped — need a context the green-only main loop lacks):**
 - **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → CONCRETE
   BLOCKER (verified 2026-06-21): **Bun is NOT installed** (`bun not found`); Node v25/npm ARE present, but
