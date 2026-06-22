@@ -103,6 +103,18 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         #expect(ProseMirrorMarkdownProjector.project(d) == "**hello**\n")
     }
 
+    @Test("strike mark wraps text in ~~ (GFM strikethrough — was silently dropped)")
+    func strikeMark() {
+        for kind in ["strike", "strikethrough", "del"] {
+            let d = Self.doc([
+                Self.para([
+                    Self.text("gone", marks: [ProseMirrorMark(type: kind)])
+                ])
+            ])
+            #expect(ProseMirrorMarkdownProjector.project(d) == "~~gone~~\n", "kind=\(kind)")
+        }
+    }
+
     @Test("em mark wraps text in *")
     func emMark() {
         let d = Self.doc([
