@@ -59,7 +59,9 @@ struct LandingOptimizationTests {
 
         #expect(landing.contains("private var landingSearchInputLine: some View"))
         #expect(landing.contains("ChatComposerTextEditor(\n                        text: $landingSearchText"))
-        #expect(landing.contains("preferSplitToolbarControls: false"))
+        // (Dropped the `preferSplitToolbarControls: false` assertion — the owner's flat inline
+        // pixel-art panel redesign d790bc81f removed that composer flag; the label-line + tools-
+        // behind-Tools intent below is still asserted.)
         #expect(landing.contains("landingSearchToolsToggle"))
         #expect(landing.contains("if landingToolsExpanded {\n                landingSearchExpandedToolRow"))
         #expect(landing.contains("landingSearchCommandTool\n                landingSearchMentionTool\n                landingSearchAttachTool\n                landingSearchSavedTool"))
