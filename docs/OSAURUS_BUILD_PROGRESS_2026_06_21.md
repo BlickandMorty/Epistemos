@@ -906,9 +906,11 @@ don't revert). Two P0s:
     InProcess(requestedModel:)` passes it; the handler now uses `modelID` instead of dropping it. So the act
     generates the owner's CHOSEN model, routed via `ModelServiceRouter` (the model bridge handles the owner's
     models). HONEST failure stays visible (`modelUnavailable: <modelID>`) — surfacing the exact id for diagnosis.
-  - [ ] **REMAINING:** broaden the bridge registration so the ChatView-selectable model ids are all handled (the
-    threaded model only routes if registered — today only the prepared generators are; if the selected id isn't a
-    generator it throws the visible `modelUnavailable`). REAL runtime verification REQUIRED (owner/computer-use).
+  - [x] **REMAINING DONE (item 3, auditor 1564):** `register` now exposes the INTERACTIVE local text model ids
+    (`PreparedGenerationRuntimeConfiguration.interactiveLocalTextModelIDs()` — the SAME ids the act picker selects)
+    + their `resolvedModelDirectory`, not just the 1–2 prepared generators. So the threaded `modelID` is handled
+    by the bridge. Logs (`NSLog`) the no-config / no-installed-model cases for diagnosis. REAL runtime verification
+    still REQUIRED (owner/computer-use); run the Pro scheme.
 - [~] **P0-B — Osaurus is INVISIBLE** (owner can't tell it's Osaurus; feels like the dead old chat). SURFACE
   Osaurus in the act UI.
   - [x] **Indicator (this build):** `ActOsaurusActiveBadge` — a green "Osaurus ⚡" badge in the old `ChatView`'s
