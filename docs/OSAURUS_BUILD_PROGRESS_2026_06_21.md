@@ -1015,3 +1015,20 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
 - Added a `#if DEBUG` `EpistemosModelBridge.resetForTesting()` so the global registration can't leak between
   tests (excluded from release builds). Proves item-4's core invariant — the owner's GGUF/QAT models are
   routable in act — at real-state, no naive stub.
+
+## WORK lane — fusion-config + honest-gating tests (directive 2, 2026-06-22)
+- WORK real-engine is vendor-blocked (OpenCode/Goose binaries absent + disk capacity), but the Epistemos-side
+  glue is real + buildable. Added 4 tests to `WorkOpenCodeShellSeamTests` (no external vendor needed):
+  - `openCodeConfigJSON` registers the omega_mcp_stdio server as the `epistemos-vault` local MCP server with
+    EPISTEMOS_VAULT_ROOT — the directive-2 mechanism by which Goose/Hermes/OpenClaw fuse BENEATH OpenCode via MCP.
+  - `resolveRuntimeURL` is honestly nil with no Resources / while the launcher is absent (inert until vendored),
+    and returns the launcher once present+executable.
+  - `shellEnvironment` pins OpenCode to loopback (127.0.0.1:4096) and prepends the bundled bin dir only when the
+    runtime is present.
+  Proves the fusion transport + honest-gating contract at real-state, so the WORK seam is verified up to the
+  external-vendor boundary.
+- **Also fixed 2 pre-existing reds in the same suite (no red on main):** `gateHonesty` read the work gate from
+  `.standard` (host-app persisted toggle polluted "off by default") → made hermetic with a clean temp suite, like
+  the act gateHonest fix; `healthRowVisibleAndWired` asserted the row used `WorkOpenCodeShellGateStatus.status`,
+  but the row was refactored (owner 2026-06-22) to report the HONEST factory state — updated to assert
+  `WorkOpenCodeShellFactory.resolve()`. Both were stale, not behavior; suite green.
