@@ -145,10 +145,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
 - [ ] **PER-CLONE SETTINGS (owner 2026-06-21):** each cloned app keeps its OWN settings — surface in
   Epistemos Settings as an EXECUTIVE TAB/TOGGLE (keep the all-Epistemos tab; add `act`/`work`/beyond
   tabs exposing each clone's native settings). Preferred = another tab. Respect each clone's settings.
-- [🟡] **PER-CLONE SETTINGS TABS** — first tab landed (`7dc3a9fcc`): `SettingsSection.actClone`
-  ("Act (Osaurus)") + `ActCloneSettingsView` (gate + real OsaurusCore engine status, reuses
-  `ActOsaurusHealthRow`), wired through all 7 exhaustive SettingsView switch arms. REMAINS: the "work"
-  (OpenCode) tab when work lands; later, embed each clone's REAL settings surface (reskinned).
+- [🟡] **PER-CLONE SETTINGS TABS** — act tab (`7dc3a9fcc`): `SettingsSection.actClone` + `ActCloneSettingsView`
+  (gate + real OsaurusCore engine status). **WORK TAB LANDED (`78fe1c738`):** `SettingsSection.workClone`
+  ("Work (OpenCode)") + `WorkCloneSettingsView` — both work seams' honest status (shell + Goose engine) AND
+  mounts the REAL `WorkTerminalHostView` (SwiftTerm/PTY) → the work terminal chain is now REACHABLE (no dead
+  component); honest placeholder until armed. All 7 exhaustive switch arms; 2/2 tests. REMAINS: "beyond" tab;
+  later, embed each clone's REAL settings surface (reskinned).
 - [🔴] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — ACT-surface phase (AFTER engine, do not pull ahead).
   On select: greeting backspaces + moves UP, typewrites the mode name; reusable elements (greeting→title)
   travel up connectedly; smaller UI + message bar BLUR then reveal. **act = native Apple blur-reveal**;
