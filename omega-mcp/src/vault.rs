@@ -160,7 +160,9 @@ impl VaultExecutor {
     }
 
     /// Lowercased basename without `.md` so `notes/Foo.md`, `Foo`, and `foo` all normalize equal.
-    fn note_basename(s: &str) -> String {
+    /// `pub(crate)` so the graph populator (graph_tools.rs) resolves wikilinks the SAME way — one
+    /// basename model across backlinks/outlinks AND vault→graph edges (reuse, never rebuild).
+    pub(crate) fn note_basename(s: &str) -> String {
         let no_ext = s
             .strip_suffix(".md")
             .or_else(|| s.strip_suffix(".MD"))
@@ -174,7 +176,8 @@ impl VaultExecutor {
 
     /// Extract every `[[...]]` link target from `content` (alias `|` + heading `#` stripped, trimmed,
     /// de-duplicated, original case preserved). The shared wikilink parser behind backlinks + outlinks.
-    fn parse_wikilinks(content: &str) -> Vec<String> {
+    /// `pub(crate)` so the vault→graph populator reuses the EXACT same parser (one source of link truth).
+    pub(crate) fn parse_wikilinks(content: &str) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         let mut rest = content;
         while let Some(open) = rest.find("[[") {
@@ -844,6 +847,61 @@ mod tests {
                 "missing event {expected}: {events}"
             );
         }
+    }
+
+    #[test]
+    fn test_graph_populate_from_vault_builds_note_link_graph() {
+        // VAULT-DEEP-INTEGRATION §720 (#2): the vault's notes + [[links]] ARE the graph, end-to-end.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+        fs::write(
+            dir.path().join("alpha.md"),
+            "# Alpha\nLinks to [[beta]] and [[ghost]].",
+        )
+        .unwrap();
+        fs::write(dir.path().join("beta.md"), "# Beta\nBack to [[alpha]].").unwrap();
+        fs::create_dir(dir.path().join("sub")).unwrap();
+        fs::write(dir.path().join("sub/gamma.md"), "Standalone, no links.").unwrap();
+
+        let out = execute_graph_json(&root, "graph.populate_from_vault", r#"{"session_id":"vault"}"#);
+        assert_eq!(out["notes_indexed"], 3);
+        assert_eq!(out["nodes"], 3, "one Note node per markdown file");
+        assert_eq!(out["edges"], 2, "alpha->beta + beta->alpha resolve; ghost does not");
+        assert_eq!(out["dangling_links"], 1, "[[ghost]] is dangling, counted not faked");
+
+        // Deterministic basename-keyed node id → traverse the REAL link graph from alpha to beta.
+        let alpha_id = format!(
+            "node_vault_{}",
+            &blake3::hash("alpha".as_bytes()).to_hex().to_string()[..16]
+        );
+        let beta_id = format!(
+            "node_vault_{}",
+            &blake3::hash("beta".as_bytes()).to_hex().to_string()[..16]
+        );
+        let traversed = execute_graph_json(
+            &root,
+            "graph.traverse",
+            &format!(r#"{{"start":"{alpha_id}","max_depth":1,"edge_kinds":["links_to"]}}"#),
+        );
+        assert_eq!(traversed["results"][0]["node_id"], beta_id);
+        assert_eq!(traversed["results"][0]["edge_kind"], "links_to");
+
+        let node = execute_graph_json(&root, "graph.get_node", &format!(r#"{{"node_id":"{beta_id}"}}"#));
+        assert_eq!(node["node"]["kind"], "Note");
+        assert_eq!(node["node"]["metadata"]["source"], "vault");
+        assert_eq!(node["node"]["metadata"]["path"], "beta.md");
+
+        // IDEMPOTENT: a re-sync upserts — same counts, no duplicate nodes/edges.
+        let again = execute_graph_json(&root, "graph.populate_from_vault", r#"{"session_id":"vault"}"#);
+        assert_eq!(again["nodes"], 3);
+        assert_eq!(again["edges"], 2);
+
+        // A removed note + a removed link disappear on the next sync (graph mirrors the vault, no stale).
+        fs::remove_file(dir.path().join("sub/gamma.md")).unwrap();
+        fs::write(dir.path().join("beta.md"), "# Beta\nNo links now.").unwrap();
+        let synced = execute_graph_json(&root, "graph.populate_from_vault", r#"{"session_id":"vault"}"#);
+        assert_eq!(synced["nodes"], 2, "gamma removed");
+        assert_eq!(synced["edges"], 1, "only alpha->beta remains");
     }
 
     fn execute_graph_json(root: &str, tool_name: &str, args_json: &str) -> serde_json::Value {
