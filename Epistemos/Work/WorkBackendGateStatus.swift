@@ -20,8 +20,7 @@ nonisolated enum WorkBackendGateStatus {
     }
 
     static func isEnabled(_ raw: String?) -> Bool {
-        guard let n = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else { return false }
-        return ["1", "true", "yes", "on"].contains(n)
+        FeatureGateOverride.isTruthy(raw)
     }
 
     static func status(environment: [String: String] = ProcessInfo.processInfo.environment) -> Status {
