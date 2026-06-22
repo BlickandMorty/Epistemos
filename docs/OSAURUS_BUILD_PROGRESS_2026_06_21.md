@@ -79,6 +79,12 @@ error (checkpoint caught what source-guard couldn't). **CHECKPOINT GREEN: ProseM
 loop-appropriate fidelity gaps are CLOSED; round-trip verified consistent with the md→PM importer
 (markdown-paste.ts handles tables/strike/camelCase-lists). Remaining MD-V2: block-ID preservation + canonical
 flip (focused session); importer extension blocked on missing JS test infra (no vitest/jest — can't fast-gate).
+**BUG CLASS AUDIT (`8550926c6`):** the camelCase node-name bug wasn't only in the markdown projector — audited
+the sibling projectors. ReadableBlocksProjector already aliases both cases (OK); **EpdocGraphProjector did NOT**
+(snake-only `list_item`/`hard_break`/`image`) → for real editor content (camelCase `listItem`/`hardBreak`/
+`epdocImage`) list items were mislabeled in the document graph (paragraph treatment, wrong semantic labels) +
+images un-labeled. Fixed with camelCase aliases + a regression test (camelCase yields identical label edges to
+snake_case). Checkpoint running.
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
