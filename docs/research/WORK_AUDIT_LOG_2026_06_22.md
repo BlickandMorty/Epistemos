@@ -837,3 +837,22 @@ ADOPT Osaurus's Apple-native parts (voice input, native popovers incl. their lar
 controls where more-native than old Epistemos); DROP Osaurus's custom-branded generic surfaces (its message bar,
 its landing four-block grid, its block fonts) → native Epistemos. Heuristic stated for the agent. No new tiers,
 no gate change; refines ACT-UI SYNTHESIS §1 + D2 (landing). Addendum channel (0.31 picks up). My files only.
+
+## PASS 57 — 2026-06-22 (iter4/5/6 audited — 3 certs LEGIT; correction loop closed; D-cluster WATCH)
+Agent alive (2 procs). Audited iter4 (63380a901 light/0.2 diag), iter5 (e2922057c), iter6 (99c6724c8):
+- 0.23 CERTIFIED ✓ — harness RAN GREEN: xcodebuild test ActOsaurusSendHarnessTests = TEST SUCCEEDED, 2 tests
+  passed, 0 skipped; committed. Real (d) on real entry point.
+- 0.4 CERTIFIED ✓ — my pass-54 P0 NOW genuinely satisfied: 5 gates, (d)=green harness same entry point 0 skipped,
+  (e)=live GUI send gemma-4-e2b. Over-claim→revert→fix→re-earn loop fully closed.
+- 0.18 CERTIFIED ✓ — and PROPAGATED my 0.4 lesson: (d) test asserts a SUCCESSFUL streamed reply (explicitly "NOT
+  the refusal-only pattern the auditor flagged on 0.4"), 0 skipped; (e) live send to registered owner model.
+- ACT-UI SYNTHESIS §1/§2 INGESTED ✓ via 0.31 (130→132 headings) into queue 0.17, correct cross-refs, no
+  option-(b) reopen, no D-gate relax.
+- 0.32 witness iter6: highest attempted 2.1, lowest-[ ] 0.1, T0 3[x] (0.4/0.23/0.18), act-tunnel DENIED.
+WATCH (NOT a correction — fair, nothing faked): the 3 certs are all INVISIBLE PLUMBING; the VISIBLE act surface
+(0.1 reskin, 0.2 surfaces, 0.3 landing→blur, D1-D5 + §1/§2 synthesis) is still ALL [ ] — the owner's #1 pain.
+Agent filed an HONEST stall report (D-cluster = large careful UI build; rushing risks regressing 0.4). Giving it
+ONE cycle since it just ingested §1/§2 this iteration. NEXT FIRE: verify the agent DRIVES the visible D-cluster
+(D1-D5 + §1/§2 native-shell synthesis, screenshot-proven), NOT more headless certs / deeper TIER 2-5. If it
+defers the visible surface again → escalate P0 PRIORITY CORRECTION (act-visible is TIER-0 P0, owner standing #1).
+VERDICT: PASS — certs legit, correction loop proven, synthesis landed; one priority watch armed for next fire.
