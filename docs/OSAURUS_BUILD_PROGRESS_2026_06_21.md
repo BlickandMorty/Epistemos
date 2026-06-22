@@ -706,3 +706,33 @@ evidence for the owner's route-vs-rename call.
 - [x] **GUS-2 evidence→Belnap bridge (`4ee97fa82`, belnap 40/40):** `BelnapValue::from_evidence(supporting,
   refuting)` → Both/True/False/Neither; composed with `abstains()` = the AnswerPacket assert-vs-abstain decision
   straight from evidence counts (contradictory/absent → abstain w/ reason). Pure + additive.
+
+### 🔴 ACT = OSAURUS IS THE CHAT (owner 2026-06-22 — supersedes §29/§222/§806)
+Owner's plain UX (2026-06-22 clarifications): KEEP the Epistemos landing page. When you tap/click to start a
+conversation, the OSAURUS chat surface (its own landing/composer, reskinned Epistemos) pops up — that IS the
+chat, not the old Epistemos ChatView with an engine swap. NO experimental/"safety" opt-in toggle (that's the
+drift). A real product toggle to open WORK is wanted (act↔work), separate from the removed safety gate. Delete
+the old chat (keep IP only). Make it work (send + `<think>` fix). Same for work=OpenCode (full surface, no
+experimental gate).
+- [x] **Step-1 public host seam** — Osaurus `ChatView`/`ChatWindowState` are `internal` to OsaurusCore, so
+  Epistemos can't mount them even though it links the package. Added `EpistemosOsaurusChatHost` (public `View`)
+  at `LocalPackages/osaurus/Packages/OsaurusCore/Epistemos/EpistemosOsaurusChatHost.swift` — owns a stable
+  `ChatWindowState` (@StateObject) and renders the genuine Osaurus `ChatView`. Purely additive (no existing
+  Osaurus type/behaviour changed). Target `path:"."` excl. Tests/SQLCipher → compiled into OsaurusCore; the
+  same-module SourceKit "cannot find ChatView" is the known new-file index false-positive.
+- [x] **Step-2 RootView mounts the host for act** — `import OsaurusCore`; `HomeRouter` now renders
+  `EpistemosOsaurusChatHost()` (the real Osaurus surface, its own composer) once the user leaves the landing
+  (`!chat.showLanding`), with the Epistemos `LandingView` kept for the not-yet-started state. Osaurus owns its
+  own composer/thread so there is no first-message-seeding mismatch. (Checkpoint xcodebuild verifies the
+  cross-module mount.)
+- [ ] **Step-3 reskin the Osaurus surface to the Epistemos palette** (`ThemeProtocol` adapter from `UIState.theme`).
+- [ ] **Step-4 work toggle (act↔work product toggle, NOT a safety gate) + remove the experimental opt-in** —
+  delete `ActOsaurusHealthRow` "experimental" UI + the default-OFF act gate; add the real act↔work toggle.
+- [ ] **Step-5 collapse `CoworkChatMode` Chat/Act depth axis** — preserve Fast/Think/Code tier reach.
+- [ ] **Step-6 delete old Epistemos `ChatView`** once the host is verified (keep IP only — no fallback scaffold).
+- [ ] **Step-7 fix act send errors + `<think>` regression on the live path; verify a real send/receive.**
+- [ ] **WORK/OpenCode — SAME regression class confirmed (audit 2026-06-22):** work surface mounted ONLY in
+  Settings → Work-clone tab (`WorkCloneSettingsView.swift:38`), never routed from RootView/landing; gated OFF by
+  `EPISTEMOS_WORK_OPENCODE_V0` + `EPISTEMOS_WORK_GOOSE_V0` (default off, "experimental/opt-in" copy); renders the
+  honest "not wired yet" placeholder (`WorkTerminalView.swift:155`) because no runtime is bundled. Same fix:
+  full surface reachable via the act↔work toggle, no experimental gate — sequenced AFTER act.
