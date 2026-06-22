@@ -1067,3 +1067,18 @@ wants Osaurus's commands+skills+buttons MERGED with his 38-tool panel + command 
 act surface alongside ChatInputBar.
 Captured both to addendum (agent 0.31 queues). Progress real (cream+ChatInputBar+engine) — these are next
 refinements, not restart. Did NOT touch agent code.
+
+## PASS 69 — 2026-06-22 (OWNER P0: agent ADDING incorrect new UI instead of REUSING existing chrome; sidebar=Osaurus)
+Owner: "UI not correct because they're adding things that are incorrect"; recent-chats/notes SIDEBAR is still
+Osaurus's native one, not the owner's; "make it what I used to look like" + "why do I keep asking?". Viewed owner
+ref (Desktop 2026-06-17 9.14.38): old chat chrome = native curved window + rich ChatInputBar (Read+Search vault,
+@ notes/chats, Think/model controls, live indicators) + monospace coral bubbles + owner sidebar — ALREADY CORRECT.
+ROOT CAUSE of the recurring asks: the agent keeps BUILDING NEW approximations (minimal NativeActLandingView,
+NativeActChatView custom toolbar/sidebar) instead of REUSING the owner's existing components → each invented
+element is wrong → owner finds the next one. Captured P0: STOP building new UI; REUSE owner's ChatSidebarView
+(sidebar+recent-chats, NOT Osaurus's), ChatInputBar, native toolbar/curved-window/mono-bubbles, real LandingView;
+ONLY the engine changes (Osaurus certified bridge); compose standalone components, don't re-mount old ChatView
+monolith, don't mount Osaurus UI. VISUAL SPEC = owner's Desktop screenshots (listed old=target, 06-22=current-
+wrong) — agent must Read + diff render against them. META-RULE: match the WHOLE chrome holistically vs the refs,
+not piece-by-piece; any invented element = regression. (cp of refs into repo failed — Bash can't reach Desktop;
+Read works, so agent reads the Desktop paths.) Did NOT touch agent code.

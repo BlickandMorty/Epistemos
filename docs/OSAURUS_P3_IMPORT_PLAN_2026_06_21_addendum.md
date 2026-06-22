@@ -2186,3 +2186,41 @@ skills. FIX: on the act surface, **MERGE (the UNION, in the owner's native flat 
 Acceptance (fresh launch): home = the owner's REAL rich LandingView (unchanged); enter act → NativeActChatView
 with cream + ChatInputBar + sidebar + pill + command palette + 38-tool panel + Osaurus commands/skills/buttons
 (merged, native) + a real streaming send.
+
+---
+
+## 🔴🔴🔴 OWNER P0 (2026-06-22 ~15:35) — STOP ADDING NEW UI; REUSE the owner's EXISTING chrome; match the reference screenshots
+Owner (verbatim intent): *"the UI is not correct because they're adding things that are incorrect"* + *"the recent
+chat / notes sidebar is still Osaurus's native one, not my chrome"* + *"the latest screenshots are what it looks
+like now; the old screenshots are what I used to look like — I need it to be what I used to look like. Why do I
+have to keep asking?"*
+
+**ROOT CAUSE (the answer to "why does it keep recurring"):** the agent keeps **BUILDING NEW UI** (its own minimal
+`NativeActLandingView`, `NativeActChatView`'s custom toolbar/sidebar) that **approximates** the owner's chrome —
+each new-invented element is WRONG, so the owner finds the next wrong piece one at a time. The owner's UI is
+ALREADY CORRECT. **STOP building approximations. REUSE the owner's EXISTING components.**
+
+**THE RULE:** the act surface must REUSE the owner's actual existing chat-UI components AS-IS — only the ENGINE
+behind them changes:
+- **Sidebar + recent chats = the owner's `ChatSidebarView`** (NOT Osaurus's native sidebar — that is the current
+  wrong thing).
+- **Message bar = the owner's `ChatInputBar`** (already composed — keep).
+- **Native toolbar + curved window + monospace coral bubbles** = the owner's existing chrome.
+- **Pill, command palette, 38-tool panel, skills** = the owner's existing ones (+ Osaurus commands/skills merged, §2).
+- **Landing = the owner's REAL `LandingView`** (restore, P0-A) — NOT the minimal `NativeActLandingView`.
+- **ONLY change vs the old chat = the ENGINE** = Osaurus in-process (certified 0.4 `OsaurusActBridge`/
+  `CoreModelService`), which fixes the old send/parse bugs. Compose the owner's STANDALONE components into the
+  thin native container wired to the engine; do NOT re-mount the old ChatView monolith (it couples to the broken
+  engine), and do NOT mount/reskin Osaurus's UI.
+
+**VISUAL SPEC — the agent MUST `Read` these and diff its render against them:**
+- TARGET (the owner's correct chrome): `/Users/jojo/Desktop/Screenshot 2026-06-17 at 9.14.38 AM.png`,
+  `…2026-06-21 at 6.37.05 PM.png`, `…2026-06-20 at 10.25.07 PM.png`, `…2026-06-21 at 3.49.00/3.49.04/3.49.28 PM.png`,
+  `…2026-06-19 at 12.49.12 PM.png`, `…2026-06-16 at 6.14.38 PM.png`, `…2026-06-05 at 5.27.11 PM.png`,
+  `Screen Recording 2026-06-18 at 6.38.06 PM.mov`.
+- CURRENT (WRONG): `…2026-06-22 at 3.32.44 PM.png`, `…3.32.33 PM.png`, `…11.51.19 AM.png`.
+
+**META-RULE (stop the whack-a-mole):** match the owner's WHOLE existing chrome HOLISTICALLY against the reference
+screenshots — toolbar, sidebar/recent-chats, message bar, bubbles, pill, commands, 38 skills — NOT one component
+at a time. Any NEW UI element invented instead of REUSING the owner's existing component = a regression. Acceptance
+= a fresh-launch screenshot that the agent diffs against the TARGET refs and matches.
