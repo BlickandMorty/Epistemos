@@ -844,6 +844,16 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
     Osaurus engine — higher-risk deep rewiring + unverifiable; fall back to it only if (a)'s fidelity falls short.)
   - Build order: message bar (owner fave) → fonts/flat-pixel chrome → enable/bring the sidebar → landing look.
     Component-level overrides on the hosted Osaurus views (`FloatingInputCard`/thread/sidebar), keep OsaurusCore.
+  - **RECONSIDERATION (owner said "NOT a thin palette tint"):** a placeholder/colour tweak is the WRONG
+    direction — the owner wants the FULL old look. That raises the bar for option (a) (must faithfully recreate
+    the old message-bar/thread/sidebar design in Osaurus's components, not just retheme) and strengthens the
+    case for option (b) (use the actual old Epistemos UI driven by Osaurus — faithful by construction). Note:
+    the old-UI + Osaurus-engine mechanism PARTLY EXISTS (`LocalAgentLoop.shouldRouteActThroughOsaurus` already
+    routes the old chat's inference through `OsaurusCore.CoreModelService`); the owner's rejection was the
+    TOGGLE + brokenness, not that mechanism — so option (b) ≈ that path de-toggled + made genuine. This is a
+    major direction call (large rework either way, unverifiable headless); leaning (b) for fidelity, but
+    flagged for an owner signal before the big pivot. **Item 4 (models) is UI-direction-AGNOSTIC** — the owner's
+    models route via Osaurus's ChatEngine under either option — so 4b/4c proceed regardless.
 
 ### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
 The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't
@@ -856,7 +866,15 @@ visibility.
   ModelService` that flattens the OpenAI-style history → prompt and streams from the provider. Wired into
   `ChatEngine`'s default `services` + `installedModelsProvider`. ADDITIVE + honestly INERT until a provider is
   registered (`isAvailable()/handles()` decline → default Foundation/MLX behaviour byte-identical).
-- [ ] **4b — Epistemos provider:** implement `EpistemosModelProvider` over the app's real GGUF/MLX inference
-  (the QAT ladder), `register()` it at bootstrap. (Needs the Epistemos inference API.)
+- [ ] **4b — Epistemos provider (FULLY SCOPED, ready to implement):** an Epistemos-side
+  `EpistemosOsaurusModelProvider: EpistemosModelProvider` (import OsaurusCore). Confirmed API path:
+  `MLXInferenceService.stream(request: LocalMLXRequest)` **auto-loads** the model (`loadContainerIfNeeded`) and
+  routes GGUF vs MLX by `LocalModelDescriptor.runtimeKind` (`.gguf` for the owner's `GemmaQATRuntimeLadder`
+  candidates), so `streamGenerate(prompt:modelId:maxTokens:)` = build `LocalMLXRequest(modelID:modelDirectory:
+  prompt:systemPrompt:nil:maxTokens:reasoningMode:.fast:steeringHintsJSON:nil:imageURLs:[])` → `service.stream`,
+  bridged into a sync-returning `AsyncThrowingStream` via a `Task`. `availableModelIds()` = installed models.
+  Register the provider at `AppBootstrap:1800` (where `localInferenceService` is created). REMAINING TO VERIFY
+  before writing (avoid a field-name red build): the installed-models list + id→activeDirectory resolution
+  (`PreparedModelRegistry` vs `LocalModelInfrastructure.activeDirectory(for:)` + a LMI instance). Implement next.
 - [ ] **4c — picker visibility:** surface the owner's model ids in the Osaurus model picker catalog (ModelManager)
   so they're selectable; routing then reaches `EpistemosBridgedModelService`. Live generation = owner's runtime check.
