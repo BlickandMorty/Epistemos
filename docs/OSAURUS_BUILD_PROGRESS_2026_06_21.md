@@ -106,10 +106,17 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
   - [x] **#1 vault-as-MCP CONTEXT DONE (`36da2df95`):** `omega-mcp` dispatcher serves `resources/list`
     (vault `*.md` notes as `vault:///` resources) + `resources/read` (path-safe content) via VaultExecutor;
     12/12 tests. External agents read the vault as first-class MCP context.
-  - [~] **#2 deep graph integration — LARGELY PRESENT:** `omega-mcp/graph_tools.rs` already exposes
+  - [x] **#2 deep graph integration — DONE end-to-end (`1406fcd75`):** `omega-mcp/graph_tools.rs` exposes
     `graph.search_semantic/fulltext` + `graph.get_node` + `graph.traverse` + `graph.create_node/edge` +
-    `graph.commit_session` — agents already traverse/query/build the graph. (Remaining: ensure it's
-    populated FROM vault notes+links end-to-end.)
+    `graph.commit_session` — agents traverse/query/build the graph. **The remaining "populate FROM vault
+    notes+links" piece LANDED:** new `graph.populate_from_vault` builds one `Note` node per markdown file
+    (deterministic basename-keyed id + bounded excerpt body) + a `links_to` edge per RESOLVED `[[wikilink]]`,
+    reusing the existing `list_markdown_notes`/`parse_wikilinks` (one basename link model, no rebuild).
+    IDEMPOTENT re-sync (drops prior vault nodes/edges, agent nodes untouched → graph mirrors the vault, no
+    stale/dup); HONEST (dangling links counted, not faked); catalog-registered + routed via `is_graph_tool`
+    so external (OpenCode/Codex) AND in-app agents build the graph from the vault. Real-state test:
+    cross-linked + dangling temp vault → counts + traverse the real link graph + idempotency + removal
+    reflected. 183/183 omega-mcp lib green (+1). (Later: an in-app trigger/auto-sync on vault change.)
   - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink suite COMPLETE — `vault.backlinks`
     (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved) +
     `vault.note_links` (`80a376b5d`, full per-note context in one call) MCP tools over a shared `parse_wikilinks`
