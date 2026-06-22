@@ -62,6 +62,55 @@ nonisolated enum WorkOpenCodeRuntime {
         }
         return env
     }
+
+    /// The bundled `omega_mcp_stdio` MCP server (next to `bin/opencode`) — the FUSION transport that gives
+    /// OpenCode's work agent the app's vault tools. nil until vendored (built+staged by the build script).
+    static func bundledMcpServerURL(bundle: Bundle = .main) -> URL? {
+        guard let resources = bundle.resourceURL else { return nil }
+        let server = resources
+            .appendingPathComponent("opencode-runtime", isDirectory: true)
+            .appendingPathComponent("bin", isDirectory: true)
+            .appendingPathComponent("omega_mcp_stdio")
+        return FileManager.default.isExecutableFile(atPath: server.path) ? server : nil
+    }
+
+    /// The OpenCode config (opencode.json) that FUSES the app's vault tools into the work TUI: registers the
+    /// bundled `omega_mcp_stdio` as a local MCP server with the vault root in its environment. OpenCode reads
+    /// it via `OPENCODE_CONFIG`. Pure + testable (owner §720 "Goose/etc fuse beneath OpenCode" — via MCP).
+    static func openCodeConfigJSON(stdioServerPath: String, vaultRoot: String) -> String {
+        let config: [String: Any] = [
+            "$schema": "https://opencode.ai/config.json",
+            "mcp": [
+                "epistemos-vault": [
+                    "type": "local",
+                    "command": [stdioServerPath],
+                    "environment": ["EPISTEMOS_VAULT_ROOT": vaultRoot],
+                    "enabled": true,
+                ],
+            ],
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: config, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else { return "{}" }
+        return json
+    }
+
+    /// Write the fusion config to an app-managed path (Application Support), returning its path for
+    /// `OPENCODE_CONFIG`. nil on failure (the caller then launches the TUI without fusion — honest, not fatal).
+    static func writeFusionConfig(_ json: String) -> String? {
+        let fm = FileManager.default
+        guard let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        let dir = support.appendingPathComponent("Epistemos/opencode", isDirectory: true)
+        let file = dir.appendingPathComponent("opencode.json")
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try json.write(to: file, atomically: true, encoding: .utf8)
+            return file.path
+        } catch {
+            return nil
+        }
+    }
 }
 
 /// The LIVE OpenCode work shell — resolves a real launch spec pointing at the bundled
@@ -73,11 +122,24 @@ struct BundledWorkOpenCodeShell: WorkOpenCodeShell {
     var isReady: Bool { true }
 
     func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec {
-        WorkShellLaunchSpec(
+        var environment = WorkOpenCodeRuntime.shellEnvironment(runtimeURL: runtimeURL)
+        // FUSION (owner §720): when the bundled omega_mcp_stdio server is present, write an OpenCode config
+        // that registers it (with the workspace as the vault root) + point OpenCode at it via OPENCODE_CONFIG,
+        // so the work TUI auto-fuses the app's vault tools. Best-effort: a write failure just omits the fusion
+        // (the TUI still launches honestly), never blocks the shell.
+        if let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL() {
+            let configJSON = WorkOpenCodeRuntime.openCodeConfigJSON(
+                stdioServerPath: serverURL.path, vaultRoot: workspace.path)
+            if let configPath = WorkOpenCodeRuntime.writeFusionConfig(configJSON) {
+                environment["OPENCODE_CONFIG"] = configPath
+                environment["EPISTEMOS_VAULT_ROOT"] = workspace.path
+            }
+        }
+        return WorkShellLaunchSpec(
             executableURL: runtimeURL,
             arguments: [],   // bare `opencode` launches the TUI in the cwd
             workingDirectory: workspace,
-            environment: WorkOpenCodeRuntime.shellEnvironment(runtimeURL: runtimeURL)
+            environment: environment
         )
     }
 }

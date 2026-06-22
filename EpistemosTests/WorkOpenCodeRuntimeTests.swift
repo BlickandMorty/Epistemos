@@ -79,6 +79,28 @@ struct WorkOpenCodeRuntimeTests {
         #endif
     }
 
+    @Test("fusion config registers omega_mcp_stdio as a local MCP server with the vault root (§720)")
+    func fusionConfigRegistersVaultServer() throws {
+        let json = WorkOpenCodeRuntime.openCodeConfigJSON(
+            stdioServerPath: "/Apps/Epistemos.app/Contents/Resources/opencode-runtime/bin/omega_mcp_stdio",
+            vaultRoot: "/Users/me/Vault")
+        let v = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+        let mcp = v["mcp"] as! [String: Any]
+        let server = mcp["epistemos-vault"] as! [String: Any]
+        #expect(server["type"] as? String == "local")
+        #expect(server["enabled"] as? Bool == true)
+        #expect((server["command"] as? [String])?.first?.hasSuffix("omega_mcp_stdio") == true)
+        #expect((server["environment"] as? [String: String])?["EPISTEMOS_VAULT_ROOT"] == "/Users/me/Vault")
+    }
+
+    @Test("launchSpec wires OPENCODE_CONFIG when the stdio fusion server is bundled (source-guarded)")
+    func launchSpecWiresFusion() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkOpenCodeRuntime.swift")
+        #expect(src.contains("bundledMcpServerURL()"))
+        #expect(src.contains("OPENCODE_CONFIG"))
+        #expect(src.contains("writeFusionConfig("))
+    }
+
     @Test("kill-on-idle window is configured (lazy-launch, kill-on-idle lifecycle)")
     func idlePolicy() {
         #expect(WorkOpenCodeRuntime.idleTimeout > 0)
