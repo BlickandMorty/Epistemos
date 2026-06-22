@@ -405,3 +405,16 @@ search bugs on it; runtime-verify.
   requestFailed) + clean title, (b) START the new UI direction (Osaurus UI reskinned + message bar/side panel/
   scroll-blur grafts), (c) stop mounting the old ChatView for act? If it keeps building the OLD option-(b)
   old-ChatView path → flag (direction changed). Verdict: healthy, no re-add (P0s fresh).
+
+## Pass 28 — 2026-06-22
+- **Build loop:** ALIVE (swift=2). HEAD `71c1e01f3` (75s). Did 1 WORK commit (c0df5077f, legit) then 2 act P0 fixes.
+- **71c1e01f3 (delete duplicate toggle) → ✅ PASS:** removed LandingView WorkspaceModePicker pill-row + orphaned
+  state; top capsule + badge kept. Bug-1 done. Pro EXIT=0.
+- **2e7cd786a (friendly ActOsaurusError) → ✅ PASS (UX) but ⚠️ NOT the fix:** LocalizedError per-case actionable
+  msgs (no raw "error 2"). BUT (a) doesn't fix the actual send failure (friendly error ≠ working chat — root
+  open), (b) agent says requestFailed has NO reachable act caller → real failing case uncertain; next owner send
+  shows the friendly text → IDs it. 
+- **OPEN:** root send-failure (make act actually reply, runtime-verify); NEW UI direction (Osaurus UI reskinned +
+  grafts) NOT STARTED (loop still point-fixing old-ChatView surface); title-gen; search→landing.
+- **Verdict:** 2 PASS point-fixes; FLAGGED root-send + new-UI-direction still open. Watch loop starts the new UI
+  direction + a real send fix, not just patches.
