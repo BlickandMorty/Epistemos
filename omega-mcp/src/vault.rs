@@ -254,6 +254,58 @@ impl VaultExecutor {
         ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
     }
 
+    /// VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): the COMPLETE link context for one note in a single call —
+    /// `{ backlinks, outlinks, dangling_outlinks }`. The wiki's "note connections" panel: who links here, where
+    /// this note points, and which of its own links are unresolved. Reuses backlinks + parse_wikilinks.
+    pub fn note_links(&self, path: &str) -> ToolResult {
+        use std::collections::HashSet;
+        let start = Instant::now();
+        // outlinks + dangling-among-them (resolve against existing notes).
+        let content = match self.resolve(path).and_then(|full| {
+            std::fs::read_to_string(&full).map_err(|e| format!("Cannot read {path}: {e}"))
+        }) {
+            Ok(c) => c,
+            Err(e) => {
+                return ToolResult::err(
+                    e,
+                    crate::types::error_codes::NOT_FOUND,
+                    start.elapsed().as_millis() as u64,
+                )
+            }
+        };
+        let existing: HashSet<String> = self
+            .list_markdown_notes()
+            .iter()
+            .map(|n| Self::note_basename(n))
+            .collect();
+        let out_all = Self::parse_wikilinks(&content);
+        let dangling: Vec<&String> = out_all
+            .iter()
+            .filter(|l| !existing.contains(&Self::note_basename(l)))
+            .collect();
+        // backlinks (who links TO this note) — reuse the existing scan.
+        let target = Self::note_basename(path);
+        let mut backlinks: Vec<String> = Vec::new();
+        for rel in self.list_markdown_notes() {
+            if Self::note_basename(&rel) == target {
+                continue; // don't count the note itself
+            }
+            if let Ok(c) = std::fs::read_to_string(self.root.join(&rel)) {
+                if Self::content_links_to(&c, &target) {
+                    backlinks.push(rel);
+                }
+            }
+        }
+        backlinks.sort();
+        let json = serde_json::json!({
+            "path": path,
+            "backlinks": backlinks,
+            "outlinks": out_all,
+            "dangling_outlinks": dangling,
+        });
+        ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
+    }
+
     /// Write content to a file in the vault.
     pub fn write_file(&self, path: &str, content: &str) -> ToolResult {
         let start = Instant::now();
@@ -511,6 +563,11 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
         "vault.dangling_links" | "dangling_links" | "unresolved_links" => {
             // VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): [[links]] pointing at non-existent notes.
             executor.dangling_links()
+        }
+        "vault.note_links" | "note_links" => {
+            // VAULT-DEEP-INTEGRATION §720 (#3): full per-note link context (back/out/dangling) in one call.
+            let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
+            executor.note_links(path)
         }
         _ => ToolResult::err(
             format!("Unknown vault tool: {tool_name}"),
@@ -821,5 +878,29 @@ mod tests {
         assert_eq!(dangling.len(), 1, "{dangling:?}");
         assert_eq!(dangling[0]["target"], "Ghost");
         assert_eq!(dangling[0]["referenced_by"][0], "hub.md");
+    }
+
+    #[test]
+    fn test_vault_note_links_aggregates_context() {
+        // VAULT-DEEP-INTEGRATION §720 (#3): full per-note link context in one call.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        // hub links out to Real (exists) + Ghost (missing); other.md links INTO hub.
+        std::fs::write(root.join("hub.md"), "out to [[Real]] and [[Ghost]]").unwrap();
+        std::fs::write(root.join("Real.md"), "x").unwrap();
+        std::fs::write(root.join("other.md"), "points to [[hub]]").unwrap();
+
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+        let result = exec.note_links("hub.md");
+        assert!(result.success, "{:?}", result.error);
+        let v: serde_json::Value = serde_json::from_str(&result.data_json).unwrap();
+        // backlinks: other.md → hub
+        assert_eq!(v["backlinks"][0], "other.md");
+        // outlinks: Real + Ghost
+        let out: Vec<String> = v["outlinks"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().into()).collect();
+        assert_eq!(out, vec!["Real".to_string(), "Ghost".to_string()]);
+        // dangling among its outlinks: just Ghost
+        let dang: Vec<String> = v["dangling_outlinks"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().into()).collect();
+        assert_eq!(dang, vec!["Ghost".to_string()]);
     }
 }
