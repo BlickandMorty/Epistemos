@@ -19,3 +19,14 @@ PASS or RE-ADD-to-plan for re-pickup; re-verify until correct. Cite file:line. C
 - **Build health:** cargo test --lib (agent_core) running in background → /tmp/epi_workaudit_gate.log.
 - **Verdict:** no re-add needed this pass; direction correct. Re-audit the reskin + toggle-removal + send-fix as
   they land; confirm the host actually renders + sends before old ChatView is deleted.
+
+## Pass 2 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `7f464ffcf` "act=Osaurus: gate the OsaurusCore mount behind !EPISTEMOS_APP_STORE" (5 min ago).
+- **AUDIT 7f464ffcf → ✅ PASS (legit, not drift):** compile-time MAS/Pro build gate — `#if !EPISTEMOS_APP_STORE`
+  mounts the Osaurus host; MAS keeps `ChatView()` until the MAS-safe OsaurusCore split (tracked dual-build
+  follow-up). This is the build-target boundary, NOT the user-facing experimental Settings toggle the owner
+  rejected. On-plan. Co-Authored.
+- **Build health:** cargo test --lib (agent_core) = **5549 passed, 0 failed** (29s). GREEN.
+- **In-flight:** EpistemosOsaurusChatHost.swift uncommitted (build loop working) — not touched.
+- **Verdict:** PASS, no re-add. Re-audit the reskin + toggle-removal + send/<think> fix as they land; watch that
+  MAS path gets the MAS-safe OsaurusCore split (so MAS isn't permanently on old ChatView, per §151 MAS-non-restrictive).
