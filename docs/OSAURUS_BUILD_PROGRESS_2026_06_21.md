@@ -65,6 +65,12 @@ contract (`644303f69`) → native SwiftTerm view (`5b0520917`) → bundled-runti
 theme-responsive (`3bead7af6`). **Motion ontology:** reusable `MotionTitle` (`9d1c421e6`) on both work titles
 (`3ec448552`). All honest-inert-until-real; chat quarantined.
 
+**COMPREHENSIVE REGRESSION (2026-06-21, session close):** ran the full inference + vault blast radius together
+(8 suites, 86 tests: LocalAgentLoop/ActOsaurusStreaming/SharedActComposer/ActOsaurusSeam/DeviceAgentService/
+AgentNoteEdit/VaultSemanticBacklinks/VaultNoteEditor). 85/86 PASS — the ONLY failure is the pre-existing
+`LocalAgentLoopTests:1617` (SS-AL `f26924ccf`, another session's domain, not mine). The session's ~62-commit
+body caused ZERO regressions across its most-changed surface.
+
 **Regression sweep (2026-06-21):** ran blast-radius suites after the shared-composer + streaming edits.
 Found + FIXED one stale source-guard I caused (`ActOsaurusSeamTests` s4DeviceAgentFlagSwap → now asserts the
 shared `shouldRouteActThroughOsaurus()`, `ee61a7e52`). TWO failures are from OTHER concurrent sessions (NOT
