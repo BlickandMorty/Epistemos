@@ -1032,3 +1032,14 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   the act gateHonest fix; `healthRowVisibleAndWired` asserted the row used `WorkOpenCodeShellGateStatus.status`,
   but the row was refactored (owner 2026-06-22) to report the HONEST factory state — updated to assert
   `WorkOpenCodeShellFactory.resolve()`. Both were stale, not behavior; suite green.
+
+## P0-A: ActOsaurusError → friendly actionable message (owner 2026-06-22 'error 2')
+- Owner on a fresh Pro build saw the raw "Epistemos.ActOsaurusError error 2" on a real send. Root: ActOsaurusError
+  did NOT conform to LocalizedError, so it bridged to a bare code; and ac8d3974e's diagnosable mapping didn't
+  cover it. (Note: requestFailed is only thrown by the HTTP runTurn path, which has NO reachable caller in the
+  act flow — act uses runTurn*InProcess; the error-message fix applies regardless of the trigger.)
+- Fix: ActOsaurusError now conforms to LocalizedError with friendly, ACTIONABLE errorDescriptions per case
+  (serverNotEnabled/transport/requestFailed/emptyResponse) — e.g. requestFailed → "Act's local model server
+  returned an error (HTTP N). Act normally runs in-process — retry the message; if it persists, reselect your
+  model in the picker." So UserFacingChatError.message(from:) surfaces the real text, never 'error 2'.
+- Test: ActOsaurusSeamTests.actOsaurusErrorIsDiagnosable pins it (surfaced message has retry+model, not 'error 2').
