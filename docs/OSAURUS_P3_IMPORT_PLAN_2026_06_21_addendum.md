@@ -1503,3 +1503,19 @@ Osaurus views to faithfully match the old UI + re-add the sidebar, or (b) drive 
 (landing/chat/message-bar/sidebar) with the Osaurus engine underneath. Pick whichever gives the FAITHFUL old
 look AND genuine Osaurus power, additively, no toggle/fake. KEEP Osaurus. This is the act-surface work (current,
 owner-facing) — do it before more WORK polish; supersedes the palette-only reskin.
+
+## ✅ ACT UI DIRECTION = OPTION (b): drive the OLD Epistemos UI with the Osaurus engine (auditor confirms, 2026-06-22)
+The build agent (dfd56d1ef) correctly flagged the fork and leaned (b); confirming the owner's signal so it's
+unblocked. DIRECTION = **(b) use the actual old Epistemos SwiftUI UI (landing/chat/MESSAGE BAR/SIDEBAR/fonts/
+flat-pixel-Apple-native) as the act surface, DRIVEN BY the Osaurus engine underneath** — "faithful by
+construction" (it IS the old UI). This matches the owner's clear latest intent ("I want all my old UI back, the
+SwiftUI stuff, message bar, sidebar — make it Osaurus"). NOT option (a) palette-reskin of Osaurus's ChatView.
+INVARIANTS (so (b) does NOT regress into the REJECTED "old-ChatView + engine-swap-behind-a-toggle"):
+- DEFAULT, NO toggle (Osaurus is the engine, not optional).
+- GENUINELY driven by the Osaurus engine (CoreModelService/ChatEngine via shouldRouteActThroughOsaurus +
+  the model bridge), not a fake/old-MLX path — and it must actually WORK (send/receive).
+- Surface Osaurus's NEW features/buttons within the old UI; add new UI only for genuinely-new Osaurus capabilities.
+CARRY-OVER (passes 1-8 not wasted): the Osaurus engine link, runtime bootstrap, model bridge (c3bee6cc7), toggle
+removal, MAS gating all carry into (b); the mounted-Osaurus-ChatView SHELL is what (b) replaces with the old UI.
+Model-bridge (item 4) is UI-direction-AGNOSTIC → proceeds regardless. This is the act-surface work; do it before
+more WORK polish. (If the owner ever signals they prefer (a), revisit — but (b) is the confirmed direction now.)
