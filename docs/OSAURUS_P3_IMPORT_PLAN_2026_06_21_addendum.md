@@ -1682,3 +1682,19 @@ So the act send path has TWO coupled failures: (1) the turn errors with requestF
 in-process), (2) title-gen produces a garbage title. Both point at the act generation routing through the wrong
 (HTTP/:1337) path instead of in-process CoreModelService. FIX: route act turn + title-gen IN-PROCESS; clean the
 title. (Direction = Osaurus UI reskinned + 3 grafts, locked prior section.) Models + picker confirmed working.
+
+## ⚠️ AUDIT (pass 28) — friendly error ≠ working send; ROOT failure + new UI direction STILL OPEN (2026-06-22)
+2e7cd786a made ActOsaurusError messages friendly/actionable (good) + deleted the duplicate toggle (71c1e01f3,
+bug-1 done). BUT:
+1. **The ACTUAL SEND STILL FAILS — a friendly error is NOT a working chat.** The root generation failure is
+   UNFIXED. The agent also found requestFailed "has NO reachable caller in the act flow" → so either the error
+   isn't requestFailed (enum-order inference was uncertain) OR there's an unfound failing path. NEXT OWNER SEND
+   will now show the specific friendly message → use it to identify the REAL failing case, then fix the ROOT so
+   act actually returns a reply (in-process generation succeeds end-to-end). Friendly-message ≠ done.
+2. **The DEFINITIVE NEW UI DIRECTION is NOT STARTED.** The loop is point-fixing the OLD-ChatView act surface
+   (toggle, error msg) — but the locked direction (77b6aba2e) is to REPLACE that surface with OSAURUS'S OWN UI
+   reskinned + the 3 grafts (message bar, side panel, scroll-blur). The point-fixes are fine (useful either way),
+   but the loop must START the new UI direction, not keep patching the old-ChatView surface.
+3. Title-gen artifact + click-search→Osaurus-landing still open.
+PRIORITY: (a) make the send actually WORK (root, runtime-verified), (b) build the new UI direction. The owner
+is blocked on a WORKING act in their UI — point-fixes on the old surface don't deliver that.
