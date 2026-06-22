@@ -5,133 +5,167 @@
 > it is complete … truly start from the very beginning of the plan and recertify/reverify, and then continue
 > … NOT a lazy continue or lazy verification — truly robust."*
 >
-> **EVERY box below is UNCERTIFIED — treat as `[ ]` regardless of any prior `[x]`/`[~]`.** Do NOT trust any
-> past "done"/"PASS" (incl. the Osaurus work AND everything before it). Walk **from item 0.1 top-to-bottom**;
-> for each, RE-CERTIFY against its →plan section with grounded evidence (file:line + real-state test + runtime
-> for UI) BEFORE re-checking it. `[x]` only when CERTIFIED to the full strict bar (see RULES). **Do NOT undo or
-> delete working code** — re-verify in place; fix only what is actually broken/drifted/fake. Loop driver =
-> docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md.
+> **EVERY box below is UNCERTIFIED — treat as `[ ]` regardless of any prior `[x]`/`[~]`.** Walk **0.1 → 0.22
+> in numeric order** (then TIER 1, 2, …). For each item RE-CERTIFY against its →plan section with grounded
+> evidence (file:line + real-state test + screencapture for UI) BEFORE marking `[x]`. Loop driver =
+> docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md. Paste block =
+> docs/AGENT_LOOP_PASTE_READY_2026_06_22.md.
 >
-> KNOWN OPEN FLAG (re-cert target): **0.1 reskin — commit ba2f8952f used runtime `applyCustomTheme` in host
-> init (NOT the vendored Theme.swift source edit the plan mandates); vendored default theme is still DARK
-> (#0c0c0b). Must runtime-verify it renders cream; if not, edit the vendored Theme.swift defaults per plan.**
+> **D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7** — do NOT mark 0.1–0.7 `[x]` until the
+> matching D-item passes YOUR screencapture (e.g. 0.1 isn't `[x]` until D5 shows cream/monospace).
+>
+> **D4 / Configuration is TIER-0 blocking** — wire act/Osaurus config + settings in 0.11/0.22; do NOT defer
+> to queue 4.1 while leaving TIER 0.
 
-THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION (cheap + reliable). It does NOT replace the
-plan — each item POINTS to its plan section (read ONLY that section's specifics for the current item, not the
-whole addendum). The loop UPDATES this file every loop (mark [x] only when RUNTIME-VERIFIED, append findings).
-Authority/detail = docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten it).
+THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION. Each item POINTS to its plan section
+(read ONLY that section for the current item). Authority =
+docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).
 
 RULES (every loop, non-negotiable):
-- **THIS QUEUE IS AN INDEX, NOT THE SPEC.** The one-line item text is ONLY a pointer. For the current item you
-  MUST open its `→plan:` section in the addendum and IMPLEMENT EVERY SPECIFIC / NUANCE written there — the
-  no-compromise-nuance initiative: do ALL of it, exactly, not a summarized version. The queue guarantees nothing
-  is FORGOTTEN; the per-item plan-read guarantees the SPECIFICS are DONE. (Before, the loop skipped specifics —
-  this is the fix: always read + do the full plan section for the item, never just the queue line.)
-- **KEEP THE QUEUE COMPLETE:** it must index EVERY open directive in the plan. If you find a plan directive not
-  represented here, ADD it as an item with its →plan ref. New owner directives go into the plan AND here.
-- Re-read THIS queue fully. Pick the FIRST unchecked item in order. Read its FULL →plan section + implement ALL
-  its specifics. Do it for REAL.
-- RUNTIME-VERIFY before [x] (build-green is NOT done; the reskin/act bugs all passed build but failed at runtime).
-  YOU verify it: build → open the app → `screencapture` → `Read` the PNG → confirm with your own eyes. `[~]` is a
-  TRUE LAST RESORT only (state why no screencapture/snapshot could observe it) — NOT the default. NEVER mark UI
-  done on build-green. Do NOT move past a broken/unverified TIER-0 item to lower tiers.
-- Update this queue each loop (status + a one-line result). Commit + push. No fake-done. No red on main.
+- **QUEUE = INDEX, NOT SPEC.** Open the item's full `→plan:` section; implement EVERY nuance there.
+- **KEEP QUEUE COMPLETE:** any plan directive not indexed → ADD it here + point to plan section.
+- **WALK ORDER:** first unchecked item, **numeric order** (0.1, 0.2, … 0.22, then 1.1, …).
+- **RUNTIME:** YOU verify — build → open → `screencapture` → `Read` PNG. Owner is NOT checking.
+  `[~]` = TRUE last resort only (state why screencapture + send-text both failed). Never `[x]` on build-green.
+- Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md` each loop. Commit + push. No fake-done.
 - Never delete chat IP. main-only. Co-Authored-By Claude.
 
-STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hold; else it stays `[ ]`):
-  (a) CODE EXISTS — cite file:line; (b) CODE IS CORRECT — read it, it does what the plan section's SPECIFICS
-  say (not a near-miss / drift / different approach than the plan mandates — e.g. 0.1 must hit the SOURCE the
-  plan names); (c) WIRED + REACHABLE — actually on the live path, not dead/flagged-off; (d) REAL-STATE TESTED —
-  a test exercises real behavior (not a stub/always-true); (e) RUNTIME — for ANY UI/visual item it RENDERS/WORKS
-  at runtime — YOU prove it by screencapture+Read, not by deferring to the owner. `[~]` only as a TRUE last
-  resort with a stated reason no automated path could observe it; never as the default, never `[x]` on build-green. If (a)-(d) fail →
-  it's BROKEN/DRIFTED: fix it for real, then re-certify. NO box is trusted from a prior "done" — re-prove it.
-  Do NOT delete/revert working code to "restart" — re-certify in place; only change what's actually wrong.
+STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
+  (a) EXISTS file:line · (b) CORRECT & ON-PLAN (mandated approach, not near-miss/drift) · (c) WIRED &
+  REACHABLE · (d) REAL-STATE TESTED · (e) RUNTIME proven by YOU (screencapture and/or send-text harness).
 
-## TIER 0 — ACT SURFACE (BROKEN at runtime — fix + RUNTIME-VERIFY before anything else)
-- [ ] **0.1 Reskin Osaurus at the VENDORED THEME SOURCE** — edit LocalPackages/osaurus/.../Models/Theme/Theme.swift
-  (+ its color/font defaults) so Osaurus's views NATIVELY render the Epistemos cream/monospace palette
-  (#fbfaf5/#f4f3ee surfaces, #1c1c1e text, ink accent, SF Mono/app fonts). NOT runtime applyCustomTheme (it does
-  NOT cascade — proven). Verify the act surface RENDERS cream/monospace, not Osaurus default light theme.
+## TIER 0 — ACT SURFACE (broken at runtime — finish ALL before lower tiers)
+
+- [ ] **0.1 Reskin at VENDORED THEME SOURCE** — edit `LocalPackages/osaurus/.../Models/Theme/Theme.swift`
+  defaults so Osaurus views NATIVELY render cream/monospace (#fbfaf5/#f4f3ee, #1c1c1e, SF Mono). NOT runtime
+  `applyCustomTheme` alone (proven not to cascade; ba2f8952f drift). Screenshot: cream/monospace on act.
   →plan: "🎯 RESKIN FIX — edit the VENDORED Osaurus theme at SOURCE" + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING".
-- [ ] **0.2 ALL chat surfaces use the SAME Osaurus act host** — main ✅(mounted), but MINI chat still Epistemos-
-  native, GRAPH chat still triageService.streamGeneral, NOTE chat unverified. Route mini + graph + note through
-  the Osaurus act host (act). WORK in all but NOTE. Currently only MAIN got it → fix the rest.
-  →plan: "🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE" + "✅ CONSENSUS — KEEP TriageService".
-- [ ] **0.3 LANDING → BLUR → ACT flow** — show the Epistemos LANDING page first; click → BLUR-reveal → act
-  (Osaurus host). Currently mounts Osaurus directly, skipping the Epistemos landing + blur. →plan: "🔴🔴🔴 P0
-  (11:30am) ...LANDING FLOW" + "landing BLUR transitions".
-- [ ] **0.4 SEND actually works (runtime)** — owner's model generates a reply end-to-end (in-process, no HTTP
-  requestFailed). Verify a real reply. →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A".
-- [ ] **0.5 Confirm mini-chat + grab-chat reachable** (mini chat exists+reskinned per screenshot — verify wired/discoverable).
-- [ ] 0.6 (CLAIMED-done — RE-CERTIFY each) duplicate-toggle deleted · friendly errors · clean titles · scroll-blur
-  graft · side-panel graft · white-bar/search fix · model-default seed — re-verify file:line + runtime they hold.
-- [ ] **0.7 message-bar graft** = reskin of Osaurus composer (owner-verify feel) →plan: "⚠️ MESSAGE-BAR graft".
-- [ ] **0.8 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22, screenshot-grounded)** — must screenshot-verify each fix:
-  D1 window BOXY→CURVED+soft-shadow (RootView has the chrome; Osaurus ChatView host renders boxy);
-  D2 old Epistemos LANDING missing (shows Osaurus default "Good morning"+download/provider/plugin buttons) →
-  restore LandingView→blur→act; D3 the PILL is gone (ChatCapabilityPill LandingView.swift:1178 /
-  NativePillButtonStyle ChatSidebarView.swift:76) → bring it back; D4 Configuration/Settings doesn't open/work →
-  wire act config + per-clone settings; D5 reskin only partial (still Osaurus chrome, not owner cream/mono +
-  model picker/palette/38-tool panel). →plan: "🔴 OWNER-REPORTED RUNTIME DEFECTS" in strict prompt + addendum.
-  NOTE: D1–D5 are the RUNTIME ACCEPTANCE TESTS for 0.1–0.7 — do NOT mark 0.1–0.7 `[x]` until the matching
-  D-item passes YOUR screenshot (e.g. 0.1 reskin isn't `[x]` until D5 screenshot shows cream/monospace).
-- [ ] **0.11 Provider wiring + Epistemos Picks** — owner's GGUF/QAT models actually selectable AND used in act;
-  "Add a provider" / Configuration opens REAL provider+model settings; NO silent Codex/Qwen swap. Verify a send
-  uses the owner's selected model. →plan: "OWNER'S MODELS IN CHAT" + "DEEP CHECK §2" + D4.
-- [ ] **0.12 Surface-wiring rule** — every Osaurus surface (settings, model stack, tools, transcript, config)
-  mapped to a proven Epistemos front-end; NO dead surfaces. →plan: "SURFACE-WIRING RULE".
-- [ ] **0.13 Shared act component** — ONE shared composer/capability component reused by main+mini+graph+note
-  (no per-surface drift). →plan: "🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE" (impl intent).
-- [ ] **0.14 Health-row witnesses honest** — ActOsaurusHealthRow / AnswerPacketHealthRow / etc.: wiredToday vs
-  stillStub must MATCH real code state after every change; re-cert each row. →plan: substrate + act progress docs.
-- [ ] **0.15 DEEP CHECK (prove reality, not claim)** — trace the LIVE act path end-to-end; prove no silent Codex
-  default; write honest status in OSAURUS_BUILD_PROGRESS. →plan: "DEEP CHECK — PROVE THE REALITY".
-- [ ] **0.16 Reasoning/thinking fidelity** (if not fully covered by 0.9) — `<think>` parsing, clean titles,
-  streaming, no refusals across ALL models. →plan: P0 regression sections.
 
-- [ ] **0.9 ACT FIDELITY non-negotiables** — act MUST: stream every token (no buffering); PRESERVE thinking
-  blocks + signatures (don't strip reasoning); REAL tool-call parsing. The prior "reasoning-model output broken
-  in LIVE chat" regression must NOT recur in act. Real-state test + screenshot a reasoning reply. →plan: "🔴🔴 P0
-  REGRESSION — reasoning-model output broken in LIVE chat" + CHAT_BACKEND_QUARANTINE "Streaming/thinking/tool fidelity".
-- [ ] **0.10 DATA CARRY-OVER** — existing saved chats/sessions + user prefs migrate to act (no lost history),
-  not just models/IP. →plan: CHAT_BACKEND_QUARANTINE "Data/persistence carry-over".
+- [ ] **0.2 ALL chat surfaces → same Osaurus act host** — main mounted; mini still Epistemos-native; graph
+  still `triageService.streamGeneral`; note unverified. Route mini+graph+note through Osaurus act host. WORK
+  mode in all but note. Screenshot EACH surface separately (main ≠ enough).
+  →plan: "🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE" + "✅ CONSENSUS — KEEP TriageService".
+
+- [ ] **0.3 LANDING → BLUR → ACT** — Epistemos `LandingView` FIRST; click → blur → Osaurus host. NOT
+  Osaurus default landing ("Good morning" + download/provider buttons). Screenshot landing, then post-blur act.
+  →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions".
+
+- [ ] **0.4 SEND works (runtime)** — in-process reply, owner's model, no HTTP requestFailed, no silent
+  Codex/Qwen. Send-text harness every iteration; log prompt + ~80 chars of reply.
+  →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A".
+
+- [ ] **0.5 Mini-chat + grab-chat reachable** — wired, discoverable; screenshot mini (and grab-chat if present).
+  →plan: addendum mini-chat section + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING" §mini-chat.
+
+- [ ] **0.6 RE-CERTIFY claimed-done** — duplicate-toggle gone · friendly errors · scroll-blur graft ·
+  side-panel graft · white-bar/search fix · model-default seed · clean titles — file:line + runtime each.
+  →plan: pass-30/31 audit items + "ACT SURFACE — UI BUGS to fix".
+
+- [ ] **0.7 Message-bar graft** — reskin Osaurus composer to Epistemos feel (owner-verify); not literal swap
+  if it breaks send path. Screenshot composer.
+  →plan: "⚠️ MESSAGE-BAR graft" + "🔒🔒 DEFINITIVE ACT-UI DIRECTION" graft #1.
+
+- [ ] **0.8 D1–D5 RUNTIME DEFECTS (acceptance gate for 0.1–0.7)** — screenshot-verify ALL before act certified:
+  D1 curved window+shadow · D2 owner landing not Osaurus default · D3 pill back · D4 config/settings work ·
+  D5 full reskin + model picker/palette/38-tool panel. Ground truth PNG:
+  `docs/research/osa_runtime_2026_06_22.png` (re-capture after fixes).
+  →plan: "🔴 OWNER-REPORTED RUNTIME DEFECTS" + strict prompt D-section.
+
+- [ ] **0.9 ACT FIDELITY** — stream every token; preserve thinking blocks+signatures; real tool-call parsing;
+  no `<think>` leak in titles/output. Real-state test + screenshot reasoning reply.
+  →plan: "🔴🔴 P0 REGRESSION — reasoning-model output broken in LIVE chat" + CHAT_BACKEND_QUARANTINE fidelity.
+
+- [ ] **0.10 DATA CARRY-OVER** — saved chats/sessions/prefs migrate to act; no lost history.
+  →plan: CHAT_BACKEND_QUARANTINE "Data/persistence carry-over".
+
+- [ ] **0.11 Provider wiring + Epistemos Picks** — owner GGUF/QAT selectable AND used on send; "Add a
+  provider"/Configuration opens REAL settings; NO silent Codex default. Send must use selected model.
+  →plan: "OWNER'S MODELS IN CHAT" + "DEEP CHECK §2" + "DESIGN DECISION — Epistemos Picks".
+
+- [ ] **0.12 Surface-wiring rule** — every Osaurus surface (settings, model stack, tools, transcript, config)
+  mapped to proven Epistemos front-end; no dead surfaces; real-state/launch-smoke each.
+  →plan: "🆕 SURFACE-WIRING RULE".
+
+- [ ] **0.13 Shared act component** — ONE composer/capability component for main+mini+graph+note (no drift).
+  →plan: "🆕 ALL CHAT SURFACES …" implementation intent (shared component).
+
+- [ ] **0.14 Health-row witnesses honest** — `ActOsaurusHealthRow`, `AnswerPacketHealthRow`,
+  `LocalRouteHonestyHealthRow`, etc.: `wiredToday`/`stillStub` match REAL code after every change; re-cert.
+  →plan: substrate progress + "DEEP CHECK" + settings health rows.
+
+- [ ] **0.15 DEEP CHECK** — trace LIVE act path; prove no silent Codex; honest `OSAURUS_BUILD_PROGRESS`.
+  →plan: "🆕 DEEP CHECK — PROVE THE REALITY, NOT THE CLAIM".
+
+- [ ] **0.16 Reasoning + title-gen** — `<think>` parsing; CLEAN short titles (no model
+  self-description garbage); all models; extends 0.9.
+  →plan: "🎯 CONFIRMED reproduction + TITLE bug" + P0 regression sections.
+
+- [ ] **0.17 LOCKED ACT direction** — Osaurus OWN UI reskinned + 3 grafts; SUPERSEDES option-(b) old ChatView.
+  Do NOT mount `Epistemos/Views/Chat/ChatView.swift` for act. Latest 🔒/DEFINITIVE wins over older addendum.
+  →plan: "🔒🔒 DEFINITIVE ACT-UI DIRECTION" + "🔴🔴 ACT = OSAURUS IS THE CHAT".
+
+- [ ] **0.18 Model provider registration** — `EpistemosOsaurusModelProvider` registered at bootstrap; yields
+  usable model on send path (P0-A).
+  →plan: "🎯 PINPOINTED ActOsaurusError" + "ACT = OSAURUS IS THE CHAT" §FIX act errors.
+
+- [ ] **0.19 Chat surface deletion sequence** — mount Osaurus host → verify send/receive → port IP → delete old
+  chat SURFACE (owner authorized); preserve IP per quarantine doc; no toggle limbo.
+  →plan: "ACT = OSAURUS IS THE CHAT" §THE BUILD steps 1–4 + QUARANTINE doc.
+
+- [ ] **0.20 Collapse act/chat duality** — remove CoworkChatMode depth axis + depth toggle; act/work only.
+  →plan: "ACT = OSAURUS IS THE CHAT" step 3.
+
+- [ ] **0.21 Per-clone SETTINGS (D4 blocking)** — Epistemos|act|work|beyond tabs; Configuration opens real
+  clone settings; screenshot settings usable. (Queue 4.1 extends polish — D4 must pass in TIER 0.)
+  →plan: "🆕 PER-CLONE SETTINGS" + D4 in OWNER-REPORTED DEFECTS.
+
+- [ ] **0.22 ONE inference chokepoint (act path)** — single in-process path for act send; no stray HTTP server
+  `requestFailed`. Pairs with 0.4/0.18.
+  →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "🎯 PINPOINTED ActOsaurusError".
 
 ## TIER 1 — WORK MODE (OpenCode)
-- [ ] 1.1 OpenCode launcher binary vendored (build-opencode-runtime.sh; owner may drop at Resources/opencode-runtime/bin/opencode). →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED" + Architecture C.
-- [ ] 1.2 WORK = OpenCode real TUI, palette-matched, in mini/graph chat (not note), search→work transition, dual landing + blur. →plan: "✅ RESOLVED OPENCODE UI" + "✅ WORK LOOK = real TUI".
-- [ ] 1.3 Goose/Hermes/OpenClaw fuse beneath OpenCode (unique bits only; drop Goose-permissions if OpenCode covers). →plan: "✅ DECISION WORK ENGINE = ARCH C" + refinements.
+- [ ] **1.1** OpenCode launcher binary vendored. →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED".
+- [ ] **1.2** WORK = OpenCode real TUI; mini/graph (not note); search→work; dual landing+blur.
+  →plan: "✅ RESOLVED OPENCODE UI" + "✅ WORK LOOK = real TUI".
+- [ ] **1.3** Goose/Hermes/OpenClaw fuse beneath OpenCode. →plan: "✅ DECISION WORK ENGINE = ARCH C".
+- [ ] **1.4** OpenCode/work terminal fully theme-responsive (palette from live EpistemosTheme).
+  →plan: "🆕 OPENCODE MUST BE FULLY THEME-RESPONSIVE".
 
-## TIER 2 — SUBSTRATE + SALVAGE (certain, lower-but-not-dropped)
-- [ ] 2.1 SUBSTRATE Phase 2 AnswerPacket load-on-launch (4e7a49199 CLAIMED — re-certify real-state) → continue Phase 2 (history surface, primary witness) + P5/P6. →plan: SUBSTRATE_BUILD_SEQUENCE.
-- [ ] 2.2 Helios salvage (7 items): real eidos.query wiring, provenance ledger live, confidence_floor resurrect, AnswerPacket/wbo6 harden, L1 memory, InterruptScore, HW tier. →plan: "✅ HELIOS-ERA IP ... salvage list".
-- [ ] 2.3 GUS salvage 1-18 (genuinely-absent only; GUS-6..13 mostly already-live — verify): GUS-7 Ed25519, GUS-8 undo runtime-wire, GUS-10 skill-promote-wire, GUS-1..5/14..18. →plan: GRAND SWEEP cycles 1-3.
-- [ ] 2.5 EML honesty gate (GUS-2) — wire EML/Belnap as the AnswerPacket honesty/abstain gate. →plan: GRAND SWEEP GUS-2.
-- [ ] 2.6 Eidos recall/rerank — real eidos.query wiring + rerank, NOT fake-green (pairs with 2.2 Helios + GUS-5). →plan: "✅ HELIOS-ERA IP" + GRAND SWEEP GUS-5.
-- [ ] 2.4 UNIFICATION verdict: one orchestrator(System G)+TRINITY+one router+one brain attach+one inference chokepoint; fix eidos.query fake-green; delete confidence_floor/ConfidenceRouter dead; fix stale CLAUDE.md. →plan: "✅ UNIFICATION VERDICT".
+## TIER 2 — SUBSTRATE + SALVAGE
+- [ ] **2.1** SUBSTRATE Phase 2 AnswerPacket — re-cert load-on-launch; history surface + primary witness.
+  →plan: `docs/research/SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md`.
+- [ ] **2.2** Helios salvage (7 items): eidos.query, provenance ledger, confidence_floor, AnswerPacket/wbo6,
+  L1 memory, InterruptScore, HW tier. →plan: "✅ HELIOS-ERA IP ... salvage list".
+- [ ] **2.3** GUS salvage 1–18 (verify absent vs live). →plan: GRAND SWEEP cycles 1–3.
+- [ ] **2.4** UNIFICATION: one orchestrator+TRINITY+router+chokepoint; fix eidos fake-green; dead code cleanup.
+  →plan: "✅ UNIFICATION VERDICT".
+- [ ] **2.5** EML honesty gate (GUS-2) — EML/Belnap → AnswerPacket abstain gate.
+  →plan: GRAND SWEEP GUS-2.
+- [ ] **2.6** Eidos recall/rerank — real wiring, NOT fake-green. →plan: GUS-5 + Helios salvage.
 
-## TIER 3 — ORCHESTRATOR / FUGU / TRINITY (foundational, sequenced here)
-- [ ] 3.1 TRINITY native orchestrator: port method to Swift/Rust on System G/RuntimeRouter (heuristic-route first; learned router after license); bundle Sakana HF artifacts; expose as internal API across act/work/chat. →plan: "🌟🌟 TRINITY" + "✅ TRINITY BUILD PATH" + port spec. MLX hidden-state tap = prove-first. License = owner-action.
-- [ ] 3.2 Fugu = optional premium guest provider (OpenAI-compat, EU-gated, real per-token cost in Settings, modular). NEVER the brain. →plan: "🌟 FUGU FOUNDATIONAL" + "✅ FUGU RESEARCH DONE".
+## TIER 3 — ORCHESTRATOR / FUGU / TRINITY
+- [ ] **3.1** TRINITY native orchestrator on System G/RuntimeRouter. →plan: "🌟🌟 TRINITY" + port spec.
+- [ ] **3.2** Fugu optional guest provider (never the brain). →plan: "🌟 FUGU FOUNDATIONAL".
 
 ## TIER 4 — OWNER-FACING / CLONES / PILLARS
-- [ ] 4.1 Per-clone SETTINGS tabs (Epistemos|act|work|beyond) — actClone+workClone added; respect each clone's real settings. →plan: "🆕 PER-CLONE SETTINGS".
-- [ ] 4.2 System-prompts library (asgeirtj, CC0): vendor + per-model prompt engineering (Epistemos Picks), adapt not blind-paste. →plan: "🆕 SYSTEM-PROMPTS LIBRARY".
-- [ ] 4.3 VAULT-DEEP-INTEGRATION pillar (overtake Tolaria): act+work agents on vault + vault-as-MCP; graph; LLM-wiki + wikilinks; in-editor agent edits on Prose + MD-V2/Epdoc. →plan: "🌟 PILLAR — VAULT-DEEP-INTEGRATION".
-- [ ] 4.4 EPDOC MD-V2 (md=source, html/json=projections; pixel-art native, more dynamic). →plan: "🆕 EPDOC MD-V2".
-- [ ] 4.5 Tamagotchi agent-creation: keep style + fix render bug (too-small/inner-squares). →plan: "🆕 OSAURUS AGENT CREATION = KEEP TAMAGOTCHI".
-- [ ] 4.6 MOTION LANGUAGE triad (blur + ASCII typewriter + micro-motions) on titles + display-only; mode-entry animations. →plan: "✅ MOTION LANGUAGE = TRIAD".
-- [ ] 4.7 Preserve UI chrome: model picker (real logos/tiers/install/Epistemos Picks), command palette, 38-tool agent panel. →plan: "ACT reskin — PRESERVE the model picker...".
-- [ ] 4.8 Talaria + Epdoc-fuse + other clones: same full-clone process, MAS-non-restrictive global. →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE".
-- [ ] 4.9 ACT wiring: skills + MCP + tool-tier bridges wired to act (the 38-tool panel must actually drive them); API keys in macOS Keychain, NEVER UserDefaults. →plan: CHAT_BACKEND_QUARANTINE "Skills / MCP / tool-tier + Keychain".
+- [ ] **4.1** Per-clone SETTINGS polish (extends 0.21). →plan: "🆕 PER-CLONE SETTINGS".
+- [ ] **4.2** System-prompts library + Epistemos Picks per-model prompts. →plan: "🆕 SYSTEM-PROMPTS LIBRARY".
+- [ ] **4.3** VAULT-DEEP-INTEGRATION pillar. →plan: "🌟 PILLAR — VAULT-DEEP-INTEGRATION".
+- [ ] **4.4** EPDOC MD-V2. →plan: "🆕 EPDOC MD-V2".
+- [ ] **4.5** Tamagotchi agent-creation render fix. →plan: "🆕 OSAURUS AGENT CREATION = KEEP TAMAGOTCHI".
+- [ ] **4.6** MOTION LANGUAGE triad + mode-entry animations. →plan: "✅ MOTION LANGUAGE = TRIAD".
+- [ ] **4.7** UI chrome: model picker, command palette, 38-tool panel — NOT `[x]` until D5 screenshot proves it.
+  →plan: "ACT reskin — PRESERVE the model picker...".
+- [ ] **4.8** Talaria + other clones; MAS non-restrictive. →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE".
+- [ ] **4.9** ACT wiring: skills+MCP+tools; Keychain for API keys. →plan: CHAT_BACKEND_QUARANTINE.
 
-## TIER 5 — DISTRIBUTION + OPTIMIZATION (standing/late)
-- [ ] 5.1 Dual-build: MAS (no VM, WASM/cloud sandbox substitute) + Pro (full); capability schema; CI both. →plan: "🔒 DUAL-BUILD DISTRIBUTION MODEL".
-- [ ] 5.2 Deep-optimization cycles (actor/Task.detached/memory/Metal/120fps no-regress/etc.) — recurring standing track. →plan: "🆕 DEEP OPTIMIZATION CYCLES".
+## TIER 5 — DISTRIBUTION + OPTIMIZATION
+- [ ] **5.1** Dual-build MAS+Pro. →plan: "🔒 DUAL-BUILD DISTRIBUTION MODEL".
+- [ ] **5.2** Deep-optimization cycles (standing). →plan: "🆕 DEEP OPTIMIZATION CYCLES".
 
-## STANDING (apply on EVERY item, every loop)
-No fake-done · RUNTIME-VERIFY UI (build-green ≠ done) · no red on main · code-more-build-less (fast gate per
-increment, heavy xcodebuild at checkpoints, never idle-block) · never delete chat IP (preserve+port, surface
-deletable only after IP ported) · NO-ADDED-TERMS · NO-QUEUE-JUMPING (finish TIER 0 before lower tiers) ·
-latest-owner-directive-wins · 70B/new-model EXCLUDED · OFF-LIMITS (Companion clones/companions.rs) · main-only ·
-Co-Authored-By Claude · P0 owner runtime reports preempt everything.
+## STANDING (every item, every loop)
+No fake-done · screencapture+send-text every iteration · build-green ≠ done · no red on main ·
+code-more-build-less · never delete chat IP · NO-ADDED-TERMS · NO-QUEUE-JUMPING · latest-owner-directive-wins
+(🔒/DEFINITIVE beats older sections) · 70B/new-model EXCLUDED · Companion clones OFF-LIMITS · main-only ·
+Co-Authored-By Claude · P0 owner reports preempt · **COMPLETENESS CRITIC each loop:** grep
+InferenceState/model picker/chat send consumers; add missed surfaces to queue (→plan: DISCOVERY-SWEEP MANDATE).
