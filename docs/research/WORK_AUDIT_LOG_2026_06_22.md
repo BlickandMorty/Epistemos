@@ -58,3 +58,15 @@ PASS or RE-ADD-to-plan for re-pickup; re-verify until correct. Cite file:line. C
   send/receive proof still owed.
 - **Verdict:** PASS, no re-add. Remaining: live send + `<think>` fix (verify on running app), delete old
   ChatView after send proven, MAS-safe OsaurusCore split. Toggle removal ✅, reskin ✅, mount ✅, bootstrap ✅.
+
+## Pass 5 — 2026-06-22
+- **Build loop:** ALIVE (swift=4, compiling). HEAD `9da16c0f5` "act=Osaurus: add the real act<->work product toggle on the chat surface" (<1 min ago).
+- **AUDIT 9da16c0f5 → ✅ PASS (legit product toggle, NOT the rejected engine switch):** clean capsule
+  WorkspaceModeToggle on the chat surface — Act→EpistemosOsaurusChatHost, Work→WorkTerminalHostView, persisted
+  via WorkspaceModeSelection; NO armed-dot/"experimental" label. = owner "a toggle to open the work as well."
+  Pro build EXIT=0. Co-Authored. (RootView.swift)
+- **HONEST DEPENDENCY (correct, not fake):** Pro act no longer uses old ChatView (no fallback); MAS STILL uses
+  ChatView() as its real act surface until the MAS-safe OsaurusCore split → old ChatView CANNOT be deleted
+  outright without breaking MAS. So "delete old ChatView" is BLOCKED ON the MAS-safe OsaurusCore split (ties §151).
+- **Verdict:** PASS, no re-add. Remaining: live send + `<think>` fix (running-app verify); MAS-safe OsaurusCore
+  split → THEN delete old ChatView (sequenced, not premature). Mount✅ gate✅ reskin✅ bootstrap✅ toggle-removal✅ act/work-toggle✅.
