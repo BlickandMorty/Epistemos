@@ -47,4 +47,52 @@ vault/epdoc/motion/dual-build/optimization (T4–5), OpenCode (T1), substrate (2
 - Strict prompt: VOID stale plan sections (option-b, WORK ON HOLD); numeric order 0.1→0.26
 - SUPERSEDED `SESSION_CONTINUATION_PROMPT_2026_06_21.md`
 - `OSAURUS_BUILD_PROGRESS`: provisional banner — do not trust `[x]` until STRICT_RECERT_LOG certifies
-- Still open: `osa_runtime_2026_06_22.png`, northstar PNGs, addendum VOID banners on §1507/§1485
+- Still open: `osa_runtime_2026_06_22.png` binary (placeholder doc added), northstar PNGs
+
+## Iteration 3 — 2026-06-22 (gap-fill hardening)
+
+### Fixed
+| Gap | Fix |
+|-----|-----|
+| Missing queue: agent-stack / dual MLX | Added **2.7** with →plan AGENT-STACK CONVERGENCE |
+| Missing queue: BUILD-IT-HARDENED | Added **2.8** with →plan BUILD-IT-HARDENED + GO-BACK-AND-UNIFY |
+| Missing queue: Prose editor coexist | Added **4.12** PROSE EDITOR + MD-V2 COEXIST |
+| Missing queue: loved assets | Added **4.13** MORE LOVED ASSETS TO PRESERVE |
+| THREE STANDING DIRECTIVES §1 not indexed | Added to STANDING: owner messages → plan+queue |
+| FAVOR OSAURUS not in queue | Added to STANDING with →plan ref |
+| External ~/Downloads corpus not indexed | Added to STANDING (read-only research) |
+| NEVER-IDLE not explicit in standing | Added to STANDING + strict prompt |
+| 0.5 per-surface screenshot weak | Strengthened 0.5 text — one PNG per surface |
+| Strict prompt 0.11–0.22 only (missing 0.23–0.26) | Extended mirror to 0.26 |
+| Audit paragraphs A–G missing from strict prompt | Added MANDATORY BEHAVIOR A–G section |
+| FIRST ITERATION jumped queue order | Aligned to walk 0.1→0.26 numeric |
+| PASTE_READY stopped at 0.22 | Full 0.1→0.26 table + 14 non-negotiables |
+| Addendum §607/§1485/§1507 confuse agent | VOID banners pointing to §1651 + queue 0.17 |
+| Landing authority ambiguous | Explicit: Epistemos LandingView FIRST (D2/0.3) in VOID + paste + strict |
+| AGENT_DIRECTIVE_CHECK stale | SUPERSEDED redirect to strict recert stack |
+| osa_runtime PNG missing | Added osa_runtime_PLACEHOLDER.md with capture instructions |
+| STRICT_RECERT_LOG thin header | Added queue/driver/PNG authority refs + iteration 3 log |
+
+### Pre-launch checklist (iteration 3)
+| Check | Status |
+|-------|--------|
+| Queue 0.1→0.26 numeric order | PASS |
+| Queue 2.1→2.8 numeric order | PASS |
+| All OPEN addendum directives indexed or STANDING | PASS |
+| Strict prompt mirrors 0.11–0.26 | PASS |
+| Paragraphs A–G in strict prompt | PASS |
+| PASTE_READY synced | PASS |
+| VOID banners on superseded addendum sections | PASS |
+| Stale prompts SUPERSEDED | PASS |
+| STRICT_RECERT_LOG header | PASS |
+| osa_runtime capture instructions | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures iteration 1) |
+| Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED until agent walks) |
+
+### Still open (runtime — build agent)
+| Gap | Action |
+|-----|--------|
+| `osa_runtime_2026_06_22.png` | Build agent captures on first run per PLACEHOLDER doc |
+| All TIER 0 items uncertified | Agent walks 0.1→0.26 with 5-gate bar |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites with honest state |
+| Northstar PNGs | Optional visual refs; not blocking launch |

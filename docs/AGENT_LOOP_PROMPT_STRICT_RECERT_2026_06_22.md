@@ -105,12 +105,34 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 7. **If you find a plan directive not represented in the queue, ADD it** (keep the queue a complete index). New
    owner directives go into the plan AND the queue.
 
-## QUEUE ITEMS 0.11–0.22 (mirror — read queue for full →plan: refs)
-- **0.11** Provider wiring + Epistemos Picks · **0.12** Surface-wiring rule · **0.13** Shared act component
-- **0.14** Health-row witnesses honest · **0.15** DEEP CHECK · **0.16** Reasoning + title-gen
-- **0.17** LOCKED direction (Osaurus OWN UI; supersedes option-b) · **0.18** Model provider registration
+## QUEUE ITEMS 0.11–0.26 (mirror — read queue for full →plan: refs)
+- **0.11** Provider wiring + Epistemos Picks (no silent Codex/Qwen) · **0.12** Surface-wiring rule
+- **0.13** Shared act component · **0.14** Health-row witnesses honest (wiredToday/stillStub match code)
+- **0.15** DEEP CHECK (honest OSAURUS_BUILD_PROGRESS) · **0.16** Reasoning + title-gen (extends 0.9;
+  `<think>` parse; CLEAN short titles — no model self-description garbage)
+- **0.17** LOCKED direction (Osaurus OWN UI reskinned + 3 grafts; SUPERSEDES option-b) · **0.18** Model provider registration
 - **0.19** Chat surface deletion sequence (IP preserved) · **0.20** Collapse act/chat duality
 - **0.21** Per-clone settings (D4 blocking) · **0.22** ONE inference chokepoint (no HTTP requestFailed)
+- **0.23** Send-text harness EVERY iteration (build if missing) · **0.24** Act UI bug bundle (white bar,
+  click→search, title-gen) · **0.25** Delete old main ChatView surface (GATED on 0.4+0.8+0.10+four-part bar)
+- **0.26** UI-hide quarantined chat (GATED — act certified first)
+
+## MANDATORY BEHAVIOR A–G (from gap audit — non-negotiable every loop)
+- **(A) D-GATE RULE:** D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7. Do NOT mark 0.1–0.7 `[x]`
+  until the matching D-item passes YOUR screencapture. Queue 4.7 is likewise gated on D5.
+- **(B) PER-SURFACE SCREENSHOT MANDATE:** Certify **each** chat surface with its **own** PNG: main act, mini
+  chat, graph chat, note chat (act), work (where applicable). A single main-act screenshot does NOT satisfy
+  0.2, 0.5, or 0.24.
+- **(C) TITLE-GEN EXPLICIT:** Item 0.16 extends 0.9 — parse `<think>`, extract real answer, produce
+  CLEAN short titles (no meta-prompt leak, no model self-description as title). Real-state test + screenshot.
+- **(D) DISCOVERY SWEEP EACH LOOP:** Completeness critic at end of every iteration — grep InferenceState, model
+  picker, chat send paths, capability pills; any surface not in queue → ADD it with →plan ref.
+- **(E) NARROW DONE BAR:** `[~]` ONLY if screencapture AND send-text harness BOTH fail (state exactly why).
+  Never `[x]` on build-green alone. Never claim "computer use unavailable" — use screencapture + Read + osascript.
+- **(F) HEALTH-ROW HONESTY BAR:** Item 0.14 — after every change, re-cert `ActOsaurusHealthRow`,
+  `AnswerPacketHealthRow`, `LocalRouteHonestyHealthRow`, etc.: `wiredToday`/`stillStub` must match REAL code.
+- **(G) PROVIDER WIRING BAR:** Item 0.11 — owner's GGUF/QAT selectable AND used on send; Configuration opens
+  REAL settings; NO silent Codex default; NO silent Qwen substitution. Send must use selected model.
 
 ## PER-SURFACE SCREENSHOT MANDATE
 Certify **each** chat surface with its **own** PNG: main act, mini chat, graph chat, note chat (act), work
@@ -155,21 +177,27 @@ not instead of it.
 
 ## ▶️ FIRST ITERATION — do exactly this, in order
 1. Read this driver IN FULL + docs/WORK_QUEUE_2026_06_22.md IN FULL (every box starts UNCERTIFIED).
-2. Screencapture the act surface as a BASELINE → /tmp/epi_act_baseline.png, `Read` it (this is your ground truth).
-3. Build/run the send-text harness (or CREATE it if missing) — assert a REAL reply from the owner's model; log
-   the prompt + first ~80 chars.
-4. Start 0.1 — reskin at the vendored Theme.swift SOURCE (not the applyCustomTheme shim alone); re-screenshot.
-5. Then 0.3 landing→blur→act, 0.2 all surfaces (screenshot each), 0.4 send, 0.11 provider, 0.8 D1–D5,
-   0.21 settings, 0.16 title-gen, 0.17–0.22 locked direction/registration/deletion/chokepoint.
-6. Update the queue + STRICT_RECERT_LOG each loop; commit only your changed files.
+2. Screencapture the act surface as a BASELINE → `/tmp/epi_act_baseline.png`, `Read` it (ground truth). If
+   `docs/research/osa_runtime_2026_06_22.png` is missing, capture and save it there (see
+   `docs/research/osa_runtime_PLACEHOLDER.md`).
+3. Build/run the send-text harness (or CREATE it if missing — item 0.23) — assert a REAL reply from the
+   owner's model; log the prompt + first ~80 chars.
+4. Walk **0.1 → 0.26 in strict numeric order** — one item per loop minimum; do NOT queue-jump. For each item:
+   read full →plan section · apply 5-gate bar · screencapture per-surface where UI · send-text every loop.
+   Key early blockers: **0.1** vendored Theme.swift SOURCE · **0.3** Epistemos landing FIRST (D2) · **0.2/0.5**
+   each surface PNG · **0.4/0.22** send + chokepoint · **0.11** provider/Epistemos Picks · **0.8** D1–D5 ·
+   **0.21** settings (D4) · **0.16** title-gen · **0.17–0.20** locked direction/registration/deletion/duality.
+5. Update the queue + STRICT_RECERT_LOG each loop; commit only your changed files; Co-Authored-By Claude.
 
 ## STANDING (every item, every loop)
 No fake-done · build-green ≠ done (runtime-verify UI) · no red on main · code-more-build-less (fast gate per
 increment, heavy xcodebuild at checkpoints, never idle-block) · never delete chat IP (preserve+port; surface
 delete only after the four-part bar + owner authorization) · NO-ADDED-TERMS · NO-QUEUE-JUMPING · latest-owner-
-directive-wins · 70B / NEW-MODEL brain-1 EXCLUDED · OFF-LIMITS (Companion clones / companions.rs / Models·State
-Companion / CompanionCreationFlow / new-model interrupt internals) · main-only · Co-Authored-By Claude · P0
-owner runtime reports preempt everything.
+directive-wins · FAVOR OSAURUS on clash · owner messages → plan+queue same iteration · NEVER-IDLE (heavy =
+incremental slices) · external ~/Downloads corpus read-only when salvage needs it · 70B / NEW-MODEL brain-1
+EXCLUDED · OFF-LIMITS (Companion clones / companions.rs / Models·State Companion / CompanionCreationFlow /
+new-model interrupt internals) · main-only · Co-Authored-By Claude · P0 owner runtime reports preempt everything
+· discovery sweep / completeness critic every loop (paragraph D above).
 
 ## AUTHORITY DOCS
 - Spec/authority: docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).
@@ -177,5 +205,7 @@ owner runtime reports preempt everything.
 - Living map: docs/OSAURUS_BUILD_PROGRESS_2026_06_21.md.
 - Guards: docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md.
 - Re-cert log: docs/research/STRICT_RECERT_LOG_2026_06_22.md.
+- Runtime PNG placeholder: docs/research/osa_runtime_PLACEHOLDER.md.
 - Gap audit (docs maintenance): docs/research/LOOP_GAP_AUDIT_2026_06_22.md.
-- **SUPERSEDED (do not use):** docs/AGENT_LOOP_PROMPT_2026_06_21.md, docs/AGENT_LOOP_PROMPT_QUEUE_2026_06_22.md.
+- **SUPERSEDED (do not use):** docs/AGENT_LOOP_PROMPT_2026_06_21.md, docs/AGENT_LOOP_PROMPT_QUEUE_2026_06_22.md,
+  docs/SESSION_CONTINUATION_PROMPT_2026_06_21.md, docs/AGENT_DIRECTIVE_CHECK_PROMPT_2026_06_21.md.

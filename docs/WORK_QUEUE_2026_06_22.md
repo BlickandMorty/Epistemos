@@ -24,7 +24,7 @@ docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).
 RULES (every loop, non-negotiable):
 - **QUEUE = INDEX, NOT SPEC.** Open the item's full `→plan:` section; implement EVERY nuance there.
 - **KEEP QUEUE COMPLETE:** any plan directive not indexed → ADD it here + point to plan section.
-- **WALK ORDER:** first unchecked item, **numeric order** (0.1, 0.2, … 0.22, then 1.1, …).
+- **WALK ORDER:** first unchecked item, **numeric order** (0.1, 0.2, … 0.26, then 1.1, 2.1, …).
 - **RUNTIME:** YOU verify — build → open → `screencapture` → `Read` PNG. Owner is NOT checking.
   `[~]` = TRUE last resort only (state why screencapture + send-text both failed). Never `[x]` on build-green.
 - Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md` each loop. Commit + push. No fake-done.
@@ -54,8 +54,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   Codex/Qwen. Send-text harness every iteration; log prompt + ~80 chars of reply.
   →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A".
 
-- [ ] **0.5 Mini-chat + grab-chat reachable** — wired, discoverable; screenshot mini (and grab-chat if present).
-  →plan: addendum mini-chat section + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING" §mini-chat.
+- [ ] **0.5 Mini-chat + grab-chat reachable** — wired, discoverable. **Screenshot EACH surface separately**
+  (main act, mini, grab-chat if present) — one PNG per surface; main-only does NOT satisfy 0.5.
+  →plan: addendum mini-chat section + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING" §mini-chat + PER-SURFACE mandate.
 
 - [ ] **0.6 RE-CERTIFY claimed-done** — duplicate-toggle gone · friendly errors · scroll-blur graft ·
   side-panel graft · white-bar/search fix · model-default seed · clean titles — file:line + runtime each.
@@ -157,6 +158,12 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **2.5** EML honesty gate (GUS-2) — EML/Belnap → AnswerPacket abstain gate.
   →plan: GRAND SWEEP GUS-2.
 - [ ] **2.6** Eidos recall/rerank — real wiring, NOT fake-green. →plan: GUS-5 + Helios salvage.
+- [ ] **2.7** Agent-stack convergence + dual MLX clash — ONE agent-loop/runtime of record; dedup cloned
+  capabilities; fix vmlx-swift vs mlx-swift-lm clash; all cloned logic deeply serves the app (no dead clones).
+  →plan: "🆕 AGENT-STACK CONVERGENCE" + docs/research/AGENT_STACK_CONVERGENCE_RESEARCH_2026_06_21.md.
+- [ ] **2.8** BUILD-IT-HARDENED gates — finish salvage/unification with real-state tests; go-back-and-unify
+  in-flight TRINITY/System G with unification verdict; harden BEFORE integrating into live/clone paths.
+  →plan: "🔨 BUILD-IT-HARDENED + GO-BACK-AND-UNIFY".
 
 ## TIER 3 — ORCHESTRATOR / FUGU / TRINITY
 - [ ] **3.1** TRINITY native orchestrator on System G/RuntimeRouter. →plan: "🌟🌟 TRINITY" + port spec.
@@ -177,6 +184,12 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: CHAT_BACKEND_QUARANTINE per-model profiles + "DESIGN DECISION — Epistemos Picks".
 - [ ] **4.11** Test-parity gate before chat surface deletion — act coverage ≥ quarantined chat.
   →plan: CHAT_BACKEND_QUARANTINE test-parity before retire.
+- [ ] **4.12** Prose editor + MD-V2 coexist — both first-class; Prose = Apple-Notes-grade native bar;
+  loved notes sidebar preserved; MD-V2 does NOT replace Prose.
+  →plan: "🆕 PROSE EDITOR + MD-V2 COEXIST".
+- [ ] **4.13** Loved assets preserve — real tabs (system + code editor), palette+font customization core
+  differentiator; minimal landing-workspace ontology.
+  →plan: "🆕 MORE LOVED ASSETS TO PRESERVE" + "🌟 DESIGN SOUL + PROTECTED ASSETS".
 
 ## TIER 5 — DISTRIBUTION + OPTIMIZATION
 - [ ] **5.1** Dual-build MAS+Pro. →plan: "🔒 DUAL-BUILD DISTRIBUTION MODEL".
@@ -188,5 +201,11 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 No fake-done · screencapture+send-text every iteration · build-green ≠ done · no red on main ·
 code-more-build-less · never delete chat IP · NO-ADDED-TERMS · NO-QUEUE-JUMPING · latest-owner-directive-wins
 (🔒/DEFINITIVE beats older sections) · 70B/new-model EXCLUDED · Companion clones OFF-LIMITS · main-only ·
-Co-Authored-By Claude · P0 owner reports preempt · **COMPLETENESS CRITIC each loop:** grep
+Co-Authored-By Claude · P0 owner reports preempt · **NEVER-IDLE:** heavy work = incremental slices, not defer
+(→plan: "🔁 NEVER-IDLE") · **FAVOR OSAURUS on clash:** Osaurus wins engine/structure; cherry-pick owner IP
+that works WITH Osaurus; front-end stays minimal Epistemos pixel-art (→plan: "🆕 CONFLICT-RESOLUTION: FAVOR
+OSAURUS") · **OWNER MESSAGES → PLAN+QUEUE:** every owner directive captured in addendum AND indexed here same
+iteration (→plan: THREE STANDING DIRECTIVES §1) · **EXTERNAL RESEARCH CORPUS:** read-only
+`~/Downloads` Helios/source docs when unification/salvage needs them; copy-in only, never modify outside repo
+(→plan: "🆕 EXTERNAL RESEARCH CORPUS") · **COMPLETENESS CRITIC / DISCOVERY SWEEP each loop:** grep
 InferenceState/model picker/chat send consumers; add missed surfaces to queue (→plan: DISCOVERY-SWEEP MANDATE).

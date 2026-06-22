@@ -605,6 +605,12 @@ kept literally, set in stone). Decisive directives:
   loop end-to-end through it, beneath the real TUI.
 
 ## ⏸️ WORK-ENGINE FINALIZATION ON HOLD (owner 2026-06-21)
+
+> ## ⛔ VOID — SUPERSEDED for build-agent authority. Do NOT treat this section as blocking WORK.
+> **Authority:** §624 "✅ C FINALIZED + 2 REFINEMENTS" + queue TIER 1 (1.1–1.4) + §590 "✅ DECISION — WORK ENGINE = ARCH C".
+> Architecture C is finalized; work-engine build proceeds per queue. This hold was provisional pending the
+> ADOPT-vs-IP-LAYER map — first-pass map landed; deep-pass is a research nicety, NOT a build blocker.
+
 Owner: fold the ADOPT-vs-IP-LAYER map research in BEFORE finalizing. That map FAILED twice on a 529 server
 overload — it does NOT exist yet. So: the Architecture-C decision above is CONFIRMED-but-PROVISIONAL; do NOT
 hand the build agent a final "go build WORK" directive until the ADOPT_VS_IP_LAYER_MAP_2026_06_21.md lands and
@@ -1483,6 +1489,13 @@ These are the in-progress ACT surface (owner reported them mid-build) — NOT a 
 should NOT treat act as "done" while the owner's reported bugs + the models-in-chat gap remain.
 
 ## 🌟 ACT UI = FULLY RESTORE THE OLD EPISTEMOS UI, DRIVEN BY OSAURUS (owner 2026-06-22) — clarified goal
+
+> ## ⛔ VOID — SUPERSEDED. Do NOT build "mount old ChatView" or "fully restore old Epistemos UI as the shell."
+> **Authority:** §1651 "🔒🔒 DEFINITIVE ACT-UI DIRECTION" + queue **0.17** + strict prompt LOCKED RULES.
+> ACT = Osaurus's OWN UI, reskinned cream/monospace + 3 grafts (message bar, side panel, scroll-blur).
+> Landing = Epistemos `LandingView` FIRST (D2/queue 0.3), then blur → act Osaurus host. Cherry-pick owner
+> IP that works WITH Osaurus per FAVOR OSAURUS rule — do not force-fit incompatible old-ChatView shell.
+
 Owner wants the ENTIRE old Epistemos UI back — genuinely powered by the Osaurus engine. NOT the broken
 toggle-engine-swap (that was the rejected drift); NOT a thin palette tint. The GOAL (invariants):
 - **The old Epistemos UI LOOK + COMPONENTS, faithfully restored** — the flat-pixel + Apple-native SwiftUI
@@ -1505,6 +1518,12 @@ look AND genuine Osaurus power, additively, no toggle/fake. KEEP Osaurus. This i
 owner-facing) — do it before more WORK polish; supersedes the palette-only reskin.
 
 ## ✅ ACT UI DIRECTION = OPTION (b): drive the OLD Epistemos UI with the Osaurus engine (auditor confirms, 2026-06-22)
+
+> ## ⛔ VOID — SUPERSEDED by owner runtime failure + §1651 DEFINITIVE direction. Do NOT implement option-(b).
+> **Authority:** §1651 "🔒🔒 DEFINITIVE ACT-UI DIRECTION" + §1523 P0 runtime failure + queue **0.17**.
+> Option-(b) was build-green but runtime-failing (owner: "I have my old chat here", Osaurus invisible).
+> Build Osaurus OWN UI reskinned + grafts — NOT `Epistemos/Views/Chat/ChatView.swift` as act surface.
+
 The build agent (dfd56d1ef) correctly flagged the fork and leaned (b); confirming the owner's signal so it's
 unblocked. DIRECTION = **(b) use the actual old Epistemos SwiftUI UI (landing/chat/MESSAGE BAR/SIDEBAR/fonts/
 flat-pixel-Apple-native) as the act surface, DRIVEN BY the Osaurus engine underneath** — "faithful by
