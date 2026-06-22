@@ -310,6 +310,106 @@ impl VaultExecutor {
         ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
     }
 
+    /// VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki, "auto-linking"): UNLINKED MENTIONS — other notes whose TITLE
+    /// appears in this note's prose but is NOT yet a `[[wikilink]]` (Obsidian's "unlinked mentions"). The wiki /
+    /// an agent surfaces these as "link it?" suggestions. HONEST + precise: matches whole-word, case-insensitive,
+    /// SKIPS text already inside `[[...]]` (those are linked), skips the note's own title + titles already linked
+    /// from this note, and ignores titles shorter than 3 chars (noise). Returns each candidate target + its
+    /// occurrence count, most-mentioned first.
+    pub fn link_candidates(&self, path: &str) -> ToolResult {
+        use std::collections::HashSet;
+        let start = Instant::now();
+        let content = match self.resolve(path).and_then(|full| {
+            std::fs::read_to_string(&full).map_err(|e| format!("Cannot read {path}: {e}"))
+        }) {
+            Ok(c) => c,
+            Err(e) => {
+                return ToolResult::err(e, crate::types::error_codes::NOT_FOUND, start.elapsed().as_millis() as u64)
+            }
+        };
+        // text with every [[...]] span blanked out, so mentions already inside a wikilink don't count.
+        let scannable = Self::strip_wikilink_spans(&content);
+        let self_base = Self::note_basename(path);
+        let already_linked: HashSet<String> = Self::parse_wikilinks(&content)
+            .iter()
+            .map(|l| Self::note_basename(l))
+            .collect();
+
+        let mut candidates: Vec<serde_json::Value> = Vec::new();
+        for rel in self.list_markdown_notes() {
+            let base = Self::note_basename(&rel);
+            if base == self_base || already_linked.contains(&base) {
+                continue;
+            }
+            let title = Self::note_title(&rel);
+            if title.chars().count() < 3 {
+                continue; // too short → too noisy to suggest
+            }
+            let count = Self::count_whole_word_ci(&scannable, &title);
+            if count > 0 {
+                candidates.push(serde_json::json!({ "target": title, "occurrences": count }));
+            }
+        }
+        // most-mentioned first; ties broken by target for deterministic output.
+        candidates.sort_by(|a, b| {
+            let (ca, cb) = (a["occurrences"].as_u64().unwrap_or(0), b["occurrences"].as_u64().unwrap_or(0));
+            cb.cmp(&ca).then_with(|| a["target"].as_str().unwrap_or("").cmp(b["target"].as_str().unwrap_or("")))
+        });
+        let json = serde_json::json!({ "path": path, "candidates": candidates });
+        ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
+    }
+
+    /// Filename stem (no `.md`), ORIGINAL case — the human note title used for display + mention matching.
+    fn note_title(rel: &str) -> String {
+        let stem = rel.strip_suffix(".md").or_else(|| rel.strip_suffix(".MD")).unwrap_or(rel);
+        stem.rsplit('/').next().unwrap_or(stem).to_string()
+    }
+
+    /// Replace every `[[...]]` span with equal-length spaces so indices are preserved but linked text won't
+    /// match as an "unlinked" mention.
+    fn strip_wikilink_spans(content: &str) -> String {
+        let mut out = String::with_capacity(content.len());
+        let mut rest = content;
+        while let Some(open) = rest.find("[[") {
+            out.push_str(&rest[..open]);
+            let after = &rest[open + 2..];
+            if let Some(close) = after.find("]]") {
+                // blank out the whole [[...]] span (length-preserving not required for matching).
+                rest = &after[close + 2..];
+            } else {
+                out.push_str("[[");
+                out.push_str(after);
+                rest = "";
+            }
+        }
+        out.push_str(rest);
+        out
+    }
+
+    /// Case-insensitive, WHOLE-WORD occurrence count of `needle` in `haystack` (boundaries = non-alphanumeric).
+    fn count_whole_word_ci(haystack: &str, needle: &str) -> usize {
+        if needle.is_empty() {
+            return 0;
+        }
+        let hay = haystack.to_lowercase();
+        let need = needle.to_lowercase();
+        let bytes = hay.as_bytes();
+        let is_word = |b: u8| b.is_ascii_alphanumeric();
+        let mut count = 0;
+        let mut from = 0;
+        while let Some(pos) = hay[from..].find(&need) {
+            let start = from + pos;
+            let end = start + need.len();
+            let before_ok = start == 0 || !is_word(bytes[start - 1]);
+            let after_ok = end >= bytes.len() || !is_word(bytes[end]);
+            if before_ok && after_ok {
+                count += 1;
+            }
+            from = start + 1;
+        }
+        count
+    }
+
     /// VAULT-DEEP-INTEGRATION §720 (#4, MCP surface): STRUCTURED agent note edit over MCP — safer than a
     /// full `write_file` overwrite for external agents. `op` ∈ {append, replace_first, insert_after}. HONEST:
     /// errors when `find`/anchor is absent (no silent corruption — the agent re-plans). The in-app live-editor
@@ -646,6 +746,7 @@ pub fn is_vault_tool(tool_name: &str) -> bool {
             | "vault.outlinks" | "outlinks" | "vault_outlinks"
             | "vault.dangling_links" | "dangling_links" | "unresolved_links"
             | "vault.note_links" | "note_links"
+            | "vault.link_candidates" | "link_candidates" | "unlinked_mentions"
             | "vault.patch_note" | "patch_note"
     )
 }
@@ -708,6 +809,11 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
             // VAULT-DEEP-INTEGRATION §720 (#3): full per-note link context (back/out/dangling) in one call.
             let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
             executor.note_links(path)
+        }
+        "vault.link_candidates" | "link_candidates" | "unlinked_mentions" => {
+            // VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): unlinked mentions — auto-link suggestions.
+            let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
+            executor.link_candidates(path)
         }
         "vault.patch_note" | "patch_note" => {
             // VAULT-DEEP-INTEGRATION §720 (#4): structured note patch (safer than full overwrite).
@@ -1215,6 +1321,38 @@ mod tests {
     }
 
     #[test]
+    fn test_vault_link_candidates_finds_unlinked_mentions() {
+        // §720 #3 auto-linking: a note mentioning another note's title without [[linking]] it = a candidate.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("Transformers.md"), "About attention.").unwrap();
+        std::fs::write(root.join("Attention.md"), "Scaled dot product.").unwrap();
+        std::fs::write(root.join("Other.md"), "Unrelated note.").unwrap();
+        // note mentions "Transformers" twice (one already linked) + "Attention" once (unlinked) + "transformers"
+        // inside a word ("Transformersx") must NOT match.
+        std::fs::write(
+            root.join("essay.md"),
+            "I love [[Transformers]] and transformers. Attention matters. Transformersx is fake.",
+        ).unwrap();
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+
+        let r = exec.link_candidates("essay.md");
+        assert!(r.success, "{}", r.data_json);
+        let data: serde_json::Value = serde_json::from_str(&r.data_json).unwrap();
+        let cands = data["candidates"].as_array().unwrap();
+        // Attention: 1 unlinked mention → candidate. Transformers: already linked once; the bare "transformers"
+        // is an unlinked mention BUT it's also already_linked (basename "transformers"), so it's excluded.
+        let names: Vec<&str> = cands.iter().map(|c| c["target"].as_str().unwrap()).collect();
+        assert!(names.contains(&"Attention"), "Attention should be a candidate: {names:?}");
+        assert!(!names.contains(&"Transformers"), "already-linked note excluded: {names:?}");
+        assert!(!names.contains(&"Other"), "unmentioned note not a candidate: {names:?}");
+        // whole-word: "Transformersx" must not have caused a Transformers match (moot here since excluded),
+        // and Attention's count is exactly 1 (not matched inside another word).
+        let attention = cands.iter().find(|c| c["target"] == "Attention").unwrap();
+        assert_eq!(attention["occurrences"], 1);
+    }
+
+    #[test]
     fn test_is_vault_tool_parity_with_executor() {
         // DRIFT GUARD: every name `is_vault_tool` claims must ACTUALLY execute (never "Unknown vault tool"),
         // and a non-vault tool must NOT. This keeps the stdio fusion server's honest tools/list scoping true.
@@ -1229,6 +1367,7 @@ mod tests {
             "vault.outlinks", "outlinks", "vault_outlinks",
             "vault.dangling_links", "dangling_links", "unresolved_links",
             "vault.note_links", "note_links",
+            "vault.link_candidates", "link_candidates", "unlinked_mentions",
             "vault.patch_note", "patch_note",
         ];
         for name in names {
