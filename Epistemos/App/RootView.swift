@@ -1,7 +1,16 @@
 import AppKit
-import OsaurusCore
 import SwiftData
 import SwiftUI
+
+// The act surface links the vendored OsaurusCore (Pro / direct-distribution).
+// The App Store (MAS) target does NOT link OsaurusCore yet — giving MAS the
+// Osaurus chat needs the MAS-safe OsaurusCore split (OsaurusCore pulls the
+// server/VM/relay/Containerization surfaces the App Store sandbox can't link
+// as-is). Tracked debt: bring Osaurus-as-chat to MAS too. Until then MAS keeps
+// the prior in-app chat surface so the dual-build stays green.
+#if !EPISTEMOS_APP_STORE
+import OsaurusCore
+#endif
 
 enum LandingToolbarGlyphs {
     static let greetingSymbol = "textformat"
@@ -2638,8 +2647,15 @@ private struct HomeRouter: View {
                 // The act surface IS the real Osaurus chat UI (its own
                 // composer/thread/sidebar), hosted in-process via the public
                 // OsaurusCore seam. Replaces the old Epistemos `ChatView()`.
+                // MAS keeps `ChatView()` until the MAS-safe OsaurusCore split
+                // (tracked debt) — so the App Store dual-build stays green.
+                #if EPISTEMOS_APP_STORE
+                ChatView()
+                    .transition(.blurFade())
+                #else
                 EpistemosOsaurusChatHost()
                     .transition(.blurFade())
+                #endif
             } else {
                 LandingView()
                     .transition(.blurFade())
