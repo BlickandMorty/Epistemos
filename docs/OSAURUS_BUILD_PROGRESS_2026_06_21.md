@@ -95,7 +95,10 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     `graph.search_semantic/fulltext` + `graph.get_node` + `graph.traverse` + `graph.create_node/edge` +
     `graph.commit_session` — agents already traverse/query/build the graph. (Remaining: ensure it's
     populated FROM vault notes+links end-to-end.)
-  - [ ] **#3 LLM wiki + [[wikilinks]] + semantic backlinks** via the brain (Eidos/recall/provenance) — NEW.
+  - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL backlinks DONE (`d6472fe2b`) —
+    `vault.backlinks` MCP tool + `VaultExecutor.backlinks` (parses `[[target]]`/`[[target|alias]]`/
+    `[[target#heading]]` across notes, basename-matched), 12/12 tests. REMAINS: brain-powered SEMANTIC
+    backlinks / LLM-suggested links (Eidos/recall/provenance) layered on top.
   - [ ] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator) — NEW.
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
