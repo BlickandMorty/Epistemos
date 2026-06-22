@@ -889,3 +889,22 @@ start new work while toolchain held") → burns iterations polling, no progress.
 - **BATCH:** pack MULTIPLE increments per heavy build; build-per-tiny-change is banned. Code more, build less.
 - Keep the rules: no red on main, no fake-done. But the GATE for routine increments is the FAST one; reserve
   the slow full build for checkpoints. Bias to CODING throughput.
+
+## 🌟 FUGU = FOUNDATIONAL FEATURE — owner requirements (owner 2026-06-22)
+Sakana Fugu (multi-agent orchestration LLM, OpenAI-compatible API, high benchmarks, ~$10/msg, likely closed-
+source) is a DEFINITIVE, foundational part of the app — BUILD it (not optional). Research lives in
+docs/research/FUGU_ORCHESTRATION_INTEGRATION_2026_06_22.md (deep research loop, cron 3d1194ea every 7 min);
+ALL findings + best-do/limitations/best-combo go INTO that doc AND this plan. Requirements:
+1. **MODULAR / REPLACEABLE:** add Fugu behind a CLEAN PROVIDER ABSTRACTION so it (or any orchestrator) plugs
+   in/out — if it breaks or something better ships, swap it with no rewrite. No hardcoding Fugu anywhere.
+2. **EXPLICIT COST in Settings:** surface the ~$10/message cost clearly in Settings (honest, cautionary) —
+   the user opts in knowingly. No silent expensive calls.
+3. **EASY one-time SETUP:** "just set it up" — API key + endpoint in Settings, OpenAI-compatible, then it works
+   across act + work + the model picker (and via OpenCode's provider config pointing at Fugu's endpoint).
+4. **CODE obtainability:** research whether Fugu's code is obtainable (likely CLOSED/hidden — note honestly);
+   if closed, integrate via its API only; find open-source orchestration alternatives too.
+5. **BEST-COMBO (build both):** (a) Fugu as a premium OpenAI-compatible CLOUD PROVIDER (act+work+picker), AND
+   (b) Epistemos's OWN native orchestration layer (RuntimeRouter/System G — route-to-best-model-per-task = the
+   Fugu pattern as owner IP, local-first, no $10/msg lock-in). The provider abstraction makes both pluggable.
+6. **DEFINITELY BUILT:** treat as a foundational deliverable; capture best-things-to-do + best-limitations +
+   best-combo into the research doc + plan so it's fully specced and gets built. Loop cadence = 7 min (was 2m).
