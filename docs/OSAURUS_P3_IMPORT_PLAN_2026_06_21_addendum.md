@@ -1370,3 +1370,19 @@ MAS NOTE: the Pro-gating is technical-debt vs §151 (MAS-non-restrictive), not p
 MAS-safe OsaurusCore split so MAS also gets Osaurus-as-chat (no owner toggle anywhere). PRIORITY: this is the
 ACT-surface P0 — the act/work VISIBLE-surface work the plan already sequences after the chat-regression P0.
 Honest: ENGINE work is real + done; the UI-clone + ontology-collapse + toggle-removal are the missing pieces.
+
+## ‼️ NO ADDED TERMS — build EXACTLY what the owner said (owner 2026-06-22)
+STANDING RULE: capture owner intent as-is. Do NOT add framing words the owner never used — NO "testability,"
+"scaffold," "temporary," "experimental," "safe/incremental rollout," "opt-in," "flag-gated for now." Those
+added terms are what caused the drift. The plan states the owner's REQUIREMENT and the builder BUILDS THAT —
+no softened/optional/intermediate reinterpretation. If a directive ever contains those added terms, treat them
+as VOID; build the owner's plain intent.
+
+## ✅ ACT = OSAURUS CHAT (plain build order, no added terms)
+- Osaurus IS the chat. Mount the Osaurus UI as the chat surface, reskinned to the Epistemos look. Replaces the
+  old Epistemos ChatView.
+- No on/off switch. No toggle. Osaurus is the chat — it is not optional.
+- Delete the old chat (Epistemos/Views/Chat/ChatView.swift + the Chat/Act duality). Keep the IP only.
+- Make it work (fix the send errors + the <think> bug). Verify a real send/receive.
+- Same for Work = OpenCode (full surface, no toggle).
+Build it. (Supersedes §29/§222/§806 and any "toggle/experimental/scaffold" wording anywhere in this plan.)
