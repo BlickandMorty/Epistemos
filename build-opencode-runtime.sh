@@ -17,22 +17,24 @@ set -e
 # CI: set CI=1 to fail loudly if the runtime output is missing.
 
 # -------------------------------------------------------------------
-# Pins (bump deliberately; the stamp invalidates on change)
+# Pins (bump deliberately; the stamps invalidate on change)
 # -------------------------------------------------------------------
 BUN_VERSION="1.3.14"
+OPENCODE_VERSION="1.17.9"   # sst/opencode standalone binary release
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 DEST="$ROOT/Epistemos/Resources/opencode-runtime"
 BIN_DIR="$DEST/bin"
 
-# Target arch → Bun release asset name.
+# Target arch → release asset names (Bun + OpenCode).
 case "$(uname -m)" in
-    arm64|aarch64) BUN_ASSET="bun-darwin-aarch64" ;;
-    x86_64)        BUN_ASSET="bun-darwin-x64" ;;
+    arm64|aarch64) BUN_ASSET="bun-darwin-aarch64"; OC_ASSET="opencode-darwin-arm64" ;;
+    x86_64)        BUN_ASSET="bun-darwin-x64";     OC_ASSET="opencode-darwin-x64" ;;
     *) echo "build-opencode-runtime.sh: unsupported arch $(uname -m)"; exit 1 ;;
 esac
 
 STAMP="$DEST/.bun-${BUN_VERSION}-${BUN_ASSET}"
+OC_STAMP="$DEST/.opencode-${OPENCODE_VERSION}-${OC_ASSET}"
 
 # -------------------------------------------------------------------
 # 1. Fetch the PINNED Bun binary into Resources (version-stamp gated)
@@ -64,12 +66,34 @@ else
 fi
 
 # -------------------------------------------------------------------
-# 2. OpenCode CLI/TUI build → Resources/opencode-runtime/bin/opencode  [NEXT CHECKPOINT]
-#    Vendor the pinned OpenCode source, `bun install`, and stage the launcher so the native SwiftTerm/PTY
-#    terminal view can spawn `opencode` (the resolver goes LIVE once bin/opencode exists). Implemented in the
-#    follow-on checkpoint; until then the work shell stays honestly INERT (resolver returns nil without
-#    bin/opencode). Not faked.
+# 2. Fetch the PINNED OpenCode standalone binary → Resources/.../bin/opencode (version-stamp gated)
+#    sst/opencode ships a self-contained (bun-compiled) `opencode` CLI/TUI binary — no source build. The
+#    native SwiftTerm/PTY terminal view spawns it; the resolver (WorkOpenCodeRuntime.bundledRuntimeURL) goes
+#    LIVE once bin/opencode exists.
 # -------------------------------------------------------------------
+if [ -f "$OC_STAMP" ] && [ -x "$BIN_DIR/opencode" ]; then
+    echo "build-opencode-runtime.sh: pinned OpenCode ${OPENCODE_VERSION} (${OC_ASSET}) already vendored — skipping fetch."
+else
+    echo "build-opencode-runtime.sh: vendoring pinned OpenCode ${OPENCODE_VERSION} (${OC_ASSET})…"
+    mkdir -p "$BIN_DIR"
+    OCTMP="$(mktemp -d)"
+    trap 'rm -rf "$OCTMP"' EXIT
+    OC_URL="https://github.com/sst/opencode/releases/download/v${OPENCODE_VERSION}/${OC_ASSET}.zip"
+    if ! curl -fsSL "$OC_URL" -o "$OCTMP/opencode.zip"; then
+        echo "build-opencode-runtime.sh: failed to download OpenCode from $OC_URL" >&2
+        exit 1
+    fi
+    unzip -q -o "$OCTMP/opencode.zip" -d "$OCTMP"
+    if [ ! -f "$OCTMP/opencode" ]; then
+        echo "build-opencode-runtime.sh: opencode binary not found in archive" >&2
+        exit 1
+    fi
+    cp "$OCTMP/opencode" "$BIN_DIR/opencode"
+    chmod +x "$BIN_DIR/opencode"
+    rm -f "$DEST"/.opencode-* 2>/dev/null || true
+    touch "$OC_STAMP"
+    echo "build-opencode-runtime.sh: vendored OpenCode → $BIN_DIR/opencode ($("$BIN_DIR/opencode" --version 2>/dev/null || echo '?'))"
+fi
 
 # -------------------------------------------------------------------
 # 3. Sanity check
@@ -78,7 +102,11 @@ if [ ! -x "$BIN_DIR/bun" ]; then
     echo "build-opencode-runtime.sh: Bun runtime missing at $BIN_DIR/bun" >&2
     exit 2
 fi
+if [ ! -x "$BIN_DIR/opencode" ]; then
+    echo "build-opencode-runtime.sh: OpenCode runtime missing at $BIN_DIR/opencode" >&2
+    exit 2
+fi
 
 if [ "${CI:-}" = "1" ]; then
-    echo "build-opencode-runtime.sh: CI mode — Bun runtime vendored ($(du -sh "$BIN_DIR/bun" | cut -f1))"
+    echo "build-opencode-runtime.sh: CI mode — runtime vendored (bun $(du -sh "$BIN_DIR/bun" | cut -f1), opencode $(du -sh "$BIN_DIR/opencode" | cut -f1))"
 fi
