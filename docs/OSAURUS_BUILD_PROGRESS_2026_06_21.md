@@ -1135,3 +1135,13 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   .ultraThinMaterial band masked by a top→clear gradient, so content blurs as it scrolls up (the loved Epistemos
   scroll interaction) on the Osaurus surface. PURELY ADDITIVE overlay — no change to Osaurus's internal ChatView,
   never intercepts input. Owner refines depth on the running app. Remaining grafts: message bar + side panel.
+
+## Graft 2/3 — SIDE PANEL on the Osaurus act surface (owner must-keep, 2026-06-22)
+- Found Osaurus's ChatView HAS a session sidebar (ChatSessionSidebar) but ChatWindowState.showSidebar defaults
+  to FALSE — so the host mounted the act surface with NO side panel. The host now sets showSidebar = true at
+  init, so the owner gets the loved side panel (Osaurus's session sidebar, reskinned to the cream/monospace
+  look by bootstrapAndThemeOnce). Additive (owner can still collapse it). + Note on graft 3/3 (message bar):
+  the Osaurus composer is already reskinned to the Epistemos look (white input #ffffff, cream border #e3e1d8,
+  SF Mono) by the host theme — the message-bar AESTHETIC is grafted; swapping in the Epistemos composer
+  STRUCTURE isn't additively feasible (Osaurus owns the composer + its send wiring). So: scroll-blur (new) +
+  side panel (enabled) delivered; message bar provided via reskin. Owner runtime-verify refines all three.
