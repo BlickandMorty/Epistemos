@@ -13,6 +13,11 @@ use std::sync::Mutex;
 pub struct MCPDispatcher {
     registry: Mutex<ToolRegistry>,
     logger: Mutex<ExecutionLogger>,
+    /// VAULT-DEEP-INTEGRATION (owner 2026-06-21 §720): the vault root exposed as MCP
+    /// CONTEXT (resources/list + resources/read), so external agents can read the vault's
+    /// notes as first-class MCP resources — the "vault-as-MCP" pillar built on VaultExecutor.
+    /// `None` until `set_vault_root` is called → resources/list is empty (honest, no fake).
+    vault_root: Mutex<Option<String>>,
 }
 
 impl MCPDispatcher {
@@ -24,6 +29,7 @@ impl MCPDispatcher {
         MCPDispatcher {
             registry: Mutex::new(ToolRegistry::new()),
             logger: Mutex::new(logger),
+            vault_root: Mutex::new(None),
         }
     }
 
@@ -33,7 +39,15 @@ impl MCPDispatcher {
         MCPDispatcher {
             registry: Mutex::new(ToolRegistry::new()),
             logger: Mutex::new(logger),
+            vault_root: Mutex::new(None),
         }
+    }
+
+    /// Point the MCP resource surface at a vault root (VAULT-DEEP-INTEGRATION §720). After this,
+    /// `resources/list` enumerates the vault's notes + `resources/read` returns a note's content,
+    /// path-traversal-safe via VaultExecutor. Idempotent; pass the open vault's absolute path.
+    pub fn set_vault_root(&self, root: String) {
+        *self.vault_root.lock().unwrap() = Some(root);
     }
 
     // ── Registry Operations ──────────────────────────────────────────────────
@@ -240,6 +254,8 @@ impl MCPDispatcher {
             let response = match req.method.as_str() {
                 methods::TOOLS_LIST => self.handle_tools_list(&req),
                 methods::TOOLS_CALL => self.handle_tools_call(&req),
+                methods::RESOURCES_LIST => self.handle_resources_list(&req),
+                methods::RESOURCES_READ => self.handle_resources_read(&req),
                 _ => JsonRpcResponse::error(
                     req.id.clone(),
                     server::METHOD_NOT_FOUND,
@@ -266,6 +282,97 @@ impl MCPDispatcher {
             .collect();
 
         JsonRpcResponse::success(req.id.clone(), serde_json::json!({ "tools": tools_json }))
+    }
+
+    // ── Vault-as-MCP resources (VAULT-DEEP-INTEGRATION §720) ─────────────────────
+
+    /// `resources/list` — expose the vault's markdown notes as MCP resources (uri/name/mimeType),
+    /// so external agents read the vault as first-class context. Empty when no vault root is set
+    /// (honest — no fake resources). URIs use the `vault:///<relative-path>` scheme.
+    fn handle_resources_list(&self, req: &JsonRpcRequest) -> JsonRpcResponse {
+        let root = self.vault_root.lock().unwrap().clone();
+        let resources: Vec<serde_json::Value> = match root
+            .as_deref()
+            .and_then(crate::vault::VaultExecutor::new)
+        {
+            Some(exec) => exec
+                .list_markdown_notes()
+                .into_iter()
+                .map(|rel| {
+                    serde_json::json!({
+                        "uri": format!("vault:///{rel}"),
+                        "name": rel,
+                        "mimeType": "text/markdown",
+                    })
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+        JsonRpcResponse::success(
+            req.id.clone(),
+            serde_json::json!({ "resources": resources }),
+        )
+    }
+
+    /// `resources/read` — return a vault note's content as an MCP resource. Path-traversal-safe via
+    /// VaultExecutor (the `vault:///` URI maps to a vault-relative path). Honest error when the vault
+    /// root isn't set or the note can't be read — never fabricates content.
+    fn handle_resources_read(&self, req: &JsonRpcRequest) -> JsonRpcResponse {
+        let params = match &req.params {
+            Some(p) => p,
+            None => {
+                return JsonRpcResponse::error(
+                    req.id.clone(),
+                    server::INVALID_PARAMS,
+                    "resources/read requires params".to_string(),
+                )
+            }
+        };
+        let uri = match params.get("uri").and_then(|u| u.as_str()) {
+            Some(u) => u,
+            None => {
+                return JsonRpcResponse::error(
+                    req.id.clone(),
+                    server::INVALID_PARAMS,
+                    "params.uri is required".to_string(),
+                )
+            }
+        };
+        let rel = uri.strip_prefix("vault:///").unwrap_or(uri);
+        let root = self.vault_root.lock().unwrap().clone();
+        let exec = match root.as_deref().and_then(crate::vault::VaultExecutor::new) {
+            Some(e) => e,
+            None => {
+                return JsonRpcResponse::error(
+                    req.id.clone(),
+                    server::INVALID_PARAMS,
+                    "no vault root configured".to_string(),
+                )
+            }
+        };
+        let result = exec.read_file(rel);
+        if result.success {
+            let content = serde_json::from_str::<serde_json::Value>(&result.data_json)
+                .ok()
+                .and_then(|v| v.get("content").and_then(|c| c.as_str()).map(String::from))
+                .unwrap_or_default();
+            JsonRpcResponse::success(
+                req.id.clone(),
+                serde_json::json!({
+                    "contents": [{
+                        "uri": uri,
+                        "mimeType": "text/markdown",
+                        "text": content,
+                    }]
+                }),
+            )
+        } else {
+            JsonRpcResponse::error(
+                req.id.clone(),
+                server::INVALID_PARAMS,
+                result.error.unwrap_or_else(|| "read failed".to_string()),
+            )
+        }
     }
 
     fn handle_tools_call(&self, req: &JsonRpcRequest) -> JsonRpcResponse {
@@ -610,5 +717,47 @@ mod tests {
             assert!(d.recent_executions_json(10).contains("tool_a"));
         }
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn vault_as_mcp_resources_list_and_read() {
+        // VAULT-DEEP-INTEGRATION (§720): the vault is exposed as MCP context (resources).
+        let dir = std::env::temp_dir().join(format!("epi_vault_mcp_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(dir.join("notes"));
+        std::fs::write(dir.join("alpha.md"), "# Alpha\nhello").unwrap();
+        std::fs::write(dir.join("notes").join("beta.md"), "# Beta\nworld").unwrap();
+        std::fs::write(dir.join("ignore.txt"), "not a note").unwrap();
+
+        let d = MCPDispatcher::new_in_memory();
+
+        // No vault root set yet → resources/list is honestly EMPTY (no fake resources).
+        let empty = d.dispatch(r#"{"jsonrpc":"2.0","method":"resources/list","id":1}"#.to_string());
+        assert!(empty.contains("\"resources\":[]"), "expected empty: {empty}");
+
+        d.set_vault_root(dir.to_string_lossy().to_string());
+
+        // resources/list enumerates the markdown notes (not the .txt), with vault:/// URIs.
+        let listed = d.dispatch(r#"{"jsonrpc":"2.0","method":"resources/list","id":2}"#.to_string());
+        assert!(listed.contains("vault:///alpha.md"), "list: {listed}");
+        assert!(listed.contains("vault:///notes/beta.md"), "list: {listed}");
+        assert!(!listed.contains("ignore.txt"), "list must skip non-md: {listed}");
+        assert!(listed.contains("text/markdown"), "list mimeType: {listed}");
+
+        // resources/read returns the note's real content.
+        let read = d.dispatch(
+            r#"{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"vault:///notes/beta.md"},"id":3}"#
+                .to_string(),
+        );
+        assert!(read.contains("# Beta"), "read content: {read}");
+        assert!(read.contains("world"), "read content: {read}");
+
+        // resources/read on a traversal attempt is refused (path-safe via VaultExecutor).
+        let escape = d.dispatch(
+            r#"{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"vault:///../../etc/passwd"},"id":4}"#
+                .to_string(),
+        );
+        assert!(escape.contains("\"error\""), "traversal must error: {escape}");
+
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
