@@ -854,6 +854,16 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
     major direction call (large rework either way, unverifiable headless); leaning (b) for fidelity, but
     flagged for an owner signal before the big pivot. **Item 4 (models) is UI-direction-AGNOSTIC** — the owner's
     models route via Osaurus's ChatEngine under either option — so 4b/4c proceed regardless.
+  - **✅ DIRECTION CONFIRMED = OPTION (b)** (auditor 1507, owner signal): use the ACTUAL old Epistemos SwiftUI UI
+    (landing/chat/MESSAGE BAR/SIDEBAR/fonts/flat-pixel) as the act surface, driven by the Osaurus engine —
+    "faithful by construction" (it IS the old UI). NOT option (a). Invariants: default no-toggle; genuinely
+    Osaurus engine (CoreModelService/ChatEngine via `shouldRouteActThroughOsaurus` + the model bridge) and it
+    must WORK. The mounted-Osaurus-ChatView SHELL (host/palette reskin) is REPLACED by the old UI; the engine
+    link + bootstrap + model bridge + toggle removal + MAS gating CARRY OVER. **Pivot plan:** (1) HomeRouter
+    act → old `ChatView()` (revert the host mount + the showChat/showingOsaurusSurface changes); (2)
+    `shouldRouteActThroughOsaurus` → DEFAULT-ON (Pro, no toggle); (3) verify. The old message bar + sidebar come
+    FREE (they ARE the old UI). Model bridge now also wired into `CoreModelService.localServices` (the option-(b)
+    path drives the old ChatView through CoreModelService, not only ChatEngine).
 
 ### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
 The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't
@@ -876,5 +886,14 @@ visibility.
   Register the provider at `AppBootstrap:1800` (where `localInferenceService` is created). REMAINING TO VERIFY
   before writing (avoid a field-name red build): the installed-models list + id→activeDirectory resolution
   (`PreparedModelRegistry` vs `LocalModelInfrastructure.activeDirectory(for:)` + a LMI instance). Implement next.
+- [x] **4b — Epistemos provider IMPLEMENTED (pending Pro verify):** `Epistemos/ActOsaurus/EpistemosOsaurus
+  ModelProvider.swift` (Pro-only, `#if !EPISTEMOS_APP_STORE`) conforms to `EpistemosModelProvider`: holds the
+  `MLXInferenceService` actor + Sendable (id, directory) pairs for the prepared generator(s); `streamGenerate`
+  builds a `LocalMLXRequest` and forwards `service.stream` deltas through an `AsyncThrowingStream` (cancels the
+  task on termination). Registered from `AppBootstrap.applyPreparedRetrievalRuntimeConfiguration` (AFTER the
+  snapshot applies — the freshly-built state at init is empty; the manifest loads deferred), idempotent + re-runs
+  on snapshot change. Exposes the prepared generators (`primaryGenerator`/`speculativeDraftGenerator`
+  `servedModelID` + `resolvedDownloadPath`). Generation routes GGUF/MLX internally via `stream(request:)`.
+  Live send = owner's runtime check.
 - [ ] **4c — picker visibility:** surface the owner's model ids in the Osaurus model picker catalog (ModelManager)
   so they're selectable; routing then reaches `EpistemosBridgedModelService`. Live generation = owner's runtime check.

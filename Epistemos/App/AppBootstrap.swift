@@ -1830,6 +1830,7 @@ final class AppBootstrap {
 
         let preparedModelRegistry = PreparedModelRegistry()
         self.preparedModelRegistry = preparedModelRegistry
+
         // Defer the prepared-model manifest load off the synchronous init path.
         // Reading the manifest + parsing it previously blocked the first
         // foreground tap on launch (the "app feels frozen when I click on it"
@@ -3137,6 +3138,15 @@ final class AppBootstrap {
 
         preparedModelRegistryState.apply(snapshot)
         localMLXClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
+        #if !EPISTEMOS_APP_STORE
+        // Owner's models in the Osaurus act chat (item 4b): now that the prepared
+        // generator(s) are loaded, (re)register them with the OsaurusCore model
+        // bridge so the Osaurus ChatEngine can route generation to the owner's
+        // local models. Idempotent (replaces) + re-runs when the snapshot changes.
+        // Pro only (OsaurusCore is not linked into MAS).
+        EpistemosOsaurusModelProvider.register(
+            service: localInferenceService, state: preparedModelRegistryState)
+        #endif
         if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
             localLLMClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
             Task { @MainActor in
