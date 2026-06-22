@@ -44,11 +44,20 @@ struct NativeActChatView: View {
     private let muted = Color(.sRGB, red: 0x6E / 255.0, green: 0x6E / 255.0, blue: 0x73 / 255.0, opacity: 1)
 
     var body: some View {
-        VStack(spacing: 0) {
-            toolbar
+        HStack(spacing: 0) {
+            // GRAFT — SIDE PANEL (pass67 WATCH): the owner's existing native ChatSidebarView
+            // (recent chats / search), composed natively. Env-driven (UIState/ChatState/
+            // modelContext resolve from RootView, same as ChatInputBar).
+            ChatSidebarView()
+                .frame(width: 248)
+                .background(surface2)
             Divider().overlay(ink.opacity(0.08))
-            thread
-            composer
+            VStack(spacing: 0) {
+                toolbar
+                Divider().overlay(ink.opacity(0.08))
+                thread
+                composer
+            }
         }
         .background(cream.ignoresSafeArea())
     }
