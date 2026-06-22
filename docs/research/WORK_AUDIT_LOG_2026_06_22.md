@@ -881,3 +881,16 @@ shell and curved/native feel follows; native sidebar/recent-chats/popover/pill/t
 to addendum (agent 0.31 queues; P0 preempts). Reinforces pass-58 (visible native shell = priority) with concrete
 acceptance details. Did NOT touch queue/recertlog/code. (Note: ultracode banner present in owner input; action is
 a focused P0-directive capture, not multi-agent orchestration — Workflow not warranted here.)
+
+## PASS 59 — 2026-06-22 (WATCH RESOLVED FAVORABLY — agent turned to the VISIBLE D-cluster build)
+No new build commit since my pass-58/58b (2e1d95938 mine, ~3 min ago); agent's last was iter8-9 (~17 min). At
+first that gap looked like deferral, BUT: agent alive (2 procs) + 1 active build proc + UNCOMMITTED edit to
+**Epistemos/App/RootView.swift** (the act surface MOUNT/shell — RootView:2692-2698 is the host mount + D2 landing
+gate). So the 17-min gap = a bigger VISIBLE-UI build in flight, NOT a headless cert. The agent transitioned from
+plumbing certs to the act D-cluster — consistent with its own iter9 plan ("start with most isolated: D1/D3") AND
+my pass-58 P0. It has NOT yet ingested pass-58/58b (no commit since), but is ALREADY acting in their direction;
+0.31 will fold D6/pill-both/native-shell when it next commits. NOT escalating — this is the visible-surface build
+I asked for, mid-flight. Did NOT touch the in-flight RootView.swift (in-flight, read-only observation only).
+RE-AUDIT next fire: verify the committed RootView/D-cluster result + a FRESH cream/native screenshot (D-item moved
+with PNG) + that pass-58/58b (D6 back-nav, pill on act+work, native-shell synthesis) got ingested. VERDICT:
+PASS/in-progress — agent healthy + now building the owner's #1 visible surface.
