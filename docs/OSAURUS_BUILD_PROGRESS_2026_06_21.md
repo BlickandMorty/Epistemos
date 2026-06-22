@@ -864,6 +864,17 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
     `shouldRouteActThroughOsaurus` → DEFAULT-ON (Pro, no toggle); (3) verify. The old message bar + sidebar come
     FREE (they ARE the old UI). Model bridge now also wired into `CoreModelService.localServices` (the option-(b)
     path drives the old ChatView through CoreModelService, not only ChatEngine).
+  - **✅ OPTION-(b) PIVOT IMPLEMENTED (pending Pro verify):** (A) `LocalAgentLoop.shouldRouteActThroughOsaurus`
+    now returns DEFAULT-ON on Pro (`#if !EPISTEMOS_APP_STORE → true`, MAS → false), no gate/toggle — the act
+    surface's inference genuinely routes through the Osaurus engine. (B) `HomeRouter` reverted to the original
+    old Epistemos surface: `if showChat { ChatView() } else { LandingView() }` with messages-based `showChat`;
+    removed the Osaurus-host mount, the act↔work toggle, `workspaceMode`/`workWorkspaceURL`, and the
+    `WorkspaceModeToggle` struct. (C) reverted `showingOsaurusSurface`/`showLandingToolbarControls` (the
+    white-bar fix was host-specific; the old ChatView wants its normal Epistemos toolbar). (D) removed RootView's
+    `import OsaurusCore`. So act IS the old Epistemos UI (faithful) driven by the Osaurus engine.
+    FOLLOW-UPS: re-place the act↔work toggle as a new feature in the old UI (its gating conflicted with the
+    old-UI messages-based showChat — deferred, not lost); `EpistemosOsaurusChatHost` is now an unused shell (the
+    reskin/bootstrap logic is kept for reference, can be retired later). Live send/receive = owner's runtime check.
 
 ### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
 The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't

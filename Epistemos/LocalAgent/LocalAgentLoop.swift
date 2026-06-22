@@ -216,9 +216,17 @@ actor LocalAgentLoop {
     nonisolated static func shouldRouteActThroughOsaurus(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        // Resolution: in-app toggle override (owner §806) WINS, else the env flag, else off. App Store = always
-        // off (Pro-only). Default-absent override keeps flag-OFF byte-identical (the proven MLX path unchanged).
-        ActOsaurusGateStatus.resolvedActive(environment: environment)
+        // ACT = OSAURUS, option (b) (owner 2026-06-22, confirmed): the act surface
+        // is the OLD Epistemos chat UI driven by the Osaurus engine — DEFAULT-ON,
+        // no toggle (the experimental gate is gone; Osaurus is the engine, not
+        // optional). App Store stays off — OsaurusCore is Pro / direct-distribution
+        // only, so MAS keeps the in-process MLX path; never a silent cloud route.
+        #if EPISTEMOS_APP_STORE
+        return false
+        #else
+        _ = environment
+        return true
+        #endif
     }
 
     @MainActor
