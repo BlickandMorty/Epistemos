@@ -13,15 +13,21 @@ pub const WORK_GOOSE_FLAG: &str = "EPISTEMOS_WORK_GOOSE_V0";
 pub const GOOSE_VENDOR_LICENSE: &str = "Apache-2.0";
 pub const GOOSE_VENDOR_SOURCE: &str = "block/goose";
 
-/// ⚠️ SUPERSEDED APPROACH (owner re-sync 2026-06-21): leaf-by-leaf hand-porting of block/goose
-/// wire types is REPLACED by a FULL CLONE — vendor block/goose's real crates (`goose` +
-/// `goose-providers`) + `rmcp` as REAL Cargo deps in agent_core (like Osaurus), resolving dep
-/// clashes (accepted cost). DO NOT add more hand-ported leaves here. These existing leaf types
-/// (SourceRoot/Permission/recipe/retry/message::Role) stay only as the inert seam contract until
-/// the full-clone lands and replaces them. See OSAURUS_BUILD_PROGRESS RE-SYNC section.
+/// ✅ PERMANENT CLEAN-ROOM HOME (owner 2026-06-21, Architecture C FINALIZED): the work ENGINE is
+/// OpenCode (headless Bun, own process), NOT a vendored Goose crate. The heavy `goose` crate is
+/// DELIBERATELY NOT vendored — that avoids the confirmed 179-dep / reqwest-0.12-vs-0.13.2 / 660MB
+/// build-red saga (see docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md). Goose's
+/// genuinely-unique HARDENING bits live HERE as the permanent in-tree clean-room Rust, surfaced as
+/// work-loop TOOLS beneath the OpenCode engine: `RetryManager`/`RepetitionGuard` (test-and-fix +
+/// loop-safety) + `recipe` (parameterized tasks — VERIFY vs OpenCode's own command/agent config,
+/// drop if duplicated). These are KEPT, GOOSE-GUARDRAIL-isolated (Chat/Act unchanged), NEVER deleted.
 ///
-/// Vendored block/goose types (Apache-2.0, ProvenanceGate `direct_import`) — kept as the inert
-/// seam contract; the GOOSE GUARDRAIL (Chat/Act unchanged) holds.
+/// DROPPED under Architecture C: Goose `permission` (OpenCode, a coding agent, has its own file/shell
+/// permission gating → the leaf-port was a duplicate). `SourceRoot`/`message::Role` remain as the
+/// thin first-party seam types the work request/transcript use.
+///
+/// Vendored block/goose types (Apache-2.0, ProvenanceGate `direct_import`) — kept as the clean-room
+/// home; the GOOSE GUARDRAIL (Chat/Act unchanged) holds.
 pub mod vendored_goose {
     //! Provenance: github.com/block/goose (Apache-2.0), crates/goose/src/source_roots.rs.
     //! `direct_import` — the type body between the VERBATIM markers is byte-for-byte
@@ -47,45 +53,9 @@ pub mod vendored_goose {
     }
     // --- END VERBATIM ---
 
-    /// Vendored block/goose permission types (Goose S3) — the engine's permission
-    /// posture for a tool/extension call. A self-contained (serde-only) leaf, the next
-    /// step inward from `SourceRoot` per the leaf-first plan.
-    pub mod permission {
-        //! Provenance: github.com/block/goose (Apache-2.0),
-        //! crates/goose-providers/src/permission.rs.
-        //! `direct_import` with ONE documented adaptation: the upstream `#[derive(…,
-        //! ToSchema)]` + `use utoipa::ToSchema;` are DROPPED — agent_core has no
-        //! `utoipa`, and `ToSchema` is an OpenAPI-doc derive irrelevant to the Work
-        //! seam. Every enum variant + struct field below is byte-for-byte upstream;
-        //! the serde derives + `rename_all = "snake_case"` are preserved verbatim, so
-        //! the wire form is identical to block/goose.
-
-        // --- BEGIN VERBATIM (block/goose, Apache-2.0; ToSchema derive trimmed) ---
-        use serde::{Deserialize, Serialize};
-
-        #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-        #[serde(rename_all = "snake_case")]
-        pub enum Permission {
-            AlwaysAllow,
-            AllowOnce,
-            Cancel,
-            DenyOnce,
-            AlwaysDeny,
-        }
-
-        #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-        pub enum PrincipalType {
-            Extension,
-            Tool,
-        }
-
-        #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-        pub struct PermissionConfirmation {
-            pub principal_type: PrincipalType,
-            pub permission: Permission,
-        }
-        // --- END VERBATIM ---
-    }
+    // DROPPED under Architecture C (owner 2026-06-21): the Goose `permission` leaf-port
+    // (Permission/PrincipalType/PermissionConfirmation) is removed — OpenCode (the work engine) has
+    // its own file/shell permission gating, so the vendored Goose permission types were a duplicate.
 
     /// Vendored block/goose recipe-PARAMETER types (Goose S4) — the typed inputs a
     /// Work recipe/task declares (key + input type + requirement + default + options).
@@ -258,10 +228,10 @@ pub mod vendored_goose {
 }
 
 /// First-party typed Work REQUEST (NOT vendored — the seam contract the Swift
-/// `WorkBackend` hands across UniFFI). Carries the objective, the workspace roots the
-/// engine operates on (the vendored block/goose `SourceRoot`), and the default
-/// permission posture (the vendored block/goose `Permission`). The engine layer (S4+)
-/// consumes this; until then `run_work_session` stays inert.
+/// `WorkBackend` hands across UniFFI). Carries the objective + the workspace roots the
+/// engine operates on (the vendored block/goose `SourceRoot`). Permission posture is the
+/// OpenCode engine's own concern under Architecture C (the Goose `permission` leaf was
+/// dropped). The engine layer consumes this; until then `run_work_session` stays inert.
 // `Eq` is intentionally NOT derived: `settings` embeds the vendored `Settings`, whose
 // `temperature: Option<f32>` isn't `Eq`. `PartialEq` (sufficient for tests + callers)
 // is kept; nothing compares whole `WorkRequest`s for `Eq`.
@@ -269,7 +239,6 @@ pub mod vendored_goose {
 pub struct WorkRequest {
     pub objective: String,
     pub source_roots: Vec<vendored_goose::SourceRoot>,
-    pub default_permission: vendored_goose::permission::Permission,
     /// The typed parameters this Work task declares (vendored block/goose recipe
     /// parameters — Goose S4). Empty by default; the engine layer consumes them.
     pub parameters: Vec<vendored_goose::recipe::RecipeParameter>,
@@ -284,14 +253,13 @@ pub struct WorkRequest {
 }
 
 impl WorkRequest {
-    /// A read-only request over the given roots with the safest default posture
-    /// (`AllowOnce` — never `AlwaysAllow`; the engine asks per action), no declared
-    /// parameters, and the engine's default model settings.
+    /// A read-only request over the given roots with no declared parameters and the
+    /// engine's default model settings. Permission posture is the OpenCode engine's
+    /// concern under Architecture C (the Goose permission leaf was dropped).
     pub fn read_only(objective: impl Into<String>, roots: Vec<vendored_goose::SourceRoot>) -> Self {
         Self {
             objective: objective.into(),
             source_roots: roots,
-            default_permission: vendored_goose::permission::Permission::AllowOnce,
             parameters: Vec::new(),
             settings: None,
             retry: None,
@@ -602,40 +570,8 @@ mod tests {
         assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
     }
 
-    #[test]
-    fn vendored_permission_matches_upstream_variants_and_wire_form() {
-        use vendored_goose::permission::{Permission, PermissionConfirmation, PrincipalType};
-        // All five upstream Permission variants present (byte-for-byte vendor).
-        let all = [
-            Permission::AlwaysAllow,
-            Permission::AllowOnce,
-            Permission::Cancel,
-            Permission::DenyOnce,
-            Permission::AlwaysDeny,
-        ];
-        assert_eq!(all.len(), 5);
-        // serde snake_case wire form is byte-identical to upstream (the derive is preserved).
-        assert_eq!(
-            serde_json::to_string(&Permission::AlwaysAllow).unwrap(),
-            "\"always_allow\""
-        );
-        assert_eq!(
-            serde_json::to_string(&Permission::AllowOnce).unwrap(),
-            "\"allow_once\""
-        );
-        assert_eq!(
-            serde_json::to_string(&Permission::DenyOnce).unwrap(),
-            "\"deny_once\""
-        );
-        // PermissionConfirmation round-trips through serde unchanged.
-        let conf = PermissionConfirmation {
-            principal_type: PrincipalType::Tool,
-            permission: Permission::DenyOnce,
-        };
-        let json = serde_json::to_string(&conf).unwrap();
-        let back: PermissionConfirmation = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, conf);
-    }
+    // (Removed: the `vendored_permission_*` test — the Goose permission leaf was dropped under
+    // Architecture C; OpenCode owns work-engine permissioning.)
 
     #[test]
     fn vendored_message_role_wire_form_matches_upstream() {
@@ -649,19 +585,16 @@ mod tests {
     }
 
     #[test]
-    fn work_request_default_posture_is_never_always_allow() {
-        // The first-party request defaults to the SAFEST posture — the engine asks per
-        // action; it never silently grants AlwaysAllow.
+    fn work_request_read_only_is_well_formed() {
+        // Under Architecture C the Goose permission leaf is dropped (OpenCode owns work-engine
+        // permissioning); the first-party request just carries the objective + roots + (empty)
+        // parameters/settings/retry.
         let req = WorkRequest::read_only("x", vec![]);
-        assert_eq!(
-            req.default_permission,
-            vendored_goose::permission::Permission::AllowOnce
-        );
-        assert_ne!(
-            req.default_permission,
-            vendored_goose::permission::Permission::AlwaysAllow
-        );
         assert_eq!(req.objective, "x");
+        assert!(req.source_roots.is_empty());
+        assert!(req.parameters.is_empty());
+        assert!(req.settings.is_none());
+        assert!(req.retry.is_none());
     }
 
     #[test]
