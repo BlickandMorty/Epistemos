@@ -515,3 +515,17 @@ search bugs on it; runtime-verify.
   additively feasible). Sound call; OWNER-VERIFY if close enough.** Scroll-blur(1)+side-panel(2) real grafts; msg-bar(3)=reskin.
 - **Verdict:** PASS. Act ~feature-complete in code. Remaining: OWNER RUNTIME-VERIFY (send works w/ my model +
   Osaurus-reskinned look + scroll-blur + side panel + message-bar-feel + no white-bar/search).
+
+## Pass 38 — 2026-06-22 — loop moved to WORK lane (act code-complete)
+- **Build loop:** ALIVE. HEAD `4c2f3a91f` (74s). Moved to WORK lane (act feature-complete pending owner runtime-verify — correct, didn't idle).
+- **4069dcc74 (build-script staging) → ✅ PASS (real honest fix):** script hard-failed (exit2) when OpenCode
+  launcher missing, but launcher (chkpt 2) is unimplemented → could never succeed partial-vendor. Now WARNs +
+  work shell honestly inert (resolveRuntimeURL=nil) until launcher lands. Honest. No act regression.
+- **4c2f3a91f (omega_mcp_stdio compile) → ✅ PASS:** cargo check EXIT=0; fusion transport (Goose/Hermes/OpenClaw
+  beneath OpenCode via MCP) compiles.
+- **⚠️ DISCREPANCY noted:** pass-6 said "OpenCode runtime IS bundled (129MB opencode arm64+Bun)" but pass-38 says
+  the OpenCode LAUNCHER is unimplemented/pending (owner drops at Resources/opencode-runtime/bin/opencode). WORK
+  has Bun + fusion server ready; the OpenCode launcher binary is the remaining EXTERNAL piece. Current state
+  honest (warns/inert). Flag so WORK never claims functional without the launcher.
+- **Verdict:** PASS both. Act code-complete (owner runtime-verify pending). WORK buildable parts solid; external
+  OpenCode launcher remains. Re-audit next commit.
