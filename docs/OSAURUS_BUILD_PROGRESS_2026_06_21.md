@@ -647,7 +647,10 @@ visual surfaces needing the running app, this is the buildable foundational work
   provider response stream → String (TextDelta until MessageStop; honest error-propagation). Total trinity = 27/27.
 - [x] **Provider-backed executor CAPSTONE (`b9a6f7df6`, cargo 6/6):** `ProviderTrinityExecutor` — each role
   tier→provider→prompt→stream_message→collect; HONEST `[trinity-error:…]` → Verifier REPAIR (never false-accept).
-  Mock-provider proven END-TO-END. **The TRINITY agent_core core is now callable with a real provider — 29/29.**
+  Mock-provider proven END-TO-END. **The TRINITY agent_core core is now callable with a real provider.**
+- [x] **Honest router-mode disclosure (`67f443c4c`):** `TrinityRouterMode` {Heuristic, Learned} + ACTIVE=Heuristic
+  on TrinityMissionResult — the orchestrator honestly reports it's the heuristic router, never a fake "learned"
+  (learned head is license/MLX-tap gated). Per the BIG-IDEA "heuristic-vs-learned disclosed honestly". **30/30.**
 - REMAINS (runtime/app-side, sequenced): the app supplies `provider_for_tier` (model resolution + provider
   construction) + System-G/act/work/chat invoke `run_trinity_loop_async` behind the flag; slice 3b = trace →
   Swift TraceCollector; then expose as the internal orchestrator API across
