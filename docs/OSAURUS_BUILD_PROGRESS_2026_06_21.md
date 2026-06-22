@@ -980,3 +980,17 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   On MAS `WorkTerminalHostView.body` falls to the honest `WorkTerminalUnavailableView`
   (no faked terminal). Resolves the MAS SwiftTerm linker error; the real PTY terminal
   stays a Pro/direct-distribution capability. (Verified: MAS build.)
+
+## P0-A diagnosability — act no-model failures surface ACTIONABLE copy (2026-06-22)
+- **Verified (audit-first):** the act send path reuses the existing chat stream consumer —
+  `ChatCoordinator` catches stream errors → `ChatState.addErrorMessage(UserFacingChatError.message(from:))`
+  → a VISIBLE error bubble. So auditor P0-A item #2 (visible error surfacing, no silent dead air) is
+  SATISFIED by inheritance; a thrown Osaurus error reaches the UI, not silence.
+- **Hardened:** the three Osaurus act "no usable model" failures (`ProviderError.modelNotPrepared`,
+  `EpistemosModelBridgeError.noProvider`, `CoreModelError.modelUnavailable`) previously fell through
+  `UserFacingChatError.classify` to `.generic` → the owner saw the RAW technical string. Now classify()
+  matches them by CONTENT (decoupled from OsaurusCore, MAS-safe — no import) → `.modelNotReady` → the
+  actionable copy "No model is ready… Open Settings → Models to install a local model…". So the owner's
+  "it's not working" becomes a DIAGNOSABLE, actionable on-screen message (auditor P0-A items #2/#3).
+- **Proof:** `PipelineServiceTests.osaurusNoModelFailuresAreDiagnosable` pins the three canonical
+  errorDescriptions → asserts `.modelNotReady` + the actionable Settings → Models copy (real-state test).

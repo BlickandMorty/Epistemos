@@ -1675,6 +1675,38 @@ struct UserFacingChatErrorKindTests {
         #expect(message.contains("Fast mode is unavailable"))
         #expect(message.contains("Switch to Think"))
     }
+
+    /// P0-A (owner 2026-06-22 "it's not working"): when the act/Osaurus engine has no
+    /// usable model, the failure must surface the ACTIONABLE model-not-ready copy
+    /// (Settings → Models), NOT the raw OsaurusCore error string. classify() matches
+    /// these by CONTENT (PipelineService is decoupled from OsaurusCore + MAS-safe), so
+    /// pin the canonical errorDescriptions here — if OsaurusCore reworbs them, this fails.
+    @Test("Osaurus act no-model failures classify as modelNotReady with actionable copy")
+    func osaurusNoModelFailuresAreDiagnosable() {
+        // The canonical errorDescriptions of the three act no-model failure paths.
+        let descriptions = [
+            "Model 'qwen35-2b-4bit' is not prepared on this device.",          // ProviderError.modelNotPrepared
+            "No Epistemos model provider is registered, or no model id was supplied.", // EpistemosModelBridgeError.noProvider
+            "Core model 'none' is not available"                               // CoreModelError.modelUnavailable
+        ]
+        for description in descriptions {
+            let error = ActErrorFixture(text: description)
+            let kind = UserFacingChatError.classify(error)
+            let message = UserFacingChatError.message(from: error)
+            #expect(kind == .modelNotReady, "‘\(description)’ should classify as modelNotReady")
+            // The actionable copy points the owner at Settings → Models (not a raw string).
+            #expect(message.contains("Settings → Models"), "‘\(description)’ should surface the actionable model copy")
+            #expect(!message.contains("is not prepared"), "raw technical string must be replaced by actionable copy")
+        }
+    }
+}
+
+/// Minimal `LocalizedError` whose `errorDescription` is exactly the supplied text —
+/// stands in for OsaurusCore's act errors (which the test target can't construct
+/// directly) so the content-based classifier is exercised on their real strings.
+private struct ActErrorFixture: LocalizedError {
+    let text: String
+    var errorDescription: String? { text }
 }
 
 @Suite("Pipeline Contracts")

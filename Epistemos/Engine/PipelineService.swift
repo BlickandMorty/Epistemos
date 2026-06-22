@@ -85,6 +85,19 @@ nonisolated enum UserFacingChatError {
         if lower.contains("context length") || lower.contains("too long") || (lower.contains("token") && lower.contains("limit")) {
             return .contextOverflow
         }
+        // Osaurus act-engine "no usable model" failures → the actionable model-not-ready
+        // message (owner 2026-06-22 P0-A "it's not working": these MUST be diagnosable,
+        // not a raw technical string). Matched by error CONTENT so PipelineService stays
+        // decoupled from OsaurusCore's error types and the App Store target needs no
+        // OsaurusCore import. Strings are the canonical errorDescriptions of:
+        //   EpistemosOsaurusModelProvider.ProviderError.modelNotPrepared,
+        //   EpistemosModelBridgeError.noProvider, CoreModelError.modelUnavailable.
+        if lower.contains("not prepared")
+            || lower.contains("model provider is registered")
+            || lower.contains("no model id")
+            || (lower.contains("core model") && lower.contains("not available")) {
+            return .modelNotReady
+        }
         return .generic
     }
 
