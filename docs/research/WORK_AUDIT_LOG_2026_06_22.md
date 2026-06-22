@@ -30,3 +30,17 @@ PASS or RE-ADD-to-plan for re-pickup; re-verify until correct. Cite file:line. C
 - **In-flight:** EpistemosOsaurusChatHost.swift uncommitted (build loop working) — not touched.
 - **Verdict:** PASS, no re-add. Re-audit the reskin + toggle-removal + send/<think> fix as they land; watch that
   MAS path gets the MAS-safe OsaurusCore split (so MAS isn't permanently on old ChatView, per §151 MAS-non-restrictive).
+
+## Pass 3 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `1b425eafa` "act=Osaurus: reskin the Osaurus surface to the Epistemos cream/monospace palette" (<1 min ago).
+- **AUDIT 1b425eafa → ✅ PASS (real reskin, item 1 of remaining done):** applies an Epistemos CustomTheme via
+  ThemeManager.applyCustomTheme(persist:false, runtime-only) on the host → every Osaurus view (thread/composer/
+  sidebar/model-picker) reads the cream/monospace Epistemos look (#fbfaf5/#f4f3ee surfaces, #1c1c1e text, SF Mono,
+  dark user bubbles). Additive (no Osaurus type changed, no write to Osaurus theme storage). Build EXIT=0 on Pro.
+  Co-Authored. Matches "reskin Osaurus to the Epistemos look the owner loves."
+- **Honest MAS finding (tracked, not fake-green):** Epistemos-AppStore local build fails on PRE-EXISTING
+  explicit-modules package resolution (OsaurusCore-transitive pkgs); net MAS delta from act work = zero; flagged
+  to the MAS-full-capability track, NOT claimed green. = the MAS-safe-OsaurusCore-split follow-up (pass 2 note).
+- **Build health:** Swift-only host change, agent verified EXIT=0 Pro; Rust untouched (cargo --lib green pass 2). No heavy re-run needed.
+- **Verdict:** PASS, no re-add. Remaining (re-audit as they land): REMOVE the experimental opt-in toggle; live
+  send + `<think>` fix; delete old ChatView after host proves send/receive; MAS-safe OsaurusCore split.
