@@ -230,3 +230,18 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   only final live send needs the running app.
 - **Verdict:** toggle PASS but priority wrong; ESCALATED P0-A/P0-B as buildable-now, must build BEFORE more
   toggles/docs. AUDIT-WATCH: next pass MUST show P0-A/P0-B build progress or escalate harder (loop avoiding owner-blocking work).
+
+## Pass 15 — 2026-06-22 — ESCALATION WORKED, P0-A + P0-B real
+- **Build loop:** ALIVE (swift=2 xcode=1). HEAD `077025921` (2 min). Both P0s picked up after escalation.
+- **bd38f3132 (P0-A) → ✅ PASS (root-caused the runtime failure):** ActOsaurusStreamingHandler DROPPED the
+  selected modelID + relied only on coreModelIdentifier → modelUnavailable when no core model. Fix: thread
+  selected model end-to-end — CoreModelService.generateStream + requestedModel (overrides core, nil-fallback),
+  carried through ActOsaurusBridge+protocol+stub; handler now USES modelID. Owner's chosen model generates. Pro EXIT=0.
+- **077025921 (P0-B) → ✅ PASS (real visible indicator + diagnostic):** ActOsaurusActiveBadge — green "Osaurus"
+  badge in the chat toolbar, shown ONLY when act truly routes through Osaurus (honest, never on MAS/old-MLX);
+  tooltip = live CoreModelService engine status (unset/unavailable+reason/available) = doubles as P0-A diagnostic.
+  Owner can SEE Osaurus + engine state. Pro EXIT=0.
+- **DIAGNOSTIC for owner:** on next Pro launch — green "Osaurus" badge present = it's genuinely Osaurus; NO badge
+  = wrong build (App Store) or route off; tooltip shows engine status if send fails.
+- **Verdict:** PASS both. Remaining P0-B: surface Osaurus's distinctive LANDING/BUTTONS/features (badge is step 1).
+  Plus live send verify (running app). Loop responded to escalation with real root-cause fixes.
