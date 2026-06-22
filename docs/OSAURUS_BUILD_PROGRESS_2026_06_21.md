@@ -136,6 +136,10 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     **ATOMIC STORE WRITES (`6b1dbebe9`):** the graph store is rewritten on every mutation; a plain fs::write
     interrupted mid-write left a truncated mcp_graph.json that load_store silently reset to EMPTY (whole-graph
     loss). Now temp-write + rename (atomic) → the on-disk store is always a complete valid snapshot. 188/188 lib.
+    **ATOMIC NOTE WRITES (`aaacfdced`):** the external-agent note path (`edit_note`/`write_file`) used plain
+    fs::write → a crash mid-write corrupted the USER'S note. New `atomic_write` (temp `.omega-tmp` + rename, the
+    suffix deliberately non-`.md` so leftovers don't list as notes) at both sites. Completes the atomic posture
+    across ALL vault writes (Swift VaultNoteEditor + Rust MCP + graph store). 189/189 lib.
   - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink suite COMPLETE — `vault.backlinks`
     (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved) +
     `vault.note_links` (`80a376b5d`, full per-note context in one call) MCP tools over a shared `parse_wikilinks`
