@@ -1,10 +1,15 @@
-//! WORK code-intelligence tools (owner 2026-06-21, addendum §134-137).
+//! WORK code-intelligence tools — ⚠️ REDUNDANT UNDER ARCHITECTURE C (re-eval owner 2026-06-21).
 //!
-//! WIRE the EXISTING `agent_core::lsp_runtime` RustLSP into the WORK stack as agent
-//! code-intelligence tools (hover / definition / document lifecycle), so the work
-//! agent gets real code understanding. REUSE, don't rebuild — these lower agent tool
-//! calls onto the SAME `LspKernel` the Swift `RustLSPTransport` already drives over FFI.
-//! No second LSP, no duplicated grammars.
+//! ORIGINAL INTENT (addendum §134-137, convergence-era): wire the existing `lsp_runtime` RustLSP
+//! into the WORK stack as agent code-intelligence tools — which assumed a Goose-engine work loop
+//! with NO built-in LSP.
+//!
+//! SUPERSEDED by Architecture C's refinement #2: the work engine is OpenCode, which has its OWN
+//! BUILT-IN LSP (auto-loads 40+ servers). Forcing `lsp_runtime` into the OpenCode work loop would be
+//! a DOUBLE-LSP. So under C this module is REDUNDANT for the work loop; `lsp_runtime` is kept for the
+//! NATIVE EDITORS (Prose/Epdoc), not work. KEPT (not blind-deleted) pending the OpenCode runtime
+//! vendor — once OpenCode's built-in LSP is confirmed in-tree, this module is removed. Until then it
+//! stays compiled + tested behind the `lsp-runtime` feature so nothing rots. Do NOT build new callers.
 //!
 //! HONEST CAPABILITY (CLAUDE.md "honest capability gating"): only the kernel-BACKED
 //! methods are exposed as tools — `textDocument/didOpen|didChange|didClose`,
