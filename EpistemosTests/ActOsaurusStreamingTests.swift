@@ -26,13 +26,23 @@ struct ActOsaurusStreamingTests {
         #expect(src.contains("finish(throwing: error)"))        // honest failure on the stream, never cloud
     }
 
-    @Test("liveLoop routes BOTH generator AND streamingGenerator through the shared act decision")
+    @Test("liveLoop routes the streaming generator through the SHARED act entry (one chokepoint, §692)")
     func liveLoopStreamsThroughActDecision() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/LocalAgent/LocalAgentLoop.swift")
-        #expect(src.contains("ActOsaurusStreamingHandler.make()"))
         #expect(src.contains("streamingGenerator: streamGenerator"))
-        // The streaming swap keys off the SAME shared decision as the primary generator (no divergence).
-        #expect(src.contains("routeActOsaurus"))
+        // The streaming act-injection delegates to the SINGLE shared entry (the same TriageService uses).
+        #expect(src.contains("SharedActInference.actStreamIfArmed("))
+        // Primary generator still keys off the shared decision (no divergence).
+        #expect(src.contains("shouldRouteActThroughOsaurus()"))
+    }
+
+    @Test("SharedActInference is the single act-injection entry both chokepoints delegate into")
+    func sharedActEntryContract() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/LocalAgent/SharedActInference.swift")
+        #expect(src.contains("func actStreamIfArmed("))
+        #expect(src.contains("shouldRouteActThroughOsaurus()"))   // the one decision
+        #expect(src.contains("ActOsaurusStreamingHandler.make()")) // the one act stream
+        #expect(src.contains("continuation.yield(token)"))         // forwards real tokens
     }
     #endif
 

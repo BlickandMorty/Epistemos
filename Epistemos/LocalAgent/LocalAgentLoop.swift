@@ -244,19 +244,27 @@ actor LocalAgentLoop {
         // (CoreModelService.generateStream), so the user-visible main-chat act path forwards tokens as
         // they decode (STREAM EVERYTHING), not single-shot.
         #if !EPISTEMOS_APP_STORE
-        let routeActOsaurus = shouldRouteActThroughOsaurus()
         let primaryGenerator: LocalAgentGenerationHandler =
-            routeActOsaurus
+            shouldRouteActThroughOsaurus()
             ? ActOsaurusGenerationHandler.make()
             : mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
-        let streamGenerator: LocalAgentStreamingGeneratorFactory =
-            routeActOsaurus
-            ? ActOsaurusStreamingHandler.make()
-            : mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
         #else
         let primaryGenerator = mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
-        let streamGenerator = mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
         #endif
+
+        // ONE INFERENCE CHOKEPOINT (owner §692): the streaming generator delegates its act-injection to the
+        // SINGLE shared entry `SharedActInference.actStreamIfArmed` — the SAME one TriageService uses, so the
+        // two chokepoints can't diverge. Armed → OsaurusCore stream; off (default) → the proven MLX stream,
+        // BYTE-IDENTICAL. (Gating lives inside the shared entry, incl. App-Store-build = always MLX.)
+        let mlxStream = mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
+        let streamGenerator: LocalAgentStreamingGeneratorFactory = { prompt, systemPrompt, maxTokens, reasoningMode, modelID in
+            if let actStream = SharedActInference.actStreamIfArmed(
+                prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens,
+                reasoningMode: reasoningMode, modelID: modelID) {
+                return actStream
+            }
+            return await mlxStream(prompt, systemPrompt, maxTokens, reasoningMode, modelID)
+        }
 
         return LocalAgentLoop(
             generator: primaryGenerator,
