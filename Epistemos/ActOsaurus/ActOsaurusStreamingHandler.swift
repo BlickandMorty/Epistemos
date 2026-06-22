@@ -12,15 +12,19 @@ enum ActOsaurusStreamingHandler {
     static func make(
         bridge: ActOsaurusBridge = ActOsaurusBridgeFactory.resolve()
     ) -> LocalAgentStreamingGeneratorFactory {
-        { prompt, systemPrompt, maxTokens, _, _ in
+        { prompt, systemPrompt, maxTokens, _, modelID in
             AsyncThrowingStream<String, Error> { continuation in
                 let task = Task {
                     do {
                         // Drives OsaurusCore's real token stream in-process; forwards each chunk.
+                        // P0-A (owner 2026-06-22): thread the act surface's SELECTED model through
+                        // so the owner's chosen model is generated (not just the configured core
+                        // model), routed via the model bridge. nil → bridge uses the core default.
                         let stream = try await bridge.runTurnStreamingInProcess(
                             prompt: prompt,
                             systemPrompt: systemPrompt,
-                            maxTokens: maxTokens
+                            maxTokens: maxTokens,
+                            requestedModel: modelID
                         )
                         for try await token in stream {
                             continuation.yield(token)

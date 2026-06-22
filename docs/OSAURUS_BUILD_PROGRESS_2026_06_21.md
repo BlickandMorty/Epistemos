@@ -890,6 +890,30 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
     has a valid model, routed back through the bridge to the owner's model. ONLY fills if unset (never overrides
     the owner's choice). Per-pick selection-sync (old ChatView picker → coreModelName) is a richer follow-up.
 
+### 🔴🔴 P0 — OPTION-(b) RUNTIME FAILURE (owner on the running app, 2026-06-22; addendum 1523)
+Owner: "I don't see Osaurus anymore and it's not working — it's like it regressed, I have my old chat." Build-
+green ≠ runtime-pass. Re-opened as P0. SHARPENED GOAL = MY UI + OSAURUS VISIBLE + WORKING (hybrid, fix-forward,
+don't revert). Two P0s:
+- **P0-A — act doesn't WORK (send fails).** SCHEME CHECK FIRST: on the App Store/MAS scheme
+  `shouldRouteActThroughOsaurus()` is FALSE by design → plain old chat, no Osaurus; the owner must run the
+  **Pro/direct (non-EPISTEMOS_APP_STORE) scheme**. On Pro: the act route engages (TriageService →
+  `SharedActInference.actStreamIfArmed` → `ActOsaurusStreamingHandler` → `ActOsaurusBridge.runTurnStreamingIn
+  Process` → `CoreModelService.generateStream`) but the send fails. **ROOT CAUSE FOUND:** the handler DROPPED
+  the act surface's selected `modelID` (`{ ..., _, _ in }`) and relied solely on `coreModelIdentifier`; my pivot
+  switched act from the working MLX path to this Osaurus path, so it fails when no core model is configured/loads.
+  - [x] **FIX-FORWARD (this build, pending owner/computer-use runtime verify):** thread the SELECTED model end-
+    to-end — `CoreModelService.generateStream(requestedModel:)` overrides `coreModelIdentifier`; `runTurnStreaming
+    InProcess(requestedModel:)` passes it; the handler now uses `modelID` instead of dropping it. So the act
+    generates the owner's CHOSEN model, routed via `ModelServiceRouter` (the model bridge handles the owner's
+    models). HONEST failure stays visible (`modelUnavailable: <modelID>`) — surfacing the exact id for diagnosis.
+  - [ ] **REMAINING:** broaden the bridge registration so the ChatView-selectable model ids are all handled (the
+    threaded model only routes if registered — today only the prepared generators are; if the selected id isn't a
+    generator it throws the visible `modelUnavailable`). REAL runtime verification REQUIRED (owner/computer-use).
+- [ ] **P0-B — Osaurus is INVISIBLE** (owner can't tell it's Osaurus; feels like the dead old chat). SURFACE
+  Osaurus in the act UI: a clear "act is Osaurus-powered" indicator (`CoreModelService.resolveStatus()` already
+  returns unset/unavailable/available + reason — doubles as the P0-A diagnostic) + bring Osaurus's distinctive
+  controls/buttons/landing INTO the old UI. The old-UI shell stays; Osaurus's capabilities show within it.
+
 ### 🧩 OWNER'S MODELS IN CHAT (auditor item 4, 2026-06-22) — real bridge, no stub
 The owner's GGUF/QAT "Epistemos Picks" must work in the Osaurus act chat. OsaurusCore has NO GGUF runtime + can't
 import the app; `ChatEngine(source:.chatUI)` is built at `ChatView.swift:349` with default `[FoundationModel
