@@ -1629,3 +1629,21 @@ are real runtime/UI issues — fix these specifically:
    no-model vs a generation hang.)
 The badge-confirms-route-on finding removes the build-ambiguity → the loop fixes the duplicate toggle +
 search→Osaurus-landing routing + the real send/generation failure. Runtime-verify (these are owner-visible).
+
+## 🎯 PINPOINTED — "ActOsaurusError error 2" = requestFailed (HTTP-server path), but act should be IN-PROCESS (owner screenshot 2026-06-22)
+HUGE diagnostic: the act send DID generate a real model reply ("…a Large Language Model developed by Google
+DeepMind…open weights" = the owner's Gemma working IN-PROCESS) — so routing + models + generation WORK. THEN it
+errored "Epistemos.ActOsaurusError error 2". ActOsaurusError enum order (ActOsaurusBridge.swift:64): 0
+serverNotEnabled / 1 transport / **2 requestFailed(status:)** / 3 emptyResponse. So error 2 = requestFailed =
+the OsaurusCore **HTTP loopback-server path** (lines 236-262, URLSession→:1337) returned a bad status.
+ROOT-CAUSE LEAD for the loop:
+- Option-(b) act runs IN-PROCESS (shouldRouteActThroughOsaurus → CoreModelService.generateStream / model bridge),
+  NOT the HTTP server. So act should NEVER hit the requestFailed (HTTP) path. Find WHY a requestFailed is thrown
+  after the in-process generation: is a SECONDARY call (title-gen? a non-streaming completion? a follow-up turn)
+  routing through the HTTP `runTurnStreaming`/`runTurn` (:1337) path instead of in-process? Route ALL act
+  generation (incl. title-gen / follow-ups) through the in-process path; do NOT use the HTTP server for act
+  (it's not enabled → requestFailed).
+- ALSO map the raw error: "ActOsaurusError error 2" must become a friendly/actionable message (errorDescription
+  for requestFailed); the ac8d3974e diagnosable mapping doesn't cover ActOsaurusError.requestFailed on this path.
+This is the precise P0-A runtime bug: in-process generation works; a stray HTTP-server requestFailed breaks the
+turn. Fix the path + the error message. (Plus the 2 UI bugs: delete duplicate toggle under greeting; click-search → Osaurus landing.)
