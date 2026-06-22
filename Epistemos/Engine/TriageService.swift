@@ -1066,7 +1066,6 @@ final class TriageService {
             "i'm not able to", "i am not able to",
             "i don't have the ability",
             "i'm unable to", "i am unable to",
-            "as an ai",
             "i can't assist", "i cannot assist",
             "i'm sorry, but i can't", "i'm sorry, but i cannot",
             "beyond my capabilities", "outside my capabilities",
@@ -1088,9 +1087,20 @@ final class TriageService {
             "outside my remit",
             "not within my capabilities",
             "i'm designed to",
-            "as an apple",
         ]
-        return patterns.contains { prefix.contains($0) }
+        if patterns.contains(where: { prefix.contains($0) }) { return true }
+
+        // "As an AI…" / "As an Apple…" are refusals ONLY when paired with a refusal verb in the same opening —
+        // a bare "As an AI assistant, I'd be happy to help…" is a HELPFUL response and must NOT be flagged
+        // (the old bare "as an ai"/"as an apple" patterns false-positived on it → wrong fallback/escalation).
+        if prefix.contains("as an ai") || prefix.contains("as an apple") {
+            let refusalVerbs = [
+                "can't", "cannot", "can not", "unable", "not able", "won't", "will not",
+                "i'm sorry", "i am sorry", "not going to", "shouldn't", "should not", "not permitted",
+            ]
+            if refusalVerbs.contains(where: { prefix.contains($0) }) { return true }
+        }
+        return false
     }
 
     /// Returns true if the response appears truncated or too short to be useful.

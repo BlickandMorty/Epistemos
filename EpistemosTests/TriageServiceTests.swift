@@ -79,6 +79,19 @@ struct TriageServiceTests {
         #expect(!TriageService.isRefusalResponse("Bayesian updating revises beliefs in proportion to evidence."))
     }
 
+    @Test("'As an AI' is a refusal ONLY with a refusal verb — a helpful 'As an AI' response is NOT flagged")
+    func asAnAiIsNotABareRefusal() {
+        // TRUE refusals (As an AI/Apple + a refusal verb) are still caught.
+        #expect(TriageService.isRefusalResponse("As an AI, I can't do that."))
+        #expect(TriageService.isRefusalResponse("As an AI language model, I'm sorry, but that's not possible."))
+        #expect(TriageService.isRefusalResponse("As an Apple Intelligence model, I am unable to help."))
+        // FALSE-POSITIVE FIX: a HELPFUL response opening with "As an AI…" must NOT be flagged as a refusal
+        // (the old bare "as an ai" pattern wrongly triggered fallback/escalation on these).
+        #expect(!TriageService.isRefusalResponse("As an AI assistant, I'd be happy to help! Here's how attention works: ..."))
+        #expect(!TriageService.isRefusalResponse("As an AI, I think the best approach is to start with the data."))
+        #expect(!TriageService.isRefusalResponse("Working as an AI engineer, you'll often tune hyperparameters."))
+    }
+
     @Test("truncation detection catches short and abrupt responses")
     func truncationDetection() {
         #expect(TriageService.isTruncatedResponse("Yes"))
