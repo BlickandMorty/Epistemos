@@ -96,8 +96,9 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     `graph.commit_session` — agents already traverse/query/build the graph. (Remaining: ensure it's
     populated FROM vault notes+links end-to-end.)
   - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink suite COMPLETE — `vault.backlinks`
-    (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved/
-    "create-or-fix") MCP tools over a shared `parse_wikilinks` (alias/heading-aware, basename-matched,
+    (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved) +
+    `vault.note_links` (`80a376b5d`, full per-note context in one call) MCP tools over a shared `parse_wikilinks`
+    (alias/heading-aware, basename-matched,
     traversal-safe), CATALOG-REGISTERED (`d481f38ee`, discoverable), 180/180 omega-mcp tests. Agents have the
     full link graph + unresolved-link health. SEMANTIC layer GROUNDED 2026-06-21: the REAL brain-semantic index
     (`epistemos-shadow` BM25+HNSW+RRF) is wired SWIFT-SIDE (`ShadowSearchService`/`RustShadowFFIClient`);
