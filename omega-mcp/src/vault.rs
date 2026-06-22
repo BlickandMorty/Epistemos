@@ -137,6 +137,62 @@ impl VaultExecutor {
         out
     }
 
+    /// VAULT-DEEP-INTEGRATION §720 (#3 wikilinks/backlinks): the vault notes that `[[link]]` to
+    /// `target` — the mechanical backlink layer the LLM-augmented wiki / semantic backlinks build on.
+    /// `target` may be a note name or vault-relative path (with/without `.md`); matching is by basename
+    /// (case-insensitive), honoring `[[target]]`, `[[target|alias]]`, and `[[target#heading]]`.
+    pub fn backlinks(&self, target: &str) -> ToolResult {
+        let start = Instant::now();
+        let needle = Self::note_basename(target);
+        let mut linkers: Vec<String> = Vec::new();
+        for rel in self.list_markdown_notes() {
+            let full = self.root.join(&rel);
+            if let Ok(content) = fs::read_to_string(&full) {
+                if Self::content_links_to(&content, &needle) {
+                    linkers.push(rel);
+                }
+            }
+        }
+        linkers.sort();
+        linkers.dedup();
+        let json = serde_json::json!({ "target": target, "backlinks": linkers });
+        ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
+    }
+
+    /// Lowercased basename without `.md` so `notes/Foo.md`, `Foo`, and `foo` all normalize equal.
+    fn note_basename(s: &str) -> String {
+        let no_ext = s
+            .strip_suffix(".md")
+            .or_else(|| s.strip_suffix(".MD"))
+            .unwrap_or(s);
+        no_ext
+            .rsplit('/')
+            .next()
+            .unwrap_or(no_ext)
+            .to_ascii_lowercase()
+    }
+
+    /// True when `content` has a `[[...]]` whose link target's basename equals `needle`.
+    fn content_links_to(content: &str, needle: &str) -> bool {
+        let mut rest = content;
+        while let Some(open) = rest.find("[[") {
+            let after = &rest[open + 2..];
+            if let Some(close) = after.find("]]") {
+                let inner = &after[..close];
+                // strip alias (after `|`) + heading anchor (after `#`)
+                let link = inner.split('|').next().unwrap_or(inner);
+                let link = link.split('#').next().unwrap_or(link).trim();
+                if !link.is_empty() && Self::note_basename(link) == needle {
+                    return true;
+                }
+                rest = &after[close + 2..];
+            } else {
+                break;
+            }
+        }
+        false
+    }
+
     /// Write content to a file in the vault.
     pub fn write_file(&self, path: &str, content: &str) -> ToolResult {
         let start = Instant::now();
@@ -381,6 +437,11 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
             let limit = args["limit"].as_u64().unwrap_or(10) as usize;
             executor.search_notes(query, limit)
         }
+        "vault.backlinks" | "backlinks" | "vault_backlinks" => {
+            // VAULT-DEEP-INTEGRATION §720 (#3): notes that [[link]] to the target note.
+            let target = args["target"].as_str().or_else(|| args["path"].as_str()).unwrap_or("");
+            executor.backlinks(target)
+        }
         _ => ToolResult::err(
             format!("Unknown vault tool: {tool_name}"),
             crate::types::error_codes::NOT_FOUND,
@@ -603,5 +664,43 @@ mod tests {
         let result: ToolResult = serde_json::from_str(&raw).unwrap();
         assert!(result.success, "{raw}");
         serde_json::from_str(&result.data_json).unwrap()
+    }
+
+    #[test]
+    fn test_vault_backlinks_resolves_wikilinks() {
+        // VAULT-DEEP-INTEGRATION §720 (#3): notes that [[link]] to a target note.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("notes")).unwrap();
+        // Three linkers (plain, alias, path+heading) + one non-linker.
+        std::fs::write(root.join("a.md"), "see [[Target]] for more").unwrap();
+        std::fs::write(root.join("b.md"), "ref [[target|the goal]] here").unwrap();
+        std::fs::write(root.join("notes/c.md"), "deep [[Target#section]] link").unwrap();
+        std::fs::write(root.join("d.md"), "no links at all").unwrap();
+        std::fs::write(root.join("Target.md"), "I am the target").unwrap();
+
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+        let result = exec.backlinks("Target");
+        assert!(result.success, "{:?}", result.error);
+        let v: serde_json::Value = serde_json::from_str(&result.data_json).unwrap();
+        let links: Vec<String> = v["backlinks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect();
+        // a (plain), b (alias), notes/c (path+heading) link to Target; d does not.
+        assert!(links.contains(&"a.md".to_string()), "{links:?}");
+        assert!(links.contains(&"b.md".to_string()), "{links:?}");
+        assert!(links.contains(&"notes/c.md".to_string()), "{links:?}");
+        assert!(!links.contains(&"d.md".to_string()), "{links:?}");
+
+        // Via the MCP tool dispatch (vault.backlinks) too.
+        let raw = execute_vault_tool(
+            root.to_str().unwrap().to_string(),
+            "vault.backlinks".to_string(),
+            r#"{"target":"Target"}"#.to_string(),
+        );
+        assert!(raw.contains("a.md") && raw.contains("notes/c.md"), "{raw}");
     }
 }
