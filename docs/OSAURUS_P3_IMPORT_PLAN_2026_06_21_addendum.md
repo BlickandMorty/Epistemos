@@ -1560,3 +1560,21 @@ bridge wired). Nothing is lost (full git history). So FIX the 2 gaps: P0-A make 
 scheme), P0-B SURFACE Osaurus (landing/buttons/features in the UI). Only revert to a known-good commit if
 fix-forward proves infeasible — it should not, these are bounded fixes. KEEP option-(b) direction; ADD the
 visible-Osaurus requirement. Re-verify on the running app (owner-witness/computer-use) — build-green is not enough.
+
+## 🔴🔴 ESCALATION (auditor, 2026-06-22) — DO P0-A/P0-B NOW, they are BUILDABLE (2nd pass of avoidance)
+The loop did the act↔work toggle (818654aa4, a follow-up) but NOT the owner-blocking P0-A/P0-B. These are
+buildable WITHOUT the running app — do them BEFORE any more polish/toggles:
+1. **VISIBLE "act on Osaurus" engine indicator (P0-B + diagnostic):** the act UI shows which engine is LIVE
+   (Osaurus / MLX / Apple). Grep confirms NONE exists today → that's why the owner "can't see Osaurus." This
+   doubles as the diagnostic: if no indicator/Osaurus, the owner is on the wrong build or the route is off.
+2. **VISIBLE error surfacing in the act send path (P0-A):** when the Osaurus route fails (modelUnavailable /
+   no prepared model / register no-op / CoreModelService throws), show the REAL error in the UI — NOT silent
+   dead air. "Not working" must become a diagnosable on-screen message. (No silent break, no silent fallback.)
+3. **Make the register actually yield a usable model (P0-A):** EpistemosOsaurusModelProvider.register IS called
+   (AppBootstrap:3147) but only with PREPARED models + the coreModel default (fd21ae463). Handle/log the
+   no-prepared-model case so act has a working model; ensure the default fires. Confirm Pro scheme has Osaurus on.
+4. **Surface Osaurus's landing/buttons/features (P0-B):** bring Osaurus's distinctive UI INTO the old UI (owner:
+   "all its landing page, buttons, etc.") so it's visibly Osaurus.
+These are CODE-level (buildable + build-verifiable now); the only thing needing the running app is the FINAL
+live send confirmation. The loop must BUILD these next, not more toggles/docs. Act is NOT done until the owner
+can SEND in act + SEE it's Osaurus.
