@@ -36,29 +36,32 @@ beyond future clones (Talaria, Epdoc-fuse, Tamagotchi render-fix).
 - **SUPERSEDES option-(b)** old Epistemos `ChatView`. Do NOT mount `Epistemos/Views/Chat/ChatView.swift` for act.
 - **Landing = Epistemos `LandingView` FIRST** (D2/0.3) → blur → act. NOT Osaurus default "Good morning" landing.
 
-## NON-NEGOTIABLES — every iteration (18)
+## NON-NEGOTIABLES — every iteration (21)
 1. **FULL-PLAN-NO-ACT-TUNNEL** — attempt 0.1→0.32 then TIER 1→5; do NOT stop after act/D1–D5 or build-green
-2. **Compile** — no red on main (`cargo test --lib` fast; `xcodebuild` at checkpoints)
-3. **Send REAL text (0.23)** — live act inference; assert non-empty reply; owner's model; no HTTP requestFailed; no silent Codex/Qwen. **Build harness if missing.** Log prompt + ~80 chars.
-4. **Screencapture** — build → open → `screencapture -x /tmp/epi_<surface>.png` → **Read PNG**. **One PNG per surface** (main act, mini, graph, note, work landing, each settings tab). Owner is NOT checking.
-5. **5-gate bar** per item: (a) exists file:line · (b) on-plan · (c) wired · (d) real-state tested · (e) runtime proven. Append to `docs/research/STRICT_RECERT_LOG_2026_06_22.md`.
-6. **D1–D5 gate (0.8):** do NOT mark 0.1–0.7 `[x]` until matching D screencapture passes. **4.7 gated on D5.**
-7. **D4/settings is TIER-0** — per-clone matrix 0.21 (Epistemos|act|work|beyond); do not defer to 4.1.
-8. **Provider wiring (0.11):** owner's models selectable AND used on send; Configuration opens real settings; no silent Codex/Qwen.
-9. **Health-row honesty (0.14):** `wiredToday`/`stillStub` match REAL code after every change.
-10. **Title-gen (0.16 extends 0.9):** parse `<think>`; CLASSIFY shared-vs-chat-only; CLEAN short titles.
-11. **Discovery sweep** — grep chat/inference consumers; add missed surfaces to queue.
-12. **Reverse addendum audit (0.31)** — grep addendum 🔒/DEFINITIVE/P0/MUST/BUILD-IT-HARDENED/PER-CLONE/WORK/BEYOND/ALL CHAT SURFACES/ESCALATION; index or add queue row same iteration.
-13. **Full-plan witness (0.32, HARD GATE)** — append mandatory block to STRICT_RECERT_LOG: **highest attempted item ID**
-    (e.g. `2.3`) · per-tier counts · TIER 1+ attempted YES/NO · act-only tunnel DENIED. **INCOMPLETE** if highest
-    attempted is before **1.1** unless all T0 are honest `[~]` AND you still attempted TIER 1+ same iteration.
-    **FORBIDDEN** end-claims: "act certified = done", "D1–D5 = done", "stop at TIER 0", "build-green = tier done",
-    "defer TIER 1+ to next iteration", "act blocking so skipping work/substrate".
-14. **Certify AND fix** in same walk — broken → fix to full plan spec → re-prove → `[x]`.
-15. **Narrow `[~]` bar** — ONLY if screencapture AND send-text BOTH fail (state why). Never `[x]` on build-green.
-16. **P0 owner reports** → addendum + queue + prompt same iteration, then fix first.
-17. **Act certified ≠ loop done** — continue into TIER 1+ same iteration when TIER 0 certified or honestly blocked.
-18. **FAVOR OSAURUS on clash** · **owner messages → plan+queue** · **NEVER-IDLE** · **FULL-CLONE PROCESS** for every adopted engine · **main-only** · Co-Authored-By Claude.
+2. **STEP-0 RESET** — revert any queue `[x]`/`[~]`→`[ ]` before walk; STRICT_RECERT_LOG = sole cert record
+3. **Compile** — no red on main (`cargo test --lib` fast; `xcodebuild` at checkpoints)
+4. **Send REAL text (0.23)** — live act inference; assert non-empty reply; owner's model; no HTTP requestFailed; no silent Codex/Qwen. **Build harness if missing.** Log prompt + ~80 chars.
+5. **Screencapture** — build → open → `screencapture -x /tmp/epi_<surface>.png` → **Read PNG**. **One PNG per surface** (main act, mini, graph, note, work landing, each settings tab). Owner is NOT checking.
+6. **5-gate bar** per item: (a) exists file:line · (b) on-plan · (c) wired · (d) real-state tested · (e) runtime proven. Append to `docs/research/STRICT_RECERT_LOG_2026_06_22.md`.
+7. **D1–D5 gate (0.8):** do NOT mark 0.1–0.7 `[x]` until matching D screencapture passes. **4.7 gated on D5.**
+8. **D4/settings is TIER-0** — per-clone matrix 0.21 (Epistemos|act|work|beyond); do not defer to 4.1.
+9. **Provider wiring (0.11):** owner's models selectable AND used on send; Configuration opens real settings; no silent Codex/Qwen.
+10. **Health-row honesty (0.14):** `wiredToday`/`stillStub` match REAL code after every change.
+11. **Title-gen (0.16 extends 0.9):** parse `<think>`; CLASSIFY shared-vs-chat-only; CLEAN short titles.
+12. **Discovery sweep** — grep chat/inference consumers; add missed surfaces to queue.
+13. **Reverse addendum audit (0.31)** — grep addendum 🔒/DEFINITIVE/P0/MUST/BUILD-IT-HARDENED/PER-CLONE/WORK/BEYOND/ALL CHAT SURFACES/ESCALATION/🆕/🌟/RESEARCH; index or add queue row; paste hit count to log.
+14. **Full-plan witness (0.32, HARD GATE)** — append mandatory block to STRICT_RECERT_LOG: **highest attempted item ID**
+    (e.g. `2.3`) · per-tier counts · TIER 1+ attempted YES/NO · act-only tunnel DENIED. **TIER ADVANCE FLOOR:** every
+    3 iterations highest attempted ≥1.1 OR stall report. **INCOMPLETE** if highest attempted is before **1.1** unless all
+    T0 are honest `[~]` AND you still attempted TIER 1+ same iteration.
+15. **Certify AND fix** in same walk — broken → fix to full plan spec → re-prove → `[x]`.
+16. **Narrow `[~]` bar + CAP** — ONLY if screencapture AND send-text BOTH fail; **≤2 `[~]`/phase** (3rd halts owner);
+    log exact failing cmd+output. Never `[x]` on build-green.
+17. **Act fixes IN PARALLEL** — T1+ attempt NOT blocked waiting for full T0 `[x]`; act P0 does not cancel lower tiers.
+18. **P0 owner reports** → addendum + queue + prompt same iteration, then fix first.
+19. **Act certified ≠ loop done** — continue into TIER 1+ same iteration when TIER 0 certified or honestly blocked.
+20. **FAVOR OSAURUS on clash** · **owner messages → plan+queue** · **NEVER-IDLE** · **FULL-CLONE PROCESS** for every adopted engine · **main-only** · Co-Authored-By Claude.
+21. **Re-capture baseline PNG each iteration** — do not trust stale `osa_runtime_2026_06_22.png` without Read this loop.
 
 ## TIER WALK — strict numeric order, NO EARLY EXIT (all tiers NON-OPTIONAL each iteration)
 
@@ -71,7 +74,7 @@ iteration before ending.
 3. **TIER 2:** 2.1 → 2.8 (substrate, salvage, BUILD-IT-HARDENED)
 4. **TIER 3:** 3.1 → 3.2 (TRINITY, Fugu)
 5. **TIER 4:** 4.1 → 4.16 (settings, pillars, beyond, graph integration)
-6. **TIER 5:** 5.1 → 5.3 (distribution, MAS split)
+6. **TIER 5:** 5.1 → 5.4 (distribution, MAS split, MAS sandbox substitute research)
 
 ## TIER 0 WALK (0.1 → 0.32)
 | Item | Summary |
@@ -139,7 +142,7 @@ iteration before ending.
 | 4.3 | VAULT-DEEP-INTEGRATION pillar |
 | 4.4 | EPDOC MD-V2 |
 | 4.5 | Tamagotchi agent-creation render fix |
-| 4.6 | MOTION LANGUAGE triad + mode-entry animations |
+| 4.6 | MOTION LANGUAGE triad + mode-entry + ASCII/time-machine ontology |
 | 4.7 | UI chrome: picker/palette/38-tool panel (D5-gated) |
 | 4.8 | Talaria + clones; MAS non-restrictive |
 | 4.9 | ACT wiring: skills+MCP+tools; Keychain |
@@ -151,12 +154,13 @@ iteration before ending.
 | 4.15 | Multi-clone settings polish + data carry-over per clone |
 | 4.16 | Graph-deep-integration pillar |
 
-## TIER 5 WALK (5.1 → 5.3) — NON-OPTIONAL
+## TIER 5 WALK (5.1 → 5.4) — NON-OPTIONAL
 | Item | Summary |
 |------|---------|
 | 5.1 | Dual-build MAS+Pro |
 | 5.2 | Deep-optimization cycles (standing) |
 | 5.3 | MAS-safe OsaurusCore split (Pro full; MAS without VM/Sparkle) |
+| 5.4 | MAS VM sandbox substitute research (WASM/cloud vs omit; honest MAS verdict) |
 
 ## D1–D5 (must all pass YOUR screencapture before act is done)
 - **D1** Curved window + soft shadow · **D2** Owner landing FIRST · **D3** Pill back · **D4** Settings work (all clone tabs) · **D5** Full reskin + picker/palette/38-tool panel

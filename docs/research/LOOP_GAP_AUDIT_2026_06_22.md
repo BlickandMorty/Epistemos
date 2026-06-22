@@ -266,3 +266,71 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
 | MAS VM sandbox substitute research | Standing-only (research, not separate queue row) |
 | Northstar PNGs | Optional visual refs |
+
+## Iteration 7 — 2026-06-22 (pass49 audit + reverse-audit addendum)
+
+### Pass49 doc fixes applied
+| Finding | Fix |
+|---------|-----|
+| P0-1 RESET not enforced | **STEP-0 RESET** in queue RULES + STANDING; step 0 in strict prompt; paste non-negotiable #2 |
+| P0-2 Infinite TIER-0 dwell | **TIER ADVANCE FLOOR** every 3 iters highest attempted ≥1.1 or stall report; act IN PARALLEL with T1+ |
+| P0-3 Uncapped `[~]` escape | **`[~]` CAP ≤2/phase**; 3rd halts owner; exact cmd+output required in log |
+| P1 →plan anchor drift | Fixed FUGU → `"🌟 FUGU = FOUNDATIONAL FEATURE"`; Epistemos Picks → quoted heading |
+| P2 MAS sandbox substitute unindexed | Added queue **5.4** |
+| P2 APP-WIDE ANIMATION evaded narrow grep | Expanded **4.6** + indexed §315/§292 explicitly |
+| P2 0.31 grep too narrow | Extended to **🆕/🌟/RESEARCH** + paste hit count to log |
+
+### Reverse addendum audit (iteration 7 — sample hits)
+| Addendum section | Queue index |
+|------------------|-------------|
+| APP-WIDE ANIMATION INITIATIVE (§315) | **4.6** (expanded this iter) ✓ |
+| MODE-ENTRY TRANSITION ANIMATIONS (§292) | **4.6** ✓ |
+| MAS VM sandbox substitute research (§402) | **5.4** (new this iter) ✓ |
+| MOTION LANGUAGE = TRIAD (§333) | **4.6** ✓ |
+| NORTH STAR / PRODUCT VISION (§343) | **4.3/4.13/4.12** pillar bundle ✓ |
+| GRAND UNIFICATION SWEEP (§1187) | **2.3** GUS salvage ✓ |
+| HOLISTIC UNIFICATION MAP (§1109) | **2.4** unification ✓ |
+| CRYSTALLIZED TWO-MODE ARCHITECTURE (§117) | **0.17/0.20/1.2** ✓ |
+| GOOSE FULL-VENDOR COST (§574) | **1.3** ✓ |
+| ENGINES DONE → VISIBLE SURFACES (§809) | **0.1, 0.28, 1.2, 4.6** ✓ |
+| trinity_coordinator reference (§1011) | **3.1** + STANDING pattern ref ✓ |
+| MULTI-LoRA routing repos (§1002) | STANDING pattern ref for **3.1** ✓ |
+| SUBSTRATE + IP CERTAIN (§213) | **2.1** ✓ |
+| OPENCODE = FULL CLONE WORK SHELL (§101) | **1.1–1.8** ✓ |
+
+### PASTE_READY vs queue cross-check (iteration 7)
+| Check | Status |
+|-------|--------|
+| Non-negotiables include STEP-0, `[~]` cap, TIER advance floor, parallel act | PASS |
+| 21 non-negotiables (was 18) | PASS |
+| TIER 5 walk 5.1→5.4 matches queue | PASS |
+| 0.31 grep tokens match queue/strict | PASS |
+| Clone matrix + tier tables complete | PASS |
+
+### Pre-launch checklist (iteration 7)
+| Check | Status |
+|-------|--------|
+| Queue 0.1→0.32 numeric order | PASS |
+| Queue 5.1→5.4 numeric order | PASS |
+| STEP-0 RESET in queue + strict + paste | PASS |
+| `[~]` CAP ≤2 in queue + strict + paste | PASS |
+| TIER ADVANCE FLOOR in queue + strict + paste | PASS |
+| MAS sandbox substitute indexed (5.4) | PASS |
+| APP-WIDE ANIMATION indexed (4.6) | PASS |
+| 0.31 grep 🆕/🌟/RESEARCH | PASS |
+| PASTE_READY synced with queue | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures) |
+| Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED) |
+
+### Still open (not doc-fixable this iteration — pass49 P0-4/P0-5/P0-6)
+| Gap | Action |
+|-----|--------|
+| P0-4 Substrate/orchestrator runtime rubric weak | Needs W1–W5, B1–B3, S-gate acceptance specs (future iter) |
+| P0-5 Phase COMPLETE without app launch | Add completion preconditions when recert phase ends |
+| P0-6 Work/beyond/substrate cheap to `[x]` | W/B/S acceptance gates — product spec work |
+| All queue items uncertified | Build agent walks full plan with 5-gate bar |
+| `osa_runtime_2026_06_22.png` | Agent re-captures each iteration (paste #21) |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| Northstar PNGs | Optional visual refs |
+| STRICT_RECERT_LOG gap-fill vs cert line separation | P1 — separate headers when first real cert lands |
+| Post-recert forward scope undefined | P1 — define when STRICT RE-CERT COMPLETE triggers forward-only mode |
