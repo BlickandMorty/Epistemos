@@ -1668,3 +1668,17 @@ Owner chose option 1 + clarified. THE TARGET (locked — stop oscillating):
   using the real Osaurus UI), duplicate toggle, click-search→Osaurus-landing.
 RESKIN target = Osaurus UI (loads/works/Osaurus) made to look like Epistemos + the 3 grafted elements. This is
 the THIRD and final act-UI call; build to it, runtime-verify (owner-witness). Don't revert to mounting old ChatView.
+
+## 🎯 CONFIRMED reproduction + TITLE bug (owner screenshots 2026-06-22)
+Owner sent "test" → ActOsaurusError error 2 (requestFailed) AGAIN → the requestFailed/HTTP-path bug REPRODUCES
+on every send (confirms the pinpoint). Model picker shows 14 models (Gemma 2B selected) → NOT a no-model issue;
+it's specifically the HTTP requestFailed on send. ADDITIONAL BUG:
+- **TITLE-GEN ARTIFACT:** the conversation title shows "4, a Large Language Model developed by Google DeepMind.
+  I am an open weights model" — the model answered a TITLE-generation prompt with a self-description, surfaced
+  raw as the chat title (cousin of the old <think> title leak). Title-gen must produce a CLEAN short title
+  (strip/parse, don't dump the model's self-description). Likely the title-gen path ALSO routes through the
+  failing/HTTP Osaurus path or mishandles the response.
+So the act send path has TWO coupled failures: (1) the turn errors with requestFailed (HTTP path; should be
+in-process), (2) title-gen produces a garbage title. Both point at the act generation routing through the wrong
+(HTTP/:1337) path instead of in-process CoreModelService. FIX: route act turn + title-gen IN-PROCESS; clean the
+title. (Direction = Osaurus UI reskinned + 3 grafts, locked prior section.) Models + picker confirmed working.

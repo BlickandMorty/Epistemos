@@ -387,3 +387,11 @@ OWN UI (real, loads, visibly Osaurus), RESKINNED to Epistemos look, + GRAFT 3 be
 the act SURFACE from old-ChatView → Osaurus-UI-reskinned+grafts. Supersedes option (b). AUDIT-WATCH: loop must
 stop mounting old ChatView for act; build Osaurus UI reskinned + the 3 grafts; fix send (requestFailed)/toggle/
 search bugs on it; runtime-verify.
+
+## Pass 26d (owner screenshots — confirm + title bug) — 2026-06-22
+- "test" send → ActOsaurusError error 2 (requestFailed) REPRODUCES every send (confirms HTTP-path pinpoint).
+  Picker shows 14 models (Gemma 2B ✓) → NOT no-model; specifically the HTTP requestFailed on send.
+- NEW: TITLE-GEN ARTIFACT — title = "4, a Large Language Model…Google DeepMind…open weights" (model's
+  self-description dumped as title; cousin of old <think>-title leak). Must produce clean short title.
+- Both bugs → act generation routing through HTTP/:1337 instead of in-process CoreModelService. FIX: route
+  turn + title-gen in-process + clean title. Direction locked (Osaurus UI reskinned + grafts).
