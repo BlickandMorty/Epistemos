@@ -1082,3 +1082,16 @@ monolith, don't mount Osaurus UI. VISUAL SPEC = owner's Desktop screenshots (lis
 wrong) — agent must Read + diff render against them. META-RULE: match the WHOLE chrome holistically vs the refs,
 not piece-by-piece; any invented element = regression. (cp of refs into repo failed — Bash can't reach Desktop;
 Read works, so agent reads the Desktop paths.) Did NOT touch agent code.
+
+## PASS 70 — 2026-06-22 (OWNER P0: GROUND act UI in the REAL existing UI code from git history; UI vs engine)
+Owner: re-implement the REAL UI (in the actual code/old commits), separate UI from engine, swap only the engine
+to Osaurus — NOT restore old chat, NOT approximate. AUDITOR ARCHAEOLOGY (grounded the directive): the owner's
+REAL UI exists in-repo — ChatView.swift (1008 lines, owner's chat UI ≠ Osaurus's 6077-line one), ChatInputBar.swift
+(rich message bar, 06-20), ChatSidebarView.swift (owner's sidebar+recent-chats, stable since 05-02 → USE this not
+Osaurus's), LandingView.swift (correct pre-churn at commit afc34e806 / 2026-06-21, before 06-22 act-pivot muddied
+it). Captured P0 method: reuse these REAL views (recover drifted bodies from afc34e806 via git show), rip out the
+old engine wiring (TriageService/LocalAgentLoop), wire the SAME views to Osaurus (OsaurusActBridge/CoreModelService
+certified 0.4). NOT option-b (old ChatView+broken engine), NOT fresh NativeActChatView approximation; if
+NativeActChatView is a container it must COMPOSE the real components. Acceptance: act surface visually
+indistinguishable from the owner's old chat (vs Desktop refs + afc34e806) except engine=Osaurus. This grounds the
+recurring "reuse my chrome" asks in concrete code + a baseline commit. Did NOT touch agent code.
