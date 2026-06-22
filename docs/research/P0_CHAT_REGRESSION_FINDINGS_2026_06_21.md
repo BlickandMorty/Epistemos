@@ -52,3 +52,15 @@ path/model is failing.
 ## Done this pass
 - (B) shared `<think>`-leak fix + regression test — committed `c9184b4e6`, 43/43.
 - (A) classified + narrowed to the runtime GGUF-generation bisect (f884eb0b7); act-injection cleared.
+
+## 2026-06-22 — re-audit + load-time chat-template DIAGNOSTIC (the automatic runtime check)
+- RE-CONFIRMED (A) is NOT app-injected: the refusal string exists ONLY in `TriageService.isRefusalResponse`
+  (the detector, :1070-71) — nothing in Swift OR Rust PRODUCES it. So it is the model's genuine output → a
+  malformed/un-chat-templated prompt is the prime cause.
+- The chat-template application is RUNTIME (MLX: vmlx tokenizer loader; GGUF: llama.cpp from the GGUF metadata),
+  so the definitive which-model confirmation needs a loaded model — but the CHECK is now AUTOMATIC:
+- **`ChatTemplateDiagnostic` (`67e82080f`):** at MLX load, reads `<modelDir>/tokenizer_config.json` + LOGS LOUD
+  (`log.error`) when no chat_template is present — the prime refusal suspect, pinned at load with no manual
+  prompt logging. Pure detection (string + array shapes), 4 real-state tests. → When the owner runs the app,
+  the log immediately answers "does the refusing model have a chat_template?" — turning the remaining runtime
+  step into a one-glance diagnosis.
