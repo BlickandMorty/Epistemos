@@ -45,7 +45,7 @@ nonisolated enum WorkspaceModeSelection {
 /// the landing-flow placement + final styling are the owner-reviewed visual follow-on.
 struct WorkspaceModePicker: View {
     @Binding var mode: WorkspaceModeKind
-    var onSelect: ((WorkspaceModeKind) -> Void)?
+    var onSelect: ((WorkspaceModeKind) -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 2) {
