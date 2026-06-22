@@ -759,3 +759,20 @@ This is the repeatable method for Osaurus (done), OpenCode (Arch C), and any FUT
   (vault-as-MCP / agent-native vault) and build it natively = the VAULT-DEEP-INTEGRATION pillar; "couple to
   Epdoc" = agents on the MD-V2/Epdoc + Prose surfaces natively. Overtake Tolaria WITH your editors, not its.
 The ADOPT-vs-IP-LAYER map decides which bucket each thing is in.
+
+## 🔁 NEVER-IDLE — TAKE ON THE HEAVY WORK, DON'T HOLD (owner 2026-06-21)
+The loop must NOT stop/hold at a "clean-green limit." **"Heavy / multi-iteration" is NOT a reason to defer —
+it's a reason to do it INCREMENTALLY across loop turns** (build a slice → green → commit → next slice). Take
+on the heavy integration backlog NOW, iteratively:
+- Epdoc/MD-V2 inversion (md = source, projections); agent-edit PROVENANCE; **vault→GRAPH population**;
+  **LLM-wiki UI surfacing**; **ONE-CHOKEPOINT phase 2** (consolidate liveLoop+TriageService, additively/safely);
+  the motion sweep onto more titles/display-only; per-clone settings "beyond" tabs; act streaming.
+- A clean savepoint before risky edits is fine; building a slice over several iterations is fine. **Avoiding
+  the heavy items is NOT.** Make real progress every iteration; never idle, never "hold for owner" on
+  non-gated work.
+- **ONLY genuine EXTERNAL blockers may wait:** (a) OpenCode runtime vendor needs `brew install bun` (owner can
+  run it; until then, build everything else); (b) the cited ADOPT deep pass needs API recovery (a research
+  nicety, NOT a build blocker — skip + keep building). If one item is truly blocked, WORK A DIFFERENT
+  NON-BLOCKED ITEM — there is a large backlog; never run out.
+- Standing: never commit RED to main (iterate to green first), never fake-done, never delete chat. But within
+  that, KEEP CODING the substantive backlog — bias to progress on the hard items, not waiting.
