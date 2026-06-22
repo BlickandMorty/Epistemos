@@ -226,6 +226,34 @@ impl VaultExecutor {
         }
     }
 
+    /// VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): unresolved/DANGLING wikilinks — `[[targets]]` that
+    /// have no matching note in the vault (Obsidian's "unresolved links"). The wiki / LLM can act on
+    /// these (suggest creating the note, or fix a typo). Returns each dangling target + the notes that
+    /// reference it, sorted deterministically.
+    pub fn dangling_links(&self) -> ToolResult {
+        use std::collections::{BTreeMap, HashSet};
+        let start = Instant::now();
+        let notes = self.list_markdown_notes();
+        let existing: HashSet<String> = notes.iter().map(|n| Self::note_basename(n)).collect();
+        let mut dangling: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for rel in &notes {
+            let full = self.root.join(rel);
+            if let Ok(content) = fs::read_to_string(&full) {
+                for link in Self::parse_wikilinks(&content) {
+                    if !existing.contains(&Self::note_basename(&link)) {
+                        dangling.entry(link).or_default().push(rel.clone());
+                    }
+                }
+            }
+        }
+        let items: Vec<serde_json::Value> = dangling
+            .into_iter()
+            .map(|(target, refs)| serde_json::json!({ "target": target, "referenced_by": refs }))
+            .collect();
+        let json = serde_json::json!({ "dangling": items });
+        ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
+    }
+
     /// Write content to a file in the vault.
     pub fn write_file(&self, path: &str, content: &str) -> ToolResult {
         let start = Instant::now();
@@ -479,6 +507,10 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
             // VAULT-DEEP-INTEGRATION §720 (#3): the [[wikilinks]] a note links TO (dual of backlinks).
             let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
             executor.outlinks(path)
+        }
+        "vault.dangling_links" | "dangling_links" | "unresolved_links" => {
+            // VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): [[links]] pointing at non-existent notes.
+            executor.dangling_links()
         }
         _ => ToolResult::err(
             format!("Unknown vault tool: {tool_name}"),
@@ -769,5 +801,25 @@ mod tests {
         // Traversal-safe via resolve(): an escape attempt errors.
         let escape = exec.outlinks("../../etc/passwd");
         assert!(!escape.success, "traversal must error");
+    }
+
+    #[test]
+    fn test_vault_dangling_links_finds_unresolved() {
+        // VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): [[links]] to non-existent notes.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        // hub links to Real (exists) and Ghost (does not).
+        std::fs::write(root.join("hub.md"), "see [[Real]] and [[Ghost]]").unwrap();
+        std::fs::write(root.join("Real.md"), "I exist").unwrap();
+
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+        let result = exec.dangling_links();
+        assert!(result.success);
+        let v: serde_json::Value = serde_json::from_str(&result.data_json).unwrap();
+        let dangling = v["dangling"].as_array().unwrap();
+        // Only Ghost is dangling (Real resolves).
+        assert_eq!(dangling.len(), 1, "{dangling:?}");
+        assert_eq!(dangling[0]["target"], "Ghost");
+        assert_eq!(dangling[0]["referenced_by"][0], "hub.md");
     }
 }
