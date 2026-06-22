@@ -1193,3 +1193,30 @@ a GROWING doc (docs/research/GRAND_UNIFICATION_SWEEP_2026_06_22.md); next cycle 
 keep going until a cycle surfaces nothing new (convergence). Each cycle: cite paths, verified-vs-inferred, no
 fabrication. This is the definitive "where did ALL my IP land + what gets unified" map. Runs as a self-paced
 loop until exhausted; findings continuously folded into the plan.
+
+## ✅ HELIOS-ERA IP — FOUND, nothing lost; salvage list (owner 2026-06-22; full=HELIOS_ERA_IP_ARCHAEOLOGY)
+GOOD NEWS (all verified on disk): the Helios/substrate IP is NOT gone — it split into 3 buckets: (a) PROMOTED-
+LIVE into agent_core/, (b) PRESERVED in the gated epistemos-research/ crate by design, (c) canon docs in
+docs/fusion/. Key live pieces: **scope_rex LIVE** (agent_core/src/scope_rex/ — AnswerPacket/Residency/Semantic-
+BTM/Active-Support-Atlas/witnessed_state/admission_proof, FFI-bridged); **SCOPE-Rex resonance gate LIVE** (all
+7 facets τπλ/δρ/κη + Swift ResonanceService + FFI); substrate LIVE (wbo6 master inequality, uas/ACS, ShmPool L0,
+InterruptScoreCpu). Deeper doctrine (theorems, L1-L4 tiers, planes, CMS-X, M2-Max kernels) preserved behind
+`--features research` with drift-gates. No code deleted; Helios docs reclassified legacy/witness; recoverable
+via `git log --all | grep helios`.
+SUPERSEDED/RETIRED (not drifted-lost): 70B abandoned at helios v2 (pivot to residual-first small/mid MLX
+models — the owner's hard-exclusion just finalizes a decision research already made); "dual-brain" = 3 meanings:
+70B-pair (EXCLUDED), GPU/ANE DualBrainRouter (ORPHANED/RETIRED, AppBootstrap:2291 — do NOT resurrect, fold its
+routing intent into RuntimeRouter then delete), current = two FACULTIES of one brain (the live concept).
+SALVAGE (beneficial, ADDITIVE, 70B-FREE — fold as build items, after P0+act/work):
+1. **Wire the REAL eidos/ retriever into the run** (the "worked once" bug — eidos.query bypasses it) = the
+   knowledge-brain prize.
+2. **Drive provenance ClaimLedger from the run** (currently observe-only/CLI).
+3. **Resurrect confidence_floor.rs** (orphaned owner IP) as the honesty-gate scalar.
+4. **Harden the live AnswerPacket/Residency/Witnessed-State + wbo6 invariant sampling.**
+5. **Promote six-tier memory L1 over ShmPool L0** (model-agnostic eviction).
+6. **Use Swift InterruptScoreCpu as a live escalation/recall-wake** for RuntimeRouter/System G.
+7. **Align HardwareTierManager to the M2-Pro-16GB doctrine ceiling** (~0-1 commit).
+EXCLUDED salvage (70B/new-model/training-dependent): M2-Max SSM GPU kernels, PCF model-surgery, donor
+distillation/SEAL-DoRA/LearningMode, Lane-4 Julia oracle, the 70B dual-brain pair. NOTE: substrate-core/
+substrate-rt crates are LIVE but NOT Helios (the zero-copy perf carve-out). OPEN: iCloud R0 theorem archive
+lives outside the repo — owner to confirm. The GRAND UNIFICATION SWEEP cycles continue + cross-check this.
