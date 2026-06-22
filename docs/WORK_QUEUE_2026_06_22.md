@@ -170,6 +170,14 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   native composer [0.7]; landing "four blocks" → Epistemos LandingView [0.3/D2]; block fonts → cream/mono) · (4)
   shell = native Epistemos. Does NOT reopen option-(b); does NOT relax any D-gate.
   →plan: "🔒🔒 DEFINITIVE ACT-UI DIRECTION" + "🔴🔴 ACT = OSAURUS IS THE CHAT" + "🔴 OWNER DIRECTIVE ACT-UI SYNTHESIS §1/§2".
+  · **🔴🔴 ARCHITECTURE PIVOT (owner P0, addendum §1994/pass61c ~14:58 — SUPERSEDES mount-and-reskin):** ABANDON
+  "mount Osaurus's whole ChatView + reskin via theme cascade" (the WALL that does not render — auditor §1973
+  confirmed cream still white on the owner's launch). Act UI = **NATIVE Epistemos views** (buttons/composer/toolbar/
+  landing/sidebar/pill/curved window) **LINKED to the Osaurus ENGINE in-process** (`CoreModelService.generateStream`
+  — the CERTIFIED 0.4 path, WebKit-bridge pattern). Native renders cream/curved BY CONSTRUCTION (no cascade).
+  Render the engine's PARSED channels natively (thinking→native box, content→native answer, tool-calls→native rows);
+  CONSUME the engine's clean channels, do NOT re-implement parsing. This reframes 0.1/0.2/0.3/0.7/0.8/D1-D6/4.7.
+  Verify on the OWNER'S FRESH LAUNCH (kill→rebuild→open→screencapture→Read — §1941), NOT transient PNGs.
 
 - [x] **0.18 Model provider registration** — CERTIFIED iter6 (NOT D-gated). (a) EpistemosOsaurusModelProvider.swift:28 ·
   (b) bridges owner's MLX models via EpistemosModelBridge primitive seam · (c) AppBootstrap.swift:3155 register over live
