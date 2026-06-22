@@ -688,3 +688,17 @@ others. So:
 - **FUTURE (lower-but-CERTAIN, not now):** consolidate toward ONE inference chokepoint (the "one brain" goal) so
   there aren't two parallel act-injection points to maintain. Do NOT force that risky consolidation now —
   for now, BOTH chokepoints route through act when armed. Record as an ordered cleanup item.
+
+## 🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT (owner 2026-06-21, explicit)
+Owner wants a SINGLE inference path, not two (liveLoop + TriageService). TARGET: **one shared inference
+chokepoint — the "one brain" entry — that EVERY surface routes through** (main chat, MiniChat, Note chat,
+Graph chat, Pipeline, iMessage, ACT, WORK). The engine/act routing decision (act=Osaurus, work=OpenCode,
+MLX, etc.) lives in ONE place; the IP brain wraps that one point. No more parallel paths to keep in sync.
+- **Build it DELIBERATELY + SAFELY (it touches live inference — highest-risk surface):** commit a clean
+  savepoint first; build the unified chokepoint ADDITIVELY (both `liveLoop` and `TriageService` delegate INTO
+  it, behind a flag) so flag-OFF = byte-identical to today; real-state test EVERY surface (each chat type
+  routes correctly, streaming/thinking/tools intact, no regression to the 2,679-suite or the 6 triage
+  callers); then flip on + retire the duplicate path. NEVER a big-bang rewrite of live inference.
+- **SEQUENCING:** do this AFTER the gated act-swap lands in both chokepoints (so nothing breaks mid-way) — it
+  is the consolidation that REMOVES the two-injection-point duplication. CERTAIN (not "deferred"/droppable),
+  sequenced as a deliberate refactor. This is the cleanest expression of "one brain on top, engines beneath."
