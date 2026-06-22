@@ -875,6 +875,13 @@ Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large
     FOLLOW-UPS: re-place the act↔work toggle as a new feature in the old UI (its gating conflicted with the
     old-UI messages-based showChat — deferred, not lost); `EpistemosOsaurusChatHost` is now an unused shell (the
     reskin/bootstrap logic is kept for reference, can be retired later). Live send/receive = owner's runtime check.
+    - **ACT↔WORK TOGGLE — wiring plan (ready, do after the owner verifies act):** use the old UI's EXISTING
+      `WorkspaceModePicker` (LandingView:710), not a custom toggle (the option-(b)/faithful way). 3 edits:
+      (1) LandingView:709 — make the picker always show (drop the `isArmed(.act)||isArmed(.work)` gate; act+work
+      are live now, not experimental); (2) HomeRouter — observe the mode via `@AppStorage(WorkspaceModeSelection
+      .defaultsKey)` and route `.work → WorkTerminalHostView(workspace: home)` (Pro `#if`), else act flow;
+      (3) verify. Additive — the act path is untouched. Deferred (not built) because it's secondary to the
+      owner's act-path verification + a heavy build on an unverified primary is premature (build-less).
   - **✅ "it must WORK" — coreModelIdentifier fill:** the act-Osaurus path streams via `CoreModelService.generate
     Stream`, which has NO per-request model — it uses `ChatConfigurationStore.coreModelIdentifier` (computed from
     the stored `coreModelName`) and throws `modelUnavailable` if unset. So when the model bridge registers (4b),
