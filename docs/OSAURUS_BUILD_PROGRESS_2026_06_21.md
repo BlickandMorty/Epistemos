@@ -140,6 +140,10 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     fs::write → a crash mid-write corrupted the USER'S note. New `atomic_write` (temp `.omega-tmp` + rename, the
     suffix deliberately non-`.md` so leftovers don't list as notes) at both sites. Completes the atomic posture
     across ALL vault writes (Swift VaultNoteEditor + Rust MCP + graph store). 189/189 lib.
+    **BOUNDED EVENT LOG (`20d1096b8`, §506):** the graph agent-event telemetry (`mcp_graph_events.jsonl`) was
+    unbounded — a long agent session grew it without limit. It's write-only (nothing replays it; durable
+    provenance is in the EventStore), so `append_events` now trims to the most-recent 5k lines (atomically) once
+    it crosses ~4 MB. Bounds `.epistemos/` disk growth. 190/190 lib.
   - [~] **#3 LLM wiki + [[wikilinks]] + semantic backlinks:** MECHANICAL wikilink suite COMPLETE — `vault.backlinks`
     (`d6472fe2b`, in) + `vault.outlinks` (`bb52bcbee`, out) + `vault.dangling_links` (`1f10fc183`, unresolved) +
     `vault.note_links` (`80a376b5d`, full per-note context in one call) MCP tools over a shared `parse_wikilinks`
