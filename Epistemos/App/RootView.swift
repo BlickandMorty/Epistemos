@@ -2628,26 +2628,89 @@ private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// act↔work surface toggle (owner: "a toggle to open work") — a NEW feature
+    /// surfaced in the old UI (option (b) permits new UI for new capabilities).
+    /// Act = the old Epistemos chat driven by the Osaurus engine; Work = OpenCode's
+    /// native terminal. Persisted via `WorkspaceModeSelection`.
+    @State private var workspaceMode: WorkspaceModeKind = WorkspaceModeSelection.current()
+
+    /// The work terminal roots at the user's home by default.
+    private static var workWorkspaceURL: URL { URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true) }
+
     /// Show chat when messages exist AND user hasn't navigated to landing.
     private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             // ACT = OLD EPISTEMOS UI, DRIVEN BY OSAURUS (option (b), owner
             // 2026-06-22 confirmed): the act surface is the genuine old Epistemos
             // `ChatView` (landing/thread/message-bar/sidebar — "faithful by
             // construction"); its inference routes through the Osaurus engine via
-            // `LocalAgentLoop.shouldRouteActThroughOsaurus` (default-on, no toggle).
-            // SS-ALIVE: the Landing↔Chat swap is the cohesive blur-fade.
-            if showChat {
-                ChatView()
-                    .transition(.blurFade())
-            } else {
-                LandingView()
-                    .transition(.blurFade())
+            // `LocalAgentLoop.shouldRouteActThroughOsaurus` (default-on). WORK =
+            // OpenCode's native terminal. The act↔work toggle switches the surface.
+            Group {
+                #if EPISTEMOS_APP_STORE
+                // MAS: act-only — the SwiftTerm/OpenCode work terminal is Pro-only.
+                if showChat {
+                    ChatView().transition(.blurFade())
+                } else {
+                    LandingView().transition(.blurFade())
+                }
+                #else
+                if workspaceMode == .work {
+                    WorkTerminalHostView(workspace: Self.workWorkspaceURL)
+                        .transition(.blurFade())
+                } else if showChat {
+                    ChatView().transition(.blurFade())
+                } else {
+                    LandingView().transition(.blurFade())
+                }
+                #endif
             }
+
+            #if !EPISTEMOS_APP_STORE
+            // Persistent act↔work toggle so the user can switch from any surface;
+            // hidden during an active act chat so it never overlays the thread.
+            if !(showChat && workspaceMode == .act) {
+                WorkspaceModeToggle(mode: $workspaceMode)
+                    .padding(.top, 10)
+            }
+            #endif
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showChat)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: workspaceMode)
+    }
+}
+
+// MARK: - Workspace Mode Toggle
+
+/// Clean act↔work surface toggle (owner: "a toggle to open work"). A capsule
+/// segmented control — NO armed-dot / "experimental" framing (that was the drift;
+/// act + work are both live now). Persists the choice via `WorkspaceModeSelection`.
+private struct WorkspaceModeToggle: View {
+    @Binding var mode: WorkspaceModeKind
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(WorkspaceModeKind.allCases, id: \.self) { candidate in
+                let selected = candidate == mode
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { mode = candidate }
+                    WorkspaceModeSelection.select(candidate)
+                } label: {
+                    Text(candidate == .act ? "Act" : "Work")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(selected ? Color.primary : Color.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(selected ? Color.primary.opacity(0.10) : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
     }
 }
 
