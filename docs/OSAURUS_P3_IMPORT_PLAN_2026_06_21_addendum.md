@@ -795,3 +795,15 @@ Two different contexts were conflated — resolve BOTH by VENDORING the Bun bina
   .dmg. Default = BUNDLE; download-on-demand only if installer size becomes a concern.
 GENERAL RULE: any runtime/dep a clone needs (Bun, future ones) = VENDOR/BUNDLE it (or download-on-first-use),
 NEVER make the user run a package manager. Same "build-once, ship-it" pattern as the tiptap bundle.
+
+## 🆕 ENGINES DONE → NOW BUILD THE VISIBLE SURFACES (owner 2026-06-21)
+Act engine ✅ + work runtime vendoring underway → the engine-first prerequisite is MET. So PRIORITIZE the
+VISIBLE, testable surfaces now (the owner wants to SEE/test it):
+- **ACT reskin** (current-chat discipline) → make the Osaurus act surface actually visible.
+- **WORK UI live** — wire WorkTerminalView/WorkOpenCodeShell into a reachable, working work surface (real TUI).
+- **Landing pages + BLUR transitions + act/work toggles + mode-entry animations** (move from 🔴 to built).
+- **Motion sweep** onto titles/display-only.
+- **TESTABILITY:** once act-on-Osaurus is verified stable, FLIP `EPISTEMOS_ACT_OSAURUS_V0` ON by default (or
+  add an easy in-app toggle) so the owner can actually experience act-through-Osaurus — and add a visible
+  "act on Osaurus" indicator. Don't leave it forever flag-off-and-invisible (PROVEN-DONE: must reach the user).
+These are the next heavy-backlog items per NEVER-IDLE — build them incrementally to green, commit each.
