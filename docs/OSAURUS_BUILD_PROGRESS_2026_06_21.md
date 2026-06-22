@@ -626,7 +626,10 @@ visual surfaces needing the running app, this is the buildable foundational work
   provider-free, tested. Roles Worker=0/Thinker=1/Verifier=2 (match the reference coordination-head logits);
   Accept-terminates / honest budget-exhaust; JSONL trace (schema_version 1, 8 event kinds); model calls plug in
   via injected `TrinityRoleExecutor`. naming_lint 49/49, no new warnings.
-- REMAINS (sequenced): slice 2 = OpenAI-compat provider boundary + heuristic RuntimeRouter selection into the
-  executor; slice 3 = trace → Swift TraceCollector; then expose as the internal orchestrator API across
+- [x] **Slice 2 — heuristic role→tier selection (`81303f23f`, cargo 3/3):** `trinity_routing` maps each role +
+  task classification (existing `HeuristicClassifier`) → `CapabilityTier` (Thinker/Verifier=Think; Worker=Code/
+  Think/Fast by code/complexity). `select_role_tier(role, objective)`. Learned router = clean drop-in later.
+- REMAINS (sequenced): slice 2b = wire model-id + OpenAI-compat provider call into a real TrinityRoleExecutor;
+  slice 3 = trace → Swift TraceCollector; then expose as the internal orchestrator API across
   act/work/chat. LEARNED router gated on license (owner H1 TODO: clear adapted-weights license w/ nshkrdotcom,
   or re-derive from Apache Qwen3-0.6B). Heuristic-vs-learned state disclosed honestly.
