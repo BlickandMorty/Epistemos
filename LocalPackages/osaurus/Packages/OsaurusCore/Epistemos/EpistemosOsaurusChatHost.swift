@@ -3,27 +3,26 @@
 //
 //  Owner directive 2026-06-22 ("ACT = OSAURUS IS THE CHAT"): the Epistemos
 //  "act" surface must BE the real Osaurus chat UI — the genuine vendored
-//  surface, not the old Epistemos `ChatView` with an engine swap behind a
-//  toggle. The Osaurus `ChatView` / `ChatWindowState` are `internal` to this
-//  package, so the Epistemos module cannot reference them directly even though
-//  it links `OsaurusCore`.
+//  surface, reskinned to the Epistemos look — not the old Epistemos `ChatView`
+//  with an engine swap behind a toggle. The Osaurus `ChatView` /
+//  `ChatWindowState` are `internal` to this package, so the Epistemos module
+//  cannot reference them directly even though it links `OsaurusCore`.
 //
 //  This file is the ONE public entry point that closes that gap. It is purely
 //  additive: it modifies no existing Osaurus type and changes no Osaurus
 //  behaviour. It owns a stable `ChatWindowState` (held as `@StateObject` so the
-//  window/session survive re-renders — the documented SwiftUI ownership rule
-//  for `ObservedObject`-backed `ChatView`) and renders the genuine Osaurus
-//  `ChatView`. Epistemos's `RootView` mounts `EpistemosOsaurusChatHost()` for
-//  the act surface; theme reskin (Epistemos cream palette via a
-//  `ThemeProtocol` adapter) and session/vault/Eidos bridging layer on top of
-//  this seam in follow-up increments.
+//  window/session survive re-renders) and renders the genuine Osaurus
+//  `ChatView`, then reskins it to the Epistemos cream/monospace palette by
+//  applying an Epistemos `CustomTheme` through the existing `ThemeManager`
+//  (which every Osaurus view already reads). The reskin is runtime-only
+//  (`persist: false` — no write to Osaurus's theme storage).
 
 import SwiftUI
 
 /// Public host that mounts the real Osaurus chat surface inside the Epistemos
-/// app. The hosted view is the genuine Osaurus `ChatView` — same code that
-/// runs in standalone Osaurus — so behaviour matches the working app rather
-/// than a partial re-integration.
+/// app, reskinned to the Epistemos look. The hosted view is the genuine Osaurus
+/// `ChatView` — same code that runs in standalone Osaurus — so behaviour matches
+/// the working app rather than a partial re-integration.
 public struct EpistemosOsaurusChatHost: View {
     /// Owned so the window/session state is stable across SwiftUI re-renders.
     /// `ChatView(windowState:)` wraps this in an `ObservedObject`; the owner of
@@ -44,5 +43,72 @@ public struct EpistemosOsaurusChatHost: View {
 
     public var body: some View {
         ChatView(windowState: windowState)
+            .task { Self.applyEpistemosThemeOnce() }
     }
+
+    // MARK: - Epistemos reskin
+
+    /// Apply the Epistemos cream/monospace palette to the Osaurus surface once
+    /// per process. Runtime-only (`persist: false`): the Osaurus theme storage
+    /// is untouched, so this is a pure presentation overlay. Every Osaurus view
+    /// reads `ThemeManager.shared.currentTheme`, so applying here reskins the
+    /// whole surface (thread, composer, sidebar, model picker).
+    @MainActor private static var didApplyEpistemosTheme = false
+
+    @MainActor
+    private static func applyEpistemosThemeOnce() {
+        guard !didApplyEpistemosTheme else { return }
+        didApplyEpistemosTheme = true
+        ThemeManager.shared.applyCustomTheme(epistemosCreamTheme, persist: false, animated: false)
+    }
+
+    /// The Epistemos palette as an Osaurus `CustomTheme`. Mirrors the Epistemos
+    /// `.systemLight` tokens (near-black text `#1C1C1E`, muted `#6E6E73`,
+    /// monochrome ink accent, warm-cream surfaces, dark user bubbles) plus the
+    /// monospace body font the owner's aesthetic uses. Colours are hex strings
+    /// (Osaurus `ThemeColors`), so no SwiftUI `Color` crosses the boundary.
+    static let epistemosCreamTheme: CustomTheme = CustomTheme(
+        metadata: ThemeMetadata(
+            id: UUID(uuidString: "E9150305-0000-0000-0000-000000000001")!,
+            name: "Epistemos",
+            version: "1.0",
+            author: "Epistemos"
+        ),
+        colors: ThemeColors(
+            primaryText: "#1c1c1e",
+            secondaryText: "#6e6e73",
+            tertiaryText: "#8e8e93",
+            primaryBackground: "#fbfaf5",
+            secondaryBackground: "#f4f3ee",
+            tertiaryBackground: "#eeede7",
+            sidebarBackground: "#f2f1eb",
+            sidebarSelectedBackground: "#e7e6df",
+            accentColor: "#1c1c1e",
+            accentColorLight: "#3a3a3c",
+            primaryBorder: "#e3e1d8",
+            secondaryBorder: "#eceae2",
+            focusBorder: "#1c1c1e",
+            successColor: "#34c759",
+            warningColor: "#ff9f0a",
+            errorColor: "#ff3b30",
+            infoColor: "#1c1c1e",
+            cardBackground: "#ffffff",
+            cardBorder: "#e3e1d8",
+            buttonBackground: "#f4f3ee",
+            buttonBorder: "#e3e1d8",
+            inputBackground: "#ffffff",
+            inputBorder: "#e3e1d8",
+            glassTintOverlay: "#fbfaf5e0",
+            codeBlockBackground: "#f2f1eb",
+            shadowColor: "#000000",
+            selectionColor: "#1c1c1e33",
+            cursorColor: "#1c1c1e",
+            placeholderText: "#a8a8ad"
+        ),
+        background: .default,
+        glass: ThemeGlass(enabled: false),
+        typography: ThemeTypography(primaryFont: "SF Mono", monoFont: "SF Mono"),
+        isBuiltIn: false,
+        isDark: false
+    )
 }

@@ -720,12 +720,34 @@ experimental gate).
   `ChatWindowState` (@StateObject) and renders the genuine Osaurus `ChatView`. Purely additive (no existing
   Osaurus type/behaviour changed). Target `path:"."` excl. Tests/SQLCipher → compiled into OsaurusCore; the
   same-module SourceKit "cannot find ChatView" is the known new-file index false-positive.
-- [x] **Step-2 RootView mounts the host for act** — `import OsaurusCore`; `HomeRouter` now renders
-  `EpistemosOsaurusChatHost()` (the real Osaurus surface, its own composer) once the user leaves the landing
-  (`!chat.showLanding`), with the Epistemos `LandingView` kept for the not-yet-started state. Osaurus owns its
-  own composer/thread so there is no first-message-seeding mismatch. (Checkpoint xcodebuild verifies the
-  cross-module mount.)
-- [ ] **Step-3 reskin the Osaurus surface to the Epistemos palette** (`ThemeProtocol` adapter from `UIState.theme`).
+- [x] **Step-2 RootView mounts the host for act (`2970a6920`; Pro build GREEN, `BUILD EXIT=0`)** — `HomeRouter`
+  renders `EpistemosOsaurusChatHost()` (the real Osaurus surface, its own composer) once the user leaves the
+  landing (`!chat.showLanding`); the Epistemos `LandingView` is kept for the not-yet-started state. Osaurus owns
+  its own composer/thread so there is no first-message-seeding mismatch. Verified compiling on the `Epistemos`
+  (Pro) scheme.
+- [x] **Step-2b MAS dual-build kept green (`7f464ffcf`)** — the `Epistemos-AppStore` (MAS) target compiles
+  `RootView` (syncedFolder) but does NOT link OsaurusCore, so the unconditional import/mount broke the MAS build.
+  Gated `import OsaurusCore` + the host mount behind `#if !EPISTEMOS_APP_STORE`; MAS keeps `ChatView()`. This is
+  a build-target reality (OsaurusCore pulls server/VM/relay/Containerization the App Store sandbox can't link),
+  NOT the banned experimental runtime toggle, and preserves MAS capability. **TRACKED DEBT (MAS full-capability,
+  owner §151):** the MAS-safe OsaurusCore split → bring Osaurus-as-chat to MAS too.
+  - **MAS local build finding (HONEST — not fake-green):** after the gating fix, the `Epistemos-AppStore` build
+    fails with `unable to resolve module dependency` for `OsaurusSQLCipher`/`Sentry`/`Sparkle`/`CGRPCNIOTransport
+    Zlib`/`FastClusterWrapper`/`CArchive`/`CShim` — all OsaurusCore-transitive packages the MAS target does NOT
+    link. **This is PRE-EXISTING / environmental, NOT introduced by the act=Osaurus work:** my net change to the
+    MAS *target* is zero (RootView's MAS branch is `ChatView()`, identical to pre-session; the added host file
+    lives in OsaurusCore which MAS doesn't link and which adds no new dependency). The **Pro** scheme resolves
+    these same packages and builds GREEN. So this is a MAS-target explicit-modules package-resolution issue that
+    predates the act work. Filed under the MAS-full-capability track; re-building to "fix" it from the act side
+    would be build-thrashing since the act source delta can't be the cause. **NOT claiming MAS green.**
+- [~] **Step-3 reskin the Osaurus surface to the Epistemos palette — IMPLEMENTED, pending Pro verify** — the
+  host now applies an Epistemos `CustomTheme` (cream/monospace) via `ThemeManager.applyCustomTheme(persist:false)`
+  on appear; every Osaurus view reads `ThemeManager.shared.currentTheme` so the whole surface (thread/composer/
+  sidebar/model-picker) reskins. Faithful to Epistemos `.systemLight`: text `#1c1c1e`, muted `#6e6e73`, ink
+  accent, warm-cream surfaces (`#fbfaf5`/`#f4f3ee`), dark user bubbles, `SF Mono` body. Runtime-only (no write
+  to Osaurus theme storage); additive (no Osaurus-type change). Inits verified (`ThemeGlass(enabled:)`,
+  `ThemeMetadata`, `ThemeColors` named-param template). Sequenced behind the MAS verify to avoid two concurrent
+  xcodebuilds; commit on Pro green.
 - [ ] **Step-4 work toggle (act↔work product toggle, NOT a safety gate) + remove the experimental opt-in** —
   delete `ActOsaurusHealthRow` "experimental" UI + the default-OFF act gate; add the real act↔work toggle.
 - [ ] **Step-5 collapse `CoworkChatMode` Chat/Act depth axis** — preserve Fast/Think/Code tier reach.
