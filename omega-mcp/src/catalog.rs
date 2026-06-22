@@ -178,6 +178,12 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"type":"object","properties":{}}"#
         ),
         tool!(
+            "note_links", "notes",
+            "Full link context for one note in a single call: backlinks + outlinks + its dangling outlinks",
+            r#"{"path": "relative/path.md"}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+        ),
+        tool!(
             "list_notes", "notes",
             "List all notes",
             "{}",
