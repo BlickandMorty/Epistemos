@@ -51,8 +51,8 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   (Epistemos/Views/Chat/ToolActivityNarrator.swift). Bring the owner's pill back onto the act surface.
   Screenshot-verify the pill renders.
 - **D4 — Configuration / Settings doesn't work / not visible.** "Configuration" is in the bottom bar but does
-  not open real settings. Wire the act/Osaurus configuration + the per-clone SETTINGS (queue 4.1,
-  Epistemos|act|work|beyond) so settings actually open and work. Screenshot-verify settings open and are usable.
+  not open real settings. Wire act/Osaurus configuration + per-clone SETTINGS in **queue 0.21 (TIER-0
+  blocking)** — do NOT defer to queue 4.1 while leaving TIER 0. Screenshot-verify settings open and work.
 - **D5 — Reskin only partial.** Background is lighter but the surface is still Osaurus chrome, not the owner's
   cream/monospace discipline + preserved chrome (model picker w/ real logos + Epistemos Picks, command palette,
   38-tool agent panel — queue 4.7). Finish the reskin so it's the owner's UI with Osaurus logic underneath.
@@ -62,8 +62,8 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 
 ## EVERY ITERATION
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
-2. **Pick the FIRST item that is not yet CERTIFIED this phase**, walking strictly top-to-bottom from 0.1.
-   (Re-certification order = plan order. No queue-jumping. Don't move past an uncertified item.)
+2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.22, then 1.1, 2.1, …). No queue-jumping.
+   Don't move past an uncertified TIER-0 item.
 3. **Read that item's `→plan:` section IN FULL** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md. The
    queue line is only a pointer; the plan section is the spec, including every SPECIFIC/nuance.
 4. **RE-CERTIFY against the STRICT BAR (all five must hold):**
@@ -100,6 +100,21 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
    commit SHA. Commit + push (git add ONLY the files you changed; never `-A`; Co-Authored-By Claude).
 7. **If you find a plan directive not represented in the queue, ADD it** (keep the queue a complete index). New
    owner directives go into the plan AND the queue.
+
+## QUEUE ITEMS 0.11–0.22 (mirror — read queue for full →plan: refs)
+- **0.11** Provider wiring + Epistemos Picks · **0.12** Surface-wiring rule · **0.13** Shared act component
+- **0.14** Health-row witnesses honest · **0.15** DEEP CHECK · **0.16** Reasoning + title-gen
+- **0.17** LOCKED direction (Osaurus OWN UI; supersedes option-b) · **0.18** Model provider registration
+- **0.19** Chat surface deletion sequence (IP preserved) · **0.20** Collapse act/chat duality
+- **0.21** Per-clone settings (D4 blocking) · **0.22** ONE inference chokepoint (no HTTP requestFailed)
+
+## PER-SURFACE SCREENSHOT MANDATE
+Certify **each** chat surface with its **own** PNG: main act, mini chat, graph chat, note chat (act), work
+(where applicable). A single main-act screenshot does NOT satisfy 0.2 or 0.5.
+
+## COMPLETENESS CRITIC (every loop, end of iteration)
+Grep consumers of `InferenceState`, model picker, chat send paths, capability pills. Any surface not in queue →
+ADD it (→plan: "COMPLETENESS / DISCOVERY-SWEEP MANDATE"). Log findings in STRICT_RECERT_LOG.
 
 ## MANDATORY EVERY-ITERATION FUNCTIONAL PROOF (owner: do this exhaustively, every loop, no exceptions)
 Regardless of which item you're on, EVERY iteration you MUST:
@@ -140,8 +155,8 @@ not instead of it.
 3. Build/run the send-text harness (or CREATE it if missing) — assert a REAL reply from the owner's model; log
    the prompt + first ~80 chars.
 4. Start 0.1 — reskin at the vendored Theme.swift SOURCE (not the applyCustomTheme shim alone); re-screenshot.
-5. Then 0.3 landing→blur→act, 0.2 all surfaces (mini/graph/note act; work everywhere but note), then D1–D5,
-   then 0.4 send re-cert, then 0.11 provider/Epistemos Picks + 0.14 health-row honesty.
+5. Then 0.3 landing→blur→act, 0.2 all surfaces (screenshot each), 0.4 send, 0.11 provider, 0.8 D1–D5,
+   0.21 settings, 0.16 title-gen, 0.17–0.22 locked direction/registration/deletion/chokepoint.
 6. Update the queue + STRICT_RECERT_LOG each loop; commit only your changed files.
 
 ## STANDING (every item, every loop)
@@ -154,5 +169,9 @@ owner runtime reports preempt everything.
 
 ## AUTHORITY DOCS
 - Spec/authority: docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).
-- Index: docs/WORK_QUEUE_2026_06_22.md. Living map: docs/OSAURUS_BUILD_PROGRESS_2026_06_21.md.
-- Guards: docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md. Re-cert log: docs/research/STRICT_RECERT_LOG_2026_06_22.md.
+- Index: docs/WORK_QUEUE_2026_06_22.md. **Paste block:** docs/AGENT_LOOP_PASTE_READY_2026_06_22.md.
+- Living map: docs/OSAURUS_BUILD_PROGRESS_2026_06_21.md.
+- Guards: docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md.
+- Re-cert log: docs/research/STRICT_RECERT_LOG_2026_06_22.md.
+- Gap audit (docs maintenance): docs/research/LOOP_GAP_AUDIT_2026_06_22.md.
+- **SUPERSEDED (do not use):** docs/AGENT_LOOP_PROMPT_2026_06_21.md, docs/AGENT_LOOP_PROMPT_QUEUE_2026_06_22.md.
