@@ -31,6 +31,9 @@ top with robust grounded evidence, fix what's actually wrong, and only then cont
   (e.g. 0.1 must edit the vendored Theme.swift defaults, not only a runtime `applyCustomTheme` shim — ba2f8952f drift).
 - **P0 OWNER REPORTS PREEMPT:** any new owner runtime report → append it to the addendum + queue + this prompt's
   D-section the SAME iteration, then fix it before anything else.
+- **VOID stale plan sections (do not build these):** option-(b) "drive old ChatView" (§1507), "FULLY RESTORE OLD
+  UI" as mount-old-ChatView (§1485), WORK-ENGINE ON HOLD (§607). Authority = §1651 DEFINITIVE + §624 C FINALIZED
+  + LOCKED RULES above. Landing = Epistemos `LandingView` FIRST (D2/0.3), NOT Osaurus default landing.
 
 ## 🔴 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22, grounded by screenshot docs/research/osa_runtime_2026_06_22.png)
 These are CONFIRMED broken on the running act surface RIGHT NOW. Each is a REQUIRED TIER-0 item; you may NOT
@@ -62,7 +65,8 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 
 ## EVERY ITERATION
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
-2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.22, then 1.1, 2.1, …). No queue-jumping.
+2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.26, then 1.1, 2.1, …). No queue-jumping.
+   FIRST ITERATION bootstrap order below is one-time only — standing rule is strict numeric queue order.
    Don't move past an uncertified TIER-0 item.
 3. **Read that item's `→plan:` section IN FULL** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md. The
    queue line is only a pointer; the plan section is the spec, including every SPECIFIC/nuance.

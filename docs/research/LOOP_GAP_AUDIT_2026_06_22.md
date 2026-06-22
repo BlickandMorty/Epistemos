@@ -41,7 +41,10 @@ vault/epdoc/motion/dual-build/optimization (T4–5), OpenCode (T1), substrate (2
 - MAS sandbox substitute research
 - External research corpus ~/Downloads
 
-## Iteration 2 — (next /loop tick)
-- [ ] Cross-grep addendum `^##` vs WORK_QUEUE `→plan:` refs — list any with zero pointer
-- [ ] Verify PASTE_READY matches strict prompt FIRST ACTION
-- [ ] Capture or document osa_runtime baseline PNG
+## Iteration 2 — 2026-06-22 (subagent audit follow-up)
+- Added queue **0.23–0.26** (send-text harness standing, act UI bug bundle, gated chat delete, UI-hide)
+- Added **4.10–4.11** (Epistemos Picks profiles, test-parity gate), **5.3** (MAS OsaurusCore split)
+- Strict prompt: VOID stale plan sections (option-b, WORK ON HOLD); numeric order 0.1→0.26
+- SUPERSEDED `SESSION_CONTINUATION_PROMPT_2026_06_21.md`
+- `OSAURUS_BUILD_PROGRESS`: provisional banner — do not trust `[x]` until STRICT_RECERT_LOG certifies
+- Still open: `osa_runtime_2026_06_22.png`, northstar PNGs, addendum VOID banners on §1507/§1485
