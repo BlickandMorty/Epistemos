@@ -1076,3 +1076,22 @@ the orchestrator LOOP without the learned router (heuristic routing) until clear
 9216-vs-19456 z-vector (read HF manifest.json at build). Build order: prove the MLX hidden-state tap → head →
 loop/roles/providers/trace → bundle artifacts (license-gated) → wire across act/work/chat. Sequenced after
 P0 + act/work surfaces; foundational + certain.
+
+## ✅ TRINITY BUILD PATH — heuristic-route FIRST, learned router when license clears (owner 2026-06-22)
+DEFAULT (unblocked, build now): build the orchestrator LOOP + roles + providers + trace immediately, using
+HEURISTIC routing (complexity/code/reasoning tags via the existing RuntimeRouter selection) instead of the
+learned coordination head. This delivers the full Thinker/Worker/Verifier orchestrator (the owner IP brain +
+internal API across act/work/chat) WITHOUT waiting on the license or the hardest MLX work.
+SEQUENCED INSIDE THIS:
+1. **Now (unblocked):** flat ≤5-turn Thinker/Worker/Verifier loop on System G (agent_runtime_v2) + heuristic
+   model selection (RuntimeRouter tags) + OpenAI-compat provider boundary + JSONL trace (TraceCollector) +
+   expose as the internal orchestrator API across act/work/chat. Real-state tested.
+2. **In parallel (build, must-prove-first):** the net-new MLX penultimate-token hidden-state TAP + golden-vector
+   parity tests. When proven, add the biasless 1024→10 coordination head.
+3. **Gated on LICENSE (owner-action H1):** bundling `nshkrdotcom/trinity-coordinator-adapted-qwen3-0.6b`
+   (no declared license) → DO NOT SHIP the adapted weights until cleared. The LEARNED router drops in (replaces
+   heuristic) ONLY after license clearance OR self-re-derivation from base Qwen3-0.6B (Apache-2.0).
+OWNER-ACTION (tracked, not blocking the build): clear the adapted-weights license with the author
+(nshkrdotcom) — until then, heuristic routing ships + the learned head is staged. Add to ledger as an owner
+TODO. This keeps the foundational orchestrator MOVING (no license/MLX-tap block) while the learned router is a
+clean drop-in upgrade later. No fake-done; heuristic vs learned router state disclosed honestly.
