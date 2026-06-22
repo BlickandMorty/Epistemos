@@ -64,16 +64,14 @@ nonisolated enum WorkOpenCodeShellFactory {
         #if EPISTEMOS_APP_STORE
         return InertWorkOpenCodeShell()
         #else
-        // Goes LIVE only when BOTH the gate is armed AND the OpenCode runtime is
-        // actually bundled on disk. Armed-but-runtime-absent stays inert (honest: the
-        // health row shows "armed, INERT", never "live"). The moment the vendored
-        // bundle is dropped into Resources, resolve() returns the live shell — no
-        // further wiring. Never a fake terminal before the runtime exists.
-        // Resolution: in-app toggle override (owner §194) WINS, else the env flag, else off — so flipping the
-        // Work toggle arms the shell live (still gated on the runtime actually being bundled; armed-but-absent
-        // stays honestly inert). Default-absent override keeps flag-OFF behavior.
-        guard WorkOpenCodeShellGateStatus.resolvedActive(environment: environment),
-              let runtimeURL = WorkOpenCodeRuntime.bundledRuntimeURL() else {
+        // WORK = OPENCODE IS THE WORK SURFACE (owner 2026-06-22, parallel to act=Osaurus): NO experimental
+        // opt-in toggle. Go LIVE whenever the OpenCode runtime is actually bundled on disk — which it is
+        // (build-opencode-runtime.sh vendors the pinned OpenCode + Bun into Resources/opencode-runtime at build
+        // time). The experimental `WorkOpenCodeShellGateStatus` arm-gate is no longer a precondition; work is
+        // the real surface, not an opt-in. Honest fallback: if the runtime is somehow absent, stay inert (the
+        // health row shows the placeholder) — never a fake terminal.
+        _ = environment
+        guard let runtimeURL = WorkOpenCodeRuntime.bundledRuntimeURL() else {
             return InertWorkOpenCodeShell()
         }
         return BundledWorkOpenCodeShell(runtimeURL: runtimeURL)
