@@ -769,7 +769,22 @@ experimental gate).
   MAS-safe OsaurusCore split). So `ChatView` can't be deleted outright without breaking MAS's chat — keeping it
   is MAS's actual surface, not a Pro fallback. It retires when MAS gets Osaurus (the tracked MAS-full-capability
   debt). Until then: Pro has no old-ChatView fallback; MAS keeps it as its chat.
-- [ ] **Step-7 fix act send errors + `<think>` regression on the live path; verify a real send/receive.**
+- [~] **Step-7 fix act send errors + `<think>` regression; verify a real send** —
+  - **`<think>` regression: RESOLVED by the surface migration (verified by code-reading).** The Osaurus surface
+    has mature reasoning-tag handling the old Epistemos path lacked: `Services/LocalReasoningCapability.swift`
+    detects `<think>`/`</think>`/`<|think|>` envelopes (Qwen-3 etc., per-template config), and
+    `Services/ModelRuntime.swift:2758-2778` separates `reasoning_content` from the displayed message (and
+    reconstructs prior `<think>` history for follow-ups). `AgentLoopEvaluator` keeps `reasoning_content` off
+    echoed assistant turns. So mounting the real Osaurus chat fixes the leak with NO new code.
+  - **Send errors: the broken path is GONE.** The old "send" went through the half-integrated Epistemos
+    ChatView + a partial Osaurus engine behind the gate. The act surface now runs Osaurus's own in-process
+    `ChatEngine → [FoundationModelService (Apple on-device, no download), MLXService, remote providers]`, after
+    the bootstrap (`9da16c0f5`/`df4b3653c`) registers the agent config domains. So a basic send can work via
+    Apple's on-device model even with no MLX/GGUF model installed.
+  - **PENDING (owner's running app — no computer-use in this loop):** click-test a real send/receive end-to-end;
+    confirm the model picker surfaces a usable model (Osaurus reads `effectiveModelsDirectory` + HF cache via
+    `ExternalModelLocator`; Epistemos's curated GGUF models live in a different dir — a model bridge is an
+    enhancement, NOT required for basic function given the Apple on-device default).
 - [ ] **WORK/OpenCode — SAME regression class confirmed (audit 2026-06-22):** work surface mounted ONLY in
   Settings → Work-clone tab (`WorkCloneSettingsView.swift:38`), never routed from RootView/landing; gated OFF by
   `EPISTEMOS_WORK_OPENCODE_V0` + `EPISTEMOS_WORK_GOOSE_V0` (default off, "experimental/opt-in" copy); renders the
