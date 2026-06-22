@@ -1089,3 +1089,9 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/â
   the host whenever act is Osaurus-routed (not only !chat.showLanding), so suppression = `ui.homeTab == .home
   && shouldRouteActThroughOsaurus()` (Pro) â€” else the bug recurs on the landing state. Clean old-chat top;
   Osaurus's own landing/composer shows through. (Owner runtime-verify still the final gate.)
+
+## Lock the white-bar/search fix against revert (2026-06-22)
+- The owner has been bitten by REVERTS twice (option-b reverted both the host mount AND the d427ee60d white-bar
+  fix). Extended ActSurfaceOsaurusUIDirectionGuardTests with a source-guard asserting RootView keeps
+  showingOsaurusSurface + its `&& !showingOsaurusSurface` exclusion from showLandingToolbarControls. A future
+  edit that drops the leaked-toolbar suppression now fails at test time, not on the owner's running app.

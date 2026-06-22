@@ -22,4 +22,16 @@ struct ActSurfaceOsaurusUIDirectionGuardTests {
         #expect(source.contains("#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)"))
         #expect(source.contains("import OsaurusCore"))
     }
+
+    @Test("RootView suppresses the leaked landing toolbar over the Osaurus host (white-bar/search fix)")
+    func rootViewSuppressesLeakedLandingToolbar() throws {
+        // The host owns its own message state → chat.messages stays empty → RootView would paint
+        // the Epistemos landing toolbar (the "search bar" + its glass background = the white bar) OVER
+        // the Osaurus surface. d427ee60d fixed this; option-(b) REVERTED it; re-applied 9b43d37e9.
+        // Lock it so a third revert (the owner's recurring pain) fails here instead of on the running app.
+        let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+        #expect(source.contains("showingOsaurusSurface"))
+        // Excluded from the landing-toolbar gate (cascades to hide the controls + .automatic background).
+        #expect(source.contains("&& !showingOsaurusSurface"))
+    }
 }
