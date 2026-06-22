@@ -88,7 +88,11 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 - [ ] **0.3 LANDING → BLUR → ACT** — Epistemos `LandingView` FIRST; click → blur → Osaurus host. NOT
   Osaurus default landing ("Good morning" + download/provider buttons). Screenshot landing, then post-blur act.
-  →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions".
+  · **iter10 (per P0 §1886 BUILD-NOW): first build-step landed** — RootView Osaurus branch now gates the host
+  behind `actEntered`: shows Epistemos `LandingView` FIRST + "Enter act" press → blur → host (host always reachable
+  on press, 0.4 send untouched). Pending build (bvi4lbj91) + screencapture-verify landing-first + harness re-run.
+  Follow-on: first-message state-bridging + drop Osaurus landing-blocks fully (SYNTHESIS §2). Stays `[ ]` (D-gated).
+  →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions" + "🔴 AUDITOR CORRECTION §1886 BUILD-NOW".
 
 - [x] **0.4 SEND works (runtime)** — CERTIFIED iter5 (all 5 gates; auditor P0 satisfied). (a) ActOsaurusBridge.swift:196
   runTurnStreamingInProcess · (b) in-process CoreModelService, no loopback · (c) AppBootstrap.swift:3155 register +
@@ -112,11 +116,15 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   if it breaks send path. Screenshot composer.
   →plan: "⚠️ MESSAGE-BAR graft" + "🔒🔒 DEFINITIVE ACT-UI DIRECTION" graft #1.
 
-- [ ] **0.8 D1–D5 RUNTIME DEFECTS (acceptance gate for 0.1–0.7)** — screenshot-verify ALL before act certified:
+- [ ] **0.8 D1–D6 RUNTIME DEFECTS (acceptance gate for 0.1–0.7)** — screenshot-verify ALL before act certified:
   D1 curved window+shadow · D2 owner landing not Osaurus default · D3 pill back · D4 config/settings work ·
   D5 full reskin + model picker/palette/38-tool panel. Ground truth PNG:
   `docs/research/osa_runtime_2026_06_22.png` (re-capture after fixes).
-  →plan: "🔴 OWNER-REPORTED RUNTIME DEFECTS" + strict prompt D-section.
+  · **REFINED (owner P0 §pass58b, commit 2e1d95938): NEW D6 = back-navigation from act/work (currently none —
+  add a back affordance); D3 pill on BOTH act+work (tied to curved chrome); the NATIVE AppKit SHELL
+  (toolbar+sidebar+recent-chats popover+pill) is the SOURCE of curved edges → D1 follows from the §1 native shell,
+  NOT a window hack.** D2 first-step landed iter10 (LandingView-first + Enter-act press; build green).
+  →plan: "🔴 OWNER-REPORTED RUNTIME DEFECTS" + strict prompt D-section + "🔴 OWNER RUNTIME REPORT D6/native-shell (pass58b)".
 
 - [ ] **0.9 ACT FIDELITY** — stream every token; preserve thinking blocks+signatures; real tool-call parsing;
   no `<think>` leak in titles/output; **CLASSIFY shared-vs-chat-only** before fixing regressions
