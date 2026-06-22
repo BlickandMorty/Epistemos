@@ -658,8 +658,13 @@ visual surfaces needing the running app, this is the buildable foundational work
 - [x] **Async orchestrator entry (`41bb9133a`, cargo 4/4):** `run_mission_async(objective, trace_dir,
   provider_for_tier)` = the REAL-provider path (System G/act/work/chat invoke this); composes async loop + provider
   executor + trace + honest cost basis (total_usage/total_calls). **Faculty-1 core = 33/33.** The async
-  (real-provider) orchestrator API is now complete; only app-side wiring (MLX provider factory + System-G/Swift
-  invocation behind the flag) remains.
+  (real-provider) orchestrator API is now complete.
+- [x] **System G reconciliation bridge (`af0630c1a`, cargo 4/4):** per the BUILD-IT-HARDENED/GO-BACK-AND-UNIFY
+  mandate, `trinity_systemg::trinity_to_system_g_events` maps a TRINITY run → the EXISTING System G wire events
+  (PlanStart→TokenChunk→Complete/Failed; honest budget-exhaust=Failed). HARDENED + ADDITIVE-SAFE (only existing
+  variants → no Swift lockstep break). **Faculty-1 core = 37/37.** Wiring it into the live TRINITY-mode start_run
+  is the integration step (harden-before-integrate — built+tested first). Remaining: MLX provider_for_tier factory
+  + flag-gated start_run wiring + trace→TraceCollector (Swift/runtime).
 - REMAINS (runtime/app-side, sequenced): the app supplies `provider_for_tier` (model resolution + provider
   construction) + System-G/act/work/chat invoke `run_trinity_loop_async` behind the flag; slice 3b = trace →
   Swift TraceCollector; then expose as the internal orchestrator API across
