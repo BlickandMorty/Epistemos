@@ -6,10 +6,13 @@ You are the Epistemos build loop. EVERY iteration, do EXACTLY this — in order,
    source of truth for WHAT to do and in WHAT order.
 2. **Pick the FIRST unchecked `[ ]` (or `[~]` needing work) item, top of the queue down.** TIER 0 before TIER 1,
    etc. Do NOT jump ahead. Do NOT move to a lower tier while a TIER-0 item is unchecked/unverified.
-3. **Read ONLY that item's `→plan:` section(s)** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md for the
-   exact specifics/acceptance. (This is how you get the detail WITHOUT re-reading all 1,700 lines.) If the item
-   references another doc, read that slice too.
-4. **DO the item for REAL** — actual code, the additive-safe way, no stub, no fake-done.
+3. **Read that item's `→plan:` section(s) IN FULL** in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md. The
+   queue line is ONLY a pointer — the PLAN SECTION is the spec. (This is how you get the exact detail WITHOUT
+   re-reading all 1,700 lines: small queue + the ONE relevant section.) If it references another doc, read it too.
+4. **DO the item for REAL, implementing EVERY specific/nuance in that plan section** — not a summary, not just
+   the queue one-liner. No-compromise-nuance: the exact requirements as written, additive-safe, no stub, no
+   fake-done. (The loop's past failure was skipping specifics — reading + doing the FULL plan section per item
+   is the fix.) If you find a plan directive not in the queue, ADD it to the queue (keep it a complete index).
 5. **VERIFY:** fast gate (cargo test --lib / targeted compile) for logic; for any UI/runtime item, it is NOT
    done until it RENDERS/WORKS at runtime. If you cannot prove runtime headlessly, mark `[~]` "built, NEEDS
    owner/computer-use runtime-verify" — NEVER `[x]`. Build-green is NOT done (this is why act kept failing).
