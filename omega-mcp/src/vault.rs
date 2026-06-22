@@ -1127,6 +1127,38 @@ mod tests {
     }
 
     #[test]
+    fn test_graph_event_log_is_bounded() {
+        // §506: the append-only agent-event telemetry can't grow without limit — once it crosses the byte cap,
+        // a graph op trims it to the most-recent keep-bound (atomically), keeping the log small + valid.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let epi = root.join(".epistemos");
+        std::fs::create_dir_all(&epi).unwrap();
+        let log = epi.join("mcp_graph_events.jsonl");
+
+        // Seed an OVERSIZED (> 4 MB) event log: 40k lines of a representative event.
+        let line = serde_json::json!({
+            "kind": "graph_node_created", "tool_name": "graph.create_node",
+            "payload": {"node_id": "node_seed", "kind": "Note", "session_id": "default"}, "sequence": 1
+        }).to_string();
+        let big: String = std::iter::repeat(line.as_str()).take(40_000).flat_map(|l| [l, "\n"]).collect();
+        std::fs::write(&log, &big).unwrap();
+        assert!(std::fs::metadata(&log).unwrap().len() > 4 * 1024 * 1024, "seed must exceed the cap");
+
+        // A graph op appends + triggers the bound.
+        let out = execute_graph_json(root.to_str().unwrap(), "graph.create_node", r#"{"kind":"Note","title":"A","body":""}"#);
+        assert!(out["node_id"].as_str().unwrap().starts_with("node_"));
+
+        let after = std::fs::read_to_string(&log).unwrap();
+        let lines: Vec<&str> = after.lines().collect();
+        assert!(lines.len() <= 5_000, "event log trimmed to the keep bound, got {}", lines.len());
+        assert!(!lines.is_empty());
+        // the trim left valid JSON (didn't corrupt a line) + no temp lingers.
+        serde_json::from_str::<serde_json::Value>(lines.last().unwrap()).expect("last kept line is valid JSON");
+        assert!(!epi.join("mcp_graph_events.jsonl.tmp").exists(), "no trim temp may linger");
+    }
+
+    #[test]
     fn test_graph_traverse_directional() {
         // §720 #2: agents navigate the graph DOWNSTREAM (out) and via BACKLINKS (in), not just forward.
         let dir = tempfile::tempdir().unwrap();
