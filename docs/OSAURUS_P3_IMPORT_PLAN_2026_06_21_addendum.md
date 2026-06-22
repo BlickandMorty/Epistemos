@@ -1967,3 +1967,24 @@ This is the exact "verified-in-isolation but the running app is still broken" fa
 
 Re-audit: the auditor will re-screenshot the running app each fire. If a fresh launch still shows Osaurus default
 next cycle, the agent's approach is not reaching the owner's app — escalate + surface to owner for intervention.
+
+---
+
+## 🔴 AUDITOR CORRECTION (P0, 2026-06-22 ~14:55) — the cream reskin STILL does not RENDER; this is the original wall, unfixed
+The auditor screenshot (owner_state_check_2026_06_22_1452.png, build 14:37) shows the act/home surface is WHITE /
+Osaurus-default, NOT the warm Epistemos cream (#fbfaf5). BUT the 0.1 cream edit (CustomTheme.lightDefault +
+schema bump, committed iter1 `6becb2cdf`) IS in this build. **So the committed reskin is NOT cascading into the
+running app — the SAME "reskin doesn't render" wall from day one is still unfixed**, despite the source edit +
+schema-bump approach the agent believed resolved it. Editing the theme source and assuming it applies is exactly
+the trap; it must be RUNTIME-CONFIRMED.
+
+**REQUIRED — find why it doesn't render, don't re-edit-and-assume:**
+1. On a FRESH launch (kill→rebuild→open→screencapture→Read), the act surface MUST visibly render cream/monospace.
+   It currently renders white → 0.1 is NOT done (it was never rendering; the schema-bump cascade did not take).
+2. Diagnose the REAL cascade failure: does the running act surface actually read `CustomTheme.lightDefault`? Does
+   the schema bump (5→6) actually force a disk re-install on an EXISTING install, or does a cached/persisted
+   theme (or a different theme id, or the OS appearance) override it? Is the host applying a theme at all? Trace
+   the ACTUAL theme the running ChatView resolves — prove it with a fresh screenshot showing cream, not a claim.
+3. Owner framing to honor: "pour the full Osaurus, then make it look like my old chat." The blocker is purely
+   that the look does not RENDER. Make cream/native RENDER on the owner's launch FIRST (the single immediate
+   unblock), before any further cert/lower-tier work. A reskin that doesn't show on launch is 0% done.
