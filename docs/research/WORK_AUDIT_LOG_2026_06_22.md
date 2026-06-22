@@ -1111,3 +1111,16 @@ native-act convos not yet persisted to SDChat so sidebar→load is a follow-on. 
 as home, full-chrome-match incl. command palette/38-tool/Osaurus commands, kill duality) remain for Codex.
 Going forward: same 15-min audit loop grades CODEX's commits vs the live app + 5-gate bar; corrections via addendum.
 Did NOT touch agent code.
+
+## PASS 72 — 2026-06-22 (AUDITOR ROLE HANDOFF — wrote AUDITOR_LOOP_PROMPT for a fresh auditor agent)
+Owner wants a fresh agent to TAKE OVER the auditor role (this session is long/bloated); 10-min loop. Wrote
+docs/AUDITOR_LOOP_PROMPT_2026_06_22.md capturing everything this auditor has been doing: check-only (no build/no
+race/no rush), 5-gate deep-audit of the WHOLE plan, the SCREENSHOT-VERIFY-vs-owner's-reference-screenshots core
+technique (don't trust agent claims — only the owner's fresh-launch screenshot counts), STRICTNESS enforcement
+(the owner says recert isn't strict enough: no [x] without all 5 gates + fresh-launch PNG; approximation/invented-
+UI = regression; act-only-tunnel/build-green/honest-stub/[~]-abuse flags), GROUND TRUTH for act UI (reuse real
+views ChatView/ChatInputBar/ChatSidebarView + afc34e806 baseline, separate UI/engine, Osaurus=engine-only),
+current open issues (real LandingView as home, full-chrome match, kill duality, multi-surface, merge 38-skills+
+commands), correction channel (addendum 🔴 AUDITOR CORRECTION + 0.31 ingest; git add only own files), discipline.
+NOTE: when the owner starts the new auditor, run ONE auditor — stop this session's cron (34ea6526) to avoid two
+auditors racing the addendum. Did NOT touch agent code.
