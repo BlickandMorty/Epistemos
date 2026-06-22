@@ -1120,3 +1120,11 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   - SubstrateHealthPanelTests: "session ring only" → "session ring + durable log" (Phase 2 64196c4a8 added the
     durable JSONL log); updated; conservatism still asserted via falsifierPassed: false.
   No production code touched — all real refactors that left source-mirror/enum-count assertions stale.
+
+## No-red sweep (MAS/settings) — fixed a stale MAS-hardening gate test (2026-06-22)
+- MAS/settings/chat batch surfaced one red (5 issues) in AppStoreHardeningTests: the KTOTrainer MAS-gate spec
+  asserted a (MAS-gated) Process.init subprocess, but eb7742b39 (SS-LS 1b) made KTOTrainer fully native
+  (NativeKTOTrainer — "no Python, no subprocess at all"), so the subprocess was REMOVED entirely. The surface
+  is MORE MAS-safe, not regressed. Removed the stale KTOTrainer spec + @Test (joining QLoRA/MoLoRA, already
+  native) and fixed the PythonEnvironmentManager spec index [2]→[1]. Verified KTOTrainer is subprocess-free
+  before touching (it's a security test — not blind-green-washed). No production code touched.

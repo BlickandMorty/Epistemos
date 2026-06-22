@@ -756,19 +756,13 @@ struct AppStoreHardeningTests {
                 "/usr/bin/ditto",
             ]
         ),
-        KFMASGateSpec(
-            pathComponents: ["KnowledgeFusion", "Alignment", "KTOTrainer.swift"],
-            markers: [
-                "Process.init(",
-                "process.executableURL",
-                "process.arguments",
-                "try process.run()",
-            ]
-        ),
-        // QLoRATrainer (now in-process native NativeLoRATrainer / MLXLLM.LoRATrain)
+        // KTOTrainer (SS-LS 1b, eb7742b39 — native in-process NativeKTOTrainer; the
+        // /usr/bin/python3 spawn was REMOVED entirely, "no Python, no subprocess at all"),
+        // QLoRATrainer (now in-process native NativeLoRATrainer / MLXLLM.LoRATrain),
         // and MoLoRAInferenceService (deleted 2026-06-18 — orphaned
         // molora_inference.py subprocess, replaced by native NativeAdapterApply)
-        // no longer spawn subprocesses, so they're removed from the MAS-gate specs.
+        // no longer spawn subprocesses, so they're removed from the MAS-gate specs
+        // (no subprocess to gate = even more MAS-safe than gating one).
         // PythonEnvironmentManager keeps the Pro/direct venv and pip
         // subprocess path, but must not carry runtime Homebrew/Python
         // installer-pipeline literals.
@@ -802,17 +796,16 @@ struct AppStoreHardeningTests {
         try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[0])
     }
 
-    @Test("KTOTrainer MAS branch contains no python subprocess launch markers")
-    func ktoTrainerMASBranchHasNoPythonLaunchMarkers() throws {
-        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[1])
-    }
+    // KTOTrainer MAS-gate test removed (SS-LS 1b, eb7742b39): KTOTrainer is now native
+    // in-process (NativeKTOTrainer) — the /usr/bin/python3 spawn was REMOVED entirely, so
+    // there is no subprocess to MAS-gate. Joins QLoRATrainer + MoLoRAInferenceService below.
 
     // QLoRATrainer + MoLoRAInferenceService MAS-gate tests removed 2026-06-18
-    // (QLoRA is native; MoLoRAInferenceService deleted). PythonEnvironmentManager
-    // is now spec index [2].
+    // (QLoRA is native; MoLoRAInferenceService deleted). With KTOTrainer also removed,
+    // PythonEnvironmentManager is now spec index [1].
     @Test("PythonEnvironmentManager MAS branch contains no installer launch markers")
     func pythonEnvironmentManagerMASBranchHasNoInstallerMarkers() throws {
-        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[2])
+        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[1])
     }
 
     // MARK: - Category B regression (Phase S.2 ChunkedMCPFraming)
