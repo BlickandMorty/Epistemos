@@ -792,6 +792,15 @@ extension String {
         while let closingRange = ThinkingTagSyntax.closingMatch(in: cleaned) {
             cleaned.removeSubrange(closingRange)
         }
+        // P0 (owner 2026-06-21) — SHARED reasoning-output fix: a reasoning model cut off mid-think
+        // (e.g. VibeThinker 3B GGUF when the token budget is exhausted inside the block) emits an
+        // UNCLOSED opening tag with no closing — `<think>… <EOF>`. The loops above only handle CLOSED
+        // blocks + orphan closing tags, so the raw reasoning LEAKED as visible text (titles + any
+        // surface using strippingThinkingBlocks/finalVisibleText — act, note chat, graph chat). Strip
+        // from an unclosed opening tag to the end (the answer never came); keep any text BEFORE it.
+        if let match = ThinkingTagSyntax.openingMatch(in: cleaned) {
+            cleaned.removeSubrange(match.range.lowerBound..<cleaned.endIndex)
+        }
         return cleaned
     }
 

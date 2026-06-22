@@ -659,4 +659,23 @@ struct ThinkTagStreamRouterTests {
         let flushed = router.flush()
         #expect(flushed.visible.isEmpty)
     }
+
+    // P0 REGRESSION (owner 2026-06-21): a reasoning model (VibeThinker 3B GGUF) cut off mid-think emits an
+    // UNCLOSED <think> with no </think>. strippingThinkingBlocks must NOT leak that raw reasoning — the bug
+    // class that put <think>/meta-prompt into chat titles. SHARED layer (act/note/graph/title all use it).
+    @Test("strippingThinkingBlocks strips an UNCLOSED reasoning block (no leak) — VibeThinker-GGUF regression")
+    func stripsUnclosedThinkBlock() {
+        // Unclosed <think> with no answer → nothing visible leaks.
+        #expect("<think>let me reason about this query".strippingThinkingBlocks().isEmpty)
+        // Closed block → the real answer survives (unchanged behavior).
+        #expect("<think>reasoning</think>The Answer".strippingThinkingBlocks() == "The Answer")
+        // Text BEFORE an unclosed opener is kept; the unclosed reasoning is dropped.
+        let mixed = "Answer first <think>then thinking".strippingThinkingBlocks()
+        #expect(mixed.contains("Answer first"))
+        #expect(!mixed.contains("then thinking"))
+        // No reasoning tags → untouched.
+        #expect("plain answer".strippingThinkingBlocks() == "plain answer")
+        // Other unclosed reasoning-tag variants (Gemma bracket form) also don't leak.
+        #expect("[Start thinking] deliberating".strippingThinkingBlocks().isEmpty)
+    }
 }
