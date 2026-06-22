@@ -1880,3 +1880,35 @@ Full fusion (with §1): (1) engine-expressing views (thinking/stream/tools) = Os
 (2) Osaurus Apple-native components (voice/popovers) = adopt · (3) Osaurus custom-branded surfaces = drop →
 native · (4) shell (toolbar/sidebar/window/message-bar) = native Epistemos. Net: the app as it was + engine
 swapped to Osaurus + Osaurus's best Apple-native bits − its generic blocks/fonts/composer. Minimal, no bloat.
+
+---
+
+## 🔴 AUDITOR CORRECTION (P0, 2026-06-22) — BUILD the visible ACT D-CLUSTER NOW; stop deferring it
+**Certs stand — this is not a fake-green flag.** 0.4/0.11/0.18/0.22/0.23 are legitimately certified (real green
+tests, 0 skipped) and the iter7 architecture mapping (decompose `EpistemosOsaurusChatHost` into native-shell +
+Osaurus-thread, bridge `ChatState`↔Osaurus `ChatWindowState`) is correct and valuable. **The problem is
+sequencing:** across iter6→iter9 the VISIBLE act surface — the owner's #1 standing pain — has had ZERO build
+progress and is still 100% `[ ]` (0.1 reskin, 0.2 surfaces, 0.3 landing→blur→act, 0.8/D1–D5, §1/§2 synthesis),
+while the agent harvested headless plumbing certs and attempted TIER 2–3. "Mapped / sequenced" is NOT "built."
+
+**WHY THIS IS NOW THE PRIORITY:** the send foundation is certified (0.4) — the "need the plumbing first" reason is
+spent. Per standing directive **"act is P0 blocking for owner pain"** + the §1/§2 SYNTHESIS the owner just gave,
+the visible D-cluster is the lead build target. The owner is NOT checking the app and said so — **self-verify via
+`screencapture` + Read; do NOT defer to "owner UX verification."**
+
+**REQUIRED (next iterations — make REAL visible progress, incrementally):**
+1. Begin executing the mapped re-architecture in SMALL, screenshot-verified steps. It does NOT have to land in one
+   4-min tick — take several iterations; after EACH step re-run the green send harness (0.23) to prove 0.4 didn't
+   regress. That resolves the "not safe at cadence" concern without indefinite deferral.
+2. **Concrete next milestone:** land at least ONE D-item with a FRESH cream/native screenshot the agent Read —
+   e.g. D1 curved native window, OR the first decomposition step (native shell frame hosting the Osaurus thread
+   view), OR D2 Epistemos LandingView shown first → blur → act. Prove visible movement, not another map.
+3. **Do NOT certify further headless / lower-tier items as the PRIMARY work** while the visible surface is `[ ]`.
+   Whole-plan attempts continue in PARALLEL (don't re-tunnel), but the D-cluster gets the build effort and the
+   lowest-still-`[ ]` (0.1) must finally start advancing.
+4. Apply the §1/§2 synthesis as you build: native Epistemos shell (toolbar/sidebar/composer/window) + Osaurus
+   engine-core (thread/thinking/stream reskinned) + adopt Osaurus voice/popovers + drop Osaurus landing-blocks/
+   block-fonts/composer. Screenshot each surface (main/mini/graph/note) separately per 0.2/0.5.
+
+Re-audit target: next fire I verify a D-item moved with a fresh PNG. Continued deferral (more headless certs / no
+visible build) = the agent is avoiding the owner's central work — escalate again + surface to owner.

@@ -856,3 +856,18 @@ ONE cycle since it just ingested §1/§2 this iteration. NEXT FIRE: verify the a
 (D1-D5 + §1/§2 native-shell synthesis, screenshot-proven), NOT more headless certs / deeper TIER 2-5. If it
 defers the visible surface again → escalate P0 PRIORITY CORRECTION (act-visible is TIER-0 P0, owner standing #1).
 VERDICT: PASS — certs legit, correction loop proven, synthesis landed; one priority watch armed for next fire.
+
+## PASS 58 — 2026-06-22 (WATCH TRIGGERED → P0 PRIORITY CORRECTION: build the visible D-cluster)
+iter7 (6262bb0e6: 0.22 chokepoint CERTIFIED + D2/ACT-UI mapped) + iter8-9 (45397952c: 0.11 provider+Picks
+CERTIFIED). Both DOCS-ONLY (no code files touched) — re-certs of existing plumbing, NOT visible UI build.
+CERTS VERIFIED LEGIT: 0.11 EpistemosPicksTests green 4/4 0 skipped; 0.22 re-cert; no fake-green. iter7 arch
+mapping is CORRECT+valuable (decompose EpistemosOsaurusChatHost → native-shell + Osaurus-thread, bridge ChatState
+↔ChatWindowState). BUT: visible act D-cluster (0.1/0.2/0.3/0.8 D1-D5 + §1/§2 synthesis) = ZERO build progress
+across iter6-9, lowest-[ ] stuck at 0.1 for 9 iters; agent deferring as "mapped/sequenced/not safe at 4-min
+cadence/benefits from owner UX verification." Per pass-57 commitment (escalate if deferred again) → P0 PRIORITY
+CORRECTION appended to addendum: certs stand, but the visible D-cluster is now the LEAD build target (foundation
+certified, send works); build the mapped re-architecture in SMALL screenshot-verified steps, re-run 0.23 harness
+after each to protect 0.4; next milestone = ≥1 D-item landed with a FRESH cream/native PNG; don't certify more
+headless items as primary work while visible surface [ ]; SELF-VERIFY via screencapture (owner is NOT checking —
+do not defer to "owner UX verification"); whole-plan continues in parallel (no re-tunnel). Re-audit next fire:
+a D-item must move with a fresh PNG, else escalate again + surface to owner. Did NOT touch queue/recertlog/code.
