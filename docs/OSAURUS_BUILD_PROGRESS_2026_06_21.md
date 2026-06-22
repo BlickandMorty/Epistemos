@@ -578,3 +578,12 @@ orchestration. Research: docs/research/FUGU_ORCHESTRATION_INTEGRATION_2026_06_22
 EpdocGraphProjector camelCase fix CHECKPOINT-GREEN (EpdocGraphProjectorTests 10/10, TEST SUCCEEDED). Codebase
 audit clean: ProseMirrorMarkdownProjector + ReadableBlocksProjector + EpdocGraphProjector + EpdocComplexityCalculator
 all alias snake+camelCase node names. orphan_notes↔graph-view consistency locked (`b31aed88b`, cargo 193).
+
+### 🔧 Shared-inference refusal detector false-positive fix (5b15edc2c, 2026-06-22)
+P0-adjacent (the shared refusal detector that drives fallback/escalation across both chokepoints): bare
+"as an ai"/"as an apple" patterns wrongly flagged HELPFUL "As an AI assistant, I'd be happy to help…" responses
+as refusals → wrong fallback. Fixed: those preambles count as refusals ONLY with a co-occurring refusal verb;
+true refusals still caught, helpful "As an AI…" spared. Tests (true-pos + 3 false-pos). Checkpoint-pending.
+Found while auditing P0-area shared inference. (Priority: P0 at headless ceiling — both lane diagnostics +
+root cause pinned; act/work VISIBLE surfaces need the running app; foundational Fugu/TRINITY/system-prompts
+sequenced later + blocked on vendoring. This was a genuine safe in-area fix.)
