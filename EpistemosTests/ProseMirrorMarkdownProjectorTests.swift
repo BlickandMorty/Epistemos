@@ -115,6 +115,27 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         }
     }
 
+    @Test("table projects to a GFM table — header row + separator + body (was dropped)")
+    func tableProjection() {
+        func cell(_ s: String, header: Bool = false) -> ProseMirrorNode {
+            ProseMirrorNode(type: header ? "table_header" : "table_cell",
+                            content: [Self.para([Self.text(s)])])
+        }
+        func row(_ cells: [ProseMirrorNode]) -> ProseMirrorNode {
+            ProseMirrorNode(type: "table_row", content: cells)
+        }
+        let d = Self.doc([
+            ProseMirrorNode(type: "table", content: [
+                row([cell("A", header: true), cell("B", header: true)]),
+                row([cell("1"), cell("2")]),
+            ])
+        ])
+        let md = ProseMirrorMarkdownProjector.project(d)
+        #expect(md.contains("| A | B |"), md)
+        #expect(md.contains("| --- | --- |"), md)
+        #expect(md.contains("| 1 | 2 |"), md)
+    }
+
     @Test("em mark wraps text in *")
     func emMark() {
         let d = Self.doc([
