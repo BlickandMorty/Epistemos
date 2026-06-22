@@ -519,3 +519,52 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
 | Northstar PNGs | Optional visual refs |
 | Post-recert forward scope | P1 — define forward-only trigger when first real cert lands |
+
+## Iteration 11 — 2026-06-22 (tick 7 FULLPLAN — final pre-launch verify)
+
+### Handoff gate (tick 7)
+| Check | Status |
+|-------|--------|
+| `git status` at tick start — WORK_QUEUE uncommitted | **FAIL** (defer triggered) |
+| `git status` at tick start — STRICT uncommitted | **FAIL** (defer triggered) |
+| `git status` at tick start — PASTE uncommitted | PASS |
+| Reconcile agent active at tick start | **YES** — in-flight diffs matched iter-10 CURSOR_HANDOFF A–E clusters |
+| Mid-tick reconcile commit | **7ecc2b9ed** `docs: CURSOR handoff — queue sync (pass51 reconcile)` — queue+strict now clean |
+| Post-reconcile queue/strict/paste clean | PASS |
+
+**Verdict:** Initial defer correct; iteration 11 pre-launch verify **RUN** after reconcile commit (no duplicate CURSOR handoff re-application).
+
+### Pre-launch checklist (iteration 11 — three-doc sync)
+| Check | WORK_QUEUE | STRICT | PASTE | Verdict |
+|-------|------------|--------|-------|---------|
+| Tier 0 walk ends 0.32 | PASS | PASS | PASS | PASS |
+| Tier 1 walk ends 1.9 | PASS | PASS | PASS | PASS |
+| Tier 4 walk ends 4.18 (+4.17 row) | PASS | PASS | PASS | PASS |
+| 0.21 D4 sole owner | PASS | PASS | PASS (#8) | PASS |
+| OsaurusChatView disambiguation | N/A | PASS | PASS | PASS |
+| Tolaria spelling (not Talaria) | PASS | PASS | PASS | PASS |
+| 0.31 full heading-list diff | PASS | PASS | PASS (#13) | PASS |
+| gate-(d) same entry point + xfail | PASS | PASS | PASS (#6) | PASS |
+| gate-(c) distinct mount/route | PASS | PASS | PASS | PASS |
+| served-model == selected-model | PASS | PASS | PASS (#4) | PASS |
+| STEP-0 RESET | PASS | PASS | PASS (#2) | PASS |
+| `[~]` cap ≤2 | PASS | PASS | PASS (#16) | PASS |
+| TIER ADVANCE FLOOR | PASS | PASS | PASS (#14) | PASS |
+| 0.32 highest + lowest still-[ ] witness | PASS | PASS | PASS (#14) | PASS |
+| W/B/S acceptance gates | PASS | PASS | PASS (#22) | PASS |
+| 22 non-negotiables in paste | N/A | N/A | PASS | PASS |
+| Certification log / Docs-maintenance headers | PASS (RULES) | N/A | PASS (#6) | PASS (STRICT_RECERT_LOG) |
+| CURSOR_HANDOFF A–E (post-reconcile) | PASS | PASS | PASS | PASS |
+| Runtime PNG in repo | FAIL | — | — | expected — agent captures |
+| Any queue item `[x]` certified | FAIL | — | — | expected — all UNCERTIFIED |
+
+**Verdict:** Three-doc stack **SYNCED** for launch. No strict/paste/queue drift fixes required this iteration.
+
+### Still open (build agent)
+| Gap | Action |
+|-----|--------|
+| All queue items uncertified | Build agent walks full plan with 5-gate + W/B/S + harness/witness rules |
+| `osa_runtime_2026_06_22.png` | Agent re-captures each iteration with unique path + timestamp |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| Northstar PNGs | Optional visual refs |
+| Post-recert forward scope | P1 — define forward-only trigger when first real cert lands |
