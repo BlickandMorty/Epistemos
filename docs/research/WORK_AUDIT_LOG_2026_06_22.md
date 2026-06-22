@@ -748,3 +748,17 @@ P2: skipped/xfail/weakened-assert evade gate-d + no-red (cite test ran, 0 skippe
   same path; [~] designed-in per-tier with no cap (TIER5 100% [~] "completes"); forbidden-phrase blacklist is
   paraphrasable (use behavioral lowest-open-advanced invariant); data-carry-over/test-parity gates have NO hook.
 ACTION: relayed top-leverage to owner; NOT editing spec. No build loop running; no build-code commits this fire.
+
+## PASS 51 — 2026-06-22 (completeness diff + HANDOFF to Cursor; research loop STOPPED)
+Ran read-only completeness agent: 89 addendum headings vs queue. ~70 covered, ~12 superseded/historical, 4
+BUILDABLE NOT-COVERED (no queue row): (1) vault→GRAPH population + LLM-wiki UI (addendum:730/777); (2) RustLSP→
+work-agent code-intel tools (addendum:133); (3) EPDOC MD-V2 inversion + agent-edit provenance (addendum:206/777);
+(4) Goose = FULL vendored clone NOT leaf-port (addendum:441 CORRECTIONS #1). Anchor risks: Talaria(queue) vs
+Tolaria(addendum) spelling drift; verify external-doc targets exist (CHAT_BACKEND_QUARANTINE for 0.10/4.9/4.10/
+4.11, SUBSTRATE_BUILD_SEQUENCE for 2.1). Verified plan-prep APPLIED pass-49 (STEP-0 reset prompt:117, [~] cap
+prompt:268, paste:36 forbidden file); pass-50 P0-A/B/C still PENDING.
+OWNER: stop research loop + produce Cursor handoff. DONE: cancelled cron 482a2d4e (2-min research loop); 15-min
+audit loop 413bee6a still live. Wrote docs/research/CURSOR_HANDOFF_2026_06_22.md consolidating passes 49/50/51
+(objective: deep-cert-first → continue-coding → no-context-bloat → does-everything; MUST-FIX A-E with file:line +
+fixes; acceptance bar). Owner will bring Cursor's updated prompt back for my double-check before launch.
+NOT editing the spec. No build loop running; no build-code commits this fire.
