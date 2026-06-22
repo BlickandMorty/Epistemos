@@ -43,6 +43,25 @@ public struct EpistemosOsaurusChatHost: View {
 
     public var body: some View {
         ChatView(windowState: windowState)
+            // GRAFT 3 — SCROLL-BLUR (owner must-keep 2026-06-22): a soft top-edge progressive
+            // blur so content dissolves as it scrolls up — the loved Epistemos scroll interaction
+            // brought onto the Osaurus surface. Purely additive overlay (no change to Osaurus's
+            // ChatView): a thin material band, strongest at the very top and fading to clear, that
+            // blurs whatever scrolls under it. Never intercepts input. (Owner refines depth on the
+            // running app; the other 2 grafts — message bar, side panel — follow.)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .mask(
+                        LinearGradient(
+                            colors: [Color.black, Color.black.opacity(0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: 34)
+                    .allowsHitTesting(false)
+            }
             .task { Self.bootstrapAndThemeOnce() }
     }
 
