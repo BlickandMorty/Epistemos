@@ -980,3 +980,16 @@ not rebuilding+shipping; stuck in analysis. Auditing has diagnosed everything pr
 build. If agent doesn't SHIP this crisp target runtime-verified in 1-2 cycles → recommend owner drive a focused
 dedicated build session (the strict-recert whole-plan loop is too diffuse for this hard UI rebuild). Did NOT
 touch agent code.
+
+## PASS 64 — 2026-06-22 (RECURSIVE FIX — locked the native-UI-on-engine direction across ALL docs; owner leaving)
+Owner leaving; "correct everything recursively, fix it." ROOT THRASH CAUSE found: addendum had the pivot, but the
+DRIVER (line 78 LOCKED UI DIRECTION), the PASTE block (line 35), AND queue 0.17 (line 164) still LED with the OLD
+"mount Osaurus's OWN UI / OsaurusChatView reskinned" — agent re-read the wrong lead every iteration → kept
+wrangling/decomposing Osaurus's ChatView (iter18 "6077-line monolith, chromeless flag"). FIXED all three lead
+directions + added "🔴🔴🔴 FINAL ACT/WORK UI DIRECTION (LAST WORD)" to addendum superseding EVERY prior act-UI
+section (option-b, mount-reskin, decompose-monolith). Now consistent everywhere: ACT/WORK UI = FRESH NATIVE
+Epistemos views wired to the Osaurus ENGINE ONLY (CoreModelService.generateStream, proven 0.4); NEVER mount/reskin/
+decompose ANY ChatView (old Epistemos OR Osaurus OsaurusChatView). Concrete 5-point acceptance on FRESH launch
+(cream landing+pill+toolbar, click-anywhere→act + NO search page, act native chrome, working send no hang, kill
+chat duality). NOTE: new agent commit a48198c5e (49s) not yet audited — will audit next fire. Edited driver+paste+
+queue-0.17+addendum (owner authorized recursive prompt edit); verifying commit touches only intended files.

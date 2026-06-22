@@ -32,8 +32,8 @@ only.** Act is P0 blocking for owner pain; **act certified ≠ loop done.**
 beyond future clones (Tolaria, Epdoc-fuse, Tamagotchi render-fix).
 
 ## LOCKED ACT DIRECTION (no drift)
-- Mount **Osaurus's OWN UI** (`OsaurusChatView` in `LocalPackages/osaurus` — vendored Osaurus chat UI), reskinned cream/monospace + **3 grafts** (message bar, side panel, scroll-blur).
-- **SUPERSEDES option-(b)** old Epistemos `ChatView`. Do NOT mount `Epistemos/Views/Chat/ChatView.swift` for act.
+- **FRESH NATIVE Epistemos UI** (landing, toolbar, sidebar, pill, composer, curved window, transcript) wired to the **Osaurus ENGINE** in-process (`CoreModelService.generateStream` — the proven 0.4 path). **Osaurus = ENGINE ONLY, not UI.**
+- Do NOT mount, reskin, OR decompose ANY ChatView — neither `Epistemos/Views/Chat/ChatView.swift` (old chat) NOR Osaurus's `OsaurusChatView` (monolith). SUPERSEDES option-(b) AND mount-Osaurus-UI-reskinned AND decompose-the-monolith — all wrong.
 - **Landing = Epistemos `LandingView` FIRST** (D2/0.3) → blur → act. NOT Osaurus default "Good morning" landing.
 
 ## NON-NEGOTIABLES — every iteration (22)

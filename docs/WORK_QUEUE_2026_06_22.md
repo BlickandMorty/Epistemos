@@ -161,8 +161,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   self-description garbage); all models; extends 0.9.
   →plan: "🎯 CONFIRMED reproduction + TITLE bug" + P0 regression sections.
 
-- [ ] **0.17 LOCKED ACT direction** — Osaurus OWN UI reskinned + 3 grafts; SUPERSEDES option-(b) old ChatView.
-  Do NOT mount `Epistemos/Views/Chat/ChatView.swift` for act. Latest 🔒/DEFINITIVE wins over older addendum.
+- [ ] **0.17 LOCKED ACT direction (FINAL)** — ACT/WORK UI = FRESH NATIVE Epistemos views wired to the Osaurus
+  ENGINE (`CoreModelService.generateStream`, the proven 0.4 path). **Osaurus = ENGINE ONLY, not UI.** Do NOT mount,
+  reskin, OR decompose ANY ChatView — neither `Epistemos/Views/Chat/ChatView.swift` (old chat) NOR Osaurus's
+  `OsaurusChatView` (6077-line monolith). SUPERSEDES option-(b) AND mount-Osaurus-UI-reskinned AND decompose-monolith.
   **REFINED (owner P0 via auditor 2026-06-22, addendum §1829/§1861 — ACT-UI SYNTHESIS): native Epistemos SHELL
   (toolbar/sidebar/window/message-bar) + Osaurus ENGINE-CORE.** Keep/drop heuristic: (1) engine-expressing views
   (thinking/stream/tools) = Osaurus reskinned, don't rebuild · (2) ADOPT Osaurus genuinely-Apple-native bits
