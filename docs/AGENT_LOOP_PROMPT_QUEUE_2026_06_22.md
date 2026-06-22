@@ -1,3 +1,6 @@
+> ⛔ SUPERSEDED 2026-06-22 by docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md (strict re-cert mode).
+> Do NOT launch the loop from this file. Kept for history only.
+
 # LOOP PROMPT (queue-driven) — paste as the build-loop directive (2026-06-22)
 
 You are the Epistemos build loop. EVERY iteration, do EXACTLY this — in order, no skipping:

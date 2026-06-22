@@ -32,8 +32,9 @@ RULES (every loop, non-negotiable):
 - Re-read THIS queue fully. Pick the FIRST unchecked item in order. Read its FULL →plan section + implement ALL
   its specifics. Do it for REAL.
 - RUNTIME-VERIFY before [x] (build-green is NOT done; the reskin/act bugs all passed build but failed at runtime).
-  If you cannot runtime-verify a UI item headlessly, mark it [~] "built, NEEDS owner/computer-use runtime-verify"
-  — never [x]. Do NOT move past a broken/unverified TIER-0 item to lower tiers.
+  YOU verify it: build → open the app → `screencapture` → `Read` the PNG → confirm with your own eyes. `[~]` is a
+  TRUE LAST RESORT only (state why no screencapture/snapshot could observe it) — NOT the default. NEVER mark UI
+  done on build-green. Do NOT move past a broken/unverified TIER-0 item to lower tiers.
 - Update this queue each loop (status + a one-line result). Commit + push. No fake-done. No red on main.
 - Never delete chat IP. main-only. Co-Authored-By Claude.
 
@@ -42,7 +43,8 @@ STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hol
   say (not a near-miss / drift / different approach than the plan mandates — e.g. 0.1 must hit the SOURCE the
   plan names); (c) WIRED + REACHABLE — actually on the live path, not dead/flagged-off; (d) REAL-STATE TESTED —
   a test exercises real behavior (not a stub/always-true); (e) RUNTIME — for ANY UI/visual item it RENDERS/WORKS
-  at runtime. If you cannot prove (e) headlessly → `[~] NEEDS-OWNER-RUNTIME`, never `[x]`. If (a)-(d) fail →
+  at runtime — YOU prove it by screencapture+Read, not by deferring to the owner. `[~]` only as a TRUE last
+  resort with a stated reason no automated path could observe it; never as the default, never `[x]` on build-green. If (a)-(d) fail →
   it's BROKEN/DRIFTED: fix it for real, then re-certify. NO box is trusted from a prior "done" — re-prove it.
   Do NOT delete/revert working code to "restart" — re-certify in place; only change what's actually wrong.
 
@@ -72,6 +74,21 @@ STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hol
   NativePillButtonStyle ChatSidebarView.swift:76) → bring it back; D4 Configuration/Settings doesn't open/work →
   wire act config + per-clone settings; D5 reskin only partial (still Osaurus chrome, not owner cream/mono +
   model picker/palette/38-tool panel). →plan: "🔴 OWNER-REPORTED RUNTIME DEFECTS" in strict prompt + addendum.
+  NOTE: D1–D5 are the RUNTIME ACCEPTANCE TESTS for 0.1–0.7 — do NOT mark 0.1–0.7 `[x]` until the matching
+  D-item passes YOUR screenshot (e.g. 0.1 reskin isn't `[x]` until D5 screenshot shows cream/monospace).
+- [ ] **0.11 Provider wiring + Epistemos Picks** — owner's GGUF/QAT models actually selectable AND used in act;
+  "Add a provider" / Configuration opens REAL provider+model settings; NO silent Codex/Qwen swap. Verify a send
+  uses the owner's selected model. →plan: "OWNER'S MODELS IN CHAT" + "DEEP CHECK §2" + D4.
+- [ ] **0.12 Surface-wiring rule** — every Osaurus surface (settings, model stack, tools, transcript, config)
+  mapped to a proven Epistemos front-end; NO dead surfaces. →plan: "SURFACE-WIRING RULE".
+- [ ] **0.13 Shared act component** — ONE shared composer/capability component reused by main+mini+graph+note
+  (no per-surface drift). →plan: "🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE" (impl intent).
+- [ ] **0.14 Health-row witnesses honest** — ActOsaurusHealthRow / AnswerPacketHealthRow / etc.: wiredToday vs
+  stillStub must MATCH real code state after every change; re-cert each row. →plan: substrate + act progress docs.
+- [ ] **0.15 DEEP CHECK (prove reality, not claim)** — trace the LIVE act path end-to-end; prove no silent Codex
+  default; write honest status in OSAURUS_BUILD_PROGRESS. →plan: "DEEP CHECK — PROVE THE REALITY".
+- [ ] **0.16 Reasoning/thinking fidelity** (if not fully covered by 0.9) — `<think>` parsing, clean titles,
+  streaming, no refusals across ALL models. →plan: P0 regression sections.
 
 - [ ] **0.9 ACT FIDELITY non-negotiables** — act MUST: stream every token (no buffering); PRESERVE thinking
   blocks + signatures (don't strip reasoning); REAL tool-call parsing. The prior "reasoning-model output broken
@@ -89,6 +106,8 @@ STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hol
 - [ ] 2.1 SUBSTRATE Phase 2 AnswerPacket load-on-launch (4e7a49199 CLAIMED — re-certify real-state) → continue Phase 2 (history surface, primary witness) + P5/P6. →plan: SUBSTRATE_BUILD_SEQUENCE.
 - [ ] 2.2 Helios salvage (7 items): real eidos.query wiring, provenance ledger live, confidence_floor resurrect, AnswerPacket/wbo6 harden, L1 memory, InterruptScore, HW tier. →plan: "✅ HELIOS-ERA IP ... salvage list".
 - [ ] 2.3 GUS salvage 1-18 (genuinely-absent only; GUS-6..13 mostly already-live — verify): GUS-7 Ed25519, GUS-8 undo runtime-wire, GUS-10 skill-promote-wire, GUS-1..5/14..18. →plan: GRAND SWEEP cycles 1-3.
+- [ ] 2.5 EML honesty gate (GUS-2) — wire EML/Belnap as the AnswerPacket honesty/abstain gate. →plan: GRAND SWEEP GUS-2.
+- [ ] 2.6 Eidos recall/rerank — real eidos.query wiring + rerank, NOT fake-green (pairs with 2.2 Helios + GUS-5). →plan: "✅ HELIOS-ERA IP" + GRAND SWEEP GUS-5.
 - [ ] 2.4 UNIFICATION verdict: one orchestrator(System G)+TRINITY+one router+one brain attach+one inference chokepoint; fix eidos.query fake-green; delete confidence_floor/ConfidenceRouter dead; fix stale CLAUDE.md. →plan: "✅ UNIFICATION VERDICT".
 
 ## TIER 3 — ORCHESTRATOR / FUGU / TRINITY (foundational, sequenced here)
