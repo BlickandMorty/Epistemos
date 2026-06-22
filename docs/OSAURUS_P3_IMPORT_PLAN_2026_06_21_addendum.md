@@ -1049,3 +1049,30 @@ DIRECTIVE:
 4. **Modular:** a per-model prompt registry (data-driven) so prompts are editable + swappable as models/leaks
    update. Ties to the per-model SS-Z/AA/AB profiles + the orchestrator (each pool model carries its tuned prompt).
 Foundational for model quality; sequenced with the model-lab / per-model work. CC0 license preserved.
+
+## ✅ TRINITY PORT SPEC DONE → directive + 2 blockers (owner 2026-06-22; full = TRINITY_COORDINATOR_PORT_SPEC)
+Deep research complete. Faithful native port is FEASIBLE — largely additive over System G/RuntimeRouter/MLX.
+PORT TARGET = the Elixir repo's REAL mechanics (paper 2512.04695 = conceptual frame only; it omits SVF
+equations + HF URL — do NOT fabricate paper equations). Verified mechanics to port:
+- **Router:** Qwen3-0.6B, penultimate-token (-2) hidden state {1,1024}, output_hidden_states.
+- **Coordination head:** biasless linear 1024→10 (7 agent + 3 role logits; 0=Worker,1=Thinker,2=Verifier).
+- **SVF:** AVOIDED at runtime — adapted weights are PRE-MATERIALIZED safetensors on HF → BUNDLE pre-adapted
+  tensors, skip runtime SVD (major de-risk; MLXLinalg.svd exists if ever needed).
+- **Loop:** flat ≤5-turn Thinker/Worker/Verifier (NOT recursive); terminate on Verifier "ACCEPT"; budgets.
+- **Provider boundary:** OpenAI-compat /chat/completions, Bearer, no streaming, 7-agent pool.
+- **Trace:** JSONL schema_version:1, 8 event types → wire to TraceCollector.swift (honest provenance).
+- **Epistemos targets (verified):** loop→agent_core/src/agent_runtime_v2/ (System G); selection→RuntimeRouter.swift;
+  providers→Rust OpenAICompatibleProvider + Swift LLMService; router math→MLX/vmlx-swift; trace→TraceCollector.
+**ARTIFACTS (verified downloadable):** `nshkrdotcom/trinity-coordinator-adapted-qwen3-0.6b` (HF dataset, ~654MB,
+SHA-256 cross-checked) + base `Qwen/Qwen3-0.6B` (Apache-2.0, ~1.5GB). Add Qwen3-0.6B as a router-model slot.
+**🚧 BLOCKER 1 (build, must-prove-FIRST):** NO hidden-state/activation extraction exists in the MLX stack
+(generation-only) — the penultimate-token tap must be built NET-NEW on mlx-swift (highest risk). Prove with
+golden-vector parity tests (bf16/transpose/layer-index/margins) BEFORE relying on it.
+**🚧 BLOCKER 2 (LICENSE, owner-actionable):** the adapted-weights HF bundle has NO declared license → CANNOT
+SHIP until cleared. ACTION: contact the author (nshkrdotcom) to confirm a license, OR re-generate the adapted
+weights ourselves from base Qwen3-0.6B + the method (training code was removed, so this = re-derive), OR ship
+the orchestrator LOOP without the learned router (heuristic routing) until cleared. Owner decision needed on H1.
+**OPEN Qs:** exact extraction layer (final vs layer-26), decision rule (argmax vs sampling), 7th pool model,
+9216-vs-19456 z-vector (read HF manifest.json at build). Build order: prove the MLX hidden-state tap → head →
+loop/roles/providers/trace → bundle artifacts (license-gated) → wire across act/work/chat. Sequenced after
+P0 + act/work surfaces; foundational + certain.
