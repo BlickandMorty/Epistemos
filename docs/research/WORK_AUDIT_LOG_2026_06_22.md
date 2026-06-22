@@ -70,3 +70,10 @@ PASS or RE-ADD-to-plan for re-pickup; re-verify until correct. Cite file:line. C
   outright without breaking MAS. So "delete old ChatView" is BLOCKED ON the MAS-safe OsaurusCore split (ties §151).
 - **Verdict:** PASS, no re-add. Remaining: live send + `<think>` fix (running-app verify); MAS-safe OsaurusCore
   split → THEN delete old ChatView (sequenced, not premature). Mount✅ gate✅ reskin✅ bootstrap✅ toggle-removal✅ act/work-toggle✅.
+
+## Owner directive (mid-loop) — 2026-06-22: DEEPER act reskin
+Owner wants the reskin to go beyond palette: reapply the OLD Epistemos chat UI (MESSAGE BAR [fave], side panel,
+fonts, whole look) onto the Osaurus surface + fix Osaurus UI bugs with the better Epistemos UI; KEEP Osaurus
+(reskin/override, not replace). Added to plan (cf55e3e05) as a continuation of the act-reskin step. AUDIT-WATCH:
+verify the build loop reapplies the message-bar/sidebar/fonts onto the hosted Osaurus views (component-level,
+not just CustomTheme palette), additive, Osaurus engine kept. Re-add if it stops at palette-only.
