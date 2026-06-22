@@ -62,6 +62,7 @@ pub mod trinity_loop;
 pub mod trinity_orchestrator;
 pub mod trinity_provider;
 pub mod trinity_routing;
+pub mod trinity_systemg;
 pub mod trinity_trace;
 pub mod variant_ladder;
 
