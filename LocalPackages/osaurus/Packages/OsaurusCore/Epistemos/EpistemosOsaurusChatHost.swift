@@ -104,10 +104,25 @@ public struct EpistemosOsaurusChatHost: View {
     @MainActor
     private static func seedOwnerDefaultModelOnce() {
         let seededKey = "epistemos.act.didSeedOwnerDefaultModel.v1"
-        guard !UserDefaults.standard.bool(forKey: seededKey) else { return }
+        guard let model = ownerModelToSeed(
+            alreadySeeded: UserDefaults.standard.bool(forKey: seededKey),
+            ownerModels: EpistemosModelBridge.providedModelIds()
+        ) else { return }
+        AgentManager.shared.updateDefaultModel(for: Agent.defaultId, model: model)
+        // Mark seeded ONLY after a successful seed — so if the model bridge isn't registered yet
+        // at first mount (no owner models), we DON'T latch, and a later mount retries once the
+        // owner's models are available. (The earlier version latched before the model check,
+        // which could permanently skip seeding on an unlucky first-mount race.)
         UserDefaults.standard.set(true, forKey: seededKey)
-        guard let firstOwnerModel = EpistemosModelBridge.providedModelIds().first else { return }
-        AgentManager.shared.updateDefaultModel(for: Agent.defaultId, model: firstOwnerModel)
+    }
+
+    /// Pure decision for `seedOwnerDefaultModelOnce` — testable without globals. Returns the model
+    /// to seed as the default-agent model, or nil to skip: nil when already seeded (never re-clobber
+    /// the owner's later picker choice) OR when no owner model is registered yet (skip WITHOUT
+    /// latching, so a later mount retries).
+    static func ownerModelToSeed(alreadySeeded: Bool, ownerModels: [String]) -> String? {
+        guard !alreadySeeded else { return nil }
+        return ownerModels.first
     }
 
     /// The Epistemos palette as an Osaurus `CustomTheme`. Mirrors the Epistemos

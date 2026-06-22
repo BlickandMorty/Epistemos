@@ -1172,3 +1172,10 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/â
   ONE fresh Pro launch (Osaurus UI reskinned / no white-bar / one toggle / send works with YOUR model / clean
   title / 3 grafts). Each item names the commit that delivered it, so a failure pinpoints the exact fix. This
   makes the owner's single launch a definitive signal (build-green can't catch runtime issues).
+
+## Harden + test the owner-default-model seed (2026-06-22)
+- Found a robustness flaw in efe95c8dd: it latched the persistent flag BEFORE checking for owner models, so an
+  unlucky first-mount race (bridge not registered yet â†’ no models) would permanently skip seeding. Fixed:
+  pure `ownerModelToSeed(alreadySeeded:ownerModels:)` decision; seed + latch ONLY after a successful seed, so a
+  later mount retries once the bridge is up. Real-state test: seeds first model once, never re-seeds (no
+  clobber), skips-without-latching when empty. swift test green.
