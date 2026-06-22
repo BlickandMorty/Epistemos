@@ -90,9 +90,11 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   Osaurus default landing ("Good morning" + download/provider buttons). Screenshot landing, then post-blur act.
   →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions".
 
-- [ ] **0.4 SEND works (runtime)** — in-process reply, owner's model, no HTTP requestFailed, no silent
-  Codex/Qwen. Send-text harness every iteration; log prompt + ~80 chars of reply; harness MUST assert
-  **served-model ID == selected-model ID** (non-empty reply alone insufficient — pass50 P1-a).
+- [x] **0.4 SEND works (runtime)** — CERTIFIED iter2: real GUI send through running app (osascript) → prompt
+  "Reply with exactly one word: CERTIFY" → reply **"CERTIFY"** (labeled Osaurus), model **Gemma 4 e2b it 4bit**
+  (served==selected), TTFT 8.64s/2tok, NO requestFailed, NO silent Codex/Qwen. Evidence PNG
+  `/tmp/epi_iter2_send_20260622-131244.png` (Read). (a) ActOsaurusBridge.swift:199 · (c) AppBootstrap.swift:3155 ·
+  (e) runtime proven. Resolves owner P0-A. See STRICT_RECERT_LOG Iteration 2.
   →plan: "🎯 PINPOINTED ActOsaurusError error 2" + "P0-A".
 
 - [ ] **0.5 Mini-chat + grab-chat reachable** — wired, discoverable. **Screenshot EACH surface separately**
