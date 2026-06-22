@@ -557,3 +557,24 @@ search bugs on it; runtime-verify.
 - PRECISE FIX added: EDIT THE VENDORED OSAURUS THEME AT SOURCE (LocalPackages/osaurus/.../Theme.swift default
   colors/fonts → Epistemos cream/monospace) so Osaurus views NATIVELY render the look (like mini-chat does). Not
   runtime applyCustomTheme. Runtime-verify renders cream/mono. #1 P0.
+
+## PASS 41 — 2026-06-22 (owner STOPPED agent → STRICT RE-CERTIFICATION pivot)
+HEALTH: loop was alive (last commit ba2f8952f, 2 min old, on main); owner then manually STOPPED it.
+AUDIT of ba2f8952f ("Act reskin: actually apply the Epistemos cream theme (fix the theme SOURCE)") — FLAG, DRIFT:
+  - File: LocalPackages/osaurus/Packages/OsaurusCore/Epistemos/EpistemosOsaurusChatHost.swift (+27/-3).
+  - What it did: installAndApplyEpistemosThemeOnce() in host init() → saveTheme + refreshInstalledThemes +
+    applyCustomTheme(epistemosCreamTheme, persist:true), run-once latch, BEFORE ChatWindowState resolves.
+  - WHY IT'S A FLAG: the plan's TIER 0.1 (#1 P0) mandates editing the VENDORED Theme.swift DEFAULTS → cream
+    because runtime applyCustomTheme is "proven NOT to cascade" into Osaurus views. This commit keeps the
+    runtime applyCustomTheme approach (the rejected one) and does NOT edit the vendored default theme. Verified
+    vendored Theme.swift:324-345 default is still DARK (primaryBackground #0c0c0b), NOT the Epistemos cream
+    light surface (#fbfaf5/#f4f3ee). The commit's twist (apply BEFORE window-resolve, persist+install) MAY make
+    it render — but that is UNVERIFIED at runtime and contradicts the documented fix. Classic build-green≠runtime.
+  - ACTION: re-added as the KNOWN OPEN FLAG on queue item 0.1; must runtime-verify cream renders; if not, edit
+    vendored Theme.swift defaults per plan.
+OWNER DIRECTIVE (verbatim, 2026-06-22): super-strict full RE-CERTIFICATION — UNCHECK EVERYTHING (incl. Osaurus
+  AND pre-Osaurus work), can't trust "complete", restart from the VERY BEGINNING of the plan, recertify/reverify
+  each item robustly (NOT lazy), do NOT undo/delete, then continue. New looper to be launched.
+DONE THIS PASS (auditor docs only): reset WORK_QUEUE to STRICT RE-CERT mode (banner + all boxes UNCERTIFIED +
+  reset the two [~]→[ ] + added the 5-gate STRICT CERTIFICATION BAR); authored
+  AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md (the new strict looper driver). No build-loop files touched.
