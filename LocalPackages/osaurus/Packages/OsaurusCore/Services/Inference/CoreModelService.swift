@@ -52,7 +52,14 @@ public enum CoreModelStatus: Sendable, Equatable {
 public actor CoreModelService {
     public static let shared = CoreModelService()
 
-    private let localServices: [ModelService] = [FoundationModelService(), MLXService.shared]
+    // EPISTEMOS MODEL BRIDGE (owner: "owner's models in chat"): the bridged service
+    // routes generation to the owner's registered models (GGUF/QAT). Included here
+    // so the act=Osaurus path that drives the OLD Epistemos chat UI through
+    // CoreModelService (option (b)) reaches the owner's models too — not only the
+    // ChatEngine path. Inert until the app registers a provider (declines all).
+    private let localServices: [ModelService] = [
+        FoundationModelService(), MLXService.shared, EpistemosBridgedModelService(),
+    ]
 
     private static let maxRetries = 3
     private static let baseRetryDelayNanoseconds: UInt64 = 1_000_000_000
