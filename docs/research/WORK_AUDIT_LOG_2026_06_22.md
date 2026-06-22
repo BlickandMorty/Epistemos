@@ -894,3 +894,20 @@ I asked for, mid-flight. Did NOT touch the in-flight RootView.swift (in-flight, 
 RE-AUDIT next fire: verify the committed RootView/D-cluster result + a FRESH cream/native screenshot (D-item moved
 with PNG) + that pass-58/58b (D6 back-nav, pill on act+work, native-shell synthesis) got ingested. VERDICT:
 PASS/in-progress — agent healthy + now building the owner's #1 visible surface.
+
+## PASS 60 — 2026-06-22 (P0 CORRECTION WORKED — first VISIBLE win: D2 landing-first shipped + PNG-verified)
+Commits since pass59: iter12 (b590500d8: confirm 0.4 harness green 2/2 after D2 edit — no regression), iter13
+(3f5097f60: D2 landing-first re-verified, 3rd PNG; press→host automation-limited, honest). Agent alive (2 procs),
+RootView.swift still in-flight (native shell continuing). VERIFIED:
+- pass-58/58b INGESTED ✓ — 0.31 picked up D6 back-nav + pill act+work + native-shell=curved; queue 0.8 renamed
+  "D1–D6". My pass-59 re-audit target (committed D-item + fresh PNG + ingestion) explicitly MET (bc5fffc4b+PNG).
+- D2 SHIPPED ✓ — Epistemos LandingView "GREETINGS, RESEARCHER"+"Enter act" shows FIRST on clean launch (NOT
+  Osaurus "Good afternoon"), stable across 3 fresh PNGs the agent Read. First visible-surface win for the owner.
+- 0.4 PROTECTED ✓ — harness re-run green (2/2) after the D2 edit (the mandated "re-run after each step").
+- NO fake-green ✓ — 0.1/0.2/0.3 honestly [ ] (D-gated on full D-set); lowest-[ ] still 0.1 but now an active
+  build chain D2→D1/D3/D4/D5/D6, not deferral.
+- HONEST limit ✓ — press→act transition not osascript-automatable yet; flagged not-a-defect + queued making the
+  act-entry part of the native shell (toolbar/pill, AX-addressable) so it's verifiable (aligns w/ §1 native shell).
+WATCH (no correction): full landing→blur→act transition only partly verified (landing shows; press→act handoff
+unverified) — agent already queued the AX-addressable fix; verify when native shell (D1/D3/D6) lands. VERDICT:
+PASS — the visible-D-cluster P0 turned the agent; first screenshot-proven visible progress; discipline intact.
