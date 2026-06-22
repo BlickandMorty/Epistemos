@@ -683,6 +683,8 @@ others. So:
   `localStreamOrFallback`, behind the SAME flag (`shouldRouteActThroughOsaurus`, OFF by default). Flag-OFF =
   byte-identical to today (prove with a test); flag-armed = Note + Graph chat (+ all 6 sites) stream through
   Osaurus. One gated injection completes "EVERY chat surface gets act." This is the completeness sweep working.
+  [NOTE: this `shouldRouteActThroughOsaurus` flag is a TRANSIENT refactor-safety mechanism, REMOVED once act=Osaurus
+  is the default chat — it is NOT a product on/off toggle. End state: Osaurus IS the chat on every surface, no flag.]
 - **Real-state test required:** assert Note + Graph chat route through the act bridge when armed, and the MLX
   path is unchanged when off. No regression to the 6 callers.
 - **FUTURE (lower-but-CERTAIN, not now):** consolidate toward ONE inference chokepoint (the "one brain" goal) so
