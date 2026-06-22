@@ -49,6 +49,15 @@ struct AgentNoteEditTests {
         #expect(AgentNoteEdit.insertAfter(anchor: "## Missing", text: "y").resolveTextEdit(in: buf) == nil)
     }
 
+    @Test("the live Prose editor exposes applyAgentEdit, wiring resolveTextEdit → the existing apply path")
+    func proseEditorExposesAgentEdit() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Notes/ProseTextView2.swift")
+        #expect(src.contains("func applyAgentEdit("))
+        #expect(src.contains("edit.resolveTextEdit(in: current)"))      // resolves against the live buffer
+        #expect(src.contains("applyAutomaticMarkdownEdit(textEdit)"))   // reuses the existing programmatic path
+        #expect(src.contains("else { return false }"))                  // honest: no out-of-range mutation
+    }
+
     @Test("batch apply is ATOMIC: all edits land, or nil if any fails (no partial corruption)")
     func batchApplyIsAtomic() {
         // All succeed → applied in order.
