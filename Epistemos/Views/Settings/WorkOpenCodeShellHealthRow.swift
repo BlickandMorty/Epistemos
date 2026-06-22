@@ -14,9 +14,11 @@ struct WorkOpenCodeShellHealthRow: View {
             HStack(spacing: 8) {
                 Image(systemName: status.isActive ? "terminal.fill" : "terminal")
                     .foregroundStyle(status.isActive ? Color.green : Color.secondary)
-                Text(status.headline)
-                    .font(.callout.weight(.medium))
-                    .motionReveal()  // motion triad: blur-reveal on a display-only title (owner 2026-06-21)
+                // Motion triad — the WORK status TITLE gets the FULL ontology (ASCII typewriter + blur),
+                // strongest in WORK/OpenCode (owner 2026-06-21 §329). Reusable MotionTitle, font-adaptive
+                // (callout), display-only, reduce-motion-safe.
+                MotionTitle(text: status.headline, font: .callout.weight(.medium),
+                            color: status.isActive ? .green : .secondary)
                 Spacer(minLength: 0)
             }
             Text(status.detail)
