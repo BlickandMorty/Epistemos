@@ -1,5 +1,12 @@
 import Foundation
-#if canImport(OsaurusCore)
+// MAS dual-build fix (2026-06-22): guard the OsaurusCore import with the BUILD-CONFIG
+// condition, not bare `canImport`. `canImport(OsaurusCore)` can be TRUE on the App
+// Store (MAS) target when the module is built in shared DerivedData even though MAS
+// does NOT link it — so a bare-canImport import compiled on MAS and pulled OsaurusCore's
+// transitive deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/…) that MAS
+// can't resolve. OsaurusCore is used ONLY inside the `#if !EPISTEMOS_APP_STORE` seam
+// below, so MAS never needs it; gate the import on `!EPISTEMOS_APP_STORE` too.
+#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
 import OsaurusCore  // S4: the LINKED Osaurus engine — driven in-process (owner: full Osaurus).
 #endif
 
