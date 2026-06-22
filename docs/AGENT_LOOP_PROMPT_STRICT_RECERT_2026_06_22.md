@@ -46,7 +46,7 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
 3. **TIER 2:** 2.1 → 2.8 (substrate, salvage, BUILD-IT-HARDENED)
 4. **TIER 3:** 3.1 → 3.2 (TRINITY, Fugu)
 5. **TIER 4:** 4.1 → 4.16 (settings polish, pillars, beyond clones, graph integration)
-6. **TIER 5:** 5.1 → 5.3 (distribution)
+6. **TIER 5:** 5.1 → 5.4 (distribution + MAS sandbox substitute research)
 
 **Rules:**
 - **Act certified ≠ loop done.** D1–D5 passing does NOT permit stopping the iteration.
@@ -58,8 +58,9 @@ full queue walk unless the sole remaining open items are honestly `[~]` with rea
 
 ### Reverse addendum audit (EVERY iteration — queue 0.31)
 After the forward queue walk, grep the addendum for: `🔒`, `DEFINITIVE`, `P0`, `MUST`, `BUILD-IT-HARDENED`,
-`ALL CHAT SURFACES`, `PER-CLONE`, `WORK`, `BEYOND`, `ESCALATION`. Verify each hit is indexed in WORK_QUEUE or
-STANDING with →plan ref. Any miss → ADD queue row + log in STRICT_RECERT_LOG same iteration.
+`ALL CHAT SURFACES`, `PER-CLONE`, `WORK`, `BEYOND`, `ESCALATION`, `🆕`, `🌟`, `RESEARCH`. Verify each hit is
+indexed in WORK_QUEUE or STANDING with →plan ref. Any miss → ADD queue row + log in STRICT_RECERT_LOG same
+iteration. Paste grep hit count + any unindexed hits into the log — empty audit does NOT satisfy 0.31.
 
 ## THE PRIME RULE
 - **EVERYTHING STARTS UNCERTIFIED.** Treat every checkbox in docs/WORK_QUEUE_2026_06_22.md (and every "done"/
@@ -113,6 +114,8 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   this list if the screenshot shows more wrong.
 
 ## EVERY ITERATION
+0. **STEP-0 RESET (pass49 — before step 1):** If any queue checkbox is `[x]` or `[~]`, revert **ALL** to `[ ]`.
+   Certification lives only in STRICT_RECERT_LOG — never trust a surviving queue `[x]`.
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
 2. **Pick the FIRST unchecked item in NUMERIC order** (0.1 → 0.32, then 1.1 → 1.8, 2.1, … 5.3). No queue-jumping.
    FIRST ITERATION bootstrap order below is one-time only — standing rule is strict numeric queue order through
@@ -168,7 +171,7 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 - **0.30** BEYOND tab + OFF-LIMITS vs in-scope honesty · **0.31** Reverse addendum audit (standing)
 - **0.32** Full-plan iteration witness (standing) — **HARD GATE:** mandatory log block + forbidden end-claims
 - **TIER 1:** 1.1–1.8 work/OpenCode · **TIER 2:** 2.1–2.8 substrate/salvage · **TIER 3:** 3.1–3.2 · **TIER 4:**
-  4.1–4.16 · **TIER 5:** 5.1–5.3
+  4.1–4.16 · **TIER 5:** 5.1–5.4
 
 ## MANDATORY BEHAVIOR A–H (from gap audit — non-negotiable every loop)
 - **(A) D-GATE RULE:** D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7. Do NOT mark 0.1–0.7 `[x]`
@@ -181,7 +184,9 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 - **(D) DISCOVERY SWEEP EACH LOOP:** Completeness critic at end of every iteration — grep InferenceState, model
   picker, chat send paths, capability pills; any surface not in queue → ADD it with →plan ref.
 - **(E) NARROW DONE BAR:** `[~]` ONLY if screencapture AND send-text harness BOTH fail (state exactly why).
-  Never `[x]` on build-green alone. Never claim "computer use unavailable" — use screencapture + Read + osascript.
+  **Cap: ≤2 `[~]` for entire recert phase** — 3rd HALTS pending owner. Each `[~]` MUST log exact failing
+  command + output in STRICT_RECERT_LOG. Never `[x]` on build-green alone. Never claim "computer use unavailable"
+  — use screencapture + Read + osascript.
 - **(F) HEALTH-ROW HONESTY BAR:** Item 0.14 — after every change, re-cert `ActOsaurusHealthRow`,
   `AnswerPacketHealthRow`, `LocalRouteHonestyHealthRow`, etc.: `wiredToday`/`stillStub` must match REAL code.
 - **(G) PROVIDER WIRING BAR:** Item 0.11 — owner's GGUF/QAT selectable AND used on send; Configuration opens
@@ -189,7 +194,9 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
 - **(H) FULL-PLAN-NO-ACT-TUNNEL:** Item 0.32 — before iteration ends, append the mandatory witness block to
   STRICT_RECERT_LOG (**highest attempted item ID** e.g. `2.3`, per-tier counts, TIER 1+ attempted YES/NO,
   act-only tunnel DENIED). **INCOMPLETE** if highest attempted is before **1.1** unless all T0 are honest `[~]`
-  with evidence AND you still attempted TIER 1+ same iteration. **FORBIDDEN** end-claims: "act certified =
+  with evidence AND you still attempted TIER 1+ same iteration. **TIER ADVANCE FLOOR:** every **3** iterations,
+  highest attempted MUST reach **≥1.1** OR stall report in log (T0 still broken + T1+ attempt evidence). Act/P0
+  fixes run **in parallel** with lower-tier cert — not a precondition to attempting T1+. **FORBIDDEN** end-claims: "act certified =
   iteration done", "D1–D5 pass = done", "stopping at TIER 0", "build-green = tier done", "defer TIER 1+ to
   next iteration", "act blocking so skipping work/substrate". Confirm you attempted 0.1→0.32 then TIER 1+ (not
   act-only). Act certified ≠ loop done.
@@ -258,7 +265,9 @@ of it.
 No fake-done · build-green ≠ done · **act certified ≠ loop done** · runtime-verify UI · no red on main ·
 code-more-build-less (fast gate per increment, heavy xcodebuild at checkpoints, never idle-block) · never delete
 chat IP (preserve+port; surface delete only after the four-part bar + owner authorization) · NO-ADDED-TERMS ·
-NO-QUEUE-JUMPING · **FULL-PLAN-NO-ACT-TUNNEL** · latest-owner-directive-wins · FAVOR OSAURUS on clash · owner
+NO-QUEUE-JUMPING · **STEP-0 RESET** (revert queue `[x]`/`[~]`→`[ ]`; log = sole cert record) · **`[~]` CAP ≤2**
+(3rd halts; log exact failing cmd+output) · **TIER ADVANCE FLOOR** (every 3 iters highest attempted ≥1.1 or
+stall report; act IN PARALLEL with T1+) · **FULL-PLAN-NO-ACT-TUNNEL** · latest-owner-directive-wins · FAVOR OSAURUS on clash · owner
 messages → plan+queue same iteration · NEVER-IDLE (heavy = incremental slices) · external ~/Downloads corpus
 read-only when salvage needs it · 70B / NEW-MODEL brain-1 EXCLUDED · **Companion-backend OFF-LIMITS** (work +
 beyond future clones IN SCOPE) · main-only · Co-Authored-By Claude · P0 owner runtime reports preempt everything

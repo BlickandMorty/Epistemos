@@ -40,3 +40,12 @@
 - 0.32 · HARDENED · highest attempted **item ID** required; INCOMPLETE if stopped before 1.1; extra forbidden deferral phrases
 - paste-ready · added TIER 3 (3.1→3.2) + TIER 5 (5.1→5.3) NON-OPTIONAL tables; FIRST ACTION stop-before-1.1 rule
 - 0.31 · grep extended **ESCALATION** keyword (queue + strict + paste)
+
+### Gap-fill iteration 7 (docs only, 2026-06-22 — pass49 audit)
+- pass49 P0-1 · **STEP-0 RESET** enforced: revert queue `[x]`/`[~]`→`[ ]`; STRICT_RECERT_LOG = sole cert record
+- pass49 P0-2 · **TIER ADVANCE FLOOR:** every 3 iters highest attempted ≥1.1 or stall report; act IN PARALLEL with T1+
+- pass49 P0-3 · **`[~]` CAP ≤2/phase:** 3rd halts owner; each `[~]` logs exact failing cmd+output
+- reverse-audit · MAS VM sandbox substitute was standing-only → queue **5.4**; APP-WIDE ANIMATION → **4.6** expanded
+- 0.31 · grep extended **🆕/🌟/RESEARCH** + paste hit count requirement
+- paste-ready · 21 non-negotiables synced; TIER 5 walk 5.1→5.4; STEP-0/parallel/[~] cap added
+- →plan anchors · fixed FUGU + Epistemos Picks headings to match addendum

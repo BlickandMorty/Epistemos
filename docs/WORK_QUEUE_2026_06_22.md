@@ -26,6 +26,17 @@ THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION. Each item P
 docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md (do NOT shorten).
 
 RULES (every loop, non-negotiable):
+- **STEP-0 RESET (pass49 — enforced):** On first iteration of each recert phase AND whenever any `[x]`/`[~]`
+  appears in this file, revert **ALL** queue checkboxes to `[ ]` before walking. **STRICT_RECERT_LOG** is the
+  sole certification record — never treat a queue `[x]` as proof. "Pick first unchecked" only works if boxes
+  stay physically `[ ]` until you append a cert line to the log.
+- **`[~]` CAP (pass49 — enforced):** Maximum **2** `[~] NEEDS-OWNER-RUNTIME` items for the **entire recert
+  phase**. A 3rd `[~]` **HALTS** the loop pending owner decision. Each `[~]` MUST log in STRICT_RECERT_LOG:
+  exact screencapture / osascript / send-text command run + failure output (not "couldn't verify").
+- **TIER ADVANCE FLOOR (pass49 — enforced):** Every **3** loop iterations, 0.32 witness `highest attempted
+  item ID` MUST reach **≥1.1** OR you file a stall report in STRICT_RECERT_LOG (all T0 still `[ ]` + evidence +
+  proof you attempted T1+ same iteration). Act/P0 fixes run **in parallel** with lower-tier certification —
+  T1+ attempt is NOT blocked waiting for full T0 `[x]`.
 - **QUEUE = INDEX, NOT SPEC.** Open the item's full `→plan:` section; implement EVERY nuance there.
 - **KEEP QUEUE COMPLETE:** any plan directive not indexed → ADD it here + point to plan section.
 - **WALK ORDER:** first unchecked item, **numeric order** (0.1, 0.2, … 0.32, then 1.1, 2.1, … 5.3). **No early
@@ -98,7 +109,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 - [ ] **0.11 Provider wiring + Epistemos Picks** — owner GGUF/QAT selectable AND used on send; "Add a
   provider"/Configuration opens REAL settings; NO silent Codex default. Send must use selected model.
-  →plan: "OWNER'S MODELS IN CHAT" + "DEEP CHECK §2" + "DESIGN DECISION — Epistemos Picks".
+  →plan: "OWNER'S MODELS IN CHAT" + "DEEP CHECK §2" + "DESIGN DECISION — \"Epistemos Picks\"".
 
 - [ ] **0.12 Surface-wiring rule** — every Osaurus surface (settings, model stack, tools, transcript, config)
   mapped to proven Epistemos front-end; no dead surfaces; real-state/launch-smoke each.
@@ -180,9 +191,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: "🆕 PER-CLONE SETTINGS" beyond tab + Tamagotchi + Talaria/Tolaria reference + OFF-LIMITS guard.
 
 - [ ] **0.31 Reverse addendum audit (EVERY iteration — standing)** — after forward queue walk: grep addendum for
-  🔒, DEFINITIVE, P0, MUST, BUILD-IT-HARDENED, PER-CLONE, WORK, BEYOND, ALL CHAT SURFACES, ESCALATION; verify EACH hit is
-  indexed in this queue or STANDING with →plan ref. Missing directive → ADD queue row same iteration. Log in
-  STRICT_RECERT_LOG.
+  🔒, DEFINITIVE, P0, MUST, BUILD-IT-HARDENED, PER-CLONE, WORK, BEYOND, ALL CHAT SURFACES, ESCALATION, 🆕, 🌟,
+  RESEARCH; verify EACH hit is indexed in this queue or STANDING with →plan ref. Missing directive → ADD queue
+  row same iteration. Paste grep hit count + unindexed list (if any) into STRICT_RECERT_LOG — empty grep log
+  does NOT satisfy 0.31.
   →plan: THREE STANDING DIRECTIVES §1 + COMPLETENESS / DISCOVERY-SWEEP MANDATE.
 
 - [ ] **0.32 Full-plan iteration witness (EVERY iteration — standing, HARD GATE)** — before declaring iteration
@@ -246,7 +258,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 ## TIER 3 — ORCHESTRATOR / FUGU / TRINITY
 - [ ] **3.1** TRINITY native orchestrator on System G/RuntimeRouter. →plan: "🌟🌟 TRINITY" + port spec.
-- [ ] **3.2** Fugu optional guest provider (never the brain). →plan: "🌟 FUGU FOUNDATIONAL".
+- [ ] **3.2** Fugu optional guest provider (never the brain). →plan: "🌟 FUGU = FOUNDATIONAL FEATURE".
 
 ## TIER 4 — OWNER-FACING / CLONES / PILLARS
 - [ ] **4.1** Per-clone SETTINGS polish (extends 0.21). →plan: "🆕 PER-CLONE SETTINGS".
@@ -254,13 +266,15 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **4.3** VAULT-DEEP-INTEGRATION pillar. →plan: "🌟 PILLAR — VAULT-DEEP-INTEGRATION".
 - [ ] **4.4** EPDOC MD-V2. →plan: "🆕 EPDOC MD-V2".
 - [ ] **4.5** Tamagotchi agent-creation render fix. →plan: "🆕 OSAURUS AGENT CREATION = KEEP TAMAGOTCHI".
-- [ ] **4.6** MOTION LANGUAGE triad + mode-entry animations. →plan: "✅ MOTION LANGUAGE = TRIAD".
+- [ ] **4.6** MOTION LANGUAGE triad + mode-entry animations + APP-WIDE ASCII typewriter/time-machine ontology
+  (titles + display-only; never in editors; blur-coupled). →plan: "✅ MOTION LANGUAGE = TRIAD" + "🆕 APP-WIDE
+  ANIMATION INITIATIVE" + "🆕 MODE-ENTRY TRANSITION ANIMATIONS".
 - [ ] **4.7** UI chrome: model picker, command palette, 38-tool panel — NOT `[x]` until D5 screenshot proves it.
   →plan: "ACT reskin — PRESERVE the model picker...".
 - [ ] **4.8** Talaria + other clones; MAS non-restrictive. →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE".
 - [ ] **4.9** ACT wiring: skills+MCP+tools; Keychain for API keys. →plan: CHAT_BACKEND_QUARANTINE.
 - [ ] **4.10** Per-model Epistemos Picks profiles — research profile + use-case blurb in picker.
-  →plan: CHAT_BACKEND_QUARANTINE per-model profiles + "DESIGN DECISION — Epistemos Picks".
+  →plan: CHAT_BACKEND_QUARANTINE per-model profiles + "DESIGN DECISION — \"Epistemos Picks\"".
 - [ ] **4.11** Test-parity gate before chat surface deletion — act coverage ≥ quarantined chat.
   →plan: CHAT_BACKEND_QUARANTINE test-parity before retire.
 - [ ] **4.12** Prose editor + MD-V2 coexist — both first-class; Prose = Apple-Notes-grade native bar;
@@ -288,11 +302,18 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **5.2** Deep-optimization cycles (standing). →plan: "🆕 DEEP OPTIMIZATION CYCLES".
 - [ ] **5.3** MAS-safe OsaurusCore split — Pro full; MAS package without VM/Sparkle/Containerization so act=Osaurus on MAS.
   →plan: "🔒 SET IN STONE — MAS NON-RESTRICTIVE" + DEFINITIVE ACT-UI MAS NOTE.
+- [ ] **5.4** MAS VM sandbox substitute research — WASM in-process / cloud-backed partial substitutes vs omit on
+  MAS; honest reduced-power verdict; full Linux-VM stays Pro/direct-dist only. →plan: "🆕 RESEARCH — MAS-compatible
+  substitute for the VM sandbox".
 
 ## STANDING (every item, every loop)
 No fake-done · screencapture+send-text every iteration · build-green ≠ done · **act certified ≠ loop done** ·
 no red on main · code-more-build-less · never delete chat IP · NO-ADDED-TERMS · NO-QUEUE-JUMPING ·
 latest-owner-directive-wins (🔒/DEFINITIVE beats older sections) · 70B/new-model EXCLUDED ·
+**STEP-0 RESET:** revert any queue `[x]`/`[~]`→`[ ]` each phase; STRICT_RECERT_LOG = sole cert record ·
+**`[~]` CAP ≤2/phase:** 3rd halts + owner push; each `[~]` logs exact failing cmd+output ·
+**TIER ADVANCE FLOOR:** every 3 iterations highest attempted ≥1.1 OR stall report; act fixes IN PARALLEL with
+T1+ cert (not precondition) ·
 **FULL-PLAN-NO-ACT-TUNNEL:** certify ENTIRE addendum queue (0.1→0.32, TIER 1→5), not act/D1–D5 only ·
 **Companion-backend OFF-LIMITS** (companions.rs, CompanionCreationFlow, new-model interrupt) — **work + beyond
 future clones IN SCOPE** · main-only · Co-Authored-By Claude · P0 owner reports preempt · **NEVER-IDLE:** heavy
@@ -305,6 +326,7 @@ captured in addendum AND indexed here same iteration (→plan: THREE STANDING DI
 CORPUS:** read-only `~/Downloads` Helios/source docs when unification/salvage needs them; copy-in only, never
 modify outside repo (→plan: "🆕 EXTERNAL RESEARCH CORPUS") · **COMPLETENESS CRITIC / DISCOVERY SWEEP each loop:**
 grep InferenceState/model picker/chat send consumers; add missed surfaces to queue (→plan: DISCOVERY-SWEEP
-MANDATE) · **REVERSE ADDENDUM AUDIT each loop:** item 0.31 — grep 🔒/DEFINITIVE/P0/MUST; index or add queue row.
+MANDATE) · **REVERSE ADDENDUM AUDIT each loop:** item 0.31 — grep 🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH; index or add
+  queue row; paste hit count to log.
 · **FULL-CLONE PROCESS:** every adopted engine (Osaurus, OpenCode, future beyond clones) follows vendored-clone
 method per plan — not one-off shims (→plan: "🔒 STANDING — THE FULL-CLONE PROCESS").
