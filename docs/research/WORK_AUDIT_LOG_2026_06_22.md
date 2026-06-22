@@ -432,3 +432,15 @@ search bugs on it; runtime-verify.
   loop still on the old-ChatView surface. + click-search→Osaurus-landing.
 - **Verdict:** PASS (title); the 2 big items (working send + new UI) are the priority — loop has done the easy
   point-fixes, must now tackle the hard owner-blocking ones. AUDIT-WATCH next pass.
+
+## Pass 30 — 2026-06-22 — locked UI direction STARTED + likely send fix
+- **Build loop:** ALIVE (swift=13 xcode=1, building). HEAD `41081f4f9` (8 min).
+- **AUDIT 41081f4f9 → ✅ PASS (big — started locked direction + likely send fix):** RootView mounts
+  EpistemosOsaurusChatHost (genuine Osaurus ChatView, reskinned cream/monospace, IN-PROCESS gen via ChatEngine→
+  MLXService+bridge, NO HTTP) as act, replacing old ChatView() (Pro; MAS keeps old). = locked direction started.
+  In-process gen likely RESOLVES requestFailed (HTTP-path) send-fail. Pro EXIT=0. Co-Authored.
+- **🔎 WATCH (re-mount regression):** host was mounted passes 1-8 with white-bar + click-search-not-landing bug,
+  fixed by d427ee60d (showingOsaurusSurface); option-b reverted it. The re-mount may re-introduce those UNLESS
+  d427ee60d toolbar-suppression is re-applied. Verify / re-add if regressed.
+- **Remaining:** 3 grafts (message bar/side panel/scroll-blur); OWNER RUNTIME-VERIFY (send works + Osaurus-reskinned look + no white-bar/search bug).
+- **Verdict:** PASS — both big items advanced (UI direction + probable send fix). Watch the re-mount regressions + grafts + runtime.
