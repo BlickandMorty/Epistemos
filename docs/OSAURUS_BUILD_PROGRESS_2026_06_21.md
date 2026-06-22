@@ -645,8 +645,12 @@ visual surfaces needing the running app, this is the buildable foundational work
   Total trinity = 23/23.
 - [x] **Provider stream→String adapter (`afe13484a`, cargo 4/4):** `trinity_provider::collect_stream_text` drains a
   provider response stream → String (TextDelta until MessageStop; honest error-propagation). Total trinity = 27/27.
-- REMAINS (runtime, sequenced): the provider-backed TrinityRoleExecutorAsync (select_model_for_tier → role prompt
-  → stream_message → collect_stream_text) wired to live providers; slice 3b = trace → Swift TraceCollector; then expose as the internal orchestrator API across
+- [x] **Provider-backed executor CAPSTONE (`b9a6f7df6`, cargo 6/6):** `ProviderTrinityExecutor` — each role
+  tier→provider→prompt→stream_message→collect; HONEST `[trinity-error:…]` → Verifier REPAIR (never false-accept).
+  Mock-provider proven END-TO-END. **The TRINITY agent_core core is now callable with a real provider — 29/29.**
+- REMAINS (runtime/app-side, sequenced): the app supplies `provider_for_tier` (model resolution + provider
+  construction) + System-G/act/work/chat invoke `run_trinity_loop_async` behind the flag; slice 3b = trace →
+  Swift TraceCollector; then expose as the internal orchestrator API across
   act/work/chat. LEARNED router gated on license (owner H1 TODO: clear adapted-weights license w/ nshkrdotcom,
   or re-derive from Apache Qwen3-0.6B). Heuristic-vs-learned state disclosed honestly.
 
