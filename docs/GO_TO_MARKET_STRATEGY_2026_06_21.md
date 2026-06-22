@@ -32,3 +32,30 @@ Owner wants recognition + to sell it; anxious about visibility despite a strong 
 - Visibility is a GRIND, not a switch — consistent showing-up; one HN/PH/viral-demo hit can be a big inflection.
 - Your VISUAL DISTINCTIVENESS is itself a visibility asset (most dev tools look the same; yours doesn't).
 - This is owner-domain (not an agent-build task) — captured so it's not lost. Build first; this is the launch plan.
+
+## Distribution stack — where the PAID Pro goes (owner 2026-06-21)
+MISCONCEPTION corrected: **GitHub Releases CAN host compiled binaries (.dmg/.zip) with NO source** — a repo
+can be just a README + releases; you're not forced to publish code. BUT GitHub Releases has **no paywall** →
+it's for FREE distribution only. For PAID you need a payment layer.
+**Easiest paid path (no backend/website required): a merchant-of-record store** — **Lemon Squeezy / Gumroad /
+Polar** (or Paddle). They host the binary + handle **payment + sales tax + license-key delivery** for a % per
+sale, low/no upfront cost. You upload the .dmg; they sell + deliver download + license key. In-app: validate
+the license via their API; **Sparkle** for auto-updates on direct builds. (Your own site + Stripe = more
+revenue/control but more setup — do later.)
+**Recommended stack:**
+- FREE build → **MAS** (discovery/trust) + optionally **GitHub Releases** (direct free, no source).
+- PAID Pro → **Lemon Squeezy / Gumroad / Polar** (binary + license + payment, NO backend). 
+- **Website = a LANDING PAGE only** (the existing pixel-art web app) linking to free (MAS/GitHub) + paid
+  (store) + the demo. **You do NOT need a paid/active backend site to start** — the store IS your checkout.
+- Updates → Sparkle; license gate → store API.
+
+## Visibility — easiest free method (answering "is this best?")
+Your Reddit + website plan is GOOD + free. Refine:
+- **Reddit (free, high-fit):** r/macapps, r/ObsidianMD, r/LocalLLaMA, r/SideProject — among the best free
+  channels for a niche PKM/dev/local-LLM tool. Lead with a DEMO GIF/video.
+- **Add (free, high-leverage, one-shot):** **Show HN** (Hacker News) + **Product Hunt** — strong for
+  local-first/open-source/dev tools.
+- **X with no followers:** don't GATE launch on building a following — slow. Post the demo anyway (striking
+  visuals get picked up regardless of follower count); grind X as a slow-burn, not a prerequisite.
+- **The multiplier = a 30-60s DEMO GIF/VIDEO** — it's what makes every channel work.
+- **Landing page** links to free + paid + demo. That's the easiest, free, best-fit method — no paid site needed.
