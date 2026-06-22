@@ -85,11 +85,21 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
   `SharedActInference.actStreamIfArmed` = the SINGLE act-injection entry both chokepoints now delegate into
   (can't diverge; flag-off byte-identical). PHASE 2+ (later, careful): merge the fuller path + retire the
   duplicate TriageService path (owner: "old chat/triage inference is dead, get rid of it"). CERTAIN.
-- **🌟 NEW PILLAR — VAULT-DEEP-INTEGRATION (overtake Tolaria, §720):** vault-as-MCP context (build on
-  `omega-mcp/vault`) + deep graph integration + LLM wiki/[[wikilinks]]/semantic backlinks (Eidos/recall/
-  provenance) + in-editor agent editing on BOTH Prose + MD-V2/Epdoc. STANDING RULE clarified: full-clone every
-  ADOPTED engine (Osaurus method); REFERENCE-only for capabilities already owned better (Tolaria = reference;
-  mine vault-as-MCP, build native with Prose+MD-V2). Starting: vault-as-MCP resources on omega-mcp/vault.
+- **🌟 PILLAR — VAULT-DEEP-INTEGRATION (overtake Tolaria, §720):** STANDING RULE: full-clone every ADOPTED
+  engine (Osaurus method); REFERENCE-only for capabilities already owned better (Tolaria = reference; mine
+  vault-as-MCP, build native with Prose+MD-V2). Slice status:
+  - [x] **#1 vault-as-MCP CONTEXT DONE (`36da2df95`):** `omega-mcp` dispatcher serves `resources/list`
+    (vault `*.md` notes as `vault:///` resources) + `resources/read` (path-safe content) via VaultExecutor;
+    12/12 tests. External agents read the vault as first-class MCP context.
+  - [~] **#2 deep graph integration — LARGELY PRESENT:** `omega-mcp/graph_tools.rs` already exposes
+    `graph.search_semantic/fulltext` + `graph.get_node` + `graph.traverse` + `graph.create_node/edge` +
+    `graph.commit_session` — agents already traverse/query/build the graph. (Remaining: ensure it's
+    populated FROM vault notes+links end-to-end.)
+  - [ ] **#3 LLM wiki + [[wikilinks]] + semantic backlinks** via the brain (Eidos/recall/provenance) — NEW.
+  - [ ] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator) — NEW.
+- **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
+  is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
+  ZERO regressions (flag-off byte-identical confirmed).
 
 **Context-gated remaining (NOT dropped — need a context the green-only main loop lacks):**
 - **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → CONCRETE
