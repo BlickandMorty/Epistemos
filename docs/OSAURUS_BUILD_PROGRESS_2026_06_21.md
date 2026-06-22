@@ -157,9 +157,18 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
   - ✅ **FUSION transport (`da6d42422`):** `omega_mcp_stdio` — a stdio MCP server (newline-delimited JSON-RPC)
     OpenCode's work agent spawns to work the vault NATIVELY (the "Goose/etc fuse beneath" via MCP). initialize/
     tools-list (catalog)/tools-call (executes the Rust vault + wikilink-graph + graph tools)/resources. 3 tests.
-  - REMAINS (ckpt 3): build+bundle the `omega_mcp_stdio` binary into Resources + register it in the OpenCode
-    launch config (`BundledWorkOpenCodeShell.launchSpec`) so the TUI auto-fuses the vault tools; then app-build +
-    GUI launch-smoke (arm flag → confirm the TUI renders + the vault tools are reachable inside OpenCode).
+  - ✅ **FUSION COMPLETE end-to-end (`fc6ef47a8` + `f9e5cbf5b`):** `omega_mcp_stdio` built+staged into Resources
+    by the build script (alongside bun+opencode, all smoke-verified); `BundledWorkOpenCodeShell.launchSpec`
+    sets `OPENCODE_CONFIG` → registers it (verified the env works against the real binary) so OpenCode's work
+    agent auto-gets the vault tools. Full chain: arm flag → resolve `bin/opencode` → terminal spawns the real
+    TUI → vault tools fused. REMAINS: app-build + GUI launch-smoke (render + tools-reachable confirmation).
+- **🔴 P0 LIVE-CHAT REGRESSION (owner 2026-06-21) — partial fix + classified:** see
+  `docs/research/P0_CHAT_REGRESSION_FINDINGS_2026_06_21.md`. (B) `<think>`-LEAK = SHARED inference-output bug
+  (`strippingThinkingBlocks` left UNCLOSED `<think>` un-stripped) → **FIXED `c9184b4e6`** (43/43 incl. regression
+  test); benefits act/note/graph/title. (A) answer-refusal = model's real output (not act-injection — verified
+  flag-off-byte-identical; not the system prompt) → bisected to the `f884eb0b7` vmlx MLX **tokenizer/chat-template**
+  loader change; needs a RUNTIME prompt-string check to confirm (can't diagnose headlessly — no loaded model).
+  Main-chat `generateChatTitle` NOT polished (deletion path, owner directive).
 - **GOOSE full-clone** = the `goose` crate (179 deps; reqwest 0.12↔0.13 clash) → needs a build-iteration
   context (worktree/branch), per owner §446-460 "not main red". See `docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`.
 - **MD-V2** (#12) = large mature EPDOC subsystem; no clean one-shot projection seam → needs dedicated grounding
