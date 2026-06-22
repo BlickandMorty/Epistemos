@@ -306,6 +306,62 @@ impl VaultExecutor {
         ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
     }
 
+    /// VAULT-DEEP-INTEGRATION §720 (#4, MCP surface): STRUCTURED agent note edit over MCP — safer than a
+    /// full `write_file` overwrite for external agents. `op` ∈ {append, replace_first, insert_after}. HONEST:
+    /// errors when `find`/anchor is absent (no silent corruption — the agent re-plans). The in-app live-editor
+    /// path is the Swift `AgentNoteEdit` (same op model, different surface).
+    pub fn edit_note(&self, path: &str, op: &str, find: &str, text: &str) -> ToolResult {
+        let start = Instant::now();
+        let err = |msg: String, code: &str, t: std::time::Instant| {
+            ToolResult::err(msg, code, t.elapsed().as_millis() as u64)
+        };
+        let full = match self.resolve(path) {
+            Ok(p) => p,
+            Err(e) => return err(e, crate::types::error_codes::INVALID_INPUT, start),
+        };
+        let content = match fs::read_to_string(&full) {
+            Ok(c) => c,
+            Err(e) => return err(format!("Cannot read {path}: {e}"), crate::types::error_codes::NOT_FOUND, start),
+        };
+        let updated = match op {
+            "append" => {
+                if content.is_empty() {
+                    text.to_string()
+                } else if content.ends_with('\n') {
+                    format!("{content}{text}")
+                } else {
+                    format!("{content}\n{text}")
+                }
+            }
+            "replace_first" => match content.find(find) {
+                _ if find.is_empty() => {
+                    return err("replace_first: 'find' is required".into(), crate::types::error_codes::INVALID_INPUT, start)
+                }
+                Some(i) => format!("{}{}{}", &content[..i], text, &content[i + find.len()..]),
+                None => return err("replace_first: 'find' text not found".into(), crate::types::error_codes::NOT_FOUND, start),
+            },
+            "insert_after" => match content.find(find) {
+                _ if find.is_empty() => {
+                    return err("insert_after: 'find' anchor is required".into(), crate::types::error_codes::INVALID_INPUT, start)
+                }
+                Some(i) => {
+                    let at = i + find.len();
+                    let insertion = if text.starts_with('\n') { text.to_string() } else { format!("\n{text}") };
+                    format!("{}{}{}", &content[..at], insertion, &content[at..])
+                }
+                None => return err("insert_after: anchor not found".into(), crate::types::error_codes::NOT_FOUND, start),
+            },
+            other => return err(format!("unknown edit op: {other} (expected append|replace_first|insert_after)"), crate::types::error_codes::INVALID_INPUT, start),
+        };
+        match fs::write(&full, &updated) {
+            Ok(_) => ToolResult::ok(
+                serde_json::json!({ "path": path, "op": op, "bytes_written": updated.len() }).to_string(),
+                start.elapsed().as_millis() as u64,
+            ),
+            Err(e) => err(format!("Cannot write {path}: {e}"), crate::types::error_codes::EXECUTION_ERROR, start),
+        }
+    }
+
     /// Write content to a file in the vault.
     pub fn write_file(&self, path: &str, content: &str) -> ToolResult {
         let start = Instant::now();
@@ -568,6 +624,14 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
             // VAULT-DEEP-INTEGRATION §720 (#3): full per-note link context (back/out/dangling) in one call.
             let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
             executor.note_links(path)
+        }
+        "vault.patch_note" | "patch_note" => {
+            // VAULT-DEEP-INTEGRATION §720 (#4): structured note patch (safer than full overwrite).
+            let path = args["path"].as_str().unwrap_or("");
+            let op = args["op"].as_str().unwrap_or("");
+            let find = args["find"].as_str().unwrap_or("");
+            let text = args["text"].as_str().unwrap_or("");
+            executor.edit_note(path, op, find, text)
         }
         _ => ToolResult::err(
             format!("Unknown vault tool: {tool_name}"),
@@ -902,5 +966,30 @@ mod tests {
         // dangling among its outlinks: just Ghost
         let dang: Vec<String> = v["dangling_outlinks"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().into()).collect();
         assert_eq!(dang, vec!["Ghost".to_string()]);
+    }
+
+    #[test]
+    fn test_vault_edit_note_structured_ops() {
+        // VAULT-DEEP-INTEGRATION §720 (#4): structured note edits over MCP, honest on missing anchor.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("n.md"), "# Title\nfoo").unwrap();
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+
+        // replace_first
+        assert!(exec.edit_note("n.md", "replace_first", "foo", "bar").success);
+        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), "# Title\nbar");
+        // append (adds separating newline)
+        assert!(exec.edit_note("n.md", "append", "", "end").success);
+        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), "# Title\nbar\nend");
+        // insert_after the heading
+        assert!(exec.edit_note("n.md", "insert_after", "# Title", "sub").success);
+        assert!(std::fs::read_to_string(root.join("n.md")).unwrap().starts_with("# Title\nsub"));
+
+        // HONEST: missing anchor errors + writes nothing.
+        let before = std::fs::read_to_string(root.join("n.md")).unwrap();
+        let r = exec.edit_note("n.md", "replace_first", "ABSENT", "x");
+        assert!(!r.success, "missing find must error");
+        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), before, "must not write on failure");
     }
 }
