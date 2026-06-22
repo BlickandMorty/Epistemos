@@ -2023,3 +2023,22 @@ The remaining act work is purely building NATIVE UI views on that proven link.
   surfaces (Good-afternoon/four-blocks/composer/block-fonts).
 - Verify on the OWNER'S FRESH LAUNCH (pass-61): kill→rebuild→open→screencapture→Read; native cream chrome MUST
   render. This is the EASY path — the mount+reskin path is the wall; do not return to it.
+
+---
+
+## 🔴🔴 AUDITOR HARD CLARIFICATION (P0, 2026-06-22 ~15:05) — the PIVOT is NOT option-(b); do not repeat the prior failure
+Owner: "we did this before — it gave back the regular chat and Osaurus didn't work." That was OPTION-(b), which
+failed for TWO reasons: (1) it reused the OLD `Epistemos/Views/Chat/ChatView.swift` → looked like the old chat;
+(2) the engine send was broken (requestFailed). **The pivot (§native-UI-linked-to-engine) is NOT option-(b):**
+- **FRESH native views — do NOT mount or reuse `Epistemos/Views/Chat/ChatView.swift`.** Build new native
+  composer/toolbar/landing/sidebar/pill/window. (If the agent wires the old ChatView again = the failed
+  option-(b); FORBIDDEN.)
+- **The engine link is now PROVEN** (0.4/0.23 certified: native → `CoreModelService.generateStream` → reply). The
+  reason option-(b) failed (broken send) is GONE. Build native UI on the proven link.
+- **Acceptance is binary and on the OWNER'S FRESH LAUNCH:** kill→rebuild→`open`→screencapture→Read. The first
+  screen must be NATIVE Epistemos (cream/curved/native composer), a real message must send+stream via the engine,
+  and it must NOT look like either (a) raw Osaurus default ("Good afternoon"/four-blocks/white/boxy) or (b) the
+  old plain ChatView. If it looks like either, it is NOT done — no claim.
+**ONE PATH, executed to a runtime-verified visible win. Stop switching approaches mid-stream** (option-b → mount+
+reskin → pivot has caused thrash). This native-UI-on-proven-engine path is the final approach — drive it to a
+fresh-launch screenshot that shows native cream chrome + a working send, then move on. No more architecture pivots.
