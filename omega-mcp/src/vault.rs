@@ -172,25 +172,58 @@ impl VaultExecutor {
             .to_ascii_lowercase()
     }
 
-    /// True when `content` has a `[[...]]` whose link target's basename equals `needle`.
-    fn content_links_to(content: &str, needle: &str) -> bool {
+    /// Extract every `[[...]]` link target from `content` (alias `|` + heading `#` stripped, trimmed,
+    /// de-duplicated, original case preserved). The shared wikilink parser behind backlinks + outlinks.
+    fn parse_wikilinks(content: &str) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
         let mut rest = content;
         while let Some(open) = rest.find("[[") {
             let after = &rest[open + 2..];
             if let Some(close) = after.find("]]") {
                 let inner = &after[..close];
-                // strip alias (after `|`) + heading anchor (after `#`)
                 let link = inner.split('|').next().unwrap_or(inner);
                 let link = link.split('#').next().unwrap_or(link).trim();
-                if !link.is_empty() && Self::note_basename(link) == needle {
-                    return true;
+                if !link.is_empty() && !out.iter().any(|l| l == link) {
+                    out.push(link.to_string());
                 }
                 rest = &after[close + 2..];
             } else {
                 break;
             }
         }
-        false
+        out
+    }
+
+    /// True when `content` has a `[[...]]` whose link target's basename equals `needle`.
+    fn content_links_to(content: &str, needle: &str) -> bool {
+        Self::parse_wikilinks(content)
+            .iter()
+            .any(|link| Self::note_basename(link) == needle)
+    }
+
+    /// VAULT-DEEP-INTEGRATION §720: the wikilink targets a note links TO (the dual of `backlinks`).
+    /// Together they give agents the full in/out link graph for a note. Original link text preserved.
+    pub fn outlinks(&self, path: &str) -> ToolResult {
+        let start = Instant::now();
+        match self.resolve(path) {
+            Ok(full) => match fs::read_to_string(&full) {
+                Ok(content) => {
+                    let links = Self::parse_wikilinks(&content);
+                    let json = serde_json::json!({ "path": path, "outlinks": links });
+                    ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
+                }
+                Err(e) => ToolResult::err(
+                    format!("Cannot read {path}: {e}"),
+                    crate::types::error_codes::NOT_FOUND,
+                    start.elapsed().as_millis() as u64,
+                ),
+            },
+            Err(e) => ToolResult::err(
+                e,
+                crate::types::error_codes::INVALID_INPUT,
+                start.elapsed().as_millis() as u64,
+            ),
+        }
     }
 
     /// Write content to a file in the vault.
@@ -441,6 +474,11 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
             // VAULT-DEEP-INTEGRATION §720 (#3): notes that [[link]] to the target note.
             let target = args["target"].as_str().or_else(|| args["path"].as_str()).unwrap_or("");
             executor.backlinks(target)
+        }
+        "vault.outlinks" | "outlinks" | "vault_outlinks" => {
+            // VAULT-DEEP-INTEGRATION §720 (#3): the [[wikilinks]] a note links TO (dual of backlinks).
+            let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
+            executor.outlinks(path)
         }
         _ => ToolResult::err(
             format!("Unknown vault tool: {tool_name}"),
@@ -702,5 +740,34 @@ mod tests {
             r#"{"target":"Target"}"#.to_string(),
         );
         assert!(raw.contains("a.md") && raw.contains("notes/c.md"), "{raw}");
+    }
+
+    #[test]
+    fn test_vault_outlinks_extracts_wikilinks() {
+        // VAULT-DEEP-INTEGRATION §720 (#3): the [[links]] a note points TO (dual of backlinks).
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(
+            root.join("hub.md"),
+            "links to [[Alpha]] and [[beta|the second]] and [[Alpha#intro]] again",
+        )
+        .unwrap();
+
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+        let result = exec.outlinks("hub.md");
+        assert!(result.success, "{:?}", result.error);
+        let v: serde_json::Value = serde_json::from_str(&result.data_json).unwrap();
+        let links: Vec<String> = v["outlinks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect();
+        // Alpha (deduped across the two refs) + beta (alias stripped); original case preserved.
+        assert_eq!(links, vec!["Alpha".to_string(), "beta".to_string()], "{links:?}");
+
+        // Traversal-safe via resolve(): an escape attempt errors.
+        let escape = exec.outlinks("../../etc/passwd");
+        assert!(!escape.success, "traversal must error");
     }
 }
