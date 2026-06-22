@@ -2724,7 +2724,11 @@ private struct HomeRouter: View {
                         // chrome (cream + toolbar + pill), CLICK-ANYWHERE → ACT (NO search page).
                         // Fresh native view (§2029) — cream by construction; replaces the dark
                         // search-first LandingView on the act surface.
-                        NativeActLandingView(onEnter: {
+                        // FINAL ACT-UI (owner §2073 + pass68b REGRESSION fix): the REAL rich
+                        // Epistemos LandingView is home (NOT the minimal NativeActLandingView —
+                        // that replacement was the regression). A background tap ENTERS ACT
+                        // (onEnterAct → actEntered); act = a MODE entered from the landing.
+                        LandingView(onEnterAct: {
                             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
                                 actEntered = true
                             }

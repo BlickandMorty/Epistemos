@@ -79,6 +79,11 @@ private enum LandingInlineCommand: Equatable {
 struct LandingView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "LandingView")
 
+    /// FINAL ACT-UI direction (owner §2073 + §pass68b): when set — the act surface mounts the
+    /// REAL rich LandingView as home and a background TAP ENTERS ACT (acceptance #2: click anywhere
+    /// → act, NO search page). `nil` (default, every other call-site) keeps the search-popover tap.
+    var onEnterAct: (() -> Void)? = nil
+
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(ChatState.self) private var chat
@@ -114,9 +119,6 @@ struct LandingView: View {
     // Recent data for Daily Brief context
     @Query(SDPage.recentDescriptor(limit: 50))
     private var allPages: [SDPage]
-
-    // (The landing's act/work picker state was removed with the duplicate below-greeting picker —
-    // owner 2026-06-22. The single act/work toggle lives in RootView; the landing no longer duplicates it.)
 
     // Inline search state
     @State private var showingSearchPopover = false
@@ -353,7 +355,13 @@ struct LandingView: View {
                         dismissLandingStageCommand()
                         return
                     }
-                    activateLandingSearch()
+                    // FINAL ACT-UI (§2073 #2): on the act surface, a background tap ENTERS ACT
+                    // (no search page). Other call-sites (onEnterAct == nil) keep search.
+                    if let onEnterAct {
+                        onEnterAct()
+                    } else {
+                        activateLandingSearch()
+                    }
                 }
                 .allowsHitTesting(!showingOverlay)
                 .zIndex(0)
@@ -698,21 +706,6 @@ struct LandingView: View {
 
             VStack(spacing: 18) {
                 landingGreetingStage
-
-                // (Removed the below-greeting act/work picker — owner 2026-06-22: it was a DUPLICATE
-                // of the single top "Act | Work" capsule (RootView.WorkspaceModeToggle). One toggle only.)
-
-                #if !EPISTEMOS_APP_STORE
-                // P0-B (owner 2026-06-22): Osaurus's presence on the act LANDING — a
-                // visible "Osaurus-powered" indicator (+ clickable live engine status),
-                // shown ONLY when act actually routes through the Osaurus engine.
-                // Honest — never on the MAS / old-MLX path. The act surface's start
-                // surface now reads as Osaurus, not the plain old chat.
-                if !showingLandingStageCommand, LocalAgentLoop.shouldRouteActThroughOsaurus() {
-                    ActOsaurusActiveBadge()
-                        .transition(.opacity)
-                }
-                #endif
             }
             .padding(.horizontal, Spacing.xxl)
             .allowsHitTesting(showingLandingStageCommand)
