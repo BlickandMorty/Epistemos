@@ -125,7 +125,7 @@ Act has D1–D5. **Work, beyond, and substrate/orchestrator must NOT `[x]` on bu
 |------|-----------------|---------------|
 | **W1–W5** | TIER 1 work items (0.28, 1.2–1.9) | W1 binary vendored+launches · W2 OpenCode TUI PNG · W3 theme-responsive palette · W4 **REQUIRED** work send harness (served-model == selected-model) · W5 act↔work toggle+blur (Electron under 1.8) |
 | **B1–B3** | Beyond tab (0.30, 4.14) | Honest stub label; Companion-backend grep clean; stub = `[ ] STUBBED` never `[x]` |
-| **S1–S5** | TIER 2–3 substrate/orchestrator (2.1–2.8, 3.1–3.2) | Real-state integration on LIVE path; AnswerPacket surfaced; TRINITY route logged; NOT fake-green |
+| **S1–S5** | TIER 2–3 substrate/orchestrator (2.1–2.8, 3.1–3.2) | Live-path integration test citing **runtime artifact** (log/health-row/AnswerPacket); gate (e) headless per ARCHITECTURE_TIER_PROMOTION_CANON T4; NOT fake-green |
 
 Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongside 0.32 witness.
 
@@ -177,7 +177,8 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
    - Any of (a)-(d) fails → it's **BROKEN/DRIFTED**: FIX IT FOR REAL now (implement the plan's specifics the
      right way), then re-run the bar. Log the gap. Do not check it until it passes.
 6. **UPDATE docs/WORK_QUEUE_2026_06_22.md** (status + one-line result/evidence) and append a per-item line to
-   docs/research/STRICT_RECERT_LOG_2026_06_22.md (create if missing): item · verdict · evidence · any fix
+   docs/research/STRICT_RECERT_LOG_2026_06_22.md under **`## Certification log`** (create if missing; gap-fill/docs
+   edits go under **`## Docs-maintenance`** — excluded from cert counts): item · verdict · evidence · any fix
    commit SHA. Commit + push (git add ONLY the files you changed; never `-A`; Co-Authored-By Claude).
 7. **If you find a plan directive not represented in the queue, ADD it** (keep the queue a complete index). New
    owner directives go into the plan AND the queue.
@@ -189,7 +190,7 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
   `<think>` parse; CLEAN short titles — no model self-description garbage)
 - **0.17** LOCKED direction (Osaurus OWN UI reskinned + 3 grafts; SUPERSEDES option-b) · **0.18** Model provider registration
 - **0.19** Chat surface deletion sequence (IP preserved) · **0.20** Collapse act/chat duality
-- **0.21** Per-clone settings matrix — Epistemos|act|work|beyond (D4 blocking) · **0.22** ONE inference chokepoint
+- **0.21** Per-clone settings matrix — Epistemos|act|work|beyond (**D4 blocking — SOLE OWNER**) · **0.22** ONE inference chokepoint
 - **0.23** Send-text harness EVERY iteration · **0.24** Act UI bug bundle · **0.25** Delete old ChatView (GATED)
 - **0.26** UI-hide quarantined chat (GATED) · **0.27** Epistemos (main) clone baseline
 - **0.28** WORK clone surface reachable · **0.29** Per-clone inference routing
@@ -225,8 +226,9 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
   highest attempted MUST reach **≥1.1** OR stall report in log (T0 still broken + T1+ attempt evidence). Act/P0
   fixes run **in parallel** with lower-tier cert — not a precondition to attempting T1+. **FORBIDDEN** end-claims: "act certified =
   iteration done", "D1–D5 pass = done", "stopping at TIER 0", "build-green = tier done", "defer TIER 1+ to
-  next iteration", "act blocking so skipping work/substrate". Confirm you attempted 0.1→0.32 then TIER 1+ (not
-  act-only). Act certified ≠ loop done.
+  next iteration", "act blocking so skipping work/substrate", **"STRICT RE-CERT COMPLETE" while ANY box is `[ ]`**.
+  **INCOMPLETE** also if **lowest still-[ ] item ID** did not advance vs prior iteration (unless sole change is
+  honest new `[~]` with cmd+output). Confirm you attempted 0.1→0.32 then TIER 1+ (not act-only). Act certified ≠ loop done.
 
 ## PER-SURFACE SCREENSHOT MANDATE
 Certify **each** chat surface with its **own** PNG: main act, mini chat, graph chat, note chat (act), work
@@ -234,8 +236,10 @@ landing/TUI (where applicable), Epistemos main settings (0.27). A single main-ac
 0.2, 0.5, 0.28, or 0.21.
 
 ## COMPLETENESS CRITIC (every loop, end of iteration)
-Grep consumers of `InferenceState`, model picker, chat send paths, capability pills. Any surface not in queue →
-ADD it (→plan: "COMPLETENESS / DISCOVERY-SWEEP MANDATE"). Log findings in STRICT_RECERT_LOG.
+Per-tier plan-section→queue reconciliation (TIER 0–5 — substrate/TRINITY/vault/Epdoc/distribution/clones, NOT
+chat-only) PLUS grep consumers of `InferenceState`, model picker, chat send paths, capability pills. Any surface
+not in queue → ADD it (→plan: "COMPLETENESS / DISCOVERY-SWEEP MANDATE"). Log findings in STRICT_RECERT_LOG under
+`## Certification log`.
 
 ## MANDATORY EVERY-ITERATION FUNCTIONAL PROOF (owner: do this exhaustively, every loop, no exceptions)
 Regardless of which item you're on, EVERY iteration you MUST:

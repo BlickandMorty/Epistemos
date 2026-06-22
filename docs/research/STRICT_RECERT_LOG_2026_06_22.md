@@ -11,7 +11,7 @@
 - Certified: 0
 - Needs-owner (last resort): 0
 - Fixed during recert: 0
-- STRICT RE-CERT COMPLETE: no
+- STRICT RE-CERT COMPLETE: no (**FORBIDDEN while ANY queue box is still `[ ]`**)
 
 ## Certification log
 
@@ -74,6 +74,17 @@ _(Build-agent certification lines only — sole source of cert counts. Gap-fill 
 - pass50 P1-c · **PNG freshness:** unique per-iter paths + timestamp log + Read-this-iteration rule (queue RUNTIME, paste #21, placeholder)
 - reverse-audit · re-grep 🔒/DEFINITIVE/P0/MUST/🆕/🌟/RESEARCH (~64 section headers); **0 new unindexed** — SYSTEM-PROMPTS→4.2, NEVER-IDLE→STANDING, FUGU SEQUENCING→3.2 bundle, TRINITY subsections→3.1
 - sync verify · STEP-0 / `[~]` cap / TIER floor / 0.32 (highest+lowest) / W/B/S / gate-c / harness / PNG synced across three docs
+
+### Gap-fill iteration 10 (docs only, 2026-06-22 — CURSOR HANDOFF final hardening)
+- pass51 P0-C · **4 missing queue rows:** **1.9** RustLSP→work tools · **1.3** Goose FULL clone mandate · **4.17**
+  vault→GRAPH+LLM-wiki · **4.18** MD-V2 inversion+agent-edit provenance
+- pass51 P0 · **0.31 full addendum heading diff** (not token-grep alone) · **discovery sweep ALL tiers** (not chat-only)
+- pass51 P0 · **W-gate W5** = act↔work toggle+blur (Electron under 1.8) · **S-gate (e)** cites ARCHITECTURE_TIER_PROMOTION_CANON T4
+- pass51 P1 · **gate-(d) linked to (c)** + **"0 skipped/ignored"** · **lowest still-[ ] must advance** vs prior iteration
+- pass51 P1 · **Tolaria** canonical spelling (was Talaria drift) · external-doc →plan paths verified (CHAT_BACKEND + SUBSTRATE)
+- pass51 P1 · **0.21 sole D4 owner** · strike **"one item minimum"** · paste **OsaurusChatView** disambiguation
+- pass51 E · **STRICT_RECERT_LOG** split: `## Certification log` vs `## Docs-maintenance`
+- reverse-audit · full heading diff sample: vault→GRAPH→**4.17** · RustLSP→**1.9** · MD-V2 inversion→**4.18** · Goose full-clone→**1.3** · all indexed
 
 ### Gap-fill iteration 10 (docs only, 2026-06-22 — CURSOR_HANDOFF A–E verify + strict/paste sync)
 - handoff · **345495263 CURSOR_HANDOFF doc committed**; no uncommitted WORK_QUEUE/STRICT/PASTE in flight at tick 6
