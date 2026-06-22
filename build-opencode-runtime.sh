@@ -96,6 +96,31 @@ else
 fi
 
 # -------------------------------------------------------------------
+# 2.5 Build + stage the omega_mcp_stdio FUSION server → Resources/.../bin/omega_mcp_stdio
+#     The stdio MCP server that fuses the app's vault tools into OpenCode's work agent. Built from the
+#     omega-mcp crate (Rust); cargo's incremental cache makes this fast after the first build.
+#     WorkOpenCodeRuntime.bundledMcpServerURL() resolves it; launchSpec then registers it via OPENCODE_CONFIG.
+# -------------------------------------------------------------------
+if command -v cargo >/dev/null 2>&1; then
+    echo "build-opencode-runtime.sh: building omega_mcp_stdio fusion server…"
+    if cargo build --release --manifest-path "$ROOT/omega-mcp/Cargo.toml" --bin omega_mcp_stdio >/dev/null 2>&1; then
+        STDIO_BIN="$(find "$ROOT/omega-mcp/target" -name omega_mcp_stdio -type f -path '*release*' 2>/dev/null | head -1)"
+        if [ -n "$STDIO_BIN" ] && [ -f "$STDIO_BIN" ]; then
+            mkdir -p "$BIN_DIR"
+            cp "$STDIO_BIN" "$BIN_DIR/omega_mcp_stdio"
+            chmod +x "$BIN_DIR/omega_mcp_stdio"
+            echo "build-opencode-runtime.sh: staged omega_mcp_stdio → $BIN_DIR/omega_mcp_stdio"
+        else
+            echo "build-opencode-runtime.sh: WARN omega_mcp_stdio binary not found after build (fusion omitted)" >&2
+        fi
+    else
+        echo "build-opencode-runtime.sh: WARN omega_mcp_stdio build failed (fusion omitted; TUI still launches)" >&2
+    fi
+else
+    echo "build-opencode-runtime.sh: WARN cargo not on PATH — omega_mcp_stdio fusion server not built" >&2
+fi
+
+# -------------------------------------------------------------------
 # 3. Sanity check
 # -------------------------------------------------------------------
 if [ ! -x "$BIN_DIR/bun" ]; then
