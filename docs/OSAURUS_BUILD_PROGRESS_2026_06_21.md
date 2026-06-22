@@ -312,6 +312,15 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   mounts the REAL `WorkTerminalHostView` (SwiftTerm/PTY) → the work terminal chain is now REACHABLE (no dead
   component); honest placeholder until armed. All 7 exhaustive switch arms; 2/2 tests. REMAINS: "beyond" tab;
   later, embed each clone's REAL settings surface (reskinned).
+- [x] **ACT-ON-OSAURUS IN-APP TOGGLE + indicator (owner §806, `d528c1d90`):** the owner wanted to EXPERIENCE
+  act without setting an env var + relaunching. `ActOsaurusGateStatus` gained a runtime override layer
+  (`override`/`setOverride` UserDefaults tri-state) + `resolvedActive` (**override > env > off**; App Store
+  always off; default-absent = flag-OFF byte-identical). `LocalAgentLoop.shouldRouteActThroughOsaurus` now
+  resolves through it → the toggle flips ALL act paths (primary + streaming + non-streaming via
+  `SharedActInference`), no relaunch. `ActOsaurusHealthRow` shows the "Use Osaurus for Act (experimental)"
+  switch (Pro only) + the existing bolt/headline reflect the resolved state live. Verified: ActOsaurusSeamTests
+  **17/17** (+3: resolution order, status-source honesty, router-off-by-default), TEST SUCCEEDED. (Visual:
+  switch styling is owner running-app judgment; the gate/router logic is real-state tested.)
 - [🔴] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — ACT-surface phase (AFTER engine, do not pull ahead).
   On select: greeting backspaces + moves UP, typewrites the mode name; reusable elements (greeting→title)
   travel up connectedly; smaller UI + message bar BLUR then reveal. **act = native Apple blur-reveal**;
