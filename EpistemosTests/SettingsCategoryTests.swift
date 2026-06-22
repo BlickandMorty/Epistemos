@@ -48,11 +48,10 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        // 17 visible after Agent consolidation + S.6 privacy pane +
-        // the Provenance Console, Substrate Health, and Experimental Features:
-        // agentControl + authority + overseer rolled up into a single
-        // .agent entry; .privacy and .provenance live under Privacy & Storage.
-        #expect(SettingsView.SettingsSection.visibleSections.count == 17)
+        // 19 visible: the prior 17 (Agent consolidation + S.6 privacy pane + Provenance Console,
+        // Substrate Health, Experimental Features) PLUS the per-clone settings tabs actClone +
+        // workClone (owner directive 4 — "per-clone SETTINGS as tabs: Epistemos|act|work|beyond").
+        #expect(SettingsView.SettingsSection.visibleSections.count == 19)
     }
 
     @Test("Category mapping matches the Phase 7 spec")
@@ -118,6 +117,8 @@ struct SettingsCategoryTests {
             .skills, .agent,
             .landing, .appearance, .vault, .privacy, .provenance,
             .substrateHealth, .experimentalFeatures,
+            // Per-clone settings tabs (owner directive 4): act + work clone panes.
+            .actClone, .workClone,
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)
     }

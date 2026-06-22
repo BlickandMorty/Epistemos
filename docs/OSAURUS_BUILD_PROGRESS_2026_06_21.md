@@ -1110,3 +1110,13 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   carries its own single settings entry, and runtimePopover renders exactly one. So at runtime there's still a
   single live entry point; the source-count guard just needed to track the variant count (1 → 2). Not a UX
   regression; updated the test to the two-variant reality. Suites green.
+
+## No-red sweep (UI batch) — fixed 4 stale tests after real refactors (2026-06-22)
+- UI/settings/landing/motion batch (38 tests, 7 suites) surfaced 4 reds, all stale after intentional changes:
+  - SettingsCategoryTests (×2): visibleSections 17→19 + expected set — actClone + workClone per-clone settings
+    tabs added (owner directive 4). Updated count + set.
+  - LandingOptimizationTests: `preferSplitToolbarControls: false` removed by the owner's flat inline pixel-art
+    panel redesign (d790bc81f); dropped the obsolete assertion (label-line + tools-reveal intent still asserted).
+  - SubstrateHealthPanelTests: "session ring only" → "session ring + durable log" (Phase 2 64196c4a8 added the
+    durable JSONL log); updated; conservatism still asserted via falsifierPassed: false.
+  No production code touched — all real refactors that left source-mirror/enum-count assertions stale.

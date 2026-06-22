@@ -70,7 +70,10 @@ struct SubstrateHealthPanelTests {
         )
         let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
 
-        #expect(answerPacket.contains("session ring only"))
+        // "session ring only" → "session ring + durable log": Phase 2 (64196c4a8) added the durable
+        // JSONL persistence log, so the honest substrate string now lists both. Conservatism is still
+        // asserted by falsifierPassed: false below (the falsifier hasn't passed).
+        #expect(answerPacket.contains("session ring + durable log"))
         #expect(answerPacket.contains("falsifierPassed: false"))
         #expect(planePlacement.contains("falsifierPassed: false"))
         #expect(components.contains("private var substrateTint: Color"))
