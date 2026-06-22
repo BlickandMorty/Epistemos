@@ -131,9 +131,36 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
             ])
         ])
         let md = ProseMirrorMarkdownProjector.project(d)
-        #expect(md.contains("| A | B |"), md)
-        #expect(md.contains("| --- | --- |"), md)
-        #expect(md.contains("| 1 | 2 |"), md)
+        #expect(md.contains("| A | B |"), "\(md)")
+        #expect(md.contains("| --- | --- |"), "\(md)")
+        #expect(md.contains("| 1 | 2 |"), "\(md)")
+    }
+
+    @Test("camelCase Tiptap node names project correctly (the editor uses camelCase, NOT snake_case)")
+    func camelCaseNodeNames() {
+        // The editor (Tiptap StarterKit) emits camelCase node types — before the alias fix these fell through
+        // `default` and lost their Markdown STRUCTURE (markers / rules / breaks), a silent PM→md fidelity bug.
+        let list = Self.doc([
+            ProseMirrorNode(type: "bulletList", content: [
+                ProseMirrorNode(type: "listItem", content: [Self.para([Self.text("a")])]),
+                ProseMirrorNode(type: "listItem", content: [Self.para([Self.text("b")])]),
+            ])
+        ])
+        let listMd = ProseMirrorMarkdownProjector.project(list)
+        #expect(listMd.contains("- a"))
+        #expect(listMd.contains("- b"))
+
+        let ordered = Self.doc([
+            ProseMirrorNode(type: "orderedList", content: [
+                ProseMirrorNode(type: "listItem", content: [Self.para([Self.text("one")])]),
+            ])
+        ])
+        #expect(ProseMirrorMarkdownProjector.project(ordered).contains("1. one"))
+
+        #expect(ProseMirrorMarkdownProjector.project(Self.doc([ProseMirrorNode(type: "horizontalRule")])).contains("---"))
+
+        let hb = Self.doc([Self.para([Self.text("x"), ProseMirrorNode(type: "hardBreak"), Self.text("y")])])
+        #expect(ProseMirrorMarkdownProjector.project(hb).contains("  \n"))
     }
 
     @Test("em mark wraps text in *")
