@@ -1145,3 +1145,15 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   SF Mono) by the host theme — the message-bar AESTHETIC is grafted; swapping in the Epistemos composer
   STRUCTURE isn't additively feasible (Osaurus owns the composer + its send wiring). So: scroll-blur (new) +
   side panel (enabled) delivered; message bar provided via reskin. Owner runtime-verify refines all three.
+
+## Model-default finding on the new Osaurus act surface (for owner runtime-verify, 2026-06-22)
+- Verified the owner's models ARE available + selectable in the new surface's picker (via EpistemosBridgedModelService
+  → CoreModelService localServices), and generation is in-process (ChatEngine), so "send works with my models" is
+  achievable. BUT the DEFAULT selected model on the new surface comes from Osaurus's ChatView
+  `applyEffectiveModel` → AgentManager.effectiveModel(for: defaultAgent) or pickerItems.firstChatCapable —
+  i.e. Osaurus's default agent model, NOT necessarily the owner's GGUF. (My earlier coreModelName default only
+  drives the OLD act-injection path, not Osaurus's ChatView selectedModel.)
+- IMPACT: first send may use Osaurus's default model unless the owner picks theirs (it then persists via the
+  agent settings). Wiring the host to DEFAULT the window to the owner's model needs Osaurus AgentManager changes
+  (invasive/uncertain) — flagged for owner runtime-verify: confirm the picker shows your models + select yours
+  once; if you want it auto-defaulted, that's a follow-on host/AgentManager wiring.
