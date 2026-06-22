@@ -958,3 +958,12 @@ real surface. This is exactly why pass-61c PIVOT (native UI = cream by construct
 right unblock; the theme-conditional problem is MOOT under native UI. NOT adding more theme corrections (pivot
 supersedes). NEXT FIRE: re-screenshot when a new build lands; verify the agent ingested pass-61c pivot + built
 native chrome that renders on a FRESH launch. No escalation (agent mid-cycle, corrections fresh). VERDICT: STANDBY.
+
+## PASS 62b — 2026-06-22 (HARD CLARIFICATION: pivot ≠ option-b; ONE path, stop the thrash)
+Owner: "we did this before, gave back regular chat + Osaurus didn't work" = OPTION-(b) (reused old ChatView +
+broken send). Hardened the pivot: FRESH native views, do NOT reuse Epistemos/Views/Chat/ChatView.swift (=option-b,
+FORBIDDEN); engine link now PROVEN (0.4/0.23) so the prior failure cause is gone; binary acceptance on OWNER'S
+FRESH LAUNCH (native cream/curved + working send; must NOT look like raw Osaurus OR old ChatView). Flagged the
+THRASH (option-b → mount+reskin → pivot) as a root cause of "nothing works" — declared this the FINAL approach, no
+more pivots. Meta-note to owner: auditing catches fake claims but does not BUILD; multiple auditors + piled
+directives may be adding noise; recommended consolidating to ONE path + tighter gate. Did NOT touch agent code.
