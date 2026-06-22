@@ -871,3 +871,13 @@ after each to protect 0.4; next milestone = ≥1 D-item landed with a FRESH crea
 headless items as primary work while visible surface [ ]; SELF-VERIFY via screencapture (owner is NOT checking —
 do not defer to "owner UX verification"); whole-plan continues in parallel (no re-tunnel). Re-audit next fire:
 a D-item must move with a fresh PNG, else escalate again + surface to owner. Did NOT touch queue/recertlog/code.
+
+## PASS 58b — 2026-06-22 (P0 OWNER RUNTIME REPORT captured — D6 back-nav + pill act&work + native-shell=curved)
+Owner runtime report (3 items, all visible-act, reinforce pass-58): (1) NEW DEFECT D6 — no back navigation from
+act; entering a mode must be reversible (back to landing) on act AND work. (2) D3 expanded — pill on BOTH act AND
+work, tied to native curved chrome. (3) Key clarification: curved edges are a CONSEQUENCE of the native AppKit
+shell (toolbar+sidebar+recent-chats popover+pill+native elements), NOT a corner-radius hack → D1 = build §1 native
+shell and curved/native feel follows; native sidebar/recent-chats/popover/pill/toolbar on act AND work. Captured
+to addendum (agent 0.31 queues; P0 preempts). Reinforces pass-58 (visible native shell = priority) with concrete
+acceptance details. Did NOT touch queue/recertlog/code. (Note: ultracode banner present in owner input; action is
+a focused P0-directive capture, not multi-agent orchestration — Workflow not warranted here.)

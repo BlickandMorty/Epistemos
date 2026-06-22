@@ -1912,3 +1912,26 @@ the visible D-cluster is the lead build target. The owner is NOT checking the ap
 
 Re-audit target: next fire I verify a D-item moved with a fresh PNG. Continued deferral (more headless certs / no
 visible build) = the agent is avoiding the owner's central work — escalate again + surface to owner.
+
+---
+
+## 🔴 OWNER DIRECTIVE (P0 runtime report, 2026-06-22) — back-nav (NEW D6) + pill on act&work + native-shell = curved-edges (refines D1/D3, reinforces §1 + pass-58)
+Owner ran the app and reported three things (all part of the visible act D-cluster — reinforces the pass-58 P0):
+
+1. **NEW DEFECT D6 — NO BACK NAVIGATION from act.** Once you enter act (from the landing) there is no way to go
+   BACK (to the Epistemos landing / out of the mode). Entering a mode must be REVERSIBLE — add back/return nav on
+   **act AND work** (the reverse of the landing→blur→act flow D2). Currently missing. Screenshot-verify a back path.
+2. **D3 EXPANDED — the PILL must be present on BOTH act AND work** (not act-only). The pill is part of the native
+   curved-edge chrome. Screenshot the pill on each.
+3. **NATIVE SHELL = the source of the curved edges (clarifies D1 + §1).** Owner: the curved edges + native feel
+   are a CONSEQUENCE of the native AppKit shell — native TOOLBAR + SIDEBAR + RECENT-CHATS POPOVER + PILL + native
+   Apple elements. So **D1 "curved window" is NOT a standalone corner-radius hack** — it is achieved by mounting
+   act/work inside the native Epistemos window+toolbar+sidebar shell (native AppKit → curved by nature). Build the
+   §1 native shell → curved edges + native feel follow. Native sidebar + recent-chats popover + pill + toolbar
+   present on act AND work (sidebar/recent-chats on both; work everywhere but note per earlier rule).
+
+**Net:** these are concrete acceptance details for the pass-58 priority (build the visible native shell). D-cluster
+(0.8) gains **D6 back-nav**; **D3** = pill on act+work + tied to curved chrome; **D1** = consequence of the native
+shell, not a hack; **§1 native shell** = toolbar+sidebar+recent-chats popover+pill+native Apple elements on
+act+work. The native shell is what produces the curved/native feel the owner wants — build it (pass-58), and these
+fall out of it. Screenshot-verify each surface.
