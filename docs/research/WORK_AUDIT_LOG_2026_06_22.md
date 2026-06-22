@@ -360,3 +360,12 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   done for act. Stop declaring act done on green.
 - KEY DIAGNOSTIC asked of owner: which build (Pro/direct vs App Store, freshly rebuilt?) + is the green "Osaurus"
   badge visible? (badge shows only when Osaurus-routed → its absence = wrong build / route off = explains all).
+
+## Pass 26b (owner screenshots) — 2026-06-22 — CONFIRMED DIAGNOSIS (badge shows = NOT a build issue)
+- Owner FRESH Pro build. Screenshots: green "● Osaurus" badge VISIBLE → route engages, option-b live → NOT
+  wrong-build/scheme. The 3 bugs are real:
+  1. TWO toggles (top "Act|Work" capsule KEEP + duplicate "●act ●work" pill-row UNDER greeting DELETE).
+  2. Click-search → OLD search screen, must → Osaurus landing.
+  3. SEND fails despite badge on = genuine generation failure (P0-A runtime, not build). Need: does an error
+     appear on send (no-model → "Open Settings→Models" per ac8d3974e) or silence? → no-model vs hang.
+- Updated P0 with confirmed diagnosis; loop fixes the 3 specific bugs. Build-ambiguity removed.

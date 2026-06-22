@@ -1610,3 +1610,22 @@ ONE toggle + click→Osaurus-landing — BEFORE marking act done. If the loop ha
 a definitive runtime diagnostic (what build, is shouldRouteActThroughOsaurus true at runtime, does the provider
 register, does the badge show) so the owner's one launch pinpoints it. The owner has reported runtime failure
 3x while everything was "green" — STOP relying on build-green for the act surface. Re-opened as top P0.
+
+## ✅ CONFIRMED DIAGNOSIS (owner screenshots, latest Pro build, 2026-06-22) — badge SHOWS, so NOT a build issue
+Owner on a FRESH Pro build from Xcode. Screenshots confirm: the green "● Osaurus" badge IS visible (act
+landing) → Osaurus route genuinely ENGAGES; option-(b) is live. So this is NOT wrong-build/scheme. The 3 bugs
+are real runtime/UI issues — fix these specifically:
+1. **DELETE the duplicate toggle.** TWO act/work switches are visible: (a) the TOP "Act | Work" capsule
+   (keep this one) and (b) a SECOND "● act  ● work" pill-row UNDER the "GREETINGS, RESEARCHER" greeting —
+   DELETE (b). The greeting-area duplicate is the one to remove.
+2. **Click-to-search must open the OSAURUS LANDING, not the old search screen.** Confirmed: clicking search
+   opens the old "Ask anything… @ for notes or chats / Fast·Tools·Agent" screen. It must open the Osaurus
+   landing (the "GREETINGS, RESEARCHER" act-landing / Osaurus start surface), reskinned old-look.
+3. **SEND FAILS though the badge shows (route IS on) = genuine generation failure (P0-A runtime).** Not a
+   build/route problem. Diagnose the live generation path: does the act send hit OsaurusCore generation and
+   fail (modelUnavailable / model not loading / no reply)? The actionable error (ac8d3974e "Open Settings →
+   Models…") should appear on a no-model failure — confirm it does, OR find why send produces no reply.
+   Owner observation needed: on send, does an ERROR message appear, or silence/spinner? (tells us if it's
+   no-model vs a generation hang.)
+The badge-confirms-route-on finding removes the build-ambiguity → the loop fixes the duplicate toggle +
+search→Osaurus-landing routing + the real send/generation failure. Runtime-verify (these are owner-visible).
