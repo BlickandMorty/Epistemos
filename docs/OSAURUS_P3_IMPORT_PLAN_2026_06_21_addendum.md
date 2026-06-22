@@ -672,3 +672,19 @@ Sub-agent 529'd 5×, so monitor ran the cited web pass (see ADOPT_VS_IP_LAYER_MA
   agents (the Tolaria pattern) — likely partly present via omega-mcp/vault; finish it so Claude Code/Codex/etc.
   can work on the vault. Add to ledger as an ordered item.
 DEEP cited map (every row's URL/license + full "anything-else") still owed when sub-agents recover — refines, won't change C.
+
+## ✅ CONSENSUS — KEEP TriageService; inject gated act swap (do NOT delete) (owner 2026-06-21)
+The app has TWO shared inference chokepoints: `liveLoop` (ChatCoordinator/MiniChat/Pipeline/iMessage — act
+already wired) and **`TriageService`** (Note chat + Graph chat + 4 other sites route through
+`localStreamOrFallback`, 6 callers). TriageService is LOAD-BEARING — deleting it breaks Note/Graph chat + the
+others. So:
+- **DO NOT get rid of triage.** It is not cruft; it's the shared local-stream chokepoint for those surfaces.
+- **CORRECT + SAFE fix (the agent's approach):** inject the SAME gated act=Osaurus swap at the top of
+  `localStreamOrFallback`, behind the SAME flag (`shouldRouteActThroughOsaurus`, OFF by default). Flag-OFF =
+  byte-identical to today (prove with a test); flag-armed = Note + Graph chat (+ all 6 sites) stream through
+  Osaurus. One gated injection completes "EVERY chat surface gets act." This is the completeness sweep working.
+- **Real-state test required:** assert Note + Graph chat route through the act bridge when armed, and the MLX
+  path is unchanged when off. No regression to the 6 callers.
+- **FUTURE (lower-but-CERTAIN, not now):** consolidate toward ONE inference chokepoint (the "one brain" goal) so
+  there aren't two parallel act-injection points to maintain. Do NOT force that risky consolidation now —
+  for now, BOTH chokepoints route through act when armed. Record as an ordered cleanup item.
