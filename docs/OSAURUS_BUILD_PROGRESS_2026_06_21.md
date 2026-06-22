@@ -397,8 +397,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   (act default, honest unknown-fallback) + `isArmed(mode)` reads the REAL act/work gates' resolved arm-state (no
   duplicated gate logic). `WorkspaceModePicker` = reusable act/work segmented control with a live per-mode armed
   dot. Selecting a mode is SEPARATE from arming its engine (gate toggles = the opt-in). WorkspaceModeSelectionTests
-  **3/3** (persistence, fallback, gate-reading integration). REMAINS (owner-reviewed visual): mount the picker in
-  the landing flow + wire selection → ModeEntryTitleView transition → surface routing.
+  **3/3** (persistence, fallback, gate-reading integration). **`ModeEntryView` composes them (`6516cfe19`,
+  source-guard-gated per CODE-MORE-BUILD-LESS):** picker + ModeEntryTitleView over WorkspaceModeSelection,
+  re-keying the title on mode-switch. REMAINS (owner-reviewed visual): mount `ModeEntryView` in the landing —
+  GROUNDED mount point = `LandingView.greetingContent` (the `LiquidGreeting` at `LandingView.swift:712`, shown
+  when `ui.homeContent == .greeting`); wire the press→blur→mode-entry flow + surface routing there. Risky
+  visual surgery on the loved 2843-line landing → owner running-app judgment (not a blind source-guard edit).
 - [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
   (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
   name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
