@@ -651,7 +651,14 @@ impl GraphToolExecutor {
     fn save_store(&self, store: &GraphStore) -> Result<(), String> {
         fs::create_dir_all(self.epistemos_dir()).map_err(|e| e.to_string())?;
         let body = serde_json::to_string_pretty(store).map_err(|e| e.to_string())?;
-        fs::write(self.store_path(), body).map_err(|e| e.to_string())
+        // ATOMIC write: the store is fully rewritten on EVERY graph mutation, so a plain fs::write that's
+        // interrupted (crash / kill) leaves a truncated mcp_graph.json — which load_store then silently resets
+        // to an EMPTY graph (whole-graph loss). Write a temp sibling + rename (atomic on the same filesystem)
+        // so the store on disk is always a complete, valid snapshot. (Matches VaultNoteEditor's atomic discipline.)
+        let final_path = self.store_path();
+        let tmp_path = final_path.with_extension("json.tmp");
+        fs::write(&tmp_path, body).map_err(|e| e.to_string())?;
+        fs::rename(&tmp_path, &final_path).map_err(|e| e.to_string())
     }
 
     fn append_events(&self, events: &[Value]) -> Result<(), String> {

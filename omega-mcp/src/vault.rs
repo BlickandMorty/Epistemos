@@ -1092,6 +1092,28 @@ mod tests {
     }
 
     #[test]
+    fn test_graph_store_is_written_atomically() {
+        // A graph mutation persists a COMPLETE, valid store and leaves NO partial temp file behind (the
+        // atomic temp-write + rename — so a crash mid-write can't corrupt mcp_graph.json into an empty graph).
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let out = execute_graph_json(
+            root.to_str().unwrap(),
+            "graph.create_node",
+            r#"{"kind":"Note","title":"A","body":"alpha"}"#,
+        );
+        assert!(out["node_id"].as_str().unwrap().starts_with("node_"));
+
+        let store_path = root.join(".epistemos/mcp_graph.json");
+        let body = std::fs::read_to_string(&store_path).expect("store written");
+        // valid, complete JSON (not a truncated fragment).
+        let parsed: serde_json::Value = serde_json::from_str(&body).expect("store is valid JSON");
+        assert!(parsed["nodes"].is_object(), "store has the expected shape");
+        // the atomic write renamed the temp away — nothing lingers.
+        assert!(!root.join(".epistemos/mcp_graph.json.tmp").exists(), "temp file must be renamed away");
+    }
+
+    #[test]
     fn test_graph_traverse_directional() {
         // §720 #2: agents navigate the graph DOWNSTREAM (out) and via BACKLINKS (in), not just forward.
         let dir = tempfile::tempdir().unwrap();
