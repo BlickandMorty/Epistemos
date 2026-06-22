@@ -60,9 +60,10 @@ but certainly still do it."*
    IP FINALIZATION is long, so it runs AFTER / further down the walk — but it is CERTAIN, not dropped.
 
 ### Gap-closures (added so the directive is complete)
-- **Safe cutover, not big-bang:** act runs behind a flag alongside the quarantined chat; chat stays live
-  until act proves out (real-state tests + launch-smoke + no 2,679-suite regression). Rollback always one
-  flag away.
+- **[VOID drift-addition — NO flag, NO "runs alongside chat as fallback," NO rollback-flag. Owner: Osaurus
+  IS the chat, delete the old chat, no scaffold. Build the Osaurus chat surface → verify a real send/receive →
+  delete the old ChatView. Preserve the IP only (below). See addendum "ACT = OSAURUS IS THE CHAT" + "NO ADDED
+  TERMS".]**
 - **Data/persistence carry-over:** existing saved chats/sessions + user prefs migrate to act (not just
   models/IP) — no lost history.
 - **Delete-only-after bar (all required):** (a) IP fully ported, (b) act at parity + real-state proven,
