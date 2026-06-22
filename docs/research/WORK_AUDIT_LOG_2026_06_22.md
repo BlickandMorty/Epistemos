@@ -169,3 +169,21 @@ Osaurus engine (no toggle/fake), implementation its choice but ALL invariants me
 - **Live-verify pending (running app):** an actual owner-model generation in the act chat — wiring is real+correct.
 - **Verdict:** PASS, no re-add. The agent is building toward option (b) + wired models for it. Remaining: the
   option-(b) old-UI shell itself (message bar/sidebar/fonts), live send verify, old-ChatView delete (MAS-blocked).
+
+## Pass 12 — 2026-06-22 — 🎯 OPTION-(b) PIVOT LANDED
+- **Build loop:** ALIVE. HEAD `fd21ae463` (3 min). Two build commits: `fe66b8af7` (option-b pivot) + `fd21ae463` (model default).
+- **AUDIT fe66b8af7 (option-b pivot) → ✅ PASS (genuine, matches confirmed direction + ALL invariants):** act =
+  the GENUINE old Epistemos UI (landing/thread/message-bar/sidebar/fonts, faithful by construction) DRIVEN BY
+  the Osaurus engine; shouldRouteActThroughOsaurus DEFAULT-ON Pro, MAS off, NO toggle/gate; reverted RootView to
+  old surface, removed mounted-Osaurus-host + act-work toggle + OsaurusCore import; carries passes 1-8
+  (engine/bootstrap/bridge/MAS). Pro EXIT=0. Co-Authored.
+- **AUDIT fd21ae463 (model default) → ✅ PASS:** CoreModelService.generateStream throws modelUnavailable when
+  coreModelIdentifier unset; bridge now defaults coreModelName to owner's first prepared model (only if unset) →
+  act send has a valid model routed back through the bridge to the owner's model. Makes send work. Co-Authored.
+- **RESOLVES multiple items at once:** old UI (message bar+sidebar+fonts) back = deeper-reskin satisfied by
+  construction; "delete old ChatView" now MOOT (old UI IS act, repurposed, Osaurus-driven); inference routes
+  through Osaurus not old backend → Qwen-fallback off the live act path.
+- **Tracked follow-ups (agent's own):** re-place the act↔work product toggle (removed in pivot — re-add as the
+  legit product switch); set/verify defaults. Live send verify still needs running app.
+- **Verdict:** PASS — milestone. Remaining: re-place act↔work toggle, live send verify (running app), work-mode
+  reachability. Watch next pass for the toggle re-placement.
