@@ -48,4 +48,17 @@ struct WorkTerminalViewTests {
         #expect(!src.contains("WKWebView("))
         #expect(!src.contains("import WebKit"))
     }
+
+    @Test("the terminal is FULLY theme-responsive — derives from the live app theme + re-applies live (§162)")
+    func terminalIsThemeResponsive() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkTerminalView.swift")
+        // Palette derives from the app theme (NOT a hardcoded constant for the live path).
+        #expect(src.contains("static func from(theme:"))
+        #expect(src.contains("theme.resolved.background") && src.contains("theme.resolved.foreground"))
+        // Reads the LIVE theme via the @Observable UIState → recolors on every theme change (incl. custom).
+        #expect(src.contains("@Environment(UIState.self)"))
+        #expect(src.contains("ui.theme"))
+        // updateNSView re-applies the palette LIVE (recolors the running PTY without relaunching).
+        #expect(src.contains("func updateNSView") && src.contains("applyPalette("))
+    }
 }
