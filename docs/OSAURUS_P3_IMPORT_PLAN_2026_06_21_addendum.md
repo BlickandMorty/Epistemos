@@ -2158,3 +2158,31 @@ flagged pass-66, still not done.) Run the test green after rewrite — no red on
 recent chats) is NOT yet composed** — add it (+ confirm `ChatCapabilityPill` renders on act AND landing AND
 work). Acceptance unchanged: fresh-launch shows cream + native toolbar + pill + the owner's ChatInputBar +
 sidebar + a real streaming send.
+
+---
+
+## 🔴🔴 OWNER P0 RUNTIME (2026-06-22 ~15:30) — landing REGRESSION + Osaurus commands/skills/buttons + 38-tool panel MISSING from act
+**Progress acknowledged:** native cream act view + the owner's ChatInputBar + certified engine = real. These are
+the NEXT refinements, not a restart.
+
+**P0-A — RESTORE the owner's ORIGINAL Epistemos `LandingView` as the home; do NOT replace it.** RootView's
+act-routed branch (RootView.swift:2727) currently shows the minimal `NativeActLandingView` ("click anywhere to
+begin" + pill) INSTEAD of the rich `LandingView` (the app home — notes/graph/capture/search/all features). Owner:
+*"the old landing page should not have been changed at all… why was it removed if the chat has nothing to do with
+that page?"* FIX: the act-routed home shows the **owner's real `LandingView`** (UNCHANGED — its app features
+intact); the ACT surface is a MODE entered FROM it (the act-entry gesture → blur → `NativeActChatView`), NOT a
+replacement of the home. The minimal `NativeActLandingView` must NOT stand in for the app's main landing. (The
+chat ≠ the home landing. §2 said use the Epistemos LandingView — that means the REAL rich one, not a new stripped one.)
+
+**P0-B — Osaurus commands + skills + buttons AND the owner's 38-tool panel + command palette are MISSING from the
+act surface.** Owner: *"Osaurus's commands and its skills and all its buttons should be on my chat… I have 38
+skills that weren't on Osaurus but are on my app."* `NativeActChatView` has NO command palette / 38-tool panel /
+skills. FIX: on the act surface, **MERGE (the UNION, in the owner's native flat style):**
+- PRESERVE the owner's **command palette** + **38-tool agent panel** + the owner's 38 skills (queue 4.7).
+- ADOPT **Osaurus's commands + skills + buttons** (recoded native per §2 — voice/popovers/native controls).
+- Compose these into NativeActChatView alongside the already-composed ChatInputBar. The owner must see BOTH his
+  38 skills AND Osaurus's capabilities, in his native chrome — not "just my old shit" and not bare.
+
+Acceptance (fresh launch): home = the owner's REAL rich LandingView (unchanged); enter act → NativeActChatView
+with cream + ChatInputBar + sidebar + pill + command palette + 38-tool panel + Osaurus commands/skills/buttons
+(merged, native) + a real streaming send.
