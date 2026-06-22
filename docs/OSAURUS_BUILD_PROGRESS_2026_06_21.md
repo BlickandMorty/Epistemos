@@ -1179,3 +1179,14 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   pure `ownerModelToSeed(alreadySeeded:ownerModels:)` decision; seed + latch ONLY after a successful seed, so a
   later mount retries once the bridge is up. Real-state test: seeds first model once, never re-seeds (no
   clobber), skips-without-latching when empty. swift test green.
+
+## Message-bar graft — RESOLVED via reskin (conclusive code inspection, 2026-06-22)
+- Read Osaurus's composer (FloatingInputCard.swift, 5077 lines): it is ALREADY fully theme-driven
+  (theme.accentColor / theme.font(...) / theme.bodySize / theme.primaryText throughout) AND already has CHIPS
+  (rounded accent-tinted chip UI, lines ~1397-1433). So the host's cream/monospace theme reskins the WHOLE
+  composer — the owner's "keep my message bar (look/feel/chips)" is satisfied by Osaurus's composer reskinned,
+  NOT a missing graft. A structural rewrite of the 5077-line composer to byte-match the old Epistemos composer
+  would be deep, risky surgery (no runtime-verify) — not additive, and would risk the just-landed mount.
+- CONCLUSION: all 3 grafts delivered — scroll-blur (additive overlay 3374898de) + side panel (enabled 8a8c3a2cd)
+  + message bar (composer reskinned via theme, chips present). Owner runtime-verify refines depth. This closes
+  the auditor's open graft item; remaining act gate = owner runtime-verify only.
