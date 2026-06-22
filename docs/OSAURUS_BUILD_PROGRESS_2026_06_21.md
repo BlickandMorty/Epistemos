@@ -191,8 +191,12 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     whose title appears in this note's prose but isn't yet `[[linked]]` (whole-word/case-insensitive, [[..]]
     spans stripped, self + already-linked + <3-char titles excluded; count-ranked). The honest INVERSE of
     dangling_links (linked-but-missing vs mentioned-but-not-linked). Catalog + is_vault_tool registered (OpenCode
-    fusion advertises/routes it). 187/187 lib + 5/5 stdio green. REMAINS (later): surface link_candidates +
-    semantic relatedness as LLM-wiki suggestions in the editor UI (Swift).
+    fusion advertises/routes it). 187/187 lib + 5/5 stdio green.
+    **ORPHANS DONE (`d661d46f5`):** `vault.orphan_notes` = Obsidian's "orphans" — notes with NO resolved outlink
+    AND nothing linking to them (stranded from the graph), vault-wide in ONE call. Distinct from dangling (broken
+    links) + link_candidates (unlinked mentions); self-links + dangling-only links correctly don't count as
+    connecting. 192/192 lib. The LLM-wiki link-health tool set is now comprehensive (backlinks/outlinks/dangling/
+    note_links/link_candidates/orphans + semantic backlinks). REMAINS (later): surface in the editor UI (Swift).
   - [~] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator): CORE DONE
     (`c61b41cac`) — `AgentNoteEdit` editor-agnostic text-based ops (append/replaceFirst/insertAfter), HONEST
     (nil when anchor absent → never silently mangles) + ATOMIC batch apply (`c0991f4fe`, all-or-nothing) +
