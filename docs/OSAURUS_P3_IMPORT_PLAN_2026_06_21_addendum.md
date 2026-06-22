@@ -570,3 +570,19 @@ ADOPT + layer IP. If a "unique" thing is actually commodity, stop hand-maintaini
 `docs/research/ADOPT_VS_IP_LAYER_MAP_2026_06_21.md` — what's COMPLETE-elsewhere (adopt) vs OWNER-IP (layer),
 grounded + cited. Extends AGENT_STACK_CONVERGENCE_RESEARCH (which already classified Osaurus/Goose/OpenCode/
 OpenClaw/Hermes). Standing item, not droppable.
+
+## 🆕 GOOSE FULL-VENDOR COST (grounded 2026-06-21) — feeds the OpenCode-vs-Goose decision
+Owner principle: "get as MUCH as I can WHILE being beneficial" = maximize benefits BUT be SMART (don't pour
+effort/bloat into a painful path if a lighter one gets ~the same benefit). GROUNDED FINDING (agent, in
+docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md): the leaf-ported types live in the `goose`
+crate = **179-dep graph** (tokio, reqwest, rmcp, sqlx, oauth2, smithy-transport). Vendoring it as a real
+in-process Cargo dep **CONFLICTS with agent_core** — confirmed **reqwest 0.12 (agent_core) vs 0.13.2 (goose)
+= incompatible major versions**, plus rmcp/tokio/sqlx splits → a **multi-iteration, build-RED-prone**
+reconciliation. Correctly sequenced lower-but-CERTAIN (NOT dropped); do it in a build-iterable context, never
+commit red to main. Interim leaf-ports stay honest-superseded.
+IMPLICATION for the OpenCode-vs-Goose decision (research running): **in-process Goose = heavy dep-conflict
+cost**; **OpenCode-over-HTTP (headless, separate process) AVOIDS the Cargo dep-graph merge entirely.** So
+"be smart" likely tilts toward OpenCode-as-work-engine OR Goose-unique-bits-only, UNLESS Goose's Rust engine
+uniquely justifies the reconciliation. The OPENCODE_VS_GOOSE_WORK_ENGINE research must WEIGH this integration
+cost (perf/robustness benefit of Rust vs the 179-dep reconciliation cost) in its recommendation. Decision +
+agent-prompt to follow from that research.
