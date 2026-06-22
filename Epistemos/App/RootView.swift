@@ -2632,6 +2632,14 @@ private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// act↔work product toggle state (owner 2026-06-22: "a toggle to open the
+    /// work as well") — a plain surface switch, NOT a safety/experimental gate.
+    @State private var workspaceMode: WorkspaceModeKind = WorkspaceModeSelection.current()
+
+    /// The work terminal roots at the user's home by default (same as the
+    /// Settings work-clone mount); a real work session passes the open dir.
+    private static var workWorkspaceURL: URL { URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true) }
+
     /// ACT = OSAURUS IS THE CHAT (owner 2026-06-22). Show the conversational
     /// surface the moment the user leaves the landing — Osaurus owns its own
     /// landing/composer, so we no longer wait for an Epistemos-side message to
@@ -2647,14 +2655,28 @@ private struct HomeRouter: View {
                 // The act surface IS the real Osaurus chat UI (its own
                 // composer/thread/sidebar), hosted in-process via the public
                 // OsaurusCore seam. Replaces the old Epistemos `ChatView()`.
-                // MAS keeps `ChatView()` until the MAS-safe OsaurusCore split
-                // (tracked debt) — so the App Store dual-build stays green.
                 #if EPISTEMOS_APP_STORE
+                // MAS: act-only — the Osaurus host and the SwiftTerm work
+                // terminal are Pro / direct-distribution (MAS-safe split is
+                // tracked debt), so the App Store dual-build stays green.
                 ChatView()
                     .transition(.blurFade())
                 #else
-                EpistemosOsaurusChatHost()
-                    .transition(.blurFade())
+                // Pro: ONE conversational surface with a plain act↔work toggle —
+                // act = the Osaurus chat, work = OpenCode's native terminal.
+                ZStack(alignment: .top) {
+                    Group {
+                        switch workspaceMode {
+                        case .act:
+                            EpistemosOsaurusChatHost()
+                        case .work:
+                            WorkTerminalHostView(workspace: Self.workWorkspaceURL)
+                        }
+                    }
+                    WorkspaceModeToggle(mode: $workspaceMode)
+                        .padding(.top, 10)
+                }
+                .transition(.blurFade())
                 #endif
             } else {
                 LandingView()
@@ -2662,6 +2684,39 @@ private struct HomeRouter: View {
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showChat)
+    }
+}
+
+// MARK: - Workspace Mode Toggle
+
+/// Plain act↔work surface toggle (owner 2026-06-22: "a toggle to open the work
+/// as well"). A clean capsule segmented control — NO armed-dot / "experimental"
+/// framing (that framing was the drift). Selecting switches the conversational
+/// surface and persists the choice via `WorkspaceModeSelection`.
+private struct WorkspaceModeToggle: View {
+    @Binding var mode: WorkspaceModeKind
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(WorkspaceModeKind.allCases, id: \.self) { candidate in
+                let selected = candidate == mode
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { mode = candidate }
+                    WorkspaceModeSelection.select(candidate)
+                } label: {
+                    Text(candidate == .act ? "Act" : "Work")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(selected ? Color.primary : Color.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(selected ? Color.primary.opacity(0.10) : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
     }
 }
 
