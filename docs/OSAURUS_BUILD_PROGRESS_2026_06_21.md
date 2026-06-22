@@ -785,8 +785,20 @@ experimental gate).
     confirm the model picker surfaces a usable model (Osaurus reads `effectiveModelsDirectory` + HF cache via
     `ExternalModelLocator`; Epistemos's curated GGUF models live in a different dir — a model bridge is an
     enhancement, NOT required for basic function given the Apple on-device default).
-- [ ] **WORK/OpenCode — SAME regression class confirmed (audit 2026-06-22):** work surface mounted ONLY in
-  Settings → Work-clone tab (`WorkCloneSettingsView.swift:38`), never routed from RootView/landing; gated OFF by
-  `EPISTEMOS_WORK_OPENCODE_V0` + `EPISTEMOS_WORK_GOOSE_V0` (default off, "experimental/opt-in" copy); renders the
-  honest "not wired yet" placeholder (`WorkTerminalView.swift:155`) because no runtime is bundled. Same fix:
-  full surface reachable via the act↔work toggle, no experimental gate — sequenced AFTER act.
+### 🟦 WORK = OPENCODE (owner: "make sure work is safe / works", 2026-06-22)
+- [x] **OpenCode runtime IS bundled** (corrects the earlier audit's stale "no runtime" read): a REAL 129 MB
+  `opencode` arm64 Mach-O binary lives at `Epistemos/Resources/opencode-runtime/bin/opencode`, vendored at build
+  time by `build-opencode-runtime.sh` (pinned OpenCode 1.17.9 + Bun 1.3.14). `WorkOpenCodeRuntime.bundledRuntime
+  URL()` resolves it (executable) → non-nil. So the work surface's ONLY blocker was the experimental gate.
+- [x] **Work goes LIVE by default, no experimental toggle** (this batch) — parallel to act=Osaurus:
+  - `WorkOpenCodeShellFactory.resolve()` no longer requires `WorkOpenCodeShellGateStatus.resolvedActive()`; it
+    returns the live `BundledWorkOpenCodeShell` whenever the runtime is bundled (Pro). MAS stays inert (`#if
+    EPISTEMOS_APP_STORE`, SwiftTerm + runtime are Pro). Honest fallback: runtime absent → inert, never faked.
+  - Removed the "Enable Work (OpenCode terminal, experimental)" opt-in toggle from `WorkOpenCodeShellHealthRow`;
+    the row now reports the HONEST live/inert state from the real factory resolution (no gate).
+  - Reachable now via the act↔work toggle (`9da16c0f5`): selecting Work mounts `WorkTerminalHostView` →
+    `realShellSpec()` succeeds (shell `isReady`) → the REAL OpenCode TUI spawns in the SwiftTerm PTY.
+  - Tests stay green: the `resolve()` honesty tests assert inert in a test bundle that lacks the runtime →
+    still inert (my change keeps runtime-absent → inert).
+- [ ] **PENDING (owner's running app):** verify the OpenCode TUI actually launches + renders in the PTY (Bun
+  engine spins up). Goose/Hermes/OpenClaw fusion beneath + the omega-mcp vault server config are the follow-on.
