@@ -235,10 +235,28 @@ struct RootView: View {
         return false
     }
 
+    /// True when the Pro act surface (the Osaurus chat host) is showing — i.e.
+    /// the user has left the Epistemos landing. The Osaurus host owns its OWN
+    /// chrome (composer/thread/sidebar) and message state, so `chat.messages`
+    /// stays empty and the RootView would otherwise treat this as the landing
+    /// and paint the Epistemos landing toolbar (the "search bar" + its glass
+    /// background) OVER the Osaurus surface — that leaked toolbar is BOTH the
+    /// "white bar at the top" and the "click opens the search bar, not the
+    /// Osaurus landing" bug (owner 2026-06-22). Suppressing it gives the clean
+    /// old-chat top and lets Osaurus's own landing/composer show through.
+    private var showingOsaurusSurface: Bool {
+        #if EPISTEMOS_APP_STORE
+        return false
+        #else
+        return ui.homeTab == .home && !chat.showLanding
+        #endif
+    }
+
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
             && !embeddedHomeGraphContentVisible
             && (chat.showLanding || chat.messages.isEmpty)
+            && !showingOsaurusSurface
     }
 
     private var showEmbeddedGraphToolbarControls: Bool {
