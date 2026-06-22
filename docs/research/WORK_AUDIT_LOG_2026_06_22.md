@@ -269,3 +269,9 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   into the old UI; don't stall waiting for per-button specifics.
 - **Verdict:** PASS. Remaining: fuller P0-B (Osaurus landing/picker/tool controls in UI) + live send verify
   (owner Pro launch). Cadence healthy (~5-8 min/P0-substep).
+
+## Pass 18 — 2026-06-22
+- **Build loop:** ALIVE, MID-BUILD (swift=13 xcode=1 — heavy compile; likely the fuller P0-B Osaurus surfacing
+  unblocked pass 17). HEAD = my pass-17 audit (no new build commit yet; commits on green).
+- **No new build commits to audit.** Not hung (13 swift-frontend procs compiling). Did NOT kick concurrent build.
+- **Verdict:** healthy, no re-add. Re-audit the next commit (expect fuller P0-B: Osaurus landing/picker/tool controls in the old UI).
