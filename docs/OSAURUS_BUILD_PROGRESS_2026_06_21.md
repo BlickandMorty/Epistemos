@@ -360,7 +360,13 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   switch (Pro only) + the existing bolt/headline reflect the resolved state live. Verified: ActOsaurusSeamTests
   **17/17** (+3: resolution order, status-source honesty, router-off-by-default), TEST SUCCEEDED. (Visual:
   switch styling is owner running-app judgment; the gate/router logic is real-state tested.)
-- [🔴] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — ACT-surface phase (AFTER engine, do not pull ahead).
+- [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
+  (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
+  name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
+  {act,work} (labels act→"act"/work→"work", overridable to "Epistemos chat") + thin `ModeEntryTitleView`
+  (act=native blur-reveal, work=monospace ASCII). 5/5 tests (progression, fixed-point, empty-greeting), TEST
+  SUCCEEDED. REMAINS (owner-reviewed visual): richer blur/ascii chrome + the greeting→title TRANSLATE-up +
+  message-bar blur-reveal + mounting into the landing flow (needs running-app visual judgment).
   On select: greeting backspaces + moves UP, typewrites the mode name; reusable elements (greeting→title)
   travel up connectedly; smaller UI + message bar BLUR then reveal. **act = native Apple blur-reveal**;
   **work = ASCII/pixel typewriter + full-page dynamic reveal** (OpenCode not native → use its font, more
