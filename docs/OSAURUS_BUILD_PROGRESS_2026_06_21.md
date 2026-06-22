@@ -124,8 +124,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
     act=Osaurus swap lived ONLY in DeviceAgentService — `ChatCoordinator`(main chat)/`PipelineService`/
     `IMessageDriverService` all build via `LocalAgentLoop.liveLoop` and BYPASSED it (act never reached
     the main chats). Fixed: `LocalAgentLoop.shouldRouteActThroughOsaurus()` = single source of truth,
-    applied at the liveLoop chokepoint + reused by DeviceAgentService (no divergence). 4/4 tests. REMAINS:
-    streaming-through-Osaurus (streamingGenerator still MLX until OsaurusCore SSE) + composer pixel-art reskin.
+    applied at the liveLoop chokepoint + reused by DeviceAgentService (no divergence). 4/4 tests.
+  - [x] **TOKEN STREAMING through OsaurusCore DONE (`0d9f3f524`):** public `CoreModelService.generateStream`
+    (drives base-protocol `streamDeltas`, resolves like `generate`, honest single-attempt v1, never cloud) →
+    `ActOsaurusBridge.runTurnStreamingInProcess` → `ActOsaurusStreamingHandler` → liveLoop routes BOTH
+    generator AND streamingGenerator via the shared decision. Main-chat act path now STREAMS tokens (STREAM
+    EVERYTHING), not single-shot. 3/3 tests. REMAINS: composer pixel-art reskin (visual).
   - [x] First surface wired (DONE 2026-06-21, real-state verified): **Epistemos Picks VIEW** —
     `Epistemos/Views/Settings/EpistemosPicksSectionView.swift` renders the curated provider in
     pixel-art (reuses `InlineRuntimePickerPanel`'s exact live-state→Environment mapping + honest
