@@ -244,7 +244,7 @@ nonisolated enum EpdocGraphProjector {
         case "text":
             buffer.append(node.text ?? "")
             return true
-        case "hard_break":
+        case "hard_break", "hardBreak":
             buffer.append("\n")
             return true
         default:
@@ -297,7 +297,7 @@ nonisolated enum EpdocGraphProjector {
             )
             return
 
-        case "list_item":
+        case "list_item", "listItem":
             appendSemanticLabel(
                 firstSemanticSentence(inlineText(in: node), minimumLength: 12),
                 documentTitle: documentTitle,
@@ -343,7 +343,7 @@ nonisolated enum EpdocGraphProjector {
                 seen: &seen
             )
 
-        case "image":
+        case "image", "epdocImage":
             appendSemanticLabel(
                 node.attrs?.alt ?? node.attrs?.title,
                 documentTitle: documentTitle,

@@ -47,6 +47,27 @@ nonisolated struct EpdocGraphProjectorTests {
 
     // MARK: - Node identity + label
 
+    @Test("camelCase listItem projects identical semantic labels to snake_case (the editor emits camelCase)")
+    func camelCaseNodeNamesMatchSnakeCase() throws {
+        let m = Self.manifest(id: "doc-cc", title: "T")
+        func labels(list: String, item: String) throws -> [String] {
+            let body = Self.doc([
+                ProseMirrorNode(type: list, content: [
+                    ProseMirrorNode(type: item, content: [
+                        Self.para([Self.text("A clearly distinctive list sentence to label.")])
+                    ])
+                ])
+            ])
+            let p = EpdocGraphProjector.project(manifest: m, contentJSON: try Self.contentJSON(body))
+            return p.edges.filter(\.targetIsLabel).map(\.targetID).sorted()
+        }
+        // The editor's real (camelCase) node names must yield the SAME label edges as snake_case — before the
+        // alias fix, listItem fell through `default` and its paragraph was mislabeled (different/no label).
+        let camel = try labels(list: "bulletList", item: "listItem")
+        #expect(camel == (try labels(list: "bullet_list", item: "list_item")))
+        #expect(!camel.isEmpty, "the listItem case must fire and produce a label")
+    }
+
     @Test("Projection node carries manifest.id + manifest.title verbatim")
     func nodeIdentity() {
         let m = Self.manifest(id: "01HMV5K2K9DOC1", title: "Quarterly report")
