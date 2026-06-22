@@ -1547,6 +1547,31 @@ mod tests {
     }
 
     #[test]
+    fn test_orphan_notes_agrees_with_graph_view() {
+        // Cross-tool invariant: a vault orphan (no wikilinks in/out) is exactly a graph node with no links_to
+        // edge in EITHER direction after populate_from_vault. Locks consistency between the two graph views.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let root_str = root.to_str().unwrap();
+        std::fs::write(root.join("alpha.md"), "links [[beta]]").unwrap();
+        std::fs::write(root.join("beta.md"), "back to [[alpha]]").unwrap();
+        std::fs::write(root.join("island.md"), "no links at all").unwrap();
+        let exec = VaultExecutor::new(root_str).unwrap();
+
+        // vault view: island is the orphan.
+        let r: serde_json::Value = serde_json::from_str(&exec.orphan_notes().data_json).unwrap();
+        let orphans: Vec<&str> = r["orphans"].as_array().unwrap().iter().map(|o| o.as_str().unwrap()).collect();
+        assert_eq!(orphans, vec!["island.md"]);
+
+        // graph view: populate, then island's node has no links_to edge in/out.
+        execute_graph_json(root_str, "graph.populate_from_vault", r#"{}"#);
+        let island_id = format!("node_vault_{}", &blake3::hash("island".as_bytes()).to_hex().to_string()[..16]);
+        let out = execute_graph_json(root_str, "graph.traverse",
+            &format!(r#"{{"start":"{island_id}","max_depth":2,"direction":"both","edge_kinds":["links_to"]}}"#));
+        assert_eq!(out["results"].as_array().unwrap().len(), 0, "graph orphan has no links_to edges: {out}");
+    }
+
+    #[test]
     fn test_vault_orphan_notes_finds_disconnected() {
         // §720 #3: orphans = no resolved outlink AND nothing links to them.
         let dir = tempfile::tempdir().unwrap();
