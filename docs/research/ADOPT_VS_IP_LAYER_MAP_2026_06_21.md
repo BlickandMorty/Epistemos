@@ -75,3 +75,28 @@ yourself into the 1/3 no one else has.
 ### Still owed by the DEEP CITED pass (when API recovers — refines, won't change conclusion)
 Full repo URLs/stars/license per row; the "anything-else" sweep; and **Talaria** (owner-mentioned, adjacent) —
 NOT fabricated here; needs real cited research before any claim.
+
+---
+## CITED PASS (monitor web research, 2026-06-21) — receipts + Talaria→Tolaria find
+**OpenCode** (github.com/sst/opencode, now maintained by Anomaly/ex-SST): **~170k stars, MIT, v1.16.0,
+75+ providers via models.dev, ~6.5M monthly active devs**, TS/Bun, terminal TUI. [verified web] → the
+dominant, most-adopted terminal coding agent. Confirms ADOPT as WORK engine.
+**Goose** (github.com/block/goose, now under the **Agentic AI Foundation / Linux Foundation**): **~46.7k
+stars, Apache-2.0, Rust, 15+ providers**, 500+ contributors, general-purpose (not coding-specialized).
+[verified web] → robust + well-governed, but fewer providers + less coding-focused than OpenCode.
+**VERDICT (now cited): C confirmed.** OpenCode 170k★/MIT/75+ providers/6.5M MAU >> Goose 46.7k★/Apache/15+
+providers for the WORK/coding engine. Goose's Rust + LF-governance are real but don't overcome OpenCode's
+maturity/provider-breadth + the C-architecture wins (process isolation, literal TUI, zero Cargo dep-merge).
+
+### 🔎 DISCOVERY — "Talaria" = **Tolaria** (github.com/refactoringhq/tolaria), by Luca Rossi (Refactoring)
+A **files-first, Git-first, offline-first Markdown PKM** for macOS+Linux, **AI-agent-native**: treats the
+vault as something agents work with — built-in Claude Code / Codex CLI / Gemini CLI support + a **local MCP
+server that registers the vault as a structured context source**. Open-source. Blends Obsidian+Notion. [verified web]
+- **Relevance:** this is the CLOSEST adjacent to Epistemos — and it VALIDATES the owner's md-first + agent-vault
+  direction (MD-V2 + agentic modes). Owner's read ("you could say Tolaria, but I'm doing something much diff
+  with a diff shell") is CORRECT: Epistemos goes far beyond it (act/work agentic MODES, cloned engines, the
+  brain, native editors, graph, model lab). 
+- **Classification: REFERENCE/competitor, NOT an adopt-target** (Epistemos already has the editor + does more).
+- **One pattern worth adopting:** "expose the VAULT as an MCP context source for external agents" (Claude
+  Code/Codex/Gemini can work on your vault). Epistemos has MCP — ensure the vault is cleanly exposed as agent
+  context (likely already partly there via omega-mcp/vault). Low-effort, high-fit. Add as a plan item.
