@@ -98,3 +98,16 @@ re-routes click-open → Osaurus landing (not search). Re-add if unaddressed/hal
   these are higher priority. Added ⏫ PRIORITY note to plan: finish ACT surface (white bar→landing→deeper reskin)
   BEFORE more WORK polish. AUDIT-WATCH next pass: did the loop pick up the act-surface bugs?
 - **Verdict:** PASS on both commits; re-ordered priority toward the owner's active act-surface bugs.
+
+## Pass 7 — 2026-06-22
+- **Build loop:** ALIVE (HEAD ad7998cb8 docs, 8 min). swift/xcode=0 (between iters / docs pass).
+- **ad7998cb8 (session-state doc) → ✅ PASS (honest, not fake-green):** accurate done-list; honestly flags
+  GGUF-models-don't-work-in-chat (uses Apple/MLX/remote) + Goose/Hermes/OpenClaw-beneath-OpenCode is an honest
+  stub + MAS pre-existing pkg-resolution failure. Honest-tier.
+- **🔴 ESCALATION — act-surface bugs STILL not built (2nd pass):** white bar, click→search-not-landing, deeper
+  reskin (message bar/side panel/fonts) NOT picked up; loop wrote "surfaces delivered" doc instead. RE-ADDED
+  prominently as 🔴 NEXT items (buildable, owner-facing). Loop must NOT treat act as done while these remain.
+- **🆕 NEW gap (honestly surfaced by ad7998cb8):** owner's GGUF/QAT models ("Epistemos Picks") don't work in
+  the Osaurus chat → added build item to wire owner models into act.
+- **Verdict:** doc PASS; RE-ADDED act-surface bugs + models-in-chat gap. AUDIT-WATCH: next pass, did the loop
+  pick up white-bar/landing/reskin/models? If still docs/WORK instead → re-flag harder (loop avoiding buildable owner work).
