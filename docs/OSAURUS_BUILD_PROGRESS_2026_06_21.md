@@ -156,11 +156,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   travel up connectedly; smaller UI + message bar BLUR then reveal. **act = native Apple blur-reveal**;
   **work = ASCII/pixel typewriter + full-page dynamic reveal** (OpenCode not native → use its font, more
   flexible/interesting element reveals). "epistemos chat"→act, "work"→work, written in each mode's voice.
-- [🟡] **MOTION LANGUAGE TRIAD** — reusable pieces landing: `BlurFade` (transition) + NEW
-  `Epistemos/Views/Shared/MotionReveal.swift` `.motionReveal()` (blur-in ON APPEAR, reduce-motion-safe,
-  display-only, `61ac6eeba`, applied to a real act title) + `TypewriterASCIIRippleText` (ASCII layer).
-  REMAINS: apply `.motionReveal()` + typewriter-ascii to more titles/display-only (settings/agent/headers),
-  tastefully (noticeable-not-bloated, never editors) — a visual-judgment sweep best done with the running app.
+- [🟡] **MOTION LANGUAGE TRIAD** — reusable pieces landed: `BlurFade` (transition) + `.motionReveal()`
+  (blur-in, `61ac6eeba`, on a real act title) + `TypewriterASCIIRippleText` (ASCII layer) + **NEW reusable
+  `MotionTitle` (`9d1c421e6`)** = the owner's ONE ontology coupling ASCII-typewriter + blur into a single
+  component (reduce-motion-safe, font-adaptive, display-only, never editors), applied to a real WORK status
+  title (ASCII strongest in WORK, §329). REMAINS: sweep `MotionTitle`/`.motionReveal()` onto more
+  titles/display-only (settings/agent/headers) tastefully — a visual-judgment pass best with the running app.
 - [🔴] **MOTION LANGUAGE TRIAD — CROSS-CUTTING STANDING RULE (owner 2026-06-21)** = Apple blur +
   ASCII/pixel typewriter (the "time machine" title-box style) + subtle micro-motions. Apply to **TITLES +
   display-only text** (settings, agent surfaces, section headers, agent ANSWERS maybe — find balance),
