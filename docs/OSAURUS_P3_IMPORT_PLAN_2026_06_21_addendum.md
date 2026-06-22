@@ -2042,3 +2042,28 @@ failed for TWO reasons: (1) it reused the OLD `Epistemos/Views/Chat/ChatView.swi
 **ONE PATH, executed to a runtime-verified visible win. Stop switching approaches mid-stream** (option-b → mount+
 reskin → pivot has caused thrash). This native-UI-on-proven-engine path is the final approach — drive it to a
 fresh-launch screenshot that shows native cream chrome + a working send, then move on. No more architecture pivots.
+
+---
+
+## 🔴🔴 OWNER P0 RUNTIME (2026-06-22 ~15:51, auditor-screenshot-grounded) — THE ONE CRISP TARGET (landing+act in native chrome, click→act, engine actually works)
+Grounded by `docs/research/owner_state_2_2026_06_22_1551.png` (live build 14:37). PROGRESS: the Epistemos landing
+("Greetings, Researcher") DOES show now (D2 landed — not Osaurus "Good afternoon"). BUT the owner's report is all
+valid + visible. **This is the single next deliverable — ship it ALL, runtime-verified on a FRESH launch, before
+anything else:**
+
+1. **LANDING in native chrome:** the "Greetings, Researcher" landing is DARK + has NO native toolbar/chrome + NO
+   pill → make it CREAM (#fbfaf5) + native AppKit toolbar (curved, not boxy) + the **pill on the landing** (D3,
+   `ChatCapabilityPill`). "Chrome/pill removed" per owner — restore them.
+2. **CLICK-ANYWHERE → ACT (remove the search page):** clicking the landing currently opens a SEARCH page. Owner:
+   "Osa is not supposed to go to the search page — remove it. Click anywhere on the screen → open act (Osaurus)."
+   Replace the LandingView click→search gesture with click-anywhere → blur → enter act. KILL the search-page path.
+3. **ACT in native chrome + WORKING send:** after entering, act must be in the owner's native chrome (cream,
+   curved, pill, native composer) AND the engine link must ACTUALLY work at runtime — "you link it to the engine
+   but it doesn't work, it just hangs." A real send must stream a reply (0.4 path) on the LIVE surface, not hang.
+4. **KILL the chat/act duality (0.20):** owner: "get rid of the chat — it's literally staying on chat or act."
+   Collapse to act/work only; remove the lingering chat surface/duality.
+
+**ACCEPTANCE (binary, OWNER'S FRESH LAUNCH — kill→rebuild→open→screencapture→Read):** landing = cream + native
+toolbar + pill; click anywhere → act (no search page); act = native chrome + a real send streams a reply (no
+hang); no chat/act duality. Fresh-launch screenshot must show ALL of it. This is the native-UI-linked-to-engine
+pivot made concrete — FRESH native views, NOT the old ChatView, on the PROVEN engine link.

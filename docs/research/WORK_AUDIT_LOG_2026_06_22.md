@@ -967,3 +967,16 @@ FRESH LAUNCH (native cream/curved + working send; must NOT look like raw Osaurus
 THRASH (option-b → mount+reskin → pivot) as a root cause of "nothing works" — declared this the FINAL approach, no
 more pivots. Meta-note to owner: auditing catches fake claims but does not BUILD; multiple auditors + piled
 directives may be adding noise; recommended consolidating to ONE path + tighter gate. Did NOT touch agent code.
+
+## PASS 63 — 2026-06-22 (P0 owner runtime GROUNDED — landing shows but dark/no-chrome/no-pill/click→search; ONE crisp target)
+Auditor screenshot owner_state_2_2026_06_22_1551.png (build 14:37): Epistemos landing "Greetings, Researcher"
+DOES show (D2 landed — corrects my pass-61 which screenshotted the act surface not the landing). BUT: landing is
+DARK not cream, NO native chrome/toolbar (boxy), NO pill; bottom bar "search" → clicking opens a SEARCH page not
+act; act (post-entry) still raw Osaurus + send hangs; chat/act duality remains. Captured ONE CRISP P0 TARGET
+(grounded): (1) landing in native chrome — cream+toolbar+pill; (2) click-anywhere→act, REMOVE search page; (3)
+act native chrome + WORKING send (no hang); (4) kill chat/act duality (0.20). Binary acceptance on FRESH launch.
+META: build STILL 14:37 — agent has been SCOPING (iter18: "ChatView=6077-line monolith, needs chromeless flag")
+not rebuilding+shipping; stuck in analysis. Auditing has diagnosed everything precisely but cannot force the
+build. If agent doesn't SHIP this crisp target runtime-verified in 1-2 cycles → recommend owner drive a focused
+dedicated build session (the strict-recert whole-plan loop is too diffuse for this hard UI rebuild). Did NOT
+touch agent code.
