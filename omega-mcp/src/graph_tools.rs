@@ -9,7 +9,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-const GRAPH_TOOL_NAMES: [&str; 7] = [
+const GRAPH_TOOL_NAMES: [&str; 8] = [
     "graph.search_semantic",
     "graph.search_fulltext",
     "graph.get_node",
@@ -17,7 +17,14 @@ const GRAPH_TOOL_NAMES: [&str; 7] = [
     "graph.create_node",
     "graph.create_edge",
     "graph.commit_session",
+    "graph.populate_from_vault",
 ];
+
+/// Deterministic, idempotent node-id prefix for vault-sourced notes. Keyed by note BASENAME so
+/// re-running `populate_from_vault` upserts the same node (no duplicates) and wikilink resolution
+/// (also basename-based) lines up 1:1. Agent-created nodes use the random `node_<uuid>` form and are
+/// never touched by a vault re-sync.
+const VAULT_NODE_PREFIX: &str = "node_vault_";
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct SearchArgs {
@@ -64,6 +71,17 @@ struct CreateEdgeArgs {
     kind: String,
     #[serde(default)]
     metadata: Value,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct PopulateFromVaultArgs {
+    /// Graph session the synced note-nodes are registered under (for `commit_session` provenance).
+    #[serde(default = "default_vault_session")]
+    session_id: String,
+    /// How many leading chars of each note become the node body (for fulltext/semantic search over
+    /// the graph). Clamped to [0, 2000] — bounded so a 5000-note vault stays light.
+    #[serde(default = "default_excerpt_chars")]
+    excerpt_chars: usize,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -124,6 +142,9 @@ impl GraphToolExecutor {
             Some("graph.create_node") => self.create_node(&mut store, tool_name, args),
             Some("graph.create_edge") => self.create_edge(&mut store, tool_name, args),
             Some("graph.commit_session") => self.commit_session(&mut store, tool_name, args),
+            Some("graph.populate_from_vault") => {
+                self.populate_from_vault(&mut store, tool_name, args)
+            }
             _ => Err(format!("Unknown graph tool: {tool_name}")),
         };
 
@@ -468,6 +489,112 @@ impl GraphToolExecutor {
         ))
     }
 
+    /// VAULT-DEEP-INTEGRATION §720 (#2): populate the cognitive graph FROM the vault end-to-end — one
+    /// `Note` node per markdown file + a `links_to` edge for every `[[wikilink]]` that resolves to another
+    /// vault note. This is the "the vault's notes + links ARE the knowledge graph" piece (overtake Tolaria,
+    /// whose graph is thin). REUSE not rebuild: walks `VaultExecutor::list_markdown_notes` and the SAME
+    /// `parse_wikilinks`/`note_basename` the backlink/outlink tools use. IDEMPOTENT: a re-sync first drops all
+    /// prior vault-sourced nodes/edges (agent-authored nodes untouched), so the graph always mirrors the
+    /// current vault — no duplicates, no stale notes. HONEST: dangling links (no target note) are COUNTED,
+    /// not turned into phantom nodes.
+    fn populate_from_vault(
+        &self,
+        store: &mut GraphStore,
+        tool_name: &str,
+        args: Value,
+    ) -> Result<(Value, Vec<Value>), String> {
+        use crate::vault::VaultExecutor;
+        use std::collections::{BTreeMap, HashSet};
+
+        let args: PopulateFromVaultArgs = serde_json::from_value(args).map_err(|e| e.to_string())?;
+        let excerpt_chars = args.excerpt_chars.min(2000);
+
+        let root_str = self
+            .root
+            .to_str()
+            .ok_or_else(|| "vault root path is not valid UTF-8".to_string())?;
+        let vault = VaultExecutor::new(root_str)
+            .ok_or_else(|| format!("vault root is not a directory: {}", self.root.display()))?;
+
+        // Idempotent re-sync: remove prior vault-sourced nodes + any edge touching one + their session refs.
+        store.nodes.retain(|id, _| !id.starts_with(VAULT_NODE_PREFIX));
+        store
+            .edges
+            .retain(|_, e| !e.from.starts_with(VAULT_NODE_PREFIX) && !e.to.starts_with(VAULT_NODE_PREFIX));
+        for ids in store.sessions.values_mut() {
+            ids.retain(|id| !id.starts_with(VAULT_NODE_PREFIX));
+        }
+
+        // 1) one deterministic node per note (basename-keyed → matches the wikilink resolution model).
+        let notes = vault.list_markdown_notes();
+        let mut basename_to_id: BTreeMap<String, String> = BTreeMap::new();
+        let mut note_sources: Vec<(String, String)> = Vec::with_capacity(notes.len()); // (node_id, content)
+        for rel in &notes {
+            let content = fs::read_to_string(self.root.join(rel)).unwrap_or_default();
+            let basename = VaultExecutor::note_basename(rel);
+            let node_id = vault_node_id(&basename);
+            let body: String = content.chars().take(excerpt_chars).collect();
+            store.nodes.insert(
+                node_id.clone(),
+                GraphNode {
+                    node_id: node_id.clone(),
+                    kind: "Note".to_string(),
+                    title: note_title(rel),
+                    body,
+                    parent_refs: vec![],
+                    metadata: json!({ "source": "vault", "path": rel }),
+                },
+            );
+            // last-writer-wins on basename collision (same collapse the link model already does).
+            basename_to_id.insert(basename, node_id.clone());
+            note_sources.push((node_id, content));
+        }
+        let node_count = basename_to_id.len();
+
+        // 2) a `links_to` edge for each wikilink that RESOLVES to a vault note; dangling links are counted.
+        let mut edge_count = 0usize;
+        let mut dangling_count = 0usize;
+        let mut seen_edges: HashSet<(String, String)> = HashSet::new();
+        for (from_id, content) in &note_sources {
+            for link in VaultExecutor::parse_wikilinks(content) {
+                let target = VaultExecutor::note_basename(&link);
+                match basename_to_id.get(&target) {
+                    Some(to_id) if to_id != from_id => {
+                        if seen_edges.insert((from_id.clone(), to_id.clone())) {
+                            self.insert_edge(store, from_id, to_id, "links_to", json!({ "source": "vault" }));
+                            edge_count += 1;
+                        }
+                    }
+                    Some(_) => {} // self-link → no edge
+                    None => dangling_count += 1,
+                }
+            }
+        }
+
+        // register synced notes under the session so `commit_session` can provenance-seal the sync.
+        let session = store.sessions.entry(args.session_id.clone()).or_default();
+        session.extend(basename_to_id.values().cloned());
+
+        Ok((
+            json!({
+                "session_id": args.session_id,
+                "notes_indexed": notes.len(),
+                "nodes": node_count,
+                "edges": edge_count,
+                "dangling_links": dangling_count,
+            }),
+            vec![agent_event(
+                "graph_vault_populated",
+                tool_name,
+                json!({
+                    "nodes": node_count,
+                    "edges": edge_count,
+                    "dangling_links": dangling_count,
+                }),
+            )],
+        ))
+    }
+
     fn insert_edge(
         &self,
         store: &mut GraphStore,
@@ -582,6 +709,13 @@ pub fn builtin_graph_tools() -> Vec<ToolDefinition> {
             r#"{"session_id":"default","envelope":{}}"#,
             true,
         ),
+        graph_tool::<PopulateFromVaultArgs>(
+            "graph.populate_from_vault",
+            "Populate the cognitive graph from the vault: one Note node per markdown file + a links_to \
+             edge per resolved [[wikilink]]. Idempotent re-sync; dangling links are reported, not faked.",
+            r#"{"session_id":"vault","excerpt_chars":280}"#,
+            true,
+        ),
     ]
 }
 
@@ -629,6 +763,28 @@ fn parse_create_node_args(args: Value) -> Result<CreateNodeArgs, String> {
 
 fn default_top_k() -> usize {
     10
+}
+
+fn default_vault_session() -> String {
+    "vault".to_string()
+}
+
+fn default_excerpt_chars() -> usize {
+    280
+}
+
+/// Deterministic vault node id from a note basename (blake3-hashed → charset-safe + stable across runs).
+fn vault_node_id(basename: &str) -> String {
+    format!("{VAULT_NODE_PREFIX}{}", &blake3_hex(basename.as_bytes())[..16])
+}
+
+/// Human title for a note node = filename without the `.md` extension, original case preserved.
+fn note_title(rel: &str) -> String {
+    let no_ext = rel
+        .strip_suffix(".md")
+        .or_else(|| rel.strip_suffix(".MD"))
+        .unwrap_or(rel);
+    no_ext.rsplit('/').next().unwrap_or(no_ext).to_string()
 }
 
 fn default_depth() -> usize {
