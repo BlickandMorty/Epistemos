@@ -77,6 +77,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   `applyCustomTheme` alone (proven not to cascade; ba2f8952f drift). Screenshot: cream/monospace on act.
   →plan: "🎯 RESKIN FIX — edit the VENDORED Osaurus theme at SOURCE" + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING" +
   "🆕 ACT RESKIN — GO DEEPER" + "🆕 ACT RESKIN = RESPECT THE CURRENT CHAT UI".
+  · iter1: cream/mono fix applied at TRUE live source `CustomTheme.lightDefault` (NOT vestigial LightTheme struct) +
+  `currentBuiltInThemeSchema` 5→6 cascade (prior edits never cascaded due to disk-install cache); pending cream
+  screencapture; stays `[ ]` (D-gate on D5). See STRICT_RECERT_LOG Iteration 1.
 
 - [ ] **0.2 ALL chat surfaces → same Osaurus act host** — main mounted; mini still Epistemos-native; graph
   still `triageService.streamGeneral`; note unverified. Route mini+graph+note through Osaurus act host. WORK
