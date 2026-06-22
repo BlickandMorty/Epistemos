@@ -4,8 +4,7 @@ use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, VecDeque};
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -25,11 +24,6 @@ const GRAPH_TOOL_NAMES: [&str; 8] = [
 /// (also basename-based) lines up 1:1. Agent-created nodes use the random `node_<uuid>` form and are
 /// never touched by a vault re-sync.
 const VAULT_NODE_PREFIX: &str = "node_vault_";
-
-/// Bound on the append-only agent-event telemetry log (`mcp_graph_events.jsonl`). When it crosses the byte
-/// cap, it's trimmed to the most-recent KEEP lines — so a long agent session can't grow it without limit.
-const EVENT_LOG_MAX_BYTES: u64 = 4 * 1024 * 1024; // ~4 MB
-const EVENT_LOG_KEEP_LINES: usize = 5_000;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct SearchArgs {
@@ -671,38 +665,13 @@ impl GraphToolExecutor {
             return Ok(());
         }
         fs::create_dir_all(self.epistemos_dir()).map_err(|e| e.to_string())?;
-        let path = self.events_path();
-        {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&path)
-                .map_err(|e| e.to_string())?;
-            for event in events {
-                let line = serde_json::to_string(event).map_err(|e| e.to_string())?;
-                writeln!(file, "{line}").map_err(|e| e.to_string())?;
-            }
-        }
-        // BOUNDED (§506): the agent-event stream is append-only TELEMETRY (nothing replays it — the durable
-        // provenance lives in the EventStore), so a long agent session would grow it without limit. Cheap
-        // size check; only when it crosses the byte cap do we trim to the most-recent EVENT_LOG_KEEP_LINES and
-        // rewrite atomically (temp + rename — a trim can't corrupt the log either).
-        if let Ok(meta) = fs::metadata(&path) {
-            if meta.len() > EVENT_LOG_MAX_BYTES {
-                let body = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-                let lines: Vec<&str> = body.lines().collect();
-                if lines.len() > EVENT_LOG_KEEP_LINES {
-                    let kept: String = lines[lines.len() - EVENT_LOG_KEEP_LINES..]
-                        .iter()
-                        .flat_map(|l| [*l, "\n"])
-                        .collect();
-                    let tmp = path.with_extension("jsonl.tmp");
-                    fs::write(&tmp, kept).map_err(|e| e.to_string())?;
-                    fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
-                }
-            }
-        }
-        Ok(())
+        // BOUNDED (§506): append + trim via the SHARED helper, so the graph event log and the vault provenance
+        // log are bounded identically (write-only telemetry; durable provenance is in the EventStore).
+        let lines: Vec<String> = events
+            .iter()
+            .map(|e| serde_json::to_string(e).map_err(|err| err.to_string()))
+            .collect::<Result<_, _>>()?;
+        crate::vault::append_lines_bounded(&self.events_path(), &lines)
     }
 
     fn epistemos_dir(&self) -> PathBuf {
