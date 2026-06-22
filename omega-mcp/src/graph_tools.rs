@@ -48,6 +48,11 @@ struct TraverseArgs {
     max_depth: usize,
     #[serde(default, alias = "edge_filter")]
     edge_kinds: Vec<String>,
+    /// Edge direction to follow: `out` (default — outgoing edges, the historical behavior), `in` (incoming —
+    /// walk BACKLINKS, e.g. notes that link TO this one), or `both`. Lets agents navigate the vault graph in
+    /// either direction (§720 #2 "agents can traverse the graph"), not just downstream.
+    #[serde(default = "default_direction")]
+    direction: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -316,6 +321,12 @@ impl GraphToolExecutor {
         if !store.nodes.contains_key(&args.start) {
             return Err(format!("start node not found: {}", args.start));
         }
+        let (follow_out, follow_in) = match args.direction.as_str() {
+            "out" => (true, false),
+            "in" => (false, true),
+            "both" => (true, true),
+            other => return Err(format!("direction must be out|in|both (got {other})")),
+        };
 
         let max_depth = args.max_depth.clamp(1, 8);
         let mut queue = VecDeque::from([(args.start.clone(), 0usize)]);
@@ -326,16 +337,27 @@ impl GraphToolExecutor {
             if visited.insert(node_id.clone(), depth).is_some() || depth >= max_depth {
                 continue;
             }
-            for edge in store.edges.values().filter(|edge| edge.from == node_id) {
+            for edge in store.edges.values() {
                 if !args.edge_kinds.is_empty() && !args.edge_kinds.contains(&edge.kind) {
                     continue;
                 }
-                rows.push(json!({
-                    "node_id": edge.to,
-                    "edge_kind": edge.kind,
-                    "depth": depth + 1,
-                }));
-                queue.push_back((edge.to.clone(), depth + 1));
+                // `out`: this node → edge.to (downstream). `in`: this node ← edge.from (backlinks).
+                let next = if follow_out && edge.from == node_id {
+                    Some((&edge.to, "out"))
+                } else if follow_in && edge.to == node_id {
+                    Some((&edge.from, "in"))
+                } else {
+                    None
+                };
+                if let Some((neighbor, dir)) = next {
+                    rows.push(json!({
+                        "node_id": neighbor,
+                        "edge_kind": edge.kind,
+                        "direction": dir,
+                        "depth": depth + 1,
+                    }));
+                    queue.push_back((neighbor.clone(), depth + 1));
+                }
             }
         }
 
@@ -343,6 +365,7 @@ impl GraphToolExecutor {
             json!({
                 "start": args.start,
                 "max_depth": max_depth,
+                "direction": args.direction,
                 "results": rows,
             }),
             vec![
@@ -687,8 +710,8 @@ pub fn builtin_graph_tools() -> Vec<ToolDefinition> {
         ),
         graph_tool::<TraverseArgs>(
             "graph.traverse",
-            "Traverse typed graph edges from a start node.",
-            r#"{"start":"node_...","max_depth":2,"edge_kinds":["supports"]}"#,
+            "Traverse typed graph edges from a start node. direction: out (default), in (backlinks), or both.",
+            r#"{"start":"node_...","max_depth":2,"edge_kinds":["links_to"],"direction":"both"}"#,
             false,
         ),
         graph_tool::<CreateNodeArgs>(
@@ -789,6 +812,10 @@ fn note_title(rel: &str) -> String {
 
 fn default_depth() -> usize {
     1
+}
+
+fn default_direction() -> String {
+    "out".to_string()
 }
 
 fn clamp_k(k: usize) -> usize {

@@ -985,6 +985,46 @@ mod tests {
         assert_eq!(synced["edges"], 1, "only alpha->beta remains");
     }
 
+    #[test]
+    fn test_graph_traverse_directional() {
+        // §720 #2: agents navigate the graph DOWNSTREAM (out) and via BACKLINKS (in), not just forward.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+        let a = execute_graph_json(&root, "graph.create_node", r#"{"kind":"Note","title":"A","body":""}"#)
+            ["node_id"].as_str().unwrap().to_string();
+        let b = execute_graph_json(&root, "graph.create_node", r#"{"kind":"Note","title":"B","body":""}"#)
+            ["node_id"].as_str().unwrap().to_string();
+        let c = execute_graph_json(&root, "graph.create_node", r#"{"kind":"Note","title":"C","body":""}"#)
+            ["node_id"].as_str().unwrap().to_string();
+        execute_graph_json(&root, "graph.create_edge", &format!(r#"{{"from":"{a}","to":"{b}","kind":"links_to"}}"#));
+        execute_graph_json(&root, "graph.create_edge", &format!(r#"{{"from":"{b}","to":"{c}","kind":"links_to"}}"#));
+
+        // out (default): B → C downstream.
+        let out = execute_graph_json(&root, "graph.traverse", &format!(r#"{{"start":"{b}","max_depth":1}}"#));
+        let out_ids: Vec<&str> = out["results"].as_array().unwrap().iter().map(|r| r["node_id"].as_str().unwrap()).collect();
+        assert_eq!(out_ids, vec![c.as_str()], "out reaches C only");
+
+        // in: B ← A backlink (A links TO B).
+        let inc = execute_graph_json(&root, "graph.traverse", &format!(r#"{{"start":"{b}","max_depth":1,"direction":"in"}}"#));
+        let in_ids: Vec<&str> = inc["results"].as_array().unwrap().iter().map(|r| r["node_id"].as_str().unwrap()).collect();
+        assert_eq!(in_ids, vec![a.as_str()], "in reaches A (backlink) only");
+        assert_eq!(inc["results"][0]["direction"], "in");
+
+        // both at depth 1: A and C.
+        let both = execute_graph_json(&root, "graph.traverse", &format!(r#"{{"start":"{b}","max_depth":1,"direction":"both"}}"#));
+        let mut both_ids: Vec<&str> = both["results"].as_array().unwrap().iter().map(|r| r["node_id"].as_str().unwrap()).collect();
+        both_ids.sort();
+        let mut want = vec![a.as_str(), c.as_str()];
+        want.sort();
+        assert_eq!(both_ids, want, "both reaches A and C");
+
+        // bad direction is an honest error.
+        let bad = execute_vault_tool(root, "graph.traverse".to_string(),
+            format!(r#"{{"start":"{b}","direction":"sideways"}}"#));
+        let res: ToolResult = serde_json::from_str(&bad).unwrap();
+        assert!(!res.success, "{}", res.data_json);
+    }
+
     fn execute_graph_json(root: &str, tool_name: &str, args_json: &str) -> serde_json::Value {
         let raw = execute_vault_tool(
             root.to_string(),
