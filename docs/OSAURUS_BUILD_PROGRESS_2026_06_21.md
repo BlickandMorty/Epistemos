@@ -68,6 +68,13 @@ projector silently dropped (fell through `default`/unknown-mark): **strikethroug
 StarterKit Strike was lost; **GFM tables (`cc64cff96`)** — Tiptap ships table extensions but the projector had no
 `table` case → tables lost ALL structure; new `projectTable` emits header+separator+body. Both with real-state
 round-trip tests. More node/mark coverage = md closer to faithful-enough-to-be-canonical.
+**HIGH-VALUE BUG FIXED (`7bae289e9`, found via audit):** the Tiptap editor emits **camelCase** node names
+(bulletList/orderedList/listItem/horizontalRule/hardBreak/taskList/taskItem — confirmed in markdown-paste.ts),
+but the projector only matched **snake_case** (no normalization) → for REAL editor content these fell through
+`default` and LOST their md structure (list markers gone; horizontalRule/hardBreak dropped). The old tests used
+snake_case → green while production projection was silently broken. Fixed by aliasing both cases (matching the
+`codeBlock` precedent) + a camelCase regression test. Also fix-forward of a table-test `#expect` Comment compile
+error (checkpoint caught what source-guard couldn't). Clean checkpoint verifying.
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
