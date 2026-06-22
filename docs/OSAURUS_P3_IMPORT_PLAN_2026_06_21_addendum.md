@@ -1164,3 +1164,12 @@ Full synthesis: docs/research/THE_BIG_IDEA_GRAND_CONVERGENCE_2026_06_22.md. Summ
 - **ALL FOLDED + no conflict.** Gaps = (1) 70B re-entry (owner decision), (2) Eidos truly-live (build, tracked),
   (3) TRINITY license (heuristic-first, tracked). No IP missing — brain/editors/graph/model-lab/motion/vault/
   orchestrator-as-IP all captured as IP-LAYER. The plan KNOWS it converges to ONE thing.
+
+## ✅ CORRECTION — 70B / custom-runtime / new-model brain-1 = STAYS OUT, PERIOD (owner 2026-06-22)
+Owner: the 70B (and the from-scratch new-model brain-1 / custom runtime) is an OLD thing — keep it OUT, NOT
+part of the architecture, NOT a future track, NO reserved slot, NOT an open decision to revisit. Supersedes the
+big-idea doc's "separate future track / slot reserved / open owner decision" framing — there is NO 70B slot
+and NO re-entry plan. It remains HARD OFF-LIMITS and EXCLUDED from the convergence entirely. The architecture
+is model-agnostic over EXISTING models (local Gemma/Qwen/VibeThinker + cloud + optional Fugu) — full stop.
+Do NOT design for, reserve space for, or surface the 70B/new-model anywhere. (GAP 1 in the big-idea audit is
+CLOSED: not a decision — it's simply excluded.)
