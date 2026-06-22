@@ -418,3 +418,17 @@ search bugs on it; runtime-verify.
   grafts) NOT STARTED (loop still point-fixing old-ChatView surface); title-gen; search→landing.
 - **Verdict:** 2 PASS point-fixes; FLAGGED root-send + new-UI-direction still open. Watch loop starts the new UI
   direction + a real send fix, not just patches.
+
+## Pass 29 — 2026-06-22
+- **Build loop:** ALIVE (swift=2 xcode=1). HEAD `0233c38ee` (4 min).
+- **0233c38ee (sanitize title) → ✅ PASS (real, tested):** ChatCoordinator.sanitizeGeneratedTitle (pure) —
+  first-line, strip preamble/quotes/md, REJECT self-desc/refusal ('developed by'/'open weights'/'i am'/'as an
+  ai'/'sorry,'/leading 'N,') → nil, cap 8 words/64 chars. ChatTitleSanitizerTests pins. EXIT=0. Title bug fixed.
+- **Small act bugs DONE (all real+tested):** duplicate toggle (71c1e01f3), friendly error (2e7cd786a), clean
+  title (0233c38ee).
+- **🔴 TWO BIG OWNER-BLOCKING ITEMS STILL OPEN:** (1) ROOT SEND FAILURE — act still doesn't return a reply
+  (friendly error ≠ working); next owner send shows the friendly text to ID the real case → fix root, runtime-
+  verify. (2) NEW UI DIRECTION (Osaurus UI reskinned + message bar/side panel/scroll-blur grafts) NOT STARTED —
+  loop still on the old-ChatView surface. + click-search→Osaurus-landing.
+- **Verdict:** PASS (title); the 2 big items (working send + new UI) are the priority — loop has done the easy
+  point-fixes, must now tackle the hard owner-blocking ones. AUDIT-WATCH next pass.
