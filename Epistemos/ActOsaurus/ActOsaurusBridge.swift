@@ -39,6 +39,12 @@ protocol ActOsaurusBridge: Sendable {
     /// NEVER a silent cloud/GPT fallback (owner #1).
     func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String
 
+    /// S4 (in-process STREAMING) — run a REAL act turn through the LINKED OsaurusCore engine and
+    /// yield tokens AS THEY DECODE (`CoreModelService.generateStream`), so the shared act composer
+    /// streams like the rest of chat (STREAM EVERYTHING). Throws an HONEST `ActOsaurusError` when
+    /// OsaurusCore isn't linked/usable — NEVER a silent cloud/GPT fallback (owner #1).
+    func runTurnStreamingInProcess(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> AsyncThrowingStream<String, Error>
+
     /// S4 — a REAL, human-readable status of the linked OsaurusCore engine (resolved model /
     /// unavailable reason / breaker), or nil when OsaurusCore isn't linked. Drives the visible
     /// ActOsaurusHealthRow honestly — the act surface reflects real engine state, not a stub.
@@ -89,6 +95,10 @@ struct InertActOsaurusBridge: ActOsaurusBridge {
     }
     func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String {
         // Inert / OsaurusCore not linked (e.g. MAS target) — HONESTLY refuses; never a cloud route.
+        throw ActOsaurusError.serverNotEnabled
+    }
+    func runTurnStreamingInProcess(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> AsyncThrowingStream<String, Error> {
+        // Inert — HONESTLY refuses (throws before yielding a single token); never a cloud route.
         throw ActOsaurusError.serverNotEnabled
     }
     func osaurusCoreStatusDescription() async -> String? { nil }  // not linked → no real status.
@@ -147,6 +157,26 @@ struct OsaurusActBridge: ActOsaurusBridge {
         } catch {
             // OsaurusCore failed (no model loaded / load error) → surface it HONESTLY, never cloud.
             throw ActOsaurusError.transport("OsaurusCore generate failed: \(error.localizedDescription)")
+        }
+        #else
+        throw ActOsaurusError.serverNotEnabled
+        #endif
+    }
+
+    /// S4 (STREAMING) — drive a REAL act turn IN-PROCESS through the linked OsaurusCore engine and
+    /// stream tokens as they decode (`CoreModelService.generateStream`). Throws an HONEST
+    /// `ActOsaurusError` (never a silent cloud route); `serverNotEnabled` when OsaurusCore isn't linked.
+    func runTurnStreamingInProcess(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> AsyncThrowingStream<String, Error> {
+        #if canImport(OsaurusCore)
+        do {
+            return try await OsaurusCore.CoreModelService.shared.generateStream(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens
+            )
+        } catch {
+            // OsaurusCore couldn't start the stream (no model / route) → HONEST throw, never cloud.
+            throw ActOsaurusError.transport("OsaurusCore stream failed: \(error.localizedDescription)")
         }
         #else
         throw ActOsaurusError.serverNotEnabled
