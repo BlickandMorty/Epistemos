@@ -155,3 +155,17 @@ Osaurus engine (no toggle/fake), implementation its choice but ALL invariants me
 - **No new build commits since pass 9** (HEAD was my pass-9 audit); loop commits on green. Nothing to audit.
 - **Verdict:** healthy, no re-add. Did NOT kick a concurrent build (loop's xcodebuild running). Re-audit the
   next build commit (expect option-(b) old-UI shell on Osaurus and/or 4b concrete model provider).
+
+## Pass 11 — 2026-06-22
+- **Build loop:** ALIVE (swift=12 xcode=1, building heavily — option-b old-UI work likely in flight). HEAD `01d1205cd` (5 min).
+- **AUDIT 01d1205cd (4b model provider) → ✅ PASS (real, no stub) — closes the pass-7 models-in-chat gap:**
+  EpistemosOsaurusModelProvider (Pro) over the REAL MLXInferenceService — holds inference actor + prepared
+  (id,directory) generators; streamGenerate builds LocalMLXRequest + forwards real service.stream deltas
+  (GGUF/MLX routed by runtime kind, container auto-loaded) → owner's QAT/GGUF "Epistemos Picks" stream into the
+  Osaurus chat. Registered from AppBootstrap after snapshot applies (idempotent, re-runs on model change).
+  Wired into CoreModelService.localServices (NOT just ChatEngine) — correctly anticipates the option-(b) act
+  path (old UI driven via shouldRouteActThroughOsaurus → CoreModelService), so owner models reach BOTH paths.
+  Inert when unregistered → default byte-identical (no regression). Co-Authored.
+- **Live-verify pending (running app):** an actual owner-model generation in the act chat — wiring is real+correct.
+- **Verdict:** PASS, no re-add. The agent is building toward option (b) + wired models for it. Remaining: the
+  option-(b) old-UI shell itself (message bar/sidebar/fonts), live send verify, old-ChatView delete (MAS-blocked).
