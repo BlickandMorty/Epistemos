@@ -658,3 +658,17 @@ flatness" + flat/cell-based animation) — **NOT** the web/Electron GUI. Build t
 - Accept the TUI's terminal flatness as the desired aesthetic (it's what the owner wants); do NOT try to make
   it pixel-smooth/GUI-like. (If pixel-smooth is ever wanted later = a separate native reskin, not the TUI.)
 This is the complete OpenCode experience (full engine + real TUI), minus only the unused second client.
+
+## ✅ CITED RESEARCH DONE → C CONFIRMED + Tolaria find (owner 2026-06-21, monitor did it personally)
+Sub-agent 529'd 5×, so monitor ran the cited web pass (see ADOPT_VS_IP_LAYER_MAP "CITED PASS"):
+- **OpenCode** github.com/sst/opencode (Anomaly) = ~170k★, MIT, 75+ providers, ~6.5M MAU, TS/Bun TUI.
+- **Goose** github.com/block/goose (now Linux Foundation/AAIF) = ~46.7k★, Apache-2.0, Rust, 15+ providers.
+- **VERDICT (cited): Architecture C CONFIRMED** — OpenCode is the dominant, most-adopted, most-provider WORK
+  engine; Goose's Rust/LF-governance don't overcome that + the C wins (isolation, literal TUI, no dep-merge).
+- **Talaria = Tolaria** (github.com/refactoringhq/tolaria): files-first/git-first/offline-first md PKM, AI-agent-
+  native (Claude Code/Codex/Gemini CLI + local MCP vault server). = closest adjacent; VALIDATES md-first +
+  agent-vault; Epistemos goes beyond it. REFERENCE, not an adopt-target.
+- **NEW PLAN ITEM (low-effort, high-fit):** expose the Epistemos VAULT as an MCP context source for external
+  agents (the Tolaria pattern) — likely partly present via omega-mcp/vault; finish it so Claude Code/Codex/etc.
+  can work on the vault. Add to ledger as an ordered item.
+DEEP cited map (every row's URL/license + full "anything-else") still owed when sub-agents recover — refines, won't change C.
