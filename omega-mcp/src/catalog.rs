@@ -172,6 +172,12 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
         ),
         tool!(
+            "dangling_links", "notes",
+            "List unresolved [[wikilinks]] that point to notes which don't exist yet (for the LLM wiki to create/fix)",
+            "{}",
+            r#"{"type":"object","properties":{}}"#
+        ),
+        tool!(
             "list_notes", "notes",
             "List all notes",
             "{}",
