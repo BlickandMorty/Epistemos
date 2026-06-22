@@ -1,37 +1,35 @@
 import Testing
 
-/// Owner 2026-06-22 (LOCKED act-UI direction, auditor pass 28): the act surface MOUNTS
-/// Osaurus's OWN UI (`EpistemosOsaurusChatHost`, reskinned) — NOT the old Epistemos
-/// `ChatView`. The owner's reported regression was a REVERT: option-(b) re-mounted the
-/// old ChatView, so act became "the same chat, just with a badge" + send failures. This
-/// source-guard locks the new direction so it can't silently revert again — a future edit
-/// that drops the Osaurus-host mount for act fails here at test time (deterministic,
-/// no runtime).
-@Suite("Act surface = Osaurus's own UI (locked direction)")
+/// Owner 2026-06-22 — ACT ARCHITECTURE PIVOT (addendum §1994/§2029/§2048, auditor pass61c-66):
+/// the act surface is NATIVE Epistemos SwiftUI (cream/monospace by construction) LINKED to the
+/// Osaurus ENGINE in-process via the CERTIFIED 0.4 path — NOT the mounted Osaurus `ChatView`
+/// (`EpistemosOsaurusChatHost`, the "wall that won't render") and NOT the old Epistemos `ChatView`
+/// (option-b). This source-guard LOCKS the pivot direction so it can't silently revert to the
+/// mount-and-reskin wall (the owner's recurring pain) — a future edit that re-mounts the Osaurus
+/// host for act, or drops the native views, fails here at test time (deterministic, no runtime).
+@Suite("Act surface = native Epistemos UI on the Osaurus engine (PIVOT, locked direction)")
 struct ActSurfaceOsaurusUIDirectionGuardTests {
 
-    @Test("RootView mounts Osaurus's own UI host for the act surface — Osaurus-routed, Pro-gated")
-    func rootViewMountsOsaurusHostForAct() throws {
+    @Test("RootView mounts the NATIVE act views (landing + chat) for the act surface — Osaurus-routed, Pro-gated")
+    func rootViewMountsNativeActForAct() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        // Act mounts the genuine Osaurus chat surface, not the old ChatView shell.
-        #expect(source.contains("EpistemosOsaurusChatHost()"))
-        // It is the ACT surface specifically — gated on the shared act-routing decision.
+        // PIVOT: act = fresh NATIVE views (cream by construction), not a mounted/reskinned Osaurus UI.
+        #expect(source.contains("NativeActChatView("))
+        #expect(source.contains("NativeActLandingView("))
+        // It is the ACT surface specifically — gated on the shared act-routing (engine) decision.
         #expect(source.contains("shouldRouteActThroughOsaurus()"))
-        // OsaurusCore is Pro-only → the import is build-config guarded (MAS keeps the old
-        // surface; the canImport-on-MAS gotcha is closed by the `!EPISTEMOS_APP_STORE` term).
-        #expect(source.contains("#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)"))
-        #expect(source.contains("import OsaurusCore"))
+        // OsaurusCore (the engine) is Pro-only → build-config guarded (canImport-on-MAS gotcha closed).
+        #expect(source.contains("#if !EPISTEMOS_APP_STORE"))
     }
 
-    @Test("RootView suppresses the leaked landing toolbar over the Osaurus host (white-bar/search fix)")
-    func rootViewSuppressesLeakedLandingToolbar() throws {
-        // The host owns its own message state → chat.messages stays empty → RootView would paint
-        // the Epistemos landing toolbar (the "search bar" + its glass background = the white bar) OVER
-        // the Osaurus surface. d427ee60d fixed this; option-(b) REVERTED it; re-applied 9b43d37e9.
-        // Lock it so a third revert (the owner's recurring pain) fails here instead of on the running app.
-        let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        #expect(source.contains("showingOsaurusSurface"))
-        // Excluded from the landing-toolbar gate (cascades to hide the controls + .automatic background).
-        #expect(source.contains("&& !showingOsaurusSurface"))
+    @Test("NativeActChatView drives the CERTIFIED in-process engine link (0.4) + composes the owner's rich composer (not a skeleton)")
+    func nativeActDrivesEngineLinkWithOwnerChrome() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/NativeActChatView.swift")
+        // The engine link = the exact call the green send harness (ActOsaurusSendHarnessTests) certifies.
+        #expect(source.contains("OsaurusActBridge().runTurnStreamingInProcess"))
+        // §pass66: COMPOSE the owner's existing rich chrome (ChatInputBar), not a bare skeleton composer.
+        #expect(source.contains("ChatInputBar("))
+        // Cream by construction (the pivot's whole point — no theme cascade).
+        #expect(source.contains("0xFB") || source.contains("fbfaf5"))
     }
 }
