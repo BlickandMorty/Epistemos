@@ -1578,3 +1578,15 @@ buildable WITHOUT the running app — do them BEFORE any more polish/toggles:
 These are CODE-level (buildable + build-verifiable now); the only thing needing the running app is the FINAL
 live send confirmation. The loop must BUILD these next, not more toggles/docs. Act is NOT done until the owner
 can SEND in act + SEE it's Osaurus.
+
+## ✅ P0-B FULLER SURFACING — proceed from "all its landing/buttons", don't wait for per-button specifics (auditor, 2026-06-22)
+The clickable engine panel (3ccfb7934) is step 1 of surfacing Osaurus. The build agent flagged the fuller set
+as "needs owner specifics" — DON'T STALL on that; the owner's directive ("I want all its landing page, buttons,
+etc.") is sufficient direction. Proceed with Osaurus's DISTINCTIVE surfaces — the things Osaurus HAS that the
+old UI lacks — brought into the old UI (additive, Pro, gated on shouldRouteActThroughOsaurus, honest):
+- Osaurus's LANDING (its start/landing presence) within the act surface.
+- Osaurus's MODEL PICKER / model-stack controls (alongside the old picker — owner's models + Osaurus's).
+- Osaurus's TOOL/feature controls + any distinctive buttons (MCP/plugins/tools that the old UI doesn't have).
+Bring the obvious distinctive ones now; the owner can refine specifics later. Keep additive + honest (only when
+Osaurus-routed). This is the remaining P0-B; do it before declaring act done. (Owner can still name specific
+buttons anytime — but the loop should NOT wait idle for that.)
