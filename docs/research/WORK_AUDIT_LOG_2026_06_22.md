@@ -762,3 +762,15 @@ audit loop 413bee6a still live. Wrote docs/research/CURSOR_HANDOFF_2026_06_22.md
 (objective: deep-cert-first → continue-coding → no-context-bloat → does-everything; MUST-FIX A-E with file:line +
 fixes; acceptance bar). Owner will bring Cursor's updated prompt back for my double-check before launch.
 NOT editing the spec. No build loop running; no build-code commits this fire.
+
+## PASS 52 — 2026-06-22 (plan-prep applying findings; pass-50 P0s VERIFIED landed)
+HEALTH: main; no build loop (0 procs); no build-CODE commits. Plan-prep (Cursor) actively hardening spec —
+iter 8 (fd6ba0d75: W/B/S gates + reverse-audit index), iter 9 (d90ac7788: witness/harness/gate-c/PNG freshness).
+VERIFIED (read-only, committed HEAD) pass-50 fixes LANDED: P0-A lowest-still-[ ] tracked (prompt:214/594) +
+"act certified ≠ done" (644); P0-B "Stub=[ ] STUBBED never [x]" (187/199/345); P0-C "when available forbidden"
+(195); W1-W5+B1-B3 gates (333-344); gate-c distinct consumer/mount cite (145); PNG freshness/no-stale (156);
+served-model==selected-model assertion (236). Spec is consuming my findings faithfully (cites "pass50 P0-C").
+REMAINING to confirm at final double-check (owner will bring Cursor's prompt back): pass-51's 4 unindexed
+buildable rows (vault→graph/LLM-wiki, RustLSP→work-tools, MD-V2 inversion+provenance, Goose-full-clone) +
+Talaria/Tolaria unify + external-doc anchor existence + P1-7/8/9 contradictions (one-item-min, D4 sole home,
+paste OsaurusChatView rename). NOT editing spec. VERDICT: PASS — hardening on track, findings landing correctly.
