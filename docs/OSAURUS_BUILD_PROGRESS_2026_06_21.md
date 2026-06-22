@@ -379,6 +379,13 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   now gates on `resolvedActive` → the toggle arms the shell live (still honest-inert until the runtime is
   bundled). `WorkOpenCodeShellHealthRow` shows the "Enable Work" switch (Pro). Both act + work now
   runtime-toggleable (§194 two-toggle ontology). WorkOpenCodeShellSeamTests **7/7** (+2: resolution, status-source).
+- [x] **WORKSPACE-MODE SELECTION — single source of truth (owner §122/§194, `f445c3f53`):** ties the session's
+  two-mode pieces together. `WorkspaceModeSelection` (pure/persisted): `current`/`select` track the user's mode
+  (act default, honest unknown-fallback) + `isArmed(mode)` reads the REAL act/work gates' resolved arm-state (no
+  duplicated gate logic). `WorkspaceModePicker` = reusable act/work segmented control with a live per-mode armed
+  dot. Selecting a mode is SEPARATE from arming its engine (gate toggles = the opt-in). WorkspaceModeSelectionTests
+  **3/3** (persistence, fallback, gate-reading integration). REMAINS (owner-reviewed visual): mount the picker in
+  the landing flow + wire selection → ModeEntryTitleView transition → surface routing.
 - [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
   (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
   name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
