@@ -1173,3 +1173,23 @@ and NO re-entry plan. It remains HARD OFF-LIMITS and EXCLUDED from the convergen
 is model-agnostic over EXISTING models (local Gemma/Qwen/VibeThinker + cloud + optional Fugu) — full stop.
 Do NOT design for, reserve space for, or surface the 70B/new-model anywhere. (GAP 1 in the big-idea audit is
 CLOSED: not a decision — it's simply excluded.)
+
+## 🌟🔁 GRAND UNIFICATION SWEEP — multi-cycle, encompasses Helios archaeology (owner 2026-06-22)
+Owner: run the SAME deep-unification process as the first architecture unification, but BIGGER + MULTI-CYCLE —
+it SUPERSEDES/encompasses the Helios-era IP archaeology. Do NOT stop after 1-2 passes; run cycle after cycle
+until a cycle finds NOTHING NEW. Goal: locate + classify + UNIFY all the owner's local research IP into the
+current architecture (System G / the brain / substrate), keeping only what's useful + relevant.
+CORPUS TO SWEEP (the owner's local research — go as far back as USEFUL, not needlessly far):
+- **docs/fusion/** (the primary local-research corpus — most of the IP).
+- **Dual-brain** docs (the most up-to-date PRUNING of the architecture — the best baseline).
+- **Lattice explainer** docs + **living index** docs (large CHRONICLE documents tracking the build over time).
+- Helios v1->v6 / scope_rex / Epistemos 6.x / substrate (the HELIOS_ERA_IP_ARCHAEOLOGY findings fold in here).
+CLASSIFY each finding: **USEFUL+RELEVANT (unify/harden/infuse)** vs **SUPERSEDED (already absorbed into today's
+substrate — note where)** vs **TOO-THEORETICAL/DROP (research-only, never going to build)** vs **70B-TIED
+(EXCLUDED)**. Beneficial + finishable + additive-safe (won't break the hardened clones) → fold into the plan as
+build items, attached to System G/the one-brain/substrate, sequenced after P0+act/work.
+PROCESS (multi-cycle, like the first unification): each cycle sweeps a region of the corpus + accumulates into
+a GROWING doc (docs/research/GRAND_UNIFICATION_SWEEP_2026_06_22.md); next cycle covers what's left + cross-checks;
+keep going until a cycle surfaces nothing new (convergence). Each cycle: cite paths, verified-vs-inferred, no
+fabrication. This is the definitive "where did ALL my IP land + what gets unified" map. Runs as a self-paced
+loop until exhausted; findings continuously folded into the plan.
