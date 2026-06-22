@@ -2,15 +2,11 @@ import AppKit
 import SwiftData
 import SwiftUI
 
-// The act surface links the vendored OsaurusCore (Pro / direct-distribution).
-// The App Store (MAS) target does NOT link OsaurusCore yet — giving MAS the
-// Osaurus chat needs the MAS-safe OsaurusCore split (OsaurusCore pulls the
-// server/VM/relay/Containerization surfaces the App Store sandbox can't link
-// as-is). Tracked debt: bring Osaurus-as-chat to MAS too. Until then MAS keeps
-// the prior in-app chat surface so the dual-build stays green.
-#if !EPISTEMOS_APP_STORE
-import OsaurusCore
-#endif
+// ACT = OLD EPISTEMOS UI DRIVEN BY OSAURUS (option (b), owner 2026-06-22): the act
+// surface is the genuine old Epistemos `ChatView`; the Osaurus engine drives it
+// underneath (`LocalAgentLoop.shouldRouteActThroughOsaurus`, default-on Pro) +
+// the model bridge. RootView no longer mounts the Osaurus ChatView host, so it no
+// longer needs to `import OsaurusCore` directly.
 
 enum LandingToolbarGlyphs {
     static let greetingSymbol = "textformat"
@@ -235,28 +231,10 @@ struct RootView: View {
         return false
     }
 
-    /// True when the Pro act surface (the Osaurus chat host) is showing — i.e.
-    /// the user has left the Epistemos landing. The Osaurus host owns its OWN
-    /// chrome (composer/thread/sidebar) and message state, so `chat.messages`
-    /// stays empty and the RootView would otherwise treat this as the landing
-    /// and paint the Epistemos landing toolbar (the "search bar" + its glass
-    /// background) OVER the Osaurus surface — that leaked toolbar is BOTH the
-    /// "white bar at the top" and the "click opens the search bar, not the
-    /// Osaurus landing" bug (owner 2026-06-22). Suppressing it gives the clean
-    /// old-chat top and lets Osaurus's own landing/composer show through.
-    private var showingOsaurusSurface: Bool {
-        #if EPISTEMOS_APP_STORE
-        return false
-        #else
-        return ui.homeTab == .home && !chat.showLanding
-        #endif
-    }
-
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
             && !embeddedHomeGraphContentVisible
             && (chat.showLanding || chat.messages.isEmpty)
-            && !showingOsaurusSurface
     }
 
     private var showEmbeddedGraphToolbarControls: Bool {
@@ -2650,91 +2628,26 @@ private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// act↔work product toggle state (owner 2026-06-22: "a toggle to open the
-    /// work as well") — a plain surface switch, NOT a safety/experimental gate.
-    @State private var workspaceMode: WorkspaceModeKind = WorkspaceModeSelection.current()
-
-    /// The work terminal roots at the user's home by default (same as the
-    /// Settings work-clone mount); a real work session passes the open dir.
-    private static var workWorkspaceURL: URL { URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true) }
-
-    /// ACT = OSAURUS IS THE CHAT (owner 2026-06-22). Show the conversational
-    /// surface the moment the user leaves the landing — Osaurus owns its own
-    /// landing/composer, so we no longer wait for an Epistemos-side message to
-    /// exist; tapping to start a conversation makes the Osaurus chat pop up.
-    private var showChat: Bool { !chat.showLanding }
+    /// Show chat when messages exist AND user hasn't navigated to landing.
+    private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
 
     var body: some View {
         ZStack {
-            // SS-ALIVE: the Landing↔Chat swap is the cohesive blur-fade (no `.scale`
-            // fold / squish) — the same Apple blur-replace feel as the SS-AN homepage
-            // greeting↔graph transition, on the same flat easeOut driver.
+            // ACT = OLD EPISTEMOS UI, DRIVEN BY OSAURUS (option (b), owner
+            // 2026-06-22 confirmed): the act surface is the genuine old Epistemos
+            // `ChatView` (landing/thread/message-bar/sidebar — "faithful by
+            // construction"); its inference routes through the Osaurus engine via
+            // `LocalAgentLoop.shouldRouteActThroughOsaurus` (default-on, no toggle).
+            // SS-ALIVE: the Landing↔Chat swap is the cohesive blur-fade.
             if showChat {
-                // The act surface IS the real Osaurus chat UI (its own
-                // composer/thread/sidebar), hosted in-process via the public
-                // OsaurusCore seam. Replaces the old Epistemos `ChatView()`.
-                #if EPISTEMOS_APP_STORE
-                // MAS: act-only — the Osaurus host and the SwiftTerm work
-                // terminal are Pro / direct-distribution (MAS-safe split is
-                // tracked debt), so the App Store dual-build stays green.
                 ChatView()
                     .transition(.blurFade())
-                #else
-                // Pro: ONE conversational surface with a plain act↔work toggle —
-                // act = the Osaurus chat, work = OpenCode's native terminal.
-                ZStack(alignment: .top) {
-                    Group {
-                        switch workspaceMode {
-                        case .act:
-                            EpistemosOsaurusChatHost()
-                        case .work:
-                            WorkTerminalHostView(workspace: Self.workWorkspaceURL)
-                        }
-                    }
-                    WorkspaceModeToggle(mode: $workspaceMode)
-                        .padding(.top, 10)
-                }
-                .transition(.blurFade())
-                #endif
             } else {
                 LandingView()
                     .transition(.blurFade())
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showChat)
-    }
-}
-
-// MARK: - Workspace Mode Toggle
-
-/// Plain act↔work surface toggle (owner 2026-06-22: "a toggle to open the work
-/// as well"). A clean capsule segmented control — NO armed-dot / "experimental"
-/// framing (that framing was the drift). Selecting switches the conversational
-/// surface and persists the choice via `WorkspaceModeSelection`.
-private struct WorkspaceModeToggle: View {
-    @Binding var mode: WorkspaceModeKind
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(WorkspaceModeKind.allCases, id: \.self) { candidate in
-                let selected = candidate == mode
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) { mode = candidate }
-                    WorkspaceModeSelection.select(candidate)
-                } label: {
-                    Text(candidate == .act ? "Act" : "Work")
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(selected ? Color.primary : Color.secondary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(selected ? Color.primary.opacity(0.10) : Color.clear, in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
     }
 }
 
