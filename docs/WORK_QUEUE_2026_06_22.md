@@ -179,8 +179,13 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   etc.) per plan. Screenshot **each tab** separately. Queue 4.1 extends polish only — **D4 must pass here in TIER 0**.
   →plan: "🆕 PER-CLONE SETTINGS" + D4 in OWNER-REPORTED DEFECTS + per-clone MAS-fit research.
 
-- [ ] **0.22 ONE inference chokepoint (act path)** — single in-process path for act send; no stray HTTP server
-  `requestFailed`. Pairs with 0.4/0.18.
+- [x] **0.22 ONE inference chokepoint (act path)** — CERTIFIED iter7 (NOT D-gated). (a) ActOsaurusBridge.swift:196
+  in-process `runTurnStreamingInProcess`→CoreModelService; loopback HTTP is fallback-only (:243-278) · (b) on-plan
+  single in-process path · (c) SharedActInference.actStreamIfArmed = single act-injection entry; LocalAgentLoop
+  streamingGenerator delegates to it · (d) **real-state** ActOsaurusSendHarnessTests: actSend_servedEqualsSelected
+  (exercises the in-process entry) + actSend_unknownModelFailsHonestly (no silent alternate path), 0 skipped; single-
+  entry architecture additionally source-guarded by ActOsaurusStreamingTests delegation contracts · (e) live send NO
+  requestFailed (loopback not hit), in-process reply (iter2/3 PNGs). Pairs 0.4/0.18.
   →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "🎯 PINPOINTED ActOsaurusError".
 
 - [x] **0.23 Send-text harness (EVERY iteration — standing)** — CERTIFIED iter5: BUILT
