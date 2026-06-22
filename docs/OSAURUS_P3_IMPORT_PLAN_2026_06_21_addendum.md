@@ -611,3 +611,12 @@ hand the build agent a final "go build WORK" directive until the ADOPT_VS_IP_LAY
 is cross-checked against C (it may surface dedup/overlap context that refines C — e.g. which Goose unique bits
 truly justify clean-room tools vs are commodity). Re-run the map when the API recovers. The agent may continue
 bounded green increments (ACT polish, motion sweep) meanwhile, but NOT the heavy WORK-engine commitment.
+
+## ✅ MAP FIRST-PASS DONE → C CONFIRMED (provisional deep-pass pending) (2026-06-21)
+ADOPT-vs-IP-LAYER sub-agent 529'd 3× → produced a grounded FIRST-PASS inline:
+docs/research/ADOPT_VS_IP_LAYER_MAP_2026_06_21.md. **C CROSS-CHECK = HOLDS** (OpenCode work engine confirmed,
+no duplication; LSP = existing lsp_runtime). ONE dedup check the deep pass must confirm: **Goose `permissions`
+vs OpenCode's own permissioning** — keep Goose's RetryManager/RepetitionGuard/recipes as clean-room tools
+(genuine hardening), but DROP Goose-permissions if OpenCode already covers it. With that single caveat,
+**Architecture C is finalized** — work-engine build may proceed. DEEP-PASS TODO when API recovers: full cited
+repo sweep + "anything-else"/Talaria + per-capability license/MAS detail (refine, won't change C).
