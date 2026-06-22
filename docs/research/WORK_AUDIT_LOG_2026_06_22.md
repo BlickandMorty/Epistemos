@@ -1166,3 +1166,26 @@ No new build commits since pass-75 (1a28e7cf2 mine). Codex.app running (owner se
 delivered (Codex builder goal 3875B + auditor). HANDOFF NOTE: run ONE builder + ONE auditor — when the owner
 starts the fresh auditor (AUDITOR_LOOP_PROMPT) + Codex, STOP the old Claude build loop AND this auditor cron
 (34ea6526) to avoid two auditors racing the addendum. Holding (no owner stop-confirm yet). Did NOT touch code.
+
+## PASS 77 — 2026-06-22 (FRESH AUDITOR ONLINE; builder=Codex CONFIRMED ALIVE+SHIPPING; STANDBY for first build commit)
+Fresh auditor took over the role this session (new 10-min cron `f40dafb6`). Verified state:
+- HEALTH ✅ Builder is Codex and it is ALIVE + actively shipping (not idle/scoping): live `xcodebuild test`
+  (pid 29034) + Codex.app computer-use stack running (`cua_node` REPLs, `codex app-server`). In-flight working-
+  tree edits are ON-PLAN, not drift: `AnswerPacketHealthRow.swift` = load-on-launch ring restore now wired
+  (B-gate/WBO); `Localizable.xcstrings` = new act=Osaurus-engine + clone-settings strings ("work = OpenCode is
+  next"; "Goose fuses beneath the OpenCode shell; one runtime of record per mode") + "Epistemos Picks" + MCP-
+  servers panel. This is the act/work clone-settings surface being built — consistent with tiers 0–1 + addendum P0-B.
+- DEEP-AUDIT: NO new COMMITTED build commits since pass-75 (1a28e7cf2). The in-flight edits are uncommitted →
+  not yet auditable against the 5-gate bar. Nothing to certify this cycle. The open addendum P0s (P0-A real rich
+  LandingView as home, P0-B Osaurus buttons/palette/38-tool/38-skills merged into act, reuse-real-views-not-
+  approximations, stale `ActSurfaceOsaurusUIDirectionGuardTests` locking the dead `EpistemosOsaurusChatHost()`
+  direction) REMAIN the live targets — will grade Codex's first build commit against them + a fresh-launch PNG.
+- SCREENSHOT: DEFERRED this cycle BY DESIGN — a build/test + Codex computer-use are actively driving the app
+  (pid 86799), so any frame now is a transient automation/test state, NOT a cert-able fresh-launch. Will
+  kill→rebuild→open→screencapture→Read vs the owner's Desktop refs on the FIRST committed Codex build commit.
+- 🚩 OPERATIONAL P0 FOR OWNER (one-builder-one-auditor): old loops are STILL ALIVE — two stray
+  `claude --dangerously-skip-permissions` procs (pids 91725, 16987) + the old auditor cron `34ea6526` lives in a
+  DIFFERENT session this auditor CANNOT reach (CronList shows only `f40dafb6`). Per pass-72/74/76's own note, STOP
+  the old Claude build loop + old auditor cron 34ea6526 so it is exactly ONE builder (Codex) + ONE auditor (this
+  session) — else two auditors race this log + the addendum. OWNER action required (I cannot kill another session's cron).
+Check-only; touched ONLY this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
