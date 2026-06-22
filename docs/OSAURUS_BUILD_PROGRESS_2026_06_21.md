@@ -601,3 +601,19 @@ MODEL-SELECTION domain (older commits a645e6623/020db2a17 "fix(model-selection)/
    STALE test (the "explicit pick wins" fix intentionally stopped Gemma→Qwen normalization).
 ACTION: flagged for the model-selection domain owner. NOT blind-fixed (another domain; #2 may be a real bug).
 My turn's commits (refusal fix 5b15edc2c + pricing per-request fix 0a4f80609) are clean + verified.
+
+### 🔬 PRECISE DIAGNOSIS — the model-selection RED is a CROSS-DIRECTIVE CONFLICT (owner decision needed, 2026-06-22)
+Investigated the 3 TriageServiceTests failures (NOT mine). Root cause of the critical #2 (no-silent-Qwen):
+`InferenceState.sanitizedInteractiveLocalTextModelID` (:6373) stacks TWO conflicting owner fixes:
+- **2026-06-19** (:6398-6408): explicit pick unavailable → return `nil` to KEEP the pick → never a silent Qwen
+  swap (exactly what test #2 `effectiveChatSurfaceSelection != Qwen` asserts).
+- **2026-06-20 P0** (:6417-6420): but nil → cloud auto-route → credential-fail, so "if ANY local is runnable,
+  run it" → `return runnableLocal` = Qwen (the only installed model), surfaced honestly via LocalRouteHonestyRow.
+The 2026-06-20 path runs FIRST → returns Qwen → test #2 fails. So test #2 appears STALE relative to the later
+"honest substitution (run-any-local + surface it)" decision — BUT which directive is CURRENT is the OWNER'S call
+(never-substitute-even-if-cloud-fails  vs  run-any-installed-local-honestly). Masking either way risks violating
+a NON-NEGOTIABLE → NOT blind-fixed.
+- #1 (about-sheet string "Thinking, Pro"→"Think, Code"): stale cosmetic; #3 (Gemma→Qwen normalize): stale (the
+  "explicit pick wins" fix intentionally keeps Gemma). All 3 are the model-selection domain (a645e6623/020db2a17).
+**OWNER ACTION:** decide directive precedence for #2, then I (or the domain owner) update the test OR the resolver
+to match — surgically, not by guessing. My turn's commits (5b15edc2c refusal, 0a4f80609 pricing) are clean+green.
