@@ -139,8 +139,13 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     omega-mcp has NO shadow/agent_core dep. **BRAIN-SEMANTIC LAYER DONE (`e6bb927f2`):** `VaultSemanticBacklinks.
     relatedNotes` (Swift, the right place) drives the REAL `ShadowSearchServicing` hybrid search (BM25+HNSW+RRF,
     `.notes` domain), self-excluded, injectable/mock-tested, 3/3 — NOT a lexical fake. #3 now has BOTH the
-    mechanical wikilink graph (omega-mcp) AND brain-powered semantic relatedness (Swift/shadow). REMAINS (later):
-    surface these as LLM-wiki suggestions in the editor UI.
+    mechanical wikilink graph (omega-mcp) AND brain-powered semantic relatedness (Swift/shadow).
+    **AUTO-LINKING DONE (`5577232a4`):** `vault.link_candidates` = Obsidian's "unlinked mentions" — other notes
+    whose title appears in this note's prose but isn't yet `[[linked]]` (whole-word/case-insensitive, [[..]]
+    spans stripped, self + already-linked + <3-char titles excluded; count-ranked). The honest INVERSE of
+    dangling_links (linked-but-missing vs mentioned-but-not-linked). Catalog + is_vault_tool registered (OpenCode
+    fusion advertises/routes it). 187/187 lib + 5/5 stdio green. REMAINS (later): surface link_candidates +
+    semantic relatedness as LLM-wiki suggestions in the editor UI (Swift).
   - [~] **#4 in-editor agent edits on BOTH Prose + MD-V2/Epdoc** (the killer differentiator): CORE DONE
     (`c61b41cac`) — `AgentNoteEdit` editor-agnostic text-based ops (append/replaceFirst/insertAfter), HONEST
     (nil when anchor absent → never silently mangles) + ATOMIC batch apply (`c0991f4fe`, all-or-nothing) +
