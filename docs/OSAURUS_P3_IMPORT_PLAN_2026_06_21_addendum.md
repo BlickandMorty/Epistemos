@@ -2067,3 +2067,33 @@ anything else:**
 toolbar + pill; click anywhere → act (no search page); act = native chrome + a real send streams a reply (no
 hang); no chat/act duality. Fresh-launch screenshot must show ALL of it. This is the native-UI-linked-to-engine
 pivot made concrete — FRESH native views, NOT the old ChatView, on the PROVEN engine link.
+
+---
+
+## 🔴🔴🔴 FINAL ACT/WORK UI DIRECTION (owner, 2026-06-22 ~16:00 — LAST WORD, supersedes EVERY prior act-UI section)
+The owner is stepping away; this is the single, non-negotiable act/work UI direction. It SUPERSEDES every earlier
+act-UI section (option-(b) drive-old-ChatView §1507/§1520; "mount Osaurus's OWN UI reskinned" DEFINITIVE §1651;
+"decompose the OsaurusChatView monolith"; theme-cascade reskin). All of those are WRONG and abandoned.
+
+**THE DIRECTION:** ACT and WORK UI = **FRESH NATIVE Epistemos SwiftUI views**, wired to the **Osaurus ENGINE**
+in-process. Osaurus is used for its **ENGINE ONLY** (model load, streaming, the parser that splits thinking /
+content / tool-calls into clean channels, tool loop) — **NEVER its UI.**
+- **Do NOT mount, reskin, or decompose ANY `ChatView`** — not `Epistemos/Views/Chat/ChatView.swift` (the old chat)
+  and not Osaurus's vendored `OsaurusChatView` (the 6077-line monolith). If the agent is editing/wrapping/flagging
+  EITHER ChatView, it is on the WRONG path — STOP.
+- **Build native views:** landing, toolbar (curved/native AppKit chrome), sidebar + recent-chats, pill, composer/
+  message-bar, message transcript, thinking display, tool rows — all NATIVE Epistemos, cream/monospace by
+  construction (no theme cascade, no boxy).
+- **Wire each to the engine** via the proven path: native composer submit → `CoreModelService.generateStream`
+  (the certified 0.4/0.23 link) → render the engine's parsed channels in the native transcript. The engine link
+  ALREADY WORKS (0.4 certified); the prior "send doesn't work / hangs" was option-(b)-era and is gone on this path.
+- **Adopt Osaurus's genuinely Apple-native components** (voice input, larger native popovers) as native pieces;
+  **drop** Osaurus's generic surfaces (its "Good afternoon"/four-blocks landing, its composer, its block fonts).
+
+**THE OWNER'S CONCRETE ACCEPTANCE (the one crisp target, all on a FRESH launch — kill→rebuild→open→screencapture→Read):**
+1. Landing = Epistemos "Greetings, Researcher" in CREAM + native curved toolbar + the PILL. (Not dark, not boxy.)
+2. **Click ANYWHERE on the landing → enters act. REMOVE the search-page behavior entirely** (no click→search).
+3. Act = native chrome (cream/curved/pill/native composer) — NOT raw Osaurus, NOT the old ChatView.
+4. A real send STREAMS a reply on the live act surface (engine link) — it must NOT hang.
+5. KILL the chat/act duality — act/work only (0.20). No lingering "chat".
+Until a FRESH-launch screenshot shows ALL FIVE, act is NOT done. This is THE target — build it, ship it, verify it.

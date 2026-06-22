@@ -75,10 +75,13 @@ heading-diff output + grep hit count + any unindexed hits — empty audit does N
   A glance, a grep that a symbol exists, or trusting a commit message is NOT enough.
 
 ## 🔒 LOCKED RULES (do not reinterpret)
-- **LOCKED UI DIRECTION:** ACT UI = Osaurus's OWN UI (`OsaurusChatView` in vendored LocalPackages/osaurus — NOT
-  `Epistemos/Views/Chat/ChatView.swift`), reskinned to the Epistemos look + 3 grafts (message bar, side panel,
-  scroll-blur). This SUPERSEDES option-(b) "drive the old ChatView." Do NOT revert to the old Epistemos ChatView
-  and do NOT leave raw Osaurus default. Fixing 0.1 alone does NOT close act.
+- **LOCKED UI DIRECTION (FINAL — supersedes ALL prior act-UI wording):** ACT/WORK UI = FRESH NATIVE Epistemos
+  SwiftUI views (landing, toolbar, sidebar, pill, composer, curved window, transcript) wired to the Osaurus
+  ENGINE in-process (`CoreModelService.generateStream` — the proven 0.4 path). **Osaurus = ENGINE ONLY, not UI.**
+  Do NOT mount, reskin, OR decompose ANY ChatView — neither `Epistemos/Views/Chat/ChatView.swift` (old chat) NOR
+  Osaurus's `OsaurusChatView` (the 6077-line monolith). Render the engine's parsed channels (thinking/content/
+  tools) in NATIVE views. SUPERSEDES option-(b), mount-Osaurus-UI-reskinned, AND decompose-the-monolith — all
+  wrong. Do NOT leave raw Osaurus default. Fixing 0.1 alone does NOT close act.
 - **D1–D5 ARE GATEKEEPERS:** the act surface is NOT certifiable until D1–D5 all pass YOUR screencapture proof.
 - **PLAN WINS OVER CODE:** if code and plan disagree, fix the CODE; never edit the plan to match wrong code
   (e.g. 0.1 must edit the vendored Theme.swift defaults, not only a runtime `applyCustomTheme` shim — ba2f8952f drift).
