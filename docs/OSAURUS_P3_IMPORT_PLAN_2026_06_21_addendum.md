@@ -1647,3 +1647,24 @@ ROOT-CAUSE LEAD for the loop:
   for requestFailed); the ac8d3974e diagnosable mapping doesn't cover ActOsaurusError.requestFailed on this path.
 This is the precise P0-A runtime bug: in-process generation works; a stray HTTP-server requestFailed breaks the
 turn. Fix the path + the error message. (Plus the 2 UI bugs: delete duplicate toggle under greeting; click-search → Osaurus landing.)
+
+## 🔒🔒 DEFINITIVE ACT-UI DIRECTION (owner 2026-06-22) — Osaurus's OWN UI, reskinned + 3 grafted Epistemos elements. SUPERSEDES option (b).
+Owner chose option 1 + clarified. THE TARGET (locked — stop oscillating):
+- **MOUNT OSAURUS'S OWN UI** (its real ChatView/landing/composer/panels) as the act surface — so it GENUINELY
+  loads + works + IS visibly Osaurus (NOT the byte-identical old chat). This SUPERSEDES option (b)'s "drive the
+  old Epistemos ChatView" — (b) FAILED because it was LITERALLY the old chat (missing buttons, not loading,
+  "it IS the same, just with a badge"). Do NOT mount the old ChatView for act anymore.
+- **RESKIN it to the Epistemos look** ("re-scanned") — cream palette, pixel-art/flat, the app's fonts.
+- **GRAFT IN these 3 specific beloved Epistemos elements** (the owner's must-keeps, by name):
+  1. The old **MESSAGE BAR** (the composer the owner loves — its look/feel/chips).
+  2. The **SIDE PANEL** (the Epistemos chat side panel / provenance inspector).
+  3. The **SCROLL-BLUR** effect — text blurs as you scroll up (a loved Epistemos interaction).
+- So: Osaurus UI base (real, loads, visibly Osaurus) + Epistemos reskin + message bar + side panel + scroll-blur.
+  This is the HYBRID the owner actually wants: "I want Osaurus, but keep my message bar, side panel, scroll-blur."
+- **CARRY OVER:** the Osaurus engine + model bridge + badge/panel + bootstrap (passes 1-21) all stay; only the
+  act SURFACE changes from "old ChatView" → "Osaurus UI reskinned + grafted elements."
+- **BUGS persist + must be fixed on this surface:** send fails (ActOsaurusError error 2 = requestFailed,
+  route stray to HTTP — see prior section), missing buttons (because it was the old chat shell — solved by
+  using the real Osaurus UI), duplicate toggle, click-search→Osaurus-landing.
+RESKIN target = Osaurus UI (loads/works/Osaurus) made to look like Epistemos + the 3 grafted elements. This is
+the THIRD and final act-UI call; build to it, runtime-verify (owner-witness). Don't revert to mounting old ChatView.

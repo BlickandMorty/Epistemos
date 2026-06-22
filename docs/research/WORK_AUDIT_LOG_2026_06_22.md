@@ -378,3 +378,12 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
 - ROOT-CAUSE LEAD given to loop: a stray secondary call (title-gen/follow-up/non-stream completion) likely routes
   through HTTP runTurn(:1337) → requestFailed; route ALL act generation in-process; + map the raw error friendly.
 - This is the precise P0-A. Plus 2 UI bugs (duplicate toggle under greeting; click-search→Osaurus-landing).
+
+## Owner DEFINITIVE act-UI decision — 2026-06-22 (supersedes option b)
+Owner picked option 1 + clarified: option (b) failed because it mounted the LITERAL old ChatView → IS the old
+chat (missing buttons, not loading) + just a badge ("it IS the same, not just feels"). TARGET = mount OSAURUS's
+OWN UI (real, loads, visibly Osaurus), RESKINNED to Epistemos look, + GRAFT 3 beloved elements: (1) message bar,
+(2) side panel, (3) scroll-blur (text blurs on scroll). Carry over engine/bridge/badge/bootstrap; change only
+the act SURFACE from old-ChatView → Osaurus-UI-reskinned+grafts. Supersedes option (b). AUDIT-WATCH: loop must
+stop mounting old ChatView for act; build Osaurus UI reskinned + the 3 grafts; fix send (requestFailed)/toggle/
+search bugs on it; runtime-verify.
