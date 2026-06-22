@@ -29,7 +29,9 @@ struct DeepResearchGateStatusTests {
         let on = DeepResearchGateStatus.status(environment: ["EPISTEMOS_DEEP_RESEARCH_V0": "1"])
         #expect(on.isActive)
         #expect(on.headline.contains("ON"))
-        #expect(on.detail.contains("parallel"))
+        // Case-insensitive: the copy says "IN PARALLEL" — the intent is "the detail mentions
+        // parallel sub-agent research", which a case-sensitive match brittly broke on a copy edit.
+        #expect(on.detail.localizedCaseInsensitiveContains("parallel"))
 
         let off = DeepResearchGateStatus.status(environment: [:])
         #expect(!off.isActive)

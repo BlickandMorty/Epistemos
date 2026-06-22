@@ -1095,3 +1095,10 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   fix). Extended ActSurfaceOsaurusUIDirectionGuardTests with a source-guard asserting RootView keeps
   showingOsaurusSurface + its `&& !showingOsaurusSurface` exclusion from showLandingToolbarControls. A future
   edit that drops the leaked-toolbar suppression now fails at test time, not on the owner's running app.
+
+## No-red-on-main sweep — fixed a stale case-sensitive gate-status assertion (2026-06-22)
+- Swept the gate-status test family for the `.standard`-pollution / stale-source-mirror patterns found in the
+  act/work gates. The work-lane sibling suites were clean (21 tests green). The gate-status family surfaced ONE
+  red: DeepResearchGateStatusTests asserted `on.detail.contains("parallel")`, but the copy was edited to
+  "IN PARALLEL" (uppercase) → case-sensitive match broke. Fixed to localizedCaseInsensitiveContains (matches the
+  test's intent, robust to copy case). Confirmed green.
