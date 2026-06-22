@@ -378,6 +378,15 @@ struct ChatView: View {
         }
         .navigationTitle("")
         .toolbar {
+            // P0-B (owner 2026-06-22): a VISIBLE "Osaurus" indicator so the owner
+            // can tell the act surface is genuinely Osaurus-powered (option (b) made
+            // the old UI look identical). Honest — only when act actually routes
+            // through the Osaurus engine; never on the MAS/old-MLX path.
+            ToolbarItem(placement: .navigation) {
+                if LocalAgentLoop.shouldRouteActThroughOsaurus() {
+                    ActOsaurusActiveBadge()
+                }
+            }
             // Right: chat controls (title + nav handled by toolbar)
             ToolbarItemGroup(placement: .primaryAction) {
                 historyToolbarButton
