@@ -492,3 +492,13 @@ search bugs on it; runtime-verify.
   RETURN to the grafts after the sweep, not churn tests indefinitely. If next 1-2 passes are still test-only →
   ESCALATE (stuck in test-churn vs delivering owner-facing grafts + a working runtime).
 - **Verdict:** healthy (real test hygiene); watch for return to grafts. No re-add yet. OWNER RUNTIME-VERIFY still the key gate.
+
+## Pass 36 — 2026-06-22 — returned to grafts (scroll-blur done)
+- **Build loop:** ALIVE (swift=1 xcode=1). HEAD `3374898de` (4 min). Returned to grafts after the test sweep (pass-35 watch resolved).
+- **AUDIT 3374898de (scroll-blur graft 1/3) → ✅ PASS (real, additive):** top-edge progressive blur on
+  EpistemosOsaurusChatHost (.ultraThinMaterial band + top→clear LinearGradient mask → content blurs as it
+  scrolls up = the loved Epistemos scroll interaction). Purely additive overlay, no change to Osaurus ChatView,
+  never intercepts input. Pro EXIT=0. Co-Authored.
+- **Remaining grafts: message bar + side panel (2 of 3).** + OWNER RUNTIME-VERIFY (send works in-process +
+  Osaurus-reskinned look + grafts + no white-bar/search).
+- **Verdict:** PASS. Loop delivering grafts as expected. Re-audit message-bar + side-panel grafts next.
