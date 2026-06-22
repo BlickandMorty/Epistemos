@@ -127,9 +127,12 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **0.10 DATA CARRY-OVER** — saved chats/sessions/prefs migrate to act; no lost history.
   →plan: `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` "Data/persistence carry-over".
 
-- [ ] **0.11 Provider wiring + Epistemos Picks** — owner GGUF/QAT selectable AND used on send; "Add a
-  provider"/Configuration opens REAL settings (D4/settings obligation owned by **0.21**); NO silent Codex default.
-  Send must use selected model.
+- [x] **0.11 Provider wiring + Epistemos Picks** — CERTIFIED iter8/9 (scope: selectable + used-on-send + no silent
+  Codex; "Configuration opens settings" = 0.21/D4's obligation, NOT here). (a) Epistemos/Engine/EpistemosPicks.swift:21
+  curated grouping · (c) ModelStackSettingsView.swift:56 consumes Picks groups + EpistemosModelBridge.providedModelIds
+  surfaces owner models; send routes via bridge (AppBootstrap:3155) · (d) EpistemosPicksTests 4/4 passed 0 skipped
+  (curatedFirst/installedSeparated/honest-selection/partition, bqgw1i2gr) + EpistemosModelBridgeTests + send harness ·
+  (e) live send used SELECTED owner model gemma-4-e2b (not Codex); picker showed it (iter2/3 PNGs).
   →plan: "OWNER'S MODELS IN CHAT" + "DEEP CHECK §2" + "DESIGN DECISION — \"Epistemos Picks\"".
 
 - [ ] **0.12 Surface-wiring rule** — every Osaurus surface (settings, model stack, tools, transcript, config)
