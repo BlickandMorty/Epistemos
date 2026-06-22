@@ -1102,3 +1102,11 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   red: DeepResearchGateStatusTests asserted `on.detail.contains("parallel")`, but the copy was edited to
   "IN PARALLEL" (uppercase) → case-sensitive match broke. Fixed to localizedCaseInsensitiveContains (matches the
   test's intent, robust to copy case). Confirmed green.
+
+## No-red sweep (cont.) — fixed stale single-settings-entry test after popover split (2026-06-22)
+- Chat/act-adjacent sweep (69 tests, 5 suites) surfaced one red: ChatPresentationTests asserted RootView has
+  exactly 1 `Button("Open Settings")`, but 0f07b783e split the runtime popover into TWO variants
+  (simplifiedRuntimePopover default + legacyRuntimePopover fallback, gated by simplifiedLineupActive) — each
+  carries its own single settings entry, and runtimePopover renders exactly one. So at runtime there's still a
+  single live entry point; the source-count guard just needed to track the variant count (1 → 2). Not a UX
+  regression; updated the test to the two-variant reality. Suites green.
