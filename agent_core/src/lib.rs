@@ -146,10 +146,9 @@ pub mod undo;
 // agent_runtime references it (GOOSE GUARDRAIL: Chat/Act unchanged).
 pub mod work;
 
-// WORK code-intelligence tools (owner 2026-06-21, addendum §134-137): WIRE the
-// existing lsp_runtime RustLSP into the WORK stack as agent tools — reuse, don't
-// rebuild. Gated behind the same `lsp-runtime` feature it depends on (Pro work
-// stack). Isolated like `work`; Chat/Act unchanged.
+// WORK code-intelligence tools — ⚠️ REDUNDANT under Architecture C (OpenCode has a built-in
+// LSP; re-eval owner 2026-06-21). Kept (not blind-deleted) pending the OpenCode runtime vendor,
+// then removed; `lsp_runtime` stays for the native editors. Gated behind `lsp-runtime`; isolated.
 #[cfg(feature = "lsp-runtime")]
 pub mod work_lsp_tools;
 
