@@ -50,6 +50,25 @@ pub enum BelnapValue {
 }
 
 impl BelnapValue {
+    /// HONESTY / ABSTAIN gate (GUS-2, owner 2026-06-22): the AnswerPacket should ABSTAIN when the evidence's
+    /// truth value isn't classically decided — `Both` (CONTRADICTORY evidence: supported AND refuted) or
+    /// `Neither` (NO evidence: neither supported nor refuted). Asserting on Both/Neither is exactly the
+    /// "confidently wrong / made-up" failure the honesty rules forbid; abstaining (say "I don't know / the
+    /// evidence conflicts") is honest. `True`/`False` are classically decided → do NOT abstain.
+    pub fn abstains(self) -> bool {
+        // Reuses the existing classical/inconsistent/gappy distinction — abstain ⇔ not classically decided.
+        !self.is_classical()
+    }
+
+    /// Honest reason to abstain, or `None` when classically decided — for the AnswerPacket's abstain provenance.
+    pub fn abstain_reason(self) -> Option<&'static str> {
+        match self {
+            BelnapValue::Both => Some("contradictory evidence (supported AND refuted)"),
+            BelnapValue::Neither => Some("no evidence (neither supported nor refuted)"),
+            BelnapValue::True | BelnapValue::False => None,
+        }
+    }
+
     pub fn not(self) -> Self {
         match self {
             BelnapValue::True => BelnapValue::False,
@@ -244,6 +263,25 @@ mod tests {
     fn four_distinct_belnap_values() {
         let s: std::collections::HashSet<_> = BelnapValue::ALL.iter().copied().collect();
         assert_eq!(s.len(), 4);
+    }
+
+    #[test]
+    fn abstain_gate_honest_on_both_and_neither_only() {
+        // classically decided → assert (no abstain).
+        assert!(!BelnapValue::True.abstains());
+        assert!(!BelnapValue::False.abstains());
+        assert!(BelnapValue::True.is_classical() && BelnapValue::False.is_classical());
+        assert!(BelnapValue::True.abstain_reason().is_none());
+        // CONTRADICTORY (Both) and NO-evidence (Neither) → abstain honestly.
+        assert!(BelnapValue::Both.abstains());
+        assert!(BelnapValue::Neither.abstains());
+        assert!(!BelnapValue::Both.is_classical() && !BelnapValue::Neither.is_classical());
+        assert!(BelnapValue::Both.abstain_reason().unwrap().contains("contradictory"));
+        assert!(BelnapValue::Neither.abstain_reason().unwrap().contains("no evidence"));
+        // abstains is exactly the negation of is_classical.
+        for v in BelnapValue::ALL {
+            assert_eq!(v.abstains(), !v.is_classical());
+        }
     }
 
     #[test]
