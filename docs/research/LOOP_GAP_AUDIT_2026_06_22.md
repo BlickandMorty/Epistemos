@@ -456,3 +456,66 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | Northstar PNGs | Optional visual refs |
 | STRICT_RECERT_LOG cert vs gap-fill headers | P1 — when first real cert lands |
 | Post-recert forward scope | P1 — define forward-only trigger |
+
+## Iteration 10 — 2026-06-22 (CURSOR_HANDOFF A–E verify + strict/paste sync)
+
+### Handoff gate (tick 6)
+| Check | Status |
+|-------|--------|
+| `git log -3 --grep="CURSOR handoff"` exact match | FAIL (no exact substring) |
+| CURSOR_HANDOFF doc committed (345495263 pass51) | PASS |
+| Uncommitted WORK_QUEUE/STRICT/PASTE edits | PASS (docs clean at tick start) |
+| Collide with handoff agent | NO — deferred path not taken |
+
+### CURSOR_HANDOFF A–E checklist verify
+| Section | Item | WORK_QUEUE | STRICT | PASTE | Verdict |
+|---------|------|------------|--------|-------|---------|
+| **A** | lowest still-[ ] witness | PASS (0.32) | PASS | PASS | PASS (iter 9) |
+| **A** | stub ≠ `[x]` | PASS | PASS | PASS | PASS (iter 8) |
+| **A** | work harness REQUIRED | PASS (0.29/1.7/W4) | PASS | PASS | PASS (iter 9) |
+| **A** | W/B/S gates | PASS | PASS | PASS | PASS (iter 8) |
+| **A** | phase-complete preconditions | PASS (STANDING) | PASS | partial | PASS (queue+strict) |
+| **B** | served-model == selected-model | PASS | PASS | PASS | PASS (iter 9) |
+| **B** | gate-(c) distinct mount/route | PASS | PASS | PASS | PASS (iter 9) |
+| **B** | PNG freshness | PASS | PASS | PASS | PASS (iter 9) |
+| **B** | (d) same entry point as (c) + xfail | PASS (CERT BAR) | **FIXED** this iter | **FIXED** this iter | PASS |
+| **C** | 4 missing queue rows (1.9, 4.17, 4.18, 1.3 full-clone) | PASS (pass51 prep) | **FIXED** tier ends | **FIXED** tier tables | PASS |
+| **C** | 0.31 full heading diff | PASS (0.31) | partial | **FIXED** #13 | PASS |
+| **C** | Tolaria spelling unified | PASS (4.8/4.14) | **FIXED** | **FIXED** | PASS |
+| **C** | →plan external paths exist | PASS (CHAT_BACKEND + SUBSTRATE on disk) | N/A | N/A | PASS |
+| **C** | discovery not chat-only | partial (STANDING) | **FIXED** (D) | **FIXED** #12 | PASS |
+| **D** | strike "one item minimum" | N/A | **FIXED** FIRST ITERATION | N/A | PASS |
+| **D** | D4 sole owner 0.21 | PASS (0.21 text) | **FIXED** (G) | **FIXED** #8 | PASS |
+| **D** | OsaurusChatView disambiguation | N/A | N/A | **FIXED** LOCKED ACT | PASS |
+| **E** | Certification log / Docs-maintenance headers | PASS (RULES) | N/A | **FIXED** #6 cite | PASS (STRICT_RECERT_LOG) |
+
+**Verdict:** A–E checklist **PASS** after iteration-10 strict/paste sync (no duplicate re-application of iter 8–9 pass50 clusters).
+
+### Fixed this iteration (non-duplicate)
+| Gap | Fix |
+|-----|-----|
+| Strict/paste tier walks stale (1.8/4.16 ends) | Updated to **1.9 / 4.18** + W-gate scope 1.2–1.9 |
+| gate-(d) not synced to queue CERT BAR | Added same-entry-point + xfail language strict + paste #6 |
+| "One item minimum" contradicted 0.32 floor | Replaced with **lowest still-[ ] advanced** binding floor |
+| Talaria/Tolaria drift in paste/strict | Unified to **Tolaria** (matches addendum + queue 4.8) |
+| Paste ChatView name collision | Renamed to **OsaurusChatView** (vendored); forbidden Epistemos path unchanged |
+| Discovery sweep chat-only | Extended to per-tier plan-section→queue reconciliation |
+| STRICT_RECERT_LOG missing log headers | Added **`## Certification log`** + **`## Docs-maintenance`** |
+
+### Pre-launch checklist (iteration 10)
+| Check | Status |
+|-------|--------|
+| CURSOR_HANDOFF A–E verified across three docs | PASS |
+| lowest still-[ ] in all 3 docs | PASS |
+| Tier walks 1.9 / 4.18 synced strict + paste | PASS |
+| Runtime PNG in repo | FAIL (expected — agent captures) |
+| Any queue item `[x]` certified | FAIL (expected — all UNCERTIFIED) |
+
+### Still open (build agent / future docs)
+| Gap | Action |
+|-----|--------|
+| All queue items uncertified | Build agent walks full plan with 5-gate + W/B/S + harness/witness rules |
+| `osa_runtime_2026_06_22.png` | Agent re-captures each iteration with unique path + timestamp |
+| `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
+| Northstar PNGs | Optional visual refs |
+| Post-recert forward scope | P1 — define forward-only trigger when first real cert lands |

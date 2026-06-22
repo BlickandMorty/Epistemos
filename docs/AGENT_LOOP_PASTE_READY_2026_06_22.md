@@ -29,10 +29,10 @@ only.** Act is P0 blocking for owner pain; **act certified ≠ loop done.**
 | **beyond** | Tab per future clone (stub OK) | Per-clone when wired | Beyond tab + wired clones | 0.30, 4.14 |
 
 **OFF-LIMITS:** Companion-backend (companions.rs, CompanionCreationFlow, new-model interrupt). **IN SCOPE:** work +
-beyond future clones (Talaria, Epdoc-fuse, Tamagotchi render-fix).
+beyond future clones (Tolaria, Epdoc-fuse, Tamagotchi render-fix).
 
 ## LOCKED ACT DIRECTION (no drift)
-- Mount **Osaurus's OWN UI** (`LocalPackages/osaurus` ChatView), reskinned cream/monospace + **3 grafts** (message bar, side panel, scroll-blur).
+- Mount **Osaurus's OWN UI** (`OsaurusChatView` in `LocalPackages/osaurus` — vendored Osaurus chat UI), reskinned cream/monospace + **3 grafts** (message bar, side panel, scroll-blur).
 - **SUPERSEDES option-(b)** old Epistemos `ChatView`. Do NOT mount `Epistemos/Views/Chat/ChatView.swift` for act.
 - **Landing = Epistemos `LandingView` FIRST** (D2/0.3) → blur → act. NOT Osaurus default "Good morning" landing.
 
@@ -47,14 +47,16 @@ beyond future clones (Talaria, Epdoc-fuse, Tamagotchi render-fix).
    this iteration**; log capture timestamp in STRICT_RECERT_LOG (pass50 P1-c). **One PNG per surface** (main act,
    mini, graph, note, work landing, each settings tab). Stale fixed-path PNG without Read does NOT count. Owner is NOT checking.
 6. **5-gate bar** per item: (a) exists file:line · (b) on-plan · (c) wired — **distinct mount/route cite, NOT same
-   file:line as (a)** (pass50 P1-b) · (d) real-state tested · (e) runtime proven. Append to `docs/research/STRICT_RECERT_LOG_2026_06_22.md`.
+   file:line as (a)** (pass50 P1-b) · (d) real-state tested on **same live entry point as (c)**; cite test name +
+   **"0 skipped/ignored for this item"** (fail on new xfail/ignored touching certified code) · (e) runtime proven.
+   Append to `docs/research/STRICT_RECERT_LOG_2026_06_22.md` under **`## Certification log` only**.
 7. **D1–D5 gate (0.8):** do NOT mark 0.1–0.7 `[x]` until matching D screencapture passes. **4.7 gated on D5.**
-8. **D4/settings is TIER-0** — per-clone matrix 0.21 (Epistemos|act|work|beyond); do not defer to 4.1.
+8. **D4/settings is TIER-0** — per-clone matrix **0.21 is sole D4 owner** (Epistemos|act|work|beyond); 0.11/0.22 reference 0.21 only; do not defer to 4.1.
 9. **Provider wiring (0.11):** owner's models selectable AND used on send; Configuration opens real settings; no silent Codex/Qwen.
 10. **Health-row honesty (0.14):** `wiredToday`/`stillStub` match REAL code after every change.
 11. **Title-gen (0.16 extends 0.9):** parse `<think>`; CLASSIFY shared-vs-chat-only; CLEAN short titles.
-12. **Discovery sweep** — grep chat/inference consumers; add missed surfaces to queue.
-13. **Reverse addendum audit (0.31)** — grep addendum 🔒/DEFINITIVE/P0/MUST/BUILD-IT-HARDENED/PER-CLONE/WORK/BEYOND/ALL CHAT SURFACES/ESCALATION/🆕/🌟/RESEARCH; index or add queue row; paste hit count to log.
+12. **Discovery sweep** — grep chat/inference consumers **plus per-tier plan-section→queue reconciliation** (substrate/TRINITY/vault/Epdoc — not chat-only); add missed surfaces to queue.
+13. **Reverse addendum audit (0.31)** — **diff FULL addendum heading list** against queue index (not token-grep alone); supplement with grep for 🔒/DEFINITIVE/P0/MUST/BUILD-IT-HARDENED/PER-CLONE/WORK/BEYOND/ALL CHAT SURFACES/ESCALATION/🆕/🌟/RESEARCH; index or add queue row; paste heading-diff + grep hit count to **`## Certification log`**.
 14. **Full-plan witness (0.32, HARD GATE)** — append mandatory block to STRICT_RECERT_LOG: **highest attempted item ID**
     (e.g. `2.3`) · **lowest still-[ ] item ID** (e.g. `0.4` — pass50 P0-A) · per-tier counts · TIER 1+ attempted YES/NO ·
     act-only tunnel DENIED. **TIER ADVANCE FLOOR:** every 3 iterations highest attempted ≥1.1 OR stall report. **INCOMPLETE**
@@ -112,17 +114,18 @@ iteration before ending.
 | 0.31 | Reverse addendum audit (standing) |
 | 0.32 | Full-plan iteration witness (standing, HARD GATE) |
 
-## TIER 1 WALK (1.1 → 1.8) — NON-OPTIONAL
+## TIER 1 WALK (1.1 → 1.9) — NON-OPTIONAL
 | Item | Summary |
 |------|---------|
 | 1.1 | OpenCode launcher binary vendored |
 | 1.2 | WORK = real TUI; mini/graph; search→work; dual landing+blur |
-| 1.3 | Goose/Hermes/OpenClaw fuse beneath OpenCode |
+| 1.3 | Goose FULL vendored clone beneath OpenCode (NOT leaf-by-leaf port) |
 | 1.4 | OpenCode/work terminal fully theme-responsive |
 | 1.5 | WORK clone surface certification (screenshot work composer + landing) |
 | 1.6 | WORK per-surface routing (mini+graph work; screenshot EACH) |
 | 1.7 | WORK inference + send path (REQUIRED work harness; distinct from act; no silent fallback) |
 | 1.8 | OpenCode heaviness mitigation (lazy-launch, loopback, kill-on-idle, no Electron) |
+| 1.9 | RustLSP → work-agent code-intelligence tools (hover/definition/diagnostics on live work path) |
 
 ## TIER 2 WALK (2.1 → 2.8) — NON-OPTIONAL
 | Item | Summary |
@@ -142,7 +145,7 @@ iteration before ending.
 | 3.1 | TRINITY native orchestrator on System G/RuntimeRouter |
 | 3.2 | Fugu optional guest provider (never the brain) |
 
-## TIER 4 WALK (4.1 → 4.16) — NON-OPTIONAL
+## TIER 4 WALK (4.1 → 4.18) — NON-OPTIONAL
 | Item | Summary |
 |------|---------|
 | 4.1 | Per-clone SETTINGS polish (extends 0.21) |
@@ -152,7 +155,7 @@ iteration before ending.
 | 4.5 | Tamagotchi agent-creation render fix |
 | 4.6 | MOTION LANGUAGE triad + mode-entry + ASCII/time-machine ontology |
 | 4.7 | UI chrome: picker/palette/38-tool panel (D5-gated) |
-| 4.8 | Talaria + clones; MAS non-restrictive |
+| 4.8 | Tolaria + clones; MAS non-restrictive |
 | 4.9 | ACT wiring: skills+MCP+tools; Keychain |
 | 4.10 | Per-model Epistemos Picks profiles |
 | 4.11 | Test-parity gate before chat surface deletion |
@@ -161,6 +164,8 @@ iteration before ending.
 | 4.14 | BEYOND clone surfaces (honest stubs; NOT Companion-backend) |
 | 4.15 | Multi-clone settings polish + data carry-over per clone |
 | 4.16 | Graph-deep-integration pillar |
+| 4.17 | Vault→GRAPH population + LLM-wiki UI surfacing |
+| 4.18 | EPDOC MD-V2 inversion + agent-edit provenance |
 
 ## TIER 5 WALK (5.1 → 5.4) — NON-OPTIONAL
 | Item | Summary |
@@ -173,7 +178,7 @@ iteration before ending.
 ## W/B/S ACCEPTANCE GATES (pass49 P0-4/P0-6 — mirror queue)
 | Gate | Scope | Proof |
 |------|-------|-------|
-| **W1–W5** | Work (0.28, 1.2–1.8) | Work landing/TUI/settings PNG; **REQUIRED** work send harness (W4); no Electron |
+| **W1–W5** | Work (0.28, 1.2–1.9) | Work landing/TUI/settings PNG; **REQUIRED** work send harness (W4); no Electron |
 | **B1–B3** | Beyond (0.30, 4.14) | Honest stub; Companion grep clean; stub ≠ `[x]` |
 | **S1–S5** | Substrate/orchestrator (2.1–2.8, 3.1–3.2) | Live-path integration test; AnswerPacket surfaced; NOT fake-green |
 
