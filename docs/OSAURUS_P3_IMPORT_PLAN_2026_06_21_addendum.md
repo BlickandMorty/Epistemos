@@ -936,3 +936,25 @@ disclose the REAL per-token rates + "multi-step costs a multiple," NOT a fake "$
   vLLM Semantic Router, `llm-use/llm-use`. 
 - **HARD RULE: Fugu must NEVER be the orchestration BRAIN** (that would invert "adopt engines / layer IP / no
   per-token lock-in"). Fugu = an optional premium guest model; the BRAIN is YOUR native orchestrator.
+
+## 🆕 FUGU "CLONE THE CODE" — honest reality + the IP path that delivers it (owner 2026-06-22)
+Owner wants to take Fugu's code, clone/port it, infuse into act + work + the brain as owner IP, and expose it
+as an API usable across act/work/chat. HONEST (verified): **Fugu is CLOSED-SOURCE — no weights/SDK/orchestration
+code public (GitHub `sakanaai/fugu` = report + installer only). A full code clone is NOT possible.** Do NOT
+fabricate a clone of code that doesn't exist.
+**THE PATH THAT DELIVERS THE OWNER'S INTENT (re-implement the METHOD as IP):** Fugu's technique IS public —
+Sakana's **TRINITY + Conductor** ICLR 2026 papers (the Thinker/Worker/Verifier recursive multi-model
+orchestration pattern). So build Epistemos's OWN orchestrator FROM THOSE METHODS = owner IP, local-first, no
+$10/msg, no Sakana dependency, fully infusable:
+- **Make it the BRAIN, shared:** implement the Trinity-style orchestrator natively on RuntimeRouter/System G
+  (route/plan across the local+cloud model pool per task, recursive verify/synthesize). This is the "main
+  brain / IP" the owner wants — ONE orchestration layer.
+- **Expose it as an internal API** (OpenAI-compatible surface, like LocalModelServer) so it's usable across
+  **act + work + chat/note/graph** uniformly — same orchestrator everywhere, the convergence the owner asked.
+- **Fugu the PRODUCT stays an optional guest provider** (Path A) for those who want to pay; the owner's NATIVE
+  Trinity orchestrator is the default brain (Fugu NEVER the brain).
+- **Deep code research (ongoing loop):** keep checking if Sakana ever opens weights/SDK; mine TRINITY/Conductor
+  papers + open-source orchestrators (RouteLLM/LLMRouter/llm-use) for the re-implementation. If code ever
+  becomes obtainable, re-evaluate a real clone; until then, METHOD-as-IP is the path.
+RESULT = the owner's vision (orchestration infused into act+work+chat as IP + an API) via re-implementing the
+published method, since the literal code is closed.
