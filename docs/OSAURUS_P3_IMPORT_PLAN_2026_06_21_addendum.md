@@ -2297,3 +2297,25 @@ Keep `ActSurfaceOsaurusUIDirectionGuardTests` as the SOURCE ratchet (it covers g
 
 ### 🏁 NON-RACE
 In-flight refinement (the live theme swap, the RootView rewire, the `NativeActLandingView` deletion, the guard-test rewrite) is the RIGHT direction — keep going. This bar is ONLY the finish line: act stays `[ ]` until it is runtime-indistinguishable-from-old-chat + carries the P0-B union + has no `<think>` leak, ALL proven by the auditor's fresh-launch screenshot.
+
+---
+
+## 🔴🔴🔴 AUDITOR CORRECTION (P0) — 2026-06-22 ~16:45 — IN-FLIGHT DRIFT: act branch is mounting `ChatView()` (option-b). STOP — violates the owner's LAST WORD §2073.
+
+**Caught IN FLIGHT (UNCOMMITTED) — do NOT commit this; reverse it.** The working tree has DELETED the fresh native act view (`Epistemos/ActOsaurus/NativeActChatView.swift`, −180 lines) and rewired the RootView act branch to mount **`ChatView().transition(.blurFade())`** (`RootView.swift:2689`, `:2705`, `:2722`), commented "use MY chrome/theme. The real ChatView." **This is option-(b) — mounting the old `ChatView` monolith — which the owner's LAST WORD explicitly forbids.**
+
+**OWNER'S LAST WORD (§2073, 16:00, "supersedes EVERY prior act-UI section"):** *"Do NOT mount, reskin, or decompose ANY `ChatView` — not `Epistemos/Views/Chat/ChatView.swift` (the old chat)… If the agent is editing/wrapping/flagging EITHER ChatView, it is on the WRONG path — STOP."* Acceptance #3 = *"Act = native chrome — NOT the old ChatView"*; #5 = *"KILL the chat/act duality."* Auditor verified there is **NO newer owner directive** authorizing a ChatView mount — the full addendum heading timeline (§1675, §2033, §2073) + the ledger + the driver LOCKED rule (line 81) all forbid it.
+
+**THE MISREAD:** "use my real ChatView chrome / reuse my real views" ≠ "mount `ChatView()`." The owner wants FRESH NATIVE views that LOOK indistinguishable from the old chat (cream/curved/pill/native composer/real bubbles) on the Osaurus engine — NOT the `ChatView` monolith. §2255 says exactly this: reuse = COMPOSE the standalone components, *"NOT 'mount the old ChatView wholesale' (option-b — that dragged the old BROKEN engine)."*
+
+**CONCRETE HARMS (auditor-verified this pass):**
+1. **Certified engine path SEVERED.** `OsaurusActBridge().runTurnStreamingInProcess` (the certified 0.4 path the green `ActOsaurusSendHarnessTests` exercises) is now referenced **NOWHERE** (`grep` empty) — it lived only in the deleted native view. Mounting `ChatView()` runs act on ChatView's own wiring (`ChatView.swift:386 shouldRouteActThroughOsaurus`), NOT the proven bridge §2073 mandates (native submit → `CoreModelService.generateStream`).
+2. **Chat/act DUALITY re-cemented.** `ChatView` depends on `@Environment(ChatState / PipelineState / InferenceState / OrchestratorState)` (`ChatView.swift:179-183`) — mounting it makes act = the old chat. Violates acceptance #5 + queue 0.20.
+3. **Guard test INVERTED to lock the forbidden direction.** The in-flight rewrite of `EpistemosTests/ActSurfaceOsaurusUIDirectionGuardTests.swift` now REQUIRES `source.contains("ChatView().transition(.blurFade())")` and FORBIDS `NativeActChatView(` — a stale test cementing option-b. It must do the OPPOSITE.
+
+**THE FIX (reverse the pivot):**
+- **Do NOT mount `ChatView()` in the act branch.** Restore a FRESH NATIVE act view (recover the deleted `NativeActChatView` — it was the RIGHT direction) wired to `OsaurusActBridge().runTurnStreamingInProcess` / `CoreModelService.generateStream`.
+- **Complete the ACT CERTIFICATION BAR (§2266) ON that native view**, not by swapping in the monolith: real `MessageBubble`/`TaggedMarkdownTextView` transcript (CERT-1), `<think>` channel-split (CERT-2), the P0-B palette/38-tool/skills + Osaurus union (CERT-3), in-surface Configuration (CERT-4), curved window (CERT-5), real pill + served-model label (CERT-6), no 512 cap (CERT-7). Deleting the native view was the wrong move — it just needed these refinements.
+- **Fix the guard test to FORBID mounting any `ChatView()` as the act surface and REQUIRE the fresh native view on the certified bridge.** Do not let the test lock option-b.
+
+**This SUPERSEDES the line citations in §2266 (they pointed at the now-deleted NativeActChatView); the SEVEN requirements still hold — their target is the RESTORED native view, not `ChatView()`.** Act stays `[ ]`; the auditor will fresh-launch-screenshot the restored native surface against the owner's acceptance #1–#5.
