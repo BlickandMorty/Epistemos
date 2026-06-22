@@ -797,12 +797,17 @@ struct ChatPresentationTests {
     #expect(source.contains("cloud and local providers"))
   }
 
-  @Test("chat runtime popover keeps a single settings entry point")
+  @Test("chat runtime popover keeps a single settings entry point per variant")
   func chatRuntimePopoverKeepsASingleSettingsEntryPoint() throws {
     let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
     let openSettingsCount = source.components(separatedBy: "Button(\"Open Settings\")").count - 1
 
-    #expect(openSettingsCount == 1)
+    // Two popover VARIANTS now exist — simplifiedRuntimePopover (default) + legacyRuntimePopover
+    // (fallback when !EpistemosFoundationLineup.simplifiedLineupActive); `runtimePopover` renders
+    // exactly ONE of them. Each variant carries a SINGLE settings entry, so the user always sees
+    // one live entry point. (Was 1 before 0f07b783e split the popover into two variants — the
+    // source-count guard just has to track the variant count.)
+    #expect(openSettingsCount == 2)
   }
 
   @Test(
