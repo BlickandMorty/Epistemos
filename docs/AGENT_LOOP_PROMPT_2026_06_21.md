@@ -40,7 +40,7 @@ not your running context. Owner has flagged drift before — so:
    beyond); landing BLUR + mode-entry animations (act=native blur-reveal; work=ASCII/pixel typewriter);
    MOTION LANGUAGE TRIAD (blur + ASCII typewriter + micro-motions on titles + display-only, noticeable-not-
    bloated, never in editors); live themes incl. custom drive all surfaces.
-5. **PROTECT:** chat backend QUARANTINED, NEVER deleted (porting cycles before retire); Prose editor
+5. **PROTECT:** chat backend — PRESERVE the IP/logic, then DELETE the old chat surface (owner authorized; Osaurus IS the chat, no toggle/fallback) once the Osaurus chat works; Prose editor
    120fps/50k-word NO-REGRESS; landing-page ontology; EPDOC MD-V2 (md=source, projections; coexists with
    Prose, both shine).
 6. **DISCIPLINE:** no fake-done (real-state tests only); no WIP/stash hiding places; reuse-not-rebuild owner

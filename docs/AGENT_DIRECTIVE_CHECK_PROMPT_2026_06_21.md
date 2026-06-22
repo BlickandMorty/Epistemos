@@ -39,8 +39,9 @@ Mark each: ✅ done+verified (real-state test) / 🟡 in-progress / 🔴 not-sta
    command palette (Fast/Tools/Agent tabs + bottom command grid); 38-tool agent panel (toggles, "asks first").
 6. **Tamagotchi agents:** Osaurus agent-creation keeps Tamagotchi-style avatars; FIX render bug (too small +
    artifact squares inside bodies → larger, dynamic, flat, no inner squares).
-7. **Chat backend:** QUARANTINED, NEVER deleted; porting cycles move its logic/IP into beneficial surfaces
-   before retire; retire only after 4-part bar + owner OK.
+7. **Chat backend:** PRESERVE the IP/logic → then DELETE the old chat surface (owner authorized; Osaurus IS
+   the chat, no toggle/fallback). A correct chat-surface deletion is NOT a divergence — do NOT "fix" it by
+   restoring chat. Verify the IP was ported before the surface was deleted.
 8. **No silent Qwen fallback:** too-large = honest message / owner's pick; never a silent substitute (the
    live "running Qwen 3 4B instead" behavior must be gone from the act path).
 9. **MAS non-restrictive + Swift/Rust leniency = GLOBAL** (all repos incl. Talaria + Epdoc fuse); notarized
