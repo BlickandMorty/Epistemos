@@ -589,3 +589,36 @@ Two internal verification passes. WORK_QUEUE landed **7ecc2b9ed**; final commit 
 CHAT_BACKEND + SUBSTRATE_BUILD_SEQUENCE + ARCHITECTURE_TIER_PROMOTION_CANON exist on disk; lowest still-[ ] in queue+strict+paste → **PASS**
 
 ### Pre-launch score: **18/20 PASS** (runtime PNG + uncertified queue = expected FAIL)
+
+## Iteration 12 — 2026-06-22 (tick 8 FULLPLAN — lightweight drift verify)
+
+### Handoff gate (tick 8)
+| Check | Status |
+|-------|--------|
+| `git log -1` | **7dcc741b2** `docs: CURSOR handoff — final strict recert hardening` |
+| Expected commits present | **7dcc741b2**, **a3dfc3bc1** (iter 11), **7ecc2b9ed** (pass51 reconcile) — PASS |
+| `git status` docs/ at tick start | PASS (clean) |
+| Duplicate CURSOR handoff re-application | **NONE** (7dcc741b2 already landed iter-10 A–E + final verify) |
+
+**Verdict:** Lightweight iteration 12 **RUN** — no drift between WORK_QUEUE / STRICT / PASTE.
+
+### Drift checklist (iteration 12 — three-doc sync)
+| Check | WORK_QUEUE | STRICT | PASTE | Verdict |
+|-------|------------|--------|-------|---------|
+| Tier 0 walk ends 0.32 | PASS | PASS | PASS | PASS |
+| Tier 1 walk ends 1.9 | PASS | PASS | PASS | PASS |
+| Tier 4 walk ends 4.18 (+4.17 row) | PASS | PASS | PASS | PASS |
+| 0.21 D4 sole owner | PASS | PASS | PASS (#8) | PASS |
+| OsaurusChatView disambiguation | N/A | PASS | PASS | PASS |
+| Tolaria spelling (not Talaria) | PASS | PASS | PASS | PASS |
+| gate-(d) same entry point + xfail | PASS | PASS | PASS (#6) | PASS |
+| served-model == selected-model | PASS | PASS | PASS (#4) | PASS |
+| STEP-0 RESET | PASS | PASS | PASS (#2) | PASS |
+| `[~]` cap ≤2 | PASS | PASS | PASS (#16) | PASS |
+| TIER ADVANCE FLOOR | PASS | PASS | PASS (#14) | PASS |
+| 0.32 highest + lowest still-[ ] witness | PASS | PASS | PASS (#14) | PASS |
+| W/B/S acceptance gates | PASS | PASS | PASS (#22) | PASS |
+| 22 non-negotiables in paste | N/A | N/A | PASS | PASS |
+| Contradiction grep (`one item minimum`=0, bare `Talaria`=0) | PASS | PASS | PASS | PASS |
+
+**Verdict:** **no drift** — three-doc stack remains synced post-7dcc741b2; no fixes required.
