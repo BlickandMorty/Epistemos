@@ -58,6 +58,7 @@ pub mod run_event_log;
 pub mod system_g_runtime;
 pub mod trinity_loop;
 pub mod trinity_routing;
+pub mod trinity_trace;
 pub mod variant_ladder;
 
 pub use acs_run_event_log_sink::ACSRunEventLogSink;
