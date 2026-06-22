@@ -1010,3 +1010,25 @@ drop-in clone → PORT THE METHOD to native Swift/Rust on System G/RuntimeRouter
 artifacts, Thinker/Worker/Verifier over the local+cloud pool, JSONL trace = honest provenance. Build agent:
 read trinity_coordinator + arXiv:2512.04695 for the exact router/SVF mechanics before porting. Foundational +
 certain (sequenced after P0 + act/work surfaces per the Fugu sequencing). Fugu-the-API stays optional guest.
+
+## 🌟🌟 TRINITY = COMPLETE CLONE + FULLY ADDED (owner 2026-06-22) — foundational orchestrator brain
+Owner: deeply research, COMPLETELY clone, and COMPLETELY add trinity_coordinator to the app. Maximal honest
+interpretation (Elixir/BEAM can't run in-process MAS-Swift → no literal binary clone; do the MAXIMAL version):
+1. **VENDOR THE ENTIRE REPO in-tree** (github.com/nshkrdotcom/trinity_coordinator, MIT) — zero cherry-pick,
+   full source + LICENSE, like the Osaurus vendor — as the reference source of truth in LocalPackages/ or
+   vendor/.
+2. **COMPLETELY PORT THE WHOLE METHOD to native Swift/Rust** (System G/RuntimeRouter) — EVERY component, not a
+   subset: Router (Qwen3-0.6B hidden-state extraction) → SVF Coordination Head (singular-value fine-tuned
+   adapter → role) → Thinker/Worker/Verifier role split → Provider Boundary (local+cloud pool) → JSONL trace
+   (honest provenance). Full parity with the Elixir/Python reference + arXiv:2512.04695.
+3. **BUNDLE THE REAL SAKANA ARTIFACTS** — download the pretrained router vector + SVD/SVF components from
+   HuggingFace (SHA-256 verified, the same artifacts the repo consumes); ship them in-app (vendor/download-on-
+   first-use per the runtime rule). These ARE the coordination weights = the closest to "taking the code."
+4. **FULLY ADD across the app** — wire the ported orchestrator as the shared brain + internal OpenAI-compat API
+   (epistemos-orchestrator) used by act + work + chat/note/graph. = the convergence the owner wants.
+5. **DEEP RESEARCH FIRST:** exhaustively map the repo (router/SVF mechanics, role-split logic, provider
+   boundary, trace format, EMLX/Apple-Silicon profile, Nx/EXLA/Bumblebee deps) + read arXiv:2512.04695, BEFORE
+   porting — so the port is faithful + complete, not approximate. Document the full mechanics in the research doc.
+This is the native orchestrator IP (Path B) realized via a COMPLETE port of the open TRINITY impl + the real
+artifacts. Foundational + certain. Sequenced after P0 + act/work visible surfaces (per Fugu sequencing), but
+it IS getting fully built. code-more-build-less, no fake-done, no red on main.
