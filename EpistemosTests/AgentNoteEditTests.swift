@@ -27,4 +27,20 @@ struct AgentNoteEditTests {
         #expect(out == "# Title\nbody\nold")
         #expect(AgentNoteEdit.insertAfter(anchor: "## Missing", text: "x").apply(to: "# Title") == nil)
     }
+
+    @Test("batch apply is ATOMIC: all edits land, or nil if any fails (no partial corruption)")
+    func batchApplyIsAtomic() {
+        // All succeed → applied in order.
+        let ok = AgentNoteEdit.apply(
+            [.replaceFirst(find: "foo", with: "bar"), .append("end")],
+            to: "foo")
+        #expect(ok == "bar\nend")
+        // Second edit's anchor is missing → the WHOLE batch returns nil (the first edit is NOT committed).
+        let failed = AgentNoteEdit.apply(
+            [.append("ok"), .replaceFirst(find: "absent", with: "x")],
+            to: "note")
+        #expect(failed == nil)
+        // Empty batch is a no-op (returns the input unchanged).
+        #expect(AgentNoteEdit.apply([], to: "unchanged") == "unchanged")
+    }
 }
