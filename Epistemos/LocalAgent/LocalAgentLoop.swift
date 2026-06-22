@@ -239,16 +239,23 @@ actor LocalAgentLoop {
         // SHARED ACT COMPOSER (owner 2026-06-21 #1): the act=Osaurus swap MUST apply at THIS shared
         // chokepoint. ChatCoordinator (main chat), PipelineService, and IMessageDriverService all build
         // their loop via liveLoop — wiring the swap only in DeviceAgentService left the owner's main
-        // chats on raw MLX. Routing the primary generator through the SAME shared decision makes act
-        // reach every liveLoop surface. (Streaming-through-Osaurus is the tracked next piece — the
-        // streamingGenerator stays MLX until OsaurusCore SSE lands; honest, not faked.)
+        // chats on raw MLX. Routing BOTH the primary AND the streaming generator through the SAME shared
+        // decision makes act reach every liveLoop surface — and now STREAMS through OsaurusCore
+        // (CoreModelService.generateStream), so the user-visible main-chat act path forwards tokens as
+        // they decode (STREAM EVERYTHING), not single-shot.
         #if !EPISTEMOS_APP_STORE
+        let routeActOsaurus = shouldRouteActThroughOsaurus()
         let primaryGenerator: LocalAgentGenerationHandler =
-            shouldRouteActThroughOsaurus()
+            routeActOsaurus
             ? ActOsaurusGenerationHandler.make()
             : mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
+        let streamGenerator: LocalAgentStreamingGeneratorFactory =
+            routeActOsaurus
+            ? ActOsaurusStreamingHandler.make()
+            : mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
         #else
         let primaryGenerator = mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
+        let streamGenerator = mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
         #endif
 
         return LocalAgentLoop(
@@ -257,7 +264,7 @@ actor LocalAgentLoop {
                 using: modelClient,
                 steeringHintsJSON: steeringHintsJSON
             ),
-            streamingGenerator: mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON),
+            streamingGenerator: streamGenerator,
             structuredGenerator: constrainedDecoding.map { constrainedGenerator(using: $0) },
             toolExecutor: toolExecutor,
             modelID: modelID,

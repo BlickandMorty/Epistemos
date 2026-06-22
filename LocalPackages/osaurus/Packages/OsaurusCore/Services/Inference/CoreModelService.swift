@@ -115,6 +115,57 @@ public actor CoreModelService {
         )
     }
 
+    /// Streaming counterpart of `generate(...)` — yields tokens as they decode (Epistemos act token
+    /// streaming via OsaurusCore, owner 2026-06-21). Routes the SAME way as `generate` (ModelServiceRouter
+    /// over the local + connected-remote services) and drives the resolved service's `streamWithTools`.
+    /// v1 is single-attempt (no multi-model fallback/retry — that machinery is generate-only for now;
+    /// honest, documented) and tool-free (a plain act turn). Throws honestly when no service resolves —
+    /// NEVER a silent cloud route (owner #1).
+    public func generateStream(
+        prompt: String,
+        systemPrompt: String? = nil,
+        temperature: Double = 0.3,
+        maxTokens: Int = 2048
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        try checkBreakerOrEnterHalfOpen()
+
+        let configured = await MainActor.run {
+            ChatConfigurationStore.load().coreModelIdentifier
+        }
+        guard let model = configured, !model.isEmpty else {
+            throw CoreModelError.modelUnavailable("none")
+        }
+        let messages = buildMessages(prompt: prompt, systemPrompt: systemPrompt)
+        let params = GenerationParameters(
+            temperature: Float(temperature),
+            maxTokens: maxTokens,
+            modelOptions: [:]
+        )
+
+        let remoteServices: [ModelService] = await MainActor.run {
+            RemoteProviderManager.shared.connectedServices()
+        }
+        let route = ModelServiceRouter.resolve(
+            requestedModel: model,
+            services: localServices,
+            remoteServices: remoteServices
+        )
+        switch route {
+        case .service(let service, let effectiveModel):
+            logger.debug("Streaming via \(service.id) (model: \(effectiveModel))")
+            // `streamDeltas` is on the BASE ModelService protocol (every service implements it) — the
+            // plain token stream, no tools. Tool-using act turns go through the tool path separately.
+            return try await service.streamDeltas(
+                messages: messages,
+                parameters: params,
+                requestedModel: model,
+                stopSequences: []
+            )
+        case .none:
+            throw CoreModelError.modelUnavailable(model)
+        }
+    }
+
     func generate(
         prompt: String,
         systemPrompt: String? = nil,
