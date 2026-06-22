@@ -175,20 +175,22 @@ const PRICING_TABLE: &[ProviderPricing] = &[
     },
     ProviderPricing {
         // FUGU (owner 2026-06-22, foundational): Sakana's multi-agent orchestration LLM, OpenAI-compatible.
-        // The HEADLINE cost is ~$10 PER MESSAGE (flat) — captured via request_usd_per_1k ($10/msg = $10,000 per
-        // 1k messages) so `per_message_usd` surfaces it explicitly in Settings (the cautionary opt-in). Exact
-        // per-token rates are research-pending (docs/research/FUGU_ORCHESTRATION_INTEGRATION_2026_06_22.md), left
-        // 0 so the per-message figure is the honest headline. Fugu plugs in via OpenAICompatibleProvider (config
-        // only — no hardcoding), so this entry is the single place its cost lives.
+        // CORRECTED 2026-06-22 from VERIFIED primary pricing (console.sakana.ai/pricing, per the research doc):
+        // the prompt's "$10/message" is NOT Sakana's model — it's per-TOKEN. These are the Fugu ULTRA rates
+        // (the orchestration tier): input $5 / output $30 / cached-read $0.50 per Mtok (>272K context doubles to
+        // $10/$45/$1.00 — not modeled here). KEY COST GOTCHA: orchestration/sub-agent tokens ARE billed at the
+        // same rate, so a routed multi-agent run bills the SUM of all sub-agent tokens — surface that caution in
+        // Settings (not a fake per-message fee). Non-Ultra `fugu` has no fixed sheet (pays the underlying model
+        // rate). Fugu plugs in via OpenAICompatibleProvider (config only); this row is the single cost source.
         canonical_name: "fugu",
-        aliases: &["sakana-fugu", "sakana_fugu", "fugu-orchestrator"],
-        input_usd_per_mtok: 0.0,
-        output_usd_per_mtok: 0.0,
+        aliases: &["sakana-fugu", "sakana_fugu", "fugu-ultra", "fugu-orchestrator"],
+        input_usd_per_mtok: 5.0,
+        output_usd_per_mtok: 30.0,
         cache_creation_usd_per_mtok: None,
-        cache_read_usd_per_mtok: None,
-        request_usd_per_1k: Some(10_000.0),
+        cache_read_usd_per_mtok: Some(0.50),
+        request_usd_per_1k: None,
         last_verified_iso8601: "2026-06-22",
-        source_url: "https://sakana.ai",
+        source_url: "https://console.sakana.ai/pricing",
     },
 ];
 
@@ -292,23 +294,27 @@ fn round_cents(value: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{per_message_usd, pricing_for};
+    use super::{estimate_cost_usd, per_message_usd, pricing_for};
 
     #[test]
-    fn pricing_includes_fugu_with_explicit_per_message_cost() {
-        // FUGU (owner req): registered as a known provider (modular — plugs into OpenAICompatibleProvider by
-        // config) with its ~$10/message cost surfaced explicitly for Settings (no silent expensive calls).
+    fn pricing_includes_fugu_with_verified_per_token_rates() {
+        // FUGU registered as a known provider (modular — plugs into OpenAICompatibleProvider by config). Pricing
+        // is the VERIFIED per-TOKEN Fugu-Ultra sheet (console.sakana.ai/pricing) — NOT the prompt's unverified
+        // "$10/message" (which was wrong; corrected). Orchestration sub-agent tokens bill at the same rate.
         let p = pricing_for("fugu").expect("Fugu pricing row must exist");
         assert_eq!(p.canonical_name, "fugu");
-        assert_eq!(p.request_usd_per_1k, Some(10_000.0));
-        // resolves via aliases too.
+        assert_eq!(p.input_usd_per_mtok, 5.0);
+        assert_eq!(p.output_usd_per_mtok, 30.0);
+        assert_eq!(p.cache_read_usd_per_mtok, Some(0.50));
+        assert!(p.request_usd_per_1k.is_none(), "no flat per-message fee — that figure was unverified/wrong");
+        // resolves via aliases (incl. the ultra tier).
         assert_eq!(pricing_for("sakana-fugu").map(|p| p.canonical_name), Some("fugu"));
-        assert_eq!(pricing_for("sakana_fugu").map(|p| p.canonical_name), Some("fugu"));
-        // the per-message helper surfaces the headline ~$10/msg (the per-token estimate would show ~$0).
-        assert_eq!(per_message_usd("fugu"), Some(10.0));
-        assert_eq!(per_message_usd("local"), None); // no flat per-message cost
-        // a per-token-only provider has no per-message cost.
-        assert!(per_message_usd("claude-sonnet-4-6").is_none());
+        assert_eq!(pricing_for("fugu-ultra").map(|p| p.canonical_name), Some("fugu"));
+        // per-token estimate is real (not ~$0): 1M in + 1M out = $5 + $30.
+        let cost = estimate_cost_usd("fugu", 1_000_000, 1_000_000);
+        assert!((cost - 35.0).abs() < 1e-6, "expected $35 for 1M+1M tokens, got {cost}");
+        // Fugu has no flat per-message cost now (it's per-token).
+        assert_eq!(per_message_usd("fugu"), None);
     }
 
     #[test]
