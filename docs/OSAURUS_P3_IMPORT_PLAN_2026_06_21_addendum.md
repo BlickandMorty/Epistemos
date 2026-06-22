@@ -874,3 +874,18 @@ agent must CLASSIFY FIRST, then act, so no effort is wasted either way:
 - **The main chat SURFACE itself = on the deletion path** (per the act+work directive) — don't polish it; just
   don't let it block. Fix only the SHARED plumbing act/work/note/graph need. (Same principle as the Qwen
   fallback: fix shared plumbing, don't polish the dying surface.)
+
+## 🔁 CODE MORE, BUILD LESS — verification cadence (owner 2026-06-22)
+The loop is BUILD-BOUND: running full cold `xcodebuild test` for tiny changes + IDLE-BLOCKING on it ("won't
+start new work while toolchain held") → burns iterations polling, no progress. FIX:
+- **PRIMARY per-increment gate = FAST:** `cargo test --lib` (Rust), targeted `swift build` / single-file
+  compile-check, or source-guard. **Do NOT run a full `xcodebuild test` for every small change.**
+- **Heavy gates (full `xcodebuild test` + computer-use self-verify) = at CHECKPOINTS only** — a completed
+  feature, a user-facing surface, or a tier boundary — NOT every commit. (Reconciles with the self-verify
+  directive: computer-use self-verify is for USER-FACING features at checkpoints, not every internal change.)
+- **NEVER idle-block on a running build.** If a heavy build is running, KEEP making progress on
+  non-conflicting work (next slice's design, other-file edits, planning) — do NOT spend loop iterations just
+  polling "still running." Build-bound waiting ≠ progress.
+- **BATCH:** pack MULTIPLE increments per heavy build; build-per-tiny-change is banned. Code more, build less.
+- Keep the rules: no red on main, no fake-done. But the GATE for routine increments is the FAST one; reserve
+  the slow full build for checkpoints. Bias to CODING throughput.
