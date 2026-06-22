@@ -258,3 +258,14 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
 - **P0-B status:** badge done (077025921, pass 15); remaining = surface Osaurus distinctive landing/buttons/features.
 - **Verdict:** PASS. Loop responding well to escalation (root-caused + completed P0-A). Remaining: P0-B
   landing/buttons surfacing + live send verify (owner Pro launch).
+
+## Pass 17 — 2026-06-22
+- **Build loop:** ALIVE. HEAD `3ccfb7934` "P0-B item 4 first step: clickable Osaurus engine panel" (8 min). swift/xcode=0.
+- **AUDIT 3ccfb7934 → ✅ PASS (real first step of surface-Osaurus):** badge now CLICKABLE → popover engine panel
+  w/ live CoreModelService.resolveStatus (model/available/unavailable+reason); visible+interactive Osaurus
+  presence, gated honest (Pro, only when routed). Pro EXIT=0. Co-Authored.
+- **Unblocked the fuller surfacing:** agent flagged "needs owner specifics" — added plan note: proceed from
+  "all its landing/buttons" with Osaurus's DISTINCTIVE surfaces (landing, model picker, tool/feature controls)
+  into the old UI; don't stall waiting for per-button specifics.
+- **Verdict:** PASS. Remaining: fuller P0-B (Osaurus landing/picker/tool controls in UI) + live send verify
+  (owner Pro launch). Cadence healthy (~5-8 min/P0-substep).
