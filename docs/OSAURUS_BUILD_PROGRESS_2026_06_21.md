@@ -80,10 +80,16 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
   `141a8d2b7`), surfaced as work-loop TOOLS, never deleted. **Goose `permission` DROPPED** (OpenCode covers it).
 - **`work_lsp_tools` REDUNDANT under C** (OpenCode built-in LSP) — marked, kept pending vendor (`fd6c099e0`);
   `lsp_runtime` stays for the native editors.
-- **Act-swap now in BOTH inference chokepoints** (liveLoop `e67295bc0` + TriageService `8ae27be43`) → every
-  chat surface (main/Mini/Note/Graph) gets act. This is the **prerequisite for the next major: 🎯 ONE
-  INFERENCE CHOKEPOINT** (consolidate liveLoop + TriageService into one shared "one brain" entry, ADDITIVELY/
-  safely, then retire the duplicate — addendum §692). CERTAIN, not deferred.
+- **Act-swap in BOTH inference chokepoints** (liveLoop `e67295bc0` + TriageService `8ae27be43`) → every
+  chat surface (main/Mini/Note/Graph) gets act. **🎯 ONE INFERENCE CHOKEPOINT — PHASE 1 DONE (`b28cb96e7`):**
+  `SharedActInference.actStreamIfArmed` = the SINGLE act-injection entry both chokepoints now delegate into
+  (can't diverge; flag-off byte-identical). PHASE 2+ (later, careful): merge the fuller path + retire the
+  duplicate TriageService path (owner: "old chat/triage inference is dead, get rid of it"). CERTAIN.
+- **🌟 NEW PILLAR — VAULT-DEEP-INTEGRATION (overtake Tolaria, §720):** vault-as-MCP context (build on
+  `omega-mcp/vault`) + deep graph integration + LLM wiki/[[wikilinks]]/semantic backlinks (Eidos/recall/
+  provenance) + in-editor agent editing on BOTH Prose + MD-V2/Epdoc. STANDING RULE clarified: full-clone every
+  ADOPTED engine (Osaurus method); REFERENCE-only for capabilities already owned better (Tolaria = reference;
+  mine vault-as-MCP, build native with Prose+MD-V2). Starting: vault-as-MCP resources on omega-mcp/vault.
 
 **Context-gated remaining (NOT dropped — need a context the green-only main loop lacks):**
 - **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → CONCRETE
