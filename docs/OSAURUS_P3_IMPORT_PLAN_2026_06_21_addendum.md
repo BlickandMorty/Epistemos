@@ -988,3 +988,12 @@ FOUNDATIONAL + CERTAIN but does NOT preempt the existing priority order. Correct
 ACTION: finish the CURRENT green increment, then RESUME the regular order on the next iteration (the loop
 re-reads this plan each iteration → it self-corrects; the owner need NOT interrupt). Do not abandon the
 current increment mid-way (no red on main); just don't start MORE Fugu work ahead of P0 + the act/work surfaces.
+
+## 🆕 MULTI-LoRA ROUTING repos = orchestrator PATTERN references (owner 2026-06-22)
+Owner-flagged Mixture-of-LoRA-Harness + the multi-LoRA category (xlora, lorax, S-LoRA, SGLang/vLLM multi-LoRA)
+= the route-to-best-ADAPTER variant of the orchestrator pattern. They are PATTERN/method REFERENCES (Python/
+CUDA/SGLang — NOT MAS-Swift, so NOT clone-targets), feeding the native orchestrator's per-model/per-adapter
+routing (owner IP) + the QAT/model-lab. Most MAS-aligned lead: EricLBuehler's xlora + mistral.rs (Rust). Detail
++ source ledger in FUGU_ORCHESTRATION_INTEGRATION §7. STANDING: when the owner flags new repos like this, the
+agent classifies (clone vs reference per the ADOPT-vs-IP-LAYER rule) + folds into the plan; no large research
+loop — bounded pass then continue the build order. The orchestrator absorbs these patterns natively.
