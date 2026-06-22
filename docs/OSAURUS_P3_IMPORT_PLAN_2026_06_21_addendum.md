@@ -702,3 +702,17 @@ MLX, etc.) lives in ONE place; the IP brain wraps that one point. No more parall
 - **SEQUENCING:** do this AFTER the gated act-swap lands in both chokepoints (so nothing breaks mid-way) — it
   is the consolidation that REMOVES the two-injection-point duplication. CERTAIN (not "deferred"/droppable),
   sequenced as a deliberate refactor. This is the cleanest expression of "one brain on top, engines beneath."
+
+## 🌟 MARKET POSITION (monitor web research, 2026-06-21) — the intersection is empty
+The 2026 market SPLITS into two categories Epistemos FUSES: (1) "md PKM + AI-reads-vault" apps — ZenNotes,
+Kuku, Ally, MarkMorph, Tolaria, Obsidian+plugins (notes + agent-on-vault; NO real coding/work engine, code
+editor, or local model lab) [verified web]; (2) "AI coding agents" — Cursor, Claude Code, Codex (code, NO
+PKM/notes/graph/vault). NO single app does the COMBINATION = PKM + native text&code editors + agentic ACT
+(Osaurus) + Codex-class agentic WORK (OpenCode) + local MODEL LAB + graph, native + local-first. Owner's
+"no competitor" instinct CONFIRMED — Epistemos is at the empty intersection.
+NOT a "nerfed Codex": WORK mode IS OpenCode (top coding agent, supports the SAME 75+ providers incl. frontier
+GPT/Claude → same coding ceiling when desired) embedded in a PKM/notes/local-model app. Honest where it's
+less: local-model raw quality < frontier cloud (a choice, you can use cloud); MAS loses VM sandbox (Pro keeps);
+solo maturity. But it's NOT a subset of Codex — Codex can't edit notes, hold the graph, run local QAT models,
+or be a PKM. Positioning for public release: "a local-first agentic workspace that contains a Codex-class
+engine — not a weaker Codex, a broader tool."
