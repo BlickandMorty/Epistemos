@@ -158,6 +158,19 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"query": "search terms"}"#,
             r#"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#
         ),
+        // ── Vault wikilink graph (VAULT-DEEP-INTEGRATION §720 #3) ──────────────
+        tool!(
+            "backlinks", "notes",
+            "List the vault notes that [[link]] to a target note (wikilink backlinks)",
+            r#"{"target": "Note Name"}"#,
+            r#"{"type":"object","properties":{"target":{"type":"string"}},"required":["target"]}"#
+        ),
+        tool!(
+            "outlinks", "notes",
+            "List the [[wikilinks]] a note links to (its outgoing links)",
+            r#"{"path": "relative/path.md"}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+        ),
         tool!(
             "list_notes", "notes",
             "List all notes",
@@ -416,6 +429,17 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_vault_wikilink_tools() {
+        // VAULT-DEEP-INTEGRATION §720 (#3): backlinks/outlinks must be DISCOVERABLE via tools/list,
+        // not just dispatchable — agents can't use a tool they can't see.
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+        assert!(names.contains("backlinks"), "backlinks must be in the catalog");
+        assert!(names.contains("outlinks"), "outlinks must be in the catalog");
     }
 
     #[test]
