@@ -22,6 +22,55 @@ struct ActOsaurusSeamTests {
         #expect(off.detail.contains("EPISTEMOS_ACT_OSAURUS_V0") || off.headline.contains("Pro only"))
     }
 
+    #if !EPISTEMOS_APP_STORE
+    @Test("in-app toggle override resolves: override > env flag > off (owner §806)")
+    func actOverrideResolutionOrder() {
+        let suite = "test.act.osaurus.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let on = [ActOsaurusGateStatus.flagName: "1"]
+        // no override → defer to env (off by default, byte-identical guarantee).
+        #expect(!ActOsaurusGateStatus.resolvedActive(environment: [:], defaults: defaults))
+        #expect(ActOsaurusGateStatus.resolvedActive(environment: on, defaults: defaults))
+        // override forces ON even with env unset…
+        ActOsaurusGateStatus.setOverride(true, defaults: defaults)
+        #expect(ActOsaurusGateStatus.override(defaults: defaults) == true)
+        #expect(ActOsaurusGateStatus.resolvedActive(environment: [:], defaults: defaults))
+        // …and forces OFF even when the env flag says on (override WINS).
+        ActOsaurusGateStatus.setOverride(false, defaults: defaults)
+        #expect(!ActOsaurusGateStatus.resolvedActive(environment: on, defaults: defaults))
+        // clearing reverts to env-flag behavior.
+        ActOsaurusGateStatus.setOverride(nil, defaults: defaults)
+        #expect(ActOsaurusGateStatus.override(defaults: defaults) == nil)
+        #expect(ActOsaurusGateStatus.resolvedActive(environment: on, defaults: defaults))
+    }
+
+    @Test("status reflects the override SOURCE honestly (in-app toggle vs env)")
+    func actOverrideStatusReflectsSource() {
+        let suite = "test.act.osaurus.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        ActOsaurusGateStatus.setOverride(true, defaults: defaults)
+        let on = ActOsaurusGateStatus.status(environment: [:], defaults: defaults)
+        #expect(on.isActive)
+        #expect(on.detail.contains("in-app toggle"))
+
+        ActOsaurusGateStatus.setOverride(false, defaults: defaults)
+        let off = ActOsaurusGateStatus.status(environment: [ActOsaurusGateStatus.flagName: "1"], defaults: defaults)
+        #expect(!off.isActive, "override OFF beats env=1")
+        #expect(off.detail.contains("in-app toggle"))
+    }
+
+    @Test("the router resolves the override (shouldRouteActThroughOsaurus honors the toggle)")
+    func routerHonorsOverride() {
+        // The default-standard path: with the env flag off and no override set, the router stays off
+        // (flag-OFF byte-identical) — proving the new resolution didn't arm anything by default.
+        #expect(!LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]))
+    }
+    #endif
+
     @Test("ProvenanceGate: vendored Osaurus carries MIT direct_import provenance")
     func provenancePresent() throws {
         let prov = try loadMirroredSourceTextFile("Epistemos/Vendor/Osaurus/OsaurusVendorProvenance.swift")

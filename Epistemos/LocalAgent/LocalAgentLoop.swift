@@ -216,11 +216,9 @@ actor LocalAgentLoop {
     nonisolated static func shouldRouteActThroughOsaurus(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        #if EPISTEMOS_APP_STORE
-        return false
-        #else
-        return ActOsaurusGateStatus.isEnabled(environment[ActOsaurusGateStatus.flagName])
-        #endif
+        // Resolution: in-app toggle override (owner §806) WINS, else the env flag, else off. App Store = always
+        // off (Pro-only). Default-absent override keeps flag-OFF byte-identical (the proven MLX path unchanged).
+        ActOsaurusGateStatus.resolvedActive(environment: environment)
     }
 
     @MainActor
