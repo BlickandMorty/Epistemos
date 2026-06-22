@@ -28,6 +28,27 @@ struct AgentNoteEditTests {
         #expect(AgentNoteEdit.insertAfter(anchor: "## Missing", text: "x").apply(to: "# Title") == nil)
     }
 
+    @Test("resolveTextEdit maps an edit to an NSRange TextEdit for the LIVE buffer (reuse the apply path)")
+    func resolveTextEdit() {
+        // replaceFirst → the range of the find + the replacement.
+        let buf = "# Title\nfoo bar"
+        let edit = AgentNoteEdit.replaceFirst(find: "foo", with: "BAZ").resolveTextEdit(in: buf)
+        #expect(edit?.replacementRange == NSRange(location: 8, length: 3))   // "foo" at UTF-16 offset 8
+        #expect(edit?.replacementText == "BAZ")
+        // Applying it to the buffer matches apply(to:).
+        if let e = edit {
+            let applied = (buf as NSString).replacingCharacters(in: e.replacementRange, with: e.replacementText)
+            #expect(applied == AgentNoteEdit.replaceFirst(find: "foo", with: "BAZ").apply(to: buf))
+        }
+        // append → a zero-length range at the end.
+        let appendEdit = AgentNoteEdit.append("end").resolveTextEdit(in: "a")
+        #expect(appendEdit?.replacementRange == NSRange(location: 1, length: 0))
+        #expect(appendEdit?.replacementText == "\nend")
+        // Honest: missing anchor → nil (never an out-of-range edit on the live buffer).
+        #expect(AgentNoteEdit.replaceFirst(find: "absent", with: "x").resolveTextEdit(in: buf) == nil)
+        #expect(AgentNoteEdit.insertAfter(anchor: "## Missing", text: "y").resolveTextEdit(in: buf) == nil)
+    }
+
     @Test("batch apply is ATOMIC: all edits land, or nil if any fails (no partial corruption)")
     func batchApplyIsAtomic() {
         // All succeed → applied in order.
