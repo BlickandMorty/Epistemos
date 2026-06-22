@@ -184,6 +184,12 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
         ),
         tool!(
+            "patch_note", "notes",
+            "Structured patch of a note file (safer than overwriting): op=append|replace_first|insert_after with find/text",
+            r#"{"path": "note.md", "op": "replace_first", "find": "old", "text": "new"}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"},"op":{"type":"string","enum":["append","replace_first","insert_after"]},"find":{"type":"string"},"text":{"type":"string"}},"required":["path","op","text"]}"#
+        ),
+        tool!(
             "list_notes", "notes",
             "List all notes",
             "{}",
