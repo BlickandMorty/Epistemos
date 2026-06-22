@@ -295,3 +295,28 @@ a clone-target. Adopt the PATTERN (per-task adapter/model selection behind one e
 MLX) is the owner's model-lab IP; mine xlora/mistral.rs for the Rust/MLX-feasible expert-routing approach.
 Bounded research COMPLETE — confident the category = "reference the method, build natively." Future better
 repos: re-evaluate when they appear (no standing loop).
+
+---
+## 8. 🌟 trinity_coordinator — the OPEN reference impl of Fugu's method (monitor, 2026-06-22)
+github.com/nshkrdotcom/trinity_coordinator [verified web]. **This is the open-source key to Path B.**
+- **It directly implements Sakana's TRINITY paper (arXiv:2512.04695)** — the exact coordination method behind
+  Fugu, which is closed. MIT. ~10★ (small but high-relevance).
+- **Architecture = the §6 native-orchestrator design, validated:** Router (compact **Qwen3-0.6B** extracts
+  hidden states) → **Coordination Head** (Sakana's singular-value fine-tuned / SVF adapter maps hidden states
+  → role) → **Thinker/Worker/Verifier** role split → **Provider Boundary** (routes to OpenAI/Gemini/etc.) →
+  **Trace persistence** (JSONL audit of every orchestration decision). This confirms §6 is the right shape.
+- **CRUCIAL: the Sakana TRINITY ARTIFACTS ARE OBTAINABLE** — the pretrained router vector + SVD/SVF components
+  are distributed via **HuggingFace with SHA-256 verification** (the repo CONSUMES Sakana artifacts; training
+  code removed). So the owner CAN get the actual coordination weights — NOT just the paper. This is the
+  "if I can take the code" the owner wanted: Fugu's binary is closed, but TRINITY's open impl + Sakana's
+  published router artifacts ARE available.
+- **Apple Silicon support:** runtime profiles include **EMLX (Apple Silicon)** + CUDA + CPU — MLX-relevant.
+- **CLONE-vs-REFERENCE:** it's **Elixir + Python** → NOT a drop-in MAS-Swift/Rust clone. BUT it's the
+  reference ALGORITHM + the obtainable Sakana artifacts → port the METHOD to Swift/Rust (System G/RuntimeRouter)
+  + consume the same HF router/SVF artifacts. = the owner's native orchestrator IP, grounded in a working OSS impl.
+**IMPACT:** Path B (build the orchestrator as owner IP) is no longer "from the paper alone" — there's a
+working MIT reference impl (Elixir) + downloadable Sakana coordination artifacts (HF, SHA-256) + Apple-Silicon
+profile. De-risks the foundational orchestrator substantially. PORT trinity_coordinator's method to native
+Swift/Rust; reuse Sakana's published router vector/SVF; Thinker/Worker/Verifier over the local+cloud pool;
+JSONL trace = honest provenance (fits the owner's brain). Read the repo + arXiv:2512.04695 for the exact
+router/SVF mechanics before porting.

@@ -997,3 +997,16 @@ routing (owner IP) + the QAT/model-lab. Most MAS-aligned lead: EricLBuehler's xl
 + source ledger in FUGU_ORCHESTRATION_INTEGRATION §7. STANDING: when the owner flags new repos like this, the
 agent classifies (clone vs reference per the ADOPT-vs-IP-LAYER rule) + folds into the plan; no large research
 loop — bounded pass then continue the build order. The orchestrator absorbs these patterns natively.
+
+## 🌟 trinity_coordinator = OPEN reference impl of the orchestrator method (owner 2026-06-22) — de-risks Path B
+github.com/nshkrdotcom/trinity_coordinator (MIT, Elixir+Python) directly implements Sakana's TRINITY paper
+(arXiv:2512.04695) — the exact method behind (closed) Fugu: Router (Qwen3-0.6B hidden states) → SVF
+Coordination Head → Thinker/Worker/Verifier → provider boundary (OpenAI/Gemini) → JSONL trace. CRUCIAL: the
+Sakana TRINITY router vector + SVD/SVF artifacts are OBTAINABLE via HuggingFace (SHA-256 verified) — so the
+COORDINATION WEIGHTS are gettable even though Fugu's product is closed (this is the "take the code" the owner
+wanted, via the open impl + published artifacts). Has an Apple-Silicon (EMLX) profile.
+DIRECTIVE: this is the blueprint for the native orchestrator IP (Path B / Fugu §6 + §8). It's Elixir → NOT a
+drop-in clone → PORT THE METHOD to native Swift/Rust on System G/RuntimeRouter, consume the same HF router/SVF
+artifacts, Thinker/Worker/Verifier over the local+cloud pool, JSONL trace = honest provenance. Build agent:
+read trinity_coordinator + arXiv:2512.04695 for the exact router/SVF mechanics before porting. Foundational +
+certain (sequenced after P0 + act/work surfaces per the Fugu sequencing). Fugu-the-API stays optional guest.
