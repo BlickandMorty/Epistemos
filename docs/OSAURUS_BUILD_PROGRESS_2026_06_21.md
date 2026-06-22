@@ -53,7 +53,15 @@ ALREADY has `contentJSON: Data` (REQUIRED, `content.pm.json` ProseMirror JSON = 
 `shadowMarkdown: Data?` (OPTIONAL, literally `projections/shadow.md` — markdown is presently a SHADOW
 PROJECTION). MD-V2 = **promote `shadowMarkdown`→required SOURCE-OF-TRUTH + demote `contentJSON`→a projection +
 update every contentJSON-canonical reader** (DocumentController, `projectAndIndexBlocks`, graph projector,
-HTML workspace). Subsystem inversion, NOT a bounded loop increment; a parallel MdV2 type would not integrate. | promote shadowMarkdown→source / demote contentJSON→projection in a dedicated pass; no toy |
+HTML workspace). Subsystem inversion, NOT a bounded loop increment; a parallel MdV2 type would not integrate.
+**GROUNDED 2026-06-21 (`docs/research/MD_V2_INVERSION_GROUNDING_2026_06_21.md`):** the DECISIVE design fact —
+`ProseMirrorMarkdownProjector.swift:30-32` states md→PM is DELIBERATELY out of Swift scope, "handled by
+Tiptap's importer (Wave 7.2)". So md→PM ALREADY exists in Tiptap/JS; **a native Swift md→PM parser would be
+the forbidden "parallel that won't integrate" — DO NOT build one.** Inversion = a Tiptap/JS + EpdocDocument
+(save/load) + EpdocPackage (required-entry flip + package migration) + canonical-readers flip, with a
+no-regress bar on the 120fps Prose editor. CERTAIN, needs a focused app-buildable context (not a ~15-min-
+per-build loop tick). FIRST step there: close the projector's LOSSY gap (PM→md→PM must preserve block IDs +
+the node/mark set) so md is faithful enough to BE canonical, BEFORE flipping which entry is required. | dedicated context: close projector lossy gap → flip canonical → migrate; no toy, no parallel parser |
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
