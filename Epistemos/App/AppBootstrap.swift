@@ -3145,7 +3145,7 @@ final class AppBootstrap {
         // local models. Idempotent (replaces) + re-runs when the snapshot changes.
         // Pro only (OsaurusCore is not linked into MAS).
         EpistemosOsaurusModelProvider.register(
-            service: localInferenceService, state: preparedModelRegistryState)
+            service: localInferenceService, generationConfig: snapshot.generationRuntimeConfiguration)
         #endif
         if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
             localLLMClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)

@@ -71,19 +71,33 @@ struct EpistemosOsaurusModelProvider: EpistemosModelProvider {
         }
     }
 
-    /// Build the provider from the app's live inference + prepared-model state and
-    /// register it with OsaurusCore. Exposes the prepared generator(s) — the
-    /// models the owner has actually prepared for generation. Call once at
-    /// bootstrap, after the inference service + registry state exist.
+    /// Build the provider from the app's live inference + the prepared generation
+    /// config and register it with OsaurusCore. P0-A (owner 2026-06-22): expose
+    /// the INTERACTIVE local text model ids — the SAME ids the act surface's model
+    /// picker selects — so the model threaded through `generateStream(requestedModel:)`
+    /// is actually handled by the bridge (registering only the 1–2 prepared
+    /// generators missed the owner's other selectable models). Call at bootstrap
+    /// after the snapshot applies; idempotent (replaces).
     @MainActor
-    static func register(service: MLXInferenceService, state: PreparedModelRegistryState) {
-        let descriptors = [state.primaryGenerator, state.speculativeDraftGenerator].compactMap { $0 }
-        var seen = Set<String>()
-        let models: [EpistemosBridgedModel] = descriptors.compactMap { desc -> EpistemosBridgedModel? in
-            guard let dir = desc.resolvedDownloadPath, seen.insert(desc.servedModelID).inserted else { return nil }
-            return EpistemosBridgedModel(id: desc.servedModelID, directory: URL(fileURLWithPath: dir))
+    static func register(service: MLXInferenceService, generationConfig: PreparedGenerationRuntimeConfiguration?) {
+        guard let config = generationConfig else {
+            // No prepared generation config → act has no Osaurus text model. HONEST
+            // (the Osaurus badge's resolveStatus shows "no core model configured" and
+            // the send surfaces modelUnavailable — never silent). Logged for diagnosis.
+            NSLog("[act=Osaurus] register: no prepared generation config — no model registered for act")
+            return
         }
-        guard !models.isEmpty else { return }
+        var seen = Set<String>()
+        var models: [EpistemosBridgedModel] = []
+        for id in config.interactiveLocalTextModelIDs() where !id.isEmpty && seen.insert(id).inserted {
+            if let dir = config.resolvedModelDirectory(for: id) {
+                models.append(EpistemosBridgedModel(id: id, directory: dir))
+            }
+        }
+        guard !models.isEmpty else {
+            NSLog("[act=Osaurus] register: no installed interactive text model — act has no Osaurus model")
+            return
+        }
         EpistemosModelBridge.register(EpistemosOsaurusModelProvider(service: service, models: models))
 
         // Make it WORK (option b): the act surface drives the old Epistemos chat
@@ -93,10 +107,10 @@ struct EpistemosOsaurusModelProvider: EpistemosModelProvider {
         // valid model — routed back to this bridge. `coreModelIdentifier` is computed
         // from the stored `coreModelName`, so set that. ONLY fill if unset; never
         // override the owner's own choice.
-        var config = ChatConfigurationStore.load()
-        if (config.coreModelIdentifier ?? "").isEmpty, let first = models.first?.id {
-            config.coreModelName = first
-            ChatConfigurationStore.save(config)
+        var chatConfig = ChatConfigurationStore.load()
+        if (chatConfig.coreModelIdentifier ?? "").isEmpty, let first = models.first?.id {
+            chatConfig.coreModelName = first
+            ChatConfigurationStore.save(chatConfig)
         }
     }
 }
