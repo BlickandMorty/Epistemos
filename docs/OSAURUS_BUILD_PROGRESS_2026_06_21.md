@@ -74,7 +74,11 @@ but the projector only matched **snake_case** (no normalization) → for REAL ed
 `default` and LOST their md structure (list markers gone; horizontalRule/hardBreak dropped). The old tests used
 snake_case → green while production projection was silently broken. Fixed by aliasing both cases (matching the
 `codeBlock` precedent) + a camelCase regression test. Also fix-forward of a table-test `#expect` Comment compile
-error (checkpoint caught what source-guard couldn't). Clean checkpoint verifying.
+error (checkpoint caught what source-guard couldn't). **CHECKPOINT GREEN: ProseMirrorMarkdownProjectorTests
+36/36, TEST SUCCEEDED** (strike + table + camelCase all pass; main back to green). The projector's
+loop-appropriate fidelity gaps are CLOSED; round-trip verified consistent with the md→PM importer
+(markdown-paste.ts handles tables/strike/camelCase-lists). Remaining MD-V2: block-ID preservation + canonical
+flip (focused session); importer extension blocked on missing JS test infra (no vitest/jest — can't fast-gate).
 | 13 | Substrate-health + IP-repair = CERTAIN, sequenced LOWER (not deferred) | 🟡 | recorded CERTAIN-lower | sequence after Osaurus UI |
 | 14 | Hygiene (no WIP/stash, real-state tests, main-only, Co-Authored-By) | ✅ | 24 stashes triaged+dropped `44f7e07df`; all commits verified | maintain |
 
