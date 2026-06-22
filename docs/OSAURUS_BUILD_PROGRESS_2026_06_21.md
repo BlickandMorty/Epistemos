@@ -1050,3 +1050,13 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   (fe66b8af7) removed the toggle, then 818654aa4 re-added one → two appeared.
 - Removed the below-greeting WorkspaceModePicker block from LandingView + its now-orphaned `landingMode` @State.
   One clean toggle only (the top capsule). The Osaurus landing badge stays.
+
+## P0 title-gen: clean chat titles, never the model's self-talk (owner 2026-06-22)
+- Owner saw the chat title "4, a Large Language Model developed by Google DeepMind. I am an open weights model"
+  — the local model answered the title-gen prompt with a self-description, surfaced RAW (cousin of the old
+  <think> title leak). The old cleaning only trimmed quotes/punctuation.
+- Added `ChatCoordinator.sanitizeGeneratedTitle` (pure, testable): first line only; strip "Title:"/preamble +
+  quotes/markdown; REJECT (→ nil, no title set) model self-descriptions/refusals ("i am ", "developed by",
+  "open weights", "as an ai", "sorry,", leading "N,…" fragment); cap to 8 words / 64 chars. generateChatTitle
+  now skips instead of dumping garbage. Test: ChatTitleSanitizerTests (rejects the owner's exact string; keeps
+  real titles).
