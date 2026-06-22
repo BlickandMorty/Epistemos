@@ -603,3 +603,11 @@ kept literally, set in stone). Decisive directives:
   not Rust; mitigated by process isolation + bounded footprint.
 - B2 (Goose Rust engine) is NOT taken. Next big-ticket: vendor the OpenCode bundled runtime + wire the work
   loop end-to-end through it, beneath the real TUI.
+
+## ⏸️ WORK-ENGINE FINALIZATION ON HOLD (owner 2026-06-21)
+Owner: fold the ADOPT-vs-IP-LAYER map research in BEFORE finalizing. That map FAILED twice on a 529 server
+overload — it does NOT exist yet. So: the Architecture-C decision above is CONFIRMED-but-PROVISIONAL; do NOT
+hand the build agent a final "go build WORK" directive until the ADOPT_VS_IP_LAYER_MAP_2026_06_21.md lands and
+is cross-checked against C (it may surface dedup/overlap context that refines C — e.g. which Goose unique bits
+truly justify clean-room tools vs are commodity). Re-run the map when the API recovers. The agent may continue
+bounded green increments (ACT polish, motion sweep) meanwhile, but NOT the heavy WORK-engine commitment.
