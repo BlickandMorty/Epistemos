@@ -10,20 +10,23 @@ import Foundation
 /// AND reused by DeviceAgentService, so the swap can never silently diverge again.
 @Suite("Shared act composer — one act-routing decision across all chat surfaces")
 struct SharedActComposerTests {
-    @Test("shared decision is honest: off by default, arms on the act flag")
+    @Test("shared decision: DEFAULT-ON for Pro (option b, no toggle), OFF for App Store")
     func decisionHonesty() {
-        #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]) == false)
-        #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: ["UNRELATED": "1"]) == false)
-
         #if EPISTEMOS_APP_STORE
-        // MAS: the act-Osaurus engine is a Pro surface → never routes, even if the flag is set.
+        // MAS: act-Osaurus is a Pro/direct-distribution surface (OsaurusCore isn't linked) → the
+        // router NEVER routes, even with the flag set; the in-process MLX path stays.
+        #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]) == false)
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(
             environment: [ActOsaurusGateStatus.flagName: "1"]) == false)
         #else
+        // Pro: act = the old Epistemos UI driven by the Osaurus engine, DEFAULT-ON with NO toggle
+        // (option b, owner 2026-06-22 — the experimental gate is gone; Osaurus IS the engine, not
+        // optional). The router returns true regardless of env flags.
+        #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]) == true)
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(
             environment: [ActOsaurusGateStatus.flagName: "1"]) == true)
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(
-            environment: [ActOsaurusGateStatus.flagName: "0"]) == false)
+            environment: [ActOsaurusGateStatus.flagName: "0"]) == true)
         #endif
     }
 

@@ -16,7 +16,13 @@ struct ActOsaurusSeamTests {
         #expect(ActOsaurusGateStatus.isEnabled(" On "))
         #expect(!ActOsaurusGateStatus.isEnabled(nil))
         #expect(!ActOsaurusGateStatus.isEnabled("0"))
-        let off = ActOsaurusGateStatus.status(environment: [:])
+        // Hermetic: read the default (no-override, no-env) status from a CLEAN defaults suite so the
+        // host app's PERSISTED `.standard` in-app toggle (set during a real app run) can't pollute
+        // this default-state check. The other tests in this file already isolate via a temp suite.
+        let suite = "test.act.osaurus.gatehonest.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let off = ActOsaurusGateStatus.status(environment: [:], defaults: defaults)
         #expect(!off.isActive)
         // Honest copy either names the flag (Pro build) or says "Pro only" (MAS).
         #expect(off.detail.contains("EPISTEMOS_ACT_OSAURUS_V0") || off.headline.contains("Pro only"))
@@ -63,11 +69,13 @@ struct ActOsaurusSeamTests {
         #expect(off.detail.contains("in-app toggle"))
     }
 
-    @Test("the router resolves the override (shouldRouteActThroughOsaurus honors the toggle)")
-    func routerHonorsOverride() {
-        // The default-standard path: with the env flag off and no override set, the router stays off
-        // (flag-OFF byte-identical) — proving the new resolution didn't arm anything by default.
-        #expect(!LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]))
+    @Test("the router is DEFAULT-ON for Pro (option b): act routes through Osaurus, no toggle")
+    func routerDefaultsOnForPro() {
+        // Option (b), owner 2026-06-22: act = the old Epistemos UI driven by the Osaurus engine,
+        // DEFAULT-ON with NO toggle (the experimental gate is gone). On Pro the router returns true
+        // regardless of the env flag or any prior in-app override — Osaurus IS the engine, not optional.
+        #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]))
+        #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [ActOsaurusGateStatus.flagName: "0"]))
     }
     #endif
 
