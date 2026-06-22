@@ -18,6 +18,19 @@ pub struct VaultExecutor {
     pub(crate) root: PathBuf,
 }
 
+/// Write `content` to `full` ATOMICALLY: write a temp sibling, then rename it over the target (rename is
+/// atomic on the same filesystem). A plain `fs::write` interrupted mid-write would truncate the file — and
+/// for a NOTE that's the user's actual content corrupted. The temp uses a non-`.md` suffix so a crash-leftover
+/// is never mistaken for a note by `list_markdown_notes`. (Mirrors the Swift VaultNoteEditor's atomic write.)
+fn atomic_write(full: &Path, content: &[u8]) -> std::io::Result<()> {
+    let name = full
+        .file_name()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "path has no file name"))?;
+    let tmp = full.with_file_name(format!("{}.omega-tmp", name.to_string_lossy()));
+    fs::write(&tmp, content)?;
+    fs::rename(&tmp, full)
+}
+
 impl VaultExecutor {
     /// Create a new executor scoped to the given vault root.
     /// Returns None if the path doesn't exist or isn't a directory.
@@ -457,7 +470,7 @@ impl VaultExecutor {
             },
             other => return err(format!("unknown edit op: {other} (expected append|replace_first|insert_after)"), crate::types::error_codes::INVALID_INPUT, start),
         };
-        match fs::write(&full, &updated) {
+        match atomic_write(&full, updated.as_bytes()) {
             Ok(_) => {
                 // VAULT-DEEP-INTEGRATION §720 (#4): record the EXTERNAL-agent edit for provenance — the MCP
                 // analog of the in-app `AgentNoteEditProvenance` MutationEnvelope. BEST-EFFORT + HONEST: the
@@ -543,7 +556,7 @@ impl VaultExecutor {
                         }
                     }
                 }
-                match fs::write(&full, content) {
+                match atomic_write(&full, content.as_bytes()) {
                     Ok(()) => {
                         let json = serde_json::json!({
                             "path": path,
@@ -1340,6 +1353,34 @@ mod tests {
         let _ = exec.edit_note("n.md", "replace_first", "ABSENT", "x");
         let log3 = std::fs::read_to_string(root.join(".epistemos/mcp_vault_events.jsonl")).unwrap();
         assert_eq!(log3.lines().count(), 2, "failed edit adds no provenance record");
+    }
+
+    #[test]
+    fn test_vault_writes_are_atomic_and_leave_no_temp() {
+        // The user's note content must never be corruptible by an interrupted write: edit_note + write_file
+        // go through atomic temp-write + rename, leaving NO `.omega-tmp` sidecar and a complete file.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("n.md"), "# Title\nfoo").unwrap();
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+
+        assert!(exec.write_file("fresh.md", "brand new").success);
+        assert_eq!(std::fs::read_to_string(root.join("fresh.md")).unwrap(), "brand new");
+        assert!(exec.edit_note("n.md", "append", "", "added").success);
+        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), "# Title\nfoo\nadded");
+
+        // No atomic-write temp sidecars linger (the rename moved them into place).
+        let leftovers: Vec<_> = std::fs::read_dir(root)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".omega-tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "no atomic-write temp files may linger: {leftovers:?}");
+
+        // Even a crash-leftover temp sidecar can't pollute the vault: it's not a `.md` note.
+        std::fs::write(root.join("crash.md.omega-tmp"), "partial").unwrap();
+        let notes = exec.list_markdown_notes();
+        assert!(!notes.iter().any(|n| n.contains("omega-tmp")), "temp sidecar must not list as a note: {notes:?}");
     }
 
     #[test]
