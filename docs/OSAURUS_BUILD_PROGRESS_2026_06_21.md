@@ -635,3 +635,16 @@ visual surfaces needing the running app, this is the buildable foundational work
   slice 3b = trace → Swift TraceCollector; then expose as the internal orchestrator API across
   act/work/chat. LEARNED router gated on license (owner H1 TODO: clear adapted-weights license w/ nshkrdotcom,
   or re-derive from Apache Qwen3-0.6B). Heuristic-vs-learned state disclosed honestly.
+
+### 🔬 eidos.query fake-green — VERIFIED + nuanced (owner UNIFICATION flag, 2026-06-22)
+Owner flagged `eidos.query` as a fake-green ("claims Eidos but bypasses the real eidos/ module"). VERIFIED:
+`EidosQueryHandler` (tools/knowledge.rs:244) calls `vault.hybrid_search_with_trace` (storage/vault.rs) — the
+real `eidos/` module (hybrid/claim_evidence/falsifier/adversarial) is NOT referenced by knowledge.rs/storage.
+NUANCE (grounded): the tool DESCRIPTION is behavior-HONEST ("Search the user's vault first and return
+structured, citable evidence…") — it does NOT lie about WHAT it does; the issue is purely that the NAME invokes
+"Eidos" while not routing through the eidos/ module. So the fix is the directive's route-vs-rename ARCHITECTURAL
+decision — and the name is deeply embedded (registry name-maps + tests + system prompts "use eidos.query first"
+prompts.rs:16 + chat_lite), so a rename is multi-caller and a route-through needs the owner's intent on whether
+vault-hybrid IS the intended Eidos retrieval vs the deeper eidos/ claim layer. NOT blind-fixed (risk: break the
+live tool + prompts; possible intentional brand). Sequenced in UNIFICATION work per the directive — flagged with
+evidence for the owner's route-vs-rename call.
