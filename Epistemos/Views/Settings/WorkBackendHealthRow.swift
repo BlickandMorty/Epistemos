@@ -11,8 +11,11 @@ struct WorkBackendHealthRow: View {
             HStack(spacing: 8) {
                 Image(systemName: status.isActive ? "hammer.circle.fill" : "hammer.circle")
                     .foregroundStyle(status.isActive ? Color.green : Color.secondary)
-                Text(status.headline)
-                    .font(.callout.weight(.medium))
+                // Motion triad — the Goose work-engine status TITLE gets the same ASCII-typewriter+blur
+                // ontology as its OpenCode shell sibling (both work seams consistent; strongest in WORK,
+                // owner 2026-06-21 §329). Tasteful: the two work-status titles, not a broad sweep.
+                MotionTitle(text: status.headline, font: .callout.weight(.medium),
+                            color: status.isActive ? .green : .secondary)
                 Spacer(minLength: 0)
             }
             Text(status.detail)
