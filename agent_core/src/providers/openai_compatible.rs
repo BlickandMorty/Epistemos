@@ -482,16 +482,19 @@ impl OpenAICompatibleProvider {
     }
 
     // --- FUGU (owner 2026-06-22, foundational) ---
-    /// Sakana **Fugu** — a multi-agent orchestration LLM, OpenAI-compatible (~$10/message; see
-    /// `pricing::per_message_usd("fugu")`). Built as a CONFIG instance of this universal provider (req #1
-    /// modular: no new provider type, no hardcoding — swap it out by changing config). EASY SETUP (req #3):
-    /// the API key comes from `FUGU_API_KEY` and the endpoint from `FUGU_BASE_URL` (overridable from Settings),
-    /// defaulting to Sakana's OpenAI-compatible base; the model from `FUGU_MODEL`. Capabilities are conservative
-    /// + research-pending (FUGU_ORCHESTRATION_INTEGRATION_2026_06_22.md) — streaming on (OpenAI SSE), tools/
-    /// vision left off until verified so we never advertise an unconfirmed capability.
+    /// Sakana **Fugu** — a multi-agent orchestration LLM, OpenAI-compatible. Cost is per-TOKEN (Ultra: $5 in /
+    /// $30 out per Mtok; orchestration sub-agent tokens bill at the same rate — see `pricing.rs`; the prompt's
+    /// "$10/message" was unverified/wrong). Built as a CONFIG instance of this universal provider (req #1
+    /// modular: no new provider type, no hardcoding — swap by changing config). EASY SETUP (req #3): the API key
+    /// comes from `SAKANA_API_KEY` (Sakana's standard) or `FUGU_API_KEY`, the endpoint from `FUGU_BASE_URL`
+    /// (overridable from Settings), defaulting to the VERIFIED base `https://api.sakana.ai/v1`; the model from
+    /// `FUGU_MODEL` (default `fugu`; `fugu-ultra` for the high-quality tier). Conservative caps (streaming on;
+    /// tools/vision off until verified — never advertise an unconfirmed capability).
     pub fn fugu() -> Self {
         Self::new(
-            std::env::var("FUGU_API_KEY").unwrap_or_default(),
+            std::env::var("SAKANA_API_KEY")
+                .or_else(|_| std::env::var("FUGU_API_KEY"))
+                .unwrap_or_default(),
             std::env::var("FUGU_BASE_URL").unwrap_or_else(|_| "https://api.sakana.ai/v1".to_string()),
             std::env::var("FUGU_MODEL").unwrap_or_else(|_| "fugu".to_string()),
             "Fugu",
