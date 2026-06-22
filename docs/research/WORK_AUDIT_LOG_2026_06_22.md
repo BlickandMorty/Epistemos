@@ -119,3 +119,16 @@ features/buttons surfaced within it; add new UI only for genuinely-new Osaurus c
 earlier "mount Osaurus ChatView not old UI" (that rejected the broken toggle-swap, not the old UI) via
 latest-wins. Added to plan. AUDIT-WATCH: build loop must restore old-UI look+message-bar+SIDEBAR on a genuine
 Osaurus engine (no toggle/fake), implementation its choice but ALL invariants met; re-add if palette-only/partial.
+
+## Pass 8 — 2026-06-22
+- **Build loop:** ALIVE (swift=1 xcode=1, building). HEAD `d427ee60d` "fix the top white bar + click-opens-search-bar (one root cause)" (5 min). ESCALATION WORKED — loop picked up the act-surface bugs.
+- **AUDIT d427ee60d → ✅ PASS (real root-cause fix, not band-aid):** both owner bugs = ONE cause — RootView's
+  activeHomeChat needed !chat.messages.isEmpty, but the Osaurus host owns its own message state → chat.messages
+  empty → RootView treated Osaurus surface as LANDING + painted the Epistemos landing toolbar (search-bar
+  controls + .automatic glass bg) OVER it = the white bar AND the search bar. Fix: added showingOsaurusSurface
+  (!chat.showLanding, Pro), excluded from showLandingToolbarControls → empty/hidden toolbar over Osaurus host
+  (clean old-chat top), Osaurus landing/composer shows through; Epistemos landing unaffected. Additive (RootView.swift). Co-Authored.
+- **Live-visual** (white bar gone + lands on Osaurus landing) = owner-witnessable on running app; reasoning sound.
+- **Verdict:** PASS, no re-add. Remaining act-surface: full old-UI restore (message bar + SIDEBAR + fonts), wire
+  owner GGUF/QAT models into chat (Epistemos Picks), live send verify, old-ChatView delete (MAS-blocked).
+  White bar + landing routing ✅.
