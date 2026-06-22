@@ -454,10 +454,16 @@ impl RetryManager {
 /// execution is gated to the Pro lane.
 pub trait RetryExecutor {
     /// Run every success check; returns `true` only if ALL pass (upstream
-    /// `execute_success_checks` semantics). An empty check list trivially passes.
-    fn run_success_checks(&mut self, checks: &[vendored_goose::retry::SuccessCheck]) -> bool;
-    /// Run the on_failure cleanup command (best-effort; the loop proceeds regardless).
-    fn run_on_failure(&mut self, command: &str);
+    /// `execute_success_checks` semantics). An empty check list trivially passes. `timeout_seconds` is
+    /// `RetryConfig.timeout_seconds` — a per-check wall-clock bound (a hung check counts as a failure).
+    fn run_success_checks(
+        &mut self,
+        checks: &[vendored_goose::retry::SuccessCheck],
+        timeout_seconds: Option<u64>,
+    ) -> bool;
+    /// Run the on_failure cleanup command (best-effort; the loop proceeds regardless). `timeout_seconds`
+    /// is `RetryConfig.on_failure_timeout_seconds` (a hung cleanup is killed, not waited on forever).
+    fn run_on_failure(&mut self, command: &str, timeout_seconds: Option<u64>);
 }
 
 /// Drive ONE self-correction cycle: run this attempt's checks via `exec`, then evaluate the
@@ -471,44 +477,77 @@ pub fn drive_retry_cycle(
     exec: &mut dyn RetryExecutor,
 ) -> RetryResult {
     let checks_passed = match config {
-        Some(c) => exec.run_success_checks(&c.checks),
+        Some(c) => exec.run_success_checks(&c.checks, c.timeout_seconds),
         None => false, // evaluate(None, …) returns Skipped regardless of this value
     };
-    manager.evaluate(config, checks_passed, |cmd| exec.run_on_failure(cmd))
+    // The on_failure command honors its OWN timeout (on_failure_timeout_seconds), captured here so the
+    // fixed `FnMut(&str)` closure shape can pass it through to the executor.
+    let on_failure_timeout = config.and_then(|c| c.on_failure_timeout_seconds);
+    manager.evaluate(config, checks_passed, |cmd| {
+        exec.run_on_failure(cmd, on_failure_timeout)
+    })
 }
 
-/// Pro-gated REAL executor: runs each success-check / on_failure shell command in a HARDENED
-/// subprocess (`crate::security::harden_cli_subprocess_std` → env_clear + the canonical
-/// allowlist/denylist + process group), per the agent_core subprocess-hardening doctrine.
-/// Subprocess execution is outside the MAS sandbox, so this is `pro-build`-only; the MAS
-/// build has the trait + mocks but never this impl. (Honoring `RetryConfig.timeout_seconds`
-/// is a documented follow-on — `std::process` has no built-in timeout; the value is carried
-/// but not yet enforced here.)
+/// Run one shell command in a HARDENED subprocess (`crate::security::harden_cli_subprocess_std` →
+/// env_clear + the canonical allowlist/denylist + process group). `true` iff it exits 0. When
+/// `timeout_seconds` is set, the command is bounded by wall-clock: it's polled to its deadline and KILLED
+/// on overrun (returning `false`) — a hung success-check / cleanup can no longer block the work retry cycle
+/// forever (`std::process` has no built-in timeout, so we poll `try_wait`). NOT pro-gated: the timeout logic
+/// is the valuable, testable part and spawns no privileged work itself; only `ShellRetryExecutor` (which
+/// wires it into the Goose retry seam) is Pro-only.
+pub(crate) fn run_shell_with_timeout(command: &str, timeout_seconds: Option<u64>) -> bool {
+    let mut cmd = std::process::Command::new("/bin/sh");
+    cmd.arg("-c").arg(command);
+    crate::security::harden_cli_subprocess_std(&mut cmd);
+
+    let Some(secs) = timeout_seconds else {
+        // No bound → blocking wait (the historical behavior).
+        return matches!(cmd.status(), Ok(status) if status.success());
+    };
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return false; // timed out → counts as a failed check
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(_) => return false,
+        }
+    }
+}
+
+/// Pro-gated REAL executor: runs each success-check / on_failure shell command via
+/// `run_shell_with_timeout` (hardened subprocess + wall-clock bound). Subprocess execution is outside the
+/// MAS sandbox, so this is `pro-build`-only; the MAS build has the trait + mocks but never this impl.
 #[cfg(feature = "pro-build")]
 #[derive(Debug, Default)]
 pub struct ShellRetryExecutor;
 
 #[cfg(feature = "pro-build")]
-impl ShellRetryExecutor {
-    /// Run one shell command in a hardened subprocess; `true` iff it exits 0.
-    fn run_shell_ok(command: &str) -> bool {
-        let mut cmd = std::process::Command::new("/bin/sh");
-        cmd.arg("-c").arg(command);
-        crate::security::harden_cli_subprocess_std(&mut cmd);
-        matches!(cmd.status(), Ok(status) if status.success())
-    }
-}
-
-#[cfg(feature = "pro-build")]
 impl RetryExecutor for ShellRetryExecutor {
-    fn run_success_checks(&mut self, checks: &[vendored_goose::retry::SuccessCheck]) -> bool {
+    fn run_success_checks(
+        &mut self,
+        checks: &[vendored_goose::retry::SuccessCheck],
+        timeout_seconds: Option<u64>,
+    ) -> bool {
         checks.iter().all(|check| match check {
-            vendored_goose::retry::SuccessCheck::Shell { command } => Self::run_shell_ok(command),
+            vendored_goose::retry::SuccessCheck::Shell { command } => {
+                run_shell_with_timeout(command, timeout_seconds)
+            }
         })
     }
 
-    fn run_on_failure(&mut self, command: &str) {
-        let _ = Self::run_shell_ok(command); // best-effort cleanup; result ignored
+    fn run_on_failure(&mut self, command: &str, timeout_seconds: Option<u64>) {
+        let _ = run_shell_with_timeout(command, timeout_seconds); // best-effort cleanup; result ignored
     }
 }
 
@@ -888,13 +927,36 @@ mod tests {
         }
     }
     impl RetryExecutor for MockExec {
-        fn run_success_checks(&mut self, _checks: &[vendored_goose::retry::SuccessCheck]) -> bool {
+        fn run_success_checks(
+            &mut self,
+            _checks: &[vendored_goose::retry::SuccessCheck],
+            _timeout_seconds: Option<u64>,
+        ) -> bool {
             self.checks_ran += 1;
             self.check_result
         }
-        fn run_on_failure(&mut self, command: &str) {
+        fn run_on_failure(&mut self, command: &str, _timeout_seconds: Option<u64>) {
             self.cleanups.push(command.to_string());
         }
+    }
+
+    #[test]
+    fn run_shell_with_timeout_kills_a_hung_command() {
+        use std::time::Instant;
+        // A command that would hang for 30s is KILLED at the 1s bound and reported as failed — fast.
+        let start = Instant::now();
+        let ok = run_shell_with_timeout("sleep 30", Some(1));
+        let elapsed = start.elapsed();
+        assert!(!ok, "a timed-out command must count as failed");
+        assert!(elapsed.as_secs() < 5, "must kill near the deadline, took {elapsed:?}");
+    }
+
+    #[test]
+    fn run_shell_with_timeout_runs_fast_commands() {
+        assert!(run_shell_with_timeout("true", Some(5)), "exit 0 → success");
+        assert!(!run_shell_with_timeout("false", Some(5)), "exit 1 → failure");
+        // No bound → blocking wait still works (historical behavior preserved).
+        assert!(run_shell_with_timeout("true", None));
     }
 
     #[test]
