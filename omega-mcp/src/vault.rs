@@ -8,7 +8,8 @@
 use crate::types::ToolResult;
 use memmap2::Mmap;
 use rayon::prelude::*;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -357,12 +358,72 @@ impl VaultExecutor {
             other => return err(format!("unknown edit op: {other} (expected append|replace_first|insert_after)"), crate::types::error_codes::INVALID_INPUT, start),
         };
         match fs::write(&full, &updated) {
-            Ok(_) => ToolResult::ok(
-                serde_json::json!({ "path": path, "op": op, "bytes_written": updated.len() }).to_string(),
-                start.elapsed().as_millis() as u64,
-            ),
+            Ok(_) => {
+                // VAULT-DEEP-INTEGRATION §720 (#4): record the EXTERNAL-agent edit for provenance — the MCP
+                // analog of the in-app `AgentNoteEditProvenance` MutationEnvelope. BEST-EFFORT + HONEST: the
+                // file IS written (the edit is the truth), so a provenance-log failure must NOT fail the edit;
+                // instead the result reports `provenance_recorded:false` + the error → never a SILENT gap.
+                let mut data = serde_json::json!({ "path": path, "op": op, "bytes_written": updated.len() });
+                match self.record_edit_provenance(path, op, &content, &updated) {
+                    Ok(mutation_id) => {
+                        data["provenance_recorded"] = serde_json::Value::Bool(true);
+                        data["mutation_id"] = serde_json::Value::String(mutation_id);
+                    }
+                    Err(e) => {
+                        data["provenance_recorded"] = serde_json::Value::Bool(false);
+                        data["provenance_error"] = serde_json::Value::String(e);
+                    }
+                }
+                ToolResult::ok(data.to_string(), start.elapsed().as_millis() as u64)
+            }
             Err(e) => err(format!("Cannot write {path}: {e}"), crate::types::error_codes::EXECUTION_ERROR, start),
         }
+    }
+
+    /// VAULT-DEEP-INTEGRATION §720 (#4): append a deterministic provenance record for an external-agent note
+    /// edit to `.epistemos/mcp_vault_events.jsonl` (sibling of the graph event log). Mirrors the in-app
+    /// `MutationEnvelope` intent — `op:"artifact_update"`, agent actor, before/after blake3 content hashes, an
+    /// integrity hash, `affects_body` — in omega-mcp's own honest event vocabulary (no agent_core dep). The
+    /// `mutation_id`/`integrity_hash` are content-derived (no clock/random) so a replayed edit is idempotent in
+    /// the log. Returns the `mutation_id` on success. Append-only audit trail; the app can ingest it later.
+    fn record_edit_provenance(
+        &self,
+        path: &str,
+        op: &str,
+        before: &str,
+        after: &str,
+    ) -> Result<String, String> {
+        let hex = |b: &[u8]| blake3::hash(b).to_hex().to_string();
+        let before_hash = hex(before.as_bytes());
+        let after_hash = hex(after.as_bytes());
+        let mutation_id = format!(
+            "vault-edit-{}",
+            &hex(format!("{path}\u{1f}{op}\u{1f}{before_hash}\u{1f}{after_hash}").as_bytes())[..16]
+        );
+        let integrity_hash = hex(
+            format!("{mutation_id}\u{1f}{path}\u{1f}{op}\u{1f}{before_hash}\u{1f}{after_hash}").as_bytes(),
+        );
+        let record = serde_json::json!({
+            "mutation_id": mutation_id,
+            "op": "artifact_update",
+            "edit_op": op,
+            "artifact_path": path,
+            "actor": "agent",
+            "before_hash": before_hash,
+            "after_hash": after_hash,
+            "integrity_hash": integrity_hash,
+            "affects_body": true,
+        });
+        let dir = self.root.join(".epistemos");
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(dir.join("mcp_vault_events.jsonl"))
+            .map_err(|e| e.to_string())?;
+        let line = serde_json::to_string(&record).map_err(|e| e.to_string())?;
+        writeln!(file, "{line}").map_err(|e| e.to_string())?;
+        Ok(mutation_id)
     }
 
     /// Write content to a file in the vault.
@@ -1049,5 +1110,47 @@ mod tests {
         let r = exec.edit_note("n.md", "replace_first", "ABSENT", "x");
         assert!(!r.success, "missing find must error");
         assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), before, "must not write on failure");
+    }
+
+    #[test]
+    fn test_vault_edit_note_records_provenance() {
+        // VAULT-DEEP-INTEGRATION §720 (#4): every external-agent edit leaves an auditable provenance record.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("n.md"), "# Title\nfoo").unwrap();
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+
+        let r = exec.edit_note("n.md", "replace_first", "foo", "bar");
+        assert!(r.success, "{}", r.data_json);
+        let data: serde_json::Value = serde_json::from_str(&r.data_json).unwrap();
+        assert_eq!(data["provenance_recorded"], true);
+        let mutation_id = data["mutation_id"].as_str().unwrap().to_string();
+        assert!(mutation_id.starts_with("vault-edit-"));
+
+        // The append-only log holds the artifact_update record with content hashes + the same mutation id.
+        let log = std::fs::read_to_string(root.join(".epistemos/mcp_vault_events.jsonl")).unwrap();
+        let rec: serde_json::Value = serde_json::from_str(log.lines().next().unwrap()).unwrap();
+        assert_eq!(rec["op"], "artifact_update");
+        assert_eq!(rec["edit_op"], "replace_first");
+        assert_eq!(rec["artifact_path"], "n.md");
+        assert_eq!(rec["actor"], "agent");
+        assert_eq!(rec["affects_body"], true);
+        assert_eq!(rec["mutation_id"], mutation_id);
+        assert_eq!(rec["before_hash"].as_str().unwrap().len(), 64);
+        assert_ne!(rec["before_hash"], rec["after_hash"], "content changed → hashes differ");
+
+        // DETERMINISTIC id: the SAME edit on the same before/after content yields the SAME mutation_id
+        // (content-derived, no clock) — even though the log is append-only (a second line is added).
+        std::fs::write(root.join("n.md"), "# Title\nfoo").unwrap(); // reset to reproduce the same transition
+        let r2 = exec.edit_note("n.md", "replace_first", "foo", "bar");
+        let data2: serde_json::Value = serde_json::from_str(&r2.data_json).unwrap();
+        assert_eq!(data2["mutation_id"], mutation_id, "same transition → same deterministic id");
+        let log2 = std::fs::read_to_string(root.join(".epistemos/mcp_vault_events.jsonl")).unwrap();
+        assert_eq!(log2.lines().count(), 2, "append-only: two recorded edits");
+
+        // HONEST: a FAILED edit (missing anchor) records NO provenance (no write → no audit line).
+        let _ = exec.edit_note("n.md", "replace_first", "ABSENT", "x");
+        let log3 = std::fs::read_to_string(root.join(".epistemos/mcp_vault_events.jsonl")).unwrap();
+        assert_eq!(log3.lines().count(), 2, "failed edit adds no provenance record");
     }
 }
