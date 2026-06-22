@@ -25,7 +25,7 @@ only.** Act is P0 blocking for owner pain; **act certified ≠ loop done.**
 |-------|----------|-----------|---------------------|-------|
 | **Epistemos (main)** | Epistemos-native tab | TriageService / vault / graph | Main settings, graph or notes | 0.27, 0.21 |
 | **act** | Osaurus/act full settings | Osaurus in-process | Main act, mini, graph, note | 0.1–0.26, D1–D5 |
-| **work** | OpenCode/work settings | OpenCode/Goose engine | Work landing, TUI, toggle | 0.28, 1.1–1.8 |
+| **work** | OpenCode/work settings | OpenCode/Goose engine | Work landing, TUI, toggle | 0.28, 1.1–1.9 |
 | **beyond** | Tab per future clone (stub OK) | Per-clone when wired | Beyond tab + wired clones | 0.30, 4.14 |
 
 **OFF-LIMITS:** Companion-backend (companions.rs, CompanionCreationFlow, new-model interrupt). **IN SCOPE:** work +
@@ -82,10 +82,10 @@ TIER 0 items are honestly `[~]` with screencapture/send-text evidence — and ev
 iteration before ending.
 
 1. **TIER 0:** 0.1 → 0.32 (act + clone baseline + reverse audit + iteration witness)
-2. **TIER 1:** 1.1 → 1.8 (OpenCode/work — do NOT skip because act is broken)
+2. **TIER 1:** 1.1 → 1.9 (OpenCode/work — do NOT skip because act is broken)
 3. **TIER 2:** 2.1 → 2.8 (substrate, salvage, BUILD-IT-HARDENED)
 4. **TIER 3:** 3.1 → 3.2 (TRINITY, Fugu)
-5. **TIER 4:** 4.1 → 4.16 (settings, pillars, beyond, graph integration)
+5. **TIER 4:** 4.1 → 4.18 (settings, pillars, beyond, graph, vault→GRAPH, MD-V2 inversion)
 6. **TIER 5:** 5.1 → 5.4 (distribution, MAS split, MAS sandbox substitute research)
 
 ## TIER 0 WALK (0.1 → 0.32)
@@ -106,7 +106,7 @@ iteration before ending.
 | 0.14–0.15 | Health rows + DEEP CHECK |
 | 0.16 | Reasoning + title-gen |
 | 0.17–0.20 | LOCKED direction / registration / deletion / duality |
-| 0.21 | Per-clone settings matrix (D4) — 4 tabs |
+| 0.21 | Per-clone settings matrix (**D4 sole owner — 0.21**) — 4 tabs |
 | 0.22 | ONE inference chokepoint |
 | 0.23–0.26 | Send harness / UI bugs / gated chat delete / UI-hide |
 | 0.27 | Epistemos (main) clone baseline |
@@ -182,7 +182,7 @@ iteration before ending.
 |------|-------|-------|
 | **W1–W5** | Work (0.28, 1.2–1.9) | W1 binary+launch PNG · W2 TUI PNG · W3 palette match · W4 **REQUIRED** work harness · W5 toggle+blur (Electron=1.8) |
 | **B1–B3** | Beyond (0.30, 4.14) | Honest stub; Companion grep clean; stub ≠ `[x]` |
-| **S1–S5** | Substrate/orchestrator (2.1–2.8, 3.1–3.2) | Live-path integration test; AnswerPacket surfaced; NOT fake-green |
+| **S1–S5** | Substrate/orchestrator (2.1–2.8, 3.1–3.2) | Live-path integration test + **runtime artifact**; gate (e) headless per ARCHITECTURE_TIER_PROMOTION_CANON T4; NOT fake-green |
 
 ## D1–D5 (must all pass YOUR screencapture before act is done)
 - **D1** Curved window + soft shadow · **D2** Owner landing FIRST · **D3** Pill back · **D4** Settings work (all clone tabs) · **D5** Full reskin + picker/palette/38-tool panel
@@ -194,10 +194,13 @@ Ground truth: `docs/research/osa_runtime_2026_06_22.png` (see `osa_runtime_PLACE
 2. Baseline screencapture → **unique path** `/tmp/epi_iter<N>_act_YYYYMMDD-HHMM.png` → Read PNG; log timestamp;
    save `osa_runtime_2026_06_22.png` if missing (re-capture when cited)
 3. Build/run send-text harness (0.23) — assert reply + **served-model == selected-model**; work harness REQUIRED for 1.7/W4
-4. Walk **0.1 → 0.32**, then **continue TIER 1→5** same iteration — no queue-jumping. **Stopping before 1.1
-   is INCOMPLETE** unless all T0 are honest `[~]` with evidence AND you still attempted TIER 1+ before ending.
-5. Reverse addendum audit (0.31) + full-plan witness (0.32) — witness must cite **highest attempted** AND **lowest still-[ ] item ID**
-6. Update queue + STRICT_RECERT_LOG; `git add` only your files; Co-Authored-By Claude
+4. Walk **0.1 → 0.32**, then **continue TIER 1→5** same iteration — no queue-jumping. Binding floor = **0.32
+   lowest still-[ ] advanced this iteration**. **Stopping before 1.1 is INCOMPLETE** unless all T0 are honest `[~]`
+   with evidence AND you still attempted TIER 1+ before ending. **"STRICT RE-CERT COMPLETE" FORBIDDEN** while ANY
+   queue box is still `[ ]`.
+5. Reverse addendum audit (0.31) + full-plan witness (0.32) — witness must cite **highest attempted** AND **lowest
+   still-[ ] item ID** (must advance vs prior iteration unless sole change is honest new `[~]`)
+6. Update queue + STRICT_RECERT_LOG under **`## Certification log`**; `git add` only your files; Co-Authored-By Claude
 
 **Act certified ≠ iteration done. Certify FULL PLAN, not act-only. Do not say "computer use unavailable" — use screencapture + Read + osascript.**
 
@@ -212,8 +215,10 @@ Re-read IN FULL: `docs/AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md` + `docs/WO
 Pick **first unchecked item in numeric order** (0.1→0.32, then TIER 1→5). **Act certified ≠ loop done.**
 
 Every iteration: compile · send-text harness (0.23, model-ID assert) · screencapture per surface (unique path +
-timestamp) · 5-gate bar (gate-c distinct mount/route cite) · reverse addendum audit (0.31) · full-plan witness
-(0.32, highest + lowest still-[ ] item IDs required). Certify **Epistemos|act|work|beyond** per clone matrix.
-Continue into TIER 1+ after TIER 0 — **do NOT defer TIER 1+ to "next iteration"**. FULL-PLAN-NO-ACT-TUNNEL.
-Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md`; commit only your files; Co-Authored-By Claude.
-Plan wins over code.
+timestamp) · 5-gate bar (gate-c distinct mount/route; gate-d same entry as (c) + "0 skipped/ignored") · per-tier
+discovery sweep · reverse addendum audit (0.31 full heading diff) · full-plan witness (0.32, highest + lowest
+still-[ ] IDs; lowest must advance). Certify **Epistemos|act|work|beyond** per clone matrix. Continue into TIER 1+
+after TIER 0 — **do NOT defer TIER 1+ to "next iteration"**. FULL-PLAN-NO-ACT-TUNNEL. **"STRICT RE-CERT COMPLETE"
+FORBIDDEN while ANY box is `[ ]`.**
+Update queue + `docs/research/STRICT_RECERT_LOG_2026_06_22.md` under **`## Certification log`**; commit only your
+files; Co-Authored-By Claude. Plan wins over code.

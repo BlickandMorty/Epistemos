@@ -568,3 +568,24 @@ routing per clone, settings per clone, work/beyond surfaces, health rows, BUILD-
 | `OSAURUS_BUILD_PROGRESS` may claim done | 0.15 DEEP CHECK rewrites honestly |
 | Northstar PNGs | Optional visual refs |
 | Post-recert forward scope | P1 — define forward-only trigger when first real cert lands |
+
+## CURSOR HANDOFF final verification (2026-06-22 — handoff close)
+
+Two internal verification passes. WORK_QUEUE landed **7ecc2b9ed**; final commit syncs strict + paste + log.
+
+### A–E checklist (owner spec)
+| Section | Verdict |
+|---------|---------|
+| **A** P0 certification anti-gaming | **PASS** |
+| **B** P1 evidence forgery | **PASS** |
+| **C** P1 discovery/completeness | **PASS** |
+| **D** P1 contradictions | **PASS** |
+| **E** No context bloat | **PASS** |
+
+### Internal pass 1 — contradiction grep (3 docs)
+`one item minimum`=0 · harness `when available` only as "forbidden"=1 · bare `Talaria`=0 · `lowest still-[ ]` present · `OsaurusChatView` present → **PASS**
+
+### Internal pass 2 — →plan anchors + lowest-still-[ ]
+CHAT_BACKEND + SUBSTRATE_BUILD_SEQUENCE + ARCHITECTURE_TIER_PROMOTION_CANON exist on disk; lowest still-[ ] in queue+strict+paste → **PASS**
+
+### Pre-launch score: **18/20 PASS** (runtime PNG + uncertified queue = expected FAIL)
