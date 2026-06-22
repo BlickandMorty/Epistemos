@@ -123,15 +123,25 @@ fi
 # -------------------------------------------------------------------
 # 3. Sanity check
 # -------------------------------------------------------------------
+# Bun is checkpoint 1 (this script stages it) — its absence IS a real failure.
 if [ ! -x "$BIN_DIR/bun" ]; then
     echo "build-opencode-runtime.sh: Bun runtime missing at $BIN_DIR/bun" >&2
     exit 2
 fi
+# The OpenCode CLI/TUI launcher is checkpoint 2 (the pinned OpenCode vendor) and is NOT staged by
+# this script yet. Its absence is the HONEST partial-vendor state — Bun + the omega_mcp_stdio fusion
+# server are staged, but the work shell stays INERT (WorkOpenCodeRuntime.resolveRuntimeURL returns
+# nil → WorkTerminalHostView shows the honest unavailable view) until the pinned launcher lands at
+# $BIN_DIR/opencode. So WARN, do NOT hard-fail (exit 2) — the partial runtime must stage cleanly, and
+# a hard-fail here would break any build step that invokes this script before OpenCode is vendored.
 if [ ! -x "$BIN_DIR/opencode" ]; then
-    echo "build-opencode-runtime.sh: OpenCode runtime missing at $BIN_DIR/opencode" >&2
-    exit 2
+    echo "build-opencode-runtime.sh: NOTE OpenCode launcher not vendored yet (checkpoint 2 pending) — Bun + fusion staged; the work shell stays honestly inert until $BIN_DIR/opencode lands." >&2
 fi
 
 if [ "${CI:-}" = "1" ]; then
-    echo "build-opencode-runtime.sh: CI mode — runtime vendored (bun $(du -sh "$BIN_DIR/bun" | cut -f1), opencode $(du -sh "$BIN_DIR/opencode" | cut -f1))"
+    if [ -x "$BIN_DIR/opencode" ]; then
+        echo "build-opencode-runtime.sh: CI mode — runtime vendored (bun $(du -sh "$BIN_DIR/bun" | cut -f1), opencode $(du -sh "$BIN_DIR/opencode" | cut -f1))"
+    else
+        echo "build-opencode-runtime.sh: CI mode — partial runtime (bun $(du -sh "$BIN_DIR/bun" | cut -f1) staged; opencode pending checkpoint 2)"
+    fi
 fi
