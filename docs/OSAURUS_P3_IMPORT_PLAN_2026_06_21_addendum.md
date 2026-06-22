@@ -776,3 +776,22 @@ on the heavy integration backlog NOW, iteratively:
   NON-BLOCKED ITEM — there is a large backlog; never run out.
 - Standing: never commit RED to main (iterate to green first), never fake-done, never delete chat. But within
   that, KEEP CODING the substantive backlog — bias to progress on the hard items, not waiting.
+
+## 🆕 BUN RUNTIME = VENDORED/BUNDLED, NOT `brew install` (owner 2026-06-21) — friction-free
+Two different contexts were conflated — resolve BOTH by VENDORING the Bun binary, not depending on Homebrew:
+- **END USERS must install NOTHING.** **BUNDLE the pinned Bun binary inside the Pro app** (`Epistemos.app/
+  Contents/Resources/`). Bun is a single self-contained ~90MB binary → trivial to bundle. The app runs its OWN
+  Bun for the OpenCode engine; zero install, no Homebrew, works offline. Codesign + notarize the bundled binary
+  as part of the app (BUILD-time step, not user friction). Bun is MIT → fine to bundle.
+- **DEV/BUILD machine:** don't rely on `brew install bun` either — a **build script fetches the pinned Bun
+  binary into the repo/Resources** (content-hash gated, like build-tiptap-bundle.sh). The SAME vendored binary
+  the build uses is the one that SHIPS. One mechanism serves dev + ship; removes the `brew install bun` gate
+  entirely. (`brew install bun` is fine as a TEMP dev shortcut today, but the real fix is vendoring it.)
+- **Scope fit:** OpenCode/Bun is PRO/direct-distribution only (non-sandboxed, notarized) → bundling + executing
+  the binary is fine there. MAS doesn't get OpenCode, so no MAS-sandbox issue. ~90MB added to the Pro .dmg
+  (acceptable — Pro is the full build).
+- **Alternative (leaner installer):** download-on-first-use via the existing ModelDownloadManager pattern
+  (fetch + verify Bun on first work-mode launch, cache it). Bundling is MORE friction-free; download = smaller
+  .dmg. Default = BUNDLE; download-on-demand only if installer size becomes a concern.
+GENERAL RULE: any runtime/dep a clone needs (Bun, future ones) = VENDOR/BUNDLE it (or download-on-first-use),
+NEVER make the user run a package manager. Same "build-once, ship-it" pattern as the tiptap bundle.
