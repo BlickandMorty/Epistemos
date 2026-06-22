@@ -1032,3 +1032,20 @@ interpretation (Elixir/BEAM can't run in-process MAS-Swift → no literal binary
 This is the native orchestrator IP (Path B) realized via a COMPLETE port of the open TRINITY impl + the real
 artifacts. Foundational + certain. Sequenced after P0 + act/work visible surfaces (per Fugu sequencing), but
 it IS getting fully built. code-more-build-less, no fake-done, no red on main.
+
+## 🆕 SYSTEM-PROMPTS LIBRARY — clone + per-model prompt engineering (owner 2026-06-22)
+Owner: clone github.com/asgeirtj/system_prompts_leaks + use their system prompts for all the models in the app.
+VERIFIED: 44.7k★, **CC0-1.0 (public domain) → unrestricted reuse, legally clean to copy/adapt**. Contains
+system prompts for Claude (Fable 5/Opus 4.8/Code/Design/Sonnet), GPT-5.5/5.4/Codex/o-series, Gemini, Grok,
+Cursor, Copilot, Perplexity, Qwen, Mistral, Notion, etc., organized by provider.
+DIRECTIVE:
+1. **VENDOR the repo** in-tree (CC0 — keep the notice) as a reference prompt library (e.g. vendor/system-prompts/).
+2. **PER-MODEL PROMPT ENGINEERING (owner IP play):** use these as the high-quality STARTING POINT for each
+   model's system prompt in the app's model lab / "Epistemos Picks" — wire a per-model system prompt to each
+   local + cloud model (Gemma/Qwen/VibeThinker/Claude/GPT/etc.) so every model is engineered to perform well in
+   Epistemos. This is the "custom bespoke per-model engineering" the owner wanted.
+3. **ADAPT, don't blind-paste (honest):** these prompts reference the SOURCE products' own tools/identity — mine
+   + ADAPT them to Epistemos (its tools, act/work modes, honesty rules), per model. Curated, not verbatim.
+4. **Modular:** a per-model prompt registry (data-driven) so prompts are editable + swappable as models/leaks
+   update. Ties to the per-model SS-Z/AA/AB profiles + the orchestrator (each pool model carries its tuned prompt).
+Foundational for model quality; sequenced with the model-lab / per-model work. CC0 license preserved.
