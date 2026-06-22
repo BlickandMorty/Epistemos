@@ -26,7 +26,14 @@ nonisolated enum WorkOpenCodeRuntime {
     /// Where the bundled OpenCode runtime launcher lives once vendored + bundled into
     /// the signed .app. Honest nil until then (no fake "present").
     static func bundledRuntimeURL(bundle: Bundle = .main) -> URL? {
-        guard let resources = bundle.resourceURL else { return nil }
+        resolveRuntimeURL(inResources: bundle.resourceURL)
+    }
+
+    /// Pure resolver (testable without a real Bundle): the `opencode-runtime/bin/opencode` launcher under a
+    /// Resources dir, IFF it exists + is executable. nil when the resources dir is nil or the binary is absent
+    /// (honest — the build-time `build-opencode-runtime.sh` vendor lands it; until then the shell stays inert).
+    static func resolveRuntimeURL(inResources resources: URL?) -> URL? {
+        guard let resources else { return nil }
         let launcher = resources
             .appendingPathComponent("opencode-runtime", isDirectory: true)
             .appendingPathComponent("bin", isDirectory: true)
