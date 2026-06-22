@@ -1159,3 +1159,10 @@ clones-MD-V2/distribution). FIXED the bug (prompts referenced only the addendum,
 full-plan authority chain + "implement EVERYTHING, read the item's plan slice, plan is current not stale" to the
 WORK_QUEUE banner + the AUDITOR_LOOP_PROMPT + the Codex goal. Updated docs/CODEX_BUILD_GOAL_2026_06_22.md (3875
 bytes <4000) with THE PLAN block. Delivered both final paste-ready prompts (builder + auditor). Did NOT touch agent code.
+
+## PASS 76 — 2026-06-22 (STANDBY — build-agent handoff to Codex in progress)
+No new build commits since pass-75 (1a28e7cf2 mine). Codex.app running (owner setting up Codex builder); an old
+`claude --dangerously` build proc still alive; no build proc; app build unchanged 15:45. Both final prompts
+delivered (Codex builder goal 3875B + auditor). HANDOFF NOTE: run ONE builder + ONE auditor — when the owner
+starts the fresh auditor (AUDITOR_LOOP_PROMPT) + Codex, STOP the old Claude build loop AND this auditor cron
+(34ea6526) to avoid two auditors racing the addendum. Holding (no owner stop-confirm yet). Did NOT touch code.
