@@ -1157,3 +1157,11 @@ deps (OsaurusSQLCipher/Sentry/Sparkle/CGRPCNIOTransportZlib/FastClusterWrapper/�
   agent settings). Wiring the host to DEFAULT the window to the owner's model needs Osaurus AgentManager changes
   (invasive/uncertain) — flagged for owner runtime-verify: confirm the picker shows your models + select yours
   once; if you want it auto-defaulted, that's a follow-on host/AgentManager wiring.
+
+## Owner's model is now the DEFAULT on the new act surface (owner #1 concern, 2026-06-22)
+- Closed the model-default gap flagged last commit: EpistemosOsaurusChatHost.bootstrap now seeds the default
+  agent's model to the owner's first registered model (EpistemosModelBridge.providedModelIds().first) via
+  AgentManager.updateDefaultModel, so the owner's FIRST send on the new Osaurus surface uses THEIR model — not
+  Osaurus's default agent model. Guarded by a PERSISTENT UserDefaults flag (runs exactly once ever) so it
+  NEVER re-clobbers the owner's later picker choice (which auto-persists). Honest no-op when no owner model is
+  registered. Directly serves the owner's #1 concern (send works with MY models).
