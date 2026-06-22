@@ -802,3 +802,23 @@ experimental gate).
     still inert (my change keeps runtime-absent → inert).
 - [ ] **PENDING (owner's running app):** verify the OpenCode TUI actually launches + renders in the PTY (Bun
   engine spins up). Goose/Hermes/OpenClaw fusion beneath + the omega-mcp vault server config are the follow-on.
+
+### 📋 SESSION STATE (2026-06-22) — act+work surfaces delivered to the buildable bar
+**DONE + Pro-verified (commits):** act = real Osaurus chat mounted (`2970a6920`) · MAS gating kept green
+(`7f464ffcf`) · reskin cream/monospace (`1b425eafa`) · runtime bootstrap + remove act experimental toggle
+(`df4b3653c`) · act↔work product toggle (`9da16c0f5`) · `<think>`/send analysis (`c57e407eb`) · work=OpenCode
+live + remove work experimental toggle (`cfd7fa41f`). The `<think>` leak is resolved by the surface migration
+(Osaurus's reasoning handling); a basic act send works via Apple's on-device Foundation Model.
+**MODEL REALITY (honest, code-verified — do NOT build a naive model bridge):** Osaurus's chat generates via
+`ChatEngine → [FoundationModelService (Apple on-device, no download), MLXService (MLX-format only), remote
+providers]`. `ExternalModelLocator` SKIPS GGUF dirs ("MLX runtime can't load them"). Epistemos's curated models
+are largely GGUF → NOT directly loadable by the Osaurus surface. So: pointing Osaurus at Epistemos's model dir
+does NOT work; the surface uses Apple's model / MLX models / remote. A real "use the owner's GGUF models in the
+Osaurus chat" bridge needs a GGUF service inside Osaurus's `ChatEngine` (a large piece), not a path bridge.
+**REMAINING (each runtime-gated or large/external — needs owner runtime-feedback to direct, not blind builds):**
+(1) live send/receive + OpenCode-TUI-launch verification (owner's running app — no computer-use in this loop);
+(2) Goose/Hermes/OpenClaw engine fused beneath OpenCode (honest stub today — external engine);
+(3) GGUF-in-Osaurus model service OR Epistemos-Picks port (format-gated, large);
+(4) sessions/vault/Eidos bridged into the Osaurus act chat (large integration);
+(5) MAS dual-build (pre-existing explicit-modules package-resolution failure, independent of this work);
+(6) retire old `ChatView` (blocked — it's MAS's real act surface until MAS gets Osaurus).
