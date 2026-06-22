@@ -144,13 +144,17 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
   ZERO regressions (flag-off byte-identical confirmed).
 
 **Context-gated remaining (NOT dropped — need a context the green-only main loop lacks):**
-- **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → CONCRETE
-  BLOCKER (verified 2026-06-21): **Bun is NOT installed** (`bun not found`); Node v25/npm ARE present, but
-  OpenCode is a Bun project (`bun.lock`/`bunfig.toml`) built with `bun build --compile`. UNBLOCK = owner
-  installs Bun (`brew install bun` / curl installer — a system toolchain install I won't do unprompted), then
-  add a build-time `build-opencode-runtime.sh` mirroring the proven `build-tiptap-bundle.sh` pattern (content-
-  hash-gated, output copied into Resources at BUILD time, NOT committed; never spawn at runtime). The Swift
-  seam/terminal/resolver go LIVE the moment that bundle lands — zero further Swift wiring.
+- **WORK functional = OpenCode runtime VENDORED (owner installed Bun 2026-06-21, gate cleared):**
+  `build-opencode-runtime.sh` (wired into the Pro/main preBuildScripts, NOT MAS) fetches at BUILD time, version-
+  stamp gated (like build-tiptap-bundle.sh), end-users install nothing, runtime gitignored:
+  - ✅ **ckpt 1 (`ce80215b2`):** pinned **Bun 1.3.14** → `Resources/opencode-runtime/bin/bun` (60M).
+  - ✅ **ckpt 2 (`c569e484a`):** pinned **OpenCode 1.17.9** standalone binary (sst/opencode `opencode-darwin-arm64`,
+    self-contained, no source build) → `bin/opencode` (123M). VERIFIED both vendor + `--version`; gating skips re-run.
+  - **Resolver `WorkOpenCodeRuntime.bundledRuntimeURL()` now resolves `bin/opencode` → the work shell goes LIVE
+    when armed (`EPISTEMOS_WORK_OPENCODE_V0=1`):** `BundledWorkOpenCodeShell.launchSpec` → `WorkTerminalHostView`
+    spawns the real OpenCode TUI in the native SwiftTerm/PTY view (reachable via the Work settings tab). Zero
+    further Swift wiring — the seam/terminal/resolver were pre-built for exactly this.
+  - REMAINS (ckpt 3): app-build + GUI launch-smoke (arm flag → confirm the TUI renders in the terminal view).
 - **GOOSE full-clone** = the `goose` crate (179 deps; reqwest 0.12↔0.13 clash) → needs a build-iteration
   context (worktree/branch), per owner §446-460 "not main red". See `docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`.
 - **MD-V2** (#12) = large mature EPDOC subsystem; no clean one-shot projection seam → needs dedicated grounding
