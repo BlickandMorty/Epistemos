@@ -61,8 +61,13 @@ theme-responsive (`3bead7af6`). **Motion ontology:** reusable `MotionTitle` (`9d
 (`3ec448552`). All honest-inert-until-real; chat quarantined.
 
 **Context-gated remaining (NOT dropped — need a context the green-only main loop lacks):**
-- **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → needs the Bun
-  toolchain + a build-phase step. The Swift seam/terminal/resolver go LIVE the moment that bundle lands.
+- **WORK functional** = vendor the OpenCode TS/Bun runtime into `Resources/opencode-runtime/` → CONCRETE
+  BLOCKER (verified 2026-06-21): **Bun is NOT installed** (`bun not found`); Node v25/npm ARE present, but
+  OpenCode is a Bun project (`bun.lock`/`bunfig.toml`) built with `bun build --compile`. UNBLOCK = owner
+  installs Bun (`brew install bun` / curl installer — a system toolchain install I won't do unprompted), then
+  add a build-time `build-opencode-runtime.sh` mirroring the proven `build-tiptap-bundle.sh` pattern (content-
+  hash-gated, output copied into Resources at BUILD time, NOT committed; never spawn at runtime). The Swift
+  seam/terminal/resolver go LIVE the moment that bundle lands — zero further Swift wiring.
 - **GOOSE full-clone** = the `goose` crate (179 deps; reqwest 0.12↔0.13 clash) → needs a build-iteration
   context (worktree/branch), per owner §446-460 "not main red". See `docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`.
 - **MD-V2** (#12) = large mature EPDOC subsystem; no clean one-shot projection seam → needs dedicated grounding
