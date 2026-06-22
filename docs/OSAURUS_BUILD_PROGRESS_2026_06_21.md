@@ -217,6 +217,10 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     end-to-end: backlinks/link_candidates/populate_from_vault advertised, phantom screenshot excluded) → real
     backlinks tools/call. Proves the transport half of the launch-smoke headless. REMAINS: app-build + GUI
     launch-smoke (TUI render — needs the running app).
+  - ✅ **MCP `ping` keepalive (`09da7845c`):** the server had no ping handler → the MCP spec keepalive (sent
+    by the SDKs incl. OpenCode's) returned `-32601 Unknown method`; some clients DROP the connection on a
+    failed ping. Now returns the spec empty `{}` result; in-process + real-transport-e2e tested. stdio bin
+    6/6 + e2e drives a real ping. Hardens the fusion link against client-side health-drops.
 - **🔴 P0 LIVE-CHAT REGRESSION (owner 2026-06-21) — partial fix + classified:** see
   `docs/research/P0_CHAT_REGRESSION_FINDINGS_2026_06_21.md`. (B) `<think>`-LEAK = SHARED inference-output bug
   (`strippingThinkingBlocks` left UNCLOSED `<think>` un-stripped) → **FIXED `c9184b4e6`** (43/43 incl. regression
