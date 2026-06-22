@@ -790,3 +790,20 @@ screenshot mandate present (7 hits).
 VERDICT: DOCS READY — GO. Launch the build agent with docs/AGENT_LOOP_PASTE_READY_2026_06_22.md. Remaining items
 (fresh baseline PNG, actual queue certification) are RUNTIME work for the build agent, not doc ticks — agreed.
 Cursor gap-fill loop killed. My 15-min audit loop (413bee6a) STAYS to audit the build agent as it codes.
+
+## PASS 54 — 2026-06-22 (build agent LIVE; iter1/iter2 audited — 0.1 PASS, 0.4 CORRECTION)
+Agent alive (2 claude procs). 2 new build commits since pass53:
+- 6becb2cdf (0.1 reskin) — PASS: edits VENDORED SOURCE (CustomTheme.swift cream #fbfaf5/#f4f3ee/#1c1c1e +
+  ThemeConfigurationStore schema bump), mandated approach not applyCustomTheme shim; correctly kept 0.1 `[ ]`
+  pending D5 cream screenshot (no fake-green). ✓
+- e7f4db83c (0.4 SEND, marked [x] CERTIFIED) — FLAG (gate-d unmet): (e) RUNTIME is genuine (GUI-drive send →
+  reply "CERTIFY", model Gemma 4 e2b it 4bit served==selected, PNG Read) — VALID. But (d) REAL-STATE only covers
+  the INERT/refusal path (#expect throws), NOT a successful send; agent admits "0.23: no headless harness yet
+  (used GUI-drive); building one remains the (d)-enabler." Marking 0.4 [x] on (e)-only = gate-(d) bypass = the
+  fake-green the bar forbids (iteration 2 precedent → correct now).
+ACTION: appended 🔴 AUDITOR CORRECTION (P0) to addendum — 0.4 not [x] until the 0.23 send-text harness exists +
+asserts served==selected on a SUCCESSFUL in-process send (same entry point (c) cites: ActOsaurusBridge.generate
+Stream via SharedActInference.actStreamIfArmed, 0 skipped); then 0.4+0.23 certify together; until then 0.4 reverts
+to [ ]/[~]. Agent's 0.31 reverse-audit should queue this. Did NOT touch agent's WORK_QUEUE/STRICT_RECERT_LOG/code.
+NOTE: agent otherwise exemplary — STEP-0 reset, baseline screenshot+Read, full-heading reverse-audit, act-tunnel
+DENIED (attempted 1.1), honest witness. The (d)/harness gap is the one real issue.
