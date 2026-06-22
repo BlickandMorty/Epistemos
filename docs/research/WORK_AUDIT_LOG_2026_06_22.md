@@ -648,3 +648,25 @@ resolve in the addendum (OWNER'S MODELS IN CHAT, DEEP CHECK, SURFACE-WIRING RULE
 VERDICT: spec is now comprehensive + internally consistent across prompt+queue+addendum; the 3 Cursor go-gates
 (0.11–0.16 indexed · no build-green/needs-owner default · stub+screenshot exist) are MET. App still not built
 (agent not launched) — green-light is for LAUNCH, not "done".
+
+## PASS 47 — 2026-06-22 (SCOPE CORRECTION — re-cert is the WHOLE plan, NOT just act)
+Owner (verbatim): "the entire plan needs to be a recertification not just [the UI] of the act. That's only a
+really small portion of the entire plan ... it should certify the ENTIRE multi-feature plan, all clones, etc.
+... much more thorough and much more strict."
+FINDING (against the current spec): the re-cert queue/prompt is ACT-HEAVY — TIER 0 (0.1–0.22) is almost entirely
+the act surface. Act is a SMALL slice. The re-certification MUST span the ENTIRE plan to the same 5-gate bar:
+  - WORK mode / OpenCode + Goose/Hermes/OpenClaw fusion (TIER 1)
+  - SUBSTRATE + IP salvage: AnswerPacket/Phase2, Helios salvage, GUS 1–18, eidos.query, provenance ledger,
+    EML/Belnap honesty gate, InterruptScore, L1 memory, HW tier (TIER 2)
+  - ORCHESTRATOR: System G + RuntimeRouter, TRINITY native port, Fugu guest provider, unification verdict (TIER 3)
+  - ALL CLONES + owner-facing: per-clone settings, system-prompts library, VAULT-DEEP-INTEGRATION pillar,
+    EPDOC MD-V2, Tamagotchi agent-creation, MOTION LANGUAGE triad, model-picker/palette/38-tool chrome,
+    Talaria/Epdoc-fuse clones, MAS-non-restrictive global (TIER 4)
+  - DISTRIBUTION + OPT: dual-build (MAS+Pro), deep-optimization cycles (TIER 5)
+ACCEPTANCE CRITERION (auditor will ENFORCE): "STRICT RE-CERT COMPLETE" is FALSE until EVERY queue item across
+ALL tiers (0→5) + every plan directive (all clones/features/substrate/IP) is CERTIFIED to the 5-gate bar or
+flagged `[~]` last-resort with reason. A re-cert that stops after the act surface = INCOMPLETE → I FLAG it.
+The build loop must walk the WHOLE plan top-to-bottom, not declare done at end of TIER 0.
+ACTION: NOT editing the plan/queue/prompt (other agent owns them; owner said don't). Logged here only so the
+build loop + plan-prep agent pick it up; surfaced to owner to ensure the spec makes whole-plan scope explicit.
+No build-loop commits this fire; build loop not running; tree mid-edit by plan-prep agent (untouched).
