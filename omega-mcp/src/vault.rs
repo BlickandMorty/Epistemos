@@ -260,6 +260,43 @@ impl VaultExecutor {
             .any(|link| Self::note_basename(link) == needle)
     }
 
+    /// VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki, "rival Obsidian" §343): ORPHAN notes — notes disconnected from
+    /// the knowledge graph, i.e. NO resolved outlink AND nothing links to them (Obsidian's "orphans" / isolated
+    /// notes). Distinct from dangling_links (broken links) and link_candidates (unlinked mentions): orphans is the
+    /// vault-WIDE "what's stranded" view, in ONE call (vs N note_links calls). The wiki/agent surfaces these to
+    /// suggest connections. Self-links don't count as connecting; links to non-existent notes don't count either.
+    pub fn orphan_notes(&self) -> ToolResult {
+        use std::collections::HashSet;
+        let start = Instant::now();
+        let notes = self.list_markdown_notes();
+        let existing: HashSet<String> = notes.iter().map(|n| Self::note_basename(n)).collect();
+        let mut linked_to: HashSet<String> = HashSet::new(); // basenames some OTHER note links TO
+        let mut has_outlink: HashSet<String> = HashSet::new(); // basenames that link OUT to another existing note
+        for rel in &notes {
+            let base = Self::note_basename(rel);
+            if let Ok(content) = fs::read_to_string(self.root.join(rel)) {
+                for link in Self::parse_wikilinks(&content) {
+                    let target = Self::note_basename(&link);
+                    if target != base && existing.contains(&target) {
+                        linked_to.insert(target);
+                        has_outlink.insert(base.clone());
+                    }
+                }
+            }
+        }
+        let mut orphans: Vec<String> = notes
+            .iter()
+            .filter(|rel| {
+                let b = Self::note_basename(rel);
+                !has_outlink.contains(&b) && !linked_to.contains(&b)
+            })
+            .cloned()
+            .collect();
+        orphans.sort();
+        let json = serde_json::json!({ "orphans": orphans, "total_notes": notes.len() });
+        ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
+    }
+
     /// VAULT-DEEP-INTEGRATION §720: the wikilink targets a note links TO (the dual of `backlinks`).
     /// Together they give agents the full in/out link graph for a note. Original link text preserved.
     pub fn outlinks(&self, path: &str) -> ToolResult {
@@ -797,6 +834,7 @@ pub fn is_vault_tool(tool_name: &str) -> bool {
             | "vault.dangling_links" | "dangling_links" | "unresolved_links"
             | "vault.note_links" | "note_links"
             | "vault.link_candidates" | "link_candidates" | "unlinked_mentions"
+            | "vault.orphan_notes" | "orphan_notes" | "orphans"
             | "vault.patch_note" | "patch_note"
     )
 }
@@ -864,6 +902,10 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
             // VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): unlinked mentions — auto-link suggestions.
             let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
             executor.link_candidates(path)
+        }
+        "vault.orphan_notes" | "orphan_notes" | "orphans" => {
+            // VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): orphan notes — disconnected from the graph.
+            executor.orphan_notes()
         }
         "vault.patch_note" | "patch_note" => {
             // VAULT-DEEP-INTEGRATION §720 (#4): structured note patch (safer than full overwrite).
@@ -1505,6 +1547,30 @@ mod tests {
     }
 
     #[test]
+    fn test_vault_orphan_notes_finds_disconnected() {
+        // §720 #3: orphans = no resolved outlink AND nothing links to them.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("alpha.md"), "links [[beta]]").unwrap();   // connected (out + back via beta)
+        std::fs::write(root.join("beta.md"), "back to [[alpha]]").unwrap(); // connected
+        std::fs::write(root.join("lonely.md"), "no links here").unwrap();   // ORPHAN (none in/out)
+        std::fs::write(root.join("dangly.md"), "see [[ghost]]").unwrap();   // ORPHAN (ghost doesn't exist)
+        std::fs::write(root.join("selfish.md"), "see [[selfish]]").unwrap();// ORPHAN (self-link doesn't connect)
+        let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
+
+        let r = exec.orphan_notes();
+        assert!(r.success, "{}", r.data_json);
+        let data: serde_json::Value = serde_json::from_str(&r.data_json).unwrap();
+        let orphans: Vec<&str> = data["orphans"].as_array().unwrap().iter().map(|o| o.as_str().unwrap()).collect();
+        assert_eq!(data["total_notes"], 5);
+        assert!(orphans.contains(&"lonely.md"), "{orphans:?}");
+        assert!(orphans.contains(&"dangly.md"), "dangling-only link → still orphan: {orphans:?}");
+        assert!(orphans.contains(&"selfish.md"), "self-link doesn't connect: {orphans:?}");
+        assert!(!orphans.contains(&"alpha.md"), "connected note not orphan: {orphans:?}");
+        assert!(!orphans.contains(&"beta.md"), "{orphans:?}");
+    }
+
+    #[test]
     fn test_is_vault_tool_parity_with_executor() {
         // DRIFT GUARD: every name `is_vault_tool` claims must ACTUALLY execute (never "Unknown vault tool"),
         // and a non-vault tool must NOT. This keeps the stdio fusion server's honest tools/list scoping true.
@@ -1520,6 +1586,7 @@ mod tests {
             "vault.dangling_links", "dangling_links", "unresolved_links",
             "vault.note_links", "note_links",
             "vault.link_candidates", "link_candidates", "unlinked_mentions",
+            "vault.orphan_notes", "orphan_notes", "orphans",
             "vault.patch_note", "patch_note",
         ];
         for name in names {
