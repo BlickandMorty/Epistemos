@@ -31,6 +31,48 @@ fn atomic_write(full: &Path, content: &[u8]) -> std::io::Result<()> {
     fs::rename(&tmp, full)
 }
 
+/// Byte cap + retained-line count for the append-only `.epistemos/*.jsonl` agent-event telemetry logs. Shared
+/// by the graph event log AND the vault provenance log so both are bounded identically (§506).
+pub(crate) const EVENT_LOG_MAX_BYTES: u64 = 4 * 1024 * 1024; // ~4 MB
+pub(crate) const EVENT_LOG_KEEP_LINES: usize = 5_000;
+
+/// Append newline-delimited `lines` to the JSONL log at `path`, then BOUND it: the agent-event logs are
+/// write-only telemetry (nothing replays them — durable provenance lives in the EventStore), so a long agent
+/// session would otherwise grow them without limit. A cheap size check gates an O(n) trim (keep the most-recent
+/// `EVENT_LOG_KEEP_LINES`, rewrite ATOMICALLY via temp+rename so a trim can't corrupt the log). One helper, so
+/// the graph + vault logs stay bounded identically. Caller pre-creates the parent dir.
+pub(crate) fn append_lines_bounded(path: &Path, lines: &[String]) -> Result<(), String> {
+    if lines.is_empty() {
+        return Ok(());
+    }
+    {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .map_err(|e| e.to_string())?;
+        for line in lines {
+            writeln!(file, "{line}").map_err(|e| e.to_string())?;
+        }
+    }
+    if let Ok(meta) = fs::metadata(path) {
+        if meta.len() > EVENT_LOG_MAX_BYTES {
+            let body = fs::read_to_string(path).map_err(|e| e.to_string())?;
+            let all: Vec<&str> = body.lines().collect();
+            if all.len() > EVENT_LOG_KEEP_LINES {
+                let kept: String = all[all.len() - EVENT_LOG_KEEP_LINES..]
+                    .iter()
+                    .flat_map(|l| [*l, "\n"])
+                    .collect();
+                let tmp = path.with_extension("jsonl.tmp");
+                fs::write(&tmp, kept).map_err(|e| e.to_string())?;
+                fs::rename(&tmp, path).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    Ok(())
+}
+
 impl VaultExecutor {
     /// Create a new executor scoped to the given vault root.
     /// Returns None if the path doesn't exist or isn't a directory.
@@ -529,13 +571,8 @@ impl VaultExecutor {
         });
         let dir = self.root.join(".epistemos");
         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(dir.join("mcp_vault_events.jsonl"))
-            .map_err(|e| e.to_string())?;
         let line = serde_json::to_string(&record).map_err(|e| e.to_string())?;
-        writeln!(file, "{line}").map_err(|e| e.to_string())?;
+        append_lines_bounded(&dir.join("mcp_vault_events.jsonl"), &[line])?;
         Ok(mutation_id)
     }
 
@@ -1124,6 +1161,26 @@ mod tests {
         assert!(parsed["nodes"].is_object(), "store has the expected shape");
         // the atomic write renamed the temp away — nothing lingers.
         assert!(!root.join(".epistemos/mcp_graph.json.tmp").exists(), "temp file must be renamed away");
+    }
+
+    #[test]
+    fn test_append_lines_bounded_trims_oversized_keeping_recent() {
+        // The SHARED bound used by BOTH the graph + vault event logs: an oversized log is trimmed to the keep
+        // bound on the next append, the NEWEST line survives (most-recent kept), and no temp lingers.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("events.jsonl");
+        let filler = "{\"k\":\"vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\"}";
+        let big: String = std::iter::repeat(filler).take(48_000).flat_map(|l| [l, "\n"]).collect();
+        std::fs::write(&path, &big).unwrap();
+        assert!(std::fs::metadata(&path).unwrap().len() > super::EVENT_LOG_MAX_BYTES, "seed must exceed cap");
+
+        super::append_lines_bounded(&path, &["{\"newest\":1}".to_string()]).unwrap();
+
+        let after = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = after.lines().collect();
+        assert!(lines.len() <= super::EVENT_LOG_KEEP_LINES, "trimmed to keep bound, got {}", lines.len());
+        assert_eq!(lines.last().copied(), Some("{\"newest\":1}"), "the newest line must survive the trim");
+        assert!(!path.with_extension("jsonl.tmp").exists(), "no trim temp may linger");
     }
 
     #[test]
