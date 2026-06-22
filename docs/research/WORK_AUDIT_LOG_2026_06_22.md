@@ -287,3 +287,17 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   as Osaurus-powered (clickable engine status). Pro EXIT=0. Co-Authored.
 - **Verdict:** PASS both. Remaining P0-B: fuller Osaurus surfaces (model picker / tool controls beyond badge);
   live send verify (owner Pro launch). MAS dual-build unblocked.
+
+## Pass 20 — 2026-06-22 — MAS DUAL-BUILD GREEN + P0-B model stack
+- **Build loop:** ALIVE (xcode=1). HEAD `aa2efb02a` (4 min). Two build commits.
+- **c372c9314 (P0-B model stack) → ✅ PASS (real):** EpistemosModelBridge.providedModelIds() made public; the
+  clickable Osaurus engine panel LISTS the owner's registered Osaurus models → owner SEES their models wired
+  into act. Badge OsaurusCore import #if-guarded MAS-safe. Pro EXIT=0. Co-Authored.
+- **aa2efb02a (MAS SwiftTerm guard) → ✅ PASS (real, completes dual-build):** SwiftTerm PTY view (Pro-only) was
+  the LAST MAS link error; guarded import + WorkTerminalView + host call sites; MAS falls to honest
+  WorkTerminalUnavailableView (no faked terminal). MAS EXIT=0. → BOTH builds compile now (MAS + Pro); Pro-only
+  features honestly degrade on MAS. Co-Authored.
+- **MILESTONE:** dual-build GREEN (f810df1eb + aa2efb02a). Visible-Osaurus substantially done: badge on
+  landing+toolbar → clickable engine panel w/ live status + owner's model stack.
+- **Verdict:** PASS both. Remaining: live send verify (owner Pro launch); optional further Osaurus tool/feature
+  surfacing. Loop steady + honest (6+ passes since escalation, all real, no fake-green).
