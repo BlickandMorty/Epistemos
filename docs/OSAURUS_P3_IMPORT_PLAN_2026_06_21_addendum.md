@@ -1755,3 +1755,33 @@ the mini-chat (Epistemos-native) already renders correctly. NOT a runtime applyC
 cascade). We own the vendored copy → change its theme source directly. Then RUNTIME-VERIFY the act surface
 renders cream/monospace, not Osaurus default. This is the #1 P0 — the owner's central ask, do it now.
 - (Pairs with: landing→blur→act flow; confirm mini-chat reachable. The reskin-at-source is the unblock.)
+
+---
+
+## 🔴 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22) — P0, screenshot-grounded (docs/research/osa_runtime_2026_06_22.png)
+Owner ran the app and reported the act/Osaurus surface is still wrong (verbatim): *"the configuration doesn't
+work, I don't see the settings … the top portion of the window is supposed to be curved and it's boxy … I don't
+have my old Pill … there's so many issues."* Auditor took a live screencapture to GROUND each item. The act
+surface MUST NOT be marked certified/done until ALL of D1–D5 are fixed AND re-proven by the build agent's OWN
+screencapture (build → open → screencapture → look). This is the authority spec for queue item 0.8.
+
+- **D1 — Window BOXY → must be CURVED + soft shadow.** Act window top corners are square. Epistemos chrome
+  already exists (`Epistemos/App/RootView.swift` RoundedRectangle cornerRadius 12–22); the vendored Osaurus
+  `ChatView` host renders boxy. Apply the rounded/curved window + soft shadow to the act host. Verify by screenshot.
+- **D2 — Old Epistemos LANDING missing; Osaurus DEFAULT landing shows instead.** Running surface shows "Good
+  morning / How can I help you today?" + Osaurus buttons (What's configured? / Download a model / Add a provider /
+  Install a plugin) + the Osaurus dino greeting. Restore the owner's landing
+  (`Epistemos/Views/Landing/LandingView.swift`) → press → blur → act (Osaurus host) per the landing→blur→act
+  flow (queue 0.3). Verify the owner's landing shows FIRST, not Osaurus's.
+- **D3 — The PILL is missing** (only a small Act/Work segmented toggle shows). Pill exists in code:
+  `ChatCapabilityPill` (Epistemos/Views/Landing/LandingView.swift:1178), `NativePillButtonStyle`
+  (Epistemos/Views/Chat/ChatSidebarView.swift:76), composer activity pill
+  (Epistemos/Views/Chat/ToolActivityNarrator.swift). Bring the owner's pill back onto the act surface. Verify by screenshot.
+- **D4 — Configuration / Settings doesn't work / not visible.** "Configuration" is in the bottom bar but doesn't
+  open real settings. Wire act/Osaurus configuration + the per-clone SETTINGS (Epistemos|act|work|beyond, the
+  per-clone-settings directive) so settings actually open and are usable. Verify by screenshot.
+- **D5 — Reskin only PARTIAL.** Background is lighter but the surface is still Osaurus chrome, not the owner's
+  cream/monospace discipline + preserved chrome (model picker w/ real logos + Epistemos Picks, command palette,
+  38-tool agent panel). Finish the reskin so it is the owner's UI with Osaurus logic underneath.
+- **GENERAL:** owner said "so many issues" — D1–D5 are the named ones; while certifying the act surface,
+  screenshot EVERY part and fix any other divergence from the owner's UI observed. Do not stop at this list.
