@@ -1519,3 +1519,29 @@ CARRY-OVER (passes 1-8 not wasted): the Osaurus engine link, runtime bootstrap, 
 removal, MAS gating all carry into (b); the mounted-Osaurus-ChatView SHELL is what (b) replaces with the old UI.
 Model-bridge (item 4) is UI-direction-AGNOSTIC → proceeds regardless. This is the act-surface work; do it before
 more WORK polish. (If the owner ever signals they prefer (a), revisit — but (b) is the confirmed direction now.)
+
+## 🔴🔴 P0 — OPTION-(b) RUNTIME FAILURE: act looks like old chat + Osaurus invisible + NOT WORKING (owner 2026-06-22)
+Owner on the RUNNING app after the option-(b) pivot (fe66b8af7): "I don't see Osaurus anymore and it's not
+working — it's like it regressed completely, I have my old chat here." The pivot was BUILD-green (EXIT=0) but
+RUNTIME-FAILING — exactly the live-verify that was pending. The option-(b) pivot is NOT done; re-opened. TWO P0s:
+
+### P0-A — act doesn't WORK (top priority). Diagnose + fix why a real send fails on the running app:
+- **Scheme check FIRST:** is the owner's running app the Pro/direct (non-EPISTEMOS_APP_STORE) build? On the
+  App Store/MAS scheme `shouldRouteActThroughOsaurus()` returns FALSE by design → Osaurus off, plain old chat.
+  If so, the owner must run the Pro scheme (or MAS needs the MAS-safe OsaurusCore split). Confirm/instruct.
+- **If Pro:** the route engages (TriageService→SharedActInference.actStreamIfArmed→OsaurusCore) but the send
+  fails. Diagnose: is EpistemosOsaurusModelProvider actually REGISTERED (AppBootstrap, after snapshot)? is the
+  coreModel default (fd21ae463) actually set? does CoreModelService.generateStream throw (modelUnavailable / no
+  prepared model / container load fail)? Make failures VISIBLE (honest error in the UI), and make a real
+  send/receive actually work end-to-end. No silent break, no silent fallback.
+- REAL runtime verification required (computer-use or owner-witness) before calling act done — build-green is NOT enough.
+
+### P0-B — Osaurus is INVISIBLE; owner can't tell it's Osaurus (feels like the dead old chat):
+- Owner wanted to SEE Osaurus + its features/buttons ("give me the Osaurus buttons, recall them into my UI"),
+  not just have it silently underneath. Option (b) made the old UI identical → owner feels Osaurus is "gone."
+- SURFACE Osaurus in the act UI: a clear indicator act is Osaurus-powered + bring Osaurus's distinguishing
+  features/controls/buttons (and its landing identity) INTO the old UI so it's visibly Osaurus, not the plain
+  old chat. (The old UI shell stays — but Osaurus's capabilities show within it.)
+
+AUDITOR NOTE: build-audit PASS ≠ runtime PASS. The option-(b) pivot is re-opened as P0 until the owner can SEND
+in act on a running Pro build AND see it's Osaurus. Keep genuine-Osaurus + no-toggle + old-UI invariants.
