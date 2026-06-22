@@ -588,3 +588,19 @@ reskin used runtime applyCustomTheme, NOT vendored Theme.swift SOURCE edit; vend
 → new agent must screenshot the act surface and, if not cream, fix at the vendored theme source per plan.
 Build-loop uncommitted working set (Localizable.xcstrings ×2, AnswerPacketHealthRow.swift, OSAURUS_BUILD_PROGRESS)
 left untouched per standing rule. VERDICT: PASS/standby. Watching for the strict agent's first re-cert commits.
+
+## PASS 43 — 2026-06-22 (P0 OWNER RUNTIME REPORT — act surface defects, screenshot-grounded)
+HEALTH: Epistemos.app running (PID from DerivedData Debug build). Auditor took live screencapture
+(docs/research/osa_runtime_2026_06_22.png) of the running act surface to GROUND the owner's report.
+OWNER (verbatim): "configuration doesn't work, I don't see the settings ... the top portion of the window is
+supposed to be curved and it's boxy ... I don't have my old Pill ... so many issues."
+GROUNDED FINDINGS (from the screenshot): act surface shows Osaurus's DEFAULT landing ("Good morning / How can I
+help you today?" + buttons What's configured?/Download a model/Add a provider/Install a plugin + dino greeting);
+boxy window top (not curved); only a small Act/Work segmented toggle (owner's pill missing); Configuration in
+bottom bar not opening real settings; reskin only partial (lighter bg, still Osaurus chrome).
+RE-ADDED as REQUIRED build items D1–D5 in the strict prompt (🔴 OWNER-REPORTED RUNTIME DEFECTS) + queue 0.8,
+each with code anchors so the agent can't hallucinate: D1 curved window+soft-shadow (RootView RoundedRectangle
+12–22 vs boxy Osaurus ChatView host); D2 restore LandingView→blur→act; D3 pill (ChatCapabilityPill
+LandingView.swift:1178 / NativePillButtonStyle ChatSidebarView.swift:76); D4 wire act config + per-clone
+settings; D5 finish reskin to owner cream/mono + preserved chrome. ACT SURFACE CANNOT be certified until all
+D1–D5 fixed AND re-proven by the agent's own screencapture. VERDICT: act surface FAIL (matches owner) — cycling.

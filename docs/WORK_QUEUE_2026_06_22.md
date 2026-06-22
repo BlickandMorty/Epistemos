@@ -65,6 +65,13 @@ STRICT CERTIFICATION BAR (re-cert mode — an item earns `[x]` ONLY when ALL hol
 - [ ] 0.6 (CLAIMED-done — RE-CERTIFY each) duplicate-toggle deleted · friendly errors · clean titles · scroll-blur
   graft · side-panel graft · white-bar/search fix · model-default seed — re-verify file:line + runtime they hold.
 - [ ] **0.7 message-bar graft** = reskin of Osaurus composer (owner-verify feel) →plan: "⚠️ MESSAGE-BAR graft".
+- [ ] **0.8 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22, screenshot-grounded)** — must screenshot-verify each fix:
+  D1 window BOXY→CURVED+soft-shadow (RootView has the chrome; Osaurus ChatView host renders boxy);
+  D2 old Epistemos LANDING missing (shows Osaurus default "Good morning"+download/provider/plugin buttons) →
+  restore LandingView→blur→act; D3 the PILL is gone (ChatCapabilityPill LandingView.swift:1178 /
+  NativePillButtonStyle ChatSidebarView.swift:76) → bring it back; D4 Configuration/Settings doesn't open/work →
+  wire act config + per-clone settings; D5 reskin only partial (still Osaurus chrome, not owner cream/mono +
+  model picker/palette/38-tool panel). →plan: "🔴 OWNER-REPORTED RUNTIME DEFECTS" in strict prompt + addendum.
 
 ## TIER 1 — WORK MODE (OpenCode)
 - [ ] 1.1 OpenCode launcher binary vendored (build-opencode-runtime.sh; owner may drop at Resources/opencode-runtime/bin/opencode). →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED" + Architecture C.

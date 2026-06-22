@@ -22,6 +22,34 @@ top with robust grounded evidence, fix what's actually wrong, and only then cont
 - **NOT LAZY.** "Looks done" is not certification. Every `[x]` needs cited evidence at the strict bar below.
   A glance, a grep that a symbol exists, or trusting a commit message is NOT enough.
 
+## 🔴 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22, grounded by screenshot docs/research/osa_runtime_2026_06_22.png)
+These are CONFIRMED broken on the running act surface RIGHT NOW. Each is a REQUIRED TIER-0 item; you may NOT
+mark the act surface certified until ALL are fixed AND re-proven by your own screencapture. Do NOT trust any
+"done" on these — the owner is looking at them broken.
+- **D1 — Window is BOXY, must be CURVED.** The act window top corners are square. Plan mandates rounded window
+  + soft shadow. Epistemos already has the chrome (`Epistemos/App/RootView.swift` uses RoundedRectangle
+  cornerRadius 12–22); the Osaurus `ChatView` host renders boxy. Apply the rounded/curved window + soft shadow
+  to the act host. Screenshot-verify the top is curved.
+- **D2 — Old Epistemos LANDING is missing; it shows Osaurus's DEFAULT landing.** Running surface shows "Good
+  morning / How can I help you today?" + Osaurus buttons ("What's configured?", "Download a model", "Add a
+  provider", "Install a plugin") + the Osaurus dino greeting. The owner's landing page + landing→blur→act flow
+  (queue 0.3) is NOT there. Restore the owner's Epistemos landing (`Epistemos/Views/Landing/LandingView.swift`)
+  → press → blur → act (Osaurus host). Screenshot-verify the owner's landing shows first, not Osaurus's.
+- **D3 — The PILL is missing.** Owner's old pill chrome is gone (only a tiny "Act/Work" segmented toggle shows).
+  The pill exists in code: `ChatCapabilityPill` (Epistemos/Views/Landing/LandingView.swift:1178) +
+  `NativePillButtonStyle` (Epistemos/Views/Chat/ChatSidebarView.swift:76) + composer activity pill
+  (Epistemos/Views/Chat/ToolActivityNarrator.swift). Bring the owner's pill back onto the act surface.
+  Screenshot-verify the pill renders.
+- **D4 — Configuration / Settings doesn't work / not visible.** "Configuration" is in the bottom bar but does
+  not open real settings. Wire the act/Osaurus configuration + the per-clone SETTINGS (queue 4.1,
+  Epistemos|act|work|beyond) so settings actually open and work. Screenshot-verify settings open and are usable.
+- **D5 — Reskin only partial.** Background is lighter but the surface is still Osaurus chrome, not the owner's
+  cream/monospace discipline + preserved chrome (model picker w/ real logos + Epistemos Picks, command palette,
+  38-tool agent panel — queue 4.7). Finish the reskin so it's the owner's UI with Osaurus logic underneath.
+- **GENERAL:** the owner said "there's so many issues" — D1–D5 are the named ones; while certifying the act
+  surface, screenshot EVERY part and fix any other divergence from the owner's UI you observe. Do not stop at
+  this list if the screenshot shows more wrong.
+
 ## EVERY ITERATION
 1. **Re-read docs/WORK_QUEUE_2026_06_22.md IN FULL** (it's small; it's the index). Re-read the STRICT banner.
 2. **Pick the FIRST item that is not yet CERTIFIED this phase**, walking strictly top-to-bottom from 0.1.
