@@ -830,3 +830,32 @@ it VIOLATES "no regression to live chat / flag-off = byte-identical."
 - **REAL-STATE regression test** that WOULD HAVE CAUGHT this: a VibeThinker-GGUF (reasoning-model) query →
   asserts a real (non-refusal) answer + a clean title (no `<think>`/no meta-prompt). Add for streaming + title.
 - Verify across models (not just VibeThinker) since owner says "any model."
+
+## 🆕 THREE STANDING DIRECTIVES (owner 2026-06-21)
+
+### 1. OWNER MESSAGES → PLAN, automatically (no raw-query reliance)
+Every directive the owner sends is FOLDED INTO THIS PLAN (addendum/ledger) so the agent reads it from disk —
+the owner should NOT have to relay raw prompts to the agent. The monitor captures each owner message here; the
+loop RE-READS this addendum every iteration (per the loop prompt) and acts on new sections. Owner intent flows:
+owner says it → captured to plan → agent reads + builds it. Standing process.
+
+### 2. ROBUST CAUTION + AGENT SELF-VERIFICATION (don't make the owner verify)
+"Steal no verifications from the owner." The agent must SELF-VERIFY user-facing features — ideally via
+**computer-use** (launch the app, send a real query, READ the actual on-screen output) and/or runtime
+launch-smoke + real-state tests — BEFORE claiming anything works. Specifically: after any chat/act/work change,
+the agent must actually RUN it and confirm a real, correct response (NOT a refusal, NOT a `<think>`/prompt leak,
+NOT a fallback). This regression (every query → "can't assist", title leaks `<think>`) MUST have a
+self-verification gate that would have caught it. More robust caution around live-inference changes: treat them
+as highest-risk, computer-use-verified before commit. (Builds on SS-AUTONOMOUS_VERIFY_SYSTEM.)
+NOTE: the P0 regression is on ALL models (owner tested all) — it's the shared reasoning-model `<think>` path,
+and it's CHAT (not act). The shared inference fix STILL matters (act uses the same path).
+
+### 3. CHANGE — DELETE the chat FEATURE in favor of act+work (owner now authorizes; supersedes "never delete")
+Owner update: the chat was always meant to be REPLACED by act; owner now wants **NO chat at all** — **delete
+the chat FEATURE/surface itself** from the app, keeping ONLY the IP/logic the owner wants preserved. This is the
+owner exercising the "only the OWNER authorizes deletion" clause. **SAFETY SEQUENCING (mandatory):**
+(a) FIRST preserve/port the owner's IP + the specific logic to keep (system prompts, the shared inference
+fixes, anything reused by act/work) — never lose it; (b) ensure ACT (+work) is a FUNCTIONAL replacement
+(reskin live, P0 fixed, reachable); (c) THEN delete the chat surface/feature in favor of act+work. Do NOT
+delete the chat NOW (act isn't ready + the inference fix is shared) — but the END STATE = no chat, only
+act+work. Supersedes the prior "quarantine, never delete" for the SURFACE (the IP is still preserved).
