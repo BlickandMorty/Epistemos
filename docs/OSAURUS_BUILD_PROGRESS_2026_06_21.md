@@ -367,6 +367,12 @@ Grounded in real files only (anti-hallucination). Authority: `OSAURUS_P3_IMPORT_
   switch (Pro only) + the existing bolt/headline reflect the resolved state live. Verified: ActOsaurusSeamTests
   **17/17** (+3: resolution order, status-source honesty, router-off-by-default), TEST SUCCEEDED. (Visual:
   switch styling is owner running-app judgment; the gate/router logic is real-state tested.)
+- [x] **WORK-ON-OPENCODE IN-APP TOGGLE — two-mode parity (owner §194, `fea6d356f`):** the act gate had a
+  runtime toggle but WORK was env-only; mirrored the override layer onto `WorkOpenCodeShellGateStatus`
+  (`override`/`setOverride`/`resolvedActive`: override>env>off; App Store always off). `WorkOpenCodeShell.resolve`
+  now gates on `resolvedActive` → the toggle arms the shell live (still honest-inert until the runtime is
+  bundled). `WorkOpenCodeShellHealthRow` shows the "Enable Work" switch (Pro). Both act + work now
+  runtime-toggleable (§194 two-toggle ontology). WorkOpenCodeShellSeamTests **7/7** (+2: resolution, status-source).
 - [🟡] **MODE-ENTRY ANIMATIONS (owner 2026-06-21)** — engine done → now in-scope. **LOGIC CORE DONE
   (`20cb97e25`):** `ModeEntryTransition` (pure/tested state machine: idle→backspace greeting→typewrite mode
   name→reveal; `displayText` per step; `advanced()` ticked by the view, no Date inside) + `WorkspaceModeKind`
