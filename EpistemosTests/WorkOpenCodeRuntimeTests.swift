@@ -16,6 +16,29 @@ struct WorkOpenCodeRuntimeTests {
         #expect(WorkOpenCodeRuntime.bundledRuntimeURL(bundle: .main) == nil)
     }
 
+    @Test("resolver finds bin/opencode when the build-time vendor lands it (the goes-LIVE path)")
+    func resolverFindsVendoredRuntime() throws {
+        let fm = FileManager.default
+        let res = fm.temporaryDirectory.appendingPathComponent("epi-oc-\(ProcessInfo.processInfo.globallyUniqueString)")
+        let bin = res.appendingPathComponent("opencode-runtime/bin", isDirectory: true)
+        try fm.createDirectory(at: bin, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: res) }
+
+        // No binary yet → nil (honest inert).
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: res) == nil)
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: nil) == nil)
+
+        // Drop an EXECUTABLE opencode (what build-opencode-runtime.sh vendors) → resolver finds it.
+        let oc = bin.appendingPathComponent("opencode")
+        fm.createFile(atPath: oc.path, contents: Data("#!/bin/sh\n".utf8),
+                      attributes: [.posixPermissions: 0o755])
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: res)?.lastPathComponent == "opencode")
+
+        // A NON-executable file is not accepted (honest — must be a runnable binary).
+        try fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: oc.path)
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: res) == nil)
+    }
+
     @Test("shell env pins the server to loopback (host-private, never exposed)")
     func envPinsLoopback() {
         let env = WorkOpenCodeRuntime.shellEnvironment(base: ["PATH": "/usr/bin"], runtimeURL: nil)
