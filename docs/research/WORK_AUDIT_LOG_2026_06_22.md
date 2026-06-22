@@ -578,3 +578,13 @@ OWNER DIRECTIVE (verbatim, 2026-06-22): super-strict full RE-CERTIFICATION — U
 DONE THIS PASS (auditor docs only): reset WORK_QUEUE to STRICT RE-CERT mode (banner + all boxes UNCERTIFIED +
   reset the two [~]→[ ] + added the 5-gate STRICT CERTIFICATION BAR); authored
   AGENT_LOOP_PROMPT_STRICT_RECERT_2026_06_22.md (the new strict looper driver). No build-loop files touched.
+
+## PASS 42 — 2026-06-22 (STANDBY — build loop between agents)
+HEALTH: main; HEAD=17ad27b04. Only commits since pass 41 are MY auditor/strict-prompt docs (1e68f42a2,
+17ad27b04). No new BUILD-loop commits; no screen session; no claude/codex loop proc → old agent stopped, new
+STRICT re-cert agent not yet launched/committing (owner restarting with AGENT_LOOP_PROMPT_STRICT_RECERT).
+DEEP-AUDIT: nothing new to audit (ba2f8952f reskin already audited+flagged pass 41). Open flag carried: 0.1
+reskin used runtime applyCustomTheme, NOT vendored Theme.swift SOURCE edit; vendored default still dark #0c0c0b
+→ new agent must screenshot the act surface and, if not cream, fix at the vendored theme source per plan.
+Build-loop uncommitted working set (Localizable.xcstrings ×2, AnswerPacketHealthRow.swift, OSAURUS_BUILD_PROGRESS)
+left untouched per standing rule. VERDICT: PASS/standby. Watching for the strict agent's first re-cert commits.
