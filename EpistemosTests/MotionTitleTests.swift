@@ -22,9 +22,12 @@ struct MotionTitleTests {
         #expect(src.contains("DISPLAY-ONLY") || src.contains("never in editors") || src.contains("NEVER use in text-EDITING"))
     }
 
-    @Test("MotionTitle is applied to a real display-only WORK title (not a dead component)")
-    func appliedToWorkTitle() throws {
-        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/WorkOpenCodeShellHealthRow.swift")
-        #expect(row.contains("MotionTitle("))
+    @Test("MotionTitle is applied to the real display-only WORK status titles (not a dead component)")
+    func appliedToWorkTitles() throws {
+        // Both work-seam status titles use the ontology consistently (OpenCode shell + Goose engine).
+        let shell = try loadMirroredSourceTextFile("Epistemos/Views/Settings/WorkOpenCodeShellHealthRow.swift")
+        #expect(shell.contains("MotionTitle("))
+        let goose = try loadMirroredSourceTextFile("Epistemos/Views/Settings/WorkBackendHealthRow.swift")
+        #expect(goose.contains("MotionTitle("))
     }
 }
