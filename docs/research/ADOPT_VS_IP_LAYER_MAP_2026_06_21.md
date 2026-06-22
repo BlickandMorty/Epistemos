@@ -44,3 +44,34 @@ Architecture C = OpenCode work engine + Goose UNIQUE-bits as clean-room Rust too
   MD-V2, graph+Metal, model lab (QAT/Epistemos-Picks/per-model), UI/motion.
 - Work: OpenCode engine; verify Goose-permissions overlap before keeping that one tool.
 - DEEP-PASS TODO (API recovery): full cited repo sweep + "anything-else"/Talaria + license/MAS per capability.
+
+---
+## DEEPER DELIBERATION (monitor, 2026-06-21 — sub-agent 529'd 4×, synthesized from committed research)
+
+### C confirmed + STRENGTHENED
+OpenCode is the more MATURE work engine for the WORK (coding) use case — 75+ providers, fork/share, undo-redo
+w/o git, ~177k stars, MIT — and running it HEADLESS (separate process) gives two structural wins Goose-in-proc
+can't: (1) ZERO Cargo dep-merge (no reqwest-0.12-vs-0.13.2 / 179-dep saga), (2) crash isolation (a Bun crash
+can't abort the app). So C isn't just "good enough" — it's the lower-risk, higher-capability work engine.
+
+### TWO refinements from deliberating (these IMPROVE C):
+1. **DROP Goose `permissions`.** OpenCode is a coding agent — it HAS its own file/shell permission gating. So
+   Goose-permissions almost certainly DUPLICATES it → remove from the clean-room tools (dedup). Keep
+   RetryManager (test-and-fix) + RepetitionGuard (loop-detect) — genuine cheap hardening. VERIFY `recipes`
+   vs OpenCode's own agent/command config — drop if duplicated.
+2. **LSP correction (NEW):** under C, OpenCode brings its OWN built-in LSP-for-agents (auto-loads 40+ language
+   servers). So the work agent gets LSP FROM THE ADOPTED ENGINE — do NOT force-wire YOUR `lsp_runtime` INTO
+   the OpenCode work loop (that's double-LSP). Re-evaluate `work_lsp_tools.rs` (commit 1c753902e): likely
+   REDUNDANT under C. Keep `lsp_runtime` for YOUR NATIVE EDITORS (Prose/Epdoc), not the work loop. (This
+   supersedes the convergence-era "wire lsp_runtime into work," which assumed Goose-engine = no LSP.)
+
+### Strategic conclusion (the real payoff)
+~2/3 of the app's INFRASTRUCTURE is ADOPT/HYBRID (agent engines, serving, sandbox, search libs tantivy/usearch,
+MLX, Tiptap editor base, AX). The differentiated ~1/3 = ALL the owner's effort should concentrate here:
+**the BRAIN (provenance/cognitive-DAG/Eidos/honesty/prompts), the NATIVE EDITORS (Prose 120fps + MD-V2), the
+GRAPH+Metal, the MODEL LAB (QAT/Epistemos-Picks/per-model), UI/MOTION/design.** Adopt the commodity 2/3; pour
+yourself into the 1/3 no one else has.
+
+### Still owed by the DEEP CITED pass (when API recovers — refines, won't change conclusion)
+Full repo URLs/stars/license per row; the "anything-else" sweep; and **Talaria** (owner-mentioned, adjacent) —
+NOT fabricated here; needs real cited research before any claim.
