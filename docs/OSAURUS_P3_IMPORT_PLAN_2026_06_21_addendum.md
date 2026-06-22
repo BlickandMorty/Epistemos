@@ -1454,3 +1454,14 @@ KEEP Osaurus; fix these so it matches/exceeds the old chat (reskin/override, not
 3. (Continues the deeper-reskin item above: message bar, side panel, fonts, whole-look parity + fix Osaurus UI bugs.)
 All additive on the Osaurus host (EpistemosOsaurusChatHost / RootView routing); keep OsaurusCore. These extend
 the current act-surface work (NOT a queue-jump). Re-audit on the running app after the build lands.
+
+## ⏫ PRIORITY (owner actively testing act) — finish ACT surface BEFORE more WORK polish (auditor, 2026-06-22)
+Owner is actively using/testing the ACT surface and reported live bugs (white bar at top; click-opens-search
+not the Osaurus landing) + wants the deeper reskin (message bar/side panel/fonts). These are owner-FACING +
+BLOCKING the owner's use → higher priority than further WORK/OpenCode polish. NEXT build items, in order:
+1. Remove the top white bar on the act surface.
+2. Click-to-open → Osaurus LANDING page (not the search bar).
+3. Deeper reskin: reapply old Epistemos message bar + side panel + fonts onto the Osaurus host; fix Osaurus UI bugs.
+4. (then) live send/<think> running-app verify; old-ChatView deletion (blocked on MAS split); WORK polish continues after.
+NOT a queue-jump — these ARE the current in-progress ACT surface work (owner reported them mid-build). Do these
+before advancing WORK further. Keep Osaurus; additive on EpistemosOsaurusChatHost/RootView.
