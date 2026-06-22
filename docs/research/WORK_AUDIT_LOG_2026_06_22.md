@@ -148,3 +148,10 @@ Osaurus engine (no toggle/fake), implementation its choice but ALL invariants me
   bootstrap carry over; mounted-ChatView shell is what (b) replaces. Unblocks the agent.
 - **Verdict:** PASS both; direction (b) confirmed to unblock. Remaining: build (b) old-UI shell on Osaurus +
   4b concrete model provider + live send verify + old-ChatView delete (MAS-blocked).
+
+## Pass 10 — 2026-06-22
+- **Build loop:** ALIVE, MID-BUILD (xcodebuild PID 57071 ~1m+ in, swift-frontend compiling) — verifying its
+  work (likely the option-(b) old-UI-on-Osaurus rework / a checkpoint build). Not hung, not idle.
+- **No new build commits since pass 9** (HEAD was my pass-9 audit); loop commits on green. Nothing to audit.
+- **Verdict:** healthy, no re-add. Did NOT kick a concurrent build (loop's xcodebuild running). Re-audit the
+  next build commit (expect option-(b) old-UI shell on Osaurus and/or 4b concrete model provider).
