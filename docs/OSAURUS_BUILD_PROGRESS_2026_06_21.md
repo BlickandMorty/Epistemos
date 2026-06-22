@@ -569,6 +569,10 @@ orchestration. Research: docs/research/FUGU_ORCHESTRATION_INTEGRATION_2026_06_22
   honest caps (streaming on; tools/vision off until verified). OpenAI-standard → act/work/picker + OpenCode.
 - REMAINS: Settings UI (Keychain key+endpoint+cost label+opt-in confirm) → picker/act/work + OpenCode-provider
   wiring → best-combo (b) native orchestration behind the same seam.
+- ⏱️ **SEQUENCING (owner §977):** Fugu is FOUNDATIONAL + CERTAIN but does NOT preempt the order. Correct sequence:
+  (1) P0 live-chat <think> regression FIRST, (2) act/work VISIBLE surfaces + the walk, (3) Fugu LATER-but-certain
+  (when System G/RuntimeRouter + act/work binding points are mature). The above slices are the committed-green
+  foundation; NO MORE Fugu ahead of P0 + act/work. RESUMING the regular order (P0) next iteration.
 
 ### ✅ camelCase bug class — fully swept + verified (2026-06-22)
 EpdocGraphProjector camelCase fix CHECKPOINT-GREEN (EpdocGraphProjectorTests 10/10, TEST SUCCEEDED). Codebase
