@@ -49,6 +49,13 @@ import os
 public actor AnswerPacketEmitter {
     public static let shared = AnswerPacketEmitter()
 
+    #if DEBUG
+    /// Test-only: a fresh, non-shared emitter so instance methods (e.g. `restoreFromPersistence`) can
+    /// be exercised hermetically without polluting `shared`'s ring. Excluded from release builds; the
+    /// singleton `shared` remains the one production instance.
+    static func makeForTesting() -> AnswerPacketEmitter { AnswerPacketEmitter() }
+    #endif
+
     private static let log = Logger(
         subsystem: "com.epistemos",
         category: "AnswerPacket"
@@ -228,6 +235,26 @@ public actor AnswerPacketEmitter {
     public func persistedRecent(limit: Int) -> [AnswerPacket] {
         guard let store else { return [] }
         return (try? store.loadRecent(limit: limit)) ?? []
+    }
+
+    /// SUBSTRATE Phase 2 — LOAD-ON-LAUNCH RING RESTORE (SUBSTRATE_BUILD_SEQUENCE; the AnswerPacketStore
+    /// "production wiring later" slice). `emit()` already persists each packet to the durable JSONL via
+    /// `store.append`, but on relaunch the in-memory `ring` started EMPTY — so the per-answer provenance
+    /// was on disk yet invisible to `recentPackets()` / `snapshot()` / the health row. This seeds the ring
+    /// from the most-recently persisted packets so the history survives relaunch.
+    ///
+    /// SAFE: only seeds when the ring is EMPTY (first launch), so it never duplicates or reorders
+    /// live-emitted packets. Restores ring MEMBERSHIP only — the monotonic session counters
+    /// (`totalEmitted` / `modeCounts` / …) stay per-process by design (they measure THIS session, not the
+    /// durable history). Returns the number of packets restored (0 = nothing to restore / persistence off).
+    @discardableResult
+    public func restoreFromPersistence(limit: Int = AnswerPacketEmitter.maxRingSize) -> Int {
+        guard ring.isEmpty, let store else { return 0 }
+        let recent = (try? store.loadRecent(limit: limit)) ?? []
+        guard !recent.isEmpty else { return 0 }
+        // `loadRecent` is MOST-RECENT-FIRST; the ring is oldest→newest, so reverse.
+        ring = Array(recent.reversed())
+        return ring.count
     }
 
     /// Most recent packet, if any.
