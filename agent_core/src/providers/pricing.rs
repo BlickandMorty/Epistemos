@@ -198,6 +198,17 @@ pub fn all_pricing() -> &'static [ProviderPricing] {
     PRICING_TABLE
 }
 
+/// Session cost = the per-TOKEN cost of `usage` PLUS the flat per-REQUEST fee × `request_count`. The plain
+/// `estimate_usage_cost_usd` only sums per-token rates and IGNORES `request_usd_per_1k` — so for a per-request-
+/// billed provider (e.g. Perplexity at $14/1k requests = $0.014/request) it UNDERCOUNTS the true spend, which
+/// matters for budget gating. The agent loop passes its `turn_count` (one provider request per turn) as
+/// `request_count`. Token-only providers (per_message_usd == None) are unaffected.
+pub fn estimate_session_cost_usd(provider: &str, usage: &TokenUsage, request_count: u32) -> f64 {
+    let token_cost = estimate_usage_cost_usd(provider, usage);
+    let request_fee = per_message_usd(provider).unwrap_or(0.0) * f64::from(request_count);
+    token_cost + request_fee
+}
+
 /// The flat per-MESSAGE (per-request) USD cost for a provider, if it charges one — e.g. Fugu ~$10.00/msg,
 /// Perplexity ~$0.014/msg. `request_usd_per_1k` is priced per 1,000 requests; this divides it to per-message.
 /// Surface this in Settings so an expensive orchestrator (Fugu) is an EXPLICIT, knowing opt-in — the per-token
@@ -294,7 +305,22 @@ fn round_cents(value: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{estimate_cost_usd, per_message_usd, pricing_for};
+    use super::{estimate_cost_usd, estimate_session_cost_usd, estimate_usage_cost_usd, per_message_usd, pricing_for};
+    use crate::types::TokenUsage;
+
+    #[test]
+    fn session_cost_includes_the_per_request_fee_for_per_request_providers() {
+        // Perplexity bills $14/1k requests = $0.014/request — the plain per-token estimate IGNORED it
+        // (undercounting budget gating). estimate_session_cost_usd adds it × request_count.
+        let usage = TokenUsage { input_tokens: 1_000_000, output_tokens: 1_000_000, ..Default::default() };
+        let token_only = estimate_cost_usd("sonar-pro", 1_000_000, 1_000_000); // $3 + $15 = $18
+        // 5 requests → +5 × $0.014 = +$0.07.
+        let session = estimate_session_cost_usd("sonar-pro", &usage, 5);
+        assert!((session - (token_only + 0.07)).abs() < 1e-9, "session={session} token_only={token_only}");
+        // A per-token-only provider (no request fee) is unaffected by request_count.
+        let local = estimate_session_cost_usd("claude-sonnet-4-6", &usage, 10);
+        assert!((local - estimate_usage_cost_usd("claude-sonnet-4-6", &usage)).abs() < 1e-9);
+    }
 
     #[test]
     fn pricing_includes_fugu_with_verified_per_token_rates() {

@@ -8,7 +8,7 @@ use crate::approval::{approval_key, ApprovalDecision, SmartApproval, SmartApprov
 use crate::bridge::AgentEventDelegate;
 use crate::prompts::{build_system_prompt_with_index, PromptMode};
 use crate::provider::{AgentProvider, StreamEvent};
-use crate::providers::pricing::{budget_gate_payload_json, estimate_usage_cost_usd};
+use crate::providers::pricing::{budget_gate_payload_json, estimate_session_cost_usd};
 use crate::reasoning_metrics::{compute_trajectory_metrics, ReasoningTrajectoryMetrics};
 use crate::routing::contains_any;
 use crate::session::GlobalSessions;
@@ -443,7 +443,10 @@ pub async fn run_agent_loop(
             .saturating_add(turn_usage.cache_read_input_tokens);
 
         if let (Some(step), Some(gate)) = (budget_step_usd, next_budget_gate_usd) {
-            let estimated_cost = estimate_usage_cost_usd(provider.name(), &total_usage);
+            // Include the flat per-request fee × turn_count (one provider request per turn) — the plain
+            // per-token estimate undercounts per-request-billed providers (e.g. Perplexity $14/1k requests).
+            let estimated_cost =
+                estimate_session_cost_usd(provider.name(), &total_usage, turn_count);
             if estimated_cost >= gate {
                 let next_gate = next_budget_gate_after(estimated_cost, step, gate);
                 let input_json = budget_gate_payload_json(
