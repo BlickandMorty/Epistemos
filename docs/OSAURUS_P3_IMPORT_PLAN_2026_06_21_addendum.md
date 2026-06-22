@@ -958,3 +958,19 @@ $10/msg, no Sakana dependency, fully infusable:
   becomes obtainable, re-evaluate a real clone; until then, METHOD-as-IP is the path.
 RESULT = the owner's vision (orchestration infused into act+work+chat as IP + an API) via re-implementing the
 published method, since the literal code is closed.
+
+## ✅ FUGU RESEARCH CLOSED → FULLY AUTONOMOUS BUILD (owner 2026-06-22)
+Owner: STOP the research loop (done — cron 3d1194ea cancelled). Research is COMPLETE — the foundational
+findings + Path A + Path B design are captured in FUGU_ORCHESTRATION_INTEGRATION_2026_06_22.md (incl. §6
+build-ready native-orchestrator design). NO MORE owner involvement required — the build agent AUTONOMOUSLY:
+1. **Builds the native orchestrator API** (the §6 design): Thinker/Worker/Verifier/Synthesizer loop on
+   System G `ProviderPolicy` + RuntimeRouter selection, exposed as ONE internal OpenAI-compatible endpoint
+   (`epistemos-orchestrator`, LocalModelServer pattern) — this IS the fusion-with-IP + the API.
+2. **Fuses it across act + work + chat/note/graph** (all call the one orchestrator endpoint = convergence).
+3. **Adds the Fugu guest provider** (Path A: ProviderPreset.fugu + ProviderCatalog line, OpenCode via
+   openCodeConfigJSON, Keychain, EU-gate, real per-token cost in Settings) — optional, NEVER the brain.
+4. **Owner does NOTHING manually** — fully automated build. The ONLY thing that needs the owner is entering a
+   Fugu API KEY IF they ever want the paid Fugu lane (external fact, optional); the NATIVE orchestrator needs
+   no key + works local-first by default. Settings = easy "just set it up" if they opt into Fugu.
+This is a foundational deliverable: build it autonomously to the real-state done bar, code-more-build-less,
+no fake-done, no red on main, never delete chat. The build loop picks this up as a top item; no owner relay.
