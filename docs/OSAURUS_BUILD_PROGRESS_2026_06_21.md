@@ -153,8 +153,14 @@ assertion is stale vs SS-AL's intent) + `AppStoreHardeningTests` KTOTrainer/pyth
     `VaultNoteEditor.applyEdits(_:to:provenance:…)` overload (read→apply→write→record; HONEST: failed edit
     records nothing, body-wrote-but-envelope-failed throws the new `provenanceNotRecorded`, never a silent
     audit gap). Real-state verified: xcodebuild VaultNoteEditorTests **7/7 PASS** (+4 new), TEST SUCCEEDED.
-    REMAINS (#4): Epdoc-via-md-source reprojection (MD-V2-coupled, #12); the EXTERNAL `vault.patch_note` MCP
-    surface could emit an equivalent provenance record later.
+    **EXTERNAL-AGENT EDIT PROVENANCE DONE (`69f6aa283`):** `edit_note`/`vault.patch_note` (OpenCode/Codex via
+    the fusion server) now record a deterministic `artifact_update` provenance line to
+    `.epistemos/mcp_vault_events.jsonl` (before/after blake3 hashes, integrity hash, content-derived
+    idempotent mutation_id) — the MCP analog of the in-app envelope; HONEST best-effort (edit is the truth →
+    provenance failure reports `provenance_recorded:false`, never silent; failed edit records nothing). BOTH
+    edit surfaces (in-app Swift + external MCP) now provenance-covered. 184/184 omega-mcp lib green (+1).
+    REMAINS (#4): Epdoc-via-md-source reprojection (MD-V2-coupled, #12); later, app-side ingest of the MCP
+    vault-event log into the unified EventStore.
 - **ONE CHOKEPOINT phase-1 REGRESSION-VERIFIED (`b28cb96e7`):** LocalAgentLoopTests 42/43 — the only failure
   is the pre-existing SS-AL `:1617` (`f26924ccf`, not mine); my liveLoop streamGenerator restructure caused
   ZERO regressions (flag-off byte-identical confirmed).
