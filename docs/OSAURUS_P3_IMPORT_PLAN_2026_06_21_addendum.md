@@ -586,3 +586,20 @@ cost**; **OpenCode-over-HTTP (headless, separate process) AVOIDS the Cargo dep-g
 uniquely justifies the reconciliation. The OPENCODE_VS_GOOSE_WORK_ENGINE research must WEIGH this integration
 cost (perf/robustness benefit of Rust vs the 179-dep reconciliation cost) in its recommendation. Decision +
 agent-prompt to follow from that research.
+
+## ✅ DECISION — WORK ENGINE = ARCHITECTURE C (owner 2026-06-21)
+Owner chose **C**: **OpenCode = the WORK engine of record** (headless Bun, beneath its REAL terminal UI —
+kept literally, set in stone). Decisive directives:
+- **OpenCode is the work engine.** IP brain rides ON TOP via MCP; code-intelligence = the EXISTING Rust
+  `lsp_runtime` (already wired via work_lsp_tools.rs) — do NOT import OpenCode's LSP.
+- **Goose is NOT vendored as a second engine.** Do NOT vendor the heavy `goose` crate (avoids the confirmed
+  179-dep / reqwest-0.12-vs-0.13.2 / 660MB build-red saga). Goose's UNIQUE bits stay as the in-tree
+  clean-room Rust in `agent_core/src/work.rs` (RetryManager / RepetitionGuard / recipes / permissions),
+  surfaced as work-loop TOOLS. **RE-LABEL the superseded Goose leaf-ports as the PERMANENT clean-room home**
+  (not "interim-until-full-clone") — keep, GUARDRAIL-isolated, never delete.
+- **Keep OpenCode's real terminal UI** (native terminal view / SwiftTerm-PTY, palette-matched live), Bun
+  lazy-launch on work-open + kill-on-idle (footprint bounded; crash-isolated via the process boundary).
+- **All benefits, ONE engine** — no second agent loop (dedup honored). Concession accepted: engine is TS/Bun,
+  not Rust; mitigated by process isolation + bounded footprint.
+- B2 (Goose Rust engine) is NOT taken. Next big-ticket: vendor the OpenCode bundled runtime + wire the work
+  loop end-to-end through it, beneath the real TUI.
