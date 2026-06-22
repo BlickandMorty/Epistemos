@@ -1423,3 +1423,22 @@ can't act on stale guidance); NO-ADDED-TERMS (no hedge words that authorize half
 (finish in-order before new items); the full-plan drift audit removed the conflicting framing from every doc
 the agent reads. STANDING RULE: when two directives conflict, the NEWEST owner directive wins and the older is
 VOID — never resolve a conflict by picking the safer/older reading.
+
+## 🆕 ACT RESKIN — GO DEEPER: reapply the OLD Epistemos chat UI onto Osaurus (owner 2026-06-22)
+The palette reskin (1b425eafa) is step 1. Owner wants the reskin to go DEEPER — make the Osaurus act surface
+actually LOOK like the old Epistemos chat UI (which the owner prefers; Osaurus has UI bugs, the old UI was
+better). KEEP Osaurus (do NOT replace it) — reskin/reapply the Epistemos UI ON TOP of the Osaurus surface:
+- **MESSAGE BAR (highest priority — owner specifically loved it):** reapply the old Epistemos composer look/
+  feel — the "Ask anything… @ for notes or chats" bar, Fast/Local chips, token counter, the flat-but-distinct
+  rounded design, send affordance. The Osaurus composer should look like the Epistemos message bar.
+- **SIDE PANEL:** reapply the Epistemos chat sidebar / provenance-inspector look (the right-side Summary/Runtime/
+  Model/Mode/Captured panel + vault chips) onto the Osaurus surface.
+- **FONTS:** the Epistemos type system end-to-end (monospace user bubble, Anthropic-Sans/SF answer text,
+  monospace pixel-art section headers) — not just colors.
+- **WHOLE LOOK:** match the old Epistemos chat UI as faithfully as possible across thread/composer/sidebar/
+  model picker.
+- **FIX OSAURUS UI BUGS with the Epistemos UI:** where Osaurus's UI has bugs/rough edges, override with the
+  better Epistemos component/styling. (Reskin/override, not engine replacement — keep OsaurusCore.)
+APPROACH: extend EpistemosOsaurusChatHost's theming with component-level styling/overrides (not just the
+CustomTheme palette) — reapply the Epistemos message-bar, sidebar, and font treatments to the hosted Osaurus
+views. Additive; keep Osaurus engine/behavior. This CONTINUES the current act-reskin step (NOT a queue-jump).
