@@ -1095,3 +1095,21 @@ OWNER-ACTION (tracked, not blocking the build): clear the adapted-weights licens
 (nshkrdotcom) — until then, heuristic routing ships + the learned head is staged. Add to ledger as an owner
 TODO. This keeps the foundational orchestrator MOVING (no license/MLX-tap block) while the learned router is a
 clean drop-in upgrade later. No fake-done; heuristic vs learned router state disclosed honestly.
+
+## 🆕 HOLISTIC UNIFICATION MAP — where does EVERYTHING land? (owner 2026-06-22)
+Broaden the architecture-unification research (ARCHITECTURE_UNIFICATION_SYSTEMG_2026_06_22.md) into a HOLISTIC
+map of how ALL the pieces relate + whether to unify — WITHOUT forcing unification where it's not beneficial.
+Cover, beyond System G / agent_loop / agent_runtime / agent_core / IP brain:
+- **TRINITY orchestrator** (the new native orchestrator brain) — does it BECOME the unifying layer, or sit beside?
+- **Fugu** (guest provider) — where it lands relative to the orchestrator (a pool member, not the brain).
+- **System-prompts library** (per-model prompt engineering) — how per-model prompts attach to the model pool /
+  orchestrator / each engine.
+- **OLDER logic / tech-debt tangential to System G + agents** — legacy loops, orphaned modules, observe-only
+  gated code (RuntimeRouter), dead paths — what to MERGE, KEEP-SEPARATE, or DELETE.
+- **The new orchestration layers** + the ONE-INFERENCE-CHOKEPOINT directive — how they reconcile.
+VERDICT REQUIRED (per component): UNIFY (beneficial + clearly so), KEEP-SEPARATE (legitimately distinct —
+don't force), or DELETE (dead). Produce the TARGET unified architecture (one brain on top + swappable engines +
+the orchestrator as the coordination layer + one inference chokepoint), but ONLY unify what's genuinely better
+unified. If beneficial → it gets BUILT (folded into the plan as a careful additive refactor, sequenced after
+P0 + act/work). PRINCIPLE: unify where it removes drift/duplication (the source of the Qwen/codex/think bugs);
+keep separate where the separation is real (cloud loop vs local loop vs orchestrator); delete dead weight.
