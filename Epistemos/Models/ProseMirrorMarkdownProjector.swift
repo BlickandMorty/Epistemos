@@ -444,7 +444,7 @@ nonisolated public enum ProseMirrorMarkdownProjector {
         // canonical: link wraps innermost, then code, then em, then
         // strong, then highlight (W7.8). Markdown wrapping order does
         // matter for some renderers.
-        let priority: [String] = ["link", "code", "em", "strong", "highlight"]
+        let priority: [String] = ["link", "code", "em", "strike", "strong", "highlight"]
         let sorted = marks.sorted { lhs, rhs in
             (priority.firstIndex(of: lhs.type) ?? Int.max) <
                 (priority.firstIndex(of: rhs.type) ?? Int.max)
@@ -455,6 +455,11 @@ nonisolated public enum ProseMirrorMarkdownProjector {
                 output = "**\(output)**"
             case "em":
                 output = "*\(output)*"
+            case "strike", "strikethrough", "del":
+                // GFM strikethrough `~~text~~`. Tiptap's StarterKit ships the Strike mark, so the editor
+                // produces `strike` marks; before this they fell through `default` and silently lost the
+                // formatting in the Markdown projection (a PM→md fidelity gap on the road to MD-V2).
+                output = "~~\(output)~~"
             case "code":
                 output = "`\(output)`"
             case "link":
