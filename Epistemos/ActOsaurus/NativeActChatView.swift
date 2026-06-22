@@ -28,8 +28,8 @@ struct NativeActChatView: View {
     }
 
     @State private var messages: [ActMessage] = []
-    @State private var input: String = ""
     @State private var streaming: Bool = false
+    @State private var streamTask: Task<Void, Never>? = nil
 
     /// Back to the Epistemos landing (D6). Provided by the host (RootView).
     var onBack: () -> Void = {}
@@ -117,46 +117,34 @@ struct NativeActChatView: View {
         }
     }
 
-    // MARK: native composer (0.7 message-bar)
+    // MARK: owner's RICH native composer (ChatInputBar) — pivot §pass66 "compose the
+    // owner's existing chrome, not a skeleton." Provides attachments / model picker /
+    // inline runtime panel + cream/monospace; drives the ACT ENGINE via `onSubmit`
+    // (NOT the old chat coordinator). Its @Environment deps (UIState/ChatState/…) are
+    // satisfied by RootView's environment (same as LandingView/old ChatView).
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("Message…", text: $input, axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(.system(size: 14, design: .monospaced))
-                .foregroundStyle(ink)
-                .lineLimit(1...6)
-                .onSubmit(send)
-                .accessibilityIdentifier("act.composer")
-            Button(action: send) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || streaming ? muted : ink)
-            }
-            .buttonStyle(.plain)
-            .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || streaming)
-            .accessibilityIdentifier("act.send")
-            .accessibilityLabel("Send")
-        }
-        .padding(12)
-        .background(surface2)
-        .overlay(Rectangle().fill(ink.opacity(0.08)).frame(height: 1), alignment: .top)
+        ChatInputBar(
+            onSubmit: { prompt in handleSend(prompt) },
+            onStop: { stopStreaming() },
+            isProcessing: streaming
+        )
     }
 
     // MARK: engine link — the CERTIFIED 0.4 path
-    private func send() {
-        let prompt = input.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func handleSend(_ raw: String) {
+        let prompt = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !streaming else { return }
-        input = ""
         messages.append(ActMessage(role: "you", text: prompt))
         messages.append(ActMessage(role: "act", text: ""))
         let replyIndex = messages.count - 1
         streaming = true
         let model = selectedModel
-        Task {
+        streamTask = Task {
             do {
                 let stream = try await OsaurusActBridge().runTurnStreamingInProcess(
                     prompt: prompt, systemPrompt: nil, maxTokens: 512, requestedModel: model)
                 for try await token in stream {
+                    if Task.isCancelled { break }
                     await MainActor.run {
                         if messages.indices.contains(replyIndex) { messages[replyIndex].text += token }
                     }
@@ -171,6 +159,12 @@ struct NativeActChatView: View {
             }
             await MainActor.run { streaming = false }
         }
+    }
+
+    private func stopStreaming() {
+        streamTask?.cancel()
+        streamTask = nil
+        streaming = false
     }
 }
 
