@@ -314,3 +314,10 @@ now incl. Osaurus landing page + buttons in the UI). Re-verify on running app.
   errors. P0-B: Osaurus visible (landing+toolbar→panel: status + model stack + tools + MCP). Act surface =
   owner's full vision in code (my UI + Osaurus visible + working).
 - **Verdict:** PASS both. ONLY remaining = LIVE send verify (owner Pro launch). 8+ passes since escalation, all real, no fake-green.
+
+## Pass 22 — 2026-06-22
+- **Build loop:** ALIVE, MID-BUILD (swift=13 xcode=1 heavy compile — likely a full checkpoint build of the
+  code-complete act surface, or starting the next plan item). HEAD = my pass-21 audit; no new build commit yet.
+- **No new commits to audit.** Not hung (13 swift-frontend compiling). No concurrent build kicked.
+- **Verdict:** healthy, no re-add. P0-A/P0-B code-complete (pass 21); only owner live-send verify remains for act.
+  Re-audit next commit (full-build result or next plan item).
