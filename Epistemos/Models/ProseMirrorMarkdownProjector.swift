@@ -345,6 +345,9 @@ nonisolated public enum ProseMirrorMarkdownProjector {
                 state.out.append("![\(alt)](\(src))\n\n")
             }
 
+        case "table":
+            projectTable(node, state: &state)
+
         default:
             // Unknown node — emit raw text content if any, then recurse.
             if let t = node.text {
@@ -352,6 +355,39 @@ nonisolated public enum ProseMirrorMarkdownProjector {
             }
             visitChildren(node, state: &state, listDepth: listDepth)
         }
+    }
+
+    /// Project a ProseMirror `table` (Tiptap table/table_row/table_cell/table_header) into a GFM table.
+    /// Before this, tables hit `default` and lost all structure in the Markdown projection (a PM→md fidelity
+    /// gap on the MD-V2 road). GFM shape: a header row, a `| --- |` separator, then body rows. The first row is
+    /// treated as the header (GFM requires one); rows are padded to the widest so the table is well-formed; cell
+    /// inline content is flattened to one line with `|` escaped.
+    private static func projectTable(_ node: ProseMirrorNode, state: inout State) {
+        let rows = (node.content ?? []).filter { $0.type == "table_row" }
+        var grid: [[String]] = []
+        for row in rows {
+            let cells = (row.content ?? []).filter { $0.type == "table_cell" || $0.type == "table_header" }
+            grid.append(cells.map { cell in
+                var inner = State()
+                visitChildren(cell, state: &inner, listDepth: 0)
+                return inner.out
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: "\n", with: " ")
+                    .replacingOccurrences(of: "|", with: "\\|")
+            })
+        }
+        guard !grid.isEmpty else { return }
+        let cols = grid.map(\.count).max() ?? 0
+        guard cols > 0 else { return }
+        for i in grid.indices { while grid[i].count < cols { grid[i].append("") } }
+
+        // Header row, separator, then body rows. (Inline appends — a closure can't capture `inout state`.)
+        state.out.append("| " + grid[0].joined(separator: " | ") + " |\n")
+        state.out.append("| " + Array(repeating: "---", count: cols).joined(separator: " | ") + " |\n")
+        for row in grid.dropFirst() {
+            state.out.append("| " + row.joined(separator: " | ") + " |\n")
+        }
+        state.out.append("\n")
     }
 
     /// Drain the immediate text descendants of a node into a single
