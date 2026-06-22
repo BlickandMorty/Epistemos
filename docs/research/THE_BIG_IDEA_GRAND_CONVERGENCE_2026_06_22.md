@@ -30,19 +30,15 @@ Think of it like a human brain: one brain, distinct faculties.
 two rival brains — two faculties of one. The convergence = unifying them onto a single attach point + a single
 orchestrator + a single inference chokepoint, so they stop drifting (the drift caused the Qwen/codex/<think> bugs).
 
-## THE SEPARATE TRACK — the 70B / custom runtime / "new model brain-1"
-This is the one thing that is NOT part of the current convergence, on purpose:
+## EXCLUDED ENTIRELY — the 70B / custom runtime / "new model brain-1" (owner 2026-06-22: keep it OUT)
+This is an OLD thing the owner has decided STAYS OUT — NOT part of the architecture, NOT a future track, NO
+reserved slot, NOT a re-entry decision:
 - The **from-scratch NEW MODEL** (SSM/Mamba-3, M0 interrupt, signal_bus, lattice-WBO, ternary/QAT) and the
-  **70B** are HARD OFF-LIMITS for the autonomous build + are a SEPARATE, future research track — a potential
-  future "third brain" (a model you'd own end-to-end), distinct from the current model-agnostic substrate +
-  adopted-engine direction.
-- **Why separate:** the current convergence is deliberately MODEL-AGNOSTIC (route to ANY model — local Gemma/
-  Qwen/VibeThinker, cloud, Fugu). The 70B/new-model is about OWNING a model. Those are different bets. The app
-  works fully WITHOUT the 70B (it routes to existing models); the 70B would later become one more (powerful)
-  lane in the pool. **It converges LATER as a pool member, not as the architecture.**
-- **OPEN OWNER DECISION (flagged, not blocking):** is the 70B/custom-runtime still wanted, and when does it
-  re-enter scope? Today it's off-limits + deferred; the architecture has a clean slot for it (another engine-
-  lane) when you choose. No conflict — just sequenced out of the current build.
+  **70B** are HARD OFF-LIMITS and **EXCLUDED from the convergence entirely.** Do not design for them, reserve
+  space for them, or surface them anywhere.
+- The architecture is deliberately **MODEL-AGNOSTIC over EXISTING models only** (local Gemma/Qwen/VibeThinker +
+  cloud + optional Fugu). The app neither needs nor includes the 70B/new-model. Full stop — not "later," not
+  "a slot," just excluded.
 
 ## WHY YOU "ONLY SAW EIDOS WORK ONCE" (grounded — this is a real bug, now in the plan)
 The unification research found it: the LIVE `eidos.query` tool **bypasses the real `eidos/` module** and hits
@@ -73,8 +69,8 @@ All in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md + the research docs it
 ## CONFLICTS / GAPS / MISSING IP (finalization audit)
 - **No architecture conflict found** — the pieces are layers, and "keep cloud/local engines separate" is the
   only deliberate non-merge (correct). The "one brain" + "one chokepoint" directives are consistent.
-- **GAP 1 (decision): the 70B / custom-runtime / new-model brain-1** — currently off-limits/deferred; needs an
-  owner decision on if/when it re-enters as a pool lane. Not blocking; slot reserved.
+- **GAP 1 — CLOSED (not a gap): the 70B / custom-runtime / new-model brain-1 is EXCLUDED** (owner 2026-06-22:
+  keep it out, old thing, not a future track, no slot, no decision). Nothing to revisit.
 - **GAP 2 (build, in plan): Eidos not truly live** — finalize the brain-unification + real eidos.query wiring
   (the "worked once" bug). Tracked.
 - **GAP 3 (license): TRINITY adapted-weights** — heuristic-route first, learned router after license clearance/
@@ -83,5 +79,5 @@ All in docs/OSAURUS_P3_IMPORT_PLAN_2026_06_21_addendum.md + the research docs it
   MD-V2), graph+Metal, model lab (QAT/Picks/per-model), motion/UI, vault-integration, the orchestrator-as-IP
   (TRINITY method) — all captured as IP-LAYER (kept/built, never commoditized). The substrate is the foundation;
   adopted engines are explicitly NOT IP (Osaurus/OpenCode/Goose).
-- **FINALIZED:** the big idea is coherent, folded, and converges to ONE thing. The only true open item is the
-  70B re-entry decision (owner), everything else is a build/sequence item already in the plan.
+- **FINALIZED:** the big idea is coherent, folded, and converges to ONE thing. The 70B is EXCLUDED (not an open
+  item); everything else is a build/sequence item already in the plan. No open owner decisions remain.
