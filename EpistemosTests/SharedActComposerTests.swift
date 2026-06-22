@@ -57,4 +57,19 @@ struct SharedActComposerTests {
             #expect(src.contains("LocalAgentLoop.liveLoop("), "\(path) should build via liveLoop")
         }
     }
+
+    @Test("TriageService (Note chat + Graph chat path) ALSO routes through the SAME shared act decision")
+    func triageSurfacesGetActToo() throws {
+        // The OTHER shared chokepoint: Note chat + Graph chat stream via TriageService.localStreamOrFallback,
+        // not liveLoop. It must honor the SAME shouldRouteActThroughOsaurus() decision so EVERY chat surface
+        // gets act/Osaurus (owner #1) — and so the two chokepoints can't diverge.
+        let svc = try loadMirroredSourceTextFile("Epistemos/Engine/TriageService.swift")
+        #expect(svc.contains("LocalAgentLoop.shouldRouteActThroughOsaurus()"))
+        #expect(svc.contains("ActOsaurusStreamingHandler.make()"))
+        // Both surfaces really route through TriageService (so the chokepoint covers them).
+        let note = try loadMirroredSourceTextFile("Epistemos/State/NoteChatState.swift")
+        #expect(note.contains("triageService.stream"))
+        let graph = try loadMirroredSourceTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+        #expect(graph.contains("triage.streamGeneral") || graph.contains("triageService"))
+    }
 }

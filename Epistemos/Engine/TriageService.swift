@@ -2301,6 +2301,32 @@ final class TriageService {
         selection: LocalModelSelection?,
         steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        #if !EPISTEMOS_APP_STORE
+        // SHARED ACT COMPOSER (owner 2026-06-21 #1 — "EVERY chat surface gets act/Osaurus powers"):
+        // TriageService is the OTHER shared local chokepoint — Note chat + Graph chat (and other triage
+        // surfaces) stream HERE, not via LocalAgentLoop.liveLoop. When act=Osaurus is armed (the SAME
+        // shared decision liveLoop uses, so the two paths can't diverge), the local stream comes from the
+        // LINKED OsaurusCore engine via the act bridge → these surfaces get act too. Off by default →
+        // the proven MLX/Apple-Intelligence path below is UNCHANGED; never a silent cloud route.
+        if LocalAgentLoop.shouldRouteActThroughOsaurus() {
+            let actMaxTokens = resolvedLocalOutputTokens(
+                for: selection?.reasoningMode ?? .fast, steeringHintsJSON: steeringHintsJSON)
+            let actModelID = selection?.modelID
+            return StreamingBufferPolicy.throwingStream { continuation in
+                let task = Task {
+                    do {
+                        let actStream = await ActOsaurusStreamingHandler.make()(
+                            prompt, systemPrompt, actMaxTokens, .fast, actModelID)
+                        for try await token in actStream { continuation.yield(token) }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
+                    }
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
+        }
+        #endif
         // If local isn't available, fall back to Apple Intelligence (on-device
         // and always present on macOS 26+ after the system model is downloaded).
         // This means a user with no configured local model and no cloud key
