@@ -298,6 +298,16 @@ Owner P0 (2026-06-23): exhaustively land every Osaurus surface natively in the a
 - Matrix row B → COVERED; queue 0.33a ✅. Punch-list now: 0.33b server settings (largest), 0.33c plugins, 0.33d agents/schedules/watchers, 0.33e voice, 0.33f model detail/download, 0.33g skills/slash editors, 0.33h tool secrets, 0.33i chart/terminal/LaTeX/minimap, 0.33j identity/credits/themes/insights/storage, 0.33k computer-use feed.
 - **0.32 WITNESS (iter 40)** · Highest attempted: **0.33a** · Lowest still-`[ ]`: **0.1** · Act-only: this IS the owner P0 act work (preempts) · Forbidden end-claims avoided: YES · NEXT: 0.33b server settings groundwork (or 0.33f model detail — high-visibility).
 
+### Iteration 41 (2026-06-23 ~18:31-18:44) — 0.33f native model DETAIL (on-device badge + context) in act model rows
+
+Continued owner P0 act-surface punch-list. 0.33f model detail (only selection was native).
+
+- **Grounded the REAL seam first:** `EpistemosOsaurusModelPick` was picker-only (id/displayName/subtitle); rich data lives on OsaurusCore `MLXModel`/`ModelPickerItem` (parameterCount/quantization/contextLength) + `ModelManager.downloadService.downloadStates` (cheap pre-synced `.completed` map, no per-model file scan).
+- **Built native (commit 8fe0288df):** enriched `EpistemosOsaurusModelPick` (+isDownloaded +contextLength, additive/defaulted); `modelPicks()` populates from the downloadStates map + `item.contextLength`; rendered a native "On Device"/"Not downloaded" badge + "<n>K ctx" detail line in BOTH act-reachable surfaces — `ActCloneSettingsView` model stack AND in-chat `InlineRuntimePickerPanel.osaurusPickRow` (theme-styled, NOT the vendored ModelDetailView). **xcodebuild ** BUILD SUCCEEDED ** (both render sites).**
+- **(e) honest limit:** runtime screenshot of the rendered detail is automation-blocked — settings-sidebar nav to the Act-Osaurus tab (under Advanced, below fold) AND the composer model-pill open are both AX-unreachable (same wall as D4/iter30; both human-reachable). Code-correct + build-green + wired in two reachable sites. Follow-on 0.33f: download progress, external-model add, cache inspector.
+- Matrix row C → PARTIAL(improved); queue 0.33f annotated.
+- **0.32 WITNESS (iter 41)** · Highest attempted: **0.33f** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work (preempts) · Forbidden end-claims avoided: YES · NEXT: 0.33h tool secrets (small/contained, fully landable) OR 0.33b server settings groundwork.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice

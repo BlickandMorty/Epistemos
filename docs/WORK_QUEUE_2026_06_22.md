@@ -315,7 +315,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   · 0.33c Plugins beyond counts (install/marketplace/GitHub-import/config/sandbox-plugin-editor).
   · 0.33d Agents / Schedules / Watchers (list, capability manager).
   · 0.33e Voice settings (VAD/TTS/transcription/hotkey/overlay) — only composer mic exists.
-  · 0.33f Model detail / download / cache inspector / external-model add (only selection native).
+  · 0.33f Model detail — ✅ PARTIAL (iter41, 8fe0288df): native on-device badge + context window in act model rows
+    (ActCloneSettingsView model stack + in-chat InlineRuntimePickerPanel), fed by cheap downloadStates map. Build-green
+    (runtime screenshot automation-blocked — settings nav + composer pill AX-unreachable; human-reachable). Remaining:
+    download progress, external-model add, cache inspector.
   · 0.33g Skills view/editor + slash-command catalog editor (invocation works; no catalog UI).
   · 0.33h Tool secrets (ToolSecretsSheet) — no native expression.
   · 0.33i Chart renderer, terminal-in-chat, in-chat LaTeX, transcript minimap.

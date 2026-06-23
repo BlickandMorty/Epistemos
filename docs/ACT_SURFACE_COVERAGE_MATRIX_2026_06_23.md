@@ -36,7 +36,7 @@
 | billing / credits | not yet surfaced (Pro/credits sentinel) | PARTIAL — TTFT/tokens done; billing/credits chip TBD if/when credits route active |
 
 ### C. Models
-Native model **selection** (ActCloneSettingsView.swift:661-707 + :785; act picker). **PARTIAL** — model **detail / download progress / cache inspector / external-model add** = no native expression.
+Native model **selection** (ActCloneSettingsView.swift:661-707 + :785; act picker) + **model DETAIL** (iter41, 8fe0288df): on-device badge + context window rendered in BOTH the act settings model stack AND the in-chat `InlineRuntimePickerPanel.osaurusPickRow` (fed by `EpistemosOsaurusModelPick.isDownloaded/contextLength` from the cheap `downloadStates` map). **PARTIAL (improved)** — still missing: download **progress**, external-model **add**, cache inspector.
 
 ### D. Providers
 Inline "Providers and MCP" (:269); connect/disconnect remote+MCP + router toggle (:911-945); credential prompt native (RootView.swift:701, installed :161). **PARTIAL** — no native add/edit individual remote provider (RemoteProviderEditSheet), per-provider diagnostics rows, or reorder.
