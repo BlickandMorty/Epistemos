@@ -10,19 +10,28 @@ public struct EpistemosOsaurusModelPick: Identifiable, Hashable, Sendable {
     public let subtitle: String
     public let sectionTitle: String
     public let systemImage: String
+    /// 0.33f model detail (native, reachable from act): on-device download state +
+    /// context window — surfaced so the act model stack shows real model detail, not
+    /// just a name. Defaulted so existing call sites stay source-compatible.
+    public let isDownloaded: Bool
+    public let contextLength: Int?
 
     public init(
         id: String,
         displayName: String,
         subtitle: String,
         sectionTitle: String,
-        systemImage: String
+        systemImage: String,
+        isDownloaded: Bool = false,
+        contextLength: Int? = nil
     ) {
         self.id = id
         self.displayName = displayName
         self.subtitle = subtitle
         self.sectionTitle = sectionTitle
         self.systemImage = systemImage
+        self.isDownloaded = isDownloaded
+        self.contextLength = contextLength
     }
 }
 
@@ -1196,6 +1205,11 @@ public enum EpistemosOsaurusManagementBridge {
         var rows: [EpistemosOsaurusModelPick] = []
         var seen = Set<String>()
 
+        // 0.33f: cheap pre-synced on-device map (no per-model file scan) so the act model
+        // stack can show a real "On Device" badge.
+        let downloadStates = await MainActor.run { ModelManager.shared.downloadService.downloadStates }
+        let isDownloaded: (String) -> Bool = { downloadStates[$0] == .completed }
+
         for id in EpistemosModelBridge.providedModelIds() where seen.insert(id).inserted {
             rows.append(
                 EpistemosOsaurusModelPick(
@@ -1203,7 +1217,8 @@ public enum EpistemosOsaurusManagementBridge {
                     displayName: displayName(for: id),
                     subtitle: "Epistemos Pick routed through Osaurus Act",
                     sectionTitle: "Epistemos Picks",
-                    systemImage: "sparkles"
+                    systemImage: "sparkles",
+                    isDownloaded: isDownloaded(id)
                 )
             )
         }
@@ -1216,7 +1231,9 @@ public enum EpistemosOsaurusManagementBridge {
                     displayName: item.displayName,
                     subtitle: nativeSubtitle(for: item),
                     sectionTitle: "Osaurus Native",
-                    systemImage: nativeSystemImage(for: item)
+                    systemImage: nativeSystemImage(for: item),
+                    isDownloaded: isDownloaded(item.id),
+                    contextLength: item.contextLength
                 )
             )
         }

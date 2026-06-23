@@ -696,6 +696,20 @@ struct ActCloneSettingsView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(2)
+                                    // 0.33f native model detail: on-device state + context window.
+                                    HStack(spacing: 8) {
+                                        Label(
+                                            row.isDownloaded ? "On Device" : "Not downloaded",
+                                            systemImage: row.isDownloaded ? "checkmark.circle.fill" : "icloud.and.arrow.down"
+                                        )
+                                        .foregroundStyle(row.isDownloaded ? Color.green : Color.secondary)
+                                        if let ctx = row.contextLength, ctx > 0 {
+                                            Label(Self.formatContextLength(ctx), systemImage: "text.alignleft")
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .font(.caption2)
+                                    .labelStyle(.titleAndIcon)
                                 }
                                 Spacer()
                                 if row.id == selectedOsaurusModelID {
@@ -779,6 +793,17 @@ struct ActCloneSettingsView: View {
         providerRuntimeSnapshot = EpistemosOsaurusManagementBridge.providerRuntimeSnapshot()
         privacyFilterSnapshot = EpistemosOsaurusManagementBridge.privacyFilterSnapshot()
         dependencySnapshot = EpistemosOsaurusManagementBridge.dependencySnapshot()
+    }
+
+    /// 0.33f — compact context-window label for the native model detail row (e.g. 131072 → "128K ctx").
+    static func formatContextLength(_ ctx: Int) -> String {
+        if ctx >= 1000 {
+            let k = Double(ctx) / 1024.0
+            let rounded = (k * 10).rounded() / 10
+            let kText = rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.1f", rounded)
+            return "\(kText)K ctx"
+        }
+        return "\(ctx) ctx"
     }
 
     @MainActor
