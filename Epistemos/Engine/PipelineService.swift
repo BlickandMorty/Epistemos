@@ -1262,6 +1262,9 @@ final class PipelineService {
                                         durationMs: durationMs
                                     )
                                 )
+                            case .generationStats:
+                                // 0.33a: telemetry recorded to ActTurnStatsStore upstream; no text effect here.
+                                break
                             }
                         }
                         continuation.finish()

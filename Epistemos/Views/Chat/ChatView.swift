@@ -289,6 +289,18 @@ struct ChatView: View {
                                     .id(row.id)
                                 }
 
+                                // 0.33a (owner "prefill/stats"): native TTFT/tokens chip under the
+                                // last completed act reply — the telemetry Osaurus showed, recorded via
+                                // the side-channel store so it never contaminates the visible text.
+                                if actUsesOsaurus, !shouldShowStreamingIndicator,
+                                   transcriptRows.last?.message.role == .assistant,
+                                   let actStats = ActTurnStatsStore.shared.latest {
+                                    ActGenerationStatsChip(stats: actStats)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.leading, 4)
+                                        .id("act-stats-chip")
+                                }
+
                                 if shouldShowStreamingIndicator {
                                     StreamingIndicator(
                                         selectedOperatingMode: selectedOperatingMode,

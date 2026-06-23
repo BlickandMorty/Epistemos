@@ -15,6 +15,9 @@ enum ActOsaurusStreamEvent: Sendable, Equatable {
     case thinkingDelta(String)
     case toolStarted(id: String, name: String, inputJson: String)
     case toolCompleted(id: String, result: String, isError: Bool)
+    /// 0.33a — final-turn generation telemetry (TTFT / tokens-per-second / token count) for the
+    /// native act stats chip. Structured, never visible-text — so the send path stays clean.
+    case generationStats(ttftSeconds: Double?, tokensPerSecond: Double?, tokenCount: Int?)
 }
 
 // Osaurus Act import — Seam A bridge (P3.0). The protocol Act drives against the
@@ -264,6 +267,8 @@ struct OsaurusActBridge: ActOsaurusBridge {
                             continuation.yield(.toolStarted(id: id, name: name, inputJson: inputJson))
                         case .toolCompleted(let id, let result, let isError):
                             continuation.yield(.toolCompleted(id: id, result: result, isError: isError))
+                        case .generationStats(let ttft, let tps, let count):
+                            continuation.yield(.generationStats(ttftSeconds: ttft, tokensPerSecond: tps, tokenCount: count))
                         }
                     }
                     continuation.finish()
