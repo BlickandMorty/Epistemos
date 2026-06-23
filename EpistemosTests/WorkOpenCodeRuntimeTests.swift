@@ -10,10 +10,23 @@ import Foundation
 /// moment OpenCode is vendored into Resources.
 @Suite("Work = OpenCode shell — bundled runtime resolver")
 struct WorkOpenCodeRuntimeTests {
-    @Test("bundled runtime is honestly absent until OpenCode is vendored (no fake present)")
-    func runtimeAbsentByDefault() {
-        // The test bundle has no opencode-runtime/bin/opencode → must be nil.
-        #expect(WorkOpenCodeRuntime.bundledRuntimeURL(bundle: .main) == nil)
+    @Test("runtime resolution is honestly nil when NO binary is vendored (no fake present)")
+    func runtimeAbsentByDefault() throws {
+        // "Honestly absent" is the resolver's behavior on a runtime-FREE resources dir — assert it
+        // against a controlled empty dir (NOT `.main`, which legitimately bundles the vendored runtime
+        // once build-opencode-runtime.sh has staged it; iter32 made the resolver honestly find it,
+        // including the flattened Resources-root layout). No fake "present" for an empty dir.
+        let fm = FileManager.default
+        let empty = fm.temporaryDirectory.appendingPathComponent("epi-oc-empty-\(ProcessInfo.processInfo.globallyUniqueString)")
+        try fm.createDirectory(at: empty, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: empty) }
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: empty) == nil)
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: nil) == nil)
+        // If `.main` resolves a runtime, it must honestly be an executable named "opencode" (never a fake).
+        if let main = WorkOpenCodeRuntime.bundledRuntimeURL(bundle: .main) {
+            #expect(main.lastPathComponent == "opencode")
+            #expect(fm.isExecutableFile(atPath: main.path))
+        }
     }
 
     @Test("resolver finds bin/opencode when the build-time vendor lands it (the goes-LIVE path)")
@@ -89,16 +102,20 @@ struct WorkOpenCodeRuntimeTests {
         #expect(spec.environment["OPENCODE_HOST"] == "127.0.0.1")
     }
 
-    @Test("factory stays INERT when armed but the runtime is absent (honest — no fake live)")
-    func factoryHonestWhenRuntimeAbsent() {
-        // Armed flag but no bundled runtime in the test bundle → must resolve inert.
+    @Test("factory readiness HONESTLY mirrors the bundled runtime (live iff present; always inert on MAS)")
+    func factoryHonestlyMirrorsBundledRuntime() {
         let shell = WorkOpenCodeShellFactory.resolve(
             environment: [WorkOpenCodeShellGateStatus.flagName: "1"]
         )
         #if EPISTEMOS_APP_STORE
+        // MAS: the OpenCode sidecar is Pro-only → always inert, never faked live.
         #expect(shell.isReady == false)
         #else
-        #expect(shell.isReady == false)   // armed, but runtime absent → inert, never faked live
+        // Pro/direct-dist: the factory is LIVE iff the runtime is ACTUALLY bundled (resolved via the
+        // structured `opencode-runtime/bin/` layout OR the flattened Resources-root fallback, iter32) —
+        // honest, never faked. Tie the assertion to the real bundle state so it holds whether or not
+        // build-opencode-runtime.sh has vendored the runtime into this test host.
+        #expect(shell.isReady == (WorkOpenCodeRuntime.bundledRuntimeURL() != nil))
         #endif
     }
 
