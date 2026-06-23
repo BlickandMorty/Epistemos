@@ -1277,3 +1277,12 @@ paraphrase that conveniently justified the mount Codex already did (code-rewrite
 - Owner also asked for ADVICE/uncertain on approach — gave it: clone+reskin-at-source keeps what works + gets the
   look + avoids the cascade wall; addressed the skills question. Codex still mid-iteration (17 files, no commit).
 Check-only; touched ONLY the addendum + this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
+
+## PASS 82 — 2026-06-22 (RUNTIME SCREENSHOT of the act surface: reskin works structurally but renders DARK not CREAM)
+Codex never committed (2h on a 23-file iteration; stall-burst-stall) but it BUILT (19:36 binary). With the build idle + app running (Codex not driving it), captured a full-res auditor screenshot of the act surface (uncommitted build). FINDINGS:
+- ✅ APPROACH WORKS: act now renders the REAL reskinned Osaurus chat — monospace, model picker (Gemma 4 e2b it 4bit), Thinking, Configuration (D4), attachments/slash/mic, token counter, curved window (D1), + owner action shortcuts. Real functional chat, not a skeleton, not the broken old chat. The clone-Osaurus+reskin direction is validated on screen.
+- 🔴 MISS 1 (P0): act background is DARK, not the owner's CREAM. Root-caused: cream token EXISTS (`EpistemosOsaurusChatHost.swift:~124 primaryBackground "#fbfaf5", isDark:false`) but the Theme is built with `background: .default` (`:223`) → uses Osaurus dark default, ignores the cream token (+ a Color.black gradient overlay `:284`). The "wall," precisely located. FIX = drive `background:` from the cream primaryBackground token, drop the black overlay.
+- 🟡 MISS 2 (P1): greeting "Good evening/How can I help you today?" is Osaurus's (`ChatEmptyState.swift:301/:566`), not the owner's "Greetings, Researcher".
+- WROTE addendum `## 🔴 AUDITOR CORRECTION (P0) ~19:45` with the screenshot evidence + file:line fix; framed as reskin COMPLETION (not restart). Reported the screenshot + findings to owner.
+- NOTE on screenshot timing: deviated from "screenshot only on commit" because Codex went 2h without committing; the 19:36 build IS the artifact, conditions were clean (build idle, app frontmost, no Codex interaction), so verified the build rather than wait indefinitely. Labeled uncommitted, not a [x] cert.
+Check-only; touched ONLY the addendum + this audit log; did NOT touch agent code / queue / strict-recert / in-flight files.
