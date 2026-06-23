@@ -181,7 +181,14 @@ private final class EpistemosOsaurusHeadlessChatSessionDriver {
             guard !isFinished else { return }
             emitAssistantSessionDeltas()
 
-            if !session.isStreaming && session.promptQueue.current == nil {
+            // A run is "active" from the synchronous `beginRun` inside `send(...)`
+            // until `finalizeRun` clears it — so `isRunActive` is true on the very
+            // first tick after send. `isStreaming`, by contrast, only flips true
+            // *asynchronously* once tokens begin; polling `!isStreaming` alone would
+            // finish the turn before generation even started (the empty-stream race).
+            // Gate completion on the run being finalized AND not streaming AND no
+            // queued secret/clarify prompt pending.
+            if !session.isRunActive && !session.isStreaming && session.promptQueue.current == nil {
                 emitAssistantSessionDeltas()
                 finish()
                 return
