@@ -2538,6 +2538,10 @@ private struct MiniChatInputBar: View {
                         )
                         threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
                         threadState.setMiniChatPendingContentBlocks(pendingBlocks, chatID: chatID)
+                    case .generationStats:
+                        // 0.33a: telemetry is recorded to ActTurnStatsStore upstream (SharedActInference);
+                        // no visible-text effect here.
+                        break
                     }
                 }
 

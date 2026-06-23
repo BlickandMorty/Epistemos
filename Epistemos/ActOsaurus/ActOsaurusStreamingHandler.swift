@@ -27,8 +27,16 @@ enum ActOsaurusStreamingHandler {
                     do {
                         let stream = await eventFactory(prompt, systemPrompt, maxTokens, reasoningMode, modelID)
                         for try await event in stream {
-                            if case .textDelta(let token) = event {
+                            switch event {
+                            case .textDelta(let token):
                                 continuation.yield(token)
+                            case .generationStats(let ttft, let tps, let count):
+                                // 0.33a: telemetry goes to the native side-channel (the act bubble's
+                                // stats chip), NEVER into the visible text stream — send path stays clean.
+                                let stats = ActTurnStats(ttftSeconds: ttft, tokensPerSecond: tps, tokenCount: count)
+                                await MainActor.run { ActTurnStatsStore.shared.record(stats) }
+                            case .thinkingDelta, .toolStarted, .toolCompleted:
+                                break
                             }
                         }
                         continuation.finish()

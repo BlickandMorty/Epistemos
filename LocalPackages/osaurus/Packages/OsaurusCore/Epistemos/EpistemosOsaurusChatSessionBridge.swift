@@ -66,6 +66,11 @@ public enum EpistemosOsaurusChatSessionEvent: Sendable, Equatable {
     case thinkingDelta(String)
     case toolStarted(id: String, name: String, inputJson: String)
     case toolCompleted(id: String, result: String, isError: Bool)
+    /// Final-turn generation telemetry (owner 0.33a "prefill/stats"): TTFT, tokens/sec, token
+    /// count — read off the completed assistant `ChatTurn`. Emitted once at finish so the
+    /// Epistemos act surface can render the same "TTFT 7.36s · 39 tokens" stats Osaurus showed,
+    /// natively — WITHOUT leaking the raw protocol text into the visible transcript.
+    case generationStats(ttftSeconds: Double?, tokensPerSecond: Double?, tokenCount: Int?)
 }
 
 @MainActor
@@ -371,7 +376,20 @@ private final class EpistemosOsaurusHeadlessChatSessionDriver {
             continuation.finish(throwing: EpistemosOsaurusChatSessionBridgeError.sessionFailed(error))
             return
         }
+        emitGenerationStats()
         continuation.finish()
+    }
+
+    /// 0.33a (owner "prefill/stats"): emit the completed assistant turn's TTFT / tokens-per-second /
+    /// token-count once, from the SAME fields Osaurus renders ("TTFT 7.36s · 39 tokens"). Best-effort:
+    /// only when the final assistant turn actually carries telemetry; never blocks the finish.
+    private func emitGenerationStats() {
+        guard let turn = session.turns.last(where: { $0.role == .assistant }) else { return }
+        let ttft = turn.timeToFirstToken
+        let tps = turn.generationTokensPerSecond
+        let count = turn.generationTokenCount
+        guard ttft != nil || tps != nil || (count ?? 0) > 0 else { return }
+        continuation.yield(.generationStats(ttftSeconds: ttft, tokensPerSecond: tps, tokenCount: count))
     }
 
     private func finish(throwing error: Error) {

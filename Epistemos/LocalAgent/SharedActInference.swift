@@ -75,6 +75,12 @@ enum SharedActInference {
                             }
                         case .thinkingDelta, .toolStarted, .toolCompleted:
                             continuation.yield(event)
+                        case .generationStats(let ttft, let tps, let count):
+                            // 0.33a: record telemetry to the native side-channel + forward the typed
+                            // event for surfaces that render events directly (mini/pipeline).
+                            let stats = ActTurnStats(ttftSeconds: ttft, tokensPerSecond: tps, tokenCount: count)
+                            await MainActor.run { ActTurnStatsStore.shared.record(stats) }
+                            continuation.yield(event)
                         }
                     }
                     if let visibleTail = streamFilter.flushVisibleTail() {
