@@ -136,6 +136,7 @@ struct SettingsView: View {
         case substrateHealth = "Substrate Health"
         case actClone = "Act (Osaurus)"   // per-clone settings (owner 2026-06-21)
         case workClone = "Work (OpenCode)"   // per-clone settings (owner 2026-06-21)
+        case beyondClone = "Beyond (Future Clones)"   // per-clone settings beyond tab (owner 0.21/0.30)
         case experimentalFeatures = "Experimental Features"
         // HELIOS research scaffold. Preserved for source guards and
         // deep-link compatibility, but not listed in v1 visible settings:
@@ -180,6 +181,7 @@ struct SettingsView: View {
                 .substrateHealth,
                 .actClone,
                 .workClone,
+                .beyondClone,
                 .experimentalFeatures,
             ]
             return sections
@@ -223,6 +225,7 @@ struct SettingsView: View {
             case .substrateHealth: "waveform.path.ecg.rectangle"
             case .actClone: "bolt.horizontal.circle"
             case .workClone: "terminal"
+            case .beyondClone: "square.stack.3d.up"
             case .experimentalFeatures: "slider.horizontal.3"
             case .heliosV5: "sparkles"
             }
@@ -256,6 +259,7 @@ struct SettingsView: View {
             case .substrateHealth: .advanced
             case .actClone: .advanced
             case .workClone: .advanced
+            case .beyondClone: .advanced
             case .experimentalFeatures: .advanced
             case .general:        .advanced
             case .heliosV5:       .advanced
@@ -309,6 +313,8 @@ struct SettingsView: View {
                 "The Act = Osaurus engine — gate, status, and how to arm it. Each clone's own settings, respected."
             case .workClone:
                 "The Work = OpenCode shell — gate, native terminal, and how to arm it. Each clone's own settings, respected."
+            case .beyondClone:
+                "Beyond = reserved tab for future non-agent clones (honest stub; nothing wired live yet). Each clone's own settings, respected."
             case .experimentalFeatures:
                 "Unified UserDefaults feature flags and experimental gates."
             case .heliosV5:
@@ -360,6 +366,8 @@ struct SettingsView: View {
                 ["act", "osaurus", "engine", "clone", "settings", "epistemos picks"]
             case .workClone:
                 ["work", "opencode", "terminal", "shell", "clone", "settings", "goose"]
+            case .beyondClone:
+                ["beyond", "future", "clone", "tolaria", "epdoc", "tamagotchi", "settings"]
             case .experimentalFeatures:
                 ["flags", "experiments", "gates", "feature", "defaults"]
             case .heliosV5:
@@ -520,6 +528,7 @@ struct SettingsView: View {
             case .substrateHealth: SubstrateHealthPanel()
             case .actClone: ActCloneSettingsView()
             case .workClone: WorkCloneSettingsView()
+            case .beyondClone: BeyondCloneSettingsView()
             case .experimentalFeatures: ExperimentalFeaturesSettingsPanel()
             case nil: GeneralDetailView()
             }
