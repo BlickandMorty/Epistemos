@@ -349,6 +349,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **2.5** EML honesty gate (GUS-2) — EML/Belnap → AnswerPacket abstain gate.
   →plan: GRAND SWEEP GUS-2.
 - [ ] **2.6** Eidos recall/rerank — real wiring, NOT fake-green. →plan: GUS-5 + Helios salvage.
+  · **iter35 AUDIT:** RECALL is genuinely WIRED+tested (QueryRuntime.swift:355→`eidosPacket`→`EidosBridge.retrieve`→FFI `eidos_retrieve_json` bridge.rs:4011→production vault index, no-fixture contract; VaultRecallContract consumes the packet; `agent_core/tests/r1_eidos_production_helper.rs` 7/7 pass). **BUT FAKE-GREEN FOUND:** the closed-citation ENFORCER `ChatCoordinator.runEidosCitationGate` (CC+EidosCitationGate.swift:62; doc: "Call BEFORE committing the chat row") has **ZERO callers** — the closed-citation contract is NOT enforced on the live answer path. ACTIONABLE (deferred, behavior-risk): wire the gate into the answer-commit path with source_id plumbing (proceed/rejectAndDrop/bridgeUnavailable). Stays `[ ]`.
 - [ ] **2.7** Agent-stack convergence + dual MLX clash — ONE agent-loop/runtime of record; dedup cloned
   capabilities; fix vmlx-swift vs mlx-swift-lm clash; all cloned logic deeply serves the app (no dead clones).
   →plan: "🆕 AGENT-STACK CONVERGENCE" + docs/research/AGENT_STACK_CONVERGENCE_RESEARCH_2026_06_21.md.
