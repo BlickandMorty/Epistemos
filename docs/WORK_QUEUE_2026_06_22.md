@@ -361,6 +361,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 ## TIER 3 — ORCHESTRATOR / FUGU / TRINITY
 - [ ] **3.1** TRINITY native orchestrator on System G/RuntimeRouter. →plan: "🌟🌟 TRINITY" + port spec.
+  · **iter38 AUDIT (System G run-seam = WIRED, breaks the orphan pattern):** `agent_runtime_v2` is in the product build (lib.rs:5, NOT feature-gated). System G run seam is REAL-wired: AppBootstrap.swift:2504 registers `RealSystemGRunSeam` (FFI `systemGStartRunJson`/`systemGDrainEventsJson`, bridge.rs:4954/4991) into `SystemGRunSeamRegistry` at launch (default is stub; production overrides). ROUTE SELECTED+LOGGED (S3 artifact): `SystemGRunSeamTests.realSystemGRunSeamLabelsGemmaGGUFLocalMission` drives `RealSystemGRunSeam.run` and asserts `log.events[1]` = Rust `.localModelHandoff` with `providerPolicyJSON "kind":"local_gguf"` + model_id, AnswerPacket id linked, and the GGUF model NOT silently promoted in `RuntimeRouter.modelPreferenceTable`. **SystemGRunSeamTests 13/13 PASS** (xcodebuild, fresh). System G portion meets S3 (wired+logged+real-state). REMAINING for full 3.1: the `trinity_orchestrator::run_mission`/`run_mission_async` layer (run seam uses system_g_runtime::start_run V1 runner — confirm TRINITY orchestrator live-wiring separately). Stays `[ ]` pending the orchestrator-layer cert.
 - [ ] **3.2** Fugu optional guest provider (never the brain). →plan: "🌟 FUGU = FOUNDATIONAL FEATURE" +
   "🆕 FUGU \"CLONE THE CODE\"".
 
