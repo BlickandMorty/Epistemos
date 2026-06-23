@@ -612,6 +612,11 @@ struct NoteDetailWorkspaceView: View {
     /// panel expanding in-flow above the ask bar — not a floating popover.
     @State private var showInlineRuntimePicker = false
     @State private var showNoteToolPanel = false
+    @State private var showNoteSlashMenu = false
+    @State private var noteSlashFilter = ""
+    @State private var noteSelectedSlashItem: ComposerSlashCommandItem?
+    @State private var noteComposerHeight = ChatComposerInputMetrics.minHeight
+    @State private var noteComposerFocused = false
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
     @State private var persistedBody: String
@@ -678,8 +683,23 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var supportedNoteChatOperatingModes: [EpistemosOperatingMode] {
-        let modes = inference.availableOperatingModes.filter { $0 != .agent }
+        var modes = inference.availableOperatingModes.filter { $0 != .agent }
+        if LocalAgentLoop.shouldRouteActThroughOsaurus(), !modes.contains(.agent) {
+            modes.append(.agent)
+        }
         return modes.isEmpty ? [.fast] : modes
+    }
+
+    private var isNoteOsaurusActMode: Bool {
+        selectedNoteChatOperatingMode == .agent && LocalAgentLoop.shouldRouteActThroughOsaurus()
+    }
+
+    private var noteSlashItems: [ComposerSlashCommandItem] {
+        ComposerSlashCommandItem.surfaceItems(
+            isOsaurusActMode: isNoteOsaurusActMode,
+            commands: ACCSlashCommand.availableCommands(for: supportedNoteChatOperatingModes),
+            skills: agentCommandCenter.availableSkills
+        )
     }
 
     private var selectedNoteChatOperatingMode: EpistemosOperatingMode {
@@ -2095,10 +2115,13 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var toolbarAskPlaceholder: String {
+        if isNoteOsaurusActMode {
+            return "Ask Act about this note"
+        }
         // P7.5 — honest memory blocker (P1.4 parity) surfaced in the compact ask
         // bar: when the selected local model can't load, say so right where the
         // user types instead of silently routing to another model.
-        noteChatMemoryBlocker ?? noteChatState.error ?? "Ask this note"
+        return noteChatMemoryBlocker ?? noteChatState.error ?? "Ask this note"
     }
 
     /// P7.5 — chat-surface parity: NoteChat reuses the SHARED honest memory
@@ -2107,7 +2130,8 @@ struct NoteDetailWorkspaceView: View {
     /// swap. NoteChat itself stays a lightweight inline ask that escalates to
     /// Main chat for tool work, so it surfaces these two but not a tool panel.
     private var noteChatMemoryBlocker: String? {
-        inference.localChatModelMemoryBlocker(for: selectedNoteChatOperatingMode)
+        if isNoteOsaurusActMode { return nil }
+        return inference.localChatModelMemoryBlocker(for: selectedNoteChatOperatingMode)
     }
 
     private var noteChatFastEffortHint: String? {
@@ -2162,14 +2186,52 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
+    private var noteComposerControlResetKey: String {
+        [
+            noteRuntimeTierLabel,
+            noteSelectedSlashItem?.id ?? "none",
+            showNoteToolPanel ? "tools" : "tools-closed",
+        ].joined(separator: "::")
+    }
+
     // MARK: - Toolbar Chat Field
 
     private func toolbarChatField(width: CGFloat) -> some View {
         @Bindable var chat = noteChatState
+        let trimmedInput = chat.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let canSubmit = !trimmedInput.isEmpty && !noteChatState.isStreaming && noteChatMemoryBlocker == nil
 
-        return VStack(alignment: .leading, spacing: 6) {
-            // Owner 2026-06-18: flat inline pixel-art picker in-flow above the
-            // ask bar, replacing the single-button LocalModelToolbarMenu popover.
+        return VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                ChatComposerTextEditor(
+                    text: $chat.inputText,
+                    height: $noteComposerHeight,
+                    isFocused: $noteComposerFocused,
+                    theme: ui.theme,
+                    isProcessing: noteChatState.isStreaming
+                ) {
+                    if noteChatState.isStreaming {
+                        noteChatState.stopStreaming()
+                    } else if canSubmit {
+                        submitToolbarAskInline()
+                    }
+                }
+                .frame(minHeight: ChatComposerInputMetrics.minHeight, maxHeight: ChatComposerInputMetrics.maxHeight)
+
+                if chat.inputText.isEmpty {
+                    Text(toolbarAskPlaceholder)
+                        .font(.system(size: ChatComposerInputMetrics.fontSize, weight: .regular))
+                        .foregroundStyle(ui.theme.textTertiary)
+                        .padding(.leading, ChatComposerInputMetrics.horizontalInset)
+                        .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(minHeight: ChatComposerInputMetrics.minHeight, maxHeight: ChatComposerInputMetrics.maxHeight)
+            .onChange(of: noteChatState.inputText) { _, newValue in
+                refreshNoteSlashMenu(for: newValue)
+            }
+
             if showInlineRuntimePicker {
                 InlineRuntimePickerPanel(
                     inference: inference,
@@ -2180,52 +2242,63 @@ struct NoteDetailWorkspaceView: View {
                         }
                     },
                     onOpenSettings: { openSettings() },
-                    showsSettingsFooter: true
+                    showsSettingsFooter: true,
+                    showsOsaurusModelSection: isNoteOsaurusActMode
                 )
-                .frame(maxWidth: width)
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 8)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            AssistantToolbarAskBar(
-            text: $chat.inputText,
-            placeholder: toolbarAskPlaceholder,
-            phase: toolbarAskStatusPhase,
-            theme: ui.theme,
-            accent: toolbarAskAccentColor,
-            isStreaming: noteChatState.isStreaming,
-            fieldWidth: width,
-            chromeTuning: .noteAskBar,
-            analyzingText: "Loading \(inference.activeChatModelDisplayName)…",
-            onSubmit: {
-                submitToolbarAskInline()
-            },
-            onStop: {
-                noteChatState.stopStreaming()
-            }
-        ) {
-            HStack(spacing: 6) {
-                noteInlineRuntimePickerTrigger
-                noteToolPanelTrigger
+            HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
+                ComposerControlStrip(spacing: 8, resetKey: noteComposerControlResetKey) {
+                    noteInlineRuntimePickerTrigger
+                    noteSlashCommandTrigger
+                    if let noteSelectedSlashItem {
+                        noteSelectedSlashPill(for: noteSelectedSlashItem)
+                    }
+                    noteToolPanelTrigger
+                    noteRouteToMainTrigger
+                }
+
+                Spacer(minLength: 4)
+
                 ChatCapabilityPill(
                     capability: toolbarAskCapability,
                     detail: toolbarAskPillDetail
                 )
-                Button(action: routeToolbarAskToMainChat) {
-                    Label("Send to Main Chat", systemImage: "arrow.up.forward.app")
-                        .labelStyle(.iconOnly)
+
+                AssistantSendButton(
+                    theme: ui.theme,
+                    isEnabled: canSubmit || noteChatState.isStreaming,
+                    isProcessing: noteChatState.isStreaming,
+                    metrics: .mainChat
+                ) {
+                    if noteChatState.isStreaming {
+                        noteChatState.stopStreaming()
+                    } else if canSubmit {
+                        submitToolbarAskInline()
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityAction(named: Text("Send to Main Chat")) {
-                    routeToolbarAskToMainChat()
-                }
-                .disabled(
-                    noteChatState.isStreaming
-                        || noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                )
-                .help("Send this ask to main chat")
+                .help(noteChatState.isStreaming ? "Stop" : "Ask this note")
+                .accessibilityLabel(noteChatState.isStreaming ? "Stop response" : "Ask this note")
             }
+            .padding(.top, MainChatComposerLayout.controlRowTopPadding)
         }
-        }
+        .frame(width: max(width, 360))
+        .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+        .padding(.top, MainChatComposerLayout.topPadding)
+        .padding(.bottom, MainChatComposerLayout.bottomPadding)
+        .assistantComposerChrome(
+            theme: ui.theme,
+            metrics: .mainChat,
+            isActive: noteComposerFocused
+                || !trimmedInput.isEmpty
+                || noteChatState.isStreaming
+                || showInlineRuntimePicker
+                || showNoteSlashMenu
+                || noteSelectedSlashItem != nil
+        )
     }
 
     /// Owner 2026-06-18: trigger for the inline runtime picker on the note ask
@@ -2236,7 +2309,9 @@ struct NoteDetailWorkspaceView: View {
             systemImage: "cpu",
             variant: .toolbar,
             isActive: showInlineRuntimePicker,
-            helpText: "Pick the Epistemos brain — Fast / Think / Code",
+            helpText: isNoteOsaurusActMode
+                ? "Pick the Act model inside the Epistemos picker"
+                : "Pick the Epistemos brain — Fast / Think / Code",
             accessibilityLabel: "Model picker, \(noteRuntimeTierLabel)"
         ) {
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
@@ -2268,6 +2343,35 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
+    private var noteRouteToMainTrigger: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "arrow.up.forward.app",
+            variant: .toolbar,
+            helpText: "Send this ask to main chat",
+            accessibilityLabel: "Send to Main Chat"
+        ) {
+            routeToolbarAskToMainChat()
+        }
+        .disabled(
+            noteChatState.isStreaming
+                || noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        )
+    }
+
+    private func noteSelectedSlashPill(for item: ComposerSlashCommandItem) -> some View {
+        ToolbarCapsuleButton(
+            title: "/\(item.rawValue)",
+            systemImage: item.icon,
+            variant: .toolbar,
+            helpText: item.helpText,
+            accessibilityLabel: "Selected command \(item.displayName)"
+        ) {
+            noteSelectedSlashItem = nil
+        }
+        .disabled(noteChatState.isStreaming)
+    }
+
     /// SS-VIS: run a discovered skill from the note chat's capability panel by priming the note ask
     /// field with its `/identifier` invocation (parity with landing / chat / mini-chat / graph
     /// skill-run). Closes the panel; honest — it stages the invocation, the user still sends.
@@ -2279,6 +2383,111 @@ struct NoteDetailWorkspaceView: View {
         } else if !noteChatState.inputText.hasPrefix("/") {
             noteChatState.inputText = invocation + noteChatState.inputText
         }
+    }
+
+    private var noteSlashCommandTrigger: some View {
+        ToolbarCapsuleButton(
+            title: "/",
+            systemImage: "command",
+            variant: .toolbar,
+            isActive: showNoteSlashMenu,
+            helpText: isNoteOsaurusActMode
+                ? "Act commands, tools, models, and skills"
+                : "Note chat commands and skills",
+            accessibilityLabel: "Open commands"
+        ) {
+            openNoteSlashCommandMenu()
+        }
+        .popover(isPresented: $showNoteSlashMenu, arrowEdge: .bottom) {
+            SlashCommandPopover(
+                items: noteSlashItems,
+                filter: noteSlashFilter,
+                selectedItem: noteSelectedSlashItem,
+                onSelect: { item in
+                    applyNoteSlashItem(item)
+                }
+            )
+            .frame(width: 340)
+        }
+    }
+
+    private func refreshNoteSlashMenu(for newValue: String) {
+        guard let filter = ComposerSlashMenuLogic.filter(in: newValue) else {
+            if showNoteSlashMenu {
+                showNoteSlashMenu = false
+                noteSlashFilter = ""
+            }
+            return
+        }
+        if !filter.isEmpty {
+            noteSelectedSlashItem = nil
+        }
+        noteSlashFilter = filter
+        showNoteSlashMenu = true
+    }
+
+    private func openNoteSlashCommandMenu() {
+        guard !noteSlashItems.isEmpty else { return }
+        noteSlashFilter = ""
+        showNoteSlashMenu = true
+    }
+
+    private func applyNoteSlashItem(_ item: ComposerSlashCommandItem) {
+        if applyImmediateNoteOsaurusCommand(item) {
+            return
+        }
+        if case .skill(let skill) = item {
+            runSkillFromNoteChat(skill)
+            closeNoteSlashMenu()
+            return
+        }
+        if let command = item.command {
+            selectedNoteChatOperatingMode = command.defaultOperatingMode
+        }
+        noteSelectedSlashItem = item
+        noteChatState.inputText = ComposerSlashMenuLogic.textAfterApplying(item, to: noteChatState.inputText)
+        if noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let suggestedPrompt = item.suggestedPrompt {
+            noteChatState.inputText = suggestedPrompt
+        }
+        closeNoteSlashMenu()
+    }
+
+    private func applyImmediateNoteOsaurusCommand(_ item: ComposerSlashCommandItem) -> Bool {
+        guard isNoteOsaurusActMode,
+              let command = item.osaurusCommand else { return false }
+
+        switch command {
+        case .clear:
+            noteChatState.clear()
+            noteSelectedSlashItem = nil
+        case .model:
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker = true
+            }
+            noteSelectedSlashItem = nil
+        case .tools:
+            showNoteToolPanel = true
+            noteSelectedSlashItem = nil
+        case .configure:
+            openSettings()
+            NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
+            noteSelectedSlashItem = nil
+        case .agent, .help:
+            noteSelectedSlashItem = item
+            if noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let suggestedPrompt = item.suggestedPrompt {
+                noteChatState.inputText = suggestedPrompt
+            }
+        }
+
+        closeNoteSlashMenu()
+        return true
+    }
+
+    private func closeNoteSlashMenu() {
+        showNoteSlashMenu = false
+        noteSlashFilter = ""
     }
 
     private var noteRuntimeTierLabel: String {
@@ -2304,6 +2513,10 @@ struct NoteDetailWorkspaceView: View {
         // P7.5 — honest memory blocker (P1.4 parity): never submit on a local
         // model that can't load; the placeholder explains why.
         guard !trimmed.isEmpty, noteChatMemoryBlocker == nil else { return }
+        if isNoteOsaurusActMode {
+            routeToolbarAskToMainChat(forceAct: true)
+            return
+        }
 
         // USABILITY-001 follow-up (note ask bar, 2026-05-13): when the
         // user's query looks like agent-tier work ("find my note about
@@ -2331,7 +2544,7 @@ struct NoteDetailWorkspaceView: View {
             isCloudProvider: isCloudProvider
         )
         if prediction.predicted == .agent || prediction.predicted == .research {
-            routeToolbarAskToMainChat()
+            routeToolbarAskToMainChat(forceAct: true)
             return
         }
 
@@ -2342,9 +2555,22 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
-    private func routeToolbarAskToMainChat() {
+    private func routeToolbarAskToMainChat(forceAct: Bool = false) {
         let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        let shouldUseAct = (forceAct || isNoteOsaurusActMode) && LocalAgentLoop.shouldRouteActThroughOsaurus()
+        if shouldUseAct {
+            noteChatState.inputText = ""
+            NotificationCenter.default.post(
+                name: .submitActOsaurusPrompt,
+                object: ActOsaurusPromptRequest(
+                    text: trimmed,
+                    contextAttachments: noteChatContextAttachment.map { [$0] } ?? []
+                )
+            )
+            return
+        }
 
         guard let bootstrap = AppBootstrap.shared else {
             submitToolbarAskInline()
@@ -2358,17 +2584,22 @@ struct NoteDetailWorkspaceView: View {
             bootstrap.chatState.addContextAttachment(attachment)
         }
         ui.setActivePanel(.home)
+        let routedMode = selectedNoteChatOperatingMode
         MainChatSubmissionRouter.submit(
             trimmed,
-            operatingMode: selectedNoteChatOperatingMode,
+            operatingMode: routedMode,
             chat: bootstrap.chatState,
             orchestrator: bootstrap.orchestratorState,
-            inference: inference
+            inference: inference,
+            forceActOsaurus: routedMode == .agent
         )
     }
 
     private func openMiniChatForCurrentNote() {
-        MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)
+        MiniChatWindowController.shared.openNewChat(
+            attaching: noteChatContextAttachment,
+            preferredOperatingMode: .agent
+        )
     }
 
     @discardableResult

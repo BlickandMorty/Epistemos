@@ -309,7 +309,8 @@ final class PipelineService {
                             modelInputCaptureHandler: modelInputCaptureHandler,
                             reasoningEventHandler: { delta in
                                 continuation.yield(.thinkingDelta(delta))
-                            }
+                            },
+                            toolEventHandler: toolEventHandler
                         )
                         for try await token in directStream {
                             emittedVisibleText += token
@@ -699,7 +700,8 @@ final class PipelineService {
                 conversationHistory: conversationHistory,
                 operatingMode: operatingMode,
                 executionPlan: executionPlan,
-                modelInputCaptureHandler: modelInputCaptureHandler
+                modelInputCaptureHandler: modelInputCaptureHandler,
+                toolEventHandler: toolEventHandler
             )
             for try await token in stream {
                 accumulated += token
@@ -1019,6 +1021,12 @@ final class PipelineService {
         return json
     }
 
+    nonisolated private static func elapsedMilliseconds(since start: Date?) -> UInt64 {
+        guard let start else { return 0 }
+        let elapsedSeconds = max(0, Date().timeIntervalSince(start))
+        return UInt64(elapsedSeconds * 1000)
+    }
+
     nonisolated private static func combinedAdditionalSystemPrompt(
         base: String?,
         hookContext: PromptContext
@@ -1139,7 +1147,8 @@ final class PipelineService {
         operatingMode: EpistemosOperatingMode = .fast,
         executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil,
         modelInputCaptureHandler: (@MainActor @Sendable (CapturedModelInput) -> Void)? = nil,
-        reasoningEventHandler: (@MainActor @Sendable (String) -> Void)? = nil
+        reasoningEventHandler: (@MainActor @Sendable (String) -> Void)? = nil,
+        toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         Log.pipeline.info("🔬 generateDirectStream — chatMode=PLAIN queryLen=\(query.count)")
 
@@ -1211,6 +1220,58 @@ final class PipelineService {
         let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
             for: operatingMode
         )
+        let requestedActModelID: String? = {
+            if case .localMLX(let modelID) = effectiveChatSelection {
+                return modelID
+            }
+            return nil
+        }()
+        let shouldUseActEventStream = LocalAgentLoop.shouldRouteActThroughOsaurus()
+            && (operatingMode == .agent || requestedActModelID != nil)
+        if shouldUseActEventStream,
+           let actEventStream = SharedActInference.actEventStreamIfArmed(
+            prompt: finalPrompt,
+            systemPrompt: systemPrompt,
+            maxTokens: 2_048,
+            reasoningMode: operatingMode == .fast ? .fast : .thinking,
+            modelID: requestedActModelID
+           ) {
+            return StreamingBufferPolicy.throwingStream { continuation in
+                let task = Task { @MainActor in
+                    var toolStarts: [String: (name: String, inputJson: String, startedAt: Date)] = [:]
+                    do {
+                        for try await event in actEventStream {
+                            switch event {
+                            case .textDelta(let text):
+                                continuation.yield(text)
+                            case .thinkingDelta(let text):
+                                reasoningEventHandler?(text)
+                            case .toolStarted(let id, let name, let inputJson):
+                                toolStarts[id] = (name: name, inputJson: inputJson, startedAt: Date())
+                                toolEventHandler?(.started(id: id, name: name, inputJson: inputJson))
+                            case .toolCompleted(let id, let result, let isError):
+                                let started = toolStarts.removeValue(forKey: id)
+                                let durationMs = Self.elapsedMilliseconds(since: started?.startedAt)
+                                toolEventHandler?(
+                                    .completed(
+                                        id: id,
+                                        name: started?.name ?? "osaurus.tool",
+                                        inputJson: started?.inputJson ?? "{}",
+                                        resultJson: result,
+                                        isError: isError,
+                                        durationMs: durationMs
+                                    )
+                                )
+                            }
+                        }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
+                    }
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
+        }
         let shouldForceDirectLocalStream = executionPlan?.forcesLocalExecution == true
             && {
                 if case .localMLX = effectiveChatSelection {

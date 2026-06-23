@@ -1,4 +1,7 @@
 import SwiftUI
+#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+import OsaurusCore
+#endif
 #if canImport(agent_coreFFI)
 import agent_coreFFI
 #endif
@@ -28,9 +31,16 @@ struct InlineRuntimePickerPanel: View {
     /// bits (cloud, routing, model details) to Settings. Main chat keeps those
     /// as their own split-toolbar buttons, so it leaves this off (default).
     var showsSettingsFooter: Bool = false
+    /// Act keeps this Epistemos inline picker as the visible UI, then appends
+    /// Osaurus's native model stack as rows inside it.
+    var showsOsaurusModelSection: Bool = false
 
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
+    #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+    @State private var osaurusModelRows: [EpistemosOsaurusModelPick] = []
+    @State private var selectedOsaurusModelID: String?
+    #endif
 
     /// Owner 2026-06-18 (picker scroll/height): the panel was capped too short
     /// and macOS auto-hides the scrollbar, so only a couple of picks showed with
@@ -47,9 +57,14 @@ struct InlineRuntimePickerPanel: View {
     /// the lineup never *looks* like just the ~2 rows above the fold (owner 2026-06-18:
     /// "it seems like there were only two available because there's no scroll bar").
     private var totalModelCount: Int {
-        EpistemosModelTier.allCases.reduce(0) { sum, tier in
+        let epistemosCount = EpistemosModelTier.allCases.reduce(0) { sum, tier in
             sum + EpistemosRuntimePicker.options(for: tier, environment: environment).count
         }
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        return epistemosCount + (showsOsaurusModelSection ? osaurusModelRows.count : 0)
+        #else
+        return epistemosCount
+        #endif
     }
 
     /// Always-visible header pinned above the scroll area: "N models" (+ a scroll
@@ -168,6 +183,8 @@ struct InlineRuntimePickerPanel: View {
                         }
                     }
                 }
+
+                osaurusModelSection
 
                 // MODE / Chat·Act depth (owner 2026-06-18 cross-reference — the
                 // old depthToggle). Restores Act reachability on the single-button
@@ -299,7 +316,143 @@ struct InlineRuntimePickerPanel: View {
                 .strokeBorder(theme.border, lineWidth: 1.5)
         )
         .accessibilityIdentifier("InlineRuntimePickerPanel")
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        .task(id: showsOsaurusModelSection) {
+            await refreshOsaurusModelRowsIfNeeded()
+        }
+        #endif
     }
+
+    @ViewBuilder
+    private var osaurusModelSection: some View {
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        if showsOsaurusModelSection {
+            Divider()
+                .padding(.vertical, 2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("ACT MODEL STACK")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.5)
+                    .foregroundStyle(theme.textTertiary)
+
+                if osaurusModelRows.isEmpty {
+                    Button {
+                        onOpenSettings()
+                        onPicked()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(theme.textSecondary)
+                                .frame(width: 16)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Configure Act models")
+                                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(theme.textPrimary)
+                                Text("Open Act settings to connect local, router, and provider models.")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(theme.textTertiary)
+                                    .lineLimit(2)
+                            }
+                            Spacer(minLength: 4)
+                            Image(systemName: "arrow.up.forward")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    ForEach(osaurusModelRows) { row in
+                        if shouldShowOsaurusSectionHeader(before: row) {
+                            Text(row.sectionTitle.uppercased())
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .tracking(1.2)
+                                .foregroundStyle(theme.textTertiary.opacity(0.85))
+                                .padding(.top, row.id == osaurusModelRows.first?.id ? 0 : 4)
+                        }
+                        osaurusPickRow(row)
+                    }
+                }
+            }
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+
+    #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+    @MainActor
+    private func refreshOsaurusModelRowsIfNeeded() async {
+        guard showsOsaurusModelSection else { return }
+        selectedOsaurusModelID = EpistemosOsaurusManagementBridge.currentModel()
+        osaurusModelRows = await EpistemosOsaurusManagementBridge.modelPicks()
+    }
+
+    private func shouldShowOsaurusSectionHeader(before row: EpistemosOsaurusModelPick) -> Bool {
+        guard let index = osaurusModelRows.firstIndex(of: row) else { return false }
+        if index == 0 { return true }
+        return osaurusModelRows[index - 1].sectionTitle != row.sectionTitle
+    }
+
+    private func osaurusPickRow(_ row: EpistemosOsaurusModelPick) -> some View {
+        let selected = selectedOsaurusModelID == row.id
+        return Button {
+            selectOsaurusModel(row)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: row.systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(row.displayName)
+                        .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(theme.textPrimary)
+                    Text(row.subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                if selected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(selected ? theme.resolved.accent.color.opacity(0.14) : Color.clear)
+            .overlay(alignment: .leading) {
+                if selected {
+                    Rectangle()
+                        .fill(theme.resolved.accent.color)
+                        .frame(width: 2)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("\(row.sectionTitle) · \(row.id)")
+    }
+
+    @MainActor
+    private func selectOsaurusModel(_ row: EpistemosOsaurusModelPick) {
+        EpistemosOsaurusManagementBridge.setCurrentModel(row.id)
+        selectedOsaurusModelID = row.id
+        if ChatModelSelection(rawValue: row.id) != nil {
+            inference.setPreferredChatModelSelection(.localMLX(row.id))
+        }
+        onPicked()
+    }
+    #endif
 
     /// Bottom-edge "scroll for more" cue: a short fade into the card colour, then
     /// a centered chevron + label. Non-interactive (hit-testing off) so it never
@@ -687,6 +840,12 @@ struct InlineRuntimePickerPanel: View {
             inference.setPreferredChatModelSelection(.appleIntelligence)
         } else {
             inference.setPreferredChatModelSelection(.localMLX(option.id))
+            #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+            if showsOsaurusModelSection {
+                EpistemosOsaurusManagementBridge.setCurrentModel(option.id)
+                selectedOsaurusModelID = option.id
+            }
+            #endif
         }
         onPicked()
     }

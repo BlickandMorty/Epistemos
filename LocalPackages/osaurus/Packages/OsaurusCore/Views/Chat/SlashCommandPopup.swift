@@ -45,7 +45,7 @@ struct SlashCommandPopup: View {
 
     private var newCommandFooter: some View {
         Button {
-            AppDelegate.shared?.showManagementWindow(initialTab: .commands)
+            EpistemosOsaurusManagementPresenter.show(initialTab: .commands)
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "plus.circle")

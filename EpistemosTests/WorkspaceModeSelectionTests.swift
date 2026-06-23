@@ -29,18 +29,18 @@ struct WorkspaceModeSelectionTests {
     }
 
     #if !EPISTEMOS_APP_STORE
-    @Test("isArmed reads the REAL gates — act override arms act, work override arms work, independently")
+    @Test("isArmed reads the REAL gates — act follows the shared Pro route, work remains independent")
     func isArmedReadsGates() {
         let suite = "test.workspace.mode.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        // nothing armed by default (no env, no override).
-        #expect(!WorkspaceModeSelection.isArmed(.act, environment: [:], defaults: defaults))
+        // ACT is default-on in Pro through LocalAgentLoop's shared route; WORK is still explicit.
+        #expect(WorkspaceModeSelection.isArmed(.act, environment: [:], defaults: defaults))
         #expect(!WorkspaceModeSelection.isArmed(.work, environment: [:], defaults: defaults))
 
-        // arming the ACT gate (via its override) arms act only.
-        ActOsaurusGateStatus.setOverride(true, defaults: defaults)
+        // The old ACT override does not un-arm the shared Pro route.
+        ActOsaurusGateStatus.setOverride(false, defaults: defaults)
         #expect(WorkspaceModeSelection.isArmed(.act, environment: [:], defaults: defaults))
         #expect(!WorkspaceModeSelection.isArmed(.work, environment: [:], defaults: defaults))
 

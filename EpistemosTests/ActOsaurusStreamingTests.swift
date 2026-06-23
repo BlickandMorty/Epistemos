@@ -4,8 +4,8 @@ import Foundation
 
 /// ACT token streaming through OsaurusCore (owner 2026-06-21, §214 "code it now, don't defer"). Completes
 /// the user-visible main-chat act path: the shared composer's streamingGenerator now routes through
-/// OsaurusCore (CoreModelService.generateStream) when act is armed, forwarding tokens as they decode
-/// (STREAM EVERYTHING) — not single-shot. Honest: the inert bridge refuses (never a silent cloud route).
+/// the headless Osaurus chat session when act is armed, forwarding visible text while preserving a typed
+/// event path for thinking/tool/result state. Honest: the inert bridge refuses (never a silent cloud route).
 @Suite("Act streaming — tokens through OsaurusCore at the shared chokepoint")
 struct ActOsaurusStreamingTests {
     #if !EPISTEMOS_APP_STORE
@@ -21,9 +21,10 @@ struct ActOsaurusStreamingTests {
     func streamingHandlerWiresBridge() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/ActOsaurusStreamingHandler.swift")
         #expect(src.contains("enum ActOsaurusStreamingHandler"))
-        #expect(src.contains("runTurnStreamingInProcess("))     // drives the bridge stream
-        #expect(src.contains("continuation.yield(token)"))      // forwards each token (STREAM EVERYTHING)
-        #expect(src.contains("finish(throwing: error)"))        // honest failure on the stream, never cloud
+        #expect(src.contains("makeEventStream("))                  // semantic stream is the source of truth
+        #expect(src.contains("runTurnEventStreamInProcess("))      // drives the headless chat-session stream
+        #expect(src.contains("case .textDelta(let token)"))        // text wrapper forwards only visible text
+        #expect(src.contains("finish(throwing: error)"))           // honest failure on the stream, never cloud
     }
 
     @Test("liveLoop routes the streaming generator through the SHARED act entry (one chokepoint, §692)")
@@ -40,9 +41,13 @@ struct ActOsaurusStreamingTests {
     func sharedActEntryContract() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/LocalAgent/SharedActInference.swift")
         #expect(src.contains("func actStreamIfArmed("))
+        #expect(src.contains("func actEventStreamIfArmed("))
         #expect(src.contains("shouldRouteActThroughOsaurus()"))   // the one decision
         #expect(src.contains("ActOsaurusStreamingHandler.make()")) // the one act stream
-        #expect(src.contains("continuation.yield(token)"))         // forwards real tokens
+        #expect(src.contains("ActOsaurusStreamingHandler.makeEventStream()")) // the one semantic stream
+        #expect(src.contains("streamFilter.visibleDelta(from: token)"))
+        #expect(src.contains("streamFilter.visibleDelta(from: text)"))
+        #expect(src.contains("continuation.yield(.textDelta(visibleTail))"))
     }
 
     @Test("completeness: the NON-streaming local path also routes act (no per-surface drift, §38/§86)")
@@ -57,9 +62,7 @@ struct ActOsaurusStreamingTests {
     }
     #endif
 
-    // NOTE: `CoreModelService.generateStream` (the public streaming method on the vendored OsaurusCore
-    // that the bridge drives) is proven REAL by COMPILATION — the bridge calls it and the whole target
-    // builds (0 errors) — plus the inert-refuse + wiring behavior tests above. We don't source-guard it
-    // via loadMirroredSourceTextFile because the source mirror covers the app trees, not vendored
-    // LocalPackages snapshots (that path reads stale).
+    // NOTE: `EpistemosOsaurusChatSessionBridge.streamTurnEvents` is the public headless Osaurus
+    // session entry Epistemos uses for native rendering. The text stream wraps that event stream
+    // rather than calling the raw model service directly.
 }

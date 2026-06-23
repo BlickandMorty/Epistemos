@@ -29,17 +29,17 @@ struct ActOsaurusActiveBadge: View {
         Button {
             showPanel.toggle()
         } label: {
-            Label("Osaurus", systemImage: "bolt.horizontal.circle.fill")
+            Label("Act", systemImage: "bolt.horizontal.circle.fill")
                 .labelStyle(.titleAndIcon)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.green)
         }
         .buttonStyle(.plain)
-        .help("Act is powered by the Osaurus engine — click for the live engine status.")
-        .accessibilityLabel("Osaurus engine — act is Osaurus-powered")
+        .help("Act engine status and capabilities")
+        .accessibilityLabel("Act engine status and capabilities")
         .popover(isPresented: $showPanel, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 8) {
-                Label("Osaurus engine", systemImage: "bolt.horizontal.circle.fill")
+                Label("Act engine", systemImage: "bolt.horizontal.circle.fill")
                     .font(.headline)
                     .foregroundStyle(.green)
                 Text(engineStatus ?? "Resolving engine status…")
@@ -55,7 +55,7 @@ struct ActOsaurusActiveBadge: View {
                     Divider()
                     // P0-B model stack: the owner's models that the Osaurus engine can
                     // serve in act (registered through the model bridge).
-                    Text("Your Osaurus models (\(osaurusModels.count))")
+                    Text("Act models (\(osaurusModels.count))")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                     ForEach(osaurusModels.prefix(8), id: \.self) { id in
@@ -70,7 +70,7 @@ struct ActOsaurusActiveBadge: View {
                 if !osaurusTools.isEmpty {
                     Divider()
                     // P0-B tool controls: the tools the Osaurus engine can call in act.
-                    Text("Osaurus tools in act (\(osaurusTools.count))")
+                    Text("Act tools (\(osaurusTools.count))")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(osaurusTools.prefix(12).joined(separator: ", "))

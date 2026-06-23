@@ -1,4 +1,7 @@
 import AppKit
+#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+import OsaurusCore
+#endif
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
@@ -8,6 +11,20 @@ private enum MiniChatLayout {
     static let composerMaxWidth: CGFloat = 620
     static let userBubbleMaxWidth: CGFloat = 360
     static let toolbarHeight: CGFloat = 36
+}
+
+enum MiniChatOperatingModePreference {
+    static let defaultsKey = "epistemos.miniChatOperatingMode"
+
+    static func setPreferredMode(_ mode: EpistemosOperatingMode?) {
+        guard let mode else { return }
+        UserDefaults.standard.set(mode.rawValue, forKey: defaultsKey)
+    }
+
+    static func preferredMode() -> EpistemosOperatingMode? {
+        guard let raw = UserDefaults.standard.string(forKey: defaultsKey) else { return nil }
+        return EpistemosOperatingMode(rawValue: raw)
+    }
 }
 
 // MARK: - MiniChat View
@@ -27,6 +44,16 @@ struct MiniChatView: View {
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
+        miniChatLegacyBody
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            Task { @MainActor in
+                loadMiniChatSessionIfNeeded()
+            }
+        }
+    }
+
+    private var miniChatLegacyBody: some View {
         VStack(spacing: 0) {
             miniChatHeader
             if showRecentChats {
@@ -40,7 +67,7 @@ struct MiniChatView: View {
             }
         }
         .padding(.horizontal, 28)
-        .padding(.top, 36) // leave room for traffic lights; glass extends behind them
+        .padding(.top, 36)
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
@@ -73,11 +100,6 @@ struct MiniChatView: View {
                 .shadow(color: Color.black.opacity(theme.isDark ? 0.45 : 0.22), radius: 28, y: 12)
                 .ignoresSafeArea()
         )
-        .onAppear {
-            Task { @MainActor in
-                loadMiniChatSessionIfNeeded()
-            }
-        }
     }
 
     private var miniChatHeader: some View {
@@ -97,6 +119,13 @@ struct MiniChatView: View {
 
             Spacer(minLength: 12)
 
+            Button(action: openCurrentChatInMain) {
+                Label("Open in Main Chat", systemImage: "arrow.down.left.square")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(NativeToolbarButtonStyle())
+            .help("Open this chat in Main Chat")
+
             Button(action: { showRecentChats = true }) {
                 Label("Recent Chats", systemImage: "clock.arrow.circlepath")
                     .labelStyle(.iconOnly)
@@ -104,7 +133,7 @@ struct MiniChatView: View {
             .buttonStyle(NativeToolbarButtonStyle())
             .help("Recent Chats")
 
-            Button(action: { MiniChatWindowController.shared.openNewChat() }) {
+            Button(action: { MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent) }) {
                 Label("Add Chat", systemImage: "plus")
                     .labelStyle(.iconOnly)
             }
@@ -178,9 +207,65 @@ struct MiniChatView: View {
             applyInitialContextAttachmentIfNeeded()
             return
         }
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        if loadActOsaurusTranscriptIfAvailable() {
+            applyInitialContextAttachmentIfNeeded()
+            return
+        }
+        #endif
         threadState.ensureMiniChatSession(id: chatID)
         applyInitialContextAttachmentIfNeeded()
     }
+
+    #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+    @discardableResult
+    private func loadActOsaurusTranscriptIfAvailable() -> Bool {
+        guard let sessionId = UUID(uuidString: chatID),
+              let transcript = EpistemosOsaurusSessionBridge.loadTranscript(id: sessionId)
+        else { return false }
+
+        let messages = transcript.messages.compactMap { message -> AssistantMessage? in
+            switch message.role {
+            case .user:
+                return AssistantMessage(
+                    id: message.id.uuidString,
+                    role: .user,
+                    content: message.content,
+                    createdAt: message.createdAt ?? .now
+                )
+            case .assistant:
+                return AssistantMessage(
+                    id: message.id.uuidString,
+                    role: .assistant,
+                    content: ActOsaurusVisibleStreamFilter.visibleStoredText(from: message.content),
+                    authoredByProviderID: "act",
+                    authoredByModelID: transcript.selectedModel,
+                    thinkingTrace: message.thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? nil
+                        : message.thinking,
+                    thinkingDurationSeconds: message.thinkingDuration,
+                    createdAt: message.createdAt ?? message.completedAt ?? .now
+                )
+            case .tool, .system:
+                return nil
+            }
+        }
+
+        let label = transcript.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        threadState.upsertMiniChatSession(
+            id: transcript.id.uuidString,
+            label: label.isEmpty ? "Act" : label,
+            pageId: nil,
+            messages: messages
+        )
+        MiniChatWindowController.shared.updateWindowTitle(
+            chatID: transcript.id.uuidString,
+            title: label.isEmpty ? "Act" : label
+        )
+        return true
+    }
+
+    #endif
 
     private func applyInitialContextAttachmentIfNeeded() {
         guard !appliedInitialContextAttachment, let initialContextAttachment else { return }
@@ -188,6 +273,37 @@ struct MiniChatView: View {
         let existingAttachments = threadState.miniChatSession(id: chatID)?.contextAttachments ?? []
         guard !existingAttachments.contains(initialContextAttachment) else { return }
         threadState.addMiniChatContextAttachment(initialContextAttachment, chatID: chatID)
+    }
+
+    private func openCurrentChatInMain() {
+        if persistedMiniChatExists(chatID) {
+            AppBootstrap.shared?.loadChat(chatId: chatID)
+            HomeWindowIdentity.surfaceHomeWindow()
+            return
+        }
+
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        if let sessionId = UUID(uuidString: chatID),
+           EpistemosOsaurusSessionBridge.loadTranscript(id: sessionId) != nil {
+            NotificationCenter.default.post(name: .openActOsaurusSession, object: sessionId)
+            HomeWindowIdentity.surfaceHomeWindow()
+            return
+        }
+        #endif
+        AppBootstrap.shared?.loadChat(chatId: chatID)
+        HomeWindowIdentity.surfaceHomeWindow()
+    }
+
+    private func persistedMiniChatExists(_ chatID: String) -> Bool {
+        let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
+        do {
+            return try modelContext.fetch(descriptor).first != nil
+        } catch {
+            Log.pipeline.error(
+                "MiniChatView: failed to check persisted mini chat \(chatID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
     }
 }
 
@@ -261,7 +377,6 @@ private struct MiniChatThread: View {
                                                     content: visibleStreamingText + " ▍",
                                                     theme: theme
                                                 )
-                                                .textSelection(.enabled)
                                             }
 
                                             if !streamingThinking.isEmpty {
@@ -433,7 +548,6 @@ private struct MiniChatBubble: View {
                 foregroundOverride: theme.userBubbleText,
                 typographyRole: .user
             )
-            .textSelection(.enabled)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -447,7 +561,6 @@ private struct MiniChatBubble: View {
                     }
 
                     TaggedMarkdownTextView(content: displayContent, theme: theme)
-                        .textSelection(.enabled)
 
                     if let thinkingTrace = persistedThinking,
                        !thinkingTrace.isEmpty {
@@ -628,10 +741,11 @@ private struct MiniChatInputBar: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
     @Environment(AgentCommandCenterState.self) private var agentCommandCenter
+    @Environment(MCPBridge.self) private var mcpBridge
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openSettings) private var openSettings
-    @AppStorage("epistemos.miniChatOperatingMode")
+    @AppStorage(MiniChatOperatingModePreference.defaultsKey)
     private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
     /// Owner 2026-06-18: mini chat's model picker is a flat inline pixel-art
     /// panel expanding in-flow above the composer controls — not a popover.
@@ -667,7 +781,12 @@ private struct MiniChatInputBar: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var composerAccentColor: Color { theme.resolved.accent.color }
-    private let composerMetrics = AssistantComposerMetrics.compactChat
+    private let composerMetrics = AssistantComposerMetrics.mainChat
+    private var placeholderText: String {
+        isOsaurusActMode
+            ? "Ask Act… Type / for commands, tools, models, or agents."
+            : ComposerAttachmentEntryHints.mainChatPlaceholder
+    }
     /// Owner 2026-06-18 (mini-chat parity): mini must offer the SAME operating
     /// modes as MAIN chat — Fast/Think/Code plus Act when an agent route exists —
     /// not the narrower per-model BASE set. Previously this used
@@ -677,7 +796,11 @@ private struct MiniChatInputBar: View {
     /// main-chat source so the two surfaces can never drift; honest gating is
     /// already baked into `availableOperatingModes` (Act only with a real route).
     private var supportedOperatingModes: [EpistemosOperatingMode] {
-        MainChatOperatingModePreference.supportedModes(for: inference)
+        var modes = MainChatOperatingModePreference.supportedModes(for: inference)
+        if LocalAgentLoop.shouldRouteActThroughOsaurus(), !modes.contains(.agent) {
+            modes.append(.agent)
+        }
+        return modes
     }
     private func sanitizedMiniChatOperatingMode(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
         guard supportedOperatingModes.contains(mode) else {
@@ -710,7 +833,12 @@ private struct MiniChatInputBar: View {
     }
 
     private var selectedRuntimeReady: Bool {
-        inference.isChatSurfaceRuntimeReady(for: selectedOperatingMode)
+        if isOsaurusActMode { return true }
+        return inference.isChatSurfaceRuntimeReady(for: selectedOperatingMode)
+    }
+
+    private var isOsaurusActMode: Bool {
+        selectedOperatingMode == .agent && LocalAgentLoop.shouldRouteActThroughOsaurus()
     }
 
     /// P7.5 — chat-surface parity: MiniChat reuses the same honest local-runtime
@@ -718,7 +846,8 @@ private struct MiniChatInputBar: View {
     /// so this is parity, not a fork — Send disables + a banner shows when the
     /// selected local model can't load, never a silent route to another model.
     private var localRuntimeMemoryBlocker: String? {
-        inference.localChatModelMemoryBlocker(for: selectedOperatingMode)
+        if isOsaurusActMode { return nil }
+        return inference.localChatModelMemoryBlocker(for: selectedOperatingMode)
     }
 
     /// P7.5 — Fast effort visibility parity with Main chat (P1.9).
@@ -750,7 +879,7 @@ private struct MiniChatInputBar: View {
         AssistantComposerStatusLabelState.resolve(
             inputText: text,
             phase: composerStatusPhase,
-            idleText: ComposerAttachmentEntryHints.mainChatPlaceholder,
+            idleText: placeholderText,
             showsIdleLabel: false,
             analyzingText: "Loading \(inference.activeChatModelDisplayName)…"
         )
@@ -816,7 +945,11 @@ private struct MiniChatInputBar: View {
     }
 
     private var supportedSlashItems: [ComposerSlashCommandItem] {
-        ComposerSlashCommandItem.all(
+        if isOsaurusActMode {
+            return ActOsaurusSlashCommand.allCases.map(ComposerSlashCommandItem.osaurus)
+                + agentCommandCenter.availableSkills.map(ComposerSlashCommandItem.skill)
+        }
+        return ComposerSlashCommandItem.all(
             commands: supportedSlashCommands,
             skills: agentCommandCenter.availableSkills
         )
@@ -856,14 +989,38 @@ private struct MiniChatInputBar: View {
         activeSelectedSlashItem?.token
     }
 
+    private var showsToolPanelButton: Bool {
+        true
+    }
+
+    private var enabledAppToolNames: Set<String> {
+        Set(agentCommandCenter.enabledToolNames.map(AgentToolNameAliases.canonical))
+    }
+
+    private var hasEnabledAppTools: Bool {
+        !enabledAppToolNames.isEmpty
+    }
+
+    private var managedToolRuntimeVaultPath: String {
+        FoundationSafety.managedToolRuntimeVaultDirectory(
+            preferredVaultPath: vaultSync.vaultURL?.path
+        ).path
+    }
+
+    private func refreshExecutionCatalogsIfNeeded(force: Bool = false) {
+        agentCommandCenter.refreshExecutionCatalogsIfNeeded(
+            from: mcpBridge,
+            vaultPath: managedToolRuntimeVaultPath,
+            force: force
+        )
+    }
+
     private var currentAccessPlan: ComposerCurrentAccessPlan {
         ComposerCurrentAccessPlan(
             vaultURL: vaultSync.vaultURL,
             contextAttachments: activeContextAttachments,
             fileAttachments: pendingFileAttachments,
-            compiledAllowedToolNames: inference.providerNativeCapabilityToolNameList(
-                for: selectedOperatingMode
-            )
+            compiledAllowedToolNames: Array(enabledAppToolNames).sorted()
         )
     }
 
@@ -916,6 +1073,10 @@ private struct MiniChatInputBar: View {
                 name: activeTool,
                 inputJson: threadState.miniChatActiveToolInputJson(chatID: chatID)
             )
+        }
+
+        if hasEnabledAppTools {
+            return "\(enabledAppToolNames.count) app tools"
         }
 
         return ComposerModelToolTruth.detail(
@@ -1010,17 +1171,18 @@ private struct MiniChatInputBar: View {
                 // Owner 2026-06-18: flat inline pixel-art model picker in-flow,
                 // replacing the single-button LocalModelToolbarMenu popover.
                 if showInlineRuntimePicker {
-                    InlineRuntimePickerPanel(
-                        inference: inference,
-                        operatingMode: operatingModeBinding,
-                        onPicked: {
-                            withAnimation(.easeInOut(duration: 0.16)) {
-                                showInlineRuntimePicker = false
-                            }
-                        },
-                        onOpenSettings: { openSettings() },
-                        showsSettingsFooter: true
-                    )
+                        InlineRuntimePickerPanel(
+                            inference: inference,
+                            operatingMode: operatingModeBinding,
+                            onPicked: {
+                                withAnimation(.easeInOut(duration: 0.16)) {
+                                    showInlineRuntimePicker = false
+                                }
+                            },
+                            onOpenSettings: { openSettings() },
+                            showsSettingsFooter: true,
+                            showsOsaurusModelSection: isOsaurusActMode
+                        )
                     .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
                     .padding(.bottom, 8)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1028,15 +1190,15 @@ private struct MiniChatInputBar: View {
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
+                        inlineRuntimePickerTrigger
                         if !supportedSlashItems.isEmpty {
                             slashButton
                         }
                         if let activeSelectedSlashItem {
                             selectedSlashPill(for: activeSelectedSlashItem)
                         }
-                        inlineRuntimePickerTrigger
                         attachButton
-                        if !agentCommandCenter.availableTools.isEmpty {
+                        if showsToolPanelButton {
                             toolPanelButton
                         }
                     }
@@ -1079,6 +1241,7 @@ private struct MiniChatInputBar: View {
         .frame(maxWidth: MiniChatLayout.composerMaxWidth)
         .frame(maxWidth: .infinity)
         .onAppear {
+            agentCommandCenter.refreshSkillCatalog()
             sanitizeStoredOperatingMode()
         }
         .onDisappear {
@@ -1186,7 +1349,7 @@ private struct MiniChatInputBar: View {
         }
         .overlay(alignment: .topLeading) {
             if text.isEmpty && composerStatusLabelState == nil {
-                Text(ComposerAttachmentEntryHints.mainChatPlaceholder)
+                Text(placeholderText)
                     .font(.system(size: 16, weight: .regular, design: .rounded))
                     .foregroundStyle(theme.mutedForeground.opacity(0.55))
                     .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
@@ -1452,7 +1615,7 @@ private struct MiniChatInputBar: View {
             helpText: "Agent tools — turn capabilities on or off for this chat",
             accessibilityLabel: "Agent tools"
         ) {
-            showToolPanel.toggle()
+            openToolPanel()
         }
         .disabled(isProcessing)
         .popover(isPresented: $showToolPanel, arrowEdge: .top) {
@@ -1462,6 +1625,15 @@ private struct MiniChatInputBar: View {
                 onRunSkill: { skill in runSkillFromPanel(skill) }
             )
         }
+    }
+
+    private func openToolPanel() {
+        if agentCommandCenter.availableTools.isEmpty {
+            refreshExecutionCatalogsIfNeeded()
+        } else {
+            agentCommandCenter.refreshSkillCatalog()
+        }
+        showToolPanel.toggle()
     }
 
     private func runSkillFromPanel(_ skill: SkillDiscoveryEntry) {
@@ -1483,7 +1655,9 @@ private struct MiniChatInputBar: View {
             systemImage: "cpu",
             variant: .toolbar,
             isActive: showInlineRuntimePicker,
-            helpText: "Pick the Epistemos brain — Fast / Think / Code",
+            helpText: isOsaurusActMode
+                ? "Pick the Act model inside the Epistemos picker"
+                : "Pick the Epistemos brain — Fast / Think / Code",
             accessibilityLabel: "Model picker, \(currentTierShortLabel)"
         ) {
             withAnimation(.easeInOut(duration: 0.16)) {
@@ -1636,6 +1810,9 @@ private struct MiniChatInputBar: View {
     }
 
     private func applySlashItem(_ item: ComposerSlashCommandItem) {
+        if applyImmediateOsaurusCommand(item) {
+            return
+        }
         if let command = item.command {
             selectedOperatingMode = command.defaultOperatingMode
         }
@@ -1664,6 +1841,42 @@ private struct MiniChatInputBar: View {
         showSlashMenu = false
         slashFilter = ""
         slashKeyboardIndex = 0
+    }
+
+    private func applyImmediateOsaurusCommand(_ item: ComposerSlashCommandItem) -> Bool {
+        guard isOsaurusActMode,
+              let command = item.osaurusCommand else { return false }
+
+        switch command {
+        case .clear:
+            MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
+            text = ""
+            selectedSlashItem = nil
+        case .model:
+            withAnimation(.easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker = true
+            }
+            selectedSlashItem = nil
+        case .tools:
+            openToolPanel()
+            selectedSlashItem = nil
+        case .configure:
+            openSettings()
+            NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
+            selectedSlashItem = nil
+        case .agent, .help:
+            selectedSlashItem = item
+            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let suggestedPrompt = item.suggestedPrompt {
+                text = suggestedPrompt
+            }
+        }
+
+        showSlashMenu = false
+        slashFilter = ""
+        slashKeyboardIndex = 0
+        isFocused = true
+        return true
     }
 
     private func openSlashCommandMenu() {
@@ -2016,23 +2229,22 @@ private struct MiniChatInputBar: View {
               localRuntimeMemoryBlocker == nil else { return }
         let fileAttachments = pendingFileAttachments
         let requestedSlashToken = activeSelectedSlashToken
+        refreshExecutionCatalogsForNativeIntent(
+            trimmed,
+            fileAttachments: fileAttachments,
+            requestedSlashToken: requestedSlashToken
+        )
+
+        if isOsaurusActMode {
+            runActPromptInMiniChat(trimmed, fileAttachments: fileAttachments)
+            clearComposerAfterSubmit()
+            return
+        }
 
         threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
         refreshMiniChatLabel(using: trimmed)
         persistMiniChatSession()
-        text = ""
-        composerHeight = ChatComposerInputMetrics.minHeight
-        pendingFileAttachments = []
-        selectedSlashItem = nil
-        showMentionDropdown = false
-        showSlashMenu = false
-        slashFilter = ""
-        slashKeyboardIndex = 0
-        referencePopoverStyle = .mention
-        mentionKeyboardIndex = 0
-        mentionPickerAutofocus = false
-        mentionFilter = ""
-        referenceSearch.reset()
+        clearComposerAfterSubmit()
         isProcessing = true
         threadState.setMiniChatStreaming(true, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
@@ -2230,6 +2442,289 @@ private struct MiniChatInputBar: View {
         }
     }
 
+    private func submitActPromptInMainChat(_ prompt: String, fileAttachments: [FileAttachment]) {
+        let request = ActOsaurusPromptRequest(
+            text: prompt,
+            contextAttachments: activeContextAttachments,
+            fileAttachments: fileAttachments,
+            sessionId: UUID(uuidString: chatID)
+        )
+        NotificationCenter.default.post(name: .submitActOsaurusPrompt, object: request)
+        HomeWindowIdentity.surfaceHomeWindow()
+    }
+
+    private func runActPromptInMiniChat(_ prompt: String, fileAttachments: [FileAttachment]) {
+        let attachments = activeContextAttachments
+        let requestedModelID = requestedActModelID()
+
+        threadState.addMiniChatMessage(
+            AssistantMessage(
+                role: .user,
+                content: prompt,
+                contextAttachments: attachments.isEmpty ? nil : attachments
+            ),
+            chatID: chatID
+        )
+        refreshMiniChatLabel(using: prompt)
+        persistMiniChatSession()
+
+        isProcessing = true
+        threadState.setMiniChatStreaming(true, chatID: chatID)
+        threadState.setMiniChatStreamingText("", chatID: chatID)
+        threadState.clearMiniChatStreamingThinking(chatID: chatID)
+        threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+        threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
+
+        streamTask = Task {
+            var accumulated = ""
+            var pendingBlocks: [MessageContentBlock] = []
+
+            defer {
+                isProcessing = false
+                threadState.setMiniChatStreaming(false, chatID: chatID)
+            }
+
+            do {
+                let resolved = await resolveActMiniChatContext(
+                    prompt: prompt,
+                    attachments: attachments
+                )
+                threadState.updateMiniChatLoadedNotes(
+                    ids: resolved.loadedNoteIds,
+                    titles: resolved.loadedNoteTitles,
+                    chatID: chatID
+                )
+
+                let conversationPrompt = buildActMiniChatPrompt(
+                    cleanedPrompt: resolved.cleanedQuery,
+                    resolvedContext: resolved.context,
+                    attachments: attachments,
+                    fileAttachments: fileAttachments
+                )
+
+                guard let actEventStream = SharedActInference.actEventStreamIfArmed(
+                    prompt: conversationPrompt,
+                    systemPrompt: nil,
+                    maxTokens: 2_048,
+                    reasoningMode: .thinking,
+                    modelID: requestedModelID
+                ) else {
+                    throw AgentRuntimeError(
+                        message: "Act's Osaurus engine is not available for Mini Chat in this build."
+                    )
+                }
+
+                for try await event in actEventStream {
+                    guard !Task.isCancelled else { break }
+                    switch event {
+                    case .textDelta(let text):
+                        accumulated += text
+                        threadState.setMiniChatStreamingText(accumulated, chatID: chatID)
+                    case .thinkingDelta(let text):
+                        threadState.appendMiniChatStreamingThinking(text, chatID: chatID)
+                    case .toolStarted(let id, let name, let inputJson):
+                        pendingBlocks.append(
+                            .toolUse(
+                                id: id,
+                                name: name,
+                                input: decodeMiniChatToolInput(inputJson)
+                            )
+                        )
+                        threadState.setMiniChatActiveTool(name: name, inputJson: inputJson, chatID: chatID)
+                        threadState.setMiniChatPendingContentBlocks(pendingBlocks, chatID: chatID)
+                    case .toolCompleted(let id, let result, let isError):
+                        pendingBlocks.append(
+                            .toolResult(toolUseId: id, content: result, isError: isError)
+                        )
+                        threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                        threadState.setMiniChatPendingContentBlocks(pendingBlocks, chatID: chatID)
+                    }
+                }
+
+                let final = UserFacingModelOutput.finalVisibleText(from: accumulated)
+                let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
+                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
+
+                var completedBlocks = pendingBlocks
+                if !final.isEmpty {
+                    completedBlocks.append(.text(final))
+                }
+
+                threadState.addMiniChatMessage(
+                    AssistantMessage(
+                        role: .assistant,
+                        content: final.isEmpty ? "No response generated." : final,
+                        contentBlocks: completedBlocks.isEmpty ? nil : completedBlocks,
+                        authoredByProviderID: "act",
+                        authoredByModelID: requestedModelID,
+                        thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace,
+                        loadedNoteTitles: resolved.loadedNoteTitles,
+                        contextAttachments: attachments.isEmpty ? nil : attachments
+                    ),
+                    chatID: chatID
+                )
+                persistMiniChatSession()
+            } catch is CancellationError {
+                let partial = UserFacingModelOutput.finalVisibleText(
+                    from: threadState.miniChatStreamingText(chatID: chatID)
+                )
+                let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
+                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
+                if !partial.isEmpty || !pendingBlocks.isEmpty {
+                    if !partial.isEmpty {
+                        pendingBlocks.append(.text(partial))
+                    }
+                    threadState.addMiniChatMessage(
+                        AssistantMessage(
+                            role: .assistant,
+                            content: partial,
+                            contentBlocks: pendingBlocks.isEmpty ? nil : pendingBlocks,
+                            authoredByProviderID: "act",
+                            authoredByModelID: requestedModelID,
+                            thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace
+                        ),
+                        chatID: chatID
+                    )
+                    persistMiniChatSession()
+                }
+            } catch {
+                threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
+                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
+                threadState.addMiniChatMessage(
+                    AssistantMessage(
+                        role: .assistant,
+                        content: UserFacingChatError.message(from: error),
+                        authoredByProviderID: "act",
+                        authoredByModelID: requestedModelID
+                    ),
+                    chatID: chatID
+                )
+                persistMiniChatSession()
+            }
+        }
+    }
+
+    private func requestedActModelID() -> String? {
+        switch inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) {
+        case .localMLX(let modelID):
+            return modelID
+        case .cloud, .appleIntelligence:
+            return nil
+        }
+    }
+
+    private func resolveActMiniChatContext(
+        prompt: String,
+        attachments: [ContextAttachment]
+    ) async -> ChatCoordinator.AttachedContextResolution {
+        guard ChatCoordinator.queryContainsExplicitNoteContext(prompt) || !attachments.isEmpty else {
+            return .init(
+                context: nil,
+                cleanedQuery: prompt,
+                loadedNoteIds: [],
+                loadedNoteTitles: []
+            )
+        }
+
+        return await ChatCoordinator.resolveAttachedContext(
+            query: prompt,
+            attachments: attachments,
+            manifest: ambientManifest,
+            includeAllNotesContext: false,
+            findNotesByTitle: { title in
+                await vaultSync.findNotesByTitle(title)
+            },
+            fetchNoteBodies: { ids in
+                await vaultSync.fetchNoteBodies(ids: ids)
+            },
+            searchNoteIDs: { query in
+                await vaultSync.searchIndex(query: query)
+            },
+            fetchHTMLWorkspaceContext: { attachments in
+                await MainActor.run {
+                    HTMLWorkspacePatchRouter.contextPack(for: attachments)
+                }
+            },
+            fetchChatMessages: { chatID in
+                await MainActor.run {
+                    threadState.chatThreads
+                        .first(where: { $0.id == chatID })?
+                        .messages ?? []
+                }
+            }
+        )
+    }
+
+    private func buildActMiniChatPrompt(
+        cleanedPrompt: String,
+        resolvedContext: String?,
+        attachments: [ContextAttachment],
+        fileAttachments: [FileAttachment]
+    ) -> String {
+        var promptParts: [String] = []
+        if let resolvedContext {
+            promptParts.append(resolvedContext)
+        }
+        if let fileAttachmentContext = ChatCoordinator.buildFileAttachmentContext(
+            from: fileAttachments,
+            supportsVision: inference.chatSurfaceSupportsVision(for: selectedOperatingMode)
+        ) {
+            promptParts.append(fileAttachmentContext)
+        }
+
+        let history = (threadState.miniChatSession(id: chatID)?.messages ?? [])
+            .dropLast()
+            .suffix(10)
+        if !history.isEmpty {
+            promptParts.append(
+                history.map { message in
+                    message.role == .user
+                        ? "User: \(message.content)"
+                        : "Assistant: \(message.content)"
+                }
+                .joined(separator: "\n\n")
+            )
+        }
+
+        promptParts.append(cleanedPrompt)
+        return promptParts.joined(separator: "\n\n")
+    }
+
+    private func decodeMiniChatToolInput(_ inputJson: String) -> [String: JSONValue] {
+        guard let data = inputJson.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data)
+        else {
+            return ["raw": .string(inputJson)]
+        }
+        return decoded
+    }
+
+    private func clearComposerAfterSubmit() {
+        text = ""
+        composerHeight = ChatComposerInputMetrics.minHeight
+        pendingFileAttachments = []
+        selectedSlashItem = nil
+        showMentionDropdown = false
+        showSlashMenu = false
+        slashFilter = ""
+        slashKeyboardIndex = 0
+        referencePopoverStyle = .mention
+        mentionKeyboardIndex = 0
+        mentionPickerAutofocus = false
+        mentionFilter = ""
+        referenceSearch.reset()
+    }
+
     private func shouldUseSharedCoordinator(
         for query: String,
         fileAttachments: [FileAttachment] = [],
@@ -2241,6 +2736,18 @@ private struct MiniChatInputBar: View {
             return true
         }
 
+        let prediction = ChatCapability.predictIntent(
+            text: trimmed,
+            isCloudProvider: isCloudProviderSelection
+        )
+        if hasEnabledAppTools,
+           ChatCoordinator.queryContainsExplicitNoteWriteOperation(trimmed)
+            || ChatCoordinator.queryContainsExplicitFileOperation(trimmed)
+            || prediction.predicted == .agent
+            || prediction.predicted == .research {
+            return true
+        }
+
         switch selectedOperatingMode {
         case .agent, .pro:
             return true
@@ -2248,16 +2755,35 @@ private struct MiniChatInputBar: View {
             break
         }
 
-        let prediction = ChatCapability.predictIntent(
-            text: trimmed,
-            isCloudProvider: isCloudProviderSelection
-        )
         switch prediction.predicted {
         case .agent, .research:
             return true
         case .local, .thinking, .cloud:
             return false
         }
+    }
+
+    private func refreshExecutionCatalogsForNativeIntent(
+        _ query: String,
+        fileAttachments: [FileAttachment],
+        requestedSlashToken: ParsedSlashToken?
+    ) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let prediction = ChatCapability.predictIntent(
+            text: trimmed,
+            isCloudProvider: isCloudProviderSelection
+        )
+        guard requestedSlashToken != nil
+            || !fileAttachments.isEmpty
+            || ChatCoordinator.queryContainsExplicitNoteWriteOperation(trimmed)
+            || ChatCoordinator.queryContainsExplicitFileOperation(trimmed)
+            || prediction.predicted == .agent
+            || prediction.predicted == .research
+        else { return }
+
+        refreshExecutionCatalogsIfNeeded()
     }
 
     private func runSharedCoordinatorTurn(

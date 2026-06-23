@@ -21,6 +21,25 @@ enum ToolPermissionPromptService {
         description: String,
         argumentsJSON: String
     ) async -> Bool {
+        if let nativePresenter = EpistemosOsaurusNativePromptPresenterStore.toolPermissionPresenter {
+            let request = EpistemosOsaurusNativeToolPermissionRequest(
+                toolName: toolName,
+                description: description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "This action requires your approval."
+                    : description,
+                argumentsJSON: argumentsJSON
+            )
+            switch await nativePresenter(request) {
+            case .allowOnce:
+                return true
+            case .alwaysAllow:
+                ToolRegistry.shared.setPolicy(.auto, for: toolName)
+                return true
+            case .deny:
+                return false
+            }
+        }
+
         return await withCheckedContinuation { continuation in
             var hasResumed = false
 

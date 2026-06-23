@@ -21,10 +21,9 @@ nonisolated enum WorkspaceModeSelection {
         defaults.set(mode.rawValue, forKey: defaultsKey)
     }
 
-    /// Whether the given mode's experimental engine gate is ARMED — reads the REAL gates (act = Osaurus,
-    /// work = OpenCode shell), honoring their in-app-toggle override > env > off resolution. Always false on
-    /// the App Store build (both engines are Pro / direct-distribution only). Lets the picker show a live
-    /// armed indicator per mode without duplicating gate logic.
+    /// Whether the given mode's engine is armed. Act reads the shared act-routing
+    /// truth so the landing picker cannot disagree with the mounted surface or
+    /// bridge factory; work still reads its explicit Pro gate.
     static func isArmed(
         _ mode: WorkspaceModeKind,
         environment: [String: String] = ProcessInfo.processInfo.environment,
@@ -32,7 +31,8 @@ nonisolated enum WorkspaceModeSelection {
     ) -> Bool {
         switch mode {
         case .act:
-            return ActOsaurusGateStatus.resolvedActive(environment: environment, defaults: defaults)
+            _ = defaults
+            return LocalAgentLoop.shouldRouteActThroughOsaurus(environment: environment)
         case .work:
             return WorkOpenCodeShellGateStatus.resolvedActive(environment: environment, defaults: defaults)
         }

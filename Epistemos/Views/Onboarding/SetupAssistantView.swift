@@ -40,28 +40,38 @@ struct SetupAssistantView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                ForEach(SetupStep.allCases, id: \.self) { step in
-                    Rectangle()
-                        .fill(step <= currentStep ? theme.fontAccent : theme.textTertiary.opacity(0.28))
-                        .frame(width: 14, height: 6)
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    ForEach(SetupStep.allCases, id: \.self) { step in
+                        Rectangle()
+                            .fill(step <= currentStep ? theme.fontAccent : theme.textTertiary.opacity(0.28))
+                            .frame(width: 14, height: 6)
+                    }
                 }
-            }
-            .padding(.top, 20)
-            .padding(.bottom, 12)
+                .padding(.top, 20)
+                .padding(.bottom, 12)
 
-            Group {
-                switch currentStep {
-                case .welcome: welcomeStep
-                case .vault: vaultStep
-                case .model: modelStep
-                case .agentRuntime: agentRuntimeStep
-                case .done: doneStep
+                Group {
+                    switch currentStep {
+                    case .welcome: welcomeStep
+                    case .vault: vaultStep
+                    case .model: modelStep
+                    case .agentRuntime: agentRuntimeStep
+                    case .done: doneStep
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 40)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, 40)
+
+            Button("Use App Now") {
+                completeSetupNow()
+            }
+            .font(captionFont)
+            .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
+            .padding(.top, 14)
+            .padding(.trailing, 16)
         }
         .frame(width: 620, height: 620)
         .background {
@@ -161,9 +171,10 @@ struct SetupAssistantView: View {
                     selectVaultFolder()
                 }
                 .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
-                Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .model } }
+                Button(vaultSync.vaultURL == nil ? "Skip Vault" : "Next") {
+                    withAnimation(stepTransitionAnimation) { currentStep = .model }
+                }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
-                    .disabled(vaultSync.vaultURL == nil)
             }
         }
         .padding(.vertical, 24)
@@ -321,8 +332,7 @@ struct SetupAssistantView: View {
             Spacer()
 
             Button("Start Using Epistemos") {
-                UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
-                onComplete()
+                completeSetupNow()
             }
             .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
         }
@@ -362,6 +372,12 @@ struct SetupAssistantView: View {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)
+    }
+
+    private func completeSetupNow() {
+        UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
+        ui.needsSetup = false
+        onComplete()
     }
 }
 

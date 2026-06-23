@@ -60,21 +60,21 @@ nonisolated enum ActOsaurusGateStatus {
         )
         #else
         let overrideValue = override(defaults: defaults)
-        if resolvedActive(environment: environment, defaults: defaults) {
-            let source = overrideValue == true ? "in-app toggle" : "\(flagName)=1"
+        if LocalAgentLoop.shouldRouteActThroughOsaurus(environment: environment) {
+            let source = overrideValue == true ? "legacy in-app override" : "default Pro route"
             return Status(
                 isActive: true,
                 headline: "Act = Osaurus: ON (Pro, experimental)",
-                detail: "The vendored Osaurus seam is armed (\(source)). MIT direct_import, Pro-gated. The runtime (server/VM/relay) stays inert until it clears the no-hidden-fallback bar — no hidden route."
+                detail: "Act is routed through the vendored Osaurus engine (\(source)). MIT direct_import, Pro-gated, in-process, and honest: no hidden cloud route."
             )
         }
         let detail: String
         if overrideValue == false {
-            detail = "Turned off by the in-app toggle (overrides \(flagName)). Act stays on the in-process local-agent path."
+            detail = "Turned off by the legacy in-app override (overrides \(flagName)). Act stays on the in-process local-agent path."
         } else {
-            detail = "Set \(flagName)=1 or use the in-app toggle to arm the vendored Osaurus Act seam (Pro). Off by default → Act stays on the in-process local-agent path."
+            detail = "The vendored Osaurus Act seam is unavailable in this build profile. Act stays on the in-process local-agent path."
         }
-        return Status(isActive: false, headline: "Act = Osaurus: off (opt-in, Pro)", detail: detail)
+        return Status(isActive: false, headline: "Act = Osaurus: off", detail: detail)
         #endif
     }
 }

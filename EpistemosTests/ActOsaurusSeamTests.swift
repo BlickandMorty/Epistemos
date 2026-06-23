@@ -9,7 +9,7 @@ import Foundation
 @Suite("Osaurus Act seam (P3.0 S2) — vendored, Pro-gated, boundary intact")
 struct ActOsaurusSeamTests {
 
-    @Test("gate flag is honest + off by default")
+    @Test("gate flag is honest + visible status matches current build route")
     func gateHonest() {
         #expect(ActOsaurusGateStatus.flagName == "EPISTEMOS_ACT_OSAURUS_V0")
         #expect(ActOsaurusGateStatus.isEnabled("1"))
@@ -22,37 +22,38 @@ struct ActOsaurusSeamTests {
         let suite = "test.act.osaurus.gatehonest.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let off = ActOsaurusGateStatus.status(environment: [:], defaults: defaults)
-        #expect(!off.isActive)
-        // Honest copy either names the flag (Pro build) or says "Pro only" (MAS).
-        #expect(off.detail.contains("EPISTEMOS_ACT_OSAURUS_V0") || off.headline.contains("Pro only"))
+        let status = ActOsaurusGateStatus.status(environment: [:], defaults: defaults)
+        #if EPISTEMOS_APP_STORE
+        #expect(!status.isActive)
+        #expect(status.headline.contains("Pro only"))
+        #else
+        #expect(status.isActive)
+        #expect(status.detail.contains("default Pro route"))
+        #endif
     }
 
     #if !EPISTEMOS_APP_STORE
-    @Test("in-app toggle override resolves: override > env flag > off (owner §806)")
+    @Test("legacy override resolver remains isolated from the default-on router")
     func actOverrideResolutionOrder() {
         let suite = "test.act.osaurus.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
 
         let on = [ActOsaurusGateStatus.flagName: "1"]
-        // no override → defer to env (off by default, byte-identical guarantee).
         #expect(!ActOsaurusGateStatus.resolvedActive(environment: [:], defaults: defaults))
         #expect(ActOsaurusGateStatus.resolvedActive(environment: on, defaults: defaults))
-        // override forces ON even with env unset…
         ActOsaurusGateStatus.setOverride(true, defaults: defaults)
         #expect(ActOsaurusGateStatus.override(defaults: defaults) == true)
         #expect(ActOsaurusGateStatus.resolvedActive(environment: [:], defaults: defaults))
-        // …and forces OFF even when the env flag says on (override WINS).
         ActOsaurusGateStatus.setOverride(false, defaults: defaults)
         #expect(!ActOsaurusGateStatus.resolvedActive(environment: on, defaults: defaults))
-        // clearing reverts to env-flag behavior.
         ActOsaurusGateStatus.setOverride(nil, defaults: defaults)
         #expect(ActOsaurusGateStatus.override(defaults: defaults) == nil)
         #expect(ActOsaurusGateStatus.resolvedActive(environment: on, defaults: defaults))
+        #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]))
     }
 
-    @Test("status reflects the override SOURCE honestly (in-app toggle vs env)")
+    @Test("visible status follows the router, not the retired opt-in toggle")
     func actOverrideStatusReflectsSource() {
         let suite = "test.act.osaurus.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -61,19 +62,19 @@ struct ActOsaurusSeamTests {
         ActOsaurusGateStatus.setOverride(true, defaults: defaults)
         let on = ActOsaurusGateStatus.status(environment: [:], defaults: defaults)
         #expect(on.isActive)
-        #expect(on.detail.contains("in-app toggle"))
+        #expect(on.detail.contains("legacy in-app override"))
 
         ActOsaurusGateStatus.setOverride(false, defaults: defaults)
         let off = ActOsaurusGateStatus.status(environment: [ActOsaurusGateStatus.flagName: "1"], defaults: defaults)
-        #expect(!off.isActive, "override OFF beats env=1")
-        #expect(off.detail.contains("in-app toggle"))
+        #expect(off.isActive)
+        #expect(off.detail.contains("default Pro route"))
     }
 
-    @Test("the router is DEFAULT-ON for Pro (option b): act routes through Osaurus, no toggle")
+    @Test("the router is DEFAULT-ON for Pro: act routes through Osaurus, no toggle")
     func routerDefaultsOnForPro() {
-        // Option (b), owner 2026-06-22: act = the old Epistemos UI driven by the Osaurus engine,
-        // DEFAULT-ON with NO toggle (the experimental gate is gone). On Pro the router returns true
-        // regardless of the env flag or any prior in-app override — Osaurus IS the engine, not optional.
+        // Owner 2026-06-22 evening correction: Pro act enters Osaurus by default,
+        // with Epistemos home/theme grafts. The router returns true regardless of
+        // env flags or prior in-app overrides; Osaurus is not optional on Pro act.
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]))
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [ActOsaurusGateStatus.flagName: "0"]))
     }
@@ -235,19 +236,14 @@ struct ActOsaurusSeamTests {
         }
     }
 
-    @Test("S4: factory-resolved act bridge runTurnInProcess refuses HONESTLY by default — never cloud")
-    func s4FactoryRunTurnInProcessHonest() async {
-        // Flag off → the inert bridge is resolved; an OsaurusCore turn must throw honestly,
-        // never a silent cloud/GPT route (owner #1). This is the canonical act-turn API.
-        let bridge = ActOsaurusBridgeFactory.resolve(environment: [:])
-        do {
-            _ = try await bridge.runTurnInProcess(messages: [], maxTokens: 16)
-            Issue.record("expected an honest throw — act must never silently route to cloud")
-        } catch let error as ActOsaurusError {
-            #expect(error == .serverNotEnabled)
-        } catch {
-            Issue.record("wrong error type: \(error)")
-        }
+    @Test("S4: factory-resolved act bridge follows the shared Act route — no split unavailable state")
+    func s4FactoryFollowsSharedActRoute() throws {
+        // Regression guard: Act's UI route is default-on in Pro, so the bridge factory must use
+        // the same shared decision. Using the old raw Osaurus flag here produced an Osaurus-looking
+        // chat whose send path still threw "engine isn't available".
+        let source = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/ActOsaurusBridge.swift")
+        #expect(source.contains("LocalAgentLoop.shouldRouteActThroughOsaurus(environment: environment)"))
+        #expect(!source.contains("ActOsaurusGateStatus.isEnabled(environment[ActOsaurusGateStatus.flagName])"))
     }
 
     @Test("ActOsaurusError surfaces a friendly, actionable message — never a raw 'error 2' code (P0-A)")

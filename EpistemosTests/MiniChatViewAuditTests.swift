@@ -16,7 +16,7 @@ struct MiniChatViewAuditTests {
         #expect(controllerSource.contains("window.tabbingIdentifier = \"epistemos-mini-chat-tabs\""))
         #expect(controllerSource.contains("existingWindow.addTabbedWindow(window, ordered: .above)"))
         #expect(controllerSource.contains("func openChat("))
-        #expect(controllerSource.contains("func openNewChat(attaching attachment: ContextAttachment? = nil)"))
+        #expect(controllerSource.contains("preferredOperatingMode: EpistemosOperatingMode? = nil"))
     }
 
     @Test("recent mini chat selection restores persisted chat history instead of leaving a blank shell")
@@ -24,7 +24,7 @@ struct MiniChatViewAuditTests {
         let viewSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let controllerSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
 
-        #expect(controllerSource.contains("func openChat(_ chatID: String)"))
+        #expect(controllerSource.contains("func openChat(_ chatID: String, preferredOperatingMode: EpistemosOperatingMode? = nil)"))
         #expect(!controllerSource.contains("ensureMiniChatSession(id: chatID)"))
         #expect(viewSource.contains("let current = threadState.miniChatSession(id: chatID)"))
         #expect(viewSource.contains("let needsRestore = current == nil"))
@@ -66,12 +66,12 @@ struct MiniChatViewAuditTests {
         #expect(noteWorkspaceSource.contains("private var noteChatContextAttachment: ContextAttachment?"))
         #expect(noteWorkspaceSource.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
 
-        #expect(controllerSource.contains("func openNewChat(attaching attachment: ContextAttachment? = nil)"))
+        #expect(controllerSource.contains("preferredOperatingMode: EpistemosOperatingMode? = nil"))
         #expect(controllerSource.contains("resolvedAttachment = activeHTMLWorkspaceAttachment()"))
         #expect(controllerSource.contains("?? activeEpdocAttachment()"))
         #expect(controllerSource.contains("?? activeGraphNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("?? activeNoteAttachment(in: bootstrap)"))
-        #expect(controllerSource.contains("openChat(UUID().uuidString, initialContextAttachment: resolvedAttachment)"))
+        #expect(controllerSource.contains("initialContextAttachment: resolvedAttachment"))
         #expect(controllerSource.contains("let view = MiniChatView(chatID: chatID, initialContextAttachment: initialContextAttachment)"))
 
         #expect(miniChatSource.contains("applyInitialContextAttachmentIfNeeded()"))
@@ -213,6 +213,23 @@ struct MiniChatViewAuditTests {
         #expect(messageSource.contains("var thinkingDurationSeconds: Double?"))
     }
 
+    @Test("mini chat Act mode stays in native MiniChat and streams Osaurus underneath")
+    func miniChatActModeStaysNativeWhileStreamingAct() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let sharedActSource = try loadRepoTextFile("Epistemos/LocalAgent/SharedActInference.swift")
+
+        #expect(miniChatSource.contains("runActPromptInMiniChat(trimmed, fileAttachments: fileAttachments)"))
+        #expect(miniChatSource.contains("private func runActPromptInMiniChat(_ prompt: String, fileAttachments: [FileAttachment])"))
+        #expect(miniChatSource.contains("SharedActInference.actEventStreamIfArmed("))
+        #expect(miniChatSource.contains("threadState.setMiniChatStreamingText(accumulated, chatID: chatID)"))
+        #expect(miniChatSource.contains("threadState.appendMiniChatStreamingThinking(text, chatID: chatID)"))
+        #expect(miniChatSource.contains("threadState.setMiniChatPendingContentBlocks(pendingBlocks, chatID: chatID)"))
+        #expect(miniChatSource.contains("authoredByModelID: requestedModelID"))
+        #expect(!miniChatSource.contains("if isOsaurusActMode {\n            submitActPromptInMainChat(trimmed"))
+        #expect(sharedActSource.contains("streamFilter.visibleDelta(from: text)"))
+        #expect(sharedActSource.contains("continuation.yield(.textDelta(visibleTail))"))
+    }
+
     @Test("mini chat shared coordinator preserves tool blocks and live tool activity")
     func miniChatSharedCoordinatorPreservesToolBlocksAndLiveToolActivity() throws {
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
@@ -259,6 +276,8 @@ struct MiniChatViewAuditTests {
         // gating still lives inside `availableOperatingModes` (Act only with a
         // real route). The inline picker drives the sanitized binding.
         #expect(miniChatSource.contains("MainChatOperatingModePreference.supportedModes(for: inference)"))
+        #expect(miniChatSource.contains("LocalAgentLoop.shouldRouteActThroughOsaurus()"))
+        #expect(miniChatSource.contains("modes.append(.agent)"))
         // The old per-model narrowing (the restriction the owner flagged) is gone.
         #expect(!miniChatSource.contains("availableOperatingModes(for: inference.preferredChatModelSelection)"))
         #expect(miniChatSource.contains("operatingMode: operatingModeBinding"))
@@ -266,6 +285,30 @@ struct MiniChatViewAuditTests {
         #expect(miniChatSource.contains(".onChange(of: inference.preferredChatModelSelection.rawValue)"))
         #expect(!miniChatSource.contains("UtilityWindowManager.shared.show(.omega)"))
         #expect(!miniChatSource.contains("await orchestrator.submitTask"))
+    }
+
+    @Test("act chat opens mini chat in the Act Osaurus lane instead of Fast")
+    func actChatOpensMiniChatInActOsaurusLane() throws {
+        let chatSource = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let controllerSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
+
+        #expect(miniChatSource.contains("enum MiniChatOperatingModePreference"))
+        #expect(miniChatSource.contains("@AppStorage(MiniChatOperatingModePreference.defaultsKey)"))
+        #expect(miniChatSource.contains("case .agent: return \"Act\""))
+        #expect(miniChatSource.contains("private var isOsaurusActMode: Bool"))
+        #expect(miniChatSource.contains("if isOsaurusActMode { return true }"))
+        #expect(miniChatSource.contains("if isOsaurusActMode { return nil }"))
+        #expect(miniChatSource.contains("import OsaurusCore"))
+        #expect(miniChatSource.contains("private func loadActOsaurusTranscriptIfAvailable() -> Bool"))
+        #expect(miniChatSource.contains("EpistemosOsaurusSessionBridge.loadTranscript(id: sessionId)"))
+        #expect(miniChatSource.contains("ActOsaurusVisibleStreamFilter.visibleStoredText(from: message.content)"))
+        #expect(miniChatSource.contains("if persistedMiniChatExists(chatID)"))
+        #expect(miniChatSource.contains("private func persistedMiniChatExists(_ chatID: String) -> Bool"))
+        #expect(miniChatSource.contains("AppBootstrap.shared?.loadChat(chatId: chatID)"))
+        #expect(controllerSource.contains("MiniChatOperatingModePreference.setPreferredMode(preferredOperatingMode)"))
+        #expect(chatSource.contains("let preferredMiniChatMode = actUsesOsaurus ? EpistemosOperatingMode.agent : selectedOperatingMode"))
+        #expect(chatSource.contains("preferredOperatingMode: preferredMiniChatMode"))
     }
 
     @Test("mini chat capability pill treats explicit tools mode as tools instead of thinking")

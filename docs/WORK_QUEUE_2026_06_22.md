@@ -16,11 +16,21 @@
 > they do NOT mean the iteration is done. **Act certified ≠ loop done. Build-green ≠ any tier done.**
 >
 > **D1–D5 (item 0.8) are RUNTIME ACCEPTANCE TESTS for 0.1–0.7** — do NOT mark 0.1–0.7 `[x]` until the
-> matching D-item passes YOUR screencapture (e.g. 0.1 isn't `[x]` until D5 shows cream/monospace).
+> matching D-item passes YOUR screencapture (e.g. 0.1 isn't `[x]` until D5 shows the active Epistemos
+> custom/preset theme and owner chrome, not a hardcoded palette).
 >
 > **D4 / Configuration is TIER-0 blocking — queue 0.21 is the SOLE owner** (per-clone settings matrix for
 > Epistemos|act|work|beyond). Items 0.11/0.22/4.1 reference 0.21 — do NOT duplicate the D4 obligation elsewhere;
 > do NOT defer D4 to queue 4.1 while leaving TIER 0.
+>
+> **LATEST ACT UI CORRECTION (2026-06-23, owner-confirmed):** the bundle split is the bug. Act must be one
+> Epistemos app surface: Epistemos landing/search/chat chrome, message bar, toolbar, recent-chat/sidebar,
+> mini/graph/note variants, settings, and native Apple/Epistemos prompts. Osaurus is unbundled underneath as
+> the engine/capability layer: streaming, model routing, tools, MCP, commands, permissions, provider config,
+> sandbox/VM/dependency controls, and credential flows. Do NOT mount vendored Osaurus `ChatView` /
+> `EpistemosOsaurusChatHost` as the visible act surface, do NOT restore old Epistemos backend behavior, and
+> do NOT build skeletal approximation views. Rebuild/refactor the owner's Epistemos UI so it is engine-swapped
+> to the real OsaurusCore seams.
 
 THIS file is SMALL and the loop RE-READS IT IN FULL EVERY ITERATION — it is the INDEX, NOT the plan.
 
@@ -82,33 +92,41 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 > NOT close the loop** — you MUST continue TIER 1 (work/OpenCode), TIER 2 (substrate/salvage), TIER 3–5 in
 > the same strict walk. Do not stop after D1–D5 pass.
 
-- [ ] **0.1 Reskin at VENDORED THEME SOURCE** — edit `LocalPackages/osaurus/.../Models/Theme/Theme.swift`
-  defaults so Osaurus views NATIVELY render cream/monospace (#fbfaf5/#f4f3ee, #1c1c1e, SF Mono). NOT runtime
-  `applyCustomTheme` alone (proven not to cascade; ba2f8952f drift). Screenshot: cream/monospace on act.
+- [ ] **0.1 Live Epistemos theme at ACT source** — the act surface must inherit the app's real `UIState` /
+  `EpistemosTheme` selected `ThemePair`, custom slots (including `Chat Surface` for chat), and preset theme
+  settings at the live Epistemos Act UI source, with owner home/pill chrome preserved. OsaurusCore supplies
+  engine/capability state underneath through native seams; do not mount vendored Osaurus `ChatView` /
+  `EpistemosOsaurusChatHost` to get functionality, do not restore old Epistemos backend behavior, and do not
+  hardcode cream/dark/white as the target. Screenshot: active Epistemos theme on act plus the selected
+  `ThemePair`/custom-slot defaults used for that capture.
   →plan: "🎯 RESKIN FIX — edit the VENDORED Osaurus theme at SOURCE" + "🔴🔴🔴 P0 ...RESKIN NOT RENDERING" +
   "🆕 ACT RESKIN — GO DEEPER" + "🆕 ACT RESKIN = RESPECT THE CURRENT CHAT UI".
-  · iter1: cream/mono fix applied at TRUE live source `CustomTheme.lightDefault` (NOT vestigial LightTheme struct) +
-  `currentBuiltInThemeSchema` 5→6 cascade (prior edits never cascaded due to disk-install cache); pending cream
+  · iter1: legacy fixed-palette attempt applied at TRUE live source `CustomTheme.lightDefault` (NOT vestigial LightTheme struct) +
+  `currentBuiltInThemeSchema` 5→6 cascade (prior edits never cascaded due to disk-install cache); pending active-theme
   screencapture; stays `[ ]` (D-gate on D5). See STRICT_RECERT_LOG Iteration 1.
 
-- [ ] **0.2 ALL chat surfaces → ONE shared NATIVE act component (NOT an Osaurus host mount)** — main/mini/graph/
-  note ALL get ACT via the shared NATIVE Epistemos act view (NativeActChatView pattern) wired to the Osaurus
-  ENGINE; ALL BUT NOTE also get WORK. Extract ONE shared native composer/thread component + wire each surface to
-  it. mini/graph currently `triageService.streamGeneral`. SEQUENCE: after the act surface passes its fresh-launch
-  acceptance (do NOT tunnel on mini/graph before act works). Screenshot EACH surface separately (main ≠ enough).
+- [ ] **0.2 ALL chat surfaces → same native Epistemos Act surface family with Osaurus underneath** —
+  main/mini/graph/note ALL get ACT through the same Epistemos-native Act route and shared owner model/tool seams.
+  Osaurus supplies the engine/capabilities underneath; the visible surface is not vendored Osaurus UI and not an
+  old-backend restoration. ALL BUT NOTE also get WORK.
+  mini/graph currently `triageService.streamGeneral`. SEQUENCE: after the main act surface passes its
+  fresh-launch acceptance (do NOT tunnel on mini/graph before act works). Screenshot EACH surface separately
+  (main ≠ enough).
   →plan: "🆕 ALL CHAT SURFACES GET THE CHAT→ACT/OSAURUS UPGRADE" + "✅ CONSENSUS — KEEP TriageService".
 
-- [ ] **0.3 LANDING → BLUR → ACT (tap ANYWHERE, NOT a button, NOT search)** — Epistemos `LandingView` FIRST
-  (cream + native toolbar + pill); **tap ANYWHERE → blur → NATIVE act (NativeActChatView)**. REMOVE the
-  click→search path for landing→act (`LandingView.activateLandingSearch`, onTapGesture :339→:356). NOT an "Enter
-  act" button, NOT an Osaurus host mount, NOT Osaurus default ("Good morning"). Screenshot landing, then post-tap act.
+- [ ] **0.3 LANDING → SEARCH/BLUR → ACT (owner Epistemos ontology, not Osaurus home)** — the real Epistemos
+  `LandingView` / home shell shows FIRST (active Epistemos theme + toolbar + pill). Entering Act uses the
+  owner's search/message-bar transition, then opens the native Epistemos Act chat on the Osaurus engine. NOT a
+  vendored Osaurus default home, NOT a second recent-chat button, NOT skeletal native clone, NOT old-backend
+  restoration.
+  Screenshot landing, then post-tap act.
   · **iter10 (per P0 §1886 BUILD-NOW): first build-step landed** — RootView Osaurus branch now gates the host
   behind `actEntered`: shows Epistemos `LandingView` FIRST + "Enter act" press → blur → host (host always reachable
   on press, 0.4 send untouched). Pending build (bvi4lbj91) + screencapture-verify landing-first + harness re-run.
   Follow-on: first-message state-bridging + drop Osaurus landing-blocks fully (SYNTHESIS §2). Stays `[ ]` (D-gated).
   →plan: "🔴🔴🔴 P0 (11:30am) ...LANDING FLOW" + "landing BLUR transitions" + "🔴 AUDITOR CORRECTION §1886 BUILD-NOW".
 
-- [x] **0.4 SEND works (runtime)** — CERTIFIED iter5 (all 5 gates; auditor P0 satisfied). (a) ActOsaurusBridge.swift:196
+- [ ] **0.4 SEND works (runtime)** — CERTIFIED iter5 (all 5 gates; auditor P0 satisfied). (a) ActOsaurusBridge.swift:196
   runTurnStreamingInProcess · (b) in-process CoreModelService, no loopback · (c) AppBootstrap.swift:3155 register +
   ActOsaurusStreamingHandler/SharedActInference · (d) **NOW MET** — `ActOsaurusSendHarnessTests.actSend_servedEqualsSelected`
   drives the SAME entry point, asserts non-empty reply + served==selected, **0 skipped** (test run: 2/2 passed,
@@ -149,7 +167,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 - [ ] **0.10 DATA CARRY-OVER** — saved chats/sessions/prefs migrate to act; no lost history.
   →plan: `docs/CHAT_BACKEND_QUARANTINE_NEVER_DELETE_2026_06_21.md` "Data/persistence carry-over".
 
-- [x] **0.11 Provider wiring + Epistemos Picks** — CERTIFIED iter8/9 (scope: selectable + used-on-send + no silent
+- [ ] **0.11 Provider wiring + Epistemos Picks** — CERTIFIED iter8/9 (scope: selectable + used-on-send + no silent
   Codex; "Configuration opens settings" = 0.21/D4's obligation, NOT here). (a) Epistemos/Engine/EpistemosPicks.swift:21
   curated grouping · (c) ModelStackSettingsView.swift:56 consumes Picks groups + EpistemosModelBridge.providedModelIds
   surfaces owner models; send routes via bridge (AppBootstrap:3155) · (d) EpistemosPicksTests 4/4 passed 0 skipped
@@ -175,43 +193,24 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   self-description garbage); all models; extends 0.9.
   →plan: "🎯 CONFIRMED reproduction + TITLE bug" + P0 regression sections.
 
-- [ ] **0.17 LOCKED ACT direction (FINAL)** — ACT/WORK UI = FRESH NATIVE Epistemos views wired to the Osaurus
-  ENGINE (`CoreModelService.generateStream`, the proven 0.4 path). **Osaurus = ENGINE ONLY, not UI.** Do NOT mount,
-  reskin, OR decompose ANY ChatView — neither `Epistemos/Views/Chat/ChatView.swift` (old chat) NOR Osaurus's
-  `OsaurusChatView` (6077-line monolith). SUPERSEDES option-(b) AND mount-Osaurus-UI-reskinned AND decompose-monolith.
-  **REFINED (owner P0 via auditor 2026-06-22, addendum §1829/§1861 — ACT-UI SYNTHESIS): native Epistemos SHELL
-  (toolbar/sidebar/window/message-bar) + Osaurus ENGINE-CORE.** Keep/drop heuristic: (1) engine-expressing views
-  (thinking/stream/tools) = Osaurus reskinned, don't rebuild · (2) ADOPT Osaurus genuinely-Apple-native bits
-  (voice input, larger native popovers, native controls) · (3) DROP Osaurus custom-branded/generic (message bar →
-  native composer [0.7]; landing "four blocks" → Epistemos LandingView [0.3/D2]; block fonts → cream/mono) · (4)
-  shell = native Epistemos. Does NOT reopen option-(b); does NOT relax any D-gate.
-  →plan: "🔒🔒 DEFINITIVE ACT-UI DIRECTION" + "🔴🔴 ACT = OSAURUS IS THE CHAT" + "🔴 OWNER DIRECTIVE ACT-UI SYNTHESIS §1/§2".
-  · **🔴🔴 ARCHITECTURE PIVOT (owner P0, addendum §1994/pass61c ~14:58 — SUPERSEDES mount-and-reskin):** ABANDON
-  "mount Osaurus's whole ChatView + reskin via theme cascade" (the WALL that does not render — auditor §1973
-  confirmed cream still white on the owner's launch). Act UI = **NATIVE Epistemos views** (buttons/composer/toolbar/
-  landing/sidebar/pill/curved window) **LINKED to the Osaurus ENGINE in-process** (`CoreModelService.generateStream`
-  — the CERTIFIED 0.4 path, WebKit-bridge pattern). Native renders cream/curved BY CONSTRUCTION (no cascade).
-  Render the engine's PARSED channels natively (thinking→native box, content→native answer, tool-calls→native rows);
-  CONSUME the engine's clean channels, do NOT re-implement parsing. This reframes 0.1/0.2/0.3/0.7/0.8/D1-D6/4.7.
-  Verify on the OWNER'S FRESH LAUNCH (kill→rebuild→open→screencapture→Read — §1941), NOT transient PNGs.
-  · **§2029 HARD CLARIFICATION:** pivot is NOT option-(b) — build **FRESH native views**, NOT the old
-  `Epistemos/Views/Chat/ChatView.swift` AND NOT the mounted Osaurus ChatView. Engine link PROVEN (0.4) so the
-  prior broken-send cause is gone. FINAL approach — stop the architecture thrash.
-  · **§2048 THE ONE CRISP TARGET (owner, screenshot-grounded — D2 LANDED, Epistemos landing now shows):**
-  (1) landing in native chrome (cream + toolbar + pill), (2) click-anywhere → ACT (REMOVE the search page —
-  LandingView click→search at :339/:1380 must become →act), (3) act = native chrome + WORKING send, (4) kill
-  chat/act duality. Binary FRESH-LAUNCH acceptance. · iter20: built **`NativeActChatView`** (fresh native cream/mono
-  composer+thread+toolbar driving the certified 0.4 engine link) + wired into RootView act branch (replaces the
-  Osaurus host mount). Pending build (blhg5f29r) + fresh-launch render-verify + harness.
+- [ ] **0.17 LOCKED ACT direction (FINAL, corrected 2026-06-23)** — ACT is Epistemos's visible app UI with
+  Osaurus unbundled underneath. The owner's Epistemos app contributes the first-run/home shell (`LandingView`,
+  back/home, top pill controls, settings, greeting animation, recent/history), old/new chat chrome, message bar,
+  sidebar/recent-chat popover, model picker, command/tool/skills surfaces, and mini/graph/note variants. Osaurus
+  contributes the engine/capability layer through native seams: streaming, model routing, providers, tools, MCP,
+  commands, permissions, sandbox/VM/dependency controls, and credential prompts. Do not mount vendored Osaurus
+  `ChatView`/`EpistemosOsaurusChatHost`; do not restore old Epistemos backend behavior; do not use skeletal
+  approximation views. Fresh-launch acceptance: landing/search/chats look like Epistemos and a real Act send
+  streams through the certified Osaurus path with settings/prompts/tools reachable natively.
 
-- [x] **0.18 Model provider registration** — CERTIFIED iter6 (NOT D-gated). (a) EpistemosOsaurusModelProvider.swift:28 ·
+- [ ] **0.18 Model provider registration** — CERTIFIED iter6 (NOT D-gated). (a) EpistemosOsaurusModelProvider.swift:28 ·
   (b) bridges owner's MLX models via EpistemosModelBridge primitive seam · (c) AppBootstrap.swift:3155 register over live
   MLXInferenceService + seeds coreModelName · (d) `EpistemosModelBridgeTests.registeredOwnerModelsRouteThroughBridge`
   (success-path routing, 4/4 passed 0 skipped, bseglu4pp) · (e) live send routed to registered owner model gemma-4-e2b (P0-A).
   →plan: "🎯 PINPOINTED ActOsaurusError" + "ACT = OSAURUS IS THE CHAT" §FIX act errors.
 
-- [ ] **0.19 Chat surface deletion sequence** — NATIVE act view (NativeActChatView) on the engine → verify
-  send/receive → port IP → delete old chat SURFACE (owner authorized); preserve IP per quarantine doc; no toggle limbo.
+- [ ] **0.19 Chat surface quarantine/deletion sequence** — after Osaurus-host act is certified, quarantine or hide
+  stale old-chat/skeletal clone surfaces from user routing, port/preserve any useful IP, and keep no toggle limbo.
   →plan: "ACT = OSAURUS IS THE CHAT" §THE BUILD steps 1–4 + QUARANTINE doc.
 
 - [ ] **0.20 Collapse act/chat duality** — remove CoworkChatMode depth axis + depth toggle; act/work only.
@@ -223,7 +222,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   etc.) per plan. Screenshot **each tab** separately. Queue 4.1 extends polish only — **D4 must pass here in TIER 0**.
   →plan: "🆕 PER-CLONE SETTINGS" + D4 in OWNER-REPORTED DEFECTS + per-clone MAS-fit research.
 
-- [x] **0.22 ONE inference chokepoint (act path)** — CERTIFIED iter7 (NOT D-gated). (a) ActOsaurusBridge.swift:196
+- [ ] **0.22 ONE inference chokepoint (act path)** — CERTIFIED iter7 (NOT D-gated). (a) ActOsaurusBridge.swift:196
   in-process `runTurnStreamingInProcess`→CoreModelService; loopback HTTP is fallback-only (:243-278) · (b) on-plan
   single in-process path · (c) SharedActInference.actStreamIfArmed = single act-injection entry; LocalAgentLoop
   streamingGenerator delegates to it · (d) **real-state** ActOsaurusSendHarnessTests: actSend_servedEqualsSelected
@@ -232,7 +231,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   requestFailed (loopback not hit), in-process reply (iter2/3 PNGs). Pairs 0.4/0.18.
   →plan: "🎯 DIRECTIVE — ONE INFERENCE CHOKEPOINT" + "🎯 PINPOINTED ActOsaurusError".
 
-- [x] **0.23 Send-text harness (EVERY iteration — standing)** — CERTIFIED iter5: BUILT
+- [ ] **0.23 Send-text harness (EVERY iteration — standing)** — CERTIFIED iter5: BUILT
   `EpistemosTests/ActOsaurusSendHarnessTests.swift` — headless, drives real act entry point (OsaurusActBridge →
   CoreModelService.generateStream(requestedModel:) → EpistemosBridgedModelService → provider); asserts non-empty
   reply + **served-model == selected-model** (pass50 P1-a) + no silent substitution; **0 skipped** (2/2 passed,
@@ -253,7 +252,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
 
 - [ ] **0.27 Epistemos (main) clone baseline** — main app shell/settings/inference NOT conflated with act:
   Epistemos-native settings tab, theme/palette, vault, graph, notes, health rows honest for main path. Screenshot
-  main settings + one non-act surface (graph or notes). Distinct from act/Osaurus host.
+  main settings + one non-act surface (graph or notes). Distinct from act's Osaurus-backed capability layer.
   →plan: "🆕 PER-CLONE SETTINGS" (Epistemos tab) + "🆕 MORE LOVED ASSETS TO PRESERVE" + DESIGN SOUL.
 
 - [ ] **0.28 WORK clone surface reachable (TIER-0 index; build in TIER 1)** — work mode discoverable via
@@ -464,8 +463,8 @@ T1+ cert (not precondition) ·
 future clones IN SCOPE** · main-only · Co-Authored-By Claude · P0 owner reports preempt · **NEVER-IDLE:** heavy
 work = incremental slices, not defer (→plan: "🔁 NEVER-IDLE") · **ACT-before-WORK polish WITHIN TIER 0 only:**
 finish act surface bugs before WORK polish inside TIER 0 — does NOT permit skipping TIER 1+ full walk (→plan:
-"⏫ PRIORITY finish ACT before WORK polish") · **FAVOR OSAURUS on clash:** Osaurus wins
-engine/structure; cherry-pick owner IP that works WITH Osaurus; front-end stays minimal Epistemos pixel-art
+"⏫ PRIORITY finish ACT before WORK polish") · **FAVOR OSAURUS on engine/capability clash:** Osaurus wins
+runtime/streaming/tool/provider truth; Epistemos wins visible surface/chrome; cherry-pick owner IP that works WITH Osaurus
 (→plan: "🆕 CONFLICT-RESOLUTION: FAVOR OSAURUS") · **OWNER MESSAGES → PLAN+QUEUE:** every owner directive
 captured in addendum AND indexed here same iteration (→plan: THREE STANDING DIRECTIVES §1) · **EXTERNAL RESEARCH
 CORPUS:** read-only `~/Downloads` Helios/source docs when unification/salvage needs them; copy-in only, never

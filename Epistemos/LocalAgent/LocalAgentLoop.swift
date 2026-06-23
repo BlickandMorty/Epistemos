@@ -216,11 +216,10 @@ actor LocalAgentLoop {
     nonisolated static func shouldRouteActThroughOsaurus(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        // ACT = OSAURUS, option (b) (owner 2026-06-22, confirmed): the act surface
-        // is the OLD Epistemos chat UI driven by the Osaurus engine — DEFAULT-ON,
-        // no toggle (the experimental gate is gone; Osaurus is the engine, not
-        // optional). App Store stays off — OsaurusCore is Pro / direct-distribution
-        // only, so MAS keeps the in-process MLX path; never a silent cloud route.
+        // ACT = Epistemos-native chat with the Osaurus engine underneath. DEFAULT-ON
+        // for the direct-distribution build, no experimental toggle. App Store stays
+        // off because OsaurusCore is Pro/direct-distribution only; MAS keeps the
+        // in-process MLX path and never silently falls back to cloud.
         #if EPISTEMOS_APP_STORE
         return false
         #else
@@ -246,9 +245,8 @@ actor LocalAgentLoop {
         // chokepoint. ChatCoordinator (main chat), PipelineService, and IMessageDriverService all build
         // their loop via liveLoop — wiring the swap only in DeviceAgentService left the owner's main
         // chats on raw MLX. Routing BOTH the primary AND the streaming generator through the SAME shared
-        // decision makes act reach every liveLoop surface — and now STREAMS through OsaurusCore
-        // (CoreModelService.generateStream), so the user-visible main-chat act path forwards tokens as
-        // they decode (STREAM EVERYTHING), not single-shot.
+        // decision makes act reach every liveLoop surface through the headless Osaurus chat session, while
+        // Epistemos keeps ownership of the visible chat surface.
         #if !EPISTEMOS_APP_STORE
         let primaryGenerator: LocalAgentGenerationHandler =
             shouldRouteActThroughOsaurus()

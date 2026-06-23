@@ -3,6 +3,9 @@ import OSLog
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
+#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+import OsaurusCore
+#endif
 
 enum LandingShortcutDisplay {
     static let fontSize: CGFloat = 12
@@ -79,10 +82,10 @@ private enum LandingInlineCommand: Equatable {
 struct LandingView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "LandingView")
 
-    /// FINAL ACT-UI direction (owner §2073 + §pass68b): when set — the act surface mounts the
-    /// REAL rich LandingView as home and a background TAP ENTERS ACT (acceptance #2: click anywhere
-    /// → act, NO search page). `nil` (default, every other call-site) keeps the search-popover tap.
-    var onEnterAct: (() -> Void)? = nil
+    /// When set, the landing search is the Act search page: it keeps the old
+    /// centered reveal, but submits the first prompt into the Osaurus Act host
+    /// instead of the normal Epistemos chat store.
+    var onSubmitActPrompt: ((String) -> Void)? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
@@ -180,23 +183,40 @@ struct LandingView: View {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     private var landingSearchAttachmentHint: String {
-        ComposerAttachmentEntryHints.landingPlaceholder
+        if isActSearchPage {
+            return "Ask Act. Type / for commands, tools, models, or agents."
+        }
+        return ComposerAttachmentEntryHints.landingPlaceholder
     }
     private var landingSearchPlaceholder: String {
+        if isActSearchPage {
+            return "Ask Act..."
+        }
         if let name = AppBootstrap.shared?.companionState.activeAgentName,
            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Ask \(name)..."
         }
         return "Ask Epistemos..."
     }
+    private var landingSearchPlaceholderText: String {
+        if isActSearchPage {
+            return "Ask Act... Type / for commands, tools, models, or agents."
+        }
+        return ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run."
+    }
+    private var isActSearchPage: Bool {
+        onSubmitActPrompt != nil
+    }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
     }
     private var supportedOperatingModes: [EpistemosOperatingMode] {
-        MainChatOperatingModePreference.supportedModes(for: inference)
+        if isActSearchPage { return [.agent] }
+        return MainChatOperatingModePreference.supportedModes(for: inference)
     }
     private var supportedLandingSlashCommands: [ACCSlashCommand] {
-        ACCSlashCommand.availableCommands(
+        if isActSearchPage { return [] }
+        return ACCSlashCommand.availableCommands(
             for: MainChatOperatingModePreference.supportedModes(
                 for: inference,
                 availableModes: supportedOperatingModes
@@ -205,7 +225,11 @@ struct LandingView: View {
     }
 
     private var supportedLandingSlashItems: [ComposerSlashCommandItem] {
-        ComposerSlashCommandItem.all(
+        if isActSearchPage {
+            return ActOsaurusSlashCommand.allCases.map(ComposerSlashCommandItem.osaurus)
+                + agentCommandCenter.availableSkills.map(ComposerSlashCommandItem.skill)
+        }
+        return ComposerSlashCommandItem.all(
             commands: supportedLandingSlashCommands,
             skills: agentCommandCenter.availableSkills
         )
@@ -257,12 +281,14 @@ struct LandingView: View {
     }
     private var selectedOperatingMode: EpistemosOperatingMode {
         get {
-            MainChatOperatingModePreference.sanitize(
+            if isActSearchPage { return .agent }
+            return MainChatOperatingModePreference.sanitize(
                 EpistemosOperatingMode(rawValue: mainChatOperatingModeRaw) ?? .fast,
                 for: inference
             )
         }
         nonmutating set {
+            guard !isActSearchPage else { return }
             mainChatOperatingModeRaw = MainChatOperatingModePreference.sanitize(
                 newValue,
                 for: inference
@@ -270,9 +296,12 @@ struct LandingView: View {
         }
     }
     private var landingIsCloudSelection: Bool {
+        if isActSearchPage { return false }
         switch inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) {
-        case .cloud: true
-        case .localMLX, .appleIntelligence: false
+        case .cloud:
+            return true
+        case .localMLX, .appleIntelligence:
+            return false
         }
     }
     private var landingEffectiveCapability: ChatCapability {
@@ -355,13 +384,7 @@ struct LandingView: View {
                         dismissLandingStageCommand()
                         return
                     }
-                    // FINAL ACT-UI (§2073 #2): on the act surface, a background tap ENTERS ACT
-                    // (no search page). Other call-sites (onEnterAct == nil) keep search.
-                    if let onEnterAct {
-                        onEnterAct()
-                    } else {
-                        activateLandingSearch()
-                    }
+                    activateLandingSearch()
                 }
                 .allowsHitTesting(!showingOverlay)
                 .zIndex(0)
@@ -557,7 +580,7 @@ struct LandingView: View {
 
             Button(action: {
                 HapticHelper.homeCommand(.miniChat)
-                MiniChatWindowController.shared.openNewChat()
+                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
             }) {}
                 .keyboardShortcut("3", modifiers: .command)
                 .frame(width: 0, height: 0)
@@ -816,7 +839,9 @@ struct LandingView: View {
                 accent: theme.resolved.accent.color,
                 haptic: .search,
                 isActive: showingSearchPopover,
-                action: { activateLandingSearch(playHaptic: false) }
+                action: {
+                    activateLandingSearch(playHaptic: false)
+                }
             )
             PixelLandingCommandTile(
                 title: "quick capture",
@@ -888,7 +913,7 @@ struct LandingView: View {
                 accent: Color(hex: 0x62B7C7),
                 haptic: .miniChat
             ) {
-                MiniChatWindowController.shared.openNewChat()
+                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
             }
             PixelLandingCommandTile(
                 title: "new doc",
@@ -977,8 +1002,9 @@ struct LandingView: View {
                             showInlineRuntimePicker = false
                         }
                     },
-                    onOpenSettings: { openSettings() },
-                    showsSettingsFooter: true
+                    onOpenSettings: { openActOrEpistemosSettings() },
+                    showsSettingsFooter: true,
+                    showsOsaurusModelSection: isActSearchPage
                 )
                 .frame(maxWidth: LandingSearchLayout.searchLineWidth)
                 .zIndex(4)
@@ -1012,7 +1038,7 @@ struct LandingView: View {
                 }
             }
         )
-        .help("Pick the Epistemos brain — Fast / Think / Code")
+        .help(isActSearchPage ? "Pick the Act model inside the Epistemos picker" : "Pick the Epistemos brain — Fast / Think / Code")
     }
 
     /// SS-VIS (owner 2026-06-20): surface ALL chat capabilities — the ~50 agent tools + MCP servers +
@@ -1024,7 +1050,7 @@ struct LandingView: View {
     /// same control the owner already knows from chat.
     private var landingSearchCapabilitiesTool: some View {
         LandingStageToolTile(
-            title: "Agent",
+            title: isActSearchPage ? "Act" : "Agent",
             systemImage: "slider.horizontal.3",
             theme: theme,
             accent: theme.resolved.accent.color,
@@ -1040,7 +1066,7 @@ struct LandingView: View {
                 onRunSkill: { skill in runSkillFromLanding(skill) }
             )
         }
-        .help("Agent tools, MCP, cowork & skills — the full capability set, right from search")
+        .help(isActSearchPage ? "Act tools, agents, commands, and skills" : "Agent tools, MCP, cowork & skills — the full capability set, right from search")
     }
 
     /// SS-VIS (owner 2026-06-20): "start off using a tool" — run a discovered skill straight from the
@@ -1060,6 +1086,7 @@ struct LandingView: View {
 
     /// Short tier label for the landing picker trigger, from the active mode.
     private var landingRuntimeTierLabel: String {
+        if isActSearchPage { return "Act" }
         switch operatingModeBinding.wrappedValue {
         case .fast: return "Fast"
         case .thinking: return "Think"
@@ -1320,7 +1347,7 @@ struct LandingView: View {
                     .accessibilityHint(landingSearchAttachmentHint)
 
                     if landingSearchText.isEmpty {
-                        Text(ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run.")
+                        Text(landingSearchPlaceholderText)
                             .font(.system(size: 20, weight: .regular, design: .rounded))
                             .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.34 : 0.28))
                             .lineLimit(1)
@@ -1661,6 +1688,10 @@ struct LandingView: View {
     }
 
     private func applyLandingSlashItem(_ item: ComposerSlashCommandItem) {
+        if applyImmediateLandingOsaurusCommand(item) {
+            return
+        }
+
         if let command = item.command {
             selectedOperatingMode = MainChatOperatingModePreference.sanitize(
                 command.defaultOperatingMode,
@@ -1694,6 +1725,52 @@ struct LandingView: View {
         landingSlashFilter = ""
         landingSlashKeyboardIndex = 0
         isLandingSearchFocused = true
+    }
+
+    private func applyImmediateLandingOsaurusCommand(_ item: ComposerSlashCommandItem) -> Bool {
+        guard isActSearchPage,
+              let command = item.osaurusCommand else { return false }
+
+        switch command {
+        case .clear:
+            landingSearchText = ""
+            selectedLandingSlashItem = nil
+        case .model:
+            withAnimation(reduceMotion ? nil : Motion.micro) {
+                showInlineRuntimePicker = true
+            }
+            selectedLandingSlashItem = nil
+        case .configure:
+            openActOsaurusConfiguration()
+            selectedLandingSlashItem = nil
+        case .tools:
+            showLandingToolPanel = true
+            selectedLandingSlashItem = nil
+        case .agent, .help:
+            selectedLandingSlashItem = item
+            if trimmedLandingSearchText.isEmpty, let suggestedPrompt = item.suggestedPrompt {
+                landingSearchText = suggestedPrompt
+            }
+        }
+
+        showLandingSlashMenu = false
+        landingSlashFilter = ""
+        landingSlashKeyboardIndex = 0
+        isLandingSearchFocused = true
+        return true
+    }
+
+    private func openActOsaurusConfiguration() {
+        openSettings()
+        NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
+    }
+
+    private func openActOrEpistemosSettings() {
+        if isActSearchPage {
+            openActOsaurusConfiguration()
+        } else {
+            openSettings()
+        }
     }
 
     private func openLandingSlashCommandMenu() {
@@ -1940,6 +2017,12 @@ struct LandingView: View {
 
         let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        if let onSubmitActPrompt {
+            dismissLandingSearch()
+            onSubmitActPrompt(trimmed)
+            return
+        }
+
         let attachments = landingContextAttachments
         let fileAttachments = landingFileAttachments
         let slashToken = activeSelectedLandingSlashToken

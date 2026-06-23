@@ -32,9 +32,9 @@ only.** Act is P0 blocking for owner pain; **act certified ≠ loop done.**
 beyond future clones (Tolaria, Epdoc-fuse, Tamagotchi render-fix).
 
 ## LOCKED ACT DIRECTION (no drift)
-- **FRESH NATIVE Epistemos UI** (landing, toolbar, sidebar, pill, composer, curved window, transcript) wired to the **Osaurus ENGINE** in-process (`CoreModelService.generateStream` — the proven 0.4 path). **Osaurus = ENGINE ONLY, not UI.**
-- Do NOT mount, reskin, OR decompose ANY ChatView — neither `Epistemos/Views/Chat/ChatView.swift` (old chat) NOR Osaurus's `OsaurusChatView` (monolith). SUPERSEDES option-(b) AND mount-Osaurus-UI-reskinned AND decompose-the-monolith — all wrong.
-- **Landing = Epistemos `LandingView` FIRST** (D2/0.3) → blur → act. NOT Osaurus default "Good morning" landing.
+- **Epistemos visible UI + Osaurus underneath**: the bundle split is the bug. Pro act chat must be the owner's Epistemos landing/search/chat chrome, message bar, toolbar, recent-chat/sidebar, mini/graph/note variants, settings, and native Apple/Epistemos prompts.
+- **Osaurus supplies capability, not the visible app shell**: streaming, model routing, tools, MCP, commands, permissions, provider config, sandbox/VM/dependency controls, and credential flows must be unbundled from Osaurus and re-exposed through native Epistemos controls.
+- Do NOT mount vendored Osaurus `ChatView` / `EpistemosOsaurusChatHost` as the visible act surface. Do NOT restore old Epistemos backend behavior. Do NOT restore skeletal `NativeActChatView`/`NativeActLandingView`, and do NOT hardcode one cream/dark/white palette as if that equals the owner's settings.
 
 ## NON-NEGOTIABLES — every iteration (22)
 1. **FULL-PLAN-NO-ACT-TUNNEL** — attempt 0.1→0.32 then TIER 1→5; do NOT stop after act/D1–D5 or build-green
@@ -69,7 +69,7 @@ beyond future clones (Tolaria, Epdoc-fuse, Tamagotchi render-fix).
 17. **Act fixes IN PARALLEL** — T1+ attempt NOT blocked waiting for full T0 `[x]`; act P0 does not cancel lower tiers.
 18. **P0 owner reports** → addendum + queue + prompt same iteration, then fix first.
 19. **Act certified ≠ loop done** — continue into TIER 1+ same iteration when TIER 0 certified or honestly blocked.
-20. **FAVOR OSAURUS on clash** · **owner messages → plan+queue** · **NEVER-IDLE** · **FULL-CLONE PROCESS** for every adopted engine · **main-only** · Co-Authored-By Claude.
+20. **FAVOR OSAURUS engine/capability truth on clash, Epistemos UI on surface clash** · **owner messages → plan+queue** · **NEVER-IDLE** · **FULL-CLONE PROCESS** for every adopted engine · **main-only** · Co-Authored-By Claude.
 21. **PNG freshness (pass50 P1-c)** — unique per-iteration capture paths + logged timestamp; Read PNG **this loop**;
     do not trust stale `osa_runtime_2026_06_22.png` without Read. Re-capture ground-truth alias when cited.
 22. **W/B/S ACCEPTANCE GATES** — work/beyond/substrate items do NOT `[x]` until W1–W5 / B1–B3 / S1–S5 pass (queue
@@ -91,9 +91,9 @@ iteration before ending.
 ## TIER 0 WALK (0.1 → 0.32)
 | Item | Summary |
 |------|---------|
-| 0.1 | Reskin at vendored `Theme.swift` SOURCE |
-| 0.2 | ALL chat surfaces → Osaurus act host; screenshot EACH |
-| 0.3 | Epistemos landing FIRST → blur → act (D2) |
+| 0.1 | Live Epistemos theme on native Act UI backed by OsaurusCore |
+| 0.2 | ALL chat surfaces → same native Epistemos Act surface family; screenshot EACH |
+| 0.3 | Epistemos landing/search FIRST → blur → native Act chat (D2) |
 | 0.4 | Send works — in-process, owner's model |
 | 0.5 | Mini + grab-chat; screenshot EACH |
 | 0.6 | Re-certify claimed-done (engine indicator, visible errors, duplicate toggle) |

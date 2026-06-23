@@ -202,7 +202,10 @@ struct ModelPickerView: View {
                 modelList(rows: rows)
             }
         }
-        .frame(width: 380, height: min(CGFloat(displayOptions.count * 48 + 160), 480))
+        // Keep the popover's AppKit window size stable while provider/model
+        // refreshes rebuild the rows. Animated NSPopover resizing has crashed
+        // in the embedded Epistemos host during model-cache updates.
+        .frame(width: 380, height: 480)
         .background(popoverBackground)
         .overlay(popoverBorder)
         .shadow(color: theme.shadowColor.opacity(0.15), radius: 12, x: 0, y: 6)
@@ -275,7 +278,7 @@ struct ModelPickerView: View {
                 onDismiss()
                 Task { @MainActor in
                     try? await Task.sleepForPopoverDismiss()
-                    AppDelegate.shared?.showManagementWindow(initialTab: .models)
+                    EpistemosOsaurusManagementPresenter.show(initialTab: .models)
                 }
             }) {
                 HStack(spacing: 4) {
@@ -597,7 +600,7 @@ struct ModelPickerView: View {
             onDismiss()
             Task { @MainActor in
                 try? await Task.sleepForPopoverDismiss()
-                AppDelegate.shared?.showManagementWindow(initialTab: .models)
+                EpistemosOsaurusManagementPresenter.show(initialTab: .models)
             }
         }) {
             HStack(spacing: 8) {

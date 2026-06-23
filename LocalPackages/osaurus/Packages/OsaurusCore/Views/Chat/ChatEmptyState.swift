@@ -82,6 +82,101 @@ extension View {
     }
 }
 
+// MARK: - Epistemos Empty-State Motion
+
+private struct EpistemosOsaurusGreetingBlock: View {
+    let title: String
+    let subtitle: String
+    let hasAppeared: Bool
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(spacing: 10) {
+            EpistemosOsaurusTypewriterText(
+                text: title,
+                font: .system(size: CGFloat(theme.titleSize) + 5, weight: .semibold, design: .monospaced),
+                color: theme.primaryText,
+                initialDelayMs: 80,
+                perCharacterDelayMs: 24 ... 42
+            )
+            .shadow(color: theme.primaryText.opacity(theme.isDark ? 0.18 : 0.10), radius: 10)
+            .frame(maxWidth: .infinity)
+
+            EpistemosOsaurusTypewriterText(
+                text: subtitle,
+                font: .system(size: CGFloat(theme.bodySize) + 2, weight: .regular, design: .monospaced),
+                color: theme.secondaryText,
+                initialDelayMs: 220,
+                perCharacterDelayMs: 16 ... 30
+            )
+            .frame(maxWidth: 560)
+        }
+        .multilineTextAlignment(.center)
+        .blur(radius: hasAppeared ? 0 : 9)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 18)
+        .animation(.easeOut(duration: 0.42), value: hasAppeared)
+    }
+}
+
+private struct EpistemosOsaurusTypewriterText: View {
+    let text: String
+    let font: Font
+    let color: Color
+    var initialDelayMs: Int
+    var perCharacterDelayMs: ClosedRange<Int>
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var displayedText = ""
+    @State private var isCrisp = false
+
+    var body: some View {
+        ZStack(alignment: .center) {
+            Text(text)
+                .font(font)
+                .hidden()
+                .fixedSize(horizontal: true, vertical: false)
+
+            Text(displayedText.isEmpty ? " " : displayedText)
+                .font(font)
+                .foregroundColor(color)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .blur(radius: (isCrisp || reduceMotion) ? 0 : 10)
+        .opacity((isCrisp || reduceMotion) ? 1 : 0)
+        .task(id: text) {
+            await run()
+        }
+    }
+
+    @MainActor
+    private func run() async {
+        guard !reduceMotion else {
+            displayedText = text
+            isCrisp = true
+            return
+        }
+
+        displayedText = ""
+        isCrisp = false
+        try? await Task.sleep(for: .milliseconds(max(0, initialDelayMs)))
+
+        withAnimation(.easeOut(duration: 0.26)) {
+            isCrisp = true
+        }
+
+        for character in text {
+            guard !Task.isCancelled else { return }
+            displayedText.append(character)
+            var delay = Int.random(in: perCharacterDelayMs)
+            if character == " " { delay += 24 }
+            if ".!?".contains(character) { delay += 90 }
+            try? await Task.sleep(for: .milliseconds(delay))
+        }
+    }
+}
+
 // MARK: - Hero Agent Avatar
 
 /// Renders a hero-sized avatar for a given agent. Built-in and custom
@@ -131,6 +226,9 @@ struct ChatEmptyState: View {
 
     @State private var hasAppeared = false
     @Environment(\.theme) private var theme
+    @ObservedObject private var epistemosSourceSkin = EpistemosOsaurusSourceSkin.shared
+
+    private var isEpistemosSurface: Bool { epistemosSourceSkin.isActive }
 
     private var activeAgent: Agent {
         agents.first { $0.id == activeAgentId } ?? Agent.default
@@ -185,22 +283,22 @@ struct ChatEmptyState: View {
     /// Subtitle rendered beneath the greeting. Same precedence as
     /// `greetingText`: AI-generated → per-agent override
     /// (`Agent.chatSubtitle`) → localized default.
-    private var subtitleText: LocalizedStringKey {
+    private var subtitleText: String {
         // Remote agent run: skip the local agent's generative/custom subtitle
         // and use the neutral default beneath the remote agent's name.
         if remoteAgentName == nil {
             if let s = readyGreeting?.subtitle,
                 !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             {
-                return LocalizedStringKey(s)
+                return s
             }
             if let custom = activeAgent.chatSubtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
                 !custom.isEmpty
             {
-                return LocalizedStringKey(custom)
+                return custom
             }
         }
-        return "How can I help you today?"
+        return L("How can I help you today?")
     }
 
     /// Quick actions to render. Generative actions override the agent's
@@ -284,11 +382,13 @@ struct ChatEmptyState: View {
 
     private var readyState: some View {
         VStack(spacing: 14) {
-            // Hero avatar — agent's mascot as the focal point
-            heroAvatar
-                .opacity(hasAppeared ? 1 : 0)
-                .scaleEffect(hasAppeared ? 1 : 0.85)
-                .animation(theme.springAnimation().delay(0.0), value: hasAppeared)
+            if !isEpistemosSurface {
+                // Hero avatar — agent's mascot as the focal point
+                heroAvatar
+                    .opacity(hasAppeared ? 1 : 0)
+                    .scaleEffect(hasAppeared ? 1 : 0.85)
+                    .animation(theme.springAnimation().delay(0.0), value: hasAppeared)
+            }
 
             // Always paint the greeting block. When the AI response
             // arrives later (state flips to `.ready`), the
@@ -308,55 +408,63 @@ struct ChatEmptyState: View {
     @ViewBuilder
     private var greetingBlock: some View {
         VStack(spacing: 14) {
-            VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Text(greetingText)
-                        .font(theme.font(size: CGFloat(theme.titleSize) + 4, weight: .semibold))
-                        .foregroundColor(theme.primaryText)
-                    if readyGreeting != nil {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: CGFloat(theme.bodySize) + 2, weight: .semibold))
-                            .foregroundColor(theme.accentColorLight.opacity(0.85))
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                .id("greeting-\(greetingText)")
-                .shimmerFadeIn(
-                    trigger: readyGreeting?.greeting,
-                    highlight: theme.accentColorLight
+            if isEpistemosSurface {
+                EpistemosOsaurusGreetingBlock(
+                    title: greetingText,
+                    subtitle: subtitleText,
+                    hasAppeared: hasAppeared
                 )
-                // Pure-opacity transition for downstream generative
-                // refreshes — the slide-from-top duplicate the
-                // ZStack-level cross-fade and made the greeting wobble.
-                .transition(.opacity)
-                .opacity(hasAppeared ? 1 : 0)
-                .offset(y: hasAppeared ? 0 : 20)
-                .animation(theme.springAnimation().delay(0.1), value: hasAppeared)
-
-                Text(subtitleText, bundle: .module)
-                    .id("subtitle-\(subtitleFingerprint)")
-                    .font(theme.font(size: CGFloat(theme.bodySize) + 2))
-                    .foregroundColor(theme.secondaryText)
-                    .multilineTextAlignment(.center)
+            } else {
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text(greetingText)
+                            .font(theme.font(size: CGFloat(theme.titleSize) + 4, weight: .semibold))
+                            .foregroundColor(theme.primaryText)
+                        if readyGreeting != nil {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: CGFloat(theme.bodySize) + 2, weight: .semibold))
+                                .foregroundColor(theme.accentColorLight.opacity(0.85))
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    .id("greeting-\(greetingText)")
                     .shimmerFadeIn(
-                        trigger: readyGreeting?.subtitle,
+                        trigger: readyGreeting?.greeting,
                         highlight: theme.accentColorLight
                     )
+                    // Pure-opacity transition for downstream generative
+                    // refreshes — the slide-from-top duplicate the
+                    // ZStack-level cross-fade and made the greeting wobble.
                     .transition(.opacity)
                     .opacity(hasAppeared ? 1 : 0)
-                    .offset(y: hasAppeared ? 0 : 15)
-                    .animation(theme.springAnimation().delay(0.17), value: hasAppeared)
+                    .offset(y: hasAppeared ? 0 : 20)
+                    .animation(theme.springAnimation().delay(0.1), value: hasAppeared)
 
-                if let status = remoteEncryptionStatus {
-                    encryptionBadge(status)
+                    Text(subtitleText)
+                        .id("subtitle-\(subtitleFingerprint)")
+                        .font(theme.font(size: CGFloat(theme.bodySize) + 2))
+                        .foregroundColor(theme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .shimmerFadeIn(
+                            trigger: readyGreeting?.subtitle,
+                            highlight: theme.accentColorLight
+                        )
+                        .transition(.opacity)
                         .opacity(hasAppeared ? 1 : 0)
-                        .offset(y: hasAppeared ? 0 : 12)
-                        .animation(theme.springAnimation().delay(0.24), value: hasAppeared)
-                }
-            }
-            .animation(theme.springAnimation(), value: generativeFingerprint)
+                        .offset(y: hasAppeared ? 0 : 15)
+                        .animation(theme.springAnimation().delay(0.17), value: hasAppeared)
 
-            if !effectiveQuickActions.isEmpty {
+                    if let status = remoteEncryptionStatus {
+                        encryptionBadge(status)
+                            .opacity(hasAppeared ? 1 : 0)
+                            .offset(y: hasAppeared ? 0 : 12)
+                            .animation(theme.springAnimation().delay(0.24), value: hasAppeared)
+                    }
+                }
+                .animation(theme.springAnimation(), value: generativeFingerprint)
+            }
+
+            if !isEpistemosSurface && !effectiveQuickActions.isEmpty {
                 staggeredQuickActions
                     .shimmerFadeIn(
                         trigger: generativeFingerprint == "static" ? nil : generativeFingerprint,
@@ -428,13 +536,23 @@ struct ChatEmptyState: View {
             spacing: 12
         ) {
             ForEach(Array(effectiveQuickActions.enumerated()), id: \.element.id) { index, action in
-                QuickActionButton(action: action, onTap: onQuickAction)
-                    .opacity(hasAppeared ? 1 : 0)
-                    .offset(y: hasAppeared ? 0 : 15)
-                    .animation(
-                        theme.springAnimation().delay(0.35 + Double(index) * 0.05),
-                        value: hasAppeared
-                    )
+                if isEpistemosSurface {
+                    EpistemosQuickActionButton(action: action, onTap: onQuickAction)
+                        .opacity(hasAppeared ? 1 : 0)
+                        .offset(y: hasAppeared ? 0 : 15)
+                        .animation(
+                            theme.springAnimation().delay(0.35 + Double(index) * 0.05),
+                            value: hasAppeared
+                        )
+                } else {
+                    QuickActionButton(action: action, onTap: onQuickAction)
+                        .opacity(hasAppeared ? 1 : 0)
+                        .offset(y: hasAppeared ? 0 : 15)
+                        .animation(
+                            theme.springAnimation().delay(0.35 + Double(index) * 0.05),
+                            value: hasAppeared
+                        )
+                }
             }
         }
         .frame(maxWidth: 440)
@@ -687,6 +805,60 @@ struct QuickActionButton: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             withAnimation(theme.animationQuick()) {
+                isHovered = hovering
+            }
+        }
+    }
+}
+
+private struct EpistemosQuickActionButton: View {
+    let action: AgentQuickAction
+    let onTap: (String) -> Void
+
+    @State private var isHovered = false
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button {
+            onTap(action.prompt)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: action.icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(isHovered ? theme.accentColor : theme.secondaryText)
+                    .frame(width: 16)
+
+                Text(action.text)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(isHovered ? theme.primaryText : theme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(
+                        isHovered
+                            ? theme.secondaryBackground.opacity(theme.isDark ? 0.62 : 0.78)
+                            : theme.secondaryBackground.opacity(theme.isDark ? 0.28 : 0.45)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(
+                        isHovered
+                            ? theme.accentColor.opacity(0.24)
+                            : theme.primaryBorder.opacity(theme.isDark ? 0.18 : 0.25),
+                        lineWidth: 1
+                    )
+            )
+            .blur(radius: isHovered ? 0 : 0.2)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.16)) {
                 isHovered = hovering
             }
         }

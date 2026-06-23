@@ -173,35 +173,30 @@ struct HologramSearchSidebar: View {
     /// panel expanding in-flow in the sidebar — not a floating popover.
     @State private var showInlineRuntimePicker = false
     @State private var showGraphToolPanel = false
+    @State private var showGraphSlashMenu = false
+    @State private var graphSlashFilter = ""
+    @State private var graphSelectedSlashItem: ComposerSlashCommandItem?
+    @State private var graphComposerHeight = ChatComposerInputMetrics.minHeight
+    @State private var graphComposerFocused = false
 
     /// Compact sidebar-styled trigger for the inline picker (replaces the
     /// single-button LocalModelToolbarMenu popover), matching the graph chat's
     /// monospaced aesthetic.
     private var graphInlineRuntimePickerTrigger: some View {
-        Button {
+        ToolbarCapsuleButton(
+            title: graphRuntimeTierLabel,
+            systemImage: "cpu",
+            variant: .toolbar,
+            isActive: showInlineRuntimePicker,
+            helpText: isGraphOsaurusActMode
+                ? "Pick the Act model inside the Epistemos picker"
+                : "Pick the Epistemos brain — Fast / Think / Code",
+            accessibilityLabel: "Model picker, \(graphRuntimeTierLabel)"
+        ) {
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
                 showInlineRuntimePicker.toggle()
             }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "cpu")
-                    .font(.system(size: 9, weight: .bold))
-                Text(graphRuntimeTierLabel)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .textCase(.uppercase)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .bold))
-                    .rotationEffect(.degrees(showInlineRuntimePicker ? 180 : 0))
-            }
-            .foregroundStyle(showInlineRuntimePicker ? graphChatAccentColor : theme.textSecondary)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(theme.textSecondary.opacity(showInlineRuntimePicker ? 0 : 0.06)))
-            .overlay(Capsule().strokeBorder(showInlineRuntimePicker ? graphChatAccentColor.opacity(0.5) : Color.clear, lineWidth: 1))
-            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
-        .help("Pick the Epistemos brain — Fast / Think / Code")
     }
 
     private var graphRuntimeTierLabel: String {
@@ -256,9 +251,56 @@ struct HologramSearchSidebar: View {
         )
     }
     private var supportedGraphChatOperatingModes: [EpistemosOperatingMode] {
-        let modes = inference.availableOperatingModes.filter { $0 != .agent }
+        var modes = inference.availableOperatingModes.filter { $0 != .agent }
+        if LocalAgentLoop.shouldRouteActThroughOsaurus(), !modes.contains(.agent) {
+            modes.append(.agent)
+        }
         return modes.isEmpty ? [.fast] : modes
     }
+
+    private var isGraphOsaurusActMode: Bool {
+        selectedGraphChatOperatingMode == .agent && LocalAgentLoop.shouldRouteActThroughOsaurus()
+    }
+
+    private var graphSlashItems: [ComposerSlashCommandItem] {
+        ComposerSlashCommandItem.surfaceItems(
+            isOsaurusActMode: isGraphOsaurusActMode,
+            commands: ACCSlashCommand.availableCommands(for: supportedGraphChatOperatingModes),
+            skills: agentCommandCenter.availableSkills
+        )
+    }
+
+    private var graphComposerCapability: ChatCapability {
+        if isGraphOsaurusActMode { return .agent }
+        switch selectedGraphChatOperatingMode {
+        case .agent:
+            return .agent
+        case .thinking:
+            return .thinking
+        case .pro:
+            return .research
+        case .fast:
+            switch inference.effectiveChatSurfaceSelection(for: selectedGraphChatOperatingMode) {
+            case .cloud:
+                return .cloud
+            case .localMLX, .appleIntelligence:
+                return .local
+            }
+        }
+    }
+
+    private var graphComposerPillDetail: String? {
+        isGraphOsaurusActMode ? "Act" : graphRuntimeTierLabel
+    }
+
+    private var graphComposerControlResetKey: String {
+        [
+            graphRuntimeTierLabel,
+            graphSelectedSlashItem?.id ?? "none",
+            showGraphToolPanel ? "tools" : "tools-closed",
+        ].joined(separator: "::")
+    }
+
     private var selectedGraphChatOperatingMode: EpistemosOperatingMode {
         get {
             MainChatOperatingModePreference.sanitize(
@@ -824,20 +866,12 @@ struct HologramSearchSidebar: View {
         let trimmedInput = inspectorState.chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let canSubmit = !trimmedInput.isEmpty && !inspectorState.isChatStreaming
 
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                graphInlineRuntimePickerTrigger
+        return VStack(alignment: .leading, spacing: 0) {
+            graphComposerTextArea
+                .onChange(of: inspectorState.chatInput) { _, newValue in
+                    refreshGraphSlashMenu(for: newValue)
+                }
 
-                Spacer(minLength: 8)
-
-                Text(graphChatStatusText)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(graphChatStatusPhase == .idle ? theme.textTertiary : graphChatAccentColor)
-                    .textCase(.uppercase)
-            }
-
-            // Owner 2026-06-18: flat inline pixel-art picker in-flow in the
-            // sidebar, replacing the single-button LocalModelToolbarMenu popover.
             if showInlineRuntimePicker {
                 InlineRuntimePickerPanel(
                     inference: inference,
@@ -848,100 +882,126 @@ struct HologramSearchSidebar: View {
                         }
                     },
                     onOpenSettings: { openSettings() },
-                    showsSettingsFooter: true
+                    showsSettingsFooter: true,
+                    showsOsaurusModelSection: isGraphOsaurusActMode
                 )
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            HStack(spacing: 8) {
-                TextField("Ask this node", text: $inspectorState.chatInput, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...3)
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
-                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.94))
-                    .tint(graphChatAccentColor)
-                    .onSubmit {
-                        guard canSubmit else { return }
-                        sendGraphChatMessage()
+            HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
+                ComposerControlStrip(spacing: 8, resetKey: graphComposerControlResetKey) {
+                    graphInlineRuntimePickerTrigger
+                    graphSlashCommandTrigger
+                    if let graphSelectedSlashItem {
+                        graphSelectedSlashPill(for: graphSelectedSlashItem)
                     }
-
-                // SS-VIS wider sweep: the SAME AgentToolTogglePanel the chat composer + landing +
-                // mini-chat use (the ~50 tools + MCP + cowork + skills) — single registry, single
-                // picker, no clone — so a user can start using a tool from the graph chat too.
-                Button { showGraphToolPanel.toggle() } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(showGraphToolPanel ? graphChatAccentColor : theme.textSecondary)
-                        .frame(width: 24, height: 24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.58 : 0.82))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .strokeBorder(theme.border.opacity(0.55), lineWidth: 0.75)
-                        )
-                }
-                .buttonStyle(.plain)
-                .help("Agent tools, MCP, cowork & skills — the full capability set, in the graph chat")
-                .popover(isPresented: $showGraphToolPanel, arrowEdge: .bottom) {
-                    AgentToolTogglePanel(
-                        agentCommandCenter: agentCommandCenter,
-                        theme: theme,
-                        onRunSkill: { skill in runSkillFromGraphChat(skill) }
-                    )
+                    graphToolPanelTrigger
                 }
 
-                Button {
+                Spacer(minLength: 4)
+
+                ChatCapabilityPill(
+                    capability: graphComposerCapability,
+                    detail: graphComposerPillDetail
+                )
+
+                AssistantSendButton(
+                    theme: theme,
+                    isEnabled: canSubmit || inspectorState.isChatStreaming,
+                    isProcessing: inspectorState.isChatStreaming,
+                    metrics: .mainChat
+                ) {
                     if inspectorState.isChatStreaming {
                         inspectorState.stopChat()
                     } else if canSubmit {
                         sendGraphChatMessage()
                     }
-                } label: {
-                    Image(systemName: inspectorState.isChatStreaming ? "stop.fill" : "arrow.up")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(
-                            canSubmit || inspectorState.isChatStreaming
-                                ? graphChatAccentColor
-                                : theme.textTertiary.opacity(0.5)
-                        )
-                        .frame(width: 24, height: 24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.58 : 0.82))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .strokeBorder(theme.border.opacity(0.55), lineWidth: 0.75)
-                        )
                 }
-                .buttonStyle(.plain)
-                .disabled(!canSubmit && !inspectorState.isChatStreaming)
-                .help(inspectorState.isChatStreaming ? "Stop response" : "Ask this node")
+                .help(inspectorState.isChatStreaming ? "Stop" : "Ask this node")
                 .accessibilityLabel(inspectorState.isChatStreaming ? "Stop response" : "Ask this node")
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(theme.resolved.foreground.color.opacity(0.035))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(theme.border.opacity(0.7), lineWidth: 0.8)
+            .padding(.top, MainChatComposerLayout.controlRowTopPadding)
+        }
+        .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+        .padding(.top, MainChatComposerLayout.topPadding)
+        .padding(.bottom, MainChatComposerLayout.bottomPadding)
+        .assistantComposerChrome(
+            theme: theme,
+            metrics: .mainChat,
+            isActive: graphComposerFocused
+                || !trimmedInput.isEmpty
+                || inspectorState.isChatStreaming
+                || showInlineRuntimePicker
+                || showGraphSlashMenu
+                || graphSelectedSlashItem != nil
+        )
+        .padding(10)
+    }
+
+    private var graphComposerTextArea: some View {
+        @Bindable var inspectorState = inspectorState
+        return ZStack(alignment: .topLeading) {
+            ChatComposerTextEditor(
+                text: $inspectorState.chatInput,
+                height: $graphComposerHeight,
+                isFocused: $graphComposerFocused,
+                theme: theme,
+                isProcessing: inspectorState.isChatStreaming
+            ) {
+                let trimmed = inspectorState.chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                if inspectorState.isChatStreaming {
+                    inspectorState.stopChat()
+                } else if !trimmed.isEmpty {
+                    sendGraphChatMessage()
+                }
+            }
+            .frame(minHeight: ChatComposerInputMetrics.minHeight, maxHeight: ChatComposerInputMetrics.maxHeight)
+
+            if inspectorState.chatInput.isEmpty {
+                Text(isGraphOsaurusActMode ? "Ask Act about this graph node…" : "Ask this node")
+                    .font(.system(size: ChatComposerInputMetrics.fontSize, weight: .regular))
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.leading, ChatComposerInputMetrics.horizontalInset)
+                    .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(minHeight: ChatComposerInputMetrics.minHeight, maxHeight: ChatComposerInputMetrics.maxHeight)
+    }
+
+    private var graphToolPanelTrigger: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "slider.horizontal.3",
+            variant: .toolbar,
+            isActive: showGraphToolPanel,
+            helpText: "Agent tools, MCP, cowork & skills — the full capability set, in graph chat",
+            accessibilityLabel: "Agent tools"
+        ) {
+            showGraphToolPanel.toggle()
+        }
+        .popover(isPresented: $showGraphToolPanel, arrowEdge: .bottom) {
+            AgentToolTogglePanel(
+                agentCommandCenter: agentCommandCenter,
+                theme: theme,
+                onRunSkill: { skill in runSkillFromGraphChat(skill) }
             )
         }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(theme.card.opacity(theme.isDark ? 0.60 : 0.74))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
-        )
-        .padding(10)
+    }
+
+    private func graphSelectedSlashPill(for item: ComposerSlashCommandItem) -> some View {
+        ToolbarCapsuleButton(
+            title: "/\(item.rawValue)",
+            systemImage: item.icon,
+            variant: .toolbar,
+            helpText: item.helpText,
+            accessibilityLabel: "Selected command \(item.displayName)"
+        ) {
+            graphSelectedSlashItem = nil
+        }
+        .disabled(inspectorState.isChatStreaming)
     }
 
     private var graphChatStatusText: String {
@@ -1042,6 +1102,115 @@ struct HologramSearchSidebar: View {
         }
     }
 
+    private var graphSlashCommandTrigger: some View {
+        ToolbarCapsuleButton(
+            title: "/",
+            systemImage: "command",
+            variant: .toolbar,
+            isActive: showGraphSlashMenu,
+            helpText: isGraphOsaurusActMode
+                ? "Act commands, tools, models, and skills"
+                : "Graph chat commands and skills",
+            accessibilityLabel: "Open commands"
+        ) {
+            openGraphSlashCommandMenu()
+        }
+        .popover(isPresented: $showGraphSlashMenu, arrowEdge: .bottom) {
+            SlashCommandPopover(
+                items: graphSlashItems,
+                filter: graphSlashFilter,
+                selectedItem: graphSelectedSlashItem,
+                onSelect: { item in
+                    applyGraphSlashItem(item)
+                }
+            )
+            .frame(width: 340)
+        }
+    }
+
+    private func refreshGraphSlashMenu(for newValue: String) {
+        guard let filter = ComposerSlashMenuLogic.filter(in: newValue) else {
+            if showGraphSlashMenu {
+                showGraphSlashMenu = false
+                graphSlashFilter = ""
+            }
+            return
+        }
+        if !filter.isEmpty {
+            graphSelectedSlashItem = nil
+        }
+        graphSlashFilter = filter
+        showGraphSlashMenu = true
+    }
+
+    private func openGraphSlashCommandMenu() {
+        guard !graphSlashItems.isEmpty else { return }
+        graphSlashFilter = ""
+        showGraphSlashMenu = true
+    }
+
+    private func applyGraphSlashItem(_ item: ComposerSlashCommandItem) {
+        if applyImmediateGraphOsaurusCommand(item) {
+            return
+        }
+        if case .skill(let skill) = item {
+            runSkillFromGraphChat(skill)
+            closeGraphSlashMenu()
+            return
+        }
+        if let command = item.command {
+            selectedGraphChatOperatingMode = command.defaultOperatingMode
+        }
+        graphSelectedSlashItem = item
+        inspectorState.chatInput = ComposerSlashMenuLogic.textAfterApplying(item, to: inspectorState.chatInput)
+        if inspectorState.chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let suggestedPrompt = item.suggestedPrompt {
+            inspectorState.chatInput = suggestedPrompt
+        }
+        closeGraphSlashMenu()
+    }
+
+    private func applyImmediateGraphOsaurusCommand(_ item: ComposerSlashCommandItem) -> Bool {
+        guard isGraphOsaurusActMode,
+              let command = item.osaurusCommand else { return false }
+
+        switch command {
+        case .clear:
+            if inspectorState.isChatStreaming {
+                inspectorState.stopChat()
+            }
+            inspectorState.chatMessages = []
+            inspectorState.chatInput = ""
+            graphSelectedSlashItem = nil
+        case .model:
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker = true
+            }
+            graphSelectedSlashItem = nil
+        case .tools:
+            showGraphToolPanel = true
+            graphSelectedSlashItem = nil
+        case .configure:
+            openSettings()
+            NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
+            graphSelectedSlashItem = nil
+        case .agent, .help:
+            graphSelectedSlashItem = item
+            if inspectorState.chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let suggestedPrompt = item.suggestedPrompt {
+                inspectorState.chatInput = suggestedPrompt
+            }
+        }
+
+        closeGraphSlashMenu()
+        return true
+    }
+
+    private func closeGraphSlashMenu() {
+        showGraphSlashMenu = false
+        graphSlashFilter = ""
+    }
+
     private func sendGraphChatMessage() {
         guard let modelContext else { return }
 
@@ -1080,20 +1249,14 @@ struct HologramSearchSidebar: View {
                 text: trimmed,
                 isCloudProvider: isCloudProvider
             )
-            if (prediction.predicted == .agent || prediction.predicted == .research),
-               let bootstrap = AppBootstrap.shared {
+            if isGraphOsaurusActMode || prediction.predicted == .agent || prediction.predicted == .research {
                 inspectorState.chatInput = ""
-                bootstrap.chatState.startNewChat()
-                if let nodeAttachment = graphNodeContextAttachment {
-                    bootstrap.chatState.addContextAttachment(nodeAttachment)
-                }
-                ui.setActivePanel(.home)
-                MainChatSubmissionRouter.submit(
-                    trimmed,
-                    operatingMode: selectedGraphChatOperatingMode,
-                    chat: bootstrap.chatState,
-                    orchestrator: bootstrap.orchestratorState,
-                    inference: inference
+                NotificationCenter.default.post(
+                    name: .submitActOsaurusPrompt,
+                    object: ActOsaurusPromptRequest(
+                        text: trimmed,
+                        contextAttachments: graphNodeContextAttachment.map { [$0] } ?? []
+                    )
                 )
                 return
             }

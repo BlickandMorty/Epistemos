@@ -737,6 +737,7 @@ final class ChatState {
     func appendLocalMessage(
         role: MessageRole,
         content: String,
+        attachments: [FileAttachment] = [],
         isError: Bool = false,
         loadedNoteTitles: [String]? = nil,
         vaultRecallTrace: VaultRecallTrace? = nil,
@@ -759,6 +760,7 @@ final class ChatState {
                 chatId: chatId,
                 role: role,
                 content: trimmed,
+                attachments: attachments,
                 isError: isError,
                 loadedNoteTitles: loadedNoteTitles,
                 vaultRecallTrace: vaultRecallTrace,
@@ -1650,18 +1652,23 @@ enum MainChatSubmissionRouter {
         operatingMode: EpistemosOperatingMode,
         chat: ChatState,
         orchestrator: OrchestratorState,
-        inference: InferenceState? = nil
+        inference: InferenceState? = nil,
+        forceActOsaurus: Bool = false
     ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        let routedMode = forceActOsaurus && LocalAgentLoop.shouldRouteActThroughOsaurus()
+            ? EpistemosOperatingMode.agent
+            : operatingMode
+
         let effectiveMode = inference.map {
             autoPromotedMode(
-                from: operatingMode,
+                from: routedMode,
                 query: trimmed,
                 inference: $0
             )
-        } ?? operatingMode
+        } ?? routedMode
 
         switch effectiveMode {
         case .agent:

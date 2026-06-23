@@ -48,6 +48,11 @@ struct ComposerControlStrip<Content: View>: View {
     }
 }
 
+enum ChatInputComposerMode: Equatable {
+    case epistemos
+    case osaurusAct
+}
+
 // MARK: - Chat Input Bar
 // Bottom input bar for the conversation view.
 // Uses a stacked native-style composer: multiline text area on the first row,
@@ -64,11 +69,14 @@ struct ChatInputBar: View {
     let isProcessing: Bool
     var operatingMode: Binding<EpistemosOperatingMode>? = nil
     var availableOperatingModes: [EpistemosOperatingMode]? = nil
+    var composerMode: ChatInputComposerMode = .epistemos
+    var onOpenActConfiguration: (() -> Void)? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
     @Environment(AgentCommandCenterState.self) private var agentCommandCenter
+    @Environment(MCPBridge.self) private var mcpBridge
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
@@ -149,7 +157,14 @@ struct ChatInputBar: View {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
-    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run."
+    private var placeholderText: String {
+        switch composerMode {
+        case .epistemos:
+            ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run."
+        case .osaurusAct:
+            "Ask Act… Type / for commands, tools, models, or agents."
+        }
+    }
     private var contextualRecallScopeID: String {
         chat.activeChatId ?? "main-chat-draft"
     }
@@ -179,13 +194,17 @@ struct ChatInputBar: View {
     /// cloud-hosted. This uses the effective selection so auto-route and
     /// Tools-mode local-agent substitution do not leave the pill stale.
     private var isCloudSelection: Bool {
+        if composerMode == .osaurusAct { return false }
         switch inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) {
-        case .cloud: true
-        case .localMLX, .appleIntelligence: false
+        case .cloud:
+            return true
+        case .localMLX, .appleIntelligence:
+            return false
         }
     }
 
     private var selectedRuntimeReady: Bool {
+        if composerMode == .osaurusAct { return true }
         guard let selectedMode = operatingMode?.wrappedValue else { return true }
         return inference.isChatSurfaceRuntimeReady(for: selectedMode)
     }
@@ -195,6 +214,7 @@ struct ChatInputBar: View {
     /// visible banner + a disabled Send (never a silent model swap). The cloud
     /// route button stays enabled so "route to cloud" remains a one-tap escape.
     private var localRuntimeMemoryBlocker: String? {
+        if composerMode == .osaurusAct { return nil }
         guard let selectedMode = operatingMode?.wrappedValue else { return nil }
         return inference.localChatModelMemoryBlocker(for: selectedMode)
     }
@@ -265,7 +285,7 @@ struct ChatInputBar: View {
     /// instead of showing a bare identifier like "web_search". The
     /// narrator always returns *something* for a non-empty tool name so
     /// the pill isn't blank during the seconds the tool is running.
-    private var pillDetail: String? {
+    private var toolAwarePillDetail: String? {
         if chat.isAgentExecuting,
            let activeTool = chat.activeToolName,
            !activeTool.isEmpty {
@@ -275,10 +295,18 @@ struct ChatInputBar: View {
             )
         }
 
+        if composerMode == .osaurusAct, !enabledAppToolNames.isEmpty {
+            return "\(enabledAppToolNames.count) app tools"
+        }
+
         return ComposerModelToolTruth.detail(
             for: inference.effectiveChatSurfaceSelection(for: selectedOperatingMode),
             capability: effectiveCapability
         )
+    }
+
+    private var enabledAppToolNames: Set<String> {
+        Set(agentCommandCenter.enabledToolNames.map(AgentToolNameAliases.canonical))
     }
 
     /// True when the composer draft looks like agent-tier work (creating /
@@ -336,7 +364,8 @@ struct ChatInputBar: View {
     /// the chat is currently on a local/AFM surface — so it reads as "escalate
     /// THIS send to cloud," not a redundant control while already on cloud.
     private var showsCloudRouteButton: Bool {
-        composerCloudRouteModel != nil && !isCloudSelection
+        if composerMode == .osaurusAct { return false }
+        return composerCloudRouteModel != nil && !isCloudSelection
     }
 
     /// Inline nudge shown when the classifier predicts agent-tier work but
@@ -397,6 +426,10 @@ struct ChatInputBar: View {
     /// composer, leaving a clean ready-to-type prompt, and optionally
     /// prefill command items with their suggested opener.
     private func applySlashItem(_ item: ComposerSlashCommandItem) {
+        if applyImmediateOsaurusCommand(item) {
+            return
+        }
+
         if let command = item.command, let operatingMode {
             operatingMode.wrappedValue = MainChatOperatingModePreference.sanitize(
                 command.defaultOperatingMode,
@@ -434,6 +467,39 @@ struct ChatInputBar: View {
         showSlashMenu = false
         slashFilter = ""
         slashKeyboardIndex = 0
+    }
+
+    private func applyImmediateOsaurusCommand(_ item: ComposerSlashCommandItem) -> Bool {
+        guard composerMode == .osaurusAct,
+              let command = item.osaurusCommand else { return false }
+
+        switch command {
+        case .clear:
+            chat.startNewChat()
+            text = ""
+            selectedSlashItem = nil
+        case .model:
+            withAnimation(.easeInOut(duration: 0.16)) {
+                showInlineRuntimePicker = true
+            }
+            selectedSlashItem = nil
+        case .tools:
+            showToolPanel = true
+            selectedSlashItem = nil
+        case .configure:
+            openActConfiguration()
+            selectedSlashItem = nil
+        case .agent, .help:
+            selectedSlashItem = item
+            if trimmedText.isEmpty, let suggestedPrompt = item.suggestedPrompt {
+                text = suggestedPrompt
+            }
+        }
+
+        showSlashMenu = false
+        slashFilter = ""
+        slashKeyboardIndex = 0
+        return true
     }
 
     private func openSlashCommandMenu() {
@@ -602,7 +668,11 @@ struct ChatInputBar: View {
     }
 
     private var supportedSlashItems: [ComposerSlashCommandItem] {
-        ComposerSlashCommandItem.all(
+        if composerMode == .osaurusAct {
+            return ActOsaurusSlashCommand.allCases.map(ComposerSlashCommandItem.osaurus)
+                + agentCommandCenter.availableSkills.map(ComposerSlashCommandItem.skill)
+        }
+        return ComposerSlashCommandItem.all(
             commands: supportedSlashCommands,
             skills: agentCommandCenter.availableSkills
         )
@@ -627,7 +697,7 @@ struct ChatInputBar: View {
     }
 
     private var activeSelectedSlashToken: ParsedSlashToken? {
-        activeSelectedSlashItem?.token
+        activeSelectedSlashItem?.token ?? nil
     }
 
     private var filteredSlashItems: [ComposerSlashCommandItem] {
@@ -666,9 +736,11 @@ struct ChatInputBar: View {
             vaultURL: vaultSync.vaultURL,
             contextAttachments: chat.pendingContextAttachments,
             fileAttachments: chat.pendingAttachments,
-            compiledAllowedToolNames: inference.providerNativeCapabilityToolNameList(
-                for: selectedOperatingMode
-            )
+            compiledAllowedToolNames: composerMode == .osaurusAct
+                ? Array(enabledAppToolNames).sorted()
+                : inference.providerNativeCapabilityToolNameList(
+                    for: selectedOperatingMode
+                )
         )
     }
     private var permissionGrantRows: [ComposerResourceGrantRow] {
@@ -984,7 +1056,8 @@ struct ChatInputBar: View {
                                 showInlineRuntimePicker = false
                             }
                         },
-                        onOpenSettings: { openSettings() }
+                        onOpenSettings: { openActConfiguration() },
+                        showsOsaurusModelSection: composerMode == .osaurusAct
                     )
                     .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
                     .padding(.bottom, 8)
@@ -1096,7 +1169,7 @@ struct ChatInputBar: View {
                     // from the live streaming signals (takes precedence).
                     ChatCapabilityPill(
                         capability: effectiveCapability,
-                        detail: pillDetail
+                        detail: toolAwarePillDetail
                     )
 
                     // R2 wire-up — Apple-native STT (W10.11
@@ -1164,7 +1237,7 @@ struct ChatInputBar: View {
 
                     ContextualShadowsButton(scopeKind: .chat, scopeID: contextualRecallScopeID)
 
-                    if !agentCommandCenter.availableTools.isEmpty {
+                    if showsToolPanelButton {
                         toolPanelButton
                     }
 
@@ -1240,6 +1313,7 @@ struct ChatInputBar: View {
         .frame(maxWidth: ChatLayout.mainComposerMaxWidth)
         .frame(maxWidth: .infinity)
         .onAppear {
+            agentCommandCenter.refreshSkillCatalog()
             applyPendingComposerDraftIfNeeded()
         }
         .onChange(of: chat.pendingComposerDraftRevision) { _, _ in
@@ -1430,7 +1504,9 @@ struct ChatInputBar: View {
             systemImage: "cpu",
             variant: .toolbar,
             isActive: showInlineRuntimePicker,
-            helpText: "Pick the Epistemos brain — Fast / Think / Code",
+            helpText: composerMode == .osaurusAct
+                ? "Pick the Act model inside the Epistemos picker"
+                : "Pick the Epistemos brain — Fast / Think / Code",
             accessibilityLabel: "Model picker, \(currentTierShortLabel)"
         ) {
             withAnimation(.easeInOut(duration: 0.16)) {
@@ -1440,8 +1516,17 @@ struct ChatInputBar: View {
         .accessibilityHint("Show the flat inline model picker")
     }
 
+    private func openActConfiguration() {
+        if composerMode == .osaurusAct, let onOpenActConfiguration {
+            onOpenActConfiguration()
+        } else {
+            openSettings()
+        }
+    }
+
     /// Short tier label for the picker trigger, derived from the active mode.
     private var currentTierShortLabel: String {
+        if composerMode == .osaurusAct { return "Act" }
         switch operatingMode?.wrappedValue {
         case .fast: return "Fast"
         case .thinking: return "Think"
@@ -1449,6 +1534,26 @@ struct ChatInputBar: View {
         case .agent: return "Act"
         case nil: return "AI"
         }
+    }
+
+    private var showsToolPanelButton: Bool {
+        composerMode == .osaurusAct
+            || !agentCommandCenter.availableTools.isEmpty
+            || !agentCommandCenter.availableSkills.isEmpty
+    }
+
+    private var managedToolRuntimeVaultPath: String {
+        FoundationSafety.managedToolRuntimeVaultDirectory(
+            preferredVaultPath: vaultSync.vaultURL?.path
+        ).path
+    }
+
+    private func refreshExecutionCatalogsIfNeeded(force: Bool = false) {
+        agentCommandCenter.refreshExecutionCatalogsIfNeeded(
+            from: mcpBridge,
+            vaultPath: managedToolRuntimeVaultPath,
+            force: force
+        )
     }
 
     private func selectedSlashPill(for item: ComposerSlashCommandItem) -> some View {
@@ -1539,7 +1644,7 @@ struct ChatInputBar: View {
             helpText: "Agent tools — turn capabilities on or off for this chat",
             accessibilityLabel: "Agent tools"
         ) {
-            showToolPanel.toggle()
+            openToolPanel()
         }
         .popover(isPresented: $showToolPanel, arrowEdge: .top) {
             AgentToolTogglePanel(
@@ -1548,6 +1653,15 @@ struct ChatInputBar: View {
                 onRunSkill: { skill in runSkillFromPanel(skill) }
             )
         }
+    }
+
+    private func openToolPanel() {
+        if agentCommandCenter.availableTools.isEmpty {
+            refreshExecutionCatalogsIfNeeded()
+        } else {
+            agentCommandCenter.refreshSkillCatalog()
+        }
+        showToolPanel.toggle()
     }
 
     /// P2.4 — start a skill turn from the in-chat browser: prime the composer
@@ -1733,6 +1847,12 @@ struct ChatInputBar: View {
             text: trimmedText,
             isCloudProvider: isCloudSelection
         ).predicted
+        if shouldRefreshExecutionCatalogsForNativeIntent(
+            trimmedText,
+            predictedCapability: predictedCapability
+        ) {
+            refreshExecutionCatalogsIfNeeded()
+        }
         if predictedCapability == .agent,
            let operatingMode {
             let supportedModes = MainChatOperatingModePreference.supportedModes(
@@ -1754,6 +1874,21 @@ struct ChatInputBar: View {
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
+    }
+
+    private func shouldRefreshExecutionCatalogsForNativeIntent(
+        _ query: String,
+        predictedCapability: ChatCapability
+    ) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        return composerMode == .osaurusAct
+            || activeSelectedSlashToken != nil
+            || !chat.pendingAttachments.isEmpty
+            || ChatCoordinator.queryContainsExplicitNoteWriteOperation(trimmed)
+            || ChatCoordinator.queryContainsExplicitFileOperation(trimmed)
+            || predictedCapability == .agent
+            || predictedCapability == .research
     }
 
     private func applyPendingComposerDraftIfNeeded() {

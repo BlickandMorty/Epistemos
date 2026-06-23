@@ -9,9 +9,9 @@
 //
 //    SharedActInference.actStreamIfArmed → ActOsaurusStreamingHandler.make(bridge:)
 //      → OsaurusActBridge.runTurnStreamingInProcess(requestedModel:)
-//        → OsaurusCore.CoreModelService.generateStream(requestedModel:)
-//          → EpistemosBridgedModelService (CoreModelService.swift:61 localServices)
-//            → the registered EpistemosModelProvider
+//        → OsaurusActBridge.runTurnEventStreamInProcess(requestedModel:)
+//          → OsaurusCore.EpistemosOsaurusChatSessionBridge.streamTurnEvents
+//            → headless Osaurus ChatSession + registered EpistemosModelProvider
 //
 //  Deterministic by design: a fake provider echoes the SERVED modelId into the reply, so
 //  the test asserts served==selected WITHOUT a live MLX/model load (gate (e) — the real

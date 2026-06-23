@@ -199,6 +199,9 @@ final class ChatSession: ObservableObject {
     /// Mirrors `ChatSessionData.archived`. Required here so `toSessionData()`
     /// round-trips the flag instead of stamping `false` on every save.
     var archived: Bool = false
+    /// Used by Epistemos's headless bridge: Osaurus owns execution while
+    /// Epistemos owns visible history and persistence.
+    var suppressesPersistence: Bool = false
 
     /// Tracks if session has unsaved content changes
     private var isDirty: Bool = false
@@ -1604,6 +1607,7 @@ final class ChatSession: ObservableObject {
 
     /// Save current session state
     func save() {
+        guard !suppressesPersistence else { return }
         // Only save if there are turns
         guard !turns.isEmpty else { return }
 
@@ -2872,9 +2876,11 @@ final class ChatSession: ObservableObject {
                 // Auto-generate title from first user message
                 let turnData = turns.map { ChatTurnData(from: $0) }
                 title = ChatSessionData.generateTitle(from: turnData)
-                let data = toSessionData()
-                ChatSessionsManager.shared.save(data)
-                onSessionChanged?()
+                if !suppressesPersistence {
+                    let data = toSessionData()
+                    ChatSessionsManager.shared.save(data)
+                    onSessionChanged?()
+                }
             }
         }
 
@@ -4231,8 +4237,38 @@ struct ChatView: View {
     /// arg, which silently disabled review for any other open window).
     @State private var privacyPresenterToken: PresenterToken? = nil
 
+    @ObservedObject private var epistemosSourceSkin = EpistemosOsaurusSourceSkin.shared
+
+    /// Convenience accessor for the source-level skin used by this Osaurus
+    /// chat. When embedded in Epistemos, the cloned Osaurus views read the
+    /// owner's selected theme directly instead of relying on a host wrapper.
+    private var sourceTheme: ThemeProtocol {
+        epistemosSourceSkin.activeTheme ?? windowState.theme
+    }
+
+    private var isEpistemosSurface: Bool { epistemosSourceSkin.isActive }
+
+    private var isSidebarVisible: Bool {
+        windowState.showSidebar && !isEpistemosSurface
+    }
+
+    private var isEpistemosEmptySearchStage: Bool {
+        isEpistemosSurface && !session.hasVisibleThreadMessages
+    }
+
     /// Convenience accessor for the window's theme
-    private var theme: ThemeProtocol { windowState.theme }
+    private var theme: ThemeProtocol { sourceTheme }
+
+    @ViewBuilder
+    private var epistemosThemeWitness: some View {
+        if isEpistemosSurface {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(verbatim: "Act theme skin"))
+                .accessibilityValue(Text(verbatim: epistemosSourceSkin.accessibilitySummary))
+        }
+    }
 
     /// Balance-aware copy for the out-of-credits modal.
     private var insufficientFundsMessage: String {
@@ -4585,14 +4621,21 @@ struct ChatView: View {
     @ViewBuilder
     private var chatModeContent: some View {
         GeometryReader { proxy in
-            let sidebarWidth: CGFloat = windowState.showSidebar ? 240 : 0
+            let sidebarWidth: CGFloat = isSidebarVisible ? 240 : 0
             let chatWidth = proxy.size.width - sidebarWidth
-            let effectiveContentWidth = min(chatWidth, 1100)
+            let inspectorWidth: CGFloat = isEpistemosSurface && !isEpistemosEmptySearchStage ? 320 : 0
+            let effectiveContentWidth = min(
+                max(chatWidth - inspectorWidth, 420),
+                isEpistemosSurface ? 760 : 1100
+            )
+            let composerMaxWidth = isEpistemosSurface
+                ? min(max(effectiveContentWidth + 100, 620), 860)
+                : 1100
 
             HStack(alignment: .top, spacing: 0) {
                 // Sidebar
                 VStack(alignment: .leading, spacing: 0) {
-                    if windowState.showSidebar {
+                    if isSidebarVisible {
                         ChatSessionSidebar(
                             sessions: windowState.filteredSessions,
                             agentId: windowState.agentId,
@@ -4656,142 +4699,100 @@ struct ChatView: View {
                     // Background
                     chatBackground
 
-                    // Main content — centered with a max readable width
-                    VStack(spacing: 0) {
-                        // Header
-                        chatHeader
-
-                        // Content area (show immediately, model discovery is async)
-                        if session.hasAnyModel || session.isDiscoveringModels {
-                            if !session.hasVisibleThreadMessages {
-                                emptyStateView
-                            } else {
-                                // Message thread. While a prompt
-                                // overlay is mounted, blur the thread
-                                // and stop hit-testing so the prompt
-                                // visibly takes the foreground without
-                                // letting taps leak through.
-                                messageThread(effectiveContentWidth)
-                                    .blur(radius: isPromptOverlayActive ? 1.5 : 0)
-                                    .allowsHitTesting(!isPromptOverlayActive)
-                                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                                    .animation(theme.springAnimation(), value: isPromptOverlayActive)
+                    HStack(alignment: .top, spacing: 0) {
+                        // Main content — centered with a max readable width
+                        VStack(spacing: 0) {
+                            // Header
+                            if !isEpistemosEmptySearchStage {
+                                chatHeader
                             }
 
-                            // Mode 2 connection status (connecting / error +
-                            // Retry) shown directly above the composer so the
-                            // gated send has a visible explanation.
-                            remoteAgentConnectionNotice
-                                .frame(maxWidth: 1100)
-                                .frame(maxWidth: .infinity)
-                                .animation(theme.springAnimation(), value: windowState.remoteAgentConnectionPhase)
+                            // Content area (show immediately, model discovery is async)
+                            if session.hasAnyModel || session.isDiscoveringModels {
+                                if isEpistemosEmptySearchStage {
+                                    epistemosCenteredSearchStage
+                                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                                } else if !session.hasVisibleThreadMessages {
+                                    emptyStateView
+                                } else {
+                                    // Message thread. While a prompt
+                                    // overlay is mounted, blur the thread
+                                    // and stop hit-testing so the prompt
+                                    // visibly takes the foreground without
+                                    // letting taps leak through.
+                                    messageThread(effectiveContentWidth)
+                                        .blur(radius: isPromptOverlayActive ? 1.5 : 0)
+                                        .allowsHitTesting(!isPromptOverlayActive)
+                                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                                        .animation(theme.springAnimation(), value: isPromptOverlayActive)
+                                }
 
-                            // Floating input card. Dimmed and
-                            // hit-test-disabled while a prompt overlay
-                            // is mounted so the prompt's embedded
-                            // input is the obvious place to type, and
-                            // accidental sends here can't race the
-                            // prompt resolution.
-                            FloatingInputCard(
-                                text: $observedSession.input,
-                                selectedModel: $observedSession.selectedModel,
-                                pendingAttachments: $observedSession.pendingAttachments,
-                                isContinuousVoiceMode: $observedSession.isContinuousVoiceMode,
-                                voiceInputState: $observedSession.voiceInputState,
-                                showVoiceOverlay: $observedSession.showVoiceOverlay,
-                                pickerItems: filteredPickerItems,
-                                activeModelOptions: $observedSession.activeModelOptions,
-                                isStreaming: observedSession.isStreaming,
-                                // Hide Stop ONLY while the redaction review
-                                // sheet is actually on screen (the sheet owns
-                                // its own Cancel and the streaming Task is
-                                // suspended in its continuation). Crucially
-                                // this is NOT gated on the broader
-                                // "before first token" window, so Stop stays
-                                // available during model load / prefill — the
-                                // long pause a big model spends loading from
-                                // disk while the typing-indicator shimmer is up.
-                                isPrivacyReviewSheetVisible: pendingRedactionReview != nil,
-                                supportsImages: observedSession.selectedModelSupportsImages,
-                                estimatedContextTokens: observedSession.estimatedContextTokens,
-                                contextBreakdown: observedSession.estimatedContextBreakdown,
-                                sessionSpendMicro: observedSession.sessionRouterSpendMicro,
-                                showSessionSpend: observedSession.isOsaurusRouterSession,
-                                onSend: { manualText in
-                                    if let manualText = manualText {
-                                        observedSession.input = manualText
-                                    }
-                                    if observedSession.isStreaming {
-                                        observedSession.enqueueSend(
-                                            observedSession.input,
-                                            attachments: observedSession.pendingAttachments
-                                        )
-                                    } else {
-                                        observedSession.sendCurrent()
-                                    }
-                                },
-                                onStop: { observedSession.stop() },
-                                focusTrigger: focusTrigger,
-                                agentId: windowState.agentId,
-                                windowId: windowState.windowId,
-                                isCompact: windowState.showSidebar,
-                                isEmptyChat: !observedSession.hasVisibleThreadMessages,
-                                onClearChat: { observedSession.reset() },
-                                onSkillSelected: { skillId in
-                                    observedSession.pendingOneOffSkillId = skillId
-                                },
-                                pendingSkillId: $observedSession.pendingOneOffSkillId,
-                                autoSpeakAssistant: $observedSession.autoSpeakAssistant,
-                                queuedSend: $observedSession.queuedSend,
-                                onSendNow: { observedSession.sendNowInterrupting() },
-                                onCancelQueued: { observedSession.cancelQueuedSend() },
-                                onAddCredits: { showTopUpSheet = true },
-                                isModelPinned: windowState.selectedDiscoveredAgentProviderId != nil,
-                                pinnedModelLabel: pinnedModelChipLabel,
-                                remoteConnectionPending: windowState.remoteAgentConnectionPhase
-                                    == .connecting
-                            )
-                            .frame(maxWidth: 1100)
-                            .frame(maxWidth: .infinity)
-                            .opacity(isPromptOverlayActive ? 0.55 : 1.0)
-                            .allowsHitTesting(!isPromptOverlayActive)
-                            .animation(theme.springAnimation(), value: isPromptOverlayActive)
-                        } else {
-                            // No models empty state
-                            ChatEmptyState(
-                                hasModels: false,
-                                selectedModel: nil,
-                                agents: windowState.agents,
-                                activeAgentId: windowState.agentId,
-                                quickActions: emptyStateQuickActions,
-                                onOpenModelManager: {
-                                    AppDelegate.shared?.showManagementWindow(initialTab: .models)
-                                },
-                                onUseFoundation: windowState.foundationModelAvailable
-                                    ? {
-                                        session.selectedModel = session.pickerItems.firstChatCapable?.id ?? "foundation"
-                                    } : nil,
-                                onQuickAction: { _ in },
-                                onOpenOnboarding: {
-                                    // If onboarding was already completed, just refresh models
-                                    // Don't reset onboarding - the user just finished it
-                                    if !OnboardingService.shared.shouldShowOnboarding {
-                                        Task { @MainActor in
-                                            await session.refreshPickerItems()
+                                if !isEpistemosEmptySearchStage {
+                                    // Mode 2 connection status (connecting / error +
+                                    // Retry) shown directly above the composer so the
+                                    // gated send has a visible explanation.
+                                    remoteAgentConnectionNotice
+                                        .frame(maxWidth: composerMaxWidth)
+                                        .frame(maxWidth: .infinity)
+                                        .animation(theme.springAnimation(), value: windowState.remoteAgentConnectionPhase)
+
+                                    // Floating input card. Dimmed and
+                                    // hit-test-disabled while a prompt overlay
+                                    // is mounted so the prompt's embedded
+                                    // input is the obvious place to type, and
+                                    // accidental sends here can't race the
+                                    // prompt resolution.
+                                    floatingComposerCard
+                                        .frame(maxWidth: composerMaxWidth)
+                                        .frame(maxWidth: .infinity)
+                                        .opacity(isPromptOverlayActive ? 0.55 : 1.0)
+                                        .allowsHitTesting(!isPromptOverlayActive)
+                                        .animation(theme.springAnimation(), value: isPromptOverlayActive)
+                                }
+                            } else {
+                                // No models empty state
+                                ChatEmptyState(
+                                    hasModels: false,
+                                    selectedModel: nil,
+                                    agents: windowState.agents,
+                                    activeAgentId: windowState.agentId,
+                                    quickActions: emptyStateQuickActions,
+                                    onOpenModelManager: {
+                                        EpistemosOsaurusManagementPresenter.show(initialTab: .models)
+                                    },
+                                    onUseFoundation: windowState.foundationModelAvailable
+                                        ? {
+                                            session.selectedModel = session.pickerItems.firstChatCapable?.id ?? "foundation"
+                                        } : nil,
+                                    onQuickAction: { _ in },
+                                    onOpenOnboarding: {
+                                        // If onboarding was already completed, just refresh models
+                                        // Don't reset onboarding - the user just finished it
+                                        if !OnboardingService.shared.shouldShowOnboarding {
+                                            Task { @MainActor in
+                                                await session.refreshPickerItems()
+                                            }
+                                            return
                                         }
-                                        return
-                                    }
-                                    // Only reset for users who never completed onboarding
-                                    OnboardingService.shared.resetOnboarding()
-                                    // Close this window so user can focus on onboarding
-                                    ChatWindowManager.shared.closeWindow(id: windowState.windowId)
-                                    // Show onboarding window
-                                    AppDelegate.shared?.showOnboardingWindow()
-                                },
-                            )
+                                        // Only reset for users who never completed onboarding
+                                        OnboardingService.shared.resetOnboarding()
+                                        // Close this window so user can focus on onboarding
+                                        ChatWindowManager.shared.closeWindow(id: windowState.windowId)
+                                        // Show onboarding window
+                                        AppDelegate.shared?.showOnboardingWindow()
+                                    },
+                                )
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .animation(theme.springAnimation(responseMultiplier: 0.9), value: session.hasVisibleThreadMessages)
+
+                        if inspectorWidth > 0 {
+                            epistemosActInspectorPanel
+                                .frame(width: inspectorWidth)
+                                .transition(.opacity.combined(with: .move(edge: .trailing)))
                         }
                     }
-                    .animation(theme.springAnimation(responseMultiplier: 0.9), value: session.hasVisibleThreadMessages)
                 }
             }
         }
@@ -4887,7 +4888,10 @@ struct ChatView: View {
                 session.selectedModel = session.pickerItems.firstChatCapable?.id
             }
         }
-        .environment(\.theme, windowState.theme)
+        .overlay(alignment: .topLeading) {
+            epistemosThemeWitness
+        }
+        .environment(\.theme, sourceTheme)
         .tint(theme.accentColor)
         .sheet(item: $pendingWhatsNew) { release in
             WhatsNewModal(
@@ -4904,9 +4908,9 @@ struct ChatView: View {
                     // remaining notes.
                     switch action {
                     case .openSandboxSettings:
-                        AppDelegate.shared?.showManagementWindow(initialTab: .sandbox)
+                        EpistemosOsaurusManagementPresenter.show(initialTab: .sandbox)
                     case .openAPIKeysSettings:
-                        AppDelegate.shared?.showManagementWindow(initialTab: .server)
+                        EpistemosOsaurusManagementPresenter.show(initialTab: .server)
                     case .openSecurityDoc(let url):
                         NSWorkspace.shared.open(url)
                     case .openStorageSettings, .exportPlaintextBackup:
@@ -4916,17 +4920,17 @@ struct ChatView: View {
                         // "Export plaintext backup…" once they're
                         // there, which is the safer flow because it
                         // forces them to pick a destination.
-                        AppDelegate.shared?.showManagementWindow(initialTab: .storage)
+                        EpistemosOsaurusManagementPresenter.show(initialTab: .storage)
                     case .openPrivacySettings:
-                        AppDelegate.shared?.showManagementWindow(initialTab: .privacy)
+                        EpistemosOsaurusManagementPresenter.show(initialTab: .privacy)
                     case .openComputerUseSettings:
-                        AppDelegate.shared?.showManagementWindow(initialTab: .computerUse)
+                        EpistemosOsaurusManagementPresenter.show(initialTab: .computerUse)
                     case .openCredits:
-                        AppDelegate.shared?.showManagementWindow(initialTab: .credits)
+                        EpistemosOsaurusManagementPresenter.show(initialTab: .credits)
                     }
                 }
             )
-            .environment(\.theme, windowState.theme)
+            .environment(\.theme, sourceTheme)
         }
         .sheet(item: $pendingDiscoveredAgent) { agent in
             if agent.address != nil {
@@ -4936,7 +4940,7 @@ struct ChatView: View {
                 } onCancel: {
                     pendingDiscoveredAgent = nil
                 }
-                .environment(\.theme, windowState.theme)
+                .environment(\.theme, sourceTheme)
             } else {
                 BonjourTokenSheet(agentName: agent.name) { token in
                     connectToDiscoveredAgent(agent, token: token)
@@ -4944,7 +4948,7 @@ struct ChatView: View {
                 } onCancel: {
                     pendingDiscoveredAgent = nil
                 }
-                .environment(\.theme, windowState.theme)
+                .environment(\.theme, sourceTheme)
             }
         }
         // Privacy-filter redaction review. The presenter closure is
@@ -4961,7 +4965,7 @@ struct ChatView: View {
             // We just need to clear our local payload so the next
             // review can present.
             RedactionReviewSheet(state: state)
-                .environment(\.theme, windowState.theme)
+                .environment(\.theme, sourceTheme)
                 .onDisappear { pendingRedactionReview = nil }
         }
         .task {
@@ -5137,8 +5141,66 @@ struct ChatView: View {
     /// Quick actions for the empty chat state: the active agent's own actions
     /// if defined, else the built-in defaults (configure-oriented for the
     /// default Osaurus agent, chat-oriented for everything else).
+    private var floatingComposerCard: some View {
+        FloatingInputCard(
+            text: $observedSession.input,
+            selectedModel: $observedSession.selectedModel,
+            pendingAttachments: $observedSession.pendingAttachments,
+            isContinuousVoiceMode: $observedSession.isContinuousVoiceMode,
+            voiceInputState: $observedSession.voiceInputState,
+            showVoiceOverlay: $observedSession.showVoiceOverlay,
+            pickerItems: filteredPickerItems,
+            activeModelOptions: $observedSession.activeModelOptions,
+            isStreaming: observedSession.isStreaming,
+            // Hide Stop ONLY while the redaction review sheet is actually
+            // on screen. The wider pre-first-token window can include model
+            // load / prefill, where Stop still has to remain available.
+            isPrivacyReviewSheetVisible: pendingRedactionReview != nil,
+            supportsImages: observedSession.selectedModelSupportsImages,
+            estimatedContextTokens: observedSession.estimatedContextTokens,
+            contextBreakdown: observedSession.estimatedContextBreakdown,
+            sessionSpendMicro: observedSession.sessionRouterSpendMicro,
+            showSessionSpend: observedSession.isOsaurusRouterSession,
+            onSend: { manualText in
+                if let manualText = manualText {
+                    observedSession.input = manualText
+                }
+                if observedSession.isStreaming {
+                    observedSession.enqueueSend(
+                        observedSession.input,
+                        attachments: observedSession.pendingAttachments
+                    )
+                } else {
+                    observedSession.sendCurrent()
+                }
+            },
+            onStop: { observedSession.stop() },
+            focusTrigger: focusTrigger,
+            agentId: windowState.agentId,
+            windowId: windowState.windowId,
+            isCompact: isSidebarVisible,
+            isEmptyChat: !observedSession.hasVisibleThreadMessages,
+            onClearChat: { observedSession.reset() },
+            onSkillSelected: { skillId in
+                observedSession.pendingOneOffSkillId = skillId
+            },
+            pendingSkillId: $observedSession.pendingOneOffSkillId,
+            autoSpeakAssistant: $observedSession.autoSpeakAssistant,
+            queuedSend: $observedSession.queuedSend,
+            onSendNow: { observedSession.sendNowInterrupting() },
+            onCancelQueued: { observedSession.cancelQueuedSend() },
+            onAddCredits: { showTopUpSheet = true },
+            isModelPinned: windowState.selectedDiscoveredAgentProviderId != nil,
+            pinnedModelLabel: pinnedModelChipLabel,
+            remoteConnectionPending: windowState.remoteAgentConnectionPhase == .connecting
+        )
+    }
+
     private var emptyStateQuickActions: [AgentQuickAction] {
-        windowState.activeAgent.chatQuickActions
+        if isEpistemosSurface {
+            return []
+        }
+        return windowState.activeAgent.chatQuickActions
             ?? (windowState.agentId == Agent.defaultId
                 ? AgentQuickAction.defaultConfigurationQuickActions
                 : AgentQuickAction.defaultChatQuickActions)
@@ -5146,36 +5208,230 @@ struct ChatView: View {
 
     @ViewBuilder
     private var emptyStateView: some View {
-        ChatEmptyState(
-            hasModels: true,
-            selectedModel: session.selectedModel,
-            agents: windowState.agents,
-            activeAgentId: windowState.agentId,
-            quickActions: emptyStateQuickActions,
-            generativeGreetingState: session.generativeGreetingState,
-            onOpenModelManager: {
-                AppDelegate.shared?.showManagementWindow(initialTab: .models)
-            },
-            onUseFoundation: windowState.foundationModelAvailable
-                ? {
-                    session.selectedModel =
-                        session.pickerItems.firstChatCapable?.id
-                        ?? "foundation"
-                } : nil,
-            onQuickAction: { prompt in
-                session.input = prompt
-            },
-            onOpenOnboarding: nil,
-            activeDiscoveredAgent: windowState.selectedDiscoveredAgent,
-            activeRelayAgent: windowState.selectedRelayAgent
-        )
-        .transition(.opacity.combined(with: .scale(scale: 0.98)))
-        .modifier(
-            GenerativeGreetingTrigger(
-                session: session,
-                windowState: windowState
+        if isEpistemosSurface {
+            epistemosActSearchStage
+        } else {
+            ChatEmptyState(
+                hasModels: true,
+                selectedModel: session.selectedModel,
+                agents: windowState.agents,
+                activeAgentId: windowState.agentId,
+                quickActions: emptyStateQuickActions,
+                generativeGreetingState: session.generativeGreetingState,
+                onOpenModelManager: {
+                    EpistemosOsaurusManagementPresenter.show(initialTab: .models)
+                },
+                onUseFoundation: windowState.foundationModelAvailable
+                    ? {
+                        session.selectedModel =
+                            session.pickerItems.firstChatCapable?.id
+                            ?? "foundation"
+                    } : nil,
+                onQuickAction: { prompt in
+                    session.input = prompt
+                },
+                onOpenOnboarding: nil,
+                activeDiscoveredAgent: windowState.selectedDiscoveredAgent,
+                activeRelayAgent: windowState.selectedRelayAgent
             )
-        )
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .modifier(
+                GenerativeGreetingTrigger(
+                    session: session,
+                    windowState: windowState
+                )
+            )
+        }
+    }
+
+    private var epistemosActSearchStage: some View {
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityLabel(Text("Act search page", bundle: .module))
+    }
+
+    private var epistemosCenteredSearchStage: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+
+            VStack(spacing: 8) {
+                floatingComposerCard
+                    .frame(maxWidth: 620)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 28)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel(Text("Act search page", bundle: .module))
+
+                epistemosSearchStagePeak
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+    }
+
+    private var epistemosSearchStagePeak: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(theme.accentColor.opacity(theme.isDark ? 0.84 : 0.70))
+                .frame(width: 56, height: 4)
+            Rectangle()
+                .fill(theme.accentColor.opacity(theme.isDark ? 0.72 : 0.58))
+                .frame(width: 36, height: 4)
+            Rectangle()
+                .fill(theme.accentColor.opacity(theme.isDark ? 0.60 : 0.48))
+                .frame(width: 18, height: 4)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var epistemosActInspectorPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                epistemosInspectorSection(title: "ROUTING") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        epistemosInspectorRow("Summary", session.isStreaming ? "Streaming" : "Ready")
+                        epistemosInspectorRow(
+                            "Runtime",
+                            session.selectedPickerItem?.source.displayName ?? "Osaurus",
+                            valueMonospaced: true
+                        )
+                        epistemosInspectorRow(
+                            "Model",
+                            session.selectedPickerItem?.displayName ?? session.selectedModel ?? "Default",
+                            valueMonospaced: true
+                        )
+                        epistemosInspectorRow("Mode", session.isRemoteAgentTarget ? "Remote agent" : "Local chat")
+                        epistemosInspectorRow(
+                            "Captured",
+                            session.updatedAt.formatted(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                }
+
+                epistemosInspectorSection(title: "CONTEXT") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        epistemosInspectorRow(
+                            "Tokens",
+                            "\(session.estimatedContextTokens)",
+                            valueMonospaced: true
+                        )
+                        let entries = Array(session.estimatedContextBreakdown.allEntries.prefix(6))
+                        if entries.isEmpty {
+                            epistemosInspectorBody("Context appears here as the turn gathers notes, tools, files, and screen state.")
+                        } else {
+                            ForEach(entries) { entry in
+                                epistemosInspectorRow(
+                                    entry.label,
+                                    "\(entry.tokens)",
+                                    valueMonospaced: true
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if let todo = session.currentTodo {
+                    epistemosInspectorSection(title: "TOOLS THIS TURN") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            epistemosInspectorRow(
+                                "Progress",
+                                "\(todo.doneCount)/\(todo.totalCount)",
+                                valueMonospaced: true
+                            )
+                            ForEach(todo.items.prefix(6)) { item in
+                                HStack(alignment: .top, spacing: 7) {
+                                    Image(systemName: item.isDone ? "checkmark.square" : "square")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(theme.tertiaryText)
+                                    Text(item.text)
+                                        .font(epistemosInspectorBodyFont)
+                                        .foregroundStyle(theme.secondaryText)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let summary = session.lastCompletionSummary {
+                    epistemosInspectorSection(title: "SUMMARY") {
+                        epistemosInspectorBody(summary)
+                    }
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        .background(theme.primaryBackground.opacity(theme.isDark ? 0.58 : 0.74))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(theme.primaryBorder.opacity(theme.isDark ? 0.34 : 0.46))
+                .frame(width: 1)
+        }
+        .accessibilityLabel(Text("Act context inspector", bundle: .module))
+    }
+
+    private var epistemosInspectorHeadingFont: Font {
+        .system(size: 9.5, weight: .semibold, design: .monospaced)
+    }
+
+    private var epistemosInspectorBodyFont: Font {
+        .system(size: 12, weight: .regular, design: .default)
+    }
+
+    private var epistemosInspectorMonoFont: Font {
+        .system(size: 11.5, weight: .medium, design: .monospaced)
+    }
+
+    private func epistemosInspectorSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(epistemosInspectorHeadingFont)
+                .tracking(0.8)
+                .foregroundStyle(theme.tertiaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            content()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(theme.primaryBorder.opacity(0.22))
+                .frame(height: 1)
+        }
+    }
+
+    private func epistemosInspectorRow(
+        _ label: String,
+        _ value: String,
+        valueMonospaced: Bool = false
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(epistemosInspectorHeadingFont)
+                .tracking(0.5)
+                .foregroundStyle(theme.tertiaryText)
+            Text(value)
+                .font(valueMonospaced ? epistemosInspectorMonoFont : epistemosInspectorBodyFont)
+                .foregroundStyle(theme.primaryText)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func epistemosInspectorBody(_ value: String) -> some View {
+        Text(value)
+            .font(epistemosInspectorBodyFont)
+            .foregroundStyle(theme.secondaryText)
+            .fixedSize(horizontal: false, vertical: true)
+            .textSelection(.enabled)
     }
 
     // MARK: - Background
@@ -5184,14 +5440,14 @@ struct ChatView: View {
         ZStack {
             ThemedBackgroundLayer(
                 cachedBackgroundImage: windowState.cachedBackgroundImage,
-                showSidebar: windowState.showSidebar
+                showSidebar: isSidebarVisible
             )
 
             if theme.glassEnabled {
                 ThemedGlassSurface(
                     cornerRadius: 24,
-                    topLeadingRadius: windowState.showSidebar ? 0 : nil,
-                    bottomLeadingRadius: windowState.showSidebar ? 0 : nil
+                    topLeadingRadius: isSidebarVisible ? 0 : nil,
+                    bottomLeadingRadius: isSidebarVisible ? 0 : nil
                 )
                 .allowsHitTesting(false)
 
@@ -5208,8 +5464,8 @@ struct ChatView: View {
                 )
                 .clipShape(
                     UnevenRoundedRectangle(
-                        topLeadingRadius: windowState.showSidebar ? 0 : 24,
-                        bottomLeadingRadius: windowState.showSidebar ? 0 : 24,
+                        topLeadingRadius: isSidebarVisible ? 0 : 24,
+                        bottomLeadingRadius: isSidebarVisible ? 0 : 24,
                         bottomTrailingRadius: 24,
                         topTrailingRadius: 24,
                         style: .continuous

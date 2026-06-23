@@ -2366,3 +2366,18 @@ Act stays `[ ]` until runtime proves both halves together: **owner UI preserved 
 **MISS 2 (P1) — greeting is Osaurus's "Good evening / How can I help you today?"** (`ChatEmptyState.swift:301`, `:566-568` time-based), not the owner's "Greetings, Researcher" identity. If act is to match the owner's landing/old-chat, swap to the owner's greeting. (Lower priority than the cream background; confirm with owner.)
 
 **Provenance:** auditor runtime screenshot of the 19:36 UNCOMMITTED build (full-res Epistemos window). Act stays `[ ]` until cream renders + send works. The structural reskin is REAL — this is COMPLETION of the reskin, not a restart. Keep going; just drive the background from the cream token.
+
+---
+
+## 🔴🔴🔴 OWNER CORRECTION (P0) — 2026-06-23 — BUNDLE ROOT CAUSE: UNBUNDLE OSAURUS, THEN RE-BUNDLE IT THROUGH EPISTEMOS UI
+
+**Latest owner direction supersedes the 2026-06-22 evening "Osaurus live surface" re-anchor.** The owner identified the core defect: treating Osaurus and Epistemos as two bundled apps/surfaces. The product target is not a vendored Osaurus chat host with a skin, and not a skeletal native approximation. The target is one Epistemos app: Epistemos landing, chat chrome, message bar, toolbar, side/recent-chat panel, mini chat, graph chat, note chat, settings, popovers, and permission UI — with Osaurus unbundled underneath as the engine/capability layer.
+
+**Current build rule:**
+1. **Epistemos owns every visible surface.** Act must look and behave like the owner's Epistemos chat/search/landing ontology: the real landing/search transition, old/new Epistemos chat chrome, message bar, title behavior, toolbar pills, recent chat popover, sidebar, mini/graph/note chat variants, and settings. Do not mount vendored Osaurus `ChatView` / `EpistemosOsaurusChatHost` as the visible act surface. Do not restore or reapply old Epistemos backend surfaces; rebuild/refactor the UI path so the same Epistemos components are engine-swapped to Act.
+2. **Osaurus owns the functionality underneath.** Model routing, streaming, provider/model configuration, tools, MCP, commands, permissions, credential prompts, folder/sandbox/VM/dependency management, thinking/tool channels, and settings state must be recoded into native Epistemos controls and connected to the real OsaurusCore seams. Do not leave capability behind in the standalone/bundled Osaurus UI.
+3. **One app, one Act surface family.** Main act, mini chat, graph chat, and note chat must use the same Act chat system and open the same session where applicable. The landing-page recent chat button is the only recent-chat entry for that context; do not add a second Osaurus-native recent-chat control.
+4. **Settings and prompts are native Epistemos.** Provider configuration, model picker sections, tool approval, pairing, API-key prompts, folder/sandbox controls, dependency repair, VM lifecycle, Computer Use/biometric approval, and privacy review popups should be native Apple/Epistemos UI wired to OsaurusCore, not embedded Osaurus management surfaces.
+5. **Verification bar stays high.** Act remains `[ ]` until current code plus fresh runtime evidence proves: Epistemos UI preserved, Osaurus engine/capabilities active, no bundled-host detour, no duplicate app surfaces, real send streams, visible channels are filtered correctly, and main/mini/graph/note/settings all use the same native Act integration.
+
+**Queue impact:** rows that mention "Osaurus live surface", "Osaurus host", "visual reference only", or "old ChatView is forbidden" are stale unless they are read through this correction. The new target is: **Epistemos visible UI, Osaurus fully underneath**.
