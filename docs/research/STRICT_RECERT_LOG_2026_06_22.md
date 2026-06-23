@@ -286,6 +286,18 @@ Advanced to TIER 3 (orchestrator). The orphaned-substrate pattern (iters35-37) d
 - **0.31 reverse-audit** · no addendum heading change (no owner message); queue 3.2 annotated. 0 new top-level directives.
 - **0.32 FULL-PLAN WITNESS (iter 39)** · Highest attempted: **3.2** (TIER 3 complete) · Lowest still-`[ ]`: **0.1** · TIER 1+ attempted: **YES** · Act-only tunnel: **DENIED** · Forbidden end-claims avoided: **YES** · Note: TIER 3 fully audited (System G wired, Fugu honest-guarded); TIER 4 reconnoitered (4.17/4.4 have real wiring). NEXT: TIER 4 cert (4.17 vault→GRAPH real-state) OR 2.4 unification wire-or-cull the substrate orphans.
 
+### Iteration 40 (2026-06-23 ~18:11-18:27) — OWNER P0 act-surface pivot: 0.33a prefill/stats native chip SHIPPED + verified
+
+Owner P0 (2026-06-23): exhaustively land every Osaurus surface natively in the act chat. Built the coverage matrix (iter39 commit f48f13d79), then started closing gaps with the owner-named one.
+
+- **0.33a prefill/stats — DONE + RUNTIME-PROVEN (commit a90b07c3e).** Owner: original Osaurus showed "TTFT 7.36s · 39 tokens"; native act chat stripped the stats sentinels, showed nothing. Grounded the REAL stats source first (NOT a stream `stats:` sentinel — they live on `ChatTurn.timeToFirstToken`/`generationTokensPerSecond`/`generationTokenCount`; ContentBlock.swift:550 builds Osaurus's footer from them). Implemented a structured side-channel so the send path stays byte-identical text:
+  - `EpistemosOsaurusChatSessionBridge`: `.generationStats(ttftSeconds,tokensPerSecond,tokenCount)` event emitted at finish from the final assistant ChatTurn.
+  - `ActOsaurusBridge` maps it; `ActOsaurusStreamingHandler` (string path) + `SharedActInference` (event path) record it to `ActTurnStatsStore.shared` — NEVER into visible text.
+  - `ActTurnStatsStore` (@Observable) + `ActGenerationStatsChip` (native monospace); `ChatView` renders it under the last completed act reply (actUsesOsaurus + !streaming + last-row-assistant gated). `MiniChatView`/`PipelineService` handle the new case (build-green exhaustiveness).
+  - **(e) RUNTIME:** xcodebuild SUCCEEDED; fresh send "Say hello in exactly three words" → reply "Hello! I'm Epistemos." with native chip **"TTFT 6.93s · 9 tokens · 555 tok/s"** (/tmp/epi_iter40_statschip_20260623-1826.png Read). Send path unaffected (clean text; stats off-channel). Build-gotcha fixed: the new event case made 2 consumer switches (MiniChatView:2535, PipelineService:1252) non-exhaustive → added cases.
+- Matrix row B → COVERED; queue 0.33a ✅. Punch-list now: 0.33b server settings (largest), 0.33c plugins, 0.33d agents/schedules/watchers, 0.33e voice, 0.33f model detail/download, 0.33g skills/slash editors, 0.33h tool secrets, 0.33i chart/terminal/LaTeX/minimap, 0.33j identity/credits/themes/insights/storage, 0.33k computer-use feed.
+- **0.32 WITNESS (iter 40)** · Highest attempted: **0.33a** · Lowest still-`[ ]`: **0.1** · Act-only: this IS the owner P0 act work (preempts) · Forbidden end-claims avoided: YES · NEXT: 0.33b server settings groundwork (or 0.33f model detail — high-visibility).
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
