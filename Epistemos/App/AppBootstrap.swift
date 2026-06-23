@@ -1231,6 +1231,24 @@ final class AppBootstrap {
     func routeGraphChatRequestIntoMainChat(_ request: GraphChatRequest) {
         let label = request.nodeLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         let draftLabel = label.isEmpty ? request.nodeType : label
+        #if !EPISTEMOS_APP_STORE
+        if LocalAgentLoop.shouldRouteActThroughOsaurus() {
+            let attachment = request.sourceId.map {
+                ComposerReferenceHelpers.noteAttachment(
+                    pageID: $0,
+                    title: draftLabel
+                )
+            }
+            NotificationCenter.default.post(
+                name: .submitActOsaurusPrompt,
+                object: ActOsaurusPromptRequest(
+                    text: "Tell me about \(draftLabel)",
+                    contextAttachments: attachment.map { [$0] } ?? []
+                )
+            )
+            return
+        }
+        #endif
         chatState.primeGraphChatRequest(request)
         routeMainChatDraft(
             prefill: "Tell me about \(draftLabel)"
@@ -2211,6 +2229,9 @@ final class AppBootstrap {
 
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        ActOsaurusNativePromptPresenter.install()
+        #endif
         chatApprovalQueue.sessionFolderPathResolver = { sessionId in
             sessionFolderPathLocal(sessionId: sessionId)
         }

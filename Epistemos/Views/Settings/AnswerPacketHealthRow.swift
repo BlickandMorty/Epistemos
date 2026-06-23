@@ -71,8 +71,8 @@ public struct AnswerPacketHealthRow: View {
                 productionWired: snapshot.totalEmitted > 0,
                 falsifierPassed: false,
                 falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
-                wiredToday: "In-process AnswerPacket emitter, bounded audit ring, and a durable JSONL persistence log (off-main, bounded, best-effort) are observable; emitted packets survive relaunch.",
-                stillStub: "Load-on-launch ring restore, a canonical product/history surface, and a matching primary witness are pending."
+                wiredToday: "In-process AnswerPacket emitter, bounded audit ring, and a durable JSONL persistence log (off-main, bounded, best-effort) are observable; emitted packets survive relaunch AND are restored into the ring on launch (load-on-launch restore wired).",
+                stillStub: "A canonical product/history surface (scrollback past the ring) and a matching primary witness are pending."
             )
             row(
                 label: "Last 100 ring",

@@ -1,0 +1,375 @@
+//  EpistemosOsaurusChatSessionBridge.swift
+//  OsaurusCore
+
+import Foundation
+
+public struct EpistemosOsaurusNativeSecretPromptRequest: Identifiable, Sendable {
+    public let id: UUID
+    public let key: String
+    public let description: String
+    public let instructions: String
+
+    public init(id: UUID, key: String, description: String, instructions: String) {
+        self.id = id
+        self.key = key
+        self.description = description
+        self.instructions = instructions
+    }
+}
+
+public enum EpistemosOsaurusNativeSecretPromptDecision: Sendable {
+    case provided(String)
+    case canceled
+}
+
+public typealias EpistemosOsaurusNativeSecretPromptPresenter =
+    @MainActor @Sendable (EpistemosOsaurusNativeSecretPromptRequest) async -> EpistemosOsaurusNativeSecretPromptDecision
+
+public struct EpistemosOsaurusNativeClarifyPromptRequest: Identifiable, Sendable {
+    public let id: UUID
+    public let question: String
+    public let options: [String]
+    public let allowMultiple: Bool
+
+    public init(id: UUID, question: String, options: [String], allowMultiple: Bool) {
+        self.id = id
+        self.question = question
+        self.options = options
+        self.allowMultiple = allowMultiple
+    }
+}
+
+public enum EpistemosOsaurusNativeClarifyPromptDecision: Sendable {
+    case answered(String)
+    case canceled
+}
+
+public typealias EpistemosOsaurusNativeClarifyPromptPresenter =
+    @MainActor @Sendable (EpistemosOsaurusNativeClarifyPromptRequest) async -> EpistemosOsaurusNativeClarifyPromptDecision
+
+public enum EpistemosOsaurusChatSessionBridgeError: Error, LocalizedError, Sendable {
+    case sessionFailed(String)
+    case promptCanceled(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .sessionFailed(let message):
+            return message
+        case .promptCanceled(let prompt):
+            return "Act paused for \(prompt), but the prompt was canceled."
+        }
+    }
+}
+
+public enum EpistemosOsaurusChatSessionEvent: Sendable, Equatable {
+    case textDelta(String)
+    case thinkingDelta(String)
+    case toolStarted(id: String, name: String, inputJson: String)
+    case toolCompleted(id: String, result: String, isError: Bool)
+}
+
+@MainActor
+enum EpistemosOsaurusChatSessionPresenterStore {
+    static var secretPromptPresenter: EpistemosOsaurusNativeSecretPromptPresenter?
+    static var clarifyPromptPresenter: EpistemosOsaurusNativeClarifyPromptPresenter?
+}
+
+public enum EpistemosOsaurusChatSessionBridge {
+    @MainActor
+    public static func installNativeSecretPromptPresenter(
+        _ presenter: EpistemosOsaurusNativeSecretPromptPresenter?
+    ) {
+        EpistemosOsaurusChatSessionPresenterStore.secretPromptPresenter = presenter
+    }
+
+    @MainActor
+    public static func installNativeClarifyPromptPresenter(
+        _ presenter: EpistemosOsaurusNativeClarifyPromptPresenter?
+    ) {
+        EpistemosOsaurusChatSessionPresenterStore.clarifyPromptPresenter = presenter
+    }
+
+    @MainActor
+    public static func streamTurn(
+        prompt: String,
+        requestedModel: String?,
+        maxTokens: Int
+    ) -> AsyncThrowingStream<String, Error> {
+        let eventStream = streamTurnEvents(
+            prompt: prompt,
+            requestedModel: requestedModel,
+            maxTokens: maxTokens
+        )
+
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await event in eventStream {
+                        if case .textDelta(let text) = event {
+                            continuation.yield(text)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    @MainActor
+    public static func streamTurnEvents(
+        prompt: String,
+        requestedModel: String?,
+        maxTokens: Int
+    ) -> AsyncThrowingStream<EpistemosOsaurusChatSessionEvent, Error> {
+        _ = maxTokens
+        let session = ChatSession()
+        session.agentId = Agent.defaultId
+        session.selectedModel = requestedModel ?? ChatConfigurationStore.load().coreModelIdentifier
+        session.suppressesPersistence = true
+        session.onSessionChanged = {}
+
+        return AsyncThrowingStream { continuation in
+            let driver = EpistemosOsaurusHeadlessChatSessionDriver(
+                session: session,
+                prompt: prompt,
+                continuation: continuation
+            )
+            let task = Task { @MainActor in
+                await driver.run()
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
+                Task { @MainActor in
+                    driver.stop()
+                }
+            }
+        }
+    }
+}
+
+@MainActor
+private final class EpistemosOsaurusHeadlessChatSessionDriver {
+    private let session: ChatSession
+    private let prompt: String
+    private let continuation: AsyncThrowingStream<EpistemosOsaurusChatSessionEvent, Error>.Continuation
+    private var activePromptID: ObjectIdentifier?
+    private var lastVisibleAssistantText = ""
+    private var lastAssistantThinkingText = ""
+    private var emittedToolCallIDs: Set<String> = []
+    private var emittedToolResultIDs: Set<String> = []
+    private var producedVisibleText = false
+    private var isFinished = false
+
+    init(
+        session: ChatSession,
+        prompt: String,
+        continuation: AsyncThrowingStream<EpistemosOsaurusChatSessionEvent, Error>.Continuation
+    ) {
+        self.session = session
+        self.prompt = prompt
+        self.continuation = continuation
+    }
+
+    func run() async {
+        session.send(prompt)
+
+        while !Task.isCancelled && !isFinished {
+            await serviceCurrentPromptIfNeeded()
+            guard !isFinished else { return }
+            emitAssistantSessionDeltas()
+
+            if !session.isStreaming && session.promptQueue.current == nil {
+                emitAssistantSessionDeltas()
+                finish()
+                return
+            }
+
+            try? await Task.sleep(nanoseconds: 33_000_000)
+        }
+
+        stop()
+    }
+
+    func stop() {
+        guard !isFinished else { return }
+        isFinished = true
+        session.promptQueue.drainAll()
+        if session.isStreaming {
+            session.stop()
+        }
+        continuation.finish()
+    }
+
+    private func serviceCurrentPromptIfNeeded() async {
+        guard let current = session.promptQueue.current,
+              current.id != activePromptID
+        else { return }
+
+        activePromptID = current.id
+
+        switch current {
+        case .secret(let state):
+            await serviceSecretPrompt(state)
+        case .clarify(let state):
+            await serviceClarifyPrompt(state)
+        }
+
+        if session.promptQueue.current?.id == current.id {
+            session.promptQueue.advance()
+        }
+        activePromptID = nil
+    }
+
+    private func serviceSecretPrompt(_ state: SecretPromptState) async {
+        guard let presenter = EpistemosOsaurusChatSessionPresenterStore.secretPromptPresenter else {
+            state.cancel()
+            finish(throwing: EpistemosOsaurusChatSessionBridgeError.promptCanceled("a secret"))
+            return
+        }
+
+        let request = EpistemosOsaurusNativeSecretPromptRequest(
+            id: UUID(),
+            key: state.key,
+            description: state.description,
+            instructions: state.instructions
+        )
+        switch await presenter(request) {
+        case .provided(let value):
+            state.submit(value)
+        case .canceled:
+            state.cancel()
+            finish(throwing: EpistemosOsaurusChatSessionBridgeError.promptCanceled(state.key))
+        }
+    }
+
+    private func serviceClarifyPrompt(_ state: ClarifyPromptState) async {
+        guard let presenter = EpistemosOsaurusChatSessionPresenterStore.clarifyPromptPresenter else {
+            state.cancelByUser()
+            finish(throwing: EpistemosOsaurusChatSessionBridgeError.promptCanceled("clarification"))
+            return
+        }
+
+        let request = EpistemosOsaurusNativeClarifyPromptRequest(
+            id: UUID(),
+            question: state.question,
+            options: state.options,
+            allowMultiple: state.allowMultiple
+        )
+        switch await presenter(request) {
+        case .answered(let answer):
+            state.submit(answer)
+        case .canceled:
+            state.cancelByUser()
+            finish(throwing: EpistemosOsaurusChatSessionBridgeError.promptCanceled("clarification"))
+        }
+    }
+
+    private func emitAssistantSessionDeltas() {
+        emitAssistantThinkingDelta()
+        emitAssistantToolEvents()
+        emitVisibleAssistantDelta()
+    }
+
+    private func emitAssistantThinkingDelta() {
+        let thinkingText = session.turns
+            .filter { $0.role == .assistant }
+            .map(\.thinking)
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+
+        guard !thinkingText.isEmpty else { return }
+
+        let delta: String
+        if thinkingText.hasPrefix(lastAssistantThinkingText) {
+            delta = String(thinkingText.dropFirst(lastAssistantThinkingText.count))
+        } else {
+            delta = thinkingText
+        }
+
+        guard !delta.isEmpty else { return }
+        lastAssistantThinkingText = thinkingText
+        continuation.yield(.thinkingDelta(delta))
+    }
+
+    private func emitAssistantToolEvents() {
+        for turn in session.turns where turn.role == .assistant {
+            guard let toolCalls = turn.toolCalls else { continue }
+
+            for call in toolCalls {
+                if emittedToolCallIDs.insert(call.id).inserted {
+                    continuation.yield(
+                        .toolStarted(
+                            id: call.id,
+                            name: call.function.name,
+                            inputJson: call.function.arguments
+                        )
+                    )
+                }
+
+                if let result = turn.toolResults[call.id],
+                   emittedToolResultIDs.insert(call.id).inserted {
+                    continuation.yield(
+                        .toolCompleted(
+                            id: call.id,
+                            result: result,
+                            isError: Self.resultLooksLikeToolError(result)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private func emitVisibleAssistantDelta() {
+        let content = session.turns
+            .filter { $0.role == .assistant }
+            .map(\.visibleContent)
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+        let completion = session.lastCompletionSummary ?? ""
+        let visibleText = completion.isEmpty ? content : [content, completion].filter { !$0.isEmpty }.joined(separator: "\n\n")
+
+        guard !visibleText.isEmpty else { return }
+
+        let delta: String
+        if visibleText.hasPrefix(lastVisibleAssistantText) {
+            delta = String(visibleText.dropFirst(lastVisibleAssistantText.count))
+        } else {
+            delta = visibleText
+        }
+
+        guard !delta.isEmpty else { return }
+        producedVisibleText = true
+        lastVisibleAssistantText = visibleText
+        continuation.yield(.textDelta(delta))
+    }
+
+    private nonisolated static func resultLooksLikeToolError(_ result: String) -> Bool {
+        let lowercased = result.lowercased()
+        return lowercased.contains("\"is_error\":true")
+            || lowercased.contains("\"iserror\":true")
+            || lowercased.contains("\"error\":true")
+            || lowercased.hasPrefix("error:")
+    }
+
+    private func finish() {
+        guard !isFinished else { return }
+        isFinished = true
+        if !producedVisibleText,
+           let error = session.lastStreamError,
+           !error.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            continuation.finish(throwing: EpistemosOsaurusChatSessionBridgeError.sessionFailed(error))
+            return
+        }
+        continuation.finish()
+    }
+
+    private func finish(throwing error: Error) {
+        guard !isFinished else { return }
+        isFinished = true
+        continuation.finish(throwing: error)
+    }
+}

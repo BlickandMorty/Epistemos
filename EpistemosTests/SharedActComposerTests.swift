@@ -10,7 +10,7 @@ import Foundation
 /// AND reused by DeviceAgentService, so the swap can never silently diverge again.
 @Suite("Shared act composer — one act-routing decision across all chat surfaces")
 struct SharedActComposerTests {
-    @Test("shared decision: DEFAULT-ON for Pro (option b, no toggle), OFF for App Store")
+    @Test("shared decision: DEFAULT-ON for Pro, OFF for App Store")
     func decisionHonesty() {
         #if EPISTEMOS_APP_STORE
         // MAS: act-Osaurus is a Pro/direct-distribution surface (OsaurusCore isn't linked) → the
@@ -19,15 +19,29 @@ struct SharedActComposerTests {
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(
             environment: [ActOsaurusGateStatus.flagName: "1"]) == false)
         #else
-        // Pro: act = the old Epistemos UI driven by the Osaurus engine, DEFAULT-ON with NO toggle
-        // (option b, owner 2026-06-22 — the experimental gate is gone; Osaurus IS the engine, not
-        // optional). The router returns true regardless of env flags.
+        // Pro: act enters Osaurus by default, with Epistemos home/theme grafts.
+        // The experimental gate is gone, so the router returns true regardless of
+        // env flags.
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(environment: [:]) == true)
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(
             environment: [ActOsaurusGateStatus.flagName: "1"]) == true)
         #expect(LocalAgentLoop.shouldRouteActThroughOsaurus(
             environment: [ActOsaurusGateStatus.flagName: "0"]) == true)
         #endif
+    }
+
+    @Test("visible Act stream strips Osaurus sentinel telemetry")
+    func visibleActStreamStripsOsaurusSentinels() {
+        let raw = "\u{FFFE}prefill:{\"detail\":\"solo\",\"completedUnitCount\":0,\"stage\":\"queued\",\"totalUnitCount\":201}"
+            + "\u{FFFE}prefill:{\"totalUnitCount\":201,\"detail\":\"decode_ready\",\"stage\":\"complete\",\"completedUnitCount\":201}"
+            + "Hello from Osaurus."
+            + "\u{FFFE}stats:45;15.4368;stop=stop,prefill=159.4012"
+
+        #expect(ActOsaurusVisibleStreamFilter.visibleStoredText(from: raw) == "Hello from Osaurus.")
+        #expect(ActOsaurusVisibleStreamFilter.visibleDelta(from: "\u{FFFE}prefill:{\"stage\":\"queued\"}") == nil)
+        #expect(ActOsaurusVisibleStreamFilter.visibleDelta(from: "Hello\u{FFFE}stats:1;2.0") == "Hello")
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw) == "Hello from Osaurus.")
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw) == "Hello from Osaurus.")
     }
 
     @Test("liveLoop chokepoint routes through the shared decision (all chat surfaces get act)")

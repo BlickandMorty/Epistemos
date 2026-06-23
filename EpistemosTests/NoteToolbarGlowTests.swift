@@ -291,25 +291,29 @@ struct NoteToolbarGlowTests {
         #expect(!miniChat.contains("ProgressView().controlSize(.small)"))
     }
 
-    @Test("graph chat lives in the sidebar with a compact square composer")
-    func graphChatLivesInSidebarWithCompactSquareComposer() throws {
+    @Test("graph and note chat live in shared main composer chrome")
+    func graphAndNoteChatLiveInSharedMainComposerChrome() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
         let noteWorkspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-        let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
 
         #expect(sidebar.contains("case notes, query, chat"))
-        #expect(sidebar.contains("TextField(\"Ask this node\""))
-        #expect(sidebar.contains("RoundedRectangle(cornerRadius: 4"))
+        #expect(sidebar.contains("ChatComposerTextEditor("))
+        #expect(sidebar.contains(".assistantComposerChrome("))
+        #expect(sidebar.contains("ComposerControlStrip(spacing: 8, resetKey: graphComposerControlResetKey)"))
+        #expect(sidebar.contains("AssistantSendButton("))
         #expect(sidebar.contains("Resize sidebar"))
         #expect(sidebar.contains("sendGraphChatMessage()"))
-        #expect(!sidebar.contains("ChatComposerTextEditor("))
+        #expect(!sidebar.contains("TextField(\"Ask this node\""))
         #expect(!inspector.contains("TextField(\"Ask…\""))
         #expect(overlay.contains("HologramSearchSidebar("))
         #expect(overlay.contains("inspectorState: inspectorState"))
-        #expect(noteWorkspace.contains("AssistantToolbarAskBar("))
-        #expect(sharedStatus.contains("struct AssistantToolbarAskBar<Leading: View>: View"))
+        #expect(noteWorkspace.contains("ChatComposerTextEditor("))
+        #expect(noteWorkspace.contains(".assistantComposerChrome("))
+        #expect(noteWorkspace.contains("ComposerControlStrip(spacing: 8, resetKey: noteComposerControlResetKey)"))
+        #expect(noteWorkspace.contains("AssistantSendButton("))
+        #expect(!noteWorkspace.contains("AssistantToolbarAskBar("))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

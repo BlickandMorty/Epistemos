@@ -2904,8 +2904,8 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("let snapshot = cachedNotesTreeSnapshot"))
     }
 
-    @Test("graph exposes node chat in the sidebar with compact resizable composer")
-    func graphExposesNodeChatInTheSidebarWithCompactResizableComposer() throws {
+    @Test("graph exposes node chat in the sidebar with shared main composer chrome")
+    func graphExposesNodeChatInTheSidebarWithSharedMainComposerChrome() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
@@ -2915,8 +2915,11 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("case .chat"))
         #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarWidth.v1\")"))
         #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarHeight.v1\")"))
-        #expect(sidebar.contains("TextField(\"Ask this node\""))
-        #expect(sidebar.contains(".background(\n                RoundedRectangle(cornerRadius: 4"))
+        #expect(sidebar.contains("ChatComposerTextEditor("))
+        #expect(sidebar.contains(".assistantComposerChrome("))
+        #expect(sidebar.contains("ComposerControlStrip(spacing: 8, resetKey: graphComposerControlResetKey)"))
+        #expect(sidebar.contains("AssistantSendButton("))
+        #expect(!sidebar.contains("TextField(\"Ask this node\""))
         #expect(state.contains("enum InspectorMode: Hashable { case profile, editor }"))
         #expect(!inspector.contains("Text(\"Chat\").tag(NodeInspectorState.InspectorMode.chat)"))
         #expect(!inspector.contains("else if inspectorState.inspectorMode == .chat"))

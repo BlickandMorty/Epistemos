@@ -31,6 +31,7 @@ enum PairingPromptService {
     private static let approvalTimeout: TimeInterval = 120
 
     private static var pairingWindow: NSPanel?
+    private static var nativeApprovalInFlight = false
     private static var localKeyMonitor: Any?
     private static var closeObserver: NSObjectProtocol?
     private static var timeoutWorkItem: DispatchWorkItem?
@@ -42,8 +43,26 @@ enum PairingPromptService {
         // Only one approval prompt at a time. Concurrent `/pair` requests get a
         // `busy` result (mapped to HTTP 429) rather than racing the static
         // window/monitor state or hanging behind the first prompt.
-        if pairingWindow != nil {
+        if pairingWindow != nil || nativeApprovalInFlight {
             return .busy
+        }
+
+        if let nativePresenter = EpistemosOsaurusNativePromptPresenterStore.pairingPresenter {
+            nativeApprovalInFlight = true
+            defer { nativeApprovalInFlight = false }
+
+            let request = EpistemosOsaurusNativePairingRequest(
+                connectorAddress: connectorAddress,
+                agentName: agentName
+            )
+            switch await nativePresenter(request) {
+            case .approveTemporary:
+                return .approved(isPermanent: false)
+            case .approvePermanent:
+                return .approved(isPermanent: true)
+            case .deny:
+                return .denied
+            }
         }
 
         return await withCheckedContinuation { continuation in

@@ -187,6 +187,11 @@ public enum ProviderCredentialPromptService {
                 return bypass(request)
             }
 
+            if let nativePresenter = EpistemosOsaurusNativePromptPresenterStore.providerCredentialPresenter,
+               let nativeResult = await nativePresenter(request) {
+                return nativeResult
+            }
+
             return await withCheckedContinuation {
                 (cont: CheckedContinuation<ProviderCredentialResult, Never>) in
                 present(request: request, continuation: cont)

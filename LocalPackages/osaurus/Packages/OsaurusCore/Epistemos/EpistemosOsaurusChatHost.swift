@@ -3,7 +3,7 @@
 //
 //  Owner directive 2026-06-22 ("ACT = OSAURUS IS THE CHAT"): the Epistemos
 //  "act" surface must BE the real Osaurus chat UI — the genuine vendored
-//  surface, reskinned to the Epistemos look — not the old Epistemos `ChatView`
+//  surface, skinned from Epistemos's selected theme tokens — not the old Epistemos `ChatView`
 //  with an engine swap behind a toggle. The Osaurus `ChatView` /
 //  `ChatWindowState` are `internal` to this package, so the Epistemos module
 //  cannot reference them directly even though it links `OsaurusCore`.
@@ -12,44 +12,456 @@
 //  additive: it modifies no existing Osaurus type and changes no Osaurus
 //  behaviour. It owns a stable `ChatWindowState` (held as `@StateObject` so the
 //  window/session survive re-renders) and renders the genuine Osaurus
-//  `ChatView`, then reskins it to the Epistemos cream/monospace palette by
-//  applying an Epistemos `CustomTheme` through the existing `ThemeManager`
-//  (which every Osaurus view already reads). The reskin is runtime-only
-//  (`persist: false` — no write to Osaurus's theme storage).
+//  `ChatView`, then skins it from Epistemos-supplied preset/custom tokens by
+//  feeding Epistemos-built tokens into a source-level Osaurus skin seam that
+//  the cloned chat views read directly. The host does not persist or globally
+//  select an Osaurus theme.
 
 import SwiftUI
 
+/// Primitive theme bridge from Epistemos into OsaurusCore. The Epistemos app
+/// owns the real preset/custom theme system; OsaurusCore only needs resolved
+/// colors and fonts, not the Epistemos module's theme types.
+public struct EpistemosOsaurusThemeTokens: Equatable, Sendable {
+    public var id: String
+    public var isDark: Bool
+    public var primaryText: String
+    public var secondaryText: String
+    public var tertiaryText: String
+    public var primaryBackground: String
+    public var secondaryBackground: String
+    public var tertiaryBackground: String
+    public var sidebarBackground: String
+    public var sidebarSelectedBackground: String
+    public var accentColor: String
+    public var accentColorLight: String
+    public var primaryBorder: String
+    public var secondaryBorder: String
+    public var focusBorder: String
+    public var cardBackground: String
+    public var cardBorder: String
+    public var buttonBackground: String
+    public var buttonBorder: String
+    public var inputBackground: String
+    public var inputBorder: String
+    public var glassTintOverlay: String
+    public var codeBlockBackground: String
+    public var shadowColor: String
+    public var selectionColor: String
+    public var cursorColor: String
+    public var placeholderText: String
+    public var primaryFont: String
+    public var monoFont: String
+
+    public init(
+        id: String,
+        isDark: Bool,
+        primaryText: String,
+        secondaryText: String,
+        tertiaryText: String,
+        primaryBackground: String,
+        secondaryBackground: String,
+        tertiaryBackground: String,
+        sidebarBackground: String,
+        sidebarSelectedBackground: String,
+        accentColor: String,
+        accentColorLight: String,
+        primaryBorder: String,
+        secondaryBorder: String,
+        focusBorder: String,
+        cardBackground: String,
+        cardBorder: String,
+        buttonBackground: String,
+        buttonBorder: String,
+        inputBackground: String,
+        inputBorder: String,
+        glassTintOverlay: String,
+        codeBlockBackground: String,
+        shadowColor: String,
+        selectionColor: String,
+        cursorColor: String,
+        placeholderText: String,
+        primaryFont: String,
+        monoFont: String
+    ) {
+        self.id = id
+        self.isDark = isDark
+        self.primaryText = primaryText
+        self.secondaryText = secondaryText
+        self.tertiaryText = tertiaryText
+        self.primaryBackground = primaryBackground
+        self.secondaryBackground = secondaryBackground
+        self.tertiaryBackground = tertiaryBackground
+        self.sidebarBackground = sidebarBackground
+        self.sidebarSelectedBackground = sidebarSelectedBackground
+        self.accentColor = accentColor
+        self.accentColorLight = accentColorLight
+        self.primaryBorder = primaryBorder
+        self.secondaryBorder = secondaryBorder
+        self.focusBorder = focusBorder
+        self.cardBackground = cardBackground
+        self.cardBorder = cardBorder
+        self.buttonBackground = buttonBackground
+        self.buttonBorder = buttonBorder
+        self.inputBackground = inputBackground
+        self.inputBorder = inputBorder
+        self.glassTintOverlay = glassTintOverlay
+        self.codeBlockBackground = codeBlockBackground
+        self.shadowColor = shadowColor
+        self.selectionColor = selectionColor
+        self.cursorColor = cursorColor
+        self.placeholderText = placeholderText
+        self.primaryFont = primaryFont
+        self.monoFont = monoFont
+    }
+
+    public static let fallback = EpistemosOsaurusThemeTokens(
+        id: "epistemos-fallback",
+        isDark: false,
+        primaryText: "#1c1c1e",
+        secondaryText: "#6e6e73",
+        tertiaryText: "#8e8e93",
+        primaryBackground: "#fbfaf5",
+        secondaryBackground: "#f4f3ee",
+        tertiaryBackground: "#eeede7",
+        sidebarBackground: "#f2f1eb",
+        sidebarSelectedBackground: "#e7e6df",
+        accentColor: "#1c1c1e",
+        accentColorLight: "#3a3a3c",
+        primaryBorder: "#e3e1d8",
+        secondaryBorder: "#eceae2",
+        focusBorder: "#1c1c1e",
+        cardBackground: "#ffffff",
+        cardBorder: "#e3e1d8",
+        buttonBackground: "#f4f3ee",
+        buttonBorder: "#e3e1d8",
+        inputBackground: "#ffffff",
+        inputBorder: "#e3e1d8",
+        glassTintOverlay: "#fbfaf5e0",
+        codeBlockBackground: "#f2f1eb",
+        shadowColor: "#000000",
+        selectionColor: "#1c1c1e33",
+        cursorColor: "#1c1c1e",
+        placeholderText: "#a8a8ad",
+        primaryFont: "SF Pro",
+        monoFont: "SF Mono"
+    )
+
+    var signature: String {
+        [
+            id,
+            String(isDark),
+            primaryText,
+            secondaryText,
+            tertiaryText,
+            primaryBackground,
+            secondaryBackground,
+            tertiaryBackground,
+            sidebarBackground,
+            sidebarSelectedBackground,
+            accentColor,
+            accentColorLight,
+            primaryBorder,
+            secondaryBorder,
+            focusBorder,
+            cardBackground,
+            cardBorder,
+            buttonBackground,
+            buttonBorder,
+            inputBackground,
+            inputBorder,
+            glassTintOverlay,
+            codeBlockBackground,
+            shadowColor,
+            selectionColor,
+            cursorColor,
+            placeholderText,
+            primaryFont,
+            monoFont,
+        ].joined(separator: "|")
+    }
+
+    var customTheme: CustomTheme {
+        CustomTheme(
+            metadata: ThemeMetadata(
+                id: UUID(uuidString: "E9150305-0000-0000-0000-000000000001")!,
+                name: "Epistemos",
+                version: "1.0",
+                author: "Epistemos"
+            ),
+            colors: ThemeColors(
+                primaryText: primaryText,
+                secondaryText: secondaryText,
+                tertiaryText: tertiaryText,
+                primaryBackground: primaryBackground,
+                secondaryBackground: secondaryBackground,
+                tertiaryBackground: tertiaryBackground,
+                sidebarBackground: sidebarBackground,
+                sidebarSelectedBackground: sidebarSelectedBackground,
+                accentColor: accentColor,
+                accentColorLight: accentColorLight,
+                primaryBorder: primaryBorder,
+                secondaryBorder: secondaryBorder,
+                focusBorder: focusBorder,
+                successColor: "#34c759",
+                warningColor: "#ff9f0a",
+                errorColor: "#ff3b30",
+                infoColor: accentColor,
+                cardBackground: cardBackground,
+                cardBorder: cardBorder,
+                buttonBackground: buttonBackground,
+                buttonBorder: buttonBorder,
+                inputBackground: inputBackground,
+                inputBorder: inputBorder,
+                glassTintOverlay: glassTintOverlay,
+                codeBlockBackground: codeBlockBackground,
+                shadowColor: shadowColor,
+                selectionColor: selectionColor,
+                cursorColor: cursorColor,
+                placeholderText: placeholderText
+            ),
+            background: .default,
+            glass: ThemeGlass(enabled: false),
+            typography: ThemeTypography(primaryFont: primaryFont, monoFont: monoFont),
+            isBuiltIn: false,
+            isDark: isDark
+        )
+    }
+}
+
+public struct EpistemosOsaurusRecentSessionSummary: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public let title: String
+    public let subtitle: String
+    public let updatedAt: Date
+
+    public init(id: UUID, title: String, subtitle: String, updatedAt: Date) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct EpistemosOsaurusTranscriptMessage: Identifiable, Equatable, Sendable {
+    public enum Role: String, Equatable, Sendable {
+        case user
+        case assistant
+        case tool
+        case system
+    }
+
+    public let id: UUID
+    public let role: Role
+    public let content: String
+    public let createdAt: Date?
+    public let completedAt: Date?
+    public let thinking: String
+    public let thinkingDuration: TimeInterval?
+
+    public init(
+        id: UUID = UUID(),
+        role: Role,
+        content: String,
+        createdAt: Date? = nil,
+        completedAt: Date? = nil,
+        thinking: String = "",
+        thinkingDuration: TimeInterval? = nil
+    ) {
+        self.id = id
+        self.role = role
+        self.content = content
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+        self.thinking = thinking
+        self.thinkingDuration = thinkingDuration
+    }
+}
+
+public struct EpistemosOsaurusSessionTranscript: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public let title: String
+    public let selectedModel: String?
+    public let messages: [EpistemosOsaurusTranscriptMessage]
+
+    public init(
+        id: UUID,
+        title: String,
+        selectedModel: String?,
+        messages: [EpistemosOsaurusTranscriptMessage]
+    ) {
+        self.id = id
+        self.title = title
+        self.selectedModel = selectedModel
+        self.messages = messages
+    }
+}
+
+public enum EpistemosOsaurusSessionBridge {
+    @MainActor
+    public static func recentSessions(limit: Int = 4) -> [EpistemosOsaurusRecentSessionSummary] {
+        ChatSessionsManager.shared.refresh()
+        return ChatSessionsManager.shared.sessions(for: Agent.defaultId)
+            .filter { !$0.archived }
+            .prefix(max(0, limit))
+            .map { session in
+                EpistemosOsaurusRecentSessionSummary(
+                    id: session.id,
+                    title: session.title.isEmpty ? L("New Chat") : session.title,
+                    subtitle: session.selectedModel ?? L("Osaurus chat"),
+                    updatedAt: session.updatedAt
+                )
+            }
+    }
+
+    @MainActor
+    public static func loadTranscript(id: UUID) -> EpistemosOsaurusSessionTranscript? {
+        guard let session = ChatSessionStore.load(id: id) else { return nil }
+        return EpistemosOsaurusSessionTranscript(
+            id: session.id,
+            title: session.title.isEmpty ? L("New Chat") : session.title,
+            selectedModel: session.selectedModel,
+            messages: session.turns.map(transcriptMessage)
+        )
+    }
+
+    @MainActor
+    @discardableResult
+    public static func saveTranscript(
+        sessionId: UUID?,
+        messages: [EpistemosOsaurusTranscriptMessage],
+        selectedModel: String?,
+        title: String? = nil
+    ) -> UUID {
+        let now = Date()
+        let turns = messages.map(turnData)
+        let providedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        var session = sessionId.flatMap { ChatSessionStore.load(id: $0) } ?? ChatSessionData(
+            id: sessionId ?? UUID(),
+            title: providedTitle.isEmpty ? ChatSessionData.generateTitle(from: turns) : providedTitle,
+            createdAt: now,
+            updatedAt: now,
+            selectedModel: selectedModel,
+            turns: [],
+            agentId: Agent.defaultId
+        )
+        session.turns = turns
+        session.updatedAt = now
+        session.selectedModel = selectedModel ?? session.selectedModel
+        session.agentId = session.agentId ?? Agent.defaultId
+        if !providedTitle.isEmpty {
+            session.title = providedTitle
+        } else if session.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || session.title == L("New Chat")
+            || session.title == "New Chat" {
+            session.title = ChatSessionData.generateTitle(from: turns)
+        }
+        session.capabilities = SessionCapability.derive(from: turns)
+        ChatSessionsManager.shared.save(session)
+        return session.id
+    }
+
+    private static func transcriptMessage(_ turn: ChatTurnData) -> EpistemosOsaurusTranscriptMessage {
+        EpistemosOsaurusTranscriptMessage(
+            id: turn.id,
+            role: transcriptRole(turn.role),
+            content: turn.content,
+            createdAt: turn.createdAt,
+            completedAt: turn.completedAt,
+            thinking: turn.thinking,
+            thinkingDuration: turn.thinkingDuration
+        )
+    }
+
+    private static func turnData(_ message: EpistemosOsaurusTranscriptMessage) -> ChatTurnData {
+        ChatTurnData(
+            id: message.id,
+            role: osaurusRole(message.role),
+            content: message.content,
+            thinkingDuration: message.thinkingDuration,
+            thinking: message.thinking,
+            createdAt: message.createdAt,
+            completedAt: message.completedAt
+        )
+    }
+
+    private static func transcriptRole(_ role: MessageRole) -> EpistemosOsaurusTranscriptMessage.Role {
+        switch role {
+        case .user: return .user
+        case .assistant: return .assistant
+        case .tool: return .tool
+        case .system: return .system
+        }
+    }
+
+    private static func osaurusRole(_ role: EpistemosOsaurusTranscriptMessage.Role) -> MessageRole {
+        switch role {
+        case .user: return .user
+        case .assistant: return .assistant
+        case .tool: return .tool
+        case .system: return .system
+        }
+    }
+}
+
 /// Public host that mounts the real Osaurus chat surface inside the Epistemos
-/// app, reskinned to the Epistemos look. The hosted view is the genuine Osaurus
-/// `ChatView` — same code that runs in standalone Osaurus — so behaviour matches
-/// the working app rather than a partial re-integration.
+/// app, skinned from Epistemos theme tokens at the Osaurus source. The hosted
+/// view is the genuine Osaurus `ChatView` — same code that runs in standalone
+/// Osaurus — so behaviour matches the working app rather than a partial
+/// re-integration.
 public struct EpistemosOsaurusChatHost: View {
     /// Owned so the window/session state is stable across SwiftUI re-renders.
     /// `ChatView(windowState:)` wraps this in an `ObservedObject`; the owner of
     /// the lifetime must therefore be a `@StateObject` here, not a freshly
     /// constructed value on each `body` evaluation.
     @StateObject private var windowState: ChatWindowState
+    private let requestedSessionId: UUID?
+    private let initialPrompt: String?
+    private let initialPromptId: UUID?
+    private let themeTokens: EpistemosOsaurusThemeTokens
+    private let onSessionChanged: ((UUID?) -> Void)?
+    private let onInitialPromptConsumed: (() -> Void)?
+    @State private var submittedInitialPromptId: UUID?
 
     /// - Parameters:
     ///   - windowId: stable identity for this chat window. Defaults to a fresh
     ///     UUID; pass a persisted id to reattach an existing window.
     ///   - agentId: the agent to bind. Defaults to Osaurus's built-in default
     ///     agent (`Agent.defaultId`).
-    public init(windowId: UUID = UUID(), agentId: UUID? = nil) {
-        // RESKIN (owner 2026-06-22, "the reskin isn't working — I see raw Osaurus"): apply the
-        // Epistemos cream theme HERE, BEFORE the window resolves its theme. The bug was that the
-        // reskin ran in `.task` (AFTER ChatWindowState init already resolved to Osaurus's DEFAULT
-        // theme from `currentTheme`), and `persist:false` didn't install it, so any re-resolution
-        // fell back to default. ChatWindowState.loadTheme reads `ThemeManager.shared.currentTheme`,
-        // so applying cream first makes the window — and every `@Environment(\.theme)` Osaurus view
-        // (thread/composer/sidebar/picker) — read cream from the FIRST render.
-        Self.installAndApplyEpistemosThemeOnce()
-        let state = ChatWindowState(windowId: windowId, agentId: agentId ?? Agent.defaultId)
-        // GRAFT — SIDE PANEL (owner must-keep 2026-06-22): Osaurus's ChatSessionSidebar defaults
-        // to HIDDEN (showSidebar = false), so the act surface would open with no side panel. Show
-        // it by default — the owner gets the loved Epistemos-style side panel (Osaurus's session
-        // sidebar, reskinned to the cream/monospace look). Additive; the owner can still collapse it.
-        state.showSidebar = true
+    ///   - sessionId: optional existing Osaurus session to open immediately.
+    ///   - themeTokens: resolved Epistemos preset/custom theme tokens for this
+    ///     mount. The default is a fallback only for previews/tests; the app
+    ///     passes its live selected theme.
+    public init(
+        windowId: UUID = UUID(),
+        agentId: UUID? = nil,
+        sessionId: UUID? = nil,
+        initialPrompt: String? = nil,
+        initialPromptId: UUID? = nil,
+        themeTokens: EpistemosOsaurusThemeTokens = .fallback,
+        onSessionChanged: ((UUID?) -> Void)? = nil,
+        onInitialPromptConsumed: (() -> Void)? = nil
+    ) {
+        self.requestedSessionId = sessionId
+        self.initialPrompt = initialPrompt
+        self.initialPromptId = initialPromptId
+        self.themeTokens = themeTokens
+        self.onSessionChanged = onSessionChanged
+        self.onInitialPromptConsumed = onInitialPromptConsumed
+        // Apply the owner's active Epistemos theme to the cloned Osaurus source
+        // before ChatView renders. This is not a persisted Osaurus theme.
+        Self.applyEpistemosSourceSkin(themeTokens)
+        let sessionData = sessionId.flatMap { ChatSessionStore.load(id: $0) }
+        let resolvedAgentId = sessionData?.agentId ?? agentId ?? Agent.defaultId
+        let state = ChatWindowState(
+            windowId: windowId,
+            agentId: resolvedAgentId,
+            sessionData: sessionData
+        )
+        // Act owns recent chats through Epistemos's single toolbar popover; the
+        // Osaurus session rail stays hidden in Epistemos mode. The side-panel
+        // graft is the right-hand context inspector inside ChatView.
+        state.showSidebar = false
         _windowState = StateObject(wrappedValue: state)
     }
 
@@ -59,8 +471,7 @@ public struct EpistemosOsaurusChatHost: View {
             // blur so content dissolves as it scrolls up — the loved Epistemos scroll interaction
             // brought onto the Osaurus surface. Purely additive overlay (no change to Osaurus's
             // ChatView): a thin material band, strongest at the very top and fading to clear, that
-            // blurs whatever scrolls under it. Never intercepts input. (Owner refines depth on the
-            // running app; the other 2 grafts — message bar, side panel — follow.)
+            // blurs whatever scrolls under it. Never intercepts input.
             .overlay(alignment: .top) {
                 Rectangle()
                     .fill(.ultraThinMaterial)
@@ -74,7 +485,49 @@ public struct EpistemosOsaurusChatHost: View {
                     .frame(height: 34)
                     .allowsHitTesting(false)
             }
-            .task { Self.bootstrapAndThemeOnce() }
+            .onChange(of: themeTokens) { _, newTokens in
+                Self.applyEpistemosSourceSkin(newTokens)
+            }
+            .onChange(of: requestedSessionId) { _, newSessionId in
+                loadRequestedSession(newSessionId)
+            }
+            .onChange(of: initialPromptId) { _, _ in
+                sendInitialPromptIfNeeded()
+            }
+            .onReceive(windowState.session.$sessionId) { sessionId in
+                onSessionChanged?(sessionId)
+            }
+            .task {
+                Self.bootstrapAndThemeOnce()
+                Self.applyEpistemosSourceSkin(themeTokens)
+                onSessionChanged?(windowState.session.sessionId)
+                loadRequestedSession(requestedSessionId)
+                sendInitialPromptIfNeeded()
+            }
+    }
+
+    @MainActor
+    private func loadRequestedSession(_ sessionId: UUID?) {
+        guard let sessionId else { return }
+        guard windowState.session.sessionId != sessionId else { return }
+        guard let sessionData = ChatSessionStore.load(id: sessionId) else {
+            windowState.refreshSessions()
+            return
+        }
+        windowState.loadSession(sessionData)
+        windowState.showSidebar = false
+    }
+
+    @MainActor
+    private func sendInitialPromptIfNeeded() {
+        guard requestedSessionId == nil else { return }
+        guard let initialPromptId, submittedInitialPromptId != initialPromptId else { return }
+        let prompt = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !prompt.isEmpty else { return }
+        submittedInitialPromptId = initialPromptId
+        windowState.startNewChat()
+        windowState.session.send(prompt)
+        onInitialPromptConsumed?()
     }
 
     // MARK: - Epistemos bootstrap + reskin
@@ -87,35 +540,26 @@ public struct EpistemosOsaurusChatHost: View {
     /// has its agent configuration domains + document adapters. Both calls are
     /// idempotent (internal latches) and side-effect-free (NO local server, NO
     /// Sparkle/login-item — the chat generates in-process via `ChatEngine` →
-    /// `MLXService`, so the HTTP server is not needed). (2) Apply the Epistemos
-    /// cream/monospace palette runtime-only (`persist: false`); every Osaurus
-    /// view reads `ThemeManager.shared.currentTheme`, so this reskins the whole
-    /// surface (thread, composer, sidebar, model picker).
+    /// `MLXService`, so the HTTP server is not needed).
     @MainActor
     private static func bootstrapAndThemeOnce() {
         guard !didBootstrap else { return }
         didBootstrap = true
         ConfigurationDomainBootstrap.registerBuiltIns()
         DocumentAdaptersBootstrap.registerBuiltIns()
-        // (Theme is applied earlier — in init(), before the window resolves — not here.)
         seedOwnerDefaultModelOnce()
     }
 
-    @MainActor private static var didApplyTheme = false
+    @MainActor private static var appliedThemeSignature: String?
 
-    /// Install + persist + apply the Epistemos cream/monospace reskin so it actually takes effect on
-    /// the live Osaurus surface (owner 2026-06-22 — the prior `.task` + `persist:false` was a no-op
-    /// the window never picked up). INSTALL it into `installedThemes` (so it's a real, resolvable
-    /// theme), then `applyCustomTheme(persist: true)` so `ThemeManager.currentTheme` becomes cream AND
-    /// it's saved as the active theme — surviving any re-resolution / relaunch. Runs once ever (latch).
-    /// `ChatWindowState.theme` resolves from `currentTheme`, so this is the theme SOURCE the chat reads.
+    /// Apply the owner's selected Epistemos preset/custom theme to the cloned
+    /// Osaurus source surface. Runtime-only: no Osaurus active-theme
+    /// persistence, no fixed palette masquerading as the user's settings.
     @MainActor
-    private static func installAndApplyEpistemosThemeOnce() {
-        guard !didApplyTheme else { return }
-        didApplyTheme = true
-        ThemeManager.shared.saveTheme(epistemosCreamTheme)
-        ThemeManager.shared.refreshInstalledThemes()
-        ThemeManager.shared.applyCustomTheme(epistemosCreamTheme, persist: true, animated: false)
+    private static func applyEpistemosSourceSkin(_ tokens: EpistemosOsaurusThemeTokens) {
+        guard appliedThemeSignature != tokens.signature else { return }
+        appliedThemeSignature = tokens.signature
+        EpistemosOsaurusSourceSkin.shared.apply(tokens)
     }
 
     /// Owner 2026-06-22 (#1 concern — "send works with MY models"): the new Osaurus act
@@ -149,53 +593,4 @@ public struct EpistemosOsaurusChatHost: View {
         return ownerModels.first
     }
 
-    /// The Epistemos palette as an Osaurus `CustomTheme`. Mirrors the Epistemos
-    /// `.systemLight` tokens (near-black text `#1C1C1E`, muted `#6E6E73`,
-    /// monochrome ink accent, warm-cream surfaces, dark user bubbles) plus the
-    /// monospace body font the owner's aesthetic uses. Colours are hex strings
-    /// (Osaurus `ThemeColors`), so no SwiftUI `Color` crosses the boundary.
-    static let epistemosCreamTheme: CustomTheme = CustomTheme(
-        metadata: ThemeMetadata(
-            id: UUID(uuidString: "E9150305-0000-0000-0000-000000000001")!,
-            name: "Epistemos",
-            version: "1.0",
-            author: "Epistemos"
-        ),
-        colors: ThemeColors(
-            primaryText: "#1c1c1e",
-            secondaryText: "#6e6e73",
-            tertiaryText: "#8e8e93",
-            primaryBackground: "#fbfaf5",
-            secondaryBackground: "#f4f3ee",
-            tertiaryBackground: "#eeede7",
-            sidebarBackground: "#f2f1eb",
-            sidebarSelectedBackground: "#e7e6df",
-            accentColor: "#1c1c1e",
-            accentColorLight: "#3a3a3c",
-            primaryBorder: "#e3e1d8",
-            secondaryBorder: "#eceae2",
-            focusBorder: "#1c1c1e",
-            successColor: "#34c759",
-            warningColor: "#ff9f0a",
-            errorColor: "#ff3b30",
-            infoColor: "#1c1c1e",
-            cardBackground: "#ffffff",
-            cardBorder: "#e3e1d8",
-            buttonBackground: "#f4f3ee",
-            buttonBorder: "#e3e1d8",
-            inputBackground: "#ffffff",
-            inputBorder: "#e3e1d8",
-            glassTintOverlay: "#fbfaf5e0",
-            codeBlockBackground: "#f2f1eb",
-            shadowColor: "#000000",
-            selectionColor: "#1c1c1e33",
-            cursorColor: "#1c1c1e",
-            placeholderText: "#a8a8ad"
-        ),
-        background: .default,
-        glass: ThemeGlass(enabled: false),
-        typography: ThemeTypography(primaryFont: "SF Mono", monoFont: "SF Mono"),
-        isBuiltIn: false,
-        isDark: false
-    )
 }

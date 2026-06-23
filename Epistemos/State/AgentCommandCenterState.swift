@@ -297,6 +297,17 @@ final class AgentCommandCenterState {
         log.info("[ACC] Tool catalog refreshed: \(self.mcpToolCount) tools, \(self.mcpExecutionCount) executions")
     }
 
+    func refreshExecutionCatalogsIfNeeded(
+        from mcpBridge: MCPBridge,
+        vaultPath: String,
+        force: Bool = false
+    ) {
+        refreshSkillCatalog()
+        let normalizedVaultPath = vaultPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard force || availableTools.isEmpty || normalizedVaultPath != catalogVaultPath else { return }
+        refreshToolCatalog(from: mcpBridge, vaultPath: normalizedVaultPath)
+    }
+
     func refreshSkillCatalog() {
         availableSkills = SkillDiscoveryCatalog.discoverSkillEntries()
         log.info("[ACC] Skill catalog refreshed: \(self.availableSkills.count) skills")

@@ -177,6 +177,12 @@ struct FloatingInputCard: View {
     @ObservedObject private var screenContext = ScreenContextSettings.shared
     @ObservedObject private var frontmostApp = FrontmostAppTracker.shared
     @ObservedObject private var permissionService = SystemPermissionService.shared
+    @ObservedObject private var epistemosSourceSkin = EpistemosOsaurusSourceSkin.shared
+
+    private var isEpistemosSurface: Bool { epistemosSourceSkin.isActive }
+    private var isEpistemosSearchStage: Bool { isEpistemosSurface && isEmptyChat }
+    private var inputCardCornerRadius: CGFloat { isEpistemosSurface ? 4 : 20 }
+    private var toolbarChipCornerRadius: CGFloat { isEpistemosSurface ? 4 : 999 }
 
     // MARK: - Slash Command State
 
@@ -226,6 +232,7 @@ struct FloatingInputCard: View {
     @State private var showModelPicker = false
     @State private var showModelOptionsPicker = false
     @State private var showContextBreakdown = false
+    @State private var showEpistemosToolsPanel = false
     @State private var contextHoverTask: Task<Void, Never>?
     @State private var showBalanceBreakdown = false
     @State private var balanceHoverTask: Task<Void, Never>?
@@ -442,7 +449,7 @@ struct FloatingInputCard: View {
             // selector row, right-aligned so it stacks directly over the
             // context-token count, rendered as quiet muted text (not a chip)
             // so it reads as passive status rather than a control.
-            if !showVoiceOverlay && (showScreenContextIndicator || showSelectorRow) {
+            if !isEpistemosSurface && !showVoiceOverlay && (showScreenContextIndicator || showSelectorRow) {
                 VStack(alignment: .trailing, spacing: 7) {
                     if showScreenContextIndicator {
                         screenContextIndicator
@@ -1817,14 +1824,17 @@ extension FloatingInputCard {
             .padding(.vertical, style.pill == nil ? 0 : 4)
             .background {
                 if let pill = style.pill {
-                    Capsule()
+                    RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                         .fill(pill.fill)
-                        .overlay(Capsule().strokeBorder(pill.stroke, lineWidth: 1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
+                                .strokeBorder(pill.stroke, lineWidth: 1)
+                        )
                 }
             }
             // Soft glow on the empty CTA draws the eye without a repeating animation.
             .shadow(color: style.glow, radius: 5, x: 0, y: 1)
-            .contentShape(Capsule())
+            .contentShape(RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .pointingHandCursor()
@@ -1975,9 +1985,15 @@ extension FloatingInputCard {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(Capsule().fill(theme.secondaryBackground.opacity(0.8)))
-        .overlay(Capsule().strokeBorder(theme.primaryBorder.opacity(0.12), lineWidth: 1))
-        .clipShape(Capsule())
+        .background(
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
+                .fill(theme.secondaryBackground.opacity(0.8))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
+                .strokeBorder(theme.primaryBorder.opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous))
         .localizedHelp(
             "This chat runs on the remote agent's own model — chosen by the agent's owner and not changeable here."
         )
@@ -2303,7 +2319,7 @@ extension FloatingInputCard {
     /// makes sense once the sandbox is in a settled state.
     private func handleSandboxChipTap() {
         if isSandboxLoading || isSandboxFailed {
-            AppDelegate.shared?.showManagementWindow(initialTab: .sandbox)
+            EpistemosOsaurusManagementPresenter.show(initialTab: .sandbox)
             return
         }
         toggleSandbox()
@@ -2463,7 +2479,7 @@ extension FloatingInputCard {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(sandboxChipBackground)
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous))
             .overlay(sandboxChipBorder)
             .shadow(
                 color: isSandboxFailed
@@ -2498,7 +2514,7 @@ extension FloatingInputCard {
                 }
             }
             Button {
-                AppDelegate.shared?.showManagementWindow(initialTab: .sandbox)
+                EpistemosOsaurusManagementPresenter.show(initialTab: .sandbox)
             } label: {
                 Text("Open Sandbox Settings", bundle: .module)
             }
@@ -2528,20 +2544,20 @@ extension FloatingInputCard {
     @ViewBuilder
     private var sandboxChipBackground: some View {
         ZStack {
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .fill(theme.secondaryBackground.opacity(isSandboxHovered || isSandboxEnabled ? 0.95 : 0.8))
 
             if isSandboxFailed {
-                Capsule()
+                RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                     .fill(Color.red.opacity(isSandboxHovered ? 0.16 : 0.10))
             } else if isSandboxEnabled && isSandboxRunning {
-                Capsule()
+                RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                     .fill(Color.green.opacity(isSandboxHovered ? 0.14 : 0.08))
             } else if isSandboxLoading {
-                Capsule()
+                RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                     .fill(Color.orange.opacity(0.06))
             } else if isSandboxHovered {
-                Capsule()
+                RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [theme.accentColor.opacity(0.06), Color.clear],
@@ -2556,16 +2572,16 @@ extension FloatingInputCard {
     @ViewBuilder
     private var sandboxChipBorder: some View {
         if isSandboxFailed {
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .strokeBorder(Color.red.opacity(isSandboxHovered ? 0.45 : 0.30), lineWidth: 1)
         } else if isSandboxEnabled && isSandboxRunning {
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .strokeBorder(Color.green.opacity(isSandboxHovered ? 0.4 : 0.25), lineWidth: 1)
         } else if isSandboxLoading {
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .strokeBorder(Color.orange.opacity(isSandboxHovered ? 0.35 : 0.2), lineWidth: 1)
         } else {
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
@@ -2634,13 +2650,13 @@ extension FloatingInputCard {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(
-                    Capsule()
+                    RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                         .fill(theme.secondaryBackground.opacity(isClipboardHovered ? 0.95 : 0.8))
                 )
-                .clipShape(Capsule())
+                .clipShape(RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous))
                 .overlay(
                     // main static border
-                    Capsule()
+                    RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
@@ -2846,35 +2862,41 @@ extension FloatingInputCard {
 
     // MARK: - Configuration Indicator Chip
 
-    /// Quiet, non-interactive pill shown for the Default ("Osaurus")
+    /// Quiet pill shown for the Default ("Osaurus")
     /// agent in place of the sandbox/folder chips. It signals that this
     /// agent's job is to configure Osaurus — it doesn't execute code in a
     /// sandbox or work against a host folder — so the controls are absent
     /// by design rather than missing.
     private var configurationOnlyChip: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "gearshape.fill")
-                .font(theme.font(size: CGFloat(theme.captionSize) - 2))
-                .foregroundColor(theme.accentColor)
+        Button {
+            EpistemosOsaurusManagementPresenter.show(initialTab: .settings)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "gearshape.fill")
+                    .font(theme.font(size: CGFloat(theme.captionSize) - 2))
+                    .foregroundColor(theme.accentColor)
 
-            Text("Configuration", bundle: .module)
-                .font(theme.font(size: CGFloat(theme.captionSize), weight: .medium))
-                .foregroundColor(theme.secondaryText)
-                .lineLimit(1)
+                Text("Configuration", bundle: .module)
+                    .font(theme.font(size: CGFloat(theme.captionSize), weight: .medium))
+                    .foregroundColor(theme.secondaryText)
+                    .lineLimit(1)
+            }
         }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .fill(theme.secondaryBackground.opacity(0.6))
         )
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .strokeBorder(theme.primaryBorder.opacity(0.4), lineWidth: 0.5)
         )
         .help(
             Text(
-                "The Osaurus agent helps you configure Osaurus. It doesn't use the sandbox or a working folder.",
+                "Open Osaurus configuration. This agent doesn't use the sandbox or a working folder.",
                 bundle: .module
             )
         )
@@ -3082,11 +3104,11 @@ extension FloatingInputCard {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .fill(theme.secondaryBackground.opacity(canEdit ? 0.6 : 0.4))
         )
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: toolbarChipCornerRadius, style: .continuous)
                 .strokeBorder(theme.primaryBorder.opacity(canEdit ? 0.4 : 0.2), lineWidth: 0.5)
         )
     }
@@ -3107,7 +3129,16 @@ extension FloatingInputCard {
 
     // MARK: - Input Card
 
+    @ViewBuilder
     private var inputCard: some View {
+        if isEpistemosSurface {
+            epistemosInputCard
+        } else {
+            osaurusInputCard
+        }
+    }
+
+    private var osaurusInputCard: some View {
         let hasChipRow = !pendingAttachments.isEmpty || pendingSkillId != nil || queuedSend != nil
         return VStack(alignment: .leading, spacing: 0) {
             if hasChipRow {
@@ -3133,9 +3164,9 @@ extension FloatingInputCard {
         }
         .fixedSize(horizontal: false, vertical: true)
         .background(cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: inputCardCornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: inputCardCornerRadius, style: .continuous)
                 .strokeBorder(effectiveBorderStyle, lineWidth: isDragOver ? 2 : (isFocused ? 1.5 : 0.5))
         )
         /*
@@ -3146,6 +3177,52 @@ extension FloatingInputCard {
             y: isFocused ? 4 : 2
         )
         */
+        .animation(.easeOut(duration: 0.15), value: isFocused)
+        .animation(.easeOut(duration: 0.1), value: isDragOver)
+    }
+
+    private var epistemosInputCard: some View {
+        let hasChipRow = !pendingAttachments.isEmpty || pendingSkillId != nil || queuedSend != nil
+        return VStack(alignment: .leading, spacing: 0) {
+            if hasChipRow {
+                HStack(alignment: .center, spacing: 6) {
+                    queuedSendChipView
+                    pendingSkillChipView
+                    if !pendingAttachments.isEmpty {
+                        inlinePendingAttachmentsPreview
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+            }
+
+            HStack(alignment: .top, spacing: isEpistemosSearchStage ? 11 : 0) {
+                if isEpistemosSearchStage {
+                    Image(systemName: "magnifyingglass")
+                        .font(theme.font(size: 14, weight: .semibold))
+                        .foregroundColor(theme.accentColor.opacity(isFocused ? 0.90 : 0.62))
+                        .frame(width: 24, height: 24)
+                        .padding(.top, 1)
+                }
+
+                textInputArea
+            }
+                .padding(.horizontal, 11)
+                .padding(.top, hasChipRow ? 8 : 9)
+                .padding(.bottom, 7)
+
+            epistemosButtonBar
+                .padding(.horizontal, 11)
+                .padding(.top, 6)
+                .padding(.bottom, 7)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: inputCardCornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: inputCardCornerRadius, style: .continuous)
+                .strokeBorder(effectiveBorderStyle, lineWidth: isDragOver ? 1.2 : 0.8)
+        )
         .animation(.easeOut(duration: 0.15), value: isFocused)
         .animation(.easeOut(duration: 0.1), value: isDragOver)
     }
@@ -3509,7 +3586,11 @@ extension FloatingInputCard {
     }
 
     /// Placeholder text for the input field.
-    private var placeholderText: String { L("Message or attach files...") }
+    private var placeholderText: String {
+        isEpistemosSurface
+            ? L("Ask anything… Type @ for notes or chats")
+            : L("Message or attach files...")
+    }
 
     private var textInputArea: some View {
         EditableTextView(
@@ -3563,7 +3644,11 @@ extension FloatingInputCard {
             // Placeholder - uses theme body size
             if showPlaceholder {
                 Text(placeholderText)
-                    .font(theme.font(size: inputFontSize, weight: .regular))
+                    .font(
+                        isEpistemosSurface
+                            ? .system(size: inputFontSize, weight: .regular, design: .monospaced)
+                            : theme.font(size: inputFontSize, weight: .regular)
+                    )
                     .foregroundColor(theme.placeholderText)
                     .padding(.leading, 6)
                     .padding(.top, 2)
@@ -3584,6 +3669,72 @@ extension FloatingInputCard {
 
     // MARK: - Button Bar
 
+    private var epistemosButtonBar: some View {
+        HStack(alignment: .center, spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .center, spacing: 6) {
+                    mediaButton
+                    slashCommandButton
+
+                    if !pickerItems.isEmpty || isModelPinned {
+                        modelSelectorChip
+                    }
+
+                    thinkingToggleChip
+
+                    if autoSpeakAssistant {
+                        autoSpeakToggleChip
+                    }
+
+                    if hasNonThinkingOptions {
+                        modelOptionsSelectorChip
+                    }
+
+                    epistemosToolsButton
+
+                    if !isDefaultConfigAgent, isSandboxAvailable {
+                        sandboxToggleChip
+                    }
+
+                    if isDefaultConfigAgent {
+                        configurationOnlyChip
+                    } else {
+                        folderContextChip
+                    }
+
+                    if AppConfiguration.shared.chatConfig.enableClipboardMonitoring && clipboardService.hasNewContent {
+                        clipboardToggleChip
+                    }
+
+                    if isVoiceConfigured {
+                        voiceInputButton
+                            .disabled(isStreaming)
+                            .opacity(isStreaming ? 0.4 : 1.0)
+                    }
+
+                    metaCluster
+                }
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 6) {
+                if isStreaming {
+                    if !isPrivacyReviewSheetVisible {
+                        stopButton
+                    }
+                    if queuedSend != nil {
+                        sendNowButton
+                    } else if !isPrivacyReviewSheetVisible {
+                        sendQueueButton
+                    }
+                } else {
+                    sendButton
+                }
+            }
+        }
+    }
+
     private var buttonBar: some View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
@@ -3599,7 +3750,9 @@ extension FloatingInputCard {
             Spacer()
 
             HStack(spacing: 8) {
-                keyboardHint
+                if !isEpistemosSurface {
+                    keyboardHint
+                }
                 if isStreaming {
                     // While the Privacy Filter review sheet is on screen,
                     // suppress Stop — the sheet owns the cancel UX. The
@@ -3652,6 +3805,24 @@ extension FloatingInputCard {
         }
     }
 
+    private var epistemosToolsButton: some View {
+        InputActionButton(
+            icon: "slider.horizontal.3",
+            help: "Agent tools — turn capabilities on or off for this chat"
+        ) {
+            showEpistemosToolsPanel.toggle()
+        }
+        .popover(isPresented: $showEpistemosToolsPanel, arrowEdge: .top) {
+            AgentCapabilityManagerView(
+                agentId: effectiveAgentId,
+                onDismiss: { showEpistemosToolsPanel = false },
+                compact: true
+            )
+            .frame(width: 520, height: 460)
+            .environment(\.theme, theme)
+        }
+    }
+
     private var stopButton: some View {
         StopButton(action: onStop)
     }
@@ -3685,23 +3856,34 @@ extension FloatingInputCard {
             // NSVisualEffectView-backed glass behind everything, only when
             // the prompt card's own glass toggle is on. The fill above is
             // already semi-transparent so the material shows through.
-            if theme.glassInputEnabled {
-                ThemedGlassSurface(cornerRadius: 20)
+            if !isEpistemosSurface && theme.glassInputEnabled {
+                ThemedGlassSurface(cornerRadius: inputCardCornerRadius)
             }
 
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(theme.primaryBackground.opacity(theme.isDark ? 0.82 : 0.94))
+            RoundedRectangle(cornerRadius: inputCardCornerRadius, style: .continuous)
+                .fill(
+                    (isEpistemosSurface ? theme.inputBackground : theme.primaryBackground).opacity(
+                        isEpistemosSurface
+                            ? (theme.isDark ? 0.60 : 0.74)
+                            : (theme.isDark ? 0.82 : 0.94)
+                    )
+                )
 
-            // subtle accent gradient at top (enhanced when focused)
-            LinearGradient(
-                colors: [
-                    theme.accentColor.opacity(isFocused ? 0.08 : (theme.isDark ? 0.04 : 0.025)),
-                    Color.clear,
-                ],
-                startPoint: .top,
-                endPoint: .center
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            if isEpistemosSurface {
+                RoundedRectangle(cornerRadius: inputCardCornerRadius, style: .continuous)
+                    .fill(theme.primaryText.opacity(theme.isDark ? 0.030 : 0.018))
+            } else {
+                // subtle accent gradient at top (enhanced when focused)
+                LinearGradient(
+                    colors: [
+                        theme.accentColor.opacity(isFocused ? 0.08 : (theme.isDark ? 0.04 : 0.025)),
+                        Color.clear,
+                    ],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+                .clipShape(RoundedRectangle(cornerRadius: inputCardCornerRadius, style: .continuous))
+            }
         }
     }
 
@@ -3713,6 +3895,9 @@ extension FloatingInputCard {
     }
 
     private var borderGradient: AnyShapeStyle {
+        if isEpistemosSurface {
+            return AnyShapeStyle(theme.primaryBorder.opacity(isFocused ? 0.72 : 0.56))
+        }
         if isFocused {
             return AnyShapeStyle(
                 LinearGradient(
@@ -4402,6 +4587,10 @@ private struct SelectorChip<Content: View>: View {
 
     @State private var isHovered = false
     @Environment(\.theme) private var theme
+    @ObservedObject private var epistemosSourceSkin = EpistemosOsaurusSourceSkin.shared
+
+    private var isEpistemosSurface: Bool { epistemosSourceSkin.isActive }
+    private var chipCornerRadius: CGFloat { isEpistemosSurface ? 4 : 999 }
 
     var body: some View {
         Button(action: action) {
@@ -4409,7 +4598,7 @@ private struct SelectorChip<Content: View>: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(chipBackground)
-                .clipShape(Capsule())
+                .clipShape(RoundedRectangle(cornerRadius: chipCornerRadius, style: .continuous))
                 .overlay(chipBorder)
                 .shadow(
                     color: isHovered || isActive ? theme.accentColor.opacity(0.1) : .clear,
@@ -4430,11 +4619,11 @@ private struct SelectorChip<Content: View>: View {
     @ViewBuilder
     private var chipBackground: some View {
         ZStack {
-            Capsule()
+            RoundedRectangle(cornerRadius: chipCornerRadius, style: .continuous)
                 .fill(theme.secondaryBackground.opacity(isHovered || isActive ? 0.95 : 0.8))
 
             if isHovered || isActive {
-                Capsule()
+                RoundedRectangle(cornerRadius: chipCornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
@@ -4450,7 +4639,7 @@ private struct SelectorChip<Content: View>: View {
     }
 
     private var chipBorder: some View {
-        Capsule()
+        RoundedRectangle(cornerRadius: chipCornerRadius, style: .continuous)
             .strokeBorder(
                 LinearGradient(
                     colors: [
@@ -4661,15 +4850,26 @@ private struct SlashCommandTriggerButton: View {
 
     @State private var isHovered = false
     @Environment(\.theme) private var theme
+    @ObservedObject private var epistemosSourceSkin = EpistemosOsaurusSourceSkin.shared
+
+    private var isEpistemosSurface: Bool { epistemosSourceSkin.isActive }
+    private var buttonSize: CGFloat { isEpistemosSurface ? 30 : 32 }
+    private var buttonCornerRadius: CGFloat { isEpistemosSurface ? 4 : buttonSize / 2 }
 
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle()
-                    .fill(theme.tertiaryBackground.opacity(isHovered ? 0.95 : 0.8))
+                RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
+                    .fill(
+                        theme.tertiaryBackground.opacity(
+                            isEpistemosSurface
+                                ? (isHovered ? 0.76 : 0.38)
+                                : (isHovered ? 0.95 : 0.8)
+                        )
+                    )
 
                 if isHovered {
-                    Circle()
+                    RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [theme.accentColor.opacity(0.1), Color.clear],
@@ -4685,9 +4885,9 @@ private struct SlashCommandTriggerButton: View {
                         isActive ? theme.accentColor : (isHovered ? theme.accentColor : theme.secondaryText)
                     )
             }
-            .frame(width: 32, height: 32)
+            .frame(width: buttonSize, height: buttonSize)
             .overlay(
-                Circle()
+                RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
@@ -4715,15 +4915,26 @@ private struct InputActionButton: View {
 
     @State private var isHovered = false
     @Environment(\.theme) private var theme
+    @ObservedObject private var epistemosSourceSkin = EpistemosOsaurusSourceSkin.shared
+
+    private var isEpistemosSurface: Bool { epistemosSourceSkin.isActive }
+    private var buttonSize: CGFloat { isEpistemosSurface ? 30 : 32 }
+    private var buttonCornerRadius: CGFloat { isEpistemosSurface ? 4 : buttonSize / 2 }
 
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle()
-                    .fill(theme.tertiaryBackground.opacity(isHovered ? 0.95 : 0.8))
+                RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
+                    .fill(
+                        theme.tertiaryBackground.opacity(
+                            isEpistemosSurface
+                                ? (isHovered ? 0.76 : 0.38)
+                                : (isHovered ? 0.95 : 0.8)
+                        )
+                    )
 
                 if isHovered {
-                    Circle()
+                    RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [
@@ -4740,9 +4951,9 @@ private struct InputActionButton: View {
                     .font(theme.font(size: CGFloat(theme.bodySize), weight: .medium))
                     .foregroundColor(isHovered ? theme.accentColor : theme.secondaryText)
             }
-            .frame(width: 32, height: 32)
+            .frame(width: buttonSize, height: buttonSize)
             .overlay(
-                Circle()
+                RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
@@ -4782,53 +4993,37 @@ private struct SendButton: View {
 
     @State private var isHovered = false
     @Environment(\.theme) private var theme
+    @ObservedObject private var epistemosSourceSkin = EpistemosOsaurusSourceSkin.shared
+
+    private var isEpistemosSurface: Bool { epistemosSourceSkin.isActive }
+    private var buttonSize: CGFloat { isEpistemosSurface ? 30 : 32 }
+    private var buttonCornerRadius: CGFloat { isEpistemosSurface ? 4 : buttonSize / 2 }
 
     var body: some View {
         Button(action: action) {
             ZStack {
-                // Background gradient
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                theme.accentColor,
-                                theme.accentColor.opacity(0.85),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                sendButtonBackground
 
                 // Brighter overlay on hover
-                if isHovered && canSend {
-                    Circle()
+                if !isEpistemosSurface && isHovered && canSend {
+                    RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
                         .fill(Color.white.opacity(0.15))
                 }
 
                 Image(systemName: "arrow.up")
                     .font(theme.font(size: CGFloat(theme.bodySize) + 1, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(sendIconColor)
             }
-            .frame(width: 32, height: 32)
+            .frame(width: buttonSize, height: buttonSize)
             .overlay(
-                Circle()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(isHovered ? 0.35 : 0.2),
-                                theme.accentColor.opacity(0.3),
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+                RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
+                    .strokeBorder(sendBorderStyle, lineWidth: 1)
             )
             .shadow(
-                color: theme.accentColor.opacity(isHovered && canSend ? 0.5 : 0.35),
-                radius: isHovered && canSend ? 10 : 6,
+                color: sendShadowColor,
+                radius: isEpistemosSurface ? (isHovered && canSend ? 6 : 0) : (isHovered && canSend ? 10 : 6),
                 x: 0,
-                y: isHovered && canSend ? 4 : 2
+                y: isEpistemosSurface ? 1 : (isHovered && canSend ? 4 : 2)
             )
         }
         .buttonStyle(.plain)
@@ -4841,6 +5036,64 @@ private struct SendButton: View {
             }
         }
         .animation(.easeOut(duration: 0.1), value: canSend)
+    }
+
+    @ViewBuilder
+    private var sendButtonBackground: some View {
+        if isEpistemosSurface {
+            RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
+                .fill(
+                    canSend
+                        ? theme.accentColor.opacity(isHovered ? 0.92 : 0.84)
+                        : theme.tertiaryBackground.opacity(theme.isDark ? 0.42 : 0.62)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            theme.accentColor,
+                            theme.accentColor.opacity(0.85),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        }
+    }
+
+    private var sendIconColor: Color {
+        if isEpistemosSurface {
+            return canSend ? theme.primaryBackground : theme.tertiaryText
+        }
+        return .white
+    }
+
+    private var sendBorderStyle: AnyShapeStyle {
+        if isEpistemosSurface {
+            return AnyShapeStyle(
+                canSend
+                    ? theme.primaryBorder.opacity(isHovered ? 0.30 : 0.18)
+                    : theme.primaryBorder.opacity(0.14)
+            )
+        }
+        return AnyShapeStyle(
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(isHovered ? 0.35 : 0.2),
+                    theme.accentColor.opacity(0.3),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+    }
+
+    private var sendShadowColor: Color {
+        if isEpistemosSurface {
+            return canSend ? theme.accentColor.opacity(isHovered ? 0.22 : 0.10) : .clear
+        }
+        return theme.accentColor.opacity(isHovered && canSend ? 0.5 : 0.35)
     }
 }
 

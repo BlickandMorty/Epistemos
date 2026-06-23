@@ -272,6 +272,7 @@ private struct HomeSceneRootContent: View {
     private func markSetupComplete() {
         guard !setupComplete else { return }
         UserDefaults.standard.set(true, forKey: Self.setupCompleteKey)
+        bootstrap.uiState.needsSetup = false
         setupComplete = true
     }
 }
@@ -1485,7 +1486,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 
     @objc private func dockMiniChat() {
         Task { @MainActor in
-            MiniChatWindowController.shared.openNewChat()
+            MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
         }
     }
 
@@ -1505,10 +1506,31 @@ extension Notification.Name {
     static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
     static let proceedWithQuit = Notification.Name("epistemos.proceedWithQuit")
     static let showQuickCapture = Notification.Name("epistemos.showQuickCapture")
+    static let openActOsaurusSession = Notification.Name("epistemos.openActOsaurusSession")
+    static let submitActOsaurusPrompt = Notification.Name("epistemos.submitActOsaurusPrompt")
     /// Posted by the in-picker "Install local AI" CTA (owner 2026-06-19) so the
     /// model manager is reachable from where models are chosen, not only from
     /// Settings ▸ Local AI. Observed by the root view to present the manager.
     static let openModelManager = Notification.Name("epistemos.openModelManager")
+}
+
+struct ActOsaurusPromptRequest {
+    let text: String
+    let contextAttachments: [ContextAttachment]
+    let fileAttachments: [FileAttachment]
+    let sessionId: UUID?
+
+    init(
+        text: String,
+        contextAttachments: [ContextAttachment] = [],
+        fileAttachments: [FileAttachment] = [],
+        sessionId: UUID? = nil
+    ) {
+        self.text = text
+        self.contextAttachments = contextAttachments
+        self.fileAttachments = fileAttachments
+        self.sessionId = sessionId
+    }
 }
 
 struct EpistemosCommands: Commands {
@@ -1541,7 +1563,7 @@ struct EpistemosCommands: Commands {
                 .keyboardShortcut("2", modifiers: .command)
 
             Button("New Mini Chat") {
-                MiniChatWindowController.shared.openNewChat()
+                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
             }
             .keyboardShortcut("3", modifiers: .command)
 
@@ -1565,7 +1587,7 @@ struct EpistemosCommands: Commands {
             Divider()
 
             Button("New Mini Chat") {
-                MiniChatWindowController.shared.openNewChat()
+                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
         }

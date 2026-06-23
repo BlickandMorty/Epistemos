@@ -98,7 +98,7 @@ final class StatusBar {
 
     @objc private func toggleMiniChat() {
         Task { @MainActor in
-            MiniChatWindowController.shared.openNewChat()
+            MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
         }
     }
 

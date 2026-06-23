@@ -75,21 +75,28 @@ heading-diff output + grep hit count + any unindexed hits — empty audit does N
   A glance, a grep that a symbol exists, or trusting a commit message is NOT enough.
 
 ## 🔒 LOCKED RULES (do not reinterpret)
-- **LOCKED UI DIRECTION (FINAL — supersedes ALL prior act-UI wording):** ACT/WORK UI = FRESH NATIVE Epistemos
-  SwiftUI views (landing, toolbar, sidebar, pill, composer, curved window, transcript) wired to the Osaurus
-  ENGINE in-process (`CoreModelService.generateStream` — the proven 0.4 path). **Osaurus = ENGINE ONLY, not UI.**
-  Do NOT mount, reskin, OR decompose ANY ChatView — neither `Epistemos/Views/Chat/ChatView.swift` (old chat) NOR
-  Osaurus's `OsaurusChatView` (the 6077-line monolith). Render the engine's parsed channels (thinking/content/
-  tools) in NATIVE views. SUPERSEDES option-(b), mount-Osaurus-UI-reskinned, AND decompose-the-monolith — all
-  wrong. Do NOT leave raw Osaurus default. Fixing 0.1 alone does NOT close act.
+- **LOCKED UI DIRECTION (FINAL LATEST OWNER CORRECTION — 2026-06-23):**
+  ACT chat = **Epistemos visible UI with Osaurus unbundled underneath**. The bundle split is the root bug: do not
+  show a vendored Osaurus app inside Epistemos, and do not restore the old Epistemos backend. The visible surface
+  must be the owner's Epistemos landing/search/chat chrome, message bar, toolbar, recent-chat/sidebar, mini/graph/
+  note variants, settings, and native Apple/Epistemos prompts. Osaurus supplies streaming, model routing,
+  tools, MCP, commands, permissions, provider config, sandbox/VM/dependency controls, and credential flows
+  through native seams. Do not mount `EpistemosOsaurusChatHost` / vendored Osaurus `ChatView` as the visible act
+  surface; do not restore skeletal `NativeActChatView`/`NativeActLandingView`; do not hardcode one palette.
+  Fixing 0.1 alone does NOT close act.
 - **D1–D5 ARE GATEKEEPERS:** the act surface is NOT certifiable until D1–D5 all pass YOUR screencapture proof.
-- **PLAN WINS OVER CODE:** if code and plan disagree, fix the CODE; never edit the plan to match wrong code
-  (e.g. 0.1 must edit the vendored Theme.swift defaults, not only a runtime `applyCustomTheme` shim — ba2f8952f drift).
+- **OWNER CORRECTION WINS OVER STALE PLAN WORDING:** if old plan text says vendored Osaurus UI should be the
+  visible act surface, fixed palette is enough, skeletal native clones should be restored, or old Epistemos
+  backend behavior should be restored, treat that as stale. Latest direction is Epistemos UI + Osaurus
+  engine/capabilities underneath.
 - **P0 OWNER REPORTS PREEMPT:** any new owner runtime report → append it to the addendum + queue + this prompt's
   D-section the SAME iteration, then fix it before anything else.
-- **VOID stale plan sections (do not build these):** option-(b) "drive old ChatView" (§1507), "FULLY RESTORE OLD
-  UI" as mount-old-ChatView (§1485), WORK-ENGINE ON HOLD (§607). Authority = §1651 DEFINITIVE + §624 C FINALIZED
-  + LOCKED RULES above. Landing = Epistemos `LandingView` FIRST (D2/0.3), NOT Osaurus default landing.
+- **VOID stale plan sections (do not build these):** vendored Osaurus visible chat host as the app surface,
+  skeletal `NativeActChatView`/`NativeActLandingView`, fixed cream/dark palette, old Epistemos backend
+  restoration, and WORK-ENGINE ON HOLD (§607). Current authority: Epistemos `LandingView`/home shell may show
+  first (D2/0.3) with toolbar pill/controls visible (settings, greeting animation, recent/history), then enter
+  the native Epistemos Act chat/search surface backed by OsaurusCore — NOT bundled Osaurus UI and NOT a
+  hardcoded palette.
 
 ## 🔴 OWNER-REPORTED RUNTIME DEFECTS (2026-06-22, grounded by screenshot docs/research/osa_runtime_2026_06_22.png)
 These are CONFIRMED broken on the running act surface RIGHT NOW. Each is a REQUIRED TIER-0 item; you may NOT
@@ -103,7 +110,7 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   morning / How can I help you today?" + Osaurus buttons ("What's configured?", "Download a model", "Add a
   provider", "Install a plugin") + the Osaurus dino greeting. The owner's landing page + landing→blur→act flow
   (queue 0.3) is NOT there. Restore the owner's Epistemos landing (`Epistemos/Views/Landing/LandingView.swift`)
-  → press → blur → act (Osaurus host). Screenshot-verify the owner's landing shows first, not Osaurus's.
+  → press/type → blur → native Epistemos Act chat backed by Osaurus. Screenshot-verify the owner's landing shows first, not Osaurus's.
 - **D3 — The PILL is missing.** Owner's old pill chrome is gone (only a tiny "Act/Work" segmented toggle shows).
   The pill exists in code: `ChatCapabilityPill` (Epistemos/Views/Landing/LandingView.swift:1178) +
   `NativePillButtonStyle` (Epistemos/Views/Chat/ChatSidebarView.swift:76) + composer activity pill
@@ -113,9 +120,10 @@ mark the act surface certified until ALL are fixed AND re-proven by your own scr
   not open real settings. **Queue 0.21 is the SOLE D4/Configuration owner** (per-clone settings matrix) — items
   0.11/0.22/4.1 reference 0.21; do NOT defer D4 to queue 4.1 while leaving TIER 0. Screenshot-verify settings
   open and work for all four clone tabs.
-- **D5 — Reskin only partial.** Background is lighter but the surface is still Osaurus chrome, not the owner's
-  cream/monospace discipline + preserved chrome (model picker w/ real logos + Epistemos Picks, command palette,
-  38-tool agent panel — queue 4.7). Finish the reskin so it's the owner's UI with Osaurus logic underneath.
+- **D5 — Theme/chrome only partial.** The act surface must render through the owner's Epistemos theme system
+  (selected `ThemePair`, custom `Chat Surface` slot when Custom is active, preset theme tokens) plus preserved
+  home/pill/tool affordances. Osaurus capabilities must appear through native Epistemos controls underneath that
+  chrome. Do not target a fixed cream/dark/white palette, and do not show bundled Osaurus UI as the app surface.
 - **GENERAL:** the owner said "there's so many issues" — D1–D5 are the named ones; while certifying the act
   surface, screenshot EVERY part and fix any other divergence from the owner's UI you observe. Do not stop at
   this list if the screenshot shows more wrong.
@@ -144,10 +152,11 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 4. **RE-CERTIFY against the STRICT BAR (all five must hold):**
    - **(a) EXISTS** — the code is present; cite `file:line`.
    - **(b) CORRECT & ON-PLAN** — read it; it does what the plan section's specifics say, via the approach the
-     plan mandates (not a near-miss or a different approach the plan already rejected). Example: 0.1 reskin must
-     make Osaurus views NATIVELY render cream/monospace at the SOURCE the plan names — a runtime
-     `applyCustomTheme` shim that the plan calls "proven not to cascade" does NOT satisfy (b) unless you prove
-     at runtime it actually renders cream.
+     plan mandates (not a near-miss or a different approach the plan already rejected). Example: 0.1 theme work must
+     make the live act surface inherit the Epistemos theme system (selected `ThemePair`, custom slots including
+     `Chat Surface`, and preset settings) at the source the current route uses — a runtime `applyCustomTheme`
+     shim or hardcoded color does NOT satisfy (b) unless you prove at runtime that the active Epistemos theme
+     actually renders.
    - **(c) WIRED & REACHABLE** — it's on the live path / discoverable in the running app, not dead-coded or
      flagged off. **Distinct from (a):** cite a **consumer/mount/route** file:line where the code is **invoked,
      mounted, or routed** (e.g. `AppBootstrap` mount, `WorkspaceMode` route, SwiftUI `.sheet` host) — NOT the
@@ -165,8 +174,9 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
        • **SEE the app:** `xcodebuild -scheme Epistemos … build` → `open` the .app →
          `screencapture -x /tmp/epi_iter<N>_<surface>_YYYYMMDD-HHMM.png` → `Read` that PNG **this iteration**
          (log capture timestamp in STRICT_RECERT_LOG; stale fixed-path PNG without Read does NOT satisfy (e) —
-         pass50 P1-c). Confirm with your own eyes: cream/monospace actually renders, the landing→blur→act
-         transition actually happens, the surface is actually present. Capture a specific window with
+         pass50 P1-c). Confirm with your own eyes: the active Epistemos theme actually renders (custom/preset,
+         not a fixed hardcoded palette), the landing→blur→act transition actually happens, the surface is actually
+         present. Capture a specific window with
          `screencapture -x -o -l$(window id)` when you need one surface. Ground-truth alias
          `docs/research/osa_runtime_2026_06_22.png` must be re-captured when cited, not reused unread.
        • **DRIVE the app if you must click/type:** `osascript` (AppleScript) for menu/clicks/keystrokes.
@@ -191,7 +201,7 @@ Log which W/B/S gates you attempted each iteration in STRICT_RECERT_LOG alongsid
 - **0.13** Shared act component · **0.14** Health-row witnesses honest (wiredToday/stillStub match code)
 - **0.15** DEEP CHECK (honest OSAURUS_BUILD_PROGRESS) · **0.16** Reasoning + title-gen (extends 0.9;
   `<think>` parse; CLEAN short titles — no model self-description garbage)
-- **0.17** LOCKED direction (FRESH NATIVE Epistemos UI wired to Osaurus ENGINE only; NO ChatView mount/reskin/decompose) · **0.18** Model provider registration
+- **0.17** LOCKED direction (Epistemos `LandingView`/search/chat/settings surfaces + live theme tokens → native Act UI backed by OsaurusCore; no vendored Osaurus host, no skeletal clone, no old-backend fallback) · **0.18** Model provider registration
 - **0.19** Chat surface deletion sequence (IP preserved) · **0.20** Collapse act/chat duality
 - **0.21** Per-clone settings matrix — Epistemos|act|work|beyond (**D4 blocking — SOLE OWNER**) · **0.22** ONE inference chokepoint
 - **0.23** Send-text harness EVERY iteration · **0.24** Act UI bug bundle · **0.25** Delete old ChatView (GATED)
@@ -313,7 +323,7 @@ code-more-build-less (fast gate per increment, heavy xcodebuild at checkpoints, 
 chat IP (preserve+port; surface delete only after the four-part bar + owner authorization) · NO-ADDED-TERMS ·
 NO-QUEUE-JUMPING · **STEP-0 RESET** (revert queue `[x]`/`[~]`→`[ ]`; log = sole cert record) · **`[~]` CAP ≤2**
 (3rd halts; log exact failing cmd+output) · **TIER ADVANCE FLOOR** (every 3 iters highest attempted ≥1.1 or
-stall report; act IN PARALLEL with T1+) · **FULL-PLAN-NO-ACT-TUNNEL** · latest-owner-directive-wins · FAVOR OSAURUS on clash · owner
+stall report; act IN PARALLEL with T1+) · **FULL-PLAN-NO-ACT-TUNNEL** · latest-owner-directive-wins · FAVOR OSAURUS engine/capability truth on clash, Epistemos UI on surface clash · owner
 messages → plan+queue same iteration · NEVER-IDLE (heavy = incremental slices) · external ~/Downloads corpus
 read-only when salvage needs it · 70B / NEW-MODEL brain-1 EXCLUDED · **Companion-backend OFF-LIMITS** (work +
 beyond future clones IN SCOPE) · main-only · Co-Authored-By Claude · P0 owner runtime reports preempt everything

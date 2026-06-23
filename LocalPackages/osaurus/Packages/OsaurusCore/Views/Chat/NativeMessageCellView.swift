@@ -1396,6 +1396,11 @@ final class NativeMessageCellView: NSTableCellView {
     private var currentKindTag: ContentBlockKindTag?
     private var currentBlockId: String?
 
+    private var epistemosUserBubbleFontName: String? {
+        guard EpistemosOsaurusSourceSkin.shared.isActive else { return nil }
+        return EpistemosOsaurusSourceSkin.shared.activeTokens?.monoFont
+    }
+
     /// tracks inline edit vs read-only markdown so we rebuild when edit mode toggles (same block kind)
     private var userMessageInlineEditActive: Bool = false
 
@@ -1862,8 +1867,9 @@ final class NativeMessageCellView: NSTableCellView {
         let maxBubbleWidth = floor(innerWidth * 0.65)
         let bubbleWidth: CGFloat = {
             guard !text.isEmpty && !wantsInlineEdit else { return maxBubbleWidth }
+            let measuredFontName = epistemosUserBubbleFontName ?? theme.primaryFontName
             let font =
-                NSFont(name: theme.primaryFontName, size: CGFloat(theme.bodySize))
+                NSFont(name: measuredFontName, size: CGFloat(theme.bodySize))
                 ?? NSFont.systemFont(ofSize: CGFloat(theme.bodySize))
             let measured = (text as NSString).boundingRect(
                 with: NSSize(width: maxBubbleWidth - 24, height: .greatestFiniteMagnitude),
@@ -2066,7 +2072,8 @@ final class NativeMessageCellView: NSTableCellView {
                 // assistant is generating, but propagating that here
                 // would light up the streaming cursor / trailing fade on
                 // the user bubble. Always false for user bubbles.
-                isStreaming: false
+                isStreaming: false,
+                fontOverrideName: epistemosUserBubbleFontName
             )
             // User bubble: the verbatim string in `ChatTurn.content`
             // is what the user TYPED, but the wire saw the

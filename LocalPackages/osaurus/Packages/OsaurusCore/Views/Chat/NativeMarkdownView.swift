@@ -321,10 +321,11 @@ final class NativeMarkdownView: NSView {
         width: CGFloat,
         theme: any ThemeProtocol,
         cacheKey: String?,
-        isStreaming: Bool
+        isStreaming: Bool,
+        fontOverrideName: String? = nil
     ) {
         ChatPerfTrace.shared.count("markdown.configure.called")
-        let themeFingerprint = makeThemeFingerprint(theme)
+        let themeFingerprint = makeThemeFingerprint(theme, fontOverrideName: fontOverrideName)
         let textChanged = text != lastText
         let widthChanged = abs(width - lastWidth) > 0.5
         let themeChanged = themeFingerprint != lastThemeFingerprint
@@ -354,7 +355,8 @@ final class NativeMarkdownView: NSView {
                 widthChanged: widthChanged,
                 width: width,
                 theme: theme,
-                isStreaming: isStreaming
+                isStreaming: isStreaming,
+                fontOverrideName: fontOverrideName
             )
             lastText = text
             return
@@ -370,7 +372,8 @@ final class NativeMarkdownView: NSView {
             widthChanged: false,
             width: width,
             theme: theme,
-            isStreaming: isStreaming
+            isStreaming: isStreaming,
+            fontOverrideName: fontOverrideName
         )
         lastText = text
     }
@@ -382,9 +385,10 @@ final class NativeMarkdownView: NSView {
         width: CGFloat,
         theme: any ThemeProtocol,
         cacheKey: String?,
-        isStreaming: Bool = false
+        isStreaming: Bool = false,
+        fontOverrideName: String? = nil
     ) {
-        let themeFingerprint = makeThemeFingerprint(theme)
+        let themeFingerprint = makeThemeFingerprint(theme, fontOverrideName: fontOverrideName)
         let textChanged = blocks != lastBlocks
         let widthChanged = abs(width - lastWidth) > 0.5
         let themeChanged = themeFingerprint != lastThemeFingerprint
@@ -408,7 +412,12 @@ final class NativeMarkdownView: NSView {
 
         if textChanged || widthChanged || themeChanged {
             coordinator.cacheKey = cacheKey
-            let stv = SelectableTextView(blocks: blocks, baseWidth: width, theme: theme)
+            let stv = SelectableTextView(
+                blocks: blocks,
+                baseWidth: width,
+                theme: theme,
+                fontOverrideName: fontOverrideName
+            )
             let incrementalPath = !widthChanged && !lastBlocks.isEmpty
             if incrementalPath {
                 stv.updateTextStorageIncrementally(
@@ -539,7 +548,8 @@ final class NativeMarkdownView: NSView {
         widthChanged: Bool,
         width: CGFloat,
         theme: any ThemeProtocol,
-        isStreaming: Bool
+        isStreaming: Bool,
+        fontOverrideName: String? = nil
     ) {
         let isPureText = segments.allSatisfy {
             if case .textGroup = $0.kind { return true }; return false
@@ -558,10 +568,18 @@ final class NativeMarkdownView: NSView {
                 widthChanged: widthChanged,
                 width: width,
                 theme: theme,
-                isStreaming: isStreaming
+                isStreaming: isStreaming,
+                fontOverrideName: fontOverrideName
             )
         } else {
-            applyMixedSegments(segments, cacheKey: cacheKey, width: width, theme: theme, isStreaming: isStreaming)
+            applyMixedSegments(
+                segments,
+                cacheKey: cacheKey,
+                width: width,
+                theme: theme,
+                isStreaming: isStreaming,
+                fontOverrideName: fontOverrideName
+            )
         }
     }
 
@@ -574,7 +592,8 @@ final class NativeMarkdownView: NSView {
         widthChanged: Bool,
         width: CGFloat,
         theme: any ThemeProtocol,
-        isStreaming: Bool
+        isStreaming: Bool,
+        fontOverrideName: String? = nil
     ) {
         removeSegmentViews()
 
@@ -584,7 +603,12 @@ final class NativeMarkdownView: NSView {
 
         if textChanged || widthChanged {
             coordinator.cacheKey = cacheKey
-            let stv = SelectableTextView(blocks: blocks, baseWidth: width, theme: theme)
+            let stv = SelectableTextView(
+                blocks: blocks,
+                baseWidth: width,
+                theme: theme,
+                fontOverrideName: fontOverrideName
+            )
             let incrementalPath = !widthChanged && !lastBlocks.isEmpty
             if incrementalPath {
                 stv.updateTextStorageIncrementally(
@@ -642,7 +666,8 @@ final class NativeMarkdownView: NSView {
         cacheKey: String?,
         width: CGFloat,
         theme: any ThemeProtocol,
-        isStreaming: Bool
+        isStreaming: Bool,
+        fontOverrideName: String? = nil
     ) {
         removeTextView()
         lastMixedSegments = segments
@@ -724,7 +749,8 @@ final class NativeMarkdownView: NSView {
                     width: width,
                     theme: theme,
                     cacheKey: cacheKey,
-                    isStreaming: segIsStreaming
+                    isStreaming: segIsStreaming,
+                    fontOverrideName: fontOverrideName
                 )
                 segView = mv
 
@@ -1017,8 +1043,8 @@ final class NativeMarkdownView: NSView {
 
     // MARK: - Theme Fingerprint
 
-    private func makeThemeFingerprint(_ theme: any ThemeProtocol) -> String {
-        "\(theme.primaryFontName)|\(theme.bodySize)|\(theme.codeSize)"
+    private func makeThemeFingerprint(_ theme: any ThemeProtocol, fontOverrideName: String? = nil) -> String {
+        "\(fontOverrideName ?? theme.primaryFontName)|\(theme.bodySize)|\(theme.codeSize)"
     }
 
     // MARK: - Streaming Cursor (interpunct)

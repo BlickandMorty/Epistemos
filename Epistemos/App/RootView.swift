@@ -1,21 +1,15 @@
 import AppKit
-import SwiftData
-import SwiftUI
 #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
 import OsaurusCore
 #endif
+import SwiftData
+import SwiftUI
+import UniformTypeIdentifiers
 
-// ACT = OSAURUS'S OWN UI, RESKINNED (owner 2026-06-22, LOCKED direction — supersedes
-// option (b)): the act surface MOUNTS the genuine Osaurus `ChatView` via
-// `EpistemosOsaurusChatHost` (Osaurus's real landing/thread/composer/panels),
-// reskinned runtime-only to the Epistemos cream/monospace look. It generates
-// IN-PROCESS through Osaurus's `ChatEngine` → `MLXService` + the Epistemos model
-// bridge (so the owner's models work; no HTTP server path). Option (b) mounted the
-// OLD `ChatView` and the owner reported "it IS the same, just with a badge" + send
-// failures — so we mount Osaurus's real UI instead. The 3 grafts (message bar, side
-// panel, scroll-blur) are the owner-reviewed follow-on. OsaurusCore is Pro-only, so
-// the import + the host mount are `#if !EPISTEMOS_APP_STORE`-guarded (MAS keeps the
-// old ChatView).
+// ACT = Epistemos's real chat UI with the Osaurus engine and capability layer
+// recalled into it. Epistemos owns the visible landing, toolbar, message bar,
+// side panel, recent-chat popover, and settings chrome; Osaurus owns the model,
+// streaming, tools, permissions, and management data behind that chrome.
 
 enum LandingToolbarGlyphs {
     static let greetingSymbol = "textformat"
@@ -152,6 +146,843 @@ enum RootViewDestructiveActionSovereignGate {
     }
 }
 
+#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+@MainActor
+enum ActOsaurusNativePromptPresenter {
+    private static var permissionWindow: NSPanel?
+    private static var closeObserver: NSObjectProtocol?
+    private static var keyMonitor: Any?
+    private static var activeResolve: ((EpistemosOsaurusNativeToolPermissionDecision) -> Void)?
+
+    static func install() {
+        EpistemosOsaurusManagementBridge.installNativeToolPermissionPresenter { request in
+            await presentToolPermission(request)
+        }
+        EpistemosOsaurusManagementBridge.installNativeProviderCredentialPresenter { request in
+            await presentProviderCredential(request)
+        }
+        EpistemosOsaurusManagementBridge.installNativePairingPresenter { request in
+            await presentPairing(request)
+        }
+    }
+
+    private static func presentToolPermission(
+        _ request: EpistemosOsaurusNativeToolPermissionRequest
+    ) async -> EpistemosOsaurusNativeToolPermissionDecision {
+        guard let bootstrap = AppBootstrap.shared else { return .deny }
+        return await withCheckedContinuation { continuation in
+            presentToolPermission(
+                request,
+                theme: bootstrap.uiState.theme.surfaceVariant(.mainChat),
+                continuation: continuation
+            )
+        }
+    }
+
+    private static func presentToolPermission(
+        _ request: EpistemosOsaurusNativeToolPermissionRequest,
+        theme: EpistemosTheme,
+        continuation: CheckedContinuation<EpistemosOsaurusNativeToolPermissionDecision, Never>
+    ) {
+        dismissPermissionWindow()
+        var hasResumed = false
+
+        let resolve: (EpistemosOsaurusNativeToolPermissionDecision) -> Void = { decision in
+            guard !hasResumed else { return }
+            hasResumed = true
+            dismissPermissionWindow()
+            continuation.resume(returning: decision)
+        }
+        activeResolve = resolve
+
+        let view = ActNativeToolPermissionPromptView(
+            request: request,
+            theme: theme,
+            onResolve: resolve
+        )
+        .padding(24)
+
+        let hosting = NSHostingController(rootView: view)
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 360),
+            styleMask: [.fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.level = .modalPanel
+        panel.hidesOnDeactivate = false
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.animationBehavior = .alertPanel
+        panel.contentViewController = hosting
+
+        hosting.view.layoutSubtreeIfNeeded()
+        let fitting = hosting.view.fittingSize
+        let size = NSSize(width: max(fitting.width, 520), height: max(fitting.height, 320))
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        if let screen {
+            let visible = screen.visibleFrame
+            let x = visible.origin.x + (visible.width - size.width) / 2
+            let y = visible.origin.y + (visible.height - size.height) / 2
+            panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: false)
+        } else {
+            panel.setContentSize(size)
+            panel.center()
+        }
+
+        permissionWindow = panel
+
+        nonisolated(unsafe) let closeResolve = resolve
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: panel,
+            queue: .main
+        ) { _ in
+            closeResolve(.deny)
+        }
+
+        nonisolated(unsafe) let keyResolve = resolve
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            switch event.keyCode {
+            case 36:
+                keyResolve(.allowOnce)
+                return nil
+            case 53:
+                keyResolve(.deny)
+                return nil
+            default:
+                return event
+            }
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            panel.makeKey()
+            if let contentView = panel.contentView {
+                panel.makeFirstResponder(contentView)
+            }
+        }
+    }
+
+    private static func dismissPermissionWindow() {
+        activeResolve = nil
+        if let observer = closeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            closeObserver = nil
+        }
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyMonitor = nil
+        }
+        permissionWindow?.orderOut(nil)
+        permissionWindow = nil
+    }
+
+    private static var providerWindow: NSPanel?
+    private static var providerCloseObserver: NSObjectProtocol?
+    private static var providerKeyMonitor: Any?
+
+    private static func presentProviderCredential(
+        _ request: ProviderCredentialRequest
+    ) async -> ProviderCredentialResult? {
+        guard supportsNativeProviderCredentialPrompt(request),
+              let bootstrap = AppBootstrap.shared
+        else { return nil }
+        return await withCheckedContinuation { continuation in
+            presentProviderCredential(
+                request,
+                theme: bootstrap.uiState.theme.surfaceVariant(.mainChat),
+                continuation: continuation
+            )
+        }
+    }
+
+    private static func supportsNativeProviderCredentialPrompt(_ request: ProviderCredentialRequest) -> Bool {
+        request.instructions.authMethod == .apiKey
+            || request.instructions.storageAuthType == .apiKey
+            || request.instructions.storageAuthType == .none
+    }
+
+    private static func presentProviderCredential(
+        _ request: ProviderCredentialRequest,
+        theme: EpistemosTheme,
+        continuation: CheckedContinuation<ProviderCredentialResult?, Never>
+    ) {
+        dismissProviderWindow()
+        var hasResumed = false
+
+        let resolve: (ProviderCredentialResult?) -> Void = { result in
+            guard !hasResumed else { return }
+            hasResumed = true
+            dismissProviderWindow()
+            continuation.resume(returning: result)
+        }
+
+        let view = ActNativeProviderCredentialPromptView(
+            request: request,
+            theme: theme,
+            onResolve: resolve
+        )
+        .padding(24)
+
+        let hosting = NSHostingController(rootView: view)
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 430),
+            styleMask: [.fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.level = .modalPanel
+        panel.hidesOnDeactivate = false
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.animationBehavior = .alertPanel
+        panel.contentViewController = hosting
+
+        hosting.view.layoutSubtreeIfNeeded()
+        let fitting = hosting.view.fittingSize
+        let size = NSSize(width: max(fitting.width, 560), height: max(fitting.height, 360))
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        if let screen {
+            let visible = screen.visibleFrame
+            let x = visible.origin.x + (visible.width - size.width) / 2
+            let y = visible.origin.y + (visible.height - size.height) / 2
+            panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: false)
+        } else {
+            panel.setContentSize(size)
+            panel.center()
+        }
+
+        providerWindow = panel
+
+        nonisolated(unsafe) let closeResolve = resolve
+        providerCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: panel,
+            queue: .main
+        ) { _ in
+            closeResolve(.cancelled)
+        }
+
+        nonisolated(unsafe) let keyResolve = resolve
+        providerKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 {
+                keyResolve(.cancelled)
+                return nil
+            }
+            return event
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            panel.makeKey()
+            if let contentView = panel.contentView {
+                panel.makeFirstResponder(contentView)
+            }
+        }
+    }
+
+    private static func dismissProviderWindow() {
+        if let observer = providerCloseObserver {
+            NotificationCenter.default.removeObserver(observer)
+            providerCloseObserver = nil
+        }
+        if let monitor = providerKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            providerKeyMonitor = nil
+        }
+        providerWindow?.orderOut(nil)
+        providerWindow = nil
+    }
+
+    private static var pairingWindow: NSPanel?
+    private static var pairingCloseObserver: NSObjectProtocol?
+    private static var pairingKeyMonitor: Any?
+
+    private static func presentPairing(
+        _ request: EpistemosOsaurusNativePairingRequest
+    ) async -> EpistemosOsaurusNativePairingDecision {
+        guard let bootstrap = AppBootstrap.shared else { return .deny }
+        let decision = await withCheckedContinuation { continuation in
+            presentPairing(
+                request,
+                theme: bootstrap.uiState.theme.surfaceVariant(.mainChat),
+                continuation: continuation
+            )
+        }
+
+        switch decision {
+        case .approveTemporary, .approvePermanent:
+            let outcome = await bootstrap.sovereignGate.confirm(
+                .deviceOwnerAuthentication,
+                reason: "Approve pairing with \(request.agentName.isEmpty ? "this remote Osaurus agent" : request.agentName)."
+            )
+            return outcome == .allowed ? decision : .deny
+        case .deny:
+            return .deny
+        }
+    }
+
+    private static func presentPairing(
+        _ request: EpistemosOsaurusNativePairingRequest,
+        theme: EpistemosTheme,
+        continuation: CheckedContinuation<EpistemosOsaurusNativePairingDecision, Never>
+    ) {
+        dismissPairingWindow()
+        var hasResumed = false
+
+        let resolve: (EpistemosOsaurusNativePairingDecision) -> Void = { decision in
+            guard !hasResumed else { return }
+            hasResumed = true
+            dismissPairingWindow()
+            continuation.resume(returning: decision)
+        }
+
+        let view = ActNativePairingPromptView(
+            request: request,
+            theme: theme,
+            onResolve: resolve
+        )
+        .padding(24)
+
+        let hosting = NSHostingController(rootView: view)
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 370),
+            styleMask: [.fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.level = .modalPanel
+        panel.hidesOnDeactivate = false
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.animationBehavior = .alertPanel
+        panel.contentViewController = hosting
+
+        hosting.view.layoutSubtreeIfNeeded()
+        let fitting = hosting.view.fittingSize
+        let size = NSSize(width: max(fitting.width, 540), height: max(fitting.height, 340))
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        if let screen {
+            let visible = screen.visibleFrame
+            let x = visible.origin.x + (visible.width - size.width) / 2
+            let y = visible.origin.y + (visible.height - size.height) / 2
+            panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: false)
+        } else {
+            panel.setContentSize(size)
+            panel.center()
+        }
+
+        pairingWindow = panel
+
+        nonisolated(unsafe) let closeResolve = resolve
+        pairingCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: panel,
+            queue: .main
+        ) { _ in
+            closeResolve(.deny)
+        }
+
+        nonisolated(unsafe) let keyResolve = resolve
+        pairingKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 {
+                keyResolve(.deny)
+                return nil
+            }
+            return event
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            panel.makeKey()
+            if let contentView = panel.contentView {
+                panel.makeFirstResponder(contentView)
+            }
+        }
+    }
+
+    private static func dismissPairingWindow() {
+        if let observer = pairingCloseObserver {
+            NotificationCenter.default.removeObserver(observer)
+            pairingCloseObserver = nil
+        }
+        if let monitor = pairingKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            pairingKeyMonitor = nil
+        }
+        pairingWindow?.orderOut(nil)
+        pairingWindow = nil
+    }
+}
+
+private struct ActNativeToolPermissionPromptView: View {
+    let request: EpistemosOsaurusNativeToolPermissionRequest
+    let theme: EpistemosTheme
+    let onResolve: (EpistemosOsaurusNativeToolPermissionDecision) -> Void
+
+    private var cleanedDescription: String {
+        let trimmed = request.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "This Osaurus tool action needs your approval." : trimmed
+    }
+
+    private var prettyArguments: String {
+        let trimmed = request.argumentsJSON.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let data = trimmed.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let pretty = try? JSONSerialization.data(
+                withJSONObject: object,
+                options: [.prettyPrinted, .sortedKeys]
+              )
+        else {
+            return trimmed
+        }
+        return String(decoding: pretty, as: UTF8.self)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "terminal.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .frame(width: 28, height: 28)
+                    .background(theme.resolved.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Approve Act Tool")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(theme.resolved.foreground.color)
+                    Text(request.toolName)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                Spacer()
+            }
+
+            Text(cleanedDescription)
+                .font(.system(size: 13))
+                .foregroundStyle(theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !prettyArguments.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Arguments", systemImage: "curlybraces")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(theme.textTertiary)
+
+                    ScrollView([.vertical, .horizontal]) {
+                        Text(prettyArguments)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
+                            .textSelection(.enabled)
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 148)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    onResolve(.deny)
+                } label: {
+                    Label("Deny", systemImage: "xmark")
+                        .frame(minWidth: 80, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button {
+                    onResolve(.alwaysAllow)
+                } label: {
+                    Label("Always", systemImage: "checkmark.seal")
+                        .frame(minWidth: 98, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
+
+                Button {
+                    onResolve(.allowOnce)
+                } label: {
+                    Label("Allow", systemImage: "checkmark")
+                        .frame(minWidth: 90, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .primary))
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
+        .frame(width: 430)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(theme.card.opacity(theme.isDark ? 0.96 : 0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(.regularMaterial)
+                        .opacity(theme.isDark ? 0.14 : 0.36)
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.border.opacity(theme.isDark ? 0.56 : 0.42), lineWidth: 0.8)
+        }
+        .shadow(color: .black.opacity(theme.isDark ? 0.34 : 0.18), radius: 24, y: 12)
+    }
+}
+
+private struct ActPermissionPanelButtonStyle: ButtonStyle {
+    enum Role {
+        case primary
+        case secondary
+    }
+
+    let theme: EpistemosTheme
+    let role: Role
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .foregroundStyle(role == .primary ? Color.white : theme.textSecondary)
+            .padding(.horizontal, 8)
+            .background(background(configuration.isPressed), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(border, lineWidth: 0.75)
+            }
+    }
+
+    private var border: Color {
+        role == .primary ? theme.resolved.accent.color.opacity(0.28) : theme.border.opacity(0.48)
+    }
+
+    private func background(_ isPressed: Bool) -> Color {
+        switch role {
+        case .primary:
+            return theme.resolved.accent.color.opacity(isPressed ? 0.74 : 0.94)
+        case .secondary:
+            return theme.resolved.foreground.color.opacity(isPressed ? 0.10 : 0.055)
+        }
+    }
+}
+
+private struct ActNativeProviderCredentialPromptView: View {
+    let request: ProviderCredentialRequest
+    let theme: EpistemosTheme
+    let onResolve: (ProviderCredentialResult?) -> Void
+
+    @State private var apiKey = ""
+    @State private var extraFieldValues: [String: String] = [:]
+
+    private var requiresAPIKey: Bool {
+        request.instructions.storageAuthType != .none
+    }
+
+    private var canSave: Bool {
+        if requiresAPIKey && apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return false
+        }
+        return request.instructions.extraFields
+            .filter(\.isRequired)
+            .allSatisfy { field in
+                !(extraFieldValues[field.key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "key.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .frame(width: 28, height: 28)
+                    .background(theme.resolved.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(providerTitle)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(theme.resolved.foreground.color)
+                    Text("Stored in Osaurus Keychain")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                Spacer()
+            }
+
+            if let hint = request.instructions.keyFormatHint, !hint.isEmpty {
+                Text(hint)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                if requiresAPIKey {
+                    fieldLabel("API Key")
+                    SecureField("Paste key", text: $apiKey)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13, design: .monospaced))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 9)
+                        .background(inputBackground)
+                        .overlay(inputBorder)
+                } else {
+                    Text("This provider can be saved without a key.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.textSecondary)
+                }
+
+                ForEach(request.instructions.extraFields, id: \.key) { field in
+                    VStack(alignment: .leading, spacing: 6) {
+                        fieldLabel(field.label + (field.isRequired ? "" : " (optional)"))
+                        TextField(
+                            field.placeholder,
+                            text: Binding(
+                                get: { extraFieldValues[field.key] ?? "" },
+                                set: { extraFieldValues[field.key] = $0 }
+                            )
+                        )
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 9)
+                        .background(inputBackground)
+                        .overlay(inputBorder)
+
+                        if let help = field.helpText, !help.isEmpty {
+                            Text(help)
+                                .font(.system(size: 11))
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    onResolve(.cancelled)
+                } label: {
+                    Label("Cancel", systemImage: "xmark")
+                        .frame(minWidth: 92, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button {
+                    onResolve(.apiKey(key: apiKey.trimmingCharacters(in: .whitespacesAndNewlines), headers: collectedExtraHeaders()))
+                } label: {
+                    Label("Save", systemImage: "checkmark")
+                        .frame(minWidth: 94, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .primary))
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSave)
+            }
+        }
+        .padding(16)
+        .frame(width: 460)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(theme.card.opacity(theme.isDark ? 0.96 : 0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(.regularMaterial)
+                        .opacity(theme.isDark ? 0.14 : 0.36)
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.border.opacity(theme.isDark ? 0.56 : 0.42), lineWidth: 0.8)
+        }
+        .shadow(color: .black.opacity(theme.isDark ? 0.34 : 0.18), radius: 24, y: 12)
+    }
+
+    private var providerTitle: String {
+        switch request.mode {
+        case .addNew:
+            return "Connect \(request.instructions.displayName)"
+        case .rotate:
+            return "Update \(request.instructions.displayName)"
+        }
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(theme.textTertiary)
+    }
+
+    private var inputBackground: some View {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
+    }
+
+    private var inputBorder: some View {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
+    }
+
+    private func collectedExtraHeaders() -> [String: String]? {
+        let pairs = request.instructions.extraFields.compactMap { field -> (String, String)? in
+            let value = (extraFieldValues[field.key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : (field.key, value)
+        }
+        return pairs.isEmpty ? nil : Dictionary(uniqueKeysWithValues: pairs)
+    }
+}
+
+private struct ActNativePairingPromptView: View {
+    let request: EpistemosOsaurusNativePairingRequest
+    let theme: EpistemosTheme
+    let onResolve: (EpistemosOsaurusNativePairingDecision) -> Void
+
+    private var agentName: String {
+        let trimmed = request.agentName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Remote Osaurus Agent" : trimmed
+    }
+
+    private var shortAddress: String {
+        let address = request.connectorAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard address.count > 22 else { return address }
+        return "\(address.prefix(10))...\(address.suffix(8))"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .frame(width: 28, height: 28)
+                    .background(theme.resolved.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Approve Act Pairing")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(theme.resolved.foreground.color)
+                    Text(agentName)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("A remote Osaurus agent wants to pair with Epistemos Act.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(theme.textSecondary)
+                Text("Approving grants an access credential. Epistemos will ask for device authentication before the pairing is accepted.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Label("Connector", systemImage: "link")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(theme.textTertiary)
+                Text(shortAddress)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
+                    .textSelection(.enabled)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
+                    }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    onResolve(.deny)
+                } label: {
+                    Label("Deny", systemImage: "xmark")
+                        .frame(minWidth: 84, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button {
+                    onResolve(.approveTemporary)
+                } label: {
+                    Label("Allow Once", systemImage: "checkmark")
+                        .frame(minWidth: 108, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
+
+                Button {
+                    onResolve(.approvePermanent)
+                } label: {
+                    Label("Remember", systemImage: "checkmark.seal")
+                        .frame(minWidth: 112, minHeight: 30)
+                }
+                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .primary))
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
+        .frame(width: 450)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(theme.card.opacity(theme.isDark ? 0.96 : 0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(.regularMaterial)
+                        .opacity(theme.isDark ? 0.14 : 0.36)
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.border.opacity(theme.isDark ? 0.56 : 0.42), lineWidth: 0.8)
+        }
+        .shadow(color: .black.opacity(theme.isDark ? 0.34 : 0.18), radius: 24, y: 12)
+    }
+}
+#endif
+
 private struct HomeWindowIdentityObserver: NSViewRepresentable {
     let themeIsDark: Bool
 
@@ -213,7 +1044,9 @@ struct RootView: View {
     @State private var showGreetingControls = false
     @State private var showWorkspaceSwitcher = false
     @State private var showTimeMachine = false
-
+    @State private var actEntered = ProcessInfo.processInfo.environment["EPI_ACT_ENTERED"] == "1"
+    @State private var selectedActSessionId: UUID?
+    @State private var pendingActPrompt: PendingActPrompt?
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
     /// Only delays the *reveal*; hiding is always immediate.
@@ -224,6 +1057,7 @@ struct RootView: View {
         ui.homeTab == .home
             && !chat.showLanding
             && !chat.messages.isEmpty
+            && !showingActChatSurface
     }
 
     private var embeddedHomeGraphContentVisible: Bool {
@@ -240,30 +1074,32 @@ struct RootView: View {
         return false
     }
 
-    /// True when the Pro act surface (the Osaurus chat HOST) owns the home tab — i.e.
-    /// act routes through Osaurus (default-on Pro). The host owns its OWN chrome
-    /// (landing/composer/thread/sidebar) + message state, so `chat.messages` stays empty
-    /// and RootView would otherwise treat this as the Epistemos landing and paint the
-    /// landing toolbar (the "search bar" + its `.automatic` glass background) OVER the
-    /// Osaurus surface — that leaked toolbar is BOTH the "white bar at the top" AND the
-    /// "click opens the search bar, not the Osaurus landing" bug (owner 2026-06-22).
-    /// Re-applies d427ee60d after option-(b) reverted it + the host re-mount (41081f4f9);
-    /// corrected condition — the host now mounts whenever act is Osaurus-routed (not only
-    /// `!chat.showLanding`), so suppression must match that, else the bug recurs on the
-    /// landing state. Auditor pass-30 watch-item.
-    private var showingOsaurusSurface: Bool {
+    /// True when the user is inside Act chat. The landing and chat surface stay
+    /// Epistemos-native; Osaurus is only the model/tool/permission layer below it.
+    private var showingActChatSurface: Bool {
         #if EPISTEMOS_APP_STORE
         return false
         #else
-        return ui.homeTab == .home && LocalAgentLoop.shouldRouteActThroughOsaurus()
+        return ui.homeTab == .home && LocalAgentLoop.shouldRouteActThroughOsaurus() && actEntered
+        #endif
+    }
+
+    private var actLandingSurfaceVisible: Bool {
+        #if EPISTEMOS_APP_STORE
+        return false
+        #else
+        return ui.homeTab == .home
+            && WorkspaceModeSelection.current() == .act
+            && LocalAgentLoop.shouldRouteActThroughOsaurus()
+            && !actEntered
         #endif
     }
 
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
             && !embeddedHomeGraphContentVisible
-            && (chat.showLanding || chat.messages.isEmpty)
-            && !showingOsaurusSurface
+            && (chat.showLanding || chat.messages.isEmpty || actLandingSurfaceVisible)
+            && !showingActChatSurface
     }
 
     private var showEmbeddedGraphToolbarControls: Bool {
@@ -279,6 +1115,7 @@ struct RootView: View {
         if embeddedHomeGraphContentVisible {
             return embeddedHomeGraphNoteVisible
         }
+        if showingActChatSurface { return true }
         return activeHomeChat && homeChatToolbarReady
     }
 
@@ -303,7 +1140,11 @@ struct RootView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            ContentRouter()
+            ContentRouter(
+                actEntered: $actEntered,
+                selectedActSessionId: $selectedActSessionId,
+                pendingActPrompt: $pendingActPrompt
+            )
         }
         .background(HomeWindowIdentityObserver(themeIsDark: ui.theme.isDark))
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: activeHomeChat)
@@ -320,11 +1161,17 @@ struct RootView: View {
             HologramController.shared.syncTheme(ui)
         }
         .toolbar {
-            // Back button — only during active chat on Home tab
-            if !embeddedHomeGraphContentVisible && ui.homeTab == .home && activeHomeChat {
+            // Back button — during an active home chat or after entering Act from the landing.
+            if !embeddedHomeGraphContentVisible && ui.homeTab == .home && (activeHomeChat || showingActChatSurface) {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        chat.goHome()
+                        if showingActChatSurface {
+                            actEntered = false
+                            selectedActSessionId = nil
+                            pendingActPrompt = nil
+                        } else {
+                            chat.goHome()
+                        }
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                     }
@@ -332,7 +1179,12 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            if showLandingToolbarControls
+            if showingActChatSurface {
+                ToolbarItem(placement: .principal) {
+                    modelToolbarButton(title: actToolbarTitle)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            } else if showLandingToolbarControls
                 || showEmbeddedGraphToolbarControls
                 || (!embeddedHomeGraphContentVisible && activeHomeChat)
             {
@@ -343,6 +1195,16 @@ struct RootView: View {
                     (ui.homeTab == .home && activeHomeChat)
                         ? .hidden : .automatic
                 )
+            }
+            if showingActChatSurface {
+                ToolbarItem(placement: .primaryAction) {
+                    ControlGroup {
+                        historyToolbarButton
+                        settingsToolbarButton
+                        actMiniChatToolbarButton
+                        actExportToolbarButton
+                    }
+                }
             }
         }
         .navigationTitle("")
@@ -483,14 +1345,10 @@ struct RootView: View {
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
             if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
-                // SS-GC (owner 2026-06-20): KEEP the pill mounted on the graph — a principal
-                // ToolbarItem is load-bearing for the window's CURVED corners (drop it and the
-                // window regresses to square). So do NOT blur the pill away on the graph (that
-                // defeats "keep it"); SWAP its contents to be PAGE-RELEVANT instead. Settings
-                // shows in BOTH states (≥1 button preserves the curve); the landing greeting +
-                // the recent-chats (history) button are landing-ONLY — the latter per owner
-                // ("it caused issues; I only want it on the landing page"). This REVISES the
-                // earlier SS-AN pill blur-out (the pill no longer fades fully away on graph).
+                // Keep the pill mounted on the graph — a principal ToolbarItem is load-bearing
+                // for the window's curved corners. Settings shows in every pill state; greeting
+                // and recent chats stay with Home/Act page chrome, and the recent control is a
+                // single route-aware button instead of separate landing/chat implementations.
                 ControlGroup {
                     settingsToolbarButton
                     if !embeddedHomeGraphContentVisible {
@@ -510,18 +1368,27 @@ struct RootView: View {
     }
 
     private var settingsToolbarButton: some View {
-        Button(action: openSettingsWindow) {
+        Button(action: openContextualSettingsWindow) {
             Label("Settings", systemImage: "gearshape")
         }
         .accessibilityLabel("Settings")
         .help("Settings (⌘S)")
     }
 
+    private var actToolbarTitle: String {
+        let title = chat.chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return title.isEmpty ? "Act" : title
+    }
+
     @ViewBuilder
     private func modelToolbarButton(title: String? = nil) -> some View {
-        Text(title ?? chat.chatTitle ?? "")
-            .font(.system(size: 16, weight: .semibold, design: .rounded))
-            .foregroundStyle(ui.theme.textPrimary)
+        let resolvedTitle = title ?? chat.chatTitle ?? ""
+        MotionTitle(
+            text: resolvedTitle,
+            font: .system(size: 16, weight: .semibold, design: .rounded),
+            color: ui.theme.textPrimary
+        )
+            .id(resolvedTitle)
             .lineLimit(1)
             .truncationMode(.middle)
             .fixedSize()
@@ -531,6 +1398,15 @@ struct RootView: View {
     private func openSettingsWindow() {
         UtilityWindowManager.shared.show(.settings)
         NSApp.activate()
+    }
+
+    private func openContextualSettingsWindow() {
+        openSettingsWindow()
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        if showingActChatSurface || actLandingSurfaceVisible {
+            NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
+        }
+        #endif
     }
 
     private var landingGreetingToolbarButton: some View {
@@ -558,10 +1434,223 @@ struct RootView: View {
         .accessibilityLabel("Chat History")
         .help("Chat History (⇧⌘H)")
         .popover(isPresented: $ui.showChatSidebar) {
-            ChatSidebarView()
+            historyPopoverContent
                 .frame(width: 300, height: 500)
                 .preferredColorScheme(ui.preferredColorScheme)
         }
+    }
+
+    private var actMiniChatToolbarButton: some View {
+        Button(action: openCurrentActInMiniChat) {
+            Label("Open in Mini Chat", systemImage: "arrow.up.right.square")
+        }
+        .accessibilityLabel("Open Act in Mini Chat")
+        .help("Open Act in Mini Chat")
+    }
+
+    private var actExportToolbarButton: some View {
+        Button(action: exportCurrentActTranscript) {
+            Label("Export", systemImage: "square.and.arrow.up")
+        }
+        .accessibilityLabel("Export Act Chat")
+        .help("Export Act Chat")
+        .disabled(chat.messages.isEmpty)
+    }
+
+    private func openCurrentActInMiniChat() {
+        if let activeChatId = chat.activeChatId {
+            MiniChatWindowController.shared.openChat(
+                activeChatId,
+                preferredOperatingMode: .agent
+            )
+        } else {
+            MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
+        }
+    }
+
+    private func exportCurrentActTranscript() {
+        guard !chat.messages.isEmpty else { return }
+        ChatTextExportSupport.save(
+            actTranscriptMarkdown(),
+            suggestedFilename: "act-chat-\(Date().formatted(.iso8601.year().month().day())).md",
+            contentType: .plainText
+        )
+    }
+
+    private func actTranscriptMarkdown() -> String {
+        let title = chat.chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let heading = title.isEmpty ? "Act Chat Export" : title
+        let lines = chat.messages.map { message in
+            let role = message.role == .user ? "You" : "Assistant"
+            return "## \(role)\n\n\(ChatPresentationFormatter.displayContent(for: message))"
+        }
+        return "# \(heading)\n\n\(lines.joined(separator: "\n\n---\n\n"))"
+    }
+
+    @ViewBuilder
+    private var historyPopoverContent: some View {
+        if showingActChatSurface || actLandingSurfaceVisible {
+            ChatSidebarView {
+                pendingActPrompt = nil
+                withAnimation(.easeOut(duration: 0.28)) {
+                    actEntered = true
+                }
+            }
+        } else {
+            ChatSidebarView()
+        }
+    }
+}
+
+private struct PendingActPrompt {
+    let id = UUID()
+    let text: String
+    var contextAttachments: [ContextAttachment] = []
+    var fileAttachments: [FileAttachment] = []
+}
+
+struct ActEpistemosChatSurface: View {
+    @Environment(UIState.self) private var ui
+    @Environment(ChatState.self) private var chat
+    @Environment(OrchestratorState.self) private var orchestrator
+    @Environment(InferenceState.self) private var inference
+
+    let sessionId: UUID?
+    let initialPrompt: String?
+    let initialPromptId: UUID?
+    var initialContextAttachments: [ContextAttachment] = []
+    var initialFileAttachments: [FileAttachment] = []
+    let onInitialPromptConsumed: () -> Void
+    var onCurrentSessionChanged: (UUID?) -> Void = { _ in }
+
+    @State private var consumedInitialPromptId: UUID?
+
+    var body: some View {
+        ChatView(
+            actUsesOsaurus: true,
+            availableOperatingModesOverride: [.agent],
+            composerMode: .osaurusAct,
+            showsToolbarControls: false,
+            onOpenActConfiguration: openActConfiguration
+        )
+        .background(AppWindowBackdropStyle.background(for: ui.theme).ignoresSafeArea())
+        .onAppear {
+            loadRequestedSessionIfNeeded()
+            publishCurrentSession()
+        }
+        .onChange(of: sessionId) { _, _ in
+            loadRequestedSessionIfNeeded()
+            publishCurrentSession()
+        }
+        .onChange(of: chat.activeChatId) { _, _ in
+            publishCurrentSession()
+        }
+        .task(id: initialPromptId) {
+            await submitInitialPromptIfNeeded()
+        }
+    }
+
+    private func loadRequestedSessionIfNeeded() {
+        guard let sessionId else { return }
+        let chatId = sessionId.uuidString
+        guard chat.activeChatId != chatId else { return }
+        AppBootstrap.shared?.loadChat(chatId: chatId)
+        loadLegacyOsaurusTranscriptIfNeeded(sessionId)
+    }
+
+    private func loadLegacyOsaurusTranscriptIfNeeded(_ sessionId: UUID) {
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        let chatId = sessionId.uuidString
+        guard chat.activeChatId != chatId || chat.messages.isEmpty,
+              let transcript = EpistemosOsaurusSessionBridge.loadTranscript(id: sessionId)
+        else { return }
+
+        let messages = transcript.messages.compactMap { message -> ChatMessage? in
+            switch message.role {
+            case .user:
+                return ChatMessage(
+                    id: message.id.uuidString,
+                    chatId: chatId,
+                    role: .user,
+                    content: message.content,
+                    createdAt: message.createdAt ?? .now
+                )
+            case .assistant:
+                return ChatMessage(
+                    id: message.id.uuidString,
+                    chatId: chatId,
+                    role: .assistant,
+                    content: ActOsaurusVisibleStreamFilter.visibleStoredText(from: message.content),
+                    createdAt: message.createdAt ?? message.completedAt ?? .now,
+                    authoredByProviderID: "act",
+                    authoredByModelID: transcript.selectedModel,
+                    resolvedModelLabel: actResolvedModelLabel(for: transcript.selectedModel),
+                    thinkingTrace: message.thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? nil
+                        : message.thinking,
+                    thinkingDurationSeconds: message.thinkingDuration
+                )
+            case .tool, .system:
+                return nil
+            }
+        }
+
+        chat.setCurrentChat(chatId)
+        let title = transcript.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        chat.chatTitle = title.isEmpty ? "Act" : title
+        chat.loadMessages(messages)
+        #endif
+    }
+
+    private func actResolvedModelLabel(for selectedModel: String?) -> String {
+        guard let selectedModel = selectedModel?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !selectedModel.isEmpty
+        else { return "Act" }
+        return "Act · \(selectedModel)"
+    }
+
+    private func submitInitialPromptIfNeeded() async {
+        guard let initialPromptId,
+              consumedInitialPromptId != initialPromptId
+        else { return }
+        consumedInitialPromptId = initialPromptId
+        loadRequestedSessionIfNeeded()
+
+        for attachment in initialContextAttachments {
+            chat.addContextAttachment(attachment)
+        }
+        for attachment in initialFileAttachments {
+            chat.addAttachment(attachment)
+        }
+
+        let prompt = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        onInitialPromptConsumed()
+        guard !prompt.isEmpty else { return }
+
+        MainChatSubmissionRouter.submit(
+            prompt,
+            operatingMode: .agent,
+            chat: chat,
+            orchestrator: orchestrator,
+            inference: inference,
+            forceActOsaurus: true
+        )
+        publishCurrentSession()
+    }
+
+    private func publishCurrentSession() {
+        if let activeChatId = chat.activeChatId,
+           let activeUUID = UUID(uuidString: activeChatId) {
+            onCurrentSessionChanged(activeUUID)
+        } else {
+            onCurrentSessionChanged(sessionId)
+        }
+    }
+
+    private func openActConfiguration() {
+        UtilityWindowManager.shared.show(.settings)
+        NSApp.activate()
+        NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
     }
 }
 
@@ -1549,7 +2638,6 @@ struct LocalModelToolbarMenu: View {
     /// Routing, per-model details, cloud provider/model setup, and Temporary
     /// Chat fold away under a single collapsed "Advanced" disclosure, so the
     /// chooser reads as "pick an effort," not "configure a runtime."
-    @ViewBuilder
     // MARK: - P1.11 rebuilt runtime picker (explicit Fast/Think/Code picks)
 
     /// Live inputs for `EpistemosRuntimePicker`, read off `InferenceState`. Free
@@ -2639,12 +3727,20 @@ private struct AuditRootShellMinimalContentView: View {
     }
 }
 
-struct ContentRouter: View {
+private struct ContentRouter: View {
+    @Binding var actEntered: Bool
+    @Binding var selectedActSessionId: UUID?
+    @Binding var pendingActPrompt: PendingActPrompt?
+
     var body: some View {
         if RuntimeAuditRootFlags.rootShellMinimalContentEnabled {
             AuditRootShellMinimalContentView()
         } else {
-            HomeRouter()
+            HomeRouter(
+                actEntered: $actEntered,
+                selectedActSessionId: $selectedActSessionId,
+                pendingActPrompt: $pendingActPrompt
+            )
         }
     }
 }
@@ -2655,25 +3751,24 @@ struct ContentRouter: View {
 
 private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
+    @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Binding var actEntered: Bool
+    @Binding var selectedActSessionId: UUID?
+    @Binding var pendingActPrompt: PendingActPrompt?
 
-    /// act↔work surface toggle (owner: "a toggle to open work") — a NEW feature
-    /// surfaced in the old UI (option (b) permits new UI for new capabilities).
-    /// Act = the old Epistemos chat driven by the Osaurus engine; Work = OpenCode's
-    /// native terminal. Persisted via `WorkspaceModeSelection`.
+    /// act↔work surface toggle (owner: "a toggle to open work"). Act keeps the
+    /// Epistemos landing/chat surface and routes model/tool capability through
+    /// Osaurus underneath; Work enters OpenCode's native terminal. Persisted via
+    /// `WorkspaceModeSelection`.
     @State private var workspaceMode: WorkspaceModeKind = WorkspaceModeSelection.current()
 
-    /// D2 (owner P0, addendum §1886 + landing→blur→act flow): the act surface shows the
-    /// Epistemos `LandingView` FIRST (replacing Osaurus's own "Good afternoon" default landing —
-    /// SYNTHESIS §2 "drop Osaurus landing-blocks → native Epistemos"). A clean press enters the
-    /// Osaurus act host (blur transition). Per-session: false on launch (landing first), set true
-    /// once entered. The host owns the certified send path (0.4); entering via a gesture keeps
-    /// send reachable without first-message state-bridging (that refinement is a follow-on step).
-    // VERIFY HOOK: env `EPI_ACT_ENTERED=1` starts IN the act host so the loop can render-verify
-    // the host state (D5 chrome / D6 back) WITHOUT a SwiftUI button click (System Events cannot
-    // tap SwiftUI buttons). Default (env unset) = false → Epistemos landing first; behavior unchanged.
-    @State private var actEntered = ProcessInfo.processInfo.environment["EPI_ACT_ENTERED"] == "1"
-
+    /// D2 (owner P0, addendum §1886 + landing→blur→act flow): Act shows the
+    /// Epistemos `LandingView` first. Background/search-tile interaction reveals
+    /// the centered search stage; submitting enters the Epistemos chat surface
+    /// with Osaurus capability routed underneath. Per-session: false on launch
+    /// (landing first), true once entered.
+    // VERIFY HOOK: env `EPI_ACT_ENTERED=1` starts in the Act chat chrome for render checks.
     /// The work terminal roots at the user's home by default.
     private static var workWorkspaceURL: URL { URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true) }
 
@@ -2682,12 +3777,9 @@ private struct HomeRouter: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // ACT = OLD EPISTEMOS UI, DRIVEN BY OSAURUS (option (b), owner
-            // 2026-06-22 confirmed): the act surface is the genuine old Epistemos
-            // `ChatView` (landing/thread/message-bar/sidebar — "faithful by
-            // construction"); its inference routes through the Osaurus engine via
-            // `LocalAgentLoop.shouldRouteActThroughOsaurus` (default-on). WORK =
-            // OpenCode's native terminal. The act↔work toggle switches the surface.
+            // ACT = Epistemos chat/search surface backed by Osaurus capability.
+            // WORK = OpenCode's native terminal. The act↔work toggle switches
+            // the surface.
             Group {
                 #if EPISTEMOS_APP_STORE
                 // MAS: act-only — the SwiftTerm/OpenCode work terminal is Pro-only.
@@ -2701,34 +3793,14 @@ private struct HomeRouter: View {
                     WorkTerminalHostView(workspace: Self.workWorkspaceURL)
                         .transition(.blurFade())
                 } else if LocalAgentLoop.shouldRouteActThroughOsaurus() {
-                    // ACT = Osaurus's OWN UI, reskinned (locked direction). The genuine
-                    // vendored Osaurus chat surface — loads + works + is visibly Osaurus —
-                    // not the old ChatView with a badge. Generates in-process; owner's models
-                    // work via the bridge. Replaces option-(b)'s old-ChatView mount for act.
-                    // D2/§1886: Epistemos LandingView FIRST → press → blur → act host.
+                    // Epistemos LandingView FIRST -> centered search -> submit -> Epistemos chat.
                     if actEntered {
-                        // ACT ARCHITECTURE PIVOT (owner P0 §1994/§2029): NATIVE Epistemos act view
-                        // (cream/monospace by construction — no theme cascade) driving the Osaurus
-                        // ENGINE in-process via the CERTIFIED 0.4 link (`OsaurusActBridge.
-                        // runTurnStreamingInProcess` → CoreModelService.generateStream). This is
-                        // "fresh native views" — NOT the mounted Osaurus ChatView (the wall) and
-                        // NOT the old Epistemos ChatView (option-b). Native toolbar carries D6 back + D3 pill.
-                        NativeActChatView(onBack: {
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
-                                actEntered = false
-                            }
-                        })
-                        .transition(.blurFade())
+                        actEpistemosChatSurface
+                            .transition(.blurFade())
                     } else {
-                        // THE ONE CRISP TARGET (owner P0 §2048): native CREAM landing in native
-                        // chrome (cream + toolbar + pill), CLICK-ANYWHERE → ACT (NO search page).
-                        // Fresh native view (§2029) — cream by construction; replaces the dark
-                        // search-first LandingView on the act surface.
-                        // FINAL ACT-UI (owner §2073 + pass68b REGRESSION fix): the REAL rich
-                        // Epistemos LandingView is home (NOT the minimal NativeActLandingView —
-                        // that replacement was the regression). A background tap ENTERS ACT
-                        // (onEnterAct → actEntered); act = a MODE entered from the landing.
-                        LandingView(onEnterAct: {
+                        LandingView(onSubmitActPrompt: { prompt in
+                            selectedActSessionId = nil
+                            pendingActPrompt = PendingActPrompt(text: prompt)
                             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
                                 actEntered = true
                             }
@@ -2736,7 +3808,6 @@ private struct HomeRouter: View {
                         .transition(.blurFade())
                     }
                 } else if showChat {
-                    // Fallback (act not Osaurus-routed — rare on Pro): the old surface.
                     ChatView().transition(.blurFade())
                 } else {
                     LandingView().transition(.blurFade())
@@ -2745,9 +3816,9 @@ private struct HomeRouter: View {
             }
 
             #if !EPISTEMOS_APP_STORE
-            // Persistent act↔work toggle so the user can switch from any surface;
+            // Persistent act↔work toggle so the user can switch from launch/landing;
             // hidden during an active act chat so it never overlays the thread.
-            if !(showChat && workspaceMode == .act) {
+            if !(workspaceMode == .act && (LocalAgentLoop.shouldRouteActThroughOsaurus() && actEntered)) {
                 WorkspaceModeToggle(mode: $workspaceMode)
                     .padding(.top, 10)
             }
@@ -2755,7 +3826,63 @@ private struct HomeRouter: View {
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showChat)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: workspaceMode)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: actEntered)
+        .onReceive(NotificationCenter.default.publisher(for: .openActOsaurusSession)) { notification in
+            guard let sessionId = notification.object as? UUID else { return }
+            WorkspaceModeSelection.select(.act)
+            workspaceMode = .act
+            selectedActSessionId = sessionId
+            pendingActPrompt = nil
+            ui.setActivePanel(.home)
+            ui.homeTab = .home
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) {
+                actEntered = true
+            }
+            HomeWindowIdentity.surfaceHomeWindow()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .submitActOsaurusPrompt)) { notification in
+            guard let request = notification.object as? ActOsaurusPromptRequest else { return }
+            let prompt = request.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !prompt.isEmpty else { return }
+            WorkspaceModeSelection.select(.act)
+            workspaceMode = .act
+            selectedActSessionId = nil
+            pendingActPrompt = PendingActPrompt(
+                text: prompt,
+                contextAttachments: request.contextAttachments,
+                fileAttachments: request.fileAttachments
+            )
+            selectedActSessionId = request.sessionId
+            ui.setActivePanel(.home)
+            ui.homeTab = .home
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) {
+                actEntered = true
+            }
+            HomeWindowIdentity.surfaceHomeWindow()
+        }
     }
+
+    @ViewBuilder
+    private var actEpistemosChatSurface: some View {
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        ActEpistemosChatSurface(
+            sessionId: selectedActSessionId,
+            initialPrompt: pendingActPrompt?.text,
+            initialPromptId: pendingActPrompt?.id,
+            initialContextAttachments: pendingActPrompt?.contextAttachments ?? [],
+            initialFileAttachments: pendingActPrompt?.fileAttachments ?? [],
+            onInitialPromptConsumed: {
+                pendingActPrompt = nil
+            },
+            onCurrentSessionChanged: { sessionId in
+                selectedActSessionId = sessionId
+            }
+        )
+        #else
+        ChatView()
+        #endif
+    }
+
 }
 
 // MARK: - Workspace Mode Toggle
@@ -2860,6 +3987,7 @@ struct SetupView: View {
                 // "press me to start" — fades in after typing completes
                 Button {
                     withAnimation(Motion.smooth) {
+                        UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
                         ui.needsSetup = false
                     }
                 } label: {

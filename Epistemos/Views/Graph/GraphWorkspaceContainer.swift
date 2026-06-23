@@ -617,7 +617,8 @@ private struct GraphHTMLWorkspaceDock: View {
                 workspaceID: item.document.package.manifest.id,
                 title: item.title,
                 fileURL: item.document.fileURL
-            )
+            ),
+            preferredOperatingMode: .agent
         )
     }
 

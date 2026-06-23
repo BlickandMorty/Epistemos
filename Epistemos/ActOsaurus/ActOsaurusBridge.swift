@@ -10,6 +10,13 @@ import Foundation
 import OsaurusCore  // S4: the LINKED Osaurus engine — driven in-process (owner: full Osaurus).
 #endif
 
+enum ActOsaurusStreamEvent: Sendable, Equatable {
+    case textDelta(String)
+    case thinkingDelta(String)
+    case toolStarted(id: String, name: String, inputJson: String)
+    case toolCompleted(id: String, result: String, isError: Bool)
+}
+
 // Osaurus Act import — Seam A bridge (P3.0). The protocol Act drives against the
 // vendored Osaurus substrate, using the vendored `ServerHealth` enum. Pro-only
 // (`#if !EPISTEMOS_APP_STORE`) — the whole Osaurus seam (server/VM/relay) is outside
@@ -46,11 +53,17 @@ protocol ActOsaurusBridge: Sendable {
     /// NEVER a silent cloud/GPT fallback (owner #1).
     func runTurnInProcess(messages: [OsaurusVendor.Message], maxTokens: Int) async throws -> String
 
-    /// S4 (in-process STREAMING) — run a REAL act turn through the LINKED OsaurusCore engine and
-    /// yield tokens AS THEY DECODE (`CoreModelService.generateStream`), so the shared act composer
-    /// streams like the rest of chat (STREAM EVERYTHING). Throws an HONEST `ActOsaurusError` when
-    /// OsaurusCore isn't linked/usable — NEVER a silent cloud/GPT fallback (owner #1).
+    /// S4 (in-process STREAMING) — run a REAL act turn through the LINKED OsaurusCore chat session
+    /// engine and yield visible assistant deltas. This keeps Osaurus tool execution, prompt
+    /// composition, secret/clarify pauses, sandbox state, and model routing underneath the
+    /// Epistemos chat UI. Throws an HONEST `ActOsaurusError` when OsaurusCore isn't linked/usable —
+    /// NEVER a silent cloud/GPT fallback (owner #1).
     func runTurnStreamingInProcess(prompt: String, systemPrompt: String?, maxTokens: Int, requestedModel: String?) async throws -> AsyncThrowingStream<String, Error>
+
+    /// S4 (in-process SEMANTIC STREAMING) — same engine as the text stream, but preserves
+    /// Osaurus thinking/tool/result events so Epistemos can render them as native message
+    /// blocks instead of leaking protocol metadata into the assistant text.
+    func runTurnEventStreamInProcess(prompt: String, systemPrompt: String?, maxTokens: Int, requestedModel: String?) async throws -> AsyncThrowingStream<ActOsaurusStreamEvent, Error>
 
     /// S4 — a REAL, human-readable status of the linked OsaurusCore engine (resolved model /
     /// unavailable reason / breaker), or nil when OsaurusCore isn't linked. Drives the visible
@@ -128,6 +141,10 @@ struct InertActOsaurusBridge: ActOsaurusBridge {
         // Inert — HONESTLY refuses (throws before yielding a single token); never a cloud route.
         throw ActOsaurusError.serverNotEnabled
     }
+    func runTurnEventStreamInProcess(prompt: String, systemPrompt: String?, maxTokens: Int, requestedModel: String? = nil) async throws -> AsyncThrowingStream<ActOsaurusStreamEvent, Error> {
+        // Inert — HONESTLY refuses (throws before yielding an event); never a cloud route.
+        throw ActOsaurusError.serverNotEnabled
+    }
     func osaurusCoreStatusDescription() async -> String? { nil }  // not linked → no real status.
 }
 
@@ -190,21 +207,71 @@ struct OsaurusActBridge: ActOsaurusBridge {
         #endif
     }
 
-    /// S4 (STREAMING) — drive a REAL act turn IN-PROCESS through the linked OsaurusCore engine and
-    /// stream tokens as they decode (`CoreModelService.generateStream`). Throws an HONEST
-    /// `ActOsaurusError` (never a silent cloud route); `serverNotEnabled` when OsaurusCore isn't linked.
+    /// S4 (STREAMING) — drive a REAL act turn IN-PROCESS through OsaurusCore's headless chat-session
+    /// bridge. That preserves the Osaurus agent/tool loop while Epistemos owns the visible chat.
+    /// Throws an HONEST `ActOsaurusError` (never a silent cloud route); `serverNotEnabled` when
+    /// OsaurusCore isn't linked.
     func runTurnStreamingInProcess(prompt: String, systemPrompt: String?, maxTokens: Int, requestedModel: String? = nil) async throws -> AsyncThrowingStream<String, Error> {
+        let events = try await runTurnEventStreamInProcess(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            requestedModel: requestedModel
+        )
+        return AsyncThrowingStream<String, Error> { continuation in
+            let task = Task {
+                do {
+                    for try await event in events {
+                        if case .textDelta(let text) = event {
+                            continuation.yield(text)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// S4 (SEMANTIC STREAMING) — drive a REAL act turn IN-PROCESS through OsaurusCore's
+    /// headless chat-session bridge and keep thinking/tool/result events structured for
+    /// Epistemos-native rendering.
+    func runTurnEventStreamInProcess(prompt: String, systemPrompt: String?, maxTokens: Int, requestedModel: String? = nil) async throws -> AsyncThrowingStream<ActOsaurusStreamEvent, Error> {
         #if canImport(OsaurusCore)
-        do {
-            return try await OsaurusCore.CoreModelService.shared.generateStream(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                maxTokens: maxTokens,
-                requestedModel: requestedModel
+        let fusedPrompt = [systemPrompt, prompt]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+        let osaurusEvents = await MainActor.run {
+            OsaurusCore.EpistemosOsaurusChatSessionBridge.streamTurnEvents(
+                prompt: fusedPrompt.isEmpty ? prompt : fusedPrompt,
+                requestedModel: requestedModel,
+                maxTokens: maxTokens
             )
-        } catch {
-            // OsaurusCore couldn't start the stream (no model / route) → HONEST throw, never cloud.
-            throw ActOsaurusError.transport("OsaurusCore stream failed: \(error.localizedDescription)")
+        }
+        return AsyncThrowingStream<ActOsaurusStreamEvent, Error> { continuation in
+            let task = Task {
+                do {
+                    for try await event in osaurusEvents {
+                        switch event {
+                        case .textDelta(let text):
+                            continuation.yield(.textDelta(text))
+                        case .thinkingDelta(let text):
+                            continuation.yield(.thinkingDelta(text))
+                        case .toolStarted(let id, let name, let inputJson):
+                            continuation.yield(.toolStarted(id: id, name: name, inputJson: inputJson))
+                        case .toolCompleted(let id, let result, let isError):
+                            continuation.yield(.toolCompleted(id: id, result: result, isError: isError))
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
         }
         #else
         throw ActOsaurusError.serverNotEnabled
@@ -285,13 +352,14 @@ struct OsaurusActBridge: ActOsaurusBridge {
     }
 }
 
-/// Resolves the bridge for the current flag — honest, never a hidden route. Armed
-/// only when the flag is on; even then inert until the runtime lands (S3+).
+/// Resolves the bridge from the same shared act-routing decision that mounts the
+/// UI and builds the local-agent generators. Do not read the old opt-in flag here:
+/// that split let the chrome say "Osaurus" while sends used an inert bridge.
 enum ActOsaurusBridgeFactory {
     static func resolve(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> ActOsaurusBridge {
-        ActOsaurusGateStatus.isEnabled(environment[ActOsaurusGateStatus.flagName])
+        LocalAgentLoop.shouldRouteActThroughOsaurus(environment: environment)
             ? OsaurusActBridge()
             : InertActOsaurusBridge()
     }

@@ -48,7 +48,10 @@ final class MiniChatWindowController {
         }
     }
 
-    func openNewChat(attaching attachment: ContextAttachment? = nil) {
+    func openNewChat(
+        attaching attachment: ContextAttachment? = nil,
+        preferredOperatingMode: EpistemosOperatingMode? = nil
+    ) {
         let resolvedAttachment: ContextAttachment?
         if let attachment {
             resolvedAttachment = attachment
@@ -60,14 +63,30 @@ final class MiniChatWindowController {
         } else {
             resolvedAttachment = nil
         }
-        openChat(UUID().uuidString, initialContextAttachment: resolvedAttachment)
+        openChat(
+            UUID().uuidString,
+            initialContextAttachment: resolvedAttachment,
+            preferredOperatingMode: preferredOperatingMode
+        )
     }
 
-    func openChat(_ chatID: String) {
-        openChat(chatID, initialContextAttachment: nil)
+    func openChat(_ chatID: String, preferredOperatingMode: EpistemosOperatingMode? = nil) {
+        openChat(
+            chatID,
+            initialContextAttachment: nil,
+            preferredOperatingMode: preferredOperatingMode
+        )
     }
 
-    func openChat(_ chatID: String, initialContextAttachment: ContextAttachment?) {
+    func openChat(
+        _ chatID: String,
+        initialContextAttachment: ContextAttachment?,
+        preferredOperatingMode: EpistemosOperatingMode? = nil
+    ) {
+        MiniChatOperatingModePreference.setPreferredMode(
+            preferredOperatingMode ?? Self.defaultPreferredOperatingMode()
+        )
+
         if let existing = windows[chatID] {
             NSApp.activate(ignoringOtherApps: true)
             existing.makeKeyAndOrderFront(nil)
@@ -137,6 +156,14 @@ final class MiniChatWindowController {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private static func defaultPreferredOperatingMode() -> EpistemosOperatingMode? {
+        #if !EPISTEMOS_APP_STORE
+        return LocalAgentLoop.shouldRouteActThroughOsaurus() ? .agent : nil
+        #else
+        return nil
+        #endif
+    }
+
     // MARK: - Workspace Capture
 
     /// All currently open mini chat IDs.
@@ -145,6 +172,35 @@ final class MiniChatWindowController {
     func updateWindowTitle(chatID: String, title: String) {
         guard let window = windows[chatID] else { return }
         window.title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Mini Chat" : title
+    }
+
+    func rebindChatWindow(from oldChatID: String, to newChatID: String) {
+        guard oldChatID != newChatID,
+              let window = windows[oldChatID]
+        else { return }
+
+        if let existing = windows[newChatID], existing !== window {
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        if let observer = observers.removeValue(forKey: oldChatID) {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        windows.removeValue(forKey: oldChatID)
+        windows[newChatID] = window
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] notification in
+            guard let window = notification.object as? NSWindow else { return }
+            MainActor.assumeIsolated {
+                self?.handleWindowClose(window, chatID: newChatID)
+            }
+        }
+        observers[newChatID] = observer
     }
 
     func syncTheme(uiState: UIState) {
@@ -242,6 +298,6 @@ final class MiniChatWindowController {
 
 private final class MiniChatTabDelegate: NSObject, NSWindowDelegate {
     @MainActor func newWindowForTab(_ sender: NSWindow) {
-        MiniChatWindowController.shared.openNewChat()
+        MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
     }
 }

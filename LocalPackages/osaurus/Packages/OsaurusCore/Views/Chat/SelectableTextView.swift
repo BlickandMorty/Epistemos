@@ -59,6 +59,7 @@ struct SelectableTextView: NSViewRepresentable {
     let blocks: [SelectableTextBlock]
     let baseWidth: CGFloat
     let theme: ThemeProtocol
+    var fontOverrideName: String? = nil
     /// Optional cache key (turn ID) for persisting measured height across view recycling
     var cacheKey: String? = nil
 
@@ -904,7 +905,8 @@ struct SelectableTextView: NSViewRepresentable {
     }()
 
     private func cachedFont(size: CGFloat, weight: NSFont.Weight, italic: Bool) -> NSFont {
-        let key = "\(theme.primaryFontName)-\(size)-\(weight.rawValue)-\(italic)" as NSString
+        let fontName = fontOverrideName ?? theme.primaryFontName
+        let key = "\(fontName)-\(size)-\(weight.rawValue)-\(italic)" as NSString
         if let cached = Self.fontCache.object(forKey: key) {
             return cached
         }
@@ -987,7 +989,15 @@ struct SelectableTextView: NSViewRepresentable {
     // MARK: - Font Helpers
 
     private func nsFont(size: CGFloat, weight: NSFont.Weight, italic: Bool = false) -> NSFont {
-        let fontName = theme.primaryFontName
+        let fontName = fontOverrideName ?? theme.primaryFontName
+
+        if fontName.lowercased().contains("sf mono") {
+            var font = NSFont.monospacedSystemFont(ofSize: size, weight: weight)
+            if italic {
+                font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+            }
+            return font
+        }
 
         // System font
         if fontName.lowercased().contains("sf pro") || fontName.isEmpty {
@@ -1068,7 +1078,7 @@ struct SelectableTextView: NSViewRepresentable {
     // MARK: - Theme Fingerprint
 
     private func makeThemeFingerprint() -> String {
-        "\(theme.primaryFontName)|\(theme.monoFontName)|\(theme.titleSize)|\(theme.headingSize)|\(theme.bodySize)|\(theme.captionSize)|\(theme.codeSize)"
+        "\(fontOverrideName ?? theme.primaryFontName)|\(theme.monoFontName)|\(theme.titleSize)|\(theme.headingSize)|\(theme.bodySize)|\(theme.captionSize)|\(theme.codeSize)"
     }
 }
 

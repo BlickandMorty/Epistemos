@@ -34,6 +34,8 @@ struct ChatSidebarView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    var onLoadChat: (() -> Void)? = nil
+
     @State private var recentChats: [SDChat] = []
     @State private var searchText = ""
     @AppStorage("chatSidebar.showNotesOnly") private var showNotesOnly = false
@@ -313,6 +315,7 @@ struct ChatSidebarView: View {
             chat.loadMessages(sdChat.loadedMessages)
             ui.setActivePanel(.home)
         }
+        onLoadChat?()
         ui.dismissChatSidebar()
     }
 }

@@ -418,6 +418,9 @@ struct SettingsView: View {
             selection = .iMessageDriver
             #endif
         }
+        .onReceive(NotificationCenter.default.publisher(for: .showActOsaurusSettings)) { _ in
+            selection = .actClone
+        }
         .onAppear {
             Task { @MainActor in
                 selection = SettingsSection.safeDetailSelection(for: selection)
@@ -671,6 +674,7 @@ private struct SettingsDetailBackdrop: View {
 
 extension Notification.Name {
     static let showIMessageDriverSettings = Notification.Name("epistemos.showIMessageDriverSettings")
+    static let showActOsaurusSettings = Notification.Name("epistemos.showActOsaurusSettings")
 }
 
 struct SettingsDescriptionText: View {

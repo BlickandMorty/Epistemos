@@ -3476,7 +3476,7 @@ private struct EditorActionsBar: View {
 
             if NotesSidebarMetrics.showsBottomMiniChatButton {
                 SidebarIconButton(icon: "bubble.left.and.bubble.right", tooltip: "Mini Chat") {
-                    MiniChatWindowController.shared.openNewChat()
+                    MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
                 }
             }
         }

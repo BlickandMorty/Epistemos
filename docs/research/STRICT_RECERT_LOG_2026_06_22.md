@@ -170,6 +170,12 @@ _(Build-agent certification lines only — sole source of cert counts. Gap-fill 
 
 ## Docs-maintenance
 
+### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
+- Step-0 reset applied: queue checkboxes in `docs/WORK_QUEUE_2026_06_22.md` were normalized from stale `[x]`/`[~]` to `[ ]`; the log remains the certification source of truth.
+- Synced latest owner report into the strict driver, paste-ready prompt, queue 0.17, and addendum tail: the stale 16:45 auditor reversal is superseded for build direction.
+- Superseded by the evening correction below: the current target is real Epistemos `LandingView` first with landing toolbar pill/controls (settings, greeting animation, recent/history), then `EpistemosOsaurusChatHost` mounting OsaurusCore's real chat host skinned by live Epistemos theme tokens. Old Epistemos `ChatView` is reference only.
+- Still not certified: fresh launch + harness must prove the landing toolbar controls are present and the entered act route mounts Osaurus without old-backend fallback.
+
 ## Iteration log
 
 ### Gap-fill pass (docs only, 2026-06-22 — iteration 1–2)
@@ -255,3 +261,8 @@ _(Build-agent certification lines only — sole source of cert counts. Gap-fill 
 ### Gap-fill iteration 12 (docs only, 2026-06-22 — tick 8 lightweight drift verify)
 - drift · `git log -1` = **7dcc741b2**; WORK_QUEUE/STRICT/PASTE three-doc sync re-check (tier walks 0.32/1.9/4.18, 22 non-negotiables, 0.21 D4 sole owner, OsaurusChatView, Tolaria, gate-(d)↔(c), W/B/S, STEP-0/[~] cap/TIER floor, 0.32 witness, contradiction grep) — **no drift**; no duplicate CURSOR handoff edits
 - LOOP_GAP_AUDIT · iteration 12 lightweight drift verify appended
+
+### Owner correction ingestion (2026-06-22 evening — Osaurus live surface, old chat reference only)
+- **P0 latest-owner-directive applied:** the running old-`ChatView()` act surface was confirmed as the regression. Active code/docs now lock Pro act chat to `EpistemosOsaurusChatHost` / Osaurus live source, with Epistemos `LandingView`/home shell allowed before entry and live `EpistemosTheme` tokens passed into Osaurus. The old `Epistemos/Views/Chat/ChatView.swift` is reference only; skeletal `NativeActChatView`/`NativeActLandingView` stay forbidden; a fixed cream/dark/white palette is not sufficient.
+- **Code changes:** `RootView.swift` act-entered branch now mounts `EpistemosOsaurusChatHost(themeTokens: ui.theme.epistemosOsaurusTokens)` instead of `ChatView()`. `EpistemosOsaurusChatHost.swift` now accepts `EpistemosOsaurusThemeTokens` and applies `ThemeManager.shared.applyCustomTheme(... persist: false ...)`, refreshing `ChatWindowState` when tokens change; the persisted hardcoded cream-theme shim was removed.
+- **Guard/doc changes:** `ActSurfaceOsaurusUIDirectionGuardTests` now requires Osaurus host + dynamic theme tokens + model bridge, and forbids the old-ChatView act regression. `AGENT_LOOP_PROMPT_STRICT_RECERT`, `WORK_QUEUE`, and `AGENT_LOOP_PASTE_READY` were re-anchored to the same latest direction.

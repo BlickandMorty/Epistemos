@@ -672,7 +672,10 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func openMiniChatForCurrentPane() {
-        MiniChatWindowController.shared.openNewChat(attaching: workspaceAttachment)
+        MiniChatWindowController.shared.openNewChat(
+            attaching: workspaceAttachment,
+            preferredOperatingMode: .agent
+        )
         statusText = "MiniChat attached"
     }
 
