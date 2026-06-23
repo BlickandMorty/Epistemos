@@ -2381,3 +2381,15 @@ Act stays `[ ]` until runtime proves both halves together: **owner UI preserved 
 5. **Verification bar stays high.** Act remains `[ ]` until current code plus fresh runtime evidence proves: Epistemos UI preserved, Osaurus engine/capabilities active, no bundled-host detour, no duplicate app surfaces, real send streams, visible channels are filtered correctly, and main/mini/graph/note/settings all use the same native Act integration.
 
 **Queue impact:** rows that mention "Osaurus live surface", "Osaurus host", "visual reference only", or "old ChatView is forbidden" are stale unless they are read through this correction. The new target is: **Epistemos visible UI, Osaurus fully underneath**.
+
+## 🔴🔴🔴 OWNER DIRECTIVE (P0) — 2026-06-23 — EXHAUSTIVE ACT SURFACE COVERAGE: every Osaurus surface landed in the act chat
+
+**Owner (verbatim intent):** "Verify every single thing from the source act. I still want it to be my Epistemos UI, but make sure ALL of Osaurus's features are behind our back into MY UI — in my buddies. Every single surface that exists must be landed in the act chat, EXHAUSTIVELY — because past Osaurus stuff was not working, the agent was just never the same, and the prefill / all the things that should surface should be expressed. Still lots of issues."
+
+**Direction (re-anchor, does NOT change the unbundle rule — it completes it):**
+1. The visible surface stays Epistemos native (no vendored Osaurus view mounted). Osaurus stays the engine underneath.
+2. EVERY Osaurus UI surface must have a NATIVE Epistemos expression reachable from the act chat — exhaustively, not a subset. The current state where 14 of 22 `ManagementTab` cases render a generic "N surfaces indexed" placeholder row (ActCloneSettingsView default branch) is the gap to close: each must become a real native surface.
+3. **Prefill / stats / billing telemetry is OWNER-NAMED:** the original Osaurus transcript showed "TTFT 7.36s · 39 tokens"; the native act chat strips those sentinels (`ActOsaurusVisibleStreamFilter`) and shows nothing. Surface them as a native stats chip in the act transcript — do not discard.
+4. "The agent was never the same" → act-agent fidelity (thinking/tool/prefill channels expressed natively + the agent actually running) is part of this bar.
+
+**Authority / punch-list:** `docs/ACT_SURFACE_COVERAGE_MATRIX_2026_06_23.md` (exhaustive per-surface COVERED/PARTIAL/MISSING map). Indexed in WORK_QUEUE as **0.33** with sub-items 0.33a–k. Close in priority order, starting with **0.33a prefill/stats**. Act surface stays `[ ]` until the matrix has no MISSING/PARTIAL rows (or owner marks specific surfaces out-of-act-scope, e.g. Onboarding/WhatsNew).
