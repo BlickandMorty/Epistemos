@@ -302,6 +302,28 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: strict prompt FULL PLAN CERTIFICATION + NEVER-IDLE + FULL-PLAN-NO-ACT-TUNNEL + META-ESCALATION
   (build-green ≠ works).
 
+- [ ] **0.33 EXHAUSTIVE ACT SURFACE COVERAGE (owner 2026-06-23, P0)** — EVERY Osaurus surface must be expressed
+  NATIVELY in the act chat (not the vendored Osaurus view). Authority = `docs/ACT_SURFACE_COVERAGE_MATRIX_2026_06_23.md`
+  (full per-surface COVERED/PARTIAL/MISSING map + punch-list). COVERED today: chat-thread rendering (thinking/tool-call/
+  artifact/clarify/secret/redaction/prompt-queue/attachments), sandbox/VM controls, privacy filter, pairing/credential/
+  tool-permission/computer-use prompts. **OPEN GAPS (close in priority order; each is a sub-item):**
+  · **0.33a Prefill/stats/billing telemetry (OWNER NAMED "prefill") — START HERE:** stripped by `ActOsaurusVisibleStreamFilter`,
+    never surfaced; original Osaurus showed "TTFT 7.36s · 39 tokens" — render a native stats chip from the `stats:`/`prefill:`/
+    `billing:` sentinels instead of discarding.
+  · 0.33b Server settings (~16 ServerSettings sections) — MISSING (largest gap; `server` tab = index row).
+  · 0.33c Plugins beyond counts (install/marketplace/GitHub-import/config/sandbox-plugin-editor).
+  · 0.33d Agents / Schedules / Watchers (list, capability manager).
+  · 0.33e Voice settings (VAD/TTS/transcription/hotkey/overlay) — only composer mic exists.
+  · 0.33f Model detail / download / cache inspector / external-model add (only selection native).
+  · 0.33g Skills view/editor + slash-command catalog editor (invocation works; no catalog UI).
+  · 0.33h Tool secrets (ToolSecretsSheet) — no native expression.
+  · 0.33i Chart renderer, terminal-in-chat, in-chat LaTeX, transcript minimap.
+  · 0.33j Identity / Credits / Themes / Insights / Storage (index-only).
+  · 0.33k ComputerUseFeedView live action feed.
+  · **Cross-cutting:** the 14 non-native `ManagementTab` cases render a generic "N surfaces indexed" row
+    (ActCloneSettingsView default branch :1347) — landing each replaces the index row with a real native surface.
+  →plan: addendum "🔴🔴🔴 OWNER DIRECTIVE 2026-06-23 — EXHAUSTIVE ACT SURFACE COVERAGE" + the matrix doc.
+
 ## TIER 1 — WORK MODE (OpenCode)
 - [ ] **1.1** OpenCode launcher binary vendored. →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED".
 - [ ] **1.2** WORK = OpenCode real TUI; mini/graph (not note); search→work; dual landing+blur.
