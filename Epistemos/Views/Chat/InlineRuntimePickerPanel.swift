@@ -418,6 +418,20 @@ struct InlineRuntimePickerPanel: View {
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                    // 0.33f native model detail: on-device state + context window.
+                    HStack(spacing: 6) {
+                        Label(
+                            row.isDownloaded ? "On Device" : "Not downloaded",
+                            systemImage: row.isDownloaded ? "checkmark.circle.fill" : "icloud.and.arrow.down"
+                        )
+                        .foregroundStyle(row.isDownloaded ? Color.green : theme.textTertiary)
+                        if let ctx = row.contextLength, ctx > 0 {
+                            Label(InlineRuntimePickerPanel.formatContextLength(ctx), systemImage: "text.alignleft")
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                    }
+                    .font(.system(size: 9.5))
+                    .labelStyle(.titleAndIcon)
                 }
                 Spacer(minLength: 4)
                 if selected {
@@ -441,6 +455,17 @@ struct InlineRuntimePickerPanel: View {
         }
         .buttonStyle(.plain)
         .help("\(row.sectionTitle) · \(row.id)")
+    }
+
+    /// 0.33f — compact context-window label (e.g. 131072 → "128K ctx").
+    static func formatContextLength(_ ctx: Int) -> String {
+        if ctx >= 1000 {
+            let k = Double(ctx) / 1024.0
+            let rounded = (k * 10).rounded() / 10
+            let kText = rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.1f", rounded)
+            return "\(kText)K ctx"
+        }
+        return "\(ctx) ctx"
     }
 
     @MainActor
