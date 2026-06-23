@@ -35,6 +35,51 @@ struct AnswerPacketEmitterTests {
         #expect(last?.id == packet.id)
     }
 
+    @Test("LOAD-ON-LAUNCH restore: persisted packets seed the empty ring (SUBSTRATE 2.1 / S1)")
+    func restoreFromPersistenceSeedsRing() async throws {
+        // The SAME call AppBootstrap makes on launch (AppBootstrap.swift:2251
+        // `AnswerPacketEmitter.shared.restoreFromPersistence()`): a prior session's durable
+        // JSONL must be seeded back into the in-memory ring so per-answer provenance survives
+        // relaunch. Real-state: write the durable log directly (a prior session), then restore.
+        let emitter = await freshEmitter()   // ring empty, counters 0 (fresh launch)
+
+        let fm = FileManager.default
+        let url = fm.temporaryDirectory
+            .appendingPathComponent("epi-ap-restore-\(ProcessInfo.processInfo.globallyUniqueString).jsonl")
+        defer { try? fm.removeItem(at: url) }
+        let store = AnswerPacketStore(fileURL: url)
+        let p1 = AnswerPacket.turnCompletionStub(stopReason: "end_turn", inputTokens: 10, outputTokens: 5)
+        let p2 = AnswerPacket.turnCompletionStub(stopReason: "end_turn", inputTokens: 20, outputTokens: 6)
+        let p3 = AnswerPacket.turnCompletionStub(stopReason: "tool_use", inputTokens: 30, outputTokens: 7)
+        try store.append(p1)
+        try store.append(p2)
+        try store.append(p3)
+
+        await emitter.configurePersistence(store)
+        let restored = await emitter.restoreFromPersistence()
+
+        // Runtime artifact: packets restored from disk into the live ring.
+        #expect(restored == 3)
+        let count = await emitter.count
+        #expect(count == 3)
+        // Oldest→newest order preserved (loadRecent is most-recent-first; restore reverses it).
+        let recent = await emitter.recentPackets()
+        #expect(recent.map(\.id) == [p1.id, p2.id, p3.id])
+        let last = await emitter.last
+        #expect(last?.id == p3.id)
+
+        // SAFE/idempotent: a second restore is a no-op once the ring is non-empty (never
+        // duplicates or reorders live-emitted packets — the first-launch-only guard).
+        let again = await emitter.restoreFromPersistence()
+        #expect(again == 0)
+        let countAfter = await emitter.count
+        #expect(countAfter == 3)
+
+        // Don't leave the (about-to-be-deleted) temp store wired on the shared singleton.
+        await emitter.configurePersistence(nil)
+        await emitter.resetForTesting()
+    }
+
     @Test("turnCompletionStub builds a packet with V6.2 canonical-product-surface defaults")
     func stubCarriesCanonicalProductSurfaceDefaults() {
         let packet = AnswerPacket.turnCompletionStub(
