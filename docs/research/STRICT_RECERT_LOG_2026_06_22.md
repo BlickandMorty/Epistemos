@@ -230,6 +230,15 @@ No code change (verification + grounding; iter32 build still green).
 - **0.31 reverse-audit** · no addendum heading change (no owner message); 0 new directives.
 - **0.32 FULL-PLAN WITNESS (iter 33)** · Highest attempted: **0.2 / W4 (≈1.7)** · Lowest still-`[ ]`: **0.1** · TIER 1+ attempted: **YES** (W4 scoped; 1.7 grounded) · Act-only tunnel: **DENIED** · Forbidden end-claims avoided: **YES** · Note: graph/note chat code-certified native (shared chokepoint); W4 honestly blocked on provider/Goose-fusion. Remaining: inline graph/note composer PNG (XCUITest/owner), W4 provider/Goose fusion (1.3/1.7), D1/D3/D5 act sweep, apple.notes agent-posture.
 
+### Iteration 34 (2026-06-23 ~16:53-16:58) — TIER 2 (tunnel broken): 2.1/S1 AnswerPacket load-on-launch real-state tested
+
+Broke the act/work tunnel into TIER 2 (substrate) — headless, no GUI wall.
+
+- **(2.1 / S-gate S1) AnswerPacket load-on-launch — cert gap CLOSED.** **(a)** `AnswerPacketEmitter.restoreFromPersistence` (Engine/AnswerPacketEmitter.swift:251): seeds the in-memory ring from the durable JSONL when ring is empty (first-launch-only guard; restores membership, counters stay per-session). **(c) WIRED** — `AppBootstrap.swift:2251` calls it on launch (after `LatestAnswerPacketSink.start`). **(d) REAL-STATE TESTED (was missing)** — added `AnswerPacketEmitterTests.restoreFromPersistenceSeedsRing`: writes 3 packets straight to an `AnswerPacketStore` JSONL (a prior session), drives the SAME `restoreFromPersistence()` AppBootstrap calls, asserts restored==3, ring count==3, `recentPackets()`==[p1,p2,p3] (oldest→newest), and idempotent safety (2nd restore == 0, no dup/reorder). **AnswerPacketEmitterTests 23/23 PASS (TEST SUCCEEDED, 20c879d5e).** **(e) runtime artifact** = the restored ring depth / `recentPackets()` (per ARCHITECTURE_TIER_PROMOTION_CANON T4 — the live-path call's observable output, not cargo-test-only). Health row witnesses (`snapshot.totalEmitted`/count/mode+bucket+claim counts) surface it in `AnswerPacketHealthRow`.
+- **HONEST PARTIAL:** 2.1's load-on-launch RESTORE is now certified (a/c/d + artifact); the **history surface (scrollback past the 100-packet ring) + its matching primary witness remain PENDING** — exactly as `AnswerPacketHealthRow.stillStub` already states. So 2.1 stays `[ ]` (partial: restore wired+tested, history surface stub). Not over-claimed.
+- **0.31 reverse-audit** · no addendum heading change (no owner message); 0 new directives.
+- **0.32 FULL-PLAN WITNESS (iter 34)** · Highest attempted: **2.1** · Lowest still-`[ ]`: **0.1** · TIER 1+ attempted: **YES** (TIER 2 substrate — first non-act/work tier this run) · Act-only tunnel: **DENIED** (explicitly moved to TIER 2) · Forbidden end-claims avoided: **YES** · Note: substrate load-on-launch restore real-state tested; history surface + S3/S4 (TRINITY route, eidos/EML) still open. NEXT: 2.1 history surface OR S-gate 2.5/2.6 (EML/eidos) grounding.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
