@@ -308,6 +308,15 @@ Continued owner P0 act-surface punch-list. 0.33f model detail (only selection wa
 - Matrix row C → PARTIAL(improved); queue 0.33f annotated.
 - **0.32 WITNESS (iter 41)** · Highest attempted: **0.33f** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work (preempts) · Forbidden end-claims avoided: YES · NEXT: 0.33h tool secrets (small/contained, fully landable) OR 0.33b server settings groundwork.
 
+### Iteration 42 (2026-06-23 ~18:48-19:02) — 0.33h native Tool Secrets inventory + scoping note on server settings
+
+Continued owner P0 act-surface punch-list.
+
+- **0.33h Tool secrets — COVERED read-only (commit 62dfdc108).** Grounded the REAL seam: `PluginManager.shared.plugins` → `ExternalPlugin.manifest.secrets` (`PluginManifest.SecretSpec` id/label/description) + `ToolSecretsKeychain.getSecret(id:for:agentId: Agent.defaultId)`. Built bridge seam `EpistemosOsaurusManagementBridge.toolSecretRows()` + `EpistemosOsaurusToolSecretRow`, and a native "Tool secrets" Section in ActCloneSettingsView (key icon + secret label + plugin name + description + green "Set"/grey "Missing" badge) — NOT the vendored ToolSecretsSheet. **xcodebuild ** BUILD SUCCEEDED **.** (e): settings-tab screenshot automation-blocked (documented wall); human-reachable via Configuration → Act (Osaurus) → Tool secrets. Follow-on: inline set/clear (currently at the plugin's tool prompt).
+- **SCOPING NOTE (0.33b server settings):** `ServerConfiguration` (port/threads/network-exposure/genTopP/allowedOrigins) governs the Osaurus **HTTP loopback server** (`opencode`-style OpenAI-compatible server), NOT the act in-process path (act = CoreModelService in-process). So most server settings are arguably OUT of act scope — surfacing them in act clone settings would mislead. Recommend: confirm with owner whether ANY server-settings section is act-relevant before building; otherwise mark 0.33b as out-of-act-scope (the matrix M row). Generation-defaults (temp/topP/maxTokens) MAY be act-relevant if they feed the in-process path — verify separately.
+- Matrix row E → COVERED(read-only); queue 0.33h ✅.
+- **0.32 WITNESS (iter 42)** · Highest attempted: **0.33h** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · Surfaces landed so far: 0.33a stats ✅, 0.33f model detail ✅(partial), 0.33h tool secrets ✅(read-only). NEXT: 0.33g skills/slash catalog OR 0.33d agents — pick a chat-reachable one for screenshot-verifiability, or continue settings surfaces honestly.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
