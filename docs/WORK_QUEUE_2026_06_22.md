@@ -307,9 +307,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   (full per-surface COVERED/PARTIAL/MISSING map + punch-list). COVERED today: chat-thread rendering (thinking/tool-call/
   artifact/clarify/secret/redaction/prompt-queue/attachments), sandbox/VM controls, privacy filter, pairing/credential/
   tool-permission/computer-use prompts. **OPEN GAPS (close in priority order; each is a sub-item):**
-  · **0.33a Prefill/stats/billing telemetry (OWNER NAMED "prefill") — START HERE:** stripped by `ActOsaurusVisibleStreamFilter`,
-    never surfaced; original Osaurus showed "TTFT 7.36s · 39 tokens" — render a native stats chip from the `stats:`/`prefill:`/
-    `billing:` sentinels instead of discarding.
+  · **0.33a Prefill/stats telemetry (OWNER NAMED "prefill") — ✅ DONE (iter40, a90b07c3e):** native `ActGenerationStatsChip`
+    renders "TTFT 6.93s · 9 tokens · 555 tok/s" under the act reply, fed by a `.generationStats` event off the final ChatTurn
+    via `ActTurnStatsStore` (side-channel — never contaminates visible text). Build green + send-verified
+    (/tmp/epi_iter40_statschip_20260623-1826.png). Remaining sub-bit: billing/credits chip if/when the credits route is active.
   · 0.33b Server settings (~16 ServerSettings sections) — MISSING (largest gap; `server` tab = index row).
   · 0.33c Plugins beyond counts (install/marketplace/GitHub-import/config/sandbox-plugin-editor).
   · 0.33d Agents / Schedules / Watchers (list, capability manager).

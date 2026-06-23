@@ -32,7 +32,8 @@
 |---|---|---|
 | reasoning → thinking event | SharedActInference.swift:76-77 | COVERED |
 | tool → tool event | re-emitted toolStarted/toolCompleted | COVERED |
-| **prefill / stats / billing / done** | STRIPPED ONLY — no native indicator | **MISSING** — TTFT, tokens/sec, prefill latency, billing/credits discarded; original Osaurus showed "TTFT 7.36s · 39 tokens" in the transcript; act chat shows nothing |
+| **prefill / stats** (TTFT/tokens/tok-s) | `.generationStats` event → `ActTurnStatsStore` → `ActGenerationStatsChip` (ChatView transcript); driver emits from final ChatTurn | **COVERED (iter40, a90b07c3e)** — native "TTFT 6.93s · 9 tokens · 555 tok/s" chip render-verified |
+| billing / credits | not yet surfaced (Pro/credits sentinel) | PARTIAL — TTFT/tokens done; billing/credits chip TBD if/when credits route active |
 
 ### C. Models
 Native model **selection** (ActCloneSettingsView.swift:661-707 + :785; act picker). **PARTIAL** — model **detail / download progress / cache inspector / external-model add** = no native expression.
