@@ -342,6 +342,7 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
   →plan: `docs/research/SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md`.
 - [ ] **2.2** Helios salvage (7 items): eidos.query, provenance ledger, confidence_floor, AnswerPacket/wbo6,
   L1 memory, InterruptScore, HW tier. →plan: "✅ HELIOS-ERA IP ... salvage list".
+  · **iter37 AUDIT (PARTIAL salvage):** ① eidos.query/recall = REAL-wired+tested (iter35). ② provenance ledger `ClaimLedger` = REAL-wired (bridge.rs:3446 FFI static + eidos/ledger_backed_claim_evidence.rs consumes it; epistemos_trace CLI + ledger/ReplayBundle tests). ③ `confidence_floor::decide_floor` = **ORPHANED** (in product build lib.rs:26, unit-tested, but ZERO live callers). ④ AnswerPacket REAL (iter34) / `wbo6` referenced only from `research::koopman` (research-gated). ⑤ L1 memory = **ABSENT** (only unrelated L1-norm distance fns in research::geometry_ir). ⑥ `InterruptScore` = falsifier-string-only (falsifier_validator.rs:275), no live struct consumer → orphaned. ⑦ `HardwareTier` = used in uas/exotic_quant_quarantine_route_card (route-card/falsifier logic) — partial. Verdict: 2 real + 1 partial + 1 mixed + 3 orphaned/absent → NOT whole-certifiable; stays `[ ]`. Actionable: wire-or-cull confidence_floor/InterruptScore (2.4 dead-code), confirm wbo6/HW-tier product role.
 - [ ] **2.3** GUS salvage 1–18 (verify absent vs live). →plan: GRAND SWEEP cycles 1–3.
 - [ ] **2.4** UNIFICATION: one orchestrator+TRINITY+router+chokepoint; fix eidos fake-green; dead code cleanup.
   →plan: "✅ UNIFICATION VERDICT" + "🌟 THE BIG IDEA / GRAND CONVERGENCE" +
