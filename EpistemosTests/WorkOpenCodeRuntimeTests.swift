@@ -39,6 +39,29 @@ struct WorkOpenCodeRuntimeTests {
         #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: res) == nil)
     }
 
+    @Test("resolver falls back to the FLATTENED Resources-root layout (built-bundle reality, iter32)")
+    func resolverFindsFlattenedRuntime() throws {
+        let fm = FileManager.default
+        let res = fm.temporaryDirectory.appendingPathComponent("epi-ocflat-\(ProcessInfo.processInfo.globallyUniqueString)")
+        try fm.createDirectory(at: res, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: res) }
+
+        // No structured opencode-runtime/bin AND no flattened binary → nil (honest inert).
+        #expect(WorkOpenCodeRuntime.resolveRuntimeURL(inResources: res) == nil)
+
+        // The synchronized resource copy flattens the runtime to <Resources>/opencode (no bin/ dir).
+        // bun + omega_mcp_stdio land beside it; the resolver must still go LIVE off the flattened path.
+        let flatOC = res.appendingPathComponent("opencode")
+        fm.createFile(atPath: flatOC.path, contents: Data("#!/bin/sh\n".utf8),
+                      attributes: [.posixPermissions: 0o755])
+        let resolved = WorkOpenCodeRuntime.resolveRuntimeURL(inResources: res)
+        #expect(resolved?.lastPathComponent == "opencode")
+        // PATH co-location: the flattened resolver's parent dir IS <Resources>, where bun also lives,
+        // so shellEnvironment prepends it and `opencode serve` finds its sibling bun.
+        let env = WorkOpenCodeRuntime.shellEnvironment(base: ["PATH": "/usr/bin"], runtimeURL: resolved)
+        #expect(env["PATH"] == "\(res.path):/usr/bin")
+    }
+
     @Test("shell env pins the server to loopback (host-private, never exposed)")
     func envPinsLoopback() {
         let env = WorkOpenCodeRuntime.shellEnvironment(base: ["PATH": "/usr/bin"], runtimeURL: nil)

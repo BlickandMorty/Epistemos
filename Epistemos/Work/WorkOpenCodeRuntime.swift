@@ -34,11 +34,19 @@ nonisolated enum WorkOpenCodeRuntime {
     /// (honest — the build-time `build-opencode-runtime.sh` vendor lands it; until then the shell stays inert).
     static func resolveRuntimeURL(inResources resources: URL?) -> URL? {
         guard let resources else { return nil }
-        let launcher = resources
+        let structured = resources
             .appendingPathComponent("opencode-runtime", isDirectory: true)
             .appendingPathComponent("bin", isDirectory: true)
             .appendingPathComponent("opencode")
-        return FileManager.default.isExecutableFile(atPath: launcher.path) ? launcher : nil
+        if FileManager.default.isExecutableFile(atPath: structured.path) { return structured }
+        // FLATTENED FALLBACK (owner 2026-06-23): the synchronized resource-group copy flattens
+        // `opencode-runtime/bin/*` to the Resources ROOT in the built .app (verified iter31:
+        // `opencode`, `bun`, `omega_mcp_stdio` all land directly under Contents/Resources/). The
+        // three binaries stay CO-LOCATED there, so `shellEnvironment` prepends this same dir to PATH
+        // and `opencode serve` still finds its sibling `bun`. Prefer the structured layout; fall back
+        // to the flattened one so the vendored runtime is honestly LIVE either way (never a fake term).
+        let flattened = resources.appendingPathComponent("opencode")
+        return FileManager.default.isExecutableFile(atPath: flattened.path) ? flattened : nil
     }
 
     /// The PTY environment for the OpenCode TUI: inherit the process env (PATH/HOME a
@@ -67,11 +75,14 @@ nonisolated enum WorkOpenCodeRuntime {
     /// OpenCode's work agent the app's vault tools. nil until vendored (built+staged by the build script).
     static func bundledMcpServerURL(bundle: Bundle = .main) -> URL? {
         guard let resources = bundle.resourceURL else { return nil }
-        let server = resources
+        let structured = resources
             .appendingPathComponent("opencode-runtime", isDirectory: true)
             .appendingPathComponent("bin", isDirectory: true)
             .appendingPathComponent("omega_mcp_stdio")
-        return FileManager.default.isExecutableFile(atPath: server.path) ? server : nil
+        if FileManager.default.isExecutableFile(atPath: structured.path) { return structured }
+        // Flattened fallback — same reason as resolveRuntimeURL (built bundle flattens to Resources root).
+        let flattened = resources.appendingPathComponent("omega_mcp_stdio")
+        return FileManager.default.isExecutableFile(atPath: flattened.path) ? flattened : nil
     }
 
     /// The OpenCode config (opencode.json) that FUSES the app's vault tools into the work TUI: registers the
