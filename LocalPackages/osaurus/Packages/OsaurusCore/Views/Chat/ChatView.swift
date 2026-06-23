@@ -344,6 +344,14 @@ final class ChatSession: ObservableObject {
     private var currentTask: Task<Void, Never>?
     private var activeRunId: UUID?
     private var activeRunContext: RunContext?
+
+    /// Read-only seam for headless drivers (e.g. Epistemos act bridge): a run is
+    /// "active" from the synchronous `beginRun` in `send(...)` until `finalizeRun`
+    /// clears `activeRunId`. This is the deterministic completion gate — unlike
+    /// `isStreaming`, which only flips true *asynchronously* once tokens begin, so
+    /// a driver that polls `!isStreaming` right after `send` would see false and
+    /// conclude the turn finished before it started (empty-stream race).
+    var isRunActive: Bool { activeRunId != nil }
     /// Set to true at the start of `stop()` so `completeRunCleanup` knows the
     /// run was cancelled by the user (or by `sendNowInterrupting`) and must
     /// not auto-flush a queued send. Reset to false at the top of `send(...)`.
