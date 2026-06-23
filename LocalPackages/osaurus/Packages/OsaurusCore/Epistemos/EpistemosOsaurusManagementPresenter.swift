@@ -35,6 +35,22 @@ public struct EpistemosOsaurusModelPick: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct EpistemosOsaurusToolSecretRow: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let pluginName: String
+    public let secretLabel: String
+    public let secretDescription: String?
+    public let isSet: Bool
+
+    public init(id: String, pluginName: String, secretLabel: String, secretDescription: String?, isSet: Bool) {
+        self.id = id
+        self.pluginName = pluginName
+        self.secretLabel = secretLabel
+        self.secretDescription = secretDescription
+        self.isSet = isSet
+    }
+}
+
 public struct EpistemosOsaurusManagementEntry: Identifiable, Hashable, Sendable {
     public let id: String
     public let label: String
@@ -923,6 +939,36 @@ public enum EpistemosOsaurusManagementBridge {
     @MainActor
     public static func resetToolPermissionPolicy(toolName: String) {
         ToolRegistry.shared.clearPolicy(for: toolName)
+    }
+
+    /// 0.33h — TOOL SECRETS (native, reachable from act): each loaded plugin's required
+    /// credential specs + whether the secret is already stored in the Keychain for the act
+    /// default agent. Read-only inventory so the act surface shows what credentials its tools
+    /// need and which are configured — the native expression of Osaurus's ToolSecretsSheet.
+    @MainActor
+    public static func toolSecretRows() -> [EpistemosOsaurusToolSecretRow] {
+        var rows: [EpistemosOsaurusToolSecretRow] = []
+        for loaded in PluginManager.shared.plugins {
+            let ext = loaded.plugin
+            guard let specs = ext.manifest.secrets, !specs.isEmpty else { continue }
+            let pluginId = ext.id
+            let pluginName = ext.manifest.name ?? pluginId
+            for spec in specs {
+                let isSet = ToolSecretsKeychain.getSecret(
+                    id: spec.id, for: pluginId, agentId: Agent.defaultId
+                ) != nil
+                rows.append(
+                    EpistemosOsaurusToolSecretRow(
+                        id: "\(pluginId).\(spec.id)",
+                        pluginName: pluginName,
+                        secretLabel: spec.label,
+                        secretDescription: spec.description,
+                        isSet: isSet
+                    )
+                )
+            }
+        }
+        return rows
     }
 
     @MainActor
