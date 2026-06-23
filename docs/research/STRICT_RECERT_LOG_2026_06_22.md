@@ -257,6 +257,18 @@ Continued TIER 2 S4 audit (headless). 2.5 EML honesty gate (EML/Belnap → Answe
 - **0.31 reverse-audit** · no addendum heading change (no owner message); queue 2.5 row updated (index complete). 0 new top-level directives.
 - **0.32 FULL-PLAN WITNESS (iter 36)** · Highest attempted: **2.5** · Lowest still-`[ ]`: **0.1** · TIER 1+ attempted: **YES** (TIER 2 S4) · Act-only tunnel: **DENIED** · Forbidden end-claims avoided: **YES** · Note: 2.5 SOUND-but-unwired (research-staged); meta-pattern of orphaned honesty gates surfaced. NEXT: 2.2 Helios salvage OR 2.7 agent-stack convergence (continue S-gate), or surface the orphaned-gates pattern to owner for a wire-vs-defer decision.
 
+### Iteration 37 (2026-06-23 ~17:18-17:25) — TIER 2 S4 audit: 2.2 Helios salvage = PARTIAL (2 real, 3 orphaned/absent)
+
+Audited the Helios salvage 7-item list (2.2) for live-path wiring vs orphaned/absent (headless, grep-grounded).
+
+- **REAL-wired:** ① **eidos.query/recall** (iter35: FFI→production index, r1_eidos 7/7). ② **provenance ledger `ClaimLedger`** — `bridge.rs:3446` `provenance_ledger()` static via FFI + `eidos/ledger_backed_claim_evidence.rs:39` consumes it; covered by ledger unit tests + ReplayBundle + `epistemos_trace verify` CLI (CLAUDE.md). Genuinely on a live path.
+- **ORPHANED (in build, 0 live callers):** ③ **`confidence_floor::decide_floor`/`FloorOutcome`** — promoted OUT of research (lib.rs:26, NOT feature-gated, unit-tested 123-136) but **ZERO callers** anywhere → same in-product-orphan pattern as iter35's citation gate. ⑥ **`InterruptScore`** — only a falsifier STRING ref (`falsifier_validator.rs:275 "F-InterruptScore-CPU"`), no live struct consumer.
+- **ABSENT / research-only / partial:** ⑤ **L1 memory** — not found (only unrelated L1-NORM distance fns in `research::geometry_ir`); not salvaged into product. ④ **wbo6** — `pub mod wbo6` (lib.rs:98) but referenced only from `research::koopman` (research-gated); AnswerPacket itself real (iter34). ⑦ **`HardwareTier`** — consumed in `uas/exotic_quant_quarantine_route_card.rs` (route-card/falsifier logic) — partial product role.
+- **Verdict 2.2:** PARTIAL salvage — 2 real (eidos, ledger) + 1 partial (HW tier) + 1 mixed (AnswerPacket real/wbo6 research) + 3 orphaned/absent (confidence_floor, InterruptScore, L1 memory). NOT whole-certifiable → `[ ]`. Feeds 2.4 (fix fake-green + dead-code cleanup): confidence_floor + InterruptScore are wire-or-cull candidates.
+- **META-PATTERN now 3-deep:** orphaned-in-product honesty/scoring primitives = eidos citation gate (iter35) + confidence_floor (iter37); research-gated-unwired = EML/Belnap abstain (iter36). The substrate has a consistent "built + unit-tested, not wired to the live answer/AnswerPacket path" gap. Surfaced to owner (wire-vs-cull decision pending); not force-wired (behavior risk).
+- **0.31 reverse-audit** · no addendum heading change (no owner message); queue 2.2 row annotated (index complete). 0 new top-level directives.
+- **0.32 FULL-PLAN WITNESS (iter 37)** · Highest attempted: **2.2** · Lowest still-`[ ]`: **0.1** · TIER 1+ attempted: **YES** (TIER 2 S4) · Act-only tunnel: **DENIED** · Forbidden end-claims avoided: **YES** · Note: 2.2 partial (catalogued per-item); meta-pattern 3-deep. NEXT: 2.4 unification (wire-or-cull the orphans + dead-code) OR 2.3 GUS salvage audit — or owner wire-vs-cull decision.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
