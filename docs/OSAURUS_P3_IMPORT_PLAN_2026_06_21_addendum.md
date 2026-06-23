@@ -2354,3 +2354,15 @@ Act stays `[ ]` until runtime proves both halves together: **owner UI preserved 
 **META — STOP OSCILLATING (this is WHY it has been "so hard"):** the act UI has flip-flopped ~5 times (option-b → reskin-Osaurus → fresh-native → mount-ChatView → ...); every flip discarded working code. COMMIT to clone-Osaurus-and-reskin-at-source and build it to completion. NO further direction pivot without explicit owner sign-off through this channel.
 
 **Acceptance (auditor fresh-launch screenshot — unchanged):** act looks like the owner's chat (cream/mono/pill, matching the old-chat reference) AND a real send streams on the Osaurus engine AND skills/commands work. No `[x]` without the auditor's fresh-launch PNG.
+
+---
+
+## 🔴 AUDITOR CORRECTION (P0) — 2026-06-22 ~19:45 — RUNTIME SCREENSHOT: act renders DARK, not the owner's CREAM. Cream token EXISTS but Theme is built with `background: .default`.
+
+**Auditor fresh screenshot of the CURRENT build (19:36 binary, UNCOMMITTED) — act surface (Osaurus host empty state).** ✅ GOOD: the clone-Osaurus-and-reskin APPROACH works structurally — act renders as the real Osaurus chat (monospace; model picker `Gemma 4 e2b it 4bit`; Thinking; Configuration; attachments/slash/mic; token counter; curved window) with the owner's action shortcuts (search/quick capture/notes/home graph). This is a real functional chat, NOT a skeleton and NOT the broken old chat. TWO misses block acceptance:
+
+**MISS 1 (P0 — the owner's CENTRAL ask) — act background is DARK, not CREAM.** The owner's landing renders cream; the act host renders near-black. ROOT CAUSE (cited): the cream token EXISTS — `EpistemosOsaurusChatHost.swift:~124 primaryBackground: "#fbfaf5"`, `isDark: false` — BUT the Osaurus Theme is constructed with **`background: .default`** (`EpistemosOsaurusChatHost.swift:223`), so the surface uses Osaurus's DARK DEFAULT and IGNORES the cream token. A `Color.black` gradient overlay (`:284`) compounds it. **FIX:** build the Theme with `background:` driven by the cream `primaryBackground` token (solid/custom cream `#fbfaf5`), NOT `.default`; drop/relax the black overlay. Re-verify by AUDITOR screenshot: act background == cream, matching the landing.
+
+**MISS 2 (P1) — greeting is Osaurus's "Good evening / How can I help you today?"** (`ChatEmptyState.swift:301`, `:566-568` time-based), not the owner's "Greetings, Researcher" identity. If act is to match the owner's landing/old-chat, swap to the owner's greeting. (Lower priority than the cream background; confirm with owner.)
+
+**Provenance:** auditor runtime screenshot of the 19:36 UNCOMMITTED build (full-res Epistemos window). Act stays `[ ]` until cream renders + send works. The structural reskin is REAL — this is COMPLETION of the reskin, not a restart. Keep going; just drive the background from the cream token.
