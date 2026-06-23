@@ -18,6 +18,7 @@ struct ActCloneSettingsView: View {
     @State private var osaurusQuickActions: [EpistemosOsaurusQuickAction] = []
     @State private var systemPermissionRows: [EpistemosOsaurusSystemPermissionRow] = []
     @State private var toolPermissionRows: [EpistemosOsaurusToolPermissionRow] = []
+    @State private var toolSecretRows: [EpistemosOsaurusToolSecretRow] = []
     @State private var toolPermissionOptions: [EpistemosOsaurusPolicyOption] = []
     @State private var computerUsePolicySnapshot: EpistemosOsaurusComputerUsePolicySnapshot?
     @State private var computerUsePolicyOptions: [EpistemosOsaurusPolicyOption] = []
@@ -416,6 +417,50 @@ struct ActCloneSettingsView: View {
                 Text("Auto, ask, and deny write to Osaurus's real tool registry, including shell, file, plugin, MCP, and configuration tools.")
             }
 
+            // 0.33h — native Tool Secrets inventory (the credentials Act's plugins need).
+            Section {
+                if toolSecretRows.isEmpty {
+                    Text("No plugin requires credentials, or no plugins are loaded.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(toolSecretRows) { row in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: row.isSet ? "key.fill" : "key")
+                                .frame(width: 16)
+                                .foregroundStyle(row.isSet ? Color.green : Color.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.secretLabel)
+                                Text(row.pluginName)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                if let desc = row.secretDescription, !desc.isEmpty {
+                                    Text(desc)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .lineLimit(2)
+                                }
+                            }
+                            Spacer()
+                            Text(row.isSet ? "Set" : "Missing")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    (row.isSet ? Color.green : Color.secondary).opacity(0.15),
+                                    in: Capsule()
+                                )
+                                .foregroundStyle(row.isSet ? Color.green : Color.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            } header: {
+                Text("Tool secrets")
+            } footer: {
+                Text("Credentials Act's plugin tools need, stored in the macOS Keychain (per Act agent). Set or clear a secret from the plugin's tool prompt when it runs.")
+            }
+
             Section {
                 if let computerUsePolicySnapshot {
                     Picker(
@@ -785,6 +830,7 @@ struct ActCloneSettingsView: View {
         osaurusQuickActions = EpistemosOsaurusManagementBridge.nativeSettingsQuickActions()
         systemPermissionRows = EpistemosOsaurusManagementBridge.systemPermissionRows()
         toolPermissionRows = EpistemosOsaurusManagementBridge.toolPermissionRows(maxCount: 60)
+        toolSecretRows = EpistemosOsaurusManagementBridge.toolSecretRows()
         toolPermissionOptions = EpistemosOsaurusManagementBridge.toolPermissionOptions()
         computerUsePolicyOptions = EpistemosOsaurusManagementBridge.computerUsePolicyOptions()
         let policySnapshot = EpistemosOsaurusManagementBridge.computerUsePolicySnapshot()
