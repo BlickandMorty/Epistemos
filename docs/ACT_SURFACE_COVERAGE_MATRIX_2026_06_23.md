@@ -42,7 +42,7 @@ Native model **selection** (ActCloneSettingsView.swift:661-707 + :785; act picke
 Inline "Providers and MCP" (:269); connect/disconnect remote+MCP + router toggle (:911-945); credential prompt native (RootView.swift:701, installed :161). **PARTIAL** — no native add/edit individual remote provider (RemoteProviderEditSheet), per-provider diagnostics rows, or reorder.
 
 ### E. Tools
-"Tool approval policy" inline (:413, `ActToolPermissionNativeRow` :1490); in-chat `AgentToolTogglePanel`; permission prompt native (RootView.swift:540, installed :158). **PARTIAL** — **tool secrets (ToolSecretsSheet) = no native expression**.
+"Tool approval policy" inline (:413, `ActToolPermissionNativeRow` :1490); in-chat `AgentToolTogglePanel`; permission prompt native (RootView.swift:540, installed :158); **tool secrets** native inventory (iter42, 62dfdc108): `toolSecretRows()` → "Tool secrets" Section (plugin credential + Set/Missing badge) from PluginManager SecretSpecs + ToolSecretsKeychain. **COVERED (read-only)** — follow-on: inline set/clear.
 
 ### F. Slash commands
 Composer popover `SlashCommandPopover.swift` (ChatInputBar.swift:127-468). **PARTIAL** — no native slash-command management/catalog editor (`commands` tab = generic index row).

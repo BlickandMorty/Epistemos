@@ -320,7 +320,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
     (runtime screenshot automation-blocked — settings nav + composer pill AX-unreachable; human-reachable). Remaining:
     download progress, external-model add, cache inspector.
   · 0.33g Skills view/editor + slash-command catalog editor (invocation works; no catalog UI).
-  · 0.33h Tool secrets (ToolSecretsSheet) — no native expression.
+  · 0.33h Tool secrets — ✅ COVERED read-only (iter42, 62dfdc108): native "Tool secrets" Section in act settings
+    (toolSecretRows() seam: PluginManager plugins' SecretSpecs + ToolSecretsKeychain → plugin credential + Set/Missing
+    badge). Build-green (settings-tab screenshot automation-blocked; human-reachable). Follow-on: inline set/clear editing.
   · 0.33i Chart renderer, terminal-in-chat, in-chat LaTeX, transcript minimap.
   · 0.33j Identity / Credits / Themes / Insights / Storage (index-only).
   · 0.33k ComputerUseFeedView live action feed.
