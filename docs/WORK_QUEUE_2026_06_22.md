@@ -581,3 +581,5 @@ list all three in summary.
   spec in @State + .task(id: workspace); added honest "Starting work terminal…" state. REMAINS: the TUI/Bun cold-boot
   latency itself lives in the vendored opencode binary — options (owner call): Pro prewarm of `opencode serve` on idle
   (lifecycle-risky) or verified OpenCode boot-skip env flags. Needs runtime present to measure honestly.
+
+- [x] **0.44 palette from live theme** — MOOT (iter64): cream tokens drive unmounted OsaurusCore views only; visible native surfaces already theme-follow. No code.
