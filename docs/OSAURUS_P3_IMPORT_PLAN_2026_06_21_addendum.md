@@ -2393,3 +2393,18 @@ Act stays `[ ]` until runtime proves both halves together: **owner UI preserved 
 4. "The agent was never the same" → act-agent fidelity (thinking/tool/prefill channels expressed natively + the agent actually running) is part of this bar.
 
 **Authority / punch-list:** `docs/ACT_SURFACE_COVERAGE_MATRIX_2026_06_23.md` (exhaustive per-surface COVERED/PARTIAL/MISSING map). Indexed in WORK_QUEUE as **0.33** with sub-items 0.33a–k. Close in priority order, starting with **0.33a prefill/stats**. Act surface stays `[ ]` until the matrix has no MISSING/PARTIAL rows (or owner marks specific surfaces out-of-act-scope, e.g. Onboarding/WhatsNew).
+
+## 🔴🔴🔴 OWNER DIRECTIVE (P0) — 2026-06-23 (evening) — RESTORE OLD CHAT FEATURES + HARDEN + ACT/WORK RECENT-CHAT + WORK SIDEBAR TOGGLE
+
+**Owner (verbatim intent):** "All of Osaurus's features must be added to my chat — deeply, deeply hardened. The act chat. There are issues: when I navigate to a chat sometimes it doesn't navigate, it glitches/bugs — a lot of regression from implementing Osaurus. Look at how my chat used to look BEFORE I implemented Osaurus and make sure it's hardened again, performance/optimization stellar. The OpenCode/work part of my app does NOT have a recent chat — I want my recent-chat popover (that's on act) to have TWO sections: one for Act, one for Work, like a toggle to access the OpenCode chats vs the act chat view. Harden it all up. The work/OpenCode sidebar — I want a toggle to close the sidebar. And I want my OLD side panel back on the act chat — I used to have a side panel on act chat; there's a lot of things I used to have on my chat. Make sure it's good. Deeply harden before we move on to the work."
+
+**INDEXED AS WORK_QUEUE items (P0, owner-named):**
+1. **0.34 Configuration button VISIBLE on act chat** — the act surface mounts ChatView with `showsToolbarControls:false`, hiding the toolbar Configuration gear, so the owner had NO reachable entry to the 8 native act-settings surfaces. FIX: add a visible "Configuration" button to the act composer control strip (ChatInputBar, `composerMode==.osaurusAct`) → `openActConfiguration()`. (in progress 2026-06-23 evening)
+2. **0.35 Restore the OLD act-chat side panel** — the owner had a side panel on the act chat (pre-Osaurus). The act surface hides it (`showBrainPanel`/context side panel + `ChatSidebarView`). Restore the owner's old side panel on act.
+3. **0.36 Recent-chat popover = Act + Work two sections (toggle)** — the act recent-chat popover (`ChatSidebarView`/history popover) must have TWO sections: Act chats + Work (OpenCode) chats, with a toggle. Work currently has NO recent chat — give it one via this popover.
+4. **0.37 Work/OpenCode sidebar close toggle** — the work TUI surface has a sidebar; add a toggle to close/open it.
+5. **0.38 Navigation regression fix** — "navigate to a chat sometimes doesn't navigate / glitches / bugs." Diagnose + fix recent-chat → load navigation glitches on act.
+6. **0.39 DEEP HARDENING + PERFORMANCE** — compare to the pre-Osaurus chat look/behavior; restore lost chat features + harden performance/optimization to "stellar" BEFORE moving to work. This is a STANDING bar over the act chat.
+7. **0.33 continues** — keep adding ALL Osaurus features to the chat (forever loop), deeply hardened.
+
+**PRIORITY:** owner is frustrated + can't reach surfaces → 0.34 (config button) FIRST, then 0.35 side panel + 0.36 recent-chat Act/Work + 0.38 nav fix + 0.39 hardening. Reference: the owner's OLD chat (git baseline afc34e806 `Epistemos/Views/Chat/ChatView.swift` + `ChatSidebarView.swift`) — restore its side panel + recent-chat polish, engine-swapped to Osaurus.

@@ -341,6 +341,20 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
     (ActCloneSettingsView default branch :1347) — landing each replaces the index row with a real native surface.
   →plan: addendum "🔴🔴🔴 OWNER DIRECTIVE 2026-06-23 — EXHAUSTIVE ACT SURFACE COVERAGE" + the matrix doc.
 
+- [ ] **0.34 Configuration button VISIBLE on act chat** — ✅ DONE (dedeb0d94): act surface `showsToolbarControls:false`
+  hid the toolbar gear → owner had no reachable entry to the 8 act-settings surfaces. Added a visible "⚙ Configuration"
+  button to the act composer strip (ChatInputBar, .osaurusAct) → openActConfiguration(). Screenshot-verified.
+- [ ] **0.35 Restore owner's OLD act side panel** — ✅ DONE (f53c9da0d): ChatBrainPanelView (MODEL CONTEXT) was
+  hard-disabled on act by a `!actUsesOsaurus` gate (ChatView:386). Dropped the gate (showBrainPanel defaults true) +
+  added a composer sidebar-toggle. Screenshot-verified (panel on right of act chat).
+- [ ] **0.36 Recent-chat popover = Act + Work two sections (toggle)** — the act recent-chat popover must have TWO
+  sections (Act chats + Work/OpenCode chats) with a toggle; Work currently has NO recent chat. →addendum 2026-06-23 evening.
+- [ ] **0.37 Work/OpenCode sidebar close toggle** — the work TUI surface sidebar needs a close/open toggle.
+- [ ] **0.38 Navigation regression fix** — "navigate to a chat sometimes doesn't navigate / glitches / bugs" on act
+  recent-chat → load. Diagnose + fix.
+- [ ] **0.39 DEEP HARDENING + PERFORMANCE (STANDING)** — restore the owner's pre-Osaurus chat features + harden
+  performance/optimization to "stellar" before work; baseline afc34e806 ChatView/ChatSidebarView. →addendum.
+
 ## TIER 1 — WORK MODE (OpenCode)
 - [ ] **1.1** OpenCode launcher binary vendored. →plan: "🆕 BUN RUNTIME = VENDORED/BUNDLED".
 - [ ] **1.2** WORK = OpenCode real TUI; mini/graph (not note); search→work; dual landing+blur.
