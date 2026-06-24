@@ -69,6 +69,31 @@ public struct EpistemosOsaurusSkillRow: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct EpistemosOsaurusAgentRow: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let name: String
+    public let modelLabel: String
+    public let toolsEnabled: Bool
+    public let memoryEnabled: Bool
+    public let autonomousEnabled: Bool
+    public let isDefault: Bool
+    public let isActive: Bool
+
+    public init(
+        id: String, name: String, modelLabel: String, toolsEnabled: Bool,
+        memoryEnabled: Bool, autonomousEnabled: Bool, isDefault: Bool, isActive: Bool
+    ) {
+        self.id = id
+        self.name = name
+        self.modelLabel = modelLabel
+        self.toolsEnabled = toolsEnabled
+        self.memoryEnabled = memoryEnabled
+        self.autonomousEnabled = autonomousEnabled
+        self.isDefault = isDefault
+        self.isActive = isActive
+    }
+}
+
 public struct EpistemosOsaurusManagementEntry: Identifiable, Hashable, Sendable {
     public let id: String
     public let label: String
@@ -1011,6 +1036,30 @@ public enum EpistemosOsaurusManagementBridge {
                 sourceLabel: source,
                 category: skill.category,
                 enabled: skill.enabled
+            )
+        }
+    }
+
+    /// 0.33d — AGENTS inventory (native, reachable from act): the real `AgentManager` agents
+    /// with each agent's effective model, tools/memory/autonomous state, and default/active
+    /// markers — the native expression of Osaurus's AgentsView so the act surface shows what
+    /// agents exist and how each is configured ("the agent was never the same").
+    @MainActor
+    public static func agentRows() -> [EpistemosOsaurusAgentRow] {
+        let mgr = AgentManager.shared
+        let activeId = mgr.activeAgentId
+        return mgr.agents.map { agent in
+            let model = mgr.effectiveModel(for: agent.id)
+            let autonomous = mgr.effectiveAutonomousExec(for: agent.id)?.enabled == true
+            return EpistemosOsaurusAgentRow(
+                id: agent.id.uuidString,
+                name: agent.name,
+                modelLabel: (model?.isEmpty == false) ? model! : "Core default",
+                toolsEnabled: agent.toolsEnabled,
+                memoryEnabled: agent.memoryEnabled,
+                autonomousEnabled: autonomous,
+                isDefault: agent.id == Agent.defaultId,
+                isActive: agent.id == activeId
             )
         }
     }
