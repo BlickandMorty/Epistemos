@@ -359,6 +359,16 @@ Continued owner P0 act-surface punch-list — the remaining small inventories + 
 - **SETTINGS INVENTORIES ~COMPLETE.** Matrix per-category status now: COVERED/PARTIAL for all act-relevant management surfaces (models, providers, tools, tool-secrets, permissions, sandbox, computer-use, privacy, plugins, skills, agents, voice, identity/storage, pairing, credentials). N/A: themes, credits, server, storage-disk, onboarding, whatsnew. **REMAINING REAL GAPS = chat-RENDERING (0.33i charts/terminal/LaTeX/minimap) + 0.33k computer-use feed + edit-follow-ons (per-skill toggle, agent/model/secret editing).**
 - **0.32 WITNESS (iter 47)** · Highest attempted: **0.33j** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **8 native surfaces landed**: stats, model detail, tool secrets, skills, agents, plugins, voice, identity/storage. NEXT: 0.33i chat-rendering (charts/terminal/LaTeX) — the remaining CHAT-VISIBLE gaps.
 
+### Iteration 48 (2026-06-23 ~19:42-20:00) — 🔴 OWNER FRUSTRATION P0: restored the 2 biggest missing things (Configuration button + side panel)
+
+**Owner reported (frustrated, hours in): "no difference; I don't see the Configuration button on chat to configure; a lot of things are missing."** Root-caused + fixed the actual blockers — the prior 8 surfaces were REAL but UNREACHABLE.
+
+- **App-version check:** only ONE Epistemos.app exists (the DerivedData debug build) and it IS the running one → NOT a stale-app problem. The issue was reachability.
+- **0.34 Configuration button — FIXED + screenshot-verified (commit dedeb0d94).** Act mounts ChatView with `showsToolbarControls:false` → the toolbar Configuration gear (ChatView:479) was HIDDEN, so NONE of the 8 act-settings surfaces were reachable. Added a visible "⚙ Configuration" button to the act composer control strip (ChatInputBar, .osaurusAct). `/tmp/epi_iter48_configbtn_20260623-1952.png` Read: "⚙ Configuration" now in the act composer bottom bar.
+- **0.35 Side panel RESTORED + screenshot-verified (commit f53c9da0d).** Owner: "I used to have a side panel on act chat." `ChatBrainPanelView` (MODEL CONTEXT; showBrainPanel defaults true) was HARD-DISABLED on act by `if showBrainPanel, !actUsesOsaurus` (ChatView:386). Dropped the gate + threaded a composer sidebar-toggle (ChatInputBar.isContextPanelShown/onToggleContextPanel). `/tmp/epi_iter48_sidepanel_20260623-1958.png` Read: MODEL CONTEXT panel on the right of the act chat.
+- **NEW DIRECTIVE captured (addendum 2026-06-23 evening + queue 0.34-0.39):** 0.36 recent-chat popover Act+Work two sections (Work has no recent chat); 0.37 work sidebar close toggle; 0.38 nav glitch fix; 0.39 deep hardening to pre-Osaurus chat polish. LESSON: building surfaces behind a hidden entry = invisible to owner — always verify REACHABILITY, not just render.
+- **0.32 WITNESS (iter 48)** · Highest attempted: **0.34/0.35** · Owner P0 frustration preempted the scheduled math task · Forbidden end-claims avoided: YES · NEXT: 0.38 nav fix OR 0.36 recent-chat Act/Work.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
