@@ -767,9 +767,6 @@ final class ChatState {
         actTurnTask?.cancel()
         actTurnTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            var accumulated = ""
-            var thinkingTrace = ""
-            var toolBlocks: [MessageContentBlock] = []
             defer {
                 self.isStreaming = false
                 self.streamingText = ""
@@ -789,33 +786,29 @@ final class ChatState {
                     )
                     return
                 }
-                for try await event in stream {
-                    guard !Task.isCancelled else { break }
-                    switch event {
-                    case .textDelta(let text):
-                        accumulated += text
-                        self.streamingText = UserFacingModelOutput.finalVisibleText(from: accumulated)
-                    case .thinkingDelta(let text):
-                        thinkingTrace += text
-                    case .toolStarted, .toolCompleted, .generationStats:
-                        // Tool/stat events surface via the side panel + stats chip; v1 renders the
-                        // visible answer text reliably. Rich in-bubble tool blocks are a follow-on.
-                        break
+                // 0.47: the ONE shared Act streaming core (also drives Mini Chat + graph/note). Main act v1
+                // renders the visible answer text + the stats chip; thinking + tool blocks surface via the
+                // side panel, so those sinks stay no-ops here — identical behavior to the prior hand-rolled loop.
+                let result = try await ActTurnStreamCore.consume(
+                    stream,
+                    sinks: ActTurnStreamSinks(
+                        onVisibleText: { [weak self] text in self?.streamingText = text }
+                    )
+                )
+                if result.wasCancelled {
+                    if !result.finalVisibleText.isEmpty {
+                        self.appendLocalMessage(
+                            role: .assistant, content: result.finalVisibleText, contentBlocks: nil)
                     }
+                    return
                 }
-                let final = UserFacingModelOutput.finalVisibleText(from: accumulated)
-                _ = thinkingTrace
-                _ = toolBlocks
                 self.appendLocalMessage(
                     role: .assistant,
-                    content: final.isEmpty ? "No response generated — try again or pick a different model." : final,
+                    content: result.finalVisibleText.isEmpty
+                        ? "No response generated — try again or pick a different model."
+                        : result.finalVisibleText,
                     contentBlocks: nil
                 )
-            } catch is CancellationError {
-                let partial = UserFacingModelOutput.finalVisibleText(from: accumulated)
-                if !partial.isEmpty {
-                    self.appendLocalMessage(role: .assistant, content: partial, contentBlocks: nil)
-                }
             } catch {
                 self.appendLocalMessage(
                     role: .assistant,
