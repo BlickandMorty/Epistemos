@@ -159,22 +159,77 @@ struct ChatSidebarView: View {
     private var chatList: some View {
         ScrollView {
             LazyVStack(spacing: 2) {
-                let grouped = groupedChats
-                ForEach(grouped, id: \.label) { section in
-                    sectionHeader(section.label)
-
-                    ForEach(section.chats, id: \.id) { sdChat in
-                        SidebarChatRow(
-                            sdChat: sdChat,
-                            isActive: sdChat.id == chat.activeChatId,
-                            onSelect: { loadChatIntoSession(sdChat) },
-                            onDelete: { requestChatDeleteAuthorization(sdChat) }
-                        )
-                    }
-                }
+                // 0.48b (owner: "two sections one for act and one for work"): split recent chats into a
+                // top-level ACT section and WORK section (Work = SDChat.isWorkerSession), each keeping the
+                // existing time grouping inside. One unified store, two honest kind sections.
+                kindSection(
+                    title: "Act",
+                    systemImage: "sparkles",
+                    chats: actChats,
+                    emptyHint: nil
+                )
+                kindSection(
+                    title: "Work",
+                    systemImage: "hammer",
+                    chats: workChats,
+                    emptyHint: "Work sessions you run will appear here."
+                )
             }
             .padding(.horizontal, 8)
         }
+    }
+
+    /// One top-level kind section (Act / Work): a kind header, then the kind's chats time-grouped, or an
+    /// honest empty hint when the kind has no chats yet (e.g. Work before any worker session is saved).
+    @ViewBuilder
+    private func kindSection(
+        title: String,
+        systemImage: String,
+        chats: [SDChat],
+        emptyHint: String?
+    ) -> some View {
+        kindHeader(title, systemImage: systemImage)
+        if chats.isEmpty {
+            if let emptyHint {
+                Text(emptyHint)
+                    .font(.epSmall)
+                    .foregroundStyle(theme.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 6)
+            }
+        } else {
+            ForEach(timeSections(for: chats), id: \.label) { section in
+                sectionHeader(section.label)
+                ForEach(section.chats, id: \.id) { sdChat in
+                    SidebarChatRow(
+                        sdChat: sdChat,
+                        isActive: sdChat.id == chat.activeChatId,
+                        onSelect: { loadChatIntoSession(sdChat) },
+                        onDelete: { requestChatDeleteAuthorization(sdChat) }
+                    )
+                }
+            }
+        }
+    }
+
+    /// Top-level kind header (Act / Work) — bolder + accent-tinted with an icon, distinct from the time
+    /// subsection headers below it.
+    private func kindHeader(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.epSmall)
+            Text(title)
+                .font(.epBody)
+                .fontWeight(.bold)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(theme.resolved.accent.color)
+        .textCase(nil)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.top, 16)
+        .padding(.bottom, 2)
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -197,7 +252,19 @@ struct ChatSidebarView: View {
         let chats: [SDChat]
     }
 
-    private var groupedChats: [ChatSection] {
+    /// 0.48b: the ACT kind — every non-worker chat (chat/notes/dialogue/codeAsk/aiPartner).
+    private var actChats: [SDChat] {
+        filteredChats.filter { !$0.isWorkerSession }
+    }
+
+    /// 0.48b: the WORK kind — worker sessions (SDChat.isWorkerSession, chatType == "worker").
+    private var workChats: [SDChat] {
+        filteredChats.filter { $0.isWorkerSession }
+    }
+
+    /// Time-group a given chat array (Today / Yesterday / Previous 7 Days / Older). Parameterized so the
+    /// Act and Work kind sections each get their own time grouping (was `groupedChats` over all chats).
+    private func timeSections(for chats: [SDChat]) -> [ChatSection] {
         let calendar = Calendar.current
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
@@ -211,7 +278,7 @@ struct ChatSidebarView: View {
         var thisWeek: [SDChat] = []
         var older: [SDChat] = []
 
-        for chat in filteredChats {
+        for chat in chats {
             if chat.updatedAt >= startOfToday {
                 today.append(chat)
             } else if chat.updatedAt >= startOfYesterday {

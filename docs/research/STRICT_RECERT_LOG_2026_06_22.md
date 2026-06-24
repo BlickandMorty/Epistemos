@@ -378,6 +378,16 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 61 (2026-06-24) — 0.48b: Act/Work TWO-SECTION recent-chats popover (read-side split)
+
+Owner explicit: "I want my recent chat pop over that's on act to have two sections one for act and one for work."
+
+- **GROUNDED:** the act recent-chats popover = `ChatView.swift:574 historyPopoverContent` → `ChatSidebarView()`. It read `@Query`-backed SDChat (via loadChats) and rendered ONE time-grouped list (Today/Yesterday/Previous 7 Days/Older). SDChat already has `isWorkerSession` (chatType "worker"); no Work rows exist YET (Work terminal is a PTY — persistence is 0.48b-part2).
+- **CHANGE (ChatSidebarView.swift, read-side only — zero persistence risk):** split the list into a top-level ACT section (`actChats` = !isWorkerSession) and WORK section (`workChats` = isWorkerSession), each keeping the existing time grouping inside. Refactored `groupedChats` → `timeSections(for:)` (parameterized by chat array). New `kindSection(title:systemImage:chats:emptyHint:)` renders a bold accent-tinted `kindHeader` (sparkles=Act, hammer=Work) then the time subsections, or an honest empty hint for an empty kind. Work shows "Work sessions you run will appear here." until 0.48b-part2 persists worker rows. Global empty-state (no chats at all) unchanged.
+- **WHY SAFE:** pure read/grouping change over the SAME unified SDChat store; no writer/persistence touched; act chats still render exactly as before, now under an "Act" header with a "Work" section beside them. Matches the owner's two-section ask.
+- **VERIFY:** build bw9y8zsc5 = **BUILD SUCCEEDED** (full app compiled + codesigned, exit 0). Owner runtime-verify: open the act recent-chats popover → see ACT section with chats + WORK section (empty hint until work sessions persist).
+- **REMAINS (0.48b-part2):** persist Work/OpenCode sessions as SDChat "worker" rows (needs a clean Work-session lifecycle hook — the PTY terminal currently creates none) so the Work section populates + reopens.
+
 ### Iteration 60 (2026-06-24) — 0.48 IMPLEMENT: main-act Osaurus turns now persist to unified SDChat recent-chats
 
 GAP C real fix (root cause from iter59: new main-act path saved NOTHING). Additive seam, reuses the proven writer.
