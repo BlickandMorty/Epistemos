@@ -604,3 +604,21 @@ list all three in summary.
   button (iter68); titlebar model-output leak via cleanActChatTitle (iter69a); back-chevron + stale title on act
   landing via activeHomeChat !actLandingSurfaceVisible gate (iter69b). REMAINS: "Click anywhe" landing-hero truncation
   (LiquidGreeting), + ongoing sweep for other little visual glitches/bugs the owner flags.
+
+## NEW owner-reported backlog (2026-06-24, screenshots) — VISUAL/UX hardening
+- [ ] **SETTINGS reskin (owner-confirmed reversal):** mount the REAL OsaurusCore settings (ManagementView) reskinned
+  as Act settings; DELETE native ActCloneSettingsView duplicates; update ActSurfaceOsaurusUIDirectionGuardTests.
+- [ ] **TITLE LEAK (act + work):** a random model title ("Say hello in exactly three words", "4, a Large Language
+  Model…") pops into the TITLEBAR for both Act AND Work/OpenCode. Work especially should NOT show an act/model title.
+- [ ] **OPENCODE THEME:** OpenCode TUI is white/black, not the Epistemos theme — set a dark/themed opencode config
+  (opencode.json `theme` / OPENCODE_THEME) matching the app theme.
+- [ ] **WHITE BAR AT TOP (work):** a solid cream/white bar at the top of the work surface (toolbar bg) instead of the
+  pill toolbar floating over the page — looks cut off when scrolling.
+- [ ] **OPENCODE RECENT CHAT:** Work still has no recent-chat (the 0.42 button may not surface in work / owner wants more).
+- [ ] **OPENCODE SLOW:** still very slow to open/start (deeper than 0.46 step1 — vendored-binary cold boot).
+- [ ] **OPENCODE MCP NOT CONNECTING:** Work shows "0 MCP /status" — the epistemos-vault fusion (omega_mcp_stdio,
+  0.49/0.49b) isn't connecting LIVE. Verify: is the OpenCode runtime + omega_mcp_stdio binary actually vendored/
+  present? Is OPENCODE_CONFIG being read? Is the stdio MCP launching? Ground the live path; the merge-config is
+  written but OpenCode reports 0 servers → either binary absent, config path not honored, or server crash.
+- [ ] **WORK LSP wiring:** the in-process Rust LSP (RustLSPTransport / LspKernel) should be exposed as code-intel
+  tools in Work (per WorkCloneSettingsView "in-process RustLSP wired as code-intelligence tools"). Verify/wire it.

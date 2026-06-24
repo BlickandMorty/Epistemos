@@ -378,6 +378,16 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 70 (2026-06-24) — OWNER-REPORTED: Act chrome leaking into WORK mode (4 bugs, 1 gate)
+
+Owner screenshots of WORK/OpenCode: a stale act/model title in the titlebar ("Say hello in exactly three words"), a back chevron, the act toolbar, AND a white bar at the top (looked cut off) — all act chrome bleeding into Work.
+
+- **ROOT CAUSE:** `showingActChatSurface` (RootView) was `homeTab==.home && shouldRouteActThroughOsaurus && actEntered` — it did NOT check the workspace mode. Switching to Work left `actEntered` true, so showingActChatSurface stayed TRUE in Work → (a) principal title = act `chat.chatTitle` (the random model title), (b) back chevron shown, (c) the act ControlGroup toolbar shown, (d) `toolbarGlassVisible` true → the toolbar-glass WHITE BAR at the top of the Work surface.
+- **FIX (one gate):** `showingActChatSurface` now also requires `WorkspaceModeSelection.current() == .act` (matching `actLandingSurfaceVisible`). In Work mode it's false → all four act-chrome leaks vanish; the pill toolbar floats without the white bar.
+- **VERIFY:** build bh1e99ull = **BUILD SUCCEEDED** (exit 0). Owner runtime-verify: in Work, no act title/back chevron/act toolbar; no white bar at top.
+- **TITLEBAR (act) recap:** already guarded — auto-title via `sanitizeGeneratedTitle` (rejects model self-descriptions), transcript-load via `cleanActChatTitle` (first user message). A user-prompt title like "Say hello in exactly three words" in ACT is CORRECT (it's the user's first message).
+- **STILL OPEN (owner batch, queued):** SETTINGS reskin mount (owner-confirmed); OpenCode THEME (needs grounded opencode.json theme schema — won't guess, could break load); OpenCode recent-chat in work; OpenCode slow-start (deeper).
+
 ### Iteration 68-69 (2026-06-24) — OWNER-REPORTED REGRESSIONS: context-panel close button + landing titlebar/back-button leak
 
 Owner screenshots: (1) right side panel had no close button; (2) titlebar showed leaked model output ("4, a Large Language Model developed by Google DeepMind…") on the LANDING page, plus a stray back-chevron there. Direct regressions from the act/Osaurus rework.
