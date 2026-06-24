@@ -1701,14 +1701,18 @@ struct ActEpistemosChatSurface: View {
     }
 
     private func openActConfiguration() {
-        // OWNER 2026-06-23 night (AUTHORITATIVE ontology refactor): do NOT mount Osaurus's
-        // management UI as the product settings — re-code Osaurus capabilities as NATIVE
-        // Epistemos settings. Configuration opens the native Epistemos act settings
-        // (ActCloneSettingsView) which surface Osaurus capabilities through native Epistemos
-        // controls. (Reverts the iter52 "mount Osaurus ManagementView" approach.)
-        UtilityWindowManager.shared.show(.settings)
+        // OWNER 2026-06-24 (REVERSAL, confirmed): the native-recoded Act settings (ActCloneSettingsView)
+        // "don't really work" + got messy. Use the REAL Osaurus settings, reskinned native. showActSettings()
+        // applies the source skin + cream/native ThemeManager tokens (persist:false) then presents the full
+        // Osaurus ManagementView (HF marketplace, agent creation, themes, all tabs + animations) — the working
+        // settings the native re-code was missing. See memory project_act_settings_use_osaurus_reskinned_2026_06_24.
         NSApp.activate()
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        EpistemosOsaurusManagementBridge.showActSettings()
+        #else
+        UtilityWindowManager.shared.show(.settings)
         NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
+        #endif
     }
 }
 
