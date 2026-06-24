@@ -588,3 +588,10 @@ list all three in summary.
   surface that opens the SAME unified ChatSidebarView (Act + Work sections, .openWorkSession reopen) via the shared
   ui.showChatSidebar flag — one store, surfaced on both modes. REMAINS (logged): a PERSISTENT always-visible side rail
   on Work (bigger layout change) if the owner wants it beyond the popover.
+
+- [x] **0.45 Goose + OpenClaw fused beneath OpenCode** — AUDIT (iter66): NOT an open gap. GOOSE: heavy crate
+  DELIBERATELY not vendored (660MB/179-dep bloat); OpenCode IS the engine; select algos clean-room vendored
+  (vendored_goose); WorkBackend UniFFI seam honestly inert (EPISTEMOS_WORK_GOOSE_V0) as a growth point. OPENCLAW:
+  hardening algos ALREADY ported + wired (Omega/Safety ToolLoopDetector + ContextBudgetManager → OrchestratorState);
+  full spec Phase-K-deferred (Pro, post-App-Store, owner policy). Runtime fusion mechanism = MCP (omega_mcp_stdio §720).
+  No code (don't fake/force-vendor). BLOCKED on owner-gated heavy vendoring OR Phase-K — logged for owner decision.
