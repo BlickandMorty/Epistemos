@@ -583,3 +583,8 @@ list all three in summary.
   (lifecycle-risky) or verified OpenCode boot-skip env flags. Needs runtime present to measure honestly.
 
 - [x] **0.44 palette from live theme** — MOOT (iter64): cream tokens drive unmounted OsaurusCore views only; visible native surfaces already theme-follow. No code.
+
+- [~] **0.42 Work sidebar / recent-chat bar** — DONE-popover (iter65): added a recent-chats button on the Work
+  surface that opens the SAME unified ChatSidebarView (Act + Work sections, .openWorkSession reopen) via the shared
+  ui.showChatSidebar flag — one store, surfaced on both modes. REMAINS (logged): a PERSISTENT always-visible side rail
+  on Work (bigger layout change) if the owner wants it beyond the popover.

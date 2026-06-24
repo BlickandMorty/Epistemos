@@ -3782,6 +3782,31 @@ private struct HomeRouter: View {
     /// Show chat when messages exist AND user hasn't navigated to landing.
     private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
 
+    /// 0.42: the Work surface's recent-chats entry point. Presents the SAME unified `ChatSidebarView`
+    /// (Act + Work two-section list, 0.48b) the act surface uses via the shared `ui.showChatSidebar` flag —
+    /// so Work gets a recent-chat bar without a second store. Tapping a Work row reopens via `.openWorkSession`.
+    private var workRecentChatsButton: some View {
+        @Bindable var ui = ui
+        return Button {
+            ui.toggleChatSidebar()
+        } label: {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: 30, height: 30)
+                .background(.ultraThinMaterial, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(12)
+        .help("Recent Chats (Act + Work)")
+        .accessibilityLabel("Recent Chats")
+        .popover(isPresented: $ui.showChatSidebar) {
+            ChatSidebarView()
+                .frame(width: 300, height: 500)
+                .preferredColorScheme(ui.preferredColorScheme)
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             // ACT = Epistemos chat/search surface backed by Osaurus capability.
@@ -3804,6 +3829,10 @@ private struct HomeRouter: View {
                         workspace: Self.workWorkspaceURL,
                         epistemosVaultRoot: vaultSync.vaultURL)
                         .transition(.blurFade())
+                        // 0.42: Work-side access to the UNIFIED recent-chats popover (owner: "work should have a
+                        // recent chat bar") — same ChatSidebarView the act surface uses, with its Act + Work
+                        // sections. One recent-chats system, surfaced on both modes.
+                        .overlay(alignment: .topLeading) { workRecentChatsButton }
                 } else if LocalAgentLoop.shouldRouteActThroughOsaurus() {
                     // Epistemos LandingView FIRST -> centered search -> submit -> Epistemos chat.
                     if actEntered {
