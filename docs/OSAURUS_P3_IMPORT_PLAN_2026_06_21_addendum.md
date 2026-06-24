@@ -2408,3 +2408,11 @@ Act stays `[ ]` until runtime proves both halves together: **owner UI preserved 
 7. **0.33 continues** — keep adding ALL Osaurus features to the chat (forever loop), deeply hardened.
 
 **PRIORITY:** owner is frustrated + can't reach surfaces → 0.34 (config button) FIRST, then 0.35 side panel + 0.36 recent-chat Act/Work + 0.38 nav fix + 0.39 hardening. Reference: the owner's OLD chat (git baseline afc34e806 `Epistemos/Views/Chat/ChatView.swift` + `ChatSidebarView.swift`) — restore its side panel + recent-chat polish, engine-swapped to Osaurus.
+
+## 🔴🔴🔴 OWNER DIRECTIVE (P0) — 2026-06-23 (night) — ACT MUST BE PURE OSAURUS, NOT THE DEPRECATED "STANDARD CHAT" PATH
+
+**Owner (verbatim):** "It's not supposed to be standard chat, it's supposed to be Osaurus act or core — did you take that out? And that old standard chat should NOT be the one we are using, it is DEPRECATED. The act keeps failing — it's supposed to work like Osaurus but it's not at all."
+
+**DIAGNOSIS (from owner screenshot, ROUTING panel):** Route="Standard Chat", Mode="Tools", "38 app tools", Model="Gemma 4 E2B QAT GGUF". The act send is going through the EPISTEMOS `ChatCoordinator` STANDARD-CHAT path (ChatCoordinator.swift:1695/1734/1778 "Standard Chat" + directToolNames=38 Epistemos tools). The small Gemma model is pushed into that tool-agent loop → hallucinates `apple.notes` → Osaurus ToolRegistry returns tool_not_found → "I cannot fulfill." Osaurus's own chat WORKED because it answered conversationally through its own engine + handled tools.
+
+**FIX (0.40, P0):** The act send must route DIRECTLY through the Osaurus Act/Core engine (the Osaurus `ChatSession` via `EpistemosOsaurusChatSessionBridge` / `SharedActInference.actEventStreamIfArmed`), rendering events natively into the act bubbles — NOT through `ChatCoordinator`'s deprecated Standard-Chat classification + the 38 Epistemos tools. The deprecated standard-chat path is OFF for act. The brain-panel ROUTING label must read "Osaurus Act"/"Core", never "Standard Chat", for act turns. MiniChat already does the direct-Osaurus-event pattern (SharedActInference.actEventStreamIfArmed) — main act must too. Tools in act = Osaurus's tools (registered + working in the headless session), not the Epistemos 38-tool loop.

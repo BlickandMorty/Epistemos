@@ -540,3 +540,13 @@ PRECONDITIONS (pass49 P0-5):** **"STRICT RE-CERT COMPLETE" FORBIDDEN** while ANY
 any in-scope clone lacks ≥1 real runtime proof (stubs excluded). When all boxes are `[x]` or honest `[~]`, phase
 ends only with green xcodebuild this phase + per-surface PNG Read this phase + send-text real reply this phase —
 list all three in summary.
+
+- [ ] **0.40 ACT = PURE OSAURUS (kill deprecated Standard-Chat path for act) — P0 OWNER (2026-06-23 night)** — the act
+  send currently flows act ChatView → MainChatSubmissionRouter → `chat.submitQuery` → `ChatCoordinator` "Standard Chat"
+  (deprecated) + 38 Epistemos tools → small Gemma hallucinates apple.notes → tool_not_found → FAILS. Owner: "standard chat
+  is DEPRECATED, act must be Osaurus act/core." FIX: route act submit DIRECTLY through the Osaurus engine
+  (`SharedActInference.actEventStreamIfArmed` → Osaurus ChatSession, rendering text/thinking/tool events into the act
+  bubbles) — the SAME pattern MiniChatView already uses (MiniChatView:2510 actEventStreamIfArmed) — bypassing
+  ChatCoordinator's standard-chat classification + Epistemos tool loop. Brain-panel ROUTING must read "Osaurus Act"/"Core",
+  never "Standard Chat", for act. Tools = Osaurus's (registered+working in the headless session), not the 38-tool Epistemos loop.
+  →addendum "ACT MUST BE PURE OSAURUS 2026-06-23 night".

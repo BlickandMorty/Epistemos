@@ -1648,9 +1648,19 @@ struct ActEpistemosChatSurface: View {
     }
 
     private func openActConfiguration() {
+        // OWNER 2026-06-23: "use the Osaurus settings for the chat — call it 'Act settings' —
+        // reskin it native." Open the FULL Osaurus settings (ManagementView: HF marketplace,
+        // model download, agent creation, all 22 tabs + animations) as the act Configuration
+        // surface so NOTHING of Osaurus's settings is lost — reskinned + titled "Act settings".
+        // MAS (no OsaurusCore) falls back to the native Epistemos act settings.
+        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+        NSApp.activate()
+        EpistemosOsaurusManagementBridge.showActSettings()
+        #else
         UtilityWindowManager.shared.show(.settings)
         NSApp.activate()
         NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
+        #endif
     }
 }
 

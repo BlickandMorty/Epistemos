@@ -647,7 +647,7 @@ enum EpistemosOsaurusManagementPresenter {
         }
         window.isReleasedWhenClosed = false
         window.appearance = themeAppearance
-        window.title = "Osaurus Settings"
+        window.title = "Act settings"
         windowManager.show(.management)
     }
 }
@@ -655,6 +655,16 @@ enum EpistemosOsaurusManagementPresenter {
 public enum EpistemosOsaurusManagementBridge {
     @MainActor
     public static func showSettings() {
+        EpistemosOsaurusManagementPresenter.show()
+    }
+
+    /// OWNER 2026-06-23: open the FULL Osaurus settings as the act "Act settings" surface —
+    /// reskinned native — so every Osaurus settings feature (HF marketplace, model download,
+    /// agent creation, themes, all 22 tabs + animations) is present and verifiable, in the
+    /// owner's visual style. Best-effort source skin; the presenter titles the window "Act settings".
+    @MainActor
+    public static func showActSettings() {
+        EpistemosOsaurusSourceSkin.shared.apply(.fallback)
         EpistemosOsaurusManagementPresenter.show()
     }
 
