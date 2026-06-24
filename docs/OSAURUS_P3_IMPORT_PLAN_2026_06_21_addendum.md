@@ -2428,3 +2428,12 @@ Act stays `[ ]` until runtime proves both halves together: **owner UI preserved 
 - **0.43 MCP / dependency PERSISTENCE bug** — installing Playwright / browser-use / MCP servers + setup does NOT persist across app quit/relaunch. Diagnose + fix the persistence (where MCP/dependency config is saved; it's being lost on quit). Owner-reported, real bug.
 - **0.44 ACT SETTINGS reskin = palette-theme canonical** — the Osaurus ManagementView ("Act settings") must follow the owner's selected palette/theme colors (not the fallback skin), deeply reskinned to look native Epistemos. Build the real EpistemosOsaurusThemeTokens from the live UIState theme + apply to ThemeManager before show.
 - **STANDING:** forever loop, harden act+work, NEVER delete any Osaurus surface, all Osaurus must WORK. Reread WORK_QUEUE 0.33-0.44 + this addendum every iteration.
+
+## 🔴 OWNER DIRECTIVE (P0, FOREVER LOOP) — 2026-06-23 (late+) — WORK CLONE = Goose + OpenClaw fused; OpenCode slow-start hardening
+
+**Owner (verbatim intent):** "Work clone needs to have the GOOSE logic in it, as well as OPENCLAW — the things we wanted to port to add to OpenCode to make it better. Make sure those are added. And continue the Osaurus stuff. The OpenCode work often opens slow and starts slow — it's just lax robustness because it's a different type of terminal view — so I want that hardened as well. Those two [act + work] both deeply hardened."
+
+**INDEXED:**
+- **0.45 WORK = Goose + OpenClaw fused beneath OpenCode** (extends queue 1.3): port the Goose logic + OpenClaw improvements INTO the work/OpenCode clone (ARCH C fuse — beneath OpenCode, not a separate engine). Ground docs/research/OPENCODE_VS_GOOSE_WORK_ENGINE + 1.3 plan. Add the capabilities we wanted in OpenCode. NEVER delete; all must work.
+- **0.46 OpenCode/work SLOW-START hardening** (extends 1.8): the work terminal (WorkTerminalView, SwiftTerm PTY launching the bundled opencode TUI) opens + starts SLOW. Harden: lazy/pre-warm the runtime, faster PTY spawn, robustness of the SwiftTerm terminal-view path (it's "a different type of terminal view"). Measure + improve open/start latency. Pairs 1.8 lazy-launch/kill-on-idle.
+- **STANDING:** harden ACT + WORK both, forever; continue Osaurus act hardening (0.40b→0.41 tools, etc.) in parallel; never delete any Osaurus/OpenCode surface.
