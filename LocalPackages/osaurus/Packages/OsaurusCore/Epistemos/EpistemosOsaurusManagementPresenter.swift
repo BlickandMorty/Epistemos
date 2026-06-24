@@ -69,6 +69,20 @@ public struct EpistemosOsaurusSkillRow: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct EpistemosOsaurusVoiceStatus: Hashable, Sendable {
+    public let transcriptionEnabled: Bool
+    public let transcriptionStateLabel: String
+    public let vadEnabled: Bool
+    public let ttsModelReady: Bool
+
+    public init(transcriptionEnabled: Bool, transcriptionStateLabel: String, vadEnabled: Bool, ttsModelReady: Bool) {
+        self.transcriptionEnabled = transcriptionEnabled
+        self.transcriptionStateLabel = transcriptionStateLabel
+        self.vadEnabled = vadEnabled
+        self.ttsModelReady = ttsModelReady
+    }
+}
+
 public struct EpistemosOsaurusPluginRow: Identifiable, Hashable, Sendable {
     public let id: String
     public let name: String
@@ -1061,6 +1075,28 @@ public enum EpistemosOsaurusManagementBridge {
                 enabled: skill.enabled
             )
         }
+    }
+
+    /// 0.33e — VOICE status (native, reachable from act): the real transcription / VAD / TTS
+    /// state so the act surface shows its voice capabilities natively (composer mic already works;
+    /// this surfaces the modes Osaurus's Voice tabs configure).
+    @MainActor
+    public static func voiceStatus() -> EpistemosOsaurusVoiceStatus {
+        let svc = TranscriptionModeService.shared
+        let stateLabel: String
+        switch svc.state {
+        case .idle: stateLabel = "Idle"
+        case .starting: stateLabel = "Starting"
+        case .transcribing: stateLabel = "Transcribing"
+        case .stopping: stateLabel = "Stopping"
+        case .error(let message): stateLabel = "Error: \(message)"
+        }
+        return EpistemosOsaurusVoiceStatus(
+            transcriptionEnabled: svc.isEnabled,
+            transcriptionStateLabel: stateLabel,
+            vadEnabled: VADConfigurationStore.load().vadModeEnabled,
+            ttsModelReady: TTSService.shared.isModelReady
+        )
     }
 
     /// 0.33c — PLUGINS inventory (native, reachable from act): the real `PluginManager` loaded

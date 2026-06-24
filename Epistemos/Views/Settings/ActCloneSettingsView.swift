@@ -22,6 +22,7 @@ struct ActCloneSettingsView: View {
     @State private var skillRows: [EpistemosOsaurusSkillRow] = []
     @State private var agentRows: [EpistemosOsaurusAgentRow] = []
     @State private var pluginRows: [EpistemosOsaurusPluginRow] = []
+    @State private var voiceStatus: EpistemosOsaurusVoiceStatus?
     @State private var toolPermissionOptions: [EpistemosOsaurusPolicyOption] = []
     @State private var computerUsePolicySnapshot: EpistemosOsaurusComputerUsePolicySnapshot?
     @State private var computerUsePolicyOptions: [EpistemosOsaurusPolicyOption] = []
@@ -604,6 +605,35 @@ struct ActCloneSettingsView: View {
                 Text("Act's loaded plugins from Osaurus's PluginManager — each contributing tools, skills, routes, and credential/web capabilities to the agent.")
             }
 
+            // 0.33e — native Voice status (transcription / VAD / TTS).
+            if let voice = voiceStatus {
+                Section {
+                    LabeledContent("Transcription") {
+                        HStack(spacing: 6) {
+                            Text(voice.transcriptionEnabled ? "On" : "Off")
+                                .foregroundStyle(voice.transcriptionEnabled ? Color.green : Color.secondary)
+                            Text("· \(voice.transcriptionStateLabel)")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .font(.caption)
+                    }
+                    LabeledContent("Voice activity (VAD)") {
+                        Text(voice.vadEnabled ? "On" : "Off")
+                            .font(.caption)
+                            .foregroundStyle(voice.vadEnabled ? Color.green : Color.secondary)
+                    }
+                    LabeledContent("Text-to-speech") {
+                        Text(voice.ttsModelReady ? "Model ready" : "Not loaded")
+                            .font(.caption)
+                            .foregroundStyle(voice.ttsModelReady ? Color.green : Color.secondary)
+                    }
+                } header: {
+                    Text("Voice")
+                } footer: {
+                    Text("Act's voice capabilities from Osaurus — push-to-talk transcription, voice-activity detection, and text-to-speech. The composer mic uses these.")
+                }
+            }
+
             Section {
                 if let computerUsePolicySnapshot {
                     Picker(
@@ -977,6 +1007,7 @@ struct ActCloneSettingsView: View {
         skillRows = EpistemosOsaurusManagementBridge.skillRows()
         agentRows = EpistemosOsaurusManagementBridge.agentRows()
         pluginRows = EpistemosOsaurusManagementBridge.pluginRows()
+        voiceStatus = EpistemosOsaurusManagementBridge.voiceStatus()
         toolPermissionOptions = EpistemosOsaurusManagementBridge.toolPermissionOptions()
         computerUsePolicyOptions = EpistemosOsaurusManagementBridge.computerUsePolicyOptions()
         let policySnapshot = EpistemosOsaurusManagementBridge.computerUsePolicySnapshot()
