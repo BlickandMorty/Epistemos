@@ -399,7 +399,12 @@ struct ChatView: View {
                     snapshot: chat.latestBrainSnapshot,
                     capturedModelInput: chat.latestCapturedModelInput,
                     pendingContextAttachments: chat.pendingContextAttachments,
-                    pendingAttachments: chat.pendingAttachments
+                    pendingAttachments: chat.pendingAttachments,
+                    onClose: {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.9)) {
+                            showBrainPanel = false
+                        }
+                    }
                 )
                     .frame(width: ChatLayout.brainPanelWidth)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -1801,6 +1806,9 @@ private struct ChatBrainPanelView: View {
     let capturedModelInput: CapturedModelInput?
     let pendingContextAttachments: [ContextAttachment]
     let pendingAttachments: [FileAttachment]
+    /// Owner 2026-06-24: the right-side context panel needs an in-panel CLOSE button (it was only toggleable
+    /// from the composer/toolbar). nil → header omitted (back-compat).
+    var onClose: (() -> Void)? = nil
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -1808,8 +1816,38 @@ private struct ChatBrainPanelView: View {
         !pendingContextAttachments.isEmpty || !pendingAttachments.isEmpty
     }
 
+    /// Header with a title + close (X) button so the panel can be dismissed directly (owner-requested).
+    @ViewBuilder
+    private var panelHeader: some View {
+        if let onClose {
+            HStack(spacing: 8) {
+                Text("Context")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(theme.textTertiary)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer(minLength: 8)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.textTertiary)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Close context panel")
+                .accessibilityLabel("Close context panel")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            Divider().opacity(0.4)
+        }
+    }
+
     var body: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            panelHeader
+            ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 if hasPendingContext {
                     // Pre-submit preview — removals still happen in the
@@ -1979,6 +2017,7 @@ private struct ChatBrainPanelView: View {
             }
             .padding(.horizontal, 0)
             .padding(.vertical, 8)
+            }
         }
         .background(theme.resolved.background.color)
     }
