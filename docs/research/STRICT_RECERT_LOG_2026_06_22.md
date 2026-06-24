@@ -378,6 +378,16 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 65 (2026-06-24) — 0.42: Work-side recent-chats access (reuses the unified popover)
+
+Owner: "work should be able to have a sidebar a recent chat bar." Reused the ONE recent-chats system — no second store.
+
+- **GROUNDED:** act history popover = a toolbar Button → `ui.toggleChatSidebar()` + `.popover(isPresented: $ui.showChatSidebar) { ChatSidebarView() }` (the unified Act/Work two-section list, 0.48b). `ui.showChatSidebar` is a global UIState flag; `$ui` binding via `@Bindable var ui = ui` (the ChatView:558 pattern). The Work surface (RootView.HomeRouter `workspaceMode == .work` → `WorkTerminalHostView`) had NO chrome — bare terminal.
+- **CHANGE (RootView.swift, HomeRouter):** added `workRecentChatsButton` (sidebar.left glyph in an ultraThinMaterial circle) that toggles `ui.showChatSidebar` and presents the SAME `ChatSidebarView()` popover (Act + Work sections, `.openWorkSession` reopen). Overlaid `.topLeading` on the work surface. Reuses the unified store + popover — gap C stays ONE system, not duplicated.
+- **WHY SAFE/CORRECT:** verified the work surface IS the mounted native one (WorkTerminalHostView, RootView:3803) per the grounding discipline; act + work popovers attach to the same flag but only one surface is in the tree at a time (mutually exclusive on workspaceMode). No new persistence/store.
+- **VERIFY:** build b4ihofu7j = **BUILD SUCCEEDED** (full app compiled + codesigned, exit 0). Owner runtime-verify: in Work mode, a recent-chats button (top-left) opens the Act/Work popover; tapping a Work row reopens work, an Act row switches to act.
+- **REMAINS (0.42 deeper, logged):** a PERSISTENT side rail on Work (vs the popover) is a bigger layout change — popover-first satisfies "recent chat bar"; persistent sidebar logged if the owner wants it always-visible.
+
 ### Iteration 64 (2026-06-24) — 0.44 AUDIT: MOOT for visible surfaces (cream tokens drive UNMOUNTED Osaurus views)
 
 Owner: "follow the color of the pallet theme." Grounded before coding — and 0.44 as framed is moot. NO code change (correct call: do not style dead code).
