@@ -378,6 +378,14 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 76 (2026-06-24) — ARCHITECTURE LOCKED + Act IP preserved (owner's "most important" guardrail)
+
+Owner LOCKED the new architecture (memory project_architecture_decision_2026_06_24): native Swift Act engine; OpenCode Work + Epistemos GUI (OpenChamber donor); OpenClaw/Hermes internal donors; Osaurus FULLY removed eventually (after Act IP saved + native engine working); KEEP HF marketplace by re-homing natively. Focus = "1 and 4" (perfect OpenCode↔app integration + finish non-deletion small fixes); GUARDRAIL = save Act IP before any removal.
+
+- **DELIVERED:** `docs/ACT_IP_PRESERVATION_2026_06_24.md` — canonical end-to-end capture of everything Act does (UI surface, send flow runActOsaurusTurn→actEventStreamIfArmed→ActTurnStreamCore, the Osaurus bridge being replaced: ChatConfigurationStore + general-agent selection + headless driver registerTools-before-send + event emission + secret/clarify presenters, the capabilities the native engine must reproduce, the model-mgmt capabilities to re-home, and removal preconditions). NativeSwiftActEngine must match every numbered behavior; nothing deleted until it does.
+- **NO Osaurus removal / no ActCloneSettingsView deletion** this iter (guardrail). Osaurus stays the working act engine + interim marketplace until the native replacement + re-home land.
+- **NEXT (focus 1):** verify/expand OpenCode↔app exposure — skills (skills/*/SKILL.md discoverable via vault root now that MCP works), native tools, permissions, vault context, each end-to-end. (focus 4): send "Loading model…" indicator, OpenCode sidebar-close keybind, mini/graph/note visibility.
+
 ### Iteration 75 (2026-06-24) — Settings reversal: ALL act Configuration entry points → reskinned Osaurus settings
 
 Finishes the redirect (iter72 did the primary button). Secondary entry points (graph/note/mini/landing) post `.showActOsaurusSettings` → previously SettingsView navigated to the native ActCloneSettingsView.
