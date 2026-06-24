@@ -134,6 +134,39 @@ nonisolated enum WorkOpenCodeRuntime {
             .appendingPathComponent("opencode.json")
     }
 
+    /// Owner 2026-06-24: OpenCode's TUI was white/black, not the Epistemos theme. OpenCode reads its UI theme
+    /// from `~/.config/opencode/tui.json` (theme in opencode.json is deprecated). The built-in `system` theme
+    /// adapts to the TERMINAL's color scheme — and our SwiftTerm PTY colors are set from the live Epistemos
+    /// palette (WorkTerminalPalette.from(theme:)), so `system` makes OpenCode follow the Epistemos theme.
+    /// Merge-preserving: only set `theme` when the user hasn't chosen one (never clobber a user pick). Best-effort.
+    @discardableResult
+    static func writeTuiThemeConfig(theme: String = "system") -> String? {
+        let fm = FileManager.default
+        let dir = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/opencode", isDirectory: true)
+        let file = dir.appendingPathComponent("tui.json")
+        var root: [String: Any] = {
+            guard let data = try? Data(contentsOf: file),
+                  let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            else { return [:] }
+            return obj
+        }()
+        root["$schema"] = "https://opencode.ai/tui.json"
+        if root["theme"] == nil {
+            root["theme"] = theme
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8)
+        else { return nil }
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try json.write(to: file, atomically: true, encoding: .utf8)
+            return file.path
+        } catch {
+            return nil
+        }
+    }
+
     /// MERGE-PRESERVING config generation (0.49 — owner: "MCP never saved after I quit my app"). Deep-merges our
     /// `epistemos-vault` fusion server into an EXISTING opencode.json, preserving EVERY other key and every other
     /// MCP server the user installed. `existingJSON` nil/empty/garbage → a fresh fusion-only config (honest). Pure
@@ -159,6 +192,12 @@ nonisolated enum WorkOpenCodeRuntime {
             "enabled": true,
         ]
         root["mcp"] = mcp
+        // Owner 2026-06-24: OpenCode showed "LSPs are disabled". `"lsp": true` enables LSP globally (OpenCode
+        // auto-detects installed language servers); omitting it keeps LSP off. Only set the default when the user
+        // hasn't configured `lsp` themselves (preserve a user object/false).
+        if root["lsp"] == nil {
+            root["lsp"] = true
+        }
         guard let data = try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]),
               let json = String(data: data, encoding: .utf8)
         else {
@@ -198,6 +237,10 @@ struct BundledWorkOpenCodeShell: WorkOpenCodeShell {
 
     func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec {
         var environment = WorkOpenCodeRuntime.shellEnvironment(runtimeURL: runtimeURL)
+        // Owner 2026-06-24: make OpenCode's TUI follow the Epistemos theme (it was white/black). Best-effort —
+        // writes `theme: system` into ~/.config/opencode/tui.json so OpenCode adapts to the PTY's Epistemos
+        // palette. Never blocks the shell.
+        WorkOpenCodeRuntime.writeTuiThemeConfig()
         // FUSION (owner §720 + 0.49b): when the bundled omega_mcp_stdio server is present, write an OpenCode
         // config registering it rooted at the APP VAULT (NOT the shell cwd) so the work agent sees the app's
         // vault notes + `skills/` as first-class MCP context, then point OpenCode at it via OPENCODE_CONFIG.
