@@ -130,9 +130,22 @@ public enum EpistemosOsaurusChatSessionBridge {
         maxTokens: Int
     ) -> AsyncThrowingStream<EpistemosOsaurusChatSessionEvent, Error> {
         _ = maxTokens
+        // 0.40b (owner "act keeps failing"): the headless act session was offering tools
+        // (e.g. apple.notes) that are NOT registered/runnable in this context, so the small
+        // local model tool-called and failed ("tool_not_found") even on "say hello". Run the
+        // act session CONVERSATIONALLY (disableTools) so it answers reliably like the real
+        // Osaurus default chat. Full Osaurus tool capability returns under 0.41 once tools are
+        // registered to actually run. Epistemos's only ChatSession consumer is this act/mini
+        // path, so this is scoped to act.
+        var chatCfg = ChatConfigurationStore.load()
+        if !chatCfg.disableTools {
+            chatCfg.disableTools = true
+            ChatConfigurationStore.save(chatCfg)
+        }
+
         let session = ChatSession()
         session.agentId = Agent.defaultId
-        session.selectedModel = requestedModel ?? ChatConfigurationStore.load().coreModelIdentifier
+        session.selectedModel = requestedModel ?? chatCfg.coreModelIdentifier
         session.suppressesPersistence = true
         session.onSessionChanged = {}
 
