@@ -557,9 +557,13 @@ list all three in summary.
   contract changed to hand over RAW text (each surface projects, finalVisibleText not idempotent). Now TWO surfaces on
   ONE event loop. REMAINS: graph/note already bounce into the unified main-act core (ok); FULL STATE unification (one
   renderer + one recent-chat, overlaps 0.48) is the bigger remaining step. →addendum #4.
-- [ ] **0.48 ONE native recent-chat system (Act+Work)** — multiple coexist (SDChat/SDMessage + Osaurus ChatSessionsManager
-  + MiniChat thread). Unify to ONE native Epistemos recent-chat popover; Act + Work sessions save/reopen cleanly; fixes
-  0.38 nav glitch. →addendum #3/#5.
+- [~] **0.48 ONE native recent-chat system (Act+Work)** — AUDIT DONE (iter59): NOT 3 stores. SDChat is ALREADY the
+  unified native store (chatType incl "worker"); ALL popovers read recentChatsDescriptor; Osaurus ChatSessionsManager is
+  DEAD in product; MiniChat persistMiniChatSession mirrors into SDChat. REAL GAP: new main-act runActOsaurusTurn (0.40)
+  persists NOTHING to SDChat (ChatState has no modelContext seam) — main-act chats absent from recent-chats (root cause of
+  owner's missing/again-broken recent-chats). NEXT (implement+build-verify): add ChatState.persistActTurn closure →
+  ChatCoordinator.persistChatCompletion (proven writer), call after final appendLocalMessage in runActOsaurusTurn.
+  THEN 0.48b: Work sessions → SDChat "worker" rows + Act/Work two-section popover. →addendum #3/#5 + 0.38.
 - [~] **0.49 Work MCP/dep install PERSISTENCE + Epistemos skills bridge** — (a) PERSISTENCE FIXED (iter55):
   launchSpec MERGE-preserves user MCPs in Application Support (writeMergedFusionConfig, 4 tests incl real-FS round-trip).
   (b) SKILLS/VAULT BRIDGE FIXED (iter56/0.49b): fusion MCP server now roots at the APP VAULT (not home/cwd), so the
