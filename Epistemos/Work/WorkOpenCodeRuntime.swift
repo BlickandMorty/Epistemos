@@ -196,21 +196,26 @@ struct BundledWorkOpenCodeShell: WorkOpenCodeShell {
 
     var isReady: Bool { true }
 
-    func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec {
+    func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec {
         var environment = WorkOpenCodeRuntime.shellEnvironment(runtimeURL: runtimeURL)
-        // FUSION (owner §720): when the bundled omega_mcp_stdio server is present, write an OpenCode config
-        // that registers it (with the workspace as the vault root) + point OpenCode at it via OPENCODE_CONFIG,
-        // so the work TUI auto-fuses the app's vault tools. Best-effort: a write failure just omits the fusion
-        // (the TUI still launches honestly), never blocks the shell.
+        // FUSION (owner §720 + 0.49b): when the bundled omega_mcp_stdio server is present, write an OpenCode
+        // config registering it rooted at the APP VAULT (NOT the shell cwd) so the work agent sees the app's
+        // vault notes + `skills/` as first-class MCP context, then point OpenCode at it via OPENCODE_CONFIG.
+        // The shell cwd stays `workspace` for shell/file ops; the fusion vault root is decoupled. Best-effort:
+        // a write failure just omits the fusion (the TUI still launches honestly), never blocks the shell.
         if let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL() {
+            // 0.49b: the fusion MCP server roots at the Epistemos app vault so skills/vault/context bridge into
+            // Work — fall back to the canonical default vault, NEVER the cwd/home (home would bury the app vault
+            // under a 5000-file noisy resource list and miss `skills/`).
+            let fusionVaultRoot = (epistemosVaultRoot ?? FirstRunBootstrap.defaultVaultURL()).path
             // MERGE-PRESERVING (0.49): read the durable opencode.json, fold our fusion server in WITHOUT
             // dropping any MCP/dependency the user installed via the TUI, write back. Launch no longer
             // clobbers user installs — they survive quit+reopen because OPENCODE_CONFIG is this same
             // persistent Application-Support file every launch.
             if let configPath = WorkOpenCodeRuntime.writeMergedFusionConfig(
-                stdioServerPath: serverURL.path, vaultRoot: workspace.path) {
+                stdioServerPath: serverURL.path, vaultRoot: fusionVaultRoot) {
                 environment["OPENCODE_CONFIG"] = configPath
-                environment["EPISTEMOS_VAULT_ROOT"] = workspace.path
+                environment["EPISTEMOS_VAULT_ROOT"] = fusionVaultRoot
             }
         }
         return WorkShellLaunchSpec(

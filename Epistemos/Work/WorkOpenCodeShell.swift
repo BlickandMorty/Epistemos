@@ -33,10 +33,22 @@ protocol WorkOpenCodeShell: Sendable {
     /// True only when a real OpenCode TUI + Bun engine are present AND the seam is
     /// armed. Never reports ready for the inert seam.
     var isReady: Bool { get }
-    /// The PTY launch spec for an OpenCode session rooted at `workspace`. Throws an
-    /// HONEST WorkShellError when the shell is not wired or the runtime is absent —
-    /// callers surface that, they don't get a fake terminal.
-    func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec
+    /// The PTY launch spec for an OpenCode session rooted at `workspace` (the shell cwd).
+    /// `epistemosVaultRoot` is the APP VAULT the fusion MCP server roots at (so the work
+    /// agent sees the app's vault notes + `skills/` as first-class MCP context, 0.49b) —
+    /// decoupled from the shell cwd. nil → the bundled shell falls back to the canonical
+    /// app vault (never the cwd/home). Throws an HONEST WorkShellError when the shell is
+    /// not wired or the runtime is absent — callers surface that, never a fake terminal.
+    func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec
+}
+
+extension WorkOpenCodeShell {
+    /// Back-compatible convenience: no explicit app vault → the shell decides the fusion
+    /// root (the bundled shell uses the canonical app vault). Preserves the old call shape
+    /// for the smoke shell + tests.
+    func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec {
+        try launchSpec(workspace: workspace, epistemosVaultRoot: nil)
+    }
 }
 
 /// The honest-inert default: reports not-ready and refuses to produce a launch spec.
@@ -45,7 +57,7 @@ protocol WorkOpenCodeShell: Sendable {
 struct InertWorkOpenCodeShell: WorkOpenCodeShell {
     var isReady: Bool { false }
 
-    func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec {
+    func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec {
         throw WorkShellError.notWired(
             "OpenCode work shell is not wired yet — the native terminal view, lazy Bun engine, and vendored OpenCode TUI are the follow-on. No fake terminal is launched."
         )

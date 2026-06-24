@@ -558,8 +558,10 @@ list all three in summary.
 - [ ] **0.48 ONE native recent-chat system (Act+Work)** — multiple coexist (SDChat/SDMessage + Osaurus ChatSessionsManager
   + MiniChat thread). Unify to ONE native Epistemos recent-chat popover; Act + Work sessions save/reopen cleanly; fixes
   0.38 nav glitch. →addendum #3/#5.
-- [~] **0.49 Work MCP/dep install PERSISTENCE + Epistemos skills bridge** — ROOT CAUSE was OUR launch clobbering the
-  durable opencode.json. FIXED (iter55): launchSpec now MERGE-preserves user MCPs in Application Support via
-  writeMergedFusionConfig (4 tests incl. real-FS round-trip). REMAINS: (a) RUNTIME owner-verify install→quit→reopen→usable
-  once OpenCode runtime vendored; (b) bridge Epistemos skills/native-tools CONTEXT into Work's MCP beyond vault-root.
+- [~] **0.49 Work MCP/dep install PERSISTENCE + Epistemos skills bridge** — (a) PERSISTENCE FIXED (iter55):
+  launchSpec MERGE-preserves user MCPs in Application Support (writeMergedFusionConfig, 4 tests incl real-FS round-trip).
+  (b) SKILLS/VAULT BRIDGE FIXED (iter56/0.49b): fusion MCP server now roots at the APP VAULT (not home/cwd), so the
+  work agent sees vault notes + skills/*/SKILL.md as MCP resources; live vault threaded via VaultSyncService. REMAINS:
+  RUNTIME owner-verify (open Work → list/read app-vault+skills via MCP, install→quit→reopen→usable) once OpenCode
+  runtime vendored; skills as INVOKABLE tools + Swift-side native tools into Work (app-hosted network MCP follow-on).
   →addendum #3 + 0.43.
