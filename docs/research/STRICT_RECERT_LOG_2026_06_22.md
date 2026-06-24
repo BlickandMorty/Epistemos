@@ -369,6 +369,15 @@ Continued owner P0 act-surface punch-list — the remaining small inventories + 
 - **NEW DIRECTIVE captured (addendum 2026-06-23 evening + queue 0.34-0.39):** 0.36 recent-chat popover Act+Work two sections (Work has no recent chat); 0.37 work sidebar close toggle; 0.38 nav glitch fix; 0.39 deep hardening to pre-Osaurus chat polish. LESSON: building surfaces behind a hidden entry = invisible to owner — always verify REACHABILITY, not just render.
 - **0.32 WITNESS (iter 48)** · Highest attempted: **0.34/0.35** · Owner P0 frustration preempted the scheduled math task · Forbidden end-claims avoided: YES · NEXT: 0.38 nav fix OR 0.36 recent-chat Act/Work.
 
+### Iteration 49 (2026-06-23 ~20:17 night) — 🔴 P0 ROOT-CAUSE: act fails because it uses the DEPRECATED Standard-Chat path; MiniChat pattern is the fix
+
+Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/core." Deep trace (read-only — did NOT rush a risky change):
+
+- **ROOT CAUSE NAILED.** Act ChatView (forced `availableOperatingModesOverride: [.agent]`, RootView:1531) → `submitMainChatQuery` → `MainChatSubmissionRouter.submit(forceActOsaurus:true)` → `chat.submitQuery` → **`ChatCoordinator`** which has ZERO act-awareness (no forceActOsaurus/SharedActInference reference) → classifies the turn "Standard Chat" (mainChatBrainSnapshotRouteContext, ChatCoordinator:1734/1778) with `directToolNames` = the 38 Epistemos tools → small Gemma is pushed to tool-call → `apple.notes` → Osaurus ToolRegistry:545 tool_not_found → "I cannot fulfill." This is the deprecated path the owner says must NOT be used.
+- **MiniChat does it RIGHT (the template).** MiniChatView:2505 runs the act turn DIRECTLY via `SharedActInference.actEventStreamIfArmed(prompt, systemPrompt:nil, maxTokens:2048, reasoningMode: .thinking, modelID)` → renders textDelta/thinkingDelta/toolStarted/toolCompleted/generationStats into native message blocks — **bypassing ChatCoordinator entirely**, using `.thinking` (conversational), Osaurus's own ChatSession handling chat+tools. MiniChat works; main act doesn't — same engine, different routing.
+- **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
+- **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
