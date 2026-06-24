@@ -313,7 +313,10 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
     (/tmp/epi_iter40_statschip_20260623-1826.png). Remaining sub-bit: billing/credits chip if/when the credits route is active.
   · 0.33b Server settings (~16 ServerSettings sections) — MISSING (largest gap; `server` tab = index row).
   · 0.33c Plugins beyond counts (install/marketplace/GitHub-import/config/sandbox-plugin-editor).
-  · 0.33d Agents / Schedules / Watchers (list, capability manager).
+  · 0.33d Agents inventory — ✅ PARTIAL (iter44, a1cbbebdb): native "Agents (N)" Section in act settings
+    (agentRows() seam: AgentManager.shared.agents → name/effectiveModel/tools/memory/autonomous/default/active).
+    Build-green (settings screenshot blocked; human-reachable). Remaining: agent select/edit (capability manager),
+    schedules, watchers.
   · 0.33e Voice settings (VAD/TTS/transcription/hotkey/overlay) — only composer mic exists.
   · 0.33f Model detail — ✅ PARTIAL (iter41, 8fe0288df): native on-device badge + context window in act model rows
     (ActCloneSettingsView model stack + in-chat InlineRuntimePickerPanel), fed by cheap downloadStates map. Build-green

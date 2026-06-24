@@ -326,6 +326,14 @@ Continued owner P0 act-surface punch-list (owner cares: "all the skills / 38 ski
 - Matrix rows F+G → COVERED; queue 0.33g ✅.
 - **0.32 WITNESS (iter 43)** · Highest attempted: **0.33g** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · Surfaces landed: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills (4 native surfaces). NEXT: 0.33d agents inventory OR 0.33j (identity/credits/themes/storage) — or owner picks from the open list.
 
+### Iteration 44 (2026-06-23 ~19:09-19:15) — 0.33d native Agents inventory
+
+Continued owner P0 act-surface punch-list (owner: "the agent was just never the same").
+
+- **0.33d Agents inventory — PARTIAL(improved) (commit a1cbbebdb).** Grounded the REAL seam: `AgentManager.shared.agents: [Agent]` + `effectiveModel(for:)` (:677) + `effectiveAutonomousExec(for:)` (:590) + `activeAgentId` (:86) + `Agent.defaultId`. Built bridge seam `EpistemosOsaurusManagementBridge.agentRows()` + `EpistemosOsaurusAgentRow`, and a native "Agents (N)" Section in ActCloneSettingsView (person icon + name + Default badge + effective model + Tools/Memory/Autonomous state + Active marker) — NOT the vendored AgentsView. **xcodebuild ** BUILD SUCCEEDED **.** (e): settings-tab screenshot automation-blocked (documented wall); human-reachable via Configuration → Act → Agents. Follow-on: agent select/edit (capability manager), schedules, watchers.
+- Matrix row L → PARTIAL(improved); queue 0.33d annotated.
+- **0.32 WITNESS (iter 44)** · Highest attempted: **0.33d** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **5 native surfaces landed**: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills, 0.33d agents. NEXT: 0.33c plugins inventory OR 0.33j storage/themes/identity/credits — continue down the list.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
