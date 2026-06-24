@@ -319,7 +319,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
     (ActCloneSettingsView model stack + in-chat InlineRuntimePickerPanel), fed by cheap downloadStates map. Build-green
     (runtime screenshot automation-blocked — settings nav + composer pill AX-unreachable; human-reachable). Remaining:
     download progress, external-model add, cache inspector.
-  · 0.33g Skills view/editor + slash-command catalog editor (invocation works; no catalog UI).
+  · 0.33g Skills catalog — ✅ COVERED read-only (iter43, 07b964d01): native "Skills (N/M on)" Section in act settings
+    (skillRows() seam: SkillManager.shared.skills → name/desc/source/category/enabled). Slash popover render-verified
+    ("Commands + Skills"). Build-green (settings screenshot blocked; human-reachable). Follow-on: per-skill toggle + editor.
   · 0.33h Tool secrets — ✅ COVERED read-only (iter42, 62dfdc108): native "Tool secrets" Section in act settings
     (toolSecretRows() seam: PluginManager plugins' SecretSpecs + ToolSecretsKeychain → plugin credential + Set/Missing
     badge). Build-green (settings-tab screenshot automation-blocked; human-reachable). Follow-on: inline set/clear editing.

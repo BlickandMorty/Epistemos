@@ -48,7 +48,7 @@ Inline "Providers and MCP" (:269); connect/disconnect remote+MCP + router toggle
 Composer popover `SlashCommandPopover.swift` (ChatInputBar.swift:127-468). **PARTIAL** — no native slash-command management/catalog editor (`commands` tab = generic index row).
 
 ### G. Skills
-Skill catalog **counts** only (:1080) + slash invocation. **PARTIAL** — no native skill view/editor reachable from act.
+Native skill **catalog** (iter43, 07b964d01): `skillRows()` seam (SkillManager.shared.skills → name/desc/source/category/enabled) → "Skills (N/M on)" Section in ActCloneSettingsView; slash invocation render-verified ("Commands + Skills" popover, /tmp/epi_iter43_slash). **COVERED (read-only catalog)** — follow-on: per-skill enable toggle + skill editor.
 
 ### H. Plugins
 Native sheet = installed/ready counts + dependency-recipe count (:1325-1338) + repair (:984). **PARTIAL/MISSING** — no native install, marketplace browse/detail, GitHub import, plugin config, or sandbox-plugin editor.

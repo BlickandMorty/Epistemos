@@ -317,6 +317,15 @@ Continued owner P0 act-surface punch-list.
 - Matrix row E → COVERED(read-only); queue 0.33h ✅.
 - **0.32 WITNESS (iter 42)** · Highest attempted: **0.33h** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · Surfaces landed so far: 0.33a stats ✅, 0.33f model detail ✅(partial), 0.33h tool secrets ✅(read-only). NEXT: 0.33g skills/slash catalog OR 0.33d agents — pick a chat-reachable one for screenshot-verifiability, or continue settings surfaces honestly.
 
+### Iteration 43 (2026-06-23 ~19:00-19:06) — 0.33g native Skills catalog + slash popover render-verified
+
+Continued owner P0 act-surface punch-list (owner cares: "all the skills / 38 skills").
+
+- **0.33g Skills catalog — COVERED read-only (commit 07b964d01).** Grounded the REAL seam: `SkillManager.shared.skills: [Skill]` (Skill.swift:28 — name/description/category/enabled/isBuiltIn/isFromPlugin). Built bridge seam `EpistemosOsaurusManagementBridge.skillRows()` + `EpistemosOsaurusSkillRow`, and a native "Skills (N/M on)" Section in ActCloneSettingsView (bolt icon + name + description + source[Built-in/Plugin/Custom] + category + On/Off badge) — NOT the vendored SkillsView. **xcodebuild ** BUILD SUCCEEDED **.**
+- **(e) CHAT-REACHABLE RENDER-VERIFIED:** launched act + typed "/" → native **"Commands + Skills"** composer popover (/clear /model /agent /tools /configure /help) — `/tmp/epi_iter43_slash_20260623-1904.png` Read. Confirms the command/skill surface (matrix F) reaches the act chat natively. The new settings catalog Section is human-reachable (Configuration → Act → Skills), settings-tab screenshot automation-blocked (documented wall). Follow-on: per-skill enable toggle + skill editor.
+- Matrix rows F+G → COVERED; queue 0.33g ✅.
+- **0.32 WITNESS (iter 43)** · Highest attempted: **0.33g** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · Surfaces landed: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills (4 native surfaces). NEXT: 0.33d agents inventory OR 0.33j (identity/credits/themes/storage) — or owner picks from the open list.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
