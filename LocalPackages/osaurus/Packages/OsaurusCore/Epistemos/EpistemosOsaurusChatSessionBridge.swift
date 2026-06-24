@@ -130,18 +130,11 @@ public enum EpistemosOsaurusChatSessionBridge {
         maxTokens: Int
     ) -> AsyncThrowingStream<EpistemosOsaurusChatSessionEvent, Error> {
         _ = maxTokens
-        // 0.40b (owner "act keeps failing"): the headless act session was offering tools
-        // (e.g. apple.notes) that are NOT registered/runnable in this context, so the small
-        // local model tool-called and failed ("tool_not_found") even on "say hello". Run the
-        // act session CONVERSATIONALLY (disableTools) so it answers reliably like the real
-        // Osaurus default chat. Full Osaurus tool capability returns under 0.41 once tools are
-        // registered to actually run. Epistemos's only ChatSession consumer is this act/mini
-        // path, so this is scoped to act.
-        var chatCfg = ChatConfigurationStore.load()
-        if !chatCfg.disableTools {
-            chatCfg.disableTools = true
-            ChatConfigurationStore.save(chatCfg)
-        }
+        // 0.41 (owner "act needs ALL Osaurus capabilities"): respect the owner's tools toggle —
+        // no longer force-disable. The apple.notes failures were driven by Osaurus's CONFIG agent
+        // (Agent.defaultId), which we replaced with the owner's general agent (0.40c). Tools now
+        // follow the owner's ChatConfiguration; the driver registers runnable tools before send.
+        let chatCfg = ChatConfigurationStore.load()
 
         // 0.40c (owner "say hello → I can't assist"): Agent.defaultId is Osaurus's CONFIGURATION
         // agent whose system prompt is "you only configure Osaurus, refuse everything else" — so it
@@ -199,6 +192,10 @@ private final class EpistemosOsaurusHeadlessChatSessionDriver {
     }
 
     func run() async {
+        // 0.41: register the agent's runnable tools into ToolRegistry BEFORE the turn (the real
+        // Osaurus app does this in prepareChatExecutionMode) so tools the model calls actually
+        // execute instead of returning tool_not_found. Best-effort; honest if a tool can't run.
+        await SandboxToolRegistrar.shared.registerTools(for: session.agentId ?? Agent.defaultId)
         session.send(prompt)
 
         while !Task.isCancelled && !isFinished {
