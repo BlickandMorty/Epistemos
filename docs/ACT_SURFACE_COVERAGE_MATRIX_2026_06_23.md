@@ -51,7 +51,7 @@ Composer popover `SlashCommandPopover.swift` (ChatInputBar.swift:127-468). **PAR
 Native skill **catalog** (iter43, 07b964d01): `skillRows()` seam (SkillManager.shared.skills → name/desc/source/category/enabled) → "Skills (N/M on)" Section in ActCloneSettingsView; slash invocation render-verified ("Commands + Skills" popover, /tmp/epi_iter43_slash). **COVERED (read-only catalog)** — follow-on: per-skill enable toggle + skill editor.
 
 ### H. Plugins
-Native sheet = installed/ready counts + dependency-recipe count (:1325-1338) + repair (:984). **PARTIAL/MISSING** — no native install, marketplace browse/detail, GitHub import, plugin config, or sandbox-plugin editor.
+Native sheet counts + dependency-recipe count (:1325-1338) + repair (:984) + **plugins INVENTORY** (iter45, 402a2b284): `pluginRows()` seam (PluginManager.shared.plugins → name/id/tool+skill+route counts/secrets/web) → "Plugins (N)" Section in ActCloneSettingsView. **PARTIAL(improved)** — per-plugin inventory COVERED; still missing: install / marketplace browse/detail / GitHub import / plugin config / sandbox-plugin editor.
 
 ### I. Sandbox / VM
 "Sandbox and VM controls" inline (:344); provision/start/stop/diagnostics (:809-839), folder pick/clear (:795-809), native sheet (:1278), `ActSandboxDiagnosticNativeRow` (:1427), repair (:984). **COVERED**.

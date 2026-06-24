@@ -312,7 +312,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
     via `ActTurnStatsStore` (side-channel — never contaminates visible text). Build green + send-verified
     (/tmp/epi_iter40_statschip_20260623-1826.png). Remaining sub-bit: billing/credits chip if/when the credits route is active.
   · 0.33b Server settings (~16 ServerSettings sections) — MISSING (largest gap; `server` tab = index row).
-  · 0.33c Plugins beyond counts (install/marketplace/GitHub-import/config/sandbox-plugin-editor).
+  · 0.33c Plugins inventory — ✅ PARTIAL (iter45, 402a2b284): native "Plugins (N)" Section in act settings
+    (pluginRows() seam: PluginManager.shared.plugins → name/id/tool+skill+route counts/secrets+web flags). Build-green
+    (settings screenshot blocked; human-reachable). Remaining: install/marketplace/GitHub-import/config/sandbox-editor.
   · 0.33d Agents inventory — ✅ PARTIAL (iter44, a1cbbebdb): native "Agents (N)" Section in act settings
     (agentRows() seam: AgentManager.shared.agents → name/effectiveModel/tools/memory/autonomous/default/active).
     Build-green (settings screenshot blocked; human-reachable). Remaining: agent select/edit (capability manager),
