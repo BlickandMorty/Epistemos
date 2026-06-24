@@ -378,6 +378,23 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 74 (2026-06-24) — OpenCode LSP enabled + TUI theme follows Epistemos (web-grounded config)
+
+Owner: OpenCode "LSPs are disabled" + "white/black, not the Epistemos theme". WEB-GROUNDED the opencode.ai config schema first (no guessing): LSP via `opencode.json "lsp": true`; THEME via `~/.config/opencode/tui.json "theme"` (opencode.json theme deprecated); built-in `system` theme adapts to the TERMINAL's colors.
+
+- **LSP (WorkOpenCodeRuntime.mergedOpenCodeConfigJSON):** set `root["lsp"] = true` when the user hasn't configured `lsp` (preserve a user object/false). Enables LSP globally; OpenCode auto-detects installed servers. Addresses "LSPs are disabled".
+- **THEME (new WorkOpenCodeRuntime.writeTuiThemeConfig, called in launchSpec):** merge-preserving write of `~/.config/opencode/tui.json` `{"theme":"system"}` (only when user hasn't picked a theme). `system` adapts to the PTY's colors — and our SwiftTerm PTY palette = the live Epistemos theme (WorkTerminalPalette.from(theme:)) — so OpenCode follows the Epistemos theme instead of white/black. Best-effort, never blocks the shell.
+- **VERIFY:** build b16nbfxqt (pending). Owner runtime-verify (restart Work): right panel LSP no longer "disabled"; OpenCode TUI follows the Epistemos palette.
+- **REMAINS:** a FULL custom Epistemos OpenCode theme (exact palette via ~/.config/opencode/themes/*.json) if `system` isn't close enough — needs the OpenCode theme color schema; logged. Sources: opencode.ai/docs/config, /docs/themes, /docs/tui.
+
+### Iteration 73 (2026-06-24) — MCP "Failed to get tools" ROOT-CAUSED + FIXED (from owner's logs)
+
+Owner couldn't get logs → I read them from disk + ran the server directly. DEFINITIVE fix.
+
+- **DIAGNOSIS:** `~/.local/share/opencode/log/opencode.log` confirmed OpenCode loads OUR config (`Application Support/Epistemos/opencode/opencode.json`, EPISTEMOS_VAULT_ROOT=~/Documents/Epistemos — 0.49b worked). Ran `omega_mcp_stdio` directly with initialize+tools/list: it returned all 23 tools with valid schemas, BUT the envelope was `{"error":null,"id":2,"jsonrpc":"2.0","result":{…}}`.
+- **ROOT CAUSE:** `JsonRpcResponse` (omega-mcp/src/server.rs) serialized BOTH `result` AND `error:null`. JSON-RPC 2.0 forbids both; OpenCode's strict MCP SDK rejects any response carrying an `error` field → "epistemos-vault Failed to get tools". `initialize` is hand-built in omega_mcp_stdio.rs without `error`, which is why it CONNECTED but tools failed.
+- **FIX:** `#[serde(skip_serializing_if = "Option::is_none")]` on `JsonRpcResponse.result`, `.error`, and `JsonRpcError.data`. Rebuilt + re-ran: `tools/list` now returns a clean `{"id":2,"jsonrpc":"2.0","result":{tools:[23]}}` (grep error:null = 0). Binary re-staged to Resources + the owner's current app bundle. Committed 48bbdeb74. Owner action: restart the Work session (no full rebuild) → epistemos-vault should show 23 tools.
+
 ### Iteration 72 (2026-06-24) — SETTINGS RESKIN MOUNT (owner-confirmed reversal): Configuration → reskinned Osaurus settings
 
 Owner: native-recoded Act settings "don't really work" + messy → use the REAL Osaurus settings, reskinned. CONFIRMED via AskUserQuestion. Lower-risk than embedding ManagementView (which needs @EnvironmentObject UpdaterViewModel + a 900px-min subtree that could crash on missing env) — reuse the PROVEN iter52 bridge.
