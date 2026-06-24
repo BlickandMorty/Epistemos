@@ -1090,7 +1090,14 @@ struct RootView: View {
         #if EPISTEMOS_APP_STORE
         return false
         #else
-        return ui.homeTab == .home && LocalAgentLoop.shouldRouteActThroughOsaurus() && actEntered
+        // Owner 2026-06-24: MUST also be in ACT workspace mode. Without this, switching to WORK left
+        // `actEntered` true → the act chat toolbar (back chevron + act title) AND the toolbar glass (a white
+        // bar at the top of the Work surface) leaked into Work, and a stale act/model title popped into the
+        // Work titlebar. Gating on the workspace mode confines the act chrome to act.
+        return ui.homeTab == .home
+            && WorkspaceModeSelection.current() == .act
+            && LocalAgentLoop.shouldRouteActThroughOsaurus()
+            && actEntered
         #endif
     }
 
