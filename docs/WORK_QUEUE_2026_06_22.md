@@ -595,3 +595,7 @@ list all three in summary.
   hardening algos ALREADY ported + wired (Omega/Safety ToolLoopDetector + ContextBudgetManager → OrchestratorState);
   full spec Phase-K-deferred (Pro, post-App-Store, owner policy). Runtime fusion mechanism = MCP (omega_mcp_stdio §720).
   No code (don't fake/force-vendor). BLOCKED on owner-gated heavy vendoring OR Phase-K — logged for owner decision.
+
+- [x] **Consolidation: regression guards** (iter67) — OntologyRefactorRegressionGuardTests locks in the owner-critical
+  invariants (0.48 main-act persistence, 0.47/b shared ActTurnStreamCore, 0.49b work vault-rooting, 0.48b two-section
+  popover + work reopen, audit-A no-Osaurus-UI-mounted) as source-guards so a future refactor can't silently regress them.
