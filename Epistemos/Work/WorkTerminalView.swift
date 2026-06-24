@@ -140,6 +140,10 @@ struct WorkTerminalHostView: View {
         #if !EPISTEMOS_APP_STORE
         if let liveSpec = try? realShellSpec() {
             WorkTerminalView(spec: liveSpec, palette: palette)
+                // 0.48b-part2: a REAL work session just launched → record it as a "worker" row in the unified
+                // recent-chats store so it shows in the popover's Work section + can be reopened. Marker only
+                // (PTY has no message thread); keyed by workspace path so re-opening updates one row.
+                .onAppear { persistWorkSessionMarker() }
         } else if smokeEnabled {
             // Owner's EARLY de-risk: a real login-shell PTY in the themed native view.
             WorkTerminalView(spec: .smokeLoginShell(workspace: workspace), palette: palette)
@@ -151,6 +155,13 @@ struct WorkTerminalHostView: View {
         // unavailable placeholder (never a faked terminal).
         WorkTerminalUnavailableView(detail: gate.detail, palette: palette)
         #endif
+    }
+
+    /// 0.48b-part2: upsert the opened work session into the unified SDChat recent-chats store (Work section).
+    private func persistWorkSessionMarker() {
+        let name = workspace.lastPathComponent
+        let title = name.isEmpty ? "Work" : "Work · \(name)"
+        AppBootstrap.shared?.persistWorkSession(id: "work:\(workspace.path)", title: title)
     }
 
     /// The live OpenCode launch spec — nil/throws until the runtime is wired (honest).

@@ -3093,6 +3093,29 @@ final class AppBootstrap {
     func refreshAmbientManifest() { coordinator.refreshAmbientManifest() }
     func loadChat(chatId: String) { coordinator.loadChat(chatId: chatId) }
 
+    /// 0.48b-part2: persist an opened Work/OpenCode session as an SDChat "worker" row so it appears in the WORK
+    /// section of the unified recent-chats popover. Keyed by a STABLE id (the workspace path) so re-opening the
+    /// same workspace updates ONE row instead of spawning duplicates. Honest: a session MARKER (title + timestamp),
+    /// not faked message bubbles — the work surface is a PTY, not a message thread; reopen = relaunch work there.
+    @MainActor
+    func persistWorkSession(id: String, title: String) {
+        let context = modelContainer.mainContext
+        let predicate = #Predicate<SDChat> { $0.id == id }
+        let descriptor = FetchDescriptor<SDChat>(predicate: predicate)
+        let chat: SDChat
+        if let existing = (try? context.fetch(descriptor))?.first {
+            chat = existing
+        } else {
+            let created = SDChat(title: title, chatType: "worker")
+            created.id = id
+            context.insert(created)
+            chat = created
+        }
+        chat.title = title
+        chat.markAsWorkerSession()   // sets chatType "worker" + updatedAt = .now
+        try? context.save()
+    }
+
     func refreshLiveNoteScheduler() {
         guard !Self.isRunningTests else { return }
         // Live notes are opt-in (UserDefaults key "epistemos.liveNotes.enabled").

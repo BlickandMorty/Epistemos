@@ -374,6 +374,14 @@ struct ChatSidebarView: View {
     }
 
     private func loadChatIntoSession(_ sdChat: SDChat) {
+        // 0.48b-part2: a Work row reopens the WORK surface (not an act transcript — worker rows have no message
+        // thread). Flip to .work via the same notification the act reopen uses; never load it as an act chat.
+        if sdChat.isWorkerSession {
+            NotificationCenter.default.post(name: .openWorkSession, object: sdChat.id)
+            onLoadChat?()
+            ui.dismissChatSidebar()
+            return
+        }
         if let bootstrap = AppBootstrap.shared {
             bootstrap.loadChat(chatId: sdChat.id)
         } else {
