@@ -769,6 +769,26 @@ final class ChatState {
         pendingContextAttachments = []
         ActTurnStatsStore.shared.clearForNewTurn()
 
+        // Owner 2026-06-24: record an HONEST brain snapshot for THIS Osaurus turn so the context panel's
+        // ROUTING shows "Act · Osaurus" — NOT a stale "Standard Chat" label left over from a prior
+        // ChatCoordinator turn (the owner kept seeing "regular chat" even though act runs the Osaurus engine).
+        let actModelLabel = modelID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        captureBrainSnapshot(
+            ChatBrainSnapshot(
+                query: safeQuery,
+                resolvedQuery: safeQuery,
+                operatingMode: .agent,
+                routeLabel: "Act · Osaurus",
+                routeSummary: "Epistemos Act — Osaurus engine (native chat surface, Osaurus underneath).",
+                providerLabel: "Osaurus",
+                modelLabel: (actModelLabel?.isEmpty == false) ? actModelLabel : nil,
+                allowedToolNames: [],
+                loadedNoteTitles: [],
+                contextAttachments: contextAttachments,
+                sections: []
+            )
+        )
+
         streamingText = ""
         isStreaming = true
         actTurnTask?.cancel()
