@@ -622,3 +622,9 @@ list all three in summary.
   written but OpenCode reports 0 servers → either binary absent, config path not honored, or server crash.
 - [ ] **WORK LSP wiring:** the in-process Rust LSP (RustLSPTransport / LspKernel) should be exposed as code-intel
   tools in Work (per WorkCloneSettingsView "in-process RustLSP wired as code-intelligence tools"). Verify/wire it.
+
+## iter77 FINDING (2026-06-24): Work sees 0 vault resources = NO ACTIVE VAULT (not a fusion bug)
+- App prefs: "epistemos.backgroundIndexing.error = No active vault selected"; hasEverConnectedAVault=1.
+- ~/Documents/Epistemos (default fallback) is EMPTY. vaultSync.vaultURL is nil → 0.49b falls back to the empty default → OpenCode MCP resources/list = 0, no skills/.
+- MCP plumbing VERIFIED correct (initialize+tools/list = 23 tools clean; resources/list walks vault root). The gap is STATE: owner must SELECT/CONNECT their vault → then Work sees notes + skills/*/SKILL.md.
+- ROBUSTNESS TODO (focus 1): when no active vault, fusion should log honestly / skip rooting at the empty default; AND consider routing to the owner's real vault (bookmark restore) — investigate why no vault is active after rebuild.
