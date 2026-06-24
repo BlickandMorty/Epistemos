@@ -63,7 +63,7 @@ Native sheet = installed/ready counts + dependency-recipe count (:1325-1338) + r
 Composer mic only (`ComposerMicButton`/`VoiceInputButton` ChatInputBar.swift:1106,1200). **PARTIAL/MISSING** — no native VAD/TTS/transcription-mode settings, hotkey recorder, or voice-input overlay.
 
 ### L. Agents
-Pairing prompt native (RootView.swift:869, installed :164) + a couple agent default toggles (:848-854). **PARTIAL/MISSING** — no native agents list, capability manager, schedules, or watchers.
+Pairing prompt native (RootView.swift:869, installed :164) + agent default toggles (:848-854) + **agents INVENTORY** (iter44, a1cbbebdb): `agentRows()` seam (AgentManager.shared.agents → name/effectiveModel/tools/memory/autonomous/default/active) → "Agents (N)" Section in ActCloneSettingsView. **PARTIAL(improved)** — agents list + pairing + toggles COVERED; still missing: agent select/edit (capability manager), schedules, watchers.
 
 ### M. Server settings  ← LARGEST GAP
 ServerView + ServerSettings/* (~16: Generation Defaults, Concurrency, Cache, Connection, Auth, AdvancedHTTP, GlobalProxy, MTP, Multimodal, Power, MemorySafety, ModelResidency, DecodePerformance, LiveActivity, ToolsTemplates, BatchDiagnostics). **MISSING** — `server` tab = generic index row; zero native sections.
