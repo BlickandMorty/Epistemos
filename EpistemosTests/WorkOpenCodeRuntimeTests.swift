@@ -133,12 +133,99 @@ struct WorkOpenCodeRuntimeTests {
         #expect((server["environment"] as? [String: String])?["EPISTEMOS_VAULT_ROOT"] == "/Users/me/Vault")
     }
 
-    @Test("launchSpec wires OPENCODE_CONFIG when the stdio fusion server is bundled (source-guarded)")
+    @Test("launchSpec wires OPENCODE_CONFIG via the MERGE-preserving writer (source-guarded)")
     func launchSpecWiresFusion() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkOpenCodeRuntime.swift")
         #expect(src.contains("bundledMcpServerURL()"))
         #expect(src.contains("OPENCODE_CONFIG"))
-        #expect(src.contains("writeFusionConfig("))
+        // LIVE launch path must use the merge-preserving writer, not the clobbering one (0.49).
+        #expect(src.contains("writeMergedFusionConfig("))
+    }
+
+    @Test("merge PRESERVES user-installed MCP servers + other keys while (re)asserting the fusion server (0.49)")
+    func mergePreservesUserInstalls() throws {
+        // Simulate a config the user grew by installing Playwright + browser-use MCPs via the work TUI,
+        // plus a non-mcp key OpenCode persists. This is exactly what would be CLOBBERED by a fresh rewrite.
+        let existing = """
+        {
+          "$schema": "https://opencode.ai/config.json",
+          "theme": "opencode",
+          "mcp": {
+            "playwright": { "type": "local", "command": ["npx", "@playwright/mcp"], "enabled": true },
+            "browser-use": { "type": "local", "command": ["uvx", "browser-use-mcp"], "enabled": true }
+          }
+        }
+        """
+        let merged = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+            existingJSON: existing,
+            stdioServerPath: "/Apps/Epistemos.app/Contents/Resources/omega_mcp_stdio",
+            vaultRoot: "/Users/me/Vault")
+        let v = try JSONSerialization.jsonObject(with: Data(merged.utf8)) as! [String: Any]
+        let mcp = v["mcp"] as! [String: Any]
+        // User installs SURVIVE the merge (the 0.49 bug was that they didn't).
+        #expect(mcp["playwright"] != nil)
+        #expect(mcp["browser-use"] != nil)
+        #expect(((mcp["playwright"] as? [String: Any])?["command"] as? [String])?.contains("@playwright/mcp") == true)
+        // Non-mcp keys the user/OpenCode set are preserved too.
+        #expect(v["theme"] as? String == "opencode")
+        // Our fusion server is (re)asserted on top, never lost.
+        let fusion = mcp["epistemos-vault"] as! [String: Any]
+        #expect(fusion["enabled"] as? Bool == true)
+        #expect((fusion["command"] as? [String])?.first?.hasSuffix("omega_mcp_stdio") == true)
+        #expect((fusion["environment"] as? [String: String])?["EPISTEMOS_VAULT_ROOT"] == "/Users/me/Vault")
+    }
+
+    @Test("merge on empty/garbage existing config yields a clean fusion-only config (honest fresh start)")
+    func mergeOnEmptyIsCleanFusion() throws {
+        for existing in [nil, "", "{ not json", "[]"] as [String?] {
+            let merged = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+                existingJSON: existing,
+                stdioServerPath: "/r/omega_mcp_stdio", vaultRoot: "/v")
+            let v = try JSONSerialization.jsonObject(with: Data(merged.utf8)) as! [String: Any]
+            let mcp = v["mcp"] as! [String: Any]
+            #expect(mcp["epistemos-vault"] != nil)
+            #expect(v["$schema"] as? String == "https://opencode.ai/config.json")
+        }
+    }
+
+    @Test("durable config path is the stable Application-Support home (persists across launches)")
+    func durableConfigPathStable() {
+        let a = WorkOpenCodeRuntime.fusionConfigURL()
+        let b = WorkOpenCodeRuntime.fusionConfigURL()
+        #expect(a == b)
+        #expect(a?.lastPathComponent == "opencode.json")
+        #expect(a?.path.contains("Epistemos/opencode") == true)
+    }
+
+    @Test("round-trip: a user install written to the durable file survives a subsequent merge-write (0.49 e2e)")
+    func roundTripUserInstallSurvivesRelaunch() throws {
+        // Real-FS proof of the persistence guarantee using a temp file as the durable config stand-in.
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent("epi-oc-rt-\(ProcessInfo.processInfo.globallyUniqueString)")
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("opencode.json")
+
+        // Launch 1: fresh merge writes the fusion-only config.
+        try WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+            existingJSON: nil, stdioServerPath: "/r/omega_mcp_stdio", vaultRoot: "/v")
+            .write(to: file, atomically: true, encoding: .utf8)
+
+        // User installs an MCP into the durable file (what the TUI's MCP-add does to OPENCODE_CONFIG).
+        var obj = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as! [String: Any]
+        var mcp = obj["mcp"] as! [String: Any]
+        mcp["playwright"] = ["type": "local", "command": ["npx", "@playwright/mcp"], "enabled": true]
+        obj["mcp"] = mcp
+        try JSONSerialization.data(withJSONObject: obj).write(to: file)
+
+        // Launch 2: relaunch re-runs the merge over the now-grown file. The install MUST survive.
+        let existing = try String(contentsOf: file, encoding: .utf8)
+        let relaunched = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+            existingJSON: existing, stdioServerPath: "/r/omega_mcp_stdio", vaultRoot: "/v")
+        let after = try JSONSerialization.jsonObject(with: Data(relaunched.utf8)) as! [String: Any]
+        let afterMcp = after["mcp"] as! [String: Any]
+        #expect(afterMcp["playwright"] != nil)      // the bug is fixed: install survives relaunch
+        #expect(afterMcp["epistemos-vault"] != nil) // fusion still present
     }
 
     @Test("kill-on-idle window is configured (lazy-launch, kill-on-idle lifecycle)")

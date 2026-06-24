@@ -107,15 +107,79 @@ nonisolated enum WorkOpenCodeRuntime {
 
     /// Write the fusion config to an app-managed path (Application Support), returning its path for
     /// `OPENCODE_CONFIG`. nil on failure (the caller then launches the TUI without fusion — honest, not fatal).
+    /// NOTE: this is the CLOBBERING writer (kept for the legacy seam + tests); the LIVE launch path uses the
+    /// merge-preserving `writeMergedFusionConfig` so user-installed MCPs survive a relaunch (0.49).
     static func writeFusionConfig(_ json: String) -> String? {
+        guard let file = fusionConfigURL() else { return nil }
+        do {
+            try FileManager.default.createDirectory(
+                at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try json.write(to: file, atomically: true, encoding: .utf8)
+            return file.path
+        } catch {
+            return nil
+        }
+    }
+
+    /// The DURABLE, app-managed OpenCode config path (Application Support/Epistemos/opencode/opencode.json).
+    /// Stable across launches — this is the persistent HOME for the work TUI's config, so any MCP/dependency the
+    /// user installs into it (via the TUI's MCP-add, which writes back to OPENCODE_CONFIG) survives quit+reopen.
+    static func fusionConfigURL() -> URL? {
         let fm = FileManager.default
         guard let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }
-        let dir = support.appendingPathComponent("Epistemos/opencode", isDirectory: true)
-        let file = dir.appendingPathComponent("opencode.json")
+        return support
+            .appendingPathComponent("Epistemos/opencode", isDirectory: true)
+            .appendingPathComponent("opencode.json")
+    }
+
+    /// MERGE-PRESERVING config generation (0.49 — owner: "MCP never saved after I quit my app"). Deep-merges our
+    /// `epistemos-vault` fusion server into an EXISTING opencode.json, preserving EVERY other key and every other
+    /// MCP server the user installed. `existingJSON` nil/empty/garbage → a fresh fusion-only config (honest). Pure
+    /// + testable. This is why launch-time rewrites no longer clobber user installs: we only ever (re)assert OUR
+    /// one server, never the whole file.
+    static func mergedOpenCodeConfigJSON(
+        existingJSON: String?, stdioServerPath: String, vaultRoot: String
+    ) -> String {
+        var root: [String: Any] = {
+            guard let existingJSON,
+                  let data = existingJSON.data(using: .utf8),
+                  let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            else { return [:] }
+            return obj
+        }()
+        root["$schema"] = "https://opencode.ai/config.json"
+        // Preserve every user-added MCP server; only (re)assert our fusion vault entry.
+        var mcp = (root["mcp"] as? [String: Any]) ?? [:]
+        mcp["epistemos-vault"] = [
+            "type": "local",
+            "command": [stdioServerPath],
+            "environment": ["EPISTEMOS_VAULT_ROOT": vaultRoot],
+            "enabled": true,
+        ]
+        root["mcp"] = mcp
+        guard let data = try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8)
+        else {
+            // Fall back to the fresh (non-merged) config rather than dropping the fusion server entirely.
+            return openCodeConfigJSON(stdioServerPath: stdioServerPath, vaultRoot: vaultRoot)
+        }
+        return json
+    }
+
+    /// Read the durable opencode.json (if any), MERGE our fusion server in (preserving user installs), write it
+    /// back, return its path for `OPENCODE_CONFIG`. nil on failure (caller launches without fusion — honest). This
+    /// is the LIVE launch path: it makes the Application-Support config the persistent home AND guarantees launch
+    /// never clobbers a user-installed MCP (0.49).
+    static func writeMergedFusionConfig(stdioServerPath: String, vaultRoot: String) -> String? {
+        guard let file = fusionConfigURL() else { return nil }
+        let existing = try? String(contentsOf: file, encoding: .utf8)
+        let json = mergedOpenCodeConfigJSON(
+            existingJSON: existing, stdioServerPath: stdioServerPath, vaultRoot: vaultRoot)
         do {
-            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
             try json.write(to: file, atomically: true, encoding: .utf8)
             return file.path
         } catch {
@@ -139,9 +203,12 @@ struct BundledWorkOpenCodeShell: WorkOpenCodeShell {
         // so the work TUI auto-fuses the app's vault tools. Best-effort: a write failure just omits the fusion
         // (the TUI still launches honestly), never blocks the shell.
         if let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL() {
-            let configJSON = WorkOpenCodeRuntime.openCodeConfigJSON(
-                stdioServerPath: serverURL.path, vaultRoot: workspace.path)
-            if let configPath = WorkOpenCodeRuntime.writeFusionConfig(configJSON) {
+            // MERGE-PRESERVING (0.49): read the durable opencode.json, fold our fusion server in WITHOUT
+            // dropping any MCP/dependency the user installed via the TUI, write back. Launch no longer
+            // clobbers user installs — they survive quit+reopen because OPENCODE_CONFIG is this same
+            // persistent Application-Support file every launch.
+            if let configPath = WorkOpenCodeRuntime.writeMergedFusionConfig(
+                stdioServerPath: serverURL.path, vaultRoot: workspace.path) {
                 environment["OPENCODE_CONFIG"] = configPath
                 environment["EPISTEMOS_VAULT_ROOT"] = workspace.path
             }
