@@ -2476,9 +2476,6 @@ private struct MiniChatInputBar: View {
         threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
 
         streamTask = Task {
-            var accumulated = ""
-            var pendingBlocks: [MessageContentBlock] = []
-
             defer {
                 isProcessing = false
                 threadState.setMiniChatStreaming(false, chatID: chatID)
@@ -2514,38 +2511,30 @@ private struct MiniChatInputBar: View {
                     )
                 }
 
-                for try await event in actEventStream {
-                    guard !Task.isCancelled else { break }
-                    switch event {
-                    case .textDelta(let text):
-                        accumulated += text
-                        threadState.setMiniChatStreamingText(accumulated, chatID: chatID)
-                    case .thinkingDelta(let text):
-                        threadState.appendMiniChatStreamingThinking(text, chatID: chatID)
-                    case .toolStarted(let id, let name, let inputJson):
-                        pendingBlocks.append(
-                            .toolUse(
-                                id: id,
-                                name: name,
-                                input: decodeMiniChatToolInput(inputJson)
-                            )
-                        )
-                        threadState.setMiniChatActiveTool(name: name, inputJson: inputJson, chatID: chatID)
-                        threadState.setMiniChatPendingContentBlocks(pendingBlocks, chatID: chatID)
-                    case .toolCompleted(let id, let result, let isError):
-                        pendingBlocks.append(
-                            .toolResult(toolUseId: id, content: result, isError: isError)
-                        )
-                        threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
-                        threadState.setMiniChatPendingContentBlocks(pendingBlocks, chatID: chatID)
-                    case .generationStats:
-                        // 0.33a: telemetry is recorded to ActTurnStatsStore upstream (SharedActInference);
-                        // no visible-text effect here.
-                        break
-                    }
-                }
+                // 0.47b: the ONE shared Act streaming core (also drives main act + graph/note). Mini Chat
+                // renders thinking + tool blocks LIVE, so it wires EVERY sink — pushing the cumulative tool
+                // blocks to ThreadState as they build for the live "running tool" affordance. Mini stores the
+                // RAW streaming text (the view projects via finalVisibleText), so onVisibleText forwards raw.
+                var liveBlocks: [MessageContentBlock] = []
+                let result = try await ActTurnStreamCore.consume(
+                    actEventStream,
+                    sinks: ActTurnStreamSinks(
+                        onVisibleText: { threadState.setMiniChatStreamingText($0, chatID: chatID) },
+                        onThinkingDelta: { threadState.appendMiniChatStreamingThinking($0, chatID: chatID) },
+                        onToolStarted: { id, name, inputJson in
+                            liveBlocks.append(
+                                .toolUse(id: id, name: name, input: ActTurnStreamCore.decodeToolInput(inputJson)))
+                            threadState.setMiniChatActiveTool(name: name, inputJson: inputJson, chatID: chatID)
+                            threadState.setMiniChatPendingContentBlocks(liveBlocks, chatID: chatID)
+                        },
+                        onToolCompleted: { id, toolResult, isError in
+                            liveBlocks.append(.toolResult(toolUseId: id, content: toolResult, isError: isError))
+                            threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                            threadState.setMiniChatPendingContentBlocks(liveBlocks, chatID: chatID)
+                        }
+                    )
+                )
 
-                let final = UserFacingModelOutput.finalVisibleText(from: accumulated)
                 let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.setMiniChatStreamingText("", chatID: chatID)
@@ -2553,7 +2542,33 @@ private struct MiniChatInputBar: View {
                 threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
                 threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
 
-                var completedBlocks = pendingBlocks
+                if result.wasCancelled {
+                    // Cancellation-partial: append whatever streamed so far (identical to the prior
+                    // CancellationError branch), using the core's projected partial + tool blocks.
+                    let partial = result.finalVisibleText
+                    var blocks = result.toolBlocks
+                    if !partial.isEmpty || !blocks.isEmpty {
+                        if !partial.isEmpty {
+                            blocks.append(.text(partial))
+                        }
+                        threadState.addMiniChatMessage(
+                            AssistantMessage(
+                                role: .assistant,
+                                content: partial,
+                                contentBlocks: blocks.isEmpty ? nil : blocks,
+                                authoredByProviderID: "act",
+                                authoredByModelID: requestedModelID,
+                                thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace
+                            ),
+                            chatID: chatID
+                        )
+                        persistMiniChatSession()
+                    }
+                    return
+                }
+
+                let final = result.finalVisibleText
+                var completedBlocks = result.toolBlocks
                 if !final.isEmpty {
                     completedBlocks.append(.text(final))
                 }
@@ -2572,33 +2587,6 @@ private struct MiniChatInputBar: View {
                     chatID: chatID
                 )
                 persistMiniChatSession()
-            } catch is CancellationError {
-                let partial = UserFacingModelOutput.finalVisibleText(
-                    from: threadState.miniChatStreamingText(chatID: chatID)
-                )
-                let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                threadState.setMiniChatStreamingText("", chatID: chatID)
-                threadState.clearMiniChatStreamingThinking(chatID: chatID)
-                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
-                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
-                if !partial.isEmpty || !pendingBlocks.isEmpty {
-                    if !partial.isEmpty {
-                        pendingBlocks.append(.text(partial))
-                    }
-                    threadState.addMiniChatMessage(
-                        AssistantMessage(
-                            role: .assistant,
-                            content: partial,
-                            contentBlocks: pendingBlocks.isEmpty ? nil : pendingBlocks,
-                            authoredByProviderID: "act",
-                            authoredByModelID: requestedModelID,
-                            thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace
-                        ),
-                        chatID: chatID
-                    )
-                    persistMiniChatSession()
-                }
             } catch {
                 threadState.setMiniChatStreamingText("", chatID: chatID)
                 threadState.clearMiniChatStreamingThinking(chatID: chatID)
@@ -2704,14 +2692,8 @@ private struct MiniChatInputBar: View {
         return promptParts.joined(separator: "\n\n")
     }
 
-    private func decodeMiniChatToolInput(_ inputJson: String) -> [String: JSONValue] {
-        guard let data = inputJson.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data)
-        else {
-            return ["raw": .string(inputJson)]
-        }
-        return decoded
-    }
+    // (decodeMiniChatToolInput removed in 0.47b — tool-input decode now lives once in
+    // ActTurnStreamCore.decodeToolInput, shared by every Act surface.)
 
     private func clearComposerAfterSubmit() {
         text = ""

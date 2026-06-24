@@ -792,7 +792,9 @@ final class ChatState {
                 let result = try await ActTurnStreamCore.consume(
                     stream,
                     sinks: ActTurnStreamSinks(
-                        onVisibleText: { [weak self] text in self?.streamingText = text }
+                        onVisibleText: { [weak self] raw in
+                            self?.streamingText = UserFacingModelOutput.finalVisibleText(from: raw)
+                        }
                     )
                 )
                 if result.wasCancelled {
