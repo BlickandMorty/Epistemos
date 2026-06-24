@@ -664,7 +664,15 @@ public enum EpistemosOsaurusManagementBridge {
     /// owner's visual style. Best-effort source skin; the presenter titles the window "Act settings".
     @MainActor
     public static func showActSettings() {
-        EpistemosOsaurusSourceSkin.shared.apply(.fallback)
+        // 0.44 (owner: "Act settings deeply canonical with my app — follow the palette theme,
+        // native"): the Osaurus ManagementView renders from `ThemeManager.shared.currentTheme`.
+        // Applying the source skin alone only set the skin singleton (the auditor-flagged gap) —
+        // so the settings still rendered Osaurus-default. Apply the Epistemos cream/native tokens
+        // to ThemeManager too (persist:false — act-presentation only, doesn't clobber Osaurus's
+        // own saved theme), so "Act settings" opens in the owner's native palette.
+        let tokens = EpistemosOsaurusThemeTokens.fallback
+        EpistemosOsaurusSourceSkin.shared.apply(tokens)
+        ThemeManager.shared.applyCustomTheme(tokens.customTheme, persist: false, animated: false)
         EpistemosOsaurusManagementPresenter.show()
     }
 
