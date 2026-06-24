@@ -319,7 +319,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
     (agentRows() seam: AgentManager.shared.agents → name/effectiveModel/tools/memory/autonomous/default/active).
     Build-green (settings screenshot blocked; human-reachable). Remaining: agent select/edit (capability manager),
     schedules, watchers.
-  · 0.33e Voice settings (VAD/TTS/transcription/hotkey/overlay) — only composer mic exists.
+  · 0.33e Voice status — ✅ PARTIAL (iter46, 4ccf2051a): native "Voice" Section in act settings (voiceStatus() seam:
+    TranscriptionModeService + VADConfigurationStore + TTSService → transcription/VAD/TTS state). Build-green (settings
+    screenshot blocked; human-reachable). Remaining: editable VAD/TTS/transcription-mode + hotkey recorder + overlay.
   · 0.33f Model detail — ✅ PARTIAL (iter41, 8fe0288df): native on-device badge + context window in act model rows
     (ActCloneSettingsView model stack + in-chat InlineRuntimePickerPanel), fed by cheap downloadStates map. Build-green
     (runtime screenshot automation-blocked — settings nav + composer pill AX-unreachable; human-reachable). Remaining:
