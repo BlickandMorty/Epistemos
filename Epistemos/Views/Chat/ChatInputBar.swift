@@ -71,6 +71,10 @@ struct ChatInputBar: View {
     var availableOperatingModes: [EpistemosOperatingMode]? = nil
     var composerMode: ChatInputComposerMode = .epistemos
     var onOpenActConfiguration: (() -> Void)? = nil
+    /// OWNER 2026-06-23: the act surface hides the toolbar, so the owner's context side panel
+    /// toggle lives here on the composer. nil = not act (no toggle).
+    var isContextPanelShown: Bool = false
+    var onToggleContextPanel: (() -> Void)? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
@@ -1100,6 +1104,9 @@ struct ChatInputBar: View {
                         if composerMode == .osaurusAct, onOpenActConfiguration != nil {
                             actConfigurationButton
                         }
+                        if let onToggleContextPanel {
+                            contextPanelToggleButton(onToggleContextPanel)
+                        }
                         // RCA4-P1-006 fix-pass (2026-05-13): one mic
                         // affordance per OS. macOS 26+ uses the native
                         // `VoiceInputButton` (SpeechAnalyzer) further
@@ -1516,6 +1523,19 @@ struct ChatInputBar: View {
             openActConfiguration()
         }
         .accessibilityHint("Open Act configuration: model, tools, skills, agents, plugins, voice, identity")
+    }
+
+    /// OWNER 2026-06-23: toggle the owner's context side panel on the act chat (restored panel).
+    private func contextPanelToggleButton(_ toggle: @escaping () -> Void) -> some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "sidebar.right",
+            variant: .toolbar,
+            helpText: isContextPanelShown ? "Hide context panel" : "Show context panel",
+            accessibilityLabel: isContextPanelShown ? "Hide context panel" : "Show context panel"
+        ) {
+            toggle()
+        }
     }
 
     /// Owner 2026-06-18: trigger for the flat inline pixel-art runtime picker.

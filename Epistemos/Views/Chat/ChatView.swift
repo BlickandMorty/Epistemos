@@ -378,12 +378,22 @@ struct ChatView: View {
                     operatingMode: operatingModeBinding,
                     availableOperatingModes: supportedOperatingModes,
                     composerMode: composerMode,
-                    onOpenActConfiguration: onOpenActConfiguration
+                    onOpenActConfiguration: onOpenActConfiguration,
+                    isContextPanelShown: showBrainPanel,
+                    onToggleContextPanel: actUsesOsaurus ? {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.9)) {
+                            showBrainPanel.toggle()
+                        }
+                    } : nil
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if showBrainPanel, !actUsesOsaurus {
+            // OWNER 2026-06-23: restore the owner's OLD act side panel. It was hidden on act by
+            // a `!actUsesOsaurus` gate — the owner reported "I used to have a side panel on act
+            // chat." showBrainPanel defaults true, so dropping the gate brings it back; the act
+            // composer's Context button toggles it.
+            if showBrainPanel {
                 Divider()
                 ChatBrainPanelView(
                     snapshot: chat.latestBrainSnapshot,
