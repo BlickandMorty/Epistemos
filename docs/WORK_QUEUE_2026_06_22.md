@@ -558,7 +558,8 @@ list all three in summary.
 - [ ] **0.48 ONE native recent-chat system (Act+Work)** — multiple coexist (SDChat/SDMessage + Osaurus ChatSessionsManager
   + MiniChat thread). Unify to ONE native Epistemos recent-chat popover; Act + Work sessions save/reopen cleanly; fixes
   0.38 nav glitch. →addendum #3/#5.
-- [ ] **0.49 Work MCP/dep install PERSISTENCE + Epistemos skills bridge** — user-installed MCPs (Playwright/browser-use)
-  don't survive app quit (save to OpenCode transient config, not Epistemos-managed store); Epistemos skills not bridged
-  into Work's MCP. Persist installs in an Epistemos store + bridge skills/tools/vault into Work; verify install→reopen→usable.
+- [~] **0.49 Work MCP/dep install PERSISTENCE + Epistemos skills bridge** — ROOT CAUSE was OUR launch clobbering the
+  durable opencode.json. FIXED (iter55): launchSpec now MERGE-preserves user MCPs in Application Support via
+  writeMergedFusionConfig (4 tests incl. real-FS round-trip). REMAINS: (a) RUNTIME owner-verify install→quit→reopen→usable
+  once OpenCode runtime vendored; (b) bridge Epistemos skills/native-tools CONTEXT into Work's MCP beyond vault-root.
   →addendum #3 + 0.43.
