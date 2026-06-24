@@ -69,6 +69,18 @@ public struct EpistemosOsaurusSkillRow: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct EpistemosOsaurusIdentityStorageStatus: Hashable, Sendable {
+    public let identityConfigured: Bool
+    public let mnemonicBackedUp: Bool
+    public let savedSessionCount: Int
+
+    public init(identityConfigured: Bool, mnemonicBackedUp: Bool, savedSessionCount: Int) {
+        self.identityConfigured = identityConfigured
+        self.mnemonicBackedUp = mnemonicBackedUp
+        self.savedSessionCount = savedSessionCount
+    }
+}
+
 public struct EpistemosOsaurusVoiceStatus: Hashable, Sendable {
     public let transcriptionEnabled: Bool
     public let transcriptionStateLabel: String
@@ -1075,6 +1087,18 @@ public enum EpistemosOsaurusManagementBridge {
                 enabled: skill.enabled
             )
         }
+    }
+
+    /// 0.33j — IDENTITY & STORAGE status (native, reachable from act): Osaurus identity presence
+    /// (NEVER key material — presence only), recovery-mnemonic backup state, and saved chat-session
+    /// count. The native expression of Osaurus's Identity + Storage surfaces for act.
+    @MainActor
+    public static func identityStorageStatus() -> EpistemosOsaurusIdentityStorageStatus {
+        EpistemosOsaurusIdentityStorageStatus(
+            identityConfigured: OsaurusIdentity.existsCached(),
+            mnemonicBackedUp: MasterMnemonicStore.exists(),
+            savedSessionCount: ChatSessionsManager.shared.sessions.count
+        )
     }
 
     /// 0.33e — VOICE status (native, reachable from act): the real transcription / VAD / TTS

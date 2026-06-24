@@ -23,6 +23,7 @@ struct ActCloneSettingsView: View {
     @State private var agentRows: [EpistemosOsaurusAgentRow] = []
     @State private var pluginRows: [EpistemosOsaurusPluginRow] = []
     @State private var voiceStatus: EpistemosOsaurusVoiceStatus?
+    @State private var identityStorageStatus: EpistemosOsaurusIdentityStorageStatus?
     @State private var toolPermissionOptions: [EpistemosOsaurusPolicyOption] = []
     @State private var computerUsePolicySnapshot: EpistemosOsaurusComputerUsePolicySnapshot?
     @State private var computerUsePolicyOptions: [EpistemosOsaurusPolicyOption] = []
@@ -634,6 +635,31 @@ struct ActCloneSettingsView: View {
                 }
             }
 
+            // 0.33j — native Identity & storage status (presence only, never key material).
+            if let idStore = identityStorageStatus {
+                Section {
+                    LabeledContent("Identity") {
+                        Text(idStore.identityConfigured ? "Configured" : "Not set up")
+                            .font(.caption)
+                            .foregroundStyle(idStore.identityConfigured ? Color.green : Color.secondary)
+                    }
+                    LabeledContent("Recovery phrase") {
+                        Text(idStore.mnemonicBackedUp ? "Backed up" : "Not saved")
+                            .font(.caption)
+                            .foregroundStyle(idStore.mnemonicBackedUp ? Color.green : Color.secondary)
+                    }
+                    LabeledContent("Saved chats") {
+                        Text("\(idStore.savedSessionCount)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Identity & storage")
+                } footer: {
+                    Text("Act's Osaurus identity (presence only — key material stays in the Keychain), recovery-phrase backup state, and saved chat count. Act inherits Epistemos's theme — no separate Osaurus theme surface.")
+                }
+            }
+
             Section {
                 if let computerUsePolicySnapshot {
                     Picker(
@@ -1008,6 +1034,7 @@ struct ActCloneSettingsView: View {
         agentRows = EpistemosOsaurusManagementBridge.agentRows()
         pluginRows = EpistemosOsaurusManagementBridge.pluginRows()
         voiceStatus = EpistemosOsaurusManagementBridge.voiceStatus()
+        identityStorageStatus = EpistemosOsaurusManagementBridge.identityStorageStatus()
         toolPermissionOptions = EpistemosOsaurusManagementBridge.toolPermissionOptions()
         computerUsePolicyOptions = EpistemosOsaurusManagementBridge.computerUsePolicyOptions()
         let policySnapshot = EpistemosOsaurusManagementBridge.computerUsePolicySnapshot()
