@@ -143,8 +143,15 @@ public enum EpistemosOsaurusChatSessionBridge {
             ChatConfigurationStore.save(chatCfg)
         }
 
+        // 0.40c (owner "say hello → I can't assist"): Agent.defaultId is Osaurus's CONFIGURATION
+        // agent whose system prompt is "you only configure Osaurus, refuse everything else" — so it
+        // refused normal chat. Use the owner's ACTIVE agent (a general assistant like "Research
+        // Assistant") instead, so act answers normally; never the config-only default.
+        let actAgentId = AgentManager.shared.activeAgentId == Agent.defaultId
+            ? (AgentManager.shared.agents.first(where: { $0.id != Agent.defaultId })?.id ?? Agent.defaultId)
+            : AgentManager.shared.activeAgentId
         let session = ChatSession()
-        session.agentId = Agent.defaultId
+        session.agentId = actAgentId
         session.selectedModel = requestedModel ?? chatCfg.coreModelIdentifier
         session.suppressesPersistence = true
         session.onSessionChanged = {}
