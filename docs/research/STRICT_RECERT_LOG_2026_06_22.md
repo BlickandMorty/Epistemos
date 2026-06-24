@@ -334,6 +334,14 @@ Continued owner P0 act-surface punch-list (owner: "the agent was just never the 
 - Matrix row L → PARTIAL(improved); queue 0.33d annotated.
 - **0.32 WITNESS (iter 44)** · Highest attempted: **0.33d** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **5 native surfaces landed**: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills, 0.33d agents. NEXT: 0.33c plugins inventory OR 0.33j storage/themes/identity/credits — continue down the list.
 
+### Iteration 45 (2026-06-23 ~19:17-19:23) — 0.33c native Plugins inventory
+
+Continued owner P0 act-surface punch-list (reused the PluginManager seam grounded iter42).
+
+- **0.33c Plugins inventory — PARTIAL(improved) (commit 402a2b284).** Seam: `PluginManager.shared.plugins` (`LoadedPlugin{plugin: ExternalPlugin, tools, skills, routes, webConfig}`). Built `EpistemosOsaurusManagementBridge.pluginRows()` + `EpistemosOsaurusPluginRow` (name from `ext.manifest.name`, id, tool/skill/route counts, hasSecrets from `manifest.secrets`, hasWeb from `webConfig`), and a native "Plugins (N)" Section in ActCloneSettingsView (puzzle icon + name + id + counts + secrets/web badges) — NOT the vendored PluginsView. **xcodebuild ** BUILD SUCCEEDED **.** (e): settings-tab screenshot automation-blocked (documented wall); human-reachable via Configuration → Act → Plugins. Follow-on: install / marketplace / GitHub import / config / sandbox-plugin editor.
+- Matrix row H → PARTIAL(improved); queue 0.33c annotated.
+- **0.32 WITNESS (iter 45)** · Highest attempted: **0.33c** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **6 native surfaces landed**: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills, 0.33d agents, 0.33c plugins. NEXT: 0.33e voice settings OR 0.33j storage/identity/credits/themes.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice
