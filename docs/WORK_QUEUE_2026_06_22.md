@@ -575,3 +575,9 @@ list all three in summary.
   RUNTIME owner-verify (open Work → list/read app-vault+skills via MCP, install→quit→reopen→usable) once OpenCode
   runtime vendored; skills as INVOKABLE tools + Swift-side native tools into Work (app-hosted network MCP follow-on).
   →addendum #3 + 0.43.
+
+- [~] **0.46 Work/OpenCode SLOW-START hardening** — STEP1 DONE (iter63): killed per-render main-thread disk I/O
+  (WorkTerminalHostView recomputed launchSpec→writeMergedFusionConfig on every body eval) by caching the resolved
+  spec in @State + .task(id: workspace); added honest "Starting work terminal…" state. REMAINS: the TUI/Bun cold-boot
+  latency itself lives in the vendored opencode binary — options (owner call): Pro prewarm of `opencode serve` on idle
+  (lifecycle-risky) or verified OpenCode boot-skip env flags. Needs runtime present to measure honestly.
