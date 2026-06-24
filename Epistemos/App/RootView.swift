@@ -1058,6 +1058,11 @@ struct RootView: View {
             && !chat.showLanding
             && !chat.messages.isEmpty
             && !showingActChatSurface
+            // Owner 2026-06-24 regression: the ACT LANDING ("Click anywhere") is gated by `actEntered`,
+            // independent of `chat.showLanding`/`messages`. With leftover messages, activeHomeChat went true
+            // WHILE the act landing rendered → the chat toolbar (back chevron + stale model-output title)
+            // leaked onto the landing. The act landing is NOT an active chat.
+            && !actLandingSurfaceVisible
     }
 
     private var embeddedHomeGraphContentVisible: Bool {
@@ -1596,10 +1601,28 @@ struct ActEpistemosChatSurface: View {
         }
 
         chat.setCurrentChat(chatId)
-        let title = transcript.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        chat.chatTitle = title.isEmpty ? "Act" : title
+        chat.chatTitle = Self.cleanActChatTitle(transcriptTitle: transcript.title, messages: messages)
         chat.loadMessages(messages)
         #endif
+    }
+
+    /// Derive a CLEAN act chat title for the titlebar (owner 2026-06-24 regression: the model's streamed
+    /// self-intro leaked into the window title). Osaurus auto-titles a session from its content — often the
+    /// ASSISTANT response — so never use it raw. Prefer the FIRST USER message (the standard chat-title
+    /// convention), single-line + capped; fall back to a sanitized transcript title, then "Act".
+    private static func cleanActChatTitle(transcriptTitle: String, messages: [ChatMessage]) -> String {
+        func sanitize(_ raw: String) -> String {
+            let firstLine = raw.split(whereSeparator: \.isNewline).first.map(String.init) ?? raw
+            let trimmed = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.count > 48 else { return trimmed }
+            return String(trimmed.prefix(48)).trimmingCharacters(in: .whitespaces) + "…"
+        }
+        if let firstUser = messages.first(where: { $0.role == .user })?.content {
+            let userTitle = sanitize(firstUser)
+            if !userTitle.isEmpty { return userTitle }
+        }
+        let fallback = sanitize(transcriptTitle)
+        return fallback.isEmpty ? "Act" : fallback
     }
 
     private func actResolvedModelLabel(for selectedModel: String?) -> String {

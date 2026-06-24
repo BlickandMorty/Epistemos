@@ -599,3 +599,8 @@ list all three in summary.
 - [x] **Consolidation: regression guards** (iter67) — OntologyRefactorRegressionGuardTests locks in the owner-critical
   invariants (0.48 main-act persistence, 0.47/b shared ActTurnStreamCore, 0.49b work vault-rooting, 0.48b two-section
   popover + work reopen, audit-A no-Osaurus-UI-mounted) as source-guards so a future refactor can't silently regress them.
+
+- [~] **Visual regressions from act/Osaurus rework** (owner screenshots, forever-loop) — FIXED: context-panel close
+  button (iter68); titlebar model-output leak via cleanActChatTitle (iter69a); back-chevron + stale title on act
+  landing via activeHomeChat !actLandingSurfaceVisible gate (iter69b). REMAINS: "Click anywhe" landing-hero truncation
+  (LiquidGreeting), + ongoing sweep for other little visual glitches/bugs the owner flags.
