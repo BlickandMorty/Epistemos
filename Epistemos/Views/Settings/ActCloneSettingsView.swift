@@ -21,6 +21,7 @@ struct ActCloneSettingsView: View {
     @State private var toolSecretRows: [EpistemosOsaurusToolSecretRow] = []
     @State private var skillRows: [EpistemosOsaurusSkillRow] = []
     @State private var agentRows: [EpistemosOsaurusAgentRow] = []
+    @State private var pluginRows: [EpistemosOsaurusPluginRow] = []
     @State private var toolPermissionOptions: [EpistemosOsaurusPolicyOption] = []
     @State private var computerUsePolicySnapshot: EpistemosOsaurusComputerUsePolicySnapshot?
     @State private var computerUsePolicyOptions: [EpistemosOsaurusPolicyOption] = []
@@ -563,6 +564,46 @@ struct ActCloneSettingsView: View {
                 Text("Act's agents from Osaurus's AgentManager — each with its effective model, tool/memory/autonomous configuration. The active agent drives the current Act chat.")
             }
 
+            // 0.33c — native Plugins inventory (Act's loaded plugins + what each contributes).
+            Section {
+                if pluginRows.isEmpty {
+                    Text("No plugins loaded.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(pluginRows) { plugin in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "puzzlepiece.extension.fill")
+                                .frame(width: 16)
+                                .foregroundStyle(.tint)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(plugin.name)
+                                Text(plugin.id)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(1)
+                                HStack(spacing: 8) {
+                                    if plugin.toolCount > 0 { Label("\(plugin.toolCount) tools", systemImage: "wrench.and.screwdriver") }
+                                    if plugin.skillCount > 0 { Label("\(plugin.skillCount) skills", systemImage: "bolt") }
+                                    if plugin.routeCount > 0 { Label("\(plugin.routeCount) routes", systemImage: "arrow.triangle.branch") }
+                                    if plugin.hasSecrets { Label("secrets", systemImage: "key") }
+                                    if plugin.hasWeb { Label("web", systemImage: "globe") }
+                                }
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .labelStyle(.titleAndIcon)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            } header: {
+                Text("Plugins (\(pluginRows.count))")
+            } footer: {
+                Text("Act's loaded plugins from Osaurus's PluginManager — each contributing tools, skills, routes, and credential/web capabilities to the agent.")
+            }
+
             Section {
                 if let computerUsePolicySnapshot {
                     Picker(
@@ -935,6 +976,7 @@ struct ActCloneSettingsView: View {
         toolSecretRows = EpistemosOsaurusManagementBridge.toolSecretRows()
         skillRows = EpistemosOsaurusManagementBridge.skillRows()
         agentRows = EpistemosOsaurusManagementBridge.agentRows()
+        pluginRows = EpistemosOsaurusManagementBridge.pluginRows()
         toolPermissionOptions = EpistemosOsaurusManagementBridge.toolPermissionOptions()
         computerUsePolicyOptions = EpistemosOsaurusManagementBridge.computerUsePolicyOptions()
         let policySnapshot = EpistemosOsaurusManagementBridge.computerUsePolicySnapshot()

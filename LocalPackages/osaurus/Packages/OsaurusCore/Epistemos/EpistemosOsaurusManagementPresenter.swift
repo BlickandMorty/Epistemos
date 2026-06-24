@@ -69,6 +69,29 @@ public struct EpistemosOsaurusSkillRow: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct EpistemosOsaurusPluginRow: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let name: String
+    public let toolCount: Int
+    public let skillCount: Int
+    public let routeCount: Int
+    public let hasSecrets: Bool
+    public let hasWeb: Bool
+
+    public init(
+        id: String, name: String, toolCount: Int, skillCount: Int,
+        routeCount: Int, hasSecrets: Bool, hasWeb: Bool
+    ) {
+        self.id = id
+        self.name = name
+        self.toolCount = toolCount
+        self.skillCount = skillCount
+        self.routeCount = routeCount
+        self.hasSecrets = hasSecrets
+        self.hasWeb = hasWeb
+    }
+}
+
 public struct EpistemosOsaurusAgentRow: Identifiable, Hashable, Sendable {
     public let id: String
     public let name: String
@@ -1036,6 +1059,25 @@ public enum EpistemosOsaurusManagementBridge {
                 sourceLabel: source,
                 category: skill.category,
                 enabled: skill.enabled
+            )
+        }
+    }
+
+    /// 0.33c — PLUGINS inventory (native, reachable from act): the real `PluginManager` loaded
+    /// plugins with their tool/skill/route counts + secret/web capability flags — the native
+    /// expression of Osaurus's PluginsView (was counts-only on the act surface).
+    @MainActor
+    public static func pluginRows() -> [EpistemosOsaurusPluginRow] {
+        PluginManager.shared.plugins.map { loaded in
+            let ext = loaded.plugin
+            return EpistemosOsaurusPluginRow(
+                id: ext.id,
+                name: ext.manifest.name ?? ext.id,
+                toolCount: loaded.tools.count,
+                skillCount: loaded.skills.count,
+                routeCount: loaded.routes.count,
+                hasSecrets: (ext.manifest.secrets?.isEmpty == false),
+                hasWeb: loaded.webConfig != nil
             )
         }
     }
