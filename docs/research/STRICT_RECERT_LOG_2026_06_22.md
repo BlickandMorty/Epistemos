@@ -342,6 +342,14 @@ Continued owner P0 act-surface punch-list (reused the PluginManager seam grounde
 - Matrix row H → PARTIAL(improved); queue 0.33c annotated.
 - **0.32 WITNESS (iter 45)** · Highest attempted: **0.33c** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **6 native surfaces landed**: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills, 0.33d agents, 0.33c plugins. NEXT: 0.33e voice settings OR 0.33j storage/identity/credits/themes.
 
+### Iteration 46 (2026-06-23 ~19:25-19:31) — 0.33e native Voice status (transcription/VAD/TTS)
+
+Continued owner P0 act-surface punch-list.
+
+- **0.33e Voice status — PARTIAL(improved) (commit 4ccf2051a).** Grounded the REAL multi-store seams: `TranscriptionModeService.shared` (.isEnabled/.state), `VADConfigurationStore.load().vadModeEnabled`, `TTSService.shared.isModelReady`. Built `EpistemosOsaurusManagementBridge.voiceStatus()` + `EpistemosOsaurusVoiceStatus`, and a native "Voice" Section in ActCloneSettingsView (Transcription on/off+state, VAD on/off, TTS model-ready) — NOT the vendored Voice tabs. **xcodebuild ** BUILD SUCCEEDED **.** (e): settings-tab screenshot automation-blocked (documented wall); human-reachable via Configuration → Act → Voice. Follow-on: EDITABLE VAD/TTS/transcription-mode + hotkey recorder + voice-input overlay.
+- Matrix row K → PARTIAL(improved); queue 0.33e annotated.
+- **0.32 WITNESS (iter 46)** · Highest attempted: **0.33e** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **7 native surfaces landed**: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills, 0.33d agents, 0.33c plugins, 0.33e voice. NEXT: 0.33j storage/identity/credits/themes OR chat-rendering (charts/terminal/LaTeX).
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice

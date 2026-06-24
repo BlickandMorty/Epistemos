@@ -60,7 +60,7 @@ Native sheet counts + dependency-recipe count (:1325-1338) + repair (:984) + **p
 "Computer Use prompts" inline (:473); global preset + allowlist (:896-902); in-chat approval overlay ChatView.swift:391,751. **PARTIAL** — **ComputerUseFeedView (live action feed) = no native equivalent**.
 
 ### K. Voice
-Composer mic only (`ComposerMicButton`/`VoiceInputButton` ChatInputBar.swift:1106,1200). **PARTIAL/MISSING** — no native VAD/TTS/transcription-mode settings, hotkey recorder, or voice-input overlay.
+Composer mic (`ComposerMicButton`/`VoiceInputButton` ChatInputBar.swift:1106,1200) + **voice STATUS** (iter46, 4ccf2051a): `voiceStatus()` seam (TranscriptionModeService.shared + VADConfigurationStore + TTSService) → "Voice" Section (transcription on/off+state, VAD on/off, TTS model-ready). **PARTIAL(improved)** — mic + status COVERED; still missing: EDITABLE VAD/TTS/transcription-mode settings, hotkey recorder, voice-input overlay.
 
 ### L. Agents
 Pairing prompt native (RootView.swift:869, installed :164) + agent default toggles (:848-854) + **agents INVENTORY** (iter44, a1cbbebdb): `agentRows()` seam (AgentManager.shared.agents → name/effectiveModel/tools/memory/autonomous/default/active) → "Agents (N)" Section in ActCloneSettingsView. **PARTIAL(improved)** — agents list + pairing + toggles COVERED; still missing: agent select/edit (capability manager), schedules, watchers.
