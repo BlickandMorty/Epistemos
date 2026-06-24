@@ -136,19 +136,41 @@ struct WorkTerminalHostView: View {
     }
     private var palette: WorkTerminalPalette { WorkTerminalPalette.from(theme: ui.theme) }
 
+    // 0.46 (slow-start hardening): cache the resolved live launch spec so it is computed ONCE per workspace
+    // off the synchronous render path — NOT on every `body` evaluation. Previously `try? realShellSpec()` ran
+    // in `body`, so each theme/palette re-render redid `launchSpec` → `writeMergedFusionConfig` (read + JSON
+    // parse + merge + atomic disk write) on the MainActor. That repeated main-thread I/O is gone; the work
+    // surface also now shows an honest "starting" state while the spec resolves instead of a blank/placeholder.
+    @State private var resolvedSpec: WorkShellLaunchSpec?
+    @State private var resolvedForWorkspace: URL?
+
     var body: some View {
         #if !EPISTEMOS_APP_STORE
-        if let liveSpec = try? realShellSpec() {
-            WorkTerminalView(spec: liveSpec, palette: palette)
-                // 0.48b-part2: a REAL work session just launched → record it as a "worker" row in the unified
-                // recent-chats store so it shows in the popover's Work section + can be reopened. Marker only
-                // (PTY has no message thread); keyed by workspace path so re-opening updates one row.
-                .onAppear { persistWorkSessionMarker() }
-        } else if smokeEnabled {
-            // Owner's EARLY de-risk: a real login-shell PTY in the themed native view.
-            WorkTerminalView(spec: .smokeLoginShell(workspace: workspace), palette: palette)
-        } else {
-            WorkTerminalUnavailableView(detail: gate.detail, palette: palette)
+        Group {
+            if let spec = resolvedSpec {
+                WorkTerminalView(spec: spec, palette: palette)
+                    // 0.48b-part2: a REAL work session just launched → record it as a "worker" row in the unified
+                    // recent-chats store so it shows in the popover's Work section + can be reopened. Marker only
+                    // (PTY has no message thread); keyed by workspace path so re-opening updates one row.
+                    .onAppear { persistWorkSessionMarker() }
+            } else if smokeEnabled {
+                // Owner's EARLY de-risk: a real login-shell PTY in the themed native view.
+                WorkTerminalView(spec: .smokeLoginShell(workspace: workspace), palette: palette)
+            } else if shell.isReady {
+                // Live shell IS ready; the spec (incl. the one-time fusion-config write) is resolving off the
+                // render path — show an honest "starting" state, not the not-wired placeholder. 0.46.
+                WorkTerminalStartingView(palette: palette)
+            } else {
+                WorkTerminalUnavailableView(detail: gate.detail, palette: palette)
+            }
+        }
+        .task(id: workspace) {
+            // Resolve the live launch spec ONCE per workspace (this is where the fusion-config disk write
+            // happens now — not per render). Re-resolve only when the workspace actually changes.
+            if resolvedSpec == nil || resolvedForWorkspace != workspace {
+                resolvedForWorkspace = workspace
+                resolvedSpec = (try? realShellSpec())
+            }
         }
         #else
         // MAS: the SwiftTerm-backed PTY view is Pro-only — show the honest
@@ -168,6 +190,25 @@ struct WorkTerminalHostView: View {
     private func realShellSpec() throws -> WorkShellLaunchSpec {
         guard shell.isReady else { throw WorkShellError.notWired("inert") }
         return try shell.launchSpec(workspace: workspace, epistemosVaultRoot: epistemosVaultRoot)
+    }
+}
+
+/// Honest transient state while the live work shell's launch spec resolves (0.46) — immediate themed feedback
+/// instead of a blank surface, so opening Work never looks frozen during the one-time spec resolution.
+struct WorkTerminalStartingView: View {
+    let palette: WorkTerminalPalette
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+                .tint(Color(nsColor: palette.foreground))
+            Text("Starting work terminal…")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(Color(nsColor: palette.foreground).opacity(0.85))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: palette.background))
     }
 }
 
