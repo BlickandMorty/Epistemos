@@ -1093,6 +1093,13 @@ struct ChatInputBar: View {
                             )
                         }
                         attachButton
+                        // OWNER 2026-06-23: a VISIBLE Configuration button ON the act chat
+                        // composer (the act surface hides the toolbar gear via
+                        // showsToolbarControls:false, so this is the owner's reachable entry to
+                        // act settings — model, tools, skills, agents, plugins, voice, identity).
+                        if composerMode == .osaurusAct, onOpenActConfiguration != nil {
+                            actConfigurationButton
+                        }
                         // RCA4-P1-006 fix-pass (2026-05-13): one mic
                         // affordance per OS. macOS 26+ uses the native
                         // `VoiceInputButton` (SpeechAnalyzer) further
@@ -1492,6 +1499,23 @@ struct ChatInputBar: View {
         }
         .accessibilityHint("Open the slash command menu")
         .disabled(isProcessing)
+    }
+
+    /// OWNER 2026-06-23: the visible "Configuration" button on the act composer — opens act
+    /// settings (model picker, tools, tool secrets, permissions, skills, agents, plugins,
+    /// voice, identity, sandbox). The act surface hides the toolbar gear, so without this the
+    /// owner had no reachable entry to any of those native surfaces.
+    private var actConfigurationButton: some View {
+        ToolbarCapsuleButton(
+            title: "Configuration",
+            systemImage: "gearshape",
+            variant: .toolbar,
+            helpText: "Open Act configuration & settings",
+            accessibilityLabel: "Configuration"
+        ) {
+            openActConfiguration()
+        }
+        .accessibilityHint("Open Act configuration: model, tools, skills, agents, plugins, voice, identity")
     }
 
     /// Owner 2026-06-18: trigger for the flat inline pixel-art runtime picker.
