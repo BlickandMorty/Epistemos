@@ -1052,6 +1052,11 @@ struct RootView: View {
     /// Only delays the *reveal*; hiding is always immediate.
     @State private var homeChatToolbarReady = false
 
+    /// Owner 2026-06-24: the right-side context-panel toggle belongs UP IN THE TOOLBAR (it had migrated to the
+    /// composer bar). Shares the SAME AppStorage key as ChatView's `showBrainPanel`, so toggling from the
+    /// toolbar and from the panel/composer stay in sync automatically (one UserDefaults key).
+    @AppStorage("mainChat.showBrainPanel") private var showActContextPanel = true
+
     /// True when Home tab is showing an active chat (not landing).
     private var activeHomeChat: Bool {
         ui.homeTab == .home
@@ -1205,6 +1210,7 @@ struct RootView: View {
                 ToolbarItem(placement: .primaryAction) {
                     ControlGroup {
                         historyToolbarButton
+                        actContextPanelToolbarButton
                         settingsToolbarButton
                         actMiniChatToolbarButton
                         actExportToolbarButton
@@ -1460,6 +1466,23 @@ struct RootView: View {
         .accessibilityLabel("Export Act Chat")
         .help("Export Act Chat")
         .disabled(chat.messages.isEmpty)
+    }
+
+    /// Owner 2026-06-24: the side (context) panel toggle, restored to the toolbar (was only on the composer bar).
+    /// Toggles the shared `mainChat.showBrainPanel` AppStorage so it stays in sync with the panel + composer.
+    private var actContextPanelToolbarButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
+                showActContextPanel.toggle()
+            }
+        } label: {
+            Label(
+                showActContextPanel ? "Hide Context Panel" : "Show Context Panel",
+                systemImage: "sidebar.right"
+            )
+        }
+        .accessibilityLabel(showActContextPanel ? "Hide context panel" : "Show context panel")
+        .help(showActContextPanel ? "Hide context panel" : "Show context panel")
     }
 
     private func openCurrentActInMiniChat() {
