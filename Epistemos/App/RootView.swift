@@ -3757,6 +3757,8 @@ private struct ContentRouter: View {
 private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
     @Environment(UIState.self) private var ui
+    // 0.49b: the live vault so Work's fusion MCP server roots at the app vault (skills/context bridge).
+    @Environment(VaultSyncService.self) private var vaultSync
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var actEntered: Bool
     @Binding var selectedActSessionId: UUID?
@@ -3795,7 +3797,12 @@ private struct HomeRouter: View {
                 }
                 #else
                 if workspaceMode == .work {
-                    WorkTerminalHostView(workspace: Self.workWorkspaceURL)
+                    // 0.49b: hand Work the live Epistemos vault so its fusion MCP server roots there —
+                    // the work agent gets the app's vault notes + `skills/` as first-class MCP context
+                    // (cwd stays the workspace for shell ops). nil vault → bundled shell uses the default.
+                    WorkTerminalHostView(
+                        workspace: Self.workWorkspaceURL,
+                        epistemosVaultRoot: vaultSync.vaultURL)
                         .transition(.blurFade())
                 } else if LocalAgentLoop.shouldRouteActThroughOsaurus() {
                     // Epistemos LandingView FIRST -> centered search -> submit -> Epistemos chat.

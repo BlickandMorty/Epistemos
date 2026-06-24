@@ -118,8 +118,12 @@ struct WorkTerminalView: NSViewRepresentable {
 /// shell when armed for the early de-risk, otherwise an honest placeholder — it NEVER
 /// shows a fake terminal. This is the single switch the live runtime flips.
 struct WorkTerminalHostView: View {
-    /// Workspace the work session is rooted at (the open vault/project dir).
+    /// Workspace the work session is rooted at (the open vault/project dir) — the shell cwd.
     let workspace: URL
+    /// The Epistemos APP VAULT the fusion MCP server roots at, so the work agent sees the
+    /// app's vault notes + `skills/` as first-class MCP context (0.49b). nil → the bundled
+    /// shell falls back to the canonical default vault (never the cwd/home).
+    var epistemosVaultRoot: URL? = nil
 
     // Live app theme — reading it makes the terminal recolor on EVERY theme change (incl. custom),
     // since UIState is @Observable (owner 2026-06-21 §162, fully theme-responsive).
@@ -152,7 +156,7 @@ struct WorkTerminalHostView: View {
     /// The live OpenCode launch spec — nil/throws until the runtime is wired (honest).
     private func realShellSpec() throws -> WorkShellLaunchSpec {
         guard shell.isReady else { throw WorkShellError.notWired("inert") }
-        return try shell.launchSpec(workspace: workspace)
+        return try shell.launchSpec(workspace: workspace, epistemosVaultRoot: epistemosVaultRoot)
     }
 }
 

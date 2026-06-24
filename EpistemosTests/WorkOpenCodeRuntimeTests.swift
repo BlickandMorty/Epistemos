@@ -133,13 +133,33 @@ struct WorkOpenCodeRuntimeTests {
         #expect((server["environment"] as? [String: String])?["EPISTEMOS_VAULT_ROOT"] == "/Users/me/Vault")
     }
 
-    @Test("launchSpec wires OPENCODE_CONFIG via the MERGE-preserving writer (source-guarded)")
+    @Test("launchSpec wires OPENCODE_CONFIG via the MERGE-preserving writer, rooted at the APP VAULT (0.49/0.49b)")
     func launchSpecWiresFusion() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkOpenCodeRuntime.swift")
         #expect(src.contains("bundledMcpServerURL()"))
         #expect(src.contains("OPENCODE_CONFIG"))
         // LIVE launch path must use the merge-preserving writer, not the clobbering one (0.49).
         #expect(src.contains("writeMergedFusionConfig("))
+        // 0.49b: the fusion MCP server roots at the Epistemos APP VAULT (skills/context bridge), falling back to
+        // the canonical default vault — NEVER the shell cwd/workspace (which would miss `skills/`).
+        #expect(src.contains("epistemosVaultRoot ?? FirstRunBootstrap.defaultVaultURL()"))
+        #expect(src.contains("vaultRoot: fusionVaultRoot"))
+    }
+
+    @Test("fusion server roots at the app vault so the work agent sees vault notes + skills/ as MCP context (0.49b)")
+    func fusionVaultRootBridgesSkills() throws {
+        // The fusion server enumerates the WHOLE vault as MCP resources (resources/list walks recursively,
+        // skipping hidden dirs), so when rooted at the app vault, `skills/<name>/SKILL.md` files become
+        // first-class MCP resources the work agent can read. Prove the config we write carries the app-vault
+        // root into the MCP server's environment (where omega_mcp_stdio reads EPISTEMOS_VAULT_ROOT).
+        let appVault = "/Users/me/Documents/Epistemos"
+        let json = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+            existingJSON: nil, stdioServerPath: "/r/omega_mcp_stdio", vaultRoot: appVault)
+        let v = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+        let server = (v["mcp"] as! [String: Any])["epistemos-vault"] as! [String: Any]
+        #expect((server["environment"] as? [String: String])?["EPISTEMOS_VAULT_ROOT"] == appVault)
+        // and it is the APP vault path, not a home/cwd path.
+        #expect(appVault.hasSuffix("Documents/Epistemos"))
     }
 
     @Test("merge PRESERVES user-installed MCP servers + other keys while (re)asserting the fusion server (0.49)")
