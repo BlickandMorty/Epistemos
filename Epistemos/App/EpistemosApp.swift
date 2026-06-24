@@ -1508,6 +1508,9 @@ extension Notification.Name {
     static let showQuickCapture = Notification.Name("epistemos.showQuickCapture")
     static let openActOsaurusSession = Notification.Name("epistemos.openActOsaurusSession")
     static let submitActOsaurusPrompt = Notification.Name("epistemos.submitActOsaurusPrompt")
+    /// 0.48b-part2: reopen a Work session from the recent-chats popover's Work section — flips the workspace
+    /// to .work (mirrors `openActOsaurusSession` for act). Object is the SDChat id of the worker row.
+    static let openWorkSession = Notification.Name("epistemos.openWorkSession")
     /// Posted by the in-picker "Install local AI" CTA (owner 2026-06-19) so the
     /// model manager is reachable from where models are chosen, not only from
     /// Settings ▸ Local AI. Observed by the root view to present the manager.

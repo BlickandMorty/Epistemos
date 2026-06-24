@@ -378,6 +378,17 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 62 (2026-06-24) — 0.48b-part2: persist + reopen Work sessions as SDChat "worker" rows
+
+GAP C final piece. The WORK section of the recent-chats popover now POPULATES from real opened work sessions + reopens.
+
+- **GROUNDED:** Work surface = `WorkTerminalHostView` (SwiftTerm PTY) at `workspace` (RootView.HomeRouter.workWorkspaceURL = home). No SDChat row was created → WORK section was always the empty hint. workspaceMode is HomeRouter `@State`; the proven cross-view switch pattern is HomeRouter `.onReceive(.openActOsaurusSession)` → `workspaceMode = .act`.
+- **PERSIST (AppBootstrap.persistWorkSession(id:title:)):** upsert an SDChat row, `markAsWorkerSession()` (chatType "worker" + updatedAt), keyed by STABLE id `work:<workspace.path>` (re-open updates ONE row, no dupes). Honest MARKER (title `Work · <dir>` + timestamp), not faked message bubbles — PTY has no thread. Called from `WorkTerminalHostView`'s LIVE branch `.onAppear` (only a real launched session, never the unavailable placeholder).
+- **REOPEN:** new `Notification.Name.openWorkSession`; HomeRouter `.onReceive(.openWorkSession)` → `WorkspaceModeSelection.select(.work)` + `workspaceMode = .work` + surface window (mirrors the act reopen). `ChatSidebarView.loadChatIntoSession` now BRANCHES: if `sdChat.isWorkerSession` → post `.openWorkSession` + dismiss (never loads a worker row as an empty act transcript).
+- **WHY SAFE:** additive — persist only on a real work launch; reopen reuses the proven notification→@State switch; act/mini/main persistence untouched; the worker-row branch only changes behavior for isWorkerSession rows (previously broken — loaded empty act chat). Unified SDChat store; both kinds now save + reopen.
+- **VERIFY:** build bb60npby1 = **BUILD SUCCEEDED** (full app compiled + codesigned, exit 0). Owner runtime-verify: open Work → a "Work · <dir>" row appears in the popover's WORK section → tap it → switches back to work mode.
+- **GAP C NOW COMPLETE:** ONE native SDChat recent-chats store; main act + mini + work all persist into it; popover shows ACT + WORK sections; both reopen. (ChatSessionsManager remains dead-in-product as found.)
+
 ### Iteration 61 (2026-06-24) — 0.48b: Act/Work TWO-SECTION recent-chats popover (read-side split)
 
 Owner explicit: "I want my recent chat pop over that's on act to have two sections one for act and one for work."

@@ -3852,6 +3852,15 @@ private struct HomeRouter: View {
             }
             HomeWindowIdentity.surfaceHomeWindow()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openWorkSession)) { _ in
+            // 0.48b-part2: reopen a Work session from the recent-chats popover → flip to .work (mirrors the act
+            // reopen above). The work surface relaunches at its workspace; the worker row is a session marker.
+            WorkspaceModeSelection.select(.work)
+            workspaceMode = .work
+            ui.setActivePanel(.home)
+            ui.homeTab = .home
+            HomeWindowIdentity.surfaceHomeWindow()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .submitActOsaurusPrompt)) { notification in
             guard let request = notification.object as? ActOsaurusPromptRequest else { return }
             let prompt = request.text.trimmingCharacters(in: .whitespacesAndNewlines)
