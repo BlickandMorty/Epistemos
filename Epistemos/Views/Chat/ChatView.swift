@@ -380,11 +380,10 @@ struct ChatView: View {
                     composerMode: composerMode,
                     onOpenActConfiguration: onOpenActConfiguration,
                     isContextPanelShown: showBrainPanel,
-                    onToggleContextPanel: actUsesOsaurus ? {
-                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.9)) {
-                            showBrainPanel.toggle()
-                        }
-                    } : nil
+                    // Owner 2026-06-24: the context-panel toggle moved UP to the toolbar
+                    // (actContextPanelToolbarButton, shared AppStorage key) — so it's no longer on the
+                    // composer bar. nil → ChatInputBar omits the composer toggle.
+                    onToggleContextPanel: nil
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
