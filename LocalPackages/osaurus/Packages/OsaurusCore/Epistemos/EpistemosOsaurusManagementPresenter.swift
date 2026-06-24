@@ -51,6 +51,24 @@ public struct EpistemosOsaurusToolSecretRow: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct EpistemosOsaurusSkillRow: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let name: String
+    public let detail: String
+    public let sourceLabel: String
+    public let category: String?
+    public let enabled: Bool
+
+    public init(id: String, name: String, detail: String, sourceLabel: String, category: String?, enabled: Bool) {
+        self.id = id
+        self.name = name
+        self.detail = detail
+        self.sourceLabel = sourceLabel
+        self.category = category
+        self.enabled = enabled
+    }
+}
+
 public struct EpistemosOsaurusManagementEntry: Identifiable, Hashable, Sendable {
     public let id: String
     public let label: String
@@ -969,6 +987,32 @@ public enum EpistemosOsaurusManagementBridge {
             }
         }
         return rows
+    }
+
+    /// 0.33g — SKILLS catalog (native, reachable from act): the real `SkillManager` skill
+    /// inventory (name, description, built-in vs plugin vs custom, enabled) so the act surface
+    /// shows the full skill library natively instead of a bare count — the native expression
+    /// of Osaurus's SkillsView.
+    @MainActor
+    public static func skillRows() -> [EpistemosOsaurusSkillRow] {
+        SkillManager.shared.skills.map { skill in
+            let source: String
+            if skill.isBuiltIn {
+                source = "Built-in"
+            } else if skill.isFromPlugin {
+                source = "Plugin"
+            } else {
+                source = "Custom"
+            }
+            return EpistemosOsaurusSkillRow(
+                id: skill.id.uuidString,
+                name: skill.name,
+                detail: skill.description,
+                sourceLabel: source,
+                category: skill.category,
+                enabled: skill.enabled
+            )
+        }
     }
 
     @MainActor

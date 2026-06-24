@@ -19,6 +19,7 @@ struct ActCloneSettingsView: View {
     @State private var systemPermissionRows: [EpistemosOsaurusSystemPermissionRow] = []
     @State private var toolPermissionRows: [EpistemosOsaurusToolPermissionRow] = []
     @State private var toolSecretRows: [EpistemosOsaurusToolSecretRow] = []
+    @State private var skillRows: [EpistemosOsaurusSkillRow] = []
     @State private var toolPermissionOptions: [EpistemosOsaurusPolicyOption] = []
     @State private var computerUsePolicySnapshot: EpistemosOsaurusComputerUsePolicySnapshot?
     @State private var computerUsePolicyOptions: [EpistemosOsaurusPolicyOption] = []
@@ -461,6 +462,52 @@ struct ActCloneSettingsView: View {
                 Text("Credentials Act's plugin tools need, stored in the macOS Keychain (per Act agent). Set or clear a secret from the plugin's tool prompt when it runs.")
             }
 
+            // 0.33g — native Skills catalog (Act's full skill library, not just a count).
+            Section {
+                if skillRows.isEmpty {
+                    Text("No skills registered.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(skillRows) { skill in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: skill.enabled ? "bolt.fill" : "bolt.slash")
+                                .frame(width: 16)
+                                .foregroundStyle(skill.enabled ? Color.green : Color.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(skill.name)
+                                if !skill.detail.isEmpty {
+                                    Text(skill.detail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                                HStack(spacing: 8) {
+                                    Text(skill.sourceLabel)
+                                    if let cat = skill.category, !cat.isEmpty {
+                                        Text(cat)
+                                    }
+                                }
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            }
+                            Spacer()
+                            Text(skill.enabled ? "On" : "Off")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background((skill.enabled ? Color.green : Color.secondary).opacity(0.15), in: Capsule())
+                                .foregroundStyle(skill.enabled ? Color.green : Color.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            } header: {
+                Text("Skills (\(skillRows.filter(\.enabled).count)/\(skillRows.count) on)")
+            } footer: {
+                Text("Act's skill library from Osaurus's SkillManager — built-in, plugin, and custom skills. Skills surface as composer slash commands when enabled.")
+            }
+
             Section {
                 if let computerUsePolicySnapshot {
                     Picker(
@@ -831,6 +878,7 @@ struct ActCloneSettingsView: View {
         systemPermissionRows = EpistemosOsaurusManagementBridge.systemPermissionRows()
         toolPermissionRows = EpistemosOsaurusManagementBridge.toolPermissionRows(maxCount: 60)
         toolSecretRows = EpistemosOsaurusManagementBridge.toolSecretRows()
+        skillRows = EpistemosOsaurusManagementBridge.skillRows()
         toolPermissionOptions = EpistemosOsaurusManagementBridge.toolPermissionOptions()
         computerUsePolicyOptions = EpistemosOsaurusManagementBridge.computerUsePolicyOptions()
         let policySnapshot = EpistemosOsaurusManagementBridge.computerUsePolicySnapshot()
