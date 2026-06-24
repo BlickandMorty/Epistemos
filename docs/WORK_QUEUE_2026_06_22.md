@@ -333,7 +333,9 @@ STRICT CERTIFICATION BAR — `[x]` only when ALL hold:
     (toolSecretRows() seam: PluginManager plugins' SecretSpecs + ToolSecretsKeychain → plugin credential + Set/Missing
     badge). Build-green (settings-tab screenshot automation-blocked; human-reachable). Follow-on: inline set/clear editing.
   · 0.33i Chart renderer, terminal-in-chat, in-chat LaTeX, transcript minimap.
-  · 0.33j Identity / Credits / Themes / Insights / Storage (index-only).
+  · 0.33j Identity/Storage — ✅ COVERED (iter47, 9a7df68b9): native "Identity & storage" Section (identityStorageStatus()
+    seam: OsaurusIdentity presence + recovery-backup + saved-chat count). Themes=N/A (act inherits Epistemos theme);
+    Credits=N/A (no CreditsManager seam, Pro off); Storage disk/cache=HTTP-server scope (out of act). Build-green.
   · 0.33k ComputerUseFeedView live action feed.
   · **Cross-cutting:** the 14 non-native `ManagementTab` cases render a generic "N surfaces indexed" row
     (ActCloneSettingsView default branch :1347) — landing each replaces the index row with a real native surface.

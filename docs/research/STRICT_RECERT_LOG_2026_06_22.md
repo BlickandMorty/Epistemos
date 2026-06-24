@@ -350,6 +350,15 @@ Continued owner P0 act-surface punch-list.
 - Matrix row K → PARTIAL(improved); queue 0.33e annotated.
 - **0.32 WITNESS (iter 46)** · Highest attempted: **0.33e** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **7 native surfaces landed**: 0.33a stats, 0.33f model detail, 0.33h tool secrets, 0.33g skills, 0.33d agents, 0.33c plugins, 0.33e voice. NEXT: 0.33j storage/identity/credits/themes OR chat-rendering (charts/terminal/LaTeX).
 
+### Iteration 47 (2026-06-23 ~19:33-19:39) — 0.33j Identity & storage status; themes/credits scoped N/A — settings inventories ~complete
+
+Continued owner P0 act-surface punch-list — the remaining small inventories + honest N/A determinations.
+
+- **0.33j Identity & storage — COVERED status (commit 9a7df68b9).** Grounded REAL presence accessors (no key material): `OsaurusIdentity.existsCached()` + `MasterMnemonicStore.exists()` + `ChatSessionsManager.shared.sessions.count`. Built `EpistemosOsaurusManagementBridge.identityStorageStatus()` + `EpistemosOsaurusIdentityStorageStatus`, and a native "Identity & storage" Section in ActCloneSettingsView (Identity Configured/Not-set, Recovery phrase Backed-up/Not-saved, Saved chats count). **xcodebuild ** BUILD SUCCEEDED **.** Settings-tab screenshot blocked (documented); human-reachable.
+- **HONEST N/A determinations (not fabricated surfaces):** Themes = N/A (act inherits the Epistemos theme system — act IS native Epistemos UI, not bundled Osaurus; ThemesView redundant). Credits = N/A (no CreditsManager seam in OsaurusCore; Pro/credits off). Storage disk/cache + Server settings = HTTP-loopback-server scope (act is in-process → out of act scope). Onboarding/WhatsNew = first-run shell, out of act scope.
+- **SETTINGS INVENTORIES ~COMPLETE.** Matrix per-category status now: COVERED/PARTIAL for all act-relevant management surfaces (models, providers, tools, tool-secrets, permissions, sandbox, computer-use, privacy, plugins, skills, agents, voice, identity/storage, pairing, credentials). N/A: themes, credits, server, storage-disk, onboarding, whatsnew. **REMAINING REAL GAPS = chat-RENDERING (0.33i charts/terminal/LaTeX/minimap) + 0.33k computer-use feed + edit-follow-ons (per-skill toggle, agent/model/secret editing).**
+- **0.32 WITNESS (iter 47)** · Highest attempted: **0.33j** · Lowest still-`[ ]`: **0.1** · Act-only: owner P0 act work · Forbidden end-claims avoided: YES · **8 native surfaces landed**: stats, model detail, tool secrets, skills, agents, plugins, voice, identity/storage. NEXT: 0.33i chat-rendering (charts/terminal/LaTeX) — the remaining CHAT-VISIBLE gaps.
+
 ## Docs-maintenance
 
 ### Runtime correction sync (2026-06-22 17:50 CDT) — owner UI + Osaurus engine, not clone-or-old-backend false choice

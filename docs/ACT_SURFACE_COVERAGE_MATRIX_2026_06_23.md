@@ -71,14 +71,14 @@ ServerView + ServerSettings/* (~16: Generation Defaults, Concurrency, Cache, Con
 ### N. Identity / Credits / Memory / Insights / Themes / Pairing / Onboarding / WhatsNew / Storage
 | Sub | Status |
 |---|---|
-| Identity | MISSING (index-only) |
-| Credits | MISSING (index-only) |
+| Identity | COVERED status (iter47, 9a7df68b9): "Identity & storage" Section — identity presence + recovery-backup (presence only, never key material) via `identityStorageStatus()` |
+| Credits | N/A — no CreditsManager seam in OsaurusCore (Pro/credits off); skipped honestly (iter47) |
 | Memory | PARTIAL (enable toggle only :854) |
 | Insights | MISSING (Epistemos has own HealthRows, not Osaurus insights) |
-| Themes | MISSING (index-only) — note act inherits Epistemos theme already |
+| Themes | N/A (iter47) — act inherits the Epistemos theme system (act is native Epistemos UI, not bundled Osaurus); Osaurus ThemesView is redundant for act |
 | Pairing | COVERED (RootView.swift:869) |
 | Privacy filter | COVERED (:556 + sheet :1306 + review overlay) |
-| Storage | MISSING (index-only) |
+| Storage | COVERED act-relevant (iter47): saved-chat count via `identityStorageStatus()`; StorageSettings disk/cache = HTTP-server scope (out of act scope, like server settings) |
 | Onboarding / WhatsNew | MISSING (likely out of act scope — confirm w/ owner) |
 
 ## TOP MISSING/PARTIAL PUNCH-LIST (close in priority order)
