@@ -550,3 +550,15 @@ list all three in summary.
   ChatCoordinator's standard-chat classification + Epistemos tool loop. Brain-panel ROUTING must read "Osaurus Act"/"Core",
   never "Standard Chat", for act. Tools = Osaurus's (registered+working in the headless session), not the 38-tool Epistemos loop.
   →addendum "ACT MUST BE PURE OSAURUS 2026-06-23 night".
+
+- [ ] **0.47 UNIFY chat surfaces onto ONE shared native Act runner** — main act uses ChatState.runActOsaurusTurn (0.40);
+  MiniChat has its own runner (threadState + actEventStreamIfArmed); graph/note bounce via .submitActOsaurusPrompt.
+  Owner wants ONE shared native Act renderer/state across main/mini/graph (note=Act only). Unify MiniChat onto the shared
+  runner; keep Osaurus engine underneath. →addendum AUTHORITATIVE ONTOLOGY REFACTOR #4.
+- [ ] **0.48 ONE native recent-chat system (Act+Work)** — multiple coexist (SDChat/SDMessage + Osaurus ChatSessionsManager
+  + MiniChat thread). Unify to ONE native Epistemos recent-chat popover; Act + Work sessions save/reopen cleanly; fixes
+  0.38 nav glitch. →addendum #3/#5.
+- [ ] **0.49 Work MCP/dep install PERSISTENCE + Epistemos skills bridge** — user-installed MCPs (Playwright/browser-use)
+  don't survive app quit (save to OpenCode transient config, not Epistemos-managed store); Epistemos skills not bridged
+  into Work's MCP. Persist installs in an Epistemos store + bridge skills/tools/vault into Work; verify install→reopen→usable.
+  →addendum #3 + 0.43.
