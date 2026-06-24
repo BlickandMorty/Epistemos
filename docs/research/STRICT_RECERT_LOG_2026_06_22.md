@@ -378,6 +378,18 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 67 (2026-06-24) — CONSOLIDATION: regression-guard tests lock in the owner-critical invariants
+
+Since runtime owner-verifies can't be done by me, added durable source-guard tests so a future refactor can't silently regress the iter54-66 fixes. New `EpistemosTests/OntologyRefactorRegressionGuardTests.swift` (@Suite, mirrors ActSurfaceOsaurusUIDirectionGuardTests pattern, loadMirroredSourceTextFile):
+
+- **mainActPersistenceWired (0.48):** ChatState exposes `var persistActTurn:` + calls `persistActTurn?(chatId, safeQuery` after the final append; AppBootstrap wires `chatState.persistActTurn = ` → `persistChatCompletion(`. (Guards the exact owner-reported missing-recent-chats symptom from re-appearing.)
+- **actSurfacesShareStreamingCore (0.47/b):** both ChatState + MiniChatView contain `ActTurnStreamCore.consume(`; the core declares `enum ActTurnStreamCore` + `struct ActTurnStreamSinks` + `struct ActTurnStreamResult`. (Keeps act surfaces from drifting back to hand-rolled loops.)
+- **workFusionRootsAtAppVault (0.49b):** WorkOpenCodeRuntime contains `epistemosVaultRoot ?? FirstRunBootstrap.defaultVaultURL()` + `vaultRoot: fusionVaultRoot` + `writeMergedFusionConfig(`. (Guards vault/skills bridge + MCP-persistence merge.)
+- **recentChatsTwoSectionAndWorkReopen (0.48b/part2):** ChatSidebarView has `actChats`/`workChats` split on `$0.isWorkerSession` + `if sdChat.isWorkerSession` → `.openWorkSession`; RootView `.openWorkSession` → `workspaceMode = .work`.
+- **noOsaurusUIMounted (audit A):** RootView contains neither `EpistemosOsaurusChatHost(` nor `ManagementView(`.
+
+All asserted strings pre-verified present in current source. VERIFY: build-for-testing bm8gxvqt9 = **TEST BUILD SUCCEEDED**; suite run beq2ycny0 = **TEST SUCCEEDED** — all 5 guards PASSED (run with 5 tests in 1 suite passed, 0.030s). NO product code change (guards only).
+
 ### Iteration 66 (2026-06-24) — 0.45 AUDIT: Goose/OpenClaw fusion is design-realized + deliberately-avoided/Phase-K-deferred (NO code)
 
 Owner ARCH C: "work clone needs the goose logic in it as well as the open claw." Audit-first (like 0.48). Finding: this is NOT an open gap to code now — it's already an honest, deliberate architecture. No faked integration exists; no safe actionable step without owner-gated heavy vendoring.
