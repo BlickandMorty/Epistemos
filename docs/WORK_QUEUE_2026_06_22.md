@@ -551,12 +551,12 @@ list all three in summary.
   never "Standard Chat", for act. Tools = Osaurus's (registered+working in the headless session), not the 38-tool Epistemos loop.
   →addendum "ACT MUST BE PURE OSAURUS 2026-06-23 night".
 
-- [~] **0.47 UNIFY chat surfaces onto ONE shared native Act runner** — STEP 1 DONE (iter57): extracted
-  ActTurnStreamCore (the ONE shared streaming core: consume(stream, sinks:) → ActTurnStreamResult) + wired main act
-  (ChatState.runActOsaurusTurn) onto it, behavior-identical, 7 tests. The shared ENGINE was already common; this
-  unifies the duplicated EVENT LOOP. REMAINS (0.47b): migrate MiniChat's streamTask (MiniChatView:2478) + graph/note
-  onto ActTurnStreamCore — carefully, mini has its own multi-session threadState/persistence; keep its tool-block +
-  thinking live display. Full STATE unification (one renderer) is a separate bigger step. →addendum #4.
+- [~] **0.47 UNIFY chat surfaces onto ONE shared native Act runner** — STEP1 (iter57): ActTurnStreamCore + main act.
+  STEP 0.47b DONE (iter58): migrated MiniChat's act streamTask (MiniChatView:2478) onto ActTurnStreamCore — wires ALL
+  sinks (live thinking + tool blocks), keeps mini's per-chatID ThreadState + persistence byte-identical; onVisibleText
+  contract changed to hand over RAW text (each surface projects, finalVisibleText not idempotent). Now TWO surfaces on
+  ONE event loop. REMAINS: graph/note already bounce into the unified main-act core (ok); FULL STATE unification (one
+  renderer + one recent-chat, overlaps 0.48) is the bigger remaining step. →addendum #4.
 - [ ] **0.48 ONE native recent-chat system (Act+Work)** — multiple coexist (SDChat/SDMessage + Osaurus ChatSessionsManager
   + MiniChat thread). Unify to ONE native Epistemos recent-chat popover; Act + Work sessions save/reopen cleanly; fixes
   0.38 nav glitch. →addendum #3/#5.

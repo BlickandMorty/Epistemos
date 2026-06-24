@@ -14,7 +14,10 @@ import Foundation
 /// runners drive UI state). Defaults are no-ops so a surface only wires what it renders (e.g. main act v1
 /// ignores tool blocks; Mini Chat shows them live).
 struct ActTurnStreamSinks {
-    /// The cumulative, user-visible answer text so far (already `finalVisibleText`-projected).
+    /// The RAW cumulative accumulated answer text so far. Each surface projects it via
+    /// `UserFacingModelOutput.finalVisibleText` as IT renders (main act projects into `streamingText`;
+    /// Mini Chat stores raw and projects at the view) — `finalVisibleText` is NOT idempotent, so the core
+    /// hands over raw and never double-projects.
     var onVisibleText: @MainActor (String) -> Void = { _ in }
     /// A raw thinking-trace delta (caller accumulates/clears as it wishes).
     var onThinkingDelta: @MainActor (String) -> Void = { _ in }
@@ -56,7 +59,8 @@ enum ActTurnStreamCore {
                 switch event {
                 case .textDelta(let text):
                     accumulated += text
-                    sinks.onVisibleText(UserFacingModelOutput.finalVisibleText(from: accumulated))
+                    // Hand over RAW cumulative text; the surface projects via finalVisibleText (not idempotent).
+                    sinks.onVisibleText(accumulated)
                 case .thinkingDelta(let text):
                     sinks.onThinkingDelta(text)
                 case .toolStarted(let id, let name, let inputJson):
