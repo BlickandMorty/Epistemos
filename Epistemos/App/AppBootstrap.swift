@@ -2227,6 +2227,20 @@ final class AppBootstrap {
             self?.coordinator.cancelActiveQuery()
         }
 
+        // 0.48: persist completed main-act Osaurus turns into the unified SDChat recent-chats store. The new
+        // `runActOsaurusTurn` path bypasses the ChatCoordinator pipeline (the old SDChat writer for main chat),
+        // so without this main-act chats never appear in / reopen from recent-chats. Forward to the PROVEN
+        // persistChatCompletion writer (same one the deprecated pipeline used).
+        chatState.persistActTurn = { [weak chatCoordinator] chatId, userText, assistant in
+            chatCoordinator?.persistChatCompletion(
+                chatId: chatId,
+                query: userText,
+                answer: assistant?.content ?? "",
+                mode: .local,
+                assistantMessage: assistant
+            )
+        }
+
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
         #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
