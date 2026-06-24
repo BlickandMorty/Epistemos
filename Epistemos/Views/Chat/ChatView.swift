@@ -621,6 +621,13 @@ struct ChatView: View {
             onSubmitOverride(query, operatingMode)
             return
         }
+        // OWNER 2026-06-23 night (0.40): the act chat runs PURELY through the Osaurus engine —
+        // NEVER the deprecated ChatCoordinator "Standard Chat" + 38-tool path (which makes the
+        // small local model hallucinate apple.notes and fail). Same direct path MiniChat uses.
+        if actUsesOsaurus, LocalAgentLoop.shouldRouteActThroughOsaurus() {
+            chat.runActOsaurusTurn(query)
+            return
+        }
         MainChatSubmissionRouter.submit(
             query,
             operatingMode: operatingMode,

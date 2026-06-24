@@ -233,6 +233,8 @@ final class ChatState {
 
     var isStreaming = false
     var streamingText = ""
+    /// 0.40 — the in-flight direct-Osaurus act turn (runActOsaurusTurn), so Stop can cancel it.
+    private var actTurnTask: Task<Void, Never>?
     /// Accumulated thinking-mode deltas for the currently streaming turn.
     /// Populated live as `onThinkingDelta` events arrive so the thinking
     /// popover can render in-flight reasoning (ChatGPT-style). Cleared
@@ -721,6 +723,109 @@ final class ChatState {
         )
     }
 
+    /// OWNER 2026-06-23 night (0.40): run an act turn PURELY through the Osaurus engine —
+    /// the SAME direct path MiniChat uses (`SharedActInference.actEventStreamIfArmed`, conversational
+    /// `.thinking`) — NEVER through `ChatCoordinator`'s deprecated "Standard Chat" + 38-tool path that
+    /// makes the small local model hallucinate `apple.notes` and fail. Osaurus's own ChatSession owns
+    /// chat + tools, so the act answers like Osaurus did. Appends via `appendLocalMessage` so it never
+    /// re-enters the standard-chat pipeline. Honest failure on error — never a silent fallback.
+    @MainActor
+    func runActOsaurusTurn(
+        _ query: String,
+        modelID: String? = nil,
+        attachments: [FileAttachment] = [],
+        contextAttachments: [ContextAttachment] = []
+    ) {
+        let safeQuery = query.count > Self.maxQueryLength ? String(query.prefix(Self.maxQueryLength)) : query
+        let trimmed = safeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        showLanding = false
+        let chatId = activeChatId ?? {
+            let id = UUID().uuidString
+            activeChatId = id
+            return id
+        }()
+
+        let userMessage = ChatMessage(
+            id: UUID().uuidString,
+            chatId: chatId,
+            role: .user,
+            content: safeQuery,
+            attachments: attachments,
+            contextAttachments: contextAttachments.isEmpty ? nil : contextAttachments
+        )
+        messages.append(userMessage)
+        markTranscriptChanged()
+        hasMessages = true
+        pendingAttachments = []
+        pendingContextAttachments = []
+        ActTurnStatsStore.shared.clearForNewTurn()
+
+        streamingText = ""
+        isStreaming = true
+        actTurnTask?.cancel()
+        actTurnTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            var accumulated = ""
+            var thinkingTrace = ""
+            var toolBlocks: [MessageContentBlock] = []
+            defer {
+                self.isStreaming = false
+                self.streamingText = ""
+            }
+            do {
+                guard let stream = SharedActInference.actEventStreamIfArmed(
+                    prompt: safeQuery,
+                    systemPrompt: nil,
+                    maxTokens: 2_048,
+                    reasoningMode: .thinking,
+                    modelID: modelID
+                ) else {
+                    self.appendLocalMessage(
+                        role: .assistant,
+                        content: "Act's Osaurus engine isn't available on this build. Open Configuration → Models to set up a local model.",
+                        isError: true
+                    )
+                    return
+                }
+                for try await event in stream {
+                    guard !Task.isCancelled else { break }
+                    switch event {
+                    case .textDelta(let text):
+                        accumulated += text
+                        self.streamingText = UserFacingModelOutput.finalVisibleText(from: accumulated)
+                    case .thinkingDelta(let text):
+                        thinkingTrace += text
+                    case .toolStarted, .toolCompleted, .generationStats:
+                        // Tool/stat events surface via the side panel + stats chip; v1 renders the
+                        // visible answer text reliably. Rich in-bubble tool blocks are a follow-on.
+                        break
+                    }
+                }
+                let final = UserFacingModelOutput.finalVisibleText(from: accumulated)
+                _ = thinkingTrace
+                _ = toolBlocks
+                self.appendLocalMessage(
+                    role: .assistant,
+                    content: final.isEmpty ? "No response generated — try again or pick a different model." : final,
+                    contentBlocks: nil
+                )
+            } catch is CancellationError {
+                let partial = UserFacingModelOutput.finalVisibleText(from: accumulated)
+                if !partial.isEmpty {
+                    self.appendLocalMessage(role: .assistant, content: partial, contentBlocks: nil)
+                }
+            } catch {
+                self.appendLocalMessage(
+                    role: .assistant,
+                    content: "Act couldn't complete this turn: \(error.localizedDescription)",
+                    isError: true
+                )
+            }
+        }
+    }
+
     func queuePendingSlashCommand(_ command: ACCSlashCommand?) {
         pendingSlashToken = command.map(ParsedSlashToken.builtinMode)
     }
@@ -1160,6 +1265,8 @@ final class ChatState {
     }
 
     func stopStreaming() {
+        actTurnTask?.cancel()
+        actTurnTask = nil
         flushStreamingTokens()
         isStreaming = false
         onStopRequested?()
