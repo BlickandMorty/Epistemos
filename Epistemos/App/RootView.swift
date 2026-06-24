@@ -3947,6 +3947,15 @@ private struct HomeRouter: View {
             ui.homeTab = .home
             HomeWindowIdentity.surfaceHomeWindow()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .showActOsaurusSettings)) { _ in
+            // Owner 2026-06-24 (settings reversal): ALL act Configuration entry points (graph/note/mini/landing
+            // post this notification) now open the reskinned Osaurus settings — NOT the native ActCloneSettingsView.
+            // Handled here in the always-mounted HomeRouter so it fires regardless of whether the settings window
+            // is open; SettingsView no longer navigates to the native pane. Pro-only (OsaurusCore).
+            #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
+            EpistemosOsaurusManagementBridge.showActSettings()
+            #endif
+        }
         .onReceive(NotificationCenter.default.publisher(for: .submitActOsaurusPrompt)) { notification in
             guard let request = notification.object as? ActOsaurusPromptRequest else { return }
             let prompt = request.text.trimmingCharacters(in: .whitespacesAndNewlines)

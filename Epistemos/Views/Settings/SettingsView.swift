@@ -427,7 +427,13 @@ struct SettingsView: View {
             #endif
         }
         .onReceive(NotificationCenter.default.publisher(for: .showActOsaurusSettings)) { _ in
+            // Owner 2026-06-24 (settings reversal): on Pro/direct-distribution the act Configuration opens the
+            // reskinned Osaurus settings (handled in RootView/HomeRouter via EpistemosOsaurusManagementBridge.
+            // showActSettings()), so this window does NOT navigate to the native ActCloneSettingsView. App Store
+            // (OsaurusCore absent) keeps the native pane.
+            #if EPISTEMOS_APP_STORE
             selection = .actClone
+            #endif
         }
         .onAppear {
             Task { @MainActor in

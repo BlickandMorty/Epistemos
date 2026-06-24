@@ -378,6 +378,16 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 75 (2026-06-24) — Settings reversal: ALL act Configuration entry points → reskinned Osaurus settings
+
+Finishes the redirect (iter72 did the primary button). Secondary entry points (graph/note/mini/landing) post `.showActOsaurusSettings` → previously SettingsView navigated to the native ActCloneSettingsView.
+
+- **CHANGE 1 (RootView/HomeRouter):** added an always-mounted `.onReceive(.showActOsaurusSettings)` → `EpistemosOsaurusManagementBridge.showActSettings()` (Pro). Fires regardless of whether the settings window is open, so every notification-based act Configuration entry point opens the reskinned Osaurus settings.
+- **CHANGE 2 (SettingsView):** the `.showActOsaurusSettings` observer now navigates to native `.actClone` ONLY on `#if EPISTEMOS_APP_STORE` (OsaurusCore absent); Pro no longer shows the native pane (avoids a double-window with the HomeRouter handler).
+- **WHY SAFE:** ChatView's act Configuration already used `onOpenActConfiguration`→showActSettings (iter72); this covers the remaining posters. Guard test asserts the POSTS (unchanged), not the observer. No double-open.
+- **VERIFY:** build ba7qossul (pending). Owner runtime-verify: every Configuration gear (main act, graph, note, mini) opens the reskinned Osaurus settings.
+- **REMAINS:** DELETE ActCloneSettingsView + .actClone enum/refs + update ActSurfaceOsaurusUIDirectionGuardTests (now-unused native pane — cleanup, nothing routes to it on Pro). Lower urgency; do as a focused cleanup pass.
+
 ### Iteration 74 (2026-06-24) — OpenCode LSP enabled + TUI theme follows Epistemos (web-grounded config)
 
 Owner: OpenCode "LSPs are disabled" + "white/black, not the Epistemos theme". WEB-GROUNDED the opencode.ai config schema first (no guessing): LSP via `opencode.json "lsp": true`; THEME via `~/.config/opencode/tui.json "theme"` (opencode.json theme deprecated); built-in `system` theme adapts to the TERMINAL's colors.
