@@ -378,6 +378,17 @@ Owner P0: "act keeps failing; standard chat is DEPRECATED; must be Osaurus act/c
 - **FIX (0.40, queued precisely):** give ChatState a direct act runner that replicates MiniChat (append user msg → drive `actEventStreamIfArmed` → stream events into a ChatState assistant message → finalize), and route the main act submit (forceActOsaurus) to it instead of `chat.submitQuery`→ChatCoordinator. Brain-panel route label → "Osaurus Act". Keep stats chip + side panel. VERIFY with a "say hello" send that replies cleanly (no apple.notes) + ROUTING reads Osaurus Act.
 - **NOT rushed this iter (responsible):** the ChatState streaming-message integration is delicate; doing it wrong breaks the working send. Documented + queued for careful implementation. Also done this session: Configuration→full Osaurus ManagementView as "Act settings" (completeness), Configuration button (0.34), side panel (0.35).
 
+### Iteration 60 (2026-06-24) — 0.48 IMPLEMENT: main-act Osaurus turns now persist to unified SDChat recent-chats
+
+GAP C real fix (root cause from iter59: new main-act path saved NOTHING). Additive seam, reuses the proven writer.
+
+- **CHANGE 1 (ChatState.swift):** added `var persistActTurn: (@MainActor (chatId:String, userText:String, assistant:ChatMessage?) -> Void)?` — nil-safe, no-op until wired (never affects send/stream).
+- **CHANGE 2 (ChatState.runActOsaurusTurn):** after the final `appendLocalMessage`, calls `persistActTurn?(chatId, safeQuery, messages.last)` in BOTH the success path AND the cancellation-with-content path. `messages.last` is the just-appended assistant ChatMessage. Error/engine-unavailable branches left unpersisted (failure states; documented).
+- **CHANGE 3 (AppBootstrap.swift, beside the existing onStopRequested wiring where both `chatState` + `chatCoordinator` are in scope):** `chatState.persistActTurn = { [weak chatCoordinator] chatId, userText, assistant in chatCoordinator?.persistChatCompletion(chatId: chatId, query: userText, answer: assistant?.content ?? "", mode: .local, assistantMessage: assistant) }`. `.local` = the honest Osaurus-MLX act mode.
+- **WHY THIS IS SAFE:** purely additive — no streaming/send change; reuses the EXACT `persistChatCompletion` the deprecated pipeline used (fetch-or-create SDChat by id, mirror messages); nil-safe seam. Main act now writes to the SAME SDChat store mini already does → ONE unified recent-chats; main-act chats appear + reopen. Should also resolve the 0.38 "navigate doesn't navigate" where main-act chats were missing.
+- **VERIFY:** build b9riqdx45 = **BUILD SUCCEEDED** (full app compiled + codesigned, exit 0); ChatCoordinator is @MainActor final, persistChatCompletion internal → closure reaches it. Owner runtime-verify: send a main-act chat → it appears in the recent-chats popover → reopen restores it; send still streams normally.
+- **REMAINS (0.48b):** Work sessions → SDChat "worker" rows + the Act/Work TWO-SECTION recent-chats popover (owner's explicit ask).
+
 ### Iteration 59 (2026-06-23 night) — 0.48 AUDIT + SEAM: recent-chats store map (corrects iter54 over-count)
 
 GAP C. The iter54 "3 divergent stores" framing was WRONG. Grounded store-by-store map:

@@ -596,6 +596,13 @@ final class ChatState {
     /// Called when the user presses Stop — allows AppBootstrap to cancel the active pipeline Task.
     var onStopRequested: (@MainActor () -> Void)?
 
+    /// 0.48: persist a COMPLETED main-act Osaurus turn into the unified SDChat recent-chats store. The new
+    /// `runActOsaurusTurn` path (0.40) bypasses the deprecated ChatCoordinator pipeline, which was the ONLY
+    /// SDChat writer for main chat — so without this, main-act Osaurus chats never saved to recent-chats (could
+    /// not reopen). AppBootstrap wires this to the PROVEN `ChatCoordinator.persistChatCompletion`. nil-safe: a
+    /// no-op until wired, so it never affects send/stream. Mirrors how Mini Chat already persists into SDChat.
+    var persistActTurn: (@MainActor (_ chatId: String, _ userText: String, _ assistant: ChatMessage?) -> Void)?
+
     // MARK: - Chat Management
 
     func setCurrentChat(_ chatId: String) {
@@ -801,6 +808,8 @@ final class ChatState {
                     if !result.finalVisibleText.isEmpty {
                         self.appendLocalMessage(
                             role: .assistant, content: result.finalVisibleText, contentBlocks: nil)
+                        // 0.48: persist the cancelled-with-content turn into the unified SDChat recent-chats store.
+                        self.persistActTurn?(chatId, safeQuery, self.messages.last)
                     }
                     return
                 }
@@ -811,6 +820,8 @@ final class ChatState {
                         : result.finalVisibleText,
                     contentBlocks: nil
                 )
+                // 0.48: persist the completed main-act turn so it appears in (and reopens from) recent-chats.
+                self.persistActTurn?(chatId, safeQuery, self.messages.last)
             } catch {
                 self.appendLocalMessage(
                     role: .assistant,
