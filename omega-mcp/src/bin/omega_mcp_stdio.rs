@@ -51,18 +51,31 @@ pub fn handle(
     let req: Value = serde_json::from_str(line).ok()?;
     let id = req.get("id").cloned().unwrap_or(Value::Null);
     let method = req.get("method")?.as_str()?;
+    // Diagnostic to STDERR (never stdout — that would corrupt the JSON-RPC framing). OpenCode captures MCP
+    // server stderr in its logs, so "epistemos-vault Failed to get tools" becomes debuggable (which method,
+    // what error) instead of opaque. 2026-06-24 owner-reported.
+    eprintln!("[omega_mcp_stdio] → method={method}");
     match method {
-        "initialize" => Some(
-            json!({
-                "jsonrpc": "2.0", "id": id,
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": { "tools": {}, "resources": {} },
-                    "serverInfo": { "name": "epistemos-vault", "version": env!("CARGO_PKG_VERSION") }
-                }
-            })
-            .to_string(),
-        ),
+        "initialize" => {
+            // Echo the client's requested protocolVersion when present (strict MCP clients reject a server
+            // that downgrades the version); fall back to the baseline we implement. Robustness for OpenCode.
+            let client_version = req
+                .get("params")
+                .and_then(|p| p.get("protocolVersion"))
+                .and_then(Value::as_str)
+                .unwrap_or("2024-11-05");
+            Some(
+                json!({
+                    "jsonrpc": "2.0", "id": id,
+                    "result": {
+                        "protocolVersion": client_version,
+                        "capabilities": { "tools": {}, "resources": {} },
+                        "serverInfo": { "name": "epistemos-vault", "version": env!("CARGO_PKG_VERSION") }
+                    }
+                })
+                .to_string(),
+            )
+        }
         // MCP `ping` (spec keepalive — the MCP SDKs send it for connection health): respond with an EMPTY
         // result, per spec. Falling through to the dispatcher returned `-32601 Unknown method`, which some
         // clients treat as an unhealthy server → they DROP the connection (a real fusion break, not cosmetic).
@@ -97,7 +110,16 @@ pub fn handle(
         // EXECUTE (tools/call routes only through execute_vault_tool = vault + graph). Advertising the full
         // app catalog here would show OpenCode phantom tools (computer-use, safari, move/delete_file, …) that
         // execute Swift-side / in-app and would fail with "Unknown vault tool" — a dishonest surface. Scope it.
-        "tools/list" => Some(scope_tools_list_to_executable(&dispatcher.dispatch(line.to_string()))),
+        "tools/list" => {
+            let scoped = scope_tools_list_to_executable(&dispatcher.dispatch(line.to_string()));
+            // Count advertised tools for the stderr diagnostic (helps debug "Failed to get tools").
+            let count = serde_json::from_str::<Value>(&scoped)
+                .ok()
+                .and_then(|v| v.get("result").and_then(|r| r.get("tools")).and_then(|t| t.as_array().map(|a| a.len())))
+                .unwrap_or(0);
+            eprintln!("[omega_mcp_stdio] tools/list → {count} tools");
+            Some(scoped)
+        }
         // resources/list + resources/read are served by the dispatcher.
         _ => Some(dispatcher.dispatch(line.to_string())),
     }
