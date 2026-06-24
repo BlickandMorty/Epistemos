@@ -13,11 +13,16 @@ pub struct JsonRpcRequest {
     pub id: Option<serde_json::Value>,
 }
 
-/// JSON-RPC 2.0 response.
+/// JSON-RPC 2.0 response. A response carries EITHER `result` OR `error`, never both — so each is
+/// skipped when None. (Owner 2026-06-24: a success response serialized `"error":null` alongside `result`,
+/// which strict MCP clients — OpenCode's SDK — REJECT → "epistemos-vault Failed to get tools". Omitting the
+/// null field makes the envelope spec-compliant.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcResponse {
     pub jsonrpc: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<JsonRpcError>,
     pub id: Option<serde_json::Value>,
 }
@@ -27,6 +32,7 @@ pub struct JsonRpcResponse {
 pub struct JsonRpcError {
     pub code: i64,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<serde_json::Value>,
 }
 
