@@ -20,6 +20,7 @@ struct ActCloneSettingsView: View {
     @State private var toolPermissionRows: [EpistemosOsaurusToolPermissionRow] = []
     @State private var toolSecretRows: [EpistemosOsaurusToolSecretRow] = []
     @State private var skillRows: [EpistemosOsaurusSkillRow] = []
+    @State private var agentRows: [EpistemosOsaurusAgentRow] = []
     @State private var toolPermissionOptions: [EpistemosOsaurusPolicyOption] = []
     @State private var computerUsePolicySnapshot: EpistemosOsaurusComputerUsePolicySnapshot?
     @State private var computerUsePolicyOptions: [EpistemosOsaurusPolicyOption] = []
@@ -508,6 +509,60 @@ struct ActCloneSettingsView: View {
                 Text("Act's skill library from Osaurus's SkillManager — built-in, plugin, and custom skills. Skills surface as composer slash commands when enabled.")
             }
 
+            // 0.33d — native Agents inventory (Act's agents + how each is configured).
+            Section {
+                if agentRows.isEmpty {
+                    Text("No agents configured.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(agentRows) { agent in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: agent.isActive ? "person.fill.checkmark" : "person")
+                                .frame(width: 16)
+                                .foregroundStyle(agent.isActive ? Color.green : Color.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(agent.name)
+                                    if agent.isDefault {
+                                        Text("Default")
+                                            .font(.caption2.weight(.semibold))
+                                            .padding(.horizontal, 5).padding(.vertical, 1)
+                                            .background(Color.secondary.opacity(0.15), in: Capsule())
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Text(agent.modelLabel)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                HStack(spacing: 8) {
+                                    Label("Tools", systemImage: agent.toolsEnabled ? "checkmark" : "xmark")
+                                    Label("Memory", systemImage: agent.memoryEnabled ? "checkmark" : "xmark")
+                                    if agent.autonomousEnabled {
+                                        Label("Autonomous", systemImage: "bolt.fill")
+                                    }
+                                }
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .labelStyle(.titleAndIcon)
+                            }
+                            Spacer()
+                            if agent.isActive {
+                                Text("Active")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            } header: {
+                Text("Agents (\(agentRows.count))")
+            } footer: {
+                Text("Act's agents from Osaurus's AgentManager — each with its effective model, tool/memory/autonomous configuration. The active agent drives the current Act chat.")
+            }
+
             Section {
                 if let computerUsePolicySnapshot {
                     Picker(
@@ -879,6 +934,7 @@ struct ActCloneSettingsView: View {
         toolPermissionRows = EpistemosOsaurusManagementBridge.toolPermissionRows(maxCount: 60)
         toolSecretRows = EpistemosOsaurusManagementBridge.toolSecretRows()
         skillRows = EpistemosOsaurusManagementBridge.skillRows()
+        agentRows = EpistemosOsaurusManagementBridge.agentRows()
         toolPermissionOptions = EpistemosOsaurusManagementBridge.toolPermissionOptions()
         computerUsePolicyOptions = EpistemosOsaurusManagementBridge.computerUsePolicyOptions()
         let policySnapshot = EpistemosOsaurusManagementBridge.computerUsePolicySnapshot()
