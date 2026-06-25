@@ -9,7 +9,7 @@
 ---
 
 ## §0 TL;DR (the whole decision in 7 lines)
-1. **One native shell** (`EpistemosSurfaceHost`) owns Landing, the Chat/Act/Work picker, context, sessions, permissions, tools, theme, recents.
+1. **One native shell** (`EpistemosSurfaceHost`) owns Landing, the Chat/Act/Work picker, context, sessions, permissions, tools, theme, recents. **Landing = EXACTLY 3 surfaces: Chat=Swift Agent, Act=Goose, Work=OpenGUI.** The OpenCode TUI is NOT on the landing — it moves to Settings only (see §0.1).
 2. **Chat = AgentClone** — native Swift, deepest integration.
 3. **Act = Goose** — Goose's **web UI in a macOS 26 `WebView`/`WebPage`**, with the agent driven over **ACP-over-WebSocket** to a supervised `goose serve`/`goosed`; a **narrow** boot/affordance shim (NOT a full Electron-IPC emulation). The **real Goose Electron app stays as the capability baseline/fallback**.
 4. **Work = OpenGUI** (the multi-engine **harness runtime** — OpenCode is just *one hidden engine* under it, NOT the brand) — native Work chrome over the OpenGUI runtime **and** the OpenGUI/OpenWork web SPA in `WebView`/`WebPage`. Foreground = **"Epistemos Work"**, never "OpenCode". See §0.1.
@@ -33,7 +33,21 @@
 | **Engine picker / diagnostics** | Engine identities are allowed as **selectable / debug** labels only — not as the surface brand. "OpenGUI" may name the runtime in diagnostics. | picker rows: OpenCode · Claude Code · Codex · Pi · Goose |
 | **Backend contracts (NEVER rename — renaming breaks execution)** | Keep the real donor/runtime names under the hood. | `opencode.json`, `OPENGUI_OPENCODE_PORT`, `OPENWORK_OPENCODE_BIN`, harness id `"opencode"`, env/protocol/storage keys |
 
-**The landing leak to fix:** wherever "OpenCode" (or a bare engine name) shows on the landing / Work entry, change it to **"Work" / "Epistemos Work"**. The engine name belongs ONLY in the in-surface engine picker, never as the mode/brand. *(Note: Goose appears in OpenGUI's picker as a not-yet-runnable engine — that is a SEPARATE possibility from Act=Goose; do not conflate. Act=Goose is its own surface (§1); the OpenGUI "goose" harness stays deferred.)*
+**Verified current leak (located in code):** `RootView.swift:2697-2701` mounts **`WorkTerminalHostView`** (the OpenCode TUI terminal, `WorkTerminalView.swift:120`) for the landing `.work` mode. The REAL OpenGUI Work surface (`WorkEngineSurfaceView` via `WorkEngineSurfaceWindowController`) only opens from `EpistemosApp.swift:1523` (⌘4/menu) — NOT the landing. So today the landing's "Work" literally *is* the OpenCode TUI. That is the confusion to remove.
+
+### The LANDING CONTRACT (clean — exactly 3 surfaces, owner-locked 2026-06-25)
+| Mode | Landing surface = | Engine |
+|---|---|---|
+| **Chat** | Swift Agent (`AgentClone.ContentView()`) | native Swift |
+| **Act** | Goose | Goose (web UI + ACP) |
+| **Work** | **OpenGUI** (`WorkEngineSurfaceView`, multi-harness) | OpenGUI runtime (OpenCode = default hidden engine) |
+
+- The landing shows **only these three** — no "OpenCode" surface, no bare TUI, no fourth thing. Clean slate.
+- **OpenCode's two roles, split (THIS is the key distinction):**
+  1. **OpenCode the ENGINE** → keeps working as OpenGUI's default harness. **Do NOT break or delete it.**
+  2. **OpenCode the standalone TUI VIEW** (`WorkTerminalHostView`) → **MOVE to Settings only.** It is *already* mounted in Settings (`WorkCloneSettingsView.swift:34`); just **remove it from the landing** (change `RootView.swift:2697-2701` to mount `WorkEngineSurfaceView`). **Do NOT delete** `WorkTerminalHostView`/`WorkTerminalView.swift` — it stays, reachable via Settings.
+- **Mode-name hazard (this is what confuses agents):** `WorkspaceModeKind` = the landing surfaces (`.chat/.act/.work`). `CoworkChatMode` (`CoworkChatMode.swift`) = a SEPARATE in-Chat toggle (`.chat` single-turn vs `.act` agentic). They reuse the words "chat"/"act" but are DIFFERENT enums — never conflate landing `WorkspaceModeKind.act` (the Goose surface) with `CoworkChatMode.act` (an agentic toggle inside Chat).
+- *(Goose also appears in OpenGUI's engine picker as a not-yet-runnable harness — SEPARATE from Act=Goose. Act=Goose is its own landing surface; the OpenGUI "goose" harness stays deferred. Do not conflate.)*
 
 ---
 
@@ -158,6 +172,22 @@ Craft feels native because it's **Mac Catalyst + custom-drawn canvas** and kills
 
 **Directive summary:** Chat = **CONTINUE**. Work = **CONTINUE**. Goose = **CONTINUE but RE-TARGET to ACP+WebView**. None need to stop; only Goose changes shape.
 
+**LANDING CONTRACT (paste into ALL three agents — owner-locked):**
+```
+The landing/home window shows EXACTLY three surfaces, nothing else:
+  Chat = Swift Agent (AgentClone)   ·   Act = Goose   ·   Work = OpenGUI
+- OpenCode is NOT a landing surface. OpenCode the ENGINE keeps running as OpenGUI's default harness;
+  OpenCode the standalone TUI VIEW (WorkTerminalHostView) moves to SETTINGS ONLY (already mounted at
+  WorkCloneSettingsView.swift:34) and is removed from the landing (RootView.swift:2697-2701). Do NOT
+  delete WorkTerminalHostView/WorkTerminalView.swift.
+- Foreground mode labels = "Chat"/"Act"/"Work". Engine names (OpenCode/Codex/Claude Code/Pi/Goose) appear
+  ONLY in the in-surface engine picker + Settings, never as a surface brand.
+- WorkspaceModeKind (.chat/.act/.work = the landing surfaces) is a DIFFERENT enum from CoworkChatMode
+  (.chat/.act = an in-Chat single-turn/agentic toggle). Never conflate them.
+- Stay in your own lane; do not edit another surface's files. RootView.swift / AppBootstrap.swift are
+  shared — coordinate edits there.
+```
+
 ### A — Chat / AgentClone agent → CONTINUE
 ```
 You own CHAT = the native Swift AgentClone (LocalPackages/AgentClone) mounted in
@@ -172,8 +202,9 @@ Epistemos chat surface. Continue:
 3. Keep Epistemos-native foreground naming. Deepen note/graph/vault context as TYPED
    attachments ONLY after the owner lifts isolation. Do NOT revive MiniChat/GraphChat/
    NoteChat/ChatView/Osaurus backends.
-You are the INTERIM host for the Act route until the Goose-Act surface lands; do not try to
-own Goose or Work. Guardrails: macOS 26.0; @Observable; no force-unwrap; Pro behind
+Your LANDING surface = Chat (Swift Agent). Act's target engine is Goose (not you); you are only the
+INTERIM Act host until the Goose-Act surface lands, then Act becomes Goose. Do not try to own Goose,
+Work, or the OpenCode TUI. Guardrails: macOS 26.0; @Observable; no force-unwrap; Pro behind
 #if !EPISTEMOS_APP_STORE. SHARED FILES (RootView.swift, AppBootstrap.swift, AppCoordinator.swift)
 are edited by other lanes — coordinate/serialize edits there. Commit only inside your lane.
 Proof gate: app builds; Chat mounts; prompt runs through the clone runner (not a parallel fake);
@@ -199,6 +230,15 @@ is just ONE (default) engine under the OpenGUI picker and its NAME must be de-fo
 - The bare `opencode serve` path (WorkRuntimeSupervisor) is the PLACEHOLDER; the target surface is the
   OpenGUI multi-harness (WorkOpenGUISupervisor). Keep OpenGUI primary, bare path as fallback.
 
+LANDING + OPENCODE-TUI RELOCATION (owner-locked — do this first):
+- Today the landing .work mode mounts WorkTerminalHostView (the OpenCode TUI, WorkTerminalView.swift:120)
+  at RootView.swift:2697-2701. CHANGE it to mount the OpenGUI surface (WorkEngineSurfaceView, the one
+  WorkEngineSurfaceWindowController.open() opens at EpistemosApp.swift:1523).
+- MOVE the OpenCode TUI to SETTINGS ONLY — it is ALREADY mounted there (WorkCloneSettingsView.swift:34);
+  just remove it from the landing. DO NOT delete WorkTerminalHostView / WorkTerminalView.swift.
+- Keep OpenCode THE ENGINE working as OpenGUI's default harness — the TUI relocation must NOT break the engine.
+- Result: landing shows Work = OpenGUI (clean), and the OpenCode TUI is reachable only via Settings.
+
 Then:
 1. Keep hardening OpenGUI sidecar routing, session/message edge cases, endpoint input bounds, NDJSON
    stderr drains.
@@ -217,7 +257,8 @@ queue/permissions/recents/session-reopen pass; Work in shared recents.
 
 ### C — Goose / Act agent → CONTINUE but RE-TARGET (ACP transport + WebView UI)
 ```
-You own ACT = Goose. RE-TARGET (owner decision 2026-06-25): integrate Goose as its WEB UI in a
+You own ACT = Goose — your LANDING surface is Act (one of exactly 3: Chat/Act/Work; see the Landing
+Contract). RE-TARGET (owner decision 2026-06-25): integrate Goose as its WEB UI in a
 macOS 26 WebView/WebPage, with the AGENT driven over ACP-over-WebSocket to a supervised
 goose serve / goosed — NOT a full window.electron IPC emulation. This is how Goose's own renderer
 already works (ui/desktop/src/main.ts buildAcpWebSocketUrl -> /acp?token=, USE_ACP_CHAT flag). Do:
@@ -279,4 +320,5 @@ One native ChatView for all three; Goose **agent path** via Electron-IPC emulati
 - 2026-06-25 — P2 RESOLVED: Goose = ACP (Goose ships ACP over stdio `goose acp` AND WebSocket `goose serve`/`/acp`; its own renderer uses `USE_ACP_CHAT`/`buildAcpWebSocketUrl`). Electron-renderer-IPC-emulation rejected for the agent path; narrow boot/affordance shim only. Real Goose Electron = baseline/fallback.
 - 2026-06-25 — **Fusion lock:** dual-WebView + ACP unified (§2); deploy-target + Goose-ACP-WS facts verified in code; doc finalized to DEFINITIVE; loop closed; per-agent directives + prompts written (§9); owner checkpoint plan (§10).
 - 2026-06-25 — **NAMING HARDENED (§0.1).** Owner correction: the Work surface is **OpenGUI** (multi-engine harness), not OpenCode. Verified in code (`WorkOpenGUISupervisor.swift:4` "OpenGUI is the harness… harnesses MULTIPLE engines"; picker = OpenCode/Codex/Claude Code/Pi + Goose). Earlier draft's "Work = OpenCode" / "OpenCode SPA" foreground naming **SUPERSEDED** → foreground "Epistemos Work", OpenCode = one hidden engine, bare-`opencode serve` = placeholder vs OpenGUI multi-harness target. Backend contract names unchanged. Architecture was correct; only the writeup's foreground naming was loose.
+- 2026-06-25 — **LANDING CONTRACT hardened (§0.1).** Owner: landing = exactly 3 surfaces (Chat=Swift / Act=Goose / Work=OpenGUI). Verified `RootView.swift:2697-2701` currently mounts `WorkTerminalHostView` (the OpenCode TUI) for `.work` → must mount `WorkEngineSurfaceView` (OpenGUI). OpenCode TUI → **Settings-only** (already at `WorkCloneSettingsView.swift:34`), **not deleted**; OpenCode **engine** stays under OpenGUI. All 3 agent prompts + a shared Landing-Contract preamble updated. Mode-name hazard documented (`WorkspaceModeKind` vs `CoworkChatMode`).
 - Sources: Apple WWDC25 WebKit-for-SwiftUI / `WebPage` docs; Electron contextBridge/ipcRenderer/IPC tutorial; Agent Client Protocol (agentclientprotocol.com), Zed external-agents + ACP registry, JetBrains ACP, Goose ACP docs; local clones `.research-clones/work/{goose,opengui}`; repo `Epistemos/Work/*`, `LocalPackages/AgentClone`; canon `WORK_CANON_STATUS_2026_06_25.md`, `ACT_IP_PRESERVATION_2026_06_24.md`, `PRIVATE_TRI_SURFACE_…_2026_06_24.md`, federation handoff doc.
