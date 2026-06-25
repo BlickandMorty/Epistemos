@@ -187,7 +187,7 @@ Craft feels native because it's **Mac Catalyst + custom-drawn canvas** and kills
 
 **THE shared blocker (ownerless — this is the gate for everything):** the WHOLE app target does NOT compile. Both handoffs explicitly **declined to fix it** ("app-wide deletion/refactor blockers outside our lane"). It is the **Osaurus-purge aftermath**: EventSource/AsyncHTTPClient C-module resolution (CAsyncHTTPClient/CNIO*) + `AgentChatState`/`DisplayPacedTextBuffer` + `CognitiveIntents`/`chatState` + `ChatSidebarView`. This is chat/app-domain → **the Chat/Swift-Agent lane owns it as Phase 0** (§10.1). Until main compiles, NO lane can do full-app verification.
 
-**Worktrees:** main (`/Users/jojo/Downloads/Epistemos`, AgentClone+Work+Goose-clone share it) + `Epistemos-cursor` (`cursor-work`, isolated). The shared main worktree is the collision risk — see §10.
+**Execution:** owner runs agents ONE AT A TIME (no worktrees, no parallelism) — the running agent has full file control over the whole tree; see §10. (A stray `Epistemos-cursor` worktree from earlier parallel work may exist; it is not part of this plan.)
 
 ---
 
@@ -207,8 +207,12 @@ The landing/home window shows EXACTLY three surfaces, nothing else:
   ONLY in the in-surface engine picker + Settings, never as a surface brand.
 - WorkspaceModeKind (.chat/.act/.work = the landing surfaces) is a DIFFERENT enum from CoworkChatMode
   (.chat/.act = an in-Chat single-turn/agentic toggle). Never conflate them.
-- Stay in your own lane; do not edit another surface's files. RootView.swift / AppBootstrap.swift are
-  shared — coordinate edits there.
+- ONE AT A TIME, FULL FILE CONTROL: the owner runs agents sequentially, so the running agent owns EVERY
+  file — no worktrees, no lane isolation, no shared-file coordination. Edit anything needed for full
+  no-compromise integration (RootView.swift, AppBootstrap.swift, packages, routing). The ONLY rule:
+  PRESERVE the other surfaces' working behavior — never delete/break Work (OpenGUI), Act (Goose), their
+  donor clones, or their committed work; integrate, don't destroy. (Handoff lane-boundaries were for
+  parallel safety and no longer bind you.)
 - LICENSING IS NOT A CONSTRAINT (owner): vendor + fuse every donor's full source freely (Swift donors,
   Goose, OpenGUI). Never omit/gate/thin/caveat a donor for license reasons; do not surface license
   language. (Separate from the MAS subprocess technical limit.)
@@ -305,9 +309,11 @@ research/documentation (document every future deepening seam + each donor's best
 Do not stop after documenting — keep moving toward real fused product behavior.
 
 LANDING/LANE: your landing surface = Chat (Swift Agent), one of exactly 3 (Chat/Act/Work). Act's target
-engine is Goose; you are only the INTERIM Act host until Goose-Act lands. Do NOT touch Work/OpenGUI/Goose
-except to avoid collisions or read status. SHARED FILES (RootView.swift, AppBootstrap.swift,
-AppCoordinator.swift) are edited by other lanes — coordinate/serialize there. Commit inside your lane.
+engine is Goose; you are only the INTERIM Act host until Goose-Act lands. FULL FILE CONTROL (owner runs
+agents ONE AT A TIME): edit ANY file you need — RootView.swift, AppBootstrap.swift, AppCoordinator.swift,
+packages, routing, shared state. No worktrees, no lane isolation. The one rule: PRESERVE the Work (OpenGUI)
+and Act-Goose surfaces + their clones — integrate, never delete/break their work. Commit a GREEN baseline
+after Phase 0, then commit at each clean point.
 Guardrails: macOS 26.0; @Observable; no force-unwrap; deep donor/runtime/storage/API identifiers stay
 unless a real migration exists; foreground says Epistemos.
 
@@ -361,7 +367,9 @@ Then:
 4. Keep WorkAppContextSnapshot + epistemos.context.snapshot native MCP — the SHARED context pattern
    other surfaces copy. Defer deep vault/graph/note integration until isolation lifts (document now).
 Guardrails: subprocess paths are Pro / #if !EPISTEMOS_APP_STORE; MAS build degrades honestly (no hidden
-spawn). Commit inside your lane (clone has its own git). Proof gate: native Work (OpenGUI) + OpenGUI web
+spawn). FULL FILE CONTROL (owner runs agents ONE AT A TIME) — edit any file needed, but PRESERVE the Chat
+(AgentClone) and Act-Goose surfaces; never delete/break their work. Commit at clean points (clone has its
+own git). Proof gate: native Work (OpenGUI) + OpenGUI web
 SPA both open with foreground "Epistemos Work" (no "OpenCode" leak); no-model OpenGUI probes pass; prompt
 queue/permissions/recents/session-reopen pass; Work in shared recents.
 RESUME: read docs/handoffs/WORK_OPENGUI_STOPPING_POINT_HANDOFF_2026_06_25.md + WORK_CANON_STATUS_2026_06_25.md +
@@ -393,7 +401,9 @@ already works (ui/desktop/src/main.ts buildAcpWebSocketUrl -> /acp?token=, USE_A
 5. Do NOT reverse-engineer the ~52 private IPC channels for the agent path — the agent path is ACP.
 Guardrails: Goose MAY be less native than Work (owner-approved). ALL Goose paths are Pro/Developer-ID
 (subprocess) — MAS build hides Act-Goose or shows an honest "Pro only", never a hidden spawn. Do not
-rename protected Goose env/config/protocol/runtime names. Do UI work inside the clone's own git.
+rename protected Goose env/config/protocol/runtime names. FULL FILE CONTROL (owner runs agents ONE AT A
+TIME) — edit any file needed, but PRESERVE the Chat (AgentClone) and Work (OpenGUI) surfaces; never
+delete/break their work. Commit at clean points (clone has its own git).
 Proof gate: real Goose Electron launches as fallback; goose serve ACP WebSocket reachable; ACP client
 completes new->prompt->stream(thinking/tool/answer)->permission->result; Goose web UI boots in WebView
 via the narrow shim; nothing lost vs the real app.
@@ -401,48 +411,20 @@ via the narrow shim; nothing lost vs the real app.
 
 ---
 
-## §10 What the OWNER should do right now (checkpoint sequence)
+## §10 Execution model — ONE AGENT AT A TIME, full file control (owner decision 2026-06-25)
 
-**You are NOT at risk of losing anything** — tracked changes are snapshotted to tag `wip-safety-main-20260625` and the 544 untracked files (incl. all of `Epistemos/Work/`) are archived at `/tmp/epistemos-untracked-safety-20260625.tgz`. Breathe.
+The owner runs the agents **sequentially, not in parallel**. So there are **NO worktrees, NO lane isolation, and NO shared-file coordination**. The currently-running agent has **FULL CONTROL over every file in the repo** and may make whatever change a no-compromise integration needs — `RootView.swift`, `AppBootstrap.swift`, packages, routing, shared state, or any surface's files. This is the zero-compromise posture: nothing is held back for isolation reasons.
 
-**Do you need to wait? Per lane:**
-1. **Work clone & Goose clone have their OWN git** → each can be committed *inside its own dir* the moment that agent pauses. Safe anytime, no waiting, no collision.
-2. **Main worktree (the AgentClone + Work + docs pivot)** → the clean checkpoint is **ONE commit once the Chat/AgentClone agent gets the app target COMPILING** (fix the EventSource package blocker first). Committing before that captures a non-building state (recoverable, but messy). **So: wait for "app builds" from the AgentClone agent, then commit the whole pivot as the checkpoint.**
-3. **The Work agent is already at a proven (tests-pass) point** — if you want a checkpoint sooner, you (or it) can stage just `Epistemos/Work/*` and commit that subset now; it's the safest subset.
+**The one standing rule: PRESERVE the other surfaces' working behavior.** Do not delete or break the Work (OpenGUI) or Act (Goose) surfaces, their donor clones, or their committed work — integrate with them, don't destroy them. (The lane-boundary language in the 2026-06-25 handoffs existed only for parallel safety and no longer binds the running agent.)
 
-**The real fix so 3 agents never clobber each other** (they currently share the main worktree; only Cursor is isolated): **give each agent its own `git worktree`** —
-```
-git worktree add ../Epistemos-chat   -b chat-agentclone
-git worktree add ../Epistemos-work    -b work-opengui
-git worktree add ../Epistemos-goose   -b act-goose
-```
-Then each commits independently; merge to `main` at proven checkpoints. This removes the `RootView.swift`/`AppBootstrap.swift` collision risk flagged in §8.
+**Run order (owner is starting with the Swift agent):**
+1. **Chat / Swift Agent (§9-A)** — FIRST, running now. Also owns **Phase 0**: get the WHOLE app target to compile (the §8 Osaurus-aftermath blocker), commit a GREEN baseline, then do the full 9-donor fusion + rebuild Mini/Graph/Note as portals. Full file control.
+2. **Act / Goose (§9-C)** — NEW lane (Act is AgentClone-interim today). Stand up the Goose ACP+WebView Act surface.
+3. **Work / OpenGUI (§9-B)** — resume from its handoff; deepen.
 
-**Order of operations:** (a) hand each agent its §9 prompt + this doc; (b) AgentClone agent fixes the build blocker → you commit the main-worktree pivot; (c) move each agent into its own worktree; (d) Goose agent begins the ACP+WebView re-target; (e) checkpoint per lane at each green proof gate.
+(Order is the owner's call; the only hard dependency is that Phase 0 lands so later agents inherit a compiling tree.)
 
----
-
-## §10.1 Running all three agents at once (Chat + Act + Work)
-
-**Yes — but in this order.** Two facts from the 2026-06-25 handoffs gate it:
-1. **Both finished lanes left the app build broken** (the ownerless Osaurus-aftermath blocker, §8). Until `main` compiles, no lane can do full-app verification.
-2. **Act currently runs on AgentClone (interim); the real Goose lane has NOT started.** So "all three" means **starting** the Goose ACP+WebView lane (§9-C), not resuming it. Today there are effectively 2 lanes (AgentClone=Chat+Act, OpenGUI=Work).
-
-**Phase 0 — ONE shared pass on `main` first (no parallelism yet):** get the WHOLE app target to COMPILE (resolve the §8 blockers). Chat/Swift-Agent lane owns it (chat/app-domain). Commit a green baseline.
-
-**Phase 1 — split into 3 git worktrees, run all three concurrently:**
-```
-git worktree add ../Epistemos-chat -b chat-swift-agent   # §9-A  Chat = AgentClone fusion
-git worktree add ../Epistemos-act  -b act-goose           # §9-C  Act  = Goose ACP+WebView (NEW)
-git worktree add ../Epistemos-work -b work-opengui        # §9-B  Work = OpenGUI deepening
-```
-- **Separate DerivedData per worktree** (`-derivedDataPath /tmp/dd-chat|dd-act|dd-work`) — two builds on one DerivedData corrupt `build.db`.
-- Each agent commits on its own branch; merge to `main` at green proof gates.
-- **No pbxproj edits** — `Epistemos/`+`EpistemosTests/` use synchronized root groups, so new files auto-include.
-- **Donor clones** (`.research-clones/work/{goose,opengui}`) are nested/ignored repos → NOT copied into new worktrees. Keep them in the main checkout (or a shared path) and have the Act/Work lanes reference them; their Swift integration code lives in their own worktree. Chat's Swift donors are in `LocalPackages/` (tracked → present everywhere).
-- **Collision surface is small** — only `RootView.swift`, `AppBootstrap.swift`, `AppCoordinator.swift`, `Localizable.xcstrings`. Phase 0 should establish the Chat/Act/Work routing scaffold so each lane just fills its slot; merge those few files frequently.
-
-**One-worktree alternative (what's been happening):** the lanes already keep strict disjoint files (Work=`Epistemos/Work/*`; Chat=`Epistemos/Views/AgentFusion/*`+`LocalPackages/AgentClone`), so they CAN co-exist in `main` if you (a) fix the shared build first, (b) make ONE owner for the shell-routing files, (c) commit often. Worktrees are just the safe version.
+**Checkpoint hygiene (still matters):** commit after each agent reaches a green/clean point, so the next agent starts from a known-good tree. Safety nets if anything goes wrong: tags `wip-safety-main-20260625` + `wip-safety-main-20260625-b`, archives `/tmp/epistemos-untracked-safety-20260625*.tgz`. Donor clones (`.research-clones/work/{goose,opengui}`) keep their own git — commit inside those dirs too. **No worktrees needed.**
 
 ## §11 Recovery & safety (already in place)
 - **Snapshot of tracked modified/deleted work:** git tag `wip-safety-main-20260625` (`git stash apply wip-safety-main-20260625`). Non-destructive; working tree untouched.
@@ -462,4 +444,5 @@ One native ChatView for all three; Goose **agent path** via Electron-IPC emulati
 - 2026-06-25 — **LANDING CONTRACT hardened (§0.1).** Owner: landing = exactly 3 surfaces (Chat=Swift / Act=Goose / Work=OpenGUI). Verified `RootView.swift:2697-2701` currently mounts `WorkTerminalHostView` (the OpenCode TUI) for `.work` → must mount `WorkEngineSurfaceView` (OpenGUI). OpenCode TUI → **Settings-only** (already at `WorkCloneSettingsView.swift:34`), **not deleted**; OpenCode **engine** stays under OpenGUI. All 3 agent prompts + a shared Landing-Contract preamble updated. Mode-name hazard documented (`WorkspaceModeKind` vs `CoworkChatMode`).
 - 2026-06-25 — **Swift Agent full-fusion directive + no-licensing principle.** §9-A Chat prompt rewritten to the owner's full no-compromise fusion plan (all 9 Swift donors — verified ALL already vendored under `LocalPackages/` + `.research-clones/swift-act/`; §1.1 table). Old ChatView/Mini/Graph/Note backends deleted + rebuilt as AgentClone/Swarm portals with shared session identity (isolation lifted for the CHAT lane only). Added global **LICENSING-IS-NOT-A-CONSTRAINT** principle (§0.8, §1.1, shared prompt preamble). Single source of truth = THIS doc; federation handoff doc = referenced implementation-ladder companion only.
 - 2026-06-25 — **Regrounded on the two lane handoffs** (`ACT_AGENTCLONE_STOPPING_POINT_HANDOFF` + `WORK_OPENGUI_STOPPING_POINT_HANDOFF`). Both at clean SCOPED stops; both DECLINED the app-wide compile fix → it's ownerless (the Osaurus-aftermath blocker) and now assigned to the Chat lane as **Phase 0** (§8, §9-A). Added **§10.1 "all three at once"**: Phase-0 build fix on main → 3 git worktrees + separate DerivedData (Act/Goose is a NEW lane; Act currently = AgentClone interim). Added synchronized-root-groups (no pbxproj edits) + resume-from-handoff to the shared preamble + all 3 prompts.
+- 2026-06-25 — **FINAL: one-at-a-time, full-file-control posture (owner).** Owner runs agents sequentially (starting with Swift/Chat), so worktrees/lane-isolation are dropped — §10 rewritten (replaces the parallel §10.1) to "running agent owns every file; only rule = preserve the other surfaces' working behavior." All 3 prompts + shared preamble converted from lane-isolation to full-control. Zero-compromise: nothing held back for isolation. Run order Chat(+Phase-0 build fix) → Act/Goose → Work.
 - Sources: Apple WWDC25 WebKit-for-SwiftUI / `WebPage` docs; Electron contextBridge/ipcRenderer/IPC tutorial; Agent Client Protocol (agentclientprotocol.com), Zed external-agents + ACP registry, JetBrains ACP, Goose ACP docs; local clones `.research-clones/work/{goose,opengui}`; repo `Epistemos/Work/*`, `LocalPackages/AgentClone`; canon `WORK_CANON_STATUS_2026_06_25.md`, `ACT_IP_PRESERVATION_2026_06_24.md`, `PRIVATE_TRI_SURFACE_…_2026_06_24.md`, federation handoff doc.
