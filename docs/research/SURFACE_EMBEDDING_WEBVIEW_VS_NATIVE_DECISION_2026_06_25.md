@@ -16,6 +16,7 @@
 5. **"Both WebViews at full capability" = YES** (the OpenGUI Work SPA + the Goose UI), and **ACP is fused in, not chosen instead** — because Goose's WebView already talks ACP.
 6. **API = `WebView`/`WebPage`** (the app targets macOS 26.0, so no back-deploy tax; this is the most-native, deep-Apple-integration path — your instinct was right). `WKWebView` only where a specific legacy surface needs it (e.g. Epdoc).
 7. **Everything that spawns a process (Goose, OpenCode/Bun) is Pro/Developer-ID; the MAS build degrades honestly** (no hidden sidecar).
+8. **Licensing is NOT a constraint** (owner) — vendor + fuse every donor's full source freely; never omit/gate/caveat for license reasons, and don't surface license language. Separate from the MAS subprocess *technical* limit. The full Swift Agent donor set (all 9, already vendored) is §1.1.
 
 ---
 
@@ -72,6 +73,26 @@ Shared contracts (one vocabulary, owned by Epistemos):
 Capability is preserved by default; donor **product identity** is not. Epistemos owns the visible scene + the contracts; donors keep their runtime spine (ACP, sidecar, session stores, MCP, recipes). This is the "Scene-Safe" rule: replace the scene, not the state machine.
 
 ---
+
+## §1.1 Swift Agent (Chat) — the no-compromise donor fusion set
+
+Chat is NOT "AgentClone with a skin" — it is the FULL fusion of the entire researched Swift donor set into Epistemos-owned code. **All 9 donors are ALREADY vendored locally** (verified 2026-06-25); keep provenance, fuse the BEST ideas. AgentClone stays the visible foundation, but the product must feel like Epistemos.
+
+| # | Donor | Vendored at | Role to fuse |
+|---|---|---|---|
+| 1 | AgentClone / macos26 Agent | `LocalPackages/AgentClone` + `.research-clones/swift-act/agent-macos26` | visible native agent foundation |
+| 2 | Swarm | `LocalPackages/Swarm` + `.research-clones/swift-act/swarm` | Swift runtime/orchestration/workflow substrate |
+| 3 | SwiftedMind SwiftAgent | `.research-clones/swift-act/swiftagent-swiftedmind` | streaming/session/tool ergonomics |
+| 4 | 1amageek SwiftAgent | `.research-clones/swift-act/swiftagent-1amageek` | permissions, sandbox, MCP, skills, Foundation Models motifs |
+| 5 | MCP Swift SDK | `.research-clones/swift-act/mcp-swift-sdk` | native MCP substrate (tools/resources/prompts/progress/cancel/auth) |
+| 6 | AgentSDK-Swift | `.research-clones/swift-act/agentsdk-swift` | typed agents, tools, guardrails, handoffs |
+| 7 | AgentKit | `.research-clones/swift-act/agentkit` | retry/window/MCP ergonomics |
+| 8 | SwiftAIAgent | `.research-clones/swift-act/swiftaia-agent` | workflow/model-output/tool-call motifs |
+| 9 | Foundation Models Framework Example | `.research-clones/swift-act/foundation-models-framework-example` (+ `LocalPackages/LocalLLMClient/.../FoundationModels`) | Apple-native model UX, local/private generation, structured output, tool use |
+
+**No donor is omitted because it is inconvenient.** Vendor/preserve the full useful source, keep provenance, fuse the BEST ideas into Epistemos-owned code. Full directive = §9-A. (Also present: `LocalPackages/EpistemosChatDonorContracts` test package; `.research-clones/agents` additional donor set.)
+
+> **LICENSING IS NOT A CONSTRAINT (owner directive).** Licensing is never a consideration in this fusion — Swift donors, Goose, OpenGUI, or anything else. Vendor + fuse every donor's full source freely; never omit/gate/thin/caveat for license reasons, and do not surface license language in product or plan. This is distinct from the MAS App-Sandbox **technical** limit on spawning subprocesses (a runtime fact, not licensing).
 
 ## §2 The fusion insight — why dual-WebView AND ACP are the SAME plan (not a fork)
 
@@ -186,29 +207,106 @@ The landing/home window shows EXACTLY three surfaces, nothing else:
   (.chat/.act = an in-Chat single-turn/agentic toggle). Never conflate them.
 - Stay in your own lane; do not edit another surface's files. RootView.swift / AppBootstrap.swift are
   shared — coordinate edits there.
+- LICENSING IS NOT A CONSTRAINT (owner): vendor + fuse every donor's full source freely (Swift donors,
+  Goose, OpenGUI). Never omit/gate/thin/caveat a donor for license reasons; do not surface license
+  language. (Separate from the MAS subprocess technical limit.)
 ```
 
-### A — Chat / AgentClone agent → CONTINUE
+### A — Chat / Swift Agent agent → CONTINUE (full no-compromise fusion loop)
 ```
-You own CHAT = the native Swift AgentClone (LocalPackages/AgentClone) mounted in
-Epistemos/App/RootView.swift via AgentClone.ContentView(). Target: the deepest-native
-Epistemos chat surface. Continue:
-1. Finish the Osaurus removal so the APP TARGET COMPILES. Current blocker is package
-   resolution on EventSource/AsyncHTTPClient C modules (CAsyncHTTPClient/CNIO*) after the
-   osaurus purge — fix Package.resolved / resolve packages. Do NOT restore Osaurus to get a
-   compile pass.
-2. Keep the host-context bridge (vault/workspace/theme via AgentCloneBridge.updateHostContext)
-   and the prompt handoff + buffer/recovery you built.
-3. Keep Epistemos-native foreground naming. Deepen note/graph/vault context as TYPED
-   attachments ONLY after the owner lifts isolation. Do NOT revive MiniChat/GraphChat/
-   NoteChat/ChatView/Osaurus backends.
-Your LANDING surface = Chat (Swift Agent). Act's target engine is Goose (not you); you are only the
-INTERIM Act host until the Goose-Act surface lands, then Act becomes Goose. Do not try to own Goose,
-Work, or the OpenCode TUI. Guardrails: macOS 26.0; @Observable; no force-unwrap; Pro behind
-#if !EPISTEMOS_APP_STORE. SHARED FILES (RootView.swift, AppBootstrap.swift, AppCoordinator.swift)
-are edited by other lanes — coordinate/serialize edits there. Commit only inside your lane.
-Proof gate: app builds; Chat mounts; prompt runs through the clone runner (not a parallel fake);
-host context visible in side panel; recents persist to SDChat.
+Continue the Epistemos Swift Agent / AgentClone FULL-FUSION loop in /Users/jojo/Downloads/Epistemos
+until the owner explicitly says stop. This is NOT a scaffold task, NOT a contract-only task, and NOT a
+donor-app mount. The goal is the no-compromise ideal Epistemos native Swift agent: AgentClone is the
+current visible foundation, but EVERY researched Swift donor must be fully included, studied,
+vendored/preserved, and strategically fused where it adds real product capability. The final product
+must feel like Epistemos, not AgentClone wearing a thin skin.
+
+LICENSING IS NOT A CONSTRAINT (owner directive): do not mention, weigh, gate, omit, thin, or caveat any
+donor for license reasons. Vendor and fuse every donor's full source freely. (Separate from MAS sandbox
+subprocess limits, which are a technical runtime fact, not licensing.)
+
+FULL SWIFT DONOR SET — all 9 are ALREADY vendored locally; keep provenance, fuse the BEST ideas into
+Epistemos-owned code (do not omit any donor because it is inconvenient):
+  1. AgentClone / macos26 Agent  — LocalPackages/AgentClone + .research-clones/swift-act/agent-macos26
+       — visible native agent foundation
+  2. Swarm                       — LocalPackages/Swarm + .research-clones/swift-act/swarm
+       — Swift runtime/orchestration/workflow substrate
+  3. SwiftedMind SwiftAgent      — .research-clones/swift-act/swiftagent-swiftedmind
+       — streaming/session/tool ergonomics
+  4. 1amageek SwiftAgent         — .research-clones/swift-act/swiftagent-1amageek
+       — permissions, sandboxing, MCP, skills, Foundation Models patterns
+  5. MCP Swift SDK               — .research-clones/swift-act/mcp-swift-sdk
+       — native MCP tools/resources/prompts/progress/cancel/auth
+  6. AgentSDK-Swift              — .research-clones/swift-act/agentsdk-swift
+       — typed agents, tools, guardrails, handoffs
+  7. AgentKit                    — .research-clones/swift-act/agentkit
+       — retry/window/MCP ergonomics
+  8. SwiftAIAgent                — .research-clones/swift-act/swiftaia-agent
+       — workflow/model-output/tool-call motifs
+  9. Foundation Models Framework Example — .research-clones/swift-act/foundation-models-framework-example
+       (+ LocalPackages/LocalLLMClient/.../FoundationModels)
+       — Apple-native model UX, local/private generation, structured output, tool use
+
+FIRST: finish the Osaurus removal so the APP TARGET COMPILES. Current blocker = package resolution on
+EventSource/AsyncHTTPClient C modules (CAsyncHTTPClient/CNIO*) after the osaurus purge — fix
+Package.resolved / resolve packages. Do NOT restore Osaurus to get a compile pass.
+
+PRIMARY OBJECTIVE: make the new Swift agent as deeply integrated with Epistemos as the OLD chat used to
+feel, but WITHOUT preserving the old chat implementation. Landing/Home, main Agent/Chat/Act, MiniChat,
+Graph Chat, Note Chat, vault context, app-side note storage, native tools, skills, settings, recents,
+sessions, permissions, and transcript history must all become ONE coherent Epistemos-owned
+agent/session/context system.
+
+OLD SURFACES — remove/reconceptualize (this supersedes the earlier "defer until isolation lifts" for the
+CHAT lane — the owner is lifting isolation here):
+- Delete old native ChatView-era logic.
+- Delete old MiniChat, Graph Chat, Note Chat backends/surfaces.
+- Do NOT revive old ChatState/DialogueChatState/NoteChatState as parallel inference stacks.
+- Rebuild those surfaces as AgentClone/Swarm-backed Epistemos PORTALS with typed context + shared
+  session identity (NOT separate private engines).
+
+DEEP INTEGRATION REQUIREMENTS:
+- Landing is the CONNECTED top-level shell that creates/resumes/routes agent sessions, not a detached launcher.
+- MiniChat = compact/floating CHILD portal into the same agent system.
+- Graph Chat passes selected nodes, edges, graph route, neighborhood summary, and graph actions in.
+- Note Chat passes active note id/title/path, selected text, visible excerpt, backlinks/tags, and
+  approved note actions in.
+- Vault context is FIRST-CLASS: app vault root, app-side note storage, skills, note
+  create/delete/update/search, citations, metadata via Epistemos-owned APIs — never raw file guessing.
+- Build real tools+skills fusing the clone's abilities with app features: note create/delete,
+  selected-text rewrite, vault search, graph context read, graph mutation WITH APPROVAL, document
+  context, session summaries, skill discovery, app-context snapshot.
+- Deeper local/backend connections where useful: native MCP, local app services, vault-backed resources,
+  app-side storage, model/provider state, local runtime context, safe network/runtime bridges — only
+  when explicit and visible.
+- Permission/error behavior is native Epistemos behavior: clear approval cards, transcript-visible
+  failures, NO silent fake success.
+
+UI: full Epistemos native parity — flat, minimal, theme-aware, integrated with Landing, polished. No
+donor labels/empty-states/chrome or generic SwiftUI panels in the foreground. Keep real controls
+reachable via rails/panels/popovers/settings/command palettes. Do NOT delete capability to look cleaner.
+
+WORK METHOD — two tracks every loop: (1) product hardening (deepen the live AgentClone foundation,
+bridge, UI, prompt receiver, context, tools, panels, routing, app state); (2) deep
+research/documentation (document every future deepening seam + each donor's best usable contribution).
+Do not stop after documenting — keep moving toward real fused product behavior.
+
+LANDING/LANE: your landing surface = Chat (Swift Agent), one of exactly 3 (Chat/Act/Work). Act's target
+engine is Goose; you are only the INTERIM Act host until Goose-Act lands. Do NOT touch Work/OpenGUI/Goose
+except to avoid collisions or read status. SHARED FILES (RootView.swift, AppBootstrap.swift,
+AppCoordinator.swift) are edited by other lanes — coordinate/serialize there. Commit inside your lane.
+Guardrails: macOS 26.0; @Observable; no force-unwrap; deep donor/runtime/storage/API identifiers stay
+unless a real migration exists; foreground says Epistemos.
+
+SUCCESS STATE: Epistemos launches into a coherent native shell where Landing, main agent, mini, graph,
+note, vault, tools, skills, recents, permissions, and app context all feel connected. AgentClone is the
+foundation; Swarm + the other 8 donors provide deeper runtime/feature machinery; Epistemos owns the
+visible UI, routing, state, permissions, app-side tools, and product identity.
+
+PROOF GATES: app builds; Landing creates/resumes/routes sessions; Mini/Graph/Note work as portals into
+the one agent system (no parallel engines); vault/note/graph tools call Epistemos APIs (not raw files);
+permissions render as native cards; failures are transcript-visible; recents/sessions are shared
+Epistemos identity; foreground shows zero donor chrome.
 ```
 
 ### B — Work / OpenGUI agent → CONTINUE
@@ -321,4 +419,5 @@ One native ChatView for all three; Goose **agent path** via Electron-IPC emulati
 - 2026-06-25 — **Fusion lock:** dual-WebView + ACP unified (§2); deploy-target + Goose-ACP-WS facts verified in code; doc finalized to DEFINITIVE; loop closed; per-agent directives + prompts written (§9); owner checkpoint plan (§10).
 - 2026-06-25 — **NAMING HARDENED (§0.1).** Owner correction: the Work surface is **OpenGUI** (multi-engine harness), not OpenCode. Verified in code (`WorkOpenGUISupervisor.swift:4` "OpenGUI is the harness… harnesses MULTIPLE engines"; picker = OpenCode/Codex/Claude Code/Pi + Goose). Earlier draft's "Work = OpenCode" / "OpenCode SPA" foreground naming **SUPERSEDED** → foreground "Epistemos Work", OpenCode = one hidden engine, bare-`opencode serve` = placeholder vs OpenGUI multi-harness target. Backend contract names unchanged. Architecture was correct; only the writeup's foreground naming was loose.
 - 2026-06-25 — **LANDING CONTRACT hardened (§0.1).** Owner: landing = exactly 3 surfaces (Chat=Swift / Act=Goose / Work=OpenGUI). Verified `RootView.swift:2697-2701` currently mounts `WorkTerminalHostView` (the OpenCode TUI) for `.work` → must mount `WorkEngineSurfaceView` (OpenGUI). OpenCode TUI → **Settings-only** (already at `WorkCloneSettingsView.swift:34`), **not deleted**; OpenCode **engine** stays under OpenGUI. All 3 agent prompts + a shared Landing-Contract preamble updated. Mode-name hazard documented (`WorkspaceModeKind` vs `CoworkChatMode`).
+- 2026-06-25 — **Swift Agent full-fusion directive + no-licensing principle.** §9-A Chat prompt rewritten to the owner's full no-compromise fusion plan (all 9 Swift donors — verified ALL already vendored under `LocalPackages/` + `.research-clones/swift-act/`; §1.1 table). Old ChatView/Mini/Graph/Note backends deleted + rebuilt as AgentClone/Swarm portals with shared session identity (isolation lifted for the CHAT lane only). Added global **LICENSING-IS-NOT-A-CONSTRAINT** principle (§0.8, §1.1, shared prompt preamble). Single source of truth = THIS doc; federation handoff doc = referenced implementation-ladder companion only.
 - Sources: Apple WWDC25 WebKit-for-SwiftUI / `WebPage` docs; Electron contextBridge/ipcRenderer/IPC tutorial; Agent Client Protocol (agentclientprotocol.com), Zed external-agents + ACP registry, JetBrains ACP, Goose ACP docs; local clones `.research-clones/work/{goose,opengui}`; repo `Epistemos/Work/*`, `LocalPackages/AgentClone`; canon `WORK_CANON_STATUS_2026_06_25.md`, `ACT_IP_PRESERVATION_2026_06_24.md`, `PRIVATE_TRI_SURFACE_…_2026_06_24.md`, federation handoff doc.
