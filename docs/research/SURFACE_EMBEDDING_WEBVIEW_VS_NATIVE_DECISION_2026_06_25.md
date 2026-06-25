@@ -12,10 +12,28 @@
 1. **One native shell** (`EpistemosSurfaceHost`) owns Landing, the Chat/Act/Work picker, context, sessions, permissions, tools, theme, recents.
 2. **Chat = AgentClone** — native Swift, deepest integration.
 3. **Act = Goose** — Goose's **web UI in a macOS 26 `WebView`/`WebPage`**, with the agent driven over **ACP-over-WebSocket** to a supervised `goose serve`/`goosed`; a **narrow** boot/affordance shim (NOT a full Electron-IPC emulation). The **real Goose Electron app stays as the capability baseline/fallback**.
-4. **Work = OpenGUI/OpenCode** — native Work chrome over the OpenCode sidecar **and** the OpenCode SPA in `WebView`/`WebPage`. Both available.
-5. **"Both WebViews at full capability" = YES** (OpenCode SPA + Goose UI), and **ACP is fused in, not chosen instead** — because Goose's WebView already talks ACP.
+4. **Work = OpenGUI** (the multi-engine **harness runtime** — OpenCode is just *one hidden engine* under it, NOT the brand) — native Work chrome over the OpenGUI runtime **and** the OpenGUI/OpenWork web SPA in `WebView`/`WebPage`. Foreground = **"Epistemos Work"**, never "OpenCode". See §0.1.
+5. **"Both WebViews at full capability" = YES** (the OpenGUI Work SPA + the Goose UI), and **ACP is fused in, not chosen instead** — because Goose's WebView already talks ACP.
 6. **API = `WebView`/`WebPage`** (the app targets macOS 26.0, so no back-deploy tax; this is the most-native, deep-Apple-integration path — your instinct was right). `WKWebView` only where a specific legacy surface needs it (e.g. Epdoc).
 7. **Everything that spawns a process (Goose, OpenCode/Bun) is Pro/Developer-ID; the MAS build degrades honestly** (no hidden sidecar).
+
+---
+
+## §0.1 NAMING POLICY (HARDENED — read this before touching Work)
+
+`[VERIFIED-CODE]` `WorkOpenGUISupervisor.swift:4-5`: *"OpenGUI is the harness/bridge thing… which harnesses MULTIPLE engines (OpenCode, Claude Code, Codex, Pi/Grok Build)."* `WorkEnginesPanelView.swift:18-22` picker = OpenCode, Codex, Claude Code, Pi/OMP (runnable) + Goose (not-yet).
+
+- **OpenGUI = the Work runtime/harness** that hosts many engines. This is the real Work engine and the thing to surface.
+- **OpenCode = ONE engine under OpenGUI** (currently the default). It is **not** the Work brand. The bare-`opencode serve` path (`WorkRuntimeSupervisor`) is the **placeholder**; the target is the full OpenGUI multi-harness surface (`WorkOpenGUISupervisor`) with OpenCode as one **hidden-named** engine.
+
+**Three naming tiers — enforce strictly (this is the "hardening" asked for):**
+| Tier | Rule | Examples |
+|---|---|---|
+| **Foreground (user sees)** | Say **"Epistemos Work"**. NEVER "OpenCode", NEVER "OpenGUI" — on landing, surface title, composer, status. | "Epistemos Work", "Ask Epistemos Work…" |
+| **Engine picker / diagnostics** | Engine identities are allowed as **selectable / debug** labels only — not as the surface brand. "OpenGUI" may name the runtime in diagnostics. | picker rows: OpenCode · Claude Code · Codex · Pi · Goose |
+| **Backend contracts (NEVER rename — renaming breaks execution)** | Keep the real donor/runtime names under the hood. | `opencode.json`, `OPENGUI_OPENCODE_PORT`, `OPENWORK_OPENCODE_BIN`, harness id `"opencode"`, env/protocol/storage keys |
+
+**The landing leak to fix:** wherever "OpenCode" (or a bare engine name) shows on the landing / Work entry, change it to **"Work" / "Epistemos Work"**. The engine name belongs ONLY in the in-surface engine picker, never as the mode/brand. *(Note: Goose appears in OpenGUI's picker as a not-yet-runnable engine — that is a SEPARATE possibility from Act=Goose; do not conflate. Act=Goose is its own surface (§1); the OpenGUI "goose" harness stays deferred.)*
 
 ---
 
@@ -28,8 +46,9 @@ EpistemosSurfaceHost  (native SwiftUI shell — owns identity, not engines)
 ├─ CHAT  → AgentClone (LocalPackages/AgentClone, native Swift)        … deepest native surface
 ├─ ACT   → Goose UI in WebView/WebPage  ⟷  ACP/WebSocket → goose serve … web UI + ACP brain + narrow shim
 │            └─ fallback/baseline: REAL Goose Electron app (zero shim, 100% capability)
-└─ WORK  → native Work chrome  ⟷  OpenCode sidecar (NDJSON)            … strongest, already proven
-             └─ + OpenCode SPA in WebView/WebPage (first-class, not just a Settings preview)
+└─ WORK  → native "Epistemos Work" chrome ⟷ OpenGUI harness (NDJSON)   … strongest, already proven
+             ├─ OpenGUI hosts engines: OpenCode(default,hidden-name)/Codex/Claude Code/Pi
+             └─ + OpenGUI/OpenWork web SPA in WebView/WebPage (first-class, not just a Settings preview)
 
 Shared contracts (one vocabulary, owned by Epistemos):
   window.epistemos bridge · epistemos.context.snapshot · permission/tool approval ·
@@ -124,7 +143,7 @@ Craft feels native because it's **Mac Catalyst + custom-drawn canvas** and kills
 | Stream | Where it lives | Actual state | vs target |
 |---|---|---|---|
 | **Chat/Act = AgentClone** | `LocalPackages/AgentClone` + `RootView.swift` mount | **LIVE**, mounted (`AgentClone.ContentView()`), host-context bridge (`AgentCloneBridge.updateHostContext`) + prompt buffer/recovery working. Mid **Osaurus purge** (Osaurus vendor + `ActOsaurus*` + `ChatCoordinator.swift` deleted). All uncommitted. | On-target as Chat. Also serves as **interim Act host** until Goose-Act lands. |
-| **Work = OpenGUI/OpenCode** | `Epistemos/Work/*` (untracked!) + `.research-clones/work/opengui` (own git) | **LIVE + PROVEN** (215+ tests, no-model sidecar probes pass). Native chrome primary + OpenCode SPA `WebView` fallback. "Hardened isolation" phase: deep names intact, app integration deferred. Self-report **accurate**. | On-target; strongest stream. Just promote the SPA WebView to first-class. |
+| **Work = OpenGUI** (harness; OpenCode = one hidden engine) | `Epistemos/Work/*` (untracked!) + `.research-clones/work/opengui` (own git) | **LIVE + PROVEN** (215+ tests, no-model sidecar probes pass). Native chrome over the OpenGUI harness (primary) + OpenGUI/OpenWork web SPA `WebView` (fallback). "Hardened isolation" phase: deep names intact, app integration deferred. Self-report **accurate**. Note: bare-`opencode serve` (`WorkRuntimeSupervisor`) is the placeholder tier; target is the OpenGUI multi-harness (`WorkOpenGUISupervisor`). | On-target; strongest stream. De-foreground "OpenCode" (§0.1) + promote the SPA WebView to first-class. |
 | **Goose = Act engine** | `.research-clones/work/goose` (own git, 241 dirty) | **NOT app-wired.** Only an inert stub (`GooseWorkBackend` hostingService=nil) + a non-runnable picker entry `("goose","Goose",false)`. Clone has full ACP (`crates/goose/src/acp/`, `goose serve`, `/acp` WS) + reskin work. No ACP client in Swift yet. | **Needs the §1/§2 re-target** (WebView UI + ACP transport). Biggest course-correction. |
 
 **Naming note that caused confusion:** the status report you labeled "Goose's" actually describes the **AgentClone/Act** agent (it mentions AgentClone bridging). So today **Act runs on AgentClone**, and **Goose is a separate, not-yet-wired clone**. That's expected — Act migrates AgentClone→Goose once the Goose-Act surface is proven.
@@ -161,27 +180,39 @@ Proof gate: app builds; Chat mounts; prompt runs through the clone runner (not a
 host context visible in side panel; recents persist to SDChat.
 ```
 
-### B — Work / OpenGUI / OpenCode agent → CONTINUE
+### B — Work / OpenGUI agent → CONTINUE
 ```
-You own WORK = native Epistemos Work chrome (Epistemos/Work/WorkEngineSurfaceView.swift +
-WorkEngineSurfaceWindowController) over the OpenCode sidecar (WorkOpenGUISupervisor, bundled
-opencode+bun), plus the OpenCode SPA WebView (WorkWebSurfaceView.swift, already on macOS 26
-WebView/WebPage). You are the strongest stream — stay the course. Continue:
-1. Keep hardening sidecar routing, session/message edge cases, endpoint input bounds, NDJSON
+You own WORK = "Epistemos Work", powered by the OpenGUI HARNESS RUNTIME (WorkOpenGUISupervisor),
+which hosts multiple engines (OpenCode, Codex, Claude Code, Pi). Native chrome lives in
+Epistemos/Work/WorkEngineSurfaceView.swift + WorkEngineSurfaceWindowController; the web SPA in
+WorkWebSurfaceView.swift (already on macOS 26 WebView/WebPage). You are the strongest stream —
+stay the course.
+
+NAMING (owner-hardened — the headline change): the Work engine is OPENGUI, not OpenCode. OpenCode
+is just ONE (default) engine under the OpenGUI picker and its NAME must be de-foregrounded.
+- Foreground (landing entry, surface title, composer, status) = "Epistemos Work". NEVER "OpenCode",
+  NEVER "OpenGUI". Fix any landing/Work label that currently shows "OpenCode".
+- Engine names (OpenCode/Codex/Claude Code/Pi/Goose) appear ONLY in the in-surface engine picker +
+  diagnostics — never as the mode/brand.
+- DO NOT rename backend contracts (opencode.json, OPENCODE_*, OPENGUI_OPENCODE_PORT,
+  OPENWORK_OPENCODE_BIN, harness id "opencode", env/protocol/storage keys) — renaming breaks runtime.
+- The bare `opencode serve` path (WorkRuntimeSupervisor) is the PLACEHOLDER; the target surface is the
+  OpenGUI multi-harness (WorkOpenGUISupervisor). Keep OpenGUI primary, bare path as fallback.
+
+Then:
+1. Keep hardening OpenGUI sidecar routing, session/message edge cases, endpoint input bounds, NDJSON
    stderr drains.
-2. Keep the flat OpenCode-minimal reskin with ALL controls reachable (no capability deleted for
+2. Keep the flat OpenCode-TUI-minimal reskin with ALL controls reachable (no capability deleted for
    minimalism).
-3. Per the owner's dual-WebView goal, promote the OpenCode SPA in WebView/WebPage to a
-   FIRST-CLASS Work surface option (not just a Settings preview). Both the native-chrome path and
-   the SPA WebView path stay available and full-capability.
-4. Keep WorkAppContextSnapshot + epistemos.context.snapshot native MCP — it is the SHARED context
-   pattern other surfaces copy. Defer deep vault/graph/note integration until isolation lifts
-   (document now).
-Guardrails: do NOT rename protected contracts (opencode.json, OPENCODE_*, OPENGUI_OPENCODE_PORT,
-openwork.*, harness ids); foreground copy = "Epistemos Work"; subprocess paths are Pro /
-#if !EPISTEMOS_APP_STORE; MAS build degrades honestly (no hidden spawn). Commit inside your lane
-(clone has its own git). Proof gate: native Work + OpenCode SPA WebView both open in the shell;
-no-model OpenGUI probes pass; prompt queue/permissions/recents/session-reopen pass; Work in shared recents.
+3. Per the owner's dual-WebView goal, promote the OpenGUI/OpenWork web SPA in WebView/WebPage to a
+   FIRST-CLASS Work surface option (not just a Settings preview). Both the native-chrome path and the
+   SPA WebView path stay available and full-capability.
+4. Keep WorkAppContextSnapshot + epistemos.context.snapshot native MCP — the SHARED context pattern
+   other surfaces copy. Defer deep vault/graph/note integration until isolation lifts (document now).
+Guardrails: subprocess paths are Pro / #if !EPISTEMOS_APP_STORE; MAS build degrades honestly (no hidden
+spawn). Commit inside your lane (clone has its own git). Proof gate: native Work (OpenGUI) + OpenGUI web
+SPA both open with foreground "Epistemos Work" (no "OpenCode" leak); no-model OpenGUI probes pass; prompt
+queue/permissions/recents/session-reopen pass; Work in shared recents.
 ```
 
 ### C — Goose / Act agent → CONTINUE but RE-TARGET (ACP transport + WebView UI)
@@ -247,4 +278,5 @@ One native ChatView for all three; Goose **agent path** via Electron-IPC emulati
 - 2026-06-25 — P7: Craft = Catalyst/custom-drawn; native-feel = subtraction+local-first (§6).
 - 2026-06-25 — P2 RESOLVED: Goose = ACP (Goose ships ACP over stdio `goose acp` AND WebSocket `goose serve`/`/acp`; its own renderer uses `USE_ACP_CHAT`/`buildAcpWebSocketUrl`). Electron-renderer-IPC-emulation rejected for the agent path; narrow boot/affordance shim only. Real Goose Electron = baseline/fallback.
 - 2026-06-25 — **Fusion lock:** dual-WebView + ACP unified (§2); deploy-target + Goose-ACP-WS facts verified in code; doc finalized to DEFINITIVE; loop closed; per-agent directives + prompts written (§9); owner checkpoint plan (§10).
+- 2026-06-25 — **NAMING HARDENED (§0.1).** Owner correction: the Work surface is **OpenGUI** (multi-engine harness), not OpenCode. Verified in code (`WorkOpenGUISupervisor.swift:4` "OpenGUI is the harness… harnesses MULTIPLE engines"; picker = OpenCode/Codex/Claude Code/Pi + Goose). Earlier draft's "Work = OpenCode" / "OpenCode SPA" foreground naming **SUPERSEDED** → foreground "Epistemos Work", OpenCode = one hidden engine, bare-`opencode serve` = placeholder vs OpenGUI multi-harness target. Backend contract names unchanged. Architecture was correct; only the writeup's foreground naming was loose.
 - Sources: Apple WWDC25 WebKit-for-SwiftUI / `WebPage` docs; Electron contextBridge/ipcRenderer/IPC tutorial; Agent Client Protocol (agentclientprotocol.com), Zed external-agents + ACP registry, JetBrains ACP, Goose ACP docs; local clones `.research-clones/work/{goose,opengui}`; repo `Epistemos/Work/*`, `LocalPackages/AgentClone`; canon `WORK_CANON_STATUS_2026_06_25.md`, `ACT_IP_PRESERVATION_2026_06_24.md`, `PRIVATE_TRI_SURFACE_…_2026_06_24.md`, federation handoff doc.
