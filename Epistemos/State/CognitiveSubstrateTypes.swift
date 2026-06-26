@@ -31,23 +31,6 @@ struct FrictionWindow: Codable, Sendable {
     var frictionScore: Double
 }
 
-struct NightBrainRun: Codable, Sendable {
-    var id: Int64?
-    var startedAt: Double     // Unix timestamp (seconds)
-    var completedAt: Double?
-    var status: String        // "running", "completed", "interrupted", "deferred"
-    var jobsCompleted: String // JSON array of job type strings
-    var triggerReason: String?
-}
-
-struct NightBrainCheckpoint: Codable, Sendable {
-    var id: Int64?
-    var runId: Int64
-    var jobType: String
-    var checkpointData: String // JSON payload per job type
-    var recordedAt: Double     // Unix timestamp (seconds)
-}
-
 // MARK: - Editor Telemetry
 
 struct EditorTelemetryEvent: Sendable {

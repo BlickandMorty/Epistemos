@@ -80,7 +80,7 @@ final class AgentGraphMemory {
         return contextNodes
     }
 
-    // MARK: - Memory Distillation (NightBrain)
+    // MARK: - Memory Distillation
 
     /// Result of a distillation pass — returned for logging.
     struct DistillationResult: Sendable {

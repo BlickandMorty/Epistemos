@@ -311,28 +311,6 @@ final class EventStore: Sendable {
         execute("CREATE INDEX IF NOT EXISTS idx_friction_start ON friction_windows(window_start);")
         execute("CREATE INDEX IF NOT EXISTS idx_friction_note ON friction_windows(note_id);")
 
-        execute("""
-            CREATE TABLE IF NOT EXISTS night_brain_runs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                started_at REAL NOT NULL,
-                completed_at REAL,
-                status TEXT NOT NULL,
-                jobs_completed TEXT NOT NULL DEFAULT '[]',
-                trigger_reason TEXT
-            );
-        """)
-        execute("CREATE INDEX IF NOT EXISTS idx_nightbrain_started ON night_brain_runs(started_at);")
-
-        execute("""
-            CREATE TABLE IF NOT EXISTS night_brain_checkpoints (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                run_id INTEGER NOT NULL REFERENCES night_brain_runs(id) ON DELETE CASCADE,
-                job_type TEXT NOT NULL,
-                checkpoint_data TEXT NOT NULL,
-                recorded_at REAL NOT NULL
-            );
-        """)
-        execute("CREATE INDEX IF NOT EXISTS idx_checkpoint_run ON night_brain_checkpoints(run_id);")
     }
 
     // MARK: - Event Logging
@@ -1866,136 +1844,7 @@ final class EventStore: Sendable {
         } ?? []
     }
 
-    // MARK: - Night Brain Runs
-
-    /// Insert a new run and return its ID. Synchronous (called from Night Brain actor on its queue).
-    nonisolated func insertNightBrainRun(status: String, triggerReason: String?) -> Int64? {
-        withDatabaseRead { db in
-            let timestamp = Date().timeIntervalSince1970
-            var stmt: OpaquePointer?
-            let sql = "INSERT INTO night_brain_runs (started_at, status, jobs_completed, trigger_reason) VALUES (?, ?, '[]', ?);"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
-            defer { sqlite3_finalize(stmt) }
-
-            sqlite3_bind_double(stmt, 1, timestamp)
-            sqlite3_bind_text(stmt, 2, (status as NSString).utf8String, -1, nil)
-            if let reason = triggerReason {
-                sqlite3_bind_text(stmt, 3, (reason as NSString).utf8String, -1, nil)
-            } else {
-                sqlite3_bind_null(stmt, 3)
-            }
-            guard sqlite3_step(stmt) == SQLITE_DONE else { return nil }
-            return sqlite3_last_insert_rowid(db)
-        }
-    }
-
-    nonisolated func updateNightBrainRun(id: Int64, status: String, completedJobs: [String], completedAt: Double? = nil) {
-        withDatabaseRead { db in
-            let jobsJSON = Self.encodeCompletedJobs(completedJobs)
-            var stmt: OpaquePointer?
-            let sql = "UPDATE night_brain_runs SET status = ?, jobs_completed = ?, completed_at = ? WHERE id = ?;"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
-            defer { sqlite3_finalize(stmt) }
-
-            sqlite3_bind_text(stmt, 1, (status as NSString).utf8String, -1, nil)
-            sqlite3_bind_text(stmt, 2, (jobsJSON as NSString).utf8String, -1, nil)
-            if let completed = completedAt {
-                sqlite3_bind_double(stmt, 3, completed)
-            } else {
-                sqlite3_bind_null(stmt, 3)
-            }
-            sqlite3_bind_int64(stmt, 4, id)
-            sqlite3_step(stmt)
-        }
-    }
-
-    /// Write a checkpoint row for a completed job. Synchronous so it's durable before
-    /// the pipeline advances to the next job.
-    nonisolated func insertCheckpoint(runId: Int64, jobType: String, data: String) {
-        withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = "INSERT INTO night_brain_checkpoints (run_id, job_type, checkpoint_data, recorded_at) VALUES (?, ?, ?, ?);"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
-            defer { sqlite3_finalize(stmt) }
-
-            sqlite3_bind_int64(stmt, 1, runId)
-            sqlite3_bind_text(stmt, 2, (jobType as NSString).utf8String, -1, nil)
-            sqlite3_bind_text(stmt, 3, (data as NSString).utf8String, -1, nil)
-            sqlite3_bind_double(stmt, 4, Date().timeIntervalSince1970)
-            sqlite3_step(stmt)
-        }
-    }
-
-    /// Read completed job types from the checkpoint table for a given run.
-    /// This is the authoritative source for resume — not the runs table's jobs_completed column.
-    nonisolated func checkpointedJobTypes(runId: Int64) -> [String] {
-        withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = "SELECT DISTINCT job_type FROM night_brain_checkpoints WHERE run_id = ? ORDER BY recorded_at ASC;"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
-            defer { sqlite3_finalize(stmt) }
-
-            sqlite3_bind_int64(stmt, 1, runId)
-
-            var results: [String] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                results.append(String(cString: sqlite3_column_text(stmt, 0)))
-            }
-            return results
-        } ?? []
-    }
-
-    struct NightBrainRunRecord {
-        let id: Int64
-        let startedAt: Date
-        let completedAt: Date?
-        let status: String
-        let jobsCompleted: [String]
-        let triggerReason: String?
-    }
-
-    /// Find the most recent interrupted run ID for resume. Returns nil if none.
-    nonisolated func mostRecentInterruptedRun() -> Int64? {
-        withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = "SELECT id FROM night_brain_runs WHERE status = 'interrupted' ORDER BY started_at DESC LIMIT 1;"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
-            defer { sqlite3_finalize(stmt) }
-            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
-            return sqlite3_column_int64(stmt, 0)
-        }
-    }
-
-    nonisolated func completedNightBrainRuns(limit: Int = 10) -> [NightBrainRunRecord] {
-        withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = "SELECT id, started_at, completed_at, status, jobs_completed, trigger_reason FROM night_brain_runs WHERE status = 'completed' ORDER BY started_at DESC LIMIT ?;"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
-            defer { sqlite3_finalize(stmt) }
-
-            sqlite3_bind_int(stmt, 1, Int32(limit))
-
-            var results: [NightBrainRunRecord] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                let completedAtRaw = sqlite3_column_double(stmt, 2)
-                let jobsJSON = String(cString: sqlite3_column_text(stmt, 4))
-                let runId = sqlite3_column_int64(stmt, 0)
-                let jobs = Self.decodeCompletedJobs(jobsJSON, runId: runId)
-                let triggerPtr = sqlite3_column_text(stmt, 5)
-                results.append(NightBrainRunRecord(
-                    id: runId,
-                    startedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
-                    completedAt: completedAtRaw > 0 ? Date(timeIntervalSince1970: completedAtRaw) : nil,
-                    status: String(cString: sqlite3_column_text(stmt, 3)),
-                    jobsCompleted: jobs,
-                    triggerReason: triggerPtr.map { String(cString: $0) }
-                ))
-            }
-            return results
-        } ?? []
-    }
-
-    // MARK: - Night Brain Maintenance Operations
+    // MARK: - Maintenance Operations
 
     nonisolated func walCheckpointVacuum() {
         withDatabaseRead { db in
@@ -2126,12 +1975,6 @@ final class EventStore: Sendable {
                 summary.auditRowsDeleted += Self.deleteRows(
                     db: db,
                     sql: "DELETE FROM graph_events WHERE occurred_at < ?;"
-                ) { stmt in
-                    sqlite3_bind_double(stmt, 1, cutoff)
-                }
-                summary.auditRowsDeleted += Self.deleteRows(
-                    db: db,
-                    sql: "DELETE FROM night_brain_runs WHERE started_at < ?;"
                 ) { stmt in
                     sqlite3_bind_double(stmt, 1, cutoff)
                 }
@@ -2841,33 +2684,6 @@ final class EventStore: Sendable {
         let appSupport = FoundationSafety.userApplicationSupportDirectory()
         let dir = appSupport.appendingPathComponent("Epistemos")
         return dir.appendingPathComponent("event-store.sqlite")
-    }
-
-    nonisolated private static func encodeCompletedJobs(_ completedJobs: [String]) -> String {
-        do {
-            let data = try payloadEncoder.encode(completedJobs)
-            guard let payload = String(data: data, encoding: .utf8) else {
-                Self.log.error("EventStore: failed to encode Night Brain jobs_completed payload as UTF-8 text")
-                return "[]"
-            }
-            return payload
-        } catch {
-            Self.log.error(
-                "EventStore: failed to encode Night Brain jobs_completed payload: \(error.localizedDescription, privacy: .public)"
-            )
-            return "[]"
-        }
-    }
-
-    nonisolated private static func decodeCompletedJobs(_ jobsJSON: String, runId: Int64) -> [String] {
-        do {
-            return try JSONDecoder().decode([String].self, from: Data(jobsJSON.utf8))
-        } catch {
-            Self.log.error(
-                "EventStore: failed to decode Night Brain jobs_completed payload for run \(runId, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return []
-        }
     }
 
     private nonisolated static func excludeLiveDatabaseFilesFromBackup(_ databaseURL: URL) throws {

@@ -3292,10 +3292,9 @@ final class VaultSyncService {
     /// coordinator. These sites are write-side bookkeeping (compare
     /// current body vs last-synced hash), not the "6+ duplicate
     /// read codepaths" that I-002 / I-003 describes.
-    /// The read-side async cascade in `VaultIndexActor`,
-    /// `SpotlightIndexer`, `EntityExtractor`, `GraphState`, and
-    /// `CloudKnowledgeDistillationService` now routes through the
-    /// R.3 gateway for every read-facing code path.
+    /// The read-side async cascade in `VaultIndexActor`, `SpotlightIndexer`,
+    /// `EntityExtractor`, and `GraphState` now routes through the R.3 gateway
+    /// for every read-facing code path.
     private func latestAvailableBody(for page: SDPage, pageId: String) -> String {
         if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
             return liveBody

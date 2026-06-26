@@ -9,9 +9,8 @@ import SwiftUI
 // kind on right-click; the host renders this menu against that.
 //
 // Per the W7.17.b plan: convert to / duplicate / move / wrap in
-// callout / comment / ask agent / cite as source. Each closure-
-// based action lets the host decide how to wire into Tiptap
-// commands or the agent runtime.
+// callout / comment / cite as source. Each closure-based action lets
+// the host decide how to wire into Tiptap commands.
 
 @MainActor
 public struct EpdocBlockContextMenu: View {
@@ -27,7 +26,6 @@ public struct EpdocBlockContextMenu: View {
     public let onMoveUp: @Sendable @MainActor () -> Void
     public let onMoveDown: @Sendable @MainActor () -> Void
     public let onWrapInCallout: @Sendable @MainActor (String) -> Void
-    public let onAskAgent: @Sendable @MainActor () -> Void
     public let onCiteAsSource: @Sendable @MainActor () -> Void
     public let onDelete: @Sendable @MainActor () -> Void
 
@@ -38,7 +36,6 @@ public struct EpdocBlockContextMenu: View {
         onMoveUp: @escaping @Sendable @MainActor () -> Void = {},
         onMoveDown: @escaping @Sendable @MainActor () -> Void = {},
         onWrapInCallout: @escaping @Sendable @MainActor (String) -> Void = { _ in },
-        onAskAgent: @escaping @Sendable @MainActor () -> Void = {},
         onCiteAsSource: @escaping @Sendable @MainActor () -> Void = {},
         onDelete: @escaping @Sendable @MainActor () -> Void = {}
     ) {
@@ -48,7 +45,6 @@ public struct EpdocBlockContextMenu: View {
         self.onMoveUp = onMoveUp
         self.onMoveDown = onMoveDown
         self.onWrapInCallout = onWrapInCallout
-        self.onAskAgent = onAskAgent
         self.onCiteAsSource = onCiteAsSource
         self.onDelete = onDelete
     }
@@ -119,13 +115,6 @@ public struct EpdocBlockContextMenu: View {
             .keyboardShortcut(.downArrow, modifiers: [.command, .shift])
 
             Divider()
-
-            // EXCEED features — agent + sourcing.
-            Button {
-                onAskAgent()
-            } label: {
-                Label("Ask agent about this block", systemImage: "sparkles")
-            }
 
             Button {
                 onCiteAsSource()

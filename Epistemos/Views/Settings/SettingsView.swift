@@ -813,11 +813,6 @@ private struct GeneralDetailView: View {
                 KnowledgeCoreRuntimeHealthRow()
                 KnowledgeCoreOutlinePreview()
                 GraphEventVisibilityRow()
-                // SS-GE (owner 2026-06-21): honest, discoverable status for Raw
-                // Thoughts V0 — the per-vault surface hides when emission is off,
-                // so without this the owner "didn't see raw thoughts, wasn't sure
-                // it's still a thing." Read-only; no flag flip, no dead toggle.
-                RawThoughtsHealthRow()
                 // SS-HW (owner 2026-06-20): honest HTML Workspace status — works as a renderer/editor
                 // + agent-patch surface, but app-bridge/live-DOM/console/Python/regenerate are deferred.
                 // The owner: "idk if its marked as such." Now it is. Read-only; no dead controls.

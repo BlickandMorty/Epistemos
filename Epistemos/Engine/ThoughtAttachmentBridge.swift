@@ -26,8 +26,6 @@ import Foundation
 //   - dangling-reference detection (`prune(against:)`)
 //
 // V1.5 follow-ups (W7.15.b):
-//   - hook the bridge into `RawThoughtsState.swift` so writing a
-//     manifest auto-attaches its produced documents
 //   - hook into `EpdocDocument.fileWrapper(ofType:)` so the save
 //     path also writes to the bridge when `provenance.generatedByRun`
 //     is populated

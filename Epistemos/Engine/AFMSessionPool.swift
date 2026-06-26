@@ -141,8 +141,7 @@ public actor AFMSessionPool {
     }
 
     /// Evict any pooled session older than the lifetime window.
-    /// Optional GC pass — could fire from a NightBrain housekeeping
-    /// job to reclaim daemon memory between user sessions.
+    /// Optional GC pass to reclaim daemon memory between user sessions.
     ///
     /// AUDIT FIX: previous implementation computed
     /// `now.timeIntervalSince(Date())` which is essentially zero

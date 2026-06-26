@@ -13,10 +13,9 @@ import epistemos_coreFFI
 // Doc 2 amendment honoured: the decay model is **NOT** vector-
 // precision quantisation (that confuses storage with cognition).
 // What we actually want is salience decay — track per-note FSRS
-// state (Difficulty, Stability, Retrievability) so the NightBrain
-// pass can surface high-risk notes for review and the graph
-// rendering can dim notes whose retrievability has fallen below the
-// threshold.
+// state (Difficulty, Stability, Retrievability) so review surfaces
+// can show high-risk notes and the graph rendering can dim notes
+// whose retrievability has fallen below the threshold.
 //
 // FSRS-6 algorithm reference (Wave 13):
 //   - DSR model: Difficulty ∈ [1, 10], Stability in days,
@@ -36,7 +35,7 @@ import epistemos_coreFFI
 //     generated UniFFI bindings for scheduling/current retrievability
 //     whenever they are available.
 //
-// Storage path (NightBrain-owned, GRDB):
+// Storage path (GRDB):
 //   CREATE TABLE fsrs_state (
 //     note_id        TEXT PRIMARY KEY,
 //     last_reviewed  REAL    NOT NULL,         -- unix seconds
@@ -97,17 +96,16 @@ nonisolated public struct FSRSDecayRow: Codable, Sendable, Equatable {
     /// is the join key with the rest of the graph.
     public var noteId: String
 
-    /// Unix timestamp (seconds) of the last successful review pass —
-    /// either an explicit user grade OR a NightBrain auto-update of
-    /// `retrievability` based on elapsed time.
+    /// Unix timestamp (seconds) of the last successful review pass,
+    /// either an explicit user grade or a maintenance update of
+    /// retrievability based on elapsed time.
     public var lastReviewedAt: TimeInterval
 
     /// Current DSR memory state.
     public var memory: FSRSMemoryState
 
     /// User's most recent explicit grade. Nil until the user has
-    /// explicitly reviewed the note at least once (auto-updates by
-    /// NightBrain don't set this).
+    /// explicitly reviewed the note at least once.
     public var lastGrade: FSRSGrade?
 
     /// Number of explicit user reviews. Cold-start blend:
@@ -144,9 +142,8 @@ nonisolated public struct FSRSHighRisk: Sendable, Equatable {
     public let retrievability: Double
     public let elapsedDays: Double
 
-    /// Below this retrievability, the note is "at risk of being
-    /// forgotten" — NightBrain surfaces top-K below this threshold
-    /// for review prompts. Wave 13 default = 0.80.
+    /// Below this retrievability, the note is at risk of being forgotten.
+    /// Wave 13 default = 0.80.
     public static let surfaceThreshold: Double = 0.80
 }
 
@@ -182,8 +179,7 @@ nonisolated public enum FSRSRetrievability {
         return exp(log(0.9) * elapsedDays / s)
     }
 
-    /// Returns true if the row has decayed past the surfacing
-    /// threshold and should be surfaced by NightBrain.
+    /// Returns true if the row has decayed past the surfacing threshold.
     public static func isHighRisk(_ row: FSRSDecayRow, now: Date = Date()) -> Bool {
         current(for: row, now: now) < FSRSHighRisk.surfaceThreshold
     }
@@ -507,8 +503,7 @@ public actor FSRSDecayStore {
 
     /// Return the K most-at-risk notes whose retrievability has
     /// fallen below `FSRSHighRisk.surfaceThreshold`. Ordered ascending
-    /// by retrievability (most-forgotten first). Used by NightBrain
-    /// to assemble the morning review queue.
+    /// by retrievability (most-forgotten first).
     public func topAtRisk(limit: Int = 25, now: Date = Date()) -> [FSRSHighRisk] {
         var risky: [FSRSHighRisk] = []
         for row in rows.values {
@@ -521,7 +516,7 @@ public actor FSRSDecayStore {
         return risky
     }
 
-    /// Snapshot all rows for export / NightBrain consolidation.
+    /// Snapshot all rows for export or diagnostics.
     public func snapshot() -> [FSRSDecayRow] {
         Array(rows.values)
     }

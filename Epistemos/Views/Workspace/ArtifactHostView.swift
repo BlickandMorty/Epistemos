@@ -83,12 +83,11 @@ nonisolated public struct DocumentHost: View {
     }
 }
 
-// MARK: - Raw-thought-run host
+// MARK: - Retired run host
 //
-// Wraps `RawThoughtsInspectorView` (`Epistemos/Views/RawThoughts/RawThoughtsInspectorView.swift`).
-// The inspector takes a `RawThoughtsState.RunSummary`; this adapter looks
-// up the summary by `RunID`. The lookup pipeline is deferred in this
-// v1 route, so the host renders an explicit deferred panel.
+// The native raw-thought timeline surface was retired with the old native
+// agent stack. Existing routes render an explicit deferred panel instead of
+// reviving that UI.
 
 nonisolated public struct RawThoughtRunHost: View {
     public let runID: RunID

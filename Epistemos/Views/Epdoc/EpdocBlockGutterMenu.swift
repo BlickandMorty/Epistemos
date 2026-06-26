@@ -22,7 +22,6 @@ public struct EpdocBlockGutterMenu: View {
     public let onMoveUp: @Sendable @MainActor () -> Void
     public let onMoveDown: @Sendable @MainActor () -> Void
     public let onWrapInCallout: @Sendable @MainActor (String) -> Void
-    public let onAskAgent: @Sendable @MainActor () -> Void
     public let onCiteAsSource: @Sendable @MainActor () -> Void
     public let onDelete: @Sendable @MainActor () -> Void
 
@@ -33,7 +32,6 @@ public struct EpdocBlockGutterMenu: View {
         onMoveUp: @escaping @Sendable @MainActor () -> Void = {},
         onMoveDown: @escaping @Sendable @MainActor () -> Void = {},
         onWrapInCallout: @escaping @Sendable @MainActor (String) -> Void = { _ in },
-        onAskAgent: @escaping @Sendable @MainActor () -> Void = {},
         onCiteAsSource: @escaping @Sendable @MainActor () -> Void = {},
         onDelete: @escaping @Sendable @MainActor () -> Void = {}
     ) {
@@ -43,7 +41,6 @@ public struct EpdocBlockGutterMenu: View {
         self.onMoveUp = onMoveUp
         self.onMoveDown = onMoveDown
         self.onWrapInCallout = onWrapInCallout
-        self.onAskAgent = onAskAgent
         self.onCiteAsSource = onCiteAsSource
         self.onDelete = onDelete
     }
@@ -57,7 +54,6 @@ public struct EpdocBlockGutterMenu: View {
                 onMoveUp: onMoveUp,
                 onMoveDown: onMoveDown,
                 onWrapInCallout: onWrapInCallout,
-                onAskAgent: onAskAgent,
                 onCiteAsSource: onCiteAsSource,
                 onDelete: onDelete
             )

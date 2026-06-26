@@ -160,34 +160,6 @@ struct EventStoreSchemaTests {
         }
     }
 
-    private func insertCompletedNightBrainRun(databaseURL: URL, jobsJSON: String) throws {
-        var db: OpaquePointer?
-        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
-              let db else {
-            throw EventStoreTestError.databaseOpenFailed
-        }
-        defer { sqlite3_close(db) }
-
-        let sql = """
-            INSERT INTO night_brain_runs (started_at, completed_at, status, jobs_completed, trigger_reason)
-            VALUES (?, ?, 'completed', ?, 'test');
-        """
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            throw EventStoreTestError.statementPrepareFailed
-        }
-        defer { sqlite3_finalize(stmt) }
-
-        let now = Date().timeIntervalSince1970
-        sqlite3_bind_double(stmt, 1, now)
-        sqlite3_bind_double(stmt, 2, now)
-        sqlite3_bind_text(stmt, 3, (jobsJSON as NSString).utf8String, -1, nil)
-
-        guard sqlite3_step(stmt) == SQLITE_DONE else {
-            throw EventStoreTestError.statementStepFailed
-        }
-    }
-
     @Test("Migration creates cognitive substrate and session metrics tables")
     func migrationCreatesAllTables() {
         guard let store = makeTestStore() else {
@@ -197,8 +169,6 @@ struct EventStoreSchemaTests {
         #expect(store.tableExists("session_metrics"))
         #expect(store.tableExists("captured_artifacts"))
         #expect(store.tableExists("friction_windows"))
-        #expect(store.tableExists("night_brain_runs"))
-        #expect(store.tableExists("night_brain_checkpoints"))
         #expect(store.tableExists("mutation_projection_outbox"))
         #expect(store.tableExists("agent_events"))
         #expect(store.tableExists("graph_events"))
@@ -239,44 +209,6 @@ struct EventStoreSchemaTests {
 
         let count = store.capturedArtifactCount()
         #expect(count == 1)
-    }
-
-    @Test("Night brain run insert and query")
-    func nightBrainRunCRUD() async throws {
-        guard let store = makeTestStore() else {
-            Issue.record("Failed to create test EventStore")
-            return
-        }
-
-        let runId = store.insertNightBrainRun(status: "running", triggerReason: "test")
-        #expect(runId != nil)
-
-        store.updateNightBrainRun(
-            id: runId!, status: "completed",
-            completedJobs: ["job1", "job2"],
-            completedAt: Date().timeIntervalSince1970
-        )
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        let runs = store.completedNightBrainRuns(limit: 10)
-        #expect(runs.count == 1)
-        #expect(runs.first?.status == "completed")
-        #expect(runs.first?.jobsCompleted == ["job1", "job2"])
-    }
-
-    @Test("Malformed Night Brain jobs JSON fails closed without dropping the run")
-    func malformedNightBrainJobsJSONFailsClosed() throws {
-        guard let setup = makeTestStoreWithURL() else {
-            Issue.record("Failed to create test EventStore")
-            return
-        }
-
-        try insertCompletedNightBrainRun(databaseURL: setup.url, jobsJSON: "{not-json")
-
-        let runs = setup.store.completedNightBrainRuns(limit: 10)
-        #expect(runs.count == 1)
-        #expect(runs.first?.status == "completed")
-        #expect(runs.first?.jobsCompleted == [])
     }
 
     @Test("EventStore init fails when the database directory cannot be created")
@@ -1563,14 +1495,6 @@ struct EventStoreSchemaTests {
         #expect(entry.payload.projectionMutationID == envelope.mutationID)
     }
 
-    @Test("No interrupted runs returns nil")
-    func noInterruptedRuns() {
-        guard let store = makeTestStore() else {
-            Issue.record("Failed to create test EventStore")
-            return
-        }
-        #expect(store.mostRecentInterruptedRun() == nil)
-    }
 }
 
 @Suite("Paperclip State Store")
@@ -2345,14 +2269,12 @@ struct EpistemosConfigTests {
     @Test("Default values are sensible")
     func defaultValues() {
         // Remove any polluted keys so @AppStorage falls back to init defaults
-        let keys = ["capture.enabled", "friction.enabled", "nightbrain.enabled", "nightbrain.requiresAC"]
+        let keys = ["capture.enabled", "friction.enabled"]
         for key in keys { UserDefaults.standard.removeObject(forKey: key) }
 
         let config = EpistemosConfig()
         #expect(config.captureEnabled == false)
         #expect(config.frictionEnabled == true)
-        #expect(config.nightBrainEnabled == true)
-        #expect(config.nightBrainRequiresAC == true)
     }
 
     @Test("Blocklist rejects blocked bundle IDs")

@@ -37,7 +37,6 @@ extension View {
             .environment(bootstrap.chatApprovalQueue)
             .environment(bootstrap.overseerAuditState)
             .environment(bootstrap.textCapturePipeline)
-            .environment(bootstrap.rawThoughtsState)
             .environment(bootstrap.contextualShadowsState)
             .environment(bootstrap.ambientFrequencyPlaybackState)
     }
