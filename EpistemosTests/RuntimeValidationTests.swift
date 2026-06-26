@@ -1155,14 +1155,13 @@ struct RuntimeValidationTests {
     @Test("inference settings surface exposes key validation and provider guidance")
     func inferenceSettingsSurfaceExposesValidationAndGuidance() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        let sharedCard = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
+        let providerSupport = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
 
         #expect(source.contains("Check Access"))
         #expect(source.contains("statusBadge"))
         #expect(source.contains("setupHelpText"))
         #expect(source.contains("securely in the Apple Keychain"))
-        #expect(sharedCard.contains("provider.manualCredentialTitle"))
-        #expect(sharedCard.contains("Button(\"Paste + Save\")"))
+        #expect(!providerSupport.contains("struct CloudProviderSetupCard"))
     }
 
     #if false
@@ -2680,18 +2679,14 @@ struct RuntimeValidationTests {
     func providerSetupGuidanceStaysOutOfFirstRunOnboarding() throws {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let setupAssistant = try loadRepoTextFile("Epistemos/Views/Onboarding/SetupAssistantView.swift")
-        let sharedCard = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
+        let providerSupport = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
 
         #expect(root.contains("Button(\"Open Settings\")"))
         #expect(root.contains("\"Connect a cloud provider in Settings → Inference to give the chat stack a cloud escalation path.\""))
         #expect(!setupAssistant.contains("CloudProviderSetupCard("))
         #expect(!setupAssistant.contains("ForEach(CloudModelProvider.preferredOrder"))
         #expect(!setupAssistant.contains("Cloud AI"))
-        #expect(sharedCard.contains("provider.accountActionTitle"))
-        #expect(sharedCard.contains("provider.manualCredentialTitle"))
-        #expect(sharedCard.contains("Button(\"Paste + Save\")"))
-        #expect(sharedCard.contains("Button(\"Open Inference Settings\")"))
-        #expect(sharedCard.contains("Button(provider.documentationActionTitle)"))
+        #expect(!providerSupport.contains("struct CloudProviderSetupCard"))
     }
 
     @Test("instant recall rebuild leaves the heavy vault watcher work off the main actor")
@@ -4398,16 +4393,11 @@ struct InferenceCloudSelectionTests {
             relativePath: "Epistemos/Views/Settings/SettingsView.swift",
             testsFilePath: #filePath
         )
-        let sharedCard = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
-            testsFilePath: #filePath
-        )
 
         #expect(authService.contains("openAISignInTimeout: Duration = .seconds(90)"))
         #expect(authService.contains("Task.sleep(for: timeout)"))
         #expect(authService.contains("throw CloudProviderAuthError.openAIDeviceCodeTimedOut"))
         #expect(settings.contains("Retry OpenAI Sign In"))
-        #expect(sharedCard.contains("Retry OpenAI Sign In"))
     }
 
     @Test("local model install errors include friendly corruption guidance")
@@ -4548,7 +4538,6 @@ struct InferenceCloudSelectionTests {
         #expect(inference.contains("No account session connected"))
         #expect(settings.contains("Retry Claude Code Import"))
         #expect(settings.contains("CloudProviderAccountConnectionRow"))
-        #expect(sharedCard.contains("Retry Claude Code Import"))
         #expect(sharedCard.contains("CloudProviderAccountConnectionRow"))
     }
 
@@ -4566,10 +4555,6 @@ struct InferenceCloudSelectionTests {
             relativePath: "Epistemos/Views/Settings/SettingsView.swift",
             testsFilePath: #filePath
         )
-        let sharedCard = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
-            testsFilePath: #filePath
-        )
 
         #expect(authService.contains("googleSignInTimeout: Duration = .seconds(90)"))
         #expect(authService.contains("waitForAuthorizationResult(timeout: googleSignInTimeout)"))
@@ -4580,7 +4565,6 @@ struct InferenceCloudSelectionTests {
         #expect(inference.contains("Connected as \\(accountLabel)."))
         #expect(settings.contains("Retry Google OAuth"))
         #expect(settings.contains("CloudProviderAccountConnectionRow"))
-        #expect(sharedCard.contains("Retry Google OAuth"))
     }
 
     @Test("OAuth provider settings require verified access before activation")
@@ -4597,10 +4581,6 @@ struct InferenceCloudSelectionTests {
             relativePath: "Epistemos/Views/Settings/SettingsView.swift",
             testsFilePath: #filePath
         )
-        let sharedCard = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
-            testsFilePath: #filePath
-        )
 
         #expect(authService.contains("func openAIAccountLabel(fromAccessToken token: String) -> String?"))
         #expect(inference.contains("var isVerified: Bool"))
@@ -4614,7 +4594,6 @@ struct InferenceCloudSelectionTests {
         #expect(settings.contains(".disabled(!validationState.isVerified)"))
         #expect(settings.contains("Verify live access before making this provider active."))
         #expect(inference.contains("Connect Google OAuth first with the Desktop-app client JSON from Google Cloud Console and the matching Google Cloud project ID"))
-        #expect(sharedCard.contains("Verify live access before making this provider active."))
     }
 
     @Test("legacy keys and Google draft auth inputs surface explicit validation feedback")
@@ -4629,10 +4608,6 @@ struct InferenceCloudSelectionTests {
         )
         let settings = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Views/Settings/SettingsView.swift",
-            testsFilePath: #filePath
-        )
-        let sharedCard = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
             testsFilePath: #filePath
         )
 
@@ -4654,8 +4629,6 @@ struct InferenceCloudSelectionTests {
         #expect(settings.contains("CloudProviderSetupAutomation.persistGoogleOAuthProjectIDDraft(newValue)"))
         #expect(settings.contains("CloudProviderSetupAutomation.persistGoogleOAuthClientConfig("))
         #expect(settings.contains("Removed the saved Google OAuth client JSON."))
-        #expect(sharedCard.contains("storedGoogleOAuthClientConfiguration()"))
-        #expect(sharedCard.contains("result = await inference.signInToGoogle(configuration: configuration)"))
         #expect(inference.contains("Clipboard doesn't contain a non-empty"))
     }
 
@@ -4673,10 +4646,6 @@ struct InferenceCloudSelectionTests {
             relativePath: "Epistemos/Views/Settings/SettingsView.swift",
             testsFilePath: #filePath
         )
-        let sharedCard = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
-            testsFilePath: #filePath
-        )
 
         #expect(authService.contains("installed.client_id"))
         #expect(authService.contains("installed.client_secret"))
@@ -4685,8 +4654,6 @@ struct InferenceCloudSelectionTests {
         #expect(settings.contains("Choose the OAuth client JSON you downloaded from Google Cloud Console after creating an OAuth client ID for a Desktop app."))
         #expect(settings.contains("Enter the Google Cloud project ID for the same Gemini-enabled project."))
         #expect(inference.contains("create an OAuth client ID for a Desktop app"))
-        #expect(sharedCard.contains("Google OAuth client JSON"))
-        #expect(sharedCard.contains("Google Cloud project ID"))
     }
 
     @Test("saved provider access exposes a visible top-level check action")
@@ -4699,18 +4666,11 @@ struct InferenceCloudSelectionTests {
             relativePath: "Epistemos/Views/Settings/SettingsView.swift",
             testsFilePath: #filePath
         )
-        let sharedCard = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Shared/CloudProviderSetupCard.swift",
-            testsFilePath: #filePath
-        )
 
         #expect(inference.contains("Tap Check Access before making this provider active."))
         #expect(settings.contains("if hasOAuthSession || hasSavedAPIKey"))
         #expect(settings.contains("Button(validationState.isVerified ? \"Re-check Access\" : \"Check Access\")"))
         #expect(settings.contains("Task { _ = await inference.validateCloudAccess(for: provider) }"))
-        #expect(sharedCard.contains("if hasConfiguredAccess"))
-        #expect(sharedCard.contains("Button(validationState.isVerified ? \"Re-check Access\" : \"Check Access\")"))
-        #expect(sharedCard.contains("Task { _ = await inference.validateCloudAccess(for: provider) }"))
     }
 
     @Test("inference settings support regular and advanced presentation")
