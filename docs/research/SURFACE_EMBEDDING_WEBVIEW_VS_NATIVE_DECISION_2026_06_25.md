@@ -5,6 +5,8 @@
 **Companion (implementation ladder, reused except where §3/§5 here override it):** `docs/handoffs/EPISTEMOS_SURFACE_HOST_WEBVIEW_FEDERATION_RESEARCH_2026_06_25.md`
 
 > Discipline: this is the ONE doc. If future research changes a fact, **edit it here in place** and add a line to §13. Never fork a second contradicting plan.
+>
+> ⛔➡️ **OWNER DECISION 2026-06-26 — GOOSE IS THE SINGLE SURFACE (supersedes the 3-engine federation).** Epistemos ships **one** agent surface — **Goose** (reskinned + strategically fused) — not the Chat=AgentClone / Act=Goose / Work=OpenGUI federation in §0–§12. The separate Chat and Work *surfaces* are retired; their still-wanted capabilities fold **into Goose**: native notes live in the app's markdown data layer (**§16**), and multi-engine "Work" is Goose's existing ACP family (**§15**). **§0–§14 are retained as historical context; where they conflict with §15–§17, the latter win.** In §9, only **§9-C (Goose)** stays active (§9-A Chat / §9-B Work superseded). New canonical sections: **§15** Goose-single + Paseo strategic-fusion roadmap · **§16** Markdown-as-source-of-truth data directive · **§17** the "Goose keeps working as-is" no-break rule.
 
 ---
 
@@ -493,6 +495,7 @@ One native ChatView for all three; Goose **agent path** via Electron-IPC emulati
 - 2026-06-25 — **§9-A refinements (from live Swift-agent transcript).** (1) Phase 0/Stage B retargeted to the REAL current blocker: external `EventSource` package C-module resolution (`CAsyncHTTPClient`/`CNIO*`/`_NumericsShims` via async-http-client/swift-nio) — the chat-domain symbols are already resolved by the deletion sweep; the agent had been mislabeling this "external, not my job." (2) Added **DEEP HARDENING IS ALWAYS-ON** (owner: exhaustive hardening is the standing free bonus) — a continuous track across ALL stages, with two honesty limits (can't defer Stage B forever; harden whole-app not one slice). STAGE A reworded to "committed checkpoint, keep hardening exhaustively."
 - 2026-06-25 — **GIT MODEL clarified (owner reassurance).** Verified all 3 agents work directly on `main` (no per-agent branches); `cursor-work` has 0 commits main lacks; donor clones are separate gits. Added a GIT MODEL line to the shared preamble: commit on main (locks deletions permanent), NO merges of any other branch (stale codex/*/salvage/*/cursor-work predate the deletions → a merge would resurrect deleted files). No merge is needed or wanted in the one-at-a-time/all-on-main model.
 - 2026-06-26 — **Goose source-verified + fork-maintenance doctrine added (§14).** A 2026-06-26 thread re-checked Act=Goose against a fresh `block/goose` clone — ACP-over-WS + self-signed-TLS + `X-Secret-Key`, HuggingFace built-in, in-process MLX (`local_inference`), the external-CLI/ACP engine family, `goose-sdk` = `ping→pong` stub — all **confirm** §0/§2 (WebView UI + ACP, not FFI); nothing in §0 changed. Added §14.2 superseded-docs landmine (ignore the old in-process/UniFFI Goose docs, killed by `GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21`), §14.3 "own the skin, rent the engine" (upstream remote + pinned-bump-test cadence; add-don't-edit across the MCP/ACP seam; reskin-as-rules + `git rerere` + codemod), §14.4 Electron→Tauri landmine, §14.5 PARKED note (Goose's ACP family overlaps Work's engines — future-consolidation candidate only, federation unchanged).
+- 2026-06-26 — **GOOSE-SINGLE consolidation + fusion roadmap + data directive + no-break rule (owner decision).** Owner chose **one surface = Goose** (reskinned + fused), retiring the 3-engine federation (§0–§12 now historical; §9-C Goose stays, §9-A/§9-B superseded) — this *takes* the §14.5 "parked" consolidation as a deliberate documented decision, not drift. Added **§15** (Paseo strategic-fusion roadmap: what Goose already has → surface; what to build — engine picker, multi-tab/split, inline diff+`gh`, worktree-parallel; AGPL build-from-spec rule), **§16** (markdown `.md` = single source of truth for notes; indexes = derived rebuildable caches; chats/manual-graph/versions/companions stay DB-canonical; vault write-through + FSEvents watcher required for Goose/MCP coexistence), **§17** (Goose stays independently runnable; the Swift app's compile-state never gates Goose; add-don't-edit; verify Goose green standalone first).
 - Sources: Apple WWDC25 WebKit-for-SwiftUI / `WebPage` docs; Electron contextBridge/ipcRenderer/IPC tutorial; Agent Client Protocol (agentclientprotocol.com), Zed external-agents + ACP registry, JetBrains ACP, Goose ACP docs; local clones `.research-clones/work/{goose,opengui}`; repo `Epistemos/Work/*`, `LocalPackages/AgentClone`; canon `WORK_CANON_STATUS_2026_06_25.md`, `ACT_IP_PRESERVATION_2026_06_24.md`, `PRIVATE_TRI_SURFACE_…_2026_06_24.md`, federation handoff doc.
 
 ---
@@ -522,3 +525,58 @@ Upstream Goose is mid-migration **Electron/React → Tauri** desktop + ACP unifi
 
 ### §14.5 PARKED — not a decision (federation stands)
 Because Goose's ACP family already drives codex/claude/opencode/copilot/pi (§14.1), a slice of Work's multi-CLI capability **also lives inside the Act engine**. That is a candidate reason to *consider* collapsing toward fewer engines later — but **only as a deliberate, documented edit to this doc**, weighed against why Work=OpenGUI (`OPENCODE_VS_GOOSE_WORK_ENGINE_2026_06_21`) and Chat=AgentClone were chosen. **As of 2026-06-26 the §0 three-engine federation stands unchanged.** Do not consolidate by drift (§7 anti-fork rule). Logged so the option is neither lost nor acted on accidentally.
+
+---
+
+## §15 Goose as the SINGLE surface + Paseo strategic-fusion roadmap (owner decision 2026-06-26)
+
+**Decision:** Epistemos ships **one** agent surface — **Goose**, reskinned and strategically fused with the best of Paseo. This *executes* the §14.5 "parked" consolidation as a deliberate, documented owner decision (satisfying §14.5's own bar: consolidation by decision, not drift). Do NOT clone Paseo (AGPL, and a full clone is messy) — **rebuild its best features natively in Goose.** Verified against the Goose clone: much of Paseo is **already in Goose**.
+
+### §15.1 Already in Goose — SURFACE it, do not build
+- **Multi-CLI / multi-provider** (the top want): ACP family — `claude_acp` / `codex_acp` / `copilot_acp` / `pi_acp` / `amp_acp` + `claude_code` / `codex` / `cursor_agent` / `gemini_cli` providers + OpenCode. → add an **engine picker** in the UI; the backend already drives them.
+- **Agents spawning agents** (handoff / worker-verifier loop / committee / advisor): `summon`/`delegate async` + the `orchestrator` extension + recipes → ship Paseo's patterns as **recipes/skills** (prompt design).
+- **Cron / scheduled runs:** built-in scheduler → surface a schedule UI.
+- **Scriptable CLI + headless `goosed` daemon + session resume/fork:** present.
+- **Custom providers (config-only):** declarative JSON providers.
+- **Structured output:** recipe `response` JSON schema.
+- **MCP:** Goose is MCP-native.
+
+### §15.2 Build first (owner's explicit wants, cheap → hard)
+1. **Engine/provider picker** — LOW effort; surfaces the ACP family. Quick win.
+2. **Multi-tab / split-pane workspace** (sessions-as-tabs; ⌘D / ⌘⇧D / ⌘1–9) — moderate–hard, UI.
+3. **Inline diff review + `gh` PR/merge** — moderate–hard, UI. Diff *data* is free (git / `opencode /session/:id/diff`); reuse Goose's `highlight`.
+4. **Git-worktree-isolated parallel runs** — moderate, backend. git worktrees + Goose subrecipes (≤10) + setup/teardown hooks.
+
+### §15.3 Build later
+Per-worktree dev-server **port-routing proxy + preview pane**; **goosed-as-MCP-control-surface** (expose session/worktree/terminal API as MCP); **auto-metadata** (titles/branch/commit/PR via a cheap model); in-app **terminal tabs**; **cost/token meter**.
+
+### §15.4 Spec-only / defer · skip
+- Defer: **cross-device remote + E2EE relay** (v1 = Tailscale/direct; copy only the NaCl/Curve25519 handshake *design*); **voice** (Apple Speech, or Parakeet+Kokoro ONNX; steal the "hidden agent session + `speak` MCP tool" pattern).
+- Skip: theming/minimalism (Goose is already minimal), Docker, Expo mobile clients.
+
+### §15.5 Two leverage insights
+1. **ACP-as-client = ~50 agents from one integration** — Goose already does this; it's *why* the multi-provider want is nearly free. Every new agent CLI = one config entry, not a wrapper.
+2. **goosed-as-an-MCP-control-surface is the keystone** — expose Goose's own session/worktree/terminal API as MCP and skills, scheduling, and remote control become thin layers, not separate features.
+
+### §15.6 HARD RULE — build from the spec, not Paseo's code
+Paseo is **AGPL-3.0**; Goose is **Apache-2.0**. **Never vendor Paseo source into Goose** — it infects the tree and breaks the §14.3 clean-merge model. Reimplement the *ideas* natively (ideas aren't copyrightable).
+
+---
+
+## §16 Markdown is the source of truth — DB ↔ `.md` data directive (owner decision 2026-06-26)
+
+Governs the app's **note/PKM data layer** (separate from Goose-the-agent). Three tiers — **keep the DB, change its role**:
+- **Notes → markdown `.md` is the single truth.** Today there are TWO body copies — the AppSupport sidecar `note-bodies/<pageId>.md` (live editing copy) and the vault `<vault>/*.md` (eventually-consistent export) — plus SwiftData metadata, and **no file watcher**. Target: make the vault `.md` the one **write-through** truth (frontmatter `id` for stable identity across renames), demote/drop the sidecar to a rebuildable cache, and **add an FSEvents watcher** (with echo-suppression) so external edits flow back in.
+- **Indexes → derived, rebuildable caches; KEEP them (speed).** SearchIndexService FTS (speed-critical), Halo shadow (tantivy+usearch, already crawls `.md`), Eidos, structural graph. Deleting any loses zero user data. Do NOT go "pure markdown, no index" — it tanks search speed.
+- **Non-note data → stays DB-canonical.** Chats/messages, hand-drawn (manual) graph nodes/edges, page version history, companions — not representable in note `.md`; keep them in SwiftData. ("All Markdown" would be wrong for these.)
+- **Why this is load-bearing for Goose:** Goose's MCP vault tools already write the vault `.md` directly. Without single-truth + a watcher, Goose/MCP edits and the in-app editor silently overwrite each other — so this directive is **required** for Goose to safely edit notes. Also fix the stale "SwiftData is the source of truth" comments in `SDPage.swift` / `VaultSyncService.swift`.
+
+---
+
+## §17 "Goose keeps working as-is" — the no-break rule (owner requirement 2026-06-26)
+
+Hard requirement: integrating Goose must **never** repeat the "native broke everything" / Phase-0 non-compiling-app failure. Goose stays independently working at all times.
+- **Goose runs as its OWN engine** — the `goosed` daemon + its (reskinned) web UI. The Epistemos Swift host **connects** to it (ACP/WS + the `window.epistemos` bridge + MCP). It is **not** compiled into a fragile Swift target.
+- **The Swift app's compile state NEVER gates Goose.** You can always launch `goosed` + the Goose UI standalone to confirm the engine works, regardless of the app build. The real Goose Electron app stays the 100% fallback (§0/§7).
+- **Add, don't edit (§14.3).** Epistemos-specific features = new code in YOUR layer (Swift host, recipes, MCP tools, config) + the reskin overlay — never surgery on Goose's Rust core or its agent path. Keeps upstream merges clean and Goose green.
+- **Two separate gates, in order:** (1) verify Goose green on its own; (2) verify the Epistemos integration. Never let app-brokenness masquerade as Goose-brokenness.
