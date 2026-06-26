@@ -7,7 +7,6 @@ struct SettingsTruthFloorTests {
     private static let auditedSettingsRows: [String] = [
         "Epistemos/Views/Settings/ACSAdmissionHealthRow.swift",
         "Epistemos/Views/Settings/APIKeysHealthRow.swift",
-        "Epistemos/Views/Settings/ActiveConstellationRow.swift",
         "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
         "Epistemos/Views/Settings/ArenaHealthRow.swift",
         "Epistemos/Views/Settings/CLIDiscoveryHealthRow.swift",
@@ -21,7 +20,6 @@ struct SettingsTruthFloorTests {
         "Epistemos/Views/Settings/FUlpHealthRow.swift",
         "Epistemos/Views/Settings/FalsifierArtifactsHealthRow.swift",
         "Epistemos/Views/Settings/LatticeWBOHealthRow.swift",
-        "Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift",
         "Epistemos/Views/Settings/OpLogProjectionHealthRow.swift",
         "Epistemos/Views/Settings/PlanePlacementHealthRow.swift",
         "Epistemos/Views/Settings/ProcessMemoryHealthRow.swift",

@@ -1821,6 +1821,11 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!landingView.contains("LandingSearchFloatingBubbleField("))
         #expect(!landingView.contains("LandingSearchBubbleEdgeCanvas("))
         #expect(!landingView.contains("LandingWaveOverlay("))
+        #expect(!landingView.contains("LandingShortcutDisplay"))
+        #expect(!landingView.contains("LandingCommandItem"))
+        #expect(!landingView.contains("LandingCommandRow"))
+        #expect(!landingView.contains("CommandHintSpec"))
+        #expect(!landingView.contains("CommandHintLabel"))
         #expect(!landingView.contains("openLandingFilePicker()"))
         #expect(!landingView.contains("FileAttachmentBuilder.buildAll(from: urls)"))
         #expect(!landingView.contains("landingFileAttachments.append(attachment)"))
@@ -2060,17 +2065,13 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(bootstrap.contains("searchIndexProvider: {"))
     }
 
-    @Test("bootstrap owns a shared local MLX runtime and passes it into triage")
-    func bootstrapWiresSharedLocalMLXRouting() throws {
+    @Test("bootstrap no longer wires the retired local MLX runtime")
+    func bootstrapDoesNotWireRetiredLocalMLXRuntime() throws {
         let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(bootstrap.contains("let localInferenceService: MLXInferenceService"))
-        #expect(bootstrap.contains("let localMLXClient: LocalMLXClient"))
-        #expect(bootstrap.contains("let localLLMClient: any LocalConfigurableLLMClient"))
-        #expect(bootstrap.contains("let localGGUFRuntime = LocalGGUFInProcessRuntime()"))
-        #expect(bootstrap.contains("let localLLMClient = LocalBackendLLMClient("))
-        #expect(bootstrap.contains("let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)"))
-        #expect(bootstrap.contains("localLLMService: localLLMClient"))
+        #expect(!bootstrap.contains("MLXInferenceService"))
+        #expect(!bootstrap.contains("LocalMLXClient"))
+        #expect(!bootstrap.contains("let localInferenceService"))
     }
 
     @Test("bootstrap and environment no longer inject the removed local voice stack")

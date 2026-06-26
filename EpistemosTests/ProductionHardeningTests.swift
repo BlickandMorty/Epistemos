@@ -515,25 +515,6 @@ struct ReleasePackagingHardeningTests {
         #expect(projectSpec.contains("ENABLE_HARDENED_RUNTIME: true"))
     }
 
-    @Test("direct build copies NightBrain LaunchAgent to SMAppService bundle location")
-    func directBuildCopiesNightBrainLaunchAgentToLibraryLocation() throws {
-        let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
-
-        #expect(bundler.contains("is_no_sign_build()"))
-        #expect(bundler.contains("[[ \"${CODE_SIGNING_ALLOWED:-}\" == \"NO\" ]]"))
-        #expect(bundler.contains("prune_nightbrain_launchagent()"))
-        #expect(bundler.contains("Contents/Library/LaunchAgents"))
-        #expect(bundler.contains("com.epistemos.nightbrain.plist"))
-        #expect(bundler.contains("NightBrain LaunchAgent bundled"))
-        #expect(bundler.contains("NightBrain LaunchAgent skipped for no-sign local build"))
-        #expect(bundler.contains("rm -f \"$RESOURCES_DIR/LaunchAgents/com.epistemos.nightbrain.plist\""))
-        let appStoreGuard = try #require(bundler.range(of: "if is_app_store_build; then"))
-        let noSignGuard = try #require(bundler.range(of: "if is_no_sign_build; then"))
-        let bundleCall = try #require(bundler.range(of: "else\n    bundle_nightbrain_launchagent\nfi"))
-        #expect(appStoreGuard.lowerBound < noSignGuard.lowerBound)
-        #expect(noSignGuard.lowerBound < bundleCall.lowerBound)
-    }
-
     @Test("runtime asset bundler ships default skills from agent canon")
     func runtimeAssetBundlerShipsDefaultSkillsFromAgentCanon() throws {
         let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
@@ -635,39 +616,6 @@ struct ReleasePackagingHardeningTests {
         #expect(!currentAccessPlan.contains("Shell: ask first"))
     }
 
-    @Test("App Store target excludes executable Python and Pro runtime assets")
-    func appStoreTargetExcludesExecutablePythonRuntimeAssets() throws {
-        let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
-        let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
-        let appStoreTarget = try #require(projectSpec.range(of: "  Epistemos-AppStore:"))
-        let testsTarget = try #require(projectSpec.range(of: "  EpistemosTests:"))
-        let appStoreSpec = String(projectSpec[appStoreTarget.lowerBound..<testsTarget.lowerBound])
-
-        for excludedPath in [
-            "KnowledgeFusion/Alignment/scripts/**",
-            "KnowledgeFusion/Training/scripts/**",
-            "KnowledgeFusion/MoLoRA/molora_inference.py",
-            "KnowledgeFusion/MoLoRA/sgmm_kernel.py",
-            "KnowledgeFusion/MoLoRA/train_router.py",
-            "KnowledgeFusion/MoLoRA/tests/**",
-            "KnowledgeFusion/MoLoRA/__pycache__/**",
-        ] {
-            #expect(appStoreSpec.contains(excludedPath))
-        }
-
-        #expect(bundler.contains("is_app_store_build()"))
-        #expect(bundler.contains("sanitize_app_store_resources()"))
-        #expect(bundler.contains(#""${TARGET_NAME:-}" == "Epistemos-AppStore""#))
-        #expect(bundler.contains(#""${PRODUCT_BUNDLE_IDENTIFIER:-}" == "com.epistemos.appstore""#))
-        #expect(bundler.contains("EPISTEMOS_APP_STORE"))
-        #expect(bundler.contains("-name '*.py'"))
-        #expect(bundler.contains("-name '*.pyc'"))
-        #expect(bundler.contains("rm -rf \"$AGENT_RUNTIME_DIR\""))
-        #expect(bundler.contains("find \"$KNOWLEDGE_FUSION_DIR\" -depth -type d -empty -delete"))
-        #expect(bundler.contains("if is_app_store_build; then"))
-        #expect(bundler.contains("exit 0"))
-    }
-
     @Test("App Store target does not link native computer-use automation stack")
     func appStoreTargetDoesNotLinkNativeComputerUseAutomationStack() throws {
         let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
@@ -736,37 +684,12 @@ struct ReleasePackagingHardeningTests {
 	func appStoreBootstrapSkipsProOnlyRuntimeStartup() throws {
 		let bootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
 		let environment = try loadProductionHardeningRepoTextFile("Epistemos/App/AppEnvironment.swift")
-		let nightBrain = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainService.swift")
-			let nightBrainScheduler = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainScheduler.swift")
-			let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
-			let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
-			let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
+		let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
 
-        #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Configure Knowledge Fusion at boot"))
-        #expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        // Initialize iMessage driver"))
-        #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
-        #expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        // W10.10-FIX"))
-        #expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        if NightBrainScheduler.shouldRunFallbackInline()"))
-			let appStoreExceptionBlocks = project.components(separatedBy: "\n\t\t};").filter {
-				$0.contains("isa = PBXFileSystemSynchronizedBuildFileExceptionSet;") &&
-					$0.contains("target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;")
-			}.joined(separator: "\n")
-			#expect(appStoreExceptionBlocks.contains("Engine/ClaudeManagedRuntime.swift"))
-			#expect(appStoreExceptionBlocks.contains("Engine/LocalRustRuntime.swift"))
-			#expect(appStoreExceptionBlocks.contains("Omega/Knowledge/ODIATraceGenerator.swift"))
-			let sanitizerStart = try #require(bundler.range(of: "sanitize_app_store_resources() {"))
-			let sanitizerEnd = try #require(bundler[sanitizerStart.lowerBound...].range(of: "\n}"))
-			let sanitizerBody = bundler[sanitizerStart.lowerBound..<sanitizerEnd.upperBound]
-			#expect(sanitizerBody.contains("prune_nightbrain_launchagent"))
-			#expect(nightBrainScheduler.contains("public static func bundledLaunchAgentURL(bundle: Bundle = .main) -> URL"))
-		#expect(nightBrainScheduler.contains("Contents/Library/LaunchAgents"))
-		#expect(nightBrainScheduler.contains("guard bundledLaunchAgentExists() else"))
-		let bundledAgentGuard = try #require(nightBrainScheduler.range(of: "guard bundledLaunchAgentExists() else"))
-		let agentStatusRead = try #require(nightBrainScheduler.range(of: "let current = agent.status"))
-		#expect(bundledAgentGuard.lowerBound < agentStatusRead.lowerBound)
-        #expect(environment.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            .environment(bootstrap.iMessageDriver)"))
-        #expect(nightBrain.contains("#if EPISTEMOS_APP_STORE\n        Self.log.info(\"NightBrain: scheduler skipped in App Store build\")"))
-        #expect(nightBrain.contains("let bgScheduler = NSBackgroundActivityScheduler(identifier: \"com.epistemos.nightbrain\")"))
+        #expect(!bootstrap.contains("KnowledgeFusionViewModel"))
+        #expect(!bootstrap.contains("NightBrainScheduler"))
+        #expect(!bootstrap.contains("IMessageNativeSetupDoctor"))
+        #expect(!environment.contains(".environment(bootstrap.iMessageDriver)"))
         #expect(app.contains("#if EPISTEMOS_APP_STORE"))
         #expect(app.contains("private final class AppStoreFirstWindowPresenter"))
         #expect(app.contains("private weak var bootstrap: AppBootstrap?"))
@@ -1041,11 +964,9 @@ struct AuditHardeningRegressionTests {
     func mainActorInferenceBridgesUseTimeoutGuard() throws {
         let timeoutUtility = try loadProductionHardeningRepoTextFile("Epistemos/State/TimeoutUtility.swift")
         let deviceAgent = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
-        let mlxBridge = try loadProductionHardeningRepoTextFile("Epistemos/KnowledgeFusion/MLXInferenceBridge.swift")
 
         #expect(timeoutUtility.contains("func withTimedMainActorBridge"))
         #expect(deviceAgent.contains("withTimedMainActorBridge"))
-        #expect(mlxBridge.contains("withTimedMainActorBridge"))
     }
 
     @Test("Regex-backed helpers avoid force-try compilation")
@@ -1069,14 +990,11 @@ struct AuditHardeningRegressionTests {
     @Test("Trap-prone persistence fallbacks stay removed")
     func trapPronePersistenceFallbacksStayRemoved() throws {
         let appBootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let feedbackLogger = try loadProductionHardeningRepoTextFile("Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift")
         let dataDetectionService = try loadProductionHardeningRepoTextFile("Epistemos/Engine/DataDetectionService.swift")
         let queryParser = try loadProductionHardeningRepoTextFile("Epistemos/Engine/QueryParser.swift")
         let structuredQueryParser = try loadProductionHardeningRepoTextFile("Epistemos/Engine/StructuredQueryParser.swift")
 
         #expect(!appBootstrap.contains("try! ModelContainer("))
-        #expect(!feedbackLogger.contains("try! JSONSerialization.data"))
-        #expect(!feedbackLogger.contains("String(data: data, encoding: .utf8)!"))
         #expect(!dataDetectionService.contains("URL(string: \"webcal://\")!"))
         #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
         #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
@@ -1088,14 +1006,10 @@ struct AuditHardeningRegressionTests {
 
     @Test("Recent runtime trap removals stay hardened")
     func recentRuntimeTrapRemovalsStayHardened() throws {
-        let embodiedCapture = try loadProductionHardeningRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
         let themeSource = try loadProductionHardeningRepoTextFile("Epistemos/Theme/EpistemosTheme.swift")
         let appSupervisor = try loadProductionHardeningRepoTextFile("Epistemos/State/AppSupervisor.swift")
         let cloudAuth = try loadProductionHardeningRepoTextFile("Epistemos/Engine/CloudProviderAuthService.swift")
         let hologramInspector = try loadProductionHardeningRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
-
-        #expect(!embodiedCapture.contains("handle.write(line.data(using: .utf8)!)"))
-        #expect(embodiedCapture.contains("guard let lineData = line.data(using: .utf8) else {"))
 
         #expect(!themeSource.contains("preconditionFailure(\"Missing resolved theme cache"))
         #expect(themeSource.contains("Self.resolvedCache[self] ?? buildResolved()"))

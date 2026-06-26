@@ -320,15 +320,6 @@ struct NonAgentPruningValidationTests {
         }
     }
 
-    @Test("local agent reflex path reports unavailable streaming instead of trapping")
-    func localAgentReflexPathDoesNotPreconditionOnStreaming() throws {
-        let source = try loadRepoTextFile("Epistemos/LocalAgent/LocalAgentLoop.swift")
-
-        #expect(source.contains("case streamingGeneratorUnavailable"))
-        #expect(source.contains("throw LocalAgentLoopError.streamingGeneratorUnavailable"))
-        #expect(!source.contains(#"preconditionFailure("runReflexTurn called without streamingGenerator")"#))
-    }
-
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
         try loadMirroredSourceTextFile(relativePath)
     }

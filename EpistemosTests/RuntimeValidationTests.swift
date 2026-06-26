@@ -146,21 +146,6 @@ struct RuntimeValidationTests {
         try await body()
     }
 
-    @MainActor
-    @Test("cold bootstrap leaves the local runtime unloaded until the first real request")
-    func coldBootstrapLeavesLocalRuntimeUnloaded() async {
-        await withResetInferenceDefaults {
-            let bootstrap = AppBootstrap()
-
-            #expect(await bootstrap.localInferenceService.profilingSnapshot() == nil)
-            #expect(bootstrap.localLLMClient.configSnapshot().provider == .localMLX)
-            #expect(
-                bootstrap.localLLMClient.configSnapshot().model
-                    == (bootstrap.inferenceState.effectiveLocalTextModelID ?? "")
-            )
-        }
-    }
-
     @Test("bootstrap adopts legacy root stores into the app-scoped path and repairs message columns")
     func bootstrapAdoptsLegacyRootStoresIntoAppScopedPathAndRepairsMessageColumns() throws {
         let root = FileManager.default.temporaryDirectory
@@ -388,86 +373,6 @@ struct RuntimeValidationTests {
     }
 
     @MainActor
-    @Test("inference surfaces serial fallback runtime health from local mlx profiles")
-    func inferenceSurfacesSerialFallbackRuntimeHealth() async {
-        await withResetInferenceDefaults {
-            let inference = InferenceState()
-            inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
-
-            let profile = LocalMLXRunProfile(
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
-                artifactID: "qwen35-35b-a3b-apexmini",
-                requestedRuntimeKind: nil,
-                resolvedRuntimeKind: .mlx,
-                executionMode: .local,
-                coldLoad: false,
-                lowPowerModeEnabled: false,
-                appActive: true,
-                thermalState: .nominal,
-                loadDurationMS: 0,
-                firstTokenLatencyMS: 250,
-                totalDurationMS: 1_600,
-                outputTokenCount: 128,
-                tokensPerSecond: 80,
-                outputCharacterCount: 512,
-                chunkCount: 18,
-                continuationCount: 0,
-                stopReason: "completed",
-                memoryLimitBytes: 1_000,
-                cacheLimitBytes: 1_000,
-                serialPhase: "between_stages",
-                fallbackMode: LocalInferenceSerialFallbackMode.ssdStreaming.rawValue,
-                availableMemoryBytes: 900_000_000
-            )
-
-            inference.setLatestLocalRuntimeProfile(profile)
-
-            #expect(inference.localRuntimeFallbackMode == .ssdStreaming)
-            #expect(inference.localRuntimeStatusSummary == "SSD streaming fallback active")
-            #expect(inference.localRuntimeStatusDetail?.contains("Between Stages") == true)
-            #expect(inference.localRuntimeStatusDetail?.contains("available") == true)
-            #expect(inference.localRuntimeLastRunSummary == "First token 250 ms, total 1600 ms")
-        }
-    }
-
-    @MainActor
-    @Test("inference surfaces gguf runtime health through the shared local status model")
-    func inferenceSurfacesGGUFRuntimeHealth() async {
-        await withResetInferenceDefaults {
-            let inference = InferenceState()
-            inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
-
-            let profile = LocalGGUFRunProfile(
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
-                artifactID: "qwen35-35b-a3b-apexmini",
-                requestedRuntimeKind: .gguf,
-                resolvedRuntimeKind: .gguf,
-                executionMode: .local,
-                modelURL: URL(fileURLWithPath: "/tmp/qwen35-35b-a3b-apexmini.gguf"),
-                resolvedModelID: "qwen35-35b-a3b-apexmini",
-                firstTokenLatencyMS: 180,
-                totalDurationMS: 940,
-                outputTokenCount: 72,
-                tokensPerSecond: 76.5,
-                outputCharacterCount: 288,
-                executionPhase: "decode",
-                fallbackMode: LocalInferenceSerialFallbackMode.resident.rawValue,
-                availableMemoryBytes: 1_900_000_000
-            )
-
-            inference.setLatestLocalRuntimeHealth(LocalRuntimeHealthSnapshot(profile))
-
-            #expect(inference.localRuntimeFallbackMode == nil)
-            #expect(inference.localRuntimeStatusSummary == "GGUF local runtime (Qwen 35B APEX)")
-            #expect(inference.localRuntimeStatusDetail?.contains("Decode") == true)
-            #expect(inference.localRuntimeStatusDetail?.contains("available") == true)
-            #expect(inference.localRuntimeLastRunSummary == "First token 180 ms, total 940 ms")
-        }
-    }
-
-    @MainActor
     @Test("inference keeps only local routing defaults after legacy cleanup")
     func inferenceKeepsOnlyLocalRoutingDefaults() async {
         await withResetInferenceDefaults {
@@ -606,15 +511,6 @@ struct RuntimeValidationTests {
         #expect(settings.contains("Enable Web Search"))
     }
 
-    @Test("pipeline only enters the local tool loop when the effective chat surface stays local")
-    func pipelineOnlyUsesToolLoopForEffectiveLocalSelections() throws {
-        let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
-
-        #expect(pipeline.contains("let effectiveChatSelection = inference.effectiveChatSurfaceSelection("))
-        #expect(pipeline.contains("guard case let .localMLX(modelID) = effectiveChatSelection else"))
-        #expect(pipeline.contains("model.canRunLocalAgentLoop"))
-    }
-
     @Test("direct-stream manifest suppresses app tools it cannot execute")
     func pipelineDirectStreamManifestSuppressesUnexecutableTools() throws {
         // The direct-stream path (Fast / Thinking for cloud, local non-agent)
@@ -685,17 +581,6 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("private var showLandingToolbarControls: Bool"))
         #expect(rootView.contains("private var showEmbeddedGraphToolbarControls: Bool"))
         #expect(rootView.contains("ToolbarItem(placement: .navigation)"))
-    }
-
-    @MainActor
-    @Test("warm relaunch bootstrap also starts without an eager local model load")
-    func warmBootstrapAlsoStartsCold() async {
-        let first = AppBootstrap()
-        #expect(await first.localInferenceService.profilingSnapshot() == nil)
-
-        let second = AppBootstrap()
-        #expect(await second.localInferenceService.profilingSnapshot() == nil)
-        #expect(AppBootstrap.shared === second)
     }
 
     @Test("bootstrap local model log does not imply eager weight load")
@@ -1010,7 +895,6 @@ struct RuntimeValidationTests {
         let watchdog = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
         let pageEditorCache = try loadRepoTextFile("Epistemos/Views/Notes/PageEditorCache.swift")
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
-        let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift")
         let conversationPersistence = try loadRepoTextFile("Epistemos/Vault/ConversationPersistence.swift")
         let appGroupContainer = try loadRepoTextFile("Epistemos/App/AppGroupContainer.swift")
         let quarantineArchive = try loadRepoTextFile("Epistemos/Engine/QuarantineArchive.swift")
@@ -1040,7 +924,6 @@ struct RuntimeValidationTests {
             watchdog,
             pageEditorCache,
             app,
-            moLoRA,
             conversationPersistence,
             appGroupContainer,
             quarantineArchive,
@@ -1342,11 +1225,6 @@ struct RuntimeValidationTests {
         #expect(embedAndSignHelper.contains("codesign --force --sign"))
         #expect(embedAndSignHelper.contains("EXPANDED_CODE_SIGN_IDENTITY"))
         #expect(!buildScript.contains("cp ../build-rust/libepistemos_core.dylib \"$TARGET_BUILD_DIR/PackageFrameworks/libepistemos_core.dylib\""))
-        // train_knowledge.py / train_style.py removed 2026-06-18 (QLoRA native).
-        #expect(bundleAssetsScript.contains("KnowledgeFusion/Alignment/scripts/train_kto.py"))
-        // molora_inference.py / sgmm_kernel.py removed 2026-06-18 (MoLoRA native).
-        #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/eval_bfcl.py"))
-        #expect(bundleAssetsScript.contains("KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl"))
     }
 
     @Test("test source mirror stays incremental and skips heavyweight build artifacts")
@@ -1496,25 +1374,6 @@ struct RuntimeValidationTests {
         #expect(!FileManager.default.fileExists(atPath: shadowGitURL.path))
     }
 
-    @Test("subprocess timeout watchdogs stop cleanly on cancellation")
-    func subprocessTimeoutWatchdogsStopCleanlyOnCancellation() throws {
-        // Owner 2026-06-18: QLoRATrainer no longer spawns a python3 subprocess —
-        // its training path is now in-process NativeLoRATrainer (MLXLLM.LoRATrain),
-        // so it has no subprocess timeout watchdog to validate here. Dropped from
-        // this list (the remaining files still shell out and keep the watchdog).
-        let sourcePaths = [
-            "Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift",
-            "Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift",
-            "Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift",
-        ]
-
-        for path in sourcePaths {
-            let source = try loadRepoTextFile(path)
-            #expect(!source.contains("try? await Task.sleep(for: .seconds(timeoutSeconds))"))
-            #expect(source.contains("catch is CancellationError"))
-        }
-    }
-
     @Test("epistemos core durability and instant recall exports stay fail-closed")
     func epistemosCoreDurabilityAndInstantRecallExportsStayFailClosed() throws {
         let source = try loadRepoTextFile("epistemos-core/src/uniffi_exports.rs")
@@ -1551,11 +1410,6 @@ struct RuntimeValidationTests {
     @Test("passive launch paths avoid system-wide input and Messages automation TCC probes")
     func passiveLaunchPathsAvoidSystemWideInputAndAutomationTCCProbes() throws {
         let activityTracker = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
-        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
-        let trainingScheduler = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/TrainingScheduler.swift")
-        let iMessageDoctor = try loadRepoTextFile("Epistemos/Omega/iMessageDriver/IMessageNativeSetupDoctor.swift")
-        let channelsSettings = try loadRepoTextFile("Epistemos/Views/Settings/ChannelsSettingsView.swift")
-        let iMessageSettings = try loadRepoTextFile("Epistemos/Views/Settings/IMessageDriverSettingsView.swift")
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
         let appEnvironment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
         let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
@@ -1576,18 +1430,6 @@ struct RuntimeValidationTests {
         #expect(activityTracker.contains("Activity tracking started (explicit in-app activity signals)"))
         #expect(proseTextView.contains("AppBootstrap.shared?.activityTracker.recordInAppActivity()"))
         #expect(codeEditor.contains("AppBootstrap.shared?.activityTracker.recordInAppActivity()"))
-        #expect(!nightBrain.contains("CGEventSource.secondsSinceLastEventType"))
-        #expect(nightBrain.contains("process-local quiescence timer"))
-        #expect(nightBrain.contains("requiredDependenciesReady()"))
-        #expect(nightBrain.contains("searchIndexProvider() != nil"))
-        #expect(!trainingScheduler.contains("CGEventSource.secondsSinceLastEventType"))
-        #expect(trainingScheduler.contains("processQuiescenceSeconds()"))
-        #expect(iMessageDoctor.contains("currentStatus(probeAutomation: Bool = false)"))
-        #expect(iMessageDoctor.contains("probeAutomation"))
-        #expect(channelsSettings.contains("currentStatus(probeAutomation: false)"))
-        #expect(channelsSettings.contains("refreshIMessageSetupStatus(probeAutomation: true)"))
-        #expect(iMessageSettings.contains("currentStatus(probeAutomation: false)"))
-        #expect(iMessageSettings.contains("refreshSetupStatus(probeAutomation: true)"))
         #expect(!appBootstrap.contains("IMessageNativeSetupDoctor.currentStatus"))
         #expect(!appBootstrap.contains("EpistemosShortcutsProvider.updateAppShortcutParameters()"))
         #expect(!appBootstrap.contains("AppleIntelligenceService.shared.checkAvailability().available"))
@@ -1660,31 +1502,6 @@ struct RuntimeValidationTests {
         #expect(searchIndex.contains("func passiveCheckpoint() throws"))
         #expect(searchIndex.contains("db.checkpoint(.passive)"))
         #expect(searchIndex.contains("case journalModeRejected(String)"))
-    }
-
-    @Test("night brain now checkpoints the search index during idle maintenance")
-    func nightBrainCheckpointsSearchIndexDuringIdleMaintenance() throws {
-        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
-
-        #expect(bootstrap.contains("searchIndexProvider: { @MainActor [weak vaultSync] in"))
-        #expect(nightBrain.contains("case searchIndexPassiveCheckpoint = \"search_index_passive_checkpoint\""))
-        #expect(nightBrain.contains("private func missingDependency(for jobOrder: [Job]) async -> JobExecutionError?"))
-        #expect(nightBrain.contains("NightBrain: pipeline deferred before run:"))
-        #expect(nightBrain.contains("guard let searchIndex = await MainActor.run(body: { searchIndexProvider() }) else {"))
-        #expect(nightBrain.contains("throw JobExecutionError.missingSearchIndex"))
-        #expect(nightBrain.contains("try searchIndex.passiveCheckpoint()"))
-        #expect(!nightBrain.contains("try? searchIndex?.passiveCheckpoint()"))
-    }
-
-    @Test("vault parser uses nonisolated UniFFI helpers without main actor hops")
-    func vaultParserUsesNonisolatedRustHelpersWithoutMainActorHops() throws {
-        let parser = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/VaultParser.swift")
-
-        #expect(parser.contains("let classification = classifyDocument(content: rawText)"))
-        #expect(parser.contains("let filtered = filterBoilerplate(content: rawText)"))
-        #expect(!parser.contains("await MainActor.run { classifyDocument(content: rawText) }"))
-        #expect(!parser.contains("await MainActor.run { filterBoilerplate(content: rawText) }"))
     }
 
     @Test("test helper probes avoid unchecked sendable wrappers")
@@ -1905,14 +1722,6 @@ struct RuntimeValidationTests {
         #expect(!buildAction.contains("BuildableName = \"EpistemosTests.xctest\""))
     }
 
-    @Test("installed local fallback prefers the strongest supported model on the current hardware")
-    func installedLocalFallbackPrefersTheStrongestSupportedModel() throws {
-        let manager = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
-
-        #expect(manager.contains("guard let modelID = inference.releaseSelectableInstalledLocalTextModelIDs.last else {"))
-        #expect(!manager.contains(".first(where: { installRecords[$0] != nil && inference.hardwareCapabilitySnapshot.supports(textModelID: $0) })"))
-    }
-
     @Test("local model refresh only persists the manifest when cleanup changes records")
     func localModelRefreshOnlyPersistsManifestWhenCleanupChangesRecords() throws {
         let manager = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
@@ -1925,149 +1734,6 @@ struct RuntimeValidationTests {
         #expect(manager.contains("private func pruneStaleRevisionInstalls() -> Bool"))
         #expect(manager.contains("guard prunedRecords != installRecords else { return false }"))
         #expect(!manager.contains("try? persistManifest()"))
-    }
-
-    @Test("bootstrap throttles local model refreshes and the local runtime serializes request turns")
-    func bootstrapThrottlesRefreshAndRuntimeSerializesTurns() throws {
-        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
-
-        #expect(bootstrap.contains("private final class LocalModelRefreshThrottle"))
-        #expect(bootstrap.contains("private let localModelRefreshThrottle: LocalModelRefreshThrottle"))
-        #expect(bootstrap.contains("let localModelRefreshThrottle = LocalModelRefreshThrottle("))
-        #expect(bootstrap.contains("localModelRefreshThrottle.refreshIfNeeded()"))
-        #expect(!bootstrap.contains("prepareForRequest: {\n                localModelManager.refreshFromDisk()"))
-        #expect(!bootstrap.contains("prepareForRouting: {\n                localModelManager.refreshFromDisk()"))
-
-        #expect(runtime.contains("actor LocalMLXRequestGate"))
-        #expect(runtime.contains("private let requestGate = LocalMLXRequestGate()"))
-        #expect(runtime.contains("requestGate.acquire()"))
-        #expect(runtime.contains("requestGate.release()"))
-        #expect(runtime.contains("let coldLoadTimeout = Self.coldLoadTimeoutSeconds(for: request.modelID)"))
-        #expect(runtime.contains("private nonisolated static func coldLoadTimeoutSeconds(for modelID: String) -> Double"))
-        #expect(runtime.contains("withTimeout(seconds: coldLoadTimeout)"))
-        #expect(runtime.contains("let idleMemoryPolicy: LocalMLXMemoryPolicy"))
-        #expect(runtime.contains("private func applyActiveMemoryPolicy(_ policy: LocalMLXRuntimePolicy)"))
-        #expect(runtime.contains("private func applyIdleMemoryPolicy(_ policy: LocalMLXRuntimePolicy)"))
-        #expect(runtime.contains("applyActiveMemoryPolicy(policy)"))
-        #expect(runtime.contains("applyIdleMemoryPolicy(policy)"))
-    }
-
-    @Test("streaming local mlx path preserves and persists ssm sessions")
-    func streamingLocalMLXPathPreservesAndPersistsSSMSessions() throws {
-        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
-
-        #expect(runtime.contains("if isSSM,\n                       let existing = self.persistentSSMSession,"))
-        #expect(runtime.contains("self.persistentSSMSession = session"))
-        #expect(runtime.contains("let resumed = await self.resumeSSMState("))
-        #expect(runtime.contains("SSM stream resumed with cached state"))
-        #expect(runtime.contains("await self.notifySSMStateService("))
-    }
-
-    @Test("bootstrap refreshes prepared retrieval runtime state on app activation")
-    func bootstrapRefreshesPreparedRetrievalRuntimeStateOnActivation() throws {
-        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-
-        #expect(bootstrap.contains("private func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?)"))
-        #expect(bootstrap.contains("private func refreshPreparedRetrievalRuntimeConfigurationIfNeeded()"))
-        #expect(bootstrap.contains("private var localRuntimeActivationTask: Task<Void, Never>?"))
-        #expect(bootstrap.contains("preparedRetrievalRefreshTask?.cancel()"))
-        #expect(bootstrap.contains("Task.detached(priority: .utility)"))
-        #expect(bootstrap.contains("try await PreparedModelRegistry().load()"))
-        #expect(bootstrap.contains("self?.localRuntimeActivationTask = Task(priority: .utility)"))
-        #expect(bootstrap.contains("try? await Task.sleep(for: .milliseconds(150))"))
-        #expect(bootstrap.contains("queryEngine.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
-        #expect(bootstrap.contains("graphState.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
-        #expect(bootstrap.contains("inferenceState.setPreparedLocalTextModelIDs("))
-        #expect(bootstrap.contains("self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()"))
-    }
-
-    @Test("local mlx runtime keeps a grace period before unloading on app blur")
-    func localMLXRuntimeKeepsGracePeriodBeforeUnloadingOnBlur() throws {
-        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
-        let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
-
-        #expect(runtime.contains("idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(5) : .seconds(10)"))
-        #expect(runtime.contains("idleUnloadDelay = min(idleUnloadDelay, .seconds(5))"))
-        #expect(runtime.contains("if conditions.thermalState == .critical {"))
-        #expect(runtime.contains("} else if conditions.appActive {"))
-        #expect(runtime.contains("scheduleIdleUnload()"))
-        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)"))
-        #expect(triage.contains("supportsInteractiveChatModel(textModelID: $0.rawValue)"))
-    }
-
-    @Test("local mlx unload depth separates idle working-set release from deep pressure release")
-    func localMLXUnloadDepthSeparatesIdleFromDeepPressureRelease() throws {
-        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
-        let metalRuntime = try loadRepoTextFile("Epistemos/Engine/MetalRuntimeManager.swift")
-
-        #expect(runtime.contains("private enum MetalRuntimeUnloadMode"))
-        #expect(runtime.contains("case workingSetOnly"))
-        #expect(runtime.contains("case deep"))
-        #expect(runtime.contains("func unload() async {\n        await performUnload(metalRuntimeUnloadMode: .deep)\n    }"))
-        #expect(runtime.contains("await self?.performUnload(metalRuntimeUnloadMode: .deep)"))
-        #expect(runtime.contains("await performUnload(metalRuntimeUnloadMode: .deep)"))
-        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)"))
-        #expect(runtime.contains("let runtimeManager = metalRuntimeManager"))
-        #expect(runtime.contains("await MainActor.run {"))
-        #expect(runtime.contains("runtimeManager?.releaseWorkingSet()"))
-        #expect(runtime.contains("runtimeManager?.deepUnload()"))
-        #expect(runtime.contains("metalRuntimeManager = nil"))
-        #expect(runtime.contains("preparedCustomSSMRuntimeKey = nil"))
-        #expect(metalRuntime.contains("func releaseWorkingSet()"))
-        #expect(metalRuntime.contains("func deepUnload()"))
-        #expect(metalRuntime.contains("stateBufferA = nil"))
-        #expect(metalRuntime.contains("stateBufferB = nil"))
-        #expect(metalRuntime.contains("inferenceHeap = nil"))
-    }
-
-    @Test("app-level critical memory pressure requests local model unload")
-    func appLevelCriticalMemoryPressureRequestsLocalModelUnload() throws {
-        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
-
-        #expect(app.contains("metadata[\"localModelUnloadRequested\"] = \"true\""))
-        #expect(app.contains("Task.detached(priority: .utility)"))
-        #expect(app.contains("performMemoryPressureRelief("))
-        #expect(app.contains("await localInferenceService.unload()"))
-    }
-
-    @Test("local mlx memory preflight uses the interactive chat memory budget")
-    func localMLXMemoryPreflightUsesInteractiveChatBudget() throws {
-        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
-
-        #expect(runtime.contains("let requiredGB = model.minimumRecommendedInteractiveMemoryGB"))
-        #expect(!runtime.contains("let requiredGB = model.minimumRecommendedMemoryGB"))
-    }
-
-    @Test("local mlx streaming yields postprocessed fallback text before finishing")
-    func localMLXStreamingYieldsPostprocessedFallbackTextBeforeFinishing() throws {
-        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
-
-        #expect(runtime.contains("var emittedText = \"\""))
-        #expect(runtime.contains("emittedText += chunk"))
-        #expect(runtime.contains("Self.trailingPostprocessedDelta("))
-        #expect(runtime.contains("continuation.yield(trailingDelta)"))
-    }
-
-    @MainActor
-    @Test("bootstrap loads the prepared model registry")
-    func bootstrapLoadsPreparedModelRegistry() async {
-        let bootstrap = AppBootstrap()
-        // Bootstrap init now defers the manifest load off the foreground
-        // tap path; tests drive the async refresh explicitly.
-        await bootstrap.loadPreparedModelRegistryForTesting()
-
-        #expect(bootstrap.preparedModelRegistryState.primaryRetriever?.servedModelID == "BAAI/bge-m3")
-        #expect(
-            bootstrap.preparedModelRegistryState.primaryGenerator?.servedModelID
-                == LocalTextModelID.qwen35_35BA3B4Bit.rawValue
-        )
-        #expect(
-            bootstrap.preparedModelRegistryState.generationRuntimeConfiguration?
-                .speculativeDraftGenerator?.servedModelID
-                == "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-        )
-        #expect(bootstrap.preparedModelRegistryState.lastErrorMessage == nil)
     }
 
     @MainActor
@@ -2124,20 +1790,6 @@ struct RuntimeValidationTests {
         #expect(settings.contains("Button(\"Refresh\")"))
         #expect(!settings.contains(".onAppear {\n            localModelManager.refreshFromDisk()"))
         #expect(!settings.contains(".task {\n            localModelManager.refreshFromDisk()"))
-    }
-
-    @Test("settings and retired omega surfaces avoid invalid runtime symbols and stale progress chrome")
-    func settingsAndOmegaSurfacesAvoidInvalidRuntimeSymbolsAndProgressScaling() throws {
-        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        let omega = try loadRepoTextFile("Epistemos/Views/Omega/OmegaPanel.swift")
-
-        #expect(!settings.contains("memorychip.slash"))
-        #expect(settings.contains("exclamationmark.triangle"))
-
-        #expect(omega.contains("Text(\"Unified Chat\")"))
-        #expect(omega.contains("All capabilities"))
-        #expect(!omega.contains("ProgressView()"))
-        #expect(!omega.contains(".scaleEffect(0.7)"))
     }
 
     @Test("settings, graph, and note workspace surfaces defer on-appear state mutations off the active view update")
@@ -2197,61 +1849,6 @@ struct RuntimeValidationTests {
         #expect(!bootstrap.contains("func submitAgentWorkspacePrompt("))
         #expect(!bootstrap.contains("routeLegacyAgentSurfaceIntoMainChat("))
         #expect(!bootstrap.contains("agentCommandCenterState.present()"))
-    }
-
-    @Test("retired omega settings no longer advertise old training experiments")
-    func omegaSettingsTrainingCopyStaysExperimentalAndTraceFocused() throws {
-        let settings = try loadRepoTextFile("Epistemos/Views/Settings/OmegaSettingsDetailView.swift")
-        let appSettings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
-
-        #expect(settings.contains("Agent settings are now part of the main chat configuration."))
-        #expect(!settings.contains("Overnight adapter training (Experimental)"))
-        #expect(!settings.contains("Embodied data capture (Experimental)"))
-        #expect(appSettings.contains("Knowledge Fusion (Experimental)"))
-    }
-
-    @Test("omega automation support retains backend permission plumbing and plist disclosure")
-    func omegaSurfacesExposeAutomationPermission() throws {
-        let settings = try loadRepoTextFile("Epistemos/Views/Settings/OmegaSettingsDetailView.swift")
-        let panel = try loadRepoTextFile("Epistemos/Views/Omega/OmegaPanel.swift")
-        let permissions = try loadRepoTextFile("Epistemos/Omega/OmegaPermissions.swift")
-        let infoPlist = try loadRepoTextFile("Epistemos-Info.plist")
-
-        #expect(settings.contains("Agent settings are now part of the main chat configuration."))
-        #expect(panel.contains("Unified Chat"))
-
-        #expect(permissions.contains("func requestAutomationAccess() async"))
-        #expect(permissions.contains("func automationPermissionState(promptIfNeeded: Bool) async -> Bool"))
-        #expect(permissions.contains("func openAutomationSettings()"))
-        #expect(permissions.contains("ensureAutomationTargetIsRunning()"))
-        #expect(permissions.contains("com.apple.systemevents"))
-
-        #expect(infoPlist.contains("NSAppleEventsUsageDescription"))
-    }
-
-    @Test("advanced settings surfaces explain what the feature actually does")
-    func advancedSettingsSurfacesExplainWhatTheFeatureActuallyDoes() throws {
-        let omega = try loadRepoTextFile("Epistemos/Views/Settings/OmegaSettingsDetailView.swift")
-        let cognitive = try loadRepoTextFile("Epistemos/Views/Settings/CognitiveSettingsSection.swift")
-        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
-
-        #expect(omega.contains("Agent settings are now part of the main chat configuration."))
-        #expect(cognitive.contains("Stores compact activity artifacts"))
-        #expect(cognitive.contains("No keystroke logging"))
-        #expect(settings.contains("Routing decides which local path handles each request"))
-        #expect(settings.contains("Your vault is the on-disk markdown workspace"))
-    }
-
-    @Test("knowledge fusion copy explains adapters without claiming a new base model")
-    func knowledgeFusionCopyExplainsAdaptersWithoutClaimingANewBaseModel() throws {
-        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        let trainOnVault = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/TrainOnVaultView.swift")
-        let feedback = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/FeedbackIndicatorView.swift")
-
-        #expect(settings.contains("Knowledge Fusion trains adapters on top of your local model"))
-        #expect(settings.contains("It does not replace the base model"))
-        #expect(trainOnVault.contains("This is personalization for your installed local model"))
-        #expect(feedback.contains("Accepts and rejects are lightweight preference signals"))
     }
 
     @Test("note editor still suppresses binding sync churn during AI token flushes")
@@ -3094,7 +2691,7 @@ struct RuntimeValidationTests {
 
     @Test("instant recall rebuild leaves the heavy vault watcher work off the main actor")
     func instantRecallRebuildLeavesWatcherWorkOffTheMainActor() throws {
-        let service = try loadRepoTextFile("Epistemos/KnowledgeFusion/InstantRecallService.swift")
+        let service = try loadRepoTextFile("Epistemos/Engine/InstantRecallService.swift")
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
 
         #expect(service.contains("func rebuildIndexAsync(notes: [(id: String, text: String)]) async"))
@@ -3332,34 +2929,17 @@ struct RuntimeValidationTests {
     @Test("bootstrap and persistence helpers avoid force-trap fallbacks")
     func bootstrapAndPersistenceHelpersAvoidForceTrapFallbacks() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let feedbackLogger = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/FeedbackLogger.swift")
         let mcpBridge = try loadRepoTextFile("Epistemos/Omega/MCPBridge.swift")
         let activityTracker = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
         let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
-        let adapterRegistry = try loadRepoTextFile("Epistemos/KnowledgeFusion/Adapters/AdapterRegistry.swift")
-        let skillManifest = try loadRepoTextFile("Epistemos/KnowledgeFusion/SkillGeneration/SkillManifest.swift")
-        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
-        let knowledgeFusionViewModel = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift")
-        let trainingScheduler = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/TrainingScheduler.swift")
-        let qualityCurator = try loadRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/QualityCurator.swift")
-        let experienceReplayBuffer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/ExperienceReplayBuffer.swift")
         let dataDetectionService = try loadRepoTextFile("Epistemos/Engine/DataDetectionService.swift")
         let queryParser = try loadRepoTextFile("Epistemos/Engine/QueryParser.swift")
         let structuredQueryParser = try loadRepoTextFile("Epistemos/Engine/StructuredQueryParser.swift")
 
         #expect(!appBootstrap.contains("try! ModelContainer("))
-        #expect(!feedbackLogger.contains("try! JSONSerialization.data"))
-        #expect(!feedbackLogger.contains("String(data: data, encoding: .utf8)!"))
         #expect(!mcpBridge.contains(".first!"))
         #expect(!activityTracker.contains(".first!"))
         #expect(!eventStore.contains(".first!"))
-        #expect(!adapterRegistry.contains(".first!"))
-        #expect(!skillManifest.contains(".first!"))
-        #expect(!pythonEnvironmentManager.contains(".first!"))
-        #expect(!knowledgeFusionViewModel.contains(".first!"))
-        #expect(!trainingScheduler.contains(".first!"))
-        #expect(!qualityCurator.contains("String(data: data, encoding: .utf8)!"))
-        #expect(!experienceReplayBuffer.contains("String(data: data, encoding: .utf8)!"))
         #expect(!dataDetectionService.contains("URL(string: \"webcal://\")!"))
         #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
         #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
@@ -3998,8 +3578,6 @@ struct RuntimeValidationTests {
         #expect(!eventStore.contains("(try? String(data: payloadEncoder.encode(dict), encoding: .utf8)) ?? \"{}\""))
         #expect(!eventStore.contains("guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]) else { return \"{}\" }"))
         #expect(eventStore.contains("EventStore: failed to create database directory"))
-        #expect(eventStore.contains("EventStore: failed to encode Night Brain jobs_completed payload"))
-        #expect(eventStore.contains("EventStore: failed to decode Night Brain jobs_completed payload"))
         #expect(eventStore.contains("EventStore: failed to encode event payload"))
         #expect(eventStore.contains("let payloadObject: [String: Any] = ["))
         #expect(eventStore.contains("let data = try JSONSerialization.data(withJSONObject: payloadObject, options: [.sortedKeys])"))
@@ -4009,11 +3587,7 @@ struct RuntimeValidationTests {
 
     @Test("theme capture and settings helpers avoid user-facing force unwrap traps")
     func themeCaptureAndSettingsHelpersAvoidUserFacingForceUnwrapTraps() throws {
-        let embodiedCapture = try loadRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
         let themeSource = try loadRepoTextFile("Epistemos/Theme/EpistemosTheme.swift")
-
-        #expect(!embodiedCapture.contains("handle.write(line.data(using: .utf8)!)"))
-        #expect(embodiedCapture.contains("guard let lineData = line.data(using: .utf8) else {"))
 
         #expect(!themeSource.contains("preconditionFailure(\"Missing resolved theme cache"))
         #expect(themeSource.contains("Self.resolvedCache[self] ?? buildResolved()"))
@@ -4099,48 +3673,6 @@ struct RuntimeValidationTests {
     @Test("Hermes termination uses process-tree cleanup instead of a fake process-group API")
     func hermesTerminationUsesProcessTreeCleanup() throws {}
     #endif
-
-    @Test("Night Brain retains a durable EventStore reference for the full run")
-    func nightBrainRetainsDurableEventStoreReference() throws {
-        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
-
-        #expect(nightBrain.contains("let (store, runId, alreadyCompleted) ="))
-        #expect(nightBrain.contains("guard let store, let runId else {"))
-        #expect(!nightBrain.contains("storeProvider()?.updateNightBrainRun("))
-    }
-
-    @Test("Night Brain store-backed jobs no longer re-query storeProvider mid-run")
-    func nightBrainStoreBackedJobsNoLongerRequeryStoreProvider() throws {
-        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
-
-        #expect(nightBrain.contains("try await executeJob(job, store: store)"))
-        #expect(!nightBrain.contains("storeProvider()?.walCheckpointVacuum()"))
-        #expect(!nightBrain.contains("storeProvider()?.deduplicateArtifacts()"))
-        #expect(!nightBrain.contains("storeProvider()?.compactSnapshots(olderThanDays: 30)"))
-    }
-
-    @Test("Night Brain cloud knowledge distillation defers when the job is not wired")
-    func nightBrainCloudKnowledgeRequiresConfiguredJob() throws {
-        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
-
-        #expect(nightBrain.contains("private let hasCloudKnowledgeJob: Bool"))
-        #expect(nightBrain.contains("self.hasCloudKnowledgeJob = cloudKnowledgeJob != nil"))
-        #expect(nightBrain.contains("throw JobExecutionError.missingCloudKnowledgeJob"))
-    }
-
-    @Test("Cloud Knowledge prompt injection is wired into live Apple and cloud model paths")
-    func cloudKnowledgePromptInjectionIsWiredIntoLiveRuntimePaths() throws {
-        let store = try loadRepoTextFile("Epistemos/KnowledgeFusion/KnowledgeProfileStore.swift")
-        let llmService = try loadRepoTextFile("Epistemos/Engine/LLMService.swift")
-        let apple = try loadRepoTextFile("Epistemos/Engine/AppleIntelligenceService.swift")
-
-        #expect(store.contains("func augmentedSystemPrompt("))
-        #expect(store.contains("case .compact"))
-        #expect(llmService.contains("private func knowledgeAwareSystemPrompt(from systemPrompt: String?, modelID: String) async -> String?"))
-        #expect(llmService.contains("try await knowledgeProfileStore.augmentedSystemPrompt("))
-        #expect(apple.contains("modelID: \"apple-intelligence\""))
-        #expect(apple.contains("private func knowledgeAwareSystemPrompt(from systemPrompt: String?) async -> String?"))
-    }
 
     @Test("note editor cache persistence avoids silent try-question-mark fallbacks")
     func noteEditorCachePersistenceAvoidsSilentTryQuestionMarkFallbacks() throws {
@@ -4435,70 +3967,6 @@ struct RuntimeValidationTests {
     func omegaNoteAndCheckpointSurfacesAvoidSilentFallbacks() throws {}
     #endif
 
-    @Test("python setup subprocess helpers stream process output off the main actor")
-    func pythonAndHermesSetupSubprocessHelpersStreamOutputOffMain() throws {
-        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
-
-        #expect(pythonEnvironmentManager.contains("private nonisolated func executeProcess("))
-        #expect(pythonEnvironmentManager.contains("DispatchQueue.global(qos: .utility).async"))
-        #expect(pythonEnvironmentManager.contains("let execution = try await executeProcess("))
-        #expect(pythonEnvironmentManager.contains("stdoutHandle?.readabilityHandler = { handle in"))
-        #expect(pythonEnvironmentManager.contains("stderrHandle?.readabilityHandler = { handle in"))
-        #expect(pythonEnvironmentManager.contains("process.terminationHandler = { proc in"))
-        #expect(!pythonEnvironmentManager.contains("runProcessCaptureSync("))
-        #expect(!pythonEnvironmentManager.contains("process.waitUntilExit()"))
-    }
-
-    @Test("python setup uses existing toolchains and a bounded subprocess environment")
-    func pythonSetupUsesExistingToolchainsAndBoundedSubprocessEnvironment() throws {
-        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
-
-        #expect(pythonEnvironmentManager.contains("nonisolated static func pythonToolEnvironment("))
-        #expect(pythonEnvironmentManager.contains("process.environment = Self.pythonToolEnvironment(executable: executable)"))
-        #expect(pythonEnvironmentManager.contains("\"PATH\": resolvedPath"))
-        #expect(pythonEnvironmentManager.contains("environment[\"PYTHONNOUSERSITE\"] = \"1\""))
-        #expect(pythonEnvironmentManager.contains("environment[\"PIP_DISABLE_PIP_VERSION_CHECK\"] = \"1\""))
-        #expect(pythonEnvironmentManager.contains("environment[\"PIP_NO_INPUT\"] = \"1\""))
-        #expect(pythonEnvironmentManager.contains("\"--disable-pip-version-check\""))
-        #expect(pythonEnvironmentManager.contains("\"--no-input\""))
-        #expect(!pythonEnvironmentManager.contains("ProcessInfo.processInfo.environment"))
-        #expect(!pythonEnvironmentManager.contains("raw.githubusercontent.com/Homebrew/install"))
-        #expect(!pythonEnvironmentManager.contains("curl -fsSL"))
-        #expect(!pythonEnvironmentManager.contains("NONINTERACTIVE=1"))
-        #expect(!pythonEnvironmentManager.contains("arguments: [\"install\", \"python@3.12\"]"))
-        #expect(!pythonEnvironmentManager.contains("executable: \"/usr/bin/env\""))
-        #expect(!pythonEnvironmentManager.contains("arguments: [\"which\", \"python3\"]"))
-    }
-
-    @Test("knowledge fusion Python subprocess fallbacks use bounded env and output")
-    func knowledgeFusionPythonSubprocessFallbacksUseBoundedEnvAndOutput() throws {
-        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
-        let audioTranscriber = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift")
-        // Owner 2026-06-18: QLoRATrainer no longer spawns python3 (native
-        // NativeLoRATrainer / MLXLLM.LoRATrain), so it has no bounded-env
-        // subprocess fallback to validate here. The rest still shell out.
-        // MoLoRAInferenceService removed 2026-06-18 (orphaned molora_inference.py
-        // subprocess gone; native NativeAdapterApply replaces it).
-        let ktoTrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift")
-
-        #expect(pythonEnvironmentManager.contains("final class KnowledgeFusionProcessOutputCapture"))
-        #expect(pythonEnvironmentManager.contains("maxBytes: Int = 64 * 1024"))
-        #expect(pythonEnvironmentManager.contains("nonisolated static func sanitizedProcessOutput("))
-        #expect(pythonEnvironmentManager.contains("[redacted sensitive diagnostic line]"))
-
-        #expect(ktoTrainer.contains("process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)"))
-        #expect(ktoTrainer.contains("let stdoutCapture = KnowledgeFusionProcessOutputCapture()"))
-        #expect(ktoTrainer.contains("let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
-        #expect(ktoTrainer.contains("let output = stdoutCapture.stringValue()"))
-
-        #expect(audioTranscriber.contains("process.environment = executable == pythonPath"))
-        #expect(audioTranscriber.contains("PythonEnvironmentManager.boundedToolEnvironment(executable: executable)"))
-        #expect(audioTranscriber.contains("private nonisolated static func whisperExecutablePath()"))
-        #expect(audioTranscriber.contains("let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
-        #expect(!audioTranscriber.contains("executable: \"/usr/bin/which\""))
-        #expect(!audioTranscriber.contains("arguments: [\"whisper\"]"))
-    }
-
     #if false
     @Test("Hermes health check requires a live bridge ping before reporting healthy")
     func hermesHealthCheckRequiresLiveBridgePing() throws {}
@@ -4506,24 +3974,7 @@ struct RuntimeValidationTests {
 
     @Test("long-lived subprocess continuations have timeout and cancellation escape hatches")
     func longLivedSubprocessContinuationsHaveTimeoutAndCancellationEscapeHatches() throws {
-        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
-        let audioTranscriber = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift")
-        // Owner 2026-06-18: QLoRATrainer is native now (no subprocess), so there's
-        // no long-lived-subprocess continuation to validate here.
-        let ktoTrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift")
         let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
-
-        #expect(pythonEnvironmentManager.contains("withTaskCancellationHandler"))
-        #expect(pythonEnvironmentManager.contains("ThrowingProcessContinuationState<PythonProcessExecution>()"))
-        #expect(pythonEnvironmentManager.contains("TimeoutError(seconds: timeoutSeconds)"))
-
-        #expect(audioTranscriber.contains("withTaskCancellationHandler"))
-        #expect(audioTranscriber.contains("ThrowingProcessContinuationState<String>()"))
-        #expect(audioTranscriber.contains("TimeoutError(seconds: timeoutSeconds)"))
-
-        #expect(ktoTrainer.contains("withTaskCancellationHandler"))
-        #expect(ktoTrainer.contains("ThrowingProcessContinuationState<Void>()"))
-        #expect(ktoTrainer.contains("TimeoutError(seconds: timeoutSeconds)"))
 
         #expect(vaultMutator.contains("withTaskCancellationHandler"))
         #expect(vaultMutator.contains("ThrowingProcessContinuationState<String>()"))
@@ -4553,15 +4004,11 @@ struct RuntimeValidationTests {
     @Test("main actor capture and vault helpers offload blocking subprocess waits")
     func mainActorCaptureAndVaultHelpersOffloadBlockingSubprocessWaits() throws {
         let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
-        let embodiedCapture = try loadRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
         let screenCapture = try loadRepoTextFile("Epistemos/Omega/Vision/ScreenCaptureService.swift")
 
         #expect(vaultMutator.contains("private nonisolated func runGitOffMain("))
         #expect(vaultMutator.contains("try await runGitOffMain("))
         #expect(vaultMutator.contains("DispatchQueue.global(qos: .utility).async"))
-
-        #expect(embodiedCapture.contains("private nonisolated func captureScreenshotOffMain("))
-        #expect(embodiedCapture.contains("await captureScreenshotOffMain("))
 
         #expect(screenCapture.contains("private nonisolated func restartReplayd("))
         #expect(screenCapture.contains("await restartReplayd("))
@@ -4598,9 +4045,6 @@ struct RuntimeValidationTests {
 
     @Test("duration formatters guard non-finite doubles before Int conversion")
     func durationFormattersGuardNonFiniteDoublesBeforeIntConversion() throws {
-        let trainOnVault = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/TrainOnVaultView.swift")
-
-        #expect(trainOnVault.contains("guard seconds.isFinite"))
         #expect(!FileManager.default.fileExists(atPath: repoRootURL.appendingPathComponent("Epistemos/Views/Chat/ThinkingTrailView.swift").path))
         #expect(!FileManager.default.fileExists(atPath: repoRootURL.appendingPathComponent("Epistemos/Views/Chat/ThinkingPopoverView.swift").path))
     }
@@ -6007,83 +5451,6 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("if preservedExpandedItems.isEmpty"))
     }
 
-    @Test("model vault settings reflect configured cloud providers and installed local models")
-    func modelVaultSettingsReflectConfiguredCloudProvidersAndInstalledLocalModels() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Settings/ModelVaultsSettingsView.swift",
-            testsFilePath: #filePath
-        )
-        let settings = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(source.contains("@Environment(InferenceState.self)"))
-        #expect(source.contains("inference.configuredCloudProviders"))
-        #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
-        #expect(source.contains("private func configuredTargets() -> [ModelVaultTarget]"))
-        #expect(settings.contains("CapabilityCeilingHealthSnapshot.load()"))
-        #expect(settings.contains("Capability Ceiling Context"))
-        #expect(settings.contains("canonical red"))
-        #expect(settings.contains("candidate evidence only, not the canonical KV-Direct route"))
-        #expect(settings.contains("contextInventoryEntry(for: descriptor.id)"))
-    }
-
-    @Test("model vault sidebar resolves authored model ids from vault metadata instead of sanitized directory names")
-    func modelVaultSidebarResolvesAuthoredModelIDsFromVaultMetadata() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("model-vault-sidebar-\(UUID().uuidString)", isDirectory: true)
-        let directory = root.appendingPathComponent("Qwen-Qwen3-4B-MLX-4bit", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-
-        let metadata = ModelVaultMetadata(
-            modelID: "Qwen/Qwen3-4B-MLX-4bit",
-            displayName: "Qwen 3 4B",
-            compiledAt: Date(timeIntervalSince1970: 0),
-            noteCount: 1,
-            conceptCount: 1,
-            activeNoteCount: 1,
-            tokenEstimate: 42
-        )
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let metadataData = try encoder.encode(metadata)
-        try metadataData.write(to: directory.appendingPathComponent("meta.json"), options: .atomic)
-
-        let entries = ModelVaultsSidebarSection.loadModelVaults(rootURL: root)
-        let entry = try #require(entries.first)
-
-        #expect(entry.id == "Qwen/Qwen3-4B-MLX-4bit")
-        #expect(entry.displayName == "Qwen 3 4B")
-        #expect(entry.subtitle == "Qwen/Qwen3-4B-MLX-4bit")
-    }
-
-    @Test("model vault sidebar falls back to canonical model ids when metadata is missing")
-    func modelVaultSidebarCanonicalizesKnownDirectoryNamesWithoutMetadata() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("model-vault-sidebar-fallback-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-
-        let localDirectory = root.appendingPathComponent("Qwen-Qwen3-4B-MLX-4bit", isDirectory: true)
-        let cloudDirectory = root.appendingPathComponent("gpt-5.4", isDirectory: true)
-        try FileManager.default.createDirectory(at: localDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: cloudDirectory, withIntermediateDirectories: true)
-
-        let entries = ModelVaultsSidebarSection.loadModelVaults(rootURL: root)
-        #expect(entries.count == 2)
-
-        let byDirectory = Dictionary(uniqueKeysWithValues: entries.map { ($0.directoryName, $0) })
-        let localEntry = try #require(byDirectory["Qwen-Qwen3-4B-MLX-4bit"])
-        #expect(localEntry.id == "Qwen/Qwen3-4B-MLX-4bit")
-        #expect(localEntry.displayName == "Qwen 3 4B")
-
-        let cloudEntry = try #require(byDirectory["gpt-5.4"])
-        #expect(cloudEntry.id == CloudTextModelID.openAIGPT54.vendorModelID)
-        #expect(cloudEntry.displayName == "GPT-4o")
-        #expect(cloudEntry.acceptedAuthoredModelIDs.contains(CloudTextModelID.openAIGPT54.rawValue))
-    }
-
     @Test("model involvement sheet accepts both current and legacy model id aliases")
     func modelInvolvementSheetAcceptsCurrentAndLegacyModelIDAliases() throws {
         let source = try loadRepoTextFileWithRetry(
@@ -6095,114 +5462,4 @@ struct InferenceCloudSelectionTests {
         #expect(!source.contains("#Predicate<SDMessage> { $0.authoredByModelID == modelID }"))
     }
 
-    @Test("model involvement sidebar renders a grouped contribution timeline with summary and filters")
-    func modelInvolvementSidebarRendersGroupedContributionTimelineWithSummaryAndFilters() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/ModelInvolvementSheet.swift",
-            testsFilePath: #filePath
-        )
-        let sidebar = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(source.contains("enum ModelInvolvementFilter"))
-        #expect(source.contains("ModelInvolvementContributionSummary"))
-        #expect(source.contains("groupedContributions("))
-        #expect(source.contains("case tools"))
-        #expect(source.contains("toolingCount"))
-        #expect(source.contains("Contribution Timeline"))
-        #expect(sidebar.contains("Contribution Timeline"))
-        #expect(sidebar.contains("Everything this model authored here"))
-    }
-
-    @Test("model vault sidebar expands inline instead of opening a browser sheet")
-    func modelVaultSidebarExpandsInline() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
-            testsFilePath: #filePath
-        )
-        let browserSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/ModelVaultBrowserSheet.swift",
-            testsFilePath: #filePath
-        )
-        #expect(source.contains("@State private var expandedModelIDs: Set<String> = []"))
-        #expect(source.contains("ModelVaultSidebarRow("))
-        #expect(!source.contains("ModelVaultBrowserSheet(entry: selection)"))
-        #expect(!source.contains(".sheet(item: $selectedModel)"))
-        #expect(!browserSource.contains("struct ModelVaultBrowserSheet"))
-    }
-
-    @Test("model vault sidebar keeps long vault lists inside a bounded scroll region")
-    func modelVaultSidebarBoundsExpandedListHeight() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
-            testsFilePath: #filePath
-        )
-        #expect(source.contains("private static let maxExpandedListHeight: CGFloat = 320"))
-        #expect(source.contains("ScrollView(.vertical)"))
-        #expect(source.contains("LazyVStack(alignment: .leading, spacing: 0)"))
-        #expect(source.contains("Self.maxExpandedListHeight"))
-        #expect(source.contains("sidebarDisclosure"))
-    }
-
-    @Test("model vault surfaces stay aligned with the curated visible model set")
-    func modelVaultSurfacesStayAlignedWithCuratedVisibleModelSet() throws {
-        let inference = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/State/InferenceState.swift",
-            testsFilePath: #filePath
-        )
-        let settings = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Settings/ModelVaultsSettingsView.swift",
-            testsFilePath: #filePath
-        )
-        let sidebar = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
-            testsFilePath: #filePath
-        )
-        let bootstrap = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/AppBootstrap.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(inference.contains("var visibleModelVaultModelIDs: Set<String>"))
-        #expect(inference.contains("func modelVaultTargets() -> [ModelVaultTarget]"))
-        #expect(settings.contains("inference.modelVaultTargets()"))
-        #expect(sidebar.contains("@Environment(InferenceState.self)"))
-        #expect(sidebar.contains("visibleModelVaults"))
-        #expect(bootstrap.contains("targetsProvider:"))
-        #expect(bootstrap.contains("targetsProvider: { inferenceState.modelVaultTargets() }"))
-    }
-
-    @Test("mlx ssm reuse stays scoped to the active chat session")
-    func mlxSSMReuseStaysScopedToTheActiveChatSession() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Engine/MLXInferenceService.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(source.contains("private var persistentSSMSessionID: String?"))
-        #expect(source.contains("persistentSSMModelID == request.modelID"))
-        #expect(source.contains("persistentSSMSessionID == activeSessionID"))
-        #expect(source.contains("persistentSSMSessionID = activeSessionID"))
-    }
-
-    @Test("cognitive settings expose SSM persistence controls and bootstrap uses shared config")
-    func cognitiveSettingsExposeSSMPersistenceControlsAndBootstrapUsesSharedConfig() throws {
-        let settings = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Settings/CognitiveSettingsSection.swift",
-            testsFilePath: #filePath
-        )
-        let bootstrap = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/AppBootstrap.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(settings.contains("Section(\"SSM State Persistence\")"))
-        #expect(settings.contains("Toggle(\"Enable SSM State Persistence\""))
-        #expect(settings.contains("Toggle(\"Save After Each Turn\""))
-        #expect(settings.contains("Stepper(value: $config.ssmMaxSnapshotsPerModel"))
-        #expect(bootstrap.contains("ssmStateService.activate(enabled: epistemosConfig.ssmStatePersistenceEnabled)"))
-        #expect(!bootstrap.contains("EpistemosConfig().ssmStatePersistenceEnabled"))
-    }
 }

@@ -37,11 +37,6 @@ struct ReleaseScriptAuditTests {
         ] {
             #expect(script.contains(font))
         }
-        // train_knowledge.py / train_style.py removed 2026-06-18 (QLoRA native).
-        #expect(script.contains("KnowledgeFusion/Alignment/scripts/train_kto.py"))
-        // molora_inference.py / sgmm_kernel.py removed 2026-06-18 (MoLoRA native).
-        #expect(script.contains("KnowledgeFusion/MOHAWK/eval_bfcl.py"))
-        #expect(script.contains("KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl"))
         #expect(script.contains("Contents/PlugIns"))
         #expect(script.contains("codesign --verify --deep --strict"))
     }
