@@ -60,9 +60,26 @@ The confusion of "FFI vs ACP vs WebView" dissolves once you see they're **differ
 
 `[VERIFIED-CODE 2026-06-25]` AgentClone does NOT use FFI — it has its own tools (`AgentTools+AppBridge`, `SkillsService`) + its own MCP client; `ToolTierBridge`/`execute_tool_call` (FFI) is wired to the OLD Epistemos-native chat (`PipelineService`) + Work, not AgentClone. **Earlier "Chat = FFI" was a stale description of the superseded chat stack.**
 
-**FFI is NOT a surface transport.** It's the internal Swift→Rust bridge the `epistemos-native` MCP server uses under the hood to reach `agent_core` (37 tools). So: **surfaces speak MCP to the app; the app speaks FFI to its own Rust.** Every surface (AgentClone, Goose, OpenCode) already has an MCP client → the `epistemos-native` MCP server is the ONE plane all three consume.
+**FFI is NOT a surface transport.** It's the internal Swift→Rust bridge the `epistemos-native` MCP server uses under the hood to reach `agent_core` (37 tools). So: **surfaces speak MCP to the app; the app speaks FFI to its own Rust.** Every surface (AgentClone, Goose, OpenCode) already has an MCP client → the `epistemos-native` MCP server is the ONE plane all three consume — **BUT only for *serializable* IP. Zero-copy / direct-memory IP is the exception → next subsection.**
 
 **The unlock:** add a tool to the agent_core registry → it appears on `epistemos-native` → **every surface's MCP client picks it up** (Work already; AgentClone + Goose once each registers the server). One addition, three surfaces. The `EpistemosToolExecution` facade sits *under* the MCP server (uses FFI to reach Rust); surfaces never touch FFI.
+
+### Direct-memory IP vs serializable IP — can all three use the same path? (NO — and why)
+`[VERIFIED-CODE 2026-06-25]` MCP serializes everything to JSON — fine for *results*, **fatal for zero-copy / direct-memory IP.** And Goose (`goose serve`) + OpenCode (`opencode serve`, launched via `Process()`) are **separate OS processes** — zero-copy across a process boundary is physically impossible. So the IP splits into two classes, and **only Chat can use the direct path:**
+
+**Class A — serializable / result-oriented → MCP, ALL THREE, uniform.** Small JSON: Eidos hits, DAG nodes/edges, provenance claims, fused-search results, AnswerPacket, vault note CRUD, skills, route/capability verdicts. Goose/OpenGUI get these identically to Chat.
+
+**Class B — direct-memory / zero-copy → in-process ONLY → Chat/AgentClone exclusively:** **KV-Direct** (`scope_rex/kv/direct_gate.rs` + `kv_direct_gate.metal`, bit-identical) · **UAS / AppColdStore / ColdStream / PageGather** (`shared_memory.rs`, IOSurface, mmap) · **SSM/Mamba-2 state** (`storage/ssm_state.rs`, multi-MB tensors) · **Neural Cache** (mmap hot pages, <1ms) · **InstantRecall** (<3ms in-memory binary index) · **continual-learning/LoRA** (multi-GB weights/adapters) · **Metal kernels** (GPU/IOSurface buffers) · **local MLX/GGUF generation** (KV+weights in unified memory). These ride the most-direct path — **in-process FFI / shared memory / IOSurface / opaque handles** (`rope_handle.rs`, Honest-Handle) — which only the **same-process native surface (Chat/AgentClone)** has.
+
+| | Class A (knowledge/retrieval) | Class B (direct-memory/inference) |
+|---|---|---|
+| **Chat / AgentClone** (in-process) | MCP client **or** native `AgentTools+AppBridge` | **DIRECT — in-process FFI / shared-memory / IOSurface (zero-copy)** ✅ |
+| **Act / Goose** (separate proc) | MCP | **cannot get direct memory** — request the op over MCP, receive only the *serialized result* |
+| **Work / OpenGUI** (separate proc) | MCP | **cannot get direct memory** — same: serialized result only |
+
+So **the memory-intensive / model-side IP is Chat-only by PHYSICS, not policy** — zero-copy can't cross a process boundary. The web surfaces still get the *benefit*: e.g. call `recall.instant` over MCP → the in-process app does the <3ms zero-copy index lookup → returns the recalled facts as JSON. The heavy memory work always stays in-process; only small results cross. *(Future: the XPC-Mastery doctrine's IOSurface-zero-copy across XPC services could give web surfaces shared-memory access — Pro/design-phase only.)*
+
+**Rule when wrapping IP as a tool:** small structured in/out → Class A → expose on `epistemos-native` for all three. Touches raw tensors / KV pages / mmap'd memory / GPU buffers / model weights → keep the heavy work **in-process**, return only a **serialized summary** — never ship the memory itself over MCP.
 
 ### The IP tool suite to BUILD (wrap each hardened IP module as a tool)
 | New/fixed tool | Wraps (your IP) | Action | Surfaces |
