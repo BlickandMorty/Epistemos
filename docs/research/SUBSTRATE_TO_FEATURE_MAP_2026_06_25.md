@@ -49,15 +49,20 @@ Your deep IP is **built and unit-tested (5,548 tests green) but NOT exposed as a
 
 **Verdict: not broken — UNEXPOSED + UNGATED-ON + INVISIBLE.** It was almost certainly "the chat couldn't test it," not "the IP doesn't work." The fix is exposure + wiring, not rewriting.
 
-### The architecture: expose ONCE, consume from all three (2/3 already built)
-The IP lives in `agent_core` (Rust) + Swift services. The **agent_core tool registry (37 live tools today)** is the single source; it's reachable three ways:
-| Surface | How it calls tools | IP today | State |
-|---|---|---|---|
-| **Chat / AgentClone** | native FFI `execute_tool_call(name, args, vault, tier)` (in-process, deepest) | full 37-tool registry | ✅ LIVE |
-| **Work / OpenGUI** | **MCP over loopback** — `WorkNativeMCPServer` → `epistemos-native` `/mcp` + bearer; OpenCode's `opencode.json` registers it | full 37 + computer-use via Swift bridge | ✅ LIVE — **gold standard** |
-| **Act / Goose** | Act today = **AgentClone (native Swift, interim)** — the old **Osaurus engine is DELETED** (verified 2026-06-25: `Epistemos/ActOsaurus/`, `LocalPackages/osaurus/`, `Vendor/Osaurus/`, the health row + tests all removed; zero live refs to the Osaurus chat bridge). AgentClone uses its own tool/skill path, not yet the agent_core registry. Target Act engine = **Goose via MCP**. | not yet on the shared registry | ❌ GAP — put AgentClone(-interim) on the agent_core registry; future Goose-Act wires its MCP config to `epistemos-native` |
+### The architecture: THREE LAYERS (don't conflate them), one IP transport = MCP
+The confusion of "FFI vs ACP vs WebView" dissolves once you see they're **different axes**, not alternatives:
 
-**The unlock:** add a tool to the ONE registry → **Work gets it instantly (MCP), Chat gets it (FFI), Act gets it once Goose-MCP is wired.** One addition, three surfaces. Build a single **`EpistemosToolExecution` facade** (one signature, already shared as `LocalAgentToolExecutor`) so all three call the identical path.
+| Surface | ① UI rendering | ② Agent loop / runtime | ③ Calls YOUR IP via | State of ③ |
+|---|---|---|---|---|
+| **Chat / AgentClone** | native Swift | AgentClone's own Swift runtime | **its own MCP client** (`AgentClone/MCP/MCPService`) + native `AgentTools+AppBridge` | client exists; not yet pointed at `epistemos-native` |
+| **Act / Goose** | WebView | **ACP** (WS → `goose serve`) | **MCP client** (register `epistemos-native`; Goose recipes run alongside) | target; Act=AgentClone-interim today (Osaurus DELETED, verified) |
+| **Work / OpenGUI** | WebView + native chrome | OpenCode **sidecar** | **MCP** — `WorkNativeMCPServer` → `epistemos-native` `/mcp` + bearer | ✅ LIVE — **gold standard** |
+
+`[VERIFIED-CODE 2026-06-25]` AgentClone does NOT use FFI — it has its own tools (`AgentTools+AppBridge`, `SkillsService`) + its own MCP client; `ToolTierBridge`/`execute_tool_call` (FFI) is wired to the OLD Epistemos-native chat (`PipelineService`) + Work, not AgentClone. **Earlier "Chat = FFI" was a stale description of the superseded chat stack.**
+
+**FFI is NOT a surface transport.** It's the internal Swift→Rust bridge the `epistemos-native` MCP server uses under the hood to reach `agent_core` (37 tools). So: **surfaces speak MCP to the app; the app speaks FFI to its own Rust.** Every surface (AgentClone, Goose, OpenCode) already has an MCP client → the `epistemos-native` MCP server is the ONE plane all three consume.
+
+**The unlock:** add a tool to the agent_core registry → it appears on `epistemos-native` → **every surface's MCP client picks it up** (Work already; AgentClone + Goose once each registers the server). One addition, three surfaces. The `EpistemosToolExecution` facade sits *under* the MCP server (uses FFI to reach Rust); surfaces never touch FFI.
 
 ### The IP tool suite to BUILD (wrap each hardened IP module as a tool)
 | New/fixed tool | Wraps (your IP) | Action | Surfaces |
@@ -76,7 +81,7 @@ The IP lives in `agent_core` (Rust) + Swift services. The **agent_core tool regi
 **Skills are the second axis:** skills are **prompt templates** (`SkillDiscoveryCatalog` / `SKILL.md`), NOT tool wrappers. To put IP into a skill, write a `SKILL.md` that *instructs the agent to use the new IP tools* (e.g. a "Cited Research" skill that calls `eidos.retrieve` → `provenance.claim`). Skills + tools compose; all three surfaces discover them (Work provisions `.opencode/skills`; Chat via SkillsService; Goose via its skill system).
 
 ### Per-surface assignment — maximum hardened capability
-- **CHAT / AgentClone (native, deepest):** the full tool registry **in-process via FFI** + the model-side IP nobody else gets — **local MLX/GGUF generation, overnight LoRA continual learning (it owns the MLX lane), honest RuntimeRouter, Sovereign Gate admission, the 75-rule security scanner.** Chat = the only surface with the *model brain*. Max depth, zero-copy.
+- **CHAT / AgentClone (native, deepest):** the full tool suite **via its own MCP client** (`AgentClone/MCP`) + native `AgentTools+AppBridge` + the model-side IP nobody else gets — **local MLX/GGUF generation, overnight LoRA continual learning (it owns the MLX lane), honest RuntimeRouter, Sovereign Gate admission, the 75-rule security scanner.** Chat = the only surface with the *model brain*. Max depth, zero-copy.
 - **ACT / Goose (web UI + ACP):** the **full shared tool suite via MCP** (Eidos, vault, graph, provenance, recall, search, skills, context, answer-explain) once Goose's MCP config points at `epistemos-native`. Goose's own recipes/extensions run *alongside* your IP tools. Agent loop = ACP; IP = MCP. No fine-tuning (its model is its own).
 - **WORK / OpenGUI (web SPA + sidecar):** the **full shared tool suite via the already-live MCP** + computer-use Swift bridge + workspace/code tools. Graph/provenance emphasis. No fine-tuning (OpenCode's model is its own). This is the **proven** path — copy its pattern to Act.
 
