@@ -18,6 +18,26 @@ Almost all of this is **already built at Tier-1** (compiled, cargo-verified, tes
 
 > These four compose into ONE story: **"a private, trustworthy workspace that sees your whole vault, automates what you repeat, improves itself overnight, and can prove everything it did — across chat, autonomous action, and coding."** All four are built (T1), on-16GB-feasible, and genuinely differentiated.
 
+## §1b The NON-MODEL substrate — your most-shipped, most-defensible layer (retrieval · knowledge · provenance)
+
+The deeper finding (Eidos + lattice + Living-Index sweep): your **non-model substrate is MORE shipped than the model side**, and it's what actually makes three surfaces feel like *one intelligent app*. Most of it is T4/T1-wired and needs only last-mile UI. **This is the crown jewel — lead with it, not the model fine-tuning.**
+
+| Subsystem | What it is | Build state | Feature → surface |
+|---|---|---|---|
+| **Eidos V0** | 9-mode deterministic retrieval with a CLOSED-CITATION contract — the AI can only cite what it actually retrieved | **Shipped T1 substrate** (472 Rust tests, Swift mirror, vault FFI, EidosHealthRow live); wiring W-47/W-48 pending-but-ready | **"every citation is real"** → all three (validate any surface's sources) |
+| **Halo/Shadow + RRF fusion** | live incremental BM25+HNSW+RRF(k=60), re-indexes on every vault edit | **Shipped T4** | **ambient recall — relevant notes surface as you work** → all three |
+| **Cognitive DAG + resonance** | typed content-addressed knowledge graph (10 node/10 edge kinds, Merkle, Kleene-K3 truth that cascades through DerivesFrom/Contradicts) | **Shipped T4 core**; live-driven resonance = Phase 8.H pending | **living knowledge graph — claims/evidence/contradictions with truth that propagates** → Work/Graph + shared |
+| **Provenance Ledger (ClaimLedger + ReplayBundle)** | every claim → evidence → status; retraction propagates to dependents; replay-auditable | **Shipped T1** | part of the honesty spine (§1.1) → all three |
+| **Meaning Anchors** | chat-as-intelligence: unified SDChat/SDMessage, recency weighting, proactive surfacing | **Shipped T4** | **"based on what you've been doing, here's what matters"** → Chat |
+| **Vault Memory System** | per-model 6-phase session memory (history, KV, reasoning, tool context, rollback) | **Shipped T4** | persistent sessions/recents → all three |
+| **Lattice WBO (Wyner-Ziv)** | 7-tier × 7-term error-budget LEDGER proving every compression/approximation's cost | **Shipped T1 (metadata)** | PLUMBING — the "compression never silently loses truth" accountant; surface only as a diagnostic |
+
+**Correction to §1:** the non-model retrieval/provenance/graph features are *closer to shippable AND more central to the PKM value prop* than model fine-tuning. "Overnight learning" is the flashiest, but **closed-citation retrieval (Eidos) + ambient recall (Halo/RRF) + living knowledge graph (DAG) + proven provenance (ClaimLedger)** are the foundation that makes Epistemos a *trustworthy knowledge OS* — and they're mostly built. Revised lead order in §5.
+
+**Accuracy note (agents disagreed, reconciled):** Eidos V0 — the 9-mode closed-citation *retrieval engine* — is SHIPPED substrate. The TurboVec/AppColdStore *compression layer* over it is research-only (21 falsifier gates pass on metadata, no code). Do not conflate them.
+
+**On "the lattice" (three distinct things):** (1) **LatticeWBO** = the shipped Wyner-Ziv write-budget error ledger (plumbing/diagnostics). (2) a **707KB HTML lattice-coordinate explainer** artifact (not wired into the app). (3) the aspirational **FCA concept-lattice UI** (navigable concept partial-orders) — no code, correctly your "absolutely last, indefinite" item. Robust *research* = `EPISTEMOS_LIVING_INDEX_2026_05_24.md` + `LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md`; the buildable near-term piece is the Cognitive DAG (already T4), not a new FCA engine.
+
 ## §2 Keep as PLUMBING (do NOT surface as a feature yet — promote later, one slice at a time)
 - **System G runtime / RuntimeRouter** — the engine under the provenance spine + Chat's lane selection. Surface the *output* (AnswerPacket), not the router.
 - **SSM / Mamba-2** (`ssm_state.rs`, Phase 1A) + **UAS / AppColdStore / cold-assembly** + the **5 HELIOS Metal kernels** (PageGather etc., W-41, dense-restore still failing) — these are the *reasoning backbone + memory transport* under Chat's local model. Invisible. Promote individually behind falsifiers.
@@ -35,12 +55,15 @@ Exotic kernels (BitNet b1.58, sparse-ternary GEMM, ternary GEMV), the 40 researc
 | "Adapter gift-box / Mailroom" | **the adapter/skill inventory** — where overnight-learned + downloaded adapters/skills live | shell/Settings → applies to Chat model |
 | "UAS / Neural Cache / cold assembly" | **shared vault memory** (surface the cache) + invisible transport (keep the rest) | all three (cache); plumbing (transport) |
 
-## §5 Promotion priority (the order to actually ship)
+## §5 Promotion priority (REVISED — lead with the mostly-shipped non-model substrate)
 1. **Autogenous skills proposal card** — shipped V1, just needs a surface. Fastest visible win.
-2. **Shared context snapshot → Chat + Act** — reuse Work's seam. Makes all three feel like one app.
-3. **Overnight local learning (Chat)** — prove one token-gen run, flip `EPISTEMOS_NIGHTBRAIN_LORA_V0`, add inventory UI. The signature differentiator.
-4. **Provenance spine (AnswerPacket) across all three** — the trust capstone; one slice (Gemma-E4B → MLX → visible AnswerPacket) first, then mirror Goose/OpenGUI events into it.
-5. Everything in §2 promotes *under* these, one falsifier at a time. §3 stays gated.
+2. **Eidos closed-citation gate (W-47) + "Retrieved by Eidos" brain-panel (W-48)** — shipped substrate, last-mile wiring. The trust differentiator: the AI can only cite what it actually retrieved. All three.
+3. **Ambient recall surfacing (Halo/Shadow + RRF)** — already T4; surface "relevant notes as you work" consistently across all three.
+4. **Shared context snapshot → Chat + Act** — reuse Work's seam. Makes all three feel like one app.
+5. **Living knowledge graph (Cognitive DAG)** — already T4 core; surface claims/evidence/contradictions; wire live resonance (Phase 8.H) for truth-propagation.
+6. **Overnight local learning (Chat)** — prove one token-gen run, flip `EPISTEMOS_NIGHTBRAIN_LORA_V0`, inventory UI. The signature *model-side* differentiator — after the non-model foundation is visible.
+7. **Provenance spine (AnswerPacket + ClaimLedger) across all three** — the trust capstone.
+Everything in §2 promotes *under* these, one falsifier at a time. §3 stays gated.
 
 ## §6 Build-state truth table (the "wired vs gated" sheet)
 | Subsystem | Build state | Surface fit | Action |
@@ -57,4 +80,6 @@ Exotic kernels (BitNet b1.58, sparse-ternary GEMM, ternary GEMV), the 40 researc
 | Exotic kernels + 40 research modules + ACS + XPC + 70B | Gated / research / never-MAS | — | Leave gated |
 
 ## §7 Final thought
-Don't attach the substrate as a dozen features. Attach **four** (three shared + one Chat), let the deep work be the **moat underneath them**, and promote one slice at a time. The substrate's value isn't a feature list — it's that these four features are *private, on-device, self-improving, and provable* in a way nobody using TS/Python wrappers can match. Ship the four; the depth is what makes them defensible.
+The shape: a small set of **cross-cutting non-model features** — closed-citation retrieval (Eidos), ambient recall (Halo/RRF), a living knowledge graph (Cognitive DAG), and a provenance spine (AnswerPacket + ClaimLedger) — that make all three surfaces one *trustworthy knowledge OS*; **plus** the model-side flourishes (overnight learning, honest routing) on Chat; **plus** autogenous skills across all three. The non-model layer is your crown jewel and it is **mostly already shipped** — the win is last-mile wiring, not new engines. Everything deeper (System G runtime, SSM, UAS, Metal kernels, Lean, the exotic research) stays the **moat underneath**.
+
+The defensibility nobody with TS/Python wrappers can touch: *private, on-device, self-improving, and **provable*** — and "provable" (closed-citation + claim ledger + answer packet) is the part you've built most fully. So the real order is: **ship the non-model foundation first** (it's closest to done and most central), then the model flourishes, then promote the deep moat one falsifier at a time. You don't need to build more — you need to *surface what's already there.*
