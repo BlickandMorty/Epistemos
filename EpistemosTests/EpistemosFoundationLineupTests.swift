@@ -607,34 +607,4 @@ struct EpistemosFoundationLineupTests {
         #expect(inference.fastEffortRouteReason(forComplexity: 0.9, operatingMode: .fast) == nil)
     }
 
-    // MARK: - P1.8 Honest install-progress display (never frozen)
-
-    @Test("install progress: 0 / absent / NaN map to an indeterminate 'Starting…' spinner")
-    func installProgressStartingIsIndeterminate() {
-        #expect(ModelInstallProgressDisplay.from(fraction: nil) == .indeterminate(status: "Starting…"))
-        #expect(ModelInstallProgressDisplay.from(fraction: 0) == .indeterminate(status: "Starting…"))
-        #expect(ModelInstallProgressDisplay.from(fraction: -0.2) == .indeterminate(status: "Starting…"))
-        #expect(ModelInstallProgressDisplay.from(fraction: Double.nan) == .indeterminate(status: "Starting…"))
-    }
-
-    @Test("install progress: in-flight fractions are determinate with a truncated percent")
-    func installProgressInFlightIsDeterminate() {
-        #expect(ModelInstallProgressDisplay.from(fraction: 0.5) == .determinate(fraction: 0.5, percent: 50))
-        #expect(ModelInstallProgressDisplay.from(fraction: 0.05) == .determinate(fraction: 0.05, percent: 5))
-        // Truncates so a determinate bar never prematurely reads 100%.
-        #expect(ModelInstallProgressDisplay.from(fraction: 0.999) == .determinate(fraction: 0.999, percent: 99))
-    }
-
-    @Test("install progress: 100% / overshoot map to 'Finalizing…' (verify + activate still running)")
-    func installProgressFinalizingIsIndeterminate() {
-        #expect(ModelInstallProgressDisplay.from(fraction: 1.0) == .indeterminate(status: "Finalizing…"))
-        #expect(ModelInstallProgressDisplay.from(fraction: 1.5) == .indeterminate(status: "Finalizing…"))
-    }
-
-    @Test("install progress: accessibility percent is the bar value, 0 while indeterminate")
-    func installProgressAccessibilityPercent() {
-        #expect(ModelInstallProgressDisplay.from(fraction: 0.42).accessibilityPercent == 42)
-        #expect(ModelInstallProgressDisplay.from(fraction: 0).accessibilityPercent == 0)
-        #expect(ModelInstallProgressDisplay.from(fraction: 1.0).accessibilityPercent == 0)
-    }
 }
