@@ -55,7 +55,7 @@ The IP lives in `agent_core` (Rust) + Swift services. The **agent_core tool regi
 |---|---|---|---|
 | **Chat / AgentClone** | native FFI `execute_tool_call(name, args, vault, tier)` (in-process, deepest) | full 37-tool registry | ✅ LIVE |
 | **Work / OpenGUI** | **MCP over loopback** — `WorkNativeMCPServer` → `epistemos-native` `/mcp` + bearer; OpenCode's `opencode.json` registers it | full 37 + computer-use via Swift bridge | ✅ LIVE — **gold standard** |
-| **Act / Goose** | currently Osaurus's OWN ~25–30 tools (divergent) | **does NOT see your IP** | ❌ GAP — wire Goose's MCP config to `epistemos-native` |
+| **Act / Goose** | Act today = **AgentClone (native Swift, interim)** — the old **Osaurus engine is DELETED** (verified 2026-06-25: `Epistemos/ActOsaurus/`, `LocalPackages/osaurus/`, `Vendor/Osaurus/`, the health row + tests all removed; zero live refs to the Osaurus chat bridge). AgentClone uses its own tool/skill path, not yet the agent_core registry. Target Act engine = **Goose via MCP**. | not yet on the shared registry | ❌ GAP — put AgentClone(-interim) on the agent_core registry; future Goose-Act wires its MCP config to `epistemos-native` |
 
 **The unlock:** add a tool to the ONE registry → **Work gets it instantly (MCP), Chat gets it (FFI), Act gets it once Goose-MCP is wired.** One addition, three surfaces. Build a single **`EpistemosToolExecution` facade** (one signature, already shared as `LocalAgentToolExecutor`) so all three call the identical path.
 
