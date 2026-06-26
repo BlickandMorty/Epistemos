@@ -385,3 +385,48 @@ public struct HoverPreview: View {
         .accessibilityLabel("Preview of \(hit.title)")
     }
 }
+
+private struct VaultRecallHaloProvenance: View {
+    let hit: ShadowHit
+    let theme: EpistemosTheme
+
+    private var iconName: String {
+        switch hit.domain {
+        case .notes: "doc.text"
+        case .chats: "bubble.left.and.bubble.right"
+        }
+    }
+
+    private var label: String {
+        let source = hit.source.trimmingCharacters(in: .whitespacesAndNewlines)
+        let vault = hit.originVaultKey?.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch (source.isEmpty, vault?.isEmpty == false ? vault : nil) {
+        case (true, nil):
+            return hit.domain.rawValue
+        case (false, nil):
+            return source
+        case (true, let vault?):
+            return vault
+        case (false, let vault?):
+            return "\(source) / \(vault)"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: iconName)
+                .font(.system(size: 9, weight: .semibold))
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(theme.glassBg.opacity(theme.isDark ? 0.36 : 0.46), in: Capsule())
+        .overlay(
+            Capsule()
+                .strokeBorder(theme.border.opacity(theme.isDark ? 0.28 : 0.34), lineWidth: 1)
+        )
+    }
+}

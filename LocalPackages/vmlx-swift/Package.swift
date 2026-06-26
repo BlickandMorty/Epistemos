@@ -301,6 +301,7 @@ let package = Package(
         .library(name: "MLXFast", targets: ["MLXFast"]),
         .library(name: "VMLXJinja", targets: ["VMLXJinja"]),
         .library(name: "VMLXHub", targets: ["VMLXHub"]),
+        .library(name: "VMLXHuggingFace", targets: ["VMLXHuggingFace"]),
         .library(name: "VMLXTokenizers", targets: ["VMLXTokenizers"]),
         .library(name: "VMLXTransformers", targets: ["VMLXTokenizers", "VMLXGeneration", "VMLXModels"]),
         .library(name: "MLXLMCommon", targets: ["MLXLMCommon"]),

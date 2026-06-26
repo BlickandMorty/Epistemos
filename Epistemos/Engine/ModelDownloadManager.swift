@@ -1,6 +1,6 @@
 import Foundation
 import CryptoKit
-import HuggingFace
+import VMLXHuggingFace
 
 actor ModelDownloadManager: LocalModelArtifactInstalling {
     private let fileManager = FileManager.default

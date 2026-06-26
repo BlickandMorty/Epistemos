@@ -148,6 +148,7 @@ final class ProseTextView2: NSTextView {
     // Stable editor notification names used by the note workspace and tests.
     nonisolated static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
     nonisolated static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
+    nonisolated static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
     nonisolated static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
     nonisolated static let translateNotification = Notification.Name("EpistemosTranslateText")
     nonisolated static let scrollToOffsetNotification = Notification.Name("EpistemosScrollToOffset")

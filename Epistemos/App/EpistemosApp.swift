@@ -1578,7 +1578,6 @@ struct EpistemosCommands: Commands {
 
         CommandGroup(replacing: .appVisibility) {
             Button("Go Home") {
-                chat.goHome()
                 ui.setActivePanel(.home)
                 ui.homeTab = .home
                 HomeWindowIdentity.surfaceHomeWindow()

@@ -94,15 +94,45 @@ Use the current command output as authoritative for this stop:
   `AgentClone bridge`, `Agent!`, `Agent Question`, `User Agent`,
   `Background Agents`, `Privileged Daemon`, `OpenCode`, `Goose`, and `Osaurus`.
 
+## Stage B Build-Fix Checkpoint - 2026-06-26
+
+- The app no longer depends on the remote `swift-huggingface` package path that
+  pulled `EventSource` and failed through unresolved
+  `CAsyncHTTPClient`/`CNIOLLHTTP`/`CNIOPosix`/`_NumericsShims` modules.
+- `LocalPackages/vmlx-swift` now exposes the vendored HuggingFace code as
+  `VMLXHuggingFace`, and the app imports that local product from
+  `ModelDownloadManager`.
+- `project.yml` is the source of truth for the regenerated Xcode project. It
+  carries the local `VMLXHuggingFace`, `AgentClone`, and `Swarm` package wiring,
+  plus the signing settings needed after `xcodegen generate`.
+- Old-chat deletion fallout was repaired by extracting only reusable primitives:
+  shared composer keyboard/layout helpers, transcript presentation transforms,
+  graph sidebar note/artifact snapshot building, agent-session deletion
+  Sovereign Gate policy, and graph/profile transparency values. These are not
+  `ChatView`, `ChatState`, Graph Chat, MiniChat, Note Chat, or Osaurus restores.
+- Landing source guards now assert the new boundary: Landing keeps attachment
+  and context tooling but does not call old `chat.addAttachment`, mount the old
+  saved-chat tool, or fetch `SDChat` history for the daily brief.
+
+Verification:
+
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -configuration Debug -destination 'platform=macOS' build`
+  passed with `** BUILD SUCCEEDED **`.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/GradeTests -only-testing:EpistemosTests/FileAttachmentBuilderTests -only-testing:EpistemosTests/ThemePairTests -only-testing:EpistemosTests/NoteInsightServiceTests -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests -only-testing:EpistemosTests/HaloUITests`
+  passed 186 tests.
+- Remote EventSource/HuggingFace scan is clean except for the intentional
+  vendored source path:
+  `LocalPackages/vmlx-swift/Package.swift:442: path: "Vendors/swift-huggingface/Sources/HuggingFace"`.
+
 ## Known Non-Completion
 
 - Full app-native graph/note/mini/document/native-action tools are not
   implemented yet. They are documented in
   `ACT_AGENTCLONE_POST_ISOLATION_DEEPENING_PLAN_2026_06_25.md` and should wait
   until the owner lifts isolation.
-- Full app Xcode testing remains outside this stop point because app-wide
-  deletion/refactor blockers were previously observed outside the Act/AgentClone
-  lane. Do not fix those from this lane unless explicitly reassigned.
+- Full Stage C app-wide portal work remains incomplete: MiniChat, Graph Chat,
+  Note Chat, vault actions, graph actions, and app-side tools still need to be
+  rebuilt as AgentClone/Swarm-backed Epistemos portals rather than old engines.
 - The Act host is deeply grounded into the app through prompt delivery, route
   selection, app context, project-folder adoption, task-prefix context, visible
   context rails, and Epistemos-owned session storage. It is not yet a complete

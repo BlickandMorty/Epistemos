@@ -3133,14 +3133,16 @@ final class AppBootstrap {
     }
     static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade {
         switch confidence {
-        case 0.9...:
-            return .primary
-        case 0.7..<0.9:
-            return .secondary
-        case 0.45..<0.7:
-            return .inferred
+        case 0.85...:
+            return .a
+        case 0.70..<0.85:
+            return .b
+        case 0.50..<0.70:
+            return .c
+        case 0.30..<0.50:
+            return .d
         default:
-            return .unknown
+            return .f
         }
     }
 

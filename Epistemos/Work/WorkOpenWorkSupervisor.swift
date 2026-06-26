@@ -27,7 +27,7 @@ final class WorkOpenWorkSupervisor {
 
     /// OpenWork's default worker port (`openwork-server --port`, default 8787) — matches the SPA's baked
     /// `VITE_OPENWORK_URL=http://localhost:8787`.
-    static let port = 8787
+    nonisolated static let port = 8787
     static let listenTimeout: Duration = .seconds(20)
 
     private var process: Process?

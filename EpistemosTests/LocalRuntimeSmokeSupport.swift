@@ -657,8 +657,8 @@ enum LocalRuntimeSmokeSupport {
 
         let mergedContext = [attachedContext, fileContext]
             .compactMap { section in
-                guard let trimmed = section.trimmingCharacters(in: .whitespacesAndNewlines),
-                      !trimmed.isEmpty else {
+                let trimmed = section.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else {
                     return nil
                 }
                 return trimmed

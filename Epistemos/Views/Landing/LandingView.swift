@@ -331,7 +331,10 @@ struct LandingView: View {
             return ComposerReferenceSearchResults(
                 query: query,
                 notes: [],
+                vaultTitle: nil,
                 vaultNoteCount: 0,
+                isInventoryComplete: true,
+                indexedMatchedNoteIDs: Set(indexedNoteIDs),
                 indexedNoteSnippetsByPageID: indexedNoteSnippets
             )
         }
@@ -367,7 +370,10 @@ struct LandingView: View {
         return ComposerReferenceSearchResults(
             query: query,
             notes: notes,
+            vaultTitle: manifest.vaultTitle,
             vaultNoteCount: manifest.totalNoteCount,
+            isInventoryComplete: manifest.isInventoryComplete,
+            indexedMatchedNoteIDs: Set(indexedNoteIDs),
             indexedNoteSnippetsByPageID: indexedNoteSnippets
         )
     }

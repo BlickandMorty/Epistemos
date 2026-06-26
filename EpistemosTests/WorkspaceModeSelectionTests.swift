@@ -29,7 +29,7 @@ struct WorkspaceModeSelectionTests {
             object: defaults,
             queue: nil
         ) { notification in
-            recorder.record(notification)
+            recorder.record(mode: notification.userInfo?[WorkspaceModeSelection.selectedModeUserInfoKey] as? String)
         }
         defer {
             NotificationCenter.default.removeObserver(observer)
@@ -86,9 +86,9 @@ private final class WorkspaceModeNotificationRecorder: @unchecked Sendable {
         return mode
     }
 
-    func record(_ notification: Notification) {
+    func record(mode selectedMode: String?) {
         lock.lock()
         defer { lock.unlock() }
-        mode = notification.userInfo?[WorkspaceModeSelection.selectedModeUserInfoKey] as? String
+        mode = selectedMode
     }
 }
