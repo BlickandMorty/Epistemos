@@ -1,3 +1,5 @@
+> ⛔ SUPERSEDED 2026-06-26 — Goose is the SINGLE surface. The 3-engine federation (Chat=AgentClone / Work=OpenGUI) described here is RETIRED. Canonical plan: `docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md` (§0, §15). Do not follow the federation / OpenGUI directives below.
+
 # Work/OpenGUI Post-Isolation Deepening Plan - 2026-06-25
 
 Purpose: this is the checklist for the next Work/OpenGUI deep-integration loop after the owner says the app-wide
