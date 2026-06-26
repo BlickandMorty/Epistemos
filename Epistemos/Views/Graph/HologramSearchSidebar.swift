@@ -166,7 +166,6 @@ enum GraphSidebarLayout {
     static let maxWidth: CGFloat = 560
     static let minHeight: CGFloat = 260
     static let maxHeight: CGFloat = 760
-    static let routedContentGap: CGFloat = 48
 
     static func boundedWidth(_ storedWidth: Double) -> CGFloat {
         CGFloat(min(max(storedWidth, Double(minWidth)), Double(maxWidth)))
@@ -174,10 +173,6 @@ enum GraphSidebarLayout {
 
     static func boundedHeight(_ storedHeight: Double) -> CGFloat {
         CGFloat(min(max(storedHeight, Double(minHeight)), Double(maxHeight)))
-    }
-
-    static func routedContentLeadingInset(storedWidth: Double) -> CGFloat {
-        boundedWidth(storedWidth) + routedContentGap
     }
 }
 

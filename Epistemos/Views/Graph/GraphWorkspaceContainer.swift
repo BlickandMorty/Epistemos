@@ -38,8 +38,6 @@ struct GraphWorkspaceContainer: View {
 
     // Injected by the surrounding HologramOverlayHostedViewBuilder
     @Environment(\.modelContext) private var modelContext
-    @AppStorage("epistemos.graphSidebarWidth.v1") private var graphSidebarWidthStorage = GraphSidebarLayout.defaultWidth
-    @AppStorage("epistemos.graphSidebarCollapsed.notesQuery.v1") private var isGraphSidebarCollapsed = false
     @State private var htmlWorkspaceDockVisible = false
     @State private var selectedHTMLWorkspaceID: String?
 
@@ -57,7 +55,6 @@ struct GraphWorkspaceContainer: View {
         // so the shape-blur is also visible while the user is on the canvas.
         ZStack {
             routeContent
-                .padding(.leading, routeSidebarInset)
 
             graphHTMLWorkspaceDockLayer
         }
@@ -115,13 +112,6 @@ struct GraphWorkspaceContainer: View {
                     .background(pageContentBackground)
             }
         }
-    }
-
-    private var routeSidebarInset: CGFloat {
-        if graphState.currentRoute.isCanvas || isGraphSidebarCollapsed {
-            return 0
-        }
-        return GraphSidebarLayout.routedContentLeadingInset(storedWidth: graphSidebarWidthStorage)
     }
 
     @ViewBuilder
