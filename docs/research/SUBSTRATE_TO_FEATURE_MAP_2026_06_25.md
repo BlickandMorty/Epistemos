@@ -92,7 +92,7 @@ The confusion of "FFI vs ACP vs WebView" dissolves once you see they're **differ
 4. **Witness instantly:** Work's MCP server is a **standing test harness** — `tools/call` over the loopback `/mcp` returns JSON. You can prove any tool works the moment it's registered, before any UI. Then add a health-row/transcript chip.
 5. **"Works" = invokable-from-a-surface-with-a-visible-result** (your own Tier-4 bar). The reason it never worked before = no tool + flag off + broken build. Fix those three and it works.
 
-**Fastest path to "I finally see my IP working":** fix the build → redirect `eidos.query` to the real engine + add `graph.dag_query`/`provenance.query` → flip flags → `tools/call` them over Work's loopback MCP → watch real closed-citation + DAG + provenance results come back. That single loop proves the whole plane, and then Chat (FFI) and Act (once Goose-MCP is wired) get the same tools for free.
+**Fastest path to "I finally see my IP working":** fix the build → redirect `eidos.query` to the real engine + add `graph.dag_query`/`provenance.query` → flip flags → `tools/call` them over Work's loopback MCP → watch real closed-citation + DAG + provenance results come back. That single loop proves the whole plane, and then Chat (AgentClone's own MCP client) and Act (once Goose-MCP is wired) get the same tools for free.
 
 ## §2 Keep as PLUMBING (do NOT surface as a feature yet — promote later, one slice at a time)
 - **System G runtime / RuntimeRouter** — the engine under the provenance spine + Chat's lane selection. Surface the *output* (AnswerPacket), not the router.

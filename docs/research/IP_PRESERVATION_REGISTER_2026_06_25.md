@@ -16,7 +16,7 @@
 ## §2 Keep-in-place (LIVE IP — already safe, do not touch)
 | IP | State | Note |
 |---|---|---|
-| Local Agent Brain (`LocalAgentLoop`/`PromptBuilder`/`LocalToolGrammar`/`GatewayPolicy`) | Live | The brain that rides any engine (MLX/GGUF/Osaurus); Eidos-cited, vault/skills/DAG/provenance |
+| Local Agent Brain (`LocalAgentLoop`/`PromptBuilder`/`LocalToolGrammar`/`GatewayPolicy`) | Live | The brain that rides any engine (MLX/GGUF; Osaurus deleted); Eidos-cited, vault/skills/DAG/provenance |
 | Cognitive DAG (Phase 8.A–C) | Shipped | 10 node/10 edge kinds, BLAKE3 merkle, resonance, macaroons, companions |
 | Provenance: ClaimLedger + ReplayBundle + `epistemos-trace` | Phase 1 shipped | retraction propagation, `.epbundle` BLAKE3 verify |
 | Eidos V0 (9-mode closed-citation retrieval) | Shipped substrate | wiring W-47/W-48 pending |
@@ -79,4 +79,4 @@ You were worried about lost/deleted IP. The sweep says: **you preserved it.** Th
 
 Nothing useful gets deleted. The rare depth you built is intact — the work is to *ship it into view*, one falsifiable slice at a time.
 
-**Why you could never get it working (and the fix):** the deep IP is built + unit-tested but **not exposed as a callable tool** — `eidos.query` is even a stub that bypasses the real engine; Cognitive DAG / provenance / Halo-RRF / continual-learning have zero tool wrappers; most are flag-OFF; and the app build was broken. It was unexposed + ungated-on + invisible, not broken. The fix (full design in `SUBSTRATE_TO_FEATURE_MAP_2026_06_25.md` §1c "The Epistemos Capability Plane"): wrap each IP module as ONE tool in the agent_core registry → Work consumes it instantly over its live MCP server, Chat over FFI, Act once Goose's MCP config points at `epistemos-native`. Expose once, consume from all three; test instantly via Work's loopback `/mcp`.
+**Why you could never get it working (and the fix):** the deep IP is built + unit-tested but **not exposed as a callable tool** — `eidos.query` is even a stub that bypasses the real engine; Cognitive DAG / provenance / Halo-RRF / continual-learning have zero tool wrappers; most are flag-OFF; and the app build was broken. It was unexposed + ungated-on + invisible, not broken. The fix (full design in `SUBSTRATE_TO_FEATURE_MAP_2026_06_25.md` §1c "The Epistemos Capability Plane"): wrap each IP module as ONE tool in the agent_core registry → every surface's MCP client picks it up (Work over its live MCP server; Chat via AgentClone's own MCP client; Act once Goose's MCP config points at `epistemos-native`). FFI is only the internal Swift→Rust bridge under the MCP server — never a surface transport. Expose once, consume from all three; test instantly via Work's loopback `/mcp`.
