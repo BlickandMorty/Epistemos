@@ -124,6 +124,31 @@ Verification:
   vendored source path:
   `LocalPackages/vmlx-swift/Package.swift:442: path: "Vendors/swift-huggingface/Sources/HuggingFace"`.
 
+## Stage C Portal Identity Checkpoint - 2026-06-26
+
+- `AgentChatState.openPortalContext(_:)` now opens Note, Graph, Mini, Landing,
+  and future portal contexts into the shared AgentClone-backed session spine
+  instead of always creating a fresh private session.
+- Portals without an explicit session id adopt the active AgentClone session and
+  preserve the loaded transcript. Portals with an explicit session id activate
+  that identity and clear transient in-memory transcript state rather than
+  faking persistence.
+- `RootView` now handles `.openAgentPortal` through `openPortalContext`, so
+  Note and Graph portal buttons route into the active AgentClone/Epistemos
+  session instead of reviving old Note Chat, Graph Chat, MiniChat, ChatView, or
+  Osaurus paths.
+- Source guards were updated to lock the current portal-aware Landing bridge:
+  Landing creates a new AgentClone-backed session for a new prompt, records the
+  portal context, and submits the bounded `agentClonePromptEnvelope` to
+  `AgentCloneBridge`.
+
+Verification:
+
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/AgentChatStateTests -only-testing:EpistemosTests/ActSurfaceOsaurusUIDirectionGuardTests -only-testing:EpistemosTests/Stash17LandingWaveCloseoutTests`
+  passed 48 tests in 3 suites.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -configuration Debug -destination 'platform=macOS' build`
+  passed with `** BUILD SUCCEEDED **`.
+
 ## Known Non-Completion
 
 - Full app-native graph/note/mini/document/native-action tools are not
