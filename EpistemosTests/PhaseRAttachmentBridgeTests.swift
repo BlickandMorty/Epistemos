@@ -16,7 +16,7 @@ import Testing
 // Addresses I-004 (snapshot vs live ambiguity), I-005 (popover
 // attachments don't grant live capabilities), I-006 (AI can't code/
 // edit attached code files) at the FFI-surface layer. Swift-side
-// integration into the rebuilt AgentClone/fusion attachment lane is a follow-up.
+// integration into a future transcript lane is a follow-up.
 //
 // Plan refs: docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §Phase R.4,
 // docs/KNOWN_ISSUES_REGISTER.md I-004/5/6.

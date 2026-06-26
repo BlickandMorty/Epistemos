@@ -4,15 +4,12 @@ import SwiftUI
 
 /// First-run setup wizard that guides the user through essential configuration.
 /// Shows automatically on first launch.
-/// Steps: 1) Welcome → 2) Vault → 3) Local Model (optional) → 4) Agent Runtime → 5) Done
+/// Steps: 1) Welcome -> 2) Vault -> 3) Foundation -> 4) Cloud Providers -> 5) Done
 struct SetupAssistantView: View {
     private static let stepTransition = Animation.spring(response: 0.35, dampingFraction: 0.85)
 
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
-    // SS-C #1 blocker: install the foundation model IN the wizard. LocalModelManager
-    // is injected by the same AppEnvironment as inference/ui above (safe to read).
-    @Environment(LocalModelManager.self) private var localModelManager
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -180,71 +177,37 @@ struct SetupAssistantView: View {
         .padding(.vertical, 24)
     }
 
-    // MARK: - Model
+    // MARK: - Foundation
 
     @ViewBuilder
     private var modelStep: some View {
-        let hasModel = inference.hasUsableLocalTextModel
-        let runtimeStatusLabel = inference.localModelInstallStateSummary.displayName
-        let installedModelLabel = inference.activeLocalTextModelDisplayName
-
         VStack(spacing: 16) {
-            SetupPixelGlyph(kind: .chip, tint: .purple)
-            Text("Private Note Intelligence")
+            SetupPixelGlyph(kind: .vault, tint: .purple)
+            Text("Foundation Features")
                 .font(AppDisplayTypography.font(size: 20))
                 .foregroundStyle(theme.fontAccent)
-            Text("Epistemos can run private note intelligence locally on your Mac. Installing a model enables note chat, summarization, and analysis, but you can skip this for now.")
+            Text("Epistemos keeps the native foundation focused on vault sync, fast search, provenance, skills, tools, and MCP connections. Model chat runs through the connected provider surfaces.")
                 .font(bodyFont)
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
 
-            if hasModel {
-                HStack(spacing: 8) {
-                    Rectangle()
-                        .fill(theme.success)
-                        .frame(width: 8, height: 8)
-                    Text(verbatim: "Local runtime ready (\(runtimeStatusLabel)): \(installedModelLabel)")
-                        .font(captionFont)
-                }
-                .padding()
-                .background(.green.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-            } else {
-                // SS-C (#1 blocker): show the live install/download state here when an
-                // install is running, instead of "install later in Settings".
-                Text(localModelManager.activeInstalls.isEmpty
-                     ? "Install the Epistemos AI foundation model to enable note chat, summarization, and analysis."
-                     : "Installing… \(runtimeStatusLabel)")
-                    .font(captionFont)
-                    .foregroundStyle(theme.textTertiary)
-                    .multilineTextAlignment(.center)
+            VStack(alignment: .leading, spacing: 8) {
+                statusRow("Vault sync", done: true)
+                statusRow("Fast search", done: true)
+                statusRow("Skills, tools, and MCP", done: true)
+                statusRow("Provenance foundation", done: true)
             }
+            .padding()
+            .background(theme.card.opacity(0.85))
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
 
             Spacer()
 
             HStack(spacing: 12) {
                 Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
-                if !hasModel {
-                    // SS-C #1 blocker: install the foundation model IN the wizard via the
-                    // SAME one-tap call the model manager uses (installEpistemosFoundation
-                    // Package) — no leaving the flow. hasModel flips true when it lands.
-                    let installing = !localModelManager.activeInstalls.isEmpty
-                    Button(installing ? "Installing…" : "Install Epistemos AI") {
-                        Task { try? await localModelManager.installEpistemosFoundationPackage() }
-                    }
+                Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
-                    .disabled(installing)
-                    // Advanced: the full model manager (all models) stays one tap away.
-                    Button("More Models") {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    }
-                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
-                }
-                if hasModel {
-                    Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
-                        .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
-                }
             }
         }
         .padding(.vertical, 24)
@@ -259,7 +222,7 @@ struct SetupAssistantView: View {
             Text("Cloud AI (Optional)")
                 .font(AppDisplayTypography.font(size: 20))
                 .foregroundStyle(theme.fontAccent)
-            Text("Connect a cloud AI provider for advanced capabilities like tool use, deep research, and extended reasoning. Local models work great on their own.")
+            Text("Connect a cloud AI provider for advanced capabilities like tool use, deep research, and extended reasoning.")
                 .font(bodyFont)
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -321,7 +284,7 @@ struct SetupAssistantView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault", done: vaultSync.vaultURL != nil)
-                statusRow("Local AI", done: inference.hasUsableLocalTextModel)
+                statusRow("Foundation", done: true)
                 statusRow("Cloud AI", done: inference.activeCloudProvider != nil)
             }
 

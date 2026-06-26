@@ -126,7 +126,7 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
         case .noActiveNote:
             "No note is open. Open a note first, then try again."
         case .noLocalModel:
-            "No usable local model is available. Open Settings to install or select one."
+            "App-local generation has been removed. Use a connected provider surface for model-backed actions."
         case .noVault:
             "No vault is active. Open a vault folder first."
         case .noteNotFound:

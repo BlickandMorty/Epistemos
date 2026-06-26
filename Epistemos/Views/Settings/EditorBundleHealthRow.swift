@@ -142,7 +142,7 @@ public struct BackgroundIndexingHealthRow: View {
 
     private let refreshInterval: TimeInterval
 
-    public init(refreshInterval: TimeInterval = 1.0) {
+    public init(refreshInterval: TimeInterval = 5.0) {
         self.refreshInterval = refreshInterval
         self._snapshot = State(initialValue: Self.snapshot())
     }

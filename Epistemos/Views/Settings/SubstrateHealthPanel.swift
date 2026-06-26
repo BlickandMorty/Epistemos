@@ -1,259 +1,107 @@
 import SwiftUI
 
-// MARK: - SubstrateHealthPanel
-//
-// Terminal D / T22 / W-29: a single Settings surface for substrate
-// health. The panel composes the existing WRV rows plus the missing
-// Terminal D rows. Green is reserved for production-wired or truly
-// reachable state; fixture, status-only, and dependency rows stay
-// orange/red until their backend witnesses are real.
-
 @MainActor
 public struct SubstrateHealthPanel: View {
-
     public init() {}
 
-    // Owner 2026-06-18: the 18 stacked health rows blew out the window height.
-    // The three sections are now collapsible (macOS 14+ Section(isExpanded:));
-    // the 10-row "Substrate Floor" section defaults COLLAPSED so the panel
-    // opens compact. Nothing is removed — every row is one click away.
+    @State private var showFoundation = true
     @State private var showRetrieval = true
-    @State private var showAgentRuntime = true
-    @State private var showSubstrateFloor = false
-
-    // SS-SH: the single shared 1 Hz clock for the whole panel — collapses the
-    // former ~17 per-row `Task.sleep` timers onto one driver (the `.task` on the
-    // Form below). Injected into every row via `.environment(healthClock)`.
+    @State private var showHonesty = true
+    @State private var showTools = true
     @State private var healthClock = SubstrateHealthClock()
 
     public var body: some View {
         Form {
-            // SUBSTRATE Phase 7 (owner 2026-06-20): a plain-language explainer so the panel isn't
-            // foreign. No new-model jargon — just what the substrate IS + how to read the colors.
             SettingsDescriptionText(
                 text: """
-                What this is — the "substrate" is the on-device machinery behind your answers: \
-                local retrieval, citations, and the checks that keep an answer honest and \
-                verifiable. These read-only rows are its health dashboard. Green = that piece is \
-                actually wired and verified; orange/red = a placeholder, status-only, or not yet \
-                reachable. Nothing here needs action — it's for transparency, not configuration.
+                Epistemos Foundation is the app-side IP that stays native: search, \
+                citation grounding, vault memory, tools/MCP, provenance, and \
+                verification. Generation engines live in Goose/OpenGUI/OpenCode-style \
+                surfaces, so this panel exposes only foundation features and health.
                 """
             )
+
+            Section("Foundation Features", isExpanded: $showFoundation) {
+                foundationFeature(
+                    title: "Skills, Tools, and MCP",
+                    detail: "Native capability plane exposed to Work/OpenCode and future Goose/OpenGUI bridges through the app-owned tool layer."
+                )
+                foundationFeature(
+                    title: "Halo, Shadow, and Fast Search",
+                    detail: "Vault recall, RRF search fusion, Eidos citation grounding, and editor indexing."
+                )
+                foundationFeature(
+                    title: "Provenance and Answer Witnesses",
+                    detail: "AnswerPacket, RunEventLog, ClaimLedger-style records, falsifier artifacts, and replayable audit traces."
+                )
+                foundationFeature(
+                    title: "Vault Memory",
+                    detail: "App-side recall/context features that serve surfaces without owning generation or training."
+                )
+                foundationFeature(
+                    title: "Sovereign Safety",
+                    detail: "SovereignGate, privacy boundaries, capability checks, and signed-action guardrails."
+                )
+            }
+
             Section("Retrieval and Indexing", isExpanded: $showRetrieval) {
                 SettingsDescriptionText(
-                    text: "Read-only substrate health for retrieval, citations, editor assets, and cross-index search."
+                    text: "Read-only health for app-side retrieval, citations, editor assets, and cross-index search."
                 )
-                surface(falsifier: "docs/falsifiers/F_EIDOS_CLOSED_CITATION_2026_05_18.md", wRow: "W-46", weight: .heavy) {
-                    EidosHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-VaultRecall-50_2026_05_17.md", wRow: "W-21", weight: .heavy) {
-                    VaultRecallHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md", wRow: "W-20", weight: .medium) {
-                    SearchFusionHealthRow()
-                }
-                // P5.H (visible determinism) — whether the EML vault re-rank
-                // (agent_core vault.rs, EPISTEMOS_EML_RERANK_V1) is fusing BM25
-                // with query coverage. Reads the live flag honestly (no falsifier).
+                EidosHealthRow()
+                VaultRecallHealthRow()
+                SearchFusionHealthRow()
                 EmlRerankGateHealthRow()
-                surface(falsifier: "docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md", wRow: "W-29", weight: .medium) {
-                    EditorBundleHealthRow()
-                }
+                EditorBundleHealthRow()
             }
 
-            Section("Agent Runtime", isExpanded: $showAgentRuntime) {
+            Section("Honesty and Provenance", isExpanded: $showHonesty) {
                 SettingsDescriptionText(
-                    text: "Local model routing, per-turn answer witnesses, and runtime capability channels."
+                    text: "Verification surfaces that make native actions and answers inspectable without owning a model runtime."
                 )
-                surface(falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md", wRow: "W-17", weight: .medium) {
-                    LocalAgentDiagnosticsHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md", wRow: "W-11", weight: .medium) {
-                    ActiveConstellationRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ULP-Oracle_2026_05_17.md", wRow: "W-14", weight: .heavy) {
-                    AnswerPacketHealthRow()
-                }
-                // P8.5 — visible determinism: whether the P8.1 schema gate is
-                // enforcing typed-schema validation of tool calls (no falsifier;
-                // it reads the live runtime flag honestly).
+                AnswerPacketHealthRow()
+                FalsifierArtifactsHealthRow()
+                FUlpHealthRow()
+                LatticeWBOHealthRow()
+                SubstrateDriftMonitorHealthRow()
+            }
+
+            Section("Tools and Surface Bridge", isExpanded: $showTools) {
+                SettingsDescriptionText(
+                    text: "Native app capabilities that Goose/OpenGUI/OpenCode-style surfaces can call through the app-owned bridge."
+                )
                 DeterministicSchemaGateHealthRow()
-                // P5.H A1 (EML-2) — whether ConfidenceRouter is applying the
-                // fused confidence×complexity route gate (reads the router's own
-                // emlRouteFusionEnabled() so it can't claim a fusion off the
-                // router isn't doing).
-                EmlRouteFusionHealthRow()
-                // DeerFlow — whether the multi-agent deep-research run is armed
-                // (agent_core deep_research, EPISTEMOS_DEEP_RESEARCH_V0). Reads the
-                // same flag the in-process Rust run reads.
-                DeepResearchHealthRow()
-
-                // DATA+FINETUNE (4) — whether Night Brain's native idle LoRA
-                // fine-tune is armed (EPISTEMOS_NIGHTBRAIN_LORA_V0). Reads the
-                // same flag the idle decision reads.
-                NightBrainLoRAHealthRow()
-
-                // Owner #1 (no hidden GPT route) — the honest local-resolve trace:
-                // whether the local PICK is honored, was substituted (and why), or
-                // nothing local is ready. Makes "I picked X but got Y/GPT" visible.
-                LocalRouteHonestyHealthRow()
-
-                // Goose=WORK import (R-GOOSE) — whether the Work-backend seam is
-                // armed (EPISTEMOS_WORK_GOOSE_V0, Pro). Honest "Pro only" on MAS;
-                // inert until the Goose Rust core is vendored. Chat/Act unaffected.
-                WorkBackendHealthRow()
-
-                // WORK = OpenCode shell (owner 2026-06-21) — whether the OpenCode
-                // terminal-shell seam is armed (EPISTEMOS_WORK_OPENCODE_V0, Pro). The
-                // SHELL (UI) seam, distinct from the Goose ENGINE seam above; Goose/
-                // Hermes/OpenClaw fuse beneath it. Honest "Pro only" on MAS; INERT
-                // until the native terminal view + Bun engine + OpenCode TUI land.
                 WorkOpenCodeShellHealthRow()
-
-                // R-LITEPARSE PDF→Markdown import — honest status of the liteparse seam
-                // (EPISTEMOS_LITEPARSE_PDF_V0). MAS-safe (in-process PDFium, no sidecar).
-                // S2 LANDED: the run-llama/liteparse Rust core is vendored + embedded
-                // (agent_core/vendor/liteparse); the live engine is behind the Pro/dev
-                // `liteparse-pdf` Cargo feature and still needs the PDFium dylib bundled
-                // into the signed .app to run in MAS (engine_wired reflects this).
+                WorkBackendHealthRow()
                 LiteParseImportHealthRow()
-
-                // The Settings bulk-import surface (owner R-LITEPARSE plan #4): when the
-                // flag is armed, the same bulk PDF→Markdown import as the sidebar button.
                 LiteParseSettingsImportRow()
             }
-
-            Section("Substrate Floor", isExpanded: $showSubstrateFloor) {
-                SettingsDescriptionText(
-                    text: "Witness rows for arithmetic, WBO accounting, EML observability, UAS/ACS, and DAG placement."
-                )
-                surface(falsifier: "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md", wRow: "T23B", weight: .medium) {
-                    FalsifierArtifactsHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ULP-Oracle_2026_05_17.md", wRow: "W-40", weight: .extreme) {
-                    FUlpHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md", wRow: "W-33", weight: .heavy) {
-                    LatticeWBOHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md", wRow: "W-25", weight: .extreme) {
-                    ACSAdmissionHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ULP-Oracle_2026_05_17.md", wRow: "W-07", weight: .extreme) {
-                    EmlObservatoryHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-UAS-CopyCount_2026_05_24.md", wRow: "W-10", weight: .extreme) {
-                    UasAcsHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md", wRow: "W-26", weight: .heavy) {
-                    CognitiveDagCountsHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md", wRow: "W-24/W-28/T14", weight: .extreme) {
-                    PlanePlacementHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md", wRow: "W-30", weight: .medium) {
-                    CognitiveWeightClassHealthRow()
-                }
-                surface(falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md", wRow: "W-33", weight: .heavy) {
-                    SubstrateDriftMonitorHealthRow()
-                }
-            }
         }
-        // SS-SH regression fix (owner-diagnosed 2026-06-20): the collapsible
-        // Section(isExpanded:) rows (added in 13d2b5307) need the GROUPED form style to
-        // render — without it the whole Form collapses to a blank panel. This was never
-        // about the SS-SH clock. Matches the .formStyle(.grouped) every other Settings
-        // Form already uses (SettingsView, CognitiveSettingsSection, …).
         .formStyle(.grouped)
         .environment(healthClock)
         .task {
-            // SS-SH: ONE shared 1 Hz clock for the whole panel — replaces the former
-            // ~17 per-row Task.sleep timers, AND fetches the unified snapshot once per
-            // tick off-MainActor (replacing the 6 identical per-row FFI calls).
-            // Auto-cancels when the panel leaves, so all polling stops deterministically.
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: SubstrateHealthClock.defaultPollInterval)
                 await healthClock.tickWithUnifiedRefresh()
             }
         }
     }
 
-    @ViewBuilder
-    private func surface<Content: View>(
-        falsifier: String,
-        wRow: String,
-        weight: SettingsCognitiveWeightClass,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            content()
-            HStack(spacing: 8) {
-                SettingsCognitiveWeightClassBadge(weight: weight)
-                SubstrateFalsifierLink(path: falsifier, wRow: wRow)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
+    private func foundationFeature(title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            Text(detail)
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 2)
-    }
-}
-
-// UAS: settings/cognitive-weight-class-badge
-// Plane: RuntimePlane::Verification
-// Residency: ResidencyTier::CurrentApp
-@MainActor
-private enum SettingsCognitiveWeightClass: String {
-    case light = "W1"
-    case medium = "W2"
-    case heavy = "W3"
-    case extreme = "W4"
-
-    var label: String {
-        switch self {
-        case .light: return "light"
-        case .medium: return "medium"
-        case .heavy: return "heavy"
-        case .extreme: return "extreme"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .light: return .secondary
-        case .medium: return .blue
-        case .heavy: return .orange
-        case .extreme: return .red
-        }
-    }
-
-    var help: String {
-        "\(rawValue) \(label) cognitive weight class - advisory W-30 badge, not policy enforcement"
-    }
-}
-
-// UAS: settings/cognitive-weight-class-badge
-// Plane: RuntimePlane::Verification
-// Residency: ResidencyTier::CurrentApp
-@MainActor
-private struct SettingsCognitiveWeightClassBadge: View {
-    let weight: SettingsCognitiveWeightClass
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "scalemass")
-                .font(.system(size: 9, weight: .semibold))
-            Text("\(weight.rawValue) \(weight.label)")
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-        }
-        .foregroundStyle(weight.tint)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(weight.tint.opacity(0.10), in: Capsule(style: .continuous))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary, in: Rectangle())
         .overlay {
-            Capsule(style: .continuous)
-                .stroke(weight.tint.opacity(0.30), lineWidth: 0.75)
+            Rectangle()
+                .stroke(.secondary.opacity(0.14), lineWidth: 0.75)
         }
-        .help(weight.help)
-        .accessibilityLabel(weight.help)
     }
 }

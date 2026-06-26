@@ -16,8 +16,8 @@ import SwiftUI
 // `fallback_tier=Fallback` renders amber + the scope caveat, NEVER
 // green — the artifact is honest about what is (and is not) measured.
 //
-// Mirrors FUlpHealthRow / VaultRecallHealthRow
-// shape (chip strip, refresh on appear, 1 Hz polling refresh).
+// Mirrors FUlpHealthRow / VaultRecallHealthRow shape (chip strip, refresh on
+// appear, shared health-clock polling refresh).
 //
 // Source:
 // - docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md (18 fields)

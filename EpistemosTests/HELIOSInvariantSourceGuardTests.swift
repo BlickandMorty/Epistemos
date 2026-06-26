@@ -1712,16 +1712,13 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("NEVER tensor checkpoints"))
     }
 
-    @Test("Stage 6 / W9-W11.b: HELIOS V5 scaffold is hidden from v1 Settings")
-    func stage6HeliosV5HiddenInSettingsView() throws {
+    @Test("Stage 6 / W9-W11.b: HELIOS V5 scaffold is not routed through Settings")
+    func stage6HeliosV5NotRoutedInSettingsView() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        // The SettingsSection enum case is preserved for source guards and
-        // deep-link compatibility.
-        #expect(source.contains("case heliosV5 = \"HELIOS V5\""))
-        // Routed to a read-only deferred scaffold if reached explicitly.
-        #expect(source.contains("case .heliosV5: HELIOSv5SettingsView()"))
-        // Not listed in visibleSections, so v1 does not surface HELIOS
-        // runtime controls as a shippable feature.
+        // Post-purge settings should not keep hidden research routes. The source
+        // scaffold remains for canon guards, but Settings cannot route to it.
+        #expect(!source.contains("case heliosV5 = \"HELIOS V5\""))
+        #expect(!source.contains("case .heliosV5: HELIOSv5SettingsView()"))
         let visibleSectionsStart = try #require(
             source.range(of: "static var visibleSections: [SettingsSection] {")?.upperBound
         )

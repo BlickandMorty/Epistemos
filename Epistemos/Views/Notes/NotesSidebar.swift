@@ -663,7 +663,6 @@ private struct NotesSidebarRowChrome: View {
 struct NotesSidebar: View {
     let allPages: [SDPage]
     let allFolders: [SDFolder]
-    var showsModelVaultsSection = true
 
     /// Injected page-select action. When non-nil, .openPage and .openIdea use this
     /// instead of opening a separate window. Allows the home workspace to select in-place.
@@ -736,12 +735,8 @@ struct NotesSidebar: View {
         vaultSync.vaultURL == nil && (!cachedPageItems.isEmpty || !cachedFolderItems.isEmpty)
     }
 
-    nonisolated static func shouldDisplayInPrimaryTree(
-        _ page: SDPage,
-        modelVaultRootURL: URL = ModelVaultsSidebarSection.modelVaultsRootURL()
-    ) -> Bool {
-        guard let filePath = page.filePath else { return true }
-        return !ModelVaultBrowserStore.isModelVaultPath(filePath, rootURL: modelVaultRootURL)
+    nonisolated static func shouldDisplayInPrimaryTree(_ page: SDPage) -> Bool {
+        true
     }
 
 
@@ -1058,10 +1053,7 @@ struct NotesSidebar: View {
         let fById = cachedFolderById
         let onAct: (SidebarAction) -> Void = { handleAction($0) }
 
-        // 2026-05-19: removed the "Notes" title HStack + NotesSidebarHeaderChrome
-        // per user direction. The header was duplicating the SidebarShell's
-        // ModeSwitcherControl ("Vault / Models / System") above it, and its
-        // chrome blur (opacity 0.28/0.18) didn't match the body (0.32/0.55).
+        // 2026-05-19: removed the duplicate "Notes" title header.
         // Letting the sidebar start at the search bar unifies the surface.
         VStack(spacing: 0) {
             searchBar
@@ -1088,23 +1080,11 @@ struct NotesSidebar: View {
                     .padding(.bottom, 6)
             }
             fileTree(folderItemById: fById, onAction: onAct)
-            // Pass 10 — per-model vaults + involvement view. Collapsed
-            // by default (@AppStorage-backed) so it never disrupts the
-            // sidebar's default layout, and never loads the model-vault
-            // directory until the user expands it. Kept here rather
-            // than inside `fileTree` because it's a parallel top-level
-            // surface, not part of the vault's note hierarchy.
             // 2026-05-19: removed the W9.7 single-row VaultSelectorView
             // ("Vaults · Current vault") per user direction. Multi-vault
             // support is not wired (selectionEnabled was permanently false),
             // so the row was dead chrome. When real known-vault switching
             // lands, restore the section here with the new picker.
-            if showsModelVaultsSection {
-                ModelVaultsSidebarSection(onSelectPage: onSelectPage)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                Divider().opacity(0.2)
-            }
             bottomBar
         }
         .background {

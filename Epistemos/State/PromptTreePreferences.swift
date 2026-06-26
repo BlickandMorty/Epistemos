@@ -10,12 +10,11 @@ import Foundation
 // `ProcessInfo.processInfo.environment["EPISTEMOS_PROMPT_TREE"]`.
 // This helper preserves that path (env var takes precedence — useful
 // for CI / Xcode scheme overrides) AND adds a UserDefaults-backed
-// toggle so end-users can flip the feature on through the
-// StructuredSurfacesView "Prompt Tree (Beta)" toggle.
+// toggle so end-users can flip the feature on through Experimental Features.
 //
 // Doctrine alignment:
 //   - 01_DOCTRINE.md §6 #1 (no silent behavior — the toggle's state
-//     is visible in Settings → Agent → Structures)
+//     is visible in Settings → Experimental Features)
 //   - 01_DOCTRINE.md §6 #5 (no silent fallback — env var wins, but
 //     when only the toggle is set, it's still observable)
 //   - PROMPT_AS_DATA_SPEC.md §7 Phase 1 (Settings toggle for the

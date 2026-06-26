@@ -30,7 +30,6 @@ struct Stash18AgentCommandCenterDonorSynthesisTests {
         #expect(doc.contains("InspectorPanelView.swift"))
         #expect(doc.contains("SuggestionPopoverView.swift"))
         #expect(doc.contains("Do not create another page shell."))
-        #expect(doc.contains("AgentClone/fusion owns the live chat path"))
         #expect(doc.contains("LocalModelToolbarMenu"))
         #expect(doc.contains("Keep landing and main chat off the deleted native chat backend."))
         #expect(!doc.contains("routes through `MainChatSubmissionRouter`"))

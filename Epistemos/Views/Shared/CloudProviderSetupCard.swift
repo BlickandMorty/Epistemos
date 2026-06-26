@@ -269,10 +269,10 @@ struct CloudProviderSetupCard: View {
     private var inlineGuidanceText: String? {
         if provider == .google, !hasSavedAPIKey, oauthCredential == nil {
             if !CloudProviderSetupAutomation.hasStoredGoogleOAuthClientConfig() {
-                return "Open Inference Settings to choose the Google OAuth client JSON you downloaded from Google Cloud Console for a Desktop app before connecting your account."
+                return "Open Settings to choose the Google OAuth client JSON you downloaded from Google Cloud Console for a Desktop app before connecting your account."
             }
             if CloudProviderSetupAutomation.storedGoogleOAuthClientConfiguration() == nil {
-                return "Open Inference Settings to enter the Google Cloud project ID for the same Gemini-enabled project before connecting your account."
+                return "Open Settings to enter the Google Cloud project ID for the same Gemini-enabled project before connecting your account."
             }
         }
         if let providerGuidance = provider.accountGuidanceText(validationState: validationState) {
@@ -385,8 +385,8 @@ struct CloudProviderSetupCard: View {
                                     }
 
                                     if showsOpenSettings {
-                                        Button("Open Inference Settings") {
-                                            openInferenceSettings()
+                                        Button("Open Settings") {
+                                            openSettings()
                                         }
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
@@ -468,8 +468,8 @@ struct CloudProviderSetupCard: View {
                         }
 
                         if showsOpenSettings {
-                            Button("Open Inference Settings") {
-                                openInferenceSettings()
+                            Button("Open Settings") {
+                                openSettings()
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
@@ -566,7 +566,7 @@ struct CloudProviderSetupCard: View {
 
             if provider == .google, case .invalid = validationState {
                 Button("Retry Google OAuth") {
-                    openInferenceSettings()
+                    openSettings()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -607,8 +607,8 @@ struct CloudProviderSetupCard: View {
                 }
 
                 if showsOpenSettings {
-                    Button("Open Inference Settings") {
-                        openInferenceSettings()
+                    Button("Open Settings") {
+                        openSettings()
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -632,7 +632,7 @@ struct CloudProviderSetupCard: View {
         NSWorkspace.shared.open(url)
     }
 
-    private func openInferenceSettings() {
+    private func openSettings() {
         UtilityWindowManager.shared.show(.settings)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -673,15 +673,15 @@ struct CloudProviderSetupCard: View {
             } else {
                 let message: String
                 if !CloudProviderSetupAutomation.hasStoredGoogleOAuthClientConfig() {
-                    message = "Choose a Google Desktop OAuth client JSON file in Inference Settings before connecting Google OAuth."
+                    message = "Choose a Google Desktop OAuth client JSON file in Settings before connecting Google OAuth."
                 } else {
-                    message = "Enter a Google Cloud project ID in Inference Settings before connecting Google OAuth."
+                    message = "Enter a Google Cloud project ID in Settings before connecting Google OAuth."
                 }
                 result = inference.recordCloudProviderValidationFailure(
                     for: .google,
                     message: message
                 )
-                openInferenceSettings()
+                openSettings()
             }
         case .zai, .kimi, .minimax, .deepseek:
             if let url = provider.credentialManagementURL {

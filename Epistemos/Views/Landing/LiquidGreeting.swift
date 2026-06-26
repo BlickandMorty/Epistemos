@@ -62,12 +62,10 @@ enum LiquidGreetingTiming {
 //
 // Per user direction 2026-05-13 (third pass): the smaller rotating
 // phrase rail underneath the hero is REMOVED. The landing greeting now
-// loops two stacked hero pairs:
-//   1. "Greetings,"  /  "Researcher"
-//   2. "Click anywhere"  /  "to start a conversation"
-// Both pairs render in the hero font + size — no separate smaller
-// font. The hero typewriter cycles: types pair 1, holds, backspaces,
-// types pair 2, holds, backspaces, repeats. Landing owns its own scoped
+// renders one stacked hero pair:
+//   "Greetings,"  /  "Researcher"
+// The old click-anywhere chat/search prompt is intentionally gone; landing
+// actions now live in explicit command tiles. Landing owns its own scoped
 // typography: Classic uses Matrix Type Bold for this hero, Platinum uses
 // the non-watermarked Matrix Type face, and Ember keeps ColorBasic.
 
@@ -79,8 +77,7 @@ struct LiquidGreeting: View {
     }
 
     nonisolated static let greetingPair = HeroPair(line1: "Greetings,", line2: "Researcher")
-    nonisolated static let promptPair = HeroPair(line1: "Click anywhere", line2: "to start a conversation")
-    nonisolated static let heroPairs: [HeroPair] = [greetingPair, promptPair]
+    nonisolated static let heroPairs: [HeroPair] = [greetingPair]
 
     nonisolated static let greetingLine1 = greetingPair.line1
     nonisolated static let greetingLine2 = greetingPair.line2
@@ -202,9 +199,8 @@ struct LiquidGreeting: View {
             line1 = ""
             line2 = ""
             guard await pause(LiquidGreetingTiming.startupDelay()) else { return }
-            // 2026-05-13 third pass: loop the two stacked hero pairs
-            // (Greetings/Researcher ↔ Click anywhere/to start a
-            // conversation). No smaller-font phrase rail underneath.
+            // 2026-05-13 third pass, simplified post-purge: loop the landing
+            // greeting only. No smaller-font phrase rail underneath.
             await runHeroLoop()
         }
         .task(id: searchReady && searchMode) {

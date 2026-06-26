@@ -1219,14 +1219,14 @@ struct RuntimeValidationTests {
         #expect(snapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue))
     }
 
-    @Test("landing composer uses the inline runtime panel for model and mode selection")
-    func landingComposerUsesInlineRuntimePanel() throws {
+    @Test("landing no longer mounts runtime model selection")
+    func landingNoLongerMountsRuntimeModelSelection() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(!landing.contains("ChatBrainPickerMenu("))
-        #expect(landing.contains("InlineRuntimePickerPanel("))
-        #expect(landing.contains("operatingMode: operatingModeBinding"))
-        #expect(landing.contains("availableOperatingModes: supportedOperatingModes"))
+        #expect(!landing.contains("InlineRuntimePickerPanel("))
+        #expect(!landing.contains("operatingMode: operatingModeBinding"))
+        #expect(!landing.contains("availableOperatingModes: supportedOperatingModes"))
         #expect(!landing.contains("OperatingModeSelectorView("))
     }
 
@@ -2185,8 +2185,8 @@ struct RuntimeValidationTests {
         #expect(utilityManager.contains("HomeWindowIdentity.surfaceHomeWindow()"))
     }
 
-    @Test("bootstrap keeps AgentClone/fusion state without deleted chat state")
-    func fusedMainChatBootstrapKeepsOnlyTheLiveGraphHandoffHelper() throws {
+    @Test("bootstrap keeps inert agent state without deleted chat surface")
+    func bootstrapKeepsOnlyInertAgentStateWithoutDeletedChatSurface() throws {
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
         #expect(bootstrap.contains("let agentChatState = AgentChatState()"))
@@ -2797,21 +2797,23 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("let snapshot = cachedNotesTreeSnapshot"))
     }
 
-    @Test("graph exposes node chat in the sidebar with shared main composer chrome")
-    func graphExposesNodeChatInTheSidebarWithSharedMainComposerChrome() throws {
+    @Test("graph sidebar keeps notes and query but not graph chat")
+    func graphSidebarKeepsNotesAndQueryButNotGraphChat() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
         let state = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
 
-        #expect(sidebar.contains("enum SidebarTab { case notes, query, chat }"))
-        #expect(sidebar.contains("case .chat"))
+        #expect(sidebar.contains("enum SidebarTab { case notes, query }"))
+        #expect(sidebar.contains("case .notes"))
+        #expect(sidebar.contains("case .query"))
+        #expect(!sidebar.contains("case .chat"))
         #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarWidth.v1\")"))
         #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarHeight.v1\")"))
-        #expect(sidebar.contains("ChatComposerTextEditor("))
-        #expect(sidebar.contains(".assistantComposerChrome("))
-        #expect(sidebar.contains("ComposerControlStrip(spacing: 8, resetKey: graphComposerControlResetKey)"))
-        #expect(sidebar.contains("AssistantSendButton("))
+        #expect(!sidebar.contains("ChatComposerTextEditor("))
+        #expect(!sidebar.contains(".assistantComposerChrome("))
+        #expect(!sidebar.contains("graphComposerControlResetKey"))
+        #expect(!sidebar.contains("AssistantSendButton("))
         #expect(!sidebar.contains("TextField(\"Ask this node\""))
         #expect(state.contains("enum InspectorMode: Hashable { case profile, editor }"))
         #expect(!inspector.contains("Text(\"Chat\").tag(NodeInspectorState.InspectorMode.chat)"))
@@ -2943,15 +2945,15 @@ struct RuntimeValidationTests {
         #expect(!tk2.contains("coord.renderedTableOverlayManager = RenderedTableOverlayManager2("))
     }
 
-    @Test("landing exposes mode selection without keeping a separate agent page alive")
-    func landingExposesOperatingModeSelectionWithoutSeparateAgentPage() throws {
+    @Test("landing does not expose mode selection or a separate agent page")
+    func landingDoesNotExposeModeSelectionOrSeparateAgentPage() throws {
         let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
 
         #expect(inference.contains("enum EpistemosOperatingMode"))
-        #expect(landing.contains("operatingMode: operatingModeBinding"))
+        #expect(!landing.contains("operatingMode: operatingModeBinding"))
         #expect(!root.contains("AgentChatView()"))
         #expect(!repoFileExists("Epistemos/Views/AgentChat/AgentChatView.swift"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
@@ -2982,8 +2984,8 @@ struct RuntimeValidationTests {
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
     }
 
-    @Test("landing search keeps only the fused AgentClone path")
-    func landingSearchKeepsOnlyTheFusedAgentClonePath() throws {
+    @Test("landing keeps plain Home route without fused chat launch")
+    func landingKeepsPlainHomeRouteWithoutFusedChatLaunch() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
@@ -2994,7 +2996,10 @@ struct RuntimeValidationTests {
         #expect(!landing.contains("submitLandingAgentPrompt("))
         #expect(!landing.contains("landingAgentDraft("))
         #expect(!landing.contains("ChatBrainPickerMenu("))
-        #expect(landing.contains("InlineRuntimePickerPanel("))
+        #expect(!landing.contains("AgentCloneBridge.submitPrompt"))
+        #expect(!landing.contains("AgentPortalContextSnapshot"))
+        #expect(!landing.contains("@Environment(AgentChatState.self)"))
+        #expect(!landing.contains("title: \"search\""))
         #expect(!bootstrap.contains("agentChatState.startNewSession()"))
     }
 
@@ -4196,28 +4201,28 @@ struct RuntimeValidationTests {
         #expect(vaultIndexActor.contains("private nonisolated static func contentModificationDate("))
     }
 
-    @Test("landing search uses the inline stage without the retired liquid wave overlay")
-    func landingSearchUsesInlineStageWithoutRetiredLiquidWaveOverlay() throws {
+    @Test("landing command stage has no native search composer or retired liquid wave overlay")
+    func landingCommandStageHasNoNativeSearchComposerOrRetiredLiquidWaveOverlay() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(landing.contains("LiquidGreeting("))
-        #expect(landing.contains("landingSearchInputLine"))
-        #expect(landing.contains("ChatComposerTextEditor("))
-        #expect(landing.contains("landingSearchInlineStage"))
-        #expect(landing.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
+        #expect(!landing.contains("landingSearchInputLine"))
+        #expect(!landing.contains("ChatComposerTextEditor("))
+        #expect(!landing.contains("landingSearchInlineStage"))
+        #expect(landing.contains("landingSearchStepReveal(frame: landingStageRevealFrame"))
         #expect(!landing.contains("LandingWaveOverlay("))
         #expect(!landing.contains("LandingWaveHaptics.fireBeat"))
         #expect(!landing.contains("TextField(\"\", text: $landingSearchText)"))
         #expect(!landing.contains(".frame(width: 2, height: 2)"))
         #expect(!landing.contains(".appKitPopover("))
         #expect(!landing.contains("SpatialTapGesture("))
-        #expect(landing.contains("if showingLandingStageCommand {\n                        dismissLandingStageCommand()\n                        return\n                    }"))
-        #expect(landing.contains("showLandingSlashMenu"))
-        #expect(landing.contains("SlashCommandPopover("))
-        #expect(landing.contains("handleLandingSearchTextChange(newValue)"))
-        #expect(landing.contains("supportedLandingSlashItems"))
-        #expect(landing.contains("agentCommandCenter.availableSkills"))
-        #expect(landing.contains("chat.queuePendingSlashToken(slashToken)"))
+        #expect(landing.contains("if showingLandingStageCommand {\n                        dismissLandingStageCommand()\n                    }"))
+        #expect(!landing.contains("showLandingSlashMenu"))
+        #expect(!landing.contains("SlashCommandPopover("))
+        #expect(!landing.contains("handleLandingSearchTextChange(newValue)"))
+        #expect(!landing.contains("supportedLandingSlashItems"))
+        #expect(!landing.contains("agentCommandCenter.availableSkills"))
+        #expect(!landing.contains("chat.queuePendingSlashToken(slashToken)"))
     }
 
     @Test("app menu fallback does not structurally mutate SwiftUI-owned menus")

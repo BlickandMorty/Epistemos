@@ -562,7 +562,7 @@ struct GraphForceSettings: View {
                     value: gs.boidsCohesion,
                     range: 0...1,
                     format: "%.2f",
-                    subtitle: "Loose \u{2194} Swarm",
+                    subtitle: "Loose \u{2194} Clustered",
                     onChange: { graphState.pushLabChange() }
                 )
             }

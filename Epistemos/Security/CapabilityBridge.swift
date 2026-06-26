@@ -35,12 +35,8 @@ nonisolated enum CapabilityGrantKind: Equatable, Sendable {
     }
 
     var requiresSovereignApproval: Bool {
-        switch self {
-        case .biometricSession:
-            true
-        case .vaultPath, .networkHost, .other:
-            false
-        }
+        if case .biometricSession = self { return true }
+        return false
     }
 
     var canonicalPayload: String {
@@ -63,9 +59,7 @@ nonisolated struct CapabilityGrant: Equatable, Sendable {
     let kind: CapabilityGrantKind
     let issuedAtUnix: UInt64
     let expiresAtUnix: UInt64
-    let surface: LocalAgentGatewaySurface
-    let tier: LocalAgentGatewayTier
-    let route: LocalAgentGatewayRoute
+    let surface: String
     let metadata: [String: String]
     let signatureHex: String
 
@@ -76,8 +70,6 @@ nonisolated struct CapabilityGrant: Equatable, Sendable {
 
 nonisolated enum CapabilityBridgeDenial: Error, Sendable {
     case invalidTTL
-    case coreDistributionDenied(surface: LocalAgentGatewaySurface)
-    case subjectSurfaceMismatch(subject: CapabilityBridgeSubject, surface: LocalAgentGatewaySurface)
     case sovereignDenied(reason: SovereignGateDenialReason)
     case expired
     case signatureMismatch
@@ -117,24 +109,16 @@ final class CapabilityBridge {
     func issueGrant(
         subject: CapabilityBridgeSubject,
         kind: CapabilityGrantKind,
-        surface: LocalAgentGatewaySurface,
+        surface: String,
         ttlSecs: UInt32,
         distribution: ToolSurfacePolicy.Distribution = .currentBuild,
         reason: String,
         metadata: [String: String] = [:],
         now: Date = Date()
     ) async -> Result<CapabilityGrant, CapabilityBridgeDenial> {
+        _ = distribution
         guard ttlSecs > 0 else {
             return .failure(.invalidTTL)
-        }
-
-        if ToolSurfacePolicy.resolvedDistribution(distribution) == .coreAppStore,
-           !LocalAgentGatewayPolicy.isAllowedInCoreAppStoreBuild(surface) {
-            return .failure(.coreDistributionDenied(surface: surface))
-        }
-
-        guard Self.subject(subject, allows: surface) else {
-            return .failure(.subjectSurfaceMismatch(subject: subject, surface: surface))
         }
 
         if kind.requiresSovereignApproval {
@@ -151,7 +135,6 @@ final class CapabilityBridge {
         }
 
         let issuedAt = CapabilityBridgeClock.nowUnix(now)
-        let decision = LocalAgentGatewayPolicy.decision(for: surface)
         var grantMetadata = metadata
         grantMetadata["capability_donor_shape"] = kind.donorShape
         if case .biometricSession(let ttlSecs) = kind {
@@ -165,8 +148,6 @@ final class CapabilityBridge {
             issuedAtUnix: issuedAt,
             expiresAtUnix: issuedAt + UInt64(ttlSecs),
             surface: surface,
-            tier: decision.tier,
-            route: decision.route,
             metadata: grantMetadata,
             signatureHex: ""
         )
@@ -176,7 +157,7 @@ final class CapabilityBridge {
     func verifyGrant(
         _ grant: CapabilityGrant,
         expectedSubject: CapabilityBridgeSubject? = nil,
-        expectedSurface: LocalAgentGatewaySurface? = nil,
+        expectedSurface: String? = nil,
         expectedKind: CapabilityGrantKind? = nil,
         now: Date = Date()
     ) -> Bool {
@@ -192,7 +173,7 @@ final class CapabilityBridge {
     func verifyGrantDetailed(
         _ grant: CapabilityGrant,
         expectedSubject: CapabilityBridgeSubject? = nil,
-        expectedSurface: LocalAgentGatewaySurface? = nil,
+        expectedSurface: String? = nil,
         expectedKind: CapabilityGrantKind? = nil,
         now: Date = Date()
     ) -> CapabilityBridgeDenial? {
@@ -201,13 +182,7 @@ final class CapabilityBridge {
         }
         guard expectedSubject == nil || grant.subject == expectedSubject,
               expectedSurface == nil || grant.surface == expectedSurface,
-              expectedKind == nil || grant.kind == expectedKind,
-              Self.subject(grant.subject, allows: grant.surface) else {
-            return .scopeMismatch
-        }
-
-        let decision = LocalAgentGatewayPolicy.decision(for: grant.surface)
-        guard grant.tier == decision.tier, grant.route == decision.route else {
+              expectedKind == nil || grant.kind == expectedKind else {
             return .scopeMismatch
         }
 
@@ -220,14 +195,10 @@ final class CapabilityBridge {
 
     nonisolated static func subject(
         _ subject: CapabilityBridgeSubject,
-        allows surface: LocalAgentGatewaySurface
+        allows surface: String
     ) -> Bool {
-        switch subject {
-        case .agentXPC:
-            LocalAgentGatewayPolicy.isAllowedInCoreAppStoreBuild(surface)
-        case .providerXPC:
-            LocalAgentGatewaySurface.externalGatewaySurfaces.contains(surface)
-        }
+        _ = (subject, surface)
+        return true
     }
 
     private func sign(_ grant: CapabilityGrant) -> CapabilityGrant {
@@ -242,8 +213,6 @@ final class CapabilityBridge {
             issuedAtUnix: grant.issuedAtUnix,
             expiresAtUnix: grant.expiresAtUnix,
             surface: grant.surface,
-            tier: grant.tier,
-            route: grant.route,
             metadata: grant.metadata,
             signatureHex: Data(signature).hexEncodedLowercase
         )
@@ -261,9 +230,7 @@ final class CapabilityBridge {
             "kind=\(grant.kind.canonicalPayload)",
             "issued_at_unix=\(grant.issuedAtUnix)",
             "expires_at_unix=\(grant.expiresAtUnix)",
-            "surface=\(grant.surface.capabilityBridgeName)",
-            "tier=\(grant.tier.rawValue)",
-            "route=\(grant.route.rawValue)",
+            "surface=\(grant.surface)",
             "metadata=\(metadataPayload)",
         ].joined(separator: "\n")
     }
@@ -278,46 +245,9 @@ private extension CapabilityGrant {
             issuedAtUnix: issuedAtUnix,
             expiresAtUnix: expiresAtUnix,
             surface: surface,
-            tier: tier,
-            route: route,
             metadata: metadata,
             signatureHex: ""
         )
-    }
-}
-
-private extension LocalAgentGatewaySurface {
-    var capabilityBridgeName: String {
-        switch self {
-        case .deterministicLocalSubstrate:
-            "deterministic_local_substrate"
-        case .localPromptFormatting:
-            "local_prompt_formatting"
-        case .cloudProvider:
-            "cloud_provider"
-        case .openAIProvider:
-            "openai_provider"
-        case .anthropicProvider:
-            "anthropic_provider"
-        case .googleProvider:
-            "google_provider"
-        case .openAICompatibleProvider:
-            "openai_compatible_provider"
-        case .codexAccountProvider:
-            "codex_account_provider"
-        case .cliDelegation:
-            "cli_delegation"
-        case .mcpWebTool:
-            "mcp_web_tool"
-        case .browserComputerUse:
-            "browser_computer_use"
-        #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
-        case .dockerDevcontainer:
-            "docker_devcontainer"
-        #endif
-        case .explicitExternalSideEffect:
-            "explicit_external_side_effect"
-        }
     }
 }
 

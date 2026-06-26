@@ -58,23 +58,13 @@ struct InlineRuntimePickerPanelTests {
         #expect(src.contains("Settings") && src.contains("onOpenSettings()"))
     }
 
-    @Test("landing migrated off the popover to the inline panel")
-    func landingUsesInlinePanel() throws {
+    @Test("landing no longer mounts the native runtime picker")
+    func landingDoesNotUseRuntimePicker() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        // The landing brain tool is now a flat trigger, not the deleted chat
-        // picker popover, and renders the inline panel in-flow with the Settings
-        // footer.
-        #expect(src.contains("InlineRuntimePickerPanel("))
-        #expect(src.contains("showsSettingsFooter: true"))
-        #expect(src.contains("showInlineRuntimePicker"))
-        // landingSearchBrainTool must no longer mount the popover picker.
-        guard let brainTool = src.range(of: "private var landingSearchBrainTool") else {
-            Issue.record("expected landingSearchBrainTool to exist")
-            return
-        }
-        let brainToolBody = String(src[brainTool.lowerBound...].prefix(400))
-        #expect(!brainToolBody.contains("ChatBrainPickerMenu"),
-                "landingSearchBrainTool must be a trigger, not the popover picker")
+        #expect(!src.contains("InlineRuntimePickerPanel("))
+        #expect(!src.contains("showInlineRuntimePicker"))
+        #expect(!src.contains("private var landingSearchBrainTool"))
+        #expect(!src.contains("ChatBrainPickerMenu"))
     }
 
     @Test("the panel renders the Fast/Think/Code tier structure")

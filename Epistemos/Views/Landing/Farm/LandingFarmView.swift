@@ -1,14 +1,14 @@
 import SwiftUI
 
-/// Compact Landing agent dock.
+/// Compact Landing companion dock.
 ///
 /// The dock is a small top-right surface: no large panel, no decorative
-/// orb/chrome, and no hidden fake runtime. Tapping an agent only changes the
+/// orb/chrome, and no hidden fake runtime. Tapping a companion only changes the
 /// visible active mascot.
 ///
 /// Three regions:
-/// - **Header**: retro "AGENTS" label + compact "+" button
-/// - **Cluster**: active agents breathing in one location
+/// - **Header**: retro "COMPANIONS" label + compact "+" button
+/// - **Cluster**: active companions breathing in one location
 /// - **Trash hint** (only if there are archived companions): a
 ///   subtle "N in trash" link that opens the Restore sheet
 ///
@@ -65,7 +65,7 @@ struct LandingFarmView: View {
                     .foregroundStyle(theme.textTertiary)
                     .lineLimit(1)
             }
-            Text("AGENTS")
+            Text("COMPANIONS")
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundStyle(theme.textPrimary.opacity(0.86))
                 .tracking(1.4)
@@ -80,7 +80,7 @@ struct LandingFarmView: View {
                     )
             }
             .buttonStyle(.plain)
-            .help("Add agent")
+            .help("Add companion")
         }
     }
 
@@ -88,10 +88,10 @@ struct LandingFarmView: View {
 
     private var emptyState: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Text("NO AGENTS")
+            Text("NO COMPANIONS")
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(theme.textTertiary.opacity(0.8))
-            Button("+ add agent") { onCreate() }
+            Button("+ add companion") { onCreate() }
                 .buttonStyle(.plain)
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundStyle(theme.resolved.accent.color)

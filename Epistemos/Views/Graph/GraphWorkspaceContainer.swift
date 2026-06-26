@@ -79,7 +79,6 @@ struct GraphWorkspaceContainer: View {
             }
 
             graphHTMLWorkspaceDockLayer
-            graphCognitiveDagVisualizerLayer
         }
         .modifier(EmbeddedGraphRouteChrome(
             isEnabled: graphSurfacePresentation.isEmbeddedHome,
@@ -123,25 +122,6 @@ struct GraphWorkspaceContainer: View {
                 )
                 .padding(.trailing, 14)
                 .padding(.vertical, 18)
-            }
-            .allowsHitTesting(true)
-            .transition(.opacity)
-        }
-    }
-
-    @ViewBuilder
-    private var graphCognitiveDagVisualizerLayer: some View {
-        if graphState.currentRoute.isCanvas {
-            VStack {
-                HStack(spacing: 10) {
-                    Spacer(minLength: 0)
-                    graphAgentPortalButton
-                        .padding(.top, graphSurfacePresentation.isEmbeddedHome ? 14 : 18)
-                    CognitiveDagVisualizerPanel(theme: theme)
-                        .padding(.top, graphSurfacePresentation.isEmbeddedHome ? 14 : 18)
-                        .padding(.trailing, 14)
-                }
-                Spacer(minLength: 0)
             }
             .allowsHitTesting(true)
             .transition(.opacity)
@@ -232,8 +212,6 @@ struct GraphWorkspaceContainer: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
-            graphAgentPortalButton
-
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
@@ -303,8 +281,8 @@ struct GraphWorkspaceContainer: View {
 
             Spacer()
 
-            graphAgentPortalButton
-                .frame(width: 160, alignment: .trailing)
+            Color.clear
+                .frame(width: 160, height: 1)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -313,64 +291,6 @@ struct GraphWorkspaceContainer: View {
         // pass on top of the window's wallpaper blur. Reads as a real
         // native macOS toolbar instead of a flat tinted rectangle.
         .unifiedFrostedGlass(theme: theme, in: Rectangle(), nativeGlass: true)
-    }
-
-    private var graphAgentPortalButton: some View {
-        Button {
-            openGraphAgentPortal()
-        } label: {
-            Label("Agent", systemImage: "sparkles")
-                .font(.system(size: 12, weight: .semibold))
-                .labelStyle(.titleAndIcon)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(theme.card.opacity(theme.isDark ? 0.82 : 0.92))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(theme.glassBorder.opacity(0.65), lineWidth: 0.5)
-                )
-        }
-        .buttonStyle(.plain)
-        .help("Open selected graph context in Agent")
-        .accessibilityLabel("Open graph context in Agent")
-    }
-
-    private func openGraphAgentPortal() {
-        AgentPortalRouteRequest.post(
-            AgentPortalContextSnapshot.graph(
-                vaultRootPath: vaultSync.vaultURL?.path,
-                workspacePath: FileManager.default.homeDirectoryForCurrentUser.path,
-                route: graphState.currentRoute.serializationKey,
-                selectedNodeIds: graphPortalSelectedNodeIds,
-                selectedEdgeIds: graphPortalSelectedEdgeIds,
-                neighborhoodSummary: graphPortalNeighborhoodSummary
-            )
-        )
-    }
-
-    private var graphPortalSelectedNodeIds: [String] {
-        guard let nodeId = graphState.selectedNodeId else { return [] }
-        return [nodeId]
-    }
-
-    private var graphPortalSelectedEdgeIds: [String] {
-        guard let nodeId = graphState.selectedNodeId else { return [] }
-        return Array(graphState.store.edges(for: nodeId).map(\.id).prefix(24))
-    }
-
-    private var graphPortalNeighborhoodSummary: String? {
-        if let node = graphState.selectedNode {
-            let neighborLabels = graphState.store.neighborLabels(of: node.id).prefix(8).joined(separator: ", ")
-            var parts = ["Selected \(node.type.rawValue): \(node.label)"]
-            if !neighborLabels.isEmpty {
-                parts.append("Neighbors: \(neighborLabels)")
-            }
-            return parts.joined(separator: " | ")
-        }
-        return "Route \(graphState.currentRoute.serializationKey) | \(graphState.store.nodes.count) nodes | \(graphState.store.edges.count) edges"
     }
 
     @ViewBuilder

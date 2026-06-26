@@ -11,7 +11,7 @@ struct SettingsSurfaceCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(18)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .settingsAppleCardChrome(theme: theme, accent: theme.resolved.accent.color)
     }
@@ -26,22 +26,22 @@ struct SettingsThemedBlurBackdrop: View {
         func baseOpacity(isDark: Bool) -> Double {
             switch self {
             case .page:
-                isDark ? 0.74 : 0.70
+                isDark ? 0.82 : 0.78
             case .sidebar:
-                isDark ? 0.80 : 0.76
+                isDark ? 0.84 : 0.80
             case .card:
-                isDark ? 0.76 : 0.82
+                isDark ? 0.86 : 0.88
             }
         }
 
         func materialOpacity(isDark: Bool) -> Double {
             switch self {
             case .page:
-                isDark ? 0.30 : 0.22
+                isDark ? 0.16 : 0.12
             case .sidebar:
-                isDark ? 0.34 : 0.26
+                isDark ? 0.18 : 0.14
             case .card:
-                isDark ? 0.28 : 0.18
+                isDark ? 0.08 : 0.06
             }
         }
 
@@ -61,7 +61,7 @@ struct SettingsThemedBlurBackdrop: View {
             case .page, .sidebar:
                 0
             case .card:
-                8
+                4
             }
         }
     }
@@ -106,12 +106,12 @@ struct SettingsAppleCardChrome: ViewModifier {
             .background {
                 SettingsThemedBlurBackdrop(theme: theme, role: .card)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .stroke(
-                        theme.border.opacity(theme.isDark ? 0.16 : 0.14),
-                        lineWidth: theme.isDark ? 0.5 : 0.55
+                        theme.border.opacity(theme.isDark ? 0.28 : 0.24),
+                        lineWidth: theme.isDark ? 0.7 : 0.8
                     )
             }
     }
@@ -183,7 +183,7 @@ struct SettingsDisclosureSection<Content: View>: View {
                 }
             }
         }
-        .padding(12)
+        .padding(10)
         .settingsAppleCardChrome(theme: theme, accent: theme.resolved.accent.color)
     }
 }
@@ -200,9 +200,9 @@ struct SettingsPixelGlyphBadge: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: max(6, size * 0.24), style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(resolvedTint.opacity(theme.isDark ? 0.16 : 0.12))
-            RoundedRectangle(cornerRadius: max(6, size * 0.24), style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .stroke(resolvedTint.opacity(theme.isDark ? 0.22 : 0.18), lineWidth: 0.55)
 
             Image(systemName: systemImage)
@@ -245,12 +245,12 @@ struct SettingsBlurGroupBoxStyle: GroupBoxStyle {
         .background {
             SettingsThemedBlurBackdrop(theme: theme, role: .card)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .stroke(
-                    theme.border.opacity(theme.isDark ? 0.20 : 0.26),
-                    lineWidth: theme.isDark ? 0.6 : 0.8
+                    theme.border.opacity(theme.isDark ? 0.28 : 0.32),
+                    lineWidth: theme.isDark ? 0.75 : 0.9
                 )
         }
     }

@@ -31,8 +31,8 @@ import SwiftUI
 //   - Initial snapshot on appear (so first paint isn't blank).
 //   - Event-driven via `AnswerPacketEmitter.didEmitNotification`,
 //     posted on the main queue from inside the actor's `emit()`.
-//   - 1 Hz Settings-panel polling while visible, matching the
-//     Substrate Health panel cadence.
+//   - Shared Settings-panel polling while visible, matching the
+//     Substrate Health panel's calmer cadence.
 
 @MainActor
 public struct AnswerPacketHealthRow: View {

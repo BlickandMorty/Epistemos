@@ -1087,34 +1087,23 @@ struct ThemePairTests {
         #expect(source.contains("selectedChoiceID: selectedChoice?.id"))
     }
 
-    @Test("Landing inline mention attachments stay visible after keyboard selection")
-    func landingInlineMentionAttachmentsStayVisibleAfterKeyboardSelection() throws {
+    @Test("Landing no longer carries inline mention attachments")
+    func landingNoLongerCarriesInlineMentionAttachments() throws {
         let source = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(source.contains("private var landingInlineContextChips: some View"))
-        #expect(source.contains("if !landingContextAttachments.isEmpty"))
-        #expect(source.contains("landingInlineContextChips"))
-        #expect(source.contains("removeLandingContextAttachment(attachment.id)"))
+        #expect(!source.contains("private var landingInlineContextChips: some View"))
+        #expect(!source.contains("landingContextAttachments"))
+        #expect(!source.contains("removeLandingContextAttachment"))
     }
 
-    @Test("Composer height scaling respects larger landing search typography")
-    func composerHeightScalingRespectsLargerLandingSearchTypography() {
+    @Test("Composer height scaling no longer depends on landing search typography")
+    func composerHeightScalingNoLongerDependsOnLandingSearchTypography() throws {
+        let source = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let standardMin = ChatComposerInputMetrics.minHeight(for: ChatComposerInputMetrics.fontSize)
-        let landingMin = ChatComposerInputMetrics.minHeight(for: LandingSearchLayout.inputFontSize)
-        let landingMax = ChatComposerInputMetrics.maxHeight(for: LandingSearchLayout.inputFontSize)
 
-        #expect(landingMin > standardMin)
-        #expect(LandingSearchLayout.inputMinHeight == landingMin)
-        #expect(
-            ChatComposerInputMetrics.clampedHeight(for: 0, fontSize: LandingSearchLayout.inputFontSize)
-                == landingMin
-        )
-        #expect(
-            ChatComposerInputMetrics.clampedHeight(
-                for: landingMax + 40,
-                fontSize: LandingSearchLayout.inputFontSize
-            ) == landingMax
-        )
+        #expect(standardMin == ChatComposerInputMetrics.clampedHeight(for: 0))
+        #expect(!source.contains("LandingSearchLayout"))
+        #expect(!source.contains("ChatComposerInputMetrics.minHeight(for: inputFontSize)"))
     }
 
     @Test("Assistant input chrome stays glass-first with restored depth")
@@ -1203,14 +1192,14 @@ struct ThemePairTests {
         #expect(ChatComposerInputMetrics.verticalInset == 4)
     }
 
-    @Test("Landing search composer stays glass-only without siri glow")
-    func landingSearchComposerStaysGlassOnly() throws {
+    @Test("Landing no longer mounts the search composer or siri glow")
+    func landingNoLongerMountsSearchComposerOrSiriGlow() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landingView.contains("AssistantSendButton("))
-        #expect(landingView.contains("ChatComposerTextEditor("))
-        #expect(landingView.contains("landingSearchInlineStage"))
-        #expect(landingView.contains("LandingStageToolShell("))
+        #expect(!landingView.contains("AssistantSendButton("))
+        #expect(!landingView.contains("ChatComposerTextEditor("))
+        #expect(!landingView.contains("landingSearchInlineStage"))
+        #expect(!landingView.contains("LandingStageToolShell("))
         #expect(!landingView.contains("LandingSearchLiquidBubble("))
         #expect(!landingView.contains("LandingSearchFloatingBubbleField("))
         #expect(!landingView.contains(".siriGlow("))
@@ -1801,44 +1790,29 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(pixelComponents.contains("return .system(size: size, weight: .semibold, design: .rounded)"))
     }
 
-    @Test("landing search input replaces the greeting with an inline stage")
-    func landingSearchInputReplacesGreetingWithInlineStage() throws {
+    @Test("landing command stage has no native search composer")
+    func landingCommandStageHasNoNativeSearchComposer() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landingView.contains("import UniformTypeIdentifiers"))
-        #expect(landingView.contains("@State private var landingFileAttachments: [FileAttachment] = []"))
-        #expect(landingView.contains("@State private var landingToolsExpanded = false"))
-        #expect(landingView.contains("private var landingSearchInlineStage: some View"))
-        #expect(landingView.contains("private var landingSearchStageTools: some View"))
-        #expect(landingView.contains("private var landingSearchBrainTool: some View"))
-        #expect(landingView.contains("private var landingSearchCommandTool: some View"))
-        #expect(landingView.contains("private var landingSearchMentionTool: some View"))
-        #expect(landingView.contains("private var landingSearchAttachTool: some View"))
-        #expect(!landingView.contains("private var landingSearchSavedTool: some View"))
-        #expect(landingView.contains("private var landingSearchToolsToggle: some View"))
-        #expect(landingView.contains("private var landingSearchSendTool: some View"))
-        #expect(landingView.contains("private var landingSearchExpandedToolRow: some View"))
-        #expect(landingView.contains("LandingStageToolTile("))
-        let searchStageStart = try #require(landingView.range(of: "private var landingSearchInlineStage"))
-        let searchStageEnd = try #require(
-            landingView.range(
-                of: "private var landingSearchStageTools",
-                range: searchStageStart.lowerBound..<landingView.endIndex
-            )
-        )
-        let searchStageSource = landingView[searchStageStart.lowerBound..<searchStageEnd.lowerBound]
-        #expect(!searchStageSource.contains("GeometryReader { proxy in"))
-        #expect(!searchStageSource.contains(".position(x: centerX"))
+        #expect(!landingView.contains("import UniformTypeIdentifiers"))
+        #expect(!landingView.contains("@State private var landingFileAttachments"))
+        #expect(!landingView.contains("@State private var landingToolsExpanded"))
+        #expect(!landingView.contains("private var landingSearchInlineStage: some View"))
+        #expect(!landingView.contains("private var landingSearchStageTools: some View"))
+        #expect(!landingView.contains("private var landingSearchBrainTool: some View"))
+        #expect(!landingView.contains("private var landingSearchCommandTool: some View"))
+        #expect(!landingView.contains("private var landingSearchMentionTool: some View"))
+        #expect(!landingView.contains("private var landingSearchAttachTool: some View"))
+        #expect(!landingView.contains("private var landingSearchToolsToggle: some View"))
+        #expect(!landingView.contains("private var landingSearchSendTool: some View"))
+        #expect(!landingView.contains("private var landingSearchExpandedToolRow: some View"))
+        #expect(!landingView.contains("LandingStageToolTile("))
         #expect(!landingView.contains("PixelPanelTitle(text: \"Search\""))
-        #expect(landingView.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
-        #expect(!landingView.contains("landingSearchLiquidReveal(frame: landingSearchRevealFrame"))
-        #expect(landingView.contains("RoundedRectangle(cornerRadius: 22, style: .continuous)"))
-        #expect(landingView.contains(".fill(theme.glassBg.opacity(theme.isDark ? 0.18 : 0.10))"))
         #expect(landingView.contains("LiquidGreeting("))
         #expect(landingView.contains("searchMode: showingLandingStageCommand"))
-        #expect(landingView.contains("ChatComposerTextEditor("))
-        #expect(landingView.contains("onCommand: { selector, modifierFlags in"))
-        #expect(landingView.contains("handleLandingComposerCommand(selector, modifierFlags: modifierFlags)"))
+        #expect(!landingView.contains("ChatComposerTextEditor("))
+        #expect(!landingView.contains("onCommand: { selector, modifierFlags in"))
+        #expect(!landingView.contains("handleLandingComposerCommand(selector, modifierFlags: modifierFlags)"))
         #expect(!landingView.contains("TextField(\"\", text: $landingSearchText)"))
         #expect(!landingView.contains(".offset(x: 80, y: 54)"))
         #expect(!landingView.contains("private var landingSearchPopoverContent"))
@@ -1847,58 +1821,39 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!landingView.contains("LandingSearchFloatingBubbleField("))
         #expect(!landingView.contains("LandingSearchBubbleEdgeCanvas("))
         #expect(!landingView.contains("LandingWaveOverlay("))
-        #expect(landingView.contains("openLandingFilePicker()"))
-        #expect(landingView.contains("FileAttachmentBuilder.buildAll(from: urls)"))
-        #expect(landingView.contains("landingFileAttachments.append(attachment)"))
+        #expect(!landingView.contains("openLandingFilePicker()"))
+        #expect(!landingView.contains("FileAttachmentBuilder.buildAll(from: urls)"))
+        #expect(!landingView.contains("landingFileAttachments.append(attachment)"))
         #expect(!landingView.contains("chat.addAttachment(attachment)"))
-        #expect(landingView.contains("landingContextAttachments.append(contextAttachment)"))
-        #expect(landingView.contains("openLandingSlashCommandMenu()"))
-        #expect(landingView.contains("insertLandingMentionToken()"))
-        #expect(landingView.contains("toggleLandingAllNotesContext()"))
-        #expect(landingView.contains("ChatCapabilityPill("))
+        #expect(!landingView.contains("landingContextAttachments.append(contextAttachment)"))
+        #expect(!landingView.contains("openLandingSlashCommandMenu()"))
+        #expect(!landingView.contains("insertLandingMentionToken()"))
+        #expect(!landingView.contains("toggleLandingAllNotesContext()"))
+        #expect(!landingView.contains("ChatCapabilityPill("))
         #expect(!landingView.contains("ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)"))
     }
 
-    @Test("landing search attachments keep the revealed input chrome visible")
-    func landingSearchAttachmentsKeepTheRevealedInputChromeVisible() throws {
+    @Test("landing search attachment preservation is deleted with the composer")
+    func landingSearchAttachmentPreservationIsDeletedWithComposer() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landingView.contains("private func preserveLandingSearchSurfaceAfterAttachment()"))
-        #expect(landingView.contains("landingSearchRevealFrame = max(landingSearchRevealFrame, 5)"))
-
-        let mentionStart = try #require(landingView.range(of: "private func attachLandingMentionReference"))
-        let mentionEnd = try #require(
-            landingView.range(
-                of: "private func dismissLandingReferencePopover",
-                range: mentionStart.lowerBound..<landingView.endIndex
-            )
-        )
-        let mentionBody = landingView[mentionStart.lowerBound..<mentionEnd.lowerBound]
-        #expect(mentionBody.contains("preserveLandingSearchSurfaceAfterAttachment()"))
-        #expect(!mentionBody.contains("landingSearchRevealFrame = 0"))
-
-        let fileStart = try #require(landingView.range(of: "private func openLandingFilePicker()"))
-        let fileEnd = try #require(
-            landingView.range(
-                of: "@MainActor\n    private func presentLandingFilePicker",
-                range: fileStart.lowerBound..<landingView.endIndex
-            )
-        )
-        let fileBody = landingView[fileStart.lowerBound..<fileEnd.lowerBound]
-        #expect(fileBody.contains("preserveLandingSearchSurfaceAfterAttachment()"))
+        #expect(!landingView.contains("private func preserveLandingSearchSurfaceAfterAttachment()"))
+        #expect(!landingView.contains("landingSearchRevealFrame = max(landingSearchRevealFrame, 5)"))
+        #expect(!landingView.contains("private func attachLandingMentionReference"))
+        #expect(!landingView.contains("private func openLandingFilePicker()"))
     }
 
-    @Test("landing search stage reveal keeps the active theme accent without liquid wave input effects")
-    func landingSearchStageRevealUsesActiveThemeAccentWithoutLandingWaveInputEffects() throws {
+    @Test("landing command stage reveal keeps the active theme accent without liquid wave input effects")
+    func landingCommandStageRevealUsesActiveThemeAccentWithoutLandingWaveInputEffects() throws {
         let repoRoot = try sourceMirrorRootURL()
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
 
-        #expect(landingView.contains("@State private var landingSearchRevealFrame"))
-        #expect(landingView.contains("runLandingSearchReveal()"))
-        #expect(landingView.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
-        #expect(landingView.contains("landingSearchInlineStage"))
-        #expect(landingView.contains("LandingStageToolShell("))
+        #expect(landingView.contains("@State private var landingStageRevealFrame"))
+        #expect(landingView.contains("runLandingStageReveal()"))
+        #expect(landingView.contains("landingSearchStepReveal(frame: landingStageRevealFrame"))
+        #expect(!landingView.contains("landingSearchInlineStage"))
+        #expect(!landingView.contains("LandingStageToolShell("))
         #expect(landingView.contains("if ui.homeContent == .greeting && !showingLandingStageCommand"))
         #expect(landingView.contains("landingPixelCommands\n                .padding(.horizontal, Spacing.xxl)"))
         #expect(!landingView.contains("landingSearchControlsRow\n                    }"))
@@ -1939,8 +1894,9 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains("@State private var landingGreetingReturnTask: Task<Void, Never>?"))
         #expect(landingView.contains(".landingGreetingReturnReveal(frame: landingGreetingReturnFrame"))
         #expect(landingView.contains("private func runLandingGreetingReturnReveal()"))
-        #expect(landingView.contains("dismissLandingSearch(animateGreetingReturn: false)"))
-        #expect(landingView.contains("dismissLandingInlineCommand(animateGreetingReturn: false)"))
+        #expect(!landingView.contains("dismissLandingSearch(animateGreetingReturn: false)"))
+        #expect(landingView.contains("private func dismissLandingStageCommand()"))
+        #expect(landingView.contains("dismissLandingInlineCommand()"))
         #expect(pixelComponents.contains("playLandingGreetingReturnReveal"))
         #expect(pixelComponents.contains("landingGreetingReturnReveal(frame: Int, theme: EpistemosTheme)"))
     }
@@ -1968,7 +1924,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         let commandsStart = try #require(landingView.range(of: "private var landingPixelCommands"))
         let commandsEnd = try #require(
             landingView.range(
-                of: "private var landingSearchStageTools",
+                of: "private var landingCompanionDock",
                 range: commandsStart.lowerBound..<landingView.endIndex
             )
         )

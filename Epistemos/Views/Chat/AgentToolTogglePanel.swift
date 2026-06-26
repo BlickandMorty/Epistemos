@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// P2.1 (UI) — shared agent capability control. A compact panel, opened from
-/// Landing or future AgentClone/fusion controls, that lists the agent tools the
+/// Shared controls that list the agent tools the
 /// registry surfaces and lets the user turn each on/off. This is REAL config,
 /// not decoration: the toggles flow into `AgentCommandCenterState.toolToggles`
 /// → `disabledToolNames`, which execution-plan gating applies to the main agent
@@ -9,9 +9,8 @@ import SwiftUI
 /// `tool_permissions` for agent turns.
 ///
 /// Honest gating: destructive tools and tools that ask before acting are
-/// badged, and a footer states the capability truth (local models chat + reason;
-/// multi-step tool runs use a cloud model or the Pro harness). It only shows
-/// tools the current build actually surfaces, so nothing here is a fake control.
+/// badged, and a footer states the capability truth. It only shows tools the
+/// current build actually surfaces, so nothing here is a fake control.
 @MainActor
 struct AgentToolTogglePanel: View {
     let agentCommandCenter: AgentCommandCenterState
@@ -72,7 +71,7 @@ struct AgentToolTogglePanel: View {
 
             Divider()
 
-            Text("Local models can answer and reason; multi-step tool runs use a cloud model or the Pro harness. Turning a tool off removes it from agent turns.")
+            Text("Tools, MCP servers, and skills stay native to Epistemos. Model execution lives in the connected provider surfaces. Turning a tool off removes it from native tool planning.")
                 .font(.system(size: 10))
                 .foregroundStyle(theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)

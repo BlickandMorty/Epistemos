@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - SubstrateDriftMonitorHealthRow
 //
 // W-33: drift monitor row. It combines WBO accounting, DAG root, and
-// UAS copy counters through a 1 Hz Rust FFI snapshot. It does not mark
+// UAS copy counters through the shared health-clock Rust FFI snapshot. It does not mark
 // F-WBO-DriftLedger passed until a falsifier artifact exists.
 
 @MainActor

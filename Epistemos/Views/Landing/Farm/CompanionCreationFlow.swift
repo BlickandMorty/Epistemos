@@ -15,18 +15,18 @@ struct CompanionCreationFlow: View {
     @State private var bodyKind: CompanionBodyKind = .blockCompact
     @State private var name: String = ""
     @State private var tagline: String = ""
-    @State private var accentHex: String = AgentColorPreset.presets[0].hex
+    @State private var accentHex: String = CompanionColorPreset.presets[0].hex
     @State private var hydratedEditingEntryID: String?
 
     private let stepCount = 3
 
     private var isEditing: Bool { editingEntry != nil }
 
-    private struct AgentColorPreset: Hashable {
+    private struct CompanionColorPreset: Hashable {
         let name: String
         let hex: String
 
-        static let presets: [AgentColorPreset] = [
+        static let presets: [CompanionColorPreset] = [
             .init(name: "clay", hex: "#D97757"),
             .init(name: "mint", hex: "#5EC2B7"),
             .init(name: "lilac", hex: "#9C8FE5"),
@@ -95,7 +95,7 @@ struct CompanionCreationFlow: View {
             Image(systemName: isEditing ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.plus")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(theme.resolved.accent.color)
-            PixelPanelTitle(text: isEditing ? "Edit Agent" : "New Agent", theme: theme, size: 15)
+            PixelPanelTitle(text: isEditing ? "Edit Companion" : "New Companion", theme: theme, size: 15)
             Spacer()
             HStack(spacing: 6) {
                 ForEach(0..<stepCount, id: \.self) { idx in
@@ -157,7 +157,7 @@ struct CompanionCreationFlow: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: isEditing ? "checkmark" : "sparkles")
-                        Text(isEditing ? "Save Agent" : "Create Agent")
+                        Text(isEditing ? "Save Companion" : "Create Companion")
                     }
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 16)
@@ -195,7 +195,7 @@ struct CompanionCreationFlow: View {
 
     private var bodyStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            stepTitle("Choose an agent body", subtitle: "Each grammar shapes the silhouette and animation vocabulary.")
+            stepTitle("Choose a companion body", subtitle: "Each grammar shapes the silhouette and animation vocabulary.")
             HStack(alignment: .center, spacing: 16) {
                 CompanionAvatarGlyph(
                     kind: bodyKind,
@@ -278,7 +278,7 @@ struct CompanionCreationFlow: View {
 
     private var colorSwatches: some View {
         HStack(spacing: 7) {
-            ForEach(AgentColorPreset.presets, id: \.self) { preset in
+            ForEach(CompanionColorPreset.presets, id: \.self) { preset in
                 Button {
                     accentHex = preset.hex
                 } label: {

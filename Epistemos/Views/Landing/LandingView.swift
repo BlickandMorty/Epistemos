@@ -1,11 +1,7 @@
 import AppKit
-#if !EPISTEMOS_APP_STORE && canImport(AgentClone)
-import AgentClone
-#endif
 import OSLog
 import SwiftData
 import SwiftUI
-import UniformTypeIdentifiers
 
 enum LandingShortcutDisplay {
     static let fontSize: CGFloat = 12
@@ -31,21 +27,6 @@ enum LandingShortcutDisplay {
         guard let text, text.count > 1 else { return nil }
         return multiCharacterKeyMinWidth
     }
-}
-
-enum LandingSearchLayout {
-    static let maxWidth: CGFloat = 900
-    static let stageWidth: CGFloat = 760
-    static let searchLineWidth: CGFloat = 720
-    static let topRowSpacing: CGFloat = 14
-    static let controlRowSpacing: CGFloat = 8
-    static let controlRowTopPadding: CGFloat = 10
-    static let horizontalPadding: CGFloat = 24
-    static let topPadding: CGFloat = 20
-    static let bottomPadding: CGFloat = 18
-    static let cornerRadius: CGFloat = 24
-    static let inputFontSize: CGFloat = 24
-    static let inputMinHeight: CGFloat = ChatComposerInputMetrics.minHeight(for: inputFontSize)
 }
 
 enum LandingCoordinateSpace {
@@ -84,10 +65,7 @@ struct LandingView: View {
 
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
-    @Environment(AgentChatState.self) private var agentChat
-    @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
-    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(WorkspaceService.self) private var workspaceService
     @Environment(DailyBriefState.self) private var dailyBrief
@@ -96,9 +74,6 @@ struct LandingView: View {
     @Environment(AmbientFrequencyPlaybackState.self) private var ambientPlayback
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.openSettings) private var openSettings
-    @AppStorage(MainChatOperatingModePreference.defaultsKey)
-    private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
     @State private var showWelcomeBack = false
     @State private var presentedWelcomeBack: WelcomeBackInfo?
@@ -118,36 +93,8 @@ struct LandingView: View {
     @Query(SDPage.recentDescriptor(limit: 50))
     private var allPages: [SDPage]
 
-    // Inline search state
-    @State private var showingSearchPopover = false
-    @State private var landingSearchText = ""
-    @State private var landingComposerHeight: CGFloat = LandingSearchLayout.inputMinHeight
-    @State private var isLandingSearchFocused = false
-    @State private var showLandingMentionDropdown = false
-    @State private var landingMentionFilter = ""
-    @State private var landingMentionKeyboardIndex = 0
-    @State private var landingMentionPickerAutofocus = false
-    @State private var showLandingSlashMenu = false
-    @State private var landingSlashFilter = ""
-    @State private var landingSlashKeyboardIndex = 0
-    @State private var selectedLandingSlashItem: ComposerSlashCommandItem?
-    @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
-    @State private var landingReferenceSearch = ComposerReferenceSearchState()
-    @State private var landingContextAttachments: [ContextAttachment] = []
-    @State private var landingFileAttachments: [FileAttachment] = []
-    @State private var landingToolsExpanded = false
-    /// Owner 2026-06-18: the landing brain/model picker is a flat inline pixel-art
-    /// panel that expands in-flow under the search tools, not a floating popover.
-    @State private var showInlineRuntimePicker = false
-    /// SS-VIS (owner 2026-06-20): presents the shared AgentToolTogglePanel
-    /// (tools + MCP + cowork + skills) right from the landing search surface,
-    /// so nothing is cloned and the catalog stays a single source of truth.
-    @State private var showLandingToolPanel = false
-    @State private var landingSearchLabelHovered = false
-    @State private var landingVoiceDraftPrefix: String?
-    @State private var landingRecallDebounceBox = ChatRecallDebounceBox()
-    @State private var landingSearchRevealFrame = 0
-    @State private var landingSearchRevealTask: Task<Void, Never>?
+    @State private var landingStageRevealFrame = 0
+    @State private var landingStageRevealTask: Task<Void, Never>?
     @State private var landingGreetingReturnFrame = 4
     @State private var landingGreetingReturnTask: Task<Void, Never>?
     @State private var activeLandingInlineCommand: LandingInlineCommand?
@@ -159,223 +106,10 @@ struct LandingView: View {
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
     private var showingLandingStageCommand: Bool {
-        showingSearchPopover || activeLandingInlineCommand != nil
+        activeLandingInlineCommand != nil
     }
     private var landingStageMinHeight: CGFloat {
-        if showingSearchPopover {
-            return landingToolsExpanded ? 330 : 250
-        }
         return activeLandingInlineCommand?.minStageHeight ?? 220
-    }
-    private var trimmedLandingSearchText: String {
-        landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    private var landingSearchAttachmentHint: String {
-        if isActSearchPage {
-            return "Ask Act. Type / for commands, tools, models, or agents."
-        }
-        return ComposerAttachmentEntryHints.landingPlaceholder
-    }
-    private var landingSearchPlaceholder: String {
-        if isActSearchPage {
-            return "Ask Act..."
-        }
-        return "Ask Epistemos..."
-    }
-    private var landingSearchPlaceholderText: String {
-        if isActSearchPage {
-            return "Ask Act... Type / for commands, tools, models, or agents."
-        }
-        return ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run."
-    }
-    private var isActSearchPage: Bool {
-        false
-    }
-    private var ambientManifest: VaultManifest? {
-        vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
-    }
-    private var supportedOperatingModes: [EpistemosOperatingMode] {
-        if isActSearchPage { return [.agent] }
-        return MainChatOperatingModePreference.supportedModes(for: inference)
-    }
-    private var supportedLandingSlashCommands: [ACCSlashCommand] {
-        if isActSearchPage { return [] }
-        return ACCSlashCommand.availableCommands(
-            for: MainChatOperatingModePreference.supportedModes(
-                for: inference,
-                availableModes: supportedOperatingModes
-            )
-        )
-    }
-
-    private var supportedLandingSlashItems: [ComposerSlashCommandItem] {
-        return ComposerSlashCommandItem.all(
-            commands: supportedLandingSlashCommands,
-            skills: agentCommandCenter.availableSkills
-        )
-    }
-
-    private var activeSelectedLandingSlashItem: ComposerSlashCommandItem? {
-        if let selectedLandingSlashItem,
-           supportedLandingSlashItems.contains(selectedLandingSlashItem) {
-            return selectedLandingSlashItem
-        }
-
-        let result = CommandInputParser.parse(
-            landingSearchText,
-            availableSkills: agentCommandCenter.availableSkills,
-            availableSlashCommands: supportedLandingSlashCommands
-        )
-        guard let token = result.slashToken else {
-            return nil
-        }
-        let item = ComposerSlashCommandItem(token: token)
-        return supportedLandingSlashItems.contains(item) ? item : nil
-    }
-
-    private var activeSelectedLandingSlashToken: ParsedSlashToken? {
-        activeSelectedLandingSlashItem?.token
-    }
-
-    private var filteredLandingSlashItems: [ComposerSlashCommandItem] {
-        SlashCommandPopover.filteredItems(
-            items: supportedLandingSlashItems,
-            filter: landingSlashFilter
-        )
-    }
-    private var highlightedLandingSlashItem: ComposerSlashCommandItem? {
-        guard !filteredLandingSlashItems.isEmpty else { return nil }
-        return filteredLandingSlashItems[
-            clampedLandingKeyboardIndex(
-                landingSlashKeyboardIndex,
-                count: filteredLandingSlashItems.count
-            )
-        ]
-    }
-
-    private var selectedOperatingMode: EpistemosOperatingMode {
-        get {
-            if isActSearchPage { return .agent }
-            return MainChatOperatingModePreference.sanitize(
-                EpistemosOperatingMode(rawValue: mainChatOperatingModeRaw) ?? .fast,
-                for: inference
-            )
-        }
-        nonmutating set {
-            guard !isActSearchPage else { return }
-            mainChatOperatingModeRaw = MainChatOperatingModePreference.sanitize(
-                newValue,
-                for: inference
-            ).rawValue
-        }
-    }
-    private var landingIsCloudSelection: Bool {
-        if isActSearchPage { return false }
-        switch inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) {
-        case .cloud:
-            return true
-        case .localMLX, .appleIntelligence:
-            return false
-        }
-    }
-    private var landingEffectiveCapability: ChatCapability {
-        guard !trimmedLandingSearchText.isEmpty else {
-            return landingIsCloudSelection ? .cloud : .local
-        }
-        return ChatCapability.predictIntent(
-            text: trimmedLandingSearchText,
-            isCloudProvider: landingIsCloudSelection
-        ).predicted
-    }
-    private var landingPillDetail: String? {
-        ComposerModelToolTruth.detail(
-            for: inference.effectiveChatSurfaceSelection(for: selectedOperatingMode),
-            capability: landingEffectiveCapability
-        )
-    }
-    private var landingAttachmentCount: Int {
-        landingContextAttachments.count + landingFileAttachments.count
-    }
-    private var landingAllNotesContextAttached: Bool {
-        landingContextAttachments.contains { $0.kind == .allNotes }
-    }
-    private var operatingModeBinding: Binding<EpistemosOperatingMode> {
-        Binding(
-            get: { selectedOperatingMode },
-            set: { selectedOperatingMode = $0 }
-        )
-    }
-    private var landingMentionSearchResults: ComposerReferenceSearchResults {
-        noteReferenceSearchResults(
-            filter: landingMentionFilter,
-            manifest: ambientManifest,
-            indexedNoteIDs: landingReferenceSearch.indexedNoteIDs,
-            indexedNoteSnippets: landingReferenceSearch.indexedNoteSnippetsByPageID
-        )
-    }
-    private var landingMentionKeyboardChoices: [ComposerReferenceChoice] {
-        ComposerReferenceKeyboardSelection.choices(
-            from: landingMentionSearchResults,
-            style: landingReferencePopoverStyle
-        )
-    }
-
-    private func noteReferenceSearchResults(
-        filter: String,
-        manifest: VaultManifest?,
-        indexedNoteIDs: [String],
-        indexedNoteSnippets: [String: String]
-    ) -> ComposerReferenceSearchResults {
-        let query = filter.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let manifest else {
-            return ComposerReferenceSearchResults(
-                query: query,
-                notes: [],
-                vaultTitle: nil,
-                vaultNoteCount: 0,
-                isInventoryComplete: true,
-                indexedMatchedNoteIDs: Set(indexedNoteIDs),
-                indexedNoteSnippetsByPageID: indexedNoteSnippets
-            )
-        }
-
-        let entriesByID = Dictionary(uniqueKeysWithValues: manifest.entries.map { ($0.pageId, $0) })
-        let directMatches: [VaultManifest.ManifestEntry]
-        if query.isEmpty {
-            directMatches = Array(manifest.entries.sorted { lhs, rhs in
-                lhs.updatedAt > rhs.updatedAt
-            }.prefix(12))
-        } else {
-            let lowercaseQuery = query.lowercased()
-            directMatches = manifest.entries.filter { entry in
-                let haystack = [
-                    entry.title,
-                    entry.folderName ?? "",
-                    entry.tags.joined(separator: " "),
-                    entry.snippet,
-                ].joined(separator: " ").lowercased()
-                return haystack.contains(lowercaseQuery)
-            }
-        }
-
-        var seen = Set<String>()
-        var orderedEntries: [VaultManifest.ManifestEntry] = []
-        for entry in indexedNoteIDs.compactMap({ entriesByID[$0] }) + directMatches {
-            guard seen.insert(entry.pageId).inserted else { continue }
-            orderedEntries.append(entry)
-        }
-
-        var notes: [NoteMentionChoice] = query.isEmpty ? [.allNotes] : []
-        notes.append(contentsOf: orderedEntries.prefix(12).map(NoteMentionChoice.entry))
-        return ComposerReferenceSearchResults(
-            query: query,
-            notes: notes,
-            vaultTitle: manifest.vaultTitle,
-            vaultNoteCount: manifest.totalNoteCount,
-            isInventoryComplete: manifest.isInventoryComplete,
-            indexedMatchedNoteIDs: Set(indexedNoteIDs),
-            indexedNoteSnippetsByPageID: indexedNoteSnippets
-        )
     }
 
     // MARK: - Body
@@ -386,32 +120,13 @@ struct LandingView: View {
                 .zIndex(-1)
                 .allowsHitTesting(false)
 
-            // ── Background Tap Layer ──
-            // Click anywhere on empty landing area opens the search popover.
-            // Greeting shortcut buttons sit above this at zIndex 1 and handle
-            // their own clicks first, so only background taps fall through.
-            // Suppressed while any overlay (brief / welcome back / search) is
-            // up so it can't re-trigger search when user taps the scrim.
             Color.clear
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard !showingOverlay else { return }
-                    // Owner 2026-06-18 (search-page click regression): when the
-                    // inline runtime picker is open, an outside click must DISMISS
-                    // it — not fall through and (re)trigger search. Without this,
-                    // any click off the panel re-opened/re-focused search, so the
-                    // page "misbehaved" on every click while the picker was up.
-                    if showInlineRuntimePicker {
-                        withAnimation(reduceMotion ? nil : Motion.micro) {
-                            showInlineRuntimePicker = false
-                        }
-                        return
-                    }
                     if showingLandingStageCommand {
                         dismissLandingStageCommand()
-                        return
                     }
-                    activateLandingSearch()
                 }
                 .allowsHitTesting(!showingOverlay)
                 .zIndex(0)
@@ -453,10 +168,10 @@ struct LandingView: View {
                     .zIndex(1)
             }
 
-            // Agent dock — hidden when the embedded graph is up so it
+            // Companion dock — hidden when the embedded graph is up so it
             // doesn't compete with the graph's right-side inspector.
             if ui.homeContent == .greeting && !showingLandingStageCommand {
-                landingAgentDock
+                landingCompanionDock
                     .opacity(showingOverlay ? 0.45 : 1)
                     .allowsHitTesting(!showingOverlay)
                     .transition(.opacity)
@@ -484,14 +199,14 @@ struct LandingView: View {
                 Color.clear
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
-                    .onTapGesture { dismissFarmAgentEditor() }
+                    .onTapGesture { dismissFarmCompanionEditor() }
                     .zIndex(3.5)
 
                 CompanionCreationFlow(
                     companionState: bootstrap.companionState,
                     theme: theme,
                     editingEntry: farmEditTarget,
-                    onDismiss: dismissFarmAgentEditor
+                    onDismiss: dismissFarmCompanionEditor
                 )
                 .transition(.opacity)
                 .zIndex(4)
@@ -522,14 +237,6 @@ struct LandingView: View {
         // SS-ALIVE: flat easeOut driver (no spring overshoot) to match the blur-fade feel.
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showingBrief)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showWelcomeBack)
-        // Landing-wave emergence: snappier spring (response 0.18, damping 0.78)
-        // chosen per user feedback that the prior Motion.smooth curve felt
-        // "lack luster." Bar pops out, slight overshoot, quick settle.
-        // Suppressed entirely under Reduce Motion.
-        .animation(
-            reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.78),
-            value: showingSearchPopover
-        )
         // SS-AN: one flat, fast easeOut owns the home↔graph timing — no spring overshoot
         // (which popped) and no .scale (which folded the page). The greeting/buttons blur
         // away (removal) and the graph blurs in (insertion) via BlurFade: an Apple-style
@@ -540,7 +247,6 @@ struct LandingView: View {
         )
         .onAppear {
             LandingViewStateSync.reassertHomeSurface(ui)
-            sanitizeStoredOperatingMode()
             scheduleWelcomeBackPresentationIfNeeded()
         }
         // Phase 1 — graphViewLocation mid-session flip handler. When the
@@ -562,9 +268,6 @@ struct LandingView: View {
                 }
             }
         }
-        .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
-            sanitizeStoredOperatingMode()
-        }
         .onChange(of: workspaceService.welcomeBack?.displayText ?? "") { _, _ in
             scheduleWelcomeBackSync()
         }
@@ -575,10 +278,8 @@ struct LandingView: View {
             welcomeBackSyncTask = nil
             showWelcomeBack = false
             presentedWelcomeBack = nil
-            showingSearchPopover = false
-            onLandingPopoverDisappear()
-            landingSearchRevealTask?.cancel()
-            landingSearchRevealTask = nil
+            landingStageRevealTask?.cancel()
+            landingStageRevealTask = nil
             landingGreetingReturnTask?.cancel()
             landingGreetingReturnTask = nil
             activeLandingInlineCommand = nil
@@ -768,20 +469,14 @@ struct LandingView: View {
                 searchText: ""
             )
             .landingGreetingReturnReveal(frame: landingGreetingReturnFrame, theme: theme)
-            .opacity(showingLandingStageCommand && landingSearchRevealFrame > 0 ? 0 : 1)
+            .opacity(showingLandingStageCommand && landingStageRevealFrame > 0 ? 0 : 1)
             .allowsHitTesting(false)
 
-            if showingSearchPopover {
-                landingStageRevealContainer(accent: theme.resolved.accent.color) {
-                    landingSearchInlineStage
-                }
-                    .landingSearchStepReveal(frame: landingSearchRevealFrame, theme: theme)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
-            } else if let command = activeLandingInlineCommand {
+            if let command = activeLandingInlineCommand {
                 landingStageRevealContainer(accent: theme.resolved.accent.color) {
                     landingInlineCommandStage(for: command)
                 }
-                    .landingSearchStepReveal(frame: landingSearchRevealFrame, theme: theme)
+                    .landingSearchStepReveal(frame: landingStageRevealFrame, theme: theme)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
         }
@@ -798,24 +493,6 @@ struct LandingView: View {
             LandingStageCommandPeak(accent: accent, theme: theme)
                 .padding(.top, 5)
         }
-    }
-
-    private var landingSearchInlineStage: some View {
-        landingSearchStageTools
-            .frame(
-                width: LandingSearchLayout.stageWidth,
-                height: landingSearchInlineStageHeight
-            )
-    }
-
-    /// Owner 2026-06-18 (search-page picker reduced/clipped): the stage was a
-    /// fixed 236/328pt, which clipped the inline runtime picker to ~2 rows on the
-    /// landing search page no matter how tall the panel itself is. When the picker
-    /// is open, give the stage room for it (the panel still caps + scrolls
-    /// internally); otherwise keep the original heights.
-    private var landingSearchInlineStageHeight: CGFloat {
-        if showInlineRuntimePicker { return 540 }
-        return landingToolsExpanded ? 328 : 236
     }
 
     @ViewBuilder
@@ -847,18 +524,6 @@ struct LandingView: View {
             columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
             spacing: 8
         ) {
-            PixelLandingCommandTile(
-                title: "search",
-                shortcut: "click",
-                glyph: .search,
-                theme: theme,
-                accent: theme.resolved.accent.color,
-                haptic: .search,
-                isActive: showingSearchPopover,
-                action: {
-                    activateLandingSearch(playHaptic: false)
-                }
-            )
             PixelLandingCommandTile(
                 title: "quick capture",
                 shortcut: "\u{2318}\u{21E7}N",
@@ -962,7 +627,7 @@ struct LandingView: View {
         .frame(maxWidth: 900)
     }
 
-    private var landingAgentDock: some View {
+    private var landingCompanionDock: some View {
         VStack {
             HStack(alignment: .top) {
                 Spacer(minLength: 0)
@@ -971,9 +636,9 @@ struct LandingView: View {
                         companionState: bootstrap.companionState,
                         theme: theme,
                         isAnimationActive: false,
-                        onCreate: presentFarmAgentCreate,
+                        onCreate: presentFarmCompanionCreate,
                         onOpenTrash: { farmShowingRestore = true },
-                        onRequestEdit: presentFarmAgentEdit,
+                        onRequestEdit: presentFarmCompanionEdit,
                         onRequestDelete: { entry in farmDeleteTarget = entry }
                     )
                     .padding(.top, 24)
@@ -985,571 +650,14 @@ struct LandingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
     }
 
-    private var landingSearchStageTools: some View {
-        VStack(spacing: 13) {
-            landingSearchInputLine
-                .zIndex(2)
-
-            HStack(spacing: 12) {
-                landingSearchBrainTool
-                landingSearchToolsToggle
-                landingSearchCapabilitiesTool
-            }
-            .frame(maxWidth: LandingSearchLayout.searchLineWidth)
-            .zIndex(3)
-
-            if showInlineRuntimePicker {
-                InlineRuntimePickerPanel(
-                    inference: inference,
-                    operatingMode: operatingModeBinding,
-                    onPicked: {
-                        withAnimation(reduceMotion ? nil : Motion.micro) {
-                            showInlineRuntimePicker = false
-                        }
-                    },
-                    onOpenSettings: { openActOrEpistemosSettings() },
-                    showsSettingsFooter: true
-                )
-                .frame(maxWidth: LandingSearchLayout.searchLineWidth)
-                .zIndex(4)
-                .transition(.opacity.combined(with: .scale(scale: 0.97)))
-            }
-
-            if landingToolsExpanded {
-                landingSearchExpandedToolRow
-                    .zIndex(3)
-                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
-            }
-        }
-        .frame(width: LandingSearchLayout.stageWidth)
-        .animation(reduceMotion ? nil : Motion.micro, value: landingToolsExpanded)
-        .animation(reduceMotion ? nil : Motion.micro, value: showInlineRuntimePicker)
-    }
-
-    /// Owner 2026-06-18: flat trigger for the inline runtime picker. Toggles the
-    /// in-flow pixel-art panel below the search tools instead of opening a
-    /// floating popover.
-    private var landingSearchBrainTool: some View {
-        LandingStageToolTile(
-            title: landingRuntimeTierLabel,
-            systemImage: "cpu",
-            theme: theme,
-            accent: theme.resolved.accent.color,
-            isActive: showInlineRuntimePicker,
-            action: {
-                withAnimation(reduceMotion ? nil : Motion.micro) {
-                    showInlineRuntimePicker.toggle()
-                }
-            }
-        )
-        .help(isActSearchPage ? "Pick the Act model inside the Epistemos picker" : "Pick the Epistemos brain — Fast / Think / Code")
-    }
-
-    /// SS-VIS (owner 2026-06-20): surface agent capabilities — tools, MCP
-    /// servers, cowork connectors, and skills — on the landing search page, so
-    /// a user can start with a tool already armed. Mounts the shared
-    /// `AgentToolTogglePanel` (single registry, single picker — no clone, no new
-    /// tool list). Toggling a capability here mutates the shared
-    /// `agentCommandCenter`, so a run started from search via
-    /// `submitLandingSearch()` is already armed with it.
-    private var landingSearchCapabilitiesTool: some View {
-        LandingStageToolTile(
-            title: isActSearchPage ? "Act" : "Agent",
-            systemImage: "slider.horizontal.3",
-            theme: theme,
-            accent: theme.resolved.accent.color,
-            isActive: showLandingToolPanel,
-            action: {
-                showLandingToolPanel.toggle()
-            }
-        )
-        .popover(isPresented: $showLandingToolPanel, arrowEdge: .top) {
-            AgentToolTogglePanel(
-                agentCommandCenter: agentCommandCenter,
-                theme: theme,
-                onRunSkill: { skill in runSkillFromLanding(skill) }
-            )
-        }
-        .help(isActSearchPage ? "Act tools, agents, commands, and skills" : "Agent tools, MCP, cowork & skills — the full capability set, right from search")
-    }
-
-    /// SS-VIS (owner 2026-06-20): "start off using a tool" — run a discovered skill straight from the
-    /// landing search launcher by priming the search field with its `/identifier` invocation (the same
-    /// real path the composer skills browser uses). Closes the panel + focuses the field so
-    /// the user just adds their request and submits; honest — it stages the invocation, doesn't auto-run.
-    private func runSkillFromLanding(_ skill: SkillDiscoveryEntry) {
-        showLandingToolPanel = false
-        let invocation = "/\(skill.identifier) "
-        if trimmedLandingSearchText.isEmpty {
-            landingSearchText = invocation
-        } else if !landingSearchText.hasPrefix("/") {
-            landingSearchText = invocation + landingSearchText
-        }
-        isLandingSearchFocused = true
-    }
-
-    /// Short tier label for the landing picker trigger, from the active mode.
-    private var landingRuntimeTierLabel: String {
-        if isActSearchPage { return "Act" }
-        switch operatingModeBinding.wrappedValue {
-        case .fast: return "Fast"
-        case .thinking: return "Think"
-        case .pro: return "Code"
-        case .agent: return "Act"
-        }
-    }
-
-    private var landingSearchCommandTool: some View {
-        LandingStageToolTile(
-            title: activeSelectedLandingSlashItem.map { "/\($0.rawValue)" } ?? "Command",
-            systemImage: "command",
-            theme: theme,
-            accent: Color(hex: 0x7E8CE0),
-            action: openLandingSlashCommandMenu
-        )
-        .help(activeSelectedLandingSlashItem?.helpText ?? "Open slash commands")
-    }
-
-    private var landingSearchMentionTool: some View {
-        LandingStageToolTile(
-            title: "Mention",
-            systemImage: "at",
-            theme: theme,
-            accent: Color(hex: 0x62B7C7),
-            action: insertLandingMentionToken
-        )
-        .help("Reference a note or chat")
-    }
-
-    private var landingSearchAttachTool: some View {
-        LandingStageToolTile(
-            title: "Attach",
-            systemImage: "paperclip",
-            theme: theme,
-            accent: Color(hex: 0x4C8DFF),
-            action: openLandingFilePicker
-        )
-        .help("Attach a file")
-    }
-
-    private var landingSearchToolsToggle: some View {
-        LandingStageToolTile(
-            title: landingToolsExpanded ? "Less" : "Tools",
-            systemImage: "wand.and.stars",
-            theme: theme,
-            accent: Color(hex: 0xC985D8),
-            isActive: landingToolsExpanded
-        ) {
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                landingToolsExpanded.toggle()
-            }
-        }
-        .help(landingToolsExpanded ? "Hide secondary tools" : "Show secondary tools")
-    }
-
-    private var landingSearchSendTool: some View {
-        AssistantSendButton(
-            theme: theme,
-            isEnabled: !trimmedLandingSearchText.isEmpty,
-            isProcessing: false,
-            metrics: .compactChat
-        ) {
-            submitLandingSearch()
-        }
-        .help("Send")
-        .accessibilityLabel("Send prompt")
-    }
-
-    private var landingSearchExpandedToolRow: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                landingSearchCommandTool
-                landingSearchMentionTool
-                landingSearchAttachTool
-            }
-            .frame(maxWidth: LandingSearchLayout.searchLineWidth)
-
-            HStack(spacing: 10) {
-                LandingStageToolTile(
-                    title: landingAllNotesContextAttached
-                        ? "All Notes"
-                        : landingAttachmentCount == 0
-                            ? "All Notes"
-                            : "\(landingAttachmentCount) Attached",
-                    systemImage: landingAllNotesContextAttached ? "books.vertical.fill" : "books.vertical",
-                    theme: theme,
-                    accent: Color(hex: 0xE0A53C),
-                    isActive: landingAllNotesContextAttached,
-                    action: toggleLandingAllNotesContext
-                )
-                .help(landingAllNotesContextAttached ? "Remove all-notes context" : "Attach all notes")
-
-                LandingStageToolShell(theme: theme, accent: Color(hex: 0xD96B7E)) {
-                    ChatCapabilityPill(
-                        capability: landingEffectiveCapability,
-                        detail: landingPillDetail
-                    )
-                }
-
-                LandingStageToolShell(theme: theme, accent: Color(hex: 0x62B7C7)) {
-                    if #available(macOS 26.0, *) {
-                        VoiceInputButton(
-                            style: .iconWithPulse,
-                            autoStopOnSilence: VoicePreferences.shared.dictationAutoStop == .auto,
-                            onPartial: { partial in
-                                applyLandingVoicePartial(partial)
-                            },
-                            onFinal: { final in
-                                commitLandingVoiceTranscript(final)
-                            }
-                        )
-                    } else {
-                        ComposerMicButton { transcript in
-                            commitLandingVoiceTranscript(transcript)
-                        }
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: LandingSearchLayout.searchLineWidth)
-        }
-    }
-
-    private struct LandingStageToolTile: View {
-        let title: String
-        let systemImage: String
-        let theme: EpistemosTheme
-        let accent: Color
-        var isActive = false
-        let action: () -> Void
-
-        var body: some View {
-            Button(action: action) {
-                LandingStageToolLabel(
-                    title: title,
-                    systemImage: systemImage,
-                    theme: theme,
-                    accent: accent,
-                    isActive: isActive
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private struct LandingStageToolShell<Content: View>: View {
-        let theme: EpistemosTheme
-        let accent: Color
-        @ViewBuilder let content: () -> Content
-
-        var body: some View {
-            content()
-                .padding(.horizontal, 6)
-                .padding(.vertical, 5)
-                .frame(minHeight: 34)
-                .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.86 : 0.78))
-                .contentShape(Rectangle())
-        }
-    }
-
-    private struct LandingStageToolLabel: View {
-        let title: String
-        let systemImage: String
-        let theme: EpistemosTheme
-        let accent: Color
-        let isActive: Bool
-
-        var body: some View {
-            HStack(spacing: 6) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .semibold))
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(accent.opacity(isActive ? 1 : 0.86))
-                    .frame(width: 16, height: 16)
-
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary.opacity(isActive ? 0.92 : (theme.isDark ? 0.78 : 0.68)))
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 6)
-            .frame(minHeight: 34)
-            .overlay(alignment: .bottom) {
-                if isActive {
-                    Rectangle()
-                        .fill(accent.opacity(theme.isDark ? 0.62 : 0.48))
-                        .frame(height: 1)
-                        .padding(.horizontal, 4)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-    }
-
-    private var landingSearchInputLine: some View {
-        VStack(spacing: 8) {
-            landingInlineContextChips
-
-            HStack(alignment: .center, spacing: 12) {
-                PixelGlyph(kind: .search, accent: theme.resolved.accent.color)
-                    .frame(width: 30, height: 30)
-                    .scaleEffect(landingSearchLabelHovered || isLandingSearchFocused ? 1.06 : 1)
-
-                ZStack(alignment: .topLeading) {
-                    ChatComposerTextEditor(
-                        text: $landingSearchText,
-                        height: $landingComposerHeight,
-                        isFocused: $isLandingSearchFocused,
-                        theme: theme,
-                        fontSize: LandingSearchLayout.inputFontSize,
-                        isProcessing: false,
-                        onCommand: { selector, modifierFlags in
-                            handleLandingComposerCommand(selector, modifierFlags: modifierFlags)
-                        }
-                    ) {
-                        submitLandingSearch()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: landingComposerHeight)
-                    .frame(
-                        minHeight: LandingSearchLayout.inputMinHeight,
-                        alignment: .topLeading
-                    )
-                    .onExitCommand { dismissLandingSearch() }
-                    .onChange(of: landingSearchText) { _, newValue in
-                        handleLandingSearchTextChange(newValue)
-                    }
-                    .onAppear {
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(40))
-                            isLandingSearchFocused = true
-                        }
-                    }
-                    .accessibilityLabel("Landing search input")
-                    .accessibilityHint(landingSearchAttachmentHint)
-
-                    if landingSearchText.isEmpty {
-                        Text(landingSearchPlaceholderText)
-                            .font(.system(size: 20, weight: .regular, design: .rounded))
-                            .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.34 : 0.28))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
-                            .padding(.leading, ChatComposerInputMetrics.horizontalInset)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                    }
-                }
-
-                Spacer(minLength: 0)
-
-                Text("esc")
-                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                    .foregroundStyle(theme.textTertiary.opacity(0.70))
-                    .padding(.trailing, 2)
-
-                landingSearchSendTool
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .frame(width: LandingSearchLayout.searchLineWidth)
-            .background {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(theme.glassBg.opacity(theme.isDark ? 0.18 : 0.10))
-                    .opacity(landingSearchLabelHovered || isLandingSearchFocused ? 1 : 0.34)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(
-                        theme.fontAccent.opacity(
-                            landingSearchLabelHovered || isLandingSearchFocused
-                                ? (theme.isDark ? 0.18 : 0.22)
-                                : (theme.isDark ? 0.08 : 0.11)
-                        ),
-                        lineWidth: 0.75
-                    )
-            }
-            .shadow(
-                color: theme.isDark
-                    ? Color.black.opacity(landingSearchLabelHovered || isLandingSearchFocused ? 0.20 : 0.08)
-                    : theme.fontAccent.opacity(landingSearchLabelHovered || isLandingSearchFocused ? 0.12 : 0.04),
-                radius: landingSearchLabelHovered || isLandingSearchFocused ? 16 : 8,
-                x: 0,
-                y: landingSearchLabelHovered || isLandingSearchFocused ? 8 : 3
-            )
-            .scaleEffect(landingSearchLabelHovered ? 1.012 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .onTapGesture { isLandingSearchFocused = true }
-            .onHover { hovering in
-                withAnimation(reduceMotion ? nil : .smooth(duration: 0.16)) {
-                    landingSearchLabelHovered = hovering
-                }
-            }
-            .popover(isPresented: $showLandingSlashMenu, arrowEdge: .top) {
-                SlashCommandPopover(
-                    items: supportedLandingSlashItems,
-                    filter: landingSlashFilter,
-                    selectedItem: highlightedLandingSlashItem,
-                    onSelect: { item in
-                        applyLandingSlashItem(item)
-                    }
-                )
-            }
-            .overlay(alignment: .topLeading) {
-                if showLandingMentionDropdown {
-                    ComposerReferencePopover(
-                        isPresented: $showLandingMentionDropdown,
-                        results: landingMentionSearchResults,
-                        query: $landingMentionFilter,
-                        manifest: ambientManifest,
-                        modelContext: modelContext,
-                        idealWidth: landingReferencePopoverStyle.idealWidth,
-                        maxHeight: landingReferencePopoverStyle.maxHeight,
-                        style: landingReferencePopoverStyle,
-                        autofocusSearchField: landingMentionPickerAutofocus,
-                        onDismiss: dismissLandingReferencePopover,
-                        onSelect: attachLandingMentionReference
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .transition(.opacity)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    @ViewBuilder
-    private var landingInlineContextChips: some View {
-        if !landingContextAttachments.isEmpty || !landingFileAttachments.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(landingContextAttachments) { attachment in
-                        landingContextChip(
-                            title: attachment.title,
-                            systemImage: attachment.systemImageName,
-                            isWarning: false
-                        ) {
-                            removeLandingContextAttachment(attachment.id)
-                        }
-                        .help("Attached \(attachment.title)")
-                    }
-
-                    ForEach(landingFileAttachments) { attachment in
-                        let isSupported = inference.chatSurfaceSupportedFileTypes(
-                            for: selectedOperatingMode
-                        ).contains(attachment.type)
-                        landingContextChip(
-                            title: attachment.name,
-                            systemImage: landingIconForType(attachment.type),
-                            isWarning: !isSupported
-                        ) {
-                            removeLandingFileAttachment(attachment.id)
-                        }
-                        .help(isSupported ? attachment.name : "Current model doesn't support \(attachment.type.rawValue) files")
-                    }
-                }
-                .padding(.horizontal, Spacing.xxl)
-            }
-            .frame(maxWidth: .infinity)
-            .transition(.opacity.combined(with: .move(edge: .top)))
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Attached references")
-        }
-    }
-
-    private func landingContextChip(
-        title: String,
-        systemImage: String,
-        isWarning: Bool,
-        onRemove: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 5) {
-            if isWarning {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 9, weight: .semibold))
-            }
-            Image(systemName: systemImage)
-                .font(.system(size: 10, weight: .semibold))
-            Text(title)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .lineLimit(1)
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 10, weight: .semibold))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Remove \(title)")
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(
-            isWarning ? Color.orange.opacity(0.12) : theme.textSecondary.opacity(0.08),
-            in: Capsule()
-        )
-        .foregroundStyle(isWarning ? Color.orange : theme.textSecondary)
-    }
-
-    private func insertLandingMentionToken() {
-        if !landingSearchText.hasSuffix("@") {
-            if !landingSearchText.isEmpty,
-               landingSearchText.last?.isWhitespace == false {
-                landingSearchText.append(" ")
-            }
-            landingSearchText.append("@")
-        }
-        handleLandingSearchTextChange(landingSearchText)
-        isLandingSearchFocused = true
-    }
-
-    private func activateLandingSearch(playHaptic: Bool = true) {
-        guard !showingBrief && !showWelcomeBack else { return }
-        if showingSearchPopover {
-            isLandingSearchFocused = true
-            return
-        }
-        if playHaptic {
-            HapticHelper.homeCommand(.search)
-        }
-        if activeLandingInlineCommand != nil {
-            dismissLandingInlineCommand(animateGreetingReturn: false)
-        }
-        landingSearchRevealFrame = 0
-        landingGreetingReturnTask?.cancel()
-        landingGreetingReturnTask = nil
-        landingGreetingReturnFrame = 0
-        landingToolsExpanded = false
-        showingSearchPopover = true
-        runLandingSearchReveal()
-        Task { @MainActor in
-            await Task.yield()
-            do {
-                try await Task.sleep(for: .milliseconds(16))
-            } catch is CancellationError {
-                return
-            } catch {
-                Self.log.error(
-                    "LandingView: failed to schedule landing search focus: \(error.localizedDescription, privacy: .public)"
-                )
-                return
-            }
-            guard showingSearchPopover else { return }
-            isLandingSearchFocused = true
-        }
-    }
-
     private func showLandingInlineCommand(_ command: LandingInlineCommand) {
         guard !showingBrief && !showWelcomeBack else { return }
-        if showingSearchPopover {
-            dismissLandingSearch(animateGreetingReturn: false)
-        }
-        landingSearchRevealFrame = 0
+        landingStageRevealFrame = 0
         landingGreetingReturnTask?.cancel()
         landingGreetingReturnTask = nil
         landingGreetingReturnFrame = 0
         activeLandingInlineCommand = command
-        runLandingSearchReveal()
+        runLandingStageReveal()
     }
 
     private func landingInlineCommandBinding(for command: LandingInlineCommand) -> Binding<Bool> {
@@ -1566,32 +674,28 @@ struct LandingView: View {
     }
 
     private func dismissLandingStageCommand() {
-        if showingSearchPopover {
-            dismissLandingSearch()
-        } else {
-            dismissLandingInlineCommand()
-        }
+        dismissLandingInlineCommand()
     }
 
     private func dismissLandingInlineCommand(animateGreetingReturn: Bool = true) {
         activeLandingInlineCommand = nil
-        landingSearchRevealTask?.cancel()
-        landingSearchRevealTask = nil
-        landingSearchRevealFrame = 0
+        landingStageRevealTask?.cancel()
+        landingStageRevealTask = nil
+        landingStageRevealFrame = 0
         if animateGreetingReturn {
             runLandingGreetingReturnReveal()
         }
         HomeWindowInputFocus.restoreAfterOverlayDismiss()
     }
 
-    private func runLandingSearchReveal() {
-        landingSearchRevealTask?.cancel()
-        landingSearchRevealTask = Task { @MainActor in
+    private func runLandingStageReveal() {
+        landingStageRevealTask?.cancel()
+        landingStageRevealTask = Task { @MainActor in
             if !reduceMotion {
                 try? await Task.sleep(for: .milliseconds(220))
             }
             await PixelStepMotion.playLandingSearchReveal(reduceMotion: reduceMotion) { frame in
-                landingSearchRevealFrame = frame
+                landingStageRevealFrame = frame
             }
         }
     }
@@ -1603,261 +707,6 @@ struct LandingView: View {
             await PixelStepMotion.playLandingGreetingReturnReveal(reduceMotion: reduceMotion) { frame in
                 landingGreetingReturnFrame = frame
             }
-        }
-    }
-
-    private func handleLandingSearchTextChange(_ newValue: String) {
-        refreshLandingSlashMenu(for: newValue)
-        scheduleLandingContextualShadowsRecall(for: newValue)
-        if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
-            landingReferencePopoverStyle = .mention
-            landingMentionFilter = filter
-            landingMentionKeyboardIndex = 0
-            landingMentionPickerAutofocus = false
-            showLandingMentionDropdown = true
-            updateLandingReferenceSearch(filter: filter)
-        } else {
-            showLandingMentionDropdown = false
-            landingReferencePopoverStyle = .mention
-            landingMentionKeyboardIndex = 0
-            landingMentionPickerAutofocus = false
-            landingMentionFilter = ""
-            landingReferenceSearch.reset()
-        }
-    }
-
-    private func scheduleLandingContextualShadowsRecall(for snapshotText: String) {
-        // SS-IR (owner 2026-06-20): recall is scoped to the EDITORS (Epdoc + TK2), NOT the landing
-        // search. Stop feeding Surface B here — cancel any pending query + clear the landing-scope
-        // payload so no recall chrome appears on landing. The recall brain stays; only this surface
-        // stops feeding/showing it (the button needs a payload to render, so this hides it).
-        landingRecallDebounceBox.task?.cancel()
-    }
-
-    private func refreshLandingSlashMenu(for newValue: String) {
-        let trimmedLeading = newValue.drop(while: \.isWhitespace)
-        guard trimmedLeading.first == "/" else {
-            if showLandingSlashMenu {
-                showLandingSlashMenu = false
-                landingSlashFilter = ""
-                landingSlashKeyboardIndex = 0
-            }
-            return
-        }
-        let afterSlash = String(trimmedLeading.dropFirst())
-        if !afterSlash.isEmpty {
-            selectedLandingSlashItem = nil
-        }
-        if afterSlash.contains(where: { $0.isWhitespace || $0.isNewline }) {
-            showLandingSlashMenu = false
-            landingSlashFilter = ""
-            landingSlashKeyboardIndex = 0
-            return
-        }
-        landingSlashFilter = afterSlash
-        landingSlashKeyboardIndex = 0
-        showLandingSlashMenu = true
-    }
-
-    private func applyLandingSlashItem(_ item: ComposerSlashCommandItem) {
-        if let command = item.command {
-            selectedOperatingMode = MainChatOperatingModePreference.sanitize(
-                command.defaultOperatingMode,
-                for: inference,
-                availableModes: supportedOperatingModes
-            )
-        }
-        selectedLandingSlashItem = item
-
-        let leadingWhitespace = landingSearchText.prefix { $0.isWhitespace }
-        let afterLeading = landingSearchText.dropFirst(leadingWhitespace.count)
-        if afterLeading.hasPrefix("/") {
-            let slug = "/" + item.rawValue
-            if afterLeading.hasPrefix(slug) {
-                let suffix = afterLeading.dropFirst(slug.count)
-                landingSearchText = String(leadingWhitespace) + suffix
-            } else {
-                let afterSlash = afterLeading.dropFirst()
-                let partialEnd = afterSlash.firstIndex(where: { $0.isWhitespace }) ?? afterSlash.endIndex
-                let remainder = afterSlash[partialEnd...]
-                landingSearchText = String(leadingWhitespace) + String(remainder)
-            }
-        }
-
-        if trimmedLandingSearchText.isEmpty,
-           let suggestedPrompt = item.suggestedPrompt {
-            landingSearchText = suggestedPrompt
-        }
-
-        showLandingSlashMenu = false
-        landingSlashFilter = ""
-        landingSlashKeyboardIndex = 0
-        isLandingSearchFocused = true
-    }
-
-    private func openActOrEpistemosSettings() {
-        openSettings()
-    }
-
-    private func openLandingSlashCommandMenu() {
-        guard !supportedLandingSlashItems.isEmpty else { return }
-        landingSlashFilter = ""
-        landingSlashKeyboardIndex = 0
-        showLandingSlashMenu = true
-        isLandingSearchFocused = true
-    }
-
-    private func handleLandingComposerCommand(
-        _ selector: Selector,
-        modifierFlags: NSEvent.ModifierFlags
-    ) -> Bool {
-        guard let command = ChatComposerKeyHandling.overlayCommand(
-            for: selector,
-            modifierFlags: modifierFlags
-        ) else {
-            return false
-        }
-
-        if showLandingMentionDropdown {
-            return handleLandingMentionOverlayCommand(command)
-        }
-        if showLandingSlashMenu {
-            return handleLandingSlashOverlayCommand(command)
-        }
-        return false
-    }
-
-    private func handleLandingMentionOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
-        let choices = landingMentionKeyboardChoices
-        switch command {
-        case .moveDown:
-            guard !choices.isEmpty else { return true }
-            landingMentionKeyboardIndex = clampedLandingKeyboardIndex(
-                landingMentionKeyboardIndex + 1,
-                count: choices.count
-            )
-            return true
-        case .moveUp:
-            guard !choices.isEmpty else { return true }
-            landingMentionKeyboardIndex = clampedLandingKeyboardIndex(
-                landingMentionKeyboardIndex - 1,
-                count: choices.count
-            )
-            return true
-        case .confirm:
-            guard !choices.isEmpty else { return true }
-            attachLandingMentionReference(
-                choices[
-                    clampedLandingKeyboardIndex(
-                        landingMentionKeyboardIndex,
-                        count: choices.count
-                    )
-                ]
-            )
-            return true
-        case .cancel:
-            dismissLandingReferencePopover()
-            return true
-        }
-    }
-
-    private func handleLandingSlashOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
-        let items = filteredLandingSlashItems
-        switch command {
-        case .moveDown:
-            guard !items.isEmpty else { return true }
-            landingSlashKeyboardIndex = clampedLandingKeyboardIndex(
-                landingSlashKeyboardIndex + 1,
-                count: items.count
-            )
-            return true
-        case .moveUp:
-            guard !items.isEmpty else { return true }
-            landingSlashKeyboardIndex = clampedLandingKeyboardIndex(
-                landingSlashKeyboardIndex - 1,
-                count: items.count
-            )
-            return true
-        case .confirm:
-            guard !items.isEmpty else { return true }
-            applyLandingSlashItem(
-                items[
-                    clampedLandingKeyboardIndex(
-                        landingSlashKeyboardIndex,
-                        count: items.count
-                    )
-                ]
-            )
-            return true
-        case .cancel:
-            showLandingSlashMenu = false
-            landingSlashFilter = ""
-            landingSlashKeyboardIndex = 0
-            return true
-        }
-    }
-
-    private func clampedLandingKeyboardIndex(_ index: Int, count: Int) -> Int {
-        guard count > 0 else { return 0 }
-        return min(max(index, 0), count - 1)
-    }
-
-
-    /// Fired when the native NSPopover finishes its close animation. Resets
-    /// the composer state the same way an explicit Esc/dismiss would, without
-    /// re-triggering the popover close (`showingSearchPopover` is already
-    /// false by the time `onDisappear` runs).
-    private func onLandingPopoverDisappear() {
-        landingSearchText = ""
-        landingComposerHeight = LandingSearchLayout.inputMinHeight
-        isLandingSearchFocused = false
-        showLandingMentionDropdown = false
-        showLandingSlashMenu = false
-        landingSlashFilter = ""
-        landingSlashKeyboardIndex = 0
-        selectedLandingSlashItem = nil
-        landingReferencePopoverStyle = .mention
-        landingMentionFilter = ""
-        landingMentionKeyboardIndex = 0
-        landingMentionPickerAutofocus = false
-        landingReferenceSearch.reset()
-        landingContextAttachments = []
-        landingFileAttachments = []
-        landingToolsExpanded = false
-        landingVoiceDraftPrefix = nil
-        landingRecallDebounceBox.task?.cancel()
-        landingRecallDebounceBox.task = nil
-        landingSearchRevealTask?.cancel()
-        landingSearchRevealTask = nil
-        landingSearchRevealFrame = 0
-    }
-
-    private func dismissLandingSearch(animateGreetingReturn: Bool = true) {
-        showingSearchPopover = false
-        landingSearchText = ""
-        landingComposerHeight = LandingSearchLayout.inputMinHeight
-        isLandingSearchFocused = false
-        showLandingMentionDropdown = false
-        showLandingSlashMenu = false
-        landingSlashFilter = ""
-        landingSlashKeyboardIndex = 0
-        selectedLandingSlashItem = nil
-        landingReferencePopoverStyle = .mention
-        landingMentionFilter = ""
-        landingMentionKeyboardIndex = 0
-        landingMentionPickerAutofocus = false
-        landingReferenceSearch.reset()
-        landingContextAttachments = []
-        landingFileAttachments = []
-        landingToolsExpanded = false
-        landingVoiceDraftPrefix = nil
-        landingRecallDebounceBox.task?.cancel()
-        landingRecallDebounceBox.task = nil
-        landingSearchRevealTask?.cancel()
-        landingSearchRevealTask = nil
-        landingSearchRevealFrame = 0
-        if animateGreetingReturn {
-            runLandingGreetingReturnReveal()
         }
     }
 
@@ -1931,245 +780,19 @@ struct LandingView: View {
         }
     }
 
-    private func submitLandingSearch() {
-        if showLandingMentionDropdown {
-            _ = handleLandingMentionOverlayCommand(.confirm)
-            return
-        }
-        if showLandingSlashMenu {
-            _ = handleLandingSlashOverlayCommand(.confirm)
-            return
-        }
-
-        let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        dismissLandingSearch()
-
-        WorkspaceModeSelection.select(.act)
-        ui.setActivePanel(.home)
-        let portalContext = AgentPortalContextSnapshot.landing(
-            prompt: trimmed,
-            vaultRootPath: vaultSync.vaultURL?.path,
-            workspacePath: FileManager.default.homeDirectoryForCurrentUser.path
-        )
-        agentChat.startNewSession(portalContext: portalContext)
-        agentChat.submitAgentQuery(trimmed, portalContext: portalContext)
-        #if !EPISTEMOS_APP_STORE && canImport(AgentClone)
-        AgentCloneBridge.updateHostContext(AgentCloneHostContext(
-            appName: HomeWindowIdentity.title,
-            workspaceRootPath: FileManager.default.homeDirectoryForCurrentUser.path,
-            vaultRootPath: vaultSync.vaultURL?.path,
-            appSupportRootPath: AgentCloneAppContextSnapshot.defaultAppSupportPath(
-                appName: HomeWindowIdentity.title
-            ),
-            mode: WorkspaceModeKind.act.defaultLabel,
-            presentation: agentChat.activePortalContext?.bridgePresentation
-        ))
-        AgentCloneBridge.submitPrompt(portalContext.agentClonePromptEnvelope(userPrompt: trimmed))
-        #endif
-    }
-
-    private func presentFarmAgentCreate() {
+    private func presentFarmCompanionCreate() {
         farmEditTarget = nil
         farmShowingCreate = true
     }
 
-    private func presentFarmAgentEdit(_ entry: CompanionRosterEntry) {
+    private func presentFarmCompanionEdit(_ entry: CompanionRosterEntry) {
         farmShowingCreate = false
         farmEditTarget = entry
     }
 
-    private func dismissFarmAgentEditor() {
+    private func dismissFarmCompanionEditor() {
         farmShowingCreate = false
         farmEditTarget = nil
-    }
-
-    private func sanitizeStoredOperatingMode() {
-        let sanitized = MainChatOperatingModePreference.sanitize(
-            EpistemosOperatingMode(rawValue: mainChatOperatingModeRaw) ?? .fast,
-            for: inference
-        )
-        if sanitized.rawValue != mainChatOperatingModeRaw {
-            mainChatOperatingModeRaw = sanitized.rawValue
-        }
-    }
-
-    private func attachLandingMentionReference(_ choice: ComposerReferenceChoice) {
-        // Phase R.4 — thread the
-        // active vault's stable ID so the attachment gets a canonical
-        // `vault://{vaultId}/note/{relativePath}` manifest at pick time.
-        let vaultId = vaultSync.vaultURL?.lastPathComponent
-        let attachment = ComposerReferenceHelpers.contextAttachment(
-            for: choice,
-            vaultId: vaultId
-        )
-        if !landingContextAttachments.contains(attachment) {
-            landingContextAttachments.append(attachment)
-        }
-        landingSearchText = ComposerReferenceHelpers.removingTrailingMention(from: landingSearchText)
-        showLandingMentionDropdown = false
-        landingReferencePopoverStyle = .mention
-        landingMentionFilter = ""
-        landingMentionKeyboardIndex = 0
-        landingMentionPickerAutofocus = false
-        landingReferenceSearch.reset()
-        preserveLandingSearchSurfaceAfterAttachment()
-    }
-
-    private func preserveLandingSearchSurfaceAfterAttachment() {
-        guard showingSearchPopover else { return }
-        landingSearchRevealTask?.cancel()
-        landingSearchRevealTask = nil
-        landingSearchRevealFrame = max(landingSearchRevealFrame, 5)
-    }
-
-    private func dismissLandingReferencePopover() {
-        showLandingMentionDropdown = false
-        landingMentionKeyboardIndex = 0
-        landingMentionPickerAutofocus = false
-        landingReferenceSearch.reset()
-    }
-
-    private func removeLandingContextAttachment(_ id: String) {
-        landingContextAttachments.removeAll { $0.id == id }
-    }
-
-    private func removeLandingFileAttachment(_ id: String) {
-        let removedURIs = landingFileAttachments
-            .filter { $0.id == id }
-            .map(\.uri)
-        landingFileAttachments.removeAll { $0.id == id }
-        landingContextAttachments.removeAll { attachment in
-            guard attachment.kind == .file else { return false }
-            return removedURIs.contains(attachment.targetId)
-        }
-    }
-
-    private func toggleLandingAllNotesContext() {
-        let attachment = ComposerReferenceHelpers.allNotesAttachment
-        if landingAllNotesContextAttached {
-            removeLandingContextAttachment(attachment.id)
-        } else if !landingContextAttachments.contains(attachment) {
-            landingContextAttachments.append(attachment)
-        }
-        preserveLandingSearchSurfaceAfterAttachment()
-        isLandingSearchFocused = true
-    }
-
-    private func openLandingFilePicker() {
-        Task { @MainActor in
-            await Task.yield()
-
-            let panel = NSOpenPanel()
-            panel.allowsMultipleSelection = true
-            var allowedTypes: [UTType] = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
-            if let markdownType = UTType(filenameExtension: "md") {
-                allowedTypes.insert(markdownType, at: 2)
-            }
-            panel.allowedContentTypes = allowedTypes
-            panel.canChooseDirectories = false
-
-            let urls = await presentLandingFilePicker(panel)
-            guard !urls.isEmpty else {
-                isLandingSearchFocused = true
-                return
-            }
-
-            let attachments = await FileAttachmentBuilder.buildAll(from: urls)
-            for attachment in attachments where !landingFileAttachments.contains(where: { $0.uri == attachment.uri }) {
-                landingFileAttachments.append(attachment)
-            }
-
-            for url in urls {
-                guard let contextAttachment = ComposerReferenceHelpers.fileContextAttachment(
-                    for: url,
-                    displayName: url.lastPathComponent
-                ) else { continue }
-                if !landingContextAttachments.contains(contextAttachment) {
-                    landingContextAttachments.append(contextAttachment)
-                }
-            }
-            preserveLandingSearchSurfaceAfterAttachment()
-            isLandingSearchFocused = true
-        }
-    }
-
-    @MainActor
-    private func presentLandingFilePicker(_ panel: NSOpenPanel) async -> [URL] {
-        await withCheckedContinuation { continuation in
-            let handler: (NSApplication.ModalResponse) -> Void = { response in
-                continuation.resume(returning: response == .OK ? panel.urls : [])
-            }
-
-            if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-                panel.beginSheetModal(for: window, completionHandler: handler)
-            } else {
-                panel.begin(completionHandler: handler)
-            }
-        }
-    }
-
-    private func landingIconForType(_ type: AttachmentType) -> String {
-        switch type {
-        case .image: "photo"
-        case .pdf: "doc.richtext"
-        case .csv: "tablecells"
-        case .text: "doc.text"
-        case .other: "paperclip"
-        }
-    }
-
-    private func applyLandingVoicePartial(_ partial: String) {
-        if landingVoiceDraftPrefix == nil {
-            landingVoiceDraftPrefix = landingSearchText
-        }
-        let prefix = landingVoiceDraftPrefix ?? ""
-        let trimmedPartial = partial.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedPartial.isEmpty {
-            landingSearchText = prefix
-        } else if prefix.isEmpty {
-            landingSearchText = trimmedPartial
-        } else if prefix.last?.isWhitespace == true {
-            landingSearchText = prefix + trimmedPartial
-        } else {
-            landingSearchText = prefix + " " + trimmedPartial
-        }
-        handleLandingSearchTextChange(landingSearchText)
-    }
-
-    private func commitLandingVoiceTranscript(_ transcript: String) {
-        if let prefix = landingVoiceDraftPrefix {
-            landingSearchText = prefix
-        }
-        landingVoiceDraftPrefix = nil
-        appendLandingComposerText(transcript)
-    }
-
-    private func appendLandingComposerText(_ rawText: String) {
-        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        if landingSearchText.isEmpty {
-            landingSearchText = text
-        } else if landingSearchText.last?.isWhitespace == true {
-            landingSearchText += text
-        } else {
-            landingSearchText += " " + text
-        }
-        handleLandingSearchTextChange(landingSearchText)
-        isLandingSearchFocused = true
-    }
-
-    private func updateLandingReferenceSearch(filter: String) {
-        let trimmed = filter.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            landingReferenceSearch.reset()
-            return
-        }
-        landingReferenceSearch.update(
-            filter: trimmed,
-            manifest: ambientManifest,
-            vaultSync: vaultSync
-        )
     }
 
     // MARK: - Welcome Back Content

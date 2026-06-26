@@ -37,16 +37,11 @@ public struct DeploymentProfileHealthRow: View {
     }
 
     /// Capabilities that differ between profiles. Each entry says
-    /// what's on in Pro and off in MAS. MAS sandbox blocks
-    /// subprocess execution + AX scraping + LaunchAgent + iMessage
-    /// scripting, so those surfaces are Pro-only.
+    /// what's on in Pro and off in MAS. MAS sandbox blocks subprocess
+    /// execution and AX scraping, so those surfaces are Pro-only.
     private static let proOnlyFeatures: [String] = [
         "CLI passthrough (claude / codex / gemini / kimi)",
-        "Channels (Slack / iMessage inbound)",
-        "Knowledge Fusion (Experimental)",
-        "iMessage Driver",
         "Skills",
-        "NightBrain LaunchAgent (background consolidation)",
         "AX / AXorcist screen reading (computer-use)",
         "Bash / MultiEdit / WebFetch local tools",
     ]

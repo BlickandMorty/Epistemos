@@ -4,7 +4,7 @@ import Testing
 @testable import Epistemos
 
 // SS-SH slice 1 — the single shared substrate-health clock + the collapse of
-// the per-row 1 Hz timers onto it. The clock's tick logic is witnessed purely;
+// the per-row high-frequency timers onto it. The clock's tick logic is witnessed purely;
 // the collapse itself is witnessed by a source guard (no live panel needed,
 // since the app-hosted UI can't run headless).
 @Suite("SS-SH substrate-health clock (slice 1)")
@@ -29,6 +29,7 @@ struct SubstrateHealthClockTests {
         #expect(panel.contains("SubstrateHealthClock()"))
         #expect(panel.contains("healthClock.advance()"))
         #expect(panel.contains(".environment(healthClock)"))
+        #expect(panel.contains("SubstrateHealthClock.defaultPollInterval"))
         // The driver is a single .task loop, not one timer per row.
         let advanceCount = panel.components(separatedBy: "healthClock.advance()").count - 1
         #expect(advanceCount == 1, "the panel must drive the shared clock from exactly one place")
@@ -118,7 +119,7 @@ struct SubstrateHealthClockTests {
                     "\(name) must read the shared SubstrateHealthClock.unified snapshot")
         }
         // The shared clock is the SINGLE owner of the per-tick async unified fetch
-        // (6 identical FFI round-trips/sec collapsed to 1).
+        // (formerly 6 identical FFI round-trips/sec collapsed to one calmer fetch).
         let clock = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthClock.swift")
         #expect(clock.contains("private(set) var unified"))
         #expect(clock.contains("func tickWithUnifiedRefresh()"))

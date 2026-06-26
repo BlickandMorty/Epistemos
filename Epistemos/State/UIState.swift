@@ -88,7 +88,7 @@ enum LandingGreetingResolver {
         ]
 
         let instructions: [LandingGreetingPhrase] = [
-            LandingGreetingPhrase(text: "type anywhere to start with AgentClone", durationSeconds: 2.6),
+            LandingGreetingPhrase(text: "use the buttons below to open your workspace", durationSeconds: 2.6),
             LandingGreetingPhrase(text: "attach a note for deeper context", durationSeconds: 3.0),
             LandingGreetingPhrase(text: "ask across notes, graph, and saved context", durationSeconds: 3.2),
         ]

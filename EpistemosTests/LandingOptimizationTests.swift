@@ -53,18 +53,15 @@ struct LandingOptimizationTests {
         #expect(!landing.contains("SessionIntelligenceOverlay"))
     }
 
-    @Test("landing search composer uses the label line and hides secondary tools behind Tools")
-    func landingSearchComposerUsesLabelLineAndToolsReveal() throws {
+    @Test("landing does not carry the retired native search composer")
+    func landingDoesNotCarryRetiredSearchComposer() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landing.contains("private var landingSearchInputLine: some View"))
-        #expect(landing.contains("ChatComposerTextEditor(\n                        text: $landingSearchText"))
-        // (Dropped the `preferSplitToolbarControls: false` assertion — the owner's flat inline
-        // pixel-art panel redesign d790bc81f removed that composer flag; the label-line + tools-
-        // behind-Tools intent below is still asserted.)
-        #expect(landing.contains("landingSearchToolsToggle"))
-        #expect(landing.contains("if landingToolsExpanded {\n                landingSearchExpandedToolRow"))
-        #expect(landing.contains("landingSearchCommandTool\n                landingSearchMentionTool\n                landingSearchAttachTool\n                landingSearchSavedTool"))
+        #expect(!landing.contains("private var landingSearchInputLine: some View"))
+        #expect(!landing.contains("ChatComposerTextEditor("))
+        #expect(!landing.contains("landingSearchText"))
+        #expect(!landing.contains("landingSearchToolsToggle"))
+        #expect(!landing.contains("landingSearchExpandedToolRow"))
         #expect(!landing.contains("Rectangle()\n                    .fill(PixelPanelBackground.actionSurface(for: theme))"))
     }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Single-agent render. Body grammar determines silhouette + animation
+/// Single-companion render. Body grammar determines silhouette + animation
 /// vocabulary; identity hash seeds DeterministicPRNG so cosmetic randomness is
 /// replayable (Invariant I-13).
 ///
@@ -11,8 +11,7 @@ import SwiftUI
 /// (Invariant I-14).
 ///
 /// On hover: lift + glow brighten (Invariant I-6 `cosmetic_focus`).
-/// On tap: caller's closure (`onActivate`) — typically activates the
-/// agent as the foreground persona for the next chat.
+/// On tap: caller's closure (`onActivate`) activates the visible landing companion.
 struct CompanionView: View {
     let entry: CompanionRosterEntry
     var size: CGFloat = 96
@@ -63,9 +62,9 @@ struct CompanionView: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering in isHovered = hovering }
-        .accessibilityLabel("Agent \(entry.name)")
+        .accessibilityLabel("Companion \(entry.name)")
         .accessibilityValue(isActive ? "active" : "available")
-        .accessibilityHint("Activate \(entry.name) as the foreground landing agent")
+        .accessibilityHint("Activate \(entry.name) as the foreground landing companion")
     }
 
     @ViewBuilder
@@ -79,7 +78,7 @@ struct CompanionView: View {
         }
     }
 
-    /// Per-agent canonical animation state. Landing agents sit and breathe;
+    /// Per-companion canonical animation state. Landing companions sit and breathe;
     /// hover brightens to `speak` to telegraph the click affordance. Active
     /// selection is shown by the small rectangular badge, not a walk cycle.
     private var animationState: CompanionAnimationState {

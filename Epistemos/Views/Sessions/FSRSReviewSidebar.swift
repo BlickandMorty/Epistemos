@@ -26,8 +26,8 @@ final class FSRSReviewSidebarModel {
     private(set) var atRisk: [FSRSHighRisk] = []
 
     /// Surfacing window. Default mirrors the actor's own default
-    /// (`limit: 25`) so the sidebar shows the same shoulder
-    /// NightBrain consumes.
+    /// (`limit: 25`) so the sidebar shows the same review shoulder the
+    /// foundation scheduler consumes.
     var limit: Int = 25
 
     /// Note IDs the user has already graded in the current session.

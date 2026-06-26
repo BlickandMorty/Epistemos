@@ -944,42 +944,13 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .modelRequired:
-            return "No usable local model is available. Open Settings and install or select a supported local model."
-        case .runtimeUnavailable:
-            return "The local model runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
-        case .fastModeUnsupported(let modelID):
-            let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-            return "Fast mode is unavailable for \(displayName) because this local model always emits thinking traces. Switch to Think or pick a different local model."
-        case .modelLoaderUnavailable(let modelID):
-            let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
-            let suggestion = isQwen3Small
-                ? "Pick a different local model in Settings → Inference — DeepSeek R1 7B is a solid default."
-                : "Pick a different local model in Settings → Inference — Qwen 3 4B and DeepSeek R1 7B are solid defaults."
-            return "The \(modelID) loader hasn't shipped yet. \(suggestion)"
-        case .modelLoadStalled(let modelID):
-            let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-            let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
-            let recovery = isQwen3Small
-                ? "Try restarting the app or switching to Apple Intelligence for lightweight turns."
-                : "Try restarting the app or switch to a smaller local model like Qwen 3 4B."
-            return "The \(displayName) model couldn't finish loading. \(recovery)"
-        case .insufficientMemory(let modelID, let requiredGB, let availableGB):
-            let displayName = LocalTextModelID(rawValue: modelID)?.displayName
-                ?? GemmaQATRuntimeLadder.candidate(forID: modelID)?.displayName
-                ?? modelID
-            let recovery: String
-            if EpistemosFoundationLineup.simplifiedLineupActive {
-                // Owner hotfix 2026-06-17f — honest foundation ways out, never
-                // "pick Qwen 3 4B" (Qwen was removed from the lineup).
-                recovery = "Free up memory, pick a smaller Epistemos tier (Fast runs a lighter Gemma), or route to cloud."
-            } else {
-                let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
-                recovery = isQwen3Small
-                    ? "Close some apps or switch to Apple Intelligence / a cloud provider until the pressure clears."
-                    : "Close some apps, reduce open notes, or pick a smaller local model like Qwen 3 4B."
-            }
-            return "\(displayName) needs about \(requiredGB) GB of free memory but only \(availableGB) GB is available right now. \(recovery)"
+        case .modelRequired,
+             .runtimeUnavailable,
+             .fastModeUnsupported,
+             .modelLoaderUnavailable,
+             .modelLoadStalled,
+             .insufficientMemory:
+            return "Epistemos app-local model generation has been removed. Use Work/OpenCode or Goose for model-backed chat."
         }
     }
 }
@@ -2241,25 +2212,9 @@ final class TriageService {
 
     // MARK: - Local MLX Fallback
 
-    // SS-MV (2, owner 2026-06-20): the per-model vault context for the LOCAL chat path.
-    // augmentedSystemPrompt was injected only on the cloud (LLMService:1359) + Apple
-    // Intelligence (AppleIntelligenceService:282) paths, so local models NEVER read their
-    // model vault. The default store points at the SAME ApplicationSupport/.../ModelVaults
-    // dir the cloud path + the distillation compiler use, so the chat reads the compiled
-    // instructions / knowledge profile / concept index / active context the user expects.
-    private let knowledgeProfileStore = KnowledgeProfileStore()
-
-    /// SS-MV (2): the system prompt enriched with the selected model's vault context,
-    /// mirroring the cloud call sites. `.compact` budget for tight local context windows;
-    /// on any failure or no vault it returns the original prompt UNCHANGED — guarded, so it
-    /// never perturbs SS-CR routing and degrades to the plain prompt.
     private func vaultAugmentedLocalSystemPrompt(_ systemPrompt: String?, modelID: String?) async -> String? {
-        guard let modelID else { return systemPrompt }
-        return (try? await knowledgeProfileStore.augmentedSystemPrompt(
-            existingPrompt: systemPrompt,
-            modelID: modelID,
-            budget: .compact
-        )) ?? systemPrompt
+        _ = modelID
+        return systemPrompt
     }
 
     private func localGenerateOrFallback(

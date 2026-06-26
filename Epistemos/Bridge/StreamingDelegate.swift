@@ -820,50 +820,17 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
         return result.get()
     }
 
-    /// Phase 6 Specialty C3: MLX-first image generation per PLAN_V2 §5.1
-    /// and §16. Routes through `MLXImageGenerationService` which owns the
-    /// Apple-native flux.swift / MLXDiffusers integration when configured.
-    /// Returns an explicit `{"error": ..., "hint": ...}` envelope when
-    /// MLX Flux is not yet wired — the Rust side surfaces this as a tool
-    /// error, callers can then opt into FAL by passing `provider: "fal"`.
-    /// There is no silent cloud escalation (PLAN_V2 §3.4).
+    /// Native local image generation was removed with the local model stack.
+    /// Keep the bridge method honest for older Rust callbacks.
     func generateImage(prompt: String, aspectRatio: String) -> String {
         dispatchPrecondition(condition: .notOnQueue(.main))
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox(
-            "{\"error\":\"image_generate bridge unavailable\"}"
-        )
-        Task { @MainActor in
-            let payload = await MLXImageGenerationService.shared.generate(
-                prompt: prompt,
-                aspectRatio: aspectRatio
-            )
-            result.set(payload)
-            semaphore.signal()
-        }
-        // MLX Flux inference can take a while on larger prompts / aspect
-        // ratios — wait up to five minutes before giving up, matching the
-        // constrained decoding timeout.
-        _ = semaphore.wait(timeout: .now() + 300)
-        return result.get()
+        return "{\"success\":false,\"error\":\"local image generation has been removed\"}"
     }
 
-    /// Phase 7 Specialty D1: trigger a NightBrain background job on demand.
-    /// Routes through Phase7Bridge → NightBrainService.
+    /// NightBrain was removed with the local model/agent stack.
     func triggerNightbrainJob(jobType: String, priority: String) -> String {
         dispatchPrecondition(condition: .notOnQueue(.main))
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox("{\"status\":\"skipped\",\"error\":\"nightbrain bridge unavailable\"}")
-        Task { @MainActor in
-            let payload = await Phase7Bridge.shared.triggerNightbrainJob(
-                jobType: jobType,
-                priority: priority
-            )
-            result.set(payload)
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + permissionTimeout)
-        return result.get()
+        return "{\"success\":false,\"error\":\"NightBrain has been removed\"}"
     }
 
     func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String {

@@ -4,9 +4,8 @@ import Foundation
 @testable import Epistemos
 
 // SS-HF (owner 2026-06-20): no-hidden-fallback / de-black-box — a model
-// substitution must remain explicit in inference state. The old native composer
-// that rendered the note was deleted; the rebuilt AgentClone/fusion surface must
-// consume this same state when it implements the new point-of-use UI.
+// substitution must remain explicit in inference state. Point-of-use UI must
+// consume this same state instead of hiding substitutions.
 @Suite("SS-HF — model substitution state stays explicit")
 struct SSHFChatSubstitutionHonestyTests {
 

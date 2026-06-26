@@ -2,7 +2,7 @@
 //
 // Native Apple-style slash-command picker for the fused input surfaces.
 // Mirrors the pre-fuse Agent Command Center's /command flow so skills +
-// mode promotion still work in the AgentClone/fusion surface.
+// mode promotion still work anywhere this shared composer helper is mounted.
 //
 // Renders a SwiftUI List with live filtering against ACCSlashCommand —
 // feels like the macOS command palette / Spotlight row style users

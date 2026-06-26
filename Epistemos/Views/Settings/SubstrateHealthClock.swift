@@ -2,12 +2,12 @@ import SwiftUI
 
 // MARK: - SubstrateHealthClock (SS-SH single-clock collapse)
 //
-// The substrate-health panel used to run ~17 independent per-row 1 Hz
+// The substrate-health panel used to run ~17 independent per-row polling
 // `Task.sleep` timers — each waking the scheduler every second for the life of
 // the panel (even while its section was collapsed) and each needing its own
 // `.onDisappear` cancellation (which collapsed `Section`s don't fire reliably).
 // This collapses them onto ONE shared clock: the panel owns a single
-// `SubstrateHealthClock`, drives it from a single `.task` loop, and injects it
+// `SubstrateHealthClock`, drives it from a single calmer `.task` loop, and injects it
 // into the environment. Rows observe `tick` via `.substrateHealthPoll` and run
 // their own (already off-MainActor) `refresh()` on each tick instead of owning
 // a timer. One timer instead of ~17, deterministic teardown (the panel's
@@ -20,7 +20,9 @@ import SwiftUI
 @MainActor
 @Observable
 public final class SubstrateHealthClock {
-    /// Monotonic 1 Hz tick. Rows observe this to re-run their refresh.
+    public nonisolated static let defaultPollInterval: Duration = .seconds(5)
+
+    /// Monotonic shared tick. Rows observe this to re-run their refresh.
     public private(set) var tick: Int = 0
 
     /// SS-SH dedup: the shared unified substrate-health snapshot. The 6 rows that
@@ -33,11 +35,11 @@ public final class SubstrateHealthClock {
 
     public init() {
         // One sync fetch at construction so rows show data on first paint; the
-        // recurring 1 Hz refresh below runs OFF the MainActor.
+        // recurring refresh below runs OFF the MainActor.
         unified = SubstrateHealthUnifiedClient.snapshot()
     }
 
-    /// Advance one tick. Called once per second by the panel's single driver.
+    /// Advance one tick. Called by the panel's single shared driver.
     public func advance() {
         tick &+= 1
     }
@@ -67,7 +69,7 @@ private struct SubstrateHealthPollModifier: ViewModifier {
 }
 
 extension View {
-    /// SS-SH: subscribe this row to the panel's single shared 1 Hz clock. Runs
+    /// SS-SH: subscribe this row to the panel's single shared health clock. Runs
     /// `action` once on appear and again on every shared tick — replacing the
     /// row's own per-row `Task.sleep` timer. When no clock is in the environment
     /// (standalone/preview) it simply refreshes once and does not poll.

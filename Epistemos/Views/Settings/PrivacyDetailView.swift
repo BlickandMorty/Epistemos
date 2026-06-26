@@ -47,8 +47,7 @@ struct PrivacyDetailView: View {
                 cardTitle("What stays on this Mac")
                 bullets([
                     "Notes, vault contents, and any file you attach.",
-                    "Embeddings, search indexes, knowledge graph, and per-model memory folders.",
-                    "Local model weights (e.g. MLX) and their KV caches.",
+                    "Embeddings, search indexes, knowledge graph, and vault recall data.",
                     "Settings, preferences, and chat history."
                 ])
             }
@@ -130,9 +129,9 @@ struct PrivacyDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 cardTitle("Related controls")
                 bullets([
-                    "Cloud API keys live in Settings > Inference. They are stored in the macOS Keychain.",
+                    "Provider credentials, when configured by a surface, are stored in the macOS Keychain.",
                     "Vault path and sync state live in Settings > Vault.",
-                    "Per-tool permission policy lives in Settings > Agent."
+                    "Native tools, MCP, provenance, and safety status live in Settings > Epistemos Foundation."
                 ])
             }
         }

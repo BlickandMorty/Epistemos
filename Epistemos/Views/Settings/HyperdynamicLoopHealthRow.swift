@@ -91,7 +91,7 @@ public struct HyperdynamicLoopHealthRow: View {
         refreshTask?.cancel()
         refreshTask = Task { @MainActor in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: SubstrateHealthClock.defaultPollInterval)
                 if Task.isCancelled { break }
                 refresh()
             }

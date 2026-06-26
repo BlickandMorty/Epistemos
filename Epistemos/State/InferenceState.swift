@@ -469,14 +469,14 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// can still execute tool plans through the soft-guidance fallback when
     /// true constrained decoding packages are not linked into the app target.
     var canRunLocalAgentLoop: Bool {
-        canActAsAgent && LocalToolGrammar.supportsLocalAgentLoop
+        false
     }
 
     /// User-visible agent mode exposure for the regular chat picker.
     /// The UI remains conservative and only advertises agent mode when the
     /// strict structured-decoding stack is available in this build target.
     var supportsAgentMode: Bool {
-        canActAsAgent && LocalToolGrammar.supportsStructuredToolCalling
+        false
     }
 
     /// Master Fusion Plan §B.4 / "Brief Is Better" doctrine — the per-model
@@ -1153,46 +1153,6 @@ nonisolated struct LocalRuntimeHealthSnapshot: Sendable, Equatable {
     let outputCharacterCount: Int
     let availableMemoryBytes: UInt64?
     let runtimeResourceURL: URL?
-}
-
-extension LocalRuntimeHealthSnapshot {
-    init(_ profile: LocalMLXRunProfile) {
-        self.init(
-            requestedRuntimeKind: profile.requestedRuntimeKind,
-            resolvedRuntimeKind: profile.resolvedRuntimeKind,
-            executionMode: profile.executionMode,
-            modelID: profile.modelID,
-            artifactID: profile.artifactID,
-            fallbackMode: profile.fallbackMode,
-            executionPhase: profile.serialPhase,
-            timeToFirstTokenMS: profile.firstTokenLatencyMS,
-            totalDurationMS: profile.totalDurationMS,
-            tokensPerSecond: profile.tokensPerSecond,
-            outputTokenCount: profile.outputTokenCount,
-            outputCharacterCount: profile.outputCharacterCount,
-            availableMemoryBytes: profile.availableMemoryBytes,
-            runtimeResourceURL: nil
-        )
-    }
-
-    init(_ profile: LocalGGUFRunProfile) {
-        self.init(
-            requestedRuntimeKind: profile.requestedRuntimeKind,
-            resolvedRuntimeKind: profile.resolvedRuntimeKind,
-            executionMode: profile.executionMode,
-            modelID: profile.modelID,
-            artifactID: profile.artifactID,
-            fallbackMode: profile.fallbackMode,
-            executionPhase: profile.executionPhase,
-            timeToFirstTokenMS: profile.firstTokenLatencyMS,
-            totalDurationMS: profile.totalDurationMS,
-            tokensPerSecond: profile.tokensPerSecond,
-            outputTokenCount: profile.outputTokenCount,
-            outputCharacterCount: profile.outputCharacterCount,
-            availableMemoryBytes: profile.availableMemoryBytes,
-            runtimeResourceURL: profile.modelURL
-        )
-    }
 }
 
 /// Use case categories for smart model routing.
@@ -3345,7 +3305,6 @@ final class InferenceState {
         thermalState: .nominal
     )
     private(set) var latestLocalRuntimeHealth: LocalRuntimeHealthSnapshot?
-    private(set) var latestLocalRuntimeProfile: LocalMLXRunProfile?
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
     private let policyEngine = InferencePolicyEngine()
 
@@ -4056,15 +4015,8 @@ final class InferenceState {
         return .none
     }
 
-    var localRuntimeFallbackMode: LocalInferenceSerialFallbackMode? {
-        guard let rawValue = currentLocalRuntimeHealth?.fallbackMode else {
-            return nil
-        }
-        guard let mode = LocalInferenceSerialFallbackMode(rawValue: rawValue),
-              mode == .ssdStreaming else {
-            return nil
-        }
-        return mode
+    var localRuntimeFallbackMode: String? {
+        nil
     }
 
     var localRuntimeStatusSummary: String {
@@ -4072,10 +4024,6 @@ final class InferenceState {
             return hasUsableLocalTextModel
                 ? "Idle until the next local request."
                 : "No local runtime activity yet."
-        }
-
-        if localRuntimeFallbackMode == .ssdStreaming {
-            return "SSD streaming fallback active"
         }
 
         let modelLabel = LocalTextModelID(rawValue: currentLocalRuntimeHealth.modelID)?.compactDisplayName
@@ -4133,7 +4081,7 @@ final class InferenceState {
     }
 
     private var currentLocalRuntimeHealth: LocalRuntimeHealthSnapshot? {
-        latestLocalRuntimeHealth ?? latestLocalRuntimeProfile.map(LocalRuntimeHealthSnapshot.init)
+        latestLocalRuntimeHealth
     }
 
     var policyContext: InferencePolicyContext {
@@ -4739,8 +4687,7 @@ final class InferenceState {
         if memoryGateForcedModelIDs.contains(modelID) { return nil }
         guard let requiredGB = LocalModelCatalog.descriptor(for: modelID)?.minimumRecommendedMemoryGB,
               requiredGB > 0 else { return nil }
-        let availableBytes = latestLocalRuntimeHealth?.availableMemoryBytes
-            ?? LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
+        let availableBytes = latestLocalRuntimeHealth?.availableMemoryBytes ?? 0
         guard availableBytes > 0 else { return nil }
         let availableGB = Int(availableBytes / 1_073_741_824)
         guard !LocalChatModelMemoryGate.fits(requiredGB: requiredGB, availableGB: availableGB) else {
@@ -4769,23 +4716,7 @@ final class InferenceState {
     }
 
     var effectiveLocalAgentTextModelID: String? {
-        let strongestInstalledAgentModel = supportedAvailableLocalAgentModels.first
-        let strongestFittingAgentModel = supportedAvailableLocalAgentModels.first(
-            where: localAgentModelFitsCurrentMemoryBudget(_:)
-        )
-        if let interactiveModelID = effectiveLocalTextModelID,
-           let interactiveModel = LocalTextModelID(rawValue: interactiveModelID),
-           interactiveModel.canRunLocalAgentLoop {
-            if let strongestFittingAgentModel,
-               shouldPreferDedicatedLocalAgentModel(
-                strongestFittingAgentModel,
-                over: interactiveModel
-               ) {
-                return strongestFittingAgentModel.rawValue
-            }
-            return interactiveModelID
-        }
-        return strongestFittingAgentModel?.rawValue ?? strongestInstalledAgentModel?.rawValue
+        nil
     }
 
     /// The strongest installed agent-capable local model that ACTUALLY fits the
@@ -4800,25 +4731,7 @@ final class InferenceState {
     /// (Qwen 3 8B needs ~12 GB but only ~2 GB is free while Gemma 12B is
     /// resident).
     var fittingLocalAgentTextModelID: String? {
-        if let interactiveModelID = effectiveLocalTextModelID,
-           let interactiveModel = LocalTextModelID(rawValue: interactiveModelID),
-           interactiveModel.canRunLocalAgentLoop,
-           localAgentModelFitsCurrentMemoryBudget(interactiveModel) {
-            let strongestFittingAgentModel = supportedAvailableLocalAgentModels.first(
-                where: localAgentModelFitsCurrentMemoryBudget(_:)
-            )
-            if let strongestFittingAgentModel,
-               shouldPreferDedicatedLocalAgentModel(
-                strongestFittingAgentModel,
-                over: interactiveModel
-               ) {
-                return strongestFittingAgentModel.rawValue
-            }
-            return interactiveModelID
-        }
-        return supportedAvailableLocalAgentModels.first(
-            where: localAgentModelFitsCurrentMemoryBudget(_:)
-        )?.rawValue
+        nil
     }
 
     private func shouldPreferDedicatedLocalAgentModel(
@@ -4834,8 +4747,7 @@ final class InferenceState {
         let requiredGB = model.minimumRecommendedInteractiveMemoryGB
         guard requiredGB > 0 else { return true }
 
-        let availableBytes = latestLocalRuntimeHealth?.availableMemoryBytes
-            ?? LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
+        let availableBytes = latestLocalRuntimeHealth?.availableMemoryBytes ?? 0
         guard availableBytes > 0 else { return true }
 
         let bytesPerGB: UInt64 = 1_073_741_824
@@ -5423,78 +5335,7 @@ final class InferenceState {
     }
 
     var visibleModelVaultModelIDs: Set<String> {
-        var modelIDs: Set<String> = ["apple-intelligence"]
-        for provider in configuredCloudProviders {
-            modelIDs.formUnion(cloudModels(for: provider).map(\.vendorModelID))
-        }
-        modelIDs.formUnion(releaseSelectableInstalledLocalTextModelIDs)
-        return modelIDs
-    }
-
-    func modelVaultTargets() -> [ModelVaultTarget] {
-        var targets: [ModelVaultTarget] = [
-            ModelVaultTarget(
-                modelID: "apple-intelligence",
-                displayName: "Apple Intelligence",
-                conceptLimit: 12,
-                activeWindowDays: 7
-            )
-        ]
-
-        for provider in configuredCloudProviders {
-            targets.append(
-                contentsOf: cloudModels(for: provider).map {
-                    ModelVaultTarget(
-                        modelID: $0.vendorModelID,
-                        displayName: $0.displayName,
-                        conceptLimit: 60,
-                        activeWindowDays: 7
-                    )
-                }
-            )
-        }
-
-        targets.append(
-            contentsOf: LocalModelCatalog.allDescriptors
-                .filter { descriptor in
-                    guard releaseSelectableInstalledLocalTextModelIDs.contains(descriptor.id),
-                          let model = LocalTextModelID(rawValue: descriptor.id) else {
-                        return false
-                    }
-                    return model.isReleaseValidatedForInteractiveChat
-                }
-                .map {
-                    ModelVaultTarget(
-                        modelID: $0.id,
-                        displayName: $0.displayName,
-                        conceptLimit: 24,
-                        activeWindowDays: 7
-                    )
-                }
-        )
-
-        // Owner 2026-06-18 (per-model vaults, part 1): the loop above only sees
-        // LocalTextModelID-backed models, so it MISSES the foundation GGUF chat
-        // lane — the runnable Gemma / VibeThinker / coder tiers, which are
-        // descriptor IDs (`google/gemma-4-…-gguf`), NOT enum cases (the MLX
-        // gemma4 enum IDs are honestly excluded above because their Swift loader
-        // errors). `supportedAvailableGemmaQATRuntimeCandidates` is exactly the
-        // INSTALLED + hardware-supported foundation candidates, so each real
-        // foundation model now gets its own vault target. Honest: vision-only or
-        // not-installed models never appear here; dedup below drops any overlap.
-        targets.append(
-            contentsOf: supportedAvailableGemmaQATRuntimeCandidates.map {
-                ModelVaultTarget(
-                    modelID: $0.id,
-                    displayName: $0.displayName,
-                    conceptLimit: 24,
-                    activeWindowDays: 7
-                )
-            }
-        )
-
-        var seen = Set<String>()
-        return targets.filter { seen.insert($0.modelID).inserted }
+        []
     }
 
     var hasConfiguredCloudModels: Bool {
@@ -6348,11 +6189,6 @@ final class InferenceState {
 
     func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {
         localRuntimeConditions = conditions
-    }
-
-    func setLatestLocalRuntimeProfile(_ profile: LocalMLXRunProfile?) {
-        latestLocalRuntimeProfile = profile
-        latestLocalRuntimeHealth = profile.map(LocalRuntimeHealthSnapshot.init)
     }
 
     func setLatestLocalRuntimeHealth(_ snapshot: LocalRuntimeHealthSnapshot?) {

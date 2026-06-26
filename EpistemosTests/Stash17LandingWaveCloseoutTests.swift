@@ -65,22 +65,20 @@ struct Stash17LandingWaveCloseoutTests {
         #expect(repoFileExists("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift"))
     }
 
-    @Test("current landing surface keeps newer fused route")
-    func currentLandingSurfaceKeepsNewerFusedRoute() throws {
+    @Test("current landing surface keeps plain home route")
+    func currentLandingSurfaceKeepsPlainHomeRoute() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landing.contains("@Environment(AgentChatState.self)"))
-        #expect(landing.contains("AgentPortalContextSnapshot.landing("))
-        #expect(landing.contains("agentChat.startNewSession(portalContext: portalContext)"))
-        #expect(landing.contains("agentChat.submitAgentQuery(trimmed, portalContext: portalContext)"))
-        #expect(landing.contains("AgentCloneBridge.submitPrompt(portalContext.agentClonePromptEnvelope(userPrompt: trimmed))"))
+        #expect(!landing.contains("@Environment(AgentChatState.self)"))
+        #expect(!landing.contains("AgentPortalContextSnapshot.landing("))
+        #expect(!landing.contains("agentChat.startNewSession"))
+        #expect(!landing.contains("agentChat.submitAgentQuery"))
+        #expect(!landing.contains("AgentCloneBridge.submitPrompt"))
         #expect(!landing.contains("MainChatSubmissionRouter.submit("))
         #expect(!landing.contains("ChatBrainPickerMenu("))
-        #expect(landing.contains("showInlineRuntimePicker"))
-        #expect(landing.contains("SlashCommandPopover("))
+        #expect(!landing.contains("title: \"search\""))
         #expect(landing.contains("AmbientFrequencyPlaybackState"))
         #expect(landing.contains("LandingFarmView("))
-        #expect(landing.contains("landingSearchInlineStage"))
         #expect(!landing.contains("ContextualShadowsButton(scopeKind: .chat"))
         #expect(!landing.contains("ContextualShadowsPanel("))
         #expect(!landing.contains("LandingWaveOverlay("))

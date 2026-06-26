@@ -410,9 +410,8 @@ final class ToolTierBridge {
         self.distribution = distribution
     }
 
-    /// Load the tier-filtered tool list as `OmegaToolDefinition` structs so
-    /// `LocalAgentPromptBuilder` can inject them into the local model's system
-    /// prompt. Returns an empty array when:
+    /// Load the tier-filtered tool list as `OmegaToolDefinition` structs for
+    /// app-owned tool catalogs. Returns an empty array when:
     /// - The Rust bindings are unavailable
     /// - The tier is `.none`
     func loadTools() -> [OmegaToolDefinition] {
