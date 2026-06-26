@@ -828,7 +828,7 @@ struct RuntimeValidationTests {
 
         #expect(agentRuntime.contains("Archived Agent Runtime Surface"))
         #expect(agentRuntime.contains("@available(*, unavailable"))
-        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/Engine/LocalRustRuntime.swift")))
+        #expect(!repoFileExists("Epistemos/Engine/LocalRustRuntime.swift"))
         #expect(claudeRuntime.contains("Archived ClaudeManagedRuntime"))
         #expect(claudeRuntime.contains("@available(*, unavailable"))
         #expect(!claudeRuntime.contains("not yet wired to live API"))
@@ -1726,9 +1726,9 @@ struct RuntimeValidationTests {
         let infrastructure = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
         let environment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
 
-        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/Engine/ModelDownloadManager.swift")))
-        #expect(!FileManager.default.fileExists(atPath: repoPath("EpistemosTests/ModelStackInstallTests.swift")))
-        #expect(!FileManager.default.fileExists(atPath: repoPath("EpistemosTests/ModelDownloadGgufVerifyTests.swift")))
+        #expect(!repoFileExists("Epistemos/Engine/ModelDownloadManager.swift"))
+        #expect(!repoFileExists("EpistemosTests/ModelStackInstallTests.swift"))
+        #expect(!repoFileExists("EpistemosTests/ModelDownloadGgufVerifyTests.swift"))
         #expect(!bootstrap.contains("LocalModelManager("))
         #expect(!bootstrap.contains("ModelDownloadManager("))
         #expect(!environment.contains("localModelManager"))
@@ -3150,8 +3150,8 @@ struct RuntimeValidationTests {
     func retiredModelProfileLayerStaysDeleted() throws {
         let schema = try loadRepoTextFile("Epistemos/Models/EpistemosSchema.swift")
 
-        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/Models/SDModelProfile.swift")))
-        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/State/ModelProfileManager.swift")))
+        #expect(!repoFileExists("Epistemos/Models/SDModelProfile.swift"))
+        #expect(!repoFileExists("Epistemos/State/ModelProfileManager.swift"))
         #expect(!schema.contains("SDModelProfile"))
     }
 
@@ -3835,8 +3835,8 @@ struct RuntimeValidationTests {
         #expect(!source.contains("Omega"))
     }
 
-    @Test("graph-only chrome keeps notes query sidebar visible on workspace routes")
-    func graphOnlyChromeKeepsNotesQuerySidebarVisibleOnWorkspaceRoutes() throws {
+    @Test("graph-only chrome keeps notes query sidebar floating on full-width workspace routes")
+    func graphOnlyChromeKeepsNotesQuerySidebarFloatingOnWorkspaceRoutes() throws {
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
         let container = try loadRepoTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
 
@@ -3844,9 +3844,9 @@ struct RuntimeValidationTests {
         #expect(overlay.contains("routeHostView?.isHidden = isCanvas"))
         #expect(overlay.contains("controlsHostView?.isHidden = !isCanvas"))
         #expect(overlay.contains("sidebarHostView?.isHidden = false"))
-        #expect(container.contains("isGraphSidebarCollapsed"))
-        #expect(container.contains("if graphState.currentRoute.isCanvas || isGraphSidebarCollapsed"))
-        #expect(container.contains("GraphSidebarLayout.routedContentLeadingInset"))
+        #expect(!container.contains("routeSidebarInset"))
+        #expect(!container.contains("GraphSidebarLayout.routedContentLeadingInset"))
+        #expect(!container.contains("epistemos.graphSidebarWidth.v1"))
         #expect(overlay.contains("if isCanvas {"))
         #expect(overlay.contains("inspectorHostView?.isHidden = true"))
         #expect(overlay.contains("for view in pinnedInspectorViews.values {"))
