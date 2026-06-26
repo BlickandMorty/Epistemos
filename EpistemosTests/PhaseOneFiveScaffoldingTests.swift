@@ -59,87 +59,11 @@ struct PhaseOneFiveScaffoldingTests {
         }
     }
 
-    @Test("local guardrail scaffold allows standard local work and blocks later-phase profiles")
-    func localGuardrailScaffoldAllowsStandardAndBlocksLaterPhaseProfiles() {
-        let guardrail = LocalGuardrailScaffold()
-
-        let standardDecision = guardrail.evaluate(
-            LocalGuardrailRequest(
-                operation: .generate,
-                executionMode: .local,
-                requestedRuntimeKind: .gguf,
-                requestedReasoningProfile: .standard,
-                executionPolicyRef: "policy.standard.local"
-            )
-        )
-        #expect(standardDecision.verdict == .allow)
-        #expect(standardDecision.guardrailState == "clear")
-        #expect(standardDecision.planTracePresent)
-
-        let adaptiveDecision = guardrail.evaluate(
-            LocalGuardrailRequest(
-                operation: .generate,
-                executionMode: .local,
-                requestedRuntimeKind: .mlx,
-                requestedReasoningProfile: .adaptive,
-                executionPolicyRef: "policy.adaptive.helper"
-            )
-        )
-        #expect(adaptiveDecision.verdict == .deny)
-        #expect(adaptiveDecision.guardrailState == "blocked")
-    }
-
-    @Test("local guardrail scaffold explicitly allows adaptive helper flow only with an active session")
-    func localGuardrailScaffoldAllowsAdaptiveFlowOnlyWithActiveSession() {
-        let guardrail = LocalGuardrailScaffold()
-
-        let deniedDecision = guardrail.evaluate(
-            LocalGuardrailRequest(
-                operation: .generate,
-                executionMode: .local,
-                requestedRuntimeKind: .mlx,
-                requestedReasoningProfile: .adaptive,
-                executionPolicyRef: "policy.adaptive.helper",
-                hasActiveAdaptSession: false
-            )
-        )
-        #expect(deniedDecision.verdict == .deny)
-        #expect(deniedDecision.reason == .advancedProfileBlocked)
-
-        let allowedDecision = guardrail.evaluate(
-            LocalGuardrailRequest(
-                operation: .generate,
-                executionMode: .local,
-                requestedRuntimeKind: .mlx,
-                requestedReasoningProfile: .adaptive,
-                executionPolicyRef: "policy.adaptive.helper",
-                hasActiveAdaptSession: true
-            )
-        )
-        #expect(allowedDecision.verdict == .allow)
-        #expect(allowedDecision.reason == .adaptiveProfileAllowedWithSession)
-        #expect(allowedDecision.guardrailState == "adaptation_gated")
-    }
-
-    @Test("local guardrail scaffold makes sidecar activation explicit")
-    func localGuardrailScaffoldMakesSidecarActivationExplicit() {
-        let guardrail = LocalGuardrailScaffold()
-
-        let decision = guardrail.evaluate(
-            LocalGuardrailRequest(
-                operation: .generate,
-                executionMode: .local,
-                requestedRuntimeKind: .gguf,
-                requestedReasoningProfile: .standard,
-                executionPolicyRef: "policy.standard.local",
-                isSidecarRequest: true
-            )
-        )
-
-        #expect(decision.verdict == .allow)
-        #expect(decision.reason == .sidecarAllowed)
-        #expect(decision.guardrailState == "sidecar_gated")
-        #expect(decision.planTracePresent)
+    @Test("local guardrail scaffold stays deleted")
+    func localGuardrailScaffoldStaysDeleted() throws {
+        let url = try sourceMirrorURL(for: "Epistemos/Engine/LocalGuardrailScaffold.swift")
+        #expect(!FileManager.default.fileExists(atPath: url.path),
+                "LocalGuardrailScaffold was an unwired local-agent scaffold and must not be restored")
     }
 
     @Test("KAN pilot scaffold stays off the main path and disabled by default")

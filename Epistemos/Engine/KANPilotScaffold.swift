@@ -6,8 +6,7 @@ import Foundation
 //
 // Phase-1.5 pilot scaffold for a KAN-style routing predictor that
 // would bias retrieval candidate scoring off the main path. The
-// struct ships with `enabled: false` defaults + a single production
-// callsite (`EpistemosTests/PhaseOneFiveScaffoldingTests.swift:147`).
+// struct ships with `enabled: false` defaults and a source-guard test.
 // No app target wires it in — every public API returns the
 // `.disabled` status when constructed with defaults.
 //
