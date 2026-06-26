@@ -625,6 +625,7 @@ public enum ChatDonorContractCatalog: Sendable {
                     "AgentCloneChatHostSurface renders bounded approved-action chips from AgentPortalContextSnapshot into the composer without invoking old portal engines",
                     "AgentCloneChatHostSurface derives toolbar and session-rail status from live AgentChatState and ChatApprovalQueue instead of static ready chrome",
                     "AgentCloneChatHostSurface resolves visible session chrome from AgentChatState.activeSessionId before portal snapshot fallback",
+                    "AgentChatState emits AgentClone/fusion messages through AppBootstrap to SDChat/SDMessage storage without restoring ChatCoordinator",
                     "AgentClone provider/tool/MCP capability sources remain the active Chat foundation",
                     "project.yml, Xcode project metadata, and SwiftPM resolution no longer mount deleted native chat, Osaurus, AgentBlueprint, or SystemG paths",
                     "Standard Chat must not expose old Epistemos local-chat routing/Overseer diagnostics as the primary UI"

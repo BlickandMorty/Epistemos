@@ -4774,3 +4774,61 @@ Remaining:
   surface, keep deleting old native chat surfaces/routes where still present,
   and keep widening route/deletion guards without touching protected
   Work/OpenGUI/Goose/MCP surfaces.
+
+### Codex continuation 2026-06-25 - AgentClone session storage guard
+
+Owner correction carried forward: deleting old ChatView-era backend code does
+not mean losing Epistemos session history. The new AgentClone/fusion transcript
+must persist through Epistemos-owned storage primitives, but must not call back
+into `ChatCoordinator` or the deleted native chat engine.
+
+Implemented:
+
+- Verified the current `AgentChatState` durable-message callback seam:
+  `onMessageRecorded` emits user, assistant, interrupted, and error messages
+  with their `AgentPortalContextSnapshot`.
+- Verified `AppBootstrap.persistAgentChatMessage` writes those messages into
+  `SDChat`/`SDMessage`, preserving content blocks, artifacts, presentation
+  snapshots, thinking trace, authorship, error state, and note-linked portal
+  context.
+- Normalized `SDChat.chatTypeValues` so `"agent"` is an explicit first-class
+  thread type next to `"chat"`, instead of being visually separated as an
+  afterthought.
+- Tightened `testAgentChatStateKeepsStreamingSupportWithoutRestoringDeletedChatState`
+  so the callback, AppBootstrap persistence path, `SDMessage` descriptor, and
+  `SDChat` `"agent"` type remain guarded while `ChatCoordinator.persistChatCompletion`
+  stays rejected.
+- Updated the AgentClone route-ontology proof text to require this
+  AgentClone/fusion-to-SwiftData storage seam.
+- Did not touch `Epistemos/Work/**`, OpenGUI, Goose, OpenCode,
+  `LocalPackages/AgentClone/**`, MCP/native skills, or landing mascot assets.
+
+Verification:
+
+- `xcrun swiftc -parse -enable-bare-slash-regex Epistemos/Models/SDChat.swift
+  Epistemos/State/AgentChatState.swift Epistemos/App/AppBootstrap.swift
+  Epistemos/Models/SDMessage.swift Epistemos/Models/ChatTypes.swift
+  Epistemos/Models/BrandedTypes.swift
+  Epistemos/Views/AgentFusion/AgentPortalContextSnapshot.swift` passed.
+- `swift test --package-path LocalPackages/EpistemosChatDonorContracts --filter ChatDonorContractsTests/testAgentChatStateKeepsStreamingSupportWithoutRestoringDeletedChatState`
+  passed.
+- `swift test --package-path LocalPackages/EpistemosChatDonorContracts` passed:
+  72 tests, 0 failures.
+- Targeted stale-route scan across the touched storage/AgentFusion/Landing/
+  project files found no old MiniChat/native-chat/Osaurus/GraphChat/NoteChat/
+  AgentBlueprint/SystemG route tokens.
+- `jq empty docs/donor-contracts/swift-chat/agent-clone/provenance.json`
+  passed.
+- Trailing whitespace scan across the touched storage, donor-contract, and
+  handoff files returned no matches.
+- Full app `xcodebuild` was not rerun. The known protected Work blocker remains
+  outside this pass by directive:
+  `Epistemos/Work/WorkSPASchemeHandler.swift:97:9`, missing
+  `HTTPURLResponse` return.
+
+Remaining:
+
+- Continue both tracks: keep hardening the new AgentClone/fusion ChatView-2
+  surface, keep deleting old native chat surfaces/routes where still present,
+  and keep widening route/deletion guards without touching protected
+  Work/OpenGUI/Goose/MCP surfaces.

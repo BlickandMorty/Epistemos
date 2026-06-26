@@ -30,8 +30,7 @@ final class SDChat {
     /// lockstep with the inline enum comment above so schema consumers
     /// have one source of truth.
     static let chatTypeValues: [String] = [
-        "chat", "notes", "dialogue", "codeAsk", "aiPartner", "worker",
-        "agent",
+        "chat", "agent", "notes", "dialogue", "codeAsk", "aiPartner", "worker",
     ]
 
     /// True when this chat is a Worker Session — the full capability

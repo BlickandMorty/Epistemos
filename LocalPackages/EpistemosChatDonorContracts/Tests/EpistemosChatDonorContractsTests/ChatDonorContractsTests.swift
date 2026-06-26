@@ -2471,7 +2471,25 @@ final class ChatDonorContractsTests: XCTestCase {
         XCTAssertTrue(agentChatState.contains("private func recordActivePortalSession(promptPreview: String? = nil)"))
         XCTAssertTrue(agentChatState.contains("recentPortalSessions.removeAll { $0.id == sessionId }"))
         XCTAssertTrue(agentChatState.contains("recentPortalSessions.insert(summary, at: 0)"))
+        XCTAssertTrue(agentChatState.contains("var onMessageRecorded: (@MainActor (ChatMessage, AgentPortalContextSnapshot?) -> Void)?"))
+        XCTAssertTrue(agentChatState.contains("onMessageRecorded?(userMessage, resolvedPortalContext)"))
+        XCTAssertTrue(agentChatState.contains("onMessageRecorded?(assistantMessage, activePortalContext)"))
         XCTAssertFalse(agentChatState.contains("ChatCoordinator.inferAuthorship"))
+
+        let bootstrap = try sourceContents("Epistemos/App/AppBootstrap.swift")
+        XCTAssertTrue(bootstrap.contains("agentChatState.onMessageRecorded = { [weak self] message, portalContext in"))
+        XCTAssertTrue(bootstrap.contains("self?.persistAgentChatMessage(message, portalContext: portalContext)"))
+        XCTAssertTrue(bootstrap.contains("private func persistAgentChatMessage("))
+        XCTAssertTrue(bootstrap.contains("SDChat("))
+        XCTAssertTrue(bootstrap.contains("chatType: \"agent\""))
+        XCTAssertTrue(bootstrap.contains("FetchDescriptor<SDMessage>"))
+        XCTAssertTrue(bootstrap.contains("storedMessage.setContentBlocks(message.contentBlocks)"))
+        XCTAssertTrue(bootstrap.contains("storedMessage.setArtifacts(message.artifacts)"))
+        XCTAssertTrue(bootstrap.contains("storedMessage.updatePresentationSnapshot("))
+        XCTAssertFalse(bootstrap.contains("ChatCoordinator.persistChatCompletion"))
+
+        let sdChat = try sourceContents("Epistemos/Models/SDChat.swift")
+        XCTAssertTrue(sdChat.contains("\"chat\", \"agent\", \"notes\""))
     }
 
     func testLegacyNativeAgentBlueprintSystemGAndCompanionRoutingAreDeleted() throws {
