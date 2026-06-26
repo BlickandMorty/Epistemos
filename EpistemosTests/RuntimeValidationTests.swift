@@ -3842,6 +3842,8 @@ struct RuntimeValidationTests {
         #expect(overlay.contains("routeHostView?.isHidden = isCanvas"))
         #expect(overlay.contains("controlsHostView?.isHidden = !isCanvas"))
         #expect(overlay.contains("sidebarHostView?.isHidden = false"))
+        #expect(container.contains("isGraphSidebarCollapsed"))
+        #expect(container.contains("if graphState.currentRoute.isCanvas || isGraphSidebarCollapsed"))
         #expect(container.contains("GraphSidebarLayout.routedContentLeadingInset"))
         #expect(overlay.contains("if isCanvas {"))
         #expect(overlay.contains("inspectorHostView?.isHidden = true"))

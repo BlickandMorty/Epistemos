@@ -78,7 +78,7 @@ struct CloudLLMAgentEventTests {
         #expect(sink.events.allSatisfy { $0.metadata["provider"] == CloudModelProvider.openAI.rawValue })
         #expect(sink.events.allSatisfy { $0.metadata["model"] == CloudTextModelID.openAIGPT54.vendorModelID })
         #expect(sink.events.allSatisfy { $0.metadata["operating_mode"] == EpistemosOperatingMode.pro.rawValue })
-        #expect(sink.events.allSatisfy { $0.metadata["route"] == HermesGatewayRoute.hermesGateway.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["route"] == "cloud_provider" })
         #expect(sink.events.last?.tool?.durationMs != nil)
         #expect(sink.events.last?.tool?.resultJSON?.contains("output_length") == true)
 
@@ -139,7 +139,7 @@ struct CloudLLMAgentEventTests {
         ])
         #expect(sink.events.last?.tool?.status == .failed)
         #expect(sink.events.last?.tool?.durationMs != nil)
-        #expect(sink.events.allSatisfy { $0.metadata["route"] == HermesGatewayRoute.hermesGateway.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["route"] == "cloud_provider" })
 
         for event in sink.events {
             let tool = try #require(event.tool)
@@ -208,7 +208,7 @@ struct CloudLLMAgentEventTests {
         #expect(sink.events.first?.runID.hasPrefix("cloud-llm-") == true)
         #expect(sink.events.allSatisfy { $0.tool?.toolName == "cloud_model.stream" })
         #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "cloud-llm-stream:1" })
-        #expect(sink.events.allSatisfy { $0.metadata["route"] == HermesGatewayRoute.hermesGateway.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["route"] == "cloud_provider" })
         #expect(sink.events.last?.tool?.resultJSON?.contains("chunk_count") == true)
 
         for event in sink.events {
@@ -324,7 +324,7 @@ struct CloudLLMAgentEventTests {
         #expect(sink.events.first?.runID.hasPrefix("cloud-llm-") == true)
         #expect(sink.events.allSatisfy { $0.tool?.toolName == "cloud_model.generate_structured" })
         #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "cloud-llm-generate-structured:1" })
-        #expect(sink.events.allSatisfy { $0.metadata["route"] == HermesGatewayRoute.hermesGateway.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["route"] == "cloud_provider" })
         #expect(sink.events.allSatisfy { $0.metadata["schema_name"] == "agent_event_payload" })
         #expect(sink.events.last?.tool?.durationMs != nil)
         #expect(sink.events.last?.tool?.resultJSON?.contains("raw_json_utf8_bytes") == true)

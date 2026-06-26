@@ -230,20 +230,8 @@ struct TextCapturePipelineTests {
         let pipeline = makePipeline()
         let container = try makeTestContainer()
         let context = ModelContext(container)
-        let transcription = TranscribedAudio(
-            id: UUID(),
-            sourceURL: URL(fileURLWithPath: "/tmp/private-recording.m4a"),
-            fullText: "Audio capture privacy note for the release audit.",
-            segments: [
-                AudioSegment(startTime: 0, endTime: 4.2, text: "Audio capture privacy note", speaker: nil),
-            ],
-            wordsPerMinute: 120,
-            hesitationFrequency: 0,
-            speakerCount: 1
-        )
-
         let result = try await pipeline.runFromAudio(
-            transcription: transcription,
+            transcription: "Audio capture privacy note for the release audit.",
             modelContext: context
         )
 
@@ -714,20 +702,9 @@ struct TextCapturePipelineTests {
     @Test("Audio transcription flows through pipeline")
     func audioTranscriptionCapture() async throws {
         let pipeline = makePipeline()
-        let transcription = TranscribedAudio(
-            id: UUID(),
-            sourceURL: URL(fileURLWithPath: "/tmp/test-recording.m4a"),
-            fullText: "We need to schedule a meeting with the marketing team about the Q2 launch.",
-            segments: [
-                AudioSegment(startTime: 0, endTime: 3.5, text: "We need to schedule a meeting", speaker: "Speaker 1"),
-                AudioSegment(startTime: 3.5, endTime: 7.0, text: "with the marketing team about the Q2 launch.", speaker: "Speaker 1"),
-            ],
-            wordsPerMinute: 140,
-            hesitationFrequency: 2.5,
-            speakerCount: 1
+        let result = try await pipeline.runFromAudio(
+            transcription: "We need to schedule a meeting with the marketing team about the Q2 launch."
         )
-
-        let result = try await pipeline.runFromAudio(transcription: transcription)
 
         #expect(!result.traceID.isEmpty)
         #expect(!result.title.isEmpty)
@@ -741,18 +718,8 @@ struct TextCapturePipelineTests {
     @Test("Empty audio transcription throws emptyCapture")
     func emptyAudioTranscription() async throws {
         let pipeline = makePipeline()
-        let transcription = TranscribedAudio(
-            id: UUID(),
-            sourceURL: URL(fileURLWithPath: "/tmp/silence.m4a"),
-            fullText: "   ",
-            segments: [],
-            wordsPerMinute: 0,
-            hesitationFrequency: 0,
-            speakerCount: 0
-        )
-
         await #expect(throws: TextCaptureError.emptyCapture) {
-            _ = try await pipeline.runFromAudio(transcription: transcription)
+            _ = try await pipeline.runFromAudio(transcription: "   ")
         }
     }
 

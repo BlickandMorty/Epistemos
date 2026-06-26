@@ -271,16 +271,6 @@ private let canonicalSchemas: [StructureSchemaDescriptor] = [
         maturity: .raw,
         summary: "Gap G8 (Pro only) — Screen2AXFusion → @Generable ScreenElement[] with role / label / bounding box / inferred semantic. AX permission-gated."
     ),
-    .init(
-        id: "imessage_intent",
-        surface: "imessage_inbound",
-        storage: .swiftData,
-        swiftType: "MessageIntent",
-        profiles: [.pro],
-        maturity: .raw,
-        summary: "Gap G9 (Pro only) — light @Generable classification on inbound iMessage (command / question / confirmation) before DriverChannelToolExecutor dispatch."
-    ),
-
     // MARK: - N1 — Prompt Tree (JSPF + PTF) shape descriptors
     //
     // The prompt itself is structured data the app produces. Cataloging
