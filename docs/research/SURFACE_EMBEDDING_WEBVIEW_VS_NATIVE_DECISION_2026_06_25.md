@@ -263,9 +263,10 @@ RESUME from docs/handoffs/ACT_AGENTCLONE_STOPPING_POINT_HANDOFF_2026_06_25.md + 
 Epistemos-owned session storage; scoped tests pass).
 
 STAGED ROADMAP — do these IN ORDER; confidently stabilize + COMMIT each before the next, do NOT skip ahead:
-  STAGE A (RUNNING NOW): finish the current AgentClone hardening loop you are on — reach a confident, clean,
-    committed point. Do NOT abandon it mid-flight. This is the only stage you must complete before you touch
-    app-wide code. (Once it's solid, you are released from "clone-only" — move on.)
+  STAGE A (RUNNING NOW): bring the current AgentClone hardening to a confident, clean, COMMITTED checkpoint —
+    keep hardening EXHAUSTIVELY (that is expected + welcome), just reach a COMMIT so Stage B starts clean. Do
+    NOT abandon it mid-flight. (Once it's at a committed checkpoint you're released from "clone-only" scope —
+    but deep hardening continues across every later stage; see DEEP HARDENING below.)
   STAGE B — RECONCILE THE BROKEN APP (= Phase 0 below): you are NO LONGER stuck on just the clone; you now have
     FULL APP ACCESS. Fix the app-wide compile blockers so the WHOLE app builds; commit a green baseline.
   STAGE C — DEEP APP-WIDE FUSION: with the app green + full access, RECONCEPTUALIZE the Chat/agent FEATURES
@@ -278,18 +279,33 @@ STAGED ROADMAP — do these IN ORDER; confidently stabilize + COMMIT each before
     retry/window, SwiftAIAgent=workflow motifs, FoundationModels=Apple-native UX.
   STAGE E — COMPLETE APP INTEGRATION: the whole coherent native Epistemos shell, 100%, end-to-end.
 
+DEEP HARDENING IS ALWAYS-ON (owner: exhaustive hardening is the standing free bonus for every feature). Harden
+each thing you build to the maximum — edge cases, guards, tests, error paths, regression locks — at EVERY stage,
+not just Stage A. It is a CONTINUOUS track that runs WITH the staged progression, never a phase you exit. Two
+limits so it stays honest: (1) do NOT use "still hardening" to indefinitely defer Stage B — a non-compiling app
+makes app-level hardening unverifiable, so fixing the build is what turns hardening into real proof; (2) harden
+across the WHOLE app + the full fusion, not one narrow slice forever. Keep hardening exhaustively AND keep
+advancing the stages.
+
 ACCESS + BOUNDARY (reconciled): you have FULL access to the APP — shell, build, routing, Chat/Act, the
 vault/graph/note/mini portals, AppBootstrap, packages — and you MAY reconceptualize app features freely. But do
 NOT modify the OTHER agents' surfaces: leave Epistemos/Work/* (OpenGUI/Work) and the Goose lane +
 .research-clones/work/{goose,opengui} alone — they are at clean stops and belong to the Work/Goose terminals.
 You own Chat + Act-via-AgentClone + the app shell. Integrate with Work/Goose; never edit or break them.
 
-STAGE B / PHASE 0 — RECONCILE THE BROKEN APP — YOU OWN THE SHARED BUILD FIX (your next step once STAGE A is
-confidently clean; on main, before deep fusion). The WHOLE app target does not compile; BOTH other lanes
-deferred it as "outside our lane." It is chat/app-domain = yours: resolve EventSource/AsyncHTTPClient C modules
-(CAsyncHTTPClient/CNIO*) + AgentChatState/DisplayPacedTextBuffer + CognitiveIntents/chatState + ChatSidebarView,
-left by the osaurus purge. Do NOT restore Osaurus to get a compile pass. Commit a GREEN baseline (app builds) —
-that unblocks all three lanes — before going deep.
+STAGE B / PHASE 0 — RECONCILE THE BROKEN APP — YOU OWN THE SHARED BUILD FIX (your next step once STAGE A is at a
+committed checkpoint; on main, before deep fusion). The WHOLE app target does not compile; BOTH other lanes
+deferred it as "outside our lane" — it is chat/app-domain = yours. CURRENT blocker (verified 2026-06-25, after
+the chat deletion sweep): the build dies in the EXTERNAL `EventSource` Swift package BEFORE it ever reaches the
+Epistemos target — it cannot resolve its transitive C-module deps `CAsyncHTTPClient`, `CNIOLLHTTP`,
+`CNIOExtrasZlib`, `CNIOPosix`, `_NumericsShims` (EventSource -> async-http-client -> swift-nio / swift-numerics).
+The earlier chat-domain symbols (AgentChatState/DisplayPacedTextBuffer/CognitiveIntents/ChatSidebarView) appear
+ALREADY resolved by the deletion sweep — confirm, do NOT re-hunt. Fix the EventSource dependency-graph
+resolution: clean + re-resolve packages, repair Package.resolved, pin a compatible EventSource +
+async-http-client + swift-nio set, and/or add any missing platform/availability condition. Do NOT restore
+Osaurus, and do NOT remove/stub EventSource to fake a pass. Commit a GREEN baseline (the WHOLE app builds) — that
+is what makes your deep hardening REAL (app-level, not just package tests) and unblocks all three lanes — before
+going deep.
 
 PRIMARY OBJECTIVE: make the new Swift agent as deeply integrated with Epistemos as the OLD chat used to
 feel, but WITHOUT preserving the old chat implementation. Landing/Home, main Agent/Chat/Act, MiniChat,
@@ -469,4 +485,5 @@ One native ChatView for all three; Goose **agent path** via Electron-IPC emulati
 - 2026-06-25 — **Regrounded on the two lane handoffs** (`ACT_AGENTCLONE_STOPPING_POINT_HANDOFF` + `WORK_OPENGUI_STOPPING_POINT_HANDOFF`). Both at clean SCOPED stops; both DECLINED the app-wide compile fix → it's ownerless (the Osaurus-aftermath blocker) and now assigned to the Chat lane as **Phase 0** (§8, §9-A). Added **§10.1 "all three at once"**: Phase-0 build fix on main → 3 git worktrees + separate DerivedData (Act/Goose is a NEW lane; Act currently = AgentClone interim). Added synchronized-root-groups (no pbxproj edits) + resume-from-handoff to the shared preamble + all 3 prompts.
 - 2026-06-25 — **FINAL: one-at-a-time, full-file-control posture (owner).** Owner runs agents sequentially (starting with Swift/Chat), so worktrees/lane-isolation are dropped — §10 rewritten (replaces the parallel §10.1) to "running agent owns every file; only rule = preserve the other surfaces' working behavior." All 3 prompts + shared preamble converted from lane-isolation to full-control. Zero-compromise: nothing held back for isolation. Run order Chat(+Phase-0 build fix) → Act/Goose → Work.
 - 2026-06-25 — **Deep pass on §9-A (Swift/Chat).** Added the STAGED ROADMAP (A finish current hardening loop → B reconcile broken app/Phase-0 → C deep app-wide fusion + UI nativize/minimalize + reconceptualize features → D 100% across-the-board multi-repo deep fusion by per-repo strategic capability set → E complete app integration) + the ACCESS+BOUNDARY reconciliation (full APP access incl. shell/build/routing/portals; do NOT modify Epistemos/Work/* or the Goose lane/clones). Confirms the chat agent's original plan: AgentClone foundation + each of the 8 other repos fused for its specific capability set; licensing irrelevant. All 3 prompts ready to dispatch.
+- 2026-06-25 — **§9-A refinements (from live Swift-agent transcript).** (1) Phase 0/Stage B retargeted to the REAL current blocker: external `EventSource` package C-module resolution (`CAsyncHTTPClient`/`CNIO*`/`_NumericsShims` via async-http-client/swift-nio) — the chat-domain symbols are already resolved by the deletion sweep; the agent had been mislabeling this "external, not my job." (2) Added **DEEP HARDENING IS ALWAYS-ON** (owner: exhaustive hardening is the standing free bonus) — a continuous track across ALL stages, with two honesty limits (can't defer Stage B forever; harden whole-app not one slice). STAGE A reworded to "committed checkpoint, keep hardening exhaustively."
 - Sources: Apple WWDC25 WebKit-for-SwiftUI / `WebPage` docs; Electron contextBridge/ipcRenderer/IPC tutorial; Agent Client Protocol (agentclientprotocol.com), Zed external-agents + ACP registry, JetBrains ACP, Goose ACP docs; local clones `.research-clones/work/{goose,opengui}`; repo `Epistemos/Work/*`, `LocalPackages/AgentClone`; canon `WORK_CANON_STATUS_2026_06_25.md`, `ACT_IP_PRESERVATION_2026_06_24.md`, `PRIVATE_TRI_SURFACE_…_2026_06_24.md`, federation handoff doc.
