@@ -227,7 +227,7 @@ struct ThemePairTests {
         #expect(settings.contains("Picker(\"Variant\", selection: $editingDarkVariant)"))
         #expect(settings.contains("CustomThemeLivePreview(isDark: editingDarkVariant)"))
         #expect(settings.contains("AppCustomTheme.noteSurfaceHex(isDark: isDark)"))
-        #expect(settings.contains("slot == .noteSurface"))
+        #expect(settings.contains("case .noteSurface"))
         #expect(settings.contains("FontLibraryPreviewGrid()"))
         #expect(settings.contains("Every bundled display face is labeled with its own preview."))
         #expect(settings.contains("Preset themes stay locked."))
@@ -1262,9 +1262,10 @@ struct ThemePairTests {
         #expect(!landingView.contains("LocalModelToolbarMenu("))
         #expect(!landingView.contains("landingInferenceControl"))
 
-        // Surviving standalone composer surfaces retain the menu.
-        #expect(noteWorkspace.contains("LocalModelToolbarMenu("))
-        #expect(noteWorkspace.contains("variant: .toolbar"))
+        // Note surfaces keep note-native context controls without remounting the
+        // old local-model chat toolbar.
+        #expect(!noteWorkspace.contains("LocalModelToolbarMenu("))
+        #expect(noteWorkspace.contains("ContextualShadowsButton(scopeKind: .note, scopeID: pageId)"))
         #expect(!noteWorkspace.contains("Label(\"Local Only\""))
     }
 
@@ -1813,7 +1814,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains("private var landingSearchCommandTool: some View"))
         #expect(landingView.contains("private var landingSearchMentionTool: some View"))
         #expect(landingView.contains("private var landingSearchAttachTool: some View"))
-        #expect(landingView.contains("private var landingSearchSavedTool: some View"))
+        #expect(!landingView.contains("private var landingSearchSavedTool: some View"))
         #expect(landingView.contains("private var landingSearchToolsToggle: some View"))
         #expect(landingView.contains("private var landingSearchSendTool: some View"))
         #expect(landingView.contains("private var landingSearchExpandedToolRow: some View"))
@@ -1849,12 +1850,13 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains("openLandingFilePicker()"))
         #expect(landingView.contains("FileAttachmentBuilder.buildAll(from: urls)"))
         #expect(landingView.contains("landingFileAttachments.append(attachment)"))
-        #expect(landingView.contains("chat.addAttachment(attachment)"))
+        #expect(!landingView.contains("chat.addAttachment(attachment)"))
+        #expect(landingView.contains("landingContextAttachments.append(contextAttachment)"))
         #expect(landingView.contains("openLandingSlashCommandMenu()"))
         #expect(landingView.contains("insertLandingMentionToken()"))
         #expect(landingView.contains("toggleLandingAllNotesContext()"))
         #expect(landingView.contains("ChatCapabilityPill("))
-        #expect(landingView.contains("ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)"))
+        #expect(!landingView.contains("ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)"))
     }
 
     @Test("landing search attachments keep the revealed input chrome visible")
@@ -2077,14 +2079,14 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(settingsView.contains("toggleSidebar()"))
     }
 
-    @Test("landing view fetches chat history only on demand for daily brief generation")
-    func landingViewLazilyFetchesDailyBriefChats() throws {
+    @Test("landing view does not fetch old chat history for daily brief generation")
+    func landingViewDoesNotFetchOldChatHistoryForDailyBriefGeneration() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(landingView.contains("@Environment(\\.modelContext) private var modelContext"))
         #expect(!landingView.contains("@Query(sort: \\\\.updatedAt, order: .reverse)\n    private var allChats: [SDChat]"))
-        #expect(landingView.contains("private func recentChats(limit: Int) -> [SDChat]"))
-        #expect(landingView.contains("DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: recentChats(limit: 12))"))
+        #expect(!landingView.contains("private func recentChats(limit: Int) -> [SDChat]"))
+        #expect(landingView.contains("DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: [])"))
     }
 
     @Test("bootstrap runs disk style cache eviction at utility priority")

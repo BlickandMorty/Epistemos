@@ -12,18 +12,18 @@
 		063FBBFF8F084AFDD50D87BA /* EpistemosSidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4713439484B07EC2D84E457 /* EpistemosSidecar.swift */; };
 		08F333D4BF84ADD28C3B3873 /* CognitiveIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169A8DC98B20151778A8196C /* CognitiveIntents.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
-		0C5366D178FA4AA37B07FBC7 /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */; };
+		0C5366D178FA4AA37B07FBC7 /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */; };
 		14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		161F4C5CC609D325639A5D99 /* AXorcist in Frameworks */ = {isa = PBXBuildFile; productRef = 48BA6B15F3E86D3F10699011 /* AXorcist */; };
 		1ADDFDA4FEF38784F3172BED /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FA1346421A48DF0E99CA1280 /* GRDB */; };
 		1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */; };
-		20C7276D2435E3F4E16C195A /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */; };
+		20C7276D2435E3F4E16C195A /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */; };
 		2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		2EA19F2C59A0EE724E69CDF8 /* EpistemosControlWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */; };
-		30E13BBA08D4E40824E55896 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */; };
+		30E13BBA08D4E40824E55896 /* VMLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 538CE08807F3177D13D01160 /* VMLXHuggingFace */; };
 		3B8E1C3C335DC819029D0BFB /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
-		3BDE702EBE7513A75F05E85F /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */; };
-		3F21FFDC8F385A6DEC3412FF /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F463DB33C39F4AB6E0BB6518 /* MLXLLM */; };
+		3BDE702EBE7513A75F05E85F /* VMLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */; };
+		3F21FFDC8F385A6DEC3412FF /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B459E8918D8198BA7803E476 /* MLXVLM */; };
 		46243D23E5333064943D5310 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		47EC22FDE2094C0AD988091C /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0A2D551363AE61A7F5B1B898 /* GRDB */; };
 		4CAE00A3B9F046672C6522D6 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
@@ -34,40 +34,40 @@
 		61C8116B784756491A5EC96D /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		6CAD9FFA6A82372FE5C6844E /* AFMSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */; };
-		7BA33DAD72F26B5969AF58A4 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 910D0543E7FCC403D8235BC8 /* MLXNN */; };
+		7BA33DAD72F26B5969AF58A4 /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */; };
 		7E04502E94924A57934605BE /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */; };
 		7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		80D36B635950E94BB3667A8B /* SessionTelemetryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */; };
 		81716E83E67308AE0E10312D /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = D22E3A58030016B71ABF4392 /* Grape */; };
-		836B564E870EDF34873B3A58 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 10AF46C8B7755E4D5270CE5D /* MLX */; };
-		9306CA2B6D16680A144B5317 /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */; };
+		836B564E870EDF34873B3A58 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 910D0543E7FCC403D8235BC8 /* MLXNN */; };
+		83C58597C91DDDB52684C5AA /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */; };
+		9306CA2B6D16680A144B5317 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 335D46D689DC43CC5B86CBE9 /* MLXLMCommon */; };
 		9623A0EB94D7DA20FB2363FB /* PowerGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709D7B359F2E08AFFF2F250A /* PowerGate.swift */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
-		A105AB197896C116C097EB9E /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */; };
-		A2CAA0936982013D10CC7D53 /* AgentClone in Frameworks */ = {isa = PBXBuildFile; productRef = BAC9E9FCAE4D3424C5CC5844 /* AgentClone */; };
-		A4EADC574B8E36EB1327DA66 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 135D935B56D44B67D290BC44 /* SwiftTerm */; };
+		A105AB197896C116C097EB9E /* GGUFRuntimeBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C0F23953DF52141112B079EB /* GGUFRuntimeBridge */; };
+		A4EADC574B8E36EB1327DA66 /* AgentClone in Frameworks */ = {isa = PBXBuildFile; productRef = 8351A0EC25960DB17E345932 /* AgentClone */; };
 		A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = B1EB8622EB43550A22C16D72 /* VMLXTokenizers */; };
-		B6058CDDBAC6D239758DE0BE /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 335D46D689DC43CC5B86CBE9 /* MLXLMCommon */; };
+		B131CB2C4E4E857765F2366F /* Swarm in Frameworks */ = {isa = PBXBuildFile; productRef = F44DF8BB511B9F1DE22B4F00 /* Swarm */; };
+		B6058CDDBAC6D239758DE0BE /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = ACAC129448E9C89398D377EA /* MLXLLM */; };
 		BAAEE4E38661F000D998F186 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = A7B4A33EDFA6CDF19164E100 /* Grape */; };
 		BDA83B0079DB6B1F90AD4093 /* ConversationStateClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */; };
-		BE22FF112091A73278DA1574 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = EE721F274D3687D9B714DFE8 /* MLXVLM */; };
-		BF1E3A75A0176EBF48B28539 /* Swarm in Frameworks */ = {isa = PBXBuildFile; productRef = A488A67C5A4E14850E0ABB76 /* Swarm */; };
-		BFE34268D83FB96D10840B4D /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = B919CFE16BDE19DE0CD70F2E /* MLX */; };
-		C18BD6A1E86E5CE754EC3C02 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 75C464B753EF88EB267FA5C5 /* HuggingFace */; };
+		BE22FF112091A73278DA1574 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */; };
+		BFE34268D83FB96D10840B4D /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 3DB8D6F40492AA0EBD6805FA /* MLXNN */; };
+		C18BD6A1E86E5CE754EC3C02 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = B919CFE16BDE19DE0CD70F2E /* MLX */; };
 		CD168F0C8FC1718315BA47B2 /* NightBrainScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC212B6BC68824E72E85460B /* NightBrainScheduler.swift */; };
-		D78DB160002E1ADAA6A29A47 /* GGUFRuntimeBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C0F23953DF52141112B079EB /* GGUFRuntimeBridge */; };
+		D78DB160002E1ADAA6A29A47 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 135D935B56D44B67D290BC44 /* SwiftTerm */; };
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
-		DF83A55045962D57B510A3AE /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 3DB8D6F40492AA0EBD6805FA /* MLXNN */; };
-		E1411145209B0CCD99C5C608 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = ACAC129448E9C89398D377EA /* MLXLLM */; };
+		DF83A55045962D57B510A3AE /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 6C5604E44D34114D4C65A436 /* MLXOptimizers */; };
+		E1411145209B0CCD99C5C608 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = EE721F274D3687D9B714DFE8 /* MLXVLM */; };
 		E5C918B7DB7D7E04D07548A6 /* EpistemosSpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F812DA2636E2F30D6DD16757 /* EpistemosSpeechSynthesizer.swift */; };
-		E5F98A62361C1EBB82523B92 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = C1632F27423B91A7F3261950 /* MLXLMCommon */; };
-		E70B453353C9AB5E24A29DFA /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = C8E5F5988876E85975B20613 /* HuggingFace */; };
+		E5F98A62361C1EBB82523B92 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F463DB33C39F4AB6E0BB6518 /* MLXLLM */; };
+		E70B453353C9AB5E24A29DFA /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 10AF46C8B7755E4D5270CE5D /* MLX */; };
 		ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
 		F179F5290BD109FC06F77403 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */; };
-		F17AA91C0BB197EE4008CED8 /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 6C5604E44D34114D4C65A436 /* MLXOptimizers */; };
+		F17AA91C0BB197EE4008CED8 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = C1632F27423B91A7F3261950 /* MLXLMCommon */; };
 		F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5714802E4CF5F19C54626435 /* QuarantineArchive.swift */; };
-		F4FD9C1FBB3D7E66B93DD4B4 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B459E8918D8198BA7803E476 /* MLXVLM */; };
+		F4FD9C1FBB3D7E66B93DD4B4 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */; };
 		F5784C6AD6DA3C05A246766E /* VMLXTokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */; };
 		F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 /* End PBXBuildFile section */
@@ -84,13 +84,15 @@
 
 /* Begin PBXFileReference section */
 		061AF947F49EEBA6858FF0E5 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = LocalPackages/SwiftTerm; sourceTree = SOURCE_ROOT; };
+		0688E64581C8E597AA476912 /* AgentClone */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AgentClone; path = LocalPackages/AgentClone; sourceTree = SOURCE_ROOT; };
 		0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EpistemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		169A8DC98B20151778A8196C /* CognitiveIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CognitiveIntents.swift; sourceTree = "<group>"; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		2541EBB07B39AA33BB18500A /* Swarm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Swarm; path = LocalPackages/Swarm; sourceTree = SOURCE_ROOT; };
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		4CCA4C5EFEFB3EE14C057628 /* NightBrainHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = NightBrainHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CCA4C5EFEFB3EE14C057628 /* NightBrainHelper */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = text; path = NightBrainHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		5714802E4CF5F19C54626435 /* QuarantineArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuarantineArchive.swift; sourceTree = "<group>"; };
 		57F63CBF79B9214731AD2154 /* Epistemos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Epistemos.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -357,22 +359,22 @@
 				161F4C5CC609D325639A5D99 /* AXorcist in Frameworks */,
 				1ADDFDA4FEF38784F3172BED /* GRDB in Frameworks */,
 				81716E83E67308AE0E10312D /* Grape in Frameworks */,
-				C18BD6A1E86E5CE754EC3C02 /* HuggingFace in Frameworks */,
-				BFE34268D83FB96D10840B4D /* MLX in Frameworks */,
-				DF83A55045962D57B510A3AE /* MLXNN in Frameworks */,
-				F17AA91C0BB197EE4008CED8 /* MLXOptimizers in Frameworks */,
-				E5F98A62361C1EBB82523B92 /* MLXLMCommon in Frameworks */,
-				3F21FFDC8F385A6DEC3412FF /* MLXLLM in Frameworks */,
-				F4FD9C1FBB3D7E66B93DD4B4 /* MLXVLM in Frameworks */,
-				3BDE702EBE7513A75F05E85F /* MLXHuggingFace in Frameworks */,
+				C18BD6A1E86E5CE754EC3C02 /* MLX in Frameworks */,
+				BFE34268D83FB96D10840B4D /* MLXNN in Frameworks */,
+				DF83A55045962D57B510A3AE /* MLXOptimizers in Frameworks */,
+				F17AA91C0BB197EE4008CED8 /* MLXLMCommon in Frameworks */,
+				E5F98A62361C1EBB82523B92 /* MLXLLM in Frameworks */,
+				3F21FFDC8F385A6DEC3412FF /* MLXVLM in Frameworks */,
+				F4FD9C1FBB3D7E66B93DD4B4 /* MLXHuggingFace in Frameworks */,
+				3BDE702EBE7513A75F05E85F /* VMLXHuggingFace in Frameworks */,
 				A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */,
-				BF1E3A75A0176EBF48B28539 /* Swarm in Frameworks */,
-				A2CAA0936982013D10CC7D53 /* AgentClone in Frameworks */,
-				A4EADC574B8E36EB1327DA66 /* SwiftTerm in Frameworks */,
-				D78DB160002E1ADAA6A29A47 /* GGUFRuntimeBridge in Frameworks */,
-				A105AB197896C116C097EB9E /* CodeEditSourceEditor in Frameworks */,
-				20C7276D2435E3F4E16C195A /* SwiftTreeSitter in Frameworks */,
-				0C5366D178FA4AA37B07FBC7 /* CodeEditLanguages in Frameworks */,
+				B131CB2C4E4E857765F2366F /* Swarm in Frameworks */,
+				A4EADC574B8E36EB1327DA66 /* AgentClone in Frameworks */,
+				D78DB160002E1ADAA6A29A47 /* SwiftTerm in Frameworks */,
+				A105AB197896C116C097EB9E /* GGUFRuntimeBridge in Frameworks */,
+				20C7276D2435E3F4E16C195A /* CodeEditSourceEditor in Frameworks */,
+				0C5366D178FA4AA37B07FBC7 /* SwiftTreeSitter in Frameworks */,
+				83C58597C91DDDB52684C5AA /* CodeEditLanguages in Frameworks */,
 				0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */,
 				61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */,
 				DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */,
@@ -400,14 +402,14 @@
 			files = (
 				47EC22FDE2094C0AD988091C /* GRDB in Frameworks */,
 				BAAEE4E38661F000D998F186 /* Grape in Frameworks */,
-				E70B453353C9AB5E24A29DFA /* HuggingFace in Frameworks */,
-				836B564E870EDF34873B3A58 /* MLX in Frameworks */,
-				7BA33DAD72F26B5969AF58A4 /* MLXNN in Frameworks */,
-				9306CA2B6D16680A144B5317 /* MLXOptimizers in Frameworks */,
-				B6058CDDBAC6D239758DE0BE /* MLXLMCommon in Frameworks */,
-				E1411145209B0CCD99C5C608 /* MLXLLM in Frameworks */,
-				BE22FF112091A73278DA1574 /* MLXVLM in Frameworks */,
-				30E13BBA08D4E40824E55896 /* MLXHuggingFace in Frameworks */,
+				E70B453353C9AB5E24A29DFA /* MLX in Frameworks */,
+				836B564E870EDF34873B3A58 /* MLXNN in Frameworks */,
+				7BA33DAD72F26B5969AF58A4 /* MLXOptimizers in Frameworks */,
+				9306CA2B6D16680A144B5317 /* MLXLMCommon in Frameworks */,
+				B6058CDDBAC6D239758DE0BE /* MLXLLM in Frameworks */,
+				E1411145209B0CCD99C5C608 /* MLXVLM in Frameworks */,
+				BE22FF112091A73278DA1574 /* MLXHuggingFace in Frameworks */,
+				30E13BBA08D4E40824E55896 /* VMLXHuggingFace in Frameworks */,
 				F5784C6AD6DA3C05A246766E /* VMLXTokenizers in Frameworks */,
 				F179F5290BD109FC06F77403 /* CodeEditSourceEditor in Frameworks */,
 				7E04502E94924A57934605BE /* SwiftTreeSitter in Frameworks */,
@@ -509,7 +511,9 @@
 		CDE9EC77D799DAC3B605278D /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				0688E64581C8E597AA476912 /* AgentClone */,
 				672BE80E8A07FD684DEDF4C7 /* GGUFRuntimeBridge */,
+				2541EBB07B39AA33BB18500A /* Swarm */,
 				061AF947F49EEBA6858FF0E5 /* SwiftTerm */,
 				757586A90674D2FF8AC3ACF8 /* vmlx-swift */,
 			);
@@ -609,7 +613,6 @@
 				48BA6B15F3E86D3F10699011 /* AXorcist */,
 				FA1346421A48DF0E99CA1280 /* GRDB */,
 				D22E3A58030016B71ABF4392 /* Grape */,
-				75C464B753EF88EB267FA5C5 /* HuggingFace */,
 				B919CFE16BDE19DE0CD70F2E /* MLX */,
 				3DB8D6F40492AA0EBD6805FA /* MLXNN */,
 				6C5604E44D34114D4C65A436 /* MLXOptimizers */,
@@ -617,14 +620,15 @@
 				F463DB33C39F4AB6E0BB6518 /* MLXLLM */,
 				B459E8918D8198BA7803E476 /* MLXVLM */,
 				7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */,
+				51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */,
 				B1EB8622EB43550A22C16D72 /* VMLXTokenizers */,
+				F44DF8BB511B9F1DE22B4F00 /* Swarm */,
+				8351A0EC25960DB17E345932 /* AgentClone */,
 				135D935B56D44B67D290BC44 /* SwiftTerm */,
 				C0F23953DF52141112B079EB /* GGUFRuntimeBridge */,
 				DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */,
 				8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */,
 				F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */,
-				A488A67C5A4E14850E0ABB76 /* Swarm */,
-				BAC9E9FCAE4D3424C5CC5844 /* AgentClone */,
 			);
 			productName = Epistemos;
 			productReference = C76D402546734270F3EE1008 /* Epistemos.app */;
@@ -653,7 +657,6 @@
 			packageProductDependencies = (
 				0A2D551363AE61A7F5B1B898 /* GRDB */,
 				A7B4A33EDFA6CDF19164E100 /* Grape */,
-				C8E5F5988876E85975B20613 /* HuggingFace */,
 				10AF46C8B7755E4D5270CE5D /* MLX */,
 				910D0543E7FCC403D8235BC8 /* MLXNN */,
 				9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */,
@@ -661,6 +664,7 @@
 				ACAC129448E9C89398D377EA /* MLXLLM */,
 				EE721F274D3687D9B714DFE8 /* MLXVLM */,
 				45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */,
+				538CE08807F3177D13D01160 /* VMLXHuggingFace */,
 				D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */,
 				4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */,
 				64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */,
@@ -677,21 +681,26 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					37D6F96B1B2A55707390C24A = {
+						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 					37DE6F7D0C0330DB13916CE8 = {
+						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 					6FA4F39D389A7F22A5BEE516 = {
+						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 					973D4C8C4633FC9F5CEF0985 = {
+						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 					D30E77DBB7C16B42612B2335 = {
+						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -711,13 +720,12 @@
 				050A478A2687B99C0331E4F7 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */,
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */,
-				5DFEA6AEF5B1ED45CFAE2B30 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				B12BBF15DEF11966DEDF972E /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */,
+				BC0292CE919DD7C2C471486D /* XCLocalSwiftPackageReference "LocalPackages/AgentClone" */,
 				7DC43DC002F243C226935ACE /* XCLocalSwiftPackageReference "LocalPackages/GGUFRuntimeBridge" */,
+				D3EE4C87FA147673F26F601A /* XCLocalSwiftPackageReference "LocalPackages/Swarm" */,
 				02D05642BEB6B90C91949BBE /* XCLocalSwiftPackageReference "LocalPackages/SwiftTerm" */,
 				1D564185EDCCCC1D338E57E3 /* XCLocalSwiftPackageReference "LocalPackages/vmlx-swift" */,
-				20BD2BE86A6AD06C12E7194E /* XCLocalSwiftPackageReference "LocalPackages/Swarm" */,
-				2D902A89E1BA184F1AF38276 /* XCLocalSwiftPackageReference "LocalPackages/AgentClone" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 21C2583A1AFD8B5552357491 /* Products */;
@@ -975,7 +983,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Epistemos-AppStore-Info.plist";
@@ -998,7 +1006,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
-				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1011,10 +1018,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../../../../Frameworks";
@@ -1030,10 +1036,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1050,7 +1055,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1084,7 +1088,6 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
-				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -1103,7 +1106,8 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_SWIFT_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -1118,10 +1122,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1149,7 +1152,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1173,7 +1176,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
-				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1188,7 +1190,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
@@ -1207,7 +1209,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1231,7 +1233,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1256,7 +1258,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
-				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
@@ -1273,7 +1274,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Epistemos-Info.plist";
@@ -1297,7 +1298,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
-				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
@@ -1309,7 +1309,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1340,9 +1339,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 3BNL2669SL;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1368,7 +1365,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG EPISTEMOS_LINK_SUBSTRATE_RT";
 				SWIFT_COMPILATION_MODE = singlefile;
@@ -1384,10 +1380,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1473,17 +1468,17 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "LocalPackages/vmlx-swift";
 		};
-		20BD2BE86A6AD06C12E7194E /* XCLocalSwiftPackageReference "LocalPackages/Swarm" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = LocalPackages/Swarm;
-		};
-		2D902A89E1BA184F1AF38276 /* XCLocalSwiftPackageReference "LocalPackages/AgentClone" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = LocalPackages/AgentClone;
-		};
 		7DC43DC002F243C226935ACE /* XCLocalSwiftPackageReference "LocalPackages/GGUFRuntimeBridge" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/GGUFRuntimeBridge;
+		};
+		BC0292CE919DD7C2C471486D /* XCLocalSwiftPackageReference "LocalPackages/AgentClone" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = LocalPackages/AgentClone;
+		};
+		D3EE4C87FA147673F26F601A /* XCLocalSwiftPackageReference "LocalPackages/Swarm" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = LocalPackages/Swarm;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1502,14 +1497,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.1.0;
-			};
-		};
-		5DFEA6AEF5B1ED45CFAE2B30 /* XCRemoteSwiftPackageReference "swift-huggingface" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/huggingface/swift-huggingface.git";
-			requirement = {
-				kind = exactVersion;
-				version = 0.9.0;
 			};
 		};
 		ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */ = {
@@ -1587,6 +1574,14 @@
 			package = 050A478A2687B99C0331E4F7 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */;
 			productName = CodeEditSourceEditor;
 		};
+		51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VMLXHuggingFace;
+		};
+		538CE08807F3177D13D01160 /* VMLXHuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VMLXHuggingFace;
+		};
 		64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B12BBF15DEF11966DEDF972E /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */;
@@ -1596,14 +1591,13 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXOptimizers;
 		};
-		75C464B753EF88EB267FA5C5 /* HuggingFace */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5DFEA6AEF5B1ED45CFAE2B30 /* XCRemoteSwiftPackageReference "swift-huggingface" */;
-			productName = HuggingFace;
-		};
 		7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXHuggingFace;
+		};
+		8351A0EC25960DB17E345932 /* AgentClone */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AgentClone;
 		};
 		8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1617,10 +1611,6 @@
 		9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXOptimizers;
-		};
-		A488A67C5A4E14850E0ABB76 /* Swarm */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Swarm;
 		};
 		A7B4A33EDFA6CDF19164E100 /* Grape */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1643,10 +1633,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MLX;
 		};
-		BAC9E9FCAE4D3424C5CC5844 /* AgentClone */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = AgentClone;
-		};
 		C0F23953DF52141112B079EB /* GGUFRuntimeBridge */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = GGUFRuntimeBridge;
@@ -1654,11 +1640,6 @@
 		C1632F27423B91A7F3261950 /* MLXLMCommon */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXLMCommon;
-		};
-		C8E5F5988876E85975B20613 /* HuggingFace */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5DFEA6AEF5B1ED45CFAE2B30 /* XCRemoteSwiftPackageReference "swift-huggingface" */;
-			productName = HuggingFace;
 		};
 		D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1677,6 +1658,10 @@
 		EE721F274D3687D9B714DFE8 /* MLXVLM */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXVLM;
+		};
+		F44DF8BB511B9F1DE22B4F00 /* Swarm */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Swarm;
 		};
 		F463DB33C39F4AB6E0BB6518 /* MLXLLM */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -341,14 +341,14 @@ struct SovereignGateTests {
         #expect(!source.contains("evaluatePolicy"))
     }
 
-    @Test("Chat sidebar deletes map to destructive Sovereign Gate requirements")
-    func chatSidebarDeletesMapToSovereignGateRequirements() {
+    @Test("Agent session deletes map to destructive Sovereign Gate requirements")
+    func agentSessionDeletesMapToSovereignGateRequirements() {
         #expect(
-            ChatSidebarDeletionSovereignGate.requirement(for: .chat(title: "Planning Thread"))
+            AgentSessionDeletionSovereignGate.requirement(for: .session(title: "Planning Thread"))
                 == .deviceOwnerAuthentication
         )
 
-        let reason = ChatSidebarDeletionSovereignGate.reason(for: .chat(title: "Planning Thread"))
+        let reason = AgentSessionDeletionSovereignGate.reason(for: .session(title: "Planning Thread"))
 
         #expect(reason.contains("Planning Thread"))
         #expect(reason.localizedCaseInsensitiveContains("permanently delete"))

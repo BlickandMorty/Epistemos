@@ -80,6 +80,7 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
+        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
         SWIFT_EMIT_LOC_STRINGS: true
         ENABLE_PREVIEWS: true
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
@@ -92,7 +93,7 @@ targets:
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
-          DEVELOPMENT_TEAM: ""
+          DEVELOPMENT_TEAM: 3BNL2669SL
           CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-Debug.entitlements
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -112,7 +113,6 @@ targets:
       - package: AXorcist
       - package: GRDB
       - package: Grape
-      - package: HuggingFace
       - package: vmlx-swift
         product: MLX
       - package: vmlx-swift
@@ -128,7 +128,13 @@ targets:
       - package: vmlx-swift
         product: MLXHuggingFace
       - package: vmlx-swift
+        product: VMLXHuggingFace
+      - package: vmlx-swift
         product: VMLXTokenizers
+      - package: Swarm
+        product: Swarm
+      - package: AgentClone
+        product: AgentClone
       # WORK = OpenCode shell (owner 2026-06-21): SwiftTerm = the native terminal view
       # (NSView LocalProcessTerminalView + PTY) that renders OpenCode's REAL terminal TUI
       # natively (Option A — keep the real terminal UI, not an Electron GUI, not a native
@@ -190,6 +196,7 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
+        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
         CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-AppStore.entitlements
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
         SWIFT_EMIT_LOC_STRINGS: true
@@ -204,7 +211,7 @@ targets:
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
-          DEVELOPMENT_TEAM: ""
+          DEVELOPMENT_TEAM: 3BNL2669SL
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -230,7 +237,6 @@ targets:
     dependencies:
       - package: GRDB
       - package: Grape
-      - package: HuggingFace
       - package: vmlx-swift
         product: MLX
       - package: vmlx-swift
@@ -245,6 +251,8 @@ targets:
         product: MLXVLM
       - package: vmlx-swift
         product: MLXHuggingFace
+      - package: vmlx-swift
+        product: VMLXHuggingFace
       - package: vmlx-swift
         product: VMLXTokenizers
       - package: CodeEditSourceEditor
@@ -299,7 +307,7 @@ targets:
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
-          DEVELOPMENT_TEAM: ""
+          DEVELOPMENT_TEAM: 3BNL2669SL
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
           DEVELOPMENT_TEAM: 3BNL2669SL
@@ -338,7 +346,7 @@ targets:
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
-          DEVELOPMENT_TEAM: ""
+          DEVELOPMENT_TEAM: 3BNL2669SL
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
           DEVELOPMENT_TEAM: 3BNL2669SL
@@ -522,7 +530,7 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: 3BNL2669SL
         ALWAYS_SEARCH_USER_PATHS: false
         BUNDLE_LOADER: "$(TEST_HOST)"
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
@@ -539,14 +547,15 @@ packages:
   Grape:
     url: https://github.com/SwiftGraphs/Grape
     from: 1.1.0
-  HuggingFace:
-    url: https://github.com/huggingface/swift-huggingface.git
-    version: 0.9.0
   # Local MLX runtime consolidation (owner 2026-06-21): vmlx-swift provides the
   # MLX module family used by Epistemos without adding a second MLX stack.
   # Replaces ml-explore/mlx-swift + LocalPackages/mlx-swift-lm.
   vmlx-swift:
     path: LocalPackages/vmlx-swift
+  Swarm:
+    path: LocalPackages/Swarm
+  AgentClone:
+    path: LocalPackages/AgentClone
   # WORK = OpenCode shell native terminal view (owner 2026-06-21). SwiftTerm
   # (migueldeicaza/SwiftTerm, MIT) — the macOS NSView terminal emulator + PTY host.
   # Vendored locally (lean ~5 MB, offline-deterministic) like vmlx-swift.

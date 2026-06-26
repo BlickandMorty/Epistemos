@@ -2168,8 +2168,8 @@ final class HologramOverlay {
         let sidebarRoot = HologramSearchSidebar(
             inspectorState: inspectorState,
             modelContext: modelContainer?.mainContext
-        ) { [weak graphView, weak self] uuid in
-            self?.revealGraphNode(uuid, graphView: graphView)
+        ) { [weak graphView, weak self] nodeId in
+            self?.revealGraphNode(nodeId, graphView: graphView)
         }
         let sidebarView = HologramOverlayHostedViewBuilder.host(sidebarRoot)
         sidebarView.translatesAutoresizingMaskIntoConstraints = false

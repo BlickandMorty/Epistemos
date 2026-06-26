@@ -266,7 +266,10 @@ enum ComposerReferenceChoice: Identifiable {
 struct ComposerReferenceSearchResults {
     var query: String
     var notes: [NoteMentionChoice]
+    var vaultTitle: String?
     var vaultNoteCount: Int
+    var isInventoryComplete: Bool = true
+    var indexedMatchedNoteIDs: Set<String> = []
     var indexedNoteSnippetsByPageID: [String: String] = [:]
 
     static let empty = ComposerReferenceSearchResults(query: "", notes: [], vaultNoteCount: 0)
@@ -1259,6 +1262,43 @@ private struct ComposerReferencePopoverContent: View {
             pages: pages,
             folders: folders
         )
+    }
+}
+
+private struct VaultRecallCandidateChipStrip: View {
+    let candidate: VaultRecallCandidate?
+    let fallbackText: String
+    let theme: EpistemosTheme
+
+    private var labels: [String] {
+        guard let candidate else { return [fallbackText] }
+        let signalLabels = candidate.signals
+            .sorted { lhs, rhs in
+                if lhs.normalized == rhs.normalized {
+                    return lhs.signal.rawValue < rhs.signal.rawValue
+                }
+                return lhs.normalized > rhs.normalized
+            }
+            .prefix(3)
+            .map { $0.signal.rawValue }
+        if signalLabels.isEmpty {
+            return [candidate.selectionReason.isEmpty ? fallbackText : candidate.selectionReason]
+        }
+        return Array(signalLabels)
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(labels, id: \.self) { label in
+                Text(label)
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(theme.resolved.foreground.color.opacity(0.055)))
+            }
+        }
+        .lineLimit(1)
     }
 }
 

@@ -63,8 +63,7 @@ struct CommandCenterDiagnosticsTests {
                 expertAllowlist: ["general"],
                 summary: "stub summary"
             ),
-            notesContext: nil,
-            graphContext: nil
+            notesContext: nil
         )
     }
 
@@ -258,8 +257,7 @@ struct CommandCenterDiagnosticsTests {
             mentions: [],
             enabledToolNames: [],
             brainOverride: nil,
-            operatingMode: .agent,
-            graphContext: nil
+            operatingMode: .agent
         )
         let compiler = CommandCenterRequestCompiler(
             dependencies: CommandCenterRequestCompiler.Dependencies(

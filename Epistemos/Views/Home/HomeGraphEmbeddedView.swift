@@ -104,7 +104,7 @@ struct HomeGraphEmbeddedView: View {
                 HologramSearchSidebar(
                     inspectorState: inspectorState,
                     modelContext: modelContext,
-                    onSelectNode: { nodeId in
+                    onRevealNode: { nodeId in
                         revealEmbeddedNode(nodeId)
                     }
                 )

@@ -94,7 +94,7 @@ nonisolated struct WorkSPASchemeHandler: URLSchemeHandler {
 
     static func response(requestURL: URL, fileURL: URL, byteCount: Int) -> HTTPURLResponse {
         let isHTML = fileURL.pathExtension.lowercased() == "html"
-        HTTPURLResponse(
+        return HTTPURLResponse(
             url: requestURL,
             statusCode: 200,
             httpVersion: "HTTP/1.1",

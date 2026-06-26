@@ -41,6 +41,7 @@ struct SovereignGateRequirementMatrixTests {
             "Epistemos/Views/Notes/NotesSidebar.swift",
             "Epistemos/Views/Notes/DiffSheetView.swift",
             "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
+            "Epistemos/Security/AgentSessionDeletionSovereignGate.swift",
             "Epistemos/App/RootView.swift",
         ]
 
@@ -84,8 +85,8 @@ struct SovereignGateRequirementMatrixTests {
                     "NotesSidebarDeletionSovereignGate target \(target) must require .deviceOwnerAuthentication")
         }
 
-        // Chat Sidebar — chat delete.
-        #expect(ChatSidebarDeletionSovereignGate.requirement(for: .chat(title: "Demo Chat"))
+        // Agent session — conversation delete.
+        #expect(AgentSessionDeletionSovereignGate.requirement(for: .session(title: "Demo Chat"))
                 == .deviceOwnerAuthentication)
 
         // Diff Sheet — version delete.
@@ -180,8 +181,8 @@ struct SovereignGateRequirementMatrixTests {
                      mustContain: vaultId, label: "NotesSidebar vault disconnect")
 
         let chatId = "MatrixDemoChat"
-        assertReason(ChatSidebarDeletionSovereignGate.reason(for: .chat(title: chatId)),
-                     mustContain: chatId, label: "ChatSidebar chat delete")
+        assertReason(AgentSessionDeletionSovereignGate.reason(for: .session(title: chatId)),
+                     mustContain: chatId, label: "Agent session delete")
 
         let versionId = "MatrixDemoVersion"
         assertReason(DiffSheetVersionDeletionSovereignGate.reason(for: .version(label: versionId)),

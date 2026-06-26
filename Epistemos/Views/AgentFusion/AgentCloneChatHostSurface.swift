@@ -1035,7 +1035,7 @@ struct AgentCloneChatHostSurface: View {
     private func bridgeErrorTranscriptRow(_ message: ChatMessage) -> some View {
         let errorTone = bridgeErrorTone(for: message.errorKind)
 
-        HStack(alignment: .top, spacing: 8) {
+        return HStack(alignment: .top, spacing: 8) {
             Image(systemName: errorTone.systemImage)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(errorTone.tint)
@@ -1701,7 +1701,10 @@ struct AgentCloneChatHostSurface: View {
             return ComposerReferenceSearchResults(
                 query: query,
                 notes: [],
+                vaultTitle: nil,
                 vaultNoteCount: 0,
+                isInventoryComplete: true,
+                indexedMatchedNoteIDs: Set(indexedNoteIDs),
                 indexedNoteSnippetsByPageID: indexedNoteSnippets
             )
         }
@@ -1737,7 +1740,10 @@ struct AgentCloneChatHostSurface: View {
         return ComposerReferenceSearchResults(
             query: query,
             notes: notes,
+            vaultTitle: manifest.vaultTitle,
             vaultNoteCount: manifest.totalNoteCount,
+            isInventoryComplete: manifest.isInventoryComplete,
+            indexedMatchedNoteIDs: Set(indexedNoteIDs),
             indexedNoteSnippetsByPageID: indexedNoteSnippets
         )
     }
@@ -2195,7 +2201,7 @@ private struct AgentCloneMirroredMessage: Identifiable, Equatable, Sendable {
     let sourceSessionId: String
 }
 
-private enum AgentCloneSessionMirror {
+private nonisolated enum AgentCloneSessionMirror {
     private static let maxMirroredFileBytes = 1_048_576
 
     static func snapshot(
