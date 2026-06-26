@@ -34,8 +34,6 @@ extension View {
             .environment(bootstrap.hardwareTierManager)
             .environment(bootstrap.ghostBrainCoauthor)
             .environment(bootstrap.epistemosConfig)
-            .environment(bootstrap.agentCommandCenterState)
-            .environment(bootstrap.agentChatState)
             .environment(bootstrap.companionState)
             .environment(bootstrap.chatApprovalQueue)
             .environment(bootstrap.overseerAuditState)

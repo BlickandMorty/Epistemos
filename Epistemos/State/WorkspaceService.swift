@@ -418,7 +418,7 @@ final class WorkspaceService {
         return WorkspaceSnapshot(
             activePanel: bootstrap.uiState.activePanel.rawValue,
             activeChatId: nil,
-            showChatSidebar: bootstrap.uiState.showChatSidebar,
+            showChatSidebar: false,
             showLanding: true,
             openNoteTabs: noteTabs,
             activeNoteTabPageId: bootstrap.notesUI.activePageId,
@@ -576,7 +576,7 @@ final class WorkspaceService {
         if let panel = NavTab(rawValue: snapshot.activePanel) {
             bootstrap.uiState.setActivePanel(panel.releaseSupportedVariant)
         }
-        bootstrap.uiState.showChatSidebar = snapshot.showChatSidebar
+        _ = snapshot.showChatSidebar
 
         // 3. Sidebar state
         bootstrap.notesUI.expandedFolderIds = Set(snapshot.expandedFolderIds)

@@ -1043,8 +1043,8 @@ enum KnowledgeGraphShortcutDispatcher {
         openGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
     }
 
-    private static func isLocalGenerationActive(_ bootstrap: AppBootstrap) -> Bool {
-        bootstrap.agentChatState.isStreaming
+    private static func isLocalGenerationActive(_: AppBootstrap) -> Bool {
+        false
     }
 
     private static func scheduleDeferredOpen(bootstrap: AppBootstrap, reduceMotion: Bool) {

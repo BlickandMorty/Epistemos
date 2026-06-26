@@ -82,14 +82,6 @@ struct ComposerVoiceInputServiceTests {
         #expect(service.state == .idle)
     }
 
-    @Test("composer mic view tears down recording on disappear")
-    func composerMicViewTearsDownRecordingOnDisappear() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ComposerMicButton.swift")
-
-        #expect(source.contains(".onDisappear"))
-        #expect(source.contains("service.tearDown()"))
-    }
-
     private func makeService(
         tempDirectory: URL,
         transcribe: @escaping @Sendable (URL) async throws -> TranscribedAudio

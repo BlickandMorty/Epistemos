@@ -316,10 +316,6 @@ struct LandingView: View {
                 dailyBrief.dismissDailyBrief()
                 return .handled
             }
-            if ui.showChatSidebar {
-                ui.dismissChatSidebar()
-                return .handled
-            }
             return .ignored
         }
         // Companion Farm sheets — destructive/restore actions still route through their own

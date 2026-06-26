@@ -54,9 +54,6 @@ struct CaptureBrainDumpIntent: AppIntent {
         if let pageId = bootstrap.notesUI.activePageId {
             return QuarantineAnchor(contextKind: "note", contextId: pageId)
         }
-        if let sessionId = bootstrap.agentChatState.activeSessionId {
-            return QuarantineAnchor(contextKind: "agent-session", contextId: sessionId)
-        }
         return nil
     }
 

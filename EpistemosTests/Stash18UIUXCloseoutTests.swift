@@ -30,8 +30,6 @@ struct Stash18UIUXCloseoutTests {
     @Test("current fused surfaces stay present instead of raw stash downgrade")
     func currentFusedSurfacesStayPresent() {
         let requiredCurrentFiles = [
-            "Epistemos/Views/Chat/ComposerMicButton.swift",
-            "Epistemos/Views/Chat/SlashCommandPopover.swift",
             "Epistemos/Views/Landing/Farm/LandingFarmView.swift",
             "Epistemos/Views/Graph/GraphFPSHUD.swift",
             "Epistemos/Views/Notes/EditableTransclusionView.swift",
