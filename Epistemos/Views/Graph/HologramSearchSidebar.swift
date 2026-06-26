@@ -159,18 +159,40 @@ enum HologramSidebarNotesTreeBuilder {
     }
 }
 
+enum GraphSidebarLayout {
+    static let defaultWidth: Double = 400
+    static let defaultHeight: Double = 420
+    static let minWidth: CGFloat = 300
+    static let maxWidth: CGFloat = 560
+    static let minHeight: CGFloat = 260
+    static let maxHeight: CGFloat = 760
+    static let routedContentGap: CGFloat = 48
+
+    static func boundedWidth(_ storedWidth: Double) -> CGFloat {
+        CGFloat(min(max(storedWidth, Double(minWidth)), Double(maxWidth)))
+    }
+
+    static func boundedHeight(_ storedHeight: Double) -> CGFloat {
+        CGFloat(min(max(storedHeight, Double(minHeight)), Double(maxHeight)))
+    }
+
+    static func routedContentLeadingInset(storedWidth: Double) -> CGFloat {
+        boundedWidth(storedWidth) + routedContentGap
+    }
+}
+
 struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
     @Environment(QueryEngine.self) private var queryEngine
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @AppStorage("epistemos.graphSidebarCollapsed.noConversation.v1")
+    @AppStorage("epistemos.graphSidebarCollapsed.notesQuery.v1")
     private var isCollapsed = false
     @AppStorage("epistemos.graphSidebarWidth.v1")
-    private var sidebarWidthStorage: Double = 400
+    private var sidebarWidthStorage = GraphSidebarLayout.defaultWidth
     @AppStorage("epistemos.graphSidebarHeight.v1")
-    private var sidebarHeightStorage: Double = 420
+    private var sidebarHeightStorage = GraphSidebarLayout.defaultHeight
 
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
@@ -196,10 +218,10 @@ struct HologramSearchSidebar: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var boundedSidebarWidth: CGFloat {
-        CGFloat(min(max(sidebarWidthStorage, 300), 560))
+        GraphSidebarLayout.boundedWidth(sidebarWidthStorage)
     }
     private var boundedSidebarHeight: CGFloat {
-        CGFloat(min(max(sidebarHeightStorage, 260), 760))
+        GraphSidebarLayout.boundedHeight(sidebarHeightStorage)
     }
     private var normalizedQueryText: String {
         queryText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -305,8 +327,12 @@ struct HologramSearchSidebar: View {
             .gesture(
                 DragGesture(minimumDistance: 2)
                     .onChanged { value in
-                        sidebarWidthStorage = Double(min(max(resizeStartSize.width + value.translation.width, 300), 560))
-                        sidebarHeightStorage = Double(min(max(resizeStartSize.height + value.translation.height, 260), 760))
+                        sidebarWidthStorage = Double(GraphSidebarLayout.boundedWidth(
+                            Double(resizeStartSize.width + value.translation.width)
+                        ))
+                        sidebarHeightStorage = Double(GraphSidebarLayout.boundedHeight(
+                            Double(resizeStartSize.height + value.translation.height)
+                        ))
                     }
                     .onEnded { _ in
                         resizeStartSize = CGSize(width: boundedSidebarWidth, height: boundedSidebarHeight)

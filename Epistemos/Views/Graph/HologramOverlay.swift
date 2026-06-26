@@ -1661,7 +1661,7 @@ final class HologramOverlay {
     private func syncGraphWorkspaceChromeVisibility(isCanvas: Bool) {
         routeHostView?.isHidden = isCanvas
         controlsHostView?.isHidden = !isCanvas
-        sidebarHostView?.isHidden = !isCanvas
+        sidebarHostView?.isHidden = false
 
         // User-authorized UI change 2026-05-14, REFINED 2026-05-15
         // (RCA-GRAPH-NOTE-BLUR-001):
