@@ -78,3 +78,5 @@ You were worried about lost/deleted IP. The sweep says: **you preserved it.** Th
 4. **Tag the stranded T-track branches** so the 1,500 commits of research are belt-and-suspenders safe.
 
 Nothing useful gets deleted. The rare depth you built is intact — the work is to *ship it into view*, one falsifiable slice at a time.
+
+**Why you could never get it working (and the fix):** the deep IP is built + unit-tested but **not exposed as a callable tool** — `eidos.query` is even a stub that bypasses the real engine; Cognitive DAG / provenance / Halo-RRF / continual-learning have zero tool wrappers; most are flag-OFF; and the app build was broken. It was unexposed + ungated-on + invisible, not broken. The fix (full design in `SUBSTRATE_TO_FEATURE_MAP_2026_06_25.md` §1c "The Epistemos Capability Plane"): wrap each IP module as ONE tool in the agent_core registry → Work consumes it instantly over its live MCP server, Chat over FFI, Act once Goose's MCP config points at `epistemos-native`. Expose once, consume from all three; test instantly via Work's loopback `/mcp`.
