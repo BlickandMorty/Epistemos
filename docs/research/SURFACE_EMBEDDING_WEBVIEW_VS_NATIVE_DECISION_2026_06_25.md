@@ -429,10 +429,13 @@ hardening loop. Full-app verify waits for Phase 0 (Chat lane makes main compile)
 
 ### C — Goose agent → ACTIVE (the single surface; ACP transport + WebView UI) — the only live directive in §9
 ```
-You own ACT = Goose — your LANDING surface is Act (one of exactly 3: Chat/Act/Work; see the Landing
-Contract). NEW LANE — this has NOT started: Act currently runs on AgentClone (interim), and AgentClone keeps
-hosting Act until your Goose surface proves out. You are STARTING this lane. Full-app verify waits for Phase 0
-(Chat lane makes main compile); meanwhile vendor/ACP/WebView scaffolding proceeds.
+You own the SINGLE Epistemos agent surface = Goose (reskinned). There is NO Chat/Act/Work federation —
+Goose is the one surface (§0/§15). This lane is STARTING. FIRST read the canonical plan:
+docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md — §0 (decision + live/dead map),
+§2 (ACP+WebView), §3-§7 (mechanics), this §9-C, and §14-§17 (maintenance, fusion roadmap, data, no-break).
+Goose must stay independently GREEN at all times (§17): the Epistemos Swift app CONNECTS to Goose; it never
+compiles Goose into itself, and the app's build state never gates Goose — you can always launch goosed +
+the Goose UI standalone to verify the engine. (Reskin-in-progress log: docs/handoffs/GOOSE_SURFACE_CLAUDE_HANDOFF_2026_06_24.md.)
 RE-TARGET (owner decision 2026-06-25): integrate Goose as its WEB UI in a
 macOS 26 WebView/WebPage, with the AGENT driven over ACP-over-WebSocket to a supervised
 goose serve / goosed — NOT a full window.electron IPC emulation. This is how Goose's own renderer
@@ -449,14 +452,18 @@ already works (ui/desktop/src/main.ts buildAcpWebSocketUrl -> /acp?token=, USE_A
    window.electron calls (dialogs, notifications, window/menu, UPDATER). Keep a disposition ledger:
    implemented-native | implemented-runtime | hidden-shell | compatibility-preserved | deferred-with-visible-error.
 5. Do NOT reverse-engineer the ~52 private IPC channels for the agent path — the agent path is ACP.
-Guardrails: Goose MAY be less native than Work (owner-approved). ALL Goose paths are Pro/Developer-ID
-(subprocess) — MAS build hides Act-Goose or shows an honest "Pro only", never a hidden spawn. Do not
-rename protected Goose env/config/protocol/runtime names. FULL FILE CONTROL (owner runs agents ONE AT A
-TIME) — edit any file needed, but PRESERVE the Chat (AgentClone) and Work (OpenGUI) surfaces; never
-delete/break their work. Commit at clean points (clone has its own git).
+Guardrails: ALL Goose paths are Pro/Developer-ID (subprocess) — MAS build hides Goose or shows an honest
+"Pro only", never a hidden spawn. ADD, DON'T EDIT (§14.3/§17): Epistemos<->Goose wiring lives in Epistemos
+across the ACP/MCP seam + the reskin overlay — never surgery on Goose's Rust core or agent path; do not
+rename protected Goose env/config/protocol/runtime names (keeps upstream merges clean). Build Paseo features
+from the SPEC (§15/§15.7), never vendor Paseo's AGPL code (§15.6). Commit at clean points (clone has its own git).
 Proof gate: real Goose Electron launches as fallback; goose serve ACP WebSocket reachable; ACP client
 completes new->prompt->stream(thinking/tool/answer)->permission->result; Goose web UI boots in WebView
 via the narrow shim; nothing lost vs the real app.
+NEXT (only after the proof gate passes): layer Paseo features per §15 — (1) engine picker that surfaces the
+existing ACP family, (2) multi-tab/split workspace, (3) inline diff + gh PR/merge, (4) worktree-isolated
+parallel runs; strategic additions, NOT a Paseo clone (§15.7 has per-feature specs). Notes/vault use the
+markdown-source-of-truth data layer (§16).
 ```
 
 ---
