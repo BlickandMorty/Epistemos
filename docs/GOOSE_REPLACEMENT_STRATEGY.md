@@ -3,11 +3,12 @@
 > **Index status**: SUPERSEDED-HISTORICAL — Goose replacement strategy; framework selection complete.
 > **Superseded by / Phase**: MASTER_MODEL_STACK_PLAN + AGENT_FUSION_RESEARCH_PROMPT.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+> ⛔ **SUPERSEDED for Goose integration (2026-06-26):** the in-process / UniFFI Goose-core direction here is **dead** — killed by `GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`, superseded by the LOCKED plan `docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md` §14.2. Current truth: Goose = **Act** surface, **WebView UI + ACP** (sidecar `goosed`), not FFI.
 
 
 
 **Date:** 2026-04-04
-**Status:** Architectural direction (binding)
+**Status:** ⛔ SUPERSEDED 2026-06-26 (NO LONGER BINDING) — see top banner + `SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md` §14.2
 **Supersedes:** Any "build custom agent runtime from scratch" guidance
 
 ---

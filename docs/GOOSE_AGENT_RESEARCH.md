@@ -3,6 +3,7 @@
 > **Index status**: SUPERSEDED-HISTORICAL — Pure-Rust agent architecture analysis (Qwen3.5 vs Gemma4 97.5% accuracy); model stack finalized post-research.
 > **Superseded by / Phase**: MASTER_MODEL_STACK_PLAN + AGENT_FUSION_RESEARCH_PROMPT.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/50_research_corpus/`.
+> ⛔ **SUPERSEDED for Goose integration (2026-06-26):** the in-process / UniFFI Goose-core direction here is **dead** — killed by `GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`, superseded by the LOCKED plan `docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md` §14.2. Current truth: Goose = **Act** surface, **WebView UI + ACP** (sidecar `goosed`), not FFI.
 
 
 
