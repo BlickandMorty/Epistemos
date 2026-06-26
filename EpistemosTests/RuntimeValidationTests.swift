@@ -3837,6 +3837,7 @@ struct RuntimeValidationTests {
     func graphOnlyChromeKeepsNotesQuerySidebarFloatingOnWorkspaceRoutes() throws {
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
         let container = try loadRepoTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
 
         #expect(overlay.contains("private func syncGraphWorkspaceChromeVisibility(isCanvas: Bool)"))
         #expect(overlay.contains("routeHostView?.isHidden = isCanvas"))
@@ -3848,6 +3849,11 @@ struct RuntimeValidationTests {
         #expect(overlay.contains("if isCanvas {"))
         #expect(overlay.contains("inspectorHostView?.isHidden = true"))
         #expect(overlay.contains("for view in pinnedInspectorViews.values {"))
+        #expect(sidebar.contains(".onChange(of: graphState.currentRoute)"))
+        #expect(sidebar.contains("expandForWorkspaceRoute(graphState.currentRoute)"))
+        #expect(sidebar.contains("private func expandForWorkspaceRoute(_ route: GraphWorkspaceRoute)"))
+        #expect(sidebar.contains("guard !route.isCanvas else { return }"))
+        #expect(sidebar.contains("isCollapsed = false"))
     }
 
     @Test("bundled note-operation skills stay available to the harness")

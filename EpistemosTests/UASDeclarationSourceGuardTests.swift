@@ -40,15 +40,6 @@ struct UASDeclarationSourceGuardTests {
         #expect(uasDeclarationViolations(in: source).isEmpty)
     }
 
-    @Test("PlanePlacementHealthRow carries UAS declaration metadata")
-    func planePlacementHealthRowCarriesUasMetadata() throws {
-        let source = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/PlanePlacementHealthRow.swift"
-        )
-
-        #expect(uasDeclarationViolations(in: source).isEmpty)
-    }
-
     private func uasDeclarationViolations(in source: String) -> [String] {
         var violations: [String] = []
         var preceding: [String] = []

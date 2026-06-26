@@ -2,20 +2,11 @@ import SwiftUI
 
 // MARK: - SubstrateHealthClock (SS-SH single-clock collapse)
 //
-// The substrate-health panel used to run ~17 independent per-row polling
-// `Task.sleep` timers — each waking the scheduler every second for the life of
-// the panel (even while its section was collapsed) and each needing its own
-// `.onDisappear` cancellation (which collapsed `Section`s don't fire reliably).
-// This collapses them onto ONE shared clock: the panel owns a single
-// `SubstrateHealthClock`, drives it from a single calmer `.task` loop, and injects it
-// into the environment. Rows observe `tick` via `.substrateHealthPoll` and run
-// their own (already off-MainActor) `refresh()` on each tick instead of owning
-// a timer. One timer instead of ~17, deterministic teardown (the panel's
-// `.task` auto-cancels when the panel leaves), and no change to any row's fetch.
-//
-// Slice 1 wires the infra + the 3 byte-identical unified-snapshot rows
-// (EmlObservatory / CognitiveDagCounts / SubstrateDriftMonitor). The remaining
-// timer rows migrate onto the same clock in follow-up slices.
+// The foundation panel owns one shared poll clock instead of letting every
+// health row spin its own timer. Mounted rows observe `tick` via
+// `.substrateHealthPoll`; the panel's `.task` gives deterministic teardown when
+// Settings leaves the screen. The legacy substrate rows are no longer mounted,
+// but the unified snapshot stays here for the remaining rows that still read it.
 
 @MainActor
 @Observable

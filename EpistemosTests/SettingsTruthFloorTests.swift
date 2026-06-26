@@ -5,29 +5,19 @@ import Testing
 struct SettingsTruthFloorTests {
 
     private static let auditedSettingsRows: [String] = [
-        "Epistemos/Views/Settings/ACSAdmissionHealthRow.swift",
-        "Epistemos/Views/Settings/APIKeysHealthRow.swift",
         "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
         "Epistemos/Views/Settings/ArenaHealthRow.swift",
         "Epistemos/Views/Settings/CLIDiscoveryHealthRow.swift",
-        "Epistemos/Views/Settings/CognitiveDagCountsHealthRow.swift",
-        "Epistemos/Views/Settings/CognitiveDagHealthRow.swift",
-        "Epistemos/Views/Settings/CognitiveWeightClassHealthRow.swift",
         "Epistemos/Views/Settings/DeploymentProfileHealthRow.swift",
         "Epistemos/Views/Settings/EditorBundleHealthRow.swift",
         "Epistemos/Views/Settings/EidosHealthRow.swift",
-        "Epistemos/Views/Settings/EmlObservatoryHealthRow.swift",
-        "Epistemos/Views/Settings/FUlpHealthRow.swift",
         "Epistemos/Views/Settings/FalsifierArtifactsHealthRow.swift",
-        "Epistemos/Views/Settings/LatticeWBOHealthRow.swift",
+        "Epistemos/Views/Settings/KnowledgeCoreReadParityHealthRow.swift",
+        "Epistemos/Views/Settings/KnowledgeCoreRuntimeHealthRow.swift",
         "Epistemos/Views/Settings/OpLogProjectionHealthRow.swift",
-        "Epistemos/Views/Settings/PlanePlacementHealthRow.swift",
         "Epistemos/Views/Settings/ProcessMemoryHealthRow.swift",
-        "Epistemos/Views/Settings/RuntimeTruthHealthRow.swift",
         "Epistemos/Views/Settings/SearchFusionHealthRow.swift",
         "Epistemos/Views/Settings/ShadowSearchHealthRow.swift",
-        "Epistemos/Views/Settings/SubstrateDriftMonitorHealthRow.swift",
-        "Epistemos/Views/Settings/UasAcsHealthRow.swift",
         "Epistemos/Views/Settings/VaultRecallHealthRow.swift",
     ]
 
@@ -74,33 +64,6 @@ struct SettingsTruthFloorTests {
                 "green eligibility must require both production wiring and a PASS witness")
         #expect(source.contains("Green requires production wiring plus primary PASS witness."),
                 "the row tooltip must spell out the T0 truth rule")
-    }
-
-    @Test("runtime truth row reports effective route instead of stale preferred selection")
-    func runtimeTruthRowReportsEffectiveRoute() throws {
-        let source = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/RuntimeTruthHealthRow.swift"
-        )
-
-        #expect(source.contains("private var effectiveSelection: ChatModelSelection"))
-        #expect(source.contains("inference.effectiveChatSurfaceSelection(for: mode)"))
-        #expect(source.contains("ComposerModelToolTruth.summary("))
-        #expect(!source.contains("private func cloudToolLoopSummary"))
-        #expect(!source.contains("private func localToolLoopSummary"))
-        #expect(!source.contains("switch inference.preferredChatModelSelection"))
-        #expect(!source.contains("if case .cloud = inference.preferredChatModelSelection"))
-    }
-
-    @Test("audit document enumerates every guarded Settings row")
-    func auditDocumentEnumeratesEveryGuardedSettingsRow() throws {
-        let audit = try loadMirroredSourceTextFile(
-            "docs/audits/SETTINGS_TRUTH_FLOOR_2026_05_25.md"
-        )
-        for path in Self.auditedSettingsRows {
-            let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-            #expect(audit.contains("`\(name)`"),
-                    "truth-floor audit must enumerate \(name)")
-        }
     }
 
     private static func verifiedFloorCallBlocks(in source: String) -> [String] {

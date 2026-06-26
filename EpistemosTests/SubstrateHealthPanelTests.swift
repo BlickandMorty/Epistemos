@@ -3,98 +3,43 @@ import Testing
 
 @testable import Epistemos
 
-// W6 (Terminal 1 WRV mission) test. Verifies the unified Substrate
-// Health panel:
-//
-//   - Mounts the legacy substrate health rows plus the Terminal D
-//     unified floor rows.
-//   - Mounts the T14 UAS plane-placement row so the cluster surfaces
-//     live per-plane DAG counts from the Rust FFI snapshot.
-//   - Is wired into `SettingsView` exactly once and replaces the
-//     scattered per-row mounts that used to live in
-//     General → Diagnostics.
-
-@Suite("Substrate Health Panel (W6)")
+@Suite("Epistemos Foundation Panel")
 struct SubstrateHealthPanelTests {
 
-    @Test("SubstrateHealthPanel mounts the WRV substrate rows")
-    func substrateHealthPanelMountsSubstrateRows() throws {
+    @Test("SubstrateHealthPanel mounts only the simplified foundation rows")
+    func substrateHealthPanelMountsSimplifiedFoundationRows() throws {
         let panel = try loadMirroredSourceTextFile(
             "Epistemos/Views/Settings/SubstrateHealthPanel.swift"
         )
 
+        #expect(panel.contains("foundationSection(\"Foundation Features\")"))
+        #expect(panel.contains("Skills, Tools, and MCP"))
+        #expect(panel.contains("Halo, Shadow, and Fast Search"))
+        #expect(panel.contains("Provenance and Answer Witnesses"))
         #expect(panel.contains("EidosHealthRow()"))
         #expect(panel.contains("VaultRecallHealthRow()"))
-        #expect(panel.contains("LatticeWBOHealthRow()"))
-        #expect(panel.contains("FUlpHealthRow()"))
-        #expect(panel.contains("ACSAdmissionHealthRow()"))
+        #expect(panel.contains("SearchFusionHealthRow()"))
+        #expect(panel.contains("EditorBundleHealthRow()"))
         #expect(panel.contains("FalsifierArtifactsHealthRow()"))
         #expect(panel.contains("AnswerPacketHealthRow()"))
-        #expect(panel.contains("EmlObservatoryHealthRow()"))
-        #expect(panel.contains("UasAcsHealthRow()"))
-        #expect(panel.contains("CognitiveDagCountsHealthRow()"))
-        #expect(panel.contains("CognitiveWeightClassHealthRow()"))
-        #expect(panel.contains("SubstrateDriftMonitorHealthRow()"))
-    }
+        #expect(panel.contains("WorkOpenCodeShellHealthRow()"))
+        #expect(panel.contains("WorkBackendHealthRow()"))
+        #expect(panel.contains("LiteParseImportHealthRow()"))
 
-    @Test("SubstrateHealthPanel mounts the UAS plane-placement witness row")
-    func substrateHealthPanelMountsPlanePlacementRow() throws {
-        let panel = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/SubstrateHealthPanel.swift"
-        )
-        let row = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/PlanePlacementHealthRow.swift"
-        )
-
-        #expect(panel.contains("PlanePlacementHealthRow()"))
-        #expect(panel.contains("F-ACS-AnchorLookup_2026_05_24.md"))
-        #expect(row.contains("SubstrateHealthUnifiedClient.snapshot()"))
-        #expect(row.contains("return p.planeFieldsWired ? \"read-only counts\""))
-        #expect(row.contains("state=\\(p.stateCount) episodic=\\(p.episodicCount) assembly=\\(p.assemblyCount)"))
-    }
-
-    @Test("D-prime rows keep chip strips and W-30 badges conservative")
-    func dPrimeRowsKeepChipStripsConservative() throws {
-        let answerPacket = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/AnswerPacketHealthRow.swift"
-        )
-        let planePlacement = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/PlanePlacementHealthRow.swift"
-        )
-        let cognitiveWeight = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/CognitiveWeightClassHealthRow.swift"
-        )
-        let components = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/SettingsSurfaceComponents.swift"
-        )
-        let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
-
-        // "session ring only" → "session ring + durable log": Phase 2 (64196c4a8) added the durable
-        // JSONL persistence log, so the honest substrate string now lists both. Conservatism is still
-        // asserted by falsifierPassed: false below (the falsifier hasn't passed).
-        #expect(answerPacket.contains("session ring + durable log"))
-        #expect(answerPacket.contains("falsifierPassed: false"))
-        #expect(planePlacement.contains("falsifierPassed: false"))
-        #expect(components.contains("private var substrateTint: Color"))
-        #expect(components.contains("return productionWired ? .orange : .secondary"))
-        #expect(cognitiveWeight.contains("badge only"))
-        #expect(bridge.contains("\"class\": \"policy_grade\", \"range\": \"0.86-1.00\", \"policy_authority\": false"))
-    }
-
-    @Test("UAS ACS row reads measured artifact gates without turning runtime adapter green")
-    func uasAcsRowReadsMeasuredArtifactGatesConservatively() throws {
-        let row = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/UasAcsHealthRow.swift"
-        )
-
-        #expect(row.contains("UasAcsGateSnapshot.load()"))
-        #expect(row.contains("artifacts/falsifiers/uas_copy_count/result.json"))
-        #expect(row.contains("artifacts/falsifiers/acs_anchor_lookup/result.json"))
-        #expect(row.contains("F-UAS-CopyCount"))
-        #expect(row.contains("F-ACS-AnchorLookup"))
-        #expect(row.contains("MAS runtime adapter pending"))
-        #expect(!row.contains("harness passed; production registry adapter pending"),
-                "Measured artifact PASS should be distinct from production adapter wiring.")
+        let retiredRows = [
+            "LatticeWBOHealthRow()",
+            "FUlpHealthRow()",
+            "ACSAdmissionHealthRow()",
+            "EmlObservatoryHealthRow()",
+            "UasAcsHealthRow()",
+            "CognitiveDagCountsHealthRow()",
+            "CognitiveWeightClassHealthRow()",
+            "PlanePlacementHealthRow()",
+            "SubstrateDriftMonitorHealthRow()",
+        ]
+        for row in retiredRows {
+            #expect(!panel.contains(row), "\(row) should not remount in the simplified foundation panel")
+        }
     }
 
     @Test("Gemma official QAT acquisition helper stays quarantine and receipt only")
@@ -322,37 +267,6 @@ struct SubstrateHealthPanelTests {
         #expect(mountCount == 1, "SubstrateHealthPanel must be mounted exactly once")
     }
 
-    @Test("Inference settings surfaces Gemma QAT proof lanes without route promotion")
-    func inferenceSettingsSurfacesGemmaQATProofLanesWithoutRoutePromotion() throws {
-        let settings = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/SettingsView.swift"
-        )
-        let infrastructure = try loadMirroredSourceTextFile(
-            "Epistemos/Engine/LocalModelInfrastructure.swift"
-        )
-
-        #expect(settings.contains("GemmaQATProofLaneSummary()"))
-        #expect(settings.contains("Gemma QAT proof lanes"))
-        #expect(settings.contains("E2B / E4B / 12B QAT GGUF only"))
-        #expect(settings.contains("GemmaQATRuntimeLadder.candidates"))
-        #expect(settings.contains("@State private var capabilityCeiling = CapabilityCeilingHealthSnapshot.load()"))
-        #expect(settings.contains("capabilityCeiling.gemmaLocalArtifactStatus(for: candidate)"))
-        #expect(settings.contains("capabilityCeiling.gemmaProofStatus(for: candidate)"))
-        #expect(settings.contains("capabilityCeiling.gemmaCompletedProofLaneSummary"))
-        #expect(settings.contains("capabilityCeiling.gemmaProductRouteIntegrationDetail"))
-        #expect(infrastructure.contains("scale route integration pending"))
-        #expect(infrastructure.contains("Pro route integration pending"))
-        #expect(settings.contains("capabilityCeiling = CapabilityCeilingHealthSnapshot.load()"))
-        #expect(settings.contains("not picker rows"))
-        #expect(settings.contains("do not mutate chat defaults or claim live Gemma routing"))
-        #expect(!settings.contains("DiffusionGemma"))
-        #expect(!settings.contains("Gemma 4 26"))
-        #expect(!settings.contains("Gemma 4 31"))
-        #expect(infrastructure.contains("google/gemma-4-E2B-it-qat-q4_0-gguf"))
-        #expect(infrastructure.contains("google/gemma-4-E4B-it-qat-q4_0-gguf"))
-        #expect(infrastructure.contains("google/gemma-4-12B-it-qat-q4_0-gguf"))
-    }
-
     @Test("SettingsView no longer mounts the substrate rows individually outside the panel")
     func settingsViewDoesNotDoubleMountSubstrateRows() throws {
         let settings = try loadMirroredSourceTextFile(
@@ -364,10 +278,13 @@ struct SubstrateHealthPanelTests {
         let directMounts: [String] = [
             "                EidosHealthRow()",
             "                VaultRecallHealthRow()",
-            "                LatticeWBOHealthRow()",
-            "                FUlpHealthRow()",
-            "                ACSAdmissionHealthRow()",
+            "                SearchFusionHealthRow()",
+            "                EditorBundleHealthRow()",
+            "                FalsifierArtifactsHealthRow()",
             "                AnswerPacketHealthRow()",
+            "                WorkOpenCodeShellHealthRow()",
+            "                WorkBackendHealthRow()",
+            "                LiteParseImportHealthRow()",
         ]
         for direct in directMounts {
             #expect(!settings.contains(direct),

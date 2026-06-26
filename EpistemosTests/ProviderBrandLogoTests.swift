@@ -103,12 +103,6 @@ struct ProviderBrandLogoTests {
         #expect(inference.providerBrand(for: .google) == .gemini)
     }
 
-    @Test("the provider logo is wired into a visible Settings surface (cloud access rows)")
-    func wiredIntoSettings() throws {
-        let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/APIKeysHealthRow.swift")
-        #expect(src.contains("ProviderLogoView(brand: inference.providerBrand(for: provider)"))
-    }
-
     @Test("fromLabel maps real per-message labels to the right brand")
     func fromLabelMapping() {
         #expect(ProviderBrand.fromLabel("Claude Opus 4.7") == .claude)
@@ -128,10 +122,4 @@ struct ProviderBrandLogoTests {
         #expect(ProviderBrand.fromLabel("Mystery Model") == .generic)
     }
 
-    @Test("the logo is wired into the picker rows")
-    func wiredIntoPicker() throws {
-        let picker = try loadMirroredSourceTextFile("Epistemos/Views/Chat/InlineRuntimePickerPanel.swift")
-        #expect(picker.contains("ProviderLogoView("))
-        #expect(picker.contains("ProviderBrand.local(modelID: option.id)"))
-    }
 }

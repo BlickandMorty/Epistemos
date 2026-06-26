@@ -282,10 +282,14 @@ struct HologramSearchSidebar: View {
         .onAppear {
             refreshGraphSidebarCachesIfNeeded()
             updateGraphSearchResults(for: queryText)
+            expandForWorkspaceRoute(graphState.currentRoute)
         }
         .onChange(of: graphState.graphDataVersion) { _, _ in
             refreshGraphSidebarCachesIfNeeded()
             updateGraphSearchResults(for: queryText)
+        }
+        .onChange(of: graphState.currentRoute) { _, newRoute in
+            expandForWorkspaceRoute(newRoute)
         }
         .onChange(of: queryEngine.resultVersion) { _, _ in
             guard !normalizedQueryText.isEmpty else { return }
@@ -302,6 +306,14 @@ struct HologramSearchSidebar: View {
             in: RoundedRectangle(cornerRadius: 14, style: .continuous),
             interactive: true
         )
+    }
+
+    private func expandForWorkspaceRoute(_ route: GraphWorkspaceRoute) {
+        guard !route.isCanvas else { return }
+        guard isCollapsed else { return }
+        withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
+            isCollapsed = false
+        }
     }
 
     private var resizeHandle: some View {
