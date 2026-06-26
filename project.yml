@@ -46,7 +46,6 @@ targets:
         type: syncedFolder
         excludes:
           - Engine/ClaudeManagedRuntime.swift
-          - Engine/LocalRustRuntime.swift
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Vault/KnowledgeGraphService.swift
@@ -147,7 +146,6 @@ targets:
         type: syncedFolder
         excludes:
           - Engine/ClaudeManagedRuntime.swift
-          - Engine/LocalRustRuntime.swift
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Vault/KnowledgeGraphService.swift

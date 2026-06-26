@@ -13,7 +13,7 @@ struct ProjectInclusionTests {
 
         #expect(appSection.contains("type: syncedFolder"))
         #expect(appSection.contains("Engine/ClaudeManagedRuntime.swift"))
-        #expect(appSection.contains("Engine/LocalRustRuntime.swift"))
+        #expect(!appSection.contains("Engine/LocalRustRuntime.swift"))
         #expect(appSection.contains("KnowledgeFusion/.DS_Store"))
         #expect(appSection.contains("KnowledgeFusion/MOHAWK/**"))
         #expect(appSection.contains("KnowledgeFusion/Training/.DS_Store"))
