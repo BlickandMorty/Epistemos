@@ -824,13 +824,11 @@ struct RuntimeValidationTests {
     @Test("archived runtime shims are compile-time unavailable so they cannot drift back into the live app")
     func archivedRuntimeShimsAreCompileTimeUnavailableSoTheyCannotDriftBackIntoTheLiveApp() throws {
         let agentRuntime = try loadRepoTextFile("Epistemos/Engine/AgentRuntime.swift")
-        let localRuntime = try loadRepoTextFile("Epistemos/Engine/LocalRustRuntime.swift")
         let claudeRuntime = try loadRepoTextFile("Epistemos/Engine/ClaudeManagedRuntime.swift")
 
         #expect(agentRuntime.contains("Archived Agent Runtime Surface"))
         #expect(agentRuntime.contains("@available(*, unavailable"))
-        #expect(localRuntime.contains("Archived LocalRustRuntime"))
-        #expect(localRuntime.contains("@available(*, unavailable"))
+        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/Engine/LocalRustRuntime.swift")))
         #expect(claudeRuntime.contains("Archived ClaudeManagedRuntime"))
         #expect(claudeRuntime.contains("@available(*, unavailable"))
         #expect(!claudeRuntime.contains("not yet wired to live API"))
