@@ -133,6 +133,82 @@ struct AgentChatStateTests {
         #expect(state.messages.first?.contextAttachments?.first?.resourceMode == .live)
     }
 
+    @Test("opening a note portal reuses the active AgentClone session")
+    func openPortalContextReusesActiveSession() {
+        let state = AgentChatState()
+        state.startNewSession(portalContext: .main(
+            vaultRootPath: "/Users/example/Vault",
+            workspacePath: "/Users/example"
+        ))
+        state.submitAgentQuery("first turn")
+        let originalSessionId = state.activeSessionId
+
+        let notePortal = AgentPortalContextSnapshot.note(
+            pageId: "note-1",
+            vaultRootPath: "/Users/example/Vault",
+            workspacePath: "/Users/example",
+            title: "Ontology",
+            selectedText: "selected passage",
+            tags: ["research"]
+        )
+
+        state.openPortalContext(notePortal)
+
+        #expect(state.activeSessionId == originalSessionId)
+        #expect(state.activePortalContext?.sessionId == originalSessionId)
+        #expect(state.activePortalContext?.portal == .note)
+        #expect(state.activePortalContext?.note?.pageId == "note-1")
+        #expect(state.messages.count == 1)
+        #expect(state.messages.first?.content == "first turn")
+        #expect(state.recentPortalSessions.first?.id == originalSessionId)
+        #expect(state.recentPortalSessions.first?.portal == .note)
+    }
+
+    @Test("opening a graph portal without an active session creates one on the shared spine")
+    func openPortalContextCreatesSharedSessionWhenNeeded() {
+        let state = AgentChatState()
+        let graphPortal = AgentPortalContextSnapshot.graph(
+            vaultRootPath: "/Users/example/Vault",
+            workspacePath: "/Users/example",
+            route: "graph/home",
+            selectedNodeIds: ["node-a"],
+            selectedEdgeIds: ["edge-a"],
+            neighborhoodSummary: "node-a links to node-b"
+        )
+
+        state.openPortalContext(graphPortal)
+
+        #expect(state.activeSessionId != nil)
+        #expect(state.activePortalContext?.portal == .graph)
+        #expect(state.activePortalContext?.sessionId == state.activeSessionId)
+        #expect(state.activePortalContext?.graph?.selectedNodeIds == ["node-a"])
+        #expect(state.recentPortalSessions.first?.portal == .graph)
+    }
+
+    @Test("opening an explicitly sessioned portal activates that portal identity")
+    func openPortalContextHonorsExplicitSessionId() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.submitAgentQuery("loaded transcript")
+
+        let portal = AgentPortalContextSnapshot.mini(
+            vaultRootPath: "/Users/example/Vault",
+            workspacePath: "/Users/example",
+            sessionId: "mini-session",
+            promptPreview: "resume compact context",
+            sourceTitle: "Compact agent"
+        )
+
+        state.openPortalContext(portal)
+
+        #expect(state.activeSessionId == "mini-session")
+        #expect(state.activePortalContext?.sessionId == "mini-session")
+        #expect(state.activePortalContext?.portal == .mini)
+        #expect(state.messages.isEmpty)
+        #expect(state.recentPortalSessions.first?.id == "mini-session")
+        #expect(state.recentPortalSessions.first?.promptPreview == "resume compact context")
+    }
+
     // MARK: - Thinking popover lifecycle
 
     @Test("streaming thinking deltas populate the popover state")

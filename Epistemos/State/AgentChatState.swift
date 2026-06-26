@@ -212,6 +212,42 @@ final class AgentChatState {
         promoteRecentPortalSession(activatedSummary)
     }
 
+    /// Opens a Note/Graph/Mini/Landing portal into the shared AgentClone-backed
+    /// session spine. Portals with no explicit session adopt the current
+    /// session instead of creating a private chat engine.
+    func openPortalContext(_ portalContext: AgentPortalContextSnapshot) {
+        guard activeSessionId != nil || portalContext.sessionId != nil else {
+            startNewSession(portalContext: portalContext)
+            return
+        }
+
+        let targetSessionId = portalContext.sessionId ?? activeSessionId ?? UUID().uuidString
+        let keepsLoadedTranscript = activeSessionId == targetSessionId
+        activeSessionId = targetSessionId
+        activePortalContext = portalContext.withSessionId(targetSessionId)
+
+        if !keepsLoadedTranscript {
+            streamBuffer.reset(releaseCapacity: true)
+            messages = []
+            hasMessages = false
+            streamingText.removeAll(keepingCapacity: false)
+            isStreaming = false
+            pendingContentBlocks = []
+            activeToolName = nil
+            activeToolInputJson = nil
+            isAgentExecuting = false
+            agentTurnCount = 0
+            toolHistory = []
+            executionPlanSummary = nil
+            resetPlanDocument()
+            estimatedContextTokens = 0
+            resetThinkingState()
+            thinkTagRouter = ThinkTagStreamRouter()
+        }
+
+        recordActivePortalSession(promptPreview: portalContext.promptPreview)
+    }
+
     // MARK: - Message Management
 
     func submitAgentQuery(_ query: String, portalContext: AgentPortalContextSnapshot? = nil) {

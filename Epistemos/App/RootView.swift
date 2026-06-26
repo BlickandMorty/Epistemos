@@ -2743,7 +2743,7 @@ private struct HomeRouter: View {
             workspaceMode = .act
             ui.setActivePanel(.home)
             ui.homeTab = .home
-            agentChat.startNewSession(portalContext: portalContext)
+            agentChat.openPortalContext(portalContext)
             HomeWindowIdentity.surfaceHomeWindow()
             syncAgentCloneHostContext()
         }
