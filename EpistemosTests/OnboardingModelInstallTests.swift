@@ -2,23 +2,22 @@ import Testing
 import Foundation
 @testable import Epistemos
 
-/// SS-C (the #1 onboarding blocker): the setup wizard installs the Epistemos AI
-/// foundation model IN-flow — the SAME one-tap `installEpistemosFoundationPackage`
-/// the model manager uses — instead of punting the user out to "Open Settings →
-/// Inference" to find and download a model.
-@Suite("Onboarding model install in-flow (SS-C)")
+/// The setup wizard stays foundation-only after the failed native model stack
+/// deletion. Model chat/provider setup belongs to the connected provider
+/// surfaces, not first-run Epistemos onboarding.
+@Suite("Onboarding model stack pruning")
 struct OnboardingModelInstallTests {
 
-    @Test("the wizard installs the foundation model in-flow, not by punting to Settings")
-    func wizardInstallsInFlow() throws {
+    @Test("the wizard does not mount local model install or inference setup")
+    func wizardDoesNotMountLocalModelInstallOrInferenceSetup() throws {
         let src = try loadMirroredSourceTextFile(
             "Epistemos/Views/Onboarding/SetupAssistantView.swift"
         )
-        // The model step triggers the same one-tap install the model manager uses.
-        #expect(src.contains("localModelManager.installEpistemosFoundationPackage()"))
-        #expect(src.contains("Install Epistemos AI"))
-        // The old single "Open Settings → Inference" punt is gone (replaced by the
-        // in-flow install + a secondary "More Models").
+
+        #expect(!src.contains("localModelManager.installEpistemosFoundationPackage()"))
+        #expect(!src.contains("Install Epistemos AI"))
+        #expect(!src.contains("CloudProviderSetupCard("))
+        #expect(!src.contains("Cloud AI"))
         #expect(!src.contains("Button(\"Open Settings → Inference\")"))
     }
 }

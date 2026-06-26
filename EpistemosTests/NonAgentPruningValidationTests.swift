@@ -12,7 +12,7 @@ struct NonAgentPruningValidationTests {
         #expect(!source.contains("Screen Recording"))
         #expect(!source.contains("OmegaPermissions.checkAccessibility()"))
         #expect(!source.contains("case .permissions"))
-        #expect(source.contains("private note intelligence"))
+        #expect(source.contains("vault sync, fast search, provenance, skills, tools, and MCP"))
     }
 
     @Test("setup assistant explains vault sync instead of claiming live markdown-only storage")
@@ -75,9 +75,11 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("ForEach(SettingsCategory.orderedCases)"))
         #expect(source.contains("SettingsSection.visibleSections"))
         #expect(!source.contains("List(SettingsSection.allCases"))
-        #expect(source.contains(".cognitive"))
-        #expect(source.contains(".knowledgeFusion"))
-        #expect(source.contains(".modelVaults"))
+        #expect(source.contains(".substrateHealth"))
+        #expect(source.contains(".workClone"))
+        #expect(!source.contains(".cognitive"))
+        #expect(!source.contains(".knowledgeFusion"))
+        #expect(!source.contains(".modelVaults"))
         #expect(source.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         #expect(!source.contains(".omega"))
     }
