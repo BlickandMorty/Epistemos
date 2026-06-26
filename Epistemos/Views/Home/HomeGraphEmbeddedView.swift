@@ -112,8 +112,7 @@ struct HomeGraphEmbeddedView: View {
                 .padding(.top, 16)
                 Spacer(minLength: 0)
             }
-            .opacity(graphState.currentRoute.isCanvas ? 1 : 0)
-            .allowsHitTesting(graphState.currentRoute.isCanvas)
+            .allowsHitTesting(true)
 
             // 5. Inspector — attached to the selected node, using the same
             //    compact inspector body as the floating graph.

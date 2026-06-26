@@ -2389,7 +2389,7 @@ struct RuntimeValidationTests {
 
         #expect(sidebar.contains("@State private var cachedNotesTreeSnapshot"))
         #expect(sidebar.contains("@State private var cachedNotesTreeTopologyVersion = -1"))
-        #expect(sidebar.contains("refreshNotesTreeSnapshotIfNeeded()"))
+        #expect(sidebar.contains("refreshGraphSidebarCachesIfNeeded()"))
         #expect(sidebar.contains("cachedNotesTreeTopologyVersion != topologyVersion"))
         #expect(sidebar.contains("let snapshot = cachedNotesTreeSnapshot"))
     }
@@ -2401,12 +2401,13 @@ struct RuntimeValidationTests {
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
         let state = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
 
-        #expect(sidebar.contains("enum SidebarTab { case notes, query }"))
+        #expect(sidebar.contains("private enum SidebarTab"))
         #expect(sidebar.contains("case .notes"))
         #expect(sidebar.contains("case .query"))
         #expect(!sidebar.contains("case .chat"))
         #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarWidth.v1\")"))
         #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarHeight.v1\")"))
+        #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarCollapsed.notesQuery.v1\")"))
         #expect(!sidebar.contains("ChatComposerTextEditor("))
         #expect(!sidebar.contains(".assistantComposerChrome("))
         #expect(!sidebar.contains("graphComposerControlResetKey"))
@@ -3832,14 +3833,16 @@ struct RuntimeValidationTests {
         #expect(!source.contains("Omega"))
     }
 
-    @Test("graph-only chrome hides when the workspace route leaves canvas")
-    func graphOnlyChromeHidesWhenWorkspaceRouteLeavesCanvas() throws {
+    @Test("graph-only chrome keeps notes query sidebar visible on workspace routes")
+    func graphOnlyChromeKeepsNotesQuerySidebarVisibleOnWorkspaceRoutes() throws {
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+        let container = try loadRepoTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
 
         #expect(overlay.contains("private func syncGraphWorkspaceChromeVisibility(isCanvas: Bool)"))
         #expect(overlay.contains("routeHostView?.isHidden = isCanvas"))
         #expect(overlay.contains("controlsHostView?.isHidden = !isCanvas"))
-        #expect(overlay.contains("sidebarHostView?.isHidden = !isCanvas"))
+        #expect(overlay.contains("sidebarHostView?.isHidden = false"))
+        #expect(container.contains("GraphSidebarLayout.routedContentLeadingInset"))
         #expect(overlay.contains("if isCanvas {"))
         #expect(overlay.contains("inspectorHostView?.isHidden = true"))
         #expect(overlay.contains("for view in pinnedInspectorViews.values {"))

@@ -38,6 +38,7 @@ struct GraphWorkspaceContainer: View {
 
     // Injected by the surrounding HologramOverlayHostedViewBuilder
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("epistemos.graphSidebarWidth.v1") private var graphSidebarWidthStorage = GraphSidebarLayout.defaultWidth
     @State private var htmlWorkspaceDockVisible = false
     @State private var selectedHTMLWorkspaceID: String?
 
@@ -54,29 +55,8 @@ struct GraphWorkspaceContainer: View {
         // mounted as a separate always-visible NSHostingView on the overlay
         // so the shape-blur is also visible while the user is on the canvas.
         ZStack {
-            switch graphState.currentRoute {
-            case .canvas:
-                Color.clear
-                    .allowsHitTesting(false)
-
-            case .note(let id):
-                graphNoteBackdrop
-
-                GraphNotePage(sourceId: id)
-                    .id(id)
-                    .background(pageContentBackground)
-
-            case .folder(let id):
-                graphPageBackdrop
-
-                VStack(spacing: 0) {
-                    graphPageHeader(title: "Folder")
-
-                    GraphFolderPage(folderId: id)
-                        .id(id)
-                        .background(pageContentBackground)
-                }
-            }
+            routeContent
+                .padding(.leading, routeSidebarInset)
 
             graphHTMLWorkspaceDockLayer
         }
@@ -107,6 +87,39 @@ struct GraphWorkspaceContainer: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(true)
         }
+    }
+
+    @ViewBuilder
+    private var routeContent: some View {
+        switch graphState.currentRoute {
+        case .canvas:
+            Color.clear
+                .allowsHitTesting(false)
+
+        case .note(let id):
+            graphNoteBackdrop
+
+            GraphNotePage(sourceId: id)
+                .id(id)
+                .background(pageContentBackground)
+
+        case .folder(let id):
+            graphPageBackdrop
+
+            VStack(spacing: 0) {
+                graphPageHeader(title: "Folder")
+
+                GraphFolderPage(folderId: id)
+                    .id(id)
+                    .background(pageContentBackground)
+            }
+        }
+    }
+
+    private var routeSidebarInset: CGFloat {
+        graphState.currentRoute.isCanvas
+            ? 0
+            : GraphSidebarLayout.routedContentLeadingInset(storedWidth: graphSidebarWidthStorage)
     }
 
     @ViewBuilder
