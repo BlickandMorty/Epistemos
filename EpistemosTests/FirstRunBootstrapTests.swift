@@ -167,9 +167,9 @@ struct FirstRunBootstrapTests {
         // ~/Documents/Epistemos via defaultVaultURL).
         #expect(FirstRunBootstrap.isFresh(at: vault))
 
-        // Step 2 — model descriptors are known up front (download itself
-        // would be triggered by ModelDownloadManager; we don't simulate
-        // network here, just confirm the descriptor surface is wired).
+        // Step 2 — model descriptors are known up front. Native model
+        // downloading is retired from first-run setup; this only validates
+        // the static descriptor surface.
         let router = FirstRunBootstrap.defaultRouter
         let embedding = FirstRunBootstrap.defaultEmbedding
         #expect(!router.huggingFaceID.isEmpty)

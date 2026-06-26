@@ -655,7 +655,6 @@ final class AppSupervisor {
             if bootstrap.inferenceState.appleIntelligenceAvailable {
                 return true
             }
-            return !bootstrap.localModelManager.installRecords.isEmpty
         }
 
         return false

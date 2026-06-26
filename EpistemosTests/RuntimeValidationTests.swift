@@ -1722,18 +1722,20 @@ struct RuntimeValidationTests {
         #expect(!buildAction.contains("BuildableName = \"EpistemosTests.xctest\""))
     }
 
-    @Test("local model refresh only persists the manifest when cleanup changes records")
-    func localModelRefreshOnlyPersistsManifestWhenCleanupChangesRecords() throws {
-        let manager = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+    @Test("retired local model installer stays deleted")
+    func retiredLocalModelInstallerStaysDeleted() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let infrastructure = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+        let environment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
 
-        #expect(manager.contains("let removedLegacyInstalls = purgeLegacyNonQwenInstalls()"))
-        #expect(manager.contains("let removedMissingInstalls = pruneMissingInstalls()"))
-        #expect(manager.contains("let removedStaleRevisionInstalls = pruneStaleRevisionInstalls()"))
-        #expect(manager.contains("if removedLegacyInstalls || removedMissingInstalls || removedStaleRevisionInstalls {"))
-        #expect(manager.contains("private func pruneMissingInstalls() -> Bool"))
-        #expect(manager.contains("private func pruneStaleRevisionInstalls() -> Bool"))
-        #expect(manager.contains("guard prunedRecords != installRecords else { return false }"))
-        #expect(!manager.contains("try? persistManifest()"))
+        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/Engine/ModelDownloadManager.swift")))
+        #expect(!FileManager.default.fileExists(atPath: repoPath("EpistemosTests/ModelStackInstallTests.swift")))
+        #expect(!FileManager.default.fileExists(atPath: repoPath("EpistemosTests/ModelDownloadGgufVerifyTests.swift")))
+        #expect(!bootstrap.contains("LocalModelManager("))
+        #expect(!bootstrap.contains("ModelDownloadManager("))
+        #expect(!environment.contains("localModelManager"))
+        #expect(!infrastructure.contains("final class LocalModelManager"))
+        #expect(!infrastructure.contains("LocalModelInstallManifest"))
     }
 
     @MainActor

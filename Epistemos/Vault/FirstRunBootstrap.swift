@@ -8,7 +8,7 @@ import OSLog
 ///   1. Vault location (default ~/Documents/Epistemos)
 ///   2. Background model download — descriptors live in
 ///      `FirstRunBootstrap.routerCandidates` / `embeddingCandidates`,
-///      actual download is `ModelDownloadManager`'s job
+///      native model download/install is intentionally not part of first-run setup
 ///   3. Initial folder scaffold (_inbox, _inbox/review, daily, notes)
 ///   4. First-capture tooltip (UI concern, not this module)
 ///

@@ -33,27 +33,6 @@ enum PersistenceMode: Equatable, Sendable {
 // Pure state/service factory. Creates state objects, services, and the dependency graph.
 // All behavioral orchestration is delegated to AppCoordinator.
 
-@MainActor
-private final class LocalModelRefreshThrottle {
-    private let manager: LocalModelManager
-    private let interval: TimeInterval
-    private var lastRefreshAt: Date = .distantPast
-
-    init(manager: LocalModelManager, interval: TimeInterval) {
-        self.manager = manager
-        self.interval = interval
-    }
-
-    func refreshIfNeeded(force: Bool = false) {
-        let now = Date()
-        guard force || now.timeIntervalSince(lastRefreshAt) >= interval else {
-            return
-        }
-        manager.refreshFromDisk()
-        lastRefreshAt = now
-    }
-}
-
 struct StartupIntegrityReport: Sendable {
     let sampledPageIds: [String]
     let corruptedPageIds: [String]
@@ -862,7 +841,6 @@ final class AppBootstrap {
     let uiState = UIState()
     let notesUI = NotesUIState()
     let inferenceState: InferenceState
-    let localModelManager: LocalModelManager
     let dailyBriefState = DailyBriefState()
     let threadState = ThreadState()
     let graphState = GraphState()
@@ -981,7 +959,6 @@ final class AppBootstrap {
     private var localRuntimeObserverTokens: [LocalRuntimeObserverToken] = []
     private var localRuntimeActivationTask: Task<Void, Never>?
     private var preparedRetrievalRefreshTask: Task<Void, Never>?
-    private let localModelRefreshThrottle: LocalModelRefreshThrottle
     private var startupIntegrityReport: StartupIntegrityReport?
     private var didStartPrimaryLaunchInitialization = false
     private var didCompletePrimaryLaunchInitialization = false
@@ -1568,16 +1545,6 @@ final class AppBootstrap {
         let inference = InferenceState()
         self.inferenceState = inference
         inference.setAvailableLocalGenerationRuntimeKinds([])
-        let localModelManager = LocalModelManager(
-            inference: inference,
-            installer: ModelDownloadManager()
-        )
-        self.localModelManager = localModelManager
-        let localModelRefreshThrottle = LocalModelRefreshThrottle(
-            manager: localModelManager,
-            interval: 2
-        )
-        self.localModelRefreshThrottle = localModelRefreshThrottle
 
         let embeddingService = graphState.embeddingService
         let localRuntimeControlPlane = BackendRuntimeControlPlane(

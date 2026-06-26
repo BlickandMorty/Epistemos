@@ -152,13 +152,6 @@ enum BootstrapPacketBuilder {
         let repo = detectRepoState(at: workDir)
         let thermal = currentThermalLevel()
 
-        let localModelAvailable: Bool
-        if let bootstrap = AppBootstrap.shared {
-            localModelAvailable = !bootstrap.localModelManager.installRecords.isEmpty
-        } else {
-            localModelAvailable = false
-        }
-
         return BootstrapPacket(
             workingDirectory: workDir.path,
             projectName: detectProjectName(at: workDir),
@@ -177,7 +170,7 @@ enum BootstrapPacketBuilder {
             activeVault: activeVault,
             relevantDocumentTitles: relevantDocumentTitles.map { Array($0.prefix(5)) },
             thermalLevel: thermal,
-            localModelAvailable: localModelAvailable,
+            localModelAvailable: false,
             harnessVersion: harnessVersion,
             timestamp: ISO8601DateFormatter().string(from: Date())
         )
