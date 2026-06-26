@@ -7,22 +7,24 @@
 > Discipline: this is the ONE doc. If future research changes a fact, **edit it here in place** and add a line to §13. Never fork a second contradicting plan.
 >
 > ⛔➡️ **OWNER DECISION 2026-06-26 — GOOSE IS THE SINGLE SURFACE (supersedes the 3-engine federation).** Epistemos ships **one** agent surface — **Goose** (reskinned + strategically fused) — not the Chat=AgentClone / Act=Goose / Work=OpenGUI federation in §0–§12. The separate Chat and Work *surfaces* are retired; their still-wanted capabilities fold **into Goose**: native notes live in the app's markdown data layer (**§16**), and multi-engine "Work" is Goose's existing ACP family (**§15**). **§0–§14 are retained as historical context; where they conflict with §15–§17, the latter win.** In §9, only **§9-C (Goose)** stays active (§9-A Chat / §9-B Work superseded). New canonical sections: **§15** Goose-single + Paseo strategic-fusion roadmap · **§16** Markdown-as-source-of-truth data directive · **§17** the "Goose keeps working as-is" no-break rule.
+>
+> **Body cleanup 2026-06-26:** §0 rewritten to Goose-single (it doubles as the live/dead doc map); the OpenGUI/Work + Chat=AgentClone content is **tombstoned** — §0.1, §1, §1.1, §8, §9-A, §9-B, §10 carry ⛔ DEAD headers. **Live** sections: §2–§7, §9-C, §11, §14–§17.
 
 ---
 
-## §0 TL;DR (the whole decision in 7 lines)
-1. **One native shell** (`EpistemosSurfaceHost`) owns Landing, the Chat/Act/Work picker, context, sessions, permissions, tools, theme, recents. **Landing = EXACTLY 3 surfaces: Chat=Swift Agent, Act=Goose, Work=OpenGUI.** The OpenCode TUI is NOT on the landing — it moves to Settings only (see §0.1).
-2. **Chat = AgentClone** — native Swift, deepest integration.
-3. **Act = Goose** — Goose's **web UI in a macOS 26 `WebView`/`WebPage`**, with the agent driven over **ACP-over-WebSocket** to a supervised `goose serve`/`goosed`; a **narrow** boot/affordance shim (NOT a full Electron-IPC emulation). The **real Goose Electron app stays as the capability baseline/fallback**.
-4. **Work = OpenGUI** (the multi-engine **harness runtime** — OpenCode is just *one hidden engine* under it, NOT the brand) — native Work chrome over the OpenGUI runtime **and** the OpenGUI/OpenWork web SPA in `WebView`/`WebPage`. Foreground = **"Epistemos Work"**, never "OpenCode". See §0.1.
-5. **"Both WebViews at full capability" = YES** (the OpenGUI Work SPA + the Goose UI), and **ACP is fused in, not chosen instead** — because Goose's WebView already talks ACP.
-6. **API = `WebView`/`WebPage`** (the app targets macOS 26.0, so no back-deploy tax; this is the most-native, deep-Apple-integration path — your instinct was right). `WKWebView` only where a specific legacy surface needs it (e.g. Epdoc).
-7. **Everything that spawns a process (Goose, OpenCode/Bun) is Pro/Developer-ID; the MAS build degrades honestly** (no hidden sidecar).
-8. **Licensing is NOT a constraint** (owner) — vendor + fuse every donor's full source freely; never omit/gate/caveat for license reasons, and don't surface license language. Separate from the MAS subprocess *technical* limit. The full Swift Agent donor set (all 9, already vendored) is §1.1.
+## §0 TL;DR (Goose-single — revised 2026-06-26)
+1. **Epistemos ships ONE agent surface: Goose** — reskinned, embedded, strategically fused with the best of Paseo (§15). **No Chat=AgentClone surface and no Work=OpenGUI surface** — those are retired; their good parts fold into Goose + the markdown data layer (§16).
+2. **Goose = its own engine** (`goosed` daemon + its web UI), hosted in a macOS-26 `WebView`/`WebPage`, agent driven over **ACP-over-WebSocket** to a supervised `goose serve`/`goosed` (§2). The real Goose Electron app stays the 100% fallback/baseline.
+3. **The Epistemos Swift app is the host shell** — owns identity, theme, recents, and the vault/notes data layer (§16); connects to Goose over ACP/MCP + the `window.epistemos` bridge (§4). It does **not** compile Goose into itself (§17).
+4. **WebView API = SwiftUI `WebView`/`WebPage`** (macOS-26-only; deepest Apple integration — §3). `WKWebView` only for a legacy surface (e.g. Epdoc).
+5. **Markdown `.md` = source of truth** for notes; DB/indexes are derived caches; non-note data (chats/graph/versions/companions) stays DB-canonical (§16).
+6. **Goose stays independently working at all times** — the app's compile state never gates Goose; integration is **add-don't-edit** (§17).
+7. **Pro/Developer-ID** (Goose spawns processes). Build Paseo features from the **spec**, never vendor AGPL code (§15.6).
+8. **Doc map — LIVE:** §2 (ACP+WebView), §3 (WebView API), §4 (bridge), §5 (strip installers/keep capability), §6 (native-feel), §7 (Goose proof gates), §9-C (Goose directive), §11 (recovery), §14 (fork-maintenance), §15–§17. **DEAD/retired (tombstoned):** §0.1, §1, §1.1, §8, §9-A, §9-B, §10 (the federation / OpenGUI / Chat content).
 
 ---
 
-## §0.1 NAMING POLICY (HARDENED — read this before touching Work)
+## §0.1 — ⛔ DELETED 2026-06-26 (OpenGUI/Work surface retired; Goose is the single surface — see §0/§15). The OpenGUI/Work naming policy below is DEAD; ignore everything in this section.
 
 `[VERIFIED-CODE]` `WorkOpenGUISupervisor.swift:4-5`: *"OpenGUI is the harness/bridge thing… which harnesses MULTIPLE engines (OpenCode, Claude Code, Codex, Pi/Grok Build)."* `WorkEnginesPanelView.swift:18-22` picker = OpenCode, Codex, Claude Code, Pi/OMP (runnable) + Goose (not-yet).
 
@@ -54,7 +56,7 @@
 
 ---
 
-## §1 The Fusion Target (the answer)
+## §1 — ⛔ SUPERSEDED 2026-06-26 (the Goose-single target is §0 + §15; the 3-surface federation tree below is historical — ignore it).
 
 ```
 EpistemosSurfaceHost  (native SwiftUI shell — owns identity, not engines)
@@ -76,7 +78,7 @@ Capability is preserved by default; donor **product identity** is not. Epistemos
 
 ---
 
-## §1.1 Swift Agent (Chat) — the no-compromise donor fusion set
+## §1.1 — ⛔ DELETED 2026-06-26 (Chat=AgentClone surface retired; Goose is the single surface — §15). The Swift donor-fusion set below is no longer the plan; ignore it.
 
 Chat is NOT "AgentClone with a skin" — it is the FULL fusion of the entire researched Swift donor set into Epistemos-owned code. **All 9 donors are ALREADY vendored locally** (verified 2026-06-25); keep provenance, fuse the BEST ideas. AgentClone stays the visible foundation, but the product must feel like Epistemos.
 
@@ -124,6 +126,8 @@ Apple sources: WWDC25 "Meet WebKit for SwiftUI" (developer.apple.com/videos/play
 
 One versioned, **denial-first**, schema-validated bridge for every web surface; the same generic commands, surface-specific adapters underneath.
 
+> *Goose-single 2026-06-26: the OpenGUI/Work/AgentClone references in the table below are historical — apply the bridge pattern to the **Goose** WebView only (`GooseWebBridgeAdapter`).*
+
 | Command (web→native) | Backed by today | MAS-safe? |
 |---|---|---|
 | `epistemos.context.snapshot` | `WorkAppContextSnapshot` + Work native MCP (exists) | ✅ |
@@ -140,6 +144,8 @@ Rules: reject unknown commands + malformed payloads; request ids + session ids; 
 ---
 
 ## §5 Strip / keep + install-update kill-list (owner's explicit ask: "one app, kill their installers/updaters")
+
+> *Goose-single 2026-06-26: applies to **Goose** only; the OpenCode/Bun (Work/OpenGUI) row below is moot — Work is retired.*
 
 **Strip/hide (shell & identity only):** standalone splash/onboarding, donor top-level window chrome, donor app menu/About, **donor updaters + self-install systems**, marketing/branding copy, duplicate landing pages, separate settings islands that fight Epistemos, decorative theme that fights the flat target.
 
@@ -169,13 +175,11 @@ Craft feels native because it's **Mac Catalyst + custom-drawn canvas** and kills
 ## §7 Proof gates (don't call any surface "done" until these pass)
 **Shared:** Landing opens Chat/Act/Work in one shell; each keeps its own runtime capability (no fallback to old ChatView/Osaurus/MiniChat/GraphChat/NoteChat); theme tokens apply at first paint; draft-prompt handoff from Landing; session shows in shared recents; context snapshot readable by the runtime; tool/permission events in native UI; errors are panel/transcript-visible; closing a surface tears down its processes.
 **Event families to mirror BEFORE any unified native transcript:** session created/selected, prompt submitted, thinking started, tool requested, permission requested/answered, tool result, install step, model changed, answer delta, answer finished, error/abstention, cancel, context attached.
-**Chat:** native mount; prompt runs through the clone runner (not a parallel fake); host vault/workspace context; side-panel context.
-**Act/Goose:** real Goose Electron launches as fallback; `goose serve` ACP WebSocket reachable; ACP client completes new→prompt→stream(thinking/tool/answer)→permission→result; Goose web UI boots in `WebView` via the narrow shim; affordance ledger covers every used `window.electron` call.
-**Work:** native Work primary + OpenCode SPA WebView both open; no-model OpenGUI probes pass; prompt queue/permissions/recents/session-reopen pass; `epistemos.context.snapshot` works through native MCP.
+**Goose (the single surface):** real Goose Electron launches as fallback; `goose serve` ACP WebSocket reachable; ACP client completes new→prompt→stream(thinking/tool/answer)→permission→result; Goose web UI boots in `WebView` via the narrow shim; affordance ledger covers every used `window.electron` call. *(Chat/Work proof gates removed 2026-06-26 — single surface.)*
 
 ---
 
-## §8 GROUND TRUTH — where the three streams are NOW (verified 2026-06-25, not self-report)
+## §8 — ⛔ SUPERSEDED 2026-06-26 (3-stream federation ground-truth; historical). Current truth: Goose is the single surface (§0/§15) — only the Goose row below is live; the Chat=AgentClone and Work=OpenGUI rows are retired. The "whole app does not compile" note is an app-side issue that does NOT gate Goose (§17).
 
 | Stream | Where it lives | Actual state | vs target |
 |---|---|---|---|
@@ -195,7 +199,7 @@ Craft feels native because it's **Mac Catalyst + custom-drawn canvas** and kills
 
 ## §9 PER-AGENT DIRECTIVES + PROMPTS (paste one to each agent)
 
-**Directive summary:** Chat = **CONTINUE**. Work = **CONTINUE**. Goose = **CONTINUE but RE-TARGET to ACP+WebView**. None need to stop; only Goose changes shape.
+**Directive summary (revised 2026-06-26):** Goose is the single surface — **only §9-C (Goose) is active.** §9-A (Chat) and §9-B (Work), and the shared 3-surface "Landing Contract" preamble below, are **DELETED / superseded** (retired federation) — ignore them.
 
 **LANDING CONTRACT (paste into ALL three agents — owner-locked):**
 ```
@@ -230,7 +234,7 @@ The landing/home window shows EXACTLY three surfaces, nothing else:
   git repos — commit inside them; they never merge into the app repo.
 ```
 
-### A — Chat / Swift Agent agent → CONTINUE (full no-compromise fusion loop)
+### A — ⛔ DELETED 2026-06-26 (Chat=AgentClone surface retired — Goose is the single surface). The prompt below is dead; do not run it.
 ```
 Continue the Epistemos Swift Agent / AgentClone FULL-FUSION loop in /Users/jojo/Downloads/Epistemos
 until the owner explicitly says stop. This is NOT a scaffold task, NOT a contract-only task, and NOT a
@@ -374,7 +378,7 @@ permissions render as native cards; failures are transcript-visible; recents/ses
 Epistemos identity; foreground shows zero donor chrome.
 ```
 
-### B — Work / OpenGUI agent → CONTINUE
+### B — ⛔ DELETED 2026-06-26 (Work=OpenGUI surface retired — Goose is the single surface). The prompt below is dead; do not run it.
 ```
 You own WORK = "Epistemos Work", powered by the OpenGUI HARNESS RUNTIME (WorkOpenGUISupervisor),
 which hosts multiple engines (OpenCode, Codex, Claude Code, Pi). Native chrome lives in
@@ -423,7 +427,7 @@ WORK_POST_ISOLATION_DEEPENING_PLAN_2026_06_25.md first. You're at a clean stop �
 hardening loop. Full-app verify waits for Phase 0 (Chat lane makes main compile); until then keep scoped checks.
 ```
 
-### C — Goose / Act agent → CONTINUE but RE-TARGET (ACP transport + WebView UI)
+### C — Goose agent → ACTIVE (the single surface; ACP transport + WebView UI) — the only live directive in §9
 ```
 You own ACT = Goose — your LANDING surface is Act (one of exactly 3: Chat/Act/Work; see the Landing
 Contract). NEW LANE — this has NOT started: Act currently runs on AgentClone (interim), and AgentClone keeps
@@ -457,7 +461,7 @@ via the narrow shim; nothing lost vs the real app.
 
 ---
 
-## §10 Execution model — ONE AGENT AT A TIME, full file control (owner decision 2026-06-25)
+## §10 — ⛔ SUPERSEDED 2026-06-26 (3-agent execution model retired; there is ONE surface = Goose = one workstream). §11 recovery/safety still applies; ignore the multi-agent run-order below.
 
 The owner runs the agents **sequentially, not in parallel**. So there are **NO worktrees, NO lane isolation, and NO shared-file coordination**. The currently-running agent has **FULL CONTROL over every file in the repo** and may make whatever change a no-compromise integration needs — `RootView.swift`, `AppBootstrap.swift`, packages, routing, shared state, or any surface's files. This is the zero-compromise posture: nothing is held back for isolation reasons.
 
@@ -496,6 +500,7 @@ One native ChatView for all three; Goose **agent path** via Electron-IPC emulati
 - 2026-06-25 — **GIT MODEL clarified (owner reassurance).** Verified all 3 agents work directly on `main` (no per-agent branches); `cursor-work` has 0 commits main lacks; donor clones are separate gits. Added a GIT MODEL line to the shared preamble: commit on main (locks deletions permanent), NO merges of any other branch (stale codex/*/salvage/*/cursor-work predate the deletions → a merge would resurrect deleted files). No merge is needed or wanted in the one-at-a-time/all-on-main model.
 - 2026-06-26 — **Goose source-verified + fork-maintenance doctrine added (§14).** A 2026-06-26 thread re-checked Act=Goose against a fresh `block/goose` clone — ACP-over-WS + self-signed-TLS + `X-Secret-Key`, HuggingFace built-in, in-process MLX (`local_inference`), the external-CLI/ACP engine family, `goose-sdk` = `ping→pong` stub — all **confirm** §0/§2 (WebView UI + ACP, not FFI); nothing in §0 changed. Added §14.2 superseded-docs landmine (ignore the old in-process/UniFFI Goose docs, killed by `GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21`), §14.3 "own the skin, rent the engine" (upstream remote + pinned-bump-test cadence; add-don't-edit across the MCP/ACP seam; reskin-as-rules + `git rerere` + codemod), §14.4 Electron→Tauri landmine, §14.5 PARKED note (Goose's ACP family overlaps Work's engines — future-consolidation candidate only, federation unchanged).
 - 2026-06-26 — **GOOSE-SINGLE consolidation + fusion roadmap + data directive + no-break rule (owner decision).** Owner chose **one surface = Goose** (reskinned + fused), retiring the 3-engine federation (§0–§12 now historical; §9-C Goose stays, §9-A/§9-B superseded) — this *takes* the §14.5 "parked" consolidation as a deliberate documented decision, not drift. Added **§15** (Paseo strategic-fusion roadmap: what Goose already has → surface; what to build — engine picker, multi-tab/split, inline diff+`gh`, worktree-parallel; AGPL build-from-spec rule), **§16** (markdown `.md` = single source of truth for notes; indexes = derived rebuildable caches; chats/manual-graph/versions/companions stay DB-canonical; vault write-through + FSEvents watcher required for Goose/MCP coexistence), **§17** (Goose stays independently runnable; the Swift app's compile-state never gates Goose; add-don't-edit; verify Goose green standalone first).
+- 2026-06-26 — **OpenGUI/Chat surfaces DELETED from the body (contradiction sweep).** Owner confirmed Goose-single + "delete OpenGUI." §0 rewritten to Goose-single (+ live/dead doc map); §0.1 / §1 / §1.1 / §8 / §9-A / §9-B / §10 tombstoned with ⛔ DEAD headers; §7 proof gates reduced to Goose only; §9 summary + §9-C marked Goose-only-active; §15.7 added (per-feature build specs). Federation handoff docs bannered separately. No contradictions remain in this doc.
 - Sources: Apple WWDC25 WebKit-for-SwiftUI / `WebPage` docs; Electron contextBridge/ipcRenderer/IPC tutorial; Agent Client Protocol (agentclientprotocol.com), Zed external-agents + ACP registry, JetBrains ACP, Goose ACP docs; local clones `.research-clones/work/{goose,opengui}`; repo `Epistemos/Work/*`, `LocalPackages/AgentClone`; canon `WORK_CANON_STATUS_2026_06_25.md`, `ACT_IP_PRESERVATION_2026_06_24.md`, `PRIVATE_TRI_SURFACE_…_2026_06_24.md`, federation handoff doc.
 
 ---
@@ -560,6 +565,15 @@ Per-worktree dev-server **port-routing proxy + preview pane**; **goosed-as-MCP-c
 
 ### §15.6 HARD RULE — build from the spec, not Paseo's code
 Paseo is **AGPL-3.0**; Goose is **Apache-2.0**. **Never vendor Paseo source into Goose** — it infects the tree and breaks the §14.3 clean-merge model. Reimplement the *ideas* natively (ideas aren't copyrightable).
+
+### §15.7 Per-feature build specs (from the Paseo research — build natively + strategically, not bulldozed)
+- **Engine picker:** Goose already drives agents as ACP/provider plugins; surface a switcher over the existing `*_acp` + external-CLI providers. Each engine = one config/catalog entry (ACP adapter), never a bespoke wrapper.
+- **Multi-tab / split-pane workspace:** sessions-as-tabs; split panes (⌘D / ⌘⇧D), switch (⌘1–9); pane types = agent / terminal / diff / browser.
+- **Inline diff + PR/merge:** diff data from `git diff` (or `opencode /session/:id/diff`); render with Goose's `highlight`; commit / PR / merge via the `gh` CLI; auto-draft commit + PR text with a cheap model.
+- **Worktree-isolated parallel runs:** `git worktree add` per run under a Goose-managed dir, each on its own branch off a pinned base; expose hook env (`SOURCE_CHECKOUT` / `WORKTREE_PATH` / `BRANCH_NAME`) + setup/teardown; diff = branch-vs-base; lifecycle create→run→review→merge/archive; fan-out via subrecipes (≤10).
+- **Per-worktree dev-server routing:** declare long-running `services` in config; daemon auto-assigns a port (`$PORT`/`$URL` injected) and reverse-proxies a deterministic `*.localhost` host (`<script>--<branch>--<project>.localhost:<daemon-port>`); peers discover each other via `SERVICE_<NAME>_URL` env.
+- **goosed-as-MCP-control-surface:** wrap goosed's session / worktree / terminal / permission APIs as MCP tools (create_agent · send_prompt · wait · create_worktree · respond_to_permission …) — makes orchestration skills, schedules, and later remote control thin layers.
+- **Orchestration skills (recipes):** handoff (briefing schema), worker-verifier loop (run→verify→repeat to pass/max), read-only committee + advisor — all as Goose recipes/subagents over the spawn primitive above.
 
 ---
 
