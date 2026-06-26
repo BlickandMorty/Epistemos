@@ -282,7 +282,7 @@ struct PerProviderReasoningPersistenceTests {
         }
         if let mixedThinking = CloudStreamingParser.googleReasoningDelta(from: mixedChunk) {
             // Late thinking after visible answer must still be retained
-            // for the rebuilt AgentClone/fusion transcript lane.
+            // for transcript consumers.
             state.appendStreamingThinking(mixedThinking)
         }
 

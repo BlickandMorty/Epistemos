@@ -20,7 +20,7 @@ nonisolated enum PipelineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noLLMService: "No usable local model is available. Open Settings to install or select one."
+        case .noLLMService: "Epistemos app-local model generation has been removed. Use Work/OpenCode or Goose for model-backed chat."
         case .analysisFailure(let msg): msg
         }
     }
@@ -99,7 +99,7 @@ nonisolated enum UserFacingChatError {
     static func message(for kind: UserFacingChatErrorKind, fallback: String = "") -> String {
         switch kind {
         case .modelNotReady:
-            return "No model is ready to answer yet. Open Settings → Models to install a local model, sign in to a cloud provider, or enable Apple Intelligence on macOS 26+."
+            return "No provider surface is ready to answer yet. Use Work/OpenCode or Goose for model-backed chat."
         case .authFailure:
             return "The provider rejected your credentials. Open Settings → AI to re-authenticate."
         case .rateLimited:
@@ -345,109 +345,18 @@ final class PipelineService {
         }
     }
 
-    /// Decide whether the current turn should route through `LocalAgentLoop`
-    /// with tier-filtered tools. Fast / Thinking / Pro all qualify when a
-    /// local model client is wired. Agent mode goes through the Rust
-    /// agent loop instead (handled by the active agent route, not here).
+    /// Native local-agent tool loops have been removed from the app surface.
     private func shouldUseToolLoop(
         query: String,
         operatingMode: EpistemosOperatingMode,
         executionPlan: OverseerComplexityRouter.ExecutionPlan?,
         effectiveChatSelection: ChatModelSelection
     ) -> Bool {
-        guard case let .localMLX(modelID) = effectiveChatSelection else {
-            return false
-        }
-
-        if let executionPlan {
-            switch executionPlan.route {
-            case .managedAgentSession:
-                return false
-            case .localOnly:
-                return false
-            case .overseerLocalExecution:
-                guard executionPlan.allowsToolExecution else { return false }
-                // The chat model drives the loop directly only when it is
-                // itself agent-capable. A non-agent selection (e.g. a GGUF
-                // Gemma) must be backed by the hidden agent tier — but ONLY if
-                // an agent-capable model actually fits the current memory
-                // budget. If nothing fits, NEVER swap to a model that will OOM
-                // (the user-reported "routed to Qwen again" bug). Returning
-                // false here degrades the caller to a direct stream on the
-                // selected model, which answers from the inlined context.
-                if let model = LocalTextModelID(rawValue: modelID),
-                   model.canRunLocalAgentLoop {
-                    return true
-                }
-                return inference.fittingLocalAgentTextModelID != nil
-            }
-        }
-
-        // Per user 2026-05-11: basic chat needs read/search/write tools
-        // for notes — the previous "keep standard local chat simple"
-        // policy meant users typing "find my note about X" or
-        // "@MyNote what changed?" got toolless chat that hallucinated
-        // instead of calling vault.search / vault.read. Now local Fast
-        // / Thinking opts in to the ChatLite tool loop when the model
-        // is large enough to drive it (canRunLocalAgentLoop). The
-        // ChatLite tier is read-only by default; `vault.write` still
-        // gates through AgentAuthority approval + R5 capability so MAS
-        // safety is preserved.
-        //
-        // Cloud Fast/Thinking + AFM are handled at the agent route
-        // layer via runCommandCenterRustAgentPath — they don't flow
-        // through this Pipeline branch.
-        if let model = LocalTextModelID(rawValue: modelID),
-           model.canRunLocalAgentLoop {
-            // AUTO-ROUTE v0 (EPISTEMOS_AUTO_TOOL_ROUTE_V0, OFF=unchanged): for a
-            // plain query (no execution plan) the deterministic Rust tool-need
-            // detector decides loop-vs-direct, so "find my note about X" keeps the
-            // tool loop (vault.search) while pure chat ("write a haiku") direct-
-            // streams. The detector + the candidate-tool load run ONLY when the flag
-            // is armed; a nil verdict (flag off / FFI down / parse fail) preserves
-            // today's "a loop-capable model always loops" behaviour.
-            if Self.autoToolRouteArmed {
-                let tier = Self.localToolTier(for: operatingMode, executionPlan: nil)
-                let candidateTools = ToolTierBridge(
-                    vaultPath: resolvedManagedToolRuntimeVaultPath(),
-                    tier: tier
-                ).loadTools()
-                if let needsTools = Self.autoRouteNeedsTools(
-                    query: query,
-                    tools: candidateTools
-                ) {
-                    return needsTools
-                }
-            }
-            return true
-        }
-        // SS-H PART 2: a non-agent local model (e.g. a GGUF Gemma) with no execution
-        // plan used to ALWAYS degrade to a tool-less stream here. Now, when the query
-        // actually needs tools AND an agent-capable model fits memory, route to the
-        // tool loop (backed by the fitting agent tier) instead — symmetric with the
-        // overseerLocalExecution branch above. NEVER swaps to a model that OOMs:
-        // `fittingLocalAgentTextModelID` only returns a model that fits the budget.
-        // When it stays a direct stream, PART 1 still injects the skills CATALOG, so
-        // nothing is hidden from the model.
-        if Self.autoToolRouteArmed, inference.fittingLocalAgentTextModelID != nil {
-            let tier = Self.localToolTier(for: operatingMode, executionPlan: nil)
-            let candidateTools = ToolTierBridge(
-                vaultPath: resolvedManagedToolRuntimeVaultPath(),
-                tier: tier
-            ).loadTools()
-            if Self.autoRouteNeedsTools(query: query, tools: candidateTools) == true {
-                return true
-            }
-        }
+        _ = (query, operatingMode, executionPlan, effectiveChatSelection)
         return false
     }
 
-    /// SS-H keystone: a read-only CATALOG of the ChatLite skills/tools the model
-    /// could use, for injection into the DIRECT (tool-loop-less) system prompt so a
-    /// small local model that can't drive the tool loop still SEES what's available
-    /// (skills as CONTEXT). Names + one-line descriptions only — not the tool-call
-    /// schemas — so the model is aware without being prompted to emit calls it can't
-    /// run. nil when no tools resolve (e.g. FFI down) → the prompt is unchanged.
+    /// Read-only catalog of native skills/tools available to provider surfaces.
     private func chatLiteSkillsCatalogBlock(operatingMode: EpistemosOperatingMode) -> String? {
         let tier = Self.localToolTier(for: operatingMode, executionPlan: nil)
         let tools = ToolTierBridge(
@@ -456,8 +365,7 @@ final class PipelineService {
         ).loadTools()
         guard !tools.isEmpty else { return nil }
         let lines = tools.prefix(24).map { "• \($0.name) — \($0.description)" }
-        return "Skills available to Epistemos (a larger local model or a cloud model "
-            + "can run these for you on request):\n" + lines.joined(separator: "\n")
+        return "Skills available to Epistemos provider surfaces:\n" + lines.joined(separator: "\n")
     }
 
     /// AUTO-ROUTE v0 flag (`EPISTEMOS_AUTO_TOOL_ROUTE_V0`). FLIPPED ON by default
@@ -700,96 +608,9 @@ final class PipelineService {
             return accumulated
         }
 
-        // Build the objective: include notes context and history inline so
-        // the loop sees a single self-contained prompt. LocalAgentLoop
-        // manages its own turn history internally once the loop starts.
-        let hookPromptContext = await HookRegistry.shared.fireBeforePromptBuild(
-            context: PromptContext(),
-            runID: runID.uuidString
-        )
-        let objective = Self.buildPromptEnvelope(
-            query: query,
-            notesContext: notesContext,
-            conversationHistory: conversationHistory
-        )
-        let additionalSystemPrompt = Self.combinedAdditionalSystemPrompt(
-            base: executionPlan?.additionalSystemPrompt(),
-            hookContext: hookPromptContext
-        )
-
-        let reasoningMode: LocalReasoningMode = switch operatingMode {
-        case .thinking: .thinking
-        case .pro:      .thinking
-        default:        .fast
-        }
-
-        let effectiveChatSelection = inference.effectiveChatSurfaceSelection(for: operatingMode)
-        let modelID: String? = {
-            if executionPlan?.forcesLocalExecution == true {
-                return inference.fittingLocalAgentTextModelID
-                    ?? inference.effectiveLocalAgentTextModelID
-            }
-            if case .localMLX(let id) = effectiveChatSelection,
-               let model = LocalTextModelID(rawValue: id),
-               model.canRunLocalAgentLoop {
-                return id
-            }
-            // Non-agent chat selection (e.g. GGUF Gemma): back it with a model
-            // that ACTUALLY fits memory. `shouldUseToolLoop` already guaranteed
-            // a fitting model exists before we reach here, so prefer it and
-            // never fall through to a non-fitting OOM candidate.
-            return inference.fittingLocalAgentTextModelID
-                ?? inference.effectiveLocalAgentTextModelID
-        }()
-        let executorBridge = ToolTierBridge(
-            vaultPath: vaultPath,
-            tier: tier,
-            allowedToolNames: Set(tools.map(\.name))
-        )
-        let toolMetadataByName = Dictionary(uniqueKeysWithValues: tools.map { ($0.name, $0) })
-        let loop = LocalAgentLoop.liveLoop(
-            using: localClient,
-            constrainedDecoding: constrainedDecoding,
-            toolExecutor: observedToolExecutor(
-                executorBridge.toolExecutor(),
-                toolMetadataByName: toolMetadataByName,
-                toolEventHandler: toolEventHandler,
-                toolApprovalHandler: toolApprovalHandler,
-                runID: runID.uuidString,
-                actor: .agent(id: "pipeline-service", modelID: modelID)
-            ),
-            modelID: modelID,
-            steeringHintsJSON: executionPlan?.steeringHintsJSON,
-            defaultReasoningMode: reasoningMode
-        )
-
-        Log.pipeline.info(
-            "🔧 Tool loop starting — tier=\(tier.rawValue) tools=\(tools.count) mode=\(String(describing: operatingMode))"
-        )
-
-        emitCapturedModelInput(
-            systemPrompt: additionalSystemPrompt,
-            userPrompt: objective,
-            conversationHistory: conversationHistory,
-            operatingMode: operatingMode,
-            toolDefinitionsJSON: Self.encodedToolDefinitionsJSON(tools),
-            handler: modelInputCaptureHandler
-        )
-
-        let result = try await loop.run(
-            objective: objective,
-            tools: tools,
-            maxTurns: 6,
-            reasoningMode: reasoningMode,
-            additionalSystemPrompt: additionalSystemPrompt,
-            reflexMode: true,
-            onToken: { token in
-                Task { @MainActor in
-                    onToken(token)
-                }
-            }
-        )
-        return result
+        _ = (runID, query, notesContext, conversationHistory, operatingMode, executionPlan, vaultPath)
+        _ = (localClient, toolEventHandler, toolApprovalHandler, modelInputCaptureHandler, onToken)
+        throw LocalInferenceRoutingError.runtimeUnavailable
     }
 
     func observedToolExecutor(
@@ -1160,11 +981,6 @@ final class PipelineService {
             toolExecutionAvailable: false
         ), !manifest.isEmpty {
             systemParts.append(manifest)
-        }
-        // Procedural memory: the user's generated skills shape direct (non-agent)
-        // chats too, matching the local-agent loop. Absent skills → no change.
-        if let skills = LocalAgentPromptBuilder.proceduralMemoryBlock() {
-            systemParts.append(skills)
         }
         // SS-H keystone: even on the direct (tool-loop-less) stream, show the model
         // the ChatLite skills catalog so a small local model that can't drive the

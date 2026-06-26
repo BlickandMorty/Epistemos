@@ -1638,7 +1638,7 @@ struct CompanionMessage: Identifiable {
     
     enum Source: String, Sendable {
         case appleIntelligence = "Apple Intelligence"
-        case qwenLocal = "Qwen 4B"
+        case qwenLocal = "Provider Assist"
         case hybrid = "AI Fusion"
         
         var icon: String {

@@ -117,26 +117,6 @@ struct CommandCenterRequestCompiler {
             Self.log.info(
                 "[CCRC] compiled v=\(Self.contractVersion) mentions=\(resolvedContextRefs.count) tools_allow=\(compiled.resolvedToolPermissions.filter { $0.decision == .allow }.count)/\(compiled.resolvedToolPermissions.count) runtime=\(compiled.resolvedRuntime.resolved.displayName) route=\(compiled.resolvedExecutionPolicy.route)"
             )
-            // SUBSTRATE Phase 1 STAGE 1b (owner 2026-06-20): observe-only RuntimeRouter parity.
-            // Flag OFF (default, EPISTEMOS_RUNTIMEROUTER_LIVE_V0) → PURE NO-OP inside the call (the
-            // router is never consulted). Flag ON → record whether the router would have honored
-            // the lane this compile resolved to (RuntimeRouterMetrics.parityRate). NEVER alters the
-            // decision — `compiled` is returned unchanged below. (ACCCommandRequest carries no
-            // privacy flag today → privacySensitive: false.)
-            RuntimeRouterShadow.recordLiveParity(
-                operatingMode: request.operatingMode,
-                objective: request.query,
-                requiresTools: !request.enabledToolNames.isEmpty,
-                privacySensitive: false,
-                resolved: compiled.resolvedRuntime.resolved)
-            // STAGE-2 (owner parity-gated flip): once `parityRate` is solid, this is where the
-            // router becomes AUTHORITATIVE — compose the router lane (acceptedLane(from:
-            // route(packet))) with RuntimeRouterShadow.authoritativeLane(liveLane:routerLane:armed:);
-            // when wouldOverrideLive(...) is true, re-resolve `compiled.resolvedRuntime` for that
-            // lane before returning. The selection contract is built + tested
-            // (RuntimeRouterStage2Tests); the live descriptor swap stays the owner's flip — it
-            // changes live routing, so it lands with the owner watching parity (no blind regression
-            // to live chat / SS-CR).
             return compiled
         } catch {
             Self.log.error(

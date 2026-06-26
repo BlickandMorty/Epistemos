@@ -330,7 +330,7 @@ nonisolated enum SubstrateHealthUnifiedClient {
 
     /// SS-SH (substrate-health "glitched / not working"): the SAME unified snapshot,
     /// but fetched OFF the MainActor — the synchronous Rust FFI + JSON decode run on
-    /// a detached background task, and only the result hops back. The per-row 1Hz
+    /// a detached background task, and only the result hops back. The old per-row
     /// pollers previously ran this FFI ON the MainActor (~6 sync round-trips/sec on
     /// one panel), so a single slow/contended FFI call froze the whole panel and
     /// blocked scrolling — violating "never block @MainActor". Callers set their

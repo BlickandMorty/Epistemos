@@ -248,15 +248,8 @@ nonisolated enum ComposerModelToolTruth {
     private static func toolDetail(for selection: ChatModelSelection) -> String {
         switch selection {
         case .localMLX(let modelID):
-            let badge = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)
-            switch badge.toolCallMode {
-            case .native:
-                return "native tools"
-            case .softGuidance:
-                return "soft-guidance tools"
-            case .none:
-                return "no tools"
-            }
+            _ = modelID
+            return "no tools"
         case .cloud(let model):
             return model.provider.supportsAgentTier ? "managed tools" : "no tools"
         case .appleIntelligence:
@@ -317,24 +310,12 @@ nonisolated enum ComposerModelToolTruth {
         let pillDetail = detail(for: .localMLX(modelID), capability: capability)
         switch operatingMode {
         case .agent:
-            let badge = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)
-            guard badge.toolCallMode != .none else {
-                return Summary(
-                    pillDetail: pillDetail,
-                    label: "Local agent unavailable",
-                    detail: "\(badge.title) · \(badge.reason)",
-                    toolsAvailable: false,
-                    systemImage: "exclamationmark.triangle"
-                )
-            }
             return Summary(
                 pillDetail: pillDetail,
-                label: badge.toolCallMode == .native
-                    ? "Local agent loop (native tools)"
-                    : "Local agent loop (soft-guidance tools)",
-                detail: "\(badge.title) · \(badge.reason)",
-                toolsAvailable: badge.state != .off,
-                systemImage: "bolt.circle"
+                label: "Local agent removed",
+                detail: "Use Work/OpenCode or Goose for model-backed tool chat.",
+                toolsAvailable: false,
+                systemImage: "exclamationmark.triangle"
             )
         case .pro:
             return Summary(

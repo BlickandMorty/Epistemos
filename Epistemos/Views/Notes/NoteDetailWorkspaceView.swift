@@ -212,14 +212,11 @@ enum NoteWorkspaceFooterDisplay {
 }
 
 enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
-    case agentPortal
     case saveToDisk
     case notesSidebar
 
     var glyph: NoteToolbarGlyph {
         switch self {
-        case .agentPortal:
-            .agentPortal
         case .saveToDisk:
             .saveToDisk
         case .notesSidebar:
@@ -229,8 +226,6 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
 
     var title: String {
         switch self {
-        case .agentPortal:
-            "Open in Agent"
         case .saveToDisk:
             "Save to Disk"
         case .notesSidebar:
@@ -240,8 +235,6 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
 
     var shortcut: String {
         switch self {
-        case .agentPortal:
-            "⇧⌘A"
         case .saveToDisk:
             "⌘S"
         case .notesSidebar:
@@ -541,7 +534,6 @@ enum NoteToolbarGlyph: Sendable {
     case recovery
     case saveToDisk
     case notesSidebar
-    case agentPortal
 
     var symbolName: String? {
         switch self {
@@ -565,8 +557,6 @@ enum NoteToolbarGlyph: Sendable {
             "square.and.arrow.down"
         case .notesSidebar:
             "sidebar.leading"
-        case .agentPortal:
-            "sparkles"
         }
     }
 
@@ -1069,37 +1059,6 @@ struct NoteDetailWorkspaceView: View {
         tv.window?.makeKeyAndOrderFront(nil)
     }
 
-    private func openNoteAgentPortal() {
-        guard let page = pages.first else { return }
-        let portalContext = AgentPortalContextSnapshot.note(
-            pageId: page.id,
-            vaultRootPath: vaultSync.vaultURL?.path,
-            workspacePath: FileManager.default.homeDirectoryForCurrentUser.path,
-            title: page.title,
-            path: page.filePath,
-            selectedText: currentEditorSelectedText(),
-            visibleExcerpt: displayBody(for: page),
-            tags: page.tags
-        )
-        AgentPortalRouteRequest.post(portalContext)
-    }
-
-    private func currentEditorSelectedText() -> String? {
-        let fallback = capturedSelectionText?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else {
-            return fallback?.isEmpty == false ? fallback : nil
-        }
-        let selection = tv.selectedRange()
-        let text = tv.string as NSString
-        guard selection.location != NSNotFound,
-              selection.length > 0,
-              NSMaxRange(selection) <= text.length else {
-            return fallback?.isEmpty == false ? fallback : nil
-        }
-        let selectedText = text.substring(with: selection).trimmingCharacters(in: .whitespacesAndNewlines)
-        return selectedText.isEmpty ? nil : selectedText
-    }
-
     private func refreshLegacyRecoveryPresentation() {
         legacyRecoveryRefreshTask?.cancel()
         let currentPageId = pageId
@@ -1170,8 +1129,6 @@ struct NoteDetailWorkspaceView: View {
 
     private func performNoteWorkspaceQuickAction(_ action: NoteWorkspaceQuickAction) {
         switch action {
-        case .agentPortal:
-            openNoteAgentPortal()
         case .saveToDisk:
             vaultSync.savePage(pageId: pageId)
         case .notesSidebar:

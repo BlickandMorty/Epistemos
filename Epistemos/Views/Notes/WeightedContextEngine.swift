@@ -428,7 +428,7 @@ struct WeightedContext {
             switch self {
             case .quickSuggestion: return "Apple Intelligence"
             case .standard: return "Hybrid"
-            case .deepAnalysis: return "Qwen 4B"
+            case .deepAnalysis: return "Deep Analysis"
             }
         }
     }

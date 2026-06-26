@@ -15,9 +15,8 @@
 //   * Bounded (100-packet ring) so a long-running session can't
 //     memory-leak.
 //   * Observable via `snapshot()` + `didEmitNotification` so the
-//     Settings diagnostics row + `LatestAnswerPacketSink` (the
-//     MainActor mirror reserved for the rebuilt AgentClone/fusion
-//     transcript) refresh event-driven, not polled.
+//     Settings diagnostics row + `LatestAnswerPacketSink` refresh
+//     event-driven, not polled.
 //   * Source for per-mode, per-bucket, and per-claim-kind monotonic
 //     histograms (V6.2 §1.4 attention modes, §1.5 calibration corpus
 //     buckets, and W2 claim-kind audit distribution).
@@ -28,7 +27,7 @@
 //   ✓ interrupt_bucket sampled via InterruptScoreCpu.sampleTurnBucket
 //   ✓ packet id threaded to ChatMessage.answerPacketId (Option B)
 //   ✓ VRM/attention/bucket data remains in the model for the rebuilt
-//     AgentClone/fusion chat surface
+//     transcript consumers
 //   ✓ Settings → Diagnostics shows count + histograms
 //
 // What's still pending for `state: canonical-product-surface`:

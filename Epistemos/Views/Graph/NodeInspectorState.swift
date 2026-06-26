@@ -343,7 +343,7 @@ final class NodeInspectorState {
 
             let prompt = buildSummaryPrompt(node: node, content: content)
 
-            // Try Apple Intelligence first for a fast on-device summary, then local Qwen.
+            // Try Apple Intelligence first for a fast summary, then the configured provider path.
             do {
                 let result = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt,
@@ -359,7 +359,7 @@ final class NodeInspectorState {
                 startSummaryReveal()
             } catch {
                 guard !Task.isCancelled, selectedNodeId == node.id else { return }
-                Log.engine.info("Apple Intelligence unavailable for summary, trying local Qwen: \(error.localizedDescription, privacy: .public)")
+                Log.engine.info("Apple Intelligence unavailable for summary, trying configured provider path: \(error.localizedDescription, privacy: .public)")
                 if let triage = AppBootstrap.shared?.triageService {
                     do {
                         let result = try await triage.generateGeneral(
@@ -383,7 +383,7 @@ final class NodeInspectorState {
                         startSummaryReveal()
                     } catch {
                         guard !Task.isCancelled, selectedNodeId == node.id else { return }
-                        Log.engine.info("Local Qwen also unavailable for summary: \(error.localizedDescription, privacy: .public)")
+                        Log.engine.info("Configured provider summary also unavailable: \(error.localizedDescription, privacy: .public)")
                         summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                         startSummaryReveal()
                     }

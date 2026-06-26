@@ -47,19 +47,8 @@ targets:
         excludes:
           - Engine/ClaudeManagedRuntime.swift
           - Engine/LocalRustRuntime.swift
-          - KnowledgeFusion/.DS_Store
-          - KnowledgeFusion/Alignment/scripts/**
-          - KnowledgeFusion/MOHAWK/**
-          - KnowledgeFusion/MoLoRA/__pycache__/**
-          - KnowledgeFusion/MoLoRA/molora_inference.py
-          - KnowledgeFusion/MoLoRA/sgmm_kernel.py
-          - KnowledgeFusion/MoLoRA/tests/**
-          - KnowledgeFusion/MoLoRA/train_router.py
-          - KnowledgeFusion/Training/.DS_Store
-          - KnowledgeFusion/Training/scripts/**
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
-          - Resources/LaunchAgents/com.epistemos.nightbrain.plist
           - Vault/KnowledgeGraphService.swift
       - path: build-rust/swift-bindings
         type: syncedFolder
@@ -70,7 +59,6 @@ targets:
         excludes:
           - LaunchAgents/**
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
-      - path: config/model_manifest.json
     settings:
       base:
         PRODUCT_NAME: Epistemos
@@ -131,10 +119,6 @@ targets:
         product: VMLXHuggingFace
       - package: vmlx-swift
         product: VMLXTokenizers
-      - package: Swarm
-        product: Swarm
-      - package: AgentClone
-        product: AgentClone
       # WORK = OpenCode shell (owner 2026-06-21): SwiftTerm = the native terminal view
       # (NSView LocalProcessTerminalView + PTY) that renders OpenCode's REAL terminal TUI
       # natively (Option A — keep the real terminal UI, not an Electron GUI, not a native
@@ -164,16 +148,6 @@ targets:
         excludes:
           - Engine/ClaudeManagedRuntime.swift
           - Engine/LocalRustRuntime.swift
-          - KnowledgeFusion/.DS_Store
-          - KnowledgeFusion/Alignment/scripts/**
-          - KnowledgeFusion/MOHAWK/**
-          - KnowledgeFusion/MoLoRA/__pycache__/**
-          - KnowledgeFusion/MoLoRA/molora_inference.py
-          - KnowledgeFusion/MoLoRA/sgmm_kernel.py
-          - KnowledgeFusion/MoLoRA/tests/**
-          - KnowledgeFusion/MoLoRA/train_router.py
-          - KnowledgeFusion/Training/.DS_Store
-          - KnowledgeFusion/Training/scripts/**
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Vault/KnowledgeGraphService.swift
@@ -186,7 +160,6 @@ targets:
     resources:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
-      - path: config/model_manifest.json
     settings:
       base:
         PRODUCT_NAME: Epistemos
@@ -316,41 +289,6 @@ targets:
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
       - sdk: AppIntents.framework
-
-  # R7 — NightBrain helper executable (Wave 13 §"Phase 10").
-  # launchd wakes this binary at 03:00 even when the main app has
-  # been quit. Plist contract:
-  #   <key>BundleProgram</key>
-  #   <string>Contents/MacOS/NightBrainHelper</string>
-  # Helper shares PowerGate + NightBrainScheduler source files with
-  # the main app target so the gate predicate + last-run telemetry
-  # behaviour stays identical across both processes.
-  NightBrainHelper:
-    type: tool
-    platform: macOS
-    sources:
-      - path: EpistemosNightBrainHelper
-        type: syncedFolder
-      # PowerGate + NightBrainScheduler are shared sources — both
-      # the main app and the helper compile the same files so the
-      # predicate semantics stay identical.
-      - path: Epistemos/State/PowerGate.swift
-      - path: Epistemos/State/NightBrainScheduler.swift
-    settings:
-      base:
-        PRODUCT_NAME: NightBrainHelper
-        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app.nightbrain-helper
-        MACOSX_DEPLOYMENT_TARGET: "26.0"
-        SKIP_INSTALL: false
-        CODE_SIGN_STYLE: Automatic
-      configs:
-        Debug:
-          CODE_SIGN_IDENTITY: "-"
-          DEVELOPMENT_TEAM: 3BNL2669SL
-        Release:
-          CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: 3BNL2669SL
-          ENABLE_HARDENED_RUNTIME: true
 
   EpistemosTests:
     type: bundle.unit-test
@@ -510,17 +448,6 @@ targets:
           copy_file "build-substrate-rt.sh"
           copy_file "build-tiptap-bundle.sh"
         basedOnDependencyAnalysis: false
-      - name: Bundle Adapter Audit Sources
-        script: |
-          set -euo pipefail
-          output_dir="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AdapterAudit"
-          mkdir -p "${output_dir}"
-          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterExporter.swift" "${output_dir}/AdapterExporter.swift.txt"
-          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterLoader.swift" "${output_dir}/AdapterLoader.swift.txt"
-          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterRegistry.swift" "${output_dir}/AdapterRegistry.swift.txt"
-          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/AdapterRouter.swift" "${output_dir}/AdapterRouter.swift.txt"
-          cp "${PROJECT_DIR}/Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift" "${output_dir}/MoLoRARouter.swift.txt"
-        basedOnDependencyAnalysis: false
     settings:
       base:
         PRODUCT_NAME: EpistemosTests
@@ -552,10 +479,6 @@ packages:
   # Replaces ml-explore/mlx-swift + LocalPackages/mlx-swift-lm.
   vmlx-swift:
     path: LocalPackages/vmlx-swift
-  Swarm:
-    path: LocalPackages/Swarm
-  AgentClone:
-    path: LocalPackages/AgentClone
   # WORK = OpenCode shell native terminal view (owner 2026-06-21). SwiftTerm
   # (migueldeicaza/SwiftTerm, MIT) — the macOS NSView terminal emulator + PTY host.
   # Vendored locally (lean ~5 MB, offline-deterministic) like vmlx-swift.

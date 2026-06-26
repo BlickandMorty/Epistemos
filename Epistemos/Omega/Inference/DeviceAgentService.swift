@@ -351,46 +351,10 @@ final class SharedGPUBackend: DeviceInferenceBackend {
         systemPrompt: String,
         maxTokens: Int
     ) async throws -> String {
-        if let agentLoop = makeLocalAgentLoopIfAvailable(maxTokens: maxTokens) {
-            return try await agentLoop.run(
-                objective: prompt,
-                tools: [],
-                maxTurns: 1,
-                additionalSystemPrompt: systemPrompt,
-                onToken: { _ in }
-            )
-        }
-
         return try await triageService.generateRawLocal(
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens
-        )
-    }
-
-    private func makeLocalAgentLoopIfAvailable(maxTokens: Int) -> LocalAgentLoop? {
-        guard let localModelClient,
-              let modelID = activeModelID(),
-              let resolvedModel = LocalTextModelID(rawValue: modelID),
-              resolvedModel.canActAsAgent else {
-            return nil
-        }
-
-        let generator = LocalAgentLoop.mlxOneShotGenerator(using: localModelClient)
-        return LocalAgentLoop(
-            generator: generator,
-            structuredGenerator: constrainedDecoding.map { LocalAgentLoop.constrainedGenerator(using: $0) },
-            toolExecutor: Self.unavailableToolExecutor,
-            modelID: modelID,
-            maxResponseTokens: maxTokens
-        )
-    }
-
-    private static let unavailableToolExecutor: LocalAgentToolExecutor = { name, _ in
-        LocalToolResult(
-            toolName: name,
-            resultJson: #"{"error":"No local tools are available for the device backend."}"#,
-            isError: true
         )
     }
 }

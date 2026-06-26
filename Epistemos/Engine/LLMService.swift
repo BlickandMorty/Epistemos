@@ -395,7 +395,7 @@ final class LLMService: LLMClientProtocol {
 
         return ConnectionTestResult(
             success: false,
-            message: availability.reason ?? "No local model is available and Apple Intelligence is unavailable."
+            message: availability.reason ?? "No app-local generation path is available."
         )
     }
 
@@ -665,7 +665,6 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     private let inference: InferenceState
     private let urlSession: URLSession
-    private let knowledgeProfileStore: KnowledgeProfileStore
     private let agentProvenanceRecorder: AgentToolProvenanceRecorder
 
     /// Active sink for reasoning deltas extracted from direct-cloud
@@ -688,12 +687,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     init(
         inference: InferenceState,
         urlSession: URLSession = .shared,
-        knowledgeProfileStore: KnowledgeProfileStore = KnowledgeProfileStore(),
         agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
     ) {
         self.inference = inference
         self.urlSession = urlSession
-        self.knowledgeProfileStore = knowledgeProfileStore
         self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 
@@ -1246,7 +1243,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "max_tokens": String(maxTokens),
             "prompt_utf8_bytes": String(prompt.utf8.count),
             "has_system_prompt": String(systemPrompt?.isEmpty == false),
-            "route": LocalAgentGatewayPolicy.route(for: .cloudProvider).rawValue,
+            "route": "cloud_provider",
         ])
     }
 
@@ -1281,7 +1278,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "has_system_prompt": String(systemPrompt?.isEmpty == false),
             "schema_name": schema.name,
             "schema_strict": String(schema.strict),
-            "route": LocalAgentGatewayPolicy.route(for: .cloudProvider).rawValue,
+            "route": "cloud_provider",
         ])
     }
 
@@ -1302,7 +1299,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "model": model.vendorModelID,
             "operating_mode": operatingMode.rawValue,
             "surface": "cloud_provider",
-            "route": LocalAgentGatewayPolicy.route(for: .cloudProvider).rawValue,
+            "route": "cloud_provider",
         ]
     }
 
@@ -1379,18 +1376,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     private func knowledgeAwareSystemPrompt(from systemPrompt: String?, modelID: String) async -> String? {
-        do {
-            return try await knowledgeProfileStore.augmentedSystemPrompt(
-                existingPrompt: systemPrompt,
-                modelID: modelID,
-                budget: .full
-            )
-        } catch {
-            Self.log.error(
-                "Failed to load model vault prompt context for \(modelID, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return systemPrompt
-        }
+        _ = modelID
+        return systemPrompt
     }
 
     private func resolvedVisionPayloads(for model: CloudTextModelID) -> [VisionPayload] {
@@ -3278,7 +3265,7 @@ nonisolated enum CloudLLMError: LocalizedError {
         case .modelRequired:
             "No cloud model is selected."
         case .missingAccess(let provider):
-            "\(provider) access is missing. Connect an account or add an API key in Settings → Inference."
+            "\(provider) access is missing. Connect an account or add an API key in Settings."
         case .invalidResponse:
             "The cloud provider returned an unreadable response."
         case .runtimeUnavailable:

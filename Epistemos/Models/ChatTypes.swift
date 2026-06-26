@@ -287,8 +287,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// payload exposes cache hit counts (Anthropic
     /// `cache_read_input_tokens`, OpenAI `prompt_tokens_details
     /// .cached_tokens`). Nil when the provider didn't report it OR
-    /// when there was no cacheable prefix. The rebuilt AgentClone/fusion
-    /// chat surface can render a small "cache 78%" badge next to the
+    /// when there was no cacheable prefix. Transcript consumers can render
+    /// a small "cache 78%" badge next to the
     /// model label so the user can see the prompt-caching win land
     /// turn-to-turn.
     var cacheHitPercent: Double?
@@ -301,8 +301,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// .recentPackets()` if non-nil, because the packet was committed
     /// to the ring BEFORE the stream event yielded. Nil for legacy
     /// messages, user messages, or paths that bypass the audit emit
-    /// (errors, cancellations). The rebuilt AgentClone/fusion chat
-    /// surface can render a verification chip from this field; nil
+    /// (errors, cancellations). Transcript consumers can render a
+    /// verification chip from this field; nil
     /// means no chip.
     var answerPacketId: String?
 

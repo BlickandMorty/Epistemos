@@ -1046,16 +1046,16 @@ private struct ComposerReferencePopoverContent: View {
     private var popoverSubtitle: String {
         if style == .chatPicker {
             return results.query.isEmpty
-                ? "Search your past conversations to reference or ask about them."
-                : "Search your past conversations to reference or ask about them."
+                ? "Search saved context to reference it."
+                : "Search saved context to reference it."
         }
         if style == .notePicker {
             return results.query.isEmpty
-                ? "Search your notes and chats, then attach the exact context you want in this turn."
-                : "Search your notes and chats, then attach the exact context you want in this turn."
+                ? "Search your notes, then attach the exact context you want."
+                : "Search your notes, then attach the exact context you want."
         }
         if results.query.isEmpty {
-            return "Browse recent chats, scan your note tree, or attach the full vault index."
+            return "Scan your note tree or attach the full vault index."
         }
         return "Searching titles, folders, tags, and body excerpts for “\(results.query)”."
     }

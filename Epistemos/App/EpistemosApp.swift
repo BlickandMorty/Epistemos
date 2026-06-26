@@ -83,11 +83,6 @@ private struct HomeSceneRootContent: View {
     // vault-less, but re-fires next launch so they don't forget.
     @State private var vaultReprompDismissedThisSession = false
     @State private var setupAssistantPresented = false
-    // Owner 2026-06-19 (top blocker): the in-picker "Install local AI" CTA posts
-    // `.openModelManager`; this root view (always alive, has the AppEnvironment so
-    // LocalModelManager/UIState are present) presents the manager directly.
-    @State private var showModelManagerSheet = false
-
     var body: some View {
         LaunchIntegrityGateView(bootstrap: bootstrap) {
             RootView(
@@ -213,14 +208,6 @@ private struct HomeSceneRootContent: View {
                     NotificationCenter.default.publisher(for: .showQuickCapture)
                 ) { _ in
                     showQuickCapture = true
-                }
-                .onReceive(
-                    NotificationCenter.default.publisher(for: .openModelManager)
-                ) { _ in
-                    showModelManagerSheet = true
-                }
-                .sheet(isPresented: $showModelManagerSheet) {
-                    LocalModelManagerSheet()
                 }
                 .onAppear {
                     reconcileSetupAssistantPresentation()
@@ -784,9 +771,6 @@ final class RuntimeIssueMonitor {
         case .entered(let level):
             metadata["level"] = level.rawValue
             let searchService = AppBootstrap.shared?.vaultSync.searchService
-            let localInferenceService = level == .critical
-                ? AppBootstrap.shared?.localInferenceService
-                : nil
             let webViewIdle = EpdocWebViewShared.isIdleForMemoryPressure
             let isAppActive = NSApp.isActive
             Task.detached(priority: .utility) {
@@ -795,7 +779,6 @@ final class RuntimeIssueMonitor {
                     residentMB: residentMB,
                     metadata: metadata,
                     searchService: searchService,
-                    localInferenceService: localInferenceService,
                     webViewIdle: webViewIdle,
                     isAppActive: isAppActive
                 )
@@ -812,7 +795,6 @@ final class RuntimeIssueMonitor {
         residentMB: Int,
         metadata initialMetadata: [String: String],
         searchService: SearchIndexService?,
-        localInferenceService: MLXInferenceService?,
         webViewIdle: Bool,
         isAppActive: Bool
     ) async {
@@ -825,10 +807,6 @@ final class RuntimeIssueMonitor {
         if let searchService {
             searchService.releaseMemoryPressureCaches()
             metadata["searchIndexCachesReleased"] = "true"
-        }
-        if level == .critical, let localInferenceService {
-            metadata["localModelUnloadRequested"] = "true"
-            await localInferenceService.unload()
         }
         metadata["webViewIdle"] = webViewIdle ? "true" : "false"
 
@@ -981,21 +959,6 @@ struct EpistemosApp: App {
             HomeWindowFallbackPresenter.shared.schedule(bootstrap: bootstrap)
             #if EPISTEMOS_APP_STORE
                 AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)
-            #endif
-            #if DEBUG
-                // ISSUE-2026-05-16-015 runtime probe (PR #53 audit, G1 + G2 truth).
-                // Surfaces which agent-capability gates fire true vs false in
-                // the live build so the next round of fixes proceeds on
-                // truth, not vibes.
-                let gatingLog = Logger(subsystem: "com.epistemos", category: "ModelGatingProbe")
-                let hw = LocalHardwareCapabilitySnapshot.current
-                gatingLog.notice("""
-                    G1 LocalToolGrammar.supportsStructuredToolCalling=\(LocalToolGrammar.supportsStructuredToolCalling) \
-                    supportsLocalAgentLoop=\(LocalToolGrammar.supportsLocalAgentLoop) \
-                    | G2 hostMemoryGB=\(hw.roundedMemoryGB) \
-                    primaryAgentModelMinHostRAMGB=\(LocalModelCatalog.primaryAgentModelMinHostRAMGB) \
-                    primaryAgentModelMinHostRAMGB_powerUser=\(LocalModelCatalog.primaryAgentModelMinHostRAMGB_powerUser)
-                    """)
             #endif
         }
     }
@@ -1287,12 +1250,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Keep the app alive in the background when NightBrain menu bar agent mode is on
-        let menuBarAgent = UserDefaults.standard.bool(forKey: "nightbrain.menuBarAgent")
-        if menuBarAgent {
-            NSApp.setActivationPolicy(.accessory)
-            return false
-        }
         return false  // macOS default: don't quit on last window close (standard for document apps)
     }
 
@@ -1484,10 +1441,6 @@ extension Notification.Name {
     static let showQuickCapture = Notification.Name("epistemos.showQuickCapture")
     /// Reopen a Work session from a recent-session row.
     static let openWorkSession = Notification.Name("epistemos.openWorkSession")
-    /// Posted by the in-picker "Install local AI" CTA (owner 2026-06-19) so the
-    /// model manager is reachable from where models are chosen, not only from
-    /// Settings ▸ Local AI. Observed by the root view to present the manager.
-    static let openModelManager = Notification.Name("epistemos.openModelManager")
 }
 
 struct EpistemosCommands: Commands {
@@ -1516,9 +1469,6 @@ struct EpistemosCommands: Commands {
 
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
-
-            Button("Show Agent") { UtilityWindowManager.shared.show(.agent) }
-                .keyboardShortcut("a", modifiers: [.command, .shift])
 
             // Discoverable entry to the primary native Epistemos Work surface so it is not buried in Settings.
             // The WebView fallback remains available from Settings as "Open Epistemos Work preview".

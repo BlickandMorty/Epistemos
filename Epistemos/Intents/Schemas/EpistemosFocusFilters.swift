@@ -104,8 +104,8 @@ struct EpistemosFocusFilter: SetFocusFilterIntent {
     var disableAgentInterrupts: Bool
 
     @Parameter(
-        title: "Local Models Only",
-        description: "Force inference to local Qwen / LocalAgent; never make cloud calls during this focus",
+        title: "Provider Isolation",
+        description: "Keep provider-backed generation out of this focus unless a connected surface explicitly requests it",
         default: true
     )
     var localModelsOnly: Bool

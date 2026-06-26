@@ -175,8 +175,7 @@ struct ProseEditorView: View {
     }
 
     private static func shouldRenameBackedFile(for page: SDPage) -> Bool {
-        guard let filePath = page.filePath else { return true }
-        return !ModelVaultBrowserStore.isModelVaultPath(filePath)
+        true
     }
 
     private static func syncedNoteTitle(inLine rawLine: String) -> String? {

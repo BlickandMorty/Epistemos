@@ -319,20 +319,11 @@ enum StartupAutoDiscovery {
             fileManager: fileManager
         )
 
-        let modelRootURL = localModelRootURL
-            ?? LocalModelPaths.defaultRootDirectory(fileManager: fileManager)
-
         return StartupAutoDiscoveryReport(
             credentialStatuses: statuses,
             browserToolAvailable: browserToolAvailable,
-            localModelDirectories: discoverLocalModelDirectories(
-                rootDirectory: modelRootURL,
-                fileManager: fileManager
-            ),
-            huggingFaceModelDirectories: discoverHuggingFaceModelDirectories(
-                homeDirectoryURL: resolvedHomeURL,
-                fileManager: fileManager
-            )
+            localModelDirectories: [],
+            huggingFaceModelDirectories: []
         )
     }
 
@@ -484,99 +475,6 @@ enum StartupAutoDiscovery {
         }
 
         return values
-    }
-
-    nonisolated static func discoverLocalModelDirectories(
-        rootDirectory: URL = LocalModelPaths.defaultRootDirectory(),
-        fileManager: FileManager = .default
-    ) -> [URL] {
-        guard fileManager.fileExists(atPath: rootDirectory.path) else {
-            return []
-        }
-        guard let enumerator = fileManager.enumerator(
-            at: rootDirectory,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else {
-            Log.app.error(
-                "AppBootstrap: failed to enumerate local model directory root \(rootDirectory.path, privacy: .public)"
-            )
-            return []
-        }
-
-        let knownSlugs = Set(LocalModelCatalog.allDescriptors.map(\.slug))
-        var discovered: Set<URL> = []
-
-        for case let url as URL in enumerator {
-            let resourceValues: URLResourceValues
-            do {
-                resourceValues = try url.resourceValues(forKeys: [.isDirectoryKey])
-            } catch {
-                Log.app.error(
-                    "AppBootstrap: failed to inspect local model candidate \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-                continue
-            }
-
-            guard resourceValues.isDirectory == true else {
-                continue
-            }
-
-            let standardizedURL = url.standardizedFileURL
-            let lastPathComponent = standardizedURL.lastPathComponent
-            if lastPathComponent.hasSuffix(".mlx") || knownSlugs.contains(lastPathComponent) {
-                discovered.insert(standardizedURL)
-                enumerator.skipDescendants()
-            }
-        }
-
-        return discovered.sorted { $0.path < $1.path }
-    }
-
-    nonisolated static func discoverHuggingFaceModelDirectories(
-        homeDirectoryURL: URL,
-        fileManager: FileManager = .default
-    ) -> [URL] {
-        let hubURL = homeDirectoryURL
-            .appendingPathComponent(".cache", isDirectory: true)
-            .appendingPathComponent("huggingface", isDirectory: true)
-            .appendingPathComponent("hub", isDirectory: true)
-
-        guard fileManager.fileExists(atPath: hubURL.path) else {
-            return []
-        }
-        let contents: [URL]
-        do {
-            contents = try fileManager.contentsOfDirectory(
-                at: hubURL,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
-        } catch {
-            Log.app.error(
-                "AppBootstrap: failed to enumerate Hugging Face cache \(hubURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return []
-        }
-
-        return contents.compactMap { url in
-            let resourceValues: URLResourceValues
-            do {
-                resourceValues = try url.resourceValues(forKeys: [.isDirectoryKey])
-            } catch {
-                Log.app.error(
-                    "AppBootstrap: failed to inspect Hugging Face model candidate \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-                return nil
-            }
-
-            guard resourceValues.isDirectory == true,
-                  url.lastPathComponent.hasPrefix("models--") else {
-                return nil
-            }
-            return url.standardizedFileURL
-        }
-        .sorted { $0.path < $1.path }
     }
 
     nonisolated static func isExecutableAvailable(
@@ -1002,15 +900,8 @@ final class AppBootstrap {
     }
     private var commandCenterLocalHotkeyMonitor: Any?
     private var commandCenterGlobalHotkeyMonitor: Any?
-    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-    let channelRegistry: ChannelRegistryState
-    #endif
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
-    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-    private var _iMessageDriver: IMessageDriverService?
-    var iMessageDriver: IMessageDriverService { Self.requireInitialized(_iMessageDriver, name: "iMessageDriver") }
-    #endif
     private var _deviceAgent: DeviceAgentService?
     var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
     // Computer-use chain: lazy. ScreenCaptureService, Screen2AXFusion, and
@@ -1075,46 +966,6 @@ final class AppBootstrap {
     }
     private var _frictionMonitor: FrictionMonitorService?
     var frictionMonitor: FrictionMonitorService { Self.requireInitialized(_frictionMonitor, name: "frictionMonitor") }
-    private var _nightBrain: NightBrainService?
-    var nightBrain: NightBrainService { Self.requireInitialized(_nightBrain, name: "nightBrain") }
-
-    /// DATA+FINETUNE (4) — the Night Brain native idle LoRA fine-tune provider,
-    /// injected into `NightBrainService` (below). `executeJob` only invokes this
-    /// when the `EPISTEMOS_NIGHTBRAIN_LORA_V0` flag is active (default OFF →
-    /// INERT in production), so this is the safe finisher that COMPLETES the
-    /// Job → provider wiring chain (it was `nil` before → the Job could never
-    /// dispatch). It gathers the conservative fine-tune decision inputs, evaluates
-    /// `NightBrainLoRAFineTuneDecision`, and logs WHY it ran or skipped (visible/
-    /// honest — rule #8). Actual native MLX training is Pro-only and runs on the
-    /// generated vault data; that run + the vault data-gen iteration that supplies
-    /// `newExampleCount` (and a persisted last-fine-tune marker for
-    /// `daysSinceLastFineTune`) are the on-device follow-on — training cannot be
-    /// headless-verified, so this slice locks the wiring, not the run.
-    private static func runNightBrainLoRAFineTuneIfDue() async {
-        #if !EPISTEMOS_APP_STORE
-        let isPro = true
-        #else
-        let isPro = false
-        #endif
-        // AC = not on battery (training is heavy — AC only). Real power read.
-        let onAC = !PowerGate.batteryState().onBattery
-        let inputs = NightBrainLoRAFineTuneDecision.Inputs(
-            enabled: true,             // executeJob already gated on the live flag
-            isPro: isPro,
-            isIdle: true,              // runs inside the NightBrain idle pipeline
-            onACPower: onAC,
-            newExampleCount: 0,        // TODO(follow-on): vault data-gen iteration count
-            daysSinceLastFineTune: nil // TODO(follow-on): persisted last-fine-tune marker
-        )
-        switch NightBrainLoRAFineTuneDecision.evaluate(inputs) {
-        case .run:
-            Log.app.info(
-                "NightBrain LoRA fine-tune decision=run (onAC=\(onAC, privacy: .public), pro=\(isPro, privacy: .public)); native train dispatch pending on-device data-gen"
-            )
-        case .skip(let reason):
-            Log.app.info("NightBrain LoRA fine-tune skipped: \(reason, privacy: .public)")
-        }
-    }
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
@@ -1565,16 +1416,11 @@ final class AppBootstrap {
 
     // MARK: - Services
     let llmService: LLMService
-    let localInferenceService: MLXInferenceService
     let localRuntimeControlPlane: BackendRuntimeControlPlane
-    let localMLXClient: LocalMLXClient
     let preparedModelRegistryState: PreparedModelRegistryState
     let preparedModelRegistry: PreparedModelRegistry
     let localLLMClient: any LocalConfigurableLLMClient
     let cloudLLMClient: CloudLLMClient
-    /// Loopback OpenAI/Ollama-compatible server exposing the local models.
-    /// Flag-gated OFF (`EPISTEMOS_LOCAL_MODEL_SERVER_V0`); nil when disabled.
-    private var localModelServer: LocalModelServer?
     let triageService: TriageService
     /// Transparency-only audit trail of recent Overseer planning decisions.
     let overseerAuditState = OverseerAuditState()
@@ -1592,23 +1438,6 @@ final class AppBootstrap {
         if let existing = _noteInsightService { return existing }
         let new = NoteInsightService(modelContainer: modelContainer)
         _noteInsightService = new
-        return new
-    }
-    // Lazy: CloudKnowledgeDistillationService is touched only by
-    // (1) the NightBrain background job (runs >3s after launch, deferred
-    //     enough that lazy-build there is fine) and
-        // (2) the Settings > Model Vaults user action.
-    // The targetsProvider closure stays MainActor-bound so each rebuild reads
-    // the current visible model set instead of a stale launch snapshot.
-    private var _cloudKnowledgeDistillationService: CloudKnowledgeDistillationService?
-    var cloudKnowledgeDistillationService: CloudKnowledgeDistillationService {
-        if let existing = _cloudKnowledgeDistillationService { return existing }
-        let inferenceState = self.inferenceState
-        let new = CloudKnowledgeDistillationService(
-            modelContainer: modelContainer,
-            targetsProvider: { inferenceState.modelVaultTargets() }
-        )
-        _cloudKnowledgeDistillationService = new
         return new
     }
     private(set) var meaningAnchorService: MeaningAnchorService?
@@ -1737,15 +1566,10 @@ final class AppBootstrap {
             companionState?.seedDefaultIfEmpty()
         }
 
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        let channelRegistry = ChannelRegistryState()
-        self.channelRegistry = channelRegistry
-        #endif
-
         // InferenceState reads Keychain + checks Apple Intelligence availability
         let inference = InferenceState()
         self.inferenceState = inference
-        inference.setAvailableLocalGenerationRuntimeKinds([.mlx])
+        inference.setAvailableLocalGenerationRuntimeKinds([])
         let localModelManager = LocalModelManager(
             inference: inference,
             installer: ModelDownloadManager()
@@ -1757,25 +1581,12 @@ final class AppBootstrap {
         )
         self.localModelRefreshThrottle = localModelRefreshThrottle
 
-        let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)
-        self.localInferenceService = localInferenceService
-        #if !EPISTEMOS_APP_STORE
-        // SS-LS reload-on-activate: when the active LoRA adapter set changes (the user
-        // activates/deactivates in Knowledge Fusion), drop the loaded container if the
-        // active signature actually changed so the next generation re-applies it live.
-        // The service guards on the signature — no-active <-> no-active never reloads.
-        NotificationCenter.default.addObserver(
-            forName: .epistemosActiveAdaptersDidChange, object: nil, queue: .main
-        ) { _ in
-            Task { @MainActor in await localInferenceService.reloadIfActiveAdapterChanged() }
-        }
-        #endif
         let embeddingService = graphState.embeddingService
         let localRuntimeControlPlane = BackendRuntimeControlPlane(
             policy: BackendRuntimePolicy(
-                availableRuntimeKinds: [.mlx],
-                primaryGenerationRuntimeKind: .gguf,
-                allowMLXGenerationFallback: true
+                availableRuntimeKinds: [],
+                primaryGenerationRuntimeKind: .remote,
+                allowMLXGenerationFallback: false
             ),
             embeddingResolver: { request in
                 embeddingService.queryEmbedding(
@@ -1802,218 +1613,8 @@ final class AppBootstrap {
         // notifications and will apply the real snapshot once loaded.
         graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
 
-        let localRuntimeAgentProvenanceRecorder = AgentToolProvenanceRecorder()
-        let localMLXClient = LocalMLXClient(
-            runtime: localInferenceService,
-            inference: inference,
-            paths: localModelManager.paths,
-            runtimeControlPlane: localRuntimeControlPlane,
-            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder,
-            prepareForRequest: {
-                localModelRefreshThrottle.refreshIfNeeded()
-            }
-        )
-        localMLXClient.configurePreparedGenerationRuntime(
-            preparedModelRegistryState.generationRuntimeConfiguration
-        )
-        self.localMLXClient = localMLXClient
-        // Pro builds can inject the flag-gated, subprocess-backed GGUF engine
-        // (EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0, default OFF). When the flag is
-        // off — and always on MAS — this is nil, so the runtime keeps its
-        // reserved default builder (honest `backendUnavailable`).
-        #if !EPISTEMOS_APP_STORE
-        let localGGUFRuntime = LocalGGUFInProcessRuntime(
-            engineBuilder: LocalGgufCliRuntime.engineBuilderIfEnabled()
-        )
-        #else
-        let localGGUFRuntime = LocalGGUFInProcessRuntime()
-        #endif
-        let localGGUFClient = LocalGGUFClient(
-            runtime: localGGUFRuntime,
-            inference: inference,
-            runtimeControlPlane: localRuntimeControlPlane,
-            paths: localModelManager.paths,
-            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder,
-            prepareForRequest: {
-                localModelRefreshThrottle.refreshIfNeeded()
-            }
-        )
-        localGGUFClient.configurePreparedGenerationRuntime(
-            preparedModelRegistryState.generationRuntimeConfiguration
-        )
-        localGGUFClient.setOnRunProfileUpdated { [weak inference] profile in
-            Task { @MainActor in
-                inference?.setLatestLocalRuntimeHealth(LocalRuntimeHealthSnapshot(profile))
-            }
-        }
-        let localLLMClient = LocalBackendLLMClient(
-            inference: inference,
-            runtimeControlPlane: localRuntimeControlPlane,
-            mlxClient: localMLXClient,
-            ggufClient: localGGUFClient,
-            refreshAvailableRuntimeKinds: { configuration, requestedModelID in
-                var availableRuntimeKinds: Set<BackendRuntimeKind> = [.mlx]
-
-                let preferredProbeModelID: String?
-                if LocalModelCatalog.descriptor(for: inference.preferredLocalTextModelID)?.runtimeKind == .gguf {
-                    preferredProbeModelID = inference.preferredLocalTextModelID
-                } else {
-                    preferredProbeModelID = nil
-                }
-                let probeModelID = requestedModelID
-                    ?? inference.effectiveLocalTextModelID
-                    ?? preferredProbeModelID
-                    ?? configuration?.primaryGenerator.servedModelID
-
-                let probeArtifactID = configuration.flatMap { config in
-                    if let probeModelID {
-                        return config.resolvedArtifactID(for: probeModelID) ?? config.primaryGenerator.artifactID
-                    }
-                    return config.primaryGenerator.artifactID
-                }
-                let catalogDescriptor = probeModelID.flatMap(LocalModelCatalog.descriptor(for:))
-                let probeModelDirectory = configuration.flatMap { config in
-                    if let probeModelID {
-                        return config.resolvedModelDirectory(for: probeModelID) ?? config.primaryResolvedModelDirectory
-                    }
-                    return config.primaryResolvedModelDirectory
-                } ?? catalogDescriptor.flatMap { descriptor in
-                    let activeDirectory = localModelManager.paths.activeDirectory(for: descriptor)
-                    if FileManager.default.fileExists(atPath: activeDirectory.path) {
-                        return activeDirectory
-                    }
-                    return localModelManager.paths.usableHubSnapshotDirectory(for: descriptor)
-                }
-                let probeRuntimeKind: BackendRuntimeKind? = configuration.flatMap { config in
-                    if let probeModelID {
-                        return config.resolvedRuntimeKind(for: probeModelID)
-                            ?? LocalModelCatalog.descriptor(for: probeModelID)?.runtimeKind
-                    }
-                    return config.primaryGenerator.runtimeKind
-                } ?? catalogDescriptor?.runtimeKind
-                let hasPreparedProbeDirectory = probeModelDirectory.map { directory in
-                    FileManager.default.fileExists(atPath: directory.path)
-                } ?? false
-
-                if probeRuntimeKind == .gguf, hasPreparedProbeDirectory, let probeModelID {
-                    do {
-                        _ = try await localGGUFRuntime.availability(
-                            requestedModelID: probeModelID,
-                            artifactID: probeArtifactID,
-                            modelDirectory: probeModelDirectory
-                        )
-                        availableRuntimeKinds.insert(.gguf)
-                    } catch {
-                        Log.app.warning(
-                            "AppBootstrap: GGUF availability probe failed for \(probeModelID, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                }
-
-                // The probe above only lights up the .gguf lane when the user's
-                // PREFERRED model already happens to be GGUF — a chicken-and-egg
-                // that keeps the Gemma QAT GGUF route-integration candidates stuck
-                // as "pending" even once one is staged on disk. Completing the
-                // intent of releaseSelectableInstalledLocalTextModelIDs: if any
-                // product-route-integration Gemma candidate is prepared on disk,
-                // probe it so the .gguf lane becomes available and the candidate
-                // turns selectable. The Pro + EPISTEMOS_LOCAL_GGUF_CLI_RUNTIME_V0
-                // flag still governs whether it actually generates.
-                if !availableRuntimeKinds.contains(.gguf) {
-                    for candidate in GemmaQATRuntimeLadder.productRouteIntegrationCandidates {
-                        guard let candidateDescriptor = LocalModelCatalog.descriptor(for: candidate.id)
-                        else { continue }
-                        let candidateDirectory = localModelManager.paths.activeDirectory(
-                            for: candidateDescriptor
-                        )
-                        guard FileManager.default.fileExists(atPath: candidateDirectory.path) else {
-                            continue
-                        }
-                        do {
-                            _ = try await localGGUFRuntime.availability(
-                                requestedModelID: candidate.id,
-                                artifactID: candidate.expectedFilename,
-                                modelDirectory: candidateDirectory
-                            )
-                            availableRuntimeKinds.insert(.gguf)
-                            break
-                        } catch {
-                            Log.app.warning(
-                                "AppBootstrap: Gemma QAT GGUF availability probe failed for \(candidate.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                            )
-                        }
-                    }
-                }
-
-                return availableRuntimeKinds
-            },
-            preparedGenerationRuntimeConfiguration: preparedModelRegistryState.generationRuntimeConfiguration,
-            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder
-        )
-        localLLMClient.configurePreparedGenerationRuntime(
-            preparedModelRegistryState.generationRuntimeConfiguration
-        )
+        let localLLMClient = UnavailableLocalLLMClient()
         self.localLLMClient = localLLMClient
-        Task { @MainActor in
-            _ = await localLLMClient.refreshRuntimeAvailability()
-        }
-
-        // Loopback OpenAI/Ollama-compatible model server (flag-gated OFF). Lets
-        // external harnesses (OpenCode/Codex) drive the LOCAL models with no
-        // fork. The generate/stream bridges hop to the @MainActor inference
-        // client; the model list is snapshotted on the main actor. Runs inside a
-        // @MainActor Task so the @MainActor reads are valid; start() itself binds
-        // the NWListener on its own queue.
-        if LocalModelServer.isEnabled {
-            let modelSnapshot = inference.releaseSelectableInstalledLocalTextModelIDs
-            let server = LocalModelServer(
-                port: 1337,
-                generate: { messages, _, maxTokens in
-                    let (system, prompt) = LocalModelServer.flattenForLocalGenerate(messages)
-                    return try await localLLMClient.generate(
-                        prompt: prompt,
-                        systemPrompt: system,
-                        maxTokens: maxTokens > 0 ? maxTokens : 1024
-                    )
-                },
-                stream: { messages, _, maxTokens in
-                    let (system, prompt) = LocalModelServer.flattenForLocalGenerate(messages)
-                    return AsyncThrowingStream { continuation in
-                        let task = Task { @MainActor in
-                            do {
-                                for try await delta in localLLMClient.stream(
-                                    prompt: prompt,
-                                    systemPrompt: system,
-                                    maxTokens: maxTokens > 0 ? maxTokens : 1024
-                                ) {
-                                    continuation.yield(delta)
-                                }
-                                continuation.finish()
-                            } catch {
-                                continuation.finish(throwing: error)
-                            }
-                        }
-                        continuation.onTermination = { _ in task.cancel() }
-                    }
-                },
-                listModels: { modelSnapshot }
-            )
-            // Retain synchronously: a direct property write is legal anywhere in
-            // init. start() defers to a Task that captures ONLY the local
-            // `server` — never `self` — so there is no definite-initialization
-            // violation even though stored properties below are not yet set.
-            self.localModelServer = server
-            Task { @MainActor in
-                do {
-                    try server.start()
-                    Log.app.info("LocalModelServer started on 127.0.0.1:1337")
-                } catch {
-                    Log.app.error(
-                        "LocalModelServer failed to start: \(error.localizedDescription, privacy: .public)"
-                    )
-                }
-            }
-        }
         let cloudLLMClient = CloudLLMClient(inference: inference)
         self.cloudLLMClient = cloudLLMClient
 
@@ -2039,14 +1640,12 @@ final class AppBootstrap {
 
         supervisor.start()
 
-        // TriageService routes between Apple Intelligence and local Qwen.
+        // TriageService keeps foundation retrieval available while app-local generation stays removed.
         let triage = TriageService(
             inference: inference,
             localLLMService: localLLMClient,
             cloudLLMService: cloudLLMClient,
-            prepareForRouting: {
-                localModelRefreshThrottle.refreshIfNeeded()
-            }
+            prepareForRouting: {}
         )
         self.triageService = triage
 
@@ -2068,34 +1667,6 @@ final class AppBootstrap {
         let ssmStateService = SSMStateService(stateRoot: ssmStateRoot)
         ssmStateService.activate(enabled: epistemosConfig.ssmStatePersistenceEnabled)
         self.ssmStateService = ssmStateService
-
-        // Wire SSM state service into the local inference engine
-        Task {
-            await localInferenceService.setSsmStateService(ssmStateService)
-            await localInferenceService.setOnSSMStateSaved { sessionID, statePath in
-                Log.app.info("SSM state saved for session=\(sessionID) at \(statePath)")
-                guard let sessionUUID = UUID(uuidString: sessionID) else {
-                    Log.app.warning("Ignoring SSM state bind for non-UUID session id \(sessionID)")
-                    return
-                }
-                Task {
-                    await ConversationPersistence.shared.bindSSMStatePath(
-                        sessionID: sessionUUID,
-                        statePath: statePath
-                    )
-                }
-            }
-            await localInferenceService.setOnRunProfileUpdated { [weak inference] profile in
-                Task { @MainActor in
-                    inference?.setLatestLocalRuntimeProfile(profile)
-                }
-            }
-        }
-
-        // NoteInsightService + CloudKnowledgeDistillationService now
-        // construct lazily on first access (see properties above); the
-        // ~6-15 MB of staging buffers they hold are deferred until a
-        // notes-analysis or model-vault-rebuild path actually needs them.
 
         // Meaning Anchor Service — generates structured chat snapshots for graph intelligence
         self.meaningAnchorService = MeaningAnchorService(
@@ -2187,71 +1758,15 @@ final class AppBootstrap {
         // Opt-in via Settings → Omega. Do NOT force-enable at startup.
         let reasoning = ReasoningLoopService(triageService: triage)
         reasoning.config.enabled = UserDefaults.standard.bool(forKey: "omega.enableReasoningLoop")
-        reasoning.onTracesGenerated = { jsonlLines in
-            #if !EPISTEMOS_APP_STORE
-            KnowledgeFusionViewModel.shared.ingestReasoningTraces(jsonlLines)
-            #endif
-        }
+        reasoning.onTracesGenerated = { _ in }
         self._reasoningLoopService = reasoning
 
-        #if !EPISTEMOS_APP_STORE
-        // Configure Knowledge Fusion at boot so the inference bridge is ready.
-        // State loading is deferred until after the primary launch path settles.
-        KnowledgeFusionViewModel.shared.configure(triageService: triage)
-        #endif
-
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        // Initialize iMessage driver (starts disabled — user toggles via Settings).
-        // Local-model contacts route through `LocalAgentLoop` via the
-        // localModelClientProvider; cloud contacts continue to use
-        // `runAgentSession` against agent_core.
-        self._iMessageDriver = IMessageDriverService(
-            vaultPathProvider: { [weak vaultSync] in
-                vaultSync?.vaultURL?.path
-            },
-            currentChannelConfigurationProvider: { [weak channelRegistry] in
-                guard let channelRegistry else {
-                    return nil
-                }
-                return channelRegistry.configuration(for: channelRegistry.driverChannel)
-            },
-            channelAdapterProvider: { [weak channelRegistry] in
-                channelRegistry?.makeDriverAdapter() ?? IMessageChannelAdapter()
-            },
-            localModelClientProvider: { [weak self] in
-                self?.localMLXClient
-            },
-            constrainedDecodingProvider: { [weak self] in
-                self?.constrainedDecoding
-            }
-        )
-        let driverConfiguration = channelRegistry.configuration(for: channelRegistry.driverChannel)
-        if driverConfiguration.supportsInboundDriver,
-           driverConfiguration.pairingMetadata?.keepAliveOnLaunch == true,
-           vaultSync.vaultURL != nil {
-            self._iMessageDriver?.start()
-        }
-        #endif
-
-        // Initialize device-action infrastructure. The retired dual-brain
-        // router stays archived in source, but the live app keeps only the
-        // device-action services that still back computer-use flows.
+        // Initialize device-action infrastructure without binding it to the
+        // retired app-local chat/model backend.
         self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
-        let deviceBackend: any DeviceInferenceBackend
         if let coreMLBackend = CoreMLActionBackendLoader.loadIfAvailable() {
-            deviceBackend = coreMLBackend
-        } else {
-            let sharedGPUBackend = SharedGPUBackend(
-                triageService: triage,
-                localModelClient: localMLXClient,
-                constrainedDecoding: constrainedDecoding,
-                activeModelID: { [weak inference] in
-                    inference?.activeLocalTextModelID
-                }
-            )
-            deviceBackend = SharedGPUAppleFallbackBackend(sharedGPUBackend: sharedGPUBackend)
+            deviceAgent.setBackend(coreMLBackend)
         }
-        deviceAgent.setBackend(deviceBackend)
         // Device-agent contextual embeddings stay lazy. Constructing the Apple
         // NL contextual resolver during passive launch can load language assets
         // before the user asks for computer-use/device-action work.
@@ -2282,40 +1797,6 @@ final class AppBootstrap {
         // Phase 6.5: Text capture pipeline — capture → structure → memory → evidence → trace
         self._textCapturePipeline = TextCapturePipeline()
         FrictionMonitorService.shared = frictionMonitor
-        // Agent services: gated by ShipGate.agentsEnabled. When false,
-        // NightBrain never starts — no background agent work. Zero runtime overhead.
-        if ShipGate.agentsEnabled {
-            self._nightBrain = NightBrainService(
-                config: epistemosConfig,
-                searchIndexProvider: { @MainActor [weak vaultSync] in
-                    vaultSync?.searchService
-                },
-                graphMemoryProvider: { @MainActor [weak self] in
-                    self?._agentGraphMemory
-                },
-                cloudKnowledgeJob: { [weak self] in
-                    guard let cloudKnowledgeDistillationService = await MainActor.run(body: {
-                        self?.cloudKnowledgeDistillationService
-                    }) else {
-                        throw NightBrainService.JobExecutionError.missingCloudKnowledgeJob
-                    }
-                    _ = try await cloudKnowledgeDistillationService.rebuildAllModelVaults()
-                },
-                vaultPathProvider: { @MainActor [weak vaultSync] in
-                    vaultSync?.vaultURL?.path
-                },
-                ssmStateServiceProvider: { @MainActor [weak self] in
-                    self?.ssmStateService
-                },
-                loraFineTuneJob: {
-                    await Self.runNightBrainLoRAFineTuneIfDue()
-                }
-            )
-        }
-
-        if !Self.isRunningTests {
-            wireLocalRuntimeLifecycle()
-        }
 
         // Wire all events (pipeline, toast, vault, daily brief)
         appCoordinator.wireAll()
@@ -2381,42 +1862,6 @@ final class AppBootstrap {
             vaultURL: vaultSync.vaultURL
         )
 
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        // W10.10-FIX — register the NightBrain LaunchAgent so the 3 AM
-        // consolidation pass survives the main app being quit. Failure
-        // is logged + swallowed (e.g. helper executable target not yet
-        // present in this build, or user has not approved Login Item).
-        do {
-            try NightBrainScheduler.register()
-        } catch {
-            Log.app.warning(
-                "W10.10 NightBrain LaunchAgent register failed — \(error.localizedDescription, privacy: .public)"
-            )
-        }
-        #endif
-
-        // Live NightBrain task registration (2026-05-04 follow-up #1+#5).
-        // Idempotently registers all 10 canonical task names against the
-        // process-global Rust scheduler singleton via UniFFI through
-        // the typed Swift wrapper at `NightBrainLiveRegistry`. Without
-        // this, the FFI exposes only canonical_task_names() + admission
-        // preview — the live scheduler has zero registered tasks.
-        // Logs the registered set for diagnostics; failure is non-fatal
-        // (the FFI returns Vec::new() on panic via ffi_guard_value).
-        Task.detached(priority: .background) {
-            let registered = NightBrainLiveRegistry.shared.registerCanonicalTasks()
-            Log.app.info(
-                "NightBrain live registration: \(registered.count, privacy: .public) canonical tasks registered"
-            )
-        }
-
-        // Fallback for missed nights (M-series laptop on battery, lid
-        // closed): if launchd skipped > 36 h, run the in-process
-        // consolidation inline now while the user is foreground.
-        // AFM classifier sessions stay cold during passive launch. The pool
-        // still reuses sessions after explicit classifier work starts, but it
-        // must not warm FoundationModels/TokenGenerationCore before user intent.
-
         // AP7 — bulk-prefetch every `*.epistemos.json` sidecar in
         // the active vault into SidecarCache so the first graph
         // render + the first depth-overlay query don't pay per-node
@@ -2428,17 +1873,6 @@ final class AppBootstrap {
                 _ = await EpistemosSidecarStore.prefetchAll(under: vaultURL)
             }
         }
-
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        if NightBrainScheduler.shouldRunFallbackInline() {
-            Task.detached(priority: .utility) { [weak self] in
-                let result = await self?._nightBrain?.runInlineFallback()
-                if case .finished? = result {
-                    await MainActor.run { NightBrainScheduler.recordSuccessfulRun() }
-                }
-            }
-        }
-        #endif
 
         // Phase R.3 reactive re-init — subscribe to `.vaultChanged` so
         // the gateway tracks vault switches (bookmark restore lands
@@ -2457,15 +1891,6 @@ final class AppBootstrap {
             mcpBridge: mcpBridge,
             constrainedDecoding: constrainedDecoding
         )
-
-        // Wire constrained decoding generator (Ω11)
-        // Note: Current JSONSchemaLogitProcessor only applies soft EOS penalties,
-        // NOT real grammar masking. ConstrainedDecodingService.isAvailable will
-        // remain false until a fully constraining generator is registered.
-        constrainedDecoding.setGenerator(MLXConstrainedGenerator(inferenceService: localInferenceService))
-        if !constrainedDecoding.isAvailable {
-            Log.app.info("AppBootstrap: constrained decoding registered but not available (soft guidance only)")
-        }
 
         // Initialize knowledge graph integration (Ω14)
         self._agentGraphMemory = AgentGraphMemory(graphStore: graphState.store, graphState: graphState)
@@ -2546,8 +1971,8 @@ final class AppBootstrap {
         agentChatState.onStopRequested = { [weak self] in
             self?.coordinator.cancelActiveQuery()
         }
-        agentChatState.onMessageRecorded = { [weak self] message, portalContext in
-            self?.persistAgentChatMessage(message, portalContext: portalContext)
+        agentChatState.onMessageRecorded = { [weak self] message in
+            self?.persistAgentChatMessage(message)
         }
 
         commandCenterLocalHotkeyMonitor = nil
@@ -2558,44 +1983,15 @@ final class AppBootstrap {
         // fallback that fits the 16 GB Mac ceiling; the 36B LocalAgent is
         // gated on ≥32 GB host RAM + explicit opt-in. Power-user mode
         // preserves Capability Ceiling controls, but does not lower the dense
-        // MLX gate until F-70B-Local-Cocktail or an equivalent SSD/RAM
-        // addressable-substrate falsifier passes.
-        let primaryAgent = LocalModelCatalog.defaultPrimaryAgentModel
-        let effectiveThreshold = LocalModelCatalog.effectivePrimaryAgentModelMinHostRAMGB
-        let isPowerUser = UserDefaults.standard.bool(
-            forKey: LocalModelCatalog.powerUserModeDefaultsKey
-        )
         Log.app.info(
             """
-            Local agent model selected: \
-            \(primaryAgent.displayName, privacy: .public), \
-            ~\(primaryAgent.estimated4BitWeightsGB, privacy: .public) GB \
-            (host \(inference.hardwareCapabilitySnapshot.roundedMemoryGB, privacy: .public) GB, \
-            dense 36B opt-in min \(effectiveThreshold, privacy: .public) GB, \
-            power-user mode \(isPowerUser ? "ON" : "OFF", privacy: .public))
-            """
-        )
-
-        // ISSUE-2026-05-16-015 §4.E Phase A.2 — runtime probe for model-
-        // gating diagnostic. Prints whether the strict-tool-grammar gate
-        // (canImport(MLXStructured) && canImport(CMLXStructured) && canImport(JSONSchema))
-        // actually resolves true on this build. If supportsStructuredToolCalling
-        // = false here, every local model silently has supportsAgentMode = false,
-        // and users hit AgentModeUnavailableView regardless of canActAsAgent.
-        // The soft-guidance fallback (supportsLocalAgentLoop) is the runtime path
-        // that still works.
-        Log.app.info(
-            """
-            Local model gating probe: \
-            strict-tool-grammar=\(LocalToolGrammar.supportsStructuredToolCalling ? "ACTIVE" : "FALLBACK", privacy: .public), \
-            soft-guidance=\(LocalToolGrammar.supportsSoftGuidanceToolCalling ? "ON" : "OFF", privacy: .public), \
-            local-agent-loop=\(LocalToolGrammar.supportsLocalAgentLoop ? "OK" : "BLOCKED", privacy: .public), \
+            App-local model stack removed: \
             cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
             configured-cloud-providers=\(inference.configuredCloudProviders.map(\.rawValue).joined(separator: ","), privacy: .public)
             """
         )
 
-        Log.app.info("AppBootstrap: initialized — local AI stack ready")
+        Log.app.info("AppBootstrap: initialized — foundation services ready")
     }
 
     private static func prepareSharedSubstrateContainer(
@@ -2970,11 +2366,6 @@ final class AppBootstrap {
             // once the deferred runtime services bring themselves online.
             self.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
 
-            await self.nightBrain.start()
-            #if !EPISTEMOS_APP_STORE
-            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()
-            #endif
-
             if self.epistemosConfig.captureEnabled {
                 await self.ambientCapture.start()
             }
@@ -3010,8 +2401,7 @@ final class AppBootstrap {
 
     @MainActor
     private func persistAgentChatMessage(
-        _ message: ChatMessage,
-        portalContext: AgentPortalContextSnapshot?
+        _ message: ChatMessage
     ) {
         guard !message.chatId.isEmpty else { return }
 
@@ -3026,7 +2416,7 @@ final class AppBootstrap {
                 chat = existing
             } else {
                 let created = SDChat(
-                    title: Self.agentChatStorageTitle(message: message, portalContext: portalContext),
+                    title: Self.agentChatStorageTitle(message: message),
                     chatType: "agent"
                 )
                 created.id = chatId
@@ -3036,11 +2426,8 @@ final class AppBootstrap {
 
             chat.chatType = "agent"
             chat.updatedAt = .now
-            if let note = portalContext?.note {
-                chat.linkedPageId = note.pageId
-            }
             if message.role == .user || chat.title == "New Agent Session" || chat.title == "New Chat" {
-                chat.title = Self.agentChatStorageTitle(message: message, portalContext: portalContext)
+                chat.title = Self.agentChatStorageTitle(message: message)
             }
 
             let messageId = message.id
@@ -3090,14 +2477,10 @@ final class AppBootstrap {
     }
 
     private static func agentChatStorageTitle(
-        message: ChatMessage,
-        portalContext: AgentPortalContextSnapshot?
+        message: ChatMessage
     ) -> String {
         let candidates = [
             message.role == .user ? message.effectiveText : nil,
-            portalContext?.promptPreview,
-            portalContext?.title,
-            portalContext?.portal.label,
             "New Agent Session",
         ]
 
@@ -3211,19 +2594,7 @@ final class AppBootstrap {
         }
 
         preparedModelRegistryState.apply(snapshot)
-        localMLXClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
-        if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
-            localLLMClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
-            Task { @MainActor in
-                _ = await localLLMClient.refreshRuntimeAvailability()
-            }
-        } else {
-            inferenceState.setPreparedLocalTextModelIDs(
-                snapshot.generationRuntimeConfiguration?.interactiveLocalTextModelIDs(
-                    availableRuntimeKinds: inferenceState.availableLocalGenerationRuntimeKinds
-                ) ?? []
-            )
-        }
+        inferenceState.setPreparedLocalTextModelIDs([])
         applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
     }
 
@@ -3235,13 +2606,6 @@ final class AppBootstrap {
 
         preparedModelRegistryState.apply(error: error)
         inferenceState.setPreparedLocalTextModelIDs([])
-        localMLXClient.configurePreparedGenerationRuntime(nil)
-        if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
-            localLLMClient.configurePreparedGenerationRuntime(nil)
-            Task { @MainActor in
-                _ = await localLLMClient.refreshRuntimeAvailability()
-            }
-        }
         applyPreparedRetrievalRuntimeConfiguration(nil)
     }
 
@@ -3283,10 +2647,7 @@ final class AppBootstrap {
             searchService.releaseMemoryPressureCaches()
         }
 
-        // Swift-side: MLX inference (model weights + KV cache)
-        var mlxUnloaded = false
-        await localInferenceService.unload()
-        mlxUnloaded = true
+        let mlxUnloaded = false
 
         let after = Self.currentResidentMB()
         let durationMs = Int(Date().timeIntervalSince(start) * 1000)
@@ -3489,14 +2850,11 @@ final class AppBootstrap {
         )
 
         inferenceState.setRoutingMode(.auto)
-        // SS-CHATMODEL P0: Reset Everything re-seeds the headroom-aware foundation Gemma default (the
-        // live chat default), never the hardcoded-Qwen recommendedLocalTextModelID — so a reset never
-        // strands the owner back on Qwen.
-        let resetDefaultModelID = InferenceState.initialDefaultLocalTextModelID(
-            for: inferenceState.hardwareCapabilitySnapshot
-        )
-        inferenceState.setPreferredLocalTextModelID(resetDefaultModelID)
-        inferenceState.setPreferredChatModelSelection(.localMLX(resetDefaultModelID))
+        if let provider = inferenceState.activeCloudProvider ?? inferenceState.preferredAutoRouteCloudProvider {
+            inferenceState.setPreferredChatModelSelection(.cloud(inferenceState.preferredCloudModel(for: provider)))
+        } else {
+            inferenceState.setPreferredChatModelSelection(.appleIntelligence)
+        }
 
         uiState.setActivePanel(.home)
         uiState.needsSetup = false
@@ -3715,9 +3073,6 @@ final class AppBootstrap {
             appActive: appActive ?? (NSApp?.isActive ?? true)
         )
         inferenceState.setLocalRuntimeConditions(conditions)
-        Task(priority: .utility) { [localInferenceService] in
-            await localInferenceService.updateRuntimeConditions(conditions)
-        }
     }
 
     /// Phase R.3 boot activation — initialize the Rust

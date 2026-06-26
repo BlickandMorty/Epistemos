@@ -33,7 +33,6 @@ final class AppleIntelligenceService {
     private var _cachedSessionStorage: AnyObject?
     private var _cachedSessionSystemPrompt: String?
     private var _sessionCreatedAt: Date = .distantPast
-    private let knowledgeProfileStore = KnowledgeProfileStore()
     private let agentProvenanceRecorder: AgentToolProvenanceRecorder
     private let systemPromptResolver: SystemPromptResolver?
     private let thermalClearance: ThermalClearance
@@ -278,18 +277,7 @@ final class AppleIntelligenceService {
     }
 
     private func knowledgeAwareSystemPrompt(from systemPrompt: String?) async -> String? {
-        do {
-            return try await knowledgeProfileStore.augmentedSystemPrompt(
-                existingPrompt: systemPrompt,
-                modelID: "apple-intelligence",
-                budget: .compact
-            )
-        } catch {
-            Self.log.error(
-                "Failed to load Apple Intelligence model vault prompt context: \(error.localizedDescription, privacy: .public)"
-            )
-            return systemPrompt
-        }
+        systemPrompt
     }
 
     private nonisolated static func normalizedSystemPrompt(_ systemPrompt: String?) -> String? {

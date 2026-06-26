@@ -11,7 +11,7 @@ import SwiftUI
 // are read at AppBootstrap time to gate startup behavior.
 //
 // Status: UI shipped + flags persisted. The actual behavioral wiring
-// (graph pause unload, MLX idle delay tuning, ProjectionCache warm-up)
+// (graph pause unload, cache trimming, ProjectionCache warm-up)
 // lands as their respective issues complete:
 // - ISSUE-2026-05-12-005 (graph pauseEngine unload) wires Low Memory
 // - ISSUE-2026-05-12-009 (ProjectionCache) wires Prepared Launch's
@@ -54,17 +54,14 @@ public enum IdleMemoryMode: String, CaseIterable, Sendable {
     public var explanation: String {
         switch self {
         case .keepWarm:
-            return "Keeps the local model warm for several seconds after each turn so back-to-back replies are instant, then releases memory when you pause — the balanced default."
+            return "Keeps vault, graph, search, and editor caches warm for responsive navigation — the balanced default."
         case .lowMemory:
-            return "Releases the local model, graph engine, and Metal pipelines within ~2 seconds of inactivity to minimise idle memory. Resuming after a pause takes 1–2 s."
+            return "Trims search caches, graph resources, and Metal pipelines quickly when the app is idle. Resuming after a pause may take a moment."
         }
     }
 
     /// Apply this mode to the hardware-tuned idle-unload `base` delay. `.keepWarm` preserves the
-    /// balanced default (no change); `.lowMemory` caps it so the model releases promptly. This is the
-    /// wiring that makes the Performance Settings picker actually control idle memory — before it,
-    /// `PerformanceSettingsReader.idleMemoryMode` had zero consumers (a do-nothing-picker whose
-    /// `.keepWarm` copy even falsely claimed the model "stays resident").
+    /// balanced default; `.lowMemory` caps it so cache/resource release paths run promptly.
     public nonisolated func idleUnloadDelay(base: Duration) -> Duration {
         switch self {
         case .keepWarm:
@@ -145,7 +142,7 @@ public struct PerformanceSettingsSection: View {
             Image(systemName: "info.circle")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            Text("Some behaviors are still being wired up. Low Memory currently triggers known release paths (search caches, MLX); graph engine unload + cluster pyramid persistence land with the graph engine upgrade.")
+            Text("Some behaviors are still being wired up. Low Memory currently triggers known search-cache release paths; graph engine unload and cluster pyramid persistence land with the graph engine upgrade.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -174,8 +171,7 @@ public enum PerformanceSettingsReader {
     }
 
     /// Read the current idle memory mode. Safe to call from any thread (UserDefaults read), so
-    /// `nonisolated` — the MLX runtime policy is computed off the main actor.
-    /// Consumed by `MLXInferenceService` to cap the idle-unload delay (`.lowMemory`).
+    /// `nonisolated` consumers can cap idle cache/resource release delays (`.lowMemory`).
     public nonisolated static var idleMemoryMode: IdleMemoryMode {
         let raw = UserDefaults.standard.string(forKey: "epistemos.idle.memoryMode") ?? ""
         return IdleMemoryMode(rawValue: raw) ?? .keepWarm

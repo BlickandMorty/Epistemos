@@ -2,90 +2,44 @@ import Foundation
 import Observation
 import os
 
-struct AgentPortalSessionSummary: Identifiable, Codable, Equatable, Sendable {
-    var id: String
-    var portal: AgentPortalContextSnapshot.Portal
-    var title: String
-    var detail: String
-    var updatedAt: Date
-    var messageCount: Int
-    var promptPreview: String?
-    var portalContext: AgentPortalContextSnapshot
-}
-
 // MARK: - Agent Chat State
-// Dedicated message history and streaming state for Agent Command Center sessions.
-// This is the Agent home state: its own surface with its own
-// conversation thread, per PLAN_V2 line 169. Agent sessions produce tool calls,
-// execution plans, and multi-turn agent loops that differ from lightweight main chat.
+// Minimal non-routed transcript state retained for compile-time callers.
+// The Home/Landing, note, graph, mini, and cloned-agent portal surfaces are removed.
 
 @MainActor @Observable
 final class AgentChatState {
     private let log = Logger(subsystem: "com.epistemos", category: "AgentChatState")
-    private static let maxRecentPortalSessions = 12
 
     // MARK: - Streaming
 
     var isStreaming = false
     var streamingText = ""
-    /// Accumulated thinking-mode deltas for the currently streaming agent turn.
-    /// Populated live as `onThinkingDelta` events arrive so the agent surface
-    /// can show an in-flight "Thinking…" popover just like main chat does,
-    /// rather than appearing frozen during the reasoning phase. Cleared when
-    /// a new agent turn starts or when a turn completes.
     var streamingThinking = ""
     private var postAnswerThinking = ""
-    /// True while the agent is in its thinking phase. Flips to false on the
-    /// first text delta (thinking closes, answer begins) or when the turn
-    /// finalizes without a thinking block.
     var isThinkingActive = false
-    /// Timestamp when thinking started this turn.
     var thinkingStartedAt: Date?
-    /// Timestamp when thinking ended this turn (first text delta).
     var thinkingEndedAt: Date?
-    /// Timestamp when the first visible answer text arrived this turn.
     var visibleAnswerStartedAt: Date?
 
     // MARK: - Session Identity
 
     var activeSessionId: String?
-    var activePortalContext: AgentPortalContextSnapshot?
-    var recentPortalSessions: [AgentPortalSessionSummary] = []
 
-    // MARK: - In-memory messages (current agent session)
+    // MARK: - In-memory messages
 
     var messages: [ChatMessage] = []
     var hasMessages = false
 
-    // MARK: - Agent-Specific State
+    // MARK: - Tool State
 
-    /// Active tool executions shown inline in the agent response stream.
     var activeToolName: String?
-    /// Live tool-input JSON for the currently-running tool call — mirrors
-    /// Active tool input JSON so the agent surface can drive the
-    /// same ToolActivityNarrator (web.search → "Searching the web for
-    /// 'X'…" etc.). Cleared on completion / error.
     var activeToolInputJson: String?
-
-    /// Pending content blocks (tool uses and results) for the current response.
     var pendingContentBlocks: [MessageContentBlock] = []
-
-    /// Whether the agent is currently executing (vs just streaming text).
     var isAgentExecuting = false
-
-    /// Number of agent turns completed in current session.
     var agentTurnCount = 0
-
-    /// Tool execution history for this session (feeds inspector Execution tab).
     var toolHistory: [ACCToolExecutionRecord] = []
-
-    /// Execution plan summary from the overseer (feeds inspector Plan tab).
     var executionPlanSummary: String?
-
-    /// Editable document mirrored into the plan inspector tab.
     var planDocumentText: String = ""
-
-    /// Last completed assistant response, used to sync plan-like output into the side panel.
     var lastCompletedAssistantResponse: String?
 
     // MARK: - Context Tracking
@@ -101,14 +55,8 @@ final class AgentChatState {
     // MARK: - Dependencies
 
     weak var eventBus: EventBus?
-
-    /// Called when the user presses Stop.
     var onStopRequested: (@MainActor () -> Void)?
-
-    /// Called whenever the new AgentClone/fusion transcript records a durable
-    /// user, assistant, or error message. AppBootstrap owns the SwiftData write
-    /// so this state does not recreate the deleted chat coordinator backend.
-    var onMessageRecorded: (@MainActor (ChatMessage, AgentPortalContextSnapshot?) -> Void)?
+    var onMessageRecorded: (@MainActor (ChatMessage) -> Void)?
 
     // MARK: - Streaming Buffer
 
@@ -135,25 +83,17 @@ final class AgentChatState {
     @ObservationIgnored
     private var hasExplicitThinkingTrace = false
 
-    // MARK: - Init
-
     init() {}
 
     // MARK: - Session Lifecycle
 
-    /// Start a new agent session. Creates a fresh session ID and clears prior state.
-    func startNewSession(portalContext: AgentPortalContextSnapshot? = nil) {
+    func startNewSession() {
         streamBuffer.reset(releaseCapacity: true)
         messages = []
         hasMessages = false
         streamingText.removeAll(keepingCapacity: false)
         isStreaming = false
-        let sessionId = UUID().uuidString
-        activeSessionId = sessionId
-        activePortalContext = (portalContext ?? .main(
-            vaultRootPath: nil,
-            workspacePath: nil
-        )).withSessionId(sessionId)
+        activeSessionId = UUID().uuidString
         pendingContentBlocks = []
         activeToolName = nil
         activeToolInputJson = nil
@@ -165,126 +105,27 @@ final class AgentChatState {
         estimatedContextTokens = 0
         resetThinkingState()
         thinkTagRouter = ThinkTagStreamRouter()
-        recordActivePortalSession()
-        log.info("[AgentChat] New session: \(self.activeSessionId ?? "nil")")
-    }
-
-    /// Selects a shared portal context from the bounded recent-session rail.
-    /// This intentionally does not fake transcript persistence for a previous
-    /// session; it reactivates the AgentClone/fusion context and clears
-    /// transient streaming state unless the selected session is already loaded.
-    func activatePortalSession(_ summary: AgentPortalSessionSummary) {
-        let keepsLoadedTranscript = activeSessionId == summary.id
-        let portalContext = summary.portalContext.withSessionId(summary.id)
-
-        streamBuffer.reset(releaseCapacity: true)
-        activeSessionId = summary.id
-        activePortalContext = portalContext
-        streamingText.removeAll(keepingCapacity: false)
-        isStreaming = false
-        pendingContentBlocks = []
-        activeToolName = nil
-        activeToolInputJson = nil
-        isAgentExecuting = false
-        resetThinkingState()
-        thinkTagRouter = ThinkTagStreamRouter()
-
-        if !keepsLoadedTranscript {
-            messages = []
-            hasMessages = false
-            agentTurnCount = 0
-            toolHistory = []
-            executionPlanSummary = nil
-            resetPlanDocument()
-            estimatedContextTokens = 0
-        }
-
-        let activatedSummary = AgentPortalSessionSummary(
-            id: summary.id,
-            portal: portalContext.portal,
-            title: summary.title,
-            detail: summary.detail,
-            updatedAt: .now,
-            messageCount: keepsLoadedTranscript ? messages.count : summary.messageCount,
-            promptPreview: summary.promptPreview,
-            portalContext: portalContext
-        )
-        promoteRecentPortalSession(activatedSummary)
-    }
-
-    /// Opens a Note/Graph/Mini/Landing portal into the shared AgentClone-backed
-    /// session spine. Portals with no explicit session adopt the current
-    /// session instead of creating a private chat engine.
-    func openPortalContext(_ portalContext: AgentPortalContextSnapshot) {
-        guard activeSessionId != nil || portalContext.sessionId != nil else {
-            startNewSession(portalContext: portalContext)
-            return
-        }
-
-        let targetSessionId = portalContext.sessionId ?? activeSessionId ?? UUID().uuidString
-        let keepsLoadedTranscript = activeSessionId == targetSessionId
-        activeSessionId = targetSessionId
-        activePortalContext = portalContext.withSessionId(targetSessionId)
-
-        if !keepsLoadedTranscript {
-            streamBuffer.reset(releaseCapacity: true)
-            messages = []
-            hasMessages = false
-            streamingText.removeAll(keepingCapacity: false)
-            isStreaming = false
-            pendingContentBlocks = []
-            activeToolName = nil
-            activeToolInputJson = nil
-            isAgentExecuting = false
-            agentTurnCount = 0
-            toolHistory = []
-            executionPlanSummary = nil
-            resetPlanDocument()
-            estimatedContextTokens = 0
-            resetThinkingState()
-            thinkTagRouter = ThinkTagStreamRouter()
-        }
-
-        recordActivePortalSession(promptPreview: portalContext.promptPreview)
+        log.info("[AgentChat] New inert session: \(self.activeSessionId ?? "nil")")
     }
 
     // MARK: - Message Management
 
-    func submitAgentQuery(_ query: String, portalContext: AgentPortalContextSnapshot? = nil) {
+    func submitAgentQuery(_ query: String) {
         let sessionId = activeSessionId ?? {
             let id = UUID().uuidString
             activeSessionId = id
             return id
         }()
-        let resolvedPortalContext: AgentPortalContextSnapshot
-        if let portalContext {
-            resolvedPortalContext = portalContext.withSessionId(sessionId)
-            activePortalContext = resolvedPortalContext
-        } else if let activePortalContext {
-            resolvedPortalContext = activePortalContext.withSessionId(sessionId)
-            self.activePortalContext = resolvedPortalContext
-        } else {
-            resolvedPortalContext = AgentPortalContextSnapshot.main(
-                sessionId: sessionId,
-                vaultRootPath: nil,
-                workspacePath: nil
-            )
-            activePortalContext = resolvedPortalContext
-        }
 
         let userMessage = ChatMessage(
             id: UUID().uuidString,
             chatId: sessionId,
             role: .user,
-            content: query,
-            contextAttachments: resolvedPortalContext.contextAttachments.isEmpty
-                ? nil
-                : resolvedPortalContext.contextAttachments
+            content: query
         )
         messages.append(userMessage)
         hasMessages = true
-        onMessageRecorded?(userMessage, resolvedPortalContext)
-        recordActivePortalSession(promptPreview: query)
+        onMessageRecorded?(userMessage)
         streamBuffer.reset(releaseCapacity: true)
         streamingText.removeAll(keepingCapacity: false)
         isStreaming = false
@@ -325,10 +166,6 @@ final class AgentChatState {
         routeFallbackVisibleChunkIfNeeded(fromRawVisibleChunk: emit.visible, scheduleFlush: true)
     }
 
-    /// Accumulate a live thinking delta for the streaming agent turn.
-    /// The first delta starts the popover (isThinkingActive = true +
-    /// thinkingStartedAt); subsequent deltas append to streamingThinking so
-    /// the UI can render the reasoning live instead of a blank spinner.
     func appendStreamingThinking(_ text: String, explicit: Bool = false) {
         if explicit {
             hasExplicitThinkingTrace = true
@@ -347,14 +184,11 @@ final class AgentChatState {
         )
     }
 
-    /// Convenience: classify an Error through UserFacingChatError and
-    /// record both the user-facing copy AND the typed kind.
     func addErrorMessage(from error: Error) {
         let kind = UserFacingChatError.classify(error)
         addErrorMessage(UserFacingChatError.message(from: error), kind: kind)
     }
 
-    /// Reset all thinking-popover state between turns.
     func resetThinkingState() {
         streamingThinking.removeAll(keepingCapacity: false)
         postAnswerThinking.removeAll(keepingCapacity: false)
@@ -468,7 +302,6 @@ final class AgentChatState {
             isError: isError
         ))
 
-        // Add to history for inspector
         let toolName = activeToolName ?? "unknown"
         toolHistory.append(ACCToolExecutionRecord(
             toolName: toolName,
@@ -520,24 +353,15 @@ final class AgentChatState {
         let artifacts = ArtifactExtractor.extract(from: answerText)
         let authorship = inferAgentAuthorship(resolvedModelLabel: resolvedModelLabel)
 
-        // Silent-empty-reply guard: a turn with no text, no tool-use blocks,
-        // and no artifacts has nothing for the user to see. Surface a
-        // concrete error rather than a ghost assistant bubble.
         let trimmedAnswer = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasVisibleContent = !trimmedAnswer.isEmpty
             || !completedBlocks.isEmpty
             || !artifacts.isEmpty
         guard hasVisibleContent else {
             log.error("[AgentChat] Empty stream in session \(sessionId); surfacing as error")
-            streamBuffer.reset(releaseCapacity: true)
-            streamingText.removeAll(keepingCapacity: false)
-            isStreaming = false
-            pendingContentBlocks = []
-            activeToolName = nil
-            activeToolInputJson = nil
-            isAgentExecuting = false
+            resetAfterTurn()
             addErrorMessage(
-                "No response received. The tools run returned an empty stream — try again or switch models."
+                "No response received. The tools run returned an empty stream - try again or switch models."
             )
             return
         }
@@ -555,35 +379,18 @@ final class AgentChatState {
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
             thinkingDurationSeconds: thinkingDurationSeconds,
-            // V6.2 Option B: stamp the audit-channel packet id (nil on
-            // legacy paths or when no AnswerPacket was emitted for this
-            // turn — e.g. cancelled / interrupted completions). See
-            // docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md.
             answerPacketId: answerPacketId
         )
 
         messages.append(assistantMessage)
         hasMessages = true
-        onMessageRecorded?(assistantMessage, activePortalContext)
+        onMessageRecorded?(assistantMessage)
         agentTurnCount += 1
         lastCompletedAssistantResponse = answerText
-
-        // Reset streaming state
-        streamBuffer.reset(releaseCapacity: true)
-        streamingText.removeAll(keepingCapacity: false)
-        isStreaming = false
-        pendingContentBlocks = []
-        activeToolName = nil
-        activeToolInputJson = nil
-        isAgentExecuting = false
-        resetThinkingState()
-        thinkTagRouter = ThinkTagStreamRouter()
-
-        // Update context estimate
         estimatedContextTokens = messages.reduce(0) { $0 + $1.content.count } / 4
-        recordActivePortalSession()
+        resetAfterTurn()
 
-        log.info("[AgentChat] Completed turn \(self.agentTurnCount) in session \(sessionId)")
+        log.info("[AgentChat] Completed inert turn \(self.agentTurnCount) in session \(sessionId)")
     }
 
     @discardableResult
@@ -626,17 +433,7 @@ final class AgentChatState {
             || !completedBlocks.isEmpty
             || !artifacts.isEmpty
 
-        defer {
-            streamBuffer.reset(releaseCapacity: true)
-            streamingText.removeAll(keepingCapacity: false)
-            isStreaming = false
-            pendingContentBlocks = []
-            activeToolName = nil
-            activeToolInputJson = nil
-            isAgentExecuting = false
-            resetThinkingState()
-            thinkTagRouter = ThinkTagStreamRouter()
-        }
+        defer { resetAfterTurn() }
 
         guard hasVisibleContent else { return false }
 
@@ -657,11 +454,10 @@ final class AgentChatState {
 
         messages.append(assistantMessage)
         hasMessages = true
-        onMessageRecorded?(assistantMessage, activePortalContext)
+        onMessageRecorded?(assistantMessage)
         agentTurnCount += 1
         lastCompletedAssistantResponse = answerText
         estimatedContextTokens = messages.reduce(0) { $0 + $1.content.count } / 4
-        recordActivePortalSession()
         return true
     }
 
@@ -682,15 +478,7 @@ final class AgentChatState {
         if activeSessionId == nil {
             activeSessionId = sessionId
         }
-        if activePortalContext == nil {
-            activePortalContext = AgentPortalContextSnapshot.main(
-                sessionId: sessionId,
-                vaultRootPath: nil,
-                workspacePath: nil
-            )
-        }
-        onMessageRecorded?(errorMessage, activePortalContext?.withSessionId(sessionId))
-        recordActivePortalSession(promptPreview: message)
+        onMessageRecorded?(errorMessage)
         streamBuffer.reset(releaseCapacity: true)
         streamingText.removeAll(keepingCapacity: false)
         isStreaming = false
@@ -712,7 +500,6 @@ final class AgentChatState {
         streamingText.removeAll(keepingCapacity: false)
         isStreaming = false
         activeSessionId = nil
-        activePortalContext = nil
         pendingContentBlocks = []
         activeToolName = nil
         activeToolInputJson = nil
@@ -767,60 +554,16 @@ final class AgentChatState {
         lastAutoPlanDocumentText = text
     }
 
-    // MARK: - Helpers
-
-    private func recordActivePortalSession(promptPreview: String? = nil) {
-        guard let sessionId = activeSessionId else { return }
-        let existing = recentPortalSessions.first { $0.id == sessionId }
-        let portalContext = (activePortalContext ?? .main(
-            sessionId: sessionId,
-            vaultRootPath: nil,
-            workspacePath: nil
-        )).withSessionId(sessionId)
-        activePortalContext = portalContext
-
-        let summary = AgentPortalSessionSummary(
-            id: sessionId,
-            portal: portalContext.portal,
-            title: Self.clippedSessionTitle(portalContext.title ?? portalContext.portal.label),
-            detail: Self.clippedSessionDetail(portalContext.bridgePresentation),
-            updatedAt: .now,
-            messageCount: messages.count,
-            promptPreview: Self.clippedPromptPreview(
-                promptPreview ?? portalContext.promptPreview ?? existing?.promptPreview
-            ),
-            portalContext: portalContext
-        )
-
-        recentPortalSessions.removeAll { $0.id == sessionId }
-        promoteRecentPortalSession(summary)
-    }
-
-    private func promoteRecentPortalSession(_ summary: AgentPortalSessionSummary) {
-        recentPortalSessions.removeAll { $0.id == summary.id }
-        recentPortalSessions.insert(summary, at: 0)
-        if recentPortalSessions.count > Self.maxRecentPortalSessions {
-            recentPortalSessions.removeLast(recentPortalSessions.count - Self.maxRecentPortalSessions)
-        }
-    }
-
-    private static func clippedSessionTitle(_ value: String) -> String {
-        clipped(value, limit: 80)
-    }
-
-    private static func clippedSessionDetail(_ value: String) -> String {
-        clipped(value, limit: 160)
-    }
-
-    private static func clippedPromptPreview(_ value: String?) -> String? {
-        guard let value else { return nil }
-        return clipped(value, limit: 120)
-    }
-
-    private static func clipped(_ value: String, limit: Int) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > limit else { return trimmed }
-        return String(trimmed.prefix(limit - 3)) + "..."
+    private func resetAfterTurn() {
+        streamBuffer.reset(releaseCapacity: true)
+        streamingText.removeAll(keepingCapacity: false)
+        isStreaming = false
+        pendingContentBlocks = []
+        activeToolName = nil
+        activeToolInputJson = nil
+        isAgentExecuting = false
+        resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
     }
 
     private func inferAgentAuthorship(resolvedModelLabel: String?) -> (providerID: String?, modelID: String?) {

@@ -886,19 +886,18 @@ final class TextCapturePipeline {
 
     // MARK: - Audio Capture Entry Point
 
-    /// Runs the capture pipeline on transcribed audio output.
-    /// This is the plug-in point for AudioTranscriber → capture pipeline.
+    /// Runs the capture pipeline on already-transcribed text.
     /// The transcribed text flows through the same extraction/persist/graph/trace
     /// path as typed text capture.
     ///
     /// - Parameters:
-    ///   - transcription: The transcribed audio result from AudioTranscriber.
+    ///   - transcription: Plain transcribed text.
     ///   - modelContext: SwiftData context for persistence. Pass nil for dry run.
     func runFromAudio(
-        transcription: TranscribedAudio,
+        transcription: String,
         modelContext: ModelContext? = nil
     ) async throws -> CaptureResult {
-        let rawText = transcription.fullText
+        let rawText = transcription
         if rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw TextCaptureError.emptyCapture
         }

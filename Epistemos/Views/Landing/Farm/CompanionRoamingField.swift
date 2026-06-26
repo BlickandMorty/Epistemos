@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Landing-only agent shelf for active companions.
+/// Landing-only shelf for active companions.
 ///
-/// The field is deliberately local to the Landing surface: agents stay in a
+/// The field is deliberately local to the Landing surface: companions stay in a
 /// compact top-right cluster. They do not roam, walk, or own periodic clocks
 /// while the Landing page is idle.
 struct CompanionRoamingField: View {
@@ -17,7 +17,7 @@ struct CompanionRoamingField: View {
 
     nonisolated private static let nodeSize: CGFloat = 38
     nonisolated private static let tileSpan: CGFloat = 46
-    nonisolated private static let maxVisibleAgents: Int = 6
+    nonisolated private static let maxVisibleCompanions: Int = 6
     nonisolated private static let breathingRefreshInterval: TimeInterval = 0.75
     nonisolated private static let staticSampleDate = Date(timeIntervalSinceReferenceDate: 0)
 
@@ -40,7 +40,7 @@ struct CompanionRoamingField: View {
 
     @ViewBuilder
     private func nodes(at date: Date, in size: CGSize) -> some View {
-        let visibleEntries = Array(entries.prefix(Self.maxVisibleAgents))
+        let visibleEntries = Array(entries.prefix(Self.maxVisibleCompanions))
         ForEach(visibleEntries.indices, id: \.self) { index in
             let entry = visibleEntries[index]
             companionNode(entry, at: date)
@@ -63,7 +63,7 @@ struct CompanionRoamingField: View {
             showsMetadata: false,
             onActivate: { onActivate(entry) }
         )
-        .help(agentHelpText(for: entry))
+        .help(companionHelpText(for: entry))
         .contextMenu {
             Button {
                 onActivate(entry)
@@ -84,7 +84,7 @@ struct CompanionRoamingField: View {
     }
 
     nonisolated static func fieldHeight(for count: Int) -> CGFloat {
-        let rows = max(1, min(2, (min(max(count, 1), maxVisibleAgents) + 3) / 4))
+        let rows = max(1, min(2, (min(max(count, 1), maxVisibleCompanions) + 3) / 4))
         return CGFloat(rows) * 46.0
     }
 
@@ -93,7 +93,7 @@ struct CompanionRoamingField: View {
         count: Int,
         in size: CGSize
     ) -> CGPoint {
-        let visibleCount = min(max(count, 1), maxVisibleAgents)
+        let visibleCount = min(max(count, 1), maxVisibleCompanions)
         let width = safeDimension(size.width, minimum: tileSpan * CGFloat(min(visibleCount, 4)))
         let height = safeDimension(size.height, minimum: fieldHeight(for: count))
         let paddingX = min(width / 2.0, nodeSize * 0.62)
@@ -112,12 +112,12 @@ struct CompanionRoamingField: View {
         )
     }
 
-    private func agentHelpText(for entry: CompanionRosterEntry) -> String {
+    private func companionHelpText(for entry: CompanionRosterEntry) -> String {
         let status = entry.id == activeCompanionID ? "Active" : "Available"
         if entry.tagline.isEmpty {
-            return "\(status) agent: \(entry.name)"
+            return "\(status) companion: \(entry.name)"
         }
-        return "\(status) agent: \(entry.name) — \(entry.tagline)"
+        return "\(status) companion: \(entry.name) — \(entry.tagline)"
     }
 
     nonisolated private static func safeDimension(_ value: CGFloat, minimum: CGFloat) -> CGFloat {

@@ -186,10 +186,9 @@ struct ProcessMemoryHealthRow: View {
     private func reportSummary(_ report: AppBootstrap.IdleUnloadReport) -> String {
         // Compact one-line summary so the row stays short. Detail is
         // available in Console.app under com.epistemos.app.Log.app.
-        let mlx = report.mlxUnloaded ? "MLX✓" : "MLX⨯"
         let search = report.searchCachesReleased ? "Search✓" : "Search⨯"
         let rust = "Rust\(report.rustSegmentsEvicted)seg/\(report.rustSessionsPruned)sess"
-        return "Freed \(report.mbFreed) MB · \(mlx) · \(search) · \(rust) · \(report.durationMs) ms"
+        return "Freed \(report.mbFreed) MB · \(search) · \(rust) · \(report.durationMs) ms"
     }
 
     private var iconName: String {

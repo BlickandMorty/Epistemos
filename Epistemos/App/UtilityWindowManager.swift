@@ -95,18 +95,16 @@ enum WindowThemeStyler {
 
 enum UtilityPanel: String, CaseIterable {
     case notes
-    case agent
     case omega
     case settings
 
     static var statusBarPanels: [UtilityPanel] {
-        [.notes, .agent, .settings]
+        [.notes, .settings]
     }
 
     var title: String {
         switch self {
         case .notes: "Notes"
-        case .agent: "Agent"
         case .omega: "Tools Runtime"
         case .settings: "Settings"
         }
@@ -115,7 +113,6 @@ enum UtilityPanel: String, CaseIterable {
     var icon: String {
         switch self {
         case .notes: "pencil.line"
-        case .agent: "sparkles"
         case .omega: "waveform.path.ecg.rectangle"
         case .settings: "gearshape"
         }
@@ -124,7 +121,6 @@ enum UtilityPanel: String, CaseIterable {
     var defaultSize: NSSize {
         switch self {
         case .notes: NSSize(width: 380, height: 520)
-        case .agent: NSSize(width: 420, height: 560)
         case .omega: NSSize(width: 680, height: 560)
         case .settings: NSSize(width: 900, height: 680)
         }
@@ -133,7 +129,6 @@ enum UtilityPanel: String, CaseIterable {
     var minimumSize: NSSize {
         switch self {
         case .notes: NSSize(width: 300, height: 320)
-        case .agent: NSSize(width: 320, height: 420)
         case .omega: NSSize(width: 420, height: 320)
         case .settings: NSSize(width: 680, height: 420)
         }
@@ -142,7 +137,6 @@ enum UtilityPanel: String, CaseIterable {
     var maximumSize: NSSize? {
         switch self {
         case .notes: NSSize(width: 520, height: 720)
-        case .agent: NSSize(width: 560, height: 760)
         case .omega: nil
         case .settings: NSSize(width: 1040, height: 760)
         }
@@ -157,8 +151,6 @@ enum UtilityPanelChrome {
         switch kind {
         case .notes:
             applySidebarChrome(to: panel)
-        case .agent:
-            applyAgentChrome(to: panel)
         case .omega:
             applyOmegaChrome(to: panel)
         case .settings:
@@ -192,23 +184,6 @@ enum UtilityPanelChrome {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "NotesSidebarToolbar")
-        panel.toolbar = toolbar
-        panel.toolbarStyle = .unifiedCompact
-    }
-
-    @MainActor
-    static func applyAgentChrome(to panel: NSPanel) {
-        panel.styleMask.insert(.fullSizeContentView)
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.hasShadow = true
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        let toolbar = panel.toolbar ?? NSToolbar(identifier: "AgentCompactPortalToolbar")
-        if #unavailable(macOS 15.0) {
-            toolbar.showsBaselineSeparator = false
-        }
         panel.toolbar = toolbar
         panel.toolbarStyle = .unifiedCompact
     }
@@ -360,7 +335,7 @@ final class UtilityWindowManager {
             // surfaces. Do not let SwiftUI's full content height become the
             // NSPanel minimum size; the explicit UtilityPanel min/default
             // sizes are the window contract.
-            if kind == .notes || kind == .agent || kind == .settings {
+            if kind == .notes || kind == .settings {
                 host.sizingOptions = []
             } else {
                 host.sizingOptions = .minSize
@@ -404,12 +379,10 @@ private struct ThemedUtilityRoot: View {
         Group {
             switch kind {
             case .notes: NotesBrowserView()
-            case .agent:
-                AgentCompactPortalView()
             case .omega:
                 OmegaPanel()
             case .settings:
-                SettingsView(authorityStore: bootstrap.agentAuthorityStore)
+                SettingsView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

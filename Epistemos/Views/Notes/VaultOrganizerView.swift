@@ -316,15 +316,13 @@ struct VaultOrganizerView: View {
                 // RCA2-P0-003 (2026-05-13): pin Vault Organizer scans
                 // to the local-first triage path. Without an explicit
                 // operatingMode argument the call would inherit the
-                // ambient default, which can route to cloud for Pro/
-                // Agent users. The user clicks "Scan Vault" expecting
+                // ambient default, which can route outside the organizer's
+                // scope. The user clicks "Scan Vault" expecting
                 // an on-device pass; routing their note titles +
                 // snippets through cloud silently would violate that
                 // intent. `.fast` mode biases the triage toward
-                // localMLX / Apple Intelligence; if neither is
-                // available the call still falls back through the
-                // existing cloud path so the feature remains
-                // functional, but the default surface is local-first.
+                // the lowest-friction local/system path first while preserving
+                // the existing service fallback behavior.
                 let result = try await triage.generateGeneral(
                     prompt: prompt,
                     systemPrompt: nil,
