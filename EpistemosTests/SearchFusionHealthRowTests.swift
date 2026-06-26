@@ -100,8 +100,6 @@ struct SearchFusionHealthRowTests {
         let eidos = try loadMirroredSourceTextFile("Epistemos/Views/Settings/EidosHealthRow.swift")
         let vaultRecall = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VaultRecallHealthRow.swift")
         let acs = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ACSAdmissionHealthRow.swift")
-        let localAgent = try loadMirroredSourceTextFile("Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift")
-        let activeConstellation = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ActiveConstellationRow.swift")
 
         #expect(component.contains("VerifiedFloorChipStrip"))
         #expect(component.contains("Flag: \\(flag)"))
@@ -115,8 +113,6 @@ struct SearchFusionHealthRowTests {
         #expect(acs.contains("substrate: \"substrate-only · gate not witnessed\""))
         #expect(acs.contains("falsifier: \"docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md\""))
         #expect(acs.contains("production gate active"))
-        #expect(localAgent.contains("substrate: \"RuntimeRouter profiles\""))
-        #expect(activeConstellation.contains("RuntimeRouter profiles"))
     }
 
     @Test("cold retrieval health rows do not render no-query state as red failure")

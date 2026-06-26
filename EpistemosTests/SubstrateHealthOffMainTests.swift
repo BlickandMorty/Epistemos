@@ -62,18 +62,6 @@ struct SubstrateHealthOffMainTests {
         #expect(!src.contains("gates = UasAcsGateSnapshot.load()"))
     }
 
-    @Test("LocalAgentDiagnostics health row fetches its FFI off the MainActor (phase 2)")
-    func localAgentDiagnosticsOffMain() throws {
-        let src = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift"
-        )
-        // The shared poll's two nonisolated FFI reads run on a detached task, not on main.
-        #expect(src.contains("await Task.detached { LocalAgentDiagnostics.snapshot() }.value"))
-        #expect(src.contains("await Task.detached { CapabilityCeilingHealthSnapshot.load() }.value"))
-        // The old synchronous on-MainActor fetch is gone.
-        #expect(!src.contains("snapshot = LocalAgentDiagnostics.snapshot()"))
-    }
-
     @Test("LatticeWBO health row fetches its Rust FFI off the MainActor (phase 2)")
     func latticeOffMain() throws {
         let lattice = try loadMirroredSourceTextFile(

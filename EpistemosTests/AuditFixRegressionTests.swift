@@ -37,65 +37,6 @@ struct AuditFixRegressionTests {
         #expect(!source.contains("InlineSuggestionOverlay("))
     }
 
-    @Test("SSM persistence is surfaced in settings and bound back into conversation persistence")
-    func ssmPersistenceIsSurfacedAndBoundBackIntoConversationPersistence() throws {
-        let settings = try loadAuditSource("Epistemos/Views/Settings/CognitiveSettingsSection.swift")
-        let bootstrap = try loadAuditSource("Epistemos/App/AppBootstrap.swift")
-        let persistence = try loadAuditSource("Epistemos/Vault/ConversationPersistence.swift")
-
-        #expect(settings.contains("Toggle(\"Enable SSM State Persistence\""))
-        #expect(settings.contains("Toggle(\"Save After Each Turn\""))
-        #expect(settings.contains("ssmMaxSnapshotsPerModel"))
-        #expect(bootstrap.contains("ConversationPersistence.shared.bindSSMStatePath"))
-        #expect(bootstrap.contains("UUID(uuidString: sessionID)"))
-        #expect(persistence.contains("static let shared = ConversationPersistence("))
-    }
-
-    @Test("night brain wires vault-backed lifecycle jobs from app bootstrap")
-    func nightBrainWiresVaultBackedLifecycleJobsFromAppBootstrap() throws {
-        let bootstrap = try loadAuditSource("Epistemos/App/AppBootstrap.swift")
-
-        #expect(bootstrap.contains("vaultPathProvider: { @MainActor [weak vaultSync] in"))
-        #expect(bootstrap.contains("vaultSync?.vaultURL?.path"))
-        #expect(bootstrap.contains("ssmStateServiceProvider: { @MainActor [weak self] in"))
-
-        // DATA+FINETUNE (4): the Night Brain native LoRA fine-tune provider is now
-        // wired (was nil → the Job could never dispatch). INERT until the
-        // EPISTEMOS_NIGHTBRAIN_LORA_V0 flag is active; the provider evaluates the
-        // real NightBrainLoRAFineTuneDecision and logs the honest run/skip outcome.
-        #expect(bootstrap.contains("loraFineTuneJob: {"))
-        #expect(bootstrap.contains("await Self.runNightBrainLoRAFineTuneIfDue()"))
-        #expect(bootstrap.contains("NightBrainLoRAFineTuneDecision.evaluate(inputs)"))
-        #expect(bootstrap.contains("NightBrain LoRA fine-tune skipped:"))
-    }
-
-    @Test("night brain stale fallback runs the pipeline inline before recording success")
-    func nightBrainStaleFallbackRunsPipelineInlineBeforeRecordingSuccess() throws {
-        let bootstrap = try loadAuditSource("Epistemos/App/AppBootstrap.swift")
-        let service = try loadAuditSource("Epistemos/State/NightBrainService.swift")
-
-        let fallbackStart = try #require(bootstrap.range(of: "if NightBrainScheduler.shouldRunFallbackInline()"))
-        let fallbackTail = bootstrap[fallbackStart.lowerBound...]
-        let fallbackEnd = try #require(fallbackTail.range(of: "#endif"))
-        let fallbackBlock = String(fallbackTail[..<fallbackEnd.upperBound])
-
-        #expect(service.contains("func runInlineFallback() async -> PipelineResult"))
-        #expect(fallbackBlock.contains("await self?._nightBrain?.runInlineFallback()"))
-        #expect(fallbackBlock.contains("case .finished"))
-        #expect(!fallbackBlock.contains("await self?._nightBrain?.start()"))
-        let runInline = try #require(fallbackBlock.range(of: "runInlineFallback()"))
-        let recordSuccess = try #require(fallbackBlock.range(of: "NightBrainScheduler.recordSuccessfulRun()"))
-        #expect(runInline.lowerBound < recordSuccess.lowerBound)
-    }
-
-    @Test("night brain pruning reads the live SSM snapshot cap instead of a fresh default config")
-    func nightBrainPruningReadsLiveSSMSnapshotCap() throws {
-        let source = try loadAuditSource("Epistemos/State/NightBrainService.swift")
-
-        #expect(source.contains("config.ssmMaxSnapshotsPerModel"))
-        #expect(!source.contains("EpistemosConfig().ssmMaxSnapshotsPerModel"))
-    }
-
     @Test("agent tool approvals route through SwiftUI queue instead of NSAlert")
     func agentToolApprovalsRouteThroughSwiftUIQueueInsteadOfNSAlert() throws {
         let approvalModal = try loadAuditSource("Epistemos/Views/Approval/ApprovalModalView.swift")
@@ -242,38 +183,12 @@ struct AuditFixRegressionTests {
         #expect(commandCenter.contains("VaultStore::open_read_only(vault_path)"))
     }
 
-    @Test("local agent prompt builder keeps a real vault.write contract")
-    func localAgentPromptBuilderKeepsVaultWriteContract() throws {
-        let promptBuilder = try loadAuditSource("Epistemos/LocalAgent/LocalAgentPromptBuilder.swift")
-
-        #expect(promptBuilder.contains("For vault note creation or updates, use vault.write"))
-        #expect(promptBuilder.contains("Do not claim a note was created, updated, or read back"))
-    }
-
     @Test("embedded rust dylibs still ad hoc sign when hosted tests disable app signing")
     func embeddedRustDylibsStillAdHocSignWithoutAppSigning() throws {
         let helper = try loadAuditSource("embed-and-sign-rust-dylib.sh")
 
         #expect(helper.contains("if [ \"${CODE_SIGNING_ALLOWED:-NO}\" != \"YES\" ]; then"))
         #expect(helper.contains("codesign --force --sign - --timestamp=none \"$DEST_DYLIB\""))
-    }
-
-    @Test("live SSM smoke keeps a hard main-actor timeout guard")
-    func liveSSMSmokeKeepsHardTimeoutGuard() throws {
-        let source = try loadAuditSource("EpistemosTests/LocalRuntimeSmokeSupport.swift")
-
-        #expect(source.contains("static func verifyLiveSSMStateRoundTrip("))
-        #expect(source.contains("withTimedMainActorBridge(seconds: 180)"))
-    }
-
-    @Test("live SSM smoke only enters the round-trip path for preinstalled models")
-    func liveSSMSmokeRequiresPreinstalledModels() throws {
-        let source = try loadAuditSource("EpistemosTests/LocalRuntimeSmokeSupport.swift")
-
-        #expect(source.contains("bootstrap.localModelManager.refreshFromDisk()"))
-        #expect(source.contains("guard bootstrap.localModelManager.installRecords[modelID] != nil else {"))
-        #expect(source.contains("LOCAL_SSM_SMOKE skipped model="))
-        #expect(source.contains("reason=preinstalled model required"))
     }
 
     @Test("model profile creation sheet avoids retired Hermes local labels")

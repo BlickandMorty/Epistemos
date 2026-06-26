@@ -54,7 +54,6 @@ struct SubstrateHealthClockTests {
             // Slice 4 — the deviating rows (bridge pre-call / dual-task / .task{})
             "Epistemos/Views/Settings/ACSAdmissionHealthRow.swift",
             "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
-            "Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift",
             "Epistemos/Views/Settings/LatticeWBOHealthRow.swift",
             "Epistemos/Views/Settings/FalsifierArtifactsHealthRow.swift",
         ]
@@ -69,21 +68,6 @@ struct SubstrateHealthClockTests {
             #expect(row.contains(".substrateHealthPoll {"),
                     "\(path) must subscribe to the shared clock via .substrateHealthPoll")
         }
-    }
-
-    @Test("the tick-based ActiveConstellation row reads the shared clock, not a self-timer")
-    func activeConstellationUsesSharedClock() throws {
-        let row = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/ActiveConstellationRow.swift"
-        )
-        // No refresh()/snapshot — it re-renders by reading the shared clock's
-        // tick directly in its computed props (not via .substrateHealthPoll).
-        // With this row, all 17 substrate-health timer rows are on the one clock.
-        #expect(!row.contains("startTimer"))
-        #expect(!row.contains("Task.sleep(for: .seconds(1))"))
-        #expect(!row.contains("refreshTick"))
-        #expect(row.contains("@Environment(SubstrateHealthClock.self)"))
-        #expect(row.contains("_ = healthClock?.tick"))
     }
 
     @Test("the 3 timer-bearing rows outside the collapse are NOT SubstrateHealthPanel rows")

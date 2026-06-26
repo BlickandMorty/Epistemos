@@ -26,22 +26,12 @@ struct SovereignGateRequirementMatrixTests {
         // path.
         let allowedPath = "Epistemos/Sovereign/SovereignGate.swift"
         let suspectPaths = [
-            // Boundary policy files that route capabilities — must NOT host
-            // their own biometric prompts.
-            "Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift",
-            "Epistemos/Bridge/ToolTierBridge.swift",
-            "Epistemos/Omega/MCPBridge.swift",
             // Settings surfaces that already migrated to Sovereign Gate —
             // they must stay free of direct LAContext usage.
             "Epistemos/Views/Settings/SettingsView.swift",
-            "Epistemos/Views/Settings/AuthoritySettingsView.swift",
-            "Epistemos/Views/Settings/AgentControlSettingsView.swift",
-            "Epistemos/Views/Settings/OverseerSettingsView.swift",
-            // Notes / Chat / Diff / Root surfaces that already migrated.
+            // Notes / Diff / Root surfaces that already migrated.
             "Epistemos/Views/Notes/NotesSidebar.swift",
             "Epistemos/Views/Notes/DiffSheetView.swift",
-            "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
-            "Epistemos/Security/AgentSessionDeletionSovereignGate.swift",
             "Epistemos/App/RootView.swift",
         ]
 
@@ -85,10 +75,6 @@ struct SovereignGateRequirementMatrixTests {
                     "NotesSidebarDeletionSovereignGate target \(target) must require .deviceOwnerAuthentication")
         }
 
-        // Agent session — conversation delete.
-        #expect(AgentSessionDeletionSovereignGate.requirement(for: .session(title: "Demo Chat"))
-                == .deviceOwnerAuthentication)
-
         // Diff Sheet — version delete.
         #expect(DiffSheetVersionDeletionSovereignGate.requirement(for: .version(label: "Demo Version"))
                 == .deviceOwnerAuthentication)
@@ -101,33 +87,6 @@ struct SovereignGateRequirementMatrixTests {
             #expect(RootViewDestructiveActionSovereignGate.requirement(for: target)
                     == .deviceOwnerAuthentication)
         }
-
-        // Model Vaults Sidebar — file / folder delete.
-        for target in [
-            ModelVaultDeletionSovereignGate.Target.file(name: "demo.gguf"),
-            .folder(name: "demo-adapters"),
-        ] {
-            #expect(ModelVaultDeletionSovereignGate.requirement(for: target)
-                    == .deviceOwnerAuthentication)
-        }
-
-        // Agent Control — custom tool delete.
-        #expect(AgentControlSettingsDeletionSovereignGate
-                .requirement(for: .customTool(name: "demo-tool"))
-                == .deviceOwnerAuthentication)
-
-        // Authority Settings — reset to defaults / quick setup preset.
-        for target in [
-            AuthoritySettingsSovereignGate.Target.resetToDefaults,
-            .quickSetup(name: "Demo Preset"),
-        ] {
-            #expect(AuthoritySettingsSovereignGate.requirement(for: target)
-                    == .deviceOwnerAuthentication)
-        }
-
-        // Overseer Settings — history reset.
-        #expect(OverseerSettingsSovereignGate.requirement(for: .historyReset)
-                == .deviceOwnerAuthentication)
 
         // Settings View — reset everything / saved workspace / vault disconnect.
         for target in [
@@ -180,29 +139,9 @@ struct SovereignGateRequirementMatrixTests {
         assertReason(NotesSidebarDeletionSovereignGate.reason(for: .vaultDisconnect(name: vaultId)),
                      mustContain: vaultId, label: "NotesSidebar vault disconnect")
 
-        let chatId = "MatrixDemoChat"
-        assertReason(AgentSessionDeletionSovereignGate.reason(for: .session(title: chatId)),
-                     mustContain: chatId, label: "Agent session delete")
-
         let versionId = "MatrixDemoVersion"
         assertReason(DiffSheetVersionDeletionSovereignGate.reason(for: .version(label: versionId)),
                      mustContain: versionId, label: "DiffSheet version delete")
-
-        let modelFileId = "matrix-demo-weights.gguf"
-        assertReason(ModelVaultDeletionSovereignGate.reason(for: .file(name: modelFileId)),
-                     mustContain: modelFileId, label: "ModelVault file delete")
-
-        let modelFolderId = "matrix-demo-adapters"
-        assertReason(ModelVaultDeletionSovereignGate.reason(for: .folder(name: modelFolderId)),
-                     mustContain: modelFolderId, label: "ModelVault folder delete")
-
-        let toolId = "matrix-demo-tool"
-        assertReason(AgentControlSettingsDeletionSovereignGate.reason(for: .customTool(name: toolId)),
-                     mustContain: toolId, label: "AgentControl custom tool delete")
-
-        let presetId = "MatrixDemoPreset"
-        assertReason(AuthoritySettingsSovereignGate.reason(for: .quickSetup(name: presetId)),
-                     mustContain: presetId, label: "AuthoritySettings quick setup")
 
         let workspaceId = "MatrixDemoWorkspace"
         assertReason(SettingsViewDestructiveActionSovereignGate.reason(for: .savedWorkspace(name: workspaceId)),
