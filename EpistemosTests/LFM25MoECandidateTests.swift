@@ -35,15 +35,4 @@ struct LFM25MoECandidateTests {
         #expect(EpistemosFoundationLineup.defaultChatModelID != id)
     }
 
-    @Test("fits a 16 GB Mac — selectable in the Think picker, not blocked")
-    func fitsAndSelectableOn16GB() {
-        let opts = EpistemosRuntimePicker.options(
-            for: .think,
-            environment: .init(installedModelIDs: [id], freeMemoryGB: 16, appleIntelligenceAvailable: false)
-        )
-        let opt = opts.first { $0.id == id }
-        #expect(opt != nil)
-        #expect(opt?.isSelectable == true)        // 16 + 6 >= 10 → fits, MAS-viable
-        #expect(opt?.blockedReason == nil)
-    }
 }

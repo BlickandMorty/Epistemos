@@ -232,7 +232,7 @@ struct GraphEpdocDocPreviewCard: View {
             let manifestURL = packageURL.appendingPathComponent(EpdocPackageEntry.manifest)
             if let data = try? Data(contentsOf: manifestURL),
                let manifest = try? JSONDecoder.epdocCanonical.decode(EpdocManifest.self, from: data) {
-                resolvedTitle = manifest.title ?? ""
+                resolvedTitle = manifest.title
             }
             let plainURL = packageURL
                 .appendingPathComponent(EpdocPackageEntry.projections)

@@ -58,6 +58,7 @@ struct GraphWorkspaceContainer: View {
 
             graphHTMLWorkspaceDockLayer
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .modifier(EmbeddedGraphRouteChrome(
             isEnabled: graphSurfacePresentation.isEmbeddedHome,
             theme: theme

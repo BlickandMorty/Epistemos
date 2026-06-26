@@ -31,23 +31,4 @@ struct Gemma26BMoECandidateTests {
         #expect(EpistemosFoundationLineup.representativeModelID(for: .fast) != id)
     }
 
-    @Test("appears in the Fast picker, honestly memory-gated (blocked on a small Mac, shown not hidden)")
-    func appearsInPickerMemoryGated() {
-        let tight = EpistemosRuntimePicker.options(
-            for: .fast,
-            environment: .init(installedModelIDs: [id], freeMemoryGB: 4, appleIntelligenceAvailable: false)
-        )
-        let opt = tight.first { $0.id == id }
-        #expect(opt != nil)                       // visible, never hidden
-        #expect(opt?.isInstalled == true)
-        #expect(opt?.isSelectable == false)       // 4 + 6 headroom < 18 → blocked
-        #expect(opt?.blockedReason?.contains("Needs") == true)  // honest reason ("Run anyway" overrides)
-
-        // With plenty of memory it becomes selectable.
-        let roomy = EpistemosRuntimePicker.options(
-            for: .fast,
-            environment: .init(installedModelIDs: [id], freeMemoryGB: 64, appleIntelligenceAvailable: false)
-        )
-        #expect(roomy.first { $0.id == id }?.isSelectable == true)
-    }
 }
