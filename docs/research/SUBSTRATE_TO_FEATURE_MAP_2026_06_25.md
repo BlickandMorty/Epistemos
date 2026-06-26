@@ -111,6 +111,27 @@ So **the memory-intensive / model-side IP is Chat-only by PHYSICS, not policy** 
 
 **Fastest path to "I finally see my IP working":** fix the build → redirect `eidos.query` to the real engine + add `graph.dag_query`/`provenance.query` → flip flags → `tools/call` them over Work's loopback MCP → watch real closed-citation + DAG + provenance results come back. That single loop proves the whole plane, and then Chat (AgentClone's own MCP client) and Act (once Goose-MCP is wired) get the same tools for free.
 
+## §1d Can you fuse the three into "one OS"? (the fusion spectrum + phases)
+**One process, everything native = NO** — that's rewriting Goose (Rust + `goosed` + Electron) and OpenCode (Bun) into your Swift process, i.e. the exact "impossible native rewrite" the federation plan rejects. But "one OS" has three *achievable* meanings, escalating:
+
+| Level | "Fused" means | How | Web surfaces get… |
+|---|---|---|---|
+| **L0 (today)** | shared **tools** | MCP (`epistemos-native`) | Class A IP (serialized results) |
+| **L1** | shared **model** | a local **OpenAI-compatible server** (the osaurus pattern) exposing your MLX/GGUF model + LoRA adapters; Goose/OpenCode point their *provider* at it | **your fine-tuned model + adapters** — no process/memory fusion |
+| **L2** | shared **memory** | **IOSurface / mmap / XPC shared regions** — the in-process app owns the KV/tensors/Neural-Cache in a shareable region + passes a handle to the subprocess | true **zero-copy Class B** across the boundary (your XPC-Mastery doctrine) |
+| **L3** | shared **runtime** | converge on **System G / agent_core** as the ONE agent runtime all three UIs drive; donors demoted to engines | everything from one runtime; UIs are front-ends |
+| **L4 (reject)** | one process, all native | rewrite the donors | — (the failure mode) |
+
+**Pragmatic truth: you mostly DON'T need L2/L3.** Web surfaces want *results*, not raw memory — they don't need zero-copy access to your KV cache, they need the recall/citation *result* (MCP handles that). The one thing worth fusing is the **model**: to make all three surfaces use your *local fine-tuned model + overnight adapters*, do it at **L1** — expose your model as a local OpenAI-compatible server, point Goose + OpenCode at it as a provider. That's "all three run my brain" with **no process or memory fusion**, and it's the **MAS-safe osaurus-server unlock** you already scoped.
+
+**Best next phases:**
+1. **Now:** L0 — ship the MCP tool plane (Class A, all three).
+2. **Next (highest leverage, MAS-safe):** L1 — local OpenAI-compatible model server; point Goose + OpenCode providers at it → all three use your model + adapters.
+3. **Later (only if a capability truly needs cross-process zero-copy):** L2 — IOSurface/XPC shared memory for that one thing. Pro/design-phase.
+4. **Long-horizon:** L3 — System G / agent_core becomes the one brain; donors become swappable engines.
+
+You reach "one OS" by **shared tools + shared model + (eventually) shared runtime** — by erosion, never by forcing three runtimes into one process.
+
 ## §2 Keep as PLUMBING (do NOT surface as a feature yet — promote later, one slice at a time)
 - **System G runtime / RuntimeRouter** — the engine under the provenance spine + Chat's lane selection. Surface the *output* (AnswerPacket), not the router.
 - **SSM / Mamba-2** (`ssm_state.rs`, Phase 1A) + **UAS / AppColdStore / cold-assembly** + the **5 HELIOS Metal kernels** (PageGather etc., W-41, dense-restore still failing) — these are the *reasoning backbone + memory transport* under Chat's local model. Invisible. Promote individually behind falsifiers.
