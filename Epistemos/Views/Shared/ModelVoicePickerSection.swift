@@ -4,10 +4,9 @@ import SwiftUI
 
 // MARK: - ModelVoicePickerSection
 //
-// Wave 9.1.b — per-model voice picker. Drop into any model-profile
-// detail view to let the user pick the AVSpeechSynthesisVoice that
-// will be used when this profile's responses are read aloud, plus
-// rate / pitch sliders + a "Hear preview" button.
+// Wave 9.1.b — voice picker. Drop into a settings surface to let the user
+// pick the AVSpeechSynthesisVoice that will be used when responses are read
+// aloud, plus rate / pitch sliders + a "Hear preview" button.
 //
 // The picker is grouped by quality tier (Premium > Enhanced >
 // Default) and language, so the user can see at a glance which
@@ -16,9 +15,8 @@ import SwiftUI
 // installed yet — Apple gates Premium voice downloads behind that
 // pane and there is no programmatic install API.
 //
-// Bindings are deliberately untyped (String? + Double) so the
-// SwiftData @Model objects can pass field bindings directly without
-// the wrapper view caring about the underlying SDModelProfile shape.
+// Bindings are deliberately primitive (String? + Double) so callers can wire
+// persistent or preview-only state without this view owning storage.
 
 @MainActor
 public struct ModelVoicePickerSection: View {

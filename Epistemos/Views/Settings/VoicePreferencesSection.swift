@@ -53,7 +53,7 @@ public struct VoicePreferencesSection: View {
             // wire-OR-remove they are REMOVED rather than shown as for-show controls — a shown
             // do-nothing toggle is fake. brainDumpHotkeyDictate has no dictation-start seam to gate;
             // perModelVoicePersona is superseded by the SS-QC global default voice (one voice across
-            // every TTS surface) and would need SwiftData/ModelProfileManager access this view lacks.
+            // every TTS surface) and the old model-profile layer has been retired.
             // The VoicePreferences keys/defaults remain (harmless) for any future wiring.
             row(
                 title: "Read each sentence aloud in Quick Capture",
