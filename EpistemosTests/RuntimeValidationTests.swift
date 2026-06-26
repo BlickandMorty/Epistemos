@@ -2673,16 +2673,17 @@ struct RuntimeValidationTests {
         #expect(root.contains("systemImage: provider.systemImage"))
     }
 
-    @Test("provider setup guidance extends into the picker messaging and onboarding")
-    func providerSetupAutomationExtendsBeyondSettings() throws {
+    @Test("provider setup guidance stays out of first-run onboarding")
+    func providerSetupGuidanceStaysOutOfFirstRunOnboarding() throws {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let setupAssistant = try loadRepoTextFile("Epistemos/Views/Onboarding/SetupAssistantView.swift")
         let sharedCard = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
 
         #expect(root.contains("Button(\"Open Settings\")"))
         #expect(root.contains("\"Connect a cloud provider in Settings → Inference to give the chat stack a cloud escalation path.\""))
-        #expect(setupAssistant.contains("CloudProviderSetupCard("))
-        #expect(setupAssistant.contains("ForEach(CloudModelProvider.preferredOrder"))
+        #expect(!setupAssistant.contains("CloudProviderSetupCard("))
+        #expect(!setupAssistant.contains("ForEach(CloudModelProvider.preferredOrder"))
+        #expect(!setupAssistant.contains("Cloud AI"))
         #expect(sharedCard.contains("provider.accountActionTitle"))
         #expect(sharedCard.contains("provider.manualCredentialTitle"))
         #expect(sharedCard.contains("Button(\"Paste + Save\")"))

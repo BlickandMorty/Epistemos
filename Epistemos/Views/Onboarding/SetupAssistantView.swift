@@ -4,12 +4,11 @@ import SwiftUI
 
 /// First-run setup wizard that guides the user through essential configuration.
 /// Shows automatically on first launch.
-/// Steps: 1) Welcome -> 2) Vault -> 3) Foundation -> 4) Cloud Providers -> 5) Done
+/// Steps: 1) Welcome -> 2) Vault -> 3) Foundation -> 4) Done
 struct SetupAssistantView: View {
     private static let stepTransition = Animation.spring(response: 0.35, dampingFraction: 0.85)
 
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -24,17 +23,6 @@ struct SetupAssistantView: View {
     private var theme: EpistemosTheme { ui.theme }
     private var bodyFont: Font { .system(size: 12, weight: .regular, design: .monospaced) }
     private var captionFont: Font { .system(size: 10, weight: .medium, design: .monospaced) }
-
-    private var selectedCloudSetupProvider: CloudModelProvider {
-        inference.activeCloudProvider ?? .google
-    }
-
-    private var cloudSetupProviderBinding: Binding<CloudModelProvider> {
-        Binding(
-            get: { selectedCloudSetupProvider },
-            set: { inference.setActiveAIProvider(AIProviderSelection(cloudProvider: $0)) }
-        )
-    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -54,7 +42,6 @@ struct SetupAssistantView: View {
                     case .welcome: welcomeStep
                     case .vault: vaultStep
                     case .model: modelStep
-                    case .agentRuntime: agentRuntimeStep
                     case .done: doneStep
                     }
                 }
@@ -204,70 +191,11 @@ struct SetupAssistantView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
+                Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .done } }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
-                Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
+                Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .done } }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
             }
-        }
-        .padding(.vertical, 24)
-    }
-
-    // MARK: - Cloud AI Setup
-
-    @ViewBuilder
-    private var agentRuntimeStep: some View {
-        VStack(spacing: 16) {
-            SetupPixelGlyph(kind: .cloud, tint: .blue)
-            Text("Cloud AI (Optional)")
-                .font(AppDisplayTypography.font(size: 20))
-                .foregroundStyle(theme.fontAccent)
-            Text("Connect a cloud AI provider for advanced capabilities like tool use, deep research, and extended reasoning.")
-                .font(bodyFont)
-                .foregroundStyle(theme.textSecondary)
-                .multilineTextAlignment(.center)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Cloud AI Provider")
-                        .font(captionFont)
-                        .foregroundStyle(theme.fontAccent)
-
-                    Picker("Cloud AI Provider", selection: cloudSetupProviderBinding) {
-                        ForEach(CloudModelProvider.preferredOrder, id: \.rawValue) { provider in
-                            Text(provider.displayName).tag(provider)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    CloudProviderSetupCard(
-                        provider: selectedCloudSetupProvider,
-                        title: "Connect \(selectedCloudSetupProvider.displayName)",
-                        message: selectedCloudSetupProvider.setupHelpText,
-                        footer: selectedCloudSetupProvider.supportsAccountConnection
-                            ? "Start with the provider account flow here. Expand Legacy API Key only if you intentionally want the manual fallback."
-                            : "This provider uses the direct API route in Epistemos today. Open the provider portal, create a key, then use Paste + Save.",
-                        showsDismissTip: false,
-                        pixelPresentation: true
-                    )
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.trailing, 4)
-            }
-            .frame(maxHeight: 300)
-
-            HStack(spacing: 12) {
-                Button("Skip") {
-                    withAnimation(stepTransitionAnimation) { currentStep = .done }
-                }
-                .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
-
-                Button("Finish Setup") {
-                    withAnimation(stepTransitionAnimation) { currentStep = .done }
-                }
-                .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
-            }
-            .padding(.top, 2)
         }
         .padding(.vertical, 24)
     }
@@ -285,7 +213,6 @@ struct SetupAssistantView: View {
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault", done: vaultSync.vaultURL != nil)
                 statusRow("Foundation", done: true)
-                statusRow("Cloud AI", done: inference.activeCloudProvider != nil)
             }
 
             Text("You can change any of these in Settings at any time.")
@@ -350,8 +277,7 @@ enum SetupStep: Int, CaseIterable, Comparable {
     case welcome = 0
     case vault = 1
     case model = 2
-    case agentRuntime = 3
-    case done = 4
+    case done = 3
 
     static func < (lhs: SetupStep, rhs: SetupStep) -> Bool {
         lhs.rawValue < rhs.rawValue
