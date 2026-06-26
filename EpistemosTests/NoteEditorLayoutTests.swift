@@ -522,61 +522,10 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("Menu(\"Format\")"))
         #expect(source.contains("Label(\"Backlinks\", systemImage: \"link\")"))
         #expect(source.contains("Label(\"Apple Writing Tools\", systemImage: \"apple.intelligence\")"))
-        #expect(source.contains("openMiniChatForCurrentNote()"))
         #expect(!source.contains("Menu(\"Options\")"))
         #expect(!source.contains("formatToolbarMenu"))
         #expect(!source.contains("appleWritingToolsButton"))
         #expect(source.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
-    }
-
-    @Test("toolbar ask field keeps the shared composer chrome while defaulting freeform asks to inline note chat")
-    func toolbarAskFieldKeepsSharedComposerChromeWhileDefaultingToInlineNoteChat() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-        let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
-        guard let toolbarRange = source.range(of: "private func toolbarChatField(width: CGFloat) -> some View"),
-              let nextSectionRange = source.range(of: "private var noteChatContextAttachment", range: toolbarRange.upperBound..<source.endIndex) else {
-            Issue.record("Failed to isolate toolbarChatField() in NoteDetailWorkspaceView.swift")
-            return
-        }
-
-        let toolbarSource = String(source[toolbarRange.lowerBound..<nextSectionRange.lowerBound])
-
-        #expect(toolbarSource.contains("submitToolbarAskInline()"))
-        #expect(toolbarSource.contains("routeToolbarAskToMainChat()"))
-        #expect(toolbarSource.contains("ChatComposerTextEditor("))
-        #expect(toolbarSource.contains(".assistantComposerChrome("))
-        #expect(toolbarSource.contains("ComposerControlStrip(spacing: 8, resetKey: noteComposerControlResetKey)"))
-        #expect(toolbarSource.contains("AssistantSendButton("))
-        #expect(toolbarSource.contains("Text(toolbarAskPlaceholder)"))
-        #expect(source.contains("private var toolbarAskPlaceholder: String"))
-        #expect(source.contains("noteChatState.error ?? \"Ask this note\""))
-        #expect(toolbarSource.contains("noteRouteToMainTrigger"))
-        #expect(source.contains("private var noteRouteToMainTrigger: some View"))
-        #expect(source.contains("ChatCapability.predictIntent("))
-        #expect(source.contains("inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode)"))
-        #expect(sharedStatus.contains("struct AssistantToolbarAskBar<Leading: View>: View"))
-        #expect(sharedStatus.contains("TextField(\"\", text: $text)"))
-        #expect(sharedStatus.contains(".accessibilityLabel(Text(placeholder))"))
-        #expect(sharedStatus.contains("Button(action: onSubmit)"))
-        #expect(sharedStatus.contains("Image(systemName: \"arrow.up.circle.fill\")"))
-        #expect(sharedStatus.contains(".disabled(trimmedTextIsEmpty)"))
-        #expect(sharedStatus.contains("AssistantAnimatedStatusLabel("))
-        #expect(sharedStatus.contains("AssistantComposerOuterHalo(style: haloStyle, accent: accent)"))
-        #expect(!toolbarSource.contains(".popover("))
-        #expect(!toolbarSource.contains("ASCIIFrameAnimationText("))
-        #expect(!toolbarSource.contains("ASCIIRippleText("))
-        #expect(!toolbarSource.contains("noteChatAttachmentChip("))
-        #expect(!toolbarSource.contains("toolbarAskStatusLabel"))
-        #expect(!source.contains("private var toolbarResponseDropdown"))
-        #expect(!source.contains("private var toolbarAskStatusAnimation"))
-        #expect(!source.contains("private var toolbarAskStatusBadge"))
-        #expect(source.contains("private func submitToolbarAskInline()"))
-        #expect(source.contains("noteChatState.submitToolbarQuery("))
-        #expect(source.contains("private func routeToolbarAskToMainChat()"))
-        #expect(source.contains("bootstrap.chatState.startNewChat()"))
-        #expect(source.contains("bootstrap.chatState.addContextAttachment(attachment)"))
-        #expect(source.contains("ui.setActivePanel(.home)"))
-        #expect(source.contains("MainChatSubmissionRouter.submit("))
     }
 
     @Test("code files do not show the note ask bar in the workspace toolbar")

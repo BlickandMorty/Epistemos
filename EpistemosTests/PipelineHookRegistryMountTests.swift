@@ -15,7 +15,6 @@ struct PipelineHookRegistryMountTests {
     @Test("HookRegistry production mount stays out of forbidden runtime surfaces")
     func hookRegistryProductionMountStaysOutOfForbiddenRuntimeSurfaces() throws {
         let forbiddenSources = [
-            "Epistemos/App/ChatCoordinator.swift",
             "Epistemos/Omega/OmegaPermissions.swift",
             "Epistemos/Omega/Vision/TCCPermissionState.swift",
             "Epistemos/Omega/iMessageDriver/IMessageDriverService.swift",

@@ -122,7 +122,7 @@ struct AgentSectionDetailView: View {
             // W9.6 — Cost dashboard. N1 Phase 1 closure
             // (MASTER_BUILD_PLAN.md:311) wires real session_metrics
             // rows in: each row carries the input/output/cache token
-            // counts that ChatCoordinator persists via
+            // counts persisted by the agent route via
             // EventStore.saveSessionMetrics after each agent run. Provider
             // and per-session cost remain nil until the schema tracks them,
             // so the UI renders those fields as unavailable rather than

@@ -3,7 +3,7 @@ import Foundation
 /// Minimal message shape the AgentQueryEngine owns across turns. Kept internal to
 /// the harness so the engine doesn't leak UI / SwiftData concerns — the
 /// bridge layer (AgentQueryEngineCoordinator) converts between this and the
-/// surface-level SDMessage / ChatState.
+/// surface-level SDMessage / transcript state.
 nonisolated struct QueryMessage: Codable, Sendable, Equatable {
     enum Role: String, Codable, Sendable {
         case user
@@ -32,7 +32,7 @@ nonisolated struct QueryMessage: Codable, Sendable, Equatable {
 /// consumers that pattern-matched on them would silently fail closed
 /// (the match never fired even when a tool call was denied). The
 /// canonical approval surface is `AgentPermissionRequest` driven through
-/// ChatCoordinator + PipelineService — those paths are real. The
+/// current agent routes + PipelineService — those paths are real. The
 /// engine-stream cases are removed here so the contract is honest:
 /// only emit events the engine actually fires.
 nonisolated enum AgentQueryEngineEvent: Sendable {

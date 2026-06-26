@@ -208,26 +208,6 @@ actor LocalAgentLoop {
         }
     }
 
-    /// SHARED act-routing decision (owner 2026-06-21 #1): the SINGLE source of truth for "should
-    /// local generation route through the act=Osaurus engine?" Used by BOTH `liveLoop` (every chat
-    /// surface) AND `DeviceAgentService` so the swap can never silently diverge again — the bug this
-    /// fixes was two construction sites where only one honored the flag. Always false on the App Store
-    /// build (the act-Osaurus engine is a Pro / direct-distribution surface); never a silent cloud route.
-    nonisolated static func shouldRouteActThroughOsaurus(
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) -> Bool {
-        // ACT = Epistemos-native chat with the Osaurus engine underneath. DEFAULT-ON
-        // for the direct-distribution build, no experimental toggle. App Store stays
-        // off because OsaurusCore is Pro/direct-distribution only; MAS keeps the
-        // in-process MLX path and never silently falls back to cloud.
-        #if EPISTEMOS_APP_STORE
-        return false
-        #else
-        _ = environment
-        return true
-        #endif
-    }
-
     @MainActor
     static func liveLoop(
         using modelClient: any LocalConfigurableLLMClient,
@@ -241,34 +221,9 @@ actor LocalAgentLoop {
     ) -> LocalAgentLoop {
         let resolvedBudget = resolvedMaxTokenBudget(requested: maxTokenBudget, modelID: modelID)
 
-        // SHARED ACT COMPOSER (owner 2026-06-21 #1): the act=Osaurus swap MUST apply at THIS shared
-        // chokepoint. ChatCoordinator (main chat), PipelineService, and IMessageDriverService all build
-        // their loop via liveLoop — wiring the swap only in DeviceAgentService left the owner's main
-        // chats on raw MLX. Routing BOTH the primary AND the streaming generator through the SAME shared
-        // decision makes act reach every liveLoop surface through the headless Osaurus chat session, while
-        // Epistemos keeps ownership of the visible chat surface.
-        #if !EPISTEMOS_APP_STORE
-        let primaryGenerator: LocalAgentGenerationHandler =
-            shouldRouteActThroughOsaurus()
-            ? ActOsaurusGenerationHandler.make()
-            : mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
-        #else
         let primaryGenerator = mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
-        #endif
 
-        // ONE INFERENCE CHOKEPOINT (owner §692): the streaming generator delegates its act-injection to the
-        // SINGLE shared entry `SharedActInference.actStreamIfArmed` — the SAME one TriageService uses, so the
-        // two chokepoints can't diverge. Armed → OsaurusCore stream; off (default) → the proven MLX stream,
-        // BYTE-IDENTICAL. (Gating lives inside the shared entry, incl. App-Store-build = always MLX.)
-        let mlxStream = mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
-        let streamGenerator: LocalAgentStreamingGeneratorFactory = { prompt, systemPrompt, maxTokens, reasoningMode, modelID in
-            if let actStream = SharedActInference.actStreamIfArmed(
-                prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens,
-                reasoningMode: reasoningMode, modelID: modelID) {
-                return actStream
-            }
-            return await mlxStream(prompt, systemPrompt, maxTokens, reasoningMode, modelID)
-        }
+        let streamGenerator = mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON)
 
         return LocalAgentLoop(
             generator: primaryGenerator,
@@ -330,17 +285,6 @@ actor LocalAgentLoop {
            let resolvedModel = LocalTextModelID(rawValue: modelID),
            !resolvedModel.canActAsAgent {
             throw LocalAgentLoopError.unsupportedModel(modelID)
-        }
-
-        // Wiring #4 (T11 System G → LocalAgentLoop). When the
-        // EPISTEMOS_SYSTEM_G_V0 flag is on, every loop entry pulls the
-        // agent_runtime_v2 status from Rust and emits an os_log
-        // breadcrumb. SystemGMetrics records the read so the Settings
-        // -> Diagnostics SystemGHealthRow surfaces live mode + capability
-        // gates. No behavior change at flag off; even at flag on, MAS
-        // bundles observe `mode = disabled` per the doctrine tier-locking.
-        if SystemGFlags.isEnabled {
-            _ = SystemGBridge.status()
         }
 
         // P8.2 — flag-gated RAG preflight tool narrowing (EPISTEMOS_SCHEMA_PREFLIGHT_V0).
@@ -1340,7 +1284,10 @@ actor LocalAgentLoop {
         _ toolCalls: [ParsedToolCall],
         availableTools: [OmegaToolDefinition]
     ) -> [ParsedToolCall] {
-        toolCalls.map { canonicalizeToolCall($0, availableTools: availableTools) }
+        guard !availableTools.isEmpty else {
+            return []
+        }
+        return toolCalls.map { canonicalizeToolCall($0, availableTools: availableTools) }
     }
 
     private nonisolated static func canonicalizeToolCall(

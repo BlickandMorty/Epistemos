@@ -410,15 +410,6 @@ struct SessionIntelligenceOverlay: View {
             ))
         }
 
-        if let mainChatCard = activeMainChatCard() {
-            cards.append(mainChatCard)
-        }
-
-        // Mini chats
-        for chatId in MiniChatWindowController.shared.openChatIds {
-            cards.append(openMiniChatCard(for: chatId))
-        }
-
         // Graph
         if HologramController.shared.isVisible {
             let nodeCount = AppBootstrap.shared?.graphState.store.nodes.count ?? 0
@@ -433,100 +424,8 @@ struct SessionIntelligenceOverlay: View {
         windowCards = cards
     }
 
-    private func activeMainChatCard() -> WindowCard? {
-        guard let chatState = AppBootstrap.shared?.chatState,
-              !chatState.messages.isEmpty || chatState.isStreaming else {
-            return nil
-        }
-
-        let title = chatState.chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let resolvedTitle = title.isEmpty ? "Main Chat" : title
-        let summary = ChatPreviewText.preview(
-            for: chatState.messages,
-            streamingText: chatState.isStreaming ? chatState.streamingText : nil
-        ) ?? ChatPreviewText.emptyPreview
-
-        return WindowCard(
-            id: "chat-main",
-            title: resolvedTitle,
-            icon: "bubble.left.and.text.bubble.right.fill",
-            kind: "chat",
-            summary: summary
-        )
-    }
-
     private func currentBody(for pageId: String) -> String {
         NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
-    }
-
-    private func openMiniChatCard(for chatId: String) -> WindowCard {
-        let title = openMiniChatTitle(for: chatId)
-        let summary = openMiniChatSummary(for: chatId)
-        return WindowCard(
-            id: "chat-\(chatId)",
-            title: title,
-            icon: "bubble.left.and.bubble.right.fill",
-            kind: "mini chat",
-            summary: summary
-        )
-    }
-
-    private func openMiniChatTitle(for chatId: String) -> String {
-        if let threadTitle = AppBootstrap.shared?.threadState.miniChatSession(id: chatId)?.label
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           !threadTitle.isEmpty {
-            return threadTitle
-        }
-
-        guard let context = AppBootstrap.shared?.modelContainer.mainContext else {
-            return "Mini Chat"
-        }
-
-        let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatId })
-        let persisted: SDChat?
-        do {
-            persisted = try context.fetch(descriptor).first
-        } catch {
-            Log.app.error(
-                "SessionIntelligenceOverlay: failed to fetch mini chat title for \(String(chatId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return "Mini Chat"
-        }
-        let title = persisted?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return title.isEmpty ? "Mini Chat" : title
-    }
-
-    private func openMiniChatSummary(for chatId: String) -> String {
-        if let threadState = AppBootstrap.shared?.threadState,
-           let thread = threadState.miniChatSession(id: chatId),
-           let preview = ChatPreviewText.preview(
-            for: thread,
-            streamingText: threadState.miniChatIsStreaming(chatID: chatId)
-                ? threadState.miniChatStreamingText(chatID: chatId)
-                : nil
-           ) {
-            return preview
-        }
-
-        guard let context = AppBootstrap.shared?.modelContainer.mainContext else {
-            return ChatPreviewText.emptyPreview
-        }
-
-        let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatId })
-        let persisted: SDChat?
-        do {
-            persisted = try context.fetch(descriptor).first
-        } catch {
-            Log.app.error(
-                "SessionIntelligenceOverlay: failed to fetch mini chat summary for \(String(chatId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return ChatPreviewText.emptyPreview
-        }
-        guard let persisted else {
-            return ChatPreviewText.emptyPreview
-        }
-
-        return ChatPreviewText.preview(for: persisted) ?? ChatPreviewText.emptyPreview
     }
 
     // MARK: - AI Generation (Map-Reduce)

@@ -3,10 +3,10 @@ import Foundation
 // MARK: - Archived Agent Runtime Surface
 // This compatibility layer remains in source as migration reference only.
 // The shipping app does not bootstrap it; live agent sessions route directly
-// through ChatCoordinator / IMessageDriver and the low-level bridges.
+// through current agent session hosts and the low-level bridges.
 
 /// Protocol that makes all agent backends interchangeable.
-@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions through current agent session hosts.")
 @MainActor
 protocol AgentRuntime: AnyObject, Sendable {
     /// Unique identifier for this runtime type.
@@ -37,7 +37,7 @@ protocol AgentRuntime: AnyObject, Sendable {
 // MARK: - Session Config
 
 /// Unified session configuration — works for all backends.
-@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions through current agent session hosts.")
 struct AgentSessionConfig: Sendable {
     var maxTurns: Int = 50
     var maxCostUSD: Double?
@@ -58,7 +58,7 @@ struct AgentSessionConfig: Sendable {
 // MARK: - Agent Events
 
 /// Unified event stream — identical schema regardless of backend.
-@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions through current agent session hosts.")
 enum AgentRuntimeEvent: Sendable {
     case sessionStarted(sessionId: String)
     case turnStarted(turn: Int)
@@ -77,7 +77,7 @@ enum AgentRuntimeEvent: Sendable {
 // MARK: - Agent Session State
 
 /// Simplified session state for UI display.
-@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions through current agent session hosts.")
 enum AgentSessionState: Sendable {
     case idle
     case running(turn: Int)
@@ -90,7 +90,7 @@ enum AgentSessionState: Sendable {
 // MARK: - Runtime Registry
 
 /// Manages available runtimes and provides the active one.
-@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions directly through ChatCoordinator and LocalAgentLoop.")
+@available(*, unavailable, message: "Archived compatibility surface. The shipping app routes agent sessions through current agent session hosts.")
 @MainActor
 @Observable
 final class AgentRuntimeRegistry {

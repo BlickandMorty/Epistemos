@@ -30,14 +30,8 @@ struct Stash18UIUXCloseoutTests {
     @Test("current fused surfaces stay present instead of raw stash downgrade")
     func currentFusedSurfacesStayPresent() {
         let requiredCurrentFiles = [
-            "Epistemos/Views/Chat/AgentRunTimelineView.swift",
-            "Epistemos/Views/Chat/AnswerPacketBadge.swift",
-            "Epistemos/Views/Chat/ChatBrainPickerMenu.swift",
             "Epistemos/Views/Chat/ComposerMicButton.swift",
-            "Epistemos/Views/Chat/ContextWindowCompactBadge.swift",
-            "Epistemos/Views/Chat/ProcessDisclosureViews.swift",
             "Epistemos/Views/Chat/SlashCommandPopover.swift",
-            "Epistemos/Views/Chat/VaultRecallProvenanceCard.swift",
             "Epistemos/Views/Landing/Farm/LandingFarmView.swift",
             "Epistemos/Views/Graph/GraphFPSHUD.swift",
             "Epistemos/Views/Notes/EditableTransclusionView.swift",
@@ -55,6 +49,19 @@ struct Stash18UIUXCloseoutTests {
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/InspectorPanelView.swift"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/SuggestionPopoverView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/AgentRunTimelineView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/AnswerPacketBadge.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/AssistantInlineTranscriptView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/BTMView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/ChatBrainPickerMenu.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/ContextWindowCompactBadge.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/EidosRetrievedSection.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/LiveActivityStrip.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/ProcessDisclosureViews.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/ThinkingPopoverView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/ThinkingTrailView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/VRMLabelView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/VaultRecallProvenanceCard.swift"))
         #expect(!repoFileExists("Epistemos/Views/Notes/TransclusionOverlayView.swift"))
     }
 }

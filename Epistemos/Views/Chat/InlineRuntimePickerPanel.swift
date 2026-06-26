@@ -1,7 +1,4 @@
 import SwiftUI
-#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-import OsaurusCore
-#endif
 #if canImport(agent_coreFFI)
 import agent_coreFFI
 #endif
@@ -12,8 +9,7 @@ import agent_coreFFI
 /// Code model picks as the popover's `foundationPickerSection`, driven by the
 /// standalone `EpistemosRuntimePicker` with the SAME honest install+memory
 /// gating — but as a flat in-flow panel (sharp pixel-art border, monospaced
-/// titles, solid `theme.card` background, no system popover bubble) that lives
-/// in the composer's vertical stack instead of a floating macOS popover.
+/// titles, solid `theme.card` background, no system popover bubble).
 ///
 /// Self-contained: depends only on `InferenceState` (selection + install/AI
 /// availability) and `EpistemosRuntimePicker` (the standalone option model), so
@@ -26,21 +22,13 @@ struct InlineRuntimePickerPanel: View {
     /// A blocked pick (not installed / won't fit memory) routes here — the
     /// honest path to install or free memory, never a silent switch.
     var onOpenSettings: () -> Void
-    /// Single-button surfaces (landing/mini/note/graph) carry the WHOLE picker
-    /// in one control, so the inline panel shows a footer linking the advanced
-    /// bits (cloud, routing, model details) to Settings. Main chat keeps those
-    /// as their own split-toolbar buttons, so it leaves this off (default).
+    /// Single-button surfaces carry the WHOLE picker in one control, so the
+    /// inline panel shows a footer linking the advanced bits (cloud, routing,
+    /// model details) to Settings.
     var showsSettingsFooter: Bool = false
-    /// Act keeps this Epistemos inline picker as the visible UI, then appends
-    /// Osaurus's native model stack as rows inside it.
-    var showsOsaurusModelSection: Bool = false
 
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
-    #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-    @State private var osaurusModelRows: [EpistemosOsaurusModelPick] = []
-    @State private var selectedOsaurusModelID: String?
-    #endif
 
     /// Owner 2026-06-18 (picker scroll/height): the panel was capped too short
     /// and macOS auto-hides the scrollbar, so only a couple of picks showed with
@@ -60,11 +48,7 @@ struct InlineRuntimePickerPanel: View {
         let epistemosCount = EpistemosModelTier.allCases.reduce(0) { sum, tier in
             sum + EpistemosRuntimePicker.options(for: tier, environment: environment).count
         }
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        return epistemosCount + (showsOsaurusModelSection ? osaurusModelRows.count : 0)
-        #else
         return epistemosCount
-        #endif
     }
 
     /// Always-visible header pinned above the scroll area: "N models" (+ a scroll
@@ -108,6 +92,7 @@ struct InlineRuntimePickerPanel: View {
             installedModelIDs: installed,
             freeMemoryGB: freeGB,
             appleIntelligenceAvailable: inference.appleIntelligenceAvailable,
+            appleIntelligenceUnavailableReason: inference.appleIntelligenceUnavailableReason,
             additionalPicks: RuntimePickerExtraPicksBuilder.picks(
                 installedIDs: installed,
                 advertised: store.effectiveAdvertised(fullCatalog: installed),
@@ -183,8 +168,6 @@ struct InlineRuntimePickerPanel: View {
                         }
                     }
                 }
-
-                osaurusModelSection
 
                 // MODE / Chat·Act depth (owner 2026-06-18 cross-reference — the
                 // old depthToggle). Restores Act reachability on the single-button
@@ -316,145 +299,6 @@ struct InlineRuntimePickerPanel: View {
                 .strokeBorder(theme.border, lineWidth: 1.5)
         )
         .accessibilityIdentifier("InlineRuntimePickerPanel")
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        .task(id: showsOsaurusModelSection) {
-            await refreshOsaurusModelRowsIfNeeded()
-        }
-        #endif
-    }
-
-    @ViewBuilder
-    private var osaurusModelSection: some View {
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        if showsOsaurusModelSection {
-            Divider()
-                .padding(.vertical, 2)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("ACT MODEL STACK")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .tracking(1.5)
-                    .foregroundStyle(theme.textTertiary)
-
-                if osaurusModelRows.isEmpty {
-                    Button {
-                        onOpenSettings()
-                        onPicked()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(theme.textSecondary)
-                                .frame(width: 16)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Configure Act models")
-                                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(theme.textPrimary)
-                                Text("Open Act settings to connect local, router, and provider models.")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(theme.textTertiary)
-                                    .lineLimit(2)
-                            }
-                            Spacer(minLength: 4)
-                            Image(systemName: "arrow.up.forward")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(theme.textTertiary)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    ForEach(osaurusModelRows) { row in
-                        if shouldShowOsaurusSectionHeader(before: row) {
-                            Text(row.sectionTitle.uppercased())
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .tracking(1.2)
-                                .foregroundStyle(theme.textTertiary.opacity(0.85))
-                                .padding(.top, row.id == osaurusModelRows.first?.id ? 0 : 4)
-                        }
-                        osaurusPickRow(row)
-                    }
-                }
-            }
-        }
-        #else
-        EmptyView()
-        #endif
-    }
-
-    #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-    @MainActor
-    private func refreshOsaurusModelRowsIfNeeded() async {
-        guard showsOsaurusModelSection else { return }
-        selectedOsaurusModelID = EpistemosOsaurusManagementBridge.currentModel()
-        osaurusModelRows = await EpistemosOsaurusManagementBridge.modelPicks()
-    }
-
-    private func shouldShowOsaurusSectionHeader(before row: EpistemosOsaurusModelPick) -> Bool {
-        guard let index = osaurusModelRows.firstIndex(of: row) else { return false }
-        if index == 0 { return true }
-        return osaurusModelRows[index - 1].sectionTitle != row.sectionTitle
-    }
-
-    private func osaurusPickRow(_ row: EpistemosOsaurusModelPick) -> some View {
-        let selected = selectedOsaurusModelID == row.id
-        return Button {
-            selectOsaurusModel(row)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: row.systemImage)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(theme.textSecondary)
-                    .frame(width: 16)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(row.displayName)
-                        .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(theme.textPrimary)
-                    Text(row.subtitle)
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.textTertiary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    // 0.33f native model detail: on-device state + context window.
-                    HStack(spacing: 6) {
-                        Label(
-                            row.isDownloaded ? "On Device" : "Not downloaded",
-                            systemImage: row.isDownloaded ? "checkmark.circle.fill" : "icloud.and.arrow.down"
-                        )
-                        .foregroundStyle(row.isDownloaded ? Color.green : theme.textTertiary)
-                        if let ctx = row.contextLength, ctx > 0 {
-                            Label(InlineRuntimePickerPanel.formatContextLength(ctx), systemImage: "text.alignleft")
-                                .foregroundStyle(theme.textTertiary)
-                        }
-                    }
-                    .font(.system(size: 9.5))
-                    .labelStyle(.titleAndIcon)
-                }
-                Spacer(minLength: 4)
-                if selected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(theme.resolved.accent.color)
-                }
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? theme.resolved.accent.color.opacity(0.14) : Color.clear)
-            .overlay(alignment: .leading) {
-                if selected {
-                    Rectangle()
-                        .fill(theme.resolved.accent.color)
-                        .frame(width: 2)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("\(row.sectionTitle) · \(row.id)")
     }
 
     /// 0.33f — compact context-window label (e.g. 131072 → "128K ctx").
@@ -467,17 +311,6 @@ struct InlineRuntimePickerPanel: View {
         }
         return "\(ctx) ctx"
     }
-
-    @MainActor
-    private func selectOsaurusModel(_ row: EpistemosOsaurusModelPick) {
-        EpistemosOsaurusManagementBridge.setCurrentModel(row.id)
-        selectedOsaurusModelID = row.id
-        if ChatModelSelection(rawValue: row.id) != nil {
-            inference.setPreferredChatModelSelection(.localMLX(row.id))
-        }
-        onPicked()
-    }
-    #endif
 
     /// Bottom-edge "scroll for more" cue: a short fade into the card colour, then
     /// a centered chevron + label. Non-interactive (hit-testing off) so it never
@@ -530,13 +363,22 @@ struct InlineRuntimePickerPanel: View {
                     // reasoning", …) resolved from the single Rust ModelCapability
                     // Profile source. Falls back to the blocked reason (if blocked)
                     // or the generic tier tagline (unknown model / test host).
-                    Text(option.blockedReason ?? modelUseCaseLine(for: option.id) ?? tier.tagline)
+                    Text(pickerSubtitle(for: option, tier: tier))
                         .font(.system(size: 10))
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
+                if option.requiresNewSessionOnSelection {
+                    Text("NEW CHAT")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(theme.textTertiary.opacity(0.12), in: Capsule())
+                        .help("Runtime switches apply cleanly to a fresh chat")
+                }
                 // SS-AB: per-model context-window badge ("128K" / "1M" / "200K"),
                 // resolved from the single Rust ModelCapabilityProfile source via
                 // the model_context_window FFI. Hidden for an id neither lane knows.
@@ -554,9 +396,10 @@ struct InlineRuntimePickerPanel: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(theme.resolved.accent.color)
                 } else if !option.isSelectable {
-                    Image(systemName: "arrow.up.forward.square")
+                    Image(systemName: option.settingsActionRecommended ? "gearshape" : "arrow.up.forward.square")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(theme.textTertiary)
+                        .help(option.settingsActionRecommended ? "Open Settings" : "Open setup")
                 }
             }
             .padding(.horizontal, 8)
@@ -574,7 +417,22 @@ struct InlineRuntimePickerPanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(option.blockedReason ?? modelBenefitsLine(for: option.id) ?? option.title)
+        .help(pickerHelp(for: option))
+    }
+
+    private func pickerSubtitle(for option: EpistemosRuntimePicker.Option, tier: EpistemosModelTier) -> String {
+        if option.isAppleIntelligence {
+            return option.blockedReason ?? option.availabilitySummary
+        }
+        return option.blockedReason ?? modelUseCaseLine(for: option.id) ?? tier.tagline
+    }
+
+    private func pickerHelp(for option: EpistemosRuntimePicker.Option) -> String {
+        let base = option.blockedReason ?? modelBenefitsLine(for: option.id) ?? option.availabilitySummary
+        if option.requiresNewSessionOnSelection {
+            return "\(base) · Use a fresh chat after switching runtimes."
+        }
+        return base
     }
 
     /// SS-AB: the short per-model use-case line for the picker, resolved from the
@@ -865,12 +723,6 @@ struct InlineRuntimePickerPanel: View {
             inference.setPreferredChatModelSelection(.appleIntelligence)
         } else {
             inference.setPreferredChatModelSelection(.localMLX(option.id))
-            #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-            if showsOsaurusModelSection {
-                EpistemosOsaurusManagementBridge.setCurrentModel(option.id)
-                selectedOsaurusModelID = option.id
-            }
-            #endif
         }
         onPicked()
     }

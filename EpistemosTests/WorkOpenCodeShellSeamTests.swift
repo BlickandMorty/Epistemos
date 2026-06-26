@@ -5,7 +5,7 @@ import Foundation
 /// WORK = OpenCode shell — Seam A (owner 2026-06-21). Locks the honest-inert contract
 /// for the OpenCode terminal-shell seam: a pure gate, an inert default that NEVER
 /// fakes a terminal (refuses with an honest error), a centralized factory, and a
-/// visible health row. Mirrors the Goose=WORK / ActOsaurus seam tests. This is the
+/// visible health row. Mirrors the other work/act seam tests. This is the
 /// foundation the native terminal view (SwiftTerm/PTY) + lazy Bun engine + vendored
 /// OpenCode TUI plug into.
 @Suite("Work = OpenCode shell — Seam A (honest-inert)")
@@ -57,14 +57,14 @@ struct WorkOpenCodeShellSeamTests {
     func gateHonesty() {
         // Hermetic: read the gate from a CLEAN defaults suite so the host app's PERSISTED in-app
         // toggle (set during a real app run; the registry default is `.standard`) can't pollute
-        // these default/armed-state checks. Mirrors the act ActOsaurusSeamTests.gateHonest fix.
+        // these default/armed-state checks.
         let suite = "test.work.opencode.gate.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
 
         let off = WorkOpenCodeShellGateStatus.status(environment: [:], defaults: defaults)
         #expect(off.isActive == false)
-        #expect(off.headline.contains("OpenCode"))
+        #expect(off.headline.contains("terminal runtime"))
 
         #expect(WorkOpenCodeShellGateStatus.isEnabled("1"))
         #expect(WorkOpenCodeShellGateStatus.isEnabled("true"))
@@ -92,15 +92,15 @@ struct WorkOpenCodeShellSeamTests {
         }
     }
 
-    @Test("factory resolves to the inert shell until the real runtime lands")
+    @Test("factory goes live exactly when the bundled runtime is present")
     func factoryHonest() {
         let shell = WorkOpenCodeShellFactory.resolve(environment: [:])
-        #expect(shell.isReady == false)
-        // Even ARMED resolves inert today — no fake terminal before the vendor lands.
+        let bundledRuntimeIsPresent = WorkOpenCodeRuntime.bundledRuntimeURL(bundle: .main) != nil
+        #expect(shell.isReady == bundledRuntimeIsPresent)
         let armed = WorkOpenCodeShellFactory.resolve(
             environment: [WorkOpenCodeShellGateStatus.flagName: "1"]
         )
-        #expect(armed.isReady == false)
+        #expect(armed.isReady == bundledRuntimeIsPresent)
     }
 
     @Test("launch spec is a pure value type — constructing it starts no process")

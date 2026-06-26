@@ -137,9 +137,6 @@ nonisolated struct SystemSidebarSectionSpec: Sendable, Equatable {
             ".epistemos/System Prompts",
             ".epistemos/system-prompts",
         ]),
-        .init(title: "Chat Transcripts", systemImage: "bubble.left.and.bubble.right", relativeDirectories: [
-            ChatTranscriptVaultWriter.vaultSubdirectory,
-        ]),
         .init(title: "Doc Chat Exports", systemImage: "doc.text", relativeDirectories: [
             "Doc Chat Exports",
             ".epistemos/Doc Chat Exports",

@@ -20,12 +20,12 @@
 // response. Same input/output contract as the alert presenter, but
 // non-modal — the user can scroll, type, switch tabs, then answer.
 //
-// Wiring: ChatCoordinator (or any future surface that wants
+// Wiring: any surface that wants
 // card-mode clarify) constructs a `ClarifyPromptBridge` with this
 // presenter and routes the cardSurfaceCallback into the appropriate
 // view (chat transcript / approval dock / replay surface). Today the
 // component is self-contained + tested in isolation — the
-// ChatCoordinator surface integration lands as a later slice when
+// surface integration lands as a later slice when
 // chat-transcript-with-GenUIPayloads plumbing is ready.
 //
 // Architecture rationale (per the "actually useful, not scaffold"
@@ -64,7 +64,7 @@ import Foundation
 @MainActor
 final class GenUICardPresenter {
     /// Closure type for handing a clarify payload off to a host
-    /// surface (e.g. ChatCoordinator's transcript). Implementers add
+    /// surface transcript. Implementers add
     /// the payload to whatever view they want it rendered in and
     /// return immediately — the GenUICardPresenter handles the rest
     /// of the round-trip via the notification subscription.

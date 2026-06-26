@@ -206,25 +206,20 @@ enum LocalRuntimeSmokeSupport {
 
         bootstrap.inferenceState.routingMode = .localOnly
 
-        let noteChat = NoteChatState(pageId: "local-qwen35-live-smoke")
-        noteChat.noteBodyProvider = {
-            String(repeating: "Bayesian updating, coherentism, and note synthesis. ", count: 1_200)
-        }
-        noteChat.submitQuery(
-            "Summarize the note's main disagreement in five bullets.",
-            triageService: triage
+        let noteContext = String(
+            repeating: "Bayesian updating, coherentism, and note synthesis. ",
+            count: 1_200
+        )
+        let responseText = try await runPipelineQuery(
+            bootstrap: bootstrap,
+            query: "Summarize the note's main disagreement in five bullets.",
+            notesContext: noteContext
         )
 
         var peakMemory = graphLoadedMemory
-        let deadline = Date().addingTimeInterval(120)
-        while noteChat.isStreaming && Date() < deadline {
-            peakMemory = max(peakMemory, currentMemoryUsage())
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-        noteChat.stopStreaming()
+        peakMemory = max(peakMemory, currentMemoryUsage())
 
-        #expect(noteChat.error == nil)
-        #expect(!noteChat.responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #expect(!responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
         let completedMemory = currentMemoryUsage()
         await bootstrap.localInferenceService.unload()
@@ -260,25 +255,20 @@ enum LocalRuntimeSmokeSupport {
 
         bootstrap.inferenceState.routingMode = .localOnly
 
-        let noteChat = NoteChatState(pageId: "local-qwen35-memory-profile")
-        noteChat.noteBodyProvider = {
-            String(repeating: "Bayesian updating, coherentism, and note synthesis. ", count: 1_200)
-        }
-        noteChat.submitQuery(
-            "Summarize the note's main disagreement in five bullets.",
-            triageService: triage
+        let noteContext = String(
+            repeating: "Bayesian updating, coherentism, and note synthesis. ",
+            count: 1_200
+        )
+        let responseText = try await runPipelineQuery(
+            bootstrap: bootstrap,
+            query: "Summarize the note's main disagreement in five bullets.",
+            notesContext: noteContext
         )
 
         var peakMemory = graphLoadedMemory
-        let deadline = Date().addingTimeInterval(90)
-        while noteChat.isStreaming && Date() < deadline {
-            peakMemory = max(peakMemory, currentMemoryUsage())
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-        noteChat.stopStreaming()
+        peakMemory = max(peakMemory, currentMemoryUsage())
 
-        #expect(noteChat.error == nil)
-        #expect(!noteChat.responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #expect(!responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
         let completedMemory = currentMemoryUsage()
         await bootstrap.localInferenceService.unload()
@@ -654,78 +644,20 @@ enum LocalRuntimeSmokeSupport {
         """.write(to: fileURL, atomically: true, encoding: .utf8)
 
         let attachment = await FileAttachmentBuilder.build(from: fileURL)
-        let fileContext = try #require(
-            ChatCoordinator.buildFileAttachmentContext(from: [attachment], supportsVision: false)
-        )
+        let fileContext = releaseAttachmentContext(from: attachment, supportsVision: false)
+        let attachedContext = """
+        ## Required Context
+        Note Release Note:
+        NOTE_SENTINEL = \(noteSentinel)
 
-        let now = Date()
-        let manifest = VaultManifest(
-            vaultTitle: "Release Sweep",
-            totalNoteCount: 1,
-            isInventoryComplete: true,
-            entries: [
-                VaultManifest.ManifestEntry(
-                    pageId: "release-note-id",
-                    title: "Release Note",
-                    tags: [],
-                    folderName: "Audit",
-                    wordCount: 12,
-                    snippet: "Sentinel note",
-                    updatedAt: now,
-                    createdAt: now
-                )
-            ],
-            recentBodies: [],
-            generatedAt: now
-        )
-        let chatMessages = [
-            AssistantMessage(role: .user, content: "Remember CHAT_SENTINEL = \(chatSentinel)"),
-            AssistantMessage(role: .assistant, content: "Understood. CHAT_SENTINEL = \(chatSentinel)")
-        ]
+        Prior conversation release-chat-id:
+        User: Remember CHAT_SENTINEL = \(chatSentinel)
+        Assistant: Understood. CHAT_SENTINEL = \(chatSentinel)
+        """
 
-        let attachedContext = await ChatCoordinator.resolveAttachedContext(
-            query: "Return the FILE, NOTE, and CHAT sentinels from the required context.",
-            attachments: [
-                ContextAttachment(kind: .note, targetId: "release-note-id", title: "Release Note", subtitle: "Audit"),
-                ContextAttachment(kind: .chat, targetId: "release-chat-id", title: "Release Chat", subtitle: "Audit"),
-            ],
-            manifest: manifest,
-            includeAllNotesContext: false,
-            findNotesByTitle: { title in
-                guard title == "Release Note" else { return [] }
-                return [
-                    VaultManifest.ManifestEntry(
-                        pageId: "release-note-id",
-                        title: "Release Note",
-                        tags: [],
-                        folderName: "Audit",
-                        wordCount: 12,
-                        snippet: "Sentinel note",
-                        updatedAt: now,
-                        createdAt: now
-                    )
-                ]
-            },
-            fetchNoteBodies: { ids in
-                guard ids.contains("release-note-id") else { return [] }
-                return [
-                    VaultManifest.NoteBody(
-                        pageId: "release-note-id",
-                        title: "Release Note",
-                        body: "NOTE_SENTINEL = \(noteSentinel)"
-                    )
-                ]
-            },
-            searchNoteIDs: { _ in [] },
-            fetchChatMessages: { chatID in
-                guard chatID == "release-chat-id" else { return [] }
-                return chatMessages
-            }
-        )
-
-        let mergedContext = [attachedContext.context, fileContext]
+        let mergedContext = [attachedContext, fileContext]
             .compactMap { section in
-                guard let trimmed = section?.trimmingCharacters(in: .whitespacesAndNewlines),
+                guard let trimmed = section.trimmingCharacters(in: .whitespacesAndNewlines),
                       !trimmed.isEmpty else {
                     return nil
                 }
@@ -760,9 +692,7 @@ enum LocalRuntimeSmokeSupport {
         defer { try? FileManager.default.removeItem(at: imageURL.deletingLastPathComponent()) }
 
         let attachment = await FileAttachmentBuilder.build(from: imageURL)
-        let fileContext = try #require(
-            ChatCoordinator.buildFileAttachmentContext(from: [attachment], supportsVision: true)
-        )
+        let fileContext = releaseAttachmentContext(from: attachment, supportsVision: true)
 
         bootstrap.inferenceState.pendingImageURLs = [imageURL]
         defer { bootstrap.inferenceState.pendingImageURLs = [] }
@@ -872,6 +802,29 @@ enum LocalRuntimeSmokeSupport {
             ? normalizedVisibleText(from: finalRawAnalysis ?? "")
             : normalizedVisibleText(from: visibleText)
         return candidate
+    }
+
+    private static func releaseAttachmentContext(
+        from attachment: FileAttachment,
+        supportsVision: Bool
+    ) -> String {
+        var lines = [
+            "## Required File Attachments",
+            "Attached file: \(attachment.name)",
+            "Status: Required context explicitly attached or requested by the user.",
+        ]
+        if let preview = attachment.preview, !preview.isEmpty {
+            lines.append("Content:")
+            lines.append(preview)
+        }
+        if attachment.type == .image {
+            lines.append(
+                supportsVision
+                    ? "This model can inspect images directly."
+                    : "This model cannot inspect images directly."
+            )
+        }
+        return lines.joined(separator: "\n")
     }
 
     private static func normalizedVisibleText(from raw: String) -> String {

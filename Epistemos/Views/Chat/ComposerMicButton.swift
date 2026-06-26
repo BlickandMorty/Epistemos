@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Mic button for the chat composer. Tap to toggle recording;
+/// Mic button for fused input surfaces. Tap to toggle recording;
 /// record-in-progress shows a pulsing red dot + timer; busy states
 /// (permission request / transcribing) show a spinner. On transcript
 /// completion the bound `onTranscript` closure fires with the text so
-/// the composer can insert it at the cursor / append to existing draft.
+/// the host can insert it at the cursor / append to an existing draft.
 struct ComposerMicButton: View {
     let onTranscript: (String) -> Void
     @State private var service = ComposerVoiceInputService.shared

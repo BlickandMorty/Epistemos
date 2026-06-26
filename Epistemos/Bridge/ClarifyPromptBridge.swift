@@ -9,7 +9,7 @@
 // continue with the user's answer.
 //
 // We deliberately use NSAlert + key window — same pattern as
-// `ChatCoordinator.promptForToolApproval` — so the prompt is modal,
+// the agent tool-approval prompt path — so the prompt is modal,
 // dismissable, and works regardless of which view hierarchy is on screen.
 
 import AppKit

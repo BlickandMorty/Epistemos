@@ -26,7 +26,6 @@ struct TimeMachineServiceTests {
             showLanding: false,
             openNoteTabs: [],
             activeNoteTabPageId: nil,
-            openMiniChatIds: [],
             notesBrowserVisible: true,
             settingsVisible: false,
             graphOverlay: GraphOverlaySnapshot(visibility: .hidden, selectedNodeId: nil),

@@ -17,8 +17,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
     // inference.availableLocalGenerationRuntimeKinds repeatedly. Every
     // mutation of that field triggers a SwiftUI observer cascade
     // (the @Observable @MainActor InferenceState fires every property
-    // setter), which spammed the chat composer's capability pill
-    // re-render on every send. The cache is invalidated when the
+    // setter), which spammed subscribed capability UI re-rendering on every
+    // send. The cache is invalidated when the
     // prepared-runtime configuration changes (configurePreparedGenerationRuntime
     // clears it) or when the wall-clock TTL elapses.
     private struct AvailabilityCacheEntry {

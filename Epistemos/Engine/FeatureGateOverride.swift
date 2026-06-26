@@ -1,6 +1,6 @@
 import Foundation
 
-/// Shared in-app-toggle override semantics for the experimental feature gates (act = Osaurus, work = OpenCode).
+/// Shared in-app-toggle override semantics for experimental feature gates.
 /// Both gates carried an identical copy of this logic (override > env flag > off); this is the single source so
 /// they can't drift. The App-Store guard + the gate-specific flag/key/status stay at each call site.
 ///

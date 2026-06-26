@@ -8,7 +8,6 @@ struct SettingsTruthFloorTests {
         "Epistemos/Views/Settings/ACSAdmissionHealthRow.swift",
         "Epistemos/Views/Settings/APIKeysHealthRow.swift",
         "Epistemos/Views/Settings/ActiveConstellationRow.swift",
-        "Epistemos/Views/Settings/AgentBlueprintSettingsView.swift",
         "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
         "Epistemos/Views/Settings/ArenaHealthRow.swift",
         "Epistemos/Views/Settings/CLIDiscoveryHealthRow.swift",
@@ -30,7 +29,6 @@ struct SettingsTruthFloorTests {
         "Epistemos/Views/Settings/SearchFusionHealthRow.swift",
         "Epistemos/Views/Settings/ShadowSearchHealthRow.swift",
         "Epistemos/Views/Settings/SubstrateDriftMonitorHealthRow.swift",
-        "Epistemos/Views/Settings/SystemGHealthRow.swift",
         "Epistemos/Views/Settings/UasAcsHealthRow.swift",
         "Epistemos/Views/Settings/VaultRecallHealthRow.swift",
     ]

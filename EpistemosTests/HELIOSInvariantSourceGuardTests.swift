@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 /// HELIOS V5 theorem-invariant source-text guards — Stage 0 skeleton.
@@ -33,6 +34,16 @@ import Testing
 /// - `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md` §1 (WRV per slice)
 @Suite("HELIOS V5 Theorem-Invariant Source Guards (Stage 0 skeleton)")
 struct HELIOSInvariantSourceGuardTests {
+    private var repoRootURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func repoFileExists(_ relativePath: String) -> Bool {
+        FileManager.default.fileExists(atPath: repoRootURL.appendingPathComponent(relativePath).path)
+    }
+
     private static let canonicalTheoremIds: [String] = [
         // E1-E7 Epistemos Core Theorems (substrate-foundational)
         "E1", "E2", "E3", "E4", "E5", "E6", "E7",
@@ -291,16 +302,16 @@ struct HELIOSInvariantSourceGuardTests {
         }
     }
 
-    @Test("W3: VRMLabelView Swift surface exists with canonical guard marker")
-    func w3VRMLabelViewSwiftSurfaceExists() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/VRMLabelView.swift")
-        #expect(source.contains("HELIOS-W3 guard"))
-        // The view must surface all four labels per `docs/HELIOS_V5_DOC_0_INDEX.md` §0.6.
-        #expect(source.contains("public struct VRMLabelView"))
+    @Test("W3: VRM labels stay in the model while the old chat wrapper is deleted")
+    func w3VRMLabelModelRemainsWithoutOldChatWrapper() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacket.swift")
+        #expect(!repoFileExists("Epistemos/Views/Chat/VRMLabelView.swift"))
+        #expect(source.contains("HELIOS-W3"))
+        #expect(source.contains("nonisolated public enum VRMLabel"))
         for caseName in [".verified", ".plausibleButUnverified", ".speculative", ".blocked"] {
             #expect(
                 source.contains(caseName),
-                "VRMLabelView must handle case: \(caseName)"
+                "VRMLabel model must preserve case: \(caseName)"
             )
         }
     }
@@ -1689,31 +1700,16 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("orphan"))
     }
 
-    @Test("Stage 6 / W3.b: MessageBubble does not render placeholder VRM labels")
-    func stage6MessageBubbleWiresVrmLabel() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        #expect(source.contains("HELIOS-W3b guard"))
-        // V1 freeze invariant: no user-default toggle and no placeholder
-        // chip. VRMLabelView can render only after real AnswerPacket labels
-        // are emitted by the chat path.
-        #expect(!source.contains("@AppStorage(\"epistemos.helios.v5.verifiedResearchMode\")"))
-        #expect(!source.contains("VRMLabelView(.plausibleButUnverified, compact: true)"))
-        #expect(!source.contains("VRMLabelView(.verified"))
-    }
-
-    @Test("Stage 6 / W5.b: BTMView Swift surface exists, never tensor")
-    func stage6BTMViewExists() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/BTMView.swift")
-        #expect(source.contains("HELIOS-W5b guard"))
-        #expect(source.contains("public struct BTMView"))
-        #expect(source.contains("public struct SemanticDeltaView"))
-        // The W5 contract — semantic only, never tensors — is locked
-        // at the Swift mirror level too.
-        #expect(source.contains("Semantic only — never tensors"))
-        // CodingKeys mirror the Rust wire format snake_case.
-        #expect(source.contains("case addedClaims = \"added_claims\""))
-        #expect(source.contains("case modifiedClaims = \"modified_claims\""))
-        #expect(source.contains("case removedClaimIds = \"removed_claim_ids\""))
+    @Test("Stage 6 / W5.b: old BTM chat wrapper is deleted while substrate stays canonical")
+    func stage6BTMChatWrapperDeleted() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/btm_semantic.rs")
+        #expect(!repoFileExists("Epistemos/Views/Chat/BTMView.swift"))
+        #expect(source.contains("HELIOS-W5 guard"))
+        #expect(source.contains("pub struct SemanticDelta"))
+        #expect(source.contains("pub added_claims"))
+        #expect(source.contains("pub modified_claims"))
+        #expect(source.contains("pub removed_claim_ids"))
+        #expect(source.contains("NEVER tensor checkpoints"))
     }
 
     @Test("Stage 6 / W9-W11.b: HELIOS V5 scaffold is hidden from v1 Settings")

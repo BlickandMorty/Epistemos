@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 /// Transparency-only record of recent Overseer planning decisions. Every
-/// main-chat turn that runs through ChatCoordinator.buildOverseerExecutionPlan
+/// main-agent turn that runs through the overseer execution-plan builder.
 /// pushes its ExecutionPlan here so the Settings → "Overseer" panel can
 /// surface what the auto-router is actually doing.
 ///

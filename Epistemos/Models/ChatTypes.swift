@@ -112,10 +112,14 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
     /// the legacy `FileAttachment` on the message struct so that tool
     /// execution can consult the attached-resource manifest.
     case file
-    /// First-class local HTML Workspace document. MiniChat can target
+    /// First-class local HTML Workspace document. Agent surfaces can target
     /// the active workspace and apply structured HTML/CSS/JS patch ops
     /// without overloading normal Epdoc blocks.
     case htmlWorkspace
+    /// First-class graph portal context. Carries the selected route, nodes,
+    /// edges, and neighborhood summary into the unified agent session instead
+    /// of reviving the deleted graph-chat surface.
+    case graph
 
     var systemImageName: String {
         switch self {
@@ -125,6 +129,7 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
         case .folder: "folder"
         case .file: "doc"
         case .htmlWorkspace: "curlybraces.square"
+        case .graph: "point.3.connected.trianglepath.dotted"
         }
     }
 }
@@ -159,8 +164,6 @@ struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
     var resourceURI: String?
     var resourceMode: ContextAttachmentResourceMode?
     var resourceCapabilities: [String]?
-    var surfaceTarget: MiniChatTarget?
-
     var id: String { "\(kind.rawValue):\(targetId)" }
     var systemImageName: String { kind.systemImageName }
 
@@ -171,8 +174,7 @@ struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
         subtitle: String? = nil,
         resourceURI: String? = nil,
         resourceMode: ContextAttachmentResourceMode? = nil,
-        resourceCapabilities: [String]? = nil,
-        surfaceTarget: MiniChatTarget? = nil
+        resourceCapabilities: [String]? = nil
     ) {
         self.kind = kind
         self.targetId = targetId
@@ -181,7 +183,6 @@ struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
         self.resourceURI = resourceURI
         self.resourceMode = resourceMode
         self.resourceCapabilities = resourceCapabilities
-        self.surfaceTarget = surfaceTarget
     }
 }
 
@@ -286,21 +287,23 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// payload exposes cache hit counts (Anthropic
     /// `cache_read_input_tokens`, OpenAI `prompt_tokens_details
     /// .cached_tokens`). Nil when the provider didn't report it OR
-    /// when there was no cacheable prefix. MessageBubble renders a
-    /// small "cache 78%" badge next to the model label so the user
-    /// can see the prompt-caching win land turn-to-turn.
+    /// when there was no cacheable prefix. The rebuilt AgentClone/fusion
+    /// chat surface can render a small "cache 78%" badge next to the
+    /// model label so the user can see the prompt-caching win land
+    /// turn-to-turn.
     var cacheHitPercent: Double?
     /// V6.2 audit-channel binding (Option B per
     /// `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`).
     /// References the AnswerPacket emitted at turn-completion for
-    /// this message. Stamped by `ChatState.completeProcessing` from
-    /// the `.complete` stream event's `answerPacketId` field —
+    /// this message. Stamped by the active transcript commit path from
+    /// the completion stream event's `answerPacketId` field —
     /// guaranteed to be in `AnswerPacketEmitter.shared
     /// .recentPackets()` if non-nil, because the packet was committed
     /// to the ring BEFORE the stream event yielded. Nil for legacy
     /// messages, user messages, or paths that bypass the audit emit
-    /// (errors, cancellations). The MessageBubble VRMLabelView
-    /// render reads this field; nil → no chip.
+    /// (errors, cancellations). The rebuilt AgentClone/fusion chat
+    /// surface can render a verification chip from this field; nil
+    /// means no chip.
     var answerPacketId: String?
 
     init(
@@ -450,6 +453,11 @@ struct ChatThread: Identifiable, Codable, Sendable {
     var label: String
     var messages: [AssistantMessage]
     var pageId: String?
+    /// Optional parent session id for a mini session spawned FROM a main session (authority item #2
+    /// mini-session ontology). nil = standalone (today's default for all existing creation sites).
+    /// Optional + Codable-safe: a missing key decodes to nil for existing persisted threads. Wiring of a
+    /// real parent source per creation site + AgentSessionLineageStore bridge is a follow-on step.
+    var parentSessionID: String?
     var loadedNoteIds: [String]
     var loadedNoteTitles: [String]
     var contextAttachments: [ContextAttachment]
@@ -461,6 +469,7 @@ struct ChatThread: Identifiable, Codable, Sendable {
         label: String = "Thread",
         messages: [AssistantMessage] = [],
         pageId: String? = nil,
+        parentSessionID: String? = nil,
         loadedNoteIds: [String] = [],
         loadedNoteTitles: [String] = [],
         contextAttachments: [ContextAttachment] = [],
@@ -471,6 +480,7 @@ struct ChatThread: Identifiable, Codable, Sendable {
         self.label = label
         self.messages = messages
         self.pageId = pageId
+        self.parentSessionID = parentSessionID
         self.loadedNoteIds = loadedNoteIds
         self.loadedNoteTitles = loadedNoteTitles
         self.contextAttachments = contextAttachments

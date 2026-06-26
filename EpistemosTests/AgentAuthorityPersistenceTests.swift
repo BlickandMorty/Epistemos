@@ -147,54 +147,8 @@ struct AgentAuthorityPersistenceTests {
         )
     }
 
-    @Test("Tool dispatch consults stored authority before executor resolution")
-    func toolDispatchConsultsStoredAuthorityBeforeExecution() throws {
-        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
-        let promptBlock = try sourceSlice(
-            coordinator,
-            from: "private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool",
-            to: "private func seedApprovedR5WriteGrantIfNeeded"
-        )
-        #expect(promptBlock.contains("switch storedAuthorityDecision(for: request)"))
-        #expect(promptBlock.contains("case .autoAllow:"))
-        #expect(promptBlock.contains("case .neverAllow:"))
-        #expect(promptBlock.contains("return false"))
-        #expect(promptBlock.contains("case .askFirst:"))
-        #expect(promptBlock.contains("promptUserForToolApproval("))
-
-        let commandCenterLocalBlock = try sourceSlice(
-            coordinator,
-            from: "private func runCommandCenterLocalAgentPath(",
-            to: "private func commandCenterPlanDocumentSeed("
-        )
-        try expectOrdered(
-            in: commandCenterLocalBlock,
-            "let approved = await self.promptForToolApproval(permissionRequest)",
-            "let result = await baseToolExecutor(name, normalizedArgumentsJson)"
-        )
-
-        let commandCenterRustBlock = try sourceSlice(
-            coordinator,
-            from: "private func runCommandCenterRustAgentPath(",
-            to: "private func commandCenterExecutionPlan("
-        )
-        try expectOrdered(
-            in: commandCenterRustBlock,
-            "approved = await promptForToolApproval(request)",
-            "capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"
-        )
-
-        let managedRustBlock = try sourceSlice(
-            coordinator,
-            from: "// Process the agent stream",
-            to: "persistCompletedAgentTurn()"
-        )
-        try expectOrdered(
-            in: managedRustBlock,
-            "approved = await promptForToolApproval(request)",
-            "capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"
-        )
-
+    @Test("Pipeline tool dispatch consults stored authority before executor resolution")
+    func pipelineToolDispatchConsultsStoredAuthorityBeforeExecution() throws {
         let pipeline = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
         let observedExecutorBlock = try sourceSlice(
             pipeline,
@@ -205,14 +159,6 @@ struct AgentAuthorityPersistenceTests {
         #expect(observedExecutorBlock.contains("!permissionRequest.requiresHumanApproval"))
         #expect(!observedExecutorBlock.contains("if permissionRequest.requiresHumanApproval {\n                let approved = await toolApprovalHandler"))
         #expect(observedExecutorBlock.contains("was denied by policy"))
-
-        let pipelineHandlerCount = coordinator.components(
-            separatedBy: "return await self.promptForToolApproval(request)"
-        ).count - 1
-        #expect(
-            pipelineHandlerCount >= 2,
-            "main chat and command-center pipeline handlers must delegate tool approval to ChatCoordinator.promptForToolApproval so persisted authority decisions are enforced before local tool execution"
-        )
     }
 
     private func sourceSlice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {

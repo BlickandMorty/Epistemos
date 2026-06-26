@@ -25,7 +25,7 @@ struct MemoryGateOverrideTests {
         #expect(!inference.memoryGateForcedModelIDs.contains(id))
     }
 
-    @Test("the blocker honors the forced set; the estimate counts reclaimable + speculative; the UI wires Run-anyway")
+    @Test("the blocker honors the forced set; the estimate counts reclaimable + speculative")
     func wiringIsIntact() throws {
         let inference = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
         // The blocker short-circuits to nil for a force-loaded model.
@@ -36,10 +36,5 @@ struct MemoryGateOverrideTests {
         // Accuracy: available memory counts free + inactive + purgeable + speculative.
         let monitor = try loadMirroredSourceTextFile("Epistemos/Engine/LocalInferenceSerialController.swift")
         #expect(monitor.contains("statistics.speculative_count"))
-
-        // The blocker banner surfaces a "Run anyway" that force-loads the model.
-        let composer = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        #expect(composer.contains("Run anyway"))
-        #expect(composer.contains("inference.setMemoryGateForced(forceID, forced: true)"))
     }
 }

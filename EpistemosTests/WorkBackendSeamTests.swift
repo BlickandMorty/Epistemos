@@ -35,7 +35,7 @@ struct WorkBackendSeamTests {
         #expect(panel.contains("WorkBackendHealthRow()"))
     }
 
-    @Test("GOOSE GUARDRAIL: the Work seam is ISOLATED — Chat (Epistemos) / Act (Osaurus) are untouched")
+    @Test("GOOSE GUARDRAIL: the Work seam is isolated from chat and act")
     func guardrailChatActUnchanged() throws {
         let mode = try loadMirroredSourceTextFile("Epistemos/Engine/CoworkChatMode.swift")
         // No `.work` case was added to the Chat/Act depth model — Work is a SEPARATE,

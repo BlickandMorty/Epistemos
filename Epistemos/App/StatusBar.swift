@@ -2,8 +2,7 @@ import AppKit
 
 // MARK: - Status Bar
 // NSStatusItem in the macOS system menu bar.
-// Provides quick access to utility windows (Settings, Notes),
-// Home navigation, and MiniChat toggle.
+// Provides quick access to utility windows and Home navigation.
 
 @MainActor
 final class StatusBar {
@@ -44,14 +43,6 @@ final class StatusBar {
 
     private func buildMenu() -> NSMenu {
         let menu = NSMenu(title: "Epistemos")
-
-        // MiniChat toggle
-        let miniChat = NSMenuItem(
-            title: "New Mini Chat", action: #selector(toggleMiniChat), keyEquivalent: "")
-        miniChat.image = NSImage(
-            systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: nil)
-        miniChat.target = self
-        menu.addItem(miniChat)
 
         // Home — bring main window to front
         let home = NSMenuItem(
@@ -96,15 +87,8 @@ final class StatusBar {
 
     // MARK: - Actions
 
-    @objc private func toggleMiniChat() {
-        Task { @MainActor in
-            MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
-        }
-    }
-
     @objc private func showHome() {
         Task { @MainActor in
-            AppBootstrap.shared?.chatState.goHome()
             AppBootstrap.shared?.uiState.setActivePanel(.home)
             AppBootstrap.shared?.uiState.homeTab = .home
             HomeWindowIdentity.surfaceHomeWindow()

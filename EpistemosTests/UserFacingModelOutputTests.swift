@@ -622,26 +622,6 @@ struct ThinkTagStreamRouterTests {
         #expect(!second.visible.contains("[Start think"))
     }
 
-    @Test("thinking-trace display strips raw markdown emphasis and heading syntax")
-    func thinkingDisplayDeMarkdowns() {
-        let raw = """
-        ### Plan
-        1. **Analyze the Request:** parse it.
-        2. __Draft__ the reply.
-
-        > a quoted aside
-        """
-        let shown = ProcessDisclosureTextBlock.displayText(for: raw)
-        #expect(shown.contains("Plan"))
-        #expect(!shown.contains("**"))
-        #expect(!shown.contains("__"))
-        #expect(!shown.contains("#"))
-        #expect(shown.contains("Analyze the Request:"))
-        #expect(shown.contains("1.")) // list markers preserved
-        #expect(shown.contains("a quoted aside"))
-        #expect(!shown.contains(">"))
-    }
-
     @Test("unterminated Gemma reasoning streams as thinking, never leaks as visible")
     func tracksThinkingStateForBracketBlock() {
         let router = ThinkTagStreamRouter()

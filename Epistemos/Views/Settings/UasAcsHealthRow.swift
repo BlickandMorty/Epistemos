@@ -72,7 +72,7 @@ public struct UasAcsHealthRow: View {
             // dedup (6 FFI/sec → 1), this `UasAcsGateSnapshot.load()` (copyCount + anchorLookup file
             // reads) was the ONE remaining 1 Hz SYNCHRONOUS read on the main thread in the panel —
             // the residual freeze/stutter contributor. Matches the off-MainActor pattern the other
-            // rows use (SystemGHealthRow.refresh): load on a detached task, hop the result back.
+            // rows use: load on a detached task, hop the result back.
             Task {
                 let freshGates = await Task.detached { UasAcsGateSnapshot.load() }.value
                 gates = freshGates

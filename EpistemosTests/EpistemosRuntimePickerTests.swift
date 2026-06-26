@@ -10,9 +10,15 @@ struct EpistemosRuntimePickerTests {
     private func env(
         installed: Set<String>,
         freeGB: Int,
-        ai: Bool = false
+        ai: Bool = false,
+        aiReason: String? = nil
     ) -> EpistemosRuntimePicker.Environment {
-        .init(installedModelIDs: installed, freeMemoryGB: freeGB, appleIntelligenceAvailable: ai)
+        .init(
+            installedModelIDs: installed,
+            freeMemoryGB: freeGB,
+            appleIntelligenceAvailable: ai,
+            appleIntelligenceUnavailableReason: aiReason
+        )
     }
 
     @Test("Fast offers the Gemma sizes plus Apple Intelligence (4th pick)")
@@ -75,6 +81,36 @@ struct EpistemosRuntimePickerTests {
         let off = EpistemosRuntimePicker.options(for: .fast, environment: env(installed: [], freeGB: 8, ai: false))
         #expect(off.last?.isSelectable == false)
         #expect(off.last?.blockedReason == "Not available on this Mac")
+    }
+
+    @Test("Apple Intelligence carries Foundation Models runtime metadata")
+    func appleIntelligenceCarriesFoundationModelsRuntimeMetadata() {
+        let on = EpistemosRuntimePicker.options(
+            for: .fast,
+            environment: env(installed: [], freeGB: 8, ai: true)
+        ).last
+
+        #expect(on?.runtimeKind == .appleIntelligence)
+        #expect(on?.systemImage == "apple.intelligence")
+        #expect(on?.availabilitySummary == "System: available · private on-device runtime")
+        #expect(on?.requiresNewSessionOnSelection == true)
+        #expect(on?.settingsActionRecommended == false)
+
+        let off = EpistemosRuntimePicker.options(
+            for: .fast,
+            environment: env(
+                installed: [],
+                freeGB: 8,
+                ai: false,
+                aiReason: "Apple Intelligence is disabled"
+            )
+        ).last
+
+        #expect(off?.runtimeKind == .appleIntelligence)
+        #expect(off?.isSelectable == false)
+        #expect(off?.blockedReason == "Apple Intelligence is disabled")
+        #expect(off?.availabilitySummary == "System: unavailable (Apple Intelligence is disabled)")
+        #expect(off?.settingsActionRecommended == true)
     }
 
     @Test("Think and Code each offer their foundation model and no Apple Intelligence")

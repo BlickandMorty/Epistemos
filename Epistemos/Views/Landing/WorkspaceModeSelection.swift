@@ -1,13 +1,13 @@
+import Foundation
 import SwiftUI
 
-/// VISIBLE SURFACES / two-mode ontology (owner §122/§194 "two toggles = act/work"): the SINGLE source of truth
-/// for which mode the user is in (act vs work) + whether each mode's experimental engine is armed. Ties together
-/// the pieces already built — `WorkspaceModeKind` (mode-entry transition), the act gate (`ActOsaurusGateStatus`)
-/// and the work gate (`WorkOpenCodeShellGateStatus`). Pure + persisted + unit-testable; the picker view below is
-/// the thin visual layer the landing flow mounts. Selecting a mode is SEPARATE from arming its engine (the gates
-/// are the explicit opt-in toggles) — selection picks the surface, the gate toggles arm the experimental engine.
+/// VISIBLE SURFACES / mode ontology: the SINGLE source of truth for which mode the user is in (chat/act/work) and
+/// whether each mode's engine is actually ready. Act follows the shared local-agent route; Work follows the real
+/// bundled runtime factory, while the old Work gate remains only as a compatibility/status seam.
 nonisolated enum WorkspaceModeSelection {
     static let defaultsKey = "epistemos.workspace.mode"
+    static let didSelectNotification = Notification.Name("epistemos.workspace.mode.didSelect")
+    static let selectedModeUserInfoKey = "mode"
 
     /// The user's current mode (defaults to `.act` — the chat-like surface — when unset / unrecognized).
     static func current(defaults: UserDefaults = .standard) -> WorkspaceModeKind {
@@ -19,11 +19,14 @@ nonisolated enum WorkspaceModeSelection {
     /// Persist the user's selected mode.
     static func select(_ mode: WorkspaceModeKind, defaults: UserDefaults = .standard) {
         defaults.set(mode.rawValue, forKey: defaultsKey)
+        NotificationCenter.default.post(
+            name: didSelectNotification,
+            object: defaults,
+            userInfo: [selectedModeUserInfoKey: mode.rawValue]
+        )
     }
 
-    /// Whether the given mode's engine is armed. Act reads the shared act-routing
-    /// truth so the landing picker cannot disagree with the mounted surface or
-    /// bridge factory; work still reads its explicit Pro gate.
+    /// Whether the given mode's engine is armed.
     static func isArmed(
         _ mode: WorkspaceModeKind,
         environment: [String: String] = ProcessInfo.processInfo.environment,
@@ -32,17 +35,23 @@ nonisolated enum WorkspaceModeSelection {
         switch mode {
         case .act:
             _ = defaults
-            return LocalAgentLoop.shouldRouteActThroughOsaurus(environment: environment)
+            _ = environment
+            return true
         case .work:
-            return WorkOpenCodeShellGateStatus.resolvedActive(environment: environment, defaults: defaults)
+            _ = defaults
+            _ = environment
+            return WorkOpenCodeRuntime.bundledRuntimeURL() != nil
+        case .chat:
+            // The native Swarm-backed Chat surface is always available (no experimental
+            // engine gate); model readiness is surfaced inside the surface itself.
+            return true
         }
     }
 }
 
-/// Reusable act/work mode picker (owner §194 "two toggles = act/work"). A flat segmented control rendering the
-/// two modes with a live per-mode armed dot; selecting persists via `WorkspaceModeSelection` + calls back. The
-/// caller binds `mode` and reacts (e.g. drive the `ModeEntryTitleView` transition). Minimal Epistemos chrome;
-/// the landing-flow placement + final styling are the owner-reviewed visual follow-on.
+/// Reusable mode picker. A flat segmented control rendering each mode with a live readiness dot; selecting persists
+/// via `WorkspaceModeSelection` + calls back. The caller binds `mode` and reacts (e.g. drive the
+/// `ModeEntryTitleView` transition). Minimal Epistemos chrome.
 struct WorkspaceModePicker: View {
     @Binding var mode: WorkspaceModeKind
     var onSelect: ((WorkspaceModeKind) -> Void)? = nil

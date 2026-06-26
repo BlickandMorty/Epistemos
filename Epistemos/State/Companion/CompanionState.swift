@@ -4,8 +4,7 @@ import OSLog
 import SwiftData
 
 /// `@Observable` `@MainActor` service that owns Companion CRUD +
-/// activation state for the Simulation Mode v1.6 surfaces (Landing
-/// Farm, Notes Sidebar Skin, Graph Live Theater).
+/// activation state for visual companion surfaces.
 ///
 /// Doctrinal posture (per `simulation` worktree DOCTRINE.md +
 /// MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md):
@@ -13,16 +12,13 @@ import SwiftData
 /// - Reads + writes go through the canonical SwiftData ModelContext
 /// - Soft-delete (archive) → restore window → hard delete via
 ///   Sovereign Gate per Invariant I-12
-/// - Active-companion change emits an info-class transcript / event
-///   that downstream surfaces (Notes Sidebar) reflect in real time
 @MainActor
 @Observable
 final class CompanionState {
     private static let log = Logger(subsystem: "com.epistemos", category: "CompanionState")
 
-    /// Currently-foregrounded companion id, if any. The Landing agent
-    /// dock shows every active agent; this picks the one whose persona
-    /// augments the system prompt for the next chat.
+    /// Currently-foregrounded companion id, if any. This is presentation
+    /// state only; it does not change chat routing or prompts.
     var activeCompanionID: String? = nil
 
     /// Cached snapshot of active companions for the Farm view to read
@@ -56,14 +52,6 @@ final class CompanionState {
         tagline: String = "",
         bodyKind: CompanionBodyKind = .orb,
         accentHex: String = "#7BA8E0",
-        loraAdapterPath: String? = nil,
-        personaPrompt: String? = nil,
-        agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
-        agentToolNames: [String] = [],
-        agentScope: AgentBlueprintScope = .currentVault,
-        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
-        customSystemPromptTemplate: String? = nil,
-        outputStructureJSON: String? = nil,
         activateOnCreate: Bool = true
     ) -> CompanionRosterEntry? {
         guard let context = modelContext else {
@@ -74,15 +62,7 @@ final class CompanionState {
             name: name,
             tagline: tagline,
             bodyKind: bodyKind,
-            accentHex: accentHex,
-            loraAdapterPath: loraAdapterPath,
-            personaPrompt: personaPrompt,
-            agentModelChoice: agentModelChoice,
-            agentToolNames: agentToolNames,
-            agentScope: agentScope,
-            agentApprovalMode: agentApprovalMode,
-            customSystemPromptTemplate: customSystemPromptTemplate,
-            outputStructureJSON: outputStructureJSON
+            accentHex: accentHex
         )
         context.insert(model)
         do {
@@ -104,14 +84,7 @@ final class CompanionState {
         name: String,
         tagline: String = "",
         bodyKind: CompanionBodyKind,
-        accentHex: String,
-        personaPrompt: String? = nil,
-        agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
-        agentToolNames: [String] = [],
-        agentScope: AgentBlueprintScope = .currentVault,
-        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
-        customSystemPromptTemplate: String? = nil,
-        outputStructureJSON: String? = nil
+        accentHex: String
     ) -> CompanionRosterEntry? {
         guard let context = modelContext else {
             Self.log.error("updateCompanion: ModelContext not attached")
@@ -123,13 +96,6 @@ final class CompanionState {
         model.tagline = tagline
         model.bodyKind = bodyKind
         model.accentHex = accentHex
-        model.personaPrompt = personaPrompt
-        model.agentModelChoice = agentModelChoice
-        model.agentToolNames = agentToolNames
-        model.agentScope = agentScope
-        model.agentApprovalMode = agentApprovalMode
-        model.customSystemPromptTemplate = customSystemPromptTemplate
-        model.outputStructureJSON = outputStructureJSON
         model.identityHash = CompanionModel.computeIdentityHash(
             id: model.id,
             bodyKindRaw: model.bodyKindRaw,
@@ -211,94 +177,6 @@ final class CompanionState {
         activeCompanionID = nil
     }
 
-    var activeAgentName: String? {
-        activeAgentEntry?.name
-    }
-
-    var activeAgentEntry: CompanionRosterEntry? {
-        guard let activeCompanionID else { return nil }
-        return roster.first { $0.id == activeCompanionID }
-    }
-
-    /// Active Landing agents are real v1 routing state: the selected agent
-    /// contributes a bounded persona instruction to every main-chat turn.
-    /// This remains honest about scope: agents do not claim a separate model
-    /// or hidden tool authority; they steer the selected Epistemos runtime.
-    func activeAgentSystemInstruction() -> String? {
-        guard let entry = activeAgentEntry else { return nil }
-        return Self.agentSystemInstruction(for: entry)
-    }
-
-    func activeAgentBrainSection() -> String? {
-        guard let entry = activeAgentEntry else { return nil }
-        var lines = [
-            "Name: \(Self.boundedPromptField(entry.name, limit: 80))",
-            "Body: \(entry.bodyKind.displayName)",
-        ]
-        let role = Self.boundedPromptField(entry.tagline, limit: 160)
-        if !role.isEmpty {
-            lines.append("Role: \(role)")
-        }
-        let persona = Self.boundedPromptField(entry.personaPrompt ?? "", limit: 500)
-        if !persona.isEmpty {
-            lines.append("Persona: \(persona)")
-        }
-        lines.append("AgentBlueprint model: \(entry.agentModelChoice.displayName) [\(entry.agentModelChoice.routingID)]")
-        lines.append("AgentBlueprint scope: \(entry.agentScope.displayName)")
-        lines.append("AgentBlueprint approval: \(entry.agentApprovalMode.displayName)")
-        if !entry.agentToolNames.isEmpty {
-            lines.append("AgentBlueprint tools: \(entry.agentToolNames.joined(separator: ", "))")
-        }
-        lines.append("Scope: active runtime preference plus prompt/persona layer; runtime gates still own truth, tools, and writes.")
-        return lines.joined(separator: "\n")
-    }
-
-    nonisolated static func agentSystemInstruction(for entry: CompanionRosterEntry) -> String? {
-        let name = boundedPromptField(entry.name, limit: 80)
-        guard !name.isEmpty else { return nil }
-
-        var lines = [
-            "Active Epistemos landing agent: \(name).",
-            "Use this agent as the visible working persona for this turn while still following all Epistemos safety, evidence, and tool-permission rules.",
-            "This agent carries an AgentBlueprint runtime preference: \(entry.agentModelChoice.routingID) (\(entry.agentModelChoice.displayName)).",
-            "Do not claim unavailable tool access or autonomous background action; tool use must obey \(entry.agentApprovalMode.displayName) and \(entry.agentScope.displayName).",
-        ]
-        let role = boundedPromptField(entry.tagline, limit: 160)
-        if !role.isEmpty {
-            lines.append("Agent role: \(role).")
-        }
-        // A custom system-prompt template OVERRIDES the persona augment; otherwise
-        // the persona augments. Either way the honest framing above (safety,
-        // tool-permission, approval/scope) still bounds behavior — the override
-        // steers voice/instructions, it does not grant capability.
-        let customPrompt = boundedPromptField(entry.customSystemPromptTemplate ?? "", limit: 2_000)
-        if !customPrompt.isEmpty {
-            lines.append("System prompt: \(customPrompt)")
-        } else {
-            let persona = boundedPromptField(entry.personaPrompt ?? "", limit: 800)
-            if !persona.isEmpty {
-                lines.append("Persona directive: \(persona)")
-            }
-        }
-        // Per-agent structured-output contract, if the user set one.
-        let outputContract = boundedPromptField(entry.outputStructureJSON ?? "", limit: 600)
-        if !outputContract.isEmpty {
-            lines.append("Output format contract (honor this structure): \(outputContract)")
-        }
-        if !entry.agentToolNames.isEmpty {
-            lines.append("Preferred tools: \(entry.agentToolNames.joined(separator: ", ")).")
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    nonisolated private static func boundedPromptField(_ value: String, limit: Int) -> String {
-        let trimmed = value
-            .replacingOccurrences(of: "\0", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > limit else { return trimmed }
-        return String(trimmed.prefix(limit)) + "…"
-    }
-
     // MARK: - Lookups
 
     func fetch(by id: String) -> CompanionModel? {
@@ -348,34 +226,30 @@ final class CompanionState {
         reloadRoster()
         guard roster.isEmpty && trashed.isEmpty else { return nil }
 
-        let presets: [(name: String, tagline: String, bodyKind: CompanionBodyKind, accentHex: String, personaPrompt: String)] = [
+        let presets: [(name: String, tagline: String, bodyKind: CompanionBodyKind, accentHex: String)] = [
             (
                 name: "Sage",
                 tagline: "Reflective companion · click to focus",
                 bodyKind: .sage,
-                accentHex: "#9C8FE5",
-                personaPrompt: "Reflective tone. Cite reasoning. Respect the user's time."
+                accentHex: "#9C8FE5"
             ),
             (
                 name: "Scout",
                 tagline: "Map reader · finds the next move",
                 bodyKind: .blockWide,
-                accentHex: "#5EC2B7",
-                personaPrompt: "Map the terrain first. Identify the next useful move before acting."
+                accentHex: "#5EC2B7"
             ),
             (
                 name: "Brick",
                 tagline: "Steady worker · purposeful",
                 bodyKind: .blockCompact,
-                accentHex: "#5B8DEF",
-                personaPrompt: "Direct and concrete. Ship the work."
+                accentHex: "#5B8DEF"
             ),
             (
                 name: "Scribe",
                 tagline: "Editorial reader · careful",
                 bodyKind: .blockWide,
-                accentHex: "#D97757",
-                personaPrompt: "Careful editor. Consider style and clarity."
+                accentHex: "#D97757"
             ),
         ]
 
@@ -386,7 +260,6 @@ final class CompanionState {
                 tagline: preset.tagline,
                 bodyKind: preset.bodyKind,
                 accentHex: preset.accentHex,
-                personaPrompt: preset.personaPrompt,
                 activateOnCreate: false
             )
             if first == nil { first = entry }
@@ -407,18 +280,6 @@ struct CompanionRosterEntry: Identifiable, Equatable, Sendable {
     let bodyKind: CompanionBodyKind
     let accentHex: String
     let identityHash: String
-    let loraAdapterPath: String?
-    let personaPrompt: String?
-    let agentModelChoice: AgentBlueprintModelChoice
-    let agentToolNames: [String]
-    let agentScope: AgentBlueprintScope
-    let agentApprovalMode: AgentBlueprintApprovalMode
-    // osaurus-pattern meta-config (additive 2026-06-16)
-    let customSystemPromptTemplate: String?
-    let outputStructureJSON: String?
-    let mcpServerConfigJSON: String?
-    let memoryPinPattern: String?
-    let toolSelectionMode: CompanionToolSelectionMode
     let createdAt: Date
     let lastInteractedAt: Date
     let archivedAt: Date?
@@ -430,17 +291,6 @@ struct CompanionRosterEntry: Identifiable, Equatable, Sendable {
         self.bodyKind = model.bodyKind
         self.accentHex = model.accentHex
         self.identityHash = model.identityHash
-        self.loraAdapterPath = model.loraAdapterPath
-        self.personaPrompt = model.personaPrompt
-        self.agentModelChoice = model.agentModelChoice
-        self.agentToolNames = model.agentToolNames
-        self.agentScope = model.agentScope
-        self.agentApprovalMode = model.agentApprovalMode
-        self.customSystemPromptTemplate = model.customSystemPromptTemplate
-        self.outputStructureJSON = model.outputStructureJSON
-        self.mcpServerConfigJSON = model.mcpServerConfigJSON
-        self.memoryPinPattern = model.memoryPinPattern
-        self.toolSelectionMode = model.toolSelectionMode
         self.createdAt = model.createdAt
         self.lastInteractedAt = model.lastInteractedAt
         self.archivedAt = model.archivedAt

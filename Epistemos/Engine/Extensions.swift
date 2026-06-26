@@ -1077,7 +1077,7 @@ nonisolated enum UserFacingModelOutput {
         suppressIncompleteThinkingTail: Bool
     ) -> String {
         strippedThinkingArtifacts(
-            in: ActOsaurusVisibleStreamFilter.visibleStoredText(from: raw),
+            in: raw,
             suppressIncompleteThinkingTail: suppressIncompleteThinkingTail,
             recoveryMode: .final
         )
@@ -1087,7 +1087,7 @@ nonisolated enum UserFacingModelOutput {
 
     private static func cleanedStreamingText(from raw: String) -> String {
         strippedThinkingArtifacts(
-            in: ActOsaurusVisibleStreamFilter.visibleStoredText(from: raw),
+            in: raw,
             suppressIncompleteThinkingTail: true,
             recoveryMode: .streaming
         )

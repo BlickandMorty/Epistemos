@@ -5,12 +5,10 @@ import Foundation
 
 // L1160 custom-theme-font VERIFY (owner: "picking a font on the custom theme changes rendered text,
 // every level"). Commit 4b0a5e59e fixed the live re-render + persistence; CustomThemeFontOverrideTests
-// pins the override STORAGE. This pins the other half — that the render SURFACES actually route their
+// pins the override STORAGE. This pins the other half — that the surviving note render surface routes
 // themeable text through the custom-font path (AppDisplayTypography), so a refactor can't silently
 // hardcode a font and break the custom theme. Scope note: the note EDITOR BODY uses a readable system
-// font BY DESIGN (the custom/display fonts are pixel-art display faces, not legible for body editing);
-// the custom font correctly applies to the display levels — note H1–H6 headings + chat body — which is
-// what these assert.
+// font BY DESIGN (the custom/display fonts are pixel-art display faces, not legible for body editing).
 @Suite("L1160 — custom theme font reaches the themeable render surfaces")
 struct CustomThemeFontRenderWiringTests {
 
@@ -20,11 +18,5 @@ struct CustomThemeFontRenderWiringTests {
         // Note H1–H6 use the heading font that reads the custom-theme override, so a picked custom
         // font applies to them at every level.
         #expect(storage.contains("AppDisplayTypography.nsHeadingFont"))
-    }
-
-    @Test("chat message body routes through AppDisplayTypography, not a hardcoded font")
-    func chatBodyUsesThemeFont() throws {
-        let bubble = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        #expect(bubble.contains("AppDisplayTypography.font"))
     }
 }

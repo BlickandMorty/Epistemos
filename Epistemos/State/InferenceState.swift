@@ -2970,8 +2970,7 @@ nonisolated struct LocalRuntimeConditions: Sendable, Equatable {
 
 nonisolated enum LocalModelSelectionSurface: String, Sendable, Equatable {
     case mainChat
-    case miniChat
-    case noteChat
+    case noteAgentPortal
     case graph
 }
 
@@ -3295,7 +3294,7 @@ final class InferenceState {
     }
 
     /// Transient image URLs for the current inference request.
-    /// Set by ChatCoordinator before inference, consumed by MLXInferenceService, cleared after.
+    /// Set by the active agent route before inference, consumed by MLXInferenceService, cleared after.
     var pendingImageURLs: [URL] = []
 
     var inferenceMode: InferenceMode {

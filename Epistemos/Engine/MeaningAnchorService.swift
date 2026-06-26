@@ -56,8 +56,8 @@ struct MeaningAnchor: Codable, Sendable {
 //   2. The fused SQL gets an extra `+ :pinnedBoost * pinned_match`
 //      term in the `raw_fused_score` calc (where `pinned_match` is
 //      `CASE WHEN entity_id IN (:pinned_ids) THEN 1.0 ELSE 0.0 END`).
-//   3. Surfaces that have an active anchor (chat coordinator, mini-
-//      chat composer) read `currentAnchor.relatedNoteIds` and pass
+//   3. Surfaces that have an active anchor read `currentAnchor.relatedNoteIds`
+//      and pass
 //      them to `searchIndex.fusedSearch(weights:)`.
 // Until then, the anchor still influences the prompt directly via
 // `formatForPrompt()` (line 33-43 above) — retrieval bias is the

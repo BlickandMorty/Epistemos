@@ -5,11 +5,10 @@ import SwiftData
 /// query and react to companion lifecycle changes natively.
 ///
 /// Per the Simulation Mode v1.6 doctrine (T6 hackathon Block B):
-/// - Each Companion is a lightweight identity attached to one shared
-///   base substrate (the active model selection).
+/// - Each Companion is a lightweight visual identity. It does not own
+///   model, prompt, tool, MCP, approval, or autonomous runtime authority.
 /// - Cosmetic config (body grammar: parameterized Block / Sage / Orb)
-///   maps to a ModelProfile per Invariant I-10 — every cosmetic choice
-///   is functionally significant, not pure decoration.
+///   maps to the mascot renderer only.
 /// - Identity hash is a stable per-companion seed used by
 ///   `DeterministicPRNG` per Invariant I-13 to make per-companion
 ///   animations deterministic across replay.
@@ -27,16 +26,11 @@ final class CompanionModel {
     /// Body grammar — see CompanionBodyKind for the parameterized Farm variants.
     /// Stored as raw string for SwiftData friendliness.
     var bodyKindRaw: String
-    /// Hex-coded accent color (e.g. "#7BA8E0"). Drives the orb halo
-    /// and the persona accent in chat surfaces tied to this companion.
+    /// Hex-coded accent color (e.g. "#7BA8E0"). Drives the mascot halo.
     var accentHex: String
     /// Stable seed for DeterministicPRNG. Computed at creation from
     /// (id + bodyKindRaw + name) so cosmetic randomness is replayable.
     var identityHash: String
-    /// Optional path (relative to vault) to a LoRA-light adapter that
-    /// deforms the base model toward this companion's voice. Nil =
-    /// pure prompt-based persona.
-    var loraAdapterPath: String?
     /// When the companion was created.
     var createdAt: Date
     /// When the companion was last brought to the foreground (for
@@ -45,49 +39,6 @@ final class CompanionModel {
     /// When the companion was archived (soft-deleted). Non-nil = in
     /// trash; restorable. Nil = active.
     var archivedAt: Date?
-    /// Optional brief persona description that augments the
-    /// system prompt when this companion is active.
-    var personaPrompt: String?
-    /// Optional AgentBlueprint model/provider route. Nil means the
-    /// canonical auto constellation should pick the runtime.
-    var agentModelRoutingID: String?
-    /// Display label captured at creation time so old agents still show
-    /// a useful route label if a model is later unavailable.
-    var agentModelDisplayName: String?
-    /// Newline-separated tool names selected for this landing agent.
-    var agentToolNamesRaw: String?
-    /// AgentBlueprint scope raw value.
-    var agentScopeRaw: String?
-    /// AgentBlueprint approval raw value.
-    var agentApprovalModeRaw: String?
-
-    // MARK: - Agent meta-config (osaurus-pattern, additive 2026-06-16)
-    // These extend the Companion (the tamagotchi creature) into a full
-    // per-agent meta-config builder. All optional so SwiftData applies a
-    // lightweight (additive) migration — existing Companions decode unchanged.
-
-    /// Full system-prompt OVERRIDE applied when non-empty. Distinct from
-    /// `personaPrompt`, which only AUGMENTS the composed instruction. Nil/empty
-    /// = keep the existing persona-augment behavior.
-    var customSystemPromptTemplate: String?
-    /// Per-agent structured-output contract, JSON-encoded, e.g.
-    /// `{"format":"json"|"xml"|"text","schema":{…}}`. Surfaced to the model and,
-    /// on the GGUF runtime, can drive grammar-constrained decoding
-    /// (`--json-schema`). Nil = freeform text.
-    var outputStructureJSON: String?
-    /// Per-agent MCP server config (JSON array of `{id,endpoint,auth,env}`) so a
-    /// companion can bring its own tool servers. Nil = inherit the global MCP
-    /// catalog.
-    var mcpServerConfigJSON: String?
-    /// Per-agent memory/context auto-pin pattern (glob/regex over note
-    /// titles/paths) attached to this companion's turns. Nil = no auto-pin.
-    var memoryPinPattern: String?
-    /// Tool-selection mode raw: "auto" (RAG-preflight picks relevant tools) or
-    /// "manual" (only `agentToolNames`). Nil = "manual" (current behavior).
-    var toolSelectionModeRaw: String?
-    /// Pro-only autonomous-execution grant (sandboxed code exec), JSON-encoded
-    /// `AutonomousExecConfig`. Nil = no autonomous exec — the MAS-safe default.
-    var autonomousExecConfigJSON: String?
 
     init(
         id: String = UUID().uuidString,
@@ -95,18 +46,6 @@ final class CompanionModel {
         tagline: String = "",
         bodyKind: CompanionBodyKind = .orb,
         accentHex: String = "#7BA8E0",
-        loraAdapterPath: String? = nil,
-        personaPrompt: String? = nil,
-        agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
-        agentToolNames: [String] = [],
-        agentScope: AgentBlueprintScope = .currentVault,
-        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
-        customSystemPromptTemplate: String? = nil,
-        outputStructureJSON: String? = nil,
-        mcpServerConfigJSON: String? = nil,
-        memoryPinPattern: String? = nil,
-        toolSelectionMode: CompanionToolSelectionMode = .manual,
-        autonomousExecConfigJSON: String? = nil,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -114,19 +53,6 @@ final class CompanionModel {
         self.tagline = tagline
         self.bodyKindRaw = bodyKind.rawValue
         self.accentHex = accentHex
-        self.loraAdapterPath = loraAdapterPath
-        self.personaPrompt = personaPrompt
-        self.agentModelRoutingID = agentModelChoice.routingID
-        self.agentModelDisplayName = agentModelChoice.displayName
-        self.agentToolNamesRaw = Self.encodeToolNames(agentToolNames)
-        self.agentScopeRaw = agentScope.rawValue
-        self.agentApprovalModeRaw = agentApprovalMode.rawValue
-        self.customSystemPromptTemplate = customSystemPromptTemplate
-        self.outputStructureJSON = outputStructureJSON
-        self.mcpServerConfigJSON = mcpServerConfigJSON
-        self.memoryPinPattern = memoryPinPattern
-        self.toolSelectionModeRaw = toolSelectionMode.rawValue
-        self.autonomousExecConfigJSON = autonomousExecConfigJSON
         self.createdAt = createdAt
         self.lastInteractedAt = createdAt
         self.archivedAt = nil
@@ -140,105 +66,7 @@ final class CompanionModel {
         set { bodyKindRaw = newValue.rawValue }
     }
 
-    var agentModelChoice: AgentBlueprintModelChoice {
-        get {
-            Self.modelChoice(
-                routingID: agentModelRoutingID,
-                displayName: agentModelDisplayName
-            )
-        }
-        set {
-            agentModelRoutingID = newValue.routingID
-            agentModelDisplayName = newValue.displayName
-        }
-    }
-
-    var agentToolNames: [String] {
-        get { Self.decodeToolNames(agentToolNamesRaw) }
-        set { agentToolNamesRaw = Self.encodeToolNames(newValue) }
-    }
-
-    var agentScope: AgentBlueprintScope {
-        get { AgentBlueprintScope(rawValue: agentScopeRaw ?? "") ?? .currentVault }
-        set { agentScopeRaw = newValue.rawValue }
-    }
-
-    var agentApprovalMode: AgentBlueprintApprovalMode {
-        get {
-            AgentBlueprintApprovalMode(rawValue: agentApprovalModeRaw ?? "") ?? .approveOncePerSession
-        }
-        set { agentApprovalModeRaw = newValue.rawValue }
-    }
-
-    var toolSelectionMode: CompanionToolSelectionMode {
-        get { CompanionToolSelectionMode(rawValue: toolSelectionModeRaw ?? "") ?? .manual }
-        set { toolSelectionModeRaw = newValue.rawValue }
-    }
-
-    /// The system instruction this companion contributes to a turn: the full
-    /// `customSystemPromptTemplate` OVERRIDE when set, otherwise the
-    /// `personaPrompt` augment (existing behavior). Trimmed; nil when neither is
-    /// meaningfully set. This is the single seam the chat pipeline reads (via
-    /// `CompanionState.activeAgentSystemInstruction()`), so a per-agent custom
-    /// prompt flows through without touching the rest of the pipeline.
-    var effectiveAgentSystemInstruction: String? {
-        if let custom = customSystemPromptTemplate?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !custom.isEmpty {
-            return custom
-        }
-        if let persona = personaPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !persona.isEmpty {
-            return persona
-        }
-        return nil
-    }
-
     var isArchived: Bool { archivedAt != nil }
-
-    private static func modelChoice(
-        routingID: String?,
-        displayName: String?
-    ) -> AgentBlueprintModelChoice {
-        guard let routingID, !routingID.isEmpty else { return .autoConstellation }
-        if routingID == AgentBlueprintModelChoice.autoConstellation.routingID {
-            return .autoConstellation
-        }
-        if routingID == AgentBlueprintModelChoice.appleIntelligence.routingID || routingID == "apple" {
-            return .appleIntelligence
-        }
-        if routingID.hasPrefix("local:") {
-            let modelID = String(routingID.dropFirst("local:".count))
-            let label = displayName ?? LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-            return .local(modelID: modelID, displayName: label)
-        }
-        if routingID.hasPrefix("cloud:") {
-            let providerRaw = String(routingID.dropFirst("cloud:".count))
-            let label = displayName
-                ?? CloudModelProvider(rawValue: providerRaw)?.displayName
-                ?? providerRaw
-            return .cloud(provider: providerRaw, displayName: label)
-        }
-        return .autoConstellation
-    }
-
-    private static func encodeToolNames(_ names: [String]) -> String? {
-        let normalized = Array(Set(
-            names
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-        ))
-        .sorted()
-        guard !normalized.isEmpty else { return nil }
-        return normalized.joined(separator: "\n")
-    }
-
-    private static func decodeToolNames(_ rawValue: String?) -> [String] {
-        guard let rawValue else { return [] }
-        return rawValue
-            .split(separator: "\n", omittingEmptySubsequences: true)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
 
     /// FNV-1a-ish lightweight hash for the identity seed. Fine for
     /// cosmetic determinism — not a security primitive. Replace with
@@ -260,22 +88,6 @@ nonisolated enum CompanionBodyFamily: String, Codable, Sendable, CaseIterable {
     case block
     case sage
     case orb
-}
-
-/// How a companion picks tools for a turn. `.manual` uses only the explicit
-/// `agentToolNames`; `.auto` lets a RAG preflight surface the most relevant
-/// tools for the query (osaurus pattern). Default `.manual` preserves the
-/// existing honest behavior — no surprise tool exposure.
-nonisolated enum CompanionToolSelectionMode: String, Codable, Sendable, CaseIterable {
-    case manual
-    case auto
-
-    var displayName: String {
-        switch self {
-        case .manual: "Manual (pinned tools)"
-        case .auto: "Auto (RAG-selected)"
-        }
-    }
 }
 
 nonisolated enum CompanionBlockAspect: String, Codable, Sendable, CaseIterable {

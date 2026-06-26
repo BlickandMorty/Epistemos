@@ -193,21 +193,11 @@ struct NonAgentPruningValidationTests {
     func workspaceAndActivitySurfacesUseSharedBodyHelper() throws {
         let activity = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
         let workspace = try loadRepoTextFile("Epistemos/State/WorkspaceSummaryService.swift")
-        let chatCoordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
         let timeMachine = try loadRepoTextFile("Epistemos/State/TimeMachineService.swift")
 
         #expect(activity.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
         #expect(workspace.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
-        #expect(chatCoordinator.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
         #expect(timeMachine.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
-    }
-
-    @Test("mini chat snapshots prefer live editor text before disk fallback")
-    func miniChatSnapshotsPreferLiveEditorBodies() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(source.contains("@MainActor init(page: SDPage, preferredBody: String?)"))
-        #expect(source.contains("let body = preferredBody ?? NoteWindowManager.shared.currentBody(for: page.id)"))
     }
 
     @Test("chat preview helpers fall back to structured tool activity when prose is empty")

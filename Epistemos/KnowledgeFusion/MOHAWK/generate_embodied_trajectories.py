@@ -1461,7 +1461,7 @@ def gen_scaled_variants():
         "error recovery", "wikilink", "markdown rendering",
         "TextKit 2", "NSTextStorage", "ProseEditorView",
         "AppBootstrap", "EpistemosApp", "StatusBar",
-        "NoteWindowManager", "NoteTabView", "NoteChatState",
+        "NoteWindowManager", "NoteTabView", "AgentPortalContextSnapshot",
         "GraphBuilder", "GraphStore", "PhysicsCoordinator",
         "MetalGraphView", "HologramController", "HologramOverlay",
         "DeviceAgentService", "DualBrainRouter", "HardwareTierManager",

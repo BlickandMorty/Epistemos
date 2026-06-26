@@ -625,33 +625,14 @@ struct ReleasePackagingHardeningTests {
         #expect(authority.contains("return [.askFirst, .neverAllow]"))
     }
 
-    @Test("App Store composer hides shell access affordances")
-    func appStoreComposerHidesShellAccessAffordances() throws {
-        let inputBar = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+    @Test("App Store current-access plan hides shell access affordances")
+    func appStoreCurrentAccessPlanHidesShellAccessAffordances() throws {
         let currentAccessPlan = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ComposerCurrentAccessPlan.swift")
 
-        #expect(inputBar.contains("ComposerCurrentAccessPlan("))
-        #expect(inputBar.contains(".accessibilityHint(\"Shows scoped attached-resource and vault access for this chat.\")"))
         #expect(currentAccessPlan.contains("struct ComposerCurrentAccessPlan"))
         #expect(currentAccessPlan.contains("segments.append(\"Local chat\")"))
         #expect(!currentAccessPlan.contains("shell-approval"))
         #expect(!currentAccessPlan.contains("Shell: ask first"))
-    }
-
-    @Test("Chat surfaces disable send when no runtime is ready")
-    func chatSurfacesDisableSendWhenNoRuntimeIsReady() throws {
-        let inferenceState = try loadProductionHardeningRepoTextFile("Epistemos/State/InferenceState.swift")
-        let rootView = try loadProductionHardeningRepoTextFile("Epistemos/App/RootView.swift")
-        let inputBar = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadProductionHardeningRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(inferenceState.contains("func isChatSurfaceRuntimeReady(for operatingMode: EpistemosOperatingMode) -> Bool"))
-        #expect(rootView.contains("return \"\\(operatingMode.wrappedValue.displayName) · Set Up Model\""))
-        #expect(rootView.contains("return \"Set Up Model\""))
-        #expect(inputBar.contains("isEnabled: isProcessing || (!trimmedText.isEmpty && selectedRuntimeReady)"))
-        #expect(inputBar.contains("guard !trimmedText.isEmpty, !isProcessing, selectedRuntimeReady else { return }"))
-        #expect(miniChat.contains("isProcessing || (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedRuntimeReady)"))
-        #expect(miniChat.contains("guard !trimmed.isEmpty, !isProcessing, selectedRuntimeReady else { return }"))
     }
 
     @Test("App Store target excludes executable Python and Pro runtime assets")
@@ -941,40 +922,6 @@ struct ReleasePackagingHardeningTests {
 
 @Suite("Audit Hardening Regression")
 struct AuditHardeningRegressionTests {
-    @Test("Inline response replacement discards stale response before restart")
-    @MainActor func inlineResponseReplacementDiscardsStaleResponse() {
-        let inference = InferenceState()
-        let triage = TriageService(
-            inference: inference,
-            localLLMService: AuditCapturingStreamingLLMClient()
-        )
-
-        let state = NoteChatState(pageId: "page-inline-regression")
-        state.noteBodyProvider = { "Original note body." }
-        state.hasResponse = true
-        state.useResponsePanel = false
-        state.responseText = "stale inline response"
-
-        var events: [String] = []
-        state.onDiscard = { events.append("discard") }
-        state.onStreamStart = { _ in events.append("start") }
-
-        state.submitQuery(
-            "Rewrite this paragraph",
-            operation: .rewrite,
-            triageService: triage
-        )
-
-        #expect(Array(events.prefix(2)) == ["discard", "start"])
-        #expect(state.hasResponse)
-        #expect(state.responseText.isEmpty)
-    }
-
-    @Test("Text views protect the divider while allowing AI text edits")
-    @MainActor func textViewsProtectDividerWhileAllowingAITextEdits() {
-        assertDividerProtection(on: ProseTextView2(frame: .zero))
-    }
-
     @Test("Vault destructive stop snapshots before clearing local data")
     func vaultDestructiveStopSnapshotsBeforeClearing() throws {
         let source = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
@@ -1105,7 +1052,6 @@ struct AuditHardeningRegressionTests {
     func regexBackedHelpersAvoidForceTryCompilation() throws {
         let files = [
             "Epistemos/Sync/BlockPropertyParser.swift",
-            "Epistemos/Views/Chat/ChatView.swift",
             "Epistemos/Views/Chat/TaggedMarkdownTextView.swift",
             "Epistemos/Views/Notes/MarkdownContentStorage.swift",
             "Epistemos/Views/Notes/MarkdownEditorStyle.swift",
@@ -1219,7 +1165,6 @@ struct AuditHardeningRegressionTests {
         let landing = normalizedSource(
             try loadProductionHardeningRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         )
-        let miniChat = try loadProductionHardeningRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let wordProcessor = normalizedSource(
             try loadProductionHardeningRepoTextFile("Epistemos/Intents/Schemas/WordProcessorIntents.swift")
         )
@@ -1237,7 +1182,6 @@ struct AuditHardeningRegressionTests {
         #expect(landing.contains("createPage(title: \"New Note\", allowVaultSelectionPrompt: true)"))
         #expect(wordProcessor.contains("createPage( title: title, allowVaultSelectionPrompt: true )"))
         #expect(journal.contains("createPage( title: journalTitle, allowVaultSelectionPrompt: true )"))
-        #expect(!miniChat.contains("allowVaultSelectionPrompt: true"))
     }
 
     @Test("page and journal creation fail honestly when persistence fails")
@@ -1312,42 +1256,6 @@ struct AuditHardeningRegressionTests {
         #expect(!rootView.contains("Button(\"Continue Empty\")"))
     }
 
-    @MainActor
-    private func assertDividerProtection(on textView: NSTextView) {
-        textView.string = "Hello world.\(NoteChatInlineResponse.divider)AI response."
-
-        if let prose = textView as? ProseTextView2 {
-            prose.hasProtectedInlineResponseDivider = true
-        }
-
-        let fullText = textView.string as NSString
-        let dividerRange = fullText.range(of: NoteChatInlineResponse.divider)
-        let responseRange = fullText.range(of: "AI response.")
-
-        #expect(dividerRange.location != NSNotFound)
-        #expect(responseRange.location != NSNotFound)
-
-        let blocked: Bool
-        let allowed: Bool
-
-        switch textView {
-        case let prose as ProseTextView2:
-            blocked = prose.shouldChangeText(
-                in: NSRange(location: dividerRange.location + 1, length: 1),
-                replacementString: ""
-            )
-            allowed = prose.shouldChangeText(
-                in: responseRange,
-                replacementString: "Edited response."
-            )
-        default:
-            Issue.record("Unexpected text view type: \(type(of: textView))")
-            return
-        }
-
-        #expect(!blocked)
-        #expect(allowed)
-    }
 }
 
 @MainActor

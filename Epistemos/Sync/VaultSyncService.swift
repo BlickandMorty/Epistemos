@@ -1041,7 +1041,14 @@ final class VaultSyncService {
            !hintedPath.isEmpty {
             return URL(fileURLWithPath: hintedPath, isDirectory: true)
         }
-        return Self.defaultRecoveryVaultURL
+        // HONEST NO-VAULT (owner 2026-06-24 — authority "make the no-vault state honest"): with no candidate,
+        // no active vault, and no last-path hint, there is genuinely NO recovery target — return nil rather
+        // than fabricating ~/My mind. Fabricating it made health snapshots root at a non-existent/empty
+        // default and read like a real (but empty) vault. The last-path hint above is preserved as the safety
+        // net for a temporarily-unresolved bookmark. Both call sites already treat this as Optional
+        // (buildVaultHealthSnapshot:939 + currentVaultHealthSnapshot:985 use .map / if let / nil-safe
+        // comparableVaultCounts), so nil is honest "no recovery target", not a crash.
+        return nil
     }
 
     private func comparableVaultCounts(
@@ -4379,7 +4386,6 @@ enum VaultConnectionActions {
             // setup assistant is re-armed by `setupComplete = false`
             // below; keep the legacy full-screen SetupView hidden so it
             // cannot sit between the user and the vault picker.
-            AppBootstrap.shared?.chatState.clearMessages()
             notesUI.resetForVaultSwitch()
             NoteWindowManager.shared.resetForVaultRebuild()
             AppBootstrap.shared?.ambientManifest = nil

@@ -65,23 +65,43 @@ struct CurrentAccessParityTests {
         #expect(plan.summaryText == "Web search")
     }
 
-    @Test("composer and settings grant surfaces are labeled as resource grants")
-    func resourceGrantSurfacesUseScopedLabel() throws {
-        let composerSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+    @Test("no active vault surfaces an honest connect-a-vault grant row")
+    func noActiveVaultSurfacesHonestRow() {
+        let withoutVault = ComposerCurrentAccessPlan(
+            vaultURL: nil,
+            contextAttachments: [],
+            fileAttachments: []
+        )
+        let noVaultRow = withoutVault.rows.first { $0.id == "vault:none" }
+        #expect(noVaultRow?.title == "No active vault")
+        #expect(noVaultRow?.detail == "Connect a vault to enable Read + Search + Halo recall")
+        #expect(noVaultRow?.isRevocable == false)
+
+        // When a vault IS active, there is NO synthetic no-vault row — the real vault grant is shown instead.
+        let vaultURL = URL(fileURLWithPath: "/tmp/epistemos-current-access-vault")
+        let withVault = ComposerCurrentAccessPlan(
+            vaultURL: vaultURL,
+            contextAttachments: [],
+            fileAttachments: []
+        )
+        #expect(!withVault.rows.contains { $0.id == "vault:none" })
+        #expect(withVault.rows.first?.detail == "Read + Search active vault")
+    }
+
+    @Test("settings grant surface is labeled as resource grants")
+    func settingsGrantSurfaceUsesScopedLabel() throws {
         let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentControlSettingsView.swift")
 
-        #expect(composerSource.contains("Text(\"Stored Resource Grants\")"))
         #expect(settingsSource.contains("Text(\"Stored Resource Grants\")"))
-        #expect(!composerSource.contains("Text(\"Current Access\")"))
         #expect(!settingsSource.contains("Text(\"Active Grants\")"))
     }
 
-    @Test("resource grant surfaces do not list shell approval as an active grant")
-    func resourceGrantSurfacesExcludeShellApprovalRows() throws {
-        let composerSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+    @Test("resource grant model and settings do not list shell approval as an active grant")
+    func resourceGrantModelAndSettingsExcludeShellApprovalRows() throws {
+        let currentAccessPlan = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ComposerCurrentAccessPlan.swift")
         let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentControlSettingsView.swift")
 
-        for source in [composerSource, settingsSource] {
+        for source in [currentAccessPlan, settingsSource] {
             #expect(!source.contains("Shell / external tools"))
             #expect(!source.contains("shell-approval"))
         }

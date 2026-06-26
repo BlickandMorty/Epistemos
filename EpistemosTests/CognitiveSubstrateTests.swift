@@ -2119,17 +2119,6 @@ struct AgentHeartbeatTests {
 
 @Suite("Agent Runtime Monitoring")
 struct AgentRuntimeMonitoringTests {
-    @Test("current agent runtime waits for native computer observations and explicit approvals")
-    func currentAgentRuntimeWaitsForNativeComputerObservationsAndExplicitApprovals() throws {
-        let coordinator = try loadMonitoringSource("Epistemos/App/ChatCoordinator.swift")
-        let delegate = try loadMonitoringSource("Epistemos/Bridge/StreamingDelegate.swift")
-
-        #expect(coordinator.contains("chatState.recordToolUse("))
-        #expect(coordinator.contains("chatState.recordToolResult("))
-        #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
-        #expect(!coordinator.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
-        #expect(delegate.contains("func executeComputerAction(actionJson: String) -> String"))
-    }
 }
 
 // MARK: - Phase 1: Ambient Capture Tests

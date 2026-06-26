@@ -1242,42 +1242,10 @@ struct ThemePairTests {
         #expect(rows[4].originalQuery == "second question")
     }
 
-    @Test("Main chat transcript uses roomier mono-friendly markdown spacing")
-    func mainChatTranscriptUsesRoomierMonoFriendlyMarkdownSpacing() throws {
-        let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        let markdownView = try loadTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
-
-        #expect(chatView.contains("static let transcriptSpacing: CGFloat = 28"))
-        #expect(messageBubble.contains(".padding(.horizontal, 18)"))
-        #expect(messageBubble.contains(".padding(.vertical, 14)"))
-        #expect(markdownView.contains("case .assistant: 10"))
-        #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 12"))
-        #expect(markdownView.contains("private static let listSpacing: CGFloat = 8"))
-    }
-
-    @Test("Chat streaming stays plain and no longer routes through a separate thinking accordion")
-    func chatStreamingStaysPlainWithoutThinkingAccordion() throws {
-        let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        let inlineTranscript = try loadTextFile("Epistemos/Views/Chat/AssistantInlineTranscriptView.swift")
-
-        #expect(chatView.contains("MessageBubble("))
-        #expect(chatView.contains("UserFacingModelOutput.streamingVisibleText"))
-        #expect(messageBubble.contains("AssistantInlineTranscriptView("))
-        #expect(inlineTranscript.contains("TaggedMarkdownTextView("))
-        #expect(!chatView.contains("ThinkingAccordion"))
-        #expect(!chatView.contains("chat.isReasoning"))
-        #expect(!messageBubble.contains("ThinkingAccordion"))
-        #expect(!messageBubble.contains("reasoningText"))
-        #expect(!inlineTranscript.contains("ThinkingAccordion"))
-    }
-
     @Test("LocalModelToolbarMenu is owned by standalone surfaces, not main chat or landing")
     func localModelToolbarMenuOwnershipMatchesMigration() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
-        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         // The struct definition still lives in RootView.swift so other surfaces can reuse it.
@@ -1294,13 +1262,9 @@ struct ThemePairTests {
         #expect(!landingView.contains("LocalModelToolbarMenu("))
         #expect(!landingView.contains("landingInferenceControl"))
 
-        // Standalone composer surfaces retain the menu.
-        #expect(miniChat.contains("LocalModelToolbarMenu("))
-        #expect(miniChat.contains("variant: .toolbar"))
+        // Surviving standalone composer surfaces retain the menu.
         #expect(noteWorkspace.contains("LocalModelToolbarMenu("))
         #expect(noteWorkspace.contains("variant: .toolbar"))
-        #expect(miniChat.contains("threadState.ensureMiniChatSession(id: chatID)"))
-        #expect(miniChat.contains("threadState.upsertMiniChatSession("))
         #expect(!noteWorkspace.contains("Label(\"Local Only\""))
     }
 
@@ -1336,24 +1300,6 @@ struct ThemePairTests {
         )
     }
 
-    @Test("Chat surfaces no longer expose a separate research entry point")
-    func chatSurfacesDoNotExposeResearchEntryPoint() throws {
-        let chatInputBar = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
-        let miniChatView = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(!chatInputBar.contains("ResearchComposerButton("))
-        #expect(!landingView.contains("ResearchComposerButton("))
-        #expect(!rootView.contains("title: \"Research\""))
-        #expect(!rootView.contains("ResearchComplexityGate.toggledComposerDraft"))
-        #expect(miniChatView.contains("operatingMode: operatingModeBinding"))
-        #expect(!miniChatView.contains("composerText: $text"))
-        #expect(!chatInputBar.contains("ResearchModeControl"))
-        #expect(!landingView.contains("ResearchModeControl"))
-        #expect(!miniChatView.contains("ResearchModeControl"))
-    }
-
     @Test("Settings and landing metadata drop SOAR and confidence-era chat chrome")
     func settingsAndLandingDropAnalyticalChatChrome() throws {
         let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
@@ -1369,8 +1315,6 @@ struct ThemePairTests {
     @Test("Live runtime no longer keeps enrichment or SOAR hooks in the chat path")
     func liveRuntimeDropsEnrichmentAndSOARHooks() throws {
         let pipeline = try loadTextFile("Epistemos/Engine/PipelineService.swift")
-        let coordinator = try loadTextFile("Epistemos/App/ChatCoordinator.swift")
-        let chatState = try loadTextFile("Epistemos/State/ChatState.swift")
         let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
         let environment = try loadTextFile("Epistemos/App/AppEnvironment.swift")
         let appCoordinator = try loadTextFile("Epistemos/App/AppCoordinator.swift")
@@ -1383,15 +1327,6 @@ struct ThemePairTests {
         #expect(!pipeline.contains("onEnriched"))
         #expect(!pipeline.contains("cancelAllEnrichment"))
 
-        #expect(!coordinator.contains("case .enriched"))
-        #expect(!coordinator.contains("case .soarEvent"))
-        #expect(!coordinator.contains("persistEnrichment("))
-        #expect(!coordinator.contains("persistableDualMessage"))
-
-        #expect(!chatState.contains("EnrichmentController.parseConceptsTag"))
-        #expect(!chatState.contains("enrichMessage("))
-        #expect(!chatState.contains("enrichLastMessage("))
-
         #expect(!bootstrap.contains("let soarState"))
         #expect(!bootstrap.contains("let soarService"))
         #expect(!bootstrap.contains("cancelAllEnrichment()"))
@@ -1401,20 +1336,6 @@ struct ThemePairTests {
         #expect(!engineTypes.contains("case enriched("))
         #expect(!engineTypes.contains("case soarEvent("))
         #expect(!eventBus.contains("case soarEvent("))
-    }
-
-    @Test("Chat chrome no longer carries enrichment-era cards or confidence overlays")
-    func chatChromeDropsEnrichmentPanels() throws {
-        let bubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        let project = try loadTextFile("Epistemos.xcodeproj/project.pbxproj")
-
-        #expect(!bubble.contains("laymanSummarySections"))
-        #expect(!bubble.contains("EpistemicLensPanel"))
-        #expect(!bubble.contains("ReflectionCard"))
-        #expect(!bubble.contains("TruthAssessmentCard"))
-        #expect(!bubble.contains("ConsensusReportCard"))
-        #expect(!project.contains("ConfidenceOverlay.swift"))
-        #expect(!project.contains("LearningIntents.swift"))
     }
 
     @Test("Toolbar control metrics stay compact and boxy inside the outer pill")
@@ -1486,55 +1407,6 @@ struct ThemePairTests {
         } ?? false
 
         #expect(hasPinnedStrongFont)
-    }
-
-    @Test("Main chat sources use the popover panel presentation")
-    func mainChatSourcesUsePopoverPanel() throws {
-        let bubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        let chrome = try loadTextFile("Epistemos/Theme/GlassModifiers.swift")
-
-        #expect(bubble.contains("style: .popoverPanel"))
-        #expect(chrome.contains("enum AssistantSourcesPresentationStyle"))
-        #expect(chrome.contains("case popoverPanel"))
-        #expect(chrome.contains("Text(\"Sources\")"))
-        #expect(chrome.contains("AssistantSourcesListPanel"))
-    }
-
-    @Test("Mini chat uses the shared attachment resolver and carries explicit context attachments")
-    func miniChatUsesSharedAttachmentResolverAndCarriesContextAttachments() throws {
-        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let threadState = try loadTextFile("Epistemos/State/ThreadState.swift")
-
-        #expect(miniChat.contains("ChatCoordinator.resolveAttachedContext("))
-        #expect(miniChat.contains("loadedNoteTitles: notesContext.loadedNoteTitles"))
-        #expect(miniChat.contains("contextAttachments: attachments"))
-        #expect(threadState.contains("func addMiniChatContextAttachment(_ attachment: ContextAttachment, chatID: String)"))
-    }
-
-    @Test("@ mentions search notes and chats through one shared picker")
-    func mentionsSearchNotesAndChatsThroughSharedPicker() throws {
-        let dropdown = try loadTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
-        let mainChat = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let coordinator = try loadTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(dropdown.contains("case allNotes"))
-        #expect(dropdown.contains("case chat"))
-        #expect(dropdown.contains("Text(\"All Notes\")"))
-        #expect(dropdown.contains("sectionHeader(\"Chats\")"))
-        #expect(mainChat.contains("ChatCoordinator.searchReferenceResults("))
-        #expect(miniChat.contains("ChatCoordinator.searchReferenceResults("))
-        #expect(coordinator.contains("static func searchReferenceResults("))
-    }
-
-    @Test("Note chat keeps the current note attachment implicit instead of rendering a redundant locked chip")
-    func noteChatKeepsCurrentNoteAttachmentImplicit() throws {
-        let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-
-        #expect(noteWorkspace.contains("private var noteChatContextAttachment: ContextAttachment?"))
-        #expect(noteWorkspace.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
-        #expect(!noteWorkspace.contains("noteChatAttachmentChip("))
-        #expect(!noteWorkspace.contains("if let attachment = noteChatContextAttachment"))
     }
 
     @MainActor
@@ -1694,7 +1566,6 @@ LD_RUNPATH_SEARCH_PATHS = (
     func commandSurfacesRouteSettingsToUtilityWindow() throws {
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
         let appCommands = try loadTextFile("Epistemos/App/EpistemosApp.swift")
-        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(!rootView.contains("case .library"))
@@ -1702,7 +1573,6 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!rootView.contains("Picker(\"\", selection: $uiBindable.homeTab)"))
         #expect(appCommands.contains("UtilityWindowManager.shared.show(.settings)"))
         #expect(!appCommands.contains(".keyboardShortcut(\",\", modifiers: .command)"))
-        #expect(miniChat.contains("showRecentChats"))
         #expect(!landingView.contains("label: \"Settings\""))
         #expect(!landingView.contains("key: \"S\", label: \"Settings\""))
     }
@@ -2255,17 +2125,6 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!environment.contains(".environment(bootstrap.localVoiceManager)"))
     }
 
-    @Test("assistant chat surfaces no longer expose read aloud controls")
-    func assistantSurfacesDropReadAloud() throws {
-        let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        let noteSidebar = try loadTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
-
-        #expect(!messageBubble.contains("@Environment(LocalVoiceManager.self) private var localVoice"))
-        #expect(!messageBubble.contains("await localVoice.toggleSpeak("))
-        #expect(!noteSidebar.contains("@Environment(LocalVoiceManager.self) private var localVoice"))
-        #expect(!noteSidebar.contains("await localVoice.toggleSpeak("))
-    }
-
     @Test("inference settings focus on the curated local routing stack without voice residue")
     func inferenceSettingsRefocusOnQwenRouting() throws {
         let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
@@ -2354,16 +2213,6 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!shortcuts.contains("ResearchTopicIntent"))
         #expect(!shortcuts.contains("FindGapsIntent"))
         #expect(!shortcuts.contains("FactCheckIntent"))
-    }
-
-    @Test("utility panels keep compact toolbar styles")
-    func utilityPanelsKeepCompactToolbarStyles() throws {
-        let utilityWindowManager = try loadTextFile("Epistemos/App/UtilityWindowManager.swift")
-        let miniChatWindowController = try loadTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
-
-        #expect(utilityWindowManager.contains("panel.toolbarStyle = .unifiedCompact"))
-        #expect(miniChatWindowController.contains("window.toolbarStyle = .unifiedCompact"))
-        #expect(!miniChatWindowController.contains("window.toolbarStyle = .unified\n"))
     }
 
     @Test("living repo guidance distinguishes live local routing from Hermes cloud plumbing")
@@ -2455,24 +2304,6 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(source.contains("openIMessageSettings()"))
     }
 
-    @Test("mini chat quick actions no longer use hidden system prompts")
-    func miniChatQuickActionsUsePlainUserPrompts() throws {
-        let source = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(source.contains("prompt: prompt, systemPrompt: nil"))
-        #expect(!source.contains("let systemPrompt: String"))
-        #expect(!source.contains("## Vault Index"))
-    }
-
-    @Test("note operation streaming pushes note instructions through the user prompt only")
-    func noteOperationStreamingUsesUserPromptOnly() throws {
-        let source = try loadTextFile("Epistemos/State/NoteChatState.swift")
-
-        #expect(source.contains("Request: \\(trimmed)"))
-        #expect(source.contains("systemPrompt: nil"))
-        #expect(!source.contains("let fullSystemPrompt"))
-    }
-
     @Test("daily brief stays single pass without deep analysis scaffolding")
     func dailyBriefDropsSecondPassScaffolding() throws {
         let state = try loadTextFile("Epistemos/State/DailyBriefState.swift")
@@ -2498,7 +2329,6 @@ LD_RUNPATH_SEARCH_PATHS = (
         let noteActions = try loadTextFile("Epistemos/Intents/Custom/NoteActionIntents.swift")
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         let nodeInspector = try loadTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
-        let dialogue = try loadTextFile("Epistemos/State/DialogueChatState.swift")
         let hologramInspector = try loadTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
         let vaultOrganizer = try loadTextFile("Epistemos/Views/Notes/VaultOrganizerView.swift")
         let triage = try loadTextFile("Epistemos/Engine/TriageService.swift")
@@ -2508,25 +2338,12 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!noteWorkspace.contains("systemPrompt: mapping.systemPrompt"))
         #expect(!noteWorkspace.contains("You are a writing assistant."))
         #expect(!nodeInspector.contains("You are a note analyst"))
-        #expect(!dialogue.contains("You are \"\\(activeNodeLabel)\", a character in a knowledge graph."))
-        #expect(!dialogue.contains("You speak in character."))
-        #expect(!dialogue.contains("messages.append(Message(role: .assistant, text: profile.openingLine))"))
         #expect(!hologramInspector.contains("p.archetype.title"))
         #expect(!hologramInspector.contains("p.care.mood.displayName"))
         #expect(!hologramInspector.contains("p.portrait.symbol"))
         #expect(!hologramInspector.contains("statMeter(label: \"Focus\""))
         #expect(!vaultOrganizer.contains("You are a note organization assistant."))
         #expect(!triage.contains("let simpleSystem ="))
-    }
-
-    @Test("mini chat only resolves vault context for explicit note mentions")
-    func miniChatUsesExplicitNoteMentionsOnly() throws {
-        let source = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(source.contains("if ChatCoordinator.queryContainsExplicitNoteContext(trimmed)"))
-        #expect(source.contains("context: nil"))
-        #expect(source.contains("loadedNoteIds: []"))
-        #expect(source.contains("loadedNoteTitles: []"))
     }
 
     private func loadIconComposerJSON() throws -> String {

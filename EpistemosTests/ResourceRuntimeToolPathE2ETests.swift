@@ -131,7 +131,7 @@ struct ResourceRuntimeToolPathE2ETests {
         // Grant Write on the exact resource the tool will target.
         let grantID = try await seedGrant(uri: uri, capabilities: ["Read", "Write"])
 
-        // Fire the real tool path ChatCoordinator uses.
+        // Fire the real runtime tool path.
         let payload = "body written through the real runtime path"
         let result = try await executeToolCall(
             vaultPath: vault.rootURL.path,

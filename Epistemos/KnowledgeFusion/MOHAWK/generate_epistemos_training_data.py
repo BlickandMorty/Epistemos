@@ -486,20 +486,19 @@ EPISTEMOS_VIEWS = {
     },
     "note_editor": {
         "file": "Views/Notes/ProseEditorView.swift",
-        "description": "The rich text note editor with markdown support, AI sidebar, and toolbar",
+        "description": "The rich text note editor with markdown support, agent portal context, and toolbar",
         "elements": ["Title Field", "Body Editor", "Toolbar", "Bold Button", "Italic Button",
-                     "Heading Picker", "AI Chat Sidebar Toggle", "Word Count", "Back Button",
+                     "Heading Picker", "Agent Portal Button", "Word Count", "Back Button",
                      "Share Button", "Format Menu", "Insert Link", "Insert Image",
-                     "Table Button", "Code Block Button", "Divider", "AI Response Zone"],
-        "transitions": {"back": "landing", "ai_sidebar": "note_chat", "graph_icon": "graph_view"},
+                     "Table Button", "Code Block Button", "Divider", "Agent Response Zone"],
+        "transitions": {"back": "landing", "agent_portal": "note_agent_portal", "graph_icon": "graph_view"},
     },
-    "note_chat": {
-        "file": "Views/Notes/NoteChatSidebar.swift",
-        "description": "AI chat sidebar for the current note — ask questions, get rewrites, summaries",
-        "elements": ["Chat Input Field", "Send Button", "Chat History", "Clear Chat Button",
-                     "Accept AI Response", "Discard AI Response", "Rewrite Button",
-                     "Summarize Button", "Expand Button", "Continue Writing Button"],
-        "transitions": {"close": "note_editor", "accept": "note_editor", "discard": "note_editor"},
+    "note_agent_portal": {
+        "file": "Views/AgentFusion/AgentPortalContextSnapshot.swift",
+        "description": "Typed note portal context for the unified AgentClone-backed Epistemos agent route",
+        "elements": ["Active Note ID", "Selected Text", "Visible Excerpt", "Backlinks", "Tags",
+                     "Approved Note Actions", "Live Context Attachment"],
+        "transitions": {"close": "note_editor", "submit": "note_editor", "approve_action": "note_editor"},
     },
     "graph_view": {
         "file": "Views/Graph/HologramOverlay.swift",
@@ -529,11 +528,11 @@ EPISTEMOS_VIEWS = {
 # ─── EPISTEMOS STATE CLASSES — Every observable state ───────────
 
 EPISTEMOS_STATE = {
-    "NoteChatState": {
-        "file": "State/NoteChatState.swift",
-        "properties": ["isStreaming", "messages", "currentQuery", "hasDivider", "lastFlushedTurnCount"],
-        "methods": ["submitQuery()", "acceptResponse()", "discardResponse()", "appendStreamingText()", "flushTokens()"],
-        "description": "Per-note AI chat state. Manages query→response cycle with 60ms token buffering.",
+    "AgentPortalContextSnapshot": {
+        "file": "Views/AgentFusion/AgentPortalContextSnapshot.swift",
+        "properties": ["portal", "sessionId", "note", "graph", "vault", "approvedActions"],
+        "methods": ["main()", "landing()", "withSessionId()", "contextAttachments"],
+        "description": "Epistemos-owned value data for unified main, landing, mini, note, graph, and vault agent portals.",
     },
     "GraphState": {
         "file": "Graph/GraphState.swift",

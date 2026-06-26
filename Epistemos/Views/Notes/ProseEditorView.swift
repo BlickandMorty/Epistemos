@@ -25,6 +25,14 @@ enum ProseEditorNavigationContext {
     case graph
 }
 
+enum LegacyInlineNoteResponse {
+    nonisolated static let divider = "\n\n<!-- ai-response -->\n\n"
+
+    nonisolated static func dividerRange(in text: String) -> Range<String.Index>? {
+        text.range(of: divider, options: .backwards)
+    }
+}
+
 struct ProseEditorView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "ProseEditorView")
     let page: SDPage
@@ -37,7 +45,6 @@ struct ProseEditorView: View {
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(NoteChatState.self) private var noteChatState
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
     @Environment(GraphState.self) private var graphState
 
@@ -94,7 +101,7 @@ struct ProseEditorView: View {
     }
 
     private static func stripOrphanedInlineAIResponse(in body: String, page: SDPage) -> String {
-        guard let dividerRange = NoteChatInlineResponse.dividerRange(in: body) else { return body }
+        guard let dividerRange = LegacyInlineNoteResponse.dividerRange(in: body) else { return body }
         let title = page.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedTitle = title.isEmpty ? page.id : title
         log.warning("Found orphaned AI divider in note \(resolvedTitle, privacy: .public) — stripping")
@@ -241,7 +248,6 @@ struct ProseEditorView: View {
             modelContext: modelContext,
             onWikilinkClick: handleWikilinkClick,
             onBlockRefClick: handleBlockRefClick,
-            noteChatState: noteChatState,
             onPageFlush: flush,
             graphState: graphState,
             outlineFoldMode: notesUI.outlineFoldMode,

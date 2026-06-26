@@ -427,58 +427,6 @@ final class AgentCommandCenterState {
         return ToolTierBridge(vaultPath: vaultPath, tier: tier).loadTools()
     }
 
-    // MARK: - Graph Chat Receiver
-
-    @ObservationIgnored
-    private var graphChatObserver: (any NSObjectProtocol)?
-
-    /// Begin listening for `.graphChatRequested` notifications posted by
-    /// `GraphState.askGraphChat(nodeId:)`. On receipt the command center
-    /// presents itself and prefills the input with a contextual query
-    /// about the graph node. This is an intent receiver, not a second
-    /// control plane — Rust still owns execution once the user submits.
-    func startObservingGraphChatRequests() {
-        if graphChatObserver != nil {
-            stopObservingGraphChatRequests()
-        }
-        graphChatObserver = NotificationCenter.default.addObserver(
-            forName: .graphChatRequested,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let request = GraphChatRequest.fromNotification(notification) else { return }
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.handleGraphChatRequest(request)
-            }
-        }
-    }
-
-    func stopObservingGraphChatRequests() {
-        if let observer = graphChatObserver {
-            NotificationCenter.default.removeObserver(observer)
-            graphChatObserver = nil
-        }
-    }
-
-    /// Prefill the legacy command state with context from a graph node and
-    /// hand the request off to the fused main chat. The structured graph
-    /// request is still retained here so any dormant compat callers that
-    /// compile ACC requests keep the same payload shape.
-    func handleGraphChatRequest(_ request: GraphChatRequest) {
-        let label = request.nodeLabel.isEmpty ? request.nodeType : request.nodeLabel
-        inputText = "Tell me about \(label)"
-
-        pendingGraphChatRequest = request
-        AppBootstrap.shared?.routeGraphChatRequestIntoMainChat(request)
-
-        log.info("[ACC] Graph chat request received for node \(request.graphNodeId, privacy: .public) type=\(request.nodeType, privacy: .public)")
-    }
-
-    /// The most recent graph chat request, available for receivers that
-    /// need to attach graph context to the compiled command.
-    var pendingGraphChatRequest: GraphChatRequest?
-
     // MARK: - Submission
 
     /// Build a normalized command request from the current state.
@@ -495,8 +443,7 @@ final class AgentCommandCenterState {
             mentions: activeMentions,
             enabledToolNames: enabledToolNames,
             brainOverride: selectedBrain,
-            operatingMode: selectedOperatingMode,
-            graphContext: pendingGraphChatRequest
+            operatingMode: selectedOperatingMode
         )
     }
 
@@ -505,7 +452,6 @@ final class AgentCommandCenterState {
         inputText = ""
         activeSlashToken = nil
         activeMentions = []
-        pendingGraphChatRequest = nil
         suggestionMenuState = .hidden
         highlightedSuggestionIndex = 0
     }
@@ -1464,7 +1410,7 @@ struct ACCToolExecutionRecord: Identifiable {
     }
 }
 
-/// Normalized command request ready for submission to ChatCoordinator.
+/// Normalized command request ready for submission to the agent command path.
 struct ACCCommandRequest {
     let query: String
     let slashToken: ParsedSlashToken?
@@ -1472,8 +1418,4 @@ struct ACCCommandRequest {
     let enabledToolNames: Set<String>
     let brainOverride: ACCBrainSelection?
     let operatingMode: EpistemosOperatingMode
-    /// Graph context when the request originated from a graph-workspace
-    /// "Ask Graph Chat" action. Carries graph node id, backing source id,
-    /// node type, node label, and current route per PLAN_V2 §4.1.
-    let graphContext: GraphChatRequest?
 }

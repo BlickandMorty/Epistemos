@@ -43,19 +43,14 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("messageHandlerInstalled = false"))
     }
 
-    @Test("mini chat can target the active HTML workspace explicitly")
-    func miniChatTargetsActiveHTMLWorkspace() throws {
+    @Test("HTML workspace exposes explicit attachment helpers")
+    func htmlWorkspaceExposesExplicitAttachmentHelpers() throws {
         let chatTypes = try loadMirroredSourceTextFile("Epistemos/Models/ChatTypes.swift")
         let helpers = try loadMirroredSourceTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
-        let controller = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
 
         #expect(chatTypes.contains("case htmlWorkspace"))
         #expect(helpers.contains("htmlWorkspaceAttachment("))
         #expect(helpers.contains("htmlworkspace://"))
-        #expect(controller.contains("activeHTMLWorkspaceAttachment()"))
-        #expect(controller.contains("resolvedAttachment = activeHTMLWorkspaceAttachment()"))
-        #expect(controller.contains("?? activeEpdocAttachment()"),
-                "HTML Workspace targeting should be a separate MiniChat context before the legacy Epdoc/file fallback.")
     }
 
     @Test("HTML Workspace is a separate document surface, not an Epdoc overload")
@@ -100,7 +95,6 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("Task.sleep"))
         #expect(editorSource.contains("HTMLWorkspacePreviewView(package: previewPackage"))
         #expect(editorSource.contains("HTMLWorkspacePDFExporter.export"))
-        #expect(editorSource.contains("MiniChatWindowController.shared.openNewChat(attaching: workspaceAttachment)"))
         #expect(editorSource.contains("importHTML()"))
         #expect(editorSource.contains("exportHTML()"))
         #expect(editorSource.contains("previewRenderIdentity"))
@@ -111,19 +105,27 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("Console"))
     }
 
-    @Test("PDF export load path is timeout bounded and cleans up WebKit state")
+    @Test("PDF export is timeout bounded on the macOS-26 WebPage API (no legacy WebKit NSView host)")
     func pdfExporterHasBoundedLoadAndCleanup() throws {
         let exporterSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspacePDFExporter.swift")
 
         #expect(exporterSource.contains("HTMLWorkspacePDFExportError"))
         #expect(exporterSource.contains("loadTimeoutNanoseconds"))
-        #expect(exporterSource.contains("loadTimeoutTask"))
-        #expect(exporterSource.contains("Task.sleep"))
-        #expect(exporterSource.contains("finishLoad("))
-        #expect(exporterSource.contains("loadTimeoutTask?.cancel()"))
-        #expect(exporterSource.contains("webView.navigationDelegate = nil"))
+        #expect(exporterSource.contains("loadTimedOut"))
+        // Timeout is a deadline checked as navigation events arrive (the @MainActor WebPage is never handed to a
+        // child task, which would trip the region-based isolation checker).
+        #expect(exporterSource.contains("ContinuousClock"))
+        #expect(exporterSource.contains("deadline"))
+        // macOS-26 SwiftUI WebKit migration: `WebPage` + a `NavigationDeciding` scheme allowlist (async policy,
+        // not a delegate `decisionHandler`); content-sized PDF via `exported(as: .pdf(region: .rect(…)))`.
+        #expect(exporterSource.contains("WebPage"))
+        #expect(exporterSource.contains("NavigationDeciding"))
+        #expect(exporterSource.contains("return .cancel"))
+        #expect(exporterSource.contains("exported(as: .pdf"))
         #expect(exporterSource.contains("height.isFinite"))
-        #expect(exporterSource.contains("decisionHandler(.cancel)"))
+        // No legacy WebKit NSView host / delegate / dispatch-after paths survive the migration.
+        #expect(!exporterSource.contains("WKWebView"))
+        #expect(!exporterSource.contains("navigationDelegate"))
         #expect(!exporterSource.contains("DispatchQueue.main.asyncAfter"))
     }
 
@@ -207,14 +209,13 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(parserSource.contains("case fileTooLarge"))
     }
 
-    @Test("document surface exposes structured chat patch hooks without Epdoc internals")
-    func documentExposesChatPatchHooks() throws {
+    @Test("document surface exposes structured patch hooks without Epdoc internals")
+    func documentExposesPatchHooks() throws {
         let documentSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceDocument.swift")
         let bridgeSource = try loadMirroredSourceTextFile("Epistemos/Engine/EpdocEditorBridge.swift")
         let surfaceSource = try loadMirroredSourceTextFile("Epistemos/Models/DocumentSurface.swift")
 
         #expect(surfaceSource.contains("struct DocumentSurface"))
-        #expect(surfaceSource.contains("struct MiniChatTarget"))
         #expect(surfaceSource.contains("enum DocumentSurfaceKind"))
         #expect(surfaceSource.contains("enum DocumentSurfacePane"))
         #expect(surfaceSource.contains("struct DocumentSourceRange"))
@@ -248,11 +249,9 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!editorSource.contains("Range(match.range(at: 2), in: attributes)"))
     }
 
-    @Test("MiniChat routes HTML Workspace edits through structured patch commands")
-    func miniChatRoutesHTMLWorkspaceStructuredPatches() throws {
+    @Test("HTML Workspace edits route through structured patch commands")
+    func htmlWorkspaceRoutesStructuredPatches() throws {
         let routerSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspacePatchRouter.swift")
-        let miniChatSource = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let coordinatorSource = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
         let chatTypes = try loadMirroredSourceTextFile("Epistemos/Models/ChatTypes.swift")
 
         #expect(routerSource.contains("epistemos-html-workspace-patch"))
@@ -263,32 +262,9 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(routerSource.contains("window.webkit.messagehandlers"))
         #expect(routerSource.contains("applyPatchCommands"))
         #expect(routerSource.contains("var visible = response"))
-        #expect(routerSource.contains("MiniChat Target:"))
         #expect(routerSource.contains("Allowed Operations:"))
-        #expect(!routerSource.contains("var visible = parseResult.cleanedText"),
-                "Applied HTML Workspace patch/code blocks must stay visible in MiniChat after the patch is applied.")
+        #expect(!routerSource.contains("var visible = parseResult.cleanedText"))
         #expect(chatTypes.contains("surfaceTarget"))
-        #expect(miniChatSource.contains("HTMLWorkspacePatchRouter.applyPatchCommands"))
-        #expect(miniChatSource.contains("fetchHTMLWorkspaceContext"))
-        #expect(coordinatorSource.contains("fetchHTMLWorkspaceContext"))
-    }
-
-    @Test("HTML Workspace toolbar exposes source target metadata for MiniChat")
-    func editorExposesSourceTargetMetadataForMiniChat() throws {
-        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
-        let chatTypes = try loadMirroredSourceTextFile("Epistemos/Models/ChatTypes.swift")
-        let helpers = try loadMirroredSourceTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
-
-        #expect(chatTypes.contains("var surfaceTarget: MiniChatTarget?"))
-        #expect(helpers.contains("surfaceTarget: MiniChatTarget? = nil"))
-        #expect(helpers.contains("htmlWorkspaceCapabilities"))
-        #expect(editorSource.contains("sourceTarget(for: selectedPane)"))
-        #expect(editorSource.contains("DocumentSurface("))
-        #expect(editorSource.contains("MiniChatTarget("))
-        #expect(editorSource.contains("pane.documentSurfacePane"))
-        #expect(editorSource.contains("selectedPaneSourceSnippet"))
-        #expect(editorSource.contains("copyPatchContext(for: selectedPane)"))
-        #expect(editorSource.contains("openMiniChatForCurrentPane()"))
     }
 
     @Test("new visual creation routes to HTML Workspace, not Mermaid")

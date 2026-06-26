@@ -7,7 +7,7 @@ import os
 // or any harness that speaks the OpenAI API can point at `http://127.0.0.1:<port>`
 // and drive YOUR on-device Gemma/Qwen models — no fork, no duplicated agent loop.
 //
-// Design (osaurus-pattern, adapted to Network.framework since the app has no
+// Design (OpenAI-compatible loopback pattern, adapted to Network.framework since the app has no
 // SwiftNIO dep):
 //   - Binds 127.0.0.1 ONLY (`requiredInterfaceType = .loopback`) — never the
 //     LAN. Needs `com.apple.security.network.server`.
@@ -23,9 +23,7 @@ import os
 nonisolated final class LocalModelServer: @unchecked Sendable {
     static let flagKey = "EPISTEMOS_LOCAL_MODEL_SERVER_V0"
 
-    /// The canonical loopback port for the osaurus-pattern OpenAI-compatible
-    /// server (matches the `init` default + the Osaurus :1337 convention). Exposed
-    /// so the Act-Osaurus bridge can publish the real endpoint without hardcoding.
+    /// The canonical loopback port for the OpenAI-compatible server.
     static let defaultPort: UInt16 = 1337
 
     static var isEnabled: Bool {

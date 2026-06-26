@@ -1,0 +1,38 @@
+{
+  "donor_id": "swiftaia-agent",
+  "contract_id": "swiftaia-agent.workflow-model-cleanroom",
+  "local_path": ".research-clones/swift-act/swiftaia-agent",
+  "upstream_url": "https://github.com/ShenghaiWang/SwiftAIAgent.git",
+  "commit": "1bce237a31d79c4bb5ffcc2bb5ef81a01245fcc5",
+  "license_file": null,
+  "import_mode": "clean-room-study",
+  "license_disposition": "unknown-study-only",
+  "status": "cleanroom-adapted-with-tests",
+  "role": "Secondary workflow, model-output, Gemini/tool UX, and max-iteration motifs.",
+  "product_rule": "Study only unless license resolves; do not absorb SDK/client code.",
+  "implemented_features": [
+    {
+      "contract_id": "swiftaia-agent.workflow-model-cleanroom",
+      "source_paths": [
+        ".research-clones/swift-act/swiftaia-agent/README.md",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agent/AIAgent.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agent/AIAgentOutput.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agent/AIAgentOutput+File.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agent/Model/AIAgentConfiguration.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agent/Model/ToolCallingValue.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agents/Workflow.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agents/GoalManager.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agents/GoalManagerConfiguration.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agents/GoalManagerExecutionState.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Agents/GoalManagerError.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Models/AITask.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Models/AIGoalClarification.swift",
+        ".research-clones/swift-act/swiftaia-agent/Sources/SwiftAIAgent/Models/AIStrategy.swift"
+      ],
+      "implementation_path": "LocalPackages/EpistemosChatDonorContracts/Sources/EpistemosChatDonorContracts/ChatDonorSwiftAIAgentCleanroom.swift",
+      "proof_command": "swift test --package-path LocalPackages/EpistemosChatDonorContracts",
+      "proof_result": "44 tests, 0 failures",
+      "notes": "Clean-room Epistemos-owned values for mixed model-output normalization, JSON tool-call parsing, max tool-iteration loop receipts with final no-tools calls, sequence/parallel/conditional workflow composition, and goal-plan validation. Does not import Gemini SDK, Google tools, MCP client, macro code, or any license-unknown source."
+    }
+  ]
+}

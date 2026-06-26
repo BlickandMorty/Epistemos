@@ -4,62 +4,6 @@ import Testing
 
 @Suite("Composer Reference Browser")
 struct ComposerReferenceBrowserTests {
-    @Test("empty browse includes recent chats alongside note results")
-    func emptyBrowseIncludesRecentChats() {
-        let manifest = VaultManifest(
-            vaultTitle: "Vault",
-            totalNoteCount: 1,
-            isInventoryComplete: true,
-            entries: [
-                .init(
-                    pageId: "page-1",
-                    title: "Research Note",
-                    tags: [],
-                    folderName: "Projects",
-                    wordCount: 120,
-                    snippet: "Snippet",
-                    updatedAt: Date(timeIntervalSince1970: 200),
-                    createdAt: .distantPast
-                )
-            ],
-            recentBodies: [],
-            generatedAt: .distantPast
-        )
-
-        let persistedChat = SDChat(title: "Atlas planning")
-        persistedChat.id = "chat-1"
-        persistedChat.updatedAt = Date(timeIntervalSince1970: 300)
-        let persistedMessage = SDMessage(role: "user", content: "Outline the atlas plan")
-        persistedMessage.createdAt = Date(timeIntervalSince1970: 290)
-        persistedMessage.chat = persistedChat
-        persistedChat.messages = [persistedMessage]
-
-        let miniThread = ChatThread(
-            id: "thread-1",
-            type: "palette",
-            label: "Mini note thread",
-            messages: [
-                AssistantMessage(
-                    role: .user,
-                    content: "Outline the atlas chapter",
-                    createdAt: Date(timeIntervalSince1970: 250)
-                )
-            ],
-            createdAt: Date(timeIntervalSince1970: 240)
-        )
-
-        let results = ChatCoordinator.searchReferenceResults(
-            filter: "",
-            manifest: manifest,
-            chats: [persistedChat],
-            threads: [miniThread],
-            limitPerSection: 6
-        )
-
-        #expect(results.notes.count == 2)
-        #expect(results.chats.map(\.attachment.targetId) == ["chat-1", "thread-1"])
-    }
-
     @Test("inventory builder produces notes-sidebar-style folder tree and loose pages")
     func inventoryBuilderProducesFolderTreeAndLoosePages() {
         let research = SDFolder(name: "Research")

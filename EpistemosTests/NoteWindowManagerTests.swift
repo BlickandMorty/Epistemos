@@ -664,7 +664,6 @@ struct NoteWindowManagerTests {
         #expect(NotesSidebarMetrics.searchBarTopPadding == 0)
         #expect(!NotesSidebarMetrics.overlapsTitlebar)
         #expect(!NotesSidebarMetrics.showsBottomCollectionButton)
-        #expect(!NotesSidebarMetrics.showsBottomMiniChatButton)
         #expect(NotesSidebarMetrics.changesPanelWidth == 320)
         #expect(NotesSidebarMetrics.changesPanelHeight == 400)
         #expect(NotesSidebarGlyph.vaultChanges.symbolName == "doc.badge.clock")

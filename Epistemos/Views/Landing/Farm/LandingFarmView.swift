@@ -3,8 +3,8 @@ import SwiftUI
 /// Compact Landing agent dock.
 ///
 /// The dock is a small top-right surface: no large panel, no decorative
-/// orb/chrome, and no hidden fake runtime. Tapping an agent activates its
-/// persisted persona for the next main-chat turn.
+/// orb/chrome, and no hidden fake runtime. Tapping an agent only changes the
+/// visible active mascot.
 ///
 /// Three regions:
 /// - **Header**: retro "AGENTS" label + compact "+" button
@@ -15,7 +15,7 @@ import SwiftUI
 /// Doctrinal posture:
 /// - Reads from `companionState.roster` snapshot — never holds a
 ///   SwiftData model directly
-/// - Tap = activate (foreground persona for next chat)
+/// - Tap = activate visual mascot
 /// - Long-press / right-click = context menu (Activate, Edit, Delete)
 /// - No card/panel wrapper; this sits as quiet landing chrome
 struct LandingFarmView: View {
@@ -26,7 +26,6 @@ struct LandingFarmView: View {
     var onOpenTrash: () -> Void = {}
     var onRequestEdit: (CompanionRosterEntry) -> Void = { _ in }
     var onRequestDelete: (CompanionRosterEntry) -> Void = { _ in }
-    var onStartChat: (CompanionRosterEntry) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -42,8 +41,7 @@ struct LandingFarmView: View {
                     isAnimationActive: isAnimationActive,
                     onActivate: { companionState.activate($0.id) },
                     onRequestEdit: onRequestEdit,
-                    onRequestDelete: onRequestDelete,
-                    onStartChat: onStartChat
+                    onRequestDelete: onRequestDelete
                 )
             }
             if !companionState.trashed.isEmpty {
@@ -66,25 +64,6 @@ struct LandingFarmView: View {
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
                     .lineLimit(1)
-                Button {
-                    onStartChat(active)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "message.fill")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("CHAT")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    }
-                    .foregroundStyle(theme.resolved.accent.color)
-                    .padding(.horizontal, 6)
-                    .frame(height: 20)
-                    .overlay(
-                        Rectangle()
-                            .stroke(theme.resolved.accent.color.opacity(0.5), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-                .help("Chat with \(active.name)")
             }
             Text("AGENTS")
                 .font(.system(size: 12, weight: .bold, design: .monospaced))

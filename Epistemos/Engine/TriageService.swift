@@ -569,9 +569,9 @@ nonisolated struct InferencePolicyEngine {
     ) -> Bool {
         guard localSelection != nil else { return false }
         switch profile.surface {
-        case .mainChat, .miniChat:
+        case .mainChat:
             return true
-        case .noteChat, .graph:
+        case .noteAgentPortal, .graph:
             return false
         }
     }
@@ -812,9 +812,7 @@ nonisolated struct InferencePolicyEngine {
         switch profile.surface {
         case .mainChat:
             break
-        case .miniChat:
-            score += 0.01
-        case .noteChat:
+        case .noteAgentPortal:
             score += 0.03
         case .graph:
             score += 0.06
@@ -1734,14 +1732,14 @@ final class TriageService {
         let analysis = queryText.isEmpty ? nil : QueryAnalyzer.analyze(query: queryText)
         let promptLength = max(contentLength, queryText.count)
         return InferenceRequestProfile(
-            surface: .noteChat,
+            surface: .noteAgentPortal,
             intent: taskIntent(for: operation, queryText: queryText),
             contentLength: contentLength,
             promptLength: promptLength,
             contextBlockCount: contextBlockCount(
                 contentLength: contentLength,
                 promptLength: promptLength,
-                surface: .noteChat
+                surface: .noteAgentPortal
             ),
             estimatedTokenLoad: estimatedTokenLoad(
                 contentLength: contentLength,
@@ -1836,9 +1834,9 @@ final class TriageService {
     ) -> Int {
         let divisor: Double
         switch surface {
-        case .mainChat, .miniChat:
+        case .mainChat:
             divisor = 2_400
-        case .noteChat:
+        case .noteAgentPortal:
             divisor = 1_800
         case .graph:
             divisor = 1_500
@@ -1859,7 +1857,7 @@ final class TriageService {
         case .continueWriting:
             return .synthesis
         case .ask:
-            return inferredTaskIntent(from: queryText, surface: .noteChat)
+            return inferredTaskIntent(from: queryText, surface: .noteAgentPortal)
         case .outline, .expand:
             return .synthesis
         case .analyze:
@@ -2270,18 +2268,6 @@ final class TriageService {
         selection: LocalModelSelection?,
         steeringHintsJSON: String? = nil
     ) async throws -> String {
-        // ONE INFERENCE CHOKEPOINT / completeness (owner §38,§86): the NON-streaming local path delegates its
-        // act-injection to the SAME shared entry the streaming path uses, so a surface on `generateGeneral`
-        // (e.g. PinnedInspector's retry) gets act too — no per-surface drift. Off (default) → nil → MLX below,
-        // byte-identical; armed → act text, or an honest throw (never a silent MLX fallback).
-        if let actText = try await SharedActInference.actTextIfArmed(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: resolvedLocalOutputTokens(for: selection?.reasoningMode ?? .fast, steeringHintsJSON: steeringHintsJSON),
-            reasoningMode: selection?.reasoningMode ?? .fast
-        ) {
-            return actText
-        }
         guard let selection else {
             throw LocalInferenceRoutingError.modelRequired
         }
@@ -2323,19 +2309,6 @@ final class TriageService {
         selection: LocalModelSelection?,
         steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
-        // ONE INFERENCE CHOKEPOINT (owner §692) — TriageService (Note chat + Graph chat) delegates the
-        // act-injection to the SINGLE shared entry `SharedActInference.actStreamIfArmed`, the SAME one
-        // LocalAgentLoop.liveLoop uses, so the two chokepoints can't diverge. Armed → OsaurusCore stream;
-        // off (default) → nil → the proven MLX/Apple-Intelligence path below runs UNCHANGED (byte-identical).
-        if let actStream = SharedActInference.actStreamIfArmed(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: resolvedLocalOutputTokens(for: selection?.reasoningMode ?? .fast, steeringHintsJSON: steeringHintsJSON),
-            reasoningMode: selection?.reasoningMode ?? .fast,
-            modelID: selection?.modelID
-        ) {
-            return actStream
-        }
         // If local isn't available, fall back to Apple Intelligence (on-device
         // and always present on macOS 26+ after the system model is downloaded).
         // This means a user with no configured local model and no cloud key

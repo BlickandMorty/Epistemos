@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Branded Types
 // Type-safe wrappers for entity IDs. v3 SwiftData models use plain String IDs,
-// but ChatId and MessageId are still used by EventBus and ChatState.
+// but ChatId and MessageId are still used by EventBus and agent transcript stores.
 
 nonisolated protocol BrandedId: RawRepresentable, Hashable, Codable, Sendable,
     CustomStringConvertible

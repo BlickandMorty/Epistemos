@@ -126,27 +126,6 @@ struct ResearchModeTests {
         #expect(ResearchComplexityGate.stripPrefix("hello world") == "hello world")
     }
 
-    @Test("Chat surfaces do not keep a dedicated research handoff path")
-    func chatSurfacesDoNotKeepDedicatedResearchHandoffPath() throws {
-        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let chatState = try loadTextFile("Epistemos/State/ChatState.swift")
-
-        #expect(!miniChat.contains("ResearchComplexityGate.handoffMessage("))
-        #expect(!chatState.contains("ResearchComplexityGate.handoffMessage("))
-        #expect(!chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
-    }
-
-    @Test("Chat surfaces do not special-case research phrasing anymore")
-    func chatSurfacesDoNotSpecialCaseResearchPhrasing() throws {
-        let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let chatState = try loadTextFile("Epistemos/State/ChatState.swift")
-
-        #expect(!miniChat.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
-        #expect(!miniChat.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
-        #expect(!chatState.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
-        #expect(!chatState.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
-    }
-
     // MARK: - Evidence Scorer
 
     @Test("Evidence scorer identifies arxiv as preprint tier")

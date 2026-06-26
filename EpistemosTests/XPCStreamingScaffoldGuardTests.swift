@@ -47,7 +47,6 @@ struct XPCStreamingScaffoldGuardTests {
     /// before the wiring lands.
     private static let candidateProductionFiles = [
         "Epistemos/Engine/PipelineService.swift",
-        "Epistemos/App/ChatCoordinator.swift",
         "Epistemos/Engine/AnswerPacketEmitter.swift",
         "Epistemos/Bridge/StreamingDelegate.swift",
     ]

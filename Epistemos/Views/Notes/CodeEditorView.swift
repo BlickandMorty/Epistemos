@@ -1792,7 +1792,6 @@ struct CodeEditorView: View {
     let themeOverride: EpistemosTheme?
 
     @Environment(UIState.self) private var ui
-    @Environment(NoteChatState.self) private var noteChatState: NoteChatState?
     @Environment(GraphState.self) private var graphState: GraphState?
     @Environment(TriageService.self) private var triageService: TriageService?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1898,7 +1897,6 @@ struct CodeEditorView: View {
             .onAppear {
                 normalizeCodeEditorPreferences()
                 ensureEditorCoordinator()
-                bindNoteChatContext(with: text)
                 showSemanticSidebar = false
                 livePreviewText = text
                 applyGutterPreferences()
@@ -1912,7 +1910,6 @@ struct CodeEditorView: View {
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
-                clearNoteChatContextBindings()
                 sourceEditorCoordinator?.destroy()
                 sourceEditorCoordinator = nil
             }
@@ -1924,7 +1921,6 @@ struct CodeEditorView: View {
                 if usesWebKitEditor {
                     ensureContentDebouncer().enqueue(newText)
                 }
-                bindNoteChatContext(with: newText)
                 if showOutlineNavigator {
                     scheduleOutlineRefresh(for: newText)
                 }
@@ -1937,7 +1933,6 @@ struct CodeEditorView: View {
                 guard text == oldValue || text.isEmpty else { return }
                 text = newValue
                 totalLines = CodeEditorLineMetrics.lineCount(newValue)
-                bindNoteChatContext(with: newValue)
                 if showOutlineNavigator {
                     scheduleOutlineRefresh(for: newValue, immediate: true)
                 }
@@ -2020,18 +2015,6 @@ struct CodeEditorView: View {
         // Preserve the user's saved code font. The WebKit editor path should
         // inherit the native code editor's scale instead of silently compacting
         // existing installs.
-    }
-
-    private func bindNoteChatContext(with text: String) {
-        let capturedText = text
-        let capturedGraphState = graphState
-        noteChatState?.noteBodyProvider = { capturedText }
-        noteChatState?.graphStateProvider = { capturedGraphState }
-    }
-
-    private func clearNoteChatContextBindings() {
-        noteChatState?.noteBodyProvider = nil
-        noteChatState?.graphStateProvider = nil
     }
 
     private func ensureEditorCoordinator() {

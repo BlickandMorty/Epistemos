@@ -29,7 +29,7 @@ nonisolated enum DeepResearchGateStatus {
     /// a recognized cloud provider. This is an explicit ALLOWLIST (not a
     /// denylist) so deep research can NEVER silently run on a route the user
     /// didn't pick — owner priority #1 (no hidden GPT route). The strings match
-    /// `ChatCoordinator.resolveRustProviderName` (claude_*, openai_*, gemini_*,
+    /// provider resolution (claude_*, openai_*, gemini_*,
     /// zai/glm, kimi_*, minimax, deepseek, perplexity); local resolves to
     /// `ollama`/`mlx`/`gguf`/`apple`, all of which return false.
     static func isCloudProvider(_ providerName: String) -> Bool {

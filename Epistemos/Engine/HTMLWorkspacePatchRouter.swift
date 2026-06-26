@@ -386,34 +386,14 @@ enum HTMLWorkspacePatchRouter {
         let sections = htmlAttachments.compactMap { attachment -> String? in
             guard let document = document(matching: attachment) else { return nil }
             let snapshot = document.chatContextSnapshot()
-            let targetLines: String
-            if let target = attachment.surfaceTarget {
-                let rangeText: String
-                if let range = target.selectedRange {
-                    rangeText = "\(range.startLine):\(range.startColumn)-\(range.endLine):\(range.endColumn)"
-                } else {
-                    rangeText = "none"
-                }
-                targetLines = """
-                MiniChat Target:
-                Surface ID: \(target.surfaceID)
-                Surface Kind: \(target.surfaceKind.rawValue)
-                Pane: \(target.pane.rawValue)
-                Selected Range: \(rangeText)
-                Allowed Operations: \(target.allowedOperations.joined(separator: ", "))
-                Target Snippet:
-                \(target.snippet)
-                """
-            } else {
-                targetLines = """
-                MiniChat Target:
-                Surface ID: \(snapshot.workspaceID)
-                Surface Kind: htmlWorkspace
-                Pane: preview
-                Selected Range: none
-                Allowed Operations: replaceHTML, replaceCSS, replaceJS, replaceDataJSON, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot
-                """
-            }
+            let targetLines = """
+            Document Target:
+            Surface ID: \(snapshot.workspaceID)
+            Surface Kind: htmlWorkspace
+            Pane: preview
+            Selected Range: none
+            Allowed Operations: replaceHTML, replaceCSS, replaceJS, replaceDataJSON, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot
+            """
             return """
             ### Attached HTML Workspace: \(snapshot.title)
             Workspace ID: \(snapshot.workspaceID)

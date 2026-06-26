@@ -150,32 +150,6 @@ struct NoteToolbarGlowTests {
         #expect(source.contains(".opacity(Double(activationProgress))"))
     }
 
-    @Test("main and mini chat composers use the shared retro status treatment")
-    func mainAndMiniChatComposersUseTheSharedRetroStatusTreatment() throws {
-        let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
-
-        #expect(mainChat.contains("AssistantAnimatedStatusLabel("))
-        #expect(mainChat.contains("activeFont: .custom(AppDisplayTypography.displayFontName, size: 12)"))
-        #expect(miniChat.contains("AssistantAnimatedStatusLabel("))
-        #expect(miniChat.contains("activeFont: .custom(AppDisplayTypography.displayFontName, size: 12)"))
-        #expect(sharedStatus.contains("activeFont: .custom(AppDisplayTypography.displayFontName, size: 11)"))
-    }
-
-    @Test("main and mini chat rely on chrome instead of the old outer halo")
-    func mainAndMiniChatRelyOnChromeInsteadOfTheOldOuterHalo() throws {
-        let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(mainChat.contains(".assistantComposerChrome("))
-        #expect(miniChat.contains(".assistantComposerChrome("))
-        #expect(!mainChat.contains("private var composerHaloStyle"))
-        #expect(!miniChat.contains("private var composerHaloStyle"))
-        #expect(!mainChat.contains("AssistantComposerOuterHalo("))
-        #expect(!miniChat.contains("AssistantComposerOuterHalo("))
-    }
-
     @Test("status label now animates retro ellipsis instead of shimmer sweep math")
     func statusLabelNowAnimatesRetroEllipsisInsteadOfShimmerSweepMath() throws {
         let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
@@ -184,68 +158,6 @@ struct NoteToolbarGlowTests {
         #expect(sharedStatus.contains("date.timeIntervalSinceReferenceDate * 2.15"))
         #expect(!sharedStatus.contains("private var sweepWidth: CGFloat"))
         #expect(!sharedStatus.contains("private func shimmerOffset("))
-    }
-
-    @Test("main and mini chat composers pin the text area to its real height")
-    func mainAndMiniChatComposersPinTheTextAreaToItsRealHeight() throws {
-        let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(mainChat.contains("private var composerTextAreaHeight: CGFloat"))
-        #expect(mainChat.contains(".frame(height: composerTextAreaHeight, alignment: .topLeading)"))
-        #expect(!mainChat.contains(".frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)"))
-        #expect(!mainChat.contains(".layoutPriority(1)"))
-
-        #expect(miniChat.contains("private var composerTextAreaHeight: CGFloat"))
-        #expect(miniChat.contains(".frame(height: composerTextAreaHeight, alignment: .topLeading)"))
-        #expect(!miniChat.contains(".frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)"))
-        #expect(!miniChat.contains(".layoutPriority(1)"))
-    }
-
-    @Test("main and mini chat status labels stay out of the text editor layout pass")
-    func mainAndMiniChatStatusLabelsStayOutOfTheTextEditorLayoutPass() throws {
-        let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(
-            !mainChat.contains(
-                """
-                private var composerTextArea: some View {
-                    ZStack(alignment: .topLeading) {
-                """
-            )
-        )
-        #expect(
-            !miniChat.contains(
-                """
-                private var composerTextArea: some View {
-                    ZStack(alignment: .topLeading) {
-                """
-            )
-        )
-        #expect(mainChat.contains(".overlay(alignment: .topLeading) {"))
-        #expect(miniChat.contains(".overlay(alignment: .topLeading) {"))
-    }
-
-    @Test("main and mini chat status labels share the text editor horizontal inset")
-    func mainAndMiniChatStatusLabelsShareTheTextEditorHorizontalInset() throws {
-        let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(mainChat.contains("static let horizontalInset: CGFloat"))
-        #expect(mainChat.contains("textView.textContainerInset = NSSize("))
-        #expect(mainChat.contains("width: ChatComposerInputMetrics.horizontalInset"))
-        #expect(mainChat.contains(".padding(.leading, ChatComposerInputMetrics.horizontalInset)"))
-        #expect(miniChat.contains(".padding(.leading, ChatComposerInputMetrics.horizontalInset)"))
-    }
-
-    @Test("chat composer native height updates are coalesced before they hit SwiftUI state")
-    func chatComposerNativeHeightUpdatesAreCoalescedBeforeTheyHitSwiftUIState() throws {
-        let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-
-        #expect(mainChat.contains("private var pendingHeight: CGFloat?"))
-        #expect(mainChat.contains("if abs(parent.height - clampedHeight) > 0.5, pendingHeight != clampedHeight"))
-        #expect(mainChat.contains("self.pendingHeight = nil"))
     }
 
     @Test("shared note ask bar keeps animated labels out of the toolbar field layout")
@@ -263,57 +175,6 @@ struct NoteToolbarGlowTests {
         )
         #expect(sharedStatus.contains("TextField(\"\", text: $text)"))
         #expect(sharedStatus.contains(".overlay(alignment: .leading) {"))
-    }
-
-    @Test("streaming surfaces remove the old dots and use the live activity strip")
-    func streamingSurfacesRemoveTheOldDotsAndUseTheLiveActivityStrip() throws {
-        let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
-        let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let graphChat = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
-        let liveActivity = try loadRepoTextFile("Epistemos/Views/Chat/LiveActivityStrip.swift")
-        let messageBubble = try loadRepoTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-
-        #expect(!sharedStatus.contains("struct AssistantTypingIndicatorDots: View"))
-        #expect(mainChat.contains("LiveActivityStrip("))
-        #expect(miniChat.contains("LiveActivityStrip("))
-        #expect(graphChat.contains("LiveActivityStrip("))
-        #expect(!mainChat.contains("AssistantTypingIndicatorDots("))
-        #expect(!miniChat.contains("AssistantTypingIndicatorDots("))
-        #expect(!graphChat.contains("AssistantTypingIndicatorDots("))
-        #expect(liveActivity.contains("ProcessDisclosureHeader("))
-        #expect(!liveActivity.contains(".assistantInsetChrome("))
-        #expect(liveActivity.contains("ClaudeAppTypography.monoFont(size: 12, weight: .medium)"))
-        #expect(messageBubble.contains("ProcessDisclosureDetailBlock("))
-        #expect(!messageBubble.contains(".assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: cardIsEmphasized)"))
-        #expect(!mainChat.contains("Text(\"Responding\")"))
-        #expect(!miniChat.contains("Text(\"Responding…\")"))
-        #expect(!miniChat.contains("ProgressView().controlSize(.small)"))
-    }
-
-    @Test("graph and note chat live in shared main composer chrome")
-    func graphAndNoteChatLiveInSharedMainComposerChrome() throws {
-        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
-        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
-        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
-        let noteWorkspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-
-        #expect(sidebar.contains("case notes, query, chat"))
-        #expect(sidebar.contains("ChatComposerTextEditor("))
-        #expect(sidebar.contains(".assistantComposerChrome("))
-        #expect(sidebar.contains("ComposerControlStrip(spacing: 8, resetKey: graphComposerControlResetKey)"))
-        #expect(sidebar.contains("AssistantSendButton("))
-        #expect(sidebar.contains("Resize sidebar"))
-        #expect(sidebar.contains("sendGraphChatMessage()"))
-        #expect(!sidebar.contains("TextField(\"Ask this node\""))
-        #expect(!inspector.contains("TextField(\"Ask…\""))
-        #expect(overlay.contains("HologramSearchSidebar("))
-        #expect(overlay.contains("inspectorState: inspectorState"))
-        #expect(noteWorkspace.contains("ChatComposerTextEditor("))
-        #expect(noteWorkspace.contains(".assistantComposerChrome("))
-        #expect(noteWorkspace.contains("ComposerControlStrip(spacing: 8, resetKey: noteComposerControlResetKey)"))
-        #expect(noteWorkspace.contains("AssistantSendButton("))
-        #expect(!noteWorkspace.contains("AssistantToolbarAskBar("))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

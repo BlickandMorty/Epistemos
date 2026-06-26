@@ -51,7 +51,6 @@ struct SubstrateHealthClockTests {
             "Epistemos/Views/Settings/FUlpHealthRow.swift",
             "Epistemos/Views/Settings/EditorBundleHealthRow.swift",
             // Slice 4 — the deviating rows (bridge pre-call / dual-task / .task{})
-            "Epistemos/Views/Settings/SystemGHealthRow.swift",
             "Epistemos/Views/Settings/ACSAdmissionHealthRow.swift",
             "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
             "Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift",

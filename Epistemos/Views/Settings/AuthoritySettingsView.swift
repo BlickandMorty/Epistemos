@@ -37,7 +37,7 @@ struct AuthoritySettingsView: View {
     // W9.8 — preview state for the SwiftUI ApprovalModalView. Lets
     // the user see what the modal looks like + tune their reaction
     // before a real agent action triggers it. Real triggers go via
-    // ChatCoordinator's NSAlert path today.
+    // the agent approval alert path today.
     @State private var approvalPreviewPending: ApprovalModalView.PendingApproval? = nil
 
     init(
@@ -74,7 +74,7 @@ struct AuthoritySettingsView: View {
 
     /// W9.8 wire-up. Shows the SwiftUI ApprovalModalView via a
     /// preview button. Real agent-triggered approvals still flow
-    /// through `ChatCoordinator.promptUserForToolApproval` (NSAlert)
+    /// through the agent approval prompt (NSAlert)
     /// — this surface lets the user verify the modal renders + see
     /// the countdown ring before committing to it.
     private var approvalModalPreviewCard: some View {

@@ -650,25 +650,18 @@ struct RuntimeValidationTests {
         }
     }
 
-    @Test("note reasoning loop preserves the selected operating mode")
-    func noteReasoningLoopPreservesOperatingMode() throws {
-        let noteChat = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+    @Test("reasoning loop and graph inspectors preserve selected operating-mode error handling")
+    func reasoningLoopAndGraphInspectorsPreserveOperatingModeErrorHandling() throws {
         let reasoningLoop = try loadRepoTextFile("Epistemos/Omega/Inference/ReasoningLoopService.swift")
         let graphInspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
         let pinnedInspector = try loadRepoTextFile("Epistemos/Views/Graph/PinnedInspector.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let chatCoordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
         let streamingDelegate = try loadRepoTextFile("Epistemos/Bridge/StreamingDelegate.swift")
 
-        #expect(noteChat.contains("operatingMode: operatingMode"))
-        #expect(noteChat.contains("let message = UserFacingChatError.message(from: error)"))
         #expect(reasoningLoop.contains("operatingMode: EpistemosOperatingMode = .fast"))
         #expect(reasoningLoop.contains("guard operatingMode != .fast else { return false }"))
         #expect(reasoningLoop.contains("query: query,\n                operatingMode: operatingMode"))
         #expect(graphInspector.contains("appendToLastAssistant(UserFacingChatError.message(from: error))"))
         #expect(pinnedInspector.contains("appendToLastAssistant(UserFacingChatError.message(from: error))"))
-        #expect(miniChat.contains("content: UserFacingChatError.message(from: error)"))
-        #expect(chatCoordinator.contains("UserFacingChatError.message("))
         #expect(streamingDelegate.contains("struct AgentRuntimeError: Error, LocalizedError, Sendable"))
     }
 
@@ -958,17 +951,6 @@ struct RuntimeValidationTests {
         #expect(!claudeRuntime.contains("not yet wired to live API"))
     }
 
-    @Test("chat coordinator blocks legacy vault action directives until a real approval UI exists")
-    func chatCoordinatorBlocksLegacyVaultActionDirectivesUntilApprovalUIExists() throws {
-        let source = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(source.contains("sanitizeVaultActionMarkers"))
-        #expect(source.contains("Approval required before adding tags"))
-        #expect(!source.contains("page.tags.append(contentsOf:"))
-        #expect(!source.contains("page.folder = folder"))
-        #expect(!source.contains("await vaultSync.createPage(title: title)"))
-    }
-
     @Test("test hosts route application support paths into a temporary runtime root")
     func testHostsRouteApplicationSupportPathsIntoTemporaryRuntimeRoot() {
         let appSupport = FoundationSafety.userApplicationSupportDirectory().standardizedFileURL
@@ -1237,24 +1219,15 @@ struct RuntimeValidationTests {
         #expect(snapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue))
     }
 
-    @Test("chat, landing, and mini chat all use the shared chat brain picker for model and mode selection")
-    func composerSurfacesUseConsolidatedRuntimePopover() throws {
-        let chatInputBar = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+    @Test("landing composer uses the inline runtime panel for model and mode selection")
+    func landingComposerUsesInlineRuntimePanel() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        // Main chat, landing, and mini chat should all use the shared
-        // ChatBrainPickerMenu instead of reviving the older selector view.
-        #expect(chatInputBar.contains("ChatBrainPickerMenu("))
-        #expect(landing.contains("ChatBrainPickerMenu("))
+        #expect(!landing.contains("ChatBrainPickerMenu("))
+        #expect(landing.contains("InlineRuntimePickerPanel("))
         #expect(landing.contains("operatingMode: operatingModeBinding"))
         #expect(landing.contains("availableOperatingModes: supportedOperatingModes"))
-        #expect(!chatInputBar.contains("OperatingModeSelectorView("))
         #expect(!landing.contains("OperatingModeSelectorView("))
-
-        // Mini chat is still a standalone surface and keeps the same picker.
-        #expect(miniChat.contains("operatingMode: operatingModeBinding"))
-        #expect(!miniChat.contains("OperatingModeSelectorView("))
     }
 
     @Test("inference exposes observable cloud credential cache and validation state")
@@ -1896,22 +1869,6 @@ struct RuntimeValidationTests {
         )
     }
 
-    @Test("chat coordinator keeps local agent loops in fast reasoning mode for tools")
-    func chatCoordinatorKeepsLocalAgentLoopsInFastReasoningModeForTools() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("case .fast, .agent:"))
-        #expect(coordinator.contains("case .thinking, .pro:"))
-        #expect(!coordinator.contains("case .thinking, .pro, .agent:"))
-    }
-
-    @Test("chat coordinator enables reflex mode for local agent tool loops")
-    func chatCoordinatorEnablesReflexModeForLocalAgentToolLoops() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("reflexMode: true"))
-    }
-
     @Test("initial vault import is offloaded through a nonisolated helper")
     func initialVaultImportIsOffloadedThroughNonisolatedHelper() throws {
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
@@ -2005,22 +1962,6 @@ struct RuntimeValidationTests {
         #expect(runtime.contains("let resumed = await self.resumeSSMState("))
         #expect(runtime.contains("SSM stream resumed with cached state"))
         #expect(runtime.contains("await self.notifySSMStateService("))
-    }
-
-    @Test("chat and note chat release oversized streaming buffers after reset paths")
-    func chatAndNoteChatReleaseOversizedStreamingBuffersAfterResetPaths() throws {
-        let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
-        let noteChatState = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
-
-        #expect(chatState.contains("private func releaseStreamingTextStorage()"))
-        #expect(chatState.contains("streamingText.removeAll(keepingCapacity: false)"))
-        #expect(chatState.contains("streamBuffer.reset(releaseCapacity: true)"))
-
-        #expect(noteChatState.contains("private func clearResponseTextBuffer()"))
-        #expect(noteChatState.contains("responseText.removeAll(keepingCapacity: false)"))
-        #expect(noteChatState.contains("private func resetStreamBuffer(releaseCapacity: Bool = false)"))
-        #expect(noteChatState.contains("resetStreamBuffer(releaseCapacity: true)"))
-        #expect(noteChatState.contains("responseText.reserveCapacity(16_384)"))
     }
 
     @Test("bootstrap refreshes prepared retrieval runtime state on app activation")
@@ -2199,35 +2140,15 @@ struct RuntimeValidationTests {
         #expect(!omega.contains(".scaleEffect(0.7)"))
     }
 
-    @Test("chat, note, graph, and settings surfaces defer on-appear state mutations off the active view update")
-    func statefulSurfacesDeferOnAppearMutations() throws {
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let noteSidebar = try loadRepoTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
-        let chatSidebar = try loadRepoTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
+    @Test("settings, graph, and note workspace surfaces defer on-appear state mutations off the active view update")
+    func nonChatStatefulSurfacesDeferOnAppearMutations() throws {
         let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
         let workspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
-        #expect(miniChat.contains(".onAppear {\n            Task { @MainActor in"))
-        #expect(chatView.contains(".onAppear {"))
-        #expect(chatView.contains("Task { @MainActor in"))
-        #expect(noteSidebar.contains(".onAppear {\n                Task { @MainActor in"))
-        #expect(chatSidebar.contains(".onAppear {\n            Task { @MainActor in"))
         #expect(settings.contains(".onAppear {\n            Task { @MainActor in"))
         #expect(inspector.contains(".onAppear {\n            Task { @MainActor in"))
         #expect(workspace.contains(".onAppear {\n                Task { @MainActor in"))
-    }
-
-    @Test("note chat sidebar can render assistant thinking trails")
-    func noteChatSidebarCanRenderThinkingTrails() throws {
-        let noteSidebar = try loadRepoTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
-        let chatTypes = try loadRepoTextFile("Epistemos/Models/ChatTypes.swift")
-
-        #expect(noteSidebar.contains("ThinkingTrailView("))
-        #expect(noteSidebar.contains("msg.thinkingTrace"))
-        #expect(chatTypes.contains("var thinkingTrace: String?"))
-        #expect(chatTypes.contains("var thinkingDurationSeconds: Double?"))
     }
 
     @Test("settings window keeps a native source-list layout with a persistent sidebar toggle")
@@ -2252,7 +2173,7 @@ struct RuntimeValidationTests {
         #expect(utilityManager.contains("window.makeKeyAndOrderFront(nil)"))
     }
 
-    @Test("legacy omega utility routing now forwards straight into the fused main chat")
+    @Test("legacy omega utility routing surfaces home without deleted chat state")
     func omegaUtilityRoutingForwardsIntoMainChat() throws {
         let utilityManager = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
 
@@ -2260,38 +2181,22 @@ struct RuntimeValidationTests {
         #expect(utilityManager.contains("routeOmegaPanelToMainChat()"))
         #expect(utilityManager.contains("bootstrap.uiState.setActivePanel(.home)"))
         #expect(utilityManager.contains("bootstrap.uiState.homeTab = .home"))
-        #expect(utilityManager.contains("bootstrap.chatState.showLanding = false"))
+        #expect(!utilityManager.contains("bootstrap.chatState"))
         #expect(utilityManager.contains("HomeWindowIdentity.surfaceHomeWindow()"))
     }
 
-    @Test("fused main-chat bootstrap keeps only the live graph handoff helper")
+    @Test("bootstrap keeps AgentClone/fusion state without deleted chat state")
     func fusedMainChatBootstrapKeepsOnlyTheLiveGraphHandoffHelper() throws {
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(bootstrap.contains("chatState.primeComposerDraft(trimmed)"))
-        #expect(bootstrap.contains("chatState.showLanding = false"))
-        #expect(bootstrap.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+        #expect(bootstrap.contains("let agentChatState = AgentChatState()"))
+        #expect(bootstrap.contains("agentChatState.eventBus = eventBus"))
+        #expect(!bootstrap.contains("chatState.primeComposerDraft(trimmed)"))
+        #expect(!bootstrap.contains("chatState.showLanding = false"))
         #expect(!bootstrap.contains("func presentAgentCommandCenter("))
         #expect(!bootstrap.contains("func submitAgentWorkspacePrompt("))
         #expect(!bootstrap.contains("routeLegacyAgentSurfaceIntoMainChat("))
         #expect(!bootstrap.contains("agentCommandCenterState.present()"))
-    }
-
-    @Test("graph chat requests now route into main chat while preserving structured graph context")
-    func graphChatRequestsRouteIntoMainChatWithStructuredContext() throws {
-        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-        let accState = try loadRepoTextFile("Epistemos/State/AgentCommandCenterState.swift")
-
-        #expect(bootstrap.contains("func routeGraphChatRequestIntoMainChat(_ request: GraphChatRequest)"))
-        #expect(bootstrap.contains("chatState.primeGraphChatRequest(request)"))
-        #expect(accState.contains("AppBootstrap.shared?.routeGraphChatRequestIntoMainChat(request)"))
-        #expect(chatState.contains("var pendingGraphChatRequest: GraphChatRequest?"))
-        #expect(chatState.contains("func primeGraphChatRequest(_ request: GraphChatRequest)"))
-        #expect(chatState.contains("func consumePendingGraphChatRequest() -> GraphChatRequest?"))
-        #expect(coordinator.contains("graphContextSection = Self.graphContextSection("))
-        #expect(coordinator.contains("ChatBrainSection(title: \"Graph Context\""))
     }
 
     @Test("retired omega settings no longer advertise old training experiments")
@@ -2534,18 +2439,6 @@ struct RuntimeValidationTests {
         #expect(scan.contains("${ROOT_DIR}/Epistemos/Views/Graph"))
         #expect(scan.contains("periphery scan --project Epistemos.xcodeproj --schemes Epistemos --targets Epistemos --format xcode"))
         #expect(scan.contains("cd '${ROOT_DIR}/graph-engine' && cargo machete"))
-    }
-
-    @Test("chat coordinator caches manifest note search fields off the main actor")
-    func chatCoordinatorCachesManifestNoteSearchFieldsOffTheMainActor() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("private struct PreparedManifestSearchEntry"))
-        #expect(coordinator.contains("private nonisolated static func preparedManifestSearchEntries("))
-        #expect(coordinator.contains("private nonisolated static func autoMatchedReferencedNoteIDs("))
-        #expect(coordinator.contains("private nonisolated static func noteSearchScore("))
-        #expect(coordinator.contains("let preparedEntries = preparedManifestSearchEntries(for: manifest)"))
-        #expect(coordinator.contains("let entriesByPageID = Dictionary("))
     }
 
     @Test("prepared retrieval scorer uses a dedicated candidate list ffi")
@@ -2995,34 +2888,6 @@ struct RuntimeValidationTests {
         #expect(!embedded.contains("value: graphState.currentRoute"))
     }
 
-    @Test("graph chat transcript uses the mini-chat assistant formatting path")
-    func graphChatTranscriptUsesMiniChatAssistantFormattingPath() throws {
-        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
-        let messageBubble = try loadRepoTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-
-        #expect(sidebar.contains("AssistantTranscriptChrome"))
-        #expect(sidebar.contains("TaggedMarkdownTextView(content: displayText, theme: theme)"))
-        #expect(sidebar.contains(".frame(maxWidth: .infinity, alignment: .trailing)"))
-        #expect(messageBubble.contains("struct AssistantTranscriptChrome"))
-    }
-
-    @Test("graph chat preserves reasoning traces separately from assistant text")
-    func graphChatPreservesReasoningTracesSeparately() throws {
-        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
-        let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
-        let pinnedInspector = try loadRepoTextFile("Epistemos/Views/Graph/PinnedInspector.swift")
-
-        #expect(inspectorState.contains("var thinkingTrace: String?"))
-        #expect(inspectorState.contains("var thinkingDurationSeconds: Double?"))
-        #expect(inspectorState.contains("reasoningSink: { [weak self] delta in"))
-        #expect(inspectorState.contains("finalizeLastAssistantText()"))
-        #expect(inspectorState.contains("UserFacingModelOutput.incompleteReasoningFallback"))
-        #expect(pinnedInspector.contains("UserFacingModelOutput.finalVisibleText"))
-        #expect(sidebar.contains("ThinkingTrailView("))
-        #expect(sidebar.contains("message.thinkingTrace"))
-        #expect(sidebar.contains("if inspectorState.isChatStreaming {"))
-    }
-
     @Test("graph node inspector keeps summary generation off the immediate selection turn")
     func graphNodeInspectorKeepsSummaryGenerationOffImmediateSelectionTurn() throws {
         let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
@@ -3069,23 +2934,6 @@ struct RuntimeValidationTests {
         #expect(inspector.contains("Treat folder context as a bundle of descendant notes and relationships"))
     }
 
-    @Test("note picker uses a dedicated split context panel instead of the cramped mention dropdown")
-    func notePickerUsesDedicatedSplitContextPanel() throws {
-        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
-
-        #expect(popover.contains("if style == .notePicker"))
-        #expect(popover.contains("notePickerSidebar"))
-        #expect(popover.contains("Attach exactly what this turn should know."))
-        #expect(popover.contains("Attach the vault retrieval index for this turn."))
-        #expect(popover.contains("Searches titles, folders, tags, and indexed body snippets."))
-        #expect(popover.contains("final class ComposerReferencePopoverCoordinator"))
-        #expect(popover.contains("private let popover = NSPopover()"))
-        #expect(popover.contains("self.popover.show("))
-        #expect(popover.contains("await Task.yield()"))
-        #expect(popover.contains("guard let self, let anchorView, anchorView.window != nil"))
-        #expect(!popover.contains("GeometryReader { proxy in"))
-    }
-
     @Test("note editor keeps markdown tables as plain editor text")
     func noteEditorKeepsMarkdownTablesAsPlainEditorText() throws {
         let tk2 = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
@@ -3095,135 +2943,18 @@ struct RuntimeValidationTests {
         #expect(!tk2.contains("coord.renderedTableOverlayManager = RenderedTableOverlayManager2("))
     }
 
-    @Test("mini chat stays a real resizable window without the removed palette shell")
-    func miniChatStaysARealResizableWindowWithoutPaletteShell() throws {
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let controller = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
-
-        #expect(controller.contains("styleMask: [.titled, .closable, .resizable, .fullSizeContentView]"))
-        #expect(controller.contains("window.maxSize = NSSize(width: 1600, height: 1400)"))
-        #expect(miniChat.contains(".padding(.horizontal, 28)"))
-        #expect(miniChat.contains(".padding(.top, 36)"))
-        #expect(miniChat.contains(".padding(.bottom, 20)"))
-        #expect(miniChat.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"))
-        #expect(!miniChat.contains("AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics)"))
-        #expect(miniChat.contains("static let messageColumnMaxWidth: CGFloat = 560"))
-        #expect(miniChat.contains("MiniChatBubble(message: msg)\n                                            .frame(maxWidth: .infinity)"))
-        #expect(miniChat.contains("HStack {\n                            Spacer(minLength: 0)"))
-        #expect(miniChat.contains("}\n                        .frame(maxWidth: .infinity)"))
-        #expect(miniChat.contains(".background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))"))
-        #expect(miniChat.contains(".frame(maxWidth: MiniChatLayout.userBubbleMaxWidth, alignment: .leading)"))
-        #expect(miniChat.contains(".frame(maxWidth: .infinity, alignment: .trailing)"))
-    }
-
-    @Test("mini chat launches in its own real window and keeps main-chat styling cues")
-    func miniChatUsesDedicatedWindowAndCompactMainChatLayout() throws {
-        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
-        let statusBar = try loadRepoTextFile("Epistemos/App/StatusBar.swift")
-        let intents = try loadRepoTextFile("Epistemos/Intents/Custom/NavigationIntents.swift")
-        let sidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
-        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let windowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(app.contains("MiniChatWindowController.shared.openNewChat()"))
-        #expect(statusBar.contains("MiniChatWindowController.shared.openNewChat()"))
-        #expect(intents.contains("MiniChatWindowController.shared.show()"))
-        #expect(sidebar.contains("MiniChatWindowController.shared.openNewChat()"))
-        #expect(!app.contains("CommandPaletteWindowController"))
-        #expect(!statusBar.contains("CommandPaletteWindowController"))
-        #expect(!intents.contains("CommandPaletteWindowController"))
-        #expect(!sidebar.contains("CommandPaletteWindowController"))
-
-        #expect(app.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
-        #expect(landing.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
-        #expect(landing.contains("title: \"mini chat\""))
-        #expect(landing.contains("shortcut: \"\\u{2318}3\""))
-        #expect(chatView.contains("Label(\"Open in Mini Chat\""))
-        #expect(chatView.contains("openCurrentChatInMiniChat()"))
-        #expect(chatView.contains("MiniChatWindowController.shared.openChat(chatId)"))
-
-        #expect(windowController.contains("let window = NSWindow("))
-        #expect(!windowController.contains(".nonactivatingPanel"))
-        #expect(!windowController.contains(".utilityWindow"))
-        #expect(!windowController.contains("let panel = NSPanel("))
-        #expect(windowController.contains("WindowPresentationPolicy.applyModularZoomBehavior("))
-        #expect(windowController.contains("minimumContentSize: Self.minimumContentSize"))
-        #expect(windowController.contains("window.maxSize = NSSize(width: 1600, height: 1400)"))
-        #expect(windowController.contains("window.tabbingMode = .preferred"))
-        #expect(windowController.contains("window.tabbingIdentifier = \"epistemos-mini-chat-tabs\""))
-        #expect(!windowController.contains(".padding(22)"))
-
-        #expect(miniChat.contains("ChatComposerTextEditor("))
-        #expect(miniChat.contains(".assistantComposerChrome("))
-        #expect(miniChat.contains("TaggedMarkdownTextView("))
-        #expect(miniChat.contains(".frame(maxWidth: MiniChatLayout.userBubbleMaxWidth, alignment: .leading)"))
-    }
-
-    @Test("mini chat uses native macOS tab groups and loads app-wide chats by chat id")
-    func miniChatUsesNativeMacOSTabGroupsAndLoadsAppWideChatsByChatId() throws {
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let threadState = try loadRepoTextFile("Epistemos/State/ThreadState.swift")
-        let windowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
-
-        #expect(!miniChat.contains("MiniChatTabBar"))
-        #expect(!miniChat.contains("threadState.activeMiniChatThread()"))
-        #expect(miniChat.contains("Recent Chats"))
-        #expect(miniChat.contains("MiniChatWindowController.shared.openNewChat()"))
-        #expect(miniChat.contains("MiniChatWindowController.shared.openChat("))
-        #expect(threadState.contains("func upsertMiniChatSession("))
-        #expect(threadState.contains("func miniChatSession(id: String) -> ChatThread?"))
-        #expect(windowController.contains("window.tabbingIdentifier = \"epistemos-mini-chat-tabs\""))
-        #expect(windowController.contains("existingWindow.addTabbedWindow(window, ordered: .above)"))
-    }
-
-    @Test("main chat pipeline stays aligned with the compact chat streaming path")
-    func mainChatPipelineMatchesCompactChatStreamingPath() throws {
-        let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
-
-        #expect(pipeline.contains("localSurface: .miniChat"))
-        #expect(miniChat.contains("localSurface: .miniChat"))
-        #expect(!pipeline.contains("Response too short"))
-        #expect(!pipeline.contains("No response received"))
-        #expect(!pipeline.contains("finalVisibleAnswer.count >= 10"))
-        #expect(triage.contains("if prefersDedicatedLocalChatRouting("))
-        #expect(triage.contains("case .mainChat, .miniChat:"))
-    }
-
-    @Test("chat surfaces expose mode selection without keeping a separate agent page alive")
-    func chatSurfacesExposeOperatingModeSelectionWithoutSeparateAgentPage() throws {
+    @Test("landing exposes mode selection without keeping a separate agent page alive")
+    func landingExposesOperatingModeSelectionWithoutSeparateAgentPage() throws {
         let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
-        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
-        let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
 
         #expect(inference.contains("enum EpistemosOperatingMode"))
-        #expect(chatInput.contains("operatingMode: Binding<EpistemosOperatingMode>?"))
-        #expect(chatInput.contains("availableOperatingModes: [EpistemosOperatingMode]?"))
-        #expect(chatView.contains("operatingMode: operatingModeBinding"))
         #expect(landing.contains("operatingMode: operatingModeBinding"))
-        #expect(miniChat.contains("operatingMode: operatingModeBinding"))
-        #expect(chatState.contains("enum MainChatSubmissionRouter"))
-        #expect(chatState.contains("case .agent"))
-        #expect(chatView.contains("MainChatSubmissionRouter.submit("))
-        #expect(landing.contains("MainChatSubmissionRouter.submit("))
         #expect(!root.contains("AgentChatView()"))
         #expect(!repoFileExists("Epistemos/Views/AgentChat/AgentChatView.swift"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
-        #expect(miniChat.contains("let modes = inference.availableOperatingModes"))
-        #expect(!miniChat.contains("filter { $0 != .agent }"))
-        #expect(!chatState.contains("ResearchComplexityGate.handoffMessage("))
-        #expect(!chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
-        #expect(!miniChat.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
-        #expect(!miniChat.contains("ResearchComplexityGate.requiresResearch(trimmed)"))
-        #expect(!miniChat.contains("await orchestrator.submitTask(trimmed)"))
         #expect(pipeline.contains("operatingMode: EpistemosOperatingMode = .fast"))
         #expect(pipeline.contains("operatingMode: operatingMode"))
     }
@@ -3240,27 +2971,19 @@ struct RuntimeValidationTests {
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/ToolTogglePillsView.swift"))
     }
 
-    @Test("main chat and landing composers keep the lightweight chat surface free of removed agent chrome")
-    func mainChatAndLandingStayFreeOfRemovedAgentChrome() throws {
-        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+    @Test("landing composer keeps the lightweight surface free of removed agent chrome")
+    func landingStaysFreeOfRemovedAgentChrome() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        #expect(!chatInput.contains("LocalModelToolbarMenu("))
         #expect(!landing.contains("LocalModelToolbarMenu("))
-        #expect(!chatInput.contains("ComposerContextShortcutBar("))
         #expect(!landing.contains("ComposerContextShortcutBar("))
-        #expect(chatInput.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
         #expect(landing.contains("ComposerAttachmentEntryHints.landingPlaceholder"))
-        #expect(!chatInput.contains("⌘J"))
         #expect(!landing.contains("Command Center"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
-
-        #expect(miniChat.contains("LocalModelToolbarMenu("))
     }
 
-    @Test("landing search keeps only the fused main-chat composer path")
-    func landingSearchKeepsOnlyTheFusedMainChatComposerPath() throws {
+    @Test("landing search keeps only the fused AgentClone path")
+    func landingSearchKeepsOnlyTheFusedAgentClonePath() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
@@ -3270,25 +2993,19 @@ struct RuntimeValidationTests {
         #expect(!landing.contains("landingAgentSpecificControls"))
         #expect(!landing.contains("submitLandingAgentPrompt("))
         #expect(!landing.contains("landingAgentDraft("))
-        #expect(landing.contains("ChatBrainPickerMenu("))
-        #expect(landing.contains("MainChatSubmissionRouter.submit("))
+        #expect(!landing.contains("ChatBrainPickerMenu("))
+        #expect(landing.contains("InlineRuntimePickerPanel("))
         #expect(!bootstrap.contains("agentChatState.startNewSession()"))
     }
 
-    @Test("interactive surfaces use Task.sleep instead of DispatchQueue.main.asyncAfter")
-    func interactiveSurfacesUseTaskSleepInsteadOfDispatchAsyncAfter() throws {
-        let artifactBlock = try loadRepoTextFile("Epistemos/Views/Chat/ArtifactBlockView.swift")
+    @Test("non-chat interactive surfaces use Task.sleep instead of DispatchQueue.main.asyncAfter")
+    func nonChatInteractiveSurfacesUseTaskSleepInsteadOfDispatchAsyncAfter() throws {
         let focusedResponsePanel = try loadRepoTextFile("Epistemos/Views/Notes/FocusedResponsePanel.swift")
-        let codeAskBar = try loadRepoTextFile("Epistemos/Views/Notes/CodeAskBar.swift")
         let inspectMode = try loadRepoTextFile("Epistemos/Views/Graph/GraphInspectModeView.swift")
 
-        #expect(!artifactBlock.contains("DispatchQueue.main.asyncAfter"))
         #expect(!focusedResponsePanel.contains("DispatchQueue.main.asyncAfter"))
-        #expect(!codeAskBar.contains("DispatchQueue.main.asyncAfter"))
         #expect(!inspectMode.contains("DispatchQueue.main.asyncAfter"))
-        #expect(artifactBlock.contains("Task.sleep"))
         #expect(focusedResponsePanel.contains("Task.sleep"))
-        #expect(codeAskBar.contains("Task.sleep"))
         #expect(inspectMode.contains("EmptyView()"))
         #expect(!inspectMode.contains("Task.sleep"))
     }
@@ -3301,53 +3018,15 @@ struct RuntimeValidationTests {
         #expect(source.contains("decodeJSONArray"))
     }
 
-    @Test("main chat and landing chat persist a selectable operating mode")
-    func mainChatPersistsSelectableOperatingMode() throws {
-        let chatBrainPicker = try loadRepoTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
-        let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let chatInputBar = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+    @Test("landing keeps toolbar model picker out of the root chrome")
+    func landingKeepsToolbarModelPickerOutOfRootChrome() throws {
         let landingView = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(chatBrainPicker.contains("static let defaultsKey = \"epistemos.mainChatOperatingMode\""))
-        #expect(chatView.contains("@AppStorage(MainChatOperatingModePreference.defaultsKey)"))
-        #expect(chatView.contains("sanitizeStoredOperatingMode"))
-        #expect(chatView.contains("ChatInputBar("))
-        #expect(chatView.contains("operatingMode: operatingModeBinding"))
-        #expect(chatInputBar.contains("operatingMode: Binding<EpistemosOperatingMode>?"))
-        #expect(chatInputBar.contains("availableOperatingModes: [EpistemosOperatingMode]?"))
-        #expect(chatInputBar.contains("ChatBrainPickerMenu("))
-        #expect(chatInputBar.contains("operatingMode: operatingMode"))
         #expect(landingView.contains("@AppStorage(MainChatOperatingModePreference.defaultsKey)"))
         #expect(landingView.contains("operatingMode: selectedOperatingMode"))
 
-        // Main chat's toolbar center no longer renders the model picker either.
         #expect(!rootView.contains("LocalModelToolbarMenu(\n            variant: .toolbar,\n            overrideTitle:"))
-    }
-
-    @Test("note and graph chats expose an operating mode instead of silently defaulting to fast")
-    func noteAndGraphChatsExposeOperatingModes() throws {
-        let noteWorkspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-        let noteChatState = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
-        let graphSidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
-        let nodeInspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
-
-        #expect(noteWorkspace.contains("@AppStorage(\"epistemos.noteChatOperatingMode\")"))
-        #expect(noteWorkspace.contains("operatingMode: noteChatOperatingModeBinding"))
-        #expect(noteWorkspace.contains("availableOperatingModes: supportedNoteChatOperatingModes"))
-        #expect(noteWorkspace.contains("operatingMode: selectedNoteChatOperatingMode"))
-
-        #expect(noteChatState.contains("operatingMode: EpistemosOperatingMode = .fast"))
-        #expect(noteChatState.contains("operatingMode: operatingMode"))
-
-        #expect(graphSidebar.contains("@AppStorage(\"epistemos.graphChatOperatingMode\")"))
-        #expect(graphSidebar.contains("operatingMode: graphChatOperatingModeBinding"))
-        #expect(graphSidebar.contains("availableOperatingModes: supportedGraphChatOperatingModes"))
-        #expect(graphSidebar.contains("operatingMode: selectedGraphChatOperatingMode"))
-
-        #expect(nodeInspector.contains("operatingMode: EpistemosOperatingMode = .fast"))
-        #expect(nodeInspector.contains("operatingMode: operatingMode"))
-        #expect(nodeInspector.contains("localSurface: .graph"))
     }
 
     @Test("apple fallback preserves the available response when local qwen is unavailable")
@@ -3408,17 +3087,6 @@ struct RuntimeValidationTests {
         #expect(sharedCard.contains("Button(provider.documentationActionTitle)"))
     }
 
-    @Test("chat file picker defers panel presentation and reads files under a security scope")
-    func chatFilePickerDefersPanelPresentationAndReadsFilesUnderASecurityScope() throws {
-        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-
-        #expect(chatInput.contains("await Task.yield()"))
-        #expect(chatInput.contains("panel.beginSheetModal(for: window, completionHandler: handler)"))
-        #expect(chatInput.contains("panel.begin(completionHandler: handler)"))
-        #expect(chatInput.contains("url.startAccessingSecurityScopedResource()"))
-        #expect(chatInput.contains("url.stopAccessingSecurityScopedResource()"))
-    }
-
     @Test("instant recall rebuild leaves the heavy vault watcher work off the main actor")
     func instantRecallRebuildLeavesWatcherWorkOffTheMainActor() throws {
         let service = try loadRepoTextFile("Epistemos/KnowledgeFusion/InstantRecallService.swift")
@@ -3430,39 +3098,11 @@ struct RuntimeValidationTests {
         #expect(!vaultSync.contains("instantRecallService.rebuildIndex(notes: notes)"))
     }
 
-    @Test("composer reference popover keeps result rendering lazy for smooth scrolling")
-    func composerReferencePopoverKeepsResultRenderingLazy() throws {
-        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
-
-        #expect(popover.contains("LazyVStack(alignment: .leading, spacing: 0)"))
-    }
-
-    @Test("mini chat reference picker skips chat fetches while empty-query browsing is active")
-    func miniChatReferencePickerSkipsChatFetchesWhileBrowsing() throws {
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(miniChat.contains("private var trimmedMentionFilter: String"))
-        #expect(miniChat.contains("let shouldSearchChats = !trimmedMentionFilter.isEmpty"))
-        #expect(miniChat.contains("filter: trimmedMentionFilter"))
-        #expect(miniChat.contains("chats: shouldSearchChats ? recentChats() : []"))
-        #expect(miniChat.contains("threads: shouldSearchChats ? threadState.chatThreads : []"))
-    }
-
-    @Test("composer note pickers observe vault sync manifest updates instead of relying on bootstrap singleton state")
-    func composerNotePickersObserveVaultSyncManifestUpdates() throws {
-        let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+    @Test("landing note picker observes vault sync manifest updates instead of relying on bootstrap singleton state")
+    func landingNotePickerObservesVaultSyncManifestUpdates() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let coordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
-
-        #expect(chatInput.contains("vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest"))
-        #expect(chatInput.contains("manifest: ambientManifest"))
-        #expect(!chatInput.contains("manifest: AppBootstrap.shared?.ambientManifest"))
-
-        #expect(miniChat.contains("vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest"))
-        #expect(miniChat.contains("manifest: ambientManifest"))
-        #expect(!miniChat.contains("manifest: AppBootstrap.shared?.ambientManifest"))
 
         #expect(landing.contains("vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest"))
         #expect(landing.contains("manifest: ambientManifest"))
@@ -3470,26 +3110,6 @@ struct RuntimeValidationTests {
 
         #expect(vaultSync.contains("var ambientManifest: VaultManifest?"))
         #expect(coordinator.contains("vaultSync.ambientManifest = manifest"))
-    }
-
-    @Test("composer reference search caches manifest page ids between query updates")
-    func composerReferenceSearchCachesManifestPageIDsBetweenQueryUpdates() throws {
-        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
-
-        #expect(popover.contains("private var cachedManifestGeneratedAt: Date?"))
-        #expect(popover.contains("private var cachedManifestEntryCount = 0"))
-        #expect(popover.contains("private var cachedManifestPageIDs = Set<String>()"))
-        #expect(popover.contains("let manifestPageIDs = pageIDs(in: manifest)"))
-    }
-
-    @Test("scroll-heavy composer pickers use reduced-overdraw chrome")
-    func scrollHeavyComposerPickersUseReducedOverdrawChrome() throws {
-        let popover = try loadRepoTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
-
-        #expect(popover.contains("private var usesReducedOverdrawChrome: Bool"))
-        #expect(popover.contains("if usesReducedOverdrawChrome"))
-        #expect(popover.contains(".clipped()"))
-        #expect(popover.contains("theme.resolved.background.color.opacity(0.94)"))
     }
 
     @Test("node inspector profile copy avoids synthetic knowledge cluster filler text")
@@ -3505,7 +3125,6 @@ struct RuntimeValidationTests {
     func regexBackedPresentationHelpersAvoidForceTryCompilation() throws {
         let files = [
             "Epistemos/Sync/BlockPropertyParser.swift",
-            "Epistemos/Views/Chat/ChatView.swift",
             "Epistemos/Views/Chat/TaggedMarkdownTextView.swift",
             "Epistemos/Views/Notes/MarkdownContentStorage.swift",
             "Epistemos/Views/Notes/MarkdownEditorStyle.swift",
@@ -3628,16 +3247,14 @@ struct RuntimeValidationTests {
         #expect(source.contains("page.updateBodyDerivedState(from: body)"))
     }
 
-    @Test("custom secondary windows opt out of AppKit state restoration")
-    func customSecondaryWindowsOptOutOfAppKitStateRestoration() throws {
+    @Test("custom non-chat secondary windows opt out of AppKit state restoration")
+    func customNonChatSecondaryWindowsOptOutOfAppKitStateRestoration() throws {
         let noteWindowManager = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
-        let miniChatWindowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
         let utilityWindowManager = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
         let graphOverlayPanel = try loadRepoTextFile("Epistemos/Views/Graph/GraphOverlayPanel.swift")
         let quitSavePanel = try loadRepoTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
 
         #expect(noteWindowManager.contains("window.isRestorable = false"))
-        #expect(miniChatWindowController.contains("window.isRestorable = false"))
         #expect(utilityWindowManager.contains("panel.isRestorable = false"))
         #expect(graphOverlayPanel.contains("isRestorable = false"))
         #expect(quitSavePanel.contains("scrim.isRestorable = false"))
@@ -3721,7 +3338,6 @@ struct RuntimeValidationTests {
         let trainingScheduler = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/TrainingScheduler.swift")
         let qualityCurator = try loadRepoTextFile("Epistemos/KnowledgeFusion/SyntheticData/QualityCurator.swift")
         let experienceReplayBuffer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/ExperienceReplayBuffer.swift")
-        let chatSidebar = try loadRepoTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
         let dataDetectionService = try loadRepoTextFile("Epistemos/Engine/DataDetectionService.swift")
         let queryParser = try loadRepoTextFile("Epistemos/Engine/QueryParser.swift")
         let structuredQueryParser = try loadRepoTextFile("Epistemos/Engine/StructuredQueryParser.swift")
@@ -3739,8 +3355,6 @@ struct RuntimeValidationTests {
         #expect(!trainingScheduler.contains(".first!"))
         #expect(!qualityCurator.contains("String(data: data, encoding: .utf8)!"))
         #expect(!experienceReplayBuffer.contains("String(data: data, encoding: .utf8)!"))
-        #expect(!chatSidebar.contains("calendar.date(byAdding: .day, value: -1, to: startOfToday)!"))
-        #expect(!chatSidebar.contains("calendar.date(byAdding: .day, value: -7, to: startOfToday)!"))
         #expect(!dataDetectionService.contains("URL(string: \"webcal://\")!"))
         #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -1, to: now)!"))
         #expect(!queryParser.contains("calendar.date(byAdding: .day, value: -7, to: now)!"))
@@ -3781,15 +3395,12 @@ struct RuntimeValidationTests {
     @Test("workspace summary output is sanitized before persistence and prompt reuse")
     func workspaceSummaryOutputIsSanitizedBeforePersistenceAndPromptReuse() throws {
         let workspaceSummary = try loadRepoTextFile("Epistemos/State/WorkspaceSummaryService.swift")
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
         let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
         #expect(workspaceSummary.contains("UserFacingModelOutput.finalVisibleText(from: raw)"))
         #expect(workspaceSummary.contains("Self.sanitizedSummaryText(from: summary)"))
-        #expect(coordinator.contains("private nonisolated static func sanitizedWorkspaceContextValue("))
-        #expect(coordinator.contains("if let summary = sanitizedWorkspaceContextValue(workspace.summary)"))
         #expect(workspaceService.contains("var sanitizedIntentSummary: String"))
         #expect(workspaceService.contains("UserFacingModelOutput.finalVisibleText(from: intentSummary)"))
         #expect(landing.contains("info.displayText"))
@@ -4257,21 +3868,9 @@ struct RuntimeValidationTests {
         #expect(storeSummary.contains("workspace.lastSummaryAt = originalLastSummaryAt"))
     }
 
-    @Test("chat title and daily brief follow-up saves restore failed mutation state")
-    func chatTitleAndDailyBriefRestoreFailedMutationState() throws {
-        let chatCoordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+    @Test("daily brief follow-up saves restore failed mutation state")
+    func dailyBriefRestoresFailedMutationState() throws {
         let appCoordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
-
-        let chatStart = try #require(chatCoordinator.range(of: "func generateChatTitle("))
-        let chatEnd = try #require(
-            chatCoordinator.range(of: "// MARK: - Vault Context", range: chatStart.lowerBound..<chatCoordinator.endIndex)
-        )
-        let generateChatTitle = String(chatCoordinator[chatStart.lowerBound..<chatEnd.lowerBound])
-
-        #expect(generateChatTitle.contains("let originalChatTitle = chatState.chatTitle"))
-        #expect(generateChatTitle.contains("let originalSavedTitle = sdChat.title"))
-        #expect(generateChatTitle.contains("chatState.chatTitle = originalChatTitle"))
-        #expect(generateChatTitle.contains("sdChat.title = originalSavedTitle"))
 
         let dailyStart = try #require(appCoordinator.range(of: "if let pageId = await self.vaultSync.createPage("))
         let dailyEnd = try #require(
@@ -4283,61 +3882,6 @@ struct RuntimeValidationTests {
         #expect(dailyBriefPersist.contains("let originalTags = page.tags"))
         #expect(dailyBriefPersist.contains("page.folder = originalFolder"))
         #expect(dailyBriefPersist.contains("page.tags = originalTags"))
-    }
-
-    @Test("chat completion note chat and dialogue persistence restore failed transient state")
-    func chatCompletionNoteChatAndDialoguePersistenceRestoreFailedState() throws {
-        let chatCoordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-        let noteChatState = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
-        let dialogueChatState = try loadRepoTextFile("Epistemos/State/DialogueChatState.swift")
-
-        let persistChatCompletionStart = try #require(chatCoordinator.range(of: "func persistChatCompletion("))
-        let persistChatCompletionEnd = try #require(
-            chatCoordinator.range(of: "private func persistedUserMessage(", range: persistChatCompletionStart.lowerBound..<chatCoordinator.endIndex)
-        )
-        let persistChatCompletion = String(
-            chatCoordinator[persistChatCompletionStart.lowerBound..<persistChatCompletionEnd.lowerBound]
-        )
-
-        #expect(persistChatCompletion.contains("let wasExisting: Bool"))
-        #expect(persistChatCompletion.contains("let originalChatType = chat.chatType"))
-        #expect(persistChatCompletion.contains("let originalLinkedPageId = chat.linkedPageId"))
-        #expect(persistChatCompletion.contains("let originalUpdatedAt = chat.updatedAt"))
-        #expect(persistChatCompletion.contains("let originalMessages = chat.messages ?? []"))
-        #expect(persistChatCompletion.contains("let newMessages = [userMsg, assistantMsg]"))
-        #expect(persistChatCompletion.contains("chat.chatType = originalChatType"))
-        #expect(persistChatCompletion.contains("chat.linkedPageId = originalLinkedPageId"))
-        #expect(persistChatCompletion.contains("chat.updatedAt = originalUpdatedAt"))
-        #expect(persistChatCompletion.contains("chat.messages = originalMessages"))
-        #expect(persistChatCompletion.contains("context.delete(chat)"))
-
-        let notePersistStart = try #require(noteChatState.range(of: "func persistMessages(_ context: ModelContext, noteTitle: String)"))
-        let notePersistMessages = String(noteChatState[notePersistStart.lowerBound..<noteChatState.endIndex])
-
-        #expect(notePersistMessages.contains("let originalPersistedChatId = persistedChatId"))
-        #expect(notePersistMessages.contains("let wasExisting: Bool"))
-        #expect(notePersistMessages.contains("let originalTitle = sdChat.title"))
-        #expect(notePersistMessages.contains("let originalUpdatedAt = sdChat.updatedAt"))
-        #expect(notePersistMessages.contains("let originalMessages = sdChat.messages ?? []"))
-        #expect(notePersistMessages.contains("let newMessages = messages.map"))
-        #expect(notePersistMessages.contains("for msg in newMessages"))
-        #expect(notePersistMessages.contains("context.insert(msg)"))
-        #expect(notePersistMessages.contains("sdChat.title = originalTitle"))
-        #expect(notePersistMessages.contains("sdChat.updatedAt = originalUpdatedAt"))
-        #expect(notePersistMessages.contains("sdChat.messages = originalMessages"))
-        #expect(notePersistMessages.contains("context.delete(sdChat)"))
-        #expect(notePersistMessages.contains("persistedChatId = originalPersistedChatId"))
-
-        let dialoguePersistStart = try #require(dialogueChatState.range(of: "private func persistIfMeaningful()"))
-        let dialoguePersistEnd = try #require(
-            dialogueChatState.range(of: "// MARK: - Query", range: dialoguePersistStart.lowerBound..<dialogueChatState.endIndex)
-        )
-        let dialoguePersist = String(dialogueChatState[dialoguePersistStart.lowerBound..<dialoguePersistEnd.lowerBound])
-
-        #expect(dialoguePersist.contains("let persistedMessages = messages.map"))
-        #expect(dialoguePersist.contains("for message in persistedMessages"))
-        #expect(dialoguePersist.contains("context.delete(message)"))
-        #expect(dialoguePersist.contains("context.delete(chat)"))
     }
 
     @Test("daily brief cleanup removes failed temporary folder page and block mutations")
@@ -4363,44 +3907,10 @@ struct RuntimeValidationTests {
         #expect(saveDailyBrief.contains("discardFailedFallbackPage(page)"))
     }
 
-    @Test("code ask and AI partner persistence clean up failed transient chat state")
-    func codeAskAndAIPartnerPersistenceCleanupFailedTransientState() throws {
-        let codeAskBar = try loadRepoTextFile("Epistemos/Views/Notes/CodeAskBar.swift")
-        let aiPartnerService = try loadRepoTextFile("Epistemos/Views/Notes/AIPartnerService.swift")
-
-        let codeAskStart = try #require(codeAskBar.range(of: "private func persistCodeAskExchange("))
-        let codeAskEnd = try #require(
-            codeAskBar.range(of: "// MARK: - Focused Mode", range: codeAskStart.lowerBound..<codeAskBar.endIndex)
-        )
-        let persistCodeAskExchange = String(codeAskBar[codeAskStart.lowerBound..<codeAskEnd.lowerBound])
-
-        #expect(persistCodeAskExchange.contains("let persistedMessages = [userMsg, assistantMsg]"))
-        #expect(persistCodeAskExchange.contains("for message in persistedMessages"))
-        #expect(persistCodeAskExchange.contains("ctx.delete(message)"))
-        #expect(persistCodeAskExchange.contains("ctx.delete(chat)"))
-
-        let aiPartnerStart = try #require(aiPartnerService.range(of: "private func persistSuggestionExchange("))
-        let aiPartnerEnd = try #require(
-            aiPartnerService.range(of: "// MARK: - Logging", range: aiPartnerStart.lowerBound..<aiPartnerService.endIndex)
-        )
-        let persistSuggestionExchange = String(aiPartnerService[aiPartnerStart.lowerBound..<aiPartnerEnd.lowerBound])
-
-        #expect(persistSuggestionExchange.contains("let persistedMessages = [userMsg, assistantMsg]"))
-        #expect(persistSuggestionExchange.contains("for message in persistedMessages"))
-        #expect(persistSuggestionExchange.contains("ctx.delete(message)"))
-        #expect(persistSuggestionExchange.contains("ctx.delete(chat)"))
-    }
-
-    @Test("shared-context page journal and chat failures restore local mutations without global rollback")
-    func sharedContextPersistenceFailuresAvoidGlobalRollback() throws {
-        let chatSidebar = try loadRepoTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
+    @Test("shared-context page journal failures restore local mutations without global rollback")
+    func sharedContextPageJournalPersistenceFailuresAvoidGlobalRollback() throws {
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
         let journal = try loadRepoTextFile("Epistemos/Intents/Schemas/JournalIntents.swift")
-
-        #expect(!chatSidebar.contains("modelContext.rollback()"))
-        #expect(chatSidebar.contains("let originalMessages = sdChat.messages ?? []"))
-        #expect(chatSidebar.contains("modelContext.insert(sdChat)"))
-        #expect(chatSidebar.contains("sdChat.messages = originalMessages"))
 
         #expect(!vaultSync.contains("context.rollback()"))
         #expect(vaultSync.contains("let failedPageId = page.id"))
@@ -4445,36 +3955,6 @@ struct RuntimeValidationTests {
         let saveCall = try #require(markPageDirty.range(of: "try modelContext.save()"))
         let syncCall = try #require(markPageDirty.range(of: "await BlockMirrorSyncCoordinator.shared.scheduleSync("))
         #expect(saveCall.lowerBound < syncCall.lowerBound)
-    }
-
-    @Test("mini chat session persistence restores failed message replacement state")
-    func miniChatSessionPersistenceRestoresFailedState() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let start = try #require(source.range(of: "private func persistMiniChatSession()"))
-        let end = try #require(
-            source.range(of: "private func cancelStream()", range: start.lowerBound..<source.endIndex)
-        )
-        let persistMiniChatSession = String(source[start.lowerBound..<end.lowerBound])
-
-        #expect(persistMiniChatSession.contains("let wasExisting = existing != nil"))
-        #expect(persistMiniChatSession.contains("let originalTitle = chat.title"))
-        #expect(persistMiniChatSession.contains("let originalChatType = chat.chatType"))
-        #expect(persistMiniChatSession.contains("let originalLinkedPageId = chat.linkedPageId"))
-        #expect(persistMiniChatSession.contains("let originalUpdatedAt = chat.updatedAt"))
-        #expect(persistMiniChatSession.contains("let originalMessages = chat.messages ?? []"))
-        #expect(persistMiniChatSession.contains("for message in newMessages"))
-        #expect(persistMiniChatSession.contains("modelContext.insert(message)"))
-        #expect(persistMiniChatSession.contains("message.chat = chat"))
-        #expect(persistMiniChatSession.contains("stored.authoredByProviderID = message.authoredByProviderID"))
-        #expect(persistMiniChatSession.contains("stored.authoredByModelID = message.authoredByModelID"))
-        #expect(persistMiniChatSession.contains("modelContext.delete(chat)"))
-        #expect(persistMiniChatSession.contains("MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: originalTitle)"))
-
-        let saveCall = try #require(persistMiniChatSession.range(of: "try modelContext.save()"))
-        let successWindowTitle = try #require(
-            persistMiniChatSession.range(of: "MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: thread.label)")
-        )
-        #expect(saveCall.lowerBound < successWindowTitle.lowerBound)
     }
 
     @Test("home navigation paths order the main window front regardless for hidden launch sheets")
@@ -4657,15 +4137,9 @@ struct RuntimeValidationTests {
         #expect(apple.contains("private func knowledgeAwareSystemPrompt(from systemPrompt: String?) async -> String?"))
     }
 
-    @Test("note persistence paths avoid silent try-question-mark fallbacks")
-    func notePersistencePathsAvoidSilentTryQuestionMarkFallbacks() throws {
-        let noteChat = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+    @Test("note editor cache persistence avoids silent try-question-mark fallbacks")
+    func noteEditorCachePersistenceAvoidsSilentTryQuestionMarkFallbacks() throws {
         let pageEditorCache = try loadRepoTextFile("Epistemos/Views/Notes/PageEditorCache.swift")
-
-        #expect(!noteChat.contains("guard let sdChat = (try? context.fetch(descriptor))?.first else { return }"))
-        #expect(!noteChat.contains("let existing = try? context.fetch("))
-        #expect(noteChat.contains("Failed to load persisted note chat"))
-        #expect(noteChat.contains("Failed to fetch existing persisted note chat"))
 
         #expect(!pageEditorCache.contains("try? data.write(to: url, options: .atomic)"))
         #expect(!pageEditorCache.contains("guard let data = try? Data(contentsOf: url),"))
@@ -4764,12 +4238,9 @@ struct RuntimeValidationTests {
         #expect(!body.contains("NSMenuItem("))
     }
 
-    @Test("chat vault and mini chat runtime surfaces avoid silent fetch save and timer fallbacks")
-    func chatVaultAndMiniChatRuntimeSurfacesAvoidSilentFallbacks() throws {
+    @Test("vault and query runtime surfaces avoid silent fetch save and timer fallbacks")
+    func vaultAndQueryRuntimeSurfacesAvoidSilentFallbacks() throws {
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let miniChatWindowController = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
         let queryRuntime = try loadRepoTextFile("Epistemos/Engine/QueryRuntime.swift")
         let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
         let vaultRegistry = try loadRepoTextFile("Epistemos/Vault/VaultRegistry.swift")
@@ -4787,24 +4258,6 @@ struct RuntimeValidationTests {
         #expect(vaultSync.contains("private func fetchFirst<T: PersistentModel>("))
         #expect(vaultSync.contains("private nonisolated static func fetchBackgroundAll<T: PersistentModel>("))
 
-        #expect(!coordinator.contains("if let sdChat = try? context.fetch(descriptor).first {"))
-        #expect(!coordinator.contains("guard let chat = try? context.fetch(descriptor).first else { return [] }"))
-        #expect(!coordinator.contains("let allWorkspaces: [SDWorkspace] = (try? context.fetch(FetchDescriptor<SDWorkspace>())) ?? []"))
-        #expect(!coordinator.contains("if let chats = try? context.fetch(chatDesc) {"))
-        #expect(!coordinator.contains("if let folders = try? context.fetch(folderDesc),"))
-        #expect(!coordinator.contains("if let existing = try? context.fetch(descriptor).first {"))
-        #expect(coordinator.contains("ChatCoordinator: failed to fetch"))
-
-        #expect(!miniChat.contains("if let chat = try? modelContext.fetch(descriptor).first {"))
-        #expect(!miniChat.contains("return try? modelContext.fetch(descriptor).first"))
-        #expect(!miniChat.contains("guard let pages = try? modelContext.fetch(descriptor) else { return [] }"))
-        #expect(!miniChat.contains("return (try? modelContext.fetch(descriptor)) ?? []"))
-        #expect(!miniChat.contains("if let existing = try? modelContext.fetch(descriptor).first {"))
-        #expect(miniChat.contains("MiniChatView: failed to fetch"))
-
-        #expect(!miniChatWindowController.contains("guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else { return nil }"))
-        #expect(miniChatWindowController.contains("MiniChatWindowController: failed to fetch active note attachment"))
-
         #expect(!queryRuntime.contains("let results = (try? searchIndex.search(query: query, limit: limit)) ?? []"))
         #expect(!queryRuntime.contains("let blockResults = (try? searchIndex.searchBlocks(query: query, limit: limit)) ?? []"))
         #expect(queryRuntime.contains("QueryRuntime: failed to search"))
@@ -4815,121 +4268,6 @@ struct RuntimeValidationTests {
 
         #expect(!vaultRegistry.contains("guard let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),"))
         #expect(vaultRegistry.contains("VaultRegistry: failed to inspect modification date"))
-    }
-
-    @Test("agent chats build an overseer execution plan before choosing local or managed execution")
-    func agentChatsBuildAnOverseerExecutionPlanBeforeChoosingLocalOrManagedExecution() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("let executionPlan = Self.augmentedExecutionPlan("))
-        #expect(coordinator.contains("await buildOverseerExecutionPlan("))
-        #expect(coordinator.contains("let planner = ModelRefinedPlanner(inference: inferenceState)"))
-        #expect(coordinator.contains("if let executionPlan, mode == .api, executionPlan.route == .managedAgentSession {"))
-        #expect(!coordinator.contains("if let executionPlan, mode == .api, operatingMode == .agent {"))
-        #expect(coordinator.contains("executionPlan: executionPlan"))
-    }
-
-    @Test("main chat planning is not gated behind visible agent mode")
-    func mainChatPlanningIsNotGatedBehindVisibleAgentMode() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("private func buildOverseerExecutionPlan("))
-        #expect(!coordinator.contains("guard operatingMode == .agent else { return nil }"))
-        #expect(coordinator.contains("return await planner.planForMainChat("))
-    }
-
-    @Test("pro rust agent path stays scoped to cloud-selected turns")
-    func proRustAgentPathStaysScopedToCloudSelectedTurns() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        // The pro / fast / thinking → cloud-agent gate used to be an
-        // inline `(operatingMode == .pro || operatingMode == .fast ||
-        // operatingMode == .thinking)` expression. The USABILITY-001
-        // refactor (commits 5663f0cf6 + a537ec438 + 15e0e2da8 + 19d09afaa)
-        // consolidated it into `cloudToolBudget(for:isCloudSelectedSurface:
-        // supportsAgentTier:managedAgentSession:)` which switches on
-        // operatingMode and returns nil for ineligible modes. The drift
-        // gate now pins the structural invariants of THAT shape so the
-        // test doesn't go stale every time the inline expression is
-        // rewritten.
-        #expect(coordinator.contains("let isCloudSelectedSurface: Bool"))
-        #expect(coordinator.contains("isCloudSelectedSurface"))
-        #expect(coordinator.contains("cloudSurfaceSupportsAgentTier(operatingMode)"))
-        #expect(coordinator.contains("Self.cloudToolBudget("))
-        #expect(coordinator.contains("guard isCloudSelectedSurface, supportsAgentTier else { return nil }"))
-        // Per-mode branches in cloudToolBudget — these are the real
-        // gate that USABILITY-001 turns on. Fast and Thinking are now
-        // SEPARATE cases (distinct loop ceilings: Fast=5, Think=10, Pro=15)
-        // so the everyday cloud chat can loop instead of single-shotting.
-        #expect(coordinator.contains("case .pro:"))
-        #expect(coordinator.contains("case .thinking:"))
-        #expect(coordinator.contains("case .fast:"))
-        #expect(coordinator.contains("case .agent:"))
-    }
-
-    @Test("workspace and attachment-heavy chats keep lightweight workspace context on the default path")
-    func workspaceAndAttachmentHeavyChatsKeepLightweightWorkspaceContextOnTheDefaultPath() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("let hasExplicitContext = Self.queryContainsExplicitContext("))
-        #expect(coordinator.contains("let hasRequestedVaultLookup = Self.queryContainsExplicitNoteContext(query)"))
-        #expect(coordinator.contains("let hasAttachedUserContext ="))
-        #expect(coordinator.contains("!turnContextAttachments.isEmpty || !userAttachments.isEmpty"))
-        #expect(coordinator.contains("let plannerHasExplicitContext = hasAttachedUserContext || hasRequestedVaultLookup"))
-        #expect(coordinator.contains("hasExplicitContext: plannerHasExplicitContext"))
-        #expect(coordinator.contains("let shouldInjectWorkspaceContext = isSessionQuery || operatingMode == .agent"))
-        #expect(coordinator.contains("self.inferenceState.refreshAppleIntelligenceAvailability()"))
-        #expect(coordinator.contains("buildRequiredAttachmentContractSection()"))
-        #expect(coordinator.contains("buildRequestedVaultLookupContractSection()"))
-        #expect(coordinator.contains("if deepContext {"))
-        #expect(coordinator.contains("[Today's Conversations]"))
-    }
-
-    @Test("direct main-chat vault tool-loop failures persist visible fallback or error turns")
-    func directMainChatVaultToolLoopFailuresPersistVisibleTurns() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("completeWithIndexedVaultFallbackIfPossible()"))
-        #expect(coordinator.contains("buildIndexedVaultLookupFallbackAnswer("))
-        #expect(coordinator.contains("shouldUseIndexedVaultFallback(forPipelineErrorMessage: msg)"))
-        #expect(coordinator.contains("chatState.addErrorMessage("))
-        #expect(coordinator.contains("persistCompletedMainChatTurn()"))
-    }
-
-    @Test("rust agent paths finalize completed turns and salvage silent stream endings")
-    func rustAgentPathsFinalizeCompletedTurnsAndSalvageSilentStreamEndings() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("var finalizedAssistantMessage = false"))
-        #expect(coordinator.contains("finalizedAssistantMessage = true"))
-        #expect(coordinator.contains("agentChat.completeProcessing("))
-        #expect(coordinator.contains("if !finalizedAssistantMessage && receivedAgentContent {"))
-        #expect(coordinator.contains("finalizedAssistantMessage = agentChat.completeInterruptedProcessing("))
-        #expect(coordinator.contains("finalizedAssistantMessage = chatState.completeCancelledProcessing("))
-        #expect(coordinator.contains("receivedAgentContent = true"))
-        #expect(coordinator.contains("chatState.appendStreamingThinking(thought, explicit: true)"))
-        #expect(coordinator.contains("agentChat.appendStreamingThinking(text, explicit: true)"))
-    }
-
-    @Test("ChatCoordinator Rust stream persists live AgentEvent tool provenance")
-    func chatCoordinatorRustStreamPersistsLiveAgentEventToolProvenance() throws {
-        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("private func recordRustAgentToolEvent("))
-        #expect(coordinator.contains("let commandCenterProvenanceRecorder = AgentToolProvenanceRecorder()"))
-        #expect(coordinator.contains("let managedChatProvenanceRecorder = AgentToolProvenanceRecorder()"))
-        #expect(coordinator.contains("runID: sessionId"))
-        #expect(coordinator.contains("kind: .toolCallRequested"))
-        #expect(coordinator.contains("kind: approved ? .toolCallApproved : .toolCallDenied"))
-        #expect(coordinator.contains("kind: .toolCallStarted"))
-        #expect(coordinator.contains("kind: isError ? .toolCallFailed : .toolCallCompleted"))
-        #expect(coordinator.contains(#""source": "chat_coordinator_command_center_rust_stream""#))
-        #expect(coordinator.contains(#""source": "chat_coordinator_managed_rust_stream""#))
-        #expect(!coordinator.contains("MutationOpLog"))
-        #expect(!coordinator.contains("RustOpLogFFIClient"))
-        #expect(!coordinator.contains("GraphEvent"))
-        #expect(!coordinator.contains("ReplayBundle"))
-        #expect(!coordinator.contains("HookRegistry"))
     }
 
     @Test("HookRegistry persists AgentEvent hook lifecycle without crossing forbidden boundaries")
@@ -4955,35 +4293,6 @@ struct RuntimeValidationTests {
         #expect(!source.contains("ChatCoordinator"))
         #expect(!source.contains("PipelineService"))
         #expect(!source.contains("Omega"))
-    }
-
-    @Test("note chat always treats the current note body as primary context")
-    func noteChatAlwaysTreatsTheCurrentNoteBodyAsPrimaryContext() throws {
-        let source = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
-
-        #expect(source.contains("The note content provided in the prompt is the exact live document the user is editing right now."))
-        #expect(source.contains("Do not ask the user to paste the note again"))
-        #expect(source.contains("Request: \\(trimmed)"))
-        #expect(source.contains("systemPrompt: nil"))
-    }
-
-    @Test("note, graph, and mini chat keep their dedicated routing surfaces")
-    func noteGraphAndMiniChatKeepDedicatedRoutingSurfaces() throws {
-        let noteChat = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
-        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let graphInspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
-        let pinnedInspector = try loadRepoTextFile("Epistemos/Views/Graph/PinnedInspector.swift")
-        let graphSidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
-
-        #expect(noteChat.contains("operation: .ask(query: trimmed)"))
-        #expect(noteChat.contains("stream = triageService.stream("))
-        #expect(!noteChat.contains("streamGeneral("))
-
-        #expect(miniChat.contains("localSurface: .miniChat"))
-
-        #expect(graphInspector.contains("localSurface: .graph"))
-        #expect(pinnedInspector.contains("localSurface: .graph"))
-        #expect(graphSidebar.contains("let modes = inference.availableOperatingModes.filter { $0 != .agent }"))
     }
 
     @Test("graph-only chrome hides when the workspace route leaves canvas")
@@ -5285,12 +4594,10 @@ struct RuntimeValidationTests {
     @Test("duration formatters guard non-finite doubles before Int conversion")
     func durationFormattersGuardNonFiniteDoublesBeforeIntConversion() throws {
         let trainOnVault = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/TrainOnVaultView.swift")
-        let thinkingTrail = try loadRepoTextFile("Epistemos/Views/Chat/ThinkingTrailView.swift")
-        let thinkingPopover = try loadRepoTextFile("Epistemos/Views/Chat/ThinkingPopoverView.swift")
 
         #expect(trainOnVault.contains("guard seconds.isFinite"))
-        #expect(thinkingTrail.contains("seconds.isFinite"))
-        #expect(thinkingPopover.contains("guard seconds.isFinite"))
+        #expect(!FileManager.default.fileExists(atPath: repoRootURL.appendingPathComponent("Epistemos/Views/Chat/ThinkingTrailView.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: repoRootURL.appendingPathComponent("Epistemos/Views/Chat/ThinkingPopoverView.swift").path))
     }
 
     @Test("animated delay paths sanitize non-finite timing before milliseconds casts")
@@ -6105,29 +5412,8 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("SkillMutationProposal(from: decodedProposal)"))
     }
 
-    @Test("chat coordinator prompts before sensitive reads and non-read-only tools and leaves computer execution to the bridge delegate")
-    func chatCoordinatorPromptsBeforeSensitiveReadsAndNonReadOnlyToolsAndLeavesComputerExecutionToDelegate() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/ChatCoordinator.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(source.contains("switch storedAuthorityDecision(for: request)"))
-        #expect(source.contains("approved = await promptForToolApproval(request)"))
-        #expect(source.contains("request.approvalReason"))
-        #expect(source.contains("capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"))
-        #expect(source.contains("private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool"))
-        #expect(source.contains("return await promptUserForBudgetGateApproval(request)"))
-        #expect(!source.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
-        #expect(!source.contains("Auto-approve for now"))
-    }
-
-    @Test("cloud and channel agent entry points keep reads human-approved")
-    func agentEntryPointsKeepReadsHumanApproved() throws {
-        let chatCoordinator = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/ChatCoordinator.swift",
-            testsFilePath: #filePath
-        )
+    @Test("channel agent entry points keep reads human-approved")
+    func channelAgentEntryPointsKeepReadsHumanApproved() throws {
         let iMessageDriver = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Omega/iMessageDriver/IMessageDriverService.swift",
             testsFilePath: #filePath
@@ -6137,11 +5423,9 @@ struct InferenceCloudSelectionTests {
             testsFilePath: #filePath
         )
 
-        #expect(chatCoordinator.contains("autoApproveReads: false"))
         #expect(iMessageDriver.contains("autoApproveReads: false"))
         #expect(iMessageDelegate.contains("case .localDataRead, .localDataWrite, .destructive:"))
         #expect(iMessageDelegate.contains("case .genericRead:"))
-        #expect(!chatCoordinator.contains("autoApproveReads: true"))
         #expect(!iMessageDriver.contains("autoApproveReads: true"))
     }
 
@@ -6219,19 +5503,6 @@ struct InferenceCloudSelectionTests {
         #expect(!source.contains("InlineSuggestionOverlay("))
         #expect(!source.contains("CodeAskBarService("))
         #expect(!source.contains("AIPartnerService("))
-    }
-
-    @Test("code editor binds note chat prompts to the live code buffer")
-    func codeEditorBindsNoteChatPromptsToTheLiveCodeBuffer() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/CodeEditorView.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(source.contains("bindNoteChatContext(with: text)"))
-        #expect(source.contains("noteChatState?.noteBodyProvider = { capturedText }"))
-        #expect(source.contains("noteChatState?.graphStateProvider = { capturedGraphState }"))
-        #expect(source.contains("clearNoteChatContextBindings()"))
     }
 
     @Test("code editor semantic surfaces cancel background work when dismissed")
@@ -6591,22 +5862,10 @@ struct InferenceCloudSelectionTests {
         #expect(journalSource.contains("CreateJournalIntent: failed to fetch created journal page"))
     }
 
-    @Test("chat, landing, and remaining schema intents log fetch failures instead of degrading into empty UI")
-    func chatLandingAndSchemaFetchPathsLogFailures() throws {
+    @Test("landing and remaining schema intents log fetch failures instead of degrading into empty UI")
+    func landingAndSchemaFetchPathsLogFailures() throws {
         let aiPartnerSource = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Views/Notes/AIPartnerService.swift",
-            testsFilePath: #filePath
-        )
-        let mentionDropdownSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Chat/NotesMentionDropdown.swift",
-            testsFilePath: #filePath
-        )
-        let chatInputBarSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Chat/ChatInputBar.swift",
-            testsFilePath: #filePath
-        )
-        let chatSidebarSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Chat/ChatSidebarView.swift",
             testsFilePath: #filePath
         )
         let quitSavePanelSource = try loadRepoTextFileWithRetry(
@@ -6624,16 +5883,6 @@ struct InferenceCloudSelectionTests {
 
         #expect(!aiPartnerSource.contains("chat.linkedPageId = (try? ctx.fetch(descriptor).first)?.id"))
         #expect(aiPartnerSource.contains("AIPartnerService: failed to fetch linked page"))
-
-        #expect(!mentionDropdownSource.contains("guard let pages = try? modelContext.fetch(SDPage.activePagesDescriptor),"))
-        #expect(!mentionDropdownSource.contains("let folders = try? modelContext.fetch(folderDescriptor)"))
-        #expect(mentionDropdownSource.contains("NotesMentionDropdown: failed to fetch browse inventory"))
-
-        #expect(!chatInputBarSource.contains("return (try? modelContext.fetch(descriptor)) ?? []"))
-        #expect(chatInputBarSource.contains("ChatInputBar: failed to fetch recent chats"))
-
-        #expect(!chatSidebarSource.contains("recentChats = (try? modelContext.fetch(descriptor)) ?? []"))
-        #expect(chatSidebarSource.contains("ChatSidebarView: failed to fetch chats"))
 
         #expect(!quitSavePanelSource.contains("if let ws = try? AppBootstrap.shared?.modelContainer.mainContext.fetch("))
         #expect(!quitSavePanelSource.contains("AI Suggestion"))
@@ -6665,37 +5914,10 @@ struct InferenceCloudSelectionTests {
         #expect(!source.contains("private var statusBar: some View"))
     }
 
-    @Test("main chat surfaces structured tool previews instead of markdown-only tool logs")
-    func mainChatSurfacesStructuredToolPreviewsInsteadOfMarkdownOnlyToolLogs() throws {
-        let coordinator = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/ChatCoordinator.swift",
-            testsFilePath: #filePath
-        )
-        let state = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/State/ChatState.swift",
-            testsFilePath: #filePath
-        )
-        let bubble = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Chat/MessageBubble.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(coordinator.contains("chatState.recordToolUse("))
-        #expect(coordinator.contains("chatState.recordToolResult("))
-        #expect(!coordinator.contains("chatState.appendStreamingText(\"\\n> **\\(name)**\\n\")"))
-        #expect(state.contains("var pendingContentBlocks: [MessageContentBlock] = []"))
-        #expect(state.contains("contentBlocks: completedContentBlocks"))
-        #expect(bubble.contains("ToolExecutionPreviewList("))
-    }
-
-    @Test("local main chat tool loop reports structured tool lifecycle and MCP execution logs")
-    func localMainChatToolLoopReportsStructuredToolLifecycleAndMcpLogs() throws {
+    @Test("pipeline tool loop reports structured tool lifecycle events")
+    func pipelineToolLoopReportsStructuredToolLifecycleEvents() throws {
         let pipeline = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Engine/PipelineService.swift",
-            testsFilePath: #filePath
-        )
-        let coordinator = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/ChatCoordinator.swift",
             testsFilePath: #filePath
         )
         let engineTypes = try loadRepoTextFileWithRetry(
@@ -6707,8 +5929,6 @@ struct InferenceCloudSelectionTests {
         #expect(pipeline.contains("observedToolExecutor("))
         #expect(pipeline.contains("toolEventHandler?(.started("))
         #expect(pipeline.contains(".completed("))
-        #expect(coordinator.contains("toolEventHandler: { event in"))
-        #expect(coordinator.contains("bootstrap.mcpBridge.logExecution("))
     }
 
     @Test("Pipeline tool loop persists live AgentEvent tool provenance")
@@ -6735,27 +5955,6 @@ struct InferenceCloudSelectionTests {
         #expect(!recorder.contains("GraphEvent"))
         #expect(!recorder.contains("ReplayBundle"))
         #expect(!pipeline.contains("RustOpLogFFIClient"))
-    }
-
-    @Test("managed main chat agent path honors the planned tool allowlist and selected surface runtime")
-    func managedMainChatAgentPathHonorsPlannedToolAllowlistAndSelectedSurfaceRuntime() throws {
-        let coordinator = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/ChatCoordinator.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(coordinator.contains("let selectedSurface = inferenceState.effectiveChatSurfaceSelection(for: surfaceOperatingMode)"))
-        #expect(coordinator.contains("let allowedTools = Set(executionPlan.allowedToolNames.map(AgentToolNameAliases.canonical))"))
-        #expect(coordinator.contains("allowedToolNames: Array(allowedTools).sorted()"))
-        #expect(coordinator.contains("enableThinking: surfaceOperatingMode.capturesReasoningTrace"))
-        #expect(coordinator.contains("effort: rustAgentEffort(for: surfaceOperatingMode)"))
-        #expect(coordinator.contains("resolveRustProviderName(for: selectedSurface)"))
-        #expect(coordinator.contains("case .openAI: return \"openai_gpt54\""))
-        #expect(coordinator.contains("case \"openai\", \"openai_gpt4o\", \"openai_gpt54\":"))
-        #expect(coordinator.contains("return \"openai_gpt54_mini\""))
-        #expect(coordinator.contains("cloudAgentFailureShouldStopFallback"))
-        #expect(coordinator.contains("chatState.addErrorMessage(from: error)"))
-        #expect(!coordinator.contains("allowedToolNames: nil"))
     }
 
     @Test("GGUF availability probe only runs for GGUF-capable model candidates")

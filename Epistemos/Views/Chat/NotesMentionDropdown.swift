@@ -48,7 +48,7 @@ enum ComposerReferenceHelpers {
     static var allNotesAttachment: ContextAttachment {
         ContextAttachment(
             kind: .allNotes,
-            targetId: ChatCoordinator.allNotesMentionToken,
+            targetId: "all-notes",
             title: "All Notes",
             subtitle: "Vault"
         )
@@ -133,8 +133,6 @@ enum ComposerReferenceHelpers {
                     )
                 }
             }
-        case .chat(let result):
-            result.attachment
         }
     }
 
@@ -150,8 +148,7 @@ enum ComposerReferenceHelpers {
     static func htmlWorkspaceAttachment(
         workspaceID: String,
         title: String,
-        fileURL: URL? = nil,
-        surfaceTarget: MiniChatTarget? = nil
+        fileURL: URL? = nil
     ) -> ContextAttachment {
         let resolvedID = workspaceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? UUID().uuidString
@@ -166,8 +163,7 @@ enum ComposerReferenceHelpers {
             subtitle: fileURL?.lastPathComponent ?? "Interactive Doc",
             resourceURI: "htmlworkspace://\(resolvedID)",
             resourceMode: .live,
-            resourceCapabilities: htmlWorkspaceCapabilities,
-            surfaceTarget: surfaceTarget
+            resourceCapabilities: htmlWorkspaceCapabilities
         )
     }
 
@@ -258,29 +254,30 @@ enum ComposerReferenceHelpers {
 
 enum ComposerReferenceChoice: Identifiable {
     case note(NoteMentionChoice)
-    case chat(ChatCoordinator.ChatReferenceResult)
 
     var id: String {
         switch self {
         case .note(let note):
             "note:\(note.id)"
-        case .chat(let chat):
-            "chat:\(chat.id)"
         }
     }
 }
 
+struct ComposerReferenceSearchResults {
+    var query: String
+    var notes: [NoteMentionChoice]
+    var vaultNoteCount: Int
+    var indexedNoteSnippetsByPageID: [String: String] = [:]
+
+    static let empty = ComposerReferenceSearchResults(query: "", notes: [], vaultNoteCount: 0)
+}
+
 enum ComposerReferenceKeyboardSelection {
     static func choices(
-        from results: ChatCoordinator.ReferenceSearchResults,
+        from results: ComposerReferenceSearchResults,
         style: ComposerReferencePopoverStyle
     ) -> [ComposerReferenceChoice] {
-        var choices: [ComposerReferenceChoice] = []
-        if style != .chatPicker {
-            choices.append(contentsOf: results.notes.map(ComposerReferenceChoice.note))
-        }
-        choices.append(contentsOf: results.chats.map(ComposerReferenceChoice.chat))
-        return choices
+        results.notes.map(ComposerReferenceChoice.note)
     }
 }
 
@@ -441,7 +438,7 @@ final class ComposerReferenceSearchState {
 
 struct ComposerContextShortcutBar: View {
     let noteLabel: String
-    var chatLabel: String = "Chat with Chat"
+    var chatLabel: String = "Conversation"
     let onChatWithNote: () -> Void
     var onChatWithChat: (() -> Void)? = nil
 
@@ -527,7 +524,7 @@ enum ComposerReferencePopoverStyle {
 
 @MainActor @Observable
 final class ComposerReferencePopoverBridge {
-    var results: ChatCoordinator.ReferenceSearchResults
+    var results: ComposerReferenceSearchResults
     var query: String
     var width: CGFloat
     var maxHeight: CGFloat
@@ -540,7 +537,7 @@ final class ComposerReferencePopoverBridge {
     @ObservationIgnored var dismissAction: (() -> Void)?
 
     init(
-        results: ChatCoordinator.ReferenceSearchResults,
+        results: ComposerReferenceSearchResults,
         query: String,
         width: CGFloat,
         maxHeight: CGFloat,
@@ -703,7 +700,7 @@ private final class ComposerReferencePopoverAnchorView: NSView {
 
 struct ComposerReferencePopover: NSViewRepresentable {
     @Binding var isPresented: Bool
-    let results: ChatCoordinator.ReferenceSearchResults
+    let results: ComposerReferenceSearchResults
     let onSelect: (ComposerReferenceChoice) -> Void
     let idealWidth: CGFloat
     let maxHeight: CGFloat
@@ -716,7 +713,7 @@ struct ComposerReferencePopover: NSViewRepresentable {
 
     init(
         isPresented: Binding<Bool>,
-        results: ChatCoordinator.ReferenceSearchResults,
+        results: ComposerReferenceSearchResults,
         query: Binding<String>,
         manifest: VaultManifest?,
         modelContext: ModelContext,
@@ -765,7 +762,7 @@ struct ComposerReferencePopover: NSViewRepresentable {
 }
 
 private struct ComposerReferencePopoverContent: View {
-    let results: ChatCoordinator.ReferenceSearchResults
+    let results: ComposerReferenceSearchResults
     let onSelect: (ComposerReferenceChoice) -> Void
     let onCancel: () -> Void
     let width: CGFloat
@@ -784,7 +781,7 @@ private struct ComposerReferencePopoverContent: View {
     private var theme: EpistemosTheme { ui.theme }
 
     init(
-        results: ChatCoordinator.ReferenceSearchResults,
+        results: ComposerReferenceSearchResults,
         query: Binding<String>,
         width: CGFloat,
         maxHeight: CGFloat,
@@ -1142,7 +1139,7 @@ private struct ComposerReferencePopoverContent: View {
     }
 
     private var resultCount: Int {
-        results.notes.count + results.chats.count
+        results.notes.count
     }
 
     private var keyboardChoices: [ComposerReferenceChoice] {
@@ -1347,11 +1344,11 @@ private struct ComposerReferenceSearchField: NSViewRepresentable {
 }
 
 // MARK: - Notes Mention Dropdown
-// Floating dropdown triggered by @ in ChatInputBar during Notes Mode.
+// Floating dropdown triggered by @ in composer fields.
 // Shows filtered note titles from the in-memory VaultManifest.
 
 struct NotesMentionDropdown: View {
-    let results: ChatCoordinator.ReferenceSearchResults
+    let results: ComposerReferenceSearchResults
     let style: ComposerReferencePopoverStyle
     let browseInventory: ComposerReferenceBrowserInventory
     let selectedChoiceID: String?
@@ -1360,11 +1357,10 @@ struct NotesMentionDropdown: View {
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
 
-    private var showNotes: Bool { style != .chatPicker }
-    private var showChats: Bool { true }
+    private var showNotes: Bool { true }
 
     private var hasResults: Bool {
-        (showNotes && !results.notes.isEmpty) || (showChats && !results.chats.isEmpty)
+        showNotes && !results.notes.isEmpty
     }
 
     var body: some View {
@@ -1395,36 +1391,18 @@ struct NotesMentionDropdown: View {
                     }
                 }
 
-                if showChats && !results.chats.isEmpty {
-                    if showNotes && !results.notes.isEmpty {
-                        Divider()
-                            .padding(.vertical, 4)
-                    }
-                    sectionHeader("Chats")
-                    ForEach(results.chats) { result in
-                        Button { onSelect(.chat(result)) } label: {
-                            chatRow(
-                                result,
-                                isSelected: selectedChoiceID == ComposerReferenceChoice.chat(result).id
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
             }
         }
     }
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(style == .chatPicker ? "No matching conversations" : "No matching notes or chats", systemImage: "sparkle.magnifyingglass")
+            Label("No matching notes", systemImage: "sparkle.magnifyingglass")
                 .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
                 .foregroundStyle(theme.resolved.foreground.color)
-            Text(style == .chatPicker
-                 ? "Search your past conversations by topic, question, or content."
-                 : (results.vaultNoteCount > 0
-                    ? "Search checks note titles, folders, tags, and snippets across your vault."
-                    : "Attach a vault to browse notes here, or keep typing to search chats."))
+            Text(results.vaultNoteCount > 0
+                 ? "Search checks note titles, folders, tags, and snippets across your vault."
+                 : "Attach a vault to browse notes here.")
                 .font(.system(size: style == .notePicker ? 11.5 : 11))
                 .foregroundStyle(theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1597,34 +1575,6 @@ struct NotesMentionDropdown: View {
                                 .foregroundStyle(theme.textTertiary.opacity(0.88))
                                 .lineLimit(results.query.isEmpty ? 1 : 3)
                                 .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func chatRow(_ result: ChatCoordinator.ChatReferenceResult, isSelected: Bool) -> some View {
-        rowChrome(isSelected: isSelected) {
-            HStack(alignment: .top, spacing: 10) {
-                rowIcon(systemName: "bubble.left.and.bubble.right.fill", tint: theme.textSecondary)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(result.attachment.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.resolved.foreground.color)
-                        .lineLimit(1)
-                    HStack(spacing: 6) {
-                        if let subtitle = result.attachment.subtitle {
-                            Text(subtitle)
-                                .font(.system(size: 10))
-                                .foregroundStyle(theme.textTertiary)
-                        }
-                        if let preview = result.preview, !preview.isEmpty {
-                            Text(preview)
-                                .font(.system(size: 10))
-                                .foregroundStyle(theme.textTertiary.opacity(0.7))
-                                .lineLimit(1)
                         }
                     }
                 }

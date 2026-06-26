@@ -11,6 +11,13 @@ struct ContextualShadowsStateTests {
         try loadMirroredSourceTextFile(relativePath)
     }
 
+    private func repoFileExists(_ relativePath: String) -> Bool {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        return FileManager.default.fileExists(atPath: root.appendingPathComponent(relativePath).path)
+    }
+
     /// Mirrors the production gate. The state class reads it on demand, so we
     /// observe the live value rather than mutating env mid-test (which would
     /// race with siblings in the suite).
@@ -585,7 +592,6 @@ struct ContextualShadowsStateTests {
         let appBootstrap = try repoText("Epistemos/App/AppBootstrap.swift")
         let appEnvironment = try repoText("Epistemos/App/AppEnvironment.swift")
         let noteWorkspace = try repoText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-        let chatInputBar = try repoText("Epistemos/Views/Chat/ChatInputBar.swift")
         let proseBridge = try repoText("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
 
         #expect(appBootstrap.contains("let contextualShadowsState = ContextualShadowsState()"))
@@ -595,12 +601,6 @@ struct ContextualShadowsStateTests {
         #expect(noteWorkspace.contains("scopeKind: .note"))
         #expect(noteWorkspace.contains("ContextualShadowsButton(scopeKind: .note"))
 
-        #expect(chatInputBar.contains("@Environment(ContextualShadowsState.self)"))
-        #expect(chatInputBar.contains("scheduleContextualShadowsRecall(for:"))
-        #expect(chatInputBar.contains("searchIndexService: searchIndexService"))
-        #expect(chatInputBar.contains("contextualRecallScopeID"))
-        #expect(chatInputBar.contains("ContextualShadowsButton(scopeKind: .chat"))
-
         #expect(proseBridge.contains("scheduleContextualShadowsRecall(newText)"))
         #expect(proseBridge.contains("state.requestRecall("))
         #expect(proseBridge.contains("searchIndexService: searchIndexService"))
@@ -609,29 +609,14 @@ struct ContextualShadowsStateTests {
                 "Note recall should not include text after the cursor; trailing note context can dominate the active sentence.")
     }
 
-    @Test("Mini Chat mounts scoped Contextual Shadows recall")
-    func miniChatMountsScopedContextualShadowsRecall() throws {
-        let miniChat = try repoText("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(miniChat.contains("@Environment(ContextualShadowsState.self)"))
-        #expect(miniChat.contains("scheduleContextualShadowsRecall(for: newVal)"))
-        #expect(miniChat.contains("ContextualShadowsButton(scopeKind: .chat"))
-        #expect(miniChat.contains("ContextualShadowsPanel("))
-        #expect(miniChat.contains("searchIndexService: searchIndexService"))
-        #expect(miniChat.contains("contextualRecallScopeID"))
-    }
-
     @Test("Chat recall and evidence surfaces avoid native bracket frame chrome")
     func chatRecallAndEvidenceAvoidNativeBracketFrameChrome() throws {
-        let chatInputBar = try repoText("Epistemos/Views/Chat/ChatInputBar.swift")
-        let eidosSection = try repoText("Epistemos/Views/Chat/EidosRetrievedSection.swift")
+        let contextualPanel = try repoText("Epistemos/Views/Recall/ContextualShadowsPanel.swift")
 
-        #expect(chatInputBar.contains("scrollView.focusRingType = .none"))
-        #expect(chatInputBar.contains("textView.focusRingType = .none"))
-        #expect(!eidosSection.contains("GroupBox("),
-                "Eidos/VaultRecall evidence should use Epistemos flat cards, not native macOS GroupBox frames.")
-        #expect(eidosSection.contains("evidenceMetricCard(title: \"Eidos\")"))
-        #expect(eidosSection.contains("evidenceMetricCard(title: \"VaultRecall\")"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/ChatInputBar.swift"))
+        #expect(!repoFileExists("Epistemos/Views/Chat/EidosRetrievedSection.swift"))
+        #expect(!contextualPanel.contains("GroupBox("),
+                "Current recall/evidence UI should use Epistemos flat cards, not native macOS GroupBox frames.")
     }
 
     @Test("Landing instant recall gets roomier than note recall")

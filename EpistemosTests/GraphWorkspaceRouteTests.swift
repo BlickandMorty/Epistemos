@@ -294,7 +294,6 @@ struct GraphWorkspaceNotePageCompositionTests {
         #expect(noteWorkspace.contains("ToolbarItem(placement: .principal) {\n                        if usesNativeGraphWindowToolbar, let page = pages.first"))
         #expect(noteWorkspace.contains("graphEmbeddedToolbarTitle(page)"))
         #expect(noteWorkspace.contains("noteToolbarPrimaryActions"))
-        #expect(noteWorkspace.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
         #expect(container.contains("GraphNotePage(sourceId: id)"))
         #expect(container.contains("? ui.theme.surfaceVariant(.landing)"))
         #expect(!container.contains("graphPageHeader(title: \"Note\")"))
@@ -304,7 +303,6 @@ struct GraphWorkspaceNotePageCompositionTests {
         #expect(container.contains("HTMLWorkspacePreviewView("))
         #expect(container.contains("NSDocumentController.shared.createUntitledHTMLWorkspaceDocument("))
         #expect(container.contains("in: preferredDirectory"))
-        #expect(container.contains("MiniChatWindowController.shared.openNewChat("))
         #expect(container.contains("ComposerReferenceHelpers.htmlWorkspaceAttachment("))
         #expect(container.contains("HTMLWorkspacePreviewDocument.render("))
         #expect(container.contains("graphSurfacePresentation.isEmbeddedHome ? nil"))
@@ -333,8 +331,7 @@ struct GraphWorkspaceNotePageCompositionTests {
 
         #expect(source.contains("case .note(let id):"))
         #expect(source.contains("GraphNotePage(sourceId: id)"))
-        // Identity modifier forces a fresh init when the id changes so each
-        // note gets its own NoteChatState.
+        // Identity modifier forces a fresh init when the id changes.
         #expect(source.contains(".id(id)"))
         // Placeholder text from Step 2 must be gone.
         #expect(!source.contains("Graph Note Page Placeholder"))

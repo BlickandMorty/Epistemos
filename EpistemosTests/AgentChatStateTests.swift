@@ -18,6 +18,8 @@ struct AgentChatStateTests {
         #expect(!state.hasMessages)
         #expect(state.agentTurnCount == 0)
         #expect(state.activeSessionId != nil)
+        #expect(state.activePortalContext?.portal == .main)
+        #expect(state.activePortalContext?.sessionId == state.activeSessionId)
         #expect(!state.isStreaming)
     }
 
@@ -32,6 +34,7 @@ struct AgentChatStateTests {
         #expect(state.messages.first?.content == "what is Swift?")
         #expect(state.hasMessages)
         #expect(state.activeSessionId != nil)
+        #expect(state.activePortalContext?.portal == .main)
     }
 
     @Test func submitCreatesSessionIfNeeded() {
@@ -93,54 +96,6 @@ struct AgentChatStateTests {
         #expect(state.contextUsageFraction == 1.0)
     }
 
-    // MARK: - Isolation from Main ChatState
-
-    @Test func separateFromMainChatState() {
-        let agentChat = AgentChatState()
-        let mainChat = ChatState()
-
-        agentChat.submitAgentQuery("agent query")
-        #expect(mainChat.messages.isEmpty)
-        #expect(!agentChat.messages.isEmpty)
-    }
-
-    @Test("completed local assistant messages preserve pending tool evidence")
-    func completedLocalAssistantMessagesPreservePendingToolEvidence() {
-        let state = ChatState()
-        state.setCurrentChat("tool-evidence")
-        state.recordToolUse(
-            id: "tool-1",
-            name: "vault.search",
-            inputJson: #"{"query":"canon"}"#
-        )
-        state.recordToolResult(
-            toolUseId: "tool-1",
-            result: #"{"matches":1}"#,
-            isError: false
-        )
-
-        state.appendCompletedLocalAssistantMessage(content: "Found the matching note.")
-
-        guard let blocks = state.messages.last?.contentBlocks else {
-            Issue.record("assistant message should retain tool evidence blocks")
-            return
-        }
-        #expect(blocks.count == 3)
-        #expect(blocks.contains(.toolUse(
-            id: "tool-1",
-            name: "vault.search",
-            input: ["query": .string("canon")]
-        )))
-        #expect(blocks.contains(.toolResult(
-            toolUseId: "tool-1",
-            content: #"{"matches":1}"#,
-            isError: false
-        )))
-        #expect(blocks.contains(.text("Found the matching note.")))
-        #expect(state.pendingContentBlocks.isEmpty)
-        #expect(state.activeToolName == nil)
-    }
-
     // MARK: - Clear
 
     @Test func clearMessages() {
@@ -157,86 +112,25 @@ struct AgentChatStateTests {
         #expect(state.messages.isEmpty)
         #expect(!state.hasMessages)
         #expect(state.activeSessionId == nil)
+        #expect(state.activePortalContext == nil)
         #expect(state.agentTurnCount == 0)
         #expect(state.toolHistory.isEmpty)
     }
 
-    @Test func mainChatBrainSnapshotClearsWithConversationReset() {
-        let state = ChatState()
-        state.setCurrentChat("chat-brain")
-        state.captureBrainSnapshot(
-            ChatBrainSnapshot(
-                capturedAt: Date(timeIntervalSince1970: 0),
-                query: "Review this thread",
-                resolvedQuery: "Current request:\nReview this thread",
-                operatingMode: .agent,
-                routeLabel: "Managed agent session",
-                routeSummary: "Managed agent session",
-                providerLabel: "OpenAI",
-                modelLabel: "GPT-5",
-                allowedToolNames: ["web_search"],
-                loadedNoteTitles: ["Graph Notes"],
-                contextAttachments: [
-                    ContextAttachment(kind: .note, targetId: "note-1", title: "Graph Notes"),
-                ],
-                sections: [
-                    ChatBrainSection(title: "Workspace Awareness", body: "Recent graph edits"),
-                ]
-            )
+    @Test func submitAgentQueryCarriesPortalContextAttachments() {
+        let state = AgentChatState()
+        let portal = AgentPortalContextSnapshot.landing(
+            prompt: "summarize the active vault",
+            vaultRootPath: "/Users/example/Vault",
+            workspacePath: "/Users/example"
         )
 
-        #expect(state.latestBrainSnapshot?.sections.count == 1)
-        state.startNewChat()
-        #expect(state.latestBrainSnapshot == nil)
-    }
+        state.startNewSession(portalContext: portal)
+        state.submitAgentQuery("summarize the active vault")
 
-    @Test func mainChatBrainSnapshotUpdatesSectionsForMatchingTurnOnly() {
-        let state = ChatState()
-        state.setCurrentChat("chat-brain")
-        let capturedAt = Date(timeIntervalSince1970: 42)
-        state.captureBrainSnapshot(
-            ChatBrainSnapshot(
-                capturedAt: capturedAt,
-                query: "Review this thread",
-                resolvedQuery: "Current request:\nReview this thread",
-                operatingMode: .agent,
-                routeLabel: "Managed agent session",
-                routeSummary: "Managed agent session",
-                providerLabel: "OpenAI",
-                modelLabel: "GPT-5",
-                allowedToolNames: ["web_search"],
-                loadedNoteTitles: ["Graph Notes"],
-                contextAttachments: [],
-                sections: [
-                    ChatBrainSection(title: "Workspace Awareness", body: "Recent graph edits"),
-                ]
-            )
-        )
-
-        state.updateBrainSnapshotSection(
-            ChatBrainSection(title: "Session Wake-Up Context", body: "<session-context>"),
-            matchingCapturedAt: capturedAt
-        )
-        state.updateBrainSnapshotSection(
-            ChatBrainSection(title: "Session Wake-Up Context", body: "updated"),
-            matchingCapturedAt: capturedAt
-        )
-        state.updateBrainSnapshotSection(
-            ChatBrainSection(title: "Should Not Apply", body: "stale"),
-            matchingCapturedAt: Date(timeIntervalSince1970: 43)
-        )
-
-        #expect(state.latestBrainSnapshot?.sections.count == 2)
-        #expect(
-            state.latestBrainSnapshot?.sections.contains(
-                ChatBrainSection(title: "Workspace Awareness", body: "Recent graph edits")
-            ) == true
-        )
-        #expect(
-            state.latestBrainSnapshot?.sections.contains(
-                ChatBrainSection(title: "Session Wake-Up Context", body: "updated")
-            ) == true
-        )
+        #expect(state.activePortalContext?.portal == .landing)
+        #expect(state.messages.first?.contextAttachments?.first?.resourceURI == "epistemos://vault/root")
+        #expect(state.messages.first?.contextAttachments?.first?.resourceMode == .live)
     }
 
     // MARK: - Thinking popover lifecycle

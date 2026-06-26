@@ -1,11 +1,11 @@
 import AppKit
+#if !EPISTEMOS_APP_STORE && canImport(AgentClone)
+import AgentClone
+#endif
 import OSLog
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
-#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-import OsaurusCore
-#endif
 
 enum LandingShortcutDisplay {
     static let fontSize: CGFloat = 12
@@ -82,14 +82,9 @@ private enum LandingInlineCommand: Equatable {
 struct LandingView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "LandingView")
 
-    /// When set, the landing search is the Act search page: it keeps the old
-    /// centered reveal, but submits the first prompt into the Osaurus Act host
-    /// instead of the normal Epistemos chat store.
-    var onSubmitActPrompt: ((String) -> Void)? = nil
-
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
-    @Environment(ChatState.self) private var chat
+    @Environment(AgentChatState.self) private var agentChat
     @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
     @Environment(AgentCommandCenterState.self) private var agentCommandCenter
@@ -142,12 +137,11 @@ struct LandingView: View {
     @State private var landingFileAttachments: [FileAttachment] = []
     @State private var landingToolsExpanded = false
     /// Owner 2026-06-18: the landing brain/model picker is a flat inline pixel-art
-    /// panel that expands in-flow under the search tools — NOT a floating popover
-    /// (the main-chat composer migrated first; this finishes the landing surface).
+    /// panel that expands in-flow under the search tools, not a floating popover.
     @State private var showInlineRuntimePicker = false
-    /// SS-VIS (owner 2026-06-20): presents the shared AgentToolTogglePanel (the ~50 agent tools + MCP
-    /// + cowork + skills) right from the landing search surface — the same picker the chat composer
-    /// uses, so nothing is cloned and the catalog stays a single source of truth.
+    /// SS-VIS (owner 2026-06-20): presents the shared AgentToolTogglePanel
+    /// (tools + MCP + cowork + skills) right from the landing search surface,
+    /// so nothing is cloned and the catalog stays a single source of truth.
     @State private var showLandingToolPanel = false
     @State private var landingSearchLabelHovered = false
     @State private var landingVoiceDraftPrefix: String?
@@ -166,12 +160,6 @@ struct LandingView: View {
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
     private var showingLandingStageCommand: Bool {
         showingSearchPopover || activeLandingInlineCommand != nil
-    }
-    private var landingRecallScopeID: String {
-        "landing:\(chat.activeChatId ?? "draft")"
-    }
-    private var landingRecallPayload: ContextualShadowsState.RecallPayload {
-        contextualShadows.payload(kind: .chat, originDocId: landingRecallScopeID)
     }
     private var landingStageMinHeight: CGFloat {
         if showingSearchPopover {
@@ -192,10 +180,6 @@ struct LandingView: View {
         if isActSearchPage {
             return "Ask Act..."
         }
-        if let name = AppBootstrap.shared?.companionState.activeAgentName,
-           !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Ask \(name)..."
-        }
         return "Ask Epistemos..."
     }
     private var landingSearchPlaceholderText: String {
@@ -205,7 +189,7 @@ struct LandingView: View {
         return ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run."
     }
     private var isActSearchPage: Bool {
-        onSubmitActPrompt != nil
+        false
     }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
@@ -225,10 +209,6 @@ struct LandingView: View {
     }
 
     private var supportedLandingSlashItems: [ComposerSlashCommandItem] {
-        if isActSearchPage {
-            return ActOsaurusSlashCommand.allCases.map(ComposerSlashCommandItem.osaurus)
-                + agentCommandCenter.availableSkills.map(ComposerSlashCommandItem.skill)
-        }
         return ComposerSlashCommandItem.all(
             commands: supportedLandingSlashCommands,
             skills: agentCommandCenter.availableSkills
@@ -273,12 +253,6 @@ struct LandingView: View {
         ]
     }
 
-    private var incognitoBinding: Binding<Bool> {
-        Binding(
-            get: { chat.isIncognito },
-            set: { chat.isIncognito = $0 }
-        )
-    }
     private var selectedOperatingMode: EpistemosOperatingMode {
         get {
             if isActSearchPage { return .agent }
@@ -305,11 +279,8 @@ struct LandingView: View {
         }
     }
     private var landingEffectiveCapability: ChatCapability {
-        if chat.isAgentExecuting {
-            return chat.currentCapability
-        }
         guard !trimmedLandingSearchText.isEmpty else {
-            return chat.currentCapability
+            return landingIsCloudSelection ? .cloud : .local
         }
         return ChatCapability.predictIntent(
             text: trimmedLandingSearchText,
@@ -334,12 +305,10 @@ struct LandingView: View {
             set: { selectedOperatingMode = $0 }
         )
     }
-    private var landingMentionSearchResults: ChatCoordinator.ReferenceSearchResults {
-        ChatCoordinator.searchReferenceResults(
+    private var landingMentionSearchResults: ComposerReferenceSearchResults {
+        noteReferenceSearchResults(
             filter: landingMentionFilter,
             manifest: ambientManifest,
-            chats: recentChats(limit: 20),
-            threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
             indexedNoteIDs: landingReferenceSearch.indexedNoteIDs,
             indexedNoteSnippets: landingReferenceSearch.indexedNoteSnippetsByPageID
         )
@@ -348,6 +317,58 @@ struct LandingView: View {
         ComposerReferenceKeyboardSelection.choices(
             from: landingMentionSearchResults,
             style: landingReferencePopoverStyle
+        )
+    }
+
+    private func noteReferenceSearchResults(
+        filter: String,
+        manifest: VaultManifest?,
+        indexedNoteIDs: [String],
+        indexedNoteSnippets: [String: String]
+    ) -> ComposerReferenceSearchResults {
+        let query = filter.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let manifest else {
+            return ComposerReferenceSearchResults(
+                query: query,
+                notes: [],
+                vaultNoteCount: 0,
+                indexedNoteSnippetsByPageID: indexedNoteSnippets
+            )
+        }
+
+        let entriesByID = Dictionary(uniqueKeysWithValues: manifest.entries.map { ($0.pageId, $0) })
+        let directMatches: [VaultManifest.ManifestEntry]
+        if query.isEmpty {
+            directMatches = Array(manifest.entries.sorted { lhs, rhs in
+                lhs.updatedAt > rhs.updatedAt
+            }.prefix(12))
+        } else {
+            let lowercaseQuery = query.lowercased()
+            directMatches = manifest.entries.filter { entry in
+                let haystack = [
+                    entry.title,
+                    entry.folderName ?? "",
+                    entry.tags.joined(separator: " "),
+                    entry.snippet,
+                ].joined(separator: " ").lowercased()
+                return haystack.contains(lowercaseQuery)
+            }
+        }
+
+        var seen = Set<String>()
+        var orderedEntries: [VaultManifest.ManifestEntry] = []
+        for entry in indexedNoteIDs.compactMap({ entriesByID[$0] }) + directMatches {
+            guard seen.insert(entry.pageId).inserted else { continue }
+            orderedEntries.append(entry)
+        }
+
+        var notes: [NoteMentionChoice] = query.isEmpty ? [.allNotes] : []
+        notes.append(contentsOf: orderedEntries.prefix(12).map(NoteMentionChoice.entry))
+        return ComposerReferenceSearchResults(
+            query: query,
+            notes: notes,
+            vaultNoteCount: manifest.totalNoteCount,
+            indexedNoteSnippetsByPageID: indexedNoteSnippets
         )
     }
 
@@ -464,8 +485,6 @@ struct LandingView: View {
                     companionState: bootstrap.companionState,
                     theme: theme,
                     editingEntry: farmEditTarget,
-                    availableBrains: agentCommandCenter.availableBrains,
-                    availableTools: agentCommandCenter.availableTools,
                     onDismiss: dismissFarmAgentEditor
                 )
                 .transition(.opacity)
@@ -574,15 +593,6 @@ struct LandingView: View {
                 createAndOpenDocument()
             }) {}
                 .keyboardShortcut("n", modifiers: [.command, .option])
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .allowsHitTesting(false)
-
-            Button(action: {
-                HapticHelper.homeCommand(.miniChat)
-                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
-            }) {}
-                .keyboardShortcut("3", modifiers: .command)
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
@@ -906,16 +916,6 @@ struct LandingView: View {
                 action: createAndOpenNote
             )
             PixelLandingCommandTile(
-                title: "mini chat",
-                shortcut: "\u{2318}3",
-                glyph: .chat,
-                theme: theme,
-                accent: Color(hex: 0x62B7C7),
-                haptic: .miniChat
-            ) {
-                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
-            }
-            PixelLandingCommandTile(
                 title: "new doc",
                 shortcut: "\u{2325}\u{2318}N",
                 glyph: .document,
@@ -968,8 +968,7 @@ struct LandingView: View {
                         onCreate: presentFarmAgentCreate,
                         onOpenTrash: { farmShowingRestore = true },
                         onRequestEdit: presentFarmAgentEdit,
-                        onRequestDelete: { entry in farmDeleteTarget = entry },
-                        onStartChat: startFarmAgentChat
+                        onRequestDelete: { entry in farmDeleteTarget = entry }
                     )
                     .padding(.top, 24)
                     .padding(.trailing, 28)
@@ -1003,8 +1002,7 @@ struct LandingView: View {
                         }
                     },
                     onOpenSettings: { openActOrEpistemosSettings() },
-                    showsSettingsFooter: true,
-                    showsOsaurusModelSection: isActSearchPage
+                    showsSettingsFooter: true
                 )
                 .frame(maxWidth: LandingSearchLayout.searchLineWidth)
                 .zIndex(4)
@@ -1022,9 +1020,9 @@ struct LandingView: View {
         .animation(reduceMotion ? nil : Motion.micro, value: showInlineRuntimePicker)
     }
 
-    /// Owner 2026-06-18: flat trigger for the inline runtime picker (replaces the
-    /// single-button ChatBrainPickerMenu popover on landing). Toggles the in-flow
-    /// pixel-art panel below the search tools instead of opening a floating popover.
+    /// Owner 2026-06-18: flat trigger for the inline runtime picker. Toggles the
+    /// in-flow pixel-art panel below the search tools instead of opening a
+    /// floating popover.
     private var landingSearchBrainTool: some View {
         LandingStageToolTile(
             title: landingRuntimeTierLabel,
@@ -1041,13 +1039,13 @@ struct LandingView: View {
         .help(isActSearchPage ? "Pick the Act model inside the Epistemos picker" : "Pick the Epistemos brain — Fast / Think / Code")
     }
 
-    /// SS-VIS (owner 2026-06-20): surface ALL chat capabilities — the ~50 agent tools + MCP servers +
-    /// cowork connectors + skills — on the landing search page, so a user can "start off using a
-    /// tool." Mounts the SAME `AgentToolTogglePanel` the chat composer uses (single registry, single
-    /// picker — no clone, no new tool list). Toggling a capability here mutates the shared
-    /// `agentCommandCenter`, so a chat started from search via `submitLandingSearch()` is already
-    /// armed with it. The chat's tool button is "Agent tools" with this same icon, so it reads as the
-    /// same control the owner already knows from chat.
+    /// SS-VIS (owner 2026-06-20): surface agent capabilities — tools, MCP
+    /// servers, cowork connectors, and skills — on the landing search page, so
+    /// a user can start with a tool already armed. Mounts the shared
+    /// `AgentToolTogglePanel` (single registry, single picker — no clone, no new
+    /// tool list). Toggling a capability here mutates the shared
+    /// `agentCommandCenter`, so a run started from search via
+    /// `submitLandingSearch()` is already armed with it.
     private var landingSearchCapabilitiesTool: some View {
         LandingStageToolTile(
             title: isActSearchPage ? "Act" : "Agent",
@@ -1071,7 +1069,7 @@ struct LandingView: View {
 
     /// SS-VIS (owner 2026-06-20): "start off using a tool" — run a discovered skill straight from the
     /// landing search launcher by priming the search field with its `/identifier` invocation (the same
-    /// real path ChatInputBar's in-chat skills browser uses). Closes the panel + focuses the field so
+    /// real path the composer skills browser uses). Closes the panel + focuses the field so
     /// the user just adds their request and submits; honest — it stages the invocation, doesn't auto-run.
     private func runSkillFromLanding(_ skill: SkillDiscoveryEntry) {
         showLandingToolPanel = false
@@ -1128,19 +1126,6 @@ struct LandingView: View {
         .help("Attach a file")
     }
 
-    private var landingSearchSavedTool: some View {
-        LandingStageToolTile(
-            title: chat.isIncognito ? "Temporary" : "Saved",
-            systemImage: chat.isIncognito ? "eye.slash.fill" : "tray.full",
-            theme: theme,
-            accent: Color(hex: 0x4FB477),
-            isActive: chat.isIncognito
-        ) {
-            incognitoBinding.wrappedValue.toggle()
-        }
-        .help(chat.isIncognito ? "Temporary chat is on" : "Save this chat")
-    }
-
     private var landingSearchToolsToggle: some View {
         LandingStageToolTile(
             title: landingToolsExpanded ? "Less" : "Tools",
@@ -1175,7 +1160,6 @@ struct LandingView: View {
                 landingSearchCommandTool
                 landingSearchMentionTool
                 landingSearchAttachTool
-                landingSearchSavedTool
             }
             .frame(maxWidth: LandingSearchLayout.searchLineWidth)
 
@@ -1220,13 +1204,7 @@ struct LandingView: View {
                     }
                 }
 
-                if contextualShadows.isEnabled, landingRecallPayload.hasPanelPayload {
-                    LandingStageToolShell(theme: theme, accent: theme.fontAccent) {
-                        ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)
-                    }
-                } else {
-                    Spacer(minLength: 0)
-                }
+                Spacer(minLength: 0)
             }
             .frame(maxWidth: LandingSearchLayout.searchLineWidth)
         }
@@ -1431,17 +1409,6 @@ struct LandingView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(.opacity)
                 }
-            }
-            .overlay(alignment: .topLeading) {
-                ContextualShadowsPanel(
-                    scopeKind: .chat,
-                    scopeID: landingRecallScopeID,
-                    presentation: .landing,
-                    onOpen: openLandingContextualShadowHit
-                )
-                    .padding(.leading, 42)
-                    .padding(.top, 74)
-                    .zIndex(20)
             }
         }
         .frame(maxWidth: .infinity)
@@ -1659,7 +1626,6 @@ struct LandingView: View {
         // payload so no recall chrome appears on landing. The recall brain stays; only this surface
         // stops feeding/showing it (the button needs a payload to render, so this hides it).
         landingRecallDebounceBox.task?.cancel()
-        contextualShadows.closePanel(kind: .chat, originDocId: landingRecallScopeID)
     }
 
     private func refreshLandingSlashMenu(for newValue: String) {
@@ -1688,10 +1654,6 @@ struct LandingView: View {
     }
 
     private func applyLandingSlashItem(_ item: ComposerSlashCommandItem) {
-        if applyImmediateLandingOsaurusCommand(item) {
-            return
-        }
-
         if let command = item.command {
             selectedOperatingMode = MainChatOperatingModePreference.sanitize(
                 command.defaultOperatingMode,
@@ -1727,50 +1689,8 @@ struct LandingView: View {
         isLandingSearchFocused = true
     }
 
-    private func applyImmediateLandingOsaurusCommand(_ item: ComposerSlashCommandItem) -> Bool {
-        guard isActSearchPage,
-              let command = item.osaurusCommand else { return false }
-
-        switch command {
-        case .clear:
-            landingSearchText = ""
-            selectedLandingSlashItem = nil
-        case .model:
-            withAnimation(reduceMotion ? nil : Motion.micro) {
-                showInlineRuntimePicker = true
-            }
-            selectedLandingSlashItem = nil
-        case .configure:
-            openActOsaurusConfiguration()
-            selectedLandingSlashItem = nil
-        case .tools:
-            showLandingToolPanel = true
-            selectedLandingSlashItem = nil
-        case .agent, .help:
-            selectedLandingSlashItem = item
-            if trimmedLandingSearchText.isEmpty, let suggestedPrompt = item.suggestedPrompt {
-                landingSearchText = suggestedPrompt
-            }
-        }
-
-        showLandingSlashMenu = false
-        landingSlashFilter = ""
-        landingSlashKeyboardIndex = 0
-        isLandingSearchFocused = true
-        return true
-    }
-
-    private func openActOsaurusConfiguration() {
-        openSettings()
-        NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
-    }
-
     private func openActOrEpistemosSettings() {
-        if isActSearchPage {
-            openActOsaurusConfiguration()
-        } else {
-            openSettings()
-        }
+        openSettings()
     }
 
     private func openLandingSlashCommandMenu() {
@@ -2017,33 +1937,30 @@ struct LandingView: View {
 
         let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        if let onSubmitActPrompt {
-            dismissLandingSearch()
-            onSubmitActPrompt(trimmed)
-            return
-        }
-
-        let attachments = landingContextAttachments
-        let fileAttachments = landingFileAttachments
-        let slashToken = activeSelectedLandingSlashToken
         dismissLandingSearch()
-        chat.startNewChat()
-        for attachment in fileAttachments {
-            chat.addAttachment(attachment)
-        }
-        for attachment in attachments {
-            chat.addContextAttachment(attachment)
-        }
-        chat.queuePendingSlashToken(slashToken)
-        applyActiveLandingAgentRuntimePreference()
+
+        WorkspaceModeSelection.select(.act)
         ui.setActivePanel(.home)
-        MainChatSubmissionRouter.submit(
-            trimmed,
-            operatingMode: selectedOperatingMode,
-            chat: chat,
-            orchestrator: orchestrator,
-            inference: inference
+        let portalContext = AgentPortalContextSnapshot.landing(
+            prompt: trimmed,
+            vaultRootPath: vaultSync.vaultURL?.path,
+            workspacePath: FileManager.default.homeDirectoryForCurrentUser.path
         )
+        agentChat.startNewSession(portalContext: portalContext)
+        agentChat.submitAgentQuery(trimmed, portalContext: portalContext)
+        #if !EPISTEMOS_APP_STORE && canImport(AgentClone)
+        AgentCloneBridge.updateHostContext(AgentCloneHostContext(
+            appName: HomeWindowIdentity.title,
+            workspaceRootPath: FileManager.default.homeDirectoryForCurrentUser.path,
+            vaultRootPath: vaultSync.vaultURL?.path,
+            appSupportRootPath: AgentCloneAppContextSnapshot.defaultAppSupportPath(
+                appName: HomeWindowIdentity.title
+            ),
+            mode: WorkspaceModeKind.act.defaultLabel,
+            presentation: agentChat.activePortalContext?.bridgePresentation
+        ))
+        AgentCloneBridge.submitPrompt(portalContext.agentClonePromptEnvelope(userPrompt: trimmed))
+        #endif
     }
 
     private func presentFarmAgentCreate() {
@@ -2056,51 +1973,9 @@ struct LandingView: View {
         farmEditTarget = entry
     }
 
-    private func startFarmAgentChat(_ entry: CompanionRosterEntry) {
-        AppBootstrap.shared?.companionState.activate(entry.id)
-        if supportedOperatingModes.contains(.agent) {
-            selectedOperatingMode = .agent
-        }
-        applyLandingAgentRuntimePreference(for: entry)
-        selectedLandingSlashItem = nil
-        if !showingSearchPopover {
-            landingSearchText = ""
-        }
-        HapticHelper.homeCommand(.agent)
-        activateLandingSearch(playHaptic: false)
-    }
-
     private func dismissFarmAgentEditor() {
         farmShowingCreate = false
         farmEditTarget = nil
-    }
-
-    private func applyActiveLandingAgentRuntimePreference() {
-        guard let entry = AppBootstrap.shared?.companionState.activeAgentEntry else { return }
-        applyLandingAgentRuntimePreference(for: entry)
-    }
-
-    private func applyLandingAgentRuntimePreference(for entry: CompanionRosterEntry) {
-        switch entry.agentModelChoice {
-        case .autoConstellation:
-            return
-        case .local(let modelID, _):
-            inference.setPreferredChatModelSelection(.localMLX(modelID))
-        case .cloud(let providerRaw, _):
-            guard let provider = CloudModelProvider(rawValue: providerRaw) else { return }
-            if let model = preferredLandingCloudModel(for: provider) {
-                inference.setPreferredChatModelSelection(.cloud(model))
-            } else {
-                inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
-            }
-        case .appleIntelligence:
-            inference.setPreferredChatModelSelection(.appleIntelligence)
-        }
-    }
-
-    private func preferredLandingCloudModel(for provider: CloudModelProvider) -> CloudTextModelID? {
-        let models = CloudTextModelID.models(for: provider)
-        return models.first { $0.supportedOperatingModes.contains(.agent) } ?? models.first
     }
 
     private func sanitizeStoredOperatingMode() {
@@ -2114,7 +1989,7 @@ struct LandingView: View {
     }
 
     private func attachLandingMentionReference(_ choice: ComposerReferenceChoice) {
-        // Phase R.4 — mirror of ChatInputBar / MiniChat: thread the
+        // Phase R.4 — thread the
         // active vault's stable ID so the attachment gets a canonical
         // `vault://{vaultId}/note/{relativePath}` manifest at pick time.
         let vaultId = vaultSync.vaultURL?.lastPathComponent
@@ -2276,16 +2151,6 @@ struct LandingView: View {
         }
         handleLandingSearchTextChange(landingSearchText)
         isLandingSearchFocused = true
-    }
-
-    private func openLandingContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
-        switch hit.kind {
-        case .note:
-            NoteWindowManager.shared.open(pageId: hit.id)
-        case .chat:
-            MiniChatWindowController.shared.openChat(hit.id)
-        }
-        contextualShadows.closePanel(kind: .chat, originDocId: landingRecallScopeID)
     }
 
     private func updateLandingReferenceSearch(filter: String) {
@@ -2697,18 +2562,7 @@ struct LandingView: View {
     // MARK: - Daily Brief Prompt
 
     private func buildDailyBriefPrompt() -> String {
-        DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: recentChats(limit: 12))
-    }
-
-    private func recentChats(limit: Int) -> [SDChat] {
-        var descriptor = SDChat.recentChatsDescriptor
-        descriptor.fetchLimit = limit
-        do {
-            return try modelContext.fetch(descriptor)
-        } catch {
-            Self.log.error("LandingView: failed to fetch recent chats: \(error.localizedDescription, privacy: .public)")
-            return []
-        }
+        DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: [])
     }
 }
 

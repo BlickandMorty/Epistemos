@@ -298,7 +298,7 @@ enum ArtifactExporter {
             content = artifact.content
         }
 
-        ChatTextExportSupport.save(
+        TextExportSupport.save(
             content,
             suggestedFilename: "\(sanitizeFilename(artifact.title)).\(targetKind.fileExtension)",
             contentType: utType(for: targetKind)

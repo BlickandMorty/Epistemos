@@ -46,7 +46,6 @@ struct WorkspaceSnapshotTests {
                 ),
             ],
             activeNoteTabPageId: "page-1",
-            openMiniChatIds: ["mini-1", "mini-2"],
             notesBrowserVisible: true,
             settingsVisible: false,
             graphOverlay: GraphOverlaySnapshot(
@@ -67,24 +66,6 @@ struct WorkspaceSnapshotTests {
                     preview: "opening",
                     tailPreview: "latest",
                     isActive: true
-                )
-            ],
-            mainChat: WorkspaceChatStateSnapshot(
-                chatId: "chat-123",
-                title: "Main Chat",
-                kind: "main",
-                messageCount: 2,
-                recentMessages: [
-                    WorkspaceChatMessageSnapshot(role: "user", contentPreview: "what now")
-                ]
-            ),
-            miniChats: [
-                WorkspaceChatStateSnapshot(
-                    chatId: "mini-1",
-                    title: "Mini",
-                    kind: "mini",
-                    messageCount: 1,
-                    recentMessages: []
                 )
             ],
             graphRoute: WorkspaceGraphRouteSnapshot(
@@ -111,7 +92,6 @@ struct WorkspaceSnapshotTests {
         #expect(decoded.openNoteTabs[1].cursorPosition == nil)
         #expect(decoded.openNoteTabs[1].scrollFraction == nil)
         #expect(decoded.activeNoteTabPageId == "page-1")
-        #expect(decoded.openMiniChatIds == ["mini-1", "mini-2"])
         #expect(decoded.notesBrowserVisible == true)
         #expect(decoded.settingsVisible == false)
         #expect(decoded.graphOverlay.visibility == .minimized)
@@ -121,8 +101,6 @@ struct WorkspaceSnapshotTests {
         #expect(decoded.isIdeasExpanded == false)
         #expect(decoded.liveDocuments?.first?.pageId == "page-3")
         #expect(decoded.liveDocuments?.first?.isActive == true)
-        #expect(decoded.mainChat?.messageCount == 2)
-        #expect(decoded.miniChats?.first?.chatId == "mini-1")
         #expect(decoded.graphRoute?.kind == .note)
         #expect(decoded.graphRoute?.sourceId == "page-3")
     }
@@ -136,7 +114,6 @@ struct WorkspaceSnapshotTests {
             showLanding: true,
             openNoteTabs: [],
             activeNoteTabPageId: nil,
-            openMiniChatIds: [],
             notesBrowserVisible: false,
             settingsVisible: false,
             graphOverlay: GraphOverlaySnapshot(visibility: .hidden),
@@ -151,13 +128,12 @@ struct WorkspaceSnapshotTests {
         #expect(decoded.activePanel == "home")
         #expect(decoded.activeChatId == nil)
         #expect(decoded.openNoteTabs.isEmpty)
-        #expect(decoded.openMiniChatIds.isEmpty)
         #expect(decoded.graphOverlay.visibility == .hidden)
         #expect(decoded.graphOverlay.selectedNodeId == nil)
     }
 
-    @Test("workspace synthesis includes live documents chats and graph route")
-    func workspaceSynthesisIncludesLiveDocumentsChatsAndGraphRoute() throws {
+    @Test("workspace synthesis includes live documents and graph route")
+    func workspaceSynthesisIncludesLiveDocumentsAndGraphRoute() throws {
         let snapshot = WorkspaceSnapshot(
             activePanel: "home",
             activeChatId: "chat-1",
@@ -165,7 +141,6 @@ struct WorkspaceSnapshotTests {
             showLanding: true,
             openNoteTabs: [],
             activeNoteTabPageId: "note-1",
-            openMiniChatIds: ["mini-1"],
             notesBrowserVisible: false,
             settingsVisible: false,
             graphOverlay: GraphOverlaySnapshot(visibility: .full, selectedNodeId: "node-1"),
@@ -185,26 +160,6 @@ struct WorkspaceSnapshotTests {
                     isActive: true
                 )
             ],
-            mainChat: WorkspaceChatStateSnapshot(
-                chatId: "chat-1",
-                title: "Deep Work",
-                kind: "main",
-                messageCount: 3,
-                recentMessages: [
-                    WorkspaceChatMessageSnapshot(role: "assistant", contentPreview: "next move")
-                ]
-            ),
-            miniChats: [
-                WorkspaceChatStateSnapshot(
-                    chatId: "mini-1",
-                    title: "Side Thread",
-                    kind: "mini",
-                    messageCount: 2,
-                    recentMessages: [
-                        WorkspaceChatMessageSnapshot(role: "user", contentPreview: "check this note")
-                    ]
-                )
-            ],
             graphRoute: WorkspaceGraphRouteSnapshot(
                 kind: .note,
                 sourceId: "note-1",
@@ -217,47 +172,28 @@ struct WorkspaceSnapshotTests {
 
         #expect(summary.contains("Live Graph Note"))
         #expect(summary.contains("embedded graph note"))
-        #expect(summary.contains("Main chat"))
-        #expect(summary.contains("Mini chat"))
         #expect(summary.contains("Graph context"))
         #expect(title == "Last Session - Live Graph Note")
     }
 
-    @Test("workspace auto restore treats live documents main chat and graph route as restorable work")
-    func workspaceAutoRestoreTreatsLiveDocumentsMainChatAndGraphRouteAsRestorableWork() throws {
+    @Test("workspace auto restore treats live documents and graph route as restorable work")
+    func workspaceAutoRestoreTreatsLiveDocumentsAndGraphRouteAsRestorableWork() throws {
         let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
 
         #expect(workspaceService.contains("static func hasRestorableSessionWork(_ snapshot: WorkspaceSnapshot) -> Bool"))
         #expect(workspaceService.contains("let hasLiveDocuments = snapshot.liveDocuments?.isEmpty == false"))
-        #expect(workspaceService.contains("let hasMainChat = hasRestorableMainChatWork(snapshot)"))
         #expect(workspaceService.contains("let hasGraphRoute = snapshot.graphRoute?.kind != .canvas"))
         #expect(workspaceService.contains("guard Self.hasRestorableSessionWork(snapshot) else {"))
-        #expect(workspaceService.contains("chatCount: snapshot.openMiniChatIds.count + (Self.hasRestorableMainChatWork(snapshot) ? 1 : 0)"))
+        #expect(workspaceService.contains("chatCount: 0"))
     }
 
-    @Test("workspace auto restore ignores dormant landing chat identity")
-    func workspaceAutoRestoreIgnoresDormantLandingChatIdentity() throws {
+    @Test("workspace auto restore ignores deleted native chat identity")
+    func workspaceAutoRestoreIgnoresDeletedNativeChatIdentity() throws {
         let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
 
         #expect(workspaceService.contains("static func hasRestorableMainChatWork(_ snapshot: WorkspaceSnapshot) -> Bool"))
-        #expect(workspaceService.contains("guard !snapshot.showLanding else { return false }"))
-        #expect(workspaceService.contains("guard Self.hasLiveMainChatWork(chatState) else { return nil }"))
-        #expect(workspaceService.contains("if Self.hasRestorableMainChatWork(snapshot), let chatId = snapshot.activeChatId"))
-        #expect(workspaceService.contains("static func hasLiveMainChatWork(_ chatState: ChatState) -> Bool"))
-        #expect(!workspaceService.contains("let hasMainChat = snapshot.activeChatId != nil || snapshot.mainChat != nil"))
-    }
-
-    @Test("workspace summary loop ignores dormant landing chat identity")
-    func workspaceSummaryLoopIgnoresDormantLandingChatIdentity() throws {
-        let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
-        let workspaceSummary = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceSummaryService.swift")
-
-        #expect(workspaceService.contains("static func hasLiveMainChatWork(_ chatState: ChatState) -> Bool"))
-        #expect(workspaceService.contains("guard Self.hasLiveMainChatWork(chatState) else { return nil }"))
-        #expect(workspaceService.contains("return Self.hasLiveMainChatWork(chatState)"))
-        #expect(workspaceSummary.contains("let hasMainChat = AppBootstrap.shared.map { bootstrap in"))
-        #expect(workspaceSummary.contains("WorkspaceService.hasLiveMainChatWork(bootstrap.chatState)"))
-        #expect(!workspaceSummary.contains("AppBootstrap.shared?.chatState.activeChatId != nil"))
+        #expect(workspaceService.contains("false"))
+        #expect(!workspaceService.contains("ChatState"))
     }
 
     @Test("GraphOverlaySnapshot visibility values")

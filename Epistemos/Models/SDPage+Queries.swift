@@ -105,7 +105,7 @@ extension SDChat {
     /// All chats sorted by most recently updated. Capped at 200 by
     /// default so an unbounded `@Query(SDChat.recentChatsDescriptor)`
     /// in a sidebar view doesn't anchor every chat in memory; callers
-    /// that need a different bound (e.g. LandingView's 12, ChatInputBar's
+    /// that need a different bound (e.g. LandingView's 12, composer browse's
     /// 20, KnowledgeFusion's caller-provided) override `fetchLimit`
     /// before fetching.
     static var recentChatsDescriptor: FetchDescriptor<SDChat> {

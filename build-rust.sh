@@ -32,4 +32,11 @@ fi
 # Copy to a stable path that Xcode can reference
 mkdir -p ../build-rust
 rm -f ../build-rust/libgraph_engine.a
-lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output ../build-rust/libgraph_engine.a
+TEMP_OUTPUT="$(mktemp ../build-rust/libgraph_engine.XXXXXX.a)"
+cleanup_temp_output() {
+    rm -f "$TEMP_OUTPUT"
+}
+trap cleanup_temp_output EXIT
+lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output "$TEMP_OUTPUT"
+mv -f "$TEMP_OUTPUT" ../build-rust/libgraph_engine.a
+trap - EXIT

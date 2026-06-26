@@ -106,13 +106,25 @@ nonisolated enum LocalAgentDiagnostics {
         }
     }
 
+    enum CapabilityBadgeTone: String, Codable, Sendable, Equatable {
+        case good
+        case neutral
+        case warning
+        case disabled
+    }
+
+    struct CapabilityBadge: Codable, Sendable, Equatable, Hashable {
+        let title: String
+        let tone: CapabilityBadgeTone
+    }
+
     struct ActiveConstellationModel: Sendable, Equatable, Identifiable {
         let modelID: String
         let displayName: String
         let state: ConstellationRuntimeState
         let schemaMode: String
         let grammar: LocalToolGrammar.NativeToolGrammar
-        let agentCapabilityBadge: AgentBlueprintModelBadge
+        let agentCapabilityBadge: CapabilityBadge
         let roles: [String]
         let isInstalled: Bool
 
@@ -311,7 +323,7 @@ nonisolated enum LocalAgentDiagnostics {
                 ),
                 schemaMode: schemaMode,
                 grammar: LocalToolGrammar.nativeGrammar(forModelID: modelID),
-                agentCapabilityBadge: AgentBlueprintModelChoice.localAgentCapabilityBadge(forModelID: modelID),
+                agentCapabilityBadge: localCapabilityBadge(forModelID: modelID),
                 roles: (rolesByModelID[modelID] ?? []).sorted(),
                 isInstalled: installedModelIDs.contains(modelID)
             )
@@ -324,6 +336,22 @@ nonisolated enum LocalAgentDiagnostics {
                 return lhs.roles.count > rhs.roles.count
             }
             return lhs.state.sortRank < rhs.state.sortRank
+        }
+    }
+
+    static func localCapabilityBadge(forModelID modelID: String) -> CapabilityBadge {
+        let data = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)
+        return .init(title: data.title, tone: badgeTone(for: data.state))
+    }
+
+    private static func badgeTone(for state: RuntimeAgentCapabilityState) -> CapabilityBadgeTone {
+        switch state {
+        case .honest:
+            return .good
+        case .experimental:
+            return .warning
+        case .off:
+            return .disabled
         }
     }
 

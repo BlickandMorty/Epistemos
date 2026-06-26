@@ -36,18 +36,33 @@ protocol WorkOpenCodeShell: Sendable {
     /// The PTY launch spec for an OpenCode session rooted at `workspace` (the shell cwd).
     /// `epistemosVaultRoot` is the APP VAULT the fusion MCP server roots at (so the work
     /// agent sees the app's vault notes + `skills/` as first-class MCP context, 0.49b) —
-    /// decoupled from the shell cwd. nil → the bundled shell falls back to the canonical
-    /// app vault (never the cwd/home). Throws an HONEST WorkShellError when the shell is
-    /// not wired or the runtime is absent — callers surface that, never a fake terminal.
-    func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec
+    /// decoupled from the shell cwd. nil → NO active vault: the bundled shell OMITS fusion
+    /// entirely (no OPENCODE_CONFIG / EPISTEMOS_VAULT_ROOT) so the MCP server honestly
+    /// reports no vault — it NEVER silently roots at an empty default vault (owner 2026-06-24
+    /// "make the no-vault state honest"; diag 8af17c841). Throws an HONEST WorkShellError
+    /// when the shell is not wired or the runtime is absent — never a fake terminal.
+    /// `nativeMCP` (W-R2/W-R3, 2026-06-24): when the app-hosted native-tools MCP server is live, its loopback
+    /// registration so the bundled shell asserts `epistemos-native` in the OpenCode config (the FULL native tool
+    /// surface incl. computer-use). nil → omitted (honest; OpenCode then sees only the `epistemos-vault` stdio
+    /// server). Threaded but always nil until (c2) constructs+starts the server and supplies it at the call site.
+    func launchSpec(
+        workspace: URL, epistemosVaultRoot: URL?, nativeMCP: WorkNativeMCPRegistration?
+    ) throws -> WorkShellLaunchSpec
 }
 
 extension WorkOpenCodeShell {
-    /// Back-compatible convenience: no explicit app vault → the shell decides the fusion
-    /// root (the bundled shell uses the canonical app vault). Preserves the old call shape
-    /// for the smoke shell + tests.
+    /// Back-compatible convenience: no explicit app vault → NO fusion (the honest no-vault
+    /// path; the bundled shell omits OPENCODE_CONFIG / EPISTEMOS_VAULT_ROOT rather than
+    /// rooting at an empty default vault). Preserves the old call shape for the smoke shell + tests.
     func launchSpec(workspace: URL) throws -> WorkShellLaunchSpec {
-        try launchSpec(workspace: workspace, epistemosVaultRoot: nil)
+        try launchSpec(workspace: workspace, epistemosVaultRoot: nil, nativeMCP: nil)
+    }
+
+    /// Back-compatible convenience for callers that don't (yet) supply a native-MCP registration — forwards
+    /// `nativeMCP: nil` (the app-hosted MCP is omitted from the OpenCode config until (c2) wires it). Preserves
+    /// the existing 2-arg call shape (WorkTerminalView.realShellSpec, tests).
+    func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec {
+        try launchSpec(workspace: workspace, epistemosVaultRoot: epistemosVaultRoot, nativeMCP: nil)
     }
 }
 
@@ -57,9 +72,11 @@ extension WorkOpenCodeShell {
 struct InertWorkOpenCodeShell: WorkOpenCodeShell {
     var isReady: Bool { false }
 
-    func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec {
+    func launchSpec(
+        workspace: URL, epistemosVaultRoot: URL?, nativeMCP: WorkNativeMCPRegistration?
+    ) throws -> WorkShellLaunchSpec {
         throw WorkShellError.notWired(
-            "OpenCode work shell is not wired yet — the native terminal view, lazy Bun engine, and vendored OpenCode TUI are the follow-on. No fake terminal is launched."
+            "Epistemos Work runtime is unavailable on this build. No fake terminal is launched."
         )
     }
 }
@@ -76,7 +93,7 @@ nonisolated enum WorkOpenCodeShellFactory {
         #if EPISTEMOS_APP_STORE
         return InertWorkOpenCodeShell()
         #else
-        // WORK = OPENCODE IS THE WORK SURFACE (owner 2026-06-22, parallel to act=Osaurus): NO experimental
+        // WORK = OPENCODE IS THE WORK SURFACE (owner 2026-06-22, parallel to Act): NO experimental
         // opt-in toggle. Go LIVE whenever the OpenCode runtime is actually bundled on disk — which it is
         // (build-opencode-runtime.sh vendors the pinned OpenCode + Bun into Resources/opencode-runtime at build
         // time). The experimental `WorkOpenCodeShellGateStatus` arm-gate is no longer a precondition; work is

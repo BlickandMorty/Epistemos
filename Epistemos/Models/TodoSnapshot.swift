@@ -3,7 +3,7 @@ import Foundation
 /// Snapshot of the agent's current todo list as published by the Rust
 /// `todo` tool (agent_core/src/tools/todo.rs). Parsed out of a
 /// `todo_write` tool call's input JSON so the Swift UI can surface the
-/// plan live above the chat composer — the user sees the model checking
+/// plan live in the fused agent surface — the user sees the model checking
 /// items off instead of having to expand individual tool cards.
 struct TodoSnapshot: Equatable, Sendable {
     let items: [TodoSnapshotItem]

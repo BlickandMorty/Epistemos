@@ -12,7 +12,6 @@ struct CompanionRoamingField: View {
     var onActivate: (CompanionRosterEntry) -> Void = { _ in }
     var onRequestEdit: (CompanionRosterEntry) -> Void = { _ in }
     var onRequestDelete: (CompanionRosterEntry) -> Void = { _ in }
-    var onStartChat: (CompanionRosterEntry) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -66,11 +65,6 @@ struct CompanionRoamingField: View {
         )
         .help(agentHelpText(for: entry))
         .contextMenu {
-            Button {
-                onStartChat(entry)
-            } label: {
-                Label("Chat with \(entry.name)", systemImage: "message.fill")
-            }
             Button {
                 onActivate(entry)
             } label: {

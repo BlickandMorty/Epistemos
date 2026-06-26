@@ -26,7 +26,6 @@ struct SubstrateHealthPanelTests {
         #expect(panel.contains("EidosHealthRow()"))
         #expect(panel.contains("VaultRecallHealthRow()"))
         #expect(panel.contains("LatticeWBOHealthRow()"))
-        #expect(panel.contains("SystemGHealthRow()"))
         #expect(panel.contains("FUlpHealthRow()"))
         #expect(panel.contains("ACSAdmissionHealthRow()"))
         #expect(panel.contains("FalsifierArtifactsHealthRow()"))
@@ -128,7 +127,7 @@ struct SubstrateHealthPanelTests {
         #expect(row.contains("Tools/falsifiers/run_gemma_first_runtime_quality_observation_replay.sh"))
         #expect(row.contains("Tools/falsifiers/execute_gemma_first_runtime_quality_replay.sh"))
         #expect(row.contains("Tools/falsifiers/materialize_gemma_first_runtime_runtime_router_admission_packet.sh"))
-        #expect(row.contains("Tools/falsifiers/materialize_gemma_first_runtime_system_g_dry_run_route_packet.sh"))
+        #expect(row.contains("Tools/falsifiers/materialize_gemma_first_runtime_route_dry_run_route_packet.sh"))
         #expect(row.contains("Tools/falsifiers/materialize_gemma_first_runtime_route_answer_packet_visibility.sh"))
         #expect(row.contains("Tools/falsifiers/materialize_gemma_first_runtime_settings_diagnostics_wrv.sh"))
         #expect(row.contains("Gemma proof lane"))
@@ -137,7 +136,7 @@ struct SubstrateHealthPanelTests {
         #expect(row.contains("quality bridge ready"))
         #expect(row.contains("replay scorer ready"))
         #expect(row.contains("admission packet ready"))
-        #expect(row.contains("System G dry-run packet ready"))
+        #expect(row.contains("Route dry-run packet ready"))
         #expect(row.contains("route visibility ready"))
         #expect(row.contains("settings WRV ready"))
         #expect(row.contains("gemmaCompletedProofLaneSummary"))
@@ -146,7 +145,7 @@ struct SubstrateHealthPanelTests {
         #expect(row.contains("all QAT lanes WRV passed"))
         #expect(row.contains("are through Settings/diagnostics WRV"))
         #expect(row.contains("finish log/manual/distribution evidence and three zero-fail release-audit passes"))
-        #expect(row.contains("are through System G/WRV and release-audit evidence"))
+        #expect(row.contains("are through WRV and release-audit evidence"))
         #expect(row.contains("final gates: \\(capabilityCeiling.gemmaFinalReleaseGateDetail)"))
         #expect(row.contains("final blockers: \\(gemmaFinalReleaseGateDetail)"))
         #expect(row.contains("gemmaReleaseAuditEvidenceReady"))
@@ -176,7 +175,7 @@ struct SubstrateHealthPanelTests {
         #expect(infrastructure.contains("gemma_product_route_integration_gate"))
         #expect(row.contains("QAT route-integration candidates"))
         #expect(row.contains("product recheck green; live route integration pending"))
-        #expect(row.contains("are visible through RuntimeRouter/System G packet evidence"))
+        #expect(row.contains("are visible through RuntimeRouter packet evidence"))
         #expect(row.contains("distribution source-card bound"))
         #expect(row.contains("retained issues"))
         #expect(row.contains("distribution/compliance review not complete"))
@@ -192,7 +191,7 @@ struct SubstrateHealthPanelTests {
         #expect(row.contains("no live/default/T4 claim"))
         #expect(row.contains("gemma_direct_harness_owner_approved_first_runtime_execution_probe"))
         #expect(row.contains("small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe"))
-        #expect(row.contains("System G / 70B preservation"))
+        #expect(row.contains("Route dry-run / 70B preservation"))
         #expect(row.contains("Next Gemma action"))
         #expect(row.contains("Owner-approved local E2B/E4B/12B QAT GGUF receipt is the next real gate"))
         #expect(row.contains("Official Google QAT Q4_0 GGUF ladder"))
@@ -592,7 +591,6 @@ struct SubstrateHealthPanelTests {
             "                EidosHealthRow()",
             "                VaultRecallHealthRow()",
             "                LatticeWBOHealthRow()",
-            "                SystemGHealthRow()",
             "                FUlpHealthRow()",
             "                ACSAdmissionHealthRow()",
             "                AnswerPacketHealthRow()",

@@ -194,9 +194,6 @@ enum WorkspaceSynthesisBuilder {
         if let activeDocument = snapshot.liveDocuments?.first(where: \.isActive) {
             return "Last Session - \(activeDocument.title)"
         }
-        if let mainChat = snapshot.mainChat, mainChat.messageCount > 0 {
-            return "Last Session - \(mainChat.title)"
-        }
         if snapshot.graphOverlay.visibility != .hidden {
             return "Last Session - Graph"
         }
@@ -214,13 +211,6 @@ enum WorkspaceSynthesisBuilder {
         }
         if !documents.isEmpty {
             opening.append("\(documents.count) live document\(documents.count == 1 ? "" : "s")")
-        }
-        let miniChatCount = snapshot.miniChats?.reduce(0) { $0 + max($1.messageCount, 0) } ?? 0
-        if let mainChat = snapshot.mainChat, mainChat.messageCount > 0 {
-            opening.append("main chat \(mainChat.messageCount) turn\(mainChat.messageCount == 1 ? "" : "s")")
-        }
-        if miniChatCount > 0 {
-            opening.append("mini chats \(miniChatCount) message\(miniChatCount == 1 ? "" : "s")")
         }
         if let graphRoute = snapshot.graphRoute {
             switch graphRoute.kind {
@@ -273,15 +263,6 @@ enum WorkspaceSynthesisBuilder {
             }
         }
 
-        if let mainChat = snapshot.mainChat, mainChat.messageCount > 0 {
-            lines.append(chatSummaryLine(prefix: "Main chat", chat: mainChat))
-        }
-        if let miniChats = snapshot.miniChats, !miniChats.isEmpty {
-            for chat in miniChats.prefix(4) where chat.messageCount > 0 {
-                lines.append(chatSummaryLine(prefix: "Mini chat", chat: chat))
-            }
-        }
-
         if let digest = snapshot.activityDigest {
             if !digest.editedNotes.isEmpty {
                 let edited = digest.editedNotes.prefix(5).map(\.title).joined(separator: ", ")
@@ -295,17 +276,10 @@ enum WorkspaceSynthesisBuilder {
         return lines.joined(separator: "\n")
     }
 
-    private static func chatSummaryLine(prefix: String, chat: WorkspaceChatStateSnapshot) -> String {
-        let latest = chat.recentMessages.last?.contentPreview ?? ""
-        if latest.isEmpty {
-            return "\(prefix): \(chat.title), \(chat.messageCount) message\(chat.messageCount == 1 ? "" : "s")."
-        }
-        return "\(prefix): \(chat.title), \(chat.messageCount) message\(chat.messageCount == 1 ? "" : "s"). Latest \(chat.recentMessages.last?.role ?? "message"): \(latest)"
-    }
 }
 
 // MARK: - Workspace Service
-// Captures and restores full workspace state — open note tabs, mini chats, utility panels,
+// Captures and restores full workspace state — open note tabs, utility panels,
 // graph overlay, sidebar state, and editor cursor positions. Supports auto-save on quit
 // and named workspace workflows.
 
@@ -368,7 +342,7 @@ final class WorkspaceService {
             return WorkspaceSnapshot(
                 activePanel: "home", activeChatId: nil, showChatSidebar: false,
                 showLanding: true, openNoteTabs: [], activeNoteTabPageId: nil,
-                openMiniChatIds: [], notesBrowserVisible: false, settingsVisible: false,
+                notesBrowserVisible: false, settingsVisible: false,
                 graphOverlay: GraphOverlaySnapshot(visibility: .hidden),
                 expandedFolderIds: [], isJournalExpanded: false, isIdeasExpanded: false
             )
@@ -441,17 +415,13 @@ final class WorkspaceService {
             graphRoute: graphRoute,
             activePageId: bootstrap.notesUI.activePageId
         )
-        let mainChat = Self.captureMainChat(from: bootstrap.chatState, context: context)
-        let miniChats = Self.captureMiniChats(context: context)
-
         return WorkspaceSnapshot(
             activePanel: bootstrap.uiState.activePanel.rawValue,
-            activeChatId: bootstrap.chatState.activeChatId,
+            activeChatId: nil,
             showChatSidebar: bootstrap.uiState.showChatSidebar,
-            showLanding: bootstrap.chatState.showLanding,
+            showLanding: true,
             openNoteTabs: noteTabs,
             activeNoteTabPageId: bootstrap.notesUI.activePageId,
-            openMiniChatIds: MiniChatWindowController.shared.openChatIds,
             notesBrowserVisible: UtilityWindowManager.shared.isVisible(.notes),
             settingsVisible: UtilityWindowManager.shared.isVisible(.settings),
             graphOverlay: GraphOverlaySnapshot(
@@ -469,8 +439,6 @@ final class WorkspaceService {
             graphNodeCount: graphNodeCount,
             allPageIds: allPageIds,
             liveDocuments: liveDocuments,
-            mainChat: mainChat,
-            miniChats: miniChats,
             graphRoute: graphRoute
         )
     }
@@ -563,89 +531,6 @@ final class WorkspaceService {
         }
     }
 
-    private static func captureMainChat(
-        from chatState: ChatState,
-        context: ModelContext
-    ) -> WorkspaceChatStateSnapshot? {
-        guard Self.hasLiveMainChatWork(chatState) else { return nil }
-        if !chatState.messages.isEmpty {
-            let title = resolvedDocumentTitle(chatState.chatTitle, fallback: "Main Chat")
-            return chatSnapshot(
-                chatId: chatState.activeChatId ?? "active-main-chat",
-                title: title,
-                kind: "main",
-                messages: chatState.messages
-            )
-        }
-        guard let chatId = chatState.activeChatId else { return nil }
-        return fetchPersistedChatSnapshot(chatId: chatId, kind: "main", context: context)
-    }
-
-    private static func captureMiniChats(context: ModelContext) -> [WorkspaceChatStateSnapshot] {
-        MiniChatWindowController.shared.openChatIds.map { chatId in
-            fetchPersistedChatSnapshot(chatId: chatId, kind: "mini", context: context)
-                ?? WorkspaceChatStateSnapshot(
-                    chatId: chatId,
-                    title: "Mini Chat",
-                    kind: "mini",
-                    messageCount: 0,
-                    recentMessages: []
-                )
-        }
-    }
-
-    private static func fetchPersistedChatSnapshot(
-        chatId: String,
-        kind: String,
-        context: ModelContext
-    ) -> WorkspaceChatStateSnapshot? {
-        let targetId = chatId
-        do {
-            guard let chat = try context.fetch(
-                FetchDescriptor<SDChat>(
-                    predicate: #Predicate<SDChat> { $0.id == targetId }
-                )
-            ).first else {
-                return nil
-            }
-            return WorkspaceChatStateSnapshot(
-                chatId: chat.id,
-                title: resolvedDocumentTitle(chat.title, fallback: kind == "main" ? "Main Chat" : "Mini Chat"),
-                kind: kind,
-                messageCount: chat.sortedMessages.count,
-                recentMessages: chat.sortedMessages.suffix(6).map {
-                    WorkspaceChatMessageSnapshot(
-                        role: $0.role,
-                        contentPreview: compactPreview($0.content, limit: 220, fromTail: false)
-                    )
-                }
-            )
-        } catch {
-            Self.log.error("Workspace capture: failed to fetch chat \(chatId, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return nil
-        }
-    }
-
-    private static func chatSnapshot(
-        chatId: String,
-        title: String,
-        kind: String,
-        messages: [ChatMessage]
-    ) -> WorkspaceChatStateSnapshot {
-        WorkspaceChatStateSnapshot(
-            chatId: chatId,
-            title: title,
-            kind: kind,
-            messageCount: messages.count,
-            recentMessages: messages.suffix(6).map {
-                WorkspaceChatMessageSnapshot(
-                    role: $0.role.rawValue,
-                    contentPreview: compactPreview($0.content, limit: 220, fromTail: false)
-                )
-            }
-        )
-    }
-
     private static func resolvedDocumentTitle(_ title: String?, fallback: String) -> String {
         let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? fallback : trimmed
@@ -683,8 +568,7 @@ final class WorkspaceService {
         let context = modelContainer.mainContext
 
         // 1. Close existing windows
-        NoteWindowManager.shared.resetForVaultRebuild()
-        MiniChatWindowController.shared.closeAll()
+            NoteWindowManager.shared.resetForVaultRebuild()
         UtilityWindowManager.shared.hide(.notes)
         UtilityWindowManager.shared.hide(.settings)
 
@@ -693,10 +577,6 @@ final class WorkspaceService {
             bootstrap.uiState.setActivePanel(panel.releaseSupportedVariant)
         }
         bootstrap.uiState.showChatSidebar = snapshot.showChatSidebar
-        bootstrap.chatState.showLanding = snapshot.showLanding
-        if Self.hasRestorableMainChatWork(snapshot), let chatId = snapshot.activeChatId {
-            bootstrap.loadChat(chatId: chatId)
-        }
 
         // 3. Sidebar state
         bootstrap.notesUI.expandedFolderIds = Set(snapshot.expandedFolderIds)
@@ -743,26 +623,7 @@ final class WorkspaceService {
             bootstrap.notesUI.openPage(activePageId)
         }
 
-        // 5. Mini chat windows
-        for chatId in snapshot.openMiniChatIds {
-            let descriptor = FetchDescriptor<SDChat>(
-                predicate: #Predicate<SDChat> { $0.id == chatId }
-            )
-            let chatExists: Bool
-            do {
-                chatExists = try context.fetch(descriptor).first != nil
-            } catch {
-                Self.log.error("Workspace restore: failed to fetch chat \(chatId, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                continue
-            }
-            guard chatExists else {
-                Self.log.info("Workspace restore: skipping deleted chat \(chatId, privacy: .public)")
-                continue
-            }
-            MiniChatWindowController.shared.openChat(chatId)
-        }
-
-        // 6. Utility panels
+        // 5. Utility panels
         if snapshot.notesBrowserVisible {
             UtilityWindowManager.shared.show(.notes)
         }
@@ -789,14 +650,14 @@ final class WorkspaceService {
             break
         }
 
-        // 8. Restore pinned graph nodes
+        // 7. Restore pinned graph nodes
         if let pinnedIds = snapshot.graphOverlay.pinnedNodeIds, !pinnedIds.isEmpty {
             bootstrap.graphState.restorePinnedNodes(Set(pinnedIds))
         }
 
         restoreMainWindowAfterSnapshot()
 
-        Self.log.info("Workspace restored: \(snapshot.openNoteTabs.count) notes, \(snapshot.openMiniChatIds.count) mini chats")
+        Self.log.info("Workspace restored: \(snapshot.openNoteTabs.count) notes")
     }
 
     private func restoreMainWindowAfterSnapshot() {
@@ -804,25 +665,16 @@ final class WorkspaceService {
     }
 
     static func hasRestorableMainChatWork(_ snapshot: WorkspaceSnapshot) -> Bool {
-        guard !snapshot.showLanding else { return false }
-        if let mainChat = snapshot.mainChat {
-            return mainChat.messageCount > 0 || !mainChat.recentMessages.isEmpty
-        }
-        return snapshot.activeChatId != nil
+        false
     }
 
     static func hasRestorableSessionWork(_ snapshot: WorkspaceSnapshot) -> Bool {
         let hasLiveDocuments = snapshot.liveDocuments?.isEmpty == false
-        let hasMainChat = hasRestorableMainChatWork(snapshot)
         let hasGraphRoute = snapshot.graphRoute?.kind != .canvas
-        return !snapshot.openNoteTabs.isEmpty || !snapshot.openMiniChatIds.isEmpty
-            || hasLiveDocuments || hasMainChat || hasGraphRoute
+        return !snapshot.openNoteTabs.isEmpty
+            || hasLiveDocuments || hasGraphRoute
             || snapshot.notesBrowserVisible || snapshot.settingsVisible
             || snapshot.graphOverlay.visibility != .hidden
-    }
-
-    static func hasLiveMainChatWork(_ chatState: ChatState) -> Bool {
-        !chatState.showLanding && (chatState.activeChatId != nil || !chatState.messages.isEmpty)
     }
 
     @discardableResult
@@ -851,7 +703,7 @@ final class WorkspaceService {
             intentSummary: WelcomeBackInfo.cleanedSummaryText(from: summary),
             userNote: userNote,
             noteCount: max(snapshot.openNoteTabs.count, snapshot.liveDocuments?.count ?? 0),
-            chatCount: snapshot.openMiniChatIds.count + (Self.hasRestorableMainChatWork(snapshot) ? 1 : 0),
+            chatCount: 0,
             graphWasOpen: snapshot.graphOverlay.visibility != .hidden || snapshot.graphRoute?.kind != .canvas,
             sessionMinutes: digest?.sessionDurationMinutes ?? 0,
             editedNoteTitles: digest?.editedNotes.map(\.title) ?? []
@@ -1052,8 +904,6 @@ final class WorkspaceService {
                 guard !Task.isCancelled, let self else { break }
                 // Only auto-save if there's actual content open
                 let hasWork = !NoteWindowManager.shared.orderedPageIds().isEmpty
-                    || !MiniChatWindowController.shared.openChatIds.isEmpty
-                    || self.hasMainChatWork()
                     || self.hasGraphWork()
                 guard hasWork else { continue }
                 self.autoSave()
@@ -1065,11 +915,6 @@ final class WorkspaceService {
     func stopAutoSave() {
         autoSaveTask?.cancel()
         autoSaveTask = nil
-    }
-
-    private func hasMainChatWork() -> Bool {
-        guard let chatState = AppBootstrap.shared?.chatState else { return false }
-        return Self.hasLiveMainChatWork(chatState)
     }
 
     private func hasGraphWork() -> Bool {
@@ -1126,9 +971,7 @@ final class WorkspaceService {
             }
         }
 
-        // Chat count delta
-        let currentChatCount = MiniChatWindowController.shared.openChatIds.count
-        diff.chatsStarted = max(0, currentChatCount - snapshot.openMiniChatIds.count)
+        diff.chatsStarted = 0
 
         // Events since last save
         if let events = EventStore.shared?.events(from: workspace.updatedAt, to: Date()) {

@@ -1,10 +1,7 @@
 import Foundation
 
-/// P2.6 — validates the Companion builder's "Output structure (JSON)" field
-/// before it is stored + injected into the agent's system prompt as a response
-/// contract (`CompanionState` → `outputStructureJSON`). The field is real,
-/// wired config; this keeps a malformed schema from being saved as a broken
-/// contract. Pure + `nonisolated` so it is unit-testable without the view.
+/// Retired validator for older Companion rows that stored an output-structure
+/// JSON field. Kept pure + `nonisolated` for compatibility with existing tests.
 ///
 /// It deliberately does NOT fully validate JSON Schema — only that the text is a
 /// JSON object shaped like a schema (`type` or `properties`) — so honest schemas

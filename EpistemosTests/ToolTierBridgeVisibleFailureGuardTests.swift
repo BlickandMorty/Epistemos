@@ -14,8 +14,8 @@ import Foundation
 ///   - The catch branch logs at `.error` level (not `.warning`) so a
 ///     failure can't be silently buried by log filters.
 ///   - It posts a `Notification.Name.toolTierBridgeLoadFailed` so
-///     subscribed UI (chat composer capability pill, command-center
-///     diagnostics row) can show a "tools unavailable" indicator
+///     subscribed UI (capability surface, command-center diagnostics row)
+///     can show a "tools unavailable" indicator
 ///     instead of silently running in zero-tools mode.
 ///   - The empty `[]` return remains for compatibility so the
 ///     existing call sites don't crash, but the failure is no

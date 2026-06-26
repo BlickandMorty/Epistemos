@@ -4,9 +4,8 @@ import SwiftData
 
 // MARK: - NodeInspectorState
 // Observable state for the hologram node inspector panel.
-// Manages: selected node info, AI summary, chat messages, streaming state.
+// Manages selected node info, summaries, and neutral node profiles.
 // Summaries use Apple Intelligence directly for quick on-device work.
-// Chat uses TriageService for deeper local reasoning.
 
 @MainActor @Observable
 final class NodeInspectorState {
@@ -42,29 +41,13 @@ final class NodeInspectorState {
 
     var profile: DialogueNodeProfile?
 
-    // MARK: - Chat
-
-    var chatMessages: [InspectorChatMessage] = []
-    var chatInput: String = ""
-    var isChatStreaming: Bool = false
-    var chatScope: ChatScope = .node
-    var currentChatStreamingThinking: String { chatStreamingThinking }
-
-    enum ChatScope: String, CaseIterable {
-        case node = "Node"
-    }
-
     // MARK: - Internal
 
     private var summaryTask: Task<Void, Never>?
-    private var chatTask: Task<Void, Never>?
     private var profileTask: Task<Void, Never>?
     private var summaryCache: [String: String] = [:]
     private var profileCache: [ProfileCacheKey: DialogueNodeProfile] = [:]
     private var revealTask: Task<Void, Never>?
-    private var chatStreamingThinking = ""
-    private var chatThinkingStartedAt: Date?
-    private var chatThinkingEndedAt: Date?
 
     // MARK: - Node Selection
 
@@ -79,10 +62,6 @@ final class NodeInspectorState {
 
         // Set loading state and selection IMMEDIATELY — no blocking work here.
         // This ensures the panel animates in instantly; heavy work runs in background.
-        chatMessages = []
-        chatInput = ""
-        isChatStreaming = false
-        resetChatThinkingState()
         inspectorMode = .profile
         summaryTask?.cancel()
         summaryTask = nil
@@ -302,7 +281,6 @@ final class NodeInspectorState {
 
     func clearSelection() {
         summaryTask?.cancel()
-        chatTask?.cancel()
         revealTask?.cancel()
         profileTask?.cancel()
         profileTask = nil
@@ -312,10 +290,6 @@ final class NodeInspectorState {
         summaryText = ""
         displayedSummary = ""
         isSummarizing = false
-        chatMessages = []
-        chatInput = ""
-        isChatStreaming = false
-        resetChatThinkingState()
         inspectorMode = .profile
     }
 
@@ -727,147 +701,4 @@ final class NodeInspectorState {
         return lines.joined(separator: "\n")
     }
 
-    // MARK: - Chat
-
-    func sendMessage(
-        store: GraphStore,
-        modelContext: ModelContext,
-        operatingMode: EpistemosOperatingMode = .fast
-    ) {
-        let query = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty, !isChatStreaming else { return }
-
-        chatInput = ""
-        chatMessages.append(InspectorChatMessage(role: .user, text: query))
-        chatMessages.append(InspectorChatMessage(role: .assistant, text: ""))
-        isChatStreaming = true
-        resetChatThinkingState()
-
-        chatTask?.cancel()
-        chatTask = Task {
-            defer { isChatStreaming = false }
-
-            let context = await buildChatContext(query: query, store: store, modelContext: modelContext)
-
-            guard let triage = AppBootstrap.shared?.triageService else {
-                appendToLastAssistant("AI service unavailable.")
-                return
-            }
-
-            let stream = triage.streamGeneral(
-                prompt: context,
-                systemPrompt: nil,
-                operation: .chatResponse(query: query),
-                contentLength: context.count,
-                operatingMode: operatingMode,
-                localSurface: .graph,
-                reasoningSink: { [weak self] delta in
-                    self?.appendStreamingThinking(delta)
-                }
-            )
-
-            do {
-                for try await chunk in stream {
-                    guard !Task.isCancelled else { return }
-                    appendToLastAssistant(chunk)
-                }
-                finalizeLastAssistantText()
-            } catch {
-                guard !Task.isCancelled else { return }
-                if chatMessages.last?.text.isEmpty == true {
-                    appendToLastAssistant(UserFacingChatError.message(from: error))
-                }
-            }
-            finalizeLastAssistantThinkingTrace()
-        }
-    }
-
-    func stopChat() {
-        chatTask?.cancel()
-        chatTask = nil
-        finalizeLastAssistantThinkingTrace()
-        isChatStreaming = false
-    }
-
-    private func appendToLastAssistant(_ text: String) {
-        guard let lastIndex = chatMessages.indices.last,
-              chatMessages[lastIndex].role == .assistant else { return }
-        chatMessages[lastIndex].text += text
-    }
-
-    private func finalizeLastAssistantText() {
-        guard let lastIndex = chatMessages.indices.last,
-              chatMessages[lastIndex].role == .assistant else { return }
-
-        let rawText = chatMessages[lastIndex].text
-        let visibleText = UserFacingModelOutput.finalVisibleText(from: rawText)
-        if !visibleText.isEmpty {
-            chatMessages[lastIndex].text = visibleText
-            return
-        }
-
-        let trimmedThinking = chatStreamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedThinking.isEmpty {
-            let recoveredAnswer = UserFacingModelOutput
-                .salvagedAnswerFromThinkingTrace(from: trimmedThinking) ?? ""
-            chatMessages[lastIndex].text =
-                recoveredAnswer.isEmpty
-                ? (UserFacingModelOutput.incompleteReasoningFallback(from: trimmedThinking)
-                    ?? "The model finished its reasoning trace without a usable answer.")
-                : recoveredAnswer
-        }
-    }
-
-    private func appendStreamingThinking(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard chatThinkingStartedAt != nil || !trimmed.isEmpty else { return }
-        if chatThinkingStartedAt == nil {
-            chatThinkingStartedAt = .now
-            chatStreamingThinking.removeAll(keepingCapacity: true)
-        }
-        chatStreamingThinking.append(text)
-        chatThinkingEndedAt = .now
-    }
-
-    private func resetChatThinkingState() {
-        chatStreamingThinking.removeAll(keepingCapacity: false)
-        chatThinkingStartedAt = nil
-        chatThinkingEndedAt = nil
-    }
-
-    private func finalizeLastAssistantThinkingTrace() {
-        let trimmedThinking = chatStreamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
-        defer { resetChatThinkingState() }
-        guard !trimmedThinking.isEmpty else { return }
-        guard let lastIndex = chatMessages.indices.last,
-              chatMessages[lastIndex].role == .assistant else { return }
-        chatMessages[lastIndex].thinkingTrace = trimmedThinking
-        if let startedAt = chatThinkingStartedAt {
-            let endedAt = chatThinkingEndedAt ?? .now
-            chatMessages[lastIndex].thinkingDurationSeconds = max(0, endedAt.timeIntervalSince(startedAt))
-        }
-    }
-
-    private func buildChatContext(query: String, store: GraphStore, modelContext: ModelContext) async -> String {
-        guard let node = selectedNode else { return query }
-
-        let nodeContent = await fetchContent(for: node, store: store, modelContext: modelContext)
-        var context = "Selected node: \(node.label) (\(node.type.displayName))\n\n"
-        context += "Node context:\n\(String(nodeContent.prefix(4200)))\n\n"
-        context += "Answer from the selected node and its linked context. Treat folder context as a bundle of descendant notes and relationships, not just the folder label. If something is genuinely missing, say what is missing briefly.\n\n"
-        context += "User question: \(query)"
-        return context
-    }
-}
-
-// MARK: - Chat Message
-
-struct InspectorChatMessage: Identifiable {
-    let id = UUID()
-    let role: Role
-    var text: String
-    var thinkingTrace: String?
-    var thinkingDurationSeconds: Double?
-
-    enum Role { case user, assistant }
 }

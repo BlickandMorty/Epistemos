@@ -32,10 +32,8 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     let reasoningMode: LocalReasoningMode
     let steeringHintsJSON: String?
     let imageURLs: [URL]
-    /// SS-AD: optional per-request LoRA adapter directory override (the foregrounded
-    /// Companion's loraAdapterPath). nil = use the global AdapterRegistry active adapter
-    /// (the unchanged path). Additive + last + defaulted → existing constructors stay
-    /// backward-compatible.
+    /// Optional per-request LoRA adapter directory override. nil = use the
+    /// global AdapterRegistry active adapter.
     var loraAdapterPathOverride: String? = nil
 
     /// W9.29 — Thermal-aware token budget. Routes through
@@ -1499,14 +1497,14 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// SSM state persistence service — set by AppBootstrap after initialization.
     private var ssmStateService: SSMStateService?
 
-    /// Active session ID for state scoping — set by ChatCoordinator before generation.
+    /// Active session ID for state scoping — set by the active agent route before generation.
     var activeSessionID: String?
 
     /// Active vault root URL for staleness detection during SSM state resume.
     var activeVaultRoot: URL?
 
     /// Callback invoked when an SSM state file is saved, so callers
-    /// (e.g. ChatCoordinator) can bind the path to ConversationPersistence.
+    /// can bind the path to ConversationPersistence.
     var onSSMStateSaved: (@Sendable (_ sessionID: String, _ statePath: String) -> Void)?
     var onRunProfileUpdated: (@Sendable (LocalMLXRunProfile) -> Void)?
 
@@ -2046,7 +2044,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         }
         #if !EPISTEMOS_APP_STORE
         await applyActiveAdapterIfPresent(
-            to: container, companionAdapterPath: request.loraAdapterPathOverride
+            to: container, requestAdapterPath: request.loraAdapterPathOverride
         )
         #endif
         await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
@@ -2065,13 +2063,12 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// VERIFICATION (needs an on-device generation run; can't be witnessed headless).
     /// Applies on cold load only; reload-on-activate (mid-session swap) is a follow-up.
     private func applyActiveAdapterIfPresent(
-        to container: ModelContainer, companionAdapterPath: String?
+        to container: ModelContainer, requestAdapterPath: String?
     ) async {
-        // SS-AD: the foregrounded Companion's adapter takes precedence over the global
-        // registry adapter; companionAdapterPath == nil resolves to the registry adapter
-        // (byte-for-byte the unchanged path).
+        // A request adapter override takes precedence over the global registry
+        // adapter; nil resolves to the registry adapter.
         let adapterDir = Self.resolveActiveAdapterDirectory(
-            companionLoraAdapterPath: companionAdapterPath,
+            requestAdapterPath: requestAdapterPath,
             registryActiveDirectory: AdapterRegistry.activeAdapterDirectoryOnDisk()
         )
         // Record the active signature applied at this load (incl. nil = none) so a
@@ -2088,16 +2085,14 @@ actor MLXInferenceService: LocalMLXRuntime {
         }
     }
 
-    /// SS-AD: resolve the adapter directory to apply for a load — the foregrounded
-    /// Companion's adapter (`companionLoraAdapterPath`) when set + a complete native
-    /// adapter, else the global AdapterRegistry active adapter. A nil/blank companion
-    /// path resolves to the registry (the unchanged path), so an agent without an
-    /// adapter never changes behavior.
+    /// Resolve the adapter directory to apply for a load: request override when
+    /// set to a complete native adapter, else the global AdapterRegistry active
+    /// adapter. A nil/blank request override resolves to the registry.
     nonisolated static func resolveActiveAdapterDirectory(
-        companionLoraAdapterPath: String?,
+        requestAdapterPath: String?,
         registryActiveDirectory: URL?
     ) -> URL? {
-        if let path = companionLoraAdapterPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+        if let path = requestAdapterPath?.trimmingCharacters(in: .whitespacesAndNewlines),
            !path.isEmpty {
             let url = URL(fileURLWithPath: path)
             if NativeAdapterDirectory.isValid(url) { return url }

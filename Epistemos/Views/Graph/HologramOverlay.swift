@@ -253,7 +253,6 @@ final class HologramOverlay {
     private var queryEngine: QueryEngine
     private var modelContainer: ModelContainer?
     private var physicsCoordinator: PhysicsCoordinator?
-    private var dialogueChatState: DialogueChatState?
     private let inspectorState = NodeInspectorState()
     /// Pinned inspectors: persistent panels attached to specific nodes.
     /// Each gets its own NSHostingView (concrete type
@@ -384,12 +383,11 @@ final class HologramOverlay {
     private var graphOpenStartTask: Task<Void, Never>?
     private let firstOpenTitleHost = GraphFirstOpenTitleHost()
 
-    init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
+    init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil) {
         self.graphState = graphState
         self.queryEngine = queryEngine
         self.modelContainer = modelContainer
         self.physicsCoordinator = physicsCoordinator
-        self.dialogueChatState = dialogueChatState
         observeMinimizeNotifications()
     }
 
@@ -750,7 +748,7 @@ final class HologramOverlay {
         miniTint.autoresizingMask = [.width, .height]
         contentView.addSubview(miniTint, positioned: .below, relativeTo: metalView)
 
-        // Round corners for mini mode. 22pt matches MiniChat's continuous
+        // Round corners for mini mode.
         // curve — mini-float reads as a peer of the chat panel. Fullscreen
         // scales up to 28pt (set in the un-mini path) for the macOS 26
         // liquid-glass immersive feel.
@@ -830,7 +828,7 @@ final class HologramOverlay {
         syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
         // 4. macOS 26 liquid-glass corner radius. 28pt continuous matches
-        //    the Tahoe immersive-window curve (more curvy than MiniChat's
+        //    the Tahoe immersive-window curve.
         //    22pt, not aggressive like visionOS's 46pt). `visibleFrame`
         //    inset below leaves room above the menubar + above the dock
         //    so the rounded corners actually show instead of being
@@ -894,7 +892,6 @@ final class HologramOverlay {
         )
         graphView.graphState = graphState
         graphView.physicsCoordinator = physicsCoordinator
-        graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
         graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.isMiniMode = true
@@ -2079,7 +2076,6 @@ final class HologramOverlay {
         let graphView = MetalGraphNSView(frame: contentView.bounds)
         graphView.graphState = graphState
         graphView.physicsCoordinator = physicsCoordinator
-        graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
         graphView.isMiniMode = true
         graphView.usesClickSelectionFallback = true

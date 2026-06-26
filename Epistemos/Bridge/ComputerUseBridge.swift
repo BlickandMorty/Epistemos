@@ -7,7 +7,7 @@
 // Architecture:
 //   Rust agent_loop → computer_use.rs (returns delegate marker)
 //   → StreamingDelegate.onToolStarted("computer")
-//   → ChatCoordinator intercepts and calls ComputerUseBridge
+//   → the active agent route intercepts and calls ComputerUseBridge
 //   → Result (screenshot base64 + AX tree JSON) returned to agent
 //
 // This gives the LLM BOTH visual (screenshot) AND semantic (AX tree)
@@ -46,7 +46,7 @@ final class ComputerUseBridge {
     // MARK: - Execute Computer Action
 
     /// Executes a computer use action and returns the result as a JSON string.
-    /// Called by ChatCoordinator when Rust agent's "computer" tool fires.
+    /// Called when the Rust agent's "computer" tool fires.
     func execute(actionJSON: String) async -> String {
         let parsedAction = parseComputerAction(actionJSON: actionJSON)
         let toolCallID = nextToolCallID()

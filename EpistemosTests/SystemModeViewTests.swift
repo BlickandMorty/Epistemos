@@ -11,12 +11,12 @@ nonisolated struct SystemModeViewTests {
             .appendingPathComponent("epistemos-system-mode-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let transcripts = root.appendingPathComponent(ChatTranscriptVaultWriter.vaultSubdirectory, isDirectory: true)
+        let docExports = root.appendingPathComponent("Doc Chat Exports", isDirectory: true)
         let sessions = root.appendingPathComponent("sessions", isDirectory: true)
-        try FileManager.default.createDirectory(at: transcripts, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: docExports, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
-        try "chat".write(
-            to: transcripts.appendingPathComponent("Example Chat.md"),
+        try "export".write(
+            to: docExports.appendingPathComponent("Example Export.md"),
             atomically: true,
             encoding: .utf8
         )
@@ -26,11 +26,12 @@ nonisolated struct SystemModeViewTests {
         )
 
         let sections = SystemModeView.sections(vaultURL: root)
-        let chat = try #require(sections.first { $0.title == "Chat Transcripts" })
+        let exports = try #require(sections.first { $0.title == "Doc Chat Exports" })
         let logs = try #require(sections.first { $0.title == "Agent Logs" })
 
-        #expect(chat.items.map(\.title).contains("Example Chat"))
+        #expect(exports.items.map(\.title).contains("Example Export"))
         #expect(logs.items.map(\.title).contains("agent-run-1"))
+        #expect(!sections.contains { $0.title == "Chat Transcripts" })
         #expect(!sections.contains { $0.status == "No items loaded" })
     }
 
@@ -40,7 +41,8 @@ nonisolated struct SystemModeViewTests {
 
         #expect(source.contains("static func sections("))
         #expect(source.contains("contentsOfDirectory("))
-        #expect(source.contains("ChatTranscriptVaultWriter.vaultSubdirectory"))
+        #expect(!source.contains("ChatTranscriptVaultWriter"))
+        #expect(!source.contains("Chat Transcripts"))
         #expect(!source.contains("Text(\"No items loaded\")"))
     }
 }

@@ -4,7 +4,7 @@ import SwiftUI
 // Single extension method that applies all state/service environment objects.
 // Adding a new state object only requires updating this one file.
 //
-// Views continue using @Environment(ChatState.self), @Environment(UIState.self), etc.
+// Views continue using @Environment(UIState.self), etc.
 // No view changes needed — this just consolidates the injection point.
 
 extension View {
@@ -12,7 +12,6 @@ extension View {
     func withAppEnvironment(_ bootstrap: AppBootstrap) -> some View {
         self
             .environment(bootstrap.uiState)
-            .environment(bootstrap.chatState)
             .environment(bootstrap.pipelineState)
             .environment(bootstrap.notesUI)
             .environment(bootstrap.eventBus)
@@ -29,7 +28,6 @@ extension View {
             .environment(bootstrap.graphState)
             .environment(bootstrap.queryEngine)
             .environment(bootstrap.physicsCoordinator)
-            .environment(bootstrap.dialogueChatState)
             .environment(bootstrap.orchestratorState)
             .environment(bootstrap.mcpBridge)
             #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)

@@ -62,11 +62,16 @@ nonisolated enum LocalAgentPromptBuilder {
             prompt += knowledgeIndex + "\n"
         }
 
+        let toolIdentityLine = tools.isEmpty
+            ? ""
+            : "These are Epistemos tools for this turn. Some callable names may be generic or compatibility-prefixed because Epistemos preserves runtime contracts; still treat every listed tool as a connected Epistemos capability and call it by the exact listed name. Do not tell the user you lack an Epistemos-specific tool merely because the callable name is generic or compatibility-prefixed.\n"
+
         prompt += """
-        You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. After calling and executing the functions, you will be provided with function results within <tool_response></tool_response> XML tags.
+        You are Epistemos' local function-calling assistant. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. After calling and executing the functions, you will be provided with function results within <tool_response></tool_response> XML tags.
         <tools>
         \(toolsJson)
         </tools>
+        \(toolIdentityLine)\
         For each function call, return a JSON object with function name and arguments within <tool_call></tool_call> XML tags.
         <tool_call>
         {"name": <function-name>, "arguments": <args-dict>}
@@ -111,7 +116,7 @@ nonisolated enum LocalAgentPromptBuilder {
         """
 
         if tools.isEmpty {
-            prompt += "\nNo tools are available for this turn. Respond directly without emitting <tool_call> tags."
+            prompt += "\nNo tools are available for this turn. This is turn-specific; do not claim Epistemos generally lacks tools. Respond directly without emitting <tool_call> tags."
         }
 
         if let trimmedInstructions, !trimmedInstructions.isEmpty {

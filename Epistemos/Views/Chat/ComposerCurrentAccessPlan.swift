@@ -63,6 +63,22 @@ struct ComposerCurrentAccessPlan: Equatable {
             )
         }
 
+        // HONEST NO-VAULT (owner 2026-06-24 — authority "make the no-vault state honest"): when no vault is
+        // active, surface the absence as an explicit, non-revocable grant row with a connect CTA rather than
+        // silently omitting it (which read as a plain "Local chat" and hid that vault Read/Search + Halo recall
+        // are off). Appended last so existing leading attachment/file rows keep their position.
+        if vaultURL == nil {
+            rows.append(
+                ComposerResourceGrantRow(
+                    id: "vault:none",
+                    title: "No active vault",
+                    detail: "Connect a vault to enable Read + Search + Halo recall",
+                    systemImage: "externaldrive.badge.plus",
+                    isRevocable: false
+                )
+            )
+        }
+
         let allowedToolNames = Set(compiledAllowedToolNames.map { $0.lowercased() })
         self.rows = rows
         self.summaryText = Self.summaryText(
@@ -113,6 +129,8 @@ struct ComposerCurrentAccessPlan: Equatable {
             return isLiveWritableResource(attachment)
                 ? "Read + Edit active HTML workspace"
                 : "Read active HTML workspace"
+        case .graph:
+            return "Read selected graph context"
         }
     }
 

@@ -50,15 +50,4 @@ struct ComposerMessageQueueTests {
         #expect(!q.hasPending)
     }
 
-    @Test("composer routes a submit-while-processing to the queue (Enter just works), and auto-sends on completion")
-    func composerRoutesSubmitWhileProcessingToQueue() throws {
-        let composer = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        // Submitting while the agent runs ENQUEUES instead of being dropped by the
-        // `guard !isProcessing` — the intuitive "type + Enter while busy" path.
-        #expect(composer.contains("if isProcessing, !trimmedText.isEmpty {"))
-        #expect(composer.contains("messageQueue.enqueue(trimmedText)"))
-        // The staged message auto-sends on the run-completion edge (proves it sends).
-        #expect(composer.contains("messageQueue.dequeueOnCompletion("))
-        #expect(composer.contains("submitCurrentText()"))
-    }
 }

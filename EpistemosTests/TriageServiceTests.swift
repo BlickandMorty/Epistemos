@@ -959,7 +959,7 @@ struct InferencePolicyEngineTests {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
-                surface: .noteChat,
+                surface: .noteAgentPortal,
                 intent: .rewrite,
                 contentLength: 240,
                 promptLength: 180,
@@ -1261,7 +1261,7 @@ struct InferencePolicyEngineTests {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
-                surface: .noteChat,
+                surface: .noteAgentPortal,
                 intent: .rewrite,
                 contentLength: 200,
                 promptLength: 140,
@@ -1291,7 +1291,7 @@ struct InferencePolicyEngineTests {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
-                surface: .noteChat,
+                surface: .noteAgentPortal,
                 intent: .rewrite,
                 contentLength: 180,
                 promptLength: 120,
@@ -1598,7 +1598,7 @@ struct InferencePolicyEngineTests {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
-                surface: .noteChat,
+                surface: .noteAgentPortal,
                 intent: .noteAnalysis,
                 contentLength: 3_400,
                 promptLength: 2_900,
@@ -1892,7 +1892,7 @@ struct InferencePolicyEngineTests {
         )
         let decision = engine.decide(
             profile: InferenceRequestProfile(
-                surface: .miniChat,
+                surface: .mainChat,
                 intent: .simpleAsk,
                 contentLength: 40,
                 promptLength: 40,

@@ -10,7 +10,7 @@ import SwiftTerm
 // WORK = OpenCode shell — the NATIVE terminal view (owner 2026-06-21, Option A).
 // Renders OpenCode's REAL terminal TUI in a native macOS terminal emulator
 // (SwiftTerm's LocalProcessTerminalView + a real PTY) — NOT an Electron/Tauri web
-// GUI, NOT a native rebuild. Themed to the app's cream/ink monospace discipline.
+// GUI, NOT a native rebuild. Themed to the app's flat token-driven monospace discipline.
 // Driven by the Seam-A WorkShellLaunchSpec (executable/args/cwd/env) — today the
 // inert seam yields no spec, so the host shows an honest placeholder; the EARLY
 // de-risk smoke path (owner's named open risk: "can the terminal view render
@@ -25,18 +25,18 @@ import SwiftTerm
 /// Derived from the live `EpistemosTheme` so the terminal tracks the same tokens as the rest of
 /// the app; rebuilt on every theme change (UIState is @Observable → the host re-renders → the NSView
 /// re-applies). Monospace is kept (a terminal is monospace by definition) but its color follows the
-/// theme. A default (cream/ink) is provided only as a non-themed fallback for previews/safety.
+/// theme. A system-color default is provided only as a non-themed fallback for previews/safety.
 struct WorkTerminalPalette: Equatable {
     let background: NSColor
     let foreground: NSColor
     let cursor: NSColor
     let font: NSFont
 
-    /// The app default — cream paper + ink (used only when no theme is in the environment).
+    /// System-color fallback used only when no Epistemos theme is available.
     static let `default` = WorkTerminalPalette(
-        background: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.92, alpha: 1.0),
-        foreground: NSColor(calibratedRed: 0.13, green: 0.12, blue: 0.11, alpha: 1.0),
-        cursor: NSColor(calibratedRed: 0.13, green: 0.12, blue: 0.11, alpha: 1.0),
+        background: .textBackgroundColor,
+        foreground: .labelColor,
+        cursor: .controlAccentColor,
         font: NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
     )
 
@@ -114,15 +114,15 @@ struct WorkTerminalView: NSViewRepresentable {
 }
 #endif
 
-/// The honest host: picks the REAL OpenCode shell when it's wired, the opt-in smoke
+/// The honest host: picks the REAL Work shell when it's wired, the opt-in smoke
 /// shell when armed for the early de-risk, otherwise an honest placeholder — it NEVER
 /// shows a fake terminal. This is the single switch the live runtime flips.
 struct WorkTerminalHostView: View {
     /// Workspace the work session is rooted at (the open vault/project dir) — the shell cwd.
     let workspace: URL
     /// The Epistemos APP VAULT the fusion MCP server roots at, so the work agent sees the
-    /// app's vault notes + `skills/` as first-class MCP context (0.49b). nil → the bundled
-    /// shell falls back to the canonical default vault (never the cwd/home).
+    /// app's vault notes + `skills/` as first-class MCP context (0.49b). nil → no active
+    /// vault, so fusion is omitted honestly rather than silently using an empty default.
     var epistemosVaultRoot: URL? = nil
 
     // Live app theme — reading it makes the terminal recolor on EVERY theme change (incl. custom),
@@ -143,6 +143,7 @@ struct WorkTerminalHostView: View {
     // surface also now shows an honest "starting" state while the spec resolves instead of a blank/placeholder.
     @State private var resolvedSpec: WorkShellLaunchSpec?
     @State private var resolvedForWorkspace: URL?
+    @State private var resolveError: String?
 
     var body: some View {
         #if !EPISTEMOS_APP_STORE
@@ -156,6 +157,8 @@ struct WorkTerminalHostView: View {
             } else if smokeEnabled {
                 // Owner's EARLY de-risk: a real login-shell PTY in the themed native view.
                 WorkTerminalView(spec: .smokeLoginShell(workspace: workspace), palette: palette)
+            } else if let resolveError {
+                WorkTerminalUnavailableView(detail: resolveError, palette: palette)
             } else if shell.isReady {
                 // Live shell IS ready; the spec (incl. the one-time fusion-config write) is resolving off the
                 // render path — show an honest "starting" state, not the not-wired placeholder. 0.46.
@@ -169,7 +172,13 @@ struct WorkTerminalHostView: View {
             // happens now — not per render). Re-resolve only when the workspace actually changes.
             if resolvedSpec == nil || resolvedForWorkspace != workspace {
                 resolvedForWorkspace = workspace
-                resolvedSpec = (try? realShellSpec())
+                resolveError = nil
+                do {
+                    resolvedSpec = try await realShellSpec()
+                } catch {
+                    resolvedSpec = nil
+                    resolveError = "Couldn't start Epistemos Work terminal: \(error.localizedDescription)"
+                }
             }
         }
         #else
@@ -186,10 +195,15 @@ struct WorkTerminalHostView: View {
         AppBootstrap.shared?.persistWorkSession(id: "work:\(workspace.path)", title: title)
     }
 
-    /// The live OpenCode launch spec — nil/throws until the runtime is wired (honest).
-    private func realShellSpec() throws -> WorkShellLaunchSpec {
+    /// The live OpenCode launch spec — nil/throws until the runtime is wired (honest). (c2, 2026-06-24): starts
+    /// the app-hosted native-tools MCP server BEFORE OpenCode config generation and passes its loopback
+    /// registration so the generated config asserts `epistemos-native` (the FULL native tool surface). nil
+    /// (server can't bind / not ready) → `epistemos-native` is honestly omitted; the shell still launches.
+    private func realShellSpec() async throws -> WorkShellLaunchSpec {
         guard shell.isReady else { throw WorkShellError.notWired("inert") }
-        return try shell.launchSpec(workspace: workspace, epistemosVaultRoot: epistemosVaultRoot)
+        let nativeMCP = await WorkNativeMCPHost.shared.startAndAwaitRegistration(vaultRoot: epistemosVaultRoot)
+        return try shell.launchSpec(
+            workspace: workspace, epistemosVaultRoot: epistemosVaultRoot, nativeMCP: nativeMCP)
     }
 }
 
@@ -222,7 +236,7 @@ struct WorkTerminalUnavailableView: View {
             Image(systemName: "terminal")
                 .font(.system(size: 28))
                 .foregroundStyle(Color(nsColor: palette.foreground).opacity(0.55))
-            Text("Work terminal not wired yet")
+            Text("Epistemos Work terminal unavailable")
                 .font(.callout.weight(.medium))
                 .foregroundStyle(Color(nsColor: palette.foreground))
                 .motionReveal()  // motion triad: display-only title

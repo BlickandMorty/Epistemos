@@ -52,7 +52,7 @@ struct TypewriterPlainText: View {
 }
 
 // MARK: - Haptic Helpers
-// Fire-and-forget haptic pulse — used by ChatState's streaming token flush
+// Fire-and-forget haptic pulse — used by streaming token flushes
 // to give subtle feedback as tokens arrive.
 
 enum HomeCommandHapticStyle: Sendable {
@@ -63,7 +63,6 @@ enum HomeCommandHapticStyle: Sendable {
     case timeMachine
     case notes
     case newNote
-    case miniChat
     case document
     case graph
     case agent
@@ -125,9 +124,6 @@ enum HapticHelper {
             perform(.generic)
         case .newNote:
             perform(.alignment)
-        case .miniChat:
-            perform(.generic)
-            performDelayed(.alignment, after: .milliseconds(60))
         case .document:
             perform(.levelChange)
             performDelayed(.alignment, after: .milliseconds(65))

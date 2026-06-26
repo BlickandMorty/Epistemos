@@ -36,7 +36,7 @@ def parse_swift_ownership(filepath: str) -> list:
     elif "Views/Chat" in rel: subsystem = "chat"
     elif "Views/Omega" in rel: subsystem = "omega_ui"
     elif "Views/Shared" in rel: subsystem = "shared_ui"
-    elif "Views/MiniChat" in rel: subsystem = "mini_chat"
+    elif "Views/AgentFusion" in rel: subsystem = "agent_fusion"
     elif "Views/Onboarding" in rel: subsystem = "onboarding"
     elif "Views/" in rel: subsystem = "views"
     elif "Intents/" in rel: subsystem = "intents"
