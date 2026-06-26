@@ -2705,7 +2705,6 @@ final class AppBootstrap {
             try context.delete(model: SDPage.self)
             try context.delete(model: SDFolder.self)
             try context.delete(model: SDWorkspace.self)
-            try context.delete(model: SDModelProfile.self)
             try context.save()
             _ = NoteFileStorage.removeAllManagedBodies()
         } catch {

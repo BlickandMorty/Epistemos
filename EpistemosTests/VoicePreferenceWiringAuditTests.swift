@@ -14,8 +14,7 @@ import Foundation
 //
 //   REMOVED (2026-06-21, do-nothing with no clean/valuable seam — not shown as for-show controls):
 //     • brainDumpHotkeyDictate (no dictation-start seam exists to gate)
-//     • perModelVoicePersona   (superseded by the SS-QC global default voice; wiring needs
-//                               SwiftData/ModelProfileManager access the deleted old chat row lacked)
+//     • perModelVoicePersona   (superseded by the SS-QC global default voice)
 //
 // Wiring the four is owner-present: each is an audio / mic / launch-path behavior that can't be
 // self-verified headless. This guard locks the surviving REAL toggles against silent regression

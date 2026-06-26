@@ -3135,7 +3135,7 @@ struct RuntimeValidationTests {
         #expect(resetBody.contains("try context.delete(model: SDGraphEdge.self)"))
         #expect(resetBody.contains("try context.delete(model: SDBlock.self)"))
         #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
-        #expect(resetBody.contains("try context.delete(model: SDModelProfile.self)"))
+        #expect(!resetBody.contains("SDModelProfile"))
         #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
         #expect(resetBody.contains("UserDefaults.standard.set(false, forKey: \"epistemos.setupComplete\")"))
         #expect(resetBody.contains("clearVaultLifecycleRuntimeState("))
@@ -3145,12 +3145,13 @@ struct RuntimeValidationTests {
         #expect(!appBootstrap.contains("graphState.needsRefresh = true"))
     }
 
-    @Test("model profile persistence avoids silent save failures")
-    func modelProfilePersistenceAvoidsSilentSaveFailures() throws {
-        let manager = try loadRepoTextFile("Epistemos/State/ModelProfileManager.swift")
+    @Test("retired model profile layer stays deleted")
+    func retiredModelProfileLayerStaysDeleted() throws {
+        let schema = try loadRepoTextFile("Epistemos/Models/EpistemosSchema.swift")
 
-        #expect(!manager.contains("try? context.save()"))
-        #expect(manager.contains("Failed to persist model profile"))
+        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/Models/SDModelProfile.swift")))
+        #expect(!FileManager.default.fileExists(atPath: repoPath("Epistemos/State/ModelProfileManager.swift")))
+        #expect(!schema.contains("SDModelProfile"))
     }
 
     @Test("UIState landing greeting persistence avoids silent JSON and timer failures")

@@ -931,7 +931,7 @@ struct AuditHardeningRegressionTests {
         #expect(resetBody.contains("try context.delete(model: SDGraphEdge.self)"))
         #expect(resetBody.contains("try context.delete(model: SDBlock.self)"))
         #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
-        #expect(resetBody.contains("try context.delete(model: SDModelProfile.self)"))
+        #expect(!resetBody.contains("SDModelProfile"))
         #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
         #expect(resetBody.contains("UserDefaults.standard.set(false, forKey: \"epistemos.setupComplete\")"))
     }

@@ -5,17 +5,14 @@ import OSLog
 // MARK: - EpistemosSpeechSynthesizer
 //
 // Wave 9.1 — Apple-native TTS via AVSpeechSynthesizer.
-// Wave 9.1.b — per-model voice personas + premium-voice catalogue +
-// interactive playback controls (pause / resume / stop, live progress).
+// Wave 9.1.b — premium-voice catalogue + interactive playback controls
+// (pause / resume / stop, live progress).
 //
 // Per the W9 verdict (docs/WAVE_9_POLISH_AND_NATIVE.md): of the eight
 // Apple-native ML / capture frameworks Epistemos already integrates,
-// AVSpeechSynthesizer was the lone holdout. The W9.1.b extension lets
-// each `SDModelProfile` carry a `voiceIdentifier` so Claude, GPT,
-// Qwen, LocalAgent etc. each speak with a distinct persona. Quality tier
-// is opportunistically upgraded — we prefer Premium > Enhanced >
-// Default and surface a download hint when a Premium voice exists in
-// Apple's catalogue but is not yet locally installed.
+// AVSpeechSynthesizer was the lone holdout. Quality tier is opportunistically
+// upgraded — we prefer Premium > Enhanced > Default and surface a download hint
+// when a Premium voice exists in Apple's catalogue but is not yet locally installed.
 //
 // ## Why a singleton actor
 //

@@ -161,7 +161,6 @@ struct VaultLifecycleResetTests {
             context.insert(graphNode)
             context.insert(graphEdge)
             context.insert(SDWorkspace(name: "Old Workspace", isAutoSave: true))
-            context.insert(SDModelProfile())
             try context.save()
 
             NoteFileStorage.writeBody(pageId: page.id, content: "VAULT_A_ONLY")
@@ -203,7 +202,6 @@ struct VaultLifecycleResetTests {
             #expect(try modelCount(SDGraphNode.self, in: context) == 0)
             #expect(try modelCount(SDGraphEdge.self, in: context) == 0)
             #expect(try modelCount(SDWorkspace.self, in: context) == 0)
-            #expect(try modelCount(SDModelProfile.self, in: context) == 0)
             #expect(!NoteFileStorage.bodyExists(pageId: page.id))
             #expect(bootstrap.graphState.store.nodeCount == 0)
             #expect(bootstrap.graphState.store.edgeCount == 0)

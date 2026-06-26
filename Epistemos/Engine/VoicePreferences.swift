@@ -16,8 +16,8 @@ import SwiftUI
 //   3. Auto-stop dictation on silence (auto-detect "I'm done
 //      speaking" pause vs require explicit Stop tap)
 //   4. Brain-dump dictation auto-launch on hotkey
-//   5. Per-model voice routing (use the model's bound voice persona
-//      from W9.1.b, or always use the system default voice)
+//   5. Retired per-model voice routing preference kept for defaults
+//      migration only; live TTS uses the system default voice.
 //
 // Persistence: UserDefaults under the
 // `com.epistemos.voice.*` namespace so other parts of the app can
@@ -70,9 +70,8 @@ public enum VoicePreferenceKeys {
     public static let brainDumpHotkeyDictate =
         "com.epistemos.voice.brainDumpHotkeyDictate"
 
-    /// When `auto`, agent responses use the per-model voice persona
-    /// (W9.1.b SDModelProfile.voiceIdentifier). When `manual`, all
-    /// TTS uses the user's chosen system default voice.
+    /// Retired per-model voice persona preference. Live TTS uses the user's
+    /// chosen system default voice.
     public static let perModelVoicePersona =
         "com.epistemos.voice.perModelVoicePersona"
 
