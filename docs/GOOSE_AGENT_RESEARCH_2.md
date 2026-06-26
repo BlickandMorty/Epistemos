@@ -3,6 +3,7 @@
 > **Index status**: SUPERSEDED-HISTORICAL — Comparative Block Goose / OpenHarness / Hermes / SciAgent-Skills analysis; framework selection complete (Rust-native chosen).
 > **Superseded by**: AGENT_FUSION_RESEARCH_PROMPT + BEST_OF_CLAW_AND_OPENCLAW (synthesized into IMPLEMENTATION_PLAN_FROM_ADVICE).
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+> ⛔ **SUPERSEDED for Goose integration (2026-06-26):** the in-process / UniFFI Goose-core direction here is **dead** — killed by `GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md`, superseded by the LOCKED plan `docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md` §14.2. Current truth: Goose = **Act** surface, **WebView UI + ACP** (sidecar `goosed`), not FFI.
 
 
 ﻿Technical Analysis of Agent Architectures and Quantization Strategies for macOS-Native Knowledge Systems

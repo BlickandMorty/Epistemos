@@ -1,5 +1,7 @@
 # Goose S2 — block/goose Rust-core extraction PLAN (2026-06-19)
 
+> ⛔ **SUPERSEDED — DO NOT FOLLOW (2026-06-26).** This plan's core directive — vendor the `goose` Rust crate **in-process via UniFFI** — was **killed** by `docs/research/GOOSE_FULL_CLONE_INTEGRATION_COST_2026_06_21.md` and superseded by the LOCKED plan `docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md` (see §14.2). Current truth: Goose is the **Act** surface (this doc's "Goose = Work" mapping is ALSO superseded — Work = OpenGUI), integrated as Goose's **web UI in a WebView driven over ACP** to a sidecar `goosed` — **NOT** an in-process UniFFI vendor. Kept for history only; do not act on the directive below.
+
 **Owner DECISION (R-GOOSE): Work/Open-Code = Goose. Pull block/goose's RUST CORE
 (Apache-2.0) into agent_core via UniFFI = the full engine (repo indexing, git
 lifecycle, multi-file diffs, deterministic test-and-fix loop, parallel subagents,
