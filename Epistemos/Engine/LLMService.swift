@@ -272,8 +272,7 @@ extension LLMProviderType {
 }
 
 /// Shared text generation gateway for older subsystems that still expect
-/// a single generation service. It exposes the current Apple Intelligence vs.
-/// local Qwen snapshot without duplicating the higher-level triage engine.
+/// a single generation service, without duplicating the higher-level triage engine.
 @MainActor @Observable
 final class LLMService: LLMClientProtocol {
     private let inference: InferenceState
@@ -474,17 +473,8 @@ final class LLMService: LLMClientProtocol {
         reasoningMode: LocalReasoningMode,
         modelID: String?
     ) async throws -> String {
-        guard let localLLMClient = AppBootstrap.shared?.localLLMClient else {
-            throw LocalInferenceRoutingError.runtimeUnavailable
-        }
-
-        return try await localLLMClient.generate(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            reasoningMode: reasoningMode,
-            modelID: modelID
-        )
+        _ = (prompt, systemPrompt, maxTokens, reasoningMode, modelID)
+        throw LocalInferenceRoutingError.runtimeUnavailable
     }
 
     @MainActor

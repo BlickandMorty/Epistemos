@@ -1394,7 +1394,6 @@ final class AppBootstrap {
     let localRuntimeControlPlane: BackendRuntimeControlPlane
     let preparedModelRegistryState: PreparedModelRegistryState
     let preparedModelRegistry: PreparedModelRegistry
-    let localLLMClient: any LocalConfigurableLLMClient
     let cloudLLMClient: CloudLLMClient
     let triageService: TriageService
     /// Transparency-only audit trail of recent Overseer planning decisions.
@@ -1578,15 +1577,12 @@ final class AppBootstrap {
         // notifications and will apply the real snapshot once loaded.
         graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
 
-        let localLLMClient = UnavailableLocalLLMClient()
-        self.localLLMClient = localLLMClient
         let cloudLLMClient = CloudLLMClient(inference: inference)
         self.cloudLLMClient = cloudLLMClient
 
-        // LLMService is now the shared local-only gateway used by older subsystems.
+        // LLMService is the shared generation facade used by older subsystems.
         let llm = LLMService(
             inference: inference,
-            localLLMClient: localLLMClient,
             cloudLLMClient: cloudLLMClient
         )
         self.llmService = llm
@@ -1608,7 +1604,6 @@ final class AppBootstrap {
         // TriageService keeps foundation retrieval available while app-local generation stays removed.
         let triage = TriageService(
             inference: inference,
-            localLLMService: localLLMClient,
             cloudLLMService: cloudLLMClient,
             prepareForRouting: {}
         )
@@ -1647,7 +1642,6 @@ final class AppBootstrap {
             triageService: triage,
             inference: inference,
             eventBus: eventBus,
-            localModelClient: localLLMClient,
             constrainedDecoding: constrainedDecoding,
             vaultPathProvider: { [weak vaultSync] in
                 vaultSync?.vaultURL?.path
