@@ -24,8 +24,8 @@ enum PowerMode: Int, Comparable, Sendable, CaseIterable {
         }
     }
 
-    /// Whether background subsystems (NightBrain, Heartbeat, watchdog,
-    /// screen capture, vault timers, health checks) should be disabled.
+    /// Whether background subsystems (heartbeat, watchdog, screen capture,
+    /// vault timers, health checks) should be disabled.
     var disablesBackground: Bool {
         self >= .eco
     }

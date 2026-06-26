@@ -23,12 +23,6 @@ final class EpistemosConfig {
     @ObservationIgnored @AppStorage("friction.enabled") var frictionEnabled = true
     @ObservationIgnored @AppStorage("friction.threshold") var frictionThreshold = 1.5
 
-    // MARK: - Night Brain
-    @ObservationIgnored @AppStorage("nightbrain.enabled") var nightBrainEnabled = true
-    @ObservationIgnored @AppStorage("nightbrain.requiresAC") var nightBrainRequiresAC = true
-    @ObservationIgnored @AppStorage("nightbrain.minIdleSeconds") var nightBrainMinIdleSeconds = 300.0
-    @ObservationIgnored @AppStorage("nightbrain.menuBarAgent") var nightBrainMenuBarAgent = false
-
     // MARK: - SSM State Persistence (Mamba vault memory)
     @ObservationIgnored @AppStorage("ssm.statePersistenceEnabled") var ssmStatePersistenceEnabled = false
     @ObservationIgnored @AppStorage("ssm.autoSaveOnTurnEnd") var ssmAutoSaveOnTurnEnd = true

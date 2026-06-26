@@ -8,7 +8,7 @@ import os
 //
 // - On session end: generate knowledge graph
 // - On vault write: detect contradictions
-// - On NightBrain: merge graphs, analyze traces, propose mutations
+// - During vault maintenance: merge graphs, analyze traces, propose mutations
 //
 // All FFI calls are dispatched to background threads to avoid blocking.
 
@@ -53,7 +53,7 @@ actor VaultLifecycleService {
     }
 
     /// Merge all session graphs into a vault-level graph.
-    /// Called by NightBrain during idle maintenance.
+    /// Called during idle vault maintenance.
     func mergeVaultGraphs() {
         // List all session folders, generate graphs for any missing, then merge
         let sessions = listSessionFoldersLocal(vaultPath: vaultPath)
@@ -83,7 +83,7 @@ actor VaultLifecycleService {
     // MARK: - Phase 6: GEPA Self-Evolution
 
     /// Analyze traces for a specific skill and propose mutations.
-    /// Called by NightBrain for skills with sufficient trace data.
+    /// Called for skills with sufficient trace data.
     func analyzeAndProposeEvolution(skillName: String) -> SkillEvolutionResult? {
         // Step 1: Analyze traces
         guard let patternJSON = try? analyzeSkillTracesLocal(

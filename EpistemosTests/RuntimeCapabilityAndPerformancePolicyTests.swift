@@ -476,16 +476,12 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(!environment.contains(".environment(bootstrap.screen2AXFusion)"))
     }
 
-    @Test("AppBootstrap cloud knowledge distillation stays lazy until NightBrain runs")
-    func appBootstrapKeepsCloudKnowledgeDistillationLazyUntilJobRuns() throws {
+    @Test("AppBootstrap keeps retired cloud knowledge distillation deleted")
+    func appBootstrapKeepsCloudKnowledgeDistillationDeleted() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(source.contains("private var _cloudKnowledgeDistillationService: CloudKnowledgeDistillationService?"))
-        #expect(source.contains("var cloudKnowledgeDistillationService: CloudKnowledgeDistillationService {"))
-        #expect(source.contains("cloudKnowledgeJob: { [weak self] in"))
-        #expect(source.contains("await MainActor.run(body: {"))
-        #expect(source.contains("self?.cloudKnowledgeDistillationService"))
-        #expect(!source.contains("cloudKnowledgeJob: { [cloudKnowledgeDistillationService] in"))
+        #expect(!source.contains("CloudKnowledgeDistillationService"))
+        #expect(!source.contains("cloudKnowledgeJob"))
     }
 
     @Test("semantic cluster parallel path avoids unsafe mutable buffer capture")

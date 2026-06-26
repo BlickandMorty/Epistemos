@@ -194,21 +194,6 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("guard child.isRegularFile"))
     }
 
-    @Test("vault PDF and text ingestion is bounded before extraction")
-    func vaultPDFAndTextIngestionIsBounded() throws {
-        let parserSource = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/DataIngestion/VaultParser.swift")
-
-        #expect(parserSource.contains("maxTextFileBytes"))
-        #expect(parserSource.contains("maxPDFFileBytes"))
-        #expect(parserSource.contains("maxPDFPageCount"))
-        #expect(parserSource.contains("maxPDFExtractedCharacters"))
-        #expect(parserSource.contains("boundedTextFileString"))
-        #expect(parserSource.contains("validateFileSize("))
-        #expect(parserSource.contains("min(document.pageCount, Self.maxPDFPageCount)"))
-        #expect(parserSource.contains("remainingCharacters"))
-        #expect(parserSource.contains("case fileTooLarge"))
-    }
-
     @Test("document surface exposes structured patch hooks without Epdoc internals")
     func documentExposesPatchHooks() throws {
         let documentSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceDocument.swift")

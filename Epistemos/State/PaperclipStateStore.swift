@@ -6,7 +6,7 @@ import SQLite3
 //
 // High-frequency agent tick storage using raw SQLite with WAL mode.
 // The hybrid architecture from the Omniscient Manifesto:
-//   - SwiftData for read-heavy, human-facing workloads (HologramOverlay, NightBrain)
+//   - SwiftData for read-heavy, human-facing workloads
 //   - Raw SQLite WAL for write-heavy, machine-facing workloads (token ticks, heartbeats)
 //
 // WAL mode delivers 70K-100K writes/sec vs SwiftData's ORM overhead.

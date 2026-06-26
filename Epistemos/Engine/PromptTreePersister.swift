@@ -20,8 +20,8 @@ import OSLog
 // → PTF → Prompt produces an identical Prompt (verified by tests).
 //
 // GC policy: keep last N=20 turns per session. Older turns get pruned
-// by NightBrain (or on-demand via `gcStaleTurns`). The active session's
-// most recent turn is never pruned.
+// on-demand via `gcStaleTurns`. The active session's most recent turn
+// is never pruned.
 //
 // **Privacy doctrine** (RCA9-P2-005 fix-pass 2026-05-13):
 //   - PromptTree is OPT-IN. Default is `false`; persistence only

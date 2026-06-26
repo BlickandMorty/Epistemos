@@ -116,20 +116,17 @@ public struct EpdocCopilotDockView: View {
     public let wordCount: Int
     public let complexity: Double
     public let dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void
-    public let onAskAgent: @Sendable @MainActor (String) -> Void
     public let freeformAgentEnabled: Bool
 
     public init(
         wordCount: Int,
         complexity: Double,
         dispatch: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void,
-        onAskAgent: @escaping @Sendable @MainActor (String) -> Void,
         freeformAgentEnabled: Bool = false
     ) {
         self.wordCount = wordCount
         self.complexity = complexity
         self.dispatch = dispatch
-        self.onAskAgent = onAskAgent
         self.freeformAgentEnabled = freeformAgentEnabled
     }
 
@@ -175,8 +172,7 @@ public struct EpdocCopilotDockView: View {
     EpdocCopilotDockView(
         wordCount: 420,
         complexity: 0.38,
-        dispatch: { _ in },
-        onAskAgent: { _ in }
+        dispatch: { _ in }
     )
     .padding()
     .frame(width: 460)

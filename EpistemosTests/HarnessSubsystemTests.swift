@@ -1319,18 +1319,11 @@ struct SanitizedEnvironmentTests {
         let harnessLab = try loadMirroredSourceTextFile("Epistemos/Harness/HarnessLab.swift")
         let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
         let screenCapture = try loadMirroredSourceTextFile("Epistemos/Omega/Vision/ScreenCaptureService.swift")
-        let adapterExporter = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/Adapters/AdapterExporter.swift")
-        let embodiedCapture = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
-        let pythonEnvironment = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
 
         #expect(completionChecker.contains("process.environment = SanitizedEnvironment.build()"))
         #expect(harnessLab.contains("process.environment = SanitizedEnvironment.build()"))
         #expect(vaultSync.contains("process.environment = SanitizedEnvironment.build()"))
         #expect(screenCapture.contains("kickTask.environment = SanitizedEnvironment.build()"))
-        #expect(adapterExporter.contains("process.environment = SanitizedEnvironment.build()"))
-        #expect(embodiedCapture.contains("process.environment = SanitizedEnvironment.build()"))
-        #expect(pythonEnvironment.contains("nonisolated static func boundedToolEnvironment(executable: String) -> [String: String]"))
-        #expect(!pythonEnvironment.contains("ProcessInfo.processInfo.environment"))
     }
 }
 

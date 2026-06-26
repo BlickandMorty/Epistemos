@@ -137,16 +137,10 @@ public final class EpdocEditorChromeController {
     ///     NSDocument autosave picks them up.
     /// Default is a no-op so unit tests + previews don't have to care.
     public var onContentChanged: @Sendable @MainActor (Data) -> Void
-    /// Open the agent inspector with the selected text.
-    public var onAskAgent: @Sendable @MainActor (String) -> Void
     /// Open a first-class HTML Workspace for DOM/interactive visual work.
     public var onOpenHTMLWorkspace: @Sendable @MainActor () -> Void
-    /// Capture as RawThought (Wave 3.1).
-    public var onCaptureAsRawThought: @Sendable @MainActor (String) -> Void
     /// Halo backend search closure for the Insert link picker (W8.4).
     public var onSearchLinks: @Sendable @MainActor (String) async -> [EpdocLinkSuggestion]
-    /// Open the agent inspector for a specific RawThought run id.
-    public var onPickRun: @Sendable @MainActor (String) -> Void
     /// Resolve package-local assets for the `epistemos-doc:///assets/...`
     /// URL-scheme path. The owning `EpdocDocument` installs this so the
     /// WebView can render media stored in the `.epdoc` package.
@@ -165,7 +159,6 @@ public final class EpdocEditorChromeController {
         self.dispatch = { _ in }
         self.onSave = { }
         self.onContentChanged = { _ in }
-        self.onAskAgent = { _ in }
         self.onOpenHTMLWorkspace = {
             do {
                 try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(
@@ -175,9 +168,7 @@ public final class EpdocEditorChromeController {
                 NSApplication.shared.presentError(error)
             }
         }
-        self.onCaptureAsRawThought = { _ in }
         self.onSearchLinks = { _ in [] }
-        self.onPickRun = { _ in }
         self.onResolveDocumentAsset = { _ in nil }
         self.onStoreDocumentAsset = { filename, mimeType, data in
             "data:\(mimeType);base64,\(data.base64EncodedString())"
@@ -424,9 +415,7 @@ public struct EpdocEditorChromeView: View {
                !selection.isEmpty {
                 EpdocBubbleMenuView(
                     selectedText: controller.bubbleMenuSelectedText,
-                    onCommand: controller.dispatch,
-                    onAskAgent: controller.onAskAgent,
-                    onCaptureAsRawThought: controller.onCaptureAsRawThought
+                    onCommand: controller.dispatch
                 )
                 .position(x: anchor.x, y: max(0, anchor.y - 30))
                 .transition(.opacity)
@@ -453,8 +442,7 @@ public struct EpdocEditorChromeView: View {
             EpdocCopilotDockView(
                 wordCount: controller.toolbarModel.wordCount,
                 complexity: controller.complexity,
-                dispatch: controller.dispatch,
-                onAskAgent: controller.onAskAgent
+                dispatch: controller.dispatch
             )
             .padding(.trailing, 24)
             .padding(.bottom, 18)
@@ -469,12 +457,6 @@ public struct EpdocEditorChromeView: View {
                     breakdown: controller.complexityBreakdown,
                     label: controller.documentTitle
                 )
-                if !controller.attachedRunIDs.isEmpty {
-                    EpdocThoughtAttachedBadge(
-                        attachedRunIDs: controller.attachedRunIDs,
-                        onPickRun: controller.onPickRun
-                    )
-                }
                 epdocSaveButton
             }
         }

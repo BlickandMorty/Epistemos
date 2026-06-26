@@ -2613,10 +2613,7 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
             self = .cloud(model)
             return
         }
-        guard LocalTextModelID(rawValue: rawValue) != nil
-            || GemmaQATRuntimeLadder.candidate(forID: rawValue) != nil
-        else { return nil }
-        self = .localMLX(rawValue)
+        return nil
     }
 
     var rawValue: String {
@@ -2634,10 +2631,8 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         switch self {
         case .appleIntelligence:
             "Apple Intelligence"
-        case .localMLX(let modelID):
-            LocalTextModelID(rawValue: modelID)?.displayName
-                ?? GemmaQATRuntimeLadder.candidate(forID: modelID)?.displayName
-                ?? modelID
+        case .localMLX:
+            "Local Models Removed"
         case .cloud(let model):
             model.displayName
         }
@@ -2647,11 +2642,8 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         switch self {
         case .appleIntelligence:
             return 128_000
-        case .localMLX(let id):
-            if GemmaQATRuntimeLadder.candidate(forID: id) != nil {
-                return 128_000
-            }
-            return LocalTextModelID(rawValue: id)?.maxContextTokens ?? 128_000
+        case .localMLX:
+            return 0
         case .cloud(let model):
             return model.maxContextTokens
         }
@@ -2661,11 +2653,8 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         switch self {
         case .appleIntelligence:
             return false
-        case .localMLX(let id):
-            if GemmaQATRuntimeLadder.candidate(forID: id) != nil {
-                return false
-            }
-            return LocalTextModelID(rawValue: id)?.supportsVision ?? false
+        case .localMLX:
+            return false
         case .cloud(let model):
             return model.supportsVision
         }
@@ -2674,7 +2663,7 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
     var activeSupportedFileTypes: Set<AttachmentType> {
         switch self {
         case .appleIntelligence: [.text, .csv, .pdf]
-        case .localMLX(let id): LocalTextModelID(rawValue: id)?.supportedFileTypes ?? [.text, .csv, .pdf]
+        case .localMLX: []
         case .cloud(let model): model.supportedFileTypes
         }
     }
@@ -2683,11 +2672,8 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         switch self {
         case .appleIntelligence:
             return false
-        case .localMLX(let id):
-            if GemmaQATRuntimeLadder.candidate(forID: id) != nil {
-                return false
-            }
-            return LocalTextModelID(rawValue: id)?.supportsThinkingMode ?? false
+        case .localMLX:
+            return false
         case .cloud(let model):
             return model.supportedOperatingModes.contains(.thinking)
         }
@@ -2697,10 +2683,8 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         switch self {
         case .appleIntelligence:
             "Apple Intelligence"
-        case .localMLX(let modelID):
-            LocalTextModelID(rawValue: modelID)?.compactDisplayName
-                ?? GemmaQATRuntimeLadder.candidate(forID: modelID)?.displayName
-                ?? modelID
+        case .localMLX:
+            "Local Removed"
         case .cloud(let model):
             model.compactDisplayName
         }
@@ -3278,13 +3262,8 @@ final class InferenceState {
     /// this is an EXPLICIT user-forced load (NOT a silent swap — fully allowed).
     /// Persisted so the choice survives restarts.
     private(set) var memoryGateForcedModelIDs: Set<String> = []
-    // Owner 2026-06-18: the default chat model is a Fast GEMMA, never Qwen
-    // (both Qwens are explicit-only picks). EpistemosFoundationLineup.defaultChatModelID
-    // = the Fast tier representative (smallest Gemma GGUF).
-    var preferredLocalTextModelID: String = EpistemosFoundationLineup.defaultChatModelID
-    var preferredChatModelSelection: ChatModelSelection = .localMLX(
-        EpistemosFoundationLineup.defaultChatModelID
-    )
+    var preferredLocalTextModelID: String = ""
+    var preferredChatModelSelection: ChatModelSelection = .cloud(.openAIGPT54)
     var activeAIProvider: AIProviderSelection = .openAI
     private let keychainLoad: @Sendable (String) -> String?
     private let keychainSave: @Sendable (String, String) -> Bool
@@ -3403,12 +3382,8 @@ final class InferenceState {
         self.keychainLoad = resolvedKeychainClosures.load
         self.keychainSave = resolvedKeychainClosures.save
         self.keychainDelete = resolvedKeychainClosures.delete
-        // L1134 — seed the fresh-install default from the headroom-aware foundation
-        // FAST Gemma (never Qwen 4B) under the simplified lineup; a saved pick loaded
-        // below still wins. Legacy lineup keeps the historical hardware recommendation.
-        let initialLocalDefault = Self.initialDefaultLocalTextModelID(for: hardwareCapabilitySnapshot)
-        self.preferredLocalTextModelID = initialLocalDefault
-        self.preferredChatModelSelection = .localMLX(initialLocalDefault)
+        self.preferredLocalTextModelID = ""
+        self.preferredChatModelSelection = .cloud(.openAIGPT54)
         self.localRuntimeConditions = .current()
         self.authService = CloudProviderAuthService(
             keychainLoad: resolvedKeychainClosures.load,
@@ -3437,25 +3412,16 @@ final class InferenceState {
 
         let defaults = UserDefaults.standard
         Self.migrateLegacyOpenAI52To54(defaults: defaults)
-        Self.migrateStaleGemma4Selection(defaults: defaults)
-        // SS-CHATMODEL P0: repair a stale auto-default Qwen on existing installs BEFORE the persisted
-        // pick loads below — so the migrated Gemma is what wins, reaching existing installs.
-        Self.migrateStaleDefaultModel(defaults: defaults, snapshot: hardwareCapabilitySnapshot)
-        // SS-CHATMODEL P0 (owner NO-FALLBACKS): under EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0,
-        // move a persisted GGUF Gemma default → its runnable MLX equivalent so the picked model
-        // actually runs (no silent Qwen substitution). No-op when the flag is OFF.
-        Self.migrateGgufGemmaDefaultToMlx(defaults: defaults)
+        Self.purgePersistedLocalModelSelection(defaults: defaults)
         if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
-           let mode = LocalRoutingMode(rawValue: saved) {
+           let mode = LocalRoutingMode(rawValue: saved),
+           mode != .localOnly {
             self.routingMode = mode
         } else if defaults.object(forKey: "epistemos.offlineOnlyEnabled") != nil,
                   defaults.bool(forKey: "epistemos.offlineOnlyEnabled") {
-            self.routingMode = .localOnly
+            self.routingMode = .auto
         }
-        if let saved = defaults.string(forKey: "epistemos.preferredLocalTextModelID"),
-           LocalTextModelID(rawValue: saved) != nil {
-            self.preferredLocalTextModelID = saved
-        }
+        self.preferredLocalTextModelID = ""
         if let saved = defaults.string(forKey: "epistemos.preferredChatModelSelection"),
            let selection = ChatModelSelection(rawValue: saved) {
             // Honor the saved cloud selection even when the keychain /
@@ -3477,14 +3443,8 @@ final class InferenceState {
                 forKey: "epistemos.preferredChatModelSelection"
             )
         } else {
-            self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
+            self.preferredChatModelSelection = .cloud(.openAIGPT54)
         }
-        // SS-CHATMODEL P0 (owner computer-use proof 2026-06-21): the pre-load migration's rewrite did
-        // not land on a real launch because the GGUF-id persisted load is LocalTextModelID-gated and
-        // falls back to the GGUF foundation default. Repair the FINAL in-memory selection here so an
-        // unrunnable GGUF Gemma (persisted OR defaulted) becomes the runnable MLX Gemma 3 — defaults
-        // read confirms it, no env var, no manual step. No-op when the GGUF lane is available.
-        repairUnrunnableGgufGemmaSelection(defaults: defaults)
         if let savedProvider = defaults.string(forKey: Self.activeAIProviderDefaultsKey),
            let provider = AIProviderSelection(rawValue: savedProvider) {
             self.activeAIProvider = normalizedVisibleAIProvider(provider)
@@ -3708,178 +3668,19 @@ final class InferenceState {
         let missingOAuthProviders: Set<CloudModelProvider>
     }
 
-    /// Migrate any persisted local-model selection that currently points
-    /// at a Gemma 4 tier. Gemma 4 weights download but the Swift MLX
-    /// loader isn't ported yet (see `isAwaitingSwiftRuntimeLoader`), so a
-    /// user pinned to Gemma 4 hits a runtime "Unsupported model type:
-    /// gemma4" error every turn. Move them to the documented default
-    /// (the Fast Gemma GGUF — same family, and it actually runs via the GGUF
-    /// lane) so chat works again; NOT gated by a one-time flag — if a user
-    /// somehow re-pins to an MLX Gemma 4 tier before the loader lands, the next
-    /// launch re-migrates them to the runnable Fast Gemma. (Owner 2026-06-18:
-    /// never migrate to Qwen — the default is a Fast Gemma.)
-    nonisolated static func migrateStaleGemma4Selection(defaults: UserDefaults) {
-        let fallbackLocalModelID = EpistemosFoundationLineup.defaultChatModelID
-
-        let localKey = "epistemos.preferredLocalTextModelID"
-        if let saved = defaults.string(forKey: localKey),
-           let model = LocalTextModelID(rawValue: saved),
-           model.isAwaitingSwiftRuntimeLoader {
-            defaults.set(fallbackLocalModelID, forKey: localKey)
+    nonisolated static func purgePersistedLocalModelSelection(defaults: UserDefaults) {
+        defaults.removeObject(forKey: "epistemos.preferredLocalTextModelID")
+        defaults.removeObject(forKey: "com.epistemos.focus.forceLocalModelsOnly")
+        if let saved = defaults.string(forKey: "epistemos.preferredChatModelSelection"),
+           ChatModelSelection(rawValue: saved) == nil
+            || saved.hasPrefix("localMLX:")
+            || saved == "localMLX" {
+            defaults.removeObject(forKey: "epistemos.preferredChatModelSelection")
         }
-
-        let selectionKey = "epistemos.preferredChatModelSelection"
-        if let saved = defaults.string(forKey: selectionKey),
-           case .localMLX(let modelID) = ChatModelSelection(rawValue: saved) ?? .appleIntelligence,
-           let model = LocalTextModelID(rawValue: modelID),
-           model.isAwaitingSwiftRuntimeLoader {
-            defaults.set(
-                ChatModelSelection.localMLX(fallbackLocalModelID).rawValue,
-                forKey: selectionKey
-            )
-        }
-    }
-
-    /// SS-CHATMODEL P0 (owner 2026-06-21, 5th report): one-time repair of the stale auto-default
-    /// Qwen on EXISTING installs. The prior fix (89ef5a206) only set the FRESH-install default to a
-    /// headroom-aware Gemma; an existing install with a persisted Qwen kept Qwen because the saved
-    /// pick loads after init and wins. This migrates a persisted Qwen DEFAULT → that same headroom-
-    /// aware Gemma, keyed by `epistemos.modelDefaultMigratedV2` so it runs once and never re-stomps.
-    /// Only the OLD auto-default (`qwen3_4B4Bit`) is touched — a deliberate larger/explicit Qwen pick
-    /// (e.g. `qwen3_8B4Bit`) is preserved, and the owner can always re-pick Qwen (it stays available).
-    nonisolated static func migrateStaleDefaultModel(
-        defaults: UserDefaults,
-        snapshot: LocalHardwareCapabilitySnapshot
-    ) {
-        let migratedKey = "epistemos.modelDefaultMigratedV2"
-        guard !defaults.bool(forKey: migratedKey) else { return }
-        defaults.set(true, forKey: migratedKey)
-        // Only under the simplified Fast/Think/Code lineup (the regime whose default is Gemma).
-        guard EpistemosFoundationLineup.simplifiedLineupActive else { return }
-
-        let staleDefaultQwen = LocalTextModelID.qwen3_4B4Bit.rawValue
-        let gemmaDefault = initialDefaultLocalTextModelID(for: snapshot)
-
-        let localKey = "epistemos.preferredLocalTextModelID"
-        if defaults.string(forKey: localKey) == staleDefaultQwen {
-            defaults.set(gemmaDefault, forKey: localKey)
-        }
-
-        // The chat surface's source of truth — accepts a GGUF Gemma id (unlike the LocalTextModelID-
-        // only localKey load), so this is the assignment that actually flips the live chat model.
-        let selectionKey = "epistemos.preferredChatModelSelection"
-        if defaults.string(forKey: selectionKey) == ChatModelSelection.localMLX(staleDefaultQwen).rawValue {
-            defaults.set(
-                ChatModelSelection.localMLX(gemmaDefault).rawValue,
-                forKey: selectionKey
-            )
-        }
-    }
-
-    /// Pure mapping: the proven-runnable MLX Gemma `LocalTextModelID` raw value to migrate a persisted
-    /// GGUF Gemma id onto. Returns nil for non-Gemma / non-GGUF / already-MLX ids (deliberate non-Gemma
-    /// picks are never remapped). By DEFAULT (no flag) the target is `gemma3_4BQAT4Bit` — the Gemma
-    /// with a stable native MLX loader (registered "gemma3" → `Gemma3TextModel`, NOT in
-    /// `isAwaitingSwiftRuntimeLoader`, NOT held out of automatic routing), so it actually GENERATES on
-    /// the live MLX path with no env var and is a real `LocalTextModelID` the persisted load accepts
-    /// (a GGUF descriptor id is rejected by the `LocalTextModelID(rawValue:)`-gated load). When
-    /// `EPISTEMOS_MLX_GEMMA4_DENSE_RUNNABLE_V0` is ON (the separate gemma4 improvement) the same-size
-    /// dense gemma4 MLX tier is targeted instead. Extracted pure so the real-state test can exercise
-    /// the owner's exact pick (`google/gemma-4-E2B-it-qat-q4_0-gguf`).
-    nonisolated static func mlxEquivalent(forGgufGemmaID id: String, denseGemma4Enabled: Bool) -> String? {
-        let lower = id.lowercased()
-        guard lower.contains("gguf"),
-              lower.contains("gemma-4") || lower.contains("gemma4") else { return nil }
-        if denseGemma4Enabled {
-            // The separate gemma4-dense improvement: same-size dense MLX gemma4 (E2B/E4B only).
-            if lower.contains("e2b") { return LocalTextModelID.gemma4_2B4Bit.rawValue }
-            if lower.contains("e4b") { return LocalTextModelID.gemma4_4B4Bit.rawValue }
-            // 12B GGUF has no dense gemma4 MLX tier → fall through to the proven Gemma 3 default.
-        }
-        // Default proven-runnable MLX Gemma (no flag): the stable-loader Gemma 3 Fast tier.
-        return LocalTextModelID.gemma3_4BQAT4Bit.rawValue
-    }
-
-    /// SS-CHATMODEL P0 (owner 2026-06-21, "make chat WORK BY DEFAULT with NO flag"): a persisted GGUF
-    /// Gemma pick can't run while the GGUF lane is off and silently resolves to Qwen. This migrates a
-    /// persisted GGUF Gemma default → a PROVEN-RUNNABLE MLX model (Gemma 3, stable loader) so the
-    /// owner's Gemma actually GENERATES with NO env var and NO Qwen. Runs DEFAULT-ON (no flag gates
-    /// *whether* it runs — the flag only changes the *target*: Gemma 3 by default, dense gemma4 when
-    /// the separate improvement flag is set). One-time (keyed `epistemos.ggufGemmaToMlxMigratedV1`);
-    /// only GGUF Gemma picks are remapped — deliberate non-Gemma (e.g. Qwen) picks are untouched, so
-    /// no SS-CR regression. The migration only sets the *preferred* pick; the resolver still enforces
-    /// actual installed/runnable state, so a rig without Gemma 3 simply keeps the existing behavior.
-    nonisolated static func migrateGgufGemmaDefaultToMlx(defaults: UserDefaults) {
-        migrateGgufGemmaDefaultToMlx(
-            defaults: defaults,
-            denseGemma4Enabled: LocalTextModelID.mlxGemma4DenseRunnableEnabled
-        )
-    }
-
-    nonisolated static func migrateGgufGemmaDefaultToMlx(defaults: UserDefaults, denseGemma4Enabled: Bool) {
-        let migratedKey = "epistemos.ggufGemmaToMlxMigratedV1"
-        guard !defaults.bool(forKey: migratedKey) else { return }
-        defaults.set(true, forKey: migratedKey)
-
-        let localKey = "epistemos.preferredLocalTextModelID"
-        if let saved = defaults.string(forKey: localKey),
-           let mlx = mlxEquivalent(forGgufGemmaID: saved, denseGemma4Enabled: denseGemma4Enabled) {
-            defaults.set(mlx, forKey: localKey)
-        }
-
-        let selectionKey = "epistemos.preferredChatModelSelection"
-        if let saved = defaults.string(forKey: selectionKey),
-           case .localMLX(let modelID) = ChatModelSelection(rawValue: saved) ?? .appleIntelligence,
-           let mlx = mlxEquivalent(forGgufGemmaID: modelID, denseGemma4Enabled: denseGemma4Enabled) {
-            defaults.set(ChatModelSelection.localMLX(mlx).rawValue, forKey: selectionKey)
-        }
-    }
-
-    /// Pure: given the FINAL post-load local id + chat selection, the GGUF→runnable-MLX-Gemma repaired
-    /// pair, or nil when nothing needs repair. This is the robust half of the SS-CHATMODEL P0 fix
-    /// (owner computer-use proof 2026-06-21): the pre-load static migration set its key but the rewrite
-    /// did not land on a real launch, because `preferredLocalTextModelID`'s persisted load (:3497) is
-    /// `LocalTextModelID`-gated and REJECTS a GGUF id, so the in-memory value falls back to
-    /// `initialDefaultLocalTextModelID` — which itself returns a GGUF Fast Gemma (memory-filtered only).
-    /// So the unrunnable GGUF arrives in-memory AFTER the migration ran. Re-checking the actual
-    /// post-load values catches both a persisted GGUF Gemma AND that GGUF default. Only fires when the
-    /// GGUF lane is unavailable (an installed-but-unrunnable pick); a runnable GGUF lane leaves the
-    /// pick alone (deliberate-pick honored). Idempotent: gemma3 is not a GGUF id, so re-running is a
-    /// no-op — no key needed, no V1-style pollution possible.
-    nonisolated static func repairedGgufGemmaSelection(
-        localID: String,
-        selection: ChatModelSelection,
-        ggufLaneAvailable: Bool,
-        denseGemma4Enabled: Bool
-    ) -> (localID: String, selection: ChatModelSelection)? {
-        guard !ggufLaneAvailable else { return nil }
-        let newLocal = mlxEquivalent(forGgufGemmaID: localID, denseGemma4Enabled: denseGemma4Enabled)
-        var newSelectionID: String?
-        if case .localMLX(let modelID) = selection {
-            newSelectionID = mlxEquivalent(forGgufGemmaID: modelID, denseGemma4Enabled: denseGemma4Enabled)
-        }
-        guard newLocal != nil || newSelectionID != nil else { return nil }
-        return (
-            localID: newLocal ?? localID,
-            selection: newSelectionID.map { ChatModelSelection.localMLX($0) } ?? selection
-        )
-    }
-
-    /// Instance side of `repairedGgufGemmaSelection`: rewrites the in-memory selection AND persists,
-    /// so the live session uses the runnable MLX Gemma immediately and a `defaults read` confirms it.
-    /// Runs at the END of model-selection init (after the persisted-pick load) so it sees the real
-    /// final values.
-    private func repairUnrunnableGgufGemmaSelection(defaults: UserDefaults) {
-        guard let repaired = Self.repairedGgufGemmaSelection(
-            localID: preferredLocalTextModelID,
-            selection: preferredChatModelSelection,
-            ggufLaneAvailable: availableLocalGenerationRuntimeKinds.contains(.gguf),
-            denseGemma4Enabled: LocalTextModelID.mlxGemma4DenseRunnableEnabled
-        ) else { return }
-        preferredLocalTextModelID = repaired.localID
-        preferredChatModelSelection = repaired.selection
-        defaults.set(repaired.localID, forKey: "epistemos.preferredLocalTextModelID")
-        defaults.set(repaired.selection.rawValue, forKey: "epistemos.preferredChatModelSelection")
+        defaults.removeObject(forKey: "epistemos.localRoutingMode")
+        defaults.removeObject(forKey: "epistemos.offlineOnlyEnabled")
+        defaults.removeObject(forKey: "epistemos.memoryGateForcedModelIDs")
+        defaults.removeObject(forKey: AdvertisedModelStore.persistenceKey)
     }
 
     /// One-time migration from the legacy OpenAI GPT-5.2 default to the
@@ -5429,27 +5230,23 @@ final class InferenceState {
         return oauthCredential(for: provider) != nil
     }
 
+    private func fallbackChatModelSelection(excluding excludedProvider: CloudModelProvider? = nil) -> ChatModelSelection {
+        for provider in CloudModelProvider.preferredOrder where provider != excludedProvider {
+            guard hasConfiguredCloudAccess(for: provider) else { continue }
+            return .cloud(loadPreferredCloudModel(for: provider))
+        }
+        return .cloud(.openAIGPT54)
+    }
+
     private func persistPreferredChatModelSelection(_ selection: ChatModelSelection) {
         let normalizedSelection = normalizedChatModelSelection(selection)
-        if case .localMLX(let modelID) = normalizedSelection {
-            let persistedModelID = sanitizedStoredLocalChatModelID(for: modelID)
-            preferredChatModelSelection = .localMLX(persistedModelID)
-            UserDefaults.standard.set(
-                preferredChatModelSelection.rawValue,
-                forKey: "epistemos.preferredChatModelSelection"
-            )
-            preferredLocalTextModelID = persistedModelID
-            UserDefaults.standard.set(
-                persistedModelID,
-                forKey: "epistemos.preferredLocalTextModelID"
-            )
-        } else {
-            preferredChatModelSelection = normalizedSelection
-            UserDefaults.standard.set(
-                normalizedSelection.rawValue,
-                forKey: "epistemos.preferredChatModelSelection"
-            )
-        }
+        preferredLocalTextModelID = ""
+        UserDefaults.standard.removeObject(forKey: "epistemos.preferredLocalTextModelID")
+        preferredChatModelSelection = normalizedSelection
+        UserDefaults.standard.set(
+            normalizedSelection.rawValue,
+            forKey: "epistemos.preferredChatModelSelection"
+        )
 
         if case .cloud(let model) = normalizedSelection {
             persistPreferredCloudModel(model)
@@ -5471,7 +5268,7 @@ final class InferenceState {
             if case .cloud(let model) = preferredChatModelSelection,
                model.provider == provider,
                !hasConfiguredCloudAccess(for: provider) {
-                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(fallbackChatModelSelection(excluding: provider))
             }
             return true
         }
@@ -5509,7 +5306,7 @@ final class InferenceState {
             if case .cloud(let model) = preferredChatModelSelection,
                model.provider == provider,
                !hasConfiguredCloudAccess(for: provider) {
-                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(fallbackChatModelSelection(excluding: provider))
             }
             return true
         }
@@ -5885,17 +5682,19 @@ final class InferenceState {
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {
         let provider = normalizedVisibleAIProvider(provider)
-        if provider != .localOnly, routingMode == .localOnly {
+        if routingMode == .localOnly {
             setRoutingMode(.auto)
         }
         persistActiveAIProvider(provider)
 
         switch preferredChatModelSelection {
-        case .appleIntelligence, .localMLX:
+        case .appleIntelligence:
             return
+        case .localMLX:
+            persistPreferredChatModelSelection(fallbackChatModelSelection())
         case .cloud(let currentModel):
             guard let activeCloudProvider = provider.cloudProvider else {
-                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(fallbackChatModelSelection())
                 return
             }
             guard currentModel.provider != activeCloudProvider else {
@@ -5903,7 +5702,7 @@ final class InferenceState {
                 return
             }
             guard hasConfiguredCloudAccess(for: activeCloudProvider) else {
-                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(.cloud(loadPreferredCloudModel(for: activeCloudProvider)))
                 return
             }
             persistPreferredChatModelSelection(.cloud(loadPreferredCloudModel(for: activeCloudProvider)))
@@ -5927,26 +5726,13 @@ final class InferenceState {
             return
         }
 
-        setActiveAIProvider(.localOnly)
+        persistActiveAIProvider(.openAI)
+        persistPreferredChatModelSelection(.cloud(.openAIGPT54))
     }
 
     func setPreferredLocalTextModelID(_ modelID: String) {
-        guard LocalTextModelID(rawValue: modelID) != nil
-            || GemmaQATRuntimeLadder.candidate(forID: modelID) != nil
-        else { return }
-        let persistedModelID = sanitizedStoredLocalChatModelID(for: modelID)
-        preferredLocalTextModelID = persistedModelID
-        UserDefaults.standard.set(
-            persistedModelID,
-            forKey: "epistemos.preferredLocalTextModelID"
-        )
-        if case .localMLX = preferredChatModelSelection {
-            preferredChatModelSelection = .localMLX(persistedModelID)
-            UserDefaults.standard.set(
-                preferredChatModelSelection.rawValue,
-                forKey: "epistemos.preferredChatModelSelection"
-            )
-        }
+        preferredLocalTextModelID = ""
+        UserDefaults.standard.removeObject(forKey: "epistemos.preferredLocalTextModelID")
     }
 
     func setPreferredCloudModel(_ model: CloudTextModelID) {
@@ -5967,22 +5753,17 @@ final class InferenceState {
     /// one-line "Focus" badge so the user understands why the cloud
     /// option was suppressed.
     var isCloudPickBlockedByFocus: Bool {
-        UserDefaults.standard.bool(forKey: EpistemosFocusKeys.forceLocalModelsOnly)
+        false
     }
 
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
         let normalizedSelection = normalizedChatModelSelection(selection)
         switch normalizedSelection {
         case .cloud(let model):
-            if isCloudPickBlockedByFocus {
-                pendingUnavailableCloudSelection = model
-                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
-                return
-            }
             guard hasConfiguredCloudAccess(for: model.provider) else {
                 persistPreferredCloudModel(model)
                 pendingUnavailableCloudSelection = model
-                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
+                persistPreferredChatModelSelection(.cloud(model))
                 return
             }
             pendingUnavailableCloudSelection = nil
@@ -6081,8 +5862,8 @@ final class InferenceState {
 
     private func normalizedChatModelSelection(_ selection: ChatModelSelection) -> ChatModelSelection {
         switch selection {
-        case .localMLX(let modelID):
-            return .localMLX(sanitizedStoredLocalChatModelID(for: modelID))
+        case .localMLX:
+            return .cloud(.openAIGPT54)
         case .appleIntelligence:
             return selection
         case .cloud(let model):
@@ -6095,6 +5876,7 @@ final class InferenceState {
     }
 
     private func normalizedVisibleAIProvider(_ provider: AIProviderSelection) -> AIProviderSelection {
+        guard provider != .localOnly else { return .openAI }
         guard let cloudProvider = provider.cloudProvider else { return provider }
         return AIProviderSelection(cloudProvider: normalizedVisibleCloudProvider(cloudProvider))
     }
@@ -6206,119 +5988,23 @@ final class InferenceState {
     }
 
     private func sanitizedInteractiveLocalTextModelID(for modelID: String) -> String? {
-        // Simplified lineup: migrate a stored LEGACY local selection (an MLX
-        // enum model that isn't part of the foundation lineup — e.g. a Qwen the
-        // user had pinned) onto the foundation lineup, so they land on Gemma
-        // rather than a now-hidden legacy model. Only when a foundation GGUF is
-        // actually installed; otherwise fall through and keep their selection so
-        // nothing breaks before the foundation package is installed.
-        if EpistemosFoundationLineup.simplifiedLineupActive,
-           LocalTextModelID(rawValue: modelID) != nil,
-           EpistemosFoundationLineup.tier(forModelID: modelID) == nil,
-           // Migrate onto the HARDWARE-APPROPRIATE everyday model — the Fast
-           // tier's headroom-aware pick (E4B on a 16 GB Mac), NOT the largest
-           // installed candidate. The old `.last` landed every 16 GB user on the
-           // memory-tight 12B ("Gemma 12B is always selected"). Falls back to the
-           // smallest installed foundation candidate when no Fast Gemma is present.
-           let foundation = installedFoundationModelID(for: .fast)
-               ?? supportedAvailableGemmaQATRuntimeCandidates.first?.id {
-            return foundation
-        }
-        if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == modelID }) {
-            return modelID
-        }
-        if supportedAvailableGemmaQATRuntimeCandidates.contains(where: { $0.id == modelID }) {
-            return modelID
-        }
-        // Owner 2026-06-19 (MODEL SELECTION HONORED — the real fix at the real layer): below
-        // here the explicit pick is NOT available as-selected. DO NOT silently SUBSTITUTE it
-        // with the recommended / constrained / first-installed model — that recommended fallback
-        // is Qwen-3-4B on most rigs and is exactly the "everything routes to Qwen regardless of
-        // what I pick" bug (this resolver feeds PipelineService's generation modelID). Return
-        // `nil` so callers KEEP the explicit pick: `sanitizedInteractive(...) ?? original` keeps
-        // it, `effectiveLocalTextModelID` becomes nil so the honest LocalRouteHonestyRow shows
-        // a substitution/no-model state, and `effectiveChatSurfaceSelection` resolves to the
-        // foundation TIER representative (simplified lineup) or the original pick — never a
-        // silent Qwen swap. `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` restores the legacy
-        // smart-substitution for anyone who prefers it.
-        // P0 (owner 2026-06-20): the explicit pick is unavailable here. Returning nil (the default,
-        // since autoSubstitute is OFF) makes the no-arg `effectiveLocalTextModelID` nil →
-        // `usesAutomaticCloudRouteForChatSurfaces` → the chat surface AUTO-ROUTES TO CLOUD and fails
-        // on credentials ("provider rejected your credentials"), while the user's installed, runnable
-        // LOCAL model (e.g. Qwen) sits unused. A user in LOCAL mode must run an installed local
-        // model, never silently fall to cloud. So before returning nil: if ANY local is actually
-        // installed/runnable, run it — the substitution is surfaced honestly by LocalRouteHonestyRow.
-        // Only fall through to the honest no-model nil when there is genuinely NO runnable local.
-        if let runnableLocal = supportedAvailableLocalTextModels.first?.rawValue
-            ?? supportedAvailableGemmaQATRuntimeCandidates.first?.id {
-            return runnableLocal
-        }
-
-        guard autoSubstituteUnavailableLocalModel else { return nil }
-
-        let recommendedModelID = hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
-        if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == recommendedModelID }) {
-            return recommendedModelID
-        }
-        if let constrainedModelID = hardwareCapabilitySnapshot.recommendedConstrainedLocalTextModelID?.rawValue,
-           supportedAvailableLocalTextModels.contains(where: { $0.rawValue == constrainedModelID }) {
-            return constrainedModelID
-        }
-        return supportedAvailableLocalTextModels.first?.rawValue
+        nil
     }
 
-    /// Owner 2026-06-19: when an EXPLICITLY-selected local model can't be resolved as-picked,
-    /// HONOR the pick (keep it / let it fail honestly) instead of silently substituting the
-    /// recommended model — the Qwen-3-4B pinning bug. OFF by default = no silent substitution;
-    /// `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` restores the legacy substitute cascade. Same
-    /// flag the TriageService honesty fix reads, so both layers agree.
     nonisolated var autoSubstituteUnavailableLocalModel: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL"] == "1"
+        false
     }
 
     private func sanitizedStoredLocalChatModelID(for modelID: String) -> String {
-        if let sanitizedModelID = sanitizedInteractiveLocalTextModelID(for: modelID) {
-            return normalizedReleaseSelectableLocalTextModelID(sanitizedModelID)
-        }
-        // A model whose Swift loader is missing (e.g. the MLX Gemma 4 tiers,
-        // which error "Unsupported model type: gemma4") is rewritten to the
-        // recommended default so the user never lands on an unrunnable pick.
-        // A staged GGUF Gemma is NOT awaiting-loader and IS resolved by
-        // sanitizedInteractiveLocalTextModelID above (via the active/ detection
-        // in detectedOnDiskActiveGgufModelIDs), so it is never swapped to Qwen.
-        // Any other model the caller set deliberately is left in place even if
-        // not currently runnable (the picker simply surfaces nothing effective).
-        if let model = LocalTextModelID(rawValue: modelID),
-           model.isAwaitingSwiftRuntimeLoader {
-            // Owner 2026-06-18: under the simplified lineup, rewrite an unrunnable
-            // MLX Gemma 4 to the WORKING Fast Gemma GGUF (same family), never Qwen.
-            if EpistemosFoundationLineup.simplifiedLineupActive {
-                return EpistemosFoundationLineup.defaultChatModelID
-            }
-            return hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
-        }
-        return modelID
+        ""
     }
 
     private func sanitizeStoredLocalChatSelectionIfNeeded() {
-        let sanitizedModelID = sanitizedStoredLocalChatModelID(for: preferredLocalTextModelID)
-
-        if sanitizedModelID != preferredLocalTextModelID {
-            preferredLocalTextModelID = sanitizedModelID
-            UserDefaults.standard.set(
-                sanitizedModelID,
-                forKey: "epistemos.preferredLocalTextModelID"
-            )
+        preferredLocalTextModelID = ""
+        UserDefaults.standard.removeObject(forKey: "epistemos.preferredLocalTextModelID")
+        if case .localMLX = preferredChatModelSelection {
+            persistPreferredChatModelSelection(.cloud(.openAIGPT54))
         }
-
-        guard case .localMLX(let selectedModelID) = preferredChatModelSelection else { return }
-        guard sanitizedModelID != selectedModelID else { return }
-
-        preferredChatModelSelection = .localMLX(sanitizedModelID)
-        UserDefaults.standard.set(
-            preferredChatModelSelection.rawValue,
-            forKey: "epistemos.preferredChatModelSelection"
-        )
     }
 }
 

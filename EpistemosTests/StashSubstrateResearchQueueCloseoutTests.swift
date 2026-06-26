@@ -43,7 +43,6 @@ struct StashSubstrateResearchQueueCloseoutTests {
         let missionRun = try loadMirroredSourceTextFile("agent_core/src/agent_runtime_v2/mission_run.rs")
         let scopeRexProof = try loadMirroredSourceTextFile("agent_core/src/scope_rex/admission_proof.rs")
         let healthRow = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ACSAdmissionHealthRow.swift")
-        let distillation = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift")
         let decision = try loadMirroredSourceTextFile(
             "docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md"
         )
@@ -59,14 +58,8 @@ struct StashSubstrateResearchQueueCloseoutTests {
         #expect(healthRow.contains("Settings has not observed a production ACSRunEventLogSink admission witness."))
         #expect(!healthRow.contains("substrateTint: .green"))
 
-        guard
-            let gateRange = distillation.range(of: "let csiGate = await csiGateProvider"),
-            let saveRange = distillation.range(of: "try await store.save(vault)")
-        else {
-            Issue.record("Cloud distillation CSI gate and store save paths must both exist")
-            return
-        }
-        #expect(gateRange.lowerBound < saveRange.lowerBound)
+        let appSource = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        #expect(!appSource.contains("CloudKnowledgeDistillationService"))
     }
 
     @Test("research and runtime doctrine pins from stashes are present")
