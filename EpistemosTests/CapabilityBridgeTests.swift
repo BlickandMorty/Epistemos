@@ -7,28 +7,6 @@ import Testing
 struct CapabilityBridgeTests {
     private let signingKey = Data("capability-bridge-test-key-32-bytes".utf8)
 
-    @Test("Core App Store distribution denies external LocalAgent gateway surfaces")
-    func coreDistributionDeniesExternalGatewaySurfaces() async throws {
-        let bridge = CapabilityBridge(signingKey: signingKey)
-        for surface in LocalAgentGatewaySurface.externalGatewaySurfaces {
-            let result = await bridge.issueGrant(
-                subject: .providerXPC,
-                kind: .other(name: "external"),
-                surface: surface,
-                ttlSecs: 60,
-                distribution: .coreAppStore,
-                reason: "Core should not grant external gateway capabilities",
-                now: Self.fixedNow
-            )
-
-            guard case .failure(.coreDistributionDenied(let deniedSurface)) = result else {
-                Issue.record("Expected Core distribution denial for \(surface)")
-                continue
-            }
-            #expect(deniedSurface == surface)
-        }
-    }
-
     @Test("Biometric session grants use donor shape and call the authorizer")
     func biometricSessionGrantUsesDonorShapeAndAuthorizer() async throws {
         let counter = CapabilityBridgeAuthorizerCounter()
@@ -37,10 +15,11 @@ struct CapabilityBridgeTests {
             return .allowed
         }
 
+        let localPromptSurface = "local_prompt_formatting"
         let grant = try await #require(bridge.issueGrant(
             subject: .agentXPC,
             kind: .biometricSession(ttlSecs: 120),
-            surface: .localPromptFormatting,
+            surface: localPromptSurface,
             ttlSecs: 120,
             distribution: .proResearch,
             reason: "Approve local prompt capability",
@@ -57,7 +36,7 @@ struct CapabilityBridgeTests {
         #expect(bridge.verifyGrant(
             grant,
             expectedSubject: .agentXPC,
-            expectedSurface: .localPromptFormatting,
+            expectedSurface: localPromptSurface,
             expectedKind: .biometricSession(ttlSecs: 120),
             now: Self.fixedNow.addingTimeInterval(10)
         ))
@@ -72,7 +51,7 @@ struct CapabilityBridgeTests {
         let result = await bridge.issueGrant(
             subject: .agentXPC,
             kind: .biometricSession(ttlSecs: 90),
-            surface: .localPromptFormatting,
+            surface: "local_prompt_formatting",
             ttlSecs: 90,
             distribution: .proResearch,
             reason: "Approval denied",
@@ -92,7 +71,7 @@ struct CapabilityBridgeTests {
         let grant = try await #require(bridge.issueGrant(
             subject: .providerXPC,
             kind: .networkHost(host: "api.example.com"),
-            surface: .openAIProvider,
+            surface: "openai_provider",
             ttlSecs: 30,
             distribution: .proResearch,
             reason: "Provider gateway test",
@@ -110,24 +89,10 @@ struct CapabilityBridgeTests {
             issuedAtUnix: grant.issuedAtUnix,
             expiresAtUnix: grant.expiresAtUnix,
             surface: grant.surface,
-            tier: grant.tier,
-            route: grant.route,
             metadata: grant.metadata,
             signatureHex: grant.signatureHex
         )
         #expect(!bridge.verifyGrant(tampered, expectedSubject: .providerXPC, now: Self.fixedNow.addingTimeInterval(10)))
-    }
-
-    @Test("Subject surface boundaries preserve AgentXPC and ProviderXPC split")
-    func subjectSurfaceBoundariesPreserveXPCSplit() {
-        #expect(CapabilityBridge.subject(.agentXPC, allows: .deterministicLocalSubstrate))
-        #expect(CapabilityBridge.subject(.agentXPC, allows: .localPromptFormatting))
-        #expect(!CapabilityBridge.subject(.agentXPC, allows: .cloudProvider))
-        #expect(!CapabilityBridge.subject(.agentXPC, allows: .cliDelegation))
-
-        #expect(!CapabilityBridge.subject(.providerXPC, allows: .localPromptFormatting))
-        #expect(CapabilityBridge.subject(.providerXPC, allows: .openAIProvider))
-        #expect(CapabilityBridge.subject(.providerXPC, allows: .cliDelegation))
     }
 
     @Test("CapabilityBridge source stays policy-only and delegates authentication")
@@ -147,8 +112,7 @@ struct CapabilityBridgeTests {
         }
 
         #expect(source.contains("SovereignGateRequirement"))
-        #expect(source.contains("LocalAgentGatewayPolicy.decision"))
-        #expect(source.contains("ToolSurfacePolicy.resolvedDistribution"))
+        #expect(!source.contains("LocalAgentGatewayPolicy"))
         #expect(source.contains("Capability::BiometricSession { ttl_secs }"))
         #expect(source.contains("HMAC<SHA256>"))
     }

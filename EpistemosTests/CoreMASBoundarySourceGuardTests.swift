@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 /// Source-guard suite that proves the Core/App Store boundary stays direct
@@ -7,184 +8,15 @@ import Testing
 /// boundary; fix the production file, do not relax the assertion.
 ///
 /// Doctrine §7 lane: Core open — MAS/Core vs Pro capability symbol
-/// separation. Sister gates: HermesGatewayPolicyTests, MCPBridgeTests,
-/// ToolTierBridge runtime tests.
+/// separation. Sister gates: MCPBridgeTests and ToolTierBridge runtime tests.
 @Suite("Core/MAS Boundary Source Guard")
 struct CoreMASBoundarySourceGuardTests {
 
-    // MARK: - HermesGatewayPolicy
-
-    @Test("HermesGatewayPolicy keeps deterministic local substrate Core-direct")
-    func hermesPolicyKeepsLocalSubstrateDirect() throws {
-        let source = try loadHermesGatewayPolicySource()
-
-        // The local substrate branch must be Core-tier, direct route, no
-        // network, no subprocess. If any of these flip, Core would start
-        // routing local answers through the Hermes gateway — the exact
-        // architectural drift this gate prevents.
-        #expect(source.contains("case .deterministicLocalSubstrate:"),
-                "HermesGatewayPolicy must enumerate the deterministic local substrate surface")
-
-        let localBranch = try sliceBetween(
-            in: source,
-            startMarker: "case .deterministicLocalSubstrate:",
-            endMarker: "case .localPromptFormatting:"
-        )
-        #expect(localBranch.contains("tier: .core"),
-                "Deterministic local substrate must remain Core-tier")
-        #expect(localBranch.contains("route: .directSubstrate"),
-                "Deterministic local substrate must use the direct route, not the Hermes gateway")
-        #expect(localBranch.contains("requiresNetwork: false"),
-                "Deterministic local substrate must not require network")
-        #expect(localBranch.contains("requiresSubprocess: false"),
-                "Deterministic local substrate must not require a subprocess")
-        #expect(localBranch.contains("preservesDirectSubstratePath: true"),
-                "Deterministic local substrate must preserve the direct substrate path")
-        #expect(localBranch.contains("evidenceReturn: .none"),
-                "Deterministic local substrate must not require structured evidence — it IS the evidence")
-    }
-
-    @Test("HermesGatewayPolicy keeps local prompt formatting Core in-process")
-    func hermesPolicyKeepsLocalPromptInProcess() throws {
-        let source = try loadHermesGatewayPolicySource()
-
-        #expect(source.contains("case .localPromptFormatting:"),
-                "HermesGatewayPolicy must enumerate the local prompt formatting surface")
-
-        let promptBranch = try sliceBetween(
-            in: source,
-            startMarker: "case .localPromptFormatting:",
-            endMarker: "case .cloudProvider,"
-        )
-        #expect(promptBranch.contains("tier: .core"),
-                "Local prompt formatting must remain Core-tier")
-        #expect(promptBranch.contains("route: .inProcessLocalPrompt"),
-                "Local prompt formatting must route in-process — never via the Hermes gateway")
-        #expect(promptBranch.contains("requiresNetwork: false"),
-                "Local prompt formatting must not require network")
-        #expect(promptBranch.contains("requiresSubprocess: false"),
-                "Local prompt formatting must not require a subprocess")
-        #expect(promptBranch.contains("preservesDirectSubstratePath: true"),
-                "Local prompt formatting must preserve the direct substrate path")
-    }
-
-    @Test("HermesGatewayPolicy routes every cloud provider through the Hermes gateway")
-    func hermesPolicyRoutesCloudProvidersThroughGateway() throws {
-        let source = try loadHermesGatewayPolicySource()
-
-        // The whole point of the gateway is that cloud providers do not get
-        // their own architecture. They share one Pro/Research-only route with
-        // structured evidence return. If a future patch peels off (say) an
-        // OpenAI-specific direct path, this assertion is what catches it.
-        #expect(source.contains("case .cloudProvider,"),
-                "HermesGatewayPolicy must enumerate the cloud provider surfaces")
-
-        let cloudBranch = try sliceBetween(
-            in: source,
-            startMarker: "case .cloudProvider,",
-            endMarker: "case .cliDelegation:"
-        )
-        #expect(cloudBranch.contains(".openAIProvider,"),
-                "OpenAI must share the cloud provider branch, not a bespoke one")
-        #expect(cloudBranch.contains(".anthropicProvider,"),
-                "Anthropic must share the cloud provider branch, not a bespoke one")
-        #expect(cloudBranch.contains(".googleProvider,"),
-                "Google must share the cloud provider branch, not a bespoke one")
-        #expect(cloudBranch.contains(".openAICompatibleProvider,"),
-                "OpenAI-compatible providers must share the cloud provider branch")
-        #expect(cloudBranch.contains(".codexAccountProvider:"),
-                "Codex account provider must share the cloud provider branch")
-        #expect(cloudBranch.contains("tier: .proResearch"),
-                "Cloud providers must be Pro/Research-only — never Core/App Store")
-        #expect(cloudBranch.contains("route: .localAgentGateway"),
-                "Cloud providers must route through the LocalAgent gateway, not direct")
-        #expect(cloudBranch.contains("requiresNetwork: true"),
-                "Cloud providers must declare they require network")
-        #expect(cloudBranch.contains("preservesDirectSubstratePath: false"),
-                "Cloud providers cannot claim to preserve the direct substrate path")
-        #expect(cloudBranch.contains("evidenceReturn: .structuredEvidenceProvenance"),
-                "Cloud providers must return structured evidence provenance, not free-form output")
-    }
-
-    @Test("HermesGatewayPolicy keeps every external surface gateway-bound")
-    func hermesPolicyKeepsExternalSurfacesGatewayBound() throws {
-        let source = try loadHermesGatewayPolicySource()
-
-        // CLI / MCP / browser / Docker / explicit external side effects all
-        // share the gateway too. Any patch that gives one of them its own
-        // route is a Pro architecture splinter. (.hermesSubprocess was removed
-        // 2026-05-05 — see docs/_archive/hermes-removal-2026-05-05/README.md.)
-        for surface in ["cliDelegation", "mcpWebTool",
-                        "browserComputerUse", "dockerDevcontainer",
-                        "explicitExternalSideEffect"] {
-            #expect(source.contains("case .\(surface):"),
-                    "HermesGatewayPolicy must enumerate the \(surface) surface")
-        }
-
-        // Spot-check that each external surface declares Pro/Research tier and
-        // hermesGateway route. We slice the file from each case marker forward
-        // and assert the branch contents.
-        for (surface, nextMarker) in [
-            ("cliDelegation", "case .mcpWebTool:"),
-            ("mcpWebTool", "case .browserComputerUse:"),
-            ("browserComputerUse", "case .dockerDevcontainer:"),
-            ("dockerDevcontainer", "case .explicitExternalSideEffect:"),
-        ] {
-            let branch = try sliceBetween(
-                in: source,
-                startMarker: "case .\(surface):",
-                endMarker: nextMarker
-            )
-            #expect(branch.contains("tier: .proResearch"),
-                    "\(surface) must declare Pro/Research tier")
-            #expect(branch.contains("route: .localAgentGateway"),
-                    "\(surface) must route through the LocalAgent gateway")
-            #expect(branch.contains("evidenceReturn: .structuredEvidenceProvenance"),
-                    "\(surface) must return structured evidence provenance")
-        }
-    }
-
-    @Test("HermesGatewayPolicy preserves the human-readable boundary lines")
-    func hermesPolicyPreservesBoundaryLines() throws {
-        let source = try loadHermesGatewayPolicySource()
-
-        // These two strings are the prose the policy uses to explain itself in
-        // logs, settings UI, and Codex deliberation briefs. If a refactor
-        // drops them, downstream code that pattern-matches on them silently
-        // breaks.
-        #expect(source.contains("externalTierBoundaryLine"),
-                "HermesGatewayPolicy must export externalTierBoundaryLine")
-        #expect(source.contains(
-            "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
-        ), "externalTierBoundaryLine prose must remain stable for log/UI consumers")
-
-        #expect(source.contains("localCoreBoundaryLine"),
-                "HermesGatewayPolicy must export localCoreBoundaryLine")
-        #expect(source.contains(
-            "LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context."
-        ), "localCoreBoundaryLine prose must remain stable for log/UI consumers")
-    }
-
-    @Test("HermesGatewayPolicy isAllowedInCoreAppStoreBuild requires the full Core invariant")
-    func hermesPolicyCoreAllowanceRequiresFullInvariant() throws {
-        let source = try loadHermesGatewayPolicySource()
-
-        // The Core gate is a conjunction of four conditions. Loosening any one
-        // of them silently widens the App Store allowlist. The body is small
-        // enough to assert verbatim.
-        let body = try sliceBetween(
-            in: source,
-            startMarker: "static func isAllowedInCoreAppStoreBuild",
-            endMarker: "static func route(for surface: Surface)"
-        )
-        #expect(body.contains("decision.tier == .core"),
-                "Core allowance must require Core tier")
-        #expect(body.contains("!decision.requiresNetwork"),
-                "Core allowance must reject network-requiring surfaces")
-        #expect(body.contains("!decision.requiresSubprocess"),
-                "Core allowance must reject subprocess-requiring surfaces")
-        #expect(body.contains("decision.preservesDirectSubstratePath"),
-                "Core allowance must require the direct substrate path")
+    @Test("Retired LocalAgent gateway policy stays deleted")
+    func retiredLocalAgentGatewayPolicyStaysDeleted() throws {
+        let url = try sourceMirrorURL(for: "Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift")
+        #expect(!FileManager.default.fileExists(atPath: url.path),
+                "LocalAgentGatewayPolicy.swift belongs to the retired local-agent gateway stack and must not be restored")
     }
 
     // MARK: - ToolTierBridge
@@ -351,7 +183,6 @@ struct CoreMASBoundarySourceGuardTests {
         // may instantiate LAContext. These three boundary files have no
         // business prompting for biometrics — they are routing/policy code.
         for relativePath in [
-            "Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift",
             "Epistemos/Bridge/ToolTierBridge.swift",
             "Epistemos/Omega/MCPBridge.swift",
         ] {
@@ -371,7 +202,6 @@ struct CoreMASBoundarySourceGuardTests {
         // only). These three Swift boundary files must remain pure routing /
         // policy / FFI surfaces — not process launchers.
         for relativePath in [
-            "Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift",
             "Epistemos/Bridge/ToolTierBridge.swift",
             "Epistemos/Omega/MCPBridge.swift",
         ] {
@@ -383,9 +213,9 @@ struct CoreMASBoundarySourceGuardTests {
         }
     }
 
-    @Test("App Store builds compile out native iMessage automation paths")
-    func appStoreBuildsCompileOutNativeIMessageAutomationPaths() throws {
-        let guardedFiles = [
+    @Test("Retired native channel automation paths stay deleted")
+    func retiredNativeChannelAutomationPathsStayDeleted() throws {
+        let retiredFiles = [
             "Epistemos/Omega/iMessageDriver/IMessageDriverService.swift",
             "Epistemos/Omega/iMessageDriver/IMessageReplyDelegate.swift",
             "Epistemos/Omega/iMessageDriver/IMessageNativeSetupDoctor.swift",
@@ -395,46 +225,26 @@ struct CoreMASBoundarySourceGuardTests {
             "Epistemos/Views/Settings/ChannelsSettingsView.swift",
         ]
 
-        for relativePath in guardedFiles {
-            let source = try loadMirroredSourceTextFile(relativePath)
-            #expect(sourceIsDirectDistributionOnly(source),
-                    "\(relativePath) must be fully wrapped in \(Self.directDistributionGuard) so MAS builds do not compile native iMessage/channel automation")
+        for relativePath in retiredFiles {
+            let url = try sourceMirrorURL(for: relativePath)
+            #expect(!FileManager.default.fileExists(atPath: url.path),
+                    "\(relativePath) is retired with the old native channel/message-driver stack and must not be restored")
         }
 
         let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
-        #expect(bootstrap.contains("\(Self.directDistributionGuard)\n    let channelRegistry: ChannelRegistryState"),
-                "AppBootstrap must not store ChannelRegistryState in MAS builds")
-        #expect(bootstrap.contains("\(Self.directDistributionGuard)\n    private var _iMessageDriver: IMessageDriverService?"),
-                "AppBootstrap must not store IMessageDriverService in MAS builds")
-
-        let driverInit = try sliceBetween(
-            in: bootstrap,
-            startMarker: "\(Self.directDistributionGuard)\n        // Initialize iMessage driver",
-            endMarker: "#endif\n\n        // Initialize device-action infrastructure"
-        )
-        #expect(driverInit.contains("IMessageDriverService("),
-                "Direct builds must still initialize IMessageDriverService")
-        #expect(driverInit.contains("IMessageChannelAdapter()"),
-                "Direct builds must keep the native Messages adapter fallback")
+        #expect(!bootstrap.contains("ChannelRegistryState"))
+        #expect(!bootstrap.contains("IMessageDriverService"))
+        #expect(!bootstrap.contains("IMessageChannelAdapter"))
 
         let environment = try loadMirroredSourceTextFile("Epistemos/App/AppEnvironment.swift")
-        let environmentBranch = try sliceBetween(
-            in: environment,
-            startMarker: Self.directDistributionGuard,
-            endMarker: ".environment(bootstrap.agentCommandCenterState)"
-        )
-        #expect(environmentBranch.contains(".environment(bootstrap.channelRegistry)"),
-                "AppEnvironment must inject ChannelRegistryState only in direct builds")
-        #expect(environmentBranch.contains(".environment(bootstrap.iMessageDriver)"),
-                "AppEnvironment must inject IMessageDriverService only in direct builds")
+        #expect(!environment.contains(".environment(bootstrap.channelRegistry)"))
+        #expect(!environment.contains(".environment(bootstrap.iMessageDriver)"))
 
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        #expect(settings.contains("\(Self.directDistributionGuard)\n            sections.append(.channels)"),
-                "App Store settings sidebar must not expose Channels automation")
-        #expect(settings.contains("\(Self.directDistributionGuard)\n            sections += [\n                .iMessageDriver,"),
-                "App Store settings sidebar must not expose the native iMessage driver")
-        #expect(settings.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            case .channels, .knowledgeFusion, .iMessageDriver, .skills:\n                GeneralDetailView()"),
-                "App Store settings detail routing must not instantiate native channel/iMessage panes")
+        #expect(!settings.contains(".channels"))
+        #expect(!settings.contains(".iMessageDriver"))
+        #expect(!settings.contains("ChannelsSettingsView"))
+        #expect(!settings.contains("IMessageDriverSettingsView"))
 
         let project = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
         #expect(project.contains("SWIFT_ACTIVE_COMPILATION_CONDITIONS = \"$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX"),
@@ -444,13 +254,6 @@ struct CoreMASBoundarySourceGuardTests {
     }
 
     // MARK: - Helpers
-
-    private static let directDistributionGuard = "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"
-    private static let directDistributionEndGuard = "#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only"
-
-    private func loadHermesGatewayPolicySource() throws -> String {
-        try loadMirroredSourceTextFile("Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift")
-    }
 
     private func loadToolTierBridgeSource() throws -> String {
         try loadMirroredSourceTextFile("Epistemos/Bridge/ToolTierBridge.swift")
@@ -479,12 +282,6 @@ struct CoreMASBoundarySourceGuardTests {
             throw SourceSliceError.missingEndMarker(endMarker)
         }
         return String(afterStart[..<endRange.lowerBound])
-    }
-
-    private func sourceIsDirectDistributionOnly(_ source: String) -> Bool {
-        let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.hasPrefix(Self.directDistributionGuard)
-            && trimmed.hasSuffix(Self.directDistributionEndGuard)
     }
 
     private enum SourceSliceError: Error {

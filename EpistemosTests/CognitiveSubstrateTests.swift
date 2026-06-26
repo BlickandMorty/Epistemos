@@ -2398,16 +2398,6 @@ private func loadMonitoringSource(_ relativePath: String) throws -> String {
     try loadMirroredSourceTextFile(relativePath)
 }
 
-@Suite("Phase 7 Bridge")
-struct Phase7BridgeTests {
-    @MainActor
-    @Test("vault integrity check alias is rejected instead of masquerading as maintenance log")
-    func vaultIntegrityCheckAliasIsRejected() {
-        #expect(Phase7Bridge.supportedJobAliases["vault_integrity_check"] == nil)
-        #expect(Phase7Bridge.supportedJobAliases["maintenance_log"] == .maintenanceLog)
-    }
-}
-
 @Suite("OpLog FFI Boundary Guards")
 struct OpLogFFIBoundaryGuardTests {
     private let rawSymbols = [

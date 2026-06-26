@@ -39,6 +39,7 @@ struct GraphWorkspaceContainer: View {
     // Injected by the surrounding HologramOverlayHostedViewBuilder
     @Environment(\.modelContext) private var modelContext
     @AppStorage("epistemos.graphSidebarWidth.v1") private var graphSidebarWidthStorage = GraphSidebarLayout.defaultWidth
+    @AppStorage("epistemos.graphSidebarCollapsed.notesQuery.v1") private var isGraphSidebarCollapsed = false
     @State private var htmlWorkspaceDockVisible = false
     @State private var selectedHTMLWorkspaceID: String?
 
@@ -117,9 +118,10 @@ struct GraphWorkspaceContainer: View {
     }
 
     private var routeSidebarInset: CGFloat {
-        graphState.currentRoute.isCanvas
-            ? 0
-            : GraphSidebarLayout.routedContentLeadingInset(storedWidth: graphSidebarWidthStorage)
+        if graphState.currentRoute.isCanvas || isGraphSidebarCollapsed {
+            return 0
+        }
+        return GraphSidebarLayout.routedContentLeadingInset(storedWidth: graphSidebarWidthStorage)
     }
 
     @ViewBuilder
