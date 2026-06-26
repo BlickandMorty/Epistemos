@@ -38,6 +38,57 @@ The deeper finding (Eidos + lattice + Living-Index sweep): your **non-model subs
 
 **On "the lattice" (three distinct things):** (1) **LatticeWBO** = the shipped Wyner-Ziv write-budget error ledger (plumbing/diagnostics). (2) a **707KB HTML lattice-coordinate explainer** artifact (not wired into the app). (3) the aspirational **FCA concept-lattice UI** (navigable concept partial-orders) — no code, correctly your "absolutely last, indefinite" item. Robust *research* = `EPISTEMOS_LIVING_INDEX_2026_05_24.md` + `LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md`; the buildable near-term piece is the Cognitive DAG (already T4), not a new FCA engine.
 
+## §1c The Epistemos Capability Plane — how each surface USES your IP (and why nothing worked)
+
+### Why you could never get any of it working (the diagnosis)
+Your deep IP is **built and unit-tested (5,548 tests green) but NOT exposed as a callable tool.** There was literally nothing to invoke from a surface. Specifics (verified):
+- `eidos.query` exists as a tool but is a **STUB that bypasses the real Eidos engine** (hits VaultBackend, not `agent_core/src/eidos/`). The real closed-citation engine is internal-only.
+- **Cognitive DAG, ClaimLedger/provenance, Halo/RRF, continual learning, RuntimeRouter, SovereignGate** = internal-only, **zero tool wrappers**. InstantRecall is partial (`knowledge.neural_recall`).
+- Most are also **flag-OFF** (`EPISTEMOS_*_V0`) with no UI button.
+- The app build was broken (EventSource). You can't test a capability when the app won't compile, the flag is off, and there's no tool to call.
+
+**Verdict: not broken — UNEXPOSED + UNGATED-ON + INVISIBLE.** It was almost certainly "the chat couldn't test it," not "the IP doesn't work." The fix is exposure + wiring, not rewriting.
+
+### The architecture: expose ONCE, consume from all three (2/3 already built)
+The IP lives in `agent_core` (Rust) + Swift services. The **agent_core tool registry (37 live tools today)** is the single source; it's reachable three ways:
+| Surface | How it calls tools | IP today | State |
+|---|---|---|---|
+| **Chat / AgentClone** | native FFI `execute_tool_call(name, args, vault, tier)` (in-process, deepest) | full 37-tool registry | ✅ LIVE |
+| **Work / OpenGUI** | **MCP over loopback** — `WorkNativeMCPServer` → `epistemos-native` `/mcp` + bearer; OpenCode's `opencode.json` registers it | full 37 + computer-use via Swift bridge | ✅ LIVE — **gold standard** |
+| **Act / Goose** | currently Osaurus's OWN ~25–30 tools (divergent) | **does NOT see your IP** | ❌ GAP — wire Goose's MCP config to `epistemos-native` |
+
+**The unlock:** add a tool to the ONE registry → **Work gets it instantly (MCP), Chat gets it (FFI), Act gets it once Goose-MCP is wired.** One addition, three surfaces. Build a single **`EpistemosToolExecution` facade** (one signature, already shared as `LocalAgentToolExecutor`) so all three call the identical path.
+
+### The IP tool suite to BUILD (wrap each hardened IP module as a tool)
+| New/fixed tool | Wraps (your IP) | Action | Surfaces |
+|---|---|---|---|
+| `eidos.retrieve(query, mode)` / `eidos.validate_citation(id)` | **real Eidos** closed-citation engine | **redirect the stub** to `agent_core/src/eidos/` (1–2 days) | all three |
+| `graph.dag_query(node, mode)` / `graph.dag_mutate(…, approval)` | Cognitive DAG (claims/evidence/contradictions/resonance) | new wrapper | all three (Work/graph) |
+| `provenance.claim` / `provenance.retract` / `provenance.replay` | ClaimLedger + ReplayBundle | new wrapper | all three |
+| `recall.instant(query)` | InstantRecall (<3ms binary index) | promote `neural_recall` | all three |
+| `search.fused(query)` / `search.fusion_metrics` | Halo/Shadow + RRF(k=60) | new wrapper | all three |
+| `answer.explain` / `answerpacket.get` | AnswerPacket claim taxonomy | surface the emitter | all three |
+| `route.decide(query, models)` / `capability.verify(token)` | RuntimeRouter + SovereignGate/macaroons | introspection wrappers | all three (transparency) |
+| `learn.adapter.propose` / `nightbrain.status` | continual-learning stack + LoRA | new (Pro) | **Chat only** |
+| `model.run_local(prompt)` | MLX/GGUF local generation | exists/internal | **Chat only** |
+| *(already live: 37 tools — web/vault/file/graph/knowledge/notes/research/skills/computer-use/etc.)* | — | keep | per tier |
+
+**Skills are the second axis:** skills are **prompt templates** (`SkillDiscoveryCatalog` / `SKILL.md`), NOT tool wrappers. To put IP into a skill, write a `SKILL.md` that *instructs the agent to use the new IP tools* (e.g. a "Cited Research" skill that calls `eidos.retrieve` → `provenance.claim`). Skills + tools compose; all three surfaces discover them (Work provisions `.opencode/skills`; Chat via SkillsService; Goose via its skill system).
+
+### Per-surface assignment — maximum hardened capability
+- **CHAT / AgentClone (native, deepest):** the full tool registry **in-process via FFI** + the model-side IP nobody else gets — **local MLX/GGUF generation, overnight LoRA continual learning (it owns the MLX lane), honest RuntimeRouter, Sovereign Gate admission, the 75-rule security scanner.** Chat = the only surface with the *model brain*. Max depth, zero-copy.
+- **ACT / Goose (web UI + ACP):** the **full shared tool suite via MCP** (Eidos, vault, graph, provenance, recall, search, skills, context, answer-explain) once Goose's MCP config points at `epistemos-native`. Goose's own recipes/extensions run *alongside* your IP tools. Agent loop = ACP; IP = MCP. No fine-tuning (its model is its own).
+- **WORK / OpenGUI (web SPA + sidecar):** the **full shared tool suite via the already-live MCP** + computer-use Swift bridge + workspace/code tools. Graph/provenance emphasis. No fine-tuning (OpenCode's model is its own). This is the **proven** path — copy its pattern to Act.
+
+### Make-it-actually-work — the hardened proof recipe (per capability)
+1. **Build green first** (Phase 0 / EventSource fix) — you cannot test anything until the app compiles.
+2. **Wrap the IP as ONE tool** in the agent_core registry (real Eidos, DAG, provenance, recall, search…).
+3. **Flip the flag ON** (`EPISTEMOS_*_V0` default OFF).
+4. **Witness instantly:** Work's MCP server is a **standing test harness** — `tools/call` over the loopback `/mcp` returns JSON. You can prove any tool works the moment it's registered, before any UI. Then add a health-row/transcript chip.
+5. **"Works" = invokable-from-a-surface-with-a-visible-result** (your own Tier-4 bar). The reason it never worked before = no tool + flag off + broken build. Fix those three and it works.
+
+**Fastest path to "I finally see my IP working":** fix the build → redirect `eidos.query` to the real engine + add `graph.dag_query`/`provenance.query` → flip flags → `tools/call` them over Work's loopback MCP → watch real closed-citation + DAG + provenance results come back. That single loop proves the whole plane, and then Chat (FFI) and Act (once Goose-MCP is wired) get the same tools for free.
+
 ## §2 Keep as PLUMBING (do NOT surface as a feature yet — promote later, one slice at a time)
 - **System G runtime / RuntimeRouter** — the engine under the provenance spine + Chat's lane selection. Surface the *output* (AnswerPacket), not the router.
 - **SSM / Mamba-2** (`ssm_state.rs`, Phase 1A) + **UAS / AppColdStore / cold-assembly** + the **5 HELIOS Metal kernels** (PageGather etc., W-41, dense-restore still failing) — these are the *reasoning backbone + memory transport* under Chat's local model. Invisible. Promote individually behind falsifiers.
