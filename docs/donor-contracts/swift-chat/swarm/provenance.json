@@ -1,0 +1,40 @@
+{
+  "donor_id": "swarm",
+  "contract_id": "swarm.typed-runtime-substrate",
+  "local_path": "LocalPackages/Swarm",
+  "upstream_study_path": ".research-clones/swift-act/swarm",
+  "upstream_url": "https://github.com/christopherkarani/Swarm.git",
+  "study_commit": "c771f189a17d4842f68bfb25a69d208a3372ad7c",
+  "license_file": ".research-clones/swift-act/swarm/LICENSE",
+  "import_mode": "vendored-package",
+  "license_disposition": "known-permissive",
+  "status": "vendored-not-driving",
+  "role": "Typed runtime, provider seam, tool execution, memory/session, guardrails, workflow, observability.",
+  "product_rule": "Use as robustness substrate without taking over the visible AgentClone/Epistemos shell.",
+  "additional_contracts": [
+    {
+      "contract_id": "swarm.in-process-chat-substrate",
+      "status": "adapted-with-tests",
+      "import_mode": "adapter",
+      "role": "Bounded in-process provider bridge, typed AgentEvent to ChatUpdate projection, and constructed/injected ChatSurfaceCoordinator substrate.",
+      "implementation_paths": [
+        "Epistemos/Chat/EpistemosInProcessProvider.swift",
+        "Epistemos/Chat/EpistemosChatSession.swift",
+        "Epistemos/Chat/EpistemosChatAgentFactory.swift",
+        "Epistemos/Chat/ChatTranscript.swift",
+        "Epistemos/Chat/ChatViewModel.swift",
+        "Epistemos/App/AppBootstrap.swift",
+        "Epistemos/App/AppEnvironment.swift",
+        "LocalPackages/EpistemosChatDonorContracts/Tests/EpistemosChatDonorContractsTests/ChatDonorContractsTests.swift"
+      ],
+      "proof": [
+        "provider bridge uses .bufferingNewest(256) and termination cancellation",
+        "session event stream uses .bufferingNewest(256), Task cancellation, and agent.cancel() on consumer cancellation",
+        "factory injects the in-process provider explicitly with streaming enabled, max-iteration guardrail, and bounded conversation memory",
+        "AppBootstrap constructs ChatSurfaceCoordinator through EpistemosChatEngineProvider.make",
+        "AppEnvironment injects the coordinator into SwiftUI environment"
+      ],
+      "non_completion_note": "This does not mount the Swarm Chat module as the visible route and does not close the broad Swarm driving-runtime contract."
+    }
+  ]
+}

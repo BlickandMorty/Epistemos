@@ -31,7 +31,7 @@ enum PersistenceMode: Equatable, Sendable {
 
 // MARK: - App Bootstrap
 // Pure state/service factory. Creates state objects, services, and the dependency graph.
-// All behavioral orchestration is delegated to AppCoordinator and ChatCoordinator.
+// All behavioral orchestration is delegated to AppCoordinator.
 
 @MainActor
 private final class LocalModelRefreshThrottle {
@@ -960,7 +960,6 @@ final class AppBootstrap {
 
     // MARK: - State
     let eventBus = EventBus()
-    let chatState = ChatState()
     let pipelineState = PipelineState()
     let uiState = UIState()
     let notesUI = NotesUIState()
@@ -971,7 +970,6 @@ final class AppBootstrap {
     let graphState = GraphState()
     let queryEngine = QueryEngine()
     let physicsCoordinator = PhysicsCoordinator()
-    let dialogueChatState = DialogueChatState()
     let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
     let agentCommandCenterState = AgentCommandCenterState()
@@ -1120,7 +1118,7 @@ final class AppBootstrap {
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
-    /// Nil when no vault is attached. Shared across all AI surfaces (main chat, MiniChat, graph inspector).
+    /// Nil when no vault is attached. Shared across agent, editor, and graph surfaces.
     var ambientManifest: VaultManifest?
 
     // MARK: - Active Query Task
@@ -1200,59 +1198,6 @@ final class AppBootstrap {
         let inlineBody: String
         let vaultPath: String
         let shadowPath: String
-    }
-
-    private func routeMainChatDraft(
-        prefill inputText: String? = nil,
-        operatingMode: EpistemosOperatingMode? = nil
-    ) {
-        if let operatingMode {
-            let visibleMode: EpistemosOperatingMode =
-                operatingMode == .agent ? .pro : operatingMode
-            UserDefaults.standard.set(
-                visibleMode.rawValue,
-                forKey: MainChatOperatingModePreference.defaultsKey
-            )
-        }
-
-        if let inputText {
-            let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                chatState.primeComposerDraft(trimmed)
-            }
-        }
-
-        chatState.showLanding = false
-        uiState.setActivePanel(.home)
-        uiState.homeTab = .home
-        HomeWindowIdentity.surfaceHomeWindow()
-    }
-
-    func routeGraphChatRequestIntoMainChat(_ request: GraphChatRequest) {
-        let label = request.nodeLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-        let draftLabel = label.isEmpty ? request.nodeType : label
-        #if !EPISTEMOS_APP_STORE
-        if LocalAgentLoop.shouldRouteActThroughOsaurus() {
-            let attachment = request.sourceId.map {
-                ComposerReferenceHelpers.noteAttachment(
-                    pageID: $0,
-                    title: draftLabel
-                )
-            }
-            NotificationCenter.default.post(
-                name: .submitActOsaurusPrompt,
-                object: ActOsaurusPromptRequest(
-                    text: "Tell me about \(draftLabel)",
-                    contextAttachments: attachment.map { [$0] } ?? []
-                )
-            )
-            return
-        }
-        #endif
-        chatState.primeGraphChatRequest(request)
-        routeMainChatDraft(
-            prefill: "Tell me about \(draftLabel)"
-        )
     }
 
     private func recordPersistenceIssue(
@@ -1631,9 +1576,7 @@ final class AppBootstrap {
     /// Flag-gated OFF (`EPISTEMOS_LOCAL_MODEL_SERVER_V0`); nil when disabled.
     private var localModelServer: LocalModelServer?
     let triageService: TriageService
-    /// Transparency-only audit trail of recent Overseer planning
-    /// decisions. Populated by ChatCoordinator on every main-chat turn;
-    /// surfaced in Settings → Overseer.
+    /// Transparency-only audit trail of recent Overseer planning decisions.
     let overseerAuditState = OverseerAuditState()
     let vaultSync: VaultSyncService
     let vaultChatMutator: VaultChatMutator
@@ -2162,7 +2105,6 @@ final class AppBootstrap {
         )
 
         // PipelineService — direct local answer streaming + tool-enabled loop
-        let companionStateForPipeline = companionState
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: llm,
@@ -2173,9 +2115,6 @@ final class AppBootstrap {
             constrainedDecoding: constrainedDecoding,
             vaultPathProvider: { [weak vaultSync] in
                 vaultSync?.vaultURL?.path
-            },
-            activeCompanionInstructionProvider: { [weak companionStateForPipeline] in
-                companionStateForPipeline?.activeAgentSystemInstruction()
             },
             skillNamesProvider: { [weak agentCommandCenterState] in
                 agentCommandCenterState?.availableSkills.map(\.title).sorted() ?? []
@@ -2192,27 +2131,11 @@ final class AppBootstrap {
             }
         )
 
-        // Wire event bus to chat state
-        chatState.eventBus = eventBus
-
         // Create coordinators
-        let chatCoordinator = ChatCoordinator(
-            bootstrap: self,
-            chatState: chatState,
-            inferenceState: inference,
-            vaultSync: vaultSync,
-            modelContainer: container,
-            eventBus: eventBus,
-            llmService: llm,
-            notesUI: notesUI
-        )
-
         let appCoordinator = AppCoordinator(
             bootstrap: self,
-            chatCoordinator: chatCoordinator,
             eventBus: eventBus,
             uiState: uiState,
-            chatState: chatState,
             dailyBriefState: dailyBriefState,
             triageService: triage,
             vaultSync: vaultSync,
@@ -2222,30 +2145,8 @@ final class AppBootstrap {
         )
         self._coordinator = appCoordinator
 
-        // Wire stop button → cancel active pipeline query
-        chatState.onStopRequested = { [weak self] in
-            self?.coordinator.cancelActiveQuery()
-        }
-
-        // 0.48: persist completed main-act Osaurus turns into the unified SDChat recent-chats store. The new
-        // `runActOsaurusTurn` path bypasses the ChatCoordinator pipeline (the old SDChat writer for main chat),
-        // so without this main-act chats never appear in / reopen from recent-chats. Forward to the PROVEN
-        // persistChatCompletion writer (same one the deprecated pipeline used).
-        chatState.persistActTurn = { [weak chatCoordinator] chatId, userText, assistant in
-            chatCoordinator?.persistChatCompletion(
-                chatId: chatId,
-                query: userText,
-                answer: assistant?.content ?? "",
-                mode: .local,
-                assistantMessage: assistant
-            )
-        }
-
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        ActOsaurusNativePromptPresenter.install()
-        #endif
         chatApprovalQueue.sessionFolderPathResolver = { sessionId in
             sessionFolderPathLocal(sessionId: sessionId)
         }
@@ -2509,16 +2410,6 @@ final class AppBootstrap {
             )
         }
 
-        // Terminal C / P5 (2026-05-23) + local-model bridge (2026-05-29):
-        // register the real System G run seam. Local / auto missions stream
-        // through the app's live local model client; unsupported provider
-        // routes still fall back to the Rust witness seam instead of faking
-        // success. Idempotent — the registry's last-writer-wins lock makes
-        // re-launch safe.
-        SystemGRunSeamRegistry.shared.register(
-            RealSystemGRunSeam(localModelClient: localLLMClient)
-        )
-        Log.app.info("System G run seam: local model dispatch registered")
         // Fallback for missed nights (M-series laptop on battery, lid
         // closed): if launchd skipped > 36 h, run the in-process
         // consolidation inline now while the user is foreground.
@@ -2644,7 +2535,6 @@ final class AppBootstrap {
         // the first frame renders without blocking.
         agentCommandCenterState.refreshSkillCatalog()
         agentCommandCenterState.refreshBrainCatalog(from: inference)
-        agentCommandCenterState.startObservingGraphChatRequests()
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.agentCommandCenterState.refreshToolCatalog(
@@ -2655,6 +2545,9 @@ final class AppBootstrap {
         agentChatState.eventBus = eventBus
         agentChatState.onStopRequested = { [weak self] in
             self?.coordinator.cancelActiveQuery()
+        }
+        agentChatState.onMessageRecorded = { [weak self] message, portalContext in
+            self?.persistAgentChatMessage(message, portalContext: portalContext)
         }
 
         commandCenterLocalHotkeyMonitor = nil
@@ -3091,7 +2984,6 @@ final class AppBootstrap {
     // MARK: - Forwarding (for external callers that reference AppBootstrap directly)
 
     func refreshAmbientManifest() { coordinator.refreshAmbientManifest() }
-    func loadChat(chatId: String) { coordinator.loadChat(chatId: chatId) }
 
     /// 0.48b-part2: persist an opened Work/OpenCode session as an SDChat "worker" row so it appears in the WORK
     /// section of the unified recent-chats popover. Keyed by a STABLE id (the workspace path) so re-opening the
@@ -3116,6 +3008,110 @@ final class AppBootstrap {
         try? context.save()
     }
 
+    @MainActor
+    private func persistAgentChatMessage(
+        _ message: ChatMessage,
+        portalContext: AgentPortalContextSnapshot?
+    ) {
+        guard !message.chatId.isEmpty else { return }
+
+        let context = modelContainer.mainContext
+        let chatId = message.chatId
+        let chatDescriptor = FetchDescriptor<SDChat>(
+            predicate: #Predicate<SDChat> { $0.id == chatId }
+        )
+        let chat: SDChat
+        do {
+            if let existing = try context.fetch(chatDescriptor).first {
+                chat = existing
+            } else {
+                let created = SDChat(
+                    title: Self.agentChatStorageTitle(message: message, portalContext: portalContext),
+                    chatType: "agent"
+                )
+                created.id = chatId
+                context.insert(created)
+                chat = created
+            }
+
+            chat.chatType = "agent"
+            chat.updatedAt = .now
+            if let note = portalContext?.note {
+                chat.linkedPageId = note.pageId
+            }
+            if message.role == .user || chat.title == "New Agent Session" || chat.title == "New Chat" {
+                chat.title = Self.agentChatStorageTitle(message: message, portalContext: portalContext)
+            }
+
+            let messageId = message.id
+            let existingMessageDescriptor = FetchDescriptor<SDMessage>(
+                predicate: #Predicate<SDMessage> { $0.id == messageId }
+            )
+            let storedMessage: SDMessage
+            if let existing = try context.fetch(existingMessageDescriptor).first {
+                storedMessage = existing
+            } else {
+                let created = SDMessage(role: message.role.rawValue, content: message.content)
+                created.id = message.id
+                context.insert(created)
+                storedMessage = created
+            }
+
+            storedMessage.role = message.role.rawValue
+            storedMessage.content = message.content
+            storedMessage.createdAt = message.createdAt
+            storedMessage.isError = message.isError
+            storedMessage.isVaultBriefing = message.isVaultBriefing
+            storedMessage.authoredByProviderID = message.authoredByProviderID
+            storedMessage.authoredByModelID = message.authoredByModelID
+            storedMessage.thinkingTrace = message.thinkingTrace
+            storedMessage.thinkingDurationSeconds = message.thinkingDurationSeconds
+            storedMessage.setContentBlocks(message.contentBlocks)
+            storedMessage.setArtifacts(message.artifacts)
+            storedMessage.updateAnalysis(
+                dualMessage: message.dualMessage,
+                truthAssessment: message.truthAssessment,
+                confidence: message.confidence,
+                evidenceGrade: message.evidenceGrade,
+                mode: message.mode
+            )
+            storedMessage.updatePresentationSnapshot(
+                attachments: message.attachments,
+                loadedNoteTitles: message.loadedNoteTitles,
+                vaultRecallTrace: message.vaultRecallTrace,
+                contextAttachments: message.contextAttachments
+            )
+            storedMessage.chat = chat
+
+            try context.save()
+        } catch {
+            Log.app.error("AppBootstrap: failed to persist agent chat message: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private static func agentChatStorageTitle(
+        message: ChatMessage,
+        portalContext: AgentPortalContextSnapshot?
+    ) -> String {
+        let candidates = [
+            message.role == .user ? message.effectiveText : nil,
+            portalContext?.promptPreview,
+            portalContext?.title,
+            portalContext?.portal.label,
+            "New Agent Session",
+        ]
+
+        for candidate in candidates {
+            guard let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !trimmed.isEmpty else {
+                continue
+            }
+            return String(trimmed.prefix(72))
+        }
+
+        return "New Agent Session"
+    }
+
     func refreshLiveNoteScheduler() {
         guard !Self.isRunningTests else { return }
         // Live notes are opt-in (UserDefaults key "epistemos.liveNotes.enabled").
@@ -3135,8 +3131,18 @@ final class AppBootstrap {
             approvalMutator: vaultChatMutator
         )
     }
-    func requestVaultBriefing(chatState: ChatState) { coordinator.requestVaultBriefing(chatState: chatState) }
-    static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade { ChatCoordinator.gradeFromConfidence(confidence) }
+    static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade {
+        switch confidence {
+        case 0.9...:
+            return .primary
+        case 0.7..<0.9:
+            return .secondary
+        case 0.45..<0.7:
+            return .inferred
+        default:
+            return .unknown
+        }
+    }
 
     private static func makeFallbackModelContainer(schema: Schema) -> ModelContainer {
         do {
@@ -3204,15 +3210,6 @@ final class AppBootstrap {
 
         preparedModelRegistryState.apply(snapshot)
         localMLXClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
-        #if !EPISTEMOS_APP_STORE
-        // Owner's models in the Osaurus act chat (item 4b): now that the prepared
-        // generator(s) are loaded, (re)register them with the OsaurusCore model
-        // bridge so the Osaurus ChatEngine can route generation to the owner's
-        // local models. Idempotent (replaces) + re-runs when the snapshot changes.
-        // Pro only (OsaurusCore is not linked into MAS).
-        EpistemosOsaurusModelProvider.register(
-            service: localInferenceService, generationConfig: snapshot.generationRuntimeConfiguration)
-        #endif
         if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
             localLLMClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
             Task { @MainActor in
@@ -3482,7 +3479,6 @@ final class AppBootstrap {
             defaults.removeObject(forKey: key)
         }
 
-        chatState.clearMessages()
         notesUI.resetForVaultSwitch()
         pipelineState.reset()
         clearVaultLifecycleRuntimeState(

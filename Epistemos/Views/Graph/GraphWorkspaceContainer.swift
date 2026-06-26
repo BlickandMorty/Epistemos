@@ -133,8 +133,10 @@ struct GraphWorkspaceContainer: View {
     private var graphCognitiveDagVisualizerLayer: some View {
         if graphState.currentRoute.isCanvas {
             VStack {
-                HStack {
+                HStack(spacing: 10) {
                     Spacer(minLength: 0)
+                    graphAgentPortalButton
+                        .padding(.top, graphSurfacePresentation.isEmbeddedHome ? 14 : 18)
                     CognitiveDagVisualizerPanel(theme: theme)
                         .padding(.top, graphSurfacePresentation.isEmbeddedHome ? 14 : 18)
                         .padding(.trailing, 14)
@@ -230,6 +232,8 @@ struct GraphWorkspaceContainer: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
+            graphAgentPortalButton
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
@@ -299,7 +303,8 @@ struct GraphWorkspaceContainer: View {
 
             Spacer()
 
-            Color.clear.frame(width: 160, height: 1)
+            graphAgentPortalButton
+                .frame(width: 160, alignment: .trailing)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -308,6 +313,64 @@ struct GraphWorkspaceContainer: View {
         // pass on top of the window's wallpaper blur. Reads as a real
         // native macOS toolbar instead of a flat tinted rectangle.
         .unifiedFrostedGlass(theme: theme, in: Rectangle(), nativeGlass: true)
+    }
+
+    private var graphAgentPortalButton: some View {
+        Button {
+            openGraphAgentPortal()
+        } label: {
+            Label("Agent", systemImage: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+                .labelStyle(.titleAndIcon)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(theme.card.opacity(theme.isDark ? 0.82 : 0.92))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(theme.glassBorder.opacity(0.65), lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(.plain)
+        .help("Open selected graph context in Agent")
+        .accessibilityLabel("Open graph context in Agent")
+    }
+
+    private func openGraphAgentPortal() {
+        AgentPortalRouteRequest.post(
+            AgentPortalContextSnapshot.graph(
+                vaultRootPath: vaultSync.vaultURL?.path,
+                workspacePath: FileManager.default.homeDirectoryForCurrentUser.path,
+                route: graphState.currentRoute.serializationKey,
+                selectedNodeIds: graphPortalSelectedNodeIds,
+                selectedEdgeIds: graphPortalSelectedEdgeIds,
+                neighborhoodSummary: graphPortalNeighborhoodSummary
+            )
+        )
+    }
+
+    private var graphPortalSelectedNodeIds: [String] {
+        guard let nodeId = graphState.selectedNodeId else { return [] }
+        return [nodeId]
+    }
+
+    private var graphPortalSelectedEdgeIds: [String] {
+        guard let nodeId = graphState.selectedNodeId else { return [] }
+        return Array(graphState.store.edges(for: nodeId).map(\.id).prefix(24))
+    }
+
+    private var graphPortalNeighborhoodSummary: String? {
+        if let node = graphState.selectedNode {
+            let neighborLabels = graphState.store.neighborLabels(of: node.id).prefix(8).joined(separator: ", ")
+            var parts = ["Selected \(node.type.rawValue): \(node.label)"]
+            if !neighborLabels.isEmpty {
+                parts.append("Neighbors: \(neighborLabels)")
+            }
+            return parts.joined(separator: " | ")
+        }
+        return "Route \(graphState.currentRoute.serializationKey) | \(graphState.store.nodes.count) nodes | \(graphState.store.edges.count) edges"
     }
 
     @ViewBuilder
@@ -550,12 +613,6 @@ private struct GraphHTMLWorkspaceDock: View {
                 }
 
                 Button {
-                    openMiniChat(for: selected)
-                } label: {
-                    Label("Chat", systemImage: "bubble.left.and.text.bubble.right")
-                }
-
-                Button {
                     exportHTML(for: selected)
                 } label: {
                     Label("HTML", systemImage: "square.and.arrow.up")
@@ -609,17 +666,6 @@ private struct GraphHTMLWorkspaceDock: View {
         } catch {
             NSApplication.shared.presentError(error)
         }
-    }
-
-    private func openMiniChat(for item: GraphHTMLWorkspaceItem) {
-        MiniChatWindowController.shared.openNewChat(
-            attaching: ComposerReferenceHelpers.htmlWorkspaceAttachment(
-                workspaceID: item.document.package.manifest.id,
-                title: item.title,
-                fileURL: item.document.fileURL
-            ),
-            preferredOperatingMode: .agent
-        )
     }
 
     private func exportHTML(for item: GraphHTMLWorkspaceItem) {

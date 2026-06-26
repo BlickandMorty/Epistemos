@@ -68,6 +68,9 @@ enum CapabilityManifestBuilder {
                 .joined(separator: ", ")
             let more = context.enabledToolNames.count > 12 ? " (+more)" : ""
             lines.append("Tools available: \(toolList)\(more).")
+            lines.append(
+                "These are Epistemos tools for this turn. Some callable names may be generic or compatibility-prefixed because Epistemos preserves runtime contracts; still treat every listed tool as a connected Epistemos capability and call it by the exact listed name. Do not tell the user you lack an Epistemos-specific tool merely because the callable name is generic or compatibility-prefixed."
+            )
             // Positive agentic directive (only when tools actually exist this
             // turn). The defensive rules below stop the model OVER-claiming;
             // this stops it UNDER-using — the other half of feeling capable.
@@ -80,7 +83,7 @@ enum CapabilityManifestBuilder {
             )
         } else {
             lines.append(
-                "No tools are available on this turn. Answer in plain text only. Do not emit tool-call JSON, `<tool_call>` tags, or policy/status tokens."
+                "No tools are available on this turn. This is turn-specific; do not claim Epistemos generally lacks tools. Answer in plain text only. Do not emit tool-call JSON, `<tool_call>` tags, or policy/status tokens."
             )
         }
 

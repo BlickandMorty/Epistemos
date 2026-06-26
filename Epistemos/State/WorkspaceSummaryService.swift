@@ -92,12 +92,7 @@ final class WorkspaceSummaryService {
                 guard let self else { break }
                 // Skip if minimized or no windows open
                 guard let ui = AppBootstrap.shared?.uiState, !ui.windowOccluded else { continue }
-                let hasMainChat = AppBootstrap.shared.map { bootstrap in
-                    WorkspaceService.hasLiveMainChatWork(bootstrap.chatState)
-                } ?? false
                 let hasWork = !NoteWindowManager.shared.orderedPageIds().isEmpty
-                    || !MiniChatWindowController.shared.openChatIds.isEmpty
-                    || hasMainChat
                     || AppBootstrap.shared?.graphState.currentRoute != .canvas
                 guard hasWork else { continue }
                 await self.generateAndStoreSummary()
@@ -208,7 +203,7 @@ final class WorkspaceSummaryService {
         let snapshot = AppBootstrap.shared?.workspaceService.captureSnapshot()
         let openPageIds = snapshot?.liveDocuments?.map(\.pageId) ?? NoteWindowManager.shared.orderedPageIds()
 
-        guard !windowSummaries.isEmpty || !digest.editedNotes.isEmpty || digest.chatMessageCount > 0 || snapshot?.liveDocuments?.isEmpty == false || snapshot?.mainChat != nil || snapshot?.miniChats?.isEmpty == false else {
+        guard !windowSummaries.isEmpty || !digest.editedNotes.isEmpty || snapshot?.liveDocuments?.isEmpty == false else {
             return ""
         }
 

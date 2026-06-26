@@ -225,11 +225,9 @@ nonisolated public struct RuntimeCapability: Hashable, Sendable, Codable {
 
 // MARK: - MissionPacket (router input)
 
-/// Router-layer mission packet. Distinct from `AgentMissionPacket`
-/// (Epistemos/LocalAgent/AgentBlueprint.swift) which is the heavy
-/// blueprint-driven mission shape used downstream of routing.
-/// `MissionPacket` carries only the fields the router needs to pick
-/// a lane: identity, plane, residency ceiling, role, demands.
+/// Router-layer mission packet. `MissionPacket` carries only the fields the
+/// router needs to pick a lane: identity, plane, residency ceiling, role,
+/// demands.
 nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable, Identifiable {
     public let id: String
     public let uasAddress: String

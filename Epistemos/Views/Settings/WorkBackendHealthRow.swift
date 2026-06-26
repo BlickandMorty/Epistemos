@@ -2,7 +2,7 @@ import SwiftUI
 
 // Visible gate surface for the Goose=WORK seam (rule #8 — the owner can SEE it).
 // ALWAYS-compiled; renders the honest WorkBackendGateStatus (incl. "Pro only" on
-// the MAS build). Mirrors ActOsaurusHealthRow.
+// the MAS build).
 struct WorkBackendHealthRow: View {
     private var status: WorkBackendGateStatus.Status { WorkBackendGateStatus.status() }
 

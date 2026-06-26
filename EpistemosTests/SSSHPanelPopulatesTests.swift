@@ -14,10 +14,10 @@ struct SSSHPanelPopulatesTests {
     func panelMountsRows() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
         let rowMounts = src.components(separatedBy: "HealthRow()").count - 1
-        #expect(rowMounts >= 24, "the panel must mount its full row set (found \(rowMounts))")
+        #expect(rowMounts >= 23, "the panel must mount its full row set (found \(rowMounts))")
         // A key row from each of the 3 sections is present (Retrieval / Agent Runtime / Floor).
         #expect(src.contains("EidosHealthRow()"))
-        #expect(src.contains("SystemGHealthRow()"))
+        #expect(src.contains("LocalAgentDiagnosticsHealthRow()"))
         #expect(src.contains("EmlObservatoryHealthRow()"))
         #expect(src.contains("Section(\"Retrieval and Indexing\", isExpanded: $showRetrieval)"))
         #expect(src.contains("Section(\"Agent Runtime\", isExpanded: $showAgentRuntime)"))

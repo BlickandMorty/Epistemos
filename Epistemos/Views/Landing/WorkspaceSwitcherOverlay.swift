@@ -358,9 +358,6 @@ private struct WorkspaceRow: View {
         if !snapshot.openNoteTabs.isEmpty {
             parts.append("\(snapshot.openNoteTabs.count) note\(snapshot.openNoteTabs.count == 1 ? "" : "s")")
         }
-        if !snapshot.openMiniChatIds.isEmpty {
-            parts.append("\(snapshot.openMiniChatIds.count) chat\(snapshot.openMiniChatIds.count == 1 ? "" : "s")")
-        }
         if snapshot.graphOverlay.visibility != .hidden {
             parts.append("graph")
         }
@@ -438,14 +435,9 @@ private struct WorkspaceRow: View {
         let addedNotes = currentPageIds.subtracting(savedPageIds).count
         let removedNotes = savedPageIds.subtracting(currentPageIds).count
 
-        let currentChatIds = Set(MiniChatWindowController.shared.openChatIds)
-        let savedChatIds = Set(snapshot.openMiniChatIds)
-        let addedChats = currentChatIds.subtracting(savedChatIds).count
-
         var parts: [String] = []
         if addedNotes > 0 { parts.append("+\(addedNotes) note\(addedNotes == 1 ? "" : "s")") }
         if removedNotes > 0 { parts.append("-\(removedNotes) note\(removedNotes == 1 ? "" : "s")") }
-        if addedChats > 0 { parts.append("+\(addedChats) chat\(addedChats == 1 ? "" : "s")") }
 
         // Time drift
         let hours = Int(Date().timeIntervalSince(workspace.updatedAt) / 3600)

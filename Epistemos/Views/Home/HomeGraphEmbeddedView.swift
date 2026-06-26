@@ -423,7 +423,6 @@ private struct MetalGraphRepresentable: NSViewRepresentable {
         view.graphState = graphState
         if let bootstrap = AppBootstrap.shared {
             view.physicsCoordinator = bootstrap.physicsCoordinator
-            view.dialogueChatState = bootstrap.dialogueChatState
         }
         view.uiState = AppBootstrap.shared?.uiState
         // 1) transparent clear color — landing background shows through

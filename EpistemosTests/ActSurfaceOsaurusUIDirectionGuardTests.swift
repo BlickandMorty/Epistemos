@@ -1,140 +1,508 @@
+import Foundation
 import Testing
 
-/// Owner latest correction:
-/// Act uses the current Epistemos chat UI as the visible surface. Osaurus is
-/// unbundled into engine, model/config, tools, permissions, dependency,
-/// sandbox, and management pieces that are re-exposed through Epistemos chrome.
-@Suite("Act surface = Epistemos chat with unbundled Osaurus capability")
+/// Act currently rides the Epistemos-skinned AgentClone surface. The deleted
+/// Osaurus bridge names must not return; Act prompts should enter AgentClone
+/// through the app-owned `AgentCloneBridge`.
+@Suite("Act surface = direct AgentClone foundation with Epistemos foreground")
 struct ActSurfaceOsaurusUIDirectionGuardTests {
 
-    @Test("RootView enters the current Epistemos Act chat surface with Osaurus underneath")
-    func rootViewRoutesFusedEpistemosActSurface() throws {
+    @Test("RootView mounts the AgentClone host and Landing submits Act prompts to the live AgentClone runner")
+    func rootViewRoutesThroughAgentCloneBridge() throws {
         let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
-        let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        let chatView = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let sharedAct = try loadMirroredSourceTextFile("Epistemos/LocalAgent/SharedActInference.swift")
+        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+        let host = try loadMirroredSourceTextFile("Epistemos/Views/AgentFusion/AgentCloneChatHostSurface.swift")
+        let snapshot = try loadMirroredSourceTextFile("Epistemos/Views/AgentFusion/AgentCloneAppContextSnapshot.swift")
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let workspaceModeSelection = try loadMirroredSourceTextFile("Epistemos/Views/Landing/WorkspaceModeSelection.swift")
+        let agentContent = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Views/ContentView/ContentView.swift")
+        let agentBridge = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/EpistemosAgentBridge.swift")
+        let agentHostContext = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/Core/HostContext.swift")
+        let sessionStore = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/SessionStore.swift")
+        let taskUtilities = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/TaskUtilities/TaskUtilities.swift")
+        let taskExecution = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/TaskExecution/TaskExecution.swift")
+        let tabLLMServices = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/TabTask/LLMServices.swift")
 
-        #expect(app.contains("static let submitActOsaurusPrompt"))
-        #expect(app.contains("struct ActOsaurusPromptRequest"))
-        #expect(app.contains("let fileAttachments: [FileAttachment]"))
-        #expect(app.contains("let sessionId: UUID?"))
-        #expect(source.contains("import OsaurusCore"))
-        #expect(source.contains("ActEpistemosChatSurface("))
-        #expect(source.contains("ChatView("))
-        #expect(source.contains("actUsesOsaurus: true"))
-        #expect(source.contains("availableOperatingModesOverride: [.agent]"))
-        #expect(source.contains("composerMode: .osaurusAct"))
-        #expect(source.contains("showsToolbarControls: false"))
-        #expect(source.contains("forceActOsaurus: true"))
-        #expect(source.contains("loadLegacyOsaurusTranscriptIfNeeded"))
-        #expect(source.contains("authoredByProviderID: \"act\""))
-        #expect(source.contains("resolvedModelLabel: actResolvedModelLabel(for: transcript.selectedModel)"))
-        #expect(source.contains("return \"Act · \\(selectedModel)\""))
-        #expect(source.contains("chat.addContextAttachment(attachment)"))
-        #expect(source.contains("modelToolbarButton(title: actToolbarTitle)"))
-        #expect(source.contains("ControlGroup {"))
-        #expect(source.contains("historyToolbarButton"))
-        #expect(source.contains("settingsToolbarButton"))
-        #expect(source.contains("actMiniChatToolbarButton"))
-        #expect(source.contains("actExportToolbarButton"))
-        #expect(source.contains("MiniChatWindowController.shared.openChat("))
-        #expect(source.contains("Button(action: openContextualSettingsWindow)"))
-        #expect(source.contains("if showingActChatSurface || actLandingSurfaceVisible"))
-        #expect(source.contains("NotificationCenter.default.post(name: .showActOsaurusSettings"))
-        #expect(source.contains("ChatSidebarView {"))
-        #expect(source.contains("initialPrompt: pendingActPrompt?.text"))
-        #expect(source.contains("initialPromptId: pendingActPrompt?.id"))
-        #expect(source.contains("initialContextAttachments: pendingActPrompt?.contextAttachments ?? []"))
-        #expect(source.contains("initialFileAttachments: pendingActPrompt?.fileAttachments ?? []"))
-        #expect(source.contains("for attachment in initialFileAttachments"))
-        #expect(source.contains("chat.addAttachment(attachment)"))
-        #expect(source.contains("onCurrentSessionChanged: { sessionId in"))
-        #expect(source.contains("LandingView(onSubmitActPrompt:"))
-        #expect(source.contains("WorkTerminalHostView(workspace: Self.workWorkspaceURL)"))
-        #expect(source.contains("LocalAgentLoop.shouldRouteActThroughOsaurus()"))
-        #expect(source.contains("WorkspaceModeSelection.current() == .act"))
-        #expect(source.contains("actEpistemosChatSurface"))
-        #expect(source.contains("#if !EPISTEMOS_APP_STORE"))
-        #expect(source.contains("if showingActChatSurface { return true }"))
-        #expect(source.contains("|| showingActChatSurface"))
-        #expect(source.contains(".onReceive(NotificationCenter.default.publisher(for: .openActOsaurusSession))"))
-        #expect(source.contains(".onReceive(NotificationCenter.default.publisher(for: .submitActOsaurusPrompt))"))
-        #expect(source.contains("WorkspaceModeSelection.select(.act)"))
-        #expect(chatView.contains("struct ChatView: View"))
-        #expect(chatView.contains("var actUsesOsaurus: Bool = false"))
-        #expect(chatView.contains("var composerMode: ChatInputComposerMode = .epistemos"))
-        #expect(chatView.contains("var showsToolbarControls: Bool = true"))
-        #expect(chatView.contains("ChatInputBar("))
-        #expect(chatView.contains("showsOsaurusModelSection: composerMode == .osaurusAct"))
-        #expect(sharedAct.contains("actStreamIfArmed("))
-        #expect(sharedAct.contains("ActOsaurusStreamingHandler.make()"))
-        #expect(sharedAct.contains("ActOsaurusVisibleStreamFilter.StreamState()"))
+        #expect(!app.contains("submitActOsaurusPrompt"))
+        #expect(!app.contains("openActOsaurusSession"))
+        #expect(!app.contains("showActOsaurusSettings"))
+        #expect(!app.contains("ActOsaurusPromptRequest"))
 
-        #expect(!source.contains("EpistemosOsaurusChatHost("))
-        #expect(!source.contains("onSubmitOverride: submitActPrompt"))
-        #expect(!source.contains("actChat.pendingContextAttachments = initialContextAttachments"))
-        #expect(!source.contains("onSelectActSession: { sessionId in"))
-        #expect(!source.contains("NativeActChatView("))
-        #expect(!source.contains("NativeActLandingView("))
-        #expect(!source.contains("actRecentChats:"))
-        #expect(!source.contains("selectedOsaurusSessionId"))
-        #expect(!source.contains("actOsaurusChatHost"))
-        #expect(!source.contains("epistemosOsaurusThemeTokens"))
-        #expect(!source.contains("osaurusThemeTokens"))
+        #expect(root.contains("import AgentClone"))
+        #expect(root.contains("AgentClone.AgentSkin.configure("))
+        #expect(root.contains("AgentCloneChatHostSurface("))
+        #expect(root.contains("private var agentCloneContextSnapshot: AgentCloneAppContextSnapshot"))
+        #expect(root.contains("AgentCloneAppContextSnapshot("))
+        #expect(root.contains("context: agentCloneContextSnapshot"))
+        #expect(root.contains("onSyncHostContext: syncAgentCloneHostContext"))
+        #expect(snapshot.contains("struct AgentCloneAppContextSnapshot: Codable, Equatable, Sendable"))
+        #expect(snapshot.contains("var appName: String"))
+        #expect(snapshot.contains("var workspacePath: String?"))
+        #expect(snapshot.contains("var vaultPath: String?"))
+        #expect(snapshot.contains("var appSupportPath: String?"))
+        #expect(snapshot.contains("var modeLabel: String"))
+        #expect(snapshot.contains("var presentation: String"))
+        #expect(snapshot.contains("var modelVisibleSummary: String"))
+        #expect(snapshot.contains("var modelVisibleJSON: String"))
+        #expect(snapshot.contains("private struct ModelVisiblePayload: Codable, Equatable, Sendable"))
+        #expect(snapshot.contains("encoder.outputFormatting = [.sortedKeys]"))
+        #expect(!snapshot.contains("appSupportPath: appSupportPath"))
+        #expect(snapshot.contains(#"presentation: String = "main""#))
+        #expect(snapshot.contains(#"Self.normalized(appName) ?? "Epistemos""#))
+        #expect(snapshot.contains(#"Self.normalized(modeLabel) ?? "Act""#))
+        #expect(host.contains("let context: AgentCloneAppContextSnapshot"))
+        #expect(host.contains("AgentClone.ContentView()"))
+        #expect(host.contains("context.appName"))
+        #expect(host.contains("context.modeLabel"))
+        #expect(host.contains("context.presentation"))
+        #expect(host.contains("context.modelVisibleSummary"))
+        #expect(host.contains("context.vaultPath"))
+        #expect(host.contains("context.workspacePath"))
+        #expect(host.contains("Swift agent foundation"))
+        #expect(host.contains("Epistemos bridge"))
+        #expect(!host.contains("AgentClone foundation"))
+        #expect(!host.contains("AgentClone bridge"))
+        #expect(host.contains(".onAppear(perform: onSyncHostContext)"))
+        #expect(host.contains("@State private var showCompactSessionRail = false"))
+        #expect(host.contains("@State private var showCompactContextRail = false"))
+        #expect(host.contains("if compact || !showSessionRail || !showContextRail"))
+        #expect(host.contains("railControlButtons(compact: compact)"))
+        #expect(host.contains("compact && showCompactSessionRail"))
+        #expect(host.contains("compact && showCompactContextRail"))
+        #expect(root.contains("WorkspaceModeToggle(mode: $workspaceMode)"))
+        #expect(root.contains("WorkTerminalHostView("))
+        #expect(root.contains("workspace: Self.workWorkspaceURL"))
+        #expect(root.contains("epistemosVaultRoot: vaultSync.vaultURL"))
+        #expect(root.contains("AgentCloneBridge.updateHostContext("))
+        #expect(root.contains("AgentCloneHostContext("))
+        #expect(root.contains("let snapshot = agentCloneContextSnapshot"))
+        #expect(root.contains("workspacePath: Self.workWorkspaceURL.path"))
+        #expect(root.contains("vaultPath: vaultSync.vaultURL?.path"))
+        #expect(root.contains("private static var agentCloneSupportURL"))
+        #expect(root.contains("AgentCloneAppContextSnapshot.defaultAppSupportPath("))
+        #expect(root.contains("appSupportPath: Self.agentCloneSupportURL.path"))
+        #expect(root.contains("modeLabel: workspaceMode.defaultLabel"))
+        #expect(root.contains("workspaceRootPath: snapshot.workspacePath"))
+        #expect(root.contains("vaultRootPath: snapshot.vaultPath"))
+        #expect(root.contains("appSupportRootPath: snapshot.appSupportPath"))
+        #expect(root.contains("mode: snapshot.modeLabel"))
+        #expect(root.contains("presentation: snapshot.bridgePresentation"))
+        #expect(root.contains("guard workspaceMode != .work else { return }"))
+        #expect(root.contains("WorkspaceModeSelection.didSelectNotification"))
+        #expect(root.contains("WorkspaceModeSelection.selectedModeUserInfoKey"))
+        #expect(root.contains("workspaceMode = candidate"))
+        #expect(root.contains("if candidate != .work {\n                syncAgentCloneHostContext()"))
+        #expect(!root.contains(".submitActOsaurusPrompt"))
+        #expect(!root.contains(".openActOsaurusSession"))
+        #expect(!root.contains(".showActOsaurusSettings"))
+        #expect(!root.contains("agentClonePromptText(for: request, prompt: prompt)"))
+        #expect(!root.contains("ActOsaurusPromptRequest"))
+
+        #expect(landing.contains("@Environment(AgentChatState.self)"))
+        #expect(landing.contains("import AgentClone"))
+        #expect(landing.contains("WorkspaceModeSelection.select(.act)"))
+        #expect(landing.contains("AgentPortalContextSnapshot.landing("))
+        #expect(landing.contains("agentChat.startNewSession(portalContext: portalContext)"))
+        #expect(landing.contains("agentChat.submitAgentQuery(trimmed)"))
+        #expect(landing.contains("AgentCloneBridge.updateHostContext(AgentCloneHostContext("))
+        #expect(landing.contains("AgentCloneBridge.submitPrompt(trimmed)"))
+        #expect(!landing.contains("if isActSearchPage {\n            AgentCloneBridge.submitPrompt(trimmed)"))
+        #expect(!landing.contains("submitActOsaurusPrompt"))
+        #expect(!landing.contains("ActOsaurusPromptRequest"))
+
+        #expect(workspaceModeSelection.contains("didSelectNotification"))
+        #expect(workspaceModeSelection.contains("selectedModeUserInfoKey"))
+        #expect(workspaceModeSelection.contains(#"Notification.Name("epistemos.workspace.mode.didSelect")"#))
+        #expect(workspaceModeSelection.contains("NotificationCenter.default.post("))
+        #expect(workspaceModeSelection.contains("object: defaults"))
+        #expect(workspaceModeSelection.contains("userInfo: [selectedModeUserInfoKey: mode.rawValue]"))
+
+        #expect(agentBridge.contains("public enum AgentCloneBridge"))
+        #expect(agentBridge.contains("public struct AgentCloneHostContext"))
+        #expect(agentBridge.contains("public var appSupportRootPath: String?"))
+        #expect(agentBridge.contains("public var presentation: String?"))
+        #expect(agentBridge.contains("submitPromptNotification"))
+        #expect(agentBridge.contains("hostContextNotification"))
+        #expect(agentBridge.contains("promptUserInfoKey"))
+        #expect(agentBridge.contains("promptIDUserInfoKey"))
+        #expect(agentBridge.contains("hostContextUserInfoKey"))
+        #expect(agentBridge.contains("currentHostContext"))
+        #expect(agentBridge.contains("AgentClonePendingPrompt"))
+        #expect(agentBridge.contains("AgentClonePendingPromptStore"))
+        #expect(agentBridge.contains("pendingPromptStore"))
+        #expect(agentBridge.contains("@discardableResult"))
+        #expect(agentBridge.contains("public static func submitPrompt(_ prompt: String) -> UUID"))
+        #expect(agentBridge.contains("markPromptConsumed(id: UUID)"))
+        #expect(agentBridge.contains("drainPendingPrompts() -> [AgentClonePendingPrompt]"))
+        #expect(agentBridge.contains("updateHostContext(_ context: AgentCloneHostContext)"))
+        #expect(agentBridge.contains(#"parts.append("vault: \(vaultRootPath)")"#))
+        #expect(agentBridge.contains(#"parts.append("workspace: \(workspaceRootPath)")"#))
+        #expect(agentBridge.contains(#"parts.append("surface: \(presentation)")"#))
+        #expect(agentBridge.contains("vaultRootPath ?? workspaceRootPath"))
+        #expect(!agentBridge.contains("} else if let workspaceRootPath {"))
+        #expect(agentBridge.contains("Notification.Name(\"epistemos.agentclone.submitPrompt\")"))
+        #expect(agentBridge.contains("Notification.Name(\"epistemos.agentclone.hostContext\")"))
+        #expect(agentContent.contains("AgentCloneBridge.submitPromptNotification"))
+        #expect(agentContent.contains("AgentCloneBridge.hostContextNotification"))
+        #expect(agentContent.contains("private func submitBridgePrompt"))
+        #expect(agentContent.contains("drainPendingBridgePrompts()"))
+        #expect(agentContent.contains("AgentCloneBridge.markPromptConsumed(id: promptID)"))
+        #expect(agentContent.contains("AgentCloneBridge.drainPendingPrompts()"))
+        #expect(agentContent.contains("submitBridgePromptText(pendingPrompt.text)"))
+        #expect(agentContent.contains("private func applyBridgeHostContext"))
+        #expect(agentContent.contains("private func applyCurrentHostContext"))
+        #expect(agentContent.contains("applyCurrentHostContext()\n            drainPendingBridgePrompts()"))
+        #expect(agentContent.contains("viewModel.applyEpistemosHostContext(context)"))
+        #expect(agentContent.contains("EpistemosHostContextRow(summary: viewModel.epistemosHostContextSummary)"))
+        #expect(agentContent.contains("Text(\"Epistemos context\")"))
+        #expect(agentContent.contains("viewModel.run()"))
+        #expect(agentContent.contains("viewModel.runTabTask(tab: tab)"))
+        #expect(!agentContent.contains("if !tab.isLLMRunning {\n                viewModel.runTabTask(tab: tab)"))
+        #expect(!agentContent.contains("if !viewModel.isRunning {\n            viewModel.run()"))
+        #expect(agentHostContext.contains("func applyEpistemosHostContext(_ context: AgentCloneHostContext)"))
+        #expect(agentHostContext.contains("epistemosHostContextSummary = context.summary"))
+        #expect(agentHostContext.contains("SessionStore.shared.applyEpistemosHostContext(context)"))
+        #expect(agentHostContext.contains("context.preferredProjectFolder"))
+        #expect(agentHostContext.contains("epistemos.agentclone.lastAppliedHostProjectFolder"))
+        #expect(agentHostContext.contains("currentFolder == lastHostFolder"))
+        #expect(agentHostContext.contains("RecentFoldersService.shared.addFolder(resolvedFolder)"))
+        #expect(sessionStore.contains("func applyEpistemosHostContext(_ context: AgentCloneHostContext)"))
+        #expect(sessionStore.contains("context.appSupportRootPath"))
+        #expect(sessionStore.contains(#"appendingPathComponent("sessions", isDirectory: true)"#))
+        #expect(sessionStore.contains("legacySessionsDir"))
+        #expect(sessionStore.contains(#"Documents/AgentScript/sessions"#))
+        #expect(sessionStore.contains("importLegacySessionsIfNeeded()"))
+        #expect(sessionStore.contains("migrateSessionIfNeeded(from: url)"))
+        #expect(taskUtilities.contains("hostContextSummary: String = \"\""))
+        #expect(taskUtilities.contains("[Epistemos context: \\(trimmedHostContext)]"))
+        #expect(taskExecution.contains("hostContextSummary: epistemosHostContextSummary"))
+        #expect(tabLLMServices.contains("hostContextSummary: epistemosHostContextSummary"))
+
+        #expect(!root.contains("import OsaurusCore"))
+        #expect(!root.contains("ChatRouteView()"))
+        #expect(!root.contains("ChatView("))
+        #expect(!root.contains("MiniChat"))
+        #expect(!root.contains("EpistemosOsaurusChatHost("))
+        #expect(!root.contains("ActEpistemosChatSurface("))
+        #expect(!root.contains("NativeActChatView("))
+        #expect(!root.contains("NativeActLandingView("))
     }
 
-    @Test("Landing and Act share one route-aware recent-chat button")
-    func landingAndActShareOneRecentChatsButton() throws {
+    @Test("Act entrypoints use direct AgentClone route without Osaurus notification bridge")
+    func actEntrypointsPostIntoBridge() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let graph = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
         let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        let chatView = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let slash = try loadMirroredSourceTextFile("Epistemos/Views/Chat/SlashCommandPopover.swift")
 
-        #expect(root.contains("Label(\"History\", systemImage: \"sidebar.left\")"))
-        #expect(root.contains("ChatSidebarView()"))
-        #expect(root.contains("ChatSidebarView {"))
-        #expect(root.contains("withAnimation(.easeOut(duration: 0.28))"))
-        #expect(root.contains("actEntered = true"))
-        #expect(root.contains(".frame(width: 300, height: 500)"))
-        #expect(root.contains("if showingActChatSurface {"))
-        #expect(root.contains("modelToolbarButton(title: actToolbarTitle)"))
-        #expect(root.contains("ControlGroup {"))
-        #expect(root.contains("actMiniChatToolbarButton"))
-        #expect(root.contains("actExportToolbarButton"))
-        #expect(chatView.contains("ToolbarItemGroup(placement: .primaryAction)"))
-        #expect(chatView.contains("historyToolbarButton"))
-        #expect(chatView.contains("if actUsesOsaurus {"))
-        #expect(chatView.contains("actConfigurationToolbarButton"))
-        #expect(chatView.contains("brainToolbarButton"))
-        #expect(chatView.contains("miniChatToolbarButton"))
-        #expect(chatView.contains("Label(\"Export\", systemImage: \"square.and.arrow.up\")"))
-        #expect(chatView.contains("MotionTitle("))
-        #expect(chatView.contains(".sharedBackgroundVisibility(.hidden)"))
-        #expect(chatView.contains("showsActivityStrip && (chat.isStreaming || chat.isAgentExecuting)"))
-        #expect(slash.contains("enum ActOsaurusSlashCommand"))
-        #expect(slash.contains("case model"))
-        #expect(slash.contains("case configure"))
-        #expect(slash.contains("case tools"))
-        #expect(!root.contains("ActOsaurusRecentChatsPopover"))
-        #expect(!root.contains("EpistemosOsaurusSessionBridge.recentSessions"))
-        #expect(!root.contains("Act chats"))
-        #expect(!root.contains("actRecentChatsOwnsToolbarHistory"))
-        #expect(!chatView.contains("onOpenActRecentChat"))
-        #expect(landing.contains("var onSubmitActPrompt: ((String) -> Void)? = nil"))
-        #expect(landing.contains("activateLandingSearch()"))
-        #expect(landing.contains("activateLandingSearch(playHaptic: false)"))
-        #expect(landing.contains("onSubmitActPrompt(trimmed)"))
-        #expect(landing.contains(".allowsHitTesting(showingLandingStageCommand)"))
         #expect(landing.contains("private var isActSearchPage: Bool"))
-        #expect(landing.contains("Ask Act... Type / for commands"))
-        #expect(landing.contains("ActOsaurusSlashCommand.allCases.map(ComposerSlashCommandItem.osaurus)"))
-        #expect(landing.contains("applyImmediateLandingOsaurusCommand"))
-        #expect(landing.contains("NotificationCenter.default.post(name: .showActOsaurusSettings"))
-        #expect(landing.contains("if isActSearchPage { return [.agent] }"))
-        #expect(landing.contains("if isActSearchPage { return \"Act\" }"))
-        #expect(!landing.contains("LandingActRecentChat"))
-        #expect(!landing.contains("actRecentChats"))
-        #expect(!landing.contains("Open recent Osaurus chat"))
+        #expect(landing.contains("Ask Act..."))
+        #expect(landing.contains("AgentPortalContextSnapshot.landing("))
+        #expect(landing.contains("agentChat.submitAgentQuery(trimmed)"))
+        #expect(landing.contains("AgentCloneBridge.submitPrompt(trimmed)"))
+        #expect(!landing.contains("if isActSearchPage {\n            AgentCloneBridge.submitPrompt(trimmed)"))
+        #expect(!landing.contains("submitActOsaurusPrompt"))
+        #expect(!landing.contains("ActOsaurusPromptRequest"))
+        #expect(!landing.contains("showActOsaurusSettings"))
+
+        #expect(graph.contains("old graph-chat"))
+        #expect(graph.contains("chat submission path"))
+        #expect(!graph.contains("name: .submitActOsaurusPrompt"))
+
+        #expect(!app.contains("showActOsaurusSettings"))
+        #expect(!root.contains("handleActPromptNotification"))
+        #expect(!root.contains("openActSettingsFallback"))
+        #expect(!root.contains("AgentCloneBridge.submitPrompt(bridgedPrompt)"))
+        #expect(!root.contains("Context attachments:"))
+        #expect(!root.contains("File attachments:"))
+    }
+
+    @Test("AgentChatState keeps streaming support without restoring deleted chat state")
+    func agentChatStateKeepsStreamingSupportWithoutRestoringDeletedChatState() throws {
+        let support = try loadMirroredSourceTextFile("Epistemos/State/AgentStreamingSupport.swift")
+        let agentChatState = try loadMirroredSourceTextFile("Epistemos/State/AgentChatState.swift")
+
+        #expect(support.contains("enum StreamingReasoningTraceBuffer"))
+        #expect(support.contains("static let postAnswerDisplaySeparator"))
+        #expect(support.contains("final class DisplayPacedTextBuffer"))
+        #expect(support.contains("func reset(releaseCapacity: Bool = false)"))
+        #expect(agentChatState.contains("private lazy var streamBuffer = DisplayPacedTextBuffer"))
+        #expect(agentChatState.contains("StreamingReasoningTraceBuffer.append("))
+        #expect(!agentChatState.contains("ChatCoordinator.inferAuthorship"))
+        #expect(try !mirroredSourcePathExists("Epistemos/State/ChatState.swift"))
+        #expect(try !mirroredSourcePathExists("Epistemos/State/NoteChatState.swift"))
+        #expect(try !mirroredSourcePathExists("Epistemos/State/DialogueChatState.swift"))
+    }
+
+    @Test("Old native chat portal surfaces stay deleted")
+    func oldNativeChatPortalSurfacesStayDeleted() throws {
+        let deletedSourcePaths = [
+            "Epistemos/App/ChatCoordinator.swift",
+            "Epistemos/App/ChatCoordinator+EidosCitationGate.swift",
+            "Epistemos/State/ChatState.swift",
+            "Epistemos/State/DialogueChatState.swift",
+            "Epistemos/State/NoteChatState.swift",
+            "Epistemos/Views/Chat/ChatView.swift",
+            "Epistemos/Views/Chat/ChatInputBar.swift",
+            "Epistemos/Views/Chat/ChatSidebarView.swift",
+            "Epistemos/Views/MiniChat/MiniChatView.swift",
+            "Epistemos/Views/MiniChat/MiniChatWindowController.swift",
+            "Epistemos/Graph/Workspace/GraphChatRequest.swift",
+            "Epistemos/Views/Notes/CodeAskBar.swift",
+            "Epistemos/Views/Notes/NoteChatSidebar.swift",
+            "Epistemos/ActOsaurus/ActOsaurusBridge.swift",
+            "Epistemos/Vendor/Osaurus/OsaurusChatMessage.swift",
+            "Epistemos/LocalAgent/AgentBlueprint.swift",
+            "Epistemos/SystemG/SystemGWiring.swift",
+        ]
+
+        for relativePath in deletedSourcePaths {
+            #expect(try !mirroredSourcePathExists(relativePath), "\(relativePath) should stay deleted")
+        }
+
+        let portalContext = try loadMirroredSourceTextFile("Epistemos/Views/AgentFusion/AgentPortalContextSnapshot.swift")
+        #expect(portalContext.contains("enum Portal: String, Codable, Equatable, Sendable"))
+        #expect(portalContext.contains("case main"))
+        #expect(portalContext.contains("case landing"))
+        #expect(portalContext.contains("case mini"))
+        #expect(portalContext.contains("case note"))
+        #expect(portalContext.contains("case graph"))
+        #expect(portalContext.contains("case vault"))
+        #expect(portalContext.contains("var contextAttachments: [ContextAttachment]"))
+
+        let routedSourcePaths = [
+            "Epistemos/App/EpistemosApp.swift",
+            "Epistemos/App/RootView.swift",
+            "Epistemos/App/AppBootstrap.swift",
+            "Epistemos/App/AppCoordinator.swift",
+            "Epistemos/App/AppEnvironment.swift",
+            "Epistemos/Views/Landing/LandingView.swift",
+            "Epistemos/Views/Graph/HologramSearchSidebar.swift",
+            "Epistemos/Views/Graph/GraphWorkspaceContainer.swift",
+            "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift",
+            "Epistemos/Views/Notes/NoteWindowManager.swift",
+            "Epistemos/Views/Notes/NotesSidebar.swift",
+            "Epistemos/Views/Settings/SettingsView.swift",
+            "Epistemos.xcodeproj/project.pbxproj",
+        ]
+        let forbiddenRouteTokens = [
+            "ChatRouteView",
+            "ChatCoordinator",
+            "let chatState = ChatState",
+            "@Environment(ChatState.self)",
+            "DialogueChatState",
+            "NoteChatState",
+            "ChatView(",
+            "MiniChatView",
+            "MiniChatWindowController",
+            "GraphChatRequest",
+            "NoteChatSidebar",
+            "CodeAskBar",
+            "ActOsaurus",
+            "EpistemosOsaurus",
+            "AgentBlueprint",
+            "SystemGRunSeam",
+            "RealSystemGRunSeam",
+            "SystemGWiring",
+        ]
+
+        for relativePath in routedSourcePaths {
+            let source = try loadMirroredSourceTextFile(relativePath)
+            for token in forbiddenRouteTokens {
+                #expect(!source.contains(token), "\(relativePath) still references \(token)")
+            }
+        }
+    }
+
+    @Test("Embedded AgentClone foreground copy is Epistemos-neutral")
+    func embeddedAgentCloneForegroundCopyIsEpistemosNeutral() throws {
+        let content = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Views/ContentView/ContentView.swift")
+        let services = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Views/Header/ServicesPopover.swift")
+        let header = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Views/Header/HeaderSectionView.swift")
+        let colors = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/Core/Colors.swift")
+        let viewModel = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/Core/AgentViewModel.swift")
+        let skin = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/EpistemosReskin.swift")
+        let initSource = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/Core/Init.swift")
+        let runStop = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/Core/RunStop.swift")
+
+        #expect(content.contains("alert.messageText = \"Epistemos Question\""))
+        #expect(content.contains(".overlay(alignment: .leading)"))
+        #expect(content.contains(".transition(.move(edge: .leading).combined(with: .opacity))"))
+        #expect(content.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)"))
+        #expect(content.contains("sidebar.left"))
+        #expect(!content.contains("sidebar.right"))
+        #expect(services.contains("Background services for shell commands and automation."))
+        #expect(services.contains("Text(\"User Helper\")"))
+        #expect(services.contains("Text(\"Privileged Helper\")"))
+        #expect(header.contains(".help(\"User helper:"))
+        #expect(header.contains(".accessibilityLabel(\"User helper\")"))
+        #expect(header.contains(".help(\"Privileged helper:"))
+        #expect(header.contains(".accessibilityLabel(\"Privileged helper\")"))
+        #expect(colors.contains("Background services - user:"))
+        #expect(viewModel.contains("User service shut down. Re-enable: Connect"))
+        #expect(skin.contains("embedded agent UI"))
+        #expect(initSource.contains("Advanced helpers unavailable — Epistemos runs in-process."))
+        #expect(runStop.contains("Advanced helpers unavailable — Epistemos runs in-process."))
+
+        for source in [content, services, header, colors, viewModel, skin, initSource, runStop] {
+            #expect(!source.contains("Agent Question"))
+            #expect(!source.contains("Agent!'s"))
+            #expect(!source.contains("Text(\"User Agent\")"))
+            #expect(!source.contains("Text(\"Daemon Agent\")"))
+            #expect(!source.contains("Text(\"Daemon\")"))
+            #expect(!source.contains("Text(\"Daemon Service\")"))
+            #expect(!source.contains("Background Agents"))
+            #expect(!source.contains("Background agent: unavailable"))
+        }
+    }
+
+    @Test("Embedded AgentClone foreground directories hide donor app names")
+    func embeddedAgentCloneForegroundDirectoriesHideDonorNames() throws {
+        let foregroundDirectories = [
+            "LocalPackages/AgentClone/Sources/AgentClone/Views",
+            "LocalPackages/AgentClone/Sources/AgentClone/DependencyChecker",
+        ]
+        let foregroundFiles = try foregroundDirectories.flatMap {
+            try mirroredSourceFileURLs(under: $0, includingExtensions: ["swift"])
+        } + [
+            try sourceMirrorURL(for: "LocalPackages/AgentClone/Sources/AgentClone/AgentApp.swift")
+        ]
+
+        #expect(!foregroundFiles.isEmpty)
+
+        let forbiddenForegroundLiteralPattern =
+            #""(?:[^"\\\n]|\\.)*(Agent!|AgentClone|Agent Question|User Agent|Background Agents|Daemon|OpenCode|Goose|Osaurus)(?:[^"\\\n]|\\.)*""#
+        for fileURL in foregroundFiles {
+            let source = try String(contentsOf: fileURL, encoding: .utf8)
+            #expect(
+                source.range(of: forbiddenForegroundLiteralPattern, options: .regularExpression) == nil,
+                "\(fileURL.path) has a donor/runtime name in a quoted foreground literal"
+            )
+        }
+    }
+
+    @Test("Embedded AgentClone help resources use Epistemos foreground names")
+    func embeddedAgentCloneHelpResourcesUseEpistemosForegroundNames() throws {
+        let helpFiles = try mirroredSourceFileURLs(
+            under: "LocalPackages/AgentClone/Sources/AgentClone/Resources/Agent.help/Contents/Resources/en.lproj",
+            includingExtensions: ["html"]
+        )
+        #expect(!helpFiles.isEmpty)
+
+        let forbiddenHelpText = [
+            "Agent!",
+            "Agent Help",
+            "Agent Scripts",
+            "Privileged Daemon",
+            "Settings → Daemon",
+            "Launch Daemon",
+            "User Agent",
+            "Background Agents",
+            "Agent Question",
+            "OpenCode",
+            "Goose",
+            "Osaurus",
+        ]
+        for fileURL in helpFiles {
+            let source = try String(contentsOf: fileURL, encoding: .utf8)
+            for token in forbiddenHelpText {
+                #expect(!source.contains(token), "\(fileURL.path) contains stale help token \(token)")
+            }
+        }
+    }
+
+    @Test("Foreground Act chrome hides donor names while protected contracts stay named")
+    func foregroundActChromeHidesDonorNamesWithoutRenamingContracts() throws {
+        let foregroundSources = [
+            try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift"),
+            try loadMirroredSourceTextFile("Epistemos/App/RootView.swift"),
+            try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift"),
+            try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift"),
+            try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"),
+        ]
+
+        let foregroundPatterns = [
+            #"Text\(\s*"[^"]*Osaurus"#,
+            #"Text\(\s*verbatim:\s*"[^"]*Osaurus"#,
+            #"Button\(\s*"[^"]*Osaurus"#,
+            #"Label\(\s*"[^"]*Osaurus"#,
+            #"LabeledContent\(\s*"[^"]*Osaurus"#,
+            #"Picker\(\s*"[^"]*Osaurus"#,
+            #"Toggle\(\s*"[^"]*Osaurus"#,
+            #"ProgressView\(\s*"[^"]*Osaurus"#,
+            #"SettingsDescriptionText\([\s\S]*?text:\s*"[^"]*Osaurus"#,
+            #"headline:\s*"[^"]*Osaurus"#,
+            #"detail:\s*"[^"]*Osaurus"#,
+            #"routeLabel:\s*"[^"]*Osaurus"#,
+            #"routeSummary:\s*"[^"]*Osaurus"#,
+            #"providerLabel:\s*"[^"]*Osaurus"#,
+            #"content:\s*"[^"]*Osaurus"#,
+            #"message:\s*"[^"]*Osaurus"#,
+            #"reason:\s*"[^"]*Osaurus"#,
+            #"return\s*"[^"]*Osaurus"#,
+            #"ActOsaurusError\.transport\("[^"]*Osaurus"#,
+            #"\.help\(\s*"[^"]*Osaurus"#,
+            #"\.accessibilityLabel\(\s*"[^"]*Osaurus"#,
+            #"\.navigationTitle\(\s*"[^"]*Osaurus"#,
+        ]
+        for source in foregroundSources {
+            for pattern in foregroundPatterns {
+                #expect(source.range(of: pattern, options: .regularExpression) == nil)
+            }
+        }
+
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        #expect(!settings.contains(#"case actClone = "Act (Osaurus)""#))
+        #expect(!settings.contains(#"case actClone = "Epistemos Act""#))
+        #expect(!app.contains("showActOsaurusSettings"))
+        #expect(!root.contains(".submitActOsaurusPrompt"))
+        #expect(!root.contains(".showActOsaurusSettings"))
+        #expect(!root.contains("ActOsaurusPromptRequest"))
+    }
+
+    @Test("Protected AgentClone runtime contracts stay donor-compatible")
+    func protectedAgentCloneRuntimeContractsStayDonorCompatible() throws {
+        let systemPrompt = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/SystemPromptService.swift")
+        let keychain = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/KeychainService.swift")
+        let scriptService = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/ScriptService.swift")
+        let sessionStore = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/SessionStore.swift")
+        let scriptExecution = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/ScriptService+Execution.swift")
+        let shellSafety = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/ShellSafetyService.swift")
+        let helperService = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/Services/HelperService.swift")
+        let viewModel = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/Core/AgentViewModel.swift")
+        let setup = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/AgentViewModel/TaskExecution/Setup.swift")
+        let bridge = try loadMirroredSourceTextFile("LocalPackages/AgentClone/Sources/AgentClone/EpistemosAgentBridge.swift")
+
+        #expect(systemPrompt.contains(#"private static let versionPrefix = "// Agent! v""#))
+        #expect(systemPrompt.contains(#"private static let customPrefix = "// Agent! custom v""#))
+        #expect(systemPrompt.contains(#"private static let readOnlyPrefix = "// Agent! READ ONLY v""#))
+        #expect(systemPrompt.contains(#"Documents/AgentScript/system"#))
+
+        #expect(keychain.contains(#"kSecAttrService as String: "Agent!""#))
+        #expect(keychain.contains(#"private static let claudeAPIKey = "agent.claudeAPIKey""#))
+        #expect(keychain.contains(#"private static let openRouterAPIKey = "com.agent.openrouter-api-key""#))
+
+        #expect(scriptService.contains(#"https://github.com/macOS26/AgentScripts.git"#))
+        #expect(scriptService.contains(#"Documents/AgentScript/agents"#))
+        #expect(sessionStore.contains(#"Documents/AgentScript/sessions"#))
+        #expect(sessionStore.contains("legacySessionsDir"))
+        #expect(sessionStore.contains("appSupportRootPath"))
+        #expect(scriptExecution.contains(#"env["AGENT_PROJECT_FOLDER"] = cwdPath"#))
+        #expect(viewModel.contains(#"forKey: "agentProjectFolder""#))
+
+        #expect(shellSafety.contains("case rootDaemon"))
+        #expect(helperService.contains("enum SafeSMAppServiceDaemon"))
+        #expect(bridge.contains(#"Notification.Name("epistemos.agentclone.submitPrompt")"#))
+        #expect(bridge.contains(#"Notification.Name("epistemos.agentclone.hostContext")"#))
+
+        #expect(setup.contains("ClaudeService"))
+        #expect(setup.contains("CodexService"))
+        #expect(setup.contains("OpenAICompatibleService"))
+        #expect(setup.contains("OllamaService"))
+        #expect(setup.contains("FoundationModelService"))
     }
 
     @Test("Setup remains escapable for first-run users")
@@ -151,454 +519,9 @@ struct ActSurfaceOsaurusUIDirectionGuardTests {
         #expect(app.contains("bootstrap.uiState.needsSetup = false"))
         #expect(root.contains("UserDefaults.standard.set(true, forKey: \"epistemos.setupComplete\")"))
     }
+}
 
-    @Test("Epistemos source owns visible Act while Osaurus source owns engine data")
-    func epistemosSourceOwnsVisibleAct() throws {
-        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        let chatView = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
-        let inputBar = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let inlinePicker = try loadMirroredSourceTextFile("Epistemos/Views/Chat/InlineRuntimePickerPanel.swift")
-        let actSettings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ActCloneSettingsView.swift")
-        let presenter = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Epistemos/EpistemosOsaurusManagementPresenter.swift")
-        let sessionBridge = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Epistemos/EpistemosOsaurusChatSessionBridge.swift")
-        let actBridge = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/ActOsaurusBridge.swift")
-        let toolPrompt = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Services/ToolPermissionPromptService.swift")
-        let providerPrompt = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Services/Provider/ProviderCredentialPromptService.swift")
-        let pairingPrompt = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Services/PairingPromptService.swift")
-        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
-        let sharedAct = try loadMirroredSourceTextFile("Epistemos/LocalAgent/SharedActInference.swift")
-        let pipeline = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
-
-        #expect(root.contains("struct ActEpistemosChatSurface"))
-        #expect(root.contains("enum ActOsaurusNativePromptPresenter"))
-        #expect(root.contains("ActNativeToolPermissionPromptView("))
-        #expect(root.contains("ActNativeProviderCredentialPromptView("))
-        #expect(root.contains("ActNativePairingPromptView("))
-        #expect(root.contains("Text(\"Approve Act Tool\")"))
-        #expect(root.contains("Text(\"Approve Act Pairing\")"))
-        #expect(root.contains("EpistemosOsaurusManagementBridge.installNativeToolPermissionPresenter"))
-        #expect(root.contains("EpistemosOsaurusManagementBridge.installNativeProviderCredentialPresenter"))
-        #expect(root.contains("EpistemosOsaurusManagementBridge.installNativePairingPresenter"))
-        #expect(root.contains("EpistemosOsaurusNativeToolPermissionDecision"))
-        #expect(root.contains("EpistemosOsaurusNativePairingDecision"))
-        #expect(root.contains("bootstrap.sovereignGate.confirm("))
-        #expect(root.contains(".deviceOwnerAuthentication"))
-        #expect(root.contains("ProviderCredentialResult?"))
-        #expect(root.contains(".apiKey(key: apiKey.trimmingCharacters"))
-        #expect(root.contains("ChatView("))
-        #expect(root.contains("actUsesOsaurus: true"))
-        #expect(root.contains("composerMode: .osaurusAct"))
-        #expect(root.contains("showsToolbarControls: false"))
-        #expect(root.contains("MainChatSubmissionRouter.submit("))
-        #expect(root.contains("forceActOsaurus: true"))
-        #expect(root.contains("loadLegacyOsaurusTranscriptIfNeeded"))
-        #expect(root.contains("EpistemosOsaurusSessionBridge.loadTranscript(id: sessionId)"))
-        #expect(root.contains("ActOsaurusVisibleStreamFilter.visibleStoredText"))
-        #expect(root.contains("chat.addContextAttachment(attachment)"))
-        #expect(root.contains("chat.addAttachment(attachment)"))
-        #expect(root.contains("selectedActSessionId = request.sessionId"))
-        #expect(root.contains("initialFileAttachments: pendingActPrompt?.fileAttachments ?? []"))
-        #expect(!root.contains("EpistemosOsaurusChatHost("))
-        #expect(!root.contains(".environment(actChat)"))
-        #expect(!root.contains("ChatBrainSnapshot("))
-        #expect(!root.contains("CapturedModelInput("))
-        #expect(!root.contains("private var currentActModelID: String?"))
-        #expect(chatView.contains("MessageBubble("))
-        #expect(chatView.contains("ChatInputBar("))
-        #expect(chatView.contains("ChatBrainPanelView("))
-        #expect(chatView.contains("if showBrainPanel, !actUsesOsaurus"))
-        #expect(chatView.contains("ActComputerUseApprovalOverlay()"))
-        #expect(chatView.contains("ComputerUsePromptQueue.shared"))
-        #expect(chatView.contains("queue.resolve(id: request.id, approved: outcome == .allowed)"))
-        #expect(chatView.contains("sovereignGate.confirm("))
-        #expect(chatView.contains("SovereignGateCategory(rawValue: \"osaurus-computer-use-\\(preview.effect.rawValue)"))
-        #expect(chatView.contains("@State private var pendingActPrivacyReview: ActNativePrivacyReviewSheetState?"))
-        #expect(chatView.contains("EpistemosOsaurusManagementBridge.registerNativePrivacyReviewPresenter"))
-        #expect(chatView.contains("EpistemosOsaurusManagementBridge.unregisterNativePrivacyReviewPresenter"))
-        #expect(chatView.contains("ActNativePrivacyReviewSheet(state: state, theme: theme)"))
-        #expect(chatView.contains("private final class ActNativePrivacyReviewSheetState"))
-        #expect(chatView.contains("private struct ActNativePrivacyReviewSheet: View"))
-        #expect(chatView.contains("Choose what Act should replace before this request leaves the local privacy filter."))
-        #expect(chatView.contains("Always approve in this conversation"))
-        #expect(chatView.contains("@State private var pendingActSecretPrompt: ActNativeSecretPromptSheetState?"))
-        #expect(chatView.contains("@State private var pendingActClarifyPrompt: ActNativeClarifyPromptSheetState?"))
-        #expect(chatView.contains("EpistemosOsaurusChatSessionBridge.installNativeSecretPromptPresenter"))
-        #expect(chatView.contains("EpistemosOsaurusChatSessionBridge.installNativeClarifyPromptPresenter"))
-        #expect(chatView.contains("private final class ActNativeSecretPromptSheetState"))
-        #expect(chatView.contains("private struct ActNativeSecretPromptSheet: View"))
-        #expect(chatView.contains("private final class ActNativeClarifyPromptSheetState"))
-        #expect(chatView.contains("private struct ActNativeClarifyPromptSheet: View"))
-        #expect(chatView.contains("SecureField(\"Paste secret\""))
-        #expect(chatView.contains("Answer this follow-up to continue the same Act run."))
-        #expect(sessionBridge.contains("public enum EpistemosOsaurusChatSessionBridge"))
-        #expect(sessionBridge.contains("public enum EpistemosOsaurusChatSessionEvent"))
-        #expect(sessionBridge.contains("case thinkingDelta(String)"))
-        #expect(sessionBridge.contains("case toolStarted(id: String, name: String, inputJson: String)"))
-        #expect(sessionBridge.contains("case toolCompleted(id: String, result: String, isError: Bool)"))
-        #expect(sessionBridge.contains("streamTurnEvents("))
-        #expect(sessionBridge.contains("ChatSession()"))
-        #expect(sessionBridge.contains("session.suppressesPersistence = true"))
-        #expect(sessionBridge.contains("session.send(prompt)"))
-        #expect(sessionBridge.contains("session.promptQueue.current"))
-        #expect(sessionBridge.contains("emitAssistantThinkingDelta()"))
-        #expect(sessionBridge.contains("emitAssistantToolEvents()"))
-        #expect(sessionBridge.contains("EpistemosOsaurusNativeSecretPromptRequest"))
-        #expect(sessionBridge.contains("EpistemosOsaurusNativeClarifyPromptRequest"))
-        #expect(sessionBridge.contains("installNativeSecretPromptPresenter"))
-        #expect(sessionBridge.contains("installNativeClarifyPromptPresenter"))
-        #expect(sessionBridge.contains("state.submit(value)"))
-        #expect(sessionBridge.contains("state.submit(answer)"))
-        #expect(actBridge.contains("enum ActOsaurusStreamEvent"))
-        #expect(actBridge.contains("runTurnEventStreamInProcess("))
-        #expect(actBridge.contains("EpistemosOsaurusChatSessionBridge.streamTurnEvents("))
-        #expect(actBridge.contains("Osaurus tool execution"))
-        #expect(!actBridge.contains("CoreModelService.shared.generateStream("))
-        #expect(sharedAct.contains("actEventStreamIfArmed("))
-        #expect(sharedAct.contains("ActOsaurusStreamingHandler.makeEventStream()"))
-        #expect(pipeline.contains("SharedActInference.actEventStreamIfArmed("))
-        #expect(pipeline.contains("case .thinkingDelta(let text):"))
-        #expect(pipeline.contains("case .toolStarted(let id, let name, let inputJson):"))
-        #expect(pipeline.contains("case .toolCompleted(let id, let result, let isError):"))
-        #expect(pipeline.contains("toolEventHandler?(.started(id: id, name: name, inputJson: inputJson))"))
-        #expect(inputBar.contains("ActOsaurusSlashCommand.allCases"))
-        #expect(inputBar.contains("onOpenActConfiguration"))
-        #expect(inputBar.contains("showsOsaurusModelSection: composerMode == .osaurusAct"))
-        #expect(landing.contains("showsOsaurusModelSection: isActSearchPage"))
-        #expect(inlinePicker.contains("var showsOsaurusModelSection: Bool = false"))
-        #expect(inlinePicker.contains("EpistemosOsaurusManagementBridge.modelPicks()"))
-        #expect(inlinePicker.contains("EpistemosOsaurusManagementBridge.setCurrentModel(row.id)"))
-        #expect(inlinePicker.contains("Text(\"ACT MODEL STACK\")"))
-        #expect(actSettings.contains("Text(\"Osaurus model stack\")"))
-        #expect(actSettings.contains("Text(\"Act runtime controls\")"))
-        #expect(actSettings.contains("Text(\"Act capabilities\")"))
-        #expect(actSettings.contains("Text(\"Providers and MCP\")"))
-        #expect(actSettings.contains("Label(\"Osaurus Router\", systemImage: \"sparkles\")"))
-        #expect(actSettings.contains("Label(\"Connect Providers\", systemImage: \"bolt.horizontal.circle\")"))
-        #expect(actSettings.contains("Label(\"Disconnect Providers\", systemImage: \"bolt.slash.circle\")"))
-        #expect(actSettings.contains("Label(\"Connect MCP\", systemImage: \"link.circle\")"))
-        #expect(actSettings.contains("Label(\"Disconnect MCP\", systemImage: \"link.circle.fill\")"))
-        #expect(actSettings.contains("Text(\"Sandbox and VM controls\")"))
-        #expect(actSettings.contains("Label(\"Set Up Sandbox\", systemImage: \"shippingbox\")"))
-        #expect(actSettings.contains("Label(\"Start\", systemImage: \"play.fill\")"))
-        #expect(actSettings.contains("Label(\"Stop\", systemImage: \"stop.fill\")"))
-        #expect(actSettings.contains("Label(\"Run Diagnostics\", systemImage: \"stethoscope\")"))
-        #expect(actSettings.contains("ActSandboxDiagnosticNativeRow("))
-        #expect(actSettings.contains("Text(\"Native permission rows\")"))
-        #expect(actSettings.contains("Text(\"Tool approval policy\")"))
-        #expect(actSettings.contains("Text(\"Computer Use prompts\")"))
-        #expect(actSettings.contains("Text(\"Privacy filter\")"))
-        #expect(actSettings.contains("Label(\"Privacy Filter\", systemImage: \"hand.raised.fill\")"))
-        #expect(actSettings.contains("Label(\"Require Review for Background Sends\", systemImage: \"exclamationmark.shield.fill\")"))
-        #expect(actSettings.contains("Text(\"Dependencies\")"))
-        #expect(actSettings.contains("Label(\"Install / Repair Dependencies\", systemImage: \"wrench.adjustable.fill\")"))
-        #expect(actSettings.contains("Text(\"Native permission surfaces\")"))
-        #expect(actSettings.contains("Text(\"Complete Osaurus settings map\")"))
-        #expect(actSettings.contains("actSettingsSnapshot = await EpistemosOsaurusManagementBridge.actSettingsSnapshot()"))
-        #expect(actSettings.contains("osaurusQuickActions = EpistemosOsaurusManagementBridge.nativeSettingsQuickActions()"))
-        #expect(actSettings.contains("systemPermissionRows = EpistemosOsaurusManagementBridge.systemPermissionRows()"))
-        #expect(actSettings.contains("toolPermissionRows = EpistemosOsaurusManagementBridge.toolPermissionRows(maxCount: 60)"))
-        #expect(actSettings.contains("computerUsePolicySnapshot = policySnapshot"))
-        #expect(actSettings.contains("providerRuntimeSnapshot = EpistemosOsaurusManagementBridge.providerRuntimeSnapshot()"))
-        #expect(actSettings.contains("privacyFilterSnapshot = EpistemosOsaurusManagementBridge.privacyFilterSnapshot()"))
-        #expect(actSettings.contains("dependencySnapshot = EpistemosOsaurusManagementBridge.dependencySnapshot()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.selectGlobalWorkingFolder()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.clearGlobalWorkingFolder()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.provisionSandbox()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.startSandbox()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.stopSandbox()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.runSandboxDiagnostics()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.connectRemoteProviders()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.disconnectRemoteProviders()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.connectMCPProviders()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.disconnectMCPProviders()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.repairSandboxPluginDependencies()"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.setPrivacyFilterEnabled(enabled)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.setDefaultAgentToolsEnabled(enabled)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.setMemoryEnabled(enabled)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.setToolSelectionMode(rawValue)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.requestSystemPermission(id)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.openSystemPermissionSettings(id)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.setToolPermissionPolicy(toolName: toolName, policyID: policyID)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.setComputerUseGlobalPreset(rawValue)"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.setComputerUseAllowlistedApps(apps)"))
-        #expect(actSettings.contains("ActSystemPermissionNativeRow("))
-        #expect(actSettings.contains("ActToolPermissionNativeRow("))
-        #expect(actSettings.contains("Permission Popups"))
-        #expect(actSettings.contains("Computer Use Prompts"))
-        #expect(actSettings.contains("Identity and Biometrics"))
-        #expect(actSettings.contains("Sandbox and Host Files"))
-        #expect(actSettings.contains("EpistemosOsaurusManagementBridge.managementEntries()"))
-        #expect(actSettings.contains("@State private var presentedNativeSurface: ActNativeOsaurusSurface?"))
-        #expect(actSettings.contains(".sheet(item: $presentedNativeSurface)"))
-        #expect(actSettings.contains("ActNativeOsaurusSurfaceSheet("))
-        #expect(actSettings.contains("private struct ActNativeOsaurusSurfaceSheet: View"))
-        #expect(actSettings.contains("private enum ActNativeOsaurusSurfaceAction"))
-        #expect(actSettings.contains("private func presentNativeSurface("))
-        #expect(actSettings.contains("private func handleNativeSurfaceAction"))
-        #expect(actSettings.contains("Section(\"Native State\")"))
-        #expect(actSettings.contains("Section(\"Native Act Capability Surfaces\")"))
-        #expect(!actSettings.contains("EpistemosOsaurusManagementBridge.showManagement(tabID:"))
-        #expect(actSettings.contains("Every Act capability surface is indexed here in Epistemos chrome"))
-        #expect(actSettings.contains("UI theme"))
-        #expect(actSettings.contains("identity"))
-        #expect(actSettings.contains("permissions"))
-        #expect(actSettings.contains("privacy"))
-        #expect(presenter.contains("public struct EpistemosOsaurusModelPick"))
-        #expect(presenter.contains("public struct EpistemosOsaurusManagementEntry"))
-        #expect(presenter.contains("public struct EpistemosOsaurusActSettingsSnapshot"))
-        #expect(presenter.contains("public struct EpistemosOsaurusQuickAction"))
-        #expect(presenter.contains("public struct EpistemosOsaurusSystemPermissionRow"))
-        #expect(presenter.contains("public struct EpistemosOsaurusToolPermissionRow"))
-        #expect(presenter.contains("public struct EpistemosOsaurusComputerUsePolicySnapshot"))
-        #expect(presenter.contains("public struct EpistemosOsaurusSandboxDiagnosticRow"))
-        #expect(presenter.contains("public struct EpistemosOsaurusProviderRuntimeSnapshot"))
-        #expect(presenter.contains("public struct EpistemosOsaurusPrivacyFilterSnapshot"))
-        #expect(presenter.contains("public struct EpistemosOsaurusDependencySnapshot"))
-        #expect(presenter.contains("public struct EpistemosOsaurusNativeToolPermissionRequest"))
-        #expect(presenter.contains("public enum EpistemosOsaurusNativeToolPermissionDecision"))
-        #expect(presenter.contains("public typealias EpistemosOsaurusNativeProviderCredentialPresenter"))
-        #expect(presenter.contains("public struct EpistemosOsaurusNativePairingRequest"))
-        #expect(presenter.contains("public enum EpistemosOsaurusNativePairingDecision"))
-        #expect(presenter.contains("public typealias EpistemosOsaurusNativePairingPresenter"))
-        #expect(presenter.contains("public struct EpistemosOsaurusNativePrivacyReviewEntity"))
-        #expect(presenter.contains("public struct EpistemosOsaurusNativePrivacyReviewRequest"))
-        #expect(presenter.contains("public enum EpistemosOsaurusNativePrivacyReviewDecision"))
-        #expect(presenter.contains("public struct EpistemosOsaurusNativePrivacyReviewPresenterToken"))
-        #expect(presenter.contains("public typealias EpistemosOsaurusNativePrivacyReviewPresenter"))
-        #expect(presenter.contains("static var privacyReviewTokens: [UUID: PresenterToken]"))
-        #expect(presenter.contains("EpistemosOsaurusNativePromptPresenterStore"))
-        #expect(presenter.contains("public static func actSettingsSnapshot() async"))
-        #expect(presenter.contains("public static func nativeSettingsQuickActions()"))
-        #expect(presenter.contains("public static func selectGlobalWorkingFolder() async"))
-        #expect(presenter.contains("public static func clearGlobalWorkingFolder()"))
-        #expect(presenter.contains("public static func provisionSandbox() async"))
-        #expect(presenter.contains("public static func startSandbox() async"))
-        #expect(presenter.contains("public static func stopSandbox() async"))
-        #expect(presenter.contains("public static func runSandboxDiagnostics() async"))
-        #expect(presenter.contains("public static func setDefaultAgentToolsEnabled"))
-        #expect(presenter.contains("public static func setMemoryEnabled"))
-        #expect(presenter.contains("public static func setToolSelectionMode"))
-        #expect(presenter.contains("public static func systemPermissionRows()"))
-        #expect(presenter.contains("public static func requestSystemPermission"))
-        #expect(presenter.contains("public static func toolPermissionRows(maxCount: Int = 18)"))
-        #expect(presenter.contains("public static func setToolPermissionPolicy"))
-        #expect(presenter.contains("public static func computerUsePolicySnapshot()"))
-        #expect(presenter.contains("public static func setComputerUseGlobalPreset"))
-        #expect(presenter.contains("public static func setComputerUseAllowlistedApps"))
-        #expect(presenter.contains("public static func providerRuntimeSnapshot()"))
-        #expect(presenter.contains("RemoteProviderManager.shared.connectEnabledProviders()"))
-        #expect(presenter.contains("MCPProviderManager.shared.connectEnabledProviders()"))
-        #expect(presenter.contains("public static func privacyFilterSnapshot()"))
-        #expect(presenter.contains("PrivacyFilterStore.snapshot()"))
-        #expect(presenter.contains("PrivacyFilterStore.save(configuration)"))
-        #expect(presenter.contains("public static func dependencySnapshot()"))
-        #expect(presenter.contains("SandboxPluginManager.shared.verifyAndRepairAllPlugins()"))
-        #expect(presenter.contains("public static func installNativeToolPermissionPresenter"))
-        #expect(presenter.contains("public static func installNativeProviderCredentialPresenter"))
-        #expect(presenter.contains("public static func installNativePairingPresenter"))
-        #expect(presenter.contains("public static func registerNativePrivacyReviewPresenter"))
-        #expect(presenter.contains("PrivacyReviewService.shared.registerPresenter"))
-        #expect(presenter.contains("public static func unregisterNativePrivacyReviewPresenter"))
-        #expect(presenter.contains("PrivacyReviewService.shared.unregisterPresenter(serviceToken)"))
-        #expect(presenter.contains("state.setApproval(entity, to: approved)"))
-        #expect(presenter.contains("state.confirm()"))
-        #expect(presenter.contains("public static func modelPicks() async"))
-        #expect(presenter.contains("public static func setCurrentModel"))
-        #expect(!actSettings.contains("ManagementView("))
-        #expect(toolPrompt.contains("EpistemosOsaurusNativePromptPresenterStore.toolPermissionPresenter"))
-        #expect(toolPrompt.contains("EpistemosOsaurusNativeToolPermissionRequest("))
-        #expect(toolPrompt.contains("case .alwaysAllow:"))
-        #expect(toolPrompt.contains("ToolRegistry.shared.setPolicy(.auto, for: toolName)"))
-        #expect(providerPrompt.contains("EpistemosOsaurusNativePromptPresenterStore.providerCredentialPresenter"))
-        #expect(providerPrompt.contains("let nativeResult = await nativePresenter(request)"))
-        #expect(pairingPrompt.contains("nativeApprovalInFlight"))
-        #expect(pairingPrompt.contains("EpistemosOsaurusNativePromptPresenterStore.pairingPresenter"))
-        #expect(pairingPrompt.contains("EpistemosOsaurusNativePairingRequest("))
-        #expect(pairingPrompt.contains("case .approveTemporary:"))
-        #expect(pairingPrompt.contains("case .approvePermanent:"))
-        #expect(bootstrap.contains("ActOsaurusNativePromptPresenter.install()"))
-    }
-
-    @Test("Act and Mini Chat expose native tools for edit-capable Osaurus turns")
-    func actAndMiniChatExposeNativeToolRuntime() throws {
-        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        let inputBar = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniChat = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let miniController = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
-        let graphChat = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
-        let graphWorkspace = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
-        let noteChat = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-        let notesSidebar = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
-        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let statusBar = try loadMirroredSourceTextFile("Epistemos/App/StatusBar.swift")
-        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
-        let htmlWorkspace = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
-        let chatState = try loadMirroredSourceTextFile("Epistemos/State/ChatState.swift")
-        let commandCenter = try loadMirroredSourceTextFile("Epistemos/State/AgentCommandCenterState.swift")
-        let appBootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
-
-        #expect(commandCenter.contains("func refreshExecutionCatalogsIfNeeded("))
-        #expect(commandCenter.contains("refreshToolCatalog(from: mcpBridge"))
-        #expect(inputBar.contains("@Environment(MCPBridge.self) private var mcpBridge"))
-        #expect(inputBar.contains("private var showsToolPanelButton: Bool"))
-        #expect(inputBar.contains("composerMode == .osaurusAct"))
-        #expect(inputBar.contains("refreshExecutionCatalogsIfNeeded()"))
-        #expect(inputBar.contains("compiledAllowedToolNames: composerMode == .osaurusAct"))
-        #expect(inputBar.contains("? Array(enabledAppToolNames).sorted()"))
-        #expect(inputBar.contains("return \"\\(enabledAppToolNames.count) app tools\""))
-        #expect(miniChat.contains("@Environment(MCPBridge.self) private var mcpBridge"))
-        #expect(miniChat.contains("private var showsToolPanelButton: Bool"))
-        #expect(miniChat.contains("private var hasEnabledAppTools: Bool"))
-        #expect(miniChat.contains("refreshExecutionCatalogsIfNeeded()"))
-        #expect(miniChat.contains("compiledAllowedToolNames: Array(enabledAppToolNames).sorted()"))
-        #expect(miniChat.contains("return \"\\(enabledAppToolNames.count) app tools\""))
-        #expect(miniChat.contains("ActOsaurusSlashCommand.allCases.map(ComposerSlashCommandItem.osaurus)"))
-        #expect(miniChat.contains("private func applyImmediateOsaurusCommand"))
-        #expect(miniChat.contains("showsOsaurusModelSection: isOsaurusActMode"))
-        #expect(miniChat.contains("NotificationCenter.default.post(name: .showActOsaurusSettings"))
-        #expect(miniChat.contains("NotificationCenter.default.post(name: .openActOsaurusSession"))
-        #expect(miniChat.contains("if persistedMiniChatExists(chatID)"))
-        #expect(miniChat.contains("private func persistedMiniChatExists(_ chatID: String) -> Bool"))
-        #expect(miniChat.contains("AppBootstrap.shared?.loadChat(chatId: chatID)"))
-        #expect(miniChat.contains("authoredByProviderID: \"act\""))
-        #expect(miniChat.contains("authoredByModelID: transcript.selectedModel"))
-        #expect(miniChat.contains("runActPromptInMiniChat(trimmed, fileAttachments: fileAttachments)"))
-        #expect(miniChat.contains("private func runActPromptInMiniChat(_ prompt: String, fileAttachments: [FileAttachment])"))
-        #expect(miniChat.contains("SharedActInference.actEventStreamIfArmed("))
-        #expect(miniChat.contains("threadState.setMiniChatPendingContentBlocks(pendingBlocks, chatID: chatID)"))
-        #expect(miniChat.contains("threadState.setMiniChatActiveTool(name: name, inputJson: inputJson, chatID: chatID)"))
-        #expect(miniChat.contains("authoredByProviderID: \"act\""))
-        #expect(miniChat.contains("authoredByModelID: requestedModelID"))
-        #expect(miniChat.contains("private func submitActPromptInMainChat"))
-        #expect(miniChat.contains("ActOsaurusPromptRequest("))
-        #expect(miniChat.contains("fileAttachments: fileAttachments"))
-        #expect(miniChat.contains("sessionId: UUID(uuidString: chatID)"))
-        #expect(miniChat.contains("NotificationCenter.default.post(name: .submitActOsaurusPrompt"))
-        #expect(miniChat.contains("if isOsaurusActMode {"))
-        #expect(miniChat.contains("clearComposerAfterSubmit()"))
-        #expect(!miniChat.contains("if isOsaurusActMode {\n            submitActPromptInMainChat(trimmed"))
-        #expect(miniChat.contains("EpistemosOsaurusSessionBridge.loadTranscript(id: sessionId)"))
-        #expect(miniChat.contains("private var miniChatLegacyBody: some View"))
-        #expect(miniChat.contains("MiniChatThread(chatID: chatID)"))
-        #expect(miniChat.contains("MiniChatInputBar(chatID: chatID)"))
-        #expect(!miniChat.contains("ActEpistemosChatSurface("))
-        #expect(!miniChat.contains("actOsaurusSurfaceSessionId"))
-        #expect(miniChat.contains("MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)"))
-        #expect(miniChat.contains("private let composerMetrics = AssistantComposerMetrics.mainChat"))
-        #expect(miniChat.contains("ChatCoordinator.queryContainsExplicitNoteWriteOperation(trimmed)"))
-        #expect(miniChat.contains("ChatCoordinator.queryContainsExplicitFileOperation(trimmed)"))
-        #expect(graphChat.contains("if LocalAgentLoop.shouldRouteActThroughOsaurus(), !modes.contains(.agent)"))
-        #expect(graphChat.contains("private var isGraphOsaurusActMode: Bool"))
-        #expect(graphChat.contains("private var graphSlashItems: [ComposerSlashCommandItem]"))
-        #expect(graphChat.contains("ComposerSlashCommandItem.surfaceItems("))
-        #expect(graphChat.contains("ChatComposerTextEditor("))
-        #expect(graphChat.contains(".assistantComposerChrome("))
-        #expect(graphChat.contains("ComposerControlStrip(spacing: 8, resetKey: graphComposerControlResetKey)"))
-        #expect(graphChat.contains("AssistantSendButton("))
-        #expect(graphChat.contains("graphSlashCommandTrigger"))
-        #expect(graphChat.contains("SlashCommandPopover("))
-        #expect(graphChat.contains("private func applyImmediateGraphOsaurusCommand"))
-        #expect(graphChat.contains("NotificationCenter.default.post(name: .showActOsaurusSettings"))
-        #expect(graphChat.contains("name: .submitActOsaurusPrompt"))
-        #expect(graphChat.contains("ActOsaurusPromptRequest("))
-        #expect(graphChat.contains("showsOsaurusModelSection: isGraphOsaurusActMode"))
-        #expect(graphChat.contains("if isGraphOsaurusActMode || prediction.predicted == .agent || prediction.predicted == .research"))
-        #expect(appBootstrap.contains("func routeGraphChatRequestIntoMainChat(_ request: GraphChatRequest)"))
-        #expect(appBootstrap.contains("if LocalAgentLoop.shouldRouteActThroughOsaurus()"))
-        #expect(appBootstrap.contains("NotificationCenter.default.post("))
-        #expect(appBootstrap.contains("name: .submitActOsaurusPrompt"))
-        #expect(appBootstrap.contains("ComposerReferenceHelpers.noteAttachment("))
-        #expect(graphWorkspace.contains("MiniChatWindowController.shared.openNewChat("))
-        #expect(graphWorkspace.contains("preferredOperatingMode: .agent"))
-        #expect(noteChat.contains("if LocalAgentLoop.shouldRouteActThroughOsaurus(), !modes.contains(.agent)"))
-        #expect(noteChat.contains("private var isNoteOsaurusActMode: Bool"))
-        #expect(noteChat.contains("private var noteSlashItems: [ComposerSlashCommandItem]"))
-        #expect(noteChat.contains("ChatComposerTextEditor("))
-        #expect(noteChat.contains(".assistantComposerChrome("))
-        #expect(noteChat.contains("ComposerControlStrip(spacing: 8, resetKey: noteComposerControlResetKey)"))
-        #expect(noteChat.contains("AssistantSendButton("))
-        #expect(noteChat.contains("noteSlashCommandTrigger"))
-        #expect(noteChat.contains("SlashCommandPopover("))
-        #expect(noteChat.contains("private func applyImmediateNoteOsaurusCommand"))
-        #expect(noteChat.contains("NotificationCenter.default.post(name: .showActOsaurusSettings"))
-        #expect(noteChat.contains("Ask Act about this note"))
-        #expect(noteChat.contains("showsOsaurusModelSection: isNoteOsaurusActMode"))
-        #expect(noteChat.contains("routeToolbarAskToMainChat(forceAct: true)"))
-        #expect(noteChat.contains("let shouldUseAct = (forceAct || isNoteOsaurusActMode) && LocalAgentLoop.shouldRouteActThroughOsaurus()"))
-        #expect(noteChat.contains("name: .submitActOsaurusPrompt"))
-        #expect(noteChat.contains("ActOsaurusPromptRequest("))
-        #expect(noteChat.contains("forceActOsaurus: routedMode == .agent"))
-        #expect(noteChat.contains("preferredOperatingMode: .agent"))
-        #expect(notesSidebar.contains("MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)"))
-        #expect(landing.contains("MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)"))
-        #expect(statusBar.contains("MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)"))
-        #expect(app.contains("MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)"))
-        #expect(htmlWorkspace.contains("preferredOperatingMode: .agent"))
-        #expect(chatState.contains("attachments: [FileAttachment] = []"))
-        #expect(chatState.contains("attachments: attachments"))
-        #expect(root.contains("ChatView("))
-        #expect(root.contains("actUsesOsaurus: true"))
-        #expect(root.contains("composerMode: .osaurusAct"))
-        #expect(root.contains("showsToolbarControls: false"))
-        #expect(root.contains("loadLegacyOsaurusTranscriptIfNeeded"))
-        #expect(!root.contains("EpistemosOsaurusChatHost("))
-        #expect(root.contains("MiniChatWindowController.shared.openChat("))
-        #expect(!root.contains("CapabilityManifestBuilder.render("))
-        #expect(!root.contains("private var actEnabledNativeToolNames: [String]"))
-        #expect(!root.contains("private var actToolDefinitionsJSON: String?"))
-        #expect(!root.contains("runSharedActCoordinatorTurn(prompt: prompt"))
-        #expect(miniController.contains("private static func defaultPreferredOperatingMode() -> EpistemosOperatingMode?"))
-        #expect(miniController.contains("LocalAgentLoop.shouldRouteActThroughOsaurus() ? .agent : nil"))
-        #expect(miniController.contains("preferredOperatingMode ?? Self.defaultPreferredOperatingMode()"))
-        #expect(miniController.contains("func rebindChatWindow(from oldChatID: String, to newChatID: String)"))
-        #expect(miniController.contains("windows[newChatID] = window"))
-        #expect(miniController.contains("handleWindowClose(window, chatID: newChatID)"))
-        #expect(!miniChat.contains("MiniChatWindowController.shared.openNewChat()"))
-        #expect(!miniController.contains("MiniChatWindowController.shared.openNewChat()"))
-        #expect(!statusBar.contains("MiniChatWindowController.shared.openNewChat()"))
-        #expect(!app.contains("MiniChatWindowController.shared.openNewChat()"))
-    }
-
-    @Test("Osaurus engine and owner model bridge remain available under Epistemos chrome")
-    func osaurusEngineKeepsOwnerModels() throws {
-        let chatEngine = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Services/Chat/ChatEngine.swift")
-        let coreModel = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Services/Inference/CoreModelService.swift")
-        let bridge = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Epistemos/EpistemosModelBridge.swift")
-        let presenter = try loadMirroredSourceTextFile("LocalPackages/osaurus/Packages/OsaurusCore/Epistemos/EpistemosOsaurusManagementPresenter.swift")
-        let provider = try loadMirroredSourceTextFile("Epistemos/ActOsaurus/EpistemosOsaurusModelProvider.swift")
-        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
-        let sharedAct = try loadMirroredSourceTextFile("Epistemos/LocalAgent/SharedActInference.swift")
-        let localAgent = try loadMirroredSourceTextFile("Epistemos/LocalAgent/LocalAgentLoop.swift")
-
-        #expect(chatEngine.contains("EpistemosBridgedModelService()"))
-        #expect(chatEngine.contains("EpistemosModelBridge.providedModelIds()"))
-        #expect(coreModel.contains("EpistemosBridgedModelService()"))
-        #expect(bridge.contains("public protocol EpistemosModelProvider"))
-        #expect(bridge.contains("struct EpistemosBridgedModelService: ModelService"))
-        #expect(presenter.contains("public static func modelPicks() async"))
-        #expect(presenter.contains("public static func actSettingsSnapshot() async"))
-        #expect(presenter.contains("public static func toolPermissionRows"))
-        #expect(presenter.contains("public enum EpistemosOsaurusManagementBridge"))
-        #expect(provider.contains("EpistemosModelBridge.register(EpistemosOsaurusModelProvider"))
-        #expect(bootstrap.contains("EpistemosOsaurusModelProvider.register("))
-        #expect(sharedAct.contains("actStreamIfArmed("))
-        #expect(sharedAct.contains("ActOsaurusStreamingHandler.make()"))
-        #expect(sharedAct.contains("var streamFilter = ActOsaurusVisibleStreamFilter.StreamState()"))
-        #expect(sharedAct.contains("streamFilter.visibleDelta(from: token)"))
-        #expect(sharedAct.contains("streamFilter.visibleDelta(from: text)"))
-        #expect(sharedAct.contains("streamFilter.flushVisibleTail()"))
-        #expect(sharedAct.contains("continuation.yield(.textDelta(visibleTail))"))
-        #expect(sharedAct.contains("private var buffered = \"\""))
-        #expect(sharedAct.contains("private static let knownSentinelPrefixes"))
-        #expect(sharedAct.contains("private static let replacementSentinel: Character = \"\\u{FFFD}\""))
-        #expect(sharedAct.contains("firstProtocolSentinelIndex(in: buffer)"))
-        #expect(sharedAct.contains("isProtocolSentinel(at: index, in: text)"))
-        #expect(sharedAct.contains("\"prefill:\""))
-        #expect(sharedAct.contains("\"stats:\""))
-        #expect(sharedAct.contains("case needsMoreInput"))
-        #expect(sharedAct.contains("return flushIncomplete ? .skipped(text.endIndex) : .needsMoreInput"))
-        #expect(localAgent.contains("? ActOsaurusGenerationHandler.make()"))
-    }
-
+private nonisolated func mirroredSourcePathExists(_ relativePath: String) throws -> Bool {
+    let url = try sourceMirrorURL(for: relativePath)
+    return FileManager.default.fileExists(atPath: url.path)
 }

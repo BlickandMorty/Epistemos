@@ -1,13 +1,11 @@
 import SwiftUI
 
-/// PER-CLONE SETTINGS (owner 2026-06-21) — the "Work (OpenCode)" clone's settings surface, reskinned to
-/// the app's settings chrome. Work = the full OpenCode shell (real terminal TUI in a native terminal
-/// view, Option A) with Goose/Hermes/OpenClaw fused beneath. This panel surfaces the clone's gates +
-/// REAL seam status (`WorkOpenCodeShellHealthRow` = the OpenCode shell seam; `WorkBackendHealthRow` = the
-/// Goose engine seam) AND mounts the actual native terminal host (`WorkTerminalHostView`) so the terminal
+/// Epistemos Work's integrated settings surface. Work = a full coding runtime in a native terminal view,
+/// with engine layers fused beneath Epistemos chrome. This panel surfaces the runtime gates + REAL seam status and mounts
+/// the actual native terminal host (`WorkTerminalHostView`) so the terminal
 /// infrastructure is REACHABLE, not a dead component — it shows an honest placeholder until armed, and a
-/// real PTY when the smoke/runtime is present. Second per-clone tab (after "Act (Osaurus)").
-/// Standing rule: each clone is its OWN app with its OWN settings — preserved + reachable, not flattened.
+/// real PTY when the smoke/runtime is present. Engine-specific controls stay reachable from Epistemos Settings rather
+/// than becoming a separate settings island.
 struct WorkCloneSettingsView: View {
     /// The workspace the work terminal roots at — the user's home by default (the smoke shell / OpenCode
     /// TUI launches here). A real work session passes the open vault/project dir.
@@ -19,29 +17,51 @@ struct WorkCloneSettingsView: View {
         Form {
             Section {
                 SettingsDescriptionText(
-                    text: "Work runs OpenCode's real terminal TUI in a native terminal view (Option A — the "
-                    + "real terminal UI, not a web GUI), with Goose/Hermes/OpenClaw fused beneath and the "
-                    + "in-process RustLSP wired as code-intelligence tools. Arm the shell with "
-                    + "EPISTEMOS_WORK_OPENCODE_V0=1 on the Pro / direct-distribution build; it stays honestly "
-                    + "INERT until the OpenCode runtime is bundled (no fake terminal)."
+                    text: "Epistemos Work runs the active coding runtime in native app chrome, with code-intelligence "
+                    + "and app-tool bridges behind it. The Pro / direct-distribution build uses bundled runtimes when available; until then, "
+                    + "the shell stays honestly inert rather than showing a fake terminal."
                 )
                 WorkOpenCodeShellHealthRow()
                 WorkBackendHealthRow()
             } header: {
-                Text("Work = OpenCode shell")
+                Text("Epistemos Work runtime")
             } footer: {
-                Text("Each clone keeps its own settings. The Goose engine fuses beneath the OpenCode shell; one runtime of record per mode.")
+                Text("Settings stay in Epistemos. Engine names stay in pickers and diagnostics; Epistemos owns the app tools, vault context, and native chrome.")
             }
 
             #if os(macOS)
             Section {
                 WorkTerminalHostView(workspace: workspaceURL)
                     .frame(minHeight: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(Rectangle())
             } header: {
                 Text("Native terminal")
             } footer: {
-                Text("The real native terminal view (SwiftTerm/PTY). Shows an honest placeholder until armed; set EPISTEMOS_WORK_TERMINAL_SMOKE=1 to preview a real login-shell PTY in the themed terminal.")
+                Text("The native terminal host stays in place. It shows the themed runtime when available and an honest inactive state otherwise.")
+            }
+            #endif
+
+            #if os(macOS)
+            Section {
+                Button("Open Epistemos Work preview") {
+                    WorkWebSurfaceWindowController.shared.open()
+                }
+            } header: {
+                Text("Work preview")
+            } footer: {
+                Text("A theme-aware native WebView preview over the local runtime supervisor. It shows an honest placeholder until the bundled Work surface is available.")
+            }
+            #endif
+
+            #if os(macOS)
+            Section {
+                Button("Open Epistemos Work") {
+                    WorkEngineSurfaceWindowController.shared.open()
+                }
+            } header: {
+                Text("Epistemos Work")
+            } footer: {
+                Text("Pick an engine, create/send/stream a session, and keep recents, permissions, diffs, and Epistemos vault tools in native UI. Runtime identities stay in the picker and diagnostics.")
             }
             #endif
         }

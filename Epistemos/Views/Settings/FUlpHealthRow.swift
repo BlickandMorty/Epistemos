@@ -7,7 +7,7 @@ import SwiftUI
 // [0.5,2]); the AnswerPacket schema freeze is blocked until this gate
 // is green (DECK:266). This row surfaces the gate live.
 //
-// Mirrors the EidosHealthRow / SystemGHealthRow / VaultRecallHealthRow
+// Mirrors the EidosHealthRow / VaultRecallHealthRow
 // shape. Adds a "Run acceptance witness" button — the witness is
 // ~412k+2k point evaluations; user-triggered so the row is cheap on
 // idle paint.

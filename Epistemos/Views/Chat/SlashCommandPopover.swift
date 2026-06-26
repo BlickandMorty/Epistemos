@@ -1,8 +1,8 @@
 // SlashCommandPopover.swift
 //
-// Native Apple-style slash-command picker that attaches to the main
-// chat composer. Mirrors the pre-fuse Agent Command Center's /command
-// flow so skills + mode promotion still work in the fused chat surface.
+// Native Apple-style slash-command picker for the fused input surfaces.
+// Mirrors the pre-fuse Agent Command Center's /command flow so skills +
+// mode promotion still work in the AgentClone/fusion surface.
 //
 // Renders a SwiftUI List with live filtering against ACCSlashCommand —
 // feels like the macOS command palette / Spotlight row style users
@@ -15,7 +15,6 @@ import SwiftUI
 enum ComposerSlashCommandItem: Identifiable, Hashable {
     case command(ACCSlashCommand)
     case skill(SkillDiscoveryEntry)
-    case osaurus(ActOsaurusSlashCommand)
 
     init(token: ParsedSlashToken) {
         switch token {
@@ -30,7 +29,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): "command:\(command.rawValue)"
         case .skill(let skill): "skill:\(skill.identifier)"
-        case .osaurus(let command): "osaurus:\(command.rawValue)"
         }
     }
 
@@ -38,7 +36,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): .builtinMode(command)
         case .skill(let skill): .skill(skill)
-        case .osaurus: nil
         }
     }
 
@@ -49,18 +46,10 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         return nil
     }
 
-    var osaurusCommand: ActOsaurusSlashCommand? {
-        if case .osaurus(let command) = self {
-            return command
-        }
-        return nil
-    }
-
     var rawValue: String {
         switch self {
         case .command(let command): command.rawValue
         case .skill(let skill): skill.identifier
-        case .osaurus(let command): command.rawValue
         }
     }
 
@@ -68,7 +57,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): command.displayName
         case .skill(let skill): skill.title
-        case .osaurus(let command): command.displayName
         }
     }
 
@@ -76,7 +64,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): command.helpText
         case .skill(let skill): skill.description
-        case .osaurus(let command): command.helpText
         }
     }
 
@@ -84,7 +71,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): command.icon
         case .skill: "wand.and.stars"
-        case .osaurus(let command): command.icon
         }
     }
 
@@ -92,7 +78,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): command.defaultOperatingMode.displayName
         case .skill(let skill): skill.category.isEmpty ? "Skill" : skill.category
-        case .osaurus: "Act"
         }
     }
 
@@ -100,7 +85,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): command.defaultOperatingMode.systemImage
         case .skill: "sparkles"
-        case .osaurus: "square.grid.2x2"
         }
     }
 
@@ -108,7 +92,6 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
         switch self {
         case .command(let command): command.suggestedPrompt
         case .skill: nil
-        case .osaurus(let command): command.suggestedPrompt
         }
     }
 
@@ -121,14 +104,10 @@ enum ComposerSlashCommandItem: Identifiable, Hashable {
     }
 
     static func surfaceItems(
-        isOsaurusActMode: Bool,
+        isAgentMode: Bool,
         commands: [ACCSlashCommand],
         skills: [SkillDiscoveryEntry]
     ) -> [ComposerSlashCommandItem] {
-        if isOsaurusActMode {
-            return ActOsaurusSlashCommand.allCases.map(ComposerSlashCommandItem.osaurus)
-                + skills.map(ComposerSlashCommandItem.skill)
-        }
         return all(commands: commands, skills: skills)
     }
 }
@@ -160,61 +139,6 @@ enum ComposerSlashMenuLogic {
         let partialEnd = afterSlash.firstIndex(where: { $0.isWhitespace }) ?? afterSlash.endIndex
         let remainder = afterSlash[partialEnd...]
         return String(leadingWhitespace) + String(remainder)
-    }
-}
-
-enum ActOsaurusSlashCommand: String, CaseIterable, Hashable {
-    case clear
-    case model
-    case agent
-    case tools
-    case configure
-    case help
-
-    var displayName: String {
-        switch self {
-        case .clear: "Clear"
-        case .model: "Model"
-        case .agent: "Agent"
-        case .tools: "Tools"
-        case .configure: "Configure"
-        case .help: "Help"
-        }
-    }
-
-    var helpText: String {
-        switch self {
-        case .clear: "Clear the current Act conversation"
-        case .model: "Open the Act model picker inside this composer"
-        case .agent: "Use the default Act agent"
-        case .tools: "Show Act tool and skill controls"
-        case .configure: "Open Act configuration in Epistemos settings"
-        case .help: "Show Act commands and shortcuts"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .clear: "trash"
-        case .model: "cpu"
-        case .agent: "person.crop.square"
-        case .tools: "slider.horizontal.3"
-        case .configure: "gearshape"
-        case .help: "questionmark.circle"
-        }
-    }
-
-    var suggestedPrompt: String? {
-        switch self {
-        case .help:
-            "Show Act commands and capabilities."
-        case .agent:
-            "Use the Act default agent for this request: "
-        case .tools:
-            "Use Act tools for this request: "
-        case .model, .configure, .clear:
-            nil
-        }
     }
 }
 

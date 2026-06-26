@@ -30,9 +30,10 @@ struct Stash18AgentCommandCenterDonorSynthesisTests {
         #expect(doc.contains("InspectorPanelView.swift"))
         #expect(doc.contains("SuggestionPopoverView.swift"))
         #expect(doc.contains("Do not create another page shell."))
-        #expect(doc.contains("ChatBrainSnapshot"))
+        #expect(doc.contains("AgentClone/fusion owns the live chat path"))
         #expect(doc.contains("LocalModelToolbarMenu"))
-        #expect(doc.contains("MainChatSubmissionRouter"))
+        #expect(doc.contains("Keep landing and main chat off the deleted native chat backend."))
+        #expect(!doc.contains("routes through `MainChatSubmissionRouter`"))
     }
 
     @Test("legacy agent command center donor files stay absent from live source")
@@ -42,39 +43,5 @@ struct Stash18AgentCommandCenterDonorSynthesisTests {
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/InspectorPanelView.swift"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/SuggestionPopoverView.swift"))
-    }
-
-    @Test("donor UX maps to current fused chat and landing surfaces")
-    func donorUXMapsToCurrentFusedChatAndLandingSurfaces() throws {
-        let chatCoordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
-        let chatInput = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let chatPicker = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
-        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let messageBubble = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        let capabilityPill = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ChatCapabilityPill.swift")
-
-        #expect(chatCoordinator.contains("private func buildMainChatBrainSnapshot("))
-        #expect(chatCoordinator.contains("ChatBrainSection(title: \"Active Agent\""))
-        #expect(chatCoordinator.contains("ChatBrainSection(title: \"Execution Plan\""))
-        #expect(chatCoordinator.contains("ChatBrainSection(title: \"Workspace Awareness\""))
-
-        #expect(chatPicker.contains("LocalModelToolbarMenu("))
-        #expect(chatPicker.contains("preferSplitToolbarControls"))
-        #expect(chatInput.contains("ChatBrainPickerMenu("))
-        #expect(chatInput.contains("SlashCommandPopover("))
-        #expect(chatInput.contains("ContextWindowCompactBadge("))
-        #expect(chatInput.contains("ChatCapabilityPill("))
-        #expect(chatInput.contains("permissionVisibilityChip"))
-
-        #expect(landing.contains("landingSearchBrainTool"))
-        #expect(landing.contains("landingSearchCommandTool"))
-        #expect(landing.contains("ChatBrainPickerMenu("))
-        #expect(landing.contains("SlashCommandPopover("))
-        #expect(landing.contains("MainChatSubmissionRouter.submit("))
-
-        #expect(messageBubble.contains("private struct ToolExecutionPreviewCard: View"))
-        #expect(messageBubble.contains("ProcessDisclosureHeader("))
-        #expect(capabilityPill.contains("struct ChatCapabilityPill: View"))
-        #expect(capabilityPill.contains("let detail: String?"))
     }
 }

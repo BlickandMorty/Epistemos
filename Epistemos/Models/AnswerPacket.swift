@@ -13,12 +13,13 @@ import Foundation
 //
 // Tier 1 (MAS-safe): strictly additive structs.
 //
-// State 2026-05-12: chat path emits a packet per turn via
+// State 2026-06-25: chat path emits a packet per turn via
 // StreamingDelegate.onComplete → AnswerPacketEmitter. The
-// canon-hardening WRV state is now `state: rendered (FULL)`:
-// `MessageBubble.AnswerPacketChipRow` looks up the packet via
+// canon-hardening WRV state keeps the model/audit channel available
+// while the old native renderer is deleted. The rebuilt
+// AgentClone/fusion transcript should look up the packet via
 // `LatestAnswerPacketSink.shared.packet(for: message.answerPacketId)`
-// and renders the three V6.2 chips. Pending follow-on:
+// and render the three V6.2 chips. Pending follow-on:
 // `state: canonical-product-surface` — persisting the packet
 // alongside the ChatMessage so scrollback past the 32-packet ring
 // still renders chips, plus Rust-side claim FFI.
@@ -159,8 +160,9 @@ nonisolated public enum InterruptBucket: String, Codable, Hashable, Sendable, Ca
 /// HELIOS V5 W3 — Verified Research Mode UI label.
 ///
 /// 4-arm collapse of the 9-claim π Kleene K3 classification per
-/// `docs/fusion/helios v5 first.md` §1.9. The chat row's
-/// `VRMLabelView` renders one of these four states for every emitted
+/// `docs/fusion/helios v5 first.md` §1.9. The old native SwiftUI
+/// wrapper is deleted; the rebuilt AgentClone/fusion chat
+/// surface should render one of these four states for every emitted
 /// AnswerPacket.
 nonisolated public enum VRMLabel: String, Codable, Hashable, Sendable, CaseIterable {
     case verified
@@ -324,9 +326,9 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
 }
 
 /// Swift mirror of Rust `AnswerPacket`. Tier 1 schema. State as of
-/// 2026-05-12: emitted per chat-turn (`state: rendered FULL`) — the
-/// chip row in MessageBubble surfaces the audit channel on every
-/// assistant message bubble with a bound `answerPacketId`.
+/// 2026-06-25: emitted per chat-turn; the rebuilt AgentClone/fusion
+/// transcript should surface the audit channel on every assistant
+/// message with a bound `answerPacketId`.
 // `nonisolated` because the module defaults to MainActor isolation
 // (per CLAUDE.md) — without this, the synthesized Equatable
 // conformance becomes MainActor-isolated and `AnswerPacketEmitter

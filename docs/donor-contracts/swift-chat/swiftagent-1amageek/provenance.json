@@ -1,0 +1,37 @@
+{
+  "donor_id": "swiftagent-1amageek",
+  "contract_id": "swiftagent-1amageek.permissions-sandbox-cleanroom",
+  "local_path": ".research-clones/swift-act/swiftagent-1amageek",
+  "upstream_url": "https://github.com/1amageek/SwiftAgent.git",
+  "commit": "7b4db2fa3b36add8d6314cb365e3e20f3e6e703b",
+  "license_file": null,
+  "import_mode": "clean-room-study",
+  "license_disposition": "unknown-study-only",
+  "status": "partially-cleanroom-adapted-with-tests",
+  "role": "Permission grammar, sandbox execution, approvals, cancellation, skills, and MCP hardening motifs.",
+  "product_rule": "Study only unless license resolves; recreate useful concepts clean-room in Epistemos-owned code.",
+  "implemented_features": [
+    {
+      "contract_id": "swiftagent-1amageek.permission-policy-cleanroom",
+      "source_paths": [
+        ".research-clones/swift-act/swiftagent-1amageek/Docs/SECURITY.md",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/Security/PermissionRule.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/Security/PermissionConfiguration.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/Security/PermissionMiddleware.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/Security/PermissionMode.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/Security/SecurityConfiguration.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/Security/SandboxExecutor.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/IO/ApprovalHandler.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/IO/ApprovalBridgeHandler.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/IO/TurnCancellationToken.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgent/Race.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgentPlugins/PluginToolPermission.swift",
+        ".research-clones/swift-act/swiftagent-1amageek/Sources/SwiftAgentSkills/SkillPermissions.swift"
+      ],
+      "implementation_path": "LocalPackages/EpistemosChatDonorContracts/Sources/EpistemosChatDonorContracts/ChatDonorPermissionCleanroom.swift",
+      "proof_command": "swift test --package-path LocalPackages/EpistemosChatDonorContracts",
+      "proof_result": "39 tests, 0 failures",
+      "notes": "Clean-room Epistemos-owned values and actors for permission pattern matching, policy evaluation order, approval receipts and session memory, plugin permission-mode escalation, sandbox requirement and timeout validation, and turn cancellation receipts. The broader skills/MCP hardening and real sandbox execution motifs remain pending under swiftagent-1amageek.permissions-sandbox-cleanroom."
+    }
+  ]
+}

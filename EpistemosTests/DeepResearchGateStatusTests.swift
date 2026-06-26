@@ -44,7 +44,7 @@ struct DeepResearchGateStatusTests {
     /// can never silently fire on a route the user didn't pick (owner #1).
     @Test("cloud-provider allowlist recognizes the real resolveRustProviderName strings")
     func cloudProviderAllowlistMatchesProviderNames() {
-        // Every cloud string ChatCoordinator.resolveRustProviderName can emit.
+        // Every cloud string the agent route resolver can emit.
         for cloud in [
             "claude_sonnet", "claude_opus", "claude_haiku",
             "openai_gpt54", "openai_gpt54_mini",

@@ -230,8 +230,7 @@ private struct HomeSceneRootContent: View {
                         graphState: bootstrap.graphState,
                         queryEngine: bootstrap.queryEngine,
                         modelContainer: bootstrap.modelContainer,
-                        physicsCoordinator: bootstrap.physicsCoordinator,
-                        dialogueChatState: bootstrap.dialogueChatState
+                        physicsCoordinator: bootstrap.physicsCoordinator
                     )
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(500))
@@ -1011,7 +1010,7 @@ struct EpistemosApp: App {
         .modelContainer(bootstrap.modelContainer)
         .commands {
             EpistemosCommands(
-                ui: bootstrap.uiState, chat: bootstrap.chatState, notesUI: bootstrap.notesUI,
+                ui: bootstrap.uiState, notesUI: bootstrap.notesUI,
                 vaultSync: bootstrap.vaultSync)
         }
 
@@ -1082,7 +1081,7 @@ enum KnowledgeGraphShortcutDispatcher {
     }
 
     private static func isLocalGenerationActive(_ bootstrap: AppBootstrap) -> Bool {
-        bootstrap.chatState.isStreaming || bootstrap.dialogueChatState.isStreaming
+        bootstrap.agentChatState.isStreaming
     }
 
     private static func scheduleDeferredOpen(bootstrap: AppBootstrap, reduceMotion: Bool) {
@@ -1115,7 +1114,6 @@ enum KnowledgeGraphShortcutDispatcher {
             if HologramController.shared.isVisible {
                 HologramController.shared.hide()
             }
-            bootstrap.chatState.goHome()
             bootstrap.uiState.homeTab = .home
             bootstrap.uiState.setActivePanel(.home)
             HomeWindowIdentity.surfaceHomeWindow()
@@ -1243,8 +1241,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
                 graphState: bootstrap.graphState,
                 queryEngine: bootstrap.queryEngine,
                 modelContainer: bootstrap.modelContainer,
-                physicsCoordinator: bootstrap.physicsCoordinator,
-                dialogueChatState: bootstrap.dialogueChatState
+                physicsCoordinator: bootstrap.physicsCoordinator
             )
         }
         installKnowledgeGraphMenuFallback()
@@ -1305,8 +1302,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             return .terminateNow
         }
         let hasOpenNotes = !NoteWindowManager.shared.orderedPageIds().isEmpty
-        let hasOpenChats = !MiniChatWindowController.shared.openChatIds.isEmpty
-            || AppBootstrap.shared?.chatState.activeChatId != nil
+        let hasOpenChats = false
         let hasGraphWork = AppBootstrap.shared?.graphState.currentRoute != .canvas
             || HologramController.shared.isVisible
         guard hasOpenNotes || hasOpenChats || hasGraphWork else {
@@ -1386,12 +1382,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        guard let chatId = response.notification.request.content.userInfo["chatId"] as? String else {
-            return
-        }
-
         await MainActor.run {
-            AppBootstrap.shared?.loadChat(chatId: chatId)
             HomeWindowIdentity.surfaceHomeWindow()
         }
     }
@@ -1450,15 +1441,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         newNote.target = self
         menu.addItem(newNote)
 
-        let miniChat = NSMenuItem(
-            title: "New Mini Chat", action: #selector(dockMiniChat), keyEquivalent: "")
-        miniChat.image = NSImage(
-            systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: "Mini Chat")
-        miniChat.target = self
-        menu.addItem(miniChat)
-
-        menu.addItem(.separator())
-
         let skipRestore = NSMenuItem(
             title: "Skip Restore and Relaunch Home",
             action: #selector(dockSkipRestoreAndRelaunch),
@@ -1484,12 +1466,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
     }
 
-    @objc private func dockMiniChat() {
-        Task { @MainActor in
-            MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
-        }
-    }
-
     @objc private func dockSkipRestoreAndRelaunch() {
         Task { @MainActor in
             AppBootstrap.shared?.relaunchSkippingRestoreAndDiscardSession()
@@ -1506,10 +1482,7 @@ extension Notification.Name {
     static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
     static let proceedWithQuit = Notification.Name("epistemos.proceedWithQuit")
     static let showQuickCapture = Notification.Name("epistemos.showQuickCapture")
-    static let openActOsaurusSession = Notification.Name("epistemos.openActOsaurusSession")
-    static let submitActOsaurusPrompt = Notification.Name("epistemos.submitActOsaurusPrompt")
-    /// 0.48b-part2: reopen a Work session from the recent-chats popover's Work section — flips the workspace
-    /// to .work (mirrors `openActOsaurusSession` for act). Object is the SDChat id of the worker row.
+    /// Reopen a Work session from a recent-session row.
     static let openWorkSession = Notification.Name("epistemos.openWorkSession")
     /// Posted by the in-picker "Install local AI" CTA (owner 2026-06-19) so the
     /// model manager is reachable from where models are chosen, not only from
@@ -1517,28 +1490,8 @@ extension Notification.Name {
     static let openModelManager = Notification.Name("epistemos.openModelManager")
 }
 
-struct ActOsaurusPromptRequest {
-    let text: String
-    let contextAttachments: [ContextAttachment]
-    let fileAttachments: [FileAttachment]
-    let sessionId: UUID?
-
-    init(
-        text: String,
-        contextAttachments: [ContextAttachment] = [],
-        fileAttachments: [FileAttachment] = [],
-        sessionId: UUID? = nil
-    ) {
-        self.text = text
-        self.contextAttachments = contextAttachments
-        self.fileAttachments = fileAttachments
-        self.sessionId = sessionId
-    }
-}
-
 struct EpistemosCommands: Commands {
     let ui: UIState
-    let chat: ChatState
     let notesUI: NotesUIState
     let vaultSync: VaultSyncService
     var body: some Commands {
@@ -1555,7 +1508,6 @@ struct EpistemosCommands: Commands {
 
         CommandGroup(after: .sidebar) {
             Button("Show Home") {
-                chat.goHome()
                 ui.homeTab = .home
                 ui.setActivePanel(.home)
                 HomeWindowIdentity.surfaceHomeWindow()
@@ -1565,8 +1517,13 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
-            Button("New Mini Chat") {
-                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
+            Button("Show Agent") { UtilityWindowManager.shared.show(.agent) }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+
+            // Discoverable entry to the primary native Epistemos Work surface so it is not buried in Settings.
+            // The WebView fallback remains available from Settings as "Open Epistemos Work preview".
+            Button("Open Epistemos Work") {
+                WorkEngineSurfaceWindowController.shared.open()
             }
             .keyboardShortcut("3", modifiers: .command)
 
@@ -1587,12 +1544,6 @@ struct EpistemosCommands: Commands {
                 NSApp.activate()
             }
 
-            Divider()
-
-            Button("New Mini Chat") {
-                MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
-            }
-            .keyboardShortcut("m", modifiers: [.command, .shift])
         }
 
         CommandGroup(replacing: .newItem) {

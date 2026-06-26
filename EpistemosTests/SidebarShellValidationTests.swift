@@ -24,8 +24,8 @@ struct SidebarShellValidationTests {
         #expect(modelVaultsSource.contains("presentation: Presentation = .sidebarSection"))
     }
 
-    @Test("notes sidebar shares mini chat frost glass and pixel accents")
-    func notesSidebarSharesMiniChatFrostGlassAndPixelAccents() throws {
+    @Test("notes sidebar keeps frost glass and pixel accents")
+    func notesSidebarKeepsFrostGlassAndPixelAccents() throws {
         let notesSidebarSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
 
         #expect(notesSidebarSource.contains("NotesSidebarGlassBackdrop(theme: theme)"))

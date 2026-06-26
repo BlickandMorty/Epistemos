@@ -30,6 +30,7 @@ struct DeviceAgentServiceTests {
         #expect(!localClient.generateRequests[0].prompt.contains("<|im_start|>"))
         #expect(!localClient.generateRequests[0].prompt.contains("<|im_end|>"))
         #expect(localClient.generateRequests[0].prompt.contains("No tools are available for this turn."))
+        #expect(localClient.generateRequests[0].prompt.contains("do not claim Epistemos generally lacks tools"))
         #expect(localClient.generateRequests[0].prompt.contains("Return ONLY valid JSON."))
         #expect(localClient.generateRequests[0].prompt.contains("AX Tree (JSON): {\"elements\":[]}"))
         #expect(localClient.generateRequests[0].systemPrompt == nil)

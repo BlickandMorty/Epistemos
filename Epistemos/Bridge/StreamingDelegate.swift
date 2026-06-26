@@ -599,7 +599,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
         // (`docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`):
         // build + emit the AnswerPacket BEFORE yielding `.complete`,
         // and thread the packet id through the stream event so
-        // ChatState can stamp it on the assistant ChatMessage. The
+        // transcript state can stamp it on the assistant message. The
         // emit-then-yield ordering eliminates the race that existed
         // when emit ran in a fire-and-forget Task.
         let inTokens = Int(inputTokens)
@@ -620,7 +620,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
             )
             await AnswerPacketEmitter.shared.emit(packet)
             // Packet is now committed in the ring. Yield with its id
-            // so downstream consumers (ChatState.completeProcessing)
+            // so downstream consumers
             // can bind it to the new ChatMessage.id deterministically.
             continuation.yield(
                 .complete(
@@ -709,7 +709,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     ///
     /// The UI surface is implemented as a synchronous `NSAlert` shown on the
     /// key window — same pattern as `promptForToolApproval` in
-    /// `ChatCoordinator`. The Rust side blocks on a `DispatchSemaphore` until
+    /// the active agent route. The Rust side blocks on a `DispatchSemaphore` until
     /// the alert is dismissed. If no key window exists (e.g. teach mode),
     /// the alert falls back to `runModal()`.
     func askUserQuestion(questionJson: String) -> String {

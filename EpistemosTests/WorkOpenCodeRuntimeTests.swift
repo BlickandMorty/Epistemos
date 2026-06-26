@@ -140,9 +140,11 @@ struct WorkOpenCodeRuntimeTests {
         #expect(src.contains("OPENCODE_CONFIG"))
         // LIVE launch path must use the merge-preserving writer, not the clobbering one (0.49).
         #expect(src.contains("writeMergedFusionConfig("))
-        // 0.49b: the fusion MCP server roots at the Epistemos APP VAULT (skills/context bridge), falling back to
-        // the canonical default vault — NEVER the shell cwd/workspace (which would miss `skills/`).
-        #expect(src.contains("epistemosVaultRoot ?? FirstRunBootstrap.defaultVaultURL()"))
+        // 0.49b + honest-no-vault (owner 2026-06-24): the fusion MCP server roots at the Epistemos APP VAULT
+        // (skills/context bridge) ONLY when a vault is active — NEVER the shell cwd AND NEVER a silent empty
+        // default. No active vault → fusion is omitted entirely (diag 8af17c841).
+        #expect(src.contains("if let vaultURL = epistemosVaultRoot"))
+        #expect(!src.contains("FirstRunBootstrap.defaultVaultURL()"))  // no silent empty-default fallback
         #expect(src.contains("vaultRoot: fusionVaultRoot"))
     }
 
@@ -160,6 +162,95 @@ struct WorkOpenCodeRuntimeTests {
         #expect((server["environment"] as? [String: String])?["EPISTEMOS_VAULT_ROOT"] == appVault)
         // and it is the APP vault path, not a home/cwd path.
         #expect(appVault.hasSuffix("Documents/Epistemos"))
+    }
+
+    @Test("merged config registers the app-hosted native-tools MCP when provided (W-R2/W-R3)")
+    func nativeMCPRegisteredWhenProvided() throws {
+        let json = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+            existingJSON: nil,
+            stdioServerPath: "/r/omega_mcp_stdio",
+            vaultRoot: "/v",
+            nativeMCP: WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: "tok123"))
+        let v = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+        let mcp = v["mcp"] as! [String: Any]
+        // Merge-preserving: the vault stdio server stays AND the native remote server is added.
+        #expect(mcp["epistemos-vault"] != nil)
+        let native = try #require(mcp["epistemos-native"] as? [String: Any])
+        #expect(native["type"] as? String == "remote")
+        #expect(native["url"] as? String == "http://127.0.0.1:5599/mcp")
+        #expect((native["headers"] as? [String: String])?["Authorization"] == "Bearer tok123")
+        #expect(native["enabled"] as? Bool == true)
+    }
+
+    @Test("merged config OMITS the native MCP when not provided (honest default)")
+    func nativeMCPOmittedByDefault() throws {
+        let json = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+            existingJSON: nil, stdioServerPath: "/r/omega_mcp_stdio", vaultRoot: "/v")
+        let v = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+        let mcp = v["mcp"] as! [String: Any]
+        #expect(mcp["epistemos-native"] == nil)
+        #expect(mcp["epistemos-vault"] != nil)
+    }
+
+    @Test("merged config omits native MCP registrations that are not trusted user-space loopback /mcp")
+    func unsafeNativeMCPRegistrationIsOmitted() throws {
+        for bad in [
+            WorkNativeMCPRegistration(url: "http://example.com:5599/mcp", token: "tok123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1/mcp", token: "tok123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:0/mcp", token: "tok123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:80/mcp", token: "tok123"),
+        ] {
+            let json = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+                existingJSON: nil,
+                stdioServerPath: "/r/omega_mcp_stdio",
+                vaultRoot: "/v",
+                nativeMCP: bad)
+            let v = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+            let mcp = v["mcp"] as! [String: Any]
+            #expect(mcp["epistemos-native"] == nil)
+            #expect(mcp["epistemos-vault"] != nil)
+        }
+    }
+
+    @Test("(c2) a started WorkNativeMCPServer registration flows into the OpenCode config as epistemos-native")
+    func nativeMCPRegistrationFlowsIntoConfig() async throws {
+        // Prove the LIVE wiring: a real loopback server produces a registration whose url+token land in the
+        // generated config as `epistemos-native`. Resilient — if loopback bind is unavailable in this env, fall
+        // back to a synthetic registration so the config-shaping proof (the milestone requirement) still runs.
+        let server = WorkNativeMCPServer(executor: { name, _ in
+            LocalToolResult(toolName: name, resultJson: "{}", isError: false)
+        })
+        defer { server.stop() }
+        var liveRegistration: WorkNativeMCPRegistration?
+        if (try? server.start()) != nil {
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while ContinuousClock.now < deadline {
+                if case .running(let reg) = server.status { liveRegistration = reg; break }
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+        }
+        let registration = liveRegistration
+            ?? WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: "synthetic-token")
+
+        let json = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
+            existingJSON: nil,
+            stdioServerPath: "/r/omega_mcp_stdio",
+            vaultRoot: "/v",
+            nativeMCP: registration)
+        let v = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+        let mcp = v["mcp"] as! [String: Any]
+        let native = try #require(mcp["epistemos-native"] as? [String: Any])
+        #expect(native["type"] as? String == "remote")
+        #expect(native["url"] as? String == registration.url)
+        #expect((native["headers"] as? [String: String])?["Authorization"] == "Bearer \(registration.token)")
+        #expect(native["enabled"] as? Bool == true)
+
+        // When the loopback listener actually bound, prove it's a real per-launch /mcp endpoint + token.
+        if let live = liveRegistration {
+            #expect(live.url.hasPrefix("http://127.0.0.1:"))
+            #expect(live.url.hasSuffix("/mcp"))
+            #expect(!live.token.isEmpty)
+        }
     }
 
     @Test("merge PRESERVES user-installed MCP servers + other keys while (re)asserting the fusion server (0.49)")

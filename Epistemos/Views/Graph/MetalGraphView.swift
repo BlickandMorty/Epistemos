@@ -567,14 +567,12 @@ func sendNodeRemovalBatch(_ nodeIds: [String], to engine: OpaquePointer) {
 struct MetalGraphView: NSViewRepresentable {
     @Environment(GraphState.self) private var graphState
     @Environment(PhysicsCoordinator.self) private var physicsCoordinator
-    @Environment(DialogueChatState.self) private var dialogueChatState
     @Environment(UIState.self) private var uiState
 
     func makeNSView(context: Context) -> MetalGraphNSView {
         let view = MetalGraphNSView()
         view.graphState = graphState
         view.physicsCoordinator = physicsCoordinator
-        view.dialogueChatState = dialogueChatState
         view.uiState = uiState
         return view
     }
@@ -582,7 +580,6 @@ struct MetalGraphView: NSViewRepresentable {
     func updateNSView(_ nsView: MetalGraphNSView, context: Context) {
         nsView.graphState = graphState
         nsView.physicsCoordinator = physicsCoordinator
-        nsView.dialogueChatState = dialogueChatState
         nsView.uiState = uiState
         let appearanceSyncKey = uiState.appearanceSyncKey
         nsView.syncThemeIfNeeded(appearanceSyncKey: appearanceSyncKey)
@@ -745,7 +742,6 @@ final class MetalGraphNSView: NSView {
     /// nonisolated(unsafe): written from AppKit event handlers (main thread)
     /// but compiler can't prove @MainActor isolation on NSView subclass.
     nonisolated(unsafe) var physicsCoordinator: PhysicsCoordinator?
-    nonisolated(unsafe) var dialogueChatState: DialogueChatState?
     nonisolated(unsafe) var uiState: UIState?
     var lastRenderWakeSignature: GraphRenderWakeSignature?
     var lastForceConfigVersion = 0
@@ -2058,11 +2054,6 @@ final class MetalGraphNSView: NSView {
             revealItem.target = self
             menu.addItem(revealItem)
 
-            let chatItem = NSMenuItem(title: "Ask Graph Chat", action: #selector(contextMenuAskGraphChat(_:)), keyEquivalent: "")
-            chatItem.representedObject = uuid
-            chatItem.target = self
-            menu.addItem(chatItem)
-
             NSMenu.popUpContextMenu(menu, with: event, for: self)
         } else {
             super.rightMouseDown(with: event)
@@ -2077,24 +2068,6 @@ final class MetalGraphNSView: NSView {
     @objc private func contextMenuRevealInGraph(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String else { return }
         graphState?.pendingCenterNodeId = id
-    }
-
-    @objc private func contextMenuAskGraphChat(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        // Posts a typed GraphChatRequest on `.graphChatRequested`. The
-        // Agent Command Center (or a future dedicated GraphChatState)
-        // listens and prefills its composer with the node context. No
-        // second chat session is created here — this is an intent event,
-        // not a control-plane mutation.
-        guard let request = graphState?.askGraphChat(nodeId: id) else {
-            metalGraphLog.info(
-                "Ask Graph Chat no-op: missing state or node \(id, privacy: .public)"
-            )
-            return
-        }
-        metalGraphLog.info(
-            "Ask Graph Chat dispatched for node \(request.graphNodeId, privacy: .public) type=\(request.nodeType, privacy: .public)"
-        )
     }
 
     override func mouseDragged(with event: NSEvent) {

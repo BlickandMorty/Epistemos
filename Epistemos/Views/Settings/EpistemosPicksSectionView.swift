@@ -3,7 +3,7 @@ import SwiftUI
 /// "Epistemos Picks" — the curated, pixel-art presentation of the owner's hardened models
 /// (Gemma QAT ladder + explicit Qwen extras + curated Apple Intelligence), top-billed above
 /// generic "Installed Models". Owner 2026-06-21: surface my custom hardened models as a
-/// distinct section so they aren't lost in the act/Osaurus model stack.
+/// distinct section so they aren't lost in the Act model stack.
 ///
 /// Pure-data layer is `EpistemosPicks` (verified, tested); this is its VIEW. It reuses the
 /// proven live-state → `EpistemosRuntimePicker.Environment` mapping (identical to
@@ -29,6 +29,7 @@ struct EpistemosPicksSectionView: View {
             installedModelIDs: installed,
             freeMemoryGB: freeGB,
             appleIntelligenceAvailable: inference.appleIntelligenceAvailable,
+            appleIntelligenceUnavailableReason: inference.appleIntelligenceUnavailableReason,
             additionalPicks: RuntimePickerExtraPicksBuilder.picks(
                 installedIDs: installed,
                 advertised: store.effectiveAdvertised(fullCatalog: installed),
@@ -83,7 +84,7 @@ struct EpistemosPicksSectionView: View {
                         .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
                         .foregroundStyle(option.isSelectable ? theme.textPrimary : theme.textTertiary)
                     // Honest: a blocked pick shows its real reason; otherwise the tier tagline.
-                    Text(option.blockedReason ?? option.tier.tagline)
+                    Text(option.blockedReason ?? (option.isAppleIntelligence ? option.availabilitySummary : option.tier.tagline))
                         .font(.system(size: 10))
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(2)

@@ -212,11 +212,14 @@ enum NoteWorkspaceFooterDisplay {
 }
 
 enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
+    case agentPortal
     case saveToDisk
     case notesSidebar
 
     var glyph: NoteToolbarGlyph {
         switch self {
+        case .agentPortal:
+            .agentPortal
         case .saveToDisk:
             .saveToDisk
         case .notesSidebar:
@@ -226,6 +229,8 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
 
     var title: String {
         switch self {
+        case .agentPortal:
+            "Open in Agent"
         case .saveToDisk:
             "Save to Disk"
         case .notesSidebar:
@@ -235,6 +240,8 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
 
     var shortcut: String {
         switch self {
+        case .agentPortal:
+            "⇧⌘A"
         case .saveToDisk:
             "⌘S"
         case .notesSidebar:
@@ -527,7 +534,6 @@ enum NoteToolbarGlyph: Sendable {
     case format
     case preview
     case edit
-    case miniChat
     case writingTools
     case more
     case backlinks
@@ -535,6 +541,7 @@ enum NoteToolbarGlyph: Sendable {
     case recovery
     case saveToDisk
     case notesSidebar
+    case agentPortal
 
     var symbolName: String? {
         switch self {
@@ -544,8 +551,6 @@ enum NoteToolbarGlyph: Sendable {
             "eye"
         case .edit:
             "pencil"
-        case .miniChat:
-            "bubble.left.and.text.bubble.right"
         case .writingTools:
             "apple.intelligence"
         case .more:
@@ -560,6 +565,8 @@ enum NoteToolbarGlyph: Sendable {
             "square.and.arrow.down"
         case .notesSidebar:
             "sidebar.leading"
+        case .agentPortal:
+            "sparkles"
         }
     }
 
@@ -588,35 +595,18 @@ struct NoteDetailWorkspaceView: View {
 
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
     @Environment(GraphState.self) private var graphState
-    @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(EventBus.self) private var eventBus
-    @Environment(TriageService.self) private var triageService
-    // SS-VIS wider sweep (owner 2026-06-20; ledger 1190 Note-chat parity): agentCommandCenter is
-    // injected via withAppEnvironment (the note window applies it — NoteWindowManager:402/507 — and
-    // the embedded path inherits it), and this view already depends on other injected state, so
-    // reading it adds no new launch-crash surface.
-    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.openSettings) private var openSettings
     @Environment(\.graphSurfacePresentation) private var graphSurfacePresentation
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
-    /// Owner 2026-06-18: the note ask-bar model picker is a flat inline pixel-art
-    /// panel expanding in-flow above the ask bar — not a floating popover.
-    @State private var showInlineRuntimePicker = false
-    @State private var showNoteToolPanel = false
-    @State private var showNoteSlashMenu = false
-    @State private var noteSlashFilter = ""
-    @State private var noteSelectedSlashItem: ComposerSlashCommandItem?
-    @State private var noteComposerHeight = ChatComposerInputMetrics.minHeight
-    @State private var noteComposerFocused = false
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
     @State private var persistedBody: String
@@ -625,7 +615,6 @@ struct NoteDetailWorkspaceView: View {
     @State private var legacyRecoveryRefreshTask: Task<Void, Never>?
 
     @State private var showIdeasPopover = false
-    @AppStorage("noteWorkspace.showChatSidebar") private var showChatSidebar = false
     @State private var showBacklinksPopover = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
@@ -659,16 +648,11 @@ struct NoteDetailWorkspaceView: View {
     @State private var transitionGreeting: String = ""
     /// True while a transition is in flight (prevents rapid re-trigger).
     @State private var isTransitioning = false
-    /// Per-note AI chat state (one per open note tab).
-    @State private var noteChatState: NoteChatState
-    @AppStorage("epistemos.noteChatOperatingMode")
-    private var noteChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @MainActor
     init(pageId: String, presentation: NoteWorkspacePresentation = .window) {
         self.pageId = pageId
         self.presentation = presentation
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
-        _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
         _persistedBody = State(initialValue: NoteWindowManager.shared.currentBody(for: pageId))
         _deterministicOutlineState = State(
             initialValue: KnowledgeCoreOutlineProjectionState()
@@ -680,50 +664,6 @@ struct NoteDetailWorkspaceView: View {
             return persistedBody
         }
         return page.body
-    }
-
-    private var supportedNoteChatOperatingModes: [EpistemosOperatingMode] {
-        var modes = inference.availableOperatingModes.filter { $0 != .agent }
-        if LocalAgentLoop.shouldRouteActThroughOsaurus(), !modes.contains(.agent) {
-            modes.append(.agent)
-        }
-        return modes.isEmpty ? [.fast] : modes
-    }
-
-    private var isNoteOsaurusActMode: Bool {
-        selectedNoteChatOperatingMode == .agent && LocalAgentLoop.shouldRouteActThroughOsaurus()
-    }
-
-    private var noteSlashItems: [ComposerSlashCommandItem] {
-        ComposerSlashCommandItem.surfaceItems(
-            isOsaurusActMode: isNoteOsaurusActMode,
-            commands: ACCSlashCommand.availableCommands(for: supportedNoteChatOperatingModes),
-            skills: agentCommandCenter.availableSkills
-        )
-    }
-
-    private var selectedNoteChatOperatingMode: EpistemosOperatingMode {
-        get {
-            MainChatOperatingModePreference.sanitize(
-                EpistemosOperatingMode(rawValue: noteChatOperatingModeRaw) ?? .fast,
-                for: inference,
-                availableModes: supportedNoteChatOperatingModes
-            )
-        }
-        nonmutating set {
-            noteChatOperatingModeRaw = MainChatOperatingModePreference.sanitize(
-                newValue,
-                for: inference,
-                availableModes: supportedNoteChatOperatingModes
-            ).rawValue
-        }
-    }
-
-    private var noteChatOperatingModeBinding: Binding<EpistemosOperatingMode> {
-        Binding(
-            get: { selectedNoteChatOperatingMode },
-            set: { selectedNoteChatOperatingMode = $0 }
-        )
     }
 
     private var usesOverlayGraphToolbar: Bool {
@@ -789,7 +729,7 @@ struct NoteDetailWorkspaceView: View {
                         if usesNativeGraphWindowToolbar, let page = pages.first {
                             graphEmbeddedToolbarTitle(page)
                         } else {
-                            noteToolbarAskItem
+                            noteToolbarTitleItem
                         }
                     }
                 }
@@ -941,17 +881,6 @@ struct NoteDetailWorkspaceView: View {
             showIdeasPopover = true
         }
         .onReceive(
-            NotificationCenter.default.publisher(for: ProseTextView2.aiOperationNotification)
-        ) { notif in
-            guard let info = notif.userInfo as? [String: String],
-                let op = info["operation"],
-                info["pageId"] == pageId
-            else { return }
-            let selected = info["selectedText"]
-            let instruction = info["instruction"]
-            handleAIContextMenuOperation(op, selectedText: selected, instruction: instruction)
-        }
-        .onReceive(
             NotificationCenter.default.publisher(for: ProseTextView2.blockPropertyNotification)
         ) { notif in
             guard let info = notif.userInfo as? [String: Any],
@@ -1038,33 +967,8 @@ struct NoteDetailWorkspaceView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(noteWorkspaceBackground)
-            .environment(noteChatState)
-            .overlay {
-                // SS-IL (safe-additive): pure decoration over the inline AI answer — the
-                // AI/user "cold box" separation + the scroll-down arrow. Reads read-only
-                // NoteChatState; allowsHitTesting(false) so typing reaches TextKit underneath.
-                // The streaming pipeline is provably untouched (SSILInlineOverlaySafetyTests).
-                //
-                // SS-CRASH (P0, 2026-06-20): `.overlay` content does NOT inherit the outer
-                // `.environment(noteChatState)` (that modifier scopes to the editor subtree, not
-                // sibling overlays), so the overlay's `@Environment(NoteChatState.self)` would
-                // precondition-crash at launch when a note window restores. Inject it explicitly
-                // here — order-independent, guaranteed in the overlay's own environment.
-                InlineAnswerDecorationOverlay(theme: ui.theme)
-                    .environment(noteChatState)
-            }
-            .overlay {
-                // SS-IL Metal streaming overlay: the inline answer "materializes" under a soft
-                // Metal scan band while it streams, then dissolves to plain editable text. Same
-                // safety envelope — reads read-only NoteChatState + the rect provider, paints
-                // light, allowsHitTesting(false); reduce-motion → absent.
-                // SS-CRASH (P0): inject noteChatState explicitly (see the overlay above).
-                InlineStreamMaterializeOverlay(theme: ui.theme)
-                    .environment(noteChatState)
-            }
             .onAppear {
                 Task { @MainActor in
-                    noteChatState.loadPersistedMessages(modelContext)
                     refreshTabCount()
                     if let page = pages.first {
                         let body = persistedBodyFor(page)
@@ -1101,7 +1005,6 @@ struct NoteDetailWorkspaceView: View {
                 missingPageRecoveryTask = nil
                 legacyRecoveryRefreshTask?.cancel()
                 legacyRecoveryRefreshTask = nil
-                noteChatState.clear()
             }
             .onChange(of: pages.isEmpty) { _, isEmpty in
                 if isEmpty {
@@ -1119,11 +1022,6 @@ struct NoteDetailWorkspaceView: View {
             .onChange(of: pages.first?.filePath) { _, _ in
                 scheduleCodeFileBodyRefresh(for: pages.first)
                 refreshModelDerivedSidecarBadge(for: pages.first)
-            }
-            .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
-                if wasStreaming && !isNowStreaming, let page = pages.first {
-                    noteChatState.persistMessages(modelContext, noteTitle: page.title)
-                }
             }
             .onReceive(NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyDidChange)) { notification in
                 guard let changedId = notification.userInfo?["pageId"] as? String,
@@ -1155,7 +1053,7 @@ struct NoteDetailWorkspaceView: View {
         case .note:
             NoteWindowManager.shared.open(pageId: hit.id)
         case .chat:
-            MiniChatWindowController.shared.openChat(hit.id)
+            break
         }
         contextualShadows.closePanel(kind: .note, originDocId: pageId)
     }
@@ -1169,6 +1067,37 @@ struct NoteDetailWorkspaceView: View {
             .joined(separator: "\n")
         tv.insertText("\n\n\(quoted)\n", replacementRange: tv.selectedRange())
         tv.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func openNoteAgentPortal() {
+        guard let page = pages.first else { return }
+        let portalContext = AgentPortalContextSnapshot.note(
+            pageId: page.id,
+            vaultRootPath: vaultSync.vaultURL?.path,
+            workspacePath: FileManager.default.homeDirectoryForCurrentUser.path,
+            title: page.title,
+            path: page.filePath,
+            selectedText: currentEditorSelectedText(),
+            visibleExcerpt: displayBody(for: page),
+            tags: page.tags
+        )
+        AgentPortalRouteRequest.post(portalContext)
+    }
+
+    private func currentEditorSelectedText() -> String? {
+        let fallback = capturedSelectionText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else {
+            return fallback?.isEmpty == false ? fallback : nil
+        }
+        let selection = tv.selectedRange()
+        let text = tv.string as NSString
+        guard selection.location != NSNotFound,
+              selection.length > 0,
+              NSMaxRange(selection) <= text.length else {
+            return fallback?.isEmpty == false ? fallback : nil
+        }
+        let selectedText = text.substring(with: selection).trimmingCharacters(in: .whitespacesAndNewlines)
+        return selectedText.isEmpty ? nil : selectedText
     }
 
     private func refreshLegacyRecoveryPresentation() {
@@ -1241,6 +1170,8 @@ struct NoteDetailWorkspaceView: View {
 
     private func performNoteWorkspaceQuickAction(_ action: NoteWorkspaceQuickAction) {
         switch action {
+        case .agentPortal:
+            openNoteAgentPortal()
         case .saveToDisk:
             vaultSync.savePage(pageId: pageId)
         case .notesSidebar:
@@ -1324,7 +1255,7 @@ struct NoteDetailWorkspaceView: View {
             alignment: .topLeading
         )
     }
-    
+
     /// Saves code file content back to disk and updates associated page state
     private func saveCodeFileContent(page: SDPage, filePath: String, content: String) {
         guard let vaultURL = vaultSync.vaultURL else {
@@ -1387,8 +1318,16 @@ struct NoteDetailWorkspaceView: View {
         graphState?.needsRefresh = true
     }
 
-    private var noteToolbarAskItem: some View {
-        toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
+    private var noteToolbarTitle: String {
+        let title = pages.first?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return title.isEmpty ? "Note" : title
+    }
+
+    private var noteToolbarTitleItem: some View {
+        Text(noteToolbarTitle)
+            .font(.headline)
+            .lineLimit(1)
+            .foregroundStyle(ui.theme.resolved.foreground.color)
     }
 
     @ViewBuilder
@@ -1405,25 +1344,6 @@ struct NoteDetailWorkspaceView: View {
             .labelStyle(.iconOnly)
         }
         .help(showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)")
-
-        if !showPreview && !presentation.usesGraphEmbeddedChrome {
-            Button {
-                showChatSidebar.toggle()
-            } label: {
-                Label(
-                    "Chat History",
-                    systemImage: showChatSidebar
-                        ? (NoteToolbarGlyph.history.activeSymbolName ?? "bubble.left.fill")
-                        : (NoteToolbarGlyph.history.symbolName ?? "bubble.left")
-                )
-            }
-            .help("Chat History")
-            .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
-                NoteChatSidebar()
-                    .environment(noteChatState)
-                    .frame(width: 340, height: 380)
-            }
-        }
 
         moreMenu
     }
@@ -1716,122 +1636,6 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
-    private func handleAIContextMenuOperation(
-        _ op: String,
-        selectedText: String?,
-        instruction: String? = nil
-    ) {
-        // If selectedText wasn't in the notification,
-        // grab the current selection from the first responder text view.
-        let text: String =
-            selectedText
-            ?? {
-                guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else {
-                    return ""
-                }
-                let sel = tv.selectedRange()
-                guard sel.length > 0 else { return "" }
-                return (tv.string as NSString).substring(with: sel)
-            }()
-        let trimmedInstruction = instruction?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let instructionSuffix =
-            trimmedInstruction.isEmpty ? "" : "\n\nAdditional instruction: \(trimmedInstruction)"
-
-        let mapping: (operation: NotesOperation, userPrompt: String) = {
-            switch op {
-            case "rewrite":
-                return (
-                    .rewrite,
-                    "Rewrite the selected text to improve clarity and flow. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
-                )
-            case "proofread":
-                return (
-                    .rewrite,
-                    "Fix grammar, spelling, and punctuation while preserving the original meaning and tone. Return only the corrected text.\n\n\(text)\(instructionSuffix)"
-                )
-            case "rewrite_friendly":
-                return (
-                    .rewrite,
-                    "Rewrite the text in a warm, friendly, conversational tone. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
-                )
-            case "rewrite_professional":
-                return (
-                    .rewrite,
-                    "Rewrite the text in a polished, professional tone. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
-                )
-            case "rewrite_concise":
-                return (
-                    .rewrite,
-                    "Rewrite the text as concisely as possible while preserving the key meaning. Return only the rewritten text.\n\n\(text)\(instructionSuffix)"
-                )
-            case "summarize":
-                return (
-                    .summarize,
-                    "Summarize the selected text concisely. Return only the summary.\n\n\(text)\(instructionSuffix)"
-                )
-            case "keyPoints":
-                return (
-                    .summarize,
-                    "Extract the key points from the text as a concise markdown bullet list. Return only the bullet list.\n\n\(text)\(instructionSuffix)"
-                )
-            case "expand":
-                return (
-                    .expand,
-                    "Expand the selected text with more detail and depth while keeping the same tone.\n\n\(text)\(instructionSuffix)"
-                )
-            case "simplify":
-                return (
-                    .rewrite,
-                    "Simplify the text so it is easier to understand. Use shorter sentences. Return only the simplified text.\n\n\(text)\(instructionSuffix)"
-                )
-            case "toList":
-                return (
-                    .outline,
-                    "Convert the text into a clean markdown bullet list. Return only the list.\n\n\(text)\(instructionSuffix)"
-                )
-            case "toTable":
-                return (
-                    .outline,
-                    "Convert the text into a markdown table. Return only the table.\n\n\(text)\(instructionSuffix)"
-                )
-            case "continue":
-                return (
-                    .continueWriting,
-                    "Continue writing from where this note ends. Match the existing tone and style. Return only the continuation.\(instructionSuffix)"
-                )
-            case "outline":
-                return (
-                    .outline,
-                    "Generate a structured outline for this note using markdown headers and bullet points. Return only the outline.\(instructionSuffix)"
-                )
-            case "structure":
-                return (
-                    .analyze,
-                    "Suggest a better structure for this note. Return only the reorganized version.\(instructionSuffix)"
-                )
-            case "restructure":
-                return (
-                    .analyze,
-                    "Completely reorganize this note for better clarity, flow, and logical progression. Preserve all content and use markdown. Return only the full rewritten note.\(instructionSuffix)"
-                )
-            default:
-                return (
-                    .ask(query: text.isEmpty ? "Help me with this note." : text),
-                    text.isEmpty
-                        ? "Help me with this note.\(instructionSuffix)"
-                        : "\(text)\(instructionSuffix)"
-                )
-            }
-        }()
-
-        noteChatState.submitQuery(
-            mapping.userPrompt,
-            operation: mapping.operation,
-            triageService: triageService,
-            operatingMode: selectedNoteChatOperatingMode
-        )
-    }
-
     // MARK: - Table of Contents Navigation
 
     private func scrollEditorTo(charOffset: Int) {
@@ -2106,502 +1910,6 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
-    private var toolbarAskStatusPhase: AssistantComposerStatusPhase {
-        AssistantComposerStatusPhase(notePhase: noteChatState.toolbarStatusPhase)
-    }
-
-    private var toolbarAskAccentColor: Color {
-        ui.theme.resolved.accent.color
-    }
-
-    private var toolbarAskPlaceholder: String {
-        if isNoteOsaurusActMode {
-            return "Ask Act about this note"
-        }
-        // P7.5 — honest memory blocker (P1.4 parity) surfaced in the compact ask
-        // bar: when the selected local model can't load, say so right where the
-        // user types instead of silently routing to another model.
-        return noteChatMemoryBlocker ?? noteChatState.error ?? "Ask this note"
-    }
-
-    /// P7.5 — chat-surface parity: NoteChat reuses the SHARED honest memory
-    /// blocker (P1.4) and Fast effort reason (P1.9) on `InferenceState`, so the
-    /// note-ask bar honors the same ceiling as Main/Mini — no fork, no silent
-    /// swap. NoteChat itself stays a lightweight inline ask that escalates to
-    /// Main chat for tool work, so it surfaces these two but not a tool panel.
-    private var noteChatMemoryBlocker: String? {
-        if isNoteOsaurusActMode { return nil }
-        return inference.localChatModelMemoryBlocker(for: selectedNoteChatOperatingMode)
-    }
-
-    private var noteChatFastEffortHint: String? {
-        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        let complexity = QueryAnalyzer.analyze(query: trimmed).complexity
-        return inference.fastEffortRouteReason(
-            forComplexity: complexity,
-            operatingMode: selectedNoteChatOperatingMode
-        )
-    }
-
-    private var toolbarAskSelection: ChatModelSelection {
-        inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode)
-    }
-
-    private var toolbarAskCapability: ChatCapability {
-        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isCloudProvider: Bool = {
-            switch toolbarAskSelection {
-            case .cloud:
-                return true
-            case .localMLX, .appleIntelligence:
-                return false
-            }
-        }()
-
-        if !trimmed.isEmpty {
-            return ChatCapability.predictIntent(
-                text: trimmed,
-                isCloudProvider: isCloudProvider
-            ).predicted
-        }
-
-        return ChatCapability.classify(
-            isCloudProvider: isCloudProvider,
-            isAgentExecuting: false,
-            isResearchMode: false,
-            isThinkingMode: selectedNoteChatOperatingMode == .thinking || selectedNoteChatOperatingMode == .pro
-        )
-    }
-
-    private var toolbarAskPillDetail: String? {
-        // P7.5 — Fast effort visibility (P1.9 parity) takes the pill detail when
-        // the Fast tier sizes this query; otherwise the usual model/tool truth.
-        if let noteChatFastEffortHint {
-            return noteChatFastEffortHint
-        }
-        return ComposerModelToolTruth.detail(
-            for: toolbarAskSelection,
-            capability: toolbarAskCapability
-        )
-    }
-
-    private var noteComposerControlResetKey: String {
-        [
-            noteRuntimeTierLabel,
-            noteSelectedSlashItem?.id ?? "none",
-            showNoteToolPanel ? "tools" : "tools-closed",
-        ].joined(separator: "::")
-    }
-
-    // MARK: - Toolbar Chat Field
-
-    private func toolbarChatField(width: CGFloat) -> some View {
-        @Bindable var chat = noteChatState
-        let trimmedInput = chat.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let canSubmit = !trimmedInput.isEmpty && !noteChatState.isStreaming && noteChatMemoryBlocker == nil
-
-        return VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .topLeading) {
-                ChatComposerTextEditor(
-                    text: $chat.inputText,
-                    height: $noteComposerHeight,
-                    isFocused: $noteComposerFocused,
-                    theme: ui.theme,
-                    isProcessing: noteChatState.isStreaming
-                ) {
-                    if noteChatState.isStreaming {
-                        noteChatState.stopStreaming()
-                    } else if canSubmit {
-                        submitToolbarAskInline()
-                    }
-                }
-                .frame(minHeight: ChatComposerInputMetrics.minHeight, maxHeight: ChatComposerInputMetrics.maxHeight)
-
-                if chat.inputText.isEmpty {
-                    Text(toolbarAskPlaceholder)
-                        .font(.system(size: ChatComposerInputMetrics.fontSize, weight: .regular))
-                        .foregroundStyle(ui.theme.textTertiary)
-                        .padding(.leading, ChatComposerInputMetrics.horizontalInset)
-                        .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
-                        .allowsHitTesting(false)
-                }
-            }
-            .frame(minHeight: ChatComposerInputMetrics.minHeight, maxHeight: ChatComposerInputMetrics.maxHeight)
-            .onChange(of: noteChatState.inputText) { _, newValue in
-                refreshNoteSlashMenu(for: newValue)
-            }
-
-            if showInlineRuntimePicker {
-                InlineRuntimePickerPanel(
-                    inference: inference,
-                    operatingMode: noteChatOperatingModeBinding,
-                    onPicked: {
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
-                            showInlineRuntimePicker = false
-                        }
-                    },
-                    onOpenSettings: { openSettings() },
-                    showsSettingsFooter: true,
-                    showsOsaurusModelSection: isNoteOsaurusActMode
-                )
-                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
-                .padding(.bottom, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
-            HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
-                ComposerControlStrip(spacing: 8, resetKey: noteComposerControlResetKey) {
-                    noteInlineRuntimePickerTrigger
-                    noteSlashCommandTrigger
-                    if let noteSelectedSlashItem {
-                        noteSelectedSlashPill(for: noteSelectedSlashItem)
-                    }
-                    noteToolPanelTrigger
-                    noteRouteToMainTrigger
-                }
-
-                Spacer(minLength: 4)
-
-                ChatCapabilityPill(
-                    capability: toolbarAskCapability,
-                    detail: toolbarAskPillDetail
-                )
-
-                AssistantSendButton(
-                    theme: ui.theme,
-                    isEnabled: canSubmit || noteChatState.isStreaming,
-                    isProcessing: noteChatState.isStreaming,
-                    metrics: .mainChat
-                ) {
-                    if noteChatState.isStreaming {
-                        noteChatState.stopStreaming()
-                    } else if canSubmit {
-                        submitToolbarAskInline()
-                    }
-                }
-                .help(noteChatState.isStreaming ? "Stop" : "Ask this note")
-                .accessibilityLabel(noteChatState.isStreaming ? "Stop response" : "Ask this note")
-            }
-            .padding(.top, MainChatComposerLayout.controlRowTopPadding)
-        }
-        .frame(width: max(width, 360))
-        .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
-        .padding(.top, MainChatComposerLayout.topPadding)
-        .padding(.bottom, MainChatComposerLayout.bottomPadding)
-        .assistantComposerChrome(
-            theme: ui.theme,
-            metrics: .mainChat,
-            isActive: noteComposerFocused
-                || !trimmedInput.isEmpty
-                || noteChatState.isStreaming
-                || showInlineRuntimePicker
-                || showNoteSlashMenu
-                || noteSelectedSlashItem != nil
-        )
-    }
-
-    /// Owner 2026-06-18: trigger for the inline runtime picker on the note ask
-    /// bar (replaces the single-button LocalModelToolbarMenu popover).
-    private var noteInlineRuntimePickerTrigger: some View {
-        ToolbarCapsuleButton(
-            title: noteRuntimeTierLabel,
-            systemImage: "cpu",
-            variant: .toolbar,
-            isActive: showInlineRuntimePicker,
-            helpText: isNoteOsaurusActMode
-                ? "Pick the Act model inside the Epistemos picker"
-                : "Pick the Epistemos brain — Fast / Think / Code",
-            accessibilityLabel: "Model picker, \(noteRuntimeTierLabel)"
-        ) {
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
-                showInlineRuntimePicker.toggle()
-            }
-        }
-    }
-
-    /// SS-VIS wider sweep: the SAME AgentToolTogglePanel the chat composer + landing + mini-chat +
-    /// graph chat use (the ~50 tools + MCP + cowork + skills) — single registry, single picker, no
-    /// clone — so a user can start using a tool from the note chat too (ledger 1190 Note-chat parity).
-    private var noteToolPanelTrigger: some View {
-        ToolbarCapsuleButton(
-            title: nil,
-            systemImage: "slider.horizontal.3",
-            variant: .toolbar,
-            isActive: showNoteToolPanel,
-            helpText: "Agent tools, MCP, cowork & skills — the full capability set, in note chat",
-            accessibilityLabel: "Agent tools"
-        ) {
-            showNoteToolPanel.toggle()
-        }
-        .popover(isPresented: $showNoteToolPanel, arrowEdge: .bottom) {
-            AgentToolTogglePanel(
-                agentCommandCenter: agentCommandCenter,
-                theme: ui.theme,
-                onRunSkill: { skill in runSkillFromNoteChat(skill) }
-            )
-        }
-    }
-
-    private var noteRouteToMainTrigger: some View {
-        ToolbarCapsuleButton(
-            title: nil,
-            systemImage: "arrow.up.forward.app",
-            variant: .toolbar,
-            helpText: "Send this ask to main chat",
-            accessibilityLabel: "Send to Main Chat"
-        ) {
-            routeToolbarAskToMainChat()
-        }
-        .disabled(
-            noteChatState.isStreaming
-                || noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        )
-    }
-
-    private func noteSelectedSlashPill(for item: ComposerSlashCommandItem) -> some View {
-        ToolbarCapsuleButton(
-            title: "/\(item.rawValue)",
-            systemImage: item.icon,
-            variant: .toolbar,
-            helpText: item.helpText,
-            accessibilityLabel: "Selected command \(item.displayName)"
-        ) {
-            noteSelectedSlashItem = nil
-        }
-        .disabled(noteChatState.isStreaming)
-    }
-
-    /// SS-VIS: run a discovered skill from the note chat's capability panel by priming the note ask
-    /// field with its `/identifier` invocation (parity with landing / chat / mini-chat / graph
-    /// skill-run). Closes the panel; honest — it stages the invocation, the user still sends.
-    private func runSkillFromNoteChat(_ skill: SkillDiscoveryEntry) {
-        showNoteToolPanel = false
-        let invocation = "/\(skill.identifier) "
-        if noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            noteChatState.inputText = invocation
-        } else if !noteChatState.inputText.hasPrefix("/") {
-            noteChatState.inputText = invocation + noteChatState.inputText
-        }
-    }
-
-    private var noteSlashCommandTrigger: some View {
-        ToolbarCapsuleButton(
-            title: "/",
-            systemImage: "command",
-            variant: .toolbar,
-            isActive: showNoteSlashMenu,
-            helpText: isNoteOsaurusActMode
-                ? "Act commands, tools, models, and skills"
-                : "Note chat commands and skills",
-            accessibilityLabel: "Open commands"
-        ) {
-            openNoteSlashCommandMenu()
-        }
-        .popover(isPresented: $showNoteSlashMenu, arrowEdge: .bottom) {
-            SlashCommandPopover(
-                items: noteSlashItems,
-                filter: noteSlashFilter,
-                selectedItem: noteSelectedSlashItem,
-                onSelect: { item in
-                    applyNoteSlashItem(item)
-                }
-            )
-            .frame(width: 340)
-        }
-    }
-
-    private func refreshNoteSlashMenu(for newValue: String) {
-        guard let filter = ComposerSlashMenuLogic.filter(in: newValue) else {
-            if showNoteSlashMenu {
-                showNoteSlashMenu = false
-                noteSlashFilter = ""
-            }
-            return
-        }
-        if !filter.isEmpty {
-            noteSelectedSlashItem = nil
-        }
-        noteSlashFilter = filter
-        showNoteSlashMenu = true
-    }
-
-    private func openNoteSlashCommandMenu() {
-        guard !noteSlashItems.isEmpty else { return }
-        noteSlashFilter = ""
-        showNoteSlashMenu = true
-    }
-
-    private func applyNoteSlashItem(_ item: ComposerSlashCommandItem) {
-        if applyImmediateNoteOsaurusCommand(item) {
-            return
-        }
-        if case .skill(let skill) = item {
-            runSkillFromNoteChat(skill)
-            closeNoteSlashMenu()
-            return
-        }
-        if let command = item.command {
-            selectedNoteChatOperatingMode = command.defaultOperatingMode
-        }
-        noteSelectedSlashItem = item
-        noteChatState.inputText = ComposerSlashMenuLogic.textAfterApplying(item, to: noteChatState.inputText)
-        if noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let suggestedPrompt = item.suggestedPrompt {
-            noteChatState.inputText = suggestedPrompt
-        }
-        closeNoteSlashMenu()
-    }
-
-    private func applyImmediateNoteOsaurusCommand(_ item: ComposerSlashCommandItem) -> Bool {
-        guard isNoteOsaurusActMode,
-              let command = item.osaurusCommand else { return false }
-
-        switch command {
-        case .clear:
-            noteChatState.clear()
-            noteSelectedSlashItem = nil
-        case .model:
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
-                showInlineRuntimePicker = true
-            }
-            noteSelectedSlashItem = nil
-        case .tools:
-            showNoteToolPanel = true
-            noteSelectedSlashItem = nil
-        case .configure:
-            openSettings()
-            NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
-            noteSelectedSlashItem = nil
-        case .agent, .help:
-            noteSelectedSlashItem = item
-            if noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-               let suggestedPrompt = item.suggestedPrompt {
-                noteChatState.inputText = suggestedPrompt
-            }
-        }
-
-        closeNoteSlashMenu()
-        return true
-    }
-
-    private func closeNoteSlashMenu() {
-        showNoteSlashMenu = false
-        noteSlashFilter = ""
-    }
-
-    private var noteRuntimeTierLabel: String {
-        switch noteChatOperatingModeBinding.wrappedValue {
-        case .fast: return "Fast"
-        case .thinking: return "Think"
-        case .pro: return "Code"
-        case .agent: return "Act"
-        }
-    }
-
-    private var noteChatContextAttachment: ContextAttachment? {
-        guard let page = pages.first else { return nil }
-        return ContextAttachment(
-            kind: .note,
-            targetId: page.id,
-            title: page.title.isEmpty ? "Untitled" : page.title
-        )
-    }
-
-    private func submitToolbarAskInline() {
-        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        // P7.5 — honest memory blocker (P1.4 parity): never submit on a local
-        // model that can't load; the placeholder explains why.
-        guard !trimmed.isEmpty, noteChatMemoryBlocker == nil else { return }
-        if isNoteOsaurusActMode {
-            routeToolbarAskToMainChat(forceAct: true)
-            return
-        }
-
-        // USABILITY-001 follow-up (note ask bar, 2026-05-13): when the
-        // user's query looks like agent-tier work ("find my note about
-        // X", "edit my essay on Y", etc.), the inline TriageService path
-        // can't dispatch app tools (vault.search / vault.read / file.*)
-        // — they only live in the Rust agent_core + LocalAgentLoop
-        // paths that main chat routes through. So instead of running an
-        // inline turn that's structurally guaranteed to hallucinate ("I
-        // can't read your vault"), we transparently escalate to main
-        // chat where the full tool surface is available. The current
-        // note is preserved as a `ContextAttachment` so the model still
-        // has its content + capabilities to read/edit it.
-        //
-        // Non-agent intents (rewrite/summarize/explain/expand) stay on
-        // the existing inline path so the fast in-note transform UX is
-        // unchanged.
-        let isCloudProvider: Bool = {
-            switch inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode) {
-            case .cloud: return true
-            case .localMLX, .appleIntelligence: return false
-            }
-        }()
-        let prediction = ChatCapability.predictIntent(
-            text: trimmed,
-            isCloudProvider: isCloudProvider
-        )
-        if prediction.predicted == .agent || prediction.predicted == .research {
-            routeToolbarAskToMainChat(forceAct: true)
-            return
-        }
-
-        noteChatState.submitToolbarQuery(
-            trimmed,
-            triageService: triageService,
-            operatingMode: selectedNoteChatOperatingMode
-        )
-    }
-
-    private func routeToolbarAskToMainChat(forceAct: Bool = false) {
-        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        let shouldUseAct = (forceAct || isNoteOsaurusActMode) && LocalAgentLoop.shouldRouteActThroughOsaurus()
-        if shouldUseAct {
-            noteChatState.inputText = ""
-            NotificationCenter.default.post(
-                name: .submitActOsaurusPrompt,
-                object: ActOsaurusPromptRequest(
-                    text: trimmed,
-                    contextAttachments: noteChatContextAttachment.map { [$0] } ?? []
-                )
-            )
-            return
-        }
-
-        guard let bootstrap = AppBootstrap.shared else {
-            submitToolbarAskInline()
-            return
-        }
-
-        noteChatState.inputText = ""
-        bootstrap.chatState.startNewChat()
-        if let noteChatContextAttachment {
-            let attachment = noteChatContextAttachment
-            bootstrap.chatState.addContextAttachment(attachment)
-        }
-        ui.setActivePanel(.home)
-        let routedMode = selectedNoteChatOperatingMode
-        MainChatSubmissionRouter.submit(
-            trimmed,
-            operatingMode: routedMode,
-            chat: bootstrap.chatState,
-            orchestrator: bootstrap.orchestratorState,
-            inference: inference,
-            forceActOsaurus: routedMode == .agent
-        )
-    }
-
-    private func openMiniChatForCurrentNote() {
-        MiniChatWindowController.shared.openNewChat(
-            attaching: noteChatContextAttachment,
-            preferredOperatingMode: .agent
-        )
-    }
-
     @discardableResult
     private func persistPageMutation(
         failureMessage: String,
@@ -2654,12 +1962,6 @@ struct NoteDetailWorkspaceView: View {
             Divider()
 
             if !showPreview {
-                Button {
-                    openMiniChatForCurrentNote()
-                } label: {
-                    Label("Open Mini Chat", systemImage: "bubble.left.and.text.bubble.right")
-                }
-
                 ForEach(NoteWorkspaceQuickAction.allCases, id: \.self) { action in
                     Button(action.title) {
                         performNoteWorkspaceQuickAction(action)

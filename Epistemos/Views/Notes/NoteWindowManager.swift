@@ -672,7 +672,7 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
 // MARK: - Note Tab Shell
 // Thin wrapper that owns NoteNavigationState for in-tab wikilink navigation.
 // Renders NoteDetailWorkspaceView. Uses .id(currentPageId) to force
-// full view recreation on navigation (fresh @Query, @State, NoteChatState).
+// full view recreation on navigation (fresh @Query and @State).
 
 private struct NoteTabShell: View {
     @State private var navState: NoteNavigationState

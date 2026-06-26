@@ -29,7 +29,6 @@ final class HologramController {
     private var queryEngine: QueryEngine?
     private var modelContainer: ModelContainer?
     private var physicsCoordinator: PhysicsCoordinator?
-    private var dialogueChatState: DialogueChatState?
 
     // Screen-change observer.
     private var screenObserver: Any?
@@ -39,12 +38,11 @@ final class HologramController {
     // MARK: - Setup
 
     /// Call once at app launch with the shared GraphState and ModelContainer.
-    func setup(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
+    func setup(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer, physicsCoordinator: PhysicsCoordinator? = nil) {
         self.graphState = graphState
         self.queryEngine = queryEngine
         self.modelContainer = modelContainer
         self.physicsCoordinator = physicsCoordinator
-        self.dialogueChatState = dialogueChatState
         // Provide a ModelContext for interactive graph mutations (node/edge creation).
         graphState.modelContext = modelContainer.mainContext
         if let screenObserver {
@@ -172,8 +170,7 @@ final class HologramController {
             graphState: bootstrap.graphState,
             queryEngine: bootstrap.queryEngine,
             modelContainer: bootstrap.modelContainer,
-            physicsCoordinator: bootstrap.physicsCoordinator,
-            dialogueChatState: bootstrap.dialogueChatState
+            physicsCoordinator: bootstrap.physicsCoordinator
         )
     }
 
@@ -198,7 +195,7 @@ final class HologramController {
         // Capture refresh need before creating overlay — deferred to avoid blocking first show.
         let needsRefresh = graphState.needsRefresh
 
-        overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer, physicsCoordinator: physicsCoordinator, dialogueChatState: dialogueChatState)
+        overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer, physicsCoordinator: physicsCoordinator)
         Log.graphPerf.endInterval("ensureOverlay", interval)
 
         // Run structural refresh AFTER overlay exists so the graph shows immediately.

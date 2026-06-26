@@ -1,11 +1,11 @@
 import Foundation
 
 /// Turns a bare tool name + its JSON input into a short user-facing
-/// phrase so the chat composer pill reads as real activity ("Searching
+/// phrase so fused surfaces can read tool activity as real activity ("Searching
 /// the web for "quantum decoherence"…") instead of a raw identifier
 /// ("web.search"). Scoped to tools the app actually emits today —
 /// unknown tool names fall back to a humanized form of the identifier
-/// so the pill is never blank.
+/// so the label is never blank.
 ///
 /// Keep this file allocation-light: the pill updates every time a new
 /// tool call starts and we don't want a stream of transient JSON

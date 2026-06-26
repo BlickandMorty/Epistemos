@@ -37,7 +37,6 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var modelContext: ModelContext?
     var onWikilinkClick: ((String) -> Void)?
     var onBlockRefClick: ((String) -> Void)?
-    var noteChatState: NoteChatState?
     var onPageFlush: ((String, String) -> Void)?
     var graphState: GraphState?
     var outlineFoldMode: OutlineFoldMode = .expanded
@@ -120,8 +119,6 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastIsEditable = isEditable
         coord.lastOutlineFoldMode = outlineFoldMode
         coord.installHaloIfAvailable(in: scrollView)
-        // Wire AI chat callbacks
-        coord.wireNoteChatCallbacks()
 
         // Apply outline fold mode to initial content
         coord.applyOutlineFoldMode(outlineFoldMode)
@@ -305,7 +302,6 @@ extension ProseEditorRepresentable2 {
 
         // Bracket auto-close
         private var isInsertingBrackets = false
-        private var isStreamingUndoGroupOpen = false
 
         // Data detection
         private var dataDetectionTask: Task<Void, Never>?
@@ -409,13 +405,6 @@ extension ProseEditorRepresentable2 {
                 }
             }
 
-            // Wire note chat if reference changed
-            if parent.noteChatState != nil {
-                wireNoteChatCallbacks()
-            }
-            tv.hasProtectedInlineResponseDivider = parent.noteChatState?.hasResponse == true
-                && parent.noteChatState?.useResponsePanel == false
-
             // External body sync — vault sync / restore-to-version changed pageBody
             // outside of user editing. Replace storage content to pick up the new text.
             // Guards: skip during AI streaming (isFlushingTokens), IME composition,
@@ -459,11 +448,10 @@ extension ProseEditorRepresentable2 {
             guard let tv = textView else { return }
             let oldPageId = currentPageId
 
-            // 1. Strip ephemeral content BEFORE reading text for save.
-            //    AI divider + unaccepted response must be discarded.
+            // 1. Strip legacy inline-response content BEFORE reading text for save.
             //    Folds are non-destructive (shouldEnumerate) — no storage restore needed.
             clearAllFolds()
-            stripUnacceptedAIResponse()
+            stripLegacyInlineResponse()
 
             // 2. Save old page state (in-memory + disk)
             saveCurrentPageState()
@@ -605,200 +593,11 @@ extension ProseEditorRepresentable2 {
             renderedTableOverlayManager?.refresh()
         }
 
-        // MARK: - AI Chat (v2 — inline response streaming)
-        // Divider-based inline response with accept/discard.
-
-        private var wiredChatState: NoteChatState?
-
-        func wireNoteChatCallbacks() {
-            guard let noteChat = parent.noteChatState,
-                  wiredChatState !== noteChat else { return }
-            wiredChatState = noteChat
-
-            noteChat.noteBodyProvider = { [weak self] in
-                self?.textView?.string ?? ""
-            }
-            // SS-IL (safe-additive): READ-ONLY rect of the inline AI answer for the
-            // decoration overlay. Same divider→responseRange math as replaceNoteChatResponse,
-            // then reads `firstRect` — mutates NOTHING, sets no text-storage delegate, fires
-            // none of the streaming callbacks. nil when there's no inline response.
-            noteChat.inlineResponseRectProvider = { [weak self] in
-                guard let tv = self?.textView, let ts = tv.textStorage else { return nil }
-                let str = ts.string
-                guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return nil }
-                let dividerRange = NSRange(range, in: str)
-                let responseLocation = dividerRange.location + dividerRange.length
-                let responseLength = max(0, ts.length - responseLocation)
-                guard responseLength > 0 else { return nil }
-                let responseRange = NSRange(location: responseLocation, length: responseLength)
-                return tv.firstRect(forCharacterRange: responseRange, actualRange: nil)
-            }
-            noteChat.graphStateProvider = { [graphState = parent.graphState] in
-                graphState
-            }
-
-            noteChat.onStreamStart = { [weak self, pageId = noteChat.pageId] _ in
-                self?.startNoteChatStream(for: pageId)
-            }
-
-            noteChat.onTokenFlush = { [weak self, pageId = noteChat.pageId] delta in
-                self?.appendNoteChatTokens(delta, for: pageId)
-            }
-
-            noteChat.onStreamFinish = { [weak self, pageId = noteChat.pageId] in
-                self?.finishNoteChatStream(for: pageId)
-            }
-
-            noteChat.onAccept = { [weak self, pageId = noteChat.pageId] in
-                self?.acceptNoteChatResponse(for: pageId)
-            }
-
-            noteChat.onDiscard = { [weak self, pageId = noteChat.pageId] in
-                self?.discardNoteChatResponse(for: pageId)
-            }
-
-            noteChat.onReplaceInlineResponse = { [weak self, pageId = noteChat.pageId] text in
-                self?.replaceNoteChatResponse(text, for: pageId)
-            }
-
-            noteChat.onInsertAtCursor = { [weak self] text in
-                self?.insertTextAtCursor(text)
-            }
-        }
-
-        private func startNoteChatStream(for expectedPageId: String) {
-            guard currentPageId == expectedPageId,
-                  let tv = textView,
-                  let ts = tv.textStorage else { return }
-            finishNoteChatStreamUndoGrouping()
-            tv.beginNamedUndoGroup("AI Response")
-            isStreamingUndoGroupOpen = true
-            isFlushingTokens = true
-            let insertLoc = ts.length
-            tv.setProgrammaticEditLocation(insertLoc)
-            ts.replaceCharacters(
-                in: NSRange(location: insertLoc, length: 0),
-                with: NoteChatInlineResponse.divider
-            )
-            tv.didChangeText()
-            isFlushingTokens = false
-            tv.hasProtectedInlineResponseDivider = true
-            tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
-        }
-
-        private func appendNoteChatTokens(_ delta: String, for expectedPageId: String) {
-            guard currentPageId == expectedPageId,
-                  let tv = textView,
-                  let ts = tv.textStorage,
-                  !delta.isEmpty else { return }
-            isFlushingTokens = true
-            let insertLoc = ts.length
-            tv.setProgrammaticEditLocation(insertLoc)
-            ts.replaceCharacters(
-                in: NSRange(location: insertLoc, length: 0),
-                with: delta
-            )
-            tv.didChangeText()
-            isFlushingTokens = false
-            tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
-        }
-
-        private func finishNoteChatStream(for expectedPageId: String) {
-            guard currentPageId == expectedPageId else {
-                finishNoteChatStreamUndoGrouping()
-                return
-            }
-            finishNoteChatStreamUndoGrouping()
-        }
-
-        private func finishNoteChatStreamUndoGrouping() {
-            guard isStreamingUndoGroupOpen else { return }
-            textView?.endNamedUndoGroup()
-            isStreamingUndoGroupOpen = false
-        }
-
-        private func acceptNoteChatResponse(for expectedPageId: String) {
-            guard currentPageId == expectedPageId,
-                  let tv = textView,
-                  let ts = tv.textStorage else { return }
-            finishNoteChatStreamUndoGrouping()
-            let str = ts.string
-            guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
-            let nsRange = NSRange(range, in: str)
-            tv.beginNamedUndoGroup("Accept AI Response")
-            defer { tv.endNamedUndoGroup() }
-            isFlushingTokens = true
-            tv.setProgrammaticEditLocation(nsRange.location)
-            ts.replaceCharacters(in: nsRange, with: "\n\n")
-            tv.didChangeText()
-            isFlushingTokens = false
-            tv.hasProtectedInlineResponseDivider = false
-            flushBindingSync()
-        }
-
-        private func discardNoteChatResponse(for expectedPageId: String) {
-            guard currentPageId == expectedPageId,
-                  let tv = textView,
-                  let ts = tv.textStorage else { return }
-            finishNoteChatStreamUndoGrouping()
-            let str = ts.string
-            guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
-            let nsRange = NSRange(range, in: str)
-            let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
-            tv.beginNamedUndoGroup("Discard AI Response")
-            defer { tv.endNamedUndoGroup() }
-            isFlushingTokens = true
-            tv.setProgrammaticEditLocation(nsRange.location)
-            ts.replaceCharacters(in: deleteRange, with: "")
-            tv.didChangeText()
-            isFlushingTokens = false
-            tv.hasProtectedInlineResponseDivider = false
-            flushBindingSync()
-        }
-
-        private func replaceNoteChatResponse(_ text: String, for expectedPageId: String) {
-            guard currentPageId == expectedPageId,
-                  let tv = textView,
-                  let ts = tv.textStorage else { return }
-            let str = ts.string
-            guard let range = NoteChatInlineResponse.dividerRange(in: str) else { return }
-            let dividerRange = NSRange(range, in: str)
-            let responseLocation = dividerRange.location + dividerRange.length
-            let responseLength = max(0, ts.length - responseLocation)
-            let responseRange = NSRange(location: responseLocation, length: responseLength)
-
-            isFlushingTokens = true
-            tv.setProgrammaticEditLocation(responseLocation)
-            ts.replaceCharacters(in: responseRange, with: text)
-            tv.didChangeText()
-            isFlushingTokens = false
-            tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
-        }
-
-        private func insertTextAtCursor(_ text: String) {
-            guard let tv = textView, let ts = tv.textStorage else { return }
-            let loc = tv.selectedRange().location
-            let insertion = "\n\n" + text + "\n"
-            isFlushingTokens = true
-            if tv.shouldChangeText(in: NSRange(location: loc, length: 0), replacementString: insertion) {
-                ts.replaceCharacters(in: NSRange(location: loc, length: 0), with: insertion)
-                tv.didChangeText()
-                tv.setSelectedRange(NSRange(location: loc + (insertion as NSString).length, length: 0))
-            }
-            isFlushingTokens = false
-            flushBindingSync()
-        }
-
-        /// Strip in-progress AI response (divider + tokens) from storage.
-        /// Called before any save-path read of tv.string to avoid persisting ephemeral content.
-        private func stripUnacceptedAIResponse() {
-            finishNoteChatStreamUndoGrouping()
+        /// Strip legacy inline-response content before any save-path read.
+        private func stripLegacyInlineResponse() {
             guard let tv = textView, let ts = tv.textStorage else { return }
             let str = ts.string
-            guard let range = NoteChatInlineResponse.dividerRange(in: str) else {
-                tv.hasProtectedInlineResponseDivider = false
-                return
-            }
+            guard let range = LegacyInlineNoteResponse.dividerRange(in: str) else { return }
             let nsRange = NSRange(range, in: str)
             let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
             isFlushingTokens = true
@@ -806,7 +605,6 @@ extension ProseEditorRepresentable2 {
             ts.replaceCharacters(in: deleteRange, with: "")
             tv.didChangeText()
             isFlushingTokens = false
-            tv.hasProtectedInlineResponseDivider = false
         }
 
         // MARK: - Dismantle
@@ -829,9 +627,9 @@ extension ProseEditorRepresentable2 {
             dismantleHalo()
             scrollOverlayRefreshCoalescer.cancel()
 
-            // Strip ephemeral content before any save reads.
+            // Strip legacy inline-response content before any save reads.
             clearAllFolds()
-            stripUnacceptedAIResponse()
+            stripLegacyInlineResponse()
 
             // DO NOT write to the @Binding here. During NSHostingView.deinit →
             // PlatformViewChild.destroy() → dismantleNSView, SwiftUI already holds
@@ -1084,7 +882,7 @@ extension ProseEditorRepresentable2 {
                 },
                 onSummarizeChat: { [weak self] hit in
                     self?.haloController?.beginSummarizingChat(id: hit.id)
-                    MiniChatWindowController.shared.openChat(hit.id)
+                    self?.closeHaloPanel()
                 }
             )
         }
@@ -1094,7 +892,7 @@ extension ProseEditorRepresentable2 {
             case .notes:
                 NoteWindowManager.shared.open(pageId: hit.id)
             case .chats:
-                MiniChatWindowController.shared.openChat(hit.id)
+                break
             }
             closeHaloPanel()
         }

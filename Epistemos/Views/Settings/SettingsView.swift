@@ -134,8 +134,7 @@ struct SettingsView: View {
         case privacy = "Privacy"
         case provenance = "Provenance Console"
         case substrateHealth = "Substrate Health"
-        case actClone = "Act (Osaurus)"   // per-clone settings (owner 2026-06-21)
-        case workClone = "Work (OpenCode)"   // per-clone settings (owner 2026-06-21)
+        case workClone = "Epistemos Work"   // per-clone settings (owner 2026-06-21)
         case beyondClone = "Beyond (Future Clones)"   // per-clone settings beyond tab (owner 0.21/0.30)
         case experimentalFeatures = "Experimental Features"
         // HELIOS research scaffold. Preserved for source guards and
@@ -179,7 +178,6 @@ struct SettingsView: View {
                 .privacy,
                 .provenance,
                 .substrateHealth,
-                .actClone,
                 .workClone,
                 .beyondClone,
                 .experimentalFeatures,
@@ -223,7 +221,6 @@ struct SettingsView: View {
             case .privacy: "hand.raised.fill"
             case .provenance: "list.bullet.rectangle.portrait"
             case .substrateHealth: "waveform.path.ecg.rectangle"
-            case .actClone: "bolt.horizontal.circle"
             case .workClone: "terminal"
             case .beyondClone: "square.stack.3d.up"
             case .experimentalFeatures: "slider.horizontal.3"
@@ -257,7 +254,6 @@ struct SettingsView: View {
             case .privacy:        .privacyStore
             case .provenance:     .privacyStore
             case .substrateHealth: .advanced
-            case .actClone: .advanced
             case .workClone: .advanced
             case .beyondClone: .advanced
             case .experimentalFeatures: .advanced
@@ -309,10 +305,8 @@ struct SettingsView: View {
                 "Read-only audit trail for agent, graph, and mutation projections."
             case .substrateHealth:
                 "Unified WRV panel for substrate health, falsifiers, and drift."
-            case .actClone:
-                "The Act = Osaurus engine — gate, status, and how to arm it. Each clone's own settings, respected."
             case .workClone:
-                "The Work = OpenCode shell — gate, native terminal, and how to arm it. Each clone's own settings, respected."
+                "Epistemos Work engine, native terminal, app tools, and vault-aware runtime status."
             case .beyondClone:
                 "Beyond = reserved tab for future non-agent clones (honest stub; nothing wired live yet). Each clone's own settings, respected."
             case .experimentalFeatures:
@@ -362,8 +356,6 @@ struct SettingsView: View {
                 ["provenance", "event", "run", "mutation", "audit", "console"]
             case .substrateHealth:
                 ["substrate", "health", "falsifier", "wrv", "eidos", "search", "runtime"]
-            case .actClone:
-                ["act", "osaurus", "engine", "clone", "settings", "epistemos picks"]
             case .workClone:
                 ["work", "opencode", "terminal", "shell", "clone", "settings", "goose"]
             case .beyondClone:
@@ -424,15 +416,6 @@ struct SettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: .showIMessageDriverSettings)) { _ in
             #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             selection = .iMessageDriver
-            #endif
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .showActOsaurusSettings)) { _ in
-            // Owner 2026-06-24 (settings reversal): on Pro/direct-distribution the act Configuration opens the
-            // reskinned Osaurus settings (handled in RootView/HomeRouter via EpistemosOsaurusManagementBridge.
-            // showActSettings()), so this window does NOT navigate to the native ActCloneSettingsView. App Store
-            // (OsaurusCore absent) keeps the native pane.
-            #if EPISTEMOS_APP_STORE
-            selection = .actClone
             #endif
         }
         .onAppear {
@@ -532,7 +515,6 @@ struct SettingsView: View {
             case .privacy: PrivacyDetailView()
             case .provenance: ProvenanceConsoleView()
             case .substrateHealth: SubstrateHealthPanel()
-            case .actClone: ActCloneSettingsView()
             case .workClone: WorkCloneSettingsView()
             case .beyondClone: BeyondCloneSettingsView()
             case .experimentalFeatures: ExperimentalFeaturesSettingsPanel()
@@ -689,7 +671,6 @@ private struct SettingsDetailBackdrop: View {
 
 extension Notification.Name {
     static let showIMessageDriverSettings = Notification.Name("epistemos.showIMessageDriverSettings")
-    static let showActOsaurusSettings = Notification.Name("epistemos.showActOsaurusSettings")
 }
 
 struct SettingsDescriptionText: View {
@@ -1044,7 +1025,6 @@ private struct GeneralDetailView: View {
                 // fetch/extract/crawl + private web views work; the Obscura stealth engine is a
                 // NotConfigured stub (Pro, unbuilt). Read-only; no fake control.
                 BrowserCapabilityHealthRow()
-                AgentBlueprintSettingsView()
                 // ISSUE-2026-05-10-002 follow-up: per-provider cloud
                 // access visibility. Read-only, never displays credential values.
                 // Helps users diagnose "agents don't work" by showing
@@ -1445,7 +1425,6 @@ private struct ExperimentalFeaturesSettingsPanel: View {
     @AppStorage(EidosFlags.userDefaultsKey) private var eidosEnabled = false
     @AppStorage(VaultRecallFlags.userDefaultsKey) private var vaultRecallEnabled = false
     @AppStorage(ContextualShadowsState.userDefaultsKey) private var ambientRecallEnabled = ContextualShadowsState.defaultEnabled
-    @AppStorage(SystemGFlags.userDefaultsKey) private var systemGEnabled = false
     @AppStorage(ACSAdmissionFlags.userDefaultsKey) private var acsAdmissionEnabled = false
     @AppStorage(FUlpFlags.userDefaultsKey) private var fUlpEnabled = false
     @AppStorage(LocalModelCatalog.powerUserModeDefaultsKey) private var localAgentPowerUserMode = false
@@ -1499,12 +1478,6 @@ private struct ExperimentalFeaturesSettingsPanel: View {
                     key: ContextualShadowsState.userDefaultsKey,
                     detail: "Enables local Halo/Shadow suggestions while typing in chat, landing, and note surfaces.",
                     isOn: $ambientRecallEnabled
-                )
-                flagToggle(
-                    title: "System G",
-                    key: SystemGFlags.userDefaultsKey,
-                    detail: "Enables the System G breadcrumb/status path; production chip waits for a falsifier.",
-                    isOn: $systemGEnabled
                 )
                 flagToggle(
                     title: "ACS admission",

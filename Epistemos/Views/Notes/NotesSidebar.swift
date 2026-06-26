@@ -212,9 +212,6 @@ private enum SidebarAction {
     case collapseAll
     // Ideas
     case openIdea(pageId: String)
-    // Intelligence actions
-    case summarize(id: String, title: String)
-    case deepDive(id: String, title: String)
     case openInGraph(id: String)
 }
 
@@ -442,7 +439,6 @@ enum NotesSidebarMetrics {
     static let overlapsTitlebar = false
     static let showsBottomCollectionButton = false
     static let showsBottomOrganizerButton = false
-    static let showsBottomMiniChatButton = false
     static let changesPanelWidth: CGFloat = 320
     static let changesPanelHeight: CGFloat = 400
 }
@@ -678,7 +674,6 @@ struct NotesSidebar: View {
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(ChatState.self) private var chatState
     @Environment(GraphState.self) private var graphState
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -2077,18 +2072,6 @@ struct NotesSidebar: View {
         case .collapseAll:
             withAnimation(reduceMotion ? nil : Motion.snap) { notesUI.collapseAllFolders() }
 
-        case .summarize(let id, let title):
-            chatState.loadedNoteIds.insert(id)
-            chatState.submitQuery(
-                "Summarize @[\(title)] — give me a concise overview of the key points, themes, and structure."
-            )
-
-        case .deepDive(let id, let title):
-            chatState.loadedNoteIds.insert(id)
-            chatState.submitQuery(
-                "Deep dive into @[\(title)] — perform a thorough analysis: identify the core arguments, evaluate the evidence, surface contradictions or gaps, and suggest areas for further exploration."
-            )
-
         case .openInGraph(let id):
             HologramController.shared.revealPage(id)
         }
@@ -2585,16 +2568,6 @@ private struct FolderRow: View {
             }
             .contextMenu {
                 Button {
-                    onAction(.summarize(id: item.id, title: item.name))
-                } label: {
-                    Label("Summary", systemImage: "text.alignleft")
-                }
-                Button {
-                    onAction(.deepDive(id: item.id, title: item.name))
-                } label: {
-                    Label("Deep Dive", systemImage: "magnifyingglass.circle")
-                }
-                Button {
                     onAction(.openInGraph(id: item.id))
                 } label: {
                     Label("Open in Graph", systemImage: "point.3.connected.trianglepath.dotted")
@@ -3079,16 +3052,6 @@ private struct FileRow: View {
                 }
                 Divider()
                 Button {
-                    onAction(.summarize(id: item.id, title: item.title))
-                } label: {
-                    Label("Summary", systemImage: "text.alignleft")
-                }
-                Button {
-                    onAction(.deepDive(id: item.id, title: item.title))
-                } label: {
-                    Label("Deep Dive", systemImage: "magnifyingglass.circle")
-                }
-                Button {
                     onAction(.openInGraph(id: item.id))
                 } label: {
                     Label("Open in Graph", systemImage: "point.3.connected.trianglepath.dotted")
@@ -3474,11 +3437,6 @@ private struct EditorActionsBar: View {
                 .frame(height: 14)
                 .padding(.horizontal, 2)
 
-            if NotesSidebarMetrics.showsBottomMiniChatButton {
-                SidebarIconButton(icon: "bubble.left.and.bubble.right", tooltip: "Mini Chat") {
-                    MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
-                }
-            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)

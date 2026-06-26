@@ -16,7 +16,7 @@ nonisolated enum LocalToolGrammar {
 
     // T2 salvage 2026-05-23: native tool grammar profile per model.
     // PURE-ADDITIVE shim — added as a new enum + a static method below
-    // so the T2 AgentBlueprint / LocalAgentDiagnostics code can resolve
+    // so LocalAgentDiagnostics can resolve
     // `LocalToolGrammar.nativeGrammar(forModelID:)` and the
     // `.canonicalXML` case. The full T2 modification also added a
     // `nativeGrammar` field to `ToolCallingPlan` and re-wired

@@ -58,11 +58,18 @@ pub fn build_system_prompt(input: &RuntimePromptInput) -> String {
         prompt.push('\n');
     }
 
+    let tool_identity_line = if canonical_tools.is_empty() {
+        ""
+    } else {
+        "These are Epistemos tools for this turn. Some callable names may be generic or compatibility-prefixed because Epistemos preserves runtime contracts; still treat every listed tool as a connected Epistemos capability and call it by the exact listed name. Do not tell the user you lack an Epistemos-specific tool merely because the callable name is generic or compatibility-prefixed.\n"
+    };
+
     prompt.push_str(&format!(
-        "You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. After calling and executing the functions, you will be provided with function results within <tool_response></tool_response> XML tags.\n\
+        "You are Epistemos' local function-calling assistant. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. After calling and executing the functions, you will be provided with function results within <tool_response></tool_response> XML tags.\n\
 <tools>\n\
 {tools_json}\n\
 </tools>\n\
+{tool_identity_line}\
 For each function call, return a JSON object with function name and arguments within <tool_call></tool_call> XML tags.\n\
 <tool_call>\n\
 {{\"name\": <function-name>, \"arguments\": <args-dict>}}\n\
@@ -106,7 +113,7 @@ After the file.write <tool_response> arrives:\n\
     );
 
     if canonical_tools.is_empty() {
-        prompt.push_str("\nNo tools are available for this turn. Respond directly without emitting <tool_call> tags.");
+        prompt.push_str("\nNo tools are available for this turn. This is turn-specific; do not claim Epistemos generally lacks tools. Respond directly without emitting <tool_call> tags.");
     }
 
     if let Some(instructions) = trimmed_instructions {
@@ -221,6 +228,6 @@ mod ss_lt_research_intent_tests {
         let prompt = build_system_prompt(&RuntimePromptInput::default());
         assert!(prompt.contains("eidos.query first"));
         assert!(prompt.contains("<tool_call>"));
-        assert!(prompt.contains("function calling AI model"));
+        assert!(prompt.contains("Epistemos' local function-calling assistant"));
     }
 }

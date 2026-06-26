@@ -158,6 +158,35 @@ struct LocalAgentLoopTests {
         #expect(await promptRecorder.snapshot().count == 1)
     }
 
+    @Test("no-tools turns return bare JSON as direct output instead of inventing a tool call")
+    func noToolsTurnsReturnBareJsonDirectly() async throws {
+        let output = #"{"selector":"//AXButton[@AXTitle='Run']","action":"AXPress","confidence":0.91}"#
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, _ in
+                Issue.record("No tool should execute when no tools are available: \(name)")
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"error":"unexpected tool execution"}"#,
+                    isError: true
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Return an AX action JSON object.",
+            tools: [],
+            maxTurns: 1,
+            additionalSystemPrompt: "Return ONLY valid JSON.",
+            onToken: { _ in }
+        )
+
+        #expect(answer == output)
+    }
+
     @Test("local loop records successful tool provenance")
     @MainActor
     func localLoopRecordsSuccessfulToolProvenance() async throws {

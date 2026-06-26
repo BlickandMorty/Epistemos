@@ -30,21 +30,14 @@ struct VaultRecallEidosStashCloseoutTests {
         #expect(livingIndex.contains("VaultRecall/Eidos visibility from `stash@{3}`"))
     }
 
-    @Test("current product path evidence remains present")
-    func currentProductPathEvidenceRemainsPresent() throws {
-        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
+    @Test("current non-chat vault recall and Eidos evidence remains present")
+    func currentNonChatEvidenceRemainsPresent() throws {
         let eventStore = try loadMirroredSourceTextFile("Epistemos/State/EventStore.swift")
-        let messageBubble = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
         let eidosBridge = try loadMirroredSourceTextFile("Epistemos/Eidos/EidosBridge.swift")
         let vaultTests = try loadMirroredSourceTextFile("EpistemosTests/VaultRecallWiringTests.swift")
         let eidosTests = try loadMirroredSourceTextFile("EpistemosTests/EidosBridgeProductionTests.swift")
 
-        #expect(coordinator.contains("private func recordVaultRecallTrace("))
-        #expect(coordinator.contains("VaultRecallTraceSink.shared.record("))
-        #expect(coordinator.contains("EventStore.shared?.appendVaultRecallTrace("))
         #expect(eventStore.contains("vault_recall_trace"))
-        #expect(messageBubble.contains("AnswerPacketBadge("))
-        #expect(messageBubble.contains("VaultRecallProvenanceCard("))
         #expect(eidosBridge.contains("nonisolated public static func validateCitations("))
         #expect(vaultTests.contains("SearchIndexService production results emit real VaultRecall trace"))
         #expect(eidosTests.contains("SearchIndexService page upsert also feeds the production Eidos vault index"))

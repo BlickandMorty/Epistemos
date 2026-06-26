@@ -17,18 +17,39 @@ nonisolated enum EpistemosRuntimePicker {
     /// Sentinel option id for the Apple Intelligence (Fast) pick.
     static let appleIntelligenceID = "apple-intelligence"
 
+    /// Runtime family for a picker row. Mirrors the Foundation Models donor's
+    /// runtime-picker values without importing the donor contract package into
+    /// the app target.
+    enum RuntimeKind: String, Equatable, Sendable {
+        case localMLX = "local-mlx"
+        case appleIntelligence = "apple-intelligence"
+    }
+
     /// One selectable (or honestly-blocked) pick in the picker.
     struct Option: Equatable, Sendable, Identifiable {
         let id: String
         let title: String
         let tier: EpistemosModelTier
-        let isAppleIntelligence: Bool
+        let runtimeKind: RuntimeKind
         /// Installed on disk (for Apple Intelligence: available on this Mac).
         let isInstalled: Bool
         /// Can be selected right now (installed AND fits memory, or AI available).
         let isSelectable: Bool
         /// One-line honest reason when not selectable (P1.4 style); nil when fine.
         let blockedReason: String?
+        /// Donor-shaped runtime availability line used by picker rows/tooltips.
+        let availabilitySummary: String
+        /// SF Symbol name for the runtime row.
+        let systemImage: String
+        /// Whether blocked selection should guide the user to settings.
+        let settingsActionRecommended: Bool
+        /// Foundation Models runtime switches are new-session semantics; this is
+        /// readback metadata until each host can reset its active transcript.
+        let requiresNewSessionOnSelection: Bool
+
+        var isAppleIntelligence: Bool {
+            runtimeKind == .appleIntelligence
+        }
     }
 
     /// The live inputs the picker gates on. Memory selectability mirrors the
@@ -40,6 +61,7 @@ nonisolated enum EpistemosRuntimePicker {
         /// gate → not blocked (never block on missing data).
         let freeMemoryGB: Int
         let appleIntelligenceAvailable: Bool
+        let appleIntelligenceUnavailableReason: String?
         /// SS-CHATPICKER P0 — the user's installed + owner-advertised models BEYOND the fixed
         /// foundation lineup, so any model the owner installed/advertised becomes a clickable pick
         /// (the owner's "other models installed but won't let me click them"). The panel computes
@@ -52,11 +74,13 @@ nonisolated enum EpistemosRuntimePicker {
             installedModelIDs: Set<String>,
             freeMemoryGB: Int,
             appleIntelligenceAvailable: Bool,
+            appleIntelligenceUnavailableReason: String? = nil,
             additionalPicks: [ExtraPick] = []
         ) {
             self.installedModelIDs = installedModelIDs
             self.freeMemoryGB = freeMemoryGB
             self.appleIntelligenceAvailable = appleIntelligenceAvailable
+            self.appleIntelligenceUnavailableReason = appleIntelligenceUnavailableReason
             self.additionalPicks = additionalPicks
         }
     }
@@ -183,24 +207,50 @@ nonisolated enum EpistemosRuntimePicker {
             id: id,
             title: title,
             tier: tier,
-            isAppleIntelligence: isAppleIntelligence,
+            runtimeKind: isAppleIntelligence ? .appleIntelligence : .localMLX,
             isInstalled: installed,
             isSelectable: selectable,
-            blockedReason: reason
+            blockedReason: reason,
+            availabilitySummary: selectable ? "Installed · ready on this Mac" : (reason ?? "Unavailable"),
+            systemImage: tier.systemImage,
+            settingsActionRecommended: !selectable,
+            requiresNewSessionOnSelection: false
         )
     }
 
     private static func appleIntelligenceOption(environment: Environment) -> Option {
         let available = environment.appleIntelligenceAvailable
+        let reason = sanitizedAppleIntelligenceReason(environment.appleIntelligenceUnavailableReason)
+        let blockedReason = available ? nil : (reason ?? "Not available on this Mac")
         return Option(
             id: appleIntelligenceID,
             title: "Apple Intelligence",
             tier: .fast,
-            isAppleIntelligence: true,
+            runtimeKind: .appleIntelligence,
             isInstalled: available,
             isSelectable: available,
-            blockedReason: available ? nil : "Not available on this Mac"
+            blockedReason: blockedReason,
+            availabilitySummary: available
+                ? "System: available · private on-device runtime"
+                : "System: unavailable (\(blockedReason ?? "unknown reason"))",
+            systemImage: "apple.intelligence",
+            settingsActionRecommended: !available && shouldRecommendAppleIntelligenceSettings(for: reason),
+            requiresNewSessionOnSelection: true
         )
+    }
+
+    private static func sanitizedAppleIntelligenceReason(_ reason: String?) -> String? {
+        let trimmed = reason?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
+    private static func shouldRecommendAppleIntelligenceSettings(for reason: String?) -> Bool {
+        guard let reason else { return false }
+        let lower = reason.lowercased()
+        return lower.contains("disabled")
+            || lower.contains("enable")
+            || lower.contains("turn on")
+            || lower.contains("settings")
     }
 }
 

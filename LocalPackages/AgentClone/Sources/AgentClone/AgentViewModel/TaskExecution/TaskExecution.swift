@@ -1,0 +1,517 @@
+
+@preconcurrency import Foundation
+import AgentTools
+import AgentMCP
+import AgentD1F
+import AgentSwift
+import AgentAccess
+import Cocoa
+
+
+// MARK: - Task Execution Loop
+
+extension AgentViewModel {
+
+    func executeTask(_ rawPrompt: String) async {
+        // Strip ! or !apple prefix (bypasses Apple AI triage)
+        var prompt = rawPrompt
+        if prompt.hasPrefix("\u{F8FF}") {
+            prompt = String(prompt.dropFirst()).trimmingCharacters(in: .whitespaces)
+        } else if prompt.lowercased().hasPrefix("!apple ") {
+            prompt = String(prompt.dropFirst(7)).trimmingCharacters(in: .whitespaces)
+        }
+        isRunning = true
+        userWasActive = false
+        rootWasActive = false
+        // Reset elapsed timer at the task-start callsite. Pinning this to a
+        // ThinkingIndicatorView .onChange was fragile — if the view wasn't
+        // mounted on the false→true transition, the timer kept the prior
+        // task's frozen value (showed 4h+ on a fresh task).
+        mainTaskStartDate = Date()
+        _mainTaskElapsedFrozen = 0
+        // Auto-expand HUD for the main tab's run start (not on tab switches)
+        thinkingExpanded = true
+        thinkingOutputExpanded = true
+        thinkingDismissed = false
+        recentOutputHashes.removeAll()
+        toolSteps.removeAll()
+        DiffStore.shared.clear()
+
+        // Start progress updates for iMessage requests (every 10 minutes)
+        if agentReplyHandle != nil {
+            startProgressUpdates(for: prompt)
+        }
+
+        // Clear LLM Output for new task — show blinking cursor
+        dripTask?.cancel(); dripTask = nil
+        rawLLMOutput = ""
+        reasoningOutput = ""
+        displayedLLMOutput = ""
+        dripDisplayIndex = 0
+
+        activityLog = ScriptTab.capActivityLog(activityLog, keepRecentTasks: visibleTaskCount)
+        taskInputTokens = 0
+        taskOutputTokens = 0
+        budgetUsedFraction = 0
+        subAgents.removeAll()
+        FileBackupService.shared.clearTaskSnapshots()
+        TokenUsageStore.shared.resetTaskMetrics()
+        SessionStore.shared.newSession()
+        FallbackChainService.shared.reset()
+        Self.clearToolCache()
+        // No mode filtering — send every user-enabled tool on every turn.
+        // The LLM picks what it needs; ToolPreferencesService is the only filter.
+        let activeGroups: Set<String>? = nil
+        let isXcode = Self.isXcodeProject(projectFolder)
+        appendLog(Self.newTaskMarker)
+        appendLog("👤 \(prompt)")
+        flushLog()
+
+        // Use ChatHistoryStore for LLM context (summaries for older tasks, full messages for recent)
+        let historyContext = ChatHistoryStore.shared.buildLLMContext()
+        var (provider, modelName, isVision) = resolveInitialProviderConfig()
+        // Defer the "🧠 provider/model" log line until AFTER triage has run and we know we're actually going to the
+        // cloud LLM. Logging it up-front (the previous behavior) made the activity log misleading when Apple AI handled the request locally — users saw both "🧠 Z.ai/glm-5.1" and "🍎 Opened Photo Booth and took a photo" for the same task even though the cloud LLM never ran.
+        let displayModel = modelDisplayName(provider: provider, modelId: modelName)
+        let apiURL = chatURLForProvider(provider)
+        let isCoding = apiURL.contains("/coding/")
+        let cloudModelLogLine = "🧠 \(provider.displayName) / \(displayModel)\(isCoding ? " (code)" : "")\(isVision ? " (vision)" : "")"
+
+        let mt = maxTokens
+        var services = buildLLMServiceBundle(
+            provider: provider,
+            modelName: modelName,
+            isVision: isVision,
+            historyContext: historyContext,
+            maxTokens: mt
+        )
+
+        // Carry over prior-task messages so the session continues across Escape/new-prompt boundaries.
+        // Sanitizer drops orphaned tool_use blocks and trailing assistant turns so Anthropic accepts the request.
+        var messages: [[String: Any]] = Self.sanitizeMessagesForContinuation(lastTaskMessages)
+        defer { lastTaskMessages = messages }
+
+        let effectivePrompt = Self.newTaskPrefix(
+            projectFolder: projectFolder,
+            prompt: prompt,
+            hostContextSummary: epistemosHostContextSummary
+        ) + prompt
+
+        let hadAttachments = !attachedImagesBase64.isEmpty
+        taskScopeImages = attachedImages
+        if hadAttachments {
+            appendLog("(\(attachedImagesBase64.count) screenshot(s) attached)")
+            var contentBlocks: [[String: Any]] = attachedImagesBase64.map { base64 in
+                [
+                    "type": "image",
+                    "source": [
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": base64
+                    ] as [String: Any]
+                ]
+            }
+            contentBlocks.append(["type": "text", "text": effectivePrompt])
+            messages.append(["role": "user", "content": contentBlocks])
+            // Clear attachments after use
+            attachedImages.removeAll()
+            attachedImagesBase64.removeAll()
+        } else {
+            messages.append(["role": "user", "content": effectivePrompt])
+        }
+
+        commandsRun = []
+        var completionSummary = ""
+        var timeoutRetryCount = 0
+        let maxTimeoutRetries = maxRetries
+
+        // Apple Intelligence mediator for contextual annotations
+        let mediator = AppleIntelligenceMediator.shared
+        var appleAIAnnotations: [AppleIntelligenceMediator.Annotation] = []
+
+        // ! or !apple prefix bypasses Apple AI triage — sends prompt straight to cloud LLM.
+        // Also skip Apple triage entirely when Agent! lacks Accessibility permission —
+        // Apple AI's only meaningful tool call here is the accessibility dispatch,
+        // which will fail without the right. Fall straight through to the cloud LLM.
+        let appleBypass = rawPrompt.hasPrefix("\u{F8FF}")
+            || rawPrompt.lowercased().hasPrefix("!apple ")
+            || !AccessibilityService.hasAccessibilityPermission()
+            || hadAttachments
+        if appleBypass {
+            appendLog(cloudModelLogLine)
+            flushLog()
+        } else {
+            // Triage: direct commands, Apple AI conversation, accessibility agent, or pass through to LLM.
+            let triageResult = await mediator.triagePrompt(prompt, axDispatch: { [weak self] args in
+                guard let self else { return "{\"success\":false,\"error\":\"agent deallocated\"}" }
+                var input: [String: Any] = ["action": args.action]
+                if let role = args.role { input["role"] = role }
+                if let title = args.title { input["title"] = title }
+                if let rawApp = args.app {
+                    let resolved = SDEFService.shared.resolveBundleId(name: rawApp) ?? rawApp
+                    input["appBundleId"] = resolved
+                    input["app"] = resolved
+                }
+                if let text = args.text { input["text"] = text }
+                return await self.executeNativeTool("accessibility", input: input)
+            }, runAgent: { [weak self] args in
+                guard let self else { return "error: agent deallocated" }
+                let success = await self.runAgentDirect(name: args.name, arguments: args.arguments ?? "")
+                return success ? "Launched agent '\(args.name)'" : "Agent '\(args.name)' not found"
+            }, appendLog: { [weak self] msg in self?.appendLog(msg) }, projectFolder: projectFolder)
+            let triageOutcome = await handleTriageOutcome(
+                triageResult,
+                prompt: prompt,
+                cloudModelLogLine: cloudModelLogLine,
+                messages: &messages,
+                completionSummary: &completionSummary
+            )
+            if case .completed = triageOutcome { return }
+        }
+
+        // Apple Intelligence context injection removed — was confusing LLMs at task start
+        // Apple AI still runs on task_complete to summarize results for the user
+
+        var iterations = 0
+        // Token budget tracker — detects diminishing returns and prevents runaway costs
+        var budgetTracker = TokenBudgetTracker(ceiling: tokenBudgetCeiling)
+        // Context compaction state — token-aware triggers with circuit breaker
+        var compactionState = CompactionState()
+        // Overnight coding guards
+        var consecutiveReadOnlyCount = 0 // read guard — force stop after 10
+        var unbuiltEditCount = 0 // build enforcement — nudge after edit without build
+        var consecutiveBuildFailures = 0 // error budget — stop after 5
+        var stuckFiles: [String: Int] = [:] // stuck detection — skip after 5 failures per file
+        // Full system prompt + full tool descriptions on every turn. The earlier condensed-prompt + compactTools
+        // optimization saved ~4K tokens/turn but the user prefers the LLM having maximum context every iteration over the savings.
+        let userName = NSFullUserName()
+        let userHome = NSHomeDirectory()
+        _ = userName; _ = userHome // kept for any future per-task prompt customization
+        // Track unique files edited (write_file/edit_file/diff_apply/create_diff/apply_diff) for plan-mode enforcement
+        var filesEditedThisTask: Set<String> = []
+
+        taskLoop: while !Task.isCancelled {
+            iterations += 1
+
+            // Iteration cap — the LLM can loop forever calling tools without ever
+            // invoking task_complete (common with smaller/local models). Enforce a
+            // hard stop one turn after a "wrap up" nudge.
+            if iterations == maxIterations {
+                appendLog("⏱ Iteration \(iterations)/\(maxIterations) — nudging LLM to call task_complete")
+                flushLog()
+                messages.append([
+                    "role": "user",
+                    "content": "You have reached the iteration limit. Call task_complete with a summary of what you accomplished on your next turn. This is your last chance — no more tool calls."
+                ])
+            }
+            if iterations > maxIterations {
+                let summary = completionSummary.isEmpty
+                    ? (commandsRun.isEmpty ? "(no actions — iteration cap reached)" : "Forced completion after \(iterations - 1) iterations. Last actions: \(commandsRun.suffix(5).joined(separator: ", "))")
+                    : completionSummary
+                completionSummary = summary
+                appendLog("⏱ Forced task_complete — hit iteration cap (\(maxIterations))")
+                appendLog("✅ Completed: \(summary)")
+                flushLog()
+                break taskLoop
+            }
+
+            // No prompt tiering and no mode auto-switching: every turn sends the full system prompt with full tool
+            // descriptions, filtered only by the user's UI toggles in ToolPreferencesService.
+
+            // Token-aware context compaction — replaces fixed iteration-based triggers
+            if iterations > 1 {
+                _ = await Self.tieredCompact(&messages, state: &compactionState) { [weak self] msg in
+                    self?.appendLog(msg)
+                    self?.flushLog()
+                }
+            }
+
+            do {
+                isThinking = true
+                // Only auto-show overlay on the FIRST iteration. Subsequent iterations
+                // must respect the user's manual dismiss (Cmd+B during a running task).
+                if iterations == 1 { thinkingDismissed = false }
+
+                let sendMessages = iterations > 1 ? Self.compressMessages(messages) : messages
+
+                let response: (content: [[String: Any]], stopReason: String, inputTokens: Int, outputTokens: Int)
+                flushLog()
+                if let claude = services.claude {
+                    response = try await claude.sendStreaming(messages: sendMessages, activeGroups: activeGroups) { [weak self] delta in
+                        Task { @MainActor in
+                            self?.isThinking = false
+                            self?.appendStreamDelta(delta)
+                        }
+                    }
+
+                } else if let codex = services.codex {
+                    let r = try await codex.sendStreaming(
+                        messages: sendMessages,
+                        activeGroups: activeGroups,
+                        onDelta: { [weak self] delta in
+                            Task { @MainActor in
+                                self?.isThinking = false
+                                self?.appendStreamDelta(delta)
+                            }
+                        },
+                        onReasoning: { [weak self] delta in
+                            Task { @MainActor in
+                                self?.appendReasoningDelta(delta)
+                            }
+                        }
+                    )
+                    response = (r.content, r.stopReason, r.inputTokens, r.outputTokens)
+
+                } else if let openAICompatible = services.openAICompatible {
+                    let r = try await openAICompatible
+                        .sendStreaming(messages: sendMessages, activeGroups: activeGroups) { [weak self] delta in
+                            Task { @MainActor in
+                                self?.isThinking = false
+                                self?.appendStreamDelta(delta)
+                            }
+                        }
+                    response = (r.content, r.stopReason, r.inputTokens, r.outputTokens)
+
+                } else if let ollama = services.ollama {
+                    let r = try await ollama.sendStreaming(messages: sendMessages, activeGroups: activeGroups) { [weak self] delta in
+                        Task { @MainActor in
+                            self?.isThinking = false
+                            self?.appendStreamDelta(delta)
+                        }
+                    }
+                    response = (r.content, r.stopReason, r.inputTokens, r.outputTokens)
+
+                } else if let foundationModelService = services.foundationModel {
+                    let r = try await foundationModelService.sendStreaming(messages: sendMessages) { [weak self] delta in
+                        Task { @MainActor in
+                            self?.isThinking = false
+                            self?.appendStreamDelta(delta)
+                        }
+                    }
+                    response = (r.content, r.stopReason, 0, 0)
+
+                } else {
+                    throw AgentError.noAPIKey
+                }
+                // Track token usage — use reported counts or estimate from text (~4 chars/token)
+                let inTok = response.inputTokens > 0 ? response.inputTokens : Self.estimateTokens(messages: messages)
+                let outTok = response.outputTokens > 0 ? response.outputTokens : Self.estimateTokens(content: response.content)
+                taskInputTokens += inTok
+                taskOutputTokens += outTok
+                sessionInputTokens += inTok
+                sessionOutputTokens += outTok
+                TokenUsageStore.shared.record(inputTokens: inTok, outputTokens: outTok)
+                budgetTracker.recordTurn(inputTokens: inTok, outputTokens: outTok)
+                budgetUsedFraction = budgetTracker.usedFraction
+                TokenUsageStore.shared.recordModelUsage(
+                    model: modelName, input: inTok, output: outTok, provider: provider.displayName,
+                    tabId: TokenUsageStore.mainTabKey, tabLabel: "Main",
+                    subscriptionBilled: Self.isSubscriptionCredential(provider: provider, apiKey: apiKey)
+                )
+                FallbackChainService.shared.recordSuccess()
+                flushStreamBuffer()
+                isThinking = false
+                timeoutRetryCount = 0 // Reset on successful response
+                // Strip done/task_complete from LLM Output
+                Self.stripCompletionText(&rawLLMOutput)
+                // Wait for drip to finish
+                await dripTask?.value
+                if !rawLLMOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    displayedLLMOutput = rawLLMOutput
+                    dripDisplayIndex = rawLLMOutput.count
+                }
+                guard !Task.isCancelled else { break }
+
+                var toolResults: [[String: Any]] = []
+                let parseResult = await parseLLMResponseContent(
+                    response.content,
+                    prompt: prompt,
+                    mediator: mediator,
+                    appleAIAnnotations: &appleAIAnnotations,
+                    filesEditedThisTask: &filesEditedThisTask,
+                    completionSummary: &completionSummary
+                )
+                if parseResult.taskCompleted { return }
+                let hasToolUse = parseResult.hasToolUse
+                let pendingTools = parseResult.pendingTools
+
+                // App-layer action verification: if the LLM returned text claiming
+                // it performed actions but made zero tool calls, inject a correction.
+                if !hasToolUse && pendingTools.isEmpty {
+                    let llmText = (response.content.compactMap { $0["text"] as? String }).joined()
+                    let lower = llmText.lowercased()
+                    let actionClaims = ["i searched", "i opened", "i clicked", "i ran ", "i executed",
+                                        "i found the", "i read the file", "i checked the", "i listed"]
+                    if actionClaims.contains(where: { lower.contains($0) }) {
+                        appendLog("⚠️ action not performed — LLM claimed action without a tool call")
+                        // NOTE: must be a `text` block, not a synthetic `tool_result`.
+                        // Anthropic rejects `tool_result` blocks whose `tool_use_id` has no
+                        // matching `tool_use` in the prior assistant message.
+                        toolResults.append([
+                            "type": "text",
+                            "text": "action not performed — you claimed to perform an action but made no tool call. Use the appropriate tool or say you cannot do it."
+                        ])
+                    }
+                }
+
+                // Execute pending tools — partition into read/write batches
+                // Consecutive read-only tools run in parallel; write tools serialize
+                await executePendingToolBatches(
+                    pendingTools: pendingTools,
+                    toolResults: &toolResults
+                )
+
+                // Vision verification: auto-screenshot after UI actions so the LLM can see the result.
+                await runVisionAutoScreenshotIfNeeded(
+                    pendingTools: pendingTools,
+                    isVision: isVision,
+                    toolResults: &toolResults
+                )
+
+                // Token budget checks — nudge LLM or auto-stop if budget exhausted / diminishing returns
+                if budgetTracker.shouldStop {
+                    let reason = budgetTracker.isDiminishing ? "diminishing returns detected" : "token budget exhausted"
+                    appendLog("⚠️ Auto-stopping: \(reason) (\(budgetTracker.statusDescription))")
+                    flushLog()
+                    break
+                }
+                if budgetTracker.shouldNudge && !toolResults.isEmpty {
+                    // NOTE: must be a `text` block, not a synthetic `tool_result`.
+                    // Anthropic rejects `tool_result` blocks whose `tool_use_id` has no
+                    // matching `tool_use` in the prior assistant message.
+                    toolResults.append([
+                        "type": "text",
+                        "text": """
+                            ⚠️ Approaching token budget limit \
+                            (\(budgetTracker.statusDescription)). \
+                            Wrap up your current work and call \
+                            task_complete with a summary.
+                            """
+                    ])
+                }
+
+                // Cost alerting — stop if estimated cost exceeds user-configured max
+                if TokenUsageStore.shared.isCostExceeded {
+                    let cost = String(format: "$%.2f", TokenUsageStore.shared.sessionEstimatedCost)
+                    let max = String(format: "$%.2f", TokenUsageStore.shared.maxTaskCost)
+                    appendLog("⚠️ Auto-stopping: estimated cost \(cost) exceeds limit \(max)")
+                    flushLog()
+                    break
+                }
+
+                // Overnight coding guards — read/build/error-budget/stuck-file nudges.
+                let guardShouldBreak = runOvernightCodingGuards(
+                    pendingTools: pendingTools,
+                    toolResults: &toolResults,
+                    consecutiveReadOnlyCount: &consecutiveReadOnlyCount,
+                    unbuiltEditCount: &unbuiltEditCount,
+                    consecutiveBuildFailures: &consecutiveBuildFailures,
+                    stuckFiles: &stuckFiles,
+                    isXcode: isXcode
+                )
+                if guardShouldBreak { break }
+
+                // Collect completed sub-agent notifications and inject into tool results
+                let subAgentNotifs = collectSubAgentNotifications()
+                for notif in subAgentNotifs {
+                    // Anthropic rejects `tool_result` blocks whose `tool_use_id` has no
+                    // matching `tool_use` in the prior assistant message — use `text` instead.
+                    toolResults.append(["type": "text", "text": notif])
+                }
+
+                let finalizeShouldBreak = finalizeTurnAndDetectCompletion(
+                    responseContent: response.content,
+                    hasToolUse: hasToolUse,
+                    toolResults: toolResults,
+                    messages: &messages
+                )
+                if finalizeShouldBreak { break taskLoop }
+
+            } catch {
+                let activeService: ActiveLLMService
+                if services.claude != nil {
+                    activeService = .claude
+                } else if services.codex != nil {
+                    activeService = .codex
+                } else if services.openAICompatible != nil {
+                    activeService = .openAICompatible
+                } else if services.ollama != nil {
+                    activeService = .ollama
+                } else if services.foundationModel != nil {
+                    activeService = .foundationModel
+                } else {
+                    activeService = .none
+                }
+                let outcome = await handleTaskLoopError(
+                    error,
+                    activeService: activeService,
+                    providerDisplayName: provider.displayName,
+                    messages: &messages,
+                    timeoutRetryCount: &timeoutRetryCount,
+                    maxTimeoutRetries: maxTimeoutRetries
+                )
+                switch outcome {
+                case .continueLoop:
+                    continue taskLoop
+                case .breakLoop:
+                    break taskLoop
+                case .fallbackRequested(let newProvider, let newModel, let newIsVision):
+                    provider = newProvider
+                    modelName = newModel
+                    isVision = newIsVision
+                    services = buildLLMServiceBundle(
+                        provider: provider,
+                        modelName: modelName,
+                        isVision: isVision,
+                        historyContext: historyContext,
+                        maxTokens: mt
+                    )
+                    continue taskLoop
+                }
+            }
+        }
+
+        // Apple Intelligence: suggest next steps after completion — fire-and-forget.
+        // Runs after the task is already done; no reason to hold the user on it.
+        if mediator.isEnabled && mediator.showAnnotationsToUser && !completionSummary.isEmpty && !commandsRun.isEmpty {
+            let context = "Task: \(prompt)\nResult: \(completionSummary)\nCommands: \(commandsRun.joined(separator: ", "))"
+            let capturedHandle = agentReplyHandle
+            Task { [weak self] in
+                guard let self else { return }
+                if let nextSteps = await mediator.suggestNextSteps(context: context) {
+                    self.appendLog(nextSteps.formatted)
+                    self.flushLog()
+                    if capturedHandle != nil {
+                        self.sendProgressUpdate(nextSteps.formatted)
+                    }
+                }
+            }
+        }
+
+        // Always save history if task didn't call task_complete
+        if completionSummary.isEmpty {
+            let summary = Task.isCancelled ? "(cancelled)" : commandsRun.isEmpty ? "(no actions)" : "(incomplete)"
+            history.add(
+                TaskRecord(prompt: prompt, summary: summary, commandsRun: commandsRun),
+                maxBeforeSummary: maxHistoryBeforeSummary,
+                apiKey: apiKey,
+                model: selectedModel
+            )
+        }
+
+        // End the task in SwiftData chat history
+        ChatHistoryStore.shared.endCurrentTask(summary: completionSummary.isEmpty ? nil : completionSummary, cancelled: Task.isCancelled)
+
+        // Stop progress updates
+        stopProgressUpdates()
+
+        flushLog()
+        persistLogNow()
+        isRunning = false
+        isThinking = false
+        userServiceActive = false
+        rootServiceActive = false
+        userWasActive = false
+        rootWasActive = false
+    }
+}

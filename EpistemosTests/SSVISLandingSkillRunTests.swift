@@ -5,10 +5,10 @@ import Foundation
 
 // SS-VIS (owner 2026-06-20: "if the user wants to start off using a tool they should be able to").
 // The landing capabilities launcher mounts the shared AgentToolTogglePanel; this wires its onRunSkill
-// so a discovered skill runs straight from the landing search field — primed with its `/identifier`
-// invocation, the same real path the in-chat skills browser uses (ChatInputBar.runSkillFromPanel). The
-// previous mount passed the nil browse-only default. These pin the wiring so it can't silently regress
-// to browse-only.
+// so a discovered skill runs straight from the landing search field — primed
+// with its `/identifier` invocation. The previous mount passed the nil
+// browse-only default. These pin the wiring so it can't silently regress to
+// browse-only.
 @Suite("SS-VIS — run a skill from the landing launcher")
 struct SSVISLandingSkillRunTests {
 

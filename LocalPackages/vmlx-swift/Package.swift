@@ -338,7 +338,7 @@ let package = Package(
     dependencies: [
         // for Complex type
         .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0-latest"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", "600.0.0"..<"603.0.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.27.0"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.34.0"),

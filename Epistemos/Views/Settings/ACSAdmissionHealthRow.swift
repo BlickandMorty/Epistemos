@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - ACSAdmissionHealthRow
 //
 // Wiring #6 (T18B ACS dispatch admission gate) — HIGH RISK production
-// status surface. Mirrors EidosHealthRow / SystemGHealthRow / FUlpHealthRow
+// status surface. Mirrors EidosHealthRow / FUlpHealthRow
 // shape. Reads strict policy summary on appear via
 // `ACSAdmissionBridge.strictPolicySummary()`.
 //

@@ -40,13 +40,11 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(off.toolCallMode == .none)
     }
 
-    @Test("model picker, Settings, Active Constellation, and AgentBlueprint surfaces expose capability truth")
+    @Test("model picker, Settings, and Active Constellation surfaces expose capability truth")
     func visibleSurfacesExposeCapabilityTruth() throws {
         let rootView = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let activeConstellation = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ActiveConstellationRow.swift")
-        let agentBlueprintView = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentBlueprintSettingsView.swift")
-        let agentBlueprint = try loadMirroredSourceTextFile("Epistemos/LocalAgent/AgentBlueprint.swift")
 
         #expect(rootView.contains("localModelSubtitleWithAgentBadge(for: model)"))
         #expect(rootView.contains("Agent \\(badge.title)"))
@@ -61,10 +59,6 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(activeConstellation.contains("LocalAgentDiagnostics.snapshot().routePolicySummary"))
         #expect(!activeConstellation.contains("placeholder routes"))
         #expect(!activeConstellation.contains("No production route table is available yet"))
-        #expect(agentBlueprintView.contains("modelBadgeStrip(for: modelChoice)"))
-        #expect(agentBlueprintView.contains("modelPickerRow("))
-        #expect(agentBlueprint.contains("RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)"))
-        #expect(agentBlueprint.contains("strict_grammar: \\(model.strictGrammarStatus)"))
 
         guard
             let routeLaneRowsStart = rootView.range(
@@ -83,29 +77,6 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(routeLaneRows.contains("Open Diagnostics"))
         #expect(routeLaneRows.contains("openSettings()"))
         #expect(!routeLaneRows.contains("setPreferredChatModelSelection"))
-    }
-
-    @Test("main and mini chat composer pills expose selected route tool truth")
-    func composerPillsExposeSelectedRouteToolTruth() throws {
-        let mainComposer = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniComposer = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let pill = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ChatCapabilityPill.swift")
-        let runtimeTruth = try loadMirroredSourceTextFile("Epistemos/Views/Settings/RuntimeTruthHealthRow.swift")
-
-        #expect(mainComposer.contains("ComposerModelToolTruth.detail("))
-        #expect(miniComposer.contains("ComposerModelToolTruth.detail("))
-        #expect(runtimeTruth.contains("ComposerModelToolTruth.summary("))
-        #expect(mainComposer.contains("inference.effectiveChatSurfaceSelection(for: selectedOperatingMode)"))
-        #expect(miniComposer.contains("inference.effectiveChatSurfaceSelection(for: selectedOperatingMode)"))
-        #expect(miniComposer.contains("detail: composerPillDetail"))
-        #expect(pill.contains("enum ComposerModelToolTruth"))
-        #expect(pill.contains("struct Summary: Sendable, Equatable"))
-        #expect(pill.contains("static func summary("))
-        #expect(pill.contains("RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)"))
-        #expect(pill.contains("provider.supportsAgentTier"))
-        #expect(pill.contains("Cloud direct stream (managed tools unavailable)"))
-        #expect(pill.contains("native tools"))
-        #expect(pill.contains("soft-guidance tools"))
     }
 
     @Test("shared model tool truth gates cloud and local routes")
@@ -211,21 +182,15 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(google.skillHandlingDetail.contains("slash/instruction context"))
     }
 
-    @Test("landing and note ask pills expose effective route tool truth")
-    func secondaryComposerPillsExposeEffectiveRouteToolTruth() throws {
+    @Test("landing pills expose effective route tool truth")
+    func landingPillsExposeEffectiveRouteToolTruth() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let noteWorkspace = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(landing.contains("private var landingPillDetail: String?"))
         #expect(landing.contains("detail: landingPillDetail"))
         #expect(landing.contains("ComposerModelToolTruth.detail("))
         #expect(landing.contains("inference.effectiveChatSurfaceSelection(for: selectedOperatingMode)"))
         #expect(!landing.contains("switch inference.preferredChatModelSelection"))
-
-        #expect(noteWorkspace.contains("private var toolbarAskPillDetail: String?"))
-        #expect(noteWorkspace.contains("detail: toolbarAskPillDetail"))
-        #expect(noteWorkspace.contains("ComposerModelToolTruth.detail("))
-        #expect(noteWorkspace.contains("inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode)"))
     }
 
     @Test("local tool loop model handoff uses the effective route")
@@ -235,61 +200,6 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(pipeline.contains("case .localMLX(let id) = effectiveChatSelection"))
         #expect(!pipeline.contains("if case .localMLX(let id) = inference.preferredChatModelSelection"))
         #expect(!pipeline.contains("inference.preferredChatModelSelection"))
-    }
-
-    @Test("command center auto brain uses the effective route")
-    func commandCenterAutoBrainUsesEffectiveRoute() throws {
-        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("private func currentCommandCenterAutoBrain(operatingMode: EpistemosOperatingMode)"))
-        #expect(coordinator.contains("self.currentCommandCenterAutoBrain(operatingMode: accState.selectedOperatingMode)"))
-        #expect(coordinator.contains("switch inferenceState.effectiveChatSurfaceSelection(for: operatingMode)"))
-        #expect(!coordinator.contains("switch inferenceState.preferredChatModelSelection"))
-    }
-
-    @Test("fused chat composers preserve typed slash skill tokens")
-    func fusedComposersPreserveTypedSlashSkillTokens() throws {
-        let mainComposer = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        let miniComposer = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let popover = try loadMirroredSourceTextFile("Epistemos/Views/Chat/SlashCommandPopover.swift")
-        let chatState = try loadMirroredSourceTextFile("Epistemos/State/ChatState.swift")
-        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(popover.contains("enum ComposerSlashCommandItem"))
-        #expect(popover.contains("case skill(SkillDiscoveryEntry)"))
-        #expect(popover.contains("static func filteredItems("))
-        #expect(mainComposer.contains("@Environment(AgentCommandCenterState.self)"))
-        #expect(miniComposer.contains("@Environment(AgentCommandCenterState.self)"))
-        #expect(mainComposer.contains("agentCommandCenter.availableSkills"))
-        #expect(miniComposer.contains("agentCommandCenter.availableSkills"))
-        #expect(landing.contains("agentCommandCenter.availableSkills"))
-        #expect(mainComposer.contains("chat.queuePendingSlashToken(activeSelectedSlashToken)"))
-        #expect(miniComposer.contains("bridgeState.queuePendingSlashToken(requestedSlashToken)"))
-        #expect(landing.contains("chat.queuePendingSlashToken(slashToken)"))
-        #expect(chatState.contains("private var pendingSlashToken: ParsedSlashToken?"))
-        #expect(coordinator.contains("let requestedSlashToken = chatState.consumePendingSlashToken()"))
-        #expect(coordinator.contains("title: \"Requested Skill\""))
-        #expect(coordinator.contains("do not claim the skill executed unless a tool or runtime explicitly reports execution"))
-    }
-
-    @Test("mini chat preserves main chat tool-route truth before shared coordinator handoff")
-    func miniChatPreservesMainChatToolRouteTruth() throws {
-        let miniComposer = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-
-        #expect(miniComposer.contains("private var cloudSurfaceSupportsAgentTier"))
-        #expect(miniComposer.contains("model.provider.supportsAgentTier"))
-        #expect(miniComposer.contains("private var needsSharedToolRouteWarning"))
-        #expect(miniComposer.contains("draftCapabilityPrediction.predicted == .agent"))
-        #expect(miniComposer.contains("draftCapabilityPrediction.predicted == .research"))
-        #expect(miniComposer.contains("sharedToolRouteWarningBanner"))
-        #expect(miniComposer.contains("inference.setActiveAIProvider(.openAI)"))
-        #expect(miniComposer.contains("shouldUseSharedCoordinator("))
-        #expect(miniComposer.contains("requestedSlashToken != nil"))
-        #expect(miniComposer.contains("bootstrap.coordinator.handleMiniChatQuery("))
-        #expect(miniComposer.contains("bridgeState.queuePendingSlashToken(requestedSlashToken)"))
-        #expect(miniComposer.contains("HTMLWorkspacePatchRouter.contextPack(for: attachments)"))
-        #expect(miniComposer.contains("providerNativeCapabilityToolNameList"))
     }
 
     @Test("capability manifest renders installed skill discovery without claiming execution")
@@ -314,6 +224,7 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(manifest.contains("Skill names alone are discovery context"))
         #expect(manifest.contains("don't claim a skill body or skill execution"))
         #expect(manifest.contains("No tools are available on this turn."))
+        #expect(manifest.contains("do not claim Epistemos generally lacks tools"))
         #expect(manifest.contains("Tools intentionally unavailable on this turn: `vault.write`, `web.search`."))
         #expect(manifest.contains("Treat unavailable tools as absent; do not simulate, rename, or proxy them through another tool."))
     }
@@ -336,6 +247,10 @@ struct AgentCapabilityTruthCloseoutTests {
             )
         )
         // Positive agentic directive present — the "feels like Codex" half.
+        #expect(withTools.contains("These are Epistemos tools for this turn."))
+        #expect(withTools.contains("Some callable names may be generic or compatibility-prefixed"))
+        #expect(withTools.contains("call it by the exact listed name"))
+        #expect(withTools.contains("Do not tell the user you lack an Epistemos-specific tool"))
         #expect(withTools.contains("gather it with a tool before answering instead of guessing"))
         #expect(withTools.contains("keep going until the task is genuinely done rather than stopping after one call"))
         // Honesty rules still present (defensive half intact).
@@ -358,6 +273,7 @@ struct AgentCapabilityTruthCloseoutTests {
         // No tools → no agentic invitation, and the plain-text rule still holds.
         #expect(!withoutTools.contains("gather it with a tool before answering"))
         #expect(withoutTools.contains("No tools are available on this turn."))
+        #expect(withoutTools.contains("do not claim Epistemos generally lacks tools"))
     }
 
     @Test("capability manifest disabled tools canonicalize legacy aliases")
@@ -370,9 +286,8 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(disabled == ["vault.write"])
     }
 
-    @Test("main and direct chat manifests source installed skills from shared catalog")
-    func chatCapabilityManifestsCarrySkillCatalogTruth() throws {
-        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
+    @Test("capability manifests source installed skills from shared catalog")
+    func capabilityManifestsCarrySkillCatalogTruth() throws {
         let pipeline = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
         let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
         let manifest = try loadMirroredSourceTextFile("Epistemos/Engine/CapabilityManifestBuilder.swift")
@@ -381,25 +296,11 @@ struct AgentCapabilityTruthCloseoutTests {
         #expect(manifest.contains("Skill names alone are discovery context"))
         #expect(manifest.contains("Tools intentionally unavailable on this turn"))
         #expect(manifest.contains("disabledToolNames("))
-        #expect(coordinator.contains("manifestDisabledToolNames"))
-        #expect(coordinator.contains("bootstrap.agentCommandCenterState.disabledToolNames("))
         #expect(pipeline.contains("disabledNames"))
-        #expect(coordinator.contains("skillNames: bootstrap.agentCommandCenterState.availableSkills.map(\\.title).sorted()"))
         #expect(pipeline.contains("private let skillNamesProvider: @MainActor () -> [String]"))
         #expect(pipeline.contains("skillNames: skillNamesProvider()"))
         #expect(bootstrap.contains("skillNamesProvider: { [weak agentCommandCenterState]"))
-        #expect(!coordinator.contains("skillNames: []"))
         #expect(!pipeline.contains("skillNames: []"))
-    }
-
-    @Test("AgentBlueprint surfaces MissionPacket tool omissions")
-    func agentBlueprintSurfacesMissionPacketToolOmissions() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentBlueprintSettingsView.swift")
-
-        #expect(source.contains("blueprintUnavailableToolNames"))
-        #expect(source.contains("not in packet"))
-        #expect(source.contains("Not sent to this MissionPacket"))
-        #expect(source.contains("commandCenter.disabledToolNames(for: Array(selectedToolNames))"))
     }
 
     @Test("Agent Control surfaces route tool and skill compatibility")
@@ -424,10 +325,8 @@ struct AgentCapabilityTruthCloseoutTests {
     @Test("chat MCP execution logs parse into Agent Control recent activity")
     @MainActor
     func chatMCPExecutionLogsParseIntoAgentControlRecentActivity() throws {
-        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentControlSettingsView.swift")
 
-        #expect(coordinator.contains("self.bootstrap.mcpBridge.logExecution("))
         #expect(source.contains("recentExecutions = MCPExecutionEntry.parse(from: mcpBridge.recentExecutionsJson(limit: 12))"))
         #expect(source.contains("ForEach(recentExecutions)"))
 

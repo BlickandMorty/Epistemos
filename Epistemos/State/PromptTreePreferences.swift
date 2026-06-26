@@ -6,7 +6,7 @@ import Foundation
 // feature flag from the Settings UI without needing to set a launch
 // environment variable.
 //
-// The original gate at ChatCoordinator.swift:2213 only read
+// The original prompt-tree gate only read
 // `ProcessInfo.processInfo.environment["EPISTEMOS_PROMPT_TREE"]`.
 // This helper preserves that path (env var takes precedence — useful
 // for CI / Xcode scheme overrides) AND adds a UserDefaults-backed
@@ -40,7 +40,7 @@ public enum PromptTreePreferences {
     ///   3. Otherwise → off (legacy path)
     ///
     /// Both checks are non-isolated and cheap to call per-turn —
-    /// ChatCoordinator's hot path can call this without contention.
+    /// Hot routing paths can call this without contention.
     public static func isEnabled() -> Bool {
         if ProcessInfo.processInfo.environment[environmentVariable] == "1" {
             return true

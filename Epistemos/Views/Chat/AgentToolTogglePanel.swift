@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// P2.1 (UI) — in-chat tool control. A compact panel, opened from the composer,
-/// that lists the agent tools the registry surfaces and lets the user turn each
-/// on/off. This is REAL config, not decoration: the toggles flow into
-/// `AgentCommandCenterState.toolToggles` → `disabledToolNames`, which
-/// `ChatCoordinator.executionPlanGatedByUserToolToggles` applies to the main-chat
-/// execution plan (commit a731469a6) — a tool turned off here is removed from the
-/// plan's `tool_permissions` for this chat's agent turns.
+/// P2.1 (UI) — shared agent capability control. A compact panel, opened from
+/// Landing or future AgentClone/fusion controls, that lists the agent tools the
+/// registry surfaces and lets the user turn each on/off. This is REAL config,
+/// not decoration: the toggles flow into `AgentCommandCenterState.toolToggles`
+/// → `disabledToolNames`, which execution-plan gating applies to the main agent
+/// plan (commit a731469a6) — a tool turned off here is removed from the plan's
+/// `tool_permissions` for agent turns.
 ///
 /// Honest gating: destructive tools and tools that ask before acting are
 /// badged, and a footer states the capability truth (local models chat + reason;
@@ -16,7 +16,7 @@ import SwiftUI
 struct AgentToolTogglePanel: View {
     let agentCommandCenter: AgentCommandCenterState
     let theme: EpistemosTheme
-    /// P2.4 — run a discovered skill from chat: primes the composer with the
+    /// P2.4 — run a discovered skill from a launcher: primes the composer with the
     /// skill's `/identifier` slash invocation. nil → the Skills browser is
     /// read-only (still shows what's available + the honest create path).
     var onRunSkill: ((SkillDiscoveryEntry) -> Void)? = nil
@@ -72,7 +72,7 @@ struct AgentToolTogglePanel: View {
 
             Divider()
 
-            Text("Local models chat + reason; multi-step tool runs use a cloud model or the Pro harness. Turning a tool off removes it from this chat's agent turns.")
+            Text("Local models can answer and reason; multi-step tool runs use a cloud model or the Pro harness. Turning a tool off removes it from agent turns.")
                 .font(.system(size: 10))
                 .foregroundStyle(theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)

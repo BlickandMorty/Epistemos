@@ -240,9 +240,6 @@ struct HTMLWorkspaceEditorView: View {
                 Button("Copy Target Context") {
                     copyPatchContext(for: selectedPane)
                 }
-                Button("Chat With Pane") {
-                    openMiniChatForCurrentPane()
-                }
             } label: {
                 Label("Pane actions", systemImage: "chevron.down.circle")
             }
@@ -256,14 +253,7 @@ struct HTMLWorkspaceEditorView: View {
                 Label("Copy target", systemImage: "scope")
             }
             .labelStyle(.iconOnly)
-            .help("Copy MiniChat target for this pane")
-            Button {
-                openMiniChatForCurrentPane()
-            } label: {
-                Label("Chat with pane", systemImage: "bubble.left")
-            }
-            .labelStyle(.iconOnly)
-            .help("Chat with this pane")
+            .help("Copy target context for this pane")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -657,8 +647,7 @@ struct HTMLWorkspaceEditorView: View {
         ComposerReferenceHelpers.htmlWorkspaceAttachment(
             workspaceID: package.manifest.id,
             title: package.manifest.title,
-            fileURL: currentHTMLWorkspaceDocument()?.fileURL,
-            surfaceTarget: sourceTarget(for: selectedPane)
+            fileURL: currentHTMLWorkspaceDocument()?.fileURL
         )
     }
 
@@ -671,23 +660,15 @@ struct HTMLWorkspaceEditorView: View {
         statusText = "Save requested"
     }
 
-    private func openMiniChatForCurrentPane() {
-        MiniChatWindowController.shared.openNewChat(
-            attaching: workspaceAttachment,
-            preferredOperatingMode: .agent
-        )
-        statusText = "MiniChat attached"
-    }
-
     private func copyPatchContext(for pane: HTMLWorkspaceSourcePane) {
-        let target = sourceTarget(for: pane)
+        let surface = documentSurface(for: pane)
         let context = """
-        MiniChat Target:
-        surface_id: \(target.surfaceID)
-        surface_kind: \(target.surfaceKind.rawValue)
-        pane: \(target.pane.rawValue)
-        content_hash: \(target.contentHash)
-        allowed_operations: \(target.allowedOperations.joined(separator: ", "))
+        Document Target:
+        surface_id: \(surface.id)
+        surface_kind: \(surface.kind.rawValue)
+        pane: \(pane.documentSurfacePane.rawValue)
+        content_hash: \(surface.contentHash)
+        allowed_operations: \(allowedOperations(for: pane).joined(separator: ", "))
 
         ```epistemos-html-workspace-patch
         {"workspace_id":"\(package.manifest.id)","expected_content_hash":"\(contentHash)","operations":[{"type":"insertBlock","html":"<section></section>","location":"append"}]}
@@ -788,16 +769,6 @@ struct HTMLWorkspaceEditorView: View {
             currentSelection: sourceRange(for: pane),
             capabilities: [.read, .write, .patch, .exportHTML, .exportPDF, .importContent, .preview],
             contentHash: contentHash
-        )
-    }
-
-    private func sourceTarget(for pane: HTMLWorkspaceSourcePane) -> MiniChatTarget {
-        MiniChatTarget(
-            surface: documentSurface(for: pane),
-            pane: pane.documentSurfacePane,
-            selectedRange: sourceRange(for: pane),
-            snippet: pane == selectedPane ? selectedPaneSourceSnippet : sourceSnippet(for: pane),
-            allowedOperations: allowedOperations(for: pane)
         )
     }
 

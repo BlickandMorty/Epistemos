@@ -538,15 +538,15 @@ private struct ProvenanceTraceEventRow: View {
 /// Wire format matches the Rust `ClarifyHandler` return shape:
 ///   `{ question, response, choice_index }`
 ///
-/// ChatCoordinator subscribes to this notification (B.8 2/N) and
-/// threads the response back into the running agent loop via
+/// Agent session hosts subscribe to this notification and thread the response
+/// back into the running agent loop via
 /// `AgentEventDelegate::ask_user_question` resolution.
 extension Notification.Name {
     static let clarifyCardResolved = Notification.Name("EpistemosClarifyCardResolved")
 }
 
 /// UserInfo keys for `.clarifyCardResolved`. String constants so test
-/// code + ChatCoordinator can pin against them without re-encoding the
+/// code + agent session hosts can pin against them without re-encoding the
 /// literals.
 ///
 /// Explicit `nonisolated` because the keys are pure string literals
@@ -575,13 +575,12 @@ nonisolated enum ClarifyCardNotificationKey {
 ///     notification with `response = typed text` and `choiceIndex = nil`.
 ///
 /// After resolution the card collapses to an "Answered: …" summary so
-/// the chat transcript shows what the user said without re-rendering
+/// the agent transcript shows what the user said without re-rendering
 /// the interactive controls.
 ///
 /// **Boundary:** This view does NOT directly call into the Rust agent
-/// loop. It only emits the notification. The ChatCoordinator (B.8 2/N
-/// follow-up) subscribes + routes the response into the running agent
-/// session. Keeping the renderer transport-free means the same view
+/// loop. It only emits the notification. The active agent session host
+/// subscribes + routes the response into the running session. Keeping the renderer transport-free means the same view
 /// works for unit tests, previews, and future surfaces (Provenance
 /// Console replay) that aren't part of a live agent session.
 private struct ClarifyGenUIView: View {

@@ -335,11 +335,9 @@ private struct QuitSaveContent: View {
 
     private var statePreview: some View {
         let n = NoteWindowManager.shared.orderedPageIds().count
-        let c = MiniChatWindowController.shared.openChatIds.count
         let g = HologramController.shared.isVisible
         return HStack(spacing: 16) {
             if n > 0 { Label("\(n) note\(n == 1 ? "" : "s")", systemImage: "doc.text.fill") }
-            if c > 0 { Label("\(c) chat\(c == 1 ? "" : "s")", systemImage: "bubble.left.and.bubble.right.fill") }
             if g { Label("Graph", systemImage: "point.3.connected.trianglepath.dotted") }
         }.font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(theme.textTertiary)
     }

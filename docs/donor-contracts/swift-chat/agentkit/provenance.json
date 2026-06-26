@@ -1,0 +1,57 @@
+{
+  "donor_id": "agentkit",
+  "contract_id": "agentkit.lightweight-agent-ergonomics",
+  "local_path": ".research-clones/swift-act/agentkit",
+  "upstream_url": "https://github.com/sebsto/agentkit.git",
+  "commit": "dd6cc989cf266ae1764c6b400c462a367ba7f128",
+  "license_file": ".research-clones/swift-act/agentkit/LICENSE",
+  "import_mode": "adapter",
+  "license_disposition": "known-permissive",
+  "status": "partially-adapted-with-tests",
+  "role": "Lightweight agent API, retry/backoff, callback ordering, conversation windowing, and MCP ergonomics.",
+  "product_rule": "Harvest only complexity-reducing motifs; avoid wholesale service lifecycle import.",
+  "implemented_features": [
+    {
+      "contract_id": "agentkit.retry-window-callbacks",
+      "source_paths": [
+        ".research-clones/swift-act/agentkit/Sources/AgentKit/InvokeWithRetry/RetryStrategy.swift",
+        ".research-clones/swift-act/agentkit/Sources/AgentKit/InvokeWithRetry/ExponentialBackoff.swift",
+        ".research-clones/swift-act/agentkit/Sources/AgentKit/InvokeWithRetry/JitterBackoff.swift",
+        ".research-clones/swift-act/agentkit/Sources/AgentKit/InvokeWithRetry/InvokeWithRetry.swift",
+        ".research-clones/swift-act/agentkit/Sources/AgentKit/ConversationManager/SlidingWindowConversationManager.swift",
+        ".research-clones/swift-act/agentkit/Sources/AgentKit/Agent+Callback.swift",
+        ".research-clones/swift-act/agentkit/Sources/AgentKit/Agent+StreamAsync.swift"
+      ],
+      "implementation_path": "LocalPackages/EpistemosChatDonorContracts/Sources/EpistemosChatDonorContracts/ChatDonorAgentKitErgonomics.swift",
+      "proof_command": "swift test --package-path LocalPackages/EpistemosChatDonorContracts",
+      "proof_result": "21 tests, 0 failures",
+      "notes": "Epistemos-owned retry/backoff policy and receipt, conversation window trimming, and callback ordering log."
+    },
+    {
+      "contract_id": "agentkit.mcp-ergonomics",
+      "source_paths": [
+        ".research-clones/swift-act/agentkit/Sources/MCPClientKit/MCPCLient.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPClientKit/MCPClient+Configuration.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPClientKit/MCPClient+Stdio.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPClientKit/MCPClient+HTTP.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPClientKit/MCPClient+ToolProtocol.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPClientKit/Array+MCPClient.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPShared/MCPTransport.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPShared/ToolProtocol.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPShared/ToolProtocol+MCP.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPShared/MCPServerError.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPServerKit/MCPServer.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPServerKit/MCPServer+Tools.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPServerKit/MCPServer+Resources.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPServerKit/MCPServer+Prompts.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPServerKit/MCPTool.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPServerKit/MCPResource.swift",
+        ".research-clones/swift-act/agentkit/Sources/MCPServerKit/MCPPrompt.swift"
+      ],
+      "implementation_path": "LocalPackages/EpistemosChatDonorContracts/Sources/EpistemosChatDonorContracts/ChatDonorAgentKitMCPErgonomics.swift",
+      "proof_command": "swift test --package-path LocalPackages/EpistemosChatDonorContracts",
+      "proof_result": "52 tests, 0 failures",
+      "notes": "Epistemos-owned values for mixed stdio/http mcp.json decoding, disabled/timeout validation, client tool-name listing and routing, MCP tool wrappers, whole-object and input-parameter decoding, server tools/resources/prompts capability assembly, resource lookup, and prompt rendering. Does not launch processes or claim the live endpoint bridge complete."
+    }
+  ]
+}

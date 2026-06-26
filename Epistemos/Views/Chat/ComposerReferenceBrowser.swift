@@ -2,8 +2,8 @@ import SwiftData
 import SwiftUI
 
 enum ComposerAttachmentEntryHints {
-    static let notesAndChats = "Type @ for notes or chats"
-    static let mainChatPlaceholder = "Ask anything… \(notesAndChats)"
+    static let notesAndChats = "Type @ for notes"
+    static let mainChatPlaceholder = "Ask anything... \(notesAndChats)"
     static let landingPlaceholder = "Ask Epistemos… \(notesAndChats)"
 }
 
@@ -220,7 +220,7 @@ enum ComposerReferenceBrowserInventoryBuilder {
 
 struct ComposerReferenceBrowseList: View {
     let inventory: ComposerReferenceBrowserInventory
-    let results: ChatCoordinator.ReferenceSearchResults
+    let results: ComposerReferenceSearchResults
     let onSelect: (ComposerReferenceChoice) -> Void
 
     @Environment(UIState.self) private var ui
@@ -239,16 +239,6 @@ struct ComposerReferenceBrowseList: View {
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
             allNotesRow
-
-            if !results.chats.isEmpty {
-                sectionHeader("Chats")
-                ForEach(results.chats) { result in
-                    Button { onSelect(.chat(result)) } label: {
-                        chatRow(result)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
 
             if !inventory.pinnedPageIDs.isEmpty {
                 sectionHeader("Pinned")
@@ -279,7 +269,7 @@ struct ComposerReferenceBrowseList: View {
                 }
             }
 
-            if inventory.isEmpty && results.chats.isEmpty {
+            if inventory.isEmpty {
                 emptyState
             }
         }
@@ -452,42 +442,9 @@ struct ComposerReferenceBrowseList: View {
         .padding(.horizontal, 4)
     }
 
-    private func chatRow(_ result: ChatCoordinator.ChatReferenceResult) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-                .frame(width: 14)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(result.attachment.title)
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
-                    .lineLimit(1)
-
-                if let preview = result.preview, !preview.isEmpty {
-                    Text(preview)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(theme.textTertiary)
-                        .lineLimit(1)
-                } else if let subtitle = result.attachment.subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(theme.textTertiary)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
-    }
-
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("No notes or chats yet", systemImage: "sparkle.magnifyingglass")
+            Label("No notes yet", systemImage: "sparkle.magnifyingglass")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(theme.resolved.foreground.color)
             Text("Type @ and search, or attach the full vault when it’s available.")

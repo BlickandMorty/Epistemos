@@ -16,18 +16,19 @@
 //     memory-leak.
 //   * Observable via `snapshot()` + `didEmitNotification` so the
 //     Settings diagnostics row + `LatestAnswerPacketSink` (the
-//     MainActor mirror that feeds MessageBubble's chip row) refresh
-//     event-driven, not polled.
+//     MainActor mirror reserved for the rebuilt AgentClone/fusion
+//     transcript) refresh event-driven, not polled.
 //   * Source for per-mode, per-bucket, and per-claim-kind monotonic
 //     histograms (V6.2 §1.4 attention modes, §1.5 calibration corpus
 //     buckets, and W2 claim-kind audit distribution).
 //
-// State 2026-05-12 (`state: rendered FULL`):
+// State 2026-06-25 (`state: model emitted; old chat wrapper deleted`):
 //   ✓ chat path emits packet per turn at StreamingDelegate.onComplete
 //   ✓ attention_mode populated from live InferenceState
 //   ✓ interrupt_bucket sampled via InterruptScoreCpu.sampleTurnBucket
 //   ✓ packet id threaded to ChatMessage.answerPacketId (Option B)
-//   ✓ MessageBubble renders VRMLabelView + attention + bucket chips
+//   ✓ VRM/attention/bucket data remains in the model for the rebuilt
+//     AgentClone/fusion chat surface
 //   ✓ Settings → Diagnostics shows count + histograms
 //
 // What's still pending for `state: canonical-product-surface`:

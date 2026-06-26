@@ -14,8 +14,8 @@
 //
 // The existing `EidosBridge.search(query:topK:)` (fixture path) stays
 // untouched for back-compat — `QueryRuntime.swift` still calls it. The
-// production path is opt-in: ChatCoordinator + Brain Panel call
-// `EidosBridge.retrieve(...)` once `AppBootstrap` has opened the
+// production path is opt-in: agent surfaces call `EidosBridge.retrieve(...)`
+// once `AppBootstrap` has opened the
 // production vault index.
 //
 // **7 Laws cited:** Law 2 Address (every hit carries a manifest-bound
@@ -209,8 +209,8 @@ nonisolated extension EidosBridge {
     /// matching Rust `EidosContextPacket::validate_citations`
     /// semantics.
     ///
-    /// **W-47 citation gate**: ChatCoordinator hands the per-answer
-    /// `sourceIds` slice here BEFORE committing the message. A
+    /// **W-47 citation gate**: answer commit paths hand the per-answer
+    /// `sourceIds` slice here before committing the message. A
     /// rejection MUST drop or rewrite the answer; never ship a chat
     /// row whose source_ids don't validate.
     nonisolated public static func validateCitations(

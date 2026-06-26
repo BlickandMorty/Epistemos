@@ -1,0 +1,13 @@
+{
+  "donor_id": "agent-upstream",
+  "contract_id": "agent-upstream.provenance-baseline",
+  "local_path": ".research-clones/swift-act/agent-macos26",
+  "upstream_url": "https://github.com/macos26/Agent.git",
+  "commit": "fc07409a900ba4ed4ecbf851e93aa8f18d1dcd94",
+  "license_file": ".research-clones/swift-act/agent-macos26/LICENSE",
+  "import_mode": "provenance-baseline",
+  "license_disposition": "known-permissive",
+  "status": "provenance-only",
+  "role": "Reference baseline for future AgentClone diffs.",
+  "product_rule": "Never wholesale overwrite Epistemos-local Chat changes with a fresh upstream copy."
+}

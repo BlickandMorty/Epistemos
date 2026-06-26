@@ -16,7 +16,7 @@ import SwiftUI
 // `fallback_tier=Fallback` renders amber + the scope caveat, NEVER
 // green — the artifact is honest about what is (and is not) measured.
 //
-// Mirrors FUlpHealthRow / SystemGHealthRow / VaultRecallHealthRow
+// Mirrors FUlpHealthRow / VaultRecallHealthRow
 // shape (chip strip, refresh on appear, 1 Hz polling refresh).
 //
 // Source:

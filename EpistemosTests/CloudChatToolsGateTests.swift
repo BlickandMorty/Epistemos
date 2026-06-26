@@ -3,8 +3,8 @@ import Testing
 
 /// S4 fix (research CHAT_TOOLS_INTEGRATION_AUDIT 2026-06-19): plain cloud chat
 /// (Fast/Thinking/Pro) got NO vault tools on Google/Z.AI/Kimi/MiniMax/DeepSeek
-/// because ChatCoordinator gated the tool path on `supportsAgentTier` (OpenAI/
-/// Anthropic only). The fix opens it to all providers behind a flag. These tests
+/// because the old tool path gated on `supportsAgentTier` (OpenAI/Anthropic
+/// only). The fix opens it to all providers behind a flag. These tests
 /// pin the pure gate logic (no env dependence).
 @Suite("Cloud plain-chat tool gate (S4)")
 struct CloudChatToolsGateTests {

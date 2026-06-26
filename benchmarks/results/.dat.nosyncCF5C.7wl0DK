@@ -1,0 +1,31 @@
+{
+  "generated_at" : "2026-05-01T00:00:00.000Z",
+  "max" : 0.002028834,
+  "measurement" : "graph_payload_construction_750_nodes",
+  "metadata" : {
+    "baseline_kind" : "fixture_pr2_real",
+    "checksum" : "934206",
+    "fixture_name" : "graph_payload_construction",
+    "fixture_status" : "real_local_fixture",
+    "payload_edges" : "749",
+    "payload_nodes" : "750",
+    "sample_source" : "focused_xcode_test"
+  },
+  "min" : 0.001836625,
+  "p50" : 0.001852833,
+  "p95" : 0.0020118588000000003,
+  "p99" : 0.00202543896,
+  "sample_count" : 7,
+  "samples" : [
+    0.001836625,
+    0.001838917,
+    0.00184575,
+    0.001852833,
+    0.001880334,
+    0.00197225,
+    0.002028834
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 Fixture Baselines",
+  "unit" : "seconds"
+}

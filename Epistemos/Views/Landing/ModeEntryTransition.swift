@@ -9,6 +9,8 @@ import SwiftUI
 nonisolated enum WorkspaceModeKind: String, Sendable, Equatable, CaseIterable {
     case act
     case work
+    /// New Swarm-backed regular Chat surface (the App-Store-shaped general chat).
+    case chat
 
     /// Canonical typed label per owner §301/§305 (act → "act"; work → "work"). Owner may choose
     /// "Epistemos chat" for act — pass an explicit label to `ModeEntryTransition` to override.
@@ -16,6 +18,7 @@ nonisolated enum WorkspaceModeKind: String, Sendable, Equatable, CaseIterable {
         switch self {
         case .act: return "act"
         case .work: return "work"
+        case .chat: return "chat"
         }
     }
 }

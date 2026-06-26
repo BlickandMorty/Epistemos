@@ -469,29 +469,22 @@ When you click 'New Note':
 The note is immediately persisted to SwiftData and marked for vault sync."""
         },
         {
-            "user": "How does the AI chat work in the note editor?",
-            "think": "I need to trace the AI chat pipeline from user input to response display.",
+            "user": "How does the agent portal work in the note editor?",
+            "think": "I need to trace the note editor's new agent route from selected note context to the unified agent session.",
             "response": """<think>
-Tracing the AI chat pipeline:
-1. User types in `NoteChatSidebar.swift` input field and presses Enter
-2. `NoteChatState.submitQuery()` is called — this is in `State/NoteChatState.swift`
-3. Query goes to `TriageService.swift` which routes based on operation complexity
-4. For chat queries, it routes to local Qwen model via `LLMService.swift`
-5. Tokens stream back via `PipelineService.swift` with 60ms buffering
-6. `NoteChatState.appendStreamingText()` buffers tokens
-7. `flushTokens()` fires every 60ms, calling `onTokenFlush` callback
-8. `Coordinator2.flushNoteChatTokens()` inserts text into NSTextStorage below the --- divider
-9. `isFlushingTokens` flag prevents binding cascade during insertion
-10. When done, Accept/Discard buttons appear above the divider
+Tracing the note agent portal:
+1. The note editor keeps normal note editing, vault storage, indexing, and selection behavior.
+2. Selected note context is represented as `AgentPortalContextSnapshot.NoteContext`.
+3. The portal snapshot carries note id, title/path, selected text, visible excerpt, backlinks, tags, and approved actions.
+4. `AgentChatState.submitAgentQuery()` attaches the portal's live `ContextAttachment` values to the user turn.
+5. The AgentClone-backed Epistemos agent route receives the same session id, portal label, vault path, and action metadata.
+6. Any note mutation still requires explicit approved actions and visible failure handling.
 </think>
 
-The AI chat pipeline:
-- **Input**: `NoteChatSidebar.swift` → `NoteChatState.submitQuery()`
-- **Routing**: `TriageService.swift` → complexity-based routing to local Qwen
-- **Streaming**: `PipelineService.swift` → 60ms token buffering → `flushTokens()`
-- **Display**: `Coordinator2.flushNoteChatTokens()` → NSTextStorage below `---` divider
-- **Guard**: `isFlushingTokens` flag prevents binding cascade during insertion
-- **Completion**: Accept merges inline, Discard removes from divider onward"""
+The note editor no longer owns a private AI engine. It sends typed note context
+into the unified AgentClone-backed Epistemos agent session through
+`AgentPortalContextSnapshot`, preserving note editing while moving model,
+streaming, tools, permissions, and session identity to the new agent route."""
         },
         {
             "user": "What's the graph engine architecture?",
@@ -665,7 +658,7 @@ The AI response didn't appear within the timeout. Possible causes:
 1. The LLM service crashed or is unresponsive
 2. The query was too complex for the local model
 3. Network issue if using cloud fallback (but Epistemos is local-first)
-4. The note chat state is in an invalid state (e.g., isStreaming stuck true)
+4. The active agent portal session is in an invalid state (e.g., streaming stuck true)
 5. Memory pressure caused the model to be evicted
 
 Let me check what to do:

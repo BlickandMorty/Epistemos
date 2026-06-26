@@ -12,7 +12,6 @@ final class ClickableTextView: NSTextView {
     nonisolated static let scrollToOffsetNotification = ProseTextView2.scrollToOffsetNotification
 
     nonisolated(unsafe) var usesRenderedTableOverlays = false
-    nonisolated(unsafe) var hasProtectedInlineResponseDivider = false
     var pageUndoManager: UndoManager?
 
     override var undoManager: UndoManager? {
@@ -23,10 +22,6 @@ final class ClickableTextView: NSTextView {
         in affectedCharRange: NSRange,
         replacementString: String?
     ) -> Bool {
-        if hasProtectedInlineResponseDivider,
-           NoteChatInlineResponse.editTouchesDivider(in: string, affectedRange: affectedCharRange) {
-            return false
-        }
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
     }
 }

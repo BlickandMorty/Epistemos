@@ -7,7 +7,7 @@ import os
 
 private let log = Logger(subsystem: "com.epistemos", category: "LocalRustRuntime")
 
-@available(*, unavailable, message: "Archived compatibility surface. Use ChatCoordinator and the low-level Rust bridge for shipping agent sessions.")
+@available(*, unavailable, message: "Archived compatibility surface. Use current agent routes and the low-level Rust bridge for shipping agent sessions.")
 @MainActor
 final class LocalRustRuntime: AgentRuntime {
     let runtimeId = "local-rust"

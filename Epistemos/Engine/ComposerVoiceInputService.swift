@@ -13,7 +13,7 @@ protocol ComposerVoiceAudioRecording: AnyObject {
 
 extension AVAudioRecorder: ComposerVoiceAudioRecording {}
 
-/// Mic-to-text capture for the chat composer. Records short utterances
+/// Mic-to-text capture for fused input surfaces. Records short utterances
 /// with AVAudioRecorder and transcribes them via the shared
 /// `AudioTranscriber` (Apple Speech primary). Meant for utterances a
 /// few seconds long — longer dictation can use the existing file-
@@ -33,7 +33,7 @@ final class ComposerVoiceInputService {
 
     private(set) var state: State = .idle
     /// Latest recorded-then-transcribed text. UI binds this to insert
-    /// into the composer on completion.
+    /// into the active draft on completion.
     private(set) var latestTranscript: String = ""
 
     private let log = Logger(subsystem: "com.epistemos", category: "ComposerVoiceInput")

@@ -6,8 +6,8 @@ import Foundation
 /// floating .popover. These guard the structural contract:
 ///   - InlineRuntimePickerPanel exists, is flat/pixel-art, has NO .popover, and
 ///     drives selection through the same path as the old popover.
-///   - the main-chat composer renders it in-flow + hides the redundant floating
-///     model button (exactly one model picker).
+///   - single-button non-chat surfaces render it in-flow with the full mode and
+///     settings affordances.
 ///   - the hide flag threads cleanly and defaults OFF (every other surface
 ///     unchanged).
 @Suite("Inline runtime picker panel (flat, in-flow)")
@@ -46,32 +46,6 @@ struct InlineRuntimePickerPanelTests {
         #expect(panel.contains("case .code: return .pro"))
     }
 
-    @Test("the composer renders the panel in-flow and hides the floating model button")
-    func composerWiresInlinePanel() throws {
-        let src = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
-        // The panel is rendered inline (gated by the toggle state).
-        #expect(src.contains("if showInlineRuntimePicker {"))
-        #expect(src.contains("InlineRuntimePickerPanel("))
-        // A trigger in the control strip toggles it.
-        #expect(src.contains("inlineRuntimePickerTrigger"))
-        #expect(src.contains("showInlineRuntimePicker.toggle()"))
-        // The redundant split-toolbar model button is hidden → one picker.
-        #expect(src.contains("hidesModelButton: true"))
-    }
-
-    @Test("hidesModelButton threads through and defaults OFF (other surfaces unchanged)")
-    func hideFlagThreadsAndDefaultsOff() throws {
-        let picker = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
-        #expect(picker.contains("var hidesModelButton: Bool = false"))
-        #expect(picker.contains("hidesModelButton: hidesModelButton"))
-
-        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        #expect(root.contains("var hidesModelButton: Bool = false"))
-        // The model button is conditionally compiled out when the host owns the
-        // inline picker.
-        #expect(root.contains("if !hidesModelButton {"))
-    }
-
     @Test("single-button surfaces get a Settings footer for the advanced bits")
     func panelHasOptionalSettingsFooter() throws {
         let src = try loadMirroredSourceTextFile(
@@ -87,8 +61,9 @@ struct InlineRuntimePickerPanelTests {
     @Test("landing migrated off the popover to the inline panel")
     func landingUsesInlinePanel() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        // The landing brain tool is now a flat trigger, NOT the ChatBrainPickerMenu
-        // popover, and renders the inline panel in-flow with the Settings footer.
+        // The landing brain tool is now a flat trigger, not the deleted chat
+        // picker popover, and renders the inline panel in-flow with the Settings
+        // footer.
         #expect(src.contains("InlineRuntimePickerPanel("))
         #expect(src.contains("showsSettingsFooter: true"))
         #expect(src.contains("showInlineRuntimePicker"))
@@ -149,20 +124,6 @@ struct InlineRuntimePickerPanelTests {
         #expect(src.contains("guard available else"))
     }
 
-    @Test("mini chat migrated off the popover to the inline panel")
-    func miniChatUsesInlinePanel() throws {
-        let src = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        // The composer renders the inline panel in-flow + a cpu trigger, and the
-        // control strip no longer mounts LocalModelToolbarMenu for the picker.
-        #expect(src.contains("InlineRuntimePickerPanel("))
-        #expect(src.contains("showsSettingsFooter: true"))
-        #expect(src.contains("inlineRuntimePickerTrigger"))
-        // The old single-button LocalModelToolbarMenu picker is gone from the
-        // composer strip (the trigger replaced it).
-        #expect(!src.contains("LocalModelToolbarMenu("),
-                "mini chat composer must use the inline panel, not the popover menu")
-    }
-
     @Test("graph node-chat sidebar migrated to the inline panel")
     func graphSidebarUsesInlinePanel() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
@@ -193,7 +154,6 @@ struct InlineRuntimePickerPanelTests {
     func allSingleButtonSurfacesAreNonReductive() throws {
         for path in [
             "Epistemos/Views/Landing/LandingView.swift",
-            "Epistemos/Views/MiniChat/MiniChatView.swift",
             "Epistemos/Views/Graph/HologramSearchSidebar.swift",
             "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift",
         ] {
@@ -225,5 +185,19 @@ struct InlineRuntimePickerPanelTests {
         #expect(src.contains("\\(totalModelCount) models"))
         // The scroll cue only appears when the picks actually overflow the viewport.
         #expect(src.contains("if pickerOverflows"))
+    }
+
+    @Test("the panel renders Foundation Models runtime readback for Apple Intelligence")
+    func panelRendersFoundationModelsRuntimeReadback() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Chat/InlineRuntimePickerPanel.swift"
+        )
+
+        #expect(src.contains("appleIntelligenceUnavailableReason: inference.appleIntelligenceUnavailableReason"))
+        #expect(src.contains("option.requiresNewSessionOnSelection"))
+        #expect(src.contains("option.settingsActionRecommended"))
+        #expect(src.contains("option.availabilitySummary"))
+        #expect(src.contains("Text(\"NEW CHAT\")"))
+        #expect(src.contains("gearshape"))
     }
 }

@@ -15,6 +15,34 @@ import Foundation
 // launches — no fake terminal, no spawn against a missing binary. The moment the
 // vendored bundle is dropped in, the resolver goes LIVE with zero further wiring.
 
+/// W-R2/W-R3 (2026-06-24): registration for the app-hosted native-tools MCP — the in-process loopback HTTP
+/// server (`WorkToolMCPCore` behind an NWListener) that exposes the FULL Epistemos tool set (vault/graph +
+/// Swift-side computer-use) to OpenCode. nil until that server is live → the OpenCode config omits it
+/// (honest; OpenCode then only sees the `epistemos-vault` stdio server).
+// `nonisolated` so the nonisolated `WorkNativeMCPServer.Status` (which has `case running(WorkNativeMCPRegistration)`
+// and is itself Equatable) can use this Equatable conformance off the main actor. Both fields are Sendable value
+// types, so escaping the module's default MainActor isolation is safe.
+nonisolated struct WorkNativeMCPRegistration: Equatable, Sendable {
+    let url: String
+    let token: String
+
+    var isTrustedLoopbackMCP: Bool {
+        Self.isTrustedLoopbackMCP(url: url, token: token)
+    }
+
+    static func isTrustedLoopbackMCP(url: String, token: String) -> Bool {
+        let token = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty,
+              let components = URLComponents(string: url),
+              components.scheme?.lowercased() == "http",
+              components.path == WorkNativeMCPServer.mcpPath,
+              let host = components.host,
+              let port = components.port,
+              (1024...65535).contains(port) else { return false }
+        return host == "127.0.0.1" || host == "localhost" || host == "::1"
+    }
+}
+
 nonisolated enum WorkOpenCodeRuntime {
     /// Loopback only — the OpenCode server is NEVER exposed off-host.
     static let loopbackHost = "127.0.0.1"
@@ -173,7 +201,8 @@ nonisolated enum WorkOpenCodeRuntime {
     /// + testable. This is why launch-time rewrites no longer clobber user installs: we only ever (re)assert OUR
     /// one server, never the whole file.
     static func mergedOpenCodeConfigJSON(
-        existingJSON: String?, stdioServerPath: String, vaultRoot: String
+        existingJSON: String?, stdioServerPath: String, vaultRoot: String,
+        nativeMCP: WorkNativeMCPRegistration? = nil
     ) -> String {
         var root: [String: Any] = {
             guard let existingJSON,
@@ -191,6 +220,17 @@ nonisolated enum WorkOpenCodeRuntime {
             "environment": ["EPISTEMOS_VAULT_ROOT": vaultRoot],
             "enabled": true,
         ]
+        // W-R2/W-R3 (2026-06-24): when the app-hosted native-tools MCP is live, register it so OpenCode can
+        // call the FULL Epistemos tool set (vault/graph + Swift-side computer-use) over loopback. nil →
+        // omitted (honest). Merge-preserving: only (re)asserts OUR entry, never drops user-added servers.
+        if let nativeMCP, nativeMCP.isTrustedLoopbackMCP {
+            mcp["epistemos-native"] = [
+                "type": "remote",
+                "url": nativeMCP.url,
+                "headers": ["Authorization": "Bearer \(nativeMCP.token)"],
+                "enabled": true,
+            ]
+        }
         root["mcp"] = mcp
         // Owner 2026-06-24: OpenCode showed "LSPs are disabled". `"lsp": true` enables LSP globally (OpenCode
         // auto-detects installed language servers); omitting it keeps LSP off. Only set the default when the user
@@ -211,11 +251,14 @@ nonisolated enum WorkOpenCodeRuntime {
     /// back, return its path for `OPENCODE_CONFIG`. nil on failure (caller launches without fusion — honest). This
     /// is the LIVE launch path: it makes the Application-Support config the persistent home AND guarantees launch
     /// never clobbers a user-installed MCP (0.49).
-    static func writeMergedFusionConfig(stdioServerPath: String, vaultRoot: String) -> String? {
+    static func writeMergedFusionConfig(
+        stdioServerPath: String, vaultRoot: String, nativeMCP: WorkNativeMCPRegistration? = nil
+    ) -> String? {
         guard let file = fusionConfigURL() else { return nil }
         let existing = try? String(contentsOf: file, encoding: .utf8)
         let json = mergedOpenCodeConfigJSON(
-            existingJSON: existing, stdioServerPath: stdioServerPath, vaultRoot: vaultRoot)
+            existingJSON: existing, stdioServerPath: stdioServerPath, vaultRoot: vaultRoot,
+            nativeMCP: nativeMCP)
         do {
             try FileManager.default.createDirectory(
                 at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -235,28 +278,37 @@ struct BundledWorkOpenCodeShell: WorkOpenCodeShell {
 
     var isReady: Bool { true }
 
-    func launchSpec(workspace: URL, epistemosVaultRoot: URL?) throws -> WorkShellLaunchSpec {
+    func launchSpec(
+        workspace: URL, epistemosVaultRoot: URL?, nativeMCP: WorkNativeMCPRegistration?
+    ) throws -> WorkShellLaunchSpec {
         var environment = WorkOpenCodeRuntime.shellEnvironment(runtimeURL: runtimeURL)
         // Owner 2026-06-24: make OpenCode's TUI follow the Epistemos theme (it was white/black). Best-effort —
         // writes `theme: system` into ~/.config/opencode/tui.json so OpenCode adapts to the PTY's Epistemos
         // palette. Never blocks the shell.
         WorkOpenCodeRuntime.writeTuiThemeConfig()
-        // FUSION (owner §720 + 0.49b): when the bundled omega_mcp_stdio server is present, write an OpenCode
-        // config registering it rooted at the APP VAULT (NOT the shell cwd) so the work agent sees the app's
-        // vault notes + `skills/` as first-class MCP context, then point OpenCode at it via OPENCODE_CONFIG.
-        // The shell cwd stays `workspace` for shell/file ops; the fusion vault root is decoupled. Best-effort:
-        // a write failure just omits the fusion (the TUI still launches honestly), never blocks the shell.
-        if let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL() {
-            // 0.49b: the fusion MCP server roots at the Epistemos app vault so skills/vault/context bridge into
-            // Work — fall back to the canonical default vault, NEVER the cwd/home (home would bury the app vault
-            // under a 5000-file noisy resource list and miss `skills/`).
-            let fusionVaultRoot = (epistemosVaultRoot ?? FirstRunBootstrap.defaultVaultURL()).path
+        // FUSION (owner §720 + 0.49b): when the bundled omega_mcp_stdio server is present AND a real app vault
+        // is active, write an OpenCode config registering it rooted at the APP VAULT (NOT the shell cwd) so the
+        // work agent sees the app's vault notes + `skills/` as first-class MCP context, then point OpenCode at it
+        // via OPENCODE_CONFIG. The shell cwd stays `workspace` for shell/file ops; the fusion vault root is
+        // decoupled. Best-effort: a write failure just omits the fusion (the TUI still launches honestly).
+        //
+        // HONEST NO-VAULT (owner 2026-06-24 — authority "make the no-vault state honest"): when NO vault is
+        // active (`epistemosVaultRoot == nil`), do NOT silently root the fusion server at the empty default
+        // (~/Documents/Epistemos). That produced a 0-resources MCP that masqueraded as an MCP failure
+        // (diag 8af17c841). Instead OMIT fusion entirely: OpenCode launches with no OPENCODE_CONFIG /
+        // EPISTEMOS_VAULT_ROOT, so omega_mcp_stdio honestly reports no vault (empty resources/list = "no vault
+        // connected", NOT "MCP broken"). The user connects a vault to enable fusion. NEVER the empty default.
+        if let vaultURL = epistemosVaultRoot,
+           let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL() {
+            // Root the fusion MCP server at the live app vault (skills/vault/context bridge), NEVER the cwd/home
+            // (home would bury the app vault under a 5000-file noisy resource list and miss `skills/`).
+            let fusionVaultRoot = vaultURL.path
             // MERGE-PRESERVING (0.49): read the durable opencode.json, fold our fusion server in WITHOUT
             // dropping any MCP/dependency the user installed via the TUI, write back. Launch no longer
             // clobbers user installs — they survive quit+reopen because OPENCODE_CONFIG is this same
             // persistent Application-Support file every launch.
             if let configPath = WorkOpenCodeRuntime.writeMergedFusionConfig(
-                stdioServerPath: serverURL.path, vaultRoot: fusionVaultRoot) {
+                stdioServerPath: serverURL.path, vaultRoot: fusionVaultRoot, nativeMCP: nativeMCP) {
                 environment["OPENCODE_CONFIG"] = configPath
                 environment["EPISTEMOS_VAULT_ROOT"] = fusionVaultRoot
             }

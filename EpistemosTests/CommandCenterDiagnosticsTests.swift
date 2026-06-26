@@ -6,8 +6,8 @@ import Testing
 //
 // These tests pin the Phase 5 contract for the inspector diagnostics shape:
 //   - ingesting a compiled request preserves requested vs resolved
-//   - streaming events mutate diagnostics in the same way the ChatCoordinator
-//     mutates them at runtime
+//   - streaming events mutate diagnostics in the same way the runtime
+//     mutates them
 //   - resetForNewSubmission clears runtime state but preserves compile-time
 //     shape
 //   - fallback events are recorded whenever the runtime has to downgrade the

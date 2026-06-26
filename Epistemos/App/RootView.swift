@@ -1,15 +1,15 @@
 import AppKit
-#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-import OsaurusCore
+#if !EPISTEMOS_APP_STORE
+import AgentClone
 #endif
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
-// ACT = Epistemos's real chat UI with the Osaurus engine and capability layer
+// ACT = Epistemos's real chat UI with the local Act engine and capability layer
 // recalled into it. Epistemos owns the visible landing, toolbar, message bar,
-// side panel, recent-chat popover, and settings chrome; Osaurus owns the model,
-// streaming, tools, permissions, and management data behind that chrome.
+// side panel, recent-chat popover, and settings chrome; the new agent/fusion
+// substrate owns the model, streaming, tools, permissions, and management data.
 
 enum LandingToolbarGlyphs {
     static let greetingSymbol = "textformat"
@@ -146,842 +146,6 @@ enum RootViewDestructiveActionSovereignGate {
     }
 }
 
-#if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-@MainActor
-enum ActOsaurusNativePromptPresenter {
-    private static var permissionWindow: NSPanel?
-    private static var closeObserver: NSObjectProtocol?
-    private static var keyMonitor: Any?
-    private static var activeResolve: ((EpistemosOsaurusNativeToolPermissionDecision) -> Void)?
-
-    static func install() {
-        EpistemosOsaurusManagementBridge.installNativeToolPermissionPresenter { request in
-            await presentToolPermission(request)
-        }
-        EpistemosOsaurusManagementBridge.installNativeProviderCredentialPresenter { request in
-            await presentProviderCredential(request)
-        }
-        EpistemosOsaurusManagementBridge.installNativePairingPresenter { request in
-            await presentPairing(request)
-        }
-    }
-
-    private static func presentToolPermission(
-        _ request: EpistemosOsaurusNativeToolPermissionRequest
-    ) async -> EpistemosOsaurusNativeToolPermissionDecision {
-        guard let bootstrap = AppBootstrap.shared else { return .deny }
-        return await withCheckedContinuation { continuation in
-            presentToolPermission(
-                request,
-                theme: bootstrap.uiState.theme.surfaceVariant(.mainChat),
-                continuation: continuation
-            )
-        }
-    }
-
-    private static func presentToolPermission(
-        _ request: EpistemosOsaurusNativeToolPermissionRequest,
-        theme: EpistemosTheme,
-        continuation: CheckedContinuation<EpistemosOsaurusNativeToolPermissionDecision, Never>
-    ) {
-        dismissPermissionWindow()
-        var hasResumed = false
-
-        let resolve: (EpistemosOsaurusNativeToolPermissionDecision) -> Void = { decision in
-            guard !hasResumed else { return }
-            hasResumed = true
-            dismissPermissionWindow()
-            continuation.resume(returning: decision)
-        }
-        activeResolve = resolve
-
-        let view = ActNativeToolPermissionPromptView(
-            request: request,
-            theme: theme,
-            onResolve: resolve
-        )
-        .padding(24)
-
-        let hosting = NSHostingController(rootView: view)
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 360),
-            styleMask: [.fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = .modalPanel
-        panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.animationBehavior = .alertPanel
-        panel.contentViewController = hosting
-
-        hosting.view.layoutSubtreeIfNeeded()
-        let fitting = hosting.view.fittingSize
-        let size = NSSize(width: max(fitting.width, 520), height: max(fitting.height, 320))
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
-        if let screen {
-            let visible = screen.visibleFrame
-            let x = visible.origin.x + (visible.width - size.width) / 2
-            let y = visible.origin.y + (visible.height - size.height) / 2
-            panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: false)
-        } else {
-            panel.setContentSize(size)
-            panel.center()
-        }
-
-        permissionWindow = panel
-
-        nonisolated(unsafe) let closeResolve = resolve
-        closeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification,
-            object: panel,
-            queue: .main
-        ) { _ in
-            closeResolve(.deny)
-        }
-
-        nonisolated(unsafe) let keyResolve = resolve
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            switch event.keyCode {
-            case 36:
-                keyResolve(.allowOnce)
-                return nil
-            case 53:
-                keyResolve(.deny)
-                return nil
-            default:
-                return event
-            }
-        }
-
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            panel.makeKey()
-            if let contentView = panel.contentView {
-                panel.makeFirstResponder(contentView)
-            }
-        }
-    }
-
-    private static func dismissPermissionWindow() {
-        activeResolve = nil
-        if let observer = closeObserver {
-            NotificationCenter.default.removeObserver(observer)
-            closeObserver = nil
-        }
-        if let monitor = keyMonitor {
-            NSEvent.removeMonitor(monitor)
-            keyMonitor = nil
-        }
-        permissionWindow?.orderOut(nil)
-        permissionWindow = nil
-    }
-
-    private static var providerWindow: NSPanel?
-    private static var providerCloseObserver: NSObjectProtocol?
-    private static var providerKeyMonitor: Any?
-
-    private static func presentProviderCredential(
-        _ request: ProviderCredentialRequest
-    ) async -> ProviderCredentialResult? {
-        guard supportsNativeProviderCredentialPrompt(request),
-              let bootstrap = AppBootstrap.shared
-        else { return nil }
-        return await withCheckedContinuation { continuation in
-            presentProviderCredential(
-                request,
-                theme: bootstrap.uiState.theme.surfaceVariant(.mainChat),
-                continuation: continuation
-            )
-        }
-    }
-
-    private static func supportsNativeProviderCredentialPrompt(_ request: ProviderCredentialRequest) -> Bool {
-        request.instructions.authMethod == .apiKey
-            || request.instructions.storageAuthType == .apiKey
-            || request.instructions.storageAuthType == .none
-    }
-
-    private static func presentProviderCredential(
-        _ request: ProviderCredentialRequest,
-        theme: EpistemosTheme,
-        continuation: CheckedContinuation<ProviderCredentialResult?, Never>
-    ) {
-        dismissProviderWindow()
-        var hasResumed = false
-
-        let resolve: (ProviderCredentialResult?) -> Void = { result in
-            guard !hasResumed else { return }
-            hasResumed = true
-            dismissProviderWindow()
-            continuation.resume(returning: result)
-        }
-
-        let view = ActNativeProviderCredentialPromptView(
-            request: request,
-            theme: theme,
-            onResolve: resolve
-        )
-        .padding(24)
-
-        let hosting = NSHostingController(rootView: view)
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 430),
-            styleMask: [.fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = .modalPanel
-        panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.animationBehavior = .alertPanel
-        panel.contentViewController = hosting
-
-        hosting.view.layoutSubtreeIfNeeded()
-        let fitting = hosting.view.fittingSize
-        let size = NSSize(width: max(fitting.width, 560), height: max(fitting.height, 360))
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
-        if let screen {
-            let visible = screen.visibleFrame
-            let x = visible.origin.x + (visible.width - size.width) / 2
-            let y = visible.origin.y + (visible.height - size.height) / 2
-            panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: false)
-        } else {
-            panel.setContentSize(size)
-            panel.center()
-        }
-
-        providerWindow = panel
-
-        nonisolated(unsafe) let closeResolve = resolve
-        providerCloseObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification,
-            object: panel,
-            queue: .main
-        ) { _ in
-            closeResolve(.cancelled)
-        }
-
-        nonisolated(unsafe) let keyResolve = resolve
-        providerKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 {
-                keyResolve(.cancelled)
-                return nil
-            }
-            return event
-        }
-
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            panel.makeKey()
-            if let contentView = panel.contentView {
-                panel.makeFirstResponder(contentView)
-            }
-        }
-    }
-
-    private static func dismissProviderWindow() {
-        if let observer = providerCloseObserver {
-            NotificationCenter.default.removeObserver(observer)
-            providerCloseObserver = nil
-        }
-        if let monitor = providerKeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            providerKeyMonitor = nil
-        }
-        providerWindow?.orderOut(nil)
-        providerWindow = nil
-    }
-
-    private static var pairingWindow: NSPanel?
-    private static var pairingCloseObserver: NSObjectProtocol?
-    private static var pairingKeyMonitor: Any?
-
-    private static func presentPairing(
-        _ request: EpistemosOsaurusNativePairingRequest
-    ) async -> EpistemosOsaurusNativePairingDecision {
-        guard let bootstrap = AppBootstrap.shared else { return .deny }
-        let decision = await withCheckedContinuation { continuation in
-            presentPairing(
-                request,
-                theme: bootstrap.uiState.theme.surfaceVariant(.mainChat),
-                continuation: continuation
-            )
-        }
-
-        switch decision {
-        case .approveTemporary, .approvePermanent:
-            let outcome = await bootstrap.sovereignGate.confirm(
-                .deviceOwnerAuthentication,
-                reason: "Approve pairing with \(request.agentName.isEmpty ? "this remote Osaurus agent" : request.agentName)."
-            )
-            return outcome == .allowed ? decision : .deny
-        case .deny:
-            return .deny
-        }
-    }
-
-    private static func presentPairing(
-        _ request: EpistemosOsaurusNativePairingRequest,
-        theme: EpistemosTheme,
-        continuation: CheckedContinuation<EpistemosOsaurusNativePairingDecision, Never>
-    ) {
-        dismissPairingWindow()
-        var hasResumed = false
-
-        let resolve: (EpistemosOsaurusNativePairingDecision) -> Void = { decision in
-            guard !hasResumed else { return }
-            hasResumed = true
-            dismissPairingWindow()
-            continuation.resume(returning: decision)
-        }
-
-        let view = ActNativePairingPromptView(
-            request: request,
-            theme: theme,
-            onResolve: resolve
-        )
-        .padding(24)
-
-        let hosting = NSHostingController(rootView: view)
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 540, height: 370),
-            styleMask: [.fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = .modalPanel
-        panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.animationBehavior = .alertPanel
-        panel.contentViewController = hosting
-
-        hosting.view.layoutSubtreeIfNeeded()
-        let fitting = hosting.view.fittingSize
-        let size = NSSize(width: max(fitting.width, 540), height: max(fitting.height, 340))
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
-        if let screen {
-            let visible = screen.visibleFrame
-            let x = visible.origin.x + (visible.width - size.width) / 2
-            let y = visible.origin.y + (visible.height - size.height) / 2
-            panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: false)
-        } else {
-            panel.setContentSize(size)
-            panel.center()
-        }
-
-        pairingWindow = panel
-
-        nonisolated(unsafe) let closeResolve = resolve
-        pairingCloseObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification,
-            object: panel,
-            queue: .main
-        ) { _ in
-            closeResolve(.deny)
-        }
-
-        nonisolated(unsafe) let keyResolve = resolve
-        pairingKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 {
-                keyResolve(.deny)
-                return nil
-            }
-            return event
-        }
-
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            panel.makeKey()
-            if let contentView = panel.contentView {
-                panel.makeFirstResponder(contentView)
-            }
-        }
-    }
-
-    private static func dismissPairingWindow() {
-        if let observer = pairingCloseObserver {
-            NotificationCenter.default.removeObserver(observer)
-            pairingCloseObserver = nil
-        }
-        if let monitor = pairingKeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            pairingKeyMonitor = nil
-        }
-        pairingWindow?.orderOut(nil)
-        pairingWindow = nil
-    }
-}
-
-private struct ActNativeToolPermissionPromptView: View {
-    let request: EpistemosOsaurusNativeToolPermissionRequest
-    let theme: EpistemosTheme
-    let onResolve: (EpistemosOsaurusNativeToolPermissionDecision) -> Void
-
-    private var cleanedDescription: String {
-        let trimmed = request.description.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "This Osaurus tool action needs your approval." : trimmed
-    }
-
-    private var prettyArguments: String {
-        let trimmed = request.argumentsJSON.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              let data = trimmed.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data),
-              let pretty = try? JSONSerialization.data(
-                withJSONObject: object,
-                options: [.prettyPrinted, .sortedKeys]
-              )
-        else {
-            return trimmed
-        }
-        return String(decoding: pretty, as: UTF8.self)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "terminal.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(theme.resolved.accent.color)
-                    .frame(width: 28, height: 28)
-                    .background(theme.resolved.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Approve Act Tool")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(theme.resolved.foreground.color)
-                    Text(request.toolName)
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(theme.textTertiary)
-                }
-
-                Spacer()
-            }
-
-            Text(cleanedDescription)
-                .font(.system(size: 13))
-                .foregroundStyle(theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if !prettyArguments.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Arguments", systemImage: "curlybraces")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(theme.textTertiary)
-
-                    ScrollView([.vertical, .horizontal]) {
-                        Text(prettyArguments)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
-                            .textSelection(.enabled)
-                            .padding(10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 148)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    onResolve(.deny)
-                } label: {
-                    Label("Deny", systemImage: "xmark")
-                        .frame(minWidth: 80, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
-                .keyboardShortcut(.cancelAction)
-
-                Spacer()
-
-                Button {
-                    onResolve(.alwaysAllow)
-                } label: {
-                    Label("Always", systemImage: "checkmark.seal")
-                        .frame(minWidth: 98, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
-
-                Button {
-                    onResolve(.allowOnce)
-                } label: {
-                    Label("Allow", systemImage: "checkmark")
-                        .frame(minWidth: 90, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .primary))
-                .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(16)
-        .frame(width: 430)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(theme.card.opacity(theme.isDark ? 0.96 : 0.92))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.regularMaterial)
-                        .opacity(theme.isDark ? 0.14 : 0.36)
-                )
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(theme.border.opacity(theme.isDark ? 0.56 : 0.42), lineWidth: 0.8)
-        }
-        .shadow(color: .black.opacity(theme.isDark ? 0.34 : 0.18), radius: 24, y: 12)
-    }
-}
-
-private struct ActPermissionPanelButtonStyle: ButtonStyle {
-    enum Role {
-        case primary
-        case secondary
-    }
-
-    let theme: EpistemosTheme
-    let role: Role
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .semibold, design: .rounded))
-            .foregroundStyle(role == .primary ? Color.white : theme.textSecondary)
-            .padding(.horizontal, 8)
-            .background(background(configuration.isPressed), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .strokeBorder(border, lineWidth: 0.75)
-            }
-    }
-
-    private var border: Color {
-        role == .primary ? theme.resolved.accent.color.opacity(0.28) : theme.border.opacity(0.48)
-    }
-
-    private func background(_ isPressed: Bool) -> Color {
-        switch role {
-        case .primary:
-            return theme.resolved.accent.color.opacity(isPressed ? 0.74 : 0.94)
-        case .secondary:
-            return theme.resolved.foreground.color.opacity(isPressed ? 0.10 : 0.055)
-        }
-    }
-}
-
-private struct ActNativeProviderCredentialPromptView: View {
-    let request: ProviderCredentialRequest
-    let theme: EpistemosTheme
-    let onResolve: (ProviderCredentialResult?) -> Void
-
-    @State private var apiKey = ""
-    @State private var extraFieldValues: [String: String] = [:]
-
-    private var requiresAPIKey: Bool {
-        request.instructions.storageAuthType != .none
-    }
-
-    private var canSave: Bool {
-        if requiresAPIKey && apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return false
-        }
-        return request.instructions.extraFields
-            .filter(\.isRequired)
-            .allSatisfy { field in
-                !(extraFieldValues[field.key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "key.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(theme.resolved.accent.color)
-                    .frame(width: 28, height: 28)
-                    .background(theme.resolved.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(providerTitle)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(theme.resolved.foreground.color)
-                    Text("Stored in Osaurus Keychain")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(theme.textTertiary)
-                }
-
-                Spacer()
-            }
-
-            if let hint = request.instructions.keyFormatHint, !hint.isEmpty {
-                Text(hint)
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                if requiresAPIKey {
-                    fieldLabel("API Key")
-                    SecureField("Paste key", text: $apiKey)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13, design: .monospaced))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 9)
-                        .background(inputBackground)
-                        .overlay(inputBorder)
-                } else {
-                    Text("This provider can be saved without a key.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.textSecondary)
-                }
-
-                ForEach(request.instructions.extraFields, id: \.key) { field in
-                    VStack(alignment: .leading, spacing: 6) {
-                        fieldLabel(field.label + (field.isRequired ? "" : " (optional)"))
-                        TextField(
-                            field.placeholder,
-                            text: Binding(
-                                get: { extraFieldValues[field.key] ?? "" },
-                                set: { extraFieldValues[field.key] = $0 }
-                            )
-                        )
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 9)
-                        .background(inputBackground)
-                        .overlay(inputBorder)
-
-                        if let help = field.helpText, !help.isEmpty {
-                            Text(help)
-                                .font(.system(size: 11))
-                                .foregroundStyle(theme.textTertiary)
-                        }
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    onResolve(.cancelled)
-                } label: {
-                    Label("Cancel", systemImage: "xmark")
-                        .frame(minWidth: 92, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
-                .keyboardShortcut(.cancelAction)
-
-                Spacer()
-
-                Button {
-                    onResolve(.apiKey(key: apiKey.trimmingCharacters(in: .whitespacesAndNewlines), headers: collectedExtraHeaders()))
-                } label: {
-                    Label("Save", systemImage: "checkmark")
-                        .frame(minWidth: 94, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .primary))
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canSave)
-            }
-        }
-        .padding(16)
-        .frame(width: 460)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(theme.card.opacity(theme.isDark ? 0.96 : 0.92))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.regularMaterial)
-                        .opacity(theme.isDark ? 0.14 : 0.36)
-                )
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(theme.border.opacity(theme.isDark ? 0.56 : 0.42), lineWidth: 0.8)
-        }
-        .shadow(color: .black.opacity(theme.isDark ? 0.34 : 0.18), radius: 24, y: 12)
-    }
-
-    private var providerTitle: String {
-        switch request.mode {
-        case .addNew:
-            return "Connect \(request.instructions.displayName)"
-        case .rotate:
-            return "Update \(request.instructions.displayName)"
-        }
-    }
-
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
-            .foregroundStyle(theme.textTertiary)
-    }
-
-    private var inputBackground: some View {
-        RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
-    }
-
-    private var inputBorder: some View {
-        RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
-    }
-
-    private func collectedExtraHeaders() -> [String: String]? {
-        let pairs = request.instructions.extraFields.compactMap { field -> (String, String)? in
-            let value = (extraFieldValues[field.key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            return value.isEmpty ? nil : (field.key, value)
-        }
-        return pairs.isEmpty ? nil : Dictionary(uniqueKeysWithValues: pairs)
-    }
-}
-
-private struct ActNativePairingPromptView: View {
-    let request: EpistemosOsaurusNativePairingRequest
-    let theme: EpistemosTheme
-    let onResolve: (EpistemosOsaurusNativePairingDecision) -> Void
-
-    private var agentName: String {
-        let trimmed = request.agentName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Remote Osaurus Agent" : trimmed
-    }
-
-    private var shortAddress: String {
-        let address = request.connectorAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard address.count > 22 else { return address }
-        return "\(address.prefix(10))...\(address.suffix(8))"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "person.crop.circle.badge.checkmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(theme.resolved.accent.color)
-                    .frame(width: 28, height: 28)
-                    .background(theme.resolved.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Approve Act Pairing")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(theme.resolved.foreground.color)
-                    Text(agentName)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(theme.textTertiary)
-                }
-
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("A remote Osaurus agent wants to pair with Epistemos Act.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(theme.textSecondary)
-                Text("Approving grants an access credential. Epistemos will ask for device authentication before the pairing is accepted.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            VStack(alignment: .leading, spacing: 7) {
-                Label("Connector", systemImage: "link")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(theme.textTertiary)
-                Text(shortAddress)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.9))
-                    .textSelection(.enabled)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
-                    }
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    onResolve(.deny)
-                } label: {
-                    Label("Deny", systemImage: "xmark")
-                        .frame(minWidth: 84, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
-                .keyboardShortcut(.cancelAction)
-
-                Spacer()
-
-                Button {
-                    onResolve(.approveTemporary)
-                } label: {
-                    Label("Allow Once", systemImage: "checkmark")
-                        .frame(minWidth: 108, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .secondary))
-
-                Button {
-                    onResolve(.approvePermanent)
-                } label: {
-                    Label("Remember", systemImage: "checkmark.seal")
-                        .frame(minWidth: 112, minHeight: 30)
-                }
-                .buttonStyle(ActPermissionPanelButtonStyle(theme: theme, role: .primary))
-                .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(16)
-        .frame(width: 450)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(theme.card.opacity(theme.isDark ? 0.96 : 0.92))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.regularMaterial)
-                        .opacity(theme.isDark ? 0.14 : 0.36)
-                )
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(theme.border.opacity(theme.isDark ? 0.56 : 0.42), lineWidth: 0.8)
-        }
-        .shadow(color: .black.opacity(theme.isDark ? 0.34 : 0.18), radius: 24, y: 12)
-    }
-}
-#endif
 
 private struct HomeWindowIdentityObserver: NSViewRepresentable {
     let themeIsDark: Bool
@@ -1028,7 +192,6 @@ private final class HomeWindowIdentityObserverView: NSView {
 
 struct RootView: View {
     @Environment(UIState.self) private var ui
-    @Environment(ChatState.self) private var chat
     @Environment(GraphState.self) private var graphState
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
@@ -1044,30 +207,15 @@ struct RootView: View {
     @State private var showGreetingControls = false
     @State private var showWorkspaceSwitcher = false
     @State private var showTimeMachine = false
-    @State private var actEntered = ProcessInfo.processInfo.environment["EPI_ACT_ENTERED"] == "1"
-    @State private var selectedActSessionId: UUID?
-    @State private var pendingActPrompt: PendingActPrompt?
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
     /// Only delays the *reveal*; hiding is always immediate.
     @State private var homeChatToolbarReady = false
 
-    /// Owner 2026-06-24: the right-side context-panel toggle belongs UP IN THE TOOLBAR (it had migrated to the
-    /// composer bar). Shares the SAME AppStorage key as ChatView's `showBrainPanel`, so toggling from the
-    /// toolbar and from the panel/composer stay in sync automatically (one UserDefaults key).
-    @AppStorage("mainChat.showBrainPanel") private var showActContextPanel = true
-
-    /// True when Home tab is showing an active chat (not landing).
+    /// The old Epistemos-native chat surface has been removed; chat activity now
+    /// belongs to the protected AgentClone/fusion route.
     private var activeHomeChat: Bool {
-        ui.homeTab == .home
-            && !chat.showLanding
-            && !chat.messages.isEmpty
-            && !showingActChatSurface
-            // Owner 2026-06-24 regression: the ACT LANDING ("Click anywhere") is gated by `actEntered`,
-            // independent of `chat.showLanding`/`messages`. With leftover messages, activeHomeChat went true
-            // WHILE the act landing rendered → the chat toolbar (back chevron + stale model-output title)
-            // leaked onto the landing. The act landing is NOT an active chat.
-            && !actLandingSurfaceVisible
+        false
     }
 
     private var embeddedHomeGraphContentVisible: Bool {
@@ -1084,39 +232,9 @@ struct RootView: View {
         return false
     }
 
-    /// True when the user is inside Act chat. The landing and chat surface stay
-    /// Epistemos-native; Osaurus is only the model/tool/permission layer below it.
-    private var showingActChatSurface: Bool {
-        #if EPISTEMOS_APP_STORE
-        return false
-        #else
-        // Owner 2026-06-24: MUST also be in ACT workspace mode. Without this, switching to WORK left
-        // `actEntered` true → the act chat toolbar (back chevron + act title) AND the toolbar glass (a white
-        // bar at the top of the Work surface) leaked into Work, and a stale act/model title popped into the
-        // Work titlebar. Gating on the workspace mode confines the act chrome to act.
-        return ui.homeTab == .home
-            && WorkspaceModeSelection.current() == .act
-            && LocalAgentLoop.shouldRouteActThroughOsaurus()
-            && actEntered
-        #endif
-    }
-
-    private var actLandingSurfaceVisible: Bool {
-        #if EPISTEMOS_APP_STORE
-        return false
-        #else
-        return ui.homeTab == .home
-            && WorkspaceModeSelection.current() == .act
-            && LocalAgentLoop.shouldRouteActThroughOsaurus()
-            && !actEntered
-        #endif
-    }
-
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
             && !embeddedHomeGraphContentVisible
-            && (chat.showLanding || chat.messages.isEmpty || actLandingSurfaceVisible)
-            && !showingActChatSurface
     }
 
     private var showEmbeddedGraphToolbarControls: Bool {
@@ -1132,7 +250,6 @@ struct RootView: View {
         if embeddedHomeGraphContentVisible {
             return embeddedHomeGraphNoteVisible
         }
-        if showingActChatSurface { return true }
         return activeHomeChat && homeChatToolbarReady
     }
 
@@ -1157,11 +274,7 @@ struct RootView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            ContentRouter(
-                actEntered: $actEntered,
-                selectedActSessionId: $selectedActSessionId,
-                pendingActPrompt: $pendingActPrompt
-            )
+            ContentRouter()
         }
         .background(HomeWindowIdentityObserver(themeIsDark: ui.theme.isDark))
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: activeHomeChat)
@@ -1178,17 +291,10 @@ struct RootView: View {
             HologramController.shared.syncTheme(ui)
         }
         .toolbar {
-            // Back button — during an active home chat or after entering Act from the landing.
-            if !embeddedHomeGraphContentVisible && ui.homeTab == .home && (activeHomeChat || showingActChatSurface) {
+            // Back button — only present for future active home-chat routing.
+            if !embeddedHomeGraphContentVisible && ui.homeTab == .home && activeHomeChat {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        if showingActChatSurface {
-                            actEntered = false
-                            selectedActSessionId = nil
-                            pendingActPrompt = nil
-                        } else {
-                            chat.goHome()
-                        }
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                     }
@@ -1196,12 +302,7 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            if showingActChatSurface {
-                ToolbarItem(placement: .principal) {
-                    modelToolbarButton(title: actToolbarTitle)
-                }
-                .sharedBackgroundVisibility(.hidden)
-            } else if showLandingToolbarControls
+            if showLandingToolbarControls
                 || showEmbeddedGraphToolbarControls
                 || (!embeddedHomeGraphContentVisible && activeHomeChat)
             {
@@ -1212,17 +313,6 @@ struct RootView: View {
                     (ui.homeTab == .home && activeHomeChat)
                         ? .hidden : .automatic
                 )
-            }
-            if showingActChatSurface {
-                ToolbarItem(placement: .primaryAction) {
-                    ControlGroup {
-                        historyToolbarButton
-                        actContextPanelToolbarButton
-                        settingsToolbarButton
-                        actMiniChatToolbarButton
-                        actExportToolbarButton
-                    }
-                }
             }
         }
         .navigationTitle("")
@@ -1377,9 +467,6 @@ struct RootView: View {
                 .animation(.easeOut(duration: 0.28), value: embeddedHomeGraphContentVisible)
             }
 
-            if activeHomeChat {
-                modelToolbarButton(title: chat.chatTitle)
-            }
         }
         .frame(minWidth: 160, minHeight: 28)
         .fixedSize()
@@ -1393,14 +480,9 @@ struct RootView: View {
         .help("Settings (⌘S)")
     }
 
-    private var actToolbarTitle: String {
-        let title = chat.chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return title.isEmpty ? "Act" : title
-    }
-
     @ViewBuilder
     private func modelToolbarButton(title: String? = nil) -> some View {
-        let resolvedTitle = title ?? chat.chatTitle ?? ""
+        let resolvedTitle = title ?? "Epistemos"
         MotionTitle(
             text: resolvedTitle,
             font: .system(size: 16, weight: .semibold, design: .rounded),
@@ -1420,11 +502,6 @@ struct RootView: View {
 
     private func openContextualSettingsWindow() {
         openSettingsWindow()
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        if showingActChatSurface || actLandingSurfaceVisible {
-            NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
-        }
-        #endif
     }
 
     private var landingGreetingToolbarButton: some View {
@@ -1458,261 +535,13 @@ struct RootView: View {
         }
     }
 
-    private var actMiniChatToolbarButton: some View {
-        Button(action: openCurrentActInMiniChat) {
-            Label("Open in Mini Chat", systemImage: "arrow.up.right.square")
-        }
-        .accessibilityLabel("Open Act in Mini Chat")
-        .help("Open Act in Mini Chat")
-    }
-
-    private var actExportToolbarButton: some View {
-        Button(action: exportCurrentActTranscript) {
-            Label("Export", systemImage: "square.and.arrow.up")
-        }
-        .accessibilityLabel("Export Act Chat")
-        .help("Export Act Chat")
-        .disabled(chat.messages.isEmpty)
-    }
-
-    /// Owner 2026-06-24: the side (context) panel toggle, restored to the toolbar (was only on the composer bar).
-    /// Toggles the shared `mainChat.showBrainPanel` AppStorage so it stays in sync with the panel + composer.
-    private var actContextPanelToolbarButton: some View {
-        Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
-                showActContextPanel.toggle()
-            }
-        } label: {
-            Label(
-                showActContextPanel ? "Hide Context Panel" : "Show Context Panel",
-                systemImage: "sidebar.right"
-            )
-        }
-        .accessibilityLabel(showActContextPanel ? "Hide context panel" : "Show context panel")
-        .help(showActContextPanel ? "Hide context panel" : "Show context panel")
-    }
-
-    private func openCurrentActInMiniChat() {
-        if let activeChatId = chat.activeChatId {
-            MiniChatWindowController.shared.openChat(
-                activeChatId,
-                preferredOperatingMode: .agent
-            )
-        } else {
-            MiniChatWindowController.shared.openNewChat(preferredOperatingMode: .agent)
-        }
-    }
-
-    private func exportCurrentActTranscript() {
-        guard !chat.messages.isEmpty else { return }
-        ChatTextExportSupport.save(
-            actTranscriptMarkdown(),
-            suggestedFilename: "act-chat-\(Date().formatted(.iso8601.year().month().day())).md",
-            contentType: .plainText
-        )
-    }
-
-    private func actTranscriptMarkdown() -> String {
-        let title = chat.chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let heading = title.isEmpty ? "Act Chat Export" : title
-        let lines = chat.messages.map { message in
-            let role = message.role == .user ? "You" : "Assistant"
-            return "## \(role)\n\n\(ChatPresentationFormatter.displayContent(for: message))"
-        }
-        return "# \(heading)\n\n\(lines.joined(separator: "\n\n---\n\n"))"
-    }
-
     @ViewBuilder
     private var historyPopoverContent: some View {
-        if showingActChatSurface || actLandingSurfaceVisible {
-            ChatSidebarView {
-                pendingActPrompt = nil
-                withAnimation(.easeOut(duration: 0.28)) {
-                    actEntered = true
-                }
-            }
-        } else {
-            ChatSidebarView()
-        }
-    }
-}
-
-private struct PendingActPrompt {
-    let id = UUID()
-    let text: String
-    var contextAttachments: [ContextAttachment] = []
-    var fileAttachments: [FileAttachment] = []
-}
-
-struct ActEpistemosChatSurface: View {
-    @Environment(UIState.self) private var ui
-    @Environment(ChatState.self) private var chat
-    @Environment(OrchestratorState.self) private var orchestrator
-    @Environment(InferenceState.self) private var inference
-
-    let sessionId: UUID?
-    let initialPrompt: String?
-    let initialPromptId: UUID?
-    var initialContextAttachments: [ContextAttachment] = []
-    var initialFileAttachments: [FileAttachment] = []
-    let onInitialPromptConsumed: () -> Void
-    var onCurrentSessionChanged: (UUID?) -> Void = { _ in }
-
-    @State private var consumedInitialPromptId: UUID?
-
-    var body: some View {
-        ChatView(
-            actUsesOsaurus: true,
-            availableOperatingModesOverride: [.agent],
-            composerMode: .osaurusAct,
-            showsToolbarControls: false,
-            onOpenActConfiguration: openActConfiguration
-        )
-        .background(AppWindowBackdropStyle.background(for: ui.theme).ignoresSafeArea())
-        .onAppear {
-            loadRequestedSessionIfNeeded()
-            publishCurrentSession()
-        }
-        .onChange(of: sessionId) { _, _ in
-            loadRequestedSessionIfNeeded()
-            publishCurrentSession()
-        }
-        .onChange(of: chat.activeChatId) { _, _ in
-            publishCurrentSession()
-        }
-        .task(id: initialPromptId) {
-            await submitInitialPromptIfNeeded()
-        }
-    }
-
-    private func loadRequestedSessionIfNeeded() {
-        guard let sessionId else { return }
-        let chatId = sessionId.uuidString
-        guard chat.activeChatId != chatId else { return }
-        AppBootstrap.shared?.loadChat(chatId: chatId)
-        loadLegacyOsaurusTranscriptIfNeeded(sessionId)
-    }
-
-    private func loadLegacyOsaurusTranscriptIfNeeded(_ sessionId: UUID) {
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        let chatId = sessionId.uuidString
-        guard chat.activeChatId != chatId || chat.messages.isEmpty,
-              let transcript = EpistemosOsaurusSessionBridge.loadTranscript(id: sessionId)
-        else { return }
-
-        let messages = transcript.messages.compactMap { message -> ChatMessage? in
-            switch message.role {
-            case .user:
-                return ChatMessage(
-                    id: message.id.uuidString,
-                    chatId: chatId,
-                    role: .user,
-                    content: message.content,
-                    createdAt: message.createdAt ?? .now
-                )
-            case .assistant:
-                return ChatMessage(
-                    id: message.id.uuidString,
-                    chatId: chatId,
-                    role: .assistant,
-                    content: ActOsaurusVisibleStreamFilter.visibleStoredText(from: message.content),
-                    createdAt: message.createdAt ?? message.completedAt ?? .now,
-                    authoredByProviderID: "act",
-                    authoredByModelID: transcript.selectedModel,
-                    resolvedModelLabel: actResolvedModelLabel(for: transcript.selectedModel),
-                    thinkingTrace: message.thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? nil
-                        : message.thinking,
-                    thinkingDurationSeconds: message.thinkingDuration
-                )
-            case .tool, .system:
-                return nil
-            }
-        }
-
-        chat.setCurrentChat(chatId)
-        chat.chatTitle = Self.cleanActChatTitle(transcriptTitle: transcript.title, messages: messages)
-        chat.loadMessages(messages)
-        #endif
-    }
-
-    /// Derive a CLEAN act chat title for the titlebar (owner 2026-06-24 regression: the model's streamed
-    /// self-intro leaked into the window title). Osaurus auto-titles a session from its content — often the
-    /// ASSISTANT response — so never use it raw. Prefer the FIRST USER message (the standard chat-title
-    /// convention), single-line + capped; fall back to a sanitized transcript title, then "Act".
-    private static func cleanActChatTitle(transcriptTitle: String, messages: [ChatMessage]) -> String {
-        func sanitize(_ raw: String) -> String {
-            let firstLine = raw.split(whereSeparator: \.isNewline).first.map(String.init) ?? raw
-            let trimmed = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.count > 48 else { return trimmed }
-            return String(trimmed.prefix(48)).trimmingCharacters(in: .whitespaces) + "…"
-        }
-        if let firstUser = messages.first(where: { $0.role == .user })?.content {
-            let userTitle = sanitize(firstUser)
-            if !userTitle.isEmpty { return userTitle }
-        }
-        let fallback = sanitize(transcriptTitle)
-        return fallback.isEmpty ? "Act" : fallback
-    }
-
-    private func actResolvedModelLabel(for selectedModel: String?) -> String {
-        guard let selectedModel = selectedModel?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !selectedModel.isEmpty
-        else { return "Act" }
-        return "Act · \(selectedModel)"
-    }
-
-    private func submitInitialPromptIfNeeded() async {
-        guard let initialPromptId,
-              consumedInitialPromptId != initialPromptId
-        else { return }
-        consumedInitialPromptId = initialPromptId
-        loadRequestedSessionIfNeeded()
-
-        for attachment in initialContextAttachments {
-            chat.addContextAttachment(attachment)
-        }
-        for attachment in initialFileAttachments {
-            chat.addAttachment(attachment)
-        }
-
-        let prompt = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        onInitialPromptConsumed()
-        guard !prompt.isEmpty else { return }
-
-        MainChatSubmissionRouter.submit(
-            prompt,
-            operatingMode: .agent,
-            chat: chat,
-            orchestrator: orchestrator,
-            inference: inference,
-            forceActOsaurus: true
-        )
-        publishCurrentSession()
-    }
-
-    private func publishCurrentSession() {
-        if let activeChatId = chat.activeChatId,
-           let activeUUID = UUID(uuidString: activeChatId) {
-            onCurrentSessionChanged(activeUUID)
-        } else {
-            onCurrentSessionChanged(sessionId)
-        }
-    }
-
-    private func openActConfiguration() {
-        // OWNER 2026-06-24 (REVERSAL, confirmed): the native-recoded Act settings (ActCloneSettingsView)
-        // "don't really work" + got messy. Use the REAL Osaurus settings, reskinned native. showActSettings()
-        // applies the source skin + cream/native ThemeManager tokens (persist:false) then presents the full
-        // Osaurus ManagementView (HF marketplace, agent creation, themes, all tabs + animations) — the working
-        // settings the native re-code was missing. See memory project_act_settings_use_osaurus_reskinned_2026_06_24.
-        NSApp.activate()
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        EpistemosOsaurusManagementBridge.showActSettings()
-        #else
-        UtilityWindowManager.shared.show(.settings)
-        NotificationCenter.default.post(name: .showActOsaurusSettings, object: nil)
-        #endif
+        Text("Use the Act session rail for current context and session controls.")
+            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .foregroundStyle(ui.theme.textSecondary)
+            .padding(16)
+            .frame(width: 300, height: 180)
     }
 }
 
@@ -1765,7 +594,6 @@ struct LocalModelToolbarMenu: View {
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
     @Environment(LocalModelManager.self) private var localModelManager
-    @Environment(CompanionState.self) private var companionState
     @State private var isPresented = false
     @State private var activeSplitPopover: SplitToolbarPopover?
     @State private var showsLocalModels = false
@@ -2229,12 +1057,11 @@ struct LocalModelToolbarMenu: View {
             } else if usesSplitToolbarControls {
                 splitToolbarControls
             } else {
-                // When the surface opted out of split toolbar controls
-                // (mini/note/graph chat), size the single popover button to
-                // fit the actual label rather than reserving worst-case
-                // "Apple Intelligence Agent" width. The stable-width
-                // reservation still applies when a split-toolbar caller
-                // falls through this branch (e.g. via `overrideTitle`).
+                // When the surface opts out of split toolbar controls, size the
+                // single popover button to fit the actual label rather than
+                // reserving worst-case "Apple Intelligence Agent" width. The
+                // stable-width reservation still applies when a split-toolbar
+                // caller falls through this branch (e.g. via `overrideTitle`).
                 let usesCompactNaturalWidth = operatingMode != nil
                     && overrideTitle == nil
                     && !preferSplitToolbarControls
@@ -2446,40 +1273,11 @@ struct LocalModelToolbarMenu: View {
         }
     }
 
-    /// In-chat agent switcher: activate any Companion (agent) directly from the
-    /// model picker. The active Companion's system instruction + persona already
-    /// flow into the chat (AppBootstrap wires activeCompanionInstructionProvider
-    /// into the pipeline), so switching here changes how the chat behaves — your
-    /// agents are now reachable from the chat, not just the Landing farm.
+    /// Landing companions are visible mascots during the AgentClone fusion; they
+    /// are not mounted as an in-chat runtime switcher.
     @ViewBuilder
     private var agentSwitcherSection: some View {
-        if !companionState.roster.isEmpty {
-            Divider()
-                .padding(.vertical, 2)
-            VStack(alignment: .leading, spacing: 8) {
-                popoverSectionTitle("Agents")
-                selectionRow(
-                    title: "No agent (base)",
-                    subtitle: "Plain chat with the selected model.",
-                    systemImage: "person",
-                    isSelected: companionState.activeCompanionID == nil
-                ) {
-                    companionState.deactivate()
-                    activeSplitPopover = nil
-                }
-                ForEach(companionState.roster) { entry in
-                    selectionRow(
-                        title: entry.name,
-                        subtitle: entry.tagline.isEmpty ? "Custom agent" : entry.tagline,
-                        systemImage: "sparkles",
-                        isSelected: companionState.activeCompanionID == entry.id
-                    ) {
-                        companionState.activate(entry.id)
-                        activeSplitPopover = nil
-                    }
-                }
-            }
-        }
+        EmptyView()
     }
 
     @ViewBuilder
@@ -2716,6 +1514,7 @@ struct LocalModelToolbarMenu: View {
             installedModelIDs: installed,
             freeMemoryGB: freeGB,
             appleIntelligenceAvailable: inference.appleIntelligenceAvailable,
+            appleIntelligenceUnavailableReason: inference.appleIntelligenceUnavailableReason,
             additionalPicks: RuntimePickerExtraPicksBuilder.picks(
                 installedIDs: installed,
                 advertised: store.effectiveAdvertised(fullCatalog: installed),
@@ -2772,8 +1571,8 @@ struct LocalModelToolbarMenu: View {
                     ForEach(EpistemosRuntimePicker.options(for: tier, environment: runtimePickerEnvironment)) { option in
                         selectionRow(
                             title: option.title,
-                            subtitle: option.blockedReason ?? tier.tagline,
-                            systemImage: option.isAppleIntelligence ? "apple.intelligence" : tier.systemImage,
+                            subtitle: option.blockedReason ?? (option.isAppleIntelligence ? option.availabilitySummary : tier.tagline),
+                            systemImage: option.systemImage,
                             isSelected: isRuntimePickSelected(option),
                             isEnabled: option.isSelectable
                         ) {
@@ -3790,58 +2589,86 @@ private struct AuditRootShellMinimalContentView: View {
 }
 
 private struct ContentRouter: View {
-    @Binding var actEntered: Bool
-    @Binding var selectedActSessionId: UUID?
-    @Binding var pendingActPrompt: PendingActPrompt?
-
     var body: some View {
         if RuntimeAuditRootFlags.rootShellMinimalContentEnabled {
             AuditRootShellMinimalContentView()
         } else {
-            HomeRouter(
-                actEntered: $actEntered,
-                selectedActSessionId: $selectedActSessionId,
-                pendingActPrompt: $pendingActPrompt
-            )
+            HomeRouter()
         }
     }
 }
 
 // MARK: - Home Router
-// Separate view so the Chat/Landing switch doesn't affect the outer ZStack.
-// Uses withAnimation at call-site (submitQuery/clearMessages) for the transition.
+// Separate view so the mode switch doesn't affect the outer ZStack.
 
 private struct HomeRouter: View {
-    @Environment(ChatState.self) private var chat
     @Environment(UIState.self) private var ui
     // 0.49b: the live vault so Work's fusion MCP server roots at the app vault (skills/context bridge).
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(AgentChatState.self) private var agentChat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Binding var actEntered: Bool
-    @Binding var selectedActSessionId: UUID?
-    @Binding var pendingActPrompt: PendingActPrompt?
 
-    /// act↔work surface toggle (owner: "a toggle to open work"). Act keeps the
-    /// Epistemos landing/chat surface and routes model/tool capability through
-    /// Osaurus underneath; Work enters OpenCode's native terminal. Persisted via
-    /// `WorkspaceModeSelection`.
+    /// Chat/Act/Work surface toggle. Chat and Act now enter the protected
+    /// AgentClone/fusion surface; Work enters OpenCode's native terminal.
     @State private var workspaceMode: WorkspaceModeKind = WorkspaceModeSelection.current()
 
-    /// D2 (owner P0, addendum §1886 + landing→blur→act flow): Act shows the
-    /// Epistemos `LandingView` first. Background/search-tile interaction reveals
-    /// the centered search stage; submitting enters the Epistemos chat surface
-    /// with Osaurus capability routed underneath. Per-session: false on launch
-    /// (landing first), true once entered.
-    // VERIFY HOOK: env `EPI_ACT_ENTERED=1` starts in the Act chat chrome for render checks.
     /// The work terminal roots at the user's home by default.
     private static var workWorkspaceURL: URL { URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true) }
 
-    /// Show chat when messages exist AND user hasn't navigated to landing.
-    private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
+    /// App-owned compatibility storage for the embedded Act runtime. This keeps
+    /// internal session state under Epistemos while donor script/tool roots stay
+    /// untouched until they can be migrated safely.
+    private static var agentCloneSupportURL: URL {
+        URL(
+            fileURLWithPath: AgentCloneAppContextSnapshot.defaultAppSupportPath(
+                appName: HomeWindowIdentity.title
+            ),
+            isDirectory: true
+        )
+    }
 
-    /// 0.42: the Work surface's recent-chats entry point. Presents the SAME unified `ChatSidebarView`
-    /// (Act + Work two-section list, 0.48b) the act surface uses via the shared `ui.showChatSidebar` flag —
-    /// so Work gets a recent-chat bar without a second store. Tapping a Work row reopens via `.openWorkSession`.
+    private var agentCloneContextSnapshot: AgentCloneAppContextSnapshot {
+        AgentCloneAppContextSnapshot(
+            appName: HomeWindowIdentity.title,
+            workspacePath: Self.workWorkspaceURL.path,
+            vaultPath: vaultSync.vaultURL?.path,
+            appSupportPath: Self.agentCloneSupportURL.path,
+            modeLabel: workspaceMode.defaultLabel,
+            portalContext: agentChat.activePortalContext ?? .main(
+                sessionId: agentChat.activeSessionId,
+                vaultRootPath: vaultSync.vaultURL?.path,
+                workspacePath: Self.workWorkspaceURL.path
+            )
+        )
+    }
+
+    /// The `.chat` mode surface keeps AgentClone as the visible Swift-agent
+    /// foundation. Old Epistemos chat UI is a visual ontology reference only;
+    /// the old local chat backend must not drive this route.
+    @ViewBuilder private var chatModeSurface: some View {
+        #if !EPISTEMOS_APP_STORE
+        let _ = AgentClone.AgentSkin.configure(
+            bg: ui.theme.chatSurface,
+            surface: ui.theme.card,
+            border: ui.theme.border,
+            text: ui.theme.textPrimary,
+            textDim: ui.theme.mutedForeground,
+            accent: ui.theme.uiAccent
+        )
+        AgentCloneChatHostSurface(
+            context: agentCloneContextSnapshot,
+            onSyncHostContext: syncAgentCloneHostContext
+        )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .tint(ui.theme.uiAccent)
+            .ignoresSafeArea(edges: .bottom)
+        #else
+        LandingView()
+        #endif
+    }
+
+    /// Work-side access to the current Act session controls while the old
+    /// recent-chat surface stays removed.
     private var workRecentChatsButton: some View {
         @Bindable var ui = ui
         return Button {
@@ -3855,28 +2682,24 @@ private struct HomeRouter: View {
         }
         .buttonStyle(.plain)
         .padding(12)
-        .help("Recent Chats (Act + Work)")
-        .accessibilityLabel("Recent Chats")
+        .help("Recent chats")
+        .accessibilityLabel("Recent chats")
         .popover(isPresented: $ui.showChatSidebar) {
-            ChatSidebarView()
-                .frame(width: 300, height: 500)
-                .preferredColorScheme(ui.preferredColorScheme)
+            Text("Use the Act session rail for current context and session controls.")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(ui.theme.textSecondary)
+                .padding(16)
+                .frame(width: 300, height: 180)
         }
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            // ACT = Epistemos chat/search surface backed by Osaurus capability.
-            // WORK = OpenCode's native terminal. The act↔work toggle switches
-            // the surface.
+            // CHAT/ACT = protected AgentClone/fusion surface. WORK = protected
+            // OpenCode native terminal.
             Group {
                 #if EPISTEMOS_APP_STORE
-                // MAS: act-only — the SwiftTerm/OpenCode work terminal is Pro-only.
-                if showChat {
-                    ChatView().transition(.blurFade())
-                } else {
-                    LandingView().transition(.blurFade())
-                }
+                chatModeSurface.transition(.blurFade())
                 #else
                 if workspaceMode == .work {
                     // 0.49b: hand Work the live Epistemos vault so its fusion MCP server roots there —
@@ -3886,119 +2709,73 @@ private struct HomeRouter: View {
                         workspace: Self.workWorkspaceURL,
                         epistemosVaultRoot: vaultSync.vaultURL)
                         .transition(.blurFade())
-                        // 0.42: Work-side access to the UNIFIED recent-chats popover (owner: "work should have a
-                        // recent chat bar") — same ChatSidebarView the act surface uses, with its Act + Work
-                        // sections. One recent-chats system, surfaced on both modes.
                         .overlay(alignment: .topLeading) { workRecentChatsButton }
-                } else if LocalAgentLoop.shouldRouteActThroughOsaurus() {
-                    // Epistemos LandingView FIRST -> centered search -> submit -> Epistemos chat.
-                    if actEntered {
-                        actEpistemosChatSurface
-                            .transition(.blurFade())
-                    } else {
-                        LandingView(onSubmitActPrompt: { prompt in
-                            selectedActSessionId = nil
-                            pendingActPrompt = PendingActPrompt(text: prompt)
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.32)) {
-                                actEntered = true
-                            }
-                        })
-                        .transition(.blurFade())
-                    }
-                } else if showChat {
-                    ChatView().transition(.blurFade())
                 } else {
-                    LandingView().transition(.blurFade())
+                    chatModeSurface.transition(.blurFade())
                 }
                 #endif
             }
 
             #if !EPISTEMOS_APP_STORE
-            // Persistent act↔work toggle so the user can switch from launch/landing;
-            // hidden during an active act chat so it never overlays the thread.
-            if !(workspaceMode == .act && (LocalAgentLoop.shouldRouteActThroughOsaurus() && actEntered)) {
-                WorkspaceModeToggle(mode: $workspaceMode)
-                    .padding(.top, 10)
-            }
+            WorkspaceModeToggle(mode: $workspaceMode)
+                .padding(.top, 10)
             #endif
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showChat)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: workspaceMode)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: actEntered)
-        .onReceive(NotificationCenter.default.publisher(for: .openActOsaurusSession)) { notification in
-            guard let sessionId = notification.object as? UUID else { return }
-            WorkspaceModeSelection.select(.act)
-            workspaceMode = .act
-            selectedActSessionId = sessionId
-            pendingActPrompt = nil
-            ui.setActivePanel(.home)
-            ui.homeTab = .home
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) {
-                actEntered = true
-            }
-            HomeWindowIdentity.surfaceHomeWindow()
+        .onChange(of: workspaceMode) { _, _ in
+            syncAgentCloneHostContext()
+        }
+        .onChange(of: vaultSync.vaultURL) { _, _ in
+            syncAgentCloneHostContext()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openWorkSession)) { _ in
-            // 0.48b-part2: reopen a Work session from the recent-chats popover → flip to .work (mirrors the act
-            // reopen above). The work surface relaunches at its workspace; the worker row is a session marker.
             WorkspaceModeSelection.select(.work)
             workspaceMode = .work
             ui.setActivePanel(.home)
             ui.homeTab = .home
             HomeWindowIdentity.surfaceHomeWindow()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .showActOsaurusSettings)) { _ in
-            // Owner 2026-06-24 (settings reversal): ALL act Configuration entry points (graph/note/mini/landing
-            // post this notification) now open the reskinned Osaurus settings — NOT the native ActCloneSettingsView.
-            // Handled here in the always-mounted HomeRouter so it fires regardless of whether the settings window
-            // is open; SettingsView no longer navigates to the native pane. Pro-only (OsaurusCore).
-            #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-            EpistemosOsaurusManagementBridge.showActSettings()
-            #endif
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .submitActOsaurusPrompt)) { notification in
-            guard let request = notification.object as? ActOsaurusPromptRequest else { return }
-            let prompt = request.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !prompt.isEmpty else { return }
+        .onReceive(NotificationCenter.default.publisher(for: .openAgentPortal)) { notification in
+            guard let portalContext = AgentPortalRouteRequest.portalContext(from: notification) else {
+                return
+            }
             WorkspaceModeSelection.select(.act)
             workspaceMode = .act
-            selectedActSessionId = nil
-            pendingActPrompt = PendingActPrompt(
-                text: prompt,
-                contextAttachments: request.contextAttachments,
-                fileAttachments: request.fileAttachments
-            )
-            selectedActSessionId = request.sessionId
             ui.setActivePanel(.home)
             ui.homeTab = .home
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) {
-                actEntered = true
-            }
+            agentChat.startNewSession(portalContext: portalContext)
             HomeWindowIdentity.surfaceHomeWindow()
+            syncAgentCloneHostContext()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: WorkspaceModeSelection.didSelectNotification)) { notification in
+            guard let rawMode = notification.userInfo?[WorkspaceModeSelection.selectedModeUserInfoKey] as? String,
+                  let candidate = WorkspaceModeKind(rawValue: rawMode),
+                  candidate != workspaceMode
+            else { return }
+
+            workspaceMode = candidate
+            if candidate != .work {
+                syncAgentCloneHostContext()
+            }
         }
     }
 
-    @ViewBuilder
-    private var actEpistemosChatSurface: some View {
-        #if !EPISTEMOS_APP_STORE && canImport(OsaurusCore)
-        ActEpistemosChatSurface(
-            sessionId: selectedActSessionId,
-            initialPrompt: pendingActPrompt?.text,
-            initialPromptId: pendingActPrompt?.id,
-            initialContextAttachments: pendingActPrompt?.contextAttachments ?? [],
-            initialFileAttachments: pendingActPrompt?.fileAttachments ?? [],
-            onInitialPromptConsumed: {
-                pendingActPrompt = nil
-            },
-            onCurrentSessionChanged: { sessionId in
-                selectedActSessionId = sessionId
-            }
+    private func syncAgentCloneHostContext() {
+        #if !EPISTEMOS_APP_STORE
+        guard workspaceMode != .work else { return }
+        let snapshot = agentCloneContextSnapshot
+        AgentCloneBridge.updateHostContext(
+            AgentCloneHostContext(
+                appName: snapshot.appName,
+                workspaceRootPath: snapshot.workspacePath,
+                vaultRootPath: snapshot.vaultPath,
+                appSupportRootPath: snapshot.appSupportPath,
+                mode: snapshot.modeLabel,
+                presentation: snapshot.bridgePresentation
+            )
         )
-        #else
-        ChatView()
         #endif
     }
-
 }
 
 // MARK: - Workspace Mode Toggle
@@ -4017,7 +2794,7 @@ private struct WorkspaceModeToggle: View {
                     withAnimation(.easeOut(duration: 0.2)) { mode = candidate }
                     WorkspaceModeSelection.select(candidate)
                 } label: {
-                    Text(candidate == .act ? "Act" : "Work")
+                    Text(candidate.defaultLabel.capitalized)
                         .font(.callout.weight(.medium))
                         .foregroundStyle(selected ? Color.primary : Color.secondary)
                         .padding(.horizontal, 14)

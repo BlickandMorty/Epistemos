@@ -310,7 +310,7 @@ nonisolated public enum PromptNode: Sendable {
 nonisolated public enum PromptComposer {
 
     /// Compose a Prompt for a chat turn. The base for N1's WRV anchor
-    /// in ChatCoordinator.swift. Inputs are the same ones the existing
+    /// in the prompt-tree route. Inputs are the same ones the existing
     /// agent invocation already has — no new context retrieval.
     ///
     /// The composer is deterministic: same inputs → same Prompt id → same
@@ -379,7 +379,7 @@ nonisolated public enum PromptComposer {
     // MARK: - Helpers (internal)
 
     /// Best-effort parse of a JSON-encoded `[ToolDefinition]` shape into
-    /// `ToolSpec`s. The existing ChatCoordinator already produces this
+    /// `ToolSpec`s. Existing agent routes already produce this
     /// JSON via `Self.encodedToolDefinitionsJSON(...)`. We only require:
     ///   - top-level is an array
     ///   - each entry has `name` (String), `description` (String),

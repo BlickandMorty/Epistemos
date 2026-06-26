@@ -3430,7 +3430,7 @@ nonisolated enum CloudStreamingParser {
     /// visible text stream. Callers that want to surface thinking in a
     /// popover route this to the reasoning channel; callers that don't
     /// just ignore it. Keeping the parser available as a static so
-    /// future wiring (PipelineEvent.reasoningDelta → ChatState
+    /// future wiring (PipelineEvent.reasoningDelta → transcript state
     /// .appendStreamingThinking) can land without changing the call
     /// site that currently uses openAICompatibleTextDelta.
     static func openAICompatibleReasoningDelta(from json: [String: Any]) -> String? {

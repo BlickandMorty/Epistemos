@@ -143,7 +143,7 @@ public struct ActiveConstellationRow: View {
         }
     }
 
-    private func badgeTint(_ tone: AgentBlueprintModelBadgeTone) -> Color {
+    private func badgeTint(_ tone: LocalAgentDiagnostics.CapabilityBadgeTone) -> Color {
         switch tone {
         case .good:
             .green

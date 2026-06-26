@@ -8,7 +8,7 @@ import os
 /// knowledge graph for relevant agent memories, recipes, and linked notes,
 /// then injects this context into the AI prompt for richer, grounded responses.
 ///
-/// This bridges the Omega agent system with the existing NoteChatState:
+/// This bridges the Omega agent system with note/editor AI features:
 /// - Agent executions create graph nodes (via AgentGraphMemory)
 /// - Ghost brain reads those nodes when the user writes about related topics
 /// - The AI response is grounded in the user's accumulated knowledge

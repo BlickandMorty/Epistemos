@@ -129,8 +129,6 @@ targets:
         product: MLXHuggingFace
       - package: vmlx-swift
         product: VMLXTokenizers
-      - package: OsaurusCore
-        product: OsaurusCore
       # WORK = OpenCode shell (owner 2026-06-21): SwiftTerm = the native terminal view
       # (NSView LocalProcessTerminalView + PTY) that renders OpenCode's REAL terminal TUI
       # natively (Option A — keep the real terminal UI, not an Electron GUI, not a native
@@ -544,22 +542,14 @@ packages:
   HuggingFace:
     url: https://github.com/huggingface/swift-huggingface.git
     version: 0.9.0
-  # Osaurus consolidation (owner 2026-06-21, full Osaurus / no dual-MLX clash):
-  # Epistemos consolidates onto Osaurus's vmlx-swift — the SAME MLX stack OsaurusCore
-  # links — so OsaurusCore links without two packages defining MLX* modules. vmlx-swift
-  # provides the same module names (MLX/MLXNN/MLXOptimizers/MLXLLM/MLXLMCommon/MLXVLM/
-  # MLXEmbedders). Replaces ml-explore/mlx-swift + LocalPackages/mlx-swift-lm.
+  # Local MLX runtime consolidation (owner 2026-06-21): vmlx-swift provides the
+  # MLX module family used by Epistemos without adding a second MLX stack.
+  # Replaces ml-explore/mlx-swift + LocalPackages/mlx-swift-lm.
   vmlx-swift:
     path: LocalPackages/vmlx-swift
-  # Osaurus act engine (owner 2026-06-21, full Osaurus): the vendored OsaurusCore SPM library.
-  # Linked into the main direct-distribution target only (MAS off — owner directive). Uses the
-  # local vmlx-swift (one MLX). Heavy deps (NIO/MCP/SQLCipher/Sparkle/Sentry/Containerization)
-  # resolve transitively.
-  OsaurusCore:
-    path: LocalPackages/osaurus/Packages/OsaurusCore
   # WORK = OpenCode shell native terminal view (owner 2026-06-21). SwiftTerm
   # (migueldeicaza/SwiftTerm, MIT) — the macOS NSView terminal emulator + PTY host.
-  # Vendored locally (lean ~5 MB, offline-deterministic) like osaurus/vmlx-swift.
+  # Vendored locally (lean ~5 MB, offline-deterministic) like vmlx-swift.
   SwiftTerm:
     path: LocalPackages/SwiftTerm
   GGUFRuntimeBridge:
@@ -580,7 +570,7 @@ packages:
   CodeEditLanguages:
     url: https://github.com/CodeEditApp/CodeEditLanguages.git
     from: "0.1.20"
-  # MLXStructured (petrukha-ivan/mlx-swift-structured) REMOVED in the Osaurus MLX
+  # MLXStructured (petrukha-ivan/mlx-swift-structured) REMOVED in the local MLX
   # consolidation (owner 2026-06-21): it pins ml-explore/mlx-swift, which would re-introduce
   # the dual-MLX clash against vmlx-swift. Its consumer (LocalToolGrammar.swift) is
   # `#if canImport(MLXStructured)`-guarded, so it degrades cleanly to the omegaSoftGuidance

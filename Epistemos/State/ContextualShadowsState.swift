@@ -67,7 +67,7 @@ final class ContextualShadowsState {
     // MARK: - Constants
 
     /// Minimum query length per AMBIENT_RECALL_WIRING_PLAN R3 — avoids
-    /// recall noise on quick acks ("ok", "hi") in the chat composer.
+    /// recall noise on quick acks ("ok", "hi") in input surfaces.
     nonisolated static let minimumQueryLength: Int = 6
 
     /// Default recall payload shown across typing surfaces. This intentionally
@@ -226,8 +226,8 @@ final class ContextualShadowsState {
         latestScopeKey = scopeKey
         cancelPendingTask(scopeKey: scopeKey)
 
-        // Minimum query length keeps the chat composer quiet during quick
-        // acks; the note composer also benefits from skipping very short
+        // Minimum query length keeps input surfaces quiet during quick
+        // acks; note editing also benefits from skipping very short
         // partial words.
         let queryText = Self.recallQuery(from: snapshot.text)
         guard queryText.count >= Self.minimumQueryLength else {

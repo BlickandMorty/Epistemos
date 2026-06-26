@@ -124,7 +124,6 @@ final class ProseTextView2: NSTextView {
     var pageUndoManager: UndoManager?
 
     nonisolated(unsafe) var usesRenderedTableOverlays = false
-    nonisolated(unsafe) var hasProtectedInlineResponseDivider = false
 
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
@@ -149,7 +148,6 @@ final class ProseTextView2: NSTextView {
     // Stable editor notification names used by the note workspace and tests.
     nonisolated static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
     nonisolated static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
-    nonisolated static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
     nonisolated static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
     nonisolated static let translateNotification = Notification.Name("EpistemosTranslateText")
     nonisolated static let scrollToOffsetNotification = Notification.Name("EpistemosScrollToOffset")
@@ -433,10 +431,6 @@ final class ProseTextView2: NSTextView {
         let replacementLength = (replacementString as NSString?)?.length ?? 0
         lastFrictionEditDelta = replacementLength - affectedCharRange.length
 
-        if hasProtectedInlineResponseDivider,
-           NoteChatInlineResponse.editTouchesDivider(in: string, affectedRange: affectedCharRange) {
-            return false
-        }
         if MarkdownEditorCommands.isSelectionInsideTable(in: string, selection: affectedCharRange) {
             return false
         }
@@ -1718,46 +1712,7 @@ final class ProseTextView2: NSTextView {
         dumpItem.target = self
         menu.addItem(dumpItem)
 
-        // AI Assistant submenu
-        menu.addItem(NSMenuItem.separator())
-        let aiMenu = NSMenu(title: "AI Assistant")
-        let hasSelection = selectedRange().length > 0
-        if hasSelection {
-            aiMenu.addItem(
-                makeAIItem("Rewrite", icon: "arrow.triangle.2.circlepath", op: "rewrite"))
-            aiMenu.addItem(makeAIItem("Summarize", icon: "text.quote", op: "summarize"))
-            aiMenu.addItem(
-                makeAIItem("Expand", icon: "arrow.up.left.and.arrow.down.right", op: "expand"))
-            aiMenu.addItem(makeAIItem("Simplify", icon: "text.redaction", op: "simplify"))
-            aiMenu.addItem(NSMenuItem.separator())
-            aiMenu.addItem(makeAIItem("Convert to List", icon: "list.bullet", op: "toList"))
-            aiMenu.addItem(makeAIItem("Convert to Table", icon: "tablecells", op: "toTable"))
-            aiMenu.addItem(NSMenuItem.separator())
-            aiMenu.addItem(makeAIItem("Translate", icon: "character.book.closed", op: "translate"))
-        } else {
-            aiMenu.addItem(makeAIItem("Continue Writing", icon: "text.append", op: "continue"))
-            aiMenu.addItem(makeAIItem("Generate Outline", icon: "list.number", op: "outline"))
-            aiMenu.addItem(
-                makeAIItem("Suggest Structure", icon: "rectangle.3.group", op: "structure"))
-            aiMenu.addItem(NSMenuItem.separator())
-            aiMenu.addItem(
-                makeAIItem("Restructure Note", icon: "arrow.triangle.branch", op: "restructure"))
-        }
-        let aiSubmenuItem = NSMenuItem(title: "AI Assistant", action: nil, keyEquivalent: "")
-        aiSubmenuItem.submenu = aiMenu
-        aiSubmenuItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "AI")
-        menu.addItem(aiSubmenuItem)
-
         return menu
-    }
-
-    private func makeAIItem(_ title: String, icon: String, op: String) -> NSMenuItem {
-        let item = NSMenuItem(
-            title: title, action: #selector(handleAIOperation(_:)), keyEquivalent: "")
-        item.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
-        item.target = self
-        item.representedObject = op
-        return item
     }
 
     @objc private func contextRevealInGraph(_ sender: NSMenuItem) {
@@ -1777,23 +1732,6 @@ final class ProseTextView2: NSTextView {
             name: Self.createBrainDumpNotification, object: nil,
             userInfo: pageId.map { ["pageId": $0] }
         )
-    }
-
-    @objc private func handleAIOperation(_ sender: NSMenuItem) {
-        guard let op = sender.representedObject as? String else { return }
-        var userInfo: [String: String] = ["operation": op]
-        if let pageId { userInfo["pageId"] = pageId }
-        let sel = selectedRange()
-        if sel.length > 0, let str = string as NSString? {
-            userInfo["selectedText"] = str.substring(with: sel)
-        }
-        if op == "translate" {
-            NotificationCenter.default.post(
-                name: Self.translateNotification, object: nil, userInfo: userInfo)
-            return
-        }
-        NotificationCenter.default.post(
-            name: Self.aiOperationNotification, object: nil, userInfo: userInfo)
     }
 
     @objc private func openBlockPropertySheet() {

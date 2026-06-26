@@ -48,9 +48,10 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        // 19 visible: the prior 17 (Agent consolidation + S.6 privacy pane + Provenance Console,
-        // Substrate Health, Experimental Features) PLUS the per-clone settings tabs actClone +
-        // workClone (owner directive 4 — "per-clone SETTINGS as tabs: Epistemos|act|work|beyond").
+        // 19 visible: Agent consolidation + S.6 privacy pane + Provenance Console,
+        // Substrate Health, Experimental Features, and the current per-clone
+        // Work/Beyond settings tabs. The Act settings pane was removed with
+        // the AgentClone route; Act entrypoints now use the protected bridge.
         #expect(SettingsView.SettingsSection.visibleSections.count == 19)
     }
 
@@ -117,8 +118,9 @@ struct SettingsCategoryTests {
             .skills, .agent,
             .landing, .appearance, .vault, .privacy, .provenance,
             .substrateHealth, .experimentalFeatures,
-            // Per-clone settings tabs (owner directive 4): act + work clone panes.
-            .actClone, .workClone,
+            // Current per-clone settings tabs. Act now routes through AgentClone
+            // and keeps only the protected notification bridge in this worktree.
+            .workClone, .beyondClone,
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)
     }

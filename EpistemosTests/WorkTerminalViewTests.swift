@@ -49,12 +49,26 @@ struct WorkTerminalViewTests {
         #expect(!src.contains("import WebKit"))
     }
 
+    @Test("launch-spec failures surface as a themed unavailable state instead of a stuck spinner")
+    func launchSpecFailuresSurface() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkTerminalView.swift")
+        #expect(src.contains("@State private var resolveError"))
+        #expect(src.contains("WorkTerminalUnavailableView(detail: resolveError, palette: palette)"))
+        #expect(src.contains("resolveError = \"Couldn't start Epistemos Work terminal:"))
+        #expect(!src.contains("resolvedSpec = (try? await realShellSpec())"))
+    }
+
     @Test("the terminal is FULLY theme-responsive — derives from the live app theme + re-applies live (§162)")
     func terminalIsThemeResponsive() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkTerminalView.swift")
         // Palette derives from the app theme (NOT a hardcoded constant for the live path).
         #expect(src.contains("static func from(theme:"))
         #expect(src.contains("theme.resolved.background") && src.contains("theme.resolved.foreground"))
+        #expect(src.contains("background: .textBackgroundColor"))
+        #expect(src.contains("foreground: .labelColor"))
+        #expect(src.contains("cursor: .controlAccentColor"))
+        #expect(!src.contains("calibratedRed"))
+        #expect(!src.contains("cream/ink"))
         // Reads the LIVE theme via the @Observable UIState → recolors on every theme change (incl. custom).
         #expect(src.contains("@Environment(UIState.self)"))
         #expect(src.contains("ui.theme"))

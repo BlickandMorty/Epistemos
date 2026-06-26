@@ -128,12 +128,10 @@ struct ProviderBrandLogoTests {
         #expect(ProviderBrand.fromLabel("Mystery Model") == .generic)
     }
 
-    @Test("the logo is wired into the picker rows + the chat per-message badge")
-    func wiredIntoPickerAndChat() throws {
+    @Test("the logo is wired into the picker rows")
+    func wiredIntoPicker() throws {
         let picker = try loadMirroredSourceTextFile("Epistemos/Views/Chat/InlineRuntimePickerPanel.swift")
         #expect(picker.contains("ProviderLogoView("))
         #expect(picker.contains("ProviderBrand.local(modelID: option.id)"))
-        let bubble = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
-        #expect(bubble.contains("ProviderLogoView(brand: ProviderBrand.fromLabel(label)"))
     }
 }

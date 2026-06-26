@@ -282,7 +282,7 @@ struct PerProviderReasoningPersistenceTests {
         }
         if let mixedThinking = CloudStreamingParser.googleReasoningDelta(from: mixedChunk) {
             // Late thinking after visible answer must still be retained
-            // (ChatState routes it to the post-answer lane).
+            // for the rebuilt AgentClone/fusion transcript lane.
             state.appendStreamingThinking(mixedThinking)
         }
 
@@ -354,28 +354,4 @@ struct PerProviderReasoningPersistenceTests {
         #expect(projection.thinkingDurationSeconds == 3.25)
     }
 
-    // MARK: - 5. Streaming buffer policy source-guard
-
-    @Test(
-        "StreamingDelegate-side AgentStreamEvent producers use .bufferingNewest(256), never .unbounded"
-    )
-    func streamingDelegateUsesBoundedBufferingPolicy() throws {
-        let bridgeSource = try loadMirroredSourceTextFile("Epistemos/Bridge/StreamingDelegate.swift")
-        let coordinatorSource = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
-
-        // The delegate itself just owns a Continuation — the actual
-        // AsyncStream<AgentStreamEvent> is constructed at the call sites
-        // in ChatCoordinator (the only producers of that stream type).
-        // Both producer sites and the delegate file together must:
-        // (a) explicitly opt into .bufferingNewest(256), and
-        // (b) never use .unbounded for AgentStreamEvent.
-        let producerPattern = "AsyncStream<AgentStreamEvent>(bufferingPolicy: .bufferingNewest(256))"
-        #expect(coordinatorSource.contains(producerPattern))
-
-        // Defensive guard: nobody should regress to .unbounded for this
-        // event stream — that's the buffer-policy non-negotiable.
-        #expect(!coordinatorSource.contains("AsyncStream<AgentStreamEvent>(bufferingPolicy: .unbounded)"))
-        #expect(!bridgeSource.contains("AsyncStream<AgentStreamEvent>(bufferingPolicy: .unbounded)"))
-        #expect(!bridgeSource.contains(".unbounded)"))
-    }
 }

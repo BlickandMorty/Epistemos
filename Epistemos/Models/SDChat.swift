@@ -20,7 +20,7 @@ final class SDChat {
     /// One of the values in `SDChat.chatTypeValues`. Worker sessions
     /// (Pass 8) use "worker" so the composer auto-enables the
     /// full tunnel surface and surfaces a worker badge in the UI.
-    var chatType: String = "chat"       // "chat", "notes", "dialogue", "codeAsk", "aiPartner", "worker"
+    var chatType: String = "chat"       // "chat", "agent", "notes", "dialogue", "codeAsk", "aiPartner", "worker"
     /// Page ID of the note this chat is linked to (note chats + cross-system association).
     var linkedPageId: String?
 
@@ -31,6 +31,7 @@ final class SDChat {
     /// have one source of truth.
     static let chatTypeValues: [String] = [
         "chat", "notes", "dialogue", "codeAsk", "aiPartner", "worker",
+        "agent",
     ]
 
     /// True when this chat is a Worker Session — the full capability

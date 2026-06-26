@@ -16,12 +16,8 @@ final class PinnedInspector: Identifiable {
     var displayedSummary: String = ""
     var isSummarizing: Bool = false
     var profile: DialogueNodeProfile?
-    var chatMessages: [InspectorChatMessage] = []
-    var chatInput: String = ""
-    var isChatStreaming: Bool = false
     
     private var summaryTask: Task<Void, Never>?
-    private var chatTask: Task<Void, Never>?
     private var profileTask: Task<Void, Never>?
     private var summaryCache: [String: String] = [:]
     private var profileCache: [ProfileCacheKey: DialogueNodeProfile] = [:]
@@ -56,7 +52,6 @@ final class PinnedInspector: Identifiable {
     
     func close() {
         summaryTask?.cancel()
-        chatTask?.cancel()
         profileTask?.cancel()
     }
     
@@ -296,82 +291,6 @@ final class PinnedInspector: Identifiable {
         return parts.joined(separator: "\n")
     }
     
-    // MARK: - Chat
-    
-    func sendMessage(
-        store: GraphStore,
-        modelContext: ModelContext,
-        operatingMode: EpistemosOperatingMode = .fast
-    ) {
-        let query = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty, !isChatStreaming else { return }
-        guard let node = nodeReference else { return }
-        
-        chatInput = ""
-        chatMessages.append(InspectorChatMessage(role: .user, text: query))
-        chatMessages.append(InspectorChatMessage(role: .assistant, text: ""))
-        isChatStreaming = true
-        
-        chatTask?.cancel()
-        chatTask = Task {
-            defer { isChatStreaming = false }
-            
-            let content = await fetchContent(for: node, store: store, modelContext: modelContext)
-            var context = "Selected node: \(node.label) (\(node.type.displayName))\n\n"
-            context += "Node context:\n\(String(content.prefix(4200)))\n\n"
-            context += "User question: \(query)"
-            
-            guard let triage = AppBootstrap.shared?.triageService else {
-                appendToLastAssistant("AI service unavailable.")
-                return
-            }
-            
-            let stream = triage.streamGeneral(
-                prompt: context,
-                systemPrompt: nil,
-                operation: .chatResponse(query: query),
-                contentLength: context.count,
-                operatingMode: operatingMode,
-                localSurface: .graph
-            )
-            
-            do {
-                for try await chunk in stream {
-                    guard !Task.isCancelled else { return }
-                    appendToLastAssistant(chunk)
-                }
-                finalizeLastAssistantText()
-            } catch {
-                guard !Task.isCancelled else { return }
-                if chatMessages.last?.text.isEmpty == true {
-                    appendToLastAssistant(UserFacingChatError.message(from: error))
-                }
-            }
-        }
-    }
-    
-    func stopChat() {
-        chatTask?.cancel()
-        chatTask = nil
-        isChatStreaming = false
-    }
-    
-    private func appendToLastAssistant(_ text: String) {
-        guard let lastIndex = chatMessages.indices.last,
-              chatMessages[lastIndex].role == .assistant else { return }
-        chatMessages[lastIndex].text += text
-    }
-
-    private func finalizeLastAssistantText() {
-        guard let lastIndex = chatMessages.indices.last,
-              chatMessages[lastIndex].role == .assistant else { return }
-
-        let visibleText = UserFacingModelOutput.finalVisibleText(from: chatMessages[lastIndex].text)
-        chatMessages[lastIndex].text =
-            visibleText.isEmpty
-            ? "The model finished without a usable answer. Try Fast mode or another model."
-            : visibleText
-    }
 }
 
 // MARK: - PinnedInspectorManager

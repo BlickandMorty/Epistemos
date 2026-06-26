@@ -20,8 +20,7 @@ import Foundation
 /// full list, so the agent never ends up with zero tools. Multi-turn caveat: the footprint
 /// is chosen from the opening objective; the footprint default is deliberately generous so
 /// follow-on tool needs are usually still covered. The flag stays OFF until the owner
-/// validates the ON behaviour in-app. Mirrors the `SystemGFlags` gating shape used a few
-/// lines up in `LocalAgentLoop.run`.
+/// validates the ON behaviour in-app.
 nonisolated enum SchemaPreflightToolNarrowing {
     /// The env-var flag — single source of truth shared with Rust `SCHEMA_PREFLIGHT_FLAG`
     /// (`agent_core/src/tool_preflight.rs`). A cross-runtime parity test pins them equal.

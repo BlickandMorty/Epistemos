@@ -4,7 +4,7 @@ import Foundation
 @testable import Epistemos
 
 // SUBSTRATE Phase 0 (owner 2026-06-20, docs/research/SUBSTRATE_BUILD_SEQUENCE_2026_06_20.md):
-// FREEZE the model-handoff seam so the new model (SSM/dual-brain) + the Companion→Osaurus clones
+// FREEZE the model-handoff seam so the new model (SSM/dual-brain) + future agent clones
 // attach later with ZERO consumer rework. The frozen contract that everything downstream builds
 // against: AnswerPacket.attentionMode ∈ {dynamic, static_fallback, unavailable}, honest default
 // `unavailable` (a packet NEVER falsely implies dynamic interrupt execution), additive (a missing

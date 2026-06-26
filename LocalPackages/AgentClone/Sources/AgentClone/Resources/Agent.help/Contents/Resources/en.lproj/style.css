@@ -1,0 +1,192 @@
+/* Agent Help — Apple Help Book stylesheet with dark/light mode support.
+   Modeled after Logos InkPen Help (which renders correctly in Help Viewer).
+   No <kbd> element — keys use <code class="key"> to sidestep any UA
+   stylesheet interference with the default <kbd> rendering. */
+
+:root {
+  color-scheme: light dark;
+
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f7;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --border-color: #d2d2d7;
+  --border-subtle: #e5e5ea;
+  --link-color: #0066cc;
+  --link-visited: #6e40c9;
+  --code-bg: #f0f0f2;
+  --note-bg: #fff9e6;
+  --note-border: #ffcc00;
+  --warning-bg: #ffeeee;
+  --warning-border: #ff3b30;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #2c2c2e;
+    --text-primary: #f5f5f7;
+    --text-secondary: #8e8e93;
+    --border-color: #3a3a3c;
+    --border-subtle: #3a3a3c;
+    --link-color: #2997ff;
+    --link-visited: #bf5af2;
+    --code-bg: #2c2c2e;
+    --note-bg: #3a2f00;
+    --note-border: #ffd60a;
+    --warning-bg: #3a1515;
+    --warning-border: #ff453a;
+  }
+}
+
+body {
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  margin: 0;
+  padding: 20px 28px;
+  max-width: 720px;
+}
+
+.header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+}
+
+h2 { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 8px; }
+h3 { font-size: 14px; font-weight: 600; margin-top: 18px; margin-bottom: 6px; }
+
+p, li, td, th, strong, em, span {
+  color: var(--text-primary);
+}
+
+p { margin: 8px 0; }
+ul, ol { padding-left: 22px; margin: 8px 0; }
+li { margin: 4px 0; }
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 4px 0 0 0;
+}
+
+a {
+  color: var(--link-color);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+/* Inline code — Logos pattern, just `<code>`. Uses !important to block
+   any Help Viewer UA stylesheet from winning specificity on color. */
+code {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-primary) !important;
+  background: var(--code-bg) !important;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* Keyboard keys — <code class="key">. Slightly bolder border, centered. */
+code.key {
+  font-size: 11px;
+  padding: 1px 6px;
+  display: inline-block;
+  min-width: 18px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+pre {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background-color: var(--code-bg);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+pre code {
+  background: transparent !important;
+  padding: 0;
+  border: none;
+}
+
+.topic-list { list-style: none; padding-left: 0; }
+.topic-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.footer {
+  border-top: 1px solid var(--border-color);
+  margin-top: 32px;
+  padding-top: 12px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.nav-back {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--link-color);
+}
+
+.note {
+  background-color: var(--note-bg);
+  border-left: 3px solid var(--note-border);
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+.warning {
+  background-color: var(--warning-bg);
+  border-left: 3px solid var(--warning-border);
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+/* Shortcuts table */
+table.shortcuts {
+  border-collapse: collapse;
+  margin: 12px 0;
+  width: 100%;
+}
+table.shortcuts th {
+  text-align: left;
+  font-weight: 600;
+  padding: 8px 24px 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+table.shortcuts td {
+  padding: 6px 24px 6px 0;
+  vertical-align: middle;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+table.shortcuts td:first-child {
+  white-space: nowrap;
+  width: 180px;
+}

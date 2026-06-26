@@ -4,18 +4,16 @@ import SwiftData
 import os
 
 // MARK: - App Coordinator
-// Handles event wiring, daily brief lifecycle, vault events, and chat navigation.
+// Handles event wiring, daily brief lifecycle, and vault events.
 // Extracted from AppBootstrap — keeps AppBootstrap as pure state/service factory.
 
 @MainActor
 final class AppCoordinator {
     private unowned let bootstrap: AppBootstrap
-    let chatCoordinator: ChatCoordinator
     private let ambientManifestRefreshDriver = AmbientManifestRefreshDriver()
 
     private let eventBus: EventBus
     private let uiState: UIState
-    private let chatState: ChatState
     private let dailyBriefState: DailyBriefState
     private let triageService: TriageService
     private let vaultSync: VaultSyncService
@@ -25,10 +23,8 @@ final class AppCoordinator {
 
     init(
         bootstrap: AppBootstrap,
-        chatCoordinator: ChatCoordinator,
         eventBus: EventBus,
         uiState: UIState,
-        chatState: ChatState,
         dailyBriefState: DailyBriefState,
         triageService: TriageService,
         vaultSync: VaultSyncService,
@@ -37,10 +33,8 @@ final class AppCoordinator {
         notesUI: NotesUIState
     ) {
         self.bootstrap = bootstrap
-        self.chatCoordinator = chatCoordinator
         self.eventBus = eventBus
         self.uiState = uiState
-        self.chatState = chatState
         self.dailyBriefState = dailyBriefState
         self.triageService = triageService
         self.vaultSync = vaultSync
@@ -52,54 +46,12 @@ final class AppCoordinator {
     // MARK: - Wire All Events
 
     func wireAll() {
-        wirePipelineEvents()
         wireToastEvents()
         wireVaultEvents()
         wireDailyBrief()
     }
 
     // MARK: - EventBus Subscriptions
-
-    private func wirePipelineEvents() {
-        let pipeline = pipelineService
-        let chat = chatState
-        eventBus.subscribe(id: "pipeline") { [weak self] event in
-            guard let self else { return }
-            switch event {
-            case .querySubmitted(_, let query, let operatingMode):
-                self.chatCoordinator.handleQuery(
-                    query,
-                    pipeline: pipeline,
-                    chatState: chat,
-                    operatingMode: operatingMode
-                )
-            case .deepResearchSubmitted(_, let query, let operatingMode):
-                // DeerFlow 5e-2 — multi-agent deep research instead of a normal
-                // turn. runDeepResearch appends the user message + renders the
-                // cited report itself (and gates on Pro + flag + cloud provider).
-                self.chatCoordinator.runDeepResearch(
-                    query,
-                    chatState: chat,
-                    operatingMode: operatingMode
-                )
-            default:
-                break
-            }
-        }
-    }
-
-    func handleMiniChatQuery(
-        _ query: String,
-        chatState: ChatState,
-        operatingMode: EpistemosOperatingMode
-    ) {
-        chatCoordinator.handleQuery(
-            query,
-            pipeline: pipelineService,
-            chatState: chatState,
-            operatingMode: operatingMode
-        )
-    }
 
     private func wireToastEvents() {
         eventBus.subscribe(id: "toast") { [weak self] event in
@@ -308,42 +260,6 @@ final class AppCoordinator {
         pipelineService.cancelActiveRun()
         bootstrap.queryTask?.cancel()
         bootstrap.queryTask = nil
-    }
-
-    func requestVaultBriefing(chatState: ChatState) {
-        Task {
-            guard let fullManifest = await vaultSync.buildVaultManifest() else {
-                chatState.addErrorMessage("No notes found in vault.")
-                return
-            }
-            chatState.vaultBriefingManifest = fullManifest
-            chatState.submitQuery("[VAULT_BRIEFING]")
-        }
-    }
-
-    // MARK: - Chat Navigation
-
-    func loadChat(chatId: String) {
-        let descriptor = FetchDescriptor<SDChat>(
-            predicate: #Predicate<SDChat> { $0.id == chatId }
-        )
-        let sdChat: SDChat
-        do {
-            guard let fetched = try modelContainer.mainContext.fetch(descriptor).first else {
-                Log.app.error("AppCoordinator: missing chat \(chatId, privacy: .public)")
-                return
-            }
-            sdChat = fetched
-        } catch {
-            Log.app.error("AppCoordinator: failed to fetch chat \(chatId, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return
-        }
-        chatState.setCurrentChat(sdChat.id)
-        chatState.chatTitle = sdChat.title
-        chatState.loadMessages(sdChat.loadedMessages)
-        uiState.setActivePanel(.home)
-        uiState.homeTab = .home
-        HomeWindowIdentity.surfaceHomeWindow()
     }
 }
 

@@ -2,9 +2,9 @@ import Foundation
 
 /// "Epistemos Picks" — the curated section that surfaces the owner's custom hardened
 /// models (the Gemma QAT GGUF ladder via `EpistemosFoundationLineup`/`GemmaQATRuntimeLadder`
-/// + the explicit Qwen Think picks) at the TOP of the act/Osaurus model stack, kept
+/// + the explicit Qwen Think picks) at the TOP of the Act model stack, kept
 /// distinct from generic installed/advertised models. Owner 2026-06-21: *"add my models
-/// to the osaurus stack as a section that says epistemos picks … so i don't lose my custom
+/// to the Act stack as a section that says epistemos picks … so i don't lose my custom
 /// hardened models."*
 ///
 /// PURE curation over the proven `EpistemosRuntimePicker` substrate — NOT a new model layer

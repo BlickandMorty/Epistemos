@@ -151,8 +151,8 @@ struct CompanionAvatarGrammarSourceGuardTests {
                 "Landing roaming must remain TimelineView-driven, not repeatForever animation")
     }
 
-    @Test("Landing agents stay compact, chrome-free, and wired into chat prompts")
-    func landingAgentsStayCompactChromeFreeAndPromptWired() throws {
+    @Test("Landing agents stay compact, chrome-free, and disconnected from chat prompts")
+    func landingAgentsStayCompactChromeFreeAndDisconnectedFromPrompts() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
         let farm = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/LandingFarmView.swift")
         let glyph = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionAvatarGlyph.swift")
@@ -160,7 +160,6 @@ struct CompanionAvatarGrammarSourceGuardTests {
         let creation = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionCreationFlow.swift")
         let state = try loadMirroredSourceTextFile("Epistemos/State/Companion/CompanionState.swift")
         let pipeline = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
-        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
         let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
 
         #expect(landing.contains("private var landingAgentDock: some View"),
@@ -214,16 +213,24 @@ struct CompanionAvatarGrammarSourceGuardTests {
         #expect(!creation.contains("@State private var bodyKind: CompanionBodyKind = .orb"),
                 "New agents must not default to the circular orb body")
 
-        #expect(state.contains("func activeAgentSystemInstruction() -> String?"),
-                "Active landing agents must contribute to runtime prompts")
+        #expect(!state.contains("activeAgentSystemInstruction"),
+                "Companion state must not expose prompt-injection helpers")
+        #expect(!state.contains("activeAgentBrainSection"),
+                "Companion state must not expose per-mascot brain/runtime sections")
+        #expect(!state.contains("agentSystemInstruction"),
+                "Companion state must not synthesize chat system instructions")
+        #expect(!state.contains("personaPrompt"),
+                "Companion state must not store prompt/persona setup")
+        #expect(!state.contains("loraAdapterPath"),
+                "Companion state must not bind mascots to adapter overrides")
+        #expect(!landing.contains("activeAgentName"),
+                "Landing search placeholder must not route through active mascot identity")
         #expect(state.contains("activateOnCreate: Bool = true"),
-                "Newly created agents should become active so the user can use them immediately")
-        #expect(pipeline.contains("activeCompanionInstructionProvider"),
-                "Direct and local pipeline paths must receive active agent instructions")
-        #expect(coordinator.contains("appendActiveLandingAgentSystemInstruction(to: &systemParts)"),
-                "Managed cloud/Rust agent paths must receive active agent instructions")
-        #expect(bootstrap.contains("activeCompanionInstructionProvider:"),
-                "AppBootstrap must wire CompanionState into PipelineService")
+                "Newly created companions should become visibly active")
+        #expect(!pipeline.contains("activeCompanionInstructionProvider"),
+                "The chat pipeline must not receive companion prompt instructions")
+        #expect(!bootstrap.contains("activeCompanionInstructionProvider:"),
+                "AppBootstrap must not wire companions into PipelineService prompts")
 
         let graphSources = try [
             "Epistemos/Views/Graph/GraphWorkspaceContainer.swift",
@@ -238,61 +245,67 @@ struct CompanionAvatarGrammarSourceGuardTests {
         #expect(!graphSources.contains("CompanionAvatarGlyph("))
     }
 
-    @Test("Landing agents expose AgentBlueprint provider editing without fake adapter scope")
-    func landingAgentsExposeAgentBlueprintProviderEditing() throws {
+    @Test("Landing companions keep mascot editing without provider or tool routing")
+    func landingCompanionsKeepMascotEditingWithoutRuntimeRouting() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
         let farm = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/LandingFarmView.swift")
         let roaming = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionRoamingField.swift")
         let creation = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionCreationFlow.swift")
         let model = try loadMirroredSourceTextFile("Epistemos/Models/Companion/CompanionModel.swift")
         let state = try loadMirroredSourceTextFile("Epistemos/State/Companion/CompanionState.swift")
-        let blueprint = try loadMirroredSourceTextFile("Epistemos/LocalAgent/AgentBlueprint.swift")
 
-        #expect(model.contains("agentModelRoutingID"),
-                "Landing agents must persist the selected AgentBlueprint model/provider")
-        #expect(model.contains("agentScopeRaw"),
-                "Landing agents must persist AgentBlueprint scope")
-        #expect(model.contains("agentApprovalModeRaw"),
-                "Landing agents must persist AgentBlueprint approval mode")
-        #expect(model.contains("agentToolNamesRaw"),
-                "Landing agents must persist selected runtime tools")
+        for retiredField in [
+            "agentModelRoutingID",
+            "agentModelDisplayName",
+            "agentToolNamesRaw",
+            "agentScopeRaw",
+            "agentApprovalModeRaw",
+            "customSystemPromptTemplate",
+            "outputStructureJSON",
+            "mcpServerConfigJSON",
+            "memoryPinPattern",
+            "toolSelectionModeRaw",
+            "autonomousExecConfigJSON",
+            "CompanionToolSelectionMode",
+            "personaPrompt",
+            "loraAdapterPath",
+        ] {
+            #expect(!model.contains(retiredField),
+                    "CompanionModel must stay visual-only and omit \(retiredField)")
+        }
 
         #expect(state.contains("func updateCompanion("),
-                "Landing agents need an edit path, not create/delete only")
-        #expect(state.contains("agentModelChoice"),
-                "Active-agent prompt context must include the persisted AgentBlueprint routing choice")
-        #expect(blueprint.contains("static func modelChoice("),
-                "ACC brain to AgentBlueprint conversion should be shared instead of duplicated across surfaces")
+                "Landing companions need an edit path, not create/delete only")
+        #expect(!state.contains("agentModelChoice"),
+                "Companion state must not expose a per-companion model route")
 
-        #expect(creation.contains("availableBrains: [ACCBrainSelection]"),
-                "The Landing creation flow must receive the live provider/model catalog")
-        #expect(creation.contains("AgentBlueprintModelChoice"),
-                "The Landing creation flow must use canonical AgentBlueprint model choices")
-        #expect(creation.contains("AgentBlueprintScope.allCases"),
-                "The Landing creation flow must expose canonical AgentBlueprint scope")
-        #expect(creation.contains("AgentBlueprintApprovalMode.allCases"),
-                "The Landing creation flow must expose canonical AgentBlueprint approval")
-        #expect(creation.contains("selectedToolNames"),
-                "The Landing creation flow must let users bind tools to the agent")
+        #expect(!creation.contains("availableBrains"))
+        #expect(!creation.contains("availableTools"))
+        #expect(!creation.contains("selectedToolNames"))
+        #expect(!creation.contains("Provider + model"))
+        #expect(!creation.contains("Tools + guardrails"))
+        #expect(!creation.contains("TextEditor"))
+        #expect(!creation.contains("Behavior"))
+        #expect(!creation.contains("personaPrompt"))
 
         #expect(farm.contains("onRequestEdit"),
                 "The AGENTS dock must expose an edit route")
-        #expect(farm.contains("onStartChat"),
-                "The AGENTS dock must expose a direct chat route")
+        #expect(!farm.contains("onStartChat"),
+                "The AGENTS dock must not expose a direct chat route")
         #expect(roaming.contains("Label(\"Edit\", systemImage: \"pencil\")"),
-                "Agent context menus must support editing existing provider/tool choices")
-        #expect(roaming.contains("Label(\"Chat with \\(entry.name)\", systemImage: \"message.fill\")"),
-                "Agent context menus must start a chat with the selected agent")
+                "Companion context menus must support editing the visible mascot")
+        #expect(!roaming.contains("Label(\"Chat with \\(entry.name)\", systemImage: \"message.fill\")"),
+                "Companion context menus must not launch chat from mascot visuals")
         #expect(landing.contains("farmEditTarget"),
-                "Landing must distinguish create from edit instead of overwriting active agents")
-        #expect(landing.contains("private func startFarmAgentChat"),
-                "Landing must focus the main composer when a user asks to chat with an agent")
-        #expect(landing.contains("selectedOperatingMode = .agent"),
-                "Direct agent chat should enter Agent mode when the current model route supports it")
-        #expect(landing.contains("applyActiveLandingAgentRuntimePreference"),
-                "Submitting from Landing should apply the active agent's provider preference before routing")
-        #expect(landing.contains("applyLandingAgentRuntimePreference(for: entry)"),
-                "Direct agent chat should apply the selected AgentBlueprint route before the user submits")
+                "Landing must distinguish create from edit instead of overwriting active companions")
+        #expect(!landing.contains("private func startFarmAgentChat"),
+                "Landing mascots must not keep direct chat-launch wiring")
+        #expect(!landing.contains("onStartChat:"),
+                "Landing must not pass a chat-launch callback into the mascot dock")
+        #expect(!landing.contains("applyActiveLandingAgentRuntimePreference"),
+                "Landing must not keep even an inert active-mascot runtime hook")
+        #expect(!landing.contains("applyLandingAgentRuntimePreference(for: entry)"),
+                "Direct companion chat must not apply a hidden per-companion model route")
     }
 
     @Test("Companion roaming phase math stays bounded for large absolute dates")
@@ -326,12 +339,11 @@ struct CompanionAvatarGrammarSourceGuardTests {
         #expect(phase <= 1)
     }
 
-    @Test("Landing Farm does not expose deferred adapter hot-swap as a fake apply flow")
-    func landingFarmDoesNotExposeDeferredAdapterHotSwapAsFakeApplyFlow() throws {
+    @Test("Landing Farm deletes deferred adapter hot-swap setup")
+    func landingFarmDeletesDeferredAdapterHotSwapSetup() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
         let farm = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/LandingFarmView.swift")
         let roaming = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionRoamingField.swift")
-        let adapter = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionAdapterView.swift")
 
         #expect(!landing.contains("farmAdapterTarget"),
                 "Landing must not keep a sheet route for the deferred adapter pipeline")
@@ -341,16 +353,9 @@ struct CompanionAvatarGrammarSourceGuardTests {
                 "LandingFarmView must not pass through an apply-adapter callback until hot-swap is real")
         #expect(!roaming.contains("Apply Adapter..."),
                 "The companion context menu must not expose a fake adapter action")
-        #expect(adapter.contains("Adapter Pipeline Deferred"),
-                "The preserved scaffold must render an honest deferred state if a future caller presents it")
-        #expect(!adapter.contains("Task.sleep"),
-                "The scaffold must not simulate adapter work with a sleep")
-        #expect(!adapter.contains("phase = .settled"),
-                "The scaffold must not report a successful adapter apply without a loader")
-        #expect(!adapter.contains("Paste path or use Open"),
-                "The scaffold must not accept path input before validation and rollback are wired")
-        #expect(!adapter.contains("Unwrap"),
-                "The scaffold must not present the old fake apply button")
+        #expect(!landing.contains("Adapter Pipeline Deferred"))
+        #expect(!farm.contains("Adapter Pipeline Deferred"))
+        #expect(!roaming.contains("Adapter Pipeline Deferred"))
     }
 
     @Test("Companion body kind parser rejects unknown parameter values")

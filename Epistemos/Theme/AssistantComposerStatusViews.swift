@@ -17,17 +17,6 @@ enum AssistantComposerStatusPhase: Equatable {
     case analyzing
     case typing
 
-    init(notePhase: NoteChatToolbarStatusPhase) {
-        switch notePhase {
-        case .idle:
-            self = .idle
-        case .analyzing:
-            self = .analyzing
-        case .typing:
-            self = .typing
-        }
-    }
-
     static func resolve(isActive: Bool, streamingText: String) -> Self {
         guard isActive else { return .idle }
         let visibleText = UserFacingModelOutput.streamingVisibleText(from: streamingText)

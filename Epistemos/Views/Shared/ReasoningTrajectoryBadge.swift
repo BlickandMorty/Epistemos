@@ -10,7 +10,7 @@ import SwiftUI
 // loop count, error count, total tool calls, and efficiency scalar.
 //
 // Persistence path: `agent_core` returns `ReasoningTrajectoryMetricsFFI`
-// at session end → `ChatCoordinator` calls `EventStore.saveSessionMetrics`
+// at session end → agent routes call `EventStore.saveSessionMetrics`
 // → SQLite row in `session_metrics`. This view reads the row via
 // `EventStore.loadSessionMetrics(sessionId:)` and renders. If no row
 // exists yet (session in flight or pre-W9.3 history) the badge stays

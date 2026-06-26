@@ -36,7 +36,6 @@ enum AgentControlSettingsDeletionSovereignGate {
 struct AgentControlDetailView: View {
     @Environment(MCPBridge.self) private var mcpBridge
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
@@ -367,7 +366,7 @@ struct AgentControlDetailView: View {
                 .font(.subheadline.weight(.semibold))
 
             if activeGrantRows.isEmpty && rustBackedGrants.isEmpty {
-                Text("No stored resource grants in this chat right now.")
+                Text("No stored resource grants in the current agent session right now.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -399,7 +398,7 @@ struct AgentControlDetailView: View {
                                 .buttonStyle(.borderless)
                                 .font(.caption.weight(.semibold))
                                 .accessibilityLabel("Revoke grant for \(row.title)")
-                                .accessibilityHint("Removes this active grant from the current chat.")
+                                .accessibilityHint("Removes this active grant from the current agent session.")
                             } else {
                                 ChannelStatusPill(title: "Automatic", tint: .secondary)
                                     .accessibilityLabel("Automatic grant — cannot be revoked here")
@@ -414,7 +413,7 @@ struct AgentControlDetailView: View {
             }
 
             // Phase R.5 — Rust-backed persisted grants (I-009/I-010).
-            // These are grants the user explicitly stated in chat ("you
+            // These are grants the user explicitly stated in an agent session ("you
             // have my permission") that were parsed + stored in the Rust
             // PermissionService, as distinct from the transient
             // attachment-derived rows above.
@@ -643,11 +642,11 @@ struct AgentControlDetailView: View {
                     .font(.headline)
 
                 // RCA13 RCA7-P1-008: this card is a read-only diagnostic.
-                // Tools are invoked through the chat composer / Agent
-                // Center, not from this row. The clarifier makes that
-                // explicit so users + auditors don't think this is the
-                // invocation surface.
-                Text("Read-only diagnostic. Tools are invoked through chat / Agent Center; this card shows the Rust-backed Agent-tier tools visible to the current build and vault.")
+                // Tools are invoked through the AgentClone/fusion route or
+                // landing capability launcher, not from this row. The
+                // clarifier makes that explicit so users + auditors don't
+                // think this is the invocation surface.
+                Text("Read-only diagnostic. Tools are invoked through AgentClone/fusion or the landing capability launcher; this card shows the Rust-backed Agent-tier tools visible to the current build and vault.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -1063,31 +1062,11 @@ struct AgentControlDetailView: View {
     }
 
     private var activeGrantRows: [ActiveGrantSettingsRow] {
-        ComposerCurrentAccessPlan(
-            vaultURL: vaultSync.vaultURL,
-            contextAttachments: chat.pendingContextAttachments,
-            fileAttachments: chat.pendingAttachments
-        )
-        .rows
-        .map {
-            ActiveGrantSettingsRow(
-                id: $0.id,
-                title: $0.title,
-                detail: $0.detail,
-                systemImage: $0.systemImage,
-                isRevocable: $0.isRevocable
-            )
-        }
+        []
     }
 
     private func revokeActiveGrant(_ id: String) {
-        if id.hasPrefix("context:"), let contextID = id.split(separator: ":", maxSplits: 1).last {
-            chat.removeContextAttachment(String(contextID))
-            return
-        }
-        if id.hasPrefix("file:"), let fileID = id.split(separator: ":", maxSplits: 1).last {
-            chat.removeAttachment(String(fileID))
-        }
+        _ = id
     }
 
     private func sessionPreview(for session: SessionBrowser.SessionInfo) -> String? {

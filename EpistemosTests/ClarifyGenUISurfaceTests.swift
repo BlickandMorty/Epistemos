@@ -8,8 +8,8 @@ import Testing
 /// must (a) round-trip through `GenUIDispatcher.shared`, (b) on user
 /// resolution emit `Notification.Name.clarifyCardResolved` with the
 /// canonical `{payloadID, response, choiceIndex}` userInfo shape, so
-/// ChatCoordinator (B.8 2/N) can subscribe + thread the response back
-/// into the running agent loop. This file pins both the schema/body
+/// the running agent loop can subscribe and thread the response back.
+/// This file pins both the schema/body
 /// shape and the wire format of the notification.
 @Suite("Clarify GenUI surface (B.8 1/N)")
 struct ClarifyGenUISurfaceTests {
@@ -68,9 +68,9 @@ struct ClarifyGenUISurfaceTests {
 
     @Test("Notification.Name.clarifyCardResolved name is stable for the FFI contract")
     func notificationNameIsStable() throws {
-        // ChatCoordinator (B.8 2/N) will subscribe to this exact name.
+        // The running agent loop subscribes to this exact name.
         // Pin it so a future rename trips this test before the
-        // ChatCoordinator subscription silently breaks.
+        // clarify-card response path silently breaks.
         #expect(Notification.Name.clarifyCardResolved.rawValue == "EpistemosClarifyCardResolved")
     }
 

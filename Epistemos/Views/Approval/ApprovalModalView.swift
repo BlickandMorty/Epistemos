@@ -6,7 +6,7 @@ import OSLog
 // MARK: - W9.8 — ApprovalModalView (PausedForApproval surface)
 //
 // SwiftUI counterpart to the existing NSAlert-based
-// `ChatCoordinator.promptUserForToolApproval(...)` flow. Used when:
+// agent tool-approval flow. Used when:
 //   - The agent runtime fires `SessionState::PausedForApproval`
 //     from the background (agent_core/src/session.rs:124) and the
 //     foreground UI wants a non-blocking sheet instead of an alert.

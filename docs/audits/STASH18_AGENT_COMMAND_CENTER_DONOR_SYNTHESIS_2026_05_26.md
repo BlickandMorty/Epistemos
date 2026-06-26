@@ -2,6 +2,12 @@
 
 Status: recovered as donor notes, not restored as live UI.
 
+Superseding deletion note, 2026-06-25: the old native chat route described
+below has been deleted. `ChatCoordinator`, `ChatState`, `ChatInputBar`,
+`MessageBubble`, `MiniChat`, and `MainChatSubmissionRouter` are historical
+references only and must not be used as live restoration targets. Any future
+use of these donor ideas belongs in the AgentClone/fusion-backed chat rebuild.
+
 Source: `stash@{18}` (`WIP on main: 31214a4d Update progress and mark three runtime issues as patched`).
 
 Recovery rule: this slice was inspected with `git show` only. No stash was popped, dropped, checked out, or bulk-applied.
@@ -31,13 +37,16 @@ Useful ideas:
 
 Current architecture target:
 
-- `Epistemos/App/ChatCoordinator.swift` builds `ChatBrainSnapshot` and `ChatBrainSection` from the compiled request and runtime route.
-- `Epistemos/Views/Chat/ChatInputBar.swift` and `Epistemos/Views/Shared/ChatCapabilityPill.swift` provide the always-visible mode and live tool signal.
-- `Epistemos/Views/Chat/MessageBubble.swift` renders boxed tool execution previews.
+- AgentClone/fusion owns the live chat path. Request-inspector ideas should be
+  rebuilt there, not restored through `ChatCoordinator` or old `ChatState`.
+- Shared capability controls and model/runtime pickers may inform the rebuild
+  only when they are not tied to the deleted old chat surface.
+- Boxed tool execution previews are visual-language references, not a reason to
+  restore `MessageBubble`.
 
 Live-port rule:
 
-Do not create another page shell. If more of this idea is ported, add a compact agent trace strip or message-level inspector inside current chat, sourced only from `ChatBrainSnapshot` and `CommandCenterExecutionDiagnostics`.
+Do not create another page shell. If more of this idea is ported, add a compact agent trace strip or message-level inspector inside the rebuilt AgentClone/fusion chat, sourced only from runtime receipts and verified diagnostics.
 
 ### Brain Picker
 
@@ -49,13 +58,15 @@ Useful ideas:
 
 Current architecture target:
 
-- `Epistemos/Views/Chat/ChatBrainPickerMenu.swift` delegates to `LocalModelToolbarMenu`.
-- `Epistemos/Views/Chat/ChatInputBar.swift` opts main chat into split controls.
-- `Epistemos/Views/Landing/LandingView.swift` uses the compact picker in the landing composer.
+- `LocalModelToolbarMenu`, `InlineRuntimePickerPanel`, and the AgentClone/fusion
+  model-selection surface are the live picker targets.
+- `ChatBrainPickerMenu` and the deleted old `ChatInputBar` must stay absent.
 
 Live-port rule:
 
-Preserve the single current picker path. Any visual upgrades should happen in `LocalModelToolbarMenu` or its wrapper, not in a resurrected `BrainPickerMenu`.
+Preserve a single current picker path. Any visual upgrades should happen in the
+AgentClone/fusion picker surface or live shared picker primitives, not in a
+resurrected `BrainPickerMenu` or `ChatBrainPickerMenu`.
 
 ### Command Bar
 
@@ -68,9 +79,11 @@ Useful ideas:
 
 Current architecture target:
 
-- `Epistemos/Views/Chat/ChatInputBar.swift` owns main chat composition, slash command popover, attachments, context usage, and capability pill.
-- `Epistemos/Views/Landing/LandingView.swift` owns the landing composer path and routes through `MainChatSubmissionRouter`.
-- `Epistemos/Views/MiniChat/MiniChatView.swift` owns the utility chat composer.
+- AgentClone/fusion owns main chat composition.
+- `Epistemos/Views/Landing/LandingView.swift` may launch the protected new route
+  and may keep shared slash/runtime controls, but it must not route through the
+  deleted native chat backend.
+- `MiniChatView` is deleted and must not be restored as a utility composer.
 
 Live-port rule:
 
@@ -86,13 +99,18 @@ Useful ideas:
 
 Current architecture target:
 
-- `ChatCoordinator.buildMainChatBrainSnapshot(...)` already emits sections for resolved request, active agent, attachment contract, vault context, note context, graph context, file attachments, workspace awareness, conversation history, and execution plan.
-- `AgentChatState.mainChatBrainSnapshot` persists the snapshot for the matching turn.
-- `MessageBubble` and related chat presentation views are the right place for an expandable request inspector.
+- Rebuild request-inspector data from AgentClone/fusion runtime receipts and
+  Epistemos-owned guard contracts.
+- `AgentChatState` may preserve lightweight launch/session metadata, but old
+  `ChatBrainSnapshot`/`ChatCoordinator` plumbing is not a live target.
+- The expandable inspector belongs in the rebuilt AgentClone/fusion chat surface,
+  not the deleted `MessageBubble` family.
 
 Live-port rule:
 
-If this becomes live UI, build it as a message-level "Brain Snapshot" or "Request Inspector" disclosure backed by `ChatBrainSnapshot`. Do not read live truth directly from local view state.
+If this becomes live UI, build it as a message-level request-inspector
+disclosure backed by AgentClone/fusion receipts. Do not read live truth directly
+from local view state.
 
 ### Suggestion Popover
 
@@ -105,9 +123,8 @@ Useful ideas:
 Current architecture target:
 
 - `Epistemos/Views/Chat/SlashCommandPopover.swift`
-- `Epistemos/Views/Chat/ChatInputBar.swift`
 - `Epistemos/Views/Landing/LandingView.swift`
-- `Epistemos/Views/MiniChat/MiniChatView.swift`
+- The rebuilt AgentClone/fusion composer surface.
 
 Live-port rule:
 
@@ -117,6 +134,7 @@ Unify slash and skill discovery in the existing popovers. Do not restore `Sugges
 
 This stash@{18} slice is preserved as an architecture donor. The old live files remain absent, and the next safe implementation slice is:
 
-1. Add a compact request-inspector disclosure to chat messages using `ChatBrainSnapshot`.
-2. Fold any missing runtime-effort/density affordance into `LocalModelToolbarMenu`.
-3. Keep landing and main chat on the fused `MainChatSubmissionRouter` path.
+1. Add a compact request-inspector disclosure to the rebuilt AgentClone/fusion
+   chat surface using current runtime receipts.
+2. Fold any missing runtime-effort/density affordance into the live picker path.
+3. Keep landing and main chat off the deleted native chat backend.

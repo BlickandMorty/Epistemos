@@ -77,33 +77,3 @@ nonisolated public struct DocumentSurface: Codable, Sendable, Hashable {
         self.contentHash = contentHash
     }
 }
-
-nonisolated public struct MiniChatTarget: Codable, Sendable, Hashable {
-    public var surfaceID: String
-    public var surfaceKind: DocumentSurfaceKind
-    public var surfaceTitle: String
-    public var fileURL: URL?
-    public var pane: DocumentSurfacePane
-    public var selectedRange: DocumentSourceRange?
-    public var snippet: String
-    public var contentHash: String
-    public var allowedOperations: [String]
-
-    public init(
-        surface: DocumentSurface,
-        pane: DocumentSurfacePane,
-        selectedRange: DocumentSourceRange? = nil,
-        snippet: String = "",
-        allowedOperations: [String]
-    ) {
-        self.surfaceID = surface.id
-        self.surfaceKind = surface.kind
-        self.surfaceTitle = surface.title
-        self.fileURL = surface.fileURL
-        self.pane = pane
-        self.selectedRange = selectedRange
-        self.snippet = snippet
-        self.contentHash = surface.contentHash
-        self.allowedOperations = allowedOperations
-    }
-}

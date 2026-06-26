@@ -291,7 +291,7 @@ public struct LocalAgentDiagnosticsHealthRow: View {
                 detail: capabilityCeiling.gemmaProofDetail
             )
             SubstrateHealthMetricLine(
-                label: "System G / 70B preservation",
+                label: "Route dry-run / 70B preservation",
                 symbol: "archivebox",
                 state: capabilityCeiling.largeRuntimePreservationState,
                 detail: capabilityCeiling.largeRuntimePreservationDetail
@@ -449,7 +449,7 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             let laneDetail = lanes.isEmpty
                 ? "E2B/E4B/12B QAT proof lanes"
                 : lanes
-            return "\(laneDetail) are visible through RuntimeRouter/System G packet evidence; next guard-owned gate: \(capabilityCeiling.gemmaProductRouteIntegrationCursor). Picker/default exposure stays locked."
+            return "\(laneDetail) are visible through RuntimeRouter packet evidence; next guard-owned gate: \(capabilityCeiling.gemmaProductRouteIntegrationCursor). Picker/default exposure stays locked."
         }
         if capabilityCeiling.gemmaSettingsDiagnosticsWrvPassed
             && capabilityCeiling.gemmaReleaseAuditEvidenceReady {
@@ -457,7 +457,7 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             let laneDetail = lanes.isEmpty
                 ? "Gemma QAT proof lane"
                 : lanes
-            return "\(laneDetail) are through System G/WRV and release-audit evidence; final gates: \(capabilityCeiling.gemmaFinalReleaseGateDetail) before picker/default exposure."
+            return "\(laneDetail) are through WRV and release-audit evidence; final gates: \(capabilityCeiling.gemmaFinalReleaseGateDetail) before picker/default exposure."
         }
         if capabilityCeiling.gemmaSettingsDiagnosticsWrvPassed
             && capabilityCeiling.gemmaReleaseAuditAutomatedChecksReady {
@@ -717,7 +717,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
     let gemmaFirstRuntimeExecutionModelID: String
     let gemmaQualityReplayModelID: String
     let gemmaRuntimeRouterAdmissionModelID: String
-    let gemmaSystemGDryRunModelID: String
+    let gemmaRouteDryRunModelID: String
     let gemmaRouteVisibilityModelID: String
     let gemmaSettingsDiagnosticsWrvModelID: String
     let gemmaLocalArtifactStatusByID: [String: String]
@@ -729,7 +729,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
     let gemmaQualityPacketMaterializerAvailable: Bool
     let gemmaQualityReplayExecutionAvailable: Bool
     let gemmaRuntimeRouterAdmissionMaterializerAvailable: Bool
-    let gemmaSystemGDryRunRouteMaterializerAvailable: Bool
+    let gemmaRouteDryRunRouteMaterializerAvailable: Bool
     let gemmaRouteAnswerPacketVisibilityMaterializerAvailable: Bool
     let gemmaSettingsDiagnosticsWrvMaterializerAvailable: Bool
 
@@ -744,7 +744,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
     static let gemmaFirstRuntimeExecutionArtifactPath = "artifacts/falsifiers/gemma_direct_harness_first_runtime_execution_probe/receipt.redacted.json"
     static let gemmaQualityReplayArtifactPath = "artifacts/falsifiers/gemma_direct_harness_first_runtime_quality_replay/result.redacted.json"
     static let gemmaRuntimeRouterAdmissionArtifactPath = "artifacts/falsifiers/gemma_direct_harness_first_runtime_runtime_router_admission/admission.redacted.json"
-    static let gemmaSystemGDryRunArtifactPath = "artifacts/falsifiers/gemma_direct_harness_first_runtime_system_g_dry_run_route/system_g_dry_run.redacted.json"
+    static let gemmaRouteDryRunArtifactPath = "artifacts/falsifiers/gemma_direct_harness_first_runtime_route_dry_run_route/route_dry_run.redacted.json"
     static let gemmaRouteVisibilityArtifactPath = "artifacts/falsifiers/gemma_direct_harness_first_runtime_route_answer_packet_visibility/visibility.redacted.json"
     static let gemmaSettingsDiagnosticsWrvArtifactPath = "artifacts/falsifiers/gemma_direct_harness_first_runtime_settings_diagnostics_wrv/wrv.redacted.json"
     static let gemmaReleaseAuditAutomatedChecksCursor = "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe"
@@ -763,7 +763,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
     static let gemmaQualityPacketMaterializerPath = "Tools/falsifiers/materialize_gemma_first_runtime_quality_packet.sh"
     static let gemmaQualityReplayExecutionPath = "Tools/falsifiers/execute_gemma_first_runtime_quality_replay.sh"
     static let gemmaRuntimeRouterAdmissionMaterializerPath = "Tools/falsifiers/materialize_gemma_first_runtime_runtime_router_admission_packet.sh"
-    static let gemmaSystemGDryRunRouteMaterializerPath = "Tools/falsifiers/materialize_gemma_first_runtime_system_g_dry_run_route_packet.sh"
+    static let gemmaRouteDryRunRouteMaterializerPath = "Tools/falsifiers/materialize_gemma_first_runtime_route_dry_run_route_packet.sh"
     static let gemmaRouteAnswerPacketVisibilityMaterializerPath = "Tools/falsifiers/materialize_gemma_first_runtime_route_answer_packet_visibility.sh"
     static let gemmaSettingsDiagnosticsWrvMaterializerPath = "Tools/falsifiers/materialize_gemma_first_runtime_settings_diagnostics_wrv.sh"
 
@@ -893,7 +893,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             && gemmaQualityPacketMaterializerAvailable
             && gemmaQualityReplayExecutionAvailable
             && gemmaRuntimeRouterAdmissionMaterializerAvailable
-            && gemmaSystemGDryRunRouteMaterializerAvailable
+            && gemmaRouteDryRunRouteMaterializerAvailable
             && gemmaRouteAnswerPacketVisibilityMaterializerAvailable
             && gemmaSettingsDiagnosticsWrvMaterializerAvailable
             ? .partial
@@ -923,7 +923,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
         let qualityBridge = gemmaQualityPacketMaterializerAvailable ? "quality bridge ready" : "quality bridge missing"
         let replayGate = gemmaQualityReplayExecutionAvailable ? "replay scorer ready" : "replay scorer missing"
         let admissionBridge = gemmaRuntimeRouterAdmissionMaterializerAvailable ? "admission packet ready" : "admission packet missing"
-        let systemGBridge = gemmaSystemGDryRunRouteMaterializerAvailable ? "System G dry-run packet ready" : "System G dry-run packet missing"
+        let systemGBridge = gemmaRouteDryRunRouteMaterializerAvailable ? "Route dry-run packet ready" : "Route dry-run packet missing"
         let visibilityBridge = gemmaRouteAnswerPacketVisibilityMaterializerAvailable ? "route visibility ready" : "route visibility missing"
         let settingsWrvBridge = gemmaSettingsDiagnosticsWrvMaterializerAvailable ? "settings WRV ready" : "settings WRV missing"
         return "\(approval) · \(materializer) · \(runtimeProbe) · \(qualityBridge) · \(replayGate) · \(admissionBridge) · \(systemGBridge) · \(visibilityBridge) · \(settingsWrvBridge) · next=\(gemmaNextCursor)"
@@ -1029,8 +1029,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
         if gemmaRouteVisibilityModelID == id {
             return "route visibility packet ready"
         }
-        if gemmaSystemGDryRunModelID == id {
-            return "System G dry-run packet ready"
+        if gemmaRouteDryRunModelID == id {
+            return "Route dry-run packet ready"
         }
         if gemmaRuntimeRouterAdmissionModelID == id {
             return "RuntimeRouter admission packet ready"
@@ -1076,7 +1076,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
     }
 
     var largeRuntimePreservationDetail: String {
-        "Gemma-first proof lane is the near-term bridge; System G, code assembly, and 70B cold assembly remain Pro Research/Vault."
+        "Gemma-first proof lane is the near-term bridge; code assembly, and 70B cold assembly remain Pro Research/Vault."
     }
 
     static func load() -> Self {
@@ -1091,7 +1091,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
         let gemmaFirstRuntimeExecution = readJSONObject(path: gemmaFirstRuntimeExecutionArtifactPath)
         let gemmaQualityReplay = readJSONObject(path: gemmaQualityReplayArtifactPath)
         let gemmaRuntimeRouterAdmission = readJSONObject(path: gemmaRuntimeRouterAdmissionArtifactPath)
-        let gemmaSystemGDryRun = readJSONObject(path: gemmaSystemGDryRunArtifactPath)
+        let gemmaRouteDryRun = readJSONObject(path: gemmaRouteDryRunArtifactPath)
         let gemmaRouteVisibility = readJSONObject(path: gemmaRouteVisibilityArtifactPath)
         let gemmaWrv = readJSONObject(path: gemmaSettingsDiagnosticsWrvArtifactPath)
         let gemmaAutomatedChecks = readJSONObject(path: gemmaReleaseAuditAutomatedChecksArtifactPath)
@@ -1310,8 +1310,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
                 key: "selected_model_id",
                 default: ""
             ),
-            gemmaSystemGDryRunModelID: topLevelString(
-                gemmaSystemGDryRun,
+            gemmaRouteDryRunModelID: topLevelString(
+                gemmaRouteDryRun,
                 key: "selected_model_id",
                 default: ""
             ),
@@ -1344,8 +1344,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             gemmaRuntimeRouterAdmissionMaterializerAvailable: firstExistingURL(
                 for: gemmaRuntimeRouterAdmissionMaterializerPath
             ) != nil,
-            gemmaSystemGDryRunRouteMaterializerAvailable: firstExistingURL(
-                for: gemmaSystemGDryRunRouteMaterializerPath
+            gemmaRouteDryRunRouteMaterializerAvailable: firstExistingURL(
+                for: gemmaRouteDryRunRouteMaterializerPath
             ) != nil,
             gemmaRouteAnswerPacketVisibilityMaterializerAvailable: firstExistingURL(
                 for: gemmaRouteAnswerPacketVisibilityMaterializerPath
@@ -1406,8 +1406,8 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             candidate: candidate
         ))
         let systemGDryRun = readJSONObject(path: gemmaLaneArtifactPath(
-            folder: "artifacts/falsifiers/gemma_direct_harness_first_runtime_system_g_dry_run_route",
-            file: "system_g_dry_run.redacted.json",
+            folder: "artifacts/falsifiers/gemma_direct_harness_first_runtime_route_dry_run_route",
+            file: "route_dry_run.redacted.json",
             candidate: candidate
         ))
         let routeVisibility = readJSONObject(path: gemmaLaneArtifactPath(
@@ -1431,7 +1431,7 @@ nonisolated struct CapabilityCeilingHealthSnapshot: Sendable, Equatable {
             return "route visibility packet ready"
         }
         if topLevelString(systemGDryRun, key: "selected_model_id", default: "") == candidate.id {
-            return "System G dry-run packet ready"
+            return "Route dry-run packet ready"
         }
         if topLevelString(runtimeRouterAdmission, key: "selected_model_id", default: "") == candidate.id {
             return "RuntimeRouter admission packet ready"

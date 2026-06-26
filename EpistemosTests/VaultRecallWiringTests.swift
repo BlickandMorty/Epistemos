@@ -177,7 +177,7 @@ struct VaultRecallWiringTests {
           "page_gather": {
             "status": "vault_escalated",
             "measurement_status": "deferred",
-            "source": "ChatCoordinator.resolveNotesContext",
+            "source": "VaultRecall.resolveNotesContext",
             "candidate_pool_size": 64,
             "candidates_retained": 4,
             "deferred_falsifier": "F-PageGather-Scatter",

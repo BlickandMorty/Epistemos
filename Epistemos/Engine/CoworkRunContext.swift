@@ -7,7 +7,7 @@ import Foundation
 nonisolated enum CoworkRunContext {
     /// Distinct tool names the agent actually invoked in a message's content
     /// blocks, in first-use order. Reads the `.toolUse` blocks the runtime
-    /// records via `ChatState.recordToolUse`, so it reflects what really ran.
+    /// records via the agent transcript tool-use path, so it reflects what really ran.
     static func toolNamesUsed(in blocks: [MessageContentBlock]?) -> [String] {
         guard let blocks else { return [] }
         var seen: Set<String> = []

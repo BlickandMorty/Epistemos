@@ -6,8 +6,7 @@ import Foundation
 // only" state without compiling any Goose runtime. Mirrors ActOsaurusGateStatus.
 //
 // GOOSE GUARDRAIL (owner 2026-06-18): the extracted Goose core is isolated behind
-// WORK mode + this flag; Chat (Epistemos engine) and Act (Osaurus) stay on their
-// own engines, UNCHANGED. This seam touches nothing in the Chat/Act path — it's a
+// WORK mode + this flag. This seam touches nothing outside the Work path — it's a
 // new, isolated interface; the Goose Rust vendor (block/goose, Apache-2.0, into
 // agent_core via UniFFI) is the heavy follow-on.
 nonisolated enum WorkBackendGateStatus {
@@ -27,21 +26,21 @@ nonisolated enum WorkBackendGateStatus {
         #if EPISTEMOS_APP_STORE
         return Status(
             isActive: false,
-            headline: "Work = Goose: Pro only",
-            detail: "The Goose Work/Open-Code engine (repo indexing, git lifecycle, multi-file diffs, test-and-fix loop, parallel subagents) is a Pro feature — outside the App Store sandbox. Chat and Act are unaffected."
+            headline: "Epistemos Work: secondary engine Pro only",
+            detail: "The secondary repo-work engine layer (repo indexing, git lifecycle, multi-file diffs, test-and-fix loop, parallel subagents) is a Pro feature outside the App Store sandbox. Other app modes are unaffected."
         )
         #else
         if isEnabled(environment[flagName]) {
             return Status(
                 isActive: true,
-                headline: "Work = Goose: ON (Pro, experimental)",
-                detail: "The Work-backend seam is armed (\(flagName)=1). The Goose Rust engine (Apache-2.0) is the follow-on vendor; until it lands the seam is honestly INERT (no fake capability). Chat/Act stay on their own engines."
+                headline: "Epistemos Work: secondary engine ON",
+                detail: "The Epistemos Work backend seam is armed (\(flagName)=1). The follow-on repo engine vendor is not wired yet, so the seam stays honestly inert with no fake capability. Other app modes stay on their own engines."
             )
         }
         return Status(
             isActive: false,
-            headline: "Work = Goose: off (opt-in, Pro)",
-            detail: "Set \(flagName)=1 to arm the Goose Work-backend seam (Pro). Off by default → Work is not yet wired; Chat/Act are unchanged."
+            headline: "Epistemos Work: secondary engine off",
+            detail: "Set \(flagName)=1 to arm the secondary backend seam for Epistemos Work. Off by default means that layer is not wired yet; other app modes are unchanged."
         )
         #endif
     }

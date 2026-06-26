@@ -2,11 +2,10 @@
 //
 // V6.2 Option B (per `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`):
 // MainActor-isolated mirror of the recent-packet window held by
-// `AnswerPacketEmitter.shared`. SwiftUI views (MessageBubble in
-// particular) need synchronous, observable access to recent packets
-// — the bubble's view body can't `await` on an actor. This sink hops
-// to the actor on `didEmitNotification` and republishes the snapshot
-// on MainActor.
+// `AnswerPacketEmitter.shared`. The rebuilt AgentClone/fusion chat
+// surface needs synchronous, observable access to recent packets because
+// SwiftUI view bodies cannot `await` on an actor. This sink hops to the
+// actor on `didEmitNotification` and republishes the snapshot on MainActor.
 //
 // Lookup contract: given a `ChatMessage.answerPacketId`, return the
 // matching packet if it's still inside the bounded 100-packet ring,
@@ -18,7 +17,7 @@
 //
 // Cross-references:
 // - Epistemos/Engine/AnswerPacketEmitter.swift — the source of truth.
-// - Epistemos/Views/Chat/MessageBubble.swift — the primary consumer.
+// - rebuilt AgentClone/fusion chat transcript — future primary consumer.
 // - docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md — the
 //   architecture decision behind this sink.
 

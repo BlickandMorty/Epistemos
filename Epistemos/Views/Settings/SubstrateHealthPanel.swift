@@ -63,16 +63,13 @@ public struct SubstrateHealthPanel: View {
 
             Section("Agent Runtime", isExpanded: $showAgentRuntime) {
                 SettingsDescriptionText(
-                    text: "Local model routing, System G status, and per-turn AnswerPacket witness channels."
+                    text: "Local model routing, per-turn answer witnesses, and runtime capability channels."
                 )
                 surface(falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md", wRow: "W-17", weight: .medium) {
                     LocalAgentDiagnosticsHealthRow()
                 }
                 surface(falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md", wRow: "W-11", weight: .medium) {
                     ActiveConstellationRow()
-                }
-                surface(falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md", wRow: "W-15", weight: .extreme) {
-                    SystemGHealthRow()
                 }
                 surface(falsifier: "docs/falsifiers/F-ULP-Oracle_2026_05_17.md", wRow: "W-14", weight: .heavy) {
                     AnswerPacketHealthRow()
@@ -95,11 +92,6 @@ public struct SubstrateHealthPanel: View {
                 // fine-tune is armed (EPISTEMOS_NIGHTBRAIN_LORA_V0). Reads the
                 // same flag the idle decision reads.
                 NightBrainLoRAHealthRow()
-
-                // Osaurus Act import (P3.0) — whether the vendored Osaurus Act
-                // seam is armed (EPISTEMOS_ACT_OSAURUS_V0, Pro). Honest "Pro only"
-                // on MAS; the runtime stays inert until it clears the bar.
-                ActOsaurusHealthRow()
 
                 // Owner #1 (no hidden GPT route) — the honest local-resolve trace:
                 // whether the local PICK is honored, was substituted (and why), or

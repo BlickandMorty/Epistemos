@@ -14,11 +14,10 @@ struct SubstratePhase6SurfaceReuseTests {
 
     @Test("the answer-producing surfaces emit AnswerPackets through AnswerPacketEmitter.shared")
     func answerSurfacesEmitThroughSharedSubstrate() throws {
-        // Both the streaming/chat completion surface and the System G run seam must funnel their
-        // AnswerPacket through the single substrate emitter — the one path that persists it.
+        // The streaming/chat completion surface must funnel its AnswerPacket
+        // through the single substrate emitter — the one path that persists it.
         for file in [
             "Epistemos/Bridge/StreamingDelegate.swift",
-            "Epistemos/SystemG/RealSystemGRunSeam.swift",
         ] {
             let src = try loadMirroredSourceTextFile(file)
             #expect(

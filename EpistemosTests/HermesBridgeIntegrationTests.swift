@@ -857,15 +857,11 @@ struct CloudAgentBridgeContractTests {
         let streamingDelegate = try loadBridgeSource("Epistemos/Bridge/StreamingDelegate.swift")
         let rustBridge = try loadBridgeSource("agent_core/src/bridge.rs")
         let agentLoop = try loadBridgeSource("agent_core/src/agent_loop.rs")
-        let coordinator = try loadBridgeSource("Epistemos/App/ChatCoordinator.swift")
 
         #expect(streamingDelegate.contains("func executeComputerAction(actionJson: String) -> String"))
         #expect(streamingDelegate.contains("ComputerUseBridge.shared.execute(actionJSON: actionJson)"))
         #expect(rustBridge.contains("fn execute_computer_action(&self, action_json: String) -> String;"))
         #expect(agentLoop.contains("delegate.execute_computer_action(input_json.clone())"))
-        #expect(coordinator.contains("chatState.recordToolUse("))
-        #expect(coordinator.contains("chatState.recordToolResult("))
-        #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
     }
 }
 

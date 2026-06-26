@@ -25,7 +25,7 @@ private let cogIntentLog = Logger(
 struct CaptureBrainDumpIntent: AppIntent {
     static let title: LocalizedStringResource = "Capture Brain Dump"
     static let description = IntentDescription(
-        "Open Epistemos and start a voice / typed brain dump that's auto-routed to the right context (current chat, current note, or the raw-thoughts archive)."
+        "Open Epistemos and start a voice / typed brain dump that's auto-routed to the right context (current agent session, current note, or the raw-thoughts archive)."
     )
     // W15 supportedModes migration: openAppWhenRun is deprecated on
     // macOS 26 in favour of IntentModes. We allow both .background
@@ -54,8 +54,8 @@ struct CaptureBrainDumpIntent: AppIntent {
         if let pageId = bootstrap.notesUI.activePageId {
             return QuarantineAnchor(contextKind: "note", contextId: pageId)
         }
-        if let chatId = bootstrap.chatState.activeChatId {
-            return QuarantineAnchor(contextKind: "chat", contextId: chatId)
+        if let sessionId = bootstrap.agentChatState.activeSessionId {
+            return QuarantineAnchor(contextKind: "agent-session", contextId: sessionId)
         }
         return nil
     }

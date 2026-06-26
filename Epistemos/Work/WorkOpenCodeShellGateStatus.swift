@@ -1,7 +1,9 @@
 import Foundation
 
-// WORK = OpenCode shell — Seam A gate (owner 2026-06-21). Honest flag-status for
-// EPISTEMOS_WORK_OPENCODE_V0, read by the visible WorkOpenCodeShellHealthRow.
+// WORK = OpenCode shell — legacy Seam A gate (owner 2026-06-21). Kept as a
+// compatibility/status seam for EPISTEMOS_WORK_OPENCODE_V0; the visible Work
+// health row now reads WorkOpenCodeShellFactory directly because Work goes live
+// from bundled-runtime presence, not from this old opt-in gate.
 // ALWAYS-compiled + pure (no SwiftTerm / PTY / OpenCode dependency) so the MAS
 // build shows the honest state without compiling any terminal runtime. Mirrors
 // WorkBackendGateStatus / ActOsaurusGateStatus.
@@ -64,23 +66,23 @@ nonisolated enum WorkOpenCodeShellGateStatus {
         #if EPISTEMOS_APP_STORE
         return Status(
             isActive: false,
-            headline: "Work = OpenCode terminal: Pro only",
-            detail: "The OpenCode work shell (real terminal TUI in a native terminal view, lazy Bun engine, Goose/Hermes/OpenClaw fused beneath) ships on the direct-distribution build. The MAS dual-build gets the same capability via the researched sandbox substitute — never a silent cut. Chat and Act are unaffected."
+            headline: "Epistemos Work: terminal runtime Pro only",
+            detail: "Epistemos Work's terminal runtime ships on the direct-distribution build, with native Epistemos chrome above it. The MAS dual-build gets the researched sandbox substitute — never a silent cut. Other app modes are unaffected."
         )
         #else
         let overrideValue = override(defaults: defaults)
         if resolvedActive(environment: environment, defaults: defaults) {
-            let source = overrideValue == true ? "in-app toggle" : "\(flagName)=1"
+            let source = overrideValue == true ? "legacy in-app toggle" : "\(flagName)=1"
             return Status(
                 isActive: true,
-                headline: "Work = OpenCode terminal: ON (Pro, experimental)",
-                detail: "The OpenCode shell seam is armed (\(source)). The native terminal view (SwiftTerm/PTY), the lazy-launched Bun engine, and the vendored OpenCode TUI go live when the runtime is bundled; until then the seam is honestly INERT (no fake terminal). Chat/Act stay on their own engines."
+                headline: "Epistemos Work: legacy runtime override active",
+                detail: "The legacy terminal compatibility override is active (\(source)). The visible Work surface still follows bundled runtime readiness; if the runtime is absent, Epistemos Work stays honestly INERT and no fake terminal is launched. Other app modes stay on their own engines."
             )
         }
         let detail = overrideValue == false
-            ? "Turned off by the in-app toggle (overrides \(flagName)). Work's terminal stays inert; Chat/Act are unchanged."
-            : "Set \(flagName)=1 or use the in-app toggle to arm the OpenCode work-shell seam (Pro). Off by default → Work's terminal is not yet wired; Chat/Act are unchanged."
-        return Status(isActive: false, headline: "Work = OpenCode terminal: off (opt-in, Pro)", detail: detail)
+            ? "Disabled by the legacy in-app toggle (overrides \(flagName)). Epistemos Work follows bundled runtime readiness for the visible surface; other app modes are unchanged."
+            : "Epistemos Work goes live when its bundled terminal runtime is present. \(flagName)=1 remains as a legacy compatibility arm for diagnostics, but it does not fake a terminal. Other app modes are unchanged."
+        return Status(isActive: false, headline: "Epistemos Work: terminal runtime unavailable", detail: detail)
         #endif
     }
 }

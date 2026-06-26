@@ -85,13 +85,6 @@ nonisolated enum UserFacingChatError {
         if lower.contains("context length") || lower.contains("too long") || (lower.contains("token") && lower.contains("limit")) {
             return .contextOverflow
         }
-        // Osaurus act-engine "no usable model" failures → the actionable model-not-ready
-        // message (owner 2026-06-22 P0-A "it's not working": these MUST be diagnosable,
-        // not a raw technical string). Matched by error CONTENT so PipelineService stays
-        // decoupled from OsaurusCore's error types and the App Store target needs no
-        // OsaurusCore import. Strings are the canonical errorDescriptions of:
-        //   EpistemosOsaurusModelProvider.ProviderError.modelNotPrepared,
-        //   EpistemosModelBridgeError.noProvider, CoreModelError.modelUnavailable.
         if lower.contains("not prepared")
             || lower.contains("model provider is registered")
             || lower.contains("no model id")
@@ -155,7 +148,6 @@ final class PipelineService {
     private let localModelClient: (any LocalConfigurableLLMClient)?
     private let constrainedDecoding: ConstrainedDecodingService?
     private let vaultPathProvider: @MainActor () -> String?
-    private let activeCompanionInstructionProvider: @MainActor () -> String?
     private let skillNamesProvider: @MainActor () -> [String]
     /// L1187 — deterministic vault-ranking answer provider. Given the user's query it returns a
     /// ranked title/path/reason answer, or nil when the query isn't a vault-ranking query / has no
@@ -174,7 +166,6 @@ final class PipelineService {
         localModelClient: (any LocalConfigurableLLMClient)? = nil,
         constrainedDecoding: ConstrainedDecodingService? = nil,
         vaultPathProvider: @escaping @MainActor () -> String? = { nil },
-        activeCompanionInstructionProvider: @escaping @MainActor () -> String? = { nil },
         skillNamesProvider: @escaping @MainActor () -> [String] = { [] },
         vaultRankingSearchProvider: (@MainActor (String) -> String?)? = nil
     ) {
@@ -186,7 +177,6 @@ final class PipelineService {
         self.localModelClient = localModelClient
         self.constrainedDecoding = constrainedDecoding
         self.vaultPathProvider = vaultPathProvider
-        self.activeCompanionInstructionProvider = activeCompanionInstructionProvider
         self.skillNamesProvider = skillNamesProvider
         self.vaultRankingSearchProvider = vaultRankingSearchProvider
     }
@@ -358,7 +348,7 @@ final class PipelineService {
     /// Decide whether the current turn should route through `LocalAgentLoop`
     /// with tier-filtered tools. Fast / Thinking / Pro all qualify when a
     /// local model client is wired. Agent mode goes through the Rust
-    /// agent loop instead (handled by ChatCoordinator, not here).
+    /// agent loop instead (handled by the active agent route, not here).
     private func shouldUseToolLoop(
         query: String,
         operatingMode: EpistemosOperatingMode,
@@ -404,7 +394,7 @@ final class PipelineService {
         // gates through AgentAuthority approval + R5 capability so MAS
         // safety is preserved.
         //
-        // Cloud Fast/Thinking + AFM are handled at the ChatCoordinator
+        // Cloud Fast/Thinking + AFM are handled at the agent route
         // layer via runCommandCenterRustAgentPath — they don't flow
         // through this Pipeline branch.
         if let model = LocalTextModelID(rawValue: modelID),
@@ -722,12 +712,9 @@ final class PipelineService {
             notesContext: notesContext,
             conversationHistory: conversationHistory
         )
-        let additionalSystemPrompt = Self.joinSystemPromptSections(
-            Self.combinedAdditionalSystemPrompt(
-                base: executionPlan?.additionalSystemPrompt(),
-                hookContext: hookPromptContext
-            ),
-            activeCompanionSystemInstruction()
+        let additionalSystemPrompt = Self.combinedAdditionalSystemPrompt(
+            base: executionPlan?.additionalSystemPrompt(),
+            hookContext: hookPromptContext
         )
 
         let reasoningMode: LocalReasoningMode = switch operatingMode {
@@ -1058,15 +1045,6 @@ final class PipelineService {
         return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
     }
 
-    private func activeCompanionSystemInstruction() -> String? {
-        guard let instruction = activeCompanionInstructionProvider()?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !instruction.isEmpty else {
-            return nil
-        }
-        return instruction
-    }
-
     nonisolated private static func joinSystemPromptSections(_ sections: String?...) -> String? {
         let normalized = sections.compactMap { section -> String? in
             guard let value = section?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1183,9 +1161,6 @@ final class PipelineService {
         ), !manifest.isEmpty {
             systemParts.append(manifest)
         }
-        if let activeAgent = activeCompanionSystemInstruction() {
-            systemParts.append(activeAgent)
-        }
         // Procedural memory: the user's generated skills shape direct (non-agent)
         // chats too, matching the local-agent loop. Absent skills → no change.
         if let skills = LocalAgentPromptBuilder.proceduralMemoryBlock() {
@@ -1220,61 +1195,6 @@ final class PipelineService {
         let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
             for: operatingMode
         )
-        let requestedActModelID: String? = {
-            if case .localMLX(let modelID) = effectiveChatSelection {
-                return modelID
-            }
-            return nil
-        }()
-        let shouldUseActEventStream = LocalAgentLoop.shouldRouteActThroughOsaurus()
-            && (operatingMode == .agent || requestedActModelID != nil)
-        if shouldUseActEventStream,
-           let actEventStream = SharedActInference.actEventStreamIfArmed(
-            prompt: finalPrompt,
-            systemPrompt: systemPrompt,
-            maxTokens: 2_048,
-            reasoningMode: operatingMode == .fast ? .fast : .thinking,
-            modelID: requestedActModelID
-           ) {
-            return StreamingBufferPolicy.throwingStream { continuation in
-                let task = Task { @MainActor in
-                    var toolStarts: [String: (name: String, inputJson: String, startedAt: Date)] = [:]
-                    do {
-                        for try await event in actEventStream {
-                            switch event {
-                            case .textDelta(let text):
-                                continuation.yield(text)
-                            case .thinkingDelta(let text):
-                                reasoningEventHandler?(text)
-                            case .toolStarted(let id, let name, let inputJson):
-                                toolStarts[id] = (name: name, inputJson: inputJson, startedAt: Date())
-                                toolEventHandler?(.started(id: id, name: name, inputJson: inputJson))
-                            case .toolCompleted(let id, let result, let isError):
-                                let started = toolStarts.removeValue(forKey: id)
-                                let durationMs = Self.elapsedMilliseconds(since: started?.startedAt)
-                                toolEventHandler?(
-                                    .completed(
-                                        id: id,
-                                        name: started?.name ?? "osaurus.tool",
-                                        inputJson: started?.inputJson ?? "{}",
-                                        resultJson: result,
-                                        isError: isError,
-                                        durationMs: durationMs
-                                    )
-                                )
-                            case .generationStats:
-                                // 0.33a: telemetry recorded to ActTurnStatsStore upstream; no text effect here.
-                                break
-                            }
-                        }
-                        continuation.finish()
-                    } catch {
-                        continuation.finish(throwing: error)
-                    }
-                }
-                continuation.onTermination = { _ in task.cancel() }
-            }
-        }
         let shouldForceDirectLocalStream = executionPlan?.forcesLocalExecution == true
             && {
                 if case .localMLX = effectiveChatSelection {
@@ -1290,7 +1210,7 @@ final class PipelineService {
                 operation: .chatResponse(query: query),
                 contentLength: finalPrompt.count,
                 operatingMode: operatingMode,
-                localSurface: .miniChat,
+                localSurface: .mainChat,
                 steeringHintsJSON: executionPlan?.steeringHintsJSON,
                 reasoningSink: reasoningEventHandler
             )
@@ -1302,7 +1222,7 @@ final class PipelineService {
             operation: .chatResponse(query: query),
             contentLength: finalPrompt.count,
             operatingMode: operatingMode,
-            localSurface: .miniChat,
+            localSurface: .mainChat,
             steeringHintsJSON: executionPlan?.steeringHintsJSON,
             reasoningSink: reasoningEventHandler
         )

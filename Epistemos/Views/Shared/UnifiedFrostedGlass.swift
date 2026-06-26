@@ -11,7 +11,7 @@ import SwiftUI
 //      behind every SwiftUI surface inside it. Set up by:
 //        - `HologramOverlay.swift`  (graph window + mini panel + mini inspector)
 //        - `ShadowPanel.swift`      (Halo panel)
-//        - MiniChat's window        (its own 3-layer stack; left untouched)
+//        - compact assistant windows
 //
 //   2. CHROME GLASS (macOS 26 `.glassEffect()` SwiftUI modifier)
 //      Native Liquid Glass primitive. Apple optimized this for chrome
@@ -50,7 +50,7 @@ import SwiftUI
 // the active EpistemosTheme through `theme.glassBg` + `theme.glassBorder`.
 //
 // Untouched: graph theme pass-through, physics defaults, label settings,
-// shape-bound defaults, MiniChat itself, the 120Hz CADisplayLink in
+// shape-bound defaults, compact assistant windows, the 120Hz CADisplayLink in
 // MetalGraphView.
 
 extension View {
@@ -112,7 +112,7 @@ private struct UnifiedFrostedGlassViewModifier<S: InsettableShape>: ViewModifier
     }
 
     /// Subtle theme tint sitting BEHIND the native `.glassEffect()` material.
-    /// 0.35 matches MiniChat's tinting ratio — a hint of the theme color
+    /// 0.35 keeps a subtle hint of the theme color
     /// without overpowering the native liquid-glass look + its animations.
     private var themeTintBehindNativeGlass: some View {
         ZStack {

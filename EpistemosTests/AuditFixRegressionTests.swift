@@ -96,106 +96,8 @@ struct AuditFixRegressionTests {
         #expect(!source.contains("EpistemosConfig().ssmMaxSnapshotsPerModel"))
     }
 
-    @Test("cloud tool approval and native computer-use roundtrip stay wired")
-    func cloudToolApprovalAndComputerUseRoundTripStayWired() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-        let delegate = try loadAuditSource("Epistemos/Bridge/StreamingDelegate.swift")
-        let bubble = try loadAuditSource("Epistemos/Views/Chat/MessageBubble.swift")
-        let inlineTranscript = try loadAuditSource("Epistemos/Views/Chat/AssistantInlineTranscriptView.swift")
-        let rustBridge = try loadAuditSource("agent_core/src/bridge.rs")
-        let agentLoop = try loadAuditSource("agent_core/src/agent_loop.rs")
-
-        #expect(coordinator.contains("approved = await promptForToolApproval(request)"))
-        #expect(coordinator.contains("chatState.recordToolUse("))
-        #expect(coordinator.contains("chatState.recordToolResult("))
-        #expect(!coordinator.contains("ComputerUseBridge.shared.execute(actionJSON: inputJson)"))
-        #expect(bubble.contains("AssistantInlineTranscriptView("))
-        #expect(bubble.contains("contentBlocks: message.contentBlocks"))
-        #expect(inlineTranscript.contains("case .tool(let tool):"))
-        #expect(inlineTranscript.contains("InlineToolTranscriptSegment("))
-        #expect(delegate.contains("func executeComputerAction(actionJson: String) -> String"))
-        #expect(rustBridge.contains("fn execute_computer_action(&self, action_json: String) -> String;"))
-        #expect(agentLoop.contains("delegate.execute_computer_action(input_json.clone())"))
-    }
-
-    @Test("chat coordinator auto-approved permissions do not append a fake approval banner")
-    func autoApprovedPermissionsDoNotAppendFakeApprovalBanner() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-        let promptStart = try #require(
-            coordinator.range(of: "private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool")
-        )
-        let promptTail = coordinator[promptStart.lowerBound...]
-        let promptEnd = try #require(promptTail.range(of: "private func seedApprovedR5WriteGrantIfNeeded"))
-        let promptBlock = String(promptTail[..<promptEnd.lowerBound])
-
-        #expect(promptBlock.contains("case .autoAllow:"))
-        #expect(promptBlock.contains("return true"))
-        #expect(!coordinator.contains("case .autoAllow:\n                        approved = await promptForToolApproval(request)"))
-        #expect(!coordinator.contains("case .autoAllow:\n                        chatState.appendStreamingText"))
-    }
-
-    @Test("command center rust agent path prompts for human-gated tool permission")
-    func commandCenterRustAgentPathPromptsForHumanGatedToolPermission() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-        let functionStart = try #require(coordinator.range(of: "private func runCommandCenterRustAgentPath("))
-        let functionTail = coordinator[functionStart.lowerBound...]
-        let permissionStart = try #require(functionTail.range(of: "case .permissionRequired(let request):"))
-        let permissionTail = functionTail[permissionStart.lowerBound...]
-        let permissionEnd = try #require(permissionTail.range(of: "case .complete("))
-        let permissionBlock = String(permissionTail[..<permissionEnd.lowerBound])
-
-        #expect(permissionBlock.contains("if request.isBudgetGate"))
-        #expect(permissionBlock.contains("approved = await promptUserForBudgetGateApproval(request)"))
-        #expect(permissionBlock.contains("approved = await promptForToolApproval(request)"))
-        #expect(permissionBlock.contains("decision: approved ? .approvedByUser : .deniedByPolicy"))
-        #expect(!permissionBlock.contains("if request.requiresHumanApproval"))
-        #expect(!permissionBlock.contains("approved = true"))
-        #expect(!permissionBlock.contains("decision: request.requiresHumanApproval"))
-        #expect(!permissionBlock.contains("approved = !request.requiresHumanApproval"))
-        #expect(!permissionBlock.contains("guard request.requiresHumanApproval else { return true }"))
-    }
-
-    @Test("managed Rust agent entry points keep read approvals delegated to Swift")
-    func managedRustAgentEntryPointsKeepReadApprovalsDelegatedToSwift() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-
-        func agentConfigBlock(after functionMarker: String) throws -> String {
-            let functionStart = try #require(coordinator.range(of: functionMarker))
-            let functionTail = coordinator[functionStart.lowerBound...]
-            let configStart = try #require(functionTail.range(of: "let agentConfig = AgentConfigFFI("))
-            let configTail = functionTail[configStart.lowerBound...]
-            let configEnd = try #require(configTail.range(of: "var capturedDelegate"))
-            return String(configTail[..<configEnd.upperBound])
-        }
-
-        let commandCenterConfig = try agentConfigBlock(
-            after: "private func runCommandCenterRustAgentPath("
-        )
-        let mainChatConfig = try agentConfigBlock(after: "private func runRustAgentPath(")
-
-        for config in [commandCenterConfig, mainChatConfig] {
-            #expect(config.contains("autoApproveReads: false"))
-            #expect(config.contains("autoApproveWrites: false"))
-            #expect(!config.contains("autoApproveReads: true"))
-        }
-    }
-
-    @Test("approval prompts name the persistent permission group and point to quick setup presets")
-    func approvalPromptsNameThePersistentPermissionGroupAndPointToQuickSetupPresets() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-        let authority = try loadAuditSource("Epistemos/Engine/AgentHarness/AgentAuthority.swift")
-
-        #expect(coordinator.contains("Always Allow \\(authorityCategory.displayName)"))
-        #expect(coordinator.contains("Authority → Less Interruptions"))
-        #expect(coordinator.contains("Use Less Interruptions"))
-        #expect(coordinator.contains("AgentAuthorityQuickSetupPreset.lessInterruptions.decisions"))
-        #expect(authority.contains("enum AgentAuthorityQuickSetupPreset"))
-        #expect(authority.contains("case lessInterruptions = \"Less Interruptions\""))
-    }
-
     @Test("agent tool approvals route through SwiftUI queue instead of NSAlert")
     func agentToolApprovalsRouteThroughSwiftUIQueueInsteadOfNSAlert() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
         let approvalModal = try loadAuditSource("Epistemos/Views/Approval/ApprovalModalView.swift")
         let bootstrap = try loadAuditSource("Epistemos/App/AppBootstrap.swift")
         let environment = try loadAuditSource("Epistemos/App/AppEnvironment.swift")
@@ -216,15 +118,6 @@ struct AuditFixRegressionTests {
         #expect(app.contains("bootstrap.chatApprovalQueue.pendingApproval"))
         #expect(app.contains("bootstrap.chatApprovalQueue.resolve"))
         #expect(app.contains(".interactiveDismissDisabled(true)"))
-
-        #expect(coordinator.contains("bootstrap.chatApprovalQueue.enqueue("))
-        #expect(coordinator.contains("toolApprovalPromptChoice(for resolution: ChatApprovalResolution)"))
-        #expect(coordinator.contains("promptUserForBudgetGateApproval"))
-        #expect(coordinator.contains("request.isBudgetGate"))
-        #expect(coordinator.contains("authorityCategoryLabel: \"Session budget\""))
-        #expect(!coordinator.contains("let alert = NSAlert()"))
-        #expect(!coordinator.contains("beginSheetModal"))
-        #expect(!coordinator.contains("runModal()"))
     }
 
     @MainActor
@@ -329,14 +222,12 @@ struct AuditFixRegressionTests {
 
     @Test("managed tools use an application-support scratch vault instead of crashing when no vault is attached")
     func managedToolsUseApplicationSupportScratchVaultWhenNoVaultIsAttached() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
         let bridge = try loadAuditSource("Epistemos/Bridge/ToolTierBridge.swift")
         let extensions = try loadAuditSource("Epistemos/Engine/Extensions.swift")
 
         #expect(extensions.contains("managedToolRuntimeVaultDirectory"))
         #expect(extensions.contains("ManagedToolRuntime"))
         #expect(extensions.contains("ScratchVault"))
-        #expect(coordinator.contains("FoundationSafety.managedToolRuntimeVaultDirectory"))
         #expect(bridge.contains("FoundationSafety.managedToolRuntimeVaultDirectory"))
     }
 
@@ -351,68 +242,10 @@ struct AuditFixRegressionTests {
         #expect(commandCenter.contains("VaultStore::open_read_only(vault_path)"))
     }
 
-    @Test("main chat no longer narrates approval banners into the assistant answer stream")
-    func mainChatNoLongerNarratesApprovalBannersIntoAssistantAnswerStream() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(!coordinator.contains("**Approval required:**"))
-        #expect(!coordinator.contains("**Denied:**"))
-        #expect(!coordinator.contains("**Denied by policy:**"))
-        #expect(!coordinator.contains("case .permissionRequired(let request):\n                receivedAgentContent = true"))
-    }
-
-    @Test("implicit vault note lookups use a separate provenance contract from attached context")
-    func implicitVaultNoteLookupsUseSeparateProvenanceContract() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("buildRequestedVaultLookupContractSection"))
-        #expect(coordinator.contains("Do not describe those notes as attached files or uploads."))
-        #expect(coordinator.contains("let hasAttachedUserContext"))
-        #expect(coordinator.contains("let hasRequestedVaultLookup"))
-    }
-
-    @Test("explicit vault read requests keep lookup discipline even when note context is also attached")
-    func explicitVaultReadRequestsKeepLookupDisciplineEvenWhenContextIsAttached() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("Self.mergedContextSections("))
-        #expect(coordinator.contains("hasAttachedUserContext ? Self.buildRequiredAttachmentContractSection() : nil"))
-        #expect(coordinator.contains("hasRequestedVaultLookup ? Self.buildRequestedVaultLookupContractSection() : nil"))
-        #expect(coordinator.contains("queryRequiresVerifiedVaultRead"))
-        #expect(coordinator.contains("Do not open with a provenance sentence like \"I found it in your notes\""))
-        #expect(coordinator.contains("say plainly that you couldn't find or read the note in the user's notes"))
-        #expect(coordinator.contains("I couldn't find a note titled"))
-        #expect(coordinator.contains("I couldn't read \\\""))
-        #expect(!coordinator.contains("so I won't pretend the lookup succeeded"))
-        #expect(coordinator.contains("Conversation history or attached context may mention the same note"))
-    }
-
-    @Test("explicit file operations keep exact user paths stable across runtime prompts")
-    func explicitFileOperationsKeepExactUserPathsStable() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-
-        #expect(coordinator.contains("let hasRequestedFileOperation"))
-        #expect(coordinator.contains("buildRequestedFileOperationContractSection"))
-        #expect(coordinator.contains("If the user already provided a path, use that exact path."))
-        #expect(coordinator.contains("File tools can use explicit filesystem paths the user provided"))
-        #expect(coordinator.contains("including absolute paths and ~/ home expansion"))
-        #expect(coordinator.contains("Do not invent alternate file names, directories, or fallback paths."))
-        #expect(coordinator.contains("Do not rewrite absolute paths into vault-relative guesses"))
-        #expect(coordinator.contains("If the user asks you to write a file and then read it back, do the write first and then read that same exact path."))
-        #expect(coordinator.contains("If the exact requested path fails, explain that exact failure instead of pretending a nearby path worked."))
-        #expect(coordinator.contains("hasRequestedFileOperation ? Self.buildRequestedFileOperationContractSection() : nil"))
-    }
-
-    @Test("explicit note writes keep a real vault.write contract across runtime prompts")
-    func explicitNoteWritesKeepAVaultWriteContractAcrossRuntimePrompts() throws {
-        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+    @Test("local agent prompt builder keeps a real vault.write contract")
+    func localAgentPromptBuilderKeepsVaultWriteContract() throws {
         let promptBuilder = try loadAuditSource("Epistemos/LocalAgent/LocalAgentPromptBuilder.swift")
 
-        #expect(coordinator.contains("let hasRequestedNoteWriteOperation"))
-        #expect(coordinator.contains("queryContainsExplicitNoteWriteOperation"))
-        #expect(coordinator.contains("buildRequestedNoteWriteContractSection"))
-        #expect(coordinator.contains("Use `vault.write` to create or update the note"))
-        #expect(coordinator.contains("If the user asks you to create or update a note and then read it back"))
         #expect(promptBuilder.contains("For vault note creation or updates, use vault.write"))
         #expect(promptBuilder.contains("Do not claim a note was created, updated, or read back"))
     }

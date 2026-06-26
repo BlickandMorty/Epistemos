@@ -8,6 +8,10 @@ struct HermesPromptBuilderTests {
     func systemPromptWrapsToolDefinitionsInHermesXMLTags() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
 
+        #expect(prompt.contains("You are Epistemos' local function-calling assistant"))
+        #expect(prompt.contains("These are Epistemos tools for this turn."))
+        #expect(prompt.contains("call it by the exact listed name"))
+        #expect(prompt.contains("Do not tell the user you lack an Epistemos-specific tool"))
         #expect(prompt.contains("<tools>"))
         #expect(prompt.contains("</tools>"))
         #expect(prompt.contains("<tool_call>"))
@@ -109,6 +113,7 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("["))
         #expect(prompt.contains("]"))
         #expect(prompt.contains("No tools are available for this turn."))
+        #expect(prompt.contains("do not claim Epistemos generally lacks tools"))
         #expect(prompt.contains("Return ONLY valid JSON."))
     }
 

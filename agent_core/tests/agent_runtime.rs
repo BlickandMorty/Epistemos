@@ -34,7 +34,12 @@ fn prompt_format_preserves_function_call_contract() {
 
     let prompt = build_system_prompt(&input);
 
-    assert!(prompt.starts_with("KNOWLEDGE-FIRST\nYou are a function calling AI model."));
+    assert!(prompt.starts_with(
+        "KNOWLEDGE-FIRST\nYou are Epistemos' local function-calling assistant."
+    ));
+    assert!(prompt.contains("These are Epistemos tools for this turn."));
+    assert!(prompt.contains("call it by the exact listed name"));
+    assert!(prompt.contains("Do not tell the user you lack an Epistemos-specific tool"));
     let tools_json = prompt
         .split("<tools>\n")
         .nth(1)
@@ -134,7 +139,7 @@ fn prompt_format_marks_empty_tool_turns_without_tool_calls() {
     });
 
     assert!(prompt.contains(
-        "No tools are available for this turn. Respond directly without emitting <tool_call> tags."
+        "No tools are available for this turn. This is turn-specific; do not claim Epistemos generally lacks tools. Respond directly without emitting <tool_call> tags."
     ));
 }
 
@@ -223,6 +228,7 @@ fn bridge_exposes_runtime_prompt_and_tool_parse_entrypoints() {
     .expect("prompt bridge should decode canonical JSON input");
 
     assert!(prompt.contains("No tools are available for this turn."));
+    assert!(prompt.contains("do not claim Epistemos generally lacks tools"));
     assert!(prompt.ends_with("Answer directly."));
 
     let calls_json = agent_core::bridge::runtime_parse_tool_calls(

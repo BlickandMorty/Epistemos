@@ -156,7 +156,7 @@ struct CommandCenterExecutionDiagnostics: Sendable {
 
     // MARK: - Event Ingestion
     //
-    // These mutators are called from ChatCoordinator.runCommandCenterRustAgentPath
+    // These mutators are called from the command-center agent path
     // as streaming events arrive from the Rust delegate. They are the ONLY way
     // runtime state should enter this struct — no inspector-side writes.
 

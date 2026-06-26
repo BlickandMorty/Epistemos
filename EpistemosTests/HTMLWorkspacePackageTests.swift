@@ -259,8 +259,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(!srcdoc.contains(HTMLWorkspaceSafeAPI.messageHandlerName))
     }
 
-    @Test("MiniChat patch command parser accepts structured workspace edits")
-    func miniChatPatchCommandParserAcceptsStructuredEdits() throws {
+    @Test("HTML workspace patch command parser accepts structured workspace edits")
+    func htmlWorkspacePatchCommandParserAcceptsStructuredEdits() throws {
         let response = """
         I will add the visualization.
 
@@ -284,8 +284,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains("display: grid;"))
     }
 
-    @Test("Document surface target metadata captures HTML Workspace panes")
-    func documentSurfaceTargetMetadataCapturesHTMLWorkspacePanes() {
+    @Test("Document surface metadata captures HTML Workspace panes")
+    func documentSurfaceMetadataCapturesHTMLWorkspacePanes() {
         let surface = DocumentSurface(
             id: "workspace-1",
             kind: .htmlWorkspace,
@@ -295,24 +295,15 @@ nonisolated struct HTMLWorkspacePackageTests {
             capabilities: [.read, .write, .patch, .exportHTML, .exportPDF, .importContent, .preview],
             contentHash: "abc123"
         )
-        let target = MiniChatTarget(
-            surface: surface,
-            pane: .html,
-            selectedRange: surface.currentSelection,
-            snippet: "<section id=\"root\"></section>",
-            allowedOperations: ["replaceHTML", "insertBlock", "insertChart"]
-        )
 
         #expect(surface.kind == .htmlWorkspace)
         #expect(surface.capabilities.contains(.patch))
-        #expect(target.surfaceID == "workspace-1")
-        #expect(target.pane == .html)
-        #expect(target.contentHash == "abc123")
-        #expect(target.allowedOperations.contains("insertChart"))
+        #expect(surface.currentSelection?.startLine == 2)
+        #expect(surface.contentHash == "abc123")
     }
 
-    @Test("MiniChat patch command parser rejects unsafe DOM and app bridge attempts")
-    func miniChatPatchCommandParserRejectsUnsafeOperations() {
+    @Test("HTML workspace patch command parser rejects unsafe DOM and app bridge attempts")
+    func htmlWorkspacePatchCommandParserRejectsUnsafeOperations() {
         let inlineHandler = """
         ```epistemos-html-workspace-patch
         {"operations":[{"type":"insertBlock","html":"<button onclick=\\"alert(1)\\">Run</button>"}]}
@@ -341,8 +332,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         }
     }
 
-    @Test("MiniChat patch command parser bounds operation counts and assets")
-    func miniChatPatchCommandParserBoundsPayloads() {
+    @Test("HTML workspace patch command parser bounds operation counts and assets")
+    func htmlWorkspacePatchCommandParserBoundsPayloads() {
         let operations = Array(repeating: #"{"type":"captureSnapshot","name":"snap.html"}"#, count: HTMLWorkspacePatchCommandLimits.maxOperations + 1)
             .joined(separator: ",")
         let tooMany = """
