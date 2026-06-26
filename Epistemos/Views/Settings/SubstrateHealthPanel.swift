@@ -4,80 +4,57 @@ import SwiftUI
 public struct SubstrateHealthPanel: View {
     public init() {}
 
-    @State private var showFoundation = true
-    @State private var showRetrieval = true
-    @State private var showHonesty = true
-    @State private var showTools = true
     @State private var healthClock = SubstrateHealthClock()
 
     public var body: some View {
-        Form {
-            SettingsDescriptionText(
-                text: """
-                Epistemos Foundation is the app-side IP that stays native: search, \
-                citation grounding, vault memory, tools/MCP, provenance, and \
-                verification. Generation engines live in Goose/OpenGUI/OpenCode-style \
-                surfaces, so this panel exposes only foundation features and health.
-                """
-            )
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                header
+                foundationSection("Foundation Features") {
+                    foundationFeature(
+                        title: "Skills, Tools, and MCP",
+                        detail: "Native capability plane exposed through app-owned tools and bridge contracts."
+                    )
+                    foundationFeature(
+                        title: "Halo, Shadow, and Fast Search",
+                        detail: "Vault recall, RRF search fusion, Eidos citation grounding, and editor indexing."
+                    )
+                    foundationFeature(
+                        title: "Provenance and Answer Witnesses",
+                        detail: "AnswerPacket, RunEventLog, falsifier artifacts, and replayable audit traces."
+                    )
+                    foundationFeature(
+                        title: "Vault Memory",
+                        detail: "App-side recall and context features that serve surfaces without owning generation."
+                    )
+                    foundationFeature(
+                        title: "Sovereign Safety",
+                        detail: "SovereignGate, privacy boundaries, capability checks, and signed-action guardrails."
+                    )
+                }
 
-            Section("Foundation Features", isExpanded: $showFoundation) {
-                foundationFeature(
-                    title: "Skills, Tools, and MCP",
-                    detail: "Native capability plane exposed to Work/OpenCode and future Goose/OpenGUI bridges through the app-owned tool layer."
-                )
-                foundationFeature(
-                    title: "Halo, Shadow, and Fast Search",
-                    detail: "Vault recall, RRF search fusion, Eidos citation grounding, and editor indexing."
-                )
-                foundationFeature(
-                    title: "Provenance and Answer Witnesses",
-                    detail: "AnswerPacket, RunEventLog, ClaimLedger-style records, falsifier artifacts, and replayable audit traces."
-                )
-                foundationFeature(
-                    title: "Vault Memory",
-                    detail: "App-side recall/context features that serve surfaces without owning generation or training."
-                )
-                foundationFeature(
-                    title: "Sovereign Safety",
-                    detail: "SovereignGate, privacy boundaries, capability checks, and signed-action guardrails."
-                )
-            }
+                foundationSection("Retrieval and Indexing") {
+                    EidosHealthRow()
+                    VaultRecallHealthRow()
+                    SearchFusionHealthRow()
+                    EditorBundleHealthRow()
+                }
 
-            Section("Retrieval and Indexing", isExpanded: $showRetrieval) {
-                SettingsDescriptionText(
-                    text: "Read-only health for app-side retrieval, citations, editor assets, and cross-index search."
-                )
-                EidosHealthRow()
-                VaultRecallHealthRow()
-                SearchFusionHealthRow()
-                EmlRerankGateHealthRow()
-                EditorBundleHealthRow()
-            }
+                foundationSection("Honesty and Provenance") {
+                    AnswerPacketHealthRow()
+                    FalsifierArtifactsHealthRow()
+                }
 
-            Section("Honesty and Provenance", isExpanded: $showHonesty) {
-                SettingsDescriptionText(
-                    text: "Verification surfaces that make native actions and answers inspectable without owning a model runtime."
-                )
-                AnswerPacketHealthRow()
-                FalsifierArtifactsHealthRow()
-                FUlpHealthRow()
-                LatticeWBOHealthRow()
-                SubstrateDriftMonitorHealthRow()
+                foundationSection("Tools and Surface Bridge") {
+                    WorkOpenCodeShellHealthRow()
+                    WorkBackendHealthRow()
+                    LiteParseImportHealthRow()
+                }
             }
-
-            Section("Tools and Surface Bridge", isExpanded: $showTools) {
-                SettingsDescriptionText(
-                    text: "Native app capabilities that Goose/OpenGUI/OpenCode-style surfaces can call through the app-owned bridge."
-                )
-                DeterministicSchemaGateHealthRow()
-                WorkOpenCodeShellHealthRow()
-                WorkBackendHealthRow()
-                LiteParseImportHealthRow()
-                LiteParseSettingsImportRow()
-            }
+            .padding(18)
         }
-        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
         .environment(healthClock)
         .task {
             while !Task.isCancelled {
@@ -87,16 +64,56 @@ public struct SubstrateHealthPanel: View {
         }
     }
 
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Epistemos Foundation")
+                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+            SettingsDescriptionText(
+                text: """
+                App-side IP that stays native: search, citation grounding, vault memory, \
+                tools/MCP, provenance, and verification. Generation engines live in \
+                Goose/OpenGUI/OpenCode-style surfaces.
+                """
+            )
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary, in: Rectangle())
+        .overlay {
+            Rectangle().stroke(.secondary.opacity(0.14), lineWidth: 0.75)
+        }
+    }
+
+    private func foundationSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            VStack(alignment: .leading, spacing: 8) {
+                content()
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.55), in: Rectangle())
+        .overlay {
+            Rectangle().stroke(.secondary.opacity(0.12), lineWidth: 0.75)
+        }
+    }
+
     private func foundationFeature(title: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
-            Text(detail)
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundStyle(.secondary)
+            SettingsDescriptionText(
+                text: detail
+            )
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary, in: Rectangle())
         .overlay {

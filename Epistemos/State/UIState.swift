@@ -364,10 +364,6 @@ final class UIState {
 
     var homeContent: HomeContent = .greeting
 
-    // MARK: - Chat Sidebar
-
-    var showChatSidebar = false
-
     // MARK: - Window Visibility
     /// True when the main window is minimized to the Dock.
     /// Animations (starfield, typewriter) should pause when this is true to save CPU.
@@ -581,16 +577,6 @@ final class UIState {
 
     func setActivePanel(_ tab: NavTab) {
         activePanel = tab
-    }
-
-    // MARK: - Chat Sidebar Methods
-
-    func toggleChatSidebar() {
-        showChatSidebar.toggle()
-    }
-
-    func dismissChatSidebar() {
-        showChatSidebar = false
     }
 
     func addLandingGreeting() {

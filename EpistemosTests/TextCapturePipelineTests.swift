@@ -1040,16 +1040,16 @@ struct TextCapturePipelineTests {
         #expect(source.contains("Opening Quick Capture so you can dictate your brain dump."))
     }
 
-    @Test("Brain Dump intent anchors raw thoughts to the active note or agent session")
-    func brainDumpIntentAnchorsRawThoughtsToActiveContext() throws {
+    @Test("Brain Dump intent anchors raw thoughts to the active note only")
+    func brainDumpIntentAnchorsRawThoughtsToActiveNoteContext() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Intents/Schemas/CognitiveIntents.swift")
         let anchorHelper = try #require(source.range(of: "private static func activeContextAnchor() -> QuarantineAnchor?"))
         let captureCall = try #require(source.range(of: "QuarantineArchive.shared.capture("))
 
         #expect(anchorHelper.lowerBound < captureCall.lowerBound)
         #expect(source.contains("bootstrap.notesUI.activePageId"))
-        #expect(source.contains("bootstrap.agentChatState.activeSessionId"))
-        #expect(source.contains(#"contextKind: "agent-session""#))
+        #expect(!source.contains("bootstrap.agentChatState.activeSessionId"))
+        #expect(!source.contains(#"contextKind: "agent-session""#))
         #expect(!source.contains("bootstrap.chatState"))
         #expect(source.contains("anchor: Self.activeContextAnchor()"))
     }

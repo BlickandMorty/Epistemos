@@ -1837,12 +1837,12 @@ struct RuntimeValidationTests {
         #expect(utilityManager.contains("HomeWindowIdentity.surfaceHomeWindow()"))
     }
 
-    @Test("bootstrap keeps inert agent state without deleted chat surface")
-    func bootstrapKeepsOnlyInertAgentStateWithoutDeletedChatSurface() throws {
+    @Test("bootstrap removes native agent chat state with deleted chat surface")
+    func bootstrapRemovesNativeAgentChatStateWithDeletedChatSurface() throws {
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(bootstrap.contains("let agentChatState = AgentChatState()"))
-        #expect(bootstrap.contains("agentChatState.eventBus = eventBus"))
+        #expect(!bootstrap.contains("let agentChatState = AgentChatState()"))
+        #expect(!bootstrap.contains("agentChatState.eventBus = eventBus"))
         #expect(!bootstrap.contains("chatState.primeComposerDraft(trimmed)"))
         #expect(!bootstrap.contains("chatState.showLanding = false"))
         #expect(!bootstrap.contains("func presentAgentCommandCenter("))
@@ -2625,8 +2625,8 @@ struct RuntimeValidationTests {
         let landingView = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(landingView.contains("@AppStorage(MainChatOperatingModePreference.defaultsKey)"))
-        #expect(landingView.contains("operatingMode: selectedOperatingMode"))
+        #expect(!landingView.contains("MainChatOperatingModePreference"))
+        #expect(!landingView.contains("operatingMode: selectedOperatingMode"))
 
         #expect(!rootView.contains("LocalModelToolbarMenu(\n            variant: .toolbar,\n            overrideTitle:"))
     }

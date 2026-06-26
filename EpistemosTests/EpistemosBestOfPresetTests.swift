@@ -41,14 +41,4 @@ struct EpistemosBestOfPresetTests {
         }
     }
 
-    @Test("apply is additive + catalog-bounded; the control is flag-gated")
-    func applyWiring() throws {
-        let src = try loadMirroredSourceTextFile("Epistemos/State/AgentCommandCenterState.swift")
-        #expect(src.contains("func applyBestOfPreset"))
-        // Iterates EXISTING toggles, enabling only recommended ∩ catalog — additive, no reset.
-        #expect(src.contains("for key in toolToggles.keys where recommended.contains(key)"))
-        let panel = try loadMirroredSourceTextFile("Epistemos/Views/Chat/AgentToolTogglePanel.swift")
-        #expect(panel.contains("EpistemosBestOfPreset.isEnabled"))
-        #expect(panel.contains("agentCommandCenter.applyBestOfPreset()"))
-    }
 }

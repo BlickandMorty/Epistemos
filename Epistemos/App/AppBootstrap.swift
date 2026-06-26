@@ -870,8 +870,6 @@ final class AppBootstrap {
     let physicsCoordinator = PhysicsCoordinator()
     let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
-    let agentCommandCenterState = AgentCommandCenterState()
-    let agentChatState = AgentChatState()
     /// Patch 5 / USER_WIRING_GAPS G2 — Raw Thoughts V0 sidebar consumer.
     /// Hidden behind `EPISTEMOS_RAW_THOUGHTS_V0` env flag; UI hides itself
     /// when `state.isEnabled == false`.
@@ -1687,8 +1685,8 @@ final class AppBootstrap {
             vaultPathProvider: { [weak vaultSync] in
                 vaultSync?.vaultURL?.path
             },
-            skillNamesProvider: { [weak agentCommandCenterState] in
-                agentCommandCenterState?.availableSkills.map(\.title).sorted() ?? []
+            skillNamesProvider: {
+                SkillDiscoveryCatalog.discoverSkillEntries().map(\.title).sorted()
             },
             vaultRankingSearchProvider: { [weak vaultSync] query in
                 // L1187 — deterministic ranked vault answer (flag-gated in the responder). Uses the
@@ -1953,27 +1951,6 @@ final class AppBootstrap {
         // App Shortcuts metadata is static and Settings exposes an explicit
         // refresh action. Do not touch external Shortcuts services during
         // passive launch; that path has triggered privacy/TCC diagnostics.
-
-        // Initialize Agent Command Center state (Phase 5).
-        // Tool catalog load calls synchronous Rust FFI (listToolsForTier) which
-        // can stall the main thread. Defer it off the synchronous init path so
-        // the first frame renders without blocking.
-        agentCommandCenterState.refreshSkillCatalog()
-        agentCommandCenterState.refreshBrainCatalog(from: inference)
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.agentCommandCenterState.refreshToolCatalog(
-                from: self.mcpBridge,
-                vaultPath: self.vaultSync.vaultURL?.path ?? ""
-            )
-        }
-        agentChatState.eventBus = eventBus
-        agentChatState.onStopRequested = { [weak self] in
-            self?.coordinator.cancelActiveQuery()
-        }
-        agentChatState.onMessageRecorded = { [weak self] message in
-            self?.persistAgentChatMessage(message)
-        }
 
         commandCenterLocalHotkeyMonitor = nil
         commandCenterGlobalHotkeyMonitor = nil
@@ -2397,102 +2374,6 @@ final class AppBootstrap {
         chat.title = title
         chat.markAsWorkerSession()   // sets chatType "worker" + updatedAt = .now
         try? context.save()
-    }
-
-    @MainActor
-    private func persistAgentChatMessage(
-        _ message: ChatMessage
-    ) {
-        guard !message.chatId.isEmpty else { return }
-
-        let context = modelContainer.mainContext
-        let chatId = message.chatId
-        let chatDescriptor = FetchDescriptor<SDChat>(
-            predicate: #Predicate<SDChat> { $0.id == chatId }
-        )
-        let chat: SDChat
-        do {
-            if let existing = try context.fetch(chatDescriptor).first {
-                chat = existing
-            } else {
-                let created = SDChat(
-                    title: Self.agentChatStorageTitle(message: message),
-                    chatType: "agent"
-                )
-                created.id = chatId
-                context.insert(created)
-                chat = created
-            }
-
-            chat.chatType = "agent"
-            chat.updatedAt = .now
-            if message.role == .user || chat.title == "New Agent Session" || chat.title == "New Chat" {
-                chat.title = Self.agentChatStorageTitle(message: message)
-            }
-
-            let messageId = message.id
-            let existingMessageDescriptor = FetchDescriptor<SDMessage>(
-                predicate: #Predicate<SDMessage> { $0.id == messageId }
-            )
-            let storedMessage: SDMessage
-            if let existing = try context.fetch(existingMessageDescriptor).first {
-                storedMessage = existing
-            } else {
-                let created = SDMessage(role: message.role.rawValue, content: message.content)
-                created.id = message.id
-                context.insert(created)
-                storedMessage = created
-            }
-
-            storedMessage.role = message.role.rawValue
-            storedMessage.content = message.content
-            storedMessage.createdAt = message.createdAt
-            storedMessage.isError = message.isError
-            storedMessage.isVaultBriefing = message.isVaultBriefing
-            storedMessage.authoredByProviderID = message.authoredByProviderID
-            storedMessage.authoredByModelID = message.authoredByModelID
-            storedMessage.thinkingTrace = message.thinkingTrace
-            storedMessage.thinkingDurationSeconds = message.thinkingDurationSeconds
-            storedMessage.setContentBlocks(message.contentBlocks)
-            storedMessage.setArtifacts(message.artifacts)
-            storedMessage.updateAnalysis(
-                dualMessage: message.dualMessage,
-                truthAssessment: message.truthAssessment,
-                confidence: message.confidence,
-                evidenceGrade: message.evidenceGrade,
-                mode: message.mode
-            )
-            storedMessage.updatePresentationSnapshot(
-                attachments: message.attachments,
-                loadedNoteTitles: message.loadedNoteTitles,
-                vaultRecallTrace: message.vaultRecallTrace,
-                contextAttachments: message.contextAttachments
-            )
-            storedMessage.chat = chat
-
-            try context.save()
-        } catch {
-            Log.app.error("AppBootstrap: failed to persist agent chat message: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    private static func agentChatStorageTitle(
-        message: ChatMessage
-    ) -> String {
-        let candidates = [
-            message.role == .user ? message.effectiveText : nil,
-            "New Agent Session",
-        ]
-
-        for candidate in candidates {
-            guard let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !trimmed.isEmpty else {
-                continue
-            }
-            return String(trimmed.prefix(72))
-        }
-
-        return "New Agent Session"
     }
 
     func refreshLiveNoteScheduler() {

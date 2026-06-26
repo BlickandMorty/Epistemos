@@ -606,16 +606,6 @@ struct ReleasePackagingHardeningTests {
         #expect(authority.contains("return [.askFirst, .neverAllow]"))
     }
 
-    @Test("App Store current-access plan hides shell access affordances")
-    func appStoreCurrentAccessPlanHidesShellAccessAffordances() throws {
-        let currentAccessPlan = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ComposerCurrentAccessPlan.swift")
-
-        #expect(currentAccessPlan.contains("struct ComposerCurrentAccessPlan"))
-        #expect(currentAccessPlan.contains("segments.append(\"Local chat\")"))
-        #expect(!currentAccessPlan.contains("shell-approval"))
-        #expect(!currentAccessPlan.contains("Shell: ask first"))
-    }
-
     @Test("App Store target does not link native computer-use automation stack")
     func appStoreTargetDoesNotLinkNativeComputerUseAutomationStack() throws {
         let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
