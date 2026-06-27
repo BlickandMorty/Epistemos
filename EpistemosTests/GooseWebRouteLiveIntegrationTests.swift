@@ -114,6 +114,12 @@ struct GooseWebRouteLiveIntegrationTests {
             guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_webview_route_smoke=pass") else {
                 throw GooseLiveIntegrationError.runtimeFailed("Live WebView route smoke proof log was not written.")
             }
+            try GoosePhase0CapabilityMatrix.record(
+                [.providerCatalog, .mcpApps],
+                proofURL: proofURL,
+                via: "embedded web UI routes -> goose serve ACP",
+                details: ["routes": expectations.map(\.route).joined(separator: ",")]
+            )
         }
     }
 }

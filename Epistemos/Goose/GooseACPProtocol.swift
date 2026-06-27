@@ -626,10 +626,18 @@ nonisolated struct GooseACPDiagnosticsGetResponse: Decodable, Equatable, Sendabl
 nonisolated struct GooseACPNewSessionRequest: Encodable, Equatable, Sendable {
     let cwd: String
     let mcpServers: [JSONValue]
+    let metadata: [String: JSONValue]?
 
-    init(cwd: String, mcpServers: [JSONValue] = []) {
+    init(cwd: String, mcpServers: [JSONValue] = [], metadata: [String: JSONValue]? = nil) {
         self.cwd = cwd
         self.mcpServers = mcpServers
+        self.metadata = metadata
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case cwd
+        case mcpServers
+        case metadata = "_meta"
     }
 }
 

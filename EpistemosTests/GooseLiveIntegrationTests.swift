@@ -315,6 +315,12 @@ struct GooseLiveIntegrationTests {
             guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_webview_boot=pass") else {
                 throw GooseLiveIntegrationError.runtimeFailed("Live WebView boot proof log was not written.")
             }
+            try GoosePhase0CapabilityMatrix.record(
+                [.hostIOSurface],
+                proofURL: proofURL,
+                via: "embedded WebView boot shim ledger + native affordance bridge",
+                details: ["acp_url_matches_runtime": "\(probe.acpUrl == connection.acpWebSocketURL?.absoluteString)"]
+            )
         }
     }
 

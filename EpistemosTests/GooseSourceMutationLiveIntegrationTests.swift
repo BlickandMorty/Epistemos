@@ -120,6 +120,12 @@ struct GooseSourceMutationLiveIntegrationTests {
             guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_source_mutation=pass") else {
                 throw GooseLiveIntegrationError.runtimeFailed("Live source mutation proof log was not written.")
             }
+            try GoosePhase0CapabilityMatrix.record(
+                [.skillsCRUD],
+                proofURL: proofURL,
+                via: "goose serve ACP sources create/update/export/delete/import",
+                details: ["source_name": sourceName]
+            )
         }
     }
 }

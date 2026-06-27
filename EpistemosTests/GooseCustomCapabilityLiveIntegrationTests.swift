@@ -64,6 +64,10 @@ struct GooseCustomCapabilityLiveIntegrationTests {
                 params: .object(["recipe": recipe])
             )
             let recipeYAMLText = try requiredString(recipeYAML, path: ["yaml"], label: "recipe yaml")
+            let recipeSession = try await client.newSession(
+                cwd: liveRepoRootURL().path,
+                metadata: ["recipeId": .string(recipeId)]
+            )
 
             let scheduleId = "phase0-\(UUID().uuidString.lowercased())"
             appendLiveProgress("before schedule create", to: progressURL)
@@ -150,6 +154,7 @@ struct GooseCustomCapabilityLiveIntegrationTests {
                 "recipe_id=\(recipeId)",
                 "recipe_list_count=\(recipeList.objectValue?["recipes"]?.arrayValue?.count ?? -1)",
                 "recipe_yaml_chars=\(recipeYAMLText.count)",
+                "recipe_session_id=\(recipeSession.sessionId)",
                 "schedule_id=\(createdScheduleId)",
                 "schedule_updated_cron=\(updatedCron)",
                 "extension_config_key=\(extensionConfigKey)",
@@ -159,6 +164,9 @@ struct GooseCustomCapabilityLiveIntegrationTests {
 
             guard recipeYAMLText.contains("phase0-custom-capability-recipe") else {
                 throw GooseLiveIntegrationError.runtimeFailed("Recipe export YAML did not include the saved recipe title.")
+            }
+            guard !recipeSession.sessionId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw GooseLiveIntegrationError.runtimeFailed("Recipe session run did not return a session id.")
             }
             guard createdScheduleId == scheduleId else {
                 throw GooseLiveIntegrationError.runtimeFailed("Schedule create returned \(createdScheduleId), expected \(scheduleId).")
@@ -175,6 +183,16 @@ struct GooseCustomCapabilityLiveIntegrationTests {
             guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_acp_custom_capabilities=pass") else {
                 throw GooseLiveIntegrationError.runtimeFailed("Live custom capability proof log was not written.")
             }
+            try GoosePhase0CapabilityMatrix.record(
+                [.recipesRunSaveExport, .schedulesCreateRunMutate, .mcpExtensionsAddEnable],
+                proofURL: proofURL,
+                via: "goose serve dynamic custom ACP",
+                details: [
+                    "extension_config_key": extensionConfigKey,
+                    "recipe_session_id": recipeSession.sessionId,
+                    "schedule_id": createdScheduleId,
+                ]
+            )
         }
     }
 }

@@ -4,6 +4,29 @@ import Testing
 
 @Suite("Goose ACP session lifecycle client")
 struct GooseACPSessionLifecycleClientTests {
+    @Test("client sends ACP new session recipe metadata like Goose Web UI")
+    func clientSendsNewSessionRecipeMetadata() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"recipe-session"}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let session = try await client.newSession(
+            cwd: "/repo",
+            metadata: ["recipeId": .string("recipe-123")]
+        )
+
+        #expect(session.sessionId == "recipe-session")
+        let sent = await transport.sentMessages()
+        let params = try #require(sent.dropFirst().first?.raw.objectValue?["params"]?.objectValue)
+        #expect(params["cwd"] == .string("/repo"))
+        #expect(params["mcpServers"] == .array([]))
+        #expect(params["_meta"]?.objectValue?["recipeId"] == .string("recipe-123"))
+        await client.close()
+    }
+
     @Test("client sends ACP session list, load, and fork requests")
     func clientSendsSessionLifecycleRequests() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

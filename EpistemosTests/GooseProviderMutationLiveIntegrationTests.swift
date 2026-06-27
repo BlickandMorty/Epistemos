@@ -102,6 +102,11 @@ struct GooseProviderMutationLiveIntegrationTests {
         #expect(proof.contains("phase0_live_provider_config_mutation=pass"))
         #expect(proof.contains("isolated_home=true"))
         #expect(proof.contains("keyring_disabled=true"))
+        try GoosePhase0CapabilityMatrix.record(
+            [.addProvider, .setKey],
+            proofURL: proofURL,
+            via: "goose serve ACP provider config save/read/delete"
+        )
     }
 
     @Test(

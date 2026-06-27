@@ -83,6 +83,12 @@ struct GooseSessionLifecycleLiveIntegrationTests {
             guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_acp_session_lifecycle=pass") else {
                 throw GooseLiveIntegrationError.runtimeFailed("Live ACP session lifecycle proof log was not written.")
             }
+            try GoosePhase0CapabilityMatrix.record(
+                [.sessionsListResumeFork],
+                proofURL: proofURL,
+                via: "goose serve ACP session/list+load+fork",
+                details: ["fork_session_id": fork.sessionId]
+            )
         }
     }
 }

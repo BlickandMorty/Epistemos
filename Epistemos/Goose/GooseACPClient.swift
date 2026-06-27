@@ -71,10 +71,13 @@ actor GooseACPClient {
         )
     }
 
-    func newSession(cwd: String) async throws -> GooseACPNewSessionResponse {
+    func newSession(
+        cwd: String,
+        metadata: [String: JSONValue]? = nil
+    ) async throws -> GooseACPNewSessionResponse {
         try await sendRequest(
             method: .newSession,
-            params: GooseACPNewSessionRequest(cwd: cwd),
+            params: GooseACPNewSessionRequest(cwd: cwd, metadata: metadata),
             response: GooseACPNewSessionResponse.self
         )
     }

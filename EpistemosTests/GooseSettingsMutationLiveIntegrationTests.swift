@@ -105,6 +105,122 @@ struct GooseSettingsMutationLiveIntegrationTests {
         #expect(proof.contains("removed_preferences=true"))
         #expect(proof.contains("defaults_save_matches=true"))
     }
+
+    @Test(
+        "live Goose ACP model defaults persist across goose serve restart"
+    )
+    func liveModelDefaultsPersistAcrossRestart() async throws {
+        let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-model-defaults-restart.log")
+        try? FileManager.default.removeItem(at: proofURL)
+
+        let isolatedHome = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EpistemosGooseModelDefaults-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: isolatedHome, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: isolatedHome) }
+
+        var selectedProviderID = ""
+        var selectedModelID = ""
+        try await withLiveGooseRuntime(
+            proofName: "model-defaults-save",
+            homeDirectory: isolatedHome,
+            disableKeyring: true
+        ) { _, connection, progressURL in
+            guard let acpURL = connection.acpWebSocketURL else {
+                throw GooseLiveIntegrationError.runtimeFailed("Live Goose runtime did not produce an ACP WebSocket URL.")
+            }
+            let client = GooseACPClient(
+                transport: GooseACPURLSessionWebSocketTransport(url: acpURL),
+                clientVersion: "phase0-model-defaults-save"
+            )
+            defer { Task { await client.close() } }
+
+            _ = try await withLiveTimeout(
+                seconds: 12,
+                description: "ACP initialize response",
+                onTimeout: { await client.close() },
+                operation: { try await client.initialize() }
+            )
+            let providers = try await client.listGooseProviders()
+            let statuses = try await client.readGooseProviderConfigStatus(providerIds: [])
+            let candidate = try providerMutationCandidate(
+                from: providers.entries,
+                statuses: statuses.statuses
+            )
+            let models = try await client.listGooseProviderSupportedModels(providerId: candidate.providerId)
+            guard let modelID = models.models.first,
+                  !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) returned no supported models for defaults persistence proof.")
+            }
+            _ = try await client.saveGooseProviderConfig(
+                providerId: candidate.providerId,
+                fields: candidate.configKeys.map {
+                    .init(key: $0, value: "epistemos-phase0-model-defaults")
+                }
+            )
+            let saved = try await client.saveGooseDefaults(providerId: candidate.providerId, modelId: modelID)
+            guard saved.providerId == candidate.providerId, saved.modelId == modelID else {
+                throw GooseLiveIntegrationError.runtimeFailed("Goose defaults save did not echo provider/model.")
+            }
+            selectedProviderID = candidate.providerId
+            selectedModelID = modelID
+            appendLiveProgress("saved_defaults provider=\(selectedProviderID) model=\(selectedModelID)", to: progressURL)
+        }
+
+        try await withLiveGooseRuntime(
+            proofName: "model-defaults-restart",
+            homeDirectory: isolatedHome,
+            disableKeyring: true
+        ) { _, connection, progressURL in
+            guard let acpURL = connection.acpWebSocketURL else {
+                throw GooseLiveIntegrationError.runtimeFailed("Live Goose runtime did not produce an ACP WebSocket URL.")
+            }
+            let client = GooseACPClient(
+                transport: GooseACPURLSessionWebSocketTransport(url: acpURL),
+                clientVersion: "phase0-model-defaults-restart"
+            )
+            defer { Task { await client.close() } }
+
+            _ = try await withLiveTimeout(
+                seconds: 12,
+                description: "ACP initialize response after restart",
+                onTimeout: { await client.close() },
+                operation: { try await client.initialize() }
+            )
+            let restored = try await client.readGooseDefaults()
+            appendLiveProgress(
+                "restored_defaults provider=\(restored.providerId ?? "<missing>") model=\(restored.modelId ?? "<missing>")",
+                to: progressURL
+            )
+
+            let proof = """
+            phase0_live_model_defaults_restart=pass
+            goose_base_url=\(connection.baseURL.absoluteString)
+            goose_acp_url=\(redactedACPURL(acpURL))
+            isolated_home=true
+            keyring_disabled=true
+            saved_provider_id=\(selectedProviderID)
+            saved_model_id=\(selectedModelID)
+            restored_provider_id=\(restored.providerId ?? "<missing>")
+            restored_model_id=\(restored.modelId ?? "<missing>")
+            defaults_persisted=\(restored.providerId == selectedProviderID && restored.modelId == selectedModelID)
+            """
+            try proof.write(to: proofURL, atomically: true, encoding: .utf8)
+
+            guard restored.providerId == selectedProviderID,
+                  restored.modelId == selectedModelID else {
+                throw GooseLiveIntegrationError.runtimeFailed("Goose defaults did not persist provider/model across restart.")
+            }
+        }
+
+        let proof = try String(contentsOf: proofURL, encoding: .utf8)
+        #expect(proof.contains("phase0_live_model_defaults_restart=pass"))
+        #expect(proof.contains("defaults_persisted=true"))
+        try GoosePhase0CapabilityMatrix.record(
+            [.modelSwitchPersistence],
+            proofURL: proofURL,
+            via: "goose serve ACP defaultsSave/read across restart"
+        )
+    }
 }
 
 private extension GooseACPPreferencesReadResponse {

@@ -64,6 +64,12 @@ struct GooseWebPromptLiveIntegrationTests {
             guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_webview_prompt=pass") else {
                 throw GooseLiveIntegrationError.runtimeFailed("Live WebView prompt proof log was not written.")
             }
+            try GoosePhase0CapabilityMatrix.record(
+                [.conversationLoop],
+                proofURL: proofURL,
+                via: "embedded web UI -> goose serve ACP",
+                details: ["stop_reason": probe.trace.lastPromptStopReason ?? "<missing>"]
+            )
         }
     }
 }
