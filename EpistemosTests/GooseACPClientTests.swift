@@ -448,6 +448,54 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("client sends Goose provider catalog ACP methods")
+    func clientSendsProviderCatalogCustomACPMethods() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"providers":[{"providerId":"openai-compatible","name":"OpenAI Compatible","format":"openai","apiUrl":"https://example.invalid/v1","modelCount":2,"docUrl":"https://docs.example.invalid","envVar":"OPENAI_API_KEY"}]}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"providers":[{"providerId":"openai","name":"OpenAI","category":"cloud","description":"OpenAI models","setupMethod":"single_api_key","nativeConnectQuery":null,"fields":[{"key":"OPENAI_API_KEY","label":"API key","secret":true,"required":true}],"binaryName":null,"docUrl":"https://platform.openai.com","group":"default","showOnlyWhenInstalled":false,"aliases":["gpt"],"supportsInstall":false,"supportsAuth":false,"supportsAuthStatus":true}]}}"#,
+            #"{"jsonrpc":"2.0","id":4,"result":{"template":{"providerId":"openai-compatible","name":"OpenAI Compatible","format":"openai","apiUrl":"https://example.invalid/v1","models":[{"id":"mock-model","name":"Mock Model","contextLimit":128000,"capabilities":{"toolCall":true,"reasoning":false,"attachment":false,"temperature":true},"deprecated":false}],"supportsStreaming":true,"envVar":"OPENAI_API_KEY","docUrl":"https://docs.example.invalid"}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let catalog = try await client.listGooseProviderCatalog(format: "openai")
+        let setupCatalog = try await client.listGooseProviderSetupCatalog()
+        let template = try await client.readGooseProviderCatalogTemplate(providerId: "openai-compatible")
+
+        #expect(catalog.providers == [
+            GooseACPProviderTemplateCatalogEntry(
+                providerId: "openai-compatible",
+                name: "OpenAI Compatible",
+                format: "openai",
+                apiUrl: "https://example.invalid/v1",
+                modelCount: 2,
+                docUrl: "https://docs.example.invalid",
+                envVar: "OPENAI_API_KEY"
+            ),
+        ])
+        #expect(setupCatalog.providers.first?.providerId == "openai")
+        #expect(setupCatalog.providers.first?.fields.first?.key == "OPENAI_API_KEY")
+        #expect(setupCatalog.providers.first?.aliases == ["gpt"])
+        #expect(template.template.providerId == "openai-compatible")
+        #expect(template.template.models.first?.id == "mock-model")
+        #expect(template.template.models.first?.capabilities.toolCall == true)
+
+        let sent = await transport.sentMessages()
+        let methods = sent.compactMap { $0.raw.objectValue?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/providers/catalog/list"),
+            .string("_goose/unstable/providers/setup/catalog/list"),
+            .string("_goose/unstable/providers/catalog/template"),
+        ])
+        let catalogParams = try #require(sent.dropFirst().first?.raw.objectValue?["params"]?.objectValue)
+        #expect(catalogParams["format"] == .string("openai"))
+        let templateParams = try #require(sent.dropFirst(3).first?.raw.objectValue?["params"]?.objectValue)
+        #expect(templateParams["providerId"] == .string("openai-compatible"))
+        await client.close()
+    }
+
     @Test("client sends the provider settings mutation Goose custom ACP subset")
     func clientSendsProviderSettingsMutationCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

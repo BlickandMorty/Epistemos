@@ -56,6 +56,27 @@ struct WorkSPASchemeHandlerTests {
         #expect(resolved.lastPathComponent == "index.html")
     }
 
+    @Test("optional virtual base path maps cache-isolated SPA URLs back to the bundle root")
+    func virtualBasePathMapsBackToBundleRoot() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let index = try WorkSPASchemeHandler.resolve(
+            request: request("epwork://app/__epistemos-goose/test-build/"),
+            root: root,
+            virtualBasePath: "/__epistemos-goose/test-build"
+        )
+        #expect(index.lastPathComponent == "index.html")
+
+        let asset = try WorkSPASchemeHandler.resolve(
+            request: request("epwork://app/__epistemos-goose/test-build/assets/app.js"),
+            root: root,
+            virtualBasePath: "/__epistemos-goose/test-build"
+        )
+        #expect(asset.lastPathComponent == "app.js")
+        #expect(asset.deletingLastPathComponent().lastPathComponent == "assets")
+    }
+
     @Test("a missing file WITH an extension is notFound (no silent index fallback)")
     func missingAssetIsNotFound() throws {
         let root = try makeRoot()

@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import Testing
 import WebKit
@@ -241,11 +242,8 @@ struct GooseLiveIntegrationTests {
         let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-webview-boot.log")
         try? FileManager.default.removeItem(at: proofURL)
 
-        guard let index = GooseWebUIResolver.indexURL() else {
-            throw GooseLiveIntegrationError.runtimeFailed("No staged ACP-mode Goose Web UI artifact was found.")
-        }
-
-        try await withLiveGooseRuntime(proofName: "webview-boot") { binary, connection, progressURL in
+        try await withFreshGooseWebUIArtifact(proofName: "webview-boot") { index in
+            try await withLiveGooseRuntime(proofName: "webview-boot") { binary, connection, progressURL in
             let bootstrap = GooseWebBootstrap(
                 baseURL: connection.baseURL,
                 secretKey: connection.secretKey,
@@ -255,8 +253,10 @@ struct GooseLiveIntegrationTests {
                 bootstrap: bootstrap,
                 gooseUIRoot: index.deletingLastPathComponent()
             )
+            let uiServer = try await startGooseWebUILoopbackServer(root: index.deletingLastPathComponent())
+            defer { uiServer.server.stop() }
             appendLiveProgress("before webview boot", to: progressURL)
-            _ = page.load(URLRequest(url: GooseWebSurfaceView.bootURL(for: index)))
+            _ = page.load(URLRequest(url: GooseWebSurfaceView.loopbackURL(baseURL: uiServer.baseURL, route: "/?")))
             let probe = try await waitForGooseWebBootProbe(page: page, progressURL: progressURL)
 
             let proof = [
@@ -267,6 +267,7 @@ struct GooseLiveIntegrationTests {
                 "goose_acp_url=\(connection.acpWebSocketURL.map(redactedACPURL) ?? "<missing>")",
                 "web_ui_index=\(index.path)",
                 "web_ui_root=\(index.deletingLastPathComponent().path)",
+                "web_ui_origin=\(uiServer.baseURL.absoluteString)",
                 "webview_url=\(probe.href)",
                 "ready_state=\(probe.readyState)",
                 "root_children=\(probe.rootChildren)",
@@ -329,6 +330,7 @@ struct GooseLiveIntegrationTests {
                     "goose_binary": binary.path,
                 ]
             )
+            }
         }
     }
 
@@ -339,10 +341,6 @@ struct GooseLiveIntegrationTests {
     func liveGooseWebViewDrivesNativeHostAffordances() async throws {
         let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-webview-native-affordances.log")
         try? FileManager.default.removeItem(at: proofURL)
-
-        guard let index = GooseWebUIResolver.indexURL() else {
-            throw GooseLiveIntegrationError.runtimeFailed("No staged ACP-mode Goose Web UI artifact was found.")
-        }
 
         let testRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-goose-native-affordances-\(UUID().uuidString)", isDirectory: true)
@@ -363,7 +361,8 @@ struct GooseLiveIntegrationTests {
             preferences: preferences
         )
 
-        try await withLiveGooseRuntime(proofName: "webview-native-affordances") { binary, connection, progressURL in
+        try await withFreshGooseWebUIArtifact(proofName: "webview-native-affordances") { index in
+            try await withLiveGooseRuntime(proofName: "webview-native-affordances") { binary, connection, progressURL in
             let bootstrap = GooseWebBootstrap(
                 baseURL: connection.baseURL,
                 secretKey: connection.secretKey,
@@ -374,8 +373,10 @@ struct GooseLiveIntegrationTests {
                 gooseUIRoot: index.deletingLastPathComponent(),
                 nativeAffordanceBridge: nativeBridge
             )
+            let uiServer = try await startGooseWebUILoopbackServer(root: index.deletingLastPathComponent())
+            defer { uiServer.server.stop() }
             appendLiveProgress("before webview native affordance boot", to: progressURL)
-            _ = page.load(URLRequest(url: GooseWebSurfaceView.bootURL(for: index)))
+            _ = page.load(URLRequest(url: GooseWebSurfaceView.loopbackURL(baseURL: uiServer.baseURL, route: "/?")))
             _ = try await waitForGooseWebBootProbe(page: page, progressURL: progressURL)
 
             scheduleGooseMessageBoxClick(buttonTitle: "Allow")
@@ -393,6 +394,7 @@ struct GooseLiveIntegrationTests {
                 "goose_base_url=\(connection.baseURL.absoluteString)",
                 "goose_acp_url=\(connection.acpWebSocketURL.map(redactedACPURL) ?? "<missing>")",
                 "web_ui_index=\(index.path)",
+                "web_ui_origin=\(uiServer.baseURL.absoluteString)",
                 "project_root=\(projectRoot.path)",
                 "confirm_response=\(probe.confirmResponse)",
                 "goosehints_write=\(probe.writeOK)",
@@ -430,6 +432,7 @@ struct GooseLiveIntegrationTests {
                     "mcp_app_lifecycle": "\(probe.launchOK && probe.refreshOK && probe.closeOK)",
                 ]
             )
+            }
         }
     }
 
@@ -666,6 +669,103 @@ nonisolated func liveRepoRootURL() -> URL {
 }
 
 @MainActor
+func withFreshGooseWebUIArtifact<T>(
+    proofName: String,
+    operation: (URL) async throws -> T
+) async throws -> T {
+    let fileManager = FileManager.default
+    let repoRoot = liveRepoRootURL()
+    let tempRoot = fileManager.temporaryDirectory
+        .appendingPathComponent("epistemos-goose-webui-live-\(proofName)-\(UUID().uuidString)", isDirectory: true)
+    let outputDirectory = tempRoot.appendingPathComponent("goose-desktop", isDirectory: true)
+    try fileManager.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: tempRoot) }
+
+    try stageFreshGooseWebUIArtifact(outputDirectory: outputDirectory, repoRoot: repoRoot)
+
+    let index = outputDirectory.appendingPathComponent("index.html")
+    let environment = [GooseWebUIResolver.explicitIndexEnvironmentKey: index.path]
+    guard let resolvedIndex = GooseWebUIResolver.indexURL(
+        bundle: nil,
+        appSupportDirectory: nil,
+        currentDirectory: repoRoot.path,
+        environment: environment,
+        includeBundledCandidates: false
+    ) else {
+        let diagnostics = GooseWebUIResolver.diagnosticSummary(
+            bundle: nil,
+            appSupportDirectory: nil,
+            currentDirectory: repoRoot.path,
+            environment: environment,
+            includeBundledCandidates: false
+        )
+        throw GooseLiveIntegrationError.runtimeFailed(
+            "Fresh staged ACP-mode Goose Web UI artifact was rejected. \(diagnostics)"
+        )
+    }
+    guard resolvedIndex.standardizedFileURL.path == index.standardizedFileURL.path else {
+        throw GooseLiveIntegrationError.runtimeFailed(
+            "Fresh Goose Web UI resolver selected \(resolvedIndex.path), expected \(index.path)."
+        )
+    }
+    return try await operation(resolvedIndex)
+}
+
+private func stageFreshGooseWebUIArtifact(outputDirectory: URL, repoRoot: URL) throws {
+    let script = repoRoot.appendingPathComponent("stage-goose-web-ui.sh")
+    guard FileManager.default.fileExists(atPath: script.path) else {
+        throw GooseLiveIntegrationError.runtimeFailed("Goose Web UI staging script is missing at \(script.path).")
+    }
+
+    let stdoutPipe = Pipe()
+    let stderrPipe = Pipe()
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/bash")
+    process.arguments = [script.path, outputDirectory.path]
+    process.currentDirectoryURL = repoRoot
+    var environment = ProcessInfo.processInfo.environment
+    let pathParts = [
+        environment["PATH"],
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+        "/usr/sbin",
+        "/sbin",
+    ].compactMap { part in
+        let trimmed = part?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+    environment["PATH"] = pathParts.joined(separator: ":")
+    process.environment = environment
+    process.standardOutput = stdoutPipe
+    process.standardError = stderrPipe
+
+    try process.run()
+    process.waitUntilExit()
+
+    let stdout = String(
+        data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(),
+        encoding: .utf8
+    ) ?? ""
+    let stderr = String(
+        data: stderrPipe.fileHandleForReading.readDataToEndOfFile(),
+        encoding: .utf8
+    ) ?? ""
+    guard process.terminationStatus == 0 else {
+        throw GooseLiveIntegrationError.runtimeFailed(
+            [
+                "Goose Web UI staging failed with status \(process.terminationStatus).",
+                "script=\(script.path)",
+                "output=\(outputDirectory.path)",
+                "stdout=\(String(stdout.prefix(4_000)))",
+                "stderr=\(String(stderr.prefix(4_000)))",
+            ].joined(separator: "\n")
+        )
+    }
+}
+
+@MainActor
 func withLiveGooseACPClient<T>(
     proofName: String,
     gooseMode: String? = nil,
@@ -709,11 +809,14 @@ func withLiveGooseRuntime<T>(
     appendLiveProgress("start binary=\(binary.lastPathComponent)", to: progressURL)
 
     let supervisor = GooseRuntimeSupervisor()
+    let port = try liveGooseAvailableTCPPort()
+    appendLiveProgress("using isolated port=\(port)", to: progressURL)
     supervisor.start(
         binary: binary,
         secretKey: "phase0-live-acp-secret",
         gooseMode: gooseMode,
         homeDirectory: homeDirectory,
+        port: port,
         disableKeyring: disableKeyring
     )
     defer {
@@ -730,6 +833,44 @@ func withLiveGooseRuntime<T>(
         appendLiveProgress("error=\(error.localizedDescription)", to: progressURL)
         throw error
     }
+}
+
+private func liveGooseAvailableTCPPort() throws -> Int {
+    let fd = socket(AF_INET, SOCK_STREAM, 0)
+    guard fd >= 0 else {
+        throw GooseLiveIntegrationError.runtimeFailed("Could not allocate a live Goose TCP socket.")
+    }
+    defer { close(fd) }
+
+    var reuse: Int32 = 1
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
+    var address = sockaddr_in()
+    address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+    address.sin_family = sa_family_t(AF_INET)
+    address.sin_port = in_port_t(0).bigEndian
+    address.sin_addr = in_addr(s_addr: inet_addr(GooseRuntimeSupervisor.defaultHost))
+
+    let bindResult = withUnsafePointer(to: &address) { pointer in
+        pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { rebound in
+            bind(fd, rebound, socklen_t(MemoryLayout<sockaddr_in>.size))
+        }
+    }
+    guard bindResult == 0 else {
+        throw GooseLiveIntegrationError.runtimeFailed("Could not bind an isolated live Goose TCP port.")
+    }
+
+    var resolved = sockaddr_in()
+    var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+    let nameResult = withUnsafeMutablePointer(to: &resolved) { pointer in
+        pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { rebound in
+            getsockname(fd, rebound, &length)
+        }
+    }
+    guard nameResult == 0 else {
+        throw GooseLiveIntegrationError.runtimeFailed("Could not resolve the isolated live Goose TCP port.")
+    }
+    return Int(UInt16(bigEndian: resolved.sin_port))
 }
 
 @MainActor
@@ -809,6 +950,25 @@ func waitForGooseWebBootProbe(
         }
     }
     throw GooseLiveIntegrationError.runtimeFailed("Timed out waiting for Goose WebView boot: \(lastError).")
+}
+
+@MainActor
+func startGooseWebUILoopbackServer(root: URL) async throws -> (server: WorkSPAServer, baseURL: URL) {
+    let server = WorkSPAServer(root: root, advertisedHost: "127.0.0.1")
+    try server.start()
+    for _ in 0..<80 {
+        switch server.status {
+        case .running(let baseURL):
+            return (server, baseURL)
+        case .failed(let message):
+            server.stop()
+            throw GooseLiveIntegrationError.runtimeFailed("Goose Web UI loopback server failed: \(message)")
+        default:
+            try await Task.sleep(nanoseconds: 80_000_000)
+        }
+    }
+    server.stop()
+    throw GooseLiveIntegrationError.runtimeFailed("Timed out waiting for Goose Web UI loopback server.")
 }
 
 @MainActor

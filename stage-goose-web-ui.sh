@@ -51,8 +51,16 @@ ln -s "$GOOSE_UI_DIR/node_modules" "$WORK_ROOT/ui/desktop/node_modules"
 printf 'export const USE_ACP_CHAT = true;\n' > "$WORK_ROOT/ui/desktop/src/acpChatFeatureFlag.ts"
 
 cat > "$WORK_ROOT/ui/desktop/src/acp/providers.ts" <<'TS'
-import type { ConfigKey, ModelInfo, ProviderDetails, ProviderType } from '../api';
-import { getAcpClient } from './acpConnection';
+import type {
+  ConfigKey,
+  ModelInfo,
+  ModelTemplate,
+  ProviderCatalogEntry,
+  ProviderDetails,
+  ProviderTemplate,
+  ProviderType,
+} from '../api';
+import { createEpistemosGooseACPClient, getAcpClient } from './acpConnection';
 
 type ProviderConfigKey = {
   name: string;
@@ -96,6 +104,67 @@ type ProviderConfigFieldUpdate = {
   value: unknown;
 };
 
+type AcpProviderCatalogEntry = {
+  providerId: string;
+  name: string;
+  format: string;
+  apiUrl: string;
+  modelCount: number;
+  docUrl: string;
+  envVar: string;
+};
+
+type AcpProviderTemplateModel = {
+  id: string;
+  name: string;
+  contextLimit: number;
+  capabilities: {
+    toolCall: boolean;
+    reasoning: boolean;
+    attachment: boolean;
+    temperature: boolean;
+  };
+  deprecated: boolean;
+};
+
+type AcpProviderTemplate = {
+  providerId: string;
+  name: string;
+  format: string;
+  apiUrl: string;
+  models: AcpProviderTemplateModel[];
+  supportsStreaming: boolean;
+  envVar: string;
+  docUrl: string;
+};
+
+type AcpProviderSetupField = {
+  key: string;
+  label: string;
+  secret: boolean;
+  required: boolean;
+  placeholder?: string | null;
+  defaultValue?: string | null;
+};
+
+type AcpProviderSetupCatalogEntry = {
+  providerId: string;
+  name: string;
+  category: string;
+  description: string;
+  setupMethod: string;
+  nativeConnectQuery?: string | null;
+  fields?: AcpProviderSetupField[];
+  binaryName?: string | null;
+  docUrl?: string | null;
+  group: string;
+  showOnlyWhenInstalled: boolean;
+  aliases?: string[];
+  supportsInstall: boolean;
+  supportsAuth: boolean;
+  supportsAuthStatus: boolean;
+};
+
 function providerType(value: string): ProviderType {
   if (value === 'Preferred' || value === 'Builtin' || value === 'Declarative' || value === 'Custom') {
     return value;
@@ -115,11 +184,31 @@ function configKey(key: ProviderConfigKey): ConfigKey {
   };
 }
 
+function setupConfigKey(field: AcpProviderSetupField, index: number): ConfigKey {
+  return {
+    name: field.key,
+    required: field.required,
+    secret: field.secret,
+    default: field.defaultValue ?? null,
+    oauth_flow: false,
+    device_code_flow: false,
+    primary: index === 0,
+  };
+}
+
 function modelInfo(model: ProviderInventoryModel): ModelInfo {
   return {
     name: model.id || model.name,
     context_limit: model.contextLimit ?? 0,
     reasoning: model.reasoning ?? false,
+  };
+}
+
+function templateModelInfo(model: AcpProviderTemplateModel): ModelInfo {
+  return {
+    name: model.id || model.name,
+    context_limit: model.contextLimit ?? 0,
+    reasoning: model.capabilities?.reasoning ?? false,
   };
 }
 
@@ -142,14 +231,329 @@ function providerDetails(entry: ProviderInventoryEntry): ProviderDetails {
   };
 }
 
-export async function getAcpProviders(): Promise<ProviderDetails[]> {
-  const client = await getAcpClient();
-  const response = await client.goose.providersList_unstable({ providerIds: [] });
-  const entries = (response.entries ?? []) as ProviderInventoryEntry[];
-  if (entries.length === 0) {
-    throw new Error('Goose ACP provider inventory returned zero providers.');
+function setupCatalogProviderDetails(entry: AcpProviderSetupCatalogEntry): ProviderDetails {
+  const fields = entry.fields ?? [];
+  return {
+    name: entry.providerId,
+    is_configured: false,
+    provider_type: 'Builtin',
+    metadata: {
+      name: entry.providerId,
+      display_name: entry.name,
+      description: entry.description || entry.name,
+      default_model: '',
+      known_models: [],
+      model_doc_link: entry.docUrl ?? '',
+      model_selection_hint: null,
+      config_keys: fields.map(setupConfigKey),
+      setup_steps: entry.description ? [entry.description] : [],
+    },
+  };
+}
+
+function catalogTemplateProviderDetails(template: AcpProviderTemplate): ProviderDetails {
+  const apiKeyConfig = template.envVar
+    ? [{
+        name: template.envVar,
+        required: true,
+        secret: true,
+        default: null,
+        oauth_flow: false,
+        device_code_flow: false,
+        primary: true,
+      }]
+    : [];
+  const models = template.models.map(templateModelInfo);
+  return {
+    name: template.providerId,
+    is_configured: false,
+    provider_type: 'Custom',
+    metadata: {
+      name: template.providerId,
+      display_name: template.name,
+      description: template.apiUrl || template.name,
+      default_model: models[0]?.name ?? '',
+      known_models: models,
+      model_doc_link: template.docUrl,
+      model_selection_hint: null,
+      config_keys: apiKeyConfig,
+      setup_steps: template.docUrl ? [template.docUrl] : [],
+    },
+  };
+}
+
+function mergeProviderDetails(primary: ProviderDetails[], fallback: ProviderDetails[]): ProviderDetails[] {
+  const byName = new Map<string, ProviderDetails>();
+  for (const provider of fallback) {
+    byName.set(provider.name, provider);
   }
-  return entries.map(providerDetails);
+  for (const provider of primary) {
+    byName.set(provider.name, provider);
+  }
+  return Array.from(byName.values()).sort((a, b) =>
+    (a.metadata.display_name || a.name).localeCompare(b.metadata.display_name || b.name)
+  );
+}
+
+function providerCatalogEntry(entry: AcpProviderCatalogEntry): ProviderCatalogEntry {
+  return {
+    id: entry.providerId,
+    name: entry.name,
+    format: entry.format,
+    api_url: entry.apiUrl,
+    model_count: entry.modelCount,
+    doc_url: entry.docUrl,
+    env_var: entry.envVar,
+  };
+}
+
+function modelTemplate(model: AcpProviderTemplateModel): ModelTemplate {
+  return {
+    id: model.id,
+    name: model.name,
+    context_limit: model.contextLimit,
+    deprecated: model.deprecated,
+    capabilities: {
+      tool_call: model.capabilities?.toolCall ?? false,
+      reasoning: model.capabilities?.reasoning ?? false,
+      attachment: model.capabilities?.attachment ?? false,
+      temperature: model.capabilities?.temperature ?? false,
+    },
+  };
+}
+
+function providerTemplate(template: AcpProviderTemplate): ProviderTemplate {
+  return {
+    id: template.providerId,
+    name: template.name,
+    format: template.format,
+    api_url: template.apiUrl,
+    models: template.models.map(modelTemplate),
+    supports_streaming: template.supportsStreaming,
+    env_var: template.envVar,
+    doc_url: template.docUrl,
+  };
+}
+
+function acpErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function recordProviderInventoryEvent(name: string, detail?: string): void {
+  const target = window as Window & {
+    __epistemosGooseProviderInventoryEvents?: Array<{ name: string; detail?: string }>;
+  };
+  target.__epistemosGooseProviderInventoryEvents ??= [];
+  target.__epistemosGooseProviderInventoryEvents.push({ name, detail });
+  target.__epistemosGooseProviderInventoryEvents =
+    target.__epistemosGooseProviderInventoryEvents.slice(-32);
+}
+
+let providerInventoryClientPromise: ReturnType<typeof createEpistemosGooseACPClient> | null = null;
+let providerCatalogClientPromise: ReturnType<typeof createEpistemosGooseACPClient> | null = null;
+let providerInventoryPromise: Promise<ProviderDetails[]> | null = null;
+let providerInventoryCache: ProviderDetails[] | null = null;
+let providerCatalogSurfacePromise: Promise<ProviderDetails[]> | null = null;
+let providerCatalogSurfaceCache: ProviderDetails[] | null = null;
+
+function getProviderInventoryAcpClient(): ReturnType<typeof createEpistemosGooseACPClient> {
+  if (!providerInventoryClientPromise) {
+    providerInventoryClientPromise = createEpistemosGooseACPClient().catch((error) => {
+      providerInventoryClientPromise = null;
+      throw error;
+    });
+  }
+  return providerInventoryClientPromise;
+}
+
+function getProviderCatalogAcpClient(): ReturnType<typeof createEpistemosGooseACPClient> {
+  if (!providerCatalogClientPromise) {
+    providerCatalogClientPromise = createEpistemosGooseACPClient().catch((error) => {
+      providerCatalogClientPromise = null;
+      throw error;
+    });
+  }
+  return providerCatalogClientPromise;
+}
+
+async function withAcpTimeout<T>(
+  promise: Promise<T>,
+  milliseconds: number,
+  label: string
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${milliseconds}ms`)),
+          milliseconds
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+function startProviderInventoryLoad(): Promise<ProviderDetails[]> {
+  if (providerInventoryPromise) {
+    return providerInventoryPromise;
+  }
+
+  recordProviderInventoryEvent('list-start');
+  providerInventoryPromise = (async () => {
+    const client = await withAcpTimeout(
+      getProviderInventoryAcpClient(),
+      8000,
+      'Goose ACP client initialization for provider inventory'
+    );
+    recordProviderInventoryEvent('client-ready');
+    const response = await withAcpTimeout(
+      client.goose.providersList_unstable({ providerIds: [] }),
+      12000,
+      'Goose ACP provider inventory'
+    );
+    const entries = (response.entries ?? []) as ProviderInventoryEntry[];
+    if (entries.length === 0) {
+      throw new Error('Goose ACP provider inventory returned zero providers.');
+    }
+    recordProviderInventoryEvent('list-success', String(entries.length));
+    providerInventoryCache = entries.map(providerDetails);
+    return providerInventoryCache;
+  })().catch((error: unknown) => {
+    providerInventoryPromise = null;
+    const message = acpErrorMessage(error);
+    recordProviderInventoryEvent('list-error', message);
+    throw new Error(`Goose ACP provider inventory failed: ${message}`);
+  });
+  void providerInventoryPromise.catch(() => {});
+  return providerInventoryPromise;
+}
+
+async function loadProviderCatalogSurface(): Promise<ProviderDetails[]> {
+  if (providerCatalogSurfaceCache) {
+    return providerCatalogSurfaceCache;
+  }
+  if (providerCatalogSurfacePromise) {
+    return providerCatalogSurfacePromise;
+  }
+
+  providerCatalogSurfacePromise = (async () => {
+    recordProviderInventoryEvent('catalog-surface-start');
+    const client = await withAcpTimeout(
+      getProviderCatalogAcpClient(),
+      8000,
+      'Goose ACP client initialization for provider catalog'
+    );
+    const setupResponse = await withAcpTimeout(
+      client.goose.providersSetupCatalogList_unstable({}),
+      12000,
+      'Goose ACP provider setup catalog'
+    );
+    const setupProviders = ((setupResponse.providers ?? []) as AcpProviderSetupCatalogEntry[])
+      .map(setupCatalogProviderDetails);
+    const catalogResponse = await withAcpTimeout(
+      client.goose.providersCatalogList_unstable({}),
+      12000,
+      'Goose ACP provider catalog'
+    );
+    const catalogEntries = (catalogResponse.providers ?? []) as AcpProviderCatalogEntry[];
+    let templateProviders: ProviderDetails[] = [];
+    for (const entry of catalogEntries.slice(0, 8)) {
+      try {
+        const templateResponse = await withAcpTimeout(
+          client.goose.providersCatalogTemplate_unstable({ providerId: entry.providerId }),
+          8000,
+          `Goose ACP provider catalog template for ${entry.providerId}`
+        );
+        templateProviders.push(catalogTemplateProviderDetails(templateResponse.template as AcpProviderTemplate));
+      } catch (error: unknown) {
+        recordProviderInventoryEvent('catalog-template-skip', `${entry.providerId}:${acpErrorMessage(error)}`);
+      }
+    }
+    const merged = mergeProviderDetails(templateProviders, setupProviders);
+    if (merged.length === 0) {
+      throw new Error('Goose ACP provider catalogs returned zero providers.');
+    }
+    providerCatalogSurfaceCache = merged;
+    recordProviderInventoryEvent('catalog-surface-success', String(merged.length));
+    return merged;
+  })().catch((error: unknown) => {
+    providerCatalogSurfacePromise = null;
+    const message = acpErrorMessage(error);
+    recordProviderInventoryEvent('catalog-surface-error', message);
+    throw new Error(`Goose ACP provider catalog surface failed: ${message}`);
+  });
+  void providerCatalogSurfacePromise.catch(() => {});
+  return providerCatalogSurfacePromise;
+}
+
+export async function getAcpProviders(): Promise<ProviderDetails[]> {
+  if (providerInventoryCache) {
+    return providerInventoryCache;
+  }
+
+  const inventory = startProviderInventoryLoad();
+  const fastInventory = await withAcpTimeout(
+    inventory.then((providers) => providers as ProviderDetails[] | null),
+    3500,
+    'Goose ACP provider inventory fast path'
+  ).catch((error: unknown) => {
+    recordProviderInventoryEvent('list-deferred', acpErrorMessage(error));
+    return null;
+  });
+  if (fastInventory && fastInventory.length > 0) {
+    return fastInventory;
+  }
+
+  try {
+    const catalogSurface = await loadProviderCatalogSurface();
+    if (providerInventoryCache) {
+      return providerInventoryCache;
+    }
+    return catalogSurface;
+  } catch {
+    if (providerInventoryCache) {
+      return providerInventoryCache;
+    }
+    return await inventory;
+  }
+}
+
+export async function listAcpProviderCatalog(format?: string | null): Promise<ProviderCatalogEntry[]> {
+  try {
+    const client = await getProviderCatalogAcpClient();
+    const response = await client.goose.providersCatalogList_unstable({
+      format: format || undefined,
+    });
+    return ((response.providers ?? []) as AcpProviderCatalogEntry[]).map(providerCatalogEntry);
+  } catch (error: unknown) {
+    throw new Error(`Goose ACP provider catalog list failed: ${acpErrorMessage(error)}`);
+  }
+}
+
+export async function readAcpProviderCatalogTemplate(providerId: string): Promise<ProviderTemplate> {
+  try {
+    const client = await getProviderCatalogAcpClient();
+    const response = await client.goose.providersCatalogTemplate_unstable({ providerId });
+    return providerTemplate(response.template as AcpProviderTemplate);
+  } catch (error: unknown) {
+    throw new Error(`Goose ACP provider catalog template failed: ${acpErrorMessage(error)}`);
+  }
 }
 
 export async function readAcpProviderConfigFields(
@@ -179,16 +583,46 @@ function configValue(value: unknown): string {
 }
 
 export async function readAcpProviderConfigValue(key: string): Promise<string | null> {
-  const provider = await providerForConfigKey(key);
-  const fields = await readAcpProviderConfigFields(provider.name);
-  const field = fields.find((entry) => entry.key === key);
-  return field?.isSet ? field.value ?? null : null;
+  if (key === 'GOOSE_PROVIDER' || key === 'GOOSE_DEFAULT_PROVIDER') {
+    const defaults = await readAcpProviderDefaults();
+    return defaults.providerId ?? null;
+  }
+  if (key === 'GOOSE_MODEL' || key === 'GOOSE_DEFAULT_MODEL') {
+    const defaults = await readAcpProviderDefaults();
+    return defaults.modelId ?? null;
+  }
+  try {
+    const provider = await providerForConfigKey(key);
+    const fields = await readAcpProviderConfigFields(provider.name);
+    const field = fields.find((entry) => entry.key === key);
+    return field?.isSet ? field.value ?? null : null;
+  } catch (error: unknown) {
+    const message = acpErrorMessage(error);
+    if (message.includes('Provider config key is not available through Goose ACP')) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function upsertAcpProviderConfig(
   key: string,
   value: unknown
 ): Promise<void> {
+  if (
+    key === 'GOOSE_PROVIDER' ||
+    key === 'GOOSE_MODEL' ||
+    key === 'GOOSE_DEFAULT_PROVIDER' ||
+    key === 'GOOSE_DEFAULT_MODEL'
+  ) {
+    const defaults = await readAcpProviderDefaults();
+    const isProviderKey = key === 'GOOSE_PROVIDER' || key === 'GOOSE_DEFAULT_PROVIDER';
+    await saveAcpProviderDefaults(
+      isProviderKey ? configValue(value) : defaults.providerId ?? '',
+      isProviderKey ? defaults.modelId ?? null : configValue(value)
+    );
+    return;
+  }
   const provider = await providerForConfigKey(key);
   await saveAcpProviderConfig(provider.name, [{ key, value }]);
 }
@@ -208,6 +642,14 @@ export async function saveAcpProviderConfig(
 }
 
 export async function removeAcpProviderConfig(key: string): Promise<void> {
+  if (
+    key === 'GOOSE_PROVIDER' ||
+    key === 'GOOSE_MODEL' ||
+    key === 'GOOSE_DEFAULT_PROVIDER' ||
+    key === 'GOOSE_DEFAULT_MODEL'
+  ) {
+    return;
+  }
   const provider = await providerForConfigKey(key);
   await deleteAcpProviderConfig(provider.name);
 }
@@ -271,6 +713,122 @@ export async function saveAcpSessionProvider(sessionId: string, providerId: stri
   await client.setSessionConfigOption({ sessionId, configId: 'provider', value: providerId });
 }
 TS
+
+ACP_CONNECTION="$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
+node - "$ACP_CONNECTION" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+if (!source.includes('__epistemosGooseACPRequestSerialization')) {
+  const stateAnchor = `let clientPromise: Promise<GooseClient> | null = null;
+let resolvedClient: GooseClient | null = null;
+`;
+  const serializedState = `${stateAnchor}
+const EPISTEMOS_ACP_SERIALIZATION_MARKER = '__epistemosGooseACPRequestSerialization';
+
+function recordSerializedACPRequest(name: string, phase: string): void {
+  const state = window as unknown as {
+    __epistemosGooseACPRequestSerialization?: Array<{ name: string; phase: string; at: number }>;
+  };
+  const events = state.__epistemosGooseACPRequestSerialization || [];
+  events.push({ name, phase, at: Date.now() });
+  while (events.length > 120) events.shift();
+  state.__epistemosGooseACPRequestSerialization = events;
+  void EPISTEMOS_ACP_SERIALIZATION_MARKER;
+}
+
+function serializeACPRequests(client: GooseClient): GooseClient {
+  let queue = Promise.resolve();
+  const proxiedGoose = new Proxy(client.goose as object, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (typeof value !== 'function') return value;
+      return (...args: unknown[]) => {
+        const name = \`goose.\${String(property)}\`;
+        const response = queue.then(
+          () => {
+            recordSerializedACPRequest(name, 'start');
+            return Reflect.apply(value, target, args);
+          },
+          () => {
+            recordSerializedACPRequest(name, 'start');
+            return Reflect.apply(value, target, args);
+          }
+        );
+        queue = Promise.resolve(response).then(
+          () => recordSerializedACPRequest(name, 'success'),
+          () => recordSerializedACPRequest(name, 'error')
+        );
+        return response;
+      };
+    },
+  });
+
+  return new Proxy(client as object, {
+    get(target, property, receiver) {
+      if (property === 'goose') return proxiedGoose;
+      const value = Reflect.get(target, property, receiver);
+      if (typeof value !== 'function') return value;
+      return (...args: unknown[]) => {
+        const name = String(property);
+        const response = queue.then(
+          () => {
+            recordSerializedACPRequest(name, 'start');
+            return Reflect.apply(value, target, args);
+          },
+          () => {
+            recordSerializedACPRequest(name, 'start');
+            return Reflect.apply(value, target, args);
+          }
+        );
+        queue = Promise.resolve(response).then(
+          () => recordSerializedACPRequest(name, 'success'),
+          () => recordSerializedACPRequest(name, 'error')
+        );
+        return response;
+      };
+    },
+  }) as GooseClient;
+}
+`;
+  if (!source.includes(stateAnchor)) {
+    throw new Error('ACP connection state anchor not found');
+  }
+  source = source.replace(stateAnchor, serializedState);
+  const returnAnchor = `  monitorConnection(client);
+  return client;
+`;
+  const returnReplacement = `  monitorConnection(client);
+  return serializeACPRequests(client);
+`;
+  if (!source.includes(returnAnchor)) {
+    throw new Error('ACP connection return anchor not found');
+  }
+  source = source.replace(returnAnchor, returnReplacement);
+  const getClientAnchor = `export async function getAcpClient(): Promise<GooseClient> {
+`;
+  fs.writeFileSync(path, source);
+}
+
+if (!source.includes('export async function createEpistemosGooseACPClient')) {
+  const getClientAnchor = `export async function getAcpClient(): Promise<GooseClient> {
+`;
+  const getClientReplacement = `export async function createEpistemosGooseACPClient(): Promise<GooseClient> {
+  (window as unknown as { __epistemosGooseProviderInventoryClientMarker?: string })
+    .__epistemosGooseProviderInventoryClientMarker = 'createEpistemosGooseACPClient';
+  return initializeConnection();
+}
+
+export async function getAcpClient(): Promise<GooseClient> {
+`;
+  if (!source.includes(getClientAnchor)) {
+    throw new Error('ACP connection getAcpClient anchor not found');
+  }
+  source = source.replace(getClientAnchor, getClientReplacement);
+  fs.writeFileSync(path, source);
+}
+NODE
 
 CONFIG_CONTEXT="$WORK_ROOT/ui/desktop/src/components/ConfigContext.tsx"
 node - "$CONFIG_CONTEXT" <<'NODE'
@@ -478,6 +1036,197 @@ for (const snippet of [
   if (!source.includes(snippet)) {
     throw new Error(`ProviderSettingsPage staged source is missing required ACP provider snippet: ${snippet}`);
   }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+PROVIDER_CATALOG_PICKER="$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/subcomponents/ProviderCatalogPicker.tsx"
+node - "$PROVIDER_CATALOG_PICKER" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`ProviderCatalogPicker ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+replaceRequired(
+  'remove REST provider catalog API imports',
+  `import {
+  getProviderCatalog,
+  getProviderCatalogTemplate,
+  type ProviderCatalogEntry,
+  type ProviderTemplate,
+} from '../../../../../api';`,
+  `import type {
+  ProviderCatalogEntry,
+  ProviderTemplate,
+} from '../../../../../api';`
+);
+
+const importAnchor = "import { defineMessages, useIntl } from '../../../../../i18n';";
+const imports = `${importAnchor}
+import {
+  listAcpProviderCatalog,
+  readAcpProviderCatalogTemplate,
+} from '../../../../../acp/providers';`;
+if (!source.includes('readAcpProviderCatalogTemplate')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('ProviderCatalogPicker import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+if (!source.includes('function providerCatalogErrorMessage(error: unknown): string')) {
+  replaceRequired(
+    'provider catalog error helper',
+    `interface ProviderCatalogPickerProps {
+  onSelect: (template: ProviderTemplate) => void;
+  onCancel: () => void;
+  embedded?: boolean;
+}
+`,
+    `interface ProviderCatalogPickerProps {
+  onSelect: (template: ProviderTemplate) => void;
+  onCancel: () => void;
+  embedded?: boolean;
+}
+
+function providerCatalogErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.length > 0) {
+      return message;
+    }
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function recordProviderCatalogEvent(name: string, detail?: string): void {
+  const target = window as Window & {
+    __epistemosGooseProviderCatalogEvents?: Array<{ name: string; detail?: string }>;
+  };
+  target.__epistemosGooseProviderCatalogEvents ??= [];
+  target.__epistemosGooseProviderCatalogEvents.push({ name, detail });
+  target.__epistemosGooseProviderCatalogEvents =
+    target.__epistemosGooseProviderCatalogEvents.slice(-32);
+}
+`
+  );
+}
+
+replaceRequired(
+  'ACP provider catalog list',
+  `      const { data } = await getProviderCatalog({
+        query: { format },
+        throwOnError: true,
+      });
+      setProviders(data || []);
+      setFilteredProviders(data || []);`,
+  `      recordProviderCatalogEvent('list-start', format);
+      const data = await listAcpProviderCatalog(format);
+      recordProviderCatalogEvent('list-success', String((data || []).length));
+      setProviders(data || []);
+      setFilteredProviders(data || []);`
+);
+
+replaceRequired(
+  'ACP provider catalog template',
+  `      const { data: template } = await getProviderCatalogTemplate({
+        path: { id: providerId },
+        throwOnError: true,
+      });
+      if (template) {
+        onSelect(template);
+      }`,
+  `      recordProviderCatalogEvent('template-start', providerId);
+      const template = await readAcpProviderCatalogTemplate(providerId);
+      recordProviderCatalogEvent('template-success', providerId);
+      if (template) {
+        onSelect(template);
+      }`
+);
+
+source = source.replaceAll(
+  `err instanceof Error ? err.message : 'Unknown error'`,
+  `providerCatalogErrorMessage(err)`
+);
+
+source = source.replaceAll(
+  `    setError(null);`,
+  `    setError(null);
+    (window as Window & { __epistemosGooseProviderCatalogError?: string }).__epistemosGooseProviderCatalogError = undefined;`
+);
+
+source = source.replaceAll(
+  `      setError(providerCatalogErrorMessage(err));`,
+  `      const message = providerCatalogErrorMessage(err);
+      recordProviderCatalogEvent('error', message);
+      (window as Window & { __epistemosGooseProviderCatalogError?: string }).__epistemosGooseProviderCatalogError = message;
+      console.error('Failed to load Goose ACP provider catalog:', err);
+      setError(message);`
+);
+
+for (const snippet of [
+  'const data = await listAcpProviderCatalog(format)',
+  'const template = await readAcpProviderCatalogTemplate(providerId)',
+  'import type {',
+  'providerCatalogErrorMessage(err)',
+  'recordProviderCatalogEvent',
+  '__epistemosGooseProviderCatalogEvents',
+  '__epistemosGooseProviderCatalogError',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ProviderCatalogPicker staged source is missing required ACP catalog snippet: ${snippet}`);
+  }
+}
+
+for (const forbiddenSnippet of [
+  'getProviderCatalog({',
+  'getProviderCatalogTemplate({',
+]) {
+  if (source.includes(forbiddenSnippet)) {
+    throw new Error(`ProviderCatalogPicker staged source still contains REST catalog fallback: ${forbiddenSnippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+CUSTOM_PROVIDER_FORM="$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx"
+node - "$CUSTOM_PROVIDER_FORM" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const anchor = `<button
+          type="button"
+          onClick={() => setStep('catalog')}`;
+const replacement = `<button
+          type="button"
+          data-testid="provider-catalog-template-choice"
+          onClick={() => setStep('catalog')}`;
+if (!source.includes('data-testid="provider-catalog-template-choice"')) {
+  if (!source.includes(anchor)) {
+    throw new Error('CustomProviderForm provider catalog choice anchor not found');
+  }
+  source = source.replace(anchor, replacement);
+}
+
+if (!source.includes('data-testid="provider-catalog-template-choice"')) {
+  throw new Error('CustomProviderForm staged source is missing provider catalog choice test id');
 }
 
 fs.writeFileSync(path, source);
@@ -1290,7 +2039,16 @@ if ! grep -q "base: './'" "$RENDERER_CONFIG"; then
 fi
 
 if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
+    grep -q "export const USE_ACP_CHAT = true;" "$WORK_ROOT/ui/desktop/src/acpChatFeatureFlag.ts"
     grep -q "providersList_unstable({ providerIds: \[\] })" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "providersSetupCatalogList_unstable({})" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "getProviderInventoryAcpClient()" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "getProviderCatalogAcpClient()" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "createEpistemosGooseACPClient" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
+    grep -q "__epistemosGooseProviderInventoryEvents" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "Goose ACP provider inventory failed:" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "__epistemosGooseACPRequestSerialization" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
+    grep -q "return serializeACPRequests(client);" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
     grep -q "name: model.id || model.name" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "listAcpProviderModels(p.name)" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
     grep -q "saveAcpProviderDefaults(providerName, modelName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
@@ -1322,6 +2080,22 @@ if grep -qE '(src|href)="/assets/' "$STAGED_OUTPUT/index.html"; then
     echo "Goose Web UI artifact is not file-loadable: absolute /assets paths found." >&2
     exit 1
 fi
+
+for required_marker in \
+    "providersList_unstable" \
+    "providersCatalogList_unstable" \
+    "providersSetupCatalogList_unstable" \
+    "providersCatalogTemplate_unstable" \
+    "createEpistemosGooseACPClient" \
+    "__epistemosGooseACPRequestSerialization" \
+    "__epistemosGooseProviderInventoryEvents" \
+    "__epistemosGooseProviderCatalogEvents" \
+    "provider-catalog-template-choice"; do
+    if ! grep -R -q -- "$required_marker" "$STAGED_OUTPUT/index.html" "$STAGED_OUTPUT/assets" 2>/dev/null; then
+        echo "Goose Web UI artifact is missing required ACP provider catalog marker: $required_marker" >&2
+        exit 1
+    fi
+done
 
 cat > "$STAGED_OUTPUT/$MANIFEST_FILE" <<'JSON'
 {"schemaVersion":1,"source":"epistemos-stage-goose-web-ui","acpMode":true}

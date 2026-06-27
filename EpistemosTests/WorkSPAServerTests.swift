@@ -53,6 +53,19 @@ struct WorkSPAServerTests {
         #expect((String(data: data, encoding: .utf8) ?? "").contains("root-marker"))
     }
 
+    @Test("can advertise 127.0.0.1 while remaining loopback-only")
+    func advertisesLoopbackIP() async throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let server = WorkSPAServer(root: root, advertisedHost: "127.0.0.1")
+        defer { server.stop() }
+        let baseURL = try await startAndAwait(server)
+        #expect(baseURL.absoluteString.hasPrefix("http://127.0.0.1:"))
+        let (data, response) = try await URLSession.shared.data(from: baseURL)
+        #expect((response as? HTTPURLResponse)?.statusCode == 200)
+        #expect((String(data: data, encoding: .utf8) ?? "").contains("root-marker"))
+    }
+
     @Test("HEAD / returns the same headers as GET but no body")
     func headReturnsHeadersOnly() async throws {
         let root = try makeRoot()

@@ -50,6 +50,9 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
     /// served HTML's `<head>` so the OpenWork SPA renders in the Epistemos palette WITHOUT an SPA rebuild
     /// (CSS-custom-property override; the block uses `!important` so it wins even over runtime-injected styles).
     let reskinCSS: String?
+    /// Hostname advertised to WebView clients. The listener remains loopback-only; this only controls the URL
+    /// string surfaced after NWListener picks an ephemeral port.
+    let advertisedHost: String
 
     private static let logger = Logger(subsystem: "com.epistemos.server", category: "WorkSPAServer")
     private static let maxRequestBytes = 256 * 1024 // requests are small GET/HEAD lines
@@ -62,10 +65,16 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
     var status: Status { statusLock.withLock { _status } }
     private func setStatus(_ newValue: Status) { statusLock.withLock { _status = newValue } }
 
-    init(root: URL, bootstrap: WorkSPABootstrap? = nil, reskinCSS: String? = nil) {
+    init(
+        root: URL,
+        bootstrap: WorkSPABootstrap? = nil,
+        reskinCSS: String? = nil,
+        advertisedHost: String = "localhost"
+    ) {
         self.root = root
         self.bootstrap = bootstrap
         self.reskinCSS = reskinCSS
+        self.advertisedHost = advertisedHost
     }
 
     // MARK: - Lifecycle
@@ -83,12 +92,12 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
             guard let self else { return }
             switch state {
             case .ready:
-                // The WebView loads via `localhost` (ATS auto-exempts the `localhost` name; a raw `127.0.0.1` IP
-                // literal is NOT auto-exempt and can be ATS-blocked → blank WebView). The listener still binds the
-                // loopback interface; `localhost` resolves to it.
-                if let port = listener.port?.rawValue, let url = URL(string: "http://localhost:\(port)/") {
+                if let port = listener.port?.rawValue,
+                   let url = URL(string: "http://\(self.advertisedHost):\(port)/") {
                     self.setStatus(.running(baseURL: url))
-                    Self.logger.info("WorkSPAServer ready on localhost:\(port, privacy: .public)")
+                    Self.logger.info(
+                        "WorkSPAServer ready on \(self.advertisedHost, privacy: .public):\(port, privacy: .public)"
+                    )
                 } else {
                     self.setStatus(.failed("listener ready but no bound port"))
                 }

@@ -2,7 +2,13 @@ import SwiftUI
 import WebKit
 
 struct GooseWebSurfaceView: View {
-    nonisolated static let gooseUISchemeName = "epistemos-goose"
+    nonisolated private static let gooseUISurfaceCacheToken = UUID().uuidString
+    nonisolated static let gooseUISchemeName =
+        "epistemos-goose-\(gooseUISurfaceCacheToken.lowercased())"
+    nonisolated private static let gooseUISurfaceHost =
+        "app-\(gooseUISurfaceCacheToken.lowercased())"
+    nonisolated private static let gooseUISurfaceVirtualBasePath =
+        "/__epistemos-goose/\(gooseUISurfaceCacheToken)"
 
     var theme: EpistemosTheme = .nativeDefault
 
@@ -11,6 +17,7 @@ struct GooseWebSurfaceView: View {
     @State private var nativePromptBridge: GooseWebNativePromptBridge
     @State private var nativeAffordanceBridge: GooseWebNativeAffordanceBridge
     @State private var page: WebPage
+    @State private var gooseUIServer: WorkSPAServer?
     @State private var secretKey: String
     @State private var showDetails = false
 
@@ -54,6 +61,7 @@ struct GooseWebSurfaceView: View {
         .task { await startSurface() }
         .onDisappear {
             supervisor.stop()
+            gooseUIServer?.stop()
             nativePromptBridge.cancelPendingPrompts()
             Task { await acpBridge.disconnect() }
         }
@@ -94,6 +102,7 @@ struct GooseWebSurfaceView: View {
             detailRow("native ACP", acpStatusLabel)
             detailRow("ACP", GooseRuntimeSupervisor.defaultBaseURL().absoluteString)
             detailRow("surface", Self.resolvedGooseUIIndex() == nil ? "UI bundle not staged" : "Goose Web UI")
+            detailRow("UI origin", gooseUIServerStatusLabel)
             detailRow("custom ACP", customACPStatusLabel)
             HStack(spacing: 8) {
                 Button { loadGooseRoute("/settings?section=models") } label: {
@@ -271,6 +280,22 @@ struct GooseWebSurfaceView: View {
             : "blocked: \(acpBridge.unhandledDiagnostics.count)"
     }
 
+    private var gooseUIServerStatusLabel: String {
+        guard let gooseUIServer else { return "not started" }
+        switch gooseUIServer.status {
+        case .idle:
+            return "idle"
+        case .starting:
+            return "starting"
+        case .running(let baseURL):
+            return "live: \(baseURL.absoluteString)"
+        case .failed(let message):
+            return "error: \(message)"
+        case .stopped:
+            return "stopped"
+        }
+    }
+
     private func startSurface() async {
         supervisor.start(secretKey: secretKey)
         await loadWhenReady()
@@ -281,7 +306,7 @@ struct GooseWebSurfaceView: View {
             switch supervisor.status {
             case .running(let connection):
                 connectNativeACP(connection: connection)
-                loadGooseUI(connection: connection)
+                await loadGooseUI(connection: connection)
                 return
             case .unavailable, .failed:
                 await acpBridge.disconnect()
@@ -299,17 +324,28 @@ struct GooseWebSurfaceView: View {
         acpBridge.connect(url: url)
     }
 
-    private func loadGooseUI(connection: GooseRuntimeConnection) {
+    private func loadGooseUI(connection: GooseRuntimeConnection) async {
         if let index = Self.resolvedGooseUIIndex() {
-            _ = page.load(URLRequest(url: Self.bootURL(for: index)))
+            let root = index.deletingLastPathComponent()
+            let server = WorkSPAServer(root: root, advertisedHost: "127.0.0.1")
+            gooseUIServer?.stop()
+            gooseUIServer = server
+            do {
+                try server.start()
+            } catch {
+                _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server failed: \(error.localizedDescription)", acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
+                return
+            }
+            await loadGooseUIWhenReady(server, route: "/?", acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
         }
     }
 
     private func loadGooseRoute(_ route: String) {
-        guard Self.resolvedGooseUIIndex() != nil else { return }
-        _ = page.load(URLRequest(url: Self.routeURL(route)))
+        guard let gooseUIServer,
+              case .running(let baseURL) = gooseUIServer.status else { return }
+        _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: route)))
     }
 
     private func loadPlaceholder() {
@@ -336,7 +372,10 @@ struct GooseWebSurfaceView: View {
             name: "epistemosGooseNative"
         )
         if let gooseUIRoot, let scheme = URLScheme(gooseUISchemeName) {
-            configuration.urlSchemeHandlers[scheme] = WorkSPASchemeHandler(root: gooseUIRoot)
+            configuration.urlSchemeHandlers[scheme] = WorkSPASchemeHandler(
+                root: gooseUIRoot,
+                virtualBasePath: gooseUISurfaceVirtualBasePath
+            )
         }
         configuration.userContentController.addUserScript(
             WKUserScript(
@@ -372,12 +411,41 @@ struct GooseWebSurfaceView: View {
     }
 
     nonisolated static func bootURL(for _: URL) -> URL {
-        URL(string: "\(gooseUISchemeName)://app/#/?")!
+        surfaceURL(hashRoute: "/?")
     }
 
     nonisolated static func routeURL(_ route: String) -> URL {
         let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
-        return URL(string: "\(gooseUISchemeName)://app/#\(normalizedRoute)")!
+        return surfaceURL(hashRoute: normalizedRoute)
+    }
+
+    nonisolated static func loopbackURL(baseURL: URL, route: String) -> URL {
+        let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
+        var absolute = baseURL.absoluteString
+        if !absolute.hasSuffix("/") {
+            absolute += "/"
+        }
+        return URL(string: "\(absolute)?v=\(gooseUISurfaceCacheToken)#\(normalizedRoute)")!
+    }
+
+    nonisolated private static func surfaceURL(hashRoute: String) -> URL {
+        URL(string: "\(gooseUISchemeName)://\(gooseUISurfaceHost)\(gooseUISurfaceVirtualBasePath)/?v=\(gooseUISurfaceCacheToken)#\(hashRoute)")!
+    }
+
+    private func loadGooseUIWhenReady(_ server: WorkSPAServer, route: String, acpURL: String) async {
+        for _ in 0..<80 {
+            switch server.status {
+            case .running(let baseURL):
+                _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: route)))
+                return
+            case .failed(let message):
+                _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server failed: \(message)", acpURL: acpURL))
+                return
+            default:
+                try? await Task.sleep(nanoseconds: 80_000_000)
+            }
+        }
+        _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server timed out", acpURL: acpURL))
     }
 
     private static func placeholderHTML(status: String, acpURL: String) -> String {

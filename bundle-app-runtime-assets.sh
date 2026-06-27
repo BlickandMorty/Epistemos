@@ -126,7 +126,31 @@ is_acp_goose_web_ui() {
     local candidate="$1"
     [ -f "$candidate/index.html" ] &&
         [ -f "$candidate/.epistemos-goose-webui.json" ] &&
-        grep -q '"acpMode"[[:space:]]*:[[:space:]]*true' "$candidate/.epistemos-goose-webui.json"
+        grep -q '"acpMode"[[:space:]]*:[[:space:]]*true' "$candidate/.epistemos-goose-webui.json" &&
+        goose_web_ui_contains_required_markers "$candidate"
+}
+
+goose_web_ui_contains_required_markers() {
+    local candidate="$1"
+    local marker
+    local search_paths=("$candidate/index.html")
+    if [ -d "$candidate/assets" ]; then
+        search_paths+=("$candidate/assets")
+    fi
+    for marker in \
+        "providersList_unstable" \
+        "providersCatalogList_unstable" \
+        "providersSetupCatalogList_unstable" \
+        "providersCatalogTemplate_unstable" \
+        "createEpistemosGooseACPClient" \
+        "__epistemosGooseACPRequestSerialization" \
+        "__epistemosGooseProviderInventoryEvents" \
+        "__epistemosGooseProviderCatalogEvents" \
+        "provider-catalog-template-choice"; do
+        if ! grep -R -q -- "$marker" "${search_paths[@]}" 2>/dev/null; then
+            return 1
+        fi
+    done
 }
 
 bundle_goose_web_ui() {

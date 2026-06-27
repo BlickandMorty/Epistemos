@@ -277,6 +277,9 @@ nonisolated enum GooseACPCustomMethod: String, Sendable {
     case providerConfigDelete = "_goose/unstable/providers/config/delete"
     case providerConfigAuthenticate = "_goose/unstable/providers/config/authenticate"
     case providerSupportedModelsList = "_goose/unstable/providers/supported-models/list"
+    case providerCatalogList = "_goose/unstable/providers/catalog/list"
+    case providerCatalogTemplate = "_goose/unstable/providers/catalog/template"
+    case providerSetupCatalogList = "_goose/unstable/providers/setup/catalog/list"
     case providersList = "_goose/unstable/providers/list"
     case preferencesRead = "_goose/unstable/preferences/read"
     case preferencesSave = "_goose/unstable/preferences/save"
@@ -314,6 +317,132 @@ nonisolated struct GooseACPProviderSupportedModelsListRequest: Encodable, Equata
 nonisolated struct GooseACPProviderSupportedModelsListResponse: Decodable, Equatable, Sendable {
     let providerId: String
     let models: [String]
+}
+
+nonisolated struct GooseACPProviderCatalogListRequest: Encodable, Equatable, Sendable {
+    let format: String?
+
+    init(format: String? = nil) {
+        self.format = format
+    }
+}
+
+nonisolated struct GooseACPProviderTemplateCatalogEntry: Decodable, Equatable, Sendable {
+    let providerId: String
+    let name: String
+    let format: String
+    let apiUrl: String
+    let modelCount: Int
+    let docUrl: String
+    let envVar: String
+}
+
+nonisolated struct GooseACPProviderCatalogListResponse: Decodable, Equatable, Sendable {
+    let providers: [GooseACPProviderTemplateCatalogEntry]
+}
+
+nonisolated struct GooseACPProviderCatalogTemplateRequest: Encodable, Equatable, Sendable {
+    let providerId: String
+}
+
+nonisolated struct GooseACPProviderTemplateModelCapabilities: Decodable, Equatable, Sendable {
+    let toolCall: Bool
+    let reasoning: Bool
+    let attachment: Bool
+    let temperature: Bool
+}
+
+nonisolated struct GooseACPProviderTemplateModel: Decodable, Equatable, Sendable {
+    let id: String
+    let name: String
+    let contextLimit: Int
+    let capabilities: GooseACPProviderTemplateModelCapabilities
+    let deprecated: Bool
+}
+
+nonisolated struct GooseACPProviderTemplate: Decodable, Equatable, Sendable {
+    let providerId: String
+    let name: String
+    let format: String
+    let apiUrl: String
+    let models: [GooseACPProviderTemplateModel]
+    let supportsStreaming: Bool
+    let envVar: String
+    let docUrl: String
+}
+
+nonisolated struct GooseACPProviderCatalogTemplateResponse: Decodable, Equatable, Sendable {
+    let template: GooseACPProviderTemplate
+}
+
+nonisolated struct GooseACPProviderSetupCatalogListRequest: Encodable, Equatable, Sendable {}
+
+nonisolated struct GooseACPProviderSetupField: Decodable, Equatable, Sendable {
+    let key: String
+    let label: String
+    let secret: Bool
+    let required: Bool
+    let placeholder: String?
+    let defaultValue: String?
+}
+
+nonisolated struct GooseACPProviderSetupCatalogEntry: Decodable, Equatable, Sendable {
+    let providerId: String
+    let name: String
+    let category: String
+    let description: String
+    let setupMethod: String
+    let nativeConnectQuery: String?
+    let fields: [GooseACPProviderSetupField]
+    let binaryName: String?
+    let docUrl: String?
+    let group: String
+    let showOnlyWhenInstalled: Bool
+    let aliases: [String]
+    let supportsInstall: Bool
+    let supportsAuth: Bool
+    let supportsAuthStatus: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case providerId
+        case name
+        case category
+        case description
+        case setupMethod
+        case nativeConnectQuery
+        case fields
+        case binaryName
+        case docUrl
+        case group
+        case showOnlyWhenInstalled
+        case aliases
+        case supportsInstall
+        case supportsAuth
+        case supportsAuthStatus
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        providerId = try container.decode(String.self, forKey: .providerId)
+        name = try container.decode(String.self, forKey: .name)
+        category = try container.decode(String.self, forKey: .category)
+        description = try container.decode(String.self, forKey: .description)
+        setupMethod = try container.decode(String.self, forKey: .setupMethod)
+        nativeConnectQuery = try container.decodeIfPresent(String.self, forKey: .nativeConnectQuery)
+        fields = try container.decodeIfPresent([GooseACPProviderSetupField].self, forKey: .fields) ?? []
+        binaryName = try container.decodeIfPresent(String.self, forKey: .binaryName)
+        docUrl = try container.decodeIfPresent(String.self, forKey: .docUrl)
+        group = try container.decode(String.self, forKey: .group)
+        showOnlyWhenInstalled = try container.decode(Bool.self, forKey: .showOnlyWhenInstalled)
+        aliases = try container.decodeIfPresent([String].self, forKey: .aliases) ?? []
+        supportsInstall = try container.decode(Bool.self, forKey: .supportsInstall)
+        supportsAuth = try container.decode(Bool.self, forKey: .supportsAuth)
+        supportsAuthStatus = try container.decode(Bool.self, forKey: .supportsAuthStatus)
+    }
+}
+
+nonisolated struct GooseACPProviderSetupCatalogListResponse: Decodable, Equatable, Sendable {
+    let providers: [GooseACPProviderSetupCatalogEntry]
 }
 
 nonisolated struct GooseACPProviderConfigReadRequest: Encodable, Equatable, Sendable {

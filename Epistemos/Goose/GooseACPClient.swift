@@ -170,6 +170,30 @@ actor GooseACPClient {
         )
     }
 
+    func listGooseProviderCatalog(format: String? = nil) async throws -> GooseACPProviderCatalogListResponse {
+        try await sendCustomRequest(
+            method: .providerCatalogList,
+            params: GooseACPProviderCatalogListRequest(format: format),
+            response: GooseACPProviderCatalogListResponse.self
+        )
+    }
+
+    func readGooseProviderCatalogTemplate(providerId: String) async throws -> GooseACPProviderCatalogTemplateResponse {
+        try await sendCustomRequest(
+            method: .providerCatalogTemplate,
+            params: GooseACPProviderCatalogTemplateRequest(providerId: providerId),
+            response: GooseACPProviderCatalogTemplateResponse.self
+        )
+    }
+
+    func listGooseProviderSetupCatalog() async throws -> GooseACPProviderSetupCatalogListResponse {
+        try await sendCustomRequest(
+            method: .providerSetupCatalogList,
+            params: GooseACPProviderSetupCatalogListRequest(),
+            response: GooseACPProviderSetupCatalogListResponse.self
+        )
+    }
+
     func readGooseProviderConfig(providerId: String) async throws -> GooseACPProviderConfigReadResponse {
         try await sendCustomRequest(
             method: .providerConfigRead,

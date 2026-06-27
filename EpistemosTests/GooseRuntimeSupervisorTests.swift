@@ -207,8 +207,7 @@ struct GooseWebUIResolverTests {
             at: explicit.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        FileManager.default.createFile(atPath: explicit.path, contents: Data())
-        try writeGooseACPWebUIManifest(nextTo: explicit)
+        try writeGooseACPWebUIArtifact(at: explicit)
 
         let resolved = GooseWebUIResolver.indexURL(
             appSupportDirectory: nil,
@@ -217,6 +216,118 @@ struct GooseWebUIResolverTests {
         )
 
         #expect(resolved == explicit)
+    }
+
+    @Test("resolver finds a bundled Goose Web UI index in the goose-desktop resource subdirectory")
+    func resolverUsesBundledGooseDesktopSubdirectory() throws {
+        let root = try temporaryDirectory()
+        let bundleRoot = root.appendingPathComponent("EpistemosTest.bundle", isDirectory: true)
+        let resources = bundleRoot.appendingPathComponent("Contents/Resources", isDirectory: true)
+        let index = resources.appendingPathComponent("goose-desktop/index.html")
+        try FileManager.default.createDirectory(
+            at: index.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleIdentifier</key>
+            <string>com.epistemos.tests.goose-web-ui</string>
+            <key>CFBundlePackageType</key>
+            <string>BNDL</string>
+        </dict>
+        </plist>
+        """.write(
+            to: bundleRoot.appendingPathComponent("Contents/Info.plist"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try writeGooseACPWebUIArtifact(at: index)
+        let bundle = try #require(Bundle(url: bundleRoot))
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                bundle: bundle,
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: [:]
+            ) == index
+        )
+    }
+
+    @Test("resolver finds bundled Goose Web UI from the Xcode test host app executable")
+    func resolverUsesXcodeTestHostAppBundle() throws {
+        let root = try temporaryDirectory()
+        let app = root.appendingPathComponent("Epistemos.app", isDirectory: true)
+        let executable = app.appendingPathComponent("Contents/MacOS/Epistemos")
+        let index = app.appendingPathComponent("Contents/Resources/goose-desktop/index.html")
+        try FileManager.default.createDirectory(
+            at: executable.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: index.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: executable.path, contents: Data())
+        try writeGooseACPWebUIArtifact(at: index)
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                bundle: nil,
+                appSupportDirectory: nil,
+                currentDirectory: root.appendingPathComponent("checkout").path,
+                environment: ["TEST_HOST": executable.path]
+            ) == index
+        )
+    }
+
+    @Test("resolver finds bundled Goose Web UI from a nested Xcode test bundle")
+    func resolverUsesNestedXcodeTestBundle() throws {
+        let root = try temporaryDirectory()
+        let app = root.appendingPathComponent("Epistemos.app", isDirectory: true)
+        let index = app.appendingPathComponent("Contents/Resources/goose-desktop/index.html")
+        let testBundle = app.appendingPathComponent(
+            "Contents/PlugIns/EpistemosTests.xctest",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: index.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: testBundle.appendingPathComponent("Contents/Resources", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleIdentifier</key>
+            <string>com.epistemos.tests</string>
+            <key>CFBundlePackageType</key>
+            <string>BNDL</string>
+        </dict>
+        </plist>
+        """.write(
+            to: testBundle.appendingPathComponent("Contents/Info.plist"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try writeGooseACPWebUIArtifact(at: index)
+        let bundle = try #require(Bundle(url: testBundle))
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                bundle: bundle,
+                appSupportDirectory: nil,
+                currentDirectory: root.appendingPathComponent("checkout").path,
+                environment: [:]
+            ) == index
+        )
     }
 
     @Test("resolver supports Application Support staging and checkout dist fallback")
@@ -233,16 +344,15 @@ struct GooseWebUIResolverTests {
             at: checkout.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        FileManager.default.createFile(atPath: staged.path, contents: Data())
-        FileManager.default.createFile(atPath: checkout.path, contents: Data())
-        try writeGooseACPWebUIManifest(nextTo: staged)
-        try writeGooseACPWebUIManifest(nextTo: checkout)
+        try writeGooseACPWebUIArtifact(at: staged)
+        try writeGooseACPWebUIArtifact(at: checkout)
 
         #expect(
             GooseWebUIResolver.indexURL(
                 appSupportDirectory: appSupport,
                 currentDirectory: root.path,
-                environment: [:]
+                environment: [:],
+                includeBundledCandidates: false
             ) == staged
         )
 
@@ -251,7 +361,8 @@ struct GooseWebUIResolverTests {
             GooseWebUIResolver.indexURL(
                 appSupportDirectory: appSupport,
                 currentDirectory: root.path,
-                environment: [:]
+                environment: [:],
+                includeBundledCandidates: false
             ) == checkout
         )
     }
@@ -270,8 +381,126 @@ struct GooseWebUIResolverTests {
             GooseWebUIResolver.indexURL(
                 appSupportDirectory: nil,
                 currentDirectory: root.path,
-                environment: ["EPISTEMOS_GOOSE_UI_INDEX": explicit.path]
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": explicit.path],
+                includeBundledCandidates: false
             ) == nil
+        )
+    }
+
+    @Test("resolver rejects stale ACP artifacts without the provider catalog bridge")
+    func resolverRejectsStaleProviderCatalogArtifact() throws {
+        let root = try temporaryDirectory()
+        let explicit = root.appendingPathComponent("dist/index.html")
+        try FileManager.default.createDirectory(
+            at: explicit.deletingLastPathComponent().appendingPathComponent("assets"),
+            withIntermediateDirectories: true
+        )
+        try """
+        <!doctype html>
+        <script type="module" src="./assets/index-stale.js"></script>
+        """.write(to: explicit, atomically: true, encoding: .utf8)
+        try """
+        providersCatalogList_unstable
+        providersCatalogTemplate_unstable
+        """.write(
+            to: explicit.deletingLastPathComponent().appendingPathComponent("assets/index-stale.js"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try writeGooseACPWebUIManifest(nextTo: explicit)
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": explicit.path],
+                includeBundledCandidates: false
+            ) == nil
+        )
+    }
+
+    @Test("resolver accepts provider bridge markers in Vite dynamic chunks")
+    func resolverAcceptsProviderBridgeMarkersInDynamicChunks() throws {
+        let root = try temporaryDirectory()
+        let explicit = root.appendingPathComponent("dist/index.html")
+        let assets = explicit.deletingLastPathComponent().appendingPathComponent("assets", isDirectory: true)
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        try """
+        <!doctype html>
+        <script type="module" src="./assets/index-live.js"></script>
+        """.write(to: explicit, atomically: true, encoding: .utf8)
+        try """
+        providersList_unstable
+        providersCatalogList_unstable
+        providersSetupCatalogList_unstable
+        providersCatalogTemplate_unstable
+        createEpistemosGooseACPClient
+        """.write(
+            to: assets.appendingPathComponent("index-live.js"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        __epistemosGooseProviderInventoryEvents
+        __epistemosGooseACPRequestSerialization
+        __epistemosGooseProviderCatalogEvents
+        provider-catalog-template-choice
+        """.write(
+            to: assets.appendingPathComponent("App-dynamic.js"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try writeGooseACPWebUIManifest(nextTo: explicit)
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": explicit.path],
+                includeBundledCandidates: false
+            ) == explicit
+        )
+    }
+
+    @Test("resolver rejects ACP Goose Web UI indexes with missing local assets")
+    func resolverRejectsMissingLocalAssets() throws {
+        let root = try temporaryDirectory()
+        let explicit = root.appendingPathComponent("dist/index.html")
+        try FileManager.default.createDirectory(
+            at: explicit.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try """
+        <!doctype html>
+        <script type="module" src="./assets/index-live.js"></script>
+        """.write(to: explicit, atomically: true, encoding: .utf8)
+        try writeGooseACPWebUIManifest(nextTo: explicit)
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": explicit.path],
+                includeBundledCandidates: false
+            ) == nil
+        )
+
+        try FileManager.default.createDirectory(
+            at: explicit.deletingLastPathComponent().appendingPathComponent("assets"),
+            withIntermediateDirectories: true
+        )
+        try gooseACPWebUIBridgeFixtureSource.write(
+            to: explicit.deletingLastPathComponent().appendingPathComponent("assets/index-live.js"),
+            atomically: true,
+            encoding: .utf8
+        )
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": explicit.path],
+                includeBundledCandidates: false
+            ) == explicit
         )
     }
 }
@@ -283,8 +512,23 @@ struct GooseWebUIStagingTests {
         let script = try loadRepoTextFile("stage-goose-web-ui.sh")
         #expect(script.contains("vite.renderer.config.mts"))
         #expect(script.contains("base: './'"))
+        #expect(script.contains("acpChatFeatureFlag.ts"))
+        #expect(script.contains("export const USE_ACP_CHAT = true;"))
         #expect(script.contains("goose.providersList_unstable({ providerIds: [] })"))
+        #expect(script.contains("createEpistemosGooseACPClient"))
+        #expect(script.contains("getProviderInventoryAcpClient()"))
+        #expect(script.contains("getProviderCatalogAcpClient()"))
+        #expect(script.contains("__epistemosGooseACPRequestSerialization"))
+        #expect(script.contains("return serializeACPRequests(client);"))
+        #expect(script.contains("__epistemosGooseProviderInventoryEvents"))
+        #expect(script.contains("Goose ACP provider inventory failed:"))
+        #expect(script.contains("Goose ACP client initialization for provider inventory"))
         #expect(script.contains("Goose ACP provider inventory returned zero providers."))
+        #expect(script.contains("goose.providersCatalogList_unstable({"))
+        #expect(script.contains("goose.providersSetupCatalogList_unstable({})"))
+        #expect(script.contains("goose.providersCatalogTemplate_unstable({ providerId })"))
+        #expect(script.contains("listAcpProviderCatalog(format)"))
+        #expect(script.contains("readAcpProviderCatalogTemplate(providerId)"))
         #expect(script.contains("goose.providersSupportedModelsList_unstable({ providerId })"))
         #expect(script.contains("listAcpProviderModels(p.name)"))
         #expect(script.contains("name: model.id || model.name"))
@@ -311,12 +555,55 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("'initial ACP provider load'"))
         #expect(script.contains("Provider catalog failed:"))
         #expect(script.contains("ProviderSettingsPage staged source is missing required ACP provider snippet"))
+        #expect(script.contains("ProviderCatalogPicker.tsx"))
+        #expect(script.contains("'ACP provider catalog list'"))
+        #expect(script.contains("'ACP provider catalog template'"))
+        #expect(script.contains("__epistemosGooseProviderCatalogError"))
+        #expect(script.contains("__epistemosGooseProviderCatalogEvents"))
+        #expect(script.contains("ProviderCatalogPicker staged source is missing required ACP catalog snippet"))
+        #expect(script.contains("provider-catalog-template-choice"))
+        #expect(script.contains("Goose Web UI artifact is missing required ACP provider catalog marker"))
         #expect(!script.contains("OnboardingGuard.tsx"))
         #expect(!script.contains("return <>{children}</>"))
         #expect(script.contains("permissionRequests.ts"))
         #expect(script.contains("requestPermission(request)"))
         #expect(script.contains("elicitationRequests.ts"))
         #expect(script.contains("requestElicitation(request)"))
+    }
+
+    @Test("Goose Swift surface does not carry a provider or model roster")
+    func gooseSwiftSurfaceDoesNotHardcodeProviderModelRoster() throws {
+        let files = try mirroredSourceFileURLs(
+            under: "Epistemos/Goose",
+            includingExtensions: ["swift"]
+        )
+        let forbiddenRosterTokens = [
+            "Anthropic",
+            "Claude",
+            "Gemini",
+            "Google",
+            "GPT-",
+            "Groq",
+            "Mistral",
+            "OpenAI",
+            "OpenRouter",
+            "Perplexity",
+            "xAI",
+        ]
+        var hits: [String] = []
+        for file in files {
+            let relativePath = file.path.components(separatedBy: "/Epistemos/").last.map { "Epistemos/\($0)" } ?? file.lastPathComponent
+            let lines = try String(contentsOf: file, encoding: .utf8).split(separator: "\n", omittingEmptySubsequences: false)
+            for (index, line) in lines.enumerated() {
+                for token in forbiddenRosterTokens where line.contains(token) {
+                    hits.append("\(relativePath):\(index + 1):\(token)")
+                }
+                if line.contains("Ollama"), !line.contains("checkForOllama") {
+                    hits.append("\(relativePath):\(index + 1):Ollama")
+                }
+            }
+        }
+        #expect(hits.isEmpty, "Goose provider/model inventory must be ACP-derived, not hardcoded in Swift: \(hits.joined(separator: ", "))")
     }
 }
 
@@ -366,7 +653,21 @@ struct GooseWebViewBootShimTests {
     @Test("Goose Web UI loads through the hash route used by the Electron renderer")
     func gooseWebUIBootURLUsesHashRoute() {
         let index = URL(fileURLWithPath: "/tmp/goose-web-ui/index.html")
-        #expect(GooseWebSurfaceView.bootURL(for: index).absoluteString == "epistemos-goose://app/#/?")
+        let url = GooseWebSurfaceView.bootURL(for: index)
+        #expect(url.scheme?.hasPrefix("epistemos-goose-") == true)
+        #expect(url.host?.hasPrefix("app-") == true)
+        #expect(url.path.hasPrefix("/__epistemos-goose/"))
+        #expect(url.query?.hasPrefix("v=") == true)
+        #expect(url.fragment == "/?")
+
+        let loopback = GooseWebSurfaceView.loopbackURL(
+            baseURL: URL(string: "http://localhost:54444/")!,
+            route: "/configure-providers"
+        )
+        #expect(loopback.scheme == "http")
+        #expect(loopback.host == "localhost")
+        #expect(loopback.query?.hasPrefix("v=") == true)
+        #expect(loopback.fragment == "/configure-providers")
     }
 
     @Test("surface availability requires both Goose runtime and ACP Web UI")
@@ -557,7 +858,12 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains("Label(\"Manage models\", systemImage: \"slider.horizontal.3\")"))
         #expect(source.contains("loadGooseRoute(\"/settings?section=models\")"))
         #expect(source.contains("loadGooseRoute(\"/configure-providers\")"))
-        #expect(GooseWebSurfaceView.routeURL("/settings?section=models").absoluteString == "epistemos-goose://app/#/settings?section=models")
+        let modelsURL = GooseWebSurfaceView.routeURL("/settings?section=models")
+        #expect(modelsURL.scheme?.hasPrefix("epistemos-goose-") == true)
+        #expect(modelsURL.host?.hasPrefix("app-") == true)
+        #expect(modelsURL.path.hasPrefix("/__epistemos-goose/"))
+        #expect(modelsURL.query?.hasPrefix("v=") == true)
+        #expect(modelsURL.fragment == "/settings?section=models")
     }
 }
 
@@ -847,6 +1153,33 @@ private func makeGooseElectronFallbackWorkspace() throws -> GooseElectronFallbac
     return GooseElectronFallbackWorkspace(repoRoot: repoRoot, uiRoot: uiRoot, pnpm: pnpm)
 }
 #endif
+
+private let gooseACPWebUIBridgeFixtureSource = """
+providersList_unstable
+providersCatalogList_unstable
+providersSetupCatalogList_unstable
+providersCatalogTemplate_unstable
+createEpistemosGooseACPClient
+__epistemosGooseACPRequestSerialization
+__epistemosGooseProviderInventoryEvents
+__epistemosGooseProviderCatalogEvents
+provider-catalog-template-choice
+"""
+
+private func writeGooseACPWebUIArtifact(at indexURL: URL) throws {
+    let assets = indexURL.deletingLastPathComponent().appendingPathComponent("assets", isDirectory: true)
+    try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+    try """
+    <!doctype html>
+    <script type="module" src="./assets/index-live.js"></script>
+    """.write(to: indexURL, atomically: true, encoding: .utf8)
+    try gooseACPWebUIBridgeFixtureSource.write(
+        to: assets.appendingPathComponent("index-live.js"),
+        atomically: true,
+        encoding: .utf8
+    )
+    try writeGooseACPWebUIManifest(nextTo: indexURL)
+}
 
 private func writeGooseACPWebUIManifest(nextTo indexURL: URL) throws {
     let manifest = indexURL.deletingLastPathComponent()

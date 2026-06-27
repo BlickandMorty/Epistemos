@@ -15,12 +15,19 @@ import WebKit
 nonisolated struct WorkSPASchemeHandler: URLSchemeHandler {
     /// The directory the SPA bundle (`dist/`, containing `index.html` + `assets/`) lives in.
     let root: URL
+    let virtualBasePath: String?
+
+    init(root: URL, virtualBasePath: String? = nil) {
+        self.root = root
+        self.virtualBasePath = Self.normalizedVirtualBasePath(virtualBasePath)
+    }
 
     func reply(for request: URLRequest) -> AsyncThrowingStream<URLSchemeTaskResult, Error> {
         let root = self.root
+        let virtualBasePath = self.virtualBasePath
         return AsyncThrowingStream { continuation in
             do {
-                let fileURL = try Self.resolve(request: request, root: root)
+                let fileURL = try Self.resolve(request: request, root: root, virtualBasePath: virtualBasePath)
                 let data = try Data(contentsOf: fileURL)
                 continuation.yield(.response(Self.response(requestURL: request.url ?? fileURL, fileURL: fileURL, byteCount: data.count)))
                 continuation.yield(.data(data))
@@ -38,14 +45,18 @@ nonisolated struct WorkSPASchemeHandler: URLSchemeHandler {
     /// Map a request URL → a concrete file under `root`. Rules: empty/`/` → `index.html`; an existing file →
     /// itself; a non-existent EXTENSION-LESS path → `index.html` (SPA client-side routing deep links). Guards
     /// against path traversal (the resolved file must stay within `root`).
-    static func resolve(request: URLRequest, root: URL) throws -> URL {
-        try resolve(path: request.url?.path ?? "/", root: root)
+    static func resolve(request: URLRequest, root: URL, virtualBasePath: String? = nil) throws -> URL {
+        try resolve(path: request.url?.path ?? "/", root: root, virtualBasePath: virtualBasePath)
     }
 
     /// Path-based variant (reused by `WorkSPAServer`, which parses the request line itself).
-    static func resolve(path rawPath: String, root: URL) throws -> URL {
+    static func resolve(path rawPath: String, root: URL, virtualBasePath: String? = nil) throws -> URL {
         let rootStd = root.standardizedFileURL.resolvingSymlinksInPath()
-        var relative = rawPath.hasPrefix("/") ? String(rawPath.dropFirst()) : rawPath
+        let resolvedPath = stripVirtualBasePath(
+            from: rawPath,
+            virtualBasePath: normalizedVirtualBasePath(virtualBasePath)
+        )
+        var relative = resolvedPath.hasPrefix("/") ? String(resolvedPath.dropFirst()) : resolvedPath
         if let decoded = relative.removingPercentEncoding {
             relative = decoded
         }
@@ -68,6 +79,31 @@ nonisolated struct WorkSPASchemeHandler: URLSchemeHandler {
 
     private static func isInside(_ candidate: URL, root: URL) -> Bool {
         candidate.path == root.path || candidate.path.hasPrefix(root.path + "/")
+    }
+
+    private static func normalizedVirtualBasePath(_ raw: String?) -> String? {
+        guard var path = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !path.isEmpty else {
+            return nil
+        }
+        if !path.hasPrefix("/") {
+            path = "/" + path
+        }
+        while path.count > 1, path.hasSuffix("/") {
+            path.removeLast()
+        }
+        guard !path.contains("\0"), !path.split(separator: "/").contains("..") else { return nil }
+        return path
+    }
+
+    private static func stripVirtualBasePath(from rawPath: String, virtualBasePath: String?) -> String {
+        guard let virtualBasePath else { return rawPath }
+        if rawPath == virtualBasePath {
+            return "/"
+        }
+        if rawPath.hasPrefix(virtualBasePath + "/") {
+            return String(rawPath.dropFirst(virtualBasePath.count))
+        }
+        return rawPath
     }
 
     /// Content-Type for the served file (explicit map for the SPA's asset kinds; UTType fallback otherwise).

@@ -13,11 +13,8 @@ struct GooseWebPromptLiveIntegrationTests {
         let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-webview-prompt.log")
         try? FileManager.default.removeItem(at: proofURL)
 
-        guard let index = GooseWebUIResolver.indexURL() else {
-            throw GooseLiveIntegrationError.runtimeFailed("No staged ACP-mode Goose Web UI artifact was found.")
-        }
-
-        try await withLiveGooseRuntime(proofName: "webview-prompt") { binary, connection, progressURL in
+        try await withFreshGooseWebUIArtifact(proofName: "webview-prompt") { index in
+            try await withLiveGooseRuntime(proofName: "webview-prompt") { binary, connection, progressURL in
             let bootstrap = GooseWebBootstrap(
                 baseURL: connection.baseURL,
                 secretKey: connection.secretKey,
@@ -27,8 +24,10 @@ struct GooseWebPromptLiveIntegrationTests {
                 bootstrap: bootstrap,
                 gooseUIRoot: index.deletingLastPathComponent()
             )
+            let uiServer = try await startGooseWebUILoopbackServer(root: index.deletingLastPathComponent())
+            defer { uiServer.server.stop() }
             appendLiveProgress("before webview prompt boot", to: progressURL)
-            _ = page.load(URLRequest(url: GooseWebSurfaceView.bootURL(for: index)))
+            _ = page.load(URLRequest(url: GooseWebSurfaceView.loopbackURL(baseURL: uiServer.baseURL, route: "/?")))
             _ = try await waitForGooseWebBootProbe(page: page, progressURL: progressURL)
 
             let expectedText = "phase0 live webview goose prompt ready"
@@ -45,6 +44,7 @@ struct GooseWebPromptLiveIntegrationTests {
                 "goose_binary=\(binary.lastPathComponent)",
                 "goose_base_url=\(connection.baseURL.absoluteString)",
                 "goose_acp_url=\(connection.acpWebSocketURL.map(redactedACPURL) ?? "<missing>")",
+                "goose_web_ui_origin=\(uiServer.baseURL.absoluteString)",
                 "prompt_request_count=\(probe.trace.promptRequestCount)",
                 "prompt_response_count=\(probe.trace.promptResponseCount)",
                 "last_prompt_stop_reason=\(probe.trace.lastPromptStopReason ?? "<missing>")",
@@ -70,6 +70,7 @@ struct GooseWebPromptLiveIntegrationTests {
                 via: "embedded web UI -> goose serve ACP",
                 details: ["stop_reason": probe.trace.lastPromptStopReason ?? "<missing>"]
             )
+            }
         }
     }
 }

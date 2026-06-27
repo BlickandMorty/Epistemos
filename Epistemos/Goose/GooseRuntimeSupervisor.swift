@@ -104,6 +104,7 @@ final class GooseRuntimeSupervisor {
         secretKey: String? = nil,
         gooseMode: String? = nil,
         homeDirectory: URL? = nil,
+        port: Int = defaultPort,
         disableKeyring: Bool = false,
         builtins: [String] = ["developer"],
         healthCheck: @escaping @Sendable (URL) async -> Bool = GooseRuntimeSupervisor.healthCheck(base:)
@@ -130,6 +131,7 @@ final class GooseRuntimeSupervisor {
                 secretKey: resolvedSecretKey,
                 gooseMode: gooseMode,
                 homeDirectory: homeDirectory,
+                port: port,
                 disableKeyring: disableKeyring,
                 builtins: builtins,
                 healthCheck: healthCheck
@@ -160,11 +162,12 @@ final class GooseRuntimeSupervisor {
         secretKey: String,
         gooseMode: String?,
         homeDirectory: URL?,
+        port: Int,
         disableKeyring: Bool,
         builtins: [String],
         healthCheck: @escaping @Sendable (URL) async -> Bool
     ) async {
-        let defaultBaseURL = Self.defaultBaseURL()
+        let defaultBaseURL = Self.defaultBaseURL(port: port)
         if await healthCheck(defaultBaseURL) {
             status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))
             return
@@ -174,7 +177,7 @@ final class GooseRuntimeSupervisor {
         proc.executableURL = binary
         proc.arguments = Self.serveArguments(
             host: Self.defaultHost,
-            port: Self.defaultPort,
+            port: port,
             builtins: builtins
         )
         proc.environment = Self.processEnvironment(
@@ -203,7 +206,7 @@ final class GooseRuntimeSupervisor {
             return
         }
 
-        let baseURL = await waitForReady(pipe: pipe, healthCheck: healthCheck)
+        let baseURL = await waitForReady(port: port, pipe: pipe, healthCheck: healthCheck)
         if Task.isCancelled { return }
         guard let baseURL else {
             status = .failed("`goose serve` did not become healthy within \(Self.listenTimeout).")
@@ -216,10 +219,11 @@ final class GooseRuntimeSupervisor {
     }
 
     private func waitForReady(
+        port: Int,
         pipe: Pipe,
         healthCheck: @escaping @Sendable (URL) async -> Bool
     ) async -> URL? {
-        let defaultBaseURL = Self.defaultBaseURL()
+        let defaultBaseURL = Self.defaultBaseURL(port: port)
         return await withCheckedContinuation { continuation in
             let state = GooseRuntimeReadyState(continuation)
             outputTask = Task.detached { [weak self] in
@@ -354,8 +358,8 @@ final class GooseRuntimeSupervisor {
         return nil
     }
 
-    nonisolated static func defaultBaseURL() -> URL {
-        URL(string: "http://\(defaultHost):\(defaultPort)")!
+    nonisolated static func defaultBaseURL(port: Int = defaultPort) -> URL {
+        URL(string: "http://\(defaultHost):\(port)")!
     }
 
     nonisolated static func occupiedPortMessage(base: URL) -> String {
