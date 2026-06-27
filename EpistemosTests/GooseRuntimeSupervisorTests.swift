@@ -33,7 +33,11 @@ struct GooseRuntimeSupervisorTests {
                 "OPENCODE_SERVER_PASSWORD": "password",
                 "GOOSE_PROVIDER__TYPE": "openai",
                 "HF_TOKEN": "secret-token",
+                "HUGGINGFACE_API_KEY": "secret-token",
                 "OPENAI_API_KEY": "secret-token",
+                "ZHIPU_API_KEY": "secret-token",
+                "ZAI_API_KEY": "secret-token",
+                "MOONSHOT_API_KEY": "secret-token",
                 "DYLD_INSERT_LIBRARIES": "/tmp/inject.dylib",
                 "NODE_OPTIONS": "--require /tmp/inject.js",
             ]
@@ -47,7 +51,11 @@ struct GooseRuntimeSupervisorTests {
         #expect(env["OPENWORK_MANAGE_OPENCODE"] == nil)
         #expect(env["OPENCODE_SERVER_PASSWORD"] == nil)
         #expect(env["HF_TOKEN"] == nil)
+        #expect(env["HUGGINGFACE_API_KEY"] == nil)
         #expect(env["OPENAI_API_KEY"] == nil)
+        #expect(env["ZHIPU_API_KEY"] == nil)
+        #expect(env["ZAI_API_KEY"] == nil)
+        #expect(env["MOONSHOT_API_KEY"] == nil)
         #expect(env["DYLD_INSERT_LIBRARIES"] == nil)
         #expect(env["NODE_OPTIONS"] == nil)
 
@@ -275,8 +283,36 @@ struct GooseWebUIStagingTests {
         let script = try loadRepoTextFile("stage-goose-web-ui.sh")
         #expect(script.contains("vite.renderer.config.mts"))
         #expect(script.contains("base: './'"))
-        #expect(script.contains("OnboardingGuard.tsx"))
-        #expect(script.contains("if (USE_ACP_CHAT)"))
+        #expect(script.contains("goose.providersList_unstable({ providerIds: [] })"))
+        #expect(script.contains("Goose ACP provider inventory returned zero providers."))
+        #expect(script.contains("goose.providersSupportedModelsList_unstable({ providerId })"))
+        #expect(script.contains("listAcpProviderModels(p.name)"))
+        #expect(script.contains("name: model.id || model.name"))
+        #expect(script.contains("const inventoryModels = new Map(p.metadata.known_models.map"))
+        #expect(script.contains("Goose ACP supported model inventory returned zero models"))
+        #expect(script.contains("goose.defaultsRead_unstable({})"))
+        #expect(script.contains("goose.defaultsSave_unstable({"))
+        #expect(script.contains("await saveAcpProviderDefaults(providerName, modelName)"))
+        #expect(script.contains("client.setSessionConfigOption({ sessionId, configId: 'model', value: modelId })"))
+        #expect(script.contains("client.setSessionConfigOption({ sessionId, configId: 'provider', value: providerId })"))
+        #expect(script.contains("await saveAcpSessionModel(sessionId, modelName)"))
+        #expect(script.contains("await saveAcpSessionProvider(sessionId, providerName)"))
+        #expect(script.contains("isSecret?: boolean"))
+        #expect(script.contains("showOpenDialog?: (options?: unknown)"))
+        #expect(script.contains("EPISTEMOS_GOOSE_UI_VALIDATE_ONLY"))
+        #expect(script.contains("EPISTEMOS_GOOSE_UI_VALIDATE_TYPECHECK"))
+        #expect(script.contains("../node_modules/.bin/tsc --noEmit"))
+        #expect(script.contains("Validated ACP Goose Web UI staging overlay without building."))
+        #expect(script.contains("! grep -q \"Changing provider for an active ACP session is not wired yet.\""))
+        #expect(script.contains("replaceRequired("))
+        #expect(script.contains("'provider catalog ACP branch'"))
+        #expect(script.contains("ConfigContext staged source is missing required ACP provider snippet"))
+        #expect(script.contains("ProviderSettingsPage.tsx"))
+        #expect(script.contains("'initial ACP provider load'"))
+        #expect(script.contains("Provider catalog failed:"))
+        #expect(script.contains("ProviderSettingsPage staged source is missing required ACP provider snippet"))
+        #expect(!script.contains("OnboardingGuard.tsx"))
+        #expect(!script.contains("return <>{children}</>"))
         #expect(script.contains("permissionRequests.ts"))
         #expect(script.contains("requestPermission(request)"))
         #expect(script.contains("elicitationRequests.ts"))
@@ -303,6 +339,11 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("requestElicitation"))
         #expect(script.contains("epistemosGoosePrompt"))
         #expect(script.contains("epistemosGooseNative"))
+        #expect(script.contains("acpTrace: acpTrace.snapshot"))
+        #expect(script.contains("consoleEvents: () => consoleEvents.slice()"))
+        #expect(script.contains("traceSocket: (state, detail = null)"))
+        #expect(script.contains("window.WebSocket = TracedWebSocket"))
+        #expect(script.contains("outgoingMethodCounts: methodCounts('out')"))
         #expect(!script.contains("ipcRenderer"))
         #expect(!script.contains("require("))
     }
@@ -318,7 +359,7 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("ws:\\/\\/127.0.0.1:3284\\/acp?token=secret-123"))
         #expect(script.contains("USE_ACP_CHAT"))
         #expect(script.contains("GOOSE_API_HOST"))
-        #expect(script.contains("getConfig: { configurable: true, value: () => epistemosGoose.config }"))
+        #expect(script.contains("getConfig: { configurable: true, value: () => Object.assign({}, runtimeConfig) }"))
         #expect(!script.contains("getConfig: { configurable: true, value: async"))
     }
 
@@ -326,6 +367,51 @@ struct GooseWebViewBootShimTests {
     func gooseWebUIBootURLUsesHashRoute() {
         let index = URL(fileURLWithPath: "/tmp/goose-web-ui/index.html")
         #expect(GooseWebSurfaceView.bootURL(for: index).absoluteString == "epistemos-goose://app/#/?")
+    }
+
+    @Test("surface availability requires both Goose runtime and ACP Web UI")
+    func surfaceAvailabilityRequiresPortableRuntimeAndWebUI() throws {
+        let root = try temporaryDirectory()
+        let appSupport = root.appendingPathComponent("ApplicationSupport", isDirectory: true)
+        let runtimeDir = appSupport.appendingPathComponent("Epistemos/GooseRuntime", isDirectory: true)
+        let webDir = appSupport.appendingPathComponent("Epistemos/GooseWebUI", isDirectory: true)
+        try FileManager.default.createDirectory(at: runtimeDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: webDir, withIntermediateDirectories: true)
+
+        let unavailable = GooseSurfaceAvailability.current(
+            bundle: nil,
+            appSupportDirectory: appSupport,
+            currentDirectory: root.path,
+            environment: [:]
+        )
+        #expect(!unavailable.isReady)
+        #expect(unavailable.menuTitle == "Epistemos Goose (runtime/UI missing)")
+
+        let binary = runtimeDir.appendingPathComponent("goose")
+        try Data("#!/bin/sh\n".utf8).write(to: binary)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binary.path)
+
+        let runtimeOnly = GooseSurfaceAvailability.current(
+            bundle: nil,
+            appSupportDirectory: appSupport,
+            currentDirectory: root.path,
+            environment: [:]
+        )
+        #expect(!runtimeOnly.isReady)
+        #expect(runtimeOnly.unavailableMessage == "Goose Web UI is not bundled or staged for this build.")
+
+        let index = webDir.appendingPathComponent("index.html")
+        try Data("<!doctype html>".utf8).write(to: index)
+        try writeGooseACPWebUIManifest(nextTo: index)
+
+        let ready = GooseSurfaceAvailability.current(
+            bundle: nil,
+            appSupportDirectory: appSupport,
+            currentDirectory: root.path,
+            environment: [:]
+        )
+        #expect(ready.isReady)
+        #expect(ready.menuTitle == "Open Epistemos Goose")
     }
 
     @Test("surface keeps the Goose runtime secret stable across SwiftUI view reloads")
@@ -349,11 +435,15 @@ struct GooseWebViewBootShimTests {
     @Test("affordance disposition ledger marks native file and URL calls as implemented")
     func dispositionLedgerCoversKnownAffordances() {
         let ledger = GooseWebBootShim.dispositionLedger
+        #expect(!ledger.values.contains(.deferredWithVisibleError))
         #expect(ledger["getGoosedHostPort"] == .implementedRuntime)
         #expect(ledger["getSecretKey"] == .implementedRuntime)
         #expect(ledger["getAcpUrl"] == .implementedRuntime)
         #expect(ledger["getConfig"] == .implementedNative)
         #expect(ledger["checkForUpdates"] == .hiddenShell)
+        #expect(ledger["createChatWindow"] == .implementedRuntime)
+        #expect(ledger["closeWindow"] == .implementedRuntime)
+        #expect(ledger["reloadApp"] == .implementedRuntime)
         #expect(ledger["showOpenDialog"] == .implementedNative)
         #expect(ledger["showSaveDialog"] == .implementedNative)
         #expect(ledger["directoryChooser"] == .implementedNative)
@@ -362,7 +452,30 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["openExternal"] == .implementedNative)
         #expect(ledger["openInChrome"] == .implementedNative)
         #expect(ledger["openDirectoryInExplorer"] == .implementedNative)
-        #expect(ledger["showMessageBox"] == .deferredWithVisibleError)
+        #expect(ledger["showMessageBox"] == .implementedNative)
+        #expect(ledger["readFile"] == .implementedNative)
+        #expect(ledger["readFileDataURL"] == .implementedNative)
+        #expect(ledger["writeFile"] == .implementedNative)
+        #expect(ledger["ensureDirectory"] == .implementedNative)
+        #expect(ledger["listFiles"] == .implementedNative)
+        #expect(ledger["listGitWorktreeDirs"] == .implementedNative)
+        #expect(ledger["launchApp"] == .implementedNative)
+        #expect(ledger["refreshApp"] == .implementedNative)
+        #expect(ledger["closeApp"] == .implementedNative)
+        #expect(ledger["openNotificationsSettings"] == .implementedNative)
+        #expect(ledger["showNotification"] == .implementedNative)
+        #expect(ledger["setMenuBarIcon"] == .implementedNative)
+        #expect(ledger["getMenuBarIconState"] == .implementedNative)
+        #expect(ledger["setDockIcon"] == .implementedNative)
+        #expect(ledger["getDockIconState"] == .implementedNative)
+        #expect(ledger["setWakelock"] == .implementedNative)
+        #expect(ledger["getWakelockState"] == .implementedNative)
+        #expect(ledger["setSpellcheck"] == .implementedNative)
+        #expect(ledger["getSpellcheckState"] == .implementedNative)
+        #expect(ledger["addRecentDir"] == .implementedNative)
+        #expect(ledger["listRecentDirs"] == .implementedNative)
+        #expect(ledger["hasAcceptedRecipeBefore"] == .implementedNative)
+        #expect(ledger["recordRecipeHash"] == .implementedNative)
     }
 
     @Test("bootstrap routes file and URL affordances through the native bridge")
@@ -380,11 +493,58 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("postNativeAffordance('directoryChooser')"))
         #expect(script.contains("postNativeAffordance('selectImportSessionFile')"))
         #expect(script.contains("postNativeAffordance('openExternal', [url])"))
+        #expect(script.contains("postNativeAffordance('showMessageBox', [options])"))
+        #expect(script.contains("postNativeAffordance('readFile', [filePath])"))
+        #expect(script.contains("postNativeAffordance('readFileDataURL', [filePath])"))
+        #expect(script.contains("postNativeAffordance('writeFile', [filePath, content])"))
+        #expect(script.contains("postNativeAffordance('ensureDirectory', [dirPath])"))
+        #expect(script.contains("postNativeAffordance('listFiles', extension === undefined ? [dirPath] : [dirPath, extension])"))
+        #expect(script.contains("postNativeAffordance('listGitWorktreeDirs', [dir])"))
+        #expect(script.contains("const createChatWindow = async (options = {}) =>"))
+        #expect(script.contains("window.location.hash = `${appPath}?${searchParams.toString()}`"))
+        #expect(script.contains("emitEvent('set-initial-message', initialMessage"))
+        #expect(script.contains("postNativeAffordance('launchApp', [app])"))
+        #expect(script.contains("postNativeAffordance('refreshApp', [app])"))
+        #expect(script.contains("postNativeAffordance('closeApp', [appName])"))
+        #expect(script.contains("postNativeAffordance('openNotificationsSettings')"))
+        #expect(script.contains("postNativeAffordance('showNotification', [data || {}])"))
+        #expect(script.contains("postNativeAffordance('setMenuBarIcon', [show])"))
+        #expect(script.contains("postNativeAffordance('getMenuBarIconState')"))
+        #expect(script.contains("postNativeAffordance('setDockIcon', [show])"))
+        #expect(script.contains("postNativeAffordance('getDockIconState')"))
+        #expect(script.contains("postNativeAffordance('setWakelock', [enabled])"))
+        #expect(script.contains("postNativeAffordance('getWakelockState')"))
+        #expect(script.contains("postNativeAffordance('setSpellcheck', [enabled])"))
+        #expect(script.contains("postNativeAffordance('getSpellcheckState')"))
+        #expect(script.contains("postNativeAffordance('addRecentDir', [dir])"))
+        #expect(script.contains("postNativeAffordance('listRecentDirs')"))
+        #expect(script.contains("postNativeAffordance('hasAcceptedRecipeBefore', [recipe])"))
+        #expect(script.contains("postNativeAffordance('recordRecipeHash', [recipe])"))
         #expect(!script.contains("visibleError('showOpenDialog')"))
         #expect(!script.contains("visibleError('showSaveDialog')"))
+        #expect(!script.contains("visibleError('showMessageBox')"))
         #expect(!script.contains("visibleError('directoryChooser')"))
         #expect(!script.contains("visibleError('selectImportSessionFile')"))
         #expect(!script.contains("visibleError('openExternal')"))
+        #expect(!script.contains("visibleError('readFile')"))
+        #expect(!script.contains("visibleError('readFileDataURL')"))
+        #expect(!script.contains("visibleError('writeFile')"))
+        #expect(!script.contains("visibleError('ensureDirectory')"))
+        #expect(!script.contains("visibleError('listFiles')"))
+        #expect(!script.contains("visibleError('listGitWorktreeDirs')"))
+        #expect(!script.contains("visibleError('launchApp')"))
+        #expect(!script.contains("visibleError('refreshApp')"))
+        #expect(!script.contains("visibleError('closeApp')"))
+        #expect(!script.contains("visibleError('openNotificationsSettings')"))
+        #expect(!script.contains("visibleError('showNotification')"))
+        #expect(!script.contains("visibleError('setMenuBarIcon')"))
+        #expect(!script.contains("visibleError('getMenuBarIconState')"))
+        #expect(!script.contains("visibleError('setDockIcon')"))
+        #expect(!script.contains("visibleError('getDockIconState')"))
+        #expect(!script.contains("visibleError('setWakelock')"))
+        #expect(!script.contains("visibleError('getWakelockState')"))
+        #expect(!script.contains("visibleError('setSpellcheck')"))
+        #expect(!script.contains("visibleError('getSpellcheckState')"))
     }
 
     @Test("surface registers the native affordance bridge separately from prompt replies")
@@ -394,6 +554,10 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains("name: \"epistemosGoosePrompt\""))
         #expect(source.contains("name: \"epistemosGooseNative\""))
         #expect(source.contains("nativeAffordanceBridge: nativeAffordanceBridge"))
+        #expect(source.contains("Label(\"Manage models\", systemImage: \"slider.horizontal.3\")"))
+        #expect(source.contains("loadGooseRoute(\"/settings?section=models\")"))
+        #expect(source.contains("loadGooseRoute(\"/configure-providers\")"))
+        #expect(GooseWebSurfaceView.routeURL("/settings?section=models").absoluteString == "epistemos-goose://app/#/settings?section=models")
     }
 }
 
@@ -433,12 +597,101 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(!GooseWebNativeAffordanceBridge.shouldOpenBrowserURL("mailto:hello@example.com"))
     }
 
+    @Test("bridge persists recents, recipe trust, and scoped file edits")
+    func bridgePersistsRecentsRecipeTrustAndScopedFiles() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        let project = root.appendingPathComponent("project", isDirectory: true)
+        let projectPath = (project.path as NSString).standardizingPath
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        let bridge = GooseWebNativeAffordanceBridge(applicationSupportRoot: root)
+
+        #expect(try bridge.handleAffordance(name: "addRecentDir", args: [projectPath]) as? Bool == true)
+        #expect(try bridge.handleAffordance(name: "listRecentDirs", args: []) as? [String] == [projectPath])
+
+        let goosehints = project.appendingPathComponent(".goosehints", isDirectory: false)
+        #expect(try bridge.handleAffordance(name: "writeFile", args: [goosehints.path, "phase0"]) as? Bool == true)
+        let read = try #require(bridge.handleAffordance(name: "readFile", args: [goosehints.path]) as? [String: Any])
+        #expect(read["file"] as? String == "phase0")
+        #expect(read["found"] as? Bool == true)
+        let files = try #require(bridge.handleAffordance(name: "listFiles", args: [project.path]) as? [String])
+        #expect(files.contains(".goosehints"))
+        #expect(try bridge.handleAffordance(name: "listFiles", args: [project.path, ".goosehints"]) as? [String] == [".goosehints"])
+        let image = project.appendingPathComponent("pixel.png", isDirectory: false)
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: image)
+        let dataURL = try #require(bridge.handleAffordance(name: "readFileDataURL", args: [image.path]) as? String)
+        #expect(dataURL.hasPrefix("data:image/png;base64,"))
+
+        let nested = project.appendingPathComponent("schedules", isDirectory: true)
+        #expect(try bridge.handleAffordance(name: "ensureDirectory", args: [nested.path]) as? Bool == true)
+        var isDirectory: ObjCBool = false
+        #expect(FileManager.default.fileExists(atPath: nested.path, isDirectory: &isDirectory))
+        #expect(isDirectory.boolValue)
+
+        let recipe: [String: Any] = ["id": "recipe.phase0", "version": 1]
+        #expect(try bridge.handleAffordance(name: "hasAcceptedRecipeBefore", args: [recipe]) as? Bool == false)
+        #expect(try bridge.handleAffordance(name: "recordRecipeHash", args: [recipe]) as? Bool == true)
+        #expect(try bridge.handleAffordance(name: "hasAcceptedRecipeBefore", args: [recipe]) as? Bool == true)
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test("binary lookup and MCP app affordances fail closed instead of silently no-oping")
+    func binaryLookupAndMCPAppAffordancesFailClosed() throws {
+        let bridge = GooseWebNativeAffordanceBridge()
+
+        #expect(try bridge.handleAffordance(name: "getBinaryPath", args: ["../goose"]) as? String == "")
+        #expect(try bridge.handleAffordance(name: "refreshApp", args: [["name": "missing_app"]]) == nil)
+        #expect(try bridge.handleAffordance(name: "closeApp", args: ["missing_app"]) == nil)
+
+        do {
+            _ = try bridge.handleAffordance(name: "launchApp", args: [["name": "missing_app"]])
+            Issue.record("launchApp without URI/text/blob should fail closed instead of no-oping")
+        } catch {
+            #expect(error.localizedDescription.contains("Missing renderable MCP app content"))
+        }
+    }
+
+    @Test("settings affordances persist through the native host")
+    func settingsAffordancesPersistThroughNativeHost() throws {
+        let suiteName = "epistemos-goose-native-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let bridge = GooseWebNativeAffordanceBridge(preferences: defaults)
+
+        #expect(try bridge.handleAffordance(name: "getMenuBarIconState", args: []) as? Bool == true)
+        #expect(try bridge.handleAffordance(name: "getDockIconState", args: []) as? Bool == true)
+        #expect(try bridge.handleAffordance(name: "getWakelockState", args: []) as? Bool == false)
+        #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == true)
+
+        #expect(try bridge.handleAffordance(name: "setSpellcheck", args: [false]) as? Bool == true)
+        #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == false)
+        #expect(try bridge.handleAffordance(name: "setWakelock", args: [false]) as? Bool == true)
+        #expect(try bridge.handleAffordance(name: "getWakelockState", args: []) as? Bool == false)
+    }
+
+    @Test("file bridge denies unscoped paths")
+    func fileBridgeDeniesUnscopedPaths() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        let bridge = GooseWebNativeAffordanceBridge(applicationSupportRoot: root)
+        let blocked = URL(fileURLWithPath: "/Users/Shared", isDirectory: true)
+            .appendingPathComponent("epistemos-goose-blocked-\(UUID().uuidString).txt", isDirectory: false)
+
+        #expect(try bridge.handleAffordance(name: "writeFile", args: [blocked.path, "blocked"]) as? Bool == false)
+        let read = try #require(bridge.handleAffordance(name: "readFile", args: [blocked.path]) as? [String: Any])
+        #expect(read["found"] as? Bool == false)
+        #expect((read["error"] as? String)?.contains("outside scoped roots") == true)
+        let blockedDataURL = try bridge.handleAffordance(name: "readFileDataURL", args: [blocked.path]) as? String
+        #expect(blockedDataURL == nil)
+        try? FileManager.default.removeItem(at: root)
+    }
+
     @Test("unsupported native affordances fail closed")
     func unsupportedAffordanceFailsClosed() {
         let bridge = GooseWebNativeAffordanceBridge()
         do {
-            _ = try bridge.handleAffordance(name: "readFile", args: [])
-            Issue.record("readFile should stay deferred until a scoped file bridge exists")
+            _ = try bridge.handleAffordance(name: "unknownAffordance", args: [])
+            Issue.record("unknown affordances should fail closed")
         } catch {
             #expect(error.localizedDescription.contains("Unsupported Epistemos Goose native affordance"))
         }
