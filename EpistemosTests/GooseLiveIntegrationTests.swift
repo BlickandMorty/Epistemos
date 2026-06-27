@@ -423,7 +423,7 @@ nonisolated func liveRepoRootURL() -> URL {
 }
 
 @MainActor
-private func withLiveGooseACPClient<T>(
+func withLiveGooseACPClient<T>(
     proofName: String,
     gooseMode: String? = nil,
     operation: (URL, GooseRuntimeConnection, GooseACPClient, URL) async throws -> T

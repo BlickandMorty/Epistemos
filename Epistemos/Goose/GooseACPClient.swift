@@ -220,11 +220,74 @@ actor GooseACPClient {
         )
     }
 
+    func createGooseSource(
+        type: GooseACPSourceType,
+        name: String,
+        description: String,
+        content: String,
+        target: GooseACPSourceScope,
+        properties: [String: JSONValue]? = nil
+    ) async throws -> GooseACPSourceResponse {
+        try await sendCustomRequest(
+            method: .sourcesCreate,
+            params: GooseACPSourceCreateRequest(
+                type: type,
+                name: name,
+                description: description,
+                content: content,
+                target: target,
+                properties: properties
+            ),
+            response: GooseACPSourceResponse.self
+        )
+    }
+
+    func updateGooseSource(
+        type: GooseACPSourceType,
+        path: String,
+        name: String,
+        description: String,
+        content: String,
+        properties: [String: JSONValue]? = nil
+    ) async throws -> GooseACPSourceResponse {
+        try await sendCustomRequest(
+            method: .sourcesUpdate,
+            params: GooseACPSourceUpdateRequest(
+                type: type,
+                path: path,
+                name: name,
+                description: description,
+                content: content,
+                properties: properties
+            ),
+            response: GooseACPSourceResponse.self
+        )
+    }
+
+    func deleteGooseSource(type: GooseACPSourceType, path: String) async throws {
+        _ = try await sendCustomRequest(
+            method: .sourcesDelete,
+            params: GooseACPSourceDeleteRequest(type: type, path: path),
+            response: GooseACPEmptyResponse.self
+        )
+    }
+
     func exportGooseSource(type: GooseACPSourceType, path: String) async throws -> GooseACPSourceExportResponse {
         try await sendCustomRequest(
             method: .sourcesExport,
             params: GooseACPSourceExportRequest(type: type, path: path),
             response: GooseACPSourceExportResponse.self
+        )
+    }
+
+    func importGooseSources(
+        data: String,
+        target: GooseACPSourceScope
+    ) async throws -> GooseACPSourcesImportResponse {
+        try await sendCustomRequest(
+            method: .sourcesImport,
+            params: GooseACPSourcesImportRequest(data: data, target: target),
+            response: GooseACPSourcesImportResponse.self
         )
     }
 

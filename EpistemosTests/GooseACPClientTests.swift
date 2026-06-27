@@ -354,6 +354,65 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("client sends the Skills source mutation Goose custom ACP subset")
+    func clientSendsSkillsSourceMutationGooseCustomACPSubset() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"source":{"type":"skill","name":"phase0-skill","description":"Draft skill","content":"Use draft steps","path":"/repo/.agents/skills/phase0-skill","global":false,"writable":true}}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"source":{"type":"skill","name":"phase0-skill","description":"Updated skill","content":"Use updated steps","path":"/repo/.agents/skills/phase0-skill","global":false,"writable":true}}}"#,
+            #"{"jsonrpc":"2.0","id":4,"result":{}}"#,
+            #"{"jsonrpc":"2.0","id":5,"result":{"sources":[{"type":"skill","name":"phase0-skill","description":"Imported skill","content":"Use imported steps","path":"/repo/.agents/skills/phase0-skill","global":false,"writable":true}]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let target = GooseACPSourceScope.projectDir("/repo")
+        let created = try await client.createGooseSource(
+            type: .skill,
+            name: "phase0-skill",
+            description: "Draft skill",
+            content: "Use draft steps",
+            target: target,
+            properties: ["origin": .string("unit-test")]
+        )
+        let updated = try await client.updateGooseSource(
+            type: .skill,
+            path: created.source.path,
+            name: created.source.name,
+            description: "Updated skill",
+            content: "Use updated steps"
+        )
+        try await client.deleteGooseSource(type: .skill, path: updated.source.path)
+        let imported = try await client.importGooseSources(data: #"{"type":"skill"}"#, target: target)
+
+        #expect(created.source.description == "Draft skill")
+        #expect(updated.source.content == "Use updated steps")
+        #expect(imported.sources.first?.sourceType == .skill)
+
+        let sent = await transport.sentMessages()
+        let methods = sent.compactMap { $0.raw.objectValue?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/sources/create"),
+            .string("_goose/unstable/sources/update"),
+            .string("_goose/unstable/sources/delete"),
+            .string("_goose/unstable/sources/import"),
+        ])
+        let createParams = try #require(sent.dropFirst().first?.raw.objectValue?["params"]?.objectValue)
+        #expect(createParams["type"] == .string("skill"))
+        #expect(createParams["target"]?.objectValue?["scope"] == .string("projectDir"))
+        #expect(createParams["target"]?.objectValue?["projectDir"] == .string("/repo"))
+        #expect(createParams["properties"]?.objectValue?["origin"] == .string("unit-test"))
+        let updateParams = try #require(sent.dropFirst(2).first?.raw.objectValue?["params"]?.objectValue)
+        #expect(updateParams["path"] == .string("/repo/.agents/skills/phase0-skill"))
+        #expect(updateParams["properties"] == nil)
+        let deleteParams = try #require(sent.dropFirst(3).first?.raw.objectValue?["params"]?.objectValue)
+        #expect(deleteParams["path"] == .string("/repo/.agents/skills/phase0-skill"))
+        let importParams = try #require(sent.dropFirst(4).first?.raw.objectValue?["params"]?.objectValue)
+        #expect(importParams["target"]?.objectValue?["scope"] == .string("projectDir"))
+        await client.close()
+    }
+
     @Test("client sends the provider settings read-only Goose custom ACP subset")
     func clientSendsProviderSettingsReadOnlyCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
