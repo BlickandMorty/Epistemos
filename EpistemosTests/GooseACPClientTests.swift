@@ -293,6 +293,45 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("client sends the Skills source list Goose custom ACP subset")
+    func clientSendsSkillsSourceListGooseCustomACPSubset() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"sources":[{"type":"skill","name":"local-review","description":"Review local code","content":"Use review steps","path":"/repo/.agents/skills/local-review","global":false,"writable":true,"supportingFiles":[],"properties":{}}]}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"sources":[{"type":"builtinSkill","name":"goose-doc-guide","description":"Reference Goose docs","content":"Read docs first","path":"builtin://skills/goose-doc-guide","global":true}]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let projectSkills = try await client.listGooseSources(type: .skill, projectDir: "/repo")
+        let builtInSkills = try await client.listGooseSources(type: .builtinSkill, projectDir: "/repo")
+
+        #expect(projectSkills.sources.first?.sourceType == .skill)
+        #expect(projectSkills.sources.first?.name == "local-review")
+        #expect(projectSkills.sources.first?.writable == true)
+        #expect(builtInSkills.sources.first?.sourceType == .builtinSkill)
+        #expect(builtInSkills.sources.first?.path == "builtin://skills/goose-doc-guide")
+        #expect(builtInSkills.sources.first?.writable == false)
+        #expect(builtInSkills.sources.first?.supportingFiles == [])
+        #expect(builtInSkills.sources.first?.properties == [:])
+
+        let sent = await transport.sentMessages()
+        let methods = sent.compactMap { $0.raw.objectValue?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/sources/list"),
+            .string("_goose/unstable/sources/list"),
+        ])
+        let projectParams = try #require(sent.dropFirst().first?.raw.objectValue?["params"]?.objectValue)
+        #expect(projectParams["type"] == .string("skill"))
+        #expect(projectParams["projectDir"] == .string("/repo"))
+        #expect(projectParams["includeProjectSources"] == nil)
+        let builtInParams = try #require(sent.dropFirst(2).first?.raw.objectValue?["params"]?.objectValue)
+        #expect(builtInParams["type"] == .string("builtinSkill"))
+        #expect(builtInParams["projectDir"] == .string("/repo"))
+        await client.close()
+    }
+
     @Test("client sends the provider settings read-only Goose custom ACP subset")
     func clientSendsProviderSettingsReadOnlyCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

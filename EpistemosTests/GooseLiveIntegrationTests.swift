@@ -225,75 +225,14 @@ struct GooseLiveIntegrationTests {
         try await withLiveGooseACPClient(proofName: "acp-custom-readonly") { binary, connection, client, progressURL in
             let session = try await initializeLiveSession(client: client, progressURL: progressURL)
             appendLiveProgress("before custom ACP reads", to: progressURL)
-            let providers = try await withLiveTimeout(
-                seconds: 20,
-                description: "Goose providers list custom ACP response",
-                onTimeout: { await client.close() },
-                operation: { try await client.listGooseProviders() }
+            try await proveLiveGooseCustomACPReadOnlySubset(
+                binary: binary,
+                connection: connection,
+                client: client,
+                progressURL: progressURL,
+                proofURL: proofURL,
+                session: session
             )
-            let extensions = try await withLiveTimeout(
-                seconds: 20,
-                description: "Goose config extensions custom ACP response",
-                onTimeout: { await client.close() },
-                operation: { try await client.listGooseConfigExtensions() }
-            )
-            let preferences = try await withLiveTimeout(
-                seconds: 20,
-                description: "Goose preferences custom ACP response",
-                onTimeout: { await client.close() },
-                operation: { try await client.readGoosePreferences() }
-            )
-            let defaults = try await withLiveTimeout(
-                seconds: 20,
-                description: "Goose defaults custom ACP response",
-                onTimeout: { await client.close() },
-                operation: { try await client.readGooseDefaults() }
-            )
-            let sessionInfo = try await withLiveTimeout(
-                seconds: 20,
-                description: "Goose session info custom ACP response",
-                onTimeout: { await client.close() },
-                operation: { try await client.readGooseSessionInfo(sessionId: session.sessionId) }
-            )
-            let diagnostics = try await withLiveTimeout(
-                seconds: 20,
-                description: "Goose diagnostics custom ACP response",
-                onTimeout: { await client.close() },
-                operation: { try await client.readGooseDiagnostics(sessionId: session.sessionId, level: .summary) }
-            )
-            appendLiveProgress(
-                "after custom ACP reads providers=\(providers.entries.count) extensions=\(extensions.extensions.count) preferences=\(preferences.values.count)",
-                to: progressURL
-            )
-
-            let proof = [
-                "phase0_live_acp_custom_readonly=pass",
-                "goose_binary=\(binary.lastPathComponent)",
-                "goose_base_url=\(connection.baseURL.absoluteString)",
-                "session_id=\(session.sessionId)",
-                "provider_entry_count=\(providers.entries.count)",
-                "config_extension_count=\(extensions.extensions.count)",
-                "config_extension_warning_count=\(extensions.warnings.count)",
-                "preference_value_count=\(preferences.values.count)",
-                "defaults_provider_set=\(defaults.providerId != nil)",
-                "defaults_model_set=\(defaults.modelId != nil)",
-                "session_info_session_id=\(sessionInfo.session.objectValue?["sessionId"]?.stringValue ?? "<missing>")",
-                "diagnostics_report_kind=\(jsonValueKind(diagnostics.report))",
-            ].joined(separator: "\n") + "\n"
-            try proof.write(to: proofURL, atomically: true, encoding: .utf8)
-
-            guard !providers.entries.isEmpty else {
-                throw GooseLiveIntegrationError.runtimeFailed("Custom ACP provider list returned no providers.")
-            }
-            guard sessionInfo.session.objectValue?["sessionId"]?.stringValue == session.sessionId else {
-                throw GooseLiveIntegrationError.runtimeFailed("Custom ACP session info did not echo the live session id.")
-            }
-            guard case .object(_) = diagnostics.report else {
-                throw GooseLiveIntegrationError.runtimeFailed("Custom ACP diagnostics did not return an object report.")
-            }
-            guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_acp_custom_readonly=pass") else {
-                throw GooseLiveIntegrationError.runtimeFailed("Live custom ACP proof log was not written.")
-            }
         }
     }
 
@@ -477,7 +416,7 @@ nonisolated private func liveGooseBinaryURL() -> URL? {
     return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
 }
 
-nonisolated private func liveRepoRootURL() -> URL {
+nonisolated func liveRepoRootURL() -> URL {
     URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -877,7 +816,7 @@ nonisolated private func eventProgressSummary(_ event: GooseACPClientEvent) -> S
     }
 }
 
-nonisolated private func jsonValueKind(_ value: JSONValue) -> String {
+nonisolated func jsonValueKind(_ value: JSONValue) -> String {
     switch value {
     case .object:
         "object"

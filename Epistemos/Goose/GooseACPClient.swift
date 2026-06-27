@@ -204,6 +204,22 @@ actor GooseACPClient {
         )
     }
 
+    func listGooseSources(
+        type: GooseACPSourceType? = nil,
+        projectDir: String? = nil,
+        includeProjectSources: Bool? = nil
+    ) async throws -> GooseACPSourcesListResponse {
+        try await sendCustomRequest(
+            method: .sourcesList,
+            params: GooseACPSourcesListRequest(
+                type: type,
+                projectDir: projectDir,
+                includeProjectSources: includeProjectSources
+            ),
+            response: GooseACPSourcesListResponse.self
+        )
+    }
+
     func readGooseSessionInfo(sessionId: String) async throws -> GooseACPSessionInfoResponse {
         try await sendCustomRequest(
             method: .sessionInfo,

@@ -22,9 +22,10 @@ launcher, the top native file/dialog/external-URL affordances, the read-only
 custom ACP minimum, typed/unit-proven provider-settings read ACP, live read-only
 WebView route smoke for providers/settings/extensions/skills, live provider
 config save/read/delete ACP, live settings mutation ACP, structured
-provider authenticate fail-closed rejection ACP, structured unhandled-ACP
-diagnostics, and golden F1-F5 ACP fixtures, but Phase 0 is still
-NOT signed off (~87% architecture, ~94% proof
+provider authenticate fail-closed rejection ACP, live Skills source-list ACP for
+project and built-in skills, structured unhandled-ACP diagnostics, and golden
+F1-F5 ACP fixtures, but Phase 0 is still
+NOT signed off (~88% architecture, ~95% proof
 gate). See:
 docs/handoffs/GOOSE_PHASE_0_STATUS_AUDIT_2026_06_27.md
 
@@ -44,10 +45,11 @@ Known gaps you MUST close:
   settings preference save/read/remove plus defaults-save are live-proven in an
   isolated home with a disposable configured provider; provider authenticate
   non-OAuth rejection is live-proven with preserved JSON-RPC error data and no
-  config mutation;
+  config mutation; Skills source-list for project and built-in skills is typed,
+  unit-proven, and live-proven against real `goose serve`;
   read-only WebView route smoke proves providers/settings/extensions/skills
   render against live `goose serve`; owner/browser-mediated OAuth authenticate
-  success and deeper Skills/provider/settings parity remain open
+  success and deeper Skills/provider/settings parity beyond source discovery remain open
 - Golden F1-F5 ACP fixtures are captured from live `goose serve`, sanitized,
   revision-pinned, and covered by Swift decoder/shape tests
 - Top native affordances are implemented/proven:
@@ -57,8 +59,8 @@ Known gaps you MUST close:
   showMessageBox, getBinaryPath, readFile, writeFile, ensureDirectory,
   launchApp, refreshApp, closeApp, openNotificationsSettings
 - Remaining _goose/unstable/* ACP extension methods beyond the read-only
-  minimum, provider-settings reads, provider config save/delete, and settings
-  mutation are unwired
+  minimum, provider-settings reads, provider config save/delete, settings
+  mutation, and Skills source-list discovery are unwired
 - No Epistemos/Agent/* yet (correct — starts after Phase 0 sign-off)
 - GooseACPEventBridge now surfaces unsupported custom requests in diagnostics
   and returns JSON-RPC method-not-found errors; use those diagnostics to close
@@ -160,13 +162,17 @@ P0.4 Extended ACP minimum (Skills + providers usable)
     proven and live-proven against real `goose serve` with isolated HOME/file-
     backed secrets; evidence:
     `/tmp/epistemos-goose-phase0-provider-authenticate-rejection.log`
+  - DONE 2026-06-27: Skills source-list discovery for project and built-in
+    skills is typed/unit-proven and live-proven against real `goose serve`;
+    evidence: `/tmp/epistemos-goose-phase0-acp-custom-readonly.log`
   - Continue wiring owner/browser-mediated OAuth authenticate success and Skills
-    parity OR codegen from acp-meta.json for the remaining custom methods
+    parity beyond source discovery OR codegen from acp-meta.json for the
+    remaining custom methods
   - DONE 2026-06-27: GooseACPEventBridge stops silently dropping unsupported
     custom requests; it logs/surfaces diagnostics and returns JSON-RPC
     method-not-found replies
-  - OAuth authenticate success and deeper Skills/provider/settings parity remain
-    blockers unless routed to honest blocked UI
+  - OAuth authenticate success and deeper Skills/provider/settings parity beyond
+    source discovery remain blockers unless routed to honest blocked UI
 
 P0.5 Live proof gate (§7 — ALL required)
   [x] Real Goose Electron launches (in-app comparison fallback menu item)
@@ -188,8 +194,8 @@ P0.6 Golden fixtures (Phase 0 completion)
     through Swift ACP models and pin initialize, session/new, prompt answer,
     permission/tool-result, and read-only custom ACP shapes
   - NEXT 2026-06-27: first unsolved Phase 0 blocker is OAuth authenticate
-    success plus deeper Skills/provider/settings parity or an honest blocked UI
-    where not wired
+    success plus deeper Skills/provider/settings parity beyond source discovery
+    or an honest blocked UI where not wired
 
 PHASE 0 EXIT: Write docs/handoffs/GOOSE_PHASE_0_SIGNOFF.md with checklist + evidence.
 STOP and ask owner to approve Phase 1 start (Step 0 sign-off). If owner pre-approved

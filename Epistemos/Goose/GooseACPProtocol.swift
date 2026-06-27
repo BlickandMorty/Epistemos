@@ -268,6 +268,7 @@ nonisolated enum GooseACPCustomMethod: String, Sendable {
     case preferencesRemove = "_goose/unstable/preferences/remove"
     case defaultsRead = "_goose/unstable/defaults/read"
     case defaultsSave = "_goose/unstable/defaults/save"
+    case sourcesList = "_goose/unstable/sources/list"
     case sessionInfo = "_goose/unstable/session/info"
     case diagnosticsGet = "_goose/unstable/diagnostics/get"
 }
@@ -412,6 +413,78 @@ nonisolated struct GooseACPDefaultsReadResponse: Decodable, Equatable, Sendable 
 nonisolated struct GooseACPDefaultsSaveRequest: Encodable, Equatable, Sendable {
     let providerId: String
     let modelId: String?
+}
+
+nonisolated enum GooseACPSourceType: String, Codable, Equatable, Sendable {
+    case skill
+    case builtinSkill
+    case recipe
+    case subrecipe
+    case agent
+    case project
+}
+
+nonisolated struct GooseACPSourcesListRequest: Encodable, Equatable, Sendable {
+    let sourceType: GooseACPSourceType?
+    let projectDir: String?
+    let includeProjectSources: Bool?
+
+    init(
+        type: GooseACPSourceType? = nil,
+        projectDir: String? = nil,
+        includeProjectSources: Bool? = nil
+    ) {
+        sourceType = type
+        self.projectDir = projectDir
+        self.includeProjectSources = includeProjectSources
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sourceType = "type"
+        case projectDir
+        case includeProjectSources
+    }
+}
+
+nonisolated struct GooseACPSourceEntry: Decodable, Equatable, Sendable {
+    let sourceType: GooseACPSourceType
+    let name: String
+    let description: String
+    let content: String
+    let path: String
+    let global: Bool
+    let writable: Bool
+    let supportingFiles: [String]
+    let properties: [String: JSONValue]
+
+    private enum CodingKeys: String, CodingKey {
+        case sourceType = "type"
+        case name
+        case description
+        case content
+        case path
+        case global
+        case writable
+        case supportingFiles
+        case properties
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sourceType = try container.decode(GooseACPSourceType.self, forKey: .sourceType)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decode(String.self, forKey: .description)
+        content = try container.decode(String.self, forKey: .content)
+        path = try container.decode(String.self, forKey: .path)
+        global = try container.decode(Bool.self, forKey: .global)
+        writable = try container.decodeIfPresent(Bool.self, forKey: .writable) ?? false
+        supportingFiles = try container.decodeIfPresent([String].self, forKey: .supportingFiles) ?? []
+        properties = try container.decodeIfPresent([String: JSONValue].self, forKey: .properties) ?? [:]
+    }
+}
+
+nonisolated struct GooseACPSourcesListResponse: Decodable, Equatable, Sendable {
+    let sources: [GooseACPSourceEntry]
 }
 
 nonisolated struct GooseACPSessionInfoRequest: Encodable, Equatable, Sendable {
