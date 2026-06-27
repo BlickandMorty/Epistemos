@@ -1,18 +1,19 @@
 # EPDOC md-v2 — consolidated build sequence (2026-06-20)
 
-> ✅ **OWNER DECISION (2026-06-27) — THIRD SURFACE, PROSE IS A HARD GATE.**
-> The owner chose **three editor surfaces**, NOT the "graft CodeMirror into Epdoc"
-> single-surface recommendation SS-P made:
-> 1. **Prose (TK2 / TextKit / `ProseTextView2`)** — **HARD GATE: NEVER TOUCHED.** Frozen
->    legacy / user-only editor. No surgery, no parity obligation.
-> 2. **Epdoc (TipTap / WKWebView)** — rich-tree editor, this build sequence.
-> 3. **NEW: standalone CodeMirror-6 markdown-SOURCE editor (its own WebView surface)** —
->    canonical home for markdown-source editing + the pixel-art AI-diff trail
->    (yellow=add / red=delete). Safe because files-as-truth (§16): all surfaces
->    read/write the same `<vault>/*.md`. Accepted cost: a 2nd WKWebView — mitigated by a
->    shared `WKProcessPool` + reuse of the `EpdocEditorThemeStyle` CSS-var injector.
-> Consequence: **Phase 6 step 19 (CodeMirror-into-Epdoc source toggle) is TOMBSTONED**
-> (see strikethrough below) so CodeMirror is not built twice.
+> ⛔ **SUPERSEDED ON SURFACE TOPOLOGY (2026-06-27) — see
+> `SS-CM_CODEMIRROR_MD_SOURCE_SURFACE_2026_06_27.md` (canonical).** This doc's premise
+> ("Epdoc/TipTap = the markdown-first editor") is no longer the owner's plan. FINAL model:
+> 1. **CodeMirror-6 markdown-source (new WebView surface) = PRIMARY** editor (most work +
+>    pixel-art AI-diff trail). Built per SS-CM, not here.
+> 2. **Prose (TK2 / TextKit)** — 🔒 HARD GATE, frozen, never touched (long-form / long docs).
+> 3. **Epdoc (TipTap)** — ⛔ DEMOTED to legacy: parked, no new investment, removal-candidate
+>    once CodeMirror ships. **Do NOT delete the working code yet; freeze it.**
+> This doc is KEPT as a pattern reference (frontmatter/properties/tags/wikilinks/agent-MD
+> mechanics carry over to the CM surface). Phase 6 step 19 (CodeMirror-into-Epdoc toggle) is
+> TOMBSTONED (strikethrough below): CodeMirror is now its own surface, not an Epdoc toggle.
+> Phases 2–3 (md serializer + canonical flip + lossy JSON↔md round-trip) largely EVAPORATE —
+> CodeMirror's buffer *is* the markdown, so there is no tree to serialize. See SS-CM §"Why
+> this SIMPLIFIES files-as-truth".
 
 
 Synthesis of the 5 Epdoc slices into ONE ordered, dependency-aware build plan: SS-O (repair), SS-EM (md-first
