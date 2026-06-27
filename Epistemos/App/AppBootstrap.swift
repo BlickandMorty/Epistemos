@@ -597,13 +597,17 @@ final class AppBootstrap {
         ("PERPLEXITY_API_KEY", "epistemos.perplexity.apiKey"),
         ("OPENROUTER_API_KEY", "epistemos.openrouter.apiKey"),
         ("GLM_API_KEY", "epistemos.zai.apiKey"),
+        ("ZHIPU_API_KEY", "epistemos.zai.apiKey"),
+        ("ZAI_API_KEY", "epistemos.zai.apiKey"),
         ("KIMI_API_KEY", "epistemos.kimi.apiKey"),
+        ("MOONSHOT_API_KEY", "epistemos.kimi.apiKey"),
         ("DEEPSEEK_API_KEY", "epistemos.deepseek.apiKey"),
         ("MINIMAX_API_KEY", "epistemos.minimax.apiKey"),
         ("XAI_API_KEY", "epistemos.xai.apiKey"),
         ("MISTRAL_API_KEY", "epistemos.mistral.apiKey"),
         ("GROQ_API_KEY", "epistemos.groq.apiKey"),
         ("HF_TOKEN", "epistemos.huggingface.apiKey"),
+        ("HUGGINGFACE_API_KEY", "epistemos.huggingface.apiKey"),
     ]
 
     private nonisolated static let agentCoreEnvironmentScopeGate = AgentCoreEnvironmentScopeGate()
@@ -725,6 +729,10 @@ final class AppBootstrap {
         }
 
         return overrides
+    }
+
+    nonisolated static func agentCoreKeychainKey(forEnvironmentKey envVar: String) -> String? {
+        agentCoreEnvironmentKeyMappings.first { $0.envVar == envVar }?.keychainKey
     }
 
     private nonisolated static func storedOAuthCredential(

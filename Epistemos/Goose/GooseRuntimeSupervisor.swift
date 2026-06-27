@@ -58,6 +58,9 @@ final class GooseRuntimeSupervisor {
         "PERL5OPT",
         "PERL5LIB",
         "PERL5DB",
+        // Provider credentials deliberately do not ride the process environment.
+        // `GooseProviderKeyBridge` reads Epistemos Keychain entries and saves them
+        // through Goose's own provider-config ACP path after the runtime connects.
         "OPENAI_API_KEY",
         "OPENAI_ACCESS_TOKEN",
         "OPENAI_AUTH_MODE",
@@ -73,6 +76,8 @@ final class GooseRuntimeSupervisor {
         "PERPLEXITY_API_KEY",
         "OPENROUTER_API_KEY",
         "GLM_API_KEY",
+        "ZHIPU_API_KEY",
+        "ZAI_API_KEY",
         "MOONSHOT_API_KEY",
         "KIMI_API_KEY",
         "DEEPSEEK_API_KEY",
@@ -83,6 +88,7 @@ final class GooseRuntimeSupervisor {
         "TOGETHER_API_KEY",
         "GROQ_API_KEY",
         "HF_TOKEN",
+        "HUGGINGFACE_API_KEY",
     ]
 
     private(set) var status: Status = .idle

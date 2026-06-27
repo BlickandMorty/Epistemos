@@ -48,7 +48,18 @@ final class GooseElectronFallbackLauncher {
         "ANTHROPIC_ACCESS_TOKEN",
         "GOOGLE_API_KEY",
         "GEMINI_API_KEY",
+        "GLM_API_KEY",
+        "ZHIPU_API_KEY",
+        "ZAI_API_KEY",
+        "MOONSHOT_API_KEY",
+        "KIMI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "MINIMAX_API_KEY",
+        "XAI_API_KEY",
+        "MISTRAL_API_KEY",
+        "GROQ_API_KEY",
         "HF_TOKEN",
+        "HUGGINGFACE_API_KEY",
     ]
 
     private(set) var status: Status = .idle

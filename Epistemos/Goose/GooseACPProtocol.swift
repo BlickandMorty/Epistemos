@@ -311,6 +311,23 @@ nonisolated struct GooseACPProviderConfigFieldValue: Codable, Equatable, Sendabl
     let isSet: Bool
     let isSecret: Bool
     let required: Bool
+
+    init(key: String, value: String?, isSet: Bool, isSecret: Bool, required: Bool) {
+        self.key = key
+        self.value = value
+        self.isSet = isSet
+        self.isSecret = isSecret
+        self.required = required
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.key = try container.decode(String.self, forKey: .key)
+        self.value = try container.decodeIfPresent(String.self, forKey: .value)
+        self.isSet = try container.decodeIfPresent(Bool.self, forKey: .isSet) ?? false
+        self.isSecret = try container.decodeIfPresent(Bool.self, forKey: .isSecret) ?? false
+        self.required = try container.decodeIfPresent(Bool.self, forKey: .required) ?? false
+    }
 }
 
 nonisolated struct GooseACPProviderConfigReadResponse: Decodable, Equatable, Sendable {

@@ -418,7 +418,7 @@ struct GooseACPClientTests {
         let transport = GooseACPMemoryTransport(incoming: [
             #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
             #"{"jsonrpc":"2.0","id":2,"result":{"providerId":"mock","models":["mock-model","mock-large"]}}"#,
-            #"{"jsonrpc":"2.0","id":3,"result":{"fields":[{"key":"MOCK_API_KEY","value":null,"isSet":false,"isSecret":true,"required":true}]}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"fields":[{"key":"MOCK_API_KEY","value":null,"isSet":false,"isSecret":true,"required":true},{"key":"MOCK_HOST","value":"https://mock.local","isSet":true}]}}"#,
             #"{"jsonrpc":"2.0","id":4,"result":{"statuses":[{"providerId":"mock","isConfigured":false}]}}"#,
         ])
         let client = GooseACPClient(transport: transport, clientVersion: "test-version")
@@ -432,6 +432,7 @@ struct GooseACPClientTests {
         #expect(models.models == ["mock-model", "mock-large"])
         #expect(config.fields == [
             .init(key: "MOCK_API_KEY", value: nil, isSet: false, isSecret: true, required: true),
+            .init(key: "MOCK_HOST", value: "https://mock.local", isSet: true, isSecret: false, required: false),
         ])
         #expect(status.statuses == [
             .init(providerId: "mock", isConfigured: false),
@@ -796,7 +797,7 @@ private final class GoosePromptReplyCapture {
     }
 }
 
-private actor GooseACPMemoryTransport: GooseACPTransport {
+actor GooseACPMemoryTransport: GooseACPTransport {
     private var incoming: [String]
     private var sent: [String] = []
     private var receiveWaiters: [CheckedContinuation<String?, Error>] = []
@@ -886,7 +887,7 @@ private actor GooseACPMemoryTransport: GooseACPTransport {
     }
 }
 
-private struct GooseACPSentMessage: Equatable {
+struct GooseACPSentMessage: Equatable {
     let raw: JSONValue
     let method: GooseACPMethod?
     let id: GooseACPRequestID?

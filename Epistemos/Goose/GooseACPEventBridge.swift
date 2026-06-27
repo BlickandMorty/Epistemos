@@ -30,7 +30,8 @@ final class GooseACPEventBridge {
             transportFactory: { GooseACPURLSessionWebSocketTransport(url: url) },
             clientVersion: clientVersion,
             initialHandshakeAttempts: 6,
-            retryDelayNanoseconds: 180_000_000
+            retryDelayNanoseconds: 180_000_000,
+            providerKeyBridge: GooseProviderKeyBridge()
         )
     }
 
@@ -44,7 +45,8 @@ final class GooseACPEventBridge {
             transportFactory: { transport },
             clientVersion: clientVersion,
             initialHandshakeAttempts: 1,
-            retryDelayNanoseconds: 0
+            retryDelayNanoseconds: 0,
+            providerKeyBridge: nil
         )
     }
 
@@ -60,7 +62,8 @@ final class GooseACPEventBridge {
             transportFactory: transportFactory,
             clientVersion: clientVersion,
             initialHandshakeAttempts: initialHandshakeAttempts,
-            retryDelayNanoseconds: retryDelayNanoseconds
+            retryDelayNanoseconds: retryDelayNanoseconds,
+            providerKeyBridge: nil
         )
     }
 
@@ -116,7 +119,8 @@ final class GooseACPEventBridge {
         transportFactory: @escaping () -> any GooseACPTransport,
         clientVersion: String,
         initialHandshakeAttempts: Int,
-        retryDelayNanoseconds: UInt64
+        retryDelayNanoseconds: UInt64,
+        providerKeyBridge: GooseProviderKeyBridge?
     ) {
         guard connectionKey != key else { return }
         eventTask?.cancel()
@@ -135,7 +139,8 @@ final class GooseACPEventBridge {
                 transportFactory: transportFactory,
                 clientVersion: clientVersion,
                 initialHandshakeAttempts: initialHandshakeAttempts,
-                retryDelayNanoseconds: retryDelayNanoseconds
+                retryDelayNanoseconds: retryDelayNanoseconds,
+                providerKeyBridge: providerKeyBridge
             )
         }
     }
@@ -145,7 +150,8 @@ final class GooseACPEventBridge {
         transportFactory: () -> any GooseACPTransport,
         clientVersion: String,
         initialHandshakeAttempts: Int,
-        retryDelayNanoseconds: UInt64
+        retryDelayNanoseconds: UInt64,
+        providerKeyBridge: GooseProviderKeyBridge?
     ) async {
         let attempts = max(1, initialHandshakeAttempts)
         for attempt in 1...attempts {
@@ -159,6 +165,9 @@ final class GooseACPEventBridge {
                     return
                 }
                 markConnected(agent: response.agentInfo)
+                if let providerKeyBridge {
+                    _ = await providerKeyBridge.syncConfiguredProviderKeys(to: client)
+                }
                 while !Task.isCancelled {
                     handle(try await client.receiveEvent())
                 }
