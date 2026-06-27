@@ -1,5 +1,10 @@
 # SS-CM — CodeMirror markdown-source editor: the primary note surface (2026-06-27)
 
+> 🛠️ **Build/clone/polish detail lives in `CODEMIRROR_MD_V2_BUILD_AND_POLISH_PLAN_2026_06_27.md`**
+> (the working doc — clone target = MarkEdit MIT, AI-diff-trail spec, typography, pixel-art +
+> Liquid-Glass skins, webview-reification architecture, gotchas). This SS-CM doc is the short
+> decision; that one is the deep plan.
+>
 > **Canonical owner decision doc for the new editor surface.** This doc SUPERSEDES the
 > "graft into Epdoc / 2nd surface" framing in `SS-P_TOLARIA_V2_MD_EDITOR_2026_06_19.md` and the
 > "three surfaces + step-19 toggle" framing in `EPDOC_MD_V2_BUILD_SEQUENCE_2026_06_20.md`.
