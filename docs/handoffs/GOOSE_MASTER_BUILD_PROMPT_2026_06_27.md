@@ -99,7 +99,21 @@ ARCHITECTURE (unchanged)
 - NOT UniFFI embed of Goose into app binary — subprocess + ACP forever on Pro/Developer-ID
 - MAS: honest Pro gate, no hidden spawn
 
+★★★ GOLDEN RULE — CATALOG FIDELITY (the bar that was missed; non-negotiable) ★★★
+Epistemos MUST enumerate Goose's provider/model/skill/extension inventory through the SAME
+ACP/catalog paths Goose itself uses — dynamically, at runtime, from `goose serve`. NEVER a
+Swift-hardcoded, manually-maintained, or app-duplicated list. Everything the user sees IS
+Goose, enumerated by Goose. If the agent is "adding" or "remembering" any catalog item
+itself, it is WRONG — that defeats the entire point of running the real clone.
+  • Today the Swift product code already obeys this (no hardcoded catalogs; the staged Web UI
+    overlays Goose's ACP `_goose/unstable/providers/*`). The failure is PROOF + SURFACING, not
+    hardcoding — so it must be live-PROVEN (P0.7) and the catalog must be reachable + usable
+    (browse + pick + add providers/models via the ACP-fed UI, keys bridged from the Keychain).
+
 NON-NEGOTIABLES:
+• GOLDEN RULE (above): inventory is ALWAYS enumerated live from Goose via ACP — never a
+  Swift-hardcoded/app-maintained list. Live-prove it (P0.7); the user must never have to
+  manually add what Goose already provides.
 • Goose stays independently GREEN (§17). Two gates in order: (1) Goose green standalone,
   (2) Epistemos integration. Always verifiable via real Goose Electron + goosed.
 • ADD, DON'T EDIT on Goose Rust core (§14.3). Epistemos wiring lives in Epistemos/Goose/*
@@ -192,6 +206,11 @@ P0.5 Live proof gate (§7 — ALL required)
   [ ] MAS build shows honest Pro gate only
   [ ] Capture: log excerpt + WRV script + proof artifacts (not PNG-only)
   [ ] Document honest gaps vs Electron for routes not exercised
+  [ ] Live-prove the PRODUCTION chat path — the embedded WEB UI's ACP client → end_turn,
+      NOT only the Swift test client. Live tests must FAIL LOUD when the goose binary is
+      absent (never silently skip/pass)
+  [ ] Portable: surface works on a CLEAN build (bundled/staged binary + Web UI) OR honestly
+      gates when absent — not "works on this machine only"
 
 P0.6 Golden fixtures (Phase 0 completion)
   - DONE 2026-06-27: captured F1–F5 from live goose serve →
@@ -205,6 +224,25 @@ P0.6 Golden fixtures (Phase 0 completion)
   - NEXT 2026-06-27: first unsolved Phase 0 blocker is OAuth authenticate
     success plus deeper provider/settings parity, or an honest blocked UI where
     not wired
+
+P0.7 GOLDEN RULE — catalog fidelity (live parity, ALL required)
+  [ ] Live catalog-parity test: fetch provider/model inventory ONLY via ACP ext methods
+      (providers/list, setup/catalog/list, supported-models/list), compute a sorted
+      providerId digest + count, assert parity vs the real Goose Electron app on the SAME
+      config dir. Any drift = FAIL
+  [ ] Live-prove catalog/list, setup/catalog/list, supported-models/list against real
+      `goose serve` (not typed/unit only)
+  [ ] Replace WebView route-smoke greps for hardcoded brand names with ACP-DERIVED
+      expectations (assert against what ACP actually returned)
+  [ ] CI/grep gate: NO provider/model roster literals in Epistemos/Goose/**/*.swift
+  [ ] SURFACED + USABLE: the ACP catalog + model picker is a reachable entry (don't bypass
+      onboarding when zero providers configured); adding a provider works, with the API key
+      bridged from the Epistemos Keychain → goose (GooseACPClient.saveGooseProviderConfig).
+      Fix the env denylist that strips all provider keys (GooseRuntimeSupervisor) — allowlist
+      them OR make the Keychain bridge the sole, deliberate path. Model-switch persists across
+      restart (defaultsSave)
+  [ ] Phase 1 native models/provider UI (AgentSettingsModelsSection / AgentProviderSetupView)
+      BLOCKED until each route proves ACP-fed inventory, never a Swift-duplicated picker
 
 PHASE 0 EXIT: Write docs/handoffs/GOOSE_PHASE_0_SIGNOFF.md with checklist + evidence.
 STOP and ask owner to approve Phase 1 start (Step 0 sign-off). If owner pre-approved
@@ -289,6 +327,11 @@ DEFINITION OF DONE (entire goal — NOT before all pass)
 The goal is complete ONLY when ALL of:
 
 □ Phase 0 §7 proof gate + signoff doc with live evidence
+□ GOLDEN RULE proven (P0.7): provider/model/skill inventory live-enumerated via ACP with
+  parity vs real Goose; ZERO hardcoded rosters; keys bridged from Keychain; picker surfaced + usable
+□ LOSE NOTHING: every Goose capability proven live through the PRODUCTION (web UI) path; zero
+  deferred-with-visible-error among affordances the UI actually calls; recipe-trust persists (no re-prompt loop)
+□ Portable: works on a clean build (bundled/staged) or honestly gates when absent
 □ Steps 1–9 exit criteria (follow-on plan §5)
 □ Hybrid charter satisfied (native chat default; long-tail WebView where unflipped)
 □ Pro build: Landing → Agent → native chat loop → stream → permission works
@@ -307,6 +350,10 @@ FORBIDDEN "done" claims:
 × Wiring REST goosed agent or Electron IPC for agent path
 × Bulk deleting WebView before per-route native gates pass
 × Paseo §15 before Step 9
+× ANY Swift-hardcoded / app-duplicated provider/model/skill roster (GOLDEN RULE violation)
+× Catalog not live-proven via ACP parity vs real Goose
+× "Works on my machine" — surface depends on un-bundled local artifacts
+× Production (web UI) chat path untested while only the Swift client is proven
 
 ═══════════════════════════════════════════════════════════════════════════════
 WORK DISCIPLINE
@@ -325,4 +372,4 @@ Stop only when owner says stop OR entire DEFINITION OF DONE is ✅ with evidence
 
 ---
 
-*Master prompt v1 — 2026-06-27. Supersedes partial Codex goal scope.*
+*Master prompt v1.1 — 2026-06-27. v1.1 adds the GOLDEN RULE (catalog fidelity, P0.7) + lose-nothing / production-path / portability gates. Supersedes partial Codex goal scope.*
