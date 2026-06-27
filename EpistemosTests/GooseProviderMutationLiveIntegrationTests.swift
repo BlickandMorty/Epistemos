@@ -106,17 +106,17 @@ struct GooseProviderMutationLiveIntegrationTests {
     }
 }
 
-private struct ProviderMutationCandidate {
+struct ProviderMutationCandidate {
     let providerId: String
     let configKeys: [String]
 }
 
-private struct ProviderInventoryEntry: Decodable {
+struct ProviderInventoryEntry: Decodable {
     let providerId: String
     let configKeys: [ProviderInventoryConfigKey]
 }
 
-private struct ProviderInventoryConfigKey: Decodable {
+struct ProviderInventoryConfigKey: Decodable {
     let name: String
     let required: Bool
     let secret: Bool
@@ -125,7 +125,7 @@ private struct ProviderInventoryConfigKey: Decodable {
     let deviceCodeFlow: Bool?
 }
 
-private func providerMutationCandidate(
+func providerMutationCandidate(
     from entries: [JSONValue],
     statuses: [GooseACPProviderConfigStatus]
 ) throws -> ProviderMutationCandidate {

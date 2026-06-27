@@ -367,6 +367,48 @@ struct GooseACPClientTests {
         ]))
         await client.close()
     }
+
+    @Test("client sends the settings mutation Goose custom ACP subset")
+    func clientSendsSettingsMutationCustomACPSubset() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{}}"#,
+            #"{"jsonrpc":"2.0","id":4,"result":{"providerId":"mock","modelId":"mock-model"}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        _ = try await client.saveGoosePreferences(values: [
+            .init(key: .gooseThinkingEffort, value: .string("high")),
+            .init(key: .autoCompactThreshold, value: .double(0.5)),
+        ])
+        _ = try await client.removeGoosePreferences(keys: [.voiceDictationPreferredMic])
+        let defaults = try await client.saveGooseDefaults(providerId: "mock", modelId: "mock-model")
+
+        #expect(defaults.providerId == "mock")
+        #expect(defaults.modelId == "mock-model")
+
+        let sent = await transport.sentMessages()
+        let methods = sent.compactMap { $0.raw.objectValue?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/preferences/save"),
+            .string("_goose/unstable/preferences/remove"),
+            .string("_goose/unstable/defaults/save"),
+        ])
+        let saveParams = try #require(sent.dropFirst().first?.raw.objectValue?["params"]?.objectValue)
+        #expect(saveParams["values"] == .array([
+            .object(["key": .string("gooseThinkingEffort"), "value": .string("high")]),
+            .object(["key": .string("autoCompactThreshold"), "value": .double(0.5)]),
+        ]))
+        let removeParams = try #require(sent.dropFirst(2).first?.raw.objectValue?["params"]?.objectValue)
+        #expect(removeParams["keys"] == .array([.string("voiceDictationPreferredMic")]))
+        let defaultsParams = try #require(sent.dropFirst(3).first?.raw.objectValue?["params"]?.objectValue)
+        #expect(defaultsParams["providerId"] == .string("mock"))
+        #expect(defaultsParams["modelId"] == .string("mock-model"))
+        await client.close()
+    }
 }
 
 @Suite("Goose ACP event bridge")

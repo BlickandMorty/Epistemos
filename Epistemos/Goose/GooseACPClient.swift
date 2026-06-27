@@ -168,10 +168,38 @@ actor GooseACPClient {
         )
     }
 
+    func saveGoosePreferences(
+        values: [GooseACPPreferenceValue]
+    ) async throws -> GooseACPEmptyResponse {
+        try await sendCustomRequest(
+            method: .preferencesSave,
+            params: GooseACPPreferencesSaveRequest(values: values),
+            response: GooseACPEmptyResponse.self
+        )
+    }
+
+    func removeGoosePreferences(
+        keys: [GooseACPPreferenceKey]
+    ) async throws -> GooseACPEmptyResponse {
+        try await sendCustomRequest(
+            method: .preferencesRemove,
+            params: GooseACPPreferencesRemoveRequest(keys: keys),
+            response: GooseACPEmptyResponse.self
+        )
+    }
+
     func readGooseDefaults() async throws -> GooseACPDefaultsReadResponse {
         try await sendCustomRequest(
             method: .defaultsRead,
             params: GooseACPDefaultsReadRequest(),
+            response: GooseACPDefaultsReadResponse.self
+        )
+    }
+
+    func saveGooseDefaults(providerId: String, modelId: String? = nil) async throws -> GooseACPDefaultsReadResponse {
+        try await sendCustomRequest(
+            method: .defaultsSave,
+            params: GooseACPDefaultsSaveRequest(providerId: providerId, modelId: modelId),
             response: GooseACPDefaultsReadResponse.self
         )
     }

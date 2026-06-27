@@ -264,10 +264,15 @@ nonisolated enum GooseACPCustomMethod: String, Sendable {
     case providerSupportedModelsList = "_goose/unstable/providers/supported-models/list"
     case providersList = "_goose/unstable/providers/list"
     case preferencesRead = "_goose/unstable/preferences/read"
+    case preferencesSave = "_goose/unstable/preferences/save"
+    case preferencesRemove = "_goose/unstable/preferences/remove"
     case defaultsRead = "_goose/unstable/defaults/read"
+    case defaultsSave = "_goose/unstable/defaults/save"
     case sessionInfo = "_goose/unstable/session/info"
     case diagnosticsGet = "_goose/unstable/diagnostics/get"
 }
+
+nonisolated struct GooseACPEmptyResponse: Decodable, Equatable, Sendable {}
 
 nonisolated struct GooseACPProvidersListRequest: Encodable, Equatable, Sendable {
     let providerIds: [String]
@@ -389,10 +394,23 @@ nonisolated struct GooseACPPreferencesReadResponse: Decodable, Equatable, Sendab
     let values: [GooseACPPreferenceValue]
 }
 
+nonisolated struct GooseACPPreferencesSaveRequest: Encodable, Equatable, Sendable {
+    let values: [GooseACPPreferenceValue]
+}
+
+nonisolated struct GooseACPPreferencesRemoveRequest: Encodable, Equatable, Sendable {
+    let keys: [GooseACPPreferenceKey]
+}
+
 nonisolated struct GooseACPDefaultsReadRequest: Encodable, Equatable, Sendable {}
 
 nonisolated struct GooseACPDefaultsReadResponse: Decodable, Equatable, Sendable {
     let providerId: String?
+    let modelId: String?
+}
+
+nonisolated struct GooseACPDefaultsSaveRequest: Encodable, Equatable, Sendable {
+    let providerId: String
     let modelId: String?
 }
 
