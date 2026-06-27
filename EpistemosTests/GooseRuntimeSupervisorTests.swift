@@ -686,6 +686,33 @@ struct GooseWebNativeAffordanceBridgeTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test("file bridge resolves symlinks before scoped reads and writes")
+    func fileBridgeRejectsSymlinkEscapes() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        let project = root.appendingPathComponent("project", isDirectory: true)
+        let outside = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        let outsideSecret = outside.appendingPathComponent("secret.txt", isDirectory: false)
+        try "secret".write(to: outsideSecret, atomically: true, encoding: .utf8)
+        let symlink = project.appendingPathComponent("linked-secret.txt", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outsideSecret)
+        let bridge = GooseWebNativeAffordanceBridge(
+            initialScopedFileRoots: [project],
+            applicationSupportRoot: root
+        )
+
+        let read = try #require(bridge.handleAffordance(name: "readFile", args: [symlink.path]) as? [String: Any])
+        #expect(read["found"] as? Bool == false)
+        #expect((read["error"] as? String)?.contains("outside scoped roots") == true)
+        #expect(try bridge.handleAffordance(name: "writeFile", args: [symlink.path, "changed"]) as? Bool == false)
+        #expect(try String(contentsOf: outsideSecret, encoding: .utf8) == "secret")
+        try? FileManager.default.removeItem(at: root)
+    }
+
     @Test("unsupported native affordances fail closed")
     func unsupportedAffordanceFailsClosed() {
         let bridge = GooseWebNativeAffordanceBridge()

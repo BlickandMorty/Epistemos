@@ -64,9 +64,12 @@ struct GooseWebBootstrap: Equatable, Sendable {
     }
 }
 
+/// Boot shim injects runtime host config only (`GOOSE_API_HOST`, `USE_ACP_CHAT`, etc.).
+/// Provider/model inventory must come from Goose ACP (`_goose/unstable/providers/*`) via the
+/// staged Web UI overlay — never from Swift hardcoded lists in `getConfig` or `defaultSettings`.
 enum GooseWebBootShim {
     static let dispositionLedger: [String: GooseWebAffordanceDisposition] = [
-        "addRecentDir": .compatibilityPreserved,
+        "addRecentDir": .implementedNative,
         "appConfig.get": .implementedNative,
         "appConfig.getAll": .implementedNative,
         "arch": .implementedNative,
@@ -84,48 +87,49 @@ enum GooseWebBootShim {
         "emit": .compatibilityPreserved,
         "logInfo": .compatibilityPreserved,
         "hideWindow": .compatibilityPreserved,
-        "createChatWindow": .compatibilityPreserved,
-        "closeWindow": .compatibilityPreserved,
+        "createChatWindow": .implementedRuntime,
+        "closeWindow": .implementedRuntime,
         "showOpenDialog": .implementedNative,
         "showSaveDialog": .implementedNative,
-        "showMessageBox": .deferredWithVisibleError,
+        "showMessageBox": .implementedNative,
         "directoryChooser": .implementedNative,
         "selectFileOrDirectory": .implementedNative,
         "selectImportSessionFile": .implementedNative,
         "openExternal": .implementedNative,
         "openInChrome": .implementedNative,
         "openDirectoryInExplorer": .implementedNative,
-        "getBinaryPath": .deferredWithVisibleError,
-        "readFile": .deferredWithVisibleError,
-        "writeFile": .deferredWithVisibleError,
-        "ensureDirectory": .deferredWithVisibleError,
-        "launchApp": .deferredWithVisibleError,
-        "refreshApp": .deferredWithVisibleError,
-        "closeApp": .deferredWithVisibleError,
-        "openNotificationsSettings": .deferredWithVisibleError,
-        "showNotification": .compatibilityPreserved,
+        "getBinaryPath": .implementedNative,
+        "readFile": .implementedNative,
+        "readFileDataURL": .implementedNative,
+        "writeFile": .implementedNative,
+        "ensureDirectory": .implementedNative,
+        "launchApp": .implementedNative,
+        "refreshApp": .implementedNative,
+        "closeApp": .implementedNative,
+        "openNotificationsSettings": .implementedNative,
+        "showNotification": .implementedNative,
         "setWindowTitle": .compatibilityPreserved,
-        "reloadApp": .compatibilityPreserved,
+        "reloadApp": .implementedRuntime,
         "checkForOllama": .compatibilityPreserved,
         "getAllowedExtensions": .compatibilityPreserved,
         "getPathForFile": .compatibilityPreserved,
-        "listFiles": .compatibilityPreserved,
-        "listRecentDirs": .compatibilityPreserved,
-        "listGitWorktreeDirs": .compatibilityPreserved,
-        "setMenuBarIcon": .compatibilityPreserved,
-        "getMenuBarIconState": .compatibilityPreserved,
-        "setDockIcon": .compatibilityPreserved,
-        "getDockIconState": .compatibilityPreserved,
-        "setWakelock": .compatibilityPreserved,
-        "getWakelockState": .compatibilityPreserved,
-        "setSpellcheck": .compatibilityPreserved,
-        "getSpellcheckState": .compatibilityPreserved,
+        "listFiles": .implementedNative,
+        "listRecentDirs": .implementedNative,
+        "listGitWorktreeDirs": .implementedNative,
+        "setMenuBarIcon": .implementedNative,
+        "getMenuBarIconState": .implementedNative,
+        "setDockIcon": .implementedNative,
+        "getDockIconState": .implementedNative,
+        "setWakelock": .implementedNative,
+        "getWakelockState": .implementedNative,
+        "setSpellcheck": .implementedNative,
+        "getSpellcheckState": .implementedNative,
         "isAnyWindowFocused": .compatibilityPreserved,
         "getIsFullScreen": .compatibilityPreserved,
         "onMouseBackButtonClicked": .compatibilityPreserved,
         "offMouseBackButtonClicked": .compatibilityPreserved,
-        "hasAcceptedRecipeBefore": .compatibilityPreserved,
-        "recordRecipeHash": .compatibilityPreserved,
+        "hasAcceptedRecipeBefore": .implementedNative,
+        "recordRecipeHash": .implementedNative,
         "getVersion": .implementedNative,
         "getUpdateState": .hiddenShell,
         "isUsingGitHubFallback": .hiddenShell,
@@ -153,6 +157,7 @@ enum GooseWebBootShim {
         return """
         (() => {
           const epistemosGoose = Object.freeze(\(payloadJSON));
+          const runtimeConfig = Object.assign({}, epistemosGoose.config);
           const visibleError = (name) => async () => {
             throw new Error(`Epistemos native host has not implemented ${name} yet.`);
           };
@@ -198,18 +203,131 @@ enum GooseWebBootShim {
               try { callback(event, ...args); } catch (error) { console.error(error); }
             }
           };
+          const consoleEvents = [];
+          const consoleString = (value) => {
+            if (value instanceof Error) return value.message;
+            if (typeof value === 'string') return value;
+            try { return JSON.stringify(value); } catch { return String(value); }
+          };
+          for (const level of ['error', 'warn']) {
+            const nativeConsole = console[level]?.bind(console) || (() => undefined);
+            console[level] = (...args) => {
+              consoleEvents.push({
+                level,
+                message: args.map(consoleString).join(' ')
+              });
+              while (consoleEvents.length > 80) consoleEvents.shift();
+              nativeConsole(...args);
+            };
+          }
+          const acpTrace = (() => {
+            const requests = new Map();
+            const events = [];
+            const push = (event) => {
+              events.push(Object.assign({ at: Date.now() }, event));
+              while (events.length > 400) events.shift();
+            };
+            const parse = (data) => {
+              if (typeof data !== 'string') return null;
+              try { return JSON.parse(data); } catch { return null; }
+            };
+            const idKey = (id) => id === undefined || id === null ? '' : String(id);
+            const stopReason = (result) => result?.stopReason ?? result?.stop_reason ?? null;
+            const isPromptMethod = (method) => method === 'session/prompt' || method === 'prompt';
+            const methodCounts = (direction) => events
+              .filter((event) => event.direction === direction && event.method)
+              .reduce((counts, event) => {
+                counts[event.method] = (counts[event.method] || 0) + 1;
+                return counts;
+              }, {});
+            const traceOutgoing = (data) => {
+              const message = parse(data);
+              if (!message || !message.method) return;
+              const id = idKey(message.id);
+              if (id) requests.set(id, message.method);
+              push({ direction: 'out', id, method: message.method });
+            };
+            const traceIncoming = (data) => {
+              const message = parse(data);
+              if (!message) return;
+              const id = idKey(message.id);
+              const method = requests.get(id) || message.method || '';
+              if (message.result !== undefined || message.error !== undefined) {
+                push({
+                  direction: 'in',
+                  id,
+                  method,
+                  stopReason: stopReason(message.result),
+                  error: message.error?.message ?? null
+                });
+              } else if (message.method) {
+                push({ direction: 'in', method: message.method });
+              }
+            };
+            const promptResponses = () => events.filter((event) =>
+              event.direction === 'in' && (isPromptMethod(event.method) || event.stopReason !== null)
+            );
+            return {
+              traceSocket: (state, detail = null) => push({ direction: 'socket', method: `websocket:${state}`, detail }),
+              traceOutgoing,
+              traceIncoming,
+              snapshot: () => {
+                const responses = promptResponses();
+                const lastPromptResponse = responses[responses.length - 1] || null;
+                return {
+                  events: events.slice(),
+                  promptRequestCount: events.filter((event) =>
+                    event.direction === 'out' && isPromptMethod(event.method)
+                  ).length,
+                  promptResponseCount: responses.length,
+                  lastPromptStopReason: lastPromptResponse?.stopReason ?? null,
+                  lastPromptError: lastPromptResponse?.error ?? null,
+                  outgoingMethodCounts: methodCounts('out'),
+                  incomingMethodCounts: methodCounts('in')
+                };
+              }
+            };
+          })();
+          if (typeof window.WebSocket === 'function' && !window.__epistemosGooseACPTraceInstalled) {
+            const NativeWebSocket = window.WebSocket;
+            const TracedWebSocket = function(url, protocols) {
+              const socket = protocols === undefined ? new NativeWebSocket(url) : new NativeWebSocket(url, protocols);
+              const isACP = String(url || '').includes('/acp');
+              if (!isACP) return socket;
+              acpTrace.traceSocket('construct');
+              socket.addEventListener('open', () => acpTrace.traceSocket('open'), { once: true });
+              socket.addEventListener('close', (event) => acpTrace.traceSocket('close', event?.code ?? null));
+              socket.addEventListener('error', () => acpTrace.traceSocket('error'));
+              socket.addEventListener('message', (event) => acpTrace.traceIncoming(event.data));
+              return new Proxy(socket, {
+                get(target, property) {
+                  if (property === 'send') {
+                    return (data) => {
+                      acpTrace.traceOutgoing(data);
+                      return target.send(data);
+                    };
+                  }
+                  const value = target[property];
+                  return typeof value === 'function' ? value.bind(target) : value;
+                },
+                set(target, property, value) {
+                  target[property] = value;
+                  return true;
+                }
+              });
+            };
+            TracedWebSocket.prototype = NativeWebSocket.prototype;
+            Object.setPrototypeOf(TracedWebSocket, NativeWebSocket);
+            window.WebSocket = TracedWebSocket;
+            window.__epistemosGooseACPTraceInstalled = true;
+          }
           const getSetting = async (key) => clone(loadSettings()[key]);
           const setSetting = async (key, value) => {
             const settings = loadSettings();
             settings[key] = clone(value);
             saveSettings(settings);
           };
-          const showNotification = async (data) => {
-            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-              new Notification(data?.title || 'Epistemos', { body: data?.body || '' });
-            }
-            return null;
-          };
+          const showNotification = (data) => postNativeAffordance('showNotification', [data || {}]);
           const postHostPrompt = async (type, request) => {
             const handler = window.webkit?.messageHandlers?.epistemosGoosePrompt;
             if (!handler?.postMessage) {
@@ -226,6 +344,66 @@ enum GooseWebBootShim {
             const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
             return await handler.postMessage({ name, id, args: clone(Array.isArray(args) ? args : []) });
           };
+          const routeMap = {
+            chat: '/',
+            pair: '/pair',
+            settings: '/settings',
+            sessions: '/sessions',
+            schedules: '/schedules',
+            recipes: '/recipes',
+            skills: '/skills',
+            permission: '/permission',
+            ConfigureProviders: '/configure-providers',
+            sharedSession: '/shared-session'
+          };
+          const setRuntimeLaunchConfig = (options = {}) => {
+            for (const key of ['REQUEST_DIR', 'recipeDeeplink', 'recipeId', 'recipeParameters', 'scheduledJobId']) {
+              delete runtimeConfig[key];
+            }
+            if (options.dir) {
+              runtimeConfig.REQUEST_DIR = options.dir;
+              runtimeConfig.GOOSE_WORKING_DIR = options.dir;
+            }
+            for (const key of ['recipeDeeplink', 'recipeId', 'recipeParameters', 'scheduledJobId']) {
+              if (Object.prototype.hasOwnProperty.call(options, key) && options[key] !== undefined) {
+                runtimeConfig[key] = clone(options[key]);
+              }
+            }
+          };
+          const createChatWindow = async (options = {}) => {
+            const launch = options || {};
+            setRuntimeLaunchConfig(launch);
+            let appPath = launch.viewType ? (routeMap[launch.viewType] || '/') : '/';
+            const initialMessage = launch.query || launch.initialMessage || '';
+            if (appPath === '/' && (
+              launch.recipeDeeplink !== undefined ||
+              launch.recipeId !== undefined ||
+              initialMessage
+            )) {
+              appPath = '/pair';
+            }
+            const searchParams = new URLSearchParams();
+            if (launch.resumeSessionId) {
+              searchParams.set('resumeSessionId', launch.resumeSessionId);
+              if (appPath === '/') appPath = '/pair';
+            } else if (appPath === '/pair') {
+              searchParams.set('launchId', `${Date.now()}`);
+            }
+            window.location.hash = `${appPath}?${searchParams.toString()}`;
+            if (initialMessage) {
+              setTimeout(() => emitEvent('set-initial-message', initialMessage, {
+                noAutoSubmit: Boolean(launch.initialMessageNoAutoSubmit),
+                gooseMode: launch.initialGooseMode
+              }), 0);
+            } else {
+              setTimeout(() => emitEvent('focus-input'), 0);
+            }
+          };
+          const closeWindow = () => {
+            if (window.location.hash.startsWith('#/launcher')) {
+              window.location.hash = '#/';
+            }
+          };
           const electron = window.electron || {};
           Object.defineProperties(electron, {
             platform: { configurable: true, value: epistemosGoose.platform },
@@ -234,7 +412,7 @@ enum GooseWebBootShim {
             getGoosedHostPort: { configurable: true, value: async () => epistemosGoose.baseURL },
             getSecretKey: { configurable: true, value: async () => epistemosGoose.secretKey },
             getAcpUrl: { configurable: true, value: async () => epistemosGoose.acpUrl },
-            getConfig: { configurable: true, value: () => epistemosGoose.config },
+            getConfig: { configurable: true, value: () => Object.assign({}, runtimeConfig) },
             getSetting: { configurable: true, value: getSetting },
             setSetting: { configurable: true, value: setSetting },
             on: { configurable: true, value: onEvent },
@@ -243,49 +421,54 @@ enum GooseWebBootShim {
             broadcastThemeChange: { configurable: true, value: (themeData) => emitEvent('theme-changed', themeData) },
             logInfo: { configurable: true, value: (...args) => console.info(...args) },
             hideWindow: { configurable: true, value: noop },
-            createChatWindow: { configurable: true, value: noop },
-            closeWindow: { configurable: true, value: noop },
+            createChatWindow: { configurable: true, value: createChatWindow },
+            closeWindow: { configurable: true, value: closeWindow },
             showOpenDialog: { configurable: true, value: (options = {}) => postNativeAffordance('showOpenDialog', [options]) },
             showSaveDialog: { configurable: true, value: (options = {}) => postNativeAffordance('showSaveDialog', [options]) },
-            showMessageBox: { configurable: true, value: visibleError('showMessageBox') },
+            showMessageBox: { configurable: true, value: (options = {}) => postNativeAffordance('showMessageBox', [options]) },
             directoryChooser: { configurable: true, value: () => postNativeAffordance('directoryChooser') },
             selectFileOrDirectory: { configurable: true, value: (defaultPath) => postNativeAffordance('selectFileOrDirectory', defaultPath === undefined ? [] : [defaultPath]) },
             selectImportSessionFile: { configurable: true, value: () => postNativeAffordance('selectImportSessionFile') },
             openExternal: { configurable: true, value: (url) => postNativeAffordance('openExternal', [url]) },
             openInChrome: { configurable: true, value: (url) => { void postNativeAffordance('openInChrome', [url]); } },
             openDirectoryInExplorer: { configurable: true, value: (directoryPath) => postNativeAffordance('openDirectoryInExplorer', [directoryPath]) },
-            getBinaryPath: { configurable: true, value: visibleError('getBinaryPath') },
-            readFile: { configurable: true, value: visibleError('readFile') },
-            writeFile: { configurable: true, value: visibleError('writeFile') },
-            ensureDirectory: { configurable: true, value: visibleError('ensureDirectory') },
-            launchApp: { configurable: true, value: visibleError('launchApp') },
-            refreshApp: { configurable: true, value: visibleError('refreshApp') },
-            closeApp: { configurable: true, value: visibleError('closeApp') },
-            openNotificationsSettings: { configurable: true, value: visibleError('openNotificationsSettings') },
+            getBinaryPath: { configurable: true, value: (binaryName) => postNativeAffordance('getBinaryPath', [binaryName]) },
+            readFile: { configurable: true, value: (filePath) => postNativeAffordance('readFile', [filePath]) },
+            readFileDataURL: { configurable: true, value: (filePath) => postNativeAffordance('readFileDataURL', [filePath]) },
+            writeFile: { configurable: true, value: (filePath, content) => postNativeAffordance('writeFile', [filePath, content]) },
+            ensureDirectory: { configurable: true, value: (dirPath) => postNativeAffordance('ensureDirectory', [dirPath]) },
+            launchApp: { configurable: true, value: (app) => postNativeAffordance('launchApp', [app]) },
+            refreshApp: { configurable: true, value: (app) => postNativeAffordance('refreshApp', [app]) },
+            closeApp: { configurable: true, value: (appName) => postNativeAffordance('closeApp', [appName]) },
+            openNotificationsSettings: { configurable: true, value: () => postNativeAffordance('openNotificationsSettings') },
             showNotification: { configurable: true, value: showNotification },
             setWindowTitle: { configurable: true, value: nullAffordance },
             reloadApp: { configurable: true, value: () => window.location.reload() },
             checkForOllama: { configurable: true, value: falseAffordance },
             getAllowedExtensions: { configurable: true, value: async () => [] },
-            getPathForFile: { configurable: true, value: (file) => file?.path || file?.name || '' },
-            listFiles: { configurable: true, value: async () => [] },
-            addRecentDir: { configurable: true, value: trueAffordance },
-            listRecentDirs: { configurable: true, value: async () => [] },
-            listGitWorktreeDirs: { configurable: true, value: async () => [] },
-            setMenuBarIcon: { configurable: true, value: trueAffordance },
-            getMenuBarIconState: { configurable: true, value: trueAffordance },
-            setDockIcon: { configurable: true, value: trueAffordance },
-            getDockIconState: { configurable: true, value: trueAffordance },
-            setWakelock: { configurable: true, value: undefinedAffordance },
-            getWakelockState: { configurable: true, value: falseAffordance },
-            setSpellcheck: { configurable: true, value: undefinedAffordance },
-            getSpellcheckState: { configurable: true, value: trueAffordance },
+            getPathForFile: { configurable: true, value: (file) => {
+              const path = file?.path || file?.epistemosNativePath || '';
+              if (typeof path === 'string' && path.startsWith('/')) return path;
+              throw new Error('Native file path is unavailable for this WebView file object.');
+            } },
+            listFiles: { configurable: true, value: (dirPath, extension) => postNativeAffordance('listFiles', extension === undefined ? [dirPath] : [dirPath, extension]) },
+            addRecentDir: { configurable: true, value: (dir) => postNativeAffordance('addRecentDir', [dir]) },
+            listRecentDirs: { configurable: true, value: () => postNativeAffordance('listRecentDirs') },
+            listGitWorktreeDirs: { configurable: true, value: (dir) => postNativeAffordance('listGitWorktreeDirs', [dir]) },
+            setMenuBarIcon: { configurable: true, value: (show) => postNativeAffordance('setMenuBarIcon', [show]) },
+            getMenuBarIconState: { configurable: true, value: () => postNativeAffordance('getMenuBarIconState') },
+            setDockIcon: { configurable: true, value: (show) => postNativeAffordance('setDockIcon', [show]) },
+            getDockIconState: { configurable: true, value: () => postNativeAffordance('getDockIconState') },
+            setWakelock: { configurable: true, value: (enabled) => postNativeAffordance('setWakelock', [enabled]) },
+            getWakelockState: { configurable: true, value: () => postNativeAffordance('getWakelockState') },
+            setSpellcheck: { configurable: true, value: (enabled) => postNativeAffordance('setSpellcheck', [enabled]) },
+            getSpellcheckState: { configurable: true, value: () => postNativeAffordance('getSpellcheckState') },
             isAnyWindowFocused: { configurable: true, value: async () => document.hasFocus() },
             getIsFullScreen: { configurable: true, value: falseAffordance },
             onMouseBackButtonClicked: { configurable: true, value: (callback) => callback },
             offMouseBackButtonClicked: { configurable: true, value: noop },
-            hasAcceptedRecipeBefore: { configurable: true, value: falseAffordance },
-            recordRecipeHash: { configurable: true, value: trueAffordance },
+            hasAcceptedRecipeBefore: { configurable: true, value: (recipe) => postNativeAffordance('hasAcceptedRecipeBefore', [recipe]) },
+            recordRecipeHash: { configurable: true, value: (recipe) => postNativeAffordance('recordRecipeHash', [recipe]) },
             getVersion: { configurable: true, value: () => epistemosGoose.config.GOOSE_VERSION || '' },
             getUpdateState: { configurable: true, value: nullAffordance },
             isUsingGitHubFallback: { configurable: true, value: falseAffordance },
@@ -299,14 +482,16 @@ enum GooseWebBootShim {
           window.electron = electron;
           const appConfig = window.appConfig || {};
           Object.defineProperties(appConfig, {
-            get: { configurable: true, value: (key) => epistemosGoose.config[key] },
-            getAll: { configurable: true, value: () => Object.assign({}, epistemosGoose.config) }
+            get: { configurable: true, value: (key) => runtimeConfig[key] },
+            getAll: { configurable: true, value: () => Object.assign({}, runtimeConfig) }
           });
           window.appConfig = appConfig;
           window.epistemos = Object.assign(window.epistemos || {}, {
             goose: Object.freeze({
               acpUrl: epistemosGoose.acpUrl,
               dispositionLedger: Object.freeze(epistemosGoose.ledger),
+              acpTrace: acpTrace.snapshot,
+              consoleEvents: () => consoleEvents.slice(),
               requestPermission: (request) => postHostPrompt('permission', request),
               requestElicitation: (request) => postHostPrompt('elicitation', request),
               requestNativeAffordance: (name, args) => postNativeAffordance(name, args)

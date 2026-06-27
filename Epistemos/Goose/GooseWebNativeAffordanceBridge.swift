@@ -1,6 +1,9 @@
 import AppKit
+import CryptoKit
 import Foundation
+import IOKit.pwr_mgt
 import UniformTypeIdentifiers
+import UserNotifications
 import WebKit
 
 @MainActor
@@ -21,9 +24,46 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated private static let webProtocols: Set<String> = ["http", "https"]
 
     private let handlers: [String: Handler]
+    private let fileManager: FileManager
+    private let applicationSupportRoot: URL
+    private let recentDirsURL: URL
+    private let recipeHashesRoot: URL
+    private let preferences: UserDefaults
+    private var scopedFileRoots: Set<String>
+    private var appWindows: [String: NSWindow] = [:]
+    private var appWebViews: [String: WKWebView] = [:]
+    private var appWindowDelegates: [String: GooseWebNativeAppWindowDelegate] = [:]
+    private var wakelockAssertionID: IOPMAssertionID = 0
 
-    init(handlers: [String: Handler] = [:]) {
+    init(
+        handlers: [String: Handler] = [:],
+        initialScopedFileRoots: [URL]? = nil,
+        applicationSupportRoot: URL? = nil,
+        preferences: UserDefaults = .standard,
+        fileManager: FileManager = .default
+    ) {
         self.handlers = handlers
+        self.fileManager = fileManager
+        self.preferences = preferences
+        let root = applicationSupportRoot ?? Self.defaultApplicationSupportRoot(fileManager: fileManager)
+        self.applicationSupportRoot = root
+        self.recentDirsURL = root
+            .appendingPathComponent("recent-dirs", isDirectory: true)
+            .appendingPathComponent("recent-dirs.json", isDirectory: false)
+        self.recipeHashesRoot = root.appendingPathComponent("recipe-hashes", isDirectory: true)
+        let configuredFileRoots = initialScopedFileRoots ?? [fileManager.homeDirectoryForCurrentUser]
+        let rootPaths = [
+            Self.standardizedPath(root.path),
+            Self.standardizedPath(fileManager.temporaryDirectory.path),
+            Self.standardizedPath(fileManager.currentDirectoryPath),
+        ] + configuredFileRoots.map { Self.standardizedPath($0.path) }
+        self.scopedFileRoots = Set(rootPaths.flatMap { [$0, Self.resolvedSymlinkPath($0)] })
+    }
+
+    deinit {
+        if wakelockAssertionID != 0 {
+            IOPMAssertionRelease(wakelockAssertionID)
+        }
     }
 
     func userContentController(
@@ -66,6 +106,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return runOpenDialog(options: dictionaryArgument(args, at: 0) ?? [:])
         case "showSaveDialog":
             return runSaveDialog(options: dictionaryArgument(args, at: 0) ?? [:])
+        case "showMessageBox":
+            return runMessageBox(options: dictionaryArgument(args, at: 0) ?? [:])
         case "directoryChooser":
             return runOpenDialog(options: [
                 "properties": ["openDirectory", "createDirectory"],
@@ -92,6 +134,103 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return openDirectory(path)
+        case "getBinaryPath":
+            guard let binaryName = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return resolveBinaryPath(binaryName)
+        case "readFile":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return readFile(path)
+        case "readFileDataURL":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return readFileDataURL(path)
+        case "writeFile":
+            guard let path = stringArgument(args, at: 0),
+                  let content = stringArgument(args, at: 1) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return writeFile(path, content: content)
+        case "ensureDirectory":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return ensureDirectory(path)
+        case "listFiles":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return listFiles(path, extensionFilter: stringArgument(args, at: 1))
+        case "listGitWorktreeDirs":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return listGitWorktreeDirs(path)
+        case "launchApp":
+            guard let app = dictionaryArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            try launchApp(app)
+            return nil
+        case "refreshApp":
+            guard let app = dictionaryArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            try refreshApp(app)
+            return nil
+        case "closeApp":
+            guard let appName = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            closeApp(name: appName)
+            return nil
+        case "openNotificationsSettings":
+            return openNotificationsSettings()
+        case "showNotification":
+            return showNotification(dictionaryArgument(args, at: 0) ?? [:])
+        case "setMenuBarIcon":
+            guard let show = boolArgument(args.first) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return setMenuBarIcon(show)
+        case "getMenuBarIconState":
+            return menuBarIconState()
+        case "setDockIcon":
+            guard let show = boolArgument(args.first) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return setDockIcon(show)
+        case "getDockIconState":
+            return dockIconState()
+        case "setWakelock":
+            guard let enabled = boolArgument(args.first) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return setWakelock(enabled)
+        case "getWakelockState":
+            return wakelockState()
+        case "setSpellcheck":
+            guard let enabled = boolArgument(args.first) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return setSpellcheck(enabled)
+        case "getSpellcheckState":
+            return spellcheckState()
+        case "addRecentDir":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return addRecentDirectory(path)
+        case "listRecentDirs":
+            return listRecentDirectories()
+        case "hasAcceptedRecipeBefore":
+            return hasAcceptedRecipeBefore(args.first)
+        case "recordRecipeHash":
+            return recordRecipeHash(args.first)
         default:
             throw GooseWebNativeAffordanceBridgeError.unsupported(name)
         }
@@ -114,6 +253,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         guard response == .OK else {
             return ["canceled": true, "filePaths": []]
         }
+        rememberScopedAccess(for: panel.urls)
         return [
             "canceled": false,
             "filePaths": panel.urls.map(\.path),
@@ -127,9 +267,42 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         guard response == .OK, let url = panel.url else {
             return ["canceled": true]
         }
+        rememberScopedAccess(for: [url])
         return [
             "canceled": false,
             "filePath": url.path,
+        ]
+    }
+
+    private func runMessageBox(options: [String: Any]) -> [String: Any] {
+        let alert = NSAlert()
+        alert.alertStyle = alertStyle(from: options["type"] as? String)
+        alert.messageText = (options["message"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Goose"
+        if let detail = options["detail"] as? String {
+            alert.informativeText = detail
+        }
+        let buttons = (options["buttons"] as? [String]).flatMap { $0.isEmpty ? nil : $0 } ?? ["OK"]
+        for button in buttons {
+            alert.addButton(withTitle: button)
+        }
+        let defaultId = intArgument(options["defaultId"])
+        let cancelId = intArgument(options["cancelId"])
+        for (index, button) in alert.buttons.enumerated() {
+            button.keyEquivalent = ""
+            if index == defaultId {
+                button.keyEquivalent = "\r"
+            }
+            if index == cancelId {
+                button.keyEquivalent = "\u{1b}"
+            }
+        }
+        let checkbox = checkboxButton(options: options)
+        alert.accessoryView = checkbox
+        let response = alert.runModal()
+        let index = max(0, Int(response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue))
+        return [
+            "response": min(index, buttons.count - 1),
+            "checkboxChecked": checkbox?.state == .on,
         ]
     }
 
@@ -196,6 +369,349 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return false
         }
         return NSWorkspace.shared.open(URL(fileURLWithPath: expandedPath, isDirectory: true))
+    }
+
+    private func resolveBinaryPath(_ binaryName: String) -> String {
+        let safeName = URL(fileURLWithPath: binaryName).lastPathComponent
+        guard !safeName.isEmpty, safeName == binaryName else { return "" }
+        let searchPaths = (ProcessInfo.processInfo.environment["PATH"] ?? "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin")
+            .split(separator: ":")
+            .map(String.init)
+        for directory in searchPaths {
+            let candidate = URL(fileURLWithPath: directory, isDirectory: true)
+                .appendingPathComponent(safeName, isDirectory: false)
+                .path
+            if fileManager.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+        return ""
+    }
+
+    private func readFile(_ path: String) -> [String: Any] {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        guard isPathAllowed(expandedPath) else {
+            return [
+                "file": "",
+                "filePath": expandedPath,
+                "error": "Epistemos blocked Goose WebView file read outside scoped roots.",
+                "found": false,
+            ]
+        }
+        do {
+            let contents = try String(contentsOfFile: expandedPath, encoding: .utf8)
+            return ["file": contents, "filePath": expandedPath, "error": NSNull(), "found": true]
+        } catch {
+            return ["file": "", "filePath": expandedPath, "error": error.localizedDescription, "found": false]
+        }
+    }
+
+    private func readFileDataURL(_ path: String) -> String? {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        guard isPathAllowed(expandedPath), !isSymbolicLink(expandedPath) else { return nil }
+        let fileURL = URL(fileURLWithPath: expandedPath, isDirectory: false)
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
+        let mimeType = UTType(filenameExtension: fileURL.pathExtension)?.preferredMIMEType
+            ?? "application/octet-stream"
+        return "data:\(mimeType);base64,\(data.base64EncodedString())"
+    }
+
+    private func writeFile(_ path: String, content: String) -> Bool {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        guard isPathAllowedForWrite(expandedPath) else { return false }
+        do {
+            try content.write(toFile: expandedPath, atomically: true, encoding: .utf8)
+            rememberScopedAccess(for: [URL(fileURLWithPath: expandedPath, isDirectory: false)])
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func ensureDirectory(_ path: String) -> Bool {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        guard isPathAllowedForWrite(expandedPath) else { return false }
+        do {
+            try fileManager.createDirectory(
+                at: URL(fileURLWithPath: expandedPath, isDirectory: true),
+                withIntermediateDirectories: true
+            )
+            rememberScopedRoot(expandedPath)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func listFiles(_ path: String, extensionFilter: String?) -> [String] {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        var isDirectory: ObjCBool = false
+        guard isPathAllowed(expandedPath),
+              fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              !isSymbolicLink(expandedPath) else {
+            return []
+        }
+        do {
+            let files = try fileManager.contentsOfDirectory(atPath: expandedPath)
+            guard let extensionFilter, !extensionFilter.isEmpty else { return files }
+            return files.filter { $0.hasSuffix(extensionFilter) }
+        } catch {
+            return []
+        }
+    }
+
+    private func listGitWorktreeDirs(_ path: String) -> [String] {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        var isDirectory: ObjCBool = false
+        guard isPathAllowed(expandedPath),
+              fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              !isSymbolicLink(expandedPath) else {
+            return []
+        }
+        let git = resolveBinaryPath("git")
+        guard !git.isEmpty else { return [] }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
+        process.arguments = ["-C", expandedPath, "worktree", "list", "--porcelain"]
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = Pipe()
+        let semaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in semaphore.signal() }
+
+        do {
+            try process.run()
+        } catch {
+            return []
+        }
+        if semaphore.wait(timeout: .now() + 3) == .timedOut {
+            process.terminate()
+            return []
+        }
+        guard process.terminationStatus == 0 else { return [] }
+        let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        var seen = Set<String>()
+        return output
+            .split(separator: "\n")
+            .compactMap { line -> String? in
+                guard line.hasPrefix("worktree ") else { return nil }
+                let path = String(line.dropFirst("worktree ".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !path.isEmpty, seen.insert(path).inserted else { return nil }
+                return path
+            }
+    }
+
+    private func addRecentDirectory(_ path: String) -> Bool {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              !isSymbolicLink(expandedPath) else {
+            return false
+        }
+
+        var dirs = listRecentDirectories().filter { $0 != expandedPath }
+        dirs.insert(expandedPath, at: 0)
+        dirs = Array(dirs.prefix(12))
+        do {
+            try fileManager.createDirectory(
+                at: recentDirsURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let data = try JSONSerialization.data(withJSONObject: ["dirs": dirs], options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: recentDirsURL, options: .atomic)
+            rememberScopedRoot(expandedPath)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func listRecentDirectories() -> [String] {
+        guard let data = try? Data(contentsOf: recentDirsURL),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dirs = object["dirs"] as? [String] else {
+            return []
+        }
+        let validDirs = dirs
+            .map { Self.standardizedPath(expandTilde($0)) }
+            .filter { path in
+                var isDirectory: ObjCBool = false
+                return fileManager.fileExists(atPath: path, isDirectory: &isDirectory)
+                    && isDirectory.boolValue
+                    && !isSymbolicLink(path)
+            }
+        validDirs.forEach(rememberScopedRoot)
+        return validDirs
+    }
+
+    private func hasAcceptedRecipeBefore(_ recipe: Any?) -> Bool {
+        guard let hash = recipeHash(recipe) else { return false }
+        return fileManager.fileExists(atPath: recipeHashesRoot.appendingPathComponent("\(hash).hash").path)
+    }
+
+    private func recordRecipeHash(_ recipe: Any?) -> Bool {
+        guard let hash = recipeHash(recipe) else { return false }
+        do {
+            try fileManager.createDirectory(at: recipeHashesRoot, withIntermediateDirectories: true)
+            let fileURL = recipeHashesRoot.appendingPathComponent("\(hash).hash", isDirectory: false)
+            try ISO8601DateFormatter().string(from: Date()).write(to: fileURL, atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func launchApp(_ app: [String: Any]) throws {
+        let name = try appName(from: app)
+        if let existingWindow = appWindows[name], existingWindow.isVisible {
+            existingWindow.makeKeyAndOrderFront(nil)
+            appWebViews[name]?.reload()
+            return
+        }
+
+        let webView = WKWebView(
+            frame: .zero,
+            configuration: WKWebViewConfiguration()
+        )
+        if let html = htmlContent(from: app) {
+            webView.loadHTMLString(html, baseURL: applicationSupportRoot)
+        } else if let rawURI = app["uri"] as? String,
+                  let url = URL(string: rawURI),
+                  Self.shouldOpenBrowserURL(rawURI) {
+            webView.load(URLRequest(url: url))
+        } else {
+            throw GooseWebNativeAffordanceBridgeError.missingAppContent(name)
+        }
+
+        let width = CGFloat(numberArgument(app["width"]) ?? 800)
+        let height = CGFloat(numberArgument(app["height"]) ?? 600)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            styleMask: windowStyleMask(resizable: boolArgument(app["resizable"]) ?? true),
+            backing: .buffered,
+            defer: false
+        )
+        window.title = formatAppName(name)
+        window.contentView = webView
+        window.center()
+
+        let delegate = GooseWebNativeAppWindowDelegate { [weak self] in
+            self?.appWindows.removeValue(forKey: name)
+            self?.appWebViews.removeValue(forKey: name)
+            self?.appWindowDelegates.removeValue(forKey: name)
+        }
+        window.delegate = delegate
+        appWindows[name] = window
+        appWebViews[name] = webView
+        appWindowDelegates[name] = delegate
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    private func refreshApp(_ app: [String: Any]) throws {
+        let name = try appName(from: app)
+        guard let window = appWindows[name], let webView = appWebViews[name] else { return }
+        window.makeKeyAndOrderFront(nil)
+        webView.reload()
+    }
+
+    private func closeApp(name: String) {
+        appWindows[name]?.close()
+        appWindows.removeValue(forKey: name)
+        appWebViews.removeValue(forKey: name)
+        appWindowDelegates.removeValue(forKey: name)
+    }
+
+    private func openNotificationsSettings() -> Bool {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") else {
+            return false
+        }
+        return NSWorkspace.shared.open(url)
+    }
+
+    private func showNotification(_ data: [String: Any]) -> Bool {
+        let content = UNMutableNotificationContent()
+        content.title = (data["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Epistemos"
+        content.body = (data["body"] as? String) ?? ""
+        let request = UNNotificationRequest(
+            identifier: "epistemos-goose-\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
+        return true
+    }
+
+    private func setMenuBarIcon(_ show: Bool) -> Bool {
+        preferences.set(show, forKey: PreferenceKey.showMenuBarIcon)
+        if show {
+            StatusBar.shared.setup()
+        } else {
+            StatusBar.shared.remove()
+        }
+        return true
+    }
+
+    private func menuBarIconState() -> Bool {
+        preferenceBool(forKey: PreferenceKey.showMenuBarIcon, defaultValue: true)
+    }
+
+    private func setDockIcon(_ show: Bool) -> Bool {
+        preferences.set(show, forKey: PreferenceKey.showDockIcon)
+        if show {
+            return NSApp.setActivationPolicy(.regular)
+        }
+        if !menuBarIconState() {
+            _ = setMenuBarIcon(true)
+        }
+        return NSApp.setActivationPolicy(.accessory)
+    }
+
+    private func dockIconState() -> Bool {
+        preferenceBool(forKey: PreferenceKey.showDockIcon, defaultValue: true)
+    }
+
+    private func setWakelock(_ enabled: Bool) -> Bool {
+        preferences.set(enabled, forKey: PreferenceKey.enableWakelock)
+        if enabled {
+            guard wakelockAssertionID == 0 else { return true }
+            var assertionID: IOPMAssertionID = 0
+            let result = IOPMAssertionCreateWithName(
+                kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+                IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                "Epistemos Goose wakelock" as CFString,
+                &assertionID
+            )
+            guard result == kIOReturnSuccess else { return false }
+            wakelockAssertionID = assertionID
+            return true
+        }
+
+        if wakelockAssertionID != 0 {
+            IOPMAssertionRelease(wakelockAssertionID)
+            wakelockAssertionID = 0
+        }
+        return true
+    }
+
+    private func wakelockState() -> Bool {
+        preferenceBool(forKey: PreferenceKey.enableWakelock, defaultValue: false)
+    }
+
+    private func setSpellcheck(_ enabled: Bool) -> Bool {
+        preferences.set(enabled, forKey: PreferenceKey.spellcheckEnabled)
+        return true
+    }
+
+    private func spellcheckState() -> Bool {
+        preferenceBool(forKey: PreferenceKey.spellcheckEnabled, defaultValue: true)
+    }
+
+    private func preferenceBool(forKey key: String, defaultValue: Bool) -> Bool {
+        preferences.object(forKey: key) == nil ? defaultValue : preferences.bool(forKey: key)
     }
 
     private func applyOpenOptions(_ options: [String: Any], to panel: NSOpenPanel) {
@@ -269,6 +785,148 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         (path as NSString).expandingTildeInPath
     }
 
+    private func alertStyle(from type: String?) -> NSAlert.Style {
+        switch type {
+        case "warning":
+            return .warning
+        case "error":
+            return .critical
+        default:
+            return .informational
+        }
+    }
+
+    private func isPathAllowed(_ path: String) -> Bool {
+        let normalizedPath = Self.standardizedPath(path)
+        let resolvedPath = Self.resolvedSymlinkPath(normalizedPath)
+        return isPathInsideScopedRoot(normalizedPath) && isPathInsideScopedRoot(resolvedPath)
+    }
+
+    private func isPathAllowedForWrite(_ path: String) -> Bool {
+        if isSymbolicLink(path) { return false }
+        if isPathAllowed(path) { return true }
+        return isPathAllowed(Self.standardizedPath(URL(fileURLWithPath: path).deletingLastPathComponent().path))
+    }
+
+    private func rememberScopedAccess(for urls: [URL]) {
+        for url in urls {
+            let path = Self.standardizedPath(url.path)
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue {
+                rememberScopedRoot(path)
+            } else {
+                rememberScopedRoot(URL(fileURLWithPath: path).deletingLastPathComponent().path)
+                scopedFileRoots.insert(path)
+            }
+        }
+    }
+
+    private func rememberScopedRoot(_ path: String) {
+        let standardized = Self.standardizedPath(path)
+        scopedFileRoots.insert(standardized)
+        scopedFileRoots.insert(Self.resolvedSymlinkPath(standardized))
+    }
+
+    private func isPathInsideScopedRoot(_ path: String) -> Bool {
+        scopedFileRoots.contains { Self.path(path, isInsideOrEqualTo: $0) }
+    }
+
+    private func isSymbolicLink(_ path: String) -> Bool {
+        (try? fileManager.destinationOfSymbolicLink(atPath: path)) != nil
+    }
+
+    private func recipeHash(_ recipe: Any?) -> String? {
+        guard let recipe else { return nil }
+        let data: Data
+        if JSONSerialization.isValidJSONObject(recipe),
+           let jsonData = try? JSONSerialization.data(withJSONObject: recipe, options: [.sortedKeys]) {
+            data = jsonData
+        } else if let string = recipe as? String {
+            data = Data(string.utf8)
+        } else {
+            return nil
+        }
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func appName(from app: [String: Any]) throws -> String {
+        guard let name = app["name"] as? String, !name.isEmpty else {
+            throw GooseWebNativeAffordanceBridgeError.missingArgument("launchApp")
+        }
+        return name
+    }
+
+    private func htmlContent(from app: [String: Any]) -> String? {
+        if let text = app["text"] as? String {
+            return text
+        }
+        if let blob = app["blob"] as? String,
+           let data = Data(base64Encoded: blob),
+           let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        return nil
+    }
+
+    private func formatAppName(_ name: String) -> String {
+        name
+            .split(separator: "_")
+            .map { part in part.prefix(1).uppercased() + String(part.dropFirst()) }
+            .joined(separator: " ")
+    }
+
+    private func windowStyleMask(resizable: Bool) -> NSWindow.StyleMask {
+        var mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable]
+        if resizable {
+            mask.insert(.resizable)
+        }
+        return mask
+    }
+
+    private func numberArgument(_ value: Any?) -> Double? {
+        switch value {
+        case let value as Double:
+            return value
+        case let value as Int:
+            return Double(value)
+        case let value as NSNumber:
+            return value.doubleValue
+        default:
+            return nil
+        }
+    }
+
+    private func boolArgument(_ value: Any?) -> Bool? {
+        switch value {
+        case let value as Bool:
+            return value
+        case let value as NSNumber:
+            return value.boolValue
+        default:
+            return nil
+        }
+    }
+
+    private func intArgument(_ value: Any?) -> Int? {
+        switch value {
+        case let value as Int:
+            return value
+        case let value as NSNumber:
+            return value.intValue
+        default:
+            return nil
+        }
+    }
+
+    private func checkboxButton(options: [String: Any]) -> NSButton? {
+        guard let label = options["checkboxLabel"] as? String, !label.isEmpty else {
+            return nil
+        }
+        let checkbox = NSButton(checkboxWithTitle: label, target: nil, action: nil)
+        checkbox.state = (boolArgument(options["checkboxChecked"]) ?? false) ? .on : .off
+        return checkbox
+    }
+
     private func dictionaryArgument(_ args: [Any], at index: Int) -> [String: Any]? {
         guard args.indices.contains(index) else { return nil }
         return args[index] as? [String: Any]
@@ -278,10 +936,40 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         guard args.indices.contains(index) else { return nil }
         return args[index] as? String
     }
+
+    private static func defaultApplicationSupportRoot(fileManager: FileManager) -> URL {
+        let support = try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        return (support ?? fileManager.temporaryDirectory)
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("GooseWebHost", isDirectory: true)
+    }
+
+    private static func standardizedPath(_ path: String) -> String {
+        (path as NSString).standardizingPath
+    }
+
+    private static func resolvedSymlinkPath(_ path: String) -> String {
+        let resolvedPath = URL(fileURLWithPath: path)
+            .resolvingSymlinksInPath()
+            .path
+        return standardizedPath(resolvedPath)
+    }
+
+    private static func path(_ path: String, isInsideOrEqualTo root: String) -> Bool {
+        let normalizedPath = standardizedPath(path)
+        let normalizedRoot = standardizedPath(root)
+        return normalizedPath == normalizedRoot || normalizedPath.hasPrefix(normalizedRoot + "/")
+    }
 }
 
 private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
     case missingArgument(String)
+    case missingAppContent(String)
     case openFailed(String)
     case unsupported(String)
 
@@ -289,10 +977,32 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
         switch self {
         case .missingArgument(let name):
             "Missing argument for Epistemos Goose native affordance: \(name)."
+        case .missingAppContent(let name):
+            "Missing renderable MCP app content for Epistemos Goose app: \(name)."
         case .openFailed(let rawURL):
             "Failed to open Epistemos Goose native URL: \(rawURL)."
         case .unsupported(let name):
             "Unsupported Epistemos Goose native affordance: \(name)."
         }
+    }
+}
+
+private enum PreferenceKey {
+    static let showMenuBarIcon = "epistemos.goose.showMenuBarIcon"
+    static let showDockIcon = "epistemos.goose.showDockIcon"
+    static let enableWakelock = "epistemos.goose.enableWakelock"
+    static let spellcheckEnabled = "epistemos.goose.spellcheckEnabled"
+}
+
+@MainActor
+private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate {
+    private let onClose: () -> Void
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onClose()
     }
 }

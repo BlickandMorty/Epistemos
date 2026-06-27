@@ -95,6 +95,19 @@ struct GooseWebSurfaceView: View {
             detailRow("ACP", GooseRuntimeSupervisor.defaultBaseURL().absoluteString)
             detailRow("surface", Self.resolvedGooseUIIndex() == nil ? "UI bundle not staged" : "Goose Web UI")
             detailRow("custom ACP", customACPStatusLabel)
+            HStack(spacing: 8) {
+                Button { loadGooseRoute("/settings?section=models") } label: {
+                    Label("Manage models", systemImage: "slider.horizontal.3")
+                }
+                .buttonStyle(.bordered)
+                .help("Open Goose models")
+                Button { loadGooseRoute("/configure-providers") } label: {
+                    Label("Providers", systemImage: "key")
+                }
+                .buttonStyle(.bordered)
+                .help("Open Goose providers")
+            }
+            .font(GooseSurfaceStyle.bodyFont(10, weight: .semibold))
             if !acpBridge.unhandledDiagnostics.isEmpty {
                 Divider().overlay(theme.border)
                 ForEach(acpBridge.unhandledDiagnostics.suffix(4)) { diagnostic in
@@ -254,7 +267,7 @@ struct GooseWebSurfaceView: View {
 
     private var customACPStatusLabel: String {
         acpBridge.unhandledDiagnostics.isEmpty
-            ? "read-only providers/config/extensions/preferences ready"
+            ? "Goose ACP ready"
             : "blocked: \(acpBridge.unhandledDiagnostics.count)"
     }
 
@@ -292,6 +305,11 @@ struct GooseWebSurfaceView: View {
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
         }
+    }
+
+    private func loadGooseRoute(_ route: String) {
+        guard Self.resolvedGooseUIIndex() != nil else { return }
+        _ = page.load(URLRequest(url: Self.routeURL(route)))
     }
 
     private func loadPlaceholder() {
@@ -355,6 +373,11 @@ struct GooseWebSurfaceView: View {
 
     nonisolated static func bootURL(for _: URL) -> URL {
         URL(string: "\(gooseUISchemeName)://app/#/?")!
+    }
+
+    nonisolated static func routeURL(_ route: String) -> URL {
+        let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
+        return URL(string: "\(gooseUISchemeName)://app/#\(normalizedRoute)")!
     }
 
     private static func placeholderHTML(status: String, acpURL: String) -> String {
