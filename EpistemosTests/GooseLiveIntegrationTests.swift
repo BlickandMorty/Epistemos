@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 import WebKit
@@ -261,8 +262,11 @@ struct GooseLiveIntegrationTests {
             let proof = [
                 "phase0_live_webview_boot=pass",
                 "goose_binary=\(binary.lastPathComponent)",
+                "goose_binary_path=\(binary.path)",
                 "goose_base_url=\(connection.baseURL.absoluteString)",
                 "goose_acp_url=\(connection.acpWebSocketURL.map(redactedACPURL) ?? "<missing>")",
+                "web_ui_index=\(index.path)",
+                "web_ui_root=\(index.deletingLastPathComponent().path)",
                 "webview_url=\(probe.href)",
                 "ready_state=\(probe.readyState)",
                 "root_children=\(probe.rootChildren)",
@@ -316,10 +320,115 @@ struct GooseLiveIntegrationTests {
                 throw GooseLiveIntegrationError.runtimeFailed("Live WebView boot proof log was not written.")
             }
             try GoosePhase0CapabilityMatrix.record(
-                [.hostIOSurface],
+                [.hostIOSurface, .portableSurfaceAssets],
                 proofURL: proofURL,
                 via: "embedded WebView boot shim ledger + native affordance bridge",
-                details: ["acp_url_matches_runtime": "\(probe.acpUrl == connection.acpWebSocketURL?.absoluteString)"]
+                details: [
+                    "acp_url_matches_runtime": "\(probe.acpUrl == connection.acpWebSocketURL?.absoluteString)",
+                    "web_ui_index": index.path,
+                    "goose_binary": binary.path,
+                ]
+            )
+        }
+    }
+
+    @Test(
+        "live Goose WebView drives native file, recipe, confirm, recents, and MCP app affordances"
+    )
+    @MainActor
+    func liveGooseWebViewDrivesNativeHostAffordances() async throws {
+        let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-webview-native-affordances.log")
+        try? FileManager.default.removeItem(at: proofURL)
+
+        guard let index = GooseWebUIResolver.indexURL() else {
+            throw GooseLiveIntegrationError.runtimeFailed("No staged ACP-mode Goose Web UI artifact was found.")
+        }
+
+        let testRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-affordances-\(UUID().uuidString)", isDirectory: true)
+        let supportRoot = testRoot.appendingPathComponent("ApplicationSupport", isDirectory: true)
+        let projectRoot = testRoot.appendingPathComponent("Project", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: testRoot) }
+
+        let suiteName = "Epistemos.Goose.NativeAffordance.Live.\(UUID().uuidString)"
+        guard let preferences = UserDefaults(suiteName: suiteName) else {
+            throw GooseLiveIntegrationError.runtimeFailed("Could not create isolated native affordance preferences.")
+        }
+        defer { preferences.removePersistentDomain(forName: suiteName) }
+
+        let nativeBridge = GooseWebNativeAffordanceBridge(
+            initialScopedFileRoots: [projectRoot],
+            applicationSupportRoot: supportRoot,
+            preferences: preferences
+        )
+
+        try await withLiveGooseRuntime(proofName: "webview-native-affordances") { binary, connection, progressURL in
+            let bootstrap = GooseWebBootstrap(
+                baseURL: connection.baseURL,
+                secretKey: connection.secretKey,
+                config: GooseWebConfig(version: "phase0-webview-native-affordances")
+            )
+            let page = GooseWebSurfaceView.makeBootProbePage(
+                bootstrap: bootstrap,
+                gooseUIRoot: index.deletingLastPathComponent(),
+                nativeAffordanceBridge: nativeBridge
+            )
+            appendLiveProgress("before webview native affordance boot", to: progressURL)
+            _ = page.load(URLRequest(url: GooseWebSurfaceView.bootURL(for: index)))
+            _ = try await waitForGooseWebBootProbe(page: page, progressURL: progressURL)
+
+            scheduleGooseMessageBoxClick(buttonTitle: "Allow")
+            appendLiveProgress("before webview native affordance probe", to: progressURL)
+            let probe = try await runGooseWebNativeAffordanceProbe(
+                page: page,
+                projectRoot: projectRoot
+            )
+            appendLiveProgress("after webview native affordance probe pass=\(probe.passes)", to: progressURL)
+
+            let proof = [
+                "phase0_live_webview_native_affordances=pass",
+                "goose_binary=\(binary.lastPathComponent)",
+                "goose_binary_path=\(binary.path)",
+                "goose_base_url=\(connection.baseURL.absoluteString)",
+                "goose_acp_url=\(connection.acpWebSocketURL.map(redactedACPURL) ?? "<missing>")",
+                "web_ui_index=\(index.path)",
+                "project_root=\(projectRoot.path)",
+                "confirm_response=\(probe.confirmResponse)",
+                "goosehints_write=\(probe.writeOK)",
+                "goosehints_read_found=\(probe.readFound)",
+                "goosehints_read_matches=\(probe.readMatches)",
+                "goosehints_listed=\(probe.listContainsGoosehints)",
+                "recent_added=\(probe.recentAdded)",
+                "recent_listed=\(probe.recentListed)",
+                "recipe_trust_before=\(probe.recipeTrustBefore)",
+                "recipe_trust_recorded=\(probe.recipeTrustRecorded)",
+                "recipe_trust_after=\(probe.recipeTrustAfter)",
+                "mcp_app_launch=\(probe.launchOK)",
+                "mcp_app_refresh=\(probe.refreshOK)",
+                "mcp_app_close=\(probe.closeOK)",
+                "request_native_affordance_bridge=\(probe.requestNativeAffordanceBridge)",
+                "errors=\(probe.errors.joined(separator: "|"))",
+            ].joined(separator: "\n") + "\n"
+            try proof.write(to: proofURL, atomically: true, encoding: .utf8)
+
+            guard probe.passes else {
+                throw GooseLiveIntegrationError.runtimeFailed(
+                    "Goose WebView native affordance probe failed: \(probe.errors.joined(separator: "; "))"
+                )
+            }
+            guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_webview_native_affordances=pass") else {
+                throw GooseLiveIntegrationError.runtimeFailed("Live WebView native affordance proof log was not written.")
+            }
+            try GoosePhase0CapabilityMatrix.record(
+                [.gooseHintsEdit, .confirmDialogs, .recipeTrustPersistence, .mcpApps],
+                proofURL: proofURL,
+                via: "embedded WebView Electron shim -> native host affordances",
+                details: [
+                    "confirm_response": "\(probe.confirmResponse)",
+                    "project_root": projectRoot.path,
+                    "mcp_app_lifecycle": "\(probe.launchOK && probe.refreshOK && probe.closeOK)",
+                ]
             )
         }
     }
@@ -385,6 +494,152 @@ struct GooseLiveIntegrationTests {
         }
     }
     #endif
+}
+
+@MainActor
+private func runGooseWebNativeAffordanceProbe(
+    page: WebPage,
+    projectRoot: URL
+) async throws -> GooseWebNativeAffordanceProbe {
+    let result = try await page.callJavaScript(
+        """
+        const projectRoot = \(gooseLiveJavaScriptStringLiteral(projectRoot.path));
+        const gooseHintsPath = `${projectRoot}/.goosehints`;
+        const gooseHintsBody = "phase0 goosehints webview native affordance proof";
+        const recipe = {
+          id: "phase0-native-affordance-recipe",
+          title: "Phase 0 native affordance recipe",
+          description: "Live proof recipe trust persists through the Goose WebView shim.",
+          instructions: "Return phase0.",
+          activities: [{ id: "phase0", title: "Phase 0", prompt: "Return phase0." }]
+        };
+        const app = {
+          name: "phase0_mcp_app",
+          title: "Phase 0 MCP App",
+          text: "<!doctype html><html><body><main id='probe'>phase0 mcp app</main></body></html>",
+          width: 240,
+          height: 160,
+          resizable: false
+        };
+        const errors = [];
+        const out = {
+          confirmResponse: -1,
+          writeOK: false,
+          readFound: false,
+          readMatches: false,
+          listContainsGoosehints: false,
+          recentAdded: false,
+          recentListed: false,
+          recipeTrustBefore: true,
+          recipeTrustRecorded: false,
+          recipeTrustAfter: false,
+          launchOK: false,
+          refreshOK: false,
+          closeOK: false,
+          requestNativeAffordanceBridge: typeof window.epistemos?.goose?.requestNativeAffordance === "function",
+          errors
+        };
+        try {
+          const message = await window.electron.showMessageBox({
+            type: "question",
+            message: "Epistemos Phase 0 confirm dialog proof",
+            detail: "This dialog is auto-accepted by the live WebView test.",
+            buttons: ["Allow", "Cancel"],
+            defaultId: 0,
+            cancelId: 1
+          });
+          out.confirmResponse = Number(message?.response ?? -1);
+        } catch (error) {
+          errors.push(`showMessageBox:${error?.message || error}`);
+        }
+        try {
+          out.writeOK = await window.electron.writeFile(gooseHintsPath, gooseHintsBody);
+          const read = await window.electron.readFile(gooseHintsPath);
+          out.readFound = read?.found === true;
+          out.readMatches = read?.file === gooseHintsBody;
+          const files = await window.electron.listFiles(projectRoot);
+          out.listContainsGoosehints = Array.isArray(files) && files.includes(".goosehints");
+        } catch (error) {
+          errors.push(`goosehints:${error?.message || error}`);
+        }
+        try {
+          out.recentAdded = await window.electron.addRecentDir(projectRoot);
+          const recents = await window.electron.listRecentDirs();
+          out.recentListed = Array.isArray(recents) && recents.includes(projectRoot);
+        } catch (error) {
+          errors.push(`recents:${error?.message || error}`);
+        }
+        try {
+          out.recipeTrustBefore = await window.electron.hasAcceptedRecipeBefore(recipe);
+          out.recipeTrustRecorded = await window.electron.recordRecipeHash(recipe);
+          out.recipeTrustAfter = await window.electron.hasAcceptedRecipeBefore(recipe);
+        } catch (error) {
+          errors.push(`recipeTrust:${error?.message || error}`);
+        }
+        try {
+          await window.electron.launchApp(app);
+          out.launchOK = true;
+          await window.electron.refreshApp(app);
+          out.refreshOK = true;
+          await window.electron.closeApp(app.name);
+          out.closeOK = true;
+        } catch (error) {
+          errors.push(`mcpApp:${error?.message || error}`);
+        }
+        return JSON.stringify(out);
+        """
+    )
+    guard let json = result as? String,
+          let data = json.data(using: .utf8) else {
+        throw GooseLiveIntegrationError.runtimeFailed("Goose WebView native affordance probe did not return JSON.")
+    }
+    return try JSONDecoder().decode(GooseWebNativeAffordanceProbe.self, from: data)
+}
+
+@MainActor
+private func scheduleGooseMessageBoxClick(buttonTitle: String, attempts: Int = 120) {
+    if clickGooseMessageBoxButton(buttonTitle: buttonTitle) || attempts <= 0 {
+        return
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        Task { @MainActor in
+            scheduleGooseMessageBoxClick(buttonTitle: buttonTitle, attempts: attempts - 1)
+        }
+    }
+}
+
+@MainActor
+@discardableResult
+private func clickGooseMessageBoxButton(buttonTitle: String) -> Bool {
+    guard let modalWindow = NSApp.modalWindow else {
+        return false
+    }
+    if let button = findGooseMessageBoxButton(in: modalWindow.contentView, title: buttonTitle) {
+        button.performClick(nil)
+        return true
+    }
+    NSApp.stopModal(withCode: .alertFirstButtonReturn)
+    modalWindow.orderOut(nil)
+    return true
+}
+
+@MainActor
+private func findGooseMessageBoxButton(in view: NSView?, title: String) -> NSButton? {
+    guard let view else { return nil }
+    if let button = view as? NSButton, button.title == title {
+        return button
+    }
+    for subview in view.subviews {
+        if let button = findGooseMessageBoxButton(in: subview, title: title) {
+            return button
+        }
+    }
+    return nil
+}
+
+nonisolated private func gooseLiveJavaScriptStringLiteral(_ value: String) -> String {
+    let data = try? JSONEncoder().encode(value)
+    return data.flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
 }
 
 nonisolated private func liveGooseBinaryURL() -> URL? {
@@ -878,6 +1133,42 @@ struct GooseWebBootProbe: Decodable, Sendable {
             && openExternalBridge
             && secretBridge
             && !acpUrl.isEmpty
+    }
+}
+
+private struct GooseWebNativeAffordanceProbe: Decodable, Sendable {
+    let confirmResponse: Int
+    let writeOK: Bool
+    let readFound: Bool
+    let readMatches: Bool
+    let listContainsGoosehints: Bool
+    let recentAdded: Bool
+    let recentListed: Bool
+    let recipeTrustBefore: Bool
+    let recipeTrustRecorded: Bool
+    let recipeTrustAfter: Bool
+    let launchOK: Bool
+    let refreshOK: Bool
+    let closeOK: Bool
+    let requestNativeAffordanceBridge: Bool
+    let errors: [String]
+
+    var passes: Bool {
+        confirmResponse == 0
+            && writeOK
+            && readFound
+            && readMatches
+            && listContainsGoosehints
+            && recentAdded
+            && recentListed
+            && recipeTrustBefore == false
+            && recipeTrustRecorded
+            && recipeTrustAfter
+            && launchOK
+            && refreshOK
+            && closeOK
+            && requestNativeAffordanceBridge
+            && errors.isEmpty
     }
 }
 
