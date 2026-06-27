@@ -332,6 +332,28 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("client sends the Skills source export Goose custom ACP subset")
+    func clientSendsSkillsSourceExportGooseCustomACPSubset() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"json":"{\"type\":\"skill\",\"name\":\"local-review\"}","filename":"local-review.skill.json"}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let exported = try await client.exportGooseSource(type: .skill, path: "/repo/.agents/skills/local-review")
+
+        #expect(exported.filename == "local-review.skill.json")
+        #expect(exported.json.contains(#""name":"local-review""#))
+
+        let sent = await transport.sentMessages()
+        let exportParams = try #require(sent.dropFirst().first?.raw.objectValue?["params"]?.objectValue)
+        #expect(sent.dropFirst().first?.raw.objectValue?["method"] == .string("_goose/unstable/sources/export"))
+        #expect(exportParams["type"] == .string("skill"))
+        #expect(exportParams["path"] == .string("/repo/.agents/skills/local-review"))
+        await client.close()
+    }
+
     @Test("client sends the provider settings read-only Goose custom ACP subset")
     func clientSendsProviderSettingsReadOnlyCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

@@ -269,6 +269,7 @@ nonisolated enum GooseACPCustomMethod: String, Sendable {
     case defaultsRead = "_goose/unstable/defaults/read"
     case defaultsSave = "_goose/unstable/defaults/save"
     case sourcesList = "_goose/unstable/sources/list"
+    case sourcesExport = "_goose/unstable/sources/export"
     case sessionInfo = "_goose/unstable/session/info"
     case diagnosticsGet = "_goose/unstable/diagnostics/get"
 }
@@ -485,6 +486,26 @@ nonisolated struct GooseACPSourceEntry: Decodable, Equatable, Sendable {
 
 nonisolated struct GooseACPSourcesListResponse: Decodable, Equatable, Sendable {
     let sources: [GooseACPSourceEntry]
+}
+
+nonisolated struct GooseACPSourceExportRequest: Encodable, Equatable, Sendable {
+    let sourceType: GooseACPSourceType
+    let path: String
+
+    init(type: GooseACPSourceType, path: String) {
+        sourceType = type
+        self.path = path
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sourceType = "type"
+        case path
+    }
+}
+
+nonisolated struct GooseACPSourceExportResponse: Decodable, Equatable, Sendable {
+    let json: String
+    let filename: String
 }
 
 nonisolated struct GooseACPSessionInfoRequest: Encodable, Equatable, Sendable {

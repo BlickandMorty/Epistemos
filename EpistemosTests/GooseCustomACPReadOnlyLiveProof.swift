@@ -26,14 +26,21 @@ func proveLiveGooseCustomACPReadOnlySubset(
     let diagnostics = try await read("Goose diagnostics custom ACP response") { try await client.readGooseDiagnostics(sessionId: session.sessionId, level: .summary) }
     let projectSkills = try await read("Goose project skill sources custom ACP response") { try await client.listGooseSources(type: .skill, projectDir: repoPath) }
     let builtInSkills = try await read("Goose built-in skill sources custom ACP response") { try await client.listGooseSources(type: .builtinSkill, projectDir: repoPath) }
+    let exportedProjectSkill = try await read("Goose project skill source export custom ACP response") {
+        guard let source = projectSkills.sources.first else {
+            throw GooseLiveIntegrationError.runtimeFailed("Custom ACP skill source export had no project skill to export.")
+        }
+        return try await client.exportGooseSource(type: source.sourceType, path: source.path)
+    }
     appendLiveProgress(
-        "after custom ACP reads providers=\(providers.entries.count) extensions=\(extensions.extensions.count) preferences=\(preferences.values.count) project_skills=\(projectSkills.sources.count) builtin_skills=\(builtInSkills.sources.count)",
+        "after custom ACP reads providers=\(providers.entries.count) extensions=\(extensions.extensions.count) preferences=\(preferences.values.count) project_skills=\(projectSkills.sources.count) builtin_skills=\(builtInSkills.sources.count) exported_skill_filename=\(exportedProjectSkill.filename)",
         to: progressURL
     )
 
     let sessionInfoSessionID = stringValue(for: "sessionId", in: sessionInfo.session) ?? "<missing>"
     let projectSkillTypesOK = projectSkills.sources.allSatisfy { $0.sourceType == .skill }
     let builtInSkillTypesOK = builtInSkills.sources.allSatisfy { $0.sourceType == .builtinSkill }
+    let exportedProjectSkillJSONValid = isValidJSONObject(exportedProjectSkill.json)
     let proof = [
         "phase0_live_acp_custom_readonly=pass",
         "goose_binary=\(binary.lastPathComponent)",
@@ -51,6 +58,9 @@ func proveLiveGooseCustomACPReadOnlySubset(
         "project_skill_source_type_ok=\(projectSkillTypesOK)",
         "builtin_skill_source_count=\(builtInSkills.sources.count)",
         "builtin_skill_source_type_ok=\(builtInSkillTypesOK)",
+        "project_skill_export_filename=\(exportedProjectSkill.filename)",
+        "project_skill_export_json_chars=\(exportedProjectSkill.json.count)",
+        "project_skill_export_json_valid=\(exportedProjectSkillJSONValid)",
     ].joined(separator: "\n") + "\n"
     try proof.write(to: proofURL, atomically: true, encoding: .utf8)
 
@@ -69,6 +79,9 @@ func proveLiveGooseCustomACPReadOnlySubset(
     guard !builtInSkills.sources.isEmpty, builtInSkillTypesOK else {
         throw GooseLiveIntegrationError.runtimeFailed("Custom ACP skill sources did not return built-in skill entries.")
     }
+    guard !exportedProjectSkill.filename.isEmpty, !exportedProjectSkill.json.isEmpty, exportedProjectSkillJSONValid else {
+        throw GooseLiveIntegrationError.runtimeFailed("Custom ACP skill source export did not return a valid JSON payload.")
+    }
     guard try String(contentsOf: proofURL, encoding: .utf8).contains("phase0_live_acp_custom_readonly=pass") else {
         throw GooseLiveIntegrationError.runtimeFailed("Live custom ACP proof log was not written.")
     }
@@ -80,4 +93,11 @@ private func stringValue(for key: String, in value: JSONValue) -> String? {
         return nil
     }
     return string
+}
+
+private func isValidJSONObject(_ string: String) -> Bool {
+    guard let data = string.data(using: .utf8) else {
+        return false
+    }
+    return (try? JSONSerialization.jsonObject(with: data)) != nil
 }

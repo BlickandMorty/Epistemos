@@ -220,6 +220,14 @@ actor GooseACPClient {
         )
     }
 
+    func exportGooseSource(type: GooseACPSourceType, path: String) async throws -> GooseACPSourceExportResponse {
+        try await sendCustomRequest(
+            method: .sourcesExport,
+            params: GooseACPSourceExportRequest(type: type, path: path),
+            response: GooseACPSourceExportResponse.self
+        )
+    }
+
     func readGooseSessionInfo(sessionId: String) async throws -> GooseACPSessionInfoResponse {
         try await sendCustomRequest(
             method: .sessionInfo,
