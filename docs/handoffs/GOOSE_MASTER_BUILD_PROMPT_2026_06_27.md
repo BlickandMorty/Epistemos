@@ -22,8 +22,9 @@ launcher, the top native file/dialog/external-URL affordances, the read-only
 custom ACP minimum, typed/unit-proven provider-settings read ACP, live read-only
 WebView route smoke for providers/settings/extensions/skills, live provider
 config save/read/delete ACP, live settings mutation ACP, structured
-unhandled-ACP diagnostics, and golden F1-F5 ACP fixtures, but Phase 0 is still
-NOT signed off (~86% architecture, ~93% proof
+provider authenticate fail-closed rejection ACP, structured unhandled-ACP
+diagnostics, and golden F1-F5 ACP fixtures, but Phase 0 is still
+NOT signed off (~87% architecture, ~94% proof
 gate). See:
 docs/handoffs/GOOSE_PHASE_0_STATUS_AUDIT_2026_06_27.md
 
@@ -41,10 +42,12 @@ Known gaps you MUST close:
   config-read, and config-status are typed/unit-proven; provider config
   save/read/delete is live-proven in an isolated home with file-backed secrets;
   settings preference save/read/remove plus defaults-save are live-proven in an
-  isolated home with a disposable configured provider;
+  isolated home with a disposable configured provider; provider authenticate
+  non-OAuth rejection is live-proven with preserved JSON-RPC error data and no
+  config mutation;
   read-only WebView route smoke proves providers/settings/extensions/skills
-  render against live `goose serve`; provider authenticate parity and deeper
-  Skills/provider/settings parity remain open
+  render against live `goose serve`; owner/browser-mediated OAuth authenticate
+  success and deeper Skills/provider/settings parity remain open
 - Golden F1-F5 ACP fixtures are captured from live `goose serve`, sanitized,
   revision-pinned, and covered by Swift decoder/shape tests
 - Top native affordances are implemented/proven:
@@ -153,13 +156,17 @@ P0.4 Extended ACP minimum (Skills + providers usable)
     configure-providers, models settings, extensions, and skills routes against
     live `goose serve`; evidence:
     `/tmp/epistemos-goose-phase0-webview-route-smoke.log`
-  - Continue wiring Skills/provider authenticate parity OR codegen from
-    acp-meta.json for the remaining custom methods
+  - DONE 2026-06-27: provider authenticate non-OAuth rejection is typed/unit-
+    proven and live-proven against real `goose serve` with isolated HOME/file-
+    backed secrets; evidence:
+    `/tmp/epistemos-goose-phase0-provider-authenticate-rejection.log`
+  - Continue wiring owner/browser-mediated OAuth authenticate success and Skills
+    parity OR codegen from acp-meta.json for the remaining custom methods
   - DONE 2026-06-27: GooseACPEventBridge stops silently dropping unsupported
     custom requests; it logs/surfaces diagnostics and returns JSON-RPC
     method-not-found replies
-  - Provider authenticate and deeper Skills/provider/settings parity remain blockers
-    unless routed to honest blocked UI
+  - OAuth authenticate success and deeper Skills/provider/settings parity remain
+    blockers unless routed to honest blocked UI
 
 P0.5 Live proof gate (§7 — ALL required)
   [x] Real Goose Electron launches (in-app comparison fallback menu item)
@@ -180,8 +187,8 @@ P0.6 Golden fixtures (Phase 0 completion)
   - DONE 2026-06-27: GooseACPGoldenFixtureTests decode every captured frame
     through Swift ACP models and pin initialize, session/new, prompt answer,
     permission/tool-result, and read-only custom ACP shapes
-  - NEXT 2026-06-27: first unsolved Phase 0 blocker is provider authenticate
-    parity plus deeper Skills/provider/settings parity or an honest blocked UI
+  - NEXT 2026-06-27: first unsolved Phase 0 blocker is OAuth authenticate
+    success plus deeper Skills/provider/settings parity or an honest blocked UI
     where not wired
 
 PHASE 0 EXIT: Write docs/handoffs/GOOSE_PHASE_0_SIGNOFF.md with checklist + evidence.

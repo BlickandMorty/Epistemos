@@ -368,6 +368,26 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("client preserves Goose custom ACP JSON-RPC error data")
+    func clientPreservesCustomACPJSONRPCErrorData() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"Invalid params","data":"Provider does not support native authentication: xai"}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        do {
+            _ = try await client.authenticateGooseProviderConfig(providerId: "xai")
+            Issue.record("provider authenticate should have failed")
+        } catch GooseACPProtocolError.jsonRPCError(let code, let message, let data) {
+            #expect(code == -32602)
+            #expect(message == "Invalid params")
+            #expect(data == .string("Provider does not support native authentication: xai"))
+        }
+        await client.close()
+    }
+
     @Test("client sends the settings mutation Goose custom ACP subset")
     func clientSendsSettingsMutationCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

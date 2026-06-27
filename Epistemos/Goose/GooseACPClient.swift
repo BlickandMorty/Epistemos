@@ -359,11 +359,19 @@ actor GooseACPClient {
             deliverResponse(.success(result), id: id)
         case .error(let id?, let error):
             deliverResponse(
-                .failure(GooseACPProtocolError.jsonRPCError(code: error.code, message: error.message)),
+                .failure(GooseACPProtocolError.jsonRPCError(
+                    code: error.code,
+                    message: error.message,
+                    data: error.data
+                )),
                 id: id
             )
         case .error(nil, let error):
-            fail(GooseACPProtocolError.jsonRPCError(code: error.code, message: error.message))
+            fail(GooseACPProtocolError.jsonRPCError(
+                code: error.code,
+                message: error.message,
+                data: error.data
+            ))
         case let message:
             deliverEvent(try event(from: message))
         }

@@ -3,7 +3,7 @@ import Foundation
 nonisolated enum GooseACPProtocolError: Error, Equatable, Sendable {
     case missingField(String)
     case unsupportedMessage
-    case jsonRPCError(code: Int, message: String)
+    case jsonRPCError(code: Int, message: String, data: JSONValue?)
     case closed
 }
 
