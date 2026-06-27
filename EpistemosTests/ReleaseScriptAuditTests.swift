@@ -86,10 +86,14 @@ struct ReleaseScriptAuditTests {
         #expect(script.contains("EDITOR_BUNDLE_DIR=\"$RESOURCES_DIR/Editor\""))
         #expect(script.contains("bundle_editor_resources"))
         #expect(script.contains("bundle_default_skills"))
+        #expect(script.contains("bundle_goose_runtime_binary"))
+        #expect(script.contains("bundle_goose_web_ui"))
         #expect(script.contains("rsync -a --delete \"$EDITOR_SOURCE_DIR/\" \"$EDITOR_BUNDLE_DIR/\""))
         #expect(script.contains("find \"$EDITOR_SOURCE_DIR\" -type f -print0"))
         #expect(script.contains("rm -f \"$RESOURCES_DIR/$(basename \"$source_file\")\""))
-        #expect(script.contains("bundle_editor_resources\nbundle_default_skills\n\nif is_app_store_build"))
+        #expect(script.contains("if is_app_store_build; then"))
+        #expect(script.contains("rm -f \"$GOOSE_BINARY_DEST\""))
+        #expect(script.contains("rm -rf \"$GOOSE_WEB_UI_DEST\""))
     }
 
     @Test("xcodebuild helper mirrors explicit local sweep overrides into hosted test fallback")

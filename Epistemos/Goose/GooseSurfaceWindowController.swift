@@ -14,6 +14,11 @@ final class GooseSurfaceWindowController {
             window.makeKeyAndOrderFront(nil)
             return
         }
+        let availability = GooseSurfaceAvailability.current()
+        guard availability.isReady else {
+            presentUnavailableAlert(message: availability.unavailableMessage)
+            return
+        }
         guard let bootstrap = AppBootstrap.shared else { return }
 
         let window = NSWindow(
@@ -60,5 +65,14 @@ final class GooseSurfaceWindowController {
         }
         observer = nil
         window = nil
+    }
+
+    private func presentUnavailableAlert(message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Epistemos Goose is unavailable"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }

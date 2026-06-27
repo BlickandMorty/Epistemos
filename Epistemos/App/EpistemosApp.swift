@@ -1475,10 +1475,12 @@ struct EpistemosCommands: Commands {
                 .keyboardShortcut("3", modifiers: .command)
                 .disabled(true)
             #else
-            Button("Open Epistemos Goose") {
+            let gooseAvailability = GooseSurfaceAvailability.current()
+            Button(gooseAvailability.menuTitle) {
                 GooseSurfaceWindowController.shared.open()
             }
             .keyboardShortcut("3", modifiers: .command)
+            .disabled(!gooseAvailability.isReady)
 
             Button("Open Real Goose Electron Fallback") {
                 GooseElectronFallbackLauncher.shared.launchFromMenu()

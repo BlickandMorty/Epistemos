@@ -524,7 +524,9 @@ struct ReleasePackagingHardeningTests {
         #expect(bundler.contains("bundle_default_skills()"))
         #expect(bundler.contains("rsync -a --delete --prune-empty-dirs"))
         #expect(bundler.contains("--include='SKILL.md'"))
-        #expect(bundler.contains("bundle_default_skills\n\nif is_app_store_build"))
+        #expect(bundler.contains("bundle_default_skills"))
+        #expect(bundler.contains("bundle_goose_runtime_binary"))
+        #expect(bundler.contains("bundle_goose_web_ui"))
     }
 
     @Test("App Store target is sandboxed and excludes direct-distribution entitlements")
@@ -776,6 +778,23 @@ struct ReleasePackagingHardeningTests {
 
         #expect(bundler.contains("config/model_manifest.json"))
         #expect(bundler.contains("model_manifest.json"))
+    }
+
+    @Test("runtime asset bundler stages Goose only for direct distribution")
+    func runtimeAssetBundlerStagesGooseOnlyForDirectDistribution() throws {
+        let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
+
+        #expect(bundler.contains("GOOSE_BINARY_DEST=\"$RESOURCES_DIR/goose\""))
+        #expect(bundler.contains("GOOSE_WEB_UI_DEST=\"$RESOURCES_DIR/goose-desktop\""))
+        #expect(bundler.contains("bundle_goose_runtime_binary()"))
+        #expect(bundler.contains("bundle_goose_web_ui()"))
+        #expect(bundler.contains("GOOSE_WEB_UI_STAGE_SCRIPT"))
+        #expect(bundler.contains("stage-goose-web-ui.sh"))
+        #expect(bundler.contains("is_acp_goose_web_ui()"))
+        #expect(bundler.contains("if is_app_store_build; then"))
+        #expect(bundler.contains("rm -f \"$GOOSE_BINARY_DEST\""))
+        #expect(bundler.contains("rm -rf \"$GOOSE_WEB_UI_DEST\""))
+        #expect(!bundler.contains("$HOME/Library/Application Support/Epistemos/GooseWebUI"))
     }
 
     @Test("test hosts keep core supervision but skip heavyweight runtime bootstrap work")

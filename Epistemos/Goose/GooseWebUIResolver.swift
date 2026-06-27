@@ -6,7 +6,7 @@ enum GooseWebUIResolver {
     nonisolated static let artifactManifestFileName = ".epistemos-goose-webui.json"
 
     nonisolated static func indexURL(
-        bundle: Bundle = .main,
+        bundle: Bundle? = .main,
         fileManager: FileManager = .default,
         appSupportDirectory: URL? = defaultAppSupportDirectory(fileManager: .default),
         currentDirectory: String = FileManager.default.currentDirectoryPath,
@@ -24,7 +24,7 @@ enum GooseWebUIResolver {
     }
 
     nonisolated private static func candidateIndexURLs(
-        bundle: Bundle,
+        bundle: Bundle?,
         appSupportDirectory: URL?,
         currentDirectory: String,
         environment: [String: String]
@@ -41,12 +41,12 @@ enum GooseWebUIResolver {
             candidates.append(fileURL(explicitDirectory).appendingPathComponent("index.html"))
         }
 
-        if let appSupportDirectory {
-            candidates.append(appSupportDirectory.appendingPathComponent("Epistemos/GooseWebUI/index.html"))
+        if let bundled = bundle?.url(forResource: "goose-desktop/index", withExtension: "html") {
+            candidates.append(bundled)
         }
 
-        if let bundled = bundle.url(forResource: "goose-desktop/index", withExtension: "html") {
-            candidates.append(bundled)
+        if let appSupportDirectory {
+            candidates.append(appSupportDirectory.appendingPathComponent("Epistemos/GooseWebUI/index.html"))
         }
 
         candidates.append(
