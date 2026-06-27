@@ -1,5 +1,20 @@
 # EPDOC md-v2 — consolidated build sequence (2026-06-20)
 
+> ✅ **OWNER DECISION (2026-06-27) — THIRD SURFACE, PROSE IS A HARD GATE.**
+> The owner chose **three editor surfaces**, NOT the "graft CodeMirror into Epdoc"
+> single-surface recommendation SS-P made:
+> 1. **Prose (TK2 / TextKit / `ProseTextView2`)** — **HARD GATE: NEVER TOUCHED.** Frozen
+>    legacy / user-only editor. No surgery, no parity obligation.
+> 2. **Epdoc (TipTap / WKWebView)** — rich-tree editor, this build sequence.
+> 3. **NEW: standalone CodeMirror-6 markdown-SOURCE editor (its own WebView surface)** —
+>    canonical home for markdown-source editing + the pixel-art AI-diff trail
+>    (yellow=add / red=delete). Safe because files-as-truth (§16): all surfaces
+>    read/write the same `<vault>/*.md`. Accepted cost: a 2nd WKWebView — mitigated by a
+>    shared `WKProcessPool` + reuse of the `EpdocEditorThemeStyle` CSS-var injector.
+> Consequence: **Phase 6 step 19 (CodeMirror-into-Epdoc source toggle) is TOMBSTONED**
+> (see strikethrough below) so CodeMirror is not built twice.
+
+
 Synthesis of the 5 Epdoc slices into ONE ordered, dependency-aware build plan: SS-O (repair), SS-EM (md-first
 convergence), SS-FM (frontmatter/tags/properties/backlinks), SS-IR (instant-recall popup), SS-P (Tolaria rich-UI
 + agent-MD). Owner decisions locked: **Epdoc = markdown-first auto-mirror** (md canonical; JSON/HTML/package are
@@ -76,8 +91,11 @@ agent writes (SS-P) + the serializer round-trip (SS-EM) drop silently.
 18. [M] macOS-26 Liquid-Glass theme (`backdrop-filter` + SVG `feDisplacementMap`), availability-gated, toggle vs
     pixel-art. GitHub-grade DOM: code-block copy/lang-pills, collapsibles, Mermaid (wire `LegacyDiagramNode`),
     ToC, wikilink hover-cards via custom NodeViews.
-19. [L] CodeMirror-6 raw-markdown SOURCE-MODE toggle (the WYSIWYG↔source pattern, reskinned pixel-art) — pairs
-    with the Phase-2 serializer.
+19. ⛔ ~~[L] CodeMirror-6 raw-markdown SOURCE-MODE toggle (the WYSIWYG↔source pattern, reskinned pixel-art) — pairs
+    with the Phase-2 serializer.~~ **TOMBSTONED 2026-06-27 (owner: third-surface decision).** CodeMirror-6
+    markdown source is no longer an Epdoc *toggle* — it is the **standalone third surface** (its own WebView).
+    Build it once, there. Epdoc stays rich-tree-only. The Phase-2 markdown serializer still feeds both surfaces
+    via the shared `content.md` (files-as-truth).
 
 ## PHASE 7 — Wikilinks + backlinks + HTML-workspace projection (SS-FM/IR/EM) [L]
 20. [L] Clickable `[[note]]` Tiptap node + Halo autocomplete (reuse `onSearchLinks`); **Backlinks panel** reusing

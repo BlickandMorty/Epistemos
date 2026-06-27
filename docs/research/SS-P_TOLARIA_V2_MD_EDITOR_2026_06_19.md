@@ -1,5 +1,19 @@
 # SS-P — v2 WebKit Markdown editor: Tolaria-cloned + best-of-breed (2026-06-19)
 
+> ✅ **OWNER OVERRIDE (2026-06-27) — this doc's single-surface recommendation is SUPERSEDED on
+> ONE point; everything else stands (research kept, protected).** This doc recommends *against*
+> a second WebKit surface ("do NOT add a second WebKit surface… GRAFT onto Epdoc/Tiptap").
+> **The owner decided the opposite: build a THIRD, standalone CodeMirror-6 markdown-SOURCE
+> surface** (its own WebView) as the home for markdown-source editing + the pixel-art AI-diff
+> trail (yellow=add / red=delete). Rationale: (1) **Prose (TK2) is a HARD GATE — never touched**;
+> (2) files-as-truth (§16) makes 3 surfaces over the same `.md` correctness-safe; (3) the diff
+> trail is native to CodeMirror decorations, awkward on TipTap's node tree. The 2nd-WKWebView
+> cost this doc warns about is ACCEPTED and mitigated (shared `WKProcessPool` + reuse of the
+> `EpdocEditorThemeStyle` CSS injector). Everything else here (license gating, agent-MD pattern,
+> harvest list, pixel-art/macOS-26 skin mechanism) remains canonical. See
+> `EPDOC_MD_V2_BUILD_SEQUENCE_2026_06_20.md` (owner-decision banner + step-19 tombstone).
+
+
 Read-only research (subagent, web + repo). Feeds the EPDOC/TOLARIA-v2 + dynamic-HTML-DOM + best-of-GitHub-MD +
 agent-MD items (covers SS-P AND SS-P+). Pairs with **SS-O** (Epdoc repair). **HARD CONSTRAINT honored: nothing
 here touches TK2/Prose** (`Views/Notes/ProseEditorView.swift`, `ProseTextView2.swift`,
