@@ -6,8 +6,7 @@ import Testing
 @MainActor
 struct GooseSettingsMutationLiveIntegrationTests {
     @Test(
-        "live Goose ACP preference and defaults mutation runs in an isolated home",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose ACP preference and defaults mutation runs in an isolated home"
     )
     func liveSettingsMutationUsesIsolatedHome() async throws {
         let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-settings-mutation.log")

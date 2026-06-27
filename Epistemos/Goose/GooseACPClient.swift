@@ -79,12 +79,74 @@ actor GooseACPClient {
         )
     }
 
+    func listSessions(
+        cursor: String? = nil,
+        cwd: String? = nil,
+        additionalDirectories: [String]? = nil,
+        metadata: [String: JSONValue]? = nil
+    ) async throws -> GooseACPListSessionsResponse {
+        try await sendRequest(
+            method: .listSessions,
+            params: GooseACPListSessionsRequest(
+                cursor: cursor,
+                cwd: cwd,
+                additionalDirectories: additionalDirectories,
+                metadata: metadata
+            ),
+            response: GooseACPListSessionsResponse.self
+        )
+    }
+
+    func loadSession(
+        sessionId: String,
+        cwd: String,
+        mcpServers: [JSONValue] = [],
+        additionalDirectories: [String]? = nil,
+        metadata: [String: JSONValue]? = nil
+    ) async throws -> GooseACPLoadSessionResponse {
+        try await sendRequest(
+            method: .loadSession,
+            params: GooseACPLoadSessionRequest(
+                sessionId: sessionId,
+                cwd: cwd,
+                mcpServers: mcpServers,
+                additionalDirectories: additionalDirectories,
+                metadata: metadata
+            ),
+            response: GooseACPLoadSessionResponse.self
+        )
+    }
+
+    func forkSession(
+        sessionId: String,
+        cwd: String,
+        additionalDirectories: [String]? = nil,
+        conversationBefore: Int? = nil,
+        metadata: [String: JSONValue]? = nil
+    ) async throws -> GooseACPForkSessionResponse {
+        try await sendRequest(
+            method: .forkSession,
+            params: GooseACPForkSessionRequest(
+                sessionId: sessionId,
+                cwd: cwd,
+                additionalDirectories: additionalDirectories,
+                conversationBefore: conversationBefore,
+                metadata: metadata
+            ),
+            response: GooseACPForkSessionResponse.self
+        )
+    }
+
     func prompt(sessionId: String, text: String) async throws -> GooseACPPromptResponse {
         try await sendRequest(
             method: .prompt,
             params: GooseACPPromptRequest(sessionId: sessionId, prompt: [.text(text)]),
             response: GooseACPPromptResponse.self
         )
+    }
+
+    func sendGooseCustomRequest(method: String, params: JSONValue = .object([:])) async throws -> JSONValue {
+        try await sendRequest(method: method, params: params, response: JSONValue.self)
     }
 
     func listGooseProviders(providerIDs: [String] = []) async throws -> GooseACPProvidersListResponse {

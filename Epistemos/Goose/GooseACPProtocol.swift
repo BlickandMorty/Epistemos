@@ -39,6 +39,9 @@ nonisolated enum GooseACPRequestID: Codable, Hashable, Sendable {
 nonisolated enum GooseACPMethod: Hashable, Sendable {
     case initialize
     case newSession
+    case listSessions
+    case loadSession
+    case forkSession
     case prompt
     case sessionUpdate
     case requestPermission
@@ -51,6 +54,12 @@ nonisolated enum GooseACPMethod: Hashable, Sendable {
             self = .initialize
         case "session/new":
             self = .newSession
+        case "session/list":
+            self = .listSessions
+        case "session/load":
+            self = .loadSession
+        case "session/fork":
+            self = .forkSession
         case "session/prompt":
             self = .prompt
         case "session/update":
@@ -70,6 +79,12 @@ nonisolated enum GooseACPMethod: Hashable, Sendable {
             "initialize"
         case .newSession:
             "session/new"
+        case .listSessions:
+            "session/list"
+        case .loadSession:
+            "session/load"
+        case .forkSession:
+            "session/fork"
         case .prompt:
             "session/prompt"
         case .sessionUpdate:
@@ -443,6 +458,155 @@ nonisolated struct GooseACPSessionInfoRequest: Encodable, Equatable, Sendable {
 
 nonisolated struct GooseACPSessionInfoResponse: Decodable, Equatable, Sendable {
     let session: JSONValue
+}
+
+nonisolated struct GooseACPSessionInfo: Decodable, Equatable, Sendable {
+    let sessionId: String
+    let cwd: String
+    let additionalDirectories: [String]?
+    let title: String?
+    let updatedAt: String?
+    let metadata: JSONValue?
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionId
+        case cwd
+        case additionalDirectories
+        case title
+        case updatedAt
+        case metadata = "_meta"
+    }
+}
+
+nonisolated struct GooseACPListSessionsRequest: Encodable, Equatable, Sendable {
+    let cwd: String?
+    let additionalDirectories: [String]?
+    let cursor: String?
+    let metadata: [String: JSONValue]?
+
+    init(
+        cursor: String? = nil,
+        cwd: String? = nil,
+        additionalDirectories: [String]? = nil,
+        metadata: [String: JSONValue]? = nil
+    ) {
+        self.cwd = cwd
+        self.additionalDirectories = additionalDirectories
+        self.cursor = cursor
+        self.metadata = metadata
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case cwd
+        case additionalDirectories
+        case cursor
+        case metadata = "_meta"
+    }
+}
+
+nonisolated struct GooseACPListSessionsResponse: Decodable, Equatable, Sendable {
+    let sessions: [GooseACPSessionInfo]
+    let nextCursor: String?
+    let metadata: JSONValue?
+
+    private enum CodingKeys: String, CodingKey {
+        case sessions
+        case nextCursor
+        case metadata = "_meta"
+    }
+}
+
+nonisolated struct GooseACPLoadSessionRequest: Encodable, Equatable, Sendable {
+    let mcpServers: [JSONValue]
+    let cwd: String
+    let additionalDirectories: [String]?
+    let sessionId: String
+    let metadata: [String: JSONValue]?
+
+    init(
+        sessionId: String,
+        cwd: String,
+        mcpServers: [JSONValue] = [],
+        additionalDirectories: [String]? = nil,
+        metadata: [String: JSONValue]? = nil
+    ) {
+        self.mcpServers = mcpServers
+        self.cwd = cwd
+        self.additionalDirectories = additionalDirectories
+        self.sessionId = sessionId
+        self.metadata = metadata
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case mcpServers
+        case cwd
+        case additionalDirectories
+        case sessionId
+        case metadata = "_meta"
+    }
+}
+
+nonisolated struct GooseACPLoadSessionResponse: Decodable, Equatable, Sendable {
+    let modes: JSONValue?
+    let models: JSONValue?
+    let configOptions: JSONValue?
+    let metadata: JSONValue?
+
+    private enum CodingKeys: String, CodingKey {
+        case modes
+        case models
+        case configOptions
+        case metadata = "_meta"
+    }
+}
+
+nonisolated struct GooseACPForkSessionRequest: Encodable, Equatable, Sendable {
+    let sessionId: String
+    let cwd: String
+    let additionalDirectories: [String]?
+    let metadata: [String: JSONValue]?
+
+    init(
+        sessionId: String,
+        cwd: String,
+        additionalDirectories: [String]? = nil,
+        conversationBefore: Int? = nil,
+        metadata: [String: JSONValue]? = nil
+    ) {
+        self.sessionId = sessionId
+        self.cwd = cwd
+        self.additionalDirectories = additionalDirectories
+        if let conversationBefore {
+            var merged = metadata ?? [:]
+            merged["conversationBefore"] = .int(conversationBefore)
+            self.metadata = merged
+        } else {
+            self.metadata = metadata
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionId
+        case cwd
+        case additionalDirectories
+        case metadata = "_meta"
+    }
+}
+
+nonisolated struct GooseACPForkSessionResponse: Decodable, Equatable, Sendable {
+    let sessionId: String
+    let modes: JSONValue?
+    let models: JSONValue?
+    let configOptions: JSONValue?
+    let metadata: JSONValue?
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionId
+        case modes
+        case models
+        case configOptions
+        case metadata = "_meta"
+    }
 }
 
 nonisolated enum GooseACPDiagnosticsLevel: String, Codable, Equatable, Sendable {

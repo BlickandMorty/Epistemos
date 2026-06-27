@@ -6,8 +6,7 @@ import WebKit
 @Suite("Goose Web route live integration", .serialized)
 struct GooseWebRouteLiveIntegrationTests {
     @Test(
-        "live Goose WebView renders provider, settings, extensions, and skills routes",
-        .enabled(if: gooseLiveIntegrationTestsEnabled() && gooseWebUIBootTestsEnabled())
+        "live Goose WebView renders provider, settings, extensions, and skills routes"
     )
     @MainActor
     func liveGooseWebViewRendersPhase0Routes() async throws {
@@ -36,7 +35,8 @@ struct GooseWebRouteLiveIntegrationTests {
                 .init(
                     route: "/configure-providers",
                     requiredText: ["Provider Configuration Settings"],
-                    anyText: ["OpenAI", "Anthropic", "Google", "Ollama"]
+                    anyText: ["OpenAI", "Anthropic", "Google", "Ollama"],
+                    requiredACPMethods: ["_goose/unstable/providers/list"]
                 ),
                 .init(
                     route: "/settings?section=models",
@@ -48,11 +48,36 @@ struct GooseWebRouteLiveIntegrationTests {
                 .init(
                     route: "/extensions",
                     requiredText: ["Extensions"],
-                    anyText: ["Default Extensions", "Available Extensions", "developer", "No extensions available"]
+                    anyText: ["Default Extensions", "Available Extensions", "developer", "No extensions available"],
+                    requiredACPMethods: ["_goose/unstable/config/extensions/list"]
+                ),
+                .init(
+                    route: "/apps",
+                    requiredText: ["Apps"],
+                    anyText: ["Import App", "No apps available", "Loading apps"]
+                ),
+                .init(
+                    route: "/schedules",
+                    requiredText: ["Scheduler"],
+                    anyText: ["Create Schedule", "No schedules", "Loading"],
+                    requiredACPMethods: ["_goose/unstable/schedules/list"]
+                ),
+                .init(
+                    route: "/recipes",
+                    requiredText: ["Recipes"],
+                    anyText: ["Create Recipe", "No saved recipes", "Search recipes"],
+                    requiredACPMethods: ["_goose/unstable/recipes/list"]
+                ),
+                .init(
+                    route: "/sessions",
+                    requiredText: ["Chat history"],
+                    anyText: ["No chat sessions found", "Search history", "Loading more sessions"],
+                    requiredACPMethods: ["session/list"]
                 ),
                 .init(
                     route: "/skills",
-                    requiredText: ["Skills"]
+                    requiredText: ["Skills"],
+                    requiredACPMethods: ["_goose/unstable/sources/list"]
                 ),
             ]
 
@@ -74,6 +99,8 @@ struct GooseWebRouteLiveIntegrationTests {
                     "required_hits=\(probe.hits(for: expectation.requiredText).joined(separator: ","))",
                     "any_hits=\(probe.hits(for: expectation.anyText).joined(separator: ","))",
                     "forbidden_hits=\(probe.hits(for: expectation.forbiddenText).joined(separator: ","))",
+                    "required_acp_methods=\(expectation.requiredACPMethods.joined(separator: ","))",
+                    "seen_acp_methods=\(probe.hitsACPMethods(expectation.requiredACPMethods).joined(separator: ","))",
                 ].joined(separator: " ")
             }
             let proof = ([
@@ -98,6 +125,7 @@ private struct GooseWebRouteExpectation: Sendable {
     let requiredText: [String]
     let anyText: [String]
     let forbiddenText: [String]
+    let requiredACPMethods: [String]
 
     init(
         route: String,
@@ -105,9 +133,13 @@ private struct GooseWebRouteExpectation: Sendable {
         eventSection: String? = nil,
         requiredText: [String],
         anyText: [String] = [],
+        requiredACPMethods: [String] = [],
         forbiddenText: [String] = [
             "Epistemos native host has not implemented",
+            "Error Loading Recipes",
+            "Error Loading Sessions",
             "Error Loading Skills",
+            "Error loading apps",
             "Application error",
             "No routes matched location",
         ]
@@ -118,6 +150,7 @@ private struct GooseWebRouteExpectation: Sendable {
         self.requiredText = requiredText
         self.anyText = anyText
         self.forbiddenText = forbiddenText
+        self.requiredACPMethods = requiredACPMethods
     }
 }
 
@@ -128,9 +161,18 @@ private struct GooseWebRouteProbe: Decodable, Sendable {
     let rootChildren: Int
     let bodyText: String
     let textLength: Int
+    let acpUrlPresent: Bool
+    let providerLoadError: String?
+    let consoleMessages: [String]
+    let socketEvents: [String]
+    let trace: GooseWebRouteACPTrace
 
     func hits(for needles: [String]) -> [String] {
         needles.filter { contains($0) }
+    }
+
+    func hitsACPMethods(_ methods: [String]) -> [String] {
+        methods.filter { trace.outgoingMethodCounts[$0, default: 0] > 0 }
     }
 
     func matches(_ expectation: GooseWebRouteExpectation) -> Bool {
@@ -139,6 +181,7 @@ private struct GooseWebRouteProbe: Decodable, Sendable {
             && expectation.requiredText.allSatisfy(contains)
             && (expectation.anyText.isEmpty || expectation.anyText.contains(where: contains))
             && expectation.forbiddenText.allSatisfy { !contains($0) }
+            && expectation.requiredACPMethods.allSatisfy { trace.outgoingMethodCounts[$0, default: 0] > 0 }
     }
 
     func summary(for expectation: GooseWebRouteExpectation) -> String {
@@ -151,6 +194,11 @@ private struct GooseWebRouteProbe: Decodable, Sendable {
             "required=\(hits(for: expectation.requiredText).joined(separator: ","))",
             "any=\(hits(for: expectation.anyText).joined(separator: ","))",
             "forbidden=\(forbiddenHits.joined(separator: ","))",
+            "acp=\(hitsACPMethods(expectation.requiredACPMethods).joined(separator: ","))",
+            "acp_url=\(acpUrlPresent ? "present" : "missing")",
+            "provider_error=\(providerLoadError ?? "")",
+            "socket=\(socketEvents.suffix(6).joined(separator: ","))",
+            "console=\(consoleMessages.suffix(4).joined(separator: " | "))",
             "sample=\(bodyText.prefix(180))",
         ].joined(separator: " ")
     }
@@ -158,6 +206,10 @@ private struct GooseWebRouteProbe: Decodable, Sendable {
     private func contains(_ needle: String) -> Bool {
         bodyText.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     }
+}
+
+private struct GooseWebRouteACPTrace: Decodable, Sendable {
+    let outgoingMethodCounts: [String: Int]
 }
 
 @MainActor
@@ -224,13 +276,26 @@ private func readGooseWebRouteProbe(_ page: WebPage) async throws -> GooseWebRou
     let result = try await page.callJavaScript(
         """
         const bodyText = (document.body?.innerText || '').replace(/\\s+/g, ' ').trim();
+        const trace = window.epistemos?.goose?.acpTrace?.() ?? { events: [], outgoingMethodCounts: {} };
+        const consoleEvents = window.epistemos?.goose?.consoleEvents?.() ?? [];
         return JSON.stringify({
           readyState: document.readyState,
           href: window.location.href,
           hash: window.location.hash,
           rootChildren: document.getElementById('root')?.children?.length ?? -1,
           bodyText,
-          textLength: bodyText.length
+          textLength: bodyText.length,
+          acpUrlPresent: Boolean(window.epistemos?.goose?.acpUrl),
+          providerLoadError: window.__epistemosGooseProviderLoadError ?? null,
+          consoleMessages: consoleEvents.map((event) => `${event.level}:${event.message}`).slice(-8),
+          socketEvents: (trace.events || [])
+            .filter((event) => event.direction === 'socket')
+            .map((event) => event.detail === null || event.detail === undefined
+              ? event.method
+              : `${event.method}:${event.detail}`
+            )
+            .slice(-8),
+          trace
         });
         """
     )

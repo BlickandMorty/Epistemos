@@ -6,8 +6,7 @@ import Testing
 @MainActor
 struct GooseProviderMutationLiveIntegrationTests {
     @Test(
-        "live Goose ACP provider config save/read/delete runs in an isolated home",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose ACP provider config save/read/delete runs in an isolated home"
     )
     func liveProviderConfigMutationUsesIsolatedHome() async throws {
         let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-provider-config-mutation.log")
@@ -106,8 +105,7 @@ struct GooseProviderMutationLiveIntegrationTests {
     }
 
     @Test(
-        "live Goose ACP provider authenticate rejects non-OAuth providers without mutation",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose ACP provider authenticate rejects non-OAuth providers without mutation"
     )
     func liveProviderAuthenticateRejectsNonOAuthProvider() async throws {
         let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-provider-authenticate-rejection.log")

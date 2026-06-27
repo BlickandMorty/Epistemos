@@ -77,7 +77,14 @@ struct GooseProviderKeyBridgeTests {
 
         let openRouterSaveParams = try #require(jsonObject(jsonObject(sent[5].raw)?["params"]))
         #expect(openRouterSaveParams["providerId"] == .string("openrouter"))
-        #expect(sent.filter { jsonObject(jsonObject($0.raw)?["params"])?["providerId"] == .string("google") }.isEmpty)
+        let googleSaveRequests = sent.filter { message in
+            guard jsonObject(message.raw)?["method"] == .string("_goose/unstable/providers/config/save") else {
+                return false
+            }
+            let params = jsonObject(jsonObject(message.raw)?["params"])
+            return params?["providerId"] == .string("google")
+        }
+        #expect(googleSaveRequests.isEmpty)
         await client.close()
     }
 }

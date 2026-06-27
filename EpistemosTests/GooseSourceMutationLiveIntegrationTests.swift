@@ -5,8 +5,7 @@ import Testing
 @Suite("Goose source mutation live integration", .serialized)
 struct GooseSourceMutationLiveIntegrationTests {
     @Test(
-        "live Goose serve creates, updates, exports, deletes, imports, and cleans up an isolated project skill source",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose serve creates, updates, exports, deletes, imports, and cleans up an isolated project skill source"
     )
     @MainActor
     func liveGooseServeMutatesProjectSkillSourceInIsolatedProject() async throws {

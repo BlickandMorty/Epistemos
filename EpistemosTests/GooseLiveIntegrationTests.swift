@@ -6,8 +6,7 @@ import WebKit
 @Suite("Goose live integration", .serialized)
 struct GooseLiveIntegrationTests {
     @Test(
-        "live Goose serve accepts Swift ACP initialize over WebSocket",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose serve accepts Swift ACP initialize over WebSocket"
     )
     @MainActor
     func liveGooseServeAcceptsSwiftACPInitialize() async throws {
@@ -51,8 +50,7 @@ struct GooseLiveIntegrationTests {
     }
 
     @Test(
-        "live Goose serve creates a session, streams a prompt, and reaches end_turn",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose serve creates a session, streams a prompt, and reaches end_turn"
     )
     @MainActor
     func liveGooseServeCompletesPromptEndTurn() async throws {
@@ -107,8 +105,7 @@ struct GooseLiveIntegrationTests {
     }
 
     @Test(
-        "live Goose serve routes a tool permission request and emits a tool result",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose serve routes a tool permission request and emits a tool result"
     )
     @MainActor
     func liveGooseServeRoutesToolPermission() async throws {
@@ -214,8 +211,7 @@ struct GooseLiveIntegrationTests {
     }
 
     @Test(
-        "live Goose serve answers the Phase 0 read-only custom ACP subset",
-        .enabled(if: gooseLiveIntegrationTestsEnabled())
+        "live Goose serve answers the Phase 0 read-only custom ACP subset"
     )
     @MainActor
     func liveGooseServeAnswersReadOnlyCustomACPSubset() async throws {
@@ -237,8 +233,7 @@ struct GooseLiveIntegrationTests {
     }
 
     @Test(
-        "live Goose WebView boots the staged web UI through the narrow shim",
-        .enabled(if: gooseLiveIntegrationTestsEnabled() && gooseWebUIBootTestsEnabled())
+        "live Goose WebView boots the staged web UI through the narrow shim"
     )
     @MainActor
     func liveGooseWebViewBootsStagedUIThroughNarrowShim() async throws {
@@ -281,6 +276,7 @@ struct GooseLiveIntegrationTests {
                 "acp_bridge=\(probe.acpBridge)",
                 "permission_bridge=\(probe.permissionBridge)",
                 "native_affordance_bridge=\(probe.nativeAffordanceBridge)",
+                "acp_trace_bridge=\(probe.acpTraceBridge)",
                 "directory_chooser_bridge=\(probe.directoryChooserBridge)",
                 "open_external_bridge=\(probe.openExternalBridge)",
                 "secret_bridge=\(probe.secretBridge)",
@@ -310,6 +306,7 @@ struct GooseLiveIntegrationTests {
                   probe.acpBridge,
                   probe.permissionBridge,
                   probe.nativeAffordanceBridge,
+                  probe.acpTraceBridge,
                   probe.directoryChooserBridge,
                   probe.openExternalBridge,
                   probe.secretBridge else {
@@ -323,8 +320,7 @@ struct GooseLiveIntegrationTests {
 
     #if !EPISTEMOS_APP_STORE
     @Test(
-        "live real Goose Electron fallback launches through the Swift menu launcher",
-        .enabled(if: gooseElectronFallbackTestsEnabled())
+        "live real Goose Electron fallback launches through the Swift menu launcher"
     )
     @MainActor
     func liveGooseElectronFallbackLaunchesThroughSwiftLauncher() async throws {
@@ -384,20 +380,6 @@ struct GooseLiveIntegrationTests {
     }
     #endif
 }
-
-nonisolated func gooseLiveIntegrationTestsEnabled() -> Bool {
-    liveGooseBinaryURL() != nil
-}
-
-nonisolated func gooseWebUIBootTestsEnabled() -> Bool {
-    GooseWebUIResolver.indexURL() != nil
-}
-
-#if !EPISTEMOS_APP_STORE
-nonisolated private func gooseElectronFallbackTestsEnabled() -> Bool {
-    GooseElectronFallbackLauncher.resolveWorkspace() != nil
-}
-#endif
 
 nonisolated private func liveGooseBinaryURL() -> URL? {
     if let binaryPath = ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_BINARY"],
@@ -504,7 +486,7 @@ private func waitForLiveGooseRuntime(_ supervisor: GooseRuntimeSupervisor) async
     throw GooseLiveIntegrationError.runtimeFailed("Timed out waiting for live Goose runtime.")
 }
 
-private func initializeLiveSession(
+func initializeLiveSession(
     client: GooseACPClient,
     progressURL: URL
 ) async throws -> GooseACPNewSessionResponse {
@@ -590,6 +572,7 @@ private func readGooseWebBootProbe(_ page: WebPage) async throws -> GooseWebBoot
           acpBridge: typeof electron.getAcpUrl === 'function',
           permissionBridge: typeof window.epistemos?.goose?.requestPermission === 'function',
           nativeAffordanceBridge: typeof window.epistemos?.goose?.requestNativeAffordance === 'function',
+          acpTraceBridge: typeof window.epistemos?.goose?.acpTrace === 'function',
           directoryChooserBridge: typeof electron.directoryChooser === 'function',
           openExternalBridge: typeof electron.openExternal === 'function',
           secretBridge: typeof electron.getSecretKey === 'function'
@@ -870,6 +853,7 @@ struct GooseWebBootProbe: Decodable, Sendable {
     let acpBridge: Bool
     let permissionBridge: Bool
     let nativeAffordanceBridge: Bool
+    let acpTraceBridge: Bool
     let directoryChooserBridge: Bool
     let openExternalBridge: Bool
     let secretBridge: Bool
@@ -883,6 +867,7 @@ struct GooseWebBootProbe: Decodable, Sendable {
             && acpBridge
             && permissionBridge
             && nativeAffordanceBridge
+            && acpTraceBridge
             && directoryChooserBridge
             && openExternalBridge
             && secretBridge
