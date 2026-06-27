@@ -15,6 +15,8 @@
 
 ## Hybrid-by-route strategy (owner canon — 2026-06-26)
 
+> ⛔ **CONSERVATIVE REVISION 2026-06-27 (owner) — this OVERRIDES the route table + charter below.** Native = the **FRAME ONLY** (window / nav rail / launcher + the permission/elicitation pop-ups). EVERY Goose feature — chat, transcript, composer, providers, models, settings, sessions, skills, recipes, extensions, scheduler, apps — stays in Goose's reskinned WebView, **PERMANENTLY**. There is **NO** "native flip later," **NO** "before ship," **NO** Gate-7 native chat. The route table's "Native flip phase" column and every "Native" assignment for a Goose FEATURE are **DELETED** — a feature only ever goes native via a SEPARATE future owner decision with its own 100%-parity proof, never on the agent's own. You never rebuild a Goose feature in Swift.
+
 **Not** a mandate to map all 14 Goose routes to AppKit before ship. Epistemos ships **100% Goose capability** with **UI technology chosen per route** — native where the first-run path is obvious; hardened staged WebView where ACP + fixtures have not yet earned native parity.
 
 ### Principles
@@ -57,22 +59,22 @@ GOOSE HYBRID-BY-ROUTE — OWNER CHARTER (2026-06-26)
 GOAL
 - 100% Goose capability in one Agent window. Allocate UI tech per route — NOT "native everything" nor "WebView forever."
 
-NATIVE v1 (Gate 2 — no WebView on chat path)
-- Landing tile / shortcut → AgentSurfaceWindowController
-- Hub, session canvas, composer, transcript (user / thinking / answer / tools)
-- Permission sheet, elicitation form, session header
-- Native nav rail; content slot = native OR embedded WebView per route
+NATIVE — FIXED frame only (reimplements NO Goose feature)
+- Landing tile / shortcut → AgentSurfaceWindowController (the app window + chrome)
+- Native nav rail; content slot = Goose's reskinned WebView
+- Permission sheet + elicitation form (already built + proven; the WebView forwards them)
+- NO native hub / session-canvas / composer / transcript. Chat IS Goose's WebView.
 
-WEBVIEW LONG-TAIL (intentional until per-route gate)
+GOOSE WEBVIEW — PERMANENT (every Goose feature; NO per-route gate)
 - Skills, Recipes, Extensions, Scheduler, MCP Apps, shared-session
 - Unproven settings tabs (Sharing, Prompts, Local Inference until WRV)
 - Same window: AgentNavigationRailView + GooseWebSurfaceView (or route-scoped panel) in content area
 - Hardened staged UI + boot shim; no feature loss vs Electron
 
-GATE 7
-- Flip: native chat PRIMARY (useNativeTranscript / useNativeChatPath = true by default)
-- Keep: per-route WebView flags until that route's native gate passes
-- Regression: full-window WebView fallback for compare — NOT the long-tail product path
+GATE 7 — [DELETED 2026-06-27]
+- There is NO native-chat flip. Chat stays Goose's WebView, permanently.
+- No per-route WebView flags, no native gates. Every Goose feature stays in the WebView.
+- Full-window WebView is not a "fallback" — it IS the product for all features.
 
 FLAGS (examples)
 - AgentSurface.useNativeChatPath          — default false until Gate 7; then true

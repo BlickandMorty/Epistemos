@@ -8,9 +8,10 @@
 Do not stop until the owner says stop.
 
 You are building the SINGLE Epistemos agent surface = Goose (reskinned), end-to-end:
-Phase 0 (Goose fully connected + proof gate) → Phase 1–4 hybrid AppKit (native chat +
-long-tail WebView until per-route gates). This is ONE program with ordered gates — NOT
-a scaffold milestone you can close early.
+Phase 0 (Goose fully connected + proof gate) → Phase 1 native FRAME only (window / nav /
+launcher + the permission pop-ups) wrapped around Goose's reskinned WebView. NO Goose
+feature is EVER reimplemented in Swift — every feature stays in Goose's WebView,
+permanently. This is ONE program — NOT a scaffold milestone you can close early.
 
 ═══════════════════════════════════════════════════════════════════════════════
 CURRENT STATE (2026-06-27 — read before coding)
@@ -259,39 +260,41 @@ Step 1 — ACP infrastructure (complete ext client + shims)
   - Remaining long-tail deferred shims implemented or visibly blocked (reuse/extend Goose native affordance bridge)
   Exit: ext decode tests green; cwd/import/dialogs work in WebView + native shim
 
-Step 2 — AgentTranscript reducer
-  - Epistemos/Agent/AgentTranscript.swift + tests vs F1–F5 fixtures
-  Exit: thinking ≠ answer; tool ≠ prose; 5 fixture tests pass
+Step 2 — [DELETED 2026-06-27] No native transcript reducer. The chat transcript is a
+  Goose FEATURE and stays in Goose's WebView, unchanged.
 
-Step 3 — Native shell MVP + hybrid content router
-  - AgentSurfaceWindowController, AgentRouteContentView
-  - Native: AgentHubView, AgentSessionCanvasView, composer, permission/elicitation
-  - Embedded WebView panel for long-tail routes (Skills, Recipes, Extensions, etc.)
-  - AgentSessionController actor; useNativeChatPath=false until Step 9
-  Exit: full chat loop on NATIVE path; long-tail opens WebView in same window
+Step 3 — Native FRAME only (NO native chat, NO native feature)
+  - AgentSurfaceWindowController + native nav rail + landing entry = the app FRAME.
+  - Permission/elicitation render natively (already built + proven); the WebView
+    forwards them to the native panels.
+  - The content area hosts GOOSE'S RESKINNED WEBVIEW for ALL features — chat included.
+  - There is NO AgentSessionCanvasView, NO native composer, NO useNativeChatPath.
+  Exit: native frame hosts Goose's WebView; Goose's own chat runs in the WebView, unchanged.
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 2 — Entry + navigation + settings (Steps 4–6)                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-Step 4 — Landing tile + ⌘⇧A + cwd picker + diagnostics row
-Step 5 — AgentNavigationRailView (8 destinations + recent sessions + hybrid router)
-Step 6 — AgentSettingsView (Models, Chat, Auth, App tabs native; unproven tabs WebView)
-  - OAuth via ACP authenticate (Goose owns provider tokens — not UserDefaults)
+Step 4 — Landing tile + ⌘⇧A + cwd picker + diagnostics row (frame only)
+Step 5 — AgentNavigationRailView (native nav rail; content slot = Goose WebView)
+Step 6 — [DELETED 2026-06-27] No native settings/models/providers/auth. Settings,
+  providers, models, and OAuth are Goose features and stay in Goose's WebView — Goose
+  owns provider tokens, enumerated via its own ACP (GOLDEN RULE). No native picker.
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 3 — Feature parity + Epistemos bridge (Steps 7–8)                     │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-Step 7 — Per-route native gates; flip useWebViewFor* only when fixtures+WRV pass
-Step 8 — epistemos.context.snapshot (vault note attach to composer)
+Step 7 — [DELETED 2026-06-27] No per-route native flips, no useWebViewFor* gates. Every
+  Goose feature stays in the WebView PERMANENTLY. There is no "eventually native."
+Step 8 — epistemos.context.snapshot (vault note attach — passed into the WebView composer)
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 4 — Chat-primary default (Step 9 / Gate 7)                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-Step 9 — useNativeChatPath=true default; long-tail WebView intentional;
-  full-window WebView = regression compare only ("Open Goose Web fallback")
+Step 9 — [DELETED 2026-06-27] There is NO "native chat default." Chat IS Goose's WebView,
+  permanently. Native never becomes the chat path.
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 5 — Paseo strategic fusion (ONLY AFTER Step 9)                        │
@@ -308,14 +311,14 @@ Notes/vault: markdown source-of-truth data layer (§16)
 HYBRID-BY-ROUTE (owner canon — do not regress to "100% AppKit day one")
 ═══════════════════════════════════════════════════════════════════════════════
 
-Native v1 (must be capability-neutral vs WebView chat):
-  Landing entry, hub, session canvas, transcript, composer, permission/elicitation,
-  session header, sessions list, configure-providers, permission settings,
-  proven settings tabs (Models, Chat, Auth, App, Keyboard)
+NATIVE — the COMPLETE, FIXED native set (reimplements NO Goose feature):
+  app window/chrome, native nav rail, landing entry, and the permission/elicitation
+  pop-ups (already proven native; the WebView forwards them). That is ALL.
 
-WebView long-tail until per-route gate:
-  Skills, Recipes, Extensions, Scheduler, Apps, shared-session, standalone-app,
-  unproven settings tabs (Sharing, Prompts, Local Inference)
+GOOSE'S RESKINNED WEBVIEW — PERMANENT (every Goose feature; no "until a gate"):
+  chat / transcript / streaming / composer, providers, models, settings, sessions,
+  skills, recipes, extensions, scheduler, MCP apps, shared-session, standalone-app.
+  These are NEVER rebuilt in Swift and are NEVER "flipped" native by this plan.
 
 One Agent window. AgentRouteContentView switches native vs embedded WebView.
 100% Goose capability overall — no thin native stubs.
@@ -332,14 +335,13 @@ The goal is complete ONLY when ALL of:
 □ LOSE NOTHING: every Goose capability proven live through the PRODUCTION (web UI) path; zero
   deferred-with-visible-error among affordances the UI actually calls; recipe-trust persists (no re-prompt loop)
 □ Portable: works on a clean build (bundled/staged) or honestly gates when absent
-□ Steps 1–9 exit criteria (follow-on plan §5)
-□ Hybrid charter satisfied (native chat default; long-tail WebView where unflipped)
-□ Pro build: Landing → Agent → native chat loop → stream → permission works
-□ Long-tail routes reachable (native or full-capability WebView panel)
+□ Native FRAME (window/nav/launcher) hosts Goose's reskinned WebView; permission/elicitation native; NO Goose feature reimplemented in Swift
+□ Pro build: Landing → Agent window → Goose's WebView chat loop → stream → permission works
+□ Every Goose feature reachable + full-capability in the WebView
 □ Focused Goose tests + build-for-testing green; no new regressions
 □ MAS honest gating verified
 □ Real Goose Electron fallback works from Epistemos menu
-□ GOOSE_PHASE_0_SIGNOFF.md + GOOSE_PHASE_4_COMPLETE.md (or equivalent) written
+□ GOOSE_PHASE_0_SIGNOFF.md written
 
 FORBIDDEN "done" claims:
 × Build-green or unit tests on mock transport alone
@@ -348,8 +350,9 @@ FORBIDDEN "done" claims:
 × Epistemos/Agent/* started before Phase 0 hardening
 × Reviving Chat/Act/Work/AgentClone surfaces
 × Wiring REST goosed agent or Electron IPC for agent path
-× Bulk deleting WebView before per-route native gates pass
-× Paseo §15 before Step 9
+× Reimplementing ANY Goose feature in native Swift (chat, providers, models, settings, sessions, skills, recipes, extensions, scheduler, apps)
+× "Eventually" / "before ship" nativizing a Goose feature — native is the FIXED frame ONLY; any future feature-nativization is a SEPARATE owner decision with its own 100%-parity proof, NOT this plan
+× Paseo §15 before Phase 0 sign-off
 × ANY Swift-hardcoded / app-duplicated provider/model/skill roster (GOLDEN RULE violation)
 × Catalog not live-proven via ACP parity vs real Goose
 × "Works on my machine" — surface depends on un-bundled local artifacts
