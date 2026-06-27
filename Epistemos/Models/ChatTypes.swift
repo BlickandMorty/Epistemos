@@ -25,7 +25,7 @@ enum MessageContentBlock: Codable, Sendable, Equatable {
 }
 
 /// Lightweight JSON value type for encoding tool_use inputs without external dependencies.
-enum JSONValue: Codable, Sendable, Equatable, Hashable {
+nonisolated enum JSONValue: Codable, Sendable, Equatable, Hashable {
     case string(String)
     case int(Int)
     case double(Double)

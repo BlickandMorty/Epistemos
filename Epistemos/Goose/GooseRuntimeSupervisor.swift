@@ -1,0 +1,477 @@
+import Foundation
+import Observation
+import Security
+
+struct GooseRuntimeConnection: Equatable, Sendable {
+    let baseURL: URL
+    let secretKey: String
+
+    var acpWebSocketURL: URL? {
+        GooseRuntimeSupervisor.acpWebSocketURL(base: baseURL, secretKey: secretKey)
+    }
+}
+
+@MainActor
+@Observable
+final class GooseRuntimeSupervisor {
+    enum Status: Equatable, Sendable {
+        case idle
+        case unavailable(String)
+        case starting
+        case running(GooseRuntimeConnection)
+        case failed(String)
+        case stopped
+    }
+
+    nonisolated static let defaultHost = "127.0.0.1"
+    nonisolated static let defaultPort = 3284
+    nonisolated static let listenTimeout: Duration = .seconds(20)
+    nonisolated private static let subprocessEnvironmentAllowlist: Set<String> = [
+        "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
+    ]
+    nonisolated private static let allowedGooseModes: Set<String> = [
+        "auto", "approve", "smart_approve", "chat",
+    ]
+    nonisolated private static let subprocessEnvironmentDenylist: Set<String> = [
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "LD_AUDIT",
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+        "DYLD_FALLBACK_LIBRARY_PATH",
+        "DYLD_FRAMEWORK_PATH",
+        "DYLD_FALLBACK_FRAMEWORK_PATH",
+        "DYLD_PRINT_LIBRARIES",
+        "MallocStackLogging",
+        "MallocStackLoggingNoCompact",
+        "MallocScribble",
+        "MallocGuardEdges",
+        "DEBUG",
+        "NODE_OPTIONS",
+        "NODE_PATH",
+        "NODE_DEBUG",
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONSTARTUP",
+        "RUBYOPT",
+        "RUBYLIB",
+        "PERL5OPT",
+        "PERL5LIB",
+        "PERL5DB",
+        "OPENAI_API_KEY",
+        "OPENAI_ACCESS_TOKEN",
+        "OPENAI_AUTH_MODE",
+        "OPENAI_CLIENT_VERSION",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_ACCESS_TOKEN",
+        "ANTHROPIC_AUTH_MODE",
+        "GOOGLE_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_ACCESS_TOKEN",
+        "GOOGLE_AUTH_MODE",
+        "GOOGLE_PROJECT_ID",
+        "PERPLEXITY_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GLM_API_KEY",
+        "MOONSHOT_API_KEY",
+        "KIMI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "MINIMAX_API_KEY",
+        "XAI_API_KEY",
+        "CODESTRAL_API_KEY",
+        "MISTRAL_API_KEY",
+        "TOGETHER_API_KEY",
+        "GROQ_API_KEY",
+        "HF_TOKEN",
+    ]
+
+    private(set) var status: Status = .idle
+    private(set) var lastDiagnostic: String?
+
+    private var process: Process?
+    private var lifecycleTask: Task<Void, Never>?
+    private var outputTask: Task<Void, Never>?
+
+    func start(
+        bundle: Bundle = .main,
+        binary: URL? = nil,
+        secretKey: String? = nil,
+        gooseMode: String? = nil,
+        homeDirectory: URL? = nil,
+        disableKeyring: Bool = false,
+        builtins: [String] = ["developer"],
+        healthCheck: @escaping @Sendable (URL) async -> Bool = GooseRuntimeSupervisor.healthCheck(base:)
+    ) {
+        switch status {
+        case .starting, .running:
+            return
+        default:
+            break
+        }
+
+        #if EPISTEMOS_APP_STORE
+        status = .unavailable("Goose is available in the Pro / Developer-ID build.")
+        #else
+        guard let binary = binary ?? Self.resolvedGooseBinary(bundle: bundle) else {
+            status = .unavailable("Goose runtime is not bundled or staged for this build.")
+            return
+        }
+        let resolvedSecretKey = secretKey ?? Self.randomSecretKey()
+        status = .starting
+        lifecycleTask = Task { [weak self] in
+            await self?.run(
+                binary: binary,
+                secretKey: resolvedSecretKey,
+                gooseMode: gooseMode,
+                homeDirectory: homeDirectory,
+                disableKeyring: disableKeyring,
+                builtins: builtins,
+                healthCheck: healthCheck
+            )
+        }
+        #endif
+    }
+
+    func stop() {
+        lifecycleTask?.cancel()
+        lifecycleTask = nil
+        outputTask?.cancel()
+        outputTask = nil
+        if let process {
+            terminateTrackedProcess(process)
+        }
+        process = nil
+        switch status {
+        case .starting, .running:
+            status = .stopped
+        default:
+            break
+        }
+    }
+
+    private func run(
+        binary: URL,
+        secretKey: String,
+        gooseMode: String?,
+        homeDirectory: URL?,
+        disableKeyring: Bool,
+        builtins: [String],
+        healthCheck: @escaping @Sendable (URL) async -> Bool
+    ) async {
+        let defaultBaseURL = Self.defaultBaseURL()
+        if await healthCheck(defaultBaseURL) {
+            status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))
+            return
+        }
+
+        let proc = Process()
+        proc.executableURL = binary
+        proc.arguments = Self.serveArguments(
+            host: Self.defaultHost,
+            port: Self.defaultPort,
+            builtins: builtins
+        )
+        proc.environment = Self.processEnvironment(
+            binary: binary,
+            secretKey: secretKey,
+            gooseMode: gooseMode,
+            homeDirectory: homeDirectory,
+            disableKeyring: disableKeyring
+        )
+
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = pipe
+        process = proc
+        proc.terminationHandler = { [weak self] process in
+            Task { @MainActor in
+                self?.handleProcessExit(statusCode: process.terminationStatus)
+            }
+        }
+
+        do {
+            try proc.run()
+            AppBootstrap.shared?.orphanCleanup.track(proc)
+        } catch {
+            status = .failed("Failed to launch `goose serve`: \(error.localizedDescription)")
+            return
+        }
+
+        let baseURL = await waitForReady(pipe: pipe, healthCheck: healthCheck)
+        if Task.isCancelled { return }
+        guard let baseURL else {
+            status = .failed("`goose serve` did not become healthy within \(Self.listenTimeout).")
+            terminateTrackedProcess(proc)
+            outputTask?.cancel()
+            outputTask = nil
+            return
+        }
+        status = .running(GooseRuntimeConnection(baseURL: baseURL, secretKey: secretKey))
+    }
+
+    private func waitForReady(
+        pipe: Pipe,
+        healthCheck: @escaping @Sendable (URL) async -> Bool
+    ) async -> URL? {
+        let defaultBaseURL = Self.defaultBaseURL()
+        return await withCheckedContinuation { continuation in
+            let state = GooseRuntimeReadyState(continuation)
+            outputTask = Task.detached { [weak self] in
+                do {
+                    for try await line in pipe.fileHandleForReading.bytes.lines {
+                        let message = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !message.isEmpty {
+                            await self?.recordDiagnostic(message)
+                        }
+                    }
+                } catch {
+                    // Teardown closes the pipe; process state drives lifecycle.
+                }
+                await state.resume(nil)
+            }
+
+            Task {
+                let deadline = ContinuousClock.now.advanced(by: Self.listenTimeout)
+                while ContinuousClock.now < deadline {
+                    if await healthCheck(defaultBaseURL) {
+                        await state.resume(defaultBaseURL)
+                        return
+                    }
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+                await state.resume(nil)
+            }
+        }
+    }
+
+    private func recordDiagnostic(_ message: String) {
+        lastDiagnostic = message
+    }
+
+    private func handleProcessExit(statusCode: Int32) {
+        if let process {
+            untrack(process)
+        }
+        switch status {
+        case .starting:
+            status = .failed("Goose exited before ACP became ready (exit \(statusCode)).")
+        case .running:
+            status = .failed("Goose exited unexpectedly (exit \(statusCode)).")
+        default:
+            break
+        }
+    }
+
+    private func terminateTrackedProcess(_ process: Process) {
+        let pid = pid_t(process.processIdentifier)
+        if pid > 0 {
+            AppBootstrap.shared?.orphanCleanup.cleanupProcessTree(rootPID: pid)
+        }
+        if process.isRunning {
+            process.terminate()
+        }
+        untrack(process)
+    }
+
+    private func untrack(_ process: Process) {
+        let pid = pid_t(process.processIdentifier)
+        guard pid > 0 else { return }
+        AppBootstrap.shared?.orphanCleanup.untrack(pid)
+    }
+
+    nonisolated static func serveArguments(
+        host: String,
+        port: Int,
+        builtins: [String]
+    ) -> [String] {
+        var args = ["serve", "--host", host, "--port", String(port)]
+        for builtin in builtins where !builtin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            args += ["--with-builtin", builtin]
+        }
+        return args
+    }
+
+    nonisolated static func processEnvironment(
+        binary: URL,
+        secretKey: String,
+        gooseMode: String? = nil,
+        homeDirectory: URL? = nil,
+        disableKeyring: Bool = false,
+        base: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String: String] {
+        var env = base.filter { key, _ in
+            subprocessEnvironmentAllowlist.contains(key) &&
+                !subprocessEnvironmentDenylist.contains(key)
+        }
+        env["GOOSE_SERVER__SECRET_KEY"] = secretKey
+        if let mode = gooseMode?.trimmingCharacters(in: .whitespacesAndNewlines),
+           allowedGooseModes.contains(mode) {
+            env["GOOSE_MODE"] = mode
+        }
+        if let homeDirectory {
+            env["HOME"] = homeDirectory.path
+        }
+        if disableKeyring {
+            env["GOOSE_DISABLE_KEYRING"] = "true"
+        }
+        let binDir = binary.deletingLastPathComponent().path
+        let existingPath = env["PATH"] ?? ""
+        env["PATH"] = existingPath.isEmpty ? binDir : "\(binDir):\(existingPath)"
+        return env
+    }
+
+    nonisolated static func parseListeningURL(from line: String, expectedPort: Int) -> URL? {
+        let lower = line.lowercased()
+        guard lower.contains("acp server"),
+              lower.contains("starting") || lower.contains("listening") else {
+            return nil
+        }
+
+        let patterns = [
+            #"https?://[^\s]+"#,
+            #"(?:127\.0\.0\.1|localhost):\d+"#,
+        ]
+        for pattern in patterns {
+            guard let range = line.range(of: pattern, options: .regularExpression) else { continue }
+            var raw = String(line[range]).trimmingCharacters(in: CharacterSet(charactersIn: "/.,;)\""))
+            if !raw.hasPrefix("http://"), !raw.hasPrefix("https://") {
+                raw = "http://\(raw)"
+            }
+            guard let components = URLComponents(string: raw),
+                  components.scheme?.lowercased() == "http",
+                  let host = components.host,
+                  components.port == expectedPort,
+                  components.path.isEmpty || components.path == "/" else { continue }
+            guard host == "127.0.0.1" || host == "localhost" else { continue }
+            return URL(string: "http://\(host):\(expectedPort)")
+        }
+        return nil
+    }
+
+    nonisolated static func defaultBaseURL() -> URL {
+        URL(string: "http://\(defaultHost):\(defaultPort)")!
+    }
+
+    nonisolated static func occupiedPortMessage(base: URL) -> String {
+        "Port \(base.port ?? defaultPort) already has a running Goose-compatible service. Stop it before opening Epistemos Goose."
+    }
+
+    nonisolated static func healthURL(base: URL) -> URL {
+        base.appendingPathComponent("health")
+    }
+
+    nonisolated static func acpWebSocketURL(base: URL, secretKey: String) -> URL? {
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return nil }
+        switch components.scheme?.lowercased() {
+        case "http":
+            components.scheme = "ws"
+        case "https":
+            components.scheme = "wss"
+        default:
+            return nil
+        }
+        components.path = components.path.replacingOccurrences(of: #"/+$"#, with: "", options: .regularExpression)
+        components.path += "/acp"
+        components.percentEncodedQuery = "token=\(percentEncodedACPToken(secretKey))"
+        return components.url
+    }
+
+    nonisolated private static func percentEncodedACPToken(_ token: String) -> String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        return token.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+    }
+
+    nonisolated static var hostCargoTargetTriple: String {
+        #if arch(arm64)
+        "aarch64-apple-darwin"
+        #elseif arch(x86_64)
+        "x86_64-apple-darwin"
+        #else
+        ""
+        #endif
+    }
+
+    nonisolated static func resolvedGooseBinary(
+        bundle: Bundle? = .main,
+        appSupportDirectory: URL? = defaultAppSupportDirectory(),
+        currentDirectory: String = FileManager.default.currentDirectoryPath
+    ) -> URL? {
+        let fileManager = FileManager.default
+        for candidate in gooseBinaryCandidates(
+            bundle: bundle,
+            appSupportDirectory: appSupportDirectory,
+            currentDirectory: currentDirectory
+        ) {
+            if fileManager.isExecutableFile(atPath: candidate.path) {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    nonisolated static func gooseBinaryCandidates(
+        bundle: Bundle? = .main,
+        appSupportDirectory: URL? = defaultAppSupportDirectory(),
+        currentDirectory: String = FileManager.default.currentDirectoryPath
+    ) -> [URL] {
+        var candidates: [URL] = []
+        if let appSupportDirectory {
+            candidates.append(appSupportDirectory.appendingPathComponent("Epistemos/GooseRuntime/goose"))
+        }
+        if let bundled = bundle?.url(forResource: "goose", withExtension: nil) {
+            candidates.append(bundled)
+        }
+
+        let checkoutTarget = URL(fileURLWithPath: currentDirectory)
+            .appendingPathComponent(".research-clones/work/goose/target")
+        if !hostCargoTargetTriple.isEmpty {
+            candidates.append(checkoutTarget.appendingPathComponent("\(hostCargoTargetTriple)/release/goose"))
+            candidates.append(checkoutTarget.appendingPathComponent("\(hostCargoTargetTriple)/debug/goose"))
+        }
+        candidates.append(checkoutTarget.appendingPathComponent("release/goose"))
+        candidates.append(checkoutTarget.appendingPathComponent("debug/goose"))
+        return candidates
+    }
+
+    nonisolated private static func defaultAppSupportDirectory() -> URL? {
+        try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: false
+        )
+    }
+
+    nonisolated static func randomSecretKey() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess {
+            return Data(bytes).base64EncodedString()
+        }
+        return (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "")
+    }
+
+    nonisolated private static func healthCheck(base: URL) async -> Bool {
+        do {
+            let (data, response) = try await URLSession.shared.data(from: healthURL(base: base))
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
+            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) == "ok"
+        } catch {
+            return false
+        }
+    }
+}
+
+private actor GooseRuntimeReadyState {
+    private var continuation: CheckedContinuation<URL?, Never>?
+
+    init(_ continuation: CheckedContinuation<URL?, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ url: URL?) {
+        let continuation = self.continuation
+        self.continuation = nil
+        continuation?.resume(returning: url)
+    }
+}

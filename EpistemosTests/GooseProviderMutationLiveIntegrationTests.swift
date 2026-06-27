@@ -1,0 +1,151 @@
+import Foundation
+import Testing
+@testable import Epistemos
+
+@Suite("Goose provider mutation live integration")
+@MainActor
+struct GooseProviderMutationLiveIntegrationTests {
+    @Test(
+        "live Goose ACP provider config save/read/delete runs in an isolated home",
+        .enabled(if: gooseLiveIntegrationTestsEnabled())
+    )
+    func liveProviderConfigMutationUsesIsolatedHome() async throws {
+        let proofURL = URL(fileURLWithPath: "/tmp/epistemos-goose-phase0-provider-config-mutation.log")
+        try? FileManager.default.removeItem(at: proofURL)
+
+        let isolatedHome = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EpistemosGooseProviderMutation-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: isolatedHome, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: isolatedHome) }
+
+        try await withLiveGooseRuntime(
+            proofName: "provider-config-mutation",
+            homeDirectory: isolatedHome,
+            disableKeyring: true
+        ) { _, connection, progressURL in
+            guard let acpURL = connection.acpWebSocketURL else {
+                throw GooseLiveIntegrationError.runtimeFailed("Live Goose runtime did not produce an ACP WebSocket URL.")
+            }
+            appendLiveProgress("acp url=\(redactedACPURL(acpURL))", to: progressURL)
+
+            let client = GooseACPClient(
+                transport: GooseACPURLSessionWebSocketTransport(url: acpURL),
+                clientVersion: "phase0-provider-mutation-live-test"
+            )
+            do {
+                _ = try await withLiveTimeout(
+                    seconds: 12,
+                    description: "ACP initialize response",
+                    onTimeout: { await client.close() },
+                    operation: { try await client.initialize() }
+                )
+
+                let providers = try await client.listGooseProviders()
+                let allStatuses = try await client.readGooseProviderConfigStatus(providerIds: [])
+                let candidate = try providerMutationCandidate(
+                    from: providers.entries,
+                    statuses: allStatuses.statuses
+                )
+
+                let before = try await client.readGooseProviderConfigStatus(providerIds: [candidate.providerId])
+                let save = try await client.saveGooseProviderConfig(
+                    providerId: candidate.providerId,
+                    fields: candidate.configKeys.map {
+                        .init(key: $0, value: "epistemos-phase0-live-proof")
+                    }
+                )
+                let read = try await client.readGooseProviderConfig(providerId: candidate.providerId)
+                let field = try #require(read.fields.first { $0.key == candidate.configKeys[0] })
+                let delete = try await client.deleteGooseProviderConfig(providerId: candidate.providerId)
+                let after = try await client.readGooseProviderConfigStatus(providerIds: [candidate.providerId])
+
+                guard before.statuses.first?.isConfigured == false else {
+                    throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) was already configured before mutation.")
+                }
+                guard save.status.providerId == candidate.providerId, save.status.isConfigured else {
+                    throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) did not report configured after save.")
+                }
+                guard field.value == "epistemos-phase0-live-proof" else {
+                    throw GooseLiveIntegrationError.runtimeFailed("\(candidate.configKeys[0]) did not round-trip through ACP config read.")
+                }
+                guard delete.status.providerId == candidate.providerId, !delete.status.isConfigured else {
+                    throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) stayed configured after delete.")
+                }
+                guard after.statuses.first?.providerId == candidate.providerId,
+                      after.statuses.first?.isConfigured == false else {
+                    throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) status stayed configured after delete.")
+                }
+
+                let beforeStatus = before.statuses.first?.isConfigured.description ?? "<missing>"
+                let proof = """
+                phase0_live_provider_config_mutation=pass
+                goose_base_url=\(connection.baseURL.absoluteString)
+                goose_acp_url=\(redactedACPURL(acpURL))
+                isolated_home=true
+                keyring_disabled=true
+                provider_id=\(candidate.providerId)
+                config_keys=\(candidate.configKeys.joined(separator: ","))
+                before_configured=\(beforeStatus)
+                save_configured=\(save.status.isConfigured)
+                read_value_matches=true
+                delete_configured=\(delete.status.isConfigured)
+                after_configured=\(after.statuses.first?.isConfigured.description ?? "<missing>")
+                """
+                try proof.write(to: proofURL, atomically: true, encoding: .utf8)
+                await client.close()
+            } catch {
+                await client.close()
+                throw error
+            }
+        }
+
+        let proof = try String(contentsOf: proofURL, encoding: .utf8)
+        #expect(proof.contains("phase0_live_provider_config_mutation=pass"))
+        #expect(proof.contains("isolated_home=true"))
+        #expect(proof.contains("keyring_disabled=true"))
+    }
+}
+
+private struct ProviderMutationCandidate {
+    let providerId: String
+    let configKeys: [String]
+}
+
+private struct ProviderInventoryEntry: Decodable {
+    let providerId: String
+    let configKeys: [ProviderInventoryConfigKey]
+}
+
+private struct ProviderInventoryConfigKey: Decodable {
+    let name: String
+    let required: Bool
+    let secret: Bool
+    let `default`: String?
+    let oauthFlow: Bool?
+    let deviceCodeFlow: Bool?
+}
+
+private func providerMutationCandidate(
+    from entries: [JSONValue],
+    statuses: [GooseACPProviderConfigStatus]
+) throws -> ProviderMutationCandidate {
+    let configuredByProvider = Dictionary(uniqueKeysWithValues: statuses.map { ($0.providerId, $0.isConfigured) })
+    let decoded = try entries.map { try $0.decoded(ProviderInventoryEntry.self) }
+    for entry in decoded {
+        guard configuredByProvider[entry.providerId] == false else {
+            continue
+        }
+        let required = entry.configKeys.filter { key in
+            key.required && key.default == nil
+        }
+        guard !required.isEmpty,
+              required.allSatisfy({ !$0.secret && $0.oauthFlow != true && $0.deviceCodeFlow != true }) else {
+            continue
+        }
+        return ProviderMutationCandidate(
+            providerId: entry.providerId,
+            configKeys: required.map(\.name)
+        )
+    }
+    throw GooseLiveIntegrationError.runtimeFailed("No required non-secret provider config key available for live mutation proof.")
+}

@@ -1470,12 +1470,20 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
-            // Discoverable entry to the primary native Epistemos Work surface so it is not buried in Settings.
-            // The WebView fallback remains available from Settings as "Open Epistemos Work preview".
-            Button("Open Epistemos Work") {
-                WorkEngineSurfaceWindowController.shared.open()
+            #if EPISTEMOS_APP_STORE
+            Button("Epistemos Goose (Pro only)") {}
+                .keyboardShortcut("3", modifiers: .command)
+                .disabled(true)
+            #else
+            Button("Open Epistemos Goose") {
+                GooseSurfaceWindowController.shared.open()
             }
             .keyboardShortcut("3", modifiers: .command)
+
+            Button("Open Real Goose Electron Fallback") {
+                GooseElectronFallbackLauncher.shared.launchFromMenu()
+            }
+            #endif
 
             Button("Knowledge Graph") {
                 KnowledgeGraphShortcutDispatcher.toggle()

@@ -1,0 +1,782 @@
+import Foundation
+import Testing
+@testable import Epistemos
+
+@Suite("Goose ACP codec")
+struct GooseACPCodecTests {
+    @Test("initialize request encodes ACP protocol version 1 with Goose client metadata")
+    func initializeRequestEncoding() throws {
+        let request = GooseACPJSONRPCRequest(
+            id: .int(1),
+            method: GooseACPMethod.initialize.rawValue,
+            params: GooseACPInitializeRequest.epistemos(clientVersion: "test-version")
+        )
+
+        let object = try encodedObject(request)
+        #expect(object["jsonrpc"] == .string("2.0"))
+        #expect(object["id"] == .int(1))
+        #expect(object["method"] == .string("initialize"))
+
+        let params = try #require(object["params"]?.objectValue)
+        #expect(params["protocolVersion"] == .int(1))
+        #expect(params["clientInfo"]?.objectValue?["name"] == .string("Epistemos"))
+        #expect(params["clientInfo"]?.objectValue?["version"] == .string("test-version"))
+        #expect(params["clientCapabilities"]?.objectValue?["elicitation"]?.objectValue?["form"] == .object([:]))
+        #expect(params["clientCapabilities"]?.objectValue?["_meta"]?.objectValue?["goose"]?.objectValue?["customNotifications"] == .bool(true))
+    }
+
+    @Test("session new and prompt requests use ACP method names and content blocks")
+    func sessionRequestEncoding() throws {
+        let newSession = GooseACPJSONRPCRequest(
+            id: .int(2),
+            method: GooseACPMethod.newSession.rawValue,
+            params: GooseACPNewSessionRequest(cwd: "/Users/jojo/Downloads/Epistemos")
+        )
+        let newSessionObject = try encodedObject(newSession)
+        #expect(newSessionObject["method"] == .string("session/new"))
+        #expect(newSessionObject["params"]?.objectValue?["cwd"] == .string("/Users/jojo/Downloads/Epistemos"))
+        #expect(newSessionObject["params"]?.objectValue?["mcpServers"] == .array([]))
+
+        let prompt = GooseACPJSONRPCRequest(
+            id: .int(3),
+            method: GooseACPMethod.prompt.rawValue,
+            params: GooseACPPromptRequest(
+                sessionId: "session-1",
+                prompt: [.text("hello goose")]
+            )
+        )
+        let promptObject = try encodedObject(prompt)
+        #expect(promptObject["method"] == .string("session/prompt"))
+        let params = try #require(promptObject["params"]?.objectValue)
+        #expect(params["sessionId"] == .string("session-1"))
+        #expect(params["prompt"] == .array([.object(["type": .string("text"), "text": .string("hello goose")])]))
+    }
+
+    @Test("incoming session update decodes assistant text chunks")
+    func incomingSessionUpdateDecoding() throws {
+        let json = """
+        {
+          "jsonrpc": "2.0",
+          "method": "session/update",
+          "params": {
+            "sessionId": "session-1",
+            "update": {
+              "sessionUpdate": "agent_message_chunk",
+              "content": { "type": "text", "text": "partial answer" }
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let message = try JSONDecoder().decode(GooseACPIncomingMessage.self, from: json)
+        guard case .notification(let method, let params) = message else {
+            Issue.record("expected notification")
+            return
+        }
+        #expect(method == .sessionUpdate)
+        let notification = try params.decode(GooseACPSessionNotification.self)
+        #expect(notification.sessionId == "session-1")
+        #expect(notification.update == .agentMessageChunk(.init(content: .text("partial answer"))))
+    }
+
+    @Test("incoming permission requests map native choices to ACP outcomes")
+    func permissionRequestRoundTrip() throws {
+        let json = """
+        {
+          "jsonrpc": "2.0",
+          "id": "perm-1",
+          "method": "session/request_permission",
+          "params": {
+            "sessionId": "session-1",
+            "toolCall": {
+              "toolCallId": "tool-1",
+              "title": "Write file",
+              "status": "pending"
+            },
+            "options": [
+              { "optionId": "once", "name": "Allow once", "kind": "allow_once" },
+              { "optionId": "always", "name": "Always allow", "kind": "allow_always" },
+              { "optionId": "deny", "name": "Deny once", "kind": "reject_once" }
+            ]
+          }
+        }
+        """.data(using: .utf8)!
+
+        let message = try JSONDecoder().decode(GooseACPIncomingMessage.self, from: json)
+        guard case .request(let id, let method, let params) = message else {
+            Issue.record("expected request")
+            return
+        }
+        #expect(id == .string("perm-1"))
+        #expect(method == .requestPermission)
+        let request = try params.decode(GooseACPRequestPermissionRequest.self)
+        #expect(request.sessionId == "session-1")
+        #expect(request.toolCall.toolCallId == "tool-1")
+        #expect(request.option(for: .allowAlways)?.optionId == "always")
+
+        let selected = GooseACPRequestPermissionResponse.selected(optionId: "always")
+        #expect(try encodedObject(selected)["outcome"] == .object(["outcome": .string("selected"), "optionId": .string("always")]))
+        #expect(try encodedObject(GooseACPRequestPermissionResponse.cancelled())["outcome"] == .object(["outcome": .string("cancelled")]))
+    }
+
+    @Test("permission request decodes future tool kinds as other")
+    func permissionRequestFutureToolKind() throws {
+        let json = """
+        {
+          "jsonrpc": "2.0",
+          "id": "perm-2",
+          "method": "session/request_permission",
+          "params": {
+            "sessionId": "session-1",
+            "toolCall": {
+              "toolCallId": "tool-2",
+              "title": "New action",
+              "kind": "future_kind",
+              "status": "pending"
+            },
+            "options": [
+              { "optionId": "once", "name": "Allow once", "kind": "allow_once" }
+            ]
+          }
+        }
+        """.data(using: .utf8)!
+
+        let message = try JSONDecoder().decode(GooseACPIncomingMessage.self, from: json)
+        guard case .request(_, _, let params) = message else {
+            Issue.record("expected request")
+            return
+        }
+        let request = try params.decode(GooseACPRequestPermissionRequest.self)
+        #expect(request.toolCall.kind == .other)
+    }
+
+    @Test("form elicitation requests and responses preserve structured values")
+    func formElicitationRoundTrip() throws {
+        let json = """
+        {
+          "jsonrpc": "2.0",
+          "id": 8,
+          "method": "elicitation/create",
+          "params": {
+            "mode": "form",
+            "sessionId": "session-1",
+            "message": "Need a title",
+            "requestedSchema": {
+              "type": "object",
+              "properties": {
+                "title": { "type": "string", "title": "Title" }
+              },
+              "required": ["title"]
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let message = try JSONDecoder().decode(GooseACPIncomingMessage.self, from: json)
+        guard case .request(_, let method, let params) = message else {
+            Issue.record("expected request")
+            return
+        }
+        #expect(method == .createElicitation)
+        let request = try params.decode(GooseACPCreateElicitationRequest.self)
+        #expect(request.mode == .form)
+        #expect(request.sessionId == "session-1")
+        #expect(request.requestedSchema.objectValue?["required"] == .array([.string("title")]))
+
+        let accepted = GooseACPCreateElicitationResponse.accept([
+            "title": .string("A native answer")
+        ])
+        #expect(try encodedObject(accepted)["action"] == .string("accept"))
+        #expect(try encodedObject(accepted)["content"]?.objectValue?["title"] == .string("A native answer"))
+    }
+}
+
+@Suite("Goose ACP client")
+struct GooseACPClientTests {
+    @Test("client sends initialize, session new, prompt, and permission responses over transport")
+    func clientSendsCoreFlow() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"session-1"}}"#,
+            #"{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session-1","update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"thinking"}}}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        let initialized = try await client.initialize()
+        #expect(initialized.protocolVersion == 1)
+
+        let session = try await client.newSession(cwd: "/Users/jojo/Downloads/Epistemos")
+        #expect(session.sessionId == "session-1")
+
+        let event = try await client.receiveEvent()
+        #expect(event == .sessionUpdate(.init(sessionId: "session-1", update: .agentThoughtChunk(.init(content: .text("thinking"))))))
+
+        let prompt = try await client.prompt(sessionId: "session-1", text: "hello")
+        #expect(prompt.stopReason == .endTurn)
+
+        try await client.respondToPermission(requestId: .string("perm-1"), response: .selected(optionId: "always"))
+        let sent = await transport.sentMessages()
+        #expect(Array(sent.compactMap(\.method).prefix(3)) == [.initialize, .newSession, .prompt])
+        #expect(sent.last?.id == .string("perm-1"))
+        #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["outcome"]?.objectValue?["optionId"] == .string("always"))
+        await client.close()
+    }
+
+    @Test("prompt streams session updates before the final prompt response")
+    func promptStreamsBeforeFinalResponse() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"session-1"}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let session = try await client.newSession(cwd: "/Users/jojo/Downloads/Epistemos")
+
+        let promptTask = Task {
+            try await client.prompt(sessionId: session.sessionId, text: "stream please")
+        }
+        await transport.waitUntilSent(count: 3)
+
+        await transport.enqueue(
+            #"{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"live chunk"}}}}"#
+        )
+        let event = try await client.receiveEvent()
+        #expect(event == .sessionUpdate(.init(sessionId: "session-1", update: .agentMessageChunk(.init(content: .text("live chunk"))))))
+
+        await transport.enqueue(#"{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}"#)
+        #expect(try await promptTask.value.stopReason == .endTurn)
+        await client.close()
+    }
+
+    @Test("client sends the Phase 0 read-only Goose custom ACP subset")
+    func clientSendsReadOnlyGooseCustomACPSubset() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"entries":[{"providerId":"mock","configured":true}]}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"extensions":[{"enabled":true,"extension":{"type":"builtin","name":"developer"}}],"warnings":["env missing"]}}"#,
+            #"{"jsonrpc":"2.0","id":4,"result":{"values":[{"key":"gooseThinkingEffort","value":"medium"}]}}"#,
+            #"{"jsonrpc":"2.0","id":5,"result":{"providerId":"mock","modelId":"mock-model"}}"#,
+            #"{"jsonrpc":"2.0","id":6,"result":{"session":{"sessionId":"session-1","cwd":"/tmp","updatedAt":"2026-06-27T00:00:00Z"}}}"#,
+            #"{"jsonrpc":"2.0","id":7,"result":{"report":{"summary":"ok"}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let providers = try await client.listGooseProviders()
+        let extensions = try await client.listGooseConfigExtensions()
+        let preferences = try await client.readGoosePreferences(keys: [.gooseThinkingEffort])
+        let defaults = try await client.readGooseDefaults()
+        let sessionInfo = try await client.readGooseSessionInfo(sessionId: "session-1")
+        let diagnostics = try await client.readGooseDiagnostics(sessionId: "session-1", level: .summary)
+
+        #expect(providers.entries.count == 1)
+        #expect(extensions.extensions.count == 1)
+        #expect(extensions.warnings == ["env missing"])
+        #expect(preferences.values == [.init(key: .gooseThinkingEffort, value: .string("medium"))])
+        #expect(defaults.providerId == "mock")
+        #expect(defaults.modelId == "mock-model")
+        #expect(sessionInfo.session.objectValue?["sessionId"] == .string("session-1"))
+        #expect(diagnostics.report.objectValue?["summary"] == .string("ok"))
+
+        let methods = await transport.sentMessages().compactMap { $0.raw.objectValue?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/providers/list"),
+            .string("_goose/unstable/config/extensions/list"),
+            .string("_goose/unstable/preferences/read"),
+            .string("_goose/unstable/defaults/read"),
+            .string("_goose/unstable/session/info"),
+            .string("_goose/unstable/diagnostics/get"),
+        ])
+        await client.close()
+    }
+
+    @Test("client sends the provider settings read-only Goose custom ACP subset")
+    func clientSendsProviderSettingsReadOnlyCustomACPSubset() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"providerId":"mock","models":["mock-model","mock-large"]}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"fields":[{"key":"MOCK_API_KEY","value":null,"isSet":false,"isSecret":true,"required":true}]}}"#,
+            #"{"jsonrpc":"2.0","id":4,"result":{"statuses":[{"providerId":"mock","isConfigured":false}]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let models = try await client.listGooseProviderSupportedModels(providerId: "mock")
+        let config = try await client.readGooseProviderConfig(providerId: "mock")
+        let status = try await client.readGooseProviderConfigStatus(providerIds: ["mock"])
+
+        #expect(models.providerId == "mock")
+        #expect(models.models == ["mock-model", "mock-large"])
+        #expect(config.fields == [
+            .init(key: "MOCK_API_KEY", value: nil, isSet: false, isSecret: true, required: true),
+        ])
+        #expect(status.statuses == [
+            .init(providerId: "mock", isConfigured: false),
+        ])
+
+        let methods = await transport.sentMessages().compactMap { $0.raw.objectValue?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/providers/supported-models/list"),
+            .string("_goose/unstable/providers/config/read"),
+            .string("_goose/unstable/providers/config/status"),
+        ])
+        await client.close()
+    }
+
+    @Test("client sends the provider settings mutation Goose custom ACP subset")
+    func clientSendsProviderSettingsMutationCustomACPSubset() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"status":{"providerId":"mock","isConfigured":true},"refresh":{"jobs":[]}}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"status":{"providerId":"mock","isConfigured":false},"refresh":{"jobs":[]}}}"#,
+            #"{"jsonrpc":"2.0","id":4,"result":{"status":{"providerId":"mock","isConfigured":true},"refresh":{"jobs":[]}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let save = try await client.saveGooseProviderConfig(
+            providerId: "mock",
+            fields: [.init(key: "MOCK_API_KEY", value: "redacted-test-key")]
+        )
+        let delete = try await client.deleteGooseProviderConfig(providerId: "mock")
+        let auth = try await client.authenticateGooseProviderConfig(providerId: "mock")
+
+        #expect(save.status == .init(providerId: "mock", isConfigured: true))
+        #expect(delete.status == .init(providerId: "mock", isConfigured: false))
+        #expect(auth.status == .init(providerId: "mock", isConfigured: true))
+
+        let sent = await transport.sentMessages()
+        let methods = sent.compactMap { $0.raw.objectValue?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/providers/config/save"),
+            .string("_goose/unstable/providers/config/delete"),
+            .string("_goose/unstable/providers/config/authenticate"),
+        ])
+        let saveParams = try #require(sent.dropFirst().first?.raw.objectValue?["params"]?.objectValue)
+        #expect(saveParams["providerId"] == .string("mock"))
+        #expect(saveParams["fields"] == .array([
+            .object([
+                "key": .string("MOCK_API_KEY"),
+                "value": .string("redacted-test-key"),
+            ]),
+        ]))
+        await client.close()
+    }
+}
+
+@Suite("Goose ACP event bridge")
+@MainActor
+struct GooseACPEventBridgeTests {
+    @Test("bridge publishes permission requests and responds with the selected native option")
+    func bridgeRoutesPermissionRequests() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": "perm-1",
+              "method": "session/request_permission",
+              "params": {
+                "sessionId": "session-1",
+                "toolCall": {
+                  "toolCallId": "tool-1",
+                  "title": "Write file",
+                  "kind": "edit",
+                  "status": "pending"
+                },
+                "options": [
+                  { "optionId": "once", "name": "Allow once", "kind": "allow_once" },
+                  { "optionId": "always", "name": "Always allow", "kind": "allow_always" }
+                ]
+              }
+            }
+            """,
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(transport: transport, clientVersion: "test-version")
+        try await waitUntil { bridge.pendingPermission != nil }
+
+        let pending = try #require(bridge.pendingPermission)
+        #expect(pending.request.toolCall.title == "Write file")
+        #expect(pending.request.option(for: .allowAlways)?.optionId == "always")
+
+        bridge.resolvePermission(promptID: pending.id, optionID: "always")
+        await transport.waitUntilSent(count: 2)
+
+        let sent = await transport.sentMessages()
+        #expect(sent.first?.method == .initialize)
+        #expect(sent.last?.id == .string("perm-1"))
+        #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["outcome"]?.objectValue?["optionId"] == .string("always"))
+        #expect(bridge.pendingPermission == nil)
+        await bridge.disconnect()
+    }
+
+    @Test("bridge publishes form elicitation requests and responds with native field values")
+    func bridgeRoutesFormElicitationRequests() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": 7,
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "sessionId": "session-1",
+                "message": "Need a title",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "title": "Title" }
+                  },
+                  "required": ["title"]
+                }
+              }
+            }
+            """,
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(transport: transport, clientVersion: "test-version")
+        try await waitUntil { bridge.pendingElicitation != nil }
+
+        let pending = try #require(bridge.pendingElicitation)
+        #expect(pending.message == "Need a title")
+        #expect(pending.fields == [.init(id: "title", title: "Title", type: .string, isRequired: true)])
+
+        bridge.acceptElicitation(promptID: pending.id, values: ["title": .string("Native answer")])
+        await transport.waitUntilSent(count: 2)
+
+        let sent = await transport.sentMessages()
+        #expect(sent.last?.id == .int(7))
+        #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["action"] == .string("accept"))
+        #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["content"]?.objectValue?["title"] == .string("Native answer"))
+        #expect(bridge.pendingElicitation == nil)
+        await bridge.disconnect()
+    }
+
+    @Test("bridge retries an initial ACP handshake failure before marking the connection failed")
+    func bridgeRetriesInitialHandshakeFailure() async throws {
+        let sequence = GooseACPTransportSequence([
+            GooseACPFailingTransport(),
+            GooseACPMemoryTransport(incoming: [
+                #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            ]),
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(
+            transportFactory: { sequence.next() },
+            clientVersion: "test-version",
+            initialHandshakeAttempts: 2
+        )
+        try await waitUntil {
+            if case .connected = bridge.status {
+                return true
+            }
+            return false
+        }
+
+        #expect(sequence.requestedCount() == 2)
+        await bridge.disconnect()
+    }
+
+    @Test("bridge surfaces unhandled ACP requests and replies with a structured JSON-RPC error")
+    func bridgeSurfacesUnhandledRequests() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": "custom-1",
+              "method": "_goose/unstable/session/recipe/request-params",
+              "params": {
+                "sessionId": "session-1",
+                "recipe": { "title": "Needs input" }
+              }
+            }
+            """,
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(transport: transport, clientVersion: "test-version")
+        try await waitUntil { !bridge.unhandledDiagnostics.isEmpty }
+        await transport.waitUntilSent(count: 2)
+
+        let diagnostic = try #require(bridge.unhandledDiagnostics.first)
+        #expect(diagnostic.kind == .request)
+        #expect(diagnostic.method == "_goose/unstable/session/recipe/request-params")
+        #expect(diagnostic.parameterSummary.contains("sessionId"))
+
+        let sent = await transport.sentMessages()
+        #expect(sent.last?.id == .string("custom-1"))
+        let error = try #require(sent.last?.raw.objectValue?["error"]?.objectValue)
+        #expect(error["code"] == .int(-32601))
+        #expect(error["message"] == .string("Unsupported ACP request: _goose/unstable/session/recipe/request-params"))
+        await bridge.disconnect()
+    }
+}
+
+@Suite("Goose Web native prompt bridge")
+@MainActor
+struct GooseWebNativePromptBridgeTests {
+    @Test("native prompt bridge publishes renderer permission requests and replies with selected outcome")
+    func bridgeRoutesRendererPermissionRequests() throws {
+        let bridge = GooseWebNativePromptBridge()
+        let capture = GoosePromptReplyCapture()
+
+        bridge.receivePromptMessage([
+            "type": "permission",
+            "id": "native-perm-1",
+            "request": [
+                "sessionId": "session-1",
+                "toolCall": [
+                    "toolCallId": "tool-1",
+                    "title": "Write file",
+                    "kind": "edit",
+                    "status": "pending",
+                ],
+                "options": [
+                    ["optionId": "once", "name": "Allow once", "kind": "allow_once"],
+                    ["optionId": "always", "name": "Always allow", "kind": "allow_always"],
+                ],
+            ],
+        ]) { object, error in
+            capture.capture(object: object, error: error)
+        }
+
+        let pending = try #require(bridge.pendingPermission)
+        #expect(pending.id == "native-perm-1")
+        #expect(pending.request.toolCall.title == "Write file")
+
+        bridge.resolvePermission(promptID: pending.id, optionID: "always")
+        let reply = try #require(capture.object as? [String: Any])
+        let outcome = try #require(reply["outcome"] as? [String: Any])
+        #expect(outcome["outcome"] as? String == "selected")
+        #expect(outcome["optionId"] as? String == "always")
+        #expect(capture.error == nil)
+        #expect(bridge.pendingPermission == nil)
+    }
+
+    @Test("native prompt bridge publishes renderer elicitation requests and replies with form values")
+    func bridgeRoutesRendererElicitationRequests() throws {
+        let bridge = GooseWebNativePromptBridge()
+        let capture = GoosePromptReplyCapture()
+
+        bridge.receivePromptMessage([
+            "type": "elicitation",
+            "id": "native-elicit-1",
+            "request": [
+                "mode": "form",
+                "sessionId": "session-1",
+                "message": "Need a title",
+                "requestedSchema": [
+                    "type": "object",
+                    "properties": [
+                        "title": ["type": "string", "title": "Title"],
+                    ],
+                    "required": ["title"],
+                ],
+            ],
+        ]) { object, error in
+            capture.capture(object: object, error: error)
+        }
+
+        let pending = try #require(bridge.pendingElicitation)
+        #expect(pending.id == "native-elicit-1")
+        #expect(pending.message == "Need a title")
+        #expect(pending.fields == [.init(id: "title", title: "Title", type: .string, isRequired: true)])
+
+        bridge.acceptElicitation(promptID: pending.id, values: ["title": .string("Native answer")])
+        let reply = try #require(capture.object as? [String: Any])
+        let content = try #require(reply["content"] as? [String: Any])
+        #expect(reply["action"] as? String == "accept")
+        #expect(content["title"] as? String == "Native answer")
+        #expect(capture.error == nil)
+        #expect(bridge.pendingElicitation == nil)
+    }
+}
+
+@MainActor
+private final class GoosePromptReplyCapture {
+    var object: Any?
+    var error: String?
+
+    func capture(object: Any?, error: String?) {
+        self.object = object
+        self.error = error
+    }
+}
+
+private actor GooseACPMemoryTransport: GooseACPTransport {
+    private var incoming: [String]
+    private var sent: [String] = []
+    private var receiveWaiters: [CheckedContinuation<String?, Error>] = []
+    private var sentCountWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var isClosed = false
+
+    init(incoming: [String]) {
+        self.incoming = incoming
+    }
+
+    func send(_ text: String) async throws {
+        sent.append(text)
+        resumeSentCountWaiters()
+    }
+
+    func receive() async throws -> String? {
+        guard !isClosed else { return nil }
+
+        guard incoming.isEmpty else {
+            return incoming.removeFirst()
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            receiveWaiters.append(continuation)
+        }
+    }
+
+    func close() async {
+        isClosed = true
+        let waiters = receiveWaiters
+        receiveWaiters.removeAll()
+        for continuation in waiters {
+            continuation.resume(returning: nil)
+        }
+    }
+
+    func enqueue(_ text: String) {
+        guard !isClosed else { return }
+
+        if receiveWaiters.isEmpty {
+            incoming.append(text)
+        } else {
+            receiveWaiters.removeFirst().resume(returning: text)
+        }
+    }
+
+    func waitUntilSent(count: Int) async {
+        guard sent.count < count else { return }
+        await withCheckedContinuation { continuation in
+            sentCountWaiters.append((count: count, continuation: continuation))
+        }
+    }
+
+    func sentMessages() -> [GooseACPSentMessage] {
+        sent.compactMap { text in
+            guard let data = text.data(using: .utf8),
+                  let raw = try? JSONDecoder().decode(JSONValue.self, from: data) else {
+                return nil
+            }
+            let object: [String: JSONValue]?
+            if case .object(let decodedObject) = raw {
+                object = decodedObject
+            } else {
+                object = nil
+            }
+            let method: GooseACPMethod?
+            if case .string(let rawMethod)? = object?["method"] {
+                method = GooseACPMethod(rawValue: rawMethod)
+            } else {
+                method = nil
+            }
+            let id = object?["id"].flatMap { try? JSONDecoder().decode(GooseACPRequestID.self, from: JSONEncoder().encode($0)) }
+            return GooseACPSentMessage(raw: raw, method: method, id: id)
+        }
+    }
+
+    private func resumeSentCountWaiters() {
+        var stillWaiting: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+        for waiter in sentCountWaiters {
+            if sent.count >= waiter.count {
+                waiter.continuation.resume()
+            } else {
+                stillWaiting.append(waiter)
+            }
+        }
+        sentCountWaiters = stillWaiting
+    }
+}
+
+private struct GooseACPSentMessage: Equatable {
+    let raw: JSONValue
+    let method: GooseACPMethod?
+    let id: GooseACPRequestID?
+}
+
+@MainActor
+private final class GooseACPTransportSequence {
+    private var transports: [any GooseACPTransport]
+    private var count = 0
+
+    init(_ transports: [any GooseACPTransport]) {
+        self.transports = transports
+    }
+
+    func next() -> any GooseACPTransport {
+        count += 1
+        if transports.count > 1 {
+            return transports.removeFirst()
+        }
+        return transports[0]
+    }
+
+    func requestedCount() -> Int {
+        count
+    }
+}
+
+private actor GooseACPFailingTransport: GooseACPTransport {
+    func send(_ text: String) async throws {
+        throw GooseACPInjectedFailure()
+    }
+
+    func receive() async throws -> String? {
+        throw GooseACPInjectedFailure()
+    }
+
+    func close() async {}
+}
+
+private struct GooseACPInjectedFailure: LocalizedError {
+    var errorDescription: String? {
+        "Injected ACP handshake failure"
+    }
+}
+
+@MainActor
+private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async throws {
+    for _ in 0..<50 {
+        if condition() { return }
+        try await Task.sleep(nanoseconds: 20_000_000)
+    }
+    Issue.record("condition was not satisfied")
+}
+
+private func encodedObject<T: Encodable>(_ value: T) throws -> [String: JSONValue] {
+    let data = try JSONEncoder().encode(value)
+    return try JSONDecoder().decode([String: JSONValue].self, from: data)
+}
+
+private extension JSONValue {
+    nonisolated var objectValue: [String: JSONValue]? {
+        guard case .object(let object) = self else { return nil }
+        return object
+    }
+
+    nonisolated var stringValue: String? {
+        guard case .string(let string) = self else { return nil }
+        return string
+    }
+
+    nonisolated func decode<T: Decodable>(_ type: T.Type) throws -> T {
+        let data = try JSONEncoder().encode(self)
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+}

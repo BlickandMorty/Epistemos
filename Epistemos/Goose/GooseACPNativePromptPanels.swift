@@ -1,0 +1,270 @@
+import SwiftUI
+
+struct GooseACPPermissionPanel: View {
+    let promptID: String
+    let request: GooseACPRequestPermissionRequest
+    let theme: EpistemosTheme
+    let onDecision: (String?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: "hand.raised")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(promptTitle)
+                        .font(GooseSurfaceStyle.bodyFont(13, weight: .semibold))
+                        .foregroundStyle(theme.resolved.foreground.color)
+                    Text(promptSubtitle)
+                        .font(GooseSurfaceStyle.bodyFont(11))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                ForEach(request.options, id: \.optionId) { option in
+                    Button { onDecision(option.optionId) } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: option.kind.iconName)
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(option.name)
+                                .font(GooseSurfaceStyle.bodyFont(11, weight: .semibold))
+                        }
+                        .foregroundStyle(option.kind.isReject ? theme.error : theme.resolved.accent.color)
+                        .frame(minHeight: 30)
+                        .padding(.horizontal, 10)
+                    }
+                    .buttonStyle(.plain)
+                    .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
+                    .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                }
+
+                Button { onDecision(nil) } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.textTertiary)
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
+                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                .help("Cancel")
+            }
+        }
+        .padding(14)
+        .frame(width: 460, alignment: .leading)
+        .background(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.98))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(theme.border.opacity(0.7), lineWidth: 1))
+        .shadow(color: .black.opacity(theme.isDark ? 0.28 : 0.12), radius: 18, y: 8)
+    }
+
+    private var promptTitle: String {
+        request.toolCall.title ?? "Tool permission"
+    }
+
+    private var promptSubtitle: String {
+        let tool = request.toolCall.toolCallId
+        if let kind = request.toolCall.kind {
+            return "\(kind.rawValue) · \(tool)"
+        }
+        return tool
+    }
+}
+
+struct GooseACPElicitationPanel: View {
+    enum Action {
+        case accept([String: JSONValue])
+        case decline
+        case cancel
+    }
+
+    let promptID: String
+    let request: GooseACPCreateElicitationRequest
+    let fields: [GooseACPElicitationFormField]
+    let theme: EpistemosTheme
+    let onAction: (Action) -> Void
+
+    @State private var textValues: [String: String]
+    @State private var boolValues: [String: Bool]
+
+    init(
+        promptID: String,
+        request: GooseACPCreateElicitationRequest,
+        fields: [GooseACPElicitationFormField],
+        theme: EpistemosTheme,
+        onAction: @escaping (Action) -> Void
+    ) {
+        self.promptID = promptID
+        self.request = request
+        self.fields = fields
+        self.theme = theme
+        self.onAction = onAction
+        _textValues = State(initialValue: Dictionary(uniqueKeysWithValues: fields.map { ($0.id, "") }))
+        _boolValues = State(initialValue: Dictionary(uniqueKeysWithValues: fields.map { ($0.id, false) }))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: "text.badge.checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(request.message)
+                        .font(GooseSurfaceStyle.bodyFont(13, weight: .semibold))
+                        .foregroundStyle(theme.resolved.foreground.color)
+                        .lineLimit(2)
+                    Text(request.mode.rawValue)
+                        .font(GooseSurfaceStyle.bodyFont(11))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                Spacer(minLength: 0)
+            }
+
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(fields) { field in
+                    fieldControl(field)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button { onAction(.accept(encodedValues())) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Submit")
+                            .font(GooseSurfaceStyle.bodyFont(11, weight: .semibold))
+                    }
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .frame(minHeight: 30)
+                    .padding(.horizontal, 10)
+                }
+                .buttonStyle(.plain)
+                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
+                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+
+                Button { onAction(.decline) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "minus.circle")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Decline")
+                            .font(GooseSurfaceStyle.bodyFont(11, weight: .semibold))
+                    }
+                    .foregroundStyle(theme.textTertiary)
+                    .frame(minHeight: 30)
+                    .padding(.horizontal, 10)
+                }
+                .buttonStyle(.plain)
+                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
+                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+
+                Spacer(minLength: 0)
+
+                Button { onAction(.cancel) } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.textTertiary)
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
+                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                .help("Cancel")
+            }
+        }
+        .padding(14)
+        .frame(width: 460, alignment: .leading)
+        .background(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.98))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(theme.border.opacity(0.7), lineWidth: 1))
+        .shadow(color: .black.opacity(theme.isDark ? 0.28 : 0.12), radius: 18, y: 8)
+    }
+
+    @ViewBuilder
+    private func fieldControl(_ field: GooseACPElicitationFormField) -> some View {
+        switch field.type {
+        case .boolean:
+            Toggle(isOn: boolBinding(field.id)) {
+                Text(fieldLabel(field))
+                    .font(GooseSurfaceStyle.bodyFont(11, weight: .semibold))
+                    .foregroundStyle(theme.resolved.foreground.color)
+            }
+            .toggleStyle(.checkbox)
+        case .string, .number, .unknown:
+            VStack(alignment: .leading, spacing: 5) {
+                Text(fieldLabel(field))
+                    .font(GooseSurfaceStyle.bodyFont(10, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary)
+                TextField("", text: textBinding(field.id))
+                    .textFieldStyle(.plain)
+                    .font(GooseSurfaceStyle.bodyFont(12))
+                    .padding(.horizontal, 9)
+                    .frame(height: 30)
+                    .background(Rectangle().fill(theme.resolved.chatSurface.color.opacity(0.84)))
+                    .overlay(Rectangle().stroke(theme.border.opacity(0.58), lineWidth: 1))
+            }
+        }
+    }
+
+    private func fieldLabel(_ field: GooseACPElicitationFormField) -> String {
+        field.isRequired ? "\(field.title) *" : field.title
+    }
+
+    private func textBinding(_ id: String) -> Binding<String> {
+        Binding(
+            get: { textValues[id, default: ""] },
+            set: { textValues[id] = $0 }
+        )
+    }
+
+    private func boolBinding(_ id: String) -> Binding<Bool> {
+        Binding(
+            get: { boolValues[id, default: false] },
+            set: { boolValues[id] = $0 }
+        )
+    }
+
+    private func encodedValues() -> [String: JSONValue] {
+        Dictionary(uniqueKeysWithValues: fields.map { field in
+            switch field.type {
+            case .boolean:
+                return (field.id, .bool(boolValues[field.id, default: false]))
+            case .number:
+                let raw = textValues[field.id, default: ""]
+                if let intValue = Int(raw) {
+                    return (field.id, .int(intValue))
+                }
+                if let doubleValue = Double(raw) {
+                    return (field.id, .double(doubleValue))
+                }
+                return (field.id, .string(raw))
+            case .string, .unknown:
+                return (field.id, .string(textValues[field.id, default: ""]))
+            }
+        })
+    }
+}
+
+private extension GooseACPPermissionOptionKind {
+    var iconName: String {
+        switch self {
+        case .allowOnce, .allowAlways:
+            "checkmark"
+        case .rejectOnce, .rejectAlways:
+            "xmark"
+        }
+    }
+
+    var isReject: Bool {
+        switch self {
+        case .allowOnce, .allowAlways:
+            false
+        case .rejectOnce, .rejectAlways:
+            true
+        }
+    }
+}
