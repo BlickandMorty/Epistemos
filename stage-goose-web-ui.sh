@@ -809,7 +809,7 @@ function acpProviderSecret(provider: ProviderDetails, key: ConfigKey, field: Pro
     status: 'unknown',
     configured: isSet,
     has_secret: isSet,
-    can_delete: false,
+    can_delete: true,
     can_configure: Boolean(key.oauth_flow || key.device_code_flow),
     configure_provider: key.oauth_flow || key.device_code_flow ? provider.name : null,
   };
@@ -1697,6 +1697,7 @@ const imports = `${importAnchor}
 import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';
 import {
   authenticateAcpProviderConfig,
+  deleteAcpProviderConfig,
   listAcpProviderSecrets,
 } from '../../../acp/providers';`;
 if (!source.includes('listAcpProviderSecrets')) {
@@ -1729,6 +1730,22 @@ replaceRequired(
       } else {
         await configureProviderOauth({
           path: { name: secret.configure_provider },
+          throwOnError: true,
+        });
+      }`
+);
+
+replaceRequired(
+  'ACP provider secret delete',
+  `      await deleteProviderSecret({
+        path: { id: secretToDelete.id },
+        throwOnError: true,
+      });`,
+  `      if (USE_ACP_CHAT) {
+        await deleteAcpProviderConfig(secretToDelete.provider);
+      } else {
+        await deleteProviderSecret({
+          path: { id: secretToDelete.id },
           throwOnError: true,
         });
       }`
