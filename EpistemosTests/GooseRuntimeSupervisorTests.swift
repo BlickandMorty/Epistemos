@@ -1318,7 +1318,11 @@ struct GooseElectronFallbackLauncherTests {
         #expect(env["LANG"] == "en_US.UTF-8")
         #expect(env["ELECTRON_IS_DEV"] == "1")
         #expect(env["NODE_ENV"] == "development")
-        #expect(env["GOOSE_ALLOWLIST_BYPASS"] == "true")
+        // GOOSE_ALLOWLIST_BYPASS must NOT be forwarded: the allowlist URL
+        // (GOOSE_ALLOWLIST) is never forwarded to the child, so a bypass flag would
+        // be a misleading no-op now and a latent security hole if forwarding is added.
+        #expect(env["GOOSE_ALLOWLIST_BYPASS"] == nil)
+        #expect(env["GOOSE_ALLOWLIST"] == nil)
         #expect(env["HERMIT_ENV"] == workspace.repoRoot.path)
         #expect(env["ENABLE_PLAYWRIGHT"] == "true")
         #expect(env["PLAYWRIGHT_DEBUG_PORT"] == "9330")

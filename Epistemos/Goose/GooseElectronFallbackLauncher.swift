@@ -258,7 +258,12 @@ final class GooseElectronFallbackLauncher {
         }
         env["ELECTRON_IS_DEV"] = "1"
         env["NODE_ENV"] = "development"
-        env["GOOSE_ALLOWLIST_BYPASS"] = "true"
+        // No GOOSE_ALLOWLIST_BYPASS. Goose fetches its command allowlist from the URL
+        // in GOOSE_ALLOWLIST, which is NOT in environmentAllowlist and is therefore
+        // never forwarded to the child — so the launched Goose enforces no allowlist
+        // and a bypass flag would be a misleading no-op (it reads as "security guard
+        // disabled" while disabling nothing). Omitting it also means that if
+        // GOOSE_ALLOWLIST is ever forwarded, the child enforces it (the secure default).
         env["RUST_LOG"] = "info"
         env["HERMIT_ENV"] = workspace.repoRoot.path
         if let debugPort, isValidDebugPort(debugPort) {

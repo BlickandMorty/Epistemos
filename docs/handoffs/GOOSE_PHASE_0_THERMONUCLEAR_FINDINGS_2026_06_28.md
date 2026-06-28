@@ -160,7 +160,25 @@ flakiness.
 
 *(fix_is_safe=True)*
 
-### [10] P3 · honesty · `GooseElectronFallbackLauncher.swift`:251-273
+### [10] P3 · honesty · `GooseElectronFallbackLauncher.swift`:251-273 — ✅ bypass removed (2026-06-28 PM)
+
+**Part 1 RESOLVED (honesty).** The misleading `GOOSE_ALLOWLIST_BYPASS=true` line is
+removed. Verified-then-fixed: the bypass WAS forwarded to the child, BUT the
+allowlist URL it would bypass (`GOOSE_ALLOWLIST`) is NOT in `environmentAllowlist`
+(only PATH/HOME/USER/.../SHELL), so it is never forwarded, so the child enforces no
+allowlist (`main.ts:2901 if (!GOOSE_ALLOWLIST) return`) and the bypass disabled
+nothing — a line that reads "security guard off" while doing nothing. Removing it
+is behaviorally identical now and the secure default if `GOOSE_ALLOWLIST`
+forwarding is ever added (the child would then enforce it). Locked by
+`launcherEnvironmentIsSanitized` (now asserts `GOOSE_ALLOWLIST_BYPASS == nil` and
+`GOOSE_ALLOWLIST == nil`); 5/5 launcher tests green. **Part 2 still open:** moving
+the whole launcher + its menu button (`EpistemosApp.swift:1488`) from
+`#if !EPISTEMOS_APP_STORE` to `#if DEBUG` so Developer-ID *release* builds also get
+the no-op stub — deferred because it only affects the Release configuration, which
+must be built/verified in that config before merging (not testable from the DEBUG
+suites).
+
+
 
 **Issue:** The Electron fallback ships in the Developer-ID build (only `#if EPISTEMOS_APP_STORE` is a no-op stub) and is a second, parallel agent surface that bypasses the canonical WebView+ACP path: it `pnpm --filter goose-app run start-gui` to launch the full upstream Goose desktop from a hardcoded dev checkout (`.research-clones/work/goose` or a hardcoded `~/Downloads/Epistemos/...`). It deliberately sets `GOOSE_ALLOWLIST_BYPASS=true` (disables a Goose-side guard), `NODE_ENV=development`, and `ELECTRON_IS_DEV=1`. Disabling a security allowlist inside a code path that is compiled into a shipped (non-MAS) build, and running a whole alternative agent surface, is at odds with the "single Epistemos agent
 
