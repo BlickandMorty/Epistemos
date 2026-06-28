@@ -1,5 +1,8 @@
 # Tolaria-Supersede Research Loop (2026-06-27)
 
+> ★ **CANONICAL PLAN = `EDITOR_CANONICAL_PLAN_2026_06_27.md`** (written pass 6 — the single source of truth).
+> This doc is the running research LOG; that doc is the consolidated plan. Code detail = the 4 codepacks.
+
 **Running via `/loop 2m` (cron `fc3d7bc7`).** Deliberate multi-pass research until the owner says stop.
 Each pass appends findings below + ticks the checklist. When research passes are done → restructure the
 editor docs into ONE canonical, contradiction-free plan, then keep deepening until told to stop.
@@ -58,8 +61,12 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
       SS-CM + CODEMIRROR_MD_V2 said "CodeMirror=primary note editor, drop TipTap" — REVERSED) + planted banners
       in EPDOC_MD_V2 + SS-P. **All 4 poisoned banners FIXED this pass.** 4 codepacks + §16 clean. Open questions
       catalogued below. Pass 6 next.
-- [ ] **Pass 6** (next): RESTRUCTURE into ONE canonical plan doc (`EDITOR_CANONICAL_PLAN_2026_06_27.md`) +
-      surface the 6 open questions for owner decisions.
+- [x] **Pass 6 DONE** (2026-06-27): RESTRUCTURE complete → `EDITOR_CANONICAL_PLAN_2026_06_27.md` written
+      (surface model, locked decisions, all areas, build sequence, license ledger, 6 open questions up top).
+      **The core research + restructure is now COMPLETE.**
+- [ ] **Pass 7+** (deepen/polish until owner says stop): candidates — owner answers to the 6 open questions →
+      fold into the plan; deeper code on whichever build-sequence stage the owner wants to start; per-area
+      falsifier/test specs; or harden any thin spot. (No new structural research needed.)
 - [ ] **Pass 5:** Contradiction audit across ALL editor docs + the emerging plan.
 - [ ] **Pass 6:** RESTRUCTURE into one canonical plan doc (MarkEdit-in-app + Tolaria revamp on Epdoc +
       Goose AI + ontology + minimal-best toggles).
