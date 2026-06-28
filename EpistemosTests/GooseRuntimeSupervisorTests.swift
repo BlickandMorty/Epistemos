@@ -682,6 +682,17 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("client.goose.preferencesRead_unstable({ keys: [prefKey] })"))
         #expect(script.contains("'Goose ACP preference read'"))
         #expect(script.contains("if (key in preferenceBackedConfigKeys)"))
+        // First-run welcome provider grid (OnboardingGuard -> ProviderSelector)
+        // populated from the live ACP catalog. The upstream REST /config/providers
+        // does not exist in ACP mode, so the un-grafted fetchProviders threw and the
+        // grid rendered EMPTY -- the owner-reported "my app is not doing that at all"
+        // (real Goose shows ~7 providers, the configured ones marked ready). Must NOT
+        // bypass onboarding (the OnboardingGuard passthrough is separately forbidden).
+        #expect(script.contains("epistemos-acp-onboarding-provider-grid"))
+        #expect(script.contains("import { getAcpProviders } from '../../acp/providers';"))
+        #expect(script.contains("setProviderList(await getAcpProviders())"))
+        #expect(script.contains("ProviderSelector import anchor not found"))
+        #expect(script.contains("ProviderSelector load anchor not found"))
     }
 
     @Test("Goose Swift surface does not carry a provider or model roster")

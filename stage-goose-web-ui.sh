@@ -1811,6 +1811,68 @@ if (source.includes(oauthAnchor)) {
 fs.writeFileSync(path, source);
 NODE
 
+ONBOARDING_PROVIDER_SELECTOR="$WORK_ROOT/ui/desktop/src/components/onboarding/ProviderSelector.tsx"
+node - "$ONBOARDING_PROVIDER_SELECTOR" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+// epistemos-acp-onboarding-provider-grid: the first-run welcome provider list
+// (OnboardingGuard -> ProviderSelector) populated from the dead REST
+// /config/providers, which does not exist in ACP mode -> fetchProviders threw and
+// the provider dropdown rendered empty ("my app is not doing that at all"). Source
+// it from the live ACP catalog instead, same as every other provider surface.
+const importAnchor = `import {
+  providers as fetchProviders,
+  createCustomProvider,
+  ProviderDetails,
+  UpdateCustomProviderRequest,
+} from '../../api';`;
+const imports = `${importAnchor}
+import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';
+import { getAcpProviders } from '../../acp/providers';`;
+if (!source.includes('getAcpProviders')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('ProviderSelector import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+const loadAnchor = `        const response = await fetchProviders({ throwOnError: true });
+        if (response.data) {
+          const list = Array.isArray(response.data)
+            ? response.data
+            : (response.data as { providers: ProviderDetails[] }).providers || [];
+          setProviderList(list);
+        }`;
+const loadReplacement = `        if (USE_ACP_CHAT) {
+          // epistemos-acp-onboarding-provider-grid
+          setProviderList(await getAcpProviders());
+          return;
+        }
+        const response = await fetchProviders({ throwOnError: true });
+        if (response.data) {
+          const list = Array.isArray(response.data)
+            ? response.data
+            : (response.data as { providers: ProviderDetails[] }).providers || [];
+          setProviderList(list);
+        }`;
+if (!source.includes('epistemos-acp-onboarding-provider-grid')) {
+  if (!source.includes(loadAnchor)) {
+    throw new Error('ProviderSelector load anchor not found');
+  }
+  source = source.replace(loadAnchor, loadReplacement);
+}
+
+for (const snippet of ['getAcpProviders', 'USE_ACP_CHAT', 'epistemos-acp-onboarding-provider-grid']) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ProviderSelector staged source is missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 AUTH_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
 node - "$AUTH_SETTINGS_SECTION" <<'NODE'
 const fs = require('fs');
