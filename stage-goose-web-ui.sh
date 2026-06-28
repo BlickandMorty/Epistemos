@@ -190,15 +190,25 @@ function configKey(key: ProviderConfigKey): ConfigKey {
   };
 }
 
-function setupConfigKey(field: AcpProviderSetupField, index: number): ConfigKey {
+function setupConfigKey(field: AcpProviderSetupField, index: number, setupMethod?: string): ConfigKey {
+  const isPrimary = index === 0;
+  // Map the provider's LIVE setupMethod (oauth_browser / oauth_device_code /
+  // host_with_oauth_fallback / single_api_key / config_fields / ...) onto the
+  // oauth flags so the "Sign in with {provider}" button renders for OAuth
+  // providers (gated on oauth_flow||device_code_flow). Permissive oauth* match so
+  // it tracks Goose's setup methods without a hardcoded enum; the value comes live
+  // from Goose, we only surface it. Marker: epistemos-acp-oauth-setup-method.
+  const method = (setupMethod ?? '').toLowerCase();
+  const isOauth = method.includes('oauth');
+  const isDeviceCode = method.includes('device_code') || method.includes('devicecode');
   return {
     name: field.key,
     required: field.required,
     secret: field.secret,
     default: field.defaultValue ?? null,
-    oauth_flow: false,
-    device_code_flow: false,
-    primary: index === 0,
+    oauth_flow: isPrimary && isOauth,
+    device_code_flow: isPrimary && isDeviceCode,
+    primary: isPrimary,
   };
 }
 
@@ -251,7 +261,7 @@ function setupCatalogProviderDetails(entry: AcpProviderSetupCatalogEntry): Provi
       known_models: [],
       model_doc_link: entry.docUrl ?? '',
       model_selection_hint: null,
-      config_keys: fields.map(setupConfigKey),
+      config_keys: fields.map((field, index) => setupConfigKey(field, index, entry.setupMethod)),
       setup_steps: entry.description ? [entry.description] : [],
     },
   };
