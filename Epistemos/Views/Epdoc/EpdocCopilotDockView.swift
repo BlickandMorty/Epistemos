@@ -117,17 +117,20 @@ public struct EpdocCopilotDockView: View {
     public let complexity: Double
     public let dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void
     public let freeformAgentEnabled: Bool
+    public let aiDiffDraft: EpdocAIDiffReviewDraft?
 
     public init(
         wordCount: Int,
         complexity: Double,
         dispatch: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void,
-        freeformAgentEnabled: Bool = false
+        freeformAgentEnabled: Bool = false,
+        aiDiffDraft: EpdocAIDiffReviewDraft? = nil
     ) {
         self.wordCount = wordCount
         self.complexity = complexity
         self.dispatch = dispatch
         self.freeformAgentEnabled = freeformAgentEnabled
+        self.aiDiffDraft = aiDiffDraft
     }
 
     public var body: some View {
@@ -142,28 +145,87 @@ public struct EpdocCopilotDockView: View {
     private var quickActions: some View {
         HStack(spacing: 7) {
             ForEach([EpdocCopilotTransform.visualMap, .frontmatter]) { transform in
-                Button {
+                dockButton(
+                    title: transform.title,
+                    symbol: transform.symbol,
+                    help: transform.response
+                ) {
                     dispatch(transform.command)
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: transform.symbol)
-                            .symbolRenderingMode(.hierarchical)
-                            .frame(width: 16)
-                        Text(transform.title)
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 8)
-                    .background(.thinMaterial, in: Capsule())
-                    .overlay(
-                        Capsule().strokeBorder(.separator.opacity(0.38), lineWidth: 0.5)
-                    )
                 }
-                .buttonStyle(.plain)
-                .help(transform.response)
+            }
+
+            if let aiDiffDraft {
+                Divider()
+                    .frame(height: 22)
+                    .opacity(0.58)
+                dockButton(
+                    title: "Review edit",
+                    symbol: "sparkles",
+                    help: aiDiffDraft.summary
+                ) {
+                    dispatch(aiDiffDraft.previewCommand)
+                }
+                iconButton(
+                    symbol: "checkmark",
+                    label: "Accept AI edit",
+                    help: "Apply the staged AI edit preview."
+                ) {
+                    dispatch(aiDiffDraft.acceptCommand)
+                }
+                iconButton(
+                    symbol: "xmark",
+                    label: "Reject AI edit",
+                    help: "Discard the staged AI edit preview."
+                ) {
+                    dispatch(aiDiffDraft.rejectCommand)
+                }
             }
         }
+    }
+
+    private func dockButton(
+        title: String,
+        symbol: String,
+        help: String,
+        action: @escaping @MainActor () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 16)
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 8)
+            .background(.thinMaterial, in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(.separator.opacity(0.38), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    private func iconButton(
+        symbol: String,
+        label: String,
+        help: String,
+        action: @escaping @MainActor () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .symbolRenderingMode(.hierarchical)
+                .font(.system(size: 12, weight: .bold))
+                .frame(width: 30, height: 30)
+                .background(.thinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.separator.opacity(0.38), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(label)
     }
 }
 

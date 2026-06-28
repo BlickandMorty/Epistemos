@@ -107,6 +107,33 @@ public enum CommandRegistrations {
             menuPath: .view,
             command: .setContentWidth(mode: .wide)
         )
+        registerEditorCommand(
+            registry,
+            id: "epdoc.aiDiffAccept",
+            title: "Accept AI Edit",
+            subtitle: "Apply the staged AI edit preview",
+            symbol: "checkmark.circle",
+            menuPath: .edit,
+            command: .acceptAIDiff
+        )
+        registerEditorCommand(
+            registry,
+            id: "epdoc.aiDiffReject",
+            title: "Reject AI Edit",
+            subtitle: "Discard the staged AI edit preview",
+            symbol: "xmark.circle",
+            menuPath: .edit,
+            command: .rejectAIDiff
+        )
+        registerEditorCommand(
+            registry,
+            id: "epdoc.aiDiffClear",
+            title: "Clear AI Edit Preview",
+            subtitle: "Remove AI edit preview decorations",
+            symbol: "eraser",
+            menuPath: .edit,
+            command: .clearAIDiff
+        )
 
         registerEditorCommand(
             registry,

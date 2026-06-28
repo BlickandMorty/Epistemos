@@ -615,6 +615,27 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(cmd.javaScriptExpression() == #"window.epistemos.runCommand("toggleHeading", ...[{"level":2}])"#)
     }
 
+    @Test("AI diff commands use the settled preview bridge contract")
+    func aiDiffCommandsUseSettledPreviewContract() throws {
+        let request = try #require(EpdocAIDiffStageRequest(
+            markdown: "Body",
+            claimId: "claim-1",
+            batchId: "batch-1"
+        ))
+        #expect(request.settled)
+        #expect(EpdocAIDiffStageRequest(markdown: " ", claimId: "claim-1", batchId: "batch-1") == nil)
+        #expect(EpdocAIDiffStageRequest(markdown: "Body", claimId: "", batchId: "batch-1") == nil)
+
+        #expect(EpdocEditorCommand.stageAIDiff(request: request).javaScriptExpression()
+                == #"window.epistemos.runCommand("stageEpdocAIDiff", ...[{"markdown":"Body","claimId":"claim-1","batchId":"batch-1","settled":true}])"#)
+        #expect(EpdocEditorCommand.acceptAIDiff.javaScriptExpression()
+                == #"window.epistemos.runCommand("acceptEpdocAIDiff", ...[])"#)
+        #expect(EpdocEditorCommand.rejectAIDiff.javaScriptExpression()
+                == #"window.epistemos.runCommand("rejectEpdocAIDiff", ...[])"#)
+        #expect(EpdocEditorCommand.clearAIDiff.javaScriptExpression()
+                == #"window.epistemos.runCommand("clearEpdocAIDiff", ...[])"#)
+    }
+
     @Test("setContentWidth routes through the namespaced inbound bridge")
     func setContentWidthCommand() {
         #expect(EpdocEditorCommand.setContentWidth(mode: .normal).javaScriptExpression() == #"window.epistemos.setContentWidth("720px")"#)

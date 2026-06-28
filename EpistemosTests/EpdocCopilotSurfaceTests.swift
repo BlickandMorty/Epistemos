@@ -31,6 +31,20 @@ nonisolated struct EpdocCopilotSurfaceTests {
         #expect(argsJSON == Data("[]".utf8))
     }
 
+    @Test("AI diff review draft maps only to bounded review commands")
+    func aiDiffReviewDraftCommandsAreBounded() throws {
+        let request = try #require(EpdocAIDiffStageRequest(
+            markdown: "# Revised\n\nSettled body.",
+            claimId: "claim-review",
+            batchId: "batch-review"
+        ))
+        let draft = EpdocAIDiffReviewDraft(request: request)
+
+        #expect(draft.previewCommand == .stageAIDiff(request: request))
+        #expect(draft.acceptCommand == .acceptAIDiff)
+        #expect(draft.rejectCommand == .rejectAIDiff)
+    }
+
     @Test("epdoc chrome mounts native bottom document actions")
     func chromeMountsNativeCopilotDock() throws {
         let chrome = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
@@ -43,6 +57,9 @@ nonisolated struct EpdocCopilotSurfaceTests {
                 "The document actions should stay in bottom native chrome, not inside the WebKit document body.")
         #expect(dock.contains("HTML Workspace"))
         #expect(dock.contains("Add frontmatter"))
+        #expect(dock.contains("Review edit"))
+        #expect(dock.contains("Accept AI edit"))
+        #expect(dock.contains("Reject AI edit"))
         #expect(!dock.contains("Ask Epdoc"))
         #expect(!dock.contains("TextField("))
         #expect(!dock.contains("EpdocCopilotMessageBubble"))

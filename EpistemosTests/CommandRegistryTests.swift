@@ -119,6 +119,13 @@ struct CommandRegistryTests {
 
         let editMenuIDs = registry.menuCommands(path: .edit).map(\.id)
         #expect(editMenuIDs.contains("epdoc.findReplace"))
+        #expect(editMenuIDs.contains("epdoc.aiDiffAccept"))
+        #expect(editMenuIDs.contains("epdoc.aiDiffReject"))
+
+        let acceptAIEdit = registry.matching(query: "accept ai edit", scope: .note).first { $0.id == "epdoc.aiDiffAccept" }
+        #expect(acceptAIEdit != nil)
+        acceptAIEdit?.run()
+        #expect(captured.last == .acceptAIDiff)
 
         registry.deactivateNoteSurface(id: ObjectIdentifier(token))
         #expect(registry.matching(query: "bold", scope: .note).isEmpty)
