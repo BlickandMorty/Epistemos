@@ -259,5 +259,5 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 5. Add runtime supervisor + loopback WebView shell. **Runtime launch contract and WKWebView loopback shell landed;
    live smoke still waits on staged Pro payload.**
 6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
-   **Source-only adapter contract landed; Rust discovery wiring and live tool smoke still pending.**
+   **Source-only adapter contract and Rust discovery wiring landed; live tool smoke still pending.**
 7. Run the full Pro smoke suite, then the MAS boundary audit.
