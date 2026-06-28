@@ -497,3 +497,26 @@ Custom-provider CRUD is dead REST (`createCustomProvider`/`updateCustomProvider`
 `providersCustom{Create,Update,Read,Delete}_unstable`, so the GOLDEN-RULE path
 is available. Apply verify-then-fix next. Remaining queue after that:
 tools/permissions list (`toolsList_unstable`), dictation, mode persistence.
+
+## Addendum 2026-06-28 (PM #2) — custom-provider CRUD landed + full surface re-proven
+
+`05a9f4e65` bridged the full custom-provider CRUD (create/read/update/delete)
+onto the live `providersCustom*_unstable` methods — ProviderGrid (Settings, 4
+sites) + ProviderSelector (onboarding create). Desktop snake_case body mapped to
+the ACP camelCase wire shape; ACP read DTO mapped back into the
+`DeclarativeProviderConfig` the edit form consumes. **Re-runnable evidence (clean
+compile window after contention from ~11 concurrent agent xcodebuilds eased):**
+`build-for-testing` SUCCEEDED, parity gate `stagingGraftsWireLiveParityFeatures`
+(now +17 CRUD assertions, 39 total) passed **0.049s**, suite 3/3 — log
+`build/goose-phase0-claude-2026-06-28/gate-crud-fg-*.log`. STEP-1 combined live
+sweep then re-proven WITH the CRUD/welcome-grid/preferences grafts all baked into
+the rebuilt staged surface — **5/5 suites, 42.7s** (log `sweep-crud-2026-06-28-160950.log`):
+ProviderCatalog 0.44s (Goose-only catalog), SessionLifecycle 2.5s, CustomCapability
+0.94s, WebPrompt 18.6s (prompt -> end_turn), WebRoute 20.2s (routes render). No
+regression from this session's grafts; GOLDEN RULE + no-silent-drops hold.
+
+Tools/permissions list researched (`PermissionModal`, `McpApps/toolsCache`):
+ACP `toolsList_unstable({sessionId})` exists but returns ALL session tools while
+the REST path filtered server-side by `extension_name`; tool->extension is the
+`extension__tool` name-prefix convention (display name casing may differ), so it
+needs live filtering verification before locking (tracked, not rushed).
