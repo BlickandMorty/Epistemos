@@ -443,3 +443,45 @@ and the recursive 3-pass gate met. Phase 0 remains **NOT signed off** — the
 owner §7 checklist (`GOOSE_PHASE_0_OWNER_SIGNOFF_CHECKLIST_2026_06_28.md`)
 manual pass + browser OAuth, plus Gate 3 live thinking and Gate 5
 window-affordance/MAS-WRV, are the remaining gates.
+
+## Addendum 2026-06-28 (PM) — owner feature-parity hardening (Claude, continued)
+
+Owner re-flagged silently-missing controls vs real Goose ("things work but not
+all"; model switcher, Thinking Effort, and the first-run provider grid). Each
+was VERIFIED as the dead-`@/api`-REST-not-grafted-to-ACP root cause before any
+change, then fixed live-from-ACP (GOLDEN RULE), gated by a strict test, and
+committed. Commits this pass on `feat/goose-surface`:
+
+- `c4995667b` — Thinking Effort / voice-dictation / auto-compact now PERSIST
+  across restart via the live `preferencesSave_unstable`/`preferencesRead_unstable`
+  ACP methods (were written to an in-memory map that reset every load and never
+  reached Goose). Reads are 4s-timeout-bounded so they can't block route renders
+  (same regression class the config-status overlay hit). **Re-runnable evidence:**
+  staging tsc validate exit 0; live `GooseWebRouteLiveIntegrationTests`
+  PASSED in 39.9s (renders provider/settings/extensions/skills routes with the
+  preference reads live) — log `build/goose-phase0-claude-2026-06-28/webroute-pref-direct-2026-06-28-150116.log`.
+  This closes the owner's "I don't see effort" end-to-end: appears (inventory
+  reasoning) -> applies (setSessionConfigOption) -> persists (preferences).
+- `ee69809a9` — parity gate test (`stagingGraftsWireLiveParityFeatures`) extended
+  with 12 assertions locking the preference-backed persistence grafts.
+  **Re-runnable evidence:** `GooseWebUIStagingTests` suite 3/3 green, gate test
+  0.024s — log `build/goose-phase0-claude-2026-06-28/gatesuite-run-*.log`.
+- `af1521aa3` — first-run welcome provider grid (OnboardingGuard ->
+  ProviderSelector) now populated from `getAcpProviders()` under USE_ACP_CHAT;
+  was dead REST `GET /config/providers` -> threw -> empty dropdown (owner: "my
+  app is not doing that at all"). Onboarding is NOT bypassed (passthrough stays
+  gate-forbidden). +5 gate assertions. **Re-runnable evidence:** staging tsc
+  validate exit 0 (anchors matched real upstream source); re-staged to App
+  Support (`built in 7.10s`). Focused gate-suite RE-RUN pending a clean
+  app-target compile window — the shared tree was churning under concurrent
+  agents (transient `widthMode` compile error in another agent's uncommitted
+  EpdocMarkdownWriteThrough.swift, then a Rust `libgraph_engine.a` mktemp build
+  race); my files contribute zero errors. Next iteration confirms green.
+
+### Next verified gap (teed up, not yet fixed)
+Custom-provider CRUD is dead REST (`createCustomProvider`/`updateCustomProvider`/
+`deleteCustomProvider` in `ProviderGrid.tsx` and `ProviderSelector.tsx:130`'s
+"Add custom provider" submit) — un-grafted. ACP SDK exposes
+`providersCustom{Create,Update,Read,Delete}_unstable`, so the GOLDEN-RULE path
+is available. Apply verify-then-fix next. Remaining queue after that:
+tools/permissions list (`toolsList_unstable`), dictation, mode persistence.
