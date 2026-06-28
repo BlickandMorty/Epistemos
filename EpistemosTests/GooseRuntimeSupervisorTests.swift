@@ -263,6 +263,22 @@ struct GooseRuntimeSupervisorTests {
         #expect(!source.contains("detailRow(\"Goose\","))
     }
 
+    @Test("native prompt overlay is cancelled on every teardown path + ready-loops honor cancellation")
+    func surfaceTeardownCancelsPromptsAndHonorsCancellation() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        // A permission/elicitation overlay must NOT survive a goose death/restart:
+        // cancelPendingPrompts() must run on onDisappear AND restartSurface AND the
+        // runtime-failure case AND the load-failure branch (>= 4 sites), not just
+        // onDisappear — otherwise an orphaned native overlay sticks on screen after
+        // a reconnect/restart.
+        let cancelCount = source.components(separatedBy: "nativePromptBridge.cancelPendingPrompts()").count - 1
+        #expect(cancelCount >= 4, "cancelPendingPrompts must cover onDisappear + restart + runtime-failure + load-failure; found \(cancelCount)")
+        // The ready-polling loops must honor Task cancellation so a disappeared view
+        // does not busy-spin or do post-teardown work (connect/load against a torn-down surface).
+        let guardCount = source.components(separatedBy: "guard !Task.isCancelled else { return }").count - 1
+        #expect(guardCount >= 3, "expected cancellation guards in loadWhenReady + loadGooseUIWhenReady + native ACP loop; found \(guardCount)")
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!
