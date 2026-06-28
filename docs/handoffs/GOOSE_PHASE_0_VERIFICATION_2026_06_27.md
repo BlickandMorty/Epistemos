@@ -520,3 +520,25 @@ ACP `toolsList_unstable({sessionId})` exists but returns ALL session tools while
 the REST path filtered server-side by `extension_name`; tool->extension is the
 `extension__tool` name-prefix convention (display name casing may differ), so it
 needs live filtering verification before locking (tracked, not rushed).
+
+## Addendum 2026-06-28 (PM #3) — security hardening (cwd resolution) + regression re-proof
+
+Thermonuclear finding [11] closed in full (both cwd-resolution paths
+`#if DEBUG`-guarded so a shipped Release build cannot resolve a goose binary or
+WebView index from a process-cwd `.research-clones` path):
+- `bd0a01590` — `gooseBinaryCandidates` (the EXECUTED path); test
+  `checkoutBinaryCandidatesAreDebugGuarded`.
+- `a18e6cf30` — `GooseWebUIResolver.candidateIndexURLs` (the privileged
+  ACP-bridged WebView content path); test `checkoutWebIndexCandidateIsDebugGuarded`.
+- Earlier `bba405ed2` — finding [2] restart port-release race.
+
+**Re-runnable evidence:** supervisor + resolver focused suites **21/21 green**
+(incl. both new guard tests and `resolver supports Application Support staging and
+checkout dist fallback`, proving DEBUG resolution is unchanged). STEP-1 combined
+live sweep re-run AFTER the hardening — **5/5 suites, 41.8s** (log
+`build/goose-phase0-claude-2026-06-28/sweep-postharden-2026-06-28-165051.log`):
+ProviderCatalog 0.45s, SessionLifecycle 4.2s, CustomCapability 0.79s, WebPrompt
+17.7s, WebRoute 18.7s. The security guards are regression-free on the live path
+(the live suites run DEBUG and still resolve via the retained checkout candidates).
+Thermonuclear backlog now: 7 batch + [2] + [11] fixed; 22 deferred (P3 internal,
+incl. [11] Electron remainder under [10]).
