@@ -1273,7 +1273,9 @@ private func loadRepoTextFile(_ relativePath: String) throws -> String {
 
 @MainActor
 private func waitUntilSupervisorStatus(_ condition: @escaping @MainActor () -> Bool) async throws {
-    for _ in 0..<50 {
+    // Up to ~5s: covers the supervisor's portReleaseGrace window (2s) before it
+    // declares a still-answering port occupied, plus margin.
+    for _ in 0..<250 {
         if condition() { return }
         try await Task.sleep(nanoseconds: 20_000_000)
     }
