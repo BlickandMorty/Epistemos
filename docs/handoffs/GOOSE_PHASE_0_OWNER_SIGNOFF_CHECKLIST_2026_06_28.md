@@ -35,6 +35,32 @@ proof logs under `/tmp/epistemos-goose-phase0-*.log`.
 
 ---
 
+## Feature-parity closures since this checklist was first written (2026-06-28 PM)
+
+Directly addressing your "feature completeness 100% is the main gate" — the
+silently-missing controls (dead `@/api` REST not grafted to ACP) found and fixed,
+each gated by a strict test and re-proven by the 5/5 live sweep:
+
+- **Thinking Effort** now end-to-end: appears (live inventory `reasoning`),
+  applies to the agent (`setSessionConfigOption thinking_effort`), and PERSISTS
+  across restart (`preferencesSave/Read_unstable`). (`c4995667b`)
+- **First-run welcome provider grid** populates from the live ACP catalog
+  (OnboardingGuard → ProviderSelector); was an empty dead-REST dropdown — your
+  "my app is not doing that at all." (`af1521aa3`)
+- **Custom-provider CRUD** (add/edit/delete) bridged onto
+  `providersCustom*_unstable`; adding/editing a custom provider previously threw
+  silently. (`05a9f4e65`)
+- Model switcher / config-status / auth credentials (earlier this loop).
+- Gate test `stagingGraftsWireLiveParityFeatures` now carries **39 assertions**
+  locking every graft (passes 0.049s); the parity-gate IS the regression guard
+  you asked for ("deep hardened strict tests moving forward").
+
+Still tracked (verify-then-fix, not yet grafted): tools/permissions list
+(`toolsList_unstable` — needs live extension-prefix filtering check), dictation,
+agent-mode cross-restart persistence (no `GOOSE_MODE` preference home in 1.39.0).
+
+---
+
 ## OWNER — manual app pass (please click through and confirm)
 
 Launch the current Debug build:
@@ -53,6 +79,15 @@ Launch the current Debug build:
       from the Goose ACP catalog. (A provider-specific model error for a local
       provider whose server is off — e.g. LM Studio/Ollama — is acceptable and is
       NOT the same as a generic "ACP WebSocket connection failed".)
+- [ ] **Settings → Models → Thinking Effort**: for a reasoning-capable model the
+      effort selector is visible, changing it applies, and it survives an app
+      restart (newly persisted this pass).
+- [ ] **First run / welcome**: with no provider configured, the welcome screen's
+      provider list is populated (not empty) and configured providers read as
+      ready.
+- [ ] **Settings → Models → Add custom provider** (and edit/delete an existing
+      one): the form saves without a silent failure; the new provider appears and
+      is selectable.
 - [ ] **New Chat**: the prompt input appears after loading; the default
       provider/model shows; a tiny prompt streams and returns.
 - [ ] **Apps**: route loads. `No apps available` is fine; a generic
