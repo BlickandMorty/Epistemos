@@ -50,6 +50,16 @@ struct GooseWebRouteLiveIntegrationTests {
                     anyText: ["Models", "Provider", "Model"]
                 ),
                 .init(
+                    route: "/settings?section=auth",
+                    eventView: "settings",
+                    eventSection: "auth",
+                    requiredText: ["Settings", "Provider Credentials"],
+                    requiredACPMethods: ["_goose/unstable/providers/config/status"],
+                    forbiddenText: GooseWebRouteExpectation.defaultForbiddenText + [
+                        "Failed to load provider credentials",
+                    ]
+                ),
+                .init(
                     route: "/extensions",
                     requiredText: ["Extensions"],
                     anyText: ["Default Extensions", "Available Extensions", "developer", "No extensions available"],
@@ -191,6 +201,23 @@ private func fetchLiveProviderCatalogRouteMarkers(acpURL: URL) async throws -> [
 }
 
 private struct GooseWebRouteExpectation: Sendable {
+    static let defaultForbiddenText: [String] = [
+        "Epistemos native host has not implemented",
+        "Error Loading Recipes",
+        "Error Loading Sessions",
+        "Error Loading Skills",
+        "Error loading apps",
+        "Failed to refresh apps",
+        "Failed to import app",
+        "Failed to export app",
+        "Failed to launch app",
+        "Application error",
+        "No routes matched location",
+        "Provider config key is not available through Goose ACP",
+        "Failed to check dictation config",
+        "Failed to check telemetry config",
+    ]
+
     let route: String
     let eventView: String
     let eventSection: String?
@@ -206,22 +233,7 @@ private struct GooseWebRouteExpectation: Sendable {
         requiredText: [String],
         anyText: [String] = [],
         requiredACPMethods: [String] = [],
-        forbiddenText: [String] = [
-            "Epistemos native host has not implemented",
-            "Error Loading Recipes",
-            "Error Loading Sessions",
-            "Error Loading Skills",
-            "Error loading apps",
-            "Failed to refresh apps",
-            "Failed to import app",
-            "Failed to export app",
-            "Failed to launch app",
-            "Application error",
-            "No routes matched location",
-            "Provider config key is not available through Goose ACP",
-            "Failed to check dictation config",
-            "Failed to check telemetry config",
-        ]
+        forbiddenText: [String] = Self.defaultForbiddenText
     ) {
         self.route = route
         self.eventView = eventView ?? String(route.drop(while: { $0 == "/" }).split(separator: "?").first ?? "")

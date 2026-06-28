@@ -57,6 +57,7 @@ import type {
   ModelTemplate,
   ProviderCatalogEntry,
   ProviderDetails,
+  ProviderSecret,
   ProviderTemplate,
   ProviderType,
 } from '../api';
@@ -97,6 +98,11 @@ type ProviderConfigFieldValue = {
   value?: string | null;
   isSet?: boolean;
   isSecret?: boolean;
+};
+
+type ProviderConfigStatus = {
+  providerId: string;
+  isConfigured: boolean;
 };
 
 type ProviderConfigFieldUpdate = {
@@ -556,6 +562,14 @@ export async function readAcpProviderConfigFields(
   return (response.fields ?? []) as ProviderConfigFieldValue[];
 }
 
+export async function readAcpProviderConfigStatuses(
+  providerIds: string[] = []
+): Promise<ProviderConfigStatus[]> {
+  const client = await getAcpClient();
+  const response = await client.goose.providersConfigStatus_unstable({ providerIds });
+  return (response.statuses ?? []) as ProviderConfigStatus[];
+}
+
 async function providerForConfigKey(key: string): Promise<ProviderDetails> {
   const providers = await getAcpProviders();
   const matches = providers.filter((provider) =>
@@ -711,6 +725,69 @@ export async function listAcpProviderModels(providerId: string): Promise<ModelIn
     context_limit: 0,
     reasoning: false,
   }));
+}
+
+function acpProviderSecret(provider: ProviderDetails, key: ConfigKey, field: ProviderConfigFieldValue): ProviderSecret {
+  const displayName = provider.metadata.display_name || provider.name;
+  const isSet = Boolean(field.isSet);
+  return {
+    id: `acp_provider_config:${provider.name}:${key.name}`,
+    provider: provider.name,
+    provider_display_name: displayName,
+    name: key.name,
+    storage: 'secret_store',
+    expires_at: null,
+    status: 'unknown',
+    configured: isSet,
+    has_secret: isSet,
+    can_delete: false,
+    can_configure: Boolean(key.oauth_flow || key.device_code_flow),
+    configure_provider: key.oauth_flow || key.device_code_flow ? provider.name : null,
+  };
+}
+
+export async function listAcpProviderSecrets(): Promise<ProviderSecret[]> {
+  const providers = await getAcpProviders();
+  const secretProviders = providers.filter((provider) =>
+    provider.metadata.config_keys.some((key) => key.secret)
+  );
+  if (secretProviders.length === 0) {
+    return [];
+  }
+
+  let configuredProviderIds = new Set<string>();
+  try {
+    const statuses = await readAcpProviderConfigStatuses(secretProviders.map((provider) => provider.name));
+    configuredProviderIds = new Set(
+      statuses.filter((status) => status.isConfigured).map((status) => status.providerId)
+    );
+    recordProviderInventoryEvent('credential-status', String(configuredProviderIds.size));
+  } catch (error: unknown) {
+    recordProviderInventoryEvent('credential-status-error', acpErrorMessage(error));
+    return [];
+  }
+
+  const secrets: ProviderSecret[] = [];
+  for (const provider of secretProviders) {
+    if (!configuredProviderIds.has(provider.name)) {
+      continue;
+    }
+    const secretKeys = provider.metadata.config_keys.filter((key) => key.secret);
+    try {
+      const fields = await readAcpProviderConfigFields(provider.name);
+      for (const key of secretKeys) {
+        const field = fields.find((entry) => entry.key === key.name);
+        if (field?.isSet) {
+          secrets.push(acpProviderSecret(provider, key, field));
+        }
+      }
+    } catch (error: unknown) {
+      recordProviderInventoryEvent('credential-skip', `${provider.name}:${acpErrorMessage(error)}`);
+    }
+  }
+  return secrets.sort((a, b) =>
+    a.provider_display_name.localeCompare(b.provider_display_name) || a.name.localeCompare(b.name)
+  );
 }
 
 export async function validateAcpProviderModels(providerId: string): Promise<void> {
@@ -1517,6 +1594,80 @@ if (source.includes(oauthAnchor)) {
 fs.writeFileSync(path, source);
 NODE
 
+AUTH_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
+node - "$AUTH_SETTINGS_SECTION" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`AuthSettingsSection ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+const importAnchor = `import {
+  configureProviderOauth,
+  deleteProviderSecret,
+  listProviderSecrets,
+  ProviderSecret,
+} from '../../../api';`;
+const imports = `${importAnchor}
+import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';
+import {
+  authenticateAcpProviderConfig,
+  listAcpProviderSecrets,
+} from '../../../acp/providers';`;
+if (!source.includes('listAcpProviderSecrets')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('AuthSettingsSection API import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+replaceRequired(
+  'ACP provider secret load',
+  `      const response = await listProviderSecrets({ throwOnError: true });
+      setSecrets(response.data?.secrets ?? []);`,
+  `      if (USE_ACP_CHAT) {
+        setSecrets(await listAcpProviderSecrets());
+        return;
+      }
+      const response = await listProviderSecrets({ throwOnError: true });
+      setSecrets(response.data?.secrets ?? []);`
+);
+
+replaceRequired(
+  'ACP provider OAuth configure',
+  `      await configureProviderOauth({
+        path: { name: secret.configure_provider },
+        throwOnError: true,
+      });`,
+  `      if (USE_ACP_CHAT) {
+        await authenticateAcpProviderConfig(secret.configure_provider);
+      } else {
+        await configureProviderOauth({
+          path: { name: secret.configure_provider },
+          throwOnError: true,
+        });
+      }`
+);
+
+for (const snippet of [
+  'USE_ACP_CHAT',
+  'listAcpProviderSecrets()',
+  'authenticateAcpProviderConfig(secret.configure_provider)',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`AuthSettingsSection staged source is missing required ACP auth snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 MODEL_INTERFACE="$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
 node - "$MODEL_INTERFACE" <<'NODE'
 const fs = require('fs');
@@ -1568,9 +1719,35 @@ function epistemosProviderModelErrorMessage(provider: ProviderDetails, error: un
   }
   return \`Failed to fetch models for \${provider.name}\${errMsg ? \`: \${errMsg}\` : ''}\`;
 }
+
+function epistemosKnownModelFallback(provider: ProviderDetails): Model[] {
+  return provider.metadata.known_models.map(
+    (m) =>
+      ({
+        name: m.name,
+        provider: provider.name,
+        context_limit: m.context_limit,
+        reasoning: m.reasoning ?? undefined,
+      }) as Model
+  );
+}
 `
   );
 }
+
+replaceRequired(
+  'known model fallback helper',
+  `        const fallbackModels = p.metadata.known_models.map(
+          (m) =>
+            ({
+              name: m.name,
+              provider: p.name,
+              context_limit: m.context_limit,
+              reasoning: m.reasoning ?? undefined,
+            }) as Model
+        );`,
+  `        const fallbackModels = epistemosKnownModelFallback(p);`
+);
 
 replaceRequired(
   'ACP supported models branch',
@@ -1578,21 +1755,35 @@ replaceRequired(
       // For local provider, use listLocalModels and filter to only downloaded models`,
   `    try {
       if (USE_ACP_CHAT) {
-        const acpModels = await listAcpProviderModels(p.name);
-        if (acpModels.length === 0) {
-          throw new Error(\`Goose ACP supported model inventory returned zero models for \${p.name}.\`);
+        try {
+          const acpModels = await listAcpProviderModels(p.name);
+          if (acpModels.length === 0) {
+            throw new Error(\`Goose ACP supported model inventory returned zero models for \${p.name}.\`);
+          }
+          const inventoryModels = new Map(p.metadata.known_models.map((model) => [model.name, model]));
+          const models = acpModels.map(
+            (m) =>
+              ({
+                name: m.name,
+                provider: p.name,
+                context_limit: inventoryModels.get(m.name)?.context_limit ?? m.context_limit,
+                reasoning: inventoryModels.get(m.name)?.reasoning ?? m.reasoning ?? undefined,
+              }) as Model
+          );
+          return { provider: p, models, error: null, warning: null };
+        } catch (e: unknown) {
+          const fallbackModels = epistemosKnownModelFallback(p);
+          if (fallbackModels.length > 0) {
+            console.warn(\`Failed to fetch ACP models for \${p.name}:\`, getErrorMessage(e));
+            return {
+              provider: p,
+              models: fallbackModels,
+              error: null,
+              warning: \`Could not fetch live models from Goose ACP - showing Goose catalog models instead.\`,
+            };
+          }
+          throw e;
         }
-        const inventoryModels = new Map(p.metadata.known_models.map((model) => [model.name, model]));
-        const models = acpModels.map(
-          (m) =>
-            ({
-              name: m.name,
-              provider: p.name,
-              context_limit: inventoryModels.get(m.name)?.context_limit ?? m.context_limit,
-              reasoning: inventoryModels.get(m.name)?.reasoning ?? m.reasoning ?? undefined,
-            }) as Model
-        );
-        return { provider: p, models, error: null, warning: null };
       }
 
       // For local provider, use listLocalModels and filter to only downloaded models`
@@ -1622,6 +1813,8 @@ replaceRequired(
 for (const snippet of [
   'listAcpProviderModels(p.name)',
   'Goose ACP supported model inventory returned zero models',
+  'epistemosKnownModelFallback(p)',
+  'showing Goose catalog models instead',
   'const providers = await getAcpProviders()',
   'LM Studio is not reachable at http://localhost:1234',
 ]) {
@@ -2364,6 +2557,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "name: model.id || model.name" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "listAcpProviderModels(p.name)" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
     grep -q "LM Studio is not reachable at http://localhost:1234" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
+    grep -q "listAcpProviderSecrets" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "providersConfigStatus_unstable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "await listAcpProviderSecrets()" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "Epistemos Apps bridge unavailable" "$WORK_ROOT/ui/desktop/src/epistemos/appsBridge.ts"
     grep -q "import { exportApp, importApp, listApps } from '../../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
     grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts"

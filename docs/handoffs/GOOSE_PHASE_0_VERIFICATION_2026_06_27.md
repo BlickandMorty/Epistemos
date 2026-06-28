@@ -144,6 +144,47 @@ still expected when the selected provider itself is not configured or not
 running, for example LM Studio without a reachable local server. That is not
 the same failure as `ACP WebSocket connection failed`.
 
+## 2026-06-28 Auth/Provider Credentials Repair Addendum
+
+The follow-up owner screenshots showed `Failed to load provider credentials`
+on Settings -> Auth and model-picker/provider errors after the first route
+repair. That exposed one remaining stale HTTP path in the staged Goose Web UI:
+the Auth provider credentials surface was still calling the raw Goose HTTP
+client instead of the native/custom ACP bridge.
+
+This pass keeps the repair inside Phase 0:
+
+- `AuthSettingsSection` now lists credentials through ACP
+  `providers/config/status`, then reads fields only for configured providers.
+  It no longer calls the old raw HTTP provider-secret path in ACP mode.
+- Provider model fetches still prefer live Goose ACP
+  `providers/model/list`; if the provider endpoint itself rejects or is not
+  running, the picker falls back to `known_models` from the Goose ACP provider
+  catalog. No Swift/manual provider list was introduced.
+- The live route smoke now covers `/settings?section=auth` and explicitly
+  forbids `Failed to load provider credentials`.
+
+Fresh focused proof passed at
+`build/xcode-results/2026-06-28-goose-web-route-auth-provider-fallback-2.xcresult`
+and wrote `/tmp/epistemos-goose-phase0-webview-route-smoke.log`:
+
+```text
+phase0_live_webview_route_smoke=pass
+provider_markers_source=goose_acp
+provider_catalog_picker_acp_methods=_goose/unstable/providers/catalog/list
+route=/settings?section=auth required_hits=Settings,Provider Credentials forbidden_hits= required_acp_methods=_goose/unstable/providers/config/status seen_acp_methods=_goose/unstable/providers/config/status
+route=/apps required_hits=Apps any_hits=Import App,No apps available forbidden_hits=
+route=/sessions required_hits=Session History any_hits=CHATS forbidden_hits= required_acp_methods=session/list seen_acp_methods=session/list
+route=/skills required_acp_methods=_goose/unstable/sources/list seen_acp_methods=_goose/unstable/sources/list
+```
+
+The patched Web UI was also rebuilt and staged into
+`~/Library/Application Support/Epistemos/GooseWebUI` on 2026-06-28 so the
+Debug app can load this exact bundle. This still does not sign off Phase 0:
+owner/browser-mediated OAuth success, Gate 3 stream-contract resolution, deeper
+provider/settings parity, window-affordance proof, MAS/manual/distribution WRV,
+and owner sign-off remain open.
+
 One extra Xcode command targeting
 `ReleasePackagingHardeningTests/runtimeAssetBundlerStagesGooseOnlyForDirectDistribution`
 returned `TEST SUCCEEDED` but selected zero tests, so it is not counted as proof.
