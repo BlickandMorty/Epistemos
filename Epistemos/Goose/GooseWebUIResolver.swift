@@ -102,10 +102,19 @@ enum GooseWebUIResolver {
             candidates.append(appSupportDirectory.appendingPathComponent("Epistemos/GooseWebUI/index.html"))
         }
 
+        // The cwd-relative `.research-clones` index is loaded into the ACP-bridged
+        // (privileged) WebView. A shipped (Release) build must never source its web
+        // content from a process-cwd path — that would let an influenced cwd inject
+        // markup into a window that holds the native Goose bridge. Release resolves
+        // only explicit-env / bundled / AppSupport candidates (where the UI is
+        // actually staged); DEBUG keeps the checkout index for local dev + the live
+        // test suites. (Thermonuclear finding [11] remainder: web-index candidate safety.)
+        #if DEBUG
         candidates.append(
             URL(fileURLWithPath: currentDirectory)
                 .appendingPathComponent(".research-clones/work/goose/ui/desktop/dist/index.html")
         )
+        #endif
 
         return candidates
     }

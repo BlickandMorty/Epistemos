@@ -221,6 +221,29 @@ struct GooseRuntimeSupervisorTests {
         #expect(source.contains("bundle?.url(forResource: \"goose\", withExtension: nil)"))
     }
 
+    @Test("checkout-relative web index candidate is DEBUG-only (no cwd content in the privileged WebView in release)")
+    func checkoutWebIndexCandidateIsDebugGuarded() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebUIResolver.swift")
+        // The cwd `.research-clones` index.html is loaded into the ACP-bridged
+        // WebView; Release must resolve only explicit-env / bundled / AppSupport.
+        // Prove the checkout-index append is wrapped in #if DEBUG.
+        let marker = "web-index candidate safety.)"
+        #expect(source.contains(marker))
+        if let m = source.range(of: marker) {
+            let after = source[m.upperBound...]
+            let ifIdx = after.range(of: "#if DEBUG")
+            let checkoutIdx = after.range(of: ".research-clones/work/goose/ui/desktop/dist/index.html")
+            let endifIdx = after.range(of: "#endif")
+            #expect(ifIdx != nil && checkoutIdx != nil && endifIdx != nil)
+            if let i = ifIdx, let c = checkoutIdx, let e = endifIdx {
+                #expect(i.lowerBound < c.lowerBound, "#if DEBUG must precede the checkout index")
+                #expect(c.lowerBound < e.lowerBound, "checkout index must precede #endif")
+            }
+        }
+        // AppSupport staged index stays unconditional (real-install path).
+        #expect(source.contains("Epistemos/GooseWebUI/index.html"))
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!

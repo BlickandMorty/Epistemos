@@ -178,10 +178,18 @@ and bundle candidates — no code-execution-from-cwd. DEBUG keeps the checkout
 candidates for local dev + the live test suites (which run DEBUG). App-target
 build SUCCEEDED with the change; locked by the new test
 `checkoutBinaryCandidatesAreDebugGuarded` (asserts the `#if DEBUG`/`#endif` wraps
-the checkout block and AppSupport/bundle stay unconditional). Still open (lower
-risk, not executed): the GooseWebUIResolver cwd `index.html` and the Electron
-launcher cwd/Downloads paths — those load content / are an already dev-inert
-launcher, not an exec-from-cwd. Track as follow-up.
+the checkout block and AppSupport/bundle stay unconditional).
+
+**WebUIResolver remainder ALSO FIXED (2026-06-28 PM):** the cwd
+`.research-clones/.../dist/index.html` candidate in
+`GooseWebUIResolver.candidateIndexURLs` (loaded into the ACP-bridged, privileged
+WebView) is now `#if DEBUG`-guarded too, so a Release build sources web content
+only from explicit-env / bundled / AppSupport. Locked by
+`checkoutWebIndexCandidateIsDebugGuarded`; supervisor + resolver suites green
+(21/21), including `resolver supports Application Support staging and checkout
+dist fallback` (DEBUG resolution unchanged). Only remaining piece of this finding
+is the Electron launcher cwd/Downloads paths — a separate already-dev-inert tool
+tracked under finding [10].
 
 **Issue:** Binary-resolution candidate safety: `gooseBinaryCandidates` appends executables resolved relative to the process current working directory (`<cwd>/.research-clones/work/goose/target/.../goose`) and `resolvedGooseBinary` will `proc.run()` the first one whose exec bit is set (no signature/ownership/trusted-location check). Process cwd is influenceable in some launch contexts, so this is a code-execution-from-cwd pattern. The same cwd-relative pattern exists for the Web UI index (GooseWebUIResolver) and the Electron workspace (GooseElectronFallbackLauncher, incl. a hardcoded `~/Downloads/Epistemos` path). In a real install the App-Support/bundle candidates win first, so this only bites in dev, 
 
