@@ -5,8 +5,8 @@ surface (`Epistemos/Goose/*`, the 6 Phase-0 diff files, `stage-goose-web-ui.sh`)
 adversarially verified. 41 agents.
 
 - Raw findings: 36  | Confirmed: 30  | Rejected (misreads): 5
-- Fixed in the 2026-06-28 Claude hardening batch: 6
-- Deferred (documented backlog): 24
+- Fixed in the 2026-06-28 Claude hardening batch: 7 (deferred [2] closed in the PM parity pass)
+- Deferred (documented backlog): 23
 
 All boundaries respected: GOLDEN RULE intact, working WebView/ACP path preserved,
 no editor/Plan-3/vendor files touched, deletions (if any) committed separately.
@@ -80,9 +80,25 @@ Not fixed this pass to keep the regression surface small and respect the
 
 *(fix_is_safe=True)*
 
-### [2] P2 · edge-case · `GooseRuntimeSupervisor.swift`:183-187
+### [2] P2 · edge-case · `GooseRuntimeSupervisor.swift`:183-187 — ✅ FIXED (2026-06-28 PM)
 
-**Issue:** Restart race against port release. `run()` does a pre-launch `if await healthCheck(defaultBaseURL) { status = .failed(occupiedPortMessage) }`. But `stop()`/`terminateTrackedProcess` only sends SIGTERM (force SIGKILL is deferred 500ms in OrphanSubprocessCleanup) and returns synchronously. `GooseWebSurfaceView.restartSurface()` calls `supervisor.stop()` immediately followed by `supervisor.start(...)`. The just-killed previous `goose serve` is frequently still bound to 3284 when the new `run()` probes it, so a normal user-initiated restart spuriously fails with "Port 3284 already has a running Goose-compatible service." The same fixed-port design (always `defaultPort`, no fallback) also makes a
+**RESOLVED this session** exactly per the recommended approach. `run()` (now
+`GooseRuntimeSupervisor.swift:208-228`) no longer fails immediately when the
+pre-launch `healthCheck` finds the port up: it polls a bounded grace window
+(`portReleaseGrace = 2s`, 100 ms cadence reused from `waitForReady`) for the port
+to go DOWN, and only declares `occupiedPortMessage` if it stays up the whole
+window. A real foreign Goose-compatible occupant never releases, so genuine
+foreign-occupant detection is preserved; a user-initiated restart's own
+just-terminated `goose serve` releases within the window and the new process
+launches. Behavior-preserving, confined to `GooseRuntimeSupervisor.swift`.
+Covered by two tests: `supervisorRefusesStaleHealthEndpoint` (foreign occupant
+stays up → still fails) and `supervisorToleratesPortReleaseWithinGraceWindow`
+(port releases in-window → launches). This directly removes a spurious
+"Port 3284 already has a running Goose-compatible service" failure on normal
+restart — a likely contributor to the owner-reported intermittent restart/ACP
+flakiness.
+
+**Issue (original):** Restart race against port release. `run()` does a pre-launch `if await healthCheck(defaultBaseURL) { status = .failed(occupiedPortMessage) }`. But `stop()`/`terminateTrackedProcess` only sends SIGTERM (force SIGKILL is deferred 500ms in OrphanSubprocessCleanup) and returns synchronously. `GooseWebSurfaceView.restartSurface()` calls `supervisor.stop()` immediately followed by `supervisor.start(...)`. The just-killed previous `goose serve` is frequently still bound to 3284 when the new `run()` probes it, so a normal user-initiated restart spuriously fails with "Port 3284 already has a running Goose-compatible service." The same fixed-port design (always `defaultPort`, no fallback) also makes a
 
 **Action:** Fix the self-restart race in GooseRuntimeSupervisor.run() before the occupied-port declaration, using a behavior-preserving, low-risk approach confined to GooseRuntimeSupervisor.swift. Preferred: record the PID being terminated in stop()/terminateTrackedProcess, and in run() — when the pre-launch healthCheck reports the port up — poll for a bounded window (e.g. up to ~1-2s, reusing the 100ms cadence already in waitForReady) for the port to go DOWN and/or for that prior PID to be confirmed exited (kill(pid,0) != 0); only declare occupiedPortMessage if it is still up after the window. This keeps foreign-occupant detection intact (a real foreign goose stays up the whole window and still fails) 
 
