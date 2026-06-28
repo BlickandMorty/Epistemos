@@ -49,13 +49,13 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
       → Big finding: **most of the AI-graft infra already EXISTS in Epistemos** (`WorkNativeMCPServer` +
       `WorkToolMCPCore` + `WorkAppContextSnapshot` + the full Goose ACP client). Also an HONESTY
       CORRECTION to a pass-1 claim (see below). Pass 4 next.
-- [~] **Pass 4 (4a+4b DONE, 4c+4d PENDING)** — code-level, per owner's mid-loop directive.
-   - [x] 4a — Tolaria ontology → Epistemos 1:1 code pack → `TOLARIA_ONTOLOGY_UPGRADE_CODEPACK_2026_06_27.md`
-   - [x] 4b — MarkEdit full embed + MarkEdit-as-CODE-EDITOR → `MARKEDIT_EMBED_CODEPACK_2026_06_27.md`
-         (★ discovery: current code editor is a textarea w/ highlighting DISABLED — CM6 is a strict upgrade)
-   - [ ] 4c — maximize-nativeness native-controls map WITH code (native buttons like MarkEdit driving the WebView)
-   - [ ] 4d — Goose minichat: native webview shell, auto-init for open note, note-context MCP, Goose-side eng, code
-   - (Next cron tick runs 4c + 4d. Then pass 5 contradiction audit, pass 6 restructure.)
+- [x] **Pass 4 DONE** — code-level, per owner's mid-loop directive (all 4 codepacks landed):
+   - [x] 4a — `TOLARIA_ONTOLOGY_UPGRADE_CODEPACK_2026_06_27.md`
+   - [x] 4b — `MARKEDIT_EMBED_CODEPACK_2026_06_27.md` (★ current code editor = textarea, highlighting DISABLED)
+   - [x] 4c — `NATIVE_CONTROLS_CODEPACK_2026_06_27.md` (Epdoc already MarkEdit-shaped; gaps = Find/width/palette)
+   - [x] 4d — `GOOSE_MINICHAT_CODEPACK_2026_06_27.md` (native SwiftUI over ACP + webview escape hatch; Phase-0 gated)
+- [ ] **Pass 5** (next): CONTRADICTION AUDIT across ALL editor docs (SS-CM, CODEMIRROR_MD_V2, EPDOC_MD_V2, SS-P,
+      this tracker + 4 codepacks) — find every conflict before the restructure.
 - [ ] **Pass 5:** Contradiction audit across ALL editor docs + the emerging plan.
 - [ ] **Pass 6:** RESTRUCTURE into one canonical plan doc (MarkEdit-in-app + Tolaria revamp on Epdoc +
       Goose AI + ontology + minimal-best toggles).
@@ -322,6 +322,24 @@ per token."** Carry this corrected version into the canonical plan.
   over `RustLSPTransport` (engine-agnostic); CM6 LSP-client extension deferred. Build: clone
   `build-tiptap-bundle.sh`→`build-coreeditor-bundle.sh` (vite+yarn, lock-hash gate); keep `chunk-loader://` first
   (brotli-unify later); adopt Epistemos entitlements (reject MarkEdit's MAS-hostile keys); xcodegen `project.yml`.
+
+### Pass 4c + 4d — code-level (full code in dedicated docs)
+- **4c Native controls** (`NATIVE_CONTROLS_CODEPACK_2026_06_27.md`): ★ Epdoc is ALREADY MarkEdit-shaped
+  (native SwiftUI chrome → `EpdocEditorCommand` → `window.epistemos.*`). Gaps to close: Find/Replace,
+  note-width toggle (CSS var already exists), panel-toggle segmented control + focus-scoped shortcuts, and the
+  big one — a **unified `CommandRegistry` powering menu bar + shortcuts + a NEW Cmd+K palette** (entirely
+  missing; Cmd+K is free). Code provided for all. MUST stay in WebView = the 4 caret-anchored TRIGGERS (slash/
+  bubble/drag-handle/KaTeX) — but their PANELS are already native. Code editor: mirror the enum
+  (`CodeEditorCommand`). Build order: registry+palette → Find/Replace → width → panels → status bar.
+- **4d Goose minichat** (`GOOSE_MINICHAT_CODEPACK_2026_06_27.md`): recommend **native SwiftUI projecting
+  `GooseACPEventBridge`** (NOT the web UI inline) + an "Open in Goose" **webview escape hatch** (same
+  sessionId) — note this diverges from the owner's "native webview shell" phrasing; owner to confirm.
+  Lifecycle = ONE shared session re-scoped per note (cwd=vault constant). Auto-init = `ActiveEpdocTracker`
+  (frontmost note) + `NoteContextProvider` (bounded head/tail body via existing `ProseMirrorMarkdownProjector`)
+  → `WorkNativeMCPHost.updateContext`. **Goose-boundary gaps:** `GooseACPClient.newSession` drops `mcpServers`
+  (1-line), NO cancel/stop method (add `session/cancel`), NO Epdoc UI-steering affordances (add `open_note`/
+  highlight). **Phase-0 GATED:** scaffold + note-context plumbing now (zero Goose dep, testable), flip live
+  after Phase 0 sign-off; mirror the `#if EPISTEMOS_APP_STORE` gate on the minichat surface.
 
 ### Pass 3a — Goose graft architecture (concrete)
 - **Goose seam:** `GooseRuntimeSupervisor` spawns `goose serve` (:3284, hardened env, Keychain keys pushed
