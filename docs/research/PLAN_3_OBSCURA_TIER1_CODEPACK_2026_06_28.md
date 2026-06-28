@@ -1,32 +1,35 @@
-# Plan 3 — Obscura Tier 1 in-app browser (clone-ready code, Pass 4)
+# Plan 3 — Browser Tier 1 in-app browser (clone-ready code, Pass 4)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2`. The LIGHT, MAS-safe slice: a real browser tab you drive like
 > Safari. Standalone — no Rust, no FFI, no agent (Tier 2/3 are separate, Pro). Turns "I can't even see it" into a
 > visible, usable browser. `[VERIFIED-CODE]`/`[INFERRED]` tagged.
 
-## Verified patterns reused
-- WKWebView host + `WKWebsiteDataStore.nonPersistent()` (isolated cookies) + custom nav policy: `GooseWebSurfaceView.swift:436-462,584-603`
-  + `EpdocEditorChromeView.swift:592-631,657-665`. Idle hooks `EpdocWebViewShared.notifyWebViewCreated/Dismantled`
-  (`:35-50`) feed the global memory-pressure handler (`EpistemosApp.swift:600-606`).
-- Window summon: `UtilityWindowManager` + `UtilityPanel` (`:96-146,287-354`); shortcuts in `EpistemosCommands`
-  (`EpistemosApp.swift:1450-1556`).
+## Current verified implementation
+- `Epistemos/Views/Browser/BrowserView.swift` is the Tier-1 Browser surface.
+- `BrowserURLGuard` resolves typed URLs/searches and allows only `http`/`https` navigation.
+- `BrowserTab` owns chrome state and command closures; `BrowserView` renders the SwiftUI toolbar.
+- `BrowserWebView` hosts `WKWebView` with `WKWebsiteDataStore.nonPersistent()`, JavaScript enabled, back/forward
+  gestures, magnification, KVO-driven chrome state, and same-tab `target=_blank` handling.
+- `BrowserWebView.dismantleNSView` stops loading, nils delegates, invalidates KVO through `Coordinator.shutdown()`,
+  clears tab command closures, and notifies `EpdocWebViewShared.notifyWebViewDismantled()`.
+- `UtilityPanel.browser` opens `BrowserView()`, defaults to `1024x720`, and is available from the app Browser command
+  and the Plan 3 landing Browser button.
 
-## New file `Epistemos/Views/Obscura/ObscuraBrowserView.swift`
-- **`ObscuraURLGuard`** — http/https-only `allowedSchemes`; `resolve(raw, searchTemplate)` promotes bare hosts to
-  `https://`, falls non-URL text through to a DuckDuckGo search; `allows(url)` gates EVERY navigation.
-- **`@Observable ObscuraTab`** — chrome state (address, currentURL, title, canGoBack/Forward, isLoading, progress,
-  lastError) + command closures (navigate/back/forward/reload/stop); `submitAddress()` honest-errors on non-web schemes.
-- **`ObscuraBrowserView`** — SwiftUI chrome (back/fwd, reload↔stop, lock-icon address field, go, progress bar, error
-  bar, ⓘ limits hint) over the WKWebView.
-- **`ObscuraWebRepresentable` (NSViewRepresentable)** — `WKWebView` with `nonPersistent()` store + `allowsContentJavaScript`
-  + back-forward gestures + magnification; **KVO** drives chrome (estimatedProgress/isLoading/title/url/canGoBack/Forward);
-  `decidePolicyFor` re-checks `ObscuraURLGuard.allows` on every nav (non-web schemes cancelled); `target=_blank` opens in
-  the same tab (Tier 1 = single tab). **`dismantleNSView` + `Coordinator.shutdown()`** invalidate KVO, nil the command
-  closures (breaks WebView↔tab retain), notify the idle pool → no leak.
+## Browser file contract
+- **`BrowserURLGuard`** — `allowedSchemes = ["http", "https"]`; `resolve(raw, searchTemplate)` promotes bare hosts to
+  `https://`, turns non-URL text into DuckDuckGo search, and rejects explicit `file:`, `data:`, `javascript:`,
+  `mailto:`, and `tel:` schemes.
+- **`@Observable BrowserTab`** — address/current URL/title/back-forward/loading/progress/error state plus command
+  closures for navigation. `submitAddress()` and `navigate(to:)` set honest errors on rejected navigation.
+- **`BrowserView`** — SwiftUI chrome with a registry-backed Browser brand mark, back/forward, reload/stop, lock/globe
+  address field, go button, progress bar, error bar, and limits popover.
+- **`BrowserWebView` (NSViewRepresentable)** — `WKWebView` with `nonPersistent()` store, JavaScript enabled, KVO state
+  observation, strict `BrowserURLGuard.allows` navigation policy, single-tab `target=_blank`, and teardown that breaks
+  retained WebView/tab closures.
 
 ## Summon — `UtilityPanel.browser` + ⌘⇧B
 Add `.browser` to `UtilityPanel` (title "Browser", icon "safari", defaultSize 1024×720, free resize), route it in
-`contentView(for:bootstrap:)` (`:358`) → `ObscuraBrowserView(theme:)`, reuse `applyOmegaChrome`. Add to `EpistemosCommands`
+`contentView(for:bootstrap:)` (`:358`) → `BrowserView()`, reuse `applyOmegaChrome`. Add to `EpistemosCommands`
 (`CommandGroup(after:.sidebar)`): `Button("Browser"){ UtilityWindowManager.shared.show(.browser) }.keyboardShortcut("b", [.command,.shift])`.
 Window is cached (`isReleasedWhenClosed=false`) → re-summon reuses the same WebView (one persistent WebView, not N).
 
@@ -35,13 +38,12 @@ On-device WebKit (like Safari) · cookies/cache isolated from Safari + cleared o
 **FairPlay-DRM premium video may not play**. (Direct consequences of WKWebView + `nonPersistent()`.)
 
 ## Forward seam (note only — do NOT build here)
-The same `WKWebView` is exactly what the `NotConfigured` `WebKitBrowserEngine` (`browser_engine/mod.rs:273-317`) needs
-for Tier 2 (agent read/extract) — a future `ObscuraWebKitDriver.swift` (separate file, Pro/agent-gated) registers it in
-a Swift pool keyed by `SessionId` and implements navigate/snapshot/click/type via `evaluateJavaScript`+AX. Keep
-`ObscuraBrowserView`/`ObscuraTab` free of any agent/FFI import so Tier 1 ships MAS-clean and Tier 2/3 are additive. The
-Rust-native V8 `ObscuraBrowserEngine` (`:319-364`) is Tier 3 (stealth/automation) — out of scope.
+The `WebKitBrowserEngine` Rust stub stays `NotConfigured`. Do not make this human-driven Browser tab agent-driven.
+Pro automation is the separate browser-use Chromium lane; it does not and must not drive this native WKWebView tab.
+Keep `BrowserView`/`BrowserTab` free of any Goose, agent, Rust FFI, Python, subprocess, Playwright, or Chromium import
+so Tier 1 ships MAS-clean.
 
 ## Files touched
-NEW `ObscuraBrowserView.swift`; EDIT `UtilityWindowManager.swift` (`.browser` in `UtilityPanel`/`apply`/`contentView`)
-+ `EpistemosApp.swift` (⌘⇧B button). All reuse verified patterns; MAS-safe, on-device. `[INFERRED]` spot-check
-`EpistemosTheme`/`GooseSurfaceStyle` member names at build time (they match what `GooseWebSurfaceView.swift` uses).
+NEW `Epistemos/Views/Browser/BrowserView.swift`; EDIT `UtilityWindowManager.swift` (`.browser` in
+`UtilityPanel`/`apply`/`contentView`) + `EpistemosApp.swift` (⌘⇧B button) + `LandingFeatureButton.browser`. All reuse
+verified patterns; MAS-safe, on-device, human-driven, and separate from the Pro browser-use robot.

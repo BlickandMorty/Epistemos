@@ -248,6 +248,39 @@ struct TextCapturePipelineTests {
         #expect(!body.contains("<!--"))
     }
 
+    @Test("Audio capture persists meeting source metadata as frontmatter")
+    func audioCapturePersistsMeetingSourceMetadataFrontMatter() async throws {
+        let pipeline = makePipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let capturedAt = Date(timeIntervalSince1970: 0)
+
+        _ = try await pipeline.runFromAudio(
+            transcription: "Meeting notes from the launch review.",
+            modelContext: context,
+            sourceMetadata: .meetingSTT(
+                capturedAt: capturedAt,
+                durationSeconds: 3723,
+                audioSource: "Meeting Audio/launch-review.m4a"
+            )
+        )
+
+        let page = try #require(try context.fetch(FetchDescriptor<SDPage>()).first)
+        let frontMatter = page.frontMatter
+        #expect(frontMatter["source"] == "meeting_stt")
+        #expect(frontMatter["source_kind"] == "audio_transcript")
+        #expect(frontMatter["captured_at"] == "1970-01-01T00:00:00Z")
+        #expect(frontMatter["duration_seconds"] == "3723")
+        #expect(frontMatter["stt_engine"] == "apple_speechanalyzer")
+        #expect(frontMatter["audio_source"] == "Meeting Audio/launch-review.m4a")
+
+        let body = page.loadBody()
+        #expect(body.contains("Meeting notes from the launch review."))
+        #expect(!body.contains("audio-source"))
+        #expect(!body.contains("Meeting Audio/launch-review.m4a"))
+        #expect(!body.contains("<!--"))
+    }
+
     @Test("Legacy hidden capture comments are stripped without dropping visible body")
     func legacyHiddenCaptureCommentsAreStrippedWithoutDroppingVisibleBody() {
         let legacyBody = """

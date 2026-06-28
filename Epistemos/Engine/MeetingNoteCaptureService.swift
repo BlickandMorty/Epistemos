@@ -1,0 +1,278 @@
+import Foundation
+import Observation
+import SwiftData
+
+@MainActor
+protocol MeetingVoiceInputProviding: AnyObject {
+    var state: LiveVoiceInputService.State { get }
+    var partialTranscript: String { get }
+    var modelDownloadProgress: Double? { get }
+
+    func start() async
+    func stop()
+    func tearDown()
+    func consumeTranscript() -> String?
+}
+
+extension LiveVoiceInputService: MeetingVoiceInputProviding {}
+
+// MARK: - MeetingNoteCaptureService
+//
+// Meeting/lecture capture owns transcript buffering and note finalization.
+// LiveVoiceInputService remains the only STT dependency; TextCapturePipeline
+// remains the only note/graph/provenance writer.
+
+@MainActor
+@Observable
+final class MeetingNoteCaptureService {
+    enum State: Equatable, Sendable {
+        case idle
+        case preparing
+        case recording
+        case finalizing
+        case saved(pageID: String, title: String)
+        case error(String)
+    }
+
+    private typealias PipelineFactory = @MainActor () -> TextCapturePipeline
+    private typealias DateProvider = @MainActor () -> Date
+    private typealias AutoStopPreference = @MainActor () -> Bool
+    private typealias SleepProvider = @MainActor (Duration) async throws -> Void
+
+    @ObservationIgnored
+    private let voiceInput: any MeetingVoiceInputProviding
+    @ObservationIgnored
+    private let pipelineFactory: PipelineFactory
+    @ObservationIgnored
+    private let now: DateProvider
+    @ObservationIgnored
+    private let isAutoStopOnSilenceEnabled: AutoStopPreference
+    @ObservationIgnored
+    private let autoStopSilenceDelay: Duration
+    @ObservationIgnored
+    private let sleep: SleepProvider
+
+    private var finalSegments: [String] = []
+    private var startedAt: Date?
+    private var stoppedAt: Date?
+    @ObservationIgnored
+    private var autoStopSilenceTask: Task<Void, Never>?
+
+    private(set) var state: State = .idle
+    private(set) var partialTranscript = ""
+    private(set) var modelDownloadProgress: Double?
+
+    init(
+        voiceInput: (any MeetingVoiceInputProviding)? = nil,
+        pipelineFactory: @escaping @MainActor () -> TextCapturePipeline = { TextCapturePipeline() },
+        now: @escaping @MainActor () -> Date = { Date() },
+        isAutoStopOnSilenceEnabled: @escaping @MainActor () -> Bool = {
+            VoicePreferences.shared.dictationAutoStop == .auto
+        },
+        autoStopSilenceDelay: Duration = .seconds(2),
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { delay in
+            try await Task.sleep(for: delay)
+        }
+    ) {
+        self.voiceInput = voiceInput ?? LiveVoiceInputService.shared
+        self.pipelineFactory = pipelineFactory
+        self.now = now
+        self.isAutoStopOnSilenceEnabled = isAutoStopOnSilenceEnabled
+        self.autoStopSilenceDelay = autoStopSilenceDelay
+        self.sleep = sleep
+    }
+
+    var transcriptText: String {
+        Self.renderTranscript(finalSegments: finalSegments, partial: partialTranscript)
+    }
+
+    var durationSeconds: Int {
+        guard let startedAt else { return 0 }
+        let endedAt = stoppedAt ?? now()
+        return max(0, Int(endedAt.timeIntervalSince(startedAt).rounded()))
+    }
+
+    func start() async {
+        cancelAutoStopSilence()
+        resetTranscript()
+        startedAt = now()
+        stoppedAt = nil
+        state = .preparing
+        await voiceInput.start()
+        refreshFromVoiceInput()
+        syncStateFromVoiceInput()
+    }
+
+    func stop() {
+        cancelAutoStopSilence()
+        refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
+        voiceInput.stop()
+        freezeCaptureClock()
+        if case .recording = state {
+            state = .idle
+        } else if case .preparing = state {
+            state = .idle
+        }
+    }
+
+    func discard() {
+        cancelAutoStopSilence()
+        voiceInput.tearDown()
+        resetTranscript()
+        startedAt = nil
+        stoppedAt = nil
+        state = .idle
+    }
+
+    func refreshFromVoiceInput() {
+        refreshFromVoiceInput(scheduleAutoStopOnFinal: true)
+    }
+
+    private func refreshFromVoiceInput(scheduleAutoStopOnFinal: Bool) {
+        modelDownloadProgress = voiceInput.modelDownloadProgress
+        let incomingPartial = Self.cleanedSegment(voiceInput.partialTranscript)
+        if !incomingPartial.isEmpty {
+            cancelAutoStopSilence()
+        }
+        recordPartial(incomingPartial)
+        var consumedFinal = false
+        if let final = voiceInput.consumeTranscript() {
+            recordFinal(final)
+            consumedFinal = true
+        }
+        syncStateFromVoiceInput()
+        if consumedFinal, scheduleAutoStopOnFinal {
+            scheduleAutoStopAfterSilence()
+        }
+    }
+
+    func recordPartial(_ text: String) {
+        partialTranscript = Self.cleanedSegment(text)
+    }
+
+    func recordFinal(_ text: String) {
+        let cleaned = Self.cleanedSegment(text)
+        guard !cleaned.isEmpty else { return }
+        if finalSegments.last != cleaned {
+            finalSegments.append(cleaned)
+        }
+        if partialTranscript == cleaned {
+            partialTranscript = ""
+        }
+    }
+
+    @discardableResult
+    func finalize(modelContext: ModelContext) async throws -> CaptureResult {
+        refreshFromVoiceInput()
+        voiceInput.stop()
+        freezeCaptureClock()
+        let transcript = transcriptText
+        guard !transcript.isEmpty else {
+            let message = "Meeting note needs a transcript before saving."
+            state = .error(message)
+            throw TextCaptureError.emptyCapture
+        }
+
+        let capturedAt = startedAt ?? now()
+        let metadata = CaptureSourceMetadata.meetingSTT(
+            capturedAt: capturedAt,
+            durationSeconds: durationSeconds
+        )
+
+        state = .finalizing
+        do {
+            let result = try await pipelineFactory().runFromAudio(
+                transcription: transcript,
+                modelContext: modelContext,
+                sourceMetadata: metadata
+            )
+            state = .saved(
+                pageID: result.createdNoteID ?? "",
+                title: result.title
+            )
+            return result
+        } catch {
+            state = .error(error.localizedDescription)
+            throw error
+        }
+    }
+
+    private func syncStateFromVoiceInput() {
+        switch voiceInput.state {
+        case .idle:
+            if case .preparing = state {
+                state = .idle
+            } else if case .recording = state {
+                state = .idle
+            }
+        case .preparing:
+            state = .preparing
+        case .recording:
+            state = .recording
+        case .unavailable(let message), .error(let message):
+            state = .error(message)
+        }
+    }
+
+    private func scheduleAutoStopAfterSilence() {
+        guard isAutoStopOnSilenceEnabled() else {
+            cancelAutoStopSilence()
+            return
+        }
+        guard case .recording = state else { return }
+
+        cancelAutoStopSilence()
+        let delay = autoStopSilenceDelay
+        let sleep = sleep
+        autoStopSilenceTask = Task { @MainActor [weak self] in
+            do {
+                try await sleep(delay)
+            } catch is CancellationError {
+                return
+            } catch {
+                return
+            }
+            self?.autoStopIfStillSilent()
+        }
+    }
+
+    private func autoStopIfStillSilent() {
+        autoStopSilenceTask = nil
+        guard case .recording = state else { return }
+        guard Self.cleanedSegment(voiceInput.partialTranscript).isEmpty else { return }
+        stop()
+    }
+
+    private func cancelAutoStopSilence() {
+        autoStopSilenceTask?.cancel()
+        autoStopSilenceTask = nil
+    }
+
+    private func resetTranscript() {
+        finalSegments.removeAll()
+        partialTranscript = ""
+        modelDownloadProgress = nil
+    }
+
+    private func freezeCaptureClock() {
+        if startedAt != nil, stoppedAt == nil {
+            stoppedAt = now()
+        }
+    }
+
+    private static func renderTranscript(
+        finalSegments: [String],
+        partial: String
+    ) -> String {
+        var segments = finalSegments
+        let cleanedPartial = cleanedSegment(partial)
+        if !cleanedPartial.isEmpty && segments.last != cleanedPartial {
+            segments.append(cleanedPartial)
+        }
+        return segments.joined(separator: "\n\n")
+    }
+
+    private static func cleanedSegment(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

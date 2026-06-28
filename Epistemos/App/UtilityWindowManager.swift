@@ -95,6 +95,8 @@ enum WindowThemeStyler {
 
 enum UtilityPanel: String, CaseIterable {
     case notes
+    case browser
+    case meetingNote
     case omega
     case settings
 
@@ -105,6 +107,8 @@ enum UtilityPanel: String, CaseIterable {
     var title: String {
         switch self {
         case .notes: "Notes"
+        case .browser: "Browser"
+        case .meetingNote: "Meeting Note"
         case .omega: "Tools Runtime"
         case .settings: "Settings"
         }
@@ -113,6 +117,8 @@ enum UtilityPanel: String, CaseIterable {
     var icon: String {
         switch self {
         case .notes: "pencil.line"
+        case .browser: "safari"
+        case .meetingNote: "waveform"
         case .omega: "waveform.path.ecg.rectangle"
         case .settings: "gearshape"
         }
@@ -121,6 +127,8 @@ enum UtilityPanel: String, CaseIterable {
     var defaultSize: NSSize {
         switch self {
         case .notes: NSSize(width: 380, height: 520)
+        case .browser: NSSize(width: 1024, height: 720)
+        case .meetingNote: NSSize(width: 760, height: 560)
         case .omega: NSSize(width: 680, height: 560)
         case .settings: NSSize(width: 900, height: 680)
         }
@@ -129,6 +137,8 @@ enum UtilityPanel: String, CaseIterable {
     var minimumSize: NSSize {
         switch self {
         case .notes: NSSize(width: 300, height: 320)
+        case .browser: NSSize(width: 620, height: 420)
+        case .meetingNote: NSSize(width: 520, height: 420)
         case .omega: NSSize(width: 420, height: 320)
         case .settings: NSSize(width: 680, height: 420)
         }
@@ -137,7 +147,7 @@ enum UtilityPanel: String, CaseIterable {
     var maximumSize: NSSize? {
         switch self {
         case .notes: NSSize(width: 520, height: 720)
-        case .omega: nil
+        case .browser, .meetingNote, .omega: nil
         case .settings: NSSize(width: 1040, height: 760)
         }
     }
@@ -151,6 +161,8 @@ enum UtilityPanelChrome {
         switch kind {
         case .notes:
             applySidebarChrome(to: panel)
+        case .browser, .meetingNote:
+            applyOmegaChrome(to: panel)
         case .omega:
             applyOmegaChrome(to: panel)
         case .settings:
@@ -379,6 +391,10 @@ private struct ThemedUtilityRoot: View {
         Group {
             switch kind {
             case .notes: NotesBrowserView()
+            case .browser:
+                BrowserView()
+            case .meetingNote:
+                MeetingNoteView()
             case .omega:
                 OmegaPanel()
             case .settings:

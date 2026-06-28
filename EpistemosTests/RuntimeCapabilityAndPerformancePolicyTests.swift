@@ -118,6 +118,23 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(source.contains("ui.windowOccluded"))
     }
 
+    @Test("voice input routes through live SpeechAnalyzer facade instead of removed composer stub")
+    func voiceInputUsesLiveSpeechAnalyzerFacade() throws {
+        let button = try loadMirroredSourceTextFile("Epistemos/Views/Shared/VoiceInputButton.swift")
+        let facade = try loadMirroredSourceTextFile("Epistemos/Engine/LiveVoiceInputService.swift")
+
+        #expect(button.contains("LiveVoiceInputService.shared"))
+        #expect(button.contains(".onChange(of: service.partialTranscript)"))
+        #expect(button.contains(".onChange(of: service.finalTranscript)"))
+        #expect(!button.contains("ComposerVoiceInputService.shared"))
+        #expect(!button.contains("service.latestTranscript"))
+
+        #expect(facade.contains("EpistemosSpeechAnalyzer.shared.startLive"))
+        #expect(facade.contains("EpistemosSpeechAnalyzer.shared.stop()"))
+        #expect(facade.contains("@available(macOS 26.0, *)"))
+        #expect(facade.contains("modelDownloadProgress"))
+    }
+
     @Test("cinematic fullscreen keeps native drawable quality")
     func graphDrawableResolutionPolicyKeepsNativeCinematicQuality() {
         let cinematicScale = GraphDrawableResolutionPolicy.effectiveScale(

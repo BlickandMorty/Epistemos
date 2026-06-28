@@ -114,7 +114,7 @@ extensions inside a WKWebView; some FairPlay-DRM premium video may not play; coo
 | **T1 — usable in-app browser** | a real tab you open + drive like Safari (navigate/login/scroll/non-DRM video) | **LIGHT** | MAS-safe |
 | **T2 — + agent reads/extracts the open page** | the AI can read the current page → note/answer; you still drive | MEDIUM | MAS-plausible (read-only) |
 | **T3 — full agent automation + stealth** | AI autonomously clicks/types/scrapes across sites + anti-fingerprint | **HEAVY** | Pro-only |
-**Recommendation: START at T1** — ship the standalone lite Browser tab (`ObscuraBrowserView`, human-driven, NOT the agent engine seam) (instead of
+**Recommendation: START at T1** — ship the standalone lite Browser tab (`BrowserView`, human-driven, NOT the agent engine seam) (instead of
 `NotConfigured`) → turns "I can't see it" into a visible, usable browser fast. Climb to T2/T3 only if you want them.
 The heaviness you worried about lives ONLY at T3. (Rest of the original heavy build = T3, below.)
 
@@ -132,7 +132,7 @@ The heaviness you worried about lives ONLY at T3. (Rest of the original heavy bu
   unavailable, no fake green").
 
 **★ FINAL build (owner 2026-06-28) — the native robot O-1..O-6 below is PARKED, do NOT build it:**
-- **App Store = the lite native "Browser" tab ONLY** — wire the standalone `ObscuraBrowserView` from
+- **App Store = the lite native "Browser" tab ONLY** — wire the standalone `BrowserView` from
   `PLAN_3_OBSCURA_TIER1_CODEPACK` (a human-driven `WKWebView` + address bar; NOT the `WebKitBrowserEngine` agent seam).
   The `WebKitBrowserEngine` stub STAYS `NotConfigured`. No agent drives this tab.
 - **Pro automation = vendor the real `browser-use`** (§9) — Chromium robot, reskinned UI, exposed to Goose. Separate browser.
@@ -275,7 +275,7 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
 - **🔴 CUT — local model-management.** Owner: "no" to HuggingFace/BYOM model marketplace, the Settings model "stack",
   the mlx-vlm vision runtime, and DeerFlow. AI is consolidated to Goose; the app does NOT install/manage local models.
 - **🟢 NEW REQUIREMENT — every Plan-3 feature is a LANDING-PAGE BUTTON.** Each capability must be a button/shortcut on
-  the landing page for one-tap access (e.g. a **"Browser"** button → Obscura). See §8.
+  the landing page for one-tap access (e.g. a **"Browser"** button → the native Browser utility panel). See §8.
 - **🟢 BROWSER (owner-confirmed 2026-06-28) = lite native WKWebView tab (App Store) + `browser-use` (Pro automation).**
   Keep a lightweight native browser tab for the MAS build = the **Obscura Tier-1 WKWebView code, KEPT** (just drop the
   "Obscura" heavy-automation name/framing → call it "Browser"). PLUS vendor the real **`browser-use`** (Chromium, Pro),
@@ -289,10 +289,11 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
 
 ## 8. Landing-page feature buttons (owner requirement, Pass 5) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
 Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `:37`, the existing `landingPixelCommands`
-grid `:492`). New `LandingFeatureButton` enum (browser/extensions/vaultMCP/pdfImport/provenance + future) → reuses the
-existing `PixelLandingCommandTile` + summons already-shipping surfaces (`GooseSurfaceWindowController.open()`,
-`UtilityWindowManager.show(.settings/.browser)`, PDF import). Honest compile-time Pro pills. Adding a feature = 1 enum
-case + 1 switch line. Pure additive UI, MAS-safe.
+grid `:492`). New `LandingFeatureButton` enum (pdfImport/arxiv/provenance/extensions/vaultMCP/browser/meetingNote)
+reuses the existing `PixelLandingCommandTile` and summons Plan 3-owned surfaces only: `UtilityWindowManager.show(.settings)`,
+`UtilityWindowManager.show(.browser)`, `UtilityWindowManager.show(.meetingNote)`, the arXiv sheet, and
+`LiteParsePDFImportController.importPage`. Honest compile-time Pro pills. Adding a feature = 1 enum case + 1 switch line.
+Pure additive UI, MAS-safe.
 
 ## 9. Browser automation + browser-use + Goose (Pass 5 honest verdict)
 **The owner asked for two things that are in TENSION — they can't be the same thing:**
@@ -349,7 +350,7 @@ instant-recall/Halo popup scoped to the editors. Flagged so Plan 2 picks them up
 cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without local models). Stealth browsing = re-confirm.
 
 ## Suggested build order (within Plan 3)
-1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI). 
+1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI).
 2. **Provenance moat Fix A+B** (LOW, honesty-critical — do before any chip is rebuilt) → then Moat-1 hover card.
 3. **Extensibility 5c vault-as-MCP-server** (LOW-MED, ~80% built — the outward moat) → 5a install UI → 5b preset.
 4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).

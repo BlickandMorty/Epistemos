@@ -31,12 +31,6 @@ public struct VoicePreferencesSection: View {
     public var body: some View {
         Section("Voice — Auto / Manual mode") {
             row(
-                title: "Speak agent responses aloud",
-                key: VoicePreferenceKeys.agentResponseTTS,
-                binding: $prefs.agentResponseTTS,
-                preview: "This is what an auto-spoken agent response sounds like."
-            )
-            row(
                 title: "Read long notes aloud on open",
                 key: VoicePreferenceKeys.noteReadAloud,
                 binding: $prefs.noteReadAloud,
@@ -48,12 +42,12 @@ public struct VoicePreferencesSection: View {
                 binding: $prefs.dictationAutoStop,
                 preview: nil
             )
-            // SS-QC / DONE-RE-AUDIT (owner 2026-06-21): "Brain-dump hotkey starts dictation" and
-            // "Use per-model voice persona" were do-nothing toggles (no behavior consumer). Per
-            // wire-OR-remove they are REMOVED rather than shown as for-show controls — a shown
-            // do-nothing toggle is fake. brainDumpHotkeyDictate has no dictation-start seam to gate;
-            // perModelVoicePersona is superseded by the SS-QC global default voice (one voice across
-            // every TTS surface) and the old model-profile layer has been retired.
+            // SS-QC / DONE-RE-AUDIT (owner 2026-06-21): agent-response TTS,
+            // brain-dump dictation, and per-model voice persona controls are
+            // hidden until they have a real behavior consumer. Per wire-OR-remove, a shown
+            // do-nothing toggle is fake. agentResponseTTS has no assistant-stream completion
+            // consumer yet; brainDumpHotkeyDictate has no dictation-start seam to gate;
+            // perModelVoicePersona is superseded by the SS-QC global default voice.
             // The VoicePreferences keys/defaults remain (harmless) for any future wiring.
             row(
                 title: "Read each sentence aloud in Quick Capture",

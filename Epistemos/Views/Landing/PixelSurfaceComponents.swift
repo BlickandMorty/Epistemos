@@ -672,6 +672,7 @@ struct PixelLandingCommandTile: View {
     let theme: EpistemosTheme
     let accent: Color
     let haptic: HomeCommandHapticStyle
+    var brand: IntegrationBrand? = nil
     var isActive = false
     let action: () -> Void
 
@@ -750,7 +751,14 @@ struct PixelLandingCommandTile: View {
                 .opacity(isLit ? 1 : 0.82)
 
             dormantCommandTitle
-            Spacer(minLength: 0)
+            Spacer(minLength: 6)
+
+            if let brand {
+                IntegrationBrandMarkView(brand: brand, size: 15)
+                    .foregroundStyle(accent.opacity(isLit ? 0.96 : 0.72))
+                    .opacity(isLit ? 1 : 0.86)
+                    .frame(width: 18, height: 18)
+            }
         }
         .padding(.horizontal, treatment == .classicNative ? 12 : 10)
         .padding(.vertical, 8)

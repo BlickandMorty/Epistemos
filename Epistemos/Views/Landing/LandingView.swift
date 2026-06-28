@@ -2,6 +2,7 @@ import AppKit
 import OSLog
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum LandingCoordinateSpace {
     static let root = "LandingRoot"
@@ -73,6 +74,9 @@ struct LandingView: View {
     @State private var landingGreetingReturnTask: Task<Void, Never>?
     @State private var activeLandingInlineCommand: LandingInlineCommand?
     @State private var showingNewCodeFileSheet = false
+    @State private var showingArxivSearch = false
+    @State private var landingFeatureStatusMessage: String?
+    @State private var showingLandingFeatureStatus = false
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -346,6 +350,14 @@ struct LandingView: View {
                 createAndOpenCodeFile(request)
             }
         }
+        .sheet(isPresented: $showingArxivSearch) {
+            ArxivSearchView()
+        }
+        .alert("Plan 3 Feature", isPresented: $showingLandingFeatureStatus) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(landingFeatureStatusMessage ?? "")
+        }
     }
 
     private var landingBackdrop: some View {
@@ -422,9 +434,12 @@ struct LandingView: View {
 
             Spacer(minLength: showingLandingStageCommand ? 42 : 0)
 
-            landingPixelCommands
-                .padding(.horizontal, Spacing.xxl)
-                .padding(.bottom, 28)
+            VStack(spacing: 10) {
+                landingFeatureShortcuts
+                landingPixelCommands
+            }
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.bottom, 28)
         }
     }
 
@@ -595,6 +610,88 @@ struct LandingView: View {
             )
         }
         .frame(maxWidth: 900)
+    }
+
+    private var landingFeatureShortcuts: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
+            spacing: 8
+        ) {
+            ForEach(LandingFeatureButton.allCases) { feature in
+                LandingFeatureButtonTile(feature: feature, theme: theme) {
+                    performLandingFeatureButton(feature)
+                }
+            }
+        }
+        .frame(maxWidth: 900)
+    }
+
+    private func performLandingFeatureButton(_ feature: LandingFeatureButton) {
+        guard feature.isAvailableInThisBuild else {
+            landingFeatureStatusMessage = feature.unavailableMessage
+            showingLandingFeatureStatus = true
+            return
+        }
+
+        switch feature {
+        case .pdfImport:
+            runLandingPDFImport()
+        case .arxiv:
+            showingArxivSearch = true
+        case .provenance, .extensions, .vaultMCP:
+            UtilityWindowManager.shared.show(.settings)
+        case .browser:
+            UtilityWindowManager.shared.show(.browser)
+        case .meetingNote:
+            UtilityWindowManager.shared.show(.meetingNote)
+        }
+    }
+
+    private func runLandingPDFImport() {
+        guard let vaultURL = vaultSync.vaultURL else {
+            landingFeatureStatusMessage = "Connect a vault first, then import."
+            showingLandingFeatureStatus = true
+            return
+        }
+
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+
+        var imported = 0
+        var lines: [String] = []
+        for url in panel.urls {
+            let outcome = LiteParsePDFImportController.importPage(
+                pdfPath: url.path,
+                vaultURL: vaultURL,
+                modelContext: modelContext,
+                graphState: graphState
+            )
+            switch outcome {
+            case .imported(_, let title):
+                imported += 1
+                lines.append("✓ \(title)")
+            case .rejected(let result):
+                lines.append("✗ \(url.lastPathComponent): \(landingPDFImportReason(for: result))")
+            }
+        }
+
+        landingFeatureStatusMessage = "Imported \(imported)/\(panel.urls.count).\n" + lines.joined(separator: "\n")
+        showingLandingFeatureStatus = true
+    }
+
+    private func landingPDFImportReason(for result: LiteParseImportResult) -> String {
+        switch result {
+        case .markdown:
+            return "ok"
+        case .notWired:
+            return "PDF parser bridge is unavailable in this build."
+        case .unsupported(let message), .failed(let message):
+            return message
+        }
     }
 
     private var landingCompanionDock: some View {

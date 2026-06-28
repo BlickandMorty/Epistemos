@@ -1494,6 +1494,11 @@ struct EpistemosCommands: Commands {
             }
             .keyboardShortcut("g", modifiers: .command)
 
+            Button("Browser") {
+                UtilityWindowManager.shared.show(.browser)
+            }
+            .keyboardShortcut("b", modifiers: [.command, .shift])
+
             Button("Reveal Current Document in Graph") {
                 (NSApp.delegate as? EpistemosAppDelegate)?
                     .revealCurrentDocumentInKnowledgeGraph(nil)

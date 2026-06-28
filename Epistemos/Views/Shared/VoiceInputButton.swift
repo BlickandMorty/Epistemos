@@ -3,12 +3,12 @@ import SwiftUI
 // MARK: - VoiceInputButton (W15.X — Apple-native STT wiring)
 //
 // Drop-in mirror of `ReadAloudButton` (W9.1) for the speech-to-text direction.
-// Uses the shared recorder/transcriber path so views can offer "tap to
-// dictate" without owning the audio lifecycle.
+// Uses LiveVoiceInputService so views can offer "tap to dictate" without
+// owning the audio lifecycle.
 //
-// Per the W11.4 Auto/Manual Mode contract: this control treats
-// dictation as a Manual-mode operation: the user taps to start and
-// taps to stop.
+// Per the W11.4 Auto/Manual Mode contract: this reusable control treats
+// dictation as a manual operation. Surfaces that support automatic
+// silence-stop own that policy at their capture-service boundary.
 //
 // Lifecycle:
 //   tap (idle) → recorder starts
@@ -35,24 +35,21 @@ public struct VoiceInputButton: View {
     }
 
     public let style: Style
-    public let autoStopOnSilence: Bool
     public let onPartial: (String) -> Void
     public let onFinal: (String) -> Void
 
     @State private var phase: Phase = .idle
     @State private var streamTask: Task<Void, Never>?
-    @State private var service = ComposerVoiceInputService.shared
+    @State private var service = LiveVoiceInputService.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(UIState.self) private var ui
 
     public init(
         style: Style = .icon,
-        autoStopOnSilence: Bool = false,
         onPartial: @escaping (String) -> Void = { _ in },
         onFinal: @escaping (String) -> Void
     ) {
         self.style = style
-        self.autoStopOnSilence = autoStopOnSilence
         self.onPartial = onPartial
         self.onFinal = onFinal
     }
@@ -82,8 +79,12 @@ public struct VoiceInputButton: View {
         }
         .buttonStyle(.borderless)
         .help(help)
-        .disabled(phase == .requesting)
-        .onChange(of: service.latestTranscript) { _, newValue in
+        .disabled(phase == .requesting || service.isUnavailable)
+        .onChange(of: service.partialTranscript) { _, newValue in
+            guard !newValue.isEmpty else { return }
+            onPartial(newValue)
+        }
+        .onChange(of: service.finalTranscript) { _, newValue in
             guard !newValue.isEmpty else { return }
             if let transcript = service.consumeTranscript() {
                 onFinal(transcript)
@@ -191,11 +192,11 @@ public struct VoiceInputButton: View {
         switch service.state {
         case .idle:
             phase = .idle
-        case .requestingPermission, .transcribing:
+        case .preparing:
             phase = .requesting
         case .recording:
             phase = .recording
-        case .error(let message):
+        case .unavailable(let message), .error(let message):
             phase = .error(message)
         }
     }
@@ -209,7 +210,6 @@ public struct VoiceInputButton: View {
         VoiceInputButton(style: .labeled,
                          onFinal: { print("FINAL: \($0)") })
         VoiceInputButton(style: .iconWithPulse,
-                         autoStopOnSilence: true,
                          onPartial: { print("partial: \($0)") },
                          onFinal: { print("FINAL: \($0)") })
     }

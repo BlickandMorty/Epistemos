@@ -1,50 +1,72 @@
-# Plan 3 — Apple-native: QuickLook + VisionKit + thumbnails (clone-ready code, Pass 4)
+# Plan 3 - Apple-native Shared Views: QuickLook + VisionKit + Thumbnails
 
-> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §6`. Three first-party frameworks, all greenfield, all MAS-safe
-> (no new entitlement / usage-string — they operate on URLs/images already in the user-granted vault scope). The PDF
-> *viewer* (PDFKit `PDFView`) is **Plan 2** — NOT built here. `[VERIFIED-CODE]`/`[WEB]`/`[INFERRED]` tagged.
+> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md` section 6. Plan 3 builds shared components only.
+> Plan 2 owns editor/sidebar/pdf viewer integration. This codepack must not edit the Plan 2 editor, sidebar,
+> HTML workspace, wikilinks, or PDF viewer surfaces.
 
-## Verified surfaces to wire into
-`NotesSidebar.swift:65 SidebarDocumentItem{url}`, `:2845 DocumentRow` (Button→`.openDocument`; has `.contextMenu`),
-`:2884 HTMLWorkspaceRow`, `:2025 .openDocument` handler, `:207 SidebarAction`; `NoteImageProcessor.swift:54`
-`VNRecognizeTextRequest` OCR (`extractText→String?`); `SearchIndexService.swift:1666 upsert(id:title:body:tags:updatedAt:)`
-(the ingest entrypoint). QuickLook/VisionKit/QuickLookThumbnailing = **zero hits today** (greenfield).
+## Scope Boundary
 
-## 1. NEW `Epistemos/Views/Shared/FilePreview.swift` — QuickLook universal preview
-Zero per-format code (PDF/docx/iWork/images/csv). Drives `QLPreviewPanel` directly via a `@MainActor
-FilePreviewController` (`QLPreviewPanelDataSource/Delegate`) rather than the SwiftUI `.quickLookPreview` modifier, which
-is flaky on macOS when an `NSTextView` holds focus `[WEB]` (the sidebar sits next to the prose editor). Exposes
-`FilePreviewButton{ url }` + a `.filePreview($url)` one-shot modifier. `FilePreviewItem: QLPreviewItem`
-(`previewItemURL/Title`). Signatures current `[WEB]`.
+- Plan 3 owns reusable Apple-native shared views under `Epistemos/Views/Shared/*`.
+- Plan 2 owns every consumer mount in the editor, sidebar, inline image, HTML workspace, wikilink, and PDF viewer surfaces.
+- Do not edit NotesSidebar.
+- Do not edit ProseInlineImage.
+- Do not edit HTMLWorkspace.
+- Do not build PDFView. PDFKit `PDFView` remains a Plan 2 viewer concern.
+- Do not add Python, subprocess, Chromium, or browser-use runtime dependencies to the MAS path.
+- Do not touch `Epistemos/Goose/*` or `Epistemos/Agent/*`.
 
-## 2. NEW `Epistemos/Views/Shared/LiveTextImageView.swift` — VisionKit Live Text
-`ImageAnalysisOverlayView` (macOS NSView → `NSViewRepresentable`) + `ImageAnalyzer` → selectable/copyable/searchable
-Live Text over any image or rendered PDF page. `Configuration([.text])`, `analyzer.analyze(image, orientation:.up,
-configuration:) async throws → ImageAnalysis`, `.transcript`, `overlay.preferredInteractionTypes=.automatic`,
-`overlay.trackingImageView?.image`, `overlay.analysis`. Guarded by `ImageAnalyzer.isSupported`; cancels prior task on
-image change. **Feeds search:** `onTextRecognized(transcript)` → `searchIndex.upsert(id:"livetext:<path>", body:transcript,
-tags:"ocr,livetext", …)` (`SearchIndexService.swift:1666`) — additive to the headless `VNRecognizeTextRequest` path, both
-land in FTS. Signatures current `[WEB]`.
+## Verified Native Frameworks
 
-## 3. NEW `Epistemos/Views/Shared/FileThumbnail.swift` — QuickLookThumbnailing
-`FileThumbnailer.thumbnail(for:size:scale:) async -> NSImage?` via `QLThumbnailGenerator.Request(fileAt:size:scale:
-representationTypes:.all)` + `generateBestRepresentation(for:) async`. Async SwiftUI `FileThumbnailView` with SF-Symbol
-fallback + `.task(id:url)` (auto cancel/re-run). Signatures current `[WEB]`.
+QuickLook, VisionKit, and QuickLookThumbnailing are first-party Apple frameworks. The Plan 3 slice is MAS-safe because
+it operates on already user-granted file URLs and in-memory `NSImage` values. It does not need new entitlements or
+usage strings.
 
-## 4. Wiring (real edits)
-- **Quick Look** — `NotesSidebar.swift:2875 DocumentRow.contextMenu` (+ `:2914 HTMLWorkspaceRow`): add
-  `Button("Quick Look"){ FilePreviewController.shared.present(urls:[item.url]) }`. Optional spacebar: new
-  `SidebarAction.quickLook(URL)` (`:207`) handled like `.openDocument` (`:2025`) but calling the preview controller.
-- **Thumbnail** — `NotesSidebar.swift:2857 DocumentRow` HStack: replace the static `Image(systemName:"doc.richtext")`
-  with `FileThumbnailView(url: item.url, size: 14×18)`.
-- **Live Text** — host on the inline-image/attachment surfaces (`ProseInlineImageSupport.swift`/`ProseInlineImageLayout.swift`):
-  overlay `LiveTextImageView(image:onTextRecognized:)` → `SearchIndexService.upsert`.
+## 1. NEW `Epistemos/Views/Shared/FilePreview.swift`
 
-## MAS-safety
-All three are first-party, no new entitlement, no `Info.plist` usage string; operate on already-granted vault URLs /
-in-memory `NSImage`s. Sandbox-clean. New = three additive `Views/Shared/*.swift` files + 1–3-line edits at the cited
-`NotesSidebar.swift` lines.
+Build a reusable QuickLook preview layer for already-granted vault URLs:
 
-## Sources
-VisionKit/`ImageAnalyzer`/`ImageAnalysisOverlayView` (Apple Developer + WWDC23 — macOS overlay is NSView); `QLThumbnailGenerator`
-+ `generateBestRepresentation`; QuickLook-in-SwiftUI NSTextView-focus caveat (Apple Developer Forums).
+- `FilePreviewItem: QLPreviewItem`
+- `@MainActor FilePreviewController`
+- `FilePreviewButton`
+- `.filePreview($url)` one-shot SwiftUI modifier
+
+The controller should drive `QLPreviewPanel` directly through `QLPreviewPanelDataSource` and
+`QLPreviewPanelDelegate`. Keep the component isolated so Plan 2 can mount it wherever its own surfaces allow.
+
+## 2. NEW `Epistemos/Views/Shared/LiveTextImageView.swift`
+
+Build a reusable VisionKit Live Text overlay for images:
+
+- macOS `NSViewRepresentable` wrapper around `ImageAnalysisOverlayView`
+- async `ImageAnalyzer` pipeline guarded by `ImageAnalyzer.isSupported`
+- task cancellation when the image changes
+- `onTextRecognized(transcript)` callback for the consumer to decide where indexing belongs
+
+The shared view must not import or call editor/sidebar-specific types. It returns recognized text to its consumer.
+
+## 3. NEW `Epistemos/Views/Shared/FileThumbnail.swift`
+
+Build a reusable QuickLookThumbnailing thumbnail layer:
+
+- `FileThumbnailer.thumbnail(for:size:scale:) async -> NSImage?`
+- `QLThumbnailGenerator.Request(fileAt:size:scale:representationTypes:.all)`
+- `generateBestRepresentation(for:) async`
+- `FileThumbnailView` SwiftUI wrapper with an SF Symbol fallback and `.task(id: url)`
+
+Keep all thumbnail policy in the shared component. Consumers decide placement later.
+
+## Consumer Handoff
+
+Plan 3 delivers the shared components and documents the adapter contract. Plan 2 can later consume these components
+from its editor/sidebar/pdf viewer surfaces without Plan 3 modifying those files:
+
+- Quick Look consumers pass a vault URL to `FilePreviewController` or `FilePreviewButton`.
+- Live Text consumers pass an image plus an `onTextRecognized` closure.
+- Thumbnail consumers pass a vault URL and target size to `FileThumbnailView`.
+
+## Done Bar
+
+- New files are confined to `Epistemos/Views/Shared/`.
+- Source guards prove this codepack stays in Plan 3 scope.
+- No Plan 1 paths, Plan 2 editor paths, Python/subprocess/Chromium runtime, or `PDFView` viewer implementation is added.
+- The implementation remains honest when native framework support is unavailable.

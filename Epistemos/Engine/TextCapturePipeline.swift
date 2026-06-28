@@ -38,6 +38,55 @@ struct SourceSpan: Codable, Sendable, Equatable {
     let role: String
 }
 
+// MARK: - Capture Source Metadata
+
+/// User-visible source metadata for captured notes. Persisted as
+/// SDPage.frontMatter so exports/search can inspect it without
+/// hidden markdown comments.
+struct CaptureSourceMetadata: Codable, Sendable, Equatable {
+    let source: String
+    let sourceKind: String
+    let capturedAt: Date
+    let durationSeconds: Int?
+    let sttEngine: String?
+    let audioSource: String?
+
+    var frontMatter: [String: String] {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        var values: [String: String] = [
+            "source": source,
+            "source_kind": sourceKind,
+            "captured_at": formatter.string(from: capturedAt),
+        ]
+        if let durationSeconds {
+            values["duration_seconds"] = "\(max(0, durationSeconds))"
+        }
+        if let sttEngine, !sttEngine.isEmpty {
+            values["stt_engine"] = sttEngine
+        }
+        if let audioSource, !audioSource.isEmpty {
+            values["audio_source"] = audioSource
+        }
+        return values
+    }
+
+    static func meetingSTT(
+        capturedAt: Date = Date(),
+        durationSeconds: Int,
+        audioSource: String? = nil
+    ) -> CaptureSourceMetadata {
+        CaptureSourceMetadata(
+            source: "meeting_stt",
+            sourceKind: "audio_transcript",
+            capturedAt: capturedAt,
+            durationSeconds: durationSeconds,
+            sttEngine: "apple_speechanalyzer",
+            audioSource: audioSource
+        )
+    }
+}
+
 // MARK: - Extracted Task
 
 /// A task extracted from captured text via pattern matching.
@@ -252,7 +301,8 @@ final class TextCapturePipeline {
     /// - Throws: `TextCaptureError.emptyCapture` if the cleaned text is empty.
     func run(
         rawText: String,
-        modelContext: ModelContext? = nil
+        modelContext: ModelContext? = nil,
+        sourceMetadata: CaptureSourceMetadata? = nil
     ) async throws -> CaptureResult {
         let traceId = UUID().uuidString
 
@@ -296,6 +346,7 @@ final class TextCapturePipeline {
                     tasks: tasks,
                     entities: entities,
                     sourceSpans: allSpans,
+                    sourceMetadata: sourceMetadata,
                     context: context
                 )
                 traceCollector.record(.notePersisted(
@@ -722,6 +773,7 @@ final class TextCapturePipeline {
         tasks: [ExtractedTask],
         entities: [ExtractedEntity],
         sourceSpans: [SourceSpan],
+        sourceMetadata: CaptureSourceMetadata?,
         context: ModelContext
     ) throws -> String {
         let page = SDPage(title: title)
@@ -732,6 +784,9 @@ final class TextCapturePipeline {
         let body = Self.stripHiddenCaptureMetadataComments(from: cleanedText)
 
         page.saveBody(body)
+        if let sourceMetadata {
+            page.frontMatter = sourceMetadata.frontMatter
+        }
         page.needsVaultSync = true
         page.updatedAt = .now
 
@@ -895,13 +950,18 @@ final class TextCapturePipeline {
     ///   - modelContext: SwiftData context for persistence. Pass nil for dry run.
     func runFromAudio(
         transcription: String,
-        modelContext: ModelContext? = nil
+        modelContext: ModelContext? = nil,
+        sourceMetadata: CaptureSourceMetadata? = nil
     ) async throws -> CaptureResult {
         let rawText = transcription
         if rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw TextCaptureError.emptyCapture
         }
 
-        return try await run(rawText: rawText, modelContext: modelContext)
+        return try await run(
+            rawText: rawText,
+            modelContext: modelContext,
+            sourceMetadata: sourceMetadata
+        )
     }
 }

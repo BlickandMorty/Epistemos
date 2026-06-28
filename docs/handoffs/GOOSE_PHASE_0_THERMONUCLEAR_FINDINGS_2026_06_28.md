@@ -132,7 +132,28 @@ assertions). Commit `9f9372dda`.
 
 *(fix_is_safe=True)*
 
-### [5] P2 · edge-case · `stage-goose-web-ui.sh`:442-498, 471, 500-533
+### [5] P2 · edge-case · `stage-goose-web-ui.sh`:442-498, 471, 500-533 — ⚠️ VERIFIED, fix DEFERRED (recommended fix is redundant; owner-critical surface)
+
+**Re-analyzed 2026-06-28 PM — the recommended fix does NOT apply.** Verified the
+actual model path: `listAcpProviderModels(p.name)` already reads Goose's REGISTRY
+inventory (`providersList_unstable({providerIds:[p.name]})`) with a
+`providersSupportedModelsList_unstable` fallback — it does NOT contact the
+provider's endpoint, so it throws only on an ACP-CONNECTION failure, never on an
+"unreachable provider endpoint" as the finding assumed. Therefore the finding's
+"lowest-risk" fix (lazily re-fetch `providersList_unstable` in the modelInterface
+catch when `epistemosKnownModelFallback(p)` is empty) is REDUNDANT: that exact call
+already ran in `listAcpProviderModels` and a re-fetch fails identically. The empty
+catalog `known_models` (entries past the 8-template cap) only matter as a
+LAST-RESORT fallback when ACP is globally broken (both inventory + supported-models
+calls fail) — a degraded state where a cached catalog roster could in principle
+help, but only via the heavier alternative (merge the one-shot `providersList`
+inventory into the catalog surface, with the timing/cache nuance the finding
+itself flags). DEFERRED: the model picker is the owner's #1 surface and currently
+GREEN (live catalog/inventory/model suites pass); the broken-ACP fallback path is
+not unit-testable without a controlled ACP-failure mock. Do NOT apply the
+redundant fix. A real fix needs a designed ACP-failure harness first.
+
+
 
 **Issue:** loadProviderCatalogSurface enriches only the first 8 catalog entries with template details (`catalogEntries.slice(0, 8)`); setup-catalog entries get `known_models: []` (line 251) and template enrichment beyond the 8th provider never happens. getAcpProviders returns this merged catalog surface as the PRIMARY (lines 500-513) and only falls back to providersList_unstable inventory (the source of full per-provider known_models, populated via startProviderInventoryLoad at line 516) when the catalog surface THROWS. So in the normal happy path roughly 57 of 65 providers carry empty known_models. This directly defeats two owner fixes for the exact edge case they targeted: when a provider's live endp
 

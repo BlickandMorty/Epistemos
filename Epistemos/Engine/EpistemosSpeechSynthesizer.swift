@@ -92,6 +92,19 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         public var id: String { identifier }
     }
 
+    public struct SpeechProsody: Sendable, Hashable {
+        public let rate: Float
+        public let pitch: Float
+
+        public init(
+            rate: Float = AVSpeechUtteranceDefaultSpeechRate,
+            pitch: Float = 1.0
+        ) {
+            self.rate = rate
+            self.pitch = pitch
+        }
+    }
+
     public private(set) var state: SpeakingState = .idle
 
     // MARK: - Process-wide singleton
@@ -125,7 +138,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         _ text: String,
         voiceIdentifier: String? = nil,
         rate: Float = AVSpeechUtteranceDefaultSpeechRate,
-        pitch: Float = 1.0
+        pitch: Float = 1.0,
+        prosody: SpeechProsody? = nil
     ) -> String? {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return nil }
@@ -134,9 +148,12 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             synthesizer.stopSpeaking(at: .immediate)
         }
 
-        let utterance = AVSpeechUtterance(string: cleaned)
-        utterance.rate = Self.clampedRate(rate)
-        utterance.pitchMultiplier = Self.clampedPitch(pitch)
+        let utterance = Self.makeUtterance(
+            text: cleaned,
+            rate: rate,
+            pitch: pitch,
+            prosody: prosody
+        )
         utterance.voice = Self.resolveVoice(identifier: voiceIdentifier)
         let id = UUID().uuidString
         inflight[id] = utterance
@@ -256,16 +273,44 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     }
 
     /// Pick the user's best-quality voice. Premium > Enhanced >
-    /// system default (which is always installed).
+    /// Default across the installed catalogue, using the current
+    /// locale only as a tie-breaker.
     public static func preferredVoice() -> AVSpeechSynthesisVoice? {
         let voices = AVSpeechSynthesisVoice.speechVoices()
-        if let premium = voices.first(where: { $0.language.hasPrefix("en") && $0.quality == .premium }) {
-            return premium
+        let options = voices.map { voice in
+            VoiceOption(
+                identifier: voice.identifier,
+                displayName: voice.name,
+                language: voice.language,
+                quality: tier(for: voice)
+            )
         }
-        if let enhanced = voices.first(where: { $0.language.hasPrefix("en") && $0.quality == .enhanced }) {
-            return enhanced
+        guard let identifier = preferredVoiceIdentifier(
+            from: options,
+            currentLanguageCode: AVSpeechSynthesisVoice.currentLanguageCode()
+        ) else {
+            return voices.first
         }
-        return AVSpeechSynthesisVoice(language: AVSpeechSynthesisVoice.currentLanguageCode())
+        return AVSpeechSynthesisVoice(identifier: identifier) ?? voices.first
+    }
+
+    nonisolated public static func preferredVoiceIdentifier(
+        from voices: [VoiceOption],
+        currentLanguageCode: String
+    ) -> String? {
+        voices.sorted { lhs, rhs in
+            let lhsQuality = qualityRank(lhs.quality)
+            let rhsQuality = qualityRank(rhs.quality)
+            if lhsQuality != rhsQuality { return lhsQuality < rhsQuality }
+
+            let lhsLocale = localeTieBreakRank(lhs.language, currentLanguageCode: currentLanguageCode)
+            let rhsLocale = localeTieBreakRank(rhs.language, currentLanguageCode: currentLanguageCode)
+            if lhsLocale != rhsLocale { return lhsLocale < rhsLocale }
+
+            if lhs.language != rhs.language { return lhs.language < rhs.language }
+            if lhs.displayName != rhs.displayName { return lhs.displayName < rhs.displayName }
+            return lhs.identifier < rhs.identifier
+        }.first?.identifier
     }
 
     /// Hint string for the Settings UI: tells the user whether they
@@ -303,13 +348,85 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         }
     }
 
-    private static func qualityRank(_ tier: VoiceQualityTier) -> Int {
+    private nonisolated static func qualityRank(_ tier: VoiceQualityTier) -> Int {
         switch tier {
         case .premium:          return 0
         case .premiumAvailable: return 1
         case .enhanced:         return 2
         case .default:          return 3
         }
+    }
+
+    private nonisolated static func localeTieBreakRank(
+        _ language: String,
+        currentLanguageCode: String
+    ) -> Int {
+        if language == currentLanguageCode {
+            return 0
+        }
+        let currentBase = currentLanguageCode.split(separator: "-").first.map(String.init) ?? currentLanguageCode
+        if language == currentBase || language.hasPrefix("\(currentBase)-") {
+            return 1
+        }
+        return 2
+    }
+
+    private static func makeUtterance(
+        text: String,
+        rate: Float,
+        pitch: Float,
+        prosody: SpeechProsody?
+    ) -> AVSpeechUtterance {
+        let resolvedRate = Self.clampedRate(prosody?.rate ?? rate)
+        let resolvedPitch = Self.clampedPitch(prosody?.pitch ?? pitch)
+
+        if prosody != nil {
+            let ssml = ssmlRepresentation(
+                text: text,
+                rate: resolvedRate,
+                pitch: resolvedPitch
+            )
+            if let utterance = AVSpeechUtterance(ssmlRepresentation: ssml) {
+                return utterance
+            }
+        }
+
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = resolvedRate
+        utterance.pitchMultiplier = resolvedPitch
+        return utterance
+    }
+
+    private static func ssmlRepresentation(
+        text: String,
+        rate: Float,
+        pitch: Float
+    ) -> String {
+        let ratePercent = Int(
+            min(
+                200,
+                max(50, (rate / AVSpeechUtteranceDefaultSpeechRate) * 100)
+            ).rounded()
+        )
+        let pitchPercent = Int(
+            min(
+                50,
+                max(-50, (pitch - 1.0) * 50)
+            ).rounded()
+        )
+        let pitchValue = pitchPercent >= 0 ? "+\(pitchPercent)%" : "\(pitchPercent)%"
+        return """
+        <speak><prosody rate="\(ratePercent)%" pitch="\(pitchValue)">\(escapedSSMLText(text))</prosody></speak>
+        """
+    }
+
+    private static func escapedSSMLText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&apos;")
     }
 
     static func clampedRate(_ value: Float) -> Float {

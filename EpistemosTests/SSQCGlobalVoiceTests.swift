@@ -63,6 +63,59 @@ struct SSQCGlobalVoiceTests {
         #expect(EpistemosSpeechSynthesizer.voicesGroupedByTier([opt(.default, "d1")]).map(\.0) == [.default])
     }
 
+    @Test("preferredVoiceIdentifier chooses quality before locale and uses locale only as tie-breaker")
+    func preferredVoiceIdentifierQualityFirst() {
+        func opt(
+            _ q: EpistemosSpeechSynthesizer.VoiceQualityTier,
+            _ id: String,
+            language: String,
+            name: String? = nil
+        ) -> EpistemosSpeechSynthesizer.VoiceOption {
+            EpistemosSpeechSynthesizer.VoiceOption(
+                identifier: id,
+                displayName: name ?? id,
+                language: language,
+                quality: q
+            )
+        }
+
+        let voices = [
+            opt(.enhanced, "enhanced-current", language: "en-US"),
+            opt(.premium, "premium-other", language: "fr-FR"),
+            opt(.default, "default-current", language: "en-US")
+        ]
+        #expect(
+            EpistemosSpeechSynthesizer.preferredVoiceIdentifier(
+                from: voices,
+                currentLanguageCode: "en-US"
+            ) == "premium-other"
+        )
+
+        let tiedPremium = [
+            opt(.premium, "premium-other", language: "fr-FR"),
+            opt(.premium, "premium-current", language: "en-GB")
+        ]
+        #expect(
+            EpistemosSpeechSynthesizer.preferredVoiceIdentifier(
+                from: tiedPremium,
+                currentLanguageCode: "en-US"
+            ) == "premium-current"
+        )
+    }
+
+    @Test("preferredVoice avoids language-constructor floor and SSML falls back to plain utterance")
+    func preferredVoiceAndProsodySourceGuard() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
+
+        #expect(!src.contains("AVSpeechSynthesisVoice(language:"))
+        #expect(src.contains("preferredVoiceIdentifier("))
+        #expect(src.contains("locale only as a tie-breaker"))
+        #expect(src.contains("AVSpeechUtterance(ssmlRepresentation: ssml)"))
+        #expect(src.contains("AVSpeechUtterance(string: text)"))
+        #expect(src.contains("clampedRate(prosody?.rate ?? rate)"))
+        #expect(src.contains("clampedPitch(prosody?.pitch ?? pitch)"))
+    }
+
     @Test("Quick Capture surfaces the voice picker at point of use + persists to the global default")
     func quickCaptureMountsVoicePicker() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
