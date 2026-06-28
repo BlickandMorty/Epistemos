@@ -398,3 +398,48 @@ defeats the race and yields a clean, reproducible proof tree. Reusable scripts:
 - Gate 5: owner/browser OAuth success; true confirm-dialog/MCP-app window affordances; MAS honest-gate + manual/distribution WRV.
 - Manual app pass on the re-staged App-Support bundle (Cmd-3 details must read exactly `native ACP Goose ready (...)` / `custom ACP Goose ready`).
 - Owner §7 sign-off (the only mandatory pause).
+
+## 2026-06-28 Recursive Proof — COMPLETE (3 consecutive clean passes)
+
+Per the recursive-app-audit methodology, the combined Goose live sweep was run
+THREE consecutive times with NO code changes between them, all green:
+
+| Pass | Result | Evidence |
+| --- | --- | --- |
+| Focused/build (validates the batch) | `** TEST EXECUTE SUCCEEDED **` 5/5 | `build/goose-phase0-claude-2026-06-28/sweep-2026-06-28-115619.log` |
+| Clean pass #1 | exit 0, 5/5 | `sweep-2026-06-28-1158xx.log` (after model-cleanup disk relief) |
+| Clean pass #2 | exit 0, 5/5 | `sweep-2026-06-28-1159xx.log` |
+| Clean pass #3 | exit 0, `✔ Test run with 5 tests in 5 suites passed after 89.881s` | `sweep-2026-06-28-120143.log` |
+
+Suites each pass: Goose provider catalog, session lifecycle, custom capability,
+Web prompt, Web route — all live against real `goose serve` 1.39.0 on the
+isolated DerivedData.
+
+Test-honesty fixes validated this round (commit `79f461233`): the recipe-id
+reconciliation proof now fails if it falls back to the saved id instead of
+finding the recipe in the live ACP list (RecipeIDResolution byPath/byNameAndTitle/
+fallbackToSaved + guard); the `session_info_cwd_matches_repo` breadcrumb now
+reflects the raw ACP cwd, not the `?? repoPath` fallback.
+
+### Environment note (disk blocker, resolved by owner authorization)
+
+Mid-pass, the combined sweep twice failed NOT on product behavior but on the host
+running `No space left on device` during `stage-goose-web-ui.sh` rsync (three
+concurrent never-stop agent builds over-subscribing a chronically-full volume).
+The two affected suites (Web prompt / Web route) passed cleanly once disk was
+available. With the owner's explicit authorization, ~286 GB of local model
+weights were deleted (`Models/text` 341 GB, `ModelQuarantine`, MLX + HuggingFace
+caches, duplicated model copies inside recovery snapshots), leaving app data,
+notes/vault/chats, the staged GooseWebUI, model manifests, and other apps'
+models intact. Free space went 2 GB -> 288 GB, after which all three recursive
+passes ran clean.
+
+### Surface status
+
+The Goose surface is HARDENED for all non-owner Phase-0 items: owner-reported
+route failures fixed and live-proven, thermonuclear edge-case/security hardening
+applied and re-validated, GOLDEN RULE / no-silent-drops / Keychain re-proven,
+and the recursive 3-pass gate met. Phase 0 remains **NOT signed off** — the
+owner §7 checklist (`GOOSE_PHASE_0_OWNER_SIGNOFF_CHECKLIST_2026_06_28.md`)
+manual pass + browser OAuth, plus Gate 3 live thinking and Gate 5
+window-affordance/MAS-WRV, are the remaining gates.
