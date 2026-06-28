@@ -43,7 +43,16 @@
     `MCPUrlServerDirectory.write` + `ExtensionsDetailView` (Skills/MCP/Connectors tabs) + `BestOfPreset` + manifest.
   - **`PLAN_3_APPLE_NATIVE_CODEPACK`** — `FilePreview` (QuickLook), `LiveTextImageView` (VisionKit Live Text → search),
     `FileThumbnail` (QuickLookThumbnailing) + wiring into `NotesSidebar` rows.
-- [ ] **Pass 5+** (queue): (8) arXiv pull + meeting/STT note (§7) → clone targets + code. (10) ColBERT search-only
-  rerank → `maxsim.rs` + libllama embedding FFI code. (11) Eidos→chat panel (§4 moat surfacing) → code. (12) HARDEN +
-  contradiction sweep across all 3 plans (no duplication/clash; verify every [INFERRED] seam). (13) owner-decision-queue
-  items (only if owner says yes to local model-management).
+- [x] **Pass 5 DONE** (2026-06-28): owner steering + 2 research lanes.
+  - **Owner decisions:** 🔴 CUT local model-management (HF/BYOM/stack/vision/DeerFlow) — owner said no, AI=Goose.
+    🟢 NEW REQ: every feature = a landing-page button (§8). 🟢 browser-use/automation confirmed wanted (§9).
+  - **Landing buttons** → `PLAN_3_LANDING_BUTTONS_CODEPACK` (`LandingFeatureButton` enum + tile + dispatch over existing
+    summon mechanisms; 1 case per feature; honest Pro pills).
+  - **browser-use verdict (§9):** it drives ONLY Chromium (CDP) → CANNOT drive Obscura (WebKit); Python+Chromium → Pro
+    only. Goose already has 11 Chromium/CDP browser tools (Pro). REC: Option B native (drive in-app Obscura WKWebView via
+    the `WebKitBrowserEngine` stub, exposed to Goose) first; Option A (vendor real browser-use as a Pro power-mode) optional.
+  - **Added a CLONES LEDGER** to Plan 3: real external clones = EdgeParse + unpdf (MAS) + ColBERT model + optional
+    browser-use (Pro); everything else is native.
+- [ ] **Pass 6+** (queue): (8) arXiv pull + meeting/STT note → code. (10) ColBERT search-only `maxsim.rs` + libllama
+  embedding FFI → code. (B) Obscura Tier-2 = native `WebKitBrowserEngine` driving the in-app WKWebView, exposed to Goose
+  → code. (11) Eidos→chat panel → code. (12) HARDEN + contradiction sweep across all 3 plans (verify every [INFERRED]).

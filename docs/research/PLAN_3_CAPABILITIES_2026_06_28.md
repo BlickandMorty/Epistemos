@@ -290,13 +290,58 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
 - **Eidos→chat / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): the closed-citation retrieval panel is
   the *visible payoff* of the moat; substrate is ~done, only the surfacing remains.
 
-## ⏳ Owner-decision queue (hinges on "no local app-side AI except Goose")
-The re-scan also surfaced **model-management** items you wanted — but they collide with the Goose-only-AI direction, so
-they need your call before they enter Plan 3: **HuggingFace/GitHub model marketplace + bring-your-own-model**, the
-**Settings model "stack"** (pick which models appear), the **on-device vision runtime (mlx-vlm)** for VLMs, and
-**DeerFlow multi-agent research** (~80% built). Question for you: with AI consolidated to Goose, do you still want the
-app to **install/manage local models** (which Goose/the runtime would then use)? If yes → these become Plan-3 sections;
-if no → they're cut. Flagged, not assumed.
+## Owner decisions (2026-06-28)
+- **🔴 CUT — local model-management.** Owner: "no" to HuggingFace/BYOM model marketplace, the Settings model "stack",
+  the mlx-vlm vision runtime, and DeerFlow. AI is consolidated to Goose; the app does NOT install/manage local models.
+- **🟢 NEW REQUIREMENT — every Plan-3 feature is a LANDING-PAGE BUTTON.** Each capability must be a button/shortcut on
+  the landing page for one-tap access (e.g. a **"Browser"** button → Obscura). See §8.
+- **🟢 CONFIRMED — Obscura + browser-use automation, connected to Goose.** Owner wants real browser-use/automation and
+  the full `browser-use` app embedded+reskinned if viable; wants it usable BY Goose and FOR Obscura. See §2 + §9.
+
+## 8. Landing-page feature buttons (owner requirement, Pass 5) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
+Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `:37`, the existing `landingPixelCommands`
+grid `:492`). New `LandingFeatureButton` enum (browser/extensions/vaultMCP/pdfImport/provenance + future) → reuses the
+existing `PixelLandingCommandTile` + summons already-shipping surfaces (`GooseSurfaceWindowController.open()`,
+`UtilityWindowManager.show(.settings/.browser)`, PDF import). Honest compile-time Pro pills. Adding a feature = 1 enum
+case + 1 switch line. Pure additive UI, MAS-safe.
+
+## 9. Browser automation + browser-use + Goose (Pass 5 honest verdict)
+**The owner asked for two things that are in TENSION — they can't be the same thing:**
+- **`browser-use` (the repo) drives ONLY Chromium (CDP/Playwright), NOT WKWebView.** So it **cannot** drive Obscura
+  (WebKit). browser-use is Python + MIT + 101k★, "desktop app" = a Gradio web-UI server (not native). Embedding it =
+  **Pro/Developer-ID only** (bundle Python 3.11 + Playwright **Chromium** ~hundreds of MB + host its Gradio UI in a
+  WebView + reskin CSS). The robot would drive a **separate bundled Chromium**, invisible to the in-app Obscura.
+- **Goose ALREADY has the same category of robot today** `[VERIFIED-CODE]`: 11 browser tools (`browser_navigate/click/
+  type/snapshot/scroll/...`, `agent_core/src/tools/browser.rs` + `registry.rs:2676-2750`) via an external `agent-browser`
+  CLI over Chromium/CDP — **Pro-only**, user-installed binary.
+- **"Robot heaviness":** agentic browser automation is the **least reliable** agent category (DOMs change, anti-bot,
+  CAPTCHAs, login expiry, CDP/Chrome version drift — browser-use itself keeps rewriting its driver). Worth it only for
+  **bounded, repeatable tasks on cooperative sites**, not "do anything anywhere." Heavy maintenance for a solo dev.
+
+**Recommendation — Option C, START with B:**
+- **Option B (recommended first) = "browser-use for Obscura," NATIVE.** Implement the already-defined (stub)
+  `WebKitBrowserEngine` (`browser_engine/mod.rs:273-317`) to drive the **in-app Obscura WKWebView** via
+  `evaluateJavaScript` + the WebKit a11y tree, exposed to **Goose** the same way the 11 tools register. This is the robot
+  driving the browser you actually see, no Python, no Chromium — read/snapshot is MAS-plausible, click/type is Pro. It is
+  NOT the browser-use repo; it's native. Lighter, in-doctrine.
+- **Option A (optional Pro power-mode) = vendor the real `browser-use`** (browser-use + web-ui + cdp-use + Python +
+  Chromium), reskinned Gradio-in-WebView, exposed to Goose as MCP tools. Frontier-grade robot, but a separate Chromium,
+  **Pro only**, heavy. Add only as a deliberate opt-in power-mode.
+- → §2 Obscura Tier 2 = Option B; a new "Browser Robot (Pro)" = Option A. Both connect to Goose.
+
+## ★ CLONES LEDGER — what you'll actually vendor (honest)
+Most of Plan 3 is **native code reusing your own seams — NOT repo clones.** The real external clones:
+| Item | What's cloned/added | License | MAS/Pro |
+|---|---|---|---|
+| **EdgeParse** (`edgeparse-core`) | Rust PDF→md primary | Apache-2.0 | MAS |
+| **unpdf** | Rust PDF→md multilingual fallback | MIT | MAS |
+| liteparse | already vendored (keep, Pro-first) | Apache-2.0 | Pro |
+| **LFM2.5-ColBERT-350M-GGUF** | a MODEL download (not a repo), search-only rerank, deferred/optional | lfm1.0 | Pro→MAS later |
+| llama.cpp | already vendored (used by ColBERT) | MIT | — |
+| **browser-use + web-ui + cdp-use** | ONLY if Option A — Python+Chromium robot | MIT | **Pro only** |
+**Native (NO clone):** provenance moat · vault-as-MCP-server · Obscura Tier 1 browser · Apple-native (QuickLook/VisionKit/
+thumbnails) · extensibility install UI + best-of preset · landing buttons · Option-B native browser robot. So you're
+cloning **~2 repos (EdgeParse, unpdf)** for MAS + 1 model + (optionally) browser-use for Pro; everything else is your own code.
 
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI). 
