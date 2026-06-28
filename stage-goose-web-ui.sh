@@ -53,6 +53,7 @@ printf 'export const USE_ACP_CHAT = true;\n' > "$WORK_ROOT/ui/desktop/src/acpCha
 cat > "$WORK_ROOT/ui/desktop/src/acp/providers.ts" <<'TS'
 import type {
   ConfigKey,
+  DeclarativeProviderConfig,
   ModelInfo,
   ModelTemplate,
   ProviderCatalogEntry,
@@ -60,6 +61,7 @@ import type {
   ProviderSecret,
   ProviderTemplate,
   ProviderType,
+  UpdateCustomProviderRequest,
 } from '../api';
 import { getAcpClient } from './acpConnection';
 import type { PreferenceKey } from '@aaif/goose-sdk';
@@ -891,6 +893,75 @@ export async function deleteAcpProviderConfig(providerId: string): Promise<void>
 export async function authenticateAcpProviderConfig(providerId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.providersConfigAuthenticate_unstable({ providerId });
+}
+
+// Custom-provider create/read/update/delete bridged onto the live ACP methods
+// (providersCustom*_unstable). The upstream desktop UI hits the dead REST
+// /config/custom-providers, which does not exist in ACP mode, so adding or
+// editing a custom provider threw with no surfaced error. Map the desktop
+// snake_case request body onto the ACP camelCase wire shape, and map the ACP
+// read DTO back into the REST DeclarativeProviderConfig shape the edit form
+// already consumes. Marker: epistemos-acp-custom-provider-crud.
+function customProviderAcpPayload(data: UpdateCustomProviderRequest) {
+  return {
+    engine: data.engine,
+    displayName: data.display_name,
+    apiUrl: data.api_url,
+    apiKey: data.api_key ?? null,
+    models: data.models ?? [],
+    supportsStreaming: data.supports_streaming ?? null,
+    headers: data.headers ?? undefined,
+    requiresAuth: data.requires_auth ?? false,
+    catalogProviderId: data.catalog_provider_id ?? null,
+    basePath: data.base_path ?? null,
+    preservesThinking: data.preserves_thinking ?? null,
+  };
+}
+
+export async function createAcpCustomProvider(data: UpdateCustomProviderRequest): Promise<string> {
+  const client = await getAcpClient();
+  const response = await client.goose.providersCustomCreate_unstable(customProviderAcpPayload(data));
+  resetProviderConfigStatusCache();
+  return response.providerId;
+}
+
+export async function updateAcpCustomProvider(
+  providerId: string,
+  data: UpdateCustomProviderRequest
+): Promise<string> {
+  const client = await getAcpClient();
+  const response = await client.goose.providersCustomUpdate_unstable({
+    providerId,
+    ...customProviderAcpPayload(data),
+  });
+  resetProviderConfigStatusCache();
+  return response.providerId;
+}
+
+export async function deleteAcpCustomProvider(providerId: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.providersCustomDelete_unstable({ providerId });
+  resetProviderConfigStatusCache();
+}
+
+export async function readAcpCustomProvider(
+  providerId: string
+): Promise<{ config: DeclarativeProviderConfig; is_editable: boolean }> {
+  const client = await getAcpClient();
+  const response = await client.goose.providersCustomRead_unstable({ providerId });
+  const dto = response.provider;
+  const config = {
+    engine: dto.engine,
+    display_name: dto.displayName,
+    base_url: dto.apiUrl,
+    base_path: dto.basePath ?? null,
+    catalog_provider_id: dto.catalogProviderId ?? null,
+    supports_streaming: dto.supportsStreaming ?? null,
+    requires_auth: dto.requiresAuth,
+    headers: dto.headers ?? undefined,
+    models: (dto.models ?? []).map((name) => ({ name })),
+  } as unknown as DeclarativeProviderConfig;
+  return { config, is_editable: response.editable };
 }
 
 export async function listAcpProviderModels(providerId: string): Promise<ModelInfo[]> {
@@ -1811,6 +1882,125 @@ if (source.includes(oauthAnchor)) {
 fs.writeFileSync(path, source);
 NODE
 
+PROVIDER_GRID="$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderGrid.tsx"
+node - "$PROVIDER_GRID" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`ProviderGrid ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+// epistemos-acp-custom-provider-crud: ProviderGrid is rendered by the
+// (ACP-grafted) ProviderSettingsPage and manages custom providers via dead REST
+// /config/custom-providers (get/create/update/remove), which 404s in ACP mode.
+// Bridge each onto the live providersCustom*_unstable methods.
+const importAnchor = `import {
+  DeclarativeProviderConfig,
+  ProviderDetails,
+  UpdateCustomProviderRequest,
+} from '../../../api';`;
+const imports = `${importAnchor}
+import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';
+import {
+  createAcpCustomProvider,
+  deleteAcpCustomProvider,
+  readAcpCustomProvider,
+  updateAcpCustomProvider,
+} from '../../../acp/providers';`;
+if (!source.includes('createAcpCustomProvider')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('ProviderGrid import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+replaceRequired(
+  'custom provider read',
+  `        const { getCustomProvider } = await import('../../../api');
+        const result = await getCustomProvider({ path: { id: provider.name }, throwOnError: true });`,
+  `        const result = USE_ACP_CHAT
+          ? { data: await readAcpCustomProvider(provider.name) }
+          : await (await import('../../../api')).getCustomProvider({
+              path: { id: provider.name },
+              throwOnError: true,
+            });`
+);
+
+replaceRequired(
+  'custom provider update',
+  `      const { updateCustomProvider } = await import('../../../api');
+      await updateCustomProvider({
+        path: { id: editingProvider.id },
+        body: data,
+        throwOnError: true,
+      });`,
+  `      if (USE_ACP_CHAT) {
+        await updateAcpCustomProvider(editingProvider.id, data);
+      } else {
+        const { updateCustomProvider } = await import('../../../api');
+        await updateCustomProvider({
+          path: { id: editingProvider.id },
+          body: data,
+          throwOnError: true,
+        });
+      }`
+);
+
+replaceRequired(
+  'custom provider delete',
+  `    const { removeCustomProvider } = await import('../../../api');
+    await removeCustomProvider({
+      path: { id: editingProvider.id },
+      throwOnError: true,
+    });`,
+  `    if (USE_ACP_CHAT) {
+      await deleteAcpCustomProvider(editingProvider.id);
+    } else {
+      const { removeCustomProvider } = await import('../../../api');
+      await removeCustomProvider({
+        path: { id: editingProvider.id },
+        throwOnError: true,
+      });
+    }`
+);
+
+replaceRequired(
+  'custom provider create',
+  `      const { createCustomProvider } = await import('../../../api');
+      const result = await createCustomProvider({ body: data, throwOnError: true });
+      const providerId = result.data?.provider_name;`,
+  `      let providerId: string | undefined;
+      if (USE_ACP_CHAT) {
+        // epistemos-acp-custom-provider-crud
+        providerId = await createAcpCustomProvider(data);
+      } else {
+        const { createCustomProvider } = await import('../../../api');
+        const result = await createCustomProvider({ body: data, throwOnError: true });
+        providerId = result.data?.provider_name;
+      }`
+);
+
+for (const snippet of [
+  'createAcpCustomProvider',
+  'readAcpCustomProvider',
+  'updateAcpCustomProvider',
+  'deleteAcpCustomProvider',
+  'epistemos-acp-custom-provider-crud',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ProviderGrid staged source is missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 ONBOARDING_PROVIDER_SELECTOR="$WORK_ROOT/ui/desktop/src/components/onboarding/ProviderSelector.tsx"
 node - "$ONBOARDING_PROVIDER_SELECTOR" <<'NODE'
 const fs = require('fs');
@@ -1830,12 +2020,39 @@ const importAnchor = `import {
 } from '../../api';`;
 const imports = `${importAnchor}
 import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';
-import { getAcpProviders } from '../../acp/providers';`;
+import { createAcpCustomProvider, getAcpProviders } from '../../acp/providers';`;
 if (!source.includes('getAcpProviders')) {
   if (!source.includes(importAnchor)) {
     throw new Error('ProviderSelector import anchor not found');
   }
   source = source.replace(importAnchor, imports);
+}
+
+// epistemos-acp-custom-provider-crud: the onboarding "Add a custom provider"
+// submit also went through the dead REST createCustomProvider; bridge it onto ACP.
+const createAnchor = `    const result = await createCustomProvider({ body: data, throwOnError: true });
+    setShowCustomModal(false);
+    if (result.data?.provider_name) {
+      onConfigured(result.data.provider_name);
+    }`;
+const createReplacement = `    if (USE_ACP_CHAT) {
+      const providerId = await createAcpCustomProvider(data);
+      setShowCustomModal(false);
+      if (providerId) {
+        onConfigured(providerId);
+      }
+      return;
+    }
+    const result = await createCustomProvider({ body: data, throwOnError: true });
+    setShowCustomModal(false);
+    if (result.data?.provider_name) {
+      onConfigured(result.data.provider_name);
+    }`;
+if (!source.includes('createAcpCustomProvider(data)')) {
+  if (!source.includes(createAnchor)) {
+    throw new Error('ProviderSelector create anchor not found');
+  }
+  source = source.replace(createAnchor, createReplacement);
 }
 
 const loadAnchor = `        const response = await fetchProviders({ throwOnError: true });

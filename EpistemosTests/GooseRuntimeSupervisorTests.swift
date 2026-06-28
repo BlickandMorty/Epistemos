@@ -689,10 +689,30 @@ struct GooseWebUIStagingTests {
         // (real Goose shows ~7 providers, the configured ones marked ready). Must NOT
         // bypass onboarding (the OnboardingGuard passthrough is separately forbidden).
         #expect(script.contains("epistemos-acp-onboarding-provider-grid"))
-        #expect(script.contains("import { getAcpProviders } from '../../acp/providers';"))
+        #expect(script.contains("import { createAcpCustomProvider, getAcpProviders } from '../../acp/providers';"))
         #expect(script.contains("setProviderList(await getAcpProviders())"))
         #expect(script.contains("ProviderSelector import anchor not found"))
         #expect(script.contains("ProviderSelector load anchor not found"))
+        // Custom-provider CRUD (create/read/update/delete) bridged onto the live
+        // providersCustom*_unstable methods. Upstream used dead REST
+        // /config/custom-providers (404 in ACP mode) -> adding or editing a custom
+        // provider threw silently. ProviderGrid (Settings) + ProviderSelector
+        // (onboarding "Add a custom provider") are both covered; the desktop
+        // snake_case body is mapped to the ACP camelCase wire shape and the read
+        // DTO mapped back into the DeclarativeProviderConfig the edit form consumes.
+        #expect(script.contains("epistemos-acp-custom-provider-crud"))
+        #expect(script.contains("export async function createAcpCustomProvider"))
+        #expect(script.contains("export async function updateAcpCustomProvider"))
+        #expect(script.contains("export async function deleteAcpCustomProvider"))
+        #expect(script.contains("export async function readAcpCustomProvider"))
+        #expect(script.contains("client.goose.providersCustomCreate_unstable("))
+        #expect(script.contains("client.goose.providersCustomUpdate_unstable("))
+        #expect(script.contains("client.goose.providersCustomDelete_unstable({ providerId })"))
+        #expect(script.contains("client.goose.providersCustomRead_unstable({ providerId })"))
+        #expect(script.contains("await updateAcpCustomProvider(editingProvider.id, data)"))
+        #expect(script.contains("await deleteAcpCustomProvider(editingProvider.id)"))
+        #expect(script.contains("providerId = await createAcpCustomProvider(data)"))
+        #expect(script.contains("ProviderGrid import anchor not found"))
     }
 
     @Test("Goose Swift surface does not carry a provider or model roster")
