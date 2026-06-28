@@ -17,7 +17,6 @@ let package = Package(
   ],
   dependencies: [
     .package(path: "../MarkEditCore"),
-    .package(path: "../MarkEditTools"),
   ],
   targets: [
     .target(
@@ -26,9 +25,6 @@ let package = Package(
       path: "Sources",
       swiftSettings: [
         .enableExperimentalFeature("StrictConcurrency")
-      ],
-      plugins: [
-        .plugin(name: "SwiftLint", package: "MarkEditTools"),
       ]
     ),
   ]
