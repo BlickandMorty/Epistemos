@@ -63,6 +63,15 @@ agent-mode cross-restart persistence (no `GOOSE_MODE` preference home in 1.39.0)
 
 ## OWNER — manual app pass (please click through and confirm)
 
+> Note: every route below is ALSO covered by the automated live WebRoute suite
+> (`GooseWebRouteLiveIntegrationTests`, green this pass), which asserts each route
+> renders its real heading AND fires its real ACP method (not dead REST) —
+> `/apps`, `/schedules`→`schedules/list`, `/recipes`→`recipes/list`,
+> `/sessions`→`session/list`, `/skills`→`sources/list`, `/extensions`→
+> `config/extensions/list`, `/settings?section=models|auth`, `/configure-providers`
+> — with empty-state text (e.g. "No apps available") accepted and error-boundary
+> text forbidden. Your manual pass is final confirmation, not first discovery.
+
 Launch the current Debug build:
 
 ```
