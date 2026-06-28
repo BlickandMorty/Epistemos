@@ -33,6 +33,13 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
       }
     },
 
+    setContentWidth(value: string): void {
+      document.documentElement.style.setProperty(
+        '--epdoc-content-max-width',
+        sanitizeContentWidth(value),
+      );
+    },
+
     focusStart(): void {
       editor.commands.focus('start');
     },
@@ -149,6 +156,18 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
     },
   };
   window.epistemos = epistemos;
+}
+
+function sanitizeContentWidth(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === 'none') return 'none';
+
+  const match = /^(\d{2,4})px$/.exec(trimmed);
+  if (!match) return '720px';
+
+  const pixels = Number(match[1]);
+  if (!Number.isFinite(pixels) || pixels < 560 || pixels > 1600) return '720px';
+  return `${pixels}px`;
 }
 
 function setHeadingLevel(editor: Editor, level: number): boolean {

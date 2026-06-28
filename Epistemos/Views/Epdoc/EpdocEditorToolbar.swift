@@ -57,6 +57,9 @@ public final class EpdocEditorToolbarModel {
     public var isStrikeActive: Bool = false
     public var isCodeActive: Bool = false
     public var isHighlightActive: Bool = false
+    /// Current note content width. Session/UI state only until the
+    /// markdown source-of-truth pipeline owns `_width` persistence.
+    public var widthMode: NoteWidthMode = .normal
 
     /// Fire a Swift → JS command. The host installs the closure when
     /// it constructs the toolbar; `EpdocEditorChromeView` defaults to
@@ -85,6 +88,8 @@ public struct EpdocEditorToolbar: View {
     /// Triggered when the user hits ⌘S or the Save button. The host
     /// runs the actual NSDocument save coordinator.
     public var onSave: @Sendable @MainActor () -> Void = {}
+    @State private var isWidthPopoverPresented = false
+    @State private var customWidthPixels = Double(NoteWidthMode.defaultCustomPixels)
 
     public init(
         model: EpdocEditorToolbarModel,
@@ -103,6 +108,8 @@ public struct EpdocEditorToolbar: View {
             insertGroup
             divider
             structureGroup
+            divider
+            widthGroup
         }
         .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, 10)
@@ -196,7 +203,101 @@ public struct EpdocEditorToolbar: View {
                    tip: "Task list",      command: .insertSlashChoice(blockType: "task-list"))
     }
 
+    @ViewBuilder
+    private var widthGroup: some View {
+        Button {
+            syncCustomWidthFromModel()
+            isWidthPopoverPresented.toggle()
+        } label: {
+            Label(widthModeTip, systemImage: "arrow.left.and.right")
+                .labelStyle(.iconOnly)
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.borderless)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(model.widthMode.normalized == .normal ? Color.clear : Color.accentColor.opacity(0.15))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(model.widthMode.normalized == .normal ? Color.clear : Color.accentColor.opacity(0.45), lineWidth: 1)
+        )
+        .help(widthModeTip)
+        .accessibilityLabel(Text(widthModeTip))
+        .popover(isPresented: $isWidthPopoverPresented, arrowEdge: .bottom) {
+            widthPopover
+        }
+    }
+
+    private var widthPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                widthChoiceButton(title: "Normal", symbol: "text.alignleft", mode: .normal)
+                widthChoiceButton(title: "Wide", symbol: "rectangle.expand.vertical", mode: .wide)
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "textformat.size.smaller")
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: customWidthBinding,
+                    in: Double(NoteWidthMode.minimumCustomPixels)...Double(NoteWidthMode.maximumCustomPixels),
+                    step: 20
+                )
+                Image(systemName: "textformat.size.larger")
+                    .foregroundStyle(.secondary)
+            }
+            Text("\(Int(customWidthPixels.rounded())) px")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .padding(12)
+        .frame(width: 270)
+    }
+
     // MARK: - Helpers
+
+    private func widthChoiceButton(title: String, symbol: String, mode: NoteWidthMode) -> some View {
+        Button {
+            applyWidthMode(mode)
+        } label: {
+            Label(title, systemImage: symbol)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(model.widthMode.normalized == mode.normalized ? Color.accentColor : Color.gray)
+    }
+
+    private var customWidthBinding: Binding<Double> {
+        Binding(
+            get: {
+                customWidthPixels
+            },
+            set: { newValue in
+                let rounded = (newValue / 20).rounded() * 20
+                customWidthPixels = rounded
+                applyWidthMode(.custom(px: Int(rounded)))
+            }
+        )
+    }
+
+    private var widthModeTip: String {
+        "Note width: \(model.widthMode.displayTitle)"
+    }
+
+    private func syncCustomWidthFromModel() {
+        customWidthPixels = Double(model.widthMode.customPixelsOrDefault)
+    }
+
+    private func applyWidthMode(_ mode: NoteWidthMode) {
+        let normalized = mode.normalized
+        model.widthMode = normalized
+        if case .custom(let pixels) = normalized {
+            customWidthPixels = Double(pixels)
+        }
+        model.dispatch(.setContentWidth(mode: normalized))
+    }
 
     @ViewBuilder
     private func toolButton(

@@ -197,7 +197,10 @@ public final class EpdocEditorChromeController {
     public func installEditorDispatch(
         _ dispatch: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void
     ) {
-        self.dispatch = dispatch
+        self.dispatch = { [weak self] command in
+            self?.reflectLocalState(for: command)
+            dispatch(command)
+        }
         bridgeDispatchInstalled = true
         flushInitialContentIfPossible()
     }
@@ -209,6 +212,12 @@ public final class EpdocEditorChromeController {
 
     public func openHTMLWorkspace() {
         onOpenHTMLWorkspace()
+    }
+
+    private func reflectLocalState(for command: EpdocEditorCommand) {
+        if case .setContentWidth(let mode) = command {
+            toolbarModel.widthMode = mode.normalized
+        }
     }
 
     private func flushInitialContentIfPossible() {

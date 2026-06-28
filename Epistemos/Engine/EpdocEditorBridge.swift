@@ -665,6 +665,9 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     /// shim looks `name` up in `editor.commands` + invokes with `args`.
     /// Args are JSON-encoded; receiver decodes and spreads.
     case runCommand(name: String, argsJSON: Data)
+    /// L2 note-width control. Sets the editor content max-width CSS
+    /// variable without mutating document content.
+    case setContentWidth(mode: NoteWidthMode)
 
     /// JS expression that the bridge evaluates inside the WKWebView.
     /// Assumes `window.epdocEditor` is the Tiptap editor instance the
@@ -693,6 +696,8 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             let argsLiteral = String(data: argsJSON, encoding: .utf8) ?? "[]"
             // window.epistemos.runCommand(name, ...args)
             return "window.epistemos.runCommand(\(jsStringLiteral(name)), ...\(argsLiteral))"
+        case .setContentWidth(let mode):
+            return "window.epistemos.setContentWidth(\(jsStringLiteral(mode.cssMaxWidthValue)))"
         }
     }
 }

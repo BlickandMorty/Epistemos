@@ -78,6 +78,24 @@ public enum CommandRegistrations {
             shortcut: EpistemosCommandShortcut("k", modifiers: [.command, .shift], display: "⇧⌘K"),
             command: .runCommand(name: "setLink", argsJSON: emptyArgs)
         )
+        registerEditorCommand(
+            registry,
+            id: "epdoc.widthNormal",
+            title: "Normal Note Width",
+            subtitle: "Use the canonical 720 px note width",
+            symbol: "arrow.left.and.right",
+            menuPath: .view,
+            command: .setContentWidth(mode: .normal)
+        )
+        registerEditorCommand(
+            registry,
+            id: "epdoc.widthWide",
+            title: "Wide Note Width",
+            subtitle: "Use the full editor width",
+            symbol: "rectangle.expand.vertical",
+            menuPath: .view,
+            command: .setContentWidth(mode: .wide)
+        )
 
         registerEditorCommand(
             registry,
@@ -188,6 +206,7 @@ public enum CommandRegistrations {
         subtitle: String?,
         symbol: String,
         shortcut: EpistemosCommandShortcut? = nil,
+        menuPath: EpistemosCommandMenuPath = .format,
         command: EpdocEditorCommand
     ) {
         registerNoteCommand(
@@ -197,7 +216,7 @@ public enum CommandRegistrations {
             subtitle: subtitle,
             symbol: symbol,
             shortcut: shortcut,
-            menuPath: .format
+            menuPath: menuPath
         ) {
             registry.dispatchActiveNote(command)
         }

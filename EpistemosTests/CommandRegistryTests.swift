@@ -97,6 +97,19 @@ struct CommandRegistryTests {
             #expect(Bool(false), "expected link to dispatch through EpdocEditorCommand.runCommand")
         }
 
+        let wideWidth = registry.matching(query: "wide width", scope: .note).first { $0.id == "epdoc.widthWide" }
+        #expect(wideWidth != nil)
+        wideWidth?.run()
+        if case let .setContentWidth(mode)? = captured.last {
+            #expect(mode == .wide)
+        } else {
+            #expect(Bool(false), "expected wide-width command to dispatch through EpdocEditorCommand.setContentWidth")
+        }
+
+        let viewMenuIDs = registry.menuCommands(path: .view).map(\.id)
+        #expect(viewMenuIDs.contains("epdoc.widthNormal"))
+        #expect(viewMenuIDs.contains("epdoc.widthWide"))
+
         registry.deactivateNoteSurface(id: ObjectIdentifier(token))
         #expect(registry.matching(query: "bold", scope: .note).isEmpty)
     }

@@ -24,6 +24,7 @@ struct EpdocEditorToolbarTests {
         #expect(model.isStrikeActive == false)
         #expect(model.isCodeActive == false)
         #expect(model.isHighlightActive == false)
+        #expect(model.widthMode == .normal)
     }
 
     @Test("Setting word/char count updates @Observable surface")
@@ -101,6 +102,16 @@ struct EpdocEditorToolbarTests {
         #expect(toolbar.contains(#"name: "setHeadingLevel""#))
         #expect(toolbar.contains(#"name: "setParagraph""#))
         #expect(!toolbar.contains(#"command: .insertSlashChoice(blockType: "heading-1")"#))
+    }
+
+    @Test("Note width control exposes normal, wide, and custom slider commands")
+    func noteWidthControlUsesBridgeCommand() throws {
+        let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
+
+        #expect(toolbar.contains("widthGroup"))
+        #expect(toolbar.contains(#"applyWidthMode(.custom(px: Int(rounded)))"#))
+        #expect(toolbar.contains(#"Slider("#))
+        #expect(toolbar.contains(#".setContentWidth(mode: normalized)"#))
     }
 
     @Test("Inbound heading command scopes formatting to the active text block")

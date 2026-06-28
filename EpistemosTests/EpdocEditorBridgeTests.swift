@@ -499,6 +499,13 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(cmd.javaScriptExpression() == #"window.epistemos.runCommand("toggleHeading", ...[{"level":2}])"#)
     }
 
+    @Test("setContentWidth routes through the namespaced inbound bridge")
+    func setContentWidthCommand() {
+        #expect(EpdocEditorCommand.setContentWidth(mode: .normal).javaScriptExpression() == #"window.epistemos.setContentWidth("720px")"#)
+        #expect(EpdocEditorCommand.setContentWidth(mode: .wide).javaScriptExpression() == #"window.epistemos.setContentWidth("none")"#)
+        #expect(EpdocEditorCommand.setContentWidth(mode: .custom(px: 980)).javaScriptExpression() == #"window.epistemos.setContentWidth("980px")"#)
+    }
+
     @Test("jsStringLiteral escapes the dangerous JS literal characters")
     func jsStringLiteralEscapes() {
         #expect(jsStringLiteral("plain") == "\"plain\"")

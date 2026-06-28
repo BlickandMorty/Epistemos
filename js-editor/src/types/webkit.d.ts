@@ -33,6 +33,7 @@ interface Window {
   /** Namespaced inbound command surface — installed by bridge/inbound.ts. */
   epistemos?: {
     setContent(json: string): void;
+    setContentWidth(value: string): void;
     focusStart(): void;
     focusEnd(): void;
     dismissSlashMenu(): void;

@@ -77,7 +77,7 @@
 
 :root {
   --epdoc-page-padding: 34px 56px 64px;
-  --epdoc-content-max-width: 820px;
+  --epdoc-content-max-width: 720px;
   /* Swift injects --epdoc-display-font and per-level heading fonts.
    * These defaults are fallbacks used only if theme injection fails. */
   --epdoc-display-font: "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
