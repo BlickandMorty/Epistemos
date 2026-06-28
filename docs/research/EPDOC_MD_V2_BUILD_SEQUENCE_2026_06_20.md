@@ -1,19 +1,15 @@
 # EPDOC md-v2 — consolidated build sequence (2026-06-20)
 
-> ⛔ **SUPERSEDED ON SURFACE TOPOLOGY (2026-06-27) — see
-> `SS-CM_CODEMIRROR_MD_SOURCE_SURFACE_2026_06_27.md` (canonical).** This doc's premise
-> ("Epdoc/TipTap = the markdown-first editor") is no longer the owner's plan. FINAL model:
-> 1. **CodeMirror-6 markdown-source (new WebView surface) = PRIMARY** editor (most work +
->    pixel-art AI-diff trail). Built per SS-CM, not here.
-> 2. **Prose (TK2 / TextKit)** — 🔒 HARD GATE, frozen, never touched (long-form / long docs).
-> 3. **Epdoc (TipTap)** — ⛔ DEMOTED to legacy: parked, no new investment, removal-candidate
->    once CodeMirror ships. **Do NOT delete the working code yet; freeze it.**
-> This doc is KEPT as a pattern reference (frontmatter/properties/tags/wikilinks/agent-MD
-> mechanics carry over to the CM surface). Phase 6 step 19 (CodeMirror-into-Epdoc toggle) is
-> TOMBSTONED (strikethrough below): CodeMirror is now its own surface, not an Epdoc toggle.
-> Phases 2–3 (md serializer + canonical flip + lossy JSON↔md round-trip) largely EVAPORATE —
-> CodeMirror's buffer *is* the markdown, so there is no tree to serialize. See SS-CM §"Why
-> this SIMPLIFIES files-as-truth".
+> ✅ **SURFACE ASSIGNMENT CONFIRMED 2026-06-27 by `TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md`: Epdoc/TipTap IS
+> the NOTE editor — NOT demoted, NOT a removal-candidate.** (An earlier banner here wrongly demoted it, citing
+> the since-REVERSED SS-CM doc; that reversal is undone.) This build sequence's Epdoc content (frontmatter /
+> properties / tags / wikilinks / agent-MD / the markdown serializer) is **CANONICAL** for the note editor.
+> Two corrections to the body: (1) the markdown package is **`@tiptap/markdown` v3.27.x** (NOT the nonexistent
+> `@tiptap/extension-markdown` named in step 5); (2) note AI-diff = `prosemirror-changeset` +
+> `@handlewithcare/prosemirror-suggest-changes` (NOT TipTap AI Toolkit / `@codemirror/merge`). Step 19 stays
+> TOMBSTONED but for a NEW reason: **CodeMirror is the separate CODE editor (embedded MarkEdit), not a note
+> toggle.** ⚠️ The JSON↔md round-trip does NOT "evaporate" — Epdoc stores ProseMirror JSON today; the
+> serializer + canonical-`.md` flip is the locked-but-**UNBUILT** direction (the still-open fork).
 
 
 Synthesis of the 5 Epdoc slices into ONE ordered, dependency-aware build plan: SS-O (repair), SS-EM (md-first

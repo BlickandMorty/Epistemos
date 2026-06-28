@@ -54,8 +54,12 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
    - [x] 4b — `MARKEDIT_EMBED_CODEPACK_2026_06_27.md` (★ current code editor = textarea, highlighting DISABLED)
    - [x] 4c — `NATIVE_CONTROLS_CODEPACK_2026_06_27.md` (Epdoc already MarkEdit-shaped; gaps = Find/width/palette)
    - [x] 4d — `GOOSE_MINICHAT_CODEPACK_2026_06_27.md` (native SwiftUI over ACP + webview escape hatch; Phase-0 gated)
-- [ ] **Pass 5** (next): CONTRADICTION AUDIT across ALL editor docs (SS-CM, CODEMIRROR_MD_V2, EPDOC_MD_V2, SS-P,
-      this tracker + 4 codepacks) — find every conflict before the restructure.
+- [x] **Pass 5 DONE** (2026-06-27): CONTRADICTION AUDIT complete. 6 BLOCKERS found (all the same reversal:
+      SS-CM + CODEMIRROR_MD_V2 said "CodeMirror=primary note editor, drop TipTap" — REVERSED) + planted banners
+      in EPDOC_MD_V2 + SS-P. **All 4 poisoned banners FIXED this pass.** 4 codepacks + §16 clean. Open questions
+      catalogued below. Pass 6 next.
+- [ ] **Pass 6** (next): RESTRUCTURE into ONE canonical plan doc (`EDITOR_CANONICAL_PLAN_2026_06_27.md`) +
+      surface the 6 open questions for owner decisions.
 - [ ] **Pass 5:** Contradiction audit across ALL editor docs + the emerging plan.
 - [ ] **Pass 6:** RESTRUCTURE into one canonical plan doc (MarkEdit-in-app + Tolaria revamp on Epdoc +
       Goose AI + ontology + minimal-best toggles).
@@ -322,6 +326,36 @@ per token."** Carry this corrected version into the canonical plan.
   over `RustLSPTransport` (engine-agnostic); CM6 LSP-client extension deferred. Build: clone
   `build-tiptap-bundle.sh`→`build-coreeditor-bundle.sh` (vite+yarn, lock-hash gate); keep `chunk-loader://` first
   (brotli-unify later); adopt Epistemos entitlements (reject MarkEdit's MAS-hostile keys); xcodegen `project.yml`.
+
+### Pass 5 — contradiction audit (resolved) + open questions
+**One structural fault line** (predicted): `SS-CM` + `CODEMIRROR_MD_V2` declared "CodeMirror = PRIMARY note
+editor, drop TipTap" (written 17:18, BEFORE the loop reversed it); their supersede banners poisoned
+`EPDOC_MD_V2` + `SS-P`. 6 BLOCKERS (B-1..B-6) = the same reversal across axes: note-engine, code-engine,
+MarkEdit-role, AI-diff-lib, "markdown round-trip solved". **FIXED this pass — all 4 banners rewritten:**
+- `SS-CM` → hard supersede → T; re-scoped to CODE-lane research only; "decision (locked)" table marked historical.
+- `CODEMIRROR_MD_V2` → hard supersede → T; CM6/MarkEdit/typography research reusable for the CODE editor only.
+- `EPDOC_MD_V2` → un-demote banner: Epdoc/TipTap IS the note editor (CANONICAL); `@tiptap/markdown` name fix;
+  note AI-diff = prosemirror-changeset; JSON↔md does NOT evaporate (still the open fork).
+- `SS-P` → corrected: "graft onto Epdoc" was RIGHT; the 2nd surface is the CODE editor; AGPL clone-forbidden stands.
+The 4 Pass-4 codepacks + `SURFACE...§16` are aligned with the truth (only minor reconciliations: width pixels,
+package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use the Pass-3 name).
+
+**⚠️ OPEN QUESTIONS for the owner (surface in the canonical plan — do NOT paper over):**
+1. **JSON-vs-markdown source-of-truth fork (the big one):** Epdoc stores ProseMirror JSON in `.epdoc` packages
+   TODAY; §16 mandates vault `.md` write-through; the `@tiptap/markdown` serializer is UNBUILT. Plan must say:
+   serializer-first → canonical-`.md` flip → HTML-in-md fallback for rich blocks; until then Goose `update_note`
+   writes JSON into the package.
+2. **Minichat shape:** native SwiftUI over ACP + "Open in Goose" webview escape hatch (research rec) vs the
+   owner's "native webview shell" phrasing. **Needs owner confirm.**
+3. **Note-width pixels:** 3 specs exist (~700–760px / 820↔1180px / `max-width:none`); also binary vs a width
+   SLIDER (proposed differentiator). **Pick canonical numbers + binary-vs-slider.**
+4. **Code-editor swap scope:** Option A (keep Epistemos chrome, swap engine) + graft MarkEdit native panels
+   [recommended] vs Option B (replace whole surface with MarkEdit's VC). **Recommended, not locked.**
+5. **`@codemirror/merge` for the CODE editor:** excluded for notes; it's the natural diff engine for the CM6
+   CODE editor — capture this positive re-scope.
+6. **Cleanup fate:** after the CoreEditor swap, do the 3 old code-editor impls (`WebKitCodeEditorView`, dormant
+   `CodeEditSourceEditor`, scaffold `LiveCodeEditorController`) get deleted? And Epdoc/TipTap is KEPT (not
+   removed) — confirm.
 
 ### Pass 4c + 4d — code-level (full code in dedicated docs)
 - **4c Native controls** (`NATIVE_CONTROLS_CODEPACK_2026_06_27.md`): ★ Epdoc is ALREADY MarkEdit-shaped

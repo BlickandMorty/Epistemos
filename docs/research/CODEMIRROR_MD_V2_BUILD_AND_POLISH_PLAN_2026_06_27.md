@@ -1,11 +1,12 @@
 # CodeMirror md-v2 — build, clone & polish plan (2026-06-27)
 
-> **The working doc.** This is the doc to iterate on. It is the deep build/clone/polish companion
-> to the decision doc `SS-CM_CODEMIRROR_MD_SOURCE_SURFACE_2026_06_27.md` (which locks *what* and
-> *why*). This doc locks *which to clone* and *how to make it feel premium*, backed by four deep
-> research passes (2026-06-27): Tolaria deep-dive, AI-edit UX, Mac-native polish, and the
-> Tauri/webview-reification architecture. Protected pattern references (do not contradict, do not
-> delete): `SS-P_TOLARIA_V2_MD_EDITOR_*`, `EPDOC_MD_V2_BUILD_SEQUENCE_*`, and the SS-O/EM/FM/IR slices.
+> ⛔ **SUPERSEDED 2026-06-27 by `TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md` (current truth).** This was the
+> build plan for SS-CM's premise (CodeMirror = the NOTE editor), which the loop **REVERSED**. Current plan:
+> **note editor = TipTap/Epdoc; CodeMirror = the CODE editor** (embedded MarkEdit CoreEditor). This doc's
+> CM6 / MarkEdit / typography / pixel-art / Liquid-Glass research is **reusable for the CODE editor**, but its
+> "note editing in CodeMirror" framing (live-preview-as-note-editor, "no rich-tree", the note build sequence)
+> and its `@codemirror/merge`-as-note-diff are **DEAD**. Note AI-diff = `prosemirror-changeset` +
+> `@handlewithcare/prosemirror-suggest-changes`. Historical / code-lane reference only.
 
 ## TL;DR — the answers
 

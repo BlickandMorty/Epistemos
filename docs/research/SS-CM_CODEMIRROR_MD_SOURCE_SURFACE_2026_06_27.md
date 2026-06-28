@@ -1,16 +1,14 @@
 # SS-CM — CodeMirror markdown-source editor: the primary note surface (2026-06-27)
 
-> 🛠️ **Build/clone/polish detail lives in `CODEMIRROR_MD_V2_BUILD_AND_POLISH_PLAN_2026_06_27.md`**
-> (the working doc — clone target = MarkEdit MIT, AI-diff-trail spec, typography, pixel-art +
-> Liquid-Glass skins, webview-reification architecture, gotchas). This SS-CM doc is the short
-> decision; that one is the deep plan.
->
-> **Canonical owner decision doc for the new editor surface.** This doc SUPERSEDES the
-> "graft into Epdoc / 2nd surface" framing in `SS-P_TOLARIA_V2_MD_EDITOR_2026_06_19.md` and the
-> "three surfaces + step-19 toggle" framing in `EPDOC_MD_V2_BUILD_SEQUENCE_2026_06_20.md`.
-> Those two docs are PROTECTED and kept as research/pattern references (agent-MD pattern,
-> pixel-art skin mechanism, license gating, harvest list). Where they disagree with this doc on
-> *surface topology*, THIS doc wins. New doc on purpose — prevents in-place contradiction.
+> ⛔ **FULLY SUPERSEDED 2026-06-27 by `TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md` (the current truth).**
+> This doc's central decision — "CodeMirror md-source = the PRIMARY NOTE editor; drop/demote TipTap/Epdoc" —
+> was **REVERSED** by the research loop. CURRENT TRUTH:
+> • **NOTE editor = TipTap on the existing Epdoc** (Tolaria-like WYSIWYG) — **un-dropped, NOT demoted.**
+> • **CodeMirror 6 = the CODE editor** (via the embedded MarkEdit CoreEditor), NOT the note surface.
+> • Prose (TK2) = frozen hard-gate. MarkEdit = full app embedded.
+> Kept ONLY as technical research for the CODE lane (CM6 + MarkEdit embedding, live-preview, gotchas) and the
+> `@codemirror/merge` diff (which may serve the *code* editor, NOT the note editor — the note AI-diff is
+> `prosemirror-changeset`). **Do NOT follow the "decision (locked)" table below — it is historical.**
 >
 > Research basis: two deep web+GitHub passes (2026-06-27), license facts verified against the
 > live GitHub REST API (`license.spdx_id`).

@@ -1,20 +1,13 @@
 # SS-P — v2 WebKit Markdown editor: Tolaria-cloned + best-of-breed (2026-06-19)
 
-> ⛔ **OWNER OVERRIDE (2026-06-27) — surface recommendation SUPERSEDED; the rest of this doc
-> stands (protected research/pattern reference).** Canonical now:
-> `SS-CM_CODEMIRROR_MD_SOURCE_SURFACE_2026_06_27.md`. This doc recommends *against* a second
-> WebKit surface ("do NOT add a second WebKit surface… GRAFT onto Epdoc/Tiptap"). **The owner
-> decided the opposite AND went further: drop TipTap as the active editor entirely.** FINAL model:
-> **CodeMirror-6 markdown-source (new WebView) = PRIMARY**; **Prose (TK2) = 🔒 hard-gate, frozen,
-> long-docs**; **Epdoc/TipTap = ⛔ demoted to legacy (parked, not deleted, removal-candidate).**
-> Rationale: TipTap was wanted only for rendered tables, which CM6 live-preview covers; the
-> AI-diff trail (yellow=add/red=delete) is native to CodeMirror decorations + `@codemirror/merge`,
-> second-class on TipTap's node tree; files-as-truth (§16) makes it correctness-safe; and CM's
-> buffer *being* markdown deletes the lossy JSON↔md round-trip problem. **Tolaria itself stays
-> CLONE-FORBIDDEN: it is AGPL-3.0 (verified twice, live GitHub API) — patterns/clean-room only,
-> ZERO code. Permissive substitute = SilverBullet (MIT) + the CodeMirror 6 stack (MIT) +
-> atomic-editor (MIT).** Everything else here (agent-MD pattern, pixel-art/macOS-26 skin
-> mechanism, license-gating, harvest list) remains canonical and carries to the CM surface.
+> ✅ **CORRECTED 2026-06-27 — current truth is `TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md`.** An earlier banner
+> here (citing the since-REVERSED SS-CM) wrongly said "drop TipTap / Epdoc demoted to legacy" — **that is
+> undone.** CURRENT TRUTH: **NOTE editor = TipTap on Epdoc** — this doc's original "GRAFT onto Epdoc" instinct
+> was RIGHT, not superseded. A SECOND web surface DOES now exist, but it is the **MarkEdit CoreEditor CODE
+> editor** — a separate concern, not a second note surface. Note AI-diff = `prosemirror-changeset` +
+> `@handlewithcare/prosemirror-suggest-changes` (NOT `@codemirror/merge`, which is the code-lane diff). **Tolaria
+> stays CLONE-FORBIDDEN (AGPL-3.0, ZERO code, clean-room only).** All pattern / license / agent-MD / pixel-art /
+> macOS-26 skin / harvest research below is CANONICAL for the note editor.
 
 
 Read-only research (subagent, web + repo). Feeds the EPDOC/TOLARIA-v2 + dynamic-HTML-DOM + best-of-GitHub-MD +
