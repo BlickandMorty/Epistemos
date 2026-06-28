@@ -338,6 +338,22 @@ struct GooseRuntimeSupervisorTests {
         #expect(source.contains("is not allow-listed"))
     }
 
+    @Test("ACP per-frame decode is contained — a drifted known-method payload becomes unhandled*, not fatal")
+    func acpPerFrameDecodeContainment() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseACPClient.swift")
+        // A KNOWN method whose payload drifted (a future goose serve renaming/dropping
+        // a required field) must fall back to the unhandled-diagnostic path, never throw
+        // out of event(from:) and tear down the whole ACP connection. Lock the `try?`
+        // containment + the unhandled fallback for each typed method so a regression
+        // (try? -> try) that reintroduces the fatal path fails here.
+        #expect(source.contains("Per-frame decode containment"))
+        #expect(source.contains("if let notification = try? params.decoded(GooseACPSessionNotification.self)"))
+        #expect(source.contains("return .unhandledNotification(method: .sessionUpdate, params: params)"))
+        #expect(source.contains("if let permission = try? params.decoded(GooseACPRequestPermissionRequest.self)"))
+        #expect(source.contains("return .unhandledRequest(id: id, method: .requestPermission, params: params)"))
+        #expect(source.contains("if let elicitation = try? params.decoded(GooseACPCreateElicitationRequest.self)"))
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!
