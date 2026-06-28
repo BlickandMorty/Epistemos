@@ -38,22 +38,25 @@ The full source trees are now staged under `agent_core/vendor/browser-use/` with
 `agent_core/vendor/browser-use/VENDOR_MANIFEST.json` records repo URL, commit SHA, license, license hash, package-file
 hash, file count, included path families, excluded `.git`, `full_clone: true`, and the MAS SourceMirror exclusion.
 `agent_core/vendor/browser-use/requirements.in` installs local editable `./browser-use` and `./cdp-use`, then repeats
-web-ui dependencies except its stale `browser-use==0.1.48` pin.
+web-ui dependencies while overriding stale pins that conflict with the vendored `browser-use` 0.13.2 tree:
+`browser-use==0.1.48` is replaced by the local source, `gradio==5.27.0` is raised to `6.19.0` for Pillow 12.2.0
+compatibility, and `langchain_mcp_adapters==0.0.9` is raised to `0.2.0` for `mcp==1.26.0` compatibility. It also
+pins `playwright==1.60.0` as a Pro packaging dependency so Chromium can be staged at build time even though current
+browser-use automation drives CDP through `cdp-use`.
 `agent_core/vendor/browser-use/build-pro-payload.sh` is the Pro-only packaging script: it creates a Python 3.11 venv
 under `build/browser-use-pro/.venv`, compiles `requirements.lock` with hashes from the vendored paths, syncs the venv,
-stages third-party and local package wheels under `agent_core/vendor/browser-use/wheels/`, stages Playwright Chromium
-under `agent_core/vendor/browser-use/playwright/`, and writes a non-secret `BUILD_MANIFEST.json` when explicitly run
-outside MAS/App Store build phases.
+staged third-party and local package wheels under `agent_core/vendor/browser-use/wheels/` (177 wheel files), staged
+Playwright Chromium under `agent_core/vendor/browser-use/playwright/` (`chromium-1223`, `chromium_headless_shell-1223`,
+and `ffmpeg-1011`), and wrote a non-secret `BUILD_MANIFEST.json` outside MAS/App Store build phases.
 
-Not staged yet: hash-locked wheels, Python virtualenv, Playwright Chromium payload, notarized Pro resources, Rust
-adapter discovery wiring, and live browser tool smoke. The manifest marks the build script and adapter contract as
-`landed`, and still marks the generated lock/build manifest and payload directories as `not_generated` / `not_staged`
-instead of pretending the Pro payload exists.
+Still pending: signing/notarization into final Pro resources and live browser tool smoke. The manifest marks the build
+script and adapter contract as `landed`, and marks the generated lock/build manifest, wheelhouse, and Playwright payload
+as staged instead of pretending the signed Pro package exists.
 
 `Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift` is now the always-compiled honest gate and manifest reader:
-MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the current source-only manifest
-it still returns inactive because `requirements.lock`, wheels, and the browser payload are not staged. It launches
-nothing.
+MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the staged payload manifest it
+can report `browser-use Pro: packaged payload ready`. Launch remains user-initiated and separate from the native
+WKWebView Browser.
 `Epistemos/Views/Settings/BrowserUseSettingsView.swift` mounts the Settings diagnostics surface under Extensions:
 it reads the same gate/manifest, lists full-clone pins and packaging gaps, states the two-browser boundary, and exposes
 no runtime launch control. It also reports the settings contract for the Pro lane.
@@ -82,7 +85,8 @@ screenshot/console/errors` to browser-use's `skill_cli` daemon, keeps session fi
 via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a no-runtime `contract` check
 for packaging tests. Rust `find_agent_browser()` now discovers the bundled executable through
 `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
-`agent-browser`; live tool smoke is still pending. `[VERIFIED-CODE]`
+`agent-browser`; live fixture smoke opened `https://example.com`, captured an `Example Domain` snapshot, and closed the
+isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload. `[VERIFIED-CODE]`
 
 ## Existing Epistemos seams `[VERIFIED-CODE]`
 - Native MAS browser tab: `Epistemos/Views/Browser/BrowserView.swift` is human-driven `WKWebView` with
@@ -132,8 +136,10 @@ is fine for the Pro packaging job; it is not fine as an accidental MAS app resou
 Build the Pro payload as a deterministic bundle:
 1. Create a Python 3.11 virtualenv at build time, outside MAS targets.
 2. Generate a hash-pinned requirements lock from the vendored sources. The lock must install local paths for
-   `browser-use` and `cdp-use`, and either patch or constraints-override `web-ui`'s stale `browser-use==0.1.48`.
-3. Use binary wheels only where possible; record every sdist exception in the manifest with license and build proof.
+   `browser-use` and `cdp-use`, and constraints-override stale web-ui pins that conflict with the vendored
+   `browser-use` tree (`browser-use==0.1.48`, `gradio==5.27.0`, `langchain_mcp_adapters==0.0.9`).
+3. Use binary wheels where available; build sdist-only dependencies into wheels under the Pro packaging lane and record
+   every exception in the manifest with license and build proof.
 4. Run Playwright's Chromium install during the Pro build, copy the browser payload into the signed Pro resources, and
    record the exact browser revision. No runtime browser download.
 5. Code-sign/notarize Python, native extensions, and Chromium with the Developer ID profile. This lane is not App Store
@@ -143,9 +149,9 @@ Suggested commands for the implementation script (names are placeholders, not ru
 
 ```bash
 uv venv --python 3.11 --seed build/browser-use-pro/.venv
-uv pip compile --generate-hashes agent_core/vendor/browser-use/requirements.in -o agent_core/vendor/browser-use/requirements.lock
+uv pip compile --python-version 3.11 --generate-hashes --quiet agent_core/vendor/browser-use/requirements.in -o agent_core/vendor/browser-use/requirements.lock
 uv pip sync --python build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/requirements.lock
-build/browser-use-pro/.venv/bin/python -m pip wheel --require-hashes --only-binary=:all: --wheel-dir agent_core/vendor/browser-use/wheels --requirement build/browser-use-pro/requirements.third-party.lock
+build/browser-use-pro/.venv/bin/python -m pip wheel --require-hashes --wheel-dir agent_core/vendor/browser-use/wheels --requirement build/browser-use-pro/requirements.third-party.lock
 build/browser-use-pro/.venv/bin/python -m pip wheel --no-deps --wheel-dir agent_core/vendor/browser-use/wheels agent_core/vendor/browser-use/browser-use agent_core/vendor/browser-use/cdp-use
 PLAYWRIGHT_BROWSERS_PATH=agent_core/vendor/browser-use/playwright build/browser-use-pro/.venv/bin/python -m playwright install chromium
 ```
@@ -184,10 +190,9 @@ New Plan 3 files should live outside Plan 1/Plan 2 ownership, for example:
   **Landed settings contract/env renderer.**
 - `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` — Pro-only hardened subprocess owner for
   `python webui.py --ip 127.0.0.1 --port <chosen>`, lazy-started by user action, killed on idle/app exit.
-  **Launch-plan, secure `.env`, and Pro-only subprocess branch landed; runnable payload still waits on generated
-  wheels/Chromium.**
+  **Launch-plan, secure `.env`, Pro-only subprocess branch, staged payload, and live fixture smoke landed.**
 - `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` — WKWebView shell for the loopback Gradio UI with honest status.
-  **Loopback guard and user-initiated shell landed; live smoke waits on staged Pro payload.**
+  **Loopback guard and user-initiated shell landed; full UI smoke still pending.**
 - `Epistemos/Views/Settings/BrowserUseSettingsView.swift` — settings mirror + diagnostics.
 
 Do not edit `Epistemos/Goose/*`, `Epistemos/Agent/*`, or Plan 2 editor surfaces for the Pro shell. Goose access should
@@ -205,7 +210,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Actions that click/type/press remain high-risk and approval-gated.
 - Output is redacted and bounded exactly like the current `agent-browser` path.
 - Browser-use profile state is separate from the native Browser WKWebView profile.
-- Current state: adapter contract and Pro Rust discovery wiring landed; live browser-use fixture smoke is still pending.
+- Current state: adapter contract, Pro Rust discovery wiring, and live browser-use fixture smoke landed.
 
 ## Honest gates and failure states
 - MAS: visible Browser button opens the native WKWebView tab; browser-use settings/actions show "Pro only" and launch
@@ -251,13 +256,13 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 
 ## Build order
 1. Add the codepack + source guards (this file). **Landed.**
-2. Vendor full source into `agent_core/vendor/browser-use/` and write `VENDOR_MANIFEST.json`. **Landed source-only; wheels/Chromium pending.**
-3. Add Pro-only packaging scripts and hash-locked wheel/Chromium staging. **Packaging script landed; generated lock,
-   wheels, Chromium payload, signing, and notarization still pending.**
+2. Vendor full source into `agent_core/vendor/browser-use/` and write `VENDOR_MANIFEST.json`. **Landed.**
+3. Add Pro-only packaging scripts and hash-locked wheel/Chromium staging. **Packaging script, generated lock,
+   wheelhouse, and Chromium payload landed; signing and notarization still pending.**
 4. Add `BrowserUseProGateStatus` + Settings gate; MAS says Pro only. **Gate, diagnostic Settings surface, and
    settings/env contract landed.**
 5. Add runtime supervisor + loopback WebView shell. **Runtime launch contract and WKWebView loopback shell landed;
-   live smoke still waits on staged Pro payload.**
+   full UI smoke still pending.**
 6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
-   **Source-only adapter contract and Rust discovery wiring landed; live tool smoke still pending.**
+   **Source-only adapter contract, Rust discovery wiring, and live tool smoke landed.**
 7. Run the full Pro smoke suite, then the MAS boundary audit.

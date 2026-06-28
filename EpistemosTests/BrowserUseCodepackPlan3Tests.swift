@@ -37,9 +37,9 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("WKWebView loopback shell landed"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("Behavior test"))
-        #expect(codepack.contains("Packaging script landed"))
-        #expect(codepack.contains("not_generated"))
-        #expect(codepack.contains("not_staged"))
+        #expect(codepack.contains("generated lock"))
+        #expect(codepack.contains("wheelhouse, and Chromium payload landed"))
+        #expect(codepack.contains("live browser-use fixture smoke landed"))
     }
 
     @Test("browser-use plan preserves browser settings and MAS boundary")
@@ -360,15 +360,40 @@ struct BrowserUseCodepackPlan3Tests {
         let buildScript = try #require(packaging["build_script"] as? [String: Any])
         let buildManifest = try #require(packaging["build_manifest"] as? [String: Any])
         let requirementsLock = try #require(packaging["requirements_lock"] as? [String: Any])
+        let wheelhouse = try #require(packaging["wheelhouse"] as? [String: Any])
         let playwrightChromium = try #require(packaging["playwright_chromium"] as? [String: Any])
         #expect(agentBrowserAdapter["status"] as? String == "landed")
         #expect(agentBrowserAdapter["expected_path"] as? String == "epistemos_agent_browser.py")
         #expect(buildScript["status"] as? String == "landed")
         #expect(buildScript["expected_path"] as? String == "build-pro-payload.sh")
-        #expect(buildManifest["status"] as? String == "not_generated")
+        #expect(buildManifest["status"] as? String == "generated")
         #expect(buildManifest["expected_path"] as? String == "BUILD_MANIFEST.json")
-        #expect(requirementsLock["status"] as? String == "not_generated")
-        #expect(playwrightChromium["status"] as? String == "not_staged")
+        #expect(requirementsLock["status"] as? String == "generated")
+        #expect(wheelhouse["status"] as? String == "staged")
+        #expect(wheelhouse["file_count"] as? Int == 177)
+        #expect(playwrightChromium["status"] as? String == "staged")
+        #expect(playwrightChromium["chromium_revision"] as? String == "1223")
+
+        let generatedManifest = try Self.loadData("agent_core/vendor/browser-use/BUILD_MANIFEST.json")
+        let generated = try #require(try JSONSerialization.jsonObject(with: generatedManifest) as? [String: Any])
+        #expect(generated["runtime_lane"] as? String == "pro-developer-id-only")
+        #expect(generated["mas_safe"] as? Bool == false)
+        #expect(generated["chromium_revision"] as? String == "1223")
+        #expect(generated["secrets"] as? String == "not recorded; runtime secrets must come from Keychain")
+
+        let requirements = try Self.loadSource("agent_core/vendor/browser-use/requirements.lock")
+        #expect(requirements.contains("playwright==1.60.0"))
+        #expect(requirements.contains("browser-use @ file://") || requirements.contains("-e ./browser-use"))
+
+        let vendorRoot = try Self.sourceURL("agent_core/vendor/browser-use")
+        let wheelURLs = try FileManager.default.contentsOfDirectory(
+            at: vendorRoot.appendingPathComponent("wheels"),
+            includingPropertiesForKeys: nil
+        )
+        #expect(wheelURLs.filter { $0.pathExtension == "whl" }.count == 177)
+        #expect(FileManager.default.fileExists(
+            atPath: vendorRoot.appendingPathComponent("playwright/chromium-1223").path
+        ))
     }
 
     @Test("browser-use Pro packaging script is deterministic, Pro-only, and non-secret")
@@ -380,17 +405,23 @@ struct BrowserUseCodepackPlan3Tests {
             "set -euo pipefail",
             "Plan 3 browser-use Pro packaging only",
             "Do not invoke this from MAS/App Store build phases",
-            "uv venv --python 3.11 --seed",
-            "uv pip compile --generate-hashes requirements.in -o requirements.lock",
+            "uv venv --clear --python 3.11 --seed",
+            "uv pip compile --python-version 3.11 --generate-hashes --quiet requirements.in -o requirements.lock",
+            "cd \"$vendor_root\"",
             "uv pip sync --python \"$venv_python\" \"$lock_file\"",
+            "rm -rf \"$wheels_dir\" \"$playwright_dir\"",
             "wheels_dir=\"$vendor_root/wheels\"",
             "--require-hashes",
-            "--only-binary=:all:",
             "--no-deps",
             "PLAYWRIGHT_BROWSERS_PATH=\"$playwright_dir\"",
             "-m playwright install chromium",
             "BUILD_MANIFEST.json",
             "\"wheelhouse\": \"agent_core/vendor/browser-use/wheels\"",
+            "\"sdist_wheel_exceptions\": [",
+            "ibm-cos-sdk==2.14.3",
+            "ibm-cos-sdk-core==2.14.3",
+            "ibm-cos-sdk-s3transfer==2.14.3",
+            "pyperclip==1.9.0",
             "\"secrets\": \"not recorded; runtime secrets must come from Keychain\"",
         ] {
             #expect(script.contains(required), "Missing browser-use Pro packaging script string: \(required)")
@@ -420,13 +451,17 @@ struct BrowserUseCodepackPlan3Tests {
 
         #expect(requirements.contains("-e ./browser-use"))
         #expect(requirements.contains("-e ./cdp-use"))
-        #expect(requirements.contains("gradio==5.27.0"))
+        #expect(requirements.contains("playwright==1.60.0"))
+        #expect(requirements.contains("gradio==6.19.0"))
+        #expect(requirements.contains("langchain_mcp_adapters==0.2.0"))
         #expect(requirements.contains("langgraph==0.3.34"))
         #expect(requirements.contains("Do not include web-ui/requirements.txt directly"))
         #expect(!requirements.contains("-r ./web-ui/requirements.txt"))
         #expect(!requirements.split(separator: "\n").contains { line in
             line.trimmingCharacters(in: .whitespaces).hasPrefix("browser-use==0.1.48")
         })
+        #expect(!requirements.contains("gradio==5.27.0"))
+        #expect(!requirements.contains("langchain_mcp_adapters==0.0.9"))
     }
 
     @Test("browser-use vendored trees contain no nested git repositories")
