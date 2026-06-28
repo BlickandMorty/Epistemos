@@ -478,6 +478,18 @@ committed. Commits this pass on `feat/goose-surface`:
   EpdocMarkdownWriteThrough.swift, then a Rust `libgraph_engine.a` mktemp build
   race); my files contribute zero errors. Next iteration confirms green.
 
+**CONFIRMED green next pass (2026-06-28 15:27):** tree settled (other agent's
+`widthMode` landed, Rust race cleared), `build-for-testing` SUCCEEDED, the parity
+gate `stagingGraftsWireLiveParityFeatures` passed 0.033s (suite 3/3) — all 22
+assertions (config-status / inventory caps / effort+mode apply / OAuth / delete /
+config-map / preference persistence / welcome grid) green. STEP-1 combined live
+sweep then re-proven clean — **5/5 suites, 44.5s** (logs
+`build/goose-phase0-claude-2026-06-28/gateconfirm-*.log`, `sweep-2026-06-28-153551.log`):
+ProviderCatalog 0.44s (catalog enumerated from Goose ONLY = GOLDEN RULE),
+SessionLifecycle 2.66s (list/load/fork), CustomCapability 1.07s, WebPrompt 19.0s
+(real prompt -> end_turn), WebRoute 21.3s (provider/settings/extensions/skills
+render, no silent ACP drops).
+
 ### Next verified gap (teed up, not yet fixed)
 Custom-provider CRUD is dead REST (`createCustomProvider`/`updateCustomProvider`/
 `deleteCustomProvider` in `ProviderGrid.tsx` and `ProviderSelector.tsx:130`'s
