@@ -73,9 +73,15 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
       prefix, not a new case; (3) the ontology codepack's `firstNode(matchingTitle:)` doesn't exist (compile
       blocker). Plus: `vendor/` vs `LocalPackages/` path correction; `GooseACPClientTests.swift:38` currently
       asserts the mcpServers BUG. Pass 8 next.
-- [ ] **Pass 8+** (deepen/polish until owner says stop): candidates — owner answers to the 6 open questions →
-      fold into the plan; deeper code on whichever build-sequence stage the owner wants to start first; CI
-      wiring of the Pass-7 headless falsifiers as real `@Test`/`cargo test` cases; or harden any thin spot.
+- [x] **Pass 8 DONE** (2026-06-27): RESOLVED open-Q1 (JSON-vs-markdown source-of-truth fork) into a buildable
+      two-sided code pack → `MD_SOURCE_OF_TRUTH_CODEPACK_2026_06_27.md` (8a JS serializer + 8b Swift write-through).
+      6 top-level findings surfaced from source (see codepack + below). The single biggest underserved blocker
+      now has a staged, reversible, falsifier-gated plan. Pass 9 next.
+- [ ] **Pass 9+** (deepen/polish until owner says stop): candidates — owner answers to the remaining open
+      questions (Q2 minichat shape, Q3 width pixels, Q4 swap scope, Q6 cleanup) → fold into the plan; the
+      grammar-unification decision from Pass-8 finding #3 (align `ProseMirrorMarkdownProjector.swift` to the
+      JS/Obsidian grammar, or demote it); deeper code on a build-sequence stage; CI-wire the Pass-7/8 falsifiers
+      as real tests; or harden a thin spot.
 
 ---
 
@@ -478,6 +484,18 @@ Real risk surface is the static plist — fully catchable headlessly though sign
 - **C5 — `ViewCompiler` SQL safety.** Green: tree → parameterized GRDB SQL with `StatementArguments` (a `'; DROP` value only as bound arg); `.semantic`→`1=1` sentinel (`:196`) routed via `fusedSearchAsync` (RRF k=60); `RelativeDate.resolveISO` correct. **Falsifier SQL-injection**: any value string-interpolated into WHERE; `.semantic` silently → match-everything when HNSW unavailable.
 
 **Cross-cutting:** CI-gate (headless today) = A1, A2-encode, A3, A4, A5, A6, B1, B2, B3, C1–C5. Requires running app = B4, A4 window-key, live `session/*`. `⛔PHASE-0` = A2-runtime, A6-live-reachability, end-to-end stream. **Two owner-confirm gates (not papered over):** minichat shape (Q2) + JSON-vs-md source-of-truth fork (Q1 → decides whether `update_note` writes JSON-into-package or `.md` write-through → C2/C4 inputs depend on it).
+
+---
+
+### Pass 8 — open-Q1 RESOLVED: JSON↔markdown source-of-truth code pack
+Full code in **`MD_SOURCE_OF_TRUTH_CODEPACK_2026_06_27.md`** (8a JS serializer + 8b Swift write-through). 6 findings from source:
+1. **JS bundle is webpack 5, NOT esbuild** (CLAUDE.md stale) — wire the dep into webpack; lock-hash gate already re-runs `npm ci`.
+2. **TipTap pinned `3.24.0`, not 3.27.x** — pin `@tiptap/markdown` to `3.24.0` (duplicate-PM hazard otherwise; confirm it resolves on npm).
+3. **Swift projector ⟂ JS paste-parser grammar disagree** on callout (`:::info` vs `> [!INFO]`), chart (` ```epdoc-chart ` vs ` ```chart `), wikilink (absent vs `[[t]]`⇄`epistemos-doc:wiki/<t>`) — they don't round-trip TODAY. **Rec: adopt the JS/Obsidian grammar as canonical** (vault-native, already has a reader, graph indexes `[[…]]`); demote `ProseMirrorMarkdownProjector.swift` to the lossy shadow/FTS job it already self-declares. ← the real open-Q1 decision.
+4. **TWO persistence worlds:** World A (`.epdoc` = JSON-in-package canonical, GRDB/shadow.md already caches) + World B (Prose/TK2 = ALREADY `.md`-on-disk with atomic `F_FULLFSYNC`+content-hash+reload-suppression spine to REUSE). The flip is cheaper than docs imply.
+5. **No `update_note` tool** — the real Goose seam is **`edit_note`** (`omega-mcp/src/vault.rs:509` / `VaultNoteEditor.swift:36-79`), already writing plain `.md` to the vault.
+6. **`SDPage.swift:7-9,50` doc-vs-code DRIFT** — claims "SwiftData is source of truth / `.md` secondary," but `body` is cleared after save (`:29`) so disk is effectively canonical; comment is stale.
+**Plan shape:** 3-state `EPISTEMOS_MD_SOURCE_OF_TRUTH` flag (jsonOnly default → dualWrite additive/reversible → markdownCanonical), HTML-in-md fallback for non-round-trippable blocks, falsifier-gated flip (round-trip must preserve callout/wikilink/chart/frontmatter/`_`-keys + self-write must suppress reload), serializer-first so Phase B unlocks only when the 8a fidelity harness is green.
 
 ---
 
