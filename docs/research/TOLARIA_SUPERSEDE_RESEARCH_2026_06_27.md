@@ -94,11 +94,18 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
       descriptions + 4 SUPERSEDE seams). **9b** = grammar-unification (align `ProseMirrorMarkdownProjector.swift`
       to the JS/Obsidian grammar: 3 diffs + shared-fixture parity test; lands BEFORE the Pass-8b flip). Two
       load-bearing findings below. Pass 10 next.
-- [ ] **Pass 10+** (deepen/polish until owner says stop): candidates — owner answers to the remaining open
-      questions (Q2 minichat shape, Q3 width pixels, Q4 swap scope, Q6 cleanup) → fold into the plan; the
-      provenance-ledger drift from Pass-9a §4.2 (decide: ship the Swift `AgentNoteEditProvenance` spine, or
-      build the new Rust `record_edit_claim_json` FFI); deeper code on a build-sequence stage; CI-wire the
-      Pass-7/8/9 falsifiers as real tests; or harden a thin spot.
+- [x] **Pass 10 DONE** (2026-06-27): the FOUNDATIONAL native-controls stage → `COMMAND_REGISTRY_CODEPACK_2026_06_27.md`.
+      ONE `@Observable CommandRegistry` (id-deduped, scope-narrowed `.global/.note/.code`, `isEnabled`-filtered)
+      drives native menu bar + every shortcut (declared ONCE) + a new native Cmd+K palette. **10a** = registry
+      core + palette SwiftUI + menu/shortcut binding; **10b** = curated command catalog + dispatch glue through
+      the verified `EpdocEditorChromeController.dispatch`/`runCommand` seam. Findings: Cmd+K free; ~80% of Epdoc
+      commands wrap EXISTING cases; the `caretChanged`-has-no-marks gap blocks honest `isEnabled` (3-file fix);
+      5 shortcut collisions catalogued (⌘1/2/3, ⌘E, ⌘K, ⌘⇧I, ⌘G). Pass 11 next.
+- [ ] **Pass 11+** (deepen/polish until owner says stop): candidates — owner answers to the remaining open
+      questions (Q2 minichat shape, Q3 width pixels, Q4 swap scope, Q6 cleanup — RECOMMENDED picks recorded
+      above, pending confirm); the provenance-ledger drift from Pass-9a §4.2; the `caretChanged.marks` read-back
+      (Pass-10 dependency, also unblocks 4c toolbar active-state); deeper code on a build-sequence stage; CI-wire
+      the Pass-7/8/9 falsifiers as real tests; or harden a thin spot.
 
 ---
 
@@ -521,6 +528,11 @@ Full code in **`AI_INSTRUCTIONS_AND_GRAMMAR_CODEPACK_2026_06_27.md`**. Two load-
 1. **⚠️ Provenance-ledger DRIFT (9a §4.2):** Decision 13 / plan §6 say "EditClaim → Rust `ClaimLedger`," but that ledger's FFI is **read-only** (`bridge.rs:3465-3499`) and Phase 8.E moved live provenance to the Cognitive DAG (`bridge.rs:3441`). The shippable path is the **already-built Swift spine** (`AgentNoteEditProvenance`→EventStore via `VaultNoteEditor.applyEdits(_:to:provenance:)` `:53-79`), enriched with an `EditClaim` metadata struct. A Rust-ledger EditClaim needs a NEW `record_edit_claim_json` FFI that **does not exist today** — owner decision queued for Pass 10.
 2. **Grammar fix is a no-op for today, a prerequisite for the flip (9b):** the Swift projector's `shadowMarkdown` is write-only/never-consumed (FTS is fed by a *different* projector, `ReadableBlocksProjector` off `contentJSON`), so the `:::`/`epdoc-chart`/no-wikilink divergence causes **no current bug** — demote literally suffices today. But Pass-8b designates the projector as the degraded-`.md` fallback, so ALIGN it (3 diffs + shared-fixture parity test) and land BEFORE the `.markdownCanonical` flip.
 Net: the AI-graft is ~80% wiring over verified seams (`WorkToolMCPCore`, `WorkAppContextSnapshot`, ACP `request_permission`, `VaultNoteEditor`+`AgentNoteEditProvenance`); 2 genuine new builds (`VaultAgentsGuideManager`, the `EditClaim`/preamble glue).
+
+---
+
+### Pass 10 — unified CommandRegistry + Cmd+K palette (foundational native-controls stage)
+Full code in **`COMMAND_REGISTRY_CODEPACK_2026_06_27.md`**. ONE `@Observable CommandRegistry` = the single source for the native menu bar + every keyboard shortcut (declared once on `Command.shortcut`) + a new native Cmd+K palette; `isEnabled` is MarkEdit's `validateMenuItem` applied to all three surfaces. Findings: **Cmd+K verified free**; app shortcuts live in `EpistemosCommands` (`EpistemosApp.swift:1446`); **~80% of the Epdoc command catalog already dispatches** through the existing `EpdocEditorCommand.runCommand`/`.insertSlashChoice` cases (registry mostly wraps); real ADDs are small (`setContentWidth(wide:)` bridge case, Epdoc Find, `markOrganized`/`favorite` host closures, the whole new `CodeEditorCommand` enum). **Dependency surfaced:** the `caretChanged` payload carries no marks today, so honest mark `isEnabled`/active-state needs a `marks:{}` read-back added in 3 files (also unblocks the 4c toolbar active-state). 5 shortcut collisions catalogued + resolved (⌘1/2/3 focus-scope, inline-code→⌘⇧E, link→⌘⇧K, Properties wins ⌘⇧I, code-findNext focus-scope vs ⌘G).
 
 ---
 
