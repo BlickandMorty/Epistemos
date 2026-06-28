@@ -701,6 +701,34 @@ export async function readAcpProviderConfigValue(key: string): Promise<string | 
   }
 }
 
+// Reconstruct the ConfigContext config map from LIVE ACP sources. Upstream
+// reloadConfig calls readAllConfig (dead REST in ACP mode -> config={}), which
+// blanks the whole Settings config-driven UI (Chat/Security/Mode/etc.). We rebuild
+// it from the app-local config values/defaults + the live provider/model defaults.
+// 100% from Goose ACP + the local config the app owns; no hardcoded roster.
+// Marker: epistemos-acp-config-map-reconstruct.
+export async function reconstructAcpConfig(): Promise<Record<string, unknown>> {
+  const config: Record<string, unknown> = {};
+  for (const key of localAcpConfigKeys) {
+    const value = localAcpConfigValue(key);
+    if (value !== null) {
+      config[key] = value;
+    }
+  }
+  try {
+    const defaults = await readAcpProviderDefaults();
+    if (defaults.providerId) {
+      config['GOOSE_PROVIDER'] = defaults.providerId;
+    }
+    if (defaults.modelId) {
+      config['GOOSE_MODEL'] = defaults.modelId;
+    }
+  } catch {
+    // Best-effort: a missing default just leaves those keys unset.
+  }
+  return config;
+}
+
 export async function upsertAcpProviderConfig(
   key: string,
   value: unknown
@@ -1028,6 +1056,7 @@ import { USE_ACP_CHAT } from '../acpChatFeatureFlag';
 import {
   getAcpProviders,
   readAcpProviderConfigValue,
+  reconstructAcpConfig,
   removeAcpProviderConfig,
   upsertAcpProviderConfig,
 } from '../acp/providers';`;
@@ -1037,6 +1066,18 @@ if (!source.includes("getAcpProviders")) {
   }
   source = source.replace(importAnchor, imports);
 }
+
+replaceRequired(
+  'ACP config map reconstruction',
+  `    const response = await readAllConfig();
+    setConfig(response.data?.config || {});`,
+  `    if (USE_ACP_CHAT) {
+      setConfig(await reconstructAcpConfig());
+      return;
+    }
+    const response = await readAllConfig();
+    setConfig(response.data?.config || {});`
+);
 
 replaceRequired(
   'provider catalog ACP branch',
