@@ -86,6 +86,12 @@ const context = createContext({
         mergeAttributes: (...attributes) => Object.assign({}, ...attributes),
       };
     }
+    if (name === '../markdown/epdoc-markdown-nodes') {
+      return {
+        parseEpdocChartMarkdown: () => [],
+        renderEpdocChartMarkdown: () => '',
+      };
+    }
     throw new Error(`Unexpected import in chart-node check: ${name}`);
   },
 });

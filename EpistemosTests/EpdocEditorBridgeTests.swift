@@ -135,6 +135,19 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(text.contains("\"type\":\"doc\""))
     }
 
+    @Test("markdownDidChange decodes from canonical body shape")
+    func markdownDidChangeDecodes() {
+        let body: [String: Any] = [
+            "type": "markdownDidChange",
+            "markdown": "# Claim\n\nBody",
+        ]
+        guard case let .markdownDidChange(markdown)? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode .markdownDidChange")
+            return
+        }
+        #expect(markdown == "# Claim\n\nBody")
+    }
+
     @Test("editorReady decodes from canonical body shape")
     func editorReadyDecodes() {
         let body: [String: Any] = ["type": "editorReady"]
@@ -472,6 +485,12 @@ nonisolated struct EpdocEditorBridgeTests {
         let expr = cmd.javaScriptExpression()
         #expect(expr == #"window.epistemos.setContent("{\"type\":\"doc\",\"content\":[]}")"#,
                 "setContent must call window.epistemos.setContent(jsonString); got: \(expr)")
+    }
+
+    @Test("setMarkdown routes through window.epistemos.setMarkdown")
+    func setMarkdownRoutesThroughEpistemosNamespace() {
+        let cmd = EpdocEditorCommand.setMarkdown(markdown: "# Claim\n\nBody")
+        #expect(cmd.javaScriptExpression() == "window.epistemos.setMarkdown(\"# Claim\\n\\nBody\")")
     }
 
     @Test("focusStart + focusEnd route through window.epistemos.focus*")

@@ -1,6 +1,10 @@
 import { InputRule, Node, mergeAttributes } from '@tiptap/core';
 import { replaceInputWithBlockAndTrailingParagraph } from './block-insert';
 import { isSafeImageSrc, parseMarkdownImageLine } from '../markdown/markdown-paste';
+import {
+  parseEpdocImageMarkdown,
+  renderEpdocImageMarkdown,
+} from '../markdown/epdoc-markdown-nodes';
 
 const IMAGE_INPUT_RE = /(!\[[^\]\n]*\]\(\S+(?:\s+"[^"\n]+")?\)|https?:\/\/[^\s<>()]+\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#][^\s<>()]*)?)$/i;
 
@@ -17,6 +21,9 @@ export const EpdocImageNode = Node.create({
   group: 'block',
   atom: true,
   draggable: true,
+  markdownTokenName: 'image',
+  parseMarkdown: parseEpdocImageMarkdown,
+  renderMarkdown: renderEpdocImageMarkdown,
 
   addAttributes() {
     return {

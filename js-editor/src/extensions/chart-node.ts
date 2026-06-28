@@ -1,5 +1,9 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import {
+  parseEpdocChartMarkdown,
+  renderEpdocChartMarkdown,
+} from '../markdown/epdoc-markdown-nodes';
 
 type ChartKind = 'scatter' | 'bar' | 'line';
 
@@ -40,6 +44,7 @@ declare module '@tiptap/core' {
 
 export const EpdocChartNode = Node.create({
   name: 'epdocChart',
+  priority: 110,
   group: 'block',
   content: 'text*',
   marks: '',
@@ -48,6 +53,9 @@ export const EpdocChartNode = Node.create({
   selectable: true,
   draggable: true,
   code: true,
+  markdownTokenName: 'code',
+  parseMarkdown: parseEpdocChartMarkdown,
+  renderMarkdown: renderEpdocChartMarkdown,
 
   parseHTML() {
     return [{ tag: 'div[data-epdoc-chart]', preserveWhitespace: 'full' }];

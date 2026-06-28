@@ -19,7 +19,6 @@
 
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
 import Highlight from '@tiptap/extension-highlight';
 import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
@@ -34,6 +33,7 @@ import FloatingMenu from '@tiptap/extension-floating-menu';
 import DragHandle from '@tiptap/extension-drag-handle';
 import UniqueId from '@tiptap/extension-unique-id';
 import { Placeholder } from '@tiptap/extensions/placeholder';
+import { Markdown } from '@tiptap/markdown';
 import { Footnotes, FootnoteReference, Footnote } from 'tiptap-footnotes';
 
 import { EpdocCodeBlock } from './extensions/code-block-node';
@@ -47,6 +47,7 @@ import { EpdocFindReplace } from './extensions/find-replace';
 import { CaretRectEmitter } from './extensions/caret-rect-emitter';
 import { buildSlashMenu } from './extensions/slash-menu';
 import { pasteClassifierBridge } from './extensions/paste-classifier-bridge';
+import { EpdocLink, EpdocWikiLinkMarkdown } from './markdown/epdoc-markdown-nodes';
 import { postBridge } from './bridge/outbound';
 import { installInboundCommands } from './bridge/inbound';
 import { hasHostDocumentLoaded } from './bridge/document-load-state';
@@ -91,7 +92,13 @@ function scheduleContentDidChange(ed: Editor): void {
     pendingContentEditor = null;
     if (!editorIsLive(editor)) return;
     postBridge({ type: 'contentDidChange', json: JSON.stringify(editor.getJSON()) });
+    postMarkdownDidChange(editor);
   }, CONTENT_DID_CHANGE_DEBOUNCE_MS);
+}
+
+function postMarkdownDidChange(ed: Editor): void {
+  if (typeof ed.getMarkdown !== 'function') return;
+  postBridge({ type: 'markdownDidChange', markdown: ed.getMarkdown() });
 }
 
 function postDocumentStats(ed: Editor): void {
@@ -119,6 +126,7 @@ const editor = new Editor({
   extensions: [
     StarterKit.configure({
       codeBlock: false,
+      link: false,
     }),
     UniqueId.configure({
       types: ['heading', 'paragraph', 'codeBlock', 'blockquote'],
@@ -127,7 +135,10 @@ const editor = new Editor({
       placeholder: 'Start writing your Epistemos document...',
       showOnlyCurrent: false,
     }),
-    Link.configure({ openOnClick: false }),
+    EpdocLink.configure({
+      openOnClick: false,
+      protocols: ['epistemos-doc'],
+    }),
     Highlight,
     EpdocCodeBlock,
     Table.configure({ resizable: true }),
@@ -145,6 +156,11 @@ const editor = new Editor({
     LegacyDiagramNode,
     EpdocImageNode,
     CalloutNode,
+    EpdocWikiLinkMarkdown,
+    Markdown.configure({
+      indentation: { style: 'space', size: 2 },
+      markedOptions: { breaks: false, gfm: true },
+    }),
     EpdocFindReplace,
     BubbleMenu.configure({ pluginKey: 'epdocBubble' }),
     FloatingMenu.configure({ pluginKey: 'epdocFloating' }),

@@ -37,6 +37,12 @@ export interface ContentDidChangeMessage extends OutboundMessageBase {
   json: string;
 }
 
+export interface MarkdownDidChangeMessage extends OutboundMessageBase {
+  type: 'markdownDidChange';
+  /** Full-fidelity Markdown snapshot from @tiptap/markdown. */
+  markdown: string;
+}
+
 export interface DocumentStatsChangedMessage extends OutboundMessageBase {
   type: 'documentStatsChanged';
   wordCount: number;
@@ -112,6 +118,7 @@ export interface StoreImageAssetMessage extends OutboundMessageBase {
 export type OutboundMessage =
   | EditorReadyMessage
   | ContentDidChangeMessage
+  | MarkdownDidChangeMessage
   | DocumentStatsChangedMessage
   | CaretChangedMessage
   | RequestSlashMenuMessage

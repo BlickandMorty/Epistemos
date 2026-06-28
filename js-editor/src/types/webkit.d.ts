@@ -33,6 +33,8 @@ interface Window {
   /** Namespaced inbound command surface — installed by bridge/inbound.ts. */
   epistemos?: {
     setContent(json: string): void;
+    getMarkdown(): string;
+    setMarkdown(markdown: string): void;
     setContentWidth(value: string): void;
     setFindQuery(query: string, caseSensitive?: boolean): boolean;
     findNext(query: string, caseSensitive?: boolean): boolean;

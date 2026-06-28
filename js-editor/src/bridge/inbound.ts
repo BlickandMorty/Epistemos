@@ -6,6 +6,7 @@
 // Tiptap editor; unknown commands return false (callers can fall back).
 
 import type { Editor } from '@tiptap/core';
+import '@tiptap/markdown';
 import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
 import type { RectPayload, SelectionPayload } from './outbound';
@@ -38,6 +39,21 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
         requestAnimationFrame(() => postDocumentStats(editor));
       } catch (e) {
         console.warn('[epdoc inbound] setContent: invalid JSON', e);
+      }
+    },
+
+    getMarkdown(): string {
+      return typeof editor.getMarkdown === 'function' ? editor.getMarkdown() : '';
+    },
+
+    setMarkdown(markdown: string): void {
+      try {
+        editor.commands.setContent(markdown, { emitUpdate: false, contentType: 'markdown' });
+        markHostDocumentLoaded();
+        postDocumentStats(editor);
+        requestAnimationFrame(() => postDocumentStats(editor));
+      } catch (e) {
+        console.warn('[epdoc inbound] setMarkdown: invalid Markdown', e);
       }
     },
 
@@ -396,6 +412,12 @@ function postDocumentSnapshot(editor: Editor): void {
     type: 'contentDidChange',
     json: JSON.stringify(editor.getJSON()),
   });
+  if (typeof editor.getMarkdown === 'function') {
+    postBridge({
+      type: 'markdownDidChange',
+      markdown: editor.getMarkdown(),
+    });
+  }
 }
 
 function runEditorCommand(editor: Editor, name: string, args: unknown[]): boolean | null {

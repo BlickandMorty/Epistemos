@@ -298,6 +298,8 @@ public final class EpdocEditorChromeController {
             onContentChanged(json)
             toolbarModel.isDirty = true
             refreshDerivedStatus(from: json)
+        case .markdownDidChange:
+            break
         case let .documentStatsChanged(wordCount, characterCount):
             toolbarModel.wordCount = wordCount
             toolbarModel.characterCount = characterCount

@@ -441,6 +441,10 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// The editor produced a new ProseMirror JSON snapshot. Posted on
     /// every editor transaction by the JS side; debounced before save.
     case contentDidChange(json: Data)
+    /// Full-fidelity Markdown snapshot from the JS serializer. This is
+    /// decoded ahead of the L1 markdown-on-disk flip, but does not drive
+    /// autosave until that source-of-truth role changes explicitly.
+    case markdownDidChange(markdown: String)
     /// JS-side CharacterCount update. Posted on create, setContent,
     /// and content-changing commands so the native chrome/footer does
     /// not display stale placeholder counts.
@@ -477,6 +481,7 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// Returns `nil` on shape failure. Accepted shapes:
     ///
     ///   `{"type": "contentDidChange", "json": "<stringified-prosemirror-json>"}`
+    ///   `{"type": "markdownDidChange", "markdown": "# Full-fidelity markdown"}`
     ///   `{"type": "documentStatsChanged", "wordCount": 10, "characterCount": 80}`
     ///   `{"type": "editorReady"}`
     ///   `{"type": "error", "message": "..."}`
@@ -496,6 +501,11 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
                 return nil
             }
             return .contentDidChange(json: data)
+        case "markdownDidChange":
+            guard let markdown = dict["markdown"] as? String else {
+                return nil
+            }
+            return .markdownDidChange(markdown: markdown)
         case "documentStatsChanged":
             guard let wordCount = readInteger(dict["wordCount"]),
                   let characterCount = readInteger(dict["characterCount"]) else {
@@ -646,6 +656,10 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     /// Replace the editor's content with the given ProseMirror JSON.
     /// Used when swapping documents in the singleton WKWebView.
     case setContent(json: Data)
+    /// Replace the editor's content from Markdown via the JS serializer.
+    /// Reserved for the L1 source-of-truth flip; loader semantics match
+    /// setContent and do not imply a native save by themselves.
+    case setMarkdown(markdown: String)
     /// Move the cursor to the start of the document. Used after a
     /// setContent to restore canonical focus state.
     case focusStart
@@ -691,6 +705,8 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             // matches the inbound bridge shape.
             let asLiteral = jsStringLiteral(escaped)
             return "window.epistemos.setContent(\(asLiteral))"
+        case .setMarkdown(let markdown):
+            return "window.epistemos.setMarkdown(\(jsStringLiteral(markdown)))"
         case .focusStart:
             return "window.epistemos.focusStart()"
         case .focusEnd:

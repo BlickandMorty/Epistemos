@@ -1,9 +1,14 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import {
+  parseLegacyDiagramMarkdown,
+  renderLegacyDiagramMarkdown,
+} from '../markdown/epdoc-markdown-nodes';
 
 // Compatibility-only schema node for old Epdoc files that already contain
 // diagram blocks. New visual work routes to the native HTML Workspace.
 export const LegacyDiagramNode = Node.create({
   name: 'mermaid',
+  priority: 110,
   group: 'block',
   content: 'text*',
   marks: '',
@@ -12,6 +17,9 @@ export const LegacyDiagramNode = Node.create({
   selectable: true,
   draggable: false,
   code: true,
+  markdownTokenName: 'code',
+  parseMarkdown: parseLegacyDiagramMarkdown,
+  renderMarkdown: renderLegacyDiagramMarkdown,
 
   parseHTML() {
     return [
