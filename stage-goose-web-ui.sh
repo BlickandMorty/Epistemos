@@ -62,6 +62,7 @@ import type {
   ProviderType,
 } from '../api';
 import { getAcpClient } from './acpConnection';
+import type { PreferenceKey } from '@aaif/goose-sdk';
 
 type ProviderConfigKey = {
   name: string;
@@ -704,6 +705,41 @@ function configValue(value: unknown): string {
   return typeof value === 'string' ? value : String(value);
 }
 
+// config_key -> Goose PreferenceKey wire string (camelCase). These keys persist
+// LIVE via preferences/save+read so they survive restart and the agent actually
+// applies them. Keys NOT here (GOOSE_MODE, GOOSE_MAX_TURNS, GOOSE_TELEMETRY_ENABLED,
+// SECURITY_*) have no preference home in goose serve 1.39.0 and stay in the
+// in-memory map. Marker: epistemos-acp-preference-backed-config.
+const preferenceBackedConfigKeys: Record<string, PreferenceKey> = {
+  GOOSE_THINKING_EFFORT: 'gooseThinkingEffort',
+  GOOSE_AUTO_COMPACT_THRESHOLD: 'autoCompactThreshold',
+  VOICE_DICTATION_PROVIDER: 'voiceDictationProvider',
+  VOICE_DICTATION_PREFERRED_MIC: 'voiceDictationPreferredMic',
+};
+
+async function savePreferenceConfig(key: string, value: unknown): Promise<void> {
+  const prefKey = preferenceBackedConfigKeys[key];
+  const client = await getAcpClient();
+  await client.goose.preferencesSave_unstable({ values: [{ key: prefKey, value: configValue(value) }] });
+}
+
+async function readPreferenceConfig(key: string): Promise<string | null> {
+  const prefKey = preferenceBackedConfigKeys[key];
+  const client = await getAcpClient();
+  const response = await withAcpTimeout(
+    client.goose.preferencesRead_unstable({ keys: [prefKey] }),
+    4000,
+    'Goose ACP preference read'
+  );
+  const entry = ((response.values ?? []) as Array<{ key: string; value: unknown }>).find(
+    (candidate) => candidate.key === prefKey
+  );
+  if (!entry || entry.value == null) {
+    return null;
+  }
+  return typeof entry.value === 'string' ? entry.value : String(entry.value);
+}
+
 export async function readAcpProviderConfigValue(key: string): Promise<string | null> {
   if (key === 'GOOSE_PROVIDER' || key === 'GOOSE_DEFAULT_PROVIDER') {
     const defaults = await readAcpProviderDefaults();
@@ -712,6 +748,13 @@ export async function readAcpProviderConfigValue(key: string): Promise<string | 
   if (key === 'GOOSE_MODEL' || key === 'GOOSE_DEFAULT_MODEL') {
     const defaults = await readAcpProviderDefaults();
     return defaults.modelId ?? null;
+  }
+  if (key in preferenceBackedConfigKeys) {
+    try {
+      return await readPreferenceConfig(key);
+    } catch {
+      return localAcpConfigValue(key);
+    }
   }
   if (isLocalAcpConfigKey(key)) {
     return localAcpConfigValue(key);
@@ -745,6 +788,25 @@ export async function reconstructAcpConfig(): Promise<Record<string, unknown>> {
     }
   }
   try {
+    const client = await getAcpClient();
+    const response = await withAcpTimeout(
+      client.goose.preferencesRead_unstable({ keys: Object.values(preferenceBackedConfigKeys) }),
+      4000,
+      'Goose ACP preferences reconstruct'
+    );
+    const byPref = new Map(
+      ((response.values ?? []) as Array<{ key: string; value: unknown }>).map((v) => [v.key, v.value])
+    );
+    for (const [configKey, prefKey] of Object.entries(preferenceBackedConfigKeys)) {
+      const v = byPref.get(prefKey);
+      if (v != null) {
+        config[configKey] = typeof v === 'string' ? v : String(v);
+      }
+    }
+  } catch {
+    // Best-effort: persisted preferences overlay on top of the in-memory defaults.
+  }
+  try {
     const defaults = await readAcpProviderDefaults();
     if (defaults.providerId) {
       config['GOOSE_PROVIDER'] = defaults.providerId;
@@ -774,6 +836,10 @@ export async function upsertAcpProviderConfig(
       isProviderKey ? configValue(value) : defaults.providerId ?? '',
       isProviderKey ? defaults.modelId ?? null : configValue(value)
     );
+    return;
+  }
+  if (key in preferenceBackedConfigKeys) {
+    await savePreferenceConfig(key, value);
     return;
   }
   if (isLocalAcpConfigKey(key)) {
