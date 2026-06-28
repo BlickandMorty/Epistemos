@@ -77,11 +77,17 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
       two-sided code pack → `MD_SOURCE_OF_TRUTH_CODEPACK_2026_06_27.md` (8a JS serializer + 8b Swift write-through).
       6 top-level findings surfaced from source (see codepack + below). The single biggest underserved blocker
       now has a staged, reversible, falsifier-gated plan. Pass 9 next.
-- [ ] **Pass 9+** (deepen/polish until owner says stop): candidates — owner answers to the remaining open
+- [x] **Pass 9 DONE** (2026-06-27): two deepen code packs → `AI_INSTRUCTIONS_AND_GRAMMAR_CODEPACK_2026_06_27.md`.
+      **9a** = the owner's "down to system prompts / AI-edit instructions" goal AS CODE (`VaultAgentsGuideManager`
+      seed/repair/shims + original clean-room AGENTS.md body + thin per-turn preamble + doctrine-in-MCP-tool-
+      descriptions + 4 SUPERSEDE seams). **9b** = grammar-unification (align `ProseMirrorMarkdownProjector.swift`
+      to the JS/Obsidian grammar: 3 diffs + shared-fixture parity test; lands BEFORE the Pass-8b flip). Two
+      load-bearing findings below. Pass 10 next.
+- [ ] **Pass 10+** (deepen/polish until owner says stop): candidates — owner answers to the remaining open
       questions (Q2 minichat shape, Q3 width pixels, Q4 swap scope, Q6 cleanup) → fold into the plan; the
-      grammar-unification decision from Pass-8 finding #3 (align `ProseMirrorMarkdownProjector.swift` to the
-      JS/Obsidian grammar, or demote it); deeper code on a build-sequence stage; CI-wire the Pass-7/8 falsifiers
-      as real tests; or harden a thin spot.
+      provenance-ledger drift from Pass-9a §4.2 (decide: ship the Swift `AgentNoteEditProvenance` spine, or
+      build the new Rust `record_edit_claim_json` FFI); deeper code on a build-sequence stage; CI-wire the
+      Pass-7/8/9 falsifiers as real tests; or harden a thin spot.
 
 ---
 
@@ -496,6 +502,14 @@ Full code in **`MD_SOURCE_OF_TRUTH_CODEPACK_2026_06_27.md`** (8a JS serializer +
 5. **No `update_note` tool** — the real Goose seam is **`edit_note`** (`omega-mcp/src/vault.rs:509` / `VaultNoteEditor.swift:36-79`), already writing plain `.md` to the vault.
 6. **`SDPage.swift:7-9,50` doc-vs-code DRIFT** — claims "SwiftData is source of truth / `.md` secondary," but `body` is cleared after save (`:29`) so disk is effectively canonical; comment is stale.
 **Plan shape:** 3-state `EPISTEMOS_MD_SOURCE_OF_TRUTH` flag (jsonOnly default → dualWrite additive/reversible → markdownCanonical), HTML-in-md fallback for non-round-trippable blocks, falsifier-gated flip (round-trip must preserve callout/wikilink/chart/frontmatter/`_`-keys + self-write must suppress reload), serializer-first so Phase B unlocks only when the 8a fidelity harness is green.
+
+---
+
+### Pass 9 — AI-edit-instructions graft (9a) + grammar-unification (9b)
+Full code in **`AI_INSTRUCTIONS_AND_GRAMMAR_CODEPACK_2026_06_27.md`**. Two load-bearing findings:
+1. **⚠️ Provenance-ledger DRIFT (9a §4.2):** Decision 13 / plan §6 say "EditClaim → Rust `ClaimLedger`," but that ledger's FFI is **read-only** (`bridge.rs:3465-3499`) and Phase 8.E moved live provenance to the Cognitive DAG (`bridge.rs:3441`). The shippable path is the **already-built Swift spine** (`AgentNoteEditProvenance`→EventStore via `VaultNoteEditor.applyEdits(_:to:provenance:)` `:53-79`), enriched with an `EditClaim` metadata struct. A Rust-ledger EditClaim needs a NEW `record_edit_claim_json` FFI that **does not exist today** — owner decision queued for Pass 10.
+2. **Grammar fix is a no-op for today, a prerequisite for the flip (9b):** the Swift projector's `shadowMarkdown` is write-only/never-consumed (FTS is fed by a *different* projector, `ReadableBlocksProjector` off `contentJSON`), so the `:::`/`epdoc-chart`/no-wikilink divergence causes **no current bug** — demote literally suffices today. But Pass-8b designates the projector as the degraded-`.md` fallback, so ALIGN it (3 diffs + shared-fixture parity test) and land BEFORE the `.markdownCanonical` flip.
+Net: the AI-graft is ~80% wiring over verified seams (`WorkToolMCPCore`, `WorkAppContextSnapshot`, ACP `request_permission`, `VaultNoteEditor`+`AgentNoteEditProvenance`); 2 genuine new builds (`VaultAgentsGuideManager`, the `EditClaim`/preamble glue).
 
 ---
 
