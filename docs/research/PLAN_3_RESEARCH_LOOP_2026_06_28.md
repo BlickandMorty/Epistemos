@@ -29,7 +29,13 @@
     usable browser fast). Honest limits: no Safari extensions, some DRM video, isolated cookies. → folded into §2.
   - **Ledger re-scan** found owner-wanted skipped items → added §7 (arXiv pull, meeting/STT note, Eidos→chat) +
     an owner-decision queue (HF/BYOM marketplace, model stack, vision-lane, DeerFlow — hinge on Goose-only-AI).
-- [ ] **Pass 3+** (queue): (5) deepen Provenance moat (Fix A/B + hover card) + Extensibility/MCP into clone-ready code
-  with real snippets. (6) deepen Apple-native (rest of top-6: QuickLook/VisionKit/thumbnails wiring). (7) deepen the
-  PDF parser clone (EdgeParse vendoring + FFI + unpdf fallback, concrete). (8) Provenance fake-chip fix → real code.
-  (9) harden + contradiction sweep across all 3 plans (no duplication/clash). Each: clone targets + real code.
+- [x] **Pass 3 DONE** (2026-06-28): CLONE-READY CODE for the top-3 confirmed build items → 3 codepacks:
+  - **`PLAN_3_EDGEPARSE_CODEPACK`** — vendor commands + `agent_core/src/pdf_parse.rs` (same FFI envelope, unpdf fallback,
+    honest-inert) + Swift coexistence (settings + `source_pdf` frontmatter + "View original PDF" stub) + the 3 flips.
+  - **`PLAN_3_PROVENANCE_CODEPACK`** — Fix A (`VRMLabel.honestLabel(for:)` gate + emitter derivation + test) + Fix B
+    (tightened `VerifiedFloorChipStrip` audit) + Moat-1 (`VRMLabelView` hover-lineage card). Full cascade = flagged Rust FFI.
+  - **`PLAN_3_VAULT_MCP_CODEPACK`** — `VaultMCPCore`/`VaultMCPServer`/`VaultMCPTokenStore`/`VaultMCPHost`/Settings row,
+    reusing the audited `WorkNativeMCPServer` transport; read-only allowlist enforced at the core; persistent Keychain token.
+- [ ] **Pass 4+** (queue): (6) Apple-native deepen (QuickLook/VisionKit/thumbnails wiring → code). (7) Extensibility
+  skill/MCP install UI + best-of preset → code. (8) arXiv pull + meeting/STT note (§7) → clone targets + code.
+  (9) Obscura Tier-1 in-app browser → concrete WKWebView code. (10) harden + contradiction sweep across all 3 plans.

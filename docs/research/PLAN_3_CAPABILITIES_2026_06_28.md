@@ -10,6 +10,10 @@
 > **Scope (owner-selected, 2026-06-28):** Fast PDF→MD · Obscura browser · native ColBERT encoder · Provenance
 > moat · Extensibility (skill/MCP install + best-of preset + vault-as-MCP-server). Nothing else.
 > Tags: `[VERIFIED-CODE]` read this pass · `[WEB]` web-validated · `[INFERRED]` proposed.
+>
+> **★ CLONE-READY CODE PACKS (Pass 3):** `PLAN_3_EDGEPARSE_CODEPACK_2026_06_28.md` (§1 PDF→md vendoring + coexistence) ·
+> `PLAN_3_PROVENANCE_CODEPACK_2026_06_28.md` (§4 honest-chip fix + hover-lineage moat) ·
+> `PLAN_3_VAULT_MCP_CODEPACK_2026_06_28.md` (§5c vault-as-MCP-server). Real code + integration/flip checklists.
 
 ---
 
