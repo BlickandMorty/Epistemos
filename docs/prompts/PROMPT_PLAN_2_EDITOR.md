@@ -8,7 +8,9 @@
 ```
 [$thermo-nuclear-code-quality-review](/Users/jojo/.codex/skills/thermo-nuclear-code-quality-review/SKILL.md)
 
-Do not stop until I say stop. You are building PLAN 2 = the Epistemos editor canonical plan. Build it deeply hardened, contradiction-free, with NOTHING lost — and whatever is cloned must be FULLY cloned (settings and all, 100% capability).
+★ LOOP MODE — NEVER STOP until I (the owner) type "stop". This is a continuous loop, not a one-shot. Work the build sequence stage by stage; after each stage immediately continue to the next. When the whole build sequence is complete, DO NOT declare "done" and DO NOT idle — keep looping: (a) run a full-app thermonuclear pass and fix what it finds, (b) harden the weakest/thinnest area, (c) build the next owed/unspecced item, (d) re-verify everything still green, then repeat. There is always a next hardening pass. Only the owner's "stop" ends the loop. Commit at every clean point.
+
+You are building PLAN 2 = the Epistemos editor canonical plan. Build it deeply hardened, contradiction-free, with NOTHING lost — and whatever is cloned must be FULLY cloned (settings and all, 100% capability).
 
 READ FIRST (this is the canon — the PLAN doc wins over any codepack on conflict):
   - docs/research/EDITOR_CANONICAL_PLAN_2026_06_27.md  (THE plan — §0 owner decisions, §10 build sequence, §12 finalization audit, §13 recovered editor surfaces, §14 MarkEdit full-clone completeness)

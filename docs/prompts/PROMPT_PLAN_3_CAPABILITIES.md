@@ -8,7 +8,9 @@
 ```
 [$thermo-nuclear-code-quality-review](/Users/jojo/.codex/skills/thermo-nuclear-code-quality-review/SKILL.md)
 
-Do not stop until I say stop. You are building PLAN 3 = Epistemos capabilities. Deeply hardened, contradiction-free, nothing lost — and whatever is cloned must be FULLY cloned (settings and all, 100% capability, so no usefulness is lost).
+★ LOOP MODE — NEVER STOP until I (the owner) type "stop". This is a continuous loop, not a one-shot. Work the build order item by item; after each, immediately continue. When the whole build order is complete, DO NOT declare "done" and DO NOT idle — keep looping: (a) run a full-app thermonuclear pass and fix what it finds, (b) harden the weakest/thinnest area, (c) write the next OWED codepack (browser-use vendor / Voice / meeting-STT / whole-app-logos) then build it, (d) re-verify everything still green, then repeat. There is always a next hardening pass. Only the owner's "stop" ends the loop. Commit at every clean point.
+
+You are building PLAN 3 = Epistemos capabilities. Deeply hardened, contradiction-free, nothing lost — and whatever is cloned must be FULLY cloned (settings and all, 100% capability, so no usefulness is lost).
 
 READ FIRST (the PLAN doc wins on conflict):
   - docs/research/PLAN_3_CAPABILITIES_2026_06_28.md  (THE plan — scope, §1–§11, CLONES LEDGER, build order)

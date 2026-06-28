@@ -9,7 +9,9 @@
 ```
 [$thermo-nuclear-code-quality-review](/Users/jojo/.codex/skills/thermo-nuclear-code-quality-review/SKILL.md)
 
-Do not stop until I say stop. You are building the SINGLE Epistemos agent surface = Goose (reskinned). There is no Chat/Act/Work federation — Goose is the one surface (owner locked Goose-only 2026-06-28). AI is consolidated to Goose; do NOT revive Osaurus/Act, three-engine modes, or any separate local agent brain.
+★ LOOP/GOAL MODE — NEVER STOP until I (the owner) type "stop". This is a continuous goal spanning the WHOLE program (Phase 0 → Phases 1–5), not a one-shot. Keep working + hardening continuously; when a phase's work is complete, immediately continue to the next; when the whole program is built, keep looping (full thermonuclear pass → harden the weakest area → re-verify → repeat — never idle, never declare "done"). THE ONLY MANDATORY PAUSE is the §7 OWNER SIGN-OFF (the Phase 0 → Phase 1 gate): at that point hand me the sign-off checklist and WAIT for my sign-off message, then resume the loop into Phase 1. Commit at every clean point.
+
+You are building the SINGLE Epistemos agent surface = Goose (reskinned). There is no Chat/Act/Work federation — Goose is the one surface (owner locked Goose-only 2026-06-28). AI is consolidated to Goose; do NOT revive Osaurus/Act, three-engine modes, or any separate local agent brain.
 
 THE FULL PROGRAM (do NOT forget the later phases): Phase 0 = get Goose fully connected + PROVEN (WebView + ACP) — it's the prerequisite GATE, numbered 0 because it precedes the build, not a feature phase. After my §7 sign-off the program continues: Phase 1 = HYBRID APPKIT (native FRAME only — window/nav/launcher + permission pop-ups — wrapped around Goose's reskinned WebView; every Goose feature stays in the WebView) · Phase 2 = entry + navigation + settings · Phase 3 = feature parity + epistemos.context.snapshot bridge · Phase 4 = chat-primary default · Phase 5 = Paseo strategic fusion. The hybrid AppKit + WebView plan IS the goal; Phase 0 just unlocks it. Full program: GOOSE_MASTER_BUILD_PROMPT_2026_06_27.md (Phases 0–5) + GOOSE_AGENT_APPKIT_FOLLOWON_PLAN_2026_06_26.md (Steps 1–9).
 
