@@ -1520,6 +1520,36 @@ if (!source.includes("../../../acp/providers")) {
   source = source.replace(importAnchor, imports);
 }
 
+if (!source.includes('function epistemosProviderModelErrorMessage')) {
+  replaceRequired(
+    'Epistemos provider model error helper',
+    `export interface ProviderModelsResult {
+  provider: ProviderDetails;
+  models: Model[] | null;
+  error: string | null;
+  warning: string | null;
+}
+`,
+    `export interface ProviderModelsResult {
+  provider: ProviderDetails;
+  models: Model[] | null;
+  error: string | null;
+  warning: string | null;
+}
+
+function epistemosProviderModelErrorMessage(provider: ProviderDetails, error: unknown): string {
+  const errMsg = getErrorMessage(error);
+  if (provider.name === 'lmstudio') {
+    const hint =
+      'LM Studio is not reachable at http://localhost:1234. Start the LM Studio local server or update the LMSTUDIO_HOST provider setting.';
+    return \`Failed to fetch models for \${provider.name}: \${hint}\${errMsg ? \` (\${errMsg})\` : ''}\`;
+  }
+  return \`Failed to fetch models for \${provider.name}\${errMsg ? \`: \${errMsg}\` : ''}\`;
+}
+`
+  );
+}
+
 replaceRequired(
   'ACP supported models branch',
   `    try {
@@ -1561,10 +1591,17 @@ replaceRequired(
     const response = await getProviderModelInfo({`
 );
 
+replaceRequired(
+  'Epistemos provider model error wording',
+  "      const errMsg = getErrorMessage(e);\n      const errorMessage = `Failed to fetch models for ${p.name}${errMsg ? `: ${errMsg}` : ''}`;",
+  "      const errorMessage = epistemosProviderModelErrorMessage(p, e);"
+);
+
 for (const snippet of [
   'listAcpProviderModels(p.name)',
   'Goose ACP supported model inventory returned zero models',
   'const providers = await getAcpProviders()',
+  'LM Studio is not reachable at http://localhost:1234',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`modelInterface staged source is missing required ACP model snippet: ${snippet}`);
@@ -1572,6 +1609,256 @@ for (const snippet of [
 }
 
 fs.writeFileSync(path, source);
+NODE
+
+mkdir -p "$WORK_ROOT/ui/desktop/src/epistemos"
+cat > "$WORK_ROOT/ui/desktop/src/epistemos/appsBridge.ts" <<'TS'
+import type { GooseApp } from '../api';
+
+type ApiResponse<T> = {
+  data?: T;
+  error?: unknown;
+};
+
+type BridgeOptions = {
+  throwOnError?: boolean;
+  query?: { session_id?: string | null };
+  body?: { html?: string };
+  path?: { name?: string };
+};
+
+type EpistemosAppsBridge = {
+  listApps: (sessionId?: string | null) => Promise<{ apps: GooseApp[] }>;
+  importApp: (html: string) => Promise<{ name: string; message: string }>;
+  exportApp: (name: string) => Promise<string>;
+};
+
+declare global {
+  interface Window {
+    epistemos?: {
+      goose?: {
+        apps?: EpistemosAppsBridge;
+      };
+    };
+  }
+}
+
+function appsBridge(): EpistemosAppsBridge {
+  const bridge = window.epistemos?.goose?.apps;
+  if (!bridge) {
+    throw new Error('Epistemos Apps bridge unavailable');
+  }
+  return bridge;
+}
+
+function failure<T>(options: BridgeOptions | undefined, error: unknown): ApiResponse<T> {
+  if (options?.throwOnError) {
+    throw error;
+  }
+  return { error };
+}
+
+export async function listApps(
+  options: BridgeOptions = {}
+): Promise<ApiResponse<{ apps: GooseApp[] }>> {
+  try {
+    return { data: await appsBridge().listApps(options.query?.session_id ?? null) };
+  } catch (error) {
+    return failure(options, error);
+  }
+}
+
+export async function importApp(
+  options: BridgeOptions
+): Promise<ApiResponse<{ name: string; message: string }>> {
+  try {
+    const html = options.body?.html;
+    if (typeof html !== 'string') {
+      throw new Error('Epistemos Apps import requires an HTML body.');
+    }
+    return { data: await appsBridge().importApp(html) };
+  } catch (error) {
+    return failure(options, error);
+  }
+}
+
+export async function exportApp(options: BridgeOptions): Promise<ApiResponse<string>> {
+  try {
+    const name = options.path?.name;
+    if (typeof name !== 'string' || name.length === 0) {
+      throw new Error('Epistemos Apps export requires an app name.');
+    }
+    return { data: await appsBridge().exportApp(name) };
+  } catch (error) {
+    return failure(options, error);
+  }
+}
+TS
+
+node - "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx" \
+       "$WORK_ROOT/ui/desktop/src/utils/platform_events.ts" \
+       "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts" \
+       "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx" <<'NODE'
+const fs = require('fs');
+const [appsViewPath, platformEventsPath, chatStreamPath, standalonePath] = process.argv.slice(2);
+
+function writeRequired(path, update, label) {
+  const source = fs.readFileSync(path, 'utf8');
+  const next = update(source);
+  if (next === source) {
+    throw new Error(`${label} Apps bridge replacement not applied`);
+  }
+  fs.writeFileSync(path, next);
+}
+
+writeRequired(
+  appsViewPath,
+  (source) => {
+    let next = source.replace(
+      "import { exportApp, GooseApp, importApp, listApps } from '../../api';",
+      "import type { GooseApp } from '../../api';\nimport { exportApp, importApp, listApps } from '../../epistemos/appsBridge';"
+    );
+    next = next.replace(
+      `  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadApp = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      await importApp({
+        throwOnError: true,
+        body: { html: text },
+      });
+
+      const response = await listApps({
+        throwOnError: true,
+      });
+      const cachedApps = response.data?.apps || [];
+      // Only show apps from the "apps" extension.
+      setApps(cachedApps.filter((a) => a.mcpServers?.includes('apps')));
+      setError(null);
+    } catch (err) {
+      console.error('Failed to import app:', err);
+      setError(errorMessage(err, 'Failed to import app'));
+    }
+    event.target.value = '';
+  };
+`,
+      `  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const refreshImportedApps = useCallback(async () => {
+    const response = await listApps({
+      throwOnError: true,
+    });
+    const cachedApps = response.data?.apps || [];
+    // Only show apps from the "apps" extension.
+    setApps(cachedApps.filter((a) => a.mcpServers?.includes('apps')));
+  }, []);
+
+  const importHtmlApp = useCallback(
+    async (html: string) => {
+      await importApp({
+        throwOnError: true,
+        body: { html },
+      });
+      await refreshImportedApps();
+      setError(null);
+    },
+    [refreshImportedApps]
+  );
+
+  type NativeFileReadResult = {
+    file?: string;
+    filePath?: string;
+    found?: boolean;
+    error?: string | null;
+  };
+
+  const handleImportClick = async () => {
+    const nativeElectron = window.electron as typeof window.electron & {
+      readFile?: (path: string) => Promise<NativeFileReadResult>;
+      showOpenDialog?: (options?: unknown) => Promise<{ canceled?: boolean; filePaths?: string[] }>;
+    };
+    if (
+      typeof nativeElectron.showOpenDialog === 'function' &&
+      typeof nativeElectron.readFile === 'function'
+    ) {
+      try {
+        const result = await nativeElectron.showOpenDialog({
+          properties: ['openFile'],
+          filters: [{ name: 'HTML', extensions: ['html', 'htm'] }],
+        });
+        const filePath = result?.filePaths?.[0];
+        if (result?.canceled || !filePath) return;
+        const fileResponse = await nativeElectron.readFile(filePath);
+        if (fileResponse?.found !== true || typeof fileResponse.file !== 'string') {
+          throw new Error(fileResponse?.error || 'Native file contents were unavailable');
+        }
+        await importHtmlApp(fileResponse.file);
+      } catch (err) {
+        console.error('Failed to import app:', err);
+        setError(errorMessage(err, 'Failed to import app'));
+      }
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadApp = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      await importHtmlApp(text);
+    } catch (err) {
+      console.error('Failed to import app:', err);
+      setError(errorMessage(err, 'Failed to import app'));
+    }
+    event.target.value = '';
+  };
+`
+    );
+    return next;
+  },
+  'AppsView'
+);
+
+writeRequired(
+  platformEventsPath,
+  (source) =>
+    source.replace(
+      "import { listApps, GooseApp } from '../api';",
+      "import type { GooseApp } from '../api';\nimport { listApps } from '../epistemos/appsBridge';"
+    ),
+  'platform_events'
+);
+
+writeRequired(
+  chatStreamPath,
+  (source) =>
+    source.replace(
+      /,\n  listApps,\n} from '\.\.\/api';/,
+      "\n} from '../api';\nimport { listApps } from '../epistemos/appsBridge';"
+    ),
+  'useChatStream'
+);
+
+writeRequired(
+  standalonePath,
+  (source) =>
+    source.replace(
+      "import { startAgent, resumeAgent, listApps, stopAgent } from '../../api';",
+      "import { startAgent, resumeAgent, stopAgent } from '../../api';\nimport { listApps } from '../../epistemos/appsBridge';"
+    ),
+  'StandaloneAppView'
+);
 NODE
 
 MODEL_AND_PROVIDER_CONTEXT="$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
@@ -2051,6 +2338,12 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "return serializeACPRequests(client);" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
     grep -q "name: model.id || model.name" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "listAcpProviderModels(p.name)" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
+    grep -q "LM Studio is not reachable at http://localhost:1234" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
+    grep -q "Epistemos Apps bridge unavailable" "$WORK_ROOT/ui/desktop/src/epistemos/appsBridge.ts"
+    grep -q "import { exportApp, importApp, listApps } from '../../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
+    grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts"
+    grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/utils/platform_events.ts"
+    grep -q "import { listApps } from '../../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx"
     grep -q "saveAcpProviderDefaults(providerName, modelName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
     grep -q "saveAcpSessionModel(sessionId, modelName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
     grep -q "saveAcpSessionProvider(sessionId, providerName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
@@ -2090,6 +2383,8 @@ for required_marker in \
     "__epistemosGooseACPRequestSerialization" \
     "__epistemosGooseProviderInventoryEvents" \
     "__epistemosGooseProviderCatalogEvents" \
+    "Epistemos Apps bridge unavailable" \
+    "LM Studio is not reachable at http://localhost:1234" \
     "provider-catalog-template-choice"; do
     if ! grep -R -q -- "$required_marker" "$STAGED_OUTPUT/index.html" "$STAGED_OUTPUT/assets" 2>/dev/null; then
         echo "Goose Web UI artifact is missing required ACP provider catalog marker: $required_marker" >&2

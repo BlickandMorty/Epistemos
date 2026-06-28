@@ -20,6 +20,7 @@ struct GooseWebSurfaceView: View {
     @State private var gooseUIServer: WorkSPAServer?
     @State private var secretKey: String
     @State private var showDetails = false
+    @State private var runtimeHealthTask: Task<Void, Never>?
 
     init(theme: EpistemosTheme = .nativeDefault) {
         self.theme = theme
@@ -59,7 +60,11 @@ struct GooseWebSurfaceView: View {
         .background(background)
         .animation(.snappy(duration: 0.16), value: showDetails)
         .task { await startSurface() }
+        .onChange(of: supervisor.status) { _, status in
+            handleRuntimeStatusChange(status)
+        }
         .onDisappear {
+            runtimeHealthTask?.cancel()
             supervisor.stop()
             gooseUIServer?.stop()
             nativePromptBridge.cancelPendingPrompts()
@@ -99,11 +104,11 @@ struct GooseWebSurfaceView: View {
                 .help("Close")
             }
             detailRow("runtime", statusLabel)
-            detailRow("native ACP", acpStatusLabel)
+            detailRow("native ACP Goose", nativeACPStatusLabel)
             detailRow("ACP", GooseRuntimeSupervisor.defaultBaseURL().absoluteString)
             detailRow("surface", Self.resolvedGooseUIIndex() == nil ? "UI bundle not staged" : "Goose Web UI")
             detailRow("UI origin", gooseUIServerStatusLabel)
-            detailRow("custom ACP", customACPStatusLabel)
+            detailRow("custom ACP Goose", customACPStatusLabel)
             HStack(spacing: 8) {
                 Button { loadGooseRoute("/settings?section=models") } label: {
                     Label("Manage models", systemImage: "slider.horizontal.3")
@@ -115,6 +120,13 @@ struct GooseWebSurfaceView: View {
                 }
                 .buttonStyle(.bordered)
                 .help("Open Goose providers")
+                if canRestartSurface {
+                    Button { Task { await restartSurface() } } label: {
+                        Label("Restart", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Restart Goose")
+                }
             }
             .font(GooseSurfaceStyle.bodyFont(10, weight: .semibold))
             if !acpBridge.unhandledDiagnostics.isEmpty {
@@ -256,7 +268,7 @@ struct GooseWebSurfaceView: View {
         }
     }
 
-    private var acpStatusLabel: String {
+    private var nativeACPStatusLabel: String {
         switch acpBridge.status {
         case .idle:
             return "idle"
@@ -264,9 +276,12 @@ struct GooseWebSurfaceView: View {
             return "connecting"
         case .connected(let agent):
             if let agent {
-                return "\(agent.name) \(agent.version)"
+                if agent.name.localizedCaseInsensitiveContains("goose") {
+                    return "ready (\(agent.version))"
+                }
+                return "ready (\(agent.name) \(agent.version))"
             }
-            return "connected"
+            return "ready"
         case .failed(let message):
             return "error: \(message)"
         case .disconnected:
@@ -276,7 +291,7 @@ struct GooseWebSurfaceView: View {
 
     private var customACPStatusLabel: String {
         acpBridge.unhandledDiagnostics.isEmpty
-            ? "Goose ACP ready"
+            ? "ready"
             : "blocked: \(acpBridge.unhandledDiagnostics.count)"
     }
 
@@ -296,9 +311,44 @@ struct GooseWebSurfaceView: View {
         }
     }
 
+    private var canRestartSurface: Bool {
+        switch supervisor.status {
+        case .failed, .stopped:
+            return true
+        default:
+            return false
+        }
+    }
+
     private func startSurface() async {
         supervisor.start(secretKey: secretKey)
         await loadWhenReady()
+    }
+
+    private func restartSurface() async {
+        runtimeHealthTask?.cancel()
+        runtimeHealthTask = nil
+        gooseUIServer?.stop()
+        gooseUIServer = nil
+        await acpBridge.disconnect()
+        loadPlaceholder()
+        supervisor.stop()
+        supervisor.start(secretKey: secretKey)
+        await loadWhenReady()
+    }
+
+    private func handleRuntimeStatusChange(_ status: GooseRuntimeSupervisor.Status) {
+        switch status {
+        case .failed, .unavailable:
+            runtimeHealthTask?.cancel()
+            runtimeHealthTask = nil
+            gooseUIServer?.stop()
+            gooseUIServer = nil
+            Task { await acpBridge.disconnect() }
+            loadPlaceholder()
+        default:
+            break
+        }
     }
 
     private func loadWhenReady() async {
@@ -326,8 +376,13 @@ struct GooseWebSurfaceView: View {
 
     private func loadGooseUI(connection: GooseRuntimeConnection) async {
         if let index = Self.resolvedGooseUIIndex() {
+            beginRuntimeHealthMonitor(connection: connection)
             let root = index.deletingLastPathComponent()
-            let server = WorkSPAServer(root: root, advertisedHost: "127.0.0.1")
+            let server = WorkSPAServer(
+                root: root,
+                staticRoutes: Self.gooseStaticCompatibilityRoutes(),
+                advertisedHost: "127.0.0.1"
+            )
             gooseUIServer?.stop()
             gooseUIServer = server
             do {
@@ -339,6 +394,26 @@ struct GooseWebSurfaceView: View {
             await loadGooseUIWhenReady(server, route: "/?", acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
+        }
+    }
+
+    private func beginRuntimeHealthMonitor(connection: GooseRuntimeConnection) {
+        runtimeHealthTask?.cancel()
+        runtimeHealthTask = Task { [baseURL = connection.baseURL] in
+            var missedChecks = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                if await GooseRuntimeSupervisor.healthCheck(base: baseURL) {
+                    missedChecks = 0
+                } else {
+                    missedChecks += 1
+                    if missedChecks >= 2 {
+                        supervisor.markRuntimeFailed("Goose health check failed after the Web UI loaded.")
+                        return
+                    }
+                }
+            }
         }
     }
 
@@ -426,6 +501,16 @@ struct GooseWebSurfaceView: View {
             absolute += "/"
         }
         return URL(string: "\(absolute)?v=\(gooseUISurfaceCacheToken)#\(normalizedRoute)")!
+    }
+
+    nonisolated static func gooseStaticCompatibilityRoutes() -> [WorkSPAStaticRoute] {
+        [
+            WorkSPAStaticRoute(
+                path: "/agent/list_apps",
+                contentType: "application/json; charset=utf-8",
+                body: Data(#"{"apps":[]}"#.utf8)
+            ),
+        ]
     }
 
     nonisolated private static func surfaceURL(hashRoute: String) -> URL {

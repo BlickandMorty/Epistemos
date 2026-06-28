@@ -330,12 +330,13 @@ struct GooseLiveIntegrationTests {
                     "goose_binary": binary.path,
                 ]
             )
+            await settleGooseWebPageForLiveSuite(page, progressURL: progressURL)
             }
         }
     }
 
     @Test(
-        "live Goose WebView drives native file, recipe, confirm, recents, and MCP app affordances"
+        "live Goose WebView drives native file, recipe, recents, and handler-routed window affordances"
     )
     @MainActor
     func liveGooseWebViewDrivesNativeHostAffordances() async throws {
@@ -356,6 +357,18 @@ struct GooseLiveIntegrationTests {
         defer { preferences.removePersistentDomain(forName: suiteName) }
 
         let nativeBridge = GooseWebNativeAffordanceBridge(
+            handlers: [
+                "showMessageBox": { _ in
+                    [
+                        "response": 0,
+                        "checkboxChecked": false,
+                        "epistemosHostedModalBypass": true,
+                    ]
+                },
+                "launchApp": { _ in true },
+                "refreshApp": { _ in true },
+                "closeApp": { _ in true },
+            ],
             initialScopedFileRoots: [projectRoot],
             applicationSupportRoot: supportRoot,
             preferences: preferences
@@ -379,7 +392,6 @@ struct GooseLiveIntegrationTests {
             _ = page.load(URLRequest(url: GooseWebSurfaceView.loopbackURL(baseURL: uiServer.baseURL, route: "/?")))
             _ = try await waitForGooseWebBootProbe(page: page, progressURL: progressURL)
 
-            scheduleGooseMessageBoxClick(buttonTitle: "Allow")
             appendLiveProgress("before webview native affordance probe", to: progressURL)
             let probe = try await runGooseWebNativeAffordanceProbe(
                 page: page,
@@ -397,6 +409,8 @@ struct GooseLiveIntegrationTests {
                 "web_ui_origin=\(uiServer.baseURL.absoluteString)",
                 "project_root=\(projectRoot.path)",
                 "confirm_response=\(probe.confirmResponse)",
+                "confirm_handler_override=true",
+                "mcp_app_handler_override=true",
                 "goosehints_write=\(probe.writeOK)",
                 "goosehints_read_found=\(probe.readFound)",
                 "goosehints_read_matches=\(probe.readMatches)",
@@ -423,15 +437,18 @@ struct GooseLiveIntegrationTests {
                 throw GooseLiveIntegrationError.runtimeFailed("Live WebView native affordance proof log was not written.")
             }
             try GoosePhase0CapabilityMatrix.record(
-                [.gooseHintsEdit, .confirmDialogs, .recipeTrustPersistence, .mcpApps],
+                [.gooseHintsEdit, .recipeTrustPersistence],
                 proofURL: proofURL,
                 via: "embedded WebView Electron shim -> native host affordances",
                 details: [
                     "confirm_response": "\(probe.confirmResponse)",
+                    "confirm_handler_override": "true",
+                    "mcp_app_handler_override": "true",
                     "project_root": projectRoot.path,
                     "mcp_app_lifecycle": "\(probe.launchOK && probe.refreshOK && probe.closeOK)",
                 ]
             )
+            await settleGooseWebPageForLiveSuite(page, progressURL: progressURL)
             }
         }
     }
@@ -597,47 +614,6 @@ private func runGooseWebNativeAffordanceProbe(
         throw GooseLiveIntegrationError.runtimeFailed("Goose WebView native affordance probe did not return JSON.")
     }
     return try JSONDecoder().decode(GooseWebNativeAffordanceProbe.self, from: data)
-}
-
-@MainActor
-private func scheduleGooseMessageBoxClick(buttonTitle: String, attempts: Int = 120) {
-    if clickGooseMessageBoxButton(buttonTitle: buttonTitle) || attempts <= 0 {
-        return
-    }
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        Task { @MainActor in
-            scheduleGooseMessageBoxClick(buttonTitle: buttonTitle, attempts: attempts - 1)
-        }
-    }
-}
-
-@MainActor
-@discardableResult
-private func clickGooseMessageBoxButton(buttonTitle: String) -> Bool {
-    guard let modalWindow = NSApp.modalWindow else {
-        return false
-    }
-    if let button = findGooseMessageBoxButton(in: modalWindow.contentView, title: buttonTitle) {
-        button.performClick(nil)
-        return true
-    }
-    NSApp.stopModal(withCode: .alertFirstButtonReturn)
-    modalWindow.orderOut(nil)
-    return true
-}
-
-@MainActor
-private func findGooseMessageBoxButton(in view: NSView?, title: String) -> NSButton? {
-    guard let view else { return nil }
-    if let button = view as? NSButton, button.title == title {
-        return button
-    }
-    for subview in view.subviews {
-        if let button = findGooseMessageBoxButton(in: subview, title: title) {
-            return button
-        }
-    }
-    return nil
 }
 
 nonisolated private func gooseLiveJavaScriptStringLiteral(_ value: String) -> String {
@@ -969,6 +945,26 @@ func startGooseWebUILoopbackServer(root: URL) async throws -> (server: WorkSPASe
     }
     server.stop()
     throw GooseLiveIntegrationError.runtimeFailed("Timed out waiting for Goose Web UI loopback server.")
+}
+
+@MainActor
+private func settleGooseWebPageForLiveSuite(_ page: WebPage, progressURL: URL) async {
+    let deadline = ContinuousClock.now.advanced(by: .nanoseconds(2_000_000_000))
+    do {
+        for try await event in page.load(html: "<!doctype html><meta charset=\"utf-8\"><title>goose-live-settled</title>") {
+            if event == .finished {
+                appendLiveProgress("webview settle finished", to: progressURL)
+                break
+            }
+            if ContinuousClock.now >= deadline {
+                appendLiveProgress("webview settle timed out", to: progressURL)
+                break
+            }
+        }
+    } catch {
+        appendLiveProgress("webview settle error=\(error.localizedDescription)", to: progressURL)
+    }
+    try? await Task.sleep(nanoseconds: 300_000_000)
 }
 
 @MainActor

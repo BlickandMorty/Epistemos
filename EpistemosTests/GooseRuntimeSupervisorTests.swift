@@ -534,6 +534,16 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("name: model.id || model.name"))
         #expect(script.contains("const inventoryModels = new Map(p.metadata.known_models.map"))
         #expect(script.contains("Goose ACP supported model inventory returned zero models"))
+        #expect(script.contains("LM Studio is not reachable at http://localhost:1234"))
+        #expect(script.contains("src/epistemos/appsBridge.ts"))
+        #expect(script.contains("Epistemos Apps bridge unavailable"))
+        #expect(script.contains("import { exportApp, importApp, listApps } from '../../epistemos/appsBridge';"))
+        #expect(script.contains("import { listApps } from '../epistemos/appsBridge';"))
+        #expect(script.contains("import { listApps } from '../../epistemos/appsBridge';"))
+        #expect(script.contains("readFile?: (path: string) => Promise<NativeFileReadResult>;"))
+        #expect(script.contains("filters: [{ name: 'HTML', extensions: ['html', 'htm'] }]"))
+        #expect(script.contains("await importHtmlApp(fileResponse.file);"))
+        #expect(script.contains("Native file contents were unavailable"))
         #expect(script.contains("goose.defaultsRead_unstable({})"))
         #expect(script.contains("goose.defaultsSave_unstable({"))
         #expect(script.contains("await saveAcpProviderDefaults(providerName, modelName)"))
@@ -683,7 +693,8 @@ struct GooseWebViewBootShimTests {
             bundle: nil,
             appSupportDirectory: appSupport,
             currentDirectory: root.path,
-            environment: [:]
+            environment: [:],
+            includeBundledWebUICandidates: false
         )
         #expect(!unavailable.isReady)
         #expect(unavailable.menuTitle == "Epistemos Goose (runtime/UI missing)")
@@ -696,20 +707,21 @@ struct GooseWebViewBootShimTests {
             bundle: nil,
             appSupportDirectory: appSupport,
             currentDirectory: root.path,
-            environment: [:]
+            environment: [:],
+            includeBundledWebUICandidates: false
         )
         #expect(!runtimeOnly.isReady)
         #expect(runtimeOnly.unavailableMessage == "Goose Web UI is not bundled or staged for this build.")
 
         let index = webDir.appendingPathComponent("index.html")
-        try Data("<!doctype html>".utf8).write(to: index)
-        try writeGooseACPWebUIManifest(nextTo: index)
+        try writeGooseACPWebUIArtifact(at: index)
 
         let ready = GooseSurfaceAvailability.current(
             bundle: nil,
             appSupportDirectory: appSupport,
             currentDirectory: root.path,
-            environment: [:]
+            environment: [:],
+            includeBundledWebUICandidates: false
         )
         #expect(ready.isReady)
         #expect(ready.menuTitle == "Open Epistemos Goose")
@@ -720,6 +732,20 @@ struct GooseWebViewBootShimTests {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
         #expect(source.contains("@State private var secretKey: String"))
         #expect(!source.contains("private let secretKey"))
+    }
+
+    @Test("surface replaces the loaded Goose Web UI when the runtime exits")
+    func gooseSurfaceHandlesPostLoadRuntimeExit() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        #expect(source.contains(".onChange(of: supervisor.status)"))
+        #expect(source.contains("handleRuntimeStatusChange"))
+        #expect(source.contains("runtimeHealthTask"))
+        #expect(source.contains("beginRuntimeHealthMonitor"))
+        #expect(source.contains("GooseRuntimeSupervisor.healthCheck(base: baseURL)"))
+        #expect(source.contains("supervisor.markRuntimeFailed"))
+        #expect(source.contains("gooseUIServer?.stop()"))
+        #expect(source.contains("Task { await acpBridge.disconnect() }"))
+        #expect(source.contains("loadPlaceholder()"))
     }
 
     @Test("surface coordinator does not own native ACP prompt panel implementation")
@@ -777,6 +803,9 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["listRecentDirs"] == .implementedNative)
         #expect(ledger["hasAcceptedRecipeBefore"] == .implementedNative)
         #expect(ledger["recordRecipeHash"] == .implementedNative)
+        #expect(ledger["apps.list"] == .implementedRuntime)
+        #expect(ledger["apps.import"] == .implementedRuntime)
+        #expect(ledger["apps.export"] == .implementedRuntime)
     }
 
     @Test("bootstrap routes file and URL affordances through the native bridge")
@@ -805,6 +834,11 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("window.location.hash = `${appPath}?${searchParams.toString()}`"))
         #expect(script.contains("emitEvent('set-initial-message', initialMessage"))
         #expect(script.contains("postNativeAffordance('launchApp', [app])"))
+        #expect(script.contains("const epistemosGooseApps = Object.freeze"))
+        #expect(script.contains("listApps: async () => ({ apps: loadImportedApps() })"))
+        #expect(script.contains("importApp: async (html) =>"))
+        #expect(script.contains("exportApp: async (name) =>"))
+        #expect(script.contains("apps: epistemosGooseApps"))
         #expect(script.contains("postNativeAffordance('refreshApp', [app])"))
         #expect(script.contains("postNativeAffordance('closeApp', [appName])"))
         #expect(script.contains("postNativeAffordance('openNotificationsSettings')"))
@@ -858,6 +892,9 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains("Label(\"Manage models\", systemImage: \"slider.horizontal.3\")"))
         #expect(source.contains("loadGooseRoute(\"/settings?section=models\")"))
         #expect(source.contains("loadGooseRoute(\"/configure-providers\")"))
+        #expect(source.contains("detailRow(\"native ACP Goose\", nativeACPStatusLabel)"))
+        #expect(source.contains("detailRow(\"custom ACP Goose\", customACPStatusLabel)"))
+        #expect(source.contains("? \"ready\""))
         let modelsURL = GooseWebSurfaceView.routeURL("/settings?section=models")
         #expect(modelsURL.scheme?.hasPrefix("epistemos-goose-") == true)
         #expect(modelsURL.host?.hasPrefix("app-") == true)

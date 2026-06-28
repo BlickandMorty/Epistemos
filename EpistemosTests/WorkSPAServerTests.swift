@@ -165,6 +165,45 @@ struct WorkSPAServerTests {
         #expect((String(data: data, encoding: .utf8) ?? "").contains("root-marker"))
     }
 
+    @Test("static JSON routes are served before SPA fallback and support HEAD")
+    func servesStaticJSONRoutes() async throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let route = WorkSPAStaticRoute(
+            path: "/agent/list_apps",
+            contentType: "application/json; charset=utf-8",
+            body: Data(#"{"apps":[]}"#.utf8)
+        )
+        let server = WorkSPAServer(root: root, staticRoutes: [route])
+        defer { server.stop() }
+        let baseURL = try await startAndAwait(server)
+
+        let routeURL = baseURL.appendingPathComponent("agent/list_apps")
+        let (data, response) = try await URLSession.shared.data(from: routeURL)
+        let http = try #require(response as? HTTPURLResponse)
+        #expect(http.statusCode == 200)
+        #expect(http.value(forHTTPHeaderField: "Content-Type") == "application/json; charset=utf-8")
+        #expect(http.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+        #expect(String(data: data, encoding: .utf8) == #"{"apps":[]}"#)
+
+        var head = URLRequest(url: routeURL.appending(queryItems: [URLQueryItem(name: "session_id", value: "s")]))
+        head.httpMethod = "HEAD"
+        let (headData, headResponse) = try await URLSession.shared.data(for: head)
+        let headHTTP = try #require(headResponse as? HTTPURLResponse)
+        #expect(headHTTP.statusCode == 200)
+        #expect(headHTTP.value(forHTTPHeaderField: "Content-Length") == String(route.body.count))
+        #expect(headData.isEmpty)
+    }
+
+    @Test("Goose Apps route has an explicit empty-list compatibility response")
+    func gooseAppsCompatibilityRoute() throws {
+        let route = try #require(GooseWebSurfaceView.gooseStaticCompatibilityRoutes().first {
+            $0.path == "/agent/list_apps"
+        })
+        #expect(route.contentType == "application/json; charset=utf-8")
+        #expect(String(data: route.body, encoding: .utf8) == #"{"apps":[]}"#)
+    }
+
     // MARK: auto-connect bootstrap injection
 
     @Test("injectBootstrap seeds worker URL+token into localStorage via a <head> script")

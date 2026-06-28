@@ -32,6 +32,18 @@ nonisolated struct WorkSPABootstrap: Sendable, Equatable {
     }
 }
 
+nonisolated struct WorkSPAStaticRoute: Sendable, Equatable {
+    let path: String
+    let contentType: String
+    let body: Data
+
+    init(path: String, contentType: String, body: Data) {
+        self.path = path
+        self.contentType = contentType
+        self.body = body
+    }
+}
+
 nonisolated final class WorkSPAServer: @unchecked Sendable {
     enum Status: Equatable, Sendable {
         case idle
@@ -50,6 +62,7 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
     /// served HTML's `<head>` so the OpenWork SPA renders in the Epistemos palette WITHOUT an SPA rebuild
     /// (CSS-custom-property override; the block uses `!important` so it wins even over runtime-injected styles).
     let reskinCSS: String?
+    let staticRoutes: [String: WorkSPAStaticRoute]
     /// Hostname advertised to WebView clients. The listener remains loopback-only; this only controls the URL
     /// string surfaced after NWListener picks an ephemeral port.
     let advertisedHost: String
@@ -69,11 +82,13 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
         root: URL,
         bootstrap: WorkSPABootstrap? = nil,
         reskinCSS: String? = nil,
+        staticRoutes: [WorkSPAStaticRoute] = [],
         advertisedHost: String = "localhost"
     ) {
         self.root = root
         self.bootstrap = bootstrap
         self.reskinCSS = reskinCSS
+        self.staticRoutes = Dictionary(uniqueKeysWithValues: staticRoutes.map { ($0.path, $0) })
         self.advertisedHost = advertisedHost
     }
 
@@ -161,6 +176,15 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
             send(connection, Self.errorResponse(status: 405))
             return
         }
+        if let staticRoute = staticRoutes[request.path] {
+            let body = method == "HEAD" ? Data() : staticRoute.body
+            send(connection, Self.staticRouteResponse(
+                route: staticRoute,
+                body: body,
+                totalBytes: staticRoute.body.count
+            ))
+            return
+        }
         do {
             let fileURL = try WorkSPASchemeHandler.resolve(path: request.path, root: root)
             var bytes = try Data(contentsOf: fileURL)
@@ -238,6 +262,18 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
         header += "Content-Type: \(WorkSPASchemeHandler.mimeType(for: fileURL))\r\n"
         header += "Content-Length: \(totalBytes)\r\n"
         header += "Cache-Control: \(isHTML ? "no-store" : "no-cache")\r\n"
+        header += "X-Content-Type-Options: nosniff\r\n"
+        header += "Connection: close\r\n\r\n"
+        var out = Data(header.utf8)
+        out.append(body)
+        return out
+    }
+
+    static func staticRouteResponse(route: WorkSPAStaticRoute, body: Data, totalBytes: Int) -> Data {
+        var header = "HTTP/1.1 200 OK\r\n"
+        header += "Content-Type: \(route.contentType)\r\n"
+        header += "Content-Length: \(totalBytes)\r\n"
+        header += "Cache-Control: no-store\r\n"
         header += "X-Content-Type-Options: nosniff\r\n"
         header += "Connection: close\r\n\r\n"
         var out = Data(header.utf8)

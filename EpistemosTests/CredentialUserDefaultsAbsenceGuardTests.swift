@@ -29,6 +29,18 @@ struct CredentialUserDefaultsAbsenceGuardTests {
         #expect(!source.contains("UserDefaults"), "Keychain.swift must not use UserDefaults as a fallback")
     }
 
+    @Test("Keychain supports explicit smoke launch bypass without changing the default")
+    func keychainSupportsExplicitSmokeLaunchBypass() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/Keychain.swift")
+
+        #expect(source.contains("EPISTEMOS_DISABLE_KEYCHAIN_ACCESS"))
+        #expect(source.contains("shouldDisableAccess"))
+        #expect(source.contains("guard !shouldDisableAccess() else { return false }"))
+        #expect(source.contains("guard !shouldDisableAccess() else { return nil }"))
+        #expect(source.contains("guard !shouldDisableAccess() else { return }"))
+        #expect(source.contains(#"rawValue == "1" || rawValue == "true" || rawValue == "yes""#))
+    }
+
     private func productionSwiftFiles() throws -> [URL] {
         try mirroredSourceFileURLs(under: "Epistemos", includingExtensions: ["swift"])
     }

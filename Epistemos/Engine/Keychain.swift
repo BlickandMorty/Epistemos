@@ -10,6 +10,7 @@ import Security
 
 enum Keychain {
     nonisolated static let service = "app.epistemos"
+    private nonisolated static let disableAccessEnvironmentKey = "EPISTEMOS_DISABLE_KEYCHAIN_ACCESS"
 
     private enum Backend: CaseIterable {
         case dataProtection
@@ -47,6 +48,18 @@ enum Keychain {
         }
     }
 
+    nonisolated static func shouldDisableAccess(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        guard let rawValue = processInfoEnvironment[disableAccessEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        else {
+            return false
+        }
+        return rawValue == "1" || rawValue == "true" || rawValue == "yes"
+    }
+
     private nonisolated static func save(_ value: String, for key: String, backend: Backend) -> OSStatus {
         let data = Data(value.utf8)
         let query = baseQuery(for: key, backend: backend)
@@ -70,6 +83,7 @@ enum Keychain {
     /// Saves a string securely. Returns true on success, false on failure.
     @discardableResult
     nonisolated static func save(_ value: String, for key: String) -> Bool {
+        guard !shouldDisableAccess() else { return false }
         for backend in Backend.allCases {
             let status = save(value, for: key, backend: backend)
             if status == errSecSuccess {
@@ -88,6 +102,7 @@ enum Keychain {
     }
 
     nonisolated static func load(for key: String) -> String? {
+        guard !shouldDisableAccess() else { return nil }
         for backend in Backend.allCases {
             var query = baseQuery(for: key, backend: backend)
             query[kSecReturnData as String] = true
@@ -109,6 +124,7 @@ enum Keychain {
     }
 
     nonisolated static func delete(for key: String) {
+        guard !shouldDisableAccess() else { return }
         for backend in Backend.allCases {
             let query = baseQuery(for: key, backend: backend)
             let status = SecItemDelete(query as CFDictionary)
@@ -123,6 +139,7 @@ enum Keychain {
     /// Migrates items from the legacy keychain to the Data Protection keychain.
     /// Call once on app launch. Reads from legacy, writes to DP, deletes legacy.
     nonisolated static func migrateFromLegacyKeychain(keys: [String]) {
+        guard !shouldDisableAccess() else { return }
         for key in keys {
             // Try loading from legacy keychain (no kSecUseDataProtectionKeychain)
             let legacyQuery: [String: Any] = [

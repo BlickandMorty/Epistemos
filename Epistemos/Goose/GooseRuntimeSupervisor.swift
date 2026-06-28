@@ -157,6 +157,19 @@ final class GooseRuntimeSupervisor {
         }
     }
 
+    func markRuntimeFailed(_ message: String) {
+        if let process {
+            terminateTrackedProcess(process)
+            self.process = nil
+        }
+        switch status {
+        case .starting, .running:
+            status = .failed(message)
+        default:
+            break
+        }
+    }
+
     private func run(
         binary: URL,
         secretKey: String,
@@ -461,7 +474,7 @@ final class GooseRuntimeSupervisor {
         return (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "")
     }
 
-    nonisolated private static func healthCheck(base: URL) async -> Bool {
+    nonisolated static func healthCheck(base: URL) async -> Bool {
         do {
             let (data, response) = try await URLSession.shared.data(from: healthURL(base: base))
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }

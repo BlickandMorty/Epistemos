@@ -146,17 +146,16 @@ struct GooseSettingsMutationLiveIntegrationTests {
                 from: providers.entries,
                 statuses: statuses.statuses
             )
-            let models = try await client.listGooseProviderSupportedModels(providerId: candidate.providerId)
-            guard let modelID = models.models.first,
-                  !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) returned no supported models for defaults persistence proof.")
-            }
             _ = try await client.saveGooseProviderConfig(
                 providerId: candidate.providerId,
                 fields: candidate.configKeys.map {
-                    .init(key: $0, value: "epistemos-phase0-model-defaults")
+                    .init(key: $0, value: modelDefaultsConfigValue(for: $0))
                 }
             )
+            guard let modelID = candidate.defaultModelId,
+                  !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) returned no default model for defaults persistence proof.")
+            }
             let saved = try await client.saveGooseDefaults(providerId: candidate.providerId, modelId: modelID)
             guard saved.providerId == candidate.providerId, saved.modelId == modelID else {
                 throw GooseLiveIntegrationError.runtimeFailed("Goose defaults save did not echo provider/model.")
@@ -221,6 +220,16 @@ struct GooseSettingsMutationLiveIntegrationTests {
             via: "goose serve ACP defaultsSave/read across restart"
         )
     }
+}
+
+private func modelDefaultsConfigValue(for key: String) -> String {
+    let uppercased = key.uppercased()
+    if uppercased.contains("ENDPOINT")
+        || uppercased.contains("BASE_URL")
+        || uppercased.contains("HOST") {
+        return "https://example.invalid"
+    }
+    return "epistemos-phase0-model-defaults"
 }
 
 private extension GooseACPPreferencesReadResponse {

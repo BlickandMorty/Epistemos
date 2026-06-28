@@ -217,11 +217,18 @@ private func jsonString(_ value: JSONValue?) -> String? {
 struct ProviderMutationCandidate {
     let providerId: String
     let configKeys: [String]
+    let defaultModelId: String?
 }
 
 struct ProviderInventoryEntry: Decodable {
     let providerId: String
     let configKeys: [ProviderInventoryConfigKey]
+    let defaultModel: String?
+    let models: [ProviderInventoryModel]?
+}
+
+struct ProviderInventoryModel: Decodable {
+    let id: String
 }
 
 struct ProviderInventoryConfigKey: Decodable {
@@ -255,7 +262,8 @@ func providerMutationCandidate(
         }
         return ProviderMutationCandidate(
             providerId: entry.providerId,
-            configKeys: required.map(\.name)
+            configKeys: required.map(\.name),
+            defaultModelId: entry.defaultModel ?? entry.models?.first?.id
         )
     }
     throw GooseLiveIntegrationError.runtimeFailed("No required non-secret non-OAuth provider config key available for live mutation proof.")

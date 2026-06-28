@@ -30,7 +30,8 @@ struct GooseSurfaceAvailability: Equatable {
         fileManager: FileManager = .default,
         appSupportDirectory: URL? = defaultAppSupportDirectory(fileManager: .default),
         currentDirectory: String = FileManager.default.currentDirectoryPath,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        includeBundledWebUICandidates: Bool = true
     ) -> GooseSurfaceAvailability {
         GooseSurfaceAvailability(
             runtimeBinary: GooseRuntimeSupervisor.resolvedGooseBinary(
@@ -43,7 +44,8 @@ struct GooseSurfaceAvailability: Equatable {
                 fileManager: fileManager,
                 appSupportDirectory: appSupportDirectory,
                 currentDirectory: currentDirectory,
-                environment: environment
+                environment: environment,
+                includeBundledCandidates: includeBundledWebUICandidates
             )
         )
     }

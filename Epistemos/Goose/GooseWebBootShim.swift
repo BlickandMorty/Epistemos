@@ -131,6 +131,9 @@ enum GooseWebBootShim {
         "hasAcceptedRecipeBefore": .implementedNative,
         "recordRecipeHash": .implementedNative,
         "getVersion": .implementedNative,
+        "apps.list": .implementedRuntime,
+        "apps.import": .implementedRuntime,
+        "apps.export": .implementedRuntime,
         "getUpdateState": .hiddenShell,
         "isUsingGitHubFallback": .hiddenShell,
         "getAutoDownloadDisabled": .hiddenShell,
@@ -185,6 +188,88 @@ enum GooseWebBootShim {
               localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
             } catch {}
           };
+          const appsStorageKey = 'epistemos.goose.importedApps';
+          const appBridgeError = (message) => new Error(`Epistemos Apps bridge: ${message}`);
+          const loadImportedApps = () => {
+            try {
+              const parsed = JSON.parse(localStorage.getItem(appsStorageKey) || '[]');
+              if (!Array.isArray(parsed)) return [];
+              return parsed.filter((app) =>
+                app &&
+                typeof app === 'object' &&
+                typeof app.name === 'string' &&
+                typeof app.uri === 'string' &&
+                app.mcpServers?.includes?.('apps')
+              );
+            } catch {
+              return [];
+            }
+          };
+          const saveImportedApps = (apps) => {
+            try {
+              localStorage.setItem(appsStorageKey, JSON.stringify(apps));
+            } catch (error) {
+              throw appBridgeError(`could not persist imported app: ${consoleString(error)}`);
+            }
+          };
+          const importedAppTitle = (html) => {
+            try {
+              const doc = new DOMParser().parseFromString(html, 'text/html');
+              const title = doc.querySelector('title')?.textContent?.trim();
+              if (title) return title;
+              const heading = doc.querySelector('h1,h2')?.textContent?.trim();
+              if (heading) return heading;
+            } catch {}
+            return 'Imported app';
+          };
+          const importedAppSlug = (name) => {
+            let slug = '';
+            for (const char of String(name || 'app').toLowerCase()) {
+              const isLetter = char >= 'a' && char <= 'z';
+              const isDigit = char >= '0' && char <= '9';
+              slug += isLetter || isDigit ? char : '-';
+            }
+            return slug.replace(/-+/g, '-').replace(/^-|-$/g, '') || 'app';
+          };
+          const buildImportedApp = (html) => {
+            if (typeof html !== 'string' || html.trim().length === 0) {
+              throw appBridgeError('imported app HTML is empty');
+            }
+            const name = importedAppTitle(html);
+            const id = `${importedAppSlug(name)}-${Date.now().toString(36)}`;
+            return {
+              uri: `ui://epistemos/apps/${id}`,
+              name,
+              description: 'Imported HTML app',
+              mimeType: 'text/html;profile=mcp-app',
+              text: html,
+              width: 960,
+              height: 720,
+              resizable: true,
+              mcpServers: ['apps'],
+              _meta: {
+                'openai/widgetDescription': 'Imported Epistemos app',
+                'epistemos/imported': true
+              }
+            };
+          };
+          const epistemosGooseApps = Object.freeze({
+            listApps: async () => ({ apps: loadImportedApps() }),
+            importApp: async (html) => {
+              const nextApp = buildImportedApp(html);
+              const apps = loadImportedApps().filter((app) => app.name !== nextApp.name);
+              apps.push(nextApp);
+              saveImportedApps(apps);
+              return { name: nextApp.name, message: `Imported ${nextApp.name}` };
+            },
+            exportApp: async (name) => {
+              const app = loadImportedApps().find((entry) => entry.name === name);
+              if (!app?.text) {
+                throw appBridgeError(`no imported app named ${name}`);
+              }
+              return app.text;
+            }
+          });
           const listeners = new Map();
           const onEvent = (channel, callback) => {
             const bucket = listeners.get(channel) || new Set();
@@ -492,6 +577,7 @@ enum GooseWebBootShim {
               dispositionLedger: Object.freeze(epistemosGoose.ledger),
               acpTrace: acpTrace.snapshot,
               consoleEvents: () => consoleEvents.slice(),
+              apps: epistemosGooseApps,
               requestPermission: (request) => postHostPrompt('permission', request),
               requestElicitation: (request) => postHostPrompt('elicitation', request),
               requestNativeAffordance: (name, args) => postNativeAffordance(name, args)
