@@ -218,3 +218,41 @@ Definitive feature-completeness gap list (owner: 100% Goose parity is THE Phase-
   - acp_equivalent: load_session (acp/sessions.ts acpLoadSession) and GetSessionInfo (custom_dispatch.rs:499) — both exist on goose serve
   - fix: Graft loadSessionDetails to acpLoadSession/GetSessionInfo instead of REST getSession (it currently throws -> 'Failed to load' on the detail view). Low priority: largely vestigial because handleSelectSession (SessionsView.tsx:53) routes 'view session' to the 'pair' chat via ACP load_session, so the REST detail path is rarely reached.
 
+
+---
+
+## VERIFY-THEN-FIX reclassification (2026-06-28, Claude)
+
+The 39-item sweep was source-analysis and **over-flagged**. Verifying each against
+the live wiring + the authoritative goose crates + the @aaif/goose-sdk corrected it:
+
+### Already working (do NOT touch — preserve the working path)
+- **Extensions add/remove/enable/disable**: `ConfigContext.tsx` already routes these
+  through the ACP helpers (`configExtensions{Add,Remove,SetEnabled}_unstable` via
+  `acp/extensions.ts`). The live `/extensions` route test passes. NOT broken.
+
+### Fixed + committed this session (live/typecheck-validated, re-staged, gate-tested)
+- config-status overlay (+ cache), model capabilities + Thinking Effort visibility/apply,
+  mode apply helper, in-chat switch, OAuth sign-in visibility, credential delete,
+  Settings config-map reconstruction, Swift PATH/env CLI auto-detect, ready-by-default.
+
+### Genuinely broken AND fixable — the SDK + server expose the methods (next batch)
+Confirmed present in `_goose/unstable/*` (crates) AND `@aaif/goose-sdk`:
+- **Thinking Effort cross-restart persistence**: route `GOOSE_THINKING_EFFORT` through
+  `preferencesSave_unstable`/`preferencesRead_unstable` (PreferenceKey `GooseThinkingEffort`;
+  Swift wire shape: `saveGoosePreferences(values:[GooseACPPreferenceValue])`). Same for
+  `AutoCompactThreshold`, `VoiceDictationProvider`, `VoiceDictationPreferredMic`.
+- **Custom-provider create/edit/delete**: graft `ProviderGrid.tsx` (dead REST
+  `createCustomProvider`/`updateCustomProvider`) → `providersCustomCreate/Update/Delete_unstable`.
+- **Tools / per-tool Permissions list**: `toolsList_unstable` exists; graft the dead
+  `/agent/tools`. (Per-tool permission *save* still has no ACP method — confirm.)
+- **Dictation provider/mic**: `dictationConfig_unstable` + `dictationModelsList_unstable`.
+- **Agent Mode persistence/apply**: `saveAcpSessionMode` helper exists; wire ModeSection +
+  chat toggle (per-session via setSessionConfigOption; pass mode into newSession).
+
+### Likely inherent ACP-vs-Electron limits (document, do not graft away)
+- Multi-window recipe launch (single WKWebView host), Nostr session share/import
+  (gated off), per-tool permission *save* (no ACP method — verify).
+
+**Method:** for each "fixable" item, graft the UI call to the live SDK method, typecheck,
+re-stage, lock behind the strict gate test, and live-verify via the WebRoute/WebPrompt suite.
