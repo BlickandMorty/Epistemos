@@ -26,6 +26,10 @@ final class GooseRuntimeSupervisor {
     nonisolated static let defaultHost = "127.0.0.1"
     nonisolated static let defaultPort = 3284
     nonisolated static let listenTimeout: Duration = .seconds(20)
+    // A normal stop()+start() restart can leave the just-killed `goose serve`
+    // momentarily bound to the port; wait this long for it to release before
+    // declaring the port occupied by a foreign service.
+    nonisolated static let portReleaseGrace: Duration = .seconds(2)
     nonisolated private static let subprocessEnvironmentAllowlist: Set<String> = [
         "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
     ]
@@ -182,8 +186,25 @@ final class GooseRuntimeSupervisor {
     ) async {
         let defaultBaseURL = Self.defaultBaseURL(port: port)
         if await healthCheck(defaultBaseURL) {
-            status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))
-            return
+            // The port is currently answering. On a user-initiated restart this is
+            // usually our own just-terminated `goose serve` still releasing the
+            // socket, not a foreign occupant. Poll for it to go down within a
+            // bounded grace window; only fail if it stays up the whole time (a real
+            // foreign Goose-compatible service never releases here).
+            let releaseDeadline = ContinuousClock.now.advanced(by: Self.portReleaseGrace)
+            var released = false
+            while ContinuousClock.now < releaseDeadline {
+                if Task.isCancelled { return }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                if await healthCheck(defaultBaseURL) == false {
+                    released = true
+                    break
+                }
+            }
+            if !released {
+                status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))
+                return
+            }
         }
 
         let proc = Process()

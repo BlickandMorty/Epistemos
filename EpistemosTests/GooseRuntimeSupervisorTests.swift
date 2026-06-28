@@ -2,6 +2,19 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+/// Deterministic health-probe sequence: reports the port UP for the first
+/// `upProbes` calls, then DOWN — models our own just-terminated `goose serve`
+/// releasing the socket during a restart.
+private actor GoosePortProbeSequence {
+    private var index = 0
+    private let upProbes: Int
+    init(upProbes: Int) { self.upProbes = upProbes }
+    func probe() -> Bool {
+        index += 1
+        return index <= upProbes
+    }
+}
+
 @Suite("Goose runtime supervisor")
 struct GooseRuntimeSupervisorTests {
     @Test("serve argv pins Goose ACP to loopback port 3284 with an explicit builtin")
@@ -101,6 +114,27 @@ struct GooseRuntimeSupervisorTests {
         try await waitUntilSupervisorStatus {
             guard case .failed(let message) = supervisor.status else { return false }
             return message.contains("3284") && message.contains("already")
+        }
+    }
+
+    @Test("supervisor tolerates a port that releases within the restart grace window")
+    @MainActor
+    func supervisorToleratesPortReleaseWithinGraceWindow() async throws {
+        // The port answers on the first pre-launch probe (our own just-killed
+        // `goose serve` still releasing the socket on a restart) then goes down.
+        // The supervisor must NOT declare the port occupied; it proceeds to launch
+        // (and then fails on the immediately-exiting /bin/echo, not on "already").
+        let probes = GoosePortProbeSequence(upProbes: 1)
+        let supervisor = GooseRuntimeSupervisor()
+        supervisor.start(
+            binary: URL(fileURLWithPath: "/bin/echo"),
+            secretKey: "secret-123",
+            healthCheck: { _ in await probes.probe() }
+        )
+
+        try await waitUntilSupervisorStatus {
+            guard case .failed(let message) = supervisor.status else { return false }
+            return !message.contains("already")
         }
     }
 
