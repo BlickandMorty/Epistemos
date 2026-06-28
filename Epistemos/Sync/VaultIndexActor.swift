@@ -1439,6 +1439,10 @@ actor VaultIndexActor {
         let (frontMatter, body) = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
             ? Self.parseFrontMatter(content)
             : ([:], content)
+        if Self.isEpdocMarkdownSource(frontMatter) {
+            log.info("Skipping Epdoc markdown source export: \(fileURL.lastPathComponent, privacy: .public)")
+            return .unchanged
+        }
 
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.filePath == filePath }
@@ -1845,6 +1849,11 @@ actor VaultIndexActor {
         }
 
         return ([:], cleaned)
+    }
+
+    nonisolated static func isEpdocMarkdownSource(_ frontMatter: [String: String]) -> Bool {
+        guard let rawID = frontMatter["_epdoc_id"] else { return false }
+        return !rawID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Build markdown with front-matter from an SDPage.

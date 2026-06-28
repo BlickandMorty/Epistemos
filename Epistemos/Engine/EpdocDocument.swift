@@ -280,6 +280,36 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         updateChangeCount(.changeDone)
     }
 
+    @MainActor
+    private func markdownWriteThroughRequest(
+        markdownSnapshot: String?,
+        contentJSON: Data
+    ) -> EpdocMarkdownWriteThroughRequest {
+        EpdocMarkdownWriteThroughRequest(
+            vaultURL: AppBootstrap.shared?.vaultSync.vaultURL,
+            manifest: package.manifest,
+            markdown: markdownSnapshot,
+            contentJSONHash: Self.contentHash(of: contentJSON)
+        )
+    }
+
+    @MainActor
+    private static func enqueueMarkdownWriteThroughIfNeeded(
+        _ request: EpdocMarkdownWriteThroughRequest
+    ) {
+        guard EpdocMarkdownWriteThrough.shouldAttemptWrite(request) else { return }
+        AppBootstrap.shared?.vaultSync.suppressNextFileWatcherChangeForSelfOriginatedWrite()
+        Task.detached(priority: .utility) {
+            let result = EpdocMarkdownWriteThrough.writeIfEnabled(request)
+            guard case let .failed(message) = result else { return }
+            await MainActor.run {
+                Self.log.warning(
+                    "epdoc markdown write-through failed: \(message, privacy: .public)"
+                )
+            }
+        }
+    }
+
     /// Store a picked image inside the `.epdoc` package and return the
     /// relative URL the WebView can render through `epistemos-doc`.
     /// The returned string is intentionally package-local (`assets/...`)
@@ -501,9 +531,14 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             // index reflects the freshly-saved content. The Task
             // spawn keeps the disk write off the @MainActor save
             // path while the projection itself stays MainActor.
-            chromeController.attachAutosavePipeline { [weak self] json in
+            chromeController.attachAutosavePipeline { [weak self, weak chromeController] json in
                 guard let self else { return }
                 self.setContentJSON(json)
+                let markdownWriteThroughRequest = self.markdownWriteThroughRequest(
+                    markdownSnapshot: chromeController?.latestMarkdownSnapshot,
+                    contentJSON: json
+                )
+                Self.enqueueMarkdownWriteThroughIfNeeded(markdownWriteThroughRequest)
                 Task { [weak self] in
                     await self?.projectAndIndexBlocks(contentJSON: json)
                     await self?.projectAndPersistGraph(contentJSON: json)
