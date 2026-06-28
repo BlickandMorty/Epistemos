@@ -70,14 +70,10 @@ struct SettingsView: View {
 
         /// Display order in the sidebar, top to bottom.
         static var orderedCases: [SettingsCategory] {
-            var categories: [SettingsCategory] = [
+            let categories: [SettingsCategory] = [
                 .capture,
                 .graph,
-            ]
-            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-            categories.append(.automation)
-            #endif
-            categories += [
+                .automation,
                 .privacyStore,
                 .advanced,
             ]
@@ -88,7 +84,7 @@ struct SettingsView: View {
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
         case ambientFrequencies = "Ambient Frequencies"
-        case skills = "Skills"
+        case skills = "Extensions"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -110,10 +106,8 @@ struct SettingsView: View {
             var sections: [SettingsSection] = [
                 .general,
                 .ambientFrequencies,
+                .skills,
             ]
-            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-            sections.append(.skills)
-            #endif
             sections += [
                 .landing,
                 .appearance,
@@ -134,7 +128,7 @@ struct SettingsView: View {
             switch self {
             case .general: "gearshape"
             case .ambientFrequencies: "waveform.path"
-            case .skills: "shippingbox.fill"
+            case .skills: "puzzlepiece.extension"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -171,7 +165,7 @@ struct SettingsView: View {
             case .ambientFrequencies:
                 "Generate precise local WAV frequency presets for ambient sessions."
             case .skills:
-                "Installed skills, activation rules, and manifests."
+                "Skills, MCP servers, connectors, and presets."
             case .landing:
                 "Greeting, quick capture, and landing canvas behavior."
             case .appearance:
@@ -321,9 +315,7 @@ struct SettingsView: View {
             switch SettingsSection.safeDetailSelection(for: selection) {
             case .general: GeneralDetailView()
             case .ambientFrequencies: AmbientFrequencySettingsView()
-            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-            case .skills: SkillsDetailView()
-            #endif
+            case .skills: ExtensionsDetailView()
             case .landing: LandingDetailView()
             case .appearance: AppearanceDetailView()
             case .vault: VaultDetailView()
@@ -2142,6 +2134,12 @@ private struct VaultDetailView: View {
                     .controlSize(.small)
                 }
             }
+
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+            Section("Read-Only MCP Server") {
+                VaultMCPServerSettingsRow(vaultRoot: vaultSync.vaultURL)
+            }
+            #endif
 
             if vaultSync.vaultURL != nil {
                 Section("Search Index") {

@@ -102,4 +102,116 @@ struct MCPUrlServerDirectoryTests {
         )
         #expect(servers.isEmpty)
     }
+
+    @Test("install writes bare-array https config without token values")
+    func installWritesConfigWithoutTokenValues() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-write-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let servers = try MCPUrlServerDirectory.install(
+            MCPUrlServerDirectory.WritableEntry(
+                name: "context7",
+                url: "https://mcp.context7.com/mcp",
+                authorizationTokenEnv: "CONTEXT7_API_KEY"
+            ),
+            to: config
+        )
+
+        #expect(servers.map(\.name) == ["context7"])
+        #expect(servers[0].declaresAuth)
+        let raw = try String(contentsOf: config, encoding: .utf8)
+        #expect(raw.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("["))
+        #expect(raw.contains("\"authorization_token_env\" : \"CONTEXT7_API_KEY\""))
+        #expect(!raw.contains("authorization_token\""))
+    }
+
+    @Test("install replaces by name without duplicating")
+    func installReplacesByName() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-replace-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        _ = try MCPUrlServerDirectory.install(
+            MCPUrlServerDirectory.WritableEntry(name: "docs", url: "https://old.example.com/mcp"),
+            to: config
+        )
+        let servers = try MCPUrlServerDirectory.install(
+            MCPUrlServerDirectory.WritableEntry(name: "docs", url: "https://new.example.com/mcp"),
+            to: config
+        )
+
+        #expect(servers.count == 1)
+        #expect(servers[0].url == "https://new.example.com/mcp")
+    }
+
+    @Test("writer rejects non-https URL MCP servers")
+    func writerRejectsNonHTTPS() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-reject-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        #expect(throws: MCPUrlServerDirectory.WriteError.notHTTPS("http://bad.example.com/mcp")) {
+            try MCPUrlServerDirectory.install(
+                MCPUrlServerDirectory.WritableEntry(name: "bad", url: "http://bad.example.com/mcp"),
+                to: config
+            )
+        }
+    }
+
+    @Test("uninstall removes only the named server")
+    func uninstallRemovesNamedServer() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-uninstall-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        _ = try MCPUrlServerDirectory.write([
+            MCPUrlServerDirectory.WritableEntry(name: "one", url: "https://one.example.com/mcp"),
+            MCPUrlServerDirectory.WritableEntry(name: "two", url: "https://two.example.com/mcp"),
+        ], to: config)
+
+        let servers = try MCPUrlServerDirectory.uninstall(name: "one", from: config)
+        #expect(servers.map(\.name) == ["two"])
+    }
+
+    @Test("install refuses to rewrite configs that contain inline token values")
+    func installRefusesInlineTokenRewrite() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-inline-token-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let original = """
+        [
+          {
+            "name": "secret-server",
+            "url": "https://secret.example.com/mcp",
+            "authorization_token": "do-not-drop"
+          }
+        ]
+        """
+        try data(original).write(to: config)
+
+        #expect(throws: MCPUrlServerDirectory.WriteError.inlineTokenPresent("secret-server")) {
+            try MCPUrlServerDirectory.install(
+                MCPUrlServerDirectory.WritableEntry(
+                    name: "context7",
+                    url: "https://mcp.context7.com/mcp"
+                ),
+                to: config
+            )
+        }
+
+        let raw = try String(contentsOf: config, encoding: .utf8)
+        #expect(raw.contains("\"authorization_token\": \"do-not-drop\""))
+        #expect(!raw.contains("context7"))
+    }
 }

@@ -12,7 +12,7 @@ struct SkillsDetailView: View {
     @State private var createTags: String = ""
     @State private var createInstructionSheet: String = ""
     @State private var installURL: String = ""
-    @State private var installSource: SkillInstallSource = .github
+    @State private var installSource: SkillInstallSource = .defaultSource
     @State private var searchQuery: String = ""
     @State private var statusMessage: String?
     @State private var statusIsError = false
@@ -97,6 +97,16 @@ struct SkillsDetailView: View {
                     ForEach(filteredDiscoveredSkills.prefix(18)) { skill in
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(alignment: .top, spacing: 12) {
+                                IntegrationBrandMarkView(
+                                    brand: .skillDiscovery(
+                                        source: skill.source.rawValue,
+                                        identifier: skill.identifier,
+                                        category: skill.category
+                                    ),
+                                    size: 24
+                                )
+                                .foregroundStyle(.secondary)
+
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(skill.title)
                                         .font(.subheadline.weight(.semibold))
@@ -151,7 +161,10 @@ struct SkillsDetailView: View {
 
         SettingsSurfaceCard {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top) {
+                HStack(alignment: .top, spacing: 12) {
+                    IntegrationBrandMarkView(brand: .skillRepo, size: 26)
+                        .foregroundStyle(.secondary)
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Create Skill")
                             .font(.headline)
@@ -226,8 +239,15 @@ struct SkillsDetailView: View {
     private func installCard(vaultPath: String) -> some View {
         SettingsSurfaceCard {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Install Skill")
-                    .font(.headline)
+                HStack(spacing: 10) {
+                    IntegrationBrandMarkView(
+                        brand: .skillInstallSource(rawValue: installSource.rawValue),
+                        size: 24
+                    )
+                    .foregroundStyle(.secondary)
+                    Text("Install Skill")
+                        .font(.headline)
+                }
 
                 Picker("Source", selection: $installSource) {
                     ForEach(SkillInstallSource.allCases) { source in
@@ -240,11 +260,20 @@ struct SkillsDetailView: View {
                 TextField(installSource.placeholder, text: $installURL)
                     .textFieldStyle(.roundedBorder)
 
+                if let proLockedMessage = installSource.proLockedMessage {
+                    Label(proLockedMessage, systemImage: "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
                 HStack(spacing: 10) {
                     Button("Install") {
                         Task { await installSkill(vaultPath: vaultPath) }
                     }
-                    .disabled(installURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(
+                        installURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || !installSource.isUnlockedInCurrentBuild
+                    )
 
                     if isLoading {
                         ProgressView()
@@ -290,7 +319,16 @@ struct SkillsDetailView: View {
                 } else {
                     ForEach(filteredSkills) { skill in
                         VStack(alignment: .leading, spacing: 6) {
-                            HStack(alignment: .top) {
+                            HStack(alignment: .top, spacing: 12) {
+                                IntegrationBrandMarkView(
+                                    brand: .skillInventory(
+                                        identifier: skill.name,
+                                        description: skill.description
+                                    ),
+                                    size: 24
+                                )
+                                .foregroundStyle(.secondary)
+
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(skill.name)
                                         .font(.subheadline.weight(.semibold))
@@ -367,6 +405,11 @@ struct SkillsDetailView: View {
     private func installSkill(vaultPath: String) async {
         let trimmedURL = installURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedURL.isEmpty else { return }
+        guard installSource.isUnlockedInCurrentBuild else {
+            statusMessage = installSource.proLockedMessage
+            statusIsError = true
+            return
+        }
 
         isLoading = true
         defer { isLoading = false }
@@ -481,12 +524,38 @@ private enum SkillInstallSource: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static var defaultSource: SkillInstallSource {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return .localPath
+        #else
+        return .github
+        #endif
+    }
+
     var title: String {
         switch self {
         case .github: "GitHub Repo"
         case .rawURL: "Raw SKILL.md"
         case .localPath: "Local Folder"
         }
+    }
+
+    var isUnlockedInCurrentBuild: Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        switch self {
+        case .github, .rawURL:
+            return false
+        case .localPath:
+            return true
+        }
+        #else
+        return true
+        #endif
+    }
+
+    var proLockedMessage: String? {
+        guard !isUnlockedInCurrentBuild else { return nil }
+        return "Remote skill installs unlock in Pro. Local skill import remains available."
     }
 
     var placeholder: String {

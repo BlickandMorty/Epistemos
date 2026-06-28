@@ -1,0 +1,361 @@
+import Foundation
+
+nonisolated struct VaultMCPCore {
+    static let maxResourceNotes = 5_000
+
+    static let readToolNames = [
+        "vault.search",
+        "vault.read",
+        "vault.list",
+        "eidos.query",
+        "vault.backlinks",
+        "vault.outlinks",
+        "vault.dangling_links",
+        "vault.note_links",
+        "vault.link_candidates",
+        "vault.orphan_notes",
+    ]
+
+    private static let readToolNameSet = Set(readToolNames)
+
+    private static let readAliasMap: [String: String] = [
+        "file.search": "vault.search",
+        "search_notes": "vault.search",
+        "vault_search": "vault.search",
+        "file.read": "vault.read",
+        "read_file": "vault.read",
+        "vault_read": "vault.read",
+        "file.list": "vault.list",
+        "list_files": "vault.list",
+        "vault_list": "vault.list",
+        "eidos_query": "eidos.query",
+        "backlinks": "vault.backlinks",
+        "vault_backlinks": "vault.backlinks",
+        "outlinks": "vault.outlinks",
+        "vault_outlinks": "vault.outlinks",
+        "dangling_links": "vault.dangling_links",
+        "unresolved_links": "vault.dangling_links",
+        "note_links": "vault.note_links",
+        "link_candidates": "vault.link_candidates",
+        "unlinked_mentions": "vault.link_candidates",
+        "orphan_notes": "vault.orphan_notes",
+        "orphans": "vault.orphan_notes",
+    ]
+
+    let vaultRoot: URL?
+    let executor: LocalAgentToolExecutor
+
+    init(vaultRoot: URL? = nil, executor: @escaping LocalAgentToolExecutor) {
+        self.vaultRoot = vaultRoot
+        self.executor = executor
+    }
+
+    func handle(requestJSON: String) async -> String {
+        guard let data = requestJSON.data(using: .utf8),
+              let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let method = request["method"] as? String else {
+            return Self.errorResponse(id: NSNull(), code: -32700, message: "Parse error")
+        }
+
+        let id = request["id"] ?? NSNull()
+        switch method {
+        case "initialize":
+            return Self.successResponse(id: id, result: Self.initializeResult())
+        case "tools/list":
+            return Self.successResponse(id: id, result: ["tools": Self.toolsList()])
+        case "tools/call":
+            return await handleToolsCall(id: id, request: request)
+        case "resources/list":
+            return Self.successResponse(id: id, result: ["resources": Self.resourcesList(vaultRoot: vaultRoot)])
+        case "resources/read":
+            return handleResourcesRead(id: id, request: request)
+        default:
+            return Self.errorResponse(id: id, code: -32601, message: "Method not found: \(method)")
+        }
+    }
+
+    private func handleToolsCall(id: Any, request: [String: Any]) async -> String {
+        guard let params = request["params"] as? [String: Any],
+              let rawName = params["name"] as? String,
+              !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return Self.errorResponse(id: id, code: -32602, message: "tools/call requires params.name")
+        }
+
+        let canonicalName = Self.canonicalReadToolName(rawName)
+        guard Self.readToolNameSet.contains(canonicalName) else {
+            return Self.errorResponse(id: id, code: -32601, message: "read-only vault server: \(rawName)")
+        }
+
+        let argumentsJSON = Self.argumentsJSON(from: params["arguments"])
+        let result = await executor(canonicalName, argumentsJSON)
+        return Self.successResponse(id: id, result: Self.toolCallResult(from: result))
+    }
+
+    private func handleResourcesRead(id: Any, request: [String: Any]) -> String {
+        guard let params = request["params"] as? [String: Any] else {
+            return Self.errorResponse(id: id, code: -32602, message: "resources/read requires params")
+        }
+        guard let uri = params["uri"] as? String, !uri.isEmpty else {
+            return Self.errorResponse(id: id, code: -32602, message: "params.uri is required")
+        }
+        guard let relativePath = Self.relativePath(fromVaultURI: uri) else {
+            return Self.errorResponse(id: id, code: -32602, message: "resources/read requires vault:/// URI")
+        }
+
+        do {
+            let text = try Self.noteText(vaultRoot: vaultRoot, relativePath: relativePath)
+            return Self.successResponse(
+                id: id,
+                result: [
+                    "contents": [[
+                        "uri": uri,
+                        "mimeType": "text/markdown",
+                        "text": text,
+                    ]],
+                ])
+        } catch {
+            return Self.errorResponse(id: id, code: -32602, message: Self.errorMessage(for: error))
+        }
+    }
+
+    // MARK: Pure shaping helpers
+
+    static func initializeResult() -> [String: Any] {
+        [
+            "protocolVersion": "2024-11-05",
+            "serverInfo": ["name": "epistemos-vault-readonly", "version": "0.1.0"],
+            "capabilities": ["tools": [String: Any](), "resources": [String: Any]()],
+        ]
+    }
+
+    static func toolsList() -> [[String: Any]] {
+        readToolNames.map { name in
+            [
+                "name": name,
+                "description": toolDescription(for: name),
+                "inputSchema": inputSchema(for: name),
+            ]
+        }
+    }
+
+    static func canonicalReadToolName(_ toolName: String) -> String {
+        let trimmed = toolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let canonical = AgentToolNameAliases.canonical(trimmed)
+        return readAliasMap[canonical] ?? readAliasMap[trimmed] ?? canonical
+    }
+
+    static func resourcesList(vaultRoot: URL?) -> [[String: Any]] {
+        markdownRelPaths(vaultRoot: vaultRoot).map { relativePath in
+            [
+                "uri": vaultURI(for: relativePath),
+                "name": relativePath,
+                "mimeType": "text/markdown",
+            ]
+        }
+    }
+
+    static func markdownRelPaths(vaultRoot: URL?, limit: Int = Self.maxResourceNotes) -> [String] {
+        guard let vaultRoot else { return [] }
+        let limit = max(0, limit)
+        guard limit > 0 else { return [] }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: vaultRoot.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return []
+        }
+
+        let root = vaultRoot.standardizedFileURL
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        var paths: [String] = []
+        for case let url as URL in enumerator {
+            guard url.pathExtension.lowercased() == "md" else { continue }
+            let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
+            guard values?.isRegularFile == true,
+                  let relativePath = relativePath(for: url, under: root) else {
+                continue
+            }
+            paths.append(relativePath)
+            if paths.count >= limit { break }
+        }
+        return paths.sorted()
+    }
+
+    static func noteText(vaultRoot: URL?, relativePath: String) throws -> String {
+        let url = try containedMarkdownURL(vaultRoot: vaultRoot, relativePath: relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    static func argumentsJSON(from arguments: Any?) -> String {
+        guard let arguments else { return "{}" }
+        if let string = arguments as? String { return string }
+        if let data = try? JSONSerialization.data(withJSONObject: arguments),
+           let string = String(data: data, encoding: .utf8) {
+            return string
+        }
+        return "{}"
+    }
+
+    static func toolCallResult(from result: LocalToolResult) -> [String: Any] {
+        [
+            "content": [["type": "text", "text": result.resultJson]],
+            "isError": result.isError,
+        ]
+    }
+
+    static func vaultURI(for relativePath: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "#?%")
+        let encoded = relativePath.addingPercentEncoding(withAllowedCharacters: allowed) ?? relativePath
+        return "vault:///\(encoded)"
+    }
+
+    static func successResponse(id: Any, result: [String: Any]) -> String {
+        jsonRPC(["jsonrpc": "2.0", "id": id, "result": result])
+    }
+
+    static func errorResponse(id: Any, code: Int, message: String) -> String {
+        jsonRPC(["jsonrpc": "2.0", "id": id, "error": ["code": code, "message": message]])
+    }
+
+    private static func inputSchema(for toolName: String) -> [String: Any] {
+        switch toolName {
+        case "vault.search":
+            return [
+                "type": "object",
+                "properties": [
+                    "query": ["type": "string"],
+                    "limit": ["type": "integer", "minimum": 1],
+                ],
+                "required": ["query"],
+                "additionalProperties": true,
+            ]
+        case "vault.read", "vault.outlinks", "vault.note_links", "vault.link_candidates":
+            return pathSchema()
+        case "vault.backlinks":
+            return [
+                "type": "object",
+                "properties": [
+                    "target": ["type": "string"],
+                    "path": ["type": "string"],
+                ],
+                "additionalProperties": true,
+            ]
+        case "eidos.query":
+            return [
+                "type": "object",
+                "properties": ["query": ["type": "string"]],
+                "required": ["query"],
+                "additionalProperties": true,
+            ]
+        default:
+            return [
+                "type": "object",
+                "properties": [String: Any](),
+                "additionalProperties": true,
+            ]
+        }
+    }
+
+    private static func pathSchema() -> [String: Any] {
+        [
+            "type": "object",
+            "properties": ["path": ["type": "string"]],
+            "required": ["path"],
+            "additionalProperties": true,
+        ]
+    }
+
+    private static func toolDescription(for toolName: String) -> String {
+        switch toolName {
+        case "vault.search": "Search markdown notes in the active Epistemos vault."
+        case "vault.read": "Read a markdown note from the active Epistemos vault."
+        case "vault.list": "List markdown notes in the active Epistemos vault."
+        case "eidos.query": "Run a read-only semantic query over the local Epistemos knowledge layer."
+        case "vault.backlinks": "List notes that link to a target note."
+        case "vault.outlinks": "List notes linked from a target note."
+        case "vault.dangling_links": "List unresolved wiki links in the vault."
+        case "vault.note_links": "Return link context for one note."
+        case "vault.link_candidates": "Suggest unlinked mentions for one note."
+        case "vault.orphan_notes": "List notes with no graph connections."
+        default: "Read-only vault tool."
+        }
+    }
+
+    private static func relativePath(fromVaultURI uri: String) -> String? {
+        guard uri.hasPrefix("vault:///") else { return nil }
+        if let url = URL(string: uri), url.scheme == "vault" {
+            let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return path.isEmpty ? nil : path
+        }
+
+        let rawPath = String(uri.dropFirst("vault:///".count))
+        return rawPath.removingPercentEncoding ?? rawPath
+    }
+
+    private static func containedMarkdownURL(vaultRoot: URL?, relativePath: String) throws -> URL {
+        guard let vaultRoot else { throw VaultMCPPathError.noVaultRoot }
+        let normalizedPath = relativePath.replacingOccurrences(of: "\\", with: "/")
+        guard !normalizedPath.isEmpty,
+              !normalizedPath.hasPrefix("/"),
+              normalizedPath.split(separator: "/").allSatisfy({ $0 != "." && $0 != ".." }) else {
+            throw VaultMCPPathError.pathTraversal
+        }
+        guard normalizedPath.lowercased().hasSuffix(".md") else {
+            throw VaultMCPPathError.notMarkdown
+        }
+
+        let root = vaultRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let candidate = root
+            .appendingPathComponent(normalizedPath, isDirectory: false)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let rootPath = root.path
+        let candidatePath = candidate.path
+        guard candidatePath == rootPath || candidatePath.hasPrefix(rootPath + "/") else {
+            throw VaultMCPPathError.pathTraversal
+        }
+        return candidate
+    }
+
+    private static func relativePath(for url: URL, under root: URL) -> String? {
+        let rootPath = root.standardizedFileURL.path
+        let filePath = url.standardizedFileURL.path
+        guard filePath.hasPrefix(rootPath + "/") else { return nil }
+        return String(filePath.dropFirst(rootPath.count + 1))
+    }
+
+    private static func errorMessage(for error: Error) -> String {
+        switch error as? VaultMCPPathError {
+        case .noVaultRoot:
+            "no vault root configured"
+        case .pathTraversal:
+            "path traversal not allowed"
+        case .notMarkdown:
+            "only markdown vault resources can be read"
+        case .none:
+            "read failed"
+        }
+    }
+
+    private static func jsonRPC(_ object: [String: Any]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: object),
+              let string = String(data: data, encoding: .utf8) else {
+            return #"{"jsonrpc":"2.0","error":{"code":-32603,"message":"serialize failed"}}"#
+        }
+        return string
+    }
+}
+
+private enum VaultMCPPathError: Error {
+    case noVaultRoot
+    case pathTraversal
+    case notMarkdown
+}
