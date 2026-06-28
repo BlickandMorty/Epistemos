@@ -10,7 +10,7 @@ struct LiteParsePDFImportButtonTests {
     @Test("the button is flag-gated, bulk-capable, and routes through the import controller")
     func buttonWiring() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParsePDFImportButton.swift")
-        // hidden unless the flag is on (opt-in; adds nothing by default)
+        // reads the Plan 3 gate status before rendering.
         #expect(src.contains("LiteParseImportGateStatus.status().isActive"))
         // a bulk PDF picker
         #expect(src.contains("allowedContentTypes = [.pdf]"))

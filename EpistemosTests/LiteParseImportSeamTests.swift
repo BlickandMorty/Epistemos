@@ -8,28 +8,32 @@ import Foundation
 @Suite("LiteParse PDF→Markdown import seam (R-LITEPARSE)")
 struct LiteParseImportSeamTests {
 
-    @Test("gate flag is honest + off by default")
+    @Test("gate flag is honest + on by default with a kill switch")
     func gateHonest() {
         #expect(LiteParseImportGateStatus.flagName == "EPISTEMOS_LITEPARSE_PDF_V0")
         #expect(LiteParseImportGateStatus.isEnabled("1"))
         #expect(LiteParseImportGateStatus.isEnabled(" On "))
+        #expect(LiteParseImportGateStatus.isDisabled("0"))
+        #expect(LiteParseImportGateStatus.isDisabled(" off "))
         #expect(!LiteParseImportGateStatus.isEnabled(nil))
-        #expect(!LiteParseImportGateStatus.isEnabled("0"))
-        let off = LiteParseImportGateStatus.status(environment: [:])
+        let active = LiteParseImportGateStatus.status(environment: [:])
+        #expect(active.isActive)
+        #expect(active.headline.localizedCaseInsensitiveContains("ready"))
+        let off = LiteParseImportGateStatus.status(environment: ["EPISTEMOS_LITEPARSE_PDF_V0": "0"])
         #expect(!off.isActive)
-        #expect(off.headline.localizedCaseInsensitiveContains("coming"))
+        #expect(off.headline.localizedCaseInsensitiveContains("disabled"))
     }
 
-    @Test("honest MAS scope: PDF + local OCR, inert until vendored, no fake markdown")
+    @Test("honest MAS scope: PDF + pure Rust parser stack, no fake markdown")
     func masScopeHonest() {
         let armed = LiteParseImportGateStatus.status(environment: ["EPISTEMOS_LITEPARSE_PDF_V0": "1"])
         #expect(armed.isActive)
         #expect(armed.detail.localizedCaseInsensitiveContains("PDF"))
-        #expect(armed.detail.localizedCaseInsensitiveContains("OCR"))
+        #expect(armed.detail.localizedCaseInsensitiveContains("EdgeParse"))
+        #expect(armed.detail.localizedCaseInsensitiveContains("unpdf"))
         #expect(
-            armed.detail.localizedCaseInsensitiveContains("inert")
-                || armed.detail.localizedCaseInsensitiveContains("not wired")
-                || armed.detail.localizedCaseInsensitiveContains("no fake")
+            armed.detail.localizedCaseInsensitiveContains("no sidecar")
+                || armed.detail.localizedCaseInsensitiveContains("pure Rust")
         )
     }
 
@@ -57,8 +61,9 @@ struct LiteParseImportSeamTests {
             rustFlag == LiteParseImportGateStatus.flagName,
             "flag drift: Swift '\(LiteParseImportGateStatus.flagName)' != Rust '\(rustFlag)'"
         )
-        // The Rust seam keeps the PDF-only MAS scope + the Apache-2.0 ProvenanceGate.
-        #expect(rust.contains("pdf+ocr,no-subprocess"))
+        // The Rust seam keeps the PDF-only MAS scope + the Apache-2.0/MIT ProvenanceGate.
+        #expect(rust.contains("pdf+markdown,no-subprocess"))
         #expect(rust.contains("Apache-2.0"))
+        #expect(rust.contains("MIT"))
     }
 }

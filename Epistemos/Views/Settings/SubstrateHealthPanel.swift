@@ -49,6 +49,7 @@ public struct SubstrateHealthPanel: View {
                     WorkOpenCodeShellHealthRow()
                     WorkBackendHealthRow()
                     LiteParseImportHealthRow()
+                    LiteParseSettingsImportRow()
                 }
             }
             .padding(18)

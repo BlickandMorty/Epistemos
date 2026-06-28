@@ -11,7 +11,7 @@ struct LiteParseSettingsImportRowTests {
     @Test("the Settings row is flag-gated and embeds the one shared import button")
     func gatedAndReusesButton() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/LiteParseSettingsImportRow.swift")
-        // hidden unless the flag is on (same gate as the sidebar button)
+        // follows the same Plan 3 gate status as the sidebar button.
         #expect(src.contains("LiteParseImportGateStatus.status().isActive"))
         // embeds the existing button → one import path, no duplicated NSOpenPanel/controller logic
         #expect(src.contains("LiteParsePDFImportButton()"))

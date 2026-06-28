@@ -1,22 +1,29 @@
-//! R-LITEPARSE seam — dedicated PDF→Markdown import (owner 2026-06-19). The
-//! run-llama/liteparse Rust core (Apache-2.0) links into agent_core as a crate (like
-//! epistemos-shadow / the Goose Work seam) and exposes `pdf_to_markdown` over UniFFI —
-//! NO Python/Node sidecar.
+//! Plan 3 PDF→Markdown seam. The exported UniFFI symbol intentionally keeps the
+//! original `liteparse_pdf_to_markdown` name so the already-wired Swift importer can
+//! flip engines without a UI rewrite. Default/MAS builds use the pure-Rust EdgeParse
+//! primary parser plus unpdf fallback. The older run-llama/liteparse PDFium path stays
+//! opt-in for Pro/dev builds only. No Python/Node sidecar.
 //!
-//! MAS SCOPE (NON-NEGOTIABLE): PDF only (PDFium in-process) + in-process Tesseract OCR.
-//! liteparse's Office/image formats route through LibreOffice / ImageMagick / powershell
-//! SUBPROCESSES (`conversion.rs::execute_command` / `convert_to_pdf` /
-//! `resolve_image_magick_command`) — those are NOT MAS-safe and are OUT OF SCOPE: a
-//! non-PDF input is rejected honestly here, never silently shelled out.
+//! MAS SCOPE (NON-NEGOTIABLE): PDF only, parsed in-process by the vendored
+//! EdgeParse/unpdf stack. EdgeParse's optional raster OCR and hybrid backends are
+//! disabled, and Office/image formats stay out of scope because upstream converters
+//! route through external binaries. A non-PDF input is rejected honestly here, never
+//! silently shelled out.
 //!
-//! Always-compiled + INERT until the liteparse crate is vendored + the PDFium/Tesseract
-//! native deps are wired (the heavy follow-on). REAL APIs ONLY — no fake markdown, no
-//! silent fallback. ProvenanceGate verdict: docs/RESEARCH_LITEPARSE_2026_06_19.md.
+//! REAL APIs ONLY — no fake markdown, no silent fallback. ProvenanceGate verdicts:
+//! docs/RESEARCH_LITEPARSE_2026_06_19.md and
+//! docs/RESEARCH_EDGEPARSE_2026_06_28.md.
 
 /// Flag that arms the liteparse PDF→Markdown path (mirrors the Swift gate).
 pub const LITEPARSE_FLAG: &str = "EPISTEMOS_LITEPARSE_PDF_V0";
 
-/// ProvenanceGate posture for the vendored run-llama/liteparse core.
+/// ProvenanceGate posture for the active Plan 3 parser stack.
+pub const EDGEPARSE_VENDOR_LICENSE: &str = "Apache-2.0";
+pub const EDGEPARSE_VENDOR_SOURCE: &str =
+    "raphaelmansuy/edgeparse@98e2fa0132629078d07c19bfc8a8776fee85d8dd";
+pub const UNPDF_VENDOR_LICENSE: &str = "MIT";
+pub const UNPDF_VENDOR_SOURCE: &str = "iyulab/unpdf@d41b4dff1a29411bd62d405b322c4589a025f1fb";
+/// ProvenanceGate posture for the older run-llama/liteparse core.
 pub const LITEPARSE_VENDOR_LICENSE: &str = "Apache-2.0";
 pub const LITEPARSE_VENDOR_SOURCE: &str = "run-llama/liteparse";
 
@@ -53,15 +60,14 @@ fn flag_is_armed(raw: Option<&str>) -> bool {
     )
 }
 
-/// Whether the liteparse PDF seam is armed (the env flag is set). Arming only opts in;
-/// it does NOT wire the engine — the engine is the gated vendor.
+/// Whether the legacy liteparse PDF env flag is explicitly set. The Plan 3 MAS parser is
+/// wired by build feature; Swift treats the same env var as an emergency kill switch.
 pub fn is_armed() -> bool {
     flag_is_armed(std::env::var(LITEPARSE_FLAG).ok().as_deref())
 }
 
-/// Whether `path` is a PDF we can parse IN-PROCESS (PDFium). Non-PDF formats
-/// (docx/xlsx/png/…) need external binaries on liteparse's side → NOT MAS-safe → not
-/// supported here.
+/// Whether `path` is a PDF the Plan 3 parser stack can process in-process. Non-PDF
+/// formats (docx/xlsx/png/...) need external binaries upstream and stay out of scope.
 pub fn is_supported_pdf(path: &str) -> bool {
     path.rsplit('.')
         .next()
@@ -81,16 +87,114 @@ fn reject_if_not_pdf(pdf_path: &str) -> Result<(), LiteParseError> {
     Ok(())
 }
 
-/// The honest seam: a local PDF → Markdown (PDFium, in-process). A non-PDF input is
-/// rejected with `UnsupportedFormat` (never shelled out).
+#[cfg(feature = "edgeparse-pdf")]
+fn markdown_is_substantive(markdown: &str) -> bool {
+    let trimmed = markdown.trim();
+    !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("*No content extracted.*")
+}
+
+/// The honest seam: a local PDF → Markdown. A non-PDF input is rejected with
+/// `UnsupportedFormat` (never shelled out).
 ///
-/// INERT build (default / MAS): a PDF returns `EngineNotWired` — NEVER fake markdown. The
-/// real PDFium engine is compiled only under the `liteparse-pdf` feature (Pro/dev), so the
-/// MAS binary does not link PDFium/bindgen and stays honest about not having the engine.
-#[cfg(not(feature = "liteparse-pdf"))]
+/// INERT build: a PDF returns `EngineNotWired` — NEVER fake markdown.
+#[cfg(not(any(feature = "edgeparse-pdf", feature = "liteparse-pdf")))]
 pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
     reject_if_not_pdf(pdf_path)?;
     Err(LiteParseError::EngineNotWired)
+}
+
+/// MAS/default build: the embedded pure-Rust EdgeParse parser is primary, with unpdf as a
+/// multilingual/CJK/RTL fallback when EdgeParse fails or extracts no substantive text.
+/// EdgeParse's upstream Markdown renderer can optionally consult `pdftotext` when
+/// `PdfDocument.source_path` is set; the MAS path clears that field before rendering so
+/// this FFI route never spawns external tools.
+#[cfg(feature = "edgeparse-pdf")]
+pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
+    reject_if_not_pdf(pdf_path)?;
+    match edgeparse_to_markdown(pdf_path) {
+        Ok(markdown) if markdown_is_substantive(&markdown) => Ok(markdown),
+        Ok(markdown) => fallback_or_primary_empty(pdf_path, markdown),
+        Err(primary_error) => fallback_or_primary_error(pdf_path, primary_error),
+    }
+}
+
+#[cfg(feature = "edgeparse-pdf")]
+fn edgeparse_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
+    use edgeparse_core::api::config::{
+        HybridBackend, ImageOutput, OutputFormat, ProcessingConfig, ReadingOrder, TableMethod,
+    };
+    use std::path::Path;
+
+    let config = ProcessingConfig {
+        formats: vec![OutputFormat::Markdown],
+        quiet: true,
+        table_method: TableMethod::Cluster,
+        reading_order: ReadingOrder::XyCut,
+        image_output: ImageOutput::Off,
+        raster_table_ocr: false,
+        hybrid: HybridBackend::Off,
+        ..ProcessingConfig::default()
+    };
+    let mut doc = edgeparse_core::convert(Path::new(pdf_path), &config)
+        .map_err(|e| LiteParseError::Failed(format!("EdgeParse: {e}")))?;
+    // MAS doctrine: keep the Markdown render path pure in-process. With `source_path`
+    // populated, upstream EdgeParse tries optional `pdftotext` layout helpers.
+    doc.source_path = None;
+    edgeparse_core::output::markdown::to_markdown(&doc)
+        .map_err(|e| LiteParseError::Failed(format!("EdgeParse markdown: {e}")))
+}
+
+#[cfg(all(feature = "edgeparse-pdf", feature = "parser-unpdf"))]
+fn unpdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
+    unpdf::Unpdf::new()
+        .lenient()
+        .with_table_fallback(unpdf::TableFallback::Markdown)
+        .with_cleanup(unpdf::CleanupPreset::Standard)
+        .parse(pdf_path)
+        .and_then(|parsed| parsed.to_markdown())
+        .map_err(|e| LiteParseError::Failed(format!("unpdf: {e}")))
+}
+
+#[cfg(all(feature = "edgeparse-pdf", feature = "parser-unpdf"))]
+fn fallback_or_primary_empty(
+    pdf_path: &str,
+    primary_markdown: String,
+) -> Result<String, LiteParseError> {
+    match unpdf_to_markdown(pdf_path) {
+        Ok(markdown) if markdown_is_substantive(&markdown) => Ok(markdown),
+        Ok(_) => Ok(primary_markdown),
+        Err(_) => Ok(primary_markdown),
+    }
+}
+
+#[cfg(all(feature = "edgeparse-pdf", not(feature = "parser-unpdf")))]
+fn fallback_or_primary_empty(
+    _pdf_path: &str,
+    primary_markdown: String,
+) -> Result<String, LiteParseError> {
+    Ok(primary_markdown)
+}
+
+#[cfg(all(feature = "edgeparse-pdf", feature = "parser-unpdf"))]
+fn fallback_or_primary_error(
+    pdf_path: &str,
+    primary_error: LiteParseError,
+) -> Result<String, LiteParseError> {
+    match unpdf_to_markdown(pdf_path) {
+        Ok(markdown) if markdown_is_substantive(&markdown) => Ok(markdown),
+        Ok(_) => Err(primary_error),
+        Err(fallback_error) => Err(LiteParseError::Failed(format!(
+            "{primary_error}; fallback {fallback_error}"
+        ))),
+    }
+}
+
+#[cfg(all(feature = "edgeparse-pdf", not(feature = "parser-unpdf")))]
+fn fallback_or_primary_error(
+    _pdf_path: &str,
+    primary_error: LiteParseError,
+) -> Result<String, LiteParseError> {
+    Err(primary_error)
 }
 
 /// LIVE build (`--features liteparse-pdf`, Pro/dev): the embedded run-llama/liteparse core
@@ -98,7 +202,7 @@ pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
 /// subprocess, no network) and renders Markdown. The async `parse` is driven on a
 /// dedicated current-thread tokio runtime so the synchronous UniFFI export stays sync.
 /// A non-PDF is still rejected up front; a real conversion failure → honest `Failed`.
-#[cfg(feature = "liteparse-pdf")]
+#[cfg(all(feature = "liteparse-pdf", not(feature = "edgeparse-pdf")))]
 pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
     reject_if_not_pdf(pdf_path)?;
     use liteparse::config::{LiteParseConfig, OutputFormat};
@@ -124,8 +228,7 @@ pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
 /// — `{"ok":true,"markdown":"…"}` on success, or `{"ok":false,"error":"…"}` on failure
 /// (engine not wired / unsupported format / conversion failed) so the import surface
 /// shows the honest outcome, NEVER a fake/empty note. A non-PDF is rejected
-/// (`UnsupportedFormat`), never shelled out. INERT until the liteparse crate is vendored
-/// (S2) — a PDF returns the `engine not wired` error today.
+/// (`UnsupportedFormat`), never shelled out.
 #[uniffi::export]
 pub fn liteparse_pdf_to_markdown(pdf_path: String) -> String {
     match pdf_to_markdown(&pdf_path) {
@@ -135,28 +238,26 @@ pub fn liteparse_pdf_to_markdown(pdf_path: String) -> String {
         ),
         Err(e) => format!(
             "{{\"ok\":false,\"error\":{}}}",
-            serde_json::to_string(&e.to_string()).unwrap_or_else(|_| "\"conversion error\"".to_string())
+            serde_json::to_string(&e.to_string())
+                .unwrap_or_else(|_| "\"conversion error\"".to_string())
         ),
     }
 }
 
-/// FFI: the liteparse seam status as JSON, for the Swift import UI to read across the
-/// UniFFI boundary. Honest — reports the engine is not yet wired + the PDF+OCR scope.
+/// FFI: the PDF parser seam status as JSON, for the Swift import UI to read across the
+/// UniFFI boundary.
 #[uniffi::export]
 pub fn liteparse_status_json() -> String {
-    // `engine_wired` is true only when the real PDFium engine is compiled in (the
-    // `liteparse-pdf` feature, Pro/dev). The default MAS build links no engine → false,
-    // matching the inert `pdf_to_markdown`. The scope literal "pdf+ocr,no-subprocess" is
-    // the DESIGN boundary (PDF + in-process OCR, never a subprocess); OCR is currently
-    // compile-disabled (default-features=false drops tesseract) per vendor/liteparse/README.
-    let engine_wired = cfg!(feature = "liteparse-pdf");
+    let engine_wired = cfg!(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"));
     format!(
-        "{{\"engine_wired\":{},\"armed\":{},\"flag\":\"{}\",\"license\":\"{}\",\"source\":\"{}\",\"scope\":\"pdf+ocr,no-subprocess\"}}",
+        "{{\"engine_wired\":{},\"armed\":{},\"flag\":\"{}\",\"license\":\"{}\",\"source\":\"{}\",\"fallback_license\":\"{}\",\"fallback_source\":\"{}\",\"scope\":\"pdf+markdown,no-subprocess\"}}",
         engine_wired,
         is_armed(),
         LITEPARSE_FLAG,
-        LITEPARSE_VENDOR_LICENSE,
-        LITEPARSE_VENDOR_SOURCE
+        EDGEPARSE_VENDOR_LICENSE,
+        EDGEPARSE_VENDOR_SOURCE,
+        UNPDF_VENDOR_LICENSE,
+        UNPDF_VENDOR_SOURCE
     )
 }
 
@@ -181,52 +282,72 @@ mod tests {
         assert!(!is_supported_pdf("noext"));
     }
 
-    #[cfg(not(feature = "liteparse-pdf"))]
+    #[cfg(not(any(feature = "edgeparse-pdf", feature = "liteparse-pdf")))]
     #[test]
     fn inert_seam_refuses_honestly_never_fakes_markdown() {
         // INERT build: a PDF, but no engine wired → honest EngineNotWired (NEVER fabricated markdown).
-        assert_eq!(pdf_to_markdown("paper.pdf"), Err(LiteParseError::EngineNotWired));
+        assert_eq!(
+            pdf_to_markdown("paper.pdf"),
+            Err(LiteParseError::EngineNotWired)
+        );
     }
 
-    #[cfg(feature = "liteparse-pdf")]
+    #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]
     #[test]
     fn live_engine_fails_honestly_on_missing_pdf_never_fakes_markdown() {
         // LIVE build: a PDF *path* that does not exist → the real engine runs and returns an
         // honest Failed (NEVER EngineNotWired, NEVER fabricated markdown, NEVER a panic). Any
-        // failure path (missing file or PDFium not loadable) maps to Failed, so this is robust.
+        // parser failure path maps to Failed, so this is robust.
         match pdf_to_markdown("/nonexistent/epistemos-liteparse-probe.pdf") {
             Err(LiteParseError::Failed(_)) => {}
             other => panic!("expected Failed for a missing PDF, got {other:?}"),
         }
     }
 
-    #[cfg(feature = "liteparse-pdf")]
+    #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]
     #[test]
     fn live_engine_extracts_real_markdown_from_a_real_pdf() {
-        // END-TO-END (engine layer): the embedded PDFium engine parses a real 18 KB sample
+        // END-TO-END (engine layer): the embedded parser stack parses a real 18 KB sample
         // PDF (committed fixture) and renders Markdown — proving REAL extraction, not just
-        // that it compiles or honest-fails. This is the strongest headless "real PDF →
-        // markdown" proof; the in-app run-through additionally needs the owner's signed
-        // build with the PDFium dylib bundled.
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/liteparse_sample.pdf");
+        // that it compiles or honest-fails.
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/liteparse_sample.pdf"
+        );
         let md = pdf_to_markdown(path).expect("the real sample PDF should extract to markdown");
-        assert!(md.contains("Sample PDF"), "title text missing: {md:?}");
-        assert!(md.contains("# This is a simple PDF file"), "markdown heading missing: {md:?}");
-        assert!(md.contains("Lorem ipsum dolor sit amet"), "body text missing");
-        assert!(md.len() > 500, "expected substantial extracted text, got {} bytes", md.len());
+        assert!(md.contains("# Sample PDF"), "title heading missing: {md:?}");
+        assert!(
+            md.contains("This is a simple PDF"),
+            "body intro missing: {md:?}"
+        );
+        assert!(
+            md.contains("Lorem ipsum dolor sit amet"),
+            "body text missing"
+        );
+        assert!(
+            md.len() > 500,
+            "expected substantial extracted text, got {} bytes",
+            md.len()
+        );
     }
 
-    #[cfg(feature = "liteparse-pdf")]
+    #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]
     #[test]
     fn live_ffi_envelope_carries_real_markdown_for_a_real_pdf() {
         // END-TO-END (FFI envelope the Swift importer consumes): on a real PDF the envelope
         // is `{"ok":true,"markdown":"…real text…"}` — so the sidebar/bulk/Settings surfaces
         // receive genuine markdown to turn into a vault note (their note-create wiring is
         // separately compile + test verified).
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/liteparse_sample.pdf");
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/liteparse_sample.pdf"
+        );
         let out = liteparse_pdf_to_markdown(path.to_string());
         assert!(out.contains("\"ok\":true"), "envelope not ok: {out}");
-        assert!(out.contains("Sample PDF"), "envelope missing real extracted text: {out}");
+        assert!(
+            out.contains("Sample PDF"),
+            "envelope missing real extracted text: {out}"
+        );
     }
 
     #[test]
@@ -243,26 +364,25 @@ mod tests {
         // Build-agnostic: the MAS scope boundary + Apache-2.0 ProvenanceGate + flag are
         // always reported (the Swift seam test mirrors these literals).
         let json = liteparse_status_json();
-        assert!(json.contains("pdf+ocr,no-subprocess"));
+        assert!(json.contains("pdf+markdown,no-subprocess"));
         assert!(json.contains("Apache-2.0"));
+        assert!(json.contains("MIT"));
         assert!(json.contains(LITEPARSE_FLAG));
     }
 
-    #[cfg(not(feature = "liteparse-pdf"))]
+    #[cfg(not(any(feature = "edgeparse-pdf", feature = "liteparse-pdf")))]
     #[test]
     fn status_json_reports_engine_not_wired_when_inert() {
-        // Default MAS build links no engine → honest engine_wired:false.
         assert!(liteparse_status_json().contains("\"engine_wired\":false"));
     }
 
-    #[cfg(feature = "liteparse-pdf")]
+    #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]
     #[test]
     fn status_json_reports_engine_wired_when_live() {
-        // Pro/dev build with the real PDFium engine compiled in → engine_wired:true.
         assert!(liteparse_status_json().contains("\"engine_wired\":true"));
     }
 
-    #[cfg(not(feature = "liteparse-pdf"))]
+    #[cfg(not(any(feature = "edgeparse-pdf", feature = "liteparse-pdf")))]
     #[test]
     fn ffi_pdf_to_markdown_returns_honest_error_envelope_when_inert() {
         // INERT: a PDF, engine not wired → an honest error envelope (never fake markdown).
@@ -272,12 +392,13 @@ mod tests {
         assert!(!out.contains("\"markdown\""));
     }
 
-    #[cfg(feature = "liteparse-pdf")]
+    #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]
     #[test]
     fn ffi_pdf_to_markdown_envelope_is_honest_failure_on_missing_pdf() {
         // LIVE: a missing PDF path → the engine runs and fails honestly (ok:false), never
         // "not wired", never a fabricated markdown key.
-        let out = liteparse_pdf_to_markdown("/nonexistent/epistemos-liteparse-probe.pdf".to_string());
+        let out =
+            liteparse_pdf_to_markdown("/nonexistent/epistemos-liteparse-probe.pdf".to_string());
         assert!(out.contains("\"ok\":false"));
         assert!(!out.contains("not wired"));
         assert!(!out.contains("\"markdown\""));

@@ -2,7 +2,7 @@ import SwiftUI
 
 // Visible gate surface for the R-LITEPARSE PDF→Markdown import seam (rule #8 — the owner
 // can SEE the feature + its honest status). ALWAYS-compiled; renders the honest
-// LiteParseImportGateStatus (no native PDFium/Tesseract dependency).
+// LiteParseImportGateStatus (no parser crate dependency in Swift).
 struct LiteParseImportHealthRow: View {
     private var status: LiteParseImportGateStatus.Status { LiteParseImportGateStatus.status() }
 

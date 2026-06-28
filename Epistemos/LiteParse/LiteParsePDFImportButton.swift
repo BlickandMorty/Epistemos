@@ -6,10 +6,9 @@ import UniformTypeIdentifiers
 // R-LITEPARSE — the note-sidebar IMPORT button (owner 2026-06-19). Pick one or more PDFs
 // → convert each via LiteParsePDFImportController → create markdown vault note(s); shows
 // an HONEST per-file status. Visibility is gated by EPISTEMOS_LITEPARSE_PDF_V0
-// (LiteParseImportGateStatus) — hidden when off, so it's opt-in and adds nothing to the
-// sidebar by default. Self-contained: it reads vault/graph/model from the environment the
-// sidebar already provides. Inert (.notWired) until S2's native PDFium vendor lands; the
-// UI is otherwise complete.
+// (LiteParseImportGateStatus) — on by default, hidden only by the kill switch.
+// Self-contained: it reads vault/graph/model from the environment the sidebar already
+// provides.
 struct LiteParsePDFImportButton: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(GraphState.self) private var graphState
@@ -27,7 +26,7 @@ struct LiteParsePDFImportButton: View {
             } label: {
                 Image(systemName: "doc.badge.arrow.up")
             }
-            .help("Import PDF → Markdown note (liteparse, in-process — PDF only)")
+            .help("Import PDF → Markdown note (EdgeParse/unpdf, local — PDF only)")
             .accessibilityLabel("Import PDF as note")
             .alert("PDF Import", isPresented: $showingStatus) {
                 Button("OK", role: .cancel) {}
@@ -75,7 +74,7 @@ struct LiteParsePDFImportButton: View {
     private func reason(for result: LiteParseImportResult) -> String {
         switch result {
         case .markdown: "ok"
-        case .notWired: "PDF engine not wired yet (pending the native PDFium vendor — S2)."
+        case .notWired: "PDF parser bridge is unavailable in this build."
         case let .unsupported(message): message
         case let .failed(message): message
         }

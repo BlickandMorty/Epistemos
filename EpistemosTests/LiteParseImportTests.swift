@@ -4,8 +4,7 @@ import Foundation
 
 /// R-LITEPARSE — the PDF-import bridge: decodes the Rust `liteparse_pdf_to_markdown` FFI
 /// JSON envelope into a typed result + the inert importer. This is the verifiable bridge
-/// the note-sidebar import button uses; the live FFI call (after the binding regen + the
-/// native PDFium vendor) reuses this exact decoder.
+/// the note-sidebar import button uses; the live FFI call reuses this exact decoder.
 @Suite("LiteParse PDF import (envelope decode + seam)")
 struct LiteParseImportTests {
 
@@ -66,10 +65,32 @@ struct LiteParseImportTests {
         }
     }
 
-    @Test("the live importer is honest on a PDF (engine not wired until S2)")
+    @Test("the live importer is honest on a PDF when the FFI is absent")
     func liveImporterHonestOnPdf() {
-        // Test host has no agent_coreFFI → the fallback; with the FFI linked the inert
-        // Rust seam returns the not-wired envelope → also .notWired. Either way: honest.
+        // Test host has no agent_coreFFI → the fallback. The linked app build exercises
+        // the Rust EdgeParse/unpdf engine through the same envelope decoder.
         #expect(LiveLiteParsePDFImporter().importToMarkdown(pdfPath: "/a/paper.pdf") == .notWired)
+    }
+
+    @Test("import controller preserves the original PDF via frontmatter")
+    func importControllerSourcePDFContract() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParsePDFImportController.swift")
+        #expect(src.contains(#"frontMatter["source_kind"] = "pdf""#))
+        #expect(src.contains(#"frontMatter["source_pdf"]"#))
+        #expect(src.contains("copyItem"))
+        #expect(src.contains("vaultRelativePath(for: sourcePDFURL"))
+    }
+
+    @Test("PDF import preferences default to parse parsed-note flow")
+    func importSettingsDefaults() {
+        let suiteName = "LiteParseImportSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        #expect(LiteParseImportSettings.parsePDFOnImport(defaults: defaults))
+        #expect(LiteParseImportSettings.defaultOpenForImportedPDF(defaults: defaults) == .parsedNote)
+        defaults.set(false, forKey: LiteParseImportSettings.parsePDFOnImportKey)
+        defaults.set("originalPDF", forKey: LiteParseImportSettings.defaultOpenForImportedPDFKey)
+        #expect(!LiteParseImportSettings.parsePDFOnImport(defaults: defaults))
+        #expect(LiteParseImportSettings.defaultOpenForImportedPDF(defaults: defaults) == .originalPDF)
     }
 }
