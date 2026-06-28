@@ -817,6 +817,17 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("await deleteAcpCustomProvider(editingProvider.id)"))
         #expect(script.contains("providerId = await createAcpCustomProvider(data)"))
         #expect(script.contains("ProviderGrid import anchor not found"))
+        // Anti-silent-drift: the five formerly-silent ACP grafts (which would revert
+        // to dead-in-ACP REST endpoints if upstream reformats their anchors) must
+        // hard-FAIL the build on anchor drift, like the rest of the file. Lock each
+        // throw so they cannot regress back to the silent `if (includes) replace` form
+        // -- the systemic "feature silently goes missing" root cause.
+        #expect(script.contains("epistemos-acp-graft-hardfail"))
+        #expect(script.contains("DefaultSubmitHandler readConfig ACP anchor not found"))
+        #expect(script.contains("DefaultSubmitHandler getProviderModels ACP anchor not found"))
+        #expect(script.contains("ProviderConfigurationModal OAuth ACP anchor not found"))
+        #expect(script.contains("ProviderConfigurationModal delete-cleanup ACP anchor not found"))
+        #expect(script.contains("ProviderConfigForm onboarding OAuth ACP anchor not found"))
     }
 
     @Test("Goose Swift surface does not carry a provider or model roster")

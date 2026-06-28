@@ -1710,7 +1710,12 @@ const readConfigReplacement = `        const currentValue = USE_ACP_CHAT
             isSecret: false,
           };
         }`;
-if (source.includes(readConfigAnchor)) {
+// epistemos-acp-graft-hardfail: upstream anchor drift must FAIL the build, not
+// silently drop the ACP branch and revert to the (dead-in-ACP) REST endpoint.
+if (!source.includes('readAcpProviderConfigValue(param.name)')) {
+  if (!source.includes(readConfigAnchor)) {
+    throw new Error('DefaultSubmitHandler readConfig ACP anchor not found (drift would silently revert to REST readConfig)');
+  }
   source = source.replace(readConfigAnchor, readConfigReplacement);
 }
 
@@ -1726,7 +1731,10 @@ const modelValidationReplacement = `    if (USE_ACP_CHAT) {
         throwOnError: true,
       });
     }`;
-if (source.includes(modelValidationAnchor)) {
+if (!source.includes('validateAcpProviderModels(provider.name)')) {
+  if (!source.includes(modelValidationAnchor)) {
+    throw new Error('DefaultSubmitHandler getProviderModels ACP anchor not found (drift would silently revert to REST getProviderModels)');
+  }
   source = source.replace(modelValidationAnchor, modelValidationReplacement);
 }
 
@@ -1813,7 +1821,10 @@ const oauthReplacement = `      if (USE_ACP_CHAT) {
           throw new Error(errDetail);
         }
       }`;
-if (source.includes(oauthAnchor)) {
+if (!source.includes('await authenticateAcpProviderConfig(provider.name)')) {
+  if (!source.includes(oauthAnchor)) {
+    throw new Error('ProviderConfigurationModal OAuth ACP anchor not found (drift would silently revert to REST configureProviderOauth)');
+  }
   source = source.replace(oauthAnchor, oauthReplacement);
 }
 
@@ -1839,7 +1850,10 @@ const cleanupReplacement = `    if (USE_ACP_CHAT && provider.provider_type !== '
     }
 
     const isCustomProvider = provider.provider_type === 'Custom';`;
-if (source.includes(cleanupAnchor)) {
+if (!source.includes('await deleteAcpProviderConfig(provider.name)')) {
+  if (!source.includes(cleanupAnchor)) {
+    throw new Error('ProviderConfigurationModal delete-cleanup ACP anchor not found (drift would silently revert to REST cleanupProviderCache path)');
+  }
   source = source.replace(cleanupAnchor, cleanupReplacement);
 }
 
@@ -1875,7 +1889,10 @@ const oauthReplacement = `      if (USE_ACP_CHAT) {
           throwOnError: true,
         });
       }`;
-if (source.includes(oauthAnchor)) {
+if (!source.includes('await authenticateAcpProviderConfig(provider.name)')) {
+  if (!source.includes(oauthAnchor)) {
+    throw new Error('ProviderConfigForm onboarding OAuth ACP anchor not found (drift would silently revert to REST configureProviderOauth)');
+  }
   source = source.replace(oauthAnchor, oauthReplacement);
 }
 
