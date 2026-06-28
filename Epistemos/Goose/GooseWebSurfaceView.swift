@@ -68,6 +68,7 @@ struct GooseWebSurfaceView: View {
             supervisor.stop()
             gooseUIServer?.stop()
             nativePromptBridge.cancelPendingPrompts()
+            nativeAffordanceBridge.closeAllApps()
             Task { await acpBridge.disconnect() }
         }
     }

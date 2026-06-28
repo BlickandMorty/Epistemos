@@ -300,6 +300,28 @@ struct GooseRuntimeSupervisorTests {
         }
     }
 
+    @Test("launched MCP-app windows are closed on surface teardown (no orphaned top-level windows)")
+    func mcpAppWindowsClosedOnSurfaceTeardown() throws {
+        let bridge = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+        // launchApp opens top-level NSWindows tracked in appWindows/appWebViews/
+        // appWindowDelegates; without a teardown sweep they orphan when the Goose
+        // surface disappears. closeAllApps must snapshot + clear the registries BEFORE
+        // closing (window.close() fires windowWillClose, which mutates them).
+        #expect(bridge.contains("func closeAllApps()"))
+        #expect(bridge.contains("let windows = Array(appWindows.values)"))
+        #expect(bridge.contains("appWindows.removeAll()"))
+        #expect(bridge.contains("appWebViews.removeAll()"))
+        #expect(bridge.contains("appWindowDelegates.removeAll()"))
+        // The clear must precede the close loop (snapshot-then-clear-then-close).
+        if let clearRange = bridge.range(of: "appWindows.removeAll()"),
+           let closeRange = bridge.range(of: "for window in windows") {
+            #expect(clearRange.lowerBound < closeRange.lowerBound, "registries must be cleared before closing the snapshot")
+        }
+        // Goose surface teardown must invoke it.
+        let view = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        #expect(view.contains("nativeAffordanceBridge.closeAllApps()"))
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!

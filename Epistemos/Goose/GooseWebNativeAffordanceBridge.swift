@@ -625,6 +625,22 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         appWindowDelegates.removeValue(forKey: name)
     }
 
+    /// Closes every launched MCP-app window and clears the registries. Invoked on
+    /// Goose surface teardown so launched app windows do not outlive the surface as
+    /// orphaned top-level NSWindows holding WKWebViews with no remaining UI to close
+    /// them. Snapshot + clear the registries BEFORE closing: `window.close()` fires
+    /// the `windowWillClose` delegate, which mutates these dictionaries; iterating a
+    /// live dictionary while closing would mutate during iteration.
+    func closeAllApps() {
+        let windows = Array(appWindows.values)
+        appWindows.removeAll()
+        appWebViews.removeAll()
+        appWindowDelegates.removeAll()
+        for window in windows {
+            window.close()
+        }
+    }
+
     private func openNotificationsSettings() -> Bool {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") else {
             return false
