@@ -1,0 +1,337 @@
+import Foundation
+
+nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
+    let vendorRoot: URL
+    let buildRoot: URL
+    let stateRoot: URL
+
+    init(vendorRoot: URL, buildRoot: URL, stateRoot: URL) {
+        self.vendorRoot = vendorRoot
+        self.buildRoot = buildRoot
+        self.stateRoot = stateRoot
+    }
+
+    var vendorManifestURL: URL {
+        vendorRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+    }
+
+    var buildManifestURL: URL {
+        vendorRoot.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false)
+    }
+
+    var pythonExecutableURL: URL {
+        buildRoot
+            .appendingPathComponent(".venv", isDirectory: true)
+            .appendingPathComponent("bin", isDirectory: true)
+            .appendingPathComponent("python", isDirectory: false)
+    }
+
+    var webUIEntrypointURL: URL {
+        vendorRoot
+            .appendingPathComponent("web-ui", isDirectory: true)
+            .appendingPathComponent("webui.py", isDirectory: false)
+    }
+
+    var wheelhouseURL: URL {
+        vendorRoot.appendingPathComponent("wheels", isDirectory: true)
+    }
+
+    var playwrightURL: URL {
+        vendorRoot.appendingPathComponent("playwright", isDirectory: true)
+    }
+
+    var environmentFileURL: URL {
+        stateRoot.appendingPathComponent(".env", isDirectory: false)
+    }
+
+    static func defaultPaths(
+        fileManager: FileManager = .default,
+        filePath: String = #filePath
+    ) -> BrowserUseRuntimePaths? {
+        var cursor = URL(fileURLWithPath: filePath).deletingLastPathComponent()
+        for _ in 0..<8 {
+            let vendorRoot = cursor.appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)
+            if fileManager.fileExists(atPath: vendorRoot.appendingPathComponent("VENDOR_MANIFEST.json").path) {
+                return BrowserUseRuntimePaths(
+                    vendorRoot: vendorRoot,
+                    buildRoot: cursor.appendingPathComponent("build/browser-use-pro", isDirectory: true),
+                    stateRoot: defaultStateRoot(fileManager: fileManager, filePath: filePath)
+                )
+            }
+
+            let parent = cursor.deletingLastPathComponent()
+            guard parent.path != cursor.path else { break }
+            cursor = parent
+        }
+        return nil
+    }
+
+    private static func defaultStateRoot(
+        fileManager: FileManager,
+        filePath: String
+    ) -> URL {
+        if let applicationSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            return applicationSupport
+                .appendingPathComponent("Epistemos", isDirectory: true)
+                .appendingPathComponent("BrowserUsePro", isDirectory: true)
+                .appendingPathComponent("Runtime", isDirectory: true)
+        }
+
+        return URL(fileURLWithPath: filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("browser-use-runtime", isDirectory: true)
+    }
+}
+
+nonisolated struct BrowserUseRuntimeLaunchPlan: Equatable, Sendable {
+    let pythonExecutableURL: URL
+    let webUIEntrypointURL: URL
+    let workingDirectoryURL: URL
+    let environmentFileURL: URL
+    let loopbackURL: URL
+    let arguments: [String]
+    let environment: [String: String]
+    let environmentFileContents: String
+}
+
+nonisolated enum BrowserUseRuntimeReadiness: Equatable, Sendable {
+    case unavailable(String)
+    case ready(BrowserUseRuntimeLaunchPlan)
+
+    var isReady: Bool {
+        if case .ready = self {
+            return true
+        }
+        return false
+    }
+
+    var message: String {
+        switch self {
+        case .unavailable(let reason):
+            return reason
+        case .ready(let plan):
+            return "browser-use Pro runtime ready at \(plan.loopbackURL.absoluteString)"
+        }
+    }
+}
+
+nonisolated enum BrowserUseRuntimeSupervisorError: Error, Equatable, LocalizedError {
+    case unavailable(String)
+    case appStoreBuild
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable(let reason):
+            return reason
+        case .appStoreBuild:
+            return "browser-use Pro runtime launch is not compiled into App Store builds."
+        }
+    }
+}
+
+nonisolated enum BrowserUseEnvironmentFileWriter {
+    static func write(
+        _ contents: String,
+        to url: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        let directory = url.deletingLastPathComponent()
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+
+        let temporaryURL = directory.appendingPathComponent(".env.\(UUID().uuidString).tmp", isDirectory: false)
+        do {
+            try Data(contents.utf8).write(to: temporaryURL, options: [.atomic])
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporaryURL.path)
+            if fileManager.fileExists(atPath: url.path) {
+                try fileManager.removeItem(at: url)
+            }
+            try fileManager.moveItem(at: temporaryURL, to: url)
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        } catch {
+            try? fileManager.removeItem(at: temporaryURL)
+            throw error
+        }
+    }
+}
+
+nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
+    private let paths: BrowserUseRuntimePaths
+    private let secretStore: BrowserUseSecretStore
+    private let fileManager: FileManager
+
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+    private var process: Process?
+    #endif
+
+    init?(
+        paths: BrowserUseRuntimePaths? = BrowserUseRuntimePaths.defaultPaths(),
+        secretStore: BrowserUseSecretStore = BrowserUseSecretStore(),
+        fileManager: FileManager = .default
+    ) {
+        guard let paths else {
+            return nil
+        }
+        self.paths = paths
+        self.secretStore = secretStore
+        self.fileManager = fileManager
+    }
+
+    init(
+        paths: BrowserUseRuntimePaths,
+        secretStore: BrowserUseSecretStore = BrowserUseSecretStore(),
+        fileManager: FileManager = .default
+    ) {
+        self.paths = paths
+        self.secretStore = secretStore
+        self.fileManager = fileManager
+    }
+
+    func readiness(
+        settings: BrowserUseSettings = .default,
+        processEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        host: String = "127.0.0.1",
+        port: Int = 7788,
+        theme: String = "Ocean"
+    ) -> BrowserUseRuntimeReadiness {
+        Self.readiness(
+            paths: paths,
+            settings: settings,
+            secretStore: secretStore,
+            fileManager: fileManager,
+            processEnvironment: processEnvironment,
+            host: host,
+            port: port,
+            theme: theme
+        )
+    }
+
+    @discardableResult
+    func start(
+        settings: BrowserUseSettings = .default,
+        processEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        host: String = "127.0.0.1",
+        port: Int = 7788,
+        theme: String = "Ocean"
+    ) throws -> BrowserUseRuntimeLaunchPlan {
+        switch readiness(
+            settings: settings,
+            processEnvironment: processEnvironment,
+            host: host,
+            port: port,
+            theme: theme
+        ) {
+        case .unavailable(let reason):
+            throw BrowserUseRuntimeSupervisorError.unavailable(reason)
+        case .ready(let plan):
+            try BrowserUseEnvironmentFileWriter.write(
+                plan.environmentFileContents,
+                to: plan.environmentFileURL,
+                fileManager: fileManager
+            )
+
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            throw BrowserUseRuntimeSupervisorError.appStoreBuild
+            #else
+            let runtime = Process()
+            runtime.executableURL = plan.pythonExecutableURL
+            runtime.arguments = plan.arguments
+            runtime.currentDirectoryURL = plan.workingDirectoryURL
+            runtime.environment = plan.environment
+            try runtime.run()
+            process = runtime
+            return plan
+            #endif
+        }
+    }
+
+    func stop() {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        process?.terminate()
+        process = nil
+        #endif
+    }
+
+    static func readiness(
+        paths: BrowserUseRuntimePaths,
+        settings: BrowserUseSettings,
+        secretStore: BrowserUseSecretStore = BrowserUseSecretStore(),
+        fileManager: FileManager = .default,
+        processEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        host: String = "127.0.0.1",
+        port: Int = 7788,
+        theme: String = "Ocean"
+    ) -> BrowserUseRuntimeReadiness {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return .unavailable("browser-use Pro runtime is unavailable in App Store builds; use the native Browser tab.")
+        #else
+        let gate = BrowserUseProGateStatus.status(
+            environment: processEnvironment,
+            manifestURL: paths.vendorManifestURL
+        )
+        guard gate.isActive else {
+            return .unavailable("\(gate.headline): \(gate.detail)")
+        }
+
+        for requirement in requiredArtifacts(paths: paths) {
+            guard fileManager.fileExists(atPath: requirement.url.path) else {
+                return .unavailable("browser-use Pro runtime missing \(requirement.name) at \(requirement.url.path)")
+            }
+        }
+
+        guard let loopbackURL = loopbackURL(host: host, port: port) else {
+            return .unavailable("browser-use Pro runtime has invalid loopback address \(host):\(port)")
+        }
+
+        let browserUseEnvironment = BrowserUseEnvironmentRenderer.dictionary(
+            settings: settings,
+            secretStore: secretStore
+        )
+        let environment = processEnvironment.merging(browserUseEnvironment) { _, new in new }
+        let environmentFileContents = BrowserUseEnvironmentRenderer.render(
+            settings: settings,
+            secretStore: secretStore
+        )
+
+        return .ready(BrowserUseRuntimeLaunchPlan(
+            pythonExecutableURL: paths.pythonExecutableURL,
+            webUIEntrypointURL: paths.webUIEntrypointURL,
+            workingDirectoryURL: paths.stateRoot,
+            environmentFileURL: paths.environmentFileURL,
+            loopbackURL: loopbackURL,
+            arguments: [
+                paths.webUIEntrypointURL.path,
+                "--ip", host,
+                "--port", String(port),
+                "--theme", theme,
+            ],
+            environment: environment,
+            environmentFileContents: environmentFileContents
+        ))
+        #endif
+    }
+
+    private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [(name: String, url: URL)] {
+        [
+            ("Python 3.11 executable", paths.pythonExecutableURL),
+            ("web-ui entrypoint", paths.webUIEntrypointURL),
+            ("BUILD_MANIFEST.json", paths.buildManifestURL),
+            ("wheelhouse", paths.wheelhouseURL),
+            ("Playwright Chromium payload", paths.playwrightURL),
+        ]
+    }
+
+    private static func loopbackURL(host: String, port: Int) -> URL? {
+        guard !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              (1...65535).contains(port) else {
+            return nil
+        }
+
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = host
+        components.port = port
+        components.path = "/"
+        return components.url
+    }
+}

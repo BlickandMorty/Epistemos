@@ -1,0 +1,278 @@
+import AppKit
+import SwiftUI
+import WebKit
+
+nonisolated enum BrowserUseLoopbackGuard {
+    static func allows(url: URL?) -> Bool {
+        guard let url,
+              url.scheme?.lowercased() == "http",
+              let host = url.host?.lowercased(),
+              isLoopbackHost(host),
+              let port = url.port,
+              (1...65535).contains(port),
+              url.user == nil,
+              url.password == nil else {
+            return false
+        }
+        return true
+    }
+
+    private static func isLoopbackHost(_ host: String) -> Bool {
+        let normalized = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        return normalized == "127.0.0.1" || normalized == "localhost" || normalized == "::1"
+    }
+}
+
+struct BrowserUseWebUIView: View {
+    private let host: String
+    private let port: Int
+    private let themeName: String
+    @State private var supervisor: BrowserUseRuntimeSupervisor?
+    @State private var settings: BrowserUseSettings
+    @State private var readiness: BrowserUseRuntimeReadiness
+    @State private var loadedURL: URL?
+    @State private var isStarting = false
+    @State private var blockedURL: URL?
+    @State private var lastError: String?
+
+    init(
+        supervisor: BrowserUseRuntimeSupervisor? = BrowserUseRuntimeSupervisor(),
+        settingsStore: BrowserUseSettingsStore = BrowserUseSettingsStore(),
+        host: String = "127.0.0.1",
+        port: Int = 7788,
+        themeName: String = "Ocean"
+    ) {
+        self.host = host
+        self.port = port
+        self.themeName = themeName
+        let settings = settingsStore.loadOrDefault()
+        let readiness = supervisor?.readiness(settings: settings, host: host, port: port, theme: themeName)
+            ?? .unavailable("browser-use Pro runtime source is not installed.")
+        _supervisor = State(initialValue: supervisor)
+        _settings = State(initialValue: settings)
+        _readiness = State(initialValue: readiness)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            toolbar
+            Divider()
+
+            if let loadedURL {
+                BrowserUseLoopbackWebView(url: loadedURL) { url in
+                    blockedURL = url
+                    lastError = "Blocked non-loopback browser-use navigation: \(url.absoluteString)"
+                }
+            } else {
+                unavailableView
+            }
+        }
+        .frame(minWidth: 720, minHeight: 520)
+        .onAppear {
+            refreshReadiness()
+        }
+        .onDisappear {
+            stopRuntime()
+        }
+    }
+
+    private var toolbar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "network")
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("browser-use Pro")
+                    .font(.headline)
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(readiness.isReady ? Color.secondary : Color.orange)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            if let blockedURL {
+                Text(blockedURL.host ?? blockedURL.absoluteString)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
+            }
+
+            Button {
+                refreshReadiness()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.borderless)
+            .help("Refresh browser-use Pro readiness")
+
+            Button {
+                startRuntime()
+            } label: {
+                Label("Open", systemImage: "play.fill")
+            }
+            .disabled(!readiness.isReady || isStarting)
+            .help(readiness.isReady ? "Open browser-use Pro Web UI" : readiness.message)
+
+            Button {
+                stopRuntime()
+            } label: {
+                Image(systemName: "stop.fill")
+            }
+            .buttonStyle(.borderless)
+            .disabled(loadedURL == nil)
+            .help("Stop browser-use Pro runtime")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private var unavailableView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: readiness.isReady ? "play.circle" : "lock.shield")
+                .font(.system(size: 36, weight: .regular))
+                .foregroundStyle(readiness.isReady ? Color.secondary : Color.orange)
+            Text(readiness.isReady ? "browser-use Pro is ready." : "browser-use Pro is unavailable.")
+                .font(.headline)
+            Text(lastError ?? readiness.message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 480)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+
+    private var statusText: String {
+        if let loadedURL {
+            return loadedURL.absoluteString
+        }
+        return readiness.message
+    }
+
+    private func refreshReadiness() {
+        settings = BrowserUseSettingsStore().loadOrDefault()
+        readiness = supervisor?.readiness(settings: settings, host: host, port: port, theme: themeName)
+            ?? .unavailable("browser-use Pro runtime source is not installed.")
+        if !readiness.isReady {
+            loadedURL = nil
+        }
+    }
+
+    private func startRuntime() {
+        guard let supervisor else {
+            readiness = .unavailable("browser-use Pro runtime source is not installed.")
+            loadedURL = nil
+            return
+        }
+
+        isStarting = true
+        defer { isStarting = false }
+
+        do {
+            let plan = try supervisor.start(settings: settings, host: host, port: port, theme: themeName)
+            guard BrowserUseLoopbackGuard.allows(url: plan.loopbackURL) else {
+                throw BrowserUseRuntimeSupervisorError.unavailable("browser-use Pro returned a non-loopback URL.")
+            }
+            blockedURL = nil
+            lastError = nil
+            loadedURL = plan.loopbackURL
+            readiness = .ready(plan)
+        } catch {
+            loadedURL = nil
+            lastError = error.localizedDescription
+            readiness = .unavailable(error.localizedDescription)
+        }
+    }
+
+    private func stopRuntime() {
+        supervisor?.stop()
+        loadedURL = nil
+    }
+}
+
+private struct BrowserUseLoopbackWebView: NSViewRepresentable {
+    let url: URL
+    let onBlockedNavigation: (URL) -> Void
+
+    func makeNSView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
+        webView.allowsBackForwardNavigationGestures = false
+        context.coordinator.onBlockedNavigation = onBlockedNavigation
+        load(url, into: webView)
+        return webView
+    }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.onBlockedNavigation = onBlockedNavigation
+        guard webView.url != url else { return }
+        load(url, into: webView)
+    }
+
+    static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
+        webView.stopLoading()
+        webView.navigationDelegate = nil
+        webView.uiDelegate = nil
+        coordinator.onBlockedNavigation = nil
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    private func load(_ url: URL, into webView: WKWebView) {
+        guard BrowserUseLoopbackGuard.allows(url: url) else {
+            onBlockedNavigation(url)
+            return
+        }
+        webView.load(URLRequest(url: url))
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        var onBlockedNavigation: ((URL) -> Void)?
+
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+        ) {
+            guard BrowserUseLoopbackGuard.allows(url: navigationAction.request.url) else {
+                if let url = navigationAction.request.url {
+                    onBlockedNavigation?(url)
+                }
+                decisionHandler(.cancel)
+                return
+            }
+
+            decisionHandler(.allow)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            createWebViewWith configuration: WKWebViewConfiguration,
+            for navigationAction: WKNavigationAction,
+            windowFeatures: WKWindowFeatures
+        ) -> WKWebView? {
+            guard navigationAction.targetFrame == nil,
+                  let url = navigationAction.request.url else {
+                return nil
+            }
+
+            if BrowserUseLoopbackGuard.allows(url: url) {
+                webView.load(URLRequest(url: url))
+            } else {
+                onBlockedNavigation?(url)
+            }
+            return nil
+        }
+    }
+}

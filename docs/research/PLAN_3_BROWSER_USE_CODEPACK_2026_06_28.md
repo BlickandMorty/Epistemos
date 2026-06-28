@@ -1,0 +1,259 @@
+# Plan 3 — browser-use Pro vendor codepack (clone-ready, Pass 7)
+
+> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This is the owed Pro-only vendor plan for the Chromium
+> robot. It is deliberately separate from the MAS-safe `BrowserView` WKWebView tab: browser-use drives Chromium over
+> CDP; it does not and must not drive the native WKWebView Browser. `[VERIFIED-CODE]`/`[WEB]`/`[INFERRED]` tagged.
+
+## Current upstream pins `[WEB]`
+Authoritative source is the official `browser-use/*` GitHub organization, checked on 2026-06-28 with `git ls-remote`
+and local vendored source inspection:
+
+| Component | Repo | Pin | License | Role |
+|---|---|---:|---|---|
+| browser-use | `https://github.com/browser-use/browser-use.git` | `2454d3e2551705232333c906ded8fc31ab0fc9f2` | MIT | agent/runtime/CLI |
+| web-ui | `https://github.com/browser-use/web-ui.git` | `61962296c38a0d064e0ba02c827192b7a81d1819` | MIT | Gradio browser-use UI |
+| cdp-use | `https://github.com/browser-use/cdp-use.git` | `a318684daab5ab3a9a516fcab447ed4bdfb92be9` | MIT | typed CDP client |
+
+Verified package facts:
+- `browser-use` `pyproject.toml`: package version `0.13.2`, `requires-python = ">=3.11,<4.0"`, MIT classifier,
+  scripts `browser-use`, `browseruse`, `bu`, `browser`, and `browser-use-tui`; dependencies include `cdp-use==1.4.5`,
+  `mcp==1.26.0`, `browser-use-sdk==3.4.2`, provider clients, document helpers, and optional `browser-use-core==0.13.2`
+  wheels for darwin/linux/win platforms.
+- `web-ui` `README.md`/`requirements.txt`: Gradio UI, `python webui.py --ip 127.0.0.1 --port 7788`, persistent
+  browser sessions, own-browser mode, browser settings, many LLM providers. Its current `requirements.txt` pins
+  `browser-use==0.1.48`; Epistemos must override that to the vendored `browser-use` source, not install the stale PyPI
+  wheel.
+- `cdp-use` `pyproject.toml`: version `1.4.5`, `requires-python >=3.11`, MIT, `httpx`, `typing-extensions`,
+  `websockets`; tree includes generated `cdp_use/cdp/*` domains and the generator. Vendor the generated domains too.
+
+## Current local vendor state `[VERIFIED-CODE]`
+The full source trees are now staged under `agent_core/vendor/browser-use/` with no nested `.git` directories:
+
+| Component | Local path | File count | Full source content retained |
+|---|---|---:|---|
+| browser-use | `agent_core/vendor/browser-use/browser-use/` | 501 | package, tests, examples, skills, static assets, docker docs, `.env.example` |
+| web-ui | `agent_core/vendor/browser-use/web-ui/` | 42 | `webui.py`, `src/`, tests, assets, Docker/supervisor files, `.env.example` |
+| cdp-use | `agent_core/vendor/browser-use/cdp-use/` | 357 | package, generated `cdp_use/cdp/*` domains, generator, examples, runbook |
+
+`agent_core/vendor/browser-use/VENDOR_MANIFEST.json` records repo URL, commit SHA, license, license hash, package-file
+hash, file count, included path families, excluded `.git`, `full_clone: true`, and the MAS SourceMirror exclusion.
+`agent_core/vendor/browser-use/requirements.in` installs local editable `./browser-use` and `./cdp-use`, then repeats
+web-ui dependencies except its stale `browser-use==0.1.48` pin.
+`agent_core/vendor/browser-use/build-pro-payload.sh` is the Pro-only packaging script: it creates a Python 3.11 venv
+under `build/browser-use-pro/.venv`, compiles `requirements.lock` with hashes from the vendored paths, syncs the venv,
+stages third-party and local package wheels under `agent_core/vendor/browser-use/wheels/`, stages Playwright Chromium
+under `agent_core/vendor/browser-use/playwright/`, and writes a non-secret `BUILD_MANIFEST.json` when explicitly run
+outside MAS/App Store build phases.
+
+Not staged yet: hash-locked wheels, Python virtualenv, Playwright Chromium payload, notarized Pro resources, Rust
+adapter discovery wiring, and live browser tool smoke. The manifest marks the build script and adapter contract as
+`landed`, and still marks the generated lock/build manifest and payload directories as `not_generated` / `not_staged`
+instead of pretending the Pro payload exists.
+
+`Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift` is now the always-compiled honest gate and manifest reader:
+MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the current source-only manifest
+it still returns inactive because `requirements.lock`, wheels, and the browser payload are not staged. It launches
+nothing.
+`Epistemos/Views/Settings/BrowserUseSettingsView.swift` mounts the Settings diagnostics surface under Extensions:
+it reads the same gate/manifest, lists full-clone pins and packaging gaps, states the two-browser boundary, and exposes
+no runtime launch control. It also reports the settings contract for the Pro lane.
+`Epistemos/BrowserUsePro/BrowserUseSettingsStore.swift` is now the non-secret settings and environment-rendering
+contract: provider endpoints, browser profile/CDP/resolution settings, logging/telemetry/cloud/proxy flags, and
+browser-use/web-ui environment names are Codable settings; API keys, cloud keys, proxy credentials, AWS credentials,
+IBM project ID, and VNC password are bound to Keychain environment keys. Defaults keep telemetry, cloud sync, and
+version checks off.
+`EpistemosTests/BrowserUseSettingsStoreTests.swift` verifies privacy-first `.env` rendering, injected Keychain secret
+binding, and non-secret JSON round-trip behavior.
+`Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` now lands the Pro runtime launch contract: it validates
+the browser-use gate plus staged payload artifacts, builds the exact `web-ui/webui.py --ip 127.0.0.1 --port 7788
+--theme Ocean` loopback plan, writes the Keychain-combined launch `.env` under Application Support with owner-only
+permissions, and compiles the actual `Process()` launch only in `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
+App Store builds return an honest unavailable readiness and keep the native Browser tab separate.
+`EpistemosTests/BrowserUseRuntimeSupervisorTests.swift` verifies packaged/unpackaged readiness, loopback launch-plan
+shape, Keychain environment propagation, secure `.env` file permissions, and source boundaries.
+`Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` is the Pro loopback shell: it starts the supervisor only from a
+user action, loads only `http://127.0.0.1:<port>` / `localhost` / `[::1]` Gradio URLs in a non-persistent WKWebView,
+cancels non-loopback navigations, tears down delegates on dismantle, and stops the runtime on disappear. It does not
+reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
+`EpistemosTests/BrowserUseWebUIViewTests.swift` verifies the loopback URL guard and the source boundary. `[VERIFIED-CODE]`
+`agent_core/vendor/browser-use/epistemos_agent_browser.py` is the source-only Plan 3 Pro adapter contract landed for the
+existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/
+screenshot/console/errors` to browser-use's `skill_cli` daemon, keeps session files under `AGENT_BROWSER_SOCKET_DIR`
+via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a no-runtime `contract` check
+for packaging tests. Rust `find_agent_browser()` discovery/wiring and live tool smoke are still pending. `[VERIFIED-CODE]`
+
+## Existing Epistemos seams `[VERIFIED-CODE]`
+- Native MAS browser tab: `Epistemos/Views/Browser/BrowserView.swift` is human-driven `WKWebView` with
+  `WKWebsiteDataStore.nonPersistent()` and `BrowserURLGuard` http/https gating. It remains independent.
+- Agent browser tools: `agent_core/src/tools/browser.rs` shells out to a user-installed `agent-browser` binary, applies
+  hardened subprocess env clearing, timeouts, redacted output, and SSRF/private URL blocking. The registry exposes the
+  11 `browser_*` tools only under `#[cfg(feature = "pro-build")]` (`browser_navigate/snapshot/click/type/scroll/back/
+  press/close/get_images/vision/console`).
+- MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve
+  that split.
+
+## Product boundary
+Two browsers, two promises:
+- **App Store:** `BrowserView` WKWebView tab, user-driven only. No Python, no subprocess, no Chromium, no CDP, no
+  browser-use, no automation seam. `WebKitBrowserEngine` and `ObscuraBrowserEngine` stay `NotConfigured`.
+- **Pro / Developer ID:** full browser-use app, Gradio web UI in a `WKWebView`, Python 3.11 environment, bundled
+  Playwright Chromium, CDP robot, and Goose-accessible MCP/tool bridge. It drives Chromium, not the native WKWebView.
+
+## FULL-CLONE vendor layout
+Vendor the complete app and keep source provenance visible:
+
+```text
+agent_core/vendor/browser-use/
+  VENDOR_MANIFEST.json
+  browser-use/          # full source checkout at 2454d3e...
+  web-ui/               # full source checkout at 619622...
+  cdp-use/              # full source checkout at a31868...
+  wheels/               # hash-pinned Python wheels, produced at build time
+  playwright/           # Chromium/browser payload staged at build time
+  patches/              # minimal Epistemos launch/config patches only
+```
+
+`VENDOR_MANIFEST.json` must record repo URL, commit SHA, license, clone timestamp, included/excluded paths, wheel lock
+hash, Playwright browser revision, and a `full_clone: true` assertion for all three repos. Do not cherry-pick only
+`webui.py` or only selected browser-use modules; the owner required settings and capabilities intact.
+
+Exclusions are limited to `.git`, caches, virtualenvs, build artifacts, and downloaded test output. Keep tests, examples,
+generated CDP modules, `.env.example`, Docker docs, assets, and README files for auditability.
+
+Critical packaging guard: this repo's build copies `agent_core` into an app `SourceMirror` resource. Before vendoring
+browser-use under `agent_core/vendor/browser-use/`, exclude that directory from SourceMirror and every MAS/App Store
+resource-copy phase, or stage the clone in a Pro-only resource root that the MAS target never sees. Source-visible Python
+is fine for the Pro packaging job; it is not fine as an accidental MAS app resource.
+
+## Dependency and Chromium packaging
+Build the Pro payload as a deterministic bundle:
+1. Create a Python 3.11 virtualenv at build time, outside MAS targets.
+2. Generate a hash-pinned requirements lock from the vendored sources. The lock must install local paths for
+   `browser-use` and `cdp-use`, and either patch or constraints-override `web-ui`'s stale `browser-use==0.1.48`.
+3. Use binary wheels only where possible; record every sdist exception in the manifest with license and build proof.
+4. Run Playwright's Chromium install during the Pro build, copy the browser payload into the signed Pro resources, and
+   record the exact browser revision. No runtime browser download.
+5. Code-sign/notarize Python, native extensions, and Chromium with the Developer ID profile. This lane is not App Store
+   eligible.
+
+Suggested commands for the implementation script (names are placeholders, not runtime app behavior):
+
+```bash
+uv venv --python 3.11 --seed build/browser-use-pro/.venv
+uv pip compile --generate-hashes agent_core/vendor/browser-use/requirements.in -o agent_core/vendor/browser-use/requirements.lock
+uv pip sync --python build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/requirements.lock
+build/browser-use-pro/.venv/bin/python -m pip wheel --require-hashes --only-binary=:all: --wheel-dir agent_core/vendor/browser-use/wheels --requirement build/browser-use-pro/requirements.third-party.lock
+build/browser-use-pro/.venv/bin/python -m pip wheel --no-deps --wheel-dir agent_core/vendor/browser-use/wheels agent_core/vendor/browser-use/browser-use agent_core/vendor/browser-use/cdp-use
+PLAYWRIGHT_BROWSERS_PATH=agent_core/vendor/browser-use/playwright build/browser-use-pro/.venv/bin/python -m playwright install chromium
+```
+
+The landed script is `agent_core/vendor/browser-use/build-pro-payload.sh`. It must never be referenced by Xcode MAS
+targets, runtime launch paths, app resources, or SourceMirror copies.
+
+## Settings preservation
+Mirror web-ui/browser-use settings instead of flattening them into a thin "task" box. Minimum surfaced settings:
+- LLM provider/API endpoints: OpenAI, Anthropic, Google, Azure OpenAI, DeepSeek, Mistral, Ollama, Alibaba, ModelScope,
+  Moonshot, Unbound, SiliconFlow, IBM, Grok, and `DEFAULT_LLM`.
+- Browser settings: `BROWSER_PATH`, `BROWSER_USER_DATA`, `BROWSER_DEBUGGING_HOST`, `BROWSER_DEBUGGING_PORT`,
+  `KEEP_BROWSER_OPEN`, `USE_OWN_BROWSER`, `BROWSER_CDP`, resolution width/height/depth, headless/executable/user-data
+  settings from browser-use (`BROWSER_USE_HEADLESS`, `BROWSER_USE_EXECUTABLE_PATH`, `BROWSER_USE_USER_DATA_DIR`).
+- Runtime settings: telemetry, logging level, debug/info log files, proxy server/no-proxy/credentials, browser-use cloud
+  URL/API key/sync flags, version-check flag, `ANONYMIZED_TELEMETRY`, `BROWSER_USE_LOGGING_LEVEL`,
+  `BROWSER_USE_PROXY_SERVER`, `BROWSER_USE_PROXY_URL`, `BROWSER_USE_NO_PROXY`, `RESOLUTION`, `RESOLUTION_WIDTH`, and
+  `RESOLUTION_HEIGHT`.
+- Web UI tabs: agent settings, browser settings, browser-use agent, deep research agent, load/save config. Reskin CSS,
+  but do not remove controls.
+
+Secrets go to Keychain only. Generate a per-profile `.env` at launch from Keychain + non-secret settings; never write API
+keys, proxy passwords, browser-use cloud keys, or bearer tokens into UserDefaults, logs, JSON manifests, or the source
+tree. Default telemetry/cloud sync should be off unless the user explicitly enables it.
+
+**Landed settings contract `[VERIFIED-CODE]`:** `BrowserUseSettingsStore.swift` preserves the non-secret web-ui and
+browser-use environment shape as typed Codable settings and renders a launch-time `.env` by combining those values with
+`BrowserUseSecretBinding` values loaded from Keychain. It covers `DEFAULT_LLM`, provider endpoints, own-browser/CDP,
+resolution, browser-use executable/profile/headless fields, logging, proxy, cloud URLs, and privacy flags. It does not
+launch Python, Chromium, Playwright, or `webui.py`.
+
+## Pro runtime shape
+New Plan 3 files should live outside Plan 1/Plan 2 ownership, for example:
+- `Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift` — compile/distribution gate; MAS returns unavailable. **Landed.**
+- `Epistemos/BrowserUsePro/BrowserUseSettingsStore.swift` — non-secret Codable settings + Keychain secret binding.
+  **Landed settings contract/env renderer.**
+- `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` — Pro-only hardened subprocess owner for
+  `python webui.py --ip 127.0.0.1 --port <chosen>`, lazy-started by user action, killed on idle/app exit.
+  **Launch-plan, secure `.env`, and Pro-only subprocess branch landed; runnable payload still waits on generated
+  wheels/Chromium.**
+- `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` — WKWebView shell for the loopback Gradio UI with honest status.
+  **Loopback guard and user-initiated shell landed; live smoke waits on staged Pro payload.**
+- `Epistemos/Views/Settings/BrowserUseSettingsView.swift` — settings mirror + diagnostics.
+
+Do not edit `Epistemos/Goose/*`, `Epistemos/Agent/*`, or Plan 2 editor surfaces for the Pro shell. Goose access should
+come through the existing tool/MCP registry seam once the Pro runtime is registered.
+
+## Tool bridge
+The existing `browser_*` tools are the compatibility bridge. The source-only adapter contract now exists at
+`agent_core/vendor/browser-use/epistemos_agent_browser.py` and speaks the same JSON action contract as the user-installed
+`agent-browser` binary. Next, replace or augment `find_agent_browser()` only in the Pro feature so it discovers the
+bundled browser-use adapter executable, or add a sibling `browser_use_*` tool family behind `#[cfg(feature =
+"pro-build")]`. In both cases:
+- MAS builds compile without the adapter and expose no browser-use tools.
+- Navigation keeps the existing SSRF/private-network guard before any CDP navigation.
+- Actions that click/type/press remain high-risk and approval-gated.
+- Output is redacted and bounded exactly like the current `agent-browser` path.
+- Browser-use profile state is separate from the native Browser WKWebView profile.
+- Current state: adapter contract landed; Pro Rust discovery wiring and local fixture smoke are still pending.
+
+## Honest gates and failure states
+- MAS: visible Browser button opens the native WKWebView tab; browser-use settings/actions show "Pro only" and launch
+  nothing.
+- Pro missing payload: "browser-use runtime not installed" with repair instructions; launch nothing.
+- Pro payload present but Python/Chromium signature check fails: block launch and show diagnostics.
+- Web UI starts but health probe fails: stop the subprocess, redact logs, surface the first bounded error.
+- User uses own browser: show that Epistemos cannot guarantee profile isolation for external Chrome and require opt-in.
+- CAPTCHA/login/anti-bot: honest limitation, not a retry loop that pretends reliability.
+
+## Verification gates
+- Source guards: no `browser-use`, Python, Playwright, Chromium, or subprocess launch on MAS paths; no `BrowserUsePro`
+  references from `BrowserView`; `WebKitBrowserEngine` still returns `NotConfigured`.
+- Vendor manifest test: pins match the three SHAs above, licenses are MIT, and `full_clone` is true.
+- Packaging script test: shell syntax passes; script requires `uv`, uses Python 3.11, compiles with
+  `--generate-hashes`, stages third-party wheels under `--require-hashes --only-binary=:all:`, stages local vendored
+  package wheels with `--no-deps`, installs Playwright Chromium into the Pro staging directory, writes only non-secret
+  `BUILD_MANIFEST.json`, and says it is not for MAS/App Store build phases.
+- Settings contract test: `BrowserUseSettingsStore.swift` includes typed non-secret provider/browser/runtime settings,
+  a launch-time environment renderer, Keychain-backed secret bindings for provider/cloud/proxy/AWS/VNC values, privacy
+  defaults with telemetry/cloud/version checks off, and no runtime launch seam.
+- Behavior test: `BrowserUseSettingsStoreTests.swift` renders defaults without secret keys, appends only non-empty
+  injected Keychain secrets, deletes empty secret values, and proves the JSON store omits API/proxy/VNC secret names.
+- Runtime launch contract test: `BrowserUseRuntimeSupervisorTests.swift` keeps unpackaged payloads inactive, proves the
+  staged launch plan uses `web-ui/webui.py`, loopback `127.0.0.1`, Keychain-combined environment values, and owner-only
+  launch `.env` permissions, and verifies the subprocess branch is Pro-only.
+- Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
+  non-persistent, cancels non-loopback navigation, tears down delegates, and proves it does not reference native
+  Browser, Goose/Agent, or Plan 2 editor/PDF surfaces.
+- Adapter source test: `BrowserUseAdapterPlan3Tests.swift` verifies `epistemos_agent_browser.py` supports the existing
+  `agent-browser --json` command set, delegates to `browser_use.skill_cli` only after runtime commands begin, keeps
+  session files under `AGENT_BROWSER_SOCKET_DIR`/`BROWSER_USE_HOME`, and contains no Plan 1 Goose/Agent or Plan 2
+  editor/PDF/native Browser references.
+- Python lock test after script execution: `browser-use`, `web-ui`, and `cdp-use` import from vendored/local paths;
+  stale `browser-use==0.1.48` from web-ui is not installed.
+- Pro runtime smoke: start loopback Gradio on `127.0.0.1`, load it in the WKWebView shell, submit a dry-run task with a
+  local fixture page, then stop cleanly.
+- Tool smoke: `browser_navigate` to a local fixture, `browser_snapshot`, `browser_click`, `browser_close`; prove session
+  reuse and bounded/redacted output.
+- App Store audit: the `EPISTEMOS_APP_STORE MAS_SANDBOX` compile branch returns unavailable before launch planning,
+  strips the `Process()` branch, and contains no Python, Playwright, Chromium, browser-use resources, or
+  `agent_core/vendor/browser-use` SourceMirror output.
+
+## Build order
+1. Add the codepack + source guards (this file). **Landed.**
+2. Vendor full source into `agent_core/vendor/browser-use/` and write `VENDOR_MANIFEST.json`. **Landed source-only; wheels/Chromium pending.**
+3. Add Pro-only packaging scripts and hash-locked wheel/Chromium staging. **Packaging script landed; generated lock,
+   wheels, Chromium payload, signing, and notarization still pending.**
+4. Add `BrowserUseProGateStatus` + Settings gate; MAS says Pro only. **Gate, diagnostic Settings surface, and
+   settings/env contract landed.**
+5. Add runtime supervisor + loopback WebView shell. **Runtime launch contract and WKWebView loopback shell landed;
+   live smoke still waits on staged Pro payload.**
+6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
+   **Source-only adapter contract landed; Rust discovery wiring and live tool smoke still pending.**
+7. Run the full Pro smoke suite, then the MAS boundary audit.
