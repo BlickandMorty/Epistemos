@@ -252,6 +252,7 @@ struct RootView: View {
                 showTimeMachine: $showTimeMachine,
                 showQuickCapture: $showQuickCapture
             ))
+            .commandPaletteHost()
     }
 
     private var rootContent: some View {

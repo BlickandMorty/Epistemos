@@ -121,9 +121,9 @@ public struct EpdocEditorToolbar: View {
                    tip: "Strikethrough",   command: .runCommand(name: "toggleStrike",    argsJSON: emptyArgs))
         toolButton(symbol: "highlighter",   shortcut: "⌘⇧H", isActive: model.isHighlightActive,
                    tip: "Highlight",       command: .runCommand(name: "toggleHighlight", argsJSON: emptyArgs))
-        toolButton(symbol: "chevron.left.forwardslash.chevron.right", shortcut: "⌘E",
+        toolButton(symbol: "chevron.left.forwardslash.chevron.right", shortcut: "⌘⇧E",
                    isActive: model.isCodeActive,
-                   tip: "Inline code (⌘E)", command: .runCommand(name: "toggleCode",     argsJSON: emptyArgs))
+                   tip: "Inline code", command: .runCommand(name: "toggleCode",     argsJSON: emptyArgs))
         toolButton(symbol: "curlybraces", shortcut: "⌘⇧C",
                    tip: "Code block", command: .runCommand(name: "toggleCodeBlock", argsJSON: emptyArgs))
     }
@@ -132,8 +132,8 @@ public struct EpdocEditorToolbar: View {
     private var extendedFormattingGroup: some View {
         toolButton(symbol: "function",      shortcut: "⌘M",
                    tip: "Inline math",    command: .insertSlashChoice(blockType: "math-display"))
-        toolButton(symbol: "link",          shortcut: "⌘K",
-                   tip: "Link (⌘K)") {
+        toolButton(symbol: "link",          shortcut: "⌘⇧K",
+                   tip: "Link") {
             promptAndDispatchLink()
         }
     }

@@ -1,0 +1,137 @@
+import Foundation
+import Testing
+
+@testable import Epistemos
+
+@Suite("CommandRegistry (Plan 2 native controls)")
+@MainActor
+struct CommandRegistryTests {
+    @Test("Register replaces duplicate IDs without duplicating menu or palette entries")
+    func registerReplacesDuplicateIDs() {
+        let registry = CommandRegistry()
+        registry.register(EpistemosCommand(
+            id: "test.duplicate",
+            title: "Old Title",
+            symbol: "command",
+            scope: .global,
+            isEnabled: { true },
+            run: {}
+        ))
+        registry.register(EpistemosCommand(
+            id: "test.duplicate",
+            title: "New Title",
+            symbol: "command",
+            scope: .global,
+            isEnabled: { true },
+            run: {}
+        ))
+
+        #expect(registry.commandIDs == ["test.duplicate"])
+        #expect(registry.matching(query: "new").map(\.id) == ["test.duplicate"])
+        #expect(registry.matching(query: "").first?.title == "New Title")
+    }
+
+    @Test("Matching narrows to global plus active scope and filters disabled commands")
+    func matchingNarrowsByScopeAndEnabledState() {
+        let registry = CommandRegistry()
+        registry.register(command(id: "global.ready", title: "Global Ready", scope: .global))
+        registry.register(command(id: "note.ready", title: "Note Ready", scope: .note))
+        registry.register(command(id: "code.ready", title: "Code Ready", scope: .code))
+        registry.register(command(id: "code.disabled", title: "Code Disabled", scope: .code, enabled: false))
+
+        #expect(registry.matching(query: "", scope: .code).map(\.id) == [
+            "global.ready",
+            "code.ready",
+        ])
+        #expect(registry.matching(query: "", scope: .note).map(\.id) == [
+            "global.ready",
+            "note.ready",
+        ])
+        #expect(!registry.matching(query: "", scope: .code).map(\.id).contains("code.disabled"))
+    }
+
+    @Test("Menu commands use the same enabled-state contract as palette matching")
+    func menuCommandsFilterByPathAndEnabledState() {
+        let registry = CommandRegistry()
+        registry.register(command(id: "format.ready", title: "Format Ready", menuPath: .format))
+        registry.register(command(id: "format.disabled", title: "Format Disabled", menuPath: .format, enabled: false))
+        registry.register(command(id: "view.ready", title: "View Ready", menuPath: .view))
+
+        #expect(registry.menuCommands(path: .format).map(\.id) == ["format.ready"])
+    }
+
+    @Test("Epdoc command catalog dispatches through the active note surface")
+    func epdocCommandsDispatchThroughActiveNoteSurface() {
+        final class SurfaceToken {}
+
+        let registry = CommandRegistry()
+        CommandRegistrations.registerEpdocCommands(in: registry)
+        let token = SurfaceToken()
+        var captured: [EpdocEditorCommand] = []
+        registry.activateNoteSurface(
+            id: ObjectIdentifier(token),
+            dispatch: { command in captured.append(command) },
+            save: {},
+            state: { EpistemosCommandSurfaceState(isBoldActive: true) }
+        )
+
+        let bold = registry.matching(query: "bold", scope: .note).first { $0.id == "epdoc.bold" }
+        #expect(bold != nil)
+        bold?.run()
+
+        #expect(captured.count == 1)
+        if case let .runCommand(name, argsJSON) = captured.first {
+            #expect(name == "toggleBold")
+            #expect(String(data: argsJSON, encoding: .utf8) == "[]")
+        } else {
+            #expect(Bool(false), "expected bold to dispatch through EpdocEditorCommand.runCommand")
+        }
+
+        let link = registry.matching(query: "link", scope: .note).first { $0.id == "epdoc.link" }
+        #expect(link != nil)
+        link?.run()
+        if case let .runCommand(name, argsJSON) = captured.last {
+            #expect(name == "setLink")
+            #expect(String(data: argsJSON, encoding: .utf8) == "[]")
+        } else {
+            #expect(Bool(false), "expected link to dispatch through EpdocEditorCommand.runCommand")
+        }
+
+        registry.deactivateNoteSurface(id: ObjectIdentifier(token))
+        #expect(registry.matching(query: "bold", scope: .note).isEmpty)
+    }
+
+    @Test("Cmd+K is reserved only for the command palette")
+    func commandKReservedForPalette() throws {
+        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let paletteCommands = try loadMirroredSourceTextFile("Epistemos/Views/Command/CommandPaletteCommands.swift")
+        let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
+        let bubbleMenu = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocBubbleMenuView.swift")
+
+        #expect(app.contains("CommandPaletteCommands()"))
+        #expect(paletteCommands.components(separatedBy: #"keyboardShortcut("k""#).count - 1 == 1)
+        #expect(paletteCommands.contains(#"CommandRegistry.shared.showCommandPalette()"#))
+        #expect(!toolbar.contains(#"shortcut: "⌘K""#))
+        #expect(toolbar.contains(#"shortcut: "⌘⇧K""#))
+        #expect(!bubbleMenu.contains("⌘K"))
+        #expect(bubbleMenu.contains("⌘⇧K"))
+    }
+
+    private func command(
+        id: String,
+        title: String,
+        scope: EpistemosCommandScope = .global,
+        menuPath: EpistemosCommandMenuPath = .none,
+        enabled: Bool = true
+    ) -> EpistemosCommand {
+        EpistemosCommand(
+            id: id,
+            title: title,
+            symbol: "command",
+            scope: scope,
+            menuPath: menuPath,
+            isEnabled: { enabled },
+            run: {}
+        )
+    }
+}

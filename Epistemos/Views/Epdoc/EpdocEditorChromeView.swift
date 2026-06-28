@@ -474,6 +474,10 @@ public struct EpdocEditorChromeView: View {
             .hidden()
         }
         .background {
+            EpdocCommandSurfaceActivation(controller: controller)
+        }
+        .commandPaletteHost()
+        .background {
             NoteWorkspaceSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea()
         }
     }

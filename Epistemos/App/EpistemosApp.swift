@@ -1448,6 +1448,8 @@ struct EpistemosCommands: Commands {
     let notesUI: NotesUIState
     let vaultSync: VaultSyncService
     var body: some Commands {
+        CommandPaletteCommands()
+
         CommandGroup(after: .saveItem) {
             Button("Save Workspace...") {
                 NotificationCenter.default.post(name: .showSaveWorkspacePanel, object: nil)

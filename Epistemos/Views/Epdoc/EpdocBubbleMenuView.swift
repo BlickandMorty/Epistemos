@@ -47,14 +47,14 @@ public struct EpdocBubbleMenuView: View {
             formatButton(symbol: "italic",        isActive: isItalicActive,
                          tip: "Italic (⌘I)",       command: .runCommand(name: "toggleItalic",    argsJSON: emptyArgs))
             formatButton(symbol: "chevron.left.forwardslash.chevron.right", isActive: isCodeActive,
-                         tip: "Inline code (⌘E)",  command: .runCommand(name: "toggleCode",      argsJSON: emptyArgs))
+                         tip: "Inline code (⌘⇧E)", command: .runCommand(name: "toggleCode",      argsJSON: emptyArgs))
             formatButton(symbol: "curlybraces",    isActive: false,
                          tip: "Code block (⌘⇧C)",  command: .runCommand(name: "toggleCodeBlock", argsJSON: emptyArgs))
             formatButton(symbol: "highlighter",   isActive: isHighlightActive,
                          tip: "Highlight (⌘⇧H)",   command: .runCommand(name: "toggleHighlight", argsJSON: emptyArgs))
             divider
             formatButton(symbol: "link",          isActive: false,
-                         tip: "Insert link (⌘K)",  command: .runCommand(name: "setLink",         argsJSON: emptyArgs))
+                         tip: "Insert link (⌘⇧K)", command: .runCommand(name: "setLink",         argsJSON: emptyArgs))
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
