@@ -652,6 +652,17 @@ struct GooseWebUIStagingTests {
         // In-chat model switch (#9): the global-default provider guard must be removed so
         // selecting a model on the default provider still applies its provider.
         #expect(!script.contains("providerName !== currentProvider"))
+        // Provider OAuth sign-in surfaced from the live setupMethod (was hardcoded false).
+        #expect(script.contains("epistemos-acp-oauth-setup-method"))
+        #expect(script.contains("const isOauth = method.includes('oauth')"))
+        // Credential delete in Settings -> Auth wired to the live ACP delete path.
+        #expect(script.contains("can_delete: true"))
+        #expect(script.contains("'ACP provider secret delete'"))
+        #expect(script.contains("await deleteAcpProviderConfig(secretToDelete.provider)"))
+        // Settings config map reconstructed live from ACP (un-blocks Chat/Security UI).
+        #expect(script.contains("export async function reconstructAcpConfig"))
+        #expect(script.contains("'ACP config map reconstruction'"))
+        #expect(script.contains("setConfig(await reconstructAcpConfig())"))
     }
 
     @Test("Goose Swift surface does not carry a provider or model roster")
