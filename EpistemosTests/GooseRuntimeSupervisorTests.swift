@@ -322,6 +322,22 @@ struct GooseRuntimeSupervisorTests {
         #expect(view.contains("nativeAffordanceBridge.closeAllApps()"))
     }
 
+    @Test("Goose WebView navigation gate is deny-by-default + loopback-only (no file:/external nav)")
+    func gooseSurfaceNavigationIsLoopbackOnly() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        // decidePolicy is the privileged (ACP-bridged) WebView's navigation gate. It
+        // must deny by default and only allow the custom goose scheme + LOOPBACK
+        // http(s)/ws(s). `file:` and external hosts must never be navigable -- a
+        // broadened allowlist would expose the bridged window to untrusted content.
+        #expect(source.contains("func decidePolicy("))
+        #expect(source.contains("case \"http\", \"https\", \"ws\", \"wss\":"))
+        #expect(source.contains("host == \"127.0.0.1\" || host == \"localhost\" || host == \"::1\""))
+        #expect(source.contains("return .cancel"))
+        // `file:` must NOT be allow-listed; the documented deny intent stays.
+        #expect(!source.contains("case \"file\":"))
+        #expect(source.contains("is not allow-listed"))
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!
