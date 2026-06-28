@@ -169,7 +169,24 @@ redundant fix. A real fix needs a designed ACP-failure harness first.
 
 *(fix_is_safe=True)*
 
-### [7] P3 · edge-case · `GooseACPClient.swift`:518-530, 489-500
+### [7] P3 · edge-case · `GooseACPClient.swift`:518-530, 489-500 — ⚠️ DEFERRED (subtle race; needs a concurrency harness)
+
+**Re-analyzed 2026-06-28 PM — fix is subtler than the finding states.** The naive
+`withTaskCancellationHandler { withCheckedThrowingContinuation { ... } } onCancel:`
+has a cancellation-before-registration race: `onCancel` runs off-actor and must
+Task-hop to the actor to `removeValue(forKey: id)`; if that hop runs BEFORE the
+`withCheckedThrowingContinuation` body parks the continuation, the removeValue
+returns nil and the later-parked continuation is never resumed -> a permanent hang
+(worse than today). Also, today's impact is "delayed until connection teardown,"
+not an infinite hang (teardown's `fail()` resumes all waiters). Doing this safely
+needs a guarded park (e.g. store a sentinel / check `Task.isCancelled` after
+registration, or an explicit registered/cancelled state machine) PLUS a controllable
+mock-transport concurrency test to prove single-resume across the
+deliver/fail/cancel/timeout race. Not worth rushing into core ACP plumbing (every
+request flows through `waitForResponse`) without that harness; the surface is
+currently GREEN. Keep deferred; design the harness first.
+
+
 
 **Issue:** No per-request timeout or cooperative cancellation. `waitForResponse` parks a `withCheckedThrowingContinuation` in `waitingResponses[id]` with no timeout and no Swift Task-cancellation hook. If the connection stays alive but the server never answers one request (e.g. Goose enumerating models from an unreachable/hanging provider endpoint, or a custom method that errors out server-side without a JSON-RPC reply), the caller hangs forever -- it only unblocks on full connection teardown. Worse, `withCheckedThrowingContinuation` ignores cancellation, so if the caller's Task is cancelled (rapid route switching cancelling an in-flight provider catalog fetch), the awaiting call does NOT throw Cancell
 
@@ -177,7 +194,17 @@ redundant fix. A real fix needs a designed ACP-failure harness first.
 
 *(fix_is_safe=True)*
 
-### [8] P3 · edge-case · `GooseWebNativeAffordanceBridge.swift`:63-67, 568-626
+### [8] P3 · edge-case · `GooseWebNativeAffordanceBridge.swift`:63-67, 568-626 — ✅ FIXED (2026-06-28 PM)
+
+**RESOLVED.** Added `@MainActor closeAllApps()` to the bridge (snapshots
+`appWindows.values`, clears all three registries, THEN closes each window so the
+`windowWillClose`-driven `removeValue` cannot mutate during iteration) and invoke it
+from `GooseWebSurfaceView.onDisappear` alongside the existing teardown. Launched
+MCP-app windows no longer orphan as top-level NSWindows after the surface
+disappears. Locked by `mcpAppWindowsClosedOnSurfaceTeardown` (method + ordering +
+onDisappear call); 16/16 supervisor tests green. Commit `a753916eb`.
+
+
 
 **Issue:** Launched MCP-app windows/WebViews leak on surface teardown. launchApp creates NSWindow + WKWebView instances tracked in appWindows/appWebViews/appWindowDelegates. They are only removed when the user closes that specific window (windowWillClose) or calls closeApp. GooseWebSurfaceView.onDisappear stops the supervisor/server/acp and cancels prompts but never closes these app windows, and the bridge deinit only releases the wakelock assertion. So any MCP app windows opened via launchApp outlive the Goose surface as orphaned top-level windows holding WKWebViews, with no remaining UI to close them.
 
