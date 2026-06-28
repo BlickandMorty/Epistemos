@@ -339,8 +339,13 @@ them here so nothing is lost (SCOPE_RECOVERY is now retired — its content live
   storage contract; Plan 2 mounts a native `PDFView` on the resolved `source_pdf` URL (selection/search/thumbnails/outline/
   annotations) + the "View original PDF" affordance. Build the viewer here; consume Plan 3's link, don't re-invent storage.
 
-## 14. MarkEdit full-clone completeness (owner: "settings and all, nothing less")
-Close the gaps vs a literal full clone (the embed is a curated module graft — `.appex` aside, get as close as possible):
+## 14. MarkEdit full-clone completeness (owner: "literally clone it, settings and all, nothing less")
+**★ Method = LITERAL FULL-SOURCE CLONE minus only the un-coexistable shell (see `MARKEDIT_EMBED_CODEPACK §0a`).**
+You CANNOT drop the whole `.app` in (macOS allows ONE `@main`/`NSDocumentController` per binary — two = won't compile/
+crash). So: `git clone` the ENTIRE MarkEdit source into `LocalPackages/MarkEdit/`, DELETE only its `@main`/AppDelegate
++ `AppDocumentController` + `.xcodeproj` + 2 `.appex`, mount its one `EditorViewController` in an Epistemos window. The
+clone is a deterministic SCRIPT (no cherry-picking); the ONLY hand-written part is the VC-mount seam. ZERO editing/
+settings capability lost. Then close these completeness gaps:
 - **Add the 3 missing Modules products** to the `project.yml` `dependencies:` in `MARKEDIT_EMBED_CODEPACK` §4 — currently
   9 are declared; a full clone also needs **`FileDrop`** (drag-in), **`Previewer`** (preview pane), **`TextBundle`**
   (`.textbundle` import/export). Without them those capabilities are lost.
