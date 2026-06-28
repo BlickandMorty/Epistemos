@@ -15,30 +15,48 @@
 
 ## 1. Fast PDF→Markdown  ★ (answers "the super-fast one")
 
-**What you remembered is real.** The repo already has a Rust-native parser (`liteparse`, ~0.196 s/doc) — but it's
-**gated inert on the App Store build** by a PDFium C-dylib it must bundle + code-sign, so today the app ships an
-honest *stub*, not a working fast parser. That's the "less-capable one" feeling. `[VERIFIED-CODE]`
+**★ TRUTH (Pass-1 verified — you were right, you have NEITHER today) `[VERIFIED-CODE]`:** you CANNOT parse a PDF→md
+in the shipped app. `liteparse` source IS vendored and the whole Swift import UI IS wired, but it's dead three ways:
+the `liteparse-pdf` Cargo feature is **NOT in `default`** (engine returns `EngineNotWired`), **no `libpdfium.dylib` is
+bundled** (zero `pdfium` hits in `project.yml`/build scripts), and the import button is hidden behind
+`EPISTEMOS_LITEPARSE_PDF_V0` (**OFF**). Built honest-inert — never fakes a note. **And there is NO PDF viewer at all**
+(zero `PDFView`/`QuickLook`; PDFKit appears once as a headless extractor in `VaultParser.swift`). So your instinct was
+correct on both counts.
 
-**The fast one to adopt = EdgeParse** (`edgeparse-core`, Apache-2.0, **pure Rust**): ~0.064 s/doc (**~3× faster**
-than the vendored liteparse) and better tables/headings/reading-order on the same 200-doc benchmark — and crucially
-**zero native deps: no PDFium, no JVM, no GPU, no OCR, no Python.** A single pure-Rust crate links straight into
-`agent_core` and is sandbox-clean, so it can be **ON for the MAS build** — that's the difference between "Pro-gated
-stub" and "ships live." `[WEB]`
+**Best clone targets (Pass-1b, deep) — vendor a primary + 2 complementary `[WEB]`:**
 
-**Current state `[VERIFIED-CODE]`:** vendored `agent_core/vendor/liteparse/` (run-llama v2.1.1, PDFium via dlopen);
-FFI seam `agent_core/src/liteparse.rs:1-161` (`pdf_to_markdown(path) -> Result<String,_>` + UniFFI export); Swift
-import UI fully wired (`Epistemos/LiteParse/*`, Settings health rows, NotesSidebar). Feature `liteparse-pdf` OFF by
-default → honest `EngineNotWired`. Blocker = the PDFium-dylib bundling/signing tax.
+| Repo | Lang | MAS-safe (no Python / no C blob) | Speed | Fidelity | Role |
+|---|---|---|---|---|---|
+| **EdgeParse** (`edgeparse-core`, Apache-2.0) | **pure Rust, zero ML** | ✅ | **#1 (~0.007 s/doc)** | **#1 overall (tables/headings/reading-order)** | **PRIMARY** born-digital |
+| **unpdf** (iyulab, MIT) | **pure Rust, zero C deps** | ✅ | Rayon-parallel | strong **CJK/RTL/multi-column** | multilingual fallback |
+| **Apple Vision + PDFKit** (native) | ✅ first-party | fast (HW) | best on-device OCR | DIY md glue | **scanned/OCR lane** |
+| liteparse (run-llama) | Rust core + **PDFium+Tesseract C++ blobs** | ⚠️ notarization risk | ~0.2–0.8 s | heuristic + turnkey OCR | **Pro-first** only |
+| ~~pdf_oxide~~ | Rust | ✅ | 0.8 ms | thin md layer | skip for md (great extractor, not fidelity-md) |
 
-**Build (like-for-like swap, reuse everything):**
-1. Vendor `edgeparse-core` (Rust core only; skip PyO3/NAPI/WASM bindings) → ProvenanceGate `direct_import` (Apache-2.0).
-2. Cargo feature `edgeparse-pdf` — **ON for MAS** (no dylib, no `build.rs` download, nothing to sign).
-3. Keep the FFI envelope unchanged (`{"ok":true,"markdown":…}`) → the entire Swift import UI + tests work as-is.
-4. **PDFKit fast-path in Swift** as the instant default for born-digital PDFs (first-party, zero deps); EdgeParse
-   for structure; **Vision OCR** (in-process) for scanned pages. Keep the liteparse seam behind its flag as a
-   reference/second-opinion (swappable — same envelope).
+**Build (reuse the entire existing UI — swap the engine behind the same FFI envelope):**
+1. Vendor **EdgeParse** (`agent_core/vendor/edgeparse/`, Rust core only) → ProvenanceGate `direct_import`. Cargo feature
+   `edgeparse-pdf` **ON for MAS** (no dylib, nothing to sign). Keep envelope `{"ok":true,"markdown":…}` → the wired Swift
+   import UI + tests work unchanged. Flip the UI flag `EPISTEMOS_LITEPARSE_PDF_V0` on.
+2. Vendor **unpdf** (`agent_core/vendor/unpdf/`, feature `parser-unpdf`) as the CJK/RTL/multilingual fallback.
+3. **Scanned lane = Apple Vision/PDFKit** (Swift `ScannedPdfMarkdownService` — `VNRecognizeTextRequest` over page
+   rasters, reuse EdgeParse geometry for block order). Keep **liteparse Pro-first** only (PDFium+Tesseract = notarization proof needed).
 
-**MAS/Pro:** EdgeParse + PDFKit + Vision = **MAS-safe, on by default.** Effort: **LOW** (swap, not rebuild).
+**★ PDF viewer + md COEXISTENCE (your exact idea — keep BOTH the original PDF and a parsed `.md`) `[INFERRED]`:**
+- **Data model, ZERO migration:** on import, write the **original `.pdf`** verbatim into `<vault>/Imported PDFs/` AND a
+  **parsed `.md` sibling**; the `.md` is the `SDPage` (file-first, as today); link them via the note's existing
+  `frontMatterData` JSON → `source_pdf: "Imported PDFs/<name>.pdf"`, `source_kind: "pdf"` (front-matter is already
+  arbitrary KV → no schema change). The `.md` = **edit + search truth** (flows into FTS/RRF/Spotlight/graph/editor);
+  the `.pdf` = **view truth** (immutable provenance, always re-renderable/re-parseable). They never fight.
+- **Default (pdf→md ON):** import → parse → **parsed note opens** + a persistent **"View original PDF"** button mounts
+  the native viewer on `source_pdf` (round-trips back to the note).
+- **2 settings:** `parsePDFOnImport` (default ON — OFF keeps only the viewable original, no `.md`) ·
+  `defaultOpenForImportedPDF` `{ parsedNote (default) | originalPDF }`.
+- **★ Plan boundary (no clash):** **Plan 2 (editor canonical) owns the PDF *VIEWER*** (PDFKit `PDFView`). **Plan 3 owns
+  the PARSE engine + this link/storage contract.** Plan 2 only *consumes* the resolved `source_pdf` URL to mount
+  `PDFView`; it must NOT invent its own PDF-import storage.
+
+**MAS/Pro:** EdgeParse + unpdf + Apple Vision/PDFKit = **MAS-safe, on by default**; liteparse = Pro-first. Effort:
+parser swap **LOW** (UI exists); coexistence **LOW** (one front-matter field + the "View original" button); viewer = Plan 2.
 
 ---
 
@@ -203,6 +221,26 @@ toggle (off by default) showing `http://127.0.0.1:<port>/mcp` + masked token + c
 Effort: **5a LOW-MEDIUM · 5b LOW · 5c LOW-MEDIUM** (transport + dispatcher already exist).
 
 ---
+
+## 6. Apple-native maximization (owner-confirmed keep; Pass-1c)
+
+The big ledger wanted "max out Apple-native frameworks." Baseline already in the app `[VERIFIED-CODE]`: NaturalLanguage,
+Vision (OCR), AVFoundation, Speech (STT), AVSpeech (TTS), Translation, ScreenCaptureKit, CoreSpotlight, AppIntents,
+CoreML. **Greenfield (absent):** PDFKit `PDFView`, QuickLook, VisionKit Live Text, QuickLookThumbnailing, PencilKit.
+
+**Top-6 to prioritize (all MAS-safe, on-device, no new entitlement):**
+1. **PDFKit `PDFView` viewer** (high/low) — free: selection/copy, zoom, page nav, find, `PDFThumbnailView`, `PDFOutline`
+   TOC, `PDFAnnotation`. Wrap as `NSViewRepresentable`. **The view half of §1 coexistence — Plan 2 owns it.**
+2. **QuickLook** (high/low) — `.quickLookPreview(_:)` previews ANY vault file (PDF/docx/iWork/images/csv) with zero
+   per-format code. One file-row action covers dozens of types.
+3. **Vision OCR + VisionKit Live Text** (high/med) — Vision (`VNRecognizeTextRequest`) already exists; add VisionKit
+   `ImageAnalyzer` + `ImageAnalysisOverlayView` for selectable Live-Text on image/PDF previews → scanned PDFs become
+   first-class searchable.
+4. **QuickLookThumbnailing** (med/low) — `QLThumbnailGenerator` real thumbnails for PDF/file rows + the Imported-PDFs folder.
+5. **Translation expansion** (med/low) — already wired in notes; extend to PDF selections + chat messages (near-zero effort, on-device).
+6. **AppIntents / Spotlight for PDFs** (med/low) — expose "Open/OCR/Preview file" as Shortcuts/Siri actions; index imported PDFs in system Spotlight.
+
+Deferred (still MAS-safe): PencilKit/`PDFAnnotation` markup, FileProvider. Needs-new-usage-string (out of scope): PhotosUI, EventKit, camera/document-scan.
 
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI). 
