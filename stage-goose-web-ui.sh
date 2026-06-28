@@ -497,7 +497,43 @@ async function loadProviderCatalogSurface(): Promise<ProviderDetails[]> {
   return providerCatalogSurfacePromise;
 }
 
-export async function getAcpProviders(): Promise<ProviderDetails[]> {
+// Overlay the LIVE per-provider configured status from Goose onto the roster.
+// The catalog/setup surface builders intentionally start is_configured:false
+// because Goose only reports "configured" via providers/config/status. Without
+// this overlay every provider shows "Configure" (no green check) and
+// SwitchModelModal.filter(p => p.is_configured) returns an empty provider list,
+// so no model can be picked. Fetched fresh each call so a freshly-entered key
+// flips the green check on immediately. 100% live from Goose; on any failure we
+// fall back to the un-overlaid roster (marker: config-status-overlay).
+async function overlayConfiguredStatus(providers: ProviderDetails[]): Promise<ProviderDetails[]> {
+  try {
+    const statuses = await withAcpTimeout(
+      readAcpProviderConfigStatuses([]),
+      8000,
+      'Goose ACP provider configured-status overlay'
+    );
+    if (statuses.length === 0) {
+      return providers;
+    }
+    const byId = new Map(statuses.map((status) => [status.providerId, status.isConfigured]));
+    let overlaid = 0;
+    const merged = providers.map((provider) => {
+      const configured = byId.get(provider.name);
+      if (configured === undefined || configured === provider.is_configured) {
+        return provider;
+      }
+      overlaid += 1;
+      return { ...provider, is_configured: configured };
+    });
+    recordProviderInventoryEvent('config-status-overlay', String(overlaid));
+    return merged;
+  } catch (error: unknown) {
+    recordProviderInventoryEvent('config-status-overlay-error', acpErrorMessage(error));
+    return providers;
+  }
+}
+
+async function getAcpProvidersBase(): Promise<ProviderDetails[]> {
   if (providerInventoryCache) {
     return providerInventoryCache;
   }
@@ -530,6 +566,11 @@ export async function getAcpProviders(): Promise<ProviderDetails[]> {
     }
     return await inventory;
   }
+}
+
+export async function getAcpProviders(): Promise<ProviderDetails[]> {
+  const base = await getAcpProvidersBase();
+  return overlayConfiguredStatus(base);
 }
 
 export async function listAcpProviderCatalog(format?: string | null): Promise<ProviderCatalogEntry[]> {
@@ -719,6 +760,24 @@ export async function authenticateAcpProviderConfig(providerId: string): Promise
 
 export async function listAcpProviderModels(providerId: string): Promise<ModelInfo[]> {
   const client = await getAcpClient();
+  // Prefer the provider INVENTORY (providers/list), whose models carry live
+  // per-model capabilities (reasoning) + context_limit from Goose's canonical
+  // model registry. The supported-models list returns names ONLY (no
+  // capabilities), so it cannot drive the Thinking Effort selector (gated on
+  // reasoning===true) or the context-window indicator denominator. Marker:
+  // epistemos-acp-inventory-model-capabilities.
+  try {
+    const inventory = await client.goose.providersList_unstable({ providerIds: [providerId] });
+    const entries = (inventory.entries ?? []) as ProviderInventoryEntry[];
+    const entry = entries.find((candidate) => candidate.providerId === providerId) ?? entries[0];
+    const models = (entry?.models ?? []).map(modelInfo);
+    if (models.length > 0) {
+      return models;
+    }
+  } catch (error: unknown) {
+    recordProviderInventoryEvent('inventory-models-error', `${providerId}:${acpErrorMessage(error)}`);
+  }
+  // Fallback: capability-less supported-models name list if the inventory is empty.
   const response = await client.goose.providersSupportedModelsList_unstable({ providerId });
   return ((response.models ?? []) as string[]).map((model) => ({
     name: model,
@@ -827,6 +886,16 @@ export async function saveAcpSessionModel(sessionId: string, modelId: string): P
 export async function saveAcpSessionProvider(sessionId: string, providerId: string): Promise<void> {
   const client = await getAcpClient();
   await client.setSessionConfigOption({ sessionId, configId: 'provider', value: providerId });
+}
+
+export async function saveAcpSessionThinkingEffort(sessionId: string, effort: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.setSessionConfigOption({ sessionId, configId: 'thinking_effort', value: effort });
+}
+
+export async function saveAcpSessionMode(sessionId: string, mode: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.setSessionConfigOption({ sessionId, configId: 'mode', value: mode });
 }
 TS
 
@@ -2098,6 +2167,7 @@ import {
   saveAcpProviderDefaults,
   saveAcpSessionModel,
   saveAcpSessionProvider,
+  saveAcpSessionThinkingEffort,
 } from '../acp/providers';`;
 if (!source.includes("../acp/providers")) {
   if (!source.includes(importAnchor)) {
@@ -2124,10 +2194,14 @@ replaceRequired(
         }`,
   `        if (sessionId) {
           if (USE_ACP_CHAT) {
-            if (providerName && providerName !== currentProvider) {
+            if (providerName) {
               await saveAcpSessionProvider(sessionId, providerName);
             }
             await saveAcpSessionModel(sessionId, modelName);
+            const thinkingEffort = model.request_params?.thinking_effort;
+            if (thinkingEffort) {
+              await saveAcpSessionThinkingEffort(sessionId, String(thinkingEffort));
+            }
           } else {
             const response = await updateAgentProvider({
               body: {
