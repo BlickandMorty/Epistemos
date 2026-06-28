@@ -542,3 +542,28 @@ ProviderCatalog 0.45s, SessionLifecycle 4.2s, CustomCapability 0.79s, WebPrompt
 (the live suites run DEBUG and still resolve via the retained checkout candidates).
 Thermonuclear backlog now: 7 batch + [2] + [11] fixed; 22 deferred (P3 internal,
 incl. [11] Electron remainder under [10]).
+
+## Addendum 2026-06-28 (PM #4) — comprehensive §7 re-proof + owner-requirement locks
+
+Every Phase-0 claim re-proven green together after the full session's changes:
+- **Focused suite sweep — 45 tests / 8 suites, 2.78s** (log
+  `build/goose-phase0-claude-2026-06-28/focused-reproof-2026-06-28-170419.log`):
+  `Goose runtime supervisor` (GOLDEN RULE `gooseSwiftSurfaceDoesNotHardcodeProviderModelRoster`,
+  port-release race, both cwd `#if DEBUG` guards, owner status-language lock),
+  `Goose Web UI staging` (39-assertion parity gate), `Goose WebView boot shim`
+  (narrow affordances), `Goose ACP client` + `golden fixtures` +
+  `session lifecycle client` + `dynamic custom ACP client` (codec / no-silent-drop),
+  `Goose provider key bridge` (Keychain, never UserDefaults).
+- **Live sweep — 5/5, 41.8s** (prior addendum) covers catalog-from-Goose-only,
+  session lifecycle, custom capability, prompt->end_turn, all owner routes render
+  with their real ACP method + forbidden error-boundary text.
+
+**All owner-stated requirements are now individually test-guarded** — a regression
+fails a test instead of reaching the owner (the "deep hardened strict tests" mandate):
+exact "native ACP Goose ready (...)" / "custom ACP Goose ready" panel language
+(`detailsPanelUsesExactOwnerStatusLanguage`); Settings->Auth no "Failed to load
+provider credentials" (WebRoute forbiddenText + providers/config/status); Models
+picker auto-populates from ACP catalog (WebRoute + providerCatalogProbe);
+Apps/Recipes/Sessions/Scheduler/Skills/Extensions render with their real ACP
+method and no error boundary (WebRoute per-route requiredText/requiredACPMethods/
+forbiddenText).
