@@ -583,3 +583,23 @@ catalog), `providersCustom{Create,Update,Delete}` (CRUD), `preferencesSave/Read`
 "source":"epistemos-stage-goose-web-ui","acpMode":true}`). Nothing-lost confirmed
 at the DEPLOYED-artifact level, not just the repo: the owner's running app carries
 all the parity grafts.
+
+## Addendum 2026-06-28 (PM #6) — deployed runtime version parity (binary SHA match)
+
+Confirmed the owner's app runs exactly the verified goose runtime — no drift
+between what is tested and what ships locally:
+- AppSupport `~/Library/Application Support/Epistemos/GooseRuntime/goose` (the
+  binary a normally-launched app resolves FIRST): goose **1.39.0**, sha256 prefix
+  `ef8b94594a7552bb`, 254,363,520 bytes.
+- Release binary the suites run against
+  (`.research-clones/work/goose/target/aarch64-apple-darwin/release/goose`):
+  **1.39.0**, same sha `ef8b94594a7552bb`, same size.
+- Binary bundled inside the built Debug `Epistemos.app/Contents/Resources/goose`:
+  **1.39.0**, same sha `ef8b94594a7552bb`.
+
+All three are byte-identical. Together with PM #5 (deployed Web UI bundle carries
+every ACP graft + valid resolver manifest), the owner's running app is proven to
+have the complete, current Goose surface at BOTH layers — runtime binary and
+staged Web UI — that the green test suites verify. This is nothing-lost / version
+parity at the deployed-artifact level, the strongest evidence achievable without
+the owner's interactive manual pass (Cmd-3 + provider OAuth).
