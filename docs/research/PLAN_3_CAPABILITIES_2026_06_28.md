@@ -66,11 +66,13 @@ parser swap **LOW** (UI exists); coexistence **LOW** (one front-matter field + t
 
 ---
 
-## 2. ~~Obscura~~ → BROWSER = browser-use (CUT Obscura, 2026-06-28)
-> **★ Obscura is CUT.** The browser + automation is now the vendored `browser-use` repo (Pro), with its web UI
-> reskinned in a WKWebView. browser-use drives **Chromium** (it is NOT a WKWebView and cannot become one). See §9 for
-> the real architecture + clone list. The Obscura Tier-1/Tier-2 codepacks are PARKED (kept for reference only).
-> The text below is the historical Obscura research — superseded.
+## 2. BROWSER = lite native tab (App Store) + browser-use (Pro automation)  [owner-confirmed 2026-06-28]
+> **★ Resolution:** (a) **KEEP a lite native WKWebView "Browser" tab for the MAS build** = the **Obscura Tier-1 code**
+> (`PLAN_3_OBSCURA_TIER1_CODEPACK`), kept as-is, just renamed/de-"Obscura"-fied — a real browser the user drives like
+> Safari, App-Store-safe. (b) **ADD `browser-use` (Pro)** for power automation — see §9 (Chromium robot, reskinned UI in
+> a webview, connected to Goose). The heavy native automation engine (old Obscura Tier 2/3) is **dropped** in favor of
+> browser-use. Tier-1 codepack = LIVE; Tier-2 native-robot codepack = parked (browser-use replaces it).
+> The historical Obscura research below is superseded by this split.
 
 **★ Pass-2 clarification (answers "why heavy / can I use it like a regular browser?"):** TWO different things got
 bundled under one name. **(A) A browser TAB is LIGHT and behaves like a normal browser** — a `WKWebView` IS WebKit,
@@ -301,10 +303,12 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   the mlx-vlm vision runtime, and DeerFlow. AI is consolidated to Goose; the app does NOT install/manage local models.
 - **🟢 NEW REQUIREMENT — every Plan-3 feature is a LANDING-PAGE BUTTON.** Each capability must be a button/shortcut on
   the landing page for one-tap access (e.g. a **"Browser"** button → Obscura). See §8.
-- **🔴 CUT — Obscura. Replaced by `browser-use` (2026-06-28).** Owner: "get rid of Obscura and just use browser-use."
-  So the browser + automation = vendor the real `browser-use` (Pro), host+reskin its web UI in a WKWebView. ⚠️ HONESTY:
-  browser-use's actual browser is **Chromium** (CDP) — it cannot be "turned into" a WKWebView; we reskin its *UI* in a
-  webview, the robot drives Chromium. See §2 + §9. Obscura Tier-1/Tier-2 codepacks = SUPERSEDED/parked.
+- **🟢 BROWSER (owner-confirmed 2026-06-28) = lite native WKWebView tab (App Store) + `browser-use` (Pro automation).**
+  Keep a lightweight native browser tab for the MAS build = the **Obscura Tier-1 WKWebView code, KEPT** (just drop the
+  "Obscura" heavy-automation name/framing → call it "Browser"). PLUS vendor the real **`browser-use`** (Chromium, Pro),
+  web UI reskinned in a webview, connected to Goose, for power automation. ⚠️ browser-use drives **Chromium** (not
+  WKWebView) — the lite tab is for human browsing; browser-use's Chromium is the robot. Native Tier-2 robot (Option B)
+  superseded by browser-use. See §2/§9.
 - **🔴 CUT — ColBERT.** Owner: "not using the model… I don't think I should use the model then." No local model →
   no ColBERT. §3 cut.
 - **⚠️ RECOVER — owner says scope got narrowed; HTML Workspace + "all the other things I wanted" must be re-included.**
@@ -357,10 +361,9 @@ cloning **~2 repos (EdgeParse, unpdf)** for MAS + 1 model + (optionally) browser
 
 ## 10. ⚠️ SCOPE RECOVERY (owner: "you forgot HTML Workspace + the other things I wanted")
 Owner flagged that Plan 3 got narrowed and dropped items they wanted to research+add. **Do NOT lose these again.**
-- **HTML Workspace** — the AI-driven live artifact/website surface (chat rewrites the surface into a webpage/explainer).
-  Currently assigned to **Plan 2 (editor canonical)**. Owner wants it remembered/included — DECISION PENDING: keep in
-  Plan 2 or pull into Plan 3 as a standalone capability. (It earned a keep in the curation + the owner liked the
-  code-editor-v2-handles-hand-edit / Workspace=AI-artifact split.)
+- **HTML Workspace — STAYS in Plan 2 (owner-confirmed 2026-06-28).** The AI-driven live artifact/website surface
+  remains in the editor canonical plan; Plan 3 just must not let it get lost. (Verify Plan 2 still carries it: the
+  code-editor-v2-handles-hand-edit / Workspace=AI-artifact split + "chat rewrites the surface into a webpage/explainer".)
 - **"All the other things"** — owner has a wish-list beyond the current set that the curation compressed. **ACTION:**
   re-scan the full conversation + `LEDGER_CURATION_2026_06_28.md` for every owner-wanted item and present a recovered
   list for confirm. Candidates already surfaced but under-tracked: web clipper (Plan 2), Eidos→chat panel (§4),
