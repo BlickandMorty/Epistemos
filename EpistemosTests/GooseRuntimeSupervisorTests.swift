@@ -279,6 +279,27 @@ struct GooseRuntimeSupervisorTests {
         #expect(guardCount >= 3, "expected cancellation guards in loadWhenReady + loadGooseUIWhenReady + native ACP loop; found \(guardCount)")
     }
 
+    @Test("ACP reconnect budget resets on a successful connect (transient flaps don't exhaust the lifetime)")
+    func acpReconnectBudgetResetsOnSuccessfulConnect() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseACPEventBridge.swift")
+        // The handshake-retry budget must bound CONSECUTIVE failures, not lifetime
+        // reconnects: a successful initialize MUST reset the attempt counter, else a
+        // long-lived connection that flaps `attempts` times over its life permanently
+        // fail()s and stops listening (killing native overlays/diagnostics) even though
+        // every reconnect succeeded. Assert the reset lands after a successful connect
+        // and before the receive loop, and that terminal failure is gated on the bound.
+        #expect(source.contains("if attempt >= attempts {"))
+        #expect(source.contains("markConnected(agent: response.agentInfo)"))
+        if let mc = source.range(of: "markConnected(agent: response.agentInfo)") {
+            let afterConnect = source[mc.upperBound...]
+            #expect(afterConnect.contains("attempt = 0"), "the attempt counter must reset to 0 after a successful connect")
+            if let resetRange = afterConnect.range(of: "attempt = 0"),
+               let receiveRange = afterConnect.range(of: "client.receiveEvent()") {
+                #expect(resetRange.lowerBound < receiveRange.lowerBound, "the reset must precede the receive loop")
+            }
+        }
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!
