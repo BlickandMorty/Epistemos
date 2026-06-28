@@ -55,6 +55,15 @@ strictness as the Goose plan's R-CODEREVIEW:
   types + highlights + saves (the textarea "works" headlessly too, it just doesn't highlight); commit deletions
   separately (easy revert). **SCOPE: code editor ONLY.** The NOTE editor (Epdoc/TipTap) and Prose/TK2 are NEVER
   touched. This matches the R-CODEREVIEW deletion guardrail: provably-dead + not-in-flight + verified-replacement.
+  - **L3-CHROME (owner 2026-06-28): MarkEdit replaces the code EDITOR engine, not the chrome wholesale — chrome
+    is MODE-SPLIT over ONE shared CoreEditor engine.** **MD files** render in MarkEdit's chrome **VERBATIM**
+    (perfectly the same as the standalone MarkEdit.app — its toolbar/panels/Settings — with optional Epistemos
+    *additive* upgrades only, never subtractions). **CODE files** keep Epistemos's own good `CodeEditorView`
+    chrome (top bar file/lang/Ln-Col, Find, Go-to-Line, Outline, LSP-hover) — it may look "slightly different on
+    top," which is intended. **The preview button stays:** the old code editor's Live-Preview toggle →
+    `HTMLWorkspacePreviewView` ("the preview button like html has") is LOAD-BEARING and survives the swap on the
+    code path (engine-agnostic; MD mode uses MarkEdit's own Previewer instead). Canonical detail =
+    `MARKEDIT_EMBED_CODEPACK §3`.
 
 ### ⏳ RECOMMENDED — audit-verified best, pending the owner's final nod (not blocking)
 - **R1. Grammar = Obsidian/GFM** (`> [!KIND]` callouts · ` ```chart ` · `[[wikilink]]`). Follows directly from
@@ -63,9 +72,10 @@ strictness as the Goose plan's R-CODEREVIEW:
 - **R2. Minichat = native SwiftUI over the Goose ACP bridge + an "Open in Goose" webview escape hatch.**
   Maximizes nativeness (the owner's through-line) + inline per-edit approval; the webview button still gives
   "full web Goose." Honestly diverges from the owner's "native webview shell" phrasing — surfaced, not assumed.
-- **R3. Code-engine = Option A** (keep Epistemos's code-editor chrome, swap the engine to MarkEdit CoreEditor =
-  code editor v2; graft native Find/FontPicker/Statistics). Per L3 the 3 old code-editor files are DELETED once v2
-  is runtime-verified (code-editor scope only).
+- **R3. Code-engine = ONE CoreEditor engine, MODE-SPLIT chrome (L3-CHROME).** CODE files = Option A (keep
+  Epistemos's code-editor chrome incl. the preview button, swap the engine to MarkEdit CoreEditor); MD files =
+  MarkEdit chrome VERBATIM (Option B for markdown). Per L3 the 3 old code-editor files are DELETED once v2 is
+  runtime-verified (code-editor scope only).
 - **R4. `@codemirror/merge`** = the code-lane diff engine (it was only wrong for the *note* editor). Settled.
 - **R5. Edit-provenance = the existing Swift `AgentNoteEditProvenance` → EventStore spine**, enriched with an
   `EditClaim` metadata struct. The Rust `ClaimLedger` FFI is read-only today and Phase 8.E moved live provenance
@@ -78,7 +88,7 @@ strictness as the Goose plan's R-CODEREVIEW:
 | Surface | Engine | Role | Status |
 |---|---|---|---|
 | **Note editor = Epdoc** | TipTap/ProseMirror in WKWebView | Tolaria-like WYSIWYG notes — the primary writing surface | LIVE, exists; revamp it |
-| **Code editor v2 = MarkEdit CoreEditor** | CodeMirror 6 in WKWebView (vendored from MarkEdit) | code/text files; REPLACES the old code editor (old files deleted after v2 runtime-verify, L3) | BUILD (replace) |
+| **Code editor v2 = MarkEdit CoreEditor** | CodeMirror 6 in WKWebView (vendored from MarkEdit) | code/text files; REPLACES the old code editor (old files deleted after v2 runtime-verify, L3). **Chrome = mode-split (L3-CHROME): CODE files keep Epistemos chrome + preview button; MD files get MarkEdit chrome verbatim** | BUILD (replace) |
 | **Prose = TK2** | TextKit 2 / `ProseTextView2` (native) | 🔒 frozen hard-gate, long-form/focus | UNTOUCHED |
 | **(old) current code editor** | `WebKitCodeEditorView` (textarea, highlighting disabled) + 2 dormant impls | DELETE after v2 verified (L3, code-editor scope only) | REMOVE post-verify |
 | **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; "another feature later" | EMBED, inert behind a flag |
@@ -133,10 +143,17 @@ highlighting DISABLED — see `MARKEDIT_EMBED_CODEPACK` §0); TextKit = best for
   no shift) — this is the "edit-on-preview" feel the owner wanted; no CodeMirror reveal-at-cursor needed.
 
 ## 4. Code editor (MarkEdit CoreEditor) — `MARKEDIT_EMBED_CODEPACK_2026_06_27.md`
-- **Swap (Option A, default):** replace `WebKitCodeEditorView` (textarea) with a `MarkEditCodeEditorRepresentable`
-  hosting CoreEditor (CM6) at `CodeEditorView.codeEditorSurface`; keep Epistemos's native chrome (top bar, Find,
-  Go-to-Line, Outline, Live-Preview, LSP-hover, theming, prefs). Then selectively graft MarkEdit's native
-  Find/FontPicker/Statistics/Goto-Line.
+- **★ MODE-SPLIT chrome over ONE CoreEditor engine (L3-CHROME, canonical = codepack §3).** MarkEdit's CoreEditor
+  (CM6) becomes the single engine under both modes; the chrome is selected by file type via an `isMarkdownDocument`
+  branch in `CodeEditorView`:
+  - **CODE files (Option A):** replace `WebKitCodeEditorView` (textarea) with `MarkEditCodeEditorRepresentable`
+    hosting CoreEditor at `CodeEditorView.codeEditorSurface`; KEEP Epistemos's native chrome — top bar, Find,
+    Go-to-Line, Outline, **the Live-Preview / HTML preview button (`HTMLWorkspacePreviewView`) — load-bearing,
+    preserve it**, LSP-hover, theming, prefs. The code top bar may look "slightly different"; that's intended.
+  - **MD files (Option B for markdown):** host MarkEdit's OWN `EditorViewController` with its FULL native chrome
+    VERBATIM (toolbar, Find/Replace, FontPicker, Statistics, Goto-Line, Previewer, live Settings) so a `.md` file
+    feels "perfectly the same as the MarkEdit app." Epistemos additions are additive only (theme tokens, grammar
+    affordances, Goose minichat seam) — never subtract MarkEdit polish.
 - **LSP:** keep the one-shot Swift `CodeEditorSemanticLSP` over `RustLSPTransport` (engine-agnostic); a CM6
   LSP-client extension bridged to `lspSendMessageJson`/`lspPollResponseJson` is a later slice.
 - **Code-lane diff:** `@codemirror/merge` (open Q5).
@@ -213,8 +230,11 @@ Stage gates; each is independently shippable where possible. Goose-dependent ite
 4. **[M] Note AI-diff** (`prosemirror-changeset` + suggest-changes) via `EpdocCopilotDockView`.
 5. **[M] MarkEdit embed + code-editor v2** (codepack 4b): vendor MarkEdit under `LocalPackages/MarkEdit/`
    (NOT `vendor/` — repo convention), `build-coreeditor-bundle.sh`, swap the engine to `MarkEditCodeEditorRepresentable`
-   (CoreEditor) at `CodeEditorView.codeEditorSurface` (Option A — keep Epistemos's code chrome), graft native
-   Find/FontPicker/Statistics; full Settings inert. **Then (L3) — after a MANUAL real-app verify of v2 (types +
+   (CoreEditor) at `CodeEditorView.codeEditorSurface`. **Chrome = MODE-SPLIT (L3-CHROME):** CODE files keep
+   Epistemos's code chrome INCLUDING the Live-Preview/HTML preview button (`HTMLWorkspacePreviewView` — preserve
+   it); MD files host MarkEdit's `EditorViewController` chrome VERBATIM (toolbar/panels/Previewer/Settings). One
+   CoreEditor engine, one `isMarkdownDocument` branch picks the chrome. Graft native Find/FontPicker/Statistics;
+   full Settings inert. **Then (L3) — after a MANUAL real-app verify of v2 (types +
    highlights + saves) — DELETE the 3 old code-editor files** (`WebKitCodeEditorView`/`CodeEditSourceEditor`/
    `LiveCodeEditorController`+`SwiftTreeSitterLiveHighlighter`), commit separately. NOTE editor (Epdoc) + Prose/TK2
    untouched.

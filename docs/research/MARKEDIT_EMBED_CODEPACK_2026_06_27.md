@@ -128,24 +128,43 @@ struct MarkEditSettingsRepresentable: NSViewControllerRepresentable {
 ```
 "Closed-in / doesn't run yet" = compiles + renders behind a flag; no `Settings` scene / `Cmd+,` wired this pass.
 
-## 3. Code-editor swap — Option A (recommended) vs B
-- **Option A (RECOMMENDED): keep Epistemos's SwiftUI chrome, swap only the engine** textarea→CoreEditor.
-  Replace `WebKitCodeEditorView` with `MarkEditCodeEditorRepresentable` at `CodeEditorView.codeEditorSurface`
-  (~`:2332`); top bar/Find/Go-to-Line/Outline/Live-Preview/LSP-hover/theming/`@AppStorage` prefs unchanged.
+## 3. Code-editor swap — ★ CANONICAL: MODE-SPLIT CHROME over ONE shared CoreEditor engine
+★ OWNER DECISION (2026-06-28): "the markedit is replacing the old code EDITOR, not the chrome necessarily."
+MarkEdit's CoreEditor (CM6) becomes the ONE engine under BOTH modes. The CHROME differs by file type:
+
+- **MD files → MarkEdit chrome VERBATIM (Option B for markdown).** When the open document is markdown, host
+  MarkEdit's OWN `EditorViewController` with its FULL native chrome — toolbar, panels (Find/Replace, FontPicker,
+  Statistics, Goto-Line, TableOfContents), and the live Settings UI — so the MD experience is "perfectly the
+  same as the MarkEdit app." MarkEdit is purpose-built + already polished for markdown; do NOT re-skin it away.
+  Optional Epistemos UPGRADES are allowed (theme tokens, wikilink/`> [!KIND]`/```chart grammar affordances,
+  the Goose minichat seam) but they ADD to MarkEdit's chrome — they never subtract MarkEdit polish. The bar:
+  a MarkEdit user opening a `.md` file should feel zero regression vs the standalone MarkEdit.app.
+- **CODE files → Epistemos chrome (Option A for code).** When the open document is a non-markdown code file,
+  keep Epistemos's existing native SwiftUI chrome (`CodeEditorView` top bar: file/lang/Ln-Col, **the Live-Preview
+  toggle / HTML preview button**, Find, Go-to-Line, Outline, view-options, editor-settings, LSP-hover) and swap
+  ONLY the engine textarea→CoreEditor. The code chrome MAY look "slightly different in terms of the top bar" —
+  that is intended; it stays the good Epistemos code chrome, just on the real CM6 engine.
   ```swift
+  // CODE path — Option A: Epistemos chrome, CoreEditor engine.
   @ViewBuilder private var codeEditorSurface: some View {
       MarkEditCodeEditorRepresentable(text: $text,
           language: CodeEditorLanguage(epistemos: language), theme: ui.theme,
           onContentChange: { ensureContentDebouncer().enqueue($0) })
   }
   ```
-  Pro: real CM6 engine, zero loss of Epistemos chrome, minimal blast radius, LSP drops in cleanly.
-  Con: you don't auto-inherit MarkEdit's *native* Find/FontPicker/Statistics panels (keep Epistemos's).
-- **Option B: replace the whole surface with MarkEdit's `EditorViewController`** (gets MarkEdit's native
-  chrome) — but risks two competing chrome systems; Outline/Live-Preview/LSP-hover need re-hosting.
-- **Recommendation: land Option A now, then SELECTIVELY graft MarkEdit's native Find/Replace + FontPicker +
-  Statistics + Goto-Line** by calling the vendored MarkEdit panels from Epistemos's existing toolbar buttons.
-  Hybrid that lands as A and grows toward B — maximizes nativeness without surrendering Epistemos chrome.
+- **THE PREVIEW BUTTON IS LOAD-BEARING — preserve it.** The old code editor's `CodeEditorView` Live-Preview
+  toggle → `HTMLWorkspacePreviewView` (the "preview button like html has on the old code editor") MUST survive
+  the swap, unchanged, on the CODE path. It drives a WKWebView render of the current HTML/markdown buffer; it is
+  engine-agnostic (needs only `$text`), so it drops straight onto CoreEditor. Do NOT lose it. (MD mode gets
+  MarkEdit's own Previewer module instead; code mode keeps Epistemos's `HTMLWorkspacePreviewView`.)
+- **ROUTING SEAM:** a single `isMarkdownDocument` branch in `CodeEditorView` selects MD-chrome (mount
+  MarkEdit `EditorViewController`) vs code-chrome (mount `MarkEditCodeEditorRepresentable` inside the existing
+  SwiftUI chrome). ONE CoreEditor engine, TWO chrome wrappers — no two-competing-chrome drift because each file
+  type sees exactly one chrome.
+- **Background — the two raw options this decision fuses:** Option A = keep Epistemos chrome, swap engine
+  (now the CODE path). Option B = host MarkEdit's whole `EditorViewController` chrome (now the MD path). The
+  per-file-type split is what lets us take MarkEdit's verbatim MD polish AND Epistemos's code chrome without the
+  "two competing chromes in one surface" risk.
 - **LSP attach:** (1) keep the current one-shot Swift `CodeEditorSemanticLSP` over `RustLSPTransport` (engine-
   agnostic — needs only `$text`+cursor, which CoreEditor provides). (2) Later: a CM6 LSP-client extension in
   the CoreEditor bundle bridged to `lspSendMessageJson`/`lspPollResponseJson` (rust/swift only) — defer.
