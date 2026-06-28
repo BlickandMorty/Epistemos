@@ -47,13 +47,18 @@ struct GooseProviderMutationLiveIntegrationTests {
                 )
 
                 let before = try await client.readGooseProviderConfigStatus(providerIds: [candidate.providerId])
+                let configUpdates = candidate.configKeys.map {
+                    GooseACPProviderConfigFieldUpdate(
+                        key: $0,
+                        value: isolatedGooseProviderConfigValue(for: $0)
+                    )
+                }
                 let save = try await client.saveGooseProviderConfig(
                     providerId: candidate.providerId,
-                    fields: candidate.configKeys.map {
-                        .init(key: $0, value: "epistemos-phase0-live-proof")
-                    }
+                    fields: configUpdates
                 )
                 let read = try await client.readGooseProviderConfig(providerId: candidate.providerId)
+                let expectedFirstValue = try #require(configUpdates.first?.value)
                 let field = try #require(read.fields.first { $0.key == candidate.configKeys[0] })
                 let delete = try await client.deleteGooseProviderConfig(providerId: candidate.providerId)
                 let after = try await client.readGooseProviderConfigStatus(providerIds: [candidate.providerId])
@@ -64,7 +69,7 @@ struct GooseProviderMutationLiveIntegrationTests {
                 guard save.status.providerId == candidate.providerId, save.status.isConfigured else {
                     throw GooseLiveIntegrationError.runtimeFailed("\(candidate.providerId) did not report configured after save.")
                 }
-                guard field.value == "epistemos-phase0-live-proof" else {
+                guard field.value == expectedFirstValue else {
                     throw GooseLiveIntegrationError.runtimeFailed("\(candidate.configKeys[0]) did not round-trip through ACP config read.")
                 }
                 guard delete.status.providerId == candidate.providerId, !delete.status.isConfigured else {
@@ -267,4 +272,17 @@ func providerMutationCandidate(
         )
     }
     throw GooseLiveIntegrationError.runtimeFailed("No required non-secret non-OAuth provider config key available for live mutation proof.")
+}
+
+func isolatedGooseProviderConfigValue(
+    for key: String,
+    fallback: String = "epistemos-phase0-live-proof"
+) -> String {
+    let uppercased = key.uppercased()
+    if uppercased.contains("ENDPOINT")
+        || uppercased.contains("BASE_URL")
+        || uppercased.contains("HOST") {
+        return "https://example.invalid"
+    }
+    return fallback
 }

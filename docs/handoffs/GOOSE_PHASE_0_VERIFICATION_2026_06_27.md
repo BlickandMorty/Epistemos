@@ -320,3 +320,81 @@ Do not start Phase 1. Continue Phase 0 in this order:
    affordances; do not count handler-routed proof as real window proof.
 5. Re-run MAS/manual/distribution WRV and ask for owner Section 7 sign-off only
    after the checklist is green or explicitly amended.
+
+## 2026-06-28 Claude Deep-Hardening Verification (independent re-prove)
+
+Verifier: Claude deep-hardening continuation pass (loop/goal mode).
+Scope: Phase 0 only. Still NOT signed off. No Phase 1 / `Epistemos/Agent/*` /
+Paseo §15 work started. Touched only the six Goose Phase-0 files; left the
+concurrent Plan-2 editor (`Epdoc*`, `js-editor/*`) and Plan-3
+(`agent_core/vendor/*`) work untouched.
+
+### Package/artifact health — ROOT-CAUSED and fixed (non-destructive)
+
+The combined-sweep blocker codex hit (`yyjson` `NSCocoaErrorDomain 513`
+"couldn't be removed", `llama` binary target "could not be mapped", "Missing
+package product" for GRDB/NIO/AXorcist/etc.) was **not DerivedData corruption.**
+It was a **race against a concurrently-running agent `xcodebuild`** on the
+SHARED DerivedData (`Epistemos-ctkiyqxaarezsccbouumxcpfxvtl`): two `xcodebuild
+-resolvePackageDependencies` passes fighting over the same
+`SourcePackages/checkouts/yyjson`. The shared artifacts were already healthy by
+inspection (`llama.xcframework` complete, 41 checkouts present).
+
+Fix without any destructive reset: build the Goose sweep against an **isolated
+DerivedData** (`build/goose-phase0-claude-2026-06-28/DerivedData`), seeded by an
+instant **APFS copy-on-write clone** of the healthy shared `SourcePackages`
+(`cp -Rc`, 5.2 GB in 6.8 s, no network re-resolve, zero contention). This both
+defeats the race and yields a clean, reproducible proof tree. Reusable scripts:
+`build/goose-phase0-claude-2026-06-28/run-sweep.sh`.
+
+### Build + combined sweep — GREEN (the codex blocker is cleared)
+
+- `build-for-testing` on the isolated DD: `** TEST BUILD SUCCEEDED **`
+  (log `build/goose-phase0-claude-2026-06-28/build-for-testing.log`;
+  xctestrun `.../DerivedData/Build/Products/Epistemos_macosx26.4-arm64.xctestrun`).
+- Combined live sweep via `test-without-building` (isolated DD), real
+  `goose serve` 1.39.0 spawned per suite on isolated ports:
+  `** TEST EXECUTE SUCCEEDED **`, Swift Testing summary
+  **`✔ Test run with 5 tests in 5 suites passed after 45.168 seconds`**, zero
+  failures. The two `Executed 0 tests` lines are the empty XCTest portion; all
+  five are Swift Testing `@Test`s and genuinely executed (each wrote a live
+  proof log). The live harness FAILS LOUDLY when goose is absent
+  (`withLiveGooseRuntime` throws `runtimeFailed`), so these are not
+  mock-degrading vacuous passes.
+  - ✔ Goose provider catalog live integration (0.433 s)
+  - ✔ Goose session lifecycle live integration (4.206 s)
+  - ✔ Goose custom capability live integration (0.972 s)
+  - ✔ Goose Web prompt live integration (18.522 s)
+  - ✔ Goose Web route live integration (21.030 s)
+
+### Per-item re-prove table
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| A Build-for-testing + focused suites, no mock-degrade | PASS | `** TEST BUILD SUCCEEDED **`; 5/5 live Swift Testing tests; harness throws when goose absent |
+| B Gate 2 `goose serve` ACP WS reachable | PASS | every proof log shows `goose_acp_url=ws://127.0.0.1:<port>/acp?token=redacted` + live init |
+| B Gate 3 new→prompt→stream→result | PASS (thinking still provider-dependent) | session-lifecycle `prompt_stop_reason=end_turn`; web-prompt `prompt_response_count=16`, `last_prompt_stop_reason=end_turn`. `agent_thought_chunk` (thinking) remains codec-test-only / provider-dependent — unchanged from prior PARTIAL, not an owner-reported issue |
+| B Gate 4 staged Web UI boots via shim | PASS | web-route `phase0_live_webview_route_smoke=pass`, `goose_web_ui_index_script=./assets/index-Bs3GzQyB.js` |
+| C GOLDEN RULE catalog fidelity (live) | PASS | `catalog_source=goose_serve_acp_only`, `provider_count=65`, `provider_model_count=413`, `catalog_digest_sha256=67073642…` (matches prior pass byte-for-byte); `0` hardcoded provider/model literals in `Epistemos/Goose/*.swift`. `CredentialPool.swift` `["anthropic","openai",…]` is the legacy native-credential Keychain loader, NOT referenced by `Epistemos/Goose/`, not a Goose-surface roster — out of scope |
+| D No silent ACP drops | PASS | unknown methods → structured `GooseACPUnhandledDiagnostic` + JSON-RPC `-32601` (`GooseACPProtocol.swift:216`, `GooseACPEventBridge` append + `respondUnsupportedRequest`) |
+| E Security / keys in Keychain | PASS | provider secrets via `GooseProviderKeyBridge`/Keychain; only `UserDefaults` use is injected UI prefs in `GooseWebNativeAffordanceBridge` (recents/recipe-hashes), no secrets |
+| F Nothing-lost parity | PARTIAL (honest) | route smoke proves 8/8 owner-facing routes + `/` (web-prompt) + `permission` (permission proof). 4 secondary routes (`launcher`, `pair`, `shared-session`, `standalone-app`) are compatibility-preserved via the real Goose bundle, not independently smoke-asserted. OAuth success + true window affordances + MAS/WRV remain open (Gate 5) |
+
+### Owner-reported failures — all live-green in the route smoke
+
+`/tmp/epistemos-goose-phase0-webview-route-smoke.log` (`provider_markers_source=goose_acp`):
+- Providers auto-load / model picker → `provider_catalog_picker_acp_methods=_goose/unstable/providers/catalog/list`, markers `302.AI, Abacus, Alibaba…` sourced from ACP.
+- `/settings?section=auth` → `required_hits=Settings,Provider Credentials`, `seen_acp_methods=_goose/unstable/providers/config/status`, NO `Failed to load provider credentials`.
+- `/apps` → `Apps` + `Import App`/`No apps available` (no generic error).
+- `/sessions` → `Session History` + `CHATS`, `seen session/list`; session-lifecycle proof shows a prompted session persists (`persisted_listed_session=true`).
+- `/recipes`, `/skills`, `/schedules`, `/extensions`, `/settings?section=models` all render with their required ACP methods seen.
+- Recipe save-and-run "recipe not found" → reconciliation fires live:
+  `recipe_save_id=28a795cbb62c3bf0` ≠ `recipe_resolved_id=b1a1090bcd84d05e`,
+  then launches `recipe_session_id=20260628_1` on `azure_openai/gpt-4o`.
+
+### Still OPEN (Phase 0 stays unsigned)
+
+- Gate 3 live `agent_thought_chunk` (thinking) — provider-dependent; re-confirm or owner §7 amendment.
+- Gate 5: owner/browser OAuth success; true confirm-dialog/MCP-app window affordances; MAS honest-gate + manual/distribution WRV.
+- Manual app pass on the re-staged App-Support bundle (Cmd-3 details must read exactly `native ACP Goose ready (...)` / `custom ACP Goose ready`).
+- Owner §7 sign-off (the only mandatory pause).

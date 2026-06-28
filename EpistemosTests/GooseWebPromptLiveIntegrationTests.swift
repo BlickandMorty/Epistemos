@@ -81,6 +81,7 @@ private func submitGooseWebPrompt(
     page: WebPage,
     progressURL: URL
 ) async throws {
+    try await waitForGooseWebPromptInput(page: page, progressURL: progressURL)
     let result = try await page.callJavaScript(
         """
         const prompt = \(javaScriptStringLiteral(prompt));
@@ -139,6 +140,29 @@ private func submitGooseWebPrompt(
     guard probe.ok else {
         throw GooseLiveIntegrationError.runtimeFailed(probe.error ?? "WebView prompt submit failed.")
     }
+}
+
+@MainActor
+private func waitForGooseWebPromptInput(page: WebPage, progressURL: URL) async throws {
+    var lastProbe: GooseWebPromptProbe?
+    for attempt in 0..<120 {
+        let probe = try await readGooseWebPromptProbe(page)
+        lastProbe = probe
+        if attempt % 10 == 0 || probe.inputPresent {
+            appendLiveProgress(
+                "webview prompt input attempt=\(attempt) present=\(probe.inputPresent) href=\(probe.href) text_chars=\(probe.textLength) sample=\(probe.bodyText.prefix(180))",
+                to: progressURL
+            )
+        }
+        if probe.inputPresent {
+            return
+        }
+        try await Task.sleep(nanoseconds: 100_000_000)
+    }
+    let summary = lastProbe.map {
+        "href=\($0.href) text_chars=\($0.textLength) sample=\($0.bodyText.prefix(260))"
+    } ?? "no prompt input probe"
+    throw GooseLiveIntegrationError.runtimeFailed("Timed out waiting for WebView chat input: \(summary).")
 }
 
 @MainActor

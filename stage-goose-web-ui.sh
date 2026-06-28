@@ -2535,6 +2535,101 @@ if (fileDropSource.includes(pathAnchor)) {
 fs.writeFileSync(fileDropPath, fileDropSource);
 NODE
 
+RECIPE_MANAGEMENT="$WORK_ROOT/ui/desktop/src/recipe/recipe_management.ts"
+node - "$RECIPE_MANAGEMENT" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+if (!source.includes('EPISTEMOS_ACP_RECIPE_ID_RECONCILIATION_MARKER')) {
+  const importAnchor = `import type { Recipe, RecipeManifest } from '.';
+`;
+  const helper = `${importAnchor}
+const EPISTEMOS_ACP_RECIPE_ID_RECONCILIATION_MARKER =
+  'epistemos-acp-recipe-id-reconciliation';
+
+type SavedRecipeResponse = { id: string; file_name: string; file_path: string };
+
+function normalizeRecipePath(path?: string | null): string {
+  if (!path) return '';
+  return path.startsWith('/private/var/') ? path.slice('/private'.length) : path;
+}
+
+function fileNameFromPath(path?: string | null): string {
+  if (!path) return '';
+  const parts = path.split(/[\\\\/]/);
+  return parts[parts.length - 1] || '';
+}
+
+function recordRecipeIDReconciliation(savedId: string, resolvedId: string): void {
+  const target = window as Window & {
+    __epistemosGooseRecipeIDReconciliation?: Array<{ savedId: string; resolvedId: string }>;
+  };
+  target.__epistemosGooseRecipeIDReconciliation ??= [];
+  target.__epistemosGooseRecipeIDReconciliation.push({ savedId, resolvedId });
+  target.__epistemosGooseRecipeIDReconciliation =
+    target.__epistemosGooseRecipeIDReconciliation.slice(-16);
+  void EPISTEMOS_ACP_RECIPE_ID_RECONCILIATION_MARKER;
+}
+
+async function reconcileSavedRecipeResponse(
+  recipe: Recipe,
+  response: SavedRecipeResponse
+): Promise<SavedRecipeResponse> {
+  try {
+    const savedPath = normalizeRecipePath(response.file_path);
+    const savedFileName = response.file_name || fileNameFromPath(response.file_path);
+    const recipes = await acpListRecipes();
+    const listed = recipes.find((entry) => normalizeRecipePath(entry.file_path) === savedPath)
+      ?? recipes.find((entry) =>
+        fileNameFromPath(entry.file_path) === savedFileName &&
+        entry.recipe?.title === recipe.title
+      );
+    if (!listed?.id) {
+      return response;
+    }
+    if (listed.id !== response.id) {
+      recordRecipeIDReconciliation(response.id, listed.id);
+    }
+    return {
+      id: listed.id,
+      file_name: response.file_name || fileNameFromPath(listed.file_path),
+      file_path: listed.file_path || response.file_path,
+    };
+  } catch (error) {
+    console.warn('Failed to reconcile saved recipe id through ACP list:', error);
+    return response;
+  }
+}
+`;
+  if (!source.includes(importAnchor)) {
+    throw new Error('recipe_management import anchor not found');
+  }
+  source = source.replace(importAnchor, helper);
+
+  const saveAnchor = `    const response = await acpSaveRecipe(stripEmptyExtensions(recipe), recipeId);
+    return {
+      id: response.id,
+      fileName: response.file_name,
+      filePath: response.file_path,
+    };`;
+  const saveReplacement = `    const response = await reconcileSavedRecipeResponse(
+      recipe,
+      await acpSaveRecipe(stripEmptyExtensions(recipe), recipeId)
+    );
+    return {
+      id: response.id,
+      fileName: response.file_name,
+      filePath: response.file_path,
+    };`;
+  if (!source.includes(saveAnchor)) {
+    throw new Error('recipe_management save response anchor not found');
+  }
+  source = source.replace(saveAnchor, saveReplacement);
+  fs.writeFileSync(path, source);
+}
+NODE
+
 RENDERER_CONFIG="$WORK_ROOT/ui/desktop/vite.renderer.config.mts"
 if ! grep -q "base: './'" "$RENDERER_CONFIG"; then
     node -e "const fs = require('fs'); const p = process.argv[1]; const source = fs.readFileSync(p, 'utf8'); fs.writeFileSync(p, source.replace('export default defineConfig({\n', \"export default defineConfig({\n  base: './',\n\"));" "$RENDERER_CONFIG"
@@ -2570,6 +2665,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "saveAcpSessionProvider(sessionId, providerName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
     ! grep -q "Changing provider for an active ACP session is not wired yet." "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
     grep -q "Provider catalog failed:" "$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
+    grep -q "epistemos-acp-recipe-id-reconciliation" "$WORK_ROOT/ui/desktop/src/recipe/recipe_management.ts"
     grep -q "base: './'" "$RENDERER_CONFIG"
     if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_TYPECHECK:-0}" = "1" ]; then
         (

@@ -57,7 +57,13 @@ struct GooseSettingsMutationLiveIntegrationTests {
                 _ = try await client.saveGooseProviderConfig(
                     providerId: candidate.providerId,
                     fields: candidate.configKeys.map {
-                        .init(key: $0, value: "epistemos-phase0-settings-live-proof")
+                        .init(
+                            key: $0,
+                            value: isolatedGooseProviderConfigValue(
+                                for: $0,
+                                fallback: "epistemos-phase0-settings-live-proof"
+                            )
+                        )
                     }
                 )
                 let defaults = try await client.saveGooseDefaults(providerId: candidate.providerId)
@@ -149,7 +155,10 @@ struct GooseSettingsMutationLiveIntegrationTests {
             _ = try await client.saveGooseProviderConfig(
                 providerId: candidate.providerId,
                 fields: candidate.configKeys.map {
-                    .init(key: $0, value: modelDefaultsConfigValue(for: $0))
+                    .init(key: $0, value: isolatedGooseProviderConfigValue(
+                        for: $0,
+                        fallback: "epistemos-phase0-model-defaults"
+                    ))
                 }
             )
             guard let modelID = candidate.defaultModelId,
@@ -220,16 +229,6 @@ struct GooseSettingsMutationLiveIntegrationTests {
             via: "goose serve ACP defaultsSave/read across restart"
         )
     }
-}
-
-private func modelDefaultsConfigValue(for key: String) -> String {
-    let uppercased = key.uppercased()
-    if uppercased.contains("ENDPOINT")
-        || uppercased.contains("BASE_URL")
-        || uppercased.contains("HOST") {
-        return "https://example.invalid"
-    }
-    return "epistemos-phase0-model-defaults"
 }
 
 private extension GooseACPPreferencesReadResponse {

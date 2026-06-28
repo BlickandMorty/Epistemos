@@ -38,19 +38,48 @@ struct GooseCustomCapabilityLiveIntegrationTests {
                 operation: { try await client.initialize() }
             )
 
+            let providers = try await client.listGooseProviders()
+            let statuses = try await client.readGooseProviderConfigStatus(providerIds: [])
+            let providerCandidate = try providerMutationCandidate(
+                from: providers.entries,
+                statuses: statuses.statuses
+            )
+            guard let modelID = providerCandidate.defaultModelId,
+                  !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw GooseLiveIntegrationError.runtimeFailed("\(providerCandidate.providerId) returned no default model for custom capability recipe proof.")
+            }
+            _ = try await client.saveGooseProviderConfig(
+                providerId: providerCandidate.providerId,
+                fields: providerCandidate.configKeys.map {
+                    .init(key: $0, value: isolatedGooseProviderConfigValue(
+                        for: $0,
+                        fallback: "epistemos-phase0-custom-capability"
+                    ))
+                }
+            )
+            _ = try await client.saveGooseDefaults(providerId: providerCandidate.providerId, modelId: modelID)
+            defer {
+                Task {
+                    _ = try? await client.deleteGooseProviderConfig(providerId: providerCandidate.providerId)
+                }
+            }
+
             let recipe = phase0Recipe()
             appendLiveProgress("before recipe save", to: progressURL)
             let savedRecipe = try await client.sendGooseCustomRequest(
                 method: "_goose/unstable/recipes/save",
                 params: .object(["recipe": recipe])
             )
-            let recipeId = try requiredString(savedRecipe, path: ["id"], label: "recipe save id")
+            let savedRecipeId = try requiredString(savedRecipe, path: ["id"], label: "recipe save id")
+            var recipeIdsForCleanup = Set([savedRecipeId])
             defer {
                 Task {
-                    _ = try? await client.sendGooseCustomRequest(
-                        method: "_goose/unstable/recipes/delete",
-                        params: .object(["id": .string(recipeId)])
-                    )
+                    for recipeId in recipeIdsForCleanup {
+                        _ = try? await client.sendGooseCustomRequest(
+                            method: "_goose/unstable/recipes/delete",
+                            params: .object(["id": .string(recipeId)])
+                        )
+                    }
                 }
             }
 
@@ -59,6 +88,12 @@ struct GooseCustomCapabilityLiveIntegrationTests {
                 method: "_goose/unstable/recipes/list",
                 params: .object([:])
             )
+            let recipeId = try canonicalRecipeID(
+                savedRecipe: savedRecipe,
+                recipeList: recipeList,
+                expectedTitle: "phase0-custom-capability-recipe"
+            )
+            recipeIdsForCleanup.insert(recipeId)
             let recipeYAML = try await client.sendGooseCustomRequest(
                 method: "_goose/unstable/recipes/to-yaml",
                 params: .object(["recipe": recipe])
@@ -151,7 +186,10 @@ struct GooseCustomCapabilityLiveIntegrationTests {
                 "phase0_live_acp_custom_capabilities=pass",
                 "goose_binary=\(binary.lastPathComponent)",
                 "goose_base_url=\(connection.baseURL.absoluteString)",
-                "recipe_id=\(recipeId)",
+                "recipe_save_id=\(savedRecipeId)",
+                "recipe_resolved_id=\(recipeId)",
+                "recipe_provider_id=\(providerCandidate.providerId)",
+                "recipe_model_id=\(modelID)",
                 "recipe_list_count=\(recipeList.objectValue?["recipes"]?.arrayValue?.count ?? -1)",
                 "recipe_yaml_chars=\(recipeYAMLText.count)",
                 "recipe_session_id=\(recipeSession.sessionId)",
@@ -223,6 +261,51 @@ private func requiredString(_ value: JSONValue, path: [String], label: String) t
         throw GooseLiveIntegrationError.runtimeFailed("Missing \(label) string.")
     }
     return string
+}
+
+private func canonicalRecipeID(
+    savedRecipe: JSONValue,
+    recipeList: JSONValue,
+    expectedTitle: String
+) throws -> String {
+    let savedId = try requiredString(savedRecipe, path: ["id"], label: "saved recipe id")
+    let savedFilePath = try requiredString(savedRecipe, path: ["file_path"], label: "saved recipe file path")
+    let savedFileName = try requiredString(savedRecipe, path: ["file_name"], label: "saved recipe file name")
+    let normalizedSavedPath = normalizeRecipePath(savedFilePath)
+
+    guard let entries = recipeList.objectValue?["recipes"]?.arrayValue else {
+        throw GooseLiveIntegrationError.runtimeFailed("Recipe list did not include recipes array.")
+    }
+
+    for entry in entries {
+        guard let object = entry.objectValue,
+              let id = object["id"]?.stringValue,
+              let filePath = object["file_path"]?.stringValue,
+              normalizeRecipePath(filePath) == normalizedSavedPath else {
+            continue
+        }
+        return id
+    }
+
+    for entry in entries {
+        guard let object = entry.objectValue,
+              let id = object["id"]?.stringValue,
+              let filePath = object["file_path"]?.stringValue,
+              URL(fileURLWithPath: filePath).lastPathComponent == savedFileName,
+              object["recipe"]?.objectValue?["title"]?.stringValue == expectedTitle else {
+            continue
+        }
+        return id
+    }
+
+    return savedId
+}
+
+private func normalizeRecipePath(_ path: String) -> String {
+    if path.hasPrefix("/private/var/") {
+        return String(path.dropFirst("/private".count))
+    }
+    return path
 }
 
 private func requiredExtensionEntry(named name: String, in response: JSONValue) throws -> GooseExtensionEntryProbe {
