@@ -19,9 +19,17 @@
     `source_pdf` (no migration); pdf→md ON by default; parsed note opens + "View original PDF" affordance; 2 settings.
     Plan-2 owns the PDFView VIEWER, Plan-3 owns the PARSE + the link/storage contract. Apple-native top-6 listed.
   - → folded into `PLAN_3_CAPABILITIES §1` (rewritten) + new `§6 Apple-native maximization`.
-- [ ] **Pass 2+** (queue): (2) ColBERT role given Goose-only AI — does it earn a place via vault SEARCH (independent
-  of chat AI) without muddying app-side AI? keep/cut honest recommendation. (3) Obscura clarify — why "heavy", how a
-  WebView browser behaves, usable-as-a-regular-browser? (4) re-scan `OWNER_REQUESTS_LEDGER_2026_06_18.md` for owner-
-  wanted items SKIPPED in the curation → add good ones to Plan 3 with rationale. (5) deepen Provenance moat + MCP/
-  extensibility into clone-ready code. (6) deepen Apple-native (the rest of the top-6). (7) harden + contradiction
-  sweep across all 3 plans (no duplication/clash). Each: clone targets + real code snippets.
+- [x] **Pass 2 DONE** (2026-06-28): ColBERT + Obscura + ledger re-scan.
+  - **ColBERT → KEEP search-only, CUT tool-selector.** Use (b) tool-select = app-side-agent plumbing (no live Swift
+    wiring today; dies with Goose consolidation) → cut. Use (a) vault rerank = pure search infra on the *data* side of
+    the MCP boundary → keep, deferred, flag-gated; sharpens Goose's MCP vault queries without touching its AI. Resolves
+    the "don't muddy app-side AI" concern. → folded into §3.
+  - **Obscura → clarified + tiered.** WKWebView IS Safari engine → a browser tab is LIGHT + behaves like a normal
+    browser (T1, MAS-safe); only the agentic automation+stealth is HEAVY (T3, Pro). Recommend START at T1 (visible
+    usable browser fast). Honest limits: no Safari extensions, some DRM video, isolated cookies. → folded into §2.
+  - **Ledger re-scan** found owner-wanted skipped items → added §7 (arXiv pull, meeting/STT note, Eidos→chat) +
+    an owner-decision queue (HF/BYOM marketplace, model stack, vision-lane, DeerFlow — hinge on Goose-only-AI).
+- [ ] **Pass 3+** (queue): (5) deepen Provenance moat (Fix A/B + hover card) + Extensibility/MCP into clone-ready code
+  with real snippets. (6) deepen Apple-native (rest of top-6: QuickLook/VisionKit/thumbnails wiring). (7) deepen the
+  PDF parser clone (EdgeParse vendoring + FFI + unpdf fallback, concrete). (8) Provenance fake-chip fix → real code.
+  (9) harden + contradiction sweep across all 3 plans (no duplication/clash). Each: clone targets + real code.
