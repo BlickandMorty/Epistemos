@@ -6,6 +6,7 @@
   "scripts": {
     "build": "webpack --mode production",
     "check:charts": "node scripts/check-chart-node.mjs",
+    "check:ai-diff": "node scripts/check-ai-diff.mjs",
     "check:code-block": "node scripts/check-code-block-command.mjs",
     "check:document-graph": "node scripts/check-document-graph.mjs",
     "check:markdown-input-rules": "node scripts/check-markdown-input-rules.mjs",
@@ -61,6 +62,7 @@
     "highlight.js": "11.11.1",
     "katex": "0.16.45",
     "lowlight": "3.3.0",
+    "prosemirror-changeset": "2.4.1",
     "tippy.js": "6.3.7",
     "tiptap-footnotes": "3.0.1"
   },

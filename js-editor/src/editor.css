@@ -520,6 +520,28 @@ html, body {
   outline-offset: 4px;
 }
 
+/* ─── AI diff preview ─────────────────────────────────────────────── */
+.ProseMirror .epdoc-ai-diff-delete {
+  color: color-mix(in srgb, var(--epdoc-text-color) 72%, transparent);
+  background: color-mix(in srgb, var(--epdoc-callout-danger-bg) 78%, transparent);
+  border-radius: 4px;
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--epdoc-callout-danger-border);
+}
+
+.ProseMirror .epdoc-ai-diff-insert {
+  display: inline;
+  margin: 0 0.18em;
+  padding: 0.08em 0.24em;
+  color: var(--epdoc-text-color);
+  background: color-mix(in srgb, var(--epdoc-callout-info-bg) 74%, transparent);
+  border: 1px solid color-mix(in srgb, var(--epdoc-callout-info-border) 42%, transparent);
+  border-radius: 5px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 /* ─── Task list checkboxes ────────────────────────────────────────── */
 .ProseMirror ul[data-type="taskList"] { list-style: none; padding: 0; }
 .ProseMirror ul[data-type="taskList"] > li { display: flex; gap: 8px; }

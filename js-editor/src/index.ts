@@ -13,7 +13,8 @@
 //   5. W7.9 custom         — EpdocChartNode, legacy inert diagrams
 //   6. W7.17.b chrome     — BubbleMenu, FloatingMenu, DragHandle
 //   7. W7.17.a bridge     — slash menu, caret-rect emitter
-//   8. CharacterCount     — drives the W7.17 stats badge
+//   8. Plan 2 Stage 4     — settled-batch AI diff preview
+//   9. CharacterCount     — drives the W7.17 stats badge
 //
 // Bridge contract documented in README.md + src/bridge/{outbound,inbound}.ts.
 
@@ -44,6 +45,7 @@ import { imageAssetBridge } from './extensions/image-asset-bridge';
 import { CalloutNode } from './extensions/callout-node';
 import { epdocMarkdownInputRules } from './extensions/markdown-input-rules';
 import { EpdocFindReplace } from './extensions/find-replace';
+import { EpdocAIDiff } from './extensions/ai-diff';
 import { CaretRectEmitter } from './extensions/caret-rect-emitter';
 import { buildSlashMenu } from './extensions/slash-menu';
 import { pasteClassifierBridge } from './extensions/paste-classifier-bridge';
@@ -161,6 +163,7 @@ const editor = new Editor({
       indentation: { style: 'space', size: 2 },
       markedOptions: { breaks: false, gfm: true },
     }),
+    EpdocAIDiff,
     EpdocFindReplace,
     BubbleMenu.configure({ pluginKey: 'epdocBubble' }),
     FloatingMenu.configure({ pluginKey: 'epdocFloating' }),

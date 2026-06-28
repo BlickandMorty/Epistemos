@@ -22,6 +22,7 @@ import {
   replaceCurrent,
   setFindQuery,
 } from '../extensions/find-replace';
+import { epdocAIDiffIsPreviewCommand } from '../extensions/ai-diff';
 
 export interface InboundCallbacks {
   /** Re-emit a bubble-menu request after the host accepts a slash choice. */
@@ -203,7 +204,7 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
       }
       const didRun = runEditorCommand(editor, name, args);
       if (didRun !== null) {
-        if (didRun) {
+        if (didRun && !epdocAIDiffIsPreviewCommand(name)) {
           postDocumentStats(editor);
           postDocumentSnapshot(editor);
         }
