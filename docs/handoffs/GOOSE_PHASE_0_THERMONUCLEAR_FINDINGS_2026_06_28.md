@@ -112,7 +112,19 @@ flakiness.
 
 *(fix_is_safe=True)*
 
-### [4] P2 · drift · `stage-goose-web-ui.sh`:1528-1556, 1590-1592, 1425-1443
+### [4] P2 · drift · `stage-goose-web-ui.sh`:1528-1556, 1590-1592, 1425-1443 — ✅ FIXED (2026-06-28 PM)
+
+**RESOLVED.** All five silent `if (source.includes(anchor)) { replace }` branches
+converted to the file's idempotency-guarded hard-fail discipline (marker
+`epistemos-acp-graft-hardfail`): DefaultSubmitHandler readConfig + getProviderModels,
+ProviderConfigurationModal OAuth + delete-cleanup, ProviderConfigForm onboarding
+OAuth. Upstream anchor drift now throws at stage time instead of silently reverting
+the control to its dead-in-ACP REST endpoint. Behavior-preserving on GREEN
+(`EPISTEMOS_GOOSE_UI_VALIDATE_*` exit 0 — all five anchors still match real
+upstream — re-staged to App Support end-to-end). Locked by the parity gate (+6
+assertions). Commit `9f9372dda`.
+
+
 
 **Issue:** Several ACP grafts use the silent pattern `if (source.includes(anchor)) { source = source.replace(...) }` with NO throw and NO post-build marker check, unlike the rest of the file which hard-fails on a missing anchor. Affected: ProviderConfigurationModal OAuth branch (1528) and provider-delete cleanup branch (1554), onboarding ProviderConfigForm OAuth branch (1590), and DefaultSubmitHandler readConfig/getProviderModels branches (1425/1441). If upstream Goose reformats any of those anchors, the build still succeeds and validation still passes, but the ACP branch is silently dropped and the code reverts to REST endpoints (configureProviderOauth / cleanupProviderCache / readConfig / getProvider
 
