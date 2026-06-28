@@ -176,6 +176,7 @@ final class GooseACPEventBridge {
                 attempt = 0
                 if let providerKeyBridge {
                     _ = await providerKeyBridge.syncConfiguredProviderKeys(to: client)
+                    await activateDefaultProviderIfNeeded(client: client)
                 }
                 while !Task.isCancelled {
                     handle(try await client.receiveEvent())
@@ -221,6 +222,45 @@ final class GooseACPEventBridge {
 
     private func markConnected(agent: GooseACPImplementation?) {
         status = .connected(agent: agent)
+    }
+
+    // Best-effort: when no default provider is set yet, auto-activate the SINGLE
+    // configured provider so a returning user lands ready-to-chat instead of on
+    // Goose's setup screen. Guarded to exactly-one-configured (never guesses among
+    // several) and fully non-fatal — any failure leaves the live connection intact
+    // and Goose's own onboarding in charge. Every value comes live from Goose ACP.
+    private func activateDefaultProviderIfNeeded(client: GooseACPClient) async {
+        do {
+            let defaults = try await client.readGooseDefaults()
+            if let providerId = defaults.providerId,
+               !providerId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return
+            }
+            let statusResponse = try await client.readGooseProviderConfigStatus(providerIds: [])
+            let configured = statusResponse.statuses.filter(\.isConfigured).map(\.providerId)
+            guard configured.count == 1, let providerId = configured.first else {
+                return
+            }
+            let modelId = try? await defaultModelID(for: providerId, client: client)
+            _ = try await client.saveGooseDefaults(providerId: providerId, modelId: modelId)
+        } catch {
+            // Non-fatal: never break the live connection over a default-activation miss.
+        }
+    }
+
+    private func defaultModelID(for providerId: String, client: GooseACPClient) async throws -> String? {
+        let response = try await client.listGooseProviders(providerIDs: [providerId])
+        for entry in response.entries {
+            guard let object = entry.objectValue,
+                  (object["providerId"]?.stringValue ?? object["provider_id"]?.stringValue) == providerId else {
+                continue
+            }
+            if let model = object["defaultModel"]?.stringValue ?? object["default_model"]?.stringValue,
+               !model.isEmpty {
+                return model
+            }
+        }
+        return nil
     }
 
     private func handle(_ event: GooseACPClientEvent) {
