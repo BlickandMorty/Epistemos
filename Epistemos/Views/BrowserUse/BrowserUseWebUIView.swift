@@ -4,22 +4,7 @@ import WebKit
 
 nonisolated enum BrowserUseLoopbackGuard {
     static func allows(url: URL?) -> Bool {
-        guard let url,
-              url.scheme?.lowercased() == "http",
-              let host = url.host?.lowercased(),
-              isLoopbackHost(host),
-              let port = url.port,
-              (1...65535).contains(port),
-              url.user == nil,
-              url.password == nil else {
-            return false
-        }
-        return true
-    }
-
-    private static func isLoopbackHost(_ host: String) -> Bool {
-        let normalized = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        return normalized == "127.0.0.1" || normalized == "localhost" || normalized == "::1"
+        BrowserUseLoopbackPolicy.allows(url: url)
     }
 }
 

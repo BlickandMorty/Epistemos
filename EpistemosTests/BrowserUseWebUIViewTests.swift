@@ -18,6 +18,10 @@ struct BrowserUseWebUIViewTests {
         #expect(!BrowserUseLoopbackGuard.allows(url: URL(string: "javascript:alert(1)")))
         #expect(!BrowserUseLoopbackGuard.allows(url: URL(string: "http://user:pass@127.0.0.1:7788/")))
         #expect(!BrowserUseLoopbackGuard.allows(url: URL(string: "http://127.0.0.1/")))
+
+        #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "127.0.0.1", port: 7788)?.absoluteString == "http://127.0.0.1:7788/")
+        #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[::1]", port: 7788)?.absoluteString == "http://[::1]:7788/")
+        #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "example.com", port: 7788) == nil)
     }
 
     @Test("web UI shell source keeps native Browser, Goose, Agent, and editor boundaries")
@@ -31,7 +35,7 @@ struct BrowserUseWebUIViewTests {
             "BrowserUseLoopbackWebView",
             "NSViewRepresentable",
             "WKWebsiteDataStore.nonPersistent()",
-            "BrowserUseLoopbackGuard.allows",
+            "BrowserUseLoopbackPolicy.allows",
             "supervisor.start",
             "supervisor?.stop()",
             "webView.stopLoading()",

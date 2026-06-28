@@ -238,6 +238,7 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseRuntimeLaunchPlan",
             "BrowserUseRuntimeReadiness",
             "BrowserUseEnvironmentFileWriter",
+            "BrowserUseLoopbackPolicy.loopbackURL",
             """
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             throw BrowserUseRuntimeSupervisorError.appStoreBuild
@@ -284,15 +285,12 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseRuntimeSupervisor",
             "BrowserUseLoopbackWebView",
             "WKWebsiteDataStore.nonPersistent()",
-            "BrowserUseLoopbackGuard.allows",
+            "BrowserUseLoopbackPolicy.allows",
             "supervisor.start",
             "supervisor?.stop()",
             "webView.stopLoading()",
             "navigationDelegate = nil",
             "uiDelegate = nil",
-            "127.0.0.1",
-            "localhost",
-            "::1",
         ] {
             #expect(shell.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }

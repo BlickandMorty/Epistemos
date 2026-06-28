@@ -71,6 +71,26 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(!plan.environmentFileURL.path.contains("agent_core/vendor/browser-use"))
     }
 
+    @Test("readiness rejects non-loopback hosts before launch planning")
+    func readinessRejectsNonLoopbackHostsBeforeLaunchPlanning() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        for host in ["example.com", "127.0.0.1.evil.test", "0.0.0.0", ""] {
+            let readiness = BrowserUseRuntimeSupervisor.readiness(
+                paths: paths,
+                settings: .default,
+                secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+                processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+                host: host,
+                port: 7878
+            )
+
+            #expect(!readiness.isReady)
+            #expect(readiness.message.contains("invalid loopback address"))
+        }
+    }
+
     @Test("environment file writer stores launch-time env outside source with owner-only permissions")
     func environmentFileWriterStoresLaunchTimeEnvOutsideSourceWithOwnerOnlyPermissions() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -99,6 +119,7 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseEnvironmentFileWriter",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
+            "BrowserUseLoopbackPolicy.loopbackURL",
             """
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             throw BrowserUseRuntimeSupervisorError.appStoreBuild

@@ -279,7 +279,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             }
         }
 
-        guard let loopbackURL = loopbackURL(host: host, port: port) else {
+        guard let loopbackURL = BrowserUseLoopbackPolicy.loopbackURL(host: host, port: port) else {
             return .unavailable("browser-use Pro runtime has invalid loopback address \(host):\(port)")
         }
 
@@ -321,17 +321,4 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         ]
     }
 
-    private static func loopbackURL(host: String, port: Int) -> URL? {
-        guard !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              (1...65535).contains(port) else {
-            return nil
-        }
-
-        var components = URLComponents()
-        components.scheme = "http"
-        components.host = host
-        components.port = port
-        components.path = "/"
-        return components.url
-    }
 }
