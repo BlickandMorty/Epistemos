@@ -242,6 +242,31 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
+    @Test("chrome controller applies active marks from caretChanged payload")
+    func chromeControllerAppliesActiveMarksFromCaretChanged() {
+        let controller = EpdocEditorChromeController()
+        controller.handleBridgeMessage(.caretChanged(
+            rect: EpdocBridgeRect(x: 10, y: 20, width: 2, height: 18),
+            selection: EpdocBridgeSelection(from: 4, to: 9, isEmpty: false),
+            marks: EpdocBridgeActiveMarks(
+                isBoldActive: true,
+                isItalicActive: true,
+                isStrikeActive: false,
+                isCodeActive: false,
+                isHighlightActive: true,
+                activeHeadingLevel: 3
+            )
+        ))
+
+        #expect(controller.toolbarModel.isBoldActive)
+        #expect(controller.toolbarModel.isItalicActive)
+        #expect(!controller.toolbarModel.isStrikeActive)
+        #expect(!controller.toolbarModel.isCodeActive)
+        #expect(controller.toolbarModel.isHighlightActive)
+        #expect(controller.toolbarModel.activeHeadingLevel == 3)
+    }
+
+    @MainActor
     @Test("chrome controller stores JS image asset requests and completes the pending insert")
     func chromeControllerCompletesImageAssetRequests() {
         let controller = EpdocEditorChromeController()
@@ -315,8 +340,16 @@ nonisolated struct EpdocEditorBridgeTests {
             "type": "caretChanged",
             "rect": ["x": 12.5, "y": 34.0, "w": 1.0, "h": 18.0],
             "selection": ["from": 5, "to": 5, "empty": true],
+            "marks": [
+                "bold": true,
+                "italic": false,
+                "strike": true,
+                "code": false,
+                "highlight": true,
+                "heading": 2,
+            ],
         ]
-        guard case let .caretChanged(rect, selection) = EpdocBridgeMessage.decode(messageBody: body) else {
+        guard case let .caretChanged(rect, selection, marks) = EpdocBridgeMessage.decode(messageBody: body) else {
             #expect(Bool(false), "expected .caretChanged")
             return
         }
@@ -327,6 +360,26 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(selection.from == 5)
         #expect(selection.to == 5)
         #expect(selection.isEmpty == true)
+        #expect(marks.isBoldActive == true)
+        #expect(marks.isItalicActive == false)
+        #expect(marks.isStrikeActive == true)
+        #expect(marks.isCodeActive == false)
+        #expect(marks.isHighlightActive == true)
+        #expect(marks.activeHeadingLevel == 2)
+    }
+
+    @Test("caretChanged remains compatible with cached bundles that omit marks")
+    func caretChangedWithoutMarksDefaultsInactive() {
+        let body: [String: Any] = [
+            "type": "caretChanged",
+            "rect": ["x": 12.5, "y": 34.0, "w": 1.0, "h": 18.0],
+            "selection": ["from": 5, "to": 5, "empty": true],
+        ]
+        guard case let .caretChanged(_, _, marks) = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "expected .caretChanged")
+            return
+        }
+        #expect(marks == .inactive)
     }
 
     @Test("requestSlashMenu decodes query + anchor")
@@ -367,6 +420,40 @@ nonisolated struct EpdocEditorBridgeTests {
         // caretChanged missing rect
         #expect(EpdocBridgeMessage.decode(messageBody: ["type": "caretChanged",
                                                        "selection": ["from": 0, "to": 0, "empty": true]]) == nil)
+        // caretChanged with malformed provided marks
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "caretChanged",
+                                                       "rect": ["x": 0, "y": 0, "w": 0, "h": 0],
+                                                       "selection": ["from": 0, "to": 0, "empty": true],
+                                                       "marks": ["bold": "true"]]) == nil)
+        // caretChanged with incomplete provided marks
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "caretChanged",
+                                                       "rect": ["x": 0, "y": 0, "w": 0, "h": 0],
+                                                       "selection": ["from": 0, "to": 0, "empty": true],
+                                                       "marks": ["bold": true]]) == nil)
+        // caretChanged with non-integral heading
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "caretChanged",
+                                                       "rect": ["x": 0, "y": 0, "w": 0, "h": 0],
+                                                       "selection": ["from": 0, "to": 0, "empty": true],
+                                                       "marks": [
+                                                           "bold": false,
+                                                           "italic": false,
+                                                           "strike": false,
+                                                           "code": false,
+                                                           "highlight": false,
+                                                           "heading": 2.5,
+                                                       ]]) == nil)
+        // caretChanged with bool heading
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "caretChanged",
+                                                       "rect": ["x": 0, "y": 0, "w": 0, "h": 0],
+                                                       "selection": ["from": 0, "to": 0, "empty": true],
+                                                       "marks": [
+                                                           "bold": false,
+                                                           "italic": false,
+                                                           "strike": false,
+                                                           "code": false,
+                                                           "highlight": false,
+                                                           "heading": true,
+                                                       ]]) == nil)
         // requestSlashMenu missing query
         #expect(EpdocBridgeMessage.decode(messageBody: ["type": "requestSlashMenu",
                                                        "anchor": ["x": 0, "y": 0, "w": 0, "h": 0]]) == nil)

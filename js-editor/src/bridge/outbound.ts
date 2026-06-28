@@ -51,10 +51,20 @@ export interface SelectionPayload {
   from: number; to: number; empty: boolean;
 }
 
+export interface ActiveMarksPayload {
+  bold: boolean;
+  italic: boolean;
+  strike: boolean;
+  code: boolean;
+  highlight: boolean;
+  heading: number | null;
+}
+
 export interface CaretChangedMessage extends OutboundMessageBase {
   type: 'caretChanged';
   rect: RectPayload;
   selection: SelectionPayload;
+  marks: ActiveMarksPayload;
 }
 
 export interface RequestSlashMenuMessage extends OutboundMessageBase {

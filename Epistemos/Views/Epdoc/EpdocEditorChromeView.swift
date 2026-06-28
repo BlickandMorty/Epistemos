@@ -294,11 +294,13 @@ public final class EpdocEditorChromeController {
             toolbarModel.characterCount = characterCount
         case .error:
             break  // host logs; chrome just keeps rendering
-        case let .caretChanged(_, selection):
-            // Update mark-active state via a side channel (the JS
-            // side currently doesn't emit per-mark activity per
-            // caret; W7.17.b runtime adds that). For now we only
-            // toggle the toolbar's "selection collapsed" state.
+        case let .caretChanged(_, selection, marks):
+            toolbarModel.activeHeadingLevel = marks.activeHeadingLevel
+            toolbarModel.isBoldActive = marks.isBoldActive
+            toolbarModel.isItalicActive = marks.isItalicActive
+            toolbarModel.isStrikeActive = marks.isStrikeActive
+            toolbarModel.isCodeActive = marks.isCodeActive
+            toolbarModel.isHighlightActive = marks.isHighlightActive
             if selection.isEmpty {
                 bubbleMenuSelection = nil
                 bubbleMenuAnchor = nil
@@ -415,6 +417,10 @@ public struct EpdocEditorChromeView: View {
                !selection.isEmpty {
                 EpdocBubbleMenuView(
                     selectedText: controller.bubbleMenuSelectedText,
+                    isBoldActive: controller.toolbarModel.isBoldActive,
+                    isItalicActive: controller.toolbarModel.isItalicActive,
+                    isHighlightActive: controller.toolbarModel.isHighlightActive,
+                    isCodeActive: controller.toolbarModel.isCodeActive,
                     onCommand: controller.dispatch
                 )
                 .position(x: anchor.x, y: max(0, anchor.y - 30))

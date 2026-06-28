@@ -148,11 +148,12 @@ const editor = new Editor({
     FloatingMenu.configure({ pluginKey: 'epdocFloating' }),
     DragHandle,
     CaretRectEmitter.configure({
-      onChange: (rect, selection) => {
+      onChange: (rect, selection, marks) => {
         postBridge({
           type: 'caretChanged',
           rect: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
           selection,
+          marks,
         });
       },
     }),

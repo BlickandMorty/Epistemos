@@ -11,12 +11,12 @@
 // (paste, bulk-replace, undo) doesn't flood the bridge.
 
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
-import type { RectPayload, SelectionPayload } from '../bridge/outbound';
+import type { ActiveMarksPayload, RectPayload, SelectionPayload } from '../bridge/outbound';
 
 export interface CaretRectEmitterOptions {
-  onChange?: (rect: DOMRect, selection: SelectionPayload) => void;
+  onChange?: (rect: DOMRect, selection: SelectionPayload, marks: ActiveMarksPayload) => void;
 }
 
 const CARET_RECT_KEY = new PluginKey('epdocCaretRect');
@@ -63,7 +63,9 @@ export const CaretRectEmitter = Extension.create<CaretRectEmitterOptions>({
 
     function emit(view: EditorView): void {
       const { from, to, empty } = view.state.selection;
-      const key = `${from}:${to}:${empty}`;
+      const marks = activeMarks(view.state);
+      const selectionKey = `${from}:${to}:${empty}`;
+      const key = `${selectionKey}:${activeMarksKey(marks)}`;
       if (key === lastEmittedKey) return;
       lastEmittedKey = key;
 
@@ -79,7 +81,51 @@ export const CaretRectEmitter = Extension.create<CaretRectEmitterOptions>({
         Math.max(end.bottom - start.top, 16),   // line-height floor
       );
       const selection: SelectionPayload = { from, to, empty };
-      onChange!(rect, selection);
+      onChange!(rect, selection, marks);
     }
   },
 });
+
+function activeMarks(state: EditorState): ActiveMarksPayload {
+  return {
+    bold: markIsActive(state, 'bold'),
+    italic: markIsActive(state, 'italic'),
+    strike: markIsActive(state, 'strike'),
+    code: markIsActive(state, 'code'),
+    highlight: markIsActive(state, 'highlight'),
+    heading: activeHeadingLevel(state),
+  };
+}
+
+function activeMarksKey(marks: ActiveMarksPayload): string {
+  return [
+    marks.bold,
+    marks.italic,
+    marks.strike,
+    marks.code,
+    marks.highlight,
+    marks.heading ?? 'p',
+  ].join(':');
+}
+
+function markIsActive(state: EditorState, markName: string): boolean {
+  const markType = state.schema.marks[markName];
+  if (!markType) return false;
+  const { from, to, empty, $from } = state.selection;
+  if (empty) {
+    return Boolean(markType.isInSet(state.storedMarks ?? $from.marks()));
+  }
+  return state.doc.rangeHasMark(from, to, markType);
+}
+
+function activeHeadingLevel(state: EditorState): number | null {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth);
+    if (node.type.name === 'heading') {
+      const level = Number(node.attrs.level);
+      return Number.isInteger(level) && level >= 1 && level <= 6 ? level : null;
+    }
+  }
+  return null;
+}

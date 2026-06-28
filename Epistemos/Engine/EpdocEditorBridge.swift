@@ -405,6 +405,36 @@ nonisolated public struct EpdocBridgeSelection: Sendable, Hashable {
     }
 }
 
+/// Active formatting state at the current selection. This is emitted
+/// by the JS editor so native chrome never has to guess which marks
+/// are active under the caret.
+nonisolated public struct EpdocBridgeActiveMarks: Sendable, Hashable {
+    public let isBoldActive: Bool
+    public let isItalicActive: Bool
+    public let isStrikeActive: Bool
+    public let isCodeActive: Bool
+    public let isHighlightActive: Bool
+    public let activeHeadingLevel: Int?
+
+    public static let inactive = EpdocBridgeActiveMarks()
+
+    public init(
+        isBoldActive: Bool = false,
+        isItalicActive: Bool = false,
+        isStrikeActive: Bool = false,
+        isCodeActive: Bool = false,
+        isHighlightActive: Bool = false,
+        activeHeadingLevel: Int? = nil
+    ) {
+        self.isBoldActive = isBoldActive
+        self.isItalicActive = isItalicActive
+        self.isStrikeActive = isStrikeActive
+        self.isCodeActive = isCodeActive
+        self.isHighlightActive = isHighlightActive
+        self.activeHeadingLevel = activeHeadingLevel
+    }
+}
+
 /// JS → Swift messages over the WKScriptMessageHandler bridge. The JS
 /// side posts these via `window.webkit.messageHandlers.epdoc.postMessage(...)`.
 nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
@@ -423,7 +453,11 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// W7.17 — caret position + selection state. Emitted on every
     /// transaction so the SwiftUI chrome (W7.17.a) can dock its
     /// floating panels next to the live document area.
-    case caretChanged(rect: EpdocBridgeRect, selection: EpdocBridgeSelection)
+    case caretChanged(
+        rect: EpdocBridgeRect,
+        selection: EpdocBridgeSelection,
+        marks: EpdocBridgeActiveMarks
+    )
     /// W7.17.b — slash menu activation. Emitted when `/` is typed
     /// + on every keystroke while the menu is visible. `query` is
     /// the substring after the `/` trigger; `anchor` is the caret
@@ -446,7 +480,7 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     ///   `{"type": "documentStatsChanged", "wordCount": 10, "characterCount": 80}`
     ///   `{"type": "editorReady"}`
     ///   `{"type": "error", "message": "..."}`
-    ///   `{"type": "caretChanged", "rect": {x,y,w,h}, "selection": {from,to,empty}}`
+    ///   `{"type": "caretChanged", "rect": {x,y,w,h}, "selection": {from,to,empty}, "marks": {...}}`
     ///   `{"type": "requestSlashMenu", "query": "...", "anchor": {x,y,w,h}}`
     ///   `{"type": "requestBubbleMenu", "selection": {from,to,empty}, "anchor": {x,y,w,h}}`
     ///   `{"type": "requestHTMLWorkspace"}`
@@ -475,10 +509,11 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
             return .error(message: msg)
         case "caretChanged":
             guard let rect = parseRect(dict["rect"]),
-                  let selection = parseSelection(dict["selection"]) else {
+                  let selection = parseSelection(dict["selection"]),
+                  let marks = parseActiveMarks(dict["marks"]) else {
                 return nil
             }
-            return .caretChanged(rect: rect, selection: selection)
+            return .caretChanged(rect: rect, selection: selection, marks: marks)
         case "requestSlashMenu":
             guard let query = dict["query"] as? String,
                   let anchor = parseRect(dict["anchor"]) else {
@@ -538,6 +573,38 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
         return EpdocBridgeSelection(from: Int(fromN), to: Int(toN), isEmpty: isEmpty)
     }
 
+    /// Decode the optional active-mark payload. Missing marks are
+    /// treated as inactive so older cached bundles can still mount,
+    /// but malformed provided values fail closed.
+    private static func parseActiveMarks(_ raw: Any?) -> EpdocBridgeActiveMarks? {
+        guard let raw else { return .inactive }
+        guard let dict = raw as? [String: Any] else { return nil }
+        guard let bold = readBool(dict["bold"]),
+              let italic = readBool(dict["italic"]),
+              let strike = readBool(dict["strike"]),
+              let code = readBool(dict["code"]),
+              let highlight = readBool(dict["highlight"]) else {
+            return nil
+        }
+        let heading: Int?
+        if let rawHeading = dict["heading"], !(rawHeading is NSNull) {
+            guard let value = readIntegralInteger(rawHeading), (1...6).contains(value) else {
+                return nil
+            }
+            heading = value
+        } else {
+            heading = nil
+        }
+        return EpdocBridgeActiveMarks(
+            isBoldActive: bold,
+            isItalicActive: italic,
+            isStrikeActive: strike,
+            isCodeActive: code,
+            isHighlightActive: highlight,
+            activeHeadingLevel: heading
+        )
+    }
+
     private static func readNumber(_ raw: Any?) -> Double? {
         if let d = raw as? Double { return d }
         if let i = raw as? Int { return Double(i) }
@@ -548,6 +615,20 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     private static func readInteger(_ raw: Any?) -> Int? {
         guard let value = readNumber(raw), value.isFinite else { return nil }
         return Int(value)
+    }
+
+    private static func readIntegralInteger(_ raw: Any?) -> Int? {
+        guard !(raw is Bool),
+              let value = readNumber(raw),
+              value.isFinite else {
+            return nil
+        }
+        let intValue = Int(value)
+        return Double(intValue) == value ? intValue : nil
+    }
+
+    private static func readBool(_ raw: Any?) -> Bool? {
+        raw as? Bool
     }
 
     private static func readNonEmptyString(_ raw: Any?) -> String? {
