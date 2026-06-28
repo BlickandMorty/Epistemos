@@ -379,6 +379,40 @@ let providerInventoryPromise: Promise<ProviderDetails[]> | null = null;
 let providerInventoryCache: ProviderDetails[] | null = null;
 let providerCatalogSurfacePromise: Promise<ProviderDetails[]> | null = null;
 let providerCatalogSurfaceCache: ProviderDetails[] | null = null;
+// Config-status (which providers are configured) is cached so the overlay does
+// NOT issue a fresh providers/config/status on EVERY getAcpProviders call — that
+// serialized behind the catalog template fetches on the shared ACP client and
+// timed out, blocking routes from rendering. Invalidated on any config write so a
+// freshly-entered key flips the green check on. Marker: epistemos-acp-config-status-cache.
+let providerConfigStatusPromise: Promise<Map<string, boolean>> | null = null;
+let providerConfigStatusCache: Map<string, boolean> | null = null;
+function resetProviderConfigStatusCache(): void {
+  providerConfigStatusCache = null;
+  providerConfigStatusPromise = null;
+}
+async function loadProviderConfigStatus(): Promise<Map<string, boolean>> {
+  if (providerConfigStatusCache) {
+    return providerConfigStatusCache;
+  }
+  if (providerConfigStatusPromise) {
+    return providerConfigStatusPromise;
+  }
+  providerConfigStatusPromise = (async () => {
+    const statuses = await withAcpTimeout(
+      readAcpProviderConfigStatuses([]),
+      4000,
+      'Goose ACP provider configured-status overlay'
+    );
+    const map = new Map(statuses.map((status) => [status.providerId, status.isConfigured]));
+    providerConfigStatusCache = map;
+    return map;
+  })().catch((error: unknown) => {
+    providerConfigStatusPromise = null;
+    throw error;
+  });
+  void providerConfigStatusPromise.catch(() => {});
+  return providerConfigStatusPromise;
+}
 const SHARED_ACP_PROVIDER_CLIENT_MARKER = 'shared-getAcpClient-provider-inventory';
 
 function getProviderInventoryAcpClient(): ReturnType<typeof getAcpClient> {
@@ -517,15 +551,10 @@ async function loadProviderCatalogSurface(): Promise<ProviderDetails[]> {
 // fall back to the un-overlaid roster (marker: config-status-overlay).
 async function overlayConfiguredStatus(providers: ProviderDetails[]): Promise<ProviderDetails[]> {
   try {
-    const statuses = await withAcpTimeout(
-      readAcpProviderConfigStatuses([]),
-      8000,
-      'Goose ACP provider configured-status overlay'
-    );
-    if (statuses.length === 0) {
+    const byId = await loadProviderConfigStatus();
+    if (byId.size === 0) {
       return providers;
     }
-    const byId = new Map(statuses.map((status) => [status.providerId, status.isConfigured]));
     let overlaid = 0;
     const merged = providers.map((provider) => {
       const configured = byId.get(provider.name);
@@ -767,6 +796,7 @@ export async function saveAcpProviderConfig(
     providerId,
     fields: fields.map((field) => ({ key: field.key, value: configValue(field.value) })),
   });
+  resetProviderConfigStatusCache();
 }
 
 export async function removeAcpProviderConfig(key: string): Promise<void> {
@@ -789,6 +819,7 @@ export async function removeAcpProviderConfig(key: string): Promise<void> {
 export async function deleteAcpProviderConfig(providerId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.providersConfigDelete_unstable({ providerId });
+  resetProviderConfigStatusCache();
 }
 
 export async function authenticateAcpProviderConfig(providerId: string): Promise<void> {
