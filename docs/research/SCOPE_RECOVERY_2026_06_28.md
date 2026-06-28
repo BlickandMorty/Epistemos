@@ -16,26 +16,25 @@ Provenance console → **Plan 3 §4** · meeting/STT note → **Plan 3 §7** · 
 - Two-surface fidelity / fix 2 data-loss bugs (Prose image drop, Epdoc lossy shadow.md)
 - Instant-recall / Halo popup scoped to the editors + bubble→native NSPopover redesign
 
-**Capabilities → recommend Plan 3:**
-- **DeerFlow multi-agent deep-research** (native Rust core already built + Swift seam landed; needs arXiv/HF hookup +
-  reskin) — pairs directly with §7 arXiv. Mostly built, just no plan home.
+**Capabilities → ADDED to Plan 3 (owner-confirmed, clean — no conflict):**
 - **Voice** (premium Apple default + macOS-26 voice-by-language regression fix + Kokoro-82M Pro voice + SSML prosody +
-  granular auto-read/STT toggles) — fully on-device, MAS-safe, natural fit beside §6 Apple-native.
-- Stealth browsing (was CUT in curation but owner re-elevated to "first-class" 2026-06-19) — **re-confirm**; if yes →
-  §9 browser-use lane (Pro).
-- Whole-app real brand-logo coverage (non-model: engines/integrations/MCP/marketplace/tools; every-button audit) —
-  cross-cutting UI polish.
-- Kill the MoLoRA/QLoRA Python subprocess (NO-SIDECAR constraint; ~95% native already) — last slices, no owner.
-- Model-vault staleness fix (local models read ZERO vault context) — real broken feature, no home.
+  granular auto-read/STT toggles) — fully on-device, MAS-safe, natural fit beside §6 Apple-native. → Plan 3 §11.
+- **Whole-app real brand-logo coverage** (non-model: engines/integrations/MCP/marketplace/tools; every-button audit) —
+  cross-cutting UI polish. → Plan 3 §11.
 
-**⚠️ BIG ONE — conflicts with the "Goose-only AI" decision (needs owner ruling):**
-- **Three-engine architecture: Chat=Epistemos · Act=Osaurus · Work=Goose** (code-isolated, memory/capability-connected)
-  — the owner spent the most words on this (the ENGINE-ISOLATION DOCTRINE), but Plan 1 as written is **Goose-only and
-  forbids federation**, so **Act/Osaurus has NO home today.** Related drops in the same cluster: **Osaurus = Act engine
-  full import**, **R-CUA/Lume Virtualization sandbox**, **computer-use stack placement**, **mini-chat=main-chat parity +
-  Chat/Act/Work mode toggles**, **model-picker simplify/mode-scope**, **harness systems** (RAG/memory port), **provider-
-  specific agent on chat**. **QUESTION: was collapsing to Goose-only intentional (drop Act/Osaurus), or do you still
-  want the three-engine Chat/Act/Work setup?** If still wanted → it needs a **Plan 4 (Engines/Act surface)**.
+**Now MOOT or CUT given Goose-only + model-management-CUT (honest — don't re-add):**
+- **DeerFlow** — it was in the Pass-2 owner-decision-queue the owner already said "no" to (it's another agent engine →
+  conflicts with Goose-only). CUT.
+- **Kill MoLoRA/QLoRA Python subprocess** + **model-vault staleness** — both are LOCAL-MODEL infrastructure; with no
+  local models (Goose-only, model-management cut), they're **moot.** (Keep the no-sidecar code-hygiene cleanup as a
+  background chore only.)
+- **Stealth browsing** — folds into the §9 browser-use (Pro) lane IF the owner wants it; **re-confirm** (low priority).
+
+**⚠️ BIG ONE — RESOLVED (owner 2026-06-28): Goose-only was INTENTIONAL → three-engine cluster is CUT.**
+- The **three-engine Chat=Epistemos · Act=Osaurus · Work=Goose** setup is **dropped on purpose.** AI is consolidated to
+  Goose (Plan 1). **CUT with it:** Osaurus-as-Act full import, R-CUA/Lume Virtualization sandbox, computer-use stack
+  placement, mini-chat/main-chat parity + Chat/Act/Work mode toggles, harness-systems RAG/memory port, provider-specific
+  agent on chat. No Plan 4. This is a deliberate simplification, not a forgotten item.
 
 ## ✂️ Explicitly CUT (recent owner decisions — NOT dropped, deliberately removed)
 HF/BYOM model marketplace · Settings model "stack" · local model additions (Gemma/LFM/BitNet) · mlx-vlm vision runtime ·

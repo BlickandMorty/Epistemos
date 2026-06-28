@@ -369,6 +369,21 @@ Owner flagged that Plan 3 got narrowed and dropped items they wanted to research
   list for confirm. Candidates already surfaced but under-tracked: web clipper (Plan 2), Eidos→chat panel (§4),
   Provenance console surfacing, meeting/STT note (§7), arXiv (§7), Apple-native rest-of-top-6 (§6). Confirm with owner.
 
+## 11. Recovered additions (owner-confirmed 2026-06-28)
+From the scope-recovery re-scan (`SCOPE_RECOVERY_2026_06_28.md`), folded in as clean Plan-3 capabilities:
+- **Voice** — premium Apple voice default + fix the macOS-26 voice-by-language regression + Kokoro-82M Pro voice + SSML
+  prosody + granular auto-read/STT toggles. Fully on-device (Apple Speech/AVSpeech, no cloud STT), MAS-safe; sits beside
+  §6 Apple-native. (Research/code in a later pass.)
+- **Whole-app brand-logo coverage** — the non-model pass (engines/integrations/MCP/marketplace/tools + an every-button
+  audit), building on the already-shipped model-logo work. Cross-cutting UI polish.
+
+**Editor-graph items recovered → belong to PLAN 2 (not here):** graph inline-edit of doc nodes (no detached window),
+home-graph tunnel to Epdoc + HTML-workspace, the 2 data-loss fixes (Prose image drop / Epdoc lossy shadow.md), and the
+instant-recall/Halo popup scoped to the editors. Flagged so Plan 2 picks them up.
+
+**Honestly CUT by the Goose-only + model-management decisions (NOT dropped):** three-engine Chat/Act/Work + Osaurus-as-Act
+cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without local models). Stealth browsing = re-confirm.
+
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI). 
 2. **Provenance moat Fix A+B** (LOW, honesty-critical — do before any chip is rebuilt) → then Moat-1 hover card.

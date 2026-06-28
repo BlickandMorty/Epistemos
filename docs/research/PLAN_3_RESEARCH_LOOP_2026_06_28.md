@@ -53,6 +53,10 @@
     the `WebKitBrowserEngine` stub, exposed to Goose) first; Option A (vendor real browser-use as a Pro power-mode) optional.
   - **Added a CLONES LEDGER** to Plan 3: real external clones = EdgeParse + unpdf (MAS) + ColBERT model + optional
     browser-use (Pro); everything else is native.
-- [ ] **Pass 6+** (queue): (8) arXiv pull + meeting/STT note → code. (10) ColBERT search-only `maxsim.rs` + libllama
-  embedding FFI → code. (B) Obscura Tier-2 = native `WebKitBrowserEngine` driving the in-app WKWebView, exposed to Goose
-  → code. (11) Eidos→chat panel → code. (12) HARDEN + contradiction sweep across all 3 plans (verify every [INFERRED]).
+- [x] **Pass 6 DONE** (2026-06-28): owner steer + scope recovery. CUT Obscura→browser-use (browser = lite native tab
+  for MAS + browser-use Chromium for Pro); CUT ColBERT; HTML Workspace stays Plan 2; **Goose-only confirmed → three-engine
+  Act/Osaurus cluster + DeerFlow CUT.** Full scope recovery (`SCOPE_RECOVERY_2026_06_28.md`): added Voice + whole-app
+  logos to Plan 3 §11; editor-graph trio → Plan 2; kill-MoLoRA/model-vault-staleness moot. Saved arXiv codepack.
+- [ ] **Pass 7+** (queue): (a) meeting/STT note → code (re-run; was interrupted). (b) browser-use vendor plan (Pro:
+  Python+Chromium+web-UI reskin in WebView, exposed to Goose) → concrete clone steps. (c) Voice → code. (d) whole-app
+  logos → plan. (e) flag the editor-graph trio into Plan 2. (f) HARDEN + contradiction sweep across all 3 plans.
