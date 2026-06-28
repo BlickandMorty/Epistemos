@@ -244,6 +244,25 @@ struct GooseRuntimeSupervisorTests {
         #expect(source.contains("Epistemos/GooseWebUI/index.html"))
     }
 
+    @Test("details panel uses the owner-required exact native/custom ACP status language")
+    func detailsPanelUsesExactOwnerStatusLanguage() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        // Owner requirement (verbatim): the details/status panel must read EXACTLY
+        // "native ACP Goose ready (...)" and "custom ACP Goose ready" — never a
+        // vague "Goose ACP ready" / "Goose". Lock the label rows + the connected
+        // value forms so a rename fails HERE instead of reaching the owner.
+        #expect(source.contains("detailRow(\"native ACP Goose\", nativeACPStatusLabel)"))
+        #expect(source.contains("detailRow(\"custom ACP Goose\", customACPStatusLabel)"))
+        // native connected (goose-named agent) -> "ready (<version>)"
+        #expect(source.contains("return \"ready (\\(agent.version))\""))
+        // custom healthy -> "ready"
+        #expect(source.contains("? \"ready\""))
+        // Must NOT downgrade to a vague combined label.
+        #expect(!source.contains("\"Goose ACP ready\""))
+        #expect(!source.contains("detailRow(\"Goose ACP\""))
+        #expect(!source.contains("detailRow(\"Goose\","))
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!
