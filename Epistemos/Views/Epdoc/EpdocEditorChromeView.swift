@@ -98,6 +98,12 @@ public final class EpdocEditorChromeController {
     public var attachedRunIDs: [String] = []          // W7.15 surfacing
     public var complexity: Double = 0.0                // W7.12 surfacing
     public var complexityBreakdown: DocComplexityBreakdown?
+    /// Latest full-fidelity Markdown emitted by the JS `getMarkdown()`
+    /// bridge. JSON remains the default canonical save path until
+    /// `EpdocSourceOfTruthMode` advances, but the Swift host must retain
+    /// this value so the L1 dual-write phase never falls back to the lossy
+    /// projector.
+    public private(set) var latestMarkdownSnapshot: String?
 
     // MARK: - Toolbar model (W7.17.a)
     public var toolbarModel: EpdocEditorToolbarModel
@@ -137,6 +143,11 @@ public final class EpdocEditorChromeController {
     ///     NSDocument autosave picks them up.
     /// Default is a no-op so unit tests + previews don't have to care.
     public var onContentChanged: @Sendable @MainActor (Data) -> Void
+    /// Full-fidelity Markdown snapshot from the JS serializer. This is
+    /// decoded and retained ahead of the L1 dual-write flip; hosts wire
+    /// it into vault `.md` writes only when the source-of-truth mode
+    /// explicitly enables that path.
+    public var onMarkdownChanged: @Sendable @MainActor (String) -> Void
     /// Open a first-class HTML Workspace for DOM/interactive visual work.
     public var onOpenHTMLWorkspace: @Sendable @MainActor () -> Void
     /// Halo backend search closure for the Insert link picker (W8.4).
@@ -159,6 +170,7 @@ public final class EpdocEditorChromeController {
         self.dispatch = { _ in }
         self.onSave = { }
         self.onContentChanged = { _ in }
+        self.onMarkdownChanged = { _ in }
         self.onOpenHTMLWorkspace = {
             do {
                 try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(
@@ -186,6 +198,7 @@ public final class EpdocEditorChromeController {
 
     public func loadInitialContent(_ json: Data, title: String) {
         initialContentJSON = json
+        latestMarkdownSnapshot = nil
         documentTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? "Untitled"
             : title
@@ -298,8 +311,9 @@ public final class EpdocEditorChromeController {
             onContentChanged(json)
             toolbarModel.isDirty = true
             refreshDerivedStatus(from: json)
-        case .markdownDidChange:
-            break
+        case let .markdownDidChange(markdown):
+            latestMarkdownSnapshot = markdown
+            onMarkdownChanged(markdown)
         case let .documentStatsChanged(wordCount, characterCount):
             toolbarModel.wordCount = wordCount
             toolbarModel.characterCount = characterCount

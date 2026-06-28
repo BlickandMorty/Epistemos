@@ -280,6 +280,32 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
+    @Test("chrome controller retains full-fidelity markdown snapshots from the JS bridge")
+    func chromeControllerRetainsMarkdownSnapshots() {
+        let controller = EpdocEditorChromeController()
+        var observed: [String] = []
+        controller.onMarkdownChanged = { observed.append($0) }
+
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Canonical\n\n[[Note]]\n"))
+
+        #expect(controller.latestMarkdownSnapshot == "# Canonical\n\n[[Note]]\n")
+        #expect(observed == ["# Canonical\n\n[[Note]]\n"])
+    }
+
+    @MainActor
+    @Test("loading a new initial JSON clears stale markdown snapshots")
+    func chromeControllerClearsMarkdownSnapshotOnLoad() {
+        let controller = EpdocEditorChromeController()
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Previous\n"))
+        #expect(controller.latestMarkdownSnapshot == "# Previous\n")
+
+        let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        controller.loadInitialContent(json, title: "Next")
+
+        #expect(controller.latestMarkdownSnapshot == nil)
+    }
+
+    @MainActor
     @Test("chrome controller stores JS image asset requests and completes the pending insert")
     func chromeControllerCompletesImageAssetRequests() {
         let controller = EpdocEditorChromeController()
