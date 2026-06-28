@@ -495,6 +495,15 @@ final class GooseRuntimeSupervisor {
             candidates.append(bundled)
         }
 
+        // Process-cwd-relative checkout binaries are a dev-only convenience and are
+        // EXECUTED (proc.run) by resolvedGooseBinary. Since the process cwd is
+        // influenceable in some launch contexts, never let a shipped build resolve a
+        // goose binary from `<cwd>/.research-clones/...` — that would be
+        // code-execution-from-cwd. Release builds resolve only the trusted
+        // AppSupport/bundle candidates above (where the runtime is actually staged);
+        // DEBUG keeps the checkout candidates for local dev + the live test suites.
+        // (Thermonuclear finding: binary-resolution candidate safety.)
+        #if DEBUG
         let checkoutTarget = URL(fileURLWithPath: currentDirectory)
             .appendingPathComponent(".research-clones/work/goose/target")
         if !hostCargoTargetTriple.isEmpty {
@@ -503,6 +512,7 @@ final class GooseRuntimeSupervisor {
         }
         candidates.append(checkoutTarget.appendingPathComponent("release/goose"))
         candidates.append(checkoutTarget.appendingPathComponent("debug/goose"))
+        #endif
         return candidates
     }
 

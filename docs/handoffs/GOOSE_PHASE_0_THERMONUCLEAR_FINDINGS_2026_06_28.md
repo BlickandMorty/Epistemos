@@ -5,8 +5,8 @@ surface (`Epistemos/Goose/*`, the 6 Phase-0 diff files, `stage-goose-web-ui.sh`)
 adversarially verified. 41 agents.
 
 - Raw findings: 36  | Confirmed: 30  | Rejected (misreads): 5
-- Fixed in the 2026-06-28 Claude hardening batch: 7 (deferred [2] closed in the PM parity pass)
-- Deferred (documented backlog): 23
+- Fixed in the 2026-06-28 Claude hardening batch: 7 + finding [2] (restart race) + finding [11] executed path (cwd binary #if DEBUG guard), both closed in the PM parity pass
+- Deferred (documented backlog): 22 (incl. finding [11]'s non-executed remainder — GooseWebUIResolver/Electron cwd paths)
 
 All boundaries respected: GOLDEN RULE intact, working WebView/ACP path preserved,
 no editor/Plan-3/vendor files touched, deletions (if any) committed separately.
@@ -168,7 +168,20 @@ flakiness.
 
 *(fix_is_safe=True)*
 
-### [11] P3 · security · `GooseRuntimeSupervisor.swift`:449-456
+### [11] P3 · security · `GooseRuntimeSupervisor.swift`:449-456 — ✅ FIXED (binary one; 2026-06-28 PM)
+
+**RESOLVED for the EXECUTED path (the security-relevant one).** The cwd-relative
+`.research-clones/work/goose/target/*` candidates in `gooseBinaryCandidates`
+(now `GooseRuntimeSupervisor.swift`) are wrapped in `#if DEBUG`, so a shipped
+(Release) build resolves only the trusted AppSupport (`Epistemos/GooseRuntime/goose`)
+and bundle candidates — no code-execution-from-cwd. DEBUG keeps the checkout
+candidates for local dev + the live test suites (which run DEBUG). App-target
+build SUCCEEDED with the change; locked by the new test
+`checkoutBinaryCandidatesAreDebugGuarded` (asserts the `#if DEBUG`/`#endif` wraps
+the checkout block and AppSupport/bundle stay unconditional). Still open (lower
+risk, not executed): the GooseWebUIResolver cwd `index.html` and the Electron
+launcher cwd/Downloads paths — those load content / are an already dev-inert
+launcher, not an exec-from-cwd. Track as follow-up.
 
 **Issue:** Binary-resolution candidate safety: `gooseBinaryCandidates` appends executables resolved relative to the process current working directory (`<cwd>/.research-clones/work/goose/target/.../goose`) and `resolvedGooseBinary` will `proc.run()` the first one whose exec bit is set (no signature/ownership/trusted-location check). Process cwd is influenceable in some launch contexts, so this is a code-execution-from-cwd pattern. The same cwd-relative pattern exists for the Web UI index (GooseWebUIResolver) and the Electron workspace (GooseElectronFallbackLauncher, incl. a hardcoded `~/Downloads/Epistemos` path). In a real install the App-Support/bundle candidates win first, so this only bites in dev, 
 

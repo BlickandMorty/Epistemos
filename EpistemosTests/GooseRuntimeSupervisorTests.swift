@@ -196,6 +196,31 @@ struct GooseRuntimeSupervisorTests {
         #expect(source.contains("AppBootstrap.shared?.orphanCleanup.untrack(pid)"))
     }
 
+    @Test("checkout-relative goose binary candidates are DEBUG-only (no code-exec-from-cwd in release)")
+    func checkoutBinaryCandidatesAreDebugGuarded() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
+        // The cwd-relative `.research-clones` checkout binaries are EXECUTED by
+        // resolvedGooseBinary; a shipped (Release) build must resolve only the
+        // trusted AppSupport/bundle candidates. Prove the checkout block is wrapped
+        // in a #if DEBUG guard, and the AppSupport/bundle candidates stay unconditional.
+        let marker = "binary-resolution candidate safety.)"
+        #expect(source.contains(marker))
+        if let m = source.range(of: marker) {
+            let after = source[m.upperBound...]
+            let ifIdx = after.range(of: "#if DEBUG")
+            let checkoutIdx = after.range(of: ".research-clones/work/goose/target")
+            let endifIdx = after.range(of: "#endif")
+            #expect(ifIdx != nil && checkoutIdx != nil && endifIdx != nil)
+            if let i = ifIdx, let c = checkoutIdx, let e = endifIdx {
+                #expect(i.lowerBound < c.lowerBound, "#if DEBUG must precede the checkout candidates")
+                #expect(c.lowerBound < e.lowerBound, "checkout candidates must precede #endif")
+            }
+        }
+        // AppSupport + bundle candidates remain unconditional (real-install path).
+        #expect(source.contains("Epistemos/GooseRuntime/goose"))
+        #expect(source.contains("bundle?.url(forResource: \"goose\", withExtension: nil)"))
+    }
+
     @Test("ACP WebSocket URL uses /acp token query and health URL uses /health")
     func acpAndHealthURLs() {
         let base = URL(string: "http://127.0.0.1:3284")!
