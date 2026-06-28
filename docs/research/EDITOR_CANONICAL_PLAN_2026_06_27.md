@@ -14,6 +14,25 @@
 
 ---
 
+## ⚛️ HARDENING & THERMONUCLEAR REVIEW DOCTRINE (how this plan stays strict + safe)
+Binding for any implementing agent (the build prompt `docs/prompts/PROMPT_PLAN_2_EDITOR.md` carries it too) — same
+strictness as the Goose plan's R-CODEREVIEW:
+- **Thermonuclear review (recurring):** run `[$thermo-nuclear-code-quality-review](/Users/jojo/.codex/skills/thermo-nuclear-code-quality-review/SKILL.md)`
+  over the touched code AT EACH build stage + a full-app pass periodically. Honest findings only — correctness, dead/
+  stale code, honesty-constraint violations, perf, arch drift, contradictions.
+- **Harden-before → build → re-harden-after** per feature, with its own regression tests + a "HARDENED <item>" note.
+- **Deletion guardrail:** harden/dedupe over delete; NEVER delete new/in-progress/owner-requested code; KEEP+flag when
+  unsure; commit deletions separately. (The ONE sanctioned deletion is the L3 old-code-editor files, ONLY post manual verify.)
+- **No-contradictions gate:** before a stage is done, grep this plan + codepacks for any contradicting claim; fix the SOURCE.
+  (The 2026-06-28 audit caught `vendor/`→`LocalPackages/` + triple width-px this way — keep doing it.)
+- **PROVEN-DONE bar (5 criteria for any ✅):** real-state · live in-app · migrates existing data · end-to-end · witnessed.
+  Build-green ≠ done (and per memory, headless app-hosted test runs crash-loop → push logic into pure helpers + mirror-witness).
+- **Full-clone law:** MarkEdit embedded in FULL — settings and all, nothing lost (see §14). No silent capability drop.
+- **CLAUDE.md NON-NEGOTIABLES** (xcodegen only, no model commits, no nonexistent SDKs, frozen TK2/Prose untouched).
+  **No-collision** with Plan 1 (Goose) / Plan 3 (capabilities) — see §13.7 + the build prompt boundaries.
+
+---
+
 ## 0. OWNER DECISIONS — status
 ### ✅ LOCKED by the owner (2026-06-27)
 - **L1. Source of truth = MARKDOWN-ON-DISK.** Vault `.md` + frontmatter is durable truth; `.epdoc` ProseMirror
@@ -23,8 +42,10 @@
   the nonexistent `update_note`); pre-flip it writes JSON-into-package, post-flip it writes `.md`.
 - **L2. Note-width = BINARY toggle AND a SLIDER, both shipped.** Binary preset (normal **720px** / wide
   `max-width:none`) PLUS a continuous slider (stores a custom px in `_width`, same "never create frontmatter
-  just for UI state" guard). The 3 binary-only width models (`NoteWidthResolver`, `NATIVE_CONTROLS` setter,
-  `CommandRegistry.setContentWidth(wide:)`) gain a `custom(px:)` path.
+  just for UI state" guard). ⚠️ **Ground truth:** the live `js-editor/src/editor.css:80` default is **820px** — the build
+  changes it to 720px (the owner's readable-column target). ⚠️ **The codepacks are binary-only** — `NoteWidthResolver`
+  (`enum {normal,wide}`), the `NATIVE_CONTROLS` setter, and `CommandRegistry.setContentWidth(wide:)` MUST each gain a
+  `custom(px:)` path to satisfy the slider half of L2 (an explicit ADD, not yet in the codepacks).
 - **L3. CODE editor v2 = MarkEdit CoreEditor; DELETE the 3 OLD code-editor files once v2 is runtime-verified.**
   (Owner clarified 2026-06-27: the "delete nothing" was a mis-scope — the owner DOES want the dead **code**-editor
   files gone.) Replace `WebKitCodeEditorView` (the disabled-highlighting textarea) + dormant `CodeEditSourceEditor`
@@ -60,6 +81,7 @@
 | **Prose = TK2** | TextKit 2 / `ProseTextView2` (native) | 🔒 frozen hard-gate, long-form/focus | UNTOUCHED |
 | **(old) current code editor** | `WebKitCodeEditorView` (textarea, highlighting disabled) + 2 dormant impls | DELETE after v2 verified (L3, code-editor scope only) | REMOVE post-verify |
 | **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; "another feature later" | EMBED, inert behind a flag |
+| **HTML Workspace** | `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` | AI-artifact surface (chat rewrites it into a live website/explainer); hand-edit routes to code-editor v2 | LIVE; Plan 2 owns it (§13.5) |
 
 Why: TipTap = the rendered/WYSIWYG "looks like Tolaria on edit" feel (Tolaria's editor *is* BlockNote = TipTap+
 Notion-UI underneath); CodeMirror = purpose-built for code (the current code editor is a textarea with
@@ -289,7 +311,7 @@ The scope-recovery sweep found these owner-confirmed editor items were homed to 
 them here so nothing is lost (SCOPE_RECOVERY is now retired — its content lives here + in LEDGER_CURATION).
 
 - **13.1 Graph inline-edit of document nodes (SS-GE A).** Today note/Epdoc/HTML nodes in BOTH graphs bounce to a
-  detached `NSDocument` window (`HologramSearchSidebar.swift:1177` / `MetalGraphView.activateNode:1965` →
+  detached `NSDocument` window (`HologramSearchSidebar.swift:847` / `MetalGraphView.activateNode:1959` →
   `EpdocDocumentOpening.openDocument`). Promote `GraphInlineDocPreview` (read-only, flag `EPISTEMOS_GRAPH_INLINE_DOC_EDIT_V0`)
   to inline **edit** via the existing note-save pipeline, using the ONE md-first Epdoc editor (no in-graph clone). Scope:
   note + Epdoc + HTML + code, in `HomeGraphEmbeddedView` + the mini overlay. Honest gating; never a silent no-op.
@@ -310,7 +332,7 @@ them here so nothing is lost (SCOPE_RECOVERY is now retired — its content live
 - **13.5 HTML Workspace = AI-artifact surface (Plan 2 owns it).** The existing `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView`
   surface, upgraded so **chat rewrites the whole surface into a live website/explainer** (DOM/animations), mini-chat as the
   driver, and **hand-editing routes to code-editor v2** (don't maintain a second broken code pane — kills the blank-editor
-  bug). Surface table (§1) now names it explicitly.
+  bug). Surface table (§1) now names it (row added).
 - **13.6 Web clipper (Plan 2-owned, UNSPECCED).** Capture web content → a vault `.md` note (frontmatter source-url,
   sanitized HTML→md via the canonical serializer). No code today — needs a design slice; flagged so it isn't lost.
 - **13.7 PDF *viewer* (PDFKit `PDFView`) — Plan 2 owns it (was orphaned).** Plan 3 owns the PDF→md PARSE + the `source_pdf`

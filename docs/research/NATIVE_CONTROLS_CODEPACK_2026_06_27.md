@@ -49,7 +49,7 @@ reflect state like MarkEdit's `validateMenuItem`.
 **Code editor analogue:** mirror the enum — add `CodeEditorCommand { selectRange, highlightMatches,
 replaceRange, setWrap }` with `javaScriptExpression()` + matching methods on `window.epistemosCodeEditor`.
 
-## Note-width toggle (CSS var `--epdoc-content-max-width: 720px` ALREADY exists)
+## Note-width toggle (CSS var `--epdoc-content-max-width` exists at 820px today; build sets normal=720px)
 ```swift
 case setContentWidth(wide: Bool)   // EpdocEditorCommand
 // js: document.documentElement.style.setProperty('--epdoc-content-max-width', wide ? 'max-width:none' : '720px')

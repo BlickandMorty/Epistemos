@@ -22,6 +22,27 @@
 
 ---
 
+## ⚛️ HARDENING & THERMONUCLEAR REVIEW DOCTRINE (how this plan stays strict + safe)
+This plan is built under the SAME strictness as the Goose plan (R-CODEREVIEW). It is binding — an implementing agent
+must obey it, and the build prompt (`docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md`) carries it too.
+- **Thermonuclear review (recurring):** run `[$thermo-nuclear-code-quality-review](/Users/jojo/.codex/skills/thermo-nuclear-code-quality-review/SKILL.md)`
+  over the touched code AT EACH stage + a full-app pass periodically. Honest, real findings only — correctness bugs,
+  dead/stale code, honesty-constraint violations, perf, arch drift, contradictions. It's a recurring gate, not a one-shot.
+- **Harden-before → build → re-harden-after:** every capability gets its own hardening pass + regression tests + a
+  "HARDENED <item>" note before it's called done.
+- **Deletion guardrail:** harden/dedupe/wire-up OVER delete. NEVER delete new/in-progress/owner-requested code; when
+  uncertain KEEP + flag; commit any deletion separately (easy revert).
+- **No-contradictions gate:** before a stage is done, grep this plan + the codepacks for any claim that contradicts it
+  and fix the SOURCE. (The 2026-06-28 cross-plan audit found stale Obscura/ColBERT claims this way — keep doing it.)
+- **PROVEN-DONE bar (5 criteria for any ✅):** real-state · live in-app · migrates existing data · end-to-end · witnessed
+  by a re-runnable artifact. Build-green ≠ done.
+- **Full-clone law:** whatever is cloned is cloned in FULL — settings and all, no capability lost (EdgeParse/unpdf full
+  feature set; browser-use the COMPLETE app).
+- **No hidden subprocess/Python on the MAS path; keys in Keychain; honest capability gating; @Observable; never block
+  @MainActor** (CLAUDE.md NON-NEGOTIABLES). **No-collision** with Plan 1 (Goose) / Plan 2 (editor) — see "NOT in Plan 3".
+
+---
+
 ## 1. Fast PDF→Markdown  ★ (answers "the super-fast one")
 
 **★ TRUTH (Pass-1 verified — you were right, you have NEITHER today) `[VERIFIED-CODE]`:** you CANNOT parse a PDF→md
@@ -93,7 +114,7 @@ extensions inside a WKWebView; some FairPlay-DRM premium video may not play; coo
 | **T1 — usable in-app browser** | a real tab you open + drive like Safari (navigate/login/scroll/non-DRM video) | **LIGHT** | MAS-safe |
 | **T2 — + agent reads/extracts the open page** | the AI can read the current page → note/answer; you still drive | MEDIUM | MAS-plausible (read-only) |
 | **T3 — full agent automation + stealth** | AI autonomously clicks/types/scrapes across sites + anti-fingerprint | **HEAVY** | Pro-only |
-**Recommendation: START at T1** — wire a live `WKWebView` behind the existing `WebKitBrowserEngine` seam (instead of
+**Recommendation: START at T1** — ship the standalone lite Browser tab (`ObscuraBrowserView`, human-driven, NOT the agent engine seam) (instead of
 `NotConfigured`) → turns "I can't see it" into a visible, usable browser fast. Climb to T2/T3 only if you want them.
 The heaviness you worried about lives ONLY at T3. (Rest of the original heavy build = T3, below.)
 
@@ -110,28 +131,19 @@ The heaviness you worried about lives ONLY at T3. (Rest of the original heavy bu
   and `Epistemos/Work/WorkRuntimeSupervisor.swift` (the honest Pro-gate `Status` enum — "launches NOTHING when
   unavailable, no fake green").
 
-**Decision (from research):** **WebKit is the engine, not a Rust V8 browser.** The old Obscura+deno_core+V8 vision is
-superseded (avoids the JIT-entitlement / duplicate-symbol minefield and stays MAS-conceivable).
+**★ FINAL build (owner 2026-06-28) — the native robot O-1..O-6 below is PARKED, do NOT build it:**
+- **App Store = the lite native "Browser" tab ONLY** — wire the standalone `ObscuraBrowserView` from
+  `PLAN_3_OBSCURA_TIER1_CODEPACK` (a human-driven `WKWebView` + address bar; NOT the `WebKitBrowserEngine` agent seam).
+  The `WebKitBrowserEngine` stub STAYS `NotConfigured`. No agent drives this tab.
+- **Pro automation = vendor the real `browser-use`** (§9) — Chromium robot, reskinned UI, exposed to Goose. Separate browser.
 
-**Build (phased):**
-- **O-1** Swift `ObscuraWebHost` — offscreen `WKWebView` pool (copy Goose's `nonPersistent()`+scheme shape):
-  navigate/snapshot(DOM-walk→`PageSnapshot` with `@e5` ref-ids)/click/type/scroll/read/extract via
-  `evaluateJavaScript`; SSRF + scheme allowlist before any load.
-- **O-2** UniFFI bridge → make `WebKitBrowserEngine` a **real** adapter (replace the NotConfigured stub;
-  `DispatchQueue.main.async` in callbacks per CLAUDE.md).
-- **O-3** Profile-aware `make_browser_engine(profile)` factory (WebKit MAS+Pro / Obscura Pro-when-built / Mock tests);
-  re-point the `browser_*` registry block at the in-app engine, CLI becomes optional Pro fallback. Preserve per-action
-  `RiskLevel`.
-- **O-4** Transient SwiftUI browsing surface (summon on demand, e.g. ⌘⇧B) over the same WebView the agent drives →
-  the agent's actions are visible.
-- **O-5 (Pro)** Privacy stack: `WKContentRuleList` tracker-block (MAS-safe), `customUserAgent`, canvas/WebGL
-  fingerprint dampening. **Honest label** — "fingerprint/UA hardening," NOT a full stealth bypass; authorized-use banner.
-- **O-6** Agentic extract-to-schema scraper (URL + JSON-schema/CSS → LLM extract loop over rendered DOM); Eidos
-  closed-citation as the grounding layer.
+**~~Build (phased) O-1..O-6~~ — PARKED/superseded (the native WKWebView automation robot the owner CUT).** Kept for
+reference only; do NOT execute. Original steps were: O-1 `ObscuraWebHost` agent pool · O-2 make `WebKitBrowserEngine`
+real (it stays NotConfigured) · O-3 re-point `browser_*` registry at the in-app engine · O-4 agent-driven surface ·
+O-5 privacy stack · O-6 agentic scraper. All superseded by browser-use (§9).
 
-**MAS/Pro:** read-only viewing + MAS HTTP tools = both profiles. Automation (click/type/scrape) + privacy stack =
-**Pro-gated, honest `.unavailable` on MAS, no hidden spawn.** Rust-native Obscura/V8 engine = **deferred** Pro-only,
-owner sign-off. Effort: **HIGH** (the real `WebKitBrowserEngine` + UniFFI WKWebView automation is net-new).
+**MAS/Pro:** lite Browser tab = MAS-safe (human-driven, no robot). browser-use automation = **Pro only** (Chromium,
+honest `.unavailable` on MAS). Effort: lite tab **LOW** (Tier-1 codepack); browser-use vendor = the owed Pro codepack.
 
 ---
 
