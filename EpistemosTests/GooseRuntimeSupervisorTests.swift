@@ -663,6 +663,25 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("export async function reconstructAcpConfig"))
         #expect(script.contains("'ACP config map reconstruction'"))
         #expect(script.contains("setConfig(await reconstructAcpConfig())"))
+        // Preference-backed config persists ACROSS RESTART through the live
+        // preferences/save+read ACP methods (Thinking Effort was the owner-flagged
+        // case: "what about the model of effort... I don't see effort"). Without this
+        // the value was written to an in-memory map that reset every load and never
+        // reached Goose. PreferenceKey must come from the SDK type, the key map must
+        // cover the four persisted keys, and the read MUST be timeout-bounded so it
+        // can't block route renders (same regression class the config-status overlay hit).
+        #expect(script.contains("epistemos-acp-preference-backed-config"))
+        #expect(script.contains("const preferenceBackedConfigKeys: Record<string, PreferenceKey>"))
+        #expect(script.contains("GOOSE_THINKING_EFFORT: 'gooseThinkingEffort'"))
+        #expect(script.contains("GOOSE_AUTO_COMPACT_THRESHOLD: 'autoCompactThreshold'"))
+        #expect(script.contains("VOICE_DICTATION_PROVIDER: 'voiceDictationProvider'"))
+        #expect(script.contains("VOICE_DICTATION_PREFERRED_MIC: 'voiceDictationPreferredMic'"))
+        #expect(script.contains("async function savePreferenceConfig"))
+        #expect(script.contains("client.goose.preferencesSave_unstable({ values: [{ key: prefKey"))
+        #expect(script.contains("async function readPreferenceConfig"))
+        #expect(script.contains("client.goose.preferencesRead_unstable({ keys: [prefKey] })"))
+        #expect(script.contains("'Goose ACP preference read'"))
+        #expect(script.contains("if (key in preferenceBackedConfigKeys)"))
     }
 
     @Test("Goose Swift surface does not carry a provider or model roster")
