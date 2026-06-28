@@ -628,6 +628,32 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("requestElicitation(request)"))
     }
 
+    @Test("staging grafts wire live config-status, model capabilities, and thinking-effort/mode through ACP (feature-parity gate)")
+    func stagingGraftsWireLiveParityFeatures() throws {
+        let script = try loadRepoTextFile("stage-goose-web-ui.sh")
+        // #1 live provider config-status overlay: fixes the empty Switch-Models provider
+        // dropdown, the missing green checks, and ready-by-default. is_configured must be
+        // overlaid live, never left hardcoded false on the catalog surface.
+        #expect(script.contains("async function overlayConfiguredStatus"))
+        #expect(script.contains("config-status-overlay"))
+        #expect(script.contains("async function getAcpProvidersBase"))
+        // Model capabilities (reasoning + context_limit) sourced from the live provider
+        // INVENTORY, not the capability-less supported-models list. Unblocks the Thinking
+        // Effort selector (gated on reasoning===true) and the context-window denominator.
+        #expect(script.contains("epistemos-acp-inventory-model-capabilities"))
+        #expect(script.contains("providersList_unstable({ providerIds: [providerId] })"))
+        #expect(script.contains("(entry?.models ?? []).map(modelInfo)"))
+        // Thinking Effort + Mode applied LIVE to the session via setSessionConfigOption.
+        #expect(script.contains("export async function saveAcpSessionThinkingEffort"))
+        #expect(script.contains("configId: 'thinking_effort'"))
+        #expect(script.contains("export async function saveAcpSessionMode"))
+        #expect(script.contains("configId: 'mode'"))
+        #expect(script.contains("await saveAcpSessionThinkingEffort(sessionId, String(thinkingEffort))"))
+        // In-chat model switch (#9): the global-default provider guard must be removed so
+        // selecting a model on the default provider still applies its provider.
+        #expect(!script.contains("providerName !== currentProvider"))
+    }
+
     @Test("Goose Swift surface does not carry a provider or model roster")
     func gooseSwiftSurfaceDoesNotHardcodeProviderModelRoster() throws {
         let files = try mirroredSourceFileURLs(
