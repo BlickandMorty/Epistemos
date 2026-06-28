@@ -1,8 +1,10 @@
 # Epistemos Editor — CANONICAL PLAN (2026-06-27)
 
 > **★ THE single source of truth for the editor work.** Consolidates the Tolaria-supersede research loop
-> (passes 1–5) into one contradiction-free plan. Where any other editor doc disagrees, **this wins.** Code
-> detail lives in the four code packs (linked per section). Research provenance: `TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md`.
+> (passes 1–10 + the 2026-06-27 finalization audit) into one contradiction-free plan. Where any other editor
+> doc disagrees, **this wins.** Code detail lives in the code packs (linked per section). Research provenance:
+> `TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md`. **Finalization audit (contradictions/supersede/completeness):
+> see §12 — it is current as of pass 10 and supersedes any stale phrasing elsewhere in this doc.**
 >
 > **Doc status map:** CANONICAL → this doc + the 4 codepacks (`TOLARIA_ONTOLOGY_UPGRADE_CODEPACK`,
 > `MARKEDIT_EMBED_CODEPACK`, `NATIVE_CONTROLS_CODEPACK`, `GOOSE_MINICHAT_CODEPACK`) + `EPDOC_MD_V2_BUILD_SEQUENCE`
@@ -12,24 +14,35 @@
 
 ---
 
-## 0. OPEN QUESTIONS — owner decisions needed (do not paper over)
-These are surfaced, not silently resolved. The plan proceeds on the marked defaults until the owner rules.
-1. **JSON-vs-markdown source-of-truth fork (biggest).** Epdoc stores ProseMirror JSON in `.epdoc` packages
-   TODAY; §16 wants vault `.md` write-through; the `@tiptap/markdown` serializer is UNBUILT. *Default:*
-   serializer-first → canonical-`.md` flip → HTML-in-markdown fallback for rich-only blocks (charts/mermaid/
-   math); until then Goose `update_note` writes JSON into the package.
-2. **Minichat shape.** Research recommends **native SwiftUI over the Goose ACP bridge + an "Open in Goose"
-   webview escape hatch**; owner's phrasing was "native webview shell." *Default:* native-chat + escape-hatch
-   (note-context plumbing is identical either way). **Needs owner confirm.**
-3. **Note-width values.** *Default:* normal = ~720px readable column, wide = `max-width:none`; ship binary
-   first, a width SLIDER is a later differentiator.
-4. **Code-editor swap scope.** *Default:* Option A (keep Epistemos's SwiftUI code chrome, swap the engine
-   textarea→MarkEdit CoreEditor) + selectively graft MarkEdit's native Find/FontPicker/Statistics/Goto-Line.
-5. **`@codemirror/merge` for the CODE editor.** *Default:* yes — it's the natural diff engine for the CM6 code
-   editor (it was only wrong for the *note* editor).
-6. **Cleanup fate.** *Default:* after the CoreEditor swap, delete the 3 dead code-editor impls
-   (`WebKitCodeEditorView` textarea, dormant `CodeEditSourceEditor`, scaffold `LiveCodeEditorController`).
-   Epdoc/TipTap is KEPT (it's the note editor). Prose/TK2 is KEPT (frozen).
+## 0. OWNER DECISIONS — status
+### ✅ LOCKED by the owner (2026-06-27)
+- **L1. Source of truth = MARKDOWN-ON-DISK.** Vault `.md` + frontmatter is durable truth; `.epdoc` ProseMirror
+  JSON demotes to a derived cache. Staged, reversible, falsifier-gated flip per `MD_SOURCE_OF_TRUTH_CODEPACK`
+  (`EPISTEMOS_MD_SOURCE_OF_TRUTH`: jsonOnly → dualWrite → markdownCanonical), serializer-first, HTML-in-markdown
+  fallback for rich-only blocks (charts/mermaid/math/callouts). Goose's real write seam is **`edit_note`** (NOT
+  the nonexistent `update_note`); pre-flip it writes JSON-into-package, post-flip it writes `.md`.
+- **L2. Note-width = BINARY toggle AND a SLIDER, both shipped.** Binary preset (normal **720px** / wide
+  `max-width:none`) PLUS a continuous slider (stores a custom px in `_width`, same "never create frontmatter
+  just for UI state" guard). The 3 binary-only width models (`NoteWidthResolver`, `NATIVE_CONTROLS` setter,
+  `CommandRegistry.setContentWidth(wide:)`) gain a `custom(px:)` path.
+- **L3. DELETE NOTHING.** No editor is removed — NOT the 3 code-editor impls (`WebKitCodeEditorView`,
+  `CodeEditSourceEditor`, `LiveCodeEditorController`), NOT Prose/TK2, NOT Epdoc. The MarkEdit CoreEditor engine
+  is **ADDITIVE** (an upgrade option behind a switch), never a replacement that authorizes deletion.
+
+### ⏳ RECOMMENDED — audit-verified best, pending the owner's final nod (not blocking)
+- **R1. Grammar = Obsidian/GFM** (`> [!KIND]` callouts · ` ```chart ` · `[[wikilink]]`). Follows directly from
+  L1 (on-disk truth should be the format the rest of the world reads); already has a working reader; the graph
+  already indexes `[[wikilinks]]`. Align `ProseMirrorMarkdownProjector.swift` to it (Pass 9b).
+- **R2. Minichat = native SwiftUI over the Goose ACP bridge + an "Open in Goose" webview escape hatch.**
+  Maximizes nativeness (the owner's through-line) + inline per-edit approval; the webview button still gives
+  "full web Goose." Honestly diverges from the owner's "native webview shell" phrasing — surfaced, not assumed.
+- **R3. Code-engine = Option A** (keep Epistemos's code-editor chrome, ADD MarkEdit CoreEditor as the engine;
+  graft native Find/FontPicker/Statistics). Per L3 this is additive — the old surface stays alongside.
+- **R4. `@codemirror/merge`** = the code-lane diff engine (it was only wrong for the *note* editor). Settled.
+- **R5. Edit-provenance = the existing Swift `AgentNoteEditProvenance` → EventStore spine**, enriched with an
+  `EditClaim` metadata struct. The Rust `ClaimLedger` FFI is read-only today and Phase 8.E moved live provenance
+  to the Cognitive DAG, so the "EditClaim → Rust ledger" phrasing in older passes is NOT buildable as written;
+  a `record_edit_claim_json` FFI would be net-new (defer). See §6 + §12.
 
 ---
 
@@ -37,8 +50,9 @@ These are surfaced, not silently resolved. The plan proceeds on the marked defau
 | Surface | Engine | Role | Status |
 |---|---|---|---|
 | **Note editor = Epdoc** | TipTap/ProseMirror in WKWebView | Tolaria-like WYSIWYG notes — the primary writing surface | LIVE, exists; revamp it |
-| **Code editor = MarkEdit CoreEditor** | CodeMirror 6 in WKWebView (vendored from MarkEdit) | code/text files; replaces the current textarea code editor | BUILD (swap) |
+| **Code editor = MarkEdit CoreEditor** | CodeMirror 6 in WKWebView (vendored from MarkEdit) | code/text files; an ADDITIVE engine option for the current code editor (old surface KEPT per L3) | BUILD (additive) |
 | **Prose = TK2** | TextKit 2 / `ProseTextView2` (native) | 🔒 frozen hard-gate, long-form/focus | UNTOUCHED |
+| **(existing) current code editor** | `WebKitCodeEditorView` (textarea, highlighting disabled) + 2 dormant impls | KEPT per L3 (delete nothing); the CoreEditor engine sits alongside behind a switch | UNTOUCHED |
 | **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; "another feature later" | EMBED, inert behind a flag |
 
 Why: TipTap = the rendered/WYSIWYG "looks like Tolaria on edit" feel (Tolaria's editor *is* BlockNote = TipTap+
@@ -51,8 +65,11 @@ highlighting DISABLED — see `MARKEDIT_EMBED_CODEPACK` §0); TextKit = best for
 1. **Note editor = TipTap on the existing Epdoc.** NOT BlockNote (React-only, 8.8× bundle, primitives-only
    props hostile to the ontology, `xl-ai` is GPL). NOT CodeMirror (that decision was reversed). "Look like
    Tolaria" = a CSS/chrome polish task on Epdoc, not an engine swap.
-2. **Code editor = MarkEdit's CoreEditor (CodeMirror 6).** Keep CoreEditor (this updated the earlier
-   "drop it" call). Epdoc stays the note editor; the two coexist (two scheme handlers, distinct schemes).
+2. **Code editor = MarkEdit's CoreEditor (CodeMirror 6), ADDED alongside the existing code editor (L3 — delete
+   nothing).** The current `WebKitCodeEditorView` textarea stays; CoreEditor is an engine option behind a switch.
+   Epdoc stays the note editor; surfaces coexist (distinct scheme handlers).
+   **★ SOURCE OF TRUTH = MARKDOWN-ON-DISK (L1).** Vault `.md` + frontmatter is durable truth; `.epdoc` JSON is a
+   derived cache. **Canonical grammar = Obsidian/GFM (R1).** **Note-width = binary toggle + slider (L2).**
 3. **MarkEdit = FULL app embedded** (Route D): vendor `MarkEditCore` + `MarkEditKit` + `MarkEditMac/Modules`
    (11 libs incl. SettingsUI/FontPicker/Statistics) + `Sources/{Editor,Panels,Settings}` + `CoreEditor`;
    DROP its `@main`/`AppDocumentController`/`.xcodeproj`/`Info.entitlements`/both `.appex`; re-host
@@ -62,9 +79,13 @@ highlighting DISABLED — see `MARKEDIT_EMBED_CODEPACK` §0); TextKit = best for
 5. **Note AI-diff = `prosemirror-changeset` (MIT) + `@handlewithcare/prosemirror-suggest-changes` (MIT).**
    NOT `@codemirror/merge` (that's the code-lane diff), NOT TipTap AI Toolkit (paid), NOT BlockNote xl-ai (GPL).
    Diff per settled chunk, never per token (Zed #58037 lesson).
-6. **Markdown round-trip = official `@tiptap/markdown` v3.27.x (MIT)** + custom `marked` tokenizers for
-   callouts/wikilinks/frontmatter. (NOT the deprecated community `tiptap-markdown`; NOT the nonexistent
-   `@tiptap/extension-markdown`.) See open question #1 for the JSON-fork.
+6. **Markdown round-trip = official `@tiptap/markdown` pinned `3.24.0` (MIT)** to match the TipTap stack
+   (`@tiptap/pm@3.24.0`) — 3.27.x against a 3.24.0 pm is a duplicate-ProseMirror/schema-mismatch hazard.
+   ⚠️ **P0: confirm `@tiptap/markdown@3.24.0` actually resolves on npm before committing the lock** (it's an
+   "early release" with sparse versions; if absent, pin the lowest published `3.2x` peering `@tiptap/core@^3.24`).
+   Register per-node serializer/parser hooks (NOT `marked` tokenizers — the bundle is webpack 5 and `@tiptap/
+   markdown` vendors its own parser) for callouts/wikilinks/frontmatter. (NOT the deprecated community
+   `tiptap-markdown`; NOT the nonexistent `@tiptap/extension-markdown`.) Source-of-truth = markdown (L1).
 7. **AI = Goose** (engine), grafting Tolaria's editing doctrine; minichat note-aware, Phase-0 gated.
 8. **Ontology = Tolaria clean-room on SDPage + frontmatter + the unified graph.** Tolaria is AGPL-3.0 →
    clone-forbidden, ZERO code, behavioral reimplementation only.
@@ -110,10 +131,14 @@ scheme handlers, shared (no-op-on-12+) process pool routed through the memory-pr
   (add `session/cancel`), NO Epdoc UI-steering affordances (add to `GooseWebNativeAffordanceBridge`).
 - **Phase-0 GATED:** scaffold + note-context plumbing now (zero Goose dep, testable); flip live after the Goose
   §7 sign-off; mirror the `#if EPISTEMOS_APP_STORE` Pro gate on the minichat surface.
-- **Provenance (supersede Tolaria's git-only):** per accepted edit → `EditClaim` in the existing `ClaimLedger`
-  (agent/model/runtimeKind/capability_tier/confidence/approver/generatedAt vs acceptedAt) + content-address in
-  the `cognitive_dag` (DerivesFrom/AttributedTo/ApprovedBy/Evidence, Merkle); `claimId` ties UI↔git↔DAG;
-  retraction propagation beats `git revert`.
+- **Provenance (supersede Tolaria's git-only) — R5, corrected:** per accepted edit → an `EditClaim` metadata
+  struct (agent/model/runtimeKind/capability_tier/confidence/approver/generatedAt vs acceptedAt) carried on the
+  EXISTING Swift `AgentNoteEditProvenance` → EventStore spine (wired through `VaultNoteEditor.applyEdits(_:to:
+  provenance:)`); `claimId` ties the inline hunk ↔ git commit ↔ provenance record. ⚠️ The earlier "EditClaim →
+  Rust `ClaimLedger`" phrasing is **NOT buildable today** — that ledger's FFI is read-only and Phase 8.E moved
+  live provenance to the Cognitive DAG. Retraction-propagation-beats-`git revert` lives in that Rust ledger and
+  is therefore NOT delivered by the shippable Swift path; a `record_edit_claim_json` FFI (→ `commit_claim` or DAG
+  dispatch) would be net-new work, deferred. Ship the honest Swift-spine version; don't overclaim the ledger one.
 
 ## 7. Native controls — `NATIVE_CONTROLS_CODEPACK_2026_06_27.md`
 Epdoc is ALREADY MarkEdit-shaped (native SwiftUI chrome → `EpdocEditorCommand` → `window.epistemos.*`). Gaps:
@@ -153,16 +178,21 @@ Stage gates; each is independently shippable where possible. Goose-dependent ite
    frontmatter→graph reconciler. Pure Swift, testable, no UI risk.
 2. **[S] Native CommandRegistry + Cmd+K palette** (codepack 4c) — unifies menu/shortcuts; wire existing Epdoc
    dispatch into it.
-3. **[M] Note-editor revamp** (Epdoc): Tolaria CSS/chrome polish + note-width toggle + Find/Replace + panel
-   segmented control. Add `@tiptap/markdown` + resolve the JSON-fork (open Q1).
+3. **[M] Note-editor revamp** (Epdoc): Tolaria CSS/chrome polish + note-width **toggle AND slider (L2)** +
+   Find/Replace + panel segmented control. Add `@tiptap/markdown` (3.24.0, P0 npm check) + execute the L1
+   markdown-as-truth flip (serializer-first; dualWrite → markdownCanonical, falsifier-gated).
 4. **[M] Note AI-diff** (`prosemirror-changeset` + suggest-changes) via `EpdocCopilotDockView`.
-5. **[M] MarkEdit embed + code-editor swap** (codepack 4b): vendor MarkEdit, `build-coreeditor-bundle.sh`,
-   swap textarea→CoreEditor (Option A), graft native Find/FontPicker/Statistics; full Settings inert.
-   Then cleanup the 3 dead code-editor impls (open Q6).
+5. **[M] MarkEdit embed + ADD code-editor engine** (codepack 4b): vendor MarkEdit under `LocalPackages/MarkEdit/`
+   (NOT `vendor/` — repo convention), `build-coreeditor-bundle.sh`, add `MarkEditCodeEditorRepresentable`
+   (CoreEditor) as an engine option behind a switch (Option A — keep the existing chrome AND the existing
+   textarea surface per L3), graft native Find/FontPicker/Statistics; full Settings inert. **No deletions (L3):
+   `usesWebKitEditor` stays a live switch; all 3 code-editor impls remain.**
 6. **[M] Views + Type registry + incremental crawl** (codepack 4a) over GRDB/graph/shadow.
 7. **[L, Phase-0 gated] Goose minichat** (codepack 4d): build the note-context plumbing now; flip the live
    agent surface after Goose §7 sign-off. Close the 3 Goose-boundary gaps. Provenance EditClaim wiring.
-8. **[L] Supersede polish:** real trash+undo, focus/typewriter mode, width slider, semantic view op.
+8. **[L] Supersede polish:** real trash+undo (P0-design first — see §12), focus/typewriter mode, semantic view
+   op, saved-Views visual builder + backlinks panel (model-layer only today — need UI). (Width slider ships in
+   step 3 per L2, NOT here.)
 
 ## 11. License ledger (all live-verified)
 SHIP-CLOSED: MarkEdit (MIT), CodeMirror 6 + `@codemirror/*` (MIT), TipTap core + `@tiptap/markdown` (MIT),
@@ -170,3 +200,72 @@ SHIP-CLOSED: MarkEdit (MIT), CodeMirror 6 + `@codemirror/*` (MIT), TipTap core +
 code-lane). FORBIDDEN closed: Tolaria (AGPL — clean-room only, ZERO code), BlockNote `xl-*` (GPL), Vrite
 (AGPL), TipTap Pro AI Toolkit (paid). CAUTION: `prosemirror-suggestion-mode` (MIT per npm only, no LICENSE file).
 Every lift → `F-ProprietaryCompression-ProvenanceGate` (MIT/Apache=clean-import; AGPL/GPL=research_only).
+
+---
+
+## 12. FINALIZATION AUDIT (2026-06-27, pass 10) — honest state before building
+Three independent audits (contradiction / supersede-Tolaria / completeness) ran over the full corpus. Net:
+**the research is deep, honest, and self-correcting; the backend genuinely supersedes Tolaria on search,
+relationships, provenance-architecture, and AI-architecture. But "supersedes on every axis" is NOT yet true,
+and several headline features are model-only.** What's recorded here supersedes stale phrasing above.
+
+### 12.1 Where Epistemos truly BEATS Tolaria (real + buildable)
+- **Global search:** RRF (BM25+HNSW) vs Tolaria's no-index walkdir-at-query-time. Real, shipping today.
+- **Relationships:** persisted forward+inverse typed graph vs renderer-recompute — *conditional* on the 3 Pass-7b
+  C2 fixes (the `firstNode(matchingTitle:)` resolver, the `addEdge` silent-drop ordering, the `fmrel:inv:` reuse).
+- **Hybrid semantic+structured Views** (`semantic:` op RRF-fused with all/any GRDB predicates) — no files-first PKM
+  can express this. Buildable on the existing RRF stack. **The single most differentiated capability.**
+- **AI: in-process Goose** (real per-edit approval `session/request_permission`, cancellation, honest gating)
+  vs subprocess CLIs + loopback WS ports. Architecturally superior; **operationally Phase-0-gated (Phase 0 is
+  currently FAIL/PARTIAL)** — superior-in-design, not-yet-proven-at-runtime.
+
+### 12.2 Where Epistemos is BEHIND or DIVERGES (own these honestly)
+- **Markdown-as-truth (L1):** Tolaria *ships* it; Epistemos reaches it only *after* the unbuilt `@tiptap/markdown`
+  serializer + the staged flip. Behind until Phase B.
+- **Dual rich↔raw editor on one note:** Tolaria's signature is toggling *a note* between rich and raw on the same
+  `.md`. Epistemos's code editor is for code/text files, NOT `.md` notes — so **there is no raw-note toggle.** The
+  bet is "TipTap is already WYSIWYG, so you don't need a raw view." That is a **deliberate product divergence, not
+  a supersede** — own it as a choice (revisit if you want a real raw-`.md` view of a note).
+- **Provenance retraction-beats-revert:** claimed, but lives in the read-only Rust ledger; the shippable Swift
+  spine doesn't have it (R5). Don't demo what isn't wired.
+- **"Full MarkEdit app embedded":** the literal "two apps in one" is impossible (one `@main`/`NSDocumentController`);
+  what ships is a curated module graft with Settings inert. Honest internally; the headline oversells.
+
+### 12.3 GAPS — named/loved but model-only or unspecced (don't call v1 "done" without these)
+- **Real trash + undo** — the most-repeated "we beat Tolaria" claim, with ZERO design/code. Design it before
+  claiming the supersede.
+- **Saved-Views visual builder UI** — compiler/evaluator exist; the "not hand-YAML" builder UI is unspecced.
+  (And we DROP Tolaria's hand-YAML authoring — until the builder ships, that's a regression for YAML power-users.)
+- **Backlinks panel** — graph edges exist; panel rendering unspecced.
+- **Note AI-diff lane** (`prosemirror-changeset` yellow-add/red-delete trail) — an [M] core lane with **no
+  falsifier/verification spec** (the biggest verification hole; needs the "diff per settled chunk not per token"
+  Zed-#58037 guard tested).
+- **Git history / AutoGit / per-note history** — asserted "first-class," no seam/code. Status-bar+history for v1;
+  AutoGit can defer.
+- **Pulse/activity-feed** dropped — but the AI-review story leans on "review via activity feed." Reconcile.
+
+### 12.4 P0 checks to run BEFORE building (cheap, high-leverage)
+1. **`@tiptap/markdown@3.24.0` resolves on npm** — one 30-second check that silently gates the entire L1
+   markdown-as-truth lock. Do this FIRST.
+2. **Patch the codepacks with the Pass-7/8/9/10 ground-truth corrections** so an implementer reading one in
+   isolation doesn't hit a landmine: `vendor/`→`LocalPackages/`; `update_note`→`edit_note`; the
+   `firstNode(matchingTitle:)` compile-blocker (spec the resolver); the read-only-ledger provenance fork (R5);
+   `@tiptap/markdown` 3.27.x→3.24.0; the three width-pixel specs → one (720px / `max-width:none`).
+3. **Verify the 5 [INFERRED] integration assumptions** (MarkEdit ts-gyb bridge selectors; Goose HTTP-MCP
+   descriptor key shape; `session/cancel` wire string; the 8 `vault.*` tool arg schemas) before their lanes.
+
+### 12.5 The correct FIRST buildable slice (lowest risk, visible value)
+**CommandRegistry + Cmd+K palette + the `caretChanged.marks` read-back** (build sequence step 2, codepack 4c +
+`COMMAND_REGISTRY_CODEPACK`). Why: pure Swift/SwiftUI, zero web-bundle/Goose/markdown-flip risk; ~80% of commands
+already dispatch through existing `EpdocEditorCommand` cases; Cmd+K is verified free; and the one shared
+dependency (`caretChanged.marks`, a contained 3-file change) ALSO unblocks the toolbar active-state (4c) and Find
+active-feedback (B4) — it pays triple. Resolve the npm check (12.4.1) and the provenance fork (R5) before the
+markdown-flip and minichat lanes start.
+
+### 12.6 The "truly brilliant" lean (to be a category leap, not a faster clone)
+Put the three things only Epistemos's substrate can do in the FRONT door: (1) **provenance-native editing** —
+"every sentence has a verifiable lineage you can hover" with retraction-propagation as the demo (needs R5 built
+honestly); (2) **hybrid semantic+structured Views as a query language** — "all `type:Project` notes `before: 30
+days ago` *semantically about* runtime safety" (buildable on the shipping RRF stack — ship the visual builder);
+(3) **the in-process agent that steers the view** (open_note/highlight/replaceSelection + per-edit approval +
+lineage) — gated on Phase 0, highest ceiling. Backend already supersedes Tolaria; these make it a leap.

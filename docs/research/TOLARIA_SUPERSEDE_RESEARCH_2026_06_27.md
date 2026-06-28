@@ -25,7 +25,7 @@ editor docs into ONE canonical, contradiction-free plan, then keep deepening unt
 - **Grammar / Minichat / Width / Code-swap / Cleanup / Provenance:** owner asked for recommendations
   (laid out in chat 2026-06-27); RECOMMENDED picks pending explicit confirm — grammar=Obsidian/GFM,
   minichat=native SwiftUI+webview escape hatch, width=binary 720px/full (slider later), code-swap=Option A
-  (keep chrome, swap engine), cleanup=delete 3 dead editors after a real-app runtime test, provenance=ship the
+  (keep chrome, ADD MarkEdit engine — additive), cleanup=KEEP ALL (owner-locked DELETE NOTHING), provenance=ship the
   existing Swift `AgentNoteEditProvenance` spine (defer the new Rust FFI). Lock these into the canonical plan
   once the owner confirms.
 
@@ -101,11 +101,14 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
       the verified `EpdocEditorChromeController.dispatch`/`runCommand` seam. Findings: Cmd+K free; ~80% of Epdoc
       commands wrap EXISTING cases; the `caretChanged`-has-no-marks gap blocks honest `isEnabled` (3-file fix);
       5 shortcut collisions catalogued (⌘1/2/3, ⌘E, ⌘K, ⌘⇧I, ⌘G). Pass 11 next.
-- [ ] **Pass 11+** (deepen/polish until owner says stop): candidates — owner answers to the remaining open
-      questions (Q2 minichat shape, Q3 width pixels, Q4 swap scope, Q6 cleanup — RECOMMENDED picks recorded
-      above, pending confirm); the provenance-ledger drift from Pass-9a §4.2; the `caretChanged.marks` read-back
-      (Pass-10 dependency, also unblocks 4c toolbar active-state); deeper code on a build-sequence stage; CI-wire
-      the Pass-7/8/9 falsifiers as real tests; or harden a thin spot.
+- [x] **FINALIZATION (2026-06-27, owner-requested) — loop STOPPED (cron `669316a7` deleted).** 3 independent
+      audits ran (contradiction / supersede-Tolaria / completeness); findings folded into the CANONICAL PLAN
+      **§12** (the now-authoritative honest-state section). Owner LOCKS applied: **L1 markdown-as-truth · L2
+      width = toggle + slider · L3 delete-nothing**; recommendations R1–R5 recorded (audit-verified best, pending
+      final nod). Corpus contradictions fixed: provenance §6 (Swift spine not Rust ledger), `update_note`→
+      `edit_note`, `@tiptap/markdown` 3.27→3.24, `vendor/`→`LocalPackages/`, width pixels → 720px/none, stage
+      5.8 deletion VOIDED. P0 pre-build checks + first-slice recorded in §12. **The canonical plan §12 is the
+      read-first for any build work.**
 
 ---
 
@@ -454,7 +457,7 @@ package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use 
 
 ### Pass 7a — Verification/falsifier specs: MarkEdit embed + code-editor swap
 
-> **Scope:** build-sequence item 5 (`EDITOR_CANONICAL_PLAN §10.5`) — vendor MarkEdit, clone the bundle script, swap textarea→CoreEditor (Option A), graft native panels, full Settings inert, then delete the 3 dead code-editor impls. Headless signals tagged `[CI-PROVABLE]`; runtime-only tagged `[RUNTIME-ONLY]` (needs signed `Product▸Run`).
+> **Scope:** build-sequence item 5 (`EDITOR_CANONICAL_PLAN §10.5`) — vendor MarkEdit, clone the bundle script, swap textarea→CoreEditor (Option A), graft native panels, full Settings inert (NO deletions — owner lock L3 keeps all 3 code-editor impls; CoreEditor is additive). Headless signals tagged `[CI-PROVABLE]`; runtime-only tagged `[RUNTIME-ONLY]` (needs signed `Product▸Run`).
 >
 > **★ Load-bearing correction to the code pack** `[VERIFIED-CODE]`: `MARKEDIT_EMBED_CODEPACK §4` shows `path: vendor/MarkEdit/...`, but the repo convention is **`LocalPackages/`** (`project.yml:479-487`: `mlx-swift`, `SwiftTerm`, `GGUFRuntimeBridge`, `CodeEditSourceEditor` all live there; nothing uses `vendor/`). Vendor under `LocalPackages/MarkEdit/` or the path assertions below correctly fail.
 
@@ -478,7 +481,12 @@ Real risk surface is the static plist — fully catchable headlessly though sign
 
 **5.7 — Full MarkEdit Settings present-but-inert behind `#if EPISTEMOS_MARKEDIT_EMBED`.** Green: builds WITH and WITHOUT the flag (additive `#if/#else`); flag in `project.yml` for embed config only; `! grep EPISTEMOS_MARKEDIT_EMBED EpistemosApp.swift` (no `Settings{}`/`Cmd+,` yet). Falsifiers: `MarkEditSettingsRepresentable` referenced outside the `#if`; flag bleeds into AppStore scheme; flag-unset build fails.
 
-**5.8 — Cleanup: delete the 3 dead impls (open-Q6 default).** Green: `WebKitCodeEditorView`/`LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` gone, no dangling refs, `usesWebKitEditor` branches collapsed, `CodeEditSourceEditor` dep removed (`project.yml:129`) IFF unused, zero test regressions (2,679 floor). **★ Sequence invariant (the one ordering falsifier): 5.8 MUST follow a MANUAL runtime confirm of 5.5+5.6** — the textarea "works" headlessly too (just no highlight), so deleting it on a green *headless* build is false-confidence. Falsifier: any `Epdoc*`/`ProseTextView2`/`ProseEditorView` file touched (note + frozen-TK2 hard-gate, plan §1).
+**5.8 — ⚠️ VOID per owner lock L3 (DELETE NOTHING, 2026-06-27).** This stage originally said "delete the 3 dead
+impls" — the owner has locked delete-nothing, so the deletion green-criteria are INVERTED into falsifiers: any
+of `WebKitCodeEditorView`/`LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter`/`CodeEditSourceEditor`
+being removed is now a VIOLATION. **Correct stage = co-existence verify:** all impls present + compile; CoreEditor
+reachable as an additive engine option; `usesWebKitEditor` stays a LIVE switch (not collapsed). Falsifier (kept):
+any `Epdoc*`/`ProseTextView2`/`ProseEditorView` file touched. (Original deletion text retired — do NOT execute.)
 
 **Honesty ledger:** all of {vendor/drop presence, no-`@main`/`.appex`, xcodegen-only, lint-strip, bundle wiring, MAS-hostile entitlement leak (static plist), swap-seam grep, selector existence, scheme disjointness, settings-inert dual-build, cleanup grep + `swift test`} = `[CI-PROVABLE]`. **CM6 highlighting/typing/LSP-hover + code-signing = `[RUNTIME-ONLY]`** (per `headless_xcodebuild_signing`: treat "reached CodeSign, 0 other errors" as compile-OK).
 
