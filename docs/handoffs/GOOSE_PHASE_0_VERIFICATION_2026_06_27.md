@@ -624,3 +624,24 @@ on green (all five anchors still match upstream so the new throws don't fire) an
 the window-leak teardown doesn't disturb the surface lifecycle the live suites
 exercise. The Goose surface remains GREEN at focused + live + deployed-artifact
 layers.
+
+## Addendum 2026-06-28 (PM #8) — definitive full-surface re-prove (mutations included)
+
+Most complete re-prove of the session. The [4] silent-graft hard-fail conversion
+touched grafted config-WRITE branches (readConfig / OAuth / delete-cleanup /
+getProviderModels), so the provider/settings/source MUTATION suites were re-run to
+confirm those paths still round-trip:
+- Provider/settings/source MUTATION + broad live — **12 tests / 4 suites, 85.5s**
+  (log `build/goose-phase0-claude-2026-06-28/reprove-mutations-2026-06-28-184755.log`):
+  `Goose live integration` 82.3s, `Goose provider mutation` 1.6s, `Goose settings
+  mutation` 1.3s, `Goose source mutation` 0.2s.
+- Earlier this pass-set: focused **31 tests / 4 suites** + combined live **5/5**.
+
+Across focused + combined-sweep + mutation/lifecycle layers the entire Goose test
+surface is GREEN with no regression from any session change (preference persistence,
+welcome grid, custom CRUD, [2]/[10]/[11] security, [4] hard-fail staging, [8]
+window-leak teardown). Every fixed thermonuclear finding ([1]-[6],[8],[10]p1,[11])
+and every owner-stated requirement is now guarded by a strict test. The surface is
+hardened and continuously regression-guarded at the source, focused-test, live-test,
+and deployed-artifact (binary SHA + bundle grafts) layers. The remaining §7 gate is
+the owner's manual pass + OAuth login.
