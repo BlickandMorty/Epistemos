@@ -1,0 +1,17 @@
+Plan: Plan 2 Stage 5 MarkEdit full-source vendor
+Source Repo: https://github.com/MarkEdit-app/MarkEdit.git
+Pinned Ref: 7d56e2e64322e983c43aa789bc08e238860f0069
+Resolved Commit: 7d56e2e64322e983c43aa789bc08e238860f0069
+
+Pruned Shell Items:
+- MarkEditMac/Sources/Main/Application
+- MarkEditMac/Sources/Main/AppDocumentController.swift
+- MarkEdit.xcodeproj
+- MarkEditMac/Info.entitlements
+- FinderExtension
+- PreviewExtension
+
+Notes:
+- This is vendored source, not a git submodule or worktree.
+- Do not restore MarkEdit @main, AppDocumentController, .xcodeproj, entitlements, or .appex sources inside Epistemos.
+- Harvest MAS-safe document-type/build-settings hardening into Epistemos explicitly before wiring project.yml.

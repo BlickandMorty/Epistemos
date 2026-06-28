@@ -1,0 +1,7 @@
+## System
+*.DS_Store
+
+## User settings
+xcuserdata/
+Local.xcconfig
+*.local.entitlements
