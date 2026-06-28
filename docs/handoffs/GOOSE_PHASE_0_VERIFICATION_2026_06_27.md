@@ -603,3 +603,24 @@ have the complete, current Goose surface at BOTH layers — runtime binary and
 staged Web UI — that the green test suites verify. This is nothing-lost / version
 parity at the deployed-artifact level, the strongest evidence achievable without
 the owner's interactive manual pass (Cmd-3 + provider OAuth).
+
+## Addendum 2026-06-28 (PM #7) — full re-prove after hard-fail staging + window-leak fix
+
+Regression re-prove after the session's later changes (the [4] silent-graft
+hard-fail conversion that re-stages the Web UI, and the [8] MCP-app-window
+closeAllApps teardown wired into onDisappear):
+- Focused suites — **31 tests / 4 suites, 2.5s** (GOLDEN RULE, parity gate,
+  ACP client/codec, Keychain key bridge, plus all the session's lock tests:
+  cwd-guards, status-language, teardown-cancellation, reconnect-budget,
+  window-leak, hard-fail-graft).
+- Combined live sweep — **5/5 suites, 80.5s** (log
+  `build/goose-phase0-claude-2026-06-28/reprove-live-2026-06-28-182540.log`):
+  ProviderCatalog 0.6s (Goose-only catalog), SessionLifecycle 4.2s,
+  CustomCapability 1.3s, WebPrompt 36.2s (prompt -> end_turn), WebRoute 38.3s
+  (all owner routes render with their real ACP method + no error boundary).
+
+No regression from any session change. The staging hard-fail is behavior-preserving
+on green (all five anchors still match upstream so the new throws don't fire) and
+the window-leak teardown doesn't disturb the surface lifecycle the live suites
+exercise. The Goose surface remains GREEN at focused + live + deployed-artifact
+layers.
