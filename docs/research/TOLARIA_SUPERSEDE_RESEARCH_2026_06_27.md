@@ -64,13 +64,18 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
 - [x] **Pass 6 DONE** (2026-06-27): RESTRUCTURE complete → `EDITOR_CANONICAL_PLAN_2026_06_27.md` written
       (surface model, locked decisions, all areas, build sequence, license ledger, 6 open questions up top).
       **The core research + restructure is now COMPLETE.**
-- [ ] **Pass 7+** (deepen/polish until owner says stop): candidates — owner answers to the 6 open questions →
-      fold into the plan; deeper code on whichever build-sequence stage the owner wants to start; per-area
-      falsifier/test specs; or harden any thin spot. (No new structural research needed.)
-- [ ] **Pass 5:** Contradiction audit across ALL editor docs + the emerging plan.
-- [ ] **Pass 6:** RESTRUCTURE into one canonical plan doc (MarkEdit-in-app + Tolaria revamp on Epdoc +
-      Goose AI + ontology + minimal-best toggles).
-- [ ] **Pass 7+:** Deepen/polish each area until told to stop.
+- [x] **Pass 7 DONE** (2026-06-27): PER-STAGE VERIFICATION/FALSIFIER SPECS (matches the owner's "done only
+      when verification passes" doctrine). Two lanes appended below: **7a** = MarkEdit embed + code-editor swap
+      (stages 5.1–5.8, each with green criteria + falsifiers + CI-PROVABLE vs RUNTIME-ONLY honesty ledger);
+      **7b** = Goose minichat (A1–A6) + native controls (B1–B4) + ontology (C1–C5). **3 real implementer traps
+      surfaced from source:** (1) `GraphStore.addEdge` silently drops edges to not-yet-loaded nodes (`:871-874`);
+      (2) `GraphEdgeType` is a strict 12-case FFI contract — inverse edges must reuse a type + `fmrel:inv:`
+      prefix, not a new case; (3) the ontology codepack's `firstNode(matchingTitle:)` doesn't exist (compile
+      blocker). Plus: `vendor/` vs `LocalPackages/` path correction; `GooseACPClientTests.swift:38` currently
+      asserts the mcpServers BUG. Pass 8 next.
+- [ ] **Pass 8+** (deepen/polish until owner says stop): candidates — owner answers to the 6 open questions →
+      fold into the plan; deeper code on whichever build-sequence stage the owner wants to start first; CI
+      wiring of the Pass-7 headless falsifiers as real `@Test`/`cargo test` cases; or harden any thin spot.
 
 ---
 
@@ -414,6 +419,65 @@ package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use 
   tools, `EpdocEditorCommand.highlightRange`/`proposeEdit`/`reloadFromDisk`+suppression,
   `VaultAgentsGuideManager` (seed/repair/status AGENTS.md + shims), per-turn preamble builder, the sidebar
   SwiftUI view, head/tail truncation in `get_note`, Safe/Power → GOOSE_MODE.
+
+---
+
+### Pass 7a — Verification/falsifier specs: MarkEdit embed + code-editor swap
+
+> **Scope:** build-sequence item 5 (`EDITOR_CANONICAL_PLAN §10.5`) — vendor MarkEdit, clone the bundle script, swap textarea→CoreEditor (Option A), graft native panels, full Settings inert, then delete the 3 dead code-editor impls. Headless signals tagged `[CI-PROVABLE]`; runtime-only tagged `[RUNTIME-ONLY]` (needs signed `Product▸Run`).
+>
+> **★ Load-bearing correction to the code pack** `[VERIFIED-CODE]`: `MARKEDIT_EMBED_CODEPACK §4` shows `path: vendor/MarkEdit/...`, but the repo convention is **`LocalPackages/`** (`project.yml:479-487`: `mlx-swift`, `SwiftTerm`, `GGUFRuntimeBridge`, `CodeEditSourceEditor` all live there; nothing uses `vendor/`). Vendor under `LocalPackages/MarkEdit/` or the path assertions below correctly fail.
+
+**5.1 — Vendor sources, drop app-lifecycle/project/entitlement/appex.** Green: `LocalPackages/MarkEdit/{MarkEditCore,MarkEditKit,MarkEditMac/Modules}` present + MIT LICENSE preserved + ProvenanceGate `clean_import` record. Falsifiers (must be absent): any `.xcodeproj`/`.appex` under the vendor dir; any `@main`/`NSApplicationMain` (collides with `EpistemosApp.swift:934` lone `@main`); `AppDocumentController.swift` present (2nd `NSDocumentController` races `EpistemosDocumentController` → non-deterministic shared singleton → open/save crash); any `Info.entitlements` reachable by the build.
+
+**5.2 — xcodegen wires packages, lint plugin stripped.** Green: `xcodegen generate` exits 0 + `.xcodeproj` is a pure artifact; `grep 'LocalPackages/MarkEdit' project.yml`; `Main/Application/**` in `excludes:`; `! grep 'plugins:' .../Modules/Package.swift`. Falsifiers: `path: vendor/MarkEdit`; manual `.pbxproj` hunk (CLAUDE.md DO-NOT); SwiftLint plugin pollutes the build graph.
+
+**5.3 — `build-coreeditor-bundle.sh` (clone of tiptap script), lock-hash gated, no RUNTIME npm/yarn.** Green: executable; `shasum -a 256` gate on `CoreEditor/yarn.lock`; missing-bundle sanity `exit 2`; in BOTH `preBuildScripts` (Pro `:92`+AppStore `:194`); PATH-hardening block. Falsifiers: any Swift-side `Process()`/npm/yarn spawn (`grep -rn 'Process()\|npm\|yarn' Epistemos/ --include='*.swift'` → MAS/hardened-runtime violation; build-time ≠ runtime, only Swift spawns are the falsifier); gates on `package-lock.json` not `yarn.lock`; runs after xcodebuild / absent from preBuildScripts.
+
+**5.4 — Entitlements: adopt Epistemos's, REJECT MarkEdit's MAS-hostile keys.** Baseline confirmed clean THIS session (`temporary-exception.files.home-relative-path` + `files.user-selected.executable` absent from all 3 `.entitlements`) → **regression-prevention**, not remediation. CI gate:
+```bash
+for f in Epistemos/Epistemos.entitlements Epistemos/Epistemos-AppStore.entitlements Epistemos/Epistemos-Debug.entitlements; do
+  ! grep -qE 'home-relative-path|user-selected\.executable|temporary-exception' "$f" || { echo "MAS-HOSTILE KEY in $f"; exit 1; }
+done
+```
+Real risk surface is the static plist — fully catchable headlessly though signing enforcement is `[RUNTIME-ONLY]`.
+
+**5.5 — Swap seam textarea→CoreEditor at `CodeEditorView.codeEditorSurface` (`:2332-2334`, Option A).** ★ `[VERIFIED-CODE]`: current code editor is a **plain textarea, highlighting DISABLED** (`WebKitCodeEditorView.swift:757` `renderHighlight(){ return; }`); `usesWebKitEditor` hardcoded `true` (`:1831`) gating 6 sites (`:1921,2022,2298,2333,2814`). Green: new `MarkEditCodeEditorRepresentable: NSViewControllerRepresentable` over `EditorViewController`; surface references it not `WebKitCodeEditorView`; `bridge.core.*` selectors exist in vendored `Generated/` (verify ts-gyb — codepack marked `[INFERRED]`); reaches CodeSign with `CODE_SIGNING_ALLOWED=NO`. `[RUNTIME-ONLY]`: real CM6 highlighting, autosave debounce, LSP hover. Falsifiers: `WebKitCodeEditorView(` still in the live surface; a `resetEditor` selector with no `Generated/` match (compile-fail); no `lastPushed` dedupe → edit-loop/cursor-reset; any `DispatchQueue.main.sync` in a UniFFI/bridge callback (deadlock).
+
+**5.6 — Coexistence: CoreEditor `chunk-loader://` + Epdoc `epistemos-doc://`, routed by extension; shared pressure handler.** Green: `CodeLanguage.detect(from:)` (`:904`) nil for `.md`/`.txt`; each scheme on exactly one `WKWebViewConfiguration`; no two `"bridge"` handlers on one content controller; CoreEditor WebView registered with `EpdocWebViewShared.notifyWebViewCreated/Dismantled` (`EpdocEditorChromeView.swift:36,629,664`). Falsifiers: duplicate scheme registration (`WKWebView` traps → crash); `.md` routes to CoreEditor; CoreEditor escapes memory-pressure relief (30-50 MB/editor leak).
+
+**5.7 — Full MarkEdit Settings present-but-inert behind `#if EPISTEMOS_MARKEDIT_EMBED`.** Green: builds WITH and WITHOUT the flag (additive `#if/#else`); flag in `project.yml` for embed config only; `! grep EPISTEMOS_MARKEDIT_EMBED EpistemosApp.swift` (no `Settings{}`/`Cmd+,` yet). Falsifiers: `MarkEditSettingsRepresentable` referenced outside the `#if`; flag bleeds into AppStore scheme; flag-unset build fails.
+
+**5.8 — Cleanup: delete the 3 dead impls (open-Q6 default).** Green: `WebKitCodeEditorView`/`LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` gone, no dangling refs, `usesWebKitEditor` branches collapsed, `CodeEditSourceEditor` dep removed (`project.yml:129`) IFF unused, zero test regressions (2,679 floor). **★ Sequence invariant (the one ordering falsifier): 5.8 MUST follow a MANUAL runtime confirm of 5.5+5.6** — the textarea "works" headlessly too (just no highlight), so deleting it on a green *headless* build is false-confidence. Falsifier: any `Epdoc*`/`ProseTextView2`/`ProseEditorView` file touched (note + frozen-TK2 hard-gate, plan §1).
+
+**Honesty ledger:** all of {vendor/drop presence, no-`@main`/`.appex`, xcodegen-only, lint-strip, bundle wiring, MAS-hostile entitlement leak (static plist), swap-seam grep, selector existence, scheme disjointness, settings-inert dual-build, cleanup grep + `swift test`} = `[CI-PROVABLE]`. **CM6 highlighting/typing/LSP-hover + code-signing = `[RUNTIME-ONLY]`** (per `headless_xcodebuild_signing`: treat "reached CodeSign, 0 other errors" as compile-OK).
+
+### Pass 7b — Verification/falsifier specs: Goose minichat + native controls + ontology
+
+> Tiers: `[HEADLESS]` (compile/grep/`swift test`/`cargo test`/MCP JSON-RPC round-trip over a stub) vs `[RUN-APP]`; live-Goose marked `⛔PHASE-0` (`GOOSE_PHASE_0_STATUS_AUDIT` not signed off).
+
+**A. GOOSE-MINICHAT**
+- **A1 — `newSession` carries `mcpServers` (1-line gap).** `[VERIFIED-CODE]` `GooseACPClient.swift:74-83` calls `GooseACPNewSessionRequest(cwd:metadata:)` with NO `mcpServers`, though the struct supports it (`GooseACPProtocol.swift:755-771`). ⚠️ **`GooseACPClientTests.swift:38` asserts `mcpServers == .array([])` — it LOCKS IN the bug; any fix MUST update it.** Green: signature gains `mcpServers:` + body forwards it; recording-stub round-trip asserts `params.mcpServers == [descriptor]`, shape `{name,type:"http",url,headers:{Authorization}}` checked vs vendored goosed (keys `[INFERRED]`). Falsifier: populated call still encodes `[]`.
+- **A2 — `session/cancel` (NEW method).** `GooseACPMethod` (`:39-49`) has NO `.cancel` (only the `cancelled` stop-reason + elicitation `.cancel()`). Green: new `case cancel`→wire string (confirm vs goosed); `client.cancel(sessionId:)` encodes it; `stop()` no-ops when idle. Falsifier: `stop()` resolves an elicitation `.cancel()` not the turn; invented wire string. `⛔PHASE-0` runtime: cancel halts further `session/update`.
+- **A3 — `WorkAppContextSnapshot.activeNoteBodyExcerpt` (build-now, zero Goose dep).** `:7-61` has title/path, NO body excerpt. Green: `Codable/Equatable/Sendable` field, `Self.clean(_,limit:)` bound, threaded through `init`/`isEmpty`(`:89`)/`rows`(`:106`)/`CodingKeys`/`jsonString`(`:152`); `headTail(8000,4000,1500)` ≤~5500, preserves head+tail, honest elision marker. Falsifiers: `isEmpty` ignores field; unbounded; fabricated contiguity.
+- **A4 — `ActiveEpdocTracker` → live `epistemos.context.snapshot`.** Headless-testable: `WorkToolMCPCore.handle(requestJSON:)`, name at `:16`, gated on `appContextProvider != nil` (`:30-37`). Green: round-trip — provider→A then `tools/call`→A's path; flip→B→B's path AND not A's; provider nil → tool not advertised. **Headline falsifier STALE PATH**: snapshot returns A after key window→B. Also: projector nil but snapshot reports content; list/call divergence.
+- **A5 — UI-steering affordances (`open_note`/`highlightEditor`/`replaceSelection`).** `[VERIFIED-CODE]` `GooseWebNativeAffordanceBridge.swift:99-238` has ~30 cases, NONE of these three; targets exist (`EpdocDocumentOpening.openDocument(withManifestID:)`, `EpdocEditorCommand` `:564-586`). Green: 3 cases; malformed args → structured error (no crash); map to real commands. Falsifiers: affordance writes OUTSIDE the vault (AGENTS.md §6 must be code-enforced); `replaceSelection` → command `js-editor/src/bridge/inbound.ts` doesn't implement (silent no-op).
+- **A6 — Phase-0 MAS gate.** Supervisor gates (`GooseRuntimeSupervisor.swift:119-120`); `MiniChatViewModel.init` must mirror. Green: `-D EPISTEMOS_APP_STORE` build → `availability==.unavailable`, `activateForCurrentNote()` early-returns, NO path to `GooseACPClient.newSession`/`.prompt`. **MAS-VIOLATION falsifier**: minichat/live-Goose reachable under `#if EPISTEMOS_APP_STORE`. ⚠️ **Owner-confirm (open Q2):** verifies native-SwiftUI-over-bridge default; "native webview shell" changes A6's surface.
+
+**B. NATIVE-CONTROLS**
+- **B1 — Unified `CommandRegistry`.** Green: `Set(ids).count==commands.count` (NO dup IDs — `register` appends blindly, dedup test mandatory); `matching("",scope:.code)` only code+global; `isEnabled` honored in palette AND menu; every `run` → real `EpdocEditorCommand`. Falsifiers: dup IDs; scope leak; menu/palette `isEnabled` divergence.
+- **B2 — Cmd+K free.** Green: `grep keyboardShortcut("k"` exactly ONE; panel toggles don't re-bind Cmd+1/2/3 at app scope (`EpistemosApp.swift:1468`). Falsifiers: 2nd Cmd+K; toggles shadow Home/Notes/Goose nav.
+- **B3 — Note-width toggle drives existing CSS var + persistence guard.** Green: `setContentWidth(wide:)` sets `--epdoc-content-max-width` (var EXISTS); `NoteWidthResolver.setWidth` nil (session-only) when NO `---` block, upserts `_width` when frontmatter exists; BOM handled; precedence session>`_width`>settings. **Falsifier frontmatter-injection**: writes `---` into a note that had none; wrong var name.
+- **B4 — Find/Replace + active-mark feedback.** Green: `caretChanged` gains `marks:{bold,...}` (`:426,476`). `[RUN-APP]`: bold toggle flips toolbar state. Falsifiers: notes Find wired to CM6 (wrong engine); mark state computed heuristically in Swift not read back over bridge.
+
+**C. ONTOLOGY-UPGRADE**
+- **C1 — `NoteOntologyParser` over the real flat parser.** `[VERIFIED-CODE]` reuse `VaultIndexActor.parseFrontMatter` (`:1804`) + `WikilinkResolver` (`:14,127`); NO Yams. Green: `classify` matrix; title H1 > `title:` > humanized filename. Falsifiers: 2nd frontmatter reader; `_`-key in `properties` not `systemProps`.
+- **C2 — `FrontmatterRelationshipReconciler` forward+inverse edges.** ★ **THREE traps verified in source:** (1) `GraphStore.addEdge` **silently returns if either node index absent** (`GraphStore.swift:871-874`) → inverse edges to not-yet-loaded targets silently dropped (cause of the inverse-not-persisted falsifier); (2) `GraphEdgeType` strict 12-case FFI contract (`Models/GraphTypes.swift:267`, `FFIVersionSyncTests`), NO `.backlink` — inverse REUSES an existing type + `fmrel:inv:` prefix + weight 0.5; `.quotes` dropped at ingest (`:595`), never emit; (3) wire-in calls `graphStore.firstNode(matchingTitle:)` which **does not exist** (only `firstNode(ofType:)` `:664`/`node(bySourceId:type:)` `:704`) — **compile blocker**. `GraphEdgeRecord(id:sourceNodeId:targetNodeId:type:weight:createdAt:)` real (`:586-593`). Green: BOTH nodes pre-added → `cites:[[B]]`→`fmrel:A::cites::B`(1.0)+`fmrel:inv:B::cites::A`(0.5); idempotent; diff-removal drops only `fmrel:`; dangling→0; NEGATIVE test for the silent-drop. Falsifiers: inverse absent; `firstNode(matchingTitle:)` compile-break; mutating the 12-case set; emitting `.quotes`; non-idempotent dups.
+- **C3 — `SystemKeys` across FTS+HNSW+graph.** Green: `isSystemKey`/`canonicalize` alias-aware; filter at ALL 3 sites (`BlockPropertySheet`, `ShadowVaultBootstrapper.loadDocument(.notes)`, `ReadableBlocksProjector`). Falsifiers: `_`-key leaks into FTS/HNSW/Properties UI; alias swallows a legit user field (`order`/`width`).
+- **C4 — `incrementalCrawl` content-hash deltas (additive).** Uses `SDPage.bodyHash` (SHA256). Green: unchanged→indexed nowhere; new→added/changed→modified/missing→removed (+`enqueueRemove`); `ScanDelta` counts match. Falsifiers: unchanged re-indexed; removed docID lingers; version bump wipes (must be additive).
+- **C5 — `ViewCompiler` SQL safety.** Green: tree → parameterized GRDB SQL with `StatementArguments` (a `'; DROP` value only as bound arg); `.semantic`→`1=1` sentinel (`:196`) routed via `fusedSearchAsync` (RRF k=60); `RelativeDate.resolveISO` correct. **Falsifier SQL-injection**: any value string-interpolated into WHERE; `.semantic` silently → match-everything when HNSW unavailable.
+
+**Cross-cutting:** CI-gate (headless today) = A1, A2-encode, A3, A4, A5, A6, B1, B2, B3, C1–C5. Requires running app = B4, A4 window-key, live `session/*`. `⛔PHASE-0` = A2-runtime, A6-live-reachability, end-to-end stream. **Two owner-confirm gates (not papered over):** minichat shape (Q2) + JSON-vs-md source-of-truth fork (Q1 → decides whether `update_note` writes JSON-into-package or `.md` write-through → C2/C4 inputs depend on it).
 
 ---
 
