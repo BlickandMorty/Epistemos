@@ -25,9 +25,14 @@
   `max-width:none`) PLUS a continuous slider (stores a custom px in `_width`, same "never create frontmatter
   just for UI state" guard). The 3 binary-only width models (`NoteWidthResolver`, `NATIVE_CONTROLS` setter,
   `CommandRegistry.setContentWidth(wide:)`) gain a `custom(px:)` path.
-- **L3. DELETE NOTHING.** No editor is removed — NOT the 3 code-editor impls (`WebKitCodeEditorView`,
-  `CodeEditSourceEditor`, `LiveCodeEditorController`), NOT Prose/TK2, NOT Epdoc. The MarkEdit CoreEditor engine
-  is **ADDITIVE** (an upgrade option behind a switch), never a replacement that authorizes deletion.
+- **L3. CODE editor v2 = MarkEdit CoreEditor; DELETE the 3 OLD code-editor files once v2 is runtime-verified.**
+  (Owner clarified 2026-06-27: the "delete nothing" was a mis-scope — the owner DOES want the dead **code**-editor
+  files gone.) Replace `WebKitCodeEditorView` (the disabled-highlighting textarea) + dormant `CodeEditSourceEditor`
+  + scaffold `LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` with the MarkEdit CoreEditor engine
+  ("code editor v2"). **Deletion gate (the one safety rule):** delete ONLY after a MANUAL real-app run confirms v2
+  types + highlights + saves (the textarea "works" headlessly too, it just doesn't highlight); commit deletions
+  separately (easy revert). **SCOPE: code editor ONLY.** The NOTE editor (Epdoc/TipTap) and Prose/TK2 are NEVER
+  touched. This matches the R-CODEREVIEW deletion guardrail: provably-dead + not-in-flight + verified-replacement.
 
 ### ⏳ RECOMMENDED — audit-verified best, pending the owner's final nod (not blocking)
 - **R1. Grammar = Obsidian/GFM** (`> [!KIND]` callouts · ` ```chart ` · `[[wikilink]]`). Follows directly from
@@ -36,8 +41,9 @@
 - **R2. Minichat = native SwiftUI over the Goose ACP bridge + an "Open in Goose" webview escape hatch.**
   Maximizes nativeness (the owner's through-line) + inline per-edit approval; the webview button still gives
   "full web Goose." Honestly diverges from the owner's "native webview shell" phrasing — surfaced, not assumed.
-- **R3. Code-engine = Option A** (keep Epistemos's code-editor chrome, ADD MarkEdit CoreEditor as the engine;
-  graft native Find/FontPicker/Statistics). Per L3 this is additive — the old surface stays alongside.
+- **R3. Code-engine = Option A** (keep Epistemos's code-editor chrome, swap the engine to MarkEdit CoreEditor =
+  code editor v2; graft native Find/FontPicker/Statistics). Per L3 the 3 old code-editor files are DELETED once v2
+  is runtime-verified (code-editor scope only).
 - **R4. `@codemirror/merge`** = the code-lane diff engine (it was only wrong for the *note* editor). Settled.
 - **R5. Edit-provenance = the existing Swift `AgentNoteEditProvenance` → EventStore spine**, enriched with an
   `EditClaim` metadata struct. The Rust `ClaimLedger` FFI is read-only today and Phase 8.E moved live provenance
@@ -50,9 +56,9 @@
 | Surface | Engine | Role | Status |
 |---|---|---|---|
 | **Note editor = Epdoc** | TipTap/ProseMirror in WKWebView | Tolaria-like WYSIWYG notes — the primary writing surface | LIVE, exists; revamp it |
-| **Code editor = MarkEdit CoreEditor** | CodeMirror 6 in WKWebView (vendored from MarkEdit) | code/text files; an ADDITIVE engine option for the current code editor (old surface KEPT per L3) | BUILD (additive) |
+| **Code editor v2 = MarkEdit CoreEditor** | CodeMirror 6 in WKWebView (vendored from MarkEdit) | code/text files; REPLACES the old code editor (old files deleted after v2 runtime-verify, L3) | BUILD (replace) |
 | **Prose = TK2** | TextKit 2 / `ProseTextView2` (native) | 🔒 frozen hard-gate, long-form/focus | UNTOUCHED |
-| **(existing) current code editor** | `WebKitCodeEditorView` (textarea, highlighting disabled) + 2 dormant impls | KEPT per L3 (delete nothing); the CoreEditor engine sits alongside behind a switch | UNTOUCHED |
+| **(old) current code editor** | `WebKitCodeEditorView` (textarea, highlighting disabled) + 2 dormant impls | DELETE after v2 verified (L3, code-editor scope only) | REMOVE post-verify |
 | **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; "another feature later" | EMBED, inert behind a flag |
 
 Why: TipTap = the rendered/WYSIWYG "looks like Tolaria on edit" feel (Tolaria's editor *is* BlockNote = TipTap+
@@ -65,9 +71,9 @@ highlighting DISABLED — see `MARKEDIT_EMBED_CODEPACK` §0); TextKit = best for
 1. **Note editor = TipTap on the existing Epdoc.** NOT BlockNote (React-only, 8.8× bundle, primitives-only
    props hostile to the ontology, `xl-ai` is GPL). NOT CodeMirror (that decision was reversed). "Look like
    Tolaria" = a CSS/chrome polish task on Epdoc, not an engine swap.
-2. **Code editor = MarkEdit's CoreEditor (CodeMirror 6), ADDED alongside the existing code editor (L3 — delete
-   nothing).** The current `WebKitCodeEditorView` textarea stays; CoreEditor is an engine option behind a switch.
-   Epdoc stays the note editor; surfaces coexist (distinct scheme handlers).
+2. **Code editor v2 = MarkEdit's CoreEditor (CodeMirror 6); the old code editor is DELETED after v2 verify (L3).**
+   Swap the engine at `CodeEditorView.codeEditorSurface`; once v2 is runtime-verified, remove the 3 old
+   code-editor files (code-editor scope ONLY). Epdoc stays the note editor; surfaces coexist (distinct schemes).
    **★ SOURCE OF TRUTH = MARKDOWN-ON-DISK (L1).** Vault `.md` + frontmatter is durable truth; `.epdoc` JSON is a
    derived cache. **Canonical grammar = Obsidian/GFM (R1).** **Note-width = binary toggle + slider (L2).**
 3. **MarkEdit = FULL app embedded** (Route D): vendor `MarkEditCore` + `MarkEditKit` + `MarkEditMac/Modules`
@@ -182,11 +188,13 @@ Stage gates; each is independently shippable where possible. Goose-dependent ite
    Find/Replace + panel segmented control. Add `@tiptap/markdown` (3.24.0, P0 npm check) + execute the L1
    markdown-as-truth flip (serializer-first; dualWrite → markdownCanonical, falsifier-gated).
 4. **[M] Note AI-diff** (`prosemirror-changeset` + suggest-changes) via `EpdocCopilotDockView`.
-5. **[M] MarkEdit embed + ADD code-editor engine** (codepack 4b): vendor MarkEdit under `LocalPackages/MarkEdit/`
-   (NOT `vendor/` — repo convention), `build-coreeditor-bundle.sh`, add `MarkEditCodeEditorRepresentable`
-   (CoreEditor) as an engine option behind a switch (Option A — keep the existing chrome AND the existing
-   textarea surface per L3), graft native Find/FontPicker/Statistics; full Settings inert. **No deletions (L3):
-   `usesWebKitEditor` stays a live switch; all 3 code-editor impls remain.**
+5. **[M] MarkEdit embed + code-editor v2** (codepack 4b): vendor MarkEdit under `LocalPackages/MarkEdit/`
+   (NOT `vendor/` — repo convention), `build-coreeditor-bundle.sh`, swap the engine to `MarkEditCodeEditorRepresentable`
+   (CoreEditor) at `CodeEditorView.codeEditorSurface` (Option A — keep Epistemos's code chrome), graft native
+   Find/FontPicker/Statistics; full Settings inert. **Then (L3) — after a MANUAL real-app verify of v2 (types +
+   highlights + saves) — DELETE the 3 old code-editor files** (`WebKitCodeEditorView`/`CodeEditSourceEditor`/
+   `LiveCodeEditorController`+`SwiftTreeSitterLiveHighlighter`), commit separately. NOTE editor (Epdoc) + Prose/TK2
+   untouched.
 6. **[M] Views + Type registry + incremental crawl** (codepack 4a) over GRDB/graph/shadow.
 7. **[L, Phase-0 gated] Goose minichat** (codepack 4d): build the note-context plumbing now; flip the live
    agent surface after Goose §7 sign-off. Close the 3 Goose-boundary gaps. Provenance EditClaim wiring.
@@ -222,10 +230,14 @@ and several headline features are model-only.** What's recorded here supersedes 
 ### 12.2 Where Epistemos is BEHIND or DIVERGES (own these honestly)
 - **Markdown-as-truth (L1):** Tolaria *ships* it; Epistemos reaches it only *after* the unbuilt `@tiptap/markdown`
   serializer + the staged flip. Behind until Phase B.
-- **Dual rich↔raw editor on one note:** Tolaria's signature is toggling *a note* between rich and raw on the same
-  `.md`. Epistemos's code editor is for code/text files, NOT `.md` notes — so **there is no raw-note toggle.** The
-  bet is "TipTap is already WYSIWYG, so you don't need a raw view." That is a **deliberate product divergence, not
-  a supersede** — own it as a choice (revisit if you want a real raw-`.md` view of a note).
+- **Dual rich↔raw editor on one note — ACHIEVABLE, now a PLANNED feature (owner-corrected 2026-06-27).** Earlier
+  framing called this a "gap"; too conservative. TipTap WYSIWYG is *enough* — and richer — for the primary editing
+  feel (Tolaria's own editor is BlockNote = TipTap-family, so notes look/feel like Tolaria). The only extra Tolaria
+  has is a "view this note as raw markdown" toggle. **With L1 (every note IS a `.md` file) + the embedded MarkEdit
+  CoreEditor, that toggle is nearly free: same `.md`, two views — Epdoc renders it rich, CoreEditor renders it raw,
+  a button swaps which editor is mounted (suppress the save-echo on swap).** So Epistemos MATCHES Tolaria's rich↔raw
+  AND the rich side is better. ⟹ Add **"open note as raw markdown"** to the build sequence (small; gated on L1 +
+  code-editor v2). NOT behind — on par + richer.
 - **Provenance retraction-beats-revert:** claimed, but lives in the read-only Rust ledger; the shippable Swift
   spine doesn't have it (R5). Don't demo what isn't wired.
 - **"Full MarkEdit app embedded":** the literal "two apps in one" is impossible (one `@main`/`NSDocumentController`);

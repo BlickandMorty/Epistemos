@@ -25,7 +25,7 @@ editor docs into ONE canonical, contradiction-free plan, then keep deepening unt
 - **Grammar / Minichat / Width / Code-swap / Cleanup / Provenance:** owner asked for recommendations
   (laid out in chat 2026-06-27); RECOMMENDED picks pending explicit confirm — grammar=Obsidian/GFM,
   minichat=native SwiftUI+webview escape hatch, width=binary 720px/full (slider later), code-swap=Option A
-  (keep chrome, ADD MarkEdit engine — additive), cleanup=KEEP ALL (owner-locked DELETE NOTHING), provenance=ship the
+  (keep chrome, swap engine = code editor v2), cleanup=DELETE the 3 old code-editor files after v2 runtime-verify (code-editor scope only; note editors untouched), provenance=ship the
   existing Swift `AgentNoteEditProvenance` spine (defer the new Rust FFI). Lock these into the canonical plan
   once the owner confirms.
 
@@ -104,7 +104,7 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
 - [x] **FINALIZATION (2026-06-27, owner-requested) — loop STOPPED (cron `669316a7` deleted).** 3 independent
       audits ran (contradiction / supersede-Tolaria / completeness); findings folded into the CANONICAL PLAN
       **§12** (the now-authoritative honest-state section). Owner LOCKS applied: **L1 markdown-as-truth · L2
-      width = toggle + slider · L3 delete-nothing**; recommendations R1–R5 recorded (audit-verified best, pending
+      width = toggle + slider · L3 delete the 3 OLD code-editor files after v2 verify (code-editor scope; note editors untouched)**; recommendations R1–R5 recorded (audit-verified best, pending
       final nod). Corpus contradictions fixed: provenance §6 (Swift spine not Rust ledger), `update_note`→
       `edit_note`, `@tiptap/markdown` 3.27→3.24, `vendor/`→`LocalPackages/`, width pixels → 720px/none, stage
       5.8 deletion VOIDED. P0 pre-build checks + first-slice recorded in §12. **The canonical plan §12 is the
@@ -457,7 +457,7 @@ package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use 
 
 ### Pass 7a — Verification/falsifier specs: MarkEdit embed + code-editor swap
 
-> **Scope:** build-sequence item 5 (`EDITOR_CANONICAL_PLAN §10.5`) — vendor MarkEdit, clone the bundle script, swap textarea→CoreEditor (Option A), graft native panels, full Settings inert (NO deletions — owner lock L3 keeps all 3 code-editor impls; CoreEditor is additive). Headless signals tagged `[CI-PROVABLE]`; runtime-only tagged `[RUNTIME-ONLY]` (needs signed `Product▸Run`).
+> **Scope:** build-sequence item 5 (`EDITOR_CANONICAL_PLAN §10.5`) — vendor MarkEdit, clone the bundle script, swap textarea→CoreEditor (Option A), graft native panels, full Settings inert, then (after v2 runtime-verify) delete the 3 OLD code-editor files (owner L3 — code-editor scope only; NOTE editor + Prose untouched). Headless signals tagged `[CI-PROVABLE]`; runtime-only tagged `[RUNTIME-ONLY]` (needs signed `Product▸Run`).
 >
 > **★ Load-bearing correction to the code pack** `[VERIFIED-CODE]`: `MARKEDIT_EMBED_CODEPACK §4` shows `path: vendor/MarkEdit/...`, but the repo convention is **`LocalPackages/`** (`project.yml:479-487`: `mlx-swift`, `SwiftTerm`, `GGUFRuntimeBridge`, `CodeEditSourceEditor` all live there; nothing uses `vendor/`). Vendor under `LocalPackages/MarkEdit/` or the path assertions below correctly fail.
 
@@ -481,12 +481,13 @@ Real risk surface is the static plist — fully catchable headlessly though sign
 
 **5.7 — Full MarkEdit Settings present-but-inert behind `#if EPISTEMOS_MARKEDIT_EMBED`.** Green: builds WITH and WITHOUT the flag (additive `#if/#else`); flag in `project.yml` for embed config only; `! grep EPISTEMOS_MARKEDIT_EMBED EpistemosApp.swift` (no `Settings{}`/`Cmd+,` yet). Falsifiers: `MarkEditSettingsRepresentable` referenced outside the `#if`; flag bleeds into AppStore scheme; flag-unset build fails.
 
-**5.8 — ⚠️ VOID per owner lock L3 (DELETE NOTHING, 2026-06-27).** This stage originally said "delete the 3 dead
-impls" — the owner has locked delete-nothing, so the deletion green-criteria are INVERTED into falsifiers: any
-of `WebKitCodeEditorView`/`LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter`/`CodeEditSourceEditor`
-being removed is now a VIOLATION. **Correct stage = co-existence verify:** all impls present + compile; CoreEditor
-reachable as an additive engine option; `usesWebKitEditor` stays a LIVE switch (not collapsed). Falsifier (kept):
-any `Epdoc*`/`ProseTextView2`/`ProseEditorView` file touched. (Original deletion text retired — do NOT execute.)
+**5.8 — Delete the 3 OLD code-editor files (owner L3, 2026-06-27 — code-editor scope ONLY).** After a MANUAL
+real-app verify that code-editor v2 (MarkEdit CoreEditor) types + highlights + saves, DELETE
+`WebKitCodeEditorView`/`LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` + remove the `CodeEditSourceEditor`
+dep IFF unused; collapse `usesWebKitEditor`; commit separately (easy revert); zero test regressions. **★ Ordering
+gate:** deletion MUST follow the manual runtime confirm (the textarea "works" headlessly too, just no highlight).
+**Hard falsifier (the L3 scope guard):** any `Epdoc*`/`ProseTextView2`/`ProseEditorView` file touched = VIOLATION
+(NOTE editor + frozen Prose are never deleted — only the dead CODE-editor files).
 
 **Honesty ledger:** all of {vendor/drop presence, no-`@main`/`.appex`, xcodegen-only, lint-strip, bundle wiring, MAS-hostile entitlement leak (static plist), swap-seam grep, selector existence, scheme disjointness, settings-inert dual-build, cleanup grep + `swift test`} = `[CI-PROVABLE]`. **CM6 highlighting/typing/LSP-hover + code-signing = `[RUNTIME-ONLY]`** (per `headless_xcodebuild_signing`: treat "reached CodeSign, 0 other errors" as compile-OK).
 
