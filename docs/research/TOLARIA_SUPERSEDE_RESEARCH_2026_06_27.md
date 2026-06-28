@@ -26,9 +26,10 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
 - [x] **Pass 2 DONE** (2026-06-27): Tolaria ontology deep-study + MarkEdit Route-D embedding mechanics.
       → Big finding: **Epistemos is ALREADY a document-based app** (`EpistemosDocumentController` +
       `EpdocDocument`/`HTMLWorkspaceDocument`), so MarkEdit's shell grafts cleanly. Pass 3 next.
-- [ ] **Pass 3:** Goose ↔ Tolaria AI graft + AI-edit review model (git-diff vs in-editor) + correct
-      ProseMirror-era diff/change-tracking repos (the CodeMirror `@codemirror/merge` pick does NOT apply
-      to a WYSIWYG editor — resolve the replacement).
+- [x] **Pass 3 DONE** (2026-06-27): Goose↔Tolaria AI graft + review model + ProseMirror diff stack.
+      → Big finding: **most of the AI-graft infra already EXISTS in Epistemos** (`WorkNativeMCPServer` +
+      `WorkToolMCPCore` + `WorkAppContextSnapshot` + the full Goose ACP client). Also an HONESTY
+      CORRECTION to a pass-1 claim (see below). Pass 4 next.
 - [ ] **Pass 4:** "Supersede Tolaria" brilliance layer — what to do BETTER (semantic/RRF search, provenance
       ledger, real trash+undo, keymap completeness, etc.).
 - [ ] **Pass 5:** Contradiction audit across ALL editor docs + the emerging plan.
@@ -226,6 +227,87 @@ adopt `xl-ai` (GPL) or `@tiptap-pro/*` (paid).
   CACHE_VERSION full-rebuild); (5) type-aware presentations (boards/calendars/tables on typed edges +
   validated props) + honest in-process agent that proposes frontmatter edits the user confirms.
 - (Full AGPL source cloned at `/tmp/tolaria-research/` by the research agent — behavior only, reimplement.)
+
+---
+
+### ⚠️ HONESTY CORRECTION (Pass 3 overrides a Pass-1 claim)
+Pass 1 / the earlier AI-edit-UX research claimed "Cursor + Zed both shipped live in-editor agent typing
+and REMOVED it for reliability; users want it back." **Primary sources do NOT support this.** Both still
+stream edits live today and *added a review layer on top*. The one real primary signal (Zed PR #58037,
+merged 2026-05-29) shows streaming each char as its own transaction caused jank — and Zed's fix was to
+**BATCH the streaming, not remove it** (61–90% latency win). Cursor's only "review UI disappeared" case was
+a bug (build 2.6.19), since fixed; in May 2026 it moved the *default* review granularity to session-level
+(no stated reliability reason) and users want the granular inline diffs back. **Corrected takeaway: an
+in-editor live diff trail is VIABLE — the real constraint is "batch transactions per settled chunk, never
+per token."** Carry this corrected version into the canonical plan.
+
+### ⭐ Decisions locked by Pass 3
+9. **AI-EDIT REVIEW MODEL = HYBRID. Git-diff/file-level review is the SPINE; in-editor diff decorations are
+   an OPT-IN for small single-note edits.** Model A (agent writes `.md` → editor reloads → review via git
+   diff + activity feed + rollback) is the low-risk default and the natural fit for markdown-as-truth + a
+   git-backed vault (Tolaria's model). Model B (stream edits as PM transactions → green-insert/strike-delete
+   decorations → per-chunk accept/reject) is added ONLY for small in-place edits the user invokes on a
+   selection — and the diff is computed **once per settled chunk, never per token** (the Zed #58037 lesson).
+10. **FINAL ProseMirror diff stack (all permissive, TipTap-3 compatible via `addProseMirrorPlugins()`):**
+   **`prosemirror-changeset` (MIT)** = the canonical diff-data primitive (step→added/deleted spans with
+   arbitrary per-span `data`; it's literally what TipTap's PAID AI-diff is built on) → render via your own
+   `Decoration`s → optional command layer **`@handlewithcare/prosemirror-suggest-changes` (MIT, NYTimes/
+   BlockNote pedigree)** for accept/reject. Streaming wiring = **two-doc diff**: snapshot `originalDoc`,
+   stream into a staging doc (batched), on settle generate steps (`prosemirror-recreate-transform` — note:
+   weakest-maintained link) → `ChangeSet.create(orig).addSteps(...)` → decorations; accept commits + writes
+   `.md`, reject inverts. EXCLUDE TipTap AI Toolkit (paid), BlockNote xl-ai (GPL), @codemirror/merge (wrong
+   engine), and treat `prosemirror-suggestion-mode` with caution (MIT only per npm metadata, no LICENSE file).
+11. **AI graft is mostly "rename/repoint/extend," NOT build-from-scratch — the infra EXISTS:** Epistemos
+    already has `WorkNativeMCPServer` (loopback HTTP MCP, per-launch bearer token, Origin allowlist,
+    constant-time auth), `WorkToolMCPCore` (JSON-RPC initialize/tools-list/tools-call, already exposes
+    `epistemos.context.snapshot`), and `WorkAppContextSnapshot`/`WorkAppContextStore` (typed thread-safe
+    context already carrying `activeNoteTitle`/`activeNotePath` + head/tail truncation), plus the full Goose
+    ACP client/supervisor/event-bridge/provider-key-bridge.
+12. **CONTEXT INJECTION = MCP-pull primary + thin per-turn preamble (better than Tolaria's push).** ACP has
+    no system-prompt slot, so: (a) a `vault.context_snapshot` MCP tool the agent calls on demand (no stale
+    snapshot, no per-turn context burn), + (b) a 1-line "the user is currently on note X" preamble on the
+    first prompt block. `AGENTS.md` instructs "call context_snapshot before content-sensitive edits."
+13. **PROVENANCE that supersedes git-author-only:** per accepted edit, emit an `EditClaim` into the existing
+    `ClaimLedger` (`agent_core/src/provenance/ledger.rs`) with `agent_id`/`model_id`+version/`runtimeKind`/
+    `capability_tier`/`confidence`/approver/`generatedAt` vs `acceptedAt` — fields git's 2-identity model
+    can't hold. Content-address each edit span in the `cognitive_dag` (`DerivesFrom`/`AttributedTo`/
+    `ApprovedBy`/`Evidence` edges, Merkle tamper-evident). Carry the `claimId` in the changeset span `data`
+    so an inline hunk, a git commit, and a DAG node share ONE identity. **Retraction propagation** (already
+    implemented, bounded-walk) beats `git revert` (it knows which later edits *depended on* the retracted
+    one). Git = bytes layer; ledger+DAG = meaning layer.
+
+### Pass 3a — Goose graft architecture (concrete)
+- **Goose seam:** `GooseRuntimeSupervisor` spawns `goose serve` (:3284, hardened env, Keychain keys pushed
+  post-connect via `GooseProviderKeyBridge`, `#if EPISTEMOS_APP_STORE` → unavailable = Pro/Dev-ID only).
+  ACP over WS: `session/new {cwd=vaultRoot, mcpServers}` → `session/prompt [text]` → `session/update`
+  (`agentThoughtChunk`/`agentMessageChunk`/`toolCall`/`toolCallUpdate{kind,status}`) → **`session/
+  request_permission` = REAL per-tool approval gate Tolaria lacks** → `session/fork` for branch.
+- **file/page context tracking (owner's specific want):** new `@MainActor EditorContextTracker` observes
+  the frontmost `.epdoc` window (active note path/title/manifestID), caret/selection (`caretChanged`),
+  open tabs (`EpistemosDocumentController.documents`) → live `EpdocAIContextSnapshot` in a thread-safe
+  store; the MCP `vault.context_snapshot` tool reads it → always live (pulled, not stale-pushed).
+- **8 MCP tools to expose (mirror Tolaria + UI-steering trio):** `vault.context_snapshot`, `vault.search`
+  (RRF — beats Tolaria's no-index walkdir), `vault.get_note` (honest head/tail truncation), `vault.create_
+  note`, `vault.update_note`/`vault.propose_edit`, `open_note` (UI-steer via `EpdocDocumentOpening`),
+  `highlight_editor` (new `EpdocEditorCommand.highlightRange`), `refresh_vault` (`ShadowVaultBootstrapper`).
+- **Edit round-trip:** Path A (MCP `note.update` writes file → reload via `setContent` + self-write
+  suppression, like the HTMLWorkspace path) for bulk/create; Path B (stream → `prosemirror-changeset`
+  decorations via `EpdocCopilotDockView`) for AI-authored in-place edits.
+- **AI sidebar (Cmd+Shift+L):** thin SwiftUI projection of `GooseACPEventBridge` — composer with
+  `[[wikilink]]` autocomplete, collapsible thinking (auto-expand streaming/auto-collapse end_turn), tool
+  cards keyed by `toolCallId`, **inline per-edit approval** (allow_once/always/reject → `resolvePermission`),
+  **Stop/abort** (Goose `cancelled` — Tolaria has none), per-message copy/regenerate/**fork**. Agent/model
+  from Goose's provider catalog. Safe/Power → `GOOSE_MODE`. MAS build = honest "Pro only" state.
+- **⚠️ SOURCE-OF-TRUTH FORK to resolve before `update_note` is "done":** Epdoc TODAY stores ProseMirror
+  JSON in `.epdoc` packages, NOT markdown-on-disk. Markdown-as-truth (add `@tiptap/markdown` serializer) is
+  the LOCKED direction but UNBUILT. Path B (diff decorations) sidesteps it for AI-authored edits; Path A
+  needs the serializer (or write JSON into the package meanwhile).
+- **What's BUILD vs EXISTS:** EXISTS = full ACP stack, the loopback MCP server + JSON-RPC core + security,
+  the typed context store w/ truncation, Epdoc bridge + document controller, RRF search, copilot dock,
+  the clean-room Tolaria spec. BUILD = `EditorContextTracker`, repoint Work-MCP → vault/editor MCP + the 8
+  tools, `EpdocEditorCommand.highlightRange`/`proposeEdit`/`reloadFromDisk`+suppression,
+  `VaultAgentsGuideManager` (seed/repair/status AGENTS.md + shims), per-turn preamble builder, the sidebar
+  SwiftUI view, head/tail truncation in `get_note`, Safe/Power → GOOSE_MODE.
 
 ---
 
