@@ -29,6 +29,9 @@ struct EpdocCommandSurfaceActivation: View {
             save: { [weak controller] in
                 controller?.onSave()
             },
+            showFindReplace: { [weak controller] in
+                controller?.toolbarModel.isFindReplacePresented = true
+            },
             state: { [weak controller] in
                 guard let toolbar = controller?.toolbarModel else {
                     return EpistemosCommandSurfaceState()

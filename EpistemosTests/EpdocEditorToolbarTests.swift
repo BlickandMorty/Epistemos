@@ -25,6 +25,7 @@ struct EpdocEditorToolbarTests {
         #expect(model.isCodeActive == false)
         #expect(model.isHighlightActive == false)
         #expect(model.widthMode == .normal)
+        #expect(model.isFindReplacePresented == false)
     }
 
     @Test("Setting word/char count updates @Observable surface")
@@ -112,6 +113,33 @@ struct EpdocEditorToolbarTests {
         #expect(toolbar.contains(#"applyWidthMode(.custom(px: Int(rounded)))"#))
         #expect(toolbar.contains(#"Slider("#))
         #expect(toolbar.contains(#".setContentWidth(mode: normalized)"#))
+    }
+
+    @Test("Find and Replace control exposes native popover commands")
+    func findReplaceControlUsesBridgeCommands() throws {
+        let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
+
+        #expect(toolbar.contains("findGroup"))
+        #expect(toolbar.contains(#".keyboardShortcut("f", modifiers: .command)"#))
+        #expect(toolbar.contains(#".setFindQuery(query: findQuery, caseSensitive: findCaseSensitive)"#))
+        #expect(toolbar.contains(#".findNext(query: findQuery, caseSensitive: findCaseSensitive)"#))
+        #expect(toolbar.contains(#".replaceCurrent("#))
+        #expect(toolbar.contains(#".replaceAll("#))
+        #expect(toolbar.contains(#".clearFindHighlights"#))
+    }
+
+    @Test("Epdoc Find and Replace is wired to ProseMirror decorations, not CodeMirror search")
+    func findReplaceUsesProseMirrorSearchExtension() throws {
+        let index = try loadMirroredSourceTextFile("js-editor/src/index.ts")
+        let inbound = try loadMirroredSourceTextFile("js-editor/src/bridge/inbound.ts")
+        let findReplace = try loadMirroredSourceTextFile("js-editor/src/extensions/find-replace.ts")
+
+        #expect(index.contains("EpdocFindReplace"))
+        #expect(inbound.contains("setFindQuery(editor, query"))
+        #expect(findReplace.contains("new Plugin<FindReplaceState>"))
+        #expect(findReplace.contains("Decoration.inline("))
+        #expect(findReplace.contains("replaceAll("))
+        #expect(!findReplace.contains("@codemirror/search"))
     }
 
     @Test("Inbound heading command scopes formatting to the active text block")

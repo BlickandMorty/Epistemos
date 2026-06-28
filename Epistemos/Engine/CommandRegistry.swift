@@ -110,6 +110,7 @@ public final class CommandRegistry {
     private var activeNoteSurfaceID: ObjectIdentifier?
     private var activeNoteDispatch: (@MainActor (EpdocEditorCommand) -> Void)?
     private var activeNoteSave: (@MainActor () -> Void)?
+    private var activeNoteShowFindReplace: (@MainActor () -> Void)?
     private var activeNoteState: (@MainActor () -> EpistemosCommandSurfaceState)?
 
     public init() {}
@@ -152,11 +153,13 @@ public final class CommandRegistry {
         id: ObjectIdentifier,
         dispatch: @escaping @MainActor (EpdocEditorCommand) -> Void,
         save: @escaping @MainActor () -> Void,
+        showFindReplace: @escaping @MainActor () -> Void = {},
         state: @escaping @MainActor () -> EpistemosCommandSurfaceState
     ) {
         activeNoteSurfaceID = id
         activeNoteDispatch = dispatch
         activeNoteSave = save
+        activeNoteShowFindReplace = showFindReplace
         activeNoteState = state
         activeScope = .note
     }
@@ -180,6 +183,10 @@ public final class CommandRegistry {
 
     public func saveActiveNote() {
         activeNoteSave?()
+    }
+
+    public func showFindReplaceForActiveNote() {
+        activeNoteShowFindReplace?()
     }
 
     public func menuCommands(path: EpistemosCommandMenuPath) -> [EpistemosCommand] {
@@ -218,6 +225,7 @@ public final class CommandRegistry {
         activeNoteSurfaceID = nil
         activeNoteDispatch = nil
         activeNoteSave = nil
+        activeNoteShowFindReplace = nil
         activeNoteState = nil
         activeScope = .global
     }

@@ -60,6 +60,9 @@ public final class EpdocEditorToolbarModel {
     /// Current note content width. Session/UI state only until the
     /// markdown source-of-truth pipeline owns `_width` persistence.
     public var widthMode: NoteWidthMode = .normal
+    /// Native Find/Replace popover visibility. Kept on the model so
+    /// Cmd+K commands can open the same toolbar-hosted panel.
+    public var isFindReplacePresented: Bool = false
 
     /// Fire a Swift → JS command. The host installs the closure when
     /// it constructs the toolbar; `EpdocEditorChromeView` defaults to
@@ -90,6 +93,9 @@ public struct EpdocEditorToolbar: View {
     public var onSave: @Sendable @MainActor () -> Void = {}
     @State private var isWidthPopoverPresented = false
     @State private var customWidthPixels = Double(NoteWidthMode.defaultCustomPixels)
+    @State private var findQuery = ""
+    @State private var findReplacement = ""
+    @State private var findCaseSensitive = false
 
     public init(
         model: EpdocEditorToolbarModel,
@@ -110,6 +116,8 @@ public struct EpdocEditorToolbar: View {
             structureGroup
             divider
             widthGroup
+            divider
+            findGroup
         }
         .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, 10)
@@ -256,6 +264,76 @@ public struct EpdocEditorToolbar: View {
         .frame(width: 270)
     }
 
+    @ViewBuilder
+    private var findGroup: some View {
+        Button {
+            model.isFindReplacePresented.toggle()
+            syncFindHighlights()
+        } label: {
+            Label("Find and Replace", systemImage: "magnifyingglass")
+                .labelStyle(.iconOnly)
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.borderless)
+        .help("Find and Replace (Command-F)")
+        .accessibilityLabel(Text("Find and Replace"))
+        .keyboardShortcut("f", modifiers: .command)
+        .popover(isPresented: $model.isFindReplacePresented, arrowEdge: .bottom) {
+            findReplacePopover
+        }
+    }
+
+    private var findReplacePopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Find", text: $findQuery)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { dispatchFindNext() }
+            TextField("Replace", text: $findReplacement)
+                .textFieldStyle(.roundedBorder)
+            HStack(spacing: 8) {
+                Toggle("Aa", isOn: $findCaseSensitive)
+                    .toggleStyle(.checkbox)
+                    .help("Match case")
+                Spacer()
+                findActionButton("Previous", systemImage: "chevron.up") {
+                    dispatchFindPrevious()
+                }
+                findActionButton("Next", systemImage: "chevron.down") {
+                    dispatchFindNext()
+                }
+            }
+            HStack(spacing: 8) {
+                findActionButton("Replace", systemImage: "arrow.triangle.2.circlepath") {
+                    dispatchReplaceCurrent()
+                }
+                findActionButton("All", systemImage: "text.badge.checkmark") {
+                    dispatchReplaceAll()
+                }
+                Spacer()
+                Button {
+                    clearFind()
+                } label: {
+                    Image(systemName: "xmark.circle")
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.borderless)
+                .help("Clear")
+            }
+        }
+        .padding(12)
+        .frame(width: 320)
+        .onChange(of: findQuery) { _, _ in
+            syncFindHighlights()
+        }
+        .onChange(of: findCaseSensitive) { _, _ in
+            syncFindHighlights()
+        }
+        .onDisappear {
+            model.dispatch(.clearFindHighlights)
+        }
+    }
+
     // MARK: - Helpers
 
     private func widthChoiceButton(title: String, symbol: String, mode: NoteWidthMode) -> some View {
@@ -297,6 +375,60 @@ public struct EpdocEditorToolbar: View {
             customWidthPixels = Double(pixels)
         }
         model.dispatch(.setContentWidth(mode: normalized))
+    }
+
+    private func findActionButton(
+        _ title: String,
+        systemImage: String,
+        action: @escaping @MainActor () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+        }
+        .buttonStyle(.bordered)
+        .disabled(findQuery.isEmpty)
+    }
+
+    private func syncFindHighlights() {
+        guard !findQuery.isEmpty else {
+            model.dispatch(.clearFindHighlights)
+            return
+        }
+        model.dispatch(.setFindQuery(query: findQuery, caseSensitive: findCaseSensitive))
+    }
+
+    private func dispatchFindNext() {
+        guard !findQuery.isEmpty else { return }
+        model.dispatch(.findNext(query: findQuery, caseSensitive: findCaseSensitive))
+    }
+
+    private func dispatchFindPrevious() {
+        guard !findQuery.isEmpty else { return }
+        model.dispatch(.findPrevious(query: findQuery, caseSensitive: findCaseSensitive))
+    }
+
+    private func dispatchReplaceCurrent() {
+        guard !findQuery.isEmpty else { return }
+        model.dispatch(.replaceCurrent(
+            query: findQuery,
+            replacement: findReplacement,
+            caseSensitive: findCaseSensitive
+        ))
+    }
+
+    private func dispatchReplaceAll() {
+        guard !findQuery.isEmpty else { return }
+        model.dispatch(.replaceAll(
+            query: findQuery,
+            replacement: findReplacement,
+            caseSensitive: findCaseSensitive
+        ))
+    }
+
+    private func clearFind() {
+        findQuery = ""
+        findReplacement = ""
+        model.dispatch(.clearFindHighlights)
     }
 
     @ViewBuilder

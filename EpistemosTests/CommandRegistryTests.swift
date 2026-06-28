@@ -68,10 +68,12 @@ struct CommandRegistryTests {
         CommandRegistrations.registerEpdocCommands(in: registry)
         let token = SurfaceToken()
         var captured: [EpdocEditorCommand] = []
+        var didShowFindReplace = false
         registry.activateNoteSurface(
             id: ObjectIdentifier(token),
             dispatch: { command in captured.append(command) },
             save: {},
+            showFindReplace: { didShowFindReplace = true },
             state: { EpistemosCommandSurfaceState(isBoldActive: true) }
         )
 
@@ -109,6 +111,14 @@ struct CommandRegistryTests {
         let viewMenuIDs = registry.menuCommands(path: .view).map(\.id)
         #expect(viewMenuIDs.contains("epdoc.widthNormal"))
         #expect(viewMenuIDs.contains("epdoc.widthWide"))
+
+        let findReplace = registry.matching(query: "find replace", scope: .note).first { $0.id == "epdoc.findReplace" }
+        #expect(findReplace != nil)
+        findReplace?.run()
+        #expect(didShowFindReplace)
+
+        let editMenuIDs = registry.menuCommands(path: .edit).map(\.id)
+        #expect(editMenuIDs.contains("epdoc.findReplace"))
 
         registry.deactivateNoteSurface(id: ObjectIdentifier(token))
         #expect(registry.matching(query: "bold", scope: .note).isEmpty)

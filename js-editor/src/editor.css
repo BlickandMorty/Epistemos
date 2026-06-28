@@ -322,6 +322,17 @@ html, body {
   padding: 0 1px;
 }
 
+.ProseMirror .epdoc-find-match {
+  background: color-mix(in srgb, var(--epdoc-accent) 20%, transparent);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--epdoc-accent) 34%, transparent);
+}
+
+.ProseMirror .epdoc-find-current {
+  background: color-mix(in srgb, var(--epdoc-chart-amber) 42%, transparent);
+  box-shadow: 0 0 0 1.5px var(--epdoc-chart-amber);
+}
+
 .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;

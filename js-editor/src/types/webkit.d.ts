@@ -34,6 +34,12 @@ interface Window {
   epistemos?: {
     setContent(json: string): void;
     setContentWidth(value: string): void;
+    setFindQuery(query: string, caseSensitive?: boolean): boolean;
+    findNext(query: string, caseSensitive?: boolean): boolean;
+    findPrevious(query: string, caseSensitive?: boolean): boolean;
+    replaceCurrent(query: string, replacement: string, caseSensitive?: boolean): boolean;
+    replaceAll(query: string, replacement: string, caseSensitive?: boolean): boolean;
+    clearFindHighlights(): void;
     focusStart(): void;
     focusEnd(): void;
     dismissSlashMenu(): void;

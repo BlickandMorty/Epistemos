@@ -14,6 +14,17 @@ public enum CommandRegistrations {
         ) {
             registry.saveActiveNote()
         }
+        registerNoteCommand(
+            registry,
+            id: "epdoc.findReplace",
+            title: "Find and Replace",
+            subtitle: "Search and replace inside the active note",
+            symbol: "magnifyingglass",
+            shortcut: EpistemosCommandShortcut("f", modifiers: .command, display: "⌘F"),
+            menuPath: .edit
+        ) {
+            registry.showFindReplaceForActiveNote()
+        }
 
         registerEditorCommand(
             registry,

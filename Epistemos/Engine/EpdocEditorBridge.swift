@@ -668,6 +668,15 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     /// L2 note-width control. Sets the editor content max-width CSS
     /// variable without mutating document content.
     case setContentWidth(mode: NoteWidthMode)
+    /// Native Find/Replace panel support. These commands update
+    /// ProseMirror decorations and selection only; they do not mutate
+    /// document content except for replaceCurrent/replaceAll.
+    case setFindQuery(query: String, caseSensitive: Bool)
+    case findNext(query: String, caseSensitive: Bool)
+    case findPrevious(query: String, caseSensitive: Bool)
+    case replaceCurrent(query: String, replacement: String, caseSensitive: Bool)
+    case replaceAll(query: String, replacement: String, caseSensitive: Bool)
+    case clearFindHighlights
 
     /// JS expression that the bridge evaluates inside the WKWebView.
     /// Assumes `window.epdocEditor` is the Tiptap editor instance the
@@ -698,6 +707,18 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             return "window.epistemos.runCommand(\(jsStringLiteral(name)), ...\(argsLiteral))"
         case .setContentWidth(let mode):
             return "window.epistemos.setContentWidth(\(jsStringLiteral(mode.cssMaxWidthValue)))"
+        case .setFindQuery(let query, let caseSensitive):
+            return "window.epistemos.setFindQuery(\(jsStringLiteral(query)), \(caseSensitive))"
+        case .findNext(let query, let caseSensitive):
+            return "window.epistemos.findNext(\(jsStringLiteral(query)), \(caseSensitive))"
+        case .findPrevious(let query, let caseSensitive):
+            return "window.epistemos.findPrevious(\(jsStringLiteral(query)), \(caseSensitive))"
+        case .replaceCurrent(let query, let replacement, let caseSensitive):
+            return "window.epistemos.replaceCurrent(\(jsStringLiteral(query)), \(jsStringLiteral(replacement)), \(caseSensitive))"
+        case .replaceAll(let query, let replacement, let caseSensitive):
+            return "window.epistemos.replaceAll(\(jsStringLiteral(query)), \(jsStringLiteral(replacement)), \(caseSensitive))"
+        case .clearFindHighlights:
+            return "window.epistemos.clearFindHighlights()"
         }
     }
 }

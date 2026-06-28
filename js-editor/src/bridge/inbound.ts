@@ -13,6 +13,14 @@ import { postBridge } from './outbound';
 import { applySlashChoice } from '../extensions/slash-menu';
 import { markHostDocumentLoaded } from './document-load-state';
 import { completeImageAssetRequest } from '../extensions/image-asset-bridge';
+import {
+  clearFindQuery,
+  findNext,
+  findPrevious,
+  replaceAll,
+  replaceCurrent,
+  setFindQuery,
+} from '../extensions/find-replace';
 
 export interface InboundCallbacks {
   /** Re-emit a bubble-menu request after the host accepts a slash choice. */
@@ -38,6 +46,40 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
         '--epdoc-content-max-width',
         sanitizeContentWidth(value),
       );
+    },
+
+    setFindQuery(query: string, caseSensitive = false): boolean {
+      return setFindQuery(editor, query, caseSensitive === true);
+    },
+
+    findNext(query: string, caseSensitive = false): boolean {
+      return findNext(editor, query, caseSensitive === true);
+    },
+
+    findPrevious(query: string, caseSensitive = false): boolean {
+      return findPrevious(editor, query, caseSensitive === true);
+    },
+
+    replaceCurrent(query: string, replacement: string, caseSensitive = false): boolean {
+      const didRun = replaceCurrent(editor, query, replacement, caseSensitive === true);
+      if (didRun) {
+        postDocumentStats(editor);
+        postDocumentSnapshot(editor);
+      }
+      return didRun;
+    },
+
+    replaceAll(query: string, replacement: string, caseSensitive = false): boolean {
+      const didRun = replaceAll(editor, query, replacement, caseSensitive === true);
+      if (didRun) {
+        postDocumentStats(editor);
+        postDocumentSnapshot(editor);
+      }
+      return didRun;
+    },
+
+    clearFindHighlights(): void {
+      clearFindQuery(editor);
     },
 
     focusStart(): void {

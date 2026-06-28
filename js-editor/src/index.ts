@@ -43,6 +43,7 @@ import { LegacyDiagramNode } from './extensions/legacy-diagram-node';
 import { imageAssetBridge } from './extensions/image-asset-bridge';
 import { CalloutNode } from './extensions/callout-node';
 import { epdocMarkdownInputRules } from './extensions/markdown-input-rules';
+import { EpdocFindReplace } from './extensions/find-replace';
 import { CaretRectEmitter } from './extensions/caret-rect-emitter';
 import { buildSlashMenu } from './extensions/slash-menu';
 import { pasteClassifierBridge } from './extensions/paste-classifier-bridge';
@@ -144,6 +145,7 @@ const editor = new Editor({
     LegacyDiagramNode,
     EpdocImageNode,
     CalloutNode,
+    EpdocFindReplace,
     BubbleMenu.configure({ pluginKey: 'epdocBubble' }),
     FloatingMenu.configure({ pluginKey: 'epdocFloating' }),
     DragHandle,

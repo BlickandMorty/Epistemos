@@ -506,6 +506,16 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(EpdocEditorCommand.setContentWidth(mode: .custom(px: 980)).javaScriptExpression() == #"window.epistemos.setContentWidth("980px")"#)
     }
 
+    @Test("Find and Replace commands route through the namespaced inbound bridge")
+    func findReplaceCommands() {
+        #expect(EpdocEditorCommand.setFindQuery(query: "alpha", caseSensitive: false).javaScriptExpression() == #"window.epistemos.setFindQuery("alpha", false)"#)
+        #expect(EpdocEditorCommand.findNext(query: "alpha", caseSensitive: true).javaScriptExpression() == #"window.epistemos.findNext("alpha", true)"#)
+        #expect(EpdocEditorCommand.findPrevious(query: "alpha", caseSensitive: false).javaScriptExpression() == #"window.epistemos.findPrevious("alpha", false)"#)
+        #expect(EpdocEditorCommand.replaceCurrent(query: "alpha", replacement: "beta", caseSensitive: true).javaScriptExpression() == #"window.epistemos.replaceCurrent("alpha", "beta", true)"#)
+        #expect(EpdocEditorCommand.replaceAll(query: "alpha", replacement: "beta", caseSensitive: false).javaScriptExpression() == #"window.epistemos.replaceAll("alpha", "beta", false)"#)
+        #expect(EpdocEditorCommand.clearFindHighlights.javaScriptExpression() == "window.epistemos.clearFindHighlights()")
+    }
+
     @Test("jsStringLiteral escapes the dangerous JS literal characters")
     func jsStringLiteralEscapes() {
         #expect(jsStringLiteral("plain") == "\"plain\"")
