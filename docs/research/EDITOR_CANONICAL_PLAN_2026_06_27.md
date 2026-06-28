@@ -6,8 +6,9 @@
 > `TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md`. **Finalization audit (contradictions/supersede/completeness):
 > see §12 — it is current as of pass 10 and supersedes any stale phrasing elsewhere in this doc.**
 >
-> **Doc status map:** CANONICAL → this doc + the 4 codepacks (`TOLARIA_ONTOLOGY_UPGRADE_CODEPACK`,
-> `MARKEDIT_EMBED_CODEPACK`, `NATIVE_CONTROLS_CODEPACK`, `GOOSE_MINICHAT_CODEPACK`) + `EPDOC_MD_V2_BUILD_SEQUENCE`
+> **Doc status map:** CANONICAL → this doc + the 7 codepacks (`TOLARIA_ONTOLOGY_UPGRADE_CODEPACK`,
+> `MARKEDIT_EMBED_CODEPACK`, `NATIVE_CONTROLS_CODEPACK`, `GOOSE_MINICHAT_CODEPACK`, `COMMAND_REGISTRY_CODEPACK`,
+> `MD_SOURCE_OF_TRUTH_CODEPACK`, `AI_INSTRUCTIONS_AND_GRAMMAR_CODEPACK`) + `EPDOC_MD_V2_BUILD_SEQUENCE`
 > (note-editor build content) + `SS-P_TOLARIA_V2_MD_EDITOR` (note-editor patterns/license) + `SURFACE...§16`
 > (markdown-as-truth). HISTORICAL → `SS-CM_CODEMIRROR_MD_SOURCE_SURFACE` + `CODEMIRROR_MD_V2_BUILD_AND_POLISH`
 > (CodeMirror-as-note-editor was reversed; their CM6/MarkEdit research now applies to the CODE lane only).
@@ -345,7 +346,12 @@ You CANNOT drop the whole `.app` in (macOS allows ONE `@main`/`NSDocumentControl
 crash). So: `git clone` the ENTIRE MarkEdit source into `LocalPackages/MarkEdit/`, DELETE only its `@main`/AppDelegate
 + `AppDocumentController` + `.xcodeproj` + 2 `.appex`, mount its one `EditorViewController` in an Epistemos window. The
 clone is a deterministic SCRIPT (no cherry-picking); the ONLY hand-written part is the VC-mount seam. ZERO editing/
-settings capability lost. Then close these completeness gaps:
+settings capability lost.
+**★ Each dropped item maps to an EPISTEMOS EQUIVALENT — harvest the hardening so it's as hardened as the standalone app
+(see `MARKEDIT_EMBED_CODEPACK §0a` table):** `@main`/AppDelegate → `EpistemosApp`+`AppBootstrap` (port MarkEdit's
+launch setup) · `AppDocumentController` → `EpistemosDocumentController` (register MarkEdit's doc-types with it) ·
+`.xcodeproj` → `project.yml` (**harvest** MarkEdit's build settings + Info.plist doc-types/UTIs + entitlements; adopt
+MAS-safe, reject MAS-hostile) · 2 `.appex` → Epistemos's own Finder/QuickLook extensions later. Then close these gaps:
 - **Add the 3 missing Modules products** to the `project.yml` `dependencies:` in `MARKEDIT_EMBED_CODEPACK` §4 — currently
   9 are declared; a full clone also needs **`FileDrop`** (drag-in), **`Previewer`** (preview pane), **`TextBundle`**
   (`.textbundle` import/export). Without them those capabilities are lost.

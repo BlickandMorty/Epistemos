@@ -9,19 +9,31 @@
 **The whole `.app` CANNOT be dropped in as-is — macOS forbids it, this is not a choice:** a binary has ONE
 `@main`/`NSApplicationMain` and ONE shared `NSDocumentController`; Epistemos already has both. Two `@main` = it
 won't compile; two doc-controllers = crash. So "place the whole app and run it" is the BROKEN path, not the safe one.
-**The fail-proof method = clone the ENTIRE MarkEdit source, then DELETE only the 4 things that physically can't
+**The fail-proof method = clone the ENTIRE MarkEdit source, then DELETE only the 4 categories of shell items (@main/AppDelegate · AppDocumentController · .xcodeproj · both .appex) that physically can't
 coexist** (its `@main`/`AppDelegate`/`Application`, its `AppDocumentController`, its `.xcodeproj`, its 2 `.appex`
 extensions). Everything else — 100% of the editor + ALL Settings panes + FontPicker + Statistics + Find + every
 Module — is cloned VERBATIM and you mount its one top-level `EditorViewController` in an Epistemos window. **Zero
 editing/settings capability lost** — only the duplicate app-shell Epistemos already provides.
 - **Make the clone mechanical (a script), so it can't drift:** `git clone <markedit> LocalPackages/MarkEdit` →
   remove the 4 shell items → add the package products to `project.yml` → done. The ONLY hand-written part is the one
-  VC-mount seam (§7). The clone is deterministic; nothing is cherry-picked.
+  VC-mount seam (§2–§3). The clone is deterministic; nothing is cherry-picked.
 - **Completeness gate (so nothing silently goes missing):** enumerate MarkEdit's Modules products + Settings panes
   from the real source; assert EVERY one is vendored + reachable in Epistemos (under a mode). A pane present in
   MarkEdit but absent in Epistemos = a FAIL (Plan-2 §14). This is the "100% capability, settings and all" proof.
 - **Why not a bundled subprocess `MarkEdit.app`:** it would be a separate WINDOW + a subprocess (violates no-sidecar /
   App-Store rules) + can't share your vault/theme. The source-clone is both more fail-proof AND actually "in your app."
+
+### ★ Each dropped shell item HAS an Epistemos equivalent — functionality is NOT lost, and we HARVEST MarkEdit's hardening
+**This is the "as hardened as the standalone app you tried" step — do NOT blind-drop; map every dropped item to its
+Epistemos equivalent and PORT the hardening config across:**
+| MarkEdit drop | Epistemos EQUIVALENT (keeps the function) | HARVEST from MarkEdit so it stays as hardened |
+|---|---|---|
+| `@main`/`AppDelegate`/`Application` | Epistemos's `@main` `EpistemosApp` + `AppBootstrap` | Port any MarkEdit `AppDelegate`/`applicationDidFinishLaunching` setup (editor defaults registration, theme/appearance init, font/markdown prefs, window-restoration opts) INTO `AppBootstrap` — so nothing MarkEdit did at launch is lost. |
+| `AppDocumentController` (`NSDocumentController`) | Epistemos's `EpistemosDocumentController` (existing) | Register MarkEdit's document types + new-document/file-version/autosave behavior with the EXISTING controller (it already manages `.epdoc`); copy MarkEdit's `CFBundleDocumentTypes`/UTI handling so it opens the same file types with the same options. |
+| `.xcodeproj` (build blueprint) | Epistemos's `project.yml` (xcodegen) | **★ Harvest the hardening:** MarkEdit's build settings (Swift version, deployment target, **hardened-runtime** flags, optimization, linker flags), its **Info.plist** (document-type/UTI declarations, `NSServices`, capabilities), and its **entitlements** → port the editor-relevant ones into Epistemos's `project.yml`/Info.plist/entitlements, ADOPTING MAS-safe keys and mapping/rejecting MAS-hostile ones (`temporary-exception.files.home-relative-path`, `files.user-selected.executable`). This is what makes the embed *as hardened as the real MarkEdit*, just inside Epistemos's signed bundle. |
+| 2 `.appex` (Finder/Quick Look extensions) | Epistemos's OWN Finder/Quick Look extensions (optional, later) | Harvest the `.appex` Info.plist (supported UTIs, Quick Look config) so Epistemos equivalents can be built when wanted. Loses only *Finder* integration today, not editor capability. |
+**Rule: a MarkEdit capability that lived in a dropped item must reappear via its Epistemos equivalent (ported), or be
+explicitly listed as a deliberate loss (only the 2 `.appex` Finder bits). No silent loss.**
 
 ## 0. ★ DISCOVERY — Epistemos's CURRENT code editor is a plain textarea with highlighting DISABLED
 Three impls on disk; only one is live:
