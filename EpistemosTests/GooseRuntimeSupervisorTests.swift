@@ -45,6 +45,8 @@ struct GooseRuntimeSupervisorTests {
                 "OPENWORK_MANAGE_OPENCODE": "1",
                 "OPENCODE_SERVER_PASSWORD": "password",
                 "GOOSE_PROVIDER__TYPE": "openai",
+                "GOOSE_PROVIDER": "openai",
+                "GOOSE_MODEL": "gpt-4o",
                 "HF_TOKEN": "secret-token",
                 "HUGGINGFACE_API_KEY": "secret-token",
                 "OPENAI_API_KEY": "secret-token",
@@ -55,7 +57,12 @@ struct GooseRuntimeSupervisorTests {
                 "NODE_OPTIONS": "--require /tmp/inject.js",
             ]
         )
-        #expect(env["PATH"] == "/Runtime/goose/bin:/usr/bin")
+        let path = env["PATH"] ?? ""
+        #expect(path.hasPrefix("/Runtime/goose/bin:/usr/bin"))
+        #expect(path.contains("/opt/homebrew/bin"))
+        #expect(path.contains("/usr/local/bin"))
+        #expect(env["GOOSE_PROVIDER"] == "openai")
+        #expect(env["GOOSE_MODEL"] == "gpt-4o")
         #expect(env["HOME"] == "/Users/jojo")
         #expect(env["LANG"] == "en_US.UTF-8")
         #expect(env["GOOSE_SERVER__SECRET_KEY"] == "secret-123")

@@ -32,6 +32,26 @@ final class GooseRuntimeSupervisor {
     nonisolated static let portReleaseGrace: Duration = .seconds(2)
     nonisolated private static let subprocessEnvironmentAllowlist: Set<String> = [
         "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
+        // Non-secret detection/host config so goose serve can perform its OWN
+        // provider/CLI/agent detection for env-configured returning users. These
+        // are NOT provider secrets (API keys stay in Keychain, mirrored via
+        // GooseProviderKeyBridge). NB: GOOSE_MODE is deliberately excluded — it is
+        // only honored via the explicit gooseMode parameter, not inherited env.
+        "GOOSE_PROVIDER", "GOOSE_MODEL", "GOOSE_DEFAULT_PROVIDER", "GOOSE_DEFAULT_MODEL",
+        "OLLAMA_HOST",
+    ]
+    // Canonical macOS tool directories unioned into the child PATH so goose serve's
+    // PATH-based CLI/agent detection (codex/claude/cursor/gemini/ollama) and stdio
+    // MCP extensions resolve even when launched from Finder/launchd with a truncated
+    // PATH. Detection still happens entirely inside Goose; we only widen the search
+    // path. Non-existent dirs are harmless (ignored by PATH lookup).
+    nonisolated private static let canonicalToolPathDirectories: [String] = [
+        "/opt/homebrew/bin", "/opt/homebrew/sbin",
+        "/usr/local/bin", "/usr/local/sbin",
+        "/usr/bin", "/bin", "/usr/sbin", "/sbin",
+    ]
+    nonisolated private static let homeRelativeToolDirectories: [String] = [
+        ".local/bin", ".cargo/bin", ".bun/bin", ".deno/bin", "go/bin", ".npm-global/bin",
     ]
     nonisolated private static let allowedGooseModes: Set<String> = [
         "auto", "approve", "smart_approve", "chat",
@@ -359,8 +379,16 @@ final class GooseRuntimeSupervisor {
             env["GOOSE_DISABLE_KEYRING"] = "true"
         }
         let binDir = binary.deletingLastPathComponent().path
-        let existingPath = env["PATH"] ?? ""
-        env["PATH"] = existingPath.isEmpty ? binDir : "\(binDir):\(existingPath)"
+        let home = env["HOME"] ?? base["HOME"] ?? NSHomeDirectory()
+        let existingComponents = (env["PATH"] ?? "").split(separator: ":").map(String.init)
+        let homeDirs = Self.homeRelativeToolDirectories.map { "\(home)/\($0)" }
+        var orderedPath: [String] = []
+        var seenPath: Set<String> = []
+        for dir in [binDir] + existingComponents + Self.canonicalToolPathDirectories + homeDirs
+        where !dir.isEmpty && seenPath.insert(dir).inserted {
+            orderedPath.append(dir)
+        }
+        env["PATH"] = orderedPath.joined(separator: ":")
         return env
     }
 
