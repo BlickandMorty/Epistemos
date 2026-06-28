@@ -23,8 +23,9 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
 - [x] **Pass 1 DONE** (2026-06-27): (a) Tolaria UX/toggle teardown + minimal-best curation;
       (b) Tolaria AI-editing/agents/system-prompts/context-tracking; (c) TipTap vs BlockNote — DECIDED.
       → **NEW LOCKED DECISIONS below.** Pass 2 next.
-- [ ] **Pass 2:** Tolaria ontology deep-study (Types/Views/relations/frontmatter/`_`-system-props data model)
-      + MarkEdit "full app inside Epistemos" integration mechanics (window/settings/build/bundle/signing).
+- [x] **Pass 2 DONE** (2026-06-27): Tolaria ontology deep-study + MarkEdit Route-D embedding mechanics.
+      → Big finding: **Epistemos is ALREADY a document-based app** (`EpistemosDocumentController` +
+      `EpdocDocument`/`HTMLWorkspaceDocument`), so MarkEdit's shell grafts cleanly. Pass 3 next.
 - [ ] **Pass 3:** Goose ↔ Tolaria AI graft + AI-edit review model (git-diff vs in-editor) + correct
       ProseMirror-era diff/change-tracking repos (the CodeMirror `@codemirror/merge` pick does NOT apply
       to a WYSIWYG editor — resolve the replacement).
@@ -140,6 +141,91 @@ UI, and Epdoc already has most of that chrome. Concrete next steps when building
 + custom tokenizers for callouts/wikilinks/frontmatter; (2) add `prosemirror-changeset` + inline accept/
 reject decoration layer via `EpdocCopilotDockView`; (3) "look like Tolaria" = CSS/chrome polish; (4) do NOT
 adopt `xl-ai` (GPL) or `@tiptap-pro/*` (paid).
+
+---
+
+### ⭐ Decisions locked by Pass 2
+5. **ROUTE D, refined to what's actually buildable: vendor MarkEdit's Swift modules + GRAFT onto Epistemos's
+   EXISTING document app — do NOT run a 2nd app lifecycle.** Big discovery: **Epistemos is already a
+   document-based app** — it has `EpistemosDocumentController: NSDocumentController` + real `NSDocument`
+   subclasses (`EpdocDocument`, `HTMLWorkspaceDocument`, `.epdoc` = `com.apple.package`). So MarkEdit's
+   document/window/menu/settings layer is NOT foreign tissue. You CANNOT have two `@main` / two
+   `NSApplicationMain` / two `NSDocumentController` singletons in one binary — so "full MarkEdit app running
+   inside" (literal) is not viable. The viable path that gives you ALL of MarkEdit's chrome:
+   - **Vendor:** `MarkEditCore` + `MarkEditKit` (bridge transport) + `MarkEditMac/Modules` SwiftPM +
+     `MarkEditMac/Sources/{Editor,Panels,Settings}` source. (MIT — keep LICENSE.)
+   - **Drop:** MarkEdit's `AppDelegate`/`Application`/`AppDocumentController`, `CoreEditor` (its CodeMirror
+     JS), `chunk-loader://`, and the Finder/Preview `.appex` extensions.
+   - **Re-host** `EditorViewController` inside Epistemos's SwiftUI `WindowGroup` via
+     `NSViewControllerRepresentable` (exactly how Epdoc already uses `NSViewRepresentable`), wired to the
+     EXISTING `EpistemosDocumentController`.
+   - **Point its WebView at Epdoc immediately** (`epistemos-doc:///editor.html` + the `epdoc` handler),
+     not CoreEditor.
+6. **What MarkEdit actually contributes (the prize) = native chrome Epistemos lacks:** native **Find/Replace
+   panels**, **Settings tabs**, window/tab management + closed-tab history, **FontPicker**, **Statistics/
+   word-count**, Goto-Line, FileVersion picker, App Intents/Shortcuts/scripting. Epdoc contributes the
+   already-hardened **web-editor plumbing** (scheme handler + brotli, bridge, theme, save pipeline, shared
+   process pool). They're complementary; the two brotli/bridge/theme stacks are mutually exclusive → **keep
+   Epdoc's, discard MarkEdit's**.
+7. **Editor-swap seam = ONE place:** the `lazy var webView` block in `EditorViewController`. The bridge is
+   editor-agnostic in *shape* (Swift→JS `invoke`, JS→Swift one `bridge`/`epdoc` message handler), editor-
+   specific in *vocabulary*. Swap = replace MarkEdit's string-buffer methods (`getEditorText`,
+   `insertText(from:to:)`, `resetEditor(text:)`) with Epdoc's ProseMirror-JSON methods
+   (`contentDidChange(json:)`, `setContent(json:)`). The shell never knows the editor changed. Native Find
+   must be re-bound to a ProseMirror search plugin behind the existing search bridge method names (budget
+   for this — it's the prize that needs wiring).
+8. **Entitlements:** adopt **Epistemos's** set (`cs.allow-jit` ✅ already present, `network.client`,
+   `files.user-selected.read-write`, `files.bookmarks.app-scope`, app-sandbox). **REJECT** MarkEdit's
+   MAS-hostile keys (`temporary-exception.files.home-relative-path`, `files.user-selected.executable`).
+   xcodegen only (`project.yml`) — never hand-edit `.xcodeproj`. Keep `build-tiptap-bundle.sh`; drop
+   CoreEditor's vite/yarn build.
+
+### Pass 2a — Tolaria ontology (clean-room spec + Epistemos mapping)
+- **Axiom:** filesystem is truth; every concept lives in markdown frontmatter or `.yml` sidecars in the
+  vault, never a DB. Caches are 100% rebuildable. (Project was formerly "Laputa" — cache dir `.laputa/`.)
+- **Types:** just a `type:` string (canonical; reads legacy `Is A`/`is_a`; list → first wins). No schema
+  enforcement ("navigation aids, not enforcement"). A Type IS a markdown file with `type: Type` (a
+  "definition doc") whose frontmatter (`_icon`/`color`/`_order`/`template`/`_sort`/`view`/`visible`/
+  `_list_properties_display`) supplies instance defaults **at creation only**. Default set
+  `[Event,Person,Project,Note]`; starter types cloned from a getting-started repo. Types ⟂ folders
+  (retype = rewrite `type:`; move-folder = move file).
+- **Relationships (the heart):** ANY frontmatter field whose values contain `[[wikilinks]]` is a
+  relationship edge, keyed by the field name (no hardcoded key list). Built-ins `belongs_to`/`has`/
+  `related_to` aren't privileged. **Inverses are recomputed in the renderer** (not stored): `belongs to`→
+  "Children", `related to`→"Referenced by", custom `Foo`→`← Foo`. Body `[[links]]` → separate
+  `outgoing_links`.
+- **Frontmatter:** title = first H1 → legacy `title:` → humanized filename (no `title:` field; `untitled-*`
+  auto-renames on gaining an H1). `status:` = colored chip. Property kinds: string/number/bool/null/
+  scalar-array (tags are just a scalar-array, set semantics) /date(ISO). Properties panel = bidirectional
+  view of non-reserved non-`_` keys.
+- **System props:** any `_`-prefixed key = app-managed, hidden from Properties UI, excluded from search +
+  relationship detection, editable in raw mode. Write canonical `_key`; read accepts legacy aliases
+  without rewrite. (`_archived/_icon/_order/_sidebar_label/_sort/_width/_display/_organized/_favorite/
+  _favorite_index/_list_properties_display`.) Trash was REMOVED (delete = permanent + confirm; git =
+  recovery) — **we should ADD real trash+undo**.
+- **Views:** `.yml` files in `.laputa/views/`; recursive `all`(AND)/`any`(OR) tree of
+  `{field,op,value,regex?}`; ops equals/not_equals/contains/not_contains/any_of/none_of/is_empty/
+  is_not_empty/before/after; NL relative dates ("3 days ago"); field resolution = struct fields →
+  properties → relationships. "Collections" (ADR-0144) is the unifying model (filters/types/folders/views/
+  neighborhood = collection + presentation).
+- **VaultEntry / cache:** parsed per-note projection; 3-layer `Filesystem→cache(~/.laputa/cache/<hash>.json,
+  CACHE_VERSION=14)→React state`, filesystem wins. **Git-aware incremental rescan:** same HEAD → `git
+  status` dirty only; different HEAD → `git diff old..new`; else full `walkdir`. Search = keyword-only,
+  no index, `walkdir` at query time.
+- **Epistemos mapping:** frontmatter = durable truth; **SDPage + GRDB = derived cache** (mirrors "filesystem
+  wins"). Types stay as `SDPage` notes with `type: Type` (no new SwiftData entity; cache a type→metadata
+  registry). **Relationships → the unified GRAPH** (Epistemos's biggest win: persist forward+inverse typed
+  edges vs Tolaria recomputing). `_`-convention adopted verbatim. Views = `.yml` IN the vault (git-sync),
+  evaluated via GRDB/graph predicates. Incremental git-HEAD+content-hash crawler added to
+  `ShadowVaultBootstrapper`. Search = RRF (BM25+HNSW) >> Tolaria's no-index walkdir.
+- **5 ways to SUPERSEDE:** (1) persisted bidirectional typed relationship graph + multi-hop queries +
+  centrality (vs recomputed inverses); (2) schema-LIGHT advisory validation (declare kinds/enums on the
+  Type doc, gentle hints + typed editors, never reject); (3) hybrid views — add a `semantic:` op backed by
+  shadow HNSW, fused with structured predicates via RRF; (4) incremental content-addressed provenance-aware
+  reindex (per-note hash deltas into GRDB+shadow+graph, DAG/ledger replayable, additive migrations vs
+  CACHE_VERSION full-rebuild); (5) type-aware presentations (boards/calendars/tables on typed edges +
+  validated props) + honest in-process agent that proposes frontmatter edits the user confirms.
+- (Full AGPL source cloned at `/tmp/tolaria-research/` by the research agent — behavior only, reimplement.)
 
 ---
 
