@@ -18,6 +18,17 @@ editor docs into ONE canonical, contradiction-free plan, then keep deepening unt
   spec the intent, don't paste verbatim), and SUPERSEDE/upgrade it through Epistemos.**
 - TipTap vs BlockNote = decide via research (both ProseMirror-family; BlockNote = TipTap + Notion UI).
 
+## OWNER DECISIONS 2026-06-27 (late-loop, supersede earlier where they conflict)
+- **★ Q1 SOURCE OF TRUTH = MARKDOWN-ON-DISK (owner-locked).** Vault `.md` + frontmatter is durable truth;
+  `.epdoc` package JSON demotes to a derived cache. Proceed with the Pass-8 staged flip
+  (`EPISTEMOS_MD_SOURCE_OF_TRUTH`: jsonOnly → dualWrite → markdownCanonical), serializer-first, falsifier-gated.
+- **Grammar / Minichat / Width / Code-swap / Cleanup / Provenance:** owner asked for recommendations
+  (laid out in chat 2026-06-27); RECOMMENDED picks pending explicit confirm — grammar=Obsidian/GFM,
+  minichat=native SwiftUI+webview escape hatch, width=binary 720px/full (slider later), code-swap=Option A
+  (keep chrome, swap engine), cleanup=delete 3 dead editors after a real-app runtime test, provenance=ship the
+  existing Swift `AgentNoteEditProvenance` spine (defer the new Rust FFI). Lock these into the canonical plan
+  once the owner confirms.
+
 ## Locked decisions ADDED mid-loop (owner, 2026-06-27 — supersede where they conflict with earlier)
 - **MarkEdit = FULL app embedded, full settings, completely closed-in, doesn't need to RUN yet.** Owner:
   "full thing full app, please do not do anything other than full thing full app." Embed everything incl.
