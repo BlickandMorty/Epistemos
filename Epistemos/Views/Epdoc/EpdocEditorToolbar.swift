@@ -57,8 +57,9 @@ public final class EpdocEditorToolbarModel {
     public var isStrikeActive: Bool = false
     public var isCodeActive: Bool = false
     public var isHighlightActive: Bool = false
-    /// Current note content width. Session/UI state only until the
-    /// markdown source-of-truth pipeline owns `_width` persistence.
+    /// Current note content width. The host persists explicit choices
+    /// through the markdown source-of-truth pipeline when that mode is
+    /// enabled; toolbar code only owns the UI state and dispatch.
     public var widthMode: NoteWidthMode = .normal
     /// Native Find/Replace popover visibility. Kept on the model so
     /// Cmd+K commands can open the same toolbar-hosted panel.

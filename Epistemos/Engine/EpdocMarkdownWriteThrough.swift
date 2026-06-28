@@ -6,19 +6,22 @@ nonisolated struct EpdocMarkdownWriteThroughRequest: Sendable {
     let manifest: EpdocManifest
     let markdown: String?
     let contentJSONHash: String?
+    let widthMode: NoteWidthMode?
 
     init(
         mode: EpdocSourceOfTruthMode = EpdocSourceOfTruthMode(),
         vaultURL: URL?,
         manifest: EpdocManifest,
         markdown: String?,
-        contentJSONHash: String?
+        contentJSONHash: String?,
+        widthMode: NoteWidthMode? = nil
     ) {
         self.mode = mode
         self.vaultURL = vaultURL
         self.manifest = manifest
         self.markdown = markdown
         self.contentJSONHash = contentJSONHash
+        self.widthMode = widthMode?.normalized
     }
 }
 
@@ -47,7 +50,7 @@ nonisolated enum EpdocMarkdownSourceLoadSkipReason: Equatable, Sendable {
 }
 
 nonisolated enum EpdocMarkdownSourceLoadResult: Equatable, Sendable {
-    case loaded(markdown: String, url: URL)
+    case loaded(markdown: String, url: URL, widthMode: NoteWidthMode?)
     case skipped(EpdocMarkdownSourceLoadSkipReason)
     case failed(String)
 }
@@ -108,7 +111,8 @@ nonisolated enum EpdocMarkdownWriteThrough {
         let serialized = serializedMarkdown(
             manifest: request.manifest,
             markdown: markdown,
-            contentJSONHash: request.contentJSONHash
+            contentJSONHash: request.contentJSONHash,
+            widthMode: request.widthMode
         )
         let wrote = NoteFileStorage.writeTextAtomically(
             serialized,
@@ -145,7 +149,7 @@ nonisolated enum EpdocMarkdownWriteThrough {
             guard source.epdocID == manifestID else {
                 return .skipped(.epdocIDMismatch)
             }
-            return .loaded(markdown: source.body, url: targetURL)
+            return .loaded(markdown: source.body, url: targetURL, widthMode: source.widthMode)
         } catch {
             return .failed(error.localizedDescription)
         }
@@ -161,7 +165,8 @@ nonisolated enum EpdocMarkdownWriteThrough {
     static func serializedMarkdown(
         manifest: EpdocManifest,
         markdown: String,
-        contentJSONHash: String?
+        contentJSONHash: String?,
+        widthMode: NoteWidthMode?
     ) -> String {
         var lines = [
             "---",
@@ -176,6 +181,9 @@ nonisolated enum EpdocMarkdownWriteThrough {
 
         if let contentJSONHash, !isBlank(contentJSONHash) {
             lines.append("_epdoc_content_json_hash: \(yamlString(contentJSONHash))")
+        }
+        if let widthMode {
+            lines.append("_width: \(yamlString(widthMode.frontmatterValue))")
         }
         if let generatedByRun = manifest.provenance.generatedByRun,
            !isBlank(generatedByRun) {
@@ -213,6 +221,7 @@ nonisolated enum EpdocMarkdownWriteThrough {
 
     private struct SplitSourceMarkdown {
         let epdocID: String
+        let widthMode: NoteWidthMode?
         let body: String
     }
 
@@ -238,7 +247,14 @@ nonisolated enum EpdocMarkdownWriteThrough {
                     from: bodyStartAfterClosing
                 )
                 guard let id = epdocID(from: frontmatterLines) else { return nil }
-                return SplitSourceMarkdown(epdocID: id, body: String(cleaned[bodyStart...]))
+                let widthMode = NoteWidthMode(
+                    frontmatterValue: frontmatterValue(from: frontmatterLines, key: "_width")
+                )
+                return SplitSourceMarkdown(
+                    epdocID: id,
+                    widthMode: widthMode,
+                    body: String(cleaned[bodyStart...])
+                )
             }
             frontmatterLines.append(line)
             cursor = lineEnd < cleaned.endIndex ? cleaned.index(after: lineEnd) : cleaned.endIndex
@@ -266,15 +282,22 @@ nonisolated enum EpdocMarkdownWriteThrough {
     }
 
     private static func epdocID(from lines: [Substring]) -> String? {
+        guard let value = frontmatterValue(from: lines, key: "_epdoc_id") else {
+            return nil
+        }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func frontmatterValue(from lines: [Substring], key: String) -> String? {
         for line in lines {
             let parts = line.split(separator: ":", maxSplits: 1)
             guard parts.count == 2,
-                  parts[0].trimmingCharacters(in: .whitespaces) == "_epdoc_id" else {
+                  parts[0].trimmingCharacters(in: .whitespaces) == key else {
                 continue
             }
             let value = unquotedYAMLScalar(String(parts[1]).trimmingCharacters(in: .whitespaces))
-            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
+            return value
         }
         return nil
     }

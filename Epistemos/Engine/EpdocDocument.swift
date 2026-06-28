@@ -21,6 +21,11 @@ private struct EpdocEditorDocumentRoot: View {
     }
 }
 
+private struct EpdocMarkdownInitialSource {
+    let markdown: String
+    let widthMode: NoteWidthMode?
+}
+
 // MARK: - EpdocDocument
 //
 // Wave 7.1 follow-up of the Extended Program Plan
@@ -283,25 +288,27 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     @MainActor
     private func markdownWriteThroughRequest(
         markdownSnapshot: String?,
-        contentJSON: Data
+        contentJSON: Data,
+        widthMode: NoteWidthMode? = nil
     ) -> EpdocMarkdownWriteThroughRequest {
         EpdocMarkdownWriteThroughRequest(
             vaultURL: AppBootstrap.shared?.vaultSync.vaultURL,
             manifest: package.manifest,
             markdown: markdownSnapshot,
-            contentJSONHash: Self.contentHash(of: contentJSON)
+            contentJSONHash: Self.contentHash(of: contentJSON),
+            widthMode: widthMode
         )
     }
 
     @MainActor
-    private func markdownCanonicalInitialSource() -> String? {
+    private func markdownCanonicalInitialSource() -> EpdocMarkdownInitialSource? {
         let result = EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
             vaultURL: AppBootstrap.shared?.vaultSync.vaultURL,
             manifestID: package.manifest.id
         )
         switch result {
-        case let .loaded(markdown, _):
-            return markdown
+        case let .loaded(markdown, _, widthMode):
+            return EpdocMarkdownInitialSource(markdown: markdown, widthMode: widthMode)
         case let .failed(message):
             Self.log.warning(
                 "epdoc markdown canonical load failed: \(message, privacy: .public)"
@@ -514,7 +521,8 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             chromeController.loadInitialContent(
                 self.package.contentJSON,
                 title: self.package.manifest.title,
-                markdownSource: markdownSource
+                markdownSource: markdownSource?.markdown,
+                widthMode: markdownSource?.widthMode
             )
             chromeController.attachedRunIDs = self.immediateAttachedRunIDs()
             chromeController.toolbarModel.resolvePickedImageSource = { [weak self] url, data, mimeType in
@@ -540,6 +548,15 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                     mimeType: mimeType
                 )
             }
+            chromeController.onContentWidthChanged = { [weak self, weak chromeController] mode in
+                guard let self else { return }
+                let request = self.markdownWriteThroughRequest(
+                    markdownSnapshot: chromeController?.latestMarkdownSnapshot,
+                    contentJSON: self.package.contentJSON,
+                    widthMode: mode
+                )
+                Self.enqueueMarkdownWriteThroughIfNeeded(request)
+            }
 
             // Audit gap F4 + F5 close-out - every Tiptap onUpdate
             // routed via the chrome controller's `onContentChanged`
@@ -557,7 +574,8 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                 self.setContentJSON(json)
                 let markdownWriteThroughRequest = self.markdownWriteThroughRequest(
                     markdownSnapshot: chromeController?.latestMarkdownSnapshot,
-                    contentJSON: json
+                    contentJSON: json,
+                    widthMode: chromeController?.canonicalWidthMode
                 )
                 Self.enqueueMarkdownWriteThroughIfNeeded(markdownWriteThroughRequest)
                 Task { [weak self] in

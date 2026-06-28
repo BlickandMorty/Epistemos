@@ -104,6 +104,10 @@ public final class EpdocEditorChromeController {
     /// this value so the L1 dual-write phase never falls back to the lossy
     /// projector.
     public private(set) var latestMarkdownSnapshot: String?
+    /// Width mode that should be persisted into the Epdoc-owned
+    /// markdown frontmatter. Nil means the note is using the ambient
+    /// default and should not emit `_width` solely for UI state.
+    public private(set) var canonicalWidthMode: NoteWidthMode?
 
     // MARK: - Toolbar model (W7.17.a)
     public var toolbarModel: EpdocEditorToolbarModel
@@ -120,9 +124,11 @@ public final class EpdocEditorChromeController {
     public var katexPreviewAnchor: EpdocBridgeRect? = nil
     private var initialContentJSON: Data?
     private var initialMarkdownSource: String?
+    private var initialWidthMode: NoteWidthMode?
     private var editorIsReady = false
     private var bridgeDispatchInstalled = false
     private var didPushInitialContent = false
+    private var isFlushingInitialContent = false
 
     // MARK: - Dispatch + persistence wiring
     /// Fire a Swift → JS command. The chrome installs this on every
@@ -149,6 +155,10 @@ public final class EpdocEditorChromeController {
     /// it into vault `.md` writes only when the source-of-truth mode
     /// explicitly enables that path.
     public var onMarkdownChanged: @Sendable @MainActor (String) -> Void
+    /// User-initiated content-width changes. Hosts use this to persist
+    /// `_width` through the same markdown write-through path as content
+    /// saves, rather than letting toolbar code touch files directly.
+    public var onContentWidthChanged: @Sendable @MainActor (NoteWidthMode) -> Void
     /// Open a first-class HTML Workspace for DOM/interactive visual work.
     public var onOpenHTMLWorkspace: @Sendable @MainActor () -> Void
     /// Halo backend search closure for the Insert link picker (W8.4).
@@ -172,6 +182,7 @@ public final class EpdocEditorChromeController {
         self.onSave = { }
         self.onContentChanged = { _ in }
         self.onMarkdownChanged = { _ in }
+        self.onContentWidthChanged = { _ in }
         self.onOpenHTMLWorkspace = {
             do {
                 try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(
@@ -200,11 +211,15 @@ public final class EpdocEditorChromeController {
     public func loadInitialContent(
         _ json: Data,
         title: String,
-        markdownSource: String? = nil
+        markdownSource: String? = nil,
+        widthMode: NoteWidthMode? = nil
     ) {
         initialContentJSON = json
         initialMarkdownSource = markdownSource
+        initialWidthMode = widthMode?.normalized
         latestMarkdownSnapshot = markdownSource
+        canonicalWidthMode = widthMode?.normalized
+        toolbarModel.widthMode = widthMode?.normalized ?? .normal
         documentTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? "Untitled"
             : title
@@ -235,7 +250,11 @@ public final class EpdocEditorChromeController {
 
     private func reflectLocalState(for command: EpdocEditorCommand) {
         if case .setContentWidth(let mode) = command {
-            toolbarModel.widthMode = mode.normalized
+            let normalized = mode.normalized
+            toolbarModel.widthMode = normalized
+            canonicalWidthMode = normalized
+            guard !isFlushingInitialContent else { return }
+            onContentWidthChanged(normalized)
         }
     }
 
@@ -247,10 +266,15 @@ public final class EpdocEditorChromeController {
             return
         }
         didPushInitialContent = true
+        isFlushingInitialContent = true
+        defer { isFlushingInitialContent = false }
         if let initialMarkdownSource {
             dispatch(.setMarkdown(markdown: initialMarkdownSource))
         } else {
             dispatch(.setContent(json: initialContentJSON))
+        }
+        if let initialWidthMode {
+            dispatch(.setContentWidth(mode: initialWidthMode))
         }
         dispatch(.focusStart)
         scheduleInitialStatusRefresh(for: initialContentJSON)

@@ -251,6 +251,57 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
+    @Test("chrome controller restores canonical note width without echoing persistence")
+    func chromeControllerRestoresMarkdownCanonicalWidth() {
+        let controller = EpdocEditorChromeController()
+        let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let markdown = "# Canonical\n\n[[Note]]\n"
+        let width = NoteWidthMode.custom(px: 1_040)
+        var commands: [EpdocEditorCommand] = []
+        var persistedWidthChanges: [NoteWidthMode] = []
+
+        controller.onContentWidthChanged = { persistedWidthChanges.append($0) }
+        controller.loadInitialContent(
+            json,
+            title: "Loaded MD",
+            markdownSource: markdown,
+            widthMode: width
+        )
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.handleBridgeMessage(.editorReady)
+
+        #expect(controller.toolbarModel.widthMode == width)
+        #expect(controller.canonicalWidthMode == width)
+        #expect(commands == [
+            .setMarkdown(markdown: markdown),
+            .setContentWidth(mode: width),
+            .focusStart,
+        ])
+        #expect(persistedWidthChanges.isEmpty)
+    }
+
+    @MainActor
+    @Test("chrome controller reports user note-width changes to the host")
+    func chromeControllerReportsUserWidthChanges() {
+        let controller = EpdocEditorChromeController()
+        var commands: [EpdocEditorCommand] = []
+        var persistedWidthChanges: [NoteWidthMode] = []
+
+        controller.onContentWidthChanged = { persistedWidthChanges.append($0) }
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.dispatch(.setContentWidth(mode: .wide))
+
+        #expect(controller.toolbarModel.widthMode == .wide)
+        #expect(controller.canonicalWidthMode == .wide)
+        #expect(commands == [.setContentWidth(mode: .wide)])
+        #expect(persistedWidthChanges == [.wide])
+    }
+
+    @MainActor
     @Test("chrome controller computes status counters from loaded document JSON before JS emits updates")
     func chromeControllerComputesInitialStatusFromLoadedJSON() {
         let controller = EpdocEditorChromeController()

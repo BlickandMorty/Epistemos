@@ -77,8 +77,34 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
         #expect(frontMatter["title"] == "Research: \"Delta\"")
         #expect(frontMatter["_epdoc_content_json_hash"] == "json-hash")
         #expect(frontMatter["_epdoc_metadata_display_mode"] == "wide")
+        #expect(frontMatter["_width"] == nil)
         #expect(body == "# Heading\n\nBody")
         #expect(written.hasSuffix("Body\n"))
+    }
+
+    @Test("Dual-write persists explicit note width in existing Epdoc frontmatter")
+    func dualWriteExportsExplicitWidth() throws {
+        let vaultURL = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+        let manifest = Self.sampleManifest()
+        let targetURL = vaultURL
+            .appendingPathComponent("notes", isDirectory: true)
+            .appendingPathComponent("doc-123.md")
+        let request = EpdocMarkdownWriteThroughRequest(
+            mode: .dualWrite,
+            vaultURL: vaultURL,
+            manifest: manifest,
+            markdown: "# Heading\n\nBody",
+            contentJSONHash: "json-hash",
+            widthMode: .custom(px: 1_040)
+        )
+
+        #expect(EpdocMarkdownWriteThrough.writeIfEnabled(request) == .wrote(targetURL))
+
+        let written = try String(contentsOf: targetURL, encoding: .utf8)
+        let (frontMatter, body) = VaultIndexActor.parseFrontMatter(written)
+        #expect(frontMatter["_width"] == "1040px")
+        #expect(body == "# Heading\n\nBody")
     }
 
     @Test("Dual-write skips when the JS markdown snapshot is unavailable")
@@ -156,7 +182,8 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
             vaultURL: vaultURL,
             manifest: manifest,
             markdown: "# Canonical\n\n[[Note]]\n",
-            contentJSONHash: "json-hash"
+            contentJSONHash: "json-hash",
+            widthMode: .wide
         )
         let targetURL = vaultURL
             .appendingPathComponent("notes", isDirectory: true)
@@ -171,7 +198,8 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
 
         #expect(result == .loaded(
             markdown: "# Canonical\n\n[[Note]]\n",
-            url: targetURL
+            url: targetURL,
+            widthMode: .wide
         ))
     }
 
