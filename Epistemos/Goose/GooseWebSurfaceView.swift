@@ -331,6 +331,7 @@ struct GooseWebSurfaceView: View {
         gooseUIServer?.stop()
         gooseUIServer = nil
         await acpBridge.disconnect()
+        nativePromptBridge.cancelPendingPrompts()
         loadPlaceholder()
         supervisor.stop()
         supervisor.start(secretKey: secretKey)
@@ -345,6 +346,7 @@ struct GooseWebSurfaceView: View {
             gooseUIServer?.stop()
             gooseUIServer = nil
             Task { await acpBridge.disconnect() }
+            nativePromptBridge.cancelPendingPrompts()
             loadPlaceholder()
         default:
             break
@@ -353,6 +355,7 @@ struct GooseWebSurfaceView: View {
 
     private func loadWhenReady() async {
         for _ in 0..<260 {
+            guard !Task.isCancelled else { return }
             switch supervisor.status {
             case .running(let connection):
                 connectNativeACP(connection: connection)
@@ -360,6 +363,7 @@ struct GooseWebSurfaceView: View {
                 return
             case .unavailable, .failed:
                 await acpBridge.disconnect()
+                nativePromptBridge.cancelPendingPrompts()
                 loadPlaceholder()
                 return
             default:
@@ -519,6 +523,7 @@ struct GooseWebSurfaceView: View {
 
     private func loadGooseUIWhenReady(_ server: WorkSPAServer, route: String, acpURL: String) async {
         for _ in 0..<80 {
+            guard !Task.isCancelled else { return }
             switch server.status {
             case .running(let baseURL):
                 _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: route)))
@@ -588,7 +593,10 @@ private struct GooseNavigationDecider: WebPage.NavigationDeciding {
     ) async -> WKNavigationActionPolicy {
         guard let url = action.request.url else { return .cancel }
         switch url.scheme?.lowercased() {
-        case "about", "file", GooseWebSurfaceView.gooseUISchemeName:
+        // The trusted Goose surface only ever loads via its custom scheme and the
+        // loopback http server (handled below). `file:` is never used and is
+        // needless local-file navigation surface, so it is not allow-listed.
+        case "about", GooseWebSurfaceView.gooseUISchemeName:
             return .allow
         case "http", "https", "ws", "wss":
             guard let host = url.host?.lowercased(),

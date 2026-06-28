@@ -153,8 +153,16 @@ final class GooseACPEventBridge {
         retryDelayNanoseconds: UInt64,
         providerKeyBridge: GooseProviderKeyBridge?
     ) async {
+        // `attempts` bounds CONSECUTIVE failed handshakes. A successful connect
+        // resets the counter (below) so transient mid-session socket drops over a
+        // long-lived connection each earn a fresh reconnect budget instead of
+        // sharing one exhaustible pool with the initial handshake. A genuinely
+        // dead endpoint still terminates: every reconnect fails, the counter
+        // climbs to `attempts`, and we clear the key + fail.
         let attempts = max(1, initialHandshakeAttempts)
-        for attempt in 1...attempts {
+        var attempt = 0
+        while true {
+            attempt += 1
             guard connectionKey == key, !Task.isCancelled else { return }
             let client = GooseACPClient(transport: transportFactory(), clientVersion: clientVersion)
             self.client = client
@@ -165,6 +173,7 @@ final class GooseACPEventBridge {
                     return
                 }
                 markConnected(agent: response.agentInfo)
+                attempt = 0
                 if let providerKeyBridge {
                     _ = await providerKeyBridge.syncConfiguredProviderKeys(to: client)
                 }
@@ -176,7 +185,12 @@ final class GooseACPEventBridge {
             } catch {
                 await client.close()
                 guard !Task.isCancelled, connectionKey == key else { return }
-                if attempt == attempts {
+                if attempt >= attempts {
+                    // Clear the key so a later connect(key:) to the SAME url can
+                    // re-establish without forcing a full disconnect()/runtime
+                    // restart. Scoped to the terminal path (not shared fail()) so
+                    // transient permission/elicitation send errors don't reset it.
+                    connectionKey = nil
                     fail(error)
                     return
                 }

@@ -593,21 +593,32 @@ actor GooseACPClient {
     }
 
     private func event(from message: GooseACPIncomingMessage) throws -> GooseACPClientEvent? {
+        // Per-frame decode containment: a KNOWN method whose payload has drifted
+        // (a missing/renamed required field on a future goose serve) must NOT tear
+        // down the whole ACP connection. On a typed-decode miss we fall back to the
+        // same unhandled-diagnostic path the UNKNOWN methods already use, so the
+        // event bridge records a structured diagnostic and (for requests) still
+        // answers the server with a JSON-RPC error instead of leaving it hanging.
+        // Terminal `fail()` stays reserved for transport-level errors and the outer
+        // frame parse in `ensureReadLoop`.
         switch message {
         case .notification(.sessionUpdate, let params):
-            return .sessionUpdate(try params.decoded(GooseACPSessionNotification.self))
+            if let notification = try? params.decoded(GooseACPSessionNotification.self) {
+                return .sessionUpdate(notification)
+            }
+            return .unhandledNotification(method: .sessionUpdate, params: params)
         case .notification(let method, let params):
             return .unhandledNotification(method: method, params: params)
         case .request(let id, .requestPermission, let params):
-            return .permissionRequest(
-                id: id,
-                try params.decoded(GooseACPRequestPermissionRequest.self)
-            )
+            if let permission = try? params.decoded(GooseACPRequestPermissionRequest.self) {
+                return .permissionRequest(id: id, permission)
+            }
+            return .unhandledRequest(id: id, method: .requestPermission, params: params)
         case .request(let id, .createElicitation, let params):
-            return .elicitationRequest(
-                id: id,
-                try params.decoded(GooseACPCreateElicitationRequest.self)
-            )
+            if let elicitation = try? params.decoded(GooseACPCreateElicitationRequest.self) {
+                return .elicitationRequest(id: id, elicitation)
+            }
+            return .unhandledRequest(id: id, method: .createElicitation, params: params)
         case .request(let id, let method, let params):
             return .unhandledRequest(id: id, method: method, params: params)
         case .response, .error:
