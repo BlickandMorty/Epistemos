@@ -158,30 +158,36 @@ private func fetchLiveProviderCatalogRouteMarkers(acpURL: URL) async throws -> [
         transport: GooseACPURLSessionWebSocketTransport(url: acpURL),
         clientVersion: "phase0-webview-route-provider-catalog-markers"
     )
-    defer { Task { await client.close() } }
 
-    _ = try await withLiveTimeout(
-        seconds: 12,
-        description: "ACP initialize for provider catalog route markers",
-        onTimeout: { await client.close() },
-        operation: { try await client.initialize() }
-    )
-    let catalog = try await withLiveTimeout(
-        seconds: 20,
-        description: "ACP provider catalog for route markers",
-        onTimeout: { await client.close() },
-        operation: { try await client.listGooseProviderCatalog(format: "openai") }
-    )
-    let markers = catalog.providers.compactMap { provider -> String? in
-        let name = provider.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return name.isEmpty ? provider.providerId : name
+    do {
+        _ = try await withLiveTimeout(
+            seconds: 12,
+            description: "ACP initialize for provider catalog route markers",
+            onTimeout: { await client.close() },
+            operation: { try await client.initialize() }
+        )
+        let catalog = try await withLiveTimeout(
+            seconds: 20,
+            description: "ACP provider catalog for route markers",
+            onTimeout: { await client.close() },
+            operation: { try await client.listGooseProviderCatalog(format: "openai") }
+        )
+        await client.close()
+
+        let markers = catalog.providers.compactMap { provider -> String? in
+            let name = provider.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? provider.providerId : name
+        }
+        let unique = Array(NSOrderedSet(array: markers)) as? [String] ?? markers
+        let selected = Array(unique.prefix(10))
+        guard !selected.isEmpty else {
+            throw GooseLiveIntegrationError.runtimeFailed("Goose ACP provider catalog returned no provider route markers.")
+        }
+        return selected
+    } catch {
+        await client.close()
+        throw error
     }
-    let unique = Array(NSOrderedSet(array: markers)) as? [String] ?? markers
-    let selected = Array(unique.prefix(10))
-    guard !selected.isEmpty else {
-        throw GooseLiveIntegrationError.runtimeFailed("Goose ACP provider catalog returned no provider route markers.")
-    }
-    return selected
 }
 
 private struct GooseWebRouteExpectation: Sendable {
@@ -321,6 +327,7 @@ private func waitForGooseWebRoute(
     progressURL: URL
 ) async throws -> GooseWebRouteProbe {
     try await driveGooseWebRouteNavigation(expectation, page: page)
+    _ = try await dismissGooseWebTelemetryPromptIfPresent(page: page)
     appendLiveProgress("route navigate \(expectation.route)", to: progressURL)
 
     var lastProbe: GooseWebRouteProbe?
@@ -328,8 +335,10 @@ private func waitForGooseWebRoute(
     for attempt in 0..<220 {
         if attempt % 5 == 0 {
             try await driveGooseWebRouteNavigation(expectation, page: page)
+            _ = try await dismissGooseWebTelemetryPromptIfPresent(page: page)
         }
         try await Task.sleep(nanoseconds: 100_000_000)
+        _ = try await dismissGooseWebTelemetryPromptIfPresent(page: page)
         let probe = try await readGooseWebRouteProbe(page)
         lastProbe = probe
         if attempt % 10 == 0 || probe.matches(expectation) {
@@ -439,6 +448,9 @@ private func waitForGooseWebProviderCatalogPicker(
     var lastProbe: GooseWebRouteProbe?
     var stableMatches = 0
     for attempt in 0..<220 {
+        if attempt % 5 == 0 {
+            _ = try await dismissGooseWebTelemetryPromptIfPresent(page: page)
+        }
         try await Task.sleep(nanoseconds: 100_000_000)
         let probe = try await readGooseWebRouteProbe(page)
         lastProbe = probe
@@ -462,6 +474,41 @@ private func waitForGooseWebProviderCatalogPicker(
 }
 
 @MainActor
+private func dismissGooseWebTelemetryPromptIfPresent(page: WebPage) async throws -> Bool {
+    try await clickGooseWebElement(
+        page: page,
+        script: """
+        const textOf = (element) => `${element.innerText || ''} ${element.textContent || ''}`;
+        const isVisible = (element) => {
+          if (!(element instanceof HTMLElement)) return false;
+          const rect = element.getBoundingClientRect();
+          const style = window.getComputedStyle(element);
+          return rect.width > 0 &&
+            rect.height > 0 &&
+            style.visibility !== 'hidden' &&
+            style.display !== 'none';
+        };
+        const dialogs = Array.from(document.querySelectorAll('[role="dialog"]'))
+          .filter((dialog) => /Help improve Epistemos/i.test(dialog.innerText || ''));
+        for (const dialog of dialogs) {
+          const button = Array.from(dialog.querySelectorAll('button, [role="button"]'))
+            .filter(isVisible)
+            .find((candidate) => /No thanks/i.test(textOf(candidate)));
+          if (button instanceof HTMLElement) {
+            button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+            button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            button.click();
+            button.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+            button.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+            return true;
+          }
+        }
+        return false;
+        """
+    )
+}
+
+@MainActor
 private func waitForGooseWebText(
     _ requiredText: [String],
     page: WebPage,
@@ -474,6 +521,7 @@ private func waitForGooseWebText(
     )
     for attempt in 0..<100 {
         try await Task.sleep(nanoseconds: 100_000_000)
+        _ = try await dismissGooseWebTelemetryPromptIfPresent(page: page)
         let probe = try await readGooseWebRouteProbe(page)
         if attempt % 10 == 0 || probe.matches(expectation) {
             appendLiveProgress(

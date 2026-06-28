@@ -142,7 +142,8 @@ goose_web_ui_contains_required_markers() {
         "providersCatalogList_unstable" \
         "providersSetupCatalogList_unstable" \
         "providersCatalogTemplate_unstable" \
-        "createEpistemosGooseACPClient" \
+        "shared-getAcpClient-provider-inventory" \
+        "local-acp-config-GOOSE_TELEMETRY_ENABLED" \
         "__epistemosGooseACPRequestSerialization" \
         "__epistemosGooseProviderInventoryEvents" \
         "__epistemosGooseProviderCatalogEvents" \

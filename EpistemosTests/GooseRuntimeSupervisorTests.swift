@@ -434,7 +434,8 @@ struct GooseWebUIResolverTests {
         providersCatalogList_unstable
         providersSetupCatalogList_unstable
         providersCatalogTemplate_unstable
-        createEpistemosGooseACPClient
+        shared-getAcpClient-provider-inventory
+        local-acp-config-GOOSE_TELEMETRY_ENABLED
         """.write(
             to: assets.appendingPathComponent("index-live.js"),
             atomically: true,
@@ -515,9 +516,11 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("acpChatFeatureFlag.ts"))
         #expect(script.contains("export const USE_ACP_CHAT = true;"))
         #expect(script.contains("goose.providersList_unstable({ providerIds: [] })"))
-        #expect(script.contains("createEpistemosGooseACPClient"))
         #expect(script.contains("getProviderInventoryAcpClient()"))
         #expect(script.contains("getProviderCatalogAcpClient()"))
+        #expect(script.contains("shared-getAcpClient-provider-inventory"))
+        #expect(script.contains("function getProviderInventoryAcpClient(): ReturnType<typeof getAcpClient>"))
+        #expect(script.contains("return getAcpClient();"))
         #expect(script.contains("__epistemosGooseACPRequestSerialization"))
         #expect(script.contains("return serializeACPRequests(client);"))
         #expect(script.contains("__epistemosGooseProviderInventoryEvents"))
@@ -561,6 +564,9 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("replaceRequired("))
         #expect(script.contains("'provider catalog ACP branch'"))
         #expect(script.contains("ConfigContext staged source is missing required ACP provider snippet"))
+        #expect(script.contains("localAcpConfigKeys = new Set"))
+        #expect(script.contains("GOOSE_TELEMETRY_ENABLED"))
+        #expect(script.contains("local-acp-config-GOOSE_TELEMETRY_ENABLED"))
         #expect(script.contains("ProviderSettingsPage.tsx"))
         #expect(script.contains("'initial ACP provider load'"))
         #expect(script.contains("Provider catalog failed:"))
@@ -1196,7 +1202,8 @@ providersList_unstable
 providersCatalogList_unstable
 providersSetupCatalogList_unstable
 providersCatalogTemplate_unstable
-createEpistemosGooseACPClient
+shared-getAcpClient-provider-inventory
+local-acp-config-GOOSE_TELEMETRY_ENABLED
 __epistemosGooseACPRequestSerialization
 __epistemosGooseProviderInventoryEvents
 __epistemosGooseProviderCatalogEvents

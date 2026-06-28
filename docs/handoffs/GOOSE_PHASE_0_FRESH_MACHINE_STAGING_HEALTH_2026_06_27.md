@@ -59,7 +59,8 @@ The resolver only accepts ACP-mode artifacts. A valid artifact has:
 - `index.html`
 - `.epistemos-goose-webui.json` with `acpMode: true`
 - local relative asset references
-- bridge markers including `createEpistemosGooseACPClient`,
+- bridge markers including `shared-getAcpClient-provider-inventory`,
+  `local-acp-config-GOOSE_TELEMETRY_ENABLED`,
   `providersList_unstable`, `providersCatalogList_unstable`,
   `providersSetupCatalogList_unstable`,
   `providersCatalogTemplate_unstable`,
@@ -165,3 +166,13 @@ On 2026-06-27, staging, app-hosted XCTest after re-signing, `GooseLiveIntegratio
 passed. Phase 0 remains not signed off because Gate 3 thought-stream proof,
 Gate 5 OAuth/parity, true AppKit window-affordance proof, MAS/manual/
 distribution WRV, and owner sign-off remain open.
+
+On 2026-06-28, a stale app-support Goose Web UI artifact and fragile provider
+inventory-first behavior reproduced owner-visible route failures. Re-stage with
+the current script before manual testing. The accepted artifact must contain the
+new shared-client marker `shared-getAcpClient-provider-inventory` and the
+app-local config marker `local-acp-config-GOOSE_TELEMETRY_ENABLED`; artifacts
+that only contain `createEpistemosGooseACPClient` are stale and must be rejected.
+The fresh live route smoke passed against script `./assets/index-DDJFnyeu.js`
+for `/configure-providers`, `/settings?section=models`, `/extensions`, `/apps`,
+`/schedules`, `/recipes`, `/sessions`, and `/skills`.

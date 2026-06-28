@@ -48,11 +48,33 @@ The previous "Done" conflated **scaffold + compile + session PNGs** with the **l
 - `/tmp/epistemos-goose-phase0-provider-authenticate-rejection.log` — `phase0_live_provider_authenticate_rejection=pass`; isolated `HOME`, file-backed secrets, live `azure_openai` `_goose/unstable/providers/config/authenticate` rejection preserved JSON-RPC `-32602` error data (`Provider does not support native authentication`) and kept config status `false -> false`.
 - `/tmp/epistemos-goose-phase0-source-mutation.log` — `phase0_live_source_mutation=pass`; isolated temp project, live project Skill source create/update/export/delete/import/cleanup over ACP, writable Skill source returned, exported JSON valid, one imported source cleaned up.
 - `/tmp/epistemos-goose-phase0-webview-boot.log` — `phase0_live_webview_boot=pass`, staged Web UI URL, `ready_state=complete`, React root mounted, `window.electron`, `window.epistemos.goose`, ACP config, permission bridge, native affordance bridge, `directoryChooser`, `openExternal`, secret bridge, and runtime ACP URL match.
-- `/tmp/epistemos-goose-phase0-webview-route-smoke.log` — `phase0_live_webview_route_smoke=pass`; real staged Goose Web UI navigated in WebView against live `goose serve` to `/configure-providers`, `/settings?section=models`, `/extensions`, and `/skills`; provider inventory route rendered 6,750 chars with OpenAI/Anthropic/Google/Ollama markers after the ACP provider overlay.
+- `/tmp/epistemos-goose-phase0-webview-route-smoke.log` — `phase0_live_webview_route_smoke=pass`; real staged Goose Web UI navigated in WebView against live `goose serve` to `/configure-providers`, `/settings?section=models`, `/extensions`, `/apps`, `/schedules`, `/recipes`, `/sessions`, and `/skills`; provider catalog picker used `_goose/unstable/providers/catalog/list`, Apps rendered `Apps` plus `Import App`/`No apps available`, Session History rendered `Session History` plus `CHATS` and observed `session/list`, and the staged script was `./assets/index-DDJFnyeu.js`.
 - `EpistemosTests/Fixtures/GooseACP/F1_initialize.json` through `F5_custom_readonly.json` — sanitized live-captured golden ACP fixtures for initialize, session/new, prompt answer stream, permission/tool result, and read-only custom ACP.
 - `scripts/generate-goose-acp-fixtures.mjs` — pinned generator that launches local `goose serve`, records ACP over WebSocket, normalizes volatile session/tool/request ids and repo paths, and stores the current Goose revision in fixture metadata.
 - Cleanup verified after live tests: no listener on TCP `3284`; no `xcodebuild`, `xctest`, `goose`, `swiftc`, or `swift-frontend` process left from the run.
 - Build/test checkpoint: `xcodebuild ... build-for-testing` passed after adding Skills source create/update/delete/import ACP proof; focused Goose ACP codec/client/event-bridge/golden-fixture/shim/native-affordance/runtime suites passed 44/44; `GooseACPClientTests` passed 10/10; live `GooseSourceMutationLiveIntegrationTests` passed 1/1 and live `GooseLiveIntegrationTests` passed 6/6 against real `goose serve`; retained same-day proof remains: `GooseProviderMutationLiveIntegrationTests` 2/2, `GooseSettingsMutationLiveIntegrationTests` 1/1, `GooseWebRouteLiveIntegrationTests` 1/1, golden fixture suite 4/4, and runtime/resolver/staging/Electron-launcher suites green.
+
+### 2026-06-28 owner-visible route repair
+
+- Pre-repair manual testing showed exactly the owner-reported breakage: Apps,
+  Session History, and model/provider surfaces could fail even while the
+  details panel showed a live runtime. A stale staged artifact under app
+  support and provider inventory-first behavior were the relevant Phase 0
+  failure modes.
+- Current staged artifacts must contain `shared-getAcpClient-provider-inventory`
+  and `local-acp-config-GOOSE_TELEMETRY_ENABLED`. `createEpistemosGooseACPClient`
+  is no longer the accepted bridge marker.
+- Provider UI is now catalog-first and avoids the heavy provider inventory call
+  unless catalog loading fails, so settings/default/config reads are not starved
+  on the shared ACP client.
+- Manual debug-app verification showed the corrected details labels:
+  `native ACP Goose ready (1.39.0)` and `custom ACP Goose ready`.
+- Fresh route proof:
+  `build/xcode-results/2026-06-28-goose-web-route-live-no-background-inventory.xcresult`.
+  The owner should retest Apps, Session History, Settings -> Models,
+  Providers/Add Provider, Recipes, Scheduler, Extensions, and Skills. Provider-
+  specific model errors can still occur when a provider such as LM Studio is not
+  configured or running; that is not an ACP WebSocket failure.
 
 ---
 

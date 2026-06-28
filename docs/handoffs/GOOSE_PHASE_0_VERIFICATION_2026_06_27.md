@@ -88,6 +88,69 @@ signing the generated app fixed the hosted runner.
   and the WebView bridge route; `showMessageBox`, `launchApp`, `refreshApp`,
   and `closeApp` are handler-routed and explicitly marked in the proof log.
 
+## 2026-06-28 Route Loading Repair Addendum
+
+The owner-reported failures on Apps, Session History, and model/provider
+surfaces were reproducible as stale/fragile staged Goose Web UI behavior, not
+as permission to start Phase 1. The repair stayed inside Phase 0 WebView/ACP
+staging:
+
+- Preserved the prior checkpoint first: `a4ff19320` (`Stabilize Goose Phase 0
+  checkpoint`) after `build-for-testing` passed at
+  `build/xcode-results/2026-06-28-phase0-preserve-build-for-testing.xcresult`.
+- Re-staged the Goose Web UI instead of trusting the old
+  `~/Library/Application Support/Epistemos/GooseWebUI` artifact.
+- Replaced the stale provider client marker `createEpistemosGooseACPClient`
+  with `shared-getAcpClient-provider-inventory`, proving the provider catalog
+  and inventory paths use the shared `getAcpClient()` lane.
+- Added the `local-acp-config-GOOSE_TELEMETRY_ENABLED` marker and local ACP
+  config handling for app-local settings keys such as telemetry, voice
+  dictation, security prompt/classifier settings, and max turns.
+- Made provider UI catalog-first. The heavier provider inventory call now runs
+  only as a fallback after catalog failure; this avoids starving later
+  settings/default/config reads on the shared ACP client.
+- Updated the live route smoke helper to dismiss the first-run telemetry prompt
+  and to close the marker ACP client deterministically.
+
+Fresh live route smoke passed at
+`build/xcode-results/2026-06-28-goose-web-route-live-no-background-inventory.xcresult`
+and wrote `/tmp/epistemos-goose-phase0-webview-route-smoke.log`:
+
+```text
+phase0_live_webview_route_smoke=pass
+goose_web_ui_index_script=./assets/index-DDJFnyeu.js
+provider_catalog_picker_acp_methods=_goose/unstable/providers/catalog/list
+route=/configure-providers required_hits=Provider Configuration Settings,Add Provider
+route=/settings?section=models required_hits=Settings any_hits=Models,Provider,Model
+route=/extensions required_acp_methods=_goose/unstable/config/extensions/list
+route=/apps required_hits=Apps any_hits=Import App,No apps available
+route=/schedules required_acp_methods=_goose/unstable/schedules/list
+route=/recipes required_acp_methods=_goose/unstable/recipes/list
+route=/sessions required_hits=Session History any_hits=CHATS required_acp_methods=session/list
+route=/skills required_acp_methods=_goose/unstable/sources/list
+```
+
+Manual debug-app verification on 2026-06-28 also showed the corrected details
+language:
+
+```text
+native ACP Goose ready (1.39.0)
+custom ACP Goose ready
+```
+
+The owner should no longer expect Apps or Session History to show generic
+"Error Loading" surfaces in this build. A provider-specific model-list error is
+still expected when the selected provider itself is not configured or not
+running, for example LM Studio without a reachable local server. That is not
+the same failure as `ACP WebSocket connection failed`.
+
+One extra Xcode command targeting
+`ReleasePackagingHardeningTests/runtimeAssetBundlerStagesGooseOnlyForDirectDistribution`
+returned `TEST SUCCEEDED` but selected zero tests, so it is not counted as proof.
+The broader release-packaging suite still has unrelated pre-existing red
+assertions around SourceMirror/model-manifest expectations and is not closed by
+this addendum.
+
 ## Fresh Proof Highlights
 
 Direct provider/catalog proof:

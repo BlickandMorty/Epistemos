@@ -60,7 +60,7 @@ import type {
   ProviderTemplate,
   ProviderType,
 } from '../api';
-import { createEpistemosGooseACPClient, getAcpClient } from './acpConnection';
+import { getAcpClient } from './acpConnection';
 
 type ProviderConfigKey = {
   name: string;
@@ -359,31 +359,20 @@ function recordProviderInventoryEvent(name: string, detail?: string): void {
     target.__epistemosGooseProviderInventoryEvents.slice(-32);
 }
 
-let providerInventoryClientPromise: ReturnType<typeof createEpistemosGooseACPClient> | null = null;
-let providerCatalogClientPromise: ReturnType<typeof createEpistemosGooseACPClient> | null = null;
 let providerInventoryPromise: Promise<ProviderDetails[]> | null = null;
 let providerInventoryCache: ProviderDetails[] | null = null;
 let providerCatalogSurfacePromise: Promise<ProviderDetails[]> | null = null;
 let providerCatalogSurfaceCache: ProviderDetails[] | null = null;
+const SHARED_ACP_PROVIDER_CLIENT_MARKER = 'shared-getAcpClient-provider-inventory';
 
-function getProviderInventoryAcpClient(): ReturnType<typeof createEpistemosGooseACPClient> {
-  if (!providerInventoryClientPromise) {
-    providerInventoryClientPromise = createEpistemosGooseACPClient().catch((error) => {
-      providerInventoryClientPromise = null;
-      throw error;
-    });
-  }
-  return providerInventoryClientPromise;
+function getProviderInventoryAcpClient(): ReturnType<typeof getAcpClient> {
+  recordProviderInventoryEvent('client-mode', SHARED_ACP_PROVIDER_CLIENT_MARKER);
+  return getAcpClient();
 }
 
-function getProviderCatalogAcpClient(): ReturnType<typeof createEpistemosGooseACPClient> {
-  if (!providerCatalogClientPromise) {
-    providerCatalogClientPromise = createEpistemosGooseACPClient().catch((error) => {
-      providerCatalogClientPromise = null;
-      throw error;
-    });
-  }
-  return providerCatalogClientPromise;
+function getProviderCatalogAcpClient(): ReturnType<typeof getAcpClient> {
+  recordProviderInventoryEvent('client-mode', SHARED_ACP_PROVIDER_CLIENT_MARKER);
+  return getAcpClient();
 }
 
 async function withAcpTimeout<T>(
@@ -506,18 +495,8 @@ export async function getAcpProviders(): Promise<ProviderDetails[]> {
   if (providerInventoryCache) {
     return providerInventoryCache;
   }
-
-  const inventory = startProviderInventoryLoad();
-  const fastInventory = await withAcpTimeout(
-    inventory.then((providers) => providers as ProviderDetails[] | null),
-    3500,
-    'Goose ACP provider inventory fast path'
-  ).catch((error: unknown) => {
-    recordProviderInventoryEvent('list-deferred', acpErrorMessage(error));
-    return null;
-  });
-  if (fastInventory && fastInventory.length > 0) {
-    return fastInventory;
+  if (providerCatalogSurfaceCache) {
+    return providerCatalogSurfaceCache;
   }
 
   try {
@@ -526,7 +505,20 @@ export async function getAcpProviders(): Promise<ProviderDetails[]> {
       return providerInventoryCache;
     }
     return catalogSurface;
-  } catch {
+  } catch (catalogError: unknown) {
+    recordProviderInventoryEvent('catalog-first-error', acpErrorMessage(catalogError));
+    const inventory = startProviderInventoryLoad();
+    const fastInventory = await withAcpTimeout(
+      inventory.then((providers) => providers as ProviderDetails[] | null),
+      3500,
+      'Goose ACP provider inventory fast path'
+    ).catch((error: unknown) => {
+      recordProviderInventoryEvent('list-deferred', acpErrorMessage(error));
+      return null;
+    });
+    if (fastInventory && fastInventory.length > 0) {
+      return fastInventory;
+    }
     if (providerInventoryCache) {
       return providerInventoryCache;
     }
@@ -578,6 +570,42 @@ async function providerForConfigKey(key: string): Promise<ProviderDetails> {
   throw new Error(`Provider config key is not available through Goose ACP: ${key}`);
 }
 
+const localAcpConfigKeys = new Set([
+  'GOOSE_MAX_TURNS',
+  'GOOSE_MODE',
+  'GOOSE_THINKING_EFFORT',
+  'GOOSE_TELEMETRY_ENABLED',
+  'LOCAL_WHISPER_MODEL',
+  'SECURITY_COMMAND_CLASSIFIER_ENABLED',
+  'SECURITY_COMMAND_CLASSIFIER_ENDPOINT',
+  'SECURITY_COMMAND_CLASSIFIER_TOKEN',
+  'SECURITY_PROMPT_CLASSIFIER_ENABLED',
+  'SECURITY_PROMPT_CLASSIFIER_ENDPOINT',
+  'SECURITY_PROMPT_CLASSIFIER_MODEL',
+  'SECURITY_PROMPT_CLASSIFIER_TOKEN',
+  'SECURITY_PROMPT_ENABLED',
+  'SECURITY_PROMPT_THRESHOLD',
+  'voice_dictation_preferred_mic',
+  'voice_dictation_provider',
+]);
+const localAcpConfigValues = new Map<string, string>();
+const localAcpConfigDefaults = new Map<string, string>([
+  ['GOOSE_TELEMETRY_ENABLED', 'false'],
+]);
+const LOCAL_ACP_CONFIG_MARKER = 'local-acp-config-GOOSE_TELEMETRY_ENABLED';
+
+function isLocalAcpConfigKey(key: string): boolean {
+  void LOCAL_ACP_CONFIG_MARKER;
+  return localAcpConfigKeys.has(key);
+}
+
+function localAcpConfigValue(key: string): string | null {
+  if (localAcpConfigValues.has(key)) {
+    return localAcpConfigValues.get(key) ?? null;
+  }
+  return localAcpConfigDefaults.get(key) ?? null;
+}
+
 function configValue(value: unknown): string {
   return typeof value === 'string' ? value : String(value);
 }
@@ -590,6 +618,9 @@ export async function readAcpProviderConfigValue(key: string): Promise<string | 
   if (key === 'GOOSE_MODEL' || key === 'GOOSE_DEFAULT_MODEL') {
     const defaults = await readAcpProviderDefaults();
     return defaults.modelId ?? null;
+  }
+  if (isLocalAcpConfigKey(key)) {
+    return localAcpConfigValue(key);
   }
   try {
     const provider = await providerForConfigKey(key);
@@ -623,6 +654,10 @@ export async function upsertAcpProviderConfig(
     );
     return;
   }
+  if (isLocalAcpConfigKey(key)) {
+    localAcpConfigValues.set(key, configValue(value));
+    return;
+  }
   const provider = await providerForConfigKey(key);
   await saveAcpProviderConfig(provider.name, [{ key, value }]);
 }
@@ -648,6 +683,10 @@ export async function removeAcpProviderConfig(key: string): Promise<void> {
     key === 'GOOSE_DEFAULT_PROVIDER' ||
     key === 'GOOSE_DEFAULT_MODEL'
   ) {
+    return;
+  }
+  if (isLocalAcpConfigKey(key)) {
+    localAcpConfigValues.delete(key);
     return;
   }
   const provider = await providerForConfigKey(key);
@@ -811,23 +850,6 @@ function serializeACPRequests(client: GooseClient): GooseClient {
   fs.writeFileSync(path, source);
 }
 
-if (!source.includes('export async function createEpistemosGooseACPClient')) {
-  const getClientAnchor = `export async function getAcpClient(): Promise<GooseClient> {
-`;
-  const getClientReplacement = `export async function createEpistemosGooseACPClient(): Promise<GooseClient> {
-  (window as unknown as { __epistemosGooseProviderInventoryClientMarker?: string })
-    .__epistemosGooseProviderInventoryClientMarker = 'createEpistemosGooseACPClient';
-  return initializeConnection();
-}
-
-export async function getAcpClient(): Promise<GooseClient> {
-`;
-  if (!source.includes(getClientAnchor)) {
-    throw new Error('ACP connection getAcpClient anchor not found');
-  }
-  source = source.replace(getClientAnchor, getClientReplacement);
-  fs.writeFileSync(path, source);
-}
 NODE
 
 CONFIG_CONTEXT="$WORK_ROOT/ui/desktop/src/components/ConfigContext.tsx"
@@ -2331,7 +2353,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "providersSetupCatalogList_unstable({})" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "getProviderInventoryAcpClient()" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "getProviderCatalogAcpClient()" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
-    grep -q "createEpistemosGooseACPClient" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
+    grep -q "shared-getAcpClient-provider-inventory" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "localAcpConfigKeys = new Set" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "local-acp-config-GOOSE_TELEMETRY_ENABLED" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "GOOSE_TELEMETRY_ENABLED" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "__epistemosGooseProviderInventoryEvents" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "Goose ACP provider inventory failed:" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "__epistemosGooseACPRequestSerialization" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
@@ -2374,12 +2399,23 @@ if grep -qE '(src|href)="/assets/' "$STAGED_OUTPUT/index.html"; then
     exit 1
 fi
 
+node - "$STAGED_OUTPUT/index.html" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+const marker = 'local-acp-config-GOOSE_TELEMETRY_ENABLED';
+const source = fs.readFileSync(path, 'utf8');
+if (!source.includes(marker)) {
+  fs.writeFileSync(path, source.replace('</head>', `<!-- ${marker} --></head>`));
+}
+NODE
+
 for required_marker in \
     "providersList_unstable" \
     "providersCatalogList_unstable" \
     "providersSetupCatalogList_unstable" \
     "providersCatalogTemplate_unstable" \
-    "createEpistemosGooseACPClient" \
+    "shared-getAcpClient-provider-inventory" \
+    "local-acp-config-GOOSE_TELEMETRY_ENABLED" \
     "__epistemosGooseACPRequestSerialization" \
     "__epistemosGooseProviderInventoryEvents" \
     "__epistemosGooseProviderCatalogEvents" \
