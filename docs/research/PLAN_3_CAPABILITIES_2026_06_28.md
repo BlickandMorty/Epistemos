@@ -11,9 +11,11 @@
 > moat · Extensibility (skill/MCP install + best-of preset + vault-as-MCP-server). Nothing else.
 > Tags: `[VERIFIED-CODE]` read this pass · `[WEB]` web-validated · `[INFERRED]` proposed.
 >
-> **★ CLONE-READY CODE PACKS (Pass 3):** `PLAN_3_EDGEPARSE_CODEPACK_2026_06_28.md` (§1 PDF→md vendoring + coexistence) ·
-> `PLAN_3_PROVENANCE_CODEPACK_2026_06_28.md` (§4 honest-chip fix + hover-lineage moat) ·
-> `PLAN_3_VAULT_MCP_CODEPACK_2026_06_28.md` (§5c vault-as-MCP-server). Real code + integration/flip checklists.
+> **★ CLONE-READY CODE PACKS:** (Pass 3) `PLAN_3_EDGEPARSE_CODEPACK` (§1 PDF→md vendoring + coexistence) ·
+> `PLAN_3_PROVENANCE_CODEPACK` (§4 honest-chip fix + hover-lineage moat) · `PLAN_3_VAULT_MCP_CODEPACK` (§5c
+> vault-as-MCP-server). (Pass 4) `PLAN_3_OBSCURA_TIER1_CODEPACK` (§2 usable in-app browser) ·
+> `PLAN_3_EXTENSIBILITY_CODEPACK` (§5a install UI + §5b best-of preset) · `PLAN_3_APPLE_NATIVE_CODEPACK` (§6 QuickLook/
+> VisionKit/thumbnails). All `_2026_06_28.md`. Real code + integration/flip checklists.
 
 ---
 

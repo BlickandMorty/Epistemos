@@ -36,6 +36,14 @@
     (tightened `VerifiedFloorChipStrip` audit) + Moat-1 (`VRMLabelView` hover-lineage card). Full cascade = flagged Rust FFI.
   - **`PLAN_3_VAULT_MCP_CODEPACK`** — `VaultMCPCore`/`VaultMCPServer`/`VaultMCPTokenStore`/`VaultMCPHost`/Settings row,
     reusing the audited `WorkNativeMCPServer` transport; read-only allowlist enforced at the core; persistent Keychain token.
-- [ ] **Pass 4+** (queue): (6) Apple-native deepen (QuickLook/VisionKit/thumbnails wiring → code). (7) Extensibility
-  skill/MCP install UI + best-of preset → code. (8) arXiv pull + meeting/STT note (§7) → clone targets + code.
-  (9) Obscura Tier-1 in-app browser → concrete WKWebView code. (10) harden + contradiction sweep across all 3 plans.
+- [x] **Pass 4 DONE** (2026-06-28): CLONE-READY CODE for 3 more confirmed items → 3 codepacks:
+  - **`PLAN_3_OBSCURA_TIER1_CODEPACK`** — `ObscuraBrowserView` (WKWebView + chrome + URL guard + KVO + teardown) +
+    `UtilityPanel.browser` + ⌘⇧B. Standalone, MAS-safe, behaves like Safari. Tier-2/3 seam noted, not built.
+  - **`PLAN_3_EXTENSIBILITY_CODEPACK`** — `MCPRegistryClient` (Smithery/mcp.so/Glama/GitHub browse) + the missing
+    `MCPUrlServerDirectory.write` + `ExtensionsDetailView` (Skills/MCP/Connectors tabs) + `BestOfPreset` + manifest.
+  - **`PLAN_3_APPLE_NATIVE_CODEPACK`** — `FilePreview` (QuickLook), `LiveTextImageView` (VisionKit Live Text → search),
+    `FileThumbnail` (QuickLookThumbnailing) + wiring into `NotesSidebar` rows.
+- [ ] **Pass 5+** (queue): (8) arXiv pull + meeting/STT note (§7) → clone targets + code. (10) ColBERT search-only
+  rerank → `maxsim.rs` + libllama embedding FFI code. (11) Eidos→chat panel (§4 moat surfacing) → code. (12) HARDEN +
+  contradiction sweep across all 3 plans (no duplication/clash; verify every [INFERRED] seam). (13) owner-decision-queue
+  items (only if owner says yes to local model-management).
