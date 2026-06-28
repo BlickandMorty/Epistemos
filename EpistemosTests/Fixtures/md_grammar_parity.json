@@ -1,0 +1,67 @@
+[
+  {
+    "name": "callout",
+    "pmDoc": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "callout",
+          "attrs": { "kind": "warning" },
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [{ "type": "text", "text": "Check source" }]
+            }
+          ]
+        }
+      ]
+    },
+    "expectedMarkdown": "> [!WARNING]\n> Check source\n",
+    "expectedReaderNodeType": "callout"
+  },
+  {
+    "name": "chart",
+    "pmDoc": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "epdocChart",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"type\":\"scatter\",\"points\":[{\"x\":0.7,\"y\":0.9}]}"
+            }
+          ]
+        }
+      ]
+    },
+    "expectedMarkdown": "```chart\n{\"type\":\"scatter\",\"points\":[{\"x\":0.7,\"y\":0.9}]}\n```\n",
+    "expectedReaderNodeType": "epdocChart"
+  },
+  {
+    "name": "wikilink",
+    "pmDoc": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "claim",
+              "marks": [
+                {
+                  "type": "link",
+                  "attrs": { "href": "epistemos-doc:wiki/Canonical%20Note" }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expectedMarkdown": "[[Canonical Note|claim]]\n",
+    "expectedReaderNodeType": "paragraph",
+    "expectedWikiHref": "epistemos-doc:wiki/Canonical%20Note"
+  }
+]

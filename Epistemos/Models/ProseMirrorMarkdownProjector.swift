@@ -9,7 +9,9 @@ import Foundation
 // Lossy GFM Markdown projector for ProseMirror JSON documents. The
 // `.epdoc` package format keeps `content.pm.json` as the canonical
 // source of truth and stores `projections/shadow.md` as a derived
-// view. This module computes that derived view.
+// view. This module computes that derived view. L1 markdown-on-disk
+// work uses the JS `getMarkdown()` bridge as the canonical writer;
+// this projector remains the lossy fallback/shadow path.
 //
 // Design rules from the plan §4:
 //   - Markdown is DERIVED, never canonical. The projector regenerates
@@ -87,13 +89,13 @@ nonisolated public struct ProseMirrorAttrs: Codable, Sendable, Hashable {
     /// Image alternate text.
     public let alt: String?
     /// W7.8 — Footnote / callout / heading anchor identifier. For
-    /// `footnote_reference` this is the marker (e.g. `1` → `[^1]`);
+    /// `footnote_reference` this is the marker (e.g. `1` -> `[^1]`);
     /// for `callout` it's a slug used by the heading-anchor extension.
     public let id: String?
     /// W7.8 — Task item state. true → `- [x]`, false → `- [ ]`.
     public let checked: Bool?
-    /// W7.8 — Callout type discriminant (`tip` / `info` / `warning` /
-    /// `danger` / `details`). Drives the `:::<kind>` fence.
+    /// W7.8 — Callout type discriminant (`note` / `tip` / `info` /
+    /// `warning` / `danger`). Projects to Obsidian-style `> [!KIND]`.
     public let kind: String?
 
     public init(
@@ -271,20 +273,23 @@ nonisolated public enum ProseMirrorMarkdownProjector {
         // MARK: - W7.8 — Markdown plugin nodes (footnote / task / callout)
 
         case "callout":
-            // markdown-it-container syntax: `:::<kind>\n…\n:::`. Default
-            // to "info" if the kind attr is missing so we never emit a
-            // bare `:::` (which markdown-it-container rejects).
-            let kind = node.attrs?.kind?.lowercased() ?? "info"
+            // Obsidian/GFM callout syntax is the markdown-on-disk grammar
+            // understood by the JS parser/serializer. Unknown legacy kinds
+            // degrade to INFO rather than emitting an unreadable token.
+            let kind = normalizedCalloutKind(node.attrs?.kind)
             var inner = State()
             visitChildren(node, state: &inner, listDepth: listDepth)
-            // Trim trailing blank lines from the inner block so the
-            // closing fence sits flush.
             var body = inner.out
-            while body.hasSuffix("\n\n") { body.removeLast() }
-            state.out.append(":::\(kind)\n")
-            state.out.append(body)
-            if !body.hasSuffix("\n") { state.out.append("\n") }
-            state.out.append(":::\n\n")
+            while body.hasSuffix("\n") || body.hasSuffix("\r") {
+                body.removeLast()
+            }
+            state.out.append("> [!\(kind)]\n")
+            if !body.isEmpty {
+                for line in body.split(separator: "\n", omittingEmptySubsequences: false) {
+                    state.out.append(line.isEmpty ? ">\n" : "> \(line)\n")
+                }
+            }
+            state.out.append("\n")
             state.footnoteDefs.append(contentsOf: inner.footnoteDefs)
 
         case "task_list", "taskList":
@@ -333,7 +338,7 @@ nonisolated public enum ProseMirrorMarkdownProjector {
             // Charts store a small JSON spec as text content. The
             // projection keeps it grep-able and export-safe without
             // pretending every markdown reader can render the chart.
-            state.out.append("```epdoc-chart\n")
+            state.out.append("```chart\n")
             for child in node.content ?? [] {
                 if let t = child.text { state.out.append(t) }
             }
@@ -500,7 +505,15 @@ nonisolated public enum ProseMirrorMarkdownProjector {
                 output = "`\(output)`"
             case "link":
                 if let href = mark.attrs?.href {
-                    output = "[\(output)](\(href))"
+                    if let wikiTarget = wikiTarget(fromHref: href),
+                       canRenderWikiPart(wikiTarget),
+                       canRenderWikiPart(output) {
+                        output = wikiTarget == output
+                            ? "[[\(wikiTarget)]]"
+                            : "[[\(wikiTarget)|\(output)]]"
+                    } else {
+                        output = "[\(output)](\(href))"
+                    }
                 }
             // W7.8 — markdown-it-mark `==text==` highlight syntax,
             // mirrors Alexandrie's `markdown-it-mark` plugin.
@@ -511,5 +524,32 @@ nonisolated public enum ProseMirrorMarkdownProjector {
             }
         }
         return output
+    }
+
+    private static func normalizedCalloutKind(_ raw: String?) -> String {
+        let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+        switch value {
+        case "NOTE", "TIP", "WARNING", "DANGER", "INFO":
+            return value
+        default:
+            return "INFO"
+        }
+    }
+
+    private static func wikiTarget(fromHref href: String) -> String? {
+        let prefix = "epistemos-doc:wiki/"
+        guard href.hasPrefix(prefix) else { return nil }
+        let encoded = String(href.dropFirst(prefix.count))
+        guard !encoded.isEmpty else { return nil }
+        return encoded.removingPercentEncoding ?? encoded
+    }
+
+    private static func canRenderWikiPart(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        if trimmed.rangeOfCharacter(from: CharacterSet(charactersIn: "|]\n\r")) != nil {
+            return false
+        }
+        return true
     }
 }

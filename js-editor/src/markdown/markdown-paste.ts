@@ -115,6 +115,7 @@ export function parseMarkdownPaste(source: string): EpdocJSONContent[] | null {
 
     const parsed = parseParagraph(lines, index);
     nodes.push(parsed.node);
+    if (hasInlineMarkdown(parsed.node)) sawMarkdownStructure = true;
     index = parsed.nextIndex;
   }
 
@@ -356,6 +357,13 @@ function splitTableRow(line: string): string[] {
 function paragraph(text: string): EpdocJSONContent {
   const content = inlineContent(text);
   return content.length > 0 ? { type: 'paragraph', content } : { type: 'paragraph' };
+}
+
+function hasInlineMarkdown(node: EpdocJSONContent): boolean {
+  return node.content?.some(child => {
+    if (child.type !== 'text') return true;
+    return Array.isArray(child.marks) && child.marks.length > 0;
+  }) ?? false;
 }
 
 function inlineContent(text: string): EpdocJSONContent[] {

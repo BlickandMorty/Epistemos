@@ -25,6 +25,17 @@ const { isSafeImageSrc, parseMarkdownPaste } = context.module.exports;
 assert.equal(typeof parseMarkdownPaste, 'function');
 assert.equal(typeof isSafeImageSrc, 'function');
 
+const grammarFixturePath = new URL('../../EpistemosTests/Fixtures/md_grammar_parity.json', import.meta.url);
+const grammarFixtures = JSON.parse(readFileSync(grammarFixturePath, 'utf8'));
+for (const fixture of grammarFixtures) {
+  const fixtureNodes = parseMarkdownPaste(fixture.expectedMarkdown);
+  assert.ok(Array.isArray(fixtureNodes), `${fixture.name} fixture must parse as markdown`);
+  assert.equal(fixtureNodes[0].type, fixture.expectedReaderNodeType, `${fixture.name} fixture node type`);
+  if (fixture.expectedWikiHref) {
+    assert.match(JSON.stringify(fixtureNodes), new RegExp(fixture.expectedWikiHref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+}
+
 const parsed = parseMarkdownPaste(`# Research Spine
 
 Normal paragraph with [source](https://example.com) and \`inline code\`.
@@ -109,6 +120,10 @@ assert.match(richJSON, /"type":"strike"/);
 assert.match(richJSON, /"type":"highlight"/);
 assert.match(richJSON, /"type":"inlineMath"/);
 assert.match(richJSON, /epistemos-doc:wiki\/Claim%20Note/);
+
+const inlineOnly = parseMarkdownPaste('[[Claim Note|claim]]');
+assert.equal(inlineOnly[0].type, 'paragraph');
+assert.match(JSON.stringify(inlineOnly), /epistemos-doc:wiki\/Claim%20Note/);
 
 assert.equal(parseMarkdownPaste('plain prose only\nwith another prose line'), null);
 assert.equal(parseMarkdownPaste(''), null);

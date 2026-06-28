@@ -206,6 +206,30 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
                 "link mark with no href is malformed; projector emits plain text and moves on (lossy by design)")
     }
 
+    @Test("epistemos-doc wiki link mark emits Obsidian wikilink syntax")
+    func wikiLinkMark() {
+        let d = Self.doc([
+            Self.para([
+                Self.text("claim", marks: [
+                    ProseMirrorMark(type: "link", attrs: ProseMirrorAttrs(href: "epistemos-doc:wiki/Canonical%20Note"))
+                ])
+            ])
+        ])
+        #expect(ProseMirrorMarkdownProjector.project(d) == "[[Canonical Note|claim]]\n")
+    }
+
+    @Test("wiki link emits compact target-only syntax when label equals target")
+    func wikiLinkMarkWithoutAlias() {
+        let d = Self.doc([
+            Self.para([
+                Self.text("Canonical Note", marks: [
+                    ProseMirrorMark(type: "link", attrs: ProseMirrorAttrs(href: "epistemos-doc:wiki/Canonical%20Note"))
+                ])
+            ])
+        ])
+        #expect(ProseMirrorMarkdownProjector.project(d) == "[[Canonical Note]]\n")
+    }
+
     @Test("strong + em wrap in canonical priority order")
     func combinedMarksOrder() {
         let d = Self.doc([
@@ -434,7 +458,7 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         #expect(out.contains("- [x] ship spec"), "got: \(out)")
     }
 
-    @Test("callout emits :::kind / body / ::: fence (markdown-it-container syntax)")
+    @Test("callout emits Obsidian/GFM quote callout syntax")
     func calloutFence() {
         let d = Self.doc([
             ProseMirrorNode(
@@ -444,21 +468,25 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
             )
         ])
         let out = ProseMirrorMarkdownProjector.project(d)
-        #expect(out.contains(":::warning"), "callout MUST open with :::<kind>; got: \(out)")
+        #expect(out.contains("> [!WARNING]"), "callout MUST open with > [!KIND]; got: \(out)")
+        #expect(!out.contains(":::"), "callout MUST NOT use the old markdown-it-container fence; got: \(out)")
         #expect(out.contains("be careful here"), "callout body must be present; got: \(out)")
-        #expect(out.hasSuffix(":::\n") || out.contains(":::\n\n"), "callout MUST close with `:::`; got: \(out)")
+        #expect(out.hasSuffix("> be careful here\n"), "callout body must be quote-prefixed; got: \(out)")
     }
 
-    @Test("callout defaults missing kind to 'info' so the fence is never bare `:::`")
+    @Test("callout defaults missing or unknown kind to INFO")
     func calloutDefaultKind() {
-        let d = Self.doc([
-            ProseMirrorNode(
-                type: "callout",
-                content: [Self.para([Self.text("note")])]
-            )
-        ])
-        let out = ProseMirrorMarkdownProjector.project(d)
-        #expect(out.contains(":::info"), "missing kind MUST fall back to :::info; got: \(out)")
+        for attrs in [nil, ProseMirrorAttrs(kind: "details")] {
+            let d = Self.doc([
+                ProseMirrorNode(
+                    type: "callout",
+                    attrs: attrs,
+                    content: [Self.para([Self.text("note")])]
+                )
+            ])
+            let out = ProseMirrorMarkdownProjector.project(d)
+            #expect(out.contains("> [!INFO]"), "missing/unknown kind MUST fall back to INFO; got: \(out)")
+        }
     }
 
     @Test("footnote_reference emits [^id] inline + footnote node renders def at end of doc")
@@ -527,7 +555,7 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         #expect(out.hasSuffix("```\n"), "mermaid MUST close with ```; got: \(out)")
     }
 
-    @Test("Epdoc chart node emits ```epdoc-chart fence with JSON source")
+    @Test("Epdoc chart node emits ```chart fence with JSON source")
     func epdocChartFence() {
         let chartJSON = #"{"type":"scatter","points":[{"x":0.7,"y":0.9}]}"#
         let d = Self.doc([
@@ -537,9 +565,24 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
             )
         ])
         let out = ProseMirrorMarkdownProjector.project(d)
-        #expect(out.contains("```epdoc-chart"), "chart MUST open with ```epdoc-chart; got: \(out)")
+        #expect(out.contains("```chart"), "chart MUST open with ```chart; got: \(out)")
+        #expect(!out.contains("```epdoc-chart"), "chart MUST NOT emit the legacy epdoc-chart fence; got: \(out)")
         #expect(out.contains(#""type":"scatter""#), "chart JSON body must be present; got: \(out)")
         #expect(out.hasSuffix("```\n"), "chart MUST close with ```; got: \(out)")
+    }
+
+    @Test("shared md grammar parity fixture pins Swift projector output")
+    func sharedMarkdownGrammarParityFixture() throws {
+        let text = try loadMirroredSourceTextFile("EpistemosTests/Fixtures/md_grammar_parity.json")
+        let data = try #require(text.data(using: .utf8))
+        let fixtures = try JSONDecoder().decode([GrammarParityFixture].self, from: data)
+        #expect(fixtures.map(\.name) == ["callout", "chart", "wikilink"])
+
+        for fixture in fixtures {
+            let projected = ProseMirrorMarkdownProjector.project(fixture.pmDoc)
+            #expect(projected == fixture.expectedMarkdown,
+                    "fixture \(fixture.name) drifted; got: \(projected)")
+        }
     }
 
     @Test("Epdoc image nodes project to markdown images")
@@ -552,5 +595,11 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         ])
         let out = ProseMirrorMarkdownProjector.project(d)
         #expect(out.contains("![Epistemos](epistemos.png)"), "epdocImage MUST project as markdown image; got: \(out)")
+    }
+
+    private struct GrammarParityFixture: Decodable {
+        let name: String
+        let pmDoc: ProseMirrorNode
+        let expectedMarkdown: String
     }
 }
