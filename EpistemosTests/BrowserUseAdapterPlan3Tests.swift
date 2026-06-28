@@ -88,4 +88,32 @@ struct BrowserUseAdapterPlan3Tests {
             #expect(!source.contains(forbidden), "browser-use adapter crossed boundary: \(forbidden)")
         }
     }
+
+    @Test("Rust browser tools discover the bundled browser-use adapter before PATH fallback")
+    func rustBrowserToolsDiscoverBundledAdapterBeforePathFallback() throws {
+        let browserTool = try loadMirroredSourceTextFile("agent_core/src/tools/browser.rs")
+        let registry = try loadMirroredSourceTextFile("agent_core/src/tools/registry.rs")
+
+        for required in [
+            "EPISTEMOS_BROWSER_USE_AGENT_BROWSER",
+            "EPISTEMOS_BROWSER_USE_VENDOR_ROOT",
+            "epistemos_agent_browser.py",
+            "resolve_agent_browser(",
+            "require_executable_browser(",
+            "not an executable file",
+            "agent-browser CLI not found",
+            "browser_use_agent_browser_override_wins_before_path_search",
+            "browser_use_vendor_root_discovers_bundled_adapter",
+            "browser_use_explicit_adapter_rejects_non_executable_without_fallback",
+        ] {
+            #expect(browserTool.contains(required), "Missing Rust browser-use discovery string: \(required)")
+        }
+
+        let adapterIndex = try #require(browserTool.range(of: "browser_use_adapter")?.lowerBound)
+        let pathFallbackIndex = try #require(browserTool.range(of: "for candidate in search_dirs")?.lowerBound)
+        #expect(adapterIndex < pathFallbackIndex)
+
+        #expect(registry.contains("#[cfg(feature = \"pro-build\")]"))
+        #expect(registry.contains("browser_navigate_schema()"))
+    }
 }

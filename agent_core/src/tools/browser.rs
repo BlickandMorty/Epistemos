@@ -32,6 +32,9 @@ const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
 const SNAPSHOT_CHAR_CAP: usize = 8_000;
 const MAX_BROWSER_OUTPUT_BYTES: usize = 512 * 1024;
 const MAX_BROWSER_ERROR_CHARS: usize = 512;
+const BROWSER_USE_AGENT_BROWSER_ENV: &str = "EPISTEMOS_BROWSER_USE_AGENT_BROWSER";
+const BROWSER_USE_VENDOR_ROOT_ENV: &str = "EPISTEMOS_BROWSER_USE_VENDOR_ROOT";
+const BROWSER_USE_ADAPTER_FILENAME: &str = "epistemos_agent_browser.py";
 
 #[derive(Debug)]
 struct BrowserState {
@@ -518,7 +521,7 @@ fn truncate_snapshot(snapshot: &str) -> (String, bool) {
     )
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum BrowserExecutable {
     Direct(PathBuf),
 }
@@ -541,8 +544,10 @@ impl BrowserExecutable {
                 //   - `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`:
                 //     standard proxy passthrough so corporate users
                 //     can reach external sites through their proxy.
-                //   - `EPISTEMOS_BROWSER_*`: any future caller-set
-                //     overrides for the browser binary itself.
+                //
+                // Browser-use adapter discovery env vars are consumed
+                // by Rust before this command is spawned; they are not
+                // forwarded into the child process.
                 let mut cmd = Command::new(path);
                 crate::security::harden_cli_subprocess_extending(
                     &mut cmd,
@@ -563,7 +568,30 @@ impl BrowserExecutable {
 }
 
 fn find_agent_browser() -> Result<BrowserExecutable, ToolError> {
-    for candidate in executable_search_dirs() {
+    resolve_agent_browser(
+        env_path(BROWSER_USE_AGENT_BROWSER_ENV),
+        env_path(BROWSER_USE_VENDOR_ROOT_ENV),
+        executable_search_dirs(),
+    )
+}
+
+fn resolve_agent_browser(
+    browser_use_adapter: Option<PathBuf>,
+    browser_use_vendor_root: Option<PathBuf>,
+    search_dirs: Vec<PathBuf>,
+) -> Result<BrowserExecutable, ToolError> {
+    if let Some(path) = browser_use_adapter {
+        return require_executable_browser(path, BROWSER_USE_AGENT_BROWSER_ENV);
+    }
+
+    if let Some(root) = browser_use_vendor_root {
+        return require_executable_browser(
+            root.join(BROWSER_USE_ADAPTER_FILENAME),
+            BROWSER_USE_VENDOR_ROOT_ENV,
+        );
+    }
+
+    for candidate in search_dirs {
         let path = candidate.join("agent-browser");
         if is_executable(&path) {
             return Ok(BrowserExecutable::Direct(path));
@@ -573,6 +601,30 @@ fn find_agent_browser() -> Result<BrowserExecutable, ToolError> {
     Err(ToolError::ExecutionFailed(
         "agent-browser CLI not found. Install it and ensure it is on PATH.".into(),
     ))
+}
+
+fn require_executable_browser(
+    path: PathBuf,
+    source: &'static str,
+) -> Result<BrowserExecutable, ToolError> {
+    if is_executable(&path) {
+        return Ok(BrowserExecutable::Direct(path));
+    }
+
+    Err(ToolError::ExecutionFailed(format!(
+        "{source} resolved to '{}', but it is not an executable file",
+        path.display()
+    )))
+}
+
+fn env_path(key: &str) -> Option<PathBuf> {
+    env::var_os(key).and_then(|value| {
+        if value.as_os_str().is_empty() {
+            None
+        } else {
+            Some(PathBuf::from(value))
+        }
+    })
 }
 
 fn executable_search_dirs() -> Vec<PathBuf> {
@@ -1071,6 +1123,27 @@ mod tests {
         }
     }
 
+    fn mark_executable(path: &Path) {
+        #[cfg(unix)]
+        {
+            let mut permissions = fs::metadata(path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(path, permissions).unwrap();
+        }
+    }
+
+    fn write_executable_stub(path: &Path) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(
+            path,
+            "#!/bin/sh\nprintf '{\"success\":true,\"data\":{}}\\n'\n",
+        )
+        .unwrap();
+        mark_executable(path);
+    }
+
     fn make_fake_browser(temp_root: &Path) -> PathBuf {
         let bin_dir = temp_root.join("bin");
         fs::create_dir_all(&bin_dir).unwrap();
@@ -1165,12 +1238,7 @@ EOF
 esac
 "#;
         fs::write(&script_path, script).unwrap();
-        #[cfg(unix)]
-        {
-            let mut permissions = fs::metadata(&script_path).unwrap().permissions();
-            permissions.set_mode(0o755);
-            fs::set_permissions(&script_path, permissions).unwrap();
-        }
+        mark_executable(&script_path);
         script_path
     }
 
@@ -1182,6 +1250,54 @@ esac
             }
         }
         env::join_paths(entries).unwrap()
+    }
+
+    #[test]
+    fn browser_use_agent_browser_override_wins_before_path_search() {
+        let temp = tempfile::tempdir().unwrap();
+        let adapter = temp.path().join("epistemos_agent_browser.py");
+        write_executable_stub(&adapter);
+        let fallback = make_fake_browser(temp.path());
+
+        let resolved = resolve_agent_browser(
+            Some(adapter.clone()),
+            None,
+            vec![fallback.parent().unwrap().to_path_buf()],
+        )
+        .unwrap();
+
+        assert_eq!(resolved, BrowserExecutable::Direct(adapter));
+    }
+
+    #[test]
+    fn browser_use_vendor_root_discovers_bundled_adapter() {
+        let temp = tempfile::tempdir().unwrap();
+        let vendor_root = temp.path().join("browser-use");
+        let adapter = vendor_root.join(BROWSER_USE_ADAPTER_FILENAME);
+        write_executable_stub(&adapter);
+
+        let resolved = resolve_agent_browser(None, Some(vendor_root), Vec::new()).unwrap();
+
+        assert_eq!(resolved, BrowserExecutable::Direct(adapter));
+    }
+
+    #[test]
+    fn browser_use_explicit_adapter_rejects_non_executable_without_fallback() {
+        let temp = tempfile::tempdir().unwrap();
+        let adapter = temp.path().join("epistemos_agent_browser.py");
+        fs::write(&adapter, "#!/bin/sh\nexit 0\n").unwrap();
+        let fallback = make_fake_browser(temp.path());
+
+        let err = resolve_agent_browser(
+            Some(adapter),
+            None,
+            vec![fallback.parent().unwrap().to_path_buf()],
+        )
+        .unwrap_err();
+        let message = format!("{err}");
+
+        assert!(message.contains(BROWSER_USE_AGENT_BROWSER_ENV));
+        assert!(message.contains("not an executable file"));
     }
 
     #[tokio::test]

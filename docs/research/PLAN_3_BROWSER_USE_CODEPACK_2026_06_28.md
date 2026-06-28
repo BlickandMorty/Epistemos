@@ -80,15 +80,18 @@ reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
 existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/
 screenshot/console/errors` to browser-use's `skill_cli` daemon, keeps session files under `AGENT_BROWSER_SOCKET_DIR`
 via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a no-runtime `contract` check
-for packaging tests. Rust `find_agent_browser()` discovery/wiring and live tool smoke are still pending. `[VERIFIED-CODE]`
+for packaging tests. Rust `find_agent_browser()` now discovers the bundled executable through
+`EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
+`agent-browser`; live tool smoke is still pending. `[VERIFIED-CODE]`
 
 ## Existing Epistemos seams `[VERIFIED-CODE]`
 - Native MAS browser tab: `Epistemos/Views/Browser/BrowserView.swift` is human-driven `WKWebView` with
   `WKWebsiteDataStore.nonPersistent()` and `BrowserURLGuard` http/https gating. It remains independent.
-- Agent browser tools: `agent_core/src/tools/browser.rs` shells out to a user-installed `agent-browser` binary, applies
-  hardened subprocess env clearing, timeouts, redacted output, and SSRF/private URL blocking. The registry exposes the
-  11 `browser_*` tools only under `#[cfg(feature = "pro-build")]` (`browser_navigate/snapshot/click/type/scroll/back/
-  press/close/get_images/vision/console`).
+- Agent browser tools: `agent_core/src/tools/browser.rs` shells out to the bundled browser-use adapter when
+  `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` is set, otherwise to a user-installed
+  `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, and SSRF/private URL
+  blocking. The registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
+  (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve
   that split.
 
@@ -193,15 +196,16 @@ come through the existing tool/MCP registry seam once the Pro runtime is registe
 ## Tool bridge
 The existing `browser_*` tools are the compatibility bridge. The source-only adapter contract now exists at
 `agent_core/vendor/browser-use/epistemos_agent_browser.py` and speaks the same JSON action contract as the user-installed
-`agent-browser` binary. Next, replace or augment `find_agent_browser()` only in the Pro feature so it discovers the
-bundled browser-use adapter executable, or add a sibling `browser_use_*` tool family behind `#[cfg(feature =
+`agent-browser` binary. `find_agent_browser()` now discovers that bundled executable before `PATH` fallback through
+`EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT`, and fails loudly if an explicit bundled
+path is missing or non-executable. The bridge keeps the existing `browser_*` tool names behind `#[cfg(feature =
 "pro-build")]`. In both cases:
 - MAS builds compile without the adapter and expose no browser-use tools.
 - Navigation keeps the existing SSRF/private-network guard before any CDP navigation.
 - Actions that click/type/press remain high-risk and approval-gated.
 - Output is redacted and bounded exactly like the current `agent-browser` path.
 - Browser-use profile state is separate from the native Browser WKWebView profile.
-- Current state: adapter contract landed; Pro Rust discovery wiring and local fixture smoke are still pending.
+- Current state: adapter contract and Pro Rust discovery wiring landed; live browser-use fixture smoke is still pending.
 
 ## Honest gates and failure states
 - MAS: visible Browser button opens the native WKWebView tab; browser-use settings/actions show "Pro only" and launch
