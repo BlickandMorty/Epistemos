@@ -7,8 +7,11 @@
 > - **Plan 3 = THIS** — five capabilities the owner explicitly chose to keep, grounded fresh in the real code.
 >   Does NOT reuse the 4,498-line ledger; the ledger is curated/closed in `LEDGER_CURATION_2026_06_28.md`.
 >
-> **Scope (owner-selected, 2026-06-28):** Fast PDF→MD · Obscura browser · native ColBERT encoder · Provenance
-> moat · Extensibility (skill/MCP install + best-of preset + vault-as-MCP-server). Nothing else.
+> **Scope (owner-FINAL, 2026-06-28):** Fast PDF→MD · Provenance moat · Extensibility (skill/MCP install + best-of preset
+> + vault-as-MCP-server) · Apple-native maximization · Landing-page buttons · Browser (lite native WKWebView tab for the
+> App Store + `browser-use` Chromium robot for Pro) · arXiv pull · Meeting/STT note · Voice · Whole-app brand logos.
+> **CUT:** ~~Obscura native engine~~ (→ browser-use) · ~~ColBERT~~ (no local model) · ~~local model-management~~ ·
+> ~~three-engine Chat/Act/Work + Osaurus~~ (Goose-only). HTML Workspace / web clipper / wikilinks / PDF *viewer* = Plan 2.
 > Tags: `[VERIFIED-CODE]` read this pass · `[WEB]` web-validated · `[INFERRED]` proposed.
 >
 > **★ CLONE-READY CODE PACKS:** (Pass 3) `PLAN_3_EDGEPARSE_CODEPACK` (§1 PDF→md vendoring + coexistence) ·
@@ -136,50 +139,8 @@ owner sign-off. Effort: **HIGH** (the real `WebKitBrowserEngine` + UniFFI WKWebV
 > **★ ColBERT is CUT** — owner is not using a local model, so no ColBERT. Vault search stays on the existing RRF + EML
 > rerank (already shipped). The text below is historical research — superseded.
 
-**The 2026-06-18 "no native path" verdict is STALE.** LiquidAI shipped **`LFM2.5-ColBERT-350M-GGUF`** (Q4_K_M 228MB…
-Q8_0 378MB, 11 languages, per-token L2-normed output for MaxSim), and **the app already vendors full llama.cpp** with
-the exact per-token API ColBERT needs — `LLAMA_POOLING_TYPE_NONE` + `llama_get_embeddings_ith`
-(`LocalPackages/LocalLLMClient/.../llama.h:169,939`). So the in-process, **no-subprocess** path is real today. `[WEB]+[VERIFIED-CODE]`
 
-**Current state `[VERIFIED-CODE]`:**
-- Tool-select today is **purely lexical**: `agent_core/src/tool_preflight.rs` `score` (`:56`, name=3/keyword=2/desc=1).
-  Its own doctrine comment (`:10-13`) **reserves the seam**: "the semantic/embedding preflight replaces `score`
-  without changing this deterministic contract."
-- Rerank today: RRF fuse (`epistemos-shadow/src/backend/rrf.rs`, k=60, primary) + EML rerank (`agent_core/src/
-  eml_rerank.rs` + `storage/vault.rs:521`, secondary, flag OFF) + MMR diversity. **No late-interaction anywhere.**
-- Embeddings: `Epistemos/Graph/EmbeddingService.swift` mean-pools `NLContextualEmbedding` to one vector — the
-  per-token vectors already exist (`:125`) and are simply averaged away.
-
-**Build (low blast-radius — two reserved seams):**
-1. `agent_core/src/colbert/maxsim.rs` — `score(Q,D)=Σ_q max_d (q·d)` over L2-normed 128-d token matrices (~30 LOC,
-   SIMD); always-compiled, feature-gated, unit-tested, inert until fed.
-2. In-process libllama embedding FFI: load the GGUF with `pooling_type=NONE`, return per-token f32 matrices via
-   `llama_get_embeddings_ith` (distinct from the Pro `llama-cli` subprocess lane — **do not reuse that**).
-3. **Use (a) reranker:** RRF stays the candidate generator; ColBERT reranks its top-N as the `secondary` signal in
-   `apply_eml_rerank` (`vault.rs:521`), behind `EPISTEMOS_COLBERT_RERANK_V1` (mirrors the EML gate). RRF untouched.
-4. **Use (b) tool-select:** swap only the inner `score` fn behind a `ToolScorer { Lexical | ColBERT }` trait
-   (`tool_preflight.rs:56`); pre-compute each tool's token matrix once at catalog build. `select_tools` + all 3
-   downstream pipelines stay byte-identical.
-
-**★ Pass-2 verdict (answers your "no local AI except Goose — what do I do with ColBERT?"): KEEP it SEARCH-ONLY,
-CUT the tool-selector.** Your concern is exactly right, and resolving it is clean:
-- **Use (b) tool-selection = app-side-agent plumbing → CUT.** It exists to narrow the tool catalog for a *local agent
-  loop*. That loop is gone (Goose owns agents), and `tool_preflight.rs` has **NO live Swift wiring today anyway** (the
-  named consumer `SchemaPreflightToolNarrowing.swift` doesn't exist — verified). Building a ColBERT tool-selector is
-  exactly the "muddy app-side AI" you want to avoid → don't build it.
-- **Use (a) vault-search rerank = pure SEARCH infra → KEEP (deferred/optional).** It lives entirely on the *data* side
-  of the MCP boundary: it sharpens instant-recall + the vault results that **Goose itself queries via the
-  vault-as-MCP-server (§5c)**. So a better reranker makes Goose's answers sharper **without ColBERT ever touching
-  Goose's model, reasoning, or tool loop.** Zero new chat/agent path. Slots in as the `secondary` signal in
-  `apply_eml_rerank` (`storage/vault.rs:521`) behind `EPISTEMOS_COLBERT_RERANK_V1`; RRF stays primary, untouched.
-
-**Honest value (search-only):** an **enhancement, not a gap** (RRF + EML rerank already work). Real wins are narrow but genuine:
-multilingual/paraphrase/synonym queries the ≥3-char lexical scorer misses, and terse-query↔short-tool-desc matching.
-**One ~250MB install serves BOTH consumers** and could later replace the mean-pooled single-vector arm. Gating:
-`lfm1.0` license → ProvenanceGate; never commit weights; **exclude from the chat picker** (can't generate); Pro-gate
-→ MAS only after the no-subprocess proof + RunEventLog + rollback. Effort: **LOW–MEDIUM.**
-
----
+_(Historical ColBERT research removed — it contradicted the CUT. See git history if needed.)_
 
 ## 4. Provenance moat (visible + honest)  ★ your strongest differentiator
 
@@ -334,16 +295,13 @@ case + 1 switch line. Pure additive UI, MAS-safe.
   CAPTCHAs, login expiry, CDP/Chrome version drift — browser-use itself keeps rewriting its driver). Worth it only for
   **bounded, repeatable tasks on cooperative sites**, not "do anything anywhere." Heavy maintenance for a solo dev.
 
-**Recommendation — Option C, START with B:**
-- **Option B (recommended first) = "browser-use for Obscura," NATIVE.** Implement the already-defined (stub)
-  `WebKitBrowserEngine` (`browser_engine/mod.rs:273-317`) to drive the **in-app Obscura WKWebView** via
-  `evaluateJavaScript` + the WebKit a11y tree, exposed to **Goose** the same way the 11 tools register. This is the robot
-  driving the browser you actually see, no Python, no Chromium — read/snapshot is MAS-plausible, click/type is Pro. It is
-  NOT the browser-use repo; it's native. Lighter, in-doctrine.
-- **Option A (optional Pro power-mode) = vendor the real `browser-use`** (browser-use + web-ui + cdp-use + Python +
-  Chromium), reskinned Gradio-in-WebView, exposed to Goose as MCP tools. Frontier-grade robot, but a separate Chromium,
-  **Pro only**, heavy. Add only as a deliberate opt-in power-mode.
-- → §2 Obscura Tier 2 = Option B; a new "Browser Robot (Pro)" = Option A. Both connect to Goose.
+**★ FINAL decision (owner 2026-06-28) — the native Option-B robot is NOT built:**
+- **App Store build = lite native WKWebView "Browser" tab, human-driven, NO robot** (the Obscura Tier-1 codepack).
+- **Pro automation = vendor the REAL `browser-use`** (browser-use + web-ui + cdp-use + Python + Chromium), reskin its
+  web UI in a WebView, expose to Goose as MCP tools. browser-use drives **Chromium** (not the WKWebView tab). Needs a
+  vendor codepack (owed). Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
+- ~~Option B (native `WebKitBrowserEngine`-driven robot)~~ = **PARKED/superseded** by browser-use — do NOT build it
+  (the owner cut the heavy native automation engine). The `WebKitBrowserEngine` stub stays `NotConfigured`.
 
 ## ★ CLONES LEDGER — what you'll actually vendor (honest)
 Most of Plan 3 is **native code reusing your own seams — NOT repo clones.** The real external clones:
@@ -352,25 +310,19 @@ Most of Plan 3 is **native code reusing your own seams — NOT repo clones.** Th
 | **EdgeParse** (`edgeparse-core`) | Rust PDF→md primary | Apache-2.0 | MAS |
 | **unpdf** | Rust PDF→md multilingual fallback | MIT | MAS |
 | liteparse | already vendored (keep, Pro-first) | Apache-2.0 | Pro |
-| **LFM2.5-ColBERT-350M-GGUF** | a MODEL download (not a repo), search-only rerank, deferred/optional | lfm1.0 | Pro→MAS later |
-| llama.cpp | already vendored (used by ColBERT) | MIT | — |
-| **browser-use + web-ui + cdp-use** | ONLY if Option A — Python+Chromium robot | MIT | **Pro only** |
-**Native (NO clone):** provenance moat · vault-as-MCP-server · Obscura Tier 1 browser · Apple-native (QuickLook/VisionKit/
-thumbnails) · extensibility install UI + best-of preset · landing buttons · Option-B native browser robot. So you're
-cloning **~2 repos (EdgeParse, unpdf)** for MAS + 1 model + (optionally) browser-use for Pro; everything else is your own code.
+| **browser-use + web-ui + cdp-use** | the FULL browser-use app (Python+Chromium robot), settings and all, reskinned | MIT | **Pro only** |
+**Native (NO clone):** provenance moat · vault-as-MCP-server · lite native Browser tab · Apple-native (QuickLook/VisionKit/
+thumbnails) · extensibility install UI + best-of preset · landing buttons · arXiv · meeting/STT · voice · whole-app logos.
+So you clone **2 repos for the App Store (EdgeParse + unpdf)** + **browser-use for Pro**; everything else is your own code.
 
 ## 10. ⚠️ SCOPE RECOVERY (owner: "you forgot HTML Workspace + the other things I wanted")
 Owner flagged that Plan 3 got narrowed and dropped items they wanted to research+add. **Do NOT lose these again.**
-- **HTML Workspace — STAYS in Plan 2 (owner-confirmed 2026-06-28).** The AI-driven live artifact/website surface
-  remains in the editor canonical plan; Plan 3 just must not let it get lost. (Verify Plan 2 still carries it: the
-  code-editor-v2-handles-hand-edit / Workspace=AI-artifact split + "chat rewrites the surface into a webpage/explainer".)
-- **"All the other things"** — owner has a wish-list beyond the current set that the curation compressed. **ACTION:**
-  re-scan the full conversation + `LEDGER_CURATION_2026_06_28.md` for every owner-wanted item and present a recovered
-  list for confirm. Candidates already surfaced but under-tracked: web clipper (Plan 2), Eidos→chat panel (§4),
-  Provenance console surfacing, meeting/STT note (§7), arXiv (§7), Apple-native rest-of-top-6 (§6). Confirm with owner.
+- **DONE (2026-06-28):** scope recovery complete; every owner-wanted item is now homed in a plan (the transient
+  SCOPE_RECOVERY doc was folded in + retired). HTML Workspace + web clipper + PDF viewer + the editor-graph trio →
+  **Plan 2 §13** (added there). Voice + whole-app logos → §11 below. The full ledger remains in `LEDGER_CURATION`.
 
 ## 11. Recovered additions (owner-confirmed 2026-06-28)
-From the scope-recovery re-scan (`SCOPE_RECOVERY_2026_06_28.md`), folded in as clean Plan-3 capabilities:
+Folded in as clean Plan-3 capabilities:
 - **Voice** — premium Apple voice default + fix the macOS-26 voice-by-language regression + Kokoro-82M Pro voice + SSML
   prosody + granular auto-read/STT toggles. Fully on-device (Apple Speech/AVSpeech, no cloud STT), MAS-safe; sits beside
   §6 Apple-native. (Research/code in a later pass.)
@@ -388,8 +340,10 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI). 
 2. **Provenance moat Fix A+B** (LOW, honesty-critical — do before any chip is rebuilt) → then Moat-1 hover card.
 3. **Extensibility 5c vault-as-MCP-server** (LOW-MED, ~80% built — the outward moat) → 5a install UI → 5b preset.
-4. **ColBERT** (LOW-MED, optional enhancement; the seams are reserved — land the inert `maxsim.rs` substrate anytime).
-5. **Obscura** (HIGH, last — the only heavy net-new item; phase O-1…O-6, Pro-gated).
+4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).
+5. **Browser** — lite native WKWebView tab (MAS, `PLAN_3_OBSCURA_TIER1_CODEPACK`) first; **browser-use** Chromium robot
+   (Pro, needs a vendor codepack) deferred.
+6. **Meeting/STT note · Voice · whole-app logos** (need codepacks — owed work).
 
 ## NOT in Plan 3 (so the three plans never blur)
 Editor/markdown/Tolaria/code-editor v2/HTML-workspace/web-clipper/wikilinks/PDF-*viewer* → **Plan 2**. Goose/Act/Work

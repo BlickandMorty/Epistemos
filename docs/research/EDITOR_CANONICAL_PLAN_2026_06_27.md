@@ -281,3 +281,50 @@ honestly); (2) **hybrid semantic+structured Views as a query language** — "all
 days ago` *semantically about* runtime safety" (buildable on the shipping RRF stack — ship the visual builder);
 (3) **the in-process agent that steers the view** (open_note/highlight/replaceSelection + per-edit approval +
 lineage) — gated on Phase 0, highest ceiling. Backend already supersedes Tolaria; these make it a leap.
+
+---
+
+## 13. Editor surfaces recovered into Plan 2 (owner 2026-06-28 — these were dropped; Plan 2 owns them)
+The scope-recovery sweep found these owner-confirmed editor items were homed to Plan 2 but not actually listed. Adding
+them here so nothing is lost (SCOPE_RECOVERY is now retired — its content lives here + in LEDGER_CURATION).
+
+- **13.1 Graph inline-edit of document nodes (SS-GE A).** Today note/Epdoc/HTML nodes in BOTH graphs bounce to a
+  detached `NSDocument` window (`HologramSearchSidebar.swift:1177` / `MetalGraphView.activateNode:1965` →
+  `EpdocDocumentOpening.openDocument`). Promote `GraphInlineDocPreview` (read-only, flag `EPISTEMOS_GRAPH_INLINE_DOC_EDIT_V0`)
+  to inline **edit** via the existing note-save pipeline, using the ONE md-first Epdoc editor (no in-graph clone). Scope:
+  note + Epdoc + HTML + code, in `HomeGraphEmbeddedView` + the mini overlay. Honest gating; never a silent no-op.
+- **13.2 Home-graph tunnel → Epdoc + HTML-workspace inline (SS-HGT).** Add `case epdoc(id:)` + `case htmlWorkspace(id:)`
+  to `GraphWorkspaceRoute`; mount `EpdocEditorChromeView`/`HTMLWorkspaceEditorView` inline in `GraphWorkspaceContainer`
+  (the route arm OWNS the `NSDocument` so autosave + `dismantleNSView` teardown fire); redirect open-paths to push routes
+  (keep window as explicit "Open in Window"); inherit landing theme. TK2/Prose + Metal engine untouched.
+- **13.3 Two-surface fidelity / fix 2 data-loss bugs (SS-2S).** (1) Prose `insertImageAttachment`
+  (`ProseTextView2.swift:1786-1808`) drops the image on save (no md serialization of `EpistemosImagePath`) → serialize to
+  `![](…)`/`![[…]]` on the `NoteFileStorage` atomic-write path. (2) Epdoc `shadow.md` is lossy → the L1 markdown-as-truth
+  flip MUST use the JS `getMarkdown()` full-fidelity bridge as the canonical writer, never the lossy projector (locked in
+  MD-source §2a — cross-referenced here as the data-loss guard). "One file, many views"; never damage frozen TK2/Prose.
+- **13.4 Instant-recall / Halo popup scoped to the editors + bubble→native NSPopover (SS-IR).** Keep Surface A (Halo
+  `HaloButton`+`ShadowPanel`, editor-scoped, click-gated). Stop Surface B (`ContextualShadowsPanel`, the auto-show-while-
+  typing "pixel box") from showing on chat/landing/mini-chat; converge on A's native-anchored model; add a glowing bubble
+  to Epdoc that opens a **native NSPopover** (not the pixel box); scope recall to Epdoc + TK2 (NOT chat); accuracy-first.
+
+- **13.5 HTML Workspace = AI-artifact surface (Plan 2 owns it).** The existing `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView`
+  surface, upgraded so **chat rewrites the whole surface into a live website/explainer** (DOM/animations), mini-chat as the
+  driver, and **hand-editing routes to code-editor v2** (don't maintain a second broken code pane — kills the blank-editor
+  bug). Surface table (§1) now names it explicitly.
+- **13.6 Web clipper (Plan 2-owned, UNSPECCED).** Capture web content → a vault `.md` note (frontmatter source-url,
+  sanitized HTML→md via the canonical serializer). No code today — needs a design slice; flagged so it isn't lost.
+- **13.7 PDF *viewer* (PDFKit `PDFView`) — Plan 2 owns it (was orphaned).** Plan 3 owns the PDF→md PARSE + the `source_pdf`
+  storage contract; Plan 2 mounts a native `PDFView` on the resolved `source_pdf` URL (selection/search/thumbnails/outline/
+  annotations) + the "View original PDF" affordance. Build the viewer here; consume Plan 3's link, don't re-invent storage.
+
+## 14. MarkEdit full-clone completeness (owner: "settings and all, nothing less")
+Close the gaps vs a literal full clone (the embed is a curated module graft — `.appex` aside, get as close as possible):
+- **Add the 3 missing Modules products** to the `project.yml` `dependencies:` in `MARKEDIT_EMBED_CODEPACK` §4 — currently
+  9 are declared; a full clone also needs **`FileDrop`** (drag-in), **`Previewer`** (preview pane), **`TextBundle`**
+  (`.textbundle` import/export). Without them those capabilities are lost.
+- **Decide Scripting/Shortcuts** (`Sources/Scripting` + `Sources/Shortcuts`): vendor both for literal "settings and all",
+  OR state explicitly they're dropped (arguably moot inside Epistemos's own shell) — a decision, not a silent omission.
+- **Settings is embedded-but-inert** behind `#if EPISTEMOS_MARKEDIT_EMBED` (`Cmd+,` not wired) — add an explicit later
+  slice "flip Settings live" so "full settings" isn't read as already user-reachable.
+- **The 2 `.appex` (Finder/Preview extensions) are DROPPED** (MAS-hostile, not portable into Epistemos's bundle) — the one
+  honest, justified capability loss. State it so the headline doesn't overclaim.

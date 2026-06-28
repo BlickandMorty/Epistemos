@@ -1,5 +1,8 @@
 # Big-Plan Curation — what to KEEP / MERGE / DEFER / CUT (2026-06-28)
 
+> ⚠️ **SUPERSEDED on key points by the 2026-06-28 owner decisions:** Goose-only (three-engine Chat/Act/Work + Osaurus-as-Act = CUT) · ColBERT = CUT · Obscura = CUT (→ browser-use) · local model-management (HF/BYOM/stack/vision/DeerFlow) = CUT. This doc is the historical 4,498-line ledger inventory; for the LIVE scope read the 3 plans (Goose / EDITOR_CANONICAL_PLAN / PLAN_3_CAPABILITIES).
+
+
 > Source = `OWNER_REQUESTS_LEDGER_2026_06_18.md` (4,498 lines, ~150 items), inventoried in full.
 > Legend: ✅ already done · 🟢 KEEP (build it) · 🟡 MERGE→ (fold into another plan) · ⚪ DEFER (good, not now) · 🔴 CUT (drop)
 > Tick/cross each line to curate. Editor items fold into `EDITOR_CANONICAL_PLAN_2026_06_27.md`.

@@ -124,14 +124,14 @@ struct MarkEditSettingsRepresentable: NSViewControllerRepresentable {
 xcodegen `project.yml` (NEVER hand-edit `.xcodeproj`): add local-path packages + products.
 ```yaml
 packages:
-  MarkEditModules: { path: vendor/MarkEdit/MarkEditMac/Modules }
-  MarkEditKit:     { path: vendor/MarkEdit/MarkEditKit }
-  MarkEditCore:    { path: vendor/MarkEdit/MarkEditCore }
+  MarkEditModules: { path: LocalPackages/MarkEdit/MarkEditMac/Modules }
+  MarkEditKit:     { path: LocalPackages/MarkEdit/MarkEditKit }
+  MarkEditCore:    { path: LocalPackages/MarkEdit/MarkEditCore }
 targets:
   Epistemos:
     sources:
       - { path: Epistemos, type: syncedFolder }
-      - path: vendor/MarkEdit/MarkEditMac/Sources
+      - path: LocalPackages/MarkEdit/MarkEditMac/Sources
         type: group
         excludes: [ "Main/Application/**", "Main/AppDocumentController.swift" ]
     dependencies:
@@ -177,7 +177,7 @@ Risks: (1) verify ts-gyb `bridge.core.*` selectors vs vendored `Bridge/Web/Gener
 `AppKitExtensions` symbol clashes; (3) two competing chromes if drifting to Option B — keep the swap to one
 seam; (4) MAS entitlement leakage — never sign with MarkEdit's `Info.entitlements`; (5) 3rd WKWebView family
 memory — route through the pressure handler; (6) CoreEditor vite/yarn must run before xcodebuild (lock-hash gate).
-DO: vendor under `vendor/MarkEdit/`, keep MIT `LICENSE`, ProvenanceGate clean-import; keep CoreEditor (updated
+DO: vendor under `LocalPackages/MarkEdit/`, keep MIT `LICENSE`, ProvenanceGate clean-import; keep CoreEditor (updated
 decision); keep Epdoc as the note editor. AVOID: 2nd `@main`/`NSDocumentController`, hand-editing `.xcodeproj`,
 copying MarkEdit entitlements, shipping `.appex`s, runtime npm/yarn.
 
