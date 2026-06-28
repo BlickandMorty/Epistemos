@@ -567,3 +567,19 @@ picker auto-populates from ACP catalog (WebRoute + providerCatalogProbe);
 Apps/Recipes/Sessions/Scheduler/Skills/Extensions render with their real ACP
 method and no error boundary (WebRoute per-route requiredText/requiredACPMethods/
 forbiddenText).
+
+## Addendum 2026-06-28 (PM #5) — deployed App Support bundle re-staged + graft-presence verified
+
+Re-staged the Web UI to `~/Library/Application Support/Epistemos/GooseWebUI`
+(`built in 19.07s`) to guarantee the bundle the owner's app loads is current with
+the full session. Verified the deployed `assets/index-*.js` (974 KB) actually
+contains every ACP graft (SDK method names survive minification as property
+accesses; module-local `getAcpProviders` is renamed, expected): `providersList`
+×4 / `providersCatalogList` ×3 / `providersSetupCatalogList` ×2 (welcome-grid +
+catalog), `providersCustom{Create,Update,Delete}` (CRUD), `preferencesSave/Read`
+(cross-restart persistence), `setSessionConfigOption` ×6 (effort/mode),
+`providersConfig{Save,Delete,Authenticate,Status}`. The required resolver manifest
+`.epistemos-goose-webui.json` is present and valid (`{"schemaVersion":1,
+"source":"epistemos-stage-goose-web-ui","acpMode":true}`). Nothing-lost confirmed
+at the DEPLOYED-artifact level, not just the repo: the owner's running app carries
+all the parity grafts.
