@@ -66,7 +66,11 @@ parser swap **LOW** (UI exists); coexistence **LOW** (one front-matter field + t
 
 ---
 
-## 2. Obscura — in-app browser
+## 2. ~~Obscura~~ → BROWSER = browser-use (CUT Obscura, 2026-06-28)
+> **★ Obscura is CUT.** The browser + automation is now the vendored `browser-use` repo (Pro), with its web UI
+> reskinned in a WKWebView. browser-use drives **Chromium** (it is NOT a WKWebView and cannot become one). See §9 for
+> the real architecture + clone list. The Obscura Tier-1/Tier-2 codepacks are PARKED (kept for reference only).
+> The text below is the historical Obscura research — superseded.
 
 **★ Pass-2 clarification (answers "why heavy / can I use it like a regular browser?"):** TWO different things got
 bundled under one name. **(A) A browser TAB is LIGHT and behaves like a normal browser** — a `WKWebView` IS WebKit,
@@ -126,7 +130,9 @@ owner sign-off. Effort: **HIGH** (the real `WebKitBrowserEngine` + UniFFI WKWebV
 
 ---
 
-## 3. Native ColBERT encoder (rerank + tool-select)
+## 3. ~~Native ColBERT encoder~~ (CUT, 2026-06-28)
+> **★ ColBERT is CUT** — owner is not using a local model, so no ColBERT. Vault search stays on the existing RRF + EML
+> rerank (already shipped). The text below is historical research — superseded.
 
 **The 2026-06-18 "no native path" verdict is STALE.** LiquidAI shipped **`LFM2.5-ColBERT-350M-GGUF`** (Q4_K_M 228MB…
 Q8_0 378MB, 11 languages, per-token L2-normed output for MaxSim), and **the app already vendors full llama.cpp** with
@@ -295,8 +301,14 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   the mlx-vlm vision runtime, and DeerFlow. AI is consolidated to Goose; the app does NOT install/manage local models.
 - **🟢 NEW REQUIREMENT — every Plan-3 feature is a LANDING-PAGE BUTTON.** Each capability must be a button/shortcut on
   the landing page for one-tap access (e.g. a **"Browser"** button → Obscura). See §8.
-- **🟢 CONFIRMED — Obscura + browser-use automation, connected to Goose.** Owner wants real browser-use/automation and
-  the full `browser-use` app embedded+reskinned if viable; wants it usable BY Goose and FOR Obscura. See §2 + §9.
+- **🔴 CUT — Obscura. Replaced by `browser-use` (2026-06-28).** Owner: "get rid of Obscura and just use browser-use."
+  So the browser + automation = vendor the real `browser-use` (Pro), host+reskin its web UI in a WKWebView. ⚠️ HONESTY:
+  browser-use's actual browser is **Chromium** (CDP) — it cannot be "turned into" a WKWebView; we reskin its *UI* in a
+  webview, the robot drives Chromium. See §2 + §9. Obscura Tier-1/Tier-2 codepacks = SUPERSEDED/parked.
+- **🔴 CUT — ColBERT.** Owner: "not using the model… I don't think I should use the model then." No local model →
+  no ColBERT. §3 cut.
+- **⚠️ RECOVER — owner says scope got narrowed; HTML Workspace + "all the other things I wanted" must be re-included.**
+  Pending owner confirm of the full list (HTML Workspace currently lives in Plan 2 — decide its home). See §10.
 
 ## 8. Landing-page feature buttons (owner requirement, Pass 5) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
 Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `:37`, the existing `landingPixelCommands`
@@ -342,6 +354,17 @@ Most of Plan 3 is **native code reusing your own seams — NOT repo clones.** Th
 **Native (NO clone):** provenance moat · vault-as-MCP-server · Obscura Tier 1 browser · Apple-native (QuickLook/VisionKit/
 thumbnails) · extensibility install UI + best-of preset · landing buttons · Option-B native browser robot. So you're
 cloning **~2 repos (EdgeParse, unpdf)** for MAS + 1 model + (optionally) browser-use for Pro; everything else is your own code.
+
+## 10. ⚠️ SCOPE RECOVERY (owner: "you forgot HTML Workspace + the other things I wanted")
+Owner flagged that Plan 3 got narrowed and dropped items they wanted to research+add. **Do NOT lose these again.**
+- **HTML Workspace** — the AI-driven live artifact/website surface (chat rewrites the surface into a webpage/explainer).
+  Currently assigned to **Plan 2 (editor canonical)**. Owner wants it remembered/included — DECISION PENDING: keep in
+  Plan 2 or pull into Plan 3 as a standalone capability. (It earned a keep in the curation + the owner liked the
+  code-editor-v2-handles-hand-edit / Workspace=AI-artifact split.)
+- **"All the other things"** — owner has a wish-list beyond the current set that the curation compressed. **ACTION:**
+  re-scan the full conversation + `LEDGER_CURATION_2026_06_28.md` for every owner-wanted item and present a recovered
+  list for confirm. Candidates already surfaced but under-tracked: web clipper (Plan 2), Eidos→chat panel (§4),
+  Provenance console surfacing, meeting/STT note (§7), arXiv (§7), Apple-native rest-of-top-6 (§6). Confirm with owner.
 
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI). 
