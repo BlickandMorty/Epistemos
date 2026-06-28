@@ -63,7 +63,10 @@ struct GooseSessionLifecycleLiveIntegrationTests {
                     try await client.readGooseSessionInfo(sessionId: session.sessionId)
                 }
             )
-            let loadCWD = stringValue(for: "cwd", in: sessionInfo.session) ?? repoPath
+            // Raw value drives the honest proof breadcrumb; loadCWD keeps a non-nil
+            // fallback only because load/fork require a cwd argument.
+            let sessionInfoCWD = stringValue(for: "cwd", in: sessionInfo.session)
+            let loadCWD = sessionInfoCWD ?? repoPath
 
             appendLiveProgress("before session/load", to: progressURL)
             let load = try await withLiveTimeout(
@@ -114,7 +117,7 @@ struct GooseSessionLifecycleLiveIntegrationTests {
                 "prompt_stop_reason=\(promptResponse.stopReason.rawValue)",
                 "persisted_listed_count=\(persistedList.sessions.count)",
                 "persisted_listed_session=\(persistedListedSessionIDs.contains(session.sessionId))",
-                "session_info_cwd_matches_repo=\(loadCWD == repoPath)",
+                "session_info_cwd_matches_repo=\(sessionInfoCWD == repoPath)",
                 "load_has_modes=\(load.modes != nil)",
                 "load_has_models=\(load.models != nil)",
                 "load_has_config_options=\(load.configOptions != nil)",

@@ -88,11 +88,17 @@ struct GooseCustomCapabilityLiveIntegrationTests {
                 method: "_goose/unstable/recipes/list",
                 params: .object([:])
             )
-            let recipeId = try canonicalRecipeID(
+            let recipeResolution = try canonicalRecipeID(
                 savedRecipe: savedRecipe,
                 recipeList: recipeList,
                 expectedTitle: "phase0-custom-capability-recipe"
             )
+            guard recipeResolution.resolvedFromList else {
+                throw GooseLiveIntegrationError.runtimeFailed(
+                    "Recipe id reconciliation fell back to the saved id; the saved recipe was not found in the live ACP recipe list (vacuous reconciliation)."
+                )
+            }
+            let recipeId = recipeResolution.id
             recipeIdsForCleanup.insert(recipeId)
             let recipeYAML = try await client.sendGooseCustomRequest(
                 method: "_goose/unstable/recipes/to-yaml",
@@ -188,6 +194,7 @@ struct GooseCustomCapabilityLiveIntegrationTests {
                 "goose_base_url=\(connection.baseURL.absoluteString)",
                 "recipe_save_id=\(savedRecipeId)",
                 "recipe_resolved_id=\(recipeId)",
+                "recipe_resolution=\(recipeResolution.marker)",
                 "recipe_provider_id=\(providerCandidate.providerId)",
                 "recipe_model_id=\(modelID)",
                 "recipe_list_count=\(recipeList.objectValue?["recipes"]?.arrayValue?.count ?? -1)",
@@ -263,11 +270,42 @@ private func requiredString(_ value: JSONValue, path: [String], label: String) t
     return string
 }
 
+// Reconciliation is the entire point of this proof, so the test must be able to
+// tell a genuine list match from a silent fall-back to the saved id (which would
+// mean the saved recipe was never found in the ACP list — a vacuous pass).
+enum RecipeIDResolution {
+    case byPath(String)
+    case byNameAndTitle(String)
+    case fallbackToSaved(String)
+
+    var id: String {
+        switch self {
+        case .byPath(let id), .byNameAndTitle(let id), .fallbackToSaved(let id):
+            return id
+        }
+    }
+
+    var resolvedFromList: Bool {
+        switch self {
+        case .byPath, .byNameAndTitle: return true
+        case .fallbackToSaved: return false
+        }
+    }
+
+    var marker: String {
+        switch self {
+        case .byPath: return "by_path"
+        case .byNameAndTitle: return "by_name_and_title"
+        case .fallbackToSaved: return "fallback_to_saved"
+        }
+    }
+}
+
 private func canonicalRecipeID(
     savedRecipe: JSONValue,
     recipeList: JSONValue,
     expectedTitle: String
-) throws -> String {
+) throws -> RecipeIDResolution {
     let savedId = try requiredString(savedRecipe, path: ["id"], label: "saved recipe id")
     let savedFilePath = try requiredString(savedRecipe, path: ["file_path"], label: "saved recipe file path")
     let savedFileName = try requiredString(savedRecipe, path: ["file_name"], label: "saved recipe file name")
@@ -284,7 +322,7 @@ private func canonicalRecipeID(
               normalizeRecipePath(filePath) == normalizedSavedPath else {
             continue
         }
-        return id
+        return .byPath(id)
     }
 
     for entry in entries {
@@ -295,10 +333,10 @@ private func canonicalRecipeID(
               object["recipe"]?.objectValue?["title"]?.stringValue == expectedTitle else {
             continue
         }
-        return id
+        return .byNameAndTitle(id)
     }
 
-    return savedId
+    return .fallbackToSaved(savedId)
 }
 
 private func normalizeRecipePath(_ path: String) -> String {
