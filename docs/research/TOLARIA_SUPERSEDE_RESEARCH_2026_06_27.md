@@ -15,6 +15,25 @@ editor docs into ONE canonical, contradiction-free plan, then keep deepening unt
   spec the intent, don't paste verbatim), and SUPERSEDE/upgrade it through Epistemos.**
 - TipTap vs BlockNote = decide via research (both ProseMirror-family; BlockNote = TipTap + Notion UI).
 
+## Locked decisions ADDED mid-loop (owner, 2026-06-27 — supersede where they conflict with earlier)
+- **MarkEdit = FULL app embedded, full settings, completely closed-in, doesn't need to RUN yet.** Owner:
+  "full thing full app, please do not do anything other than full thing full app." Embed everything incl.
+  the full Settings; note/markdown stuff lives "under a different mode."
+- **MarkEdit's CodeMirror = the CODE EDITOR** (replaces Epistemos's current code editor, which looks less
+  polished than MarkEdit). ⟹ **UPDATES Pass-2 Decision 5: do NOT drop `CoreEditor`.** Keep MarkEdit's
+  CodeMirror as the code-editing surface; Epdoc/TipTap stays the *note* editor. Each tool to its strength:
+  CodeMirror for code, TipTap for rich notes. (Open sub-question for research: keep Epistemos's existing
+  code-editor UI/chrome and drop just its engine, or replace the whole surface with MarkEdit's.)
+- **AI chat = EXTEND Goose, not a new agent.** A "minichat": a **native shell hosting a (Goose) webview**
+  that **auto-initializes for the open note** (note context fed to Goose), with the Tolaria-style controls.
+  Requires Goose-side engineering + MCP/APIs. Depends on Goose Phase 0 being finished first.
+- **Nativeness = maximize.** Native buttons/controls like MarkEdit has, as much as possible. The text stack
+  is WebView (not native) but the *chrome* (toolbar/Find/Settings/FontPicker/panel toggles/menus/width
+  toggle) should be native AppKit wherever it can. Goose-side nativeness is less critical but still wanted.
+- **RESEARCH OUTPUT REQUIREMENT (from here on):** every researched subsystem must come with **code snippets
+  + a concrete 1:1 upgrade mapping** (Tolaria behavior → the actual Epistemos Swift/Rust code that upgrades
+  it). Clean-room for Tolaria (write NEW Epistemos code, never paste AGPL); MarkEdit is MIT (adapt freely).
+
 ## Clean-room rule (legal)
 Tolaria is AGPL-3.0. Research agents read its PUBLIC repo to produce BEHAVIORAL specs. The implementer
 works from the spec, not the source. Reimplement intent; do not copy code or verbatim prompts.
@@ -30,8 +49,13 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
       → Big finding: **most of the AI-graft infra already EXISTS in Epistemos** (`WorkNativeMCPServer` +
       `WorkToolMCPCore` + `WorkAppContextSnapshot` + the full Goose ACP client). Also an HONESTY
       CORRECTION to a pass-1 claim (see below). Pass 4 next.
-- [ ] **Pass 4:** "Supersede Tolaria" brilliance layer — what to do BETTER (semantic/RRF search, provenance
-      ledger, real trash+undo, keymap completeness, etc.).
+- [~] **Pass 4 (4a+4b DONE, 4c+4d PENDING)** — code-level, per owner's mid-loop directive.
+   - [x] 4a — Tolaria ontology → Epistemos 1:1 code pack → `TOLARIA_ONTOLOGY_UPGRADE_CODEPACK_2026_06_27.md`
+   - [x] 4b — MarkEdit full embed + MarkEdit-as-CODE-EDITOR → `MARKEDIT_EMBED_CODEPACK_2026_06_27.md`
+         (★ discovery: current code editor is a textarea w/ highlighting DISABLED — CM6 is a strict upgrade)
+   - [ ] 4c — maximize-nativeness native-controls map WITH code (native buttons like MarkEdit driving the WebView)
+   - [ ] 4d — Goose minichat: native webview shell, auto-init for open note, note-context MCP, Goose-side eng, code
+   - (Next cron tick runs 4c + 4d. Then pass 5 contradiction audit, pass 6 restructure.)
 - [ ] **Pass 5:** Contradiction audit across ALL editor docs + the emerging plan.
 - [ ] **Pass 6:** RESTRUCTURE into one canonical plan doc (MarkEdit-in-app + Tolaria revamp on Epdoc +
       Goose AI + ontology + minimal-best toggles).
@@ -275,6 +299,29 @@ per token."** Carry this corrected version into the canonical plan.
     so an inline hunk, a git commit, and a DAG node share ONE identity. **Retraction propagation** (already
     implemented, bounded-walk) beats `git revert` (it knows which later edits *depended on* the retracted
     one). Git = bytes layer; ledger+DAG = meaning layer.
+
+### Pass 4a + 4b — code-level upgrade packs (full code in dedicated docs)
+- **4a Tolaria ontology → Epistemos** (`TOLARIA_ONTOLOGY_UPGRADE_CODEPACK_2026_06_27.md`): 7 clean-room Swift/
+  Rust snippets, each mapped to a real file — `NoteOntologyParser` (typed parse over the existing flat
+  `parseFrontMatter`), `FrontmatterRelationshipReconciler` (persist forward+inverse typed edges into
+  `GraphStore` — beats Tolaria's recompute), `SystemKeys` (one `_`-convention table enforced across FTS+HNSW+
+  graph), `ViewDefinition`/`ViewCompiler`/`ViewEvaluator` (compile all/any tree → indexed GRDB SQL + a
+  `semantic:` op RRF-fused with HNSW), `NoteWidthResolver` (binary normal/wide + the "never create frontmatter
+  for UI state" guard), `TypeRegistry` (in-memory projection over `SDPage`, no new entity, advisory schema-light
+  validation), `incrementalCrawl` (per-note content-hash deltas into 3 engines, additive — no CACHE_VERSION wipe).
+- **4b MarkEdit embed + code editor** (`MARKEDIT_EMBED_CODEPACK_2026_06_27.md`): ★ **current code editor is a
+  plain textarea with highlighting DISABLED (dead `renderHighlight()`), NOT CodeMirror** → MarkEdit's CM6 is a
+  strict upgrade; Epistemos's SwiftUI chrome (top bar/Find/Go-to-Line/Outline/Live-Preview/LSP-hover) is worth
+  keeping. Plan: vendor `MarkEditCore`+`MarkEditKit`+`Modules`(11 libs incl. SettingsUI/FontPicker/Statistics)+
+  `Sources/{Editor,Panels,Settings}`+`CoreEditor`; DROP its `@main`/AppDocumentController/.xcodeproj/entitlements/
+  both `.appex`; re-host `EditorViewController` via `NSViewControllerRepresentable` against the existing
+  `EpistemosDocumentController`; present FULL `SettingsUI` panes inert behind `#if EPISTEMOS_MARKEDIT_EMBED`.
+  **Code-editor swap = Option A** (keep Epistemos chrome, swap engine textarea→CoreEditor at
+  `CodeEditorView.codeEditorSurface`) **+ selectively graft MarkEdit's native Find/FontPicker/Statistics/
+  Goto-Line** (= maximize nativeness without surrendering chrome). LSP: keep one-shot Swift `CodeEditorSemanticLSP`
+  over `RustLSPTransport` (engine-agnostic); CM6 LSP-client extension deferred. Build: clone
+  `build-tiptap-bundle.sh`→`build-coreeditor-bundle.sh` (vite+yarn, lock-hash gate); keep `chunk-loader://` first
+  (brotli-unify later); adopt Epistemos entitlements (reject MarkEdit's MAS-hostile keys); xcodegen `project.yml`.
 
 ### Pass 3a — Goose graft architecture (concrete)
 - **Goose seam:** `GooseRuntimeSupervisor` spawns `goose serve` (:3284, hardened env, Keychain keys pushed
