@@ -193,6 +193,27 @@ nonisolated public enum VRMLabel: String, Codable, Hashable, Sendable, CaseItera
         case .blocked: return "Blocked — failed safety or privacy gate"
         }
     }
+
+    /// Honest rendering gate for Plan 3 provenance chips.
+    ///
+    /// A stored `AnswerPacket.uiLabel` is legacy wire data and must never by
+    /// itself authorize a visible "Verified" chip. Verification requires an
+    /// active, verifiable claim with a real UAS or ACS anchor. Empty packets
+    /// render no chip.
+    public static func honestLabel(for packet: AnswerPacket) -> VRMLabel? {
+        let activeClaims = packet.claims.filter { $0.status == .active }
+        guard !activeClaims.isEmpty else { return nil }
+
+        if activeClaims.contains(where: { $0.isAnchoredVerifiableClaim }) {
+            return .verified
+        }
+
+        if activeClaims.allSatisfy({ $0.kind == .speculative && !$0.hasEvidenceAnchor }) {
+            return .speculative
+        }
+
+        return .plausibleButUnverified
+    }
 }
 
 /// HELIOS V5 W4 — pure-data input to the Residency Governor.
@@ -322,6 +343,23 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
         self.kind = try c.decodeIfPresent(ClaimKind.self, forKey: .kind) ?? .empirical
         self.uasAddress = try c.decodeIfPresent(UasAddress.self, forKey: .uasAddress)
         self.acsAnchor = try c.decodeIfPresent(AcsAnchor.self, forKey: .acsAnchor)
+    }
+
+    public var hasEvidenceAnchor: Bool {
+        uasAddress != nil || acsAnchor != nil
+    }
+
+    public var isVerifiableKind: Bool {
+        switch kind {
+        case .empirical, .mathematical, .codeInvariant:
+            return true
+        case .causal, .speculative, .staticFallbackAcknowledged:
+            return false
+        }
+    }
+
+    public var isAnchoredVerifiableClaim: Bool {
+        status == .active && isVerifiableKind && hasEvidenceAnchor
     }
 }
 

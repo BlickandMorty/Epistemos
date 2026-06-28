@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import Epistemos
 
 // UAS-EXEMPT: source-audit test fixture, not persisted substrate data.
 @Suite("Verified Floor Chip Strip Audit")
@@ -198,8 +199,45 @@ struct VerifiedFloorChipStripAuditTests {
         let src = try loadMirroredSourceTextFile(
             "Epistemos/Views/Settings/SettingsSurfaceComponents.swift")
         #expect(src.contains("productionWired && falsifierPassed"))
+        #expect(src.contains("artifactSatisfied && liveBackingSatisfied"))
         #expect(src.contains("let productionWired: Bool"))
         #expect(src.contains("let falsifierPassed: Bool"))
+        #expect(src.contains("requiresArtifactAtPath: String? = nil"))
+        #expect(src.contains("requiresLiveBacking: VerifiedFloorLiveBacking = .none"))
+    }
+
+    @Test("chip eligibility requires artifact and live backing when declared")
+    func chipEligibilityRequiresDeclaredBacking() {
+        #expect(VerifiedFloorChipEligibility(
+            productionWired: true,
+            falsifierPassed: true,
+            artifactSatisfied: true,
+            liveBackingSatisfied: true
+        ).greenEligible)
+
+        let missingArtifact = VerifiedFloorChipEligibility(
+            productionWired: true,
+            falsifierPassed: true,
+            artifactSatisfied: false,
+            liveBackingSatisfied: true
+        )
+        #expect(!missingArtifact.greenEligible)
+        #expect(missingArtifact.witnessLabel == "no artifact")
+
+        let emptyBacking = VerifiedFloorChipEligibility(
+            productionWired: true,
+            falsifierPassed: true,
+            artifactSatisfied: true,
+            liveBackingSatisfied: false
+        )
+        #expect(!emptyBacking.greenEligible)
+        #expect(emptyBacking.witnessLabel == "empty")
+    }
+
+    @Test("provenance diagnostics opt into live ledger backing")
+    func provenanceDiagnosticsRequireLiveLedgerBacking() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AnswerPacketHealthRow.swift")
+        #expect(src.contains("requiresLiveBacking: .ledger"))
     }
 
     @Test("no HealthRow hardcodes falsifierPassed: true without a passing falsifier artifact (real API)")

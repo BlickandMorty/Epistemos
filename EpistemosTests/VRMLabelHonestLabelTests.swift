@@ -1,0 +1,121 @@
+import Foundation
+import Testing
+@testable import Epistemos
+
+@Suite("Plan 3 provenance moat — honest VRM labels")
+struct VRMLabelHonestLabelTests {
+    @Test("empty packet renders no VRM label")
+    func emptyPacketRendersNoLabel() {
+        let packet = Self.packet(claims: [], storedLabel: .verified)
+        #expect(VRMLabel.honestLabel(for: packet) == nil)
+    }
+
+    @Test("unanchored empirical self-witness is plausible, never verified")
+    func unanchoredEmpiricalClaimIsPlausible() {
+        let packet = Self.packet(claims: [
+            Self.claim(kind: .empirical, status: .active)
+        ])
+
+        #expect(VRMLabel.honestLabel(for: packet) == .plausibleButUnverified)
+    }
+
+    @Test("anchored empirical and code-invariant claims are verified")
+    func anchoredVerifiableClaimsAreVerified() {
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [
+            Self.claim(kind: .empirical, status: .active, anchored: true)
+        ])) == .verified)
+
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [
+            Self.claim(kind: .codeInvariant, status: .active, anchored: true)
+        ])) == .verified)
+    }
+
+    @Test("anchored speculative claims do not become verified")
+    func anchoredSpeculativeClaimsStayPlausible() {
+        let packet = Self.packet(claims: [
+            Self.claim(kind: .speculative, status: .active, anchored: true)
+        ])
+
+        #expect(VRMLabel.honestLabel(for: packet) == .plausibleButUnverified)
+    }
+
+    @Test("unanchored speculative active claims render speculative")
+    func unanchoredSpeculativeClaimsRenderSpeculative() {
+        let packet = Self.packet(claims: [
+            Self.claim(kind: .speculative, status: .active)
+        ])
+
+        #expect(VRMLabel.honestLabel(for: packet) == .speculative)
+    }
+
+    @Test("verified cannot leak without active anchored verifiable claim")
+    func verifiedInvariantSweep() {
+        let statuses: [ClaimStatus] = [.active, .atRisk, .needsRevalidation, .retracted]
+
+        for kind in ClaimKind.allCases {
+            for status in statuses {
+                let labelWithoutAnchor = VRMLabel.honestLabel(for: Self.packet(claims: [
+                    Self.claim(kind: kind, status: status, anchored: false)
+                ]))
+                #expect(labelWithoutAnchor != .verified)
+
+                let labelWithAnchor = VRMLabel.honestLabel(for: Self.packet(claims: [
+                    Self.claim(kind: kind, status: status, anchored: true)
+                ]))
+                let expectedVerified = status == .active
+                    && [.empirical, .mathematical, .codeInvariant].contains(kind)
+                #expect((labelWithAnchor == VRMLabel.verified) == expectedVerified)
+            }
+        }
+    }
+
+    @Test("VRMLabelView binds only through honestLabel")
+    func vrmLabelViewDoesNotTrustStoredPacketLabel() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Provenance/VRMLabelView.swift")
+        #expect(source.contains("VRMLabel.honestLabel(for: packet)"))
+        #expect(source.contains("LatestAnswerPacketSink.shared.packet(for: packetID)"))
+        #expect(source.contains("message.answerPacketId"))
+        #expect(!source.contains("packet.uiLabel"))
+    }
+
+    @Test("AnswerPacketEmitter derives Rust-produced labels through the honest gate")
+    func emitterStampsRustPacketWithHonestGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/AnswerPacketEmitter.swift")
+        #expect(source.contains("VRMLabel.honestLabel(for: stamped)"))
+        #expect(source.contains("stamped.uiLabel = honest"))
+        #expect(source.contains("stamped.uiLabel = .default"))
+    }
+
+    private static func packet(
+        claims: [Claim],
+        storedLabel: VRMLabel = .plausibleButUnverified
+    ) -> AnswerPacket {
+        AnswerPacket(
+            id: "pkt-test",
+            claims: claims,
+            residencySignals: [.neutral],
+            uiLabel: storedLabel,
+            witnessedStateRef: "stop:end_turn;in:1;out:1",
+            mutationEnvelopeRef: "pkt-test"
+        )
+    }
+
+    private static func claim(
+        kind: ClaimKind,
+        status: ClaimStatus,
+        anchored: Bool = false
+    ) -> Claim {
+        Claim(
+            id: "\(kind.rawValue)-\(status.rawValue)-\(anchored)",
+            text: "\(kind.rawValue) \(status.rawValue)",
+            status: status,
+            createdAtMs: 1_783_000_000_000,
+            kind: kind,
+            uasAddress: anchored ? UasAddress(
+                kind: "test",
+                hash: "sha256:test",
+                createdAtMs: 1_783_000_000_000
+            ) : nil
+        )
+    }
+}

@@ -157,12 +157,13 @@ public actor AnswerPacketEmitter {
             firstEmittedAt = now
         }
         lastEmittedAt = now
+        let honestLabel = VRMLabel.honestLabel(for: packet)?.rawValue ?? "none"
         Self.log.notice(
             """
             emit id=\(packet.id, privacy: .public) \
             attentionMode=\(packet.attentionMode.rawValue, privacy: .public) \
             interruptBucket=\(packet.interruptBucket.rawValue, privacy: .public) \
-            uiLabel=\(packet.uiLabel.rawValue, privacy: .public) \
+            honestLabel=\(honestLabel, privacy: .public) \
             ring=\(self.ring.count)/\(Self.maxRingSize)
             """
         )
@@ -350,6 +351,11 @@ nonisolated extension AnswerPacket {
             // carries both the canonical claims AND the runtime bucket.
             var stamped = rustPacket
             stamped.interruptBucket = interruptBucket
+            if let honest = VRMLabel.honestLabel(for: stamped) {
+                stamped.uiLabel = honest
+            } else {
+                stamped.uiLabel = .default
+            }
             return stamped
         }
 

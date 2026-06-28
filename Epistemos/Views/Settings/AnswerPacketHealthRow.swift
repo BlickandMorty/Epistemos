@@ -24,7 +24,7 @@ import SwiftUI
 //   - lifetime count (total packets emitted this process)
 //   - last-100 ring utilization
 //   - per-claim_kind histogram
-//   - latest packet's attentionMode + interruptBucket + uiLabel
+//   - latest packet's attentionMode + interruptBucket + honest_label
 //   - last emit timestamp + relative age
 //
 // Refresh model:
@@ -72,7 +72,8 @@ public struct AnswerPacketHealthRow: View {
                 falsifierPassed: false,
                 falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
                 wiredToday: "In-process AnswerPacket emitter, bounded audit ring, and a durable JSONL persistence log (off-main, bounded, best-effort) are observable; emitted packets survive relaunch AND are restored into the ring on launch (load-on-launch restore wired).",
-                stillStub: "A canonical product/history surface (scrollback past the ring) and a matching primary witness are pending."
+                stillStub: "A canonical product/history surface (scrollback past the ring) and a matching primary witness are pending.",
+                requiresLiveBacking: .ledger
             )
             row(
                 label: "Last 100 ring",
@@ -167,7 +168,8 @@ public struct AnswerPacketHealthRow: View {
         var parts: [String] = []
         parts.append("mode=\(packet.attentionMode.rawValue)")
         parts.append("bucket=\(packet.interruptBucket.rawValue)")
-        parts.append("label=\(packet.uiLabel.rawValue)")
+        let honestLabel = VRMLabel.honestLabel(for: packet)?.rawValue ?? "none"
+        parts.append("honest_label=\(honestLabel)")
         return parts.joined(separator: " · ")
     }
 

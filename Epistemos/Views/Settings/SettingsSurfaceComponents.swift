@@ -294,6 +294,29 @@ struct ChannelStatusPill: View {
     }
 }
 
+nonisolated enum VerifiedFloorLiveBacking: String, Equatable, Sendable {
+    case none
+    case ledger
+    case dag
+}
+
+nonisolated struct VerifiedFloorChipEligibility: Equatable, Sendable {
+    let productionWired: Bool
+    let falsifierPassed: Bool
+    let artifactSatisfied: Bool
+    let liveBackingSatisfied: Bool
+
+    var greenEligible: Bool {
+        productionWired && falsifierPassed && artifactSatisfied && liveBackingSatisfied
+    }
+
+    var witnessLabel: String {
+        if !artifactSatisfied { return "no artifact" }
+        if !liveBackingSatisfied { return "empty" }
+        return falsifierPassed ? "PASS" : "pending"
+    }
+}
+
 struct VerifiedFloorChipStrip: View {
     let flag: String
     let substrate: String
@@ -302,6 +325,30 @@ struct VerifiedFloorChipStrip: View {
     let falsifier: String
     let wiredToday: String
     let stillStub: String
+    let requiresArtifactAtPath: String?
+    let requiresLiveBacking: VerifiedFloorLiveBacking
+
+    init(
+        flag: String,
+        substrate: String,
+        productionWired: Bool,
+        falsifierPassed: Bool,
+        falsifier: String,
+        wiredToday: String,
+        stillStub: String,
+        requiresArtifactAtPath: String? = nil,
+        requiresLiveBacking: VerifiedFloorLiveBacking = .none
+    ) {
+        self.flag = flag
+        self.substrate = substrate
+        self.productionWired = productionWired
+        self.falsifierPassed = falsifierPassed
+        self.falsifier = falsifier
+        self.wiredToday = wiredToday
+        self.stillStub = stillStub
+        self.requiresArtifactAtPath = requiresArtifactAtPath
+        self.requiresLiveBacking = requiresLiveBacking
+    }
 
     private var flagTint: Color {
         switch flag {
@@ -314,8 +361,33 @@ struct VerifiedFloorChipStrip: View {
         }
     }
 
+    private var eligibility: VerifiedFloorChipEligibility {
+        VerifiedFloorChipEligibility(
+            productionWired: productionWired,
+            falsifierPassed: falsifierPassed,
+            artifactSatisfied: artifactSatisfied,
+            liveBackingSatisfied: liveBackingSatisfied
+        )
+    }
+
     private var greenEligible: Bool {
-        productionWired && falsifierPassed
+        eligibility.greenEligible
+    }
+
+    private var artifactSatisfied: Bool {
+        guard let requiresArtifactAtPath else { return true }
+        return FileManager.default.fileExists(atPath: requiresArtifactAtPath)
+    }
+
+    private var liveBackingSatisfied: Bool {
+        switch requiresLiveBacking {
+        case .none:
+            return true
+        case .ledger:
+            return RustProvenanceLedgerClient.summary().claimCount > 0
+        case .dag:
+            return RustCognitiveDagClient.stats().nodeCount > 0
+        }
     }
 
     private var substrateTint: Color {
@@ -329,7 +401,7 @@ struct VerifiedFloorChipStrip: View {
     }
 
     private var witnessLabel: String {
-        falsifierPassed ? "PASS" : "pending"
+        eligibility.witnessLabel
     }
 
     private var truthTooltip: String {
@@ -337,7 +409,9 @@ struct VerifiedFloorChipStrip: View {
             "Wired today: \(wiredToday)",
             "Still stub: \(stillStub)",
             "Falsifier: \(falsifier)",
-            "Green requires production wiring plus primary PASS witness."
+            "Artifact backing: \(requiresArtifactAtPath ?? "not required")",
+            "Live backing: \(requiresLiveBacking.rawValue)",
+            "Green requires production wiring, primary PASS witness, declared artifact backing, and declared live backing."
         ].joined(separator: "\n")
     }
 
