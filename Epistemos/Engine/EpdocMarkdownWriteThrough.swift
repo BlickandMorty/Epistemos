@@ -24,7 +24,6 @@ nonisolated struct EpdocMarkdownWriteThroughRequest: Sendable {
 
 nonisolated enum EpdocMarkdownWriteThroughSkipReason: Equatable, Sendable {
     case jsonOnly
-    case markdownCanonicalReadPathPending
     case missingVault
     case missingMarkdownSnapshot
     case emptyMarkdownSnapshot
@@ -38,11 +37,26 @@ nonisolated enum EpdocMarkdownWriteThroughResult: Equatable, Sendable {
     case failed(String)
 }
 
+nonisolated enum EpdocMarkdownSourceLoadSkipReason: Equatable, Sendable {
+    case notMarkdownCanonical
+    case missingVault
+    case invalidManifestID
+    case missingCanonicalMarkdown
+    case missingEpdocFrontmatter
+    case epdocIDMismatch
+}
+
+nonisolated enum EpdocMarkdownSourceLoadResult: Equatable, Sendable {
+    case loaded(markdown: String, url: URL)
+    case skipped(EpdocMarkdownSourceLoadSkipReason)
+    case failed(String)
+}
+
 nonisolated enum EpdocMarkdownWriteThrough {
     private static let notesDirectoryName = "notes"
 
     static func shouldAttemptWrite(_ request: EpdocMarkdownWriteThroughRequest) -> Bool {
-        guard request.mode == .dualWrite,
+        guard request.mode == .dualWrite || request.mode == .markdownCanonical,
               request.vaultURL != nil,
               let markdown = request.markdown,
               !isBlank(markdown),
@@ -61,7 +75,7 @@ nonisolated enum EpdocMarkdownWriteThrough {
         case .jsonOnly:
             return .skipped(.jsonOnly)
         case .markdownCanonical:
-            return .skipped(.markdownCanonicalReadPathPending)
+            break
         case .dualWrite:
             break
         }
@@ -102,6 +116,39 @@ nonisolated enum EpdocMarkdownWriteThrough {
             itemLabel: "Epdoc markdown source \(request.manifest.id)"
         )
         return wrote ? .wrote(targetURL) : .failed("atomic markdown write failed")
+    }
+
+    static func loadCanonicalMarkdownIfEnabled(
+        mode: EpdocSourceOfTruthMode = EpdocSourceOfTruthMode(),
+        vaultURL: URL?,
+        manifestID: String,
+        fileManager: FileManager = .default
+    ) -> EpdocMarkdownSourceLoadResult {
+        guard mode == .markdownCanonical else {
+            return .skipped(.notMarkdownCanonical)
+        }
+        guard let vaultURL else {
+            return .skipped(.missingVault)
+        }
+        guard let targetURL = targetURL(vaultURL: vaultURL, manifestID: manifestID) else {
+            return .skipped(.invalidManifestID)
+        }
+        guard fileManager.fileExists(atPath: targetURL.path) else {
+            return .skipped(.missingCanonicalMarkdown)
+        }
+
+        do {
+            let rawMarkdown = try String(contentsOf: targetURL, encoding: .utf8)
+            guard let source = splitEpdocSourceMarkdown(rawMarkdown) else {
+                return .skipped(.missingEpdocFrontmatter)
+            }
+            guard source.epdocID == manifestID else {
+                return .skipped(.epdocIDMismatch)
+            }
+            return .loaded(markdown: source.body, url: targetURL)
+        } catch {
+            return .failed(error.localizedDescription)
+        }
     }
 
     static func targetURL(vaultURL: URL, manifestID: String) -> URL? {
@@ -162,6 +209,103 @@ nonisolated enum EpdocMarkdownWriteThrough {
         return lines.dropFirst().contains { line in
             line.trimmingCharacters(in: .whitespaces) == "---"
         }
+    }
+
+    private struct SplitSourceMarkdown {
+        let epdocID: String
+        let body: String
+    }
+
+    private static func splitEpdocSourceMarkdown(_ markdown: String) -> SplitSourceMarkdown? {
+        let cleaned = markdown.hasPrefix("\u{FEFF}") ? String(markdown.dropFirst()) : markdown
+        let newline = cleaned.firstIndex(of: "\n")
+        let openingEnd = newline ?? cleaned.endIndex
+        guard cleaned[..<openingEnd].trimmingCharacters(in: .whitespaces) == "---" else {
+            return nil
+        }
+
+        var cursor = newline.map { cleaned.index(after: $0) } ?? cleaned.endIndex
+        var frontmatterLines: [Substring] = []
+        while cursor < cleaned.endIndex {
+            let lineEnd = cleaned[cursor...].firstIndex(of: "\n") ?? cleaned.endIndex
+            let line = cleaned[cursor..<lineEnd]
+            if line.trimmingCharacters(in: .whitespaces) == "---" {
+                let bodyStartAfterClosing = lineEnd < cleaned.endIndex
+                    ? cleaned.index(after: lineEnd)
+                    : cleaned.endIndex
+                let bodyStart = skipSingleFrontmatterSeparator(
+                    in: cleaned,
+                    from: bodyStartAfterClosing
+                )
+                guard let id = epdocID(from: frontmatterLines) else { return nil }
+                return SplitSourceMarkdown(epdocID: id, body: String(cleaned[bodyStart...]))
+            }
+            frontmatterLines.append(line)
+            cursor = lineEnd < cleaned.endIndex ? cleaned.index(after: lineEnd) : cleaned.endIndex
+        }
+        return nil
+    }
+
+    private static func skipSingleFrontmatterSeparator(
+        in markdown: String,
+        from index: String.Index
+    ) -> String.Index {
+        guard index < markdown.endIndex else { return index }
+        let first = markdown[index]
+        if first == "\n" {
+            return markdown.index(after: index)
+        }
+        if first == "\r" {
+            let next = markdown.index(after: index)
+            if next < markdown.endIndex, markdown[next] == "\n" {
+                return markdown.index(after: next)
+            }
+            return next
+        }
+        return index
+    }
+
+    private static func epdocID(from lines: [Substring]) -> String? {
+        for line in lines {
+            let parts = line.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2,
+                  parts[0].trimmingCharacters(in: .whitespaces) == "_epdoc_id" else {
+                continue
+            }
+            let value = unquotedYAMLScalar(String(parts[1]).trimmingCharacters(in: .whitespaces))
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        return nil
+    }
+
+    private static func unquotedYAMLScalar(_ value: String) -> String {
+        guard value.hasPrefix("\""), value.hasSuffix("\""), value.count >= 2 else {
+            return value
+        }
+        var output = ""
+        var escaped = false
+        for character in value.dropFirst().dropLast() {
+            if escaped {
+                switch character {
+                case "n": output.append("\n")
+                case "r": output.append("\r")
+                case "t": output.append("\t")
+                case "\"": output.append("\"")
+                case "\\": output.append("\\")
+                default: output.append(character)
+                }
+                escaped = false
+            } else if character == "\\" {
+                escaped = true
+            } else {
+                output.append(character)
+            }
+        }
+        if escaped {
+            output.append("\\")
+        }
+        return output
     }
 
     private static func isBlank(_ value: String) -> Bool {

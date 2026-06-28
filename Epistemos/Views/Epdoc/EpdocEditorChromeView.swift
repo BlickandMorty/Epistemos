@@ -119,6 +119,7 @@ public final class EpdocEditorChromeController {
     public var katexDisplayMode: EpdocKaTeXPreview.DisplayMode = .display
     public var katexPreviewAnchor: EpdocBridgeRect? = nil
     private var initialContentJSON: Data?
+    private var initialMarkdownSource: String?
     private var editorIsReady = false
     private var bridgeDispatchInstalled = false
     private var didPushInitialContent = false
@@ -196,9 +197,14 @@ public final class EpdocEditorChromeController {
         }
     }
 
-    public func loadInitialContent(_ json: Data, title: String) {
+    public func loadInitialContent(
+        _ json: Data,
+        title: String,
+        markdownSource: String? = nil
+    ) {
         initialContentJSON = json
-        latestMarkdownSnapshot = nil
+        initialMarkdownSource = markdownSource
+        latestMarkdownSnapshot = markdownSource
         documentTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? "Untitled"
             : title
@@ -241,7 +247,11 @@ public final class EpdocEditorChromeController {
             return
         }
         didPushInitialContent = true
-        dispatch(.setContent(json: initialContentJSON))
+        if let initialMarkdownSource {
+            dispatch(.setMarkdown(markdown: initialMarkdownSource))
+        } else {
+            dispatch(.setContent(json: initialContentJSON))
+        }
         dispatch(.focusStart)
         scheduleInitialStatusRefresh(for: initialContentJSON)
     }

@@ -294,6 +294,25 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     }
 
     @MainActor
+    private func markdownCanonicalInitialSource() -> String? {
+        let result = EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
+            vaultURL: AppBootstrap.shared?.vaultSync.vaultURL,
+            manifestID: package.manifest.id
+        )
+        switch result {
+        case let .loaded(markdown, _):
+            return markdown
+        case let .failed(message):
+            Self.log.warning(
+                "epdoc markdown canonical load failed: \(message, privacy: .public)"
+            )
+            return nil
+        case .skipped:
+            return nil
+        }
+    }
+
+    @MainActor
     private static func enqueueMarkdownWriteThroughIfNeeded(
         _ request: EpdocMarkdownWriteThroughRequest
     ) {
@@ -491,9 +510,11 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         MainActor.assumeIsolated {
             let chromeController = EpdocEditorChromeController()
             chromeController.theme = AppBootstrap.shared?.uiState.theme ?? .nativeDefault
+            let markdownSource = self.markdownCanonicalInitialSource()
             chromeController.loadInitialContent(
                 self.package.contentJSON,
-                title: self.package.manifest.title
+                title: self.package.manifest.title,
+                markdownSource: markdownSource
             )
             chromeController.attachedRunIDs = self.immediateAttachedRunIDs()
             chromeController.toolbarModel.resolvePickedImageSource = { [weak self] url, data, mimeType in

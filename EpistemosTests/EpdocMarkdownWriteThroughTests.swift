@@ -97,23 +97,27 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
         #expect(EpdocMarkdownWriteThrough.writeIfEnabled(request) == .skipped(.missingMarkdownSnapshot))
     }
 
-    @Test("Markdown-canonical mode waits for the read path instead of pretending Phase B is live")
-    func markdownCanonicalModeSkipsUntilReadPathExists() throws {
+    @Test("Markdown-canonical mode writes the same Epdoc-owned vault markdown")
+    func markdownCanonicalModeWritesCanonicalMarkdown() throws {
         let vaultURL = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: vaultURL) }
+        let targetURL = vaultURL
+            .appendingPathComponent("notes", isDirectory: true)
+            .appendingPathComponent("doc-123.md")
         let request = EpdocMarkdownWriteThroughRequest(
             mode: .markdownCanonical,
             vaultURL: vaultURL,
             manifest: Self.sampleManifest(),
-            markdown: "# Heading\n",
+            markdown: "# Heading\n\nBody",
             contentJSONHash: "json-hash"
         )
 
-        #expect(!EpdocMarkdownWriteThrough.shouldAttemptWrite(request))
-        #expect(
-            EpdocMarkdownWriteThrough.writeIfEnabled(request)
-                == .skipped(.markdownCanonicalReadPathPending)
-        )
+        #expect(EpdocMarkdownWriteThrough.shouldAttemptWrite(request))
+        #expect(EpdocMarkdownWriteThrough.writeIfEnabled(request) == .wrote(targetURL))
+        let written = try String(contentsOf: targetURL, encoding: .utf8)
+        #expect(written.contains(#"_epdoc_id: "doc-123""#))
+        #expect(written.contains(#"_epdoc_content_json_hash: "json-hash""#))
+        #expect(written.hasSuffix("# Heading\n\nBody\n"))
     }
 
     @Test("Existing authored frontmatter is not overwritten by the Phase A writer")
@@ -140,5 +144,67 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
         #expect(VaultIndexActor.isEpdocMarkdownSource(["_epdoc_id": "doc-123"]))
         #expect(!VaultIndexActor.isEpdocMarkdownSource(["_epdoc_id": "   "]))
         #expect(!VaultIndexActor.isEpdocMarkdownSource(["id": "normal-note"]))
+    }
+
+    @Test("Markdown-canonical load reads only the Epdoc-owned body")
+    func markdownCanonicalLoadReadsEpdocOwnedBody() throws {
+        let vaultURL = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+        let manifest = Self.sampleManifest()
+        let request = EpdocMarkdownWriteThroughRequest(
+            mode: .markdownCanonical,
+            vaultURL: vaultURL,
+            manifest: manifest,
+            markdown: "# Canonical\n\n[[Note]]\n",
+            contentJSONHash: "json-hash"
+        )
+        let targetURL = vaultURL
+            .appendingPathComponent("notes", isDirectory: true)
+            .appendingPathComponent("doc-123.md")
+        #expect(EpdocMarkdownWriteThrough.writeIfEnabled(request) == .wrote(targetURL))
+
+        let result = EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
+            mode: .markdownCanonical,
+            vaultURL: vaultURL,
+            manifestID: manifest.id
+        )
+
+        #expect(result == .loaded(
+            markdown: "# Canonical\n\n[[Note]]\n",
+            url: targetURL
+        ))
+    }
+
+    @Test("Markdown-canonical load refuses non-Epdoc or mismatched markdown files")
+    func markdownCanonicalLoadRequiresMatchingEpdocID() throws {
+        let vaultURL = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+        let notesURL = vaultURL.appendingPathComponent("notes", isDirectory: true)
+        try FileManager.default.createDirectory(at: notesURL, withIntermediateDirectories: true)
+
+        let targetURL = notesURL.appendingPathComponent("doc-123.md")
+        try "title: no frontmatter\n\nBody".write(to: targetURL, atomically: true, encoding: .utf8)
+        #expect(
+            EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
+                mode: .markdownCanonical,
+                vaultURL: vaultURL,
+                manifestID: "doc-123"
+            ) == .skipped(.missingEpdocFrontmatter)
+        )
+
+        try """
+        ---
+        _epdoc_id: "other-doc"
+        ---
+
+        Body
+        """.write(to: targetURL, atomically: true, encoding: .utf8)
+        #expect(
+            EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
+                mode: .markdownCanonical,
+                vaultURL: vaultURL,
+                manifestID: "doc-123"
+            ) == .skipped(.epdocIDMismatch)
+        )
     }
 }

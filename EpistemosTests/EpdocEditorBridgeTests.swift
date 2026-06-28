@@ -231,6 +231,26 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
+    @Test("chrome controller pushes Markdown when markdown-canonical source is loaded")
+    func chromeControllerPushesMarkdownCanonicalInitialContent() {
+        let controller = EpdocEditorChromeController()
+        let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let markdown = "# Canonical\n\n[[Note]]\n"
+        var commands: [EpdocEditorCommand] = []
+
+        controller.loadInitialContent(json, title: "Loaded MD", markdownSource: markdown)
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.handleBridgeMessage(.editorReady)
+        controller.handleBridgeMessage(.editorReady)
+
+        #expect(controller.latestMarkdownSnapshot == markdown)
+        #expect(commands == [.setMarkdown(markdown: markdown), .focusStart],
+                "markdownCanonical loads must initialize TipTap through setMarkdown, not stale package JSON.")
+    }
+
+    @MainActor
     @Test("chrome controller computes status counters from loaded document JSON before JS emits updates")
     func chromeControllerComputesInitialStatusFromLoadedJSON() {
         let controller = EpdocEditorChromeController()
