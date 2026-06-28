@@ -1,0 +1,78 @@
+import Foundation
+import Testing
+
+@Suite("MarkEdit L3-CHROME mode split guards (Plan 2)")
+nonisolated struct MarkEditChromeModeSplitTests {
+    @Test("CodeEditorView selects markdown versus code chrome with one isMarkdownDocument seam")
+    func codeEditorViewSelectsMarkdownVersusCodeChromeWithOneSeam() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let editorContent = try Self.extractBlock(named: "editorContent", from: source)
+        let codeSurface = try Self.extractBlock(named: "codeEditorSurface", from: source)
+        let livePreview = try Self.extractBlock(named: "codeLivePreview", from: source)
+
+        #expect(source.contains("private var isMarkdownDocument"))
+        #expect(editorContent.contains("if isMarkdownDocument"))
+        #expect(editorContent.contains("MarkEditMarkdownEditorRepresentable("))
+        #expect(editorContent.contains("codeEditorChromeContent"))
+
+        #expect(codeSurface.contains("MarkEditCodeEditorRepresentable("))
+        #expect(!codeSurface.contains("WebKitCodeEditorView("))
+        #expect(codeSurface.contains("SourceEditor("))
+
+        #expect(source.contains("showLivePreview.toggle()"))
+        #expect(livePreview.contains("HTMLWorkspacePreviewView("))
+        #expect(livePreview.contains("livePreviewPackage"))
+    }
+
+    @Test("MarkEdit CoreEditor adapter uses vendored bundle and generated MarkEdit bridge surface")
+    func markEditCoreEditorAdapterUsesVendoredBundleAndBridgeSurface() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/WebKitCodeEditorView.swift")
+
+        #expect(source.contains("struct MarkEditCodeEditorRepresentable"))
+        #expect(source.contains("struct MarkEditMarkdownEditorRepresentable"))
+        #expect(source.contains("MarkEditCoreEditorBridge"))
+        #expect(source.contains("MarkEditCoreEditorChunkLoader"))
+        #expect(source.contains("{{EDITOR_CONFIG}}"))
+        #expect(source.contains("CoreEditor"))
+        #expect(source.contains("webModules.core.resetEditor"))
+        #expect(source.contains("window.webModules.core.getEditorText()"))
+        #expect(source.contains("epistemosMarkEditCoreEditor"))
+    }
+
+    private static func extractBlock(named name: String, from source: String) throws -> String {
+        guard let nameRange = source.range(of: "private var \(name): some View") else {
+            throw MarkEditChromeModeSplitTestError.missingBlock(name)
+        }
+        guard let openBrace = source[nameRange.upperBound...].firstIndex(of: "{") else {
+            throw MarkEditChromeModeSplitTestError.missingBlock(name)
+        }
+
+        var depth = 0
+        var index = openBrace
+        while index < source.endIndex {
+            let character = source[index]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return String(source[openBrace...index])
+                }
+            }
+            index = source.index(after: index)
+        }
+
+        throw MarkEditChromeModeSplitTestError.missingBlock(name)
+    }
+}
+
+private enum MarkEditChromeModeSplitTestError: Error, CustomStringConvertible {
+    case missingBlock(String)
+
+    var description: String {
+        switch self {
+        case .missingBlock(let name):
+            return "Missing CodeEditorView block: \(name)"
+        }
+    }
+}

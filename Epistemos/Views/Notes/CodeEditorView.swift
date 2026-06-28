@@ -900,6 +900,20 @@ nonisolated enum CodeEditorSemanticLSP {
 // MARK: - Language Detection
 
 nonisolated enum CodeLanguage {
+    static func isMarkdownDocument(path: String?) -> Bool {
+        guard let path, !path.isEmpty else { return false }
+        let ext = (path as NSString).pathExtension.lowercased()
+        return ext == "md" || ext == "markdown"
+    }
+
+    static func isMarkdownDocument(filePath: String?, language: String) -> Bool {
+        let languageID = language.lowercased()
+        if languageID == "markdown" || languageID == "md" {
+            return true
+        }
+        return isMarkdownDocument(path: filePath)
+    }
+
     /// Detect language from file extension. Returns nil for markdown/unknown (use prose editor).
     static func detect(from path: String) -> String? {
         let ext = (path as NSString).pathExtension.lowercased()
@@ -962,6 +976,7 @@ nonisolated enum CodeLanguage {
         case "cpp": return "C++"
         case "yaml": return "YAML"
         case "toml": return "TOML"
+        case "markdown", "md": return "Markdown"
         case "gdscript": return "GDScript"
         default: return language.capitalized
         }
@@ -1829,6 +1844,9 @@ struct CodeEditorView: View {
     @AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback") private var useNativeSourceEditorFallback = false
 
     private var usesWebKitEditor: Bool { true }
+    private var isMarkdownDocument: Bool {
+        CodeLanguage.isMarkdownDocument(filePath: filePath, language: language)
+    }
     
     // MARK: - UI State
 
@@ -2075,7 +2093,28 @@ struct CodeEditorView: View {
         // No state update needed - computed property
     }
     
+    @ViewBuilder
     private var editorContent: some View {
+        if isMarkdownDocument {
+            MarkEditMarkdownEditorRepresentable(
+                text: $text,
+                cursorLine: $cursorLine,
+                cursorColumn: $cursorCol,
+                totalLines: $totalLines,
+                theme: ui.theme,
+                fontSize: fontSize,
+                wrapLines: wrapLines,
+                showLineNumbers: showLineGutter,
+                selectionRequest: webKitSelectionRequest
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
+        } else {
+            codeEditorChromeContent
+        }
+    }
+
+    private var codeEditorChromeContent: some View {
         VStack(spacing: 8) {
             codeEditorTopBar
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -2331,7 +2370,7 @@ struct CodeEditorView: View {
     @ViewBuilder
     private var codeEditorSurface: some View {
         if usesWebKitEditor {
-            WebKitCodeEditorView(
+            MarkEditCodeEditorRepresentable(
                 text: $text,
                 cursorLine: $cursorLine,
                 cursorColumn: $cursorCol,
