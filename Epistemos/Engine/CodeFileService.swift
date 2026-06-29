@@ -46,6 +46,7 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
         case fileNotFound(URL)
         case sourceWriteFailed(underlying: Error)
         case sourceVerificationFailed(URL)
+        case sourceIsNotUTF8(URL)
         case sidecarWriteFailed(underlying: Error)
         case sidecarReadFailed(underlying: Error)
         case sidecarParseFailed(underlying: Error)
@@ -66,6 +67,8 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
                 return "CodeFileService: failed to write source: \(error)"
             case let .sourceVerificationFailed(url):
                 return "CodeFileService: source write verification failed at \(url.path)"
+            case let .sourceIsNotUTF8(url):
+                return "CodeFileService: source is not valid UTF-8 at \(url.path)"
             case let .sidecarWriteFailed(error):
                 return "CodeFileService: failed to write sidecar: \(error)"
             case let .sidecarReadFailed(error):
@@ -190,7 +193,9 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
         } catch {
             throw ServiceError.sourceWriteFailed(underlying: error)
         }
-        let body = String(data: bodyData, encoding: .utf8) ?? ""
+        guard let body = String(data: bodyData, encoding: .utf8) else {
+            throw ServiceError.sourceIsNotUTF8(contained.url)
+        }
 
         let sidecarURL = CodeSidecarPath.sidecarURL(
             forVaultRoot: vaultRoot,

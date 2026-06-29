@@ -270,6 +270,31 @@ struct CodeFileServiceTests {
                 "files the indexer hasn't seen must return nil sidecar (NEVER throw — caller handles by triggering reindex)")
     }
 
+    @Test("readCodeFile rejects invalid UTF-8 instead of returning an empty body")
+    func readRejectsInvalidUTF8InsteadOfBlankingBody() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let service = CodeFileService(vaultRoot: vault)
+        let url = vault.appendingPathComponent("BinaryLike.swift")
+        let original = Data([0xff, 0xfe, 0xfd, 0x00, 0x61])
+        try original.write(to: url, options: .atomic)
+
+        do {
+            _ = try service.readCodeFile(at: url)
+            #expect(Bool(false), "invalid UTF-8 must not read as an empty source body")
+        } catch let error as CodeFileService.ServiceError {
+            switch error {
+            case .sourceIsNotUTF8(let failedURL):
+                #expect(failedURL.path == url.path)
+            default:
+                #expect(Bool(false), "wrong error case: \(error)")
+            }
+        }
+
+        #expect(try Data(contentsOf: url) == original,
+                "failed UTF-8 reads must not rewrite or truncate the source file")
+    }
+
     @Test("readCodeFile throws .fileNotFound when source is missing")
     func readThrowsWhenMissing() throws {
         let (vault, cleanup) = makeVault()
