@@ -122,9 +122,10 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   token/api-key/password/secret variants plus split and compact auth-scheme follower tokens. The screenshot path policy
   is isolated in `agent_core/src/tools/browser_screenshot.rs`: screenshots are created under an owner-only private root,
   the adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`, stdout path parsing stays bounded to `.png` tokens, and returned
-  paths must resolve inside that root before vision sees them. The private directory policy is isolated in
-  `agent_core/src/tools/browser_private.rs`: Rust rejects pre-existing symlink paths and non-current-user ownership for
-  those private browser directories before launch or chmod, so
+  paths must resolve inside that root before vision sees them. The browser tool schema definitions are isolated in
+  `agent_core/src/tools/browser_schema.rs` and re-exported by the runtime bridge so the registry surface stays
+  unchanged. The private directory policy is isolated in `agent_core/src/tools/browser_private.rs`: Rust rejects
+  pre-existing symlink paths and non-current-user ownership for those private browser directories before launch or chmod, so
   session/socket/screenshot roots cannot be redirected through `/tmp` symlinks or hostile pre-created
   directories. Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true` before invoking the adapter, so browser-use
   cannot re-interpolate ambient `.env` values on this path. For screenshot commands, the adapter receives

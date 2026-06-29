@@ -144,6 +144,7 @@ struct BrowserUseAdapterPlan3Tests {
         let browserExecutable = try loadMirroredSourceTextFile("agent_core/src/tools/browser_executable.rs")
         let browserPrivate = try loadMirroredSourceTextFile("agent_core/src/tools/browser_private.rs")
         let browserRedaction = try loadMirroredSourceTextFile("agent_core/src/tools/browser_redaction.rs")
+        let browserSchema = try loadMirroredSourceTextFile("agent_core/src/tools/browser_schema.rs")
         let browserScreenshot = try loadMirroredSourceTextFile("agent_core/src/tools/browser_screenshot.rs")
         let registry = try loadMirroredSourceTextFile("agent_core/src/tools/registry.rs")
 
@@ -221,6 +222,23 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_vision_screenshot_paths_must_resolve_inside_private_directory",
         ] {
             #expect(browserScreenshot.contains(required), "Missing browser screenshot policy string: \(required)")
+        }
+
+        for required in [
+            "browser_navigate_schema",
+            "browser_snapshot_schema",
+            "browser_click_schema",
+            "browser_type_schema",
+            "browser_scroll_schema",
+            "browser_back_schema",
+            "browser_press_schema",
+            "browser_close_schema",
+            "browser_get_images_schema",
+            "browser_vision_schema",
+            "browser_console_schema",
+            "\"allow_cloud_external_requests\"",
+        ] {
+            #expect(browserSchema.contains(required), "Missing browser schema string: \(required)")
         }
 
         let adapterIndex = try #require(browserExecutable.range(of: "browser_use_adapter")?.lowerBound)
