@@ -1473,3 +1473,52 @@ suite is restored:
 - **C-M3 (frame guard):** tests drive the inner `receive{Affordance,Prompt}Message(_:replyHandler:)`
   directly (not `userContentController`), so the new `isMainFrame` boundary guard is not exercised by
   existing tests → no regression. (A dedicated frame-guard test should be ADDED once the target builds.)
+
+## 2026-06-29 (continuous loop) — EXTENDED thermonuclear pass (round 2) + closing the tail
+
+The first 3-reviewer pass left several substantive Goose files unaudited; a focused round-2 reviewer
+covered them. **Result: 0 HIGH, 2 MED, 5 LOW.** Confirmations (file:line):
+- **`GooseNativeModelsView` GOLDEN-RULE-clean** — providers from `bridge.liveProviderInventory()`
+  (:239), models inline from `entry.models` (:161-164), defaults from `liveDefaults()` (:240); no
+  Swift-hardcoded provider/model/skill roster; honest blocked state when `.notConnected`.
+- **Boot shim escapes every injected value** — the single `\(payloadJSON)` interpolation (:162) is
+  `JSONSerialization` output embedded as a JS object literal via `Object.freeze`, injected as
+  `WKUserScript` source (no `</script>` context). No raw value string-interpolated.
+- **No secret foreign-origin leak** — shim is `forMainFrameOnly:true` in `.page` world; handlers in
+  the same world; loopback-pinned; non-persistent store; secret never in localStorage / never logged.
+
+Round-2 findings + disposition:
+| # | Sev | Finding | Status |
+|---|-----|---------|--------|
+| R2-M2 | MED | `acpTrace.requests` Map grew unbounded (one entry/request, never deleted) — memory leak on the long-lived surface | **FIXED** `6569255e4` — delete on result/error + 500-cap |
+| R2-L2 | LOW | `GooseACPSourceType` had no forward-compat case → one new source type throws the WHOLE `sources/list` | **FIXED** `6569255e4` — `.unknown` case + lenient entry decode |
+| R2-M1 | MED | generic `get/setSetting` + imported apps use localStorage in a `.nonPersistent()` store → ephemeral across relaunch; ledger over-labeled `getSetting`/`setSetting` `.implementedNative` | **FIXED (honesty)** — relabeled `.implementedRuntime` + documented; FUNCTIONAL native-persistence (M1b) = named, deferred parity gap |
+| R2-L4 | LOW | elicitation panel Submit always enabled (no required-field validation); empty number → `.string("")` | **FIXED** — Submit gated on required(*) fields; empty optionals omitted |
+| R2-L1 | LOW | `jsonLiteral` returns `"{}"` on serialize failure (silent empty bridge) — unreachable today | TRACKED (loud-failure follow-up) |
+| R2-L3 | LOW | Models view 20s timeout flips the view but doesn't cancel the in-flight ACP request; Retry parks tasks | TRACKED — real fix is a request-level timeout in the ACP client (moderate; untestable while suite blocked) |
+| R2-L5 | LOW | traced-WS `get` trap re-binds function props (identity break) — low impact | TRACKED |
+
+### Commits this loop (all app-target build-validated on isolated DD `~/.epistemos-isoloop-dd`)
+`e09513737` (A-HIGH-1/2, A-MED-1/3, C-HIGH-1, B-HIGH-1, C-M1) · `5d6140bb4` (B-M1 -32602) ·
+`3e642b45b` (A-LOW-2/C-L1/B-L1) · `d5f98ac45` (C-M3 frame guard) · `442e2e653` (doc) ·
+`6569255e4` (R2-M2/L2) · [R2-M1a/L4 pending this iteration's build].
+
+### Honest standing
+Two adversarial thermonuclear passes over the entire Goose surface now find **0 HIGH outstanding**;
+every HIGH/MED finding is fixed + committed; the residual is a small, named LOW/parity tail
+(R2-L1/L3/L5, R2-M1b functional persistence) — bounded, not "silently missing." `build-for-testing`
++ the focused Goose unit suites remain blocked by the unrelated Plan-3 `ArxivPlan3Tests` regression at
+HEAD (flagged for that lane); Goose validation is via app-target build + the live ACP probes. Phase 0
+gate stays OWNER-pending: Gate 3 real-token/`agent_thought_chunk` + Gate 5 OAuth/MAS WRV.
+
+### ⚠️ 2026-06-29 — NEW cross-lane block: the APP TARGET no longer compiles (Plan-3 regression)
+A later Plan-3 commit (`c344d6529` "Stop browser-use runtime on invalid loopback plan") introduced a
+COMPILE ERROR at `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift:250` —
+`supervisor?.stop()` uses optional chaining on a non-optional `BrowserUseRuntimeSupervisor`
+(`error: cannot use optional chaining on non-optional value`). This breaks the shared **app target**
+at HEAD, so NO lane (including Goose) can produce a green `build` right now. NOT the Goose lane / not
+mine to fix (Plan-3 file). My Goose commits through `6569255e4` were each validated on a GREEN
+app-target build BEFORE this regression landed; only the in-flight M1(a) ledger-honesty relabel + L4
+elicitation-validation await the app-build unblock. → ACTION FOR OWNER/Plan-3: drop the `?` at
+`BrowserUseWebUIView.swift:250` (one char) to restore the app build for every lane. Combined with the
+earlier `ArxivPlan3Tests` test-target break, the Plan-3 lane currently has the whole repo un-buildable.
