@@ -8,6 +8,7 @@ import MarkEditKit
 
 nonisolated enum MarkEditCoreEditorBridge {
     static let messageHandlerName = "epistemosMarkEditCoreEditor"
+    static let nativeMessageHandlerName = "bridge"
     static let chunkScheme = "chunk-loader"
     static let resourceSubpath = "CoreEditor"
 }
@@ -295,6 +296,11 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
             context.coordinator,
             name: MarkEditCoreEditorBridge.messageHandlerName
         )
+        configuration.userContentController.addScriptMessageHandler(
+            context.coordinator,
+            contentWorld: .page,
+            name: MarkEditCoreEditorBridge.nativeMessageHandlerName
+        )
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
@@ -336,7 +342,7 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
     }
 }
 
-private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
     var text: Binding<String>
     var cursorLine: Binding<Int>
     var cursorColumn: Binding<Int>
@@ -381,6 +387,10 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: MarkEditCoreEditorBridge.messageHandlerName
         )
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: MarkEditCoreEditorBridge.nativeMessageHandlerName,
+            contentWorld: .page
+        )
         self.webView = nil
         hasLoadedEditor = false
         pendingState = nil
@@ -423,26 +433,72 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         isApplyingFromSwift = true
         let generation = loadGeneration
         let previousState = lastAppliedState
+        let expectedLength = state.text.utf16.count
         let script = """
         (async () => {
-          if (!window.webModules?.core?.resetEditor) { return false; }
+          if (!window.webModules?.core?.resetEditor) {
+            return { ok: false, error: "CoreEditor resetEditor bridge is missing" };
+          }
+          if (!window.webModules?.core?.getEditorText) {
+            return { ok: false, error: "CoreEditor getEditorText bridge is missing" };
+          }
           window.__epistemosApplyingMarkEditState = true;
           try {
-            await window.webModules.core.resetEditor(\(json));
-            return true;
+            const resetResult = await window.webModules.core.resetEditor(\(json));
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const editorText = window.webModules.core.getEditorText();
+            const renderedText = document.querySelector(".cm-content")?.textContent ?? "";
+            const lineCount = window.editor?.state?.doc?.lines ?? 0;
+            if (\(expectedLength) > 0 && editorText.length === 0) {
+              return {
+                ok: false,
+                error: "CoreEditor reset completed with empty editor text",
+                resetResult,
+                renderedLength: renderedText.length,
+                lineCount,
+              };
+            }
+            if (\(expectedLength) > 0 && renderedText.length === 0) {
+              return {
+                ok: false,
+                error: "CoreEditor reset completed with no rendered CodeMirror text",
+                resetResult,
+                editorLength: editorText.length,
+                lineCount,
+              };
+            }
+            return {
+              ok: resetResult === true,
+              resetResult,
+              editorLength: editorText.length,
+              renderedLength: renderedText.length,
+              lineCount,
+            };
+          } catch (error) {
+            return {
+              ok: false,
+              error: String(error?.stack || error?.message || error),
+            };
           } finally {
             setTimeout(() => { window.__epistemosApplyingMarkEditState = false; }, 0);
           }
         })();
         """
-        webView.evaluateJavaScript(script) { [weak self] result, _ in
+        webView.evaluateJavaScript(script) { [weak self, weak webView] result, error in
             guard let self, generation == self.loadGeneration else { return }
             self.isApplyingFromSwift = false
-            if (result as? Bool) == true {
+            if let report = result as? [String: Any],
+               report["ok"] as? Bool == true {
                 self.lastAppliedState = state
             } else {
                 self.lastAppliedState = previousState
                 self.pendingState = state
+                if let webView {
+                    self.showLoadFailure(
+                        in: webView,
+                        message: "MarkEdit CoreEditor reset failed: \(Self.resetFailureMessage(result: result, error: error))"
+                    )
+                }
             }
         }
     }
@@ -492,7 +548,7 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
             }
 
             guard attempt < 160 else {
-                self.showLoadFailure(in: webView)
+                self.showLoadFailure(in: webView, message: "MarkEdit CoreEditor failed to load. Check CoreEditor chunks, the chunk-loader scheme, and the MarkEdit native bridge.")
                 return
             }
 
@@ -517,15 +573,16 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         }
     }
 
-    private func showLoadFailure(in webView: WKWebView) {
+    private func showLoadFailure(in webView: WKWebView, message: String) {
         hasLoadedEditor = false
         isApplyingFromSwift = false
+        let messageJSON = message.jsonString ?? "\"MarkEdit CoreEditor failed to load.\""
         let script = """
         (() => {
           const target = document.querySelector('#editor') || document.body;
           target.innerHTML = '';
           const message = document.createElement('pre');
-          message.textContent = 'MarkEdit CoreEditor failed to load. Check CoreEditor chunks and the chunk-loader scheme.';
+          message.textContent = \(messageJSON);
           message.style.margin = '16px';
           message.style.whiteSpace = 'pre-wrap';
           message.style.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -534,6 +591,21 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         })();
         """
         webView.evaluateJavaScript(script)
+    }
+
+    private static func resetFailureMessage(result: Any?, error: Error?) -> String {
+        if let error {
+            return error.localizedDescription
+        }
+        if let report = result as? [String: Any],
+           let message = report["error"] as? String,
+           !message.isEmpty {
+            return message
+        }
+        if let report = result as? [String: Any] {
+            return "unexpected reset report \(report)"
+        }
+        return "unexpected reset result \(String(describing: result))"
     }
 
     func webView(
@@ -586,6 +658,19 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         if let applied = lastAppliedState {
             lastAppliedState = applied.replacingText(next)
         }
+    }
+
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage,
+        replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void
+    ) {
+        guard message.name == MarkEditCoreEditorBridge.nativeMessageHandlerName,
+              message.frameInfo.isMainFrame else {
+            replyHandler(nil, nil)
+            return
+        }
+        replyHandler(nil, nil)
     }
 
     private static let snapshotBridgeScript = """

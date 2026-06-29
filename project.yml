@@ -68,6 +68,7 @@ targets:
       - path: Epistemos/Resources
         excludes:
           - CoreEditor/chunks/**
+          - chunks/**
           - LaunchAgents/**
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
       - path: LocalPackages/MarkEdit/MarkEditMac/Resources
@@ -207,6 +208,7 @@ targets:
       - path: Epistemos/Resources
         excludes:
           - CoreEditor/chunks/**
+          - chunks/**
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
       - path: LocalPackages/MarkEdit/MarkEditMac/Resources
         excludes:

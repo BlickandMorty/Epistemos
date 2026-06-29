@@ -53,6 +53,18 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(!source.contains("lastAppliedState = initialState"))
     }
 
+    @Test("CoreEditor embed registers MarkEdit native bridge and fails visibly when reset is blank")
+    func markEditCoreEditorRegistersNativeBridgeAndBlankResetDiagnostics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+
+        #expect(source.contains(#"static let nativeMessageHandlerName = "bridge""#))
+        #expect(source.contains("WKScriptMessageHandlerWithReply"))
+        #expect(source.contains("addScriptMessageHandler("))
+        #expect(source.contains("removeScriptMessageHandler(\n            forName: MarkEditCoreEditorBridge.nativeMessageHandlerName,\n            contentWorld: .page"))
+        #expect(source.contains("CoreEditor reset completed with no rendered CodeMirror text"))
+        #expect(source.contains("resetFailureMessage(result: result, error: error)"))
+    }
+
     @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
     func markEditCoreEditorChunkLoaderRejectsTraversalAndNonChunkHosts() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
@@ -61,6 +73,19 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("isSafeRelativePathComponent"))
         #expect(source.contains(#"component != "..""#))
         #expect(source.contains("mimeTypes[fileURL.pathExtension.lowercased()]"))
+    }
+
+    @Test("Runtime asset bundler preserves CoreEditor chunks inside the app bundle")
+    func runtimeAssetBundlerPreservesCoreEditorChunks() throws {
+        let source = try loadMirroredSourceTextFile("bundle-app-runtime-assets.sh")
+
+        #expect(source.contains("CORE_EDITOR_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/CoreEditor\""))
+        #expect(source.contains("CORE_EDITOR_BUNDLE_DIR=\"$RESOURCES_DIR/CoreEditor\""))
+        #expect(source.contains("CORE_EDITOR_CHUNKS_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/chunks\""))
+        #expect(source.contains("CORE_EDITOR_CHUNKS_BUNDLE_DIR=\"$RESOURCES_DIR/chunks\""))
+        #expect(source.contains("rsync -a --delete \"$CORE_EDITOR_SOURCE_DIR/\" \"$CORE_EDITOR_BUNDLE_DIR/\""))
+        #expect(source.contains("rsync -a --delete \"$CORE_EDITOR_CHUNKS_SOURCE_DIR/\" \"$CORE_EDITOR_CHUNKS_BUNDLE_DIR/\""))
+        #expect(source.contains("bundle_coreeditor_resources"))
     }
 
     private static func extractBlock(named name: String, from source: String) throws -> String {

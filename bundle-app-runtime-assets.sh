@@ -8,6 +8,10 @@ fi
 RESOURCES_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
 EDITOR_SOURCE_DIR="$SRCROOT/Epistemos/Resources/Editor"
 EDITOR_BUNDLE_DIR="$RESOURCES_DIR/Editor"
+CORE_EDITOR_SOURCE_DIR="$SRCROOT/Epistemos/Resources/CoreEditor"
+CORE_EDITOR_BUNDLE_DIR="$RESOURCES_DIR/CoreEditor"
+CORE_EDITOR_CHUNKS_SOURCE_DIR="$SRCROOT/Epistemos/Resources/chunks"
+CORE_EDITOR_CHUNKS_BUNDLE_DIR="$RESOURCES_DIR/chunks"
 DEFAULT_SKILLS_SOURCE_DIR="$SRCROOT/.agents/skills"
 DEFAULT_SKILLS_DIR="$RESOURCES_DIR/DefaultSkills"
 GOOSE_BINARY_DEST="$RESOURCES_DIR/goose"
@@ -42,6 +46,30 @@ bundle_editor_resources() {
     while IFS= read -r -d '' source_file; do
         rm -f "$RESOURCES_DIR/$(basename "$source_file")"
     done < <(find "$EDITOR_SOURCE_DIR" -type f -print0)
+}
+
+bundle_coreeditor_resources() {
+    if [ -d "$CORE_EDITOR_SOURCE_DIR" ]; then
+        mkdir -p "$CORE_EDITOR_BUNDLE_DIR"
+        rsync -a --delete "$CORE_EDITOR_SOURCE_DIR/" "$CORE_EDITOR_BUNDLE_DIR/"
+    else
+        rm -rf "$CORE_EDITOR_BUNDLE_DIR"
+    fi
+
+    if [ -d "$CORE_EDITOR_CHUNKS_SOURCE_DIR" ]; then
+        mkdir -p "$CORE_EDITOR_CHUNKS_BUNDLE_DIR"
+        rsync -a --delete "$CORE_EDITOR_CHUNKS_SOURCE_DIR/" "$CORE_EDITOR_CHUNKS_BUNDLE_DIR/"
+    else
+        rm -rf "$CORE_EDITOR_CHUNKS_BUNDLE_DIR"
+    fi
+
+    # Xcode may flatten CoreEditor/index.html into Contents/Resources.
+    # The runtime loader uses the canonical CoreEditor/ directory first;
+    # remove the flattened duplicate so a stale root index cannot mask a
+    # missing chunk tree during manual bundle inspection.
+    if [ -f "$CORE_EDITOR_SOURCE_DIR/index.html" ]; then
+        rm -f "$RESOURCES_DIR/index.html"
+    fi
 }
 
 bundle_default_skills() {
@@ -203,6 +231,7 @@ bundle_goose_web_ui() {
 }
 
 bundle_editor_resources
+bundle_coreeditor_resources
 bundle_default_skills
 
 if is_app_store_build; then
