@@ -66,6 +66,38 @@
 - **iCloud vault sync** — Apple-sanctioned + sandbox-safe via the ubiquity container + iCloud entitlement; ALL IO through NSFileCoordinator + a registered NSFilePresenter; temp-write+hard-link-swap; explicit NSFileVersion conflict resolution (no silent last-writer-wins). → baked into Plan 7's hard gates.
 - **Bitcrush DSP** — trivially real: an AVAudioUnit/AVAudioEngine effect over any TTS voice; MAS-safe. → Plan 3 voice fold-in.
 
+## WAVE 2 — OWNER-LEDGER DEEP-MINE (2026-06-29; re-run after the first mine was lost mid-run)
+> The dedicated mine of `OWNER_REQUESTS_LEDGER_2026_06_18.md` (4498L) failed the first time (process exit). Re-run
+> completed: the ledger is OVERWHELMINGLY historical (Osaurus/Tolaria era — most lines are CUT items or already in
+> Plans 1-7 / Wave-1). After excluding all of that, **18 genuinely-new, worth-keeping residue items** remain, routed:
+| # | Feature | What | Ledger ln | Route | Conf |
+|---|---|---|---|---|---|
+| 26 | **Frontmatter / Properties side-panel + tags index** | Obsidian/Logseq frontmatter+properties panel, tag index, backlinks on the md editor | L3782, L3842 | Plan 2 | high |
+| 27 | **Theme-switch HANG + granular custom colors** | dark↔light toggle *hangs* / colors don't update / needs ~3 toggles + add granular text/accent/surface color slots (distinct from the Wave-1 *crash*) | L4044-48, L4027-31, L4389-98 | **NEW (Theming)** | high |
+| 28 | **Homepage→graph blur-replace transition** | replace the squish/fold/flicker home↔graph transition w/ native Apple blur-replace ("really important hardening" — owner) | L3911-13, L3937 | Plan 4 (anim) | high |
+| 29 | **App-wide blur-replace animation polish** | sweep 7 LandingView overlays / RootView / sidebar / companion for glitchy transitions → blur-replace house style | L3937-38, L3949-55 | Plan 4 (anim) | med |
+| 30 | **Bases-style table/DB views over frontmatter** | Notion/Obsidian-Bases DB views computed over note frontmatter (the "take over Notion" bar) | L4154 | Plan 2 / NEW | med |
+| 31 | **Block-refs + transclusion + backlinks** | Logseq/Roam block-level refs + transclusion + backlink panel (beyond wikilink resolve) | L4155, L3782 | Plan 2 | med |
+| 32 | **Vault export / backup** | NO export/backup exists today — data-safety gap | L4055-61 (SS-BWB) | **Plan 7** | med |
+| 33 | **Raw-thoughts vault visibility** | `RawThoughtsState` captures but never surfaces in the vault — wire-or-honestly-retire | L4360-61 | Plan 6 | med |
+| 34 | **Dead graph-appearance toggles** | graph appearance settings set flags `MetalGraphView` never reads — wire or remove (honesty debt) | L4362-63 | **NEW (graph chrome)** | med |
+| 35 | **Code-editor white-bar + page-relevant pill** | graph code-editor non-theme white top bar; landing pill persists onto graph (swap to page controls) | L3998-4019 | **NEW (graph chrome)** / Plan 2 | med |
+| 36 | **Quick-capture destination presets** | capture hardcoded to a Prose SDPage; add note/Epdoc/chat/code destination presets | L4049-51, L4174 | Plan 6 | med |
+| 37 | **Cold-box inline-AI separation + scroll affordance** | inline "Ask this note" + send anim + scroll-down arrow + visually-distinct "cold box" (AI≠user text) | L4177-86 | Plan 2 / Plan 5 | med |
+| 38 | **Code-editor icon dropdown-arrow cleanup** | icon-only Menus show a deformed chevron — `.menuIndicator(.hidden)` across 8 files (trivial) | L4091-4100 | Plan 2 | med |
+| 39 | **Model-vault staleness + per-model user-file injection** | per-model Knowledge-Fusion vaults stale (bootstrap-only); local models never read the vault; user files ignored | L4101-14 | **NEW (per-model knowledge)** | med |
+| 40 | **Wikilink-driven auto-research** | unresolved `[[link]]` → auto-research task feeding the vault (Karpathy LLM-wiki pattern) | L4115-35 | Plan 2 / Plan 6 / NEW | med |
+| 41 | **SS-BWB stability backlog** | notify-on-complete · unified `.searchable` surface · standardized error/empty/loading + chat retry · a11y/Dynamic-Type | L4055-61 | Plan 7 / NEW | med |
+| 42 | **UMA zero-copy local-recall (accuracy-first)** | local model recall taps the in-process tantivy/usearch/RRF shadow-index (zero-copy) — "make local models better" thesis | L3757-73, L3806-14 | **NEW (local-inference)** | low |
+| 43 | **MLX-LoRA-Studio + adapter-testing UX** | native LoRA training dashboard + select-adapter→apply-to-model→TEST (training/adapters — NOT the cut model-mgmt) | L3863-3920 | **NEW (training/adapters)** ⚠️ | low |
+
+### WAVE 2 routing + NEW-home clusters (owner decision)
+- **Fold into existing (owner-confirm — Plan 2 is LIVE):** Plan 2 ← 26,30,31,37,38,40 (frontmatter/Bases/block-refs/cold-box/dropdown/wikilink-research) · Plan 4 ← 28,29 (blur-replace transitions) · Plan 6 ← 33,36 (raw-thoughts, capture presets) · Plan 7 ← 32,41 (vault export/backup, SS-BWB backlog).
+- **NEW homes proposed:**
+  - **Plan 8 — Theming & Appearance** (27 theme-switch hang + granular colors · 34 dead graph toggles · 35 graph white-bar/pill) — a coherent appearance-honesty cluster; theme-hang is HIGH-confidence + grounded.
+  - **Plan 9 — Local-model knowledge & adapters** ⚠️ SENSITIVE (39 model-vault staleness · 42 UMA zero-copy recall · 43 LoRA-Studio/adapters) — the "make local models better" thesis. The agent flags these as DISTINCT from the cut model-management (per-model context + training, not HF-browser/BYOM) — but it is adjacent, so **owner must confirm this isn't reviving cut scope** before it gets a plan.
+- **Highest-confidence picks:** #26 frontmatter panel · #28 homepage blur-replace · #27 theme-switch hang.
+
 > **Auditor note:** this ledger is now canonical. When the owner picks restorations, route each item into its plan
 > doc + (if Plan 6/7 are created) draft their prompts to the same strictness as Plans 1-5. Until then, every item is
 > captured here — nothing is lost.
