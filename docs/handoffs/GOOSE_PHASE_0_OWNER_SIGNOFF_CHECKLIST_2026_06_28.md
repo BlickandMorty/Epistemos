@@ -41,10 +41,25 @@ Status of your three ordered steps:
     (b) TLS stays opt-in — http loopback is the proven, zero-regression posture; the
     cert-pin delegate is scoped-deferred until an MCP guest is shown to need https.
 
-- **STEP 3 (router + native Models slice) — IN PROGRESS.** Per-route router that
-  defaults EVERY route to the WebView (the oracle) and promotes a route to native
-  only when its parity test passes; native Models picker is the safe first slice
-  (live-enumerated catalog; GOLDEN RULE intact). WebView stays default + oracle.
+- **STEP 3 (router + native Models slice) — DONE + PARITY-PROVEN (stays opt-in).**
+  `GooseSurfaceRouter` defaults EVERY route to the WebView (the oracle); a route goes
+  native only when it is BOTH native-capable AND explicitly enabled
+  (`EPISTEMOS_GOOSE_NATIVE_ROUTES` env / `epistemos.goose.nativeRoutes` UserDefaults).
+  Native `GooseNativeModelsView` is the safe first slice — STRICTLY live-enumerated
+  from the same ACP connection the WebView uses (no second spawn; GOLDEN RULE roster
+  guard clean). `** BUILD SUCCEEDED **`.
+  - A live parity probe CAUGHT a real design error before it shipped: the picker first
+    sourced the custom-provider TEMPLATE catalog (built-ins like openai absent → the
+    real default couldn't be shown) + a per-provider live model call that HANGS without
+    creds. Fixed to source `providers/list` (65 providers, models INLINE, built-ins
+    included, default resolvable, never hangs).
+  - Witness (re-runnable: `scripts/goose-native-models-probe.sh`): providers/list → 65
+    providers, 53 carry inline models, defaults/read → openai/gpt-4o-mini present →
+    `NATIVE_MODELS_PARITY_PASS`. Plus always-run router invariant tests.
+  - HARD GATE honored: the Models route has EARNED promotion but stays on the WebView by
+    default — flip the flag to try native. WebView remains the oracle for every route.
+  - Next routes (auth, apps, sessions, …) promote one at a time as each gains a native
+    view + green parity, same pattern.
 
 The manual app pass + OAuth login below remain the owner-only §7 gate.
 
