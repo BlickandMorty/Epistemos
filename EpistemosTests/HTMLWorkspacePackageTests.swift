@@ -115,6 +115,57 @@ nonisolated struct HTMLWorkspacePackageTests {
                 "Preview HTML must not expose app bridge handlers unless an explicit safe API is enabled.")
     }
 
+    @Test("importing exported HTML preserves user sources without host scaffold")
+    func importingExportedHTMLPreservesUserSourcesWithoutHostScaffold() {
+        let package = HTMLWorkspacePackage(
+            manifest: Self.sampleManifest(),
+            indexHTML: #"<main class="user-card"><h1>Imported</h1></main>"#,
+            styleCSS: "  :root { --card-gap: 12px; }\n.user-card { display: grid; gap: var(--card-gap); }\n",
+            scriptJS: "\ndocument.body.dataset.userScript = 'true';\n",
+            dataJSON: #"{"message":"hello","danger":"</script><!--"}"#
+        )
+
+        let exported = HTMLWorkspacePreviewDocument.render(package: package, theme: .dark)
+        let imported = HTMLWorkspaceHTMLImporter.importSources(from: exported)
+
+        #expect(exported.contains(#"id="epistemos-workspace-runtime""#))
+        #expect(exported.contains(#"<\/script><!--"#))
+        #expect(imported.html == package.indexHTML)
+        #expect(imported.css == package.styleCSS)
+        #expect(imported.js == package.scriptJS)
+        #expect(imported.dataJSON == package.dataJSON)
+        #expect(!imported.css.contains("--epistemos-workspace-title-font"))
+        #expect(!imported.css.contains("html[data-epistemos-theme]"))
+        #expect(!imported.js.contains("Object.defineProperty(window, 'HTMLWorkspace'"))
+    }
+
+    @Test("HTML import keeps only executable user scripts")
+    func htmlImportKeepsOnlyExecutableUserScripts() {
+        let source = """
+        <!doctype html>
+        <html>
+        <head>
+          <style>.card { color: red; }</style>
+        </head>
+        <body>
+          <main>Import</main>
+          <script type="application/json; charset=utf-8">{"ignored":true}</script>
+          <script type="importmap">{"imports":{"x":"/x.js"}}</script>
+          <script type="module">export const moduleValue = 1;</script>
+          <script type="text/javascript">window.plainScript = true;</script>
+        </body>
+        </html>
+        """
+
+        let imported = HTMLWorkspaceHTMLImporter.importSources(from: source)
+
+        #expect(imported.css == ".card { color: red; }")
+        #expect(imported.js.contains("export const moduleValue = 1;"))
+        #expect(imported.js.contains("window.plainScript = true;"))
+        #expect(!imported.js.contains(#""ignored":true"#))
+        #expect(!imported.js.contains(#""imports""#))
+    }
+
     @Test("default workspace uses display fonts for title and metric numerals")
     func defaultWorkspaceUsesDisplayTypography() {
         let package = HTMLWorkspacePackage.defaultPackage()
@@ -313,6 +364,15 @@ nonisolated struct HTMLWorkspacePackageTests {
             _ = try HTMLWorkspacePatchCommandParser.parse(inlineHandler)
         }
 
+        let spacedInlineHandler = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"insertBlock","html":"<button onclick = \\"alert(1)\\">Run</button>"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(spacedInlineHandler)
+        }
+
         let appBridgeProbe = """
         ```epistemos-html-workspace-patch
         {"operations":[{"type":"replaceJS","js":"window.webkit.messageHandlers.epdoc.postMessage({})"}]}
@@ -320,6 +380,42 @@ nonisolated struct HTMLWorkspacePackageTests {
         """
         #expect(throws: HTMLWorkspacePatchRouterError.self) {
             _ = try HTMLWorkspacePatchCommandParser.parse(appBridgeProbe)
+        }
+
+        let spacedAppBridgeProbe = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceJS","js":"window . webkit ?. messageHandlers.epdoc.postMessage({})"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(spacedAppBridgeProbe)
+        }
+
+        let optionalChainingAppBridgeProbe = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceJS","js":"window?.webkit?.messageHandlers.epdoc.postMessage({})"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(optionalChainingAppBridgeProbe)
+        }
+
+        let bracketAppBridgeProbe = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceJS","js":"window['webkit'][\\"messageHandlers\\"].epdoc.postMessage({})"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(bracketAppBridgeProbe)
+        }
+
+        let globalAppBridgeProbe = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceJS","js":"webkit.messageHandlers.epdoc.postMessage({})"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(globalAppBridgeProbe)
         }
 
         let malformedData = """
@@ -350,8 +446,19 @@ nonisolated struct HTMLWorkspacePackageTests {
         {"operations":[{"type":"addAsset","name":"../secret","base64":"AA=="}]}
         ```
         """
-        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+        #expect(throws: HTMLWorkspacePackageError.self) {
             _ = try HTMLWorkspacePatchCommandParser.parse(traversal)
         }
+    }
+
+    @Test("HTML workspace patch errors keep useful localized descriptions")
+    func htmlWorkspacePatchErrorsKeepLocalizedDescriptions() {
+        let routerError = HTMLWorkspacePatchRouterError.unsafeSource(reason: "inline event handler")
+        #expect(routerError.localizedDescription.contains("HTML Workspace patch contains unsafe source"))
+        #expect(routerError.localizedDescription.contains("inline event handler"))
+
+        let packageError = HTMLWorkspacePackageError.invalidPackagePath(name: "../secret")
+        #expect(packageError.localizedDescription.contains("invalid package path"))
+        #expect(packageError.localizedDescription.contains("../secret"))
     }
 }

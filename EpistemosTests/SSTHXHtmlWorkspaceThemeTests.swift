@@ -18,6 +18,16 @@ struct SSTHXHtmlWorkspaceThemeTests {
             "Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
         // A theme-prop change now refreshes the preview snapshot (mirrors the colorScheme refresh).
         #expect(src.contains(".onChange(of: theme) {"))
+        #expect(src.contains("themeIdentity: workspaceThemeIdentity"))
+    }
+
+    @Test("the WK preview render cache keys theme identity as well as HTML bytes")
+    func previewCacheKeysThemeIdentity() throws {
+        let preview = try loadMirroredSourceTextFile(
+            "Epistemos/Views/HTMLWorkspace/HTMLWorkspacePreviewView.swift")
+        #expect(preview.contains("lastRenderedThemeIdentity"))
+        #expect(preview.contains("context.coordinator.lastRenderedThemeIdentity != themeIdentity"))
+        #expect(preview.contains("context.coordinator.lastRenderedThemeIdentity = themeIdentity"))
     }
 
     @Test("the detached document feeds ui.theme into the workspace (so the theme prop tracks it)")

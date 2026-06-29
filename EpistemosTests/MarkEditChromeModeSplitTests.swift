@@ -6,6 +6,8 @@ nonisolated struct MarkEditChromeModeSplitTests {
     @Test("CodeEditorView selects markdown chrome, default code chrome, and legacy v1 fallback")
     func codeEditorViewSelectsMarkdownCodeAndLegacyFallback() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let iconSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeFileIconView.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let editorContent = try Self.extractBlock(named: "editorContent", from: source)
         let codeSurface = try Self.extractBlock(named: "codeEditorSurface", from: source)
         let livePreview = try Self.extractBlock(named: "codeLivePreview", from: source)
@@ -13,6 +15,8 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("private var isMarkdownDocument"))
         #expect(source.contains(#"@AppStorage("codeEditor.useLegacyV1Editor") private var useLegacyV1Editor = false"#))
         #expect(source.contains("useLegacyV1Editor && !isMarkdownDocument"))
+        #expect(settings.contains(#"@AppStorage("codeEditor.useLegacyV1Editor") private var useLegacyV1Editor = false"#))
+        #expect(settings.contains(#"Toggle("Use v1 Legacy Code Editor", isOn: $useLegacyV1Editor)"#))
         #expect(editorContent.contains("if isMarkdownDocument"))
         #expect(editorContent.contains("MarkEditMarkdownEditorRepresentable("))
         #expect(editorContent.contains("codeEditorChromeContent"))
@@ -24,6 +28,8 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("showLivePreview.toggle()"))
         #expect(livePreview.contains("HTMLWorkspacePreviewView("))
         #expect(livePreview.contains("livePreviewPackage"))
+        #expect(source.contains("CodeFileIconView(filePath: filePath, language: language, theme: ui.theme)"))
+        #expect(iconSource.contains("NSWorkspace.shared.icon(forFile: filePath)"))
     }
 
     @Test("Code live preview updates the existing WKWebView instead of rebuilding on text edits")

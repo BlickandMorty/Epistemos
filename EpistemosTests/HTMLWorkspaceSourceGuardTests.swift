@@ -28,8 +28,13 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("syncSafeAPIHandler"))
         #expect(previewSource.contains("safeAPIEnabled"))
         #expect(previewSource.contains("HTMLWorkspaceSafeAPI.messageHandlerName"))
-        #expect(!previewSource.contains("addUserScript("),
-                "HTML Workspace preview should not inject app-internal scripts; expose only an explicit safe API.")
+        #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.enabled"))
+        #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.injectionScript"))
+        #expect(previewSource.contains("onConsoleError != nil"))
+        #expect(previewSource.components(separatedBy: "addUserScript(").count == 2,
+                "Preview may install exactly one user script: the env-gated console capture bridge.")
+        #expect(previewSource.contains("configuration.userContentController.addUserScript("),
+                "The only preview user script should be the env-gated, read-only console capture bridge.")
         // Security gate: the app-bridge handler installs ONLY when BOTH the user-enabled flag AND the
         // per-package sandbox policy allow it — the sole barrier against arbitrary rendered HTML
         // obtaining an app bridge. Dropping either condition is a real privilege-escalation hole, so
@@ -98,8 +103,16 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("importHTML()"))
         #expect(editorSource.contains("exportHTML()"))
         #expect(editorSource.contains("previewRenderIdentity"))
+        #expect(editorSource.contains("themeIdentity: workspaceThemeIdentity"))
         #expect(editorSource.contains("currentHTMLWorkspaceDocument()"))
         #expect(editorSource.contains("document.save(nil)"))
+        #expect(editorSource.contains("failedStatus("))
+        #expect(editorSource.contains("error.localizedDescription"))
+        #expect(editorSource.contains("generatedScriptIDs"))
+        #expect(editorSource.contains(#""epistemos-workspace-runtime""#))
+        #expect(editorSource.contains("scriptBodies(in: source)"))
+        #expect(editorSource.contains("shouldImportScript(type:"))
+        #expect(editorSource.contains(#"normalized == "module""#))
         #expect(editorSource.contains(".onChange(of: colorScheme)"))
         #expect(editorSource.contains("DisclosureGroup"))
         #expect(editorSource.contains("Console"))

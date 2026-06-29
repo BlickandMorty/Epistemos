@@ -231,6 +231,23 @@ struct NoteEditorLayoutTests {
         #expect(surfaceSource.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
     }
 
+    @Test("markdown documents default to prose edit and expose Edit Preview Source as peer modes")
+    func markdownDocumentsDefaultToProseEditWithSourceAsThirdMode() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("enum NoteWorkspaceMode: String, CaseIterable, Hashable"))
+        #expect(source.contains("case edit"))
+        #expect(source.contains("case preview"))
+        #expect(source.contains("case source"))
+        #expect(source.contains("@State private var noteMode: NoteWorkspaceMode = .edit"))
+        #expect(source.contains("Picker(\n                \"View\""))
+        #expect(source.contains(": [.edit, .preview, .source]"))
+        #expect(source.contains("guard resolvedNoteMode(for: page) == .source else {"))
+        #expect(!source.contains("MarkdownDocumentLens"))
+        #expect(!source.contains("epistemos.markdownLens"))
+        #expect(!source.contains("UserDefaults.standard.string(forKey: key(pageId: pageId, filePath: filePath))"))
+    }
+
     @MainActor
     @Test("native code editor keeps horizontal overflow discoverable and bounded")
     func nativeCodeEditorKeepsHorizontalOverflowDiscoverableAndBounded() {
@@ -704,6 +721,53 @@ struct NoteEditorLayoutTests {
         #expect(page.lastSyncedBodyHash == SDPage.bodyHash(source))
         #expect(page.lastSyncedAt != nil)
         #expect(page.lastSyncedAt != priorSyncedAt)
+        #expect(page.needsVaultSync == false)
+        #expect(graphState.needsRefresh)
+    }
+
+    @MainActor
+    @Test("direct markdown source saves keep page body front matter free")
+    func directMarkdownSourceSavesKeepPageBodyFrontMatterFree() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let page = SDPage(title: "Old Title")
+        page.filePath = "/tmp/SourceNote.md"
+        page.needsVaultSync = true
+        context.insert(page)
+        try context.save()
+
+        let source = """
+        ---
+        title: Source Title
+        tags: alpha, beta
+        icon: code
+        parent: parent-id
+        template: template-id
+        ---
+        # Clean Body
+
+        ((body-ref))
+        """
+        let graphState = GraphState()
+
+        try NoteDetailWorkspaceView.applyDirectCodeFileSave(
+            source,
+            to: page,
+            filePath: page.filePath,
+            modelContext: context,
+            graphState: graphState
+        )
+
+        let cleanBody = "# Clean Body\n\n((body-ref))"
+        #expect(page.body == cleanBody)
+        #expect(page.frontMatter["title"] == "Source Title")
+        #expect(page.title == "Source Title")
+        #expect(page.tags == ["alpha", "beta"])
+        #expect(page.emoji == "code")
+        #expect(page.parentPageId == "parent-id")
+        #expect(page.templateId == "template-id")
+        #expect(page.blockReferences == ["body-ref"])
+        #expect(page.lastSyncedBodyHash == SDPage.bodyHash(cleanBody))
         #expect(page.needsVaultSync == false)
         #expect(graphState.needsRefresh)
     }

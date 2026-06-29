@@ -32,41 +32,99 @@ private struct CodeFileBodySnapshot: Equatable, Sendable {
     }
 }
 
-enum MarkdownDocumentLens: String, CaseIterable, Hashable {
-    case note
+enum NoteWorkspaceMode: String, CaseIterable, Hashable {
+    case edit
+    case preview
     case source
 
     var label: String {
         switch self {
-        case .note:
-            "Note"
+        case .edit:
+            "Edit"
+        case .preview:
+            "Preview"
         case .source:
             "Source"
         }
     }
-}
 
-@MainActor
-private enum MarkdownDocumentLensPreferences {
-    static func key(pageId: String, filePath: String?) -> String {
-        let pathKey = filePath?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let stablePath = pathKey?.isEmpty == false ? pathKey! : "inline"
-        return "epistemos.markdownLens.\(pageId).\(stablePath)"
-    }
-
-    static func lens(pageId: String, filePath: String?) -> MarkdownDocumentLens {
-        let value = UserDefaults.standard.string(forKey: key(pageId: pageId, filePath: filePath))
-        return value.flatMap(MarkdownDocumentLens.init(rawValue:)) ?? .note
-    }
-
-    static func set(_ lens: MarkdownDocumentLens, pageId: String, filePath: String?) {
-        UserDefaults.standard.set(lens.rawValue, forKey: key(pageId: pageId, filePath: filePath))
+    var symbolName: String {
+        switch self {
+        case .edit:
+            "pencil"
+        case .preview:
+            "eye"
+        case .source:
+            "chevron.left.forwardslash.chevron.right"
+        }
     }
 }
 
 private struct SourceEditorRoute {
     let filePath: String
     let language: String
+}
+
+private struct SourceEditorPersistedContent {
+    private struct MarkdownMetadata {
+        let frontMatter: [String: String]
+        let title: String
+        let tags: [String]
+        let emoji: String
+        let parentPageId: String?
+        let templateId: String?
+    }
+
+    let body: String
+    private let markdownMetadata: MarkdownMetadata?
+
+    var isMarkdownSource: Bool {
+        markdownMetadata != nil
+    }
+
+    init(rawContent: String, filePath: String?) {
+        guard CodeLanguage.isMarkdownDocument(path: filePath) else {
+            body = rawContent
+            markdownMetadata = nil
+            return
+        }
+
+        let fileURL = filePath.map { URL(fileURLWithPath: $0) }
+        let shouldParseFrontMatter = fileURL.map {
+            VaultIndexActor.shouldWriteMarkdownFrontMatter(to: $0)
+        } ?? false
+        let parsed: ([String: String], String) = shouldParseFrontMatter
+            ? VaultIndexActor.parseFrontMatter(rawContent)
+            : ([:], rawContent)
+        let title = parsed.0["title"] ?? fileURL?.deletingPathExtension().lastPathComponent ?? ""
+
+        body = parsed.1
+        markdownMetadata = MarkdownMetadata(
+            frontMatter: parsed.0,
+            title: title,
+            tags: parsed.0["tags"]?.split(separator: ",").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            } ?? [],
+            emoji: parsed.0["icon"] ?? "",
+            parentPageId: parsed.0["parent"],
+            templateId: parsed.0["template"]
+        )
+    }
+
+    @MainActor
+    func apply(to page: SDPage) {
+        page.body = body
+        if let metadata = markdownMetadata {
+            page.frontMatter = metadata.frontMatter
+            page.title = VaultIndexActor.sanitizeTitle(metadata.title.isEmpty ? page.title : metadata.title)
+            page.tags = metadata.tags
+            page.emoji = metadata.emoji
+            page.parentPageId = metadata.parentPageId
+            page.templateId = metadata.templateId
+        }
+        page.blockReferences = SDPage.extractBlockReferences(from: body)
+        page.wordCount = body.split(separator: " ").count
+    }
 }
 
 enum NoteEditorViewFinder {
@@ -633,11 +691,11 @@ struct NoteDetailWorkspaceView: View {
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
-    @State private var showPreview = false
+    @State private var noteMode: NoteWorkspaceMode = .edit
+    @State private var showMarkEditSourceSettings = false
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
-    @State private var markdownLensOverrides: [String: MarkdownDocumentLens] = [:]
     @State private var persistedBody: String
     @State private var showLegacyRecoverySheet = false
     @State private var legacyRecoveryPresentation: NoteLegacyRecoveryPresentation?
@@ -960,7 +1018,7 @@ struct NoteDetailWorkspaceView: View {
                             .padding(.top, 12)
                             .padding(.bottom, 10)
                         }
-                        if showPreview {
+                        if resolvedNoteMode(for: page) == .preview {
                             notePreview(body: displayBody(for: page))
                         } else {
                             GeometryReader { proxy in
@@ -1117,7 +1175,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     /// Whether the current page is routed to the Source editor (code files always,
-    /// markdown files only when their per-document lens is Source).
+    /// markdown files only when the current view mode is Source).
     private var isCodeFile: Bool {
         guard let page = pages.first else { return false }
         return sourceEditorRoute(for: page) != nil
@@ -1180,7 +1238,7 @@ struct NoteDetailWorkspaceView: View {
     private var codeFileLineCount: Int {
         guard let page = pages.first,
               let route = sourceEditorRoute(for: page) else { return 0 }
-        let content = cachedCodeFileContent(page: page, filePath: route.filePath)
+        let content = cachedSourceEditorContent(page: page, route: route)
         return content.components(separatedBy: "\n").count
     }
 
@@ -1216,20 +1274,31 @@ struct NoteDetailWorkspaceView: View {
     private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
         Group {
             if let route = sourceEditorRoute(for: page) {
-                CodeEditorView(
-                    content: cachedCodeFileContent(page: page, filePath: route.filePath),
-                    language: route.language,
-                    filePath: route.filePath,
-                    onContentChange: { newContent in
-                        saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
-                    },
-                    // SS-GC: in the embedded home graph, give the code editor the same
-                    // landing-variant theme the prose branch gets, so its top bar paints the
-                    // graph backdrop instead of a white card. nil elsewhere = unchanged.
-                    themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
-                )
-                .id("\(page.id)::\(route.filePath)")
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                VStack(spacing: 0) {
+                    sourceModeHeader(for: page, route: route)
+
+                    CodeEditorView(
+                        content: cachedSourceEditorContent(page: page, route: route),
+                        language: route.language,
+                        filePath: route.filePath,
+                        onContentChange: { newContent in
+                            saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
+                        },
+                        // SS-GC: in the embedded home graph, give the code editor the same
+                        // landing-variant theme the prose branch gets, so its top bar paints the
+                        // graph backdrop instead of a white card. nil elsewhere = unchanged.
+                        themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
+                    )
+                    .id("\(page.id)::\(route.filePath)")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .sheet(isPresented: $showMarkEditSourceSettings) {
+                    #if canImport(MarkEditKit)
+                    MarkEditSourceSettingsSheet()
+                    #else
+                    EmptyView()
+                    #endif
+                }
             } else {
                 let initialBodyOverride = currentModeBodySnapshot(for: page.id)
                 ProseEditorView(
@@ -1251,6 +1320,44 @@ struct NoteDetailWorkspaceView: View {
             maxHeight: .infinity,
             alignment: .topLeading
         )
+    }
+
+    @ViewBuilder
+    private func sourceModeHeader(for page: SDPage, route: SourceEditorRoute) -> some View {
+        HStack(spacing: 10) {
+            CodeFileIconView(filePath: route.filePath, language: route.language, theme: ui.theme)
+
+            Text(URL(fileURLWithPath: route.filePath).lastPathComponent)
+                .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                .foregroundStyle(ui.theme.resolved.foreground.color)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: 12)
+
+            if isMarkdownDocument(page) {
+                noteModePicker(for: page)
+
+                #if canImport(MarkEditKit)
+                Button {
+                    showMarkEditSourceSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .help("MarkEdit settings")
+                #endif
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: noteWorkspaceTheme))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(ui.theme.resolved.border.color.opacity(0.55))
+                .frame(height: 0.5)
+        }
     }
 
     /// Saves code file content back to disk and updates associated page state
@@ -1276,9 +1383,14 @@ struct NoteDetailWorkspaceView: View {
                 try Self.applyDirectCodeFileSave(
                     content,
                     to: page,
+                    filePath: filePath,
                     modelContext: modelContext,
                     graphState: AppBootstrap.shared?.graphState
                 )
+                persistedBody = page.body
+                if CodeLanguage.isMarkdownDocument(path: filePath) {
+                    modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: page.body)
+                }
             } catch {
                 Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
             }
@@ -1299,16 +1411,16 @@ struct NoteDetailWorkspaceView: View {
     static func applyDirectCodeFileSave(
         _ content: String,
         to page: SDPage,
+        filePath: String? = nil,
         modelContext: ModelContext,
         graphState: GraphState? = nil
     ) throws {
         // Code files are already written to their tracked vault path, so keep the page
         // synchronized without routing them back through markdown export.
-        page.body = content
-        page.blockReferences = SDPage.extractBlockReferences(from: content)
-        page.wordCount = content.split(separator: " ").count
+        let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
+        persistedContent.apply(to: page)
         page.updatedAt = .now
-        page.lastSyncedBodyHash = SDPage.bodyHash(content)
+        page.lastSyncedBodyHash = SDPage.bodyHash(persistedContent.body)
         page.lastSyncedAt = .now
         page.needsVaultSync = false
         try modelContext.save()
@@ -1329,21 +1441,8 @@ struct NoteDetailWorkspaceView: View {
 
     @ViewBuilder
     private var noteToolbarPrimaryActions: some View {
-        Button {
-            togglePreviewMode()
-        } label: {
-            Label(
-                showPreview ? "Editor" : "Preview",
-                systemImage: showPreview
-                    ? (NoteToolbarGlyph.edit.symbolName ?? "pencil")
-                    : (NoteToolbarGlyph.preview.symbolName ?? "eye")
-            )
-            .labelStyle(.iconOnly)
-        }
-        .help(showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)")
-
         if let page = pages.first {
-            markdownLensPicker(for: page)
+            noteModePicker(for: page)
 
             ViewOriginalPDFAffordance(
                 page: page,
@@ -1358,22 +1457,23 @@ struct NoteDetailWorkspaceView: View {
     }
 
     @ViewBuilder
-    private func markdownLensPicker(for page: SDPage) -> some View {
-        if isMarkdownDocument(page) {
+    private func noteModePicker(for page: SDPage) -> some View {
+        let modes = availableNoteModes(for: page)
+        if modes.count > 1 {
             Picker(
-                "Markdown Lens",
+                "View",
                 selection: Binding(
-                    get: { markdownLens(for: page) },
-                    set: { setMarkdownLens($0, for: page) }
+                    get: { resolvedNoteMode(for: page) },
+                    set: { setNoteMode($0, for: page) }
                 )
             ) {
-                ForEach(MarkdownDocumentLens.allCases, id: \.self) { lens in
-                    Text(lens.label).tag(lens)
+                ForEach(modes, id: \.self) { mode in
+                    Label(mode.label, systemImage: mode.symbolName).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 142)
-            .help("Switch Markdown lens")
+            .frame(width: modes.count >= 3 ? 252 : 168)
+            .help("Switch note view")
         }
     }
 
@@ -1723,44 +1823,68 @@ struct NoteDetailWorkspaceView: View {
         return page.body
     }
 
+    /// Markdown Source mode must prefer the raw disk-backed source snapshot.
+    /// The prose snapshot is intentionally a note body and can omit file-only
+    /// details such as front matter.
+    private func cachedSourceEditorContent(page: SDPage, route: SourceEditorRoute) -> String {
+        if CodeLanguage.isMarkdownDocument(path: route.filePath),
+           let cached = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) {
+            return cached
+        }
+
+        return cachedCodeFileContent(page: page, filePath: route.filePath)
+    }
+
     private func isMarkdownDocument(_ page: SDPage) -> Bool {
         CodeLanguage.isMarkdownDocument(path: page.filePath)
     }
 
-    private func markdownLensKey(for page: SDPage) -> String {
-        MarkdownDocumentLensPreferences.key(pageId: page.id, filePath: page.filePath)
-    }
-
-    private func markdownLens(for page: SDPage) -> MarkdownDocumentLens {
-        guard isMarkdownDocument(page) else { return .source }
-        let key = markdownLensKey(for: page)
-        if let override = markdownLensOverrides[key] {
-            return override
+    private func availableNoteModes(for page: SDPage) -> [NoteWorkspaceMode] {
+        if isMarkdownDocument(page) {
+            return sourceFileRoute(for: page) == nil
+                ? [.edit, .preview]
+                : [.edit, .preview, .source]
         }
-        return MarkdownDocumentLensPreferences.lens(pageId: page.id, filePath: page.filePath)
+        if sourceFileRoute(for: page) != nil {
+            return [.source]
+        }
+        return [.edit, .preview]
     }
 
-    private func setMarkdownLens(_ lens: MarkdownDocumentLens, for page: SDPage) {
-        guard isMarkdownDocument(page) else { return }
+    private func resolvedNoteMode(for page: SDPage) -> NoteWorkspaceMode {
+        let modes = availableNoteModes(for: page)
+        if modes.contains(noteMode) {
+            return noteMode
+        }
+        return modes.first ?? .edit
+    }
+
+    private func setNoteMode(_ mode: NoteWorkspaceMode, for page: SDPage) {
+        let modes = availableNoteModes(for: page)
+        guard modes.contains(mode),
+              resolvedNoteMode(for: page) != mode else { return }
         flushCurrentEditor()
-        let key = markdownLensKey(for: page)
-        markdownLensOverrides[key] = lens
-        MarkdownDocumentLensPreferences.set(lens, pageId: page.id, filePath: page.filePath)
-        showPreview = false
+        noteMode = mode
         scheduleCodeFileBodyRefresh(for: page)
     }
 
-    private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute? {
+    private func sourceFileRoute(for page: SDPage) -> SourceEditorRoute? {
         guard let path = page.filePath,
               !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }
         if CodeLanguage.isMarkdownDocument(path: path) {
-            guard markdownLens(for: page) == .source else { return nil }
             return SourceEditorRoute(filePath: path, language: "markdown")
         }
         guard let language = CodeLanguage.detect(from: path) else { return nil }
         return SourceEditorRoute(filePath: path, language: language)
+    }
+
+    private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute? {
+        guard resolvedNoteMode(for: page) == .source else {
+            return nil
+        }
+        return sourceFileRoute(for: page)
     }
 
     private func scheduleCodeFileBodyRefresh(for page: SDPage?) {
@@ -1795,19 +1919,25 @@ struct NoteDetailWorkspaceView: View {
                 guard !Task.isCancelled,
                       pages.first?.id == pageId,
                       pages.first?.filePath == filePath else { return }
-                if let snapshot = currentModeBodySnapshot(for: pageId), !snapshot.isEmpty {
-                    return
-                }
-                if !NoteWindowManager.shared.currentBody(for: pageId).isEmpty {
-                    return
+                if !CodeLanguage.isMarkdownDocument(path: filePath) {
+                    if let snapshot = currentModeBodySnapshot(for: pageId), !snapshot.isEmpty {
+                        return
+                    }
+                    if !NoteWindowManager.shared.currentBody(for: pageId).isEmpty {
+                        return
+                    }
                 }
                 codeFileBodySnapshot = CodeFileBodySnapshot(
                     pageId: pageId,
                     filePath: filePath,
                     body: loaded.body
                 )
-                persistedBody = loaded.body
-                scheduleMetricsRefresh(body: loaded.body, includeMarkdownHeadings: false)
+                let persistedContent = SourceEditorPersistedContent(rawContent: loaded.body, filePath: filePath)
+                persistedBody = persistedContent.body
+                if persistedContent.isMarkdownSource {
+                    modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: persistedContent.body)
+                }
+                scheduleMetricsRefresh(body: persistedContent.body, includeMarkdownHeadings: false)
             } catch {
                 guard !Task.isCancelled else { return }
                 Log.notes.error(
@@ -1821,7 +1951,9 @@ struct NoteDetailWorkspaceView: View {
         if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
             return responder.string
         }
-        return showPreview ? currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page) : nil
+        return resolvedNoteMode(for: page) == .preview
+            ? currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)
+            : nil
     }
 
     private func flushCurrentEditor() {
@@ -1874,8 +2006,9 @@ struct NoteDetailWorkspaceView: View {
     // Timing: appear instantly → mode swaps behind it → fade out after settling.
 
     private func togglePreviewMode() {
-        flushCurrentEditor()
-        showPreview.toggle()
+        guard let page = pages.first else { return }
+        let mode = resolvedNoteMode(for: page) == .preview ? NoteWorkspaceMode.edit : .preview
+        setNoteMode(mode, for: page)
     }
 
     @ViewBuilder
@@ -2030,7 +2163,7 @@ struct NoteDetailWorkspaceView: View {
 
             Divider()
 
-            if !showPreview {
+            if pages.first.map({ resolvedNoteMode(for: $0) != .preview }) ?? true {
                 ForEach(NoteWorkspaceQuickAction.allCases, id: \.self) { action in
                     Button(action.title) {
                         performNoteWorkspaceQuickAction(action)

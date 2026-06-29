@@ -67,6 +67,7 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var showInvisibles: Bool
     var useSpaces: Bool
     var tabWidth: Int
+    var filePath: String?
     var selectionRequest: CoreEditorSelectionRequest?
 
     var body: some View {
@@ -75,7 +76,9 @@ struct MarkEditMarkdownEditorRepresentable: View {
             text: $text,
             cursorLine: $cursorLine,
             cursorColumn: $cursorColumn,
-            totalLines: $totalLines
+            totalLines: $totalLines,
+            theme: theme,
+            filePath: filePath
         )
         #else
         MarkEditCoreEditorRepresentable(
@@ -104,12 +107,17 @@ private struct MarkEditVerbatimMarkdownChromeRepresentable: NSViewControllerRepr
     @Binding var cursorColumn: Int
     @Binding var totalLines: Int
 
+    var theme: EpistemosTheme
+    var filePath: String?
+
     func makeCoordinator() -> MarkEditVerbatimMarkdownChromeCoordinator {
         MarkEditVerbatimMarkdownChromeCoordinator(
             text: $text,
             cursorLine: $cursorLine,
             cursorColumn: $cursorColumn,
-            totalLines: $totalLines
+            totalLines: $totalLines,
+            theme: theme,
+            filePath: filePath
         )
     }
 
@@ -124,6 +132,8 @@ private struct MarkEditVerbatimMarkdownChromeRepresentable: NSViewControllerRepr
         context.coordinator.cursorLine = $cursorLine
         context.coordinator.cursorColumn = $cursorColumn
         context.coordinator.totalLines = $totalLines
+        context.coordinator.theme = theme
+        context.coordinator.filePath = filePath
         context.coordinator.update(viewController: viewController, externalText: text)
     }
 
@@ -141,35 +151,52 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
     var cursorLine: Binding<Int>
     var cursorColumn: Binding<Int>
     var totalLines: Binding<Int>
+    var theme: EpistemosTheme
+    var filePath: String?
 
     private weak var viewController: EditorViewController?
+    private var document: EditorDocument?
     private var lastAppliedText: String?
     private var applyingText: String?
     private var isApplyingFromSwift = false
     private var applyTask: Task<Void, Never>?
     private var applyGeneration = 0
     private var pollingTask: Task<Void, Never>?
+    private var chromeTask: Task<Void, Never>?
+    private var themeTask: Task<Void, Never>?
+    private var lastAppliedTheme: EpistemosTheme?
 
     init(
         text: Binding<String>,
         cursorLine: Binding<Int>,
         cursorColumn: Binding<Int>,
-        totalLines: Binding<Int>
+        totalLines: Binding<Int>,
+        theme: EpistemosTheme,
+        filePath: String?
     ) {
         self.text = text
         self.cursorLine = cursorLine
         self.cursorColumn = cursorColumn
         self.totalLines = totalLines
+        self.theme = theme
+        self.filePath = filePath
     }
 
     func attach(to viewController: EditorViewController, initialText: String) {
         self.viewController = viewController
+        EditorPreloader.shared.registerExternalViewController(viewController)
+        configureDocument(for: viewController, text: initialText)
+        configureChromeWhenWindowReady(for: viewController)
+        applyThemeIfNeeded(to: viewController, force: true)
         apply(text: initialText, to: viewController, documentChanged: true)
         startPolling(viewController: viewController)
     }
 
     func update(viewController: EditorViewController, externalText: String) {
         self.viewController = viewController
+        configureDocument(for: viewController, text: externalText)
+        configureChromeWhenWindowReady(for: viewController)
+        applyThemeIfNeeded(to: viewController)
         guard externalText != lastAppliedText,
               externalText != applyingText else { return }
         apply(text: externalText, to: viewController, documentChanged: false)
@@ -181,10 +208,64 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         applyTask = nil
         pollingTask?.cancel()
         pollingTask = nil
+        chromeTask?.cancel()
+        chromeTask = nil
+        themeTask?.cancel()
+        themeTask = nil
+        if let viewController {
+            EditorPreloader.shared.unregisterExternalViewController(viewController)
+        }
         viewController = nil
+        document = nil
         lastAppliedText = nil
         applyingText = nil
         isApplyingFromSwift = false
+        lastAppliedTheme = nil
+    }
+
+    private func configureDocument(for viewController: EditorViewController, text: String) {
+        let editorDocument = document ?? EditorDocument()
+        document = editorDocument
+        editorDocument.stringValue = text
+        if let filePath,
+           !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            editorDocument.fileURL = URL(fileURLWithPath: filePath)
+        }
+        if viewController.representedObject as? EditorDocument !== editorDocument {
+            viewController.representedObject = editorDocument
+        }
+    }
+
+    private func configureChromeWhenWindowReady(for viewController: EditorViewController) {
+        guard chromeTask == nil else { return }
+        chromeTask = Task { @MainActor [weak self, weak viewController] in
+            for _ in 0..<20 {
+                guard let self, let viewController, !Task.isCancelled else { return }
+                if viewController.view.window != nil {
+                    viewController.configureToolbar()
+                    self.chromeTask = nil
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+            self?.chromeTask = nil
+        }
+    }
+
+    private func applyThemeIfNeeded(to viewController: EditorViewController, force: Bool = false) {
+        guard force || lastAppliedTheme != theme else { return }
+        lastAppliedTheme = theme
+        let nextTheme = AppTheme.epistemosSourceTheme(for: theme)
+        let backgroundColor = theme.resolved.background.nsColor
+        themeTask?.cancel()
+        themeTask = Task { @MainActor [weak self, weak viewController] in
+            guard let viewController else { return }
+            await viewController.waitUntilLoaded()
+            guard !Task.isCancelled else { return }
+            viewController.webBackgroundColor = backgroundColor
+            viewController.setTheme(nextTheme, animated: false)
+            self?.themeTask = nil
+        }
     }
 
     private func apply(
@@ -197,6 +278,7 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         applyTask?.cancel()
         applyingText = nextText
         updateLineCount(for: nextText)
+        document?.stringValue = nextText
         isApplyingFromSwift = true
         applyTask = Task { @MainActor [weak self, weak viewController] in
             guard let self else { return }
@@ -243,6 +325,7 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
               let nextText = await viewController.editorText,
               nextText != text.wrappedValue else { return }
         text.wrappedValue = nextText
+        document?.stringValue = nextText
         lastAppliedText = nextText
         updateLineCount(for: nextText)
     }
@@ -251,6 +334,23 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         totalLines.wrappedValue = max(1, text.split(separator: "\n", omittingEmptySubsequences: false).count)
         cursorLine.wrappedValue = min(max(1, cursorLine.wrappedValue), totalLines.wrappedValue)
         cursorColumn.wrappedValue = max(1, cursorColumn.wrappedValue)
+    }
+}
+
+private extension AppTheme {
+    static func epistemosSourceTheme(for theme: EpistemosTheme) -> AppTheme {
+        switch theme {
+        case .tan, .sunset:
+            return .SolarizedLight
+        case .ember:
+            return .SolarizedDark
+        case .nocturne:
+            return .NightOwl
+        case .oled, .oledSoft, .systemDark, .platinumVioletDark:
+            return .XcodeDark
+        case .systemLight, .light, .sunny, .platinumViolet:
+            return .GitHubLight
+        }
     }
 }
 #endif
@@ -357,17 +457,78 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
     }
 
     private var state: MarkEditCoreEditorState {
+        let sourceDefaults = MarkEditCoreEditorSourceDefaults.current(
+            mode: mode,
+            theme: theme,
+            fallbackFontSize: fontSize
+        )
         MarkEditCoreEditorState(
             text: text,
             mode: mode,
-            themeName: theme.isDark ? "github-dark" : "github-light",
-            fontSize: max(8, min(fontSize, 32)),
+            themeName: sourceDefaults.themeName,
+            fontFace: sourceDefaults.fontFace,
+            fontSize: sourceDefaults.fontSize,
+            lineHeight: sourceDefaults.lineHeight,
             wrapLines: wrapLines,
             showLineNumbers: showLineNumbers,
             showInvisibles: showInvisibles,
             useSpaces: useSpaces,
             tabWidth: tabWidth
         )
+    }
+}
+
+private struct MarkEditCoreEditorSourceDefaults: Equatable {
+    let themeName: String
+    let fontFace: WebFontFace
+    let fontSize: Double
+    let lineHeight: Double
+
+    static func current(
+        mode: MarkEditCoreEditorMode,
+        theme: EpistemosTheme,
+        fallbackFontSize: Double
+    ) -> MarkEditCoreEditorSourceDefaults {
+        MarkEditCoreEditorSourceDefaults(
+            themeName: themeName(for: theme),
+            fontFace: fontFace(for: mode),
+            fontSize: fontSize(for: mode, fallbackFontSize: fallbackFontSize),
+            lineHeight: lineHeight
+        )
+    }
+
+    private static func themeName(for theme: EpistemosTheme) -> String {
+        #if canImport(MarkEditKit)
+        AppTheme.epistemosSourceTheme(for: theme).editorTheme
+        #else
+        theme.isDark ? "xcode-dark" : "xcode-light"
+        #endif
+    }
+
+    private static func fontFace(for mode: MarkEditCoreEditorMode) -> WebFontFace {
+        #if canImport(MarkEditKit)
+        if mode == .markdownChrome {
+            return AppPreferences.Editor.fontStyle.webFontFace
+        }
+        #endif
+        return WebFontFace(family: "SF Mono", weight: nil, style: nil)
+    }
+
+    private static func fontSize(for mode: MarkEditCoreEditorMode, fallbackFontSize: Double) -> Double {
+        #if canImport(MarkEditKit)
+        if mode == .markdownChrome {
+            return AppPreferences.Editor.fontSize
+        }
+        #endif
+        return max(8, min(fallbackFontSize, 32))
+    }
+
+    private static var lineHeight: Double {
+        #if canImport(MarkEditKit)
+        AppPreferences.Editor.lineHeight.multiplier
+        #else
+        1.5
+        #endif
     }
 }
 
@@ -800,7 +961,9 @@ struct MarkEditCoreEditorState: Equatable {
     let text: String
     let mode: MarkEditCoreEditorMode
     let themeName: String
+    let fontFace: WebFontFace
     let fontSize: Double
+    let lineHeight: Double
     let wrapLines: Bool
     let showLineNumbers: Bool
     let showInvisibles: Bool
@@ -819,7 +982,7 @@ struct MarkEditCoreEditorState: Equatable {
         MarkEditCoreEditorConfig(
             text: text,
             theme: themeName,
-            fontFace: .init(family: "SF Mono", weight: nil, style: nil),
+            fontFace: fontFace,
             fontSize: fontSize,
             showLineNumbers: showLineNumbers,
             showActiveLineIndicator: true,
@@ -828,7 +991,7 @@ struct MarkEditCoreEditorState: Equatable {
             typewriterMode: false,
             focusMode: false,
             lineWrapping: wrapLines,
-            lineHeight: 1.45,
+            lineHeight: lineHeight,
             suggestWhileTyping: false,
             standardDirectories: [:],
             runtimeInfo: .current,
@@ -852,7 +1015,9 @@ struct MarkEditCoreEditorState: Equatable {
             text: nextText,
             mode: mode,
             themeName: themeName,
+            fontFace: fontFace,
             fontSize: fontSize,
+            lineHeight: lineHeight,
             wrapLines: wrapLines,
             showLineNumbers: showLineNumbers,
             showInvisibles: showInvisibles,

@@ -30,8 +30,17 @@ nonisolated struct CodeEditorPolishTests {
 
         let workspaceSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         #expect(workspaceSource.contains("private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute?"))
-        #expect(workspaceSource.contains("guard markdownLens(for: page) == .source else { return nil }"))
+        #expect(workspaceSource.contains("guard resolvedNoteMode(for: page) == .source else {"))
+        #expect(workspaceSource.contains("private func availableNoteModes(for page: SDPage) -> [NoteWorkspaceMode]"))
+        #expect(!workspaceSource.contains("epistemos.markdownLens"))
+        #expect(!workspaceSource.contains("MarkdownDocumentLens"))
         #expect(workspaceSource.contains(#"return SourceEditorRoute(filePath: path, language: "markdown")"#))
+        #expect(workspaceSource.contains("private func cachedSourceEditorContent(page: SDPage, route: SourceEditorRoute) -> String"))
+        #expect(workspaceSource.contains("content: cachedSourceEditorContent(page: page, route: route)"))
+        #expect(workspaceSource.contains("if !CodeLanguage.isMarkdownDocument(path: filePath)"))
+        #expect(workspaceSource.contains("private struct SourceEditorPersistedContent"))
+        #expect(workspaceSource.contains("SourceEditorPersistedContent(rawContent: content, filePath: filePath)"))
+        #expect(workspaceSource.contains("SourceEditorPersistedContent(rawContent: loaded.body, filePath: filePath)"))
         #expect(!workspaceSource.contains("let lang = CodeLanguage.detectEditorLanguage(from: path)"))
         #expect(!workspaceSource.contains("CodeLanguage.detectEditorLanguage(from: filePath) != nil"))
     }

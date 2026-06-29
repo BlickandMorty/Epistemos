@@ -490,7 +490,7 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
     }
 }
 
-nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertible {
+nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertible, LocalizedError {
     case missingManifest
     case missingIndexHTML
     case malformedManifest(underlying: Error)
@@ -525,6 +525,10 @@ nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertibl
         case .packageLimitExceeded(let reason):
             return "HTMLWorkspacePackage: package limit exceeded - \(reason)"
         }
+    }
+
+    public var errorDescription: String? {
+        description
     }
 }
 
@@ -855,24 +859,18 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
           <style id="epistemos-theme-guard">
         \(themeCSS)
           </style>
-          <style>
-        \(package.styleCSS)
-          </style>
+          <style>\(package.styleCSS)</style>
           <style id="epistemos-theme-host">
         \(HTMLWorkspacePreviewTheme.hostCSS)
           </style>
         </head>
         <body>
         \(package.indexHTML)
-          <script type="application/json" id="workspace-data">
-        \(escapeScriptData(package.dataJSON))
-          </script>
-          <script>
+          <script type="application/json" id="workspace-data">\(escapeScriptData(package.dataJSON))</script>
+          <script id="epistemos-workspace-runtime">
         \(localDOMHelperJavaScript)
           </script>
-          <script>
-        \(package.scriptJS)
-          </script>
+          <script>\(package.scriptJS)</script>
         </body>
         </html>
         """
@@ -889,7 +887,6 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
     private static func escapeScriptData(_ value: String) -> String {
         value
             .replacingOccurrences(of: "</script", with: "<\\/script", options: [.caseInsensitive])
-            .replacingOccurrences(of: "<!--", with: "<\\!--")
     }
 
     private static let localDOMHelperJavaScript = """

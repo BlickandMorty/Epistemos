@@ -114,8 +114,10 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             theme: previewTheme,
             themeGuardCSSOverride: themeGuardCSSOverride
         )
-        guard context.coordinator.lastRenderedHTML != rendered else { return }
+        guard context.coordinator.lastRenderedHTML != rendered ||
+                context.coordinator.lastRenderedThemeIdentity != themeIdentity else { return }
         context.coordinator.lastRenderedHTML = rendered
+        context.coordinator.lastRenderedThemeIdentity = themeIdentity
         webView.loadHTMLString(rendered, baseURL: nil)
     }
 
@@ -126,6 +128,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         var themeGuardCSSOverride: String?
         var themeIdentity: String?
         var lastRenderedHTML: String?
+        var lastRenderedThemeIdentity: String?
         var messageHandlerInstalled = false
         var consoleHandlerInstalled = false
         var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
@@ -200,6 +203,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 consoleHandlerInstalled = false
             }
             lastRenderedHTML = nil
+            lastRenderedThemeIdentity = nil
         }
 
         func userContentController(

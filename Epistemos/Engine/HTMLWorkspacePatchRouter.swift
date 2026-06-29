@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-nonisolated public enum HTMLWorkspacePatchRouterError: Error, CustomStringConvertible, Equatable {
+nonisolated public enum HTMLWorkspacePatchRouterError: Error, CustomStringConvertible, LocalizedError, Equatable {
     case noPatchBlocks
     case malformedPatchJSON
     case tooManyOperations(count: Int)
@@ -30,6 +30,10 @@ nonisolated public enum HTMLWorkspacePatchRouterError: Error, CustomStringConver
         case .contentHashMismatch(let expected, let actual):
             return "HTML Workspace content changed before patching. Expected \(expected), got \(actual)."
         }
+    }
+
+    public var errorDescription: String? {
+        description
     }
 }
 
@@ -235,19 +239,54 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     private static func validateHTML(_ html: String) throws {
         try validateSource(html, kind: "HTML", maxCharacters: HTMLWorkspacePatchCommandLimits.maxHTMLCharacters)
         let lowercased = html.lowercased()
-        let unsafeFragments = ["<script", "javascript:", "onload=", "onclick=", "onerror=", "window.webkit.messagehandlers"]
+        let unsafeFragments = ["<script", "javascript:"]
         if let match = unsafeFragments.first(where: { lowercased.contains($0) }) {
             throw HTMLWorkspacePatchRouterError.unsafeSource(reason: match)
+        }
+        if containsAppBridgeReference(in: html) {
+            throw HTMLWorkspacePatchRouterError.unsafeSource(reason: "window.webkit.messageHandlers")
+        }
+        if html.range(
+            of: #"(^|[\s/<])on[a-z][a-z0-9_-]*\s*="#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil {
+            throw HTMLWorkspacePatchRouterError.unsafeSource(reason: "inline event handler")
         }
     }
 
     private static func validateJavaScript(_ js: String) throws {
         try validateSource(js, kind: "JS", maxCharacters: HTMLWorkspacePatchCommandLimits.maxJSCharacters)
         let lowercased = js.lowercased()
-        let unsafeFragments = ["window.webkit.messagehandlers", "indexeddb", "localstorage", "sessionstorage"]
+        let unsafeFragments = ["indexeddb", "localstorage", "sessionstorage"]
         if let match = unsafeFragments.first(where: { lowercased.contains($0) }) {
             throw HTMLWorkspacePatchRouterError.unsafeSource(reason: match)
         }
+        if containsAppBridgeReference(in: js) {
+            throw HTMLWorkspacePatchRouterError.unsafeSource(reason: "window.webkit.messageHandlers")
+        }
+    }
+
+    private static func containsAppBridgeReference(in source: String) -> Bool {
+        var normalized = source.lowercased().filter { !$0.isWhitespace }
+        normalized = normalized.replacingOccurrences(of: "?.[", with: "[")
+
+        for (token, replacement) in [
+            ("[\"webkit\"]", ".webkit"),
+            ("['webkit']", ".webkit"),
+            ("[\"messagehandlers\"]", ".messagehandlers"),
+            ("['messagehandlers']", ".messagehandlers"),
+        ] {
+            normalized = normalized.replacingOccurrences(of: token, with: replacement)
+        }
+
+        normalized = normalized.replacingOccurrences(of: "?.", with: ".")
+        while normalized.contains("..") {
+            normalized = normalized.replacingOccurrences(of: "..", with: ".")
+        }
+
+        return normalized.contains("window.webkit.messagehandlers")
+            || normalized.contains("globalthis.webkit.messagehandlers")
+            || normalized.contains("webkit.messagehandlers")
     }
 
     private static func validateDataJSON(_ json: String) throws {
@@ -338,6 +377,8 @@ nonisolated public enum HTMLWorkspacePatchCommandParser {
                 try validate(batch)
                 batches.append(batch)
             } catch let error as HTMLWorkspacePatchRouterError {
+                throw error
+            } catch let error as HTMLWorkspacePackageError {
                 throw error
             } catch {
                 throw HTMLWorkspacePatchRouterError.malformedPatchJSON

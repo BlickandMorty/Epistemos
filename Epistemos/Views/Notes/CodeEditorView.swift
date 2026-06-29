@@ -1823,6 +1823,7 @@ struct CodeEditorView: View {
                 showInvisibles: showInvisibles,
                 useSpaces: useSpaces,
                 tabWidth: tabWidth,
+                filePath: filePath,
                 selectionRequest: coreEditorSelectionRequest
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1862,8 +1863,7 @@ struct CodeEditorView: View {
 
     private var codeEditorTopBar: some View {
         HStack(spacing: 10) {
-            Image(systemName: "chevron.left.forwardslash.chevron.right")
-                .foregroundStyle(ui.theme.resolved.accent.color)
+            CodeFileIconView(filePath: filePath, language: language, theme: ui.theme)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(codeEditorDisplayName)

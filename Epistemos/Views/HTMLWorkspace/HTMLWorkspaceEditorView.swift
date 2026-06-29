@@ -685,7 +685,7 @@ struct HTMLWorkspaceEditorView: View {
             package = try HTMLWorkspacePatchApplier.apply(.captureSnapshot(name: name), to: package)
             statusText = "Snapshot saved"
         } catch {
-            statusText = "Snapshot failed"
+            statusText = failedStatus("Snapshot", error: error)
         }
     }
 
@@ -717,7 +717,7 @@ struct HTMLWorkspaceEditorView: View {
             }
             statusText = "HTML imported"
         } catch {
-            statusText = "Import failed"
+            statusText = failedStatus("Import", error: error)
         }
     }
 
@@ -731,7 +731,7 @@ struct HTMLWorkspaceEditorView: View {
             try Data(html.utf8).write(to: destination, options: [.atomic])
             statusText = "HTML saved"
         } catch {
-            statusText = "HTML export failed"
+            statusText = failedStatus("HTML export", error: error)
         }
     }
 
@@ -751,9 +751,15 @@ struct HTMLWorkspaceEditorView: View {
                 try data.write(to: destination, options: [.atomic])
                 statusText = "PDF saved"
             } catch {
-                statusText = "PDF export failed"
+                statusText = failedStatus("PDF export", error: error)
             }
         }
+    }
+
+    private func failedStatus(_ action: String, error: Error) -> String {
+        let detail = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !detail.isEmpty else { return "\(action) failed" }
+        return "\(action) failed: \(detail)"
     }
 
     private var selectedPaneSourceSnippet: String {
@@ -877,7 +883,7 @@ private enum HTMLWorkspaceLayoutMode: String, CaseIterable, Identifiable {
     }
 }
 
-private enum HTMLWorkspaceHTMLImporter {
+nonisolated enum HTMLWorkspaceHTMLImporter {
     struct ImportedSources {
         var html: String
         var css: String
@@ -885,22 +891,23 @@ private enum HTMLWorkspaceHTMLImporter {
         var dataJSON: String
     }
 
+    private static let generatedStyleIDs: Set<String> = [
+        "epistemos-font-face",
+        "epistemos-theme-guard",
+        "epistemos-theme-host",
+    ]
+    private static let generatedScriptIDs: Set<String> = [
+        "epistemos-workspace-runtime",
+    ]
+
     static func importSources(from source: String) -> ImportedSources {
         let dataJSON = firstCapture(
             pattern: #"(?is)<script[^>]*id\s*=\s*["']workspace-data["'][^>]*>(.*?)</script>"#,
             in: source
-        ).map(decodeBasicHTMLEntities) ?? ""
-        let css = captures(
-            pattern: #"(?is)<style[^>]*>(.*?)</style>"#,
-            in: source
-        )
+        ).map(decodeScriptData) ?? ""
+        let css = styleBodies(in: source)
         .joined(separator: "\n\n")
-        let js = captures(
-            pattern: #"(?is)<script(?![^>]*type\s*=\s*["']application/json["'])[^>]*>(.*?)</script>"#,
-            in: source
-        )
-        .filter { !$0.contains("Object.defineProperty(window, 'HTMLWorkspace'") }
-        .joined(separator: "\n\n")
+        let js = scriptBodies(in: source).joined(separator: "\n\n")
 
         let rawBody = firstCapture(pattern: #"(?is)<body[^>]*>(.*?)</body>"#, in: source) ?? source
         let cleanedBody = rawBody
@@ -937,12 +944,91 @@ private enum HTMLWorkspaceHTMLImporter {
         captures(pattern: pattern, in: source).first
     }
 
+    private static func styleBodies(in source: String) -> [String] {
+        guard let expression = try? NSRegularExpression(pattern: #"(?is)<style\b([^>]*)>(.*?)</style>"#) else {
+            return []
+        }
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        return expression.matches(in: source, range: range).compactMap { match in
+            guard let attributesRange = Range(match.range(at: 1), in: source),
+                  let bodyRange = Range(match.range(at: 2), in: source) else { return nil }
+            let attributes = String(source[attributesRange])
+            if let styleID = capturedID(in: attributes)?.lowercased(), generatedStyleIDs.contains(styleID) {
+                return nil
+            }
+            return String(source[bodyRange])
+        }
+    }
+
+    private static func scriptBodies(in source: String) -> [String] {
+        guard let expression = try? NSRegularExpression(pattern: #"(?is)<script\b([^>]*)>(.*?)</script>"#) else {
+            return []
+        }
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        return expression.matches(in: source, range: range).compactMap { match in
+            guard let attributesRange = Range(match.range(at: 1), in: source),
+                  let bodyRange = Range(match.range(at: 2), in: source) else { return nil }
+            let attributes = String(source[attributesRange])
+            if !shouldImportScript(type: capturedAttribute("type", in: attributes)) {
+                return nil
+            }
+            if let scriptID = capturedID(in: attributes)?.lowercased(),
+               generatedScriptIDs.contains(scriptID) || scriptID == "workspace-data" {
+                return nil
+            }
+            let body = String(source[bodyRange])
+            if body.contains("Object.defineProperty(window, 'HTMLWorkspace'") {
+                return nil
+            }
+            return body
+        }
+    }
+
+    private static func shouldImportScript(type rawType: String?) -> Bool {
+        guard let rawType else { return true }
+        let normalized = rawType
+            .split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+        guard !normalized.isEmpty else { return true }
+        return normalized == "module"
+            || normalized == "text/javascript"
+            || normalized == "application/javascript"
+            || normalized == "text/ecmascript"
+            || normalized == "application/ecmascript"
+    }
+
+    private static func capturedID(in attributes: String) -> String? {
+        capturedAttribute("id", in: attributes)
+    }
+
+    private static func capturedAttribute(_ name: String, in attributes: String) -> String? {
+        let escapedName = NSRegularExpression.escapedPattern(for: name)
+        guard let expression = try? NSRegularExpression(pattern: #"(?is)\b\#(escapedName)\s*=\s*["']([^"']+)["']"#) else {
+            return nil
+        }
+        let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
+        guard let match = expression.firstMatch(in: attributes, range: range),
+              let idRange = Range(match.range(at: 1), in: attributes) else {
+            return nil
+        }
+        return String(attributes[idRange])
+    }
+
     private static func decodeBasicHTMLEntities(_ source: String) -> String {
         source
             .replacingOccurrences(of: "&quot;", with: "\"")
             .replacingOccurrences(of: "&lt;", with: "<")
             .replacingOccurrences(of: "&gt;", with: ">")
             .replacingOccurrences(of: "&amp;", with: "&")
+    }
+
+    private static func decodeScriptData(_ source: String) -> String {
+        decodeBasicHTMLEntities(source)
+            .replacingOccurrences(of: #"<\/script"#, with: "</script", options: [.caseInsensitive])
+            .replacingOccurrences(of: #"<\!--"#, with: "<!--")
     }
 }
 

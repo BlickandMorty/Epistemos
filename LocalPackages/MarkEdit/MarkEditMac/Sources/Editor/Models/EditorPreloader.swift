@@ -39,6 +39,14 @@ final class EditorPreloader {
     return controller
   }
 
+  func registerExternalViewController(_ controller: EditorViewController) {
+    externalControllers.add(controller)
+  }
+
+  func unregisterExternalViewController(_ controller: EditorViewController) {
+    externalControllers.remove(controller)
+  }
+
   /// All editors, whether with or without a visible window.
   func viewControllers() -> [EditorViewController] {
     let windows = NSApp.windows.compactMap {
@@ -49,12 +57,25 @@ final class EditorPreloader {
       $0.contentViewController as? EditorViewController
     }
 
-    return controllers.filter { $0 !== preloadedController } + [preloadedController].compactMap { $0 }
+    let externalControllers = externalControllers.allObjects
+    let visibleControllers = controllers.filter { $0 !== preloadedController }
+    let candidates = visibleControllers + externalControllers + [preloadedController].compactMap { $0 }
+    var seen = Set<ObjectIdentifier>()
+
+    return candidates.filter { controller in
+      let identifier = ObjectIdentifier(controller)
+      guard !seen.contains(identifier) else {
+        return false
+      }
+      seen.insert(identifier)
+      return true
+    }
   }
 
   // MARK: - Private
 
   private var preloadedController: EditorViewController?
+  private let externalControllers = NSHashTable<EditorViewController>.weakObjects()
 
   private init() {}
 }
