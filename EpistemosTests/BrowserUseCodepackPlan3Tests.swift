@@ -84,7 +84,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("agent_core/src/tools/browser_redaction.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_schema.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_screenshot.rs"))
-        #expect(codepack.contains("credential-assignment redaction for token/api-key/password/secret variants plus split and compact auth-scheme follower tokens"))
+        #expect(codepack.contains("credential-assignment redaction for token/api-key/password/secret variants, split credential assignments, and split/compact auth-scheme follower tokens"))
         #expect(codepack.contains("Rust rejects pre-existing symlink paths and non-current-user ownership for those private browser directories"))
         #expect(codepack.contains("non-current-user ownership for those private browser directories"))
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))

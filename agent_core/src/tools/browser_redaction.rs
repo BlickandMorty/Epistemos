@@ -2,13 +2,25 @@ const MAX_BROWSER_ERROR_CHARS: usize = 512;
 
 pub(crate) fn redact_browser_error_detail(raw: &str) -> String {
     let mut redact_next = false;
+    let mut redact_assignment_separator = false;
     let collapsed = raw
         .split_whitespace()
         .map(|token| {
             let lower = token.to_ascii_lowercase();
+            if redact_assignment_separator && starts_with_assignment_separator_token(&lower) {
+                let separator_only = is_assignment_separator_token(&lower);
+                redact_assignment_separator = false;
+                redact_next = separator_only;
+                return "[redacted]".to_string();
+            }
+
             let should_redact = redact_next;
             redact_next = redacts_following_auth_value(&lower);
+            redact_assignment_separator = false;
             if should_redact {
+                "[redacted]".to_string()
+            } else if redacts_split_secret_assignment_key(&lower) {
+                redact_assignment_separator = true;
                 "[redacted]".to_string()
             } else {
                 redact_browser_error_token(token)
@@ -88,20 +100,59 @@ fn redacts_following_auth_value(lower_token: &str) -> bool {
     }
     matches!(
         token,
-        "authorization:"
-            | "proxy-authorization:"
-            | "bearer"
-            | "basic"
-            | "token:"
-            | "access_token:"
-            | "refresh_token:"
-            | "api-key:"
-            | "x-api-key:"
-            | "api_key:"
-            | "apikey:"
-            | "password:"
-            | "secret:"
+        "authorization:" | "proxy-authorization:" | "bearer" | "basic"
+    ) || bare_secret_assignment_marker(token)
+}
+
+fn redacts_split_secret_assignment_key(lower_token: &str) -> bool {
+    let token = lower_token.trim_matches(|value: char| {
+        matches!(value, '"' | '\'' | ',' | ';' | '[' | ']' | '(' | ')')
+    });
+    is_secret_key_token(token)
+}
+
+fn bare_secret_assignment_marker(token: &str) -> bool {
+    [":", "=", "%3d", "%3a"].iter().any(|separator| {
+        token
+            .strip_suffix(separator)
+            .is_some_and(is_secret_key_token)
+    })
+}
+
+fn is_secret_key_token(token: &str) -> bool {
+    matches!(
+        token,
+        "token"
+            | "access_token"
+            | "refresh_token"
+            | "api-key"
+            | "x-api-key"
+            | "api_key"
+            | "apikey"
+            | "client_secret"
+            | "id_token"
+            | "auth_code"
+            | "authorization_code"
+            | "password"
+            | "secret"
     )
+}
+
+fn is_assignment_separator_token(lower_token: &str) -> bool {
+    let token = lower_token.trim_matches(|value: char| {
+        matches!(value, '"' | '\'' | ',' | ';' | '[' | ']' | '(' | ')')
+    });
+    matches!(token, "=" | ":" | "%3d" | "%3a")
+}
+
+fn starts_with_assignment_separator_token(lower_token: &str) -> bool {
+    let token = lower_token.trim_matches(|value: char| {
+        matches!(value, '"' | '\'' | ',' | ';' | '[' | ']' | '(' | ')')
+    });
+    token.starts_with('=')
+        || token.starts_with(':')
+        || token.starts_with("%3d")
+        || token.starts_with("%3a")
 }
 
 #[cfg(test)]
@@ -115,6 +166,7 @@ mod tests {
              Authorization:Bearer compact-bearer Proxy-Authorization:Basic compact-basic \
              Api-Key: split-key access_token:tok refresh_token=refresh \
              api-key=key x-api-key:key api_key%3Dencoded client_secret=client id_token:jwt auth_code=oauth-code \
+             api_key = split-api-key client_secret : split-client-secret id_token =split-id-token password= split-password \
              password:pw secret%3Ahidden https://user:pass@example.com/path \
              https://example.com/callback?code=oauth-code#id_token=jwt",
         );
@@ -141,6 +193,10 @@ mod tests {
             "tok",
             "refresh",
             "hidden",
+            "split-api-key",
+            "split-client-secret",
+            "split-id-token",
+            "split-password",
             "callback?code",
         ] {
             assert!(

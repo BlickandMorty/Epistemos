@@ -159,7 +159,7 @@ validated before runtime import and must be loopback-only with no URL credential
   root lookup and both win before `PATH`, while `EPISTEMOS_BROWSER_USE_CDP_URL` requires valid UTF-8, is loopback-only,
   and rejects URL credentials, queries, and fragments. Rust passes the private Epistemos `--session` name even when a
   validated CDP override is present, so CDP-backed runs do not fall back to the adapter's default session. The redaction policy
-  is isolated in `agent_core/src/tools/browser_redaction.rs` and covers credential-assignment redaction for token/api-key/password/secret variants plus split and compact auth-scheme follower tokens. It also covers OAuth-style
+  is isolated in `agent_core/src/tools/browser_redaction.rs` and covers credential-assignment redaction for token/api-key/password/secret variants, split credential assignments, and split/compact auth-scheme follower tokens. It also covers OAuth-style
   client-secret/id-token/auth-code assignments and URL credential/query/fragment tokens. The screenshot path policy
   is isolated in `agent_core/src/tools/browser_screenshot.rs`: screenshots are created under an owner-only private root,
   the adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`, stdout path parsing stays bounded to length-capped,
