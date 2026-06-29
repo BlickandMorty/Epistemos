@@ -666,6 +666,8 @@ struct BrowserUseCodepackPlan3Tests {
             "webui.log",
             "secrets\": \"not recorded\"",
             "curl -fsS --max-time 2",
+            "timeout_seconds > 600",
+            "Timeout must be an integer from 5 through 600 seconds",
             "loopback_url=\"http://127.0.0.1:$port/\"",
             "kill \"$webui_pid\"",
             "kill -9 \"$webui_pid\"",

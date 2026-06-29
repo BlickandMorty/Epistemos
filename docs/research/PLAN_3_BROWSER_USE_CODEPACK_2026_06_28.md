@@ -55,8 +55,8 @@ and `ffmpeg-1011`), and writes a JSON-escaped, non-secret `BUILD_MANIFEST.json` 
 
 Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`: it starts the staged
 `build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/web-ui/webui.py --ip 127.0.0.1 --port <ephemeral>
---theme Ocean`, probes the Gradio root document over loopback, writes non-secret evidence, and always tears down the
-child process. A local WKWebView fixture dry-run shell smoke also landed: it loads a loopback fixture in the
+--theme Ocean`, probes the Gradio root document over loopback with a 5-600 second timeout bound, writes non-secret
+evidence, and always tears down the child process. A local WKWebView fixture dry-run shell smoke also landed: it loads a loopback fixture in the
 non-persistent shell, submits a no-provider fixture action, and verifies non-loopback navigation blocking. A real
 Gradio WKWebView shell/control smoke also landed: it starts the staged loopback Gradio server, loads it in the
 non-persistent shell, opens the Run Agent tab, fills the task box without clicking Submit, and verifies non-loopback
@@ -332,8 +332,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   the subprocess branch is Pro-only.
 - Loopback server smoke harness: `scripts/browser-use-pro-loopback-smoke.sh` starts the staged Pro `webui.py` on
   `127.0.0.1`, forces the staged Playwright browser path, disables dotenv reloading and Gradio analytics, polls only the
-  loopback root URL, writes non-secret `result.json`/`webui.log` evidence, and kills the child process on pass, timeout,
-  or early exit. This is landed, but it is not a WKWebView or task-submit smoke.
+  loopback root URL with a 5-600 second timeout bound, writes non-secret `result.json`/`webui.log` evidence, and kills the
+  child process on pass, timeout, or early exit. This is landed, but it is not a WKWebView or task-submit smoke.
 - Web-ui compatibility guard: the vendor manifest must record the Epistemos overlay shims separately from upstream
   source counts, including the `web_ui_dry_run_submit` no-provider hook; the pinned web-ui must import/build a Gradio
   Blocks object without eager LangChain MCP/provider package imports; and the staged Gradio 6 Chatbot constructor must not

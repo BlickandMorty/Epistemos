@@ -84,8 +84,8 @@ if ! [[ "$port" =~ ^[0-9]+$ ]] || (( port < 1024 || port > 65535 )); then
   echo "Port must be an integer from 1024 through 65535; got $port" >&2
   exit 64
 fi
-if ! [[ "$timeout_seconds" =~ ^[0-9]+$ ]] || (( timeout_seconds < 5 )); then
-  echo "Timeout must be an integer of at least 5 seconds; got $timeout_seconds" >&2
+if ! [[ "$timeout_seconds" =~ ^[0-9]+$ ]] || (( timeout_seconds < 5 || timeout_seconds > 600 )); then
+  echo "Timeout must be an integer from 5 through 600 seconds; got $timeout_seconds" >&2
   exit 64
 fi
 
