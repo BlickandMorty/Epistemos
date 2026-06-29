@@ -18,8 +18,13 @@ nonisolated enum BrowserURLGuard {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        if let url = URL(string: trimmed), allows(url: url) {
-            return url
+        if let url = URL(string: trimmed), url.scheme != nil {
+            if allows(url: url) {
+                return url
+            }
+            if trimmed.contains("://") || hasBlockedExplicitScheme(trimmed) {
+                return nil
+            }
         }
 
         if hasBlockedExplicitScheme(trimmed) || hasUnsupportedAbsoluteScheme(trimmed) {
@@ -39,7 +44,9 @@ nonisolated enum BrowserURLGuard {
         guard let url,
               let scheme = url.scheme?.lowercased(),
               allowedSchemes.contains(scheme),
-              url.host?.isEmpty == false else {
+              url.host?.isEmpty == false,
+              (url.user?.isEmpty ?? true),
+              (url.password?.isEmpty ?? true) else {
             return false
         }
         return true
@@ -81,7 +88,8 @@ nonisolated enum BrowserURLGuard {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.remove(charactersIn: "&+")
         let encoded = query.addingPercentEncoding(withAllowedCharacters: allowed) ?? query
-        return URL(string: String(format: template, encoded))
+        let url = URL(string: String(format: template, encoded))
+        return allows(url: url) ? url : nil
     }
 }
 

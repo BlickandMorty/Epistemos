@@ -18,9 +18,12 @@ struct BrowserPlan3Tests {
         #expect(BrowserURLGuard.resolve(raw: "file:///tmp/secret") == nil)
         #expect(BrowserURLGuard.resolve(raw: "javascript:alert(1)") == nil)
         #expect(BrowserURLGuard.resolve(raw: "mailto:test@example.com") == nil)
+        #expect(BrowserURLGuard.resolve(raw: "https://user:pass@example.com") == nil)
+        #expect(BrowserURLGuard.resolve(raw: "plan 3 browser", searchTemplate: "file:///tmp/%@") == nil)
 
         #expect(BrowserURLGuard.allows(url: URL(string: "http://example.com")))
         #expect(BrowserURLGuard.allows(url: URL(string: "https://example.com")))
+        #expect(!BrowserURLGuard.allows(url: URL(string: "https://user:pass@example.com")))
         #expect(!BrowserURLGuard.allows(url: URL(string: "file:///tmp/secret")))
         #expect(!BrowserURLGuard.allows(url: URL(string: "data:text/html,hi")))
     }
