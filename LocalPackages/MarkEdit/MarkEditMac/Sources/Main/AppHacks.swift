@@ -39,10 +39,10 @@ extension NSObject {
 
 private extension NSObject {
   enum States {
-    static var loaded = false
+    nonisolated(unsafe) static var loaded = false
   }
 
-  @objc func swizzled_loadAXBundles() -> Bool {
+  @objc nonisolated func swizzled_loadAXBundles() -> Bool {
     defer {
       States.loaded = true
     }
@@ -55,10 +55,15 @@ private extension NSObject {
       return self.swizzled_loadAXBundles()
     }
 
+    let target = UncheckedSendableObject(object: self)
     DispatchQueue.global(qos: .userInitiated).async {
-      _ = self.swizzled_loadAXBundles()
+      _ = target.object.swizzled_loadAXBundles()
     }
 
     return true
   }
+}
+
+private struct UncheckedSendableObject: @unchecked Sendable {
+  let object: NSObject
 }
