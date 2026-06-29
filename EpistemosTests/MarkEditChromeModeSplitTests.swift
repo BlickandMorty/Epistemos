@@ -30,6 +30,9 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
         #expect(source.contains("struct MarkEditCodeEditorRepresentable"))
         #expect(source.contains("struct MarkEditMarkdownEditorRepresentable"))
+        #expect(source.contains("MarkEditVerbatimMarkdownChromeRepresentable"))
+        #expect(source.contains("makeNSViewController(context: Context) -> EditorViewController"))
+        #expect(source.contains("#if canImport(MarkEditKit)"))
         #expect(source.contains("MarkEditCoreEditorBridge"))
         #expect(source.contains("MarkEditCoreEditorChunkLoader"))
         #expect(source.contains("{{EDITOR_CONFIG}}"))

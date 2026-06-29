@@ -2,6 +2,10 @@ import AppKit
 import SwiftUI
 import WebKit
 
+#if canImport(MarkEditKit)
+import MarkEditKit
+#endif
+
 nonisolated enum WebKitCodeEditorBridge {
     static let messageHandlerName = "epistemosCodeEditor"
 }
@@ -66,6 +70,14 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var selectionRequest: WebKitCodeEditorSelectionRequest?
 
     var body: some View {
+        #if canImport(MarkEditKit)
+        MarkEditVerbatimMarkdownChromeRepresentable(
+            text: $text,
+            cursorLine: $cursorLine,
+            cursorColumn: $cursorColumn,
+            totalLines: $totalLines
+        )
+        #else
         MarkEditCoreEditorRepresentable(
             mode: .markdownChrome,
             text: $text,
@@ -78,8 +90,139 @@ struct MarkEditMarkdownEditorRepresentable: View {
             showLineNumbers: showLineNumbers,
             selectionRequest: selectionRequest
         )
+        #endif
     }
 }
+
+#if canImport(MarkEditKit)
+private struct MarkEditVerbatimMarkdownChromeRepresentable: NSViewControllerRepresentable {
+    @Binding var text: String
+    @Binding var cursorLine: Int
+    @Binding var cursorColumn: Int
+    @Binding var totalLines: Int
+
+    func makeCoordinator() -> MarkEditVerbatimMarkdownChromeCoordinator {
+        MarkEditVerbatimMarkdownChromeCoordinator(
+            text: $text,
+            cursorLine: $cursorLine,
+            cursorColumn: $cursorColumn,
+            totalLines: $totalLines
+        )
+    }
+
+    func makeNSViewController(context: Context) -> EditorViewController {
+        let viewController = EditorViewController()
+        context.coordinator.attach(to: viewController, initialText: text)
+        return viewController
+    }
+
+    func updateNSViewController(_ viewController: EditorViewController, context: Context) {
+        context.coordinator.text = $text
+        context.coordinator.cursorLine = $cursorLine
+        context.coordinator.cursorColumn = $cursorColumn
+        context.coordinator.totalLines = $totalLines
+        context.coordinator.update(viewController: viewController, externalText: text)
+    }
+
+    static func dismantleNSViewController(
+        _ viewController: EditorViewController,
+        coordinator: MarkEditVerbatimMarkdownChromeCoordinator
+    ) {
+        coordinator.detach()
+    }
+}
+
+@MainActor
+private final class MarkEditVerbatimMarkdownChromeCoordinator {
+    var text: Binding<String>
+    var cursorLine: Binding<Int>
+    var cursorColumn: Binding<Int>
+    var totalLines: Binding<Int>
+
+    private weak var viewController: EditorViewController?
+    private var lastAppliedText: String?
+    private var isApplyingFromSwift = false
+    private var pollingTask: Task<Void, Never>?
+
+    init(
+        text: Binding<String>,
+        cursorLine: Binding<Int>,
+        cursorColumn: Binding<Int>,
+        totalLines: Binding<Int>
+    ) {
+        self.text = text
+        self.cursorLine = cursorLine
+        self.cursorColumn = cursorColumn
+        self.totalLines = totalLines
+    }
+
+    func attach(to viewController: EditorViewController, initialText: String) {
+        self.viewController = viewController
+        apply(text: initialText, to: viewController, documentChanged: true)
+        startPolling(viewController: viewController)
+    }
+
+    func update(viewController: EditorViewController, externalText: String) {
+        self.viewController = viewController
+        guard externalText != lastAppliedText else { return }
+        apply(text: externalText, to: viewController, documentChanged: false)
+    }
+
+    func detach() {
+        pollingTask?.cancel()
+        pollingTask = nil
+        viewController = nil
+        lastAppliedText = nil
+        isApplyingFromSwift = false
+    }
+
+    private func apply(
+        text nextText: String,
+        to viewController: EditorViewController,
+        documentChanged: Bool
+    ) {
+        lastAppliedText = nextText
+        updateLineCount(for: nextText)
+        isApplyingFromSwift = true
+        Task { @MainActor [weak self, weak viewController] in
+            guard let self, let viewController else { return }
+            await viewController.waitUntilLoaded()
+            _ = try? await viewController.bridge.core.resetEditor(
+                text: nextText,
+                selectionRange: nil,
+                documentChanged: documentChanged
+            )
+            self.isApplyingFromSwift = false
+        }
+    }
+
+    private func startPolling(viewController: EditorViewController) {
+        guard pollingTask == nil else { return }
+        pollingTask = Task { @MainActor [weak self, weak viewController] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                guard let self, let viewController else { continue }
+                await self.poll(viewController: viewController)
+            }
+        }
+    }
+
+    private func poll(viewController: EditorViewController) async {
+        guard !isApplyingFromSwift,
+              let nextText = await viewController.editorText,
+              nextText != text.wrappedValue else { return }
+        text.wrappedValue = nextText
+        lastAppliedText = nextText
+        updateLineCount(for: nextText)
+    }
+
+    private func updateLineCount(for text: String) {
+        totalLines.wrappedValue = max(1, text.split(separator: "\n", omittingEmptySubsequences: false).count)
+        cursorLine.wrappedValue = min(max(1, cursorLine.wrappedValue), totalLines.wrappedValue)
+        cursorColumn.wrappedValue = max(1, cursorColumn.wrappedValue)
+    }
+}
+#endif
 
 private enum MarkEditCoreEditorMode: Equatable {
     case code(language: String)
