@@ -1,27 +1,25 @@
-# Goose Minichat — Note-Aware AI, CODE PACK (2026-06-27)
+# Goose Note-Context Plumbing — CODE PACK (2026-06-27, superseded in part 2026-06-29)
 
-> Pass-4d deliverable. A minichat that EXTENDS Goose (not a new agent), auto-initializes for the open note,
-> feeds note context to Goose. Tags [VERIFIED-CODE]/[INFERRED].
+> Original Pass-4d deliverable was a minichat. After the 2026-06-29 upgrade, the live deliverable is only the
+> note-context plumbing that feeds open-note context to the Plan-1-owned Goose WebView/reskin. Tags
+> [VERIFIED-CODE]/[INFERRED].
 
-## 0. ⚠️ Phase-0 dependency (gates the live surface)
-The minichat is a **Phase-1 / Agent surface**, and `GOOSE_PHASE_0_STATUS_AUDIT_2026_06_27.md` is **NOT signed
-off** (gate 5 FAIL, gate 3 PARTIAL) and explicitly forbids starting `Epistemos/Agent/*` until owner sign-off.
-**So: design + scaffold now (the note-context plumbing has ZERO Goose dependency), gate the live agent
-surface behind an `availability` flag, flip to live only after Phase 0.**
+> **★ 2026-06-29 supersession:** Plan 1 Option 1 is locked: Goose chat/agent UI stays in the reskinned Goose
+> WebView, with native frame/models only. Therefore this codepack is now **Plan-2 editor-side context plumbing
+> only**. Do NOT build a separate native chat UI from this document; keep the context/session/affordance ideas
+> that let the Plan-1-owned Goose WebView act on the open note.
 
-## 1. Recommended architecture — native SwiftUI chat, NOT the web UI inline
-Owner said the minichat "can have a webview," but for a panel docked next to a note, **native SwiftUI
-projecting `GooseACPEventBridge` is better** (the research recommendation — note it diverges from the
-"webview" phrasing; owner to confirm):
-| | (a) host Goose web UI in a compact WebView | (b) native SwiftUI over the ACP bridge ✅ |
-|---|---|---|
-| Note auto-init | inject JS into a 3rd-party React app — brittle | first-class: we own session/new + first prompt |
-| Footprint | full WebView + WorkSPAServer + 69-key boot shim per panel | one actor + one @Observable |
-| wikilink/approve/stop | retrofit someone else's UI | native, full control |
-**Hybrid escape hatch (keeps the webview):** a toolbar "Open in Goose" button → existing
-`GooseSurfaceWindowController.shared.open()` + `loadSession` the SAME `sessionId` into the full web UI for
-power use. So: native for the inline minichat, the existing web surface for the full agent — one session, two views.
-Dock it in the Epdoc chrome's trailing inspector rail (it must be "for the open note", not a separate window).
+## 0. Active scope after the 2026-06-29 upgrade
+The live chat/agent surface is **not Plan 2's UI** and is **not blocked on a Phase-0 sign-off wait** from this
+codepack. Plan 2 may build the zero-Goose-dependency editor plumbing: active-note tracking, bounded context
+snapshots, `_meta` builders, vault MCP descriptors, wikilink/selection context, and editor affordance routes.
+Plan 1 owns the Goose WebView/reskin live UI and `Epistemos/Goose/*` / `Epistemos/Agent/*`.
+
+## 1. Active architecture — context bridge into Goose WebView/reskin
+The earlier separate-native-chat recommendation is historical and rejected by the 2026-06-29 Plan 1 upgrade.
+The active architecture is: one Goose session can be scoped to the open note through ACP `_meta` + the vault/context
+MCP server, while the user-facing chat remains the Plan-1-owned Goose WebView surface. Plan 2's deliverable is the
+note-aware context bridge and editor affordance routing, not a second chat UI.
 
 ## 2. Lifecycle: ONE shared session, re-scoped per note
 `goose serve` is one process; session-per-note explodes count + loses continuity. Keep `cwd = vault root`
@@ -81,7 +79,9 @@ live `epistemos.context.snapshot` MCP tool always reflects the frontmost note.
    current note is in `_meta.epistemos.note` + via `epistemos.context.snapshot`; prefer `epistemos-vault`
    tools; call `open_note` to navigate; never write outside the vault." Makes the SAME Goose agent note-aware.
 
-## 5. Minichat view-model (auto-init + streaming) — SCAFFOLD now / LIVE after Phase 0
+## 5. Historical view-model sketch — mine for plumbing only, do not ship a native chat UI
+The sketch below is useful for session scoping, cancellation, and context refresh semantics. Treat UI/state fields
+(`turns`, composer, tool cards, native permission panel) as historical unless Plan 1 explicitly asks Plan 2 for them.
 ```swift
 @MainActor @Observable final class MiniChatViewModel {
     enum Availability { case ready, unavailable(String) }
@@ -94,7 +94,7 @@ live `epistemos.context.snapshot` MCP tool always reflects the frontmost note.
     init(noteContext: NoteContextProvider) {
         self.noteContext = noteContext
         #if EPISTEMOS_APP_STORE
-        availability = .unavailable("The note minichat is available in the Pro / Developer-ID build.")
+        availability = .unavailable("Historical native note chat UI is superseded; use Goose WebView/reskin.")
         #else
         availability = GooseSurfaceAvailability.current().runtimeBinary == nil
             ? .unavailable("Goose runtime is not staged.") : .ready
@@ -128,13 +128,13 @@ inline per-edit approval (reuse existing `GooseACPPermissionPanel`), stop button
 document controller + `EpdocDocument` + open-by-id, full Goose web surface (escape hatch), MAS gate in supervisor.
 **BUILD-NOW (zero Goose dep, testable today):** `ActiveEpdocTracker`, `NoteContextProvider`,
 `activeNoteBodyExcerpt` field, populate-context-on-note-change, `newSession` mcpServers param, `_meta` builders,
-Epdoc `open_note`/highlight affordances, `[[wikilink]]` resolver, the SwiftUI shell + view-model scaffold behind
-the availability gate, minichat MAS gate.
-**AFTER Phase 0 sign-off:** flip availability to .ready (non-MAS), live new/prompt/stream, `session/cancel` vs
-real goosed, inline-edit parity.
-**BLOCKED:** Phase 0 sign-off (the runtime/agent surface).
+Epdoc `open_note`/highlight affordances, and the `[[wikilink]]` resolver.
+**PLAN-1-OWNED LIVE SURFACE:** the Goose WebView/reskin owns live prompt/stream/permission UI and any runtime
+availability gate. Plan 2 should not flip a separate native chat UI to `.ready`.
+**NOT BLOCKED HERE:** no Phase-0 sign-off wait remains in this codepack; if Plan 2's context plumbing is buildable,
+build and verify it without touching Plan-1-owned Goose UI files.
 
-**Net:** the minichat rides a mature ACP stack and is greenfield (no existing minichat — the old native chat
-was pruned on this branch). Recommend native SwiftUI over the ACP bridge + "Open in Goose" escape hatch. The
-note-context plumbing is the build-now bulk with zero Goose dependency. Three small Goose-boundary gaps:
-`newSession` drops `mcpServers` (1-line), no cancel method, no Epdoc UI-steering affordances.
+**Net:** the note-context seam rides a mature ACP stack. After the 2026-06-29 upgrade, the build-now bulk is
+editor-side note-context plumbing with zero Goose dependency; the live chat remains Goose WebView/reskin. Three small
+Goose-boundary gaps to coordinate with Plan 1 if needed: `newSession` drops `mcpServers` (1-line), no cancel method,
+no Epdoc UI-steering affordances.

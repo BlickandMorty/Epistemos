@@ -17,9 +17,13 @@
 > **★ PLAN 3 CODEPACK STATUS:** shipped/staged codepacks are tracked in the `_2026_06_28.md` files:
 > (Pass 3 shipped) `PLAN_3_EDGEPARSE_CODEPACK` (§1 PDF→md vendoring + coexistence) ·
 > `PLAN_3_PROVENANCE_CODEPACK` (§4 honest-chip fix + hover-lineage moat) · `PLAN_3_VAULT_MCP_CODEPACK` (§5c
-> vault-as-MCP-server). (Pass 4 shipped) `PLAN_3_OBSCURA_TIER1_CODEPACK` (§2 usable in-app browser) ·
-> `PLAN_3_EXTENSIBILITY_CODEPACK` (§5a install UI + §5b best-of preset) · `PLAN_3_APPLE_NATIVE_CODEPACK` (§6 QuickLook/
-> VisionKit/thumbnails). (Pass 7 staged Pro) `PLAN_3_BROWSER_USE_CODEPACK`. All real code + integration/flip checklists.
+> vault-as-MCP-server). (Pass 4 shipped) `PLAN_3_OBSCURA_TIER1_CODEPACK` (§2 usable in-app browser; historical filename,
+> product name "Browser") · `PLAN_3_EXTENSIBILITY_CODEPACK` (§5a install UI + §5b best-of preset) ·
+> `PLAN_3_APPLE_NATIVE_CODEPACK` (§6 QuickLook/VisionKit/thumbnails). (Pass 6 shipped)
+> `PLAN_3_LANDING_BUTTONS_CODEPACK` + `PLAN_3_ARXIV_CODEPACK`. (Pass 7 staged Pro)
+> `PLAN_3_BROWSER_USE_CODEPACK`. (Pass 8 shipped) `PLAN_3_VOICE_CODEPACK` +
+> `PLAN_3_WHOLE_APP_LOGOS_CODEPACK`. (Pass 9 shipped) `PLAN_3_MEETING_STT_CODEPACK`. All real code +
+> integration/flip checklists.
 
 ---
 
@@ -48,8 +52,8 @@ must obey it, and the build prompt (`docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md`
 Everything Plan 3 ships joins the ONE unified Apple-native look (AppKit + WebView + Goose CONVERGE; shared SF Pro
 `-apple-system` + shadcn Apple tokens (Action Blue #0066cc) + macOS HIG geometry + macOS-26 Liquid Glass + the
 EXACT SwiftUI springs). **PLAN-3 split:** NATIVE = Apple-native shared views (QuickLook/VisionKit/Live-Text/
-thumbnails) + landing-feature buttons + the lite Browser tab CHROME + arXiv/meeting/voice/provenance UI + the PDF
-viewer (consume Plan 2's, don't re-invent). WEB = browser-use's Chromium UI (Pro, its OWN surface — reskin its
+thumbnails) + landing-feature buttons + the lite Browser tab CHROME + arXiv/meeting/voice/provenance UI + the
+"View original PDF" affordance/URL handoff into Plan 2's PDFKit viewer (do not re-invent the viewer). WEB = browser-use's Chromium UI (Pro, its OWN surface — reskin its
 hosted web UI with the same tokens where feasible; HONEST that CDP-Chromium ≠ WKWebView). Native views = REAL
 Liquid Glass (`Theme/GlassModifiers.swift`, `Views/Shared/UnifiedFrostedGlass.swift`); any hosted web panel (incl.
 the lite Browser tab) = **transparent-over-glass** (`drawsBackground=false`) + SF Pro + theme tokens + the verified

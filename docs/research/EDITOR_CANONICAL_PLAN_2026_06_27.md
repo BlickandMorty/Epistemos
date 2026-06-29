@@ -13,6 +13,12 @@
 > (markdown-as-truth). HISTORICAL → `SS-CM_CODEMIRROR_MD_SOURCE_SURFACE` + `CODEMIRROR_MD_V2_BUILD_AND_POLISH`
 > (CodeMirror-as-note-editor was reversed; their CM6/MarkEdit research now applies to the CODE lane only).
 
+> **★ 2026-06-29 upgrade patch (binding over older lines in this canon/codepacks):** Plan 2 now builds the
+> Prose/Source/Note lens model on one markdown truth; keeps the old code editor as a v1-legacy fallback; uses
+> MarkEdit engine+polish for both MD and code; applies the app-wide native/unified theme; and narrows Goose work
+> to note-context plumbing only. Any older "delete old editor", "separate native chat UI", "Phase-0/§7 sign-off wait",
+> "settings can remain inert", or fixed stale line-number route claim is historical and must be reconciled here.
+
 ---
 
 ## ⚛️ HARDENING & THERMONUCLEAR REVIEW DOCTRINE (how this plan stays strict + safe)
@@ -107,9 +113,11 @@ verified recipe: `GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md`.
 - **R1. Grammar = Obsidian/GFM** (`> [!KIND]` callouts · ` ```chart ` · `[[wikilink]]`). Follows directly from
   L1 (on-disk truth should be the format the rest of the world reads); already has a working reader; the graph
   already indexes `[[wikilinks]]`. Align `ProseMirrorMarkdownProjector.swift` to it (Pass 9b).
-- **R2. Minichat = native SwiftUI over the Goose ACP bridge + an "Open in Goose" webview escape hatch.**
-  Maximizes nativeness (the owner's through-line) + inline per-edit approval; the webview button still gives
-  "full web Goose." Honestly diverges from the owner's "native webview shell" phrasing — surfaced, not assumed.
+- **R2. Goose note-context plumbing only (2026-06-29 supersession).**
+  The earlier separate native chat UI recommendation is STALE after Plan 1 Option 1: Goose chat/agent UI remains the
+  reskinned Goose WebView surface owned by Plan 1. Plan 2 builds only the editor-side context plumbing
+  (`ActiveEpdocTracker`, context snapshots, note metadata, editor affordance routes) that lets that surface act on
+  the open note.
 - **R3. Code-engine = MarkEdit (Source); MarkEdit native chrome for BOTH code AND markdown (L3-CHROME REVISED).**
   Preserve-list grafted in (preview button, LSP-hover, Outline, critical v1 buttons); code sizing a few ticks
   smaller than MD. The old code editor is KEPT as "v1 legacy" (Settings + MarkEdit toggle) — NOT deleted (L3).
@@ -130,7 +138,7 @@ A markdown document opens in any of three **lenses** (cross-synced on the same `
 | **Source** (= MarkEdit CoreEditor) | CodeMirror 6 in WKWebView (vendored from MarkEdit) | raw markdown + live preview + **MarkEdit native chrome**; the DEFAULT **code** surface AND a markdown lens (L3-CHROME) | BUILD (default) |
 | **Prose** (= TK2) | TextKit 2 / `ProseTextView2` (native) | native focus/long-form lens; edits markdown AS TEXT (no rich re-serialize) | UNFROZEN (owner 2026-06-29); wire LAST |
 | **(legacy) code editor v1** | `WebKitCodeEditorView` + dormant impls | KEPT as a **v1 legacy fallback** — Settings + a toggle inside the MarkEdit surface (NOT deleted, L3) | RETAIN as legacy |
-| **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; "another feature later" | EMBED, inert behind a flag |
+| **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; must be user-reachable under Source/MD; any inert flag is only a temporary implementation slice, not final acceptance | EMBED + make live |
 | **HTML Workspace** | `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` | AI-artifact surface; hand-edit routes to the Source (MarkEdit code) surface | LIVE; Plan 2 owns it (§13.5) |
 
 Why: same markdown underneath, three ways to see it — **Note** = WYSIWYG (rich, Tolaria/Notion feel), **Source** =
@@ -154,7 +162,8 @@ distraction-free long-form. Loss can only occur at the Note→markdown serialize
    (11 libs incl. SettingsUI/FontPicker/Statistics) + `Sources/{Editor,Panels,Settings}` + `CoreEditor`;
    DROP its `@main`/`AppDocumentController`/`.xcodeproj`/`Info.entitlements`/both `.appex`; re-host
    `EditorViewController` via `NSViewControllerRepresentable` against the EXISTING `EpistemosDocumentController`
-   (Epistemos is already a document app). Full Settings present-but-inert behind `#if EPISTEMOS_MARKEDIT_EMBED`.
+   (Epistemos is already a document app). Full Settings must be wired user-reachable under Source/MD; an inert flag
+   is only a temporary slice and fails final acceptance.
 4. **Prose/TK2 = the third lens (L4).** Unfrozen 2026-06-29 ONLY to wire it as the Prose lens (lowest priority, last); never BREAK its existing long-form behavior. It edits markdown AS TEXT (no rich re-serialize).
 5. **Note AI-diff = `prosemirror-changeset` (MIT) + `@handlewithcare/prosemirror-suggest-changes` (MIT).**
    NOT `@codemirror/merge` (that's the code-lane diff), NOT TipTap AI Toolkit (paid), NOT BlockNote xl-ai (GPL).
@@ -166,7 +175,8 @@ distraction-free long-form. Loss can only occur at the Note→markdown serialize
    Register per-node serializer/parser hooks (NOT `marked` tokenizers — the bundle is webpack 5 and `@tiptap/
    markdown` vendors its own parser) for callouts/wikilinks/frontmatter. (NOT the deprecated community
    `tiptap-markdown`; NOT the nonexistent `@tiptap/extension-markdown`.) Source-of-truth = markdown (L1).
-7. **AI = Goose** (engine), grafting Tolaria's editing doctrine; minichat note-aware, Phase-0 gated.
+7. **AI = Goose** (engine), grafting Tolaria's editing doctrine through note-aware context plumbing. Plan 2 does not
+   build a separate native chat UI or wait on Phase-0/§7 sign-off; Plan 1 owns the live Goose WebView/reskin surface.
 8. **Ontology = Tolaria clean-room on SDPage + frontmatter + the unified graph.** Tolaria is AGPL-3.0 →
    clone-forbidden, ZERO code, behavioral reimplementation only.
 9. **Review model = hybrid** (git-diff/file-level spine + opt-in in-editor diff for small edits).
@@ -196,8 +206,9 @@ distraction-free long-form. Loss can only occur at the Note→markdown serialize
 - **v1 legacy (L3):** KEEP the old `WebKitCodeEditorView` reachable from Settings + a toggle inside the MarkEdit
   surface. NOT deleted.
 - **Lens model (L4):** for `.md` this Source surface is one of three cross-synced lenses (Note/Source/Prose); for
-  code it is the only surface. Wire the orphaned `.markdownChrome` route (today `CodeEditorView.swift:706` sends
-  markdown to Prose — fix it so `.md` can open in Source).
+  code it is the only surface. Verify the current `.md` routing first; if the Source lens is still unreachable,
+  wire the per-document lens toggle so `.md` can open in MarkEdit Source, and if already wired, harden it so markdown
+  never silently falls back to source-first/default-source behavior.
 - **LSP:** keep the one-shot Swift `CodeEditorSemanticLSP` over `RustLSPTransport` (engine-agnostic); a CM6
   LSP-client extension bridged to `lspSendMessageJson`/`lspPollResponseJson` is a later slice.
 - **Code-lane diff:** `@codemirror/merge` (open Q5).
@@ -208,8 +219,9 @@ Vendor/drop/re-host map + build plan in the codepack. Build (`build-coreeditor-b
 adopt Epistemos entitlements (reject MarkEdit's MAS-hostile keys); xcodegen `project.yml`. Coexistence: two
 scheme handlers, shared (no-op-on-12+) process pool routed through the memory-pressure handler.
 
-## 6. AI / minichat (Goose) — `GOOSE_MINICHAT_CODEPACK_2026_06_27.md`
-- **Shape (open Q2):** native SwiftUI over `GooseACPEventBridge` + "Open in Goose" webview escape hatch.
+## 6. AI / Goose note-context plumbing — `GOOSE_MINICHAT_CODEPACK_2026_06_27.md` (superseded in scope 2026-06-29)
+- **Shape:** Plan 2 builds the editor-side note-context plumbing only. Do NOT build a separate native chat UI:
+  Plan 1 Option 1 keeps the live chat/agent surface in Goose's reskinned WebView.
 - **Auto-init on note open:** `ActiveEpdocTracker` (frontmost note) + `NoteContextProvider` (bounded head/tail
   body via existing `ProseMirrorMarkdownProjector`) → `WorkNativeMCPHost.updateContext`. One shared Goose
   session re-scoped per note (cwd=vault constant).
@@ -219,8 +231,8 @@ scheme handlers, shared (no-op-on-12+) process pool routed through the memory-pr
   in-process, real per-edit approval (`session/request_permission`), provenance, no port sprawl.
 - **Goose-boundary gaps to close:** `GooseACPClient.newSession` drops `mcpServers` (1-line), NO cancel method
   (add `session/cancel`), NO Epdoc UI-steering affordances (add to `GooseWebNativeAffordanceBridge`).
-- **Phase-0 GATED:** scaffold + note-context plumbing now (zero Goose dep, testable); flip live after the Goose
-  §7 sign-off; mirror the `#if EPISTEMOS_APP_STORE` Pro gate on the minichat surface.
+- **Plan boundary:** build/scaffold note-context plumbing now (zero Goose dep, testable). Do not wait for a Phase-0/
+  §7 sign-off, and do not flip or own the live chat surface from Plan 2; Plan 1 owns that Goose WebView/reskin path.
 - **Provenance (supersede Tolaria's git-only) — R5, corrected:** per accepted edit → an `EditClaim` metadata
   struct (agent/model/runtimeKind/capability_tier/confidence/approver/generatedAt vs acceptedAt) carried on the
   EXISTING Swift `AgentNoteEditProvenance` → EventStore spine (wired through `VaultNoteEditor.applyEdits(_:to:
@@ -263,7 +275,8 @@ real trash+undo, semantic search, mobile.
 ---
 
 ## 10. Build sequence (dependency-ordered)
-Stage gates; each is independently shippable where possible. Goose-dependent items wait for Phase-0 sign-off.
+Stage gates; each is independently shippable where possible. Goose UI work is Plan-1-owned; Plan 2 builds only the
+editor-side context plumbing and does not wait for a Phase-0/§7 sign-off gate.
 1. **[S] Ontology core** (codepack 4a): `NoteOntologyParser` + `SystemKeys` + `NoteWidthResolver` + the
    frontmatter→graph reconciler. Pure Swift, testable, no UI risk.
 2. **[S] Native CommandRegistry + Cmd+K palette** (codepack 4c) — unifies menu/shortcuts; wire existing Epdoc
@@ -277,12 +290,13 @@ Stage gates; each is independently shippable where possible. Goose-dependent ite
    `CodeEditorView.codeEditorSurface`. **Chrome = MarkEdit native for BOTH code + markdown (L3-CHROME REVISED):**
    graft-preserve the v1 critical buttons (Live-Preview/`HTMLWorkspacePreviewView`, LSP-hover, Outline); MarkEdit
    supplies Find/FontPicker/Statistics/GoToLine. Visual fidelity (§3a): inherit MarkEdit font size + line-height;
-   code a few ticks smaller than MD. **Wire the orphaned `.markdownChrome` route** so `.md` opens in Source (today
-   `:706` routes markdown to Prose). **KEEP the old code editor as v1 legacy** (Settings + MarkEdit toggle) — NOT
+   code a few ticks smaller than MD. **Verify/wire the `.markdownChrome` Source lens route** so `.md` can open in
+   Source without regressing the default Prose/Note behavior. **KEEP the old code editor as v1 legacy** (Settings + MarkEdit toggle) — NOT
    deleted. NOTE editor (Epdoc) + existing Prose/TK2 behavior untouched (TK2 unfrozen only to ADD the Prose lens, L4).
 6. **[M] Views + Type registry + incremental crawl** (codepack 4a) over GRDB/graph/shadow.
-7. **[L, Phase-0 gated] Goose minichat** (codepack 4d): build the note-context plumbing now; flip the live
-   agent surface after Goose §7 sign-off. Close the 3 Goose-boundary gaps. Provenance EditClaim wiring.
+7. **[L] Goose note-context plumbing only** (codepack 4d, superseded in scope): build the editor-side context
+   plumbing now. The live chat/agent UI is Plan-1-owned Goose WebView/reskin under Option 1; do not build a native
+   minichat UI from Plan 2. Close only the editor-side boundary gaps needed for note context and affordance routing.
 8. **[L] Supersede polish:** real trash+undo (P0-design first — see §12), focus/typewriter mode, semantic view
    op, saved-Views visual builder + backlinks panel (model-layer only today — need UI). (Width slider ships in
    step 3 per L2, NOT here.)
@@ -309,8 +323,8 @@ and several headline features are model-only.** What's recorded here supersedes 
 - **Hybrid semantic+structured Views** (`semantic:` op RRF-fused with all/any GRDB predicates) — no files-first PKM
   can express this. Buildable on the existing RRF stack. **The single most differentiated capability.**
 - **AI: in-process Goose** (real per-edit approval `session/request_permission`, cancellation, honest gating)
-  vs subprocess CLIs + loopback WS ports. Architecturally superior; **operationally Phase-0-gated (Phase 0 is
-  currently FAIL/PARTIAL)** — superior-in-design, not-yet-proven-at-runtime.
+  vs subprocess CLIs + loopback WS ports. Architecturally superior. After the 2026-06-29 upgrade, Plan 1 owns the
+  live Goose WebView/reskin surface; Plan 2's editor-side contribution is note-context plumbing and affordance routing.
 
 ### 12.2 Where Epistemos is BEHIND or DIVERGES (own these honestly)
 - **Markdown-as-truth (L1):** Tolaria *ships* it; Epistemos reaches it only *after* the unbuilt `@tiptap/markdown`
@@ -326,7 +340,9 @@ and several headline features are model-only.** What's recorded here supersedes 
 - **Provenance retraction-beats-revert:** claimed, but lives in the read-only Rust ledger; the shippable Swift
   spine doesn't have it (R5). Don't demo what isn't wired.
 - **"Full MarkEdit app embedded":** the literal "two apps in one" is impossible (one `@main`/`NSDocumentController`);
-  what ships is a curated module graft with Settings inert. Honest internally; the headline oversells.
+  the accepted path is a literal full-source clone minus only the un-coexistable shell items, mounted in Epistemos.
+  Settings/inert flags describe an early slice only; final acceptance requires MarkEdit settings/features reachable
+  under Source/MD, with the only stated capability loss being the Finder/Quick Look `.appex` bits.
 
 ### 12.3 GAPS — named/loved but model-only or unspecced (don't call v1 "done" without these)
 - **Real trash + undo** — the most-repeated "we beat Tolaria" claim, with ZERO design/code. Design it before
@@ -357,15 +373,16 @@ and several headline features are model-only.** What's recorded here supersedes 
 already dispatch through existing `EpdocEditorCommand` cases; Cmd+K is verified free; and the one shared
 dependency (`caretChanged.marks`, a contained 3-file change) ALSO unblocks the toolbar active-state (4c) and Find
 active-feedback (B4) — it pays triple. Resolve the npm check (12.4.1) and the provenance fork (R5) before the
-markdown-flip and minichat lanes start.
+markdown-flip and Goose note-context lanes start.
 
 ### 12.6 The "truly brilliant" lean (to be a category leap, not a faster clone)
 Put the three things only Epistemos's substrate can do in the FRONT door: (1) **provenance-native editing** —
 "every sentence has a verifiable lineage you can hover" with retraction-propagation as the demo (needs R5 built
 honestly); (2) **hybrid semantic+structured Views as a query language** — "all `type:Project` notes `before: 30
 days ago` *semantically about* runtime safety" (buildable on the shipping RRF stack — ship the visual builder);
-(3) **the in-process agent that steers the view** (open_note/highlight/replaceSelection + per-edit approval +
-lineage) — gated on Phase 0, highest ceiling. Backend already supersedes Tolaria; these make it a leap.
+(3) **the Goose-backed agent affordance layer that steers the editor** (open_note/highlight/replaceSelection +
+per-edit approval + lineage) — Plan 2 supplies note context and editor affordance routes; Plan 1 owns the live Goose
+WebView/reskin UI. Backend already supersedes Tolaria; these make it a leap.
 
 ---
 
@@ -402,8 +419,9 @@ them here so nothing is lost (SCOPE_RECOVERY is now retired — its content live
   `docs/RESEARCH_HTMLSTREAM_2026_06_18.md` — port the per-chunk repair + DOMPurify via the build-time WKWebView
   bundle, MAS-safe). Plus **R-LIVE-ARTIFACTS** (OWNER_REQUESTS_LEDGER): revive `ArtifactHostView` via an
   `ArtifactRoute.htmlWorkspace(id)` + a **self-refreshing `data.json`** bound to a vault/query feed (saved
-  `fusedSearch`/RRF or DAG/provenance) → patch the live WKWebView (counters Claude Artifacts). **Mini-chat is the
-  primary driver** (any surface via `MiniChatTarget`); main-chat auto-link DEFERRED (no implicit global link).
+  `fusedSearch`/RRF or DAG/provenance) → patch the live WKWebView (counters Claude Artifacts). **The editor-side
+  mini-chat/context plumbing is the primary driver** (any surface via `MiniChatTarget`); the live chat UI remains
+  Plan-1-owned Goose WebView/reskin and main-chat auto-link is DEFERRED (no implicit global link).
   Hand-editing routes to the Source (MarkEdit) surface (no second code pane). **HONEST STATE
   (`HTMLWorkspaceCapabilityStatus.swift`): 4 LIVE** (multi-file edit · WKWebView preview · agent chat PATCH pipeline
   `HTMLWorkspacePatchRouter` · export/import/PDF/snapshot) **/ 5 DEFERRED** (app message-bridge stub · console/error
@@ -439,7 +457,8 @@ MAS-safe, reject MAS-hostile) · 2 `.appex` → Epistemos's own Finder/QuickLook
   (`.textbundle` import/export). Without them those capabilities are lost.
 - **Decide Scripting/Shortcuts** (`Sources/Scripting` + `Sources/Shortcuts`): vendor both for literal "settings and all",
   OR state explicitly they're dropped (arguably moot inside Epistemos's own shell) — a decision, not a silent omission.
-- **Settings is embedded-but-inert** behind `#if EPISTEMOS_MARKEDIT_EMBED` (`Cmd+,` not wired) — add an explicit later
-  slice "flip Settings live" so "full settings" isn't read as already user-reachable.
+- **Settings cannot remain embedded-but-inert.** If a slice currently hides MarkEdit settings behind
+  `#if EPISTEMOS_MARKEDIT_EMBED` or omits `Cmd+,`/Settings wiring, treat that as a temporary gap to close before
+  final acceptance: the full MarkEdit settings UI must be user-reachable under Source/MD.
 - **The 2 `.appex` (Finder/Preview extensions) are DROPPED** (MAS-hostile, not portable into Epistemos's bundle) — the one
   honest, justified capability loss. State it so the headline doesn't overclaim.

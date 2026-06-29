@@ -87,7 +87,8 @@ Epdoc/TipTap (note) + HTML Workspace. Same recipe: transparent-over-glass + SF P
 on the web bodies; real Liquid Glass on the chrome. The editors already are web engines in native chrome — apply
 the SAME unified tokens + glass + springs so they match Goose + the shell pixel-for-pixel.
 **Plan 3 — Capabilities:** NATIVE = Apple-native shared views (QuickLook/VisionKit/thumbnails), landing-feature
-buttons, the lite Browser tab chrome, arXiv/meeting/voice UI, provenance views, PDF viewer (consumes Plan 2's).
+buttons, the lite Browser tab chrome, arXiv/meeting/voice UI, provenance views, and PDF affordances that hand a
+resolved `source_pdf` URL to Plan 2's PDFKit viewer (Plan 3 does not implement a second viewer).
 WEB = browser-use's Chromium UI (Pro, its own surface — reskin its hosted web UI with the same tokens where
 feasible; honest that CDP-Chromium ≠ WKWebView). Everything Plan 3 renders natively uses the macOS-26 glass +
 SF Pro + the unified tokens + the spring values; any web panel it hosts gets the transparent-over-glass treatment.

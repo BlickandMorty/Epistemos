@@ -1,9 +1,10 @@
 # MarkEdit Full-App Embed + MarkEdit-as-Code-Editor — CODE PACK (2026-06-27)
 
 > Pass-4b deliverable. (A) Embed the FULL MarkEdit app (MIT) inside Epistemos — full settings, closed-in,
-> buildable, doesn't need to RUN yet. (B) Use MarkEdit's `CoreEditor` (CodeMirror 6) as the CODE editor,
-> replacing the current one. **UPDATES Pass-2 Decision 5 ("drop CoreEditor") — we now KEEP CoreEditor as the
-> code surface.** Epdoc/TipTap stays the NOTE editor. Tags: [VERIFIED-CODE] read this session, [INFERRED].
+> buildable, and user-reachable before final acceptance (early inert flags are temporary only). (B) Use MarkEdit's
+> `CoreEditor` (CodeMirror 6) as the DEFAULT code editor while keeping the old code editor as a v1-legacy fallback.
+> **UPDATES Pass-2 Decision 5 ("drop CoreEditor") — we now KEEP CoreEditor as the code surface.**
+> Epdoc/TipTap stays the NOTE editor. Tags: [VERIFIED-CODE] read this session, [INFERRED].
 
 ## 0a. ★ FAIL-PROOF CLONE METHOD (owner: "literally clone it, don't add manually")
 **The whole `.app` CANNOT be dropped in as-is — macOS forbids it, this is not a choice:** a binary has ONE
@@ -35,16 +36,19 @@ Epistemos equivalent and PORT the hardening config across:**
 **Rule: a MarkEdit capability that lived in a dropped item must reappear via its Epistemos equivalent (ported), or be
 explicitly listed as a deliberate loss (only the 2 `.appex` Finder bits). No silent loss.**
 
-## 0. ★ DISCOVERY — Epistemos's PRE-SWAP code editor was a plain textarea with highlighting DISABLED
-Historical pre-swap state before the Plan 2 MarkEdit replacement:
-- **REMOVED: `Epistemos/Views/Notes/WebKitCodeEditorView.swift`** — was an `NSViewRepresentable` over a `WKWebView`
+## 0. ★ DISCOVERY — Epistemos's v1 code editor is a plain textarea with highlighting DISABLED
+Historical pre-swap state before the Plan 2 MarkEdit default swap:
+- **LEGACY-RETAINED: `Epistemos/Views/Notes/WebKitCodeEditorView.swift`** — an `NSViewRepresentable` over a `WKWebView`
   hosting a `<textarea id="source">` + aria-hidden `<pre id="highlight">` overlay. **It is NOT CodeMirror.**
   The highlighter is **dead code** — `renderHighlight()` starts with a bare `return;` (line 757) — so it's
   effectively a monospace textarea with a line-number gutter + status line. Bridge = one handler
   `epistemosCodeEditor` (`ready`/`change`/`cursor`); loads `epistemos-doc:///code-editor.html` via the SHARED
-  `EpdocEditorURLSchemeHandler`. `CodeEditorView.usesWebKitEditor` is hardcoded `true` (`:1831`).
-- **REMOVED fallback:** `CodeEditSourceEditor` (TextKit/tree-sitter) — was compiled, gated off, self-healed to off.
-- **REMOVED scaffold:** `LiveCodeEditorController` (+ `SwiftTreeSitterLiveHighlighter`) — no production view bound it.
+  `EpdocEditorURLSchemeHandler`. Keep it reachable as the **v1 legacy fallback** from Settings + a MarkEdit-surface
+  toggle; do not delete it.
+- **Legacy dormant fallback:** `CodeEditSourceEditor` (TextKit/tree-sitter) — compiled, gated off, self-healed to off.
+  Keep/flag rather than deleting unless the owner explicitly approves a separate cleanup.
+- **Legacy dormant scaffold:** `LiveCodeEditorController` (+ `SwiftTreeSitterLiveHighlighter`) — no production view
+  bound it. Keep/flag rather than deleting unless the owner explicitly approves a separate cleanup.
 
 **So MarkEdit's real CodeMirror 6 is a strict upgrade of the SURFACE.** And Epistemos's surrounding *chrome*
 is genuinely nice and worth keeping: `CodeEditorView` provides a native SwiftUI top bar (file/lang/Ln-Col,
@@ -117,7 +121,7 @@ struct MarkEditCodeEditorRepresentable: NSViewControllerRepresentable {
     }
 }
 ```
-FULL settings, present-but-inert (buildable, not menu-wired):
+FULL settings must be vendored and made user-reachable (present-but-inert is an early slice only, not acceptance):
 ```swift
 // NEW Epistemos/Views/Settings/MarkEditSettingsSection.swift  (#if EPISTEMOS_MARKEDIT_EMBED)
 import SwiftUI; import SettingsUI
@@ -126,7 +130,8 @@ struct MarkEditSettingsRepresentable: NSViewControllerRepresentable {
     func updateNSViewController(_ vc: NSViewController, context: Context) {}
 }
 ```
-"Closed-in / doesn't run yet" = compiles + renders behind a flag; no `Settings` scene / `Cmd+,` wired this pass.
+"Closed-in / doesn't run yet" was the first-slice meaning only. The final Plan-2 acceptance gate requires Settings
+scene/`Cmd+,` or an equivalent Source/MD settings route wired live; a hidden/inert pane is a TODO, not a pass.
 
 ## 3. Code-editor swap — ★ CANONICAL (REVISED 2026-06-29): MarkEdit ENGINE+POLISH for both; MD=MarkEdit chrome verbatim, CODE=v1-minimal look reimplemented on MarkEdit; the Prose/Source/Note LENS MODEL
 ★ OWNER DECISIONS (2026-06-29): see plan **L3 / L3-CHROME / L4**.
@@ -166,11 +171,11 @@ The CHROME differs by lens:
     serializing back to markdown**. 4 guardrails: (1) Epdoc writes ONLY via the full-fidelity `getMarkdown()` bridge;
     (2) preserve-unknown passthrough; (3) write only on a real edit; (4) round-trip test fails loud on edge
     constructs (raw HTML / footnotes / exotic tables / callouts / frontmatter).
-- **★ ROUTING FIX — the MarkEdit MD surface is currently ORPHANED.** `MarkEditVerbatimMarkdownChromeRepresentable`
-  (`mode: .markdownChrome`) is built but UNREACHABLE: the language detector at `CodeEditorView.swift:706` returns
-  nil for markdown → routes `.md` to the PROSE editor, so MarkEdit's MD chrome is never entered (owner: "I don't
-  see a way to access the MD version — it all routes to Prose"). WIRE the per-document lens toggle so `.md` can open
-  in the Source (MarkEdit) lens; do NOT force-route markdown away from it.
+- **★ ROUTING FIX — verify the MarkEdit MD Source lens is reachable.** `MarkEditVerbatimMarkdownChromeRepresentable`
+  (`mode: .markdownChrome`) was built while markdown still routed away from the MarkEdit surface in older code. Do
+  not trust fixed line numbers; inspect current `CodeEditorView`/workspace routing. WIRE or harden the per-document
+  lens toggle so `.md` can open in the Source (MarkEdit) lens; do NOT force-route markdown away from it, and do NOT
+  make Source the only/default markdown view.
   ```swift
   // ONE MarkEdit CoreEditor surface for code + markdown; lens toggle picks Note/Source/Prose for .md.
   @ViewBuilder private var codeEditorSurface: some View {
@@ -194,10 +199,11 @@ The current embed renders SMALLER/plainer than the standalone app. Verified caus
   default registration (font, size, line-height, theme) into `AppBootstrap` (the §0a harvest-hardening item).
 - **Content insets / window size:** match MarkEdit's roomy editor margins + default window dimensions; don't let
   Epistemos theme CSS shrink/override MarkEdit's own styling on the MD path.
-- **THEME AWARENESS (CODE path):** today the editor only takes MarkEdit's theme (e.g. `github-dark`/`github-light`
-  at `:363`). The CODE chrome + CoreEditor must follow the **Epistemos app theme** — inject Epistemos theme tokens /
+- **THEME AWARENESS:** today the editor only takes MarkEdit's theme (e.g. `github-dark`/`github-light` in older
+  builds). The CODE chrome + CoreEditor must follow the **Epistemos app theme** — inject Epistemos theme tokens /
   CSS-vars (background, text, accent, gutter, selection) mapped from the active app theme, including custom/accent,
-  not just MarkEdit's two github presets. (MD path stays on MarkEdit's own theme to preserve verbatim fidelity.)
+  not just MarkEdit's two github presets. The MD path preserves MarkEdit's layout/chrome and settings, but it still
+  auto-maps Epistemos light/dark/accent into the MarkEdit source surface so the app has one unified theme.
 - **FILE-TYPE LOGOS (CODE path):** the title bar shows a **real per-language logo** (Swift bird, Rust gear, etc.),
   not the generic `</>` glyph — build a file-extension→icon map (clean language-icon set or `NSWorkspace`/`UTType`
   system icons; mind trademark).
@@ -252,9 +258,10 @@ targets:
   `respondToMemoryPressure`). Route CoreEditor's WebView through it.
 - Two bridges, distinct handler names (`epdoc`/`bridge`/`epistemosCodeEditor` vs MarkEdit's `"bridge"` scoped
   to its own content controller) — just never register two same-named handlers on one content controller.
-- **Routing:** `CodeLanguage.detect(from:)` already returns nil for `.md`/`.txt` (→ note path) and a language
-  for code extensions (`:935`). Code ext → CoreEditor; markdown/notes → Epdoc/TipTap; MarkEdit's own markdown
-  mode = "a different mode" on the code surface, not the default note path.
+- **Routing:** code extensions go to CoreEditor Source. Markdown documents participate in the lens model:
+  Note(Epdoc)/Source(MarkEdit)/Prose(TK2), with Prose/Note behavior preserved and Source reachable by explicit
+  lens toggle. Verify current detection/routing in code before editing; stale line numbers in this codepack are not
+  authority.
 
 ## 6. Risks / do-avoid
 Risks: (1) verify ts-gyb `bridge.core.*` selectors vs vendored `Bridge/Web/Generated/` first; (2)

@@ -16,6 +16,8 @@
 
 ★ THIS PLAN WAS UPGRADED (2026-06-29) — RE-READ the canon (it changed) and reconcile any stale claim you hit (no-contradiction). WHAT CHANGED for Plan 1: (1) §7 GREEN-LIT → you are on PHASE 1; OPTION 1 LOCKED — native FRAME only, chat + the rest STAY WebView reskinned, NO native chat, route-migration STOPS after Models (Steps 1–3 done: hardening · goosed-behind-flag · router + native Models). (2) NEW app-wide NATIVENESS + UNIFIED-LOOK mandate (the ★ block below + docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md + GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md — verified Apple tokens/springs/glass recipe + CODE-TO-LIFT; retheme Goose's existing shadcn, don't replace). (3) CODE-RESEARCH (real openable code) + RESEARCH-BETWEEN-IMPLEMENTATION now required. If anything in this prompt or your plan docs still implies "wait for §7 / native chat / replace components," it is STALE — fix it at the source.
 
+★ STALE-SEQUENCING GUARD (2026-06-29 audit): STEP 1/STEP 3 below are ongoing proof/hardening obligations, not a resurrected Phase-0 gate. Re-prove them while continuing Phase 1; do not pause for sign-off, do not rebuild native chat, and do not migrate more Goose routes into Swift. See docs/research/PROMPT_PLAN_UPGRADE_AUDIT_2026_06_29.md.
+
 You are building the SINGLE Epistemos agent surface = Goose (reskinned). There is no Chat/Act/Work federation — Goose is the one surface (owner locked Goose-only 2026-06-28). AI is consolidated to Goose; do NOT revive Osaurus/Act, three-engine modes, or any separate local agent brain.
 
 THE FULL PROGRAM (do NOT forget the later phases): Phase 0 = get Goose fully connected + PROVEN (WebView + ACP) — it was the prerequisite GATE (now GREEN-LIT). The program is now in: Phase 1 = HYBRID APPKIT (native FRAME only — window/nav/launcher + permission pop-ups — wrapped around Goose's reskinned WebView; every Goose feature stays in the WebView) · Phase 2 = entry + navigation + settings · Phase 3 = feature parity + epistemos.context.snapshot bridge · Phase 4 = chat-primary default · Phase 5 = Paseo strategic fusion. The hybrid AppKit + WebView plan IS the goal; Phase 0 just unlocks it. Full program: GOOSE_MASTER_BUILD_PROMPT_2026_06_27.md (Phases 0–5) + GOOSE_AGENT_APPKIT_FOLLOWON_PLAN_2026_06_26.md (Steps 1–9).
@@ -39,7 +41,8 @@ READ FIRST (canon order, do not skim):
   3. docs/handoffs/GOOSE_MASTER_BUILD_PROMPT_2026_06_27.md (the full program + DEFINITION OF DONE + FORBIDDEN list)
   4. docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md §0,§2,§7,§9-C,§14,§16,§17 (ignore ⛔ DEAD)
   5. docs/handoffs/GOOSE_AGENT_APPKIT_FOLLOWON_PLAN_2026_06_26.md §4–§6 (the hybrid Phase-1 steps — IN AUTHORITY NOW, §7 green-lit)
-  6. The GOLDEN RULE: provider/model/skill/extension inventory is ALWAYS live-enumerated from Goose via ACP — NEVER Swift-hardcoded.
+  6. docs/research/PROMPT_PLAN_UPGRADE_AUDIT_2026_06_29.md (stale contradiction audit after the native-unification upgrade)
+  7. The GOLDEN RULE: provider/model/skill/extension inventory is ALWAYS live-enumerated from Goose via ACP — NEVER Swift-hardcoded.
 
 =========================================================
 STEP 1 — INDEPENDENT VERIFICATION (re-prove every Phase-0 claim from scratch, BEFORE new code)
@@ -79,7 +82,7 @@ HARD GATES / FORBIDDEN
 
 PROVEN-DONE bar (5 criteria for any [x]): real-state · live · migrates-existing-installs · end-to-end through the PRODUCTION (web UI) path · witnessed with a re-runnable artifact.
 
-PARALLELISM: other agents are concurrently building Plan 2 (editor) + Plan 3 (capabilities) in the SAME repo. You own Epistemos/Goose/* + Epistemos/Agent/* + agent_core Goose lanes. Do NOT touch the editor surfaces (Epdoc/Prose/code-editor/HTML-workspace) or the Plan-3 capability files. The only shared seam is the Goose minichat: Plan 2 builds its note-context PLUMBING; the LIVE Goose agent surface is yours.
+PARALLELISM: other agents are concurrently building Plan 2 (editor) + Plan 3 (capabilities) in the SAME repo. You own Epistemos/Goose/* + Epistemos/Agent/* + agent_core Goose lanes. Do NOT touch the editor surfaces (Epdoc/Prose/code-editor/HTML-workspace) or the Plan-3 capability files. The only shared seam is Goose note-context plumbing: Plan 2 supplies editor context/affordance routing; the LIVE Goose agent surface is yours.
 
 THIS RUN = continue PHASE 1 per Option 1 + the nativeness reskin: build the native FRAME (window/nav-rail/launcher/permission pop-ups) around Goose's RESKINNED WebView, applying the verified tokens/springs/glass recipe (GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md) + GOOSE_AGENT_APPKIT_FOLLOWON_PLAN Steps 1–9 (native frame only; every Goose feature stays in the WebView; NO native chat). Keep the GOLDEN RULE + the 5 §7 proofs + security green as ongoing verification (no checklist, no stop). Never idle, never declare "done" — loop and harden until I type "stop".
 

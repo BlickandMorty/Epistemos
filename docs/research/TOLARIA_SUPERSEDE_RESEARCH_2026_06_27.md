@@ -2,6 +2,12 @@
 
 > ★ **CANONICAL PLAN = `EDITOR_CANONICAL_PLAN_2026_06_27.md`** (written pass 6 — the single source of truth).
 > This doc is the running research LOG; that doc is the consolidated plan. Code detail = the 4 codepacks.
+>
+> **★ 2026-06-29 supersession:** this research log contains historical pass notes. The current Plan 2 canon
+> reverses several entries below: keep the old code editor as a v1-legacy fallback; make MarkEdit settings
+> user-reachable before final acceptance; build only Goose note-context plumbing from Plan 2; do not build a
+> separate native chat UI; do not wait for Phase-0/§7 sign-off; verify current routes instead of trusting stale
+> line numbers.
 
 **Running via `/loop 2m` (cron `fc3d7bc7`).** Deliberate multi-pass research until the owner says stop.
 Each pass appends findings below + ticks the checklist. When research passes are done → restructure the
@@ -23,24 +29,24 @@ editor docs into ONE canonical, contradiction-free plan, then keep deepening unt
   `.epdoc` package JSON demotes to a derived cache. Proceed with the Pass-8 staged flip
   (`EPISTEMOS_MD_SOURCE_OF_TRUTH`: jsonOnly → dualWrite → markdownCanonical), serializer-first, falsifier-gated.
 - **Grammar / Minichat / Width / Code-swap / Cleanup / Provenance:** owner asked for recommendations
-  (laid out in chat 2026-06-27); RECOMMENDED picks pending explicit confirm — grammar=Obsidian/GFM,
-  minichat=native SwiftUI+webview escape hatch, width=binary 720px/full (slider later), code-swap=Option A
-  (keep chrome, swap engine = code editor v2), cleanup=DELETE the 3 old code-editor files after v2 runtime-verify (code-editor scope only; note editors untouched), provenance=ship the
-  existing Swift `AgentNoteEditProvenance` spine (defer the new Rust FFI). Lock these into the canonical plan
-  once the owner confirms.
+  (laid out in chat 2026-06-27). **2026-06-29 supersession:** grammar=Obsidian/GFM; Goose work in Plan 2 =
+  note-context plumbing only; width=720px/`max-width:none` plus slider; code-swap=MarkEdit Source default with
+  MD MarkEdit chrome and CODE v1-minimal-on-MarkEdit; cleanup=KEEP old code editor as v1 legacy; provenance=ship
+  the existing Swift `AgentNoteEditProvenance` spine (defer the new Rust FFI).
 
 ## Locked decisions ADDED mid-loop (owner, 2026-06-27 — supersede where they conflict with earlier)
-- **MarkEdit = FULL app embedded, full settings, completely closed-in, doesn't need to RUN yet.** Owner:
+- **MarkEdit = FULL app embedded, full settings, completely closed-in, settings must become user-reachable.** Owner:
   "full thing full app, please do not do anything other than full thing full app." Embed everything incl.
-  the full Settings; note/markdown stuff lives "under a different mode."
+  the full Settings; note/markdown stuff lives "under a different mode." Early inert settings were only a build
+  slice, not final acceptance.
 - **MarkEdit's CodeMirror = the CODE EDITOR** (replaces Epistemos's current code editor, which looks less
   polished than MarkEdit). ⟹ **UPDATES Pass-2 Decision 5: do NOT drop `CoreEditor`.** Keep MarkEdit's
   CodeMirror as the code-editing surface; Epdoc/TipTap stays the *note* editor. Each tool to its strength:
   CodeMirror for code, TipTap for rich notes. (Open sub-question for research: keep Epistemos's existing
   code-editor UI/chrome and drop just its engine, or replace the whole surface with MarkEdit's.)
-- **AI chat = EXTEND Goose, not a new agent.** A "minichat": a **native shell hosting a (Goose) webview**
-  that **auto-initializes for the open note** (note context fed to Goose), with the Tolaria-style controls.
-  Requires Goose-side engineering + MCP/APIs. Depends on Goose Phase 0 being finished first.
+- **AI chat = EXTEND Goose, not a new agent.** After Plan 1 Option 1, the live chat/agent UI remains Goose's
+  reskinned WebView owned by Plan 1. Plan 2 owns only the open-note context plumbing and editor affordance routes
+  that let Goose act on the active note.
 - **Nativeness = maximize.** Native buttons/controls like MarkEdit has, as much as possible. The text stack
   is WebView (not native) but the *chrome* (toolbar/Find/Settings/FontPicker/panel toggles/menus/width
   toggle) should be native AppKit wherever it can. Goose-side nativeness is less critical but still wanted.
@@ -67,7 +73,7 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
    - [x] 4a — `TOLARIA_ONTOLOGY_UPGRADE_CODEPACK_2026_06_27.md`
    - [x] 4b — `MARKEDIT_EMBED_CODEPACK_2026_06_27.md` (★ current code editor = textarea, highlighting DISABLED)
    - [x] 4c — `NATIVE_CONTROLS_CODEPACK_2026_06_27.md` (Epdoc already MarkEdit-shaped; gaps = Find/width/palette)
-   - [x] 4d — `GOOSE_MINICHAT_CODEPACK_2026_06_27.md` (native SwiftUI over ACP + webview escape hatch; Phase-0 gated)
+   - [x] 4d — `GOOSE_MINICHAT_CODEPACK_2026_06_27.md` (superseded 2026-06-29: Plan 2 context plumbing only; live UI is Plan-1-owned Goose WebView/reskin)
 - [x] **Pass 5 DONE** (2026-06-27): CONTRADICTION AUDIT complete. 6 BLOCKERS found (all the same reversal:
       SS-CM + CODEMIRROR_MD_V2 said "CodeMirror=primary note editor, drop TipTap" — REVERSED) + planted banners
       in EPDOC_MD_V2 + SS-P. **All 4 poisoned banners FIXED this pass.** 4 codepacks + §16 clean. Open questions
@@ -104,7 +110,7 @@ works from the spec, not the source. Reimplement intent; do not copy code or ver
 - [x] **FINALIZATION (2026-06-27, owner-requested) — loop STOPPED (cron `669316a7` deleted).** 3 independent
       audits ran (contradiction / supersede-Tolaria / completeness); findings folded into the CANONICAL PLAN
       **§12** (the now-authoritative honest-state section). Owner LOCKS applied: **L1 markdown-as-truth · L2
-      width = toggle + slider · L3 delete the 3 OLD code-editor files after v2 verify (code-editor scope; note editors untouched)**; recommendations R1–R5 recorded (audit-verified best, pending
+      width = toggle + slider · L3 keep the old code editor as v1 legacy while MarkEdit becomes default**; recommendations R1–R5 recorded (audit-verified best, pending
       final nod). Corpus contradictions fixed: provenance §6 (Swift spine not Rust ledger), `update_note`→
       `edit_note`, `@tiptap/markdown` 3.27→3.24, `vendor/`→`LocalPackages/`, width pixels → 720px/none, stage
       5.8 deletion VOIDED. P0 pre-build checks + first-slice recorded in §12. **The canonical plan §12 is the
@@ -364,7 +370,7 @@ per token."** Carry this corrected version into the canonical plan.
   keeping. Plan: vendor `MarkEditCore`+`MarkEditKit`+`Modules`(11 libs incl. SettingsUI/FontPicker/Statistics)+
   `Sources/{Editor,Panels,Settings}`+`CoreEditor`; DROP its `@main`/AppDocumentController/.xcodeproj/entitlements/
   both `.appex`; re-host `EditorViewController` via `NSViewControllerRepresentable` against the existing
-  `EpistemosDocumentController`; present FULL `SettingsUI` panes inert behind `#if EPISTEMOS_MARKEDIT_EMBED`.
+  `EpistemosDocumentController`; vendor FULL `SettingsUI` panes and wire them user-reachable before final acceptance.
   **Code-editor swap = Option A** (keep Epistemos chrome, swap engine textarea→CoreEditor at
   `CodeEditorView.codeEditorSurface`) **+ selectively graft MarkEdit's native Find/FontPicker/Statistics/
   Goto-Line** (= maximize nativeness without surrendering chrome). LSP: keep one-shot Swift `CodeEditorSemanticLSP`
@@ -385,22 +391,18 @@ MarkEdit-role, AI-diff-lib, "markdown round-trip solved". **FIXED this pass — 
 The 4 Pass-4 codepacks + `SURFACE...§16` are aligned with the truth (only minor reconciliations: width pixels,
 package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use the Pass-3 name).
 
-**⚠️ OPEN QUESTIONS for the owner (surface in the canonical plan — do NOT paper over):**
-1. **JSON-vs-markdown source-of-truth fork (the big one):** Epdoc stores ProseMirror JSON in `.epdoc` packages
-   TODAY; §16 mandates vault `.md` write-through; the `@tiptap/markdown` serializer is UNBUILT. Plan must say:
-   serializer-first → canonical-`.md` flip → HTML-in-md fallback for rich blocks; until then Goose `update_note`
-   writes JSON into the package.
-2. **Minichat shape:** native SwiftUI over ACP + "Open in Goose" webview escape hatch (research rec) vs the
-   owner's "native webview shell" phrasing. **Needs owner confirm.**
-3. **Note-width pixels:** 3 specs exist (~700–760px / 820↔1180px / `max-width:none`); also binary vs a width
-   SLIDER (proposed differentiator). **Pick canonical numbers + binary-vs-slider.**
-4. **Code-editor swap scope:** Option A (keep Epistemos chrome, swap engine) + graft MarkEdit native panels
-   [recommended] vs Option B (replace whole surface with MarkEdit's VC). **Recommended, not locked.**
+**⚠️ OPEN QUESTIONS captured historically; current resolutions live in the canonical plan.**
+1. **JSON-vs-markdown source-of-truth fork (resolved L1):** serializer-first → canonical-`.md` flip →
+   HTML-in-md fallback for rich blocks; the real Goose write seam is `edit_note`, not `update_note`.
+2. **Minichat shape (resolved 2026-06-29):** Plan 2 builds note-context plumbing only. Live chat/agent UI is
+   Plan-1-owned Goose WebView/reskin under Option 1.
+3. **Note-width pixels (resolved L2):** binary 720px/`max-width:none` plus a slider.
+4. **Code-editor swap scope (resolved L3/L3-CHROME/L4):** MarkEdit Source is default; MD uses MarkEdit chrome;
+   CODE reimplements the v1 minimal look on MarkEdit; the old editor stays reachable as v1 legacy.
 5. **`@codemirror/merge` for the CODE editor:** excluded for notes; it's the natural diff engine for the CM6
    CODE editor — capture this positive re-scope.
-6. **Cleanup fate:** after the CoreEditor swap, do the 3 old code-editor impls (`WebKitCodeEditorView`, dormant
-   `CodeEditSourceEditor`, scaffold `LiveCodeEditorController`) get deleted? And Epdoc/TipTap is KEPT (not
-   removed) — confirm.
+6. **Cleanup fate (resolved 2026-06-29):** keep the old code editor as a v1-legacy fallback. Do not delete
+   `WebKitCodeEditorView`/dormant code-editor scaffolds unless the owner later approves a separate cleanup.
 
 ### Pass 4c + 4d — code-level (full code in dedicated docs)
 - **4c Native controls** (`NATIVE_CONTROLS_CODEPACK_2026_06_27.md`): ★ Epdoc is ALREADY MarkEdit-shaped
@@ -410,15 +412,14 @@ package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use 
   missing; Cmd+K is free). Code provided for all. MUST stay in WebView = the 4 caret-anchored TRIGGERS (slash/
   bubble/drag-handle/KaTeX) — but their PANELS are already native. Code editor: mirror the enum
   (`CodeEditorCommand`). Build order: registry+palette → Find/Replace → width → panels → status bar.
-- **4d Goose minichat** (`GOOSE_MINICHAT_CODEPACK_2026_06_27.md`): recommend **native SwiftUI projecting
-  `GooseACPEventBridge`** (NOT the web UI inline) + an "Open in Goose" **webview escape hatch** (same
-  sessionId) — note this diverges from the owner's "native webview shell" phrasing; owner to confirm.
-  Lifecycle = ONE shared session re-scoped per note (cwd=vault constant). Auto-init = `ActiveEpdocTracker`
+- **4d Goose note-context plumbing** (`GOOSE_MINICHAT_CODEPACK_2026_06_27.md`, superseded in scope 2026-06-29):
+  do not build a separate native chat UI from Plan 2. Lifecycle = ONE shared session re-scoped per note
+  (cwd=vault constant). Auto-init = `ActiveEpdocTracker`
   (frontmost note) + `NoteContextProvider` (bounded head/tail body via existing `ProseMirrorMarkdownProjector`)
   → `WorkNativeMCPHost.updateContext`. **Goose-boundary gaps:** `GooseACPClient.newSession` drops `mcpServers`
   (1-line), NO cancel/stop method (add `session/cancel`), NO Epdoc UI-steering affordances (add `open_note`/
-  highlight). **Phase-0 GATED:** scaffold + note-context plumbing now (zero Goose dep, testable), flip live
-  after Phase 0 sign-off; mirror the `#if EPISTEMOS_APP_STORE` gate on the minichat surface.
+  highlight). Build the editor-side note-context plumbing now (zero Goose dep, testable); Plan 1 owns the live
+  Goose WebView/reskin surface.
 
 ### Pass 3a — Goose graft architecture (concrete)
 - **Goose seam:** `GooseRuntimeSupervisor` spawns `goose serve` (:3284, hardened env, Keychain keys pushed
@@ -432,9 +433,9 @@ package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use 
   store; the MCP `vault.context_snapshot` tool reads it → always live (pulled, not stale-pushed).
 - **8 MCP tools to expose (mirror Tolaria + UI-steering trio):** `vault.context_snapshot`, `vault.search`
   (RRF — beats Tolaria's no-index walkdir), `vault.get_note` (honest head/tail truncation), `vault.create_
-  note`, `vault.update_note`/`vault.propose_edit`, `open_note` (UI-steer via `EpdocDocumentOpening`),
+  note`, `edit_note`/`vault.propose_edit`, `open_note` (UI-steer via `EpdocDocumentOpening`),
   `highlight_editor` (new `EpdocEditorCommand.highlightRange`), `refresh_vault` (`ShadowVaultBootstrapper`).
-- **Edit round-trip:** Path A (MCP `note.update` writes file → reload via `setContent` + self-write
+- **Edit round-trip:** Path A (MCP `edit_note` writes file → reload via `setContent` + self-write
   suppression, like the HTMLWorkspace path) for bulk/create; Path B (stream → `prosemirror-changeset`
   decorations via `EpdocCopilotDockView`) for AI-authored in-place edits.
 - **AI sidebar (Cmd+Shift+L):** thin SwiftUI projection of `GooseACPEventBridge` — composer with
@@ -442,7 +443,7 @@ package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use 
   cards keyed by `toolCallId`, **inline per-edit approval** (allow_once/always/reject → `resolvePermission`),
   **Stop/abort** (Goose `cancelled` — Tolaria has none), per-message copy/regenerate/**fork**. Agent/model
   from Goose's provider catalog. Safe/Power → `GOOSE_MODE`. MAS build = honest "Pro only" state.
-- **⚠️ SOURCE-OF-TRUTH FORK to resolve before `update_note` is "done":** Epdoc TODAY stores ProseMirror
+- **⚠️ SOURCE-OF-TRUTH FORK to resolve before `edit_note` is "done":** Epdoc historically stored ProseMirror
   JSON in `.epdoc` packages, NOT markdown-on-disk. Markdown-as-truth (add `@tiptap/markdown` serializer) is
   the LOCKED direction but UNBUILT. Path B (diff decorations) sidesteps it for AI-authored edits; Path A
   needs the serializer (or write JSON into the package meanwhile).
@@ -457,7 +458,10 @@ package name, the within-T `@manuscripts`→`@handlewithcare` evolution — use 
 
 ### Pass 7a — Verification/falsifier specs: MarkEdit embed + code-editor swap
 
-> **Scope:** build-sequence item 5 (`EDITOR_CANONICAL_PLAN §10.5`) — vendor MarkEdit, clone the bundle script, swap textarea→CoreEditor (Option A), graft native panels, full Settings inert, then (after v2 runtime-verify) delete the 3 OLD code-editor files (owner L3 — code-editor scope only; NOTE editor + Prose untouched). Headless signals tagged `[CI-PROVABLE]`; runtime-only tagged `[RUNTIME-ONLY]` (needs signed `Product▸Run`).
+> **Scope:** build-sequence item 5 (`EDITOR_CANONICAL_PLAN §10.5`) — vendor MarkEdit, clone the bundle script,
+> make MarkEdit Source the default engine, graft/preserve the required panels, wire full Settings live, and keep the
+> old code editor as a v1-legacy fallback. Headless signals tagged `[CI-PROVABLE]`; runtime-only tagged
+> `[RUNTIME-ONLY]` (needs signed `Product▸Run`).
 >
 > **★ Load-bearing correction to the code pack** `[VERIFIED-CODE]`: `MARKEDIT_EMBED_CODEPACK §4` shows `path: vendor/MarkEdit/...`, but the repo convention is **`LocalPackages/`** (`project.yml:479-487`: `mlx-swift`, `SwiftTerm`, `GGUFRuntimeBridge`, `CodeEditSourceEditor` all live there; nothing uses `vendor/`). Vendor under `LocalPackages/MarkEdit/` or the path assertions below correctly fail.
 
@@ -475,33 +479,59 @@ done
 ```
 Real risk surface is the static plist — fully catchable headlessly though signing enforcement is `[RUNTIME-ONLY]`.
 
-**5.5 — Swap seam textarea→CoreEditor at `CodeEditorView.codeEditorSurface` (`:2332-2334`, Option A).** ★ `[VERIFIED-CODE]`: current code editor is a **plain textarea, highlighting DISABLED** (`WebKitCodeEditorView.swift:757` `renderHighlight(){ return; }`); `usesWebKitEditor` hardcoded `true` (`:1831`) gating 6 sites (`:1921,2022,2298,2333,2814`). Green: new `MarkEditCodeEditorRepresentable: NSViewControllerRepresentable` over `EditorViewController`; surface references it not `WebKitCodeEditorView`; `bridge.core.*` selectors exist in vendored `Generated/` (verify ts-gyb — codepack marked `[INFERRED]`); reaches CodeSign with `CODE_SIGNING_ALLOWED=NO`. `[RUNTIME-ONLY]`: real CM6 highlighting, autosave debounce, LSP hover. Falsifiers: `WebKitCodeEditorView(` still in the live surface; a `resetEditor` selector with no `Generated/` match (compile-fail); no `lastPushed` dedupe → edit-loop/cursor-reset; any `DispatchQueue.main.sync` in a UniFFI/bridge callback (deadlock).
+**5.5 — Swap seam textarea→CoreEditor at `CodeEditorView.codeEditorSurface` (verify current line numbers).**
+★ `[VERIFIED-CODE]`: the v1 code editor is a **plain textarea, highlighting DISABLED** (`WebKitCodeEditorView.swift`
+`renderHighlight(){ return; }`) and is now retained as legacy, not the default. Green: new
+`MarkEditCodeEditorRepresentable: NSViewControllerRepresentable` over `EditorViewController`; default surface uses
+MarkEdit while `WebKitCodeEditorView` stays reachable only through the v1-legacy toggle; `bridge.core.*` selectors
+exist in vendored `Generated/` (verify ts-gyb — codepack marked `[INFERRED]`); reaches CodeSign with
+`CODE_SIGNING_ALLOWED=NO`. `[RUNTIME-ONLY]`: real CM6 highlighting, autosave debounce, LSP hover. Falsifiers:
+default surface still silently mounts `WebKitCodeEditorView`; a `resetEditor` selector with no `Generated/` match
+(compile-fail); no `lastPushed` dedupe → edit-loop/cursor-reset; any `DispatchQueue.main.sync` in a UniFFI/bridge
+callback (deadlock).
 
-**5.6 — Coexistence: CoreEditor `chunk-loader://` + Epdoc `epistemos-doc://`, routed by extension; shared pressure handler.** Green: `CodeLanguage.detect(from:)` (`:904`) nil for `.md`/`.txt`; each scheme on exactly one `WKWebViewConfiguration`; no two `"bridge"` handlers on one content controller; CoreEditor WebView registered with `EpdocWebViewShared.notifyWebViewCreated/Dismantled` (`EpdocEditorChromeView.swift:36,629,664`). Falsifiers: duplicate scheme registration (`WKWebView` traps → crash); `.md` routes to CoreEditor; CoreEditor escapes memory-pressure relief (30-50 MB/editor leak).
+**5.6 — Coexistence: CoreEditor `chunk-loader://` + Epdoc `epistemos-doc://`, routed by lens/extension; shared pressure handler.**
+Green: code extensions open Source/CoreEditor; `.md` can explicitly open Source(MarkEdit) while preserving
+Note/Prose lenses; each scheme on exactly one `WKWebViewConfiguration`; no two `"bridge"` handlers on one content
+controller; CoreEditor WebView registered with the shared memory-pressure tracking. Falsifiers: duplicate scheme
+registration (`WKWebView` traps → crash); `.md` Source lens unreachable; `.md` forced to Source only; CoreEditor
+escapes memory-pressure relief (30-50 MB/editor leak).
 
-**5.7 — Full MarkEdit Settings present-but-inert behind `#if EPISTEMOS_MARKEDIT_EMBED`.** Green: builds WITH and WITHOUT the flag (additive `#if/#else`); flag in `project.yml` for embed config only; `! grep EPISTEMOS_MARKEDIT_EMBED EpistemosApp.swift` (no `Settings{}`/`Cmd+,` yet). Falsifiers: `MarkEditSettingsRepresentable` referenced outside the `#if`; flag bleeds into AppStore scheme; flag-unset build fails.
+**5.7 — Full MarkEdit Settings live/reachable.** Green: Settings panes are vendored and reachable from the Source/MD
+surface or app Settings; builds WITH and WITHOUT any embed flag; flag in `project.yml` for embed config only.
+Falsifiers: Settings panes hidden behind an inert flag at final acceptance; flag bleeds into AppStore scheme;
+flag-unset build fails.
 
-**5.8 — Delete the 3 OLD code-editor files (owner L3, 2026-06-27 — code-editor scope ONLY).** After a MANUAL
-real-app verify that code-editor v2 (MarkEdit CoreEditor) types + highlights + saves, DELETE
-`WebKitCodeEditorView`/`LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` + remove the `CodeEditSourceEditor`
-dep IFF unused; collapse `usesWebKitEditor`; commit separately (easy revert); zero test regressions. **★ Ordering
-gate:** deletion MUST follow the manual runtime confirm (the textarea "works" headlessly too, just no highlight).
-**Hard falsifier (the L3 scope guard):** any `Epdoc*`/`ProseTextView2`/`ProseEditorView` file touched = VIOLATION
-(NOTE editor + frozen Prose are never deleted — only the dead CODE-editor files).
+**5.8 — Keep the v1 legacy fallback (2026-06-29 L3 reversal).** After a MANUAL real-app verify that MarkEdit
+CoreEditor types + highlights + saves, keep `WebKitCodeEditorView` reachable from Settings + a toggle inside the
+MarkEdit surface. Dormant code-editor scaffolds may be flagged, but deletion requires a separate explicit owner
+approval and commit. **Hard falsifier (the L3 scope guard):** old code editor deleted or unreachable; any
+`Epdoc*`/`ProseTextView2`/`ProseEditorView` behavior broken by the code-editor swap.
 
-**Honesty ledger:** all of {vendor/drop presence, no-`@main`/`.appex`, xcodegen-only, lint-strip, bundle wiring, MAS-hostile entitlement leak (static plist), swap-seam grep, selector existence, scheme disjointness, settings-inert dual-build, cleanup grep + `swift test`} = `[CI-PROVABLE]`. **CM6 highlighting/typing/LSP-hover + code-signing = `[RUNTIME-ONLY]`** (per `headless_xcodebuild_signing`: treat "reached CodeSign, 0 other errors" as compile-OK).
+**Honesty ledger:** all of {vendor/drop presence, no-`@main`/`.appex`, xcodegen-only, lint-strip, bundle wiring,
+MAS-hostile entitlement leak (static plist), swap-seam grep, selector existence, scheme disjointness,
+settings-live reachability, v1-legacy reachability + `swift test`} = `[CI-PROVABLE]`. **CM6 highlighting/typing/
+LSP-hover + code-signing = `[RUNTIME-ONLY]`** (per `headless_xcodebuild_signing`: treat "reached CodeSign, 0 other
+errors" as compile-OK).
 
 ### Pass 7b — Verification/falsifier specs: Goose minichat + native controls + ontology
 
-> Tiers: `[HEADLESS]` (compile/grep/`swift test`/`cargo test`/MCP JSON-RPC round-trip over a stub) vs `[RUN-APP]`; live-Goose marked `⛔PHASE-0` (`GOOSE_PHASE_0_STATUS_AUDIT` not signed off).
+> Tiers: `[HEADLESS]` (compile/grep/`swift test`/`cargo test`/MCP JSON-RPC round-trip over a stub) vs `[RUN-APP]`;
+> live Goose UI is Plan-1-owned after the 2026-06-29 upgrade.
 
 **A. GOOSE-MINICHAT**
 - **A1 — `newSession` carries `mcpServers` (1-line gap).** `[VERIFIED-CODE]` `GooseACPClient.swift:74-83` calls `GooseACPNewSessionRequest(cwd:metadata:)` with NO `mcpServers`, though the struct supports it (`GooseACPProtocol.swift:755-771`). ⚠️ **`GooseACPClientTests.swift:38` asserts `mcpServers == .array([])` — it LOCKS IN the bug; any fix MUST update it.** Green: signature gains `mcpServers:` + body forwards it; recording-stub round-trip asserts `params.mcpServers == [descriptor]`, shape `{name,type:"http",url,headers:{Authorization}}` checked vs vendored goosed (keys `[INFERRED]`). Falsifier: populated call still encodes `[]`.
-- **A2 — `session/cancel` (NEW method).** `GooseACPMethod` (`:39-49`) has NO `.cancel` (only the `cancelled` stop-reason + elicitation `.cancel()`). Green: new `case cancel`→wire string (confirm vs goosed); `client.cancel(sessionId:)` encodes it; `stop()` no-ops when idle. Falsifier: `stop()` resolves an elicitation `.cancel()` not the turn; invented wire string. `⛔PHASE-0` runtime: cancel halts further `session/update`.
+- **A2 — `session/cancel` (NEW method, coordinate with Plan 1 if live UI needs it).** `GooseACPMethod` (`:39-49`)
+has NO `.cancel` (only the `cancelled` stop-reason + elicitation `.cancel()`). Green: new `case cancel`→wire string
+(confirm vs goosed); `client.cancel(sessionId:)` encodes it; `stop()` no-ops when idle. Falsifier: `stop()` resolves
+an elicitation `.cancel()` not the turn; invented wire string.
 - **A3 — `WorkAppContextSnapshot.activeNoteBodyExcerpt` (build-now, zero Goose dep).** `:7-61` has title/path, NO body excerpt. Green: `Codable/Equatable/Sendable` field, `Self.clean(_,limit:)` bound, threaded through `init`/`isEmpty`(`:89`)/`rows`(`:106`)/`CodingKeys`/`jsonString`(`:152`); `headTail(8000,4000,1500)` ≤~5500, preserves head+tail, honest elision marker. Falsifiers: `isEmpty` ignores field; unbounded; fabricated contiguity.
 - **A4 — `ActiveEpdocTracker` → live `epistemos.context.snapshot`.** Headless-testable: `WorkToolMCPCore.handle(requestJSON:)`, name at `:16`, gated on `appContextProvider != nil` (`:30-37`). Green: round-trip — provider→A then `tools/call`→A's path; flip→B→B's path AND not A's; provider nil → tool not advertised. **Headline falsifier STALE PATH**: snapshot returns A after key window→B. Also: projector nil but snapshot reports content; list/call divergence.
 - **A5 — UI-steering affordances (`open_note`/`highlightEditor`/`replaceSelection`).** `[VERIFIED-CODE]` `GooseWebNativeAffordanceBridge.swift:99-238` has ~30 cases, NONE of these three; targets exist (`EpdocDocumentOpening.openDocument(withManifestID:)`, `EpdocEditorCommand` `:564-586`). Green: 3 cases; malformed args → structured error (no crash); map to real commands. Falsifiers: affordance writes OUTSIDE the vault (AGENTS.md §6 must be code-enforced); `replaceSelection` → command `js-editor/src/bridge/inbound.ts` doesn't implement (silent no-op).
-- **A6 — Phase-0 MAS gate.** Supervisor gates (`GooseRuntimeSupervisor.swift:119-120`); `MiniChatViewModel.init` must mirror. Green: `-D EPISTEMOS_APP_STORE` build → `availability==.unavailable`, `activateForCurrentNote()` early-returns, NO path to `GooseACPClient.newSession`/`.prompt`. **MAS-VIOLATION falsifier**: minichat/live-Goose reachable under `#if EPISTEMOS_APP_STORE`. ⚠️ **Owner-confirm (open Q2):** verifies native-SwiftUI-over-bridge default; "native webview shell" changes A6's surface.
+- **A6 — Plan boundary / MAS honesty.** Plan 2 does not ship a separate native chat surface. Green:
+`-D EPISTEMOS_APP_STORE` keeps any Goose runtime use honestly gated by the Plan-1 runtime availability path, while
+Plan-2 context plumbing remains harmless/testable. **MAS-VIOLATION falsifier:** Plan 2 exposes live Goose runtime
+prompting in the MAS build or bypasses Plan-1 gating.
 
 **B. NATIVE-CONTROLS**
 - **B1 — Unified `CommandRegistry`.** Green: `Set(ids).count==commands.count` (NO dup IDs — `register` appends blindly, dedup test mandatory); `matching("",scope:.code)` only code+global; `isEnabled` honored in palette AND menu; every `run` → real `EpdocEditorCommand`. Falsifiers: dup IDs; scope leak; menu/palette `isEnabled` divergence.
@@ -516,7 +546,9 @@ gate:** deletion MUST follow the manual runtime confirm (the textarea "works" he
 - **C4 — `incrementalCrawl` content-hash deltas (additive).** Uses `SDPage.bodyHash` (SHA256). Green: unchanged→indexed nowhere; new→added/changed→modified/missing→removed (+`enqueueRemove`); `ScanDelta` counts match. Falsifiers: unchanged re-indexed; removed docID lingers; version bump wipes (must be additive).
 - **C5 — `ViewCompiler` SQL safety.** Green: tree → parameterized GRDB SQL with `StatementArguments` (a `'; DROP` value only as bound arg); `.semantic`→`1=1` sentinel (`:196`) routed via `fusedSearchAsync` (RRF k=60); `RelativeDate.resolveISO` correct. **Falsifier SQL-injection**: any value string-interpolated into WHERE; `.semantic` silently → match-everything when HNSW unavailable.
 
-**Cross-cutting:** CI-gate (headless today) = A1, A2-encode, A3, A4, A5, A6, B1, B2, B3, C1–C5. Requires running app = B4, A4 window-key, live `session/*`. `⛔PHASE-0` = A2-runtime, A6-live-reachability, end-to-end stream. **Two owner-confirm gates (not papered over):** minichat shape (Q2) + JSON-vs-md source-of-truth fork (Q1 → decides whether `update_note` writes JSON-into-package or `.md` write-through → C2/C4 inputs depend on it).
+**Cross-cutting:** CI-gate (headless today) = A1, A2-encode, A3, A4, A5, A6, B1, B2, B3, C1–C5. Requires running
+app = B4, A4 window-key, and any live `session/*` behavior owned by Plan 1. Owner-confirm gates are resolved in the
+current canon: Plan 2 context plumbing only, and markdown-on-disk truth with the real `edit_note` seam.
 
 ---
 
@@ -544,4 +576,3 @@ Net: the AI-graft is ~80% wiring over verified seams (`WorkToolMCPCore`, `WorkAp
 Full code in **`COMMAND_REGISTRY_CODEPACK_2026_06_27.md`**. ONE `@Observable CommandRegistry` = the single source for the native menu bar + every keyboard shortcut (declared once on `Command.shortcut`) + a new native Cmd+K palette; `isEnabled` is MarkEdit's `validateMenuItem` applied to all three surfaces. Findings: **Cmd+K verified free**; app shortcuts live in `EpistemosCommands` (`EpistemosApp.swift:1446`); **~80% of the Epdoc command catalog already dispatches** through the existing `EpdocEditorCommand.runCommand`/`.insertSlashChoice` cases (registry mostly wraps); real ADDs are small (`setContentWidth(wide:)` bridge case, Epdoc Find, `markOrganized`/`favorite` host closures, the whole new `CodeEditorCommand` enum). **Dependency surfaced:** the `caretChanged` payload carries no marks today, so honest mark `isEnabled`/active-state needs a `marks:{}` read-back added in 3 files (also unblocks the 4c toolbar active-state). 5 shortcut collisions catalogued + resolved (⌘1/2/3 focus-scope, inline-code→⌘⇧E, link→⌘⇧K, Properties wins ⌘⇧I, code-findNext focus-scope vs ⌘G).
 
 ---
-
