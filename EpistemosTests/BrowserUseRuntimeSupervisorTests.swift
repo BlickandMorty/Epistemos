@@ -97,6 +97,26 @@ struct BrowserUseRuntimeSupervisorTests {
         }
     }
 
+    @Test("readiness rejects non-executable Python payload before launch planning")
+    func readinessRejectsNonExecutablePythonPayloadBeforeLaunchPlanning() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o644],
+            ofItemAtPath: paths.pythonExecutableURL.path
+        )
+
+        let readiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"]
+        )
+
+        #expect(!readiness.isReady)
+        #expect(readiness.message.contains("Python 3.11 executable is not executable"))
+    }
+
     @Test("default paths prefer bundled Pro resources before source checkout layout")
     func defaultPathsPreferBundledProResourcesBeforeSourceCheckoutLayout() throws {
         let root = FileManager.default.temporaryDirectory
@@ -219,6 +239,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseRuntimePaths",
             "BrowserUseRuntimeLaunchPlan",
             "BrowserUseEnvironmentFileWriter",
+            "BrowserUseRuntimeArtifactKind",
+            "isExecutableFile(atPath:",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
             "resourceRootURL: URL? = Bundle.main.resourceURL",
@@ -272,11 +294,11 @@ struct BrowserUseRuntimeSupervisorTests {
             withIntermediateDirectories: true
         )
 
-        try Data("#!/usr/bin/env python3\n".utf8).write(
-            to: buildRoot
-                .appendingPathComponent(".venv/bin", isDirectory: true)
-                .appendingPathComponent("python", isDirectory: false)
-        )
+        let pythonExecutable = buildRoot
+            .appendingPathComponent(".venv/bin", isDirectory: true)
+            .appendingPathComponent("python", isDirectory: false)
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: pythonExecutable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: pythonExecutable.path)
         try Data("print('webui')\n".utf8).write(
             to: vendorRoot
                 .appendingPathComponent("web-ui", isDirectory: true)

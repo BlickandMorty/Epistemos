@@ -155,6 +155,12 @@ nonisolated struct BrowserUseRuntimeProcessHandle {
 
 typealias BrowserUseRuntimeProcessLauncher = (BrowserUseRuntimeLaunchPlan) throws -> BrowserUseRuntimeProcessHandle
 
+private enum BrowserUseRuntimeArtifactKind {
+    case file
+    case executableFile
+    case directory
+}
+
 nonisolated enum BrowserUseEnvironmentFileWriter {
     static func write(
         _ contents: String,
@@ -346,8 +352,13 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         }
 
         for requirement in requiredArtifacts(paths: paths) {
-            guard fileManager.fileExists(atPath: requirement.url.path) else {
-                return .unavailable("browser-use Pro runtime missing \(requirement.name) at \(requirement.url.path)")
+            if let problem = artifactProblem(
+                name: requirement.name,
+                url: requirement.url,
+                kind: requirement.kind,
+                fileManager: fileManager
+            ) {
+                return .unavailable("browser-use Pro runtime \(problem)")
             }
         }
 
@@ -393,13 +404,37 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         })
     }
 
-    private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [(name: String, url: URL)] {
+    private static func artifactProblem(
+        name: String,
+        url: URL,
+        kind: BrowserUseRuntimeArtifactKind,
+        fileManager: FileManager
+    ) -> String? {
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            return "missing \(name) at \(url.path)"
+        }
+
+        switch kind {
+        case .file:
+            return isDirectory.boolValue ? "\(name) is a directory at \(url.path)" : nil
+        case .executableFile:
+            if isDirectory.boolValue {
+                return "\(name) is a directory at \(url.path)"
+            }
+            return fileManager.isExecutableFile(atPath: url.path) ? nil : "\(name) is not executable at \(url.path)"
+        case .directory:
+            return isDirectory.boolValue ? nil : "\(name) is not a directory at \(url.path)"
+        }
+    }
+
+    private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [(name: String, url: URL, kind: BrowserUseRuntimeArtifactKind)] {
         [
-            ("Python 3.11 executable", paths.pythonExecutableURL),
-            ("web-ui entrypoint", paths.webUIEntrypointURL),
-            ("BUILD_MANIFEST.json", paths.buildManifestURL),
-            ("wheelhouse", paths.wheelhouseURL),
-            ("Playwright Chromium payload", paths.playwrightURL),
+            ("Python 3.11 executable", paths.pythonExecutableURL, .executableFile),
+            ("web-ui entrypoint", paths.webUIEntrypointURL, .file),
+            ("BUILD_MANIFEST.json", paths.buildManifestURL, .file),
+            ("wheelhouse", paths.wheelhouseURL, .directory),
+            ("Playwright Chromium payload", paths.playwrightURL, .directory),
         ]
     }
 

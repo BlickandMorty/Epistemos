@@ -61,6 +61,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("owner-only session/screenshot directories"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
+        #expect(codepack.contains("rejects non-executable Python and file/directory artifact shape mismatches"))
+        #expect(codepack.contains("rejects a non-executable Python runtime before launch planning"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("Behavior test"))
@@ -283,6 +285,8 @@ struct BrowserUseCodepackPlan3Tests {
             "wheelhouse",
             "Playwright Chromium payload",
             "BrowserUseEnvironmentRenderer.dictionary",
+            "BrowserUseRuntimeArtifactKind",
+            "isExecutableFile(atPath:",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
             ".posixPermissions: 0o700",
