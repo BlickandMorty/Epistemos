@@ -183,7 +183,8 @@ validated before runtime import and must be loopback-only with no URL credential
   policy is isolated in `agent_core/src/tools/browser_output.rs`: `browser_get_images` normalizes page-controlled image
   metadata, caps returned image count, and truncates image text fields; `browser_snapshot` caps and bounds returned refs;
   and `browser_console` caps page-controlled
-  console/error/evaluation arrays, object fields, and strings before returning tool output. Browser URL result fields from
+  console/error/evaluation arrays, object fields, and strings before returning tool output. Direct adapter `eval`
+  responses also cap nested result arrays, object fields, keys, and strings before returning JSON. Browser URL result fields from
   `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments before returning tool output.
   `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider,

@@ -96,7 +96,10 @@ struct BrowserUseAdapterPlan3Tests {
             "browser-use adapter payload is not staged",
             "SNAPSHOT_CHAR_CAP",
             "MAX_SNAPSHOT_REFS",
+            "MAX_EVAL_RESULT_TEXT_CHARS",
             "truncate_snapshot_text",
+            "bound_eval_result",
+            "\"result_truncated\"",
             "\"refs_truncated\"",
             "ensure_browser_daemon(args)\n        data = send_browser_use(\"open\"",
             "ensure_browser_daemon(args)\n    data = send_browser_use(\"state\"",
@@ -117,6 +120,7 @@ struct BrowserUseAdapterPlan3Tests {
         #expect(!source.contains("\"typed\": text"))
         #expect(!source.contains("\"pressed\": key"))
         #expect(!source.contains("return success({\"url\": data.get(\"url\", url)})"))
+        #expect(!source.contains("return success({\"result\": data.get(\"result\")})"))
 
         let contractIndex = try #require(source.range(of: "if command == \"contract\"")?.lowerBound)
         let prepareIndex = try #require(source.range(of: "prepare_runtime_environment()")?.lowerBound)
