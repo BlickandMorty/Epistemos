@@ -232,12 +232,23 @@ final class GooseElectronFallbackLauncher {
             return validWorkspace(repoRoot: repoRoot, uiRoot: uiRoot, pnpm: pnpm)
         }
 
+        // review HIGH-1 (code-execution-from-cwd): the CWD-relative + dev-checkout candidates below
+        // resolve a `bin/pnpm` that run() then EXECUTES. An attacker-influenced working directory
+        // containing `.research-clones/work/goose/{ui,desktop,bin/pnpm}` would otherwise make a
+        // shipped (non-DEBUG) Developer-ID/Pro build exec the attacker's pnpm in Epistemos's TCC
+        // context. Gate them to DEBUG only — mirroring GooseRuntimeSupervisor.gooseBinaryCandidates
+        // and GooseWebUIResolver.candidateIndexURLs. The explicit EPISTEMOS_GOOSE_ELECTRON_UI_ROOT
+        // override (handled above) stays available in every configuration for opt-in dev use.
+        #if DEBUG
         let currentRoot = URL(fileURLWithPath: currentDirectory, isDirectory: true)
         let candidates = [
             currentRoot.appendingPathComponent(".research-clones/work/goose", isDirectory: true),
             URL(fileURLWithPath: homeDirectory, isDirectory: true)
                 .appendingPathComponent("Downloads/Epistemos/.research-clones/work/goose", isDirectory: true),
         ]
+        #else
+        let candidates: [URL] = []
+        #endif
         for repoRoot in candidates {
             let uiRoot = repoRoot.appendingPathComponent("ui", isDirectory: true)
             let pnpm = explicitPNPM(environment: environment, repoRoot: repoRoot)

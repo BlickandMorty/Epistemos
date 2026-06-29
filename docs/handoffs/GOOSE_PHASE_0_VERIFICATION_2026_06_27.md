@@ -1290,3 +1290,165 @@ exit 0 — all grafts applied, no anchor drift). Verified: all 10 bundler-requir
 IMPORTANT owner note: the Web UI loads from App Support at LAUNCH, so a RELAUNCH of the current app
 now picks up the #11/#7/#20 Web-UI fixes WITHOUT a rebuild. The Swift-side fixes (H1/H2/H3 lifecycle,
 native Models, goosed backend) still require a REBUILD (DerivedData is healthy — no repair needed).
+
+## 2026-06-29 (continuous loop) — independent re-prove from scratch (trust nothing)
+
+New loop iteration. Per the owner mandate I re-ran the real commands and pasted the real output
+rather than trusting prior PASS marks. Headline: the build-independent LIVE ACP surface is
+re-proven green; the shared-DerivedData build hit (and recovered from) the known concurrent-agent
+TreeSitter module race.
+
+### Step 1.C — GOLDEN RULE (highest priority): PASS (static + live)
+
+Static grep of `Epistemos/Goose/**/*.swift` for hardcoded provider/model rosters
+(`gpt-4|claude-opus|claude-sonnet|gemini-|deepseek|qwen3|mistral-|llama-3|anthropic"|openai"|...`):
+the ONLY hits are `*_API_KEY` strings in `GooseRuntimeSupervisor.swift` (lines ~112-139) and
+`GooseElectronFallbackLauncher.swift` — these are the **Keychain→subprocess secret passthrough
+allowlist** (env var NAMES forwarded to goosed/Electron; comment: "`GooseProviderKeyBridge` reads
+Epistemos Keychain entries and saves them through Goose's own provider-config ACP path"). Not a
+surfaced roster. No provider/model array literal anywhere in the Goose Swift surface. **GOLDEN
+RULE static: PASS.**
+
+Live enumeration — `bash scripts/goose-acp-live-probe.sh` (re-runnable; staged goose 1.39.0 binary,
+ephemeral port 53300, isolated HOME, dummy key), exit 0, artifact `scratchpad/acp-live-probe.log`:
+```
+✓ OK count=106   providers/catalog/list (GOLDEN RULE)
+✓ OK             providers/list
+✓ OK count=32    providers/setup/catalog/list
+✓ OK count=65    providers/config/status (Auth)
+✓ OK count=11    config/extensions/list (Extensions)
+✓ OK count=0     sources/list[recipe|skill|schedule]   (empty in isolated HOME — expected)
+LIVE_ACP_SURFACE_PASS
+```
+Models facet — `bash scripts/goose-native-models-probe.sh`, exit 0, artifact
+`scratchpad/native-models-probe.log`:
+```
+✓ providers/list -> 65 providers (picker source)
+✓ inline models present: 53 providers have models (e.g. alibaba -> 10)
+✓ defaults/read -> provider=openai model=gpt-4o-mini (current-default seed)
+✓ default provider openai IS present in providers/list
+NATIVE_MODELS_PARITY_PASS
+```
+→ Providers AND models are live-enumerated from goose serve over ACP, never Swift-hardcoded.
+
+### Gate 2 (`goose serve` ACP WS reachable) — PASS (live, this loop)
+`initialize` succeeded against real `goose serve` (`acp-live-probe.log`). Health + WS + protocol init.
+
+### Gate 3 (new→prompt→stream→permission→result) — PLUMBING PASS (live, this loop)
+`session/new` + `session/prompt → stream` reached `stopReason=end_turn` after **10 streamed
+session/update events** (`acp-live-probe.log`). `session/load`/`session/fork` also live (fork id
+differs). UNCHANGED honest limit: dummy key ⇒ used=0 tokens, so a real-token `agentMessageChunk`
+completion and a live `agent_thought_chunk` thinking chunk still require the OWNER's provider
+credential — this is a genuine §7/Gate-5 owner-only item, not an automatable gap.
+
+### Step 1.A — build-for-testing: shared-DD TreeSitter race observed, in-place retry recovering
+First `xcodebuild ... build-for-testing` on the shared DerivedData
+(`Epistemos-ctkiyqxaarezsccbouumxcpfxvtl`) FAILED with `** TEST BUILD FAILED **`:
+`error: unable to resolve module dependency: 'TreeSitter'` (dep of `SwiftTreeSitter.swiftmodule`).
+No xcodebuild/swift-frontend processes were running at the time → this is a STALE module-cache
+artifact from an EARLIER concurrent-agent build, the documented shared-DD race (prior loops used
+isolated DD to dodge it). An in-place retry (no other agent building) is progressing cleanly: 0
+errors, past module resolution, into the Build-Rust-Engine phase. [Build result to be folded in
+once it completes — not claimed green until it is.]
+
+### Step 0 — uncommitted Goose-owned security work (preserve, commit when green)
+The tree has an uncommitted defense-in-depth hardening in MY lane
+(`Epistemos/Goose/GooseWebNativeAffordanceBridge.swift`): an M2 sensitive-path denylist that denies
+read AND write to `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gh`, `Library/Keychains`,
+`Library/LaunchAgents`, and shell rc dotfiles even within the broad default file scope (target +
+parent checked, so a sensitive dotfile can't slip through the parent-dir write fallback). This
+matches `GOOSE_AFFORDANCE_BRIDGE_SECURITY_REVIEW_2026_06_29.md`. To be committed by itself once the
+build is green. The other uncommitted files (CodeEditorView/editor.*.br/CodeFileIconView/
+MarkEditChromeModeSplitTests/SettingsView/pbxproj) are concurrent Plan-2 editor work — NOT mine,
+left untouched per the parallelism boundary.
+
+### Status carried forward (unchanged, honest)
+Gate 1 (Electron fallback) + Gate 4 (WebUI boot shim) = unit-test-backed, re-prove pending the
+build completion. Gate 5 (owner OAuth success, true confirm-dialog/MCP-app window affordances,
+MAS/manual/distribution WRV) = owner-only, OPEN. Phase 0 stays UNSIGNED.
+
+### §7 gate text (verbatim, anchoring the sign-off) — SURFACE_EMBEDDING decision §7
+> **Goose (the single surface):** real Goose Electron launches as fallback; `goose serve` ACP
+> WebSocket reachable; ACP client completes new→prompt→stream(thinking/tool/answer)→permission→
+> result; Goose web UI boots in `WebView` via the narrow shim; affordance ledger covers every used
+> `window.electron` call.
+
+So the 5 gates map: (1) Electron fallback, (2) ACP WS, (3) full new→prompt→stream→permission→result,
+(4) WebUI boots via shim, (5) **affordance ledger covers every used `window.electron` call** — the
+"nothing lost" gate is defined as affordance-ledger COMPLETENESS, not generic parity.
+
+### Step 1.D — NO SILENT DROPS: PASS (live, this loop)
+`bash scratchpad/no-silent-drops-probe.sh` (re-runnable; spawns staged goose serve on ephemeral port
+53611, isolated HOME) sent 3 unknown/custom ACP methods; artifact `scratchpad/no-silent-drops-probe.log`:
+```
+✓ STRUCTURED ERROR code=-32601 msg="Method not found"   epistemos/totally/madeup/method
+✓ STRUCTURED ERROR code=-32601 msg="Method not found"   _goose/unstable/does/not/exist
+✓ STRUCTURED ERROR code=-32601 msg="Method not found"   session/nonexistentVerb
+NO_SILENT_DROPS_PASS
+```
+Every unknown method returns a structured JSON-RPC `-32601`, zero timeouts (zero silent drops) — the
+upstream goose contract. Epistemos's own Swift handler mirroring (structured diagnostic + -32601 for
+methods IT doesn't recognize) is under adversarial code review this loop (see thermonuclear findings
+below when folded in).
+
+### Step 1.E — SECURITY/HONESTY (Keychain): PASS (static, this loop)
+`grep -rniE "UserDefaults.*(api_key|secret|token|password|credential)" Epistemos/Goose/` → ZERO hits.
+Provider secrets flow only through `GooseProviderKeyBridge` (Keychain load → ACP provider-config
+save). No secret ever touches UserDefaults.
+
+### Step 1.A — build (this loop, isolated DD): in progress, clean
+Shared-DD build FAILED twice with the concurrent-agent TreeSitter race; root cause CONFIRMED — a
+concurrent Plan-3 agent is running `xcodebuild ... test -only-testing:EpistemosTests/
+BrowserUseAdapterPlan3Tests` + `cargo build` in the SAME DerivedData (two divergent `TreeSitter-*.pcm`
+hashes). Switched to an isolated DerivedData (`~/.epistemos-isoloop-dd`, SourcePackages CoW-cloned):
+0 errors, no TreeSitter recurrence, now compiling the Epistemos app target. [Green/red folded in on
+completion — not claimed green until the build actually finishes.]
+
+## 2026-06-29 (continuous loop) — STEP 2 THERMONUCLEAR PASS: findings + fixes
+
+Ran a 3-reviewer adversarial pass (read-only) over the whole 7,822-line Goose surface
+(`Epistemos/Goose/*`): (A) affordance + secrets bridge, (B) ACP transport, (C) runtime/launch/boot.
+**Confirmations (independently re-verified with file:line):** NO-SILENT-DROPS `-32601` path correct
+(`GooseACPClient.swift:636-637`→`GooseACPEventBridge.swift:362-371`→`GooseACPProtocol.swift:214-220`),
+diagnostics ring buffer bounded to 12, supervisor subprocess hardening (env_clear+allow/denylist,
+`GooseRuntimeSupervisor.swift:435-438,83-140`), router defaults to WebView
+(`GooseSurfaceRouter.swift:70-76`), nav-gate deny-by-default pinning our ports/scheme
+(`GooseWebSurfaceView.swift:743-764`), GOLDEN RULE clean (no roster), no hidden sidecar, false-green
+status honesty clean, `GooseProviderKeyBridge` clean, no `try!`/force-unwrap/`print()` in production.
+
+### ISSUES FOUND (ranked) + disposition this loop
+
+| # | Sev | Finding | Status |
+|---|-----|---------|--------|
+| A-HIGH-1 | HIGH | M2 sensitive-path denylist was case-SENSITIVE; default APFS is case-insensitive → `~/.SSH/id_rsa`, `~/.ZSHRC` bypassed it entirely (M2 did NOT actually block `~/.ssh`) | **FIXED** — `isSensitivePath` now case-insensitive (`path(…,caseInsensitive:true)`) |
+| A-HIGH-2 | HIGH | M2 denylist bypassable via symlink (only lexical path checked); `readFile` did no symlink resolution | **FIXED** — `isSensitivePath` now also checks the symlink-RESOLVED path; chokepoint `isPathAllowed` covers read+write |
+| C-HIGH-1 | HIGH | Electron fallback launcher exec'd a `bin/pnpm` from CWD-relative candidates in shipped (non-DEBUG) Pro builds — code-execution-from-cwd, unlike its `#if DEBUG`-gated siblings | **FIXED** — CWD/dev-checkout candidates now `#if DEBUG`-only; explicit `EPISTEMOS_GOOSE_ELECTRON_UI_ROOT` override still available |
+| B-HIGH-1 | HIGH | One malformed ACP frame (non-UTF8 / bad JSON / envelope mismatch) calls `fail()` → tears down the whole connection (violates per-frame containment) | **FIXED** (pending build-validate) — read loop now splits transport-receive (throws→terminal) from per-frame decode (nil/bad-JSON → `recordSkippedFrame` diagnostic + `continue`); confirmed `receive()` returns nil only for non-text frames, throws on close (no busy-loop) |
+| B-M1 | MED(sec) | Known-method param drift answers `-32601` (method-not-found) not `-32602` (invalid-params); could make goose believe the client lacks permission support → auto-proceed | **DEFERRED** (next iter) — latent (only on FUTURE goose schema drift; 1.39.0 permission flow decodes fine today). Multi-file protocol change, build-validate carefully |
+| A-MED-1 | MED | Default file scope = entire home dir; denylist incomplete (missing `~/.git-credentials`, `~/.npmrc`, `~/.docker`, `~/.kube`, `~/Library/Cookies|Messages|Mail`, …) | **PARTIALLY FIXED** — denylist extended with those stores. Narrowing the DEFAULT scope from `~` to a consented project root = larger behavior change, tracked separately |
+| A-MED-3 | MED(honesty) | `openExternal`/`openBrowserURL` returned SUCCESS when they actually DENIED a disallowed scheme (silent masquerade) | **FIXED** — now throw `.disallowed(rawURL)` so the WebView learns the request was rejected |
+| C-M1 | MED | Supervisor restart race: stale `terminationHandler` (no process-identity guard) can mark the live process `.failed` + untrack it (false status + orphan leak) | **FIXED** (pending build-validate) — `handleProcessExit(for:)` now guards `exited === process` (stale exit just untracks); `terminateTrackedProcess` drops the handler before terminate |
+| C-M2 | MED | Staged goose binary exec'd from user-writable App Support with no signature/Team-ID check at exec time | **DEFERRED** — needs the stager contract; design a `SecStaticCode` check or pinned-hash gate |
+| C-M3 | MED | Raw native message handlers registered in `.page` world (not main-frame-only); containment rests on the nav-gate covering subframes | **DEFERRED** — confirm decider fires for subframes; else validate source frame / add CSP |
+| A-MED-2 | MED | `launchApp` MCP-app guest webview has no CSP; nav-gate gates navigations only, not `fetch`/XHR → exfiltration | **DEFERRED** — inject restrictive CSP (`connect-src` loopback only) |
+| B-M2/M3/M4, C-M4, LOW-* | LOW/MED | event-sink single-slot coalescing (latent, no reader), unbounded `queuedEvents`/`queuedResponses`, dead `drainQueuedEvents`/`parseListeningURL`, prompt-bridge no deinit drain, force-unwrap URLs, git-config not neutralized in `listGitWorktreeDirs`, weak secret fallback | **TRACKED** — hardening backlog, addressed in subsequent loop iterations |
+
+Fixes this iteration touch ONLY my lane (`GooseWebNativeAffordanceBridge.swift`,
+`GooseElectronFallbackLauncher.swift`, `GooseRuntimeSupervisor.swift`, `GooseACPClient.swift`); no
+deletions. To be compiled-validated on the isolated DD, then committed in logical groups. The pre-fix
+M2 code was NEVER committed — gating the commit on this review is exactly what caught A-HIGH-1/2.
+
+### CROSS-LANE BLOCKER (not mine) — `build-for-testing` blocked by a Plan-3 test at HEAD
+The full isolated `build-for-testing` FAILED — but the **app target compiled clean**; the only errors
+are in `EpistemosTests/ArxivPlan3Tests.swift` (a **Plan-3 capabilities** test, committed `763a0d36a`,
+NOT my lane): Swift-6 `main actor-isolated static property 'atomFixture' cannot be accessed from
+outside of the actor` (line 32) + `instance method 'lock'/'unlock' is unavailable from asynchronous
+contexts` (lines 593/596). This breaks the SHARED `EpistemosTests` bundle at HEAD, so the focused
+Goose unit SUITES cannot run until the Plan-3 lane fixes it. Per the parallelism boundary I do NOT
+touch Plan-3 files. **Goose-lane validation that dodges the block:** (1) APP-TARGET build
+(`xcodebuild -scheme Epistemos build`, no `-for-testing`) compiles every Goose change → proves my
+code builds; (2) the live ACP probes (this loop: LIVE_ACP_SURFACE_PASS, NATIVE_MODELS_PARITY_PASS,
+NO_SILENT_DROPS_PASS) prove the surface functionally. Re-run the focused Goose suites once Plan-3
+unblocks `EpistemosTests`. → ACTION FOR OWNER/Plan-3: `ArxivPlan3Tests.swift` regressed the shared
+test target; it needs an async-safe lock + non-main-actor fixture (or `@MainActor` test) to restore
+`build-for-testing` for all lanes.

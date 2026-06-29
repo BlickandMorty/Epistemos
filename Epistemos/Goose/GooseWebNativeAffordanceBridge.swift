@@ -350,8 +350,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func openExternal(_ rawURL: String) throws {
+        // review MED-3: deny is fail-closed AND honest — throw so the WebView learns the scheme was
+        // rejected instead of silently treating a blocked open as success.
         guard Self.shouldOpenExternalURL(rawURL), let url = URL(string: rawURL) else {
-            return
+            throw GooseWebNativeAffordanceBridgeError.disallowed(rawURL)
         }
         guard NSWorkspace.shared.open(url) else {
             throw GooseWebNativeAffordanceBridgeError.openFailed(rawURL)
@@ -360,7 +362,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     private func openBrowserURL(_ rawURL: String) throws {
         guard Self.shouldOpenBrowserURL(rawURL), let url = URL(string: rawURL) else {
-            return
+            throw GooseWebNativeAffordanceBridgeError.disallowed(rawURL)
         }
         guard NSWorkspace.shared.open(url) else {
             throw GooseWebNativeAffordanceBridgeError.openFailed(rawURL)
@@ -903,7 +905,47 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
     }
 
+    // review M2 (defense-in-depth): the default file scope is broad (the home dir), so even a benign
+    // XSS in the Goose UI could otherwise read credentials or write persistence/RCE payloads. Deny —
+    // for BOTH read and write — a small set of sensitive home-relative locations that are never
+    // legitimate project-file targets. This does NOT narrow the legitimate project scope.
+    nonisolated private static let sensitiveHomeRelativeDirs = [
+        ".ssh", ".aws", ".gnupg", ".config/gh", ".config/git",
+        ".docker", ".kube",
+        "Library/Keychains", "Library/LaunchAgents",
+        "Library/Cookies", "Library/Messages", "Library/Mail",
+    ]
+    nonisolated private static let sensitiveHomeRelativeFiles = [
+        ".zshrc", ".zprofile", ".zshenv", ".bashrc", ".bash_profile", ".profile", ".netrc",
+        ".git-credentials", ".npmrc", ".pypirc",
+    ]
+
+    private func isSensitivePath(_ path: String) -> Bool {
+        // Deny known-sensitive home locations for BOTH read and write. Two hardening rules the first
+        // cut missed (review HIGH-1/HIGH-2):
+        //  • case-INSENSITIVE match — the default macOS volume is case-insensitive, so ~/.SSH and
+        //    ~/.ZSHRC open the real ~/.ssh / ~/.zshrc on disk; a case-sensitive denylist was trivially
+        //    bypassed. Over-matching a sensitive name on a rare case-sensitive volume is harmless
+        //    (fail-closed).
+        //  • check the symlink-RESOLVED path too — otherwise a symlink anywhere inside the broad home
+        //    scope pointing at ~/.ssh/id_rsa would slip past a purely lexical check.
+        let home = Self.standardizedPath(fileManager.homeDirectoryForCurrentUser.path)
+        let candidates = [Self.standardizedPath(path), Self.resolvedSymlinkPath(path)]
+        for candidate in candidates {
+            for dir in Self.sensitiveHomeRelativeDirs
+            where Self.path(candidate, isInsideOrEqualTo: home + "/" + dir, caseInsensitive: true) {
+                return true
+            }
+            for file in Self.sensitiveHomeRelativeFiles
+            where Self.path(candidate, isInsideOrEqualTo: home + "/" + file, caseInsensitive: true) {
+                return true
+            }
+        }
+        return false
+    }
+
     private func isPathAllowed(_ path: String) -> Bool {
+        if isSensitivePath(path) { return false }
         let normalizedPath = Self.standardizedPath(path)
         let resolvedPath = Self.resolvedSymlinkPath(normalizedPath)
         return isPathInsideScopedRoot(normalizedPath) && isPathInsideScopedRoot(resolvedPath)
@@ -911,8 +953,13 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     private func isPathAllowedForWrite(_ path: String) -> Bool {
         if isSymbolicLink(path) { return false }
+        // Check the TARGET directly: the parent-dir fallback below would otherwise allow writing a
+        // sensitive dotfile (e.g. ~/.zshrc) because its parent (~) is in the broad default scope.
+        if isSensitivePath(path) { return false }
         if isPathAllowed(path) { return true }
-        return isPathAllowed(Self.standardizedPath(URL(fileURLWithPath: path).deletingLastPathComponent().path))
+        let parent = Self.standardizedPath(URL(fileURLWithPath: path).deletingLastPathComponent().path)
+        if isSensitivePath(parent) { return false }
+        return isPathAllowed(parent)
     }
 
     private func rememberScopedAccess(for urls: [URL]) {
@@ -1067,9 +1114,13 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         return standardizedPath(resolvedPath)
     }
 
-    private static func path(_ path: String, isInsideOrEqualTo root: String) -> Bool {
-        let normalizedPath = standardizedPath(path)
-        let normalizedRoot = standardizedPath(root)
+    private static func path(_ path: String, isInsideOrEqualTo root: String, caseInsensitive: Bool = false) -> Bool {
+        var normalizedPath = standardizedPath(path)
+        var normalizedRoot = standardizedPath(root)
+        if caseInsensitive {
+            normalizedPath = normalizedPath.lowercased()
+            normalizedRoot = normalizedRoot.lowercased()
+        }
         return normalizedPath == normalizedRoot || normalizedPath.hasPrefix(normalizedRoot + "/")
     }
 }
@@ -1078,6 +1129,7 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
     case missingArgument(String)
     case missingAppContent(String)
     case openFailed(String)
+    case disallowed(String)
     case unsupported(String)
 
     var errorDescription: String? {
@@ -1088,6 +1140,8 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
             "Missing renderable MCP app content for Epistemos Goose app: \(name)."
         case .openFailed(let rawURL):
             "Failed to open Epistemos Goose native URL: \(rawURL)."
+        case .disallowed(let rawURL):
+            "Epistemos blocked a disallowed Goose native URL scheme: \(rawURL)."
         case .unsupported(let name):
             "Unsupported Epistemos Goose native affordance: \(name)."
         }

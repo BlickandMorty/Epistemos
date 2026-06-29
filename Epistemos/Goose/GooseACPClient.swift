@@ -468,22 +468,53 @@ actor GooseACPClient {
         readLoopTask = Task { [weak self, transport] in
             let decoder = JSONDecoder()
             while !Task.isCancelled {
+                // Transport receive: a THROW here is a real connection failure (URLSessionWebSocketTask
+                // throws on close/error) → terminal `fail()`. A returned nil is a non-text/binary
+                // frame, NOT EOF, so it is a skippable bad frame (see B-HIGH-1 below).
+                let received: String?
                 do {
-                    guard let text = try await transport.receive(),
-                          let data = text.data(using: .utf8) else {
-                        throw GooseACPProtocolError.unsupportedMessage
-                    }
-                    let message = try decoder.decode(GooseACPIncomingMessage.self, from: data)
-                    guard let self else { return }
-                    try await self.ingest(message)
+                    received = try await transport.receive()
                 } catch {
                     if !Task.isCancelled {
                         await self?.fail(error)
                     }
                     return
                 }
+                guard let self else { return }
+                // Per-frame containment (B-HIGH-1): a single undecodable frame — a non-text frame, a
+                // malformed-JSON frame, or one whose envelope doesn't match — must NOT tear down the
+                // whole connection or discard the real responses queued behind it. Record a structured
+                // diagnostic and skip just that frame. Terminal `fail()` stays reserved for transport
+                // failures (above). `continue` re-suspends on `transport.receive()` (no busy-loop,
+                // since a closed socket throws rather than returning nil).
+                guard let received, let data = received.data(using: .utf8) else {
+                    await self.recordSkippedFrame("non-text ACP frame")
+                    continue
+                }
+                let message: GooseACPIncomingMessage
+                do {
+                    message = try decoder.decode(GooseACPIncomingMessage.self, from: data)
+                } catch {
+                    await self.recordSkippedFrame("undecodable ACP frame: \(error.localizedDescription)")
+                    continue
+                }
+                do {
+                    try await self.ingest(message)
+                } catch {
+                    // `ingest` only throws from `event(from:)`'s typed decode, which already degrades
+                    // to `.unhandled*` internally — an unexpected throw is contained, not terminal.
+                    await self.recordSkippedFrame("ACP ingest error: \(error.localizedDescription)")
+                    continue
+                }
             }
         }
+    }
+
+    private func recordSkippedFrame(_ reason: String) {
+        // B-HIGH-1: surface a skipped, undecodable frame as a contained diagnostic event (the bridge
+        // records `.serverError` as an application diagnostic without tearing down the connection).
+        // -32700 = JSON parse error; the frame carries no usable id, so there is nothing to answer.
+        deliverEvent(.serverError(code: -32700, message: "Skipped undecodable ACP frame: \(reason)", data: nil))
     }
 
     private func sendRequest<Params: Encodable, Response: Decodable>(

@@ -307,7 +307,7 @@ final class GooseRuntimeSupervisor {
         process = proc
         proc.terminationHandler = { [weak self] process in
             Task { @MainActor in
-                self?.handleProcessExit(statusCode: process.terminationStatus)
+                self?.handleProcessExit(for: process, statusCode: process.terminationStatus)
             }
         }
 
@@ -380,10 +380,16 @@ final class GooseRuntimeSupervisor {
         lastDiagnostic = message
     }
 
-    private func handleProcessExit(statusCode: Int32) {
-        if let process {
-            untrack(process)
+    private func handleProcessExit(for exited: Process, statusCode: Int32) {
+        // review C-M1: on restart, stop()+start() run back-to-back, so a PREVIOUS process's
+        // terminationHandler can fire AFTER the new process is already live. Without this identity
+        // guard the stale handler would untrack the LIVE process and flip a healthy `.running` to
+        // `.failed`. React only to the process we currently own; a stale exit is just untracked.
+        guard exited === process else {
+            untrack(exited)
+            return
         }
+        untrack(exited)
         switch status {
         case .starting:
             status = .failed("Goose exited before ACP became ready (exit \(statusCode)).")
@@ -395,6 +401,9 @@ final class GooseRuntimeSupervisor {
     }
 
     private func terminateTrackedProcess(_ process: Process) {
+        // Deliberate termination — drop the handler first so it can't race a subsequent start() and
+        // mark the next process failed (C-M1); callers set the intended status themselves.
+        process.terminationHandler = nil
         let pid = pid_t(process.processIdentifier)
         if pid > 0 {
             AppBootstrap.shared?.orphanCleanup.cleanupProcessTree(rootPID: pid)
