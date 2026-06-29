@@ -14,11 +14,13 @@ struct VoiceCodepackPlan3Tests {
             "Live macOS 26 STT is surfaced",
             "Preferred voice floor is quality-first",
             "SSML/prosody fallback exists",
+            "Pro Kokoro gate is honest",
             "[DONE] Patch the AVSpeech preferred voice floor",
             "[DONE] Wire or remove `agentResponseTTS`",
             "[DONE] Add `LiveVoiceInputService`",
             "[DONE] Rewire `VoiceInputButton`",
-            "[DONE] Add SSML/prosody fallback"
+            "[DONE] Add SSML/prosody fallback",
+            "[DONE] Add the Kokoro Pro gate"
         ] {
             #expect(plan.contains(required), "Missing voice codepack state: \(required)")
         }
@@ -85,6 +87,39 @@ struct VoiceCodepackPlan3Tests {
             for forbidden in ["Kokoro", "Whisper", "Process(", "NSTask", "Python", "Chromium"] {
                 #expect(!source.contains(forbidden), "\(file) crossed voice MAS boundary: \(forbidden)")
             }
+        }
+    }
+
+    @Test("Kokoro Pro gate is honest and does not add a runtime")
+    func kokoroProGateIsHonestAndRuntimeFree() throws {
+        let gate = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceGateStatus.swift")
+
+        for required in [
+            "nonisolated enum KokoroVoiceGateStatus",
+            "EPISTEMOS_KOKORO_VOICE_PRO_V0",
+            "case unavailable",
+            "case missingModel",
+            "case ready",
+            "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
+            "Kokoro voice: unavailable in App Store build",
+            "modelDirectoryName = \"kokoro-82m-coreml\"",
+            "manifestFileName = \"manifest.json\"",
+            "modelPackageName = \"Kokoro82M.mlpackage\"",
+            "AVSpeech remains the voice runtime",
+            "Picker/runtime integration must still choose this lane explicitly"
+        ] {
+            #expect(gate.contains(required), "Kokoro gate missing honesty string: \(required)")
+        }
+
+        for forbidden in [
+            "URLSession",
+            "Process(",
+            "NSTask",
+            "Bundle.main.resourceURL",
+            "Resources/Kokoro",
+            "Python"
+        ] {
+            #expect(!gate.contains(forbidden), "Kokoro gate added forbidden runtime path: \(forbidden)")
         }
     }
 }

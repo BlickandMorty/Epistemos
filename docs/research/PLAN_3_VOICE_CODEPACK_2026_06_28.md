@@ -27,7 +27,9 @@
   Default and uses locale only as a tie-breaker; the language constructor is not the normal floor.
 - **SSML/prosody fallback exists:** `speak(..., prosody:)` builds an SSML utterance when possible and falls back to a
   plain utterance while preserving rate/pitch clamping.
-- **Pro neural voice is not built:** there is no Kokoro asset/runtime/picker gate. Do not imply neural TTS exists.
+- **Pro Kokoro gate is honest:** `KokoroVoiceGateStatus` exists as a status-only gate. MAS returns unavailable, Pro
+  requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `manifest.json`/`Kokoro82M.mlpackage` keeps AVSpeech as the
+  runtime. There is still no Kokoro model asset, picker row, or neural runtime.
 
 ## Immediate MAS-safe fixes
 1. **Fix the preferred voice floor.** `[DONE]` `preferredVoice()` is identifier-first over installed voices:
@@ -51,7 +53,7 @@ Meeting/lecture note should get its own codepack, but Voice provides the reusabl
 
 ## Pro Kokoro lane `[INFERRED]`
 Kokoro-82M is Pro-only until packaging and model-download gates are proven:
-- Add `Epistemos/VoicePro/KokoroVoiceGateStatus.swift` with `.unavailable/.missingModel/.ready`.
+- `[DONE]` Add `Epistemos/VoicePro/KokoroVoiceGateStatus.swift` with `.unavailable/.missingModel/.ready`.
 - Store model assets outside MAS target resources; never commit model weights.
 - Integrate through the existing model download manager only after that manager is proven healthy.
 - Picker row must say "Pro neural voice" and fall back to AVSpeech instantly when missing.
@@ -86,4 +88,5 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 3. [DONE] Add `LiveVoiceInputService` over `EpistemosSpeechAnalyzer`.
 4. [DONE] Rewire `VoiceInputButton` to live STT or hide/disable it honestly where unsupported.
 5. [DONE] Add SSML/prosody fallback.
-6. Only after MAS voice is honest, start the Pro Kokoro gate and packaging plan.
+6. [DONE] Add the Kokoro Pro gate as status-only. Packaging, picker UI, and runtime integration remain deferred until
+   model download health is proven.
