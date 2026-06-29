@@ -49,7 +49,7 @@ nonisolated enum ArxivIngestError: LocalizedError, Equatable, Sendable {
 
 @MainActor
 enum ArxivIngestService {
-    static let importDirectory = "arXiv"
+    nonisolated static let importDirectory = "arXiv"
 
     enum Outcome: Equatable {
         case imported(pageID: String, title: String)
