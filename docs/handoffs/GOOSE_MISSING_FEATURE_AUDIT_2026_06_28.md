@@ -52,12 +52,25 @@ the actual code before grafting corrected them:
 - **#7 AlertBox — GRAFTED + tsc-validated (`80de32ab7`).** Genuinely clean: the
   component already used `useConfig()`; rerouted the threshold SAVE through
   `ConfigContext.upsert` (→ preference persistence) and dropped the unused import.
-- **#1 toolsCache — NOT a clean swap (deferred, task #11).** Rated "low / single
+- **#1 toolsCache — GRAFTED (shipped, gate-locked).** Was rated "low / single
   method swap," but it passes `extension_name` for SERVER-side filtering, while ACP
-  `toolsList_unstable({sessionId})` returns ALL session tools. It therefore needs
-  the same client-side `extension__tool` prefix filtering (display-name-vs-
-  registered-name casing) as PermissionModal — must live-verify against a real
-  extension. Gated by the (currently blocked) Swift test bundle.
+  `toolsList_unstable({sessionId})` returns ALL session tools — so it needs
+  client-side `extension__tool` prefix filtering (display-name-vs-registered-name
+  casing). Shipped via the `listAcpSessionTools(sessionId, extensionName)` helper
+  with a **full-list fallback** (`scoped.length > 0 ? scoped : all`) so a casing
+  mismatch can never be WORSE than the silent-null REST path it replaces. Locked by
+  7 gate assertions in `stagingGraftsWireLiveParityFeatures`. Live extension-casing
+  re-verification still gated by the (blocked) Swift test bundle, but the fallback
+  removes the regression risk in the meantime.
+- **#3 PermissionModal — LOAD-only graft is a TRAP; both-halves-or-nothing (Path B).**
+  The tool-LOAD (`getTools`) IS ACP-graftable via the same `listAcpSessionTools`
+  helper. BUT the per-tool SAVE (`upsertPermissions`, PermissionModal.tsx:159) has
+  **no ACP method**. Today the modal honestly shows a load-error state (no tools).
+  Grafting LOAD alone would make it LOOK functional — show tools, accept permission
+  edits — while SAVE silently `console.error`s and discards the change: a NEW silent
+  failure, strictly worse for the owner's no-silent-failures gate than the current
+  honest error. So PermissionModal is only honest once SAVE works → it is a Path-B
+  feature (full REST serves `upsertPermissions`). Do NOT ship the LOAD-only half.
 - **#2 ExtensionModal — audit's FIX IS WRONG (deferred).** The audit recommended
   "no-op `storeSecret()` so secrets travel inside ExtensionConfig." But
   `ExtensionConfig` carries `env_keys?: string[]` (KEY references) + `envs?: Envs`
