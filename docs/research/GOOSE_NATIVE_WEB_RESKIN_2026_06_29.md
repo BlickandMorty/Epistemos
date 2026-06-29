@@ -93,11 +93,23 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 ### Spring values — match macOS; framer-motion is ALREADY in Goose (calibrate, don't add)
 - Native ref [VERIFIED]: **CocoaSprings (MIT)** damped spring `angularFrequency ω=7.5, dampingRatio ζ=0.5`.
 - Map → framer-motion `{type:"spring"}` (mass=1): `stiffness = ω² ≈ 56`, `damping = 2·ζ·ω ≈ 7.5` (ζ=0.5 = playful; good for hover/press).
-- PREFERRED API: framer-motion `{type:"spring", duration, bounce}` ≈ SwiftUI `.spring(duration:bounce:)` (`bounce ≈ 1 − dampingFraction`). macOS presets:
-  - UI settle (menus/sheets/most controls): `duration ~0.30–0.45, bounce 0` (smooth, no overshoot).
-  - snappy (tabs/toggles/segments): `duration ~0.30, bounce ~0.15`.
-  - playful (toasts/hub/route transitions): `duration ~0.5, bounce ~0.3`.
-- ⏳ confirm exact SwiftUI defaults (`.spring`/`.smooth`/`.snappy`/`.bouncy`) via Apple docs / HIG MCP (current = knowledge + CocoaSprings-derived).
+- PREFERRED API: framer-motion `{type:"spring", duration, bounce}` ≈ SwiftUI `.spring(duration:bounce:)` (`bounce ≈ 1 − dampingFraction`). EXACT macOS presets [VERIFIED — Apple SwiftUI defaults]:
+  - **default `.spring`** (response 0.55, dampingFraction 0.825) → `{duration:0.55, bounce:0.18}` — general settle.
+  - **`.smooth`** (critically damped, NO overshoot) → `{duration:0.5, bounce:0}` — menus/sheets/most controls.
+  - **`.snappy`** (slight overshoot) → `{duration:0.5, bounce:0.15}` — tabs/toggles/segments/buttons.
+  - **`.bouncy`** (visible overshoot) → `{duration:0.5, bounce:0.3}` — toasts/hub/route transitions.
+  - **`.interactiveSpring`** (drag/gesture-follow: response 0.15, dampingFraction 0.86) → `{duration:0.15, bounce:0.14}`.
+  - Sources: Apple `spring(response:dampingFraction:)` docs; SwiftUI smooth/snappy/bouncy preset spec.
+
+### Icons / SF Symbols licensing [VERIFIED R6 — App-Store-safe split]
+- Apple's SF Symbols license = use ONLY in apps/artwork/mockups for **Apple platforms**; PROHIBITS redistributing
+  the symbols or use on non-Apple platforms; SVG export is "personal use on Apple platforms only" — NOT a license
+  to bundle SF Symbol glyphs (font/SVG) into a web asset set.
+- VERDICT:
+  - **Native chrome (AppKit/SwiftUI) → use REAL SF Symbols freely** (`Image(systemName:)` / `NSImage(systemSymbolName:)`) — fully licensed.
+  - **Inside the Goose WKWebView → do NOT bundle SF Symbols.** Keep Goose's existing **lucide-react (ISC, App-Store-safe)** restyled to MATCH SF Symbols (weight / optical size / stroke / scale).
+  - Net: real SF Symbols in the native frame; lucide-matched in the web content → zero license risk, consistent look.
+- Sources: developer.apple.com/sf-symbols + Apple SF Symbols license (developer forums).
 ### Transparent-over-native-glass recipe (#8 — ✅ PROVEN in Epistemos's own code, R5)
 Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS target = 26.0, confirmed project.yml):
 - **Non-opaque window:** `Agent/AgentSurfaceWindowController.swift:37` already sets `window.isOpaque = false` (the Goose surface window itself).
@@ -132,9 +144,9 @@ Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS 
 1. ✅ CLOSED (R2) — Goose inventory + framework = React 19 + shadcn/ui + Radix + Tailwind v4 + framer-motion v12 + lucide.
 2. ✅ CLOSED (R2) — component base decided: RETHEME Goose's existing shadcn (LiqUIdify/Framework7/Konsta demoted to reference-only).
 3. ✅ CLOSED (R3) — shadcn Apple token VALUES pulled (Action Blue #0066cc, SF Pro 300/400/600/700, body 17px, radius 11px, full palette). Next: actually wire them into Goose's Tailwind config + CSS vars.
-4. ▶ DRAFTED (R3) — spring values mapped (CocoaSprings ω=7.5/ζ=0.5 → framer-motion stiffness≈56/damping≈7.5; + duration/bounce presets). REMAINING: confirm exact SwiftUI `.spring/.smooth/.snappy/.bouncy` defaults via HIG MCP.
+4. ✅ CLOSED (R6) — EXACT SwiftUI spring defaults verified (.spring 0.55/0.825; .smooth/.snappy/.bouncy = bounce 0/0.15/0.3 @ dur 0.5; .interactiveSpring 0.15/0.86) → framer-motion duration/bounce presets locked.
 5. ✅ CLOSED (R4) — WebKit-safe on macOS 26: Tailwind v4 (Safari 16.4+), CSS `linear()` (17.2+), backdrop-filter OK (prefix + no CSS-vars-inside); native glass sidesteps the backdrop-filter gotcha. See "WebKit COMPATIBILITY".
-6. **SF Symbols licensing** path (Apple-restricted) + lucide↔SF-Symbols glyph mapping for native feel.
+6. ✅ CLOSED (R6) — SF Symbols: real in NATIVE chrome (licensed); do NOT bundle into the webview; keep lucide (ISC) restyled to match SF Symbols in web content. Zero license risk.
 7. Connect + use the **HIG / SF Symbols MCP servers** (apple-dev-mcp, SF Symbols MCP) for exact control metrics/symbols + the spring defaults (#4).
 8. ✅ CLOSED (R5) — transparent-over-glass recipe PROVEN in Epistemos's own code (window isOpaque=false at AgentSurfaceWindowController.swift:37; glass via GlassModifiers/UnifiedFrostedGlass/ToolbarGlass; non-opaque WKWebView via setValue(false,"drawsBackground") at EpdocKaTeXPreview.swift:79). Reuse, don't reinvent. REMAINING: prototype the actual seam (no flicker) during build.
 9. Build the **A/B pixel-diff harness** (native control vs rethemed Goose control) — gates every `[VERIFIED]`.
@@ -171,3 +183,8 @@ Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS 
   surfaces; non-opaque WKWebView via setValue(false,"drawsBackground") at EpdocKaTeXPreview.swift:79. The reskin
   COMPOSES existing pieces (reuse, don't reinvent). Remaining gaps: SwiftUI spring defaults via HIG MCP, SF
   Symbols licensing, A/B pixel-diff harness, token-wiring handoff.
+- 2026-06-29 R6: closed #4 + #6. [VERIFIED] EXACT SwiftUI spring defaults (.spring 0.55/0.825; .smooth/.snappy/
+  .bouncy = bounce 0/0.15/0.3 @ dur 0.5; .interactiveSpring 0.15/0.86) → framer-motion duration/bounce presets
+  locked. [VERIFIED] SF Symbols license: real SF Symbols only in NATIVE chrome; web content keeps lucide (ISC)
+  restyled to match — never bundle SF Symbols into the webview. Remaining: A/B pixel-diff harness (#9) + token-
+  wiring implementation handoff (#10) + use HIG/SF-Symbols MCP for exact control metrics (#7).
