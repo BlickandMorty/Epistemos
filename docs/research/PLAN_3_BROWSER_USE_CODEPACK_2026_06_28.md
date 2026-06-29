@@ -178,7 +178,9 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   localhost, 127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. The browser output
   policy is isolated in `agent_core/src/tools/browser_output.rs`: `browser_get_images` normalizes page-controlled image
   metadata, caps returned image count, and truncates image text fields, while `browser_console` caps page-controlled
-  console/error/evaluation arrays, object fields, and strings before returning tool output. `browser_vision` also rejects screenshot
+  console/error/evaluation arrays, object fields, and strings before returning tool output. Browser URL result fields from
+  `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments before returning tool output.
+  `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider,
   deletes the temporary screenshot after the provider call returns, and does not return the absolute screenshot path. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`

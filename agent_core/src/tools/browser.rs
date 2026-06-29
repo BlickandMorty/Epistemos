@@ -23,7 +23,7 @@ use super::browser_input::{
     normalize_ref, optional_bool_field, optional_string_field, truncate_snapshot,
 };
 use super::browser_output::{
-    bound_console_value, normalize_console_items, normalize_image_results,
+    bound_console_value, normalize_console_items, normalize_image_results, sanitize_url_for_output,
 };
 use super::browser_private::create_private_browser_dir;
 pub use super::browser_schema::{
@@ -219,9 +219,11 @@ async fn navigate_impl(manager: &BrowserManager, input: &Value) -> Result<Value,
         .and_then(|data| data.get("url"))
         .and_then(Value::as_str)
         .unwrap_or(url);
+    let (url, url_redacted) = sanitize_url_for_output(Some(actual_url));
     Ok(json!({
         "success": true,
-        "url": actual_url,
+        "url": url,
+        "url_redacted": url_redacted,
     }))
 }
 
@@ -315,9 +317,11 @@ async fn back_impl(manager: &BrowserManager) -> Result<Value, ToolError> {
         .get("data")
         .and_then(|data| data.get("url"))
         .and_then(Value::as_str);
+    let (url, url_redacted) = sanitize_url_for_output(url);
     Ok(json!({
         "success": true,
         "url": url,
+        "url_redacted": url_redacted,
     }))
 }
 
@@ -775,6 +779,24 @@ esac
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("SSRF protection"));
+    }
+
+    #[tokio::test]
+    async fn browser_navigate_result_redacts_url_query_and_fragment() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+
+        let output = BrowserActionHandler::new(BrowserManager::new(), BrowserAction::Navigate)
+            .execute(&json!({ "url": "https://example.com/callback?code=oauth-code#id-token" }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["url"], json!("https://example.com/callback"));
+        assert_eq!(parsed["url_redacted"], json!(true));
+        assert!(!output.contains("oauth-code"));
+        assert!(!output.contains("id-token"));
     }
 
     #[tokio::test]

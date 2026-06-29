@@ -1,3 +1,4 @@
+use reqwest::Url;
 use serde_json::{json, Map, Value};
 
 const MAX_BROWSER_IMAGES: usize = 50;
@@ -7,6 +8,7 @@ const MAX_BROWSER_CONSOLE_OBJECT_FIELDS: usize = 40;
 const MAX_BROWSER_CONSOLE_KEY_CHARS: usize = 128;
 const MAX_BROWSER_CONSOLE_TEXT_CHARS: usize = 2_000;
 const MAX_BROWSER_CONSOLE_DEPTH: usize = 4;
+const MAX_BROWSER_URL_CHARS: usize = 2_048;
 
 pub(crate) fn normalize_image_results(raw_images: Value) -> (Value, usize, bool) {
     let Some(items) = raw_images.as_array() else {
@@ -69,6 +71,44 @@ pub(crate) fn normalize_console_items(raw_items: Value) -> (Value, usize, bool) 
 
 pub(crate) fn bound_console_value(value: Value) -> (Value, bool) {
     bound_console_value_ref(&value, MAX_BROWSER_CONSOLE_DEPTH)
+}
+
+pub(crate) fn sanitize_url_for_output(raw_url: Option<&str>) -> (Value, bool) {
+    let Some(raw_url) = raw_url else {
+        return (Value::Null, false);
+    };
+    let (url, redacted) = sanitize_url_text(raw_url);
+    (Value::String(url), redacted)
+}
+
+fn sanitize_url_text(raw_url: &str) -> (String, bool) {
+    if let Ok(mut parsed) = Url::parse(raw_url) {
+        let mut redacted = false;
+        if !parsed.username().is_empty() {
+            let _ = parsed.set_username("");
+            redacted = true;
+        }
+        if parsed.password().is_some() {
+            let _ = parsed.set_password(None);
+            redacted = true;
+        }
+        if parsed.query().is_some() {
+            parsed.set_query(None);
+            redacted = true;
+        }
+        if parsed.fragment().is_some() {
+            parsed.set_fragment(None);
+            redacted = true;
+        }
+        let (url, truncated) = truncate_url_text(parsed.as_str());
+        return (url, redacted || truncated);
+    }
+
+    if raw_url.contains('@') || raw_url.contains('?') || raw_url.contains('#') {
+        return ("[redacted-url]".to_string(), true);
+    }
+    let (url, truncated) = truncate_url_text(raw_url);
+    (url, truncated)
 }
 
 fn bound_console_value_ref(value: &Value, depth: usize) -> (Value, bool) {
@@ -152,6 +192,14 @@ fn truncate_console_text(text: &str, cap: usize) -> (String, bool) {
     )
 }
 
+fn truncate_url_text(text: &str) -> (String, bool) {
+    let total_chars = text.chars().count();
+    if total_chars <= MAX_BROWSER_URL_CHARS {
+        return (text.to_string(), false);
+    }
+    (text.chars().take(MAX_BROWSER_URL_CHARS).collect(), true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,5 +269,26 @@ mod tests {
             bound_console_value(json!({ "result": long_text, "items": messages }));
         assert!(value_truncated);
         assert!(bounded["result"].as_str().unwrap().contains("[Truncated:"));
+    }
+
+    #[test]
+    fn browser_url_output_drops_credentials_query_and_fragment() {
+        let (url, redacted) = sanitize_url_for_output(Some(
+            "https://user:pass@example.com/callback?code=oauth-code#id-token",
+        ));
+        assert_eq!(url, json!("https://example.com/callback"));
+        assert!(redacted);
+        let serialized = url.to_string();
+        assert!(!serialized.contains("user:pass"));
+        assert!(!serialized.contains("oauth-code"));
+        assert!(!serialized.contains("id-token"));
+
+        let (url, redacted) = sanitize_url_for_output(None);
+        assert_eq!(url, Value::Null);
+        assert!(!redacted);
+
+        let (url, redacted) = sanitize_url_for_output(Some("not a url?token=secret"));
+        assert_eq!(url, json!("[redacted-url]"));
+        assert!(redacted);
     }
 }

@@ -72,6 +72,8 @@ struct BrowserUseAdapterPlan3Tests {
             "\"typed_chars\": len(text)",
             "\"pressed\": True",
             "\"key_chars\": len(key)",
+            "sanitize_output_url",
+            "\"url_redacted\"",
             "console does not accept argument",
             "console/errors compatibility stubs avoid browser-use runtime import",
             "return success({\"messages\": []})",
@@ -98,6 +100,7 @@ struct BrowserUseAdapterPlan3Tests {
         #expect(!source.contains("prepare_runtime_environment()\n\n    if command == \"close\""))
         #expect(!source.contains("\"typed\": text"))
         #expect(!source.contains("\"pressed\": key"))
+        #expect(!source.contains("return success({\"url\": data.get(\"url\", url)})"))
 
         let contractIndex = try #require(source.range(of: "if command == \"contract\"")?.lowerBound)
         let prepareIndex = try #require(source.range(of: "prepare_runtime_environment()")?.lowerBound)
@@ -176,6 +179,9 @@ struct BrowserUseAdapterPlan3Tests {
             "cleanup_screenshot_file(&actual_path)",
             "\"screenshot_captured\"",
             "\"screenshot_retained\"",
+            "sanitize_url_for_output",
+            "\"url_redacted\"",
+            "browser_navigate_result_redacts_url_query_and_fragment",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }
@@ -248,8 +254,10 @@ struct BrowserUseAdapterPlan3Tests {
             "normalize_image_results",
             "normalize_console_items",
             "bound_console_value",
+            "sanitize_url_for_output",
             "browser_get_images_normalizes_and_bounds_page_controlled_results",
             "browser_console_output_bounds_page_controlled_values",
+            "browser_url_output_drops_credentials_query_and_fragment",
         ] {
             #expect(browserOutput.contains(required), "Missing browser output policy string: \(required)")
         }
