@@ -1183,3 +1183,31 @@ sources[recipe/skill/schedule] + session new/list/load/fork (fork differs) + pro
 stream (10 events)→end_turn. This is the env-independent re-runnable substitute for the
 app-hosted live sweep; the only thing it can't show is real LLM token content (dummy
 key → used=0; needs an owner provider credential).
+
+---
+
+## 2026-06-29 (Steps 1-3 loop) — fresh re-proofs + native-route witnesses
+
+Independent re-proof this loop (all re-runnable; backends proven side-by-side):
+
+- **Broad ACP surface (default `.serve` oracle), fresh run:** `bash scripts/goose-acp-live-probe.sh`
+  → `LIVE_ACP_SURFACE_PASS`: catalog 106 (GOLDEN RULE — live-enumerated), setup-catalog 32,
+  config/status 65 (Auth), extensions 11, sources[recipe/skill/schedule] reachable, session
+  new/list/load/fork (fork differs), prompt→stream (10 events)→`end_turn`. No silent ACP drops.
+- **goosed backend end-to-end:** `bash scripts/goosed-live-reprove.sh` → `GOOSED_END_TO_END_REPROVE_PASS`:
+  the full ACP surface byte-identical on `goosed agent` PLUS the 3 previously-unbackable REST features
+  live (`/config/prompts` 200, `/config/permissions` 405, `/mcp-app-proxy` 400). **0 unbackable** on
+  goosed (was 2 on lean serve) — the feature-completeness gate is closed. Source-verified parity
+  SUPERSET (same `check_acp_token` + `developer` builtin; goosed adds `GooseDesktop` identity + real
+  scheduler). See `GOOSE_STEP2_GOOSED_PROOF_2026_06_29.md`.
+- **Native Models route parity (Step 3) — BOTH backends:** `bash scripts/goose-native-models-probe.sh`
+  → `NATIVE_MODELS_PARITY_PASS` on serve AND on goosed: providers/list → 65 providers, 53 carry inline
+  models, defaults/read → openai/gpt-4o-mini present (picker shows the real current default). The native
+  SwiftUI Models picker (`GooseNativeModelsView`) binds to exactly this live path; the router defaults
+  every route to the WebView oracle and promotes Models to native only when explicitly enabled. GOLDEN
+  RULE roster guard clean on all new `Epistemos/Goose/*.swift`.
+
+App-target build green on the iso-DD (`** BUILD SUCCEEDED **`) across all three steps. The app-hosted
+combined live sweep stays env-blocked (degraded iso-DD test host — a test-harness artifact, not a Goose
+regression); the probes above are the env-independent re-runnable substitute. Real LLM token content
+still needs an owner provider credential (dummy key → used=0).
