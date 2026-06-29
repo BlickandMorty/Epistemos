@@ -54,6 +54,7 @@ struct ProvenanceConsoleSourceGuardTests {
     @Test("Provenance Console projection is GenUI-first and read-only")
     func projectionIsGenUIFirstAndReadOnly() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/ProvenanceConsoleProjectionService.swift")
+        let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_PROVENANCE_CODEPACK_2026_06_28.md")
 
         #expect(source.contains("func snapshot(limit: Int = 40) -> ProvenanceConsoleSnapshot"))
         #expect(source.contains("eventStore.recentAgentEvents(limit: limit)"))
@@ -63,6 +64,7 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(source.contains("GenUIPayload.provenanceTrace("))
         #expect(source.contains("(\"ACS verdict\""))
         #expect(source.contains("ACS verdict column"))
+        #expect(codepack.contains("refreshes `ProvenanceConsoleProjectionService.snapshot(limit:)` in a cancellable"))
         assertForbiddenTokensAbsent(
             [
                 "saveAgentEvent(",
@@ -89,7 +91,10 @@ struct ProvenanceConsoleSourceGuardTests {
 
         #expect(settings.contains("case provenance = \"Provenance Console\""))
         #expect(settings.contains("case .provenance: ProvenanceConsoleView()"))
-        #expect(view.contains("ProvenanceConsoleProjectionService().snapshot(limit: 40)"))
+        #expect(view.contains("_snapshot = State(initialValue: .empty)"))
+        #expect(view.contains("Task.detached(priority: .utility)"))
+        #expect(view.contains("service.snapshot(limit: 40)"))
+        #expect(view.contains(".onDisappear { cancelRefresh() }"))
         #expect(view.contains("GenUIDispatcher.shared.render(payload)"))
         #expect(view.contains(".onAppear { refresh() }"))
         #expect(dispatcher.contains("ProvenanceTraceGenUIView(payload: payload)"))

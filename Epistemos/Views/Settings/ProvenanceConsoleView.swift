@@ -3,9 +3,11 @@ import SwiftUI
 @MainActor
 struct ProvenanceConsoleView: View {
     @State private var snapshot: ProvenanceConsoleSnapshot
+    @State private var refreshRequestID = UUID()
+    @State private var refreshTask: Task<Void, Never>?
 
     init() {
-        _snapshot = State(initialValue: ProvenanceConsoleProjectionService().snapshot(limit: 40))
+        _snapshot = State(initialValue: .empty)
     }
 
     var body: some View {
@@ -20,10 +22,28 @@ struct ProvenanceConsoleView: View {
             .frame(maxWidth: 860, alignment: .leading)
         }
         .onAppear { refresh() }
+        .onDisappear { cancelRefresh() }
     }
 
     func refresh() {
-        snapshot = ProvenanceConsoleProjectionService().snapshot(limit: 40)
+        refreshTask?.cancel()
+        let requestID = UUID()
+        refreshRequestID = requestID
+        let service = ProvenanceConsoleProjectionService()
+        refreshTask = Task { @MainActor in
+            let nextSnapshot = await Task.detached(priority: .utility) {
+                service.snapshot(limit: 40)
+            }.value
+            guard !Task.isCancelled, refreshRequestID == requestID else { return }
+            snapshot = nextSnapshot
+            refreshTask = nil
+        }
+    }
+
+    func cancelRefresh() {
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshRequestID = UUID()
     }
 
     private var header: some View {
