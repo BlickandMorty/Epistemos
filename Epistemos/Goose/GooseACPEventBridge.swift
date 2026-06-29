@@ -123,8 +123,16 @@ final class GooseACPEventBridge {
         providerKeyBridge: GooseProviderKeyBridge?
     ) {
         guard connectionKey != key else { return }
+        // ACP-correctness (deep-hardening 2026-06-29 #3): closing the OUTGOING client is required —
+        // cancelling eventTask does not interrupt a suspended receiveEvent/response continuation,
+        // and the old client's read loop + WebSocket leak otherwise (incoming frames pile into an
+        // unread queue forever on an idle-but-open superseded connection). Mirror disconnect().
+        let previousClient = client
         eventTask?.cancel()
         client = nil
+        if let previousClient {
+            Task { await previousClient.close() }
+        }
         pendingPermission = nil
         pendingElicitation = nil
         lastSessionUpdate = nil
