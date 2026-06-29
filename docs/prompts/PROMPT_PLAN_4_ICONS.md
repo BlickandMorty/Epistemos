@@ -40,6 +40,7 @@ BUILD ORDER (per the plan; if an item already exists, verify/harden instead of r
   (4) Icon map — extend ProviderBrandLogo to model-TIER-aware (Opus→ClaudeCode, Sonnet/Haiku→Claude); upgrade every fallback that now has a real glyph; keep SF-Symbol fallback for the uncovered.
   (5) Coverage sweep — every coverable brand surface (Settings/Extensions/Skills/connectors/arXiv/Browser/Meeting/landing/Goose web) renders a real mono glyph; a few gradient-heavy logos get a hand-simplified mono silhouette.
   (6) Opus mascot — if ProviderLogoClaudeCode is a placeholder, source the real Claude Code mascot + mono-normalize.
+  (7) ANIMATION LAYER (optional, additive — full detail §11; do AFTER the static mono core is solid). Animate via Lottie (lottie-ios, Apache-2.0, native, runtime-tintable → mono preserved) + animated-SVG (web, currentColor) + SwiftUI motion. NEVER GIF (256-color raster, can't recolor → breaks theme-canonical mono). AnimatedBrandMark falls back to the static mono SVG; reduce-motion→static. Third-party marks (Claude/Codex/GPT) = official animated assets OR subtle native motion only (trademark); companion mascots (own IP) = safest to fully animate. lobe-icons is static-only, so animations are sourced/built separately + vendored at build (no runtime fetch).
 
 HARD GATES / FORBIDDEN:
   × Any npm/node/subprocess or runtime logo download on ANY path (vendor at build only; MAS sandbox forbids runtime spawn).

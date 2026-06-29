@@ -148,6 +148,26 @@
   `PLAN_3_WHOLE_APP_LOGOS_CODEPACK_2026_06_28.md` (the spine it upgrades), `CLAUDE.md` (NON-NEGOTIABLE CONSTRAINTS).
 - RESEARCH-FIRST: read before editing; verify current code/disk before asserting; tag `[VERIFIED-CODE]`.
 
+## §11 — ANIMATION LAYER (optional; owner-requested 2026-06-29; feasibility VERIFIED)
+**Can the marks animate? YES — but NOT as GIFs, and NOT from lobe-icons.** [VERIFIED 2026-06-29, primary sources]:
+- **lobe-icons is STATIC-only** (SVG/PNG/WebP — no animated variants). Any animation is sourced/built separately.
+- **GIF is the WRONG vehicle** — 256 colors, no smooth alpha, raster, and CANNOT be recolored per theme → it would
+  **break the theme-canonical mono rule (§4)**. Do not ship brand marks as GIF.
+- **Right vehicle = Lottie** (`lottie-ios`, Apache-2.0, native macOS, VECTOR): renders vector animation natively +
+  supports runtime recolor via **Value Providers**, so an animated mark STAYS mono and re-tints from the `iconInk`/
+  `iconActive` token exactly like the static ones. Web surface (Goose) = **animated SVG (SMIL/CSS)** with `currentColor`.
+  Simple motion = **SwiftUI-driven** animation of the static mono mark (already how the Farm mascots breathe — Plan 5 /
+  `CompanionAnimationState`).
+- **Trademark caution:** animating a THIRD-PARTY mark (Claude / Claude Code / Codex / GPT) is a *modification* — more
+  sensitive than static nominative use. Prefer the brand's OFFICIAL animated asset where it ships one; otherwise use
+  SUBTLE native motion (pulse/shimmer/slow-rotate) on the static mono mark, not a full redraw. The safest fully-animated
+  marks are the Epistemos COMPANION mascots (your own IP — already animating).
+- **Scope (additive, gated — does NOT change the static mono core):** an `AnimatedBrandMark` that falls back to the
+  static mono SVG when no animation exists; Lottie/SVG vendored at build (no runtime fetch); still tinted by the theme
+  token (mono preserved); reduce-motion → static (Invariant I-14). Owner's candidates: Opus→Claude Code, Sonnet→Claude,
+  Codex, GPT — animate ONLY via official assets or subtle native motion; static everywhere else.
+- **MAS-safe:** Lottie (Apache-2.0) + animated SVG + SwiftUI are all sandbox-safe; vendored at build, no subprocess.
+
 ---
 **Sources:** [lobe-icons (GitHub, MIT)](https://github.com/lobehub/lobe-icons) · [icon set](https://lobehub.com/icons) ·
 [static-svg package](https://www.npmjs.com/package/@lobehub/icons-static-svg) · [Codex icon](https://lobehub.com/icons/codex)
