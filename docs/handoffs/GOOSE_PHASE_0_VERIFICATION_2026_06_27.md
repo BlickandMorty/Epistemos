@@ -913,6 +913,20 @@ providers/setup/catalog/list (32) ✓, config/extensions/list (11) ✓, sources/
 ✓. Equivalent to the combined live sweep's ACP assertions minus only the
 real-credential token completion.
 
+**Owner-reported-failure backing verified live** (`scratchpad/acp-owner-probe.mjs`) —
+direct probe of the exact ACP methods behind the owner's two specific complaints:
+- **"Session History failures"** → `session/new` → `session/load` → `session/fork`
+  all return OK; fork yields a DISTINCT session (`20260629_2` ≠ original `20260629_1`),
+  matching the `GooseSessionLifecycleLiveIntegrationTests` "fork differs from original"
+  assertion. (First probe pass returned `-32602 Invalid params` from my JS param shape
+  `null` vs `[]`/`{}`; corrected → all OK. The method always validated params — a
+  probe artifact, not a Goose fault.)
+- **"Settings→Auth: Failed to load provider credentials"** →
+  `_goose/unstable/providers/config/status` returns **65 provider statuses**
+  (`{providerId, isConfigured}` pairs, e.g. alibaba isConfigured:false), NO "Failed to
+  load". The Auth screen's ACP backing works; the owner's reported failure does not
+  reproduce at the ACP layer (it was the dead-`@/api`-REST path the grafts replaced).
+
 **Live ACP surface recursive proof — THREE consecutive clean passes.** Ran the
 comprehensive read-only probe 3× back-to-back against one `goose serve`: every pass
 returned `SURFACE_REACHABLE 7/7` with `providers/catalog/list count=106` — identical,
