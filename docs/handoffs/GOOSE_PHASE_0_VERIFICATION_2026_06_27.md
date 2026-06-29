@@ -1237,3 +1237,20 @@ file + every Goose test file compiles clean** — the ONLY remaining bundle comp
 meanwhile by `** BUILD SUCCEEDED **` (app target), the `NATIVE_MODELS_PARITY_PASS` probe, and the
 adversarial review confirming the HARD GATE holds (`enabledRoutes = requested ∩ nativeCapableRoutes`;
 every route defaults to `.web`).
+
+---
+
+## 2026-06-29 — recursive clean pass #1 (no code changes since 67c58ce6b/c7bb978cd)
+
+Re-ran the full re-runnable proof sweep with NO intervening code changes — all green, confirming
+the post-fix surface is stable (recursive-proof pass 1 of 3 toward "hardened"):
+- `goose-acp-live-probe.sh` → LIVE_ACP_SURFACE_PASS (catalog 106 / GOLDEN RULE, prompt→end_turn)
+- `goose-native-models-probe.sh` → NATIVE_MODELS_PARITY_PASS (providers/list 65, 53 inline-model
+  providers, default openai present)
+- `goosed-live-reprove.sh` → GOOSED_END_TO_END_REPROVE_PASS (ACP byte-identical + /config/prompts
+  200, /config/permissions 405, /mcp-app-proxy 400)
+
+Shared `build-for-testing` remains blocked solely by `EpistemosTests/ArxivPlan3Tests.swift:531`
+(`lock()`/`unlock()` in an async context — Plan-3 lane, NO-COLLISION; the other agent's recent
+commits did not address it). All app + Goose files compile clean; `GooseSurfaceRouterTests`
+execution awaits that external Plan-3 fix.
