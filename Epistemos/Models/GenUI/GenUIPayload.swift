@@ -264,7 +264,7 @@ extension GenUIPayload {
     }
 
     /// Key-value panel. Schema = `.keyValueTable`.
-    static func keyValueTable(
+    nonisolated static func keyValueTable(
         title: String,
         _ pairs: [(String, String)],
         id: String = UUID().uuidString,
@@ -328,7 +328,7 @@ extension GenUIPayload {
     }
 
     /// Recursive provenance chain. Schema = `.provenanceTrace`.
-    static func provenanceTrace(
+    nonisolated static func provenanceTrace(
         title: String,
         events: [GenUIPayload],
         metadata: [String: String] = [:]
