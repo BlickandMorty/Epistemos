@@ -536,7 +536,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let drainBox = GooseAffordanceDataBox()
         let drainDone = DispatchSemaphore(value: 0)
         DispatchQueue.global(qos: .userInitiated).async {
-            drainBox.data = stdoutHandle.readDataToEndOfFile()
+            drainBox.store(stdoutHandle.readDataToEndOfFile())
             drainDone.signal()
         }
         let semaphore = DispatchSemaphore(value: 0)
@@ -554,7 +554,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         // The process has exited → it closed its write end → the concurrent drain hits EOF promptly.
         _ = drainDone.wait(timeout: .now() + 1)
         guard process.terminationStatus == 0 else { return [] }
-        let output = String(data: drainBox.data, encoding: .utf8) ?? ""
+        let output = String(data: drainBox.load(), encoding: .utf8) ?? ""
         var seen = Set<String>()
         return output
             .split(separator: "\n")
@@ -1193,11 +1193,22 @@ private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate 
 /// app-support render root) + about:; loopback http is allowed (the guest may talk to the local
 /// goose server) but ANY external origin, arbitrary file: path, javascript:/data:/app-deeplink
 /// navigation is denied.
-/// Mutable byte box handed to a background pipe-drain (review M4). `@unchecked Sendable` is sound
-/// because the producer (the drain queue) writes `data` exactly once and signals a semaphore the
-/// consumer waits on before reading — the semaphore establishes the happens-before edge.
-private final class GooseAffordanceDataBox: @unchecked Sendable {
-    var data = Data()
+/// Mutable byte box handed to a background pipe-drain (review M4).
+private nonisolated final class GooseAffordanceDataBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func store(_ data: Data) {
+        lock.lock()
+        self.data = data
+        lock.unlock()
+    }
+
+    func load() -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        return data
+    }
 }
 
 private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNavigationDelegate {
@@ -1212,7 +1223,7 @@ private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNaviga
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
     ) {
         guard let url = navigationAction.request.url else {
             decisionHandler(.cancel)
