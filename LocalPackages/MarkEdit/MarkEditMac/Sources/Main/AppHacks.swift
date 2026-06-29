@@ -64,6 +64,6 @@ private extension NSObject {
   }
 }
 
-private struct UncheckedSendableObject: @unchecked Sendable {
+private nonisolated struct UncheckedSendableObject: @unchecked Sendable {
   let object: NSObject
 }
