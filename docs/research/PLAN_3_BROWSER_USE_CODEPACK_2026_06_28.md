@@ -177,7 +177,7 @@ validated before runtime import and must be loopback-only with no URL credential
   also rejects multiple screenshot output paths before runtime import. More generally, command-specific
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Extra positional
-  arguments and unexpected console/error flags are rejected before daemon startup. The console/errors compatibility
+  arguments and unexpected console/error flags are rejected before daemon startup without echoing rejected values. The console/errors compatibility
   stubs avoid browser-use runtime import until upstream exposes matching stream actions; they only accept optional
   `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. The adapter
   `fill`/`press` results and Rust `browser_type`/`browser_press` results acknowledge success and report only character

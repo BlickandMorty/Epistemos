@@ -97,6 +97,8 @@ struct BrowserUseAdapterPlan3Tests {
             "--cdp must not include username or password credentials",
             "--cdp must not include a URL query",
             "--cdp must not include a URL fragment",
+            "raise AdapterError(\"invalid element ref\")",
+            "raise AdapterError(CONSOLE_ARGUMENT_ERROR_PREFIX)",
             "console does not accept argument",
             "console/errors compatibility stubs avoid browser-use runtime import",
             "return success({\"messages\": []})",
@@ -132,6 +134,8 @@ struct BrowserUseAdapterPlan3Tests {
         ] {
             #expect(source.contains(required), "Missing browser-use daemon delegation string: \(required)")
         }
+        #expect(!source.contains("invalid element ref: {value!r}"))
+        #expect(!source.contains("does not accept argument: {value}"))
         #expect(!source.contains("ensure_browser_daemon(args)\n\n    if command == \"open\""))
         #expect(!source.contains("setdefault(\"BROWSER_USE_HOME\""))
         #expect(!source.contains("prepare_runtime_environment()\n\n    if command == \"close\""))
