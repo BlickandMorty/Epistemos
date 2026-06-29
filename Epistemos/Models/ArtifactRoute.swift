@@ -15,6 +15,10 @@ import Foundation
 // surfaces the parent run timeline (per implementation plan §6, the
 // timeline view is the canonical surface for both kinds).
 //
+// `htmlWorkspace` is intentionally route-only. HTML Workspace packages
+// are app-native live artifacts, not part of the Rust-mirrored
+// `ArtifactKind` discriminant contract.
+//
 // Adding a new ArtifactKind variant means:
 //   1. Add the variant to the unified taxonomy
 //      (`agent_core/src/artifacts/kind.rs` + `Epistemos/Models/ArtifactKind.swift`).
@@ -61,6 +65,10 @@ nonisolated public enum ArtifactRoute: Equatable, Hashable, Sendable {
     /// `OutputArtifactView`. Kind id 7.
     case output(ArtifactID)
 
+    /// App-native HTML Workspace live artifact. Route-only; does not add
+    /// a variant to the Rust-mirrored `ArtifactKind` taxonomy.
+    case htmlWorkspace(ArtifactID)
+
     /// Lift an `ArtifactKind` + id pair into the matching route.
     /// Returns `nil` for kinds that aren't directly routable (none today,
     /// but the optional return preserves forward compatibility for
@@ -79,8 +87,9 @@ nonisolated public enum ArtifactRoute: Equatable, Hashable, Sendable {
 
     /// The canonical [`ArtifactKind`] this route renders. For
     /// `.rawThoughtRun` the kind is `.run` — the route surfaces the run
-    /// timeline; the raw-thought children appear inside it.
-    public var kind: ArtifactKind {
+    /// timeline; the raw-thought children appear inside it. Route-only
+    /// surfaces such as `.htmlWorkspace` return `nil`.
+    public var artifactKind: ArtifactKind? {
         switch self {
         case .proseNote:      return .proseNote
         case .document:       return .document
@@ -88,8 +97,13 @@ nonisolated public enum ArtifactRoute: Equatable, Hashable, Sendable {
         case .source:         return .source
         case .code:           return .code
         case .output:         return .output
+        case .htmlWorkspace:  return nil
         }
     }
+
+    /// Compatibility alias for call sites that ask whether this route is
+    /// backed by a canonical `ArtifactKind`.
+    public var kind: ArtifactKind? { artifactKind }
 
     /// The opaque id this route addresses. Returned as `String` so
     /// callers can persist routes through `NavigationPath` / URL schemes
@@ -101,7 +115,8 @@ nonisolated public enum ArtifactRoute: Equatable, Hashable, Sendable {
              .rawThoughtRun(let id),
              .source(let id),
              .code(let id),
-             .output(let id):
+             .output(let id),
+             .htmlWorkspace(let id):
             return id
         }
     }

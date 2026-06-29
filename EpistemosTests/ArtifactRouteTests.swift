@@ -12,9 +12,11 @@ import Testing
 /// every typed artifact has exactly one route identity. These
 /// tests assert:
 ///   - every [`ArtifactKind`] has a route via `ArtifactRoute.from(kind:id:)`
-///   - every route's reverse `kind` projection round-trips
+///   - every artifact-backed route's reverse `artifactKind` projection round-trips
 ///   - `Equatable` / `Hashable` derive correctly so SwiftUI's
 ///     `NavigationPath` can deduplicate routes
+///   - HTML Workspace stays a route-only live surface and does not mutate
+///     the Rust-mirrored `ArtifactKind` taxonomy
 @Suite("ArtifactRoute compile-time routing (T+4.7)")
 nonisolated struct ArtifactRouteTests {
 
@@ -27,7 +29,7 @@ nonisolated struct ArtifactRouteTests {
         }
     }
 
-    @Test("Route.kind projection round-trips for routable kinds")
+    @Test("Route.artifactKind projection round-trips for routable kinds")
     func routeKindRoundTrips() {
         let pairs: [(ArtifactKind, ArtifactKind)] = [
             (.proseNote,  .proseNote),
@@ -46,8 +48,8 @@ nonisolated struct ArtifactRouteTests {
                 #expect(Bool(false), "ArtifactRoute.from returned nil for \(input)")
                 continue
             }
-            #expect(route.kind == expectedProjection,
-                    "ArtifactRoute(\(input)).kind expected \(expectedProjection), got \(route.kind)")
+            #expect(route.artifactKind == expectedProjection,
+                    "ArtifactRoute(\(input)).artifactKind expected \(expectedProjection), got \(String(describing: route.artifactKind))")
         }
     }
 
@@ -60,6 +62,7 @@ nonisolated struct ArtifactRouteTests {
             .source("src-4"),
             .code("code-5"),
             .output("out-6"),
+            .htmlWorkspace("html-7"),
         ]
         for route in cases {
             // idString MUST equal the inner String — this is the
@@ -71,7 +74,8 @@ nonisolated struct ArtifactRouteTests {
                  .rawThoughtRun(let id),
                  .source(let id),
                  .code(let id),
-                 .output(let id):
+                 .output(let id),
+                 .htmlWorkspace(let id):
                 #expect(route.idString == id,
                         "ArtifactRoute.idString must match the inner id — got \(route.idString) vs \(id)")
             }
@@ -100,11 +104,13 @@ nonisolated struct ArtifactRouteTests {
         #expect(set.count == 3, "Distinct routes must coexist in a Set")
     }
 
-    @Test("Route count is exactly 6 (RawThought + Run share rawThoughtRun)")
-    func routeCardinalityIsSix() {
-        // Closed-enum expectation: 7 ArtifactKind variants → 6 routes.
+    @Test("ArtifactKind route count is exactly 6 (RawThought + Run share rawThoughtRun)")
+    func artifactKindRouteCardinalityIsSix() {
+        // Taxonomy expectation: 7 ArtifactKind variants → 6 artifact-backed routes.
         // RawThought (kind id 3) + Run (kind id 6) collapse onto the
         // single rawThoughtRun route per implementation plan §6.
+        // HTML Workspace is route-only and must not appear through
+        // ArtifactRoute.from(kind:id:).
         // Use a Set to count distinct route shapes when fed every kind.
         var distinctRoutes: Set<String> = []
         for kind in ArtifactKind.allCases {
@@ -118,19 +124,33 @@ nonisolated struct ArtifactRouteTests {
             case .source:        distinctRoutes.insert("source")
             case .code:          distinctRoutes.insert("code")
             case .output:        distinctRoutes.insert("output")
+            case .htmlWorkspace: distinctRoutes.insert("htmlWorkspace")
             }
         }
         #expect(distinctRoutes.count == 6,
-                "Expected exactly 6 distinct route cases — got \(distinctRoutes.sorted())")
+                "Expected exactly 6 distinct ArtifactKind route cases — got \(distinctRoutes.sorted())")
     }
 
-    @Test("ArtifactHostView is v1-deferred and not mounted in production")
-    func artifactHostViewRemainsDeferredUntilResolversAreReal() throws {
+    @Test("HTML Workspace route is explicit and outside ArtifactKind")
+    func htmlWorkspaceRouteIsExplicitExtraSurface() {
+        let route = ArtifactRoute.htmlWorkspace("workspace-1")
+        #expect(route.idString == "workspace-1")
+        #expect(route.artifactKind == nil)
+        #expect(route.kind == nil)
+        #expect(ArtifactKind.allCases.count == 7,
+                "HTML Workspace must not be added to the Rust-mirrored ArtifactKind enum from this route slice")
+    }
+
+    @Test("ArtifactHostView routes HTML Workspace preview and keeps legacy routes deferred")
+    func artifactHostViewRoutesHTMLWorkspacePreviewOnly() throws {
         let hostSource = try loadMirroredSourceTextFile("Epistemos/Views/Workspace/ArtifactHostView.swift")
 
         #expect(hostSource.contains("ArtifactRouteDeferredPanel("))
+        #expect(hostSource.contains("case .htmlWorkspace(let id):"))
+        #expect(hostSource.contains("HTMLWorkspaceArtifactHost(workspaceID: id)"))
+        #expect(hostSource.contains("HTMLWorkspacePreviewView("))
+        #expect(hostSource.contains("HTMLWorkspaceMissingPanel(workspaceID: workspaceID)"))
         #expect(hostSource.contains("Deferred in v1"))
-        #expect(hostSource.contains("not a v1 production navigation surface"))
         #expect(!hostSource.contains("ArtifactRoutePendingPanel"))
         #expect(!hostSource.contains("Pending slice"))
         #expect(!hostSource.contains("pendingSliceLabel"))
@@ -150,7 +170,7 @@ nonisolated struct ArtifactRouteTests {
         }
 
         #expect(mounts.isEmpty,
-                "ArtifactHostView must stay unmounted while every destination is v1-deferred; mounts: \(mounts.sorted())")
+                "ArtifactHostView must stay unmounted while this route-only preview surface is not linked into production navigation; mounts: \(mounts.sorted())")
     }
 
     private static func swiftSourceFiles(under root: URL) throws -> [URL] {

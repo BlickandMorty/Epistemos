@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - ArtifactHostView (typed-spine renderer)
@@ -9,14 +10,12 @@ import SwiftUI
 // per anti-pattern #7 of the canonical register
 // (`docs/_consolidated/00_canonical_authority/MASTER_FUSION.md` §11).
 //
-// This host remains unmounted in v1 while artifact-specific resolvers are
-// unfinished. If invoked from a preview or future integration, it renders
-// an explicit v1-deferred panel instead of pretending the destination
-// viewer exists.
+// Most artifact-specific resolvers remain unfinished in v1 and still
+// render explicit deferred panels. HTML Workspace is the first live route:
+// it reuses the existing WKWebView preview for already-open workspace
+// packages and shows an honest missing-workspace panel otherwise.
 
-/// Top-level dispatcher. Source-preserved for the typed artifact spine;
-/// not a v1 production navigation surface until the route resolvers below
-/// are replaced with real viewers.
+/// Top-level dispatcher. Source-preserved for the typed artifact spine.
 nonisolated public struct ArtifactHostView: View {
     public let route: ArtifactRoute
 
@@ -39,6 +38,8 @@ nonisolated public struct ArtifactHostView: View {
             CodeHost(artifactID: id)
         case .output(let id):
             OutputHost(artifactID: id)
+        case .htmlWorkspace(let id):
+            HTMLWorkspaceArtifactHost(workspaceID: id)
         }
     }
 }
@@ -152,6 +153,92 @@ nonisolated public struct OutputHost: View {
             id: artifactID,
             deferredReason: "The output artifact viewer is deferred for the v1 artifact route."
         )
+    }
+}
+
+// MARK: - HTML Workspace host
+
+nonisolated public struct HTMLWorkspaceArtifactHost: View {
+    public let workspaceID: ArtifactID
+
+    public init(workspaceID: ArtifactID) {
+        self.workspaceID = workspaceID
+    }
+
+    @MainActor
+    @ViewBuilder
+    public var body: some View {
+        if let document = Self.openDocument(matching: workspaceID) {
+            HTMLWorkspacePreviewView(
+                package: document.package,
+                safeAPIEnabled: false,
+                previewTheme: nil
+            )
+            .id(Self.previewIdentity(for: document.package))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+        } else {
+            HTMLWorkspaceMissingPanel(workspaceID: workspaceID)
+        }
+    }
+
+    @MainActor
+    private static func openDocument(matching workspaceID: String) -> HTMLWorkspaceDocument? {
+        let targetID = workspaceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !targetID.isEmpty else { return nil }
+
+        let controller = NSDocumentController.shared
+        return controller.documents
+            .compactMap { $0 as? HTMLWorkspaceDocument }
+            .first { $0.package.manifest.id == targetID }
+    }
+
+    private static func previewIdentity(for package: HTMLWorkspacePackage) -> String {
+        let contentHash = HTMLWorkspaceDocument.contentHash(
+            indexHTML: package.indexHTML,
+            styleCSS: package.styleCSS,
+            scriptJS: package.scriptJS,
+            dataJSON: package.dataJSON
+        )
+        return "\(package.manifest.id)-\(contentHash)"
+    }
+}
+
+nonisolated struct HTMLWorkspaceMissingPanel: View {
+    let workspaceID: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "curlybraces.square")
+                    .foregroundStyle(.secondary)
+                Text("HTML Workspace")
+                    .font(.headline)
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Workspace id")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(workspaceID)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Workspace not open")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Open the matching .htmlworkspace package to render its live preview here.")
+                    .font(.body)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.background)
     }
 }
 
