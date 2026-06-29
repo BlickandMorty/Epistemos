@@ -184,7 +184,7 @@ Launch the current Debug build:
 | --- | --- | --- |
 | 1 Real Goose Electron fallback launches | PASS | **re-proven 2026-06-29** — `GooseElectronFallbackLauncherTests` green in the 53/53 unit run (real build) |
 | 2 `goose serve` ACP WS reachable | PASS | **proven 2026-06-29 by direct probe** — iso-DD goose binary is byte-identical to the working one + its `goose serve` returns `/health` 200 in 1s; live product instance serves ACP on 3284 (3h+). The iso-DD live-SUITE timeouts are a test-harness spawn artifact (isolated TestRuntime), NOT a runtime failure — see verification doc "CONCLUSIVE" addendum |
-| 3 new→prompt→stream→permission→result | PASS, except live `agent_thought_chunk` | thinking chunk is provider-dependent / codec-test-only — needs a live thinking emit OR your §7 amendment |
+| 3 new→prompt→stream→permission→result | PASS for new/session; stream needs your creds | **2026-06-29 direct ACP probe**: live `initialize` + `session/new` (sessionId returned) PASS against real `goose serve` (bypassing the blocked test host). prompt→stream + live `agent_thought_chunk` need a REAL provider key (probe used a dummy) — that's your §7 OAuth/creds item, or a §7 amendment |
 | 4 Staged Web UI boots via shim | PASS | **re-proven 2026-06-29** — `GooseWebViewBootShimTests` + resolver suite green (53/53) |
 | 5 Nothing lost vs real Goose | PARTIAL | owner OAuth success, true confirm-dialog/MCP-app window affordances, MAS/manual/distribution WRV still open |
 
