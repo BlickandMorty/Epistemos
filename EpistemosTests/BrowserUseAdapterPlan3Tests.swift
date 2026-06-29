@@ -258,7 +258,9 @@ struct BrowserUseAdapterPlan3Tests {
             "/tmp/epistemos-browser-screenshots",
             "path_resolves_inside",
             "extract_screenshot_path",
+            "normalize_screenshot_path_token",
             "browser_vision_screenshot_paths_must_resolve_inside_private_directory",
+            "browser_screenshot_extracts_quoted_or_punctuated_png_tokens",
         ] {
             #expect(browserScreenshot.contains(required), "Missing browser screenshot policy string: \(required)")
         }

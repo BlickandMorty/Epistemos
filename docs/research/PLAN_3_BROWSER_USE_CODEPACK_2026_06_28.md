@@ -155,7 +155,7 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   is isolated in `agent_core/src/tools/browser_redaction.rs` and covers credential-assignment redaction for token/api-key/password/secret variants plus split and compact auth-scheme follower tokens. It also covers OAuth-style
   client-secret/id-token/auth-code assignments and URL credential/query/fragment tokens. The screenshot path policy
   is isolated in `agent_core/src/tools/browser_screenshot.rs`: screenshots are created under an owner-only private root,
-  the adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`, stdout path parsing stays bounded to `.png` tokens, and returned
+  the adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`, stdout path parsing stays bounded to quote/punctuation-tolerant `.png` tokens, and returned
   paths must resolve inside that root before vision sees them. The browser tool schema definitions are isolated in
   `agent_core/src/tools/browser_schema.rs` and re-exported by the runtime bridge so the registry surface stays
   unchanged. The private directory policy is isolated in `agent_core/src/tools/browser_private.rs`: Rust rejects

@@ -36,8 +36,22 @@ pub(crate) fn path_resolves_inside(path: &Path, root: &Path) -> bool {
 
 pub(crate) fn extract_screenshot_path(text: &str) -> Option<String> {
     text.split_whitespace()
+        .filter_map(normalize_screenshot_path_token)
         .find(|token| token.starts_with('/') && token.ends_with(".png"))
-        .map(|token| token.trim_matches('\'').trim_matches('"').to_string())
+}
+
+fn normalize_screenshot_path_token(token: &str) -> Option<String> {
+    let normalized = token.trim_matches(|ch| {
+        matches!(
+            ch,
+            '\'' | '"' | '`' | ',' | ';' | ':' | '(' | ')' | '[' | ']'
+        )
+    });
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -63,5 +77,22 @@ mod tests {
             std::os::unix::fs::symlink(&outside, &symlink).unwrap();
             assert!(!path_resolves_inside(&symlink, &root));
         }
+    }
+
+    #[test]
+    fn browser_screenshot_extracts_quoted_or_punctuated_png_tokens() {
+        assert_eq!(
+            extract_screenshot_path("saved screenshot at '/tmp/browser-a.png',"),
+            Some("/tmp/browser-a.png".to_string())
+        );
+        assert_eq!(
+            extract_screenshot_path("saved screenshot at (`/tmp/browser-b.png`);"),
+            Some("/tmp/browser-b.png".to_string())
+        );
+        assert_eq!(extract_screenshot_path("saved /tmp/browser.txt"), None);
+        assert_eq!(
+            extract_screenshot_path("saved path=/tmp/browser-c.png"),
+            None
+        );
     }
 }
