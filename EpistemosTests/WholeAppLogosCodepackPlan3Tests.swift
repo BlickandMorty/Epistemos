@@ -9,6 +9,8 @@ struct WholeAppLogosCodepackPlan3Tests {
         let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_WHOLE_APP_LOGOS_CODEPACK_2026_06_28.md")
 
         for required in [
+            "shipped code",
+            "## Shipped Verified State",
             "non-model brand-logo coverage",
             "engines, integrations, MCP, marketplace, tools, and landing-button audit",
             "Do not touch Plan 1 files",
@@ -20,10 +22,24 @@ struct WholeAppLogosCodepackPlan3Tests {
             "Installed URL MCP servers",
             "Marketplace search results",
             "Best-of preset items",
-            "Connectors"
+            "Connectors",
+            "The delivered implementation wires"
         ] {
             #expect(plan.contains(required), "Missing whole-app logos codepack string: \(required)")
         }
+        #expect(!plan.contains("The first implementation slice should wire"))
+        #expect(!plan.contains("## Build Order"))
+    }
+
+    @Test("capability rollup marks whole-app logo coverage shipped")
+    func capabilityRollupMarksWholeAppLogoCoverageShipped() throws {
+        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+
+        #expect(plan.contains("Whole-app brand-logo coverage — SHIPPED"))
+        #expect(plan.contains("the non-model `IntegrationBrand` registry"))
+        #expect(plan.contains("without runtime logo downloads or official-logo claims"))
+        #expect(!plan.contains("Whole-app brand-logo coverage** — the non-model pass"))
+        #expect(!plan.contains("Cross-cutting UI polish."))
     }
 
     @Test("registry is shared, render-safe, and does not fetch logo assets at runtime")

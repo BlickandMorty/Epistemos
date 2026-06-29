@@ -1,10 +1,10 @@
-# PLAN 3 Whole-App Brand Logos Codepack - 2026-06-28
+# PLAN 3 Whole-App Brand Logos Codepack (shipped code) - 2026-06-28
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md` section 11. Scope:
 > non-model brand-logo coverage across engines, integrations, MCP, marketplace, tools, and landing-button audit. This builds on the already-shipped model
 > provider logo work; it does not replace or fork that map.
 
-## Current Verified State
+## Shipped Verified State
 
 - [VERIFIED-CODE] Model-provider logos already have a single source of truth:
   `Epistemos/Views/Shared/ProviderBrandLogo.swift` defines `ProviderBrand`, maps
@@ -71,8 +71,8 @@ Add a non-model brand registry beside the existing provider registry:
 - Surface code asks the registry for a brand. It must not add local ad-hoc
   `if name contains` chains in view bodies.
 
-The first implementation slice should wire `IntegrationBrandMarkView` into the
-Plan 3 extensibility settings rows:
+The delivered implementation wires `IntegrationBrandMarkView` into the Plan 3
+extensibility settings rows:
 
 1. Installed URL MCP servers.
 2. Marketplace search results.
@@ -82,7 +82,7 @@ Plan 3 extensibility settings rows:
 This gets engines/integrations/MCP/marketplace/tools on a shared model without
 touching Plan 1 or Plan 2.
 
-## Build Order
+## Delivery Order
 
 1. [DONE] Verify current model-logo work and Plan 3 logo scope.
 2. [DONE] Add this codepack before code changes.
