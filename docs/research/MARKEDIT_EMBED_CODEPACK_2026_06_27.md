@@ -128,15 +128,26 @@ struct MarkEditSettingsRepresentable: NSViewControllerRepresentable {
 ```
 "Closed-in / doesn't run yet" = compiles + renders behind a flag; no `Settings` scene / `Cmd+,` wired this pass.
 
-## 3. Code-editor swap — ★ CANONICAL (REVISED 2026-06-29): MarkEdit native chrome for BOTH code + markdown; the Prose/Source/Note LENS MODEL
-★ OWNER DECISIONS (2026-06-29, supersede the 2026-06-28 mode-split): see plan **L3 / L3-CHROME / L4**.
-MarkEdit's CoreEditor (CM6) is the ONE engine, and **MarkEdit's native chrome is the chrome for the WHOLE
-code/text/markdown surface** (the owner saw it and prefers it for code too — "all the native parts seem better").
+## 3. Code-editor swap — ★ CANONICAL (REVISED 2026-06-29): MarkEdit ENGINE+POLISH for both; MD=MarkEdit chrome verbatim, CODE=v1-minimal look reimplemented on MarkEdit; the Prose/Source/Note LENS MODEL
+★ OWNER DECISIONS (2026-06-29): see plan **L3 / L3-CHROME / L4**.
+MarkEdit's CoreEditor (CM6) is the ONE engine and **MarkEdit's innate POLISH is kept for both** code + markdown.
+The CHROME differs by lens:
 
-- **MarkEdit native chrome for BOTH code AND markdown** (NOT the old per-file-type Epistemos-vs-MarkEdit split).
-  Host MarkEdit's `EditorViewController` chrome — toolbar, Find/Replace, FontPicker, Statistics, Goto-Line, the
-  Previewer, the live Settings UI — for both. **MD must be VERBATIM** vs the standalone MarkEdit.app (visual
-  fidelity §3a). Optional Epistemos additions ADD only, never subtract MarkEdit polish.
+- **MD lens → MarkEdit's chrome VERBATIM.** Host MarkEdit's `EditorViewController` chrome — toolbar, Find/Replace,
+  FontPicker, Statistics, Goto-Line, Previewer, live Settings — exactly like the standalone MarkEdit.app (visual
+  fidelity §3a). Epistemos additions ADD only, never subtract MarkEdit polish.
+- **CODE → REIMPLEMENT the old v1 code editor's MINIMAL look ON the MarkEdit engine** (owner 2026-06-29 clarified:
+  built on MarkEdit for its polish, but it should LOOK like the old minimal code editor — NOT MarkEdit's full
+  standalone toolbar, and **NOT a restore of v1's code** — reimplement the look fresh on MarkEdit). Reproduce:
+  - the **nested-box container** (the inset rounded-card editor panel — exactly like v1),
+  - the **title styling** (filename + subtitle e.g. "Swift · N lines"),
+  - **real per-language FILE-TYPE LOGOS** — the Swift bird, Rust gear, the specific icon per code file type — NOT
+    the generic `</>` glyph (needs a file-extension→logo map; mind trademark — prefer a clean language-icon set or
+    `NSWorkspace`/`UTType` system icons).
+  - **THEME-AWARE to Epistemos** (today it only takes MarkEdit's theme): the code chrome + CoreEditor must follow
+    the app's theme (light/dark/custom/accent via Epistemos theme tokens), not be hardcoded to MarkEdit's github
+    light/dark. (See §3a theme injection.)
+  - Graft the PRESERVE-LIST (below) into this minimal chrome.
 - **PRESERVE-LIST — graft these Epistemos code-editor-v1 affordances INTO MarkEdit's chrome (never lose them):**
   the **Live-Preview / HTML preview button** (`HTMLWorkspacePreviewView`, engine-agnostic — needs only `$text`),
   **LSP hover/go-to-def** (`CodeEditorSemanticLSP` over `RustLSPTransport`), the **Outline** navigator, + the other
@@ -183,7 +194,15 @@ The current embed renders SMALLER/plainer than the standalone app. Verified caus
   default registration (font, size, line-height, theme) into `AppBootstrap` (the §0a harvest-hardening item).
 - **Content insets / window size:** match MarkEdit's roomy editor margins + default window dimensions; don't let
   Epistemos theme CSS shrink/override MarkEdit's own styling on the MD path.
-- **Acceptance:** open a `.md` side-by-side with the real MarkEdit.app — font size, spacing, margins must match.
+- **THEME AWARENESS (CODE path):** today the editor only takes MarkEdit's theme (e.g. `github-dark`/`github-light`
+  at `:363`). The CODE chrome + CoreEditor must follow the **Epistemos app theme** — inject Epistemos theme tokens /
+  CSS-vars (background, text, accent, gutter, selection) mapped from the active app theme, including custom/accent,
+  not just MarkEdit's two github presets. (MD path stays on MarkEdit's own theme to preserve verbatim fidelity.)
+- **FILE-TYPE LOGOS (CODE path):** the title bar shows a **real per-language logo** (Swift bird, Rust gear, etc.),
+  not the generic `</>` glyph — build a file-extension→icon map (clean language-icon set or `NSWorkspace`/`UTType`
+  system icons; mind trademark).
+- **Acceptance:** (MD) a `.md` side-by-side with MarkEdit.app matches font/spacing/margins; (CODE) the surface
+  shows the v1 nested-box look + correct file-type logo + the active Epistemos theme.
 
 ## 4. Build / signing
 xcodegen `project.yml` (NEVER hand-edit `.xcodeproj`): add local-path packages + products.

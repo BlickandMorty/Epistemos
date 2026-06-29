@@ -54,15 +54,17 @@ strictness as the Goose plan's R-CODEREVIEW:
   `SwiftTreeSitterLiveHighlighter` scaffold AS THE DEFAULT), but RETAINS the old editor as **"v1 legacy"**:
   reachable from **Settings** + a **toggle inside the MarkEdit surface** so the owner can fall back. **NO deletion.**
   **SCOPE: code editor ONLY** — the Note (Epdoc) and Prose/TK2 surfaces are not broken by this swap.
-  - **L3-CHROME (owner 2026-06-29, REVISED): MarkEdit's native chrome is used for BOTH code AND markdown.**
-    ⚠️ **SUPERSEDES the earlier "code = Epistemos chrome" mode-split** — the owner saw it and prefers MarkEdit's
-    native chrome for code too ("it seems better, all the native parts"). MarkEdit native chrome = the chrome for
-    the WHOLE code/text/markdown editor surface. **Preserve-list (GRAFT into MarkEdit's chrome — never lose):** the
-    Live-Preview/HTML preview button (`HTMLWorkspacePreviewView`), LSP hover/go-to-def (`CodeEditorSemanticLSP`),
-    the Outline navigator, + the other critical code-editor-v1 buttons. (MarkEdit natively brings Find/GoToLine/
-    FontPicker/Statistics — those REPLACE the Epistemos equivalents.) **Sizing:** MD matches MarkEdit's full
-    default size; CODE is a few ticks SMALLER than MarkEdit's MD default but MORE spacious/larger than today's code
-    editor (real-code density). Canonical detail = `MARKEDIT_EMBED_CODEPACK §3`.
+  - **L3-CHROME (owner 2026-06-29, REVISED twice): MarkEdit ENGINE + POLISH for both; MD = MarkEdit chrome
+    VERBATIM; CODE = the old v1 minimal look REIMPLEMENTED on the MarkEdit engine.** The owner keeps MarkEdit's
+    innate polish, but the CODE surface should LOOK like the old minimal code editor — **NOT MarkEdit's full
+    standalone toolbar, and NOT a restore of v1's code** (reimplement the look fresh on MarkEdit). CODE reproduces:
+    the **nested-box container** (inset rounded-card editor panel, exactly like v1), the **title styling** (filename
+    + "Swift · N lines" subtitle), **real per-language file-type LOGOS** (the Swift bird, Rust gear, etc. — NOT a
+    generic `</>`), and **Epistemos THEME-AWARENESS** (today it only takes MarkEdit's theme — make the code chrome +
+    CoreEditor follow the app's light/dark/custom/accent theme). **Preserve-list (GRAFT into the code chrome):**
+    Live-Preview/HTML preview (`HTMLWorkspacePreviewView`), LSP hover (`CodeEditorSemanticLSP`), Outline, + the
+    other critical v1 buttons. **Sizing:** MD = MarkEdit's full default size; CODE a few ticks SMALLER but roomier
+    than today's editor. Canonical detail = `MARKEDIT_EMBED_CODEPACK §3 + §3a`.
 - **L4. THE LENS MODEL (owner 2026-06-29): markdown-on-disk is the ONE truth; THREE editors are three LENSES on it,
   cross-synced on the same file.** Lenses: **Prose** (TK2 native focus/long-form) · **Source** (MarkEdit CoreEditor —
   raw markdown + live preview + native chrome) · **Note** (Epdoc/TipTap WYSIWYG — a STANDALONE, isolated module).
@@ -125,8 +127,9 @@ distraction-free long-form. Loss can only occur at the Note→markdown serialize
    Tolaria" = a CSS/chrome polish task on Epdoc, not an engine swap.
 2. **Code surface = MarkEdit (Source); the old code editor is KEPT as v1 legacy, NOT deleted (L3 REVISED).**
    Make MarkEdit CoreEditor the DEFAULT at `CodeEditorView.codeEditorSurface`; retain `WebKitCodeEditorView` as a
-   v1-legacy fallback (Settings + a toggle inside the MarkEdit surface). MarkEdit native chrome for BOTH code +
-   markdown (L3-CHROME REVISED). Epdoc stays the Note lens; the three lenses cross-sync on the same `.md` (L4).
+   v1-legacy fallback (Settings + a toggle inside the MarkEdit surface). MarkEdit engine+polish for both; MD =
+   MarkEdit chrome verbatim, CODE = the v1 minimal look reimplemented on MarkEdit (L3-CHROME REVISED). Epdoc stays
+   the Note lens; the three lenses cross-sync on the same `.md` (L4).
    **★ SOURCE OF TRUTH = MARKDOWN-ON-DISK (L1).** Vault `.md` + frontmatter is durable truth; `.epdoc` JSON is a
    derived cache. **Canonical grammar = Obsidian/GFM (R1).** **Note-width = binary toggle + slider (L2).**
 3. **MarkEdit = FULL app embedded** (Route D): vendor `MarkEditCore` + `MarkEditKit` + `MarkEditMac/Modules`
@@ -163,12 +166,13 @@ distraction-free long-form. Loss can only occur at the Note→markdown serialize
   no shift) — this is the "edit-on-preview" feel the owner wanted; no CodeMirror reveal-at-cursor needed.
 
 ## 4. Code editor (MarkEdit Source) — `MARKEDIT_EMBED_CODEPACK_2026_06_27.md §3/§3a`
-- **★ MarkEdit native chrome for BOTH code AND markdown (L3-CHROME REVISED 2026-06-29).** MarkEdit's CoreEditor
-  (CM6) is the ONE engine and MarkEdit's native chrome is the chrome for the whole code/text/markdown surface.
-  An `isMarkdownDocument` branch selects content/sizing (`.markdownChrome` vs `.codeChrome`), NOT a different
-  chrome system. **PRESERVE-LIST — graft these v1 affordances into MarkEdit's chrome (never lose):** the
+- **★ MarkEdit ENGINE + POLISH for both; chrome differs (L3-CHROME REVISED 2026-06-29).** MarkEdit's CoreEditor
+  (CM6) is the ONE engine. An `isMarkdownDocument` branch picks the chrome: **`.markdownChrome` = MarkEdit's chrome
+  VERBATIM**; **`.codeChrome` = the old v1 minimal look REIMPLEMENTED on MarkEdit** (nested-box container, title
+  styling, **real per-language file-type logos** not `</>`, **Epistemos theme-aware**) — NOT MarkEdit's full
+  toolbar, NOT a restore of v1's code. **PRESERVE-LIST — graft into the code chrome (never lose):** the
   Live-Preview/HTML preview button (`HTMLWorkspacePreviewView`), LSP hover (`CodeEditorSemanticLSP`), the Outline
-  navigator, + the other critical v1 buttons. MarkEdit natively supplies Find/GoToLine/FontPicker/Statistics.
+  navigator, + the other critical v1 buttons. (For MD, MarkEdit natively supplies Find/GoToLine/FontPicker/Statistics.)
 - **Sizing (§3a):** MD = MarkEdit's full default size; CODE = a few ticks smaller but roomier than today's editor.
   Inherit MarkEdit's `FontPicker.defaultFontSize` + `AppPreferences.Editor.lineHeight` (don't substitute/​hardcode).
 - **v1 legacy (L3):** KEEP the old `WebKitCodeEditorView` reachable from Settings + a toggle inside the MarkEdit
