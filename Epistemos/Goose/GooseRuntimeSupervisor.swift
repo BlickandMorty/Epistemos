@@ -232,6 +232,21 @@ final class GooseRuntimeSupervisor {
         // Step 2 / Option B: select backend (default .serve preserves the working path byte-for-byte).
         let backend = Self.configuredBackend
         let tls = (backend == .goosed) && Self.goosedTLSEnabled
+        // Step-2 review FINDING 1: goosed-over-TLS needs BOTH a fingerprint-pinned readiness probe AND
+        // the WKWebView cert-pin challenge handler (deferred follow-on). goosed with no cert paths
+        // generates a self-signed cert, so an UNPINNED `URLSession.shared` probe fails the handshake
+        // and the WebView would refuse to load https://goosed — a partial-TLS path is still broken.
+        // Until the full pinning lands, honor the opt-in flag by FAILING FAST with an honest message
+        // instead of launching into a 45s silent "not healthy" hang. http loopback (the default) is
+        // the proven, secure-context path. This guard also closes FINDING 3's latent footgun: past
+        // here `tls` is always false, so GOOSE_TLS is only ever written as false on the goosed path.
+        if tls {
+            status = .unavailable(
+                "goosed TLS (EPISTEMOS_GOOSE_GOOSED_TLS=true) is not yet supported — it requires the "
+                + "loopback cert-pinning delegate. Unset the flag to use the proven http loopback path."
+            )
+            return
+        }
         let scheme = tls ? "https" : "http"
         let defaultBaseURL = Self.defaultBaseURL(port: port, scheme: scheme)
         let readinessTimeout = (backend == .goosed) ? Self.goosedListenTimeout : Self.listenTimeout
@@ -489,9 +504,14 @@ final class GooseRuntimeSupervisor {
     nonisolated static func goosedStatusCheck(base: URL) async -> Bool {
         var request = URLRequest(url: base.appendingPathComponent("status"))
         request.timeoutInterval = 2
-        guard let (_, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse else { return false }
-        return http.statusCode == 200
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse,
+              http.statusCode == 200 else { return false }
+        // Step-2 review FINDING 2: require the literal "ok" body (goosed's /status returns exactly
+        // that — routes/status.rs), matching the lean-serve /health check. A bare 200 would treat any
+        // unrelated server answering /status as ours (over-conservative port refusal AND a narrow
+        // window where a foreign 200 could be mistaken for "ready").
+        return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) == "ok"
     }
 
     nonisolated static func occupiedPortMessage(base: URL) -> String {
