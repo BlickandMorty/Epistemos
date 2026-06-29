@@ -229,8 +229,13 @@ struct VaultMCPCoreTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let folder = root.appendingPathComponent("Folder")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
         try "Line one\nLine two".write(
             to: folder.appendingPathComponent("Note.md"),
+            atomically: true,
+            encoding: .utf8)
+        try "Hidden".write(
+            to: root.appendingPathComponent(".hidden").appendingPathComponent("Secret.md"),
             atomically: true,
             encoding: .utf8)
         try "Encoded".write(
@@ -275,6 +280,13 @@ struct VaultMCPCoreTests {
         let nonMarkdownError = try #require(nonMarkdownObject["error"] as? [String: Any])
         #expect(nonMarkdownError["code"] as? Int == -32602)
         #expect((nonMarkdownError["message"] as? String)?.contains("only markdown") == true)
+
+        let hidden = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":11,"method":"resources/read","params":{"uri":"vault:///.hidden/Secret.md"}}"#)
+        let hiddenObject = try Self.jsonObject(hidden)
+        let hiddenError = try #require(hiddenObject["error"] as? [String: Any])
+        #expect(hiddenError["code"] as? Int == -32602)
+        #expect((hiddenError["message"] as? String)?.contains("hidden vault resources") == true)
     }
 
     @Test("resources/read rejects oversized markdown before loading it")

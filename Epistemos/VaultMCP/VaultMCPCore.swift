@@ -439,6 +439,9 @@ nonisolated struct VaultMCPCore {
               normalizedPath.split(separator: "/").allSatisfy({ $0 != "." && $0 != ".." }) else {
             throw VaultMCPPathError.pathTraversal
         }
+        guard !hasHiddenPathComponent(normalizedPath) else {
+            throw VaultMCPPathError.hiddenPath
+        }
 
         let root = vaultRoot.standardizedFileURL.resolvingSymlinksInPath()
         let candidate = root
@@ -469,6 +472,12 @@ nonisolated struct VaultMCPCore {
         }.standardizedFileURL
     }
 
+    private static func hasHiddenPathComponent(_ relativePath: String) -> Bool {
+        relativePath.split(separator: "/").contains { component in
+            component.hasPrefix(".")
+        }
+    }
+
     private static func relativePath(for url: URL, under root: URL) -> String? {
         let rootPath = root.standardizedFileURL.path
         let filePath = url.standardizedFileURL.path
@@ -488,6 +497,8 @@ nonisolated struct VaultMCPCore {
             "only regular markdown vault resources can be read"
         case .tooLarge:
             "markdown resource is too large"
+        case .hiddenPath:
+            "hidden vault resources cannot be read"
         case .none:
             "read failed"
         }
@@ -518,4 +529,5 @@ private enum VaultMCPPathError: Error, Sendable {
     case notMarkdown
     case notRegularFile
     case tooLarge
+    case hiddenPath
 }
