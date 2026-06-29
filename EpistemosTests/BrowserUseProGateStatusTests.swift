@@ -123,6 +123,42 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest file artifacts must not be directories")
+    func manifestFileArtifactsMustNotBeDirectories() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-shape-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifestURL = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        try Data(Self.packagedManifestJSON.utf8).write(to: manifestURL)
+
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("requirements.lock", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("wheels", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("playwright", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data("{}".utf8).write(to: root.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false))
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: manifestURL
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: packaged payload incomplete")
+        #expect(status.detail.contains("requirements.lock is a directory at requirements.lock"))
+        #endif
+    }
+
     @Test("gate source stays pure and out of other plan ownership")
     func gateSourceStaysPureAndInPlan3Boundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift")
@@ -137,6 +173,7 @@ struct BrowserUseProGateStatusTests {
             "stagedArtifactProblems(",
             "artifactURL(",
             "unsafe path",
+            "is a directory at",
             "packaged payload incomplete",
             "BUILD_MANIFEST.json",
             "sourceMirrorGuard.requiredExclude"

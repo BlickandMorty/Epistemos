@@ -210,6 +210,9 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         if requiresDirectory && !isDirectory.boolValue {
             return "\(name) is not a directory at \(relativePath)"
         }
+        if !requiresDirectory && isDirectory.boolValue {
+            return "\(name) is a directory at \(relativePath)"
+        }
         return nil
     }
 
