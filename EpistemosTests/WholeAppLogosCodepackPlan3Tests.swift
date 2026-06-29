@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import Epistemos
 
 @Suite("Plan 3 whole-app logos codepack")
 struct WholeAppLogosCodepackPlan3Tests {
@@ -114,5 +115,28 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(pixelComponents.contains("var brand: IntegrationBrand? = nil"))
         #expect(pixelComponents.contains("IntegrationBrandMarkView(brand: brand, size: 15)"))
         #expect(pixelComponents.contains("foregroundStyle(accent.opacity"))
+    }
+
+    @Test("integration brand registry has render-safe behavior mappings")
+    func integrationBrandRegistryHasRenderSafeBehaviorMappings() {
+        for brand in IntegrationBrand.allCases {
+            #expect(!brand.displayName.isEmpty)
+            #expect(brand.assetName == nil)
+            #expect(!brand.systemSymbol.isEmpty)
+            #expect(!brand.monogram.isEmpty)
+        }
+
+        #expect(IntegrationBrand.installedMCPServer(name: "Context7 MCP", host: "context7.com") == .context7)
+        #expect(IntegrationBrand.installedMCPServer(name: "Gmail", host: "googlemail.test") == .gmail)
+        #expect(IntegrationBrand.mcpRegistry(source: "mcp.so", installKind: "remoteURL", name: "Search") == .mcpSO)
+        #expect(IntegrationBrand.bestOfPreset(kind: "remoteMCP", id: "vault", displayName: "Vault") == .vault)
+        #expect(IntegrationBrand.connector(id: "google-drive", displayName: "Drive") == .googleDrive)
+        #expect(IntegrationBrand.skillDiscovery(source: "codex", identifier: "docs", category: "research") == .codexSkills)
+        #expect(IntegrationBrand.skillInstallSource(rawValue: "localPath") == .localSkill)
+        #expect(IntegrationBrand.skillInventory(identifier: "github-helper", description: "GitHub tools") == .github)
+
+        for feature in LandingFeatureButton.allCases {
+            #expect(feature.integrationBrand != .generic)
+        }
     }
 }
