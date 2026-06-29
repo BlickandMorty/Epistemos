@@ -1,6 +1,6 @@
 import Foundation
 
-struct ProvenanceConsoleSnapshot: Sendable, Equatable {
+nonisolated struct ProvenanceConsoleSnapshot: Sendable, Equatable {
     let summaryPayload: GenUIPayload
     let retractionPayload: GenUIPayload
     let agentPayload: GenUIPayload
@@ -40,7 +40,7 @@ struct ProvenanceConsoleSnapshot: Sendable, Equatable {
     )
 }
 
-struct RetractionPropagatedProjection: Sendable, Equatable {
+nonisolated struct RetractionPropagatedProjection: Sendable, Equatable {
     let sequence: UInt64
     let triggerKind: String
     let triggeredBy: String
@@ -49,7 +49,7 @@ struct RetractionPropagatedProjection: Sendable, Equatable {
     let depthCapped: Bool
 }
 
-struct ProvenanceConsoleProjectionService: Sendable {
+nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     typealias EventStoreProvider = @Sendable () -> EventStore?
     typealias RetractionEventProvider = @Sendable (_ afterSequence: UInt64, _ limit: Int) -> [RetractionPropagatedProjection]
 
