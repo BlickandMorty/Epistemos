@@ -757,9 +757,32 @@ CoW-cloned the resolved `SourcePackages` (APFS clonefile, 4.6G) into a scratch
 **STEP-1 unit layer re-proven on real green build:** build-for-testing ✅,
 focused suites (53) ✅, GOLDEN RULE catalog fidelity ✅, no-silent-ACP-drops ✅,
 security/honesty (nav-gate / DEBUG-only-cwd / env-hardening) ✅, exact ready
-language ✅. Still pending for full STEP-1: the combined LIVE sweep
-(ProviderCatalog/SessionLifecycle/CustomCapability/WebPrompt/WebRoute) which needs
-a live `goose serve` — to be run against the isolated-DD-built app next.
+language ✅.
+
+**Combined LIVE sweep — 1/5 passed, 4/5 TIMED OUT under CPU saturation (NOT a
+confirmed regression; needs a clean low-load re-run).** Log
+`scratchpad/goose-live-sweep.log`, run while a concurrent agent's full
+`xcodebuild build` held the machine at **load avg 12.76 on 12 cores (100%+
+saturated)**:
+- ✔ "Goose custom capability live integration" (0.9s) — live recipes/schedules/
+  extension mutations through dynamic custom ACP **work**.
+- ✘ ProviderCatalog (20.3s) — `Timed out waiting for providers/list catalog`.
+- ✘ SessionLifecycle (12.3s) — `Timed out waiting for session/new response`.
+- ✘ WebPrompt (**144s**, vs 31s in PM #11 = 4.6× slower) — prompt never reached
+  `end_turn` (req=0 res=0).
+- ✘ WebRoute (43s) — `/settings?section=models` timed out, BUT the diagnostic shows
+  `catalog-surface-success:40` (**the ACP catalog DID load 40 providers**) then
+  `config-status-overlay timed out after 4000ms` (×5).
+- **Interpretation:** ACP is demonstrably alive (catalog loaded 40 providers;
+  CustomCapability fully green; sockets opened). The failures are timeouts on the
+  heavier/slower ops (config-status overlay 4s budget, session/new, prompt streaming)
+  exactly where a 4.6× CPU slowdown would bite first. This signature = CPU
+  starvation from the concurrent build, not a Goose code regression. **Must re-run
+  at low load to confirm** — do NOT read this as a green OR a red Goose result yet.
+  Also re-stage the Web UI to App Support before the re-run to remove the
+  stale-staging variable (the App Support bundle predates this loop's grafts).
+  (PM #11's 5/5 green on the same surface, run without a competing build, is the
+  control.)
 
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
