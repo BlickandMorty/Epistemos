@@ -863,6 +863,23 @@ by prior reviews), zero CPU/live dependency:
   drifts) and idempotent (`if (!source.includes(marker))`), and each is locked by a
   parity-gate assertion (passed 3/3 this loop). **No defects found.**
 
+Adversarial security review of `Epistemos/Goose/GooseRuntimeSupervisor.swift` (the
+highest-risk Goose Swift file — subprocess spawn + secret injection), **no defects**:
+- `serveArguments` builds an arg ARRAY passed to `proc.arguments` (no shell) →
+  no command injection; builtins whitespace-filtered; host/port are loopback
+  constants.
+- `processEnvironment` filters env by **allowlist ∧ ¬denylist** (blocks `DYLD_*` /
+  `LD_PRELOAD` family per the subprocess-hardening doctrine), injects only the
+  goose-server `GOOSE_SERVER__SECRET_KEY` (provider API keys stay in Keychain, never
+  the process env), gates `GOOSE_MODE` through `allowedGooseModes`, builds PATH as a
+  deduped ordered list (binDir first).
+- `parseListeningURL` enforces scheme=http ∧ host∈{127.0.0.1,localhost} ∧
+  port=expected ∧ path∈{"","/"} — prevents a malicious `goose serve` stdout line from
+  redirecting the ACP connection off-loopback.
+- Minor nit (not fixed; not a defect): `defaultBaseURL` force-unwraps `URL(string:)`
+  over constant components (can never be nil); acceptable but technically against the
+  no-force-unwrap rule. Supports the §7 security/honesty gate.
+
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
 -derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
