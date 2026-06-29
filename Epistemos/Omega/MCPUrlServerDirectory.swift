@@ -1,15 +1,12 @@
 import Foundation
 
-/// P2.3 — honest, read-only view of the external (URL) MCP servers that are
-/// ACTUALLY wired for the agent. This mirrors `agent_core/src/mcp/url_servers.rs`
-/// (`discover_url_mcp_servers`), which is the single source of truth the Rust
-/// bridge forwards into the Claude `mcp_servers` API parameter — so what this
-/// surfaces is exactly what the live agent can reach, never a fake server row.
+/// Plan 3 — honest view and MAS-safe writer for external URL MCP servers.
 ///
-/// We deliberately do NOT expose an add/enable/disable mutation here: servers are
-/// configured by editing the JSON files below (and stdio/subprocess MCP servers
-/// are Pro-only and MAS-forbidden). Surfacing the wired set read-only is the
-/// honest first step; a Pro config-file editor is a separate, gated follow-up.
+/// The read path mirrors `agent_core/src/mcp/url_servers.rs`
+/// (`discover_url_mcp_servers`), which is the single source of truth the Rust
+/// bridge forwards into the Claude `mcp_servers` API parameter. The write path
+/// is intentionally limited to HTTPS URL-server config entries: no stdio
+/// subprocesses, no inline token values, and no fake server rows.
 ///
 /// Tokens are never read or displayed — only whether a server declares auth.
 nonisolated enum MCPUrlServerDirectory {

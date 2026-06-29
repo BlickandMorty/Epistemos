@@ -5,6 +5,68 @@ import Testing
 
 @Suite("Plan 3 best-of preset")
 struct BestOfPresetPlan3Tests {
+    @Test("Plan 3 extensibility docs track shipped MCP, preset, and vault server surfaces")
+    func docsTrackShippedExtensibilitySurface() throws {
+        let capability = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+        let extensibility = try loadMirroredSourceTextFile("docs/research/PLAN_3_EXTENSIBILITY_CODEPACK_2026_06_28.md")
+        let vault = try loadMirroredSourceTextFile("docs/research/PLAN_3_VAULT_MCP_CODEPACK_2026_06_28.md")
+        let directory = try loadMirroredSourceTextFile("Epistemos/Omega/MCPUrlServerDirectory.swift")
+
+        for required in [
+            "Shipped Plan 3 surface",
+            "`MCPRegistryClient`",
+            "`MCPUrlServerDirectory.write/install/uninstall`",
+            "`ExtensionsDetailView`",
+            "`BestOfPreset.swift`",
+            "`VaultMCPCore`",
+            "`VaultMCPServerSettingsRow`",
+            "allowedToolNames: Set(VaultMCPCore.readToolNames)",
+        ] {
+            #expect(capability.contains(required), "Capability doc missing shipped extensibility state: \(required)")
+        }
+
+        for required in [
+            "MCPRegistryClient.swift` [DELIVERED]",
+            "MCPUrlServerDirectory.write/install/uninstall` [DELIVERED]",
+            "ExtensionsDetailView.swift` [DELIVERED]",
+            "BestOfPreset.swift` + `Epistemos/Resources/best_of_preset.json` [DELIVERED]",
+            "SkillsDetailView()",
+            "MCPServersDetailView",
+            "BrowserUseSettingsView",
+        ] {
+            #expect(extensibility.contains(required), "Extensibility codepack missing shipped marker: \(required)")
+        }
+
+        for required in [
+            "VaultMCPCore.swift` [DELIVERED]",
+            "VaultMCPServer.swift` [DELIVERED]",
+            "VaultMCPTokenStore.swift` [DELIVERED]",
+            "VaultMCPHost.swift` [DELIVERED]",
+            "VaultMCPServerSettingsRow.swift` [DELIVERED]",
+            "AgentToolNameAliases.canonical",
+            "ToolTierBridge.Tier.readOnly",
+        ] {
+            #expect(vault.contains(required), "Vault MCP codepack missing shipped marker: \(required)")
+        }
+
+        for stale in [
+            "read-only — no",
+            "no writer",
+            "NEW `Epistemos/Omega/MCPRegistryClient.swift`",
+            "NEW writer `MCPUrlServerDirectory.write/install/uninstall`",
+            "NEW `Epistemos/Views/Settings/ExtensionsDetailView.swift`",
+            "Genuinely new (no preset concept exists). **Build:**",
+            "~80% built",
+            "**Build:** a read-only `VaultMCPCore`",
+            "We deliberately do NOT expose an add/enable/disable mutation here",
+        ] {
+            #expect(!capability.contains(stale), "Capability doc kept stale extensibility claim: \(stale)")
+            #expect(!extensibility.contains(stale), "Extensibility codepack kept stale claim: \(stale)")
+            #expect(!vault.contains(stale), "Vault MCP codepack kept stale claim: \(stale)")
+            #expect(!directory.contains(stale), "MCPUrlServerDirectory kept stale source comment: \(stale)")
+        }
+    }
+
     @Test("apply reports built-ins and installs only missing remote MCP rows")
     func applyInstallsRemoteMCP() async throws {
         let root = FileManager.default.temporaryDirectory

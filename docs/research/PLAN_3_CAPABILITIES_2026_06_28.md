@@ -192,29 +192,24 @@ Effort remaining: **LOW–MEDIUM** for the edit-retraction demo; the full retrac
 
 ## 5. Extensibility — skill/MCP install · best-of preset · vault-as-MCP-server
 
-**Mostly already built — this is wire + gate + surface, not a rebuild.** `[VERIFIED-CODE]`
+**Shipped Plan 3 surface; remaining work is optional hardening, not first wiring.** `[VERIFIED-CODE]`
 
 **5a — Skill/tool/MCP install + management.** Skill install works end-to-end today (`SkillsSettingsView.swift` →
 `skill_manage` create/edit/delete/install_from_{github,url,local}, `agent_core/src/tools/skills.rs:741`, with the
-MAS/Pro gate already enforced at `:753`). External MCP: URL servers discovered from JSON (`mcp/url_servers.rs:56`,
-HTTPS-only) but **read-only — no writer, no Settings UI**; stdio MCP spawns are **already hardened**
-(`mcp/client.rs:221`). **Build:** a `MCPRegistryClient` (browse Smithery/mcp.so/glama/GitHub — networking, MAS-safe),
-a `MCPUrlServerDirectory.write(...)` (one-click install of HTTPS servers — config write, MAS-safe), an
-`ExtensionsDetailView` Settings surface (Skills · MCP Servers · Connectors), bearer tokens → Keychain.
+MAS/Pro gate already enforced at `:753`). External HTTPS URL MCP now has the shipped Swift trio:
+`MCPRegistryClient` (Smithery/mcp.so/Glama/GitHub browse, network-read only), `MCPUrlServerDirectory.write/install/uninstall`
+(bare-array HTTPS config writer, no token values), and `ExtensionsDetailView` (Skills · MCP Servers · Connectors ·
+browser-use). Stdio MCP spawns remain hardened and Pro-only (`mcp/client.rs:221`).
 
-**5b — Best-of preset.** Genuinely new (no preset concept exists). **Build:** a bundled `best_of_preset.json` +
-`BestOfPreset.swift` — curated `{kind, id, why, minDistribution}` over what's real today (eidos_query, vault_search,
-web_search, think, graph tools + vetted public skills/MCP). One-tap enable = a diff over the existing seams (surface
-policy + skill install + URL-server writer); idempotent + reversible; honest gating (Pro-only rows show "unlocks in
-Pro," never silently skipped).
+**5b — Best-of preset.** Shipped: `Epistemos/Resources/best_of_preset.json`, `BestOfPreset.swift`, and
+`BestOfPresetCard`. Apply is idempotent and reversible for owned remote-MCP rows; built-ins report `.alreadyEnabled`;
+Pro-only skill rows show `.proLocked` instead of silently enabling.
 
-**5c — Vault-as-MCP-server (the moat, outward-facing).** ~80% built: a **loopback bearer-token MCP HTTP server already
-exists** (`WorkNativeMCPServer.swift` — `NWListener` loopback-only `:94`, per-launch token `:297`, constant-time auth
-`:241`, Origin/DNS-rebind defense `:230`), and the **vault dispatcher already serves `resources/list`/`resources/read`
-as `vault:///<rel>`, path-traversal-safe** (`omega-mcp/src/dispatcher.rs:292/320`). **Build:** a read-only `VaultMCPCore`
-(vault_search/vault_read/eidos_query/graph-reads + resources only — no write/exec tools), reuse the transport verbatim,
-**persistent** bearer token in Keychain (so users paste it into Claude Desktop/Cursor once) + rotate button, a Settings
-toggle (off by default) showing `http://127.0.0.1:<port>/mcp` + masked token + copy-config.
+**5c — Vault-as-MCP-server (the moat, outward-facing).** Shipped: `VaultMCPCore` (read-only tools/resources allowlist),
+`VaultMCPServer` (loopback `/mcp`, reuses `WorkNativeMCPServer` auth/framing helpers), `VaultMCPTokenStore` (persistent
+Keychain bearer + rotate), `VaultMCPHost` (off-by-default lifecycle), and `VaultMCPServerSettingsRow` (masked token +
+copy client config). The host constrains `ToolTierBridge(... tier:.full ...)` with
+`allowedToolNames: Set(VaultMCPCore.readToolNames)` while the core rejects writes before executor dispatch.
 
 **MAS/Pro split:**
 | Capability | MAS | Pro |
@@ -225,9 +220,10 @@ toggle (off by default) showing `http://127.0.0.1:<port>/mcp` + masked token + c
 | Add **stdio/subprocess** MCP server | ❌ show disabled | ✅ (hardened spawn) |
 | Marketplace browse | ✅ (networking) | ✅ |
 | Best-of preset | ✅ MAS subset | ✅ full |
-| Vault-as-MCP-server | code-legal; **gate Pro** for review safety | ✅ primary home |
+| Vault-as-MCP-server | compiled; **gated/hidden for review safety** | ✅ primary home |
 
-Effort: **5a LOW-MEDIUM · 5b LOW · 5c LOW-MEDIUM** (transport + dispatcher already exist).
+Effort remaining: add `ToolTierBridge.Tier.readOnly` as a tighter executor tier and optionally bind the Rust
+`MCPDispatcher.dispatch()` over UniFFI for byte-parity with the stdio server.
 
 ---
 
@@ -351,7 +347,7 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI).
 2. **Provenance moat follow-up** (LOW-MED) → EventStore edit-retraction demo; Rust write FFI only with owner sign-off.
-3. **Extensibility 5c vault-as-MCP-server** (LOW-MED, ~80% built — the outward moat) → 5a install UI → 5b preset.
+3. **Extensibility follow-up** (LOW-MED) → `ToolTierBridge.Tier.readOnly` + optional Rust dispatcher byte-parity; UI/MCP install, Best-of, and vault-MCP server are shipped.
 4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).
 5. **Browser** — lite native WKWebView tab (MAS, `PLAN_3_OBSCURA_TIER1_CODEPACK`) first; **browser-use** Chromium robot
    (Pro, vendor codepack and payload now exist; continue Pro UI/MCP hardening without touching MAS).

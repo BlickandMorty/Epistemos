@@ -1,39 +1,40 @@
-# Plan 3 — Extensibility install UI + best-of preset (clone-ready code, Pass 4)
+# Plan 3 — Extensibility install UI + best-of preset (shipped code, Pass 5)
 
-> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §5a/§5b`. Skill install already works end-to-end; this adds
-> marketplace browse + the missing URL-server writer + a tabbed Settings surface + a curated one-tap preset.
+> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §5a/§5b`. Skill install works end-to-end; this records the shipped
+> marketplace browse, URL-server writer, tabbed Settings surface, and curated one-tap preset.
 > `[VERIFIED-CODE]`/`[INFERRED]` tagged. (§5c vault-as-MCP-server is in its own codepack.)
 
 ## Verified seams
 - URL MCP servers: `agent_core/src/mcp/url_servers.rs:56 discover_url_mcp_servers()` reads bare-array JSON
   `{name,url,authorization_token_env?}` HTTPS-only (`:100-120`), paths `.epistemos/mcp_url_servers.json` (project) +
-  `~/.config/mcp/url_servers.json` (global). Swift `MCPUrlServerDirectory.parse/discover` (`:48,76`) is **read-only — no
-  writer** (the gap). Skill install: `SkillsDetailView` → `skill_manage` (`skills.rs:741`, github/url Pro-gated `:753`,
-  local unconditional). Surface policy `ToolSurfacePolicy.Distribution` (`ToolTierBridge.swift:170,207,278`). Built-ins
-  via `OmegaToolRegistry` (`MCPBridge.swift:82`). MAS gate idiom `#if EPISTEMOS_APP_STORE || MAS_SANDBOX`
+  `~/.config/mcp/url_servers.json` (global). Swift `MCPUrlServerDirectory.parse/discover/write/install/uninstall` now
+  covers both honest display and MAS-safe HTTPS config writes; it rejects inline token rewrites. Skill install:
+  `SkillsDetailView` → `skill_manage` (`skills.rs:741`, github/url Pro-gated `:753`, local unconditional). Surface policy
+  `ToolSurfacePolicy.Distribution` (`ToolTierBridge.swift:170,207,278`). Built-ins via `OmegaToolRegistry`
+  (`MCPBridge.swift:82`). MAS gate idiom `#if EPISTEMOS_APP_STORE || MAS_SANDBOX`
   (`DeploymentProfileHealthRow.swift:24`).
 
-## 1. NEW `Epistemos/Omega/MCPRegistryClient.swift` (read-only marketplace, MAS-safe)
+## 1. `Epistemos/Omega/MCPRegistryClient.swift` [DELIVERED]
 Pure `URLSession` clients for **Smithery / mcp.so / Glama / GitHub** → unified
 `MCPRegistryEntry{id,name,description,source,installKind(.remoteURL|.stdioCommand|.skillRepo),installTarget,homepage}`.
 `searchAll(query)` fans out via TaskGroup, dedupes by id; each `search*` is defensive (schema drift → empty, never
 crash). `isMASInstallable = installKind == .remoteURL`. **GitHub search is the one documented/stable endpoint; the other
 three registry endpoints are `[INFERRED]` — confirm at build time.** No exec, no write → MAS-safe.
 
-## 2. NEW writer `MCPUrlServerDirectory.write/install/uninstall` (extension)
+## 2. `MCPUrlServerDirectory.write/install/uninstall` [DELIVERED]
 Mirrors the read contract + the Rust `entry_to_config`: HTTPS-only (`WriteError.notHTTPS`), **name-dedupe idempotent**
 (re-install replaces, never duplicates), **token VALUE never written** (only `authorization_token_env` name), bare-array
 JSON to `~/.config/mcp/url_servers.json` (atomic write). `install(WritableEntry)` / `uninstall(name:)` return the new
 `[ServerInfo]`. Config write only → **MAS-safe**; the Rust side forwards via the Anthropic `mcp_servers` API param.
 
-## 3. NEW `Epistemos/Views/Settings/ExtensionsDetailView.swift` (tabbed)
+## 3. `Epistemos/Views/Settings/ExtensionsDetailView.swift` [DELIVERED]
 Segmented tabs: **Skills** (reuses the existing real `SkillsDetailView`) · **MCP Servers** (`MCPServersDetailView`:
 installed-list with delete + add-HTTPS-server form with `https://` validation + marketplace browse via §1, one-tap
 Install for `.remoteURL`, `.stdio`/`.skillRepo` shown disabled "unlocks in Pro" in MAS) · **Connectors** (existing
-read-only `CoworkConnectorDirectory` status). Adopt by repointing the Settings sidebar item from `SkillsDetailView()`
-→ `ExtensionsDetailView()` (must be where `@Environment(VaultSyncService.self)` is injected).
+read-only `CoworkConnectorDirectory` status) · **browser-use** (Pro diagnostics/settings). Settings now routes
+`.skills` to `ExtensionsDetailView()` where `@Environment(VaultSyncService.self)` is available.
 
-## 4. NEW `BestOfPreset.swift` + `Epistemos/Resources/best_of_preset.json`
+## 4. `BestOfPreset.swift` + `Epistemos/Resources/best_of_preset.json` [DELIVERED]
 Manifest `{kind:.builtinTool|.skillRepo|.remoteMCP, id, displayName, why, minDistribution}` over **only-real-today**
 capabilities (eidos.query/vault.search/web.search/web.fetch/think/graph.query/graph.neighbors — all already in
 `coreAppStoreAllowedToolNames` `:213-227`; + Anthropic skills repo `[INFERRED url]`; + Context7 HTTPS MCP `[INFERRED url]`).
