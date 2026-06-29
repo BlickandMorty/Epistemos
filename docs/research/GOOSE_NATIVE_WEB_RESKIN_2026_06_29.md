@@ -153,7 +153,8 @@ Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS 
 8. ✅ CLOSED (R5) — transparent-over-glass recipe PROVEN in Epistemos's own code (window isOpaque=false at AgentSurfaceWindowController.swift:37; glass via GlassModifiers/UnifiedFrostedGlass/ToolbarGlass; non-opaque WKWebView via setValue(false,"drawsBackground") at EpdocKaTeXPreview.swift:79). Reuse, don't reinvent. REMAINING: prototype the actual seam (no flicker) during build.
 9. Build the **A/B pixel-diff harness** (native control vs rethemed Goose control) — gates every `[VERIFIED]`.
 10. ✅ CLOSED (R7) — exact retheme handoff found: edit `ui/desktop/src/theme/theme-tokens.ts` (typed token source) + `src/styles/main.css` :root/.dark. Set SF Pro font, body 16→17px, radius 0→11px (Goose ships SHARP corners today), Apple #0066cc palette. cssVariables:true → restyles all shadcn primitives at once. See "THEME RETHEME HANDOFF".
-11. ▶ NEXT — per-component macOS-tuned CSS overrides for the few primitives that need specific geometry beyond tokens (switch knob, segmented tabs, popup-button select) + the A/B pixel-diff harness (#9).
+11. ✅ CLOSED (R8) — copy-ready macOS CSS for the 3 geometry-sensitive primitives (switch / segmented-tabs / popup-select), targeting Goose's real markup. See "PER-COMPONENT macOS CSS".
+12. ▶ OPEN (the last gate) — the **A/B pixel-diff harness** (#9): render a rethemed Goose control beside the native equivalent, screenshot, diff; gates every component to [VERIFIED]. After this, research → implementation handoff is complete.
 
 ## INTEGRATION NOTES
 - Build-time vendor via `build-tiptap-bundle.sh` model → `Resources/` → served via `WKURLSchemeHandler`. No runtime npm.
@@ -201,7 +202,28 @@ The single highest-leverage lift (restyles EVERY shadcn primitive at once, since
 - ProvenanceGate: in-place edit of Goose's OWN vendored UI theme files (theming our embedded copy; license = Goose
   Apache-2.0 → fine). Build via the existing pnpm/stage-goose-web-ui pipeline (NO runtime npm).
 
+## ★ PER-COMPONENT macOS CSS (copy-ready, R8) — for the primitives where Apple geometry ≠ shadcn defaults
+Tokens (THEME RETHEME) cover ~90%; these 3 need geometry overrides. Target Goose's REAL markup (verified source).
+### Switch — `ui/components/ui/switch.tsx` (Radix Switch Root=track, Thumb=knob)
+Goose now: track `h-[16px] w-[28px] rounded-full border-2`, thumb `h-3 w-3`, checked `bg-background-primary`, `transition-transform`.
+macOS-tune (NSSwitch ≈ accent-tinted track + near-full white knob + springy knob):
+```
+// switch.tsx className edits (Tailwind, keeps Radix data-state):
+Root  : h-[22px] w-[38px] rounded-full border-0  +  data-[state=checked]:bg-[var(--color-accent,#0066cc)]  data-[state=unchecked]:bg-[var(--color-border-secondary)]
+Thumb : h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.25)]  data-[state=unchecked]:translate-x-[2px] data-[state=checked]:translate-x-[18px]
+```
+Knob MOTION = the `.snappy` spring (NOT CSS `transition-transform`): drive the Thumb with framer-motion `{type:'spring',duration:0.5,bounce:0.15}` (Goose already ships framer-motion), or a CSS `linear()` spring easing var. ON tint follows the Apple accent token.
+### Segmented control (Tabs) — `ui/components/ui/tabs.tsx` (Radix Tabs; List=track, Trigger=segment)
+Goose now: List `rounded-[6px]`. macOS-tune: List = inset pill group on `--color-background-secondary`, radius 8px, 2px inset padding; active Trigger = white/elevated pill (`bg-[var(--color-background-primary)] shadow-sm rounded-[6px]`), inactive = transparent. The active-pill SLIDE = `.snappy` spring via framer-motion `layoutId` (shared-element) on the active indicator → the pill glides between segments (the macOS feel).
+### Select / dropdown — `ui/components/ui/Select.tsx` + radix select
+macOS popup-button: trigger = `rounded-[7px]` 1px border + a trailing up/down chevron (lucide `ChevronsUpDown`, sized ~13px) right-aligned; menu (Content) = vibrancy surface (transparent-over-glass), radius 9px, item highlight = accent (`bg-[var(--color-accent)] text-white`); present = `.snappy` spring (scale 0.96→1 + opacity). 
+ProvenanceGate: all = in-place className/CSS edits to Goose's OWN primitives (no new lib). License = Goose (Apache-2.0).
+
 ## CHANGELOG
+- 2026-06-29 R8: code-research — copy-ready macOS CSS for the 3 geometry-sensitive primitives, targeting Goose's
+  REAL markup: Switch (switch.tsx: 16×28→22×38 track, 12→18px knob, accent ON, .snappy knob spring), Segmented/
+  Tabs (tabs.tsx: inset pill group + framer-motion layoutId slide), Select (popup-button + chevron + vibrancy menu
+  + present spring). All = in-place className edits to Goose's own primitives (no new lib). Updated mapping table.
 - 2026-06-29 R7: code-research — found the EXACT retheme handoff (closed #10). Goose theming = typed
   `ui/desktop/src/theme/theme-tokens.ts` (source of truth) + `src/styles/main.css` :root/.dark; `cssVariables:true`
   so token edits restyle ALL shadcn primitives at once. Concrete findings: Goose ships SHARP corners
