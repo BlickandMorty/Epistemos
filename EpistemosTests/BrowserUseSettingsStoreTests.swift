@@ -90,11 +90,58 @@ struct BrowserUseSettingsStoreTests {
         #expect(loaded == settings)
 
         let json = try String(contentsOf: url, encoding: .utf8)
+        let directoryMode = try mode(for: directory)
+        let fileMode = try mode(for: url)
+        #expect(directoryMode == 0o700)
+        #expect(fileMode == 0o600)
         #expect(!json.contains("OPENAI_API_KEY"))
         #expect(!json.contains("ANTHROPIC_API_KEY"))
         #expect(!json.contains("BROWSER_USE_API_KEY"))
         #expect(!json.contains("BROWSER_USE_PROXY_PASSWORD"))
         #expect(!json.contains("VNC_PASSWORD"))
+    }
+
+    @Test("settings store rejects symlinked JSON paths before writing")
+    func settingsStoreRejectsSymlinkedJSONPathsBeforeWriting() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-settings-symlink-\(UUID().uuidString)", isDirectory: true)
+        let realDirectory = root.appendingPathComponent("real", isDirectory: true)
+        let symlinkDirectory = root.appendingPathComponent("settings-link", isDirectory: true)
+        let safeDirectory = root.appendingPathComponent("safe", isDirectory: true)
+        let outsideFile = root.appendingPathComponent("outside.json", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: realDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: safeDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: symlinkDirectory, withDestinationURL: realDirectory)
+        try Data("{\"outside\":true}\n".utf8).write(to: outsideFile)
+
+        do {
+            try BrowserUseSettingsStore(
+                settingsURL: symlinkDirectory.appendingPathComponent("settings.json", isDirectory: false)
+            ).save(.default)
+            Issue.record("Expected symlinked browser-use settings directory to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings directory must not be a symlink") == true)
+        }
+
+        let symlinkFile = safeDirectory.appendingPathComponent("settings.json", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: symlinkFile, withDestinationURL: outsideFile)
+        do {
+            try BrowserUseSettingsStore(settingsURL: symlinkFile).save(.default)
+            Issue.record("Expected symlinked browser-use settings file to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings file must not be a symlink") == true)
+        }
+
+        let outsideContents = try String(contentsOf: outsideFile, encoding: .utf8)
+        #expect(outsideContents == "{\"outside\":true}\n")
+    }
+
+    private func mode(for url: URL) throws -> Int {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let mode = try #require(attributes[.posixPermissions] as? NSNumber)
+        return mode.intValue
     }
 }
 

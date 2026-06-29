@@ -352,12 +352,50 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
 
     func save(_ settings: BrowserUseSettings) throws {
         let directory = settingsURL.deletingLastPathComponent()
+        try Self.rejectSettingsSymlink(at: directory, label: "directory")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Self.rejectSettingsSymlink(at: directory, label: "directory")
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(settings)
-        try data.write(to: settingsURL, options: [.atomic])
+        let temporaryURL = directory.appendingPathComponent("settings.\(UUID().uuidString).tmp", isDirectory: false)
+        do {
+            try Self.rejectSettingsSymlink(at: temporaryURL, label: "temporary file")
+            try Self.rejectSettingsSymlink(at: settingsURL, label: "file")
+            try data.write(to: temporaryURL, options: [.atomic])
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporaryURL.path)
+            if FileManager.default.fileExists(atPath: settingsURL.path) {
+                try Self.rejectSettingsSymlink(at: settingsURL, label: "file")
+                try FileManager.default.removeItem(at: settingsURL)
+            }
+            try FileManager.default.moveItem(at: temporaryURL, to: settingsURL)
+            try Self.rejectSettingsSymlink(at: settingsURL, label: "file")
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: settingsURL.path)
+        } catch {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            throw error
+        }
+    }
+
+    private static func rejectSettingsSymlink(at url: URL, label: String) throws {
+        if (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil {
+            throw BrowserUseSettingsStoreError.unsafePath(
+                "browser-use settings \(label) must not be a symlink"
+            )
+        }
+    }
+}
+
+nonisolated enum BrowserUseSettingsStoreError: Error, Equatable, LocalizedError {
+    case unsafePath(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unsafePath(let message):
+            return message
+        }
     }
 }
 
