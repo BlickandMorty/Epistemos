@@ -144,13 +144,13 @@ struct BrowserUseAdapterPlan3Tests {
         let browserExecutable = try loadMirroredSourceTextFile("agent_core/src/tools/browser_executable.rs")
         let browserPrivate = try loadMirroredSourceTextFile("agent_core/src/tools/browser_private.rs")
         let browserRedaction = try loadMirroredSourceTextFile("agent_core/src/tools/browser_redaction.rs")
+        let browserScreenshot = try loadMirroredSourceTextFile("agent_core/src/tools/browser_screenshot.rs")
         let registry = try loadMirroredSourceTextFile("agent_core/src/tools/registry.rs")
 
         for required in [
             "cdp_url_from_env",
             "find_agent_browser",
             "PYTHON_DOTENV_DISABLED",
-            "AGENT_BROWSER_SCREENSHOT_DIR",
             "AGENT_BROWSER_SCREENSHOT_DIR_ENV",
             "screenshot_directory()",
             "browser_screenshot_exports_private_root_to_adapter",
@@ -208,6 +208,19 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_error_redaction_covers_secret_assignment_variants",
         ] {
             #expect(browserRedaction.contains(required), "Missing browser redaction policy string: \(required)")
+        }
+
+        for required in [
+            "AGENT_BROWSER_SCREENSHOT_DIR",
+            "next_screenshot_path",
+            "screenshot_directory",
+            "create_private_browser_dir(",
+            "/tmp/epistemos-browser-screenshots",
+            "path_resolves_inside",
+            "extract_screenshot_path",
+            "browser_vision_screenshot_paths_must_resolve_inside_private_directory",
+        ] {
+            #expect(browserScreenshot.contains(required), "Missing browser screenshot policy string: \(required)")
         }
 
         let adapterIndex = try #require(browserExecutable.range(of: "browser_use_adapter")?.lowerBound)

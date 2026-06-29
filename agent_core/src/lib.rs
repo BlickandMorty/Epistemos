@@ -208,6 +208,8 @@ pub mod tools {
     #[cfg(feature = "pro-build")]
     pub mod browser_redaction;
     #[cfg(feature = "pro-build")]
+    pub mod browser_screenshot;
+    #[cfg(feature = "pro-build")]
     pub mod cli_passthrough;
     #[cfg(feature = "pro-build")]
     pub mod computer_use;

@@ -23,6 +23,10 @@ use uuid::Uuid;
 use super::browser_executable::{cdp_url_from_env, extended_path, find_agent_browser};
 use super::browser_private::create_private_browser_dir;
 use super::browser_redaction::redact_browser_error_detail;
+use super::browser_screenshot::{
+    extract_screenshot_path, next_screenshot_path, path_resolves_inside, screenshot_directory,
+    AGENT_BROWSER_SCREENSHOT_DIR_ENV,
+};
 use super::media::VisionAnalyzeHandler;
 use super::registry::{ToolError, ToolHandler};
 use super::web_fetch::validate_url;
@@ -31,7 +35,6 @@ const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
 const SNAPSHOT_CHAR_CAP: usize = 8_000;
 const MAX_BROWSER_OUTPUT_BYTES: usize = 512 * 1024;
-const AGENT_BROWSER_SCREENSHOT_DIR_ENV: &str = "AGENT_BROWSER_SCREENSHOT_DIR";
 
 #[derive(Debug)]
 struct BrowserState {
@@ -678,12 +681,6 @@ fn read_limited_browser_output(path: &Path, stream: &str) -> Result<String, Tool
     Ok(text)
 }
 
-fn extract_screenshot_path(text: &str) -> Option<String> {
-    text.split_whitespace()
-        .find(|token| token.starts_with('/') && token.ends_with(".png"))
-        .map(|token| token.trim_matches('\'').trim_matches('"').to_string())
-}
-
 fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
     #[cfg(unix)]
     {
@@ -697,31 +694,6 @@ fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
         }
     }
     let _ = fs::remove_dir_all(socket_dir);
-}
-
-fn next_screenshot_path() -> Result<PathBuf, ToolError> {
-    let directory = screenshot_directory()?;
-    Ok(directory.join(format!("browser-{}.png", Uuid::new_v4().simple())))
-}
-
-fn screenshot_directory() -> Result<PathBuf, ToolError> {
-    let directory = if cfg!(target_os = "macos") {
-        PathBuf::from("/tmp/epistemos-browser-screenshots")
-    } else {
-        env::temp_dir().join("epistemos-browser-screenshots")
-    };
-    create_private_browser_dir(&directory)?;
-    Ok(directory)
-}
-
-fn path_resolves_inside(path: &Path, root: &Path) -> bool {
-    let Ok(resolved_path) = fs::canonicalize(path) else {
-        return false;
-    };
-    let Ok(resolved_root) = fs::canonicalize(root) else {
-        return false;
-    };
-    resolved_path == resolved_root || resolved_path.starts_with(&resolved_root)
 }
 
 pub fn browser_navigate_schema() -> crate::types::ToolSchema {
@@ -1288,27 +1260,6 @@ esac
             "vision must not screenshot before cloud ack"
         );
         assert!(lines[0].contains("open"));
-    }
-
-    #[test]
-    fn browser_vision_screenshot_paths_must_resolve_inside_private_directory() {
-        let temp = tempfile::tempdir().unwrap();
-        let root = temp.path().join("screenshots");
-        let outside = temp.path().join("outside.png");
-        let inside = root.join("inside.png");
-        fs::create_dir_all(&root).unwrap();
-        fs::write(&inside, b"inside").unwrap();
-        fs::write(&outside, b"outside").unwrap();
-
-        assert!(path_resolves_inside(&inside, &root));
-        assert!(!path_resolves_inside(&outside, &root));
-
-        #[cfg(unix)]
-        {
-            let symlink = root.join("escape.png");
-            std::os::unix::fs::symlink(&outside, &symlink).unwrap();
-            assert!(!path_resolves_inside(&symlink, &root));
-        }
     }
 
     #[tokio::test]
