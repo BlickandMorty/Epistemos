@@ -1452,3 +1452,24 @@ NO_SILENT_DROPS_PASS) prove the surface functionally. Re-run the focused Goose s
 unblocks `EpistemosTests`. → ACTION FOR OWNER/Plan-3: `ArxivPlan3Tests.swift` regressed the shared
 test target; it needs an async-safe lock + non-main-actor fixture (or `@MainActor` test) to restore
 `build-for-testing` for all lanes.
+
+### Fixes committed this loop (all app-target build-validated on isolated DD)
+- `e09513737` — A-HIGH-1/2, A-MED-1/3, C-HIGH-1, B-HIGH-1, C-M1 (7 fixes)
+- `5d6140bb4` — B-M1 (-32602 permission-gate)
+- `3e642b45b` — A-LOW-2 (git-config), C-L1 (URL force-unwraps), B-L1 (clean .notConnected)
+- `d5f98ac45` — C-M3 (reject native-bridge messages from non-main frames)
+
+### Test-regression inspection (unit suites are Plan-3-blocked, so verified by READING the tests)
+Because `build-for-testing` is blocked by the Plan-3 `ArxivPlan3Tests` regression, the behavioral ACP
+changes were inspected against the existing Goose test assertions to confirm NO regression when the
+suite is restored:
+- **B-M1 (-32601→-32602):** the only inbound-request `-32601` test, `bridgeSurfacesUnhandledRequests`
+  (`GooseACPClientTests.swift:721`), uses a genuinely UNKNOWN method
+  (`_goose/unstable/session/recipe/request-params`) → still answered `-32601` (B-M1 only re-codes the
+  KNOWN `session/request_permission`/`elicitation/create` methods). PASS by inspection.
+- **B-HIGH-1 (per-frame containment):** no Goose unit test feeds a malformed frame and asserts the
+  client read loop goes terminal `.failed` (grep for malformed/garbage/invalid-json/unsupportedMessage
+  in `GooseACP*Tests` is empty); the `.failed` assertions are supervisor/live, unrelated. No regression.
+- **C-M3 (frame guard):** tests drive the inner `receive{Affordance,Prompt}Message(_:replyHandler:)`
+  directly (not `userContentController`), so the new `isMainFrame` boundary guard is not exercised by
+  existing tests → no regression. (A dedicated frame-guard test should be ADDED once the target builds.)
