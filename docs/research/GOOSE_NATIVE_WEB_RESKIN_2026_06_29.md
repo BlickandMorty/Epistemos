@@ -152,7 +152,8 @@ Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS 
 7. Connect + use the **HIG / SF Symbols MCP servers** (apple-dev-mcp, SF Symbols MCP) for exact control metrics/symbols + the spring defaults (#4).
 8. ✅ CLOSED (R5) — transparent-over-glass recipe PROVEN in Epistemos's own code (window isOpaque=false at AgentSurfaceWindowController.swift:37; glass via GlassModifiers/UnifiedFrostedGlass/ToolbarGlass; non-opaque WKWebView via setValue(false,"drawsBackground") at EpdocKaTeXPreview.swift:79). Reuse, don't reinvent. REMAINING: prototype the actual seam (no flicker) during build.
 9. Build the **A/B pixel-diff harness** (native control vs rethemed Goose control) — gates every `[VERIFIED]`.
-10. **Wire the Epistemos theme tokens** (R3 values) into Goose's `tailwind.config.ts` + `src/styles/main.css` CSS vars (the actual retheme implementation handoff).
+10. ✅ CLOSED (R7) — exact retheme handoff found: edit `ui/desktop/src/theme/theme-tokens.ts` (typed token source) + `src/styles/main.css` :root/.dark. Set SF Pro font, body 16→17px, radius 0→11px (Goose ships SHARP corners today), Apple #0066cc palette. cssVariables:true → restyles all shadcn primitives at once. See "THEME RETHEME HANDOFF".
+11. ▶ NEXT — per-component macOS-tuned CSS overrides for the few primitives that need specific geometry beyond tokens (switch knob, segmented tabs, popup-button select) + the A/B pixel-diff harness (#9).
 
 ## INTEGRATION NOTES
 - Build-time vendor via `build-tiptap-bundle.sh` model → `Resources/` → served via `WKURLSchemeHandler`. No runtime npm.
@@ -179,7 +180,35 @@ The build agent should OPEN these and copy/adapt. In-repo proven code FIRST, the
 - Apple SF Symbols → native chrome only (NSImage(systemSymbolName:)); web keeps lucide-react (ISC).
 - ⏳ next rounds: pull the EXACT shadcn primitive source per component + the macOS-tuned CSS into the mapping table.
 
+## ★ THEME RETHEME HANDOFF — exact files + token edits (copy-ready, R7)
+Goose theming is driven by a TYPED token source-of-truth, NOT the classic shadcn `:root{--background}` HSL block.
+The single highest-leverage lift (restyles EVERY shadcn primitive at once, since `components.json` has `cssVariables:true`):
+- **`ui/desktop/src/theme/theme-tokens.ts`** — THE source of truth (typed DesignToken map; also merges MCP-app
+  tokens via `@modelcontextprotocol/ext-apps/app-bridge` + `light-dark()`). Override here:
+  - `--font-sans` → `-apple-system, BlinkMacSystemFont, 'SF Pro Text','SF Pro Display', system-ui, sans-serif`;
+    `--font-mono` → `ui-monospace, 'SF Mono', Menlo, monospace`.
+  - `--font-text-md-size` 1rem(16px) → **1.0625rem (17px)** (Apple body). Weights: keep 400/600/700; Apple skips 500.
+  - `--border-radius-*` → Apple rounded scale (sm 8px · **md 11px base** · lg 14px · full 9999px). ⚠️ FINDING:
+    Goose currently ships **SHARP corners** (`--radius:0` at main.css:1176; `border-radius:0` at 552/616/661/723/
+    755/900) — the Apple look REQUIRES rounding these.
+  - `--color-*` semantic palette (`--color-background-*` / `--color-text-*` / `--color-border-*` / primary) →
+    Apple tokens: primary/accent **#0066cc** (focus #0071e3, dark #2997ff); ink #1d1d1f; canvas #fff / parchment
+    #f5f5f7; dark tiles #272729/#2a2a2c.
+- **`ui/desktop/src/styles/main.css`** `:root`/`.dark` (lines 325–373) — app-only aliases (sidebar/highlight/
+  inline-code): re-point to the Apple tokens; flip the hard-coded `border-radius:0` instances to the radius scale.
+- **`ui/desktop/components.json`** (`cssVariables:true`, style new-york, `tailwind.css = src/styles/main.css`) —
+  confirms editing the tokens restyles button/input/select/switch/tabs/dialog/sheet/dropdown/… in one shot.
+- ProvenanceGate: in-place edit of Goose's OWN vendored UI theme files (theming our embedded copy; license = Goose
+  Apache-2.0 → fine). Build via the existing pnpm/stage-goose-web-ui pipeline (NO runtime npm).
+
 ## CHANGELOG
+- 2026-06-29 R7: code-research — found the EXACT retheme handoff (closed #10). Goose theming = typed
+  `ui/desktop/src/theme/theme-tokens.ts` (source of truth) + `src/styles/main.css` :root/.dark; `cssVariables:true`
+  so token edits restyle ALL shadcn primitives at once. Concrete findings: Goose ships SHARP corners
+  (border-radius:0) → Apple needs 11px; body 16px → 17px; font → SF Pro stack. Reconciled the stale R1 "add
+  Motion/react-spring" motion section (framer-motion IS Motion, already in Goose → calibrate in place). Added
+  inline supersede marker for the native-Chat item in GOOSE_NATIVE_UI_DECISION. Next: per-component macOS CSS
+  overrides (switch/tabs/select) + A/B pixel-diff harness.
 - 2026-06-29 R1: created. Verified Motion + react-spring (MIT, spring, active). Stack skeleton + gap list seeded.
   Component base + Goose inventory deferred to R2. (Goose plan change owned by the Plan-1 agent — not edited here.)
 - 2026-06-29 R2: ★ PIVOT. Verified from Goose source: React 19 + shadcn/ui (new-york, cssVariables) + Radix +
