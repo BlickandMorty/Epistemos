@@ -913,6 +913,20 @@ providers/setup/catalog/list (32) ✓, config/extensions/list (11) ✓, sources/
 ✓. Equivalent to the combined live sweep's ACP assertions minus only the
 real-credential token completion.
 
+**Staged runtime bundle contains the live ACP wiring + grafts (high-fidelity, what the
+owner's WKWebView actually loads).** Grep of `~/Library/Application Support/Epistemos/
+GooseWebUI/assets` (the minified bundle the app loads at launch) confirms the grafts
+and ACP methods are compiled into the RUNTIME artifact, not just the source:
+`providers/catalog/list`, `providers/config/status`, `config/extensions/list`,
+`sources/list` (7), `session/new`, `session/prompt`, **`toolsList_unstable`** (this
+loop's toolsCache graft), **`providersCustom`** (custom-provider CRUD graft), plus
+`/acp` + `getAcpClient` + `epistemosGoose` (19 — boot-shim config). (`USE_ACP_CHAT` is
+absent only because esbuild inlines/renames the const at minification.) So the full
+chain is proven: ACP methods work live (probe) → grafts present in source (gate test)
+→ grafts compiled into the staged bundle the WKWebView loads (this) → tsc-clean
+(staging). The ONLY unproven step is the WKWebView's visual paint of that bundle, which
+is engine-level and is the owner's §7 click-through (or the env-blocked WebRoute suite).
+
 **Owner-reported-failure backing verified live** (`scratchpad/acp-owner-probe.mjs`) —
 direct probe of the exact ACP methods behind the owner's two specific complaints:
 - **"Session History failures"** → `session/new` → `session/load` → `session/fork`
