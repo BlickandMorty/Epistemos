@@ -172,6 +172,10 @@ struct BrowserUseAdapterPlan3Tests {
             "\"pressed\": true",
             "\"key_chars\"",
             "browser_press_result_does_not_echo_key_text",
+            "MAX_BROWSER_IMAGES",
+            "MAX_BROWSER_IMAGE_TEXT_CHARS",
+            "normalize_image_results",
+            "browser_get_images_normalizes_and_bounds_page_controlled_results",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }
