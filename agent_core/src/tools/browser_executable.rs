@@ -58,14 +58,11 @@ fn resolve_agent_browser(
     search_dirs: Vec<PathBuf>,
 ) -> Result<BrowserExecutable, ToolError> {
     if let Some(path) = browser_use_adapter {
-        return require_executable_browser(path, BROWSER_USE_AGENT_BROWSER_ENV);
+        return require_explicit_executable_browser(path, BROWSER_USE_AGENT_BROWSER_ENV);
     }
 
     if let Some(root) = browser_use_vendor_root {
-        return require_executable_browser(
-            root.join(BROWSER_USE_ADAPTER_FILENAME),
-            BROWSER_USE_VENDOR_ROOT_ENV,
-        );
+        return require_vendor_root_browser(root);
     }
 
     for candidate in search_dirs {
@@ -80,6 +77,42 @@ fn resolve_agent_browser(
     ))
 }
 
+fn require_explicit_executable_browser(
+    path: PathBuf,
+    source: &'static str,
+) -> Result<BrowserExecutable, ToolError> {
+    require_absolute_path(&path, source)?;
+    reject_symlinked_parent_components(&path, source)?;
+    reject_final_symlink(&path, source)?;
+    require_executable_browser(path, source)
+}
+
+fn require_vendor_root_browser(root: PathBuf) -> Result<BrowserExecutable, ToolError> {
+    require_absolute_path(&root, BROWSER_USE_VENDOR_ROOT_ENV)?;
+    reject_symlinked_parent_components(&root, BROWSER_USE_VENDOR_ROOT_ENV)?;
+    reject_final_symlink(&root, BROWSER_USE_VENDOR_ROOT_ENV)?;
+
+    let metadata = fs::metadata(&root).map_err(|error| {
+        ToolError::ExecutionFailed(format!(
+            "{} resolved to '{}', but it could not be inspected: {error}",
+            BROWSER_USE_VENDOR_ROOT_ENV,
+            root.display()
+        ))
+    })?;
+    if !metadata.is_dir() {
+        return Err(ToolError::ExecutionFailed(format!(
+            "{} resolved to '{}', but it is not a directory",
+            BROWSER_USE_VENDOR_ROOT_ENV,
+            root.display()
+        )));
+    }
+
+    require_explicit_executable_browser(
+        root.join(BROWSER_USE_ADAPTER_FILENAME),
+        BROWSER_USE_VENDOR_ROOT_ENV,
+    )
+}
+
 fn require_executable_browser(
     path: PathBuf,
     source: &'static str,
@@ -92,6 +125,70 @@ fn require_executable_browser(
         "{source} resolved to '{}', but it is not an executable file",
         path.display()
     )))
+}
+
+fn require_absolute_path(path: &Path, source: &'static str) -> Result<(), ToolError> {
+    if path.is_absolute() {
+        return Ok(());
+    }
+
+    Err(ToolError::ExecutionFailed(format!(
+        "{source} resolved to '{}', but explicit browser-use paths must be absolute",
+        path.display()
+    )))
+}
+
+fn reject_symlinked_parent_components(path: &Path, source: &'static str) -> Result<(), ToolError> {
+    let Some(parent) = path.parent() else {
+        return Ok(());
+    };
+
+    let mut cursor = PathBuf::new();
+    for component in parent.components() {
+        cursor.push(component.as_os_str());
+        if allowed_macos_compat_symlink(&cursor) {
+            continue;
+        }
+
+        match fs::symlink_metadata(&cursor) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(ToolError::ExecutionFailed(format!(
+                    "{source} path must not include symlink component '{}'",
+                    cursor.display()
+                )));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => {
+                return Err(ToolError::ExecutionFailed(format!(
+                    "inspect {source} path component '{}': {error}",
+                    cursor.display()
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn reject_final_symlink(path: &Path, source: &'static str) -> Result<(), ToolError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            Err(ToolError::ExecutionFailed(format!(
+                "{source} resolved to '{}', but it must not be a symlink",
+                path.display()
+            )))
+        }
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(ToolError::ExecutionFailed(format!(
+            "inspect {source} path '{}': {error}",
+            path.display()
+        ))),
+    }
+}
+
+fn allowed_macos_compat_symlink(path: &Path) -> bool {
+    matches!(path.to_str(), Some("/etc") | Some("/tmp") | Some("/var"))
 }
 
 fn env_path(key: &str) -> Option<PathBuf> {
@@ -284,6 +381,34 @@ mod tests {
 
         assert!(message.contains(BROWSER_USE_AGENT_BROWSER_ENV));
         assert!(message.contains("not an executable file"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_use_explicit_adapter_rejects_symlink_routes() {
+        let temp = tempfile::tempdir().unwrap();
+        let real_parent = temp.path().join("real-parent");
+        let adapter = real_parent.join("epistemos_agent_browser.py");
+        write_executable_stub(&adapter);
+
+        let final_link = temp.path().join("adapter-link.py");
+        std::os::unix::fs::symlink(&adapter, &final_link).unwrap();
+        let err = resolve_agent_browser(Some(final_link), None, Vec::new()).unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains(BROWSER_USE_AGENT_BROWSER_ENV));
+        assert!(message.contains("must not be a symlink"));
+
+        let parent_link = temp.path().join("parent-link");
+        std::os::unix::fs::symlink(&real_parent, &parent_link).unwrap();
+        let err = resolve_agent_browser(
+            Some(parent_link.join("epistemos_agent_browser.py")),
+            None,
+            Vec::new(),
+        )
+        .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains(BROWSER_USE_AGENT_BROWSER_ENV));
+        assert!(message.contains("path must not include symlink component"));
     }
 
     #[test]
