@@ -24,6 +24,12 @@ final class GooseACPEventBridge {
     private(set) var pendingElicitation: GooseACPElicitationPrompt?
     private(set) var lastSessionUpdate: GooseACPSessionNotification?
     private(set) var unhandledDiagnostics: [GooseACPUnhandledDiagnostic] = []
+    /// Monotonic counter bumped each time the Epistemos→Goose provider-key sync (+ default-provider
+    /// activation) completes for a fresh connection. The WebView host observes this to RELOAD the
+    /// SPA once credentials are actually mirrored into Goose — otherwise the SPA can read Goose's
+    /// provider/credential state before the sync lands and cache a "Failed to load provider
+    /// credentials" / empty-providers result that never self-heals (review H3).
+    private(set) var providersSyncedGeneration = 0
 
     private var client: GooseACPClient?
     private var eventTask: Task<Void, Never>?
@@ -230,8 +236,12 @@ final class GooseACPEventBridge {
                 markConnected(agent: response.agentInfo)
                 attempt = 0
                 if let providerKeyBridge {
-                    _ = await providerKeyBridge.syncConfiguredProviderKeys(to: client)
+                    await syncProviderKeys(via: providerKeyBridge, client: client, key: key)
                     await activateDefaultProviderIfNeeded(client: client)
+                    // H3: tell the host the credentials are now mirrored so it can reload the SPA
+                    // (which may have already cached an empty/failed provider state from before sync).
+                    guard connectionKey == key, !Task.isCancelled else { await client.close(); return }
+                    providersSyncedGeneration += 1
                 }
                 while !Task.isCancelled {
                     handle(try await client.receiveEvent())
@@ -277,6 +287,29 @@ final class GooseACPEventBridge {
 
     private func markConnected(agent: GooseACPImplementation?) {
         status = .connected(agent: agent)
+    }
+
+    // M3: the FIRST `listGooseProviders` right after `initialize` can fail while Goose's provider
+    // subsystem is still warming up — which previously left EVERY key skipped as
+    // `providerInventoryUnavailable` (result discarded), so the user's Keychain credentials were
+    // never mirrored for the whole session and Auth showed "Failed to load provider credentials".
+    // Retry a few times with a short backoff when the inventory wasn't reachable; stop as soon as
+    // any sync actually applies/skips on real data (or the connection is superseded/cancelled).
+    private func syncProviderKeys(
+        via providerKeyBridge: GooseProviderKeyBridge,
+        client: GooseACPClient,
+        key: String
+    ) async {
+        for attempt in 0..<4 {
+            guard connectionKey == key, !Task.isCancelled else { return }
+            let result = await providerKeyBridge.syncConfiguredProviderKeys(to: client)
+            let inventoryUnavailable = result.applied.isEmpty
+                && result.skipped.contains { $0.reason == .providerInventoryUnavailable }
+            if !inventoryUnavailable { return }
+            if attempt < 3 {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
     }
 
     // Best-effort: when no default provider is set yet, auto-activate the SINGLE
