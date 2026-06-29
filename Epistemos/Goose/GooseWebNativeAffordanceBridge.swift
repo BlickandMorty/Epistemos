@@ -504,6 +504,19 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
+
+        // review M4: DRAIN the stdout pipe CONCURRENTLY with the process running. Previously the pipe
+        // was read only AFTER waiting for termination, so a repo with many worktrees (git output >
+        // the ~64KB pipe buffer) made git BLOCK on write → the terminationHandler never fired → the
+        // wait timed out → a dishonest empty result. Concurrent draining also means the wait now
+        // completes as soon as git exits (fast), instead of risking the full 3s watchdog window.
+        let stdoutHandle = stdout.fileHandleForReading
+        let drainBox = GooseAffordanceDataBox()
+        let drainDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            drainBox.data = stdoutHandle.readDataToEndOfFile()
+            drainDone.signal()
+        }
         let semaphore = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in semaphore.signal() }
 
@@ -516,8 +529,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             process.terminate()
             return []
         }
+        // The process has exited → it closed its write end → the concurrent drain hits EOF promptly.
+        _ = drainDone.wait(timeout: .now() + 1)
         guard process.terminationStatus == 0 else { return [] }
-        let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let output = String(data: drainBox.data, encoding: .utf8) ?? ""
         var seen = Set<String>()
         return output
             .split(separator: "\n")
@@ -1104,6 +1119,13 @@ private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate 
 /// app-support render root) + about:; loopback http is allowed (the guest may talk to the local
 /// goose server) but ANY external origin, arbitrary file: path, javascript:/data:/app-deeplink
 /// navigation is denied.
+/// Mutable byte box handed to a background pipe-drain (review M4). `@unchecked Sendable` is sound
+/// because the producer (the drain queue) writes `data` exactly once and signals a semaphore the
+/// consumer waits on before reading — the semaphore establishes the happens-before edge.
+private final class GooseAffordanceDataBox: @unchecked Sendable {
+    var data = Data()
+}
+
 private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNavigationDelegate {
     private let allowedFileRoot: String
     private let trustedLoopbackOrigins: GooseTrustedLoopbackOrigins?
