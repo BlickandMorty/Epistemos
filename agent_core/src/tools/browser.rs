@@ -19,6 +19,9 @@ use super::browser_command::{
     cleanup_local_daemon, run_agent_browser_command, socket_dir_for_session,
 };
 use super::browser_executable::cdp_url_from_env;
+use super::browser_input::{
+    normalize_ref, optional_bool_field, optional_string_field, truncate_snapshot,
+};
 use super::browser_private::create_private_browser_dir;
 pub use super::browser_schema::{
     browser_back_schema, browser_click_schema, browser_close_schema, browser_console_schema,
@@ -32,7 +35,6 @@ use super::web_fetch::validate_url;
 
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
-const SNAPSHOT_CHAR_CAP: usize = 8_000;
 
 #[derive(Debug)]
 struct BrowserState {
@@ -468,51 +470,6 @@ async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, 
         "js_errors": js_errors,
         "evaluation": evaluation,
     }))
-}
-
-fn optional_bool_field(input: &Value, field: &str) -> Result<Option<bool>, ToolError> {
-    let Some(value) = input.get(field) else {
-        return Ok(None);
-    };
-    value
-        .as_bool()
-        .map(Some)
-        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a boolean")))
-}
-
-fn optional_string_field<'a>(input: &'a Value, field: &str) -> Result<Option<&'a str>, ToolError> {
-    let Some(value) = input.get(field) else {
-        return Ok(None);
-    };
-    value
-        .as_str()
-        .map(Some)
-        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a string")))
-}
-
-fn normalize_ref(raw_ref: &str) -> Result<String, ToolError> {
-    let trimmed = raw_ref.trim();
-    if trimmed.is_empty() {
-        return Err(ToolError::InvalidArguments("ref cannot be empty".into()));
-    }
-    if trimmed.starts_with('@') {
-        Ok(trimmed.to_string())
-    } else {
-        Ok(format!("@{trimmed}"))
-    }
-}
-
-fn truncate_snapshot(snapshot: &str) -> (String, bool) {
-    let total_chars = snapshot.chars().count();
-    if total_chars <= SNAPSHOT_CHAR_CAP {
-        return (snapshot.to_string(), false);
-    }
-
-    let truncated: String = snapshot.chars().take(SNAPSHOT_CHAR_CAP).collect();
-    (
-        format!("{truncated}\n\n[Truncated: {} total chars]", total_chars),
-        true,
-    )
 }
 
 #[cfg(test)]

@@ -64,6 +64,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true`"))
         #expect(codepack.contains("agent_core/src/tools/browser_command.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_executable.rs"))
+        #expect(codepack.contains("agent_core/src/tools/browser_input.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_private.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_redaction.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_schema.rs"))

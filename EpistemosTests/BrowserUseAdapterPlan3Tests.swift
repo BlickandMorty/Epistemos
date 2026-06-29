@@ -143,6 +143,7 @@ struct BrowserUseAdapterPlan3Tests {
         let browserTool = try loadMirroredSourceTextFile("agent_core/src/tools/browser.rs")
         let browserCommand = try loadMirroredSourceTextFile("agent_core/src/tools/browser_command.rs")
         let browserExecutable = try loadMirroredSourceTextFile("agent_core/src/tools/browser_executable.rs")
+        let browserInput = try loadMirroredSourceTextFile("agent_core/src/tools/browser_input.rs")
         let browserPrivate = try loadMirroredSourceTextFile("agent_core/src/tools/browser_private.rs")
         let browserRedaction = try loadMirroredSourceTextFile("agent_core/src/tools/browser_redaction.rs")
         let browserSchema = try loadMirroredSourceTextFile("agent_core/src/tools/browser_schema.rs")
@@ -194,6 +195,18 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_use_explicit_adapter_rejects_non_executable_without_fallback",
         ] {
             #expect(browserExecutable.contains(required), "Missing Rust browser-use discovery string: \(required)")
+        }
+
+        for required in [
+            "optional_bool_field",
+            "optional_string_field",
+            "normalize_ref",
+            "truncate_snapshot",
+            "SNAPSHOT_CHAR_CAP",
+            "ref cannot be empty",
+            "browser_input_normalizes_refs_and_truncates_snapshots",
+        ] {
+            #expect(browserInput.contains(required), "Missing browser input policy string: \(required)")
         }
 
         for required in [
