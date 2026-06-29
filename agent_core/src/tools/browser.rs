@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tempfile::Builder;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -674,6 +674,8 @@ fn socket_dir_for_session(session_name: &str) -> PathBuf {
 }
 
 fn create_private_browser_dir(path: &Path) -> Result<(), ToolError> {
+    reject_browser_dir_symlink(path)?;
+
     #[cfg(unix)]
     {
         let mut builder = fs::DirBuilder::new();
@@ -693,6 +695,8 @@ fn create_private_browser_dir(path: &Path) -> Result<(), ToolError> {
             path.display()
         ))
     })?;
+
+    reject_browser_dir_symlink(path)?;
 
     #[cfg(unix)]
     {
@@ -716,6 +720,23 @@ fn create_private_browser_dir(path: &Path) -> Result<(), ToolError> {
     }
 
     Ok(())
+}
+
+fn reject_browser_dir_symlink(path: &Path) -> Result<(), ToolError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            Err(ToolError::ExecutionFailed(format!(
+                "private browser directory '{}' must not be a symlink",
+                path.display()
+            )))
+        }
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(ToolError::ExecutionFailed(format!(
+            "inspect private browser directory '{}': {error}",
+            path.display()
+        ))),
+    }
 }
 
 fn extended_path() -> String {
@@ -1219,6 +1240,26 @@ mod tests {
 
         let mode = fs::metadata(&directory).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o700);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_private_directories_reject_symlink_targets() {
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("target");
+        let link = temp.path().join("browser-session-link");
+        fs::create_dir_all(&target).unwrap();
+
+        let mut permissions = fs::metadata(&target).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&target, permissions).unwrap();
+
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let err = create_private_browser_dir(&link).unwrap_err();
+        assert!(format!("{err}").contains("must not be a symlink"));
+        let target_mode = fs::metadata(&target).unwrap().permissions().mode() & 0o777;
+        assert_eq!(target_mode, 0o755);
     }
 
     fn make_fake_browser(temp_root: &Path) -> PathBuf {
