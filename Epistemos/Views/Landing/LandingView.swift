@@ -664,27 +664,29 @@ struct LandingView: View {
         panel.canChooseDirectories = false
         panel.prompt = "Import"
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        let urls = panel.urls
 
-        var imported = 0
-        var lines: [String] = []
-        for url in panel.urls {
-            let outcome = LiteParsePDFImportController.importPage(
-                pdfPath: url.path,
-                vaultURL: vaultURL,
-                modelContext: modelContext,
-                graphState: graphState
-            )
-            switch outcome {
-            case .imported(_, let title):
-                imported += 1
-                lines.append("✓ \(title)")
-            case .rejected(let result):
-                lines.append("✗ \(url.lastPathComponent): \(landingPDFImportReason(for: result))")
+        Task { @MainActor in
+            var imported = 0
+            var lines: [String] = []
+            for url in urls {
+                let outcome = await LiteParsePDFImportController.importPage(
+                    pdfPath: url.path,
+                    vaultURL: vaultURL,
+                    modelContext: modelContext,
+                    graphState: graphState
+                )
+                switch outcome {
+                case .imported(_, let title):
+                    imported += 1
+                    lines.append("✓ \(title)")
+                case .rejected(let result):
+                    lines.append("✗ \(url.lastPathComponent): \(landingPDFImportReason(for: result))")
+                }
             }
+            landingFeatureStatusMessage = "Imported \(imported)/\(urls.count).\n" + lines.joined(separator: "\n")
+            showingLandingFeatureStatus = true
         }
-
-        landingFeatureStatusMessage = "Imported \(imported)/\(panel.urls.count).\n" + lines.joined(separator: "\n")
-        showingLandingFeatureStatus = true
     }
 
     private func landingPDFImportReason(for result: LiteParseImportResult) -> String {

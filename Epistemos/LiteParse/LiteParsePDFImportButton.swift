@@ -49,26 +49,29 @@ struct LiteParsePDFImportButton: View {
         panel.canChooseDirectories = false
         panel.prompt = "Import"
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        let urls = panel.urls
 
-        var imported = 0
-        var lines: [String] = []
-        for url in panel.urls {
-            let outcome = LiteParsePDFImportController.importPage(
-                pdfPath: url.path,
-                vaultURL: vaultURL,
-                modelContext: modelContext,
-                graphState: graphState
-            )
-            switch outcome {
-            case let .imported(_, title):
-                imported += 1
-                lines.append("✓ \(title)")
-            case let .rejected(result):
-                lines.append("✗ \(url.lastPathComponent): \(reason(for: result))")
+        Task { @MainActor in
+            var imported = 0
+            var lines: [String] = []
+            for url in urls {
+                let outcome = await LiteParsePDFImportController.importPage(
+                    pdfPath: url.path,
+                    vaultURL: vaultURL,
+                    modelContext: modelContext,
+                    graphState: graphState
+                )
+                switch outcome {
+                case let .imported(_, title):
+                    imported += 1
+                    lines.append("✓ \(title)")
+                case let .rejected(result):
+                    lines.append("✗ \(url.lastPathComponent): \(reason(for: result))")
+                }
             }
+            statusMessage = "Imported \(imported)/\(urls.count).\n" + lines.joined(separator: "\n")
+            showingStatus = true
         }
-        statusMessage = "Imported \(imported)/\(panel.urls.count).\n" + lines.joined(separator: "\n")
-        showingStatus = true
     }
 
     private func reason(for result: LiteParseImportResult) -> String {

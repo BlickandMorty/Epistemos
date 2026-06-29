@@ -18,10 +18,10 @@
   `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}`. `LiveLiteParsePDFImporter` rejects non-PDF paths before
   FFI and calls the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that binding honestly
   fall back to `.notWired`.
-- **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` writes the parsed `.md` into
-  `<vault>/Imported PDFs/`, copies the original `.pdf` beside it, and records `source_kind=pdf` plus
-  `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the note fails, the copied source PDF is
-  removed too.
+- **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs conversion and file materialization off the
+  main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
+  basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the
+  note fails, the copied source PDF is removed too.
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
   `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Absolute paths,
   `..`, missing files, and traversal attempts are rejected. Plan 2 still owns any full PDF viewer; Plan 3 only owns the
@@ -48,6 +48,7 @@
 - Rust: `cargo test -p agent_core` exercises the default EdgeParse/unpdf MAS feature set, including a real sample PDF
   fixture and the FFI envelope.
 - Swift focused guards: `EpistemosTests/LiteParseImportTests.swift` verifies envelope decoding, non-PDF rejection before
-  FFI, source-PDF vault confinement, and this shipped-codepack status.
+  FFI, off-main import materialization, paired Markdown/PDF basenames, source-PDF vault confinement, and this
+  shipped-codepack status.
 - Historical caveat: Swift unit-test hosts without `agent_coreFFI` still verify the honest fallback by expecting
   `.notWired` for a PDF. That is a test-linking condition, not the default MAS Rust engine state.

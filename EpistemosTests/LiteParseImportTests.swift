@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftData
 @testable import Epistemos
 
 /// R-LITEPARSE — the PDF-import bridge: decodes the Rust `liteparse_pdf_to_markdown` FFI
@@ -78,7 +79,10 @@ struct LiteParseImportTests {
         #expect(src.contains(#"frontMatter["source_kind"] = "pdf""#))
         #expect(src.contains(#"frontMatter["source_pdf"]"#))
         #expect(src.contains("copyItem"))
-        #expect(src.contains("vaultRelativePath(for: sourcePDFURL"))
+        #expect(src.contains("Task.detached(priority: .userInitiated)"))
+        #expect(src.contains("materializeImportedFiles"))
+        #expect(src.contains("uniquePairedFileURLs"))
+        #expect(src.contains("vaultRelativePath(for: urls.pdfURL"))
     }
 
     @Test("Plan 3 EdgeParse docs describe the shipped parser state")
@@ -92,6 +96,7 @@ struct LiteParseImportTests {
         #expect(codepack.contains("agent_core/src/liteparse.rs"))
         #expect(codepack.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(codepack.contains("source_pdf=<vault-relative path>"))
+        #expect(codepack.contains("off-main import materialization, paired Markdown/PDF basenames"))
         #expect(capabilities.contains("PDF→Markdown import now has a real Plan 3 parser path"))
         #expect(capabilities.contains("test-linking condition, not the shipped MAS parser state"))
         #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
@@ -155,5 +160,64 @@ struct LiteParseImportTests {
         ] {
             #expect(LiteParseSourcePDFLink.resolve(vaultURL: vault, relativePath: rejected) == nil)
         }
+    }
+
+    @MainActor
+    @Test("import controller keeps duplicate note and source PDF basenames paired")
+    func importControllerKeepsDuplicateNoteAndSourcePDFBasenamesPaired() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-collision-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let importDir = vault.appendingPathComponent(LiteParsePDFImportController.importDirectory, isDirectory: true)
+        let sourcePDF = root.appendingPathComponent("paper.pdf")
+        try FileManager.default.createDirectory(at: importDir, withIntermediateDirectories: true)
+        try Data("existing imported note".utf8).write(to: importDir.appendingPathComponent("paper.md"))
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let outcome = await LiteParsePDFImportController.importPage(
+            pdfPath: sourcePDF.path,
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: FakeLiteParseImporter(result: .markdown("# Parsed\n\nConverted body."))
+        )
+
+        guard case .imported = outcome else {
+            Issue.record("Expected PDF import to create a note, got \(String(describing: outcome))")
+            return
+        }
+
+        let page = try #require(try context.fetch(FetchDescriptor<SDPage>()).first)
+        let filePath = try #require(page.filePath)
+        let noteBaseName = URL(fileURLWithPath: filePath).deletingPathExtension().lastPathComponent
+        let sourcePDFRelative = try #require(page.frontMatter["source_pdf"])
+        let sourcePDFBaseName = vault
+            .appendingPathComponent(sourcePDFRelative)
+            .deletingPathExtension()
+            .lastPathComponent
+        let noteText = try String(contentsOfFile: filePath, encoding: .utf8)
+
+        #expect(page.subfolder == LiteParsePDFImportController.importDirectory)
+        #expect(page.frontMatter["source_kind"] == "pdf")
+        #expect(sourcePDFRelative.hasPrefix("Imported PDFs/"))
+        #expect(noteBaseName == "paper 2")
+        #expect(sourcePDFBaseName == noteBaseName)
+        #expect(noteText.contains("Converted body."))
+        #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("paper 2.md").path))
+        #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("paper 2.pdf").path))
+    }
+}
+
+private struct FakeLiteParseImporter: LiteParsePDFImporter {
+    let result: LiteParseImportResult
+
+    func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
+        result
     }
 }

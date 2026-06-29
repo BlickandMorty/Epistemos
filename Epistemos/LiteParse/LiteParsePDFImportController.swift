@@ -24,46 +24,37 @@ enum LiteParsePDFImportController {
         graphState: GraphState?,
         importer: LiteParsePDFImporter = LiveLiteParsePDFImporter(),
         parsePDFOnImport: Bool = LiteParseImportSettings.parsePDFOnImport()
-    ) -> Outcome {
+    ) async -> Outcome {
         guard parsePDFOnImport else {
             return .rejected(.failed("PDF parsing is disabled in Settings. The original PDF was not converted."))
         }
 
-        let result = importer.importToMarkdown(pdfPath: pdfPath)
-        guard case let .markdown(markdown) = result else {
-            return .rejected(result) // honest — no note created
+        let preparedImport = await Task.detached(priority: .userInitiated) {
+            materializeImportedFiles(
+                pdfPath: pdfPath,
+                vaultURL: vaultURL,
+                importer: importer
+            )
+        }.value
+        guard case let .materialized(files) = preparedImport else {
+            if case let .rejected(result) = preparedImport {
+                return .rejected(result) // honest — no note created
+            }
+            return .rejected(.failed("PDF import failed."))
         }
 
-        let baseName = ((pdfPath as NSString).lastPathComponent as NSString).deletingPathExtension
-        let title = baseName.isEmpty ? "Imported PDF" : baseName
-
-        // File-first (mirrors CodeFileCreationController): write the .md into the vault.
-        let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
-        let fileURL = uniqueFileURL(directory: dirURL, baseName: title, pathExtension: "md")
-        let sourcePDFURL = uniqueFileURL(directory: dirURL, baseName: title, pathExtension: "pdf")
-        let sourcePDFRelativePath = vaultRelativePath(for: sourcePDFURL, in: vaultURL)
-        do {
-            try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: URL(fileURLWithPath: pdfPath), to: sourcePDFURL)
-            try Data(markdown.utf8).write(to: fileURL, options: .atomic)
-        } catch {
-            try? FileManager.default.removeItem(at: sourcePDFURL)
-            try? FileManager.default.removeItem(at: fileURL)
-            return .rejected(.failed("Couldn't write the note file: \(error.localizedDescription)"))
-        }
-
-        let page = SDPage(title: fileURL.deletingPathExtension().lastPathComponent, emoji: "📄")
+        let page = SDPage(title: files.noteURL.deletingPathExtension().lastPathComponent, emoji: "📄")
         page.format = "markdown"
-        page.filePath = fileURL.standardizedFileURL.path
+        page.filePath = files.noteURL.standardizedFileURL.path
         page.subfolder = importDirectory
-        page.saveBody(markdown)
-        page.wordCount = markdown.split(whereSeparator: \.isWhitespace).count
-        page.lastSyncedBodyHash = SDPage.bodyHash(markdown)
+        page.saveBody(files.markdown)
+        page.wordCount = files.markdown.split(whereSeparator: \.isWhitespace).count
+        page.lastSyncedBodyHash = SDPage.bodyHash(files.markdown)
         page.lastSyncedAt = .now
         page.needsVaultSync = false
         var frontMatter = page.frontMatter
         frontMatter["source_kind"] = "pdf"
-        frontMatter["source_pdf"] = sourcePDFRelativePath
+        frontMatter["source_pdf"] = files.sourcePDFRelativePath
         page.frontMatter = frontMatter
 
         modelContext.insert(page)
@@ -73,30 +64,84 @@ enum LiteParsePDFImportController {
             return .imported(pageID: page.id, title: page.title)
         } catch {
             modelContext.delete(page)
-            try? FileManager.default.removeItem(at: fileURL)
-            try? FileManager.default.removeItem(at: sourcePDFURL)
+            try? FileManager.default.removeItem(at: files.noteURL)
+            try? FileManager.default.removeItem(at: files.pdfURL)
             NoteFileStorage.deleteBody(pageId: page.id)
             return .rejected(.failed("Couldn't save the imported note: \(error.localizedDescription)"))
         }
     }
 
-    /// A non-colliding `<baseName>.md` (then `<baseName> 2.md`, …) in `directory`.
-    private static func uniqueFileURL(directory: URL, baseName: String, pathExtension: String) -> URL {
-        let safe = baseName.replacingOccurrences(of: "/", with: "-")
-        var candidate = directory.appendingPathComponent("\(safe).\(pathExtension)")
-        var counter = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = directory.appendingPathComponent("\(safe) \(counter).\(pathExtension)")
-            counter += 1
+    nonisolated private static func materializeImportedFiles(
+        pdfPath: String,
+        vaultURL: URL,
+        importer: LiteParsePDFImporter
+    ) -> PreparedPDFImport {
+        let result = importer.importToMarkdown(pdfPath: pdfPath)
+        guard case let .markdown(markdown) = result else {
+            return .rejected(result)
         }
-        return candidate
+
+        let baseName = ((pdfPath as NSString).lastPathComponent as NSString).deletingPathExtension
+        let title = baseName.isEmpty ? "Imported PDF" : baseName
+        let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
+        var selectedURLs: (noteURL: URL, pdfURL: URL)?
+
+        do {
+            try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+            let urls = uniquePairedFileURLs(directory: dirURL, baseName: title)
+            selectedURLs = urls
+            try FileManager.default.copyItem(at: URL(fileURLWithPath: pdfPath), to: urls.pdfURL)
+            try Data(markdown.utf8).write(to: urls.noteURL, options: .atomic)
+            return .materialized(
+                LiteParseMaterializedImportFiles(
+                    markdown: markdown,
+                    noteURL: urls.noteURL,
+                    pdfURL: urls.pdfURL,
+                    sourcePDFRelativePath: vaultRelativePath(for: urls.pdfURL, in: vaultURL)
+                )
+            )
+        } catch {
+            if let selectedURLs {
+                try? FileManager.default.removeItem(at: selectedURLs.noteURL)
+                try? FileManager.default.removeItem(at: selectedURLs.pdfURL)
+            }
+            return .rejected(.failed("Couldn't write the note file: \(error.localizedDescription)"))
+        }
     }
 
-    private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String {
+    /// A non-colliding paired `<baseName>.md` + `<baseName>.pdf` in `directory`.
+    nonisolated private static func uniquePairedFileURLs(directory: URL, baseName: String) -> (noteURL: URL, pdfURL: URL) {
+        let safe = baseName.replacingOccurrences(of: "/", with: "-")
+        var candidateBaseName = safe
+        var counter = 2
+        while FileManager.default.fileExists(atPath: directory.appendingPathComponent("\(candidateBaseName).md").path)
+            || FileManager.default.fileExists(atPath: directory.appendingPathComponent("\(candidateBaseName).pdf").path) {
+            candidateBaseName = "\(safe) \(counter)"
+            counter += 1
+        }
+        return (
+            noteURL: directory.appendingPathComponent("\(candidateBaseName).md"),
+            pdfURL: directory.appendingPathComponent("\(candidateBaseName).pdf")
+        )
+    }
+
+    nonisolated private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String {
         let vaultPath = vaultURL.standardizedFileURL.path
         let filePath = fileURL.standardizedFileURL.path
         let prefix = vaultPath.hasSuffix("/") ? vaultPath : vaultPath + "/"
         guard filePath.hasPrefix(prefix) else { return fileURL.lastPathComponent }
         return String(filePath.dropFirst(prefix.count))
     }
+}
+
+private enum PreparedPDFImport: Sendable {
+    case materialized(LiteParseMaterializedImportFiles)
+    case rejected(LiteParseImportResult)
+}
+
+private struct LiteParseMaterializedImportFiles: Sendable {
+    let markdown: String
+    let noteURL: URL
+    let pdfURL: URL
+    let sourcePDFRelativePath: String
 }
