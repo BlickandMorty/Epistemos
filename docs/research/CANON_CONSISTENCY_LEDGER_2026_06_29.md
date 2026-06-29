@@ -6,8 +6,8 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 17:51 CDT (loop cycle 12) — **10/10 ✅**, 0 locked-canon drift, **1 new OWNER REVIEW item**. Plan-5 was EXPANDED (`a807e9253`) to 2 surfaces (note companion + landing-Farm companions) — re-read: still Option-1 (both reskinned WebView, NOT native chat), graph untouched. It carries a **flagged, gated doctrine evolution** (Companion v1.6 cosmetic-only → gated chat) that is OUTSIDE the 10 invariants & doesn't touch the locked canon docs; cross-doctrine tension with ~10 archival docs PARKED for owner (did not banner). LOST_ITEMS_RECON + Plan-3 codepacks scanned = no canon drift. HEAD at pass: `d0eb0a934`.
-<br>_Recent: cycle 11 (17:42) tracked NEW Plans 4 & 5 (canon-compliant) + reworded #9. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs. cycle 2 (16:17) made #6/#8 greps honest._
+**Last auditor pass:** 2026-06-29 17:59 CDT (loop cycle 13) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW (1 still open from cycle 12). **2 MORE new plans** (`PROMPT_PLAN_6_QUICKCAPTURE`, `PROMPT_PLAN_7_SYNC`, via `c9a031410`) — both SAVED-gated, unrelated domains (capture / sync+CI), drift-scanned, FORBID touching the graph; no locked-invariant contradiction. **Plan-4 gained §11 animation layer** (`163fa2387`): Lottie/SVG/SwiftUI, never-GIF, theme-tinted, MINIMAL, reduce-motion→static — canon-compliant, no new springs. Widened #9 SAVED-gate sub-check to `[4-9]`. Staged-by-agent `PLAN_3_EXTENSIBILITY` read (no drift), NOT committed by me. HEAD at pass: `163fa2387`.
+<br>_Recent: cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 11 (17:42) tracked NEW Plans 4 & 5. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
 
@@ -24,7 +24,7 @@ Run each `Check` from repo root; the Pass condition is what a consistent canon r
 | 6 | **Graph = DO NOT TOUCH** (already full AppKit/Metal) | `grep -liE "graph.{0,60}do not touch" docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md docs/prompts/PROMPT_PLAN_1_GOOSE.md docs/prompts/PROMPT_PLAN_2_EDITOR.md docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md` | all 4 files (doctrine + 3 prompts) listed | ✅ (cycle 2: doctrine carries it at lines 22 + 95; switched to case-insensitive grep — the old case-sensitive `GRAPH`/`graph` pattern false-negatived the doctrine's "Graph =", though the rule was present all along) |
 | 7 | **Lens model** Note(Epdoc)/Source(MarkEdit)/Prose(TK2); **old code editor KEPT as v1 legacy** (no deletion); MD-nav = Note default→Prose→Source-button→full-MarkEdit | `grep -rniE "delete the 3 old\|old code-editor files were deleted" docs/research/EDITOR_CANONICAL*.md docs/research/MARKEDIT_EMBED*.md \| grep -viE "SUPERSEDES\|PRESERVED\|KEEP\|legacy"` | empty (the only hit is the line ENFORCING "v1 PRESERVED", excluded) | ✅ |
 | 8 | **Retheme-not-replace** (Goose's existing shadcn/Radix/Tailwind/framer-motion) | `grep -liE -e 'retheme' -e "don'?t replace" -e 'do not replace' docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md docs/research/GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md docs/prompts/PROMPT_PLAN_1_GOOSE.md` | all 3 files (doctrine + reskin + Plan-1) listed | ✅ (cycle 2: doctrine carries it at line 82 "retheme … + tune" + line 85 "blend, don't replace"; replaced the prose check with a concrete grep that surfaces all 3) |
-| 9 | **Active fleet paste = `PROMPT_PLAN_1/2/3`** (Plan 4/5 SAVED-not-active); every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty · AND `for f in docs/prompts/PROMPT_PLAN_[45]_*.md; do grep -qiE "SAVED\|NOT YET ACTIVE" "$f" \|\| echo "UNGATED: $f"; done` → empty | both empty (handoff PROMPT docs bannered; new Plan-4/5 carry SAVED/NOT-ACTIVE gates) | ✅ cycle 11: owner introduced `PROMPT_PLAN_4_ICONS` + `PROMPT_PLAN_5_COMPANION` (docs/prompts/) — both gated SAVED/NOT-ACTIVE, drafted to 1/2/3 strictness, auditor-verified Option-1/two-token/graph/retheme compliant (see "NEW PLANS" §). ACTIVE paste set unchanged = 1/2/3. (Prior: ~50 archival paste-prompt hits parked in OWNER REVIEW, not a fleet risk.) |
+| 9 | **Active fleet paste = `PROMPT_PLAN_1/2/3`** (Plan 4/5 SAVED-not-active); every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty · AND `for f in docs/prompts/PROMPT_PLAN_[4-9]_*.md; do grep -qiE "SAVED\|NOT YET ACTIVE" "$f" \|\| echo "UNGATED: $f"; done` → empty | both empty (handoff PROMPT docs bannered; new Plan-4/5/6/7 carry SAVED/NOT-ACTIVE gates) | ✅ cycle 11: owner introduced `PROMPT_PLAN_4_ICONS` + `PROMPT_PLAN_5_COMPANION` (docs/prompts/) — both gated SAVED/NOT-ACTIVE, drafted to 1/2/3 strictness, auditor-verified Option-1/two-token/graph/retheme compliant (see "NEW PLANS" §). ACTIVE paste set unchanged = 1/2/3. (Prior: ~50 archival paste-prompt hits parked in OWNER REVIEW, not a fleet risk.) |
 | 10 | **Accent #0066cc · SF Pro · radius 11** consistent | `grep -rohE "#0066cc" docs/ \| wc -l` (>0, no rival accent) | consistent | ✅ |
 
 ## Stale docs that are BANNERED (mitigated, kept for nuance — do NOT delete)
@@ -33,15 +33,18 @@ GOOSE_PHASE_0_OWNER_SIGNOFF_CHECKLIST · GOOSE_PHASE_0_CONTINUATION_PROMPT · GO
 GOOSE_APPKIT_SURFACE_MAPPING · CLAUDE_IMPLEMENTATION_PROMPT_FULL_CLONE_INFUSION_2026_06_24 (stale 06-24 full-clone/Osaurus
 paste-prompt; bannered 2026-06-29) — each has a top SUPERSEDED-2026-06-29 banner; their bodies are HISTORICAL.
 
-## NEW PLANS 4 & 5 (owner-saved 2026-06-29, NOT active — auditor-tracked, canon-compliant)
-The owner drafted two further plans to the same strictness as 1/2/3 and **parked them** (commits `a6681941a`, `e240a6cc9`).
-Both carry a top "🛑 SAVED / NOT YET ACTIVE — do NOT launch until owner says go" banner. **They do NOT change the active
-fleet (still 1/2/3); paste them only on owner go.** Auditor read both prompts in full (cycle 11) — they ENFORCE the
-locked invariants, no relitigation:
+## NEW PLANS 4–7 (owner-saved 2026-06-29, NOT active — auditor-tracked, canon-compliant)
+The owner drafted four further plans to the same strictness as 1/2/3 and **parked them** (commits `a6681941a`,
+`e240a6cc9`, `c9a031410`, + expansions). All carry a top "🛑 SAVED / NOT YET ACTIVE — do NOT launch until owner says go"
+banner (auditor #9 sub-check covers `PROMPT_PLAN_[4-9]`). **They do NOT change the active fleet (still 1/2/3); paste them
+only on owner go.** Auditor read the prompts — they ENFORCE the locked invariants, no relitigation:
 - **PROMPT_PLAN_4_ICONS** (theme-canonical monochrome iconography; upgrades Plan-3's brand-logo spine, does not fork it).
   Compliance: two-token-sources EXPLICIT ("icon tokens in EpistemosTheme.swift + Goose theme-tokens.ts, no third source";
   additive-only, coordinate on shared theme files) · color = theme token, never hardcoded #000/#fff (no rival accent) ·
   GRAPH DO-NOT-TOUCH · no fork/restructure of spine or GooseNativeModelsView (retheme-not-replace) · no runtime npm (MAS).
+  **+ §11 ANIMATION LAYER** (cycle 13, `163fa2387`; optional/additive): Lottie/animated-SVG/SwiftUI, **never GIF** (GIF
+  can't recolor → would break theme-canonical mono); theme-token tinted (mono preserved), SUBTLE/MINIMAL, reduce-motion→
+  static, vendored-at-build (no runtime fetch, MAS-safe). Adds no new spring values (check #4 unaffected).
 - **PROMPT_PLAN_5_COMPANION** — EXPANDED cycle 12 (`a807e9253`) to **TWO surfaces, one panel core**: (A) note-scoped
   mini-Goose-chat embedded in Epdoc; (B) landing "Farm" companions wired from cosmetic mascots → selectable/chattable
   personas (create/manage/select-and-chat; mascot icon on top, compact chat below). Compliance (re-verified): **Option 1 —
@@ -51,6 +54,12 @@ locked invariants, no relitigation:
   deliberately extends the *CompanionModel v1.6 "cosmetic-only / no authority"* doctrine to allow a **gated chat binding**
   (still no silent tool/MCP/approval/runtime authority; honest MAS gate). Owner-directed + explicitly flagged in the plan;
   does NOT touch the locked canon docs. Cross-doctrine tension parked → OWNER REVIEW.
+- **PROMPT_PLAN_6_QUICKCAPTURE** (Swift UX over the already-shipped Rust Quick-Capture substrate). Cycle-13 scan: SAVED-
+  gated; domain is capture UX (not chat/editor/graph/token). FORBIDS touching the graph; coordinates with Plan-2
+  wikilinks/graph canonicalization + Plan-4 icons. No locked-invariant contradiction. (Full read deferred until owner activates.)
+- **PROMPT_PLAN_7_SYNC** (multi-device sync + recurring quality gate; holds 2 non-crash stability items). Cycle-13 scan:
+  SAVED-gated; domain is sync/CI (not chat/editor/graph/token). FORBIDS touching the graph + MAS subprocess (Pro git lane is
+  Pro/Dev-ID gated). No locked-invariant contradiction. (Full read deferred until owner activates.)
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
 - **2026-06-29 cycle 12 (Auditor) — Companion v1.6 "cosmetic-only" doctrine vs Plan-5 chat extension (NOT a locked-canon
