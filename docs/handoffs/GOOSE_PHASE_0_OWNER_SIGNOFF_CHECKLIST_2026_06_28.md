@@ -291,13 +291,42 @@ Launch the current Debug build:
   new subprocess/sidecar surface; required network entitlements already ship. Awaits
   your go/no-go.
 
+## 2026-06-29 PM — continuous-loop security hardening (re-prove + thermonuclear)
+
+A fresh independent loop re-proved the live surface from scratch and ran a 3-reviewer
+adversarial pass over all of `Epistemos/Goose/*`. Re-runnable re-proofs this loop:
+`LIVE_ACP_SURFACE_PASS` (106 providers via `providers/catalog/list`), `NATIVE_MODELS_PARITY_PASS`
+(65 providers, 53 with inline models), `NO_SILENT_DROPS_PASS` (3 unknown methods → structured
+`-32601`), affordance-ledger completeness (54/54 `window.electron.*` calls covered), Keychain-only
+secrets, app-target build green. The review CONFIRMED the load-bearing properties (no-silent-drops,
+subprocess hardening, router-defaults-to-WebView, nav-gate deny-by-default, GOLDEN RULE clean, no
+hidden sidecar, false-green honesty) and FOUND + FIXED real bugs (committed `e09513737` + a follow-up):
+
+- **HIGH** web-affordance denylist was case-sensitive (`~/.SSH` bypass on case-insensitive APFS) and
+  symlink-bypassable — now case-insensitive + symlink-resolved, denylist extended.
+- **HIGH** Electron fallback launcher could exec a CWD `bin/pnpm` in shipped Pro builds — gated
+  `#if DEBUG`.
+- **HIGH** one malformed ACP frame tore down the whole connection — now per-frame contained.
+- **MED** supervisor restart race could mark the live process failed — process-identity guard added.
+- **MED** `openExternal` faked success on a denied scheme — now an honest error.
+- **MED(sec)** a known request method with drifted params answered `-32601` (could disable the
+  permission gate) — now `-32602` invalid-params; unknown methods still `-32601`.
+
+Full ranked table + evidence: `GOOSE_PHASE_0_VERIFICATION_2026_06_27.md` (2026-06-29 continuous-loop
+sections). These are SWIFT-side fixes → they need a **rebuilt** app to take effect (the Web-UI
+bundle is unchanged). NOTE: the shared `build-for-testing` is currently blocked by an unrelated
+Plan-3 test (`EpistemosTests/ArxivPlan3Tests.swift`) at HEAD — the Goose app target itself builds
+green; the focused Goose unit suites re-run once the Plan-3 lane restores the test target.
+
 ## Remaining non-owner work before/after sign-off (tracked)
 
 - Gate 3 live thinking chunk, or your explicit §7 amendment that Goose no longer
   emits it on the supported path.
 - Gate 5: true confirm-dialog / MCP-app window affordances proven or honestly
   demoted; MAS honest-gate + manual WRV + distribution preflight.
-- 24 deferred thermonuclear findings (documented backlog) — future hardening loops.
+- Deferred thermonuclear MED/LOW backlog (event-sink stream shape, queue bounds,
+  CSP for MCP-app guest, staged-binary signature check, frame-scoped handlers,
+  deinit drains, git-config neutralization) — future hardening loops.
 
 **Sign-off:** reply with your decision once the manual pass + OAuth login above
 are confirmed (or amend Gate 3). Until then Phase 0 stays open and no Phase 1 /

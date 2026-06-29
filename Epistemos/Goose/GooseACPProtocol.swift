@@ -218,6 +218,17 @@ nonisolated struct GooseACPJSONRPCError: Codable, Equatable, Sendable {
             data: nil
         )
     }
+
+    /// JSON-RPC invalid-params for a request method we DO support whose payload failed typed decode
+    /// (e.g. a future goose schema drift). Distinct from `unsupportedRequest` (-32601) so the agent
+    /// does not conclude the method is unsupported. (review B-M1)
+    static func invalidParams(_ method: GooseACPMethod) -> Self {
+        Self(
+            code: -32602,
+            message: "Invalid params for ACP request: \(method.rawValue)",
+            data: nil
+        )
+    }
 }
 
 nonisolated struct GooseACPInitializeRequest: Encodable, Equatable, Sendable {

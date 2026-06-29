@@ -364,7 +364,18 @@ final class GooseACPEventBridge {
             guard let client else { return }
             Task { [weak self, client] in
                 do {
-                    try await client.respondUnsupportedRequest(requestId: id, method: method)
+                    // B-M1: a request for a method we DO support (permission/elicitation) reaches here
+                    // ONLY because its params failed typed decode → answer -32602 (invalid params),
+                    // NOT -32601 (method-not-found). Telling goose "request_permission not found" could
+                    // make it conclude the client can't prompt and silently auto-proceed/auto-reject
+                    // tool calls; -32602 says "supported method, this payload was invalid" so the
+                    // permission gate stays intact. Genuinely unknown methods still get -32601.
+                    switch method {
+                    case .requestPermission, .createElicitation:
+                        try await client.respondInvalidParams(requestId: id, method: method)
+                    default:
+                        try await client.respondUnsupportedRequest(requestId: id, method: method)
+                    }
                 } catch {
                     self?.recordResponseSendFailure(error, context: "unhandled-request")
                 }

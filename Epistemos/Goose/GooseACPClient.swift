@@ -433,6 +433,10 @@ actor GooseACPClient {
         try await sendError(id: requestId, error: .unsupportedRequest(method))
     }
 
+    func respondInvalidParams(requestId: GooseACPRequestID, method: GooseACPMethod) async throws {
+        try await sendError(id: requestId, error: .invalidParams(method))
+    }
+
     func receiveEvent() async throws -> GooseACPClientEvent {
         ensureReadLoop()
 
@@ -640,12 +644,14 @@ actor GooseACPClient {
     private func event(from message: GooseACPIncomingMessage) throws -> GooseACPClientEvent? {
         // Per-frame decode containment: a KNOWN method whose payload has drifted
         // (a missing/renamed required field on a future goose serve) must NOT tear
-        // down the whole ACP connection. On a typed-decode miss we fall back to the
-        // same unhandled-diagnostic path the UNKNOWN methods already use, so the
-        // event bridge records a structured diagnostic and (for requests) still
-        // answers the server with a JSON-RPC error instead of leaving it hanging.
-        // Terminal `fail()` stays reserved for transport-level errors and the outer
-        // frame parse in `ensureReadLoop`.
+        // down the whole ACP connection. On a typed-decode miss we route to the
+        // unhandled path so the event bridge records a structured diagnostic and (for
+        // requests) still answers the server with a JSON-RPC error instead of leaving
+        // it hanging — and the bridge answers a KNOWN-but-undecodable method with
+        // -32602 (invalid params) vs an UNKNOWN method with -32601 (method-not-found),
+        // so a permission/elicitation schema drift never reads as "client can't prompt"
+        // (review B-M1). Terminal `fail()` stays reserved for transport-level errors
+        // and the outer frame parse in `ensureReadLoop`.
         switch message {
         case .notification(.sessionUpdate, let params):
             if let notification = try? params.decoded(GooseACPSessionNotification.self) {
