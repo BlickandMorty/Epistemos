@@ -98,19 +98,23 @@ pub(crate) async fn run_agent_browser_command(
 
     if !stdout.is_empty() {
         if let Ok(parsed) = serde_json::from_str::<Value>(&stdout) {
-            if parsed
-                .get("success")
-                .and_then(Value::as_bool)
-                .is_some_and(|success| !success)
-            {
-                let message = parsed
-                    .get("error")
-                    .and_then(Value::as_str)
-                    .unwrap_or("agent-browser reported failure");
-                return Err(ToolError::ExecutionFailed(format!(
-                    "agent-browser '{command_name}' failed: {}",
-                    redact_browser_error_detail(message)
-                )));
+            match parsed.get("success").and_then(Value::as_bool) {
+                Some(false) => {
+                    let message = parsed
+                        .get("error")
+                        .and_then(Value::as_str)
+                        .unwrap_or("agent-browser reported failure");
+                    return Err(ToolError::ExecutionFailed(format!(
+                        "agent-browser '{command_name}' failed: {}",
+                        redact_browser_error_detail(message)
+                    )));
+                }
+                Some(true) => {}
+                None => {
+                    return Err(ToolError::ExecutionFailed(format!(
+                        "agent-browser returned JSON without success=true for '{command_name}' (stdout redacted)"
+                    )));
+                }
             }
             if !status.success() {
                 let code = status.code().unwrap_or(-1);

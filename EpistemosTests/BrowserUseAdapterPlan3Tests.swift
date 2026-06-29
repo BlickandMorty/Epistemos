@@ -247,6 +247,7 @@ struct BrowserUseAdapterPlan3Tests {
             "agent-browser returned non-JSON output",
             "agent-browser '{command_name}' failed",
             "browser_success_json_requires_successful_exit_status",
+            "browser_json_output_requires_success_true_contract",
             "cleanup_local_daemon",
             "cleanup_socket_dir_is_private",
             "metadata.permissions().mode() & 0o077",
