@@ -27,6 +27,9 @@ pub const UNPDF_VENDOR_SOURCE: &str = "iyulab/unpdf@d41b4dff1a29411bd62d405b322c
 pub const LITEPARSE_VENDOR_LICENSE: &str = "Apache-2.0";
 pub const LITEPARSE_VENDOR_SOURCE: &str = "run-llama/liteparse";
 
+const MAX_PDF_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_PDF_MIB: u64 = MAX_PDF_BYTES / 1024 / 1024;
+
 /// Honest errors for a PDF→Markdown conversion. The caller surfaces these; the seam
 /// NEVER returns fake markdown and NEVER shells out for an unsupported format.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,6 +90,28 @@ fn reject_if_not_pdf(pdf_path: &str) -> Result<(), LiteParseError> {
     Ok(())
 }
 
+fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
+    reject_if_not_pdf(pdf_path)?;
+
+    let metadata = std::fs::metadata(pdf_path)
+        .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file: {e}")))?;
+    if !metadata.is_file() {
+        return Err(LiteParseError::Failed(
+            "PDF path is not a regular file".to_string(),
+        ));
+    }
+    if metadata.len() == 0 {
+        return Err(LiteParseError::Failed("PDF file is empty".to_string()));
+    }
+    if metadata.len() > MAX_PDF_BYTES {
+        return Err(LiteParseError::Failed(format!(
+            "PDF is too large to parse safely ({} MiB limit)",
+            MAX_PDF_MIB
+        )));
+    }
+    Ok(())
+}
+
 const NO_SUBSTANTIVE_TEXT_MESSAGE: &str = "\
 PDF text extraction produced no readable Markdown; scanned/image-only PDFs need OCR, \
 which is out of scope on the MAS path";
@@ -117,7 +142,7 @@ pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
 /// this FFI route never spawns external tools.
 #[cfg(feature = "edgeparse-pdf")]
 pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
-    reject_if_not_pdf(pdf_path)?;
+    preflight_pdf_path(pdf_path)?;
     match edgeparse_to_markdown(pdf_path) {
         Ok(markdown) if markdown_is_substantive(&markdown) => Ok(markdown),
         Ok(markdown) => fallback_or_primary_empty(pdf_path, markdown),
@@ -211,7 +236,7 @@ fn fallback_or_primary_error(
 /// A non-PDF is still rejected up front; a real conversion failure → honest `Failed`.
 #[cfg(all(feature = "liteparse-pdf", not(feature = "edgeparse-pdf")))]
 pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
-    reject_if_not_pdf(pdf_path)?;
+    preflight_pdf_path(pdf_path)?;
     use liteparse::config::{LiteParseConfig, OutputFormat};
     use liteparse::parser::LiteParse;
     let config = LiteParseConfig {
@@ -312,6 +337,30 @@ mod tests {
         match pdf_to_markdown("/nonexistent/epistemos-liteparse-probe.pdf") {
             Err(LiteParseError::Failed(_)) => {}
             other => panic!("expected Failed for a missing PDF, got {other:?}"),
+        }
+    }
+
+    #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]
+    #[test]
+    fn live_engine_rejects_oversized_pdf_before_parser() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the Unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("epistemos-liteparse-oversized-{unique}.pdf"));
+        let file = std::fs::File::create(&path).expect("create sparse oversized PDF probe");
+        file.set_len(MAX_PDF_BYTES + 1)
+            .expect("set sparse oversized PDF length");
+        drop(file);
+
+        let outcome = pdf_to_markdown(path.to_str().expect("temp path should be UTF-8"));
+        let _ = std::fs::remove_file(&path);
+        match outcome {
+            Err(LiteParseError::Failed(message)) => {
+                assert!(message.contains("too large"), "unexpected error: {message}");
+                assert!(message.contains("512 MiB"), "unexpected limit: {message}");
+            }
+            other => panic!("expected oversized PDF preflight failure, got {other:?}"),
         }
     }
 
