@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import Epistemos
 
 @Suite("Plan 3 Apple-native shared views")
 struct AppleNativeSharedViewsPlan3Tests {
@@ -40,10 +41,23 @@ struct AppleNativeSharedViewsPlan3Tests {
             "generateBestRepresentation(for: request)",
             "representationTypes: .all",
             ".task(id: thumbnailIdentity)",
-            "url.isFileURL"
+            "url.isFileURL",
+            "scale.isFinite",
+            "scale > 0"
         ] {
             #expect(thumbnail.contains(required), "FileThumbnail missing expected API: \(required)")
         }
+    }
+
+    @Test("thumbnailer rejects invalid inputs before Quick Look generation")
+    func thumbnailerRejectsInvalidInputsBeforeQuickLookGeneration() async {
+        let remoteURL = URL(string: "https://example.com/paper.pdf")!
+        let fileURL = URL(fileURLWithPath: "/tmp/epistemos-missing-thumbnail.pdf")
+        let size = CGSize(width: 32, height: 32)
+
+        #expect(await FileThumbnailer.thumbnail(for: remoteURL, size: size, scale: 2) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: .zero, scale: 2) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: 0) == nil)
     }
 
     @Test("shared views stay out of Plan 1, Plan 2, and Pro-only runtimes")

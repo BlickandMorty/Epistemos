@@ -10,7 +10,9 @@ enum FileThumbnailer {
     ) async -> NSImage? {
         guard url.isFileURL,
               size.width > 0,
-              size.height > 0 else {
+              size.height > 0,
+              scale.isFinite,
+              scale > 0 else {
             return nil
         }
 
