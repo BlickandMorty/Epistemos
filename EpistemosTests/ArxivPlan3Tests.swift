@@ -132,6 +132,55 @@ struct ArxivPlan3Tests {
     }
 
     @MainActor
+    @Test("ingest keeps duplicate note and source PDF basenames paired")
+    func ingestKeepsDuplicateNoteAndSourcePDFBasenamesPaired() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-ingest-collision-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let importDir = vault.appendingPathComponent(ArxivIngestService.importDirectory, isDirectory: true)
+        let sourcePDF = root.appendingPathComponent("download.pdf")
+        let paper = try Self.paper()
+        let baseName = ArxivNoteDraft(paper: paper, parsedMarkdown: "").safeBaseName
+        try FileManager.default.createDirectory(at: importDir, withIntermediateDirectories: true)
+        try Data("existing imported note".utf8).write(to: importDir.appendingPathComponent("\(baseName).md"))
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let outcome = await ArxivIngestService.ingest(
+            paper: paper,
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: FakeArxivImporter(result: .markdown("Converted full text.")),
+            downloader: FakeArxivDownloader(fileURL: sourcePDF)
+        )
+
+        guard case .imported = outcome else {
+            Issue.record("Expected arXiv ingest to import, got \(String(describing: outcome))")
+            return
+        }
+
+        let page = try #require(try context.fetch(FetchDescriptor<SDPage>()).first)
+        let filePath = try #require(page.filePath)
+        let noteBaseName = URL(fileURLWithPath: filePath).deletingPathExtension().lastPathComponent
+        let sourcePDFRelative = try #require(page.frontMatter["source_pdf"])
+        let sourcePDFBaseName = vault
+            .appendingPathComponent(sourcePDFRelative)
+            .deletingPathExtension()
+            .lastPathComponent
+
+        #expect(noteBaseName == "\(baseName) 2")
+        #expect(sourcePDFBaseName == noteBaseName)
+        #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("\(baseName) 2.md").path))
+        #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("\(baseName) 2.pdf").path))
+    }
+
+    @MainActor
     @Test("ingest rejects parser failure without writing a vault note")
     func ingestRejectsParserFailureWithoutVaultNote() async throws {
         let root = FileManager.default.temporaryDirectory

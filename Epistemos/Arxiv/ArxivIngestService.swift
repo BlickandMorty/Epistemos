@@ -83,8 +83,9 @@ enum ArxivIngestService {
         let note = ArxivNoteDraft(paper: paper, parsedMarkdown: markdown)
         let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
         let baseName = note.safeBaseName
-        let noteURL = uniqueFileURL(directory: dirURL, baseName: baseName, pathExtension: "md")
-        let pdfURL = uniqueFileURL(directory: dirURL, baseName: baseName, pathExtension: "pdf")
+        let urls = uniquePairedFileURLs(directory: dirURL, baseName: baseName)
+        let noteURL = urls.noteURL
+        let pdfURL = urls.pdfURL
         let sourcePDFRelativePath = vaultRelativePath(for: pdfURL, in: vaultURL)
 
         do {
@@ -124,15 +125,19 @@ enum ArxivIngestService {
         }
     }
 
-    private static func uniqueFileURL(directory: URL, baseName: String, pathExtension: String) -> URL {
+    private static func uniquePairedFileURLs(directory: URL, baseName: String) -> (noteURL: URL, pdfURL: URL) {
         let safe = baseName.replacingOccurrences(of: "/", with: "-")
-        var candidate = directory.appendingPathComponent("\(safe).\(pathExtension)")
+        var candidateBaseName = safe
         var counter = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = directory.appendingPathComponent("\(safe) \(counter).\(pathExtension)")
+        while FileManager.default.fileExists(atPath: directory.appendingPathComponent("\(candidateBaseName).md").path)
+            || FileManager.default.fileExists(atPath: directory.appendingPathComponent("\(candidateBaseName).pdf").path) {
+            candidateBaseName = "\(safe) \(counter)"
             counter += 1
         }
-        return candidate
+        return (
+            noteURL: directory.appendingPathComponent("\(candidateBaseName).md"),
+            pdfURL: directory.appendingPathComponent("\(candidateBaseName).pdf")
+        )
     }
 
     private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String {
