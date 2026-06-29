@@ -282,38 +282,64 @@ private struct MCPServersDetailView: View {
     }
 
     private func refreshInstalledServers() {
-        installedServers = MCPUrlServerDirectory.discover()
+        Task { @MainActor in
+            let servers = await Task.detached(priority: .utility) {
+                MCPUrlServerDirectory.discover()
+            }.value
+            guard !Task.isCancelled else { return }
+            installedServers = servers
+        }
     }
 
     private func installManualServer() {
-        do {
-            _ = try MCPUrlServerDirectory.install(
-                MCPUrlServerDirectory.WritableEntry(
-                    name: newServerName,
-                    url: newServerURL,
-                    authorizationTokenEnv: newServerAuthEnv
-                )
-            )
-            statusMessage = "Installed \(newServerName.trimmingCharacters(in: .whitespacesAndNewlines))."
-            statusIsError = false
-            newServerName = ""
-            newServerURL = ""
-            newServerAuthEnv = ""
-            refreshInstalledServers()
-        } catch {
-            statusMessage = error.localizedDescription
-            statusIsError = true
+        let entry = MCPUrlServerDirectory.WritableEntry(
+            name: newServerName,
+            url: newServerURL,
+            authorizationTokenEnv: newServerAuthEnv
+        )
+        let displayName = newServerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task { @MainActor in
+            let outcome = await Task.detached(priority: .utility) {
+                mcpServerOperationOutcome {
+                    try MCPUrlServerDirectory.install(entry)
+                } successMessage: {
+                    "Installed \(displayName)."
+                }
+            }.value
+            applyMCPServerOperationOutcome(outcome, clearsManualForm: true)
         }
     }
 
     private func uninstall(_ server: MCPUrlServerDirectory.ServerInfo) {
-        do {
-            _ = try MCPUrlServerDirectory.uninstall(name: server.name)
-            statusMessage = "Removed \(server.name)."
+        let name = server.name
+        Task { @MainActor in
+            let outcome = await Task.detached(priority: .utility) {
+                mcpServerOperationOutcome {
+                    try MCPUrlServerDirectory.uninstall(name: name)
+                } successMessage: {
+                    "Removed \(name)."
+                }
+            }.value
+            applyMCPServerOperationOutcome(outcome, clearsManualForm: false)
+        }
+    }
+
+    private func applyMCPServerOperationOutcome(
+        _ outcome: MCPServerSettingsOperationOutcome,
+        clearsManualForm: Bool
+    ) {
+        switch outcome {
+        case .success(let message, let servers):
+            statusMessage = message
             statusIsError = false
-            refreshInstalledServers()
-        } catch {
-            statusMessage = error.localizedDescription
+            if clearsManualForm {
+                newServerName = ""
+                newServerURL = ""
+                newServerAuthEnv = ""
+            }
+            installedServers = servers
+        case .failure(let message):
+            statusMessage = message
             statusIsError = true
         }
     }
@@ -327,19 +353,20 @@ private struct MCPServersDetailView: View {
     }
 
     private func installRegistryEntry(_ entry: MCPRegistryEntry) {
-        do {
-            _ = try MCPUrlServerDirectory.install(
-                MCPUrlServerDirectory.WritableEntry(
-                    name: serverName(for: entry),
-                    url: entry.installTarget
-                )
-            )
-            statusMessage = "Installed \(entry.name)."
-            statusIsError = false
-            refreshInstalledServers()
-        } catch {
-            statusMessage = error.localizedDescription
-            statusIsError = true
+        let writableEntry = MCPUrlServerDirectory.WritableEntry(
+            name: serverName(for: entry),
+            url: entry.installTarget
+        )
+        let displayName = entry.name
+        Task { @MainActor in
+            let outcome = await Task.detached(priority: .utility) {
+                mcpServerOperationOutcome {
+                    try MCPUrlServerDirectory.install(writableEntry)
+                } successMessage: {
+                    "Installed \(displayName)."
+                }
+            }.value
+            applyMCPServerOperationOutcome(outcome, clearsManualForm: false)
         }
     }
 
@@ -368,6 +395,22 @@ private struct MCPServersDetailView: View {
             #endif
         }
     }
+}
+
+private func mcpServerOperationOutcome(
+    operation: () throws -> [MCPUrlServerDirectory.ServerInfo],
+    successMessage: () -> String
+) -> MCPServerSettingsOperationOutcome {
+    do {
+        return .success(message: successMessage(), servers: try operation())
+    } catch {
+        return .failure(error.localizedDescription)
+    }
+}
+
+private enum MCPServerSettingsOperationOutcome: Sendable {
+    case success(message: String, servers: [MCPUrlServerDirectory.ServerInfo])
+    case failure(String)
 }
 
 private struct BestOfPresetCard: View {
@@ -449,15 +492,36 @@ private struct BestOfPresetCard: View {
     }
 
     private func applyPreset() async {
+        guard !isApplying else { return }
         isApplying = true
-        defer { isApplying = false }
-        results = await BestOfPreset.apply(vaultPath: vaultPath)
+        let selectedVaultPath = vaultPath
+        let presetResults = await Task.detached(priority: .utility) {
+            await BestOfPreset.apply(vaultPath: selectedVaultPath)
+        }.value
+        guard !Task.isCancelled else {
+            isApplying = false
+            return
+        }
+        results = presetResults
+        isApplying = false
         onChange()
     }
 
     private func revertRemoteMCP() {
-        results = BestOfPreset.revertRemoteMCP()
-        onChange()
+        guard !isApplying else { return }
+        isApplying = true
+        Task { @MainActor in
+            let presetResults = await Task.detached(priority: .utility) {
+                BestOfPreset.revertRemoteMCP()
+            }.value
+            guard !Task.isCancelled else {
+                isApplying = false
+                return
+            }
+            results = presetResults
+            isApplying = false
+            onChange()
+        }
     }
 }
 
@@ -533,7 +597,13 @@ private struct ConnectorsDetailView: View {
     }
 
     private func refresh() {
-        installedServers = MCPUrlServerDirectory.discover()
+        Task { @MainActor in
+            let servers = await Task.detached(priority: .utility) {
+                MCPUrlServerDirectory.discover()
+            }.value
+            guard !Task.isCancelled else { return }
+            installedServers = servers
+        }
     }
 }
 

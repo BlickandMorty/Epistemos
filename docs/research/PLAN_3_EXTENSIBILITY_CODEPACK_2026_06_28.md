@@ -31,8 +31,9 @@ JSON to `~/.config/mcp/url_servers.json` (atomic write). `install(WritableEntry)
 Segmented tabs: **Skills** (reuses the existing real `SkillsDetailView`) · **MCP Servers** (`MCPServersDetailView`:
 installed-list with delete + add-HTTPS-server form with `https://` validation + marketplace browse via §1, one-tap
 Install for `.remoteURL`, `.stdio`/`.skillRepo` shown disabled "unlocks in Pro" in MAS) · **Connectors** (existing
-read-only `CoworkConnectorDirectory` status) · **browser-use** (Pro diagnostics/settings). Settings now routes
-`.skills` to `ExtensionsDetailView()` where `@Environment(VaultSyncService.self)` is available.
+read-only `CoworkConnectorDirectory` status) · **browser-use** (Pro diagnostics/settings). URL-server discovery,
+install/uninstall, connector refresh, and Best-of apply/revert run off the SwiftUI path in detached utility workers.
+Settings now routes `.skills` to `ExtensionsDetailView()` where `@Environment(VaultSyncService.self)` is available.
 
 ## 4. `BestOfPreset.swift` + `Epistemos/Resources/best_of_preset.json` [DELIVERED]
 Manifest `{kind:.builtinTool|.skillRepo|.remoteMCP, id, displayName, why, minDistribution}` over **only-real-today**
@@ -42,7 +43,8 @@ capabilities (eidos.query/vault.search/web.search/web.fetch/think/graph.query/gr
 `.alreadyEnabled` (honest — no fake surface), remoteMCP → §2 writer, skillRepo → `skill_manage install_from_github` (Pro).
 Honest per-row gating: rows above the build's distribution return `.proLocked` ("unlocks in Pro"), never silently enabled.
 `revert()` removes only the remoteMCP rows it added (built-ins are policy not state; skill-repo removal is destructive →
-manual). `BestOfPresetCard` = one-tap UI with per-row status pills. Install-target URLs isolated in `installTarget(for:)`.
+manual). `BestOfPresetCard` = one-tap UI with per-row status pills; the UI invokes apply/revert from detached utility
+workers so config writes do not block Settings. Install-target URLs isolated in `installTarget(for:)`.
 
 ## 5. MAS/Pro split
 | Capability | MAS | Pro | Gate |

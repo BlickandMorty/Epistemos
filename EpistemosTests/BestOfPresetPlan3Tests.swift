@@ -11,6 +11,7 @@ struct BestOfPresetPlan3Tests {
         let extensibility = try loadMirroredSourceTextFile("docs/research/PLAN_3_EXTENSIBILITY_CODEPACK_2026_06_28.md")
         let vault = try loadMirroredSourceTextFile("docs/research/PLAN_3_VAULT_MCP_CODEPACK_2026_06_28.md")
         let directory = try loadMirroredSourceTextFile("Epistemos/Omega/MCPUrlServerDirectory.swift")
+        let extensionsView = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
 
         for required in [
             "Shipped Plan 3 surface",
@@ -33,8 +34,19 @@ struct BestOfPresetPlan3Tests {
             "SkillsDetailView()",
             "MCPServersDetailView",
             "BrowserUseSettingsView",
+            "off the SwiftUI path",
         ] {
             #expect(extensibility.contains(required), "Extensibility codepack missing shipped marker: \(required)")
+        }
+
+        for required in [
+            "Task.detached(priority: .utility)",
+            "MCPServerSettingsOperationOutcome",
+            "MCPUrlServerDirectory.discover()",
+            "BestOfPreset.apply(vaultPath: selectedVaultPath)",
+            "BestOfPreset.revertRemoteMCP()",
+        ] {
+            #expect(extensionsView.contains(required), "ExtensionsDetailView missing off-main operation marker: \(required)")
         }
 
         for required in [
