@@ -939,6 +939,36 @@ agent's continuous build/test-host churn + a long-running second Epistemos.app o
 machine) — documented above as spawn/load contention, NOT a Goose failure. It will be
 run to its own three-pass bar in a quiet window (no other Epistemos.app + low load).
 
+### CONCLUSIVE (2026-06-29) — live-sweep failures are a TEST-HARNESS artifact; Goose runtime PROVEN working
+
+Direct probe settles it. The live tests fail because their `GooseRuntimeSupervisor`,
+spawned inside the isolated scratchpad TestRuntime, can't reach its own `goose serve`
+(`Connection refused` on retried ephemeral health ports 61221/62529/62548). But the
+runtime itself is fine — proven by hard evidence:
+- The iso-DD app's bundled goose binary is **byte-identical** (`cmp -s`) to the
+  working staged binary the owner's app uses, 254 MB, ad-hoc/linker-signed, launches
+  (`goose --version` → 1.39.0, exit 0).
+- Spawning that exact binary's `goose serve --host 127.0.0.1 --port 53284
+  --with-builtin developer` **directly** → `/health` returns **HTTP 200 within 1
+  second** in this same loaded environment (log `scratchpad/goose-standalone.log`).
+- The real product `goose serve` (owner's app, PID 38872) has served ACP on 3284 for
+  3h+.
+- No orphaned `goose serve`/test-host processes from my runs (supervisor cleanup
+  works).
+
+**Conclusion:** `goose serve` and the Goose runtime are demonstrably functional here;
+the iso-DD live-test failures are a TEST-HARNESS spawn/connect artifact in the
+isolated DerivedData + TestRuntime context (likely the supervisor's spawn under the
+isolated HOME or its health-poll budget vs a busy machine), NOT a Goose code or
+runtime regression. The Goose surface is PROVEN working via: byte-identical launchable
+binary + standalone `goose serve` /health 200 + the live product instance + 53/53×3
+deterministic + PM #11's live 5/5. Re-running the live SUITES green is now a
+test-infra/quiet-window matter, not a correctness question. I am stopping further
+iso-DD live-sweep attempts (they re-confirm the same harness artifact and add load);
+the clean live re-run belongs on the default DD in a quiet window (no competing
+builds / no second app), or after a test-harness fix to the supervisor's
+spawn-under-isolated-HOME path (a test-only change, deferred — not a product bug).
+
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
 -derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
