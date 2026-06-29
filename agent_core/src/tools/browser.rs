@@ -359,10 +359,15 @@ async fn get_images_impl(manager: &BrowserManager) -> Result<Value, ToolError> {
         r#"JSON.stringify((() => {{
 const MAX_IMAGES = {GET_IMAGES_PAGE_LIMIT};
 const MAX_TEXT_CHARS = {GET_IMAGES_TEXT_LIMIT};
+let textTruncated = false;
 const limitText = value => {{
   const text = String(value || '');
   const chars = Array.from(text);
-  return chars.length > MAX_TEXT_CHARS ? chars.slice(0, MAX_TEXT_CHARS).join('') : text;
+  if (chars.length > MAX_TEXT_CHARS) {{
+    textTruncated = true;
+    return chars.slice(0, MAX_TEXT_CHARS).join('');
+  }}
+  return text;
 }};
 const images = Array.from(document.images)
   .map(img => ({{ src: img.src, alt: img.alt || '', width: img.naturalWidth, height: img.naturalHeight }}))
@@ -375,7 +380,7 @@ return {{
     height: img.height,
   }})),
   count: images.length,
-  truncated: images.length > MAX_IMAGES,
+  truncated: images.length > MAX_IMAGES || textTruncated,
 }};
 }})())"#
     );
