@@ -11,6 +11,10 @@ struct GooseWebSurfaceView: View {
         "/__epistemos-goose/\(gooseUISurfaceCacheToken)"
 
     var theme: EpistemosTheme = .nativeDefault
+    /// The web hash route to display. Default `/?` (the Goose hub). The native Agent frame's nav rail
+    /// drives this so a rail selection navigates the embedded WebView — navigation STRUCTURE only; the
+    /// SPA still owns its content. A change re-points the loaded WebView via `loadGooseRoute`.
+    var route: String = "/?"
 
     @State private var supervisor = GooseRuntimeSupervisor()
     @State private var acpBridge = GooseACPEventBridge()
@@ -35,8 +39,9 @@ struct GooseWebSurfaceView: View {
     @State private var reloadedSyncForConnectionKey: String?
     @State private var isRestarting = false
 
-    init(theme: EpistemosTheme = .nativeDefault) {
+    init(theme: EpistemosTheme = .nativeDefault, route: String = "/?") {
         self.theme = theme
+        self.route = route
         let secretKey = GooseRuntimeSupervisor.randomSecretKey()
         let bootstrap = GooseWebBootstrap(
             baseURL: GooseRuntimeSupervisor.defaultBaseURL(),
@@ -84,6 +89,11 @@ struct GooseWebSurfaceView: View {
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)
+        }
+        .onChange(of: route) { _, newRoute in
+            // Native nav-rail drove the route: re-point the loaded WebView (no-op until the UI server
+            // is running; the initial route is applied at load time in loadGooseUI).
+            loadGooseRoute(newRoute)
         }
         .onChange(of: acpBridge.status) { _, _ in
             handleBridgeStatusChange()
@@ -518,7 +528,7 @@ struct GooseWebSurfaceView: View {
             if case .running(let uiBaseURL) = server.status {
                 trustedOrigins.register(uiBaseURL)
             }
-            await loadGooseUIWhenReady(server, route: "/?", acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
+            await loadGooseUIWhenReady(server, route: route, acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
         }
