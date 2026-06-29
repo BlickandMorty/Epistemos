@@ -32,6 +32,17 @@ private struct CodeFileBodySnapshot: Equatable, Sendable {
     }
 }
 
+private struct CodeFileBodyLoadFailure: Equatable, Sendable {
+    let pageId: String
+    let filePath: String
+    let message: String
+
+    func message(ifMatches currentPageId: String, filePath currentFilePath: String) -> String? {
+        guard pageId == currentPageId, filePath == currentFilePath else { return nil }
+        return message
+    }
+}
+
 enum NoteWorkspaceMode: String, CaseIterable, Hashable {
     case edit
     case preview
@@ -696,6 +707,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
+    @State private var codeFileLoadFailure: CodeFileBodyLoadFailure?
     @State private var persistedBody: String
     @State private var showLegacyRecoverySheet = false
     @State private var legacyRecoveryPresentation: NoteLegacyRecoveryPresentation?
@@ -1238,6 +1250,9 @@ struct NoteDetailWorkspaceView: View {
     private var codeFileLineCount: Int {
         guard let page = pages.first,
               let route = sourceEditorRoute(for: page) else { return 0 }
+        if needsRawMarkdownSourceSnapshot(page: page, route: route) {
+            return 0
+        }
         let content = cachedSourceEditorContent(page: page, route: route)
         return content.components(separatedBy: "\n").count
     }
@@ -1277,20 +1292,26 @@ struct NoteDetailWorkspaceView: View {
                 VStack(spacing: 0) {
                     sourceModeHeader(for: page, route: route)
 
-                    CodeEditorView(
-                        content: cachedSourceEditorContent(page: page, route: route),
-                        language: route.language,
-                        filePath: route.filePath,
-                        onContentChange: { newContent in
-                            saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
-                        },
-                        // SS-GC: in the embedded home graph, give the code editor the same
-                        // landing-variant theme the prose branch gets, so its top bar paints the
-                        // graph backdrop instead of a white card. nil elsewhere = unchanged.
-                        themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
-                    )
-                    .id("\(page.id)::\(route.filePath)")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    if let failureMessage = rawMarkdownSourceLoadFailureMessage(page: page, route: route) {
+                        rawMarkdownSourceFailureSurface(message: failureMessage, route: route)
+                    } else if needsRawMarkdownSourceSnapshot(page: page, route: route) {
+                        rawMarkdownSourceLoadingSurface(route: route)
+                    } else {
+                        CodeEditorView(
+                            content: cachedSourceEditorContent(page: page, route: route),
+                            language: route.language,
+                            filePath: route.filePath,
+                            onContentChange: { newContent in
+                                saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
+                            },
+                            // SS-GC: in the embedded home graph, give the code editor the same
+                            // landing-variant theme the prose branch gets, so its top bar paints the
+                            // graph backdrop instead of a white card. nil elsewhere = unchanged.
+                            themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
+                        )
+                        .id("\(page.id)::\(route.filePath)")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
                 }
                 .sheet(isPresented: $showMarkEditSourceSettings) {
                     #if canImport(MarkEditKit)
@@ -1320,6 +1341,54 @@ struct NoteDetailWorkspaceView: View {
             maxHeight: .infinity,
             alignment: .topLeading
         )
+    }
+
+    private func rawMarkdownSourceLoadingSurface(route: SourceEditorRoute) -> some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+
+            Text("Loading Source")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(ui.theme.resolved.foreground.color)
+
+            Text(URL(fileURLWithPath: route.filePath).lastPathComponent)
+                .font(.system(size: 12))
+                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.58))
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: noteWorkspaceTheme))
+    }
+
+    private func rawMarkdownSourceFailureSurface(message: String, route: SourceEditorRoute) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "doc.badge.exclamationmark")
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
+
+            Text("Source Unavailable")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(ui.theme.resolved.foreground.color)
+
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.62))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .frame(maxWidth: 420)
+
+            Text(URL(fileURLWithPath: route.filePath).lastPathComponent)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.45))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 420)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: noteWorkspaceTheme))
     }
 
     @ViewBuilder
@@ -1380,6 +1449,7 @@ struct NoteDetailWorkspaceView: View {
                     filePath: filePath,
                     body: content
                 )
+                codeFileLoadFailure = nil
                 try Self.applyDirectCodeFileSave(
                     content,
                     to: page,
@@ -1835,6 +1905,16 @@ struct NoteDetailWorkspaceView: View {
         return cachedCodeFileContent(page: page, filePath: route.filePath)
     }
 
+    private func rawMarkdownSourceLoadFailureMessage(page: SDPage, route: SourceEditorRoute) -> String? {
+        guard CodeLanguage.isMarkdownDocument(path: route.filePath) else { return nil }
+        return codeFileLoadFailure?.message(ifMatches: page.id, filePath: route.filePath)
+    }
+
+    private func needsRawMarkdownSourceSnapshot(page: SDPage, route: SourceEditorRoute) -> Bool {
+        guard CodeLanguage.isMarkdownDocument(path: route.filePath) else { return false }
+        return codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) == nil
+    }
+
     private func isMarkdownDocument(_ page: SDPage) -> Bool {
         CodeLanguage.isMarkdownDocument(path: page.filePath)
     }
@@ -1889,6 +1969,7 @@ struct NoteDetailWorkspaceView: View {
 
     private func scheduleCodeFileBodyRefresh(for page: SDPage?) {
         codeFileLoadTask?.cancel()
+        codeFileLoadFailure = nil
         guard let page,
               let route = sourceEditorRoute(for: page) else {
             codeFileBodySnapshot = nil
@@ -1900,6 +1981,15 @@ struct NoteDetailWorkspaceView: View {
             Log.notes.error(
                 "NoteDetailWorkspaceView: refusing async code file read with no active vault for \(filePath, privacy: .public)"
             )
+            if CodeLanguage.isMarkdownDocument(path: filePath) {
+                codeFileLoadFailure = CodeFileBodyLoadFailure(
+                    pageId: page.id,
+                    filePath: filePath,
+                    message: "No active vault is available for this source file."
+                )
+                codeFileBodySnapshot = nil
+                return
+            }
             codeFileBodySnapshot = CodeFileBodySnapshot(
                 pageId: page.id,
                 filePath: filePath,
@@ -1932,6 +2022,7 @@ struct NoteDetailWorkspaceView: View {
                     filePath: filePath,
                     body: loaded.body
                 )
+                codeFileLoadFailure = nil
                 let persistedContent = SourceEditorPersistedContent(rawContent: loaded.body, filePath: filePath)
                 persistedBody = persistedContent.body
                 if persistedContent.isMarkdownSource {
@@ -1939,10 +2030,20 @@ struct NoteDetailWorkspaceView: View {
                 }
                 scheduleMetricsRefresh(body: persistedContent.body, includeMarkdownHeadings: false)
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled,
+                      pages.first?.id == pageId,
+                      pages.first?.filePath == filePath else { return }
                 Log.notes.error(
                     "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
+                if CodeLanguage.isMarkdownDocument(path: filePath) {
+                    codeFileLoadFailure = CodeFileBodyLoadFailure(
+                        pageId: pageId,
+                        filePath: filePath,
+                        message: error.localizedDescription
+                    )
+                    codeFileBodySnapshot = nil
+                }
             }
         }
     }

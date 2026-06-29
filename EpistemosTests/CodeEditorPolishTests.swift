@@ -45,6 +45,28 @@ nonisolated struct CodeEditorPolishTests {
         #expect(!workspaceSource.contains("CodeLanguage.detectEditorLanguage(from: filePath) != nil"))
     }
 
+    @Test("Markdown Source waits for a raw source snapshot before mounting editor")
+    func markdownSourceWaitsForRawSourceSnapshotBeforeMountingEditor() throws {
+        let workspaceSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(workspaceSource.contains("private struct CodeFileBodyLoadFailure"),
+                "Markdown Source load failures need scoped state instead of silently falling back to page.body.")
+        #expect(workspaceSource.contains("private func needsRawMarkdownSourceSnapshot(page: SDPage, route: SourceEditorRoute) -> Bool"),
+                "Markdown Source should have an explicit raw-snapshot gate before mounting the editor.")
+        #expect(workspaceSource.contains("rawMarkdownSourceFailureSurface(message: failureMessage, route: route)"),
+                "Read failures should render an error surface, not a body-only editor.")
+        #expect(workspaceSource.contains("rawMarkdownSourceLoadingSurface(route: route)"),
+                "Markdown Source should show a loading surface while the raw disk snapshot is pending.")
+        #expect(workspaceSource.contains("return codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) == nil"),
+                "The gate must be satisfied only by a raw snapshot for the same page and file path.")
+        #expect(workspaceSource.contains("if needsRawMarkdownSourceSnapshot(page: page, route: route) {\n            return 0\n        }"),
+                "Status counts should not be derived from prose fallback content while raw Source is pending.")
+        #expect(workspaceSource.contains(#"message: "No active vault is available for this source file.""#),
+                "Without a vault, markdown Source must report failure rather than treating page.body as raw source.")
+        #expect(!workspaceSource.contains("if CodeLanguage.isMarkdownDocument(path: filePath) {\n                codeFileBodySnapshot = CodeFileBodySnapshot(\n                    pageId: page.id,\n                    filePath: filePath,\n                    body: page.body"),
+                "Markdown Source must not synthesize a raw snapshot from the stripped page body.")
+    }
+
     // MARK: - OutlineParserCache (item 3)
 
     @Test("Cache hits when (content, language) unchanged")
