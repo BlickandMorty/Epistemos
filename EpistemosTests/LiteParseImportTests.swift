@@ -93,4 +93,32 @@ struct LiteParseImportTests {
         #expect(!LiteParseImportSettings.parsePDFOnImport(defaults: defaults))
         #expect(LiteParseImportSettings.defaultOpenForImportedPDF(defaults: defaults) == .originalPDF)
     }
+
+    @Test("source PDF links resolve only inside the vault")
+    func sourcePDFLinksResolveOnlyInsideVault() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-source-pdf-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault", isDirectory: true)
+        let imported = vault.appendingPathComponent("Imported PDFs", isDirectory: true)
+        let pdf = imported.appendingPathComponent("paper.pdf")
+        try FileManager.default.createDirectory(at: imported, withIntermediateDirectories: true)
+        try Data("%PDF fake".utf8).write(to: pdf)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let resolved = LiteParseSourcePDFLink.resolve(
+            vaultURL: vault,
+            relativePath: "Imported PDFs/paper.pdf"
+        )
+        #expect(resolved == pdf.standardizedFileURL)
+
+        for rejected in [
+            "",
+            "/tmp/paper.pdf",
+            "../outside.pdf",
+            "Imported PDFs/../../outside.pdf",
+            "Imported PDFs/missing.pdf",
+        ] {
+            #expect(LiteParseSourcePDFLink.resolve(vaultURL: vault, relativePath: rejected) == nil)
+        }
+    }
 }
