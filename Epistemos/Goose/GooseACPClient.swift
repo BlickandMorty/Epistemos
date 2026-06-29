@@ -164,6 +164,14 @@ actor GooseACPClient {
         )
     }
 
+    /// Typed `providers/list` inventory: the available providers (built-in + configured custom) each
+    /// with their models inline. This is the Models-picker source — one call, no per-provider live
+    /// enumeration that could hang, and it includes the built-in providers the template catalog omits.
+    func listGooseProviderInventory() async throws -> [GooseACPProviderInventoryEntry] {
+        let response = try await listGooseProviders()
+        return try response.entries.map { try $0.decoded(GooseACPProviderInventoryEntry.self) }
+    }
+
     func listGooseProviderSupportedModels(
         providerId: String
     ) async throws -> GooseACPProviderSupportedModelsListResponse {

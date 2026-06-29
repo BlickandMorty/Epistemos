@@ -94,11 +94,12 @@ struct GooseSurfaceRouterTests {
 @Suite("Goose native Models live parity", .serialized)
 @MainActor
 struct GooseNativeModelsLiveParityTests {
-    /// Proves the native Models view reaches genuine parity with the WebView oracle: every provider,
-    /// model, and the current default it renders come from the SAME live ACP methods the web UI uses
-    /// (`providers/catalog/list`, `defaults/read`, `providers/supported-models/list`). If this passes
-    /// against a real runtime, the Models route has earned promotion; otherwise it stays on WebView.
-    @Test("native Models data source == live ACP catalog (no hardcoded roster)")
+    /// Proves the native Models view reaches genuine parity with the WebView oracle: the providers,
+    /// their models, and the current default it renders all come from the SAME live ACP methods the
+    /// web UI uses — `providers/list` (inventory, with models INLINE so nothing hangs) and
+    /// `defaults/read`. If this passes against a real runtime, the Models route has earned promotion;
+    /// otherwise it stays on the WebView.
+    @Test("native Models data source == live ACP providers/list (no hardcoded roster, default resolvable)")
     func nativeModelsReachesLiveParity() async throws {
         try await withLiveGooseACPClient(proofName: "native-models-parity") { _, _, client, _ in
             _ = try await withLiveTimeout(
@@ -108,42 +109,32 @@ struct GooseNativeModelsLiveParityTests {
                 operation: { try await client.initialize() }
             )
 
-            // The native view's provider source.
-            let catalog = try await withLiveTimeout(
+            // The native view's provider+model source: one call, models inline, built-ins included.
+            let inventory = try await withLiveTimeout(
                 seconds: 20,
-                description: "providers/catalog/list (native Models source)",
+                description: "providers/list inventory (native Models source)",
                 onTimeout: { await client.close() },
-                operation: { try await client.listGooseProviderCatalog() }
+                operation: { try await client.listGooseProviderInventory() }
             )
-            #expect(!catalog.providers.isEmpty, "Native Models view would render an empty roster.")
+            #expect(!inventory.isEmpty, "Native Models view would render an empty provider list.")
+            // At least one provider must carry models inline — that is the model-picker source, proven
+            // not to require a hang-prone per-provider live enumeration.
+            #expect(inventory.contains { !$0.models.isEmpty },
+                    "No provider exposes inline models — the model picker would always be empty.")
 
-            // The native view's current-default source (both fields optional, but the call must answer).
+            // The native view's current-default seed; the call must answer.
             let defaults = try await withLiveTimeout(
                 seconds: 20,
                 description: "defaults/read (native Models current selection)",
                 onTimeout: { await client.close() },
                 operation: { try await client.readGooseDefaults() }
             )
-            // If a default provider is set, it must exist in the live catalog the view shows — i.e. the
-            // view can actually display the real current selection (true parity, not a dangling id).
+            // A set default provider MUST be present in the inventory the picker shows — i.e. the view
+            // can display the real current selection (true parity, not a dangling id). This is exactly
+            // the case the old template-catalog source failed (built-ins absent); providers/list fixes it.
             if let defaultProviderId = defaults.providerId {
-                let known = catalog.providers.contains { $0.providerId == defaultProviderId }
-                    // setup catalog / providers-list may carry it even if the template catalog doesn't;
-                    // accept either as "live-known" rather than failing on catalog partition differences.
-                    || ((try? await client.listGooseProviders().entries.isEmpty) == false)
-                #expect(known, "Default provider \(defaultProviderId) is not present in any live enumeration.")
-            }
-
-            // The model-picker source for the first catalog provider must answer live (the picker binds
-            // to exactly this call when a provider is selected).
-            if let first = catalog.providers.first {
-                let supported = try await withLiveTimeout(
-                    seconds: 20,
-                    description: "providers/supported-models/list for \(first.providerId)",
-                    onTimeout: { await client.close() },
-                    operation: { try await client.listGooseProviderSupportedModels(providerId: first.providerId) }
-                )
-                #expect(supported.providerId == first.providerId)
+                #expect(inventory.contains { $0.providerId == defaultProviderId },
+                        "Default provider \(defaultProviderId) is not present in providers/list inventory.")
             }
         }
     }

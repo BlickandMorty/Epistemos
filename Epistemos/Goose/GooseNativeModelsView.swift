@@ -3,11 +3,12 @@ import SwiftUI
 /// Native Epistemos "Models" surface — the SAFE FIRST native route of the per-route migration.
 ///
 /// Parity contract with the WebView oracle (`/settings?section=models`): every provider and model
-/// shown here is LIVE-ENUMERATED from the same ACP connection the WebView uses
-/// (`liveProviderCatalog` / `liveProviderSupportedModels`), and the current selection is read from
-/// (`liveDefaults`) and written to (`saveLiveDefaults`) the same `_goose/unstable/defaults` methods.
-/// Nothing is Swift-hardcoded (GOLDEN RULE). When the bridge is not connected the view shows an
-/// honest blocked state instead of inventing a roster.
+/// shown here is LIVE-ENUMERATED from the same ACP connection the WebView uses. The picker source is
+/// `providers/list` (`liveProviderInventory`) — the available providers (built-in + configured) each
+/// carrying their models INLINE, so selecting a provider never triggers a per-provider live
+/// enumeration that could hang. The current selection is read from (`liveDefaults`) and written to
+/// (`saveLiveDefaults`) the same `_goose/unstable/defaults` methods. Nothing is Swift-hardcoded
+/// (GOLDEN RULE). When the bridge is not connected the view shows an honest blocked state.
 struct GooseNativeModelsView: View {
     let bridge: GooseACPEventBridge
 
@@ -20,13 +21,11 @@ struct GooseNativeModelsView: View {
     }
 
     @State private var phase: LoadPhase = .loading
-    @State private var providers: [GooseACPProviderTemplateCatalogEntry] = []
+    @State private var providers: [GooseACPProviderInventoryEntry] = []
     @State private var currentProviderId: String?
     @State private var currentModelId: String?
 
     @State private var selectedProviderId: String?
-    @State private var models: [String] = []
-    @State private var modelsLoading = false
     @State private var selectedModelId: String?
 
     @State private var isSaving = false
@@ -90,7 +89,7 @@ struct GooseNativeModelsView: View {
                 Text("Provider")
                     .font(.headline)
                 Picker("Provider", selection: providerSelection) {
-                    ForEach(providers, id: \.providerId) { provider in
+                    ForEach(providers) { provider in
                         Text(providerLabel(provider)).tag(Optional(provider.providerId))
                     }
                 }
@@ -99,26 +98,23 @@ struct GooseNativeModelsView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text("Model")
-                        .font(.headline)
-                    if modelsLoading { ProgressView().controlSize(.small) }
-                }
-                if models.isEmpty && !modelsLoading {
+                Text("Model")
+                    .font(.headline)
+                if currentModels.isEmpty {
                     Text(selectedProviderId == nil
                          ? "Choose a provider to list its models."
-                         : "This provider exposes no enumerable models.")
+                         : "This provider exposes no enumerable models. Configure it to refresh, "
+                           + "or it can still be set as the default provider.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     Picker("Model", selection: $selectedModelId) {
-                        ForEach(models, id: \.self) { model in
+                        ForEach(currentModels, id: \.self) { model in
                             Text(model).tag(Optional(model))
                         }
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .disabled(modelsLoading)
                 }
             }
 
@@ -145,15 +141,36 @@ struct GooseNativeModelsView: View {
 
     // MARK: - Derived
 
+    private func provider(withId providerId: String?) -> GooseACPProviderInventoryEntry? {
+        guard let providerId else { return nil }
+        return providers.first { $0.providerId == providerId }
+    }
+
+    /// Inline model ids for a provider (from its `providers/list` entry — no extra call, no hang).
+    private func modelIDs(forProviderId providerId: String?) -> [String] {
+        guard let entry = provider(withId: providerId) else { return [] }
+        return entry.models.map(\.id)
+    }
+
+    /// Models for the currently-selected provider.
+    private var currentModels: [String] {
+        modelIDs(forProviderId: selectedProviderId)
+    }
+
     private var providerSelection: Binding<String?> {
         Binding(
             get: { selectedProviderId },
             set: { newValue in
                 selectedProviderId = newValue
-                selectedModelId = nil
-                models = []
                 statusMessage = nil
-                Task { await loadModels(for: newValue) }
+                // Models come inline with the entry; preselect this provider's default (or first).
+                let entry = provider(withId: newValue)
+                let entryModels = modelIDs(forProviderId: newValue)
+                if let preferred = entry?.defaultModel, entryModels.contains(preferred) {
+                    selectedModelId = preferred
+                } else {
+                    selectedModelId = entryModels.first
+                }
             }
         )
     }
@@ -162,7 +179,7 @@ struct GooseNativeModelsView: View {
         guard let currentProviderId else {
             return "No default provider set yet."
         }
-        let providerName = providers.first(where: { $0.providerId == currentProviderId })?.name ?? currentProviderId
+        let providerName = providers.first(where: { $0.providerId == currentProviderId })?.providerName ?? currentProviderId
         if let currentModelId {
             return "Current default: \(providerName) · \(currentModelId)"
         }
@@ -171,13 +188,18 @@ struct GooseNativeModelsView: View {
 
     private var canApply: Bool {
         guard !isSaving, let selectedProviderId else { return false }
-        // Applying a provider with a chosen model, OR a provider that exposes no models (provider-only
-        // default), is valid. Disallow only the no-selection case.
         return !selectedProviderId.isEmpty
     }
 
-    private func providerLabel(_ provider: GooseACPProviderTemplateCatalogEntry) -> String {
-        provider.modelCount > 0 ? "\(provider.name) (\(provider.modelCount))" : provider.name
+    private func providerLabel(_ provider: GooseACPProviderInventoryEntry) -> String {
+        var label = provider.providerName
+        if provider.models.count > 0 {
+            label += " (\(provider.models.count))"
+        }
+        if !provider.configured {
+            label += " — not configured"
+        }
+        return label
     }
 
     // MARK: - Live data
@@ -186,51 +208,31 @@ struct GooseNativeModelsView: View {
         phase = .loading
         statusMessage = nil
         do {
-            async let catalog = bridge.liveProviderCatalog()
+            async let inventory = bridge.liveProviderInventory()
             async let defaults = bridge.liveDefaults()
-            let catalogResult = try await catalog
+            let inventoryResult = try await inventory
             let defaultsResult = try await defaults
 
-            providers = catalogResult.providers.sorted { lhs, rhs in
-                lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            providers = inventoryResult.sorted { lhs, rhs in
+                lhs.providerName.localizedCaseInsensitiveCompare(rhs.providerName) == .orderedAscending
             }
             currentProviderId = defaultsResult.providerId
             currentModelId = defaultsResult.modelId
+
             // Seed the editable selection from the live default so the view opens on the real state.
-            selectedProviderId = defaultsResult.providerId ?? providers.first?.providerId
+            let seedProviderId = defaultsResult.providerId ?? providers.first?.providerId
+            selectedProviderId = seedProviderId
+            let seedModels = modelIDs(forProviderId: seedProviderId)
+            if let defaultModel = defaultsResult.modelId, seedModels.contains(defaultModel) {
+                selectedModelId = defaultModel
+            } else {
+                selectedModelId = seedModels.first
+            }
             phase = .loaded
-            await loadModels(for: selectedProviderId, preselect: defaultsResult.modelId)
         } catch GooseACPBridgeError.notConnected {
             phase = .failed("Goose is not connected. Open the Goose surface and try again.")
         } catch {
             phase = .failed("Could not load providers: \(error.localizedDescription)")
-        }
-    }
-
-    private func loadModels(for providerId: String?, preselect: String? = nil) async {
-        guard let providerId, !providerId.isEmpty else {
-            models = []
-            return
-        }
-        modelsLoading = true
-        defer { modelsLoading = false }
-        do {
-            let response = try await bridge.liveProviderSupportedModels(providerId: providerId)
-            // Only apply if the user hasn't switched provider since this load started.
-            guard selectedProviderId == providerId else { return }
-            models = response.models
-            if let preselect, response.models.contains(preselect) {
-                selectedModelId = preselect
-            } else {
-                selectedModelId = response.models.first
-            }
-        } catch GooseACPBridgeError.notConnected {
-            guard selectedProviderId == providerId else { return }
-            models = []
-        } catch {
-            guard selectedProviderId == providerId else { return }
-            models = []
-            statusMessage = "Could not list models: \(error.localizedDescription)"
         }
     }
 

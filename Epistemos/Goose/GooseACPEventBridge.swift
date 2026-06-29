@@ -128,6 +128,13 @@ final class GooseACPEventBridge {
     /// RULE: every provider/model comes from live enumeration). These forward to the live
     /// `GooseACPClient`; they THROW `notConnected` when the bridge has no live client so the view
     /// renders an honest empty/error state instead of a silent fallback.
+    /// The Models-picker provider source: available providers (built-in + configured) each with
+    /// their models inline. One call, no per-provider live enumeration that could hang.
+    func liveProviderInventory() async throws -> [GooseACPProviderInventoryEntry] {
+        guard let client else { throw GooseACPBridgeError.notConnected }
+        return try await client.listGooseProviderInventory()
+    }
+
     func liveProviderCatalog(format: String? = nil) async throws -> GooseACPProviderCatalogListResponse {
         guard let client else { throw GooseACPBridgeError.notConnected }
         return try await client.listGooseProviderCatalog(format: format)

@@ -310,6 +310,43 @@ nonisolated struct GooseACPProvidersListResponse: Decodable, Equatable, Sendable
     let entries: [JSONValue]
 }
 
+/// One model id within a `providers/list` entry (the entries carry their models inline).
+nonisolated struct GooseACPProviderInventoryModel: Decodable, Equatable, Sendable {
+    let id: String
+}
+
+/// A typed view of a single `providers/list` entry — the available providers a Models picker chooses
+/// among, each with its models inline (so no per-provider live enumeration that could hang), a
+/// `configured` flag, and the provider's own default model. Decoded from the loosely-typed
+/// `GooseACPProvidersListResponse.entries`. Unknown/missing fields degrade gracefully so a Goose
+/// version that adds or drops entry fields never breaks the native picker.
+nonisolated struct GooseACPProviderInventoryEntry: Decodable, Equatable, Sendable, Identifiable {
+    let providerId: String
+    let providerName: String
+    let configured: Bool
+    let defaultModel: String?
+    let models: [GooseACPProviderInventoryModel]
+
+    var id: String { providerId }
+
+    private enum CodingKeys: String, CodingKey {
+        case providerId
+        case providerName
+        case configured
+        case defaultModel
+        case models
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        providerId = try container.decode(String.self, forKey: .providerId)
+        providerName = try container.decodeIfPresent(String.self, forKey: .providerName) ?? providerId
+        configured = try container.decodeIfPresent(Bool.self, forKey: .configured) ?? false
+        defaultModel = try container.decodeIfPresent(String.self, forKey: .defaultModel)
+        models = try container.decodeIfPresent([GooseACPProviderInventoryModel].self, forKey: .models) ?? []
+    }
+}
+
 nonisolated struct GooseACPProviderSupportedModelsListRequest: Encodable, Equatable, Sendable {
     let providerId: String
 }
