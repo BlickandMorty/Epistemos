@@ -169,10 +169,12 @@ struct LiteParseImportTests {
         let vault = root.appendingPathComponent("Vault", isDirectory: true)
         let imported = vault.appendingPathComponent("Imported PDFs", isDirectory: true)
         let pdf = imported.appendingPathComponent("paper.pdf")
+        let htmlNamedPDF = imported.appendingPathComponent("rate-limit.pdf")
         let outside = root.appendingPathComponent("outside.pdf")
         let symlink = imported.appendingPathComponent("linked-outside.pdf")
         try FileManager.default.createDirectory(at: imported, withIntermediateDirectories: true)
         try Data("%PDF fake".utf8).write(to: pdf)
+        try Data("<html>not a paper</html>".utf8).write(to: htmlNamedPDF)
         try Data("%PDF outside".utf8).write(to: outside)
         try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outside)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -189,6 +191,7 @@ struct LiteParseImportTests {
             "../outside.pdf",
             "Imported PDFs/../../outside.pdf",
             "Imported PDFs/missing.pdf",
+            "Imported PDFs/rate-limit.pdf",
             "Imported PDFs/linked-outside.pdf",
         ] {
             #expect(LiteParseSourcePDFLink.resolve(vaultURL: vault, relativePath: rejected) == nil)

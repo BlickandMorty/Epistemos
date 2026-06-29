@@ -29,6 +29,9 @@ nonisolated enum LiteParseSourcePDFLink {
               fileExists(candidate.path) else {
             return nil
         }
+        guard case .match = LiteParsePDFSignature.fileStartsWithPDFMagic(candidate.path) else {
+            return nil
+        }
         return candidate.resolvingSymlinksInPath()
     }
 }
