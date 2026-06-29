@@ -808,6 +808,37 @@ control proving this surface passes live when not starved. STEP-1 is complete at
 build + unit + staging layers; the live layer is pending a quiet window + the
 owner-only §7 manual/OAuth pass.
 
+### CORRECTION (2026-06-29, later) — live-sweep root cause is NOT CPU starvation
+
+My earlier "CPU starvation" diagnosis above was **incomplete/wrong** and is corrected
+here for honesty. Deeper inspection of the live test log (`scratchpad/
+goose-live-fast2b.log`, run at load floor ~7) found the actual signature:
+- The live tests spawn their OWN isolated `goose serve` on an **ephemeral port**
+  (observed `127.0.0.1:61221`) under an isolated TestRuntime Application Support —
+  they do NOT use the fixed product port 3284, so a port-3284 collision theory is
+  also wrong.
+- The failure is `Connection refused [errno 61]` polling that ephemeral
+  `…:61221/health` → **the test's own `goose serve` subprocess never reached a
+  healthy listening state**, so every downstream ACP call fails with `.closed` /
+  `session/new` timeout.
+- A SEPARATE `Epistemos.app` (PID 36449, up 2h33m since 22:25) plus its `goose serve`
+  (PID 38872 on 3284) is running concurrently — almost certainly the OWNER doing the
+  §7 manual app pass (the checklist instructs launching that exact Debug build).
+- The load "paradox" (catalog loaded 40 providers at load 12.76 but `.closed` at load
+  7.2) is explained: it's not a clean monotonic-load effect — it's whether the test's
+  goose-serve subprocess happened to come up healthy that run, which a long-running
+  second app instance + saturation makes unreliable.
+
+**Corrected determination:** the live sweep is blocked by an **environmental
+spawn-reliability** problem — the test's isolated `goose serve` doesn't reliably reach
+health while (a) the machine is saturated by concurrent agent builds AND (b) a second
+long-running Epistemos.app instance is up. It is NOT a Goose code regression (controls:
+PM #11 clean 5/5; this loop's unit 53/53 green; `goose serve` itself works — the
+owner's running instance serves ACP on 3284 fine). The honest precondition for a clean
+live sweep: **no other Epistemos.app running + low load**. I will not kill the owner's
+running app to force it, and will not weaken test timeouts. (If the owner is mid manual
+pass, that §7 gate takes precedence over the automated live re-run anyway.)
+
 ### STEP-2 code-quality review of THIS loop's grafts (toolsCache + AlertBox)
 
 Manual quality pass over the new graft code added this loop (the code least covered
