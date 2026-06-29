@@ -61,6 +61,26 @@ Status of your three ordered steps:
   - Next routes (auth, apps, sessions, …) promote one at a time as each gains a native
     view + green parity, same pattern.
 
+- **OWNER-SYMPTOM ROOT CAUSES FOUND + FIXED (2026-06-29).** An adversarial review of the
+  owner-facing WebView host (`GooseWebSurfaceView` + `GooseACPEventBridge` lifecycle) traced your
+  reported intermittent symptoms to REAL bugs (not stale-build artifacts). Shared root cause: the
+  runtime reaching `.running` and the ACP bridge reaching `.connected` are ASYNC, but the surface
+  only reacted to the FIRST poll and never re-drove a late/failed transition. Fixed (commits
+  `5081b27f2`/`58ef3aaab`/`09042cc96`; build green; `GOOSE_WEBVIEW_HOST_REVIEW_2026_06_29.md`):
+  - **H1** "loading failures that never self-heal": `.running` arriving after the 26s load poll (the
+    `goosed` backend needs 45s) left the surface stuck on the placeholder forever — now an idempotent
+    supervisor-status observer drives the load whenever readiness arrives.
+  - **H2 + H3 "Failed to load provider credentials" / providers not auto-loading**: the SPA read
+    Goose's credential state BEFORE the native key-sync mirrored your Keychain keys (H3), and a brief
+    goose blip could strand the bridge failed with the sync never re-running (H2). Now the surface
+    reloads the SPA once the keys are synced, re-drives the bridge under a healthy runtime, and the
+    sync retries through Goose's cold-start warmup (M3).
+  - **M2** lingering "loading failures": the health check now times out in 5s instead of up to 60s.
+  - **L1**: the details row now reads exactly "custom ACP Goose ready" when connected.
+  → These ship in the Swift build, so they need a **rebuilt** app (not just the re-staged Web UI) +
+  a quick smoke test: open Goose, kill+restart `goose serve`, confirm the surface RECOVERS instead of
+  sticking; and that Auth/Models populate on first open without "Failed to load provider credentials".
+
 The manual app pass + OAuth login below remain the owner-only §7 gate.
 
 ---
