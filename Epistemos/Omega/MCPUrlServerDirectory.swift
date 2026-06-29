@@ -97,10 +97,10 @@ nonisolated enum MCPUrlServerDirectory {
             return []
         }
         return entries.compactMap { entry in
-            let trimmedURL = entry.url.trimmingCharacters(in: .whitespacesAndNewlines)
-            // Rust requires https:// — match it so we never show a server the
-            // agent would reject.
-            guard trimmedURL.hasPrefix("https://") else { return nil }
+            // Rust requires https://. Also reject malformed hosts and embedded
+            // userinfo so the UI never displays a URL MCP server that smuggles
+            // credentials in the URL itself.
+            guard let trimmedURL = try? validatedHTTPSURL(entry.url) else { return nil }
             let name = entry.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { return nil }
             let declaresAuth =
@@ -253,8 +253,7 @@ nonisolated enum MCPUrlServerDirectory {
         let name = entry.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw WriteError.emptyName }
 
-        let url = entry.url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard url.hasPrefix("https://") else { throw WriteError.notHTTPS(url) }
+        let url = try validatedHTTPSURL(entry.url)
 
         let tokenEnv = entry.authorizationTokenEnv?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -264,6 +263,18 @@ nonisolated enum MCPUrlServerDirectory {
         }
 
         return WritableEntry(name: name, url: url, authorizationTokenEnv: tokenEnv)
+    }
+
+    private static func validatedHTTPSURL(_ rawURL: String) throws -> String {
+        let url = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: url),
+              components.scheme?.lowercased() == "https",
+              components.host?.isEmpty == false,
+              components.user == nil,
+              components.password == nil else {
+            throw WriteError.notHTTPS(url)
+        }
+        return url
     }
 
     private static func authEnvKeyAllowed(_ key: String) -> Bool {

@@ -32,6 +32,8 @@ struct MCPUrlServerDirectoryTests {
         let servers = MCPUrlServerDirectory.parse(data("""
         [
           { "name": "insecure", "url": "http://example.com/mcp" },
+          { "name": "missing-host", "url": "https:///mcp" },
+          { "name": "userinfo", "url": "https://token@example.com/mcp" },
           { "name": "", "url": "https://example.com/mcp" },
           { "name": "ok", "url": "https://good.example.com/mcp" }
         ]
@@ -159,6 +161,23 @@ struct MCPUrlServerDirectoryTests {
                 MCPUrlServerDirectory.WritableEntry(name: "bad", url: "http://bad.example.com/mcp"),
                 to: config
             )
+        }
+    }
+
+    @Test("writer rejects malformed HTTPS URLs and embedded credentials")
+    func writerRejectsMalformedHTTPSAndUserinfo() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-reject-malformed-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        for url in ["https:///mcp", "https://token@example.com/mcp", "https://user:pass@example.com/mcp"] {
+            #expect(throws: MCPUrlServerDirectory.WriteError.notHTTPS(url)) {
+                try MCPUrlServerDirectory.install(
+                    MCPUrlServerDirectory.WritableEntry(name: "bad", url: url),
+                    to: config
+                )
+            }
         }
     }
 
