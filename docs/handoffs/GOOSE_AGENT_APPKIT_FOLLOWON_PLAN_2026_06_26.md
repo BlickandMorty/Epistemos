@@ -341,7 +341,7 @@ Execute in order. **Do not skip gates.** Each step has an exit criterion.
 
 ### Step 9 — Chat-primary flip + regression fallback (Gate 7)  🛑 [DELETED 2026-06-29 — Option 1: NO native chat. Do NOT build this step. Chat stays WebView, reskinned. See top banner.]
 
-1. Flip `AgentSurface.useNativeChatPath = true` by default (native hub + session + transcript + composer + permission/elicitation)
+1. 🛑 [DELETED 2026-06-29 — Option 1: NO native chat. Do NOT flip `useNativeChatPath`; do NOT build a native hub/session/transcript/composer. Chat stays WebView, reskinned.] ~~Flip `AgentSurface.useNativeChatPath = true` by default~~
 2. **Do not** bulk-disable per-route WebView flags — long-tail routes keep embedded WebView until Step 7 per-route gate passes
 3. Keep full-window `GooseWebSurfaceView` behind "Open Goose (Web fallback)" for **regression compare only** (not long-tail product path)
 4. Document chat-path WRV + per-route flip checklist (Round 1 §F; hybrid charter above)
