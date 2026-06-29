@@ -20,7 +20,6 @@
 		1ADDFDA4FEF38784F3172BED /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FA1346421A48DF0E99CA1280 /* GRDB */; };
 		1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */; };
 		1F6C25A17E7934B000E8B6FF /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = D8818F7A8F2FF6B520C10B42 /* FontPicker */; };
-		20C7276D2435E3F4E16C195A /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */; };
 		249B4E89B585641244080171 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
 		2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		2EA19F2C59A0EE724E69CDF8 /* EpistemosControlWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */; };
@@ -37,7 +36,6 @@
 		535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		54FEAA196B99035E42E8B0B6 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
 		5B1557CE7B5BE6FA4FD1DCC2 /* SidecarCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA1101E0D8741618C93599C /* SidecarCache.swift */; };
-		5BD2F1107633AD6B41B0C58B /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = 22D76D69CE0A05A612129C53 /* CodeEditLanguages */; };
 		5CBEBB6A03FDBD156286FB7C /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = 992412F140C574B1E0283AEA /* Previewer */; };
 		5FA96D2820E6751FD7CAE761 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
 		61C8116B784756491A5EC96D /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
@@ -47,7 +45,6 @@
 		6CAD9FFA6A82372FE5C6844E /* AFMSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */; };
 		74959B01F628EBAA2FBB4B29 /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
 		7BA33DAD72F26B5969AF58A4 /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */; };
-		7E04502E94924A57934605BE /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */; };
 		7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		80D36B635950E94BB3667A8B /* SessionTelemetryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */; };
 		81716E83E67308AE0E10312D /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = D22E3A58030016B71ABF4392 /* Grape */; };
@@ -60,7 +57,6 @@
 		96A9F4DDD32CF7F954327D2C /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
 		974767627AE14E6BDF5B327D /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
-		A105AB197896C116C097EB9E /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */; };
 		A4EADC574B8E36EB1327DA66 /* GGUFRuntimeBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C0F23953DF52141112B079EB /* GGUFRuntimeBridge */; };
 		A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = B1EB8622EB43550A22C16D72 /* VMLXTokenizers */; };
 		A9CF38DAF4867513C3D4E99C /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 1387824EA0DAA6D702EFD7BA /* AppKitExtensions */; };
@@ -73,7 +69,6 @@
 		BFE34268D83FB96D10840B4D /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 3DB8D6F40492AA0EBD6805FA /* MLXNN */; };
 		C18BD6A1E86E5CE754EC3C02 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = B919CFE16BDE19DE0CD70F2E /* MLX */; };
 		D57E2A4D9FD0B1EA3D6F19CA /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 970856BAED7F66F3D3CAEF36 /* TextBundle */; };
-		D78DB160002E1ADAA6A29A47 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */; };
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		DF83A55045962D57B510A3AE /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 6C5604E44D34114D4C65A436 /* MLXOptimizers */; };
@@ -83,7 +78,6 @@
 		E5F98A62361C1EBB82523B92 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F463DB33C39F4AB6E0BB6518 /* MLXLLM */; };
 		E70B453353C9AB5E24A29DFA /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 10AF46C8B7755E4D5270CE5D /* MLX */; };
 		ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
-		F179F5290BD109FC06F77403 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */; };
 		F17AA91C0BB197EE4008CED8 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = C1632F27423B91A7F3261950 /* MLXLMCommon */; };
 		F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5714802E4CF5F19C54626435 /* QuarantineArchive.swift */; };
 		F4FD9C1FBB3D7E66B93DD4B4 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */; };
@@ -358,9 +352,6 @@
 				A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */,
 				B131CB2C4E4E857765F2366F /* SwiftTerm in Frameworks */,
 				A4EADC574B8E36EB1327DA66 /* GGUFRuntimeBridge in Frameworks */,
-				D78DB160002E1ADAA6A29A47 /* CodeEditSourceEditor in Frameworks */,
-				A105AB197896C116C097EB9E /* SwiftTreeSitter in Frameworks */,
-				20C7276D2435E3F4E16C195A /* CodeEditLanguages in Frameworks */,
 				0C5366D178FA4AA37B07FBC7 /* MarkEditCore in Frameworks */,
 				83C58597C91DDDB52684C5AA /* MarkEditKit in Frameworks */,
 				AE1D502E41AEB5C7A7D1C8E0 /* AppKitControls in Frameworks */,
@@ -409,9 +400,6 @@
 				BE22FF112091A73278DA1574 /* MLXHuggingFace in Frameworks */,
 				30E13BBA08D4E40824E55896 /* VMLXHuggingFace in Frameworks */,
 				F5784C6AD6DA3C05A246766E /* VMLXTokenizers in Frameworks */,
-				F179F5290BD109FC06F77403 /* CodeEditSourceEditor in Frameworks */,
-				7E04502E94924A57934605BE /* SwiftTreeSitter in Frameworks */,
-				5BD2F1107633AD6B41B0C58B /* CodeEditLanguages in Frameworks */,
 				54FEAA196B99035E42E8B0B6 /* MarkEditCore in Frameworks */,
 				74959B01F628EBAA2FBB4B29 /* MarkEditKit in Frameworks */,
 				249B4E89B585641244080171 /* AppKitControls in Frameworks */,
@@ -602,9 +590,6 @@
 				B1EB8622EB43550A22C16D72 /* VMLXTokenizers */,
 				135D935B56D44B67D290BC44 /* SwiftTerm */,
 				C0F23953DF52141112B079EB /* GGUFRuntimeBridge */,
-				DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */,
-				8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */,
-				F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */,
 				A5223DF8B66054B397B8063A /* MarkEditCore */,
 				E9F7E743E103DA1BED82C903 /* MarkEditKit */,
 				B13F202AC1BF0231DEF14824 /* AppKitControls */,
@@ -655,9 +640,6 @@
 				45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */,
 				538CE08807F3177D13D01160 /* VMLXHuggingFace */,
 				D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */,
-				4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */,
-				64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */,
-				22D76D69CE0A05A612129C53 /* CodeEditLanguages */,
 				B5565EA54F11316CA03FCE0A /* MarkEditCore */,
 				3FF61CC7613816DCD256501A /* MarkEditKit */,
 				929E3F8673D5E6BA76C7D611 /* AppKitControls */,
@@ -713,11 +695,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */,
-				DD38DA22E2B99102DF695DCB /* XCRemoteSwiftPackageReference "CodeEditLanguages" */,
-				050A478A2687B99C0331E4F7 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */,
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */,
-				B12BBF15DEF11966DEDF972E /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */,
 				7DC43DC002F243C226935ACE /* XCLocalSwiftPackageReference "LocalPackages/GGUFRuntimeBridge" */,
 				364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */,
 				B1BD229D7BC4AA1455B53515 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditKit" */,
@@ -1363,14 +1342,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		050A478A2687B99C0331E4F7 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/CodeEditApp/CodeEditSourceEditor";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.15.2;
-			};
-		};
 		524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/SwiftGraphs/Grape";
@@ -1387,28 +1358,12 @@
 				minimumVersion = 0.1.0;
 			};
 		};
-		B12BBF15DEF11966DEDF972E /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ChimeHQ/SwiftTreeSitter.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.25.0;
-			};
-		};
 		C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift.git";
 			requirement = {
 				kind = exactVersion;
 				version = 7.10.0;
-			};
-		};
-		DD38DA22E2B99102DF695DCB /* XCRemoteSwiftPackageReference "CodeEditLanguages" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/CodeEditApp/CodeEditLanguages.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.20;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1447,11 +1402,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = AppKitExtensions;
 		};
-		22D76D69CE0A05A612129C53 /* CodeEditLanguages */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = DD38DA22E2B99102DF695DCB /* XCRemoteSwiftPackageReference "CodeEditLanguages" */;
-			productName = CodeEditLanguages;
-		};
 		335D46D689DC43CC5B86CBE9 /* MLXLMCommon */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXLMCommon;
@@ -1477,11 +1427,6 @@
 			package = ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */;
 			productName = AXorcist;
 		};
-		4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 050A478A2687B99C0331E4F7 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */;
-			productName = CodeEditSourceEditor;
-		};
 		51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VMLXHuggingFace;
@@ -1489,11 +1434,6 @@
 		538CE08807F3177D13D01160 /* VMLXHuggingFace */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VMLXHuggingFace;
-		};
-		64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B12BBF15DEF11966DEDF972E /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */;
-			productName = SwiftTreeSitter;
 		};
 		6C5604E44D34114D4C65A436 /* MLXOptimizers */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1510,11 +1450,6 @@
 		88BCB3EA6698A7750855E06F /* TextCompletion */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TextCompletion;
-		};
-		8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B12BBF15DEF11966DEDF972E /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */;
-			productName = SwiftTreeSitter;
 		};
 		910D0543E7FCC403D8235BC8 /* MLXNN */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1602,11 +1537,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = FontPicker;
 		};
-		DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 050A478A2687B99C0331E4F7 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */;
-			productName = CodeEditSourceEditor;
-		};
 		DD9553A30739FBFA2CD51437 /* FontPicker */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FontPicker;
@@ -1630,11 +1560,6 @@
 		F5DBC24422FD519A6BED081F /* Previewer */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Previewer;
-		};
-		F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = DD38DA22E2B99102DF695DCB /* XCRemoteSwiftPackageReference "CodeEditLanguages" */;
-			productName = CodeEditLanguages;
 		};
 		F8EFC969F569F143FA21C59C /* FileVersion */ = {
 			isa = XCSwiftPackageProductDependency;
