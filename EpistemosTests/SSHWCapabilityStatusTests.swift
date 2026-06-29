@@ -11,12 +11,13 @@ import Foundation
 @Suite("SS-HW — honest HTML Workspace capability status")
 struct SSHWCapabilityStatusTests {
 
-    @Test("the live capabilities are the real working ones (renderer / editor / agent-patch)")
+    @Test("the live capabilities are the real working ones (renderer / editor / agent-patch / data feed)")
     func liveCapabilitiesAreReal() {
         let live = HTMLWorkspaceCapabilityStatus.capabilities.filter(\.isLive).map(\.name)
         #expect(live.contains { $0.contains("editing") })
         #expect(live.contains { $0.contains("preview") })
         #expect(live.contains { $0.contains("patch") })
+        #expect(live.contains { $0.contains("data.json") })
     }
 
     @Test("the deferred seams are honestly marked NOT live (no fake-green)")
@@ -34,6 +35,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.liveCount + HTMLWorkspaceCapabilityStatus.deferredCount == total)
         #expect(HTMLWorkspaceCapabilityStatus.liveCount > 0)        // it genuinely works as a renderer
         #expect(HTMLWorkspaceCapabilityStatus.deferredCount > 0)    // but it is NOT complete
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("data.json"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("deferred"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("regenerate UX"))
     }
