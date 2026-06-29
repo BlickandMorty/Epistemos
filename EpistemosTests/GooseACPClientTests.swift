@@ -737,6 +737,66 @@ struct GooseACPEventBridgeTests {
         await bridge.disconnect()
     }
 
+    @Test("bridge cancels an old pending permission request before replacing it")
+    func bridgeCancelsReplacedPermissionRequests() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": "perm-1",
+              "method": "session/request_permission",
+              "params": {
+                "sessionId": "session-1",
+                "toolCall": {
+                  "toolCallId": "tool-1",
+                  "title": "Write first",
+                  "kind": "edit",
+                  "status": "pending"
+                },
+                "options": [
+                  { "optionId": "once", "name": "Allow once", "kind": "allow_once" }
+                ]
+              }
+            }
+            """,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": "perm-2",
+              "method": "session/request_permission",
+              "params": {
+                "sessionId": "session-1",
+                "toolCall": {
+                  "toolCallId": "tool-2",
+                  "title": "Write second",
+                  "kind": "edit",
+                  "status": "pending"
+                },
+                "options": [
+                  { "optionId": "once", "name": "Allow once", "kind": "allow_once" }
+                ]
+              }
+            }
+            """,
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(transport: transport, clientVersion: "test-version")
+        try await waitUntil { bridge.pendingPermission?.request.toolCall.title == "Write second" }
+        await transport.waitUntilSent(count: 2)
+
+        let pending = try #require(bridge.pendingPermission)
+        #expect(pending.request.toolCall.toolCallId == "tool-2")
+        let sent = await transport.sentMessages()
+        #expect(sent.first?.method == .initialize)
+        #expect(sent.last?.id == .string("perm-1"))
+        let result = try #require(sent.last?.raw.objectValue?["result"]?.objectValue)
+        let outcome = try #require(result["outcome"]?.objectValue)
+        #expect(outcome["outcome"] == .string("cancelled"))
+        await bridge.disconnect()
+    }
+
     @Test("bridge publishes form elicitation requests and responds with native field values")
     func bridgeRoutesFormElicitationRequests() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
@@ -778,6 +838,62 @@ struct GooseACPEventBridgeTests {
         #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["action"] == .string("accept"))
         #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["content"]?.objectValue?["title"] == .string("Native answer"))
         #expect(bridge.pendingElicitation == nil)
+        await bridge.disconnect()
+    }
+
+    @Test("bridge cancels an old pending elicitation request before replacing it")
+    func bridgeCancelsReplacedElicitationRequests() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": 7,
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "sessionId": "session-1",
+                "message": "First title",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "title": "Title" }
+                  }
+                }
+              }
+            }
+            """,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": 8,
+              "method": "elicitation/create",
+              "params": {
+                "mode": "form",
+                "sessionId": "session-1",
+                "message": "Second title",
+                "requestedSchema": {
+                  "type": "object",
+                  "properties": {
+                    "title": { "type": "string", "title": "Title" }
+                  }
+                }
+              }
+            }
+            """,
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(transport: transport, clientVersion: "test-version")
+        try await waitUntil { bridge.pendingElicitation?.message == "Second title" }
+        await transport.waitUntilSent(count: 2)
+
+        let pending = try #require(bridge.pendingElicitation)
+        #expect(pending.message == "Second title")
+        let sent = await transport.sentMessages()
+        #expect(sent.first?.method == .initialize)
+        #expect(sent.last?.id == .int(7))
+        #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["action"] == .string("cancel"))
         await bridge.disconnect()
     }
 

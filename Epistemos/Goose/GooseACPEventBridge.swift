@@ -101,18 +101,11 @@ final class GooseACPEventBridge {
 
     func resolvePermission(promptID: String, optionID: String?) {
         guard let prompt = pendingPermission,
-              prompt.id == promptID,
-              let client else { return }
+              prompt.id == promptID else { return }
         pendingPermission = nil
         let response = optionID.map(GooseACPRequestPermissionResponse.selected(optionId:))
             ?? GooseACPRequestPermissionResponse.cancelled()
-        Task { [weak self, client] in
-            do {
-                try await client.respondToPermission(requestId: prompt.requestID, response: response)
-            } catch {
-                self?.recordResponseSendFailure(error, context: "permission")
-            }
-        }
+        sendPermissionResponse(response, for: prompt, context: "permission")
     }
 
     func acceptElicitation(promptID: String, values: [String: JSONValue]) {
@@ -278,14 +271,49 @@ final class GooseACPEventBridge {
         response: GooseACPCreateElicitationResponse
     ) {
         guard let prompt = pendingElicitation,
-              prompt.id == promptID,
-              let client else { return }
+              prompt.id == promptID else { return }
         pendingElicitation = nil
+        sendElicitationResponse(response, for: prompt, context: "elicitation")
+    }
+
+    private func cancelPendingPermission(context: String) {
+        guard let prompt = pendingPermission else { return }
+        pendingPermission = nil
+        sendPermissionResponse(.cancelled(), for: prompt, context: context)
+    }
+
+    private func cancelPendingElicitation(context: String) {
+        guard let prompt = pendingElicitation else { return }
+        pendingElicitation = nil
+        sendElicitationResponse(.cancel(), for: prompt, context: context)
+    }
+
+    private func sendPermissionResponse(
+        _ response: GooseACPRequestPermissionResponse,
+        for prompt: GooseACPPermissionPrompt,
+        context: String
+    ) {
+        guard let client else { return }
+        Task { [weak self, client] in
+            do {
+                try await client.respondToPermission(requestId: prompt.requestID, response: response)
+            } catch {
+                self?.recordResponseSendFailure(error, context: context)
+            }
+        }
+    }
+
+    private func sendElicitationResponse(
+        _ response: GooseACPCreateElicitationResponse,
+        for prompt: GooseACPElicitationPrompt,
+        context: String
+    ) {
+        guard let client else { return }
         Task { [weak self, client] in
             do {
                 try await client.respondToElicitation(requestId: prompt.requestID, response: response)
             } catch {
-                self?.recordResponseSendFailure(error, context: "elicitation")
+                self?.recordResponseSendFailure(error, context: context)
             }
         }
     }
@@ -361,8 +389,10 @@ final class GooseACPEventBridge {
         case .sessionUpdate(let notification):
             lastSessionUpdate = notification
         case .permissionRequest(let id, let request):
+            cancelPendingPermission(context: "permission-replaced")
             pendingPermission = GooseACPPermissionPrompt(requestID: id, request: request)
         case .elicitationRequest(let id, let request):
+            cancelPendingElicitation(context: "elicitation-replaced")
             pendingElicitation = GooseACPElicitationPrompt(requestID: id, request: request)
         case .unhandledRequest(let id, let method, let params):
             appendUnhandledDiagnostic(kind: .request, method: method, params: params)
