@@ -93,11 +93,14 @@ if a readiness refresh finds the Pro gate invalid. It does not reuse or drive th
 `EpistemosTests/BrowserUseWebUIViewTests.swift` verifies the loopback URL guard and the source boundary. `[VERIFIED-CODE]`
 `agent_core/vendor/browser-use/epistemos_agent_browser.py` is the source-only Plan 3 Pro adapter contract landed for the
 existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/
-screenshot/console/errors` to browser-use's `skill_cli` daemon, keeps session files under `AGENT_BROWSER_SOCKET_DIR`
-via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a no-runtime `contract` check
-for packaging tests. `AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME` after validating that it is an
-absolute existing directory, so direct adapter invocation cannot redirect browser-use session files away from the
-private socket root; session names are capped at 64 safe characters before browser-use derives daemon/socket files.
+screenshot` to browser-use's `skill_cli` daemon. The `console/errors` commands are bounded compatibility stubs because
+the vendored `skill_cli` has no matching console/error stream actions yet; these console/errors compatibility stubs
+avoid browser-use runtime import until upstream exposes matching stream actions. The adapter keeps session files under
+`AGENT_BROWSER_SOCKET_DIR` via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a
+no-runtime `contract` check for packaging tests. `AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME`
+after validating that it is an absolute existing directory, so direct adapter invocation cannot redirect browser-use
+session files away from the private socket root; session names are capped at 64 safe characters before browser-use
+derives daemon/socket files.
 Rust `find_agent_browser()` now discovers the bundled executable through
 `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
 `agent-browser`; live fixture smoke opened `https://example.com`, captured an `Example Domain` snapshot, and closed the
@@ -118,10 +121,11 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   directory; it also rejects multiple screenshot output paths before runtime import. More generally, command-specific
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Extra positional
-  arguments and unexpected console/error flags are rejected before daemon startup; command arguments after
-  `--json <command>` are preserved even when they begin with `--`. Runtime environment setup happens only after adapter
-  arguments are accepted. `browser_vision` also rejects screenshot paths that resolve outside the private screenshot
-  directory before handing the image to any external vision provider. The
+  arguments and unexpected console/error flags are rejected before daemon startup. The console/errors compatibility
+  stubs avoid browser-use runtime import until upstream exposes matching stream actions; they only accept optional
+  `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. Runtime
+  environment setup happens only after adapter arguments are accepted. `browser_vision` also rejects screenshot paths
+  that resolve outside the private screenshot directory before handing the image to any external vision provider. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve
@@ -278,8 +282,9 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   surfaces.
 - Adapter source test: `BrowserUseAdapterPlan3Tests.swift` verifies `epistemos_agent_browser.py` supports the existing
   `agent-browser --json` command set, delegates to `browser_use.skill_cli` only after runtime commands begin, keeps
-  session files under `AGENT_BROWSER_SOCKET_DIR`/`BROWSER_USE_HOME`, and contains no Plan 1 Goose/Agent or Plan 2
-  editor/PDF/native Browser references.
+  session files under `AGENT_BROWSER_SOCKET_DIR`/`BROWSER_USE_HOME`, keeps console/errors compatibility stubs runtime
+  free until upstream exposes stream actions, and contains no Plan 1 Goose/Agent or Plan 2 editor/PDF/native Browser
+  references.
 - Python lock test after script execution: `browser-use`, `web-ui`, and `cdp-use` import from vendored/local paths;
   stale `browser-use==0.1.48` from web-ui is not installed.
 - Pro runtime smoke: start loopback Gradio on `127.0.0.1`, load it in the WKWebView shell, submit a dry-run task with a

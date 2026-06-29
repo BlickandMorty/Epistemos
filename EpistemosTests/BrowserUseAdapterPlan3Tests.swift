@@ -65,6 +65,9 @@ struct BrowserUseAdapterPlan3Tests {
             "open accepts exactly one url",
             "fill accepts exactly a ref and text",
             "console does not accept argument",
+            "console/errors compatibility stubs avoid browser-use runtime import",
+            "return success({\"messages\": []})",
+            "return success({\"errors\": []})",
             "value.startswith(\"--json=\")",
             "add_vendor_source_path(\"browser-use\")",
             "add_vendor_source_path(\"cdp-use\")",
@@ -92,6 +95,17 @@ struct BrowserUseAdapterPlan3Tests {
         let ensureIndex = try #require(source.range(of: "def ensure_browser_daemon")?.lowerBound)
         let runtimePrepareIndex = try #require(source.range(of: "def ensure_browser_daemon(args: argparse.Namespace) -> None:\n    prepare_runtime_environment()")?.lowerBound)
         #expect(ensureIndex == runtimePrepareIndex)
+
+        let consoleIndex = try #require(source.range(of: "if command == \"console\"")?.lowerBound)
+        let errorsIndex = try #require(source.range(of: "if command == \"errors\"")?.lowerBound)
+        let unsupportedIndex = try #require(source.range(of: "raise AdapterError(f\"unsupported browser-use adapter command")?.lowerBound)
+        for branch in [String(source[consoleIndex..<errorsIndex]), String(source[errorsIndex..<unsupportedIndex])] {
+            #expect(branch.contains("require_only_flags(command, args.args, {\"--clear\"})"))
+            #expect(!branch.contains("ensure_browser_daemon"))
+            #expect(!branch.contains("send_browser_use"))
+            #expect(!branch.contains("prepare_runtime_environment"))
+            #expect(!branch.contains("import_browser_use_main"))
+        }
     }
 
     @Test("adapter stays inside Plan 3 browser-use vendor boundary")
@@ -105,6 +119,7 @@ struct BrowserUseAdapterPlan3Tests {
         #expect(manifest.contains("existing agent-browser JSON command contract"))
         #expect(codepack.contains("epistemos_agent_browser.py"))
         #expect(codepack.contains("adapter contract landed"))
+        #expect(codepack.contains("console/errors compatibility stubs avoid browser-use runtime import"))
 
         for forbidden in [
             "Epistemos/Goose",
