@@ -6,8 +6,8 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 16:37 CDT (loop cycle 4) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. Build agents committed since cycle 3 (`6dffb7f1`/`53d37c5d2`/`37617f45`): Plan-1 appended a "Phase 1 Option 1" verification section to `GOOSE_PHASE_0_VERIFICATION_2026_06_27.md` — auditor read the full diff: it REINFORCES canon (Option 1 "not a native chat shell", reskinned `theme-tokens.ts`+`main.css`, donor purple/indigo→Apple accent, Golden-Rule clean, banner intact). No drift. HEAD at pass: `37617f451`.
-<br>_(cycle 3, 16:26: freshness stamp; build agents moved to code. cycle 2, 16:17: made #6/#8 greps case/phrasing-honest — doctrine match was always real, old grep too narrow.)_
+**Last auditor pass:** 2026-06-29 16:46 CDT (loop cycle 5) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. No canon/prompt doc changes since cycle 4; commits since were code-only (provenance snapshot limits/anchor IDs, browser-use loopback host). HEAD at pass: `f4e0be737`.
+<br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
 
 ## INVARIANTS (the locked truths — each agent's docs must agree with these)
 Run each `Check` from repo root; the Pass condition is what a consistent canon returns.
