@@ -47,10 +47,28 @@ it is a deliberate, owner-confirmed Phase-0 architecture change.**
    needed under Path B.
 
 ## Risks / open questions to resolve during implementation
-- **MAS sandbox**: does `goosed agent` (full server + tunnel/gateway tasks) run
-  under the hardened-runtime + App-Sandbox? `goose serve` was chosen partly for a
-  minimal surface; goosed spawns more (tunnel, gateways). Must verify no
-  sandbox-blocked syscalls / network entitlements gap.
+- **MAS sandbox — RESEARCHED 2026-06-28, verdict FAVORABLE (was the gating risk).**
+  Source-level check of `goose-server/src/commands/agent.rs` + `routes/gateway.rs`:
+  - `goosed agent`'s extra tasks (tunnel, gateways) are **network-only**
+    `tokio::spawn` futures that open TLS connections — **zero** `Command::new` /
+    `process::Command` / `cloudflared` / `ngrok` external-process spawning. This is
+    the decisive fact vs CLAUDE.md's hard rule ("MAS sandbox + hardened runtime
+    block **subprocess execution** from a notarized app"): `goosed agent` is the
+    SAME launched-local-server shape as today's already-accepted `goose serve` — it
+    does NOT spawn further subprocesses, so it adds no new sidecar category.
+  - The two entitlements its extra tasks need are **already shipped**:
+    `com.apple.security.network.client` (outbound tunnel/gateway TLS) +
+    `com.apple.security.network.server` (loopback bind), both in
+    `Epistemos/Epistemos.entitlements`. Debug builds disable the App Sandbox
+    entirely (`Epistemos-Debug.entitlements`), so Path B works in Debug regardless.
+  - **Caveats (named, not blockers):** (a) the outbound tunnel/gateway *widens the
+    network surface* a MAS reviewer sees vs the lean ACP server — worth a Pro/MAS
+    boundary note even though loopback REST stays secret-key-auth'd + nav-gated;
+    (b) the shared "is a launched `goose`/`goosed` binary MAS-distributable AT ALL"
+    question (Gate 5, still open) is **unchanged** — it applies equally to today's
+    `goose serve`, so Path B does NOT regress it. Disabling the tunnel/gateway
+    auto-start (they're opt-in features Epistemos never surfaces) would shrink the
+    surface back to parity if MAS review flags it.
 - **Security surface**: the full localhost REST is exposed to the WebView (still
   secret-key-auth'd + loopback-only + nav-gated by `decidePolicy`). Acceptable
   given the WebView already has goosed access via ACP, but it IS a wider surface.
@@ -73,7 +91,9 @@ The ACP grafts remain valid, so rollback restores today's working ACP-only surfa
 with zero data migration.
 
 ## Recommendation
-Sequence: (1) confirm MAS-sandbox viability of `goosed agent` (the gating risk),
+Sequence: (1) ~~confirm MAS-sandbox viability of `goosed agent` (the gating risk)~~
+**DONE 2026-06-28 — verdict favorable (no new subprocess surface; required network
+entitlements already shipped); see the MAS bullet above**,
 (2) confirm TLS-off-for-loopback or implement the cert-trust delegate, (3) do the
 supervisor/boot/staging changes behind a build flag so Path A stays the default
 until Path B is proven, (4) validate end-to-end once the test bundle unblocks,
