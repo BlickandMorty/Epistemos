@@ -38,6 +38,10 @@ nonisolated struct MCPRegistryEntry: Identifiable, Hashable, Codable, Sendable {
 nonisolated struct MCPRegistryClient: Sendable {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
+    private static let maxSearchQueryLength = 128
+    private static let maxRegistryResponseBytes = 2 * 1024 * 1024
+    private static let maxRecordsPerSource = 32
+
     private let fetch: Fetch
 
     init(fetch: @escaping Fetch = { request in
@@ -47,14 +51,13 @@ nonisolated struct MCPRegistryClient: Sendable {
     }
 
     func searchAll(query: String, limit: Int = 24) async -> [MCPRegistryEntry] {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else { return [] }
+        guard let normalizedQuery = Self.normalizedQuery(query) else { return [] }
 
         let sources: [@Sendable () async -> [MCPRegistryEntry]] = [
-            { await self.searchSmithery(query: trimmedQuery) },
-            { await self.searchMCPSO(query: trimmedQuery) },
-            { await self.searchGlama(query: trimmedQuery) },
-            { await self.searchGitHub(query: trimmedQuery) },
+            { await self.searchSmithery(query: normalizedQuery) },
+            { await self.searchMCPSO(query: normalizedQuery) },
+            { await self.searchGlama(query: normalizedQuery) },
+            { await self.searchGitHub(query: normalizedQuery) },
         ]
 
         var entries: [MCPRegistryEntry] = []
@@ -71,6 +74,7 @@ nonisolated struct MCPRegistryClient: Sendable {
     }
 
     func searchGitHub(query: String) async -> [MCPRegistryEntry] {
+        guard let query = Self.normalizedQuery(query) else { return [] }
         guard var components = URLComponents(string: "https://api.github.com/search/repositories") else {
             return []
         }
@@ -82,7 +86,7 @@ nonisolated struct MCPRegistryClient: Sendable {
               let root = try? await requestJSON(url) else {
             return []
         }
-        let records = Self.collection(in: root)
+        let records = Self.collection(in: root).prefix(Self.maxRecordsPerSource)
         return records.compactMap { record in
             guard let name = Self.string(record, keys: ["full_name", "name"]),
                   let homepage = Self.string(record, keys: ["html_url"]),
@@ -134,13 +138,16 @@ nonisolated struct MCPRegistryClient: Sendable {
         queryName: String,
         query: String
     ) async -> [MCPRegistryEntry] {
+        guard let query = Self.normalizedQuery(query) else { return [] }
         guard var components = URLComponents(string: urlString) else { return [] }
         components.queryItems = [URLQueryItem(name: queryName, value: query)]
         guard let url = components.url,
               let root = try? await requestJSON(url) else {
             return []
         }
-        return Self.collection(in: root).compactMap { Self.registryEntry(from: $0, source: source) }
+        return Self.collection(in: root)
+            .prefix(Self.maxRecordsPerSource)
+            .compactMap { Self.registryEntry(from: $0, source: source) }
     }
 
     private func requestJSON(_ url: URL) async throws -> Any {
@@ -155,6 +162,9 @@ nonisolated struct MCPRegistryClient: Sendable {
             throw URLError(.badServerResponse)
         }
         guard !data.isEmpty else { return [] }
+        guard data.count <= Self.maxRegistryResponseBytes else {
+            throw URLError(.dataLengthExceedsMaximum)
+        }
         return try JSONSerialization.jsonObject(with: data)
     }
 
@@ -178,7 +188,7 @@ nonisolated struct MCPRegistryClient: Sendable {
         if let target = string(record, keys: [
             "remoteUrl", "remote_url", "mcpUrl", "mcp_url", "serverUrl", "server_url",
             "sseUrl", "sse_url", "endpoint", "connectionUrl", "connection_url",
-        ]), target.hasPrefix("https://") {
+        ]).flatMap(remoteURLTarget) {
             return MCPRegistryEntry(
                 id: "\(source.rawValue.lowercased()):remote:\(name.lowercased())",
                 name: name,
@@ -221,6 +231,26 @@ nonisolated struct MCPRegistryClient: Sendable {
         }
 
         return nil
+    }
+
+    private static func normalizedQuery(_ query: String) -> String? {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxSearchQueryLength))
+    }
+
+    private static func remoteURLTarget(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              components.scheme?.lowercased() == "https",
+              components.host?.isEmpty == false,
+              components.user == nil,
+              components.password == nil,
+              components.percentEncodedQuery == nil,
+              components.percentEncodedFragment == nil else {
+            return nil
+        }
+        return trimmed
     }
 
     private static func collection(in root: Any) -> [[String: Any]] {
