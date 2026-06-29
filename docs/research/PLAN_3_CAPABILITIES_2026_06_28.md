@@ -114,25 +114,22 @@ extensions inside a WKWebView; some FairPlay-DRM premium video may not play; coo
 | **T1 — usable in-app browser** | a real tab you open + drive like Safari (navigate/login/scroll/non-DRM video) | **LIGHT** | MAS-safe |
 | **T2 — + agent reads/extracts the open page** | the AI can read the current page → note/answer; you still drive | MEDIUM | MAS-plausible (read-only) |
 | **T3 — full agent automation + stealth** | AI autonomously clicks/types/scrapes across sites + anti-fingerprint | **HEAVY** | Pro-only |
-**Recommendation: START at T1** — ship the standalone lite Browser tab (`BrowserView`, human-driven, NOT the agent engine seam) (instead of
-`NotConfigured`) → turns "I can't see it" into a visible, usable browser fast. Climb to T2/T3 only if you want them.
-The heaviness you worried about lives ONLY at T3. (Rest of the original heavy build = T3, below.)
+**T1 is shipped:** the standalone lite Browser tab (`BrowserView`, human-driven, NOT the agent engine seam) now turns
+"I can't see it" into a visible, usable browser. Climb to T2/T3 only if you want them. The heaviness you worried about
+lives ONLY at T3. (Rest of the original heavy build = T3, below.)
 
-**Current state `[VERIFIED-CODE]`:** the seam exists, the engines are stubs.
-- `BrowserEngine` async trait + `PageSnapshot`/`AxNode` (`agent_core/src/browser_engine/mod.rs:83-104`).
-  `MockBrowserEngine` works + CI-tested. `WebKitBrowserEngine` (`:273-317`) and `ObscuraBrowserEngine` (`:319-364`)
-  are **NotConfigured stubs** — nothing renders a page in-app yet.
-- Honest capability map already shipped: `Epistemos/Engine/BrowserCapabilityStatus.swift:14-41` (live: web
-  fetch/extract/crawl/search, SSRF-guarded, `nonPersistent()`; stub: Obscura engine, anti-fingerprint, tracker-block).
-- Pro automation today = an **external `agent-browser` CLI** over a hardened subprocess (`tools/browser.rs`,
-  registered `#[cfg(feature="pro-build")]`). MAS-safe HTTP tools (`tools/web.rs`: search/extract/crawl) are
-  unconditional.
-- Reusable patterns: `Epistemos/Goose/GooseWebSurfaceView.swift` (modern `WebView(WebPage)` + custom-scheme + bridge)
-  and `Epistemos/Work/WorkRuntimeSupervisor.swift` (the honest Pro-gate `Status` enum — "launches NOTHING when
-  unavailable, no fake green").
+**Current state `[VERIFIED-CODE]`:** the user-driven Browser tab is live; the agent browser engines remain parked.
+- `Epistemos/Views/Browser/BrowserView.swift` ships `BrowserURLGuard`, `BrowserTab`, SwiftUI browser chrome, and a
+  non-persistent `WKWebView` wrapper with strict http/https navigation policy and teardown.
+- `UtilityPanel.browser`, the Browser command (`⌘⇧B`), and `LandingFeatureButton.browser` all summon the same
+  human-driven Browser surface.
+- `BrowserEngine` async trait + `PageSnapshot`/`AxNode` still exist for the parked native robot seam. `WebKitBrowserEngine`
+  and `ObscuraBrowserEngine` remain **NotConfigured stubs**; no agent drives the native Browser tab.
+- Pro automation today = browser-use/`agent-browser` over Chromium/CDP behind Pro gates. MAS-safe HTTP tools
+  (`tools/web.rs`: search/extract/crawl) remain unconditional.
 
 **★ FINAL build (owner 2026-06-28) — the native robot O-1..O-6 below is PARKED, do NOT build it:**
-- **App Store = the lite native "Browser" tab ONLY** — wire the standalone `BrowserView` from
+- **App Store = the shipped lite native "Browser" tab ONLY** — standalone `BrowserView` from
   `PLAN_3_OBSCURA_TIER1_CODEPACK` (a human-driven `WKWebView` + address bar; NOT the `WebKitBrowserEngine` agent seam).
   The `WebKitBrowserEngine` stub STAYS `NotConfigured`. No agent drives this tab.
 - **Pro automation = vendor the real `browser-use`** (§9) — Chromium robot, reskinned UI, exposed to Goose. Separate browser.
@@ -142,9 +139,9 @@ reference only; do NOT execute. Original steps were: O-1 `ObscuraWebHost` agent 
 real (it stays NotConfigured) · O-3 re-point `browser_*` registry at the in-app engine · O-4 agent-driven surface ·
 O-5 privacy stack · O-6 agentic scraper. All superseded by browser-use (§9).
 
-**MAS/Pro:** lite Browser tab = MAS-safe (human-driven, no robot). browser-use automation = **Pro only** (Chromium,
-honest `.unavailable` on MAS). Effort: lite tab **LOW** (Tier-1 codepack); browser-use vendor codepack and staged
-payload now exist, with final signed Pro packaging and full UI smoke still remaining.
+**MAS/Pro:** lite Browser tab = shipped and MAS-safe (human-driven, no robot). browser-use automation = **Pro only**
+(Chromium, honest `.unavailable` on MAS). browser-use vendor codepack and staged payload now exist, with final signed
+Pro packaging and full UI smoke still remaining.
 
 ---
 

@@ -62,17 +62,21 @@ struct BrowserPlan3Tests {
         let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
         let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_OBSCURA_TIER1_CODEPACK_2026_06_28.md")
 
+        #expect(plan.contains("T1 is shipped"))
         #expect(plan.contains("standalone lite Browser tab (`BrowserView`, human-driven"))
-        #expect(plan.contains("wire the standalone `BrowserView`"))
+        #expect(plan.contains("user-driven Browser tab is live"))
         #expect(!plan.contains("`ObscuraBrowserView`"))
 
         for required in [
             "Plan 3 — Browser Tier 1 in-app browser",
+            "shipped code",
             "Epistemos/Views/Browser/BrowserView.swift",
             "BrowserURLGuard",
             "BrowserTab",
             "BrowserView",
             "BrowserWebView",
+            "Browser file contract [DELIVERED]",
+            "Summon — `UtilityPanel.browser` + ⌘⇧B [DELIVERED]",
             "UtilityWindowManager.shared.show(.browser)",
             "WebKitBrowserEngine` Rust stub stays `NotConfigured",
             "Pro automation is the separate browser-use Chromium lane",
@@ -87,9 +91,14 @@ struct BrowserPlan3Tests {
             "ObscuraURLGuard",
             "ObscuraWebRepresentable",
             "ObscuraWebKitDriver",
-            "Rust-native V8"
+            "Rust-native V8",
+            "clone-ready code",
+            "NEW `Epistemos/Views/Browser/BrowserView.swift`",
+            "nothing renders a page in-app yet",
+            "wire the standalone `BrowserView`"
         ] {
             #expect(!codepack.contains(forbidden), "Browser Tier-1 codepack kept stale Obscura string: \(forbidden)")
+            #expect(!plan.contains(forbidden), "Plan 3 capability doc kept stale Browser Tier-1 string: \(forbidden)")
         }
     }
 }

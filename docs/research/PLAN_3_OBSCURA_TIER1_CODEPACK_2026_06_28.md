@@ -1,8 +1,8 @@
-# Plan 3 — Browser Tier 1 in-app browser (clone-ready code, Pass 4)
+# Plan 3 — Browser Tier 1 in-app browser (shipped code, Pass 5)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2`. The LIGHT, MAS-safe slice: a real browser tab you drive like
 > Safari. Standalone — no Rust, no FFI, no agent (Tier 2/3 are separate, Pro). Turns "I can't even see it" into a
-> visible, usable browser. `[VERIFIED-CODE]`/`[INFERRED]` tagged.
+> visible, usable browser. `[VERIFIED-CODE]` tagged.
 
 ## Current verified implementation
 - `Epistemos/Views/Browser/BrowserView.swift` is the Tier-1 Browser surface.
@@ -15,7 +15,7 @@
 - `UtilityPanel.browser` opens `BrowserView()`, defaults to `1024x720`, and is available from the app Browser command
   and the Plan 3 landing Browser button.
 
-## Browser file contract
+## Browser file contract [DELIVERED]
 - **`BrowserURLGuard`** — `allowedSchemes = ["http", "https"]`; `resolve(raw, searchTemplate)` promotes bare hosts to
   `https://`, turns non-URL text into DuckDuckGo search, and rejects explicit `file:`, `data:`, `javascript:`,
   `mailto:`, and `tel:` schemes.
@@ -27,10 +27,10 @@
   observation, strict `BrowserURLGuard.allows` navigation policy, single-tab `target=_blank`, and teardown that breaks
   retained WebView/tab closures.
 
-## Summon — `UtilityPanel.browser` + ⌘⇧B
-Add `.browser` to `UtilityPanel` (title "Browser", icon "safari", defaultSize 1024×720, free resize), route it in
-`contentView(for:bootstrap:)` (`:358`) → `BrowserView()`, reuse `applyOmegaChrome`. Add to `EpistemosCommands`
-(`CommandGroup(after:.sidebar)`): `Button("Browser"){ UtilityWindowManager.shared.show(.browser) }.keyboardShortcut("b", [.command,.shift])`.
+## Summon — `UtilityPanel.browser` + ⌘⇧B [DELIVERED]
+`.browser` is in `UtilityPanel` (title "Browser", icon "safari", defaultSize 1024×720, free resize), routes to
+`BrowserView()`, and reuses `applyOmegaChrome`. `EpistemosCommands` includes
+`Button("Browser"){ UtilityWindowManager.shared.show(.browser) }.keyboardShortcut("b", [.command,.shift])`.
 Window is cached (`isReleasedWhenClosed=false`) → re-summon reuses the same WebView (one persistent WebView, not N).
 
 ## Honest limits (baked into the ⓘ hint UI)
@@ -43,7 +43,7 @@ Pro automation is the separate browser-use Chromium lane; it does not and must n
 Keep `BrowserView`/`BrowserTab` free of any Goose, agent, Rust FFI, Python, subprocess, Playwright, or Chromium import
 so Tier 1 ships MAS-clean.
 
-## Files touched
-NEW `Epistemos/Views/Browser/BrowserView.swift`; EDIT `UtilityWindowManager.swift` (`.browser` in
+## Shipped files
+`Epistemos/Views/Browser/BrowserView.swift`; `UtilityWindowManager.swift` (`.browser` in
 `UtilityPanel`/`apply`/`contentView`) + `EpistemosApp.swift` (⌘⇧B button) + `LandingFeatureButton.browser`. All reuse
 verified patterns; MAS-safe, on-device, human-driven, and separate from the Pro browser-use robot.
