@@ -107,6 +107,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("responses also cap nested result arrays"))
         #expect(codepack.contains("replace non-string eval keys"))
         #expect(codepack.contains("Adapter JSON error responses redact common secret assignments"))
+        #expect(codepack.contains("token/api-key aliases, OAuth-style refresh/authorization codes"))
         #expect(codepack.contains("preserves adapter truncation flags before returning capped refs"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
