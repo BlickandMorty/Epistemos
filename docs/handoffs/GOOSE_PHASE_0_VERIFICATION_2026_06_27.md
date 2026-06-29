@@ -784,6 +784,30 @@ saturated)**:
   (PM #11's 5/5 green on the same surface, run without a competing build, is the
   control.)
 
+**Re-run #2 (2 fast pure-ACP suites, fresh re-staged bundle) — CONFIRMS load-induced,
+NOT a Goose bug.** Ran at load **19.15 / 12 cores (1.6× oversubscribed)**:
+- ✘ ProviderCatalog — `.closed` (ACP WebSocket dropped) at 20.6s.
+- ✘ SessionLifecycle — `Timed out waiting for session/new` at 12.3s.
+- **Decisive variance:** sweep #1 (load 12.76) had the catalog SUCCESSFULLY load 40
+  providers then a downstream overlay timeout; re-run #2 (load 19.15) couldn't even
+  keep the socket open (`.closed`). A deterministic code regression fails the SAME
+  way every time; this failure MODE got worse as load rose — the signature of CPU
+  starvation, not a Goose fault. The fresh bundle (re-staged this loop, mtime 00:30)
+  did not change the outcome → not a staging-staleness issue either.
+
+**Determination (honest):** the Goose *code* is re-proven re-runnably — full build
+green + **focused unit layer 53/53 green** (deterministic, load-independent, passed
+cleanly). The *live* runtime layer is **environment-blocked, not failing**: its
+fixed timeouts (4s config-status overlay, session/new, prompt end_turn) starve when
+3+ agents build concurrently (observed load 12.8–19.2 on 12 cores). I will NOT (a)
+weaken test timeouts to force a pass — that would mask real signal — nor (b) keep
+launching live sweeps that add to the contention and return inconclusive results.
+The live sweep is DEFERRED to a genuinely quiet window (requires concurrent agent
+builds to pause). PM #11's 5/5 green (78.8s, no competing build) stands as the
+control proving this surface passes live when not starved. STEP-1 is complete at the
+build + unit + staging layers; the live layer is pending a quiet window + the
+owner-only §7 manual/OAuth pass.
+
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
 -derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
