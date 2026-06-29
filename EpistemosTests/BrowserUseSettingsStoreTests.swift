@@ -101,8 +101,8 @@ struct BrowserUseSettingsStoreTests {
         #expect(!json.contains("VNC_PASSWORD"))
     }
 
-    @Test("settings store rejects symlinked JSON paths before writing")
-    func settingsStoreRejectsSymlinkedJSONPathsBeforeWriting() throws {
+    @Test("settings store rejects symlinked JSON paths before reading or writing")
+    func settingsStoreRejectsSymlinkedJSONPathsBeforeReadingOrWriting() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("browser-use-settings-symlink-\(UUID().uuidString)", isDirectory: true)
         let realDirectory = root.appendingPathComponent("real", isDirectory: true)
@@ -125,11 +125,27 @@ struct BrowserUseSettingsStoreTests {
             #expect(error.errorDescription?.contains("settings directory must not be a symlink") == true)
         }
 
+        do {
+            _ = try BrowserUseSettingsStore(
+                settingsURL: symlinkDirectory.appendingPathComponent("settings.json", isDirectory: false)
+            ).load()
+            Issue.record("Expected symlinked browser-use settings directory to be rejected on read")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings directory must not be a symlink") == true)
+        }
+
         let symlinkFile = safeDirectory.appendingPathComponent("settings.json", isDirectory: false)
         try FileManager.default.createSymbolicLink(at: symlinkFile, withDestinationURL: outsideFile)
         do {
             try BrowserUseSettingsStore(settingsURL: symlinkFile).save(.default)
             Issue.record("Expected symlinked browser-use settings file to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings file must not be a symlink") == true)
+        }
+
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: symlinkFile).load()
+            Issue.record("Expected symlinked browser-use settings file to be rejected on read")
         } catch let error as BrowserUseSettingsStoreError {
             #expect(error.errorDescription?.contains("settings file must not be a symlink") == true)
         }

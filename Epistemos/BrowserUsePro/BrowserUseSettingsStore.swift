@@ -338,10 +338,13 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
     }
 
     func load() throws -> BrowserUseSettings {
+        let directory = settingsURL.deletingLastPathComponent()
+        try Self.rejectSettingsSymlink(at: directory, label: "directory")
         guard FileManager.default.fileExists(atPath: settingsURL.path) else {
             return .default
         }
 
+        try Self.rejectSettingsSymlink(at: settingsURL, label: "file")
         let data = try Data(contentsOf: settingsURL)
         return try JSONDecoder().decode(BrowserUseSettings.self, from: data)
     }
