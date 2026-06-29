@@ -244,6 +244,23 @@ nonisolated struct BrowserUseSettings: Codable, Equatable, Sendable {
     }
 }
 
+nonisolated enum BrowserUseSettingsValidation {
+    static func problem(in settings: BrowserUseSettings) -> String? {
+        let browser = settings.browser
+        guard (1...65535).contains(browser.debuggingPort) else {
+            return "browser debugging port must be between 1 and 65535"
+        }
+        guard (1...16_384).contains(browser.resolutionWidth),
+              (1...16_384).contains(browser.resolutionHeight) else {
+            return "browser resolution must be between 1 and 16384 pixels per side"
+        }
+        guard (1...128).contains(browser.resolutionDepth) else {
+            return "browser resolution depth must be between 1 and 128"
+        }
+        return nil
+    }
+}
+
 nonisolated enum BrowserUseSecretBinding: String, CaseIterable, Sendable {
     case browserUseAPIKey = "BROWSER_USE_API_KEY"
     case openAIAPIKey = "OPENAI_API_KEY"

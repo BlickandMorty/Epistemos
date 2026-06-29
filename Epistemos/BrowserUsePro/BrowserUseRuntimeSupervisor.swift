@@ -592,6 +592,9 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         guard let loopbackURL = BrowserUseLoopbackPolicy.loopbackURL(host: host, port: port) else {
             return .unavailable("browser-use Pro runtime has invalid loopback address \(host):\(port)")
         }
+        if let settingsProblem = BrowserUseSettingsValidation.problem(in: settings) {
+            return .unavailable("browser-use Pro runtime settings invalid: \(settingsProblem)")
+        }
 
         let browserUsePairs = BrowserUseEnvironmentRenderer.pairs(
             settings: settings,

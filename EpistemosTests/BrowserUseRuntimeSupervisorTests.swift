@@ -124,6 +124,27 @@ struct BrowserUseRuntimeSupervisorTests {
         }
     }
 
+    @Test("readiness rejects malformed browser settings before launch planning")
+    func readinessRejectsMalformedBrowserSettingsBeforeLaunchPlanning() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+        var settings = BrowserUseSettings.default
+        settings.browser.debuggingPort = 70_000
+
+        let readiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: settings,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: "127.0.0.1",
+            port: 7878
+        )
+
+        #expect(!readiness.isReady)
+        #expect(readiness.message.contains("settings invalid"))
+        #expect(readiness.message.contains("debugging port"))
+    }
+
     @Test("readiness rejects non-executable Python payload before launch planning")
     func readinessRejectsNonExecutablePythonPayloadBeforeLaunchPlanning() throws {
         let paths = try runtimeFixture(packaged: true)
