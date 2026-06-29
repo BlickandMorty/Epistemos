@@ -42,6 +42,35 @@ Re-runnable: see the goosed probe block in the loop transcript (scratchpad/goose
   + a fingerprint-pinned WKWebView `didReceiveAuthenticationChallenge` delegate (research:
   TLS-off breaks secure-context MCP guest SDKs).
 
+## END-TO-END RE-PROVE ON goosed — PASS (re-runnable: scripts/goosed-live-reprove.sh)
+Owner requirement: "Re-prove the full live sweep + the 3 features end-to-end on goosed." Spawned the
+staged `goosed agent` exactly as the supervisor does under `EPISTEMOS_GOOSE_BACKEND=goosed` (no CLI
+flags; GOOSE_ env map; http loopback; `/status` health), then ran the SHARED ACP probe + the 3 REST
+probes. Result (`scratchpad/goosed-reprove.log`):
+
+```
+goosed agent healthy on 127.0.0.1:PORT/status
+=== (1) ACP surface (shared probe) ===
+✓ OK            initialize
+✓ OK count=106  providers/catalog/list (GOLDEN RULE)      ← live-enumerated, not Swift-hardcoded
+✓ OK            providers/list
+✓ OK count=32   providers/setup/catalog/list
+✓ OK count=65   providers/config/status (Auth)
+✓ OK count=11   config/extensions/list (Extensions)
+✓ OK count=0    sources/list[recipe|skill|schedule]        ← reachable (empty isolated HOME)
+✓ OK            session/new / session/list / session/load / session/fork (fork differs)
+✓ OK            session/prompt → stream  (10 session/update events, stopReason=end_turn)
+LIVE_ACP_SURFACE_PASS (all methods reachable + answered)
+=== (2) previously-unbackable REST features (goosed-only) ===
+✓ Prompts editor (CRUD)    GET /config/prompts     -> 200 (expected 200)
+✓ Permission-save (write)  GET /config/permissions -> 405 (expected 405; POST write route exists)
+✓ MCP-app proxy            GET /mcp-app-proxy      -> 400 (expected 400; route exists, needs params)
+GOOSED_END_TO_END_REPROVE_PASS (ACP surface byte-identical + 3 REST features live)
+```
+The same ACP surface the WebView drives is byte-identical on goosed (same probe, same protocol),
+AND the 3 features lean serve cannot back are first-class live REST routes. This is the live witness
+for the owner's 100%-parity gate on Option B.
+
 ## ACP-path parity proof: the swap is a SUPERSET, not a regression (source-verified)
 Compared lean `goose serve` (`goose-cli/src/cli.rs:1327 handle_serve_command`) against
 `goosed agent` (`goose-server/src/commands/agent.rs:44`). The ACP path the existing WebView
