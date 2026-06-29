@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 16:46 CDT (loop cycle 5) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. No canon/prompt doc changes since cycle 4; commits since were code-only (provenance snapshot limits/anchor IDs, browser-use loopback host). HEAD at pass: `f4e0be737`.
+**Last auditor pass:** 2026-06-29 16:57 CDT (loop cycle 6) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. No canon/prompt doc changes since cycle 4; commits since were code-only (goose nav delegate, MarkEdit resource loading, vault MCP symlink reject, provenance). HEAD at pass: `470b175bc`.
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
 
 ## INVARIANTS (the locked truths — each agent's docs must agree with these)
