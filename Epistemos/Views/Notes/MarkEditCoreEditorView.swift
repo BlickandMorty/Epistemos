@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import WebKit
+import MarkEditCore
 
 #if canImport(MarkEditKit)
 import MarkEditKit
@@ -462,7 +463,7 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
             theme: theme,
             fallbackFontSize: fontSize
         )
-        MarkEditCoreEditorState(
+        return MarkEditCoreEditorState(
             text: text,
             mode: mode,
             themeName: sourceDefaults.themeName,
@@ -1061,7 +1062,7 @@ struct MarkEditCoreEditorState: Equatable {
 private struct MarkEditCoreEditorConfig: Encodable {
     let text: String
     let theme: String
-    let fontFace: MarkEditCoreEditorFontFace
+    let fontFace: WebFontFace
     let fontSize: Double
     let showLineNumbers: Bool
     let showActiveLineIndicator: Bool
@@ -1086,12 +1087,6 @@ private struct MarkEditCoreEditorConfig: Encodable {
     let searchNormalizers: [String: String]?
     let epistemosMode: String
     let epistemosCodeLanguage: String?
-}
-
-private struct MarkEditCoreEditorFontFace: Encodable {
-    let family: String
-    let weight: String?
-    let style: String?
 }
 
 private struct MarkEditCoreEditorRuntimeInfo: Encodable {

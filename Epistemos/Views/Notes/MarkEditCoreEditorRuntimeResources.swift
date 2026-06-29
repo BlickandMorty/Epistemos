@@ -22,6 +22,10 @@ enum MarkEditCoreEditorDocument {
            let html = try? String(contentsOf: url, encoding: .utf8) {
             return html
         }
+        if let url = Bundle.main.url(forResource: "index", withExtension: "html"),
+           let html = try? String(contentsOf: url, encoding: .utf8) {
+            return html
+        }
 
         let repoURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("Epistemos/Resources")
@@ -44,7 +48,7 @@ final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
         guard let url = urlSchemeTask.request.url,
               let relativePath = Self.relativePath(for: url),
-              let fileURL = Self.fileURL(relativePath: relativePath),
+              let fileURL = Self.fileURL(relativePath: relativePath, filename: url.lastPathComponent),
               let mimeType = Self.mimeTypes[fileURL.pathExtension.lowercased()],
               let data = try? Data(contentsOf: fileURL) else {
             urlSchemeTask.didFailWithError(Self.error(for: urlSchemeTask.request.url))
@@ -55,10 +59,9 @@ final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
             url: url,
             statusCode: 200,
             httpVersion: "HTTP/1.1",
-            headerFields: [
-                "Access-Control-Allow-Origin": "*",
-                "Content-Type": mimeType,
-            ]
+            headerFields: Self.accessControl.merging(["Content-Type": mimeType]) { current, _ in
+                current
+            }
         ) ?? URLResponse(
             url: url,
             mimeType: mimeType,
@@ -76,15 +79,25 @@ final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
         guard url.scheme == MarkEditCoreEditorBridge.chunkScheme,
               let host = url.host,
               host == "chunks" else { return nil }
-        let pathComponents = url.path
-            .split(separator: "/")
-            .map(String.init)
+        let pathComponents = url.pathComponents
+            .filter { $0 != "/" }
         guard !pathComponents.isEmpty,
               pathComponents.allSatisfy(Self.isSafeRelativePathComponent) else { return nil }
         return ([host] + pathComponents).joined(separator: "/")
     }
 
-    private static func fileURL(relativePath: String) -> URL? {
+    private static func fileURL(relativePath: String, filename: String) -> URL? {
+        guard Self.isSafeRelativePathComponent(filename) else { return nil }
+
+        let bundleCandidates = [
+            Bundle.main.url(forResource: relativePath, withExtension: nil),
+            Bundle.main.url(forResource: filename, withExtension: nil),
+        ].compactMap { $0?.resolvingSymlinksInPath().standardizedFileURL }
+
+        if let candidate = bundleCandidates.first(where: Self.isRegularFile) {
+            return candidate
+        }
+
         let repoResourcesURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("Epistemos/Resources", isDirectory: true)
         let roots = [
@@ -97,13 +110,15 @@ final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
         ].compactMap { $0?.resolvingSymlinksInPath().standardizedFileURL }
 
         for root in roots {
-            let candidate = root
-                .appendingPathComponent(relativePath)
-                .resolvingSymlinksInPath()
-                .standardizedFileURL
-            if isDescendant(candidate, of: root),
-               isRegularFile(candidate) {
-                return candidate
+            for component in [relativePath, filename] {
+                let candidate = root
+                    .appendingPathComponent(component)
+                    .resolvingSymlinksInPath()
+                    .standardizedFileURL
+                if isDescendant(candidate, of: root),
+                   isRegularFile(candidate) {
+                    return candidate
+                }
             }
         }
 
@@ -140,5 +155,12 @@ final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
         "js": "text/javascript",
         "css": "text/css",
         "woff2": "font/woff2",
+    ]
+
+    private static let accessControl = [
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Origin": "*",
     ]
 }

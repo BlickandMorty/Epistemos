@@ -79,7 +79,9 @@ nonisolated struct MarkEditFullChromeWiringTests {
         #expect(markEditChunkLoader.contains("url.lastPathComponent"))
 
         let project = try loadMirroredSourceTextFile("project.yml")
-        let epistemosChunkLoader = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let epistemosChunkLoader = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift"
+        )
         #expect(project.contains("CoreEditor/chunks/**"))
         #expect(project.contains("Resources/CoreEditor/chunks/**"))
         #expect(epistemosChunkLoader.contains("Bundle.main.url(forResource: filename, withExtension: nil)"))

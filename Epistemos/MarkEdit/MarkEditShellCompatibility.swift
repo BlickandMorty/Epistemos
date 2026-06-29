@@ -160,13 +160,13 @@ enum MarkEditShellMenus {
             pandocItem("DOCX", format: "docx"),
             pandocItem("LaTeX", format: "latex"),
             .separator(),
-            item("Learn Pandoc", action: #selector(EditorViewController.learnPandoc(_:)))
+            item("Learn Pandoc", action: Selector(("learnPandoc:")))
         ]
         return menu
     }
 
     private static func pandocItem(_ title: String, format: String) -> NSMenuItem {
-        let item = item(title, action: #selector(EditorViewController.copyPandocCommand(_:)))
+        let item = item(title, action: Selector(("copyPandocCommand:")))
         item.identifier = NSUserInterfaceItemIdentifier(format)
         return item
     }
