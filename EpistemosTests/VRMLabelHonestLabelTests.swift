@@ -237,7 +237,7 @@ struct VRMLabelHonestLabelTests {
             uasAddress: anchored ? UasAddress(
                 kind: "claim",
                 hash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-                createdAtMs: createdAtMs
+                createdAtMs: UInt64(clamping: createdAtMs)
             ) : nil
         )
     }
