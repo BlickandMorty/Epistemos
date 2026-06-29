@@ -627,8 +627,15 @@ final class GooseRuntimeSupervisor {
     }
 
     nonisolated static func healthCheck(base: URL) async -> Bool {
+        // Bound the request (matches goosedStatusCheck's 2s). A health check must be fast: the
+        // default URLSession 60s timeout would let a HUNG goose serve (accepts the connection but
+        // never replies) block a single check for up to a minute, delaying the runtime-health
+        // monitor's honest "blocked" transition. The readiness poll retries, so a short timeout is
+        // safe there too. goose serve answers /health in ~1s; 5s is ample headroom under load.
+        var request = URLRequest(url: healthURL(base: base))
+        request.timeoutInterval = 5
         do {
-            let (data, response) = try await URLSession.shared.data(from: healthURL(base: base))
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
             return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) == "ok"
         } catch {
