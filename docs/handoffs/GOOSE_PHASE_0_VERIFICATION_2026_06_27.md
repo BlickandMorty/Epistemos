@@ -742,10 +742,24 @@ CoW-cloned the resolved `SourcePackages` (APFS clonefile, 4.6G) into a scratch
     assertions added THIS loop (postdating PM #11's run), and it passes.
   - ✔ **"Goose Swift surface does not carry a provider or model roster" (0.089s)** —
     GOLDEN RULE.
-- Broader focused Goose unit suites (supervisor ready-language / nav-gate /
-  ACP-decode-containment / env-hardening, resolver, boot-shim, affordance bridge,
-  electron fallback) re-running via `test-without-building` — result appended below
-  on completion.
+- Broader focused Goose unit suites via `test-without-building` — **50 tests / 5
+  suites GREEN, 0 failures, 26.0s** (log `scratchpad/goose-unit-suites.log`):
+  ✔ "Goose runtime supervisor" (2.3s — ready-language exact native/custom ACP
+  status, nav-gate deny-by-default + loopback-only, checkout-relative goose binary
+  DEBUG-only, child-env hardening + secret injection, ACP per-frame decode
+  containment = no silent drops, reconnect-budget reset, orphan cleanup),
+  ✔ "Goose Web UI resolver" (23.4s — staged-index preference, ACP-artifact-manifest
+  gating, stale-artifact rejection), ✔ "Goose WebView boot shim" (0.07s),
+  ✔ "Goose Web native affordance bridge" (0.21s), ✔ "Goose Electron fallback
+  launcher" (0.03s). Combined with the 3 staging tests above = **53 focused Goose
+  unit tests green**.
+
+**STEP-1 unit layer re-proven on real green build:** build-for-testing ✅,
+focused suites (53) ✅, GOLDEN RULE catalog fidelity ✅, no-silent-ACP-drops ✅,
+security/honesty (nav-gate / DEBUG-only-cwd / env-hardening) ✅, exact ready
+language ✅. Still pending for full STEP-1: the combined LIVE sweep
+(ProviderCatalog/SessionLifecycle/CustomCapability/WebPrompt/WebRoute) which needs
+a live `goose serve` — to be run against the isolated-DD-built app next.
 
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
