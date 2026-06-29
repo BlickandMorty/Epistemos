@@ -27,7 +27,7 @@ final class EditorViewController: NSViewController {
   var bottomPanelHeight: Double = 0
   var pendingResetCount: Int = 0
   var webBackgroundColor = AppPreferences.Window.cachedBackgroundColor?.nsColor
-  var localEventMonitor: Any?
+  nonisolated(unsafe) var localEventMonitor: Any?
   var textBoxInputObserver: Any?
   var safeAreaObservation: NSKeyValueObservation?
   var userDefinedMenuItems = [EditorMenuItem]()
