@@ -840,6 +840,32 @@ esac
     }
 
     #[tokio::test]
+    async fn browser_cdp_commands_still_pass_private_session_name() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let log_path = temp.path().join("browser.log");
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let _log = EnvGuard::set("FAKE_BROWSER_LOG", log_path.as_os_str());
+        let socket_dir = socket_dir_for_session("cdp-session");
+
+        run_agent_browser_command(
+            "open",
+            &["https://example.com".to_string()],
+            "cdp-session",
+            Some("http://127.0.0.1:9222"),
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap();
+
+        let line = fs::read_to_string(&log_path).unwrap();
+        assert!(line.contains("--session cdp-session"));
+        assert!(line.contains("--cdp http://127.0.0.1:9222"));
+    }
+
+    #[tokio::test]
     async fn browser_get_images_parses_json_string_results() {
         let _env_guard = env_lock().lock().await;
         let temp = tempfile::tempdir().unwrap();

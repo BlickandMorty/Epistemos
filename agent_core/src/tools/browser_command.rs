@@ -56,10 +56,9 @@ pub(crate) async fn run_agent_browser_command(
         .map_err(|e| ToolError::ExecutionFailed(format!("reopen browser stderr temp file: {e}")))?;
 
     let mut command = executable.into_command();
+    command.arg("--session").arg(session_name);
     if let Some(cdp_url) = cdp_url {
         command.arg("--cdp").arg(cdp_url);
-    } else {
-        command.arg("--session").arg(session_name);
     }
     command.arg("--json").arg(command_name);
     for arg in args {

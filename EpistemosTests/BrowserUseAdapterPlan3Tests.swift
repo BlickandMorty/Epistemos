@@ -188,6 +188,7 @@ struct BrowserUseAdapterPlan3Tests {
             "sanitize_url_for_output",
             "\"url_redacted\"",
             "browser_navigate_result_redacts_url_query_and_fragment",
+            "browser_cdp_commands_still_pass_private_session_name",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }
@@ -211,6 +212,7 @@ struct BrowserUseAdapterPlan3Tests {
             "cleanup_socket_dir_is_private",
             "browser_cleanup_ignores_symlinked_socket_directory",
             "browser_cleanup_removes_private_socket_directory",
+            "command.arg(\"--session\").arg(session_name)",
         ] {
             #expect(browserCommand.contains(required), "Missing Rust browser-use command runner string: \(required)")
         }
