@@ -132,6 +132,33 @@ struct VaultMCPServerLifecycleTests {
         #expect(data.isEmpty)
     }
 
+    @Test("host scopes running registration to the active vault")
+    @MainActor
+    func hostScopesRunningRegistrationToActiveVault() async throws {
+        let firstRoot = try Self.makeVaultRoot()
+        let secondRoot = try Self.makeVaultRoot()
+        defer {
+            try? FileManager.default.removeItem(at: firstRoot)
+            try? FileManager.default.removeItem(at: secondRoot)
+        }
+
+        let keychain = MemoryKeychain()
+        let factory = TokenFactory(["scoped-token"])
+        let host = VaultMCPHost(tokenStore: VaultMCPTokenStore(
+            load: keychain.load,
+            save: keychain.save,
+            makeToken: factory.next))
+        defer { host.stop() }
+
+        let registration = try #require(await host.start(vaultRoot: firstRoot, timeout: .seconds(2)))
+        #expect(host.currentRegistration(for: firstRoot)?.url == registration.url)
+        #expect(host.currentRegistration(for: secondRoot) == nil)
+
+        host.stopIfCurrentVaultDiffers(from: secondRoot)
+        #expect(host.currentRegistration == nil)
+        #expect(host.currentStatus == .stopped)
+    }
+
     @Test("source guards keep server/host on the audited Plan 3 seams")
     func sourceGuardsKeepPlan3Seams() throws {
         let server = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPServer.swift")
@@ -150,6 +177,8 @@ struct VaultMCPServerLifecycleTests {
         let host = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPHost.swift")
         #expect(host.contains("tier: .readOnly"))
         #expect(host.contains("allowedToolNames: Set(VaultMCPCore.readToolNames)"))
+        #expect(host.contains("currentRegistration(for vaultRoot: URL?)"))
+        #expect(host.contains("stopIfCurrentVaultDiffers"))
         #expect(host.contains("rotateTokenAndRestart"))
         #expect(!host.contains("AppBootstrap"))
         #expect(!host.contains("applicationDidFinishLaunching"))
@@ -158,6 +187,8 @@ struct VaultMCPServerLifecycleTests {
         #expect(row.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         #expect(row.contains("VaultMCPHost.shared.start"))
         #expect(row.contains("VaultMCPHost.shared.stop"))
+        #expect(row.contains("VaultMCPHost.shared.stopIfCurrentVaultDiffers"))
+        #expect(row.contains("VaultMCPHost.shared.currentRegistration(for: vaultRoot)"))
         #expect(row.contains("VaultMCPTokenStore.masked"))
         #expect(row.contains("Copy MCP client config"))
         #expect(row.contains(#""type": "http""#))

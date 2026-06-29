@@ -42,8 +42,10 @@ base64) via `Keychain.save(_, for: "vault_mcp_bearer")` — **never UserDefaults
 
 ## 4. `VaultMCPHost.swift` [DELIVERED]
 `@MainActor`, idempotent-per-vault `ensureServer`, async `start(vaultRoot:)` polling `.ready`, `stop()`,
-`rotateTokenAndRestart(vaultRoot:)`. **OFF BY DEFAULT** — nothing calls `start()` at bootstrap; only the Settings toggle
-does. Executor uses `ToolTierBridge(vaultPath:, tier:.readOnly, allowedToolNames: Set(VaultMCPCore.readToolNames))`;
+`rotateTokenAndRestart(vaultRoot:)`, and active-vault-scoped registration lookup so a Settings refresh cannot present
+an old server for a different connected vault. **OFF BY DEFAULT** — nothing calls `start()` at bootstrap; only the
+Settings toggle does. Executor uses
+`ToolTierBridge(vaultPath:, tier:.readOnly, allowedToolNames: Set(VaultMCPCore.readToolNames))`;
 `ChatToolTier.readOnly` maps to the Rust full tier only with an explicit allowlist, and the core's allowlist still
 enforces read-only.
 

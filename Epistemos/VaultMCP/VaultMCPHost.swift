@@ -40,6 +40,11 @@ final class VaultMCPHost {
         return registration
     }
 
+    func currentRegistration(for vaultRoot: URL?) -> WorkNativeMCPRegistration? {
+        guard let vaultRoot, serverVaultPath == vaultRoot.path else { return nil }
+        return currentRegistration
+    }
+
     var currentStatus: VaultMCPServer.Status {
         server?.status ?? .idle
     }
@@ -48,6 +53,14 @@ final class VaultMCPHost {
         server?.stop()
         server = nil
         serverVaultPath = nil
+    }
+
+    func stopIfCurrentVaultDiffers(from vaultRoot: URL?) {
+        guard server != nil else { return }
+        guard serverVaultPath == vaultRoot?.path else {
+            stop()
+            return
+        }
     }
 
     func rotateTokenAndRestart(vaultRoot: URL, timeout: Duration = .seconds(5)) async -> WorkNativeMCPRegistration? {

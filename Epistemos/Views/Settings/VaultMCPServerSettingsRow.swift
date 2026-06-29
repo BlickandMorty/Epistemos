@@ -79,7 +79,8 @@ struct VaultMCPServerSettingsRow: View {
             }
         }
         .task(id: vaultRoot?.path) {
-            registration = VaultMCPHost.shared.currentRegistration
+            VaultMCPHost.shared.stopIfCurrentVaultDiffers(from: vaultRoot)
+            registration = VaultMCPHost.shared.currentRegistration(for: vaultRoot)
             didCopyConfig = false
             statusMessage = nil
         }
