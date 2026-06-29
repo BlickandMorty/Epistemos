@@ -374,20 +374,30 @@ them here so nothing is lost (SCOPE_RECOVERY is now retired — its content live
   typing "pixel box") from showing on chat/landing/mini-chat; converge on A's native-anchored model; add a glowing bubble
   to Epdoc that opens a **native NSPopover** (not the pixel box); scope recall to Epdoc + TK2 (NOT chat); accuracy-first.
 
-- **13.5 HTML Workspace = AI-artifact surface (Plan 2 owns it). ⬆ PULLED FORWARD from step 8 — owner hit it not
-  working (2026-06-29).** The existing `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` surface, upgraded so **chat
-  rewrites the whole surface into a live website/explainer** (DOM/animations), mini-chat as the driver, and
-  **hand-editing routes to the Source (MarkEdit) code surface** (don't maintain a second broken code pane). Surface
-  table (§1) names it. **HONEST STATE (`HTMLWorkspaceCapabilityStatus.swift`, owner-flagged 2026-06-20): 4 LIVE / 5
-  DEFERRED.** LIVE = multi-file HTML/CSS/JS editing · WKWebView live preview · agent chat PATCH pipeline
-  (`HTMLWorkspacePatchRouter`) · export/import/PDF/snapshot. DEFERRED = app message-bridge (`didReceive` empty stub,
-  `safeAPIEnabled` off) · JS console/error capture (behind `EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0`, default OFF) ·
-  live-DOM inspection (static regex, not runtime DOM) · Python (Pyodide/WASM, not built) · **full-surface REGENERATE
-  (incremental patches only today — the big AI one).** BUILD ORDER (honesty-first): (1) PROVE the 4 LIVE capabilities
-  on a clean build (if dead, it's the stale binary); (2) **full-surface regenerate** (chat rewrites the whole
-  artifact, not just patches) — the headline upgrade; (3) flip the console-capture flag ON + finish the app
-  message-bridge; (4) live-DOM inspection (real runtime DOM, not regex); (5) Python = research/Pro, keep honest-gated.
-  Keep the capability ledger TRUTHFUL — flip an entry to `isLive: true` only when it really is.
+- **13.5 HTML Workspace = REPURPOSE HTML into a real AI-artifact / web-app / explainer BUILDER (Plan 2 owns it).
+  ⬆ PULLED FORWARD from step 8 — owner hit it not working (2026-06-29).** ⚠️ This is an UPGRADE feature, not a
+  renderer fix — the canonical spec is **`docs/research/SS-HW_HTML_WORKSPACE_STATUS_UPGRADE_2026_06_20.md`** (read
+  it; Steps 0–4 + the EXPANSION). The vision (owner 2026-06-20): take the existing `HTMLWorkspaceDocument`/
+  `HTMLWorkspaceEditorView` surface and repurpose it so **chat can completely rewrite the whole surface into a live
+  website/webpage/explainer** (DOM, live UI, animations) — and even *"explain something"* becomes *"build a
+  webpage/explainer from what the model knows"* via **JSON/HTML streaming** (research: StreamHtml/htmlstream,
+  `docs/RESEARCH_HTMLSTREAM_2026_06_18.md` — port the per-chunk repair + DOMPurify via the build-time WKWebView
+  bundle, MAS-safe). Plus **R-LIVE-ARTIFACTS** (OWNER_REQUESTS_LEDGER): revive `ArtifactHostView` via an
+  `ArtifactRoute.htmlWorkspace(id)` + a **self-refreshing `data.json`** bound to a vault/query feed (saved
+  `fusedSearch`/RRF or DAG/provenance) → patch the live WKWebView (counters Claude Artifacts). **Mini-chat is the
+  primary driver** (any surface via `MiniChatTarget`); main-chat auto-link DEFERRED (no implicit global link).
+  Hand-editing routes to the Source (MarkEdit) surface (no second code pane). **HONEST STATE
+  (`HTMLWorkspaceCapabilityStatus.swift`): 4 LIVE** (multi-file edit · WKWebView preview · agent chat PATCH pipeline
+  `HTMLWorkspacePatchRouter` · export/import/PDF/snapshot) **/ 5 DEFERRED** (app message-bridge stub · console/error
+  capture behind `EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0` OFF · live-DOM = static regex · Python Pyodide/WASM unbuilt ·
+  full-surface REGENERATE). BUILD ORDER per SS-HW (honesty-first; MAS-safe; reuse Epdoc WKWebView/bridge/URL-scheme +
+  build-time bundle): (1) PROVE the 4 LIVE caps on a clean build (if dead = stale binary); (2) **full-surface
+  `regenerate`/`replaceDocument`** patch op (atomic, versioned, reversible, AI-provenance) + streaming +
+  explainer-from-knowledge — the headline "repurpose" upgrade; (3) real console+error bridge (implement the empty
+  `didReceive`); (4) live-DOM inspection + chat-edit hot-reload; (5) "full web app" scaffold pipeline (multi-file/
+  multi-route, relax the persistence ban per sandbox mode); (6) Python via Pyodide/WASM in-WKWebView (MAS-safe, no
+  subprocess; vendor at build) = research/Pro, honest-gated. Keep the capability ledger TRUTHFUL — flip `isLive:
+  true` only when it really is.
 - **13.6 Web clipper (Plan 2-owned, UNSPECCED).** Capture web content → a vault `.md` note (frontmatter source-url,
   sanitized HTML→md via the canonical serializer). No code today — needs a design slice; flagged so it isn't lost.
 - **13.7 PDF *viewer* (PDFKit `PDFView`) — Plan 2 owns it (was orphaned).** Plan 3 owns the PDF→md PARSE + the `source_pdf`
