@@ -38,7 +38,7 @@ nonisolated enum LiteParseSourcePDFLink {
 struct ViewOriginalPDFAffordance: View {
     let page: SDPage
     let vaultURL: URL?
-    var openOriginalPDF: (URL) -> Void = { _ in }
+    let openOriginalPDF: (URL) -> Void
 
     private var originalPDFURL: URL? {
         guard page.frontMatter["source_kind"] == "pdf",

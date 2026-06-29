@@ -597,6 +597,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
+    @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
     @State private var persistedBody: String
@@ -807,6 +808,9 @@ struct NoteDetailWorkspaceView: View {
                     currentBody: persistedBodyFor(page)
                 )
             }
+        }
+        .sheet(item: $sourcePDFViewerPresentation) { presentation in
+            SourcePDFViewerSheet(url: presentation.url)
         }
         .sheet(isPresented: $showLegacyRecoverySheet) {
             if let legacyRecoveryPresentation {
@@ -1301,6 +1305,16 @@ struct NoteDetailWorkspaceView: View {
             .labelStyle(.iconOnly)
         }
         .help(showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)")
+
+        if let page = pages.first {
+            ViewOriginalPDFAffordance(
+                page: page,
+                vaultURL: vaultSync.vaultURL,
+                openOriginalPDF: { url in
+                    sourcePDFViewerPresentation = SourcePDFViewerPresentation(url: url)
+                }
+            )
+        }
 
         moreMenu
     }
