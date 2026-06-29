@@ -19,7 +19,8 @@
   forwards partial/final transcript text, and no longer routes through the removed `ComposerVoiceInputService` stub.
 - **Live macOS 26 STT is surfaced:** `LiveVoiceInputService` wraps `EpistemosSpeechAnalyzer` readiness/start/stop,
   model-download progress, and partial/final transcript state for reusable UI consumption. Meeting/STT builds on this
-  facade.
+  facade. Final SpeechAnalyzer segments are buffered and drained in order so fast final events cannot overwrite one
+  another before the UI consumes them.
 - **Reusable mic API has no inert auto-stop flag:** `VoiceInputButton` is manual by design; surfaces that support
   automatic silence-stop own the policy at their capture-service boundary.
 - **Preferred voice floor is quality-first:** `preferredVoice()` now resolves installed voices by Premium > Enhanced >

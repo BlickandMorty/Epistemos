@@ -25,6 +25,7 @@ public final class LiveVoiceInputService {
     public private(set) var modelDownloadProgress: Double?
 
     private var streamTask: Task<Void, Never>?
+    private var finalTranscriptBuffer: [String] = []
 
     private init() {}
 
@@ -60,6 +61,7 @@ public final class LiveVoiceInputService {
         stop()
         partialTranscript = ""
         finalTranscript = ""
+        finalTranscriptBuffer.removeAll()
         modelDownloadProgress = nil
         state = .preparing
 
@@ -116,14 +118,18 @@ public final class LiveVoiceInputService {
         stop()
         partialTranscript = ""
         finalTranscript = ""
+        finalTranscriptBuffer.removeAll()
         state = .idle
     }
 
     public func consumeTranscript() -> String? {
-        let text = finalTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return nil }
+        let pending = finalTranscriptBuffer
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        finalTranscriptBuffer.removeAll()
         finalTranscript = ""
-        return text
+        guard !pending.isEmpty else { return nil }
+        return pending.joined(separator: "\n\n")
     }
 
     @available(macOS 26.0, *)
@@ -132,7 +138,10 @@ public final class LiveVoiceInputService {
         case .partial(let text):
             partialTranscript = text
         case .final(let text):
-            finalTranscript = text
+            let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else { return }
+            finalTranscriptBuffer.append(cleaned)
+            finalTranscript = cleaned
             partialTranscript = ""
         }
     }

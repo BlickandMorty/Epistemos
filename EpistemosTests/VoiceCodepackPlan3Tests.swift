@@ -96,6 +96,9 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("EpistemosSpeechAnalyzer.shared.stop()"))
         #expect(facade.contains("@available(macOS 26.0, *)"))
         #expect(facade.contains("modelDownloadProgress"))
+        #expect(facade.contains("finalTranscriptBuffer"))
+        #expect(facade.contains("finalTranscriptBuffer.append(cleaned)"))
+        #expect(facade.contains("pending.joined(separator: \"\\n\\n\")"))
     }
 
     @Test("voice MAS path has no Pro neural or hidden runtime dependency")
