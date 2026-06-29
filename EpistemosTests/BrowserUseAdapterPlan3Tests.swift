@@ -160,6 +160,9 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_screenshot_exports_private_root_to_adapter",
             "path_resolves_inside",
             "browser screenshot resolved outside private screenshot directory",
+            "\"typed\": true",
+            "\"typed_chars\"",
+            "browser_type_result_does_not_echo_typed_text",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }

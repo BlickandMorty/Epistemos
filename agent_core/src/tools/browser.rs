@@ -280,7 +280,8 @@ async fn type_impl(manager: &BrowserManager, input: &Value) -> Result<Value, Too
     Ok(json!({
         "success": true,
         "element": normalized,
-        "typed": text,
+        "typed": true,
+        "typed_chars": text.chars().count(),
     }))
 }
 
@@ -821,6 +822,31 @@ esac
             parsed["images"][0]["src"],
             json!("https://example.com/image.png")
         );
+    }
+
+    #[tokio::test]
+    async fn browser_type_result_does_not_echo_typed_text() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+
+        let manager = BrowserManager::new();
+        BrowserActionHandler::new(manager.clone(), BrowserAction::Navigate)
+            .execute(&json!({ "url": "https://example.com/login" }))
+            .await
+            .unwrap();
+        let output = BrowserActionHandler::new(manager, BrowserAction::Type)
+            .execute(&json!({
+                "ref": "@e1",
+                "text": "sk-secret-password"
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["typed"], json!(true));
+        assert_eq!(parsed["typed_chars"], json!(18));
+        assert!(!output.contains("sk-secret-password"));
     }
 
     #[tokio::test]
