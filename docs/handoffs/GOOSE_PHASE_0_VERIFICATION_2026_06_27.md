@@ -710,3 +710,45 @@ The MarkEdit integration did NOT affect the Goose surface — it re-proves green
 build + focused + live layers on the fully-integrated project. Goose Web UI staging
 also re-validated tsc-clean during the outage. STEP-1 re-prove holds on the new
 project state.
+
+## Addendum 2026-06-29 (loop) — CORRECTED a false "blocked test bundle" premise + re-proved the parity gate WITH the new grafts
+
+**The "shared test bundle is blocked by another agent's CodeEditorPolishTests"
+premise (carried across several loop iterations) was WRONG and is now disproven
+with a real green build.** Evidence:
+- `EpistemosTests/CodeEditorPolishTests.swift` imports only `Foundation` / `Testing`
+  / `@testable import Epistemos`. Its "~70 CodeEdit refs" are Epistemos's OWN
+  classes (`CodeEditorContentDebouncer` @ `Epistemos/Engine/`, `CodeEditorSearchEngine`
+  + `CodeEditorView` @ `Epistemos/Views/Notes/CodeEditorView.swift`) plus
+  string-literal guards (`#expect(!source.contains("SourceEditor("))`). It does NOT
+  import the removed `CodeEdit` SwiftPM package. No test anywhere imports it. The
+  CodeEdit→MarkEdit migration is committed/done (project.yml is MarkEdit-only).
+- DerivedData/package-artifact health is clean: `llama.xcframework` present under
+  `SourcePackages/artifacts/ggufruntimebridge/llama/`, `yyjson` checkout writable
+  (also recorded by commit `cd0790c82`).
+
+**Independent re-prove (isolated DD to avoid racing a concurrent agent's build):**
+CoW-cloned the resolved `SourcePackages` (APFS clonefile, 4.6G) into a scratch
+`-derivedDataPath`/`-clonedSourcePackagesDirPath`, then:
+- **Full `Epistemos` + `EpistemosTests` build SUCCEEDED — `** TEST SUCCEEDED **`,
+  exit 0** (log `scratchpad/goose-gate-validate.log`). The test bundle compiles
+  end-to-end → the "blocked" premise is conclusively false.
+- **`GooseWebUIStagingTests` (via fast `test-without-building` on the cached bundle)
+  — 3/3 green** (log `scratchpad/goose-twb.log`):
+  - ✔ "staging script forces file-relative renderer assets" (0.131s)
+  - ✔ **"staging grafts wire live config-status, model capabilities, and
+    thinking-effort/mode through ACP (feature-parity gate)" (0.074s)** — the parity
+    gate now carries the toolsCache→`toolsList_unstable` + AlertBox-threshold
+    assertions added THIS loop (postdating PM #11's run), and it passes.
+  - ✔ **"Goose Swift surface does not carry a provider or model roster" (0.089s)** —
+    GOLDEN RULE.
+- Broader focused Goose unit suites (supervisor ready-language / nav-gate /
+  ACP-decode-containment / env-hardening, resolver, boot-shim, affordance bridge,
+  electron fallback) re-running via `test-without-building` — result appended below
+  on completion.
+
+Re-runnable command (cached bundle, ~0.3s test phase):
+`xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
+-derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
+-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile
+-only-testing:EpistemosTests/GooseWebUIStagingTests`
