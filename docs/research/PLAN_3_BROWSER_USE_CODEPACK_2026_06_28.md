@@ -119,8 +119,9 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Extra positional
   arguments and unexpected console/error flags are rejected before daemon startup; command arguments after
-  `--json <command>` are preserved even when they begin with `--`. `browser_vision` also rejects screenshot paths that
-  resolve outside the private screenshot directory before handing the image to any external vision provider. The
+  `--json <command>` are preserved even when they begin with `--`. Runtime environment setup happens only after adapter
+  arguments are accepted. `browser_vision` also rejects screenshot paths that resolve outside the private screenshot
+  directory before handing the image to any external vision provider. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve

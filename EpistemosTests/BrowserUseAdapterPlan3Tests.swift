@@ -76,15 +76,22 @@ struct BrowserUseAdapterPlan3Tests {
             "send_browser_use(\"input\"",
             "send_browser_use(\"keys\"",
             "runtime.send_command(\"shutdown\"",
+            "def ensure_browser_daemon(args",
+            "def send_browser_use(action",
+            "def close_session(name",
         ] {
             #expect(source.contains(required), "Missing browser-use daemon delegation string: \(required)")
         }
         #expect(!source.contains("ensure_browser_daemon(args)\n\n    if command == \"open\""))
         #expect(!source.contains("setdefault(\"BROWSER_USE_HOME\""))
+        #expect(!source.contains("prepare_runtime_environment()\n\n    if command == \"close\""))
 
         let contractIndex = try #require(source.range(of: "if command == \"contract\"")?.lowerBound)
         let prepareIndex = try #require(source.range(of: "prepare_runtime_environment()")?.lowerBound)
         #expect(contractIndex < prepareIndex)
+        let ensureIndex = try #require(source.range(of: "def ensure_browser_daemon")?.lowerBound)
+        let runtimePrepareIndex = try #require(source.range(of: "def ensure_browser_daemon(args: argparse.Namespace) -> None:\n    prepare_runtime_environment()")?.lowerBound)
+        #expect(ensureIndex == runtimePrepareIndex)
     }
 
     @Test("adapter stays inside Plan 3 browser-use vendor boundary")

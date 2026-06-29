@@ -71,6 +71,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("command-specific argument validation runs before browser-use daemon startup"))
         #expect(codepack.contains("extra positional arguments and unexpected console/error flags are rejected before daemon startup"))
         #expect(codepack.contains("command arguments after `--json <command>` are preserved even when they begin with `--`"))
+        #expect(codepack.contains("runtime environment setup happens only after adapter arguments are accepted"))
         #expect(codepack.contains("browser_vision rejects screenshot paths that resolve outside"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
