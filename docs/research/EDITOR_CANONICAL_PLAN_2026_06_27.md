@@ -374,10 +374,20 @@ them here so nothing is lost (SCOPE_RECOVERY is now retired — its content live
   typing "pixel box") from showing on chat/landing/mini-chat; converge on A's native-anchored model; add a glowing bubble
   to Epdoc that opens a **native NSPopover** (not the pixel box); scope recall to Epdoc + TK2 (NOT chat); accuracy-first.
 
-- **13.5 HTML Workspace = AI-artifact surface (Plan 2 owns it).** The existing `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView`
-  surface, upgraded so **chat rewrites the whole surface into a live website/explainer** (DOM/animations), mini-chat as the
-  driver, and **hand-editing routes to code-editor v2** (don't maintain a second broken code pane — kills the blank-editor
-  bug). Surface table (§1) now names it (row added).
+- **13.5 HTML Workspace = AI-artifact surface (Plan 2 owns it). ⬆ PULLED FORWARD from step 8 — owner hit it not
+  working (2026-06-29).** The existing `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` surface, upgraded so **chat
+  rewrites the whole surface into a live website/explainer** (DOM/animations), mini-chat as the driver, and
+  **hand-editing routes to the Source (MarkEdit) code surface** (don't maintain a second broken code pane). Surface
+  table (§1) names it. **HONEST STATE (`HTMLWorkspaceCapabilityStatus.swift`, owner-flagged 2026-06-20): 4 LIVE / 5
+  DEFERRED.** LIVE = multi-file HTML/CSS/JS editing · WKWebView live preview · agent chat PATCH pipeline
+  (`HTMLWorkspacePatchRouter`) · export/import/PDF/snapshot. DEFERRED = app message-bridge (`didReceive` empty stub,
+  `safeAPIEnabled` off) · JS console/error capture (behind `EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0`, default OFF) ·
+  live-DOM inspection (static regex, not runtime DOM) · Python (Pyodide/WASM, not built) · **full-surface REGENERATE
+  (incremental patches only today — the big AI one).** BUILD ORDER (honesty-first): (1) PROVE the 4 LIVE capabilities
+  on a clean build (if dead, it's the stale binary); (2) **full-surface regenerate** (chat rewrites the whole
+  artifact, not just patches) — the headline upgrade; (3) flip the console-capture flag ON + finish the app
+  message-bridge; (4) live-DOM inspection (real runtime DOM, not regex); (5) Python = research/Pro, keep honest-gated.
+  Keep the capability ledger TRUTHFUL — flip an entry to `isLive: true` only when it really is.
 - **13.6 Web clipper (Plan 2-owned, UNSPECCED).** Capture web content → a vault `.md` note (frontmatter source-url,
   sanitized HTML→md via the canonical serializer). No code today — needs a design slice; flagged so it isn't lost.
 - **13.7 PDF *viewer* (PDFKit `PDFView`) — Plan 2 owns it (was orphaned).** Plan 3 owns the PDF→md PARSE + the `source_pdf`
