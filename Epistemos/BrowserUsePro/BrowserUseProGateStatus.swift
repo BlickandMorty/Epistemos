@@ -145,8 +145,66 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             && packagingArtifacts.playwrightChromium.status == "staged"
     }
 
+    func stagedArtifactProblems(
+        relativeTo manifestRoot: URL,
+        fileManager: FileManager = .default
+    ) -> [String] {
+        guard isProPayloadStaged else {
+            return []
+        }
+
+        return [
+            artifactProblem(
+                name: "requirements.lock",
+                relativePath: packagingArtifacts.requirementsLock.expectedPath,
+                relativeTo: manifestRoot,
+                requiresDirectory: false,
+                fileManager: fileManager
+            ),
+            artifactProblem(
+                name: "wheelhouse",
+                relativePath: packagingArtifacts.wheelhouse.expectedPath,
+                relativeTo: manifestRoot,
+                requiresDirectory: true,
+                fileManager: fileManager
+            ),
+            artifactProblem(
+                name: "Playwright Chromium payload",
+                relativePath: packagingArtifacts.playwrightChromium.expectedPath,
+                relativeTo: manifestRoot,
+                requiresDirectory: true,
+                fileManager: fileManager
+            ),
+            artifactProblem(
+                name: "BUILD_MANIFEST.json",
+                relativePath: "BUILD_MANIFEST.json",
+                relativeTo: manifestRoot,
+                requiresDirectory: false,
+                fileManager: fileManager
+            ),
+        ].compactMap(\.self)
+    }
+
     var packagingSummary: String {
         "requirements.lock=\(packagingArtifacts.requirementsLock.status), wheels=\(packagingArtifacts.wheelhouse.status), browser payload=\(packagingArtifacts.playwrightChromium.status)"
+    }
+
+    private func artifactProblem(
+        name: String,
+        relativePath: String,
+        relativeTo manifestRoot: URL,
+        requiresDirectory: Bool,
+        fileManager: FileManager
+    ) -> String? {
+        let url = manifestRoot.appendingPathComponent(relativePath, isDirectory: requiresDirectory)
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            return "missing \(name) at \(relativePath)"
+        }
+        if requiresDirectory && !isDirectory.boolValue {
+            return "\(name) is not a directory at \(relativePath)"
+        }
+        return nil
     }
 }
 
@@ -190,7 +248,8 @@ nonisolated enum BrowserUseProGateStatus {
 
     static func status(
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        manifestURL: URL? = defaultManifestURL()
+        manifestURL: URL? = defaultManifestURL(),
+        fileManager: FileManager = .default
     ) -> Status {
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         return Status(
@@ -231,6 +290,18 @@ nonisolated enum BrowserUseProGateStatus {
                     isActive: false,
                     headline: "browser-use Pro: source vendored, payload not packaged",
                     detail: "Pinned full source is present, but the runnable Pro payload is not staged yet (\(manifest.packagingSummary)). No automation runtime is launched."
+                )
+            }
+
+            let artifactProblems = manifest.stagedArtifactProblems(
+                relativeTo: manifestURL.deletingLastPathComponent(),
+                fileManager: fileManager
+            )
+            guard artifactProblems.isEmpty else {
+                return Status(
+                    isActive: false,
+                    headline: "browser-use Pro: packaged payload incomplete",
+                    detail: "Manifest claims the Pro payload is staged, but \(artifactProblems.joined(separator: "; ")). No automation runtime is launched."
                 )
             }
 

@@ -73,6 +73,30 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest-staged payload must have the declared artifacts on disk")
+    func manifestStagedPayloadMustHaveDeclaredArtifactsOnDisk() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifestURL = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        try Data(Self.packagedManifestJSON.utf8).write(to: manifestURL)
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: manifestURL
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: packaged payload incomplete")
+        #expect(status.detail.contains("requirements.lock"))
+        #expect(status.detail.contains("wheelhouse"))
+        #expect(status.detail.contains("BUILD_MANIFEST.json"))
+        #endif
+    }
+
     @Test("gate source stays pure and out of other plan ownership")
     func gateSourceStaysPureAndInPlan3Boundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift")
@@ -84,6 +108,9 @@ struct BrowserUseProGateStatusTests {
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "No automation runtime is launched",
             "isProPayloadStaged",
+            "stagedArtifactProblems(",
+            "packaged payload incomplete",
+            "BUILD_MANIFEST.json",
             "sourceMirrorGuard.requiredExclude"
         ] {
             #expect(source.contains(required), "Missing browser-use Pro gate string: \(required)")
@@ -104,4 +131,59 @@ struct BrowserUseProGateStatusTests {
             #expect(!source.contains(forbidden), "browser-use Pro gate crossed a forbidden boundary: \(forbidden)")
         }
     }
+
+    private static let packagedManifestJSON = """
+    {
+      "schema_version": 1,
+      "name": "plan3-browser-use-pro",
+      "runtime_lane": "pro-developer-id-only",
+      "mas_safe": false,
+      "native_wkwebview_boundary": "browser-use drives bundled Chromium over CDP; it does not drive Epistemos BrowserView WKWebView",
+      "source_mirror_guard": {
+        "source_of_truth": "project.yml",
+        "required_exclude": "--exclude='vendor/browser-use/'",
+        "reason": "Python, Playwright, Chromium, and browser-use source must not be copied into MAS SourceMirror resources"
+      },
+      "components": [
+        {
+          "name": "browser-use",
+          "repo": "https://github.com/browser-use/browser-use.git",
+          "commit": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+          "license": "MIT",
+          "full_clone": true,
+          "file_count": 501
+        },
+        {
+          "name": "web-ui",
+          "repo": "https://github.com/browser-use/web-ui.git",
+          "commit": "61962296c38a0d064e0ba02c827192b7a81d1819",
+          "license": "MIT",
+          "full_clone": true,
+          "file_count": 42
+        },
+        {
+          "name": "cdp-use",
+          "repo": "https://github.com/browser-use/cdp-use.git",
+          "commit": "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
+          "license": "MIT",
+          "full_clone": true,
+          "file_count": 357
+        }
+      ],
+      "packaging_artifacts": {
+        "requirements_lock": {
+          "status": "generated",
+          "expected_path": "requirements.lock"
+        },
+        "wheelhouse": {
+          "status": "staged",
+          "expected_path": "wheels/"
+        },
+        "playwright_chromium": {
+          "status": "staged",
+          "expected_path": "playwright/"
+        }
+      }
+    }
+    """
 }

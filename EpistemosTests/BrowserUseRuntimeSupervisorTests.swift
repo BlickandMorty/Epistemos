@@ -295,6 +295,9 @@ struct BrowserUseRuntimeSupervisorTests {
             try Data("{\"schema_version\":1}\n".utf8).write(
                 to: vendorRoot.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false)
             )
+            try Data("# generated test lock\n".utf8).write(
+                to: vendorRoot.appendingPathComponent("requirements.lock", isDirectory: false)
+            )
         }
 
         try Data(vendorManifestJSON(packaged: packaged).utf8).write(

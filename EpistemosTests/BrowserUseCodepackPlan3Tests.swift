@@ -59,6 +59,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("verifies ambient process secrets/injection variables are not inherited"))
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
+        #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
+        #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("Behavior test"))
