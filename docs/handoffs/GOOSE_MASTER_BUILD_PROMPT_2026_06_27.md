@@ -126,7 +126,7 @@ NON-NEGOTIABLES:
 • ADD, DON'T EDIT on Goose Rust core (§14.3). Epistemos wiring lives in Epistemos/Goose/*
   and Epistemos/Agent/* across ACP seam + reskin overlay.
 • Build Paseo features from SPEC (§15/§15.7) ONLY AFTER Phase 0 sign-off + hybrid Steps 1–9
-  chat-primary flip — NEVER vendor Paseo AGPL code (§15.6).
+  [🛑 HISTORICAL 2026-06-29 — there is NO "chat-primary flip"; Option 1 keeps chat in the reskinned WebView permanently] — NEVER vendor Paseo AGPL code (§15.6) (this Paseo-AGPL guardrail still stands).
 • Commit at clean points. Clone has its own git.
 • Zero test regressions against full Epistemos test suite when feasible; at minimum run
   focused Goose tests + build-for-testing after each gate.

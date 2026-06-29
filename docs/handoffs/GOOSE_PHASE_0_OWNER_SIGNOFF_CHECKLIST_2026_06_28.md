@@ -5,7 +5,7 @@
 > verification.) Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md`.
 
 Branch: `feat/goose-surface`. Prepared by the Claude deep-hardening loop.
-**Phase 0 is NOT signed off.** This checklist is the §7 gate: the items only
+[🛑 HISTORICAL 2026-06-29 — §7 is GREEN-LIT; the line below is SUPERSEDED, not a live gate.] **Phase 0 is NOT signed off.** This checklist is the §7 gate: the items only
 *you* (owner) can verify, plus the one OAuth login the automated proofs cannot
 perform. Nothing here starts Phase 1 / `Epistemos/Agent/*` / Paseo §15.
 

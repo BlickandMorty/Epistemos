@@ -22,7 +22,7 @@ Source of truth for the gate: `GOOSE_PHASE_0_STATUS_AUDIT_2026_06_27.md` + `SURF
 
 Do not stop until I say stop. You are the agent building the SINGLE Epistemos agent surface = Goose (reskinned). There is no Chat/Act/Work federation — Goose is the one surface.
 
-YOU ARE STILL ON PHASE 0. It is NOT signed off. DO NOT start Epistemos/Agent/*, hybrid AppKit Phase 1, or Paseo §15 until I (owner) personally sign the §7 proof gate.
+[🛑 HISTORICAL 2026-06-29 — §7 is GREEN-LIT; Plan 1 is on Phase 1, Option 1 (no native chat). The line below is SUPERSEDED — do not act on it. This whole doc is DO-NOT-PASTE.] YOU ARE STILL ON PHASE 0. It is NOT signed off. DO NOT start Epistemos/Agent/*, hybrid AppKit Phase 1, or Paseo §15 until I (owner) personally sign the §7 proof gate.
 
 READ FIRST (do not skim):
   - docs/research/SURFACE_EMBEDDING_WEBVIEW_VS_NATIVE_DECISION_2026_06_25.md §0, §2, §7, §9-C, §14, §16, §17 (ignore any ⛔ DEAD/SUPERSEDED section)
