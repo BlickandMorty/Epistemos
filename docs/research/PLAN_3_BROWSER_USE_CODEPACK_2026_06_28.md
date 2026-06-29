@@ -36,7 +36,10 @@ The full source trees are now staged under `agent_core/vendor/browser-use/` with
 | cdp-use | `agent_core/vendor/browser-use/cdp-use/` | 357 | package, generated `cdp_use/cdp/*` domains, generator, examples, runbook |
 
 `agent_core/vendor/browser-use/VENDOR_MANIFEST.json` records repo URL, commit SHA, license, license hash, package-file
-hash, file count, included path families, excluded `.git`, `full_clone: true`, and the MAS SourceMirror exclusion.
+hash, upstream file count, included path families, excluded `.git`, `full_clone: true`, and the MAS SourceMirror
+exclusion. It also records the Epistemos `web_ui_runtime_compatibility` overlay: narrow browser-use compatibility shims
+for old web-ui imports (`browser_use.browser.browser`, `browser_use.browser.context`, `browser_use.controller.*`) while
+the upstream browser-use source pin and file count remain separately auditable.
 `agent_core/vendor/browser-use/requirements.in` installs local editable `./browser-use` and `./cdp-use`, then repeats
 web-ui dependencies while overriding stale pins that conflict with the vendored `browser-use` 0.13.2 tree:
 `browser-use==0.1.48` is replaced by the local source, `gradio==5.27.0` is raised to `6.19.0` for Pillow 12.2.0
@@ -49,9 +52,12 @@ staged third-party and local package wheels under `agent_core/vendor/browser-use
 Playwright Chromium under `agent_core/vendor/browser-use/playwright/` (`chromium-1223`, `chromium_headless_shell-1223`,
 and `ffmpeg-1011`), and wrote a non-secret `BUILD_MANIFEST.json` outside MAS/App Store build phases.
 
-Still pending: signing/notarization into final Pro resources and full loopback UI smoke. The manifest marks the build
-script and adapter contract as `landed`, and marks the generated lock/build manifest, wheelhouse, and Playwright payload
-as staged instead of pretending the signed Pro package exists.
+Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`: it starts the staged
+`build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/web-ui/webui.py --ip 127.0.0.1 --port <ephemeral>
+--theme Ocean`, probes the Gradio root document over loopback, writes non-secret evidence, and always tears down the
+child process. Still pending: signing/notarization into final Pro resources and full WKWebView dry-run UI smoke. The
+manifest marks the build script and adapter contract as `landed`, and marks the generated lock/build manifest,
+wheelhouse, and Playwright payload as staged instead of pretending the signed Pro package exists.
 
 `Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift` is now the always-compiled honest gate and manifest reader:
 MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the staged payload manifest it
@@ -81,6 +87,15 @@ secrets are written, launches the Pro process only after an injected loopback he
 `http://127.0.0.1:<port>/`, terminates the launched process if the loopback health probe fails, and compiles the actual
 `Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
+`scripts/browser-use-pro-loopback-smoke.sh` now exercises that staged server shape outside the app host by launching the
+vendored Gradio UI on `127.0.0.1`, setting `PYTHON_DOTENV_DISABLED=true`, `PLAYWRIGHT_BROWSERS_PATH` to the staged
+Chromium payload, and writing a bounded `result.json` plus `webui.log` in a caller-selected or temporary artifact
+directory without recording secrets. `[VERIFIED-CODE]`
+The smoke forced web-ui compatibility fixes now landed in the vendored Pro payload: optional LangChain MCP/provider
+packages are no longer imported at UI module load, missing optional provider packages fail only when that provider is
+selected, `ToolCallingMethod`/`is_model_without_tool_support`/`BrowserState` compatibility exports exist for the pinned
+web-ui, and the Chatbot constructor uses the installed Gradio 6 `buttons=["copy"]` API instead of removed
+`type="messages"` / `show_copy_button` arguments. `[VERIFIED-CODE]`
 Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload when present, then falls back to the
 development source checkout layout, so Settings and launch planning resolve the same packaged Pro artifact.
 The launched Python/Chromium process inherits only a small POSIX environment allowlist (PATH/HOME/locale/temp/user
@@ -246,9 +261,10 @@ New Plan 3 files should live outside Plan 1/Plan 2 ownership, for example:
   **Landed settings contract/env renderer.**
 - `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` — Pro-only hardened subprocess owner for
   `python webui.py --ip 127.0.0.1 --port <chosen>`, lazy-started by user action, killed on idle/app exit.
-  **Launch-plan, secure `.env`, Pro-only subprocess branch, staged payload, and live fixture smoke landed.**
+  **Launch-plan, secure `.env`, Pro-only subprocess branch, staged payload, loopback server smoke harness, and live
+  fixture smoke landed.**
 - `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` — WKWebView shell for the loopback Gradio UI with honest status.
-  **Loopback guard and user-initiated shell landed; full UI smoke still pending.**
+  **Loopback guard and user-initiated shell landed; full WKWebView dry-run UI smoke still pending.**
 - `Epistemos/Views/Settings/BrowserUseSettingsView.swift` — settings mirror + diagnostics.
 
 Do not edit `Epistemos/Goose/*`, `Epistemos/Agent/*`, or Plan 2 editor surfaces for the Pro shell. Goose access should
@@ -301,6 +317,14 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   secrets/injection variables are not inherited, verifies dotenv loading is disabled for exact Keychain-rendered values,
   verifies a failed loopback health probe terminates the launched process before surfacing a bounded error, and verifies
   the subprocess branch is Pro-only.
+- Loopback server smoke harness: `scripts/browser-use-pro-loopback-smoke.sh` starts the staged Pro `webui.py` on
+  `127.0.0.1`, forces the staged Playwright browser path, disables dotenv reloading and Gradio analytics, polls only the
+  loopback root URL, writes non-secret `result.json`/`webui.log` evidence, and kills the child process on pass, timeout,
+  or early exit. This is landed, but it is not the full app-hosted WKWebView dry-run.
+- Web-ui compatibility guard: the vendor manifest must record the Epistemos overlay shims separately from upstream
+  source counts; the pinned web-ui must import/build a Gradio Blocks object without eager LangChain MCP/provider package
+  imports; and the staged Gradio 6 Chatbot constructor must not use removed `type="messages"` or `show_copy_button`
+  parameters.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
   non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
   navigation, tears down delegates, and proves it does not reference native Browser, Goose/Agent, or Plan 2 editor/PDF
@@ -328,7 +352,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 4. Add `BrowserUseProGateStatus` + Settings gate; MAS says Pro only. **Gate, diagnostic Settings surface, and
    settings/env contract landed.**
 5. Add runtime supervisor + loopback WebView shell. **Runtime launch contract and WKWebView loopback shell landed;
-   loopback health gating landed; full UI smoke still pending.**
+   loopback health gating and loopback server smoke harness landed; full WKWebView dry-run UI smoke still pending.**
 6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
    **Source-only adapter contract, Rust discovery wiring, and live tool smoke landed.**
 7. Run the full Pro smoke suite, then the MAS boundary audit.

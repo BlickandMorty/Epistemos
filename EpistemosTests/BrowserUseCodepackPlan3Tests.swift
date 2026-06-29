@@ -15,8 +15,11 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(plan.contains("vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed"))
         #expect(codepack.contains("staged Pro code"))
         #expect(codepack.contains("This records the landed Pro-only vendor/runtime staging lane"))
-        #expect(codepack.contains("Still pending: signing/notarization into final Pro resources and full loopback UI smoke"))
+        #expect(codepack.contains("Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`"))
+        #expect(codepack.contains("Still pending: signing/notarization into final Pro resources and full WKWebView dry-run UI smoke"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and live browser tool smoke"))
+        #expect(codepack.contains("web_ui_runtime_compatibility"))
+        #expect(codepack.contains("upstream browser-use source pin and file count remain separately auditable"))
         #expect(!plan.contains("browser-use vendor = the owed Pro codepack"))
         #expect(!plan.contains("Needs a vendor codepack (owed)"))
         #expect(!plan.contains("Needs a landed vendor codepack/settings/payload/adapter lane"))
@@ -109,6 +112,10 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("rejects launch `.env` paths below symlinked parent directories before secrets are written"))
         #expect(codepack.contains("loopback health probe"))
         #expect(codepack.contains("terminates the launched process if the loopback health probe fails"))
+        #expect(codepack.contains("loopback server smoke harness"))
+        #expect(codepack.contains("full WKWebView dry-run UI smoke still pending"))
+        #expect(codepack.contains("optional LangChain MCP/provider packages are no longer imported at UI module load"))
+        #expect(codepack.contains("Gradio 6 `buttons=[\"copy\"]` API"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("keeps console/errors compatibility stubs runtime"))
@@ -116,6 +123,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("generated lock"))
         #expect(codepack.contains("wheelhouse, and Chromium payload landed"))
         #expect(codepack.contains("live browser-use fixture smoke landed"))
+        #expect(codepack.contains("This is landed, but it is not the full app-hosted WKWebView dry-run"))
     }
 
     @Test("browser-use plan preserves browser settings and MAS boundary")
@@ -461,6 +469,7 @@ struct BrowserUseCodepackPlan3Tests {
 
         let packaging = try #require(manifest["packaging_artifacts"] as? [String: Any])
         let agentBrowserAdapter = try #require(packaging["agent_browser_adapter"] as? [String: Any])
+        let webUIRuntimeCompatibility = try #require(packaging["web_ui_runtime_compatibility"] as? [String: Any])
         let buildScript = try #require(packaging["build_script"] as? [String: Any])
         let buildManifest = try #require(packaging["build_manifest"] as? [String: Any])
         let requirementsLock = try #require(packaging["requirements_lock"] as? [String: Any])
@@ -468,6 +477,14 @@ struct BrowserUseCodepackPlan3Tests {
         let playwrightChromium = try #require(packaging["playwright_chromium"] as? [String: Any])
         #expect(agentBrowserAdapter["status"] as? String == "landed")
         #expect(agentBrowserAdapter["expected_path"] as? String == "epistemos_agent_browser.py")
+        #expect(webUIRuntimeCompatibility["status"] as? String == "landed")
+        let compatibilityPaths = try #require(webUIRuntimeCompatibility["expected_paths"] as? [String])
+        #expect(compatibilityPaths.count == 10)
+        for relativePath in compatibilityPaths {
+            #expect(FileManager.default.fileExists(
+                atPath: try Self.sourceURL("agent_core/vendor/browser-use/\(relativePath)").path
+            ))
+        }
         #expect(buildScript["status"] as? String == "landed")
         #expect(buildScript["expected_path"] as? String == "build-pro-payload.sh")
         #expect(buildManifest["status"] as? String == "generated")
@@ -552,6 +569,123 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(manifest.contains("\"expected_path\": \"build-pro-payload.sh\""))
         #expect(manifest.contains("\"build_manifest\""))
         #expect(manifest.contains("\"expected_path\": \"BUILD_MANIFEST.json\""))
+    }
+
+    @Test("browser-use loopback smoke harness is bounded, loopback-only, and non-secret")
+    func browserUseLoopbackSmokeHarnessIsBoundedLoopbackOnlyAndNonSecret() throws {
+        let script = try Self.loadSource("scripts/browser-use-pro-loopback-smoke.sh")
+
+        for required in [
+            "Plan 3 browser-use Pro loopback smoke",
+            "build/browser-use-pro/.venv/bin/python",
+            "web-ui/webui.py",
+            "BUILD_MANIFEST.json",
+            "wheelhouse_dir",
+            "playwright_dir",
+            "127.0.0.1",
+            "--ip 127.0.0.1",
+            "--theme Ocean",
+            "PLAYWRIGHT_BROWSERS_PATH",
+            "PYTHON_DOTENV_DISABLED=true",
+            "GRADIO_ANALYTICS_ENABLED=False",
+            "BROWSER_USE_HOME",
+            "result.json",
+            "webui.log",
+            "secrets\": \"not recorded\"",
+            "curl -fsS --max-time 2",
+            "loopback_url=\"http://127.0.0.1:$port/\"",
+            "kill \"$webui_pid\"",
+            "kill -9 \"$webui_pid\"",
+            "it does not load the Epistemos WKWebView shell or submit an agent task",
+        ] {
+            #expect(script.contains(required), "Missing browser-use loopback smoke string: \(required)")
+        }
+
+        for forbidden in [
+            "0.0.0.0",
+            "localhost:",
+            "BrowserView",
+            "Epistemos/Goose",
+            "Epistemos/Agent",
+            "HTMLWorkspace",
+            "PDFView",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "UserDefaults",
+        ] {
+            #expect(!script.contains(forbidden), "browser-use loopback smoke crossed boundary: \(forbidden)")
+        }
+    }
+
+    @Test("browser-use web-ui compatibility shims are manifested and import-safe")
+    func browserUseWebUICompatibilityShimsAreManifestedAndImportSafe() throws {
+        let browserShim = try Self.loadSource(
+            "agent_core/vendor/browser-use/browser-use/browser_use/browser/browser.py"
+        )
+        let contextShim = try Self.loadSource(
+            "agent_core/vendor/browser-use/browser-use/browser_use/browser/context.py"
+        )
+        let controllerService = try Self.loadSource(
+            "agent_core/vendor/browser-use/browser-use/browser_use/controller/service.py"
+        )
+        let controllerViews = try Self.loadSource(
+            "agent_core/vendor/browser-use/browser-use/browser_use/controller/views.py"
+        )
+        let agentViews = try Self.loadSource(
+            "agent_core/vendor/browser-use/browser-use/browser_use/agent/views.py"
+        )
+        let messageUtils = try Self.loadSource(
+            "agent_core/vendor/browser-use/browser-use/browser_use/agent/message_manager/utils.py"
+        )
+        let browserViews = try Self.loadSource(
+            "agent_core/vendor/browser-use/browser-use/browser_use/browser/views.py"
+        )
+        let mcpClient = try Self.loadSource("agent_core/vendor/browser-use/web-ui/src/utils/mcp_client.py")
+        let llmProvider = try Self.loadSource("agent_core/vendor/browser-use/web-ui/src/utils/llm_provider.py")
+        let agentTab = try Self.loadSource(
+            "agent_core/vendor/browser-use/web-ui/src/webui/components/browser_use_agent_tab.py"
+        )
+        let webUIManager = try Self.loadSource("agent_core/vendor/browser-use/web-ui/src/webui/webui_manager.py")
+
+        for required in [
+            "Legacy browser-use import compatibility",
+            "class BrowserConfig(BrowserProfile)",
+            "class Browser(BrowserSession)",
+            "IN_DOCKER",
+        ] {
+            #expect(browserShim.contains(required), "Missing browser shim string: \(required)")
+        }
+        #expect(contextShim.contains("class BrowserContextConfig(BrowserProfile)"))
+        #expect(contextShim.contains("class BrowserContext"))
+        #expect(controllerService.contains("from browser_use.tools.service import Controller"))
+        #expect(controllerViews.contains("GoToUrlAction = NavigateAction"))
+        #expect(controllerViews.contains("SearchGoogleAction = SearchAction"))
+        #expect(agentViews.contains("ToolCallingMethod = Literal"))
+        #expect(messageUtils.contains("def is_model_without_tool_support"))
+        #expect(browserViews.contains("BrowserState = BrowserStateSummary"))
+        #expect(mcpClient.contains("if TYPE_CHECKING:"))
+        #expect(mcpClient.contains("from langchain_mcp_adapters.client import MultiServerMCPClient"))
+        #expect(llmProvider.contains("def _missing_provider_class"))
+        #expect(llmProvider.contains("is not staged in the browser-use Pro payload"))
+        #expect(agentTab.contains("buttons=[\"copy\"]"))
+        #expect(!agentTab.contains("type=\"messages\""))
+        #expect(!agentTab.contains("show_copy_button"))
+        #expect(!webUIManager.contains("type=\"messages\""))
+
+        for source in [
+            browserShim,
+            contextShim,
+            controllerService,
+            controllerViews,
+            mcpClient,
+            llmProvider,
+            agentTab,
+            webUIManager,
+        ] {
+            for forbidden in ["Epistemos/Goose", "Epistemos/Agent", "BrowserView", "HTMLWorkspace", "PDFView"] {
+                #expect(!source.contains(forbidden), "browser-use web-ui compatibility crossed boundary: \(forbidden)")
+            }
+        }
     }
 
     @Test("browser-use requirements seed uses vendored paths and skips stale web-ui pin")
