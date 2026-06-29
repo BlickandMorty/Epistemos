@@ -1213,6 +1213,8 @@ nonisolated private func eventProgressSummary(_ event: GooseACPClientEvent) -> S
         "event=unhandled_request method=\(method.rawValue)"
     case .unhandledNotification(let method, _):
         "event=unhandled_notification method=\(method.rawValue)"
+    case .serverError(let code, let message, _):
+        "event=server_error code=\(code) message=\(message)"
     }
 }
 
