@@ -1,7 +1,8 @@
-# Plan 3 — Landing-page feature buttons (clone-ready code, Pass 5)
+# Plan 3 — Landing-page feature buttons (shipped code, Pass 6)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §8`. Owner requirement: EVERY Plan-3 feature is a one-tap button on
-> the landing page. Pure additive UI — no backend/Plan-1/Plan-2 clash. `[VERIFIED-CODE]`/`[INFERRED]` tagged.
+> the landing page. The shipped surface is pure additive UI — no backend/Plan-1/Plan-2 clash.
+> `[VERIFIED-CODE]`/`[INFERRED]` tagged.
 
 ## Verified landing surface
 - Landing page = `LandingView` (`Epistemos/Views/Landing/LandingView.swift:37`); content in `greetingContent` (`:413`);
@@ -19,7 +20,7 @@
   `SettingsView.swift:114`). A Pro-only landing button must show a lock/"PRO" pill in MAS + explain on tap, never
   summon an absent surface.
 
-## NEW `Epistemos/Views/Landing/LandingFeatureButtons.swift`
+## `Epistemos/Views/Landing/LandingFeatureButtons.swift` [DELIVERED]
 - **`enum LandingFeatureButton: CaseIterable`** — one case per feature (`pdfImport`/`arxiv`/`provenance`/`extensions`/
   `vaultMCP`/`browser`/`meetingNote`/`voice`, + future ones). Each derives `title`/`glyph`(reuse `PixelGlyphKind`)/`accent`/`haptic`/`isProOnly`/
   `isAvailableInThisBuild` (compile-time). Adding a feature = **1 enum case + 1 switch line**.

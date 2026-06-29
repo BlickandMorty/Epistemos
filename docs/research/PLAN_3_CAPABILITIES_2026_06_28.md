@@ -278,7 +278,7 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
 - **⚠️ RECOVER — owner says scope got narrowed; HTML Workspace + "all the other things I wanted" must be re-included.**
   Pending owner confirm of the full list (HTML Workspace currently lives in Plan 2 — decide its home). See §10.
 
-## 8. Landing-page feature buttons (owner requirement, Pass 5) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
+## 8. Landing-page feature buttons (owner requirement, shipped Pass 6) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
 Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `:37`, the existing `landingPixelCommands`
 grid `:492`). `LandingFeatureButton` enum (pdfImport/arxiv/provenance/extensions/vaultMCP/browser/meetingNote/voice)
 reuses the existing `PixelLandingCommandTile` and summons Plan 3-owned surfaces only:

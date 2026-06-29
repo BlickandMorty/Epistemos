@@ -110,6 +110,9 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(codepack.contains(".extensions/.vaultMCP`→`UtilityWindowManager.shared.showSettings(section: .skills)"))
         #expect(codepack.contains(".voice`→`UtilityWindowManager.shared.showSettings(section: .voice)"))
         #expect(codepack.contains("showingArxivSearch = true"))
+        #expect(codepack.contains("LandingFeatureButtons.swift` [DELIVERED]"))
+        #expect(plan.contains("Landing-page feature buttons (owner requirement, shipped Pass 6)"))
+        #expect(!codepack.contains("## NEW `Epistemos/Views/Landing/LandingFeatureButtons.swift`"))
     }
 
     private static func loadSource(_ relativePath: String) throws -> String {
