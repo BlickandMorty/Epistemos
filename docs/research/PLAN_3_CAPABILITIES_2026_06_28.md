@@ -253,9 +253,12 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   PDF→md importer, and write a file-first vault note with abstract, parsed full text, metadata frontmatter, and
   `source_pdf` pointing at the copied PDF under `<vault>/arXiv/`. The landing button opens `ArxivSearchView` as a sheet.
   MAS-safe (arxiv.org API + the §1 PDF pipeline); failures create no note and report the download/parser reason.
-- **Meeting/lecture note** — record audio → **on-device STT** (Apple Speech / local Whisper) → a note + AI summary.
-  Was buried as one line; it's a flagship capability (Granola/Notion-AI territory), fully on-device, MAS-safe. Uses the
-  Apple-native Speech framework (§6). MEDIUM effort.
+- **Meeting/lecture note — SHIPPED (Pass 9):** user-driven on-device Apple Speech/SpeechAnalyzer capture through
+  `LiveVoiceInputService`, buffered by `MeetingNoteCaptureService`, then saved through `TextCapturePipeline` as a
+  searchable note with `source=meeting_stt`, `source_kind=audio_transcript`, `captured_at`, `duration_seconds`, and
+  `stt_engine=apple_speechanalyzer` frontmatter. The landing button opens `MeetingNoteView` in the Plan 3 utility
+  window; auto-stop follows the dictation preference, and manual stop/save stays available. No hidden audio retention,
+  no cloud STT, no Whisper/Kokoro/Python/subprocess on the MAS path.
 - **Eidos→chat / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): the closed-citation retrieval panel is
   the *visible payoff* of the moat; substrate is ~done, only the surfacing remains.
 

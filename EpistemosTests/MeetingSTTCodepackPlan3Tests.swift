@@ -36,4 +36,32 @@ struct MeetingSTTCodepackPlan3Tests {
             #expect(plan.contains(forbiddenBoundary), "Missing Meeting/STT boundary: \(forbiddenBoundary)")
         }
     }
+
+    @Test("codepack and rollup mark Meeting/STT shipped")
+    func codepackAndRollupMarkMeetingSTTShipped() throws {
+        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_MEETING_STT_CODEPACK_2026_06_28.md")
+        let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+
+        #expect(plan.contains("shipped code"))
+        #expect(plan.contains("## Shipped state"))
+        #expect(plan.contains("## Delivered build"))
+        #expect(plan.contains("## Delivery order"))
+        #expect(capabilities.contains("Meeting/lecture note — SHIPPED (Pass 9)"))
+        #expect(capabilities.contains("MeetingNoteCaptureService"))
+        #expect(capabilities.contains("stt_engine=apple_speechanalyzer"))
+
+        for stale in [
+            "clone-ready",
+            "[INFERRED]` tagged",
+        ] where plan.contains(stale) {
+            Issue.record("Meeting/STT codepack still contains stale phrase: \(stale)")
+        }
+        for stale in [
+            "Apple Speech / local Whisper",
+            "a note + AI summary",
+            "MEDIUM effort",
+        ] where capabilities.contains(stale) {
+            Issue.record("Plan 3 capabilities still contains stale Meeting/STT phrase: \(stale)")
+        }
+    }
 }

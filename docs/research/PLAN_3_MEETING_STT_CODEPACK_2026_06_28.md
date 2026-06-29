@@ -1,10 +1,10 @@
-# Plan 3 - Meeting/STT note codepack (clone-ready, Pass 9)
+# Plan 3 - Meeting/STT note (shipped code, Pass 9)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md` sections 6, 7, and 11. Scope: record or dictate a
 > meeting/lecture transcript on-device, materialize it as a searchable note, and keep the source/provenance honest.
-> No cloud STT. No Whisper/Kokoro/Python/subprocess on the MAS path. `[VERIFIED-CODE]`/`[INFERRED]` tagged.
+> No cloud STT. No Whisper/Kokoro/Python/subprocess on the MAS path.
 
-## Current state `[VERIFIED-CODE]`
+## Shipped state `[VERIFIED-CODE]`
 - **Live STT engine exists:** `EpistemosSpeechAnalyzer` is `@available(macOS 26.0, *)`, uses SpeechAnalyzer/
   SpeechTranscriber progressive transcription, handles model asset installation, converts AVAudioEngine tap buffers,
   and exposes `LiveResult.partial` / `LiveResult.final`.
@@ -36,7 +36,7 @@ Meeting note is a user-driven Apple-native capture surface:
 - MAS default is Apple Speech/SpeechAnalyzer only. Whisper is a Pro option only after separate packaging and privacy
   review; do not add it in this codepack.
 
-## Build
+## Delivered build
 1. `Epistemos/Engine/MeetingNoteCaptureService.swift` `[VERIFIED-CODE]`.
    - Use `LiveVoiceInputService` as the only STT dependency.
    - Maintain an ordered transcript buffer of final segments plus the current partial segment.
@@ -108,7 +108,7 @@ Optional frontmatter keys:
   surfaces.
 - MAS boundary guard proves no cloud STT, Whisper, Python, subprocess, Chromium, or Kokoro path enters meeting capture.
 
-## Build order
+## Delivery order
 1. Add this codepack + source guards. `[DONE]`
 2. Add `CaptureSourceMetadata` to `TextCapturePipeline` and tests. `[DONE]`
 3. Add `MeetingNoteCaptureService` over `LiveVoiceInputService` and tests. `[DONE]`
