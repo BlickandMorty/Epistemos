@@ -34,6 +34,19 @@ strictness as the Goose plan's R-CODEREVIEW:
 
 ---
 
+## ⚛️ NATIVENESS & UNIFIED LOOK (binding 2026-06-29 — see `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`)
+The editor joins the ONE unified Apple-native look (AppKit + WebView + Goose CONVERGE; shared SF Pro `-apple-system`
++ shadcn Apple tokens (Action Blue #0066cc) + macOS HIG geometry + macOS-26 Liquid Glass + the EXACT SwiftUI
+springs). **PLAN-2 split:** NATIVE = all chrome (code nested-box/title/file-logos/lens toggle; note chrome) +
+Prose/TK2 + PDF viewer (PDFKit) + Cmd+K + floating panels. WEB ENGINES (blend, NEVER replace) = MarkEdit/CoreEditor
++ Epdoc/TipTap + HTML Workspace → **transparent-over-glass** (`drawsBackground=false`, proven
+`Views/Epdoc/EpdocKaTeXPreview.swift:79`) + SF Pro + theme tokens + frost/specular (refraction Chromium-only) + the
+verified springs (.smooth {0.5,0} · .snappy {0.5,0.15} · .bouncy {0.5,0.3} · .interactiveSpring {0.15,0.14}). REAL
+Liquid Glass on chrome (`Theme/GlassModifiers.swift`, `Views/Shared/UnifiedFrostedGlass.swift`). GRAPH = already full
+AppKit/Metal → DO NOT TOUCH. Deeply fluid ProMotion 120fps + MINIMAL; A/B pixel-diff (web vs native) = the bar.
+CODE-RESEARCH (real openable code, in-repo file:line first) + RESEARCH-BETWEEN-IMPLEMENTATION (read before edit,
+exhaustive, no-contradiction/preserve-nuance/break-nothing). Detail + verified recipe: `GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md`.
+
 ## 0. OWNER DECISIONS — status
 ### ✅ LOCKED by the owner (2026-06-27)
 - **L1. Source of truth = MARKDOWN-ON-DISK.** Vault `.md` + frontmatter is durable truth; `.epdoc` ProseMirror

@@ -20,6 +20,14 @@ PRIORITY-0 (do these first, before new build-sequence work):
 
 NO-CONTRADICTIONS GATE: the 2026-06-29 decisions REVERSE earlier rules — "delete old code-editor files" → KEEP as v1 legacy; "code = Epistemos chrome / mode-split" → MarkEdit chrome for both; "Prose/TK2 frozen" → unfrozen only to ADD the Prose lens. Grep the plan + codepacks + code comments and fix any stale claim at the SOURCE before marking a stage done.
 
+★ NATIVENESS + UNIFIED LOOK (BINDING — read docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md + the reskin doc GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md for the VERIFIED tokens/springs/glass recipe/code-to-lift):
+  - ONE unified Apple-native look across AppKit + WebView + the Goose surface, from SHARED sources: SF Pro (-apple-system) + shadcn Apple tokens (Action Blue #0066cc + palette) + macOS HIG geometry + macOS-26 Liquid Glass + the EXACT SwiftUI springs. The editor must match Goose + the shell pixel-for-pixel — the user never perceives native-vs-web.
+  - PLAN-2 SPLIT: NATIVE = ALL chrome (code nested-box/title/file-logos/lens toggle; note chrome), Prose/TK2, PDF viewer (PDFKit), Cmd+K, floating panels. WEB ENGINES (blend, NEVER replace) = MarkEdit/CoreEditor (code) + Epdoc/TipTap (note) + HTML Workspace. Apply the SAME unified tokens + glass + springs to the web bodies so they match the rest of the app.
+  - REAL Liquid Glass on the chrome (NSVisualEffectView / macOS-26 glassEffect — in-repo Theme/GlassModifiers.swift, Views/Shared/UnifiedFrostedGlass.swift). Web engine bodies TRANSPARENT (drawsBackground=false — already used at Views/Epdoc/EpdocKaTeXPreview.swift:79 + Views/Notes/CodeEditorView.swift:2888) over real glass + SF Pro + theme tokens + frost/specular fallback (refraction Chromium-only). This is the PRIORITY-0 #3 visual-fidelity work, app-wide-tokenized.
+  - MOTION: deeply fluid, ProMotion 120fps, MINIMAL. Verified SwiftUI springs → {duration,bounce}: .smooth {0.5,0} · .snappy {0.5,0.15} · .bouncy {0.5,0.3} · .interactiveSpring {0.15,0.14}. transform/opacity only; interruptible; reduce-motion. No lag/jank/bug; A/B pixel-diff vs native = the bar.
+  - GRAPH = already full AppKit/Metal → DO NOT TOUCH. SF Symbols real only in native chrome; web keeps its icons restyled to match.
+  - CODE-RESEARCH: back every change with REAL openable code (in-repo file:line first, then vetted OSS + license + ProvenanceGate). RESEARCH-BETWEEN-IMPLEMENTATION: between each slice, research local docs + repo + online primary sources, READ before editing; exhaustive (tokens are NOT a constraint); no-contradiction + preserve-nuance + break-nothing.
+
 You are building PLAN 2 = the Epistemos editor canonical plan. Build it deeply hardened, contradiction-free, with NOTHING lost — and whatever is cloned must be FULLY cloned (settings and all, 100% capability).
 
 READ FIRST (this is the canon — the PLAN doc wins over any codepack on conflict):

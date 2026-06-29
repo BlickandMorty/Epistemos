@@ -122,3 +122,19 @@ own reviewed step when the first REST-only route lands).
 This is a **plan to green-light**, not started — the current directive says preserve the WebView
 path + don't start Phase 1. Building Phase 0 router + Slice 1 (and the goosed swap) begins only on
 explicit owner go-ahead.
+
+> ⚠️ SUPERSEDED 2026-06-29: owner GREEN-LIT — Plan 1 is now ON Phase 1. Decision locked to **Option 1
+> (native FRAME only; chat + the rest stay WebView, RESKINNED indistinguishable from native; route
+> migration STOPS after Models — no native chat)**. The per-route native-migration framing above is
+> historical except for Models.
+
+## ⚛️ NATIVENESS & UNIFIED LOOK (binding 2026-06-29 — see `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`)
+Goose joins the ONE unified Apple-native look (AppKit + WebView + Goose CONVERGE; shared SF Pro `-apple-system` +
+shadcn Apple tokens (Action Blue #0066cc) + macOS HIG + macOS-26 Liquid Glass + EXACT SwiftUI springs). **Split:**
+NATIVE = frame (window/nav-rail/launcher/permission pop-ups) + Models. WEB-reskinned PERMANENT = chat/sessions/
+settings/recipes/skills/scheduler/MCP-app → RETHEME Goose's existing shadcn/Radix/Tailwind + tune its framer-motion
+to the verified springs; transparent-over-glass (drawsBackground=false, `EpdocKaTeXPreview.swift:79`) over real
+Liquid Glass (`GlassModifiers.swift`/`UnifiedFrostedGlass.swift`; window already isOpaque=false at
+`AgentSurfaceWindowController.swift:37`). Deeply fluid ProMotion + MINIMAL; SF Symbols native-chrome-only (web keeps
+lucide restyled); GRAPH untouched. CODE-RESEARCH + RESEARCH-BETWEEN-IMPLEMENTATION (read before edit, exhaustive,
+no-contradiction). Full verified stack/tokens/springs/glass/code-to-lift: `docs/research/GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md`.

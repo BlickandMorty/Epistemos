@@ -44,6 +44,20 @@ must obey it, and the build prompt (`docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md`
 
 ---
 
+## ⚛️ NATIVENESS & UNIFIED LOOK (binding 2026-06-29 — see `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`)
+Everything Plan 3 ships joins the ONE unified Apple-native look (AppKit + WebView + Goose CONVERGE; shared SF Pro
+`-apple-system` + shadcn Apple tokens (Action Blue #0066cc) + macOS HIG geometry + macOS-26 Liquid Glass + the
+EXACT SwiftUI springs). **PLAN-3 split:** NATIVE = Apple-native shared views (QuickLook/VisionKit/Live-Text/
+thumbnails) + landing-feature buttons + the lite Browser tab CHROME + arXiv/meeting/voice/provenance UI + the PDF
+viewer (consume Plan 2's, don't re-invent). WEB = browser-use's Chromium UI (Pro, its OWN surface — reskin its
+hosted web UI with the same tokens where feasible; HONEST that CDP-Chromium ≠ WKWebView). Native views = REAL
+Liquid Glass (`Theme/GlassModifiers.swift`, `Views/Shared/UnifiedFrostedGlass.swift`); any hosted web panel (incl.
+the lite Browser tab) = **transparent-over-glass** (`drawsBackground=false`) + SF Pro + theme tokens + the verified
+springs (.smooth {0.5,0} · .snappy {0.5,0.15} · .bouncy {0.5,0.3}). GRAPH = already full AppKit/Metal → DO NOT
+TOUCH. SF Symbols real only in native views; web panels keep web icons restyled (never bundle SF Symbols into a
+webview). Deeply fluid ProMotion + MINIMAL; A/B pixel-diff = the bar. CODE-RESEARCH (real openable code, in-repo
+first) + RESEARCH-BETWEEN-IMPLEMENTATION (read before edit, exhaustive, no-contradiction/preserve-nuance/break-nothing).
+
 ## 1. Fast PDF→Markdown  ★ (answers "the super-fast one")
 
 **★ SHIPPED (Pass-3 verified) `[VERIFIED-CODE]`:** PDF→Markdown import now has a real Plan 3 parser path. The

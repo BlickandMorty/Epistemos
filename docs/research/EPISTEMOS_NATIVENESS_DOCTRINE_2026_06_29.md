@@ -2,8 +2,21 @@
 
 > How every surface achieves "super-native feel." Owner goal: full/near-full AppKit feel; where a WebView
 > is used it must be **indistinguishable from the native part** (the inverse of Codex/Claude/Paseo, which
-> are 100% web-in-a-shell). Binding for Plan 1 (Goose) + Plan 2 (editor) + the app shell. Companion:
-> `GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md` (the web-reskin stack research).
+> are 100% web-in-a-shell). **BINDING FOR ALL THREE PLANS — Plan 1 (Goose), Plan 2 (editor), Plan 3
+> (capabilities) — + the app shell.** Companion: `GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md` (web-reskin stack +
+> verified tokens/springs/glass recipe/code refs).
+
+## ★ THE UNIFIED LOOK (the convergence — this IS the plan)
+Three rendering substrates — **AppKit/SwiftUI/Metal (native)** + **WKWebView (web engines)** + **the Goose web
+surface** — all CONVERGE into ONE Apple-native design language, drawn from MULTIPLE sources unified by shared
+tokens: SF Pro (`-apple-system`), the shadcn Apple token palette (Action Blue #0066cc, etc.), macOS HIG control
+geometry, the macOS-26 Liquid Glass material, and the exact SwiftUI spring values. The user must never perceive
+"native part vs web part" — one app, one look. Every surface (native or web) pulls from the SAME token + motion +
+glass vocabulary so the seams vanish.
+
+## Graph = ALREADY full AppKit/Metal — DO NOT TOUCH
+The graph is the native REFERENCE for the feel (Metal + AppKit), not a reskin target. Match its instant,
+ProMotion feel; never modify it. (Same for other already-native Metal/AppKit surfaces unless explicitly scoped.)
 
 ## The principle
 **Native shell + native chrome + native FEEL everywhere. Web engines are contained islands where web is
@@ -25,10 +38,13 @@ spring motion, and latency discipline.** Native *feel*, not necessarily native *
 Don't fake glass in web. Make the **webview background transparent** and put **real `NSVisualEffectView`
 Liquid Glass behind it** → the native glass shows through; the web content floats on real glass.
 
-## Fluid motion (first-class)
-Spring physics on every interaction, matched to macOS native curves (calibrate against CocoaSprings/Advance).
-120fps; animate transform/opacity ONLY (never layout props); interruptible; honor `prefers-reduced-motion`.
-Engine = **Motion (MIT)** / react-spring (MIT) / native CSS `linear()` springs where no JS needed.
+## Fluid motion (first-class) — DEEPLY fluid, ProMotion, minimal
+Spring physics on EVERY interaction, matched to macOS native curves. **Target 120fps ProMotion**, deeply fluid yet
+**minimal** (motion serves clarity, never decoration — small, fast, purposeful springs; nothing bouncy-for-its-
+own-sake). Animate transform/opacity ONLY (never layout props); interruptible (re-targets mid-flight); honor
+`prefers-reduced-motion`. Engine = Goose's EXISTING framer-motion (MIT) — calibrate to the VERIFIED SwiftUI
+spring values (`.smooth` {0.5,0} controls/sheets · `.snappy` {0.5,0.15} tabs/toggles/buttons · `.bouncy` {0.5,0.3}
+toasts/transitions · `.interactiveSpring` {0.15,0.14} drag). Pure CSS `linear()` springs where no JS needed.
 
 ## Hardening budget (the native baseline is INSTANT — any hitch is glaring)
 60/120fps, input→paint < one frame; no layout thrash / forced sync layout; virtualize long lists; heavy work
@@ -55,3 +71,35 @@ body. 3. Calm/fluid web UI for unseen surfaces (Settings). 4. Native window/titl
 toolbars/sidebars/launcher. 6. Native floating panels. 7. Native permission pop-ups/sheets. 8. macOS 26 material
 on already-native surfaces. 9. Native editor chrome (nested-box/title/file-logos/lens toggle — already native).
 10–11. Goose chat/pickers = WEB + Apple-reskin (NOT native — per Option 1).
+
+## ★ PER-PLAN NATIVE vs WEB SPLIT (apply this doctrine to ALL three plans)
+**Plan 1 — Goose:** NATIVE = the frame (window/nav-rail/launcher/permission pop-ups) + Models picker. WEB-reskinned
+(permanent) = chat, sessions, settings, recipes, skills, scheduler, MCP-app. Treatment = retheme Goose's existing
+shadcn/Radix/Tailwind + tune its framer-motion + transparent-over-glass. (See GOOSE_NATIVE_WEB_RESKIN.)
+**Plan 2 — Editor:** NATIVE = all chrome (code nested-box/title/file-logos/lens toggle; note chrome), Prose/TK2,
+PDF viewer (PDFKit), Cmd+K, floating panels. WEB engines (blend, don't replace) = MarkEdit/CoreEditor (code) +
+Epdoc/TipTap (note) + HTML Workspace. Same recipe: transparent-over-glass + SF Pro + theme tokens + spring motion
+on the web bodies; real Liquid Glass on the chrome. The editors already are web engines in native chrome — apply
+the SAME unified tokens + glass + springs so they match Goose + the shell pixel-for-pixel.
+**Plan 3 — Capabilities:** NATIVE = Apple-native shared views (QuickLook/VisionKit/thumbnails), landing-feature
+buttons, the lite Browser tab chrome, arXiv/meeting/voice UI, provenance views, PDF viewer (consumes Plan 2's).
+WEB = browser-use's Chromium UI (Pro, its own surface — reskin its hosted web UI with the same tokens where
+feasible; honest that CDP-Chromium ≠ WKWebView). Everything Plan 3 renders natively uses the macOS-26 glass +
+SF Pro + the unified tokens + the spring values; any web panel it hosts gets the transparent-over-glass treatment.
+**Graph (any plan): DO NOT TOUCH — already full AppKit/Metal.**
+
+## ★ CODE-RESEARCH MANDATE (actual code to look at + copy from, not just library names)
+Every recommendation must be backed by REAL, READABLE CODE — not just a library name. For each adopted thing,
+the canon records: the repo + the specific file/path (and where possible the exact lines/snippet) to LOOK AT and
+LIFT from, the license, and the ProvenanceGate verdict (direct_import / lift-specific-code / adapter / clean-room).
+Pull concrete code: shadcn primitive sources (button/select/switch/sheet/dropdown), framer-motion spring configs,
+the Apple token CSS-var set, the macOS spring constants, the transparent-webview Swift (already in-repo:
+EpdocKaTeXPreview.swift:79, AgentSurfaceWindowController.swift:37, GlassModifiers.swift, UnifiedFrostedGlass.swift).
+Prefer in-repo proven code first, then vetted OSS. The build agent should be able to OPEN the cited code and copy.
+
+## ★ RESEARCH-BETWEEN-IMPLEMENTATION discipline (exhaustive; tokens are NOT a constraint)
+Owner directive: be exhaustive — research is cheap, lost nuance + bugs are expensive. BETWEEN every implementation
+step the agent RESEARCHES (local docs + the repo + online primary sources) and READS before editing as much as it
+can. Loop = research → read the exact file(s) → implement small slice → verify → research the next gap → repeat.
+NO-CONTRADICTION + PRESERVE-NUANCE + BREAK-NOTHING on every edit. Close gaps proactively; never guess where a
+source can confirm. Use as many tokens as needed — exhaustive research + verified execution > speed.

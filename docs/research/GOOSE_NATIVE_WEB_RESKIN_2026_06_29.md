@@ -157,6 +157,26 @@ Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS 
 - Theme tokens injected as CSS vars (same mechanism as the editor theme injection).
 - Webview transparent over a native `NSVisualEffectView` glass layer (doctrine).
 
+## ★ CODE TO LIFT — concrete, openable code (not just library names)
+The build agent should OPEN these and copy/adapt. In-repo proven code FIRST, then vetted OSS (license noted).
+### In-repo (Epistemos — already shipping, reuse verbatim)
+- Non-opaque WKWebView: `Views/Epdoc/EpdocKaTeXPreview.swift:79` (`setValue(false, forKey:"drawsBackground")`); scroll variant `Views/Notes/CodeEditorView.swift:2888`.
+- Native glass: `Theme/GlassModifiers.swift` (macOS-26 `glassEffect`), `Views/Shared/UnifiedFrostedGlass.swift`, `Theme/ToolbarGlass.swift`.
+- Non-opaque Goose window: `Agent/AgentSurfaceWindowController.swift:37`.
+- Build-time web bundle pipeline to clone: `build-tiptap-bundle.sh` → `Resources/` → `WKURLSchemeHandler`.
+- Theme-token CSS-var injection pattern: the editor's existing theme injection (mirror it for Goose).
+### Goose's own UI (retheme in place — `.research-clones/work/goose/ui/desktop/src`)
+- shadcn primitives to retheme: `components/ui/{button,input,switch,tabs,dialog,sheet,dropdown-menu,Select,Tooltip,scroll-area,card,collapsible,separator,skeleton}.tsx`.
+- Tailwind/theme entry points to edit: `tailwind.config.ts` + `src/styles/main.css` (`cssVariables:true`) + `components.json`.
+- Chat/composer/hub: `components/{BaseChat,ChatInput,GooseMessage,ProgressiveMessageList,Hub,LauncherView}.tsx`.
+- Motion already present: `framer-motion` v12 (set spring configs to the verified `{duration,bounce}` values).
+### OSS to reference/lift (license-checked)
+- shadcn/ui primitive sources (MIT) — ui.shadcn.com / github shadcn-ui/ui: copy the macOS-tuned variants.
+- shadcn Apple Design System tokens (DESIGN.md values) — shadcn.io/design/apple (lift VALUES into our CSS vars).
+- framer-motion spring docs/config (MIT) — motion.dev. CocoaSprings (MIT, MacPaw) — native spring constants ref.
+- Apple SF Symbols → native chrome only (NSImage(systemSymbolName:)); web keeps lucide-react (ISC).
+- ⏳ next rounds: pull the EXACT shadcn primitive source per component + the macOS-tuned CSS into the mapping table.
+
 ## CHANGELOG
 - 2026-06-29 R1: created. Verified Motion + react-spring (MIT, spring, active). Stack skeleton + gap list seeded.
   Component base + Goose inventory deferred to R2. (Goose plan change owned by the Plan-1 agent — not edited here.)
