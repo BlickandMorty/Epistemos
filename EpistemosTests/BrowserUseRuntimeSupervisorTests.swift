@@ -124,6 +124,42 @@ struct BrowserUseRuntimeSupervisorTests {
         }
     }
 
+    @Test("readiness rejects malformed Web UI themes before launch planning")
+    func readinessRejectsMalformedWebUIThemesBeforeLaunchPlanning() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        for theme in ["", "Ocean\n--server-name=0.0.0.0", String(repeating: "a", count: 65)] {
+            let readiness = BrowserUseRuntimeSupervisor.readiness(
+                paths: paths,
+                settings: .default,
+                secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+                processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+                host: "127.0.0.1",
+                port: 7878,
+                theme: theme
+            )
+
+            #expect(!readiness.isReady)
+            #expect(readiness.message.contains("invalid Web UI theme"))
+        }
+
+        let trimmed = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: "127.0.0.1",
+            port: 7878,
+            theme: "  gradio/ocean  "
+        )
+        guard case .ready(let plan) = trimmed else {
+            Issue.record("Expected trimmed browser-use theme to produce a launch plan")
+            return
+        }
+        #expect(Array(plan.arguments.suffix(2)) == ["--theme", "gradio/ocean"])
+    }
+
     @Test("readiness rejects malformed browser settings before launch planning")
     func readinessRejectsMalformedBrowserSettingsBeforeLaunchPlanning() throws {
         let paths = try runtimeFixture(packaged: true)
@@ -450,6 +486,9 @@ struct BrowserUseRuntimeSupervisorTests {
             "PYTHON_DOTENV_DISABLED",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
+            "maxThemeLength",
+            "normalizedThemeArgument",
+            "invalid Web UI theme",
             "resourceRootURL: URL? = Bundle.main.resourceURL",
             "appendingPathComponent(\"BrowserUsePro\", isDirectory: true)",
             "fileManager: fileManager",

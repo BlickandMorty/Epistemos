@@ -296,6 +296,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private static let healthProbeDeadlineSeconds: TimeInterval = 20
     private static let healthProbeRequestTimeoutSeconds: TimeInterval = 1
     private static let healthProbePollIntervalSeconds: TimeInterval = 0.25
+    private static let maxThemeLength = 64
 
     private static let inheritedEnvironmentAllowlist: Set<String> = [
         "PATH",
@@ -592,6 +593,9 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         guard let loopbackURL = BrowserUseLoopbackPolicy.loopbackURL(host: host, port: port) else {
             return .unavailable("browser-use Pro runtime has invalid loopback address \(host):\(port)")
         }
+        guard let theme = normalizedThemeArgument(theme) else {
+            return .unavailable("browser-use Pro runtime has invalid Web UI theme")
+        }
         if let settingsProblem = BrowserUseSettingsValidation.problem(in: settings) {
             return .unavailable("browser-use Pro runtime settings invalid: \(settingsProblem)")
         }
@@ -631,6 +635,20 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             }
             return (key, value)
         })
+    }
+
+    private static func normalizedThemeArgument(_ theme: String) -> String? {
+        let normalized = theme.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty,
+              normalized.count <= maxThemeLength else {
+            return nil
+        }
+
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./:-")
+        guard normalized.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return nil
+        }
+        return normalized
     }
 
     private static func artifactProblem(
