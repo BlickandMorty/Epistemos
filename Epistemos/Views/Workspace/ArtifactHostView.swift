@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 // MARK: - ArtifactHostView (typed-spine renderer)
@@ -160,6 +161,7 @@ nonisolated public struct OutputHost: View {
 
 nonisolated public struct HTMLWorkspaceArtifactHost: View {
     public let workspaceID: ArtifactID
+    @State private var observedPackage: HTMLWorkspacePackage?
 
     public init(workspaceID: ArtifactID) {
         self.workspaceID = workspaceID
@@ -168,18 +170,52 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
     @MainActor
     @ViewBuilder
     public var body: some View {
-        if let document = Self.openDocument(matching: workspaceID) {
-            HTMLWorkspacePreviewView(
-                package: document.package,
-                safeAPIEnabled: false,
-                previewTheme: nil
-            )
-            .id(HTMLWorkspacePreviewIdentity.viewIdentity(for: document.package))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.background)
-        } else {
-            HTMLWorkspaceMissingPanel(workspaceID: workspaceID)
+        Group {
+            if let package = currentPackage {
+                VStack(spacing: 0) {
+                    HTMLWorkspacePreviewView(
+                        package: package,
+                        safeAPIEnabled: false,
+                        previewTheme: nil
+                    )
+                    .id(HTMLWorkspacePreviewIdentity.viewIdentity(for: package))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    if package.manifest.dataFeed != nil {
+                        Divider()
+                        HTMLWorkspaceDataFeedStatusStrip(package: package)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                            .background(.background)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.background)
+            } else {
+                HTMLWorkspaceMissingPanel(workspaceID: workspaceID)
+            }
         }
+        .onAppear {
+            refreshOpenPackage()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .htmlWorkspacePackageDidChange)) { notification in
+            guard (notification.userInfo?["workspaceID"] as? String) == workspaceID else { return }
+            if let document = notification.object as? HTMLWorkspaceDocument {
+                observedPackage = document.package
+            } else {
+                refreshOpenPackage()
+            }
+        }
+    }
+
+    @MainActor
+    private var currentPackage: HTMLWorkspacePackage? {
+        observedPackage ?? Self.openDocument(matching: workspaceID)?.package
+    }
+
+    @MainActor
+    private func refreshOpenPackage() {
+        observedPackage = Self.openDocument(matching: workspaceID)?.package
     }
 
     @MainActor

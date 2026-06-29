@@ -46,6 +46,7 @@ struct HTMLWorkspaceEditorView: View {
             previewUpdateTask = nil
         }
         .background(workspaceTheme.resolved.background.color)
+        .htmlWorkspaceDataFeed(package: $package, statusText: $statusText)
     }
 
     @ViewBuilder
@@ -198,6 +199,21 @@ struct HTMLWorkspaceEditorView: View {
                 .font(.caption2)
                 .foregroundStyle(dataStatus == "Data OK" ? Color.secondary : Color.red)
                 .lineLimit(2)
+            if let feedSummary = HTMLWorkspaceDataFeedStatus.compactLine(for: package) {
+                Divider()
+                    .padding(.vertical, 2)
+                Text(feedSummary)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(feedSummary.contains("stale") ? Color.orange : Color.secondary)
+                    .lineLimit(2)
+                if let feedDetail = HTMLWorkspaceDataFeedStatus.detailLine(for: package) {
+                    Text(feedDetail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                        .truncationMode(.middle)
+                }
+            }
             if let statusText {
                 Text(statusText)
                     .font(.caption2)
@@ -369,6 +385,7 @@ struct HTMLWorkspaceEditorView: View {
             Text(package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(package.manifest.sandboxPolicy.allowNetwork ? .orange : .green)
+            HTMLWorkspaceDataFeedStatusStrip(package: package, compact: true)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -808,7 +825,7 @@ struct HTMLWorkspaceEditorView: View {
         case .js:
             ["replaceDocument", "regenerate", "replaceJS"]
         case .data:
-            ["replaceDocument", "regenerate", "replaceDataJSON", "insertChart"]
+            ["replaceDocument", "regenerate", "replaceDataJSON", "setDataFeed", "insertChart"]
         case .dom:
             ["replaceDocument", "regenerate", "insertBlock", "insertChart"]
         case .assets:

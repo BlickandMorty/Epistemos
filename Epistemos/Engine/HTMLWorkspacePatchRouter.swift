@@ -74,6 +74,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     case replaceCSS(String)
     case replaceJS(String)
     case replaceDataJSON(String)
+    case setDataFeed(HTMLWorkspaceDataFeed?)
     case insertBlock(html: String, location: HTMLWorkspaceBlockInsertion.Location)
     case insertChart(HTMLWorkspaceChartSpec)
     case updateStyleRule(HTMLWorkspaceStyleRulePatch)
@@ -91,6 +92,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case chart
         case selector
         case declarations
+        case dataFeed = "data_feed"
         case name
         case base64
     }
@@ -102,6 +104,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case replaceCSS
         case replaceJS
         case replaceDataJSON
+        case setDataFeed
         case insertBlock
         case insertChart
         case updateStyleRule
@@ -129,6 +132,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             self = .replaceJS(try container.decode(String.self, forKey: .js))
         case .replaceDataJSON:
             self = .replaceDataJSON(try container.decode(String.self, forKey: .json))
+        case .setDataFeed:
+            self = .setDataFeed(try container.decodeIfPresent(HTMLWorkspaceDataFeed.self, forKey: .dataFeed))
         case .insertBlock:
             let location = try container.decodeIfPresent(HTMLWorkspaceBlockInsertion.Location.self, forKey: .location) ?? .append
             self = .insertBlock(
@@ -174,6 +179,9 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case .replaceDataJSON(let json):
             try container.encode(OperationType.replaceDataJSON, forKey: .type)
             try container.encode(json, forKey: .json)
+        case .setDataFeed(let feed):
+            try container.encode(OperationType.setDataFeed, forKey: .type)
+            try container.encodeIfPresent(feed, forKey: .dataFeed)
         case .insertBlock(let html, let location):
             try container.encode(OperationType.insertBlock, forKey: .type)
             try container.encode(html, forKey: .html)
@@ -208,6 +216,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             return .replaceJS(js)
         case .replaceDataJSON(let json):
             return .replaceDataJSON(json)
+        case .setDataFeed(let feed):
+            return .setDataFeed(feed)
         case .insertBlock(let html, let location):
             return .insertBlock(HTMLWorkspaceBlockInsertion(html: html, location: location))
         case .insertChart(let chart):
@@ -242,6 +252,10 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             try Self.validateJavaScript(js)
         case .replaceDataJSON(let json):
             try Self.validateDataJSON(json)
+        case .setDataFeed(let feed):
+            if let feed, !feed.isRunnable {
+                throw HTMLWorkspacePatchRouterError.unsafeSource(reason: "empty data feed query")
+            }
         case .insertChart(let chart):
             try Self.validateChart(chart)
         case .updateStyleRule(let rule):
@@ -459,7 +473,7 @@ enum HTMLWorkspacePatchRouter {
             Surface Kind: htmlWorkspace
             Pane: preview
             Selected Range: none
-            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot
+            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot
             """
             return """
             ### Attached HTML Workspace: \(snapshot.title)
@@ -472,9 +486,10 @@ enum HTMLWorkspacePatchRouter {
             ```epistemos-html-workspace-patch
             {"workspace_id":"\(snapshot.workspaceID)","expected_content_hash":"\(snapshot.contentHash)","operations":[{"type":"insertBlock","html":"<section></section>","location":"append"}]}
             ```
-            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot.
+            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot.
             Full-surface replacement: use replaceDocument/regenerate when the user asks to rebuild the whole page; include "html", "css", "js", and "json" in one operation.
             Data operation: replaceDataJSON with a "json" string for local structured data.
+            Live data operation: setDataFeed with "data_feed":{"source":"vault_search","query":"...","limit":20}; use "data_feed":null to return to static data.
             Safety: Do not request network or app bridge access. Keep behavior local/offline. Put JavaScript in replaceJS, not inline HTML event handlers.
 
             Current HTML:

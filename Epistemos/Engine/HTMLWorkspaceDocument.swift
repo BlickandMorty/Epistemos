@@ -132,7 +132,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
                 scriptJS: snapshot.scriptJS,
                 dataJSON: snapshot.dataJSON
             ),
-            sandboxPolicy: snapshot.manifest.sandboxPolicy
+            sandboxPolicy: snapshot.manifest.sandboxPolicy,
+            dataFeed: snapshot.manifest.dataFeed
         )
         return try copy.makeFileWrapper()
     }
@@ -187,6 +188,7 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
     public func setPackage(_ package: HTMLWorkspacePackage) {
         self.package = package
         updateChangeCount(.changeDone)
+        notifyPackageDidChange()
     }
 
     public func loadOpenedPackage(_ package: HTMLWorkspacePackage, fileURL: URL) {
@@ -194,6 +196,7 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
         self.fileURL = fileURL
         self.fileType = "com.epistemos.html-workspace"
         updateChangeCount(.changeCleared)
+        notifyPackageDidChange()
     }
 
     public func applyPatch(_ operation: HTMLWorkspacePatchOperation) throws {
@@ -229,8 +232,7 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
                 get: { self.package },
                 set: { [weak self] newPackage in
                     guard let self else { return }
-                    self.package = newPackage
-                    self.updateChangeCount(.changeDone)
+                    self.setPackage(newPackage)
                 }
             )
             let rootView = HTMLWorkspaceDocumentRoot(package: binding)
@@ -273,4 +275,16 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             self.addWindowController(windowController)
         }
     }
+
+    private func notifyPackageDidChange() {
+        NotificationCenter.default.post(
+            name: .htmlWorkspacePackageDidChange,
+            object: self,
+            userInfo: ["workspaceID": package.manifest.id]
+        )
+    }
+}
+
+extension Notification.Name {
+    static let htmlWorkspacePackageDidChange = Notification.Name("htmlWorkspacePackageDidChange")
 }

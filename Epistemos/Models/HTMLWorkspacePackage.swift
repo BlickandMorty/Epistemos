@@ -277,6 +277,45 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
     }
 }
 
+nonisolated public struct HTMLWorkspaceDataFeed: Codable, Sendable, Hashable {
+    public enum Source: String, Codable, Sendable, Hashable {
+        case vaultSearch = "vault_search"
+    }
+
+    public static let defaultLimit = 20
+    public static let maxLimit = 50
+
+    public var source: Source
+    public var query: String
+    public var limit: Int
+
+    public init(
+        source: Source = .vaultSearch,
+        query: String,
+        limit: Int = Self.defaultLimit
+    ) {
+        self.source = source
+        self.query = query
+        self.limit = limit
+    }
+
+    public static func vaultSearch(query: String, limit: Int = Self.defaultLimit) -> HTMLWorkspaceDataFeed {
+        HTMLWorkspaceDataFeed(source: .vaultSearch, query: query, limit: limit)
+    }
+
+    public var normalizedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var effectiveLimit: Int {
+        min(max(limit, 1), Self.maxLimit)
+    }
+
+    public var isRunnable: Bool {
+        !normalizedQuery.isEmpty
+    }
+}
+
 nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
     public static let currentSchemaVersion: UInt32 = 1
 
@@ -287,6 +326,7 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
     public var title: String
     public var contentHash: String
     public var sandboxPolicy: HTMLWorkspaceSandboxPolicy
+    public var dataFeed: HTMLWorkspaceDataFeed?
 
     public init(
         id: String,
@@ -295,7 +335,8 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
         updatedAt: Int64,
         title: String,
         contentHash: String,
-        sandboxPolicy: HTMLWorkspaceSandboxPolicy
+        sandboxPolicy: HTMLWorkspaceSandboxPolicy,
+        dataFeed: HTMLWorkspaceDataFeed? = nil
     ) {
         self.id = id
         self.schemaVersion = schemaVersion
@@ -304,6 +345,7 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
         self.title = title
         self.contentHash = contentHash
         self.sandboxPolicy = sandboxPolicy
+        self.dataFeed = dataFeed
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -314,6 +356,7 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
         case title
         case contentHash = "content_hash"
         case sandboxPolicy = "sandbox_policy"
+        case dataFeed = "data_feed"
     }
 }
 
@@ -1004,6 +1047,7 @@ nonisolated public enum HTMLWorkspacePatchOperation: Sendable, Hashable {
     case replaceCSS(String)
     case replaceJS(String)
     case replaceDataJSON(String)
+    case setDataFeed(HTMLWorkspaceDataFeed?)
     case insertBlock(HTMLWorkspaceBlockInsertion)
     case insertChart(HTMLWorkspaceChartSpec)
     case updateStyleRule(HTMLWorkspaceStyleRulePatch)
@@ -1114,6 +1158,8 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.scriptJS = js
         case .replaceDataJSON(let json):
             updated.dataJSON = json
+        case .setDataFeed(let feed):
+            updated.manifest.dataFeed = feed
         case .insertBlock(let insertion):
             updated.indexHTML = insert(insertion.html, into: updated.indexHTML, location: insertion.location)
         case .insertChart(let chart):

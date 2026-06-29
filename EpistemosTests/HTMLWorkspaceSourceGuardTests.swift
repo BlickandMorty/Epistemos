@@ -124,6 +124,30 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("Console"))
     }
 
+    @Test("HTML Workspace live data feed is explicit and provenance-visible")
+    func htmlWorkspaceLiveDataFeedIsExplicitAndProvenanceVisible() throws {
+        let packageSource = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspacePackage.swift")
+        let documentSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceDocument.swift")
+        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let feedSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
+        let hostSource = try loadMirroredSourceTextFile("Epistemos/Views/Workspace/ArtifactHostView.swift")
+
+        #expect(packageSource.contains("struct HTMLWorkspaceDataFeed"))
+        #expect(packageSource.contains("case dataFeed = \"data_feed\""))
+        #expect(documentSource.contains("notifyPackageDidChange()"))
+        #expect(documentSource.contains(".htmlWorkspacePackageDidChange"))
+        #expect(editorSource.contains(".htmlWorkspaceDataFeed(package: $package, statusText: $statusText)"))
+        #expect(editorSource.contains("HTMLWorkspaceDataFeedStatusStrip(package: package, compact: true)"))
+        #expect(feedSource.contains("VaultSyncService.searchFullAsync"))
+        #expect(feedSource.contains("NotificationCenter.default.publisher(for: .searchIndexDidUpdate)"))
+        #expect(feedSource.contains("HTMLWorkspaceDataFeedRenderer.staleRender"))
+        #expect(feedSource.contains(#""VaultSyncService.searchFullAsync""#))
+        #expect(feedSource.contains(#"case epistemos = "_epistemos""#))
+        #expect(feedSource.contains("stale: true"))
+        #expect(hostSource.contains("HTMLWorkspaceDataFeedStatusStrip(package: package)"))
+        #expect(hostSource.contains(".htmlWorkspacePackageDidChange"))
+    }
+
     @Test("PDF export is timeout bounded on the macOS-26 WebPage API (no legacy WebKit NSView host)")
     func pdfExporterHasBoundedLoadAndCleanup() throws {
         let exporterSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspacePDFExporter.swift")
@@ -213,6 +237,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("guard child.isRegularFile"))
         #expect(packageSource.contains("HTMLWorkspaceDocumentReplacement"))
         #expect(packageSource.contains("case replaceDocument(HTMLWorkspaceDocumentReplacement)"))
+        #expect(packageSource.contains("case setDataFeed(HTMLWorkspaceDataFeed?)"))
     }
 
     @Test("document surface exposes structured patch hooks without Epdoc internals")
@@ -266,14 +291,17 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(routerSource.contains("expected_content_hash"))
         #expect(routerSource.contains("maxOperations"))
         #expect(routerSource.contains("replaceDataJSON"))
+        #expect(routerSource.contains("setDataFeed"))
         #expect(routerSource.contains("case replaceDocument"))
         #expect(routerSource.contains("case regenerate"))
         #expect(routerSource.contains("Full-surface replacement: use replaceDocument/regenerate"))
+        #expect(routerSource.contains("Live data operation: setDataFeed"))
         #expect(routerSource.contains("window.webkit.messagehandlers"))
         #expect(routerSource.contains("applyPatchCommands"))
         #expect(routerSource.contains("var visible = response"))
         #expect(routerSource.contains("Allowed Operations:"))
         #expect(routerSource.contains("replaceDocument, regenerate"))
+        #expect(editorSource.contains(#""setDataFeed""#))
         #expect(editorSource.contains(#""replaceDocument", "regenerate""#))
         #expect(!routerSource.contains("var visible = parseResult.cleanedText"))
         #expect(chatTypes.contains("surfaceTarget"))

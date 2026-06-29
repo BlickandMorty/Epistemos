@@ -240,8 +240,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
               return 'missing-runtime';
             })();
             """
-            webView.evaluateJavaScript(script) { [weak self, weak webView] result, error in
-                guard let self, let webView else { return }
+            webView.evaluateJavaScript(script) { [weak webView] result, error in
+                guard let webView else { return }
                 if error != nil || (result as? String) != "patched" {
                     webView.loadHTMLString(renderedFallbackHTML, baseURL: nil)
                 }

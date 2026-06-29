@@ -54,6 +54,48 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(recovered.snapshots == original.snapshots)
     }
 
+    @Test("HTMLWorkspace manifest round-trips explicit vault search data feed")
+    func manifestDataFeedRoundTrips() throws {
+        var original = Self.samplePackage()
+        original.manifest.dataFeed = .vaultSearch(query: "categorical imperative", limit: 99)
+
+        let recovered = try HTMLWorkspacePackage(fileWrapper: try original.makeFileWrapper())
+
+        #expect(recovered.manifest.dataFeed?.source == .vaultSearch)
+        #expect(recovered.manifest.dataFeed?.normalizedQuery == "categorical imperative")
+        #expect(recovered.manifest.dataFeed?.limit == 99)
+        #expect(recovered.manifest.dataFeed?.effectiveLimit == HTMLWorkspaceDataFeed.maxLimit)
+    }
+
+    @Test("HTMLWorkspace vault search feed renders provenance and freshness metadata into data.json")
+    func dataFeedRenderIncludesProvenanceMetadata() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "  substrate provenance  ", limit: 2)
+        let rendered = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            results: [
+                SearchResult(
+                    pageId: "page-1",
+                    title: "Research Note",
+                    snippet: "substrate provenance witness",
+                    rank: 0.87
+                )
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        #expect(rendered.contains(#""_epistemos""#))
+        #expect(rendered.contains(#""source" : "vault_search""#))
+        #expect(rendered.contains(#""query" : "substrate provenance""#))
+        #expect(rendered.contains(#""provenance" : "VaultSyncService.searchFullAsync""#))
+        #expect(rendered.contains(#""stale" : false"#))
+        #expect(rendered.contains(#""page_id" : "page-1""#))
+
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
+        #expect(metadata.resultCount == 1)
+        #expect(metadata.refreshedAtMS == 1_700_000_000_000)
+        #expect(metadata.stale == false)
+    }
+
     @Test("legacy script.js packages still load into the main JS source")
     func legacyScriptPackagesStillLoad() throws {
         let manifestData = try JSONEncoder.epdocCanonical.encode(Self.sampleManifest())
@@ -343,19 +385,22 @@ nonisolated struct HTMLWorkspacePackageTests {
         I will add the visualization.
 
         ```epistemos-html-workspace-patch
-        {"workspace_id":"html-workspace-test","operations":[{"type":"replaceDataJSON","json":"{\\"series\\":[1,2,3]}"},{"type":"insertBlock","html":"<section class=\\"viz\\"><h2>Signal</h2></section>","location":"append"},{"type":"updateStyleRule","selector":".viz","declarations":{"display":"grid","gap":"12px"}}]}
+        {"workspace_id":"html-workspace-test","operations":[{"type":"setDataFeed","data_feed":{"source":"vault_search","query":"substrate provenance","limit":7}},{"type":"replaceDataJSON","json":"{\\"series\\":[1,2,3]}"},{"type":"insertBlock","html":"<section class=\\"viz\\"><h2>Signal</h2></section>","location":"append"},{"type":"updateStyleRule","selector":".viz","declarations":{"display":"grid","gap":"12px"}}]}
         ```
         """
 
         let result = try HTMLWorkspacePatchCommandParser.parse(response)
         #expect(result.batches.count == 1)
         #expect(result.cleanedText == "I will add the visualization.")
-        #expect(result.batches[0].operations.count == 3)
+        #expect(result.batches[0].operations.count == 4)
 
         var package = Self.samplePackage()
         for command in result.batches[0].operations {
             package = try HTMLWorkspacePatchApplier.apply(command.patchOperation(), to: package)
         }
+        #expect(package.manifest.dataFeed?.source == .vaultSearch)
+        #expect(package.manifest.dataFeed?.normalizedQuery == "substrate provenance")
+        #expect(package.manifest.dataFeed?.limit == 7)
         #expect(package.indexHTML.contains("class=\"viz\""))
         #expect(package.dataJSON.contains("series"))
         #expect(package.styleCSS.contains(".viz {"))
