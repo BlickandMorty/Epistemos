@@ -208,6 +208,8 @@ pub mod tools {
     #[cfg(feature = "pro-build")]
     pub mod browser_input;
     #[cfg(feature = "pro-build")]
+    pub mod browser_output;
+    #[cfg(feature = "pro-build")]
     pub mod browser_private;
     #[cfg(feature = "pro-build")]
     pub mod browser_redaction;

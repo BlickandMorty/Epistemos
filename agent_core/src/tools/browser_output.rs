@@ -1,0 +1,225 @@
+use serde_json::{json, Map, Value};
+
+const MAX_BROWSER_IMAGES: usize = 50;
+const MAX_BROWSER_IMAGE_TEXT_CHARS: usize = 512;
+const MAX_BROWSER_CONSOLE_ITEMS: usize = 100;
+const MAX_BROWSER_CONSOLE_OBJECT_FIELDS: usize = 40;
+const MAX_BROWSER_CONSOLE_KEY_CHARS: usize = 128;
+const MAX_BROWSER_CONSOLE_TEXT_CHARS: usize = 2_000;
+const MAX_BROWSER_CONSOLE_DEPTH: usize = 4;
+
+pub(crate) fn normalize_image_results(raw_images: Value) -> (Value, usize, bool) {
+    let Some(items) = raw_images.as_array() else {
+        return (json!([]), 0, false);
+    };
+
+    let mut truncated = items.len() > MAX_BROWSER_IMAGES;
+    let normalized = items
+        .iter()
+        .take(MAX_BROWSER_IMAGES)
+        .filter_map(|item| {
+            let object = item.as_object()?;
+            let src = object.get("src").and_then(Value::as_str)?;
+            if src.is_empty() || src.starts_with("data:") {
+                return None;
+            }
+
+            let (src, src_truncated) = truncate_image_text(src);
+            let (alt, alt_truncated) = object
+                .get("alt")
+                .and_then(Value::as_str)
+                .map(truncate_image_text)
+                .unwrap_or_else(|| (String::new(), false));
+            truncated |= src_truncated || alt_truncated;
+
+            let mut normalized = Map::new();
+            normalized.insert("src".to_string(), Value::String(src));
+            normalized.insert("alt".to_string(), Value::String(alt));
+            if let Some(width) = object.get("width").filter(|value| value.is_number()) {
+                normalized.insert("width".to_string(), width.clone());
+            }
+            if let Some(height) = object.get("height").filter(|value| value.is_number()) {
+                normalized.insert("height".to_string(), height.clone());
+            }
+            Some(Value::Object(normalized))
+        })
+        .collect::<Vec<_>>();
+
+    (Value::Array(normalized), items.len(), truncated)
+}
+
+pub(crate) fn normalize_console_items(raw_items: Value) -> (Value, usize, bool) {
+    let Some(items) = raw_items.as_array() else {
+        return (json!([]), 0, false);
+    };
+
+    let mut truncated = items.len() > MAX_BROWSER_CONSOLE_ITEMS;
+    let normalized = items
+        .iter()
+        .take(MAX_BROWSER_CONSOLE_ITEMS)
+        .map(|item| {
+            let (value, item_truncated) = bound_console_value_ref(item, MAX_BROWSER_CONSOLE_DEPTH);
+            truncated |= item_truncated;
+            value
+        })
+        .collect::<Vec<_>>();
+
+    (Value::Array(normalized), items.len(), truncated)
+}
+
+pub(crate) fn bound_console_value(value: Value) -> (Value, bool) {
+    bound_console_value_ref(&value, MAX_BROWSER_CONSOLE_DEPTH)
+}
+
+fn bound_console_value_ref(value: &Value, depth: usize) -> (Value, bool) {
+    if depth == 0 {
+        return match value {
+            Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {
+                bound_console_scalar(value)
+            }
+            _ => (
+                Value::String("[Truncated nested browser value]".to_string()),
+                true,
+            ),
+        };
+    }
+
+    match value {
+        Value::Array(items) => {
+            let mut truncated = items.len() > MAX_BROWSER_CONSOLE_ITEMS;
+            let values = items
+                .iter()
+                .take(MAX_BROWSER_CONSOLE_ITEMS)
+                .map(|item| {
+                    let (value, item_truncated) = bound_console_value_ref(item, depth - 1);
+                    truncated |= item_truncated;
+                    value
+                })
+                .collect::<Vec<_>>();
+            (Value::Array(values), truncated)
+        }
+        Value::Object(object) => {
+            let mut truncated = object.len() > MAX_BROWSER_CONSOLE_OBJECT_FIELDS;
+            let mut normalized = Map::new();
+            for (key, value) in object.iter().take(MAX_BROWSER_CONSOLE_OBJECT_FIELDS) {
+                let (key, key_truncated) = truncate_console_key(key);
+                let (value, value_truncated) = bound_console_value_ref(value, depth - 1);
+                truncated |= key_truncated || value_truncated;
+                normalized.insert(key, value);
+            }
+            (Value::Object(normalized), truncated)
+        }
+        _ => bound_console_scalar(value),
+    }
+}
+
+fn bound_console_scalar(value: &Value) -> (Value, bool) {
+    match value {
+        Value::String(text) => {
+            let (text, truncated) = truncate_console_text(text, MAX_BROWSER_CONSOLE_TEXT_CHARS);
+            (Value::String(text), truncated)
+        }
+        _ => (value.clone(), false),
+    }
+}
+
+fn truncate_image_text(text: &str) -> (String, bool) {
+    let total_chars = text.chars().count();
+    if total_chars <= MAX_BROWSER_IMAGE_TEXT_CHARS {
+        return (text.to_string(), false);
+    }
+
+    (
+        text.chars().take(MAX_BROWSER_IMAGE_TEXT_CHARS).collect(),
+        true,
+    )
+}
+
+fn truncate_console_key(text: &str) -> (String, bool) {
+    truncate_console_text(text, MAX_BROWSER_CONSOLE_KEY_CHARS)
+}
+
+fn truncate_console_text(text: &str, cap: usize) -> (String, bool) {
+    let total_chars = text.chars().count();
+    if total_chars <= cap {
+        return (text.to_string(), false);
+    }
+
+    let truncated: String = text.chars().take(cap).collect();
+    (
+        format!("{truncated}\n[Truncated: {total_chars} total chars]"),
+        true,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn browser_get_images_normalizes_and_bounds_page_controlled_results() {
+        let long_suffix = "a".repeat(MAX_BROWSER_IMAGE_TEXT_CHARS + 20);
+        let long_alt = "b".repeat(MAX_BROWSER_IMAGE_TEXT_CHARS + 1);
+        let mut items = Vec::new();
+        items.push(json!({
+            "src": format!("https://example.com/{long_suffix}"),
+            "alt": long_alt,
+            "width": 640,
+            "height": 480,
+            "ignored": "drop me"
+        }));
+        for index in 1..(MAX_BROWSER_IMAGES + 2) {
+            items.push(json!({
+                "src": format!("https://example.com/image-{index}.png"),
+                "alt": format!("image {index}"),
+                "width": index,
+                "height": index + 1,
+            }));
+        }
+
+        let (images, count, truncated) = normalize_image_results(Value::Array(items));
+        let images = images.as_array().unwrap();
+        assert_eq!(count, MAX_BROWSER_IMAGES + 2);
+        assert_eq!(images.len(), MAX_BROWSER_IMAGES);
+        assert!(truncated);
+        assert_eq!(
+            images[0]["src"].as_str().unwrap().chars().count(),
+            MAX_BROWSER_IMAGE_TEXT_CHARS
+        );
+        assert_eq!(
+            images[0]["alt"].as_str().unwrap().chars().count(),
+            MAX_BROWSER_IMAGE_TEXT_CHARS
+        );
+        assert!(images[0].get("ignored").is_none());
+    }
+
+    #[test]
+    fn browser_console_output_bounds_page_controlled_values() {
+        let long_text = "x".repeat(MAX_BROWSER_CONSOLE_TEXT_CHARS + 1);
+        let mut items = Vec::new();
+        for index in 0..(MAX_BROWSER_CONSOLE_ITEMS + 2) {
+            items.push(json!({
+                "text": long_text,
+                "index": index,
+                "nested": {
+                    "value": ["ok", { "deep": long_text }]
+                }
+            }));
+        }
+
+        let (messages, count, truncated) = normalize_console_items(Value::Array(items));
+        let messages = messages.as_array().unwrap();
+        assert_eq!(count, MAX_BROWSER_CONSOLE_ITEMS + 2);
+        assert_eq!(messages.len(), MAX_BROWSER_CONSOLE_ITEMS);
+        assert!(truncated);
+        assert!(messages[0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("[Truncated:"));
+
+        let (bounded, value_truncated) =
+            bound_console_value(json!({ "result": long_text, "items": messages }));
+        assert!(value_truncated);
+        assert!(bounded["result"].as_str().unwrap().contains("[Truncated:"));
+    }
+}

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -21,6 +21,9 @@ use super::browser_command::{
 use super::browser_executable::cdp_url_from_env;
 use super::browser_input::{
     normalize_ref, optional_bool_field, optional_string_field, truncate_snapshot,
+};
+use super::browser_output::{
+    bound_console_value, normalize_console_items, normalize_image_results,
 };
 use super::browser_private::create_private_browser_dir;
 pub use super::browser_schema::{
@@ -35,8 +38,6 @@ use super::web_fetch::validate_url;
 
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
-const MAX_BROWSER_IMAGES: usize = 50;
-const MAX_BROWSER_IMAGE_TEXT_CHARS: usize = 512;
 
 #[derive(Debug)]
 struct BrowserState {
@@ -365,58 +366,6 @@ async fn get_images_impl(manager: &BrowserManager) -> Result<Value, ToolError> {
     }))
 }
 
-fn normalize_image_results(raw_images: Value) -> (Value, usize, bool) {
-    let Some(items) = raw_images.as_array() else {
-        return (json!([]), 0, false);
-    };
-
-    let mut truncated = items.len() > MAX_BROWSER_IMAGES;
-    let normalized = items
-        .iter()
-        .take(MAX_BROWSER_IMAGES)
-        .filter_map(|item| {
-            let object = item.as_object()?;
-            let src = object.get("src").and_then(Value::as_str)?;
-            if src.is_empty() || src.starts_with("data:") {
-                return None;
-            }
-
-            let (src, src_truncated) = truncate_image_text(src);
-            let (alt, alt_truncated) = object
-                .get("alt")
-                .and_then(Value::as_str)
-                .map(truncate_image_text)
-                .unwrap_or_else(|| (String::new(), false));
-            truncated |= src_truncated || alt_truncated;
-
-            let mut normalized = Map::new();
-            normalized.insert("src".to_string(), Value::String(src));
-            normalized.insert("alt".to_string(), Value::String(alt));
-            if let Some(width) = object.get("width").filter(|value| value.is_number()) {
-                normalized.insert("width".to_string(), width.clone());
-            }
-            if let Some(height) = object.get("height").filter(|value| value.is_number()) {
-                normalized.insert("height".to_string(), height.clone());
-            }
-            Some(Value::Object(normalized))
-        })
-        .collect::<Vec<_>>();
-
-    (Value::Array(normalized), items.len(), truncated)
-}
-
-fn truncate_image_text(text: &str) -> (String, bool) {
-    let total_chars = text.chars().count();
-    if total_chars <= MAX_BROWSER_IMAGE_TEXT_CHARS {
-        return (text.to_string(), false);
-    }
-
-    (
-        text.chars().take(MAX_BROWSER_IMAGE_TEXT_CHARS).collect(),
-        true,
-    )
-}
-
 async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, ToolError> {
     let question = input
         .get("question")
@@ -496,36 +445,42 @@ async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, 
     let console = manager.run_existing("console", &console_args).await?;
     let errors = manager.run_existing("errors", &error_args).await?;
 
-    let evaluation = if let Some(expression) = expression {
-        Some(
-            manager
-                .run_existing("eval", &[expression.to_string()])
-                .await?
-                .get("data")
-                .and_then(|data| data.get("result"))
-                .cloned()
-                .unwrap_or(Value::Null),
-        )
+    let (evaluation, evaluation_truncated) = if let Some(expression) = expression {
+        let raw_evaluation = manager
+            .run_existing("eval", &[expression.to_string()])
+            .await?
+            .get("data")
+            .and_then(|data| data.get("result"))
+            .cloned()
+            .unwrap_or(Value::Null);
+        let (evaluation, truncated) = bound_console_value(raw_evaluation);
+        (Some(evaluation), truncated)
     } else {
-        None
+        (None, false)
     };
 
-    let messages = console
+    let raw_messages = console
         .get("data")
         .and_then(|data| data.get("messages"))
         .cloned()
         .unwrap_or_else(|| json!([]));
-    let js_errors = errors
+    let raw_js_errors = errors
         .get("data")
         .and_then(|data| data.get("errors"))
         .cloned()
         .unwrap_or_else(|| json!([]));
+    let (messages, console_message_count, messages_truncated) =
+        normalize_console_items(raw_messages);
+    let (js_errors, js_error_count, errors_truncated) = normalize_console_items(raw_js_errors);
 
     Ok(json!({
         "success": true,
         "console_messages": messages,
+        "console_message_count": console_message_count,
         "js_errors": js_errors,
+        "js_error_count": js_error_count,
         "evaluation": evaluation,
+        "truncated": messages_truncated || errors_truncated || evaluation_truncated,
     }))
 }
 
@@ -881,43 +836,6 @@ esac
         );
     }
 
-    #[test]
-    fn browser_get_images_normalizes_and_bounds_page_controlled_results() {
-        let long_suffix = "a".repeat(MAX_BROWSER_IMAGE_TEXT_CHARS + 20);
-        let long_alt = "b".repeat(MAX_BROWSER_IMAGE_TEXT_CHARS + 1);
-        let mut items = Vec::new();
-        items.push(json!({
-            "src": format!("https://example.com/{long_suffix}"),
-            "alt": long_alt,
-            "width": 640,
-            "height": 480,
-            "ignored": "drop me"
-        }));
-        for index in 1..(MAX_BROWSER_IMAGES + 2) {
-            items.push(json!({
-                "src": format!("https://example.com/image-{index}.png"),
-                "alt": format!("image {index}"),
-                "width": index,
-                "height": index + 1,
-            }));
-        }
-
-        let (images, count, truncated) = normalize_image_results(Value::Array(items));
-        let images = images.as_array().unwrap();
-        assert_eq!(count, MAX_BROWSER_IMAGES + 2);
-        assert_eq!(images.len(), MAX_BROWSER_IMAGES);
-        assert!(truncated);
-        assert_eq!(
-            images[0]["src"].as_str().unwrap().chars().count(),
-            MAX_BROWSER_IMAGE_TEXT_CHARS
-        );
-        assert_eq!(
-            images[0]["alt"].as_str().unwrap().chars().count(),
-            MAX_BROWSER_IMAGE_TEXT_CHARS
-        );
-        assert!(images[0].get("ignored").is_none());
-    }
-
     #[tokio::test]
     async fn browser_type_result_does_not_echo_typed_text() {
         let _env_guard = env_lock().lock().await;
@@ -1136,7 +1054,10 @@ esac
             parsed["console_messages"][0]["text"],
             json!("hello from page")
         );
+        assert_eq!(parsed["console_message_count"], json!(1));
         assert_eq!(parsed["js_errors"][0]["message"], json!("boom"));
+        assert_eq!(parsed["js_error_count"], json!(1));
         assert_eq!(parsed["evaluation"], json!("42"));
+        assert_eq!(parsed["truncated"], json!(false));
     }
 }

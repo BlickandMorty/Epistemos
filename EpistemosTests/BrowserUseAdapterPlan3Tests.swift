@@ -154,6 +154,7 @@ struct BrowserUseAdapterPlan3Tests {
         let browserCommand = try loadMirroredSourceTextFile("agent_core/src/tools/browser_command.rs")
         let browserExecutable = try loadMirroredSourceTextFile("agent_core/src/tools/browser_executable.rs")
         let browserInput = try loadMirroredSourceTextFile("agent_core/src/tools/browser_input.rs")
+        let browserOutput = try loadMirroredSourceTextFile("agent_core/src/tools/browser_output.rs")
         let browserPrivate = try loadMirroredSourceTextFile("agent_core/src/tools/browser_private.rs")
         let browserRedaction = try loadMirroredSourceTextFile("agent_core/src/tools/browser_redaction.rs")
         let browserSchema = try loadMirroredSourceTextFile("agent_core/src/tools/browser_schema.rs")
@@ -172,10 +173,6 @@ struct BrowserUseAdapterPlan3Tests {
             "\"pressed\": true",
             "\"key_chars\"",
             "browser_press_result_does_not_echo_key_text",
-            "MAX_BROWSER_IMAGES",
-            "MAX_BROWSER_IMAGE_TEXT_CHARS",
-            "normalize_image_results",
-            "browser_get_images_normalizes_and_bounds_page_controlled_results",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }
@@ -237,6 +234,20 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_input_normalizes_refs_and_truncates_snapshots",
         ] {
             #expect(browserInput.contains(required), "Missing browser input policy string: \(required)")
+        }
+
+        for required in [
+            "MAX_BROWSER_IMAGES",
+            "MAX_BROWSER_IMAGE_TEXT_CHARS",
+            "MAX_BROWSER_CONSOLE_ITEMS",
+            "MAX_BROWSER_CONSOLE_TEXT_CHARS",
+            "normalize_image_results",
+            "normalize_console_items",
+            "bound_console_value",
+            "browser_get_images_normalizes_and_bounds_page_controlled_results",
+            "browser_console_output_bounds_page_controlled_values",
+        ] {
+            #expect(browserOutput.contains(required), "Missing browser output policy string: \(required)")
         }
 
         for required in [

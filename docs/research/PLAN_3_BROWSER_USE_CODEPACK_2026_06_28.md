@@ -175,9 +175,10 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   counts; they never echo submitted text/key input back into tool output. Runtime
   environment setup happens only after adapter arguments are accepted. The Rust bridge never trusts ambient
   `BROWSER_CDP_URL`; the only CDP override env is `EPISTEMOS_BROWSER_USE_CDP_URL`, and it must be valid UTF-8, point at
-  localhost, 127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. `browser_get_images`
-  normalizes page-controlled image metadata, caps returned image count, and truncates image text fields before returning
-  tool output. `browser_vision` also rejects screenshot
+  localhost, 127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. The browser output
+  policy is isolated in `agent_core/src/tools/browser_output.rs`: `browser_get_images` normalizes page-controlled image
+  metadata, caps returned image count, and truncates image text fields, while `browser_console` caps page-controlled
+  console/error/evaluation arrays, object fields, and strings before returning tool output. `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
