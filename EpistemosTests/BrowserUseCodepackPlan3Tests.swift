@@ -13,6 +13,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(plan.contains("vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed"))
         #expect(codepack.contains("staged Pro code"))
         #expect(codepack.contains("This records the landed Pro-only vendor/runtime staging lane"))
+        #expect(codepack.contains("Still pending: signing/notarization into final Pro resources and full loopback UI smoke"))
+        #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and live browser tool smoke"))
         #expect(!plan.contains("browser-use vendor = the owed Pro codepack"))
         #expect(!plan.contains("Needs a vendor codepack (owed)"))
         #expect(!plan.contains("Needs a landed vendor codepack/settings/payload/adapter lane"))

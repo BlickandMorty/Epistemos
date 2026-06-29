@@ -49,7 +49,7 @@ staged third-party and local package wheels under `agent_core/vendor/browser-use
 Playwright Chromium under `agent_core/vendor/browser-use/playwright/` (`chromium-1223`, `chromium_headless_shell-1223`,
 and `ffmpeg-1011`), and wrote a non-secret `BUILD_MANIFEST.json` outside MAS/App Store build phases.
 
-Still pending: signing/notarization into final Pro resources and live browser tool smoke. The manifest marks the build
+Still pending: signing/notarization into final Pro resources and full loopback UI smoke. The manifest marks the build
 script and adapter contract as `landed`, and marks the generated lock/build manifest, wheelhouse, and Playwright payload
 as staged instead of pretending the signed Pro package exists.
 
