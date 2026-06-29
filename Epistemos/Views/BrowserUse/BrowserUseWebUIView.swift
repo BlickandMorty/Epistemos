@@ -281,7 +281,7 @@ struct BrowserUseWebUIView: View {
     }
 }
 
-private struct BrowserUseLoopbackWebView: NSViewRepresentable {
+struct BrowserUseLoopbackWebView: NSViewRepresentable {
     let url: URL
     let onBlockedNavigation: (URL) -> Void
 

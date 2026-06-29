@@ -16,7 +16,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("staged Pro code"))
         #expect(codepack.contains("This records the landed Pro-only vendor/runtime staging lane"))
         #expect(codepack.contains("Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`"))
-        #expect(codepack.contains("Still pending: signing/notarization into final Pro resources and full WKWebView dry-run UI smoke"))
+        #expect(codepack.contains("A local WKWebView fixture dry-run shell smoke also landed"))
+        #expect(codepack.contains("Still pending: signing/notarization into final Pro resources and full real Gradio WKWebView dry-run task smoke"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and live browser tool smoke"))
         #expect(codepack.contains("web_ui_runtime_compatibility"))
         #expect(codepack.contains("upstream browser-use source pin and file count remain separately auditable"))
@@ -113,7 +114,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("loopback health probe"))
         #expect(codepack.contains("terminates the launched process if the loopback health probe fails"))
         #expect(codepack.contains("loopback server smoke harness"))
-        #expect(codepack.contains("full WKWebView dry-run UI smoke still pending"))
+        #expect(codepack.contains("local WKWebView fixture dry-run shell smoke landed"))
+        #expect(codepack.contains("full real Gradio WKWebView dry-run task smoke still pending"))
         #expect(codepack.contains("optional LangChain MCP/provider packages are no longer imported at UI module load"))
         #expect(codepack.contains("Gradio 6 `buttons=[\"copy\"]` API"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
@@ -124,6 +126,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("wheelhouse, and Chromium payload landed"))
         #expect(codepack.contains("live browser-use fixture smoke landed"))
         #expect(codepack.contains("This is landed, but it is not the full app-hosted WKWebView dry-run"))
+        #expect(codepack.contains("Pro runtime smoke still pending"))
     }
 
     @Test("browser-use plan preserves browser settings and MAS boundary")

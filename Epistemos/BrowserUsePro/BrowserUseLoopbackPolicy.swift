@@ -23,7 +23,7 @@ nonisolated enum BrowserUseLoopbackPolicy {
 
         var components = URLComponents()
         components.scheme = "http"
-        components.host = normalizedHost
+        components.host = normalizedHost == "::1" ? "[::1]" : normalizedHost
         components.port = port
         components.path = "/"
         return components.url
