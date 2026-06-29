@@ -248,6 +248,8 @@ struct BrowserUseAdapterPlan3Tests {
             "agent-browser '{command_name}' failed",
             "cleanup_local_daemon",
             "cleanup_socket_dir_is_private",
+            "metadata.permissions().mode() & 0o077",
+            "browser_cleanup_ignores_non_owner_only_socket_directory",
             "browser_cleanup_ignores_symlinked_socket_directory",
             "browser_cleanup_removes_private_socket_directory",
             "command.arg(\"--session\").arg(session_name)",

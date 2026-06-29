@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::io::Read;
 #[cfg(unix)]
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -233,7 +233,7 @@ fn cleanup_socket_dir_is_private(socket_dir: &Path) -> bool {
         if metadata.file_type().is_symlink() || !metadata.is_dir() {
             return false;
         }
-        metadata.uid() == unsafe { libc::geteuid() }
+        metadata.uid() == unsafe { libc::geteuid() } && (metadata.permissions().mode() & 0o077) == 0
     }
 
     #[cfg(not(unix))]
@@ -287,10 +287,29 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let socket_dir = temp.path().join("socket");
         fs::create_dir_all(&socket_dir).unwrap();
+        let mut permissions = fs::metadata(&socket_dir).unwrap().permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&socket_dir, permissions).unwrap();
         fs::write(socket_dir.join("session.pid"), b"not-a-pid").unwrap();
 
         cleanup_local_daemon("session", &socket_dir);
 
         assert!(!socket_dir.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_cleanup_ignores_non_owner_only_socket_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let socket_dir = temp.path().join("socket");
+        fs::create_dir_all(&socket_dir).unwrap();
+        let mut permissions = fs::metadata(&socket_dir).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&socket_dir, permissions).unwrap();
+        fs::write(socket_dir.join("session.pid"), b"not-a-pid").unwrap();
+
+        cleanup_local_daemon("session", &socket_dir);
+
+        assert!(socket_dir.join("session.pid").exists());
     }
 }
