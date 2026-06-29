@@ -808,6 +808,30 @@ control proving this surface passes live when not starved. STEP-1 is complete at
 build + unit + staging layers; the live layer is pending a quiet window + the
 owner-only §7 manual/OAuth pass.
 
+### STEP-2 code-quality review of THIS loop's grafts (toolsCache + AlertBox)
+
+Manual quality pass over the new graft code added this loop (the code least covered
+by prior reviews), zero CPU/live dependency:
+- **`listAcpSessionTools` + toolsCache call-site** (`stage-goose-web-ui.sh` ~906 /
+  ~2203): the original `.catch(() => { cache.delete(key); return null; })` now wraps
+  BOTH ternary branches `(USE_ACP_CHAT ? listAcpSessionTools(...) : getTools(...))`,
+  so an ACP rejection (client/`toolsList_unstable` failure) degrades to the same
+  graceful `null` and the cached promise is never a rejected promise (no poisoned
+  cache). The catch body is generic (not REST-specific), so it reads correctly on
+  the ACP path. Empty `extensionName` → `!extensionName` returns all (matches the
+  original `extension_name || undefined`); no-tools returns `[]` (safe for the
+  `.filter`/`.map` consumers). Gated by `USE_ACP_CHAT` → the non-ACP path is byte-for
+  byte unchanged (preserves the working surface).
+- **AlertBox threshold save** (`~2135`): dead-REST `upsertConfig({body:{key,value,
+  is_secret}})` → already-ACP-wired `upsert(key, value, false)`; `useConfig()`
+  destructure expanded to `{ read, upsert }`; unused `upsertConfig` import removed
+  with a post-replace assertion. The `upsert(...)` arity/types and the absence of
+  any other `upsertConfig` usage are enforced by tsc (the green build type-checked
+  the bundled UI — a wrong signature or leftover usage would fail compilation).
+- Every replacement is anchor-guarded (throws `... anchor not found` if upstream
+  drifts) and idempotent (`if (!source.includes(marker))`), and each is locked by a
+  parity-gate assertion (passed 3/3 this loop). **No defects found.**
+
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
 -derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
