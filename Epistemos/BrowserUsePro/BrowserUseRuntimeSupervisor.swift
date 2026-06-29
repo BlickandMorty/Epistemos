@@ -578,17 +578,15 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             return .unavailable("browser-use Pro runtime has invalid loopback address \(host):\(port)")
         }
 
-        let browserUseEnvironment = BrowserUseEnvironmentRenderer.dictionary(
+        let browserUsePairs = BrowserUseEnvironmentRenderer.pairs(
             settings: settings,
             secretStore: secretStore
         )
+        let browserUseEnvironment = BrowserUseEnvironmentRenderer.dictionary(browserUsePairs)
         let inheritedEnvironment = inheritedRuntimeEnvironment(from: processEnvironment)
         var environment = inheritedEnvironment.merging(browserUseEnvironment) { _, new in new }
         environment["PYTHON_DOTENV_DISABLED"] = "true"
-        let environmentFileContents = BrowserUseEnvironmentRenderer.render(
-            settings: settings,
-            secretStore: secretStore
-        )
+        let environmentFileContents = BrowserUseEnvironmentRenderer.render(browserUsePairs)
 
         return .ready(BrowserUseRuntimeLaunchPlan(
             pythonExecutableURL: paths.pythonExecutableURL,

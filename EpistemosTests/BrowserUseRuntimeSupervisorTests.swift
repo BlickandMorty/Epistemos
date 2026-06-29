@@ -78,6 +78,32 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(!plan.environmentFileURL.path.contains("agent_core/vendor/browser-use"))
     }
 
+    @Test("ready launch plan snapshots Keychain secrets once")
+    func readyLaunchPlanSnapshotsKeychainSecretsOnce() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+        let secrets = RotatingBrowserUseSecretHarness()
+
+        let readiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { secrets.load($0) }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: "127.0.0.1",
+            port: 7878
+        )
+
+        guard case .ready(let plan) = readiness else {
+            Issue.record("Expected ready runtime plan, got \(readiness.message)")
+            return
+        }
+
+        #expect(plan.environment["OPENAI_API_KEY"] == "sk-rotating-1")
+        #expect(plan.environmentFileContents.contains("OPENAI_API_KEY=sk-rotating-1\n"))
+        #expect(!plan.environmentFileContents.contains("sk-rotating-2"))
+        #expect(secrets.openAILoadCount == 1)
+    }
+
     @Test("readiness rejects non-loopback hosts before launch planning")
     func readinessRejectsNonLoopbackHostsBeforeLaunchPlanning() throws {
         let paths = try runtimeFixture(packaged: true)
@@ -571,5 +597,27 @@ private final class FakeBrowserUseRuntimeProcess {
 
     func terminate() {
         terminationCount += 1
+    }
+}
+
+private final class RotatingBrowserUseSecretHarness: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func load(_ key: String) -> String? {
+        guard key == BrowserUseSecretBinding.openAIAPIKey.keychainKey else {
+            return nil
+        }
+
+        lock.lock()
+        defer { lock.unlock() }
+        count += 1
+        return "sk-rotating-\(count)"
+    }
+
+    var openAILoadCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
     }
 }

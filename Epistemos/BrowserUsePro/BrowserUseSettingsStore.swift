@@ -449,7 +449,11 @@ nonisolated enum BrowserUseEnvironmentRenderer {
         settings: BrowserUseSettings,
         secretStore: BrowserUseSecretStore = BrowserUseSecretStore()
     ) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: pairs(settings: settings, secretStore: secretStore).map { ($0.name, $0.value) })
+        dictionary(pairs(settings: settings, secretStore: secretStore))
+    }
+
+    static func dictionary(_ pairs: [BrowserUseEnvironmentPair]) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: pairs.map { ($0.name, $0.value) })
     }
 
     static func render(
