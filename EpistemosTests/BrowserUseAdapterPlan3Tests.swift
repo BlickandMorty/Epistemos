@@ -98,6 +98,8 @@ struct BrowserUseAdapterPlan3Tests {
             "MAX_SNAPSHOT_REFS",
             "MAX_EVAL_RESULT_TEXT_CHARS",
             "truncate_snapshot_text",
+            "extract_refs(snapshot)",
+            "\"refs_truncated\": refs_truncated or truncated",
             "bound_eval_result",
             "\"result_truncated\"",
             "\"refs_truncated\"",
