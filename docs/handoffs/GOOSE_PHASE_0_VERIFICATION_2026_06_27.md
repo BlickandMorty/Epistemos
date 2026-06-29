@@ -645,3 +645,24 @@ and every owner-stated requirement is now guarded by a strict test. The surface 
 hardened and continuously regression-guarded at the source, focused-test, live-test,
 and deployed-artifact (binary SHA + bundle grafts) layers. The remaining §7 gate is
 the owner's manual pass + OAuth login.
+
+## Addendum 2026-06-28 (PM #9) — DerivedData/package artifact health confirmed (no repair needed)
+
+The handoff flagged two default-DerivedData blockers to repair non-destructively
+(yyjson `NSCocoaErrorDomain Code=513` permission-on-removal, and llama
+binary-target "could not be mapped to an artifact"). Read-only verification of the
+owner's default DerivedData
+(`~/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl`):
+- `SourcePackages/checkouts/yyjson`: `drwxr-xr-x`, owner `jojo`, WRITABLE — the
+  Code=513 removal-permission error is not present.
+- `SourcePackages/artifacts/ggufruntimebridge/llama/llama.xcframework`: present and
+  mapped — the binary-target mapping error is not present.
+- Two other agents' xcodebuilds were actively + successfully building against this
+  same default DerivedData during the check — independent confirmation it is healthy.
+
+Both blockers have cleared (likely via the package re-resolution the successful
+concurrent builds imply). No repair performed: there is nothing to fix, and the
+shared default DerivedData must not be disturbed while other agents build against
+it. My Goose suites ran on an isolated DerivedData throughout (CoW SourcePackages)
+to avoid the concurrent-build race, and all stayed green — so this item is closed
+on both the isolated and the owner-default caches.

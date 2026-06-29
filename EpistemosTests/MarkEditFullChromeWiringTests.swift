@@ -30,4 +30,37 @@ nonisolated struct MarkEditFullChromeWiringTests {
         #expect(shim.contains("textFormatMenu"))
         #expect(shim.contains("func createNewFile("))
     }
+
+    @Test("project.yml wires MarkEdit full chrome source and module products")
+    func projectYMLWiresMarkEditFullChromeSourceAndModuleProducts() throws {
+        let project = try loadMirroredSourceTextFile("project.yml")
+
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditMac/Sources"))
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditMac/Resources"))
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditMac/Base.lproj"))
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditMac/mul.lproj"))
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditMac/AppShortcuts.xcstrings"))
+
+        #expect(project.contains("MarkEditCore:"))
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditCore"))
+        #expect(project.contains("MarkEditKit:"))
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditKit"))
+        #expect(project.contains("MarkEditModules:"))
+        #expect(project.contains("path: LocalPackages/MarkEdit/MarkEditMac/Modules"))
+
+        for product in [
+            "AppKitControls",
+            "AppKitExtensions",
+            "FileDrop",
+            "FileVersion",
+            "FontPicker",
+            "Previewer",
+            "SettingsUI",
+            "Statistics",
+            "TextBundle",
+            "TextCompletion",
+        ] {
+            #expect(project.contains("product: \(product)"))
+        }
+    }
 }

@@ -49,6 +49,8 @@ targets:
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Vault/KnowledgeGraphService.swift
+      - path: LocalPackages/MarkEdit/MarkEditMac/Sources
+        type: syncedFolder
       - path: build-rust/swift-bindings
         type: syncedFolder
         includes:
@@ -58,6 +60,12 @@ targets:
         excludes:
           - LaunchAgents/**
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
+      - path: LocalPackages/MarkEdit/MarkEditMac/Resources
+        excludes:
+          - Assets.xcassets/**
+      - path: LocalPackages/MarkEdit/MarkEditMac/Base.lproj
+      - path: LocalPackages/MarkEdit/MarkEditMac/mul.lproj
+      - path: LocalPackages/MarkEdit/MarkEditMac/AppShortcuts.xcstrings
     settings:
       base:
         PRODUCT_NAME: Epistemos
@@ -129,6 +137,28 @@ targets:
       - package: CodeEditSourceEditor
       - package: SwiftTreeSitter
       - package: CodeEditLanguages
+      - package: MarkEditCore
+      - package: MarkEditKit
+      - package: MarkEditModules
+        product: AppKitControls
+      - package: MarkEditModules
+        product: AppKitExtensions
+      - package: MarkEditModules
+        product: FileDrop
+      - package: MarkEditModules
+        product: FileVersion
+      - package: MarkEditModules
+        product: FontPicker
+      - package: MarkEditModules
+        product: Previewer
+      - package: MarkEditModules
+        product: SettingsUI
+      - package: MarkEditModules
+        product: Statistics
+      - package: MarkEditModules
+        product: TextBundle
+      - package: MarkEditModules
+        product: TextCompletion
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -149,6 +179,8 @@ targets:
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Vault/KnowledgeGraphService.swift
+      - path: LocalPackages/MarkEdit/MarkEditMac/Sources
+        type: syncedFolder
       - path: build-rust/swift-bindings
         type: syncedFolder
         includes:
@@ -158,6 +190,12 @@ targets:
     resources:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
+      - path: LocalPackages/MarkEdit/MarkEditMac/Resources
+        excludes:
+          - Assets.xcassets/**
+      - path: LocalPackages/MarkEdit/MarkEditMac/Base.lproj
+      - path: LocalPackages/MarkEdit/MarkEditMac/mul.lproj
+      - path: LocalPackages/MarkEdit/MarkEditMac/AppShortcuts.xcstrings
     settings:
       base:
         PRODUCT_NAME: Epistemos
@@ -229,6 +267,28 @@ targets:
       - package: CodeEditSourceEditor
       - package: SwiftTreeSitter
       - package: CodeEditLanguages
+      - package: MarkEditCore
+      - package: MarkEditKit
+      - package: MarkEditModules
+        product: AppKitControls
+      - package: MarkEditModules
+        product: AppKitExtensions
+      - package: MarkEditModules
+        product: FileDrop
+      - package: MarkEditModules
+        product: FileVersion
+      - package: MarkEditModules
+        product: FontPicker
+      - package: MarkEditModules
+        product: Previewer
+      - package: MarkEditModules
+        product: SettingsUI
+      - package: MarkEditModules
+        product: Statistics
+      - package: MarkEditModules
+        product: TextBundle
+      - package: MarkEditModules
+        product: TextCompletion
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -486,6 +546,12 @@ packages:
     path: LocalPackages/SwiftTerm
   GGUFRuntimeBridge:
     path: LocalPackages/GGUFRuntimeBridge
+  MarkEditCore:
+    path: LocalPackages/MarkEdit/MarkEditCore
+  MarkEditKit:
+    path: LocalPackages/MarkEdit/MarkEditKit
+  MarkEditModules:
+    path: LocalPackages/MarkEdit/MarkEditMac/Modules
   CodeEditSourceEditor:
     url: https://github.com/CodeEditApp/CodeEditSourceEditor
     from: "0.15.2"
