@@ -68,6 +68,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`"))
         #expect(codepack.contains("rejects requested or returned screenshot paths that resolve outside"))
         #expect(codepack.contains("rejects multiple screenshot output paths before runtime import"))
+        #expect(codepack.contains("command-specific argument validation runs before browser-use daemon startup"))
         #expect(codepack.contains("browser_vision rejects screenshot paths that resolve outside"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))

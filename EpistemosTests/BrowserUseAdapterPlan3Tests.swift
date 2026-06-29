@@ -60,6 +60,9 @@ struct BrowserUseAdapterPlan3Tests {
             "add_vendor_source_path(\"browser-use\")",
             "add_vendor_source_path(\"cdp-use\")",
             "browser-use adapter payload is not staged",
+            "ensure_browser_daemon(args)\n        data = send_browser_use(\"open\"",
+            "ensure_browser_daemon(args)\n    data = send_browser_use(\"state\"",
+            "ensure_browser_daemon(args)\n    data = send_browser_use(\"screenshot\"",
             "send_browser_use(\"state\"",
             "send_browser_use(\"input\"",
             "send_browser_use(\"keys\"",
@@ -67,6 +70,7 @@ struct BrowserUseAdapterPlan3Tests {
         ] {
             #expect(source.contains(required), "Missing browser-use daemon delegation string: \(required)")
         }
+        #expect(!source.contains("ensure_browser_daemon(args)\n\n    if command == \"open\""))
         #expect(!source.contains("setdefault(\"BROWSER_USE_HOME\""))
 
         let contractIndex = try #require(source.range(of: "if command == \"contract\"")?.lowerBound)
