@@ -47,12 +47,16 @@ nonisolated enum GooseACPClientEvent: Equatable, Sendable {
 }
 
 actor GooseACPClient {
+    nonisolated static let maxQueuedEvents = 1_024
+    nonisolated static let maxQueuedResponses = 256
+
     private let transport: any GooseACPTransport
     private let clientVersion: String
     private let encoder = JSONEncoder()
     private var nextRequestNumber = 1
     private var queuedEvents: [GooseACPClientEvent] = []
     private var queuedResponses: [GooseACPRequestID: Result<JSONValue, Error>] = [:]
+    private var queuedResponseOrder: [GooseACPRequestID] = []
     private var waitingEvents: [CheckedContinuation<GooseACPClientEvent, Error>] = []
     private var waitingResponses: [GooseACPRequestID: CheckedContinuation<JSONValue, Error>] = [:]
     private var waitingResponseTimeouts: [GooseACPRequestID: Task<Void, Never>] = [:]
@@ -586,7 +590,7 @@ actor GooseACPClient {
         method: String,
         timeout: Duration?
     ) async throws -> JSONValue {
-        if let result = queuedResponses.removeValue(forKey: id) {
+        if let result = removeQueuedResponse(for: id) {
             return try result.get()
         }
 
@@ -642,7 +646,7 @@ actor GooseACPClient {
         } else if abandonedResponseIDs.remove(id) != nil {
             return
         } else {
-            queuedResponses[id] = response
+            queueResponse(response, id: id)
         }
     }
 
@@ -650,14 +654,46 @@ actor GooseACPClient {
         guard let event else { return }
         if waitingEvents.isEmpty {
             queuedEvents.append(event)
+            trimQueuedEvents()
         } else {
             waitingEvents.removeFirst().resume(returning: event)
+        }
+    }
+
+    private func removeQueuedResponse(for id: GooseACPRequestID) -> Result<JSONValue, Error>? {
+        guard let response = queuedResponses.removeValue(forKey: id) else { return nil }
+        queuedResponseOrder.removeAll { $0 == id }
+        return response
+    }
+
+    private func queueResponse(_ response: Result<JSONValue, Error>, id: GooseACPRequestID) {
+        if queuedResponses[id] == nil {
+            queuedResponseOrder.append(id)
+        }
+        queuedResponses[id] = response
+        trimQueuedResponses()
+    }
+
+    private func trimQueuedEvents() {
+        let overflow = queuedEvents.count - Self.maxQueuedEvents
+        guard overflow > 0 else { return }
+        queuedEvents.removeFirst(overflow)
+    }
+
+    private func trimQueuedResponses() {
+        let overflow = queuedResponseOrder.count - Self.maxQueuedResponses
+        guard overflow > 0 else { return }
+        let staleIDs = Array(queuedResponseOrder.prefix(overflow))
+        queuedResponseOrder.removeFirst(overflow)
+        for id in staleIDs {
+            queuedResponses.removeValue(forKey: id)
         }
     }
 
     private func fail(_ error: Error) {
         terminalError = error
         queuedResponses.removeAll()
+        queuedResponseOrder.removeAll()
         abandonedResponseIDs.removeAll()
         let timeoutTasks = Array(waitingResponseTimeouts.values)
         waitingResponseTimeouts.removeAll()

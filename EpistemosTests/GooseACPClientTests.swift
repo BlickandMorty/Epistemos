@@ -587,6 +587,65 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("queued ACP events are bounded to the newest retained tail")
+    func queuedEventsAreBoundedToNewestTail() async throws {
+        let eventCount = GooseACPClient.maxQueuedEvents + 3
+        let notifications = (0..<eventCount).map { index in
+            #"{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"event-\#(index)"}}}}"#
+        }
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+        ] + notifications + [
+            #"{"jsonrpc":"2.0","id":2,"result":{"entries":[{"providerId":"mock","configured":true}]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        _ = try await client.listGooseProviders()
+
+        let events = await client.drainQueuedEvents()
+        let texts = events.compactMap { event -> String? in
+            guard case .sessionUpdate(let notification) = event,
+                  case .agentMessageChunk(let chunk) = notification.update,
+                  case .text(let text) = chunk.content else {
+                return nil
+            }
+            return text
+        }
+        #expect(texts.count == GooseACPClient.maxQueuedEvents)
+        #expect(texts.first == "event-3")
+        #expect(texts.last == "event-\(eventCount - 1)")
+        await client.close()
+    }
+
+    @Test("old unmatched ACP responses cannot satisfy future requests after queue overflow")
+    func oldQueuedResponsesAreEvictedBeforeFutureRequests() async throws {
+        let strayResponseCount = GooseACPClient.maxQueuedResponses + 2
+        let strayResponses = (0..<strayResponseCount).map { offset in
+            let id = 2 + offset
+            return #"{"jsonrpc":"2.0","id":\#(id),"result":{"entries":[{"providerId":"stale-\#(id)","configured":true}]}}"#
+        }
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+        ] + strayResponses + [
+            #"{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"stray responses processed"}}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        _ = try await client.receiveEvent()
+
+        let providersTask = Task {
+            try await client.listGooseProviders(timeout: .seconds(1))
+        }
+        await transport.waitUntilSent(count: 2)
+        await transport.enqueue(#"{"jsonrpc":"2.0","id":2,"result":{"entries":[{"providerId":"actual","configured":true}]}}"#)
+
+        let providers = try await providersTask.value
+        #expect(providers.entries.first?.objectValue?["providerId"] == .string("actual"))
+        await client.close()
+    }
+
     @Test("client sends the settings mutation Goose custom ACP subset")
     func clientSendsSettingsMutationCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
