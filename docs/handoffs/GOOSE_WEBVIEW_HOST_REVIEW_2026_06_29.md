@@ -18,9 +18,10 @@ each and had no observer to re-drive load / connect / post-sync reload.
 | L1 | LOW | `customACPStatusLabel` showed "blocked: N" instead of "ready" when connected with any benign diagnostic | owner expects exactly "custom ACP Goose ready" | `.connected` now reads exactly "ready" (diagnostics surfaced separately; false-green still impossible) |
 | L3 | LOW | `restartSurface` had no re-entrancy guard (double-tap overlaps two restarts) | — | `isRestarting` guard |
 
-Deferred (separate follow-up, lower risk/impact): M1 (a transient permission/elicitation send error
-flips `.connected → .failed` false-red while the socket is fine), L2 (onDisappear's non-awaited
-disconnect can clobber a fast reappear-reconnect).
+| M1 | MED | a transient permission/elicitation/unsupported-request SEND error called `fail()`, flipping `.connected → .failed` false-red while the socket+read-loop are alive | "ACP/model-picker errors in some paths" (false-red) | the three transient-send catch blocks now call `recordResponseSendFailure` (records a diagnostic, leaves `.connected`); only the read loop's terminal `fail()` sets `.failed` (`edd426f76`) |
+| L2 | LOW | onDisappear's non-awaited disconnect can clobber a fast reappear-reconnect | — | MITIGATED by H2 (a bridge left `.disconnected` while the runtime is `.running` is re-driven) + the surface being window-hosted (destroyed on close); no extra state added |
+
+ALL nine findings addressed. (H1/H2/H3/M2/M3/L1/L3 in the prior commits; M1/L2 above.)
 
 ## Verified CORRECT by the review (NOT owner-symptom sources)
 - No false-GREEN "ready": both labels gate "ready" strictly on `.connected` after `initialize()`.
