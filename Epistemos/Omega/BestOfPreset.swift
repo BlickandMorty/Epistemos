@@ -175,7 +175,10 @@ nonisolated enum BestOfPreset {
             return result(item, .unavailable, "No install target is bundled for this preset row.")
         }
 
-        let existing = MCPUrlServerDirectory.loadWritableEntries(from: configURL)
+        let existing = MCPUrlServerDirectory.loadWritableEntries(
+            from: configURL,
+            fileManager: fileManager
+        )
         if let current = existing.first(where: { $0.name == item.id }) {
             guard current.url == target else {
                 return result(

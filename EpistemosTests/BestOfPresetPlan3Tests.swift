@@ -53,6 +53,16 @@ struct BestOfPresetPlan3Tests {
         }
 
         for required in [
+            "maxConfigBytes",
+            "loadConfigData",
+            "destinationOfSymbolicLink",
+            "attributes[.type] as? FileAttributeType == .typeRegular",
+            "data.count <= maxConfigBytes",
+        ] {
+            #expect(directory.contains(required), "MCPUrlServerDirectory missing bounded config-file guard: \(required)")
+        }
+
+        for required in [
             "VaultMCPCore.swift` [DELIVERED]",
             "VaultMCPServer.swift` [DELIVERED]",
             "VaultMCPTokenStore.swift` [DELIVERED]",

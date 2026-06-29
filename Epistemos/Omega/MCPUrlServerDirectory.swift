@@ -10,6 +10,8 @@ import Foundation
 ///
 /// Tokens are never read or displayed — only whether a server declares auth.
 nonisolated enum MCPUrlServerDirectory {
+    static let maxConfigBytes = 256 * 1024
+
     private struct ConfigEntry: Codable {
         let name: String
         let url: String
@@ -93,6 +95,9 @@ nonisolated enum MCPUrlServerDirectory {
     /// format contract with the Rust side is unit-testable. Invalid entries
     /// (non-https url, missing fields) are dropped, matching `entry_to_config`.
     static func parse(_ data: Data) -> [ServerInfo] {
+        guard data.count <= maxConfigBytes else {
+            return []
+        }
         guard let entries = try? JSONDecoder().decode([ConfigEntry].self, from: data) else {
             return []
         }
@@ -113,8 +118,11 @@ nonisolated enum MCPUrlServerDirectory {
     /// Load writable entries from a config file. Existing inline token values
     /// are intentionally dropped, so any subsequent write never re-persists a
     /// secret value.
-    static func loadWritableEntries(from configURL: URL) -> [WritableEntry] {
-        guard let data = try? Data(contentsOf: configURL),
+    static func loadWritableEntries(
+        from configURL: URL,
+        fileManager: FileManager = .default
+    ) -> [WritableEntry] {
+        guard let data = try? loadConfigData(from: configURL, fileManager: fileManager),
               let entries = try? JSONDecoder().decode([ConfigEntry].self, from: data) else {
             return []
         }
@@ -154,6 +162,10 @@ nonisolated enum MCPUrlServerDirectory {
                 withIntermediateDirectories: true
             )
             let data = try JSONEncoder.mcpURLServerEncoder.encode(payload)
+            guard data.count <= maxConfigBytes else {
+                throw WriteError.writeFailed("encoded config exceeds \(maxConfigBytes) bytes")
+            }
+            try validateWritableConfigTarget(configURL, fileManager: fileManager)
             try data.write(to: configURL, options: [.atomic])
             return parse(data)
         } catch let error as WriteError {
@@ -171,7 +183,7 @@ nonisolated enum MCPUrlServerDirectory {
         fileManager: FileManager = .default
     ) throws -> [ServerInfo] {
         let normalized = try validatedEntry(entry)
-        var entries = try loadMutableEntries(from: configURL)
+        var entries = try loadMutableEntries(from: configURL, fileManager: fileManager)
         if let index = entries.firstIndex(where: { $0.name == normalized.name }) {
             entries[index] = normalized
         } else {
@@ -189,7 +201,7 @@ nonisolated enum MCPUrlServerDirectory {
     ) throws -> [ServerInfo] {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { throw WriteError.emptyName }
-        let entries = try loadMutableEntries(from: configURL).filter { $0.name != trimmedName }
+        let entries = try loadMutableEntries(from: configURL, fileManager: fileManager).filter { $0.name != trimmedName }
         return try write(entries, to: configURL, fileManager: fileManager)
     }
 
@@ -209,7 +221,7 @@ nonisolated enum MCPUrlServerDirectory {
         var seen: Set<String> = []
         var result: [ServerInfo] = []
         for path in paths {
-            guard let data = try? Data(contentsOf: path) else { continue }
+            guard let data = try? loadConfigData(from: path, fileManager: fileManager) else { continue }
             for server in parse(data) where seen.insert(server.name).inserted {
                 result.append(server)
             }
@@ -230,9 +242,14 @@ nonisolated enum MCPUrlServerDirectory {
         return result
     }
 
-    private static func loadMutableEntries(from configURL: URL) throws -> [WritableEntry] {
-        guard let data = try? Data(contentsOf: configURL),
-              let entries = try? JSONDecoder().decode([ConfigEntry].self, from: data) else {
+    private static func loadMutableEntries(
+        from configURL: URL,
+        fileManager: FileManager = .default
+    ) throws -> [WritableEntry] {
+        guard let data = try loadConfigData(from: configURL, fileManager: fileManager) else {
+            return []
+        }
+        guard let entries = try? JSONDecoder().decode([ConfigEntry].self, from: data) else {
             return []
         }
 
@@ -247,6 +264,54 @@ nonisolated enum MCPUrlServerDirectory {
                 authorizationTokenEnv: entry.authorization_token_env
             ))
         }
+    }
+
+    private static func loadConfigData(
+        from configURL: URL,
+        fileManager: FileManager = .default
+    ) throws -> Data? {
+        if (try? fileManager.destinationOfSymbolicLink(atPath: configURL.path)) != nil {
+            throw WriteError.writeFailed("existing config file is a symbolic link")
+        }
+        guard fileManager.fileExists(atPath: configURL.path) else {
+            return nil
+        }
+        try validateReadableConfigFile(configURL, fileManager: fileManager)
+        let data = try Data(contentsOf: configURL)
+        guard data.count <= maxConfigBytes else {
+            throw WriteError.writeFailed("existing config file exceeds \(maxConfigBytes) bytes")
+        }
+        return data
+    }
+
+    private static func validateReadableConfigFile(
+        _ configURL: URL,
+        fileManager: FileManager
+    ) throws {
+        if (try? fileManager.destinationOfSymbolicLink(atPath: configURL.path)) != nil {
+            throw WriteError.writeFailed("existing config file is a symbolic link")
+        }
+        let attributes = try fileManager.attributesOfItem(atPath: configURL.path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular else {
+            throw WriteError.writeFailed("existing config file is not a regular file")
+        }
+        guard let size = attributes[.size] as? NSNumber,
+              size.intValue <= maxConfigBytes else {
+            throw WriteError.writeFailed("existing config file exceeds \(maxConfigBytes) bytes")
+        }
+    }
+
+    private static func validateWritableConfigTarget(
+        _ configURL: URL,
+        fileManager: FileManager
+    ) throws {
+        guard fileManager.fileExists(atPath: configURL.path) else {
+            if (try? fileManager.destinationOfSymbolicLink(atPath: configURL.path)) != nil {
+                throw WriteError.writeFailed("existing config file is a symbolic link")
+            }
+            return
+        }
+        try validateReadableConfigFile(configURL, fileManager: fileManager)
     }
 
     private static func validatedEntry(_ entry: WritableEntry) throws -> WritableEntry {

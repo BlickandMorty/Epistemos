@@ -78,6 +78,23 @@ struct MCPUrlServerDirectoryTests {
         #expect(MCPUrlServerDirectory.parse(Data()).isEmpty)
     }
 
+    @Test("parser rejects oversized config bodies before decode")
+    func parserRejectsOversizedConfigBodies() {
+        let json = """
+        [
+          {
+            "name": "oversized",
+            "url": "https://oversized.example.com/mcp",
+            "authorization_token_env": "\(String(repeating: "A", count: MCPUrlServerDirectory.maxConfigBytes))"
+          }
+        ]
+        """
+        let body = data(json)
+
+        #expect(body.count > MCPUrlServerDirectory.maxConfigBytes)
+        #expect(MCPUrlServerDirectory.parse(body).isEmpty)
+    }
+
     @Test("discover dedupes by name with the project file winning over global")
     func discoverProjectWinsOverGlobal() throws {
         let fm = FileManager.default
@@ -114,6 +131,27 @@ struct MCPUrlServerDirectoryTests {
             cwd: root.appendingPathComponent("p"),
             home: root.appendingPathComponent("h")
         )
+        #expect(servers.isEmpty)
+    }
+
+    @Test("discover does not follow symlinked config files")
+    func discoverRejectsSymlinkedConfig() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("mcp-symlink-discover-\(UUID().uuidString)")
+        let cwd = root.appendingPathComponent("project")
+        let home = root.appendingPathComponent("home")
+        let projectCfg = MCPUrlServerDirectory.projectConfigURL(cwd: cwd)
+        let outsideCfg = root.appendingPathComponent("outside-url-servers.json")
+        defer { try? fm.removeItem(at: root) }
+
+        try fm.createDirectory(at: projectCfg.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data("""
+        [ { "name": "outside", "url": "https://outside.example.com/mcp" } ]
+        """).write(to: outsideCfg)
+        try fm.createSymbolicLink(at: projectCfg, withDestinationURL: outsideCfg)
+
+        let servers = MCPUrlServerDirectory.discover(cwd: cwd, home: home)
         #expect(servers.isEmpty)
     }
 
@@ -323,6 +361,36 @@ struct MCPUrlServerDirectoryTests {
 
         let raw = try String(contentsOf: config, encoding: .utf8)
         #expect(raw.contains("\"authorization_token\": \"do-not-drop\""))
+        #expect(!raw.contains("context7"))
+    }
+
+    @Test("install refuses to rewrite symlinked config files")
+    func installRefusesSymlinkedConfigRewrite() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("mcp-symlink-rewrite-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        let outside = root.appendingPathComponent("outside-url-servers.json")
+        defer { try? fm.removeItem(at: root) }
+
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        try data("""
+        [ { "name": "outside", "url": "https://outside.example.com/mcp" } ]
+        """).write(to: outside)
+        try fm.createSymbolicLink(at: config, withDestinationURL: outside)
+
+        #expect(throws: MCPUrlServerDirectory.WriteError.writeFailed("existing config file is a symbolic link")) {
+            try MCPUrlServerDirectory.install(
+                MCPUrlServerDirectory.WritableEntry(
+                    name: "context7",
+                    url: "https://mcp.context7.com/mcp"
+                ),
+                to: config
+            )
+        }
+
+        let raw = try String(contentsOf: outside, encoding: .utf8)
+        #expect(raw.contains("outside.example.com"))
         #expect(!raw.contains("context7"))
     }
 }
