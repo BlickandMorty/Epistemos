@@ -101,6 +101,9 @@ pub(crate) fn sanitize_url_for_output(raw_url: Option<&str>) -> (Value, bool) {
 
 fn sanitize_url_text(raw_url: &str) -> (String, bool) {
     if let Ok(mut parsed) = Url::parse(raw_url) {
+        if !matches!(parsed.scheme(), "http" | "https") {
+            return ("[redacted-url]".to_string(), true);
+        }
         let mut redacted = false;
         if !parsed.username().is_empty() {
             let _ = parsed.set_username("");
@@ -123,6 +126,12 @@ fn sanitize_url_text(raw_url: &str) -> (String, bool) {
     }
 
     if raw_url.contains('@') || raw_url.contains('?') || raw_url.contains('#') {
+        return ("[redacted-url]".to_string(), true);
+    }
+    if raw_url
+        .split_once(':')
+        .is_some_and(|(scheme, _)| scheme.chars().all(|ch| ch.is_ascii_alphabetic()))
+    {
         return ("[redacted-url]".to_string(), true);
     }
     let (url, truncated) = truncate_url_text(raw_url);
@@ -330,6 +339,14 @@ mod tests {
         assert!(!redacted);
 
         let (url, redacted) = sanitize_url_for_output(Some("not a url?token=secret"));
+        assert_eq!(url, json!("[redacted-url]"));
+        assert!(redacted);
+
+        let (url, redacted) = sanitize_url_for_output(Some("data:text/html,inline-secret"));
+        assert_eq!(url, json!("[redacted-url]"));
+        assert!(redacted);
+
+        let (url, redacted) = sanitize_url_for_output(Some("javascript:alert('inline-secret')"));
         assert_eq!(url, json!("[redacted-url]"));
         assert!(redacted);
     }

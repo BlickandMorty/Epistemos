@@ -193,8 +193,9 @@ validated before runtime import and must be loopback-only with no URL credential
   console/error/evaluation arrays, object fields, and strings before returning tool output. Direct adapter `eval`
   responses also cap nested result arrays, object fields, keys, and strings, and replace non-string eval keys with a
   fixed placeholder before returning JSON. Browser URL result fields from
-  `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments, then cap long URL/path
-  strings before returning tool output. Adapter JSON error responses redact common secret assignments, token/api-key
+  `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments, redact non-HTTP(S) URL
+  schemes, then cap long URL/path strings before returning tool output. Adapter JSON error responses redact common secret
+  assignments, token/api-key
   aliases, OAuth-style refresh/authorization codes, Bearer/Basic auth-scheme tokens, and URL
   credential/query/fragment tokens before applying an error length cap.
   Runtime responses require `success is True`; non-string runtime error payloads are not stringified into adapter output.
