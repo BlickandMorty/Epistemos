@@ -55,6 +55,8 @@ actor GooseACPClient {
     private var queuedResponses: [GooseACPRequestID: Result<JSONValue, Error>] = [:]
     private var waitingEvents: [CheckedContinuation<GooseACPClientEvent, Error>] = []
     private var waitingResponses: [GooseACPRequestID: CheckedContinuation<JSONValue, Error>] = [:]
+    private var waitingResponseTimeouts: [GooseACPRequestID: Task<Void, Never>] = [:]
+    private var abandonedResponseIDs: Set<GooseACPRequestID> = []
     private var terminalError: Error?
     private var readLoopTask: Task<Void, Never>?
 
@@ -156,19 +158,23 @@ actor GooseACPClient {
         try await sendRequest(method: method, params: params, response: JSONValue.self)
     }
 
-    func listGooseProviders(providerIDs: [String] = []) async throws -> GooseACPProvidersListResponse {
+    func listGooseProviders(
+        providerIDs: [String] = [],
+        timeout: Duration? = nil
+    ) async throws -> GooseACPProvidersListResponse {
         try await sendCustomRequest(
             method: .providersList,
             params: GooseACPProvidersListRequest(providerIds: providerIDs),
-            response: GooseACPProvidersListResponse.self
+            response: GooseACPProvidersListResponse.self,
+            timeout: timeout
         )
     }
 
     /// Typed `providers/list` inventory: the available providers (built-in + configured custom) each
     /// with their models inline. This is the Models-picker source — one call, no per-provider live
     /// enumeration that could hang, and it includes the built-in providers the template catalog omits.
-    func listGooseProviderInventory() async throws -> [GooseACPProviderInventoryEntry] {
-        let response = try await listGooseProviders()
+    func listGooseProviderInventory(timeout: Duration? = nil) async throws -> [GooseACPProviderInventoryEntry] {
+        let response = try await listGooseProviders(timeout: timeout)
         // Tolerant per-entry decode: an entry that fails to decode (e.g. a future Goose drops the
         // required providerId) is unusable in a picker anyway — skip it so ONE malformed entry can
         // never blank the entire list. This matches the WebView oracle, which degrades per-entry
@@ -293,19 +299,25 @@ actor GooseACPClient {
         )
     }
 
-    func readGooseDefaults() async throws -> GooseACPDefaultsReadResponse {
+    func readGooseDefaults(timeout: Duration? = nil) async throws -> GooseACPDefaultsReadResponse {
         try await sendCustomRequest(
             method: .defaultsRead,
             params: GooseACPDefaultsReadRequest(),
-            response: GooseACPDefaultsReadResponse.self
+            response: GooseACPDefaultsReadResponse.self,
+            timeout: timeout
         )
     }
 
-    func saveGooseDefaults(providerId: String, modelId: String? = nil) async throws -> GooseACPDefaultsReadResponse {
+    func saveGooseDefaults(
+        providerId: String,
+        modelId: String? = nil,
+        timeout: Duration? = nil
+    ) async throws -> GooseACPDefaultsReadResponse {
         try await sendCustomRequest(
             method: .defaultsSave,
             params: GooseACPDefaultsSaveRequest(providerId: providerId, modelId: modelId),
-            response: GooseACPDefaultsReadResponse.self
+            response: GooseACPDefaultsReadResponse.self,
+            timeout: timeout
         )
     }
 
@@ -524,29 +536,32 @@ actor GooseACPClient {
     private func sendRequest<Params: Encodable, Response: Decodable>(
         method: GooseACPMethod,
         params: Params,
-        response: Response.Type
+        response: Response.Type,
+        timeout: Duration? = nil
     ) async throws -> Response {
-        try await sendRequest(method: method.rawValue, params: params, response: response)
+        try await sendRequest(method: method.rawValue, params: params, response: response, timeout: timeout)
     }
 
     private func sendCustomRequest<Params: Encodable, Response: Decodable>(
         method: GooseACPCustomMethod,
         params: Params,
-        response: Response.Type
+        response: Response.Type,
+        timeout: Duration? = nil
     ) async throws -> Response {
-        try await sendRequest(method: method.rawValue, params: params, response: response)
+        try await sendRequest(method: method.rawValue, params: params, response: response, timeout: timeout)
     }
 
     private func sendRequest<Params: Encodable, Response: Decodable>(
         method: String,
         params: Params,
-        response: Response.Type
+        response: Response.Type,
+        timeout: Duration? = nil
     ) async throws -> Response {
         ensureReadLoop()
         let id = nextRequestID()
         let request = GooseACPJSONRPCRequest(id: id, method: method, params: params)
         try await send(request)
-        let result = try await waitForResponse(id)
+        let result = try await waitForResponse(id, method: method, timeout: timeout)
         return try result.decoded(Response.self)
     }
 
@@ -566,7 +581,11 @@ actor GooseACPClient {
         try await transport.send(text)
     }
 
-    private func waitForResponse(_ id: GooseACPRequestID) async throws -> JSONValue {
+    private func waitForResponse(
+        _ id: GooseACPRequestID,
+        method: String,
+        timeout: Duration?
+    ) async throws -> JSONValue {
         if let result = queuedResponses.removeValue(forKey: id) {
             return try result.get()
         }
@@ -577,6 +596,15 @@ actor GooseACPClient {
 
         return try await withCheckedThrowingContinuation { continuation in
             waitingResponses[id] = continuation
+            guard let timeout else { return }
+            waitingResponseTimeouts[id] = Task { [weak self] in
+                do {
+                    try await Task.sleep(for: timeout)
+                } catch {
+                    return
+                }
+                await self?.timeOutResponse(id: id, method: method, timeout: timeout)
+            }
         }
     }
 
@@ -604,12 +632,15 @@ actor GooseACPClient {
 
     private func deliverResponse(_ response: Result<JSONValue, Error>, id: GooseACPRequestID) {
         if let waiter = waitingResponses.removeValue(forKey: id) {
+            waitingResponseTimeouts.removeValue(forKey: id)?.cancel()
             switch response {
             case .success(let result):
                 waiter.resume(returning: result)
             case .failure(let error):
                 waiter.resume(throwing: error)
             }
+        } else if abandonedResponseIDs.remove(id) != nil {
+            return
         } else {
             queuedResponses[id] = response
         }
@@ -627,6 +658,12 @@ actor GooseACPClient {
     private func fail(_ error: Error) {
         terminalError = error
         queuedResponses.removeAll()
+        abandonedResponseIDs.removeAll()
+        let timeoutTasks = Array(waitingResponseTimeouts.values)
+        waitingResponseTimeouts.removeAll()
+        for task in timeoutTasks {
+            task.cancel()
+        }
 
         let eventContinuations = waitingEvents
         waitingEvents.removeAll()
@@ -639,6 +676,13 @@ actor GooseACPClient {
         for continuation in responseContinuations {
             continuation.resume(throwing: error)
         }
+    }
+
+    private func timeOutResponse(id: GooseACPRequestID, method: String, timeout: Duration) {
+        waitingResponseTimeouts.removeValue(forKey: id)?.cancel()
+        guard let waiter = waitingResponses.removeValue(forKey: id) else { return }
+        abandonedResponseIDs.insert(id)
+        waiter.resume(throwing: GooseACPProtocolError.responseTimedOut(method: method, id: id, timeout: timeout))
     }
 
     private func event(from message: GooseACPIncomingMessage) throws -> GooseACPClientEvent? {

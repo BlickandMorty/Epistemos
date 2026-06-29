@@ -136,9 +136,9 @@ final class GooseACPEventBridge {
     /// renders an honest empty/error state instead of a silent fallback.
     /// The Models-picker provider source: available providers (built-in + configured) each with
     /// their models inline. One call, no per-provider live enumeration that could hang.
-    func liveProviderInventory() async throws -> [GooseACPProviderInventoryEntry] {
+    func liveProviderInventory(timeout: Duration? = nil) async throws -> [GooseACPProviderInventoryEntry] {
         guard let client else { throw GooseACPBridgeError.notConnected }
-        return try await client.listGooseProviderInventory()
+        return try await client.listGooseProviderInventory(timeout: timeout)
     }
 
     func liveProviderCatalog(format: String? = nil) async throws -> GooseACPProviderCatalogListResponse {
@@ -153,18 +153,19 @@ final class GooseACPEventBridge {
         return try await client.listGooseProviderSupportedModels(providerId: providerId)
     }
 
-    func liveDefaults() async throws -> GooseACPDefaultsReadResponse {
+    func liveDefaults(timeout: Duration? = nil) async throws -> GooseACPDefaultsReadResponse {
         guard let client else { throw GooseACPBridgeError.notConnected }
-        return try await client.readGooseDefaults()
+        return try await client.readGooseDefaults(timeout: timeout)
     }
 
     @discardableResult
     func saveLiveDefaults(
         providerId: String,
-        modelId: String?
+        modelId: String?,
+        timeout: Duration? = nil
     ) async throws -> GooseACPDefaultsReadResponse {
         guard let client else { throw GooseACPBridgeError.notConnected }
-        return try await client.saveGooseDefaults(providerId: providerId, modelId: modelId)
+        return try await client.saveGooseDefaults(providerId: providerId, modelId: modelId, timeout: timeout)
     }
 
     private func connect(

@@ -35,9 +35,7 @@ struct GooseNativeModelsView: View {
     /// newer load's result.
     @State private var loadGeneration = 0
 
-    /// How long a single load may sit on `.loading` before surfacing a Retry. The ACP client has no
-    /// per-request timeout (a server that accepts a request but never replies would otherwise hang
-    /// the view forever); this gives the user an escape.
+    /// How long a single live ACP request may sit on `.loading` before surfacing a Retry.
     private let loadTimeout: Duration = .seconds(20)
 
     var body: some View {
@@ -221,23 +219,9 @@ struct GooseNativeModelsView: View {
         phase = .loading
         statusMessage = nil
 
-        // Bound the load: the ACP client has no per-request timeout, so a server that accepts a
-        // request but never replies would park the await forever. This sibling task flips the view
-        // to an honest Retry state after `loadTimeout` if this load is still the latest and still
-        // loading. The hung load (if any) is abandoned; its late completion is ignored by the
-        // generation guard below.
-        let timeout = Task { @MainActor in
-            try? await Task.sleep(for: loadTimeout)
-            guard generation == loadGeneration else { return }
-            if case .loading = phase {
-                phase = .failed("Timed out loading providers from Goose. Retry?")
-            }
-        }
-        defer { timeout.cancel() }
-
         do {
-            async let inventory = bridge.liveProviderInventory()
-            async let defaults = bridge.liveDefaults()
+            async let inventory = bridge.liveProviderInventory(timeout: loadTimeout)
+            async let defaults = bridge.liveDefaults(timeout: loadTimeout)
             let inventoryResult = try await inventory
             let defaultsResult = try await defaults
 
@@ -266,6 +250,9 @@ struct GooseNativeModelsView: View {
         } catch GooseACPBridgeError.notConnected {
             guard generation == loadGeneration else { return }
             phase = .failed("Goose is not connected. Open the Goose surface and try again.")
+        } catch GooseACPProtocolError.responseTimedOut {
+            guard generation == loadGeneration else { return }
+            phase = .failed("Timed out loading providers from Goose. Retry?")
         } catch {
             guard generation == loadGeneration else { return }
             phase = .failed("Could not load providers: \(error.localizedDescription)")

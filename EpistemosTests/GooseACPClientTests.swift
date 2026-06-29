@@ -557,6 +557,36 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("timed ACP requests fail their waiter without poisoning later requests")
+    func timedACPRequestsFailWithoutPoisoningLaterRequests() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        do {
+            _ = try await client.listGooseProviders(timeout: .milliseconds(20))
+            Issue.record("provider inventory request should have timed out")
+        } catch GooseACPProtocolError.responseTimedOut(let method, let id, let timeout) {
+            #expect(method == "_goose/unstable/providers/list")
+            #expect(id == .int(2))
+            #expect(timeout == .milliseconds(20))
+        }
+
+        let defaultsTask = Task {
+            try await client.readGooseDefaults(timeout: .seconds(1))
+        }
+        await transport.waitUntilSent(count: 3)
+        await transport.enqueue(#"{"jsonrpc":"2.0","id":2,"result":{"entries":[{"providerId":"late","configured":true}]}}"#)
+        await transport.enqueue(#"{"jsonrpc":"2.0","id":3,"result":{"providerId":"mock","modelId":"mock-model"}}"#)
+
+        let defaults = try await defaultsTask.value
+        #expect(defaults.providerId == "mock")
+        #expect(defaults.modelId == "mock-model")
+        await client.close()
+    }
+
     @Test("client sends the settings mutation Goose custom ACP subset")
     func clientSendsSettingsMutationCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

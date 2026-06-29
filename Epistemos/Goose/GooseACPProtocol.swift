@@ -4,7 +4,34 @@ nonisolated enum GooseACPProtocolError: Error, Equatable, Sendable {
     case missingField(String)
     case unsupportedMessage
     case jsonRPCError(code: Int, message: String, data: JSONValue?)
+    case responseTimedOut(method: String, id: GooseACPRequestID, timeout: Duration)
     case closed
+}
+
+extension GooseACPProtocolError: LocalizedError {
+    nonisolated var errorDescription: String? {
+        switch self {
+        case .missingField(let field):
+            "Missing required ACP field: \(field)."
+        case .unsupportedMessage:
+            "Unsupported ACP message."
+        case .jsonRPCError(_, let message, _):
+            message
+        case .responseTimedOut(let method, _, let timeout):
+            "Timed out waiting \(Self.timeoutDescription(timeout)) for Goose ACP response to \(method)."
+        case .closed:
+            "Goose ACP connection is closed."
+        }
+    }
+
+    private nonisolated static func timeoutDescription(_ timeout: Duration) -> String {
+        let components = timeout.components
+        guard components.attoseconds != 0 else {
+            return "\(components.seconds)s"
+        }
+        let seconds = Double(components.seconds) + Double(components.attoseconds) / 1_000_000_000_000_000_000.0
+        return String(format: "%.1fs", seconds)
+    }
 }
 
 nonisolated enum GooseACPRequestID: Codable, Hashable, Sendable {
