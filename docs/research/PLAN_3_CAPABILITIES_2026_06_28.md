@@ -304,8 +304,9 @@ Pure additive UI, MAS-safe.
 **★ FINAL decision (owner 2026-06-28) — the native Option-B robot is NOT built:**
 - **App Store build = lite native WKWebView "Browser" tab, human-driven, NO robot** (the Obscura Tier-1 codepack).
 - **Pro automation = vendor the REAL `browser-use`** (browser-use + web-ui + cdp-use + Python + Chromium), reskin its
-  web UI in a WebView, expose to Goose as MCP tools. browser-use drives **Chromium** (not the WKWebView tab). Needs a
-  landed vendor codepack/settings/payload/adapter lane; final signed Pro packaging and full UI smoke still remain.
+  web UI in a WebView, expose to Goose as MCP tools. browser-use drives **Chromium** (not the WKWebView tab). The
+  vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed; final signed Pro
+  packaging and full UI smoke still remain.
   Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
 - ~~Option B (native `WebKitBrowserEngine`-driven robot)~~ = **PARKED/superseded** by browser-use — do NOT build it
   (the owner cut the heavy native automation engine). The `WebKitBrowserEngine` stub stays `NotConfigured`.

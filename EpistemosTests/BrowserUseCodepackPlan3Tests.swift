@@ -10,10 +10,14 @@ struct BrowserUseCodepackPlan3Tests {
 
         #expect(plan.contains("browser-use vendor codepack and staged"))
         #expect(plan.contains("final signed Pro packaging and full UI smoke still remaining"))
-        #expect(plan.contains("landed vendor codepack/settings/payload/adapter lane"))
-        #expect(codepack.contains("This records the landed Pro-only vendor plan"))
+        #expect(plan.contains("vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed"))
+        #expect(codepack.contains("staged Pro code"))
+        #expect(codepack.contains("This records the landed Pro-only vendor/runtime staging lane"))
         #expect(!plan.contains("browser-use vendor = the owed Pro codepack"))
         #expect(!plan.contains("Needs a vendor codepack (owed)"))
+        #expect(!plan.contains("Needs a landed vendor codepack/settings/payload/adapter lane"))
+        #expect(!codepack.contains("clone-ready"))
+        #expect(!codepack.contains("[INFERRED]"))
         #expect(!codepack.contains("This is the owed Pro-only vendor plan"))
     }
 

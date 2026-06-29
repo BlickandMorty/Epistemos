@@ -17,15 +17,15 @@ struct BrowserUseProGateStatusTests {
         #expect(manifest.components.count == 3)
         #expect(manifest.hasExpectedFullClonePins)
         #expect(manifest.pinnedSourceProblems.isEmpty)
-        #expect(!manifest.isProPayloadStaged)
-        #expect(manifest.packagingSummary.contains("requirements.lock=not_generated"))
-        #expect(manifest.packagingSummary.contains("wheels=not_staged"))
-        #expect(manifest.packagingSummary.contains("browser payload=not_staged"))
+        #expect(manifest.isProPayloadStaged)
+        #expect(manifest.packagingSummary.contains("requirements.lock=generated"))
+        #expect(manifest.packagingSummary.contains("wheels=staged"))
+        #expect(manifest.packagingSummary.contains("browser payload=staged"))
         #expect(manifest.sourceMirrorGuard.requiredExclude == "--exclude='vendor/browser-use/'")
     }
 
-    @Test("gate is honest: off by default and not live until Pro payload is packaged")
-    func gateIsHonestUntilProPayloadIsPackaged() throws {
+    @Test("gate is honest: off by default and live only when Pro payload is staged and armed")
+    func gateIsHonestUntilProPayloadIsStagedAndArmed() throws {
         let manifestURL = try sourceMirrorURL(for: "agent_core/vendor/browser-use/VENDOR_MANIFEST.json")
 
         let off = BrowserUseProGateStatus.status(environment: [:], manifestURL: manifestURL)
@@ -42,12 +42,10 @@ struct BrowserUseProGateStatusTests {
             environment: [BrowserUseProGateStatus.flagName: "1"],
             manifestURL: manifestURL
         )
-        #expect(!armed.isActive)
-        #expect(armed.headline.contains("payload not packaged"))
-        #expect(armed.detail.contains("source is present") || armed.detail.contains("source is"))
-        #expect(armed.detail.contains("requirements.lock=not_generated"))
-        #expect(armed.detail.contains("browser payload=not_staged"))
-        #expect(armed.detail.contains("No automation runtime is launched"))
+        #expect(armed.isActive)
+        #expect(armed.headline == "browser-use Pro: packaged payload ready")
+        #expect(armed.detail.contains("packaged Pro runtime are present"))
+        #expect(armed.detail.contains("Launch remains user-initiated"))
         #endif
     }
 

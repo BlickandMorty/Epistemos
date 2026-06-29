@@ -1,8 +1,8 @@
-# Plan 3 — browser-use Pro vendor codepack (clone-ready, Pass 7)
+# Plan 3 — browser-use Pro vendor codepack (staged Pro code, Pass 7)
 
-> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This records the landed Pro-only vendor plan for the Chromium
-> robot. It is deliberately separate from the MAS-safe `BrowserView` WKWebView tab: browser-use drives Chromium over
-> CDP; it does not and must not drive the native WKWebView Browser. `[VERIFIED-CODE]`/`[WEB]`/`[INFERRED]` tagged.
+> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This records the landed Pro-only vendor/runtime staging lane
+> for the Chromium robot. It is deliberately separate from the MAS-safe `BrowserView` WKWebView tab: browser-use drives
+> Chromium over CDP; it does not and must not drive the native WKWebView Browser.
 
 ## Current upstream pins `[WEB]`
 Authoritative source is the official `browser-use/*` GitHub organization, checked on 2026-06-28 with `git ls-remote`
@@ -254,7 +254,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   strips the `Process()` branch, and contains no Python, Playwright, Chromium, browser-use resources, or
   `agent_core/vendor/browser-use` SourceMirror output.
 
-## Build order
+## Delivery order
 1. Add the codepack + source guards (this file). **Landed.**
 2. Vendor full source into `agent_core/vendor/browser-use/` and write `VENDOR_MANIFEST.json`. **Landed.**
 3. Add Pro-only packaging scripts and hash-locked wheel/Chromium staging. **Packaging script, generated lock,
