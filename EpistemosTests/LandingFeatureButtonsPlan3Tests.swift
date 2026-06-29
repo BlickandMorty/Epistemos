@@ -90,6 +90,18 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(!settings.contains("Epistemos/Agent"))
     }
 
+    @Test("PDF import entry points hold security-scoped access while importing")
+    func pdfImportEntryPointsHoldSecurityScopedAccess() throws {
+        let landing = try Self.loadSource("Epistemos/Views/Landing/LandingView.swift")
+        let sidebarButton = try Self.loadSource("Epistemos/LiteParse/LiteParsePDFImportButton.swift")
+
+        for source in [landing, sidebarButton] {
+            #expect(source.contains("startAccessingSecurityScopedResource()"))
+            #expect(source.contains("stopAccessingSecurityScopedResource()"))
+            #expect(source.contains("let gainedSecurityScope"))
+        }
+    }
+
     @Test("Plan 3 landing docs do not claim Goose-owned routes")
     func landingDocsStayInPlan3Scope() throws {
         let plan = try Self.loadSource("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")

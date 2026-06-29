@@ -670,6 +670,12 @@ struct LandingView: View {
             var imported = 0
             var lines: [String] = []
             for url in urls {
+                let gainedSecurityScope = url.startAccessingSecurityScopedResource()
+                defer {
+                    if gainedSecurityScope {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
                 let outcome = await LiteParsePDFImportController.importPage(
                     pdfPath: url.path,
                     vaultURL: vaultURL,
