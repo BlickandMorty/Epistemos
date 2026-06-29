@@ -86,6 +86,21 @@ struct VRMLabelHonestLabelTests {
         ])) == .plausibleButUnverified)
     }
 
+    @Test("ACS anchor packet ids must be well formed before Verified appears")
+    func acsAnchorPacketIDsMustBeWellFormed() {
+        let malformedPacketID = "pkt@test"
+        let claim = Self.claim(
+            kind: .empirical,
+            status: .active,
+            acsAnchored: true,
+            activePacketId: malformedPacketID
+        )
+        let packet = Self.packet(id: malformedPacketID, claims: [claim])
+
+        #expect(claim.hasVerificationAnchor == false)
+        #expect(VRMLabel.honestLabel(for: packet) == .plausibleButUnverified)
+    }
+
     @Test("unanchored speculative active claims render speculative")
     func unanchoredSpeculativeClaimsRenderSpeculative() {
         let packet = Self.packet(claims: [
@@ -228,16 +243,17 @@ struct VRMLabelHonestLabelTests {
     }
 
     private static func packet(
+        id: String = "pkt-test",
         claims: [Claim],
         storedLabel: VRMLabel = .plausibleButUnverified
     ) -> AnswerPacket {
         AnswerPacket(
-            id: "pkt-test",
+            id: id,
             claims: claims,
             residencySignals: [.neutral],
             uiLabel: storedLabel,
             witnessedStateRef: "stop:end_turn;in:1;out:1",
-            mutationEnvelopeRef: "pkt-test"
+            mutationEnvelopeRef: id
         )
     }
 

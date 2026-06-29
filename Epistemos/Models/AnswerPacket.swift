@@ -403,7 +403,7 @@ nonisolated public extension AcsAnchor {
         Self.isValidAnchorID(anchorId)
             && Self.foundationalTheoremIDs.contains(theoremId)
             && Self.isValidOptionalProjectionField(sourceHash)
-            && Self.isValidOptionalProjectionField(activePacketId)
+            && Self.isValidOptionalPacketID(activePacketId)
             && Self.isValidOptionalProjectionField(compatibilityEdge)
             && salience.isFinite
             && (0.0...1.0).contains(salience)
@@ -433,6 +433,11 @@ nonisolated public extension AcsAnchor {
                     && !CharacterSet.controlCharacters.contains(scalar)
                     && scalar.value != 124
             }
+    }
+
+    private static func isValidOptionalPacketID(_ value: String?) -> Bool {
+        guard let value else { return true }
+        return isValidAnchorID(value)
     }
 }
 
