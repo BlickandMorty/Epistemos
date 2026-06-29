@@ -61,6 +61,7 @@ import type {
   ProviderSecret,
   ProviderTemplate,
   ProviderType,
+  ToolInfo,
   UpdateCustomProviderRequest,
 } from '../api';
 import { getAcpClient } from './acpConnection';
@@ -893,6 +894,30 @@ export async function deleteAcpProviderConfig(providerId: string): Promise<void>
 export async function authenticateAcpProviderConfig(providerId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.providersConfigAuthenticate_unstable({ providerId });
+}
+
+// epistemos-acp-session-tools: the REST /agent/tools (getTools) 404s on the lean
+// ACP `goose serve`. The live ACP toolsList_unstable({sessionId}) returns ALL the
+// session's tools; scope to one extension by the `{extension}__{tool}` name prefix
+// (extension_manager.rs) when an extensionName is given. If the prefix matches
+// nothing (display-name vs registered-name casing, or an unprefixed extension) we
+// fall back to the full list, so callers never get a worse result than the REST
+// path they replace.
+export async function listAcpSessionTools(
+  sessionId: string,
+  extensionName?: string
+): Promise<ToolInfo[]> {
+  const client = await getAcpClient();
+  const response = await client.goose.toolsList_unstable({ sessionId });
+  const all = (response.tools ?? []) as ToolInfo[];
+  if (!extensionName) {
+    return all;
+  }
+  const prefix = `${extensionName}__`;
+  const scoped = all.filter(
+    (tool) => typeof tool?.name === 'string' && tool.name.startsWith(prefix)
+  );
+  return scoped.length > 0 ? scoped : all;
 }
 
 // Custom-provider create/read/update/delete bridged onto the live ACP methods
@@ -2151,6 +2176,55 @@ if (source.includes("import { upsertConfig }")) {
   throw new Error('AlertBox unused upsertConfig import was not removed');
 }
 
+fs.writeFileSync(path, source);
+NODE
+
+TOOLS_CACHE="$WORK_ROOT/ui/desktop/src/components/McpApps/toolsCache.ts"
+node - "$TOOLS_CACHE" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+// epistemos-acp-tools-cache: getTools (REST /agent/tools) 404s on the lean ACP
+// `goose serve`; route through the live toolsList_unstable via listAcpSessionTools
+// (extension-scoped, full-list fallback). Restores the tool list MCP-UI apps +
+// tool-call rendering depend on instead of the .catch() silent null. (Audit gap #1.)
+const importAnchor = "import { getTools } from '../../api';";
+const imports = `${importAnchor}
+import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';
+import { listAcpSessionTools } from '../../acp/providers';`;
+if (!source.includes('listAcpSessionTools')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('toolsCache import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+const callAnchor = `  const promise = getTools({
+    query: { session_id: sessionId, extension_name: extensionName || undefined },
+  })
+    .then((response) => response.data ?? null)
+    .catch(() => {`;
+const callReplacement = `  const promise = (
+    USE_ACP_CHAT
+      ? listAcpSessionTools(sessionId, extensionName) // epistemos-acp-tools-cache
+      : getTools({
+          query: { session_id: sessionId, extension_name: extensionName || undefined },
+        }).then((response) => response.data ?? null)
+  )
+    .catch(() => {`;
+if (!source.includes('epistemos-acp-tools-cache')) {
+  if (!source.includes(callAnchor)) {
+    throw new Error('toolsCache getTools call anchor not found');
+  }
+  source = source.replace(callAnchor, callReplacement);
+}
+
+for (const snippet of ['listAcpSessionTools', 'epistemos-acp-tools-cache']) {
+  if (!source.includes(snippet)) {
+    throw new Error(`toolsCache staged source missing: ${snippet}`);
+  }
+}
 fs.writeFileSync(path, source);
 NODE
 
