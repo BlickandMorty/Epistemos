@@ -523,7 +523,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             )
             let data = try JSONSerialization.data(withJSONObject: ["dirs": dirs], options: [.prettyPrinted, .sortedKeys])
             try data.write(to: recentDirsURL, options: .atomic)
-            rememberScopedRoot(expandedPath)
+            // SECURITY: recent-dirs is a display-only convenience list. It must NOT grant
+            // filesystem scope — otherwise a WebView call (addRecentDir + readFile) is a full
+            // path-sandbox escape. Scope is widened ONLY via the consented NSOpenPanel path
+            // (rememberScopedAccess). Deep-hardening 2026-06-29 C1.
             return true
         } catch {
             return false
@@ -544,7 +547,9 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                     && isDirectory.boolValue
                     && !isSymbolicLink(path)
             }
-        validDirs.forEach(rememberScopedRoot)
+        // SECURITY: do NOT re-grant scope when merely listing recent dirs (this re-broadened
+        // scopedFileRoots on every launch, persisting any escape across restarts). Display-only.
+        // Deep-hardening 2026-06-29 C1.
         return validDirs
     }
 
