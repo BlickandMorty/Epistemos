@@ -35,7 +35,9 @@ pub struct ReasoningSplit {
 /// - No marker → `thinking` is `None`, `answer` is the trimmed raw text.
 pub fn split_reasoning(raw: &str) -> ReasoningSplit {
     for (open, close) in MARKER_PAIRS {
-        let Some(open_idx) = raw.find(open) else { continue };
+        let Some(open_idx) = raw.find(open) else {
+            continue;
+        };
         let after_open = open_idx + open.len();
 
         if let Some(rel_close) = raw[after_open..].find(close) {
@@ -143,7 +145,10 @@ mod tests {
     #[test]
     fn unclosed_marker_treats_rest_as_in_progress_thinking() {
         let split = split_reasoning("<think>still reasoning and not done");
-        assert_eq!(split.thinking.as_deref(), Some("still reasoning and not done"));
+        assert_eq!(
+            split.thinking.as_deref(),
+            Some("still reasoning and not done")
+        );
         assert_eq!(split.answer, "");
     }
 
@@ -208,9 +213,13 @@ mod tests {
     #[test]
     fn ffi_envelope_is_valid_json_and_escapes_safely() {
         // Quotes + newlines in the content must not break the envelope.
-        let out = split_reasoning_json("<think>a \"quoted\" thought</think>line1\nline2".to_string());
+        let out =
+            split_reasoning_json("<think>a \"quoted\" thought</think>line1\nline2".to_string());
         let parsed: serde_json::Value = serde_json::from_str(&out).expect("envelope is valid JSON");
-        assert_eq!(parsed["thinking"], serde_json::json!("a \"quoted\" thought"));
+        assert_eq!(
+            parsed["thinking"],
+            serde_json::json!("a \"quoted\" thought")
+        );
         assert_eq!(parsed["answer"], serde_json::json!("line1\nline2"));
         assert_eq!(parsed["thinking_in_progress"], serde_json::json!(false));
     }

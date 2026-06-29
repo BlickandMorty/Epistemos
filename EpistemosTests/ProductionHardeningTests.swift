@@ -723,6 +723,8 @@ struct ReleasePackagingHardeningTests {
                 "macOS mktemp does not randomize XXXXXX when it is followed by a suffix; concurrent Xcode builds collide on the literal temp path.")
         #expect(script.contains("trap cleanup_temp_output EXIT") && script.contains("trap - EXIT"),
                 "agent_core dylib staging must clean stale temp files on failure without deleting the finished dylib.")
+        #expect(script.contains(#"STAGING_LOCK="../build-rust/.libagent_core.lock""#))
+        #expect(script.contains(#"install_name_tool -id "@rpath/libagent_core.dylib" "$TEMP_OUTPUT""#))
         #expect(bridge.contains("#[cfg(not(feature = \"pro-build\"))]"))
         #expect(bridge.contains("#[cfg(feature = \"pro-build\")]"))
         #expect(bridge.contains("register_discovered_stdio_mcp_tools"))
@@ -730,6 +732,28 @@ struct ReleasePackagingHardeningTests {
         #expect(registry.contains("mas_sandbox_registry_excludes_unbounded_tools"))
         #expect(registry.contains("bash_execute"))
         #expect(registry.contains("must not be registered in mas-sandbox"))
+    }
+
+    @Test("Rust dylib staging paths avoid mktemp suffix collisions")
+    func rustDylibStagingPathsAvoidMktempSuffixCollisions() throws {
+        let scripts = [
+            "build-agent-core.sh": "libagent_core",
+            "build-omega-mcp.sh": "libomega_mcp",
+            "build-omega-ax.sh": "libomega_ax",
+            "build-epistemos-core.sh": "libepistemos_core",
+            "build-epistemos-shadow.sh": "libepistemos_shadow",
+        ]
+
+        for (path, library) in scripts {
+            let script = try loadProductionHardeningRepoTextFile(path)
+            #expect(script.contains(#"TEMP_OUTPUT="$(mktemp ../build-rust/\#(library).XXXXXX)""#))
+            #expect(!script.contains("\(library).XXXXXX.dylib"),
+                    "macOS mktemp does not randomize XXXXXX when it is followed by a suffix; concurrent Xcode builds collide on the literal temp path.")
+            #expect(script.contains("trap cleanup_temp_output EXIT") && script.contains("trap - EXIT"),
+                    "\(path) must clean stale temp files on failure without deleting the finished dylib.")
+            #expect(script.contains(#"STAGING_LOCK="../build-rust/.\#(library).lock""#))
+            #expect(script.contains(#"install_name_tool -id "@rpath/\#(library).dylib" "$TEMP_OUTPUT""#))
+        }
     }
 
     @Test("debug/test specs keep local signing while generated release configs keep paid-team support")

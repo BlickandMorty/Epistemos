@@ -503,12 +503,18 @@ mod tests {
         // (Epistemos/Models/AnswerPacket.swift + SubstratePhase0FreezeContractTests) and the future
         // new model / Companion→Osaurus clones depend on. Renaming a variant is a wire break — this
         // forces it to be a deliberate change paired with the Swift side.
-        assert_eq!(serde_json::to_string(&AttentionMode::Dynamic).unwrap(), "\"dynamic\"");
+        assert_eq!(
+            serde_json::to_string(&AttentionMode::Dynamic).unwrap(),
+            "\"dynamic\""
+        );
         assert_eq!(
             serde_json::to_string(&AttentionMode::StaticFallback).unwrap(),
             "\"static_fallback\""
         );
-        assert_eq!(serde_json::to_string(&AttentionMode::Unavailable).unwrap(), "\"unavailable\"");
+        assert_eq!(
+            serde_json::to_string(&AttentionMode::Unavailable).unwrap(),
+            "\"unavailable\""
+        );
         // Honest default — never falsely dynamic (mirrors Swift `AttentionMode.default`).
         assert_eq!(AttentionMode::default(), AttentionMode::Unavailable);
         // The frozen key on the packet itself (must match Swift CodingKeys `attention_mode`).

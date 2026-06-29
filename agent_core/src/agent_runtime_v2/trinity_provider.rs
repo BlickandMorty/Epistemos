@@ -15,7 +15,9 @@ use crate::provider::{AgentProvider, MessageStream, StreamEvent};
 use crate::types::Message;
 
 use super::trinity_async::TrinityRoleExecutorAsync;
-use super::trinity_executor::{parse_verifier_verdict, thinker_prompt, verifier_prompt, worker_prompt};
+use super::trinity_executor::{
+    parse_verifier_verdict, thinker_prompt, verifier_prompt, worker_prompt,
+};
 use super::trinity_loop::{TrinityRole, VerifierVerdict};
 use super::trinity_routing::select_role_tier;
 
@@ -99,12 +101,22 @@ where
         match provider.stream_message(&messages, &[], &config).await {
             Ok(stream) => match collect_stream_with_usage(stream).await {
                 Ok((text, usage)) => {
-                    self.total_usage.input_tokens = self.total_usage.input_tokens.saturating_add(usage.input_tokens);
-                    self.total_usage.output_tokens = self.total_usage.output_tokens.saturating_add(usage.output_tokens);
-                    self.total_usage.cache_read_input_tokens =
-                        self.total_usage.cache_read_input_tokens.saturating_add(usage.cache_read_input_tokens);
-                    self.total_usage.cache_creation_input_tokens =
-                        self.total_usage.cache_creation_input_tokens.saturating_add(usage.cache_creation_input_tokens);
+                    self.total_usage.input_tokens = self
+                        .total_usage
+                        .input_tokens
+                        .saturating_add(usage.input_tokens);
+                    self.total_usage.output_tokens = self
+                        .total_usage
+                        .output_tokens
+                        .saturating_add(usage.output_tokens);
+                    self.total_usage.cache_read_input_tokens = self
+                        .total_usage
+                        .cache_read_input_tokens
+                        .saturating_add(usage.cache_read_input_tokens);
+                    self.total_usage.cache_creation_input_tokens = self
+                        .total_usage
+                        .cache_creation_input_tokens
+                        .saturating_add(usage.cache_creation_input_tokens);
                     text
                 }
                 Err(e) => format!("[trinity-error: {e:?}]"),
@@ -120,14 +132,26 @@ where
     F: Fn(CapabilityTier) -> Arc<dyn AgentProvider> + Send + Sync,
 {
     async fn think(&mut self, objective: &str, feedback: &str) -> String {
-        self.run(TrinityRole::Thinker, objective, &thinker_prompt(objective, feedback)).await
+        self.run(
+            TrinityRole::Thinker,
+            objective,
+            &thinker_prompt(objective, feedback),
+        )
+        .await
     }
     async fn work(&mut self, plan: &str) -> String {
         let objective = self.objective.clone();
-        self.run(TrinityRole::Worker, &objective, &worker_prompt(plan)).await
+        self.run(TrinityRole::Worker, &objective, &worker_prompt(plan))
+            .await
     }
     async fn verify(&mut self, work: &str, objective: &str) -> (VerifierVerdict, String) {
-        let out = self.run(TrinityRole::Verifier, objective, &verifier_prompt(work, objective)).await;
+        let out = self
+            .run(
+                TrinityRole::Verifier,
+                objective,
+                &verifier_prompt(work, objective),
+            )
+            .await;
         parse_verifier_verdict(&out)
     }
 }
@@ -145,11 +169,23 @@ mod tests {
     #[tokio::test]
     async fn collects_text_deltas_until_message_stop() {
         let stream = stream_of(vec![
-            Ok(StreamEvent::TextDelta { index: 0, text: "Hello, ".into() }),
-            Ok(StreamEvent::TextDelta { index: 0, text: "world".into() }),
-            Ok(StreamEvent::MessageStop { stop_reason: StopReason::EndTurn, usage: TokenUsage::default() }),
+            Ok(StreamEvent::TextDelta {
+                index: 0,
+                text: "Hello, ".into(),
+            }),
+            Ok(StreamEvent::TextDelta {
+                index: 0,
+                text: "world".into(),
+            }),
+            Ok(StreamEvent::MessageStop {
+                stop_reason: StopReason::EndTurn,
+                usage: TokenUsage::default(),
+            }),
             // anything after MessageStop is ignored (we already broke).
-            Ok(StreamEvent::TextDelta { index: 0, text: " IGNORED".into() }),
+            Ok(StreamEvent::TextDelta {
+                index: 0,
+                text: " IGNORED".into(),
+            }),
         ]);
         assert_eq!(collect_stream_text(stream).await.unwrap(), "Hello, world");
     }
@@ -157,9 +193,18 @@ mod tests {
     #[tokio::test]
     async fn ignores_non_text_events() {
         let stream = stream_of(vec![
-            Ok(StreamEvent::SignatureDelta { index: 0, signature: "sig".into() }),
-            Ok(StreamEvent::TextDelta { index: 0, text: "answer".into() }),
-            Ok(StreamEvent::MessageStop { stop_reason: StopReason::EndTurn, usage: TokenUsage::default() }),
+            Ok(StreamEvent::SignatureDelta {
+                index: 0,
+                signature: "sig".into(),
+            }),
+            Ok(StreamEvent::TextDelta {
+                index: 0,
+                text: "answer".into(),
+            }),
+            Ok(StreamEvent::MessageStop {
+                stop_reason: StopReason::EndTurn,
+                usage: TokenUsage::default(),
+            }),
         ]);
         assert_eq!(collect_stream_text(stream).await.unwrap(), "answer");
     }
@@ -167,7 +212,10 @@ mod tests {
     #[tokio::test]
     async fn stream_error_propagates_honestly() {
         let stream = stream_of(vec![
-            Ok(StreamEvent::TextDelta { index: 0, text: "partial".into() }),
+            Ok(StreamEvent::TextDelta {
+                index: 0,
+                text: "partial".into(),
+            }),
             Err(AgentError::Provider("upstream failed".into())),
         ]);
         // a failed model call surfaces as Err — never a silent partial "answer".
@@ -195,16 +243,30 @@ mod tests {
         ) -> Result<MessageStream, AgentError> {
             let prompt = format!("{:?}", messages);
             let reply = if prompt.contains("Reply with exactly") {
-                if self.verifier_accepts { "ACCEPT" } else { "REPAIR: redo" }
+                if self.verifier_accepts {
+                    "ACCEPT"
+                } else {
+                    "REPAIR: redo"
+                }
             } else if prompt.contains("Execute this plan") {
                 "the final answer"
             } else {
                 "a plan"
             };
-            let usage = TokenUsage { input_tokens: 10, output_tokens: 5, ..Default::default() };
+            let usage = TokenUsage {
+                input_tokens: 10,
+                output_tokens: 5,
+                ..Default::default()
+            };
             Ok(stream_of(vec![
-                Ok(StreamEvent::TextDelta { index: 0, text: reply.into() }),
-                Ok(StreamEvent::MessageStop { stop_reason: StopReason::EndTurn, usage }),
+                Ok(StreamEvent::TextDelta {
+                    index: 0,
+                    text: reply.into(),
+                }),
+                Ok(StreamEvent::MessageStop {
+                    stop_reason: StopReason::EndTurn,
+                    usage,
+                }),
             ]))
         }
         async fn compact(&self, messages: &[Message]) -> Result<Vec<Message>, AgentError> {
@@ -234,7 +296,9 @@ mod tests {
     #[tokio::test]
     async fn provider_executor_drives_the_async_loop_to_accept() {
         use super::super::trinity_async::run_trinity_loop_async;
-        let provider: Arc<dyn AgentProvider> = Arc::new(MockProvider { verifier_accepts: true });
+        let provider: Arc<dyn AgentProvider> = Arc::new(MockProvider {
+            verifier_accepts: true,
+        });
         let provider_for_tier = move |_tier: CapabilityTier| provider.clone();
         let mut exec = ProviderTrinityExecutor::new("write a function", provider_for_tier);
         let out = run_trinity_loop_async("write a function", 5, &mut exec).await;
@@ -245,17 +309,24 @@ mod tests {
     #[tokio::test]
     async fn provider_executor_never_false_accepts_when_verifier_repairs() {
         use super::super::trinity_async::run_trinity_loop_async;
-        let provider: Arc<dyn AgentProvider> = Arc::new(MockProvider { verifier_accepts: false });
+        let provider: Arc<dyn AgentProvider> = Arc::new(MockProvider {
+            verifier_accepts: false,
+        });
         let provider_for_tier = move |_tier: CapabilityTier| provider.clone();
         let mut exec = ProviderTrinityExecutor::new("hard", provider_for_tier);
         let out = run_trinity_loop_async("hard", 5, &mut exec).await;
-        assert!(!out.accepted, "a never-accepting verifier honestly budget-exhausts");
+        assert!(
+            !out.accepted,
+            "a never-accepting verifier honestly budget-exhausts"
+        );
     }
 
     #[tokio::test]
     async fn provider_executor_accumulates_usage_for_cost_honesty() {
         use super::super::trinity_async::run_trinity_loop_async;
-        let provider: Arc<dyn AgentProvider> = Arc::new(MockProvider { verifier_accepts: true });
+        let provider: Arc<dyn AgentProvider> = Arc::new(MockProvider {
+            verifier_accepts: true,
+        });
         let provider_for_tier = move |_tier: CapabilityTier| provider.clone();
         let mut exec = ProviderTrinityExecutor::new("x", provider_for_tier);
         let _ = run_trinity_loop_async("x", 5, &mut exec).await;
@@ -265,17 +336,30 @@ mod tests {
         assert_eq!(exec.total_usage().output_tokens, 15);
         // cost via the shared estimator (per-request fee × calls included).
         let cost = crate::providers::pricing::estimate_session_cost_usd(
-            "sonar-pro", exec.total_usage(), exec.total_calls());
-        assert!(cost > 0.0, "a real coordination run has a real, non-zero cost estimate");
+            "sonar-pro",
+            exec.total_usage(),
+            exec.total_calls(),
+        );
+        assert!(
+            cost > 0.0,
+            "a real coordination run has a real, non-zero cost estimate"
+        );
     }
 
     #[tokio::test]
     async fn collect_with_usage_captures_message_stop_usage() {
         let stream = stream_of(vec![
-            Ok(StreamEvent::TextDelta { index: 0, text: "hi".into() }),
+            Ok(StreamEvent::TextDelta {
+                index: 0,
+                text: "hi".into(),
+            }),
             Ok(StreamEvent::MessageStop {
                 stop_reason: StopReason::EndTurn,
-                usage: TokenUsage { input_tokens: 7, output_tokens: 3, ..Default::default() },
+                usage: TokenUsage {
+                    input_tokens: 7,
+                    output_tokens: 3,
+                    ..Default::default()
+                },
             }),
         ]);
         let (text, usage) = collect_stream_with_usage(stream).await.unwrap();

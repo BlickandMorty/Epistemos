@@ -153,9 +153,15 @@ mod tests {
 
     #[test]
     fn no_json_is_rejected() {
-        assert_eq!(parse_plan("I cannot do that.").unwrap_err(), PlannerError::NoJsonFound);
+        assert_eq!(
+            parse_plan("I cannot do that.").unwrap_err(),
+            PlannerError::NoJsonFound
+        );
         // Unbalanced (no closing brace) → nothing extractable.
-        assert_eq!(parse_plan("{ not closed").unwrap_err(), PlannerError::NoJsonFound);
+        assert_eq!(
+            parse_plan("{ not closed").unwrap_err(),
+            PlannerError::NoJsonFound
+        );
     }
 
     #[test]

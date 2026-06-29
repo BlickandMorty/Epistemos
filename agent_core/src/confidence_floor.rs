@@ -24,8 +24,11 @@ pub enum ConfidenceFloor {
 }
 
 impl ConfidenceFloor {
-    pub const ALL: [ConfidenceFloor; 3] =
-        [ConfidenceFloor::T1, ConfidenceFloor::T2, ConfidenceFloor::T3];
+    pub const ALL: [ConfidenceFloor; 3] = [
+        ConfidenceFloor::T1,
+        ConfidenceFloor::T2,
+        ConfidenceFloor::T3,
+    ];
 
     /// Hard confidence floor for the tier. Byte-identical to the research module.
     pub const fn threshold(self) -> f32 {
@@ -131,17 +134,35 @@ mod tests {
 
     #[test]
     fn cascade_accepts_at_the_first_cleared_floor() {
-        assert_eq!(decide_floor(0.90, false), FloorOutcome::Accepted(ConfidenceFloor::T1));
-        assert_eq!(decide_floor(0.80, false), FloorOutcome::Accepted(ConfidenceFloor::T2));
-        assert_eq!(decide_floor(0.72, false), FloorOutcome::Accepted(ConfidenceFloor::T3));
+        assert_eq!(
+            decide_floor(0.90, false),
+            FloorOutcome::Accepted(ConfidenceFloor::T1)
+        );
+        assert_eq!(
+            decide_floor(0.80, false),
+            FloorOutcome::Accepted(ConfidenceFloor::T2)
+        );
+        assert_eq!(
+            decide_floor(0.72, false),
+            FloorOutcome::Accepted(ConfidenceFloor::T3)
+        );
     }
 
     #[test]
     fn boundary_scores_clear_their_floor_exactly() {
         // `>=` semantics: a score exactly on the floor clears it.
-        assert_eq!(decide_floor(0.85, false), FloorOutcome::Accepted(ConfidenceFloor::T1));
-        assert_eq!(decide_floor(0.75, false), FloorOutcome::Accepted(ConfidenceFloor::T2));
-        assert_eq!(decide_floor(0.70, false), FloorOutcome::Accepted(ConfidenceFloor::T3));
+        assert_eq!(
+            decide_floor(0.85, false),
+            FloorOutcome::Accepted(ConfidenceFloor::T1)
+        );
+        assert_eq!(
+            decide_floor(0.75, false),
+            FloorOutcome::Accepted(ConfidenceFloor::T2)
+        );
+        assert_eq!(
+            decide_floor(0.70, false),
+            FloorOutcome::Accepted(ConfidenceFloor::T3)
+        );
         // Just under the lowest floor falls through.
         assert!(decide_floor(0.6999, false).is_empty_no_escalate());
     }

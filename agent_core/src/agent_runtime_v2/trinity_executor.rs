@@ -23,7 +23,9 @@ pub fn thinker_prompt(objective: &str, feedback: &str) -> String {
 
 /// Build the WORKER prompt: execute `plan` into a final answer.
 pub fn worker_prompt(plan: &str) -> String {
-    format!("Execute this plan and produce the final answer. Output only the answer.\n\nPlan: {plan}")
+    format!(
+        "Execute this plan and produce the final answer. Output only the answer.\n\nPlan: {plan}"
+    )
 }
 
 /// Build the VERIFIER prompt: judge `work` against `objective`; must reply ACCEPT or REPAIR.
@@ -61,7 +63,10 @@ pub struct HeuristicTrinityExecutor<G: FnMut(CapabilityTier, &str) -> String> {
 
 impl<G: FnMut(CapabilityTier, &str) -> String> HeuristicTrinityExecutor<G> {
     pub fn new(objective: impl Into<String>, generate: G) -> Self {
-        Self { objective: objective.into(), generate }
+        Self {
+            objective: objective.into(),
+            generate,
+        }
     }
 }
 
@@ -90,17 +95,30 @@ mod tests {
     #[test]
     fn verdict_parsing_accepts_only_explicit_accept() {
         assert_eq!(parse_verifier_verdict("ACCEPT").0, VerifierVerdict::Accept);
-        assert_eq!(parse_verifier_verdict("  accept  ").0, VerifierVerdict::Accept);
-        assert_eq!(parse_verifier_verdict("Accept\n(looks good)").0, VerifierVerdict::Accept);
+        assert_eq!(
+            parse_verifier_verdict("  accept  ").0,
+            VerifierVerdict::Accept
+        );
+        assert_eq!(
+            parse_verifier_verdict("Accept\n(looks good)").0,
+            VerifierVerdict::Accept
+        );
         // anything non-explicit is a REPAIR (never false-accept a confused/garbled verifier).
         assert_eq!(parse_verifier_verdict("").0, VerifierVerdict::Repair);
-        assert_eq!(parse_verifier_verdict("hmm not sure").0, VerifierVerdict::Repair);
-        assert_eq!(parse_verifier_verdict("I accept this is wrong").0, VerifierVerdict::Repair); // not a bare ACCEPT
+        assert_eq!(
+            parse_verifier_verdict("hmm not sure").0,
+            VerifierVerdict::Repair
+        );
+        assert_eq!(
+            parse_verifier_verdict("I accept this is wrong").0,
+            VerifierVerdict::Repair
+        ); // not a bare ACCEPT
     }
 
     #[test]
     fn repair_extracts_feedback_after_the_marker() {
-        let (verdict, feedback) = parse_verifier_verdict("REPAIR: add the edge case for empty input");
+        let (verdict, feedback) =
+            parse_verifier_verdict("REPAIR: add the edge case for empty input");
         assert_eq!(verdict, VerifierVerdict::Repair);
         assert_eq!(feedback, "add the edge case for empty input");
     }
@@ -120,7 +138,11 @@ mod tests {
         let generate = |_tier: CapabilityTier, prompt: &str| -> String {
             if prompt.contains("Reply with exactly") {
                 verifier_calls += 1;
-                if verifier_calls >= 2 { "ACCEPT".into() } else { "REPAIR: tighten it".into() }
+                if verifier_calls >= 2 {
+                    "ACCEPT".into()
+                } else {
+                    "REPAIR: tighten it".into()
+                }
             } else if prompt.starts_with("Execute this plan") {
                 "the answer".into()
             } else {

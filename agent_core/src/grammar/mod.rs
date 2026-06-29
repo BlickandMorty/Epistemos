@@ -228,10 +228,16 @@ mod tests {
         let valid_toks = tok_env.tokenize(r#"{"name":"get_weather","input":{"city":"Paris"}}"#);
         for &t in &valid_toks {
             let allowed = allowed_token_ids(&mut m).unwrap();
-            assert!(allowed.contains(&t), "the valid next token must be in the mask");
+            assert!(
+                allowed.contains(&t),
+                "the valid next token must be in the mask"
+            );
             m.consume_token(t).unwrap();
         }
-        assert!(m.is_accepting().unwrap(), "the completed tool call must be accepting");
+        assert!(
+            m.is_accepting().unwrap(),
+            "the completed tool call must be accepting"
+        );
 
         // After {"name":" the only valid name is the const "get_weather": 'g' is
         // allowed, 'n' (no_such_tool) is masked out — guaranteed-valid generation.
@@ -242,8 +248,14 @@ mod tests {
         let allowed_at_name = allowed_token_ids(&mut m2).unwrap();
         let g = tok_env.tokenize("g")[0];
         let n = tok_env.tokenize("n")[0];
-        assert!(allowed_at_name.contains(&g), "'g' (get_weather) must be allowed");
-        assert!(!allowed_at_name.contains(&n), "'n' (no_such_tool) must be masked out");
+        assert!(
+            allowed_at_name.contains(&g),
+            "'g' (get_weather) must be allowed"
+        );
+        assert!(
+            !allowed_at_name.contains(&n),
+            "'n' (no_such_tool) must be masked out"
+        );
     }
 
     #[test]

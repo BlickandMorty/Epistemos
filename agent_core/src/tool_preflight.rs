@@ -25,7 +25,11 @@ pub struct ToolCandidate {
 }
 
 impl ToolCandidate {
-    pub fn new(name: impl Into<String>, description: impl Into<String>, keywords: Vec<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        keywords: Vec<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -36,10 +40,9 @@ impl ToolCandidate {
 
 /// Short filler words that should never drive a tool match.
 const STOPWORDS: &[&str] = &[
-    "the", "and", "for", "with", "you", "your", "can", "how", "what", "get", "got",
-    "use", "this", "that", "from", "into", "are", "was", "his", "her", "its", "out",
-    "all", "any", "but", "not", "let", "please", "would", "could", "should", "want",
-    "need", "able", "via", "per",
+    "the", "and", "for", "with", "you", "your", "can", "how", "what", "get", "got", "use", "this",
+    "that", "from", "into", "are", "was", "his", "her", "its", "out", "all", "any", "but", "not",
+    "let", "please", "would", "could", "should", "want", "need", "able", "via", "per",
 ];
 
 /// Lowercase alphanumeric tokens of length ≥ 3, minus the stopwords.
@@ -55,7 +58,11 @@ fn tokenize(text: &str) -> BTreeSet<String> {
 /// weight once: a hit in the tool NAME = 3, in a KEYWORD = 2, in the DESCRIPTION = 1.
 fn score(query_terms: &BTreeSet<String>, candidate: &ToolCandidate) -> u32 {
     let name = tokenize(&candidate.name);
-    let keywords: BTreeSet<String> = candidate.keywords.iter().flat_map(|k| tokenize(k)).collect();
+    let keywords: BTreeSet<String> = candidate
+        .keywords
+        .iter()
+        .flat_map(|k| tokenize(k))
+        .collect();
     let description = tokenize(&candidate.description);
     query_terms
         .iter()
@@ -88,7 +95,11 @@ pub fn select_tools(query: &str, candidates: &[ToolCandidate], max: usize) -> Ve
         .collect();
     // score DESC, then name ASC — a total order, so the result is fully deterministic.
     scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(b.1)));
-    scored.into_iter().take(max).map(|(_, n)| n.to_string()).collect()
+    scored
+        .into_iter()
+        .take(max)
+        .map(|(_, n)| n.to_string())
+        .collect()
 }
 
 /// Select up to `max` tools for the turn, ALWAYS including the `floor` core tools (by
@@ -148,8 +159,13 @@ struct PreflightToolInput {
 /// surface "N tools selected for this turn" in the picker — the spec's "surface the
 /// determinism visibly"). Honest empty `[]` on a parse error or no match.
 #[uniffi::export]
-pub fn schema_preflight_select_tools_json(query: String, candidates_json: String, max: u32) -> String {
-    let inputs: Vec<PreflightToolInput> = serde_json::from_str(&candidates_json).unwrap_or_default();
+pub fn schema_preflight_select_tools_json(
+    query: String,
+    candidates_json: String,
+    max: u32,
+) -> String {
+    let inputs: Vec<PreflightToolInput> =
+        serde_json::from_str(&candidates_json).unwrap_or_default();
     let candidates: Vec<ToolCandidate> = inputs
         .into_iter()
         .map(|i| ToolCandidate::new(i.name, i.description, i.keywords))
@@ -175,7 +191,12 @@ fn schema_preflight_armed() -> bool {
 /// The flag-gated selection core (pure): when `armed`, narrow to the preflight-selected
 /// tools; otherwise PASS THROUGH all tool names unchanged. Lets the live caller wire the
 /// preflight in UNCONDITIONALLY with zero behavior change until the flag is flipped.
-fn gated_select_names(query: &str, inputs: Vec<PreflightToolInput>, max: usize, armed: bool) -> Vec<String> {
+fn gated_select_names(
+    query: &str,
+    inputs: Vec<PreflightToolInput>,
+    max: usize,
+    armed: bool,
+) -> Vec<String> {
     if !armed {
         return inputs.into_iter().map(|i| i.name).collect(); // passthrough — all tools
     }
@@ -193,8 +214,13 @@ fn gated_select_names(query: &str, inputs: Vec<PreflightToolInput>, max: usize, 
 /// the wiring lands safely and the owner verifies the ON behavior in-app. Honest empty
 /// `[]` on a parse error.
 #[uniffi::export]
-pub fn schema_preflight_select_tools_gated_json(query: String, candidates_json: String, max: u32) -> String {
-    let inputs: Vec<PreflightToolInput> = serde_json::from_str(&candidates_json).unwrap_or_default();
+pub fn schema_preflight_select_tools_gated_json(
+    query: String,
+    candidates_json: String,
+    max: u32,
+) -> String {
+    let inputs: Vec<PreflightToolInput> =
+        serde_json::from_str(&candidates_json).unwrap_or_default();
     let names = gated_select_names(&query, inputs, max as usize, schema_preflight_armed());
     serde_json::to_string(&names).unwrap_or_else(|_| "[]".to_string())
 }
@@ -236,7 +262,8 @@ pub fn schema_auto_tool_route_json(query: String, candidates_json: String, max: 
     if !auto_tool_route_armed() {
         return "{\"needs_tools\":false,\"tools\":[]}".to_string();
     }
-    let inputs: Vec<PreflightToolInput> = serde_json::from_str(&candidates_json).unwrap_or_default();
+    let inputs: Vec<PreflightToolInput> =
+        serde_json::from_str(&candidates_json).unwrap_or_default();
     let candidates: Vec<ToolCandidate> = inputs
         .into_iter()
         .map(|i| ToolCandidate::new(i.name, i.description, i.keywords))
@@ -365,7 +392,12 @@ pub fn schema_gguf_tool_dispatch_json(query: String, candidates_json: String, ma
     // Own the candidates + schemas so the borrowed `PreflightTool` list is valid.
     let owned: Vec<(ToolCandidate, serde_json::Value)> = inputs
         .into_iter()
-        .map(|i| (ToolCandidate::new(i.name, i.description, i.keywords), i.schema))
+        .map(|i| {
+            (
+                ToolCandidate::new(i.name, i.description, i.keywords),
+                i.schema,
+            )
+        })
         .collect();
     let tools: Vec<PreflightTool<'_>> = owned
         .iter()
@@ -386,11 +418,31 @@ mod tests {
 
     fn catalog() -> Vec<ToolCandidate> {
         vec![
-            ToolCandidate::new("read_file", "Read the contents of a file from disk", vec!["file".into(), "open".into()]),
-            ToolCandidate::new("write_file", "Write or patch a file on disk", vec!["file".into(), "save".into()]),
-            ToolCandidate::new("web_search", "Search the web for information", vec!["search".into(), "internet".into()]),
-            ToolCandidate::new("vault_search", "Search the user's notes vault", vec!["notes".into(), "vault".into()]),
-            ToolCandidate::new("run_python", "Execute a Python snippet", vec!["python".into(), "code".into()]),
+            ToolCandidate::new(
+                "read_file",
+                "Read the contents of a file from disk",
+                vec!["file".into(), "open".into()],
+            ),
+            ToolCandidate::new(
+                "write_file",
+                "Write or patch a file on disk",
+                vec!["file".into(), "save".into()],
+            ),
+            ToolCandidate::new(
+                "web_search",
+                "Search the web for information",
+                vec!["search".into(), "internet".into()],
+            ),
+            ToolCandidate::new(
+                "vault_search",
+                "Search the user's notes vault",
+                vec!["notes".into(), "vault".into()],
+            ),
+            ToolCandidate::new(
+                "run_python",
+                "Execute a Python snippet",
+                vec!["python".into(), "code".into()],
+            ),
         ]
     }
 
@@ -426,7 +478,10 @@ mod tests {
     fn deterministic_tie_break_is_alphabetical() {
         // read_file + write_file both carry "file" in the NAME (score 3) → tie → alpha.
         let picks = select_tools("file", &catalog(), 5);
-        assert_eq!(picks, vec!["read_file".to_string(), "write_file".to_string()]);
+        assert_eq!(
+            picks,
+            vec!["read_file".to_string(), "write_file".to_string()]
+        );
     }
 
     #[test]
@@ -452,8 +507,22 @@ mod tests {
     fn preflight_dispatch_grammar_constrains_only_the_selected_tools() {
         let schema = object_schema();
         let tools = vec![
-            PreflightTool { candidate: ToolCandidate::new("read_file", "Read a file from disk", vec!["file".into()]), schema: &schema },
-            PreflightTool { candidate: ToolCandidate::new("web_search", "Search the web", vec!["search".into()]), schema: &schema },
+            PreflightTool {
+                candidate: ToolCandidate::new(
+                    "read_file",
+                    "Read a file from disk",
+                    vec!["file".into()],
+                ),
+                schema: &schema,
+            },
+            PreflightTool {
+                candidate: ToolCandidate::new(
+                    "web_search",
+                    "Search the web",
+                    vec!["search".into()],
+                ),
+                schema: &schema,
+            },
         ];
         let (selected, _grammar) = preflight_dispatch_grammar("read my file", &tools, 5)
             .expect("a grammar should build for the selected tools");
@@ -478,8 +547,22 @@ mod tests {
     fn preflight_dispatch_json_schema_builds_oneof_for_the_selected_tools() {
         let schema = object_schema();
         let tools = vec![
-            PreflightTool { candidate: ToolCandidate::new("read_file", "Read a file from disk", vec!["file".into()]), schema: &schema },
-            PreflightTool { candidate: ToolCandidate::new("web_search", "Search the web", vec!["search".into()]), schema: &schema },
+            PreflightTool {
+                candidate: ToolCandidate::new(
+                    "read_file",
+                    "Read a file from disk",
+                    vec!["file".into()],
+                ),
+                schema: &schema,
+            },
+            PreflightTool {
+                candidate: ToolCandidate::new(
+                    "web_search",
+                    "Search the web",
+                    vec!["search".into()],
+                ),
+                schema: &schema,
+            },
         ];
         let (selected, schema_str) = preflight_dispatch_json_schema("read my file", &tools, 5)
             .expect("a dispatch schema should build for the selected tools");
@@ -519,7 +602,8 @@ mod tests {
     #[test]
     fn floor_tools_are_always_included() {
         // The query never mentions the vault, but vault_search is a floor (core) tool.
-        let picks = select_tools_with_floor("please read my file", &catalog(), 3, &["vault_search"]);
+        let picks =
+            select_tools_with_floor("please read my file", &catalog(), 3, &["vault_search"]);
         assert!(picks.contains(&"vault_search".to_string()));
         assert!(picks.contains(&"read_file".to_string())); // the relevant tool is still there
         assert!(picks.len() <= 3);
@@ -596,18 +680,37 @@ mod tests {
     fn gated_passes_through_all_tools_when_flag_off() {
         // The live-wiring safety: flag OFF → EVERY tool, in input order, unchanged.
         let inputs = vec![
-            PreflightToolInput { name: "read_file".into(), description: "Read a file".into(), keywords: vec![] },
-            PreflightToolInput { name: "web_search".into(), description: "Search".into(), keywords: vec![] },
+            PreflightToolInput {
+                name: "read_file".into(),
+                description: "Read a file".into(),
+                keywords: vec![],
+            },
+            PreflightToolInput {
+                name: "web_search".into(),
+                description: "Search".into(),
+                keywords: vec![],
+            },
         ];
         let names = gated_select_names("read my file", inputs, 5, false);
-        assert_eq!(names, vec!["read_file".to_string(), "web_search".to_string()]);
+        assert_eq!(
+            names,
+            vec!["read_file".to_string(), "web_search".to_string()]
+        );
     }
 
     #[test]
     fn gated_narrows_to_preflight_when_flag_on() {
         let inputs = vec![
-            PreflightToolInput { name: "read_file".into(), description: "Read a file from disk".into(), keywords: vec!["file".into()] },
-            PreflightToolInput { name: "web_search".into(), description: "Search the web".into(), keywords: vec!["search".into()] },
+            PreflightToolInput {
+                name: "read_file".into(),
+                description: "Read a file from disk".into(),
+                keywords: vec!["file".into()],
+            },
+            PreflightToolInput {
+                name: "web_search".into(),
+                description: "Search the web".into(),
+                keywords: vec!["search".into()],
+            },
         ];
         let names = gated_select_names("read my file", inputs, 5, true);
         assert!(names.contains(&"read_file".to_string()));
@@ -618,14 +721,23 @@ mod tests {
     fn query_needs_tools_true_for_a_tool_query() {
         // "read my file from disk" / "search my notes" lexically imply a tool → auto-route on.
         assert!(query_needs_tools("read my file from disk", &catalog()));
-        assert!(query_needs_tools("search my notes vault for the meeting", &catalog()));
+        assert!(query_needs_tools(
+            "search my notes vault for the meeting",
+            &catalog()
+        ));
     }
 
     #[test]
     fn query_needs_tools_false_for_a_plain_query() {
         // A plain factual question matches no tool → answer directly, no auto-route.
-        assert!(!query_needs_tools("what is the capital of france", &catalog()));
-        assert!(!query_needs_tools("explain why the sky looks blue", &catalog()));
+        assert!(!query_needs_tools(
+            "what is the capital of france",
+            &catalog()
+        ));
+        assert!(!query_needs_tools(
+            "explain why the sky looks blue",
+            &catalog()
+        ));
     }
 
     #[test]
@@ -633,8 +745,10 @@ mod tests {
         // FLIPPED ON by default 2026-06-19: with the env unset, the FFI returns the
         // REAL tool-need verdict (not the legacy passthrough), so a plain query that
         // mentions a file auto-routes to the file tool instead of a toolless answer.
-        let catalog_json = r#"[{"name":"read_file","description":"Read a file from disk","keywords":["file"]}]"#;
-        let out = schema_auto_tool_route_json("read my file from disk".into(), catalog_json.into(), 5);
+        let catalog_json =
+            r#"[{"name":"read_file","description":"Read a file from disk","keywords":["file"]}]"#;
+        let out =
+            schema_auto_tool_route_json("read my file from disk".into(), catalog_json.into(), 5);
         let parsed: serde_json::Value = serde_json::from_str(&out).expect("valid JSON envelope");
         assert_eq!(parsed["needs_tools"], serde_json::json!(true));
         assert!(out.contains("read_file"));

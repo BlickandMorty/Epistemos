@@ -42,13 +42,15 @@ const DENIED_DEFERRED_VAULTED_ROUTES: [&str; 7] = [
     "gemma4_31b_route",
     "dense_70b_route",
 ];
-const LEASE_REF: &str = "command_package_lease:runtime_plural_qat_lane_tournament_owner_approval_gate";
-const MODEL_PATH_PROOF_REF: &str =
-    "model_path_proof:google/gemma-4-E2B-it-qat-q4_0-gguf";
+const LEASE_REF: &str =
+    "command_package_lease:runtime_plural_qat_lane_tournament_owner_approval_gate";
+const MODEL_PATH_PROOF_REF: &str = "model_path_proof:google/gemma-4-E2B-it-qat-q4_0-gguf";
 const CANCEL_REF: &str = "cancel:runtime_plural_qat_lane_tournament_owner_approval_gate";
 const ROLLBACK_REF: &str = "rollback:runtime_plural_qat_lane_tournament_owner_approval_gate";
-const RUN_EVENT_LOG_REF: &str = "run_event_log:runtime_plural_qat_lane_tournament_owner_approval_gate";
-const ANSWER_PACKET_REF: &str = "answer_packet:runtime_plural_qat_lane_tournament_owner_approval_gate";
+const RUN_EVENT_LOG_REF: &str =
+    "run_event_log:runtime_plural_qat_lane_tournament_owner_approval_gate";
+const ANSWER_PACKET_REF: &str =
+    "answer_packet:runtime_plural_qat_lane_tournament_owner_approval_gate";
 const GUARD_PRODUCT_CURSOR: &str =
     "small_model_runtime_harness_fresh_product_runtime_l3_release_audit_automated_checks_probe";
 /// Fixed so the canonical witness address is deterministic (the address hash is
@@ -192,14 +194,38 @@ impl RuntimePluralQatLaneTournamentOwnerApprovalGate {
             &self.upstream_plan_cursor,
             RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_PLAN_CURSOR,
         )?;
-        validate_exact("owner_approval_phrase", &self.owner_approval_phrase, APPROVAL_PHRASE)?;
-        validate_exact("command_package_lease_ref", &self.command_package_lease_ref, LEASE_REF)?;
-        validate_exact("model_path_proof_ref", &self.model_path_proof_ref, MODEL_PATH_PROOF_REF)?;
+        validate_exact(
+            "owner_approval_phrase",
+            &self.owner_approval_phrase,
+            APPROVAL_PHRASE,
+        )?;
+        validate_exact(
+            "command_package_lease_ref",
+            &self.command_package_lease_ref,
+            LEASE_REF,
+        )?;
+        validate_exact(
+            "model_path_proof_ref",
+            &self.model_path_proof_ref,
+            MODEL_PATH_PROOF_REF,
+        )?;
         validate_exact("cancellation_ref", &self.cancellation_ref, CANCEL_REF)?;
         validate_exact("rollback_ref", &self.rollback_ref, ROLLBACK_REF)?;
-        validate_exact("run_event_log_ref", &self.run_event_log_ref, RUN_EVENT_LOG_REF)?;
-        validate_exact("answer_packet_ref", &self.answer_packet_ref, ANSWER_PACKET_REF)?;
-        validate_exact("carried_candidate_lane", &self.carried_candidate_lane, CARRIED_CANDIDATE_LANE)?;
+        validate_exact(
+            "run_event_log_ref",
+            &self.run_event_log_ref,
+            RUN_EVENT_LOG_REF,
+        )?;
+        validate_exact(
+            "answer_packet_ref",
+            &self.answer_packet_ref,
+            ANSWER_PACKET_REF,
+        )?;
+        validate_exact(
+            "carried_candidate_lane",
+            &self.carried_candidate_lane,
+            CARRIED_CANDIDATE_LANE,
+        )?;
         validate_exact(
             "guard_owned_product_cursor",
             &self.guard_owned_product_cursor,
@@ -375,7 +401,8 @@ impl RuntimePluralQatLaneTournamentOwnerApprovalWitness {
     pub fn validate(&self) -> Result<(), RuntimePluralQatOwnerApprovalError> {
         if self.falsifier_id != RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_OWNER_APPROVAL_GATE_ID
             || self.cursor != RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_OWNER_APPROVAL_GATE_CURSOR
-            || self.next_cursor != RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_OWNER_APPROVAL_GATE_NEXT_CURSOR
+            || self.next_cursor
+                != RUNTIME_PLURAL_QAT_LANE_TOURNAMENT_OWNER_APPROVAL_GATE_NEXT_CURSOR
             || !self.metadata_only
             || !self.product_promotion_blocked
         {
@@ -446,10 +473,16 @@ impl fmt::Display for RuntimePluralQatOwnerApprovalError {
             Self::ConsentContractBroken => write!(f, "consent contract broken"),
             Self::WrongApprovalPhrase => write!(f, "wrong owner approval phrase"),
             Self::ConsentClaimMismatch => {
-                write!(f, "owner_approval_present does not match the provided phrase")
+                write!(
+                    f,
+                    "owner_approval_present does not match the provided phrase"
+                )
             }
             Self::ProbeAuthorizationLeak => {
-                write!(f, "owner-approval gate must not authorize the runtime probe")
+                write!(
+                    f,
+                    "owner-approval gate must not authorize the runtime probe"
+                )
             }
             Self::ProofPolicyBroken => write!(f, "proof/lease policy broken"),
             Self::ByteOrCommandLeak => write!(f, "byte or command leak"),

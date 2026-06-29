@@ -55,7 +55,10 @@ mod tests {
 
     #[test]
     fn clean_rust_passes() {
-        assert!(passes_gate("fn main() {\n    let x = 1 + 2;\n    let _ = x;\n}", GateLanguage::Rust));
+        assert!(passes_gate(
+            "fn main() {\n    let x = 1 + 2;\n    let _ = x;\n}",
+            GateLanguage::Rust
+        ));
     }
 
     #[test]
@@ -66,7 +69,10 @@ mod tests {
 
     #[test]
     fn clean_swift_passes() {
-        assert!(passes_gate("let x = 1\nfunc greet() -> String { return \"hi\" }", GateLanguage::Swift));
+        assert!(passes_gate(
+            "let x = 1\nfunc greet() -> String { return \"hi\" }",
+            GateLanguage::Swift
+        ));
     }
 
     #[test]

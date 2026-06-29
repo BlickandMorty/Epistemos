@@ -3377,7 +3377,10 @@ mod tests {
         ];
 
         // The secondary coverage signal.
-        assert_eq!(super::excerpt_query_coverage(query, "vault recall stuff"), 2.0);
+        assert_eq!(
+            super::excerpt_query_coverage(query, "vault recall stuff"),
+            2.0
+        );
         assert_eq!(super::excerpt_query_coverage(query, "nothing matches"), 0.0);
 
         // Flag OFF (default): order is the input order (no re-rank).
@@ -3388,7 +3391,10 @@ mod tests {
         // Flag ON: B (covers the query) is fused above A despite lower BM25.
         std::env::set_var("EPISTEMOS_EML_RERANK_V1", "1");
         let on = super::apply_eml_rerank(query, results);
-        assert_eq!(on[0].path, "b.md", "on → excerpt-coverage fusion promotes B");
+        assert_eq!(
+            on[0].path, "b.md",
+            "on → excerpt-coverage fusion promotes B"
+        );
         std::env::remove_var("EPISTEMOS_EML_RERANK_V1");
     }
 }

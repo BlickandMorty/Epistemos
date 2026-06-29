@@ -183,7 +183,12 @@ const PRICING_TABLE: &[ProviderPricing] = &[
         // Settings (not a fake per-message fee). Non-Ultra `fugu` has no fixed sheet (pays the underlying model
         // rate). Fugu plugs in via OpenAICompatibleProvider (config only); this row is the single cost source.
         canonical_name: "fugu",
-        aliases: &["sakana-fugu", "sakana_fugu", "fugu-ultra", "fugu-orchestrator"],
+        aliases: &[
+            "sakana-fugu",
+            "sakana_fugu",
+            "fugu-ultra",
+            "fugu-orchestrator",
+        ],
         input_usd_per_mtok: 5.0,
         output_usd_per_mtok: 30.0,
         cache_creation_usd_per_mtok: None,
@@ -305,18 +310,28 @@ fn round_cents(value: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{estimate_cost_usd, estimate_session_cost_usd, estimate_usage_cost_usd, per_message_usd, pricing_for};
+    use super::{
+        estimate_cost_usd, estimate_session_cost_usd, estimate_usage_cost_usd, per_message_usd,
+        pricing_for,
+    };
     use crate::types::TokenUsage;
 
     #[test]
     fn session_cost_includes_the_per_request_fee_for_per_request_providers() {
         // Perplexity bills $14/1k requests = $0.014/request — the plain per-token estimate IGNORED it
         // (undercounting budget gating). estimate_session_cost_usd adds it × request_count.
-        let usage = TokenUsage { input_tokens: 1_000_000, output_tokens: 1_000_000, ..Default::default() };
+        let usage = TokenUsage {
+            input_tokens: 1_000_000,
+            output_tokens: 1_000_000,
+            ..Default::default()
+        };
         let token_only = estimate_cost_usd("sonar-pro", 1_000_000, 1_000_000); // $3 + $15 = $18
-        // 5 requests → +5 × $0.014 = +$0.07.
+                                                                               // 5 requests → +5 × $0.014 = +$0.07.
         let session = estimate_session_cost_usd("sonar-pro", &usage, 5);
-        assert!((session - (token_only + 0.07)).abs() < 1e-9, "session={session} token_only={token_only}");
+        assert!(
+            (session - (token_only + 0.07)).abs() < 1e-9,
+            "session={session} token_only={token_only}"
+        );
         // A per-token-only provider (no request fee) is unaffected by request_count.
         let local = estimate_session_cost_usd("claude-sonnet-4-6", &usage, 10);
         assert!((local - estimate_usage_cost_usd("claude-sonnet-4-6", &usage)).abs() < 1e-9);
@@ -332,13 +347,25 @@ mod tests {
         assert_eq!(p.input_usd_per_mtok, 5.0);
         assert_eq!(p.output_usd_per_mtok, 30.0);
         assert_eq!(p.cache_read_usd_per_mtok, Some(0.50));
-        assert!(p.request_usd_per_1k.is_none(), "no flat per-message fee — that figure was unverified/wrong");
+        assert!(
+            p.request_usd_per_1k.is_none(),
+            "no flat per-message fee — that figure was unverified/wrong"
+        );
         // resolves via aliases (incl. the ultra tier).
-        assert_eq!(pricing_for("sakana-fugu").map(|p| p.canonical_name), Some("fugu"));
-        assert_eq!(pricing_for("fugu-ultra").map(|p| p.canonical_name), Some("fugu"));
+        assert_eq!(
+            pricing_for("sakana-fugu").map(|p| p.canonical_name),
+            Some("fugu")
+        );
+        assert_eq!(
+            pricing_for("fugu-ultra").map(|p| p.canonical_name),
+            Some("fugu")
+        );
         // per-token estimate is real (not ~$0): 1M in + 1M out = $5 + $30.
         let cost = estimate_cost_usd("fugu", 1_000_000, 1_000_000);
-        assert!((cost - 35.0).abs() < 1e-6, "expected $35 for 1M+1M tokens, got {cost}");
+        assert!(
+            (cost - 35.0).abs() < 1e-6,
+            "expected $35 for 1M+1M tokens, got {cost}"
+        );
         // Fugu has no flat per-message cost now (it's per-token).
         assert_eq!(per_message_usd("fugu"), None);
     }

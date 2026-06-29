@@ -67,11 +67,27 @@ else
 fi
 
 mkdir -p ../build-rust
-rm -f ../build-rust/libagent_core.a
-rm -f ../build-rust/libagent_core.dylib
+STAGING_LOCK="../build-rust/.libagent_core.lock"
 TEMP_OUTPUT="$(mktemp ../build-rust/libagent_core.XXXXXX)"
 cleanup_temp_output() {
     rm -f "$TEMP_OUTPUT"
+    if [ -d "$STAGING_LOCK" ] && [ "$(cat "$STAGING_LOCK/pid" 2>/dev/null || true)" = "$$" ]; then
+        rm -f "$STAGING_LOCK/pid"
+        rmdir "$STAGING_LOCK" 2>/dev/null || true
+    fi
+}
+acquire_staging_lock() {
+    while ! mkdir "$STAGING_LOCK" 2>/dev/null; do
+        if [ -f "$STAGING_LOCK/pid" ]; then
+            lock_pid="$(cat "$STAGING_LOCK/pid" 2>/dev/null || true)"
+            if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+                rm -rf "$STAGING_LOCK"
+                continue
+            fi
+        fi
+        sleep 0.2
+    done
+    echo "$$" > "$STAGING_LOCK/pid"
 }
 trap cleanup_temp_output EXIT
 LIPO_INPUTS=()
@@ -86,9 +102,12 @@ if [ "${#LIPO_INPUTS[@]}" -eq 1 ]; then
 else
     lipo -create "${LIPO_INPUTS[@]}" -output "$TEMP_OUTPUT"
 fi
+install_name_tool -id "@rpath/libagent_core.dylib" "$TEMP_OUTPUT"
+
+acquire_staging_lock
+rm -f ../build-rust/libagent_core.a
+rm -f ../build-rust/libagent_core.dylib
 mv -f "$TEMP_OUTPUT" ../build-rust/libagent_core.dylib
-trap - EXIT
-install_name_tool -id "@rpath/libagent_core.dylib" ../build-rust/libagent_core.dylib
 
 if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ]; then
     bash ../embed-and-sign-rust-dylib.sh \
@@ -137,5 +156,8 @@ cp ../build-rust/swift-bindings/agent_coreFFI.modulemap ../build-rust/swift-bind
 if [ -z "${TARGET_BUILD_DIR:-}" ]; then
     codesign --force --sign - ../build-rust/libagent_core.dylib
 fi
+
+cleanup_temp_output
+trap - EXIT
 
 echo "agent-core build complete"

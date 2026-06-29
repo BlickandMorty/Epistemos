@@ -65,9 +65,17 @@ pub async fn run_trinity_loop_async(
     if !accepted {
         trace.push(TrinityEvent::BudgetExhausted { rounds: round });
     }
-    trace.push(TrinityEvent::LoopCompleted { accepted, rounds: round });
+    trace.push(TrinityEvent::LoopCompleted {
+        accepted,
+        rounds: round,
+    });
 
-    TrinityLoopOutcome { accepted, rounds: round, final_answer, trace }
+    TrinityLoopOutcome {
+        accepted,
+        rounds: round,
+        final_answer,
+        trace,
+    }
 }
 
 #[cfg(test)]
@@ -98,27 +106,42 @@ mod tests {
 
     #[tokio::test]
     async fn async_loop_accepts_and_matches_the_sync_semantics() {
-        let mut exec = AsyncScriptedExec { accept_on_round: 2, round: 0 };
+        let mut exec = AsyncScriptedExec {
+            accept_on_round: 2,
+            round: 0,
+        };
         let out = run_trinity_loop_async("solve x", DEFAULT_MAX_ROUNDS, &mut exec).await;
         assert!(out.accepted);
         assert_eq!(out.rounds, 2);
         assert_eq!(out.final_answer, "work-from-plan-2");
-        assert!(out.trace.contains(&TrinityEvent::VerifierAccept { round: 2 }));
-        assert!(out.trace.contains(&TrinityEvent::VerifierRepair { round: 1 }));
+        assert!(out
+            .trace
+            .contains(&TrinityEvent::VerifierAccept { round: 2 }));
+        assert!(out
+            .trace
+            .contains(&TrinityEvent::VerifierRepair { round: 1 }));
     }
 
     #[tokio::test]
     async fn async_loop_budget_exhausts_honestly() {
-        let mut exec = AsyncScriptedExec { accept_on_round: 99, round: 0 };
+        let mut exec = AsyncScriptedExec {
+            accept_on_round: 99,
+            round: 0,
+        };
         let out = run_trinity_loop_async("x", DEFAULT_MAX_ROUNDS, &mut exec).await;
         assert!(!out.accepted);
         assert_eq!(out.rounds, DEFAULT_MAX_ROUNDS);
-        assert!(out.trace.contains(&TrinityEvent::BudgetExhausted { rounds: 5 }));
+        assert!(out
+            .trace
+            .contains(&TrinityEvent::BudgetExhausted { rounds: 5 }));
     }
 
     #[tokio::test]
     async fn async_loop_clamps_max_rounds() {
-        let mut exec = AsyncScriptedExec { accept_on_round: 99, round: 0 };
+        let mut exec = AsyncScriptedExec {
+            accept_on_round: 99,
+            round: 0,
+        };
         let out = run_trinity_loop_async("x", 100, &mut exec).await;
         assert_eq!(out.rounds, DEFAULT_MAX_ROUNDS);
     }

@@ -250,7 +250,7 @@ impl SmallModelFreshProductRuntimeCapabilityRecheckWitness {
             != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_CAPABILITY_RECHECK_NEXT_CURSOR
-        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
+            && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelFreshProductRuntimeCapabilityRecheckError::GuardCursorMismatch);
         }

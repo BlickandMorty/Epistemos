@@ -87,16 +87,12 @@ fn build_artifact(
     let zero_fail_ledger_pass = json_overall_pass(ZERO_FAIL_LEDGER_RESULT)?;
     let zero_fail_count =
         json_measurement_u64(ZERO_FAIL_LEDGER_RESULT, "zero_fail_pass_count")?.unwrap_or(0);
-    let remaining_zero_fail_count = json_measurement_u64(
-        ZERO_FAIL_LEDGER_RESULT,
-        "remaining_zero_fail_pass_count",
-    )?
-    .unwrap_or(u64::MAX);
-    let release_completion_still_required = json_measurement_bool(
-        ZERO_FAIL_LEDGER_RESULT,
-        "release_completion_still_required",
-    )?
-    .unwrap_or(true);
+    let remaining_zero_fail_count =
+        json_measurement_u64(ZERO_FAIL_LEDGER_RESULT, "remaining_zero_fail_pass_count")?
+            .unwrap_or(u64::MAX);
+    let release_completion_still_required =
+        json_measurement_bool(ZERO_FAIL_LEDGER_RESULT, "release_completion_still_required")?
+            .unwrap_or(true);
     let release_next_cursor = json_measurement_string(ZERO_FAIL_LEDGER_RESULT, "next_cursor")?;
 
     let first_runtime_wrv = read_json(FIRST_RUNTIME_WRV_RESULT)?;

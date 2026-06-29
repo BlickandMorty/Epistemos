@@ -92,6 +92,9 @@ mod tests {
 
         let body = std::fs::read_to_string(&path).unwrap();
         assert_eq!(trace_from_jsonl(&body).unwrap(), out.trace); // complete, valid
-        assert!(!path.with_extension("jsonl.tmp").exists(), "no temp sidecar may linger");
+        assert!(
+            !path.with_extension("jsonl.tmp").exists(),
+            "no temp sidecar may linger"
+        );
     }
 }

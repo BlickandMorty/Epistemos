@@ -177,14 +177,17 @@ pub mod vendored_goose {
 
                 if let Some(timeout) = self.timeout_seconds {
                     if timeout == 0 {
-                        return Err("timeout_seconds must be greater than 0 if specified".to_string());
+                        return Err(
+                            "timeout_seconds must be greater than 0 if specified".to_string()
+                        );
                     }
                 }
 
                 if let Some(on_failure_timeout) = self.on_failure_timeout_seconds {
                     if on_failure_timeout == 0 {
                         return Err(
-                            "on_failure_timeout_seconds must be greater than 0 if specified".to_string(),
+                            "on_failure_timeout_seconds must be greater than 0 if specified"
+                                .to_string(),
                         );
                     }
                 }
@@ -604,7 +607,9 @@ mod tests {
         // No engine wired → honest EngineNotWired, NEVER a silent fallback to Chat/Act.
         let req = WorkRequest::read_only(
             "do a thing",
-            vec![vendored_goose::SourceRoot::read_only(std::path::PathBuf::from("/tmp/ws"))],
+            vec![vendored_goose::SourceRoot::read_only(
+                std::path::PathBuf::from("/tmp/ws"),
+            )],
         );
         assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
     }
@@ -618,9 +623,18 @@ mod tests {
         // goose's `Message.role` is `rmcp::model::Role`, which is `#[serde(rename_all = "camelCase")]`
         // over User/Assistant (single-word camelCase = lowercase). Match the wire form byte-for-byte.
         assert_eq!(serde_json::to_string(&Role::User).unwrap(), "\"user\"");
-        assert_eq!(serde_json::to_string(&Role::Assistant).unwrap(), "\"assistant\"");
-        assert_eq!(serde_json::from_str::<Role>("\"user\"").unwrap(), Role::User);
-        assert_eq!(serde_json::from_str::<Role>("\"assistant\"").unwrap(), Role::Assistant);
+        assert_eq!(
+            serde_json::to_string(&Role::Assistant).unwrap(),
+            "\"assistant\""
+        );
+        assert_eq!(
+            serde_json::from_str::<Role>("\"user\"").unwrap(),
+            Role::User
+        );
+        assert_eq!(
+            serde_json::from_str::<Role>("\"assistant\"").unwrap(),
+            Role::Assistant
+        );
     }
 
     #[test]
@@ -742,7 +756,10 @@ mod tests {
             temperature: None,
             max_turns: Some(4),
         });
-        assert_eq!(req.settings.as_ref().unwrap().goose_model.as_deref(), Some("gemma"));
+        assert_eq!(
+            req.settings.as_ref().unwrap().goose_model.as_deref(),
+            Some("gemma")
+        );
         // Still inert — carrying settings never wires an engine or falls back.
         assert_eq!(run_work_session(&req), Err(WorkError::EngineNotWired));
     }
@@ -755,23 +772,37 @@ mod tests {
         // EXACT upstream message (locks byte-faithful behaviour).
         let ok = RetryConfig {
             max_retries: 3,
-            checks: vec![SuccessCheck::Shell { command: "cargo test".into() }],
+            checks: vec![SuccessCheck::Shell {
+                command: "cargo test".into(),
+            }],
             on_failure: None,
             timeout_seconds: Some(60),
             on_failure_timeout_seconds: Some(120),
         };
         assert!(ok.validate().is_ok());
 
-        let zero_retries = RetryConfig { max_retries: 0, ..ok.clone() };
-        assert_eq!(zero_retries.validate().unwrap_err(), "max_retries must be greater than 0");
+        let zero_retries = RetryConfig {
+            max_retries: 0,
+            ..ok.clone()
+        };
+        assert_eq!(
+            zero_retries.validate().unwrap_err(),
+            "max_retries must be greater than 0"
+        );
 
-        let zero_timeout = RetryConfig { timeout_seconds: Some(0), ..ok.clone() };
+        let zero_timeout = RetryConfig {
+            timeout_seconds: Some(0),
+            ..ok.clone()
+        };
         assert_eq!(
             zero_timeout.validate().unwrap_err(),
             "timeout_seconds must be greater than 0 if specified"
         );
 
-        let zero_onfail = RetryConfig { on_failure_timeout_seconds: Some(0), ..ok.clone() };
+        let zero_onfail = RetryConfig {
+            on_failure_timeout_seconds: Some(0),
+            ..ok.clone()
+        };
         assert_eq!(
             zero_onfail.validate().unwrap_err(),
             "on_failure_timeout_seconds must be greater than 0 if specified"
@@ -783,7 +814,9 @@ mod tests {
         use vendored_goose::retry::SuccessCheck;
         // Upstream serde: internally `tag = "type"` (so `{"type":"Shell","command":"…"}`),
         // with lowercase `"shell"` accepted as an alias on deserialize.
-        let check = SuccessCheck::Shell { command: "pytest -q".into() };
+        let check = SuccessCheck::Shell {
+            command: "pytest -q".into(),
+        };
         let json = serde_json::to_string(&check).unwrap();
         assert!(json.contains("\"type\":\"Shell\""));
         assert!(json.contains("\"command\":\"pytest -q\""));
@@ -804,7 +837,9 @@ mod tests {
         assert_eq!(DEFAULT_ON_FAILURE_TIMEOUT_SECONDS, 600);
         let cfg = RetryConfig {
             max_retries: 2,
-            checks: vec![SuccessCheck::Shell { command: "make check".into() }],
+            checks: vec![SuccessCheck::Shell {
+                command: "make check".into(),
+            }],
             on_failure: None,
             timeout_seconds: None,
             on_failure_timeout_seconds: None,
@@ -826,7 +861,9 @@ mod tests {
         // ...and can carry the deterministic self-correction policy the engine layer runs.
         req.retry = Some(RetryConfig {
             max_retries: 3,
-            checks: vec![SuccessCheck::Shell { command: "cargo test".into() }],
+            checks: vec![SuccessCheck::Shell {
+                command: "cargo test".into(),
+            }],
             on_failure: Some("git checkout .".into()),
             timeout_seconds: Some(300),
             on_failure_timeout_seconds: None,
@@ -852,7 +889,10 @@ mod tests {
         // Upstream: no retry_config → Skipped (no counter movement, no cleanup).
         let mut mgr = RetryManager::new();
         let mut cleanups = 0u32;
-        assert_eq!(mgr.evaluate(None, false, |_| cleanups += 1), RetryResult::Skipped);
+        assert_eq!(
+            mgr.evaluate(None, false, |_| cleanups += 1),
+            RetryResult::Skipped
+        );
         assert_eq!(mgr.attempts(), 0);
         assert_eq!(cleanups, 0);
     }
@@ -891,7 +931,10 @@ mod tests {
         let cfg = retry_cfg(1, Some("cleanup"));
         let mut mgr = RetryManager::new();
         let mut cleanups = 0u32;
-        assert_eq!(mgr.evaluate(Some(&cfg), false, |_| cleanups += 1), RetryResult::Retried);
+        assert_eq!(
+            mgr.evaluate(Some(&cfg), false, |_| cleanups += 1),
+            RetryResult::Retried
+        );
         assert_eq!(mgr.attempts(), 1);
         // 1 >= 1 → MaxAttemptsReached: NO further increment, NO cleanup.
         assert_eq!(
@@ -907,9 +950,18 @@ mod tests {
         // fail, fail, then pass → Retried, Retried, SuccessChecksPassed (2 retries used).
         let cfg = retry_cfg(3, None);
         let mut mgr = RetryManager::new();
-        assert_eq!(mgr.evaluate(Some(&cfg), false, |_| {}), RetryResult::Retried);
-        assert_eq!(mgr.evaluate(Some(&cfg), false, |_| {}), RetryResult::Retried);
-        assert_eq!(mgr.evaluate(Some(&cfg), true, |_| {}), RetryResult::SuccessChecksPassed);
+        assert_eq!(
+            mgr.evaluate(Some(&cfg), false, |_| {}),
+            RetryResult::Retried
+        );
+        assert_eq!(
+            mgr.evaluate(Some(&cfg), false, |_| {}),
+            RetryResult::Retried
+        );
+        assert_eq!(
+            mgr.evaluate(Some(&cfg), true, |_| {}),
+            RetryResult::SuccessChecksPassed
+        );
         assert_eq!(mgr.attempts(), 2);
         // reset clears the counter for the next Work session.
         mgr.reset();
@@ -923,7 +975,11 @@ mod tests {
     }
     impl MockExec {
         fn new(check_result: bool) -> Self {
-            Self { check_result, checks_ran: 0, cleanups: vec![] }
+            Self {
+                check_result,
+                checks_ran: 0,
+                cleanups: vec![],
+            }
         }
     }
     impl RetryExecutor for MockExec {
@@ -948,13 +1004,19 @@ mod tests {
         let ok = run_shell_with_timeout("sleep 30", Some(1));
         let elapsed = start.elapsed();
         assert!(!ok, "a timed-out command must count as failed");
-        assert!(elapsed.as_secs() < 5, "must kill near the deadline, took {elapsed:?}");
+        assert!(
+            elapsed.as_secs() < 5,
+            "must kill near the deadline, took {elapsed:?}"
+        );
     }
 
     #[test]
     fn run_shell_with_timeout_runs_fast_commands() {
         assert!(run_shell_with_timeout("true", Some(5)), "exit 0 → success");
-        assert!(!run_shell_with_timeout("false", Some(5)), "exit 1 → failure");
+        assert!(
+            !run_shell_with_timeout("false", Some(5)),
+            "exit 1 → failure"
+        );
         // No bound → blocking wait still works (historical behavior preserved).
         assert!(run_shell_with_timeout("true", None));
     }
@@ -993,7 +1055,10 @@ mod tests {
         let mut mgr = RetryManager::new();
         let mut exec = MockExec::new(false);
         // First failed cycle retries (attempts → 1, one cleanup).
-        assert_eq!(drive_retry_cycle(&mut mgr, Some(&cfg), &mut exec), RetryResult::Retried);
+        assert_eq!(
+            drive_retry_cycle(&mut mgr, Some(&cfg), &mut exec),
+            RetryResult::Retried
+        );
         // Second: 1 >= max(1) → MaxAttemptsReached, NO further cleanup or increment.
         assert_eq!(
             drive_retry_cycle(&mut mgr, Some(&cfg), &mut exec),
@@ -1007,7 +1072,10 @@ mod tests {
     fn drive_retry_cycle_skips_without_config_and_never_runs_checks() {
         let mut mgr = RetryManager::new();
         let mut exec = MockExec::new(false);
-        assert_eq!(drive_retry_cycle(&mut mgr, None, &mut exec), RetryResult::Skipped);
+        assert_eq!(
+            drive_retry_cycle(&mut mgr, None, &mut exec),
+            RetryResult::Skipped
+        );
         assert_eq!(exec.checks_ran, 0); // no config → checks never run
         assert!(exec.cleanups.is_empty());
     }
@@ -1018,13 +1086,30 @@ mod tests {
         use vendored_goose::retry::SuccessCheck;
         let mut exec = ShellRetryExecutor;
         // `true` exits 0 → check passes; `false` exits 1 → fails (real hardened subprocess).
-        assert!(exec.run_success_checks(&[SuccessCheck::Shell { command: "true".into() }], None));
-        assert!(!exec.run_success_checks(&[SuccessCheck::Shell { command: "false".into() }], None));
+        assert!(exec.run_success_checks(
+            &[SuccessCheck::Shell {
+                command: "true".into()
+            }],
+            None
+        ));
+        assert!(!exec.run_success_checks(
+            &[SuccessCheck::Shell {
+                command: "false".into()
+            }],
+            None
+        ));
         // ALL-must-pass: one failing check fails the whole set.
-        assert!(!exec.run_success_checks(&[
-            SuccessCheck::Shell { command: "true".into() },
-            SuccessCheck::Shell { command: "false".into() },
-        ], None));
+        assert!(!exec.run_success_checks(
+            &[
+                SuccessCheck::Shell {
+                    command: "true".into()
+                },
+                SuccessCheck::Shell {
+                    command: "false".into()
+                },
+            ],
+            None
+        ));
         // An empty check list trivially passes; on_failure is best-effort + never panics.
         assert!(exec.run_success_checks(&[], None));
         exec.run_on_failure("true", None);

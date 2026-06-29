@@ -93,8 +93,16 @@ mod tests {
         // NOT win. (Here B, modest-bm25 + strong-secondary, wins.)
         let items = vec![("A", 12.0, 0.0), ("B", 4.0, 5.0), ("C", 9.0, 4.0)];
         let ranked = rerank_by_eml(items, |&(_, bm25, sec)| (bm25, sec));
-        assert_ne!(ranked.first().unwrap().0, "A", "fusion demotes top-BM25-only");
-        assert_eq!(ranked.last().unwrap().0, "A", "no-secondary candidate sinks");
+        assert_ne!(
+            ranked.first().unwrap().0,
+            "A",
+            "fusion demotes top-BM25-only"
+        );
+        assert_eq!(
+            ranked.last().unwrap().0,
+            "A",
+            "no-secondary candidate sinks"
+        );
     }
 
     #[test]

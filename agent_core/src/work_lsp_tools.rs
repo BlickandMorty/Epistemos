@@ -86,7 +86,10 @@ impl WorkCodeTool {
     /// fire-and-forget document-lifecycle notifications. Determines whether the caller
     /// should poll the kernel for a response.
     pub fn expects_response(&self) -> bool {
-        matches!(self, WorkCodeTool::Hover { .. } | WorkCodeTool::Definition { .. })
+        matches!(
+            self,
+            WorkCodeTool::Hover { .. } | WorkCodeTool::Definition { .. }
+        )
     }
 
     /// Lower the tool call to the wire-form `LspMessage` the kernel dispatches. The
@@ -169,7 +172,11 @@ pub fn run_query_tool(
     }
     kernel.send(tool.to_lsp_message(id.clone())).ok()?;
     while let Ok(Some(message)) = kernel.poll_response() {
-        if let LspMessage::ResponseSuccess { id: resp_id, result } = message {
+        if let LspMessage::ResponseSuccess {
+            id: resp_id,
+            result,
+        } = message
+        {
             if resp_id == id {
                 return Some(result);
             }
@@ -204,12 +211,20 @@ mod tests {
         assert_eq!(open.lsp_method(), "textDocument/didOpen");
         assert!(!open.expects_response());
 
-        let hover = WorkCodeTool::Hover { uri: "file:///x.rs".into(), line: 0, character: 3 };
+        let hover = WorkCodeTool::Hover {
+            uri: "file:///x.rs".into(),
+            line: 0,
+            character: 3,
+        };
         assert_eq!(hover.tool_name(), "lsp_hover");
         assert_eq!(hover.lsp_method(), "textDocument/hover");
         assert!(hover.expects_response());
 
-        let def = WorkCodeTool::Definition { uri: "file:///x.rs".into(), line: 0, character: 3 };
+        let def = WorkCodeTool::Definition {
+            uri: "file:///x.rs".into(),
+            line: 0,
+            character: 3,
+        };
         assert_eq!(def.lsp_method(), "textDocument/definition");
     }
 
@@ -236,7 +251,11 @@ mod tests {
 
     #[test]
     fn hover_lowers_to_spec_correct_request_with_position() {
-        let tool = WorkCodeTool::Hover { uri: "file:///x.rs".into(), line: 1, character: 12 };
+        let tool = WorkCodeTool::Hover {
+            uri: "file:///x.rs".into(),
+            line: 1,
+            character: 12,
+        };
         match tool.to_lsp_message(LspId::Int(42)) {
             LspMessage::Request { id, method, params } => {
                 assert_eq!(id, LspId::Int(42));
@@ -288,7 +307,11 @@ mod tests {
         )
         .unwrap();
 
-        let hover = WorkCodeTool::Hover { uri: uri.into(), line: 1, character: 12 };
+        let hover = WorkCodeTool::Hover {
+            uri: uri.into(),
+            line: 1,
+            character: 12,
+        };
         let result = run_query_tool(&kernel, &hover, LspId::Int(2)).expect("hover result");
         let rendered = serde_json::to_string(&result).unwrap();
         assert!(rendered.contains("answer"), "hover: {rendered}");
@@ -319,7 +342,11 @@ mod tests {
         )
         .unwrap();
 
-        let def = WorkCodeTool::Definition { uri: uri.into(), line: 1, character: 12 };
+        let def = WorkCodeTool::Definition {
+            uri: uri.into(),
+            line: 1,
+            character: 12,
+        };
         let result = run_query_tool(&kernel, &def, LspId::Int(2)).expect("definition result");
         let rendered = serde_json::to_string(&result).unwrap();
         assert!(rendered.contains("semantic.rs"), "definition: {rendered}");

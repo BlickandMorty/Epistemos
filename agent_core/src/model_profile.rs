@@ -693,7 +693,10 @@ pub fn profile_for(model_id: &str) -> ModelCapabilityProfile {
 /// Look up a canonical profile by exact id (used internally by [`profile_for`]).
 /// Returns a reference into [`CANON`]; falls back to [`DEFAULT_PROFILE`].
 fn find(id: &str) -> &'static ModelCapabilityProfile {
-    CANON.iter().find(|p| p.id == id).unwrap_or(&DEFAULT_PROFILE)
+    CANON
+        .iter()
+        .find(|p| p.id == id)
+        .unwrap_or(&DEFAULT_PROFILE)
 }
 
 /// Resolve a cloud provider slug (the `CloudModelProvider` raw value — "anthropic",
@@ -707,11 +710,13 @@ pub fn cloud_profile(provider: &str) -> ModelCapabilityProfile {
         "gemini" => "google",
         "glm" => "zai",
         "moonshot" => "kimi",
-        other => return CLOUD_CANON
-            .iter()
-            .find(|c| c.id == other)
-            .copied()
-            .unwrap_or(CLOUD_DEFAULT_PROFILE),
+        other => {
+            return CLOUD_CANON
+                .iter()
+                .find(|c| c.id == other)
+                .copied()
+                .unwrap_or(CLOUD_DEFAULT_PROFILE)
+        }
     };
     CLOUD_CANON
         .iter()
@@ -724,12 +729,18 @@ pub fn cloud_profile(provider: &str) -> ModelCapabilityProfile {
 /// [`CLOUD_CANON`] ids plus the [`cloud_profile`] aliases. Keep in sync when a
 /// cloud provider is added.
 const CLOUD_BRANDS: &[&str] = &[
-    "anthropic", "claude",
-    "openai", "chatgpt", "gpt",
-    "google", "gemini",
+    "anthropic",
+    "claude",
+    "openai",
+    "chatgpt",
+    "gpt",
+    "google",
+    "gemini",
     "deepseek",
-    "kimi", "moonshot",
-    "zai", "glm",
+    "kimi",
+    "moonshot",
+    "zai",
+    "glm",
     "minimax",
 ];
 
@@ -790,7 +801,11 @@ mod tests {
             assert!(!p.id.is_empty());
             assert!(!p.display_name.is_empty());
             // No fake/empty picker copy; honest + within the ~60-char picker budget.
-            assert!(!p.picker_use_case.is_empty(), "empty picker copy for {}", p.id);
+            assert!(
+                !p.picker_use_case.is_empty(),
+                "empty picker copy for {}",
+                p.id
+            );
             assert!(
                 p.picker_use_case.chars().count() <= 60,
                 "picker copy too long for {}: {:?}",
@@ -811,7 +826,10 @@ mod tests {
         assert_eq!(vibe.tier, CapabilityTier::Think);
         assert_eq!(vibe.prompt_dialect, PromptDialect::None);
         let warning = vibe.reasoning_dialect_risk_warning();
-        assert!(warning.is_some(), "reasoning model with None dialect must flag the P0 risk");
+        assert!(
+            warning.is_some(),
+            "reasoning model with None dialect must flag the P0 risk"
+        );
         assert!(warning.unwrap().contains("vibethinker-1.5b"));
 
         // A dialect-bearing model (chat template + stop tokens) is NOT flagged — no false positive.
@@ -879,8 +897,8 @@ mod tests {
     #[test]
     fn gguf_runtime_ctx_is_per_model_and_budget_capped_never_4096_on_16gb() {
         let gemma = profile_for("gemma-4-12b-qat"); // a 128K-window model
-        // 16 GB ship target: capped to 8192 — NOT the dangerous 128K, and a real
-        // improvement over the hardcoded-4096 SS-Z bug.
+                                                    // 16 GB ship target: capped to 8192 — NOT the dangerous 128K, and a real
+                                                    // improvement over the hardcoded-4096 SS-Z bug.
         assert_eq!(gemma.gguf_runtime_ctx(16.0), 8192);
         // A bigger machine lifts the cap; a small one stays conservative.
         assert_eq!(gemma.gguf_runtime_ctx(36.0), 32_768);
@@ -910,8 +928,16 @@ mod tests {
                 c.id
             );
             // Cloud uses its own API format — no llama-cli stop tokens / template.
-            assert!(c.stop_tokens().is_empty(), "{} should have no local stops", c.id);
-            assert!(c.llama_cpp_template_name().is_none(), "{} no local template", c.id);
+            assert!(
+                c.stop_tokens().is_empty(),
+                "{} should have no local stops",
+                c.id
+            );
+            assert!(
+                c.llama_cpp_template_name().is_none(),
+                "{} no local template",
+                c.id
+            );
         }
     }
 
@@ -955,13 +981,22 @@ mod tests {
             picker_use_case_for("claude-opus-4-8"),
             cloud_profile("anthropic").picker_use_case
         );
-        assert_eq!(picker_use_case_for("gpt-5.2"), cloud_profile("openai").picker_use_case);
+        assert_eq!(
+            picker_use_case_for("gpt-5.2"),
+            cloud_profile("openai").picker_use_case
+        );
         assert_eq!(
             picker_use_case_for("gemini-2.5-pro"),
             cloud_profile("google").picker_use_case
         );
-        assert_eq!(picker_use_case_for("glm-4.6"), cloud_profile("zai").picker_use_case);
-        assert_eq!(picker_use_case_for("kimi-k2"), cloud_profile("kimi").picker_use_case);
+        assert_eq!(
+            picker_use_case_for("glm-4.6"),
+            cloud_profile("zai").picker_use_case
+        );
+        assert_eq!(
+            picker_use_case_for("kimi-k2"),
+            cloud_profile("kimi").picker_use_case
+        );
         // A local HF-org-prefixed gemma keeps its LOCAL copy (not the google cloud).
         assert_eq!(
             picker_use_case_for("google/gemma-4-12b-qat"),
@@ -986,7 +1021,7 @@ mod tests {
             cloud_profile("google").context_window
         );
         assert!(context_window_for("gemini-2.5-pro") >= 1_000_000); // Gemini's 1M+
-        // Neither lane recognizes it → 0 (the picker shows no context badge).
+                                                                    // Neither lane recognizes it → 0 (the picker shows no context badge).
         assert_eq!(context_window_for("totally-made-up-zzz"), 0);
     }
 
@@ -1038,7 +1073,10 @@ mod tests {
         // ship the SS-W broken-template bug (the model never stops / mis-formats) —
         // guard against it so a future GGUF model can't regress silently.
         let gguf: Vec<_> = CANON.iter().filter(|p| p.lane == ModelLane::Gguf).collect();
-        assert!(!gguf.is_empty(), "expected at least one GGUF-lane CANON model");
+        assert!(
+            !gguf.is_empty(),
+            "expected at least one GGUF-lane CANON model"
+        );
         for p in gguf {
             assert!(
                 p.llama_cpp_template_name().is_some(),
@@ -1058,11 +1096,23 @@ mod tests {
         // Lock the family → dialect mapping so a model can't silently ship on the
         // wrong llama-cli template (e.g. a Gemma model decoded with the ChatML
         // template — a quiet output-corruption bug).
-        assert_eq!(profile_for("gemma-4-12b-qat").prompt_dialect, PromptDialect::Gemma);
-        assert_eq!(profile_for("gemma-4-12b-coder").prompt_dialect, PromptDialect::Gemma);
-        assert_eq!(profile_for("qwen3-4b").prompt_dialect, PromptDialect::Chatml);
+        assert_eq!(
+            profile_for("gemma-4-12b-qat").prompt_dialect,
+            PromptDialect::Gemma
+        );
+        assert_eq!(
+            profile_for("gemma-4-12b-coder").prompt_dialect,
+            PromptDialect::Gemma
+        );
+        assert_eq!(
+            profile_for("qwen3-4b").prompt_dialect,
+            PromptDialect::Chatml
+        );
         assert_eq!(profile_for("phi-4-mini").prompt_dialect, PromptDialect::Phi);
-        assert_eq!(profile_for("granite-4-nano").prompt_dialect, PromptDialect::Granite);
+        assert_eq!(
+            profile_for("granite-4-nano").prompt_dialect,
+            PromptDialect::Granite
+        );
     }
 
     #[test]
@@ -1102,7 +1152,11 @@ mod tests {
             "mlx-community/Devstral-Small-2505-4bit",
             "mlx-community/QwQ-32B-4bit",
         ] {
-            assert_ne!(profile_for(id).id, "unknown", "{id} still resolves to unknown");
+            assert_ne!(
+                profile_for(id).id,
+                "unknown",
+                "{id} still resolves to unknown"
+            );
         }
     }
 
@@ -1146,7 +1200,11 @@ mod tests {
             "prism-ml/Ternary-Bonsai-4B-mlx-2bit",
             "mlx-community/mamba2-2.7b-4bit",
         ] {
-            assert_ne!(profile_for(id).id, "unknown", "{id} still resolves to unknown");
+            assert_ne!(
+                profile_for(id).id,
+                "unknown",
+                "{id} still resolves to unknown"
+            );
         }
     }
 
@@ -1175,7 +1233,11 @@ mod tests {
 
         // Never empty for any real profile (local or cloud).
         for p in CANON.iter().chain(CLOUD_CANON.iter()) {
-            assert!(!p.benefits_description().is_empty(), "{} empty benefits", p.id);
+            assert!(
+                !p.benefits_description().is_empty(),
+                "{} empty benefits",
+                p.id
+            );
         }
     }
 }

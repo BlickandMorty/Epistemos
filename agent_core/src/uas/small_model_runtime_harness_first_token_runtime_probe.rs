@@ -860,7 +860,7 @@ impl SmallModelRuntimeHarnessFirstTokenProbeWitness {
             != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR
-        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
+            && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelRuntimeHarnessFirstTokenProbeError::GuardCursorMismatch);
         }
@@ -869,7 +869,7 @@ impl SmallModelRuntimeHarnessFirstTokenProbeWitness {
                 != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_CURSOR
                 && self.capability_next_bottleneck
                     != SMALL_MODEL_RUNTIME_HARNESS_FIRST_TOKEN_RUNTIME_PROBE_NEXT_CURSOR
-        && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
+                && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
         {
             return Err(SmallModelRuntimeHarnessFirstTokenProbeError::CapabilityStatusMismatch);
         }

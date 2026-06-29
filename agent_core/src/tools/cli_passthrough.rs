@@ -1024,7 +1024,12 @@ mod tests {
                 "add a test".to_string(),
                 Some("anthropic/claude-sonnet-4-6")
             ),
-            vec!["run", "--model", "anthropic/claude-sonnet-4-6", "add a test"]
+            vec![
+                "run",
+                "--model",
+                "anthropic/claude-sonnet-4-6",
+                "add a test"
+            ]
         );
     }
 

@@ -495,7 +495,8 @@ impl OpenAICompatibleProvider {
             std::env::var("SAKANA_API_KEY")
                 .or_else(|_| std::env::var("FUGU_API_KEY"))
                 .unwrap_or_default(),
-            std::env::var("FUGU_BASE_URL").unwrap_or_else(|_| "https://api.sakana.ai/v1".to_string()),
+            std::env::var("FUGU_BASE_URL")
+                .unwrap_or_else(|_| "https://api.sakana.ai/v1".to_string()),
             std::env::var("FUGU_MODEL").unwrap_or_else(|_| "fugu".to_string()),
             "Fugu",
             ProviderCapabilities {
@@ -1230,8 +1231,14 @@ mod tests {
         assert_eq!(provider.base_url, "https://api.sakana.ai/v1"); // default when FUGU_BASE_URL unset
         assert_eq!(provider.model, "fugu");
         assert!(provider.capabilities.supports_streaming);
-        assert!(!provider.capabilities.supports_vision, "don't advertise unconfirmed caps");
-        assert_eq!(provider.capabilities.cost_input_per_million, 0.0, "cost is per-message, not per-token");
+        assert!(
+            !provider.capabilities.supports_vision,
+            "don't advertise unconfirmed caps"
+        );
+        assert_eq!(
+            provider.capabilities.cost_input_per_million, 0.0,
+            "cost is per-message, not per-token"
+        );
     }
 
     #[test]

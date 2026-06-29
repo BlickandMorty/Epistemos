@@ -100,7 +100,10 @@ impl std::fmt::Display for DeepResearchError {
                 "sub-question '{sub_question}' depends on unknown id '{depends_on}'"
             ),
             DeepResearchError::CyclicDependency => {
-                write!(f, "research plan has a cyclic dependency (no valid execution order)")
+                write!(
+                    f,
+                    "research plan has a cyclic dependency (no valid execution order)"
+                )
             }
         }
     }
@@ -243,10 +246,7 @@ mod tests {
             sq("d", &["b", "c"]),
         ]);
         assert!(p.validate().is_ok());
-        assert_eq!(
-            layer_ids(&p),
-            vec![vec!["a"], vec!["b", "c"], vec!["d"]]
-        );
+        assert_eq!(layer_ids(&p), vec![vec!["a"], vec!["b", "c"], vec!["d"]]);
         assert_eq!(p.max_parallel_width(), 2);
     }
 
@@ -285,7 +285,10 @@ mod tests {
     fn a_cycle_is_rejected() {
         let p = plan(vec![sq("a", &["b"]), sq("b", &["a"])]);
         assert_eq!(p.validate(), Err(DeepResearchError::CyclicDependency));
-        assert_eq!(p.execution_layers(), Err(DeepResearchError::CyclicDependency));
+        assert_eq!(
+            p.execution_layers(),
+            Err(DeepResearchError::CyclicDependency)
+        );
         assert_eq!(p.max_parallel_width(), 0);
     }
 
@@ -300,11 +303,20 @@ mod tests {
     #[test]
     fn deep_research_flag_truth_table_defaults_off() {
         for on in ["1", "true", "TRUE", "Yes", "on", " on "] {
-            assert!(super::deep_research_flag_value(Some(on)), "{on} should enable");
+            assert!(
+                super::deep_research_flag_value(Some(on)),
+                "{on} should enable"
+            );
         }
         for off in ["0", "false", "no", "off", "", "2", "enable"] {
-            assert!(!super::deep_research_flag_value(Some(off)), "{off} should be off");
+            assert!(
+                !super::deep_research_flag_value(Some(off)),
+                "{off} should be off"
+            );
         }
-        assert!(!super::deep_research_flag_value(None), "unset → off (default)");
+        assert!(
+            !super::deep_research_flag_value(None),
+            "unset → off (default)"
+        );
     }
 }

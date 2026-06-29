@@ -289,8 +289,14 @@ mod tests {
         assert!(BelnapValue::Both.abstains());
         assert!(BelnapValue::Neither.abstains());
         assert!(!BelnapValue::Both.is_classical() && !BelnapValue::Neither.is_classical());
-        assert!(BelnapValue::Both.abstain_reason().unwrap().contains("contradictory"));
-        assert!(BelnapValue::Neither.abstain_reason().unwrap().contains("no evidence"));
+        assert!(BelnapValue::Both
+            .abstain_reason()
+            .unwrap()
+            .contains("contradictory"));
+        assert!(BelnapValue::Neither
+            .abstain_reason()
+            .unwrap()
+            .contains("no evidence"));
         // abstains is exactly the negation of is_classical.
         for v in BelnapValue::ALL {
             assert_eq!(v.abstains(), !v.is_classical());

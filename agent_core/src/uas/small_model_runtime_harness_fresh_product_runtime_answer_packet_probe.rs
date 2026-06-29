@@ -1000,7 +1000,7 @@ impl SmallModelFreshProductRuntimeAnswerPacketProbeWitness {
             != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_ANSWER_PACKET_PROBE_NEXT_CURSOR
-        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
+            && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelFreshProductRuntimeAnswerPacketProbeError::GuardCursorMismatch);
         }

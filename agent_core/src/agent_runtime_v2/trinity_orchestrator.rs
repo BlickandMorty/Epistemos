@@ -53,7 +53,11 @@ pub fn run_mission<G: FnMut(CapabilityTier, &str) -> String>(
         None
     };
 
-    Ok(TrinityMissionResult { outcome, trace_path, router_mode: ACTIVE_ROUTER_MODE })
+    Ok(TrinityMissionResult {
+        outcome,
+        trace_path,
+        router_mode: ACTIVE_ROUTER_MODE,
+    })
 }
 
 /// Result of one async (real-provider) TRINITY mission — the loop outcome plus the run's honest COST basis.
@@ -128,7 +132,10 @@ mod tests {
         assert_eq!(result.outcome.final_answer, "final answer");
         assert!(result.trace_path.is_none());
         // honest router disclosure: heuristic (not the not-yet-built learned head).
-        assert_eq!(result.router_mode, super::super::trinity_routing::TrinityRouterMode::Heuristic);
+        assert_eq!(
+            result.router_mode,
+            super::super::trinity_routing::TrinityRouterMode::Heuristic
+        );
     }
 
     #[test]
@@ -180,10 +187,20 @@ mod tests {
             } else {
                 "out"
             };
-            let usage = TokenUsage { input_tokens: 4, output_tokens: 2, ..Default::default() };
+            let usage = TokenUsage {
+                input_tokens: 4,
+                output_tokens: 2,
+                ..Default::default()
+            };
             Ok(Box::pin(futures::stream::iter(vec![
-                Ok(StreamEvent::TextDelta { index: 0, text: reply.into() }),
-                Ok(StreamEvent::MessageStop { stop_reason: StopReason::EndTurn, usage }),
+                Ok(StreamEvent::TextDelta {
+                    index: 0,
+                    text: reply.into(),
+                }),
+                Ok(StreamEvent::MessageStop {
+                    stop_reason: StopReason::EndTurn,
+                    usage,
+                }),
             ])))
         }
         async fn compact(&self, m: &[Message]) -> Result<Vec<Message>, AgentError> {
@@ -214,7 +231,9 @@ mod tests {
     async fn run_mission_async_runs_a_real_provider_and_reports_cost() {
         let provider: Arc<dyn AgentProvider> = Arc::new(AcceptMock);
         let provider_for_tier = move |_tier: CapabilityTier| provider.clone();
-        let result = run_mission_async("compute 2+2", None, provider_for_tier).await.unwrap();
+        let result = run_mission_async("compute 2+2", None, provider_for_tier)
+            .await
+            .unwrap();
         assert!(result.outcome.accepted);
         assert_eq!(result.outcome.final_answer, "out");
         assert_eq!(result.router_mode, TrinityRouterMode::Heuristic);

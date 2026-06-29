@@ -21,12 +21,6 @@ use crate::types::ContentBlock;
 // to Pro. The plan/orchestrator substrate + the pure helpers below stay
 // always-compiled (usable by either build / MAS surfaces that only need them).
 #[cfg(feature = "pro-build")]
-use std::sync::Arc;
-#[cfg(feature = "pro-build")]
-use async_trait::async_trait;
-#[cfg(feature = "pro-build")]
-use tokio_util::sync::CancellationToken;
-#[cfg(feature = "pro-build")]
 use super::orchestrator::SubAgentResearcher;
 #[cfg(feature = "pro-build")]
 use crate::agent_loop::{run_agent_loop, AgentConfig, Effort};
@@ -36,6 +30,12 @@ use crate::provider::AgentProvider;
 use crate::tools::delegate_task::SilentDelegate;
 #[cfg(feature = "pro-build")]
 use crate::tools::registry::ToolRegistry;
+#[cfg(feature = "pro-build")]
+use async_trait::async_trait;
+#[cfg(feature = "pro-build")]
+use std::sync::Arc;
+#[cfg(feature = "pro-build")]
+use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "pro-build")]
 const DEEP_RESEARCH_SUBAGENT_PROMPT: &str = "You are a focused research sub-agent in a multi-agent deep-research run. Investigate ONLY your assigned question using your tools (web search, web fetch, vault, file). Return concise, evidence-grounded findings with sources. Do not answer beyond your question.";
@@ -180,11 +180,7 @@ mod tests {
     #[test]
     fn objective_injects_only_depended_on_prior_findings() {
         let d = sub("d", "synthesize b and c", &["b", "c"]);
-        let prior = vec![
-            res("a", "FA-unrelated"),
-            res("b", "FB"),
-            res("c", "FC"),
-        ];
+        let prior = vec![res("a", "FA-unrelated"), res("b", "FB"), res("c", "FC")];
         let obj = sub_agent_objective(&d, &prior);
         assert!(obj.contains("synthesize b and c"));
         assert!(obj.contains("[b]: FB"));

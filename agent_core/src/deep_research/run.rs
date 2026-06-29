@@ -38,7 +38,10 @@ impl std::fmt::Display for DeepResearchRunError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DeepResearchRunError::Disabled => {
-                write!(f, "deep research is disabled (EPISTEMOS_DEEP_RESEARCH_V0 off)")
+                write!(
+                    f,
+                    "deep research is disabled (EPISTEMOS_DEEP_RESEARCH_V0 off)"
+                )
             }
             DeepResearchRunError::Planner(e) => write!(f, "planner: {e}"),
             DeepResearchRunError::Plan(e) => write!(f, "plan: {e}"),
@@ -131,9 +134,14 @@ pub async fn run_deep_research(
         .map_err(DeepResearchRunError::Plan)?;
 
     // 3. Reporter: synthesize the findings into one cited answer.
-    let report =
-        super::reporter::run_synthesis(&plan, &results, provider, tool_registry, synthesis_max_turns)
-            .await;
+    let report = super::reporter::run_synthesis(
+        &plan,
+        &results,
+        provider,
+        tool_registry,
+        synthesis_max_turns,
+    )
+    .await;
 
     Ok(DeepResearchReport {
         plan,

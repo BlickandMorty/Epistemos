@@ -38,7 +38,11 @@ fn handle_into_raw(matcher: Matcher) -> *const GrammarMatcherHandle {
     }))
 }
 
-fn build_matcher(tokenizer_json: &str, tools_json: &str, eos: u32) -> Result<Matcher, GrammarError> {
+fn build_matcher(
+    tokenizer_json: &str,
+    tools_json: &str,
+    eos: u32,
+) -> Result<Matcher, GrammarError> {
     let tj: Value =
         serde_json::from_str(tokenizer_json).map_err(|e| GrammarError::Parser(e.to_string()))?;
     let vocab =
@@ -261,8 +265,14 @@ mod tests {
         // At the const tool-name position: get_weather allowed, no_such_tool masked.
         let allowed = unsafe { compute_mask_vec(handle) };
         assert!(!allowed.is_empty(), "mask must be non-empty");
-        assert!(allowed.contains(&get_w), "get_weather token must be allowed");
-        assert!(!allowed.contains(&no_such), "no_such_tool token must be masked");
+        assert!(
+            allowed.contains(&get_w),
+            "get_weather token must be allowed"
+        );
+        assert!(
+            !allowed.contains(&no_such),
+            "no_such_tool token must be masked"
+        );
         unsafe { grammar_matcher_release(handle) };
     }
 
@@ -293,7 +303,10 @@ mod tests {
             assert!(p.is_null());
             grammar_matcher_free_mask(p, 0);
             // A null out-param is tolerated too.
-            assert_eq!(grammar_matcher_compute_mask(std::ptr::null(), std::ptr::null_mut()), 0);
+            assert_eq!(
+                grammar_matcher_compute_mask(std::ptr::null(), std::ptr::null_mut()),
+                0
+            );
         }
     }
 }

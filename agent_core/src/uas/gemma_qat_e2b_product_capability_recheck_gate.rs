@@ -563,7 +563,9 @@ impl fmt::Display for GemmaQatE2bProductCapabilityRecheckGateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::BadUpstreamRef => f.write_str("bad upstream release-audit surface reference"),
-            Self::BadProofRef => f.write_str("bad release-audit ledger or first-runtime WRV reference"),
+            Self::BadProofRef => {
+                f.write_str("bad release-audit ledger or first-runtime WRV reference")
+            }
             Self::BadSelectedLane => f.write_str("bad selected E2B recheck lane"),
             Self::DuplicateOrMissingField(field) => {
                 write!(f, "duplicate or missing required set: {field}")

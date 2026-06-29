@@ -56,14 +56,33 @@ pub const DEFAULT_MAX_ROUNDS: u32 = 5;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum TrinityEvent {
-    LoopStarted { schema_version: u32, objective_hash: String, max_rounds: u32 },
-    ThinkerTurn { round: u32 },
-    WorkerTurn { round: u32 },
-    VerifierTurn { round: u32 },
-    VerifierAccept { round: u32 },
-    VerifierRepair { round: u32 },
-    BudgetExhausted { rounds: u32 },
-    LoopCompleted { accepted: bool, rounds: u32 },
+    LoopStarted {
+        schema_version: u32,
+        objective_hash: String,
+        max_rounds: u32,
+    },
+    ThinkerTurn {
+        round: u32,
+    },
+    WorkerTurn {
+        round: u32,
+    },
+    VerifierTurn {
+        round: u32,
+    },
+    VerifierAccept {
+        round: u32,
+    },
+    VerifierRepair {
+        round: u32,
+    },
+    BudgetExhausted {
+        rounds: u32,
+    },
+    LoopCompleted {
+        accepted: bool,
+        rounds: u32,
+    },
 }
 
 /// Outcome of a flat TRINITY loop run.
@@ -138,9 +157,17 @@ pub fn run_trinity_loop(
     if !accepted {
         trace.push(TrinityEvent::BudgetExhausted { rounds: round });
     }
-    trace.push(TrinityEvent::LoopCompleted { accepted, rounds: round });
+    trace.push(TrinityEvent::LoopCompleted {
+        accepted,
+        rounds: round,
+    });
 
-    TrinityLoopOutcome { accepted, rounds: round, final_answer, trace }
+    TrinityLoopOutcome {
+        accepted,
+        rounds: round,
+        final_answer,
+        trace,
+    }
 }
 
 #[cfg(test)]
@@ -157,7 +184,13 @@ mod tests {
     }
     impl ScriptedExec {
         fn new(accept_on_round: u32) -> Self {
-            Self { accept_on_round, round: 0, think_calls: 0, work_calls: 0, verify_calls: 0 }
+            Self {
+                accept_on_round,
+                round: 0,
+                think_calls: 0,
+                work_calls: 0,
+                verify_calls: 0,
+            }
         }
     }
     impl TrinityRoleExecutor for ScriptedExec {
@@ -194,12 +227,29 @@ mod tests {
         assert!(out.accepted);
         assert_eq!(out.rounds, 1);
         assert_eq!(out.final_answer, "work-from-plan-1");
-        assert_eq!((exec.think_calls, exec.work_calls, exec.verify_calls), (1, 1, 1));
+        assert_eq!(
+            (exec.think_calls, exec.work_calls, exec.verify_calls),
+            (1, 1, 1)
+        );
         // trace: started, T, W, V, accept, completed.
-        assert!(matches!(out.trace.first(), Some(TrinityEvent::LoopStarted { schema_version: 1, .. })));
-        assert!(out.trace.contains(&TrinityEvent::VerifierAccept { round: 1 }));
-        assert!(out.trace.contains(&TrinityEvent::LoopCompleted { accepted: true, rounds: 1 }));
-        assert!(!out.trace.iter().any(|e| matches!(e, TrinityEvent::BudgetExhausted { .. })));
+        assert!(matches!(
+            out.trace.first(),
+            Some(TrinityEvent::LoopStarted {
+                schema_version: 1,
+                ..
+            })
+        ));
+        assert!(out
+            .trace
+            .contains(&TrinityEvent::VerifierAccept { round: 1 }));
+        assert!(out.trace.contains(&TrinityEvent::LoopCompleted {
+            accepted: true,
+            rounds: 1
+        }));
+        assert!(!out
+            .trace
+            .iter()
+            .any(|e| matches!(e, TrinityEvent::BudgetExhausted { .. })));
     }
 
     #[test]
@@ -209,17 +259,31 @@ mod tests {
         assert!(out.accepted);
         assert_eq!(out.rounds, 3);
         assert_eq!(exec.verify_calls, 3);
-        assert_eq!(out.trace.iter().filter(|e| matches!(e, TrinityEvent::VerifierRepair { .. })).count(), 2);
+        assert_eq!(
+            out.trace
+                .iter()
+                .filter(|e| matches!(e, TrinityEvent::VerifierRepair { .. }))
+                .count(),
+            2
+        );
     }
 
     #[test]
     fn never_accepting_exhausts_the_budget_honestly() {
         let mut exec = ScriptedExec::new(99); // never accepts
         let out = run_trinity_loop("solve x", DEFAULT_MAX_ROUNDS, &mut exec);
-        assert!(!out.accepted, "budget-exhausted run is honestly not-accepted");
+        assert!(
+            !out.accepted,
+            "budget-exhausted run is honestly not-accepted"
+        );
         assert_eq!(out.rounds, DEFAULT_MAX_ROUNDS);
-        assert!(out.trace.contains(&TrinityEvent::BudgetExhausted { rounds: 5 }));
-        assert!(out.trace.contains(&TrinityEvent::LoopCompleted { accepted: false, rounds: 5 }));
+        assert!(out
+            .trace
+            .contains(&TrinityEvent::BudgetExhausted { rounds: 5 }));
+        assert!(out.trace.contains(&TrinityEvent::LoopCompleted {
+            accepted: false,
+            rounds: 5
+        }));
         assert_eq!(out.final_answer, "work-from-plan-5"); // best-effort last work
     }
 

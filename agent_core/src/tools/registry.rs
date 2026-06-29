@@ -3809,7 +3809,10 @@ mod tier_tests {
 
         // Gate OFF (default): malformed input is NOT schema-checked → runs.
         std::env::remove_var("EPISTEMOS_SCHEMA_GATE_V1");
-        assert!(registry.execute("strict_schema_tool", &malformed).await.is_ok());
+        assert!(registry
+            .execute("strict_schema_tool", &malformed)
+            .await
+            .is_ok());
 
         // Gate ON: valid passes; malformed rejected with a schema error.
         std::env::set_var("EPISTEMOS_SCHEMA_GATE_V1", "1");
@@ -3882,18 +3885,27 @@ mod tier_tests {
 
         // Baseline: a clean args object works.
         assert_eq!(
-            registry.execute("notes_probe", &json!({ "notes": ["a", "b"] })).await.unwrap(),
+            registry
+                .execute("notes_probe", &json!({ "notes": ["a", "b"] }))
+                .await
+                .unwrap(),
             "2"
         );
         // The BUG (a): args double-encoded as a JSON string — previously errored "notes
         // array required"; now normalized so the handler sees the array.
         assert_eq!(
-            registry.execute("notes_probe", &json!("{\"notes\":[\"a\",\"b\",\"c\"]}")).await.unwrap(),
+            registry
+                .execute("notes_probe", &json!("{\"notes\":[\"a\",\"b\",\"c\"]}"))
+                .await
+                .unwrap(),
             "3"
         );
         // The other marshaling mode (b): a full tool-call envelope.
         let envelope = json!({ "name": "notes_probe", "arguments": { "notes": ["a"] } });
-        assert_eq!(registry.execute("notes_probe", &envelope).await.unwrap(), "1");
+        assert_eq!(
+            registry.execute("notes_probe", &envelope).await.unwrap(),
+            "1"
+        );
     }
 
     #[test]
@@ -4187,9 +4199,18 @@ mod tier_tests {
         let vault = Arc::new(NullVault::default());
         let registry =
             ToolRegistry::with_tier(vault, true, None::<std::path::PathBuf>, ToolTier::Agent);
-        assert!(registry.contains_tool("skills_list"), "skills_list must be MAS-registered");
-        assert!(registry.contains_tool("skill_view"), "skill_view must be MAS-registered");
-        assert!(registry.contains_tool("skill_manage"), "skill_manage must be MAS-registered");
+        assert!(
+            registry.contains_tool("skills_list"),
+            "skills_list must be MAS-registered"
+        );
+        assert!(
+            registry.contains_tool("skill_view"),
+            "skill_view must be MAS-registered"
+        );
+        assert!(
+            registry.contains_tool("skill_manage"),
+            "skill_manage must be MAS-registered"
+        );
     }
 
     #[tokio::test]
@@ -4426,7 +4447,13 @@ mod tier_tests {
 
         // Fast HAS legit read/search/reason capability — not an empty tier.
         // (Canonical dotted tool names, as `get_definitions()` reports them.)
-        for present in ["think", "vault.search", "vault.read", "file.read", "knowledge.recall"] {
+        for present in [
+            "think",
+            "vault.search",
+            "vault.read",
+            "file.read",
+            "knowledge.recall",
+        ] {
             assert!(
                 lite.contains(present),
                 "Fast (chat_lite) must expose the read/search tool `{present}`"
@@ -4457,9 +4484,18 @@ mod tier_tests {
                 .into_iter()
                 .map(|t| t.name)
                 .collect();
-        assert!(pro.contains("vault.write"), "Pro (chat_pro) lifts the ceiling to allow gated vault writes");
-        assert!(pro.contains("vault.read"), "Pro still has every Fast read tool");
-        assert!(pro.contains("vault.search"), "Pro still has every Fast read tool");
+        assert!(
+            pro.contains("vault.write"),
+            "Pro (chat_pro) lifts the ceiling to allow gated vault writes"
+        );
+        assert!(
+            pro.contains("vault.read"),
+            "Pro still has every Fast read tool"
+        );
+        assert!(
+            pro.contains("vault.search"),
+            "Pro still has every Fast read tool"
+        );
 
         // ...but the ABSOLUTE MAS limit holds even at chat_pro: on the App Store
         // build no chat tier exposes shell/git/process — only the pro-build

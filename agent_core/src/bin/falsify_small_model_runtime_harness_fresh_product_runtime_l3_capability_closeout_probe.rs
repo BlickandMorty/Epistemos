@@ -13,6 +13,8 @@ use agent_core::falsifier_artifacts::{
     add_bool_axis, add_count_eq_axis, add_u64_axis, current_commit_sha, now_utc_rfc3339,
     write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind, FallbackTier, Measurement,
 };
+#[cfg(test)]
+use agent_core::uas::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR;
 use agent_core::uas::{
     fresh_product_runtime_l3_capability_closeout_metadata_budget_bytes,
     required_fresh_product_runtime_l3_capability_closeout_blockers,
@@ -23,8 +25,6 @@ use agent_core::uas::{
     SmallModelProductRouteCapabilityBlocker,
     SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_NEXT_CURSOR,
 };
-#[cfg(test)]
-use agent_core::uas::SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_L3_CAPABILITY_CLOSEOUT_PROBE_CURSOR;
 
 const FALSIFIER_ID: &str = "F-SmallModelRuntimeHarnessFreshProductRuntimeL3CapabilityCloseoutProbe";
 const FIXTURE_ID: &str =

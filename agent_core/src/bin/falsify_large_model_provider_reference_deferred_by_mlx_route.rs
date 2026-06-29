@@ -16,9 +16,9 @@ use agent_core::falsifier_artifacts::{
 };
 use agent_core::uas::{
     large_model_provider_reference_deferred_or_advanced_cursor, LargeModelActiveLane,
-    LargeModelDeferralError, LargeModelDeferredLane,
-    LargeModelProviderDeferralCard, ProStatus, ProductBuild,
-    LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR, PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR,
+    LargeModelDeferralError, LargeModelDeferredLane, LargeModelProviderDeferralCard, ProStatus,
+    ProductBuild, LARGE_MODEL_PROVIDER_REFERENCE_DEFERRED_CURSOR,
+    PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR,
 };
 
 const FALSIFIER_ID: &str = "F-LargeModelProviderReference-DeferredByMlxRoute";
@@ -287,9 +287,8 @@ fn build_artifact(
             "capability_next_bottleneck_deferred_or_advanced_by_mlx_route",
             large_model_provider_reference_deferred_or_advanced_cursor(
                 &evidence.capability_next_bottleneck,
-            )
-                || (evidence.capability_next_bottleneck == PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR
-                    && evidence.capability_deferral_pass_consumed),
+            ) || (evidence.capability_next_bottleneck == PROVIDER_ROUTE_COPY_SOURCE_GUARD_CURSOR
+                && evidence.capability_deferral_pass_consumed),
         ),
         (
             "heavy_long_context_disabled",

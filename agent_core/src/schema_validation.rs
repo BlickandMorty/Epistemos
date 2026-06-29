@@ -107,7 +107,10 @@ mod tests {
         // gate vs the single-error validator).
         let value = json!({"name": 123, "count": "not an int"});
         let violations = all_violations(&schema(), &value);
-        assert!(violations.len() >= 2, "expected all violations, got {violations:?}");
+        assert!(
+            violations.len() >= 2,
+            "expected all violations, got {violations:?}"
+        );
         assert!(!is_valid(&schema(), &value));
     }
 
@@ -174,7 +177,10 @@ mod tests {
 
     #[test]
     fn ffi_unparseable_value_is_repaired_not_silently_valid() {
-        let out = schema_validate_and_repair_json(json!({"type": "object"}).to_string(), "not json".to_string());
+        let out = schema_validate_and_repair_json(
+            json!({"type": "object"}).to_string(),
+            "not json".to_string(),
+        );
         assert!(out.contains("not valid JSON"));
         assert!(out.contains("corrected JSON"));
     }

@@ -397,10 +397,19 @@ Run `git add . && git commit -m "message"`.
         ]);
 
         let names: HashSet<String> = router.skills.iter().map(|s| s.name.clone()).collect();
-        assert!(names.contains("alpha"), "the convention dir's new skill must load");
-        assert!(names.contains("beta"), "the authored .agents/skills/ skill must load");
+        assert!(
+            names.contains("alpha"),
+            "the convention dir's new skill must load"
+        );
+        assert!(
+            names.contains("beta"),
+            "the authored .agents/skills/ skill must load"
+        );
         // The duplicate name appears once, and the primary dir won the conflict.
-        assert_eq!(router.skills.iter().filter(|s| s.name == "alpha").count(), 1);
+        assert_eq!(
+            router.skills.iter().filter(|s| s.name == "alpha").count(),
+            1
+        );
         let alpha = router.skills.iter().find(|s| s.name == "alpha").unwrap();
         assert_eq!(alpha.description, "primary alpha");
     }

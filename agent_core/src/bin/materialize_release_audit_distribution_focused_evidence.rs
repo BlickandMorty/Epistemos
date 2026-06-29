@@ -118,7 +118,10 @@ fn build_artifact() -> Result<agent_core::falsifier_artifacts::FalsifierArtifact
             "core_mas_boundary_suite_passed",
             core_mas_boundary_suite_passed,
         ),
-        ("expected_distribution_test_count_passed", expected_test_count_passed),
+        (
+            "expected_distribution_test_count_passed",
+            expected_test_count_passed,
+        ),
         ("raw_log_content_not_embedded", true),
         ("notarization_or_review_not_claimed", true),
         ("distribution_compliance_not_claimed", true),

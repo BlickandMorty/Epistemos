@@ -1829,12 +1829,19 @@ private struct AppearanceEditorSection: View {
     // Same key as the per-editor View Options menu in CodeEditorView so
     // toggling either surface reflects in the other immediately.
     @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
+    @AppStorage("codeEditor.useLegacyV1Editor") private var useLegacyV1Editor = false
 
     var body: some View {
         Section {
             Toggle("Show Line Numbers", isOn: $showLineGutter)
                 .toggleStyle(.switch)
             Text("Adds a subtle right-side gutter to the code editor. Numbers track the active theme and Dynamic Type.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Toggle("Use v1 Legacy Code Editor", isOn: $useLegacyV1Editor)
+                .toggleStyle(.switch)
+            Text("Keeps the old WebKit code editor available as an explicit fallback while MarkEdit CoreEditor remains the default.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } header: {

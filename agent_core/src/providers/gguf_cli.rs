@@ -582,7 +582,10 @@ mod tests {
     #[test]
     fn chat_template_args_present_only_when_selected() {
         let embedded = GgufCliProvider::new("/tmp/m.gguf");
-        assert!(embedded.chat_template_args().is_empty(), "default = embedded, no arg");
+        assert!(
+            embedded.chat_template_args().is_empty(),
+            "default = embedded, no arg"
+        );
 
         let chatml = GgufCliProvider::new("/tmp/m.gguf").with_chat_template("chatml");
         assert_eq!(
@@ -592,7 +595,10 @@ mod tests {
 
         // Empty / whitespace name falls back to the embedded template (no arg).
         let blank = GgufCliProvider::new("/tmp/m.gguf").with_chat_template("   ");
-        assert!(blank.chat_template_args().is_empty(), "blank name = embedded");
+        assert!(
+            blank.chat_template_args().is_empty(),
+            "blank name = embedded"
+        );
     }
 
     // SS-Z: per-model stop strings become `--reverse-prompt` flags; blank entries
@@ -602,8 +608,11 @@ mod tests {
         let none = GgufCliProvider::new("/tmp/m.gguf");
         assert!(none.stop_args().is_empty(), "default = model EOG only");
 
-        let p = GgufCliProvider::new("/tmp/m.gguf")
-            .with_stop(vec!["<|im_end|>".into(), "   ".into(), "<eos>".into()]);
+        let p = GgufCliProvider::new("/tmp/m.gguf").with_stop(vec![
+            "<|im_end|>".into(),
+            "   ".into(),
+            "<eos>".into(),
+        ]);
         assert_eq!(
             p.stop_args(),
             vec![
@@ -657,7 +666,10 @@ mod tests {
                 FilterStep::Emit => emitted.push(line),
             }
         }
-        assert_eq!(emitted, vec!["[Start thinking]", "Thinking Process:", "ready"]);
+        assert_eq!(
+            emitted,
+            vec!["[Start thinking]", "Thinking Process:", "ready"]
+        );
         let joined = emitted.join("\n");
         assert!(!joined.contains("Loading model"));
         assert!(!joined.contains("available commands"));

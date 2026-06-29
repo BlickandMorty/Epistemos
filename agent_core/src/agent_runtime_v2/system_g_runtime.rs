@@ -645,7 +645,10 @@ mod tests {
         // Swift seam — this pins all seven + a full round-trip, so a change must be deliberate.
         let cases: Vec<(SystemGAgentEvent, &str)> = vec![
             (
-                SystemGAgentEvent::PlanStart { turn_id: "t".into(), plan: "p".into() },
+                SystemGAgentEvent::PlanStart {
+                    turn_id: "t".into(),
+                    plan: "p".into(),
+                },
                 "plan_start",
             ),
             (
@@ -666,7 +669,10 @@ mod tests {
                 "tool_end",
             ),
             (
-                SystemGAgentEvent::TokenChunk { turn_id: "t".into(), text: "hi".into() },
+                SystemGAgentEvent::TokenChunk {
+                    turn_id: "t".into(),
+                    text: "hi".into(),
+                },
                 "token_chunk",
             ),
             (
@@ -678,11 +684,17 @@ mod tests {
                 "local_model_handoff",
             ),
             (
-                SystemGAgentEvent::Complete { turn_id: "t".into(), answer_packet_id: "a".into() },
+                SystemGAgentEvent::Complete {
+                    turn_id: "t".into(),
+                    answer_packet_id: "a".into(),
+                },
                 "complete",
             ),
             (
-                SystemGAgentEvent::Failed { turn_id: "t".into(), error: "e".into() },
+                SystemGAgentEvent::Failed {
+                    turn_id: "t".into(),
+                    error: "e".into(),
+                },
                 "failed",
             ),
         ];
@@ -767,11 +779,15 @@ mod tests {
         let _guard = test_registry_lock();
         let cases: Vec<(ProviderPolicy, &str)> = vec![
             (
-                ProviderPolicy::AnthropicMessages { model: "claude-opus-4-6".into() },
+                ProviderPolicy::AnthropicMessages {
+                    model: "claude-opus-4-6".into(),
+                },
                 "AnthropicMessages",
             ),
             (
-                ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+                ProviderPolicy::OpenAIResponses {
+                    model: "gpt-5".into(),
+                },
                 "OpenAIResponses",
             ),
         ];
@@ -787,15 +803,21 @@ mod tests {
                 "{label} must fail honestly with provider_not_bound: {events:?}"
             );
             assert!(
-                !events.iter().any(|e| matches!(e, SystemGAgentEvent::LocalModelHandoff { .. })),
+                !events
+                    .iter()
+                    .any(|e| matches!(e, SystemGAgentEvent::LocalModelHandoff { .. })),
                 "{label} must NOT fake a local handoff"
             );
             assert!(
-                !events.iter().any(|e| matches!(e, SystemGAgentEvent::Complete { .. })),
+                !events
+                    .iter()
+                    .any(|e| matches!(e, SystemGAgentEvent::Complete { .. })),
                 "{label} must NOT fake a Complete"
             );
             assert!(
-                !events.iter().any(|e| matches!(e, SystemGAgentEvent::TokenChunk { .. })),
+                !events
+                    .iter()
+                    .any(|e| matches!(e, SystemGAgentEvent::TokenChunk { .. })),
                 "{label} must NOT synthesize token text for an unbound provider"
             );
         }

@@ -42,7 +42,10 @@ pub const ACTIVE_ROUTER_MODE: TrinityRouterMode = TrinityRouterMode::Heuristic;
 /// - **Thinker** (plan / decompose) and **Verifier** (judge / accept-or-repair) are REASONING work → `Think`.
 /// - **Worker** (execute) routes by the task: `Code` for shell/code work, `Think` for hard non-code work,
 ///   `Fast` for simple work. Mirrors "route the right model to each subtask" with the available tiers.
-pub fn heuristic_role_tier(role: TrinityRole, classification: &ClassificationResult) -> CapabilityTier {
+pub fn heuristic_role_tier(
+    role: TrinityRole,
+    classification: &ClassificationResult,
+) -> CapabilityTier {
     match role {
         TrinityRole::Thinker | TrinityRole::Verifier => CapabilityTier::Think,
         TrinityRole::Worker => {
@@ -101,19 +104,34 @@ mod tests {
     #[test]
     fn thinker_and_verifier_always_reason() {
         for c in [classification(0.05, false), classification(1.0, true)] {
-            assert_eq!(heuristic_role_tier(TrinityRole::Thinker, &c), CapabilityTier::Think);
-            assert_eq!(heuristic_role_tier(TrinityRole::Verifier, &c), CapabilityTier::Think);
+            assert_eq!(
+                heuristic_role_tier(TrinityRole::Thinker, &c),
+                CapabilityTier::Think
+            );
+            assert_eq!(
+                heuristic_role_tier(TrinityRole::Verifier, &c),
+                CapabilityTier::Think
+            );
         }
     }
 
     #[test]
     fn worker_routes_code_then_complexity_then_fast() {
         // shell/code work → Code, regardless of complexity.
-        assert_eq!(heuristic_role_tier(TrinityRole::Worker, &classification(0.1, true)), CapabilityTier::Code);
+        assert_eq!(
+            heuristic_role_tier(TrinityRole::Worker, &classification(0.1, true)),
+            CapabilityTier::Code
+        );
         // hard non-code work → Think.
-        assert_eq!(heuristic_role_tier(TrinityRole::Worker, &classification(0.8, false)), CapabilityTier::Think);
+        assert_eq!(
+            heuristic_role_tier(TrinityRole::Worker, &classification(0.8, false)),
+            CapabilityTier::Think
+        );
         // simple non-code work → Fast.
-        assert_eq!(heuristic_role_tier(TrinityRole::Worker, &classification(0.2, false)), CapabilityTier::Fast);
+        assert_eq!(
+            heuristic_role_tier(TrinityRole::Worker, &classification(0.2, false)),
+            CapabilityTier::Fast
+        );
     }
 
     #[test]
@@ -124,7 +142,10 @@ mod tests {
         assert_eq!(TrinityRouterMode::Heuristic.wire_tag(), "heuristic");
         assert_eq!(TrinityRouterMode::Learned.wire_tag(), "learned");
         // serializes to a snake_case tag for the trace/UI.
-        assert_eq!(serde_json::to_string(&ACTIVE_ROUTER_MODE).unwrap(), "\"heuristic\"");
+        assert_eq!(
+            serde_json::to_string(&ACTIVE_ROUTER_MODE).unwrap(),
+            "\"heuristic\""
+        );
     }
 
     #[test]
@@ -139,12 +160,18 @@ mod tests {
         if let Some(picked) = select_model_for_tier(CapabilityTier::Think, &think_ids) {
             assert_eq!(picked.tier, CapabilityTier::Think, "resolves a Think model");
             // if any advertised Think model exists, the pick is advertised.
-            if CANON.iter().any(|p| p.tier == CapabilityTier::Think && p.advertised) {
+            if CANON
+                .iter()
+                .any(|p| p.tier == CapabilityTier::Think && p.advertised)
+            {
                 assert!(picked.advertised, "prefers an advertised model of the tier");
             }
         }
         // No available model of the tier → None (honest: caller escalates, never a silent wrong-tier swap).
-        assert!(select_model_for_tier(CapabilityTier::Think, &["not-a-real-model".to_string()]).is_none());
+        assert!(
+            select_model_for_tier(CapabilityTier::Think, &["not-a-real-model".to_string()])
+                .is_none()
+        );
         assert!(select_model_for_tier(CapabilityTier::Think, &[]).is_none());
     }
 
@@ -152,12 +179,21 @@ mod tests {
     fn select_role_tier_classifies_real_objectives() {
         // a code/shell objective routes the Worker to Code.
         assert_eq!(
-            select_role_tier(TrinityRole::Worker, "write a bash script to build the project"),
+            select_role_tier(
+                TrinityRole::Worker,
+                "write a bash script to build the project"
+            ),
             CapabilityTier::Code
         );
         // a trivial objective routes the Worker to Fast…
-        assert_eq!(select_role_tier(TrinityRole::Worker, "say hi"), CapabilityTier::Fast);
+        assert_eq!(
+            select_role_tier(TrinityRole::Worker, "say hi"),
+            CapabilityTier::Fast
+        );
         // …while the Thinker always reasons.
-        assert_eq!(select_role_tier(TrinityRole::Thinker, "say hi"), CapabilityTier::Think);
+        assert_eq!(
+            select_role_tier(TrinityRole::Thinker, "say hi"),
+            CapabilityTier::Think
+        );
     }
 }

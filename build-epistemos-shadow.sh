@@ -40,13 +40,35 @@ else
 fi
 
 mkdir -p ../build-rust
-rm -f ../build-rust/libepistemos_shadow.dylib ../build-rust/libepistemos_shadow.a
-TEMP_OUTPUT="$(mktemp ../build-rust/libepistemos_shadow.XXXXXX.dylib)"
+STAGING_LOCK="../build-rust/.libepistemos_shadow.lock"
+TEMP_OUTPUT="$(mktemp ../build-rust/libepistemos_shadow.XXXXXX)"
+cleanup_temp_output() {
+    rm -f "$TEMP_OUTPUT"
+    if [ -d "$STAGING_LOCK" ] && [ "$(cat "$STAGING_LOCK/pid" 2>/dev/null || true)" = "$$" ]; then
+        rm -f "$STAGING_LOCK/pid"
+        rmdir "$STAGING_LOCK" 2>/dev/null || true
+    fi
+}
+acquire_staging_lock() {
+    while ! mkdir "$STAGING_LOCK" 2>/dev/null; do
+        if [ -f "$STAGING_LOCK/pid" ]; then
+            lock_pid="$(cat "$STAGING_LOCK/pid" 2>/dev/null || true)"
+            if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+                rm -rf "$STAGING_LOCK"
+                continue
+            fi
+        fi
+        sleep 0.2
+    done
+    echo "$$" > "$STAGING_LOCK/pid"
+}
+trap cleanup_temp_output EXIT
 lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output "$TEMP_OUTPUT"
-mv -f "$TEMP_OUTPUT" ../build-rust/libepistemos_shadow.dylib
+install_name_tool -id "@rpath/libepistemos_shadow.dylib" "$TEMP_OUTPUT"
 
-install_name_tool -id "@rpath/libepistemos_shadow.dylib" \
-    ../build-rust/libepistemos_shadow.dylib
+acquire_staging_lock
+rm -f ../build-rust/libepistemos_shadow.dylib ../build-rust/libepistemos_shadow.a
+mv -f "$TEMP_OUTPUT" ../build-rust/libepistemos_shadow.dylib
 
 if [ -n "${TARGET_BUILD_DIR:-}" ]; then
     rm -f "$TARGET_BUILD_DIR/PackageFrameworks/libepistemos_shadow.dylib"
@@ -61,5 +83,8 @@ fi
 if [ -z "${TARGET_BUILD_DIR:-}" ]; then
     codesign --force --sign - ../build-rust/libepistemos_shadow.dylib
 fi
+
+cleanup_temp_output
+trap - EXIT
 
 echo "epistemos-shadow build complete (dylib)"

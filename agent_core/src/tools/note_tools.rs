@@ -1059,13 +1059,24 @@ mod tests {
         // the schemas declared only camelCase → latent drift under a strict gate.
         let snippet = research_collect_snippet_schema();
         let snippet_props = snippet.parameters["properties"].as_object().unwrap();
-        for key in ["source_url", "source_title", "session_note_path", "session_note_id"] {
-            assert!(snippet_props.contains_key(key), "collectsnippet missing {key}");
+        for key in [
+            "source_url",
+            "source_title",
+            "session_note_path",
+            "session_note_id",
+        ] {
+            assert!(
+                snippet_props.contains_key(key),
+                "collectsnippet missing {key}"
+            );
         }
         let citation = citation_save_schema();
         let citation_props = citation.parameters["properties"].as_object().unwrap();
         for key in ["session_note_path", "session_note_id"] {
-            assert!(citation_props.contains_key(key), "savecitation missing {key}");
+            assert!(
+                citation_props.contains_key(key),
+                "savecitation missing {key}"
+            );
         }
     }
     use std::collections::HashMap;
@@ -1250,7 +1261,10 @@ mod tests {
     #[test]
     fn extract_note_paths_accepts_a_single_bare_string() {
         // A model that emits `"notes": "A.md"` (a single path, not an array) is tolerated.
-        assert_eq!(extract_note_paths(&json!("A.md")).unwrap(), vec!["A.md".to_string()]);
+        assert_eq!(
+            extract_note_paths(&json!("A.md")).unwrap(),
+            vec!["A.md".to_string()]
+        );
     }
 
     #[test]
@@ -1271,9 +1285,12 @@ mod tests {
 
     #[test]
     fn extract_note_paths_rejects_absent_or_wrong_typed_notes() {
-        assert!(format!("{}", extract_note_paths(&json!(null)).unwrap_err()).contains("notes array required"));
-        assert!(format!("{}", extract_note_paths(&json!(42)).unwrap_err()).contains("notes array required"));
-        assert!(format!("{}", extract_note_paths(&json!("")).unwrap_err()).contains("notes array required"));
+        assert!(format!("{}", extract_note_paths(&json!(null)).unwrap_err())
+            .contains("notes array required"));
+        assert!(format!("{}", extract_note_paths(&json!(42)).unwrap_err())
+            .contains("notes array required"));
+        assert!(format!("{}", extract_note_paths(&json!("")).unwrap_err())
+            .contains("notes array required"));
     }
 
     #[tokio::test]

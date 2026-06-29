@@ -1399,7 +1399,13 @@ async fn run_local_gguf_generation_inner(
     let mut provider = crate::providers::gguf_cli::GgufCliProvider::new(&model_path)
         .with_temperature(temperature.unwrap_or(0.0))
         .with_ctx_size(profile.gguf_runtime_ctx(16.0))
-        .with_stop(profile.stop_tokens().iter().map(|s| s.to_string()).collect());
+        .with_stop(
+            profile
+                .stop_tokens()
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        );
     if let Some(template) = profile.llama_cpp_template_name() {
         provider = provider.with_chat_template(template);
     }
@@ -1458,11 +1464,7 @@ async fn run_local_gguf_generation_inner(
                     StopReason::StopSequence => "stop_sequence",
                 }
                 .to_string();
-                delegate.on_complete(
-                    stop_reason.clone(),
-                    usage.input_tokens,
-                    usage.output_tokens,
-                );
+                delegate.on_complete(stop_reason.clone(), usage.input_tokens, usage.output_tokens);
             }
             // The local CLI provider emits only text + stop; ignore the rest.
             Ok(_) => {}

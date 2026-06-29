@@ -27,7 +27,10 @@ pub fn trinity_to_system_g_events(
         rounds,
         if rounds == 1 { "" } else { "s" }
     );
-    let mut events = vec![SystemGAgentEvent::PlanStart { turn_id: turn_id.to_string(), plan }];
+    let mut events = vec![SystemGAgentEvent::PlanStart {
+        turn_id: turn_id.to_string(),
+        plan,
+    }];
 
     if !result.outcome.final_answer.is_empty() {
         events.push(SystemGAgentEvent::TokenChunk {
@@ -37,12 +40,19 @@ pub fn trinity_to_system_g_events(
     }
 
     if result.outcome.accepted {
-        let answer_packet_id = blake3::hash(result.outcome.final_answer.as_bytes()).to_hex().to_string();
-        events.push(SystemGAgentEvent::Complete { turn_id: turn_id.to_string(), answer_packet_id });
+        let answer_packet_id = blake3::hash(result.outcome.final_answer.as_bytes())
+            .to_hex()
+            .to_string();
+        events.push(SystemGAgentEvent::Complete {
+            turn_id: turn_id.to_string(),
+            answer_packet_id,
+        });
     } else {
         events.push(SystemGAgentEvent::Failed {
             turn_id: turn_id.to_string(),
-            error: format!("TRINITY budget exhausted after {rounds} rounds without a verifier ACCEPT"),
+            error: format!(
+                "TRINITY budget exhausted after {rounds} rounds without a verifier ACCEPT"
+            ),
         });
     }
     events
@@ -50,9 +60,9 @@ pub fn trinity_to_system_g_events(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::trinity_loop::TrinityLoopOutcome;
     use super::super::trinity_routing::TrinityRouterMode;
+    use super::*;
     use crate::types::TokenUsage;
 
     fn result(accepted: bool, rounds: u32, answer: &str) -> TrinityAsyncMissionResult {
@@ -81,7 +91,9 @@ mod tests {
             }
             other => panic!("expected PlanStart, got {other:?}"),
         }
-        assert!(matches!(&events[1], SystemGAgentEvent::TokenChunk { text, .. } if text == "the answer"));
+        assert!(
+            matches!(&events[1], SystemGAgentEvent::TokenChunk { text, .. } if text == "the answer")
+        );
         assert!(matches!(&events[2], SystemGAgentEvent::Complete { .. }));
         assert!(events.last().unwrap().is_terminal());
     }
@@ -90,8 +102,13 @@ mod tests {
     fn budget_exhausted_run_is_failed_not_a_fake_complete() {
         let events = trinity_to_system_g_events(&result(false, 5, "best effort"), "t");
         // honest: terminal event is Failed, never Complete.
-        assert!(matches!(events.last(), Some(SystemGAgentEvent::Failed { .. })));
-        assert!(!events.iter().any(|e| matches!(e, SystemGAgentEvent::Complete { .. })));
+        assert!(matches!(
+            events.last(),
+            Some(SystemGAgentEvent::Failed { .. })
+        ));
+        assert!(!events
+            .iter()
+            .any(|e| matches!(e, SystemGAgentEvent::Complete { .. })));
         if let Some(SystemGAgentEvent::Failed { error, .. }) = events.last() {
             assert!(error.contains("5 rounds"));
         }
@@ -104,12 +121,20 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert!(matches!(events[0], SystemGAgentEvent::PlanStart { .. }));
         assert!(matches!(events[1], SystemGAgentEvent::Complete { .. }));
-        assert_eq!(events.iter().filter(|e| matches!(e, SystemGAgentEvent::TokenChunk { .. })).count(), 0);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| matches!(e, SystemGAgentEvent::TokenChunk { .. }))
+                .count(),
+            0
+        );
     }
 
     #[test]
     fn rounds_singular_plural_grammar() {
         let one = trinity_to_system_g_events(&result(true, 1, "a"), "t");
-        assert!(matches!(&one[0], SystemGAgentEvent::PlanStart { plan, .. } if plan.contains("1 round)")));
+        assert!(
+            matches!(&one[0], SystemGAgentEvent::PlanStart { plan, .. } if plan.contains("1 round)"))
+        );
     }
 }

@@ -133,7 +133,7 @@ mod tests {
     async fn runs_all_subquestions_in_plan_order() {
         let p = diamond();
         let r = std::sync::Arc::new(probe());
-        let results = run_plan(&p, r.clone(),4).await.unwrap();
+        let results = run_plan(&p, r.clone(), 4).await.unwrap();
         let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
         // Layer order: [a], [b, c], [d]; within a layer, plan order.
         assert_eq!(ids, vec!["a", "b", "c", "d"]);
@@ -143,7 +143,7 @@ mod tests {
     async fn a_parallel_layer_actually_runs_concurrently() {
         let p = diamond();
         let r = std::sync::Arc::new(probe());
-        let _ = run_plan(&p, r.clone(),4).await.unwrap();
+        let _ = run_plan(&p, r.clone(), 4).await.unwrap();
         // The b,c layer is 2-wide and cap=4 → peak concurrency reaches 2.
         assert_eq!(r.peak.load(Ordering::SeqCst), 2);
     }
@@ -152,7 +152,7 @@ mod tests {
     async fn concurrency_cap_one_serializes() {
         let p = diamond();
         let r = std::sync::Arc::new(probe());
-        let _ = run_plan(&p, r.clone(),1).await.unwrap();
+        let _ = run_plan(&p, r.clone(), 1).await.unwrap();
         // cap=1 → never more than one in flight, even in the 2-wide layer.
         assert_eq!(r.peak.load(Ordering::SeqCst), 1);
     }
@@ -161,7 +161,7 @@ mod tests {
     async fn synthesis_subagent_sees_prior_layer_results() {
         let p = diamond();
         let r = std::sync::Arc::new(probe());
-        let _ = run_plan(&p, r.clone(),4).await.unwrap();
+        let _ = run_plan(&p, r.clone(), 4).await.unwrap();
         // d depends on b,c → by the time d runs, prior = {a, b, c} = 3 results.
         assert_eq!(r.prior_for_d.load(Ordering::SeqCst), 3);
     }
@@ -173,7 +173,7 @@ mod tests {
             sub_questions: vec![sq("a", &["b"]), sq("b", &["a"])],
         };
         let r = std::sync::Arc::new(probe());
-        let err = run_plan(&p, r.clone(),4).await.unwrap_err();
+        let err = run_plan(&p, r.clone(), 4).await.unwrap_err();
         assert_eq!(err, DeepResearchError::CyclicDependency);
         assert_eq!(r.peak.load(Ordering::SeqCst), 0); // nothing ran
     }

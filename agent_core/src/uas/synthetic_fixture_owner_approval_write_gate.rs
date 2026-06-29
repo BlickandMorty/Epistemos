@@ -205,8 +205,16 @@ impl SyntheticFixtureOwnerApprovalWriteGate {
         self.validate_policy()?;
         self.validate_zero_ledger()?;
         validate_exact("rollback_ref", &self.rollback_ref, ROLLBACK_REF)?;
-        validate_exact("run_event_log_ref", &self.run_event_log_ref, RUN_EVENT_LOG_REF)?;
-        validate_exact("answer_packet_ref", &self.answer_packet_ref, ANSWER_PACKET_REF)?;
+        validate_exact(
+            "run_event_log_ref",
+            &self.run_event_log_ref,
+            RUN_EVENT_LOG_REF,
+        )?;
+        validate_exact(
+            "answer_packet_ref",
+            &self.answer_packet_ref,
+            ANSWER_PACKET_REF,
+        )?;
         validate_exact(
             "guard_owned_product_cursor",
             &self.guard_owned_product_cursor,
@@ -432,7 +440,10 @@ impl fmt::Display for SyntheticFixtureOwnerApprovalError {
             Self::ConsentContractBroken => write!(f, "consent contract broken"),
             Self::WrongApprovalPhrase => write!(f, "wrong owner approval phrase"),
             Self::ConsentClaimMismatch => {
-                write!(f, "owner_approval_present does not match the provided phrase")
+                write!(
+                    f,
+                    "owner_approval_present does not match the provided phrase"
+                )
             }
             Self::WriteAuthorizationLeak => {
                 write!(f, "consent gate must not authorize a write")

@@ -497,7 +497,7 @@ impl SmallModelFreshProductRuntimeWrvWitness {
             != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_NEXT_CURSOR
-        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
+            && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelFreshProductRuntimeWrvProbeError::GuardCursorMismatch);
         }
@@ -506,7 +506,7 @@ impl SmallModelFreshProductRuntimeWrvWitness {
                 != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_CURSOR
                 && self.capability_next_bottleneck
                     != SMALL_MODEL_RUNTIME_HARNESS_FRESH_PRODUCT_RUNTIME_WRV_PROBE_NEXT_CURSOR
-        && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
+                && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
         {
             return Err(SmallModelFreshProductRuntimeWrvProbeError::CapabilityStatusMismatch);
         }

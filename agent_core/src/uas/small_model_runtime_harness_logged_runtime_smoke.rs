@@ -787,7 +787,7 @@ impl SmallModelRuntimeHarnessLoggedSmokeWitness {
         if self.guard_next_existing_work != SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_CURSOR
             && self.guard_next_existing_work
                 != SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_NEXT_CURSOR
-        && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
+            && self.guard_next_existing_work != ADVANCED_RELEASE_AUDIT_CURSOR
         {
             return Err(SmallModelRuntimeHarnessLoggedSmokeError::GuardCursorMismatch);
         }
@@ -796,7 +796,7 @@ impl SmallModelRuntimeHarnessLoggedSmokeWitness {
                 != SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_CURSOR
                 && self.capability_next_bottleneck
                     != SMALL_MODEL_RUNTIME_HARNESS_LOGGED_RUNTIME_SMOKE_NEXT_CURSOR
-        && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
+                && self.capability_next_bottleneck != ADVANCED_RELEASE_AUDIT_CURSOR)
         {
             return Err(SmallModelRuntimeHarnessLoggedSmokeError::CapabilityStatusMismatch);
         }

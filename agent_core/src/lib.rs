@@ -30,6 +30,12 @@ pub mod deep_research;
 pub mod dispatcher;
 pub mod effect;
 pub mod eidos;
+/// P5.H A2/A3 — the EML re-rank POLICY core, promoted out of the research tree
+/// (which is `#[cfg(feature="research")]`, default-OFF, never in the app) into
+/// the always-compiled core. Only the scalar EML potential the re-rank needs is
+/// here — NOT the full research `eml` IR machinery (which stays research-gated),
+/// so the MAS binary stays lean.
+pub mod eml_rerank;
 pub mod error;
 pub mod error_classifier;
 pub mod etl;
@@ -59,12 +65,6 @@ pub mod prompts;
 pub mod provenance;
 pub mod provider;
 pub mod reasoning_metrics;
-/// P5.H A2/A3 — the EML re-rank POLICY core, promoted out of the research tree
-/// (which is `#[cfg(feature="research")]`, default-OFF, never in the app) into
-/// the always-compiled core. Only the scalar EML potential the re-rank needs is
-/// here — NOT the full research `eml` IR machinery (which stays research-gated),
-/// so the MAS binary stays lean.
-pub mod eml_rerank;
 #[cfg(feature = "research")]
 pub mod research;
 pub mod resonance;

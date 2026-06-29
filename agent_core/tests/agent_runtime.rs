@@ -34,9 +34,9 @@ fn prompt_format_preserves_function_call_contract() {
 
     let prompt = build_system_prompt(&input);
 
-    assert!(prompt.starts_with(
-        "KNOWLEDGE-FIRST\nYou are Epistemos' local function-calling assistant."
-    ));
+    assert!(
+        prompt.starts_with("KNOWLEDGE-FIRST\nYou are Epistemos' local function-calling assistant.")
+    );
     assert!(prompt.contains("These are Epistemos tools for this turn."));
     assert!(prompt.contains("call it by the exact listed name"));
     assert!(prompt.contains("Do not tell the user you lack an Epistemos-specific tool"));

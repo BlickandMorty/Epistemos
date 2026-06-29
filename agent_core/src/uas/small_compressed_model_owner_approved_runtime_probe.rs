@@ -375,9 +375,7 @@ impl SmallCompressedOwnerApprovedRuntimeProbeSet {
             product_promotion_blocked,
         );
         let set_address = UasAddress::new(
-            UasKind::Other(
-                SMALL_COMPRESSED_MODEL_OWNER_APPROVED_RUNTIME_PROBE_CURSOR.to_string(),
-            ),
+            UasKind::Other(SMALL_COMPRESSED_MODEL_OWNER_APPROVED_RUNTIME_PROBE_CURSOR.to_string()),
             preimage.as_bytes(),
             created_at_ms,
         );
@@ -552,21 +550,45 @@ fn validate_probe(
             "owner-approved probe must be metadata-only with bounded one-token budgets".to_string(),
         ));
     }
-    if !probe.refs.upstream_envelope_ref.starts_with(UPSTREAM_ENVELOPE_PREFIX)
-        || !probe.refs.command_template_ref.starts_with(COMMAND_TEMPLATE_PREFIX)
+    if !probe
+        .refs
+        .upstream_envelope_ref
+        .starts_with(UPSTREAM_ENVELOPE_PREFIX)
+        || !probe
+            .refs
+            .command_template_ref
+            .starts_with(COMMAND_TEMPLATE_PREFIX)
         || !probe.refs.source_model_ref.starts_with(SOURCE_MODEL_PREFIX)
         || !probe.refs.model_path_ref.starts_with(MODEL_PATH_PREFIX)
-        || !probe.refs.owner_approval_ref.starts_with(OWNER_APPROVAL_PREFIX)
+        || !probe
+            .refs
+            .owner_approval_ref
+            .starts_with(OWNER_APPROVAL_PREFIX)
         || !probe.refs.prompt_hash_ref.starts_with(PROMPT_HASH_PREFIX)
-        || !probe.refs.memory_ledger_ref.starts_with(MEMORY_LEDGER_PREFIX)
-        || !probe.refs.answer_packet_ref.starts_with(ANSWER_PACKET_PREFIX)
-        || !probe.refs.run_event_log_ref.starts_with(RUN_EVENT_LOG_PREFIX)
+        || !probe
+            .refs
+            .memory_ledger_ref
+            .starts_with(MEMORY_LEDGER_PREFIX)
+        || !probe
+            .refs
+            .answer_packet_ref
+            .starts_with(ANSWER_PACKET_PREFIX)
+        || !probe
+            .refs
+            .run_event_log_ref
+            .starts_with(RUN_EVENT_LOG_PREFIX)
         || !probe.refs.rollback_ref.starts_with(ROLLBACK_PREFIX)
         || !probe.refs.cancellation_ref.starts_with(CANCELLATION_PREFIX)
         || !probe.refs.abstention_ref.starts_with(ABSTENTION_PREFIX)
-        || !probe.refs.compatibility_fence_ref.starts_with(COMPATIBILITY_FENCE_PREFIX)
+        || !probe
+            .refs
+            .compatibility_fence_ref
+            .starts_with(COMPATIBILITY_FENCE_PREFIX)
         || !probe.refs.route_caveat_ref.starts_with(ROUTE_CAVEAT_PREFIX)
-        || !probe.refs.scaling_ladder_ref.starts_with(SCALING_LADDER_PREFIX)
+        || !probe
+            .refs
+            .scaling_ladder_ref
+            .starts_with(SCALING_LADDER_PREFIX)
     {
         return Err(SmallCompressedOwnerApprovedProbeError::InvalidProbe(
             "proof refs must use owner-approved probe prefixes".to_string(),
@@ -800,7 +822,9 @@ fn set_preimage(
             probe.provider_fallback_allowed.to_string(),
             probe.server_sidecar_default_allowed.to_string(),
             probe.hf_or_url_download_allowed.to_string(),
-            probe.multi_token_or_unbounded_generation_allowed.to_string(),
+            probe
+                .multi_token_or_unbounded_generation_allowed
+                .to_string(),
             probe.e4b_requires_new_probe.to_string(),
             probe.twelve_b_requires_memory_repreflight.to_string(),
             probe.thirty_one_b_vault_only.to_string(),
@@ -820,10 +844,14 @@ fn set_preimage(
 /// first-token blocked, all proof surfaces required, zero runtime/model bytes.
 pub fn canonical_small_compressed_owner_approved_runtime_probe(
 ) -> SmallCompressedOwnerApprovedRuntimeProbe {
-    let command_template_args: Vec<String> =
-        REQUIRED_FLAGS.iter().map(|flag| (*flag).to_string()).collect();
-    let forbidden_flags: Vec<String> =
-        FORBIDDEN_FLAGS.iter().map(|flag| (*flag).to_string()).collect();
+    let command_template_args: Vec<String> = REQUIRED_FLAGS
+        .iter()
+        .map(|flag| (*flag).to_string())
+        .collect();
+    let forbidden_flags: Vec<String> = FORBIDDEN_FLAGS
+        .iter()
+        .map(|flag| (*flag).to_string())
+        .collect();
     let required_phases = vec![
         SmallCompressedOwnerApprovedProbePhase::EnvelopeBound,
         SmallCompressedOwnerApprovedProbePhase::OwnerApprovalPhraseRequired,
@@ -865,10 +893,14 @@ pub fn canonical_small_compressed_owner_approved_runtime_probe(
         refs: SmallCompressedOwnerApprovedProbeRefs {
             upstream_envelope_ref:
                 "artifact:small_compressed_model_runtime_probe_proof_envelope:result".to_string(),
-            command_template_ref: format!("command_template:small_compressed_owner_approved_probe:{id}"),
+            command_template_ref: format!(
+                "command_template:small_compressed_owner_approved_probe:{id}"
+            ),
             source_model_ref:
-                "source:model:gemma4-e2b-qat-gguf:1894d1fc0a19d86697abd40483f5983c867df03f".to_string(),
-            model_path_ref: "model_path:owner_approval_required:gemma-4-E2B_q4_0-it.gguf".to_string(),
+                "source:model:gemma4-e2b-qat-gguf:1894d1fc0a19d86697abd40483f5983c867df03f"
+                    .to_string(),
+            model_path_ref: "model_path:owner_approval_required:gemma-4-E2B_q4_0-it.gguf"
+                .to_string(),
             owner_approval_ref: format!("owner_approval:pending:{id}"),
             prompt_hash_ref: "prompt_hash:synthetic_non_user:blake3:probe-e2b".to_string(),
             memory_ledger_ref: format!("memory_ledger:small_compressed_owner_approved_probe:{id}"),
@@ -971,7 +1003,10 @@ mod tests {
         let set = canonical_small_compressed_owner_approved_runtime_probe_set(CREATED_AT_MS);
         assert_eq!(set.probes.len(), 1);
         let probe = &set.probes[0];
-        assert_eq!(probe.status, SmallCompressedOwnerApprovedProbeStatus::OwnerApprovalPending);
+        assert_eq!(
+            probe.status,
+            SmallCompressedOwnerApprovedProbeStatus::OwnerApprovalPending
+        );
         assert!(!probe.owner_approval_granted);
         assert!(!probe.command_armed);
         assert!(!probe.command_executed);

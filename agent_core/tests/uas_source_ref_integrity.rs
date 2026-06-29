@@ -45,8 +45,7 @@ fn extract_source_refs(src: &str) -> Vec<String> {
         let literal = &rest[..close];
         rest = &rest[close + 1..];
 
-        let is_repo_path =
-            literal.starts_with("Epistemos/") || literal.starts_with("agent_core/");
+        let is_repo_path = literal.starts_with("Epistemos/") || literal.starts_with("agent_core/");
         let is_source_file = literal.ends_with(".swift") || literal.ends_with(".rs");
         let is_clean = !literal.contains('{') && !literal.contains(':');
         if is_repo_path && is_source_file && is_clean {
@@ -59,7 +58,9 @@ fn extract_source_refs(src: &str) -> Vec<String> {
 #[test]
 fn uas_gate_source_refs_resolve_to_real_files() {
     let root = repo_root();
-    let uas_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join("uas");
+    let uas_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("uas");
 
     let mut missing: Vec<String> = Vec::new();
     let mut checked = 0usize;
@@ -118,7 +119,9 @@ fn extract_next_cursors(src: &str) -> Vec<String> {
     };
     let mut out = Vec::new();
     for line in body.lines() {
-        let Some(pos) = line.find("NEXT_CURSOR") else { continue };
+        let Some(pos) = line.find("NEXT_CURSOR") else {
+            continue;
+        };
         let after = &line[pos..];
         // Only `... NEXT_CURSOR...: &str = "value"` const declarations.
         if !after.contains(": &str") {
@@ -127,7 +130,9 @@ fn extract_next_cursors(src: &str) -> Vec<String> {
         let Some(eq) = after.find('=') else { continue };
         let rhs = &after[eq + 1..];
         let Some(q1) = rhs.find('"') else { continue };
-        let Some(q2) = rhs[q1 + 1..].find('"') else { continue };
+        let Some(q2) = rhs[q1 + 1..].find('"') else {
+            continue;
+        };
         out.push(rhs[q1 + 1..q1 + 1 + q2].to_string());
     }
     out
@@ -138,7 +143,9 @@ fn uas_next_cursors_resolve_to_gates_or_terminal() {
     // The witness chain advances gate -> NEXT_CURSOR -> next gate. A dangling
     // NEXT_CURSOR (typo or a gate renamed without updating its referrers) breaks
     // the chain silently. Pin every link to a real gate file or a known terminal.
-    let uas_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join("uas");
+    let uas_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("uas");
 
     let mut dangling: Vec<String> = Vec::new();
     let mut checked = 0usize;
