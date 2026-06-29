@@ -62,6 +62,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true`"))
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
+        #expect(codepack.contains("adapter argument errors remain JSON-bounded before runtime import"))
         #expect(codepack.contains("browser_vision rejects screenshot paths that resolve outside"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
