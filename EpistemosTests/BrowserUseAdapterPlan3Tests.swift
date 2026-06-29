@@ -113,6 +113,8 @@ struct BrowserUseAdapterPlan3Tests {
             "\"refs_truncated\": refs_truncated or truncated",
             "raw_text if isinstance(raw_text, str) else \"\"",
             "bound_eval_result",
+            "bound_eval_key",
+            "[Unsupported non-string key]",
             "[Unsupported non-JSON result]",
             "[Unsupported non-finite number]",
             "\"result_truncated\"",
