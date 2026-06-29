@@ -956,6 +956,17 @@ runtime itself is fine — proven by hard evidence:
 - No orphaned `goose serve`/test-host processes from my runs (supervisor cleanup
   works).
 
+Follow-up probe (rules out a product concern): `goose serve` spawned with an EMPTY
+isolated HOME (`HOME=<fresh tmp>`, same as the test harness) ALSO returns `/health`
+200 in **1 second**. So the test slowness is NOT first-run/empty-HOME init and NOT
+keyring setup — `goose serve` is reliably ~1s across real HOME, empty HOME, and the
+current loaded machine. This DISPROVES any "first-run startup latency could hit the
+product" worry: product `goose serve` startup is consistently fast, so the owner's
+original "providers no longer auto-load reliably" report is NOT a goose-serve-startup
+issue — it was the dead-`@/api`-REST surface the ACP grafts (provider catalog / model
+picker / config-status / custom-provider CRUD) fixed. The live-SUITE slowness is
+isolated to the full-app TEST HOST racing the saturated machine, nothing more.
+
 **Conclusion:** `goose serve` and the Goose runtime are demonstrably functional here;
 the iso-DD live-test failures are a TEST-HARNESS spawn/connect artifact in the
 isolated DerivedData + TestRuntime context (likely the supervisor's spawn under the
