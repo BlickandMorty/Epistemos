@@ -6,6 +6,8 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
+**Last auditor pass:** 2026-06-29 16:17 CDT (loop cycle 2) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. Greps for #6/#8 made case/phrasing-honest (the doctrine match was always real; the old grep was just too narrow to surface it). HEAD at pass: `43f5cf6c0`.
+
 ## INVARIANTS (the locked truths — each agent's docs must agree with these)
 Run each `Check` from repo root; the Pass condition is what a consistent canon returns.
 
@@ -16,9 +18,9 @@ Run each `Check` from repo root; the Pass condition is what a consistent canon r
 | 3 | **Models picker = the ONE native route** (carve-out present) | `grep -rniE "no native picker\|pickers = WEB" docs/ \| grep -viE "EXCEPT\|carve\|Models picker IS\|one native route\|audit"` | empty | ✅ |
 | 4 | **Spring values = the 4 canonical** (identical everywhere) | `grep -rohE "\.smooth \{[0-9.,]+\}" docs/ \| sort -u` | exactly `.smooth {0.5,0}` | ✅ (1 unique set) |
 | 5 | **Two token sources only** — `EpistemosTheme.swift` (Swift) + Goose `theme-tokens.ts` (web); no third | grep the doctrine "Two token SOURCES" rule is intact + no rival source named | rule present | ✅ |
-| 6 | **Graph = DO NOT TOUCH** (already full AppKit/Metal) | `grep -rc "GRAPH = .*DO NOT TOUCH\|graph.*DO NOT TOUCH" docs/` | present in doctrine + 3 prompts | ✅ |
+| 6 | **Graph = DO NOT TOUCH** (already full AppKit/Metal) | `grep -liE "graph.{0,60}do not touch" docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md docs/prompts/PROMPT_PLAN_1_GOOSE.md docs/prompts/PROMPT_PLAN_2_EDITOR.md docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md` | all 4 files (doctrine + 3 prompts) listed | ✅ (cycle 2: doctrine carries it at lines 22 + 95; switched to case-insensitive grep — the old case-sensitive `GRAPH`/`graph` pattern false-negatived the doctrine's "Graph =", though the rule was present all along) |
 | 7 | **Lens model** Note(Epdoc)/Source(MarkEdit)/Prose(TK2); **old code editor KEPT as v1 legacy** (no deletion); MD-nav = Note default→Prose→Source-button→full-MarkEdit | `grep -rniE "delete the 3 old\|old code-editor files were deleted" docs/research/EDITOR_CANONICAL*.md docs/research/MARKEDIT_EMBED*.md \| grep -viE "SUPERSEDES\|PRESERVED\|KEEP\|legacy"` | empty (the only hit is the line ENFORCING "v1 PRESERVED", excluded) | ✅ |
-| 8 | **Retheme-not-replace** (Goose's existing shadcn/Radix/Tailwind/framer-motion) | doctrine + reskin + Plan-1 prompt say "retheme … do NOT replace" | present | ✅ |
+| 8 | **Retheme-not-replace** (Goose's existing shadcn/Radix/Tailwind/framer-motion) | `grep -liE -e 'retheme' -e "don'?t replace" -e 'do not replace' docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md docs/research/GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md docs/prompts/PROMPT_PLAN_1_GOOSE.md` | all 3 files (doctrine + reskin + Plan-1) listed | ✅ (cycle 2: doctrine carries it at line 82 "retheme … + tune" + line 85 "blend, don't replace"; replaced the prose check with a concrete grep that surfaces all 3) |
 | 9 | **Only paste = `PROMPT_PLAN_1/2/3`**; every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty | empty (every handoff *PROMPT* doc carries a banner) | ✅ ledger-scope green (CLONE_INFUSION + PRACTICAL_FULL_PORT_06-24 bannered). Broadened corpus-wide paste-prompt scan → ~50 archival/different-purpose hits parked in OWNER REVIEW (not a fleet-launch risk) |
 | 10 | **Accent #0066cc · SF Pro · radius 11** consistent | `grep -rohE "#0066cc" docs/ \| wc -l` (>0, no rival accent) | consistent | ✅ |
 
