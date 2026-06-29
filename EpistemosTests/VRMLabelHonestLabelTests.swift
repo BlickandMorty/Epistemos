@@ -118,11 +118,11 @@ struct VRMLabelHonestLabelTests {
     func lineageExportIsDeterministicAndHonest() throws {
         let packet = Self.packet(
             claims: [
-                Self.claim(kind: .empirical, status: .active, anchored: true),
+                Self.claim(kind: .empirical, status: .active, acsAnchored: true),
                 Self.claim(
                     kind: .empirical,
                     status: .retracted,
-                    anchored: true,
+                    acsAnchored: true,
                     createdAtMs: 1_784_000_000_000
                 ),
             ],
