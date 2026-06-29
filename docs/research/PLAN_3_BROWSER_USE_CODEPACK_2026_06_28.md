@@ -139,7 +139,8 @@ Rust `find_agent_browser()` now discovers the bundled executable through
 isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload; adapter argument errors remain
 JSON-bounded before runtime import, so invalid or missing `--json` commands produce the same machine-readable failure
 shape without importing browser-use or emitting argparse usage on stderr. Direct adapter `--cdp` values are also
-validated before runtime import and must be loopback-only with no URL credentials, query, or fragment. `[VERIFIED-CODE]`
+validated before runtime import and must be loopback-only with no URL credentials, query, or fragment. Direct adapter
+`snapshot` responses cap snapshot text and refs before returning JSON, matching the Rust tool-output boundary. `[VERIFIED-CODE]`
 
 ## Existing Epistemos seams `[VERIFIED-CODE]`
 - Native MAS browser tab: `Epistemos/Views/Browser/BrowserView.swift` is human-driven `WKWebView` with
