@@ -26,6 +26,30 @@ final class GooseRuntimeSupervisor {
     nonisolated static let defaultHost = "127.0.0.1"
     nonisolated static let defaultPort = 3284
     nonisolated static let listenTimeout: Duration = .seconds(20)
+    /// `goosed agent` boots the full AppState (REST + gateways) and is slower to answer than the
+    /// lean `goose serve`; give it a larger readiness budget. (Step 2 / Option B.)
+    nonisolated static let goosedListenTimeout: Duration = .seconds(45)
+
+    /// Goose runtime backend. `.serve` = lean ACP-only `goose serve` (DEFAULT — preserves the
+    /// working WebView/ACP path). `.goosed` = full `goosed agent` (REST + ACP, Option B), selected
+    /// by `EPISTEMOS_GOOSE_BACKEND=goosed`. Single-point rollback = unset the flag.
+    nonisolated enum Backend: String, Sendable {
+        case serve
+        case goosed
+    }
+
+    nonisolated static var configuredBackend: Backend {
+        ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_BACKEND"]?.lowercased() == "goosed"
+            ? .goosed : .serve
+    }
+
+    /// Initial goosed swap runs http on loopback (PROVEN working; simplest, no cert plumbing).
+    /// TLS is opt-in via EPISTEMOS_GOOSE_GOOSED_TLS=true and additionally requires the WKWebView
+    /// pinned didReceiveAuthenticationChallenge delegate (follow-up; needed for secure-context MCP
+    /// guest SDKs). Loopback http is safe here (secret-key-auth'd + nav-gated + 127.0.0.1 only).
+    nonisolated static var goosedTLSEnabled: Bool {
+        ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_GOOSED_TLS"]?.lowercased() == "true"
+    }
     // A normal stop()+start() restart can leave the just-killed `goose serve`
     // momentarily bound to the port; wait this long for it to release before
     // declaring the port occupied by a foreign service.
@@ -143,8 +167,9 @@ final class GooseRuntimeSupervisor {
         #if EPISTEMOS_APP_STORE
         status = .unavailable("Goose is available in the Pro / Developer-ID build.")
         #else
-        guard let binary = binary ?? Self.resolvedGooseBinary(bundle: bundle) else {
-            status = .unavailable("Goose runtime is not bundled or staged for this build.")
+        let binaryName = (Self.configuredBackend == .goosed) ? "goosed" : "goose"
+        guard let binary = binary ?? Self.resolvedGooseBinary(bundle: bundle, binaryName: binaryName) else {
+            status = .unavailable("\(binaryName == "goosed" ? "goosed" : "Goose") runtime is not bundled or staged for this build.")
             return
         }
         let resolvedSecretKey = secretKey ?? Self.randomSecretKey()
@@ -204,10 +229,22 @@ final class GooseRuntimeSupervisor {
         builtins: [String],
         healthCheck: @escaping @Sendable (URL) async -> Bool
     ) async {
-        let defaultBaseURL = Self.defaultBaseURL(port: port)
-        if await healthCheck(defaultBaseURL) {
+        // Step 2 / Option B: select backend (default .serve preserves the working path byte-for-byte).
+        let backend = Self.configuredBackend
+        let tls = (backend == .goosed) && Self.goosedTLSEnabled
+        let scheme = tls ? "https" : "http"
+        let defaultBaseURL = Self.defaultBaseURL(port: port, scheme: scheme)
+        let readinessTimeout = (backend == .goosed) ? Self.goosedListenTimeout : Self.listenTimeout
+        // goosed has no /health (uses /status); lean serve uses the passed healthCheck (/health).
+        let effectiveHealthCheck: @Sendable (URL) async -> Bool
+        if backend == .goosed {
+            effectiveHealthCheck = { await Self.goosedStatusCheck(base: $0) }
+        } else {
+            effectiveHealthCheck = healthCheck
+        }
+        if await effectiveHealthCheck(defaultBaseURL) {
             // The port is currently answering. On a user-initiated restart this is
-            // usually our own just-terminated `goose serve` still releasing the
+            // usually our own just-terminated server still releasing the
             // socket, not a foreign occupant. Poll for it to go down within a
             // bounded grace window; only fail if it stays up the whole time (a real
             // foreign Goose-compatible service never releases here).
@@ -216,7 +253,7 @@ final class GooseRuntimeSupervisor {
             while ContinuousClock.now < releaseDeadline {
                 if Task.isCancelled { return }
                 try? await Task.sleep(nanoseconds: 100_000_000)
-                if await healthCheck(defaultBaseURL) == false {
+                if await effectiveHealthCheck(defaultBaseURL) == false {
                     released = true
                     break
                 }
@@ -229,17 +266,24 @@ final class GooseRuntimeSupervisor {
 
         let proc = Process()
         proc.executableURL = binary
-        proc.arguments = Self.serveArguments(
-            host: Self.defaultHost,
-            port: port,
-            builtins: builtins
-        )
+        // goosed `agent` takes NO flags (configured via env, loads the developer builtin
+        // automatically); lean `goose serve` takes --host/--port/--with-builtin.
+        proc.arguments = (backend == .goosed)
+            ? ["agent"]
+            : Self.serveArguments(host: Self.defaultHost, port: port, builtins: builtins)
+        var goosedConfig: (host: String, port: Int, tls: Bool)?
+        if backend == .goosed {
+            goosedConfig = (host: Self.defaultHost, port: port, tls: tls)
+        } else {
+            goosedConfig = nil
+        }
         proc.environment = Self.processEnvironment(
             binary: binary,
             secretKey: secretKey,
             gooseMode: gooseMode,
             homeDirectory: homeDirectory,
-            disableKeyring: disableKeyring
+            disableKeyring: disableKeyring,
+            goosedConfig: goosedConfig
         )
 
         let pipe = Pipe()
@@ -256,14 +300,22 @@ final class GooseRuntimeSupervisor {
             try proc.run()
             AppBootstrap.shared?.orphanCleanup.track(proc)
         } catch {
-            status = .failed("Failed to launch `goose serve`: \(error.localizedDescription)")
+            let name = (backend == .goosed) ? "`goosed agent`" : "`goose serve`"
+            status = .failed("Failed to launch \(name): \(error.localizedDescription)")
             return
         }
 
-        let baseURL = await waitForReady(port: port, pipe: pipe, healthCheck: healthCheck)
+        let baseURL = await waitForReady(
+            port: port,
+            pipe: pipe,
+            baseURL: defaultBaseURL,
+            timeout: readinessTimeout,
+            healthCheck: effectiveHealthCheck
+        )
         if Task.isCancelled { return }
         guard let baseURL else {
-            status = .failed("`goose serve` did not become healthy within \(Self.listenTimeout).")
+            let name = (backend == .goosed) ? "`goosed agent`" : "`goose serve`"
+            status = .failed("\(name) did not become healthy within \(readinessTimeout).")
             terminateTrackedProcess(proc)
             outputTask?.cancel()
             outputTask = nil
@@ -275,9 +327,10 @@ final class GooseRuntimeSupervisor {
     private func waitForReady(
         port: Int,
         pipe: Pipe,
+        baseURL: URL,
+        timeout: Duration,
         healthCheck: @escaping @Sendable (URL) async -> Bool
     ) async -> URL? {
-        let defaultBaseURL = Self.defaultBaseURL(port: port)
         return await withCheckedContinuation { continuation in
             let state = GooseRuntimeReadyState(continuation)
             outputTask = Task.detached { [weak self] in
@@ -295,10 +348,10 @@ final class GooseRuntimeSupervisor {
             }
 
             Task {
-                let deadline = ContinuousClock.now.advanced(by: Self.listenTimeout)
+                let deadline = ContinuousClock.now.advanced(by: timeout)
                 while ContinuousClock.now < deadline {
-                    if await healthCheck(defaultBaseURL) {
-                        await state.resume(defaultBaseURL)
+                    if await healthCheck(baseURL) {
+                        await state.resume(baseURL)
                         return
                     }
                     try? await Task.sleep(nanoseconds: 100_000_000)
@@ -361,6 +414,7 @@ final class GooseRuntimeSupervisor {
         gooseMode: String? = nil,
         homeDirectory: URL? = nil,
         disableKeyring: Bool = false,
+        goosedConfig: (host: String, port: Int, tls: Bool)? = nil,
         base: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String: String] {
         var env = base.filter { key, _ in
@@ -368,6 +422,13 @@ final class GooseRuntimeSupervisor {
                 !subprocessEnvironmentDenylist.contains(key)
         }
         env["GOOSE_SERVER__SECRET_KEY"] = secretKey
+        // Step 2 / Option B: goosed `agent` reads host/port/tls from the env (figment GOOSE_ prefix),
+        // unlike `goose serve`'s CLI flags.
+        if let goosedConfig {
+            env["GOOSE_HOST"] = goosedConfig.host
+            env["GOOSE_PORT"] = String(goosedConfig.port)
+            env["GOOSE_TLS"] = goosedConfig.tls ? "true" : "false"
+        }
         if let mode = gooseMode?.trimmingCharacters(in: .whitespacesAndNewlines),
            allowedGooseModes.contains(mode) {
             env["GOOSE_MODE"] = mode
@@ -420,8 +481,17 @@ final class GooseRuntimeSupervisor {
         return nil
     }
 
-    nonisolated static func defaultBaseURL(port: Int = defaultPort) -> URL {
-        URL(string: "http://\(defaultHost):\(port)")!
+    nonisolated static func defaultBaseURL(port: Int = defaultPort, scheme: String = "http") -> URL {
+        URL(string: "\(scheme)://\(defaultHost):\(port)")!
+    }
+
+    /// goosed has no `/health` (404); its readiness/health endpoint is `/status` (200). (Step 2.)
+    nonisolated static func goosedStatusCheck(base: URL) async -> Bool {
+        var request = URLRequest(url: base.appendingPathComponent("status"))
+        request.timeoutInterval = 2
+        guard let (_, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse else { return false }
+        return http.statusCode == 200
     }
 
     nonisolated static func occupiedPortMessage(base: URL) -> String {
@@ -467,13 +537,15 @@ final class GooseRuntimeSupervisor {
     nonisolated static func resolvedGooseBinary(
         bundle: Bundle? = .main,
         appSupportDirectory: URL? = defaultAppSupportDirectory(),
-        currentDirectory: String = FileManager.default.currentDirectoryPath
+        currentDirectory: String = FileManager.default.currentDirectoryPath,
+        binaryName: String = "goose"
     ) -> URL? {
         let fileManager = FileManager.default
         for candidate in gooseBinaryCandidates(
             bundle: bundle,
             appSupportDirectory: appSupportDirectory,
-            currentDirectory: currentDirectory
+            currentDirectory: currentDirectory,
+            binaryName: binaryName
         ) {
             if fileManager.isExecutableFile(atPath: candidate.path) {
                 return candidate
@@ -485,13 +557,14 @@ final class GooseRuntimeSupervisor {
     nonisolated static func gooseBinaryCandidates(
         bundle: Bundle? = .main,
         appSupportDirectory: URL? = defaultAppSupportDirectory(),
-        currentDirectory: String = FileManager.default.currentDirectoryPath
+        currentDirectory: String = FileManager.default.currentDirectoryPath,
+        binaryName: String = "goose"
     ) -> [URL] {
         var candidates: [URL] = []
         if let appSupportDirectory {
-            candidates.append(appSupportDirectory.appendingPathComponent("Epistemos/GooseRuntime/goose"))
+            candidates.append(appSupportDirectory.appendingPathComponent("Epistemos/GooseRuntime/\(binaryName)"))
         }
-        if let bundled = bundle?.url(forResource: "goose", withExtension: nil) {
+        if let bundled = bundle?.url(forResource: binaryName, withExtension: nil) {
             candidates.append(bundled)
         }
 
@@ -507,11 +580,11 @@ final class GooseRuntimeSupervisor {
         let checkoutTarget = URL(fileURLWithPath: currentDirectory)
             .appendingPathComponent(".research-clones/work/goose/target")
         if !hostCargoTargetTriple.isEmpty {
-            candidates.append(checkoutTarget.appendingPathComponent("\(hostCargoTargetTriple)/release/goose"))
-            candidates.append(checkoutTarget.appendingPathComponent("\(hostCargoTargetTriple)/debug/goose"))
+            candidates.append(checkoutTarget.appendingPathComponent("\(hostCargoTargetTriple)/release/\(binaryName)"))
+            candidates.append(checkoutTarget.appendingPathComponent("\(hostCargoTargetTriple)/debug/\(binaryName)"))
         }
-        candidates.append(checkoutTarget.appendingPathComponent("release/goose"))
-        candidates.append(checkoutTarget.appendingPathComponent("debug/goose"))
+        candidates.append(checkoutTarget.appendingPathComponent("release/\(binaryName)"))
+        candidates.append(checkoutTarget.appendingPathComponent("debug/\(binaryName)"))
         #endif
         return candidates
     }

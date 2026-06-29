@@ -42,6 +42,35 @@ Re-runnable: see the goosed probe block in the loop transcript (scratchpad/goose
   + a fingerprint-pinned WKWebView `didReceiveAuthenticationChallenge` delegate (research:
   TLS-off breaks secure-context MCP guest SDKs).
 
+## ACP-path parity proof: the swap is a SUPERSET, not a regression (source-verified)
+Compared lean `goose serve` (`goose-cli/src/cli.rs:1327 handle_serve_command`) against
+`goosed agent` (`goose-server/src/commands/agent.rs:44`). The ACP path the existing WebView
+already drives is preserved byte-for-byte, and goosed only ADDS capability:
+
+| ACP concern            | lean `goose serve`                | `goosed agent`                       | swap effect |
+|------------------------|-----------------------------------|--------------------------------------|-------------|
+| ACP auth middleware    | `check_acp_token` (via `create_router`, `require_token = secret set`) | `check_acp_token` (explicit `.layer`) | IDENTICAL — both accept our `token=<secretKey>` query param (constant-time `ct_eq`); `goose/src/acp/transport/auth.rs:15` |
+| builtins loaded        | `["developer"]` (cli.rs:1336)     | `["developer"]` (agent.rs:69)        | IDENTICAL |
+| GoosePlatform identity | `GooseCli` (cli.rs:1357)          | `GooseDesktop` (agent.rs:72)         | IMPROVED — matches the desktop session metadata the Phase-0 handoff added; better `session/list` user/scheduled classification |
+| scheduler              | `None` (cli.rs:1359)              | `Some(app_state.scheduler())` (agent.rs:74) | IMPROVED — Scheduler route is actually live on goosed |
+| REST router            | absent (ACP only)                 | `rest_router.merge(acp_router)` (agent.rs:85) | ADDED — the 3 previously-unbackable features |
+| secret key default     | random if env unset (cli.rs:1371) | random if env unset (agent.rs:53)    | IDENTICAL — supervisor always sets `GOOSE_SERVER__SECRET_KEY` so we control it |
+| health endpoint        | `/health` (in `create_router`)    | `/status` (no `/health`)             | supervisor branches on backend (`goosedStatusCheck` vs `healthCheck`) |
+
+Net: zero ACP behavior loss, `GoosePlatform::GooseDesktop` + real scheduler + full REST gained.
+This is the source-level reason Option B reaches the owner's 100%-parity gate.
+
+## Supervisor + bundler wiring landed this pass
+- `GooseRuntimeSupervisor.swift`: backend selector (`configuredBackend` ← `EPISTEMOS_GOOSE_BACKEND`,
+  default `.serve`), `goosedTLSEnabled` (← `EPISTEMOS_GOOSE_GOOSED_TLS`, default false=http loopback),
+  `goosedStatusCheck(base:)` (`/status` 200), scheme-aware `defaultBaseURL(port:scheme:)`,
+  backend-aware readiness timeout (`goosedListenTimeout = 45s`), `processEnvironment(... goosedConfig:)`
+  sets `GOOSE_HOST/GOOSE_PORT/GOOSE_TLS`, and `resolvedGooseBinary(... binaryName:)` selects
+  `goosed` vs `goose`. Launch arg is `["agent"]` for goosed, `serveArguments(...)` for serve.
+- `bundle-app-runtime-assets.sh`: stages BOTH `goose` and `goosed` into `Resources/` during the
+  parity-gated transition (so `EPISTEMOS_GOOSE_BACKEND` selects either without a rebuild — single-point
+  rollback); App-Store build removes both. Source binaries present: goosed 236M, goose 243M (−7M cutover).
+
 ## Plan (behind a build flag; single-point rollback; WebView/ACP path preserved)
 1. Stage the `goosed` binary alongside/replacing `goose` (GooseRuntimeSupervisor resolver +
    bundle scripts). 2. Supervisor: backend selector (env `EPISTEMOS_GOOSE_BACKEND`, default `serve`
