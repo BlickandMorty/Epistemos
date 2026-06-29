@@ -170,7 +170,11 @@
 - **SOURCING + PER-MARK BUILD PLAN [VERIFIED 2026-06-29]:** real animated brand assets DO exist — but on third-party
   marketplaces (IconScout, LottieFiles) as community RECREATIONS under their own licenses (IconScout "Digital License",
   LottieFiles "Lottie Simple License"), NOT as official free brand-kit downloads from OpenAI/Anthropic. So each is a
-  license + trademark decision (App Store sensitivity). Per mark:
+  license + trademark decision (App Store sensitivity).
+  **★ OWNER DECISION 2026-06-29 — take the VENDOR-LICENSED-LOTTIES path:** vendor real licensed brand animations where
+  the marketplace license clearly permits app redistribution AND the brand's trademark policy permits an animated mark
+  — but **flag EACH mark for owner approval before it ships** (do not auto-bundle a brand Lottie). Procedural/subtle
+  motion for any mark without a clean licensed asset; companion mascots (own IP) fully custom + first. Per mark:
   - **Big brands w/ a clean licensed Lottie (OpenAI/ChatGPT, Gemini, …):** vendor a properly-licensed dotLottie/JSON
     (prefer free Lottie-Simple-License; OWNER approves the license + trademark for each before it ships).
   - **Marks WITHOUT a good/licensed asset (Claude Code mascot, niche providers):** AUTHOR procedurally — SwiftUI motion
