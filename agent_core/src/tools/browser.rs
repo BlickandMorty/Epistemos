@@ -41,6 +41,8 @@ use super::web_fetch::validate_url;
 
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
+const GET_IMAGES_PAGE_LIMIT: usize = 50;
+const GET_IMAGES_TEXT_LIMIT: usize = 512;
 
 #[derive(Debug)]
 struct BrowserState {
@@ -353,24 +355,64 @@ async fn close_impl(manager: &BrowserManager) -> Result<Value, ToolError> {
 }
 
 async fn get_images_impl(manager: &BrowserManager) -> Result<Value, ToolError> {
-    let js = "JSON.stringify([...document.images].map(img => ({ src: img.src, alt: img.alt || '', width: img.naturalWidth, height: img.naturalHeight })).filter(img => img.src && !img.src.startsWith('data:')))";
-    let raw = manager.run_existing("eval", &[js.to_string()]).await?;
-    let raw_result = raw
-        .get("data")
+    let js = format!(
+        r#"JSON.stringify((() => {{
+const MAX_IMAGES = {GET_IMAGES_PAGE_LIMIT};
+const MAX_TEXT_CHARS = {GET_IMAGES_TEXT_LIMIT};
+const limitText = value => {{
+  const text = String(value || '');
+  const chars = Array.from(text);
+  return chars.length > MAX_TEXT_CHARS ? chars.slice(0, MAX_TEXT_CHARS).join('') : text;
+}};
+const images = Array.from(document.images)
+  .map(img => ({{ src: img.src, alt: img.alt || '', width: img.naturalWidth, height: img.naturalHeight }}))
+  .filter(img => img.src && !img.src.startsWith('data:'));
+return {{
+  images: images.slice(0, MAX_IMAGES).map(img => ({{
+    src: limitText(img.src),
+    alt: limitText(img.alt),
+    width: img.width,
+    height: img.height,
+  }})),
+  count: images.length,
+  truncated: images.length > MAX_IMAGES,
+}};
+}})())"#
+    );
+    let raw = manager.run_existing("eval", &[js]).await?;
+    let data = raw.get("data");
+    let adapter_truncated = data
+        .and_then(|data| data.get("result_truncated"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let raw_result = data
         .and_then(|data| data.get("result"))
         .cloned()
         .unwrap_or_else(|| json!("[]"));
-    let raw_images = match raw_result {
+    let parsed_result = match raw_result {
         Value::String(text) => serde_json::from_str::<Value>(&text).unwrap_or_else(|_| json!([])),
         Value::Array(items) => Value::Array(items),
         other => other,
     };
+    let page_count = parsed_result
+        .get("count")
+        .and_then(Value::as_u64)
+        .and_then(|count| usize::try_from(count).ok());
+    let page_truncated = parsed_result
+        .get("truncated")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let raw_images = parsed_result
+        .get("images")
+        .cloned()
+        .unwrap_or(parsed_result);
     let (images, count, truncated) = normalize_image_results(raw_images);
+    let count = page_count.unwrap_or(count);
     Ok(json!({
         "success": true,
         "images": images,
         "count": count,
-        "truncated": truncated,
+        "truncated": truncated || page_truncated || adapter_truncated,
     }))
 }
 
@@ -458,15 +500,20 @@ async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, 
     let errors = manager.run_existing("errors", &error_args).await?;
 
     let (evaluation, evaluation_truncated) = if let Some(expression) = expression {
-        let raw_evaluation = manager
+        let raw = manager
             .run_existing("eval", &[expression.to_string()])
-            .await?
-            .get("data")
+            .await?;
+        let data = raw.get("data");
+        let adapter_truncated = data
+            .and_then(|data| data.get("result_truncated"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let raw_evaluation = data
             .and_then(|data| data.get("result"))
             .cloned()
             .unwrap_or(Value::Null);
         let (evaluation, truncated) = bound_console_value(raw_evaluation);
-        (Some(evaluation), truncated)
+        (Some(evaluation), truncated || adapter_truncated)
     } else {
         (None, false)
     };
@@ -553,6 +600,7 @@ mod tests {
         let script_path = bin_dir.join("agent-browser");
         let script = r#"#!/bin/sh
 set -eu
+script_root=$(cd "$(dirname "$0")/.." && pwd)
 if [ -n "${FAKE_BROWSER_LOG:-}" ]; then
   printf '%s\n' "$*" >> "$FAKE_BROWSER_LOG"
 fi
@@ -599,11 +647,21 @@ case "$command_name" in
     ;;
   eval)
     if printf '%s' "$*" | grep -q 'document.images'; then
+      if [ -f "$script_root/images-truncated" ]; then
+        cat <<'EOF'
+{"success":true,"data":{"result":"{\"images\":[{\"src\":\"https://example.com/image.png\",\"alt\":\"cover\",\"width\":640,\"height\":480}],\"count\":77,\"truncated\":true}","result_truncated":false}}
+EOF
+      else
+        cat <<'EOF'
+{"success":true,"data":{"result":"{\"images\":[{\"src\":\"https://example.com/image.png\",\"alt\":\"cover\",\"width\":640,\"height\":480}],\"count\":1,\"truncated\":false}","result_truncated":false}}
+EOF
+      fi
+    elif printf '%s' "$*" | grep -q 'adapterTruncated'; then
       cat <<'EOF'
-{"success":true,"data":{"result":"[{\"src\":\"https://example.com/image.png\",\"alt\":\"cover\",\"width\":640,\"height\":480}]"}}
+{"success":true,"data":{"result":"adapter bounded","result_truncated":true}}
 EOF
     else
-      printf '{"success":true,"data":{"result":"42"}}\n'
+      printf '{"success":true,"data":{"result":"42","result_truncated":false}}\n'
     fi
     ;;
   badjson)
@@ -893,6 +951,32 @@ esac
     }
 
     #[tokio::test]
+    async fn browser_get_images_preserves_page_truncation_flag() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        fs::write(temp.path().join("images-truncated"), "1").unwrap();
+
+        let manager = BrowserManager::new();
+        BrowserActionHandler::new(manager.clone(), BrowserAction::Navigate)
+            .execute(&json!({ "url": "https://example.com/gallery" }))
+            .await
+            .unwrap();
+        let output = BrowserActionHandler::new(manager, BrowserAction::GetImages)
+            .execute(&json!({}))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["count"], json!(77));
+        assert_eq!(parsed["truncated"], json!(true));
+        assert_eq!(
+            parsed["images"][0]["src"],
+            json!("https://example.com/image.png")
+        );
+    }
+
+    #[tokio::test]
     async fn browser_type_result_does_not_echo_typed_text() {
         let _env_guard = env_lock().lock().await;
         let temp = tempfile::tempdir().unwrap();
@@ -1115,5 +1199,28 @@ esac
         assert_eq!(parsed["js_error_count"], json!(1));
         assert_eq!(parsed["evaluation"], json!("42"));
         assert_eq!(parsed["truncated"], json!(false));
+    }
+
+    #[tokio::test]
+    async fn browser_console_preserves_adapter_eval_truncation_flag() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+
+        let manager = BrowserManager::new();
+        BrowserActionHandler::new(manager.clone(), BrowserAction::Navigate)
+            .execute(&json!({ "url": "https://example.com" }))
+            .await
+            .unwrap();
+        let output = BrowserActionHandler::new(manager, BrowserAction::Console)
+            .execute(&json!({
+                "expression": "window.adapterTruncated",
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["evaluation"], json!("adapter bounded"));
+        assert_eq!(parsed["truncated"], json!(true));
     }
 }

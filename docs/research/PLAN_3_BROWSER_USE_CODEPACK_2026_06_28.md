@@ -180,8 +180,9 @@ validated before runtime import and must be loopback-only with no URL credential
   environment setup happens only after adapter arguments are accepted. The Rust bridge never trusts ambient
   `BROWSER_CDP_URL`; the only CDP override env is `EPISTEMOS_BROWSER_USE_CDP_URL`, and it must be valid UTF-8, point at
   localhost, 127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. The browser output
-  policy is isolated in `agent_core/src/tools/browser_output.rs`: `browser_get_images` normalizes page-controlled image
-  metadata, caps returned image count, and truncates image text fields; `browser_snapshot` caps and bounds returned refs;
+  policy uses `agent_core/src/tools/browser_output.rs` for normalization and bounds: `browser_get_images` asks the page
+  for a pre-capped image payload, normalizes page-controlled image metadata, caps returned image count, truncates image
+  text fields, and preserves page/adapter truncation flags; `browser_snapshot` caps and bounds returned refs;
   and `browser_console` caps page-controlled
   console/error/evaluation arrays, object fields, and strings before returning tool output. Direct adapter `eval`
   responses also cap nested result arrays, object fields, keys, and strings before returning JSON. Browser URL result fields from

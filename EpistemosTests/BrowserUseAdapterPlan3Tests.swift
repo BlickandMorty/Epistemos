@@ -203,6 +203,11 @@ struct BrowserUseAdapterPlan3Tests {
             "\"url_redacted\"",
             "browser_navigate_result_redacts_url_query_and_fragment",
             "browser_cdp_commands_still_pass_private_session_name",
+            "GET_IMAGES_PAGE_LIMIT",
+            "GET_IMAGES_TEXT_LIMIT",
+            "\"result_truncated\"",
+            "browser_get_images_preserves_page_truncation_flag",
+            "browser_console_preserves_adapter_eval_truncation_flag",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }
