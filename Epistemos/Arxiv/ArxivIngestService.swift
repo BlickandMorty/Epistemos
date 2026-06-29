@@ -9,6 +9,10 @@ nonisolated protocol ArxivPDFDownloading: Sendable {
 
 nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
     func download(from url: URL) async throws -> URL {
+        guard ArxivPDFURLPolicy.isAllowed(url) else {
+            throw ArxivIngestError.downloadFailed(ArxivPDFURLPolicy.rejectedMessage)
+        }
+
         let (fileURL, response) = try await URLSession.shared.download(from: url)
         if let http = response as? HTTPURLResponse,
            !(200..<300).contains(http.statusCode) {

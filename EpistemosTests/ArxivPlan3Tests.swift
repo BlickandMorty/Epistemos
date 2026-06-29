@@ -35,6 +35,26 @@ struct ArxivPlan3Tests {
         #expect(paper.published != nil)
     }
 
+    @Test("rejects non-arXiv PDF URLs before download")
+    func rejectsNonArxivPDFURLs() async throws {
+        for href in [
+            "file:///tmp/private.pdf",
+            "https://example.com/pdf/2401.12345v2",
+        ] {
+            let atom = Self.atomFixture.replacingOccurrences(
+                of: "https://arxiv.org/pdf/2401.12345v2",
+                with: href)
+            #expect(try ArxivClient.parseSearchResponse(Data(atom.utf8)).isEmpty)
+        }
+
+        do {
+            _ = try await URLSessionArxivPDFDownloader().download(from: URL(fileURLWithPath: "/tmp/private.pdf"))
+            Issue.record("Expected downloader to reject a non-arXiv PDF URL before transport")
+        } catch let error as ArxivIngestError {
+            #expect(error == .downloadFailed(ArxivPDFURLPolicy.rejectedMessage))
+        }
+    }
+
     @Test("gate defaults on and honors explicit kill switch")
     func gateStatus() {
         #expect(ArxivPullGateStatus.status(environment: [:]).isActive)

@@ -41,6 +41,20 @@ nonisolated enum ArxivClientError: LocalizedError, Equatable, Sendable {
     }
 }
 
+nonisolated enum ArxivPDFURLPolicy {
+    static let rejectedMessage = "unsupported arXiv PDF URL"
+
+    static func isAllowed(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http",
+              let host = url.host?.lowercased(),
+              host == "arxiv.org" || host == "export.arxiv.org" else {
+            return false
+        }
+        return url.path.lowercased().hasPrefix("/pdf/")
+    }
+}
+
 nonisolated struct ArxivClient: Sendable {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
@@ -194,7 +208,8 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
         }
         let title = attributes["title"]?.lowercased()
         let type = attributes["type"]?.lowercased()
-        if title == "pdf" || type == "application/pdf" || href.contains("/pdf/") {
+        let looksLikePDFLink = title == "pdf" || type == "application/pdf" || href.contains("/pdf/")
+        if looksLikePDFLink && ArxivPDFURLPolicy.isAllowed(url) {
             entry.pdfURL = url
             currentEntry = entry
         }
