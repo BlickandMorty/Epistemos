@@ -37,6 +37,7 @@ You are building PLAN 2 = the Epistemos editor canonical plan. Build it deeply h
 READ FIRST (this is the canon — the PLAN doc wins over any codepack on conflict):
   - docs/research/EDITOR_CANONICAL_PLAN_2026_06_27.md  (THE plan — §0 owner decisions, §10 build sequence, §12 finalization audit, §13 recovered editor surfaces, §14 MarkEdit full-clone completeness)
   - docs/research/PROMPT_PLAN_UPGRADE_AUDIT_2026_06_29.md (stale contradiction audit after the native-unification upgrade)
+  - docs/research/PLAN_2_AGENT_HANDOFF_AUDIT_2026_06_29.md (final no-bullshit Agent 2 handoff: what changed, stale traps, owner-visible acceptance criteria)
   - Codepacks (real code + file:line): MARKEDIT_EMBED_CODEPACK, COMMAND_REGISTRY_CODEPACK, NATIVE_CONTROLS_CODEPACK, MD_SOURCE_OF_TRUTH_CODEPACK, AI_INSTRUCTIONS_AND_GRAMMAR_CODEPACK, TOLARIA_ONTOLOGY_UPGRADE_CODEPACK, GOOSE_MINICHAT_CODEPACK (all docs/research/*_2026_06_27.md)
   - Research provenance: docs/research/TOLARIA_SUPERSEDE_RESEARCH_2026_06_27.md
   - Project rules: CLAUDE.md (NON-NEGOTIABLE CONSTRAINTS, Code Standards). RESEARCH-FIRST: read before editing; verify current code/disk before asserting; tag [VERIFIED-CODE].

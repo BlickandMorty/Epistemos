@@ -43,6 +43,8 @@ and Goose Option-1 decisions.
   Source route. They now say to verify current code first, then wire/harden if still missing.
 - `MARKEDIT_EMBED_CODEPACK_2026_06_27.md` also allowed first-slice "settings inert" and "removed old editor" wording.
   It now says settings must become reachable and the v1 WebKit editor is retained as a legacy fallback.
+- `PLAN_2_AGENT_HANDOFF_AUDIT_2026_06_29.md` was added as the final Agent 2 handoff. It summarizes all Plan 2
+  doc changes, stale traps, owner-visible editor acceptance criteria, and native/theme research Agent 2 must preserve.
 - The MarkEdit visual-fidelity docs no longer exempt MD from app theming. MD preserves MarkEdit layout/chrome/settings,
   but auto-maps Epistemos light/dark/accent into the MarkEdit source surface.
 - Plan 3 prompt/doctrine wording around the PDF viewer now states the boundary precisely: Plan 3 owns parse +
