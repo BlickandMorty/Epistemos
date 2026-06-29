@@ -150,6 +150,18 @@ struct BrowserUseSettingsStoreTests {
             #expect(error.errorDescription?.contains("settings file must not be a symlink") == true)
         }
 
+        let danglingSymlink = safeDirectory.appendingPathComponent("dangling-settings.json", isDirectory: false)
+        try FileManager.default.createSymbolicLink(
+            at: danglingSymlink,
+            withDestinationURL: root.appendingPathComponent("missing-outside.json", isDirectory: false)
+        )
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: danglingSymlink).load()
+            Issue.record("Expected dangling symlinked browser-use settings file to be rejected on read")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings file must not be a symlink") == true)
+        }
+
         let outsideContents = try String(contentsOf: outsideFile, encoding: .utf8)
         #expect(outsideContents == "{\"outside\":true}\n")
     }
