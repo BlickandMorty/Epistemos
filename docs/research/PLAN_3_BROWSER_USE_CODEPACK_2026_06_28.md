@@ -92,7 +92,8 @@ exact `web-ui/webui.py --ip 127.0.0.1 --port 7788 --theme Ocean` loopback plan, 
 artifact symlink escapes before launch planning, writes the Keychain-combined launch `.env` under Application Support
 with owner-only permissions while rejecting symlinked env directories/files and symlinked parent components before
 secrets are written, launches the Pro process only after an injected loopback health probe can validate
-`http://127.0.0.1:<port>/`, terminates the launched process if the loopback health probe fails, and compiles the actual
+`http://127.0.0.1:<port>/`, keeps rejected-redirect health diagnostics origin-only so hostile Location URLs cannot echo
+credentials, query tokens, fragments, or path contents, terminates the launched process if the loopback health probe fails, and compiles the actual
 `Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
 `scripts/browser-use-pro-loopback-smoke.sh` now exercises that staged server shape outside the app host by launching the

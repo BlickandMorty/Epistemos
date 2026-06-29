@@ -469,6 +469,8 @@ struct BrowserUseRuntimeSupervisorTests {
         let differentPort = try #require(URL(string: "http://127.0.0.1:8787/"))
         let differentLoopbackHost = try #require(URL(string: "http://localhost:7788/"))
         let remote = try #require(URL(string: "https://example.com/"))
+        let remoteWithSecrets = try #require(URL(string: "https://user:pass@example.com/private/path?token=secret#frag"))
+        let differentPortWithSensitiveTail = try #require(URL(string: "http://127.0.0.1:8787/private/path?token=secret#frag"))
         let origin = try #require(BrowserUseLoopbackPolicy.origin(for: root))
 
         #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(loopback) == nil)
@@ -477,6 +479,30 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(loopback, expectedOrigin: origin) == nil)
         #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(differentPort, expectedOrigin: origin)?.contains("different loopback origin") == true)
         #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(differentLoopbackHost, expectedOrigin: origin)?.contains("different loopback origin") == true)
+
+        let remoteSecretProblem = try #require(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(remoteWithSecrets))
+        #expect(remoteSecretProblem.contains("https://example.com"))
+        #expect(!remoteSecretProblem.contains("user"))
+        #expect(!remoteSecretProblem.contains("pass"))
+        #expect(!remoteSecretProblem.contains("private"))
+        #expect(!remoteSecretProblem.contains("token"))
+        #expect(!remoteSecretProblem.contains("secret"))
+        #expect(!remoteSecretProblem.contains("frag"))
+        #expect(!remoteSecretProblem.contains("@"))
+        #expect(!remoteSecretProblem.contains("?"))
+        #expect(!remoteSecretProblem.contains("#"))
+
+        let differentPortSecretProblem = try #require(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(
+            differentPortWithSensitiveTail,
+            expectedOrigin: origin
+        ))
+        #expect(differentPortSecretProblem.contains("http://127.0.0.1:8787"))
+        #expect(!differentPortSecretProblem.contains("private"))
+        #expect(!differentPortSecretProblem.contains("token"))
+        #expect(!differentPortSecretProblem.contains("secret"))
+        #expect(!differentPortSecretProblem.contains("frag"))
+        #expect(!differentPortSecretProblem.contains("?"))
+        #expect(!differentPortSecretProblem.contains("#"))
     }
 
     @Test("start honors cancellation before launching Pro runtime")
@@ -550,6 +576,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "private static func defaultHealthProbeImpl",
             "loopbackHealthProblem(for:",
             "BrowserUseLoopbackPolicy.allows(url:",
+            "redactedURLDescription",
+            "maxURLDiagnosticLength",
             "try healthProbe(plan, shouldCancel)",
             "launchedProcess.terminate()",
             "stop()",

@@ -297,6 +297,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private static let healthProbeRequestTimeoutSeconds: TimeInterval = 1
     private static let healthProbePollIntervalSeconds: TimeInterval = 0.25
     private static let maxThemeLength = 64
+    private static let maxURLDiagnosticLength = 120
 
     private static let inheritedEnvironmentAllowlist: Set<String> = [
         "PATH",
@@ -463,7 +464,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     ) throws {
         guard BrowserUseLoopbackPolicy.allows(url: plan.loopbackURL) else {
             throw BrowserUseRuntimeSupervisorError.unavailable(
-                "browser-use Pro Web UI health probe refused non-loopback URL \(plan.loopbackURL.absoluteString)"
+                "browser-use Pro Web UI health probe refused non-loopback URL \(redactedURLDescription(plan.loopbackURL))"
             )
         }
 
@@ -482,7 +483,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         }
 
         throw BrowserUseRuntimeSupervisorError.unavailable(
-            "browser-use Pro Web UI health probe failed at \(plan.loopbackURL.absoluteString): \(lastProblem)"
+            "browser-use Pro Web UI health probe failed at \(redactedURLDescription(plan.loopbackURL)): \(lastProblem)"
         )
     }
 
@@ -544,6 +545,25 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         return "HTTP \(statusCode)"
     }
 
+    private static func redactedURLDescription(_ url: URL) -> String {
+        let sourceComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        guard let scheme = sourceComponents?.scheme ?? url.scheme,
+              let host = sourceComponents?.host ?? url.host,
+              !host.isEmpty else {
+            return "[redacted URL]"
+        }
+
+        var displayComponents = URLComponents()
+        displayComponents.scheme = scheme
+        displayComponents.host = host
+        displayComponents.port = sourceComponents?.port ?? url.port
+        let rendered = displayComponents.string ?? "\(scheme)://\(host)"
+        if rendered.count <= maxURLDiagnosticLength {
+            return rendered
+        }
+        return String(rendered.prefix(maxURLDiagnosticLength)) + "..."
+    }
+
     static func loopbackHTTPRedirectProblem(
         _ url: URL?,
         expectedOrigin: BrowserUseLoopbackOrigin? = nil
@@ -552,10 +572,10 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             return "redirected without a Location URL"
         }
         guard let origin = BrowserUseLoopbackPolicy.origin(for: url) else {
-            return "redirected to non-loopback URL \(url.absoluteString)"
+            return "redirected to non-loopback URL \(redactedURLDescription(url))"
         }
         if let expectedOrigin, origin != expectedOrigin {
-            return "redirected to different loopback origin \(url.absoluteString)"
+            return "redirected to different loopback origin \(redactedURLDescription(url))"
         }
         return nil
     }
