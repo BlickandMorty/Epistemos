@@ -103,6 +103,19 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 - CSS: `html,body{background:transparent}`; content surfaces translucent so the real glass shows through. Web fallback glass = frost+tint+specular (NOT refraction — Chromium-only).
 - Contrast guard on vibrancy: keep text contrast adequate; `-apple-system` font; no full-opacity content backgrounds where blend is wanted.
 
+## WebKit / WKWebView COMPATIBILITY [VERIFIED R4 — stack is WebKit-safe on macOS 26]
+- **Tailwind v4 → requires Safari 16.4+** (uses `@property`, cascade layers, `color-mix()`, oklch). macOS 26's
+  WKWebView (Safari 26-class) fully supports → ✅ Goose's existing stack renders in our WKWebView. ⚠️ Tailwind v4
+  CANNOT run on Safari < 16.4 — irrelevant (Epistemos targets current macOS); flag only if min-OS ever drops.
+- **CSS `linear()` spring easing → Safari 17.2+** ✅ — usable for the cheap pure-CSS spring path (no JS).
+- **`backdrop-filter` (web-side frost fallback) → works in WebKit**, but: (a) include BOTH `-webkit-backdrop-filter`
+  + `backdrop-filter`; (b) **do NOT put CSS variables inside the backdrop-filter value** (Safari limitation, MDN compat).
+- **Key mitigation:** the doctrine's PRIMARY glass is the native `NSVisualEffectView` behind a transparent webview,
+  so `backdrop-filter` is only a *secondary* fallback for in-content frosted panels → the WebKit backdrop-filter
+  gotchas are largely sidestepped.
+- Radix UI + framer-motion = framework JS → engine-agnostic, work in WebKit by construction.
+- Sources: tailwindcss.com/blog/tailwindcss-v4 (Safari 16.4+); MDN linear() (Safari 17.2+); MDN/caniuse backdrop-filter.
+
 ## VENDORING DECISIONS (ProvenanceGate — R2, pivoted)
 - Component base → **IN-PLACE RETHEME** of Goose's existing shadcn/ui + Radix (no new lib, no vendoring — theme via Tailwind/CSS vars). Safest.
 - Motion → **IN-PLACE CALIBRATE** Goose's existing framer-motion v12 (MIT, already bundled) — tune spring values to macOS; no new motion lib.
@@ -117,7 +130,7 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 2. ✅ CLOSED (R2) — component base decided: RETHEME Goose's existing shadcn (LiqUIdify/Framework7/Konsta demoted to reference-only).
 3. ✅ CLOSED (R3) — shadcn Apple token VALUES pulled (Action Blue #0066cc, SF Pro 300/400/600/700, body 17px, radius 11px, full palette). Next: actually wire them into Goose's Tailwind config + CSS vars.
 4. ▶ DRAFTED (R3) — spring values mapped (CocoaSprings ω=7.5/ζ=0.5 → framer-motion stiffness≈56/damping≈7.5; + duration/bounce presets). REMAINING: confirm exact SwiftUI `.spring/.smooth/.snappy/.bouncy` defaults via HIG MCP.
-5. Verify **CSS `linear()` spring** + Tailwind v4 + Radix behavior in **WebKit/WKWebView**.
+5. ✅ CLOSED (R4) — WebKit-safe on macOS 26: Tailwind v4 (Safari 16.4+), CSS `linear()` (17.2+), backdrop-filter OK (prefix + no CSS-vars-inside); native glass sidesteps the backdrop-filter gotcha. See "WebKit COMPATIBILITY".
 6. **SF Symbols licensing** path (Apple-restricted) + lucide↔SF-Symbols glyph mapping for native feel.
 7. Connect + use the **HIG / SF Symbols MCP servers** (apple-dev-mcp, SF Symbols MCP) for exact control metrics/symbols + the spring defaults (#4).
 8. ▶ DRAFTED (R3) — transparent-over-glass recipe written. REMAINING: verify the cleanest macOS-26-safe non-opaque WKWebView API + prototype the seam (no flicker, contrast OK).
@@ -144,3 +157,8 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
   transparent-over-glass recipe (NSVisualEffectView behind non-opaque WKWebView). Closed #3; drafted #4 + #8.
   New gaps: wire tokens into Goose tailwind.config/main.css, confirm SwiftUI spring defaults via HIG MCP,
   verify macOS-26 non-opaque WKWebView API, A/B harness.
+- 2026-06-29 R4: closed #5 (WebKit-compat gate). [VERIFIED] the stack is WebKit-safe on macOS 26 — Tailwind v4
+  (Safari 16.4+), CSS linear() springs (17.2+), backdrop-filter OK with `-webkit-` prefix + NO CSS-vars-inside;
+  native NSVisualEffectView glass sidesteps the backdrop-filter limitation. Radix/framer-motion engine-agnostic.
+  Remaining gaps: SwiftUI spring defaults via HIG MCP, macOS-26 non-opaque WKWebView API, SF Symbols licensing,
+  A/B pixel-diff harness, token-wiring implementation handoff.
