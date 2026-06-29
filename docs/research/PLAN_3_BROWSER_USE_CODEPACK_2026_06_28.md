@@ -73,6 +73,9 @@ the browser-use gate plus staged payload artifacts, builds the exact `web-ui/web
 permissions, and compiles the actual `Process()` launch only in `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
 Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload when present, then falls back to the
 development source checkout layout, so Settings and launch planning resolve the same packaged Pro artifact.
+The launched Python/Chromium process inherits only a small POSIX environment allowlist (PATH/HOME/locale/temp/user
+basics); provider keys, proxy credentials, DYLD/PYTHON injection vectors, and the Pro gate flag are rendered only from
+typed settings plus Keychain-backed secret bindings.
 App Store builds return an honest unavailable readiness and keep the native Browser tab separate.
 `EpistemosTests/BrowserUseRuntimeSupervisorTests.swift` verifies packaged/unpackaged readiness, loopback launch-plan
 shape, Keychain environment propagation, secure `.env` file permissions, and source boundaries.
@@ -241,7 +244,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Runtime launch contract test: `BrowserUseRuntimeSupervisorTests.swift` keeps unpackaged payloads inactive, proves the
   staged launch plan uses `web-ui/webui.py`, loopback `127.0.0.1`, Keychain-combined environment values, and owner-only
   launch `.env` permissions, verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery,
-  and verifies the subprocess branch is Pro-only.
+  verifies ambient process secrets/injection variables are not inherited, and verifies the subprocess branch is Pro-only.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
   non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
   navigation, tears down delegates, and proves it does not reference native Browser, Goose/Agent, or Plan 2 editor/PDF

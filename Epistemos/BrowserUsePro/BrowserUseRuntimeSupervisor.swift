@@ -182,6 +182,19 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
 }
 
 nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
+    private static let inheritedEnvironmentAllowlist: Set<String> = [
+        "PATH",
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "TMPDIR",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "TERM",
+        "TZ",
+    ]
+
     private let paths: BrowserUseRuntimePaths
     private let secretStore: BrowserUseSecretStore
     private let fileManager: FileManager
@@ -346,7 +359,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             settings: settings,
             secretStore: secretStore
         )
-        let environment = processEnvironment.merging(browserUseEnvironment) { _, new in new }
+        let inheritedEnvironment = inheritedRuntimeEnvironment(from: processEnvironment)
+        let environment = inheritedEnvironment.merging(browserUseEnvironment) { _, new in new }
         let environmentFileContents = BrowserUseEnvironmentRenderer.render(
             settings: settings,
             secretStore: secretStore
@@ -368,6 +382,15 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             environmentFileContents: environmentFileContents
         ))
         #endif
+    }
+
+    private static func inheritedRuntimeEnvironment(from processEnvironment: [String: String]) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: processEnvironment.compactMap { key, value in
+            guard inheritedEnvironmentAllowlist.contains(key), !value.isEmpty else {
+                return nil
+            }
+            return (key, value)
+        })
     }
 
     private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [(name: String, url: URL)] {

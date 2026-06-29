@@ -55,6 +55,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("WKWebView loopback shell landed"))
         #expect(codepack.contains("Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload"))
         #expect(codepack.contains("verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery"))
+        #expect(codepack.contains("inherits only a small POSIX environment allowlist"))
+        #expect(codepack.contains("verifies ambient process secrets/injection variables are not inherited"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("Behavior test"))
@@ -277,6 +279,8 @@ struct BrowserUseCodepackPlan3Tests {
             "wheelhouse",
             "Playwright Chromium payload",
             "BrowserUseEnvironmentRenderer.dictionary",
+            "inheritedEnvironmentAllowlist",
+            "inheritedRuntimeEnvironment(from:",
             ".posixPermissions: 0o700",
             ".posixPermissions: 0o600",
             "--ip",

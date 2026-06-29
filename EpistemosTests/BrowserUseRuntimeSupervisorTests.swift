@@ -40,6 +40,9 @@ struct BrowserUseRuntimeSupervisorTests {
             processEnvironment: [
                 BrowserUseProGateStatus.flagName: "1",
                 "PATH": "/usr/bin",
+                "OPENAI_API_KEY": "ambient-should-not-leak",
+                "DYLD_INSERT_LIBRARIES": "/tmp/injected.dylib",
+                "PYTHONPATH": "/tmp/python-inject",
             ],
             host: "127.0.0.1",
             port: 7878,
@@ -67,6 +70,9 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(plan.environment["BROWSER_USE_PROXY_URL"] == "http://proxy.example.com:8080")
         #expect(plan.environment["OPENAI_API_KEY"] == "sk-runtime")
         #expect(plan.environment["PATH"] == "/usr/bin")
+        #expect(plan.environment[BrowserUseProGateStatus.flagName] == nil)
+        #expect(plan.environment["DYLD_INSERT_LIBRARIES"] == nil)
+        #expect(plan.environment["PYTHONPATH"] == nil)
         #expect(plan.environmentFileContents.contains("OPENAI_API_KEY=sk-runtime\n"))
         #expect(!plan.environmentFileURL.path.contains("agent_core/vendor/browser-use"))
     }
@@ -213,6 +219,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseRuntimePaths",
             "BrowserUseRuntimeLaunchPlan",
             "BrowserUseEnvironmentFileWriter",
+            "inheritedEnvironmentAllowlist",
+            "inheritedRuntimeEnvironment(from:",
             "resourceRootURL: URL? = Bundle.main.resourceURL",
             "appendingPathComponent(\"BrowserUsePro\", isDirectory: true)",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
