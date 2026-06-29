@@ -164,7 +164,8 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   directories. Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true` before invoking the adapter, so browser-use
   cannot re-interpolate ambient `.env` values on this path. For screenshot commands, the adapter receives
   `AGENT_BROWSER_SCREENSHOT_DIR` and rejects requested or returned screenshot paths that resolve outside that private
-  directory; it also rejects multiple screenshot output paths before runtime import. More generally, command-specific
+  directory; if browser-use returns base64 image bytes instead of a saved file for a requested path, the adapter writes only
+  valid PNG bytes into the confined path. It also rejects multiple screenshot output paths before runtime import. More generally, command-specific
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Extra positional
   arguments and unexpected console/error flags are rejected before daemon startup. The console/errors compatibility
