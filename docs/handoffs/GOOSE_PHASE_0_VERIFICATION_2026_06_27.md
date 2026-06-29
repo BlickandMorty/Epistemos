@@ -1085,6 +1085,18 @@ WebView→native prompt bridge (`GooseWebNativePromptBridge` — promptID-matchi
 security/honesty + no-silent-ACP-drops gates are now confirmed at the code level
 across every security-critical Goose Swift file (7 files, 0 defects).
 
+Review of the WebView↔native trust setup (`GooseWebBootShim`, 635 lines — injects
+`window.electron` + the ACP `{baseURL, secretKey, acpUrl}`), **no defects**: the config
+payload is injected via `JSONSerialization` (validated, `.sortedKeys`) — NOT string
+interpolation — so secret/URL values are JSON-escaped and cannot break out into
+injectable JS; the exposed object is `Object.freeze`d against WebView mutation.
+Exposing the goose-SERVER secret to the WebView (`getSecretKey`) is by-design — the
+`@/api` client needs it to authenticate to local `goose serve`, the WebView is
+nav-gated to loopback/custom-scheme only (see nav-gate review), and it is the local
+server secret, not a provider API key (those stay in Keychain). **8 security-critical
+Goose files reviewed this loop, 0 defects** — every trust boundary (subprocess args,
+env, ACP decode, nav, Keychain, both WebView→native bridges, WebView trust setup).
+
 ### Recursive proof — deterministic layer: THREE consecutive clean passes
 
 The directive's recursive proof ("two more repeat passes with no code changes = three
