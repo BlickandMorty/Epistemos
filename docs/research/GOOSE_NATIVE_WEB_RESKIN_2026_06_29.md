@@ -154,7 +154,8 @@ Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS 
 9. Build the **A/B pixel-diff harness** (native control vs rethemed Goose control) — gates every `[VERIFIED]`.
 10. ✅ CLOSED (R7) — exact retheme handoff found: edit `ui/desktop/src/theme/theme-tokens.ts` (typed token source) + `src/styles/main.css` :root/.dark. Set SF Pro font, body 16→17px, radius 0→11px (Goose ships SHARP corners today), Apple #0066cc palette. cssVariables:true → restyles all shadcn primitives at once. See "THEME RETHEME HANDOFF".
 11. ✅ CLOSED (R8) — copy-ready macOS CSS for the 3 geometry-sensitive primitives (switch / segmented-tabs / popup-select), targeting Goose's real markup. See "PER-COMPONENT macOS CSS".
-12. ▶ OPEN (the last gate) — the **A/B pixel-diff harness** (#9): render a rethemed Goose control beside the native equivalent, screenshot, diff; gates every component to [VERIFIED]. After this, research → implementation handoff is complete.
+12. ✅ CLOSED (R9) — A/B pixel-diff harness SPECCED (WKWebView.takeSnapshot + SwiftUI ImageRenderer → pixelmatch/odiff → gate ≤~2% across light/dark/states; dev-only). See "A/B PIXEL-DIFF HARNESS — spec".
+═══ ALL RESEARCH GAPS CLOSED ═══ The reskin research is functionally COMPLETE. Remaining = pure IMPLEMENTATION (owned by the Plan-1 build agent): apply the theme-tokens.ts retheme + per-component macOS CSS, build, run the harness to flip components to [VERIFIED]. The loop now shifts to a COMPLETENESS-CRITIC cadence: re-verify nothing drifted + extend the same recipe to the editor (Plan 2) / Plan-3 web bodies, until owner says stop.
 
 ## INTEGRATION NOTES
 - Build-time vendor via `build-tiptap-bundle.sh` model → `Resources/` → served via `WKURLSchemeHandler`. No runtime npm.
@@ -219,7 +220,31 @@ Goose now: List `rounded-[6px]`. macOS-tune: List = inset pill group on `--color
 macOS popup-button: trigger = `rounded-[7px]` 1px border + a trailing up/down chevron (lucide `ChevronsUpDown`, sized ~13px) right-aligned; menu (Content) = vibrancy surface (transparent-over-glass), radius 9px, item highlight = accent (`bg-[var(--color-accent)] text-white`); present = `.snappy` spring (scale 0.96→1 + opacity). 
 ProvenanceGate: all = in-place className/CSS edits to Goose's OWN primitives (no new lib). License = Goose (Apache-2.0).
 
+## ★ A/B PIXEL-DIFF HARNESS — spec (R9, the perfect-blending gate; DEV-ONLY, not shipped)
+Gates every component to `[VERIFIED]`: render the rethemed Goose control beside the native AppKit equivalent,
+diff, pass only if indistinguishable. Concrete design (all in-repo APIs + MIT tooling):
+- **CAPTURE (identical geometry/scale/theme/state):**
+  - Native control → SwiftUI `ImageRenderer` (or `NSView.cacheDisplay(in:to:)` / `bitmapImageRepForCachingDisplay`)
+    of the equivalent AppKit control (NSSwitch / NSSegmentedControl / NSButton / NSPopUpButton …).
+  - Web control → **`WKWebView.takeSnapshot(with:completionHandler:)`** (returns an NSImage of the exact web region;
+    native API, no extra dep) of the rethemed Goose primitive in isolation.
+  - MATCH: same point size, same `backingScaleFactor` (2×), same light AND dark, same state (default/hover/
+    pressed/checked/disabled/focused).
+- **NORMALIZE:** crop to control bounds; identical pixel dims; same backdrop (both transparent over the same glass swatch).
+- **DIFF:** **pixelmatch** (MIT, pure-JS, default) — swap to **odiff** (SIMD, ~6–8× faster, Node API; verify license)
+  if speed bottlenecks. Emit a highlighted diff image + mismatch %.
+- **GATE:** component flips to `[VERIFIED]` only when mismatch ≤ ~2% at matched geometry **across light+dark+all
+  states**. HONESTY: WebKit-vs-native text antialiasing differs sub-pixel (the ~2% allowance covers it) — but
+  geometry/color/spacing mismatch must be ≈0. Report PER-STATE so you see which state fails.
+- **WHERE:** dev-only script / test target (NOT shipped); reuse the build-time bundle infra; never runtime npm in the app.
+- Sources: WKWebView.takeSnapshot (Apple docs); pixelmatch (mapbox, MIT); odiff (dmtrKovalenko, SIMD).
+
 ## CHANGELOG
+- 2026-06-29 R9: closed the LAST gate (#9/#12) — specced the A/B pixel-diff harness (capture via
+  WKWebView.takeSnapshot + SwiftUI ImageRenderer; normalize; diff via pixelmatch/odiff; gate ≤~2% across
+  light/dark/states, per-state report; dev-only). RESEARCH IS NOW FUNCTIONALLY COMPLETE — every gap closed with
+  openable code/spec; remaining work is pure IMPLEMENTATION (apply the theme-tokens.ts retheme + per-component CSS,
+  then run the harness to flip components to [VERIFIED]).
 - 2026-06-29 R8: code-research — copy-ready macOS CSS for the 3 geometry-sensitive primitives, targeting Goose's
   REAL markup: Switch (switch.tsx: 16×28→22×38 track, 12→18px knob, accent ON, .snappy knob spring), Segmented/
   Tabs (tabs.tsx: inset pill group + framer-motion layoutId slide), Select (popup-button + chevron + vibrancy menu
