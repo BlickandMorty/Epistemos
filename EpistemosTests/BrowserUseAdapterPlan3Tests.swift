@@ -70,6 +70,8 @@ struct BrowserUseAdapterPlan3Tests {
             "fill accepts exactly a ref and text",
             "\"typed\": True",
             "\"typed_chars\": len(text)",
+            "\"pressed\": True",
+            "\"key_chars\": len(key)",
             "console does not accept argument",
             "console/errors compatibility stubs avoid browser-use runtime import",
             "return success({\"messages\": []})",
@@ -95,6 +97,7 @@ struct BrowserUseAdapterPlan3Tests {
         #expect(!source.contains("setdefault(\"BROWSER_USE_HOME\""))
         #expect(!source.contains("prepare_runtime_environment()\n\n    if command == \"close\""))
         #expect(!source.contains("\"typed\": text"))
+        #expect(!source.contains("\"pressed\": key"))
 
         let contractIndex = try #require(source.range(of: "if command == \"contract\"")?.lowerBound)
         let prepareIndex = try #require(source.range(of: "prepare_runtime_environment()")?.lowerBound)
@@ -166,6 +169,9 @@ struct BrowserUseAdapterPlan3Tests {
             "\"typed\": true",
             "\"typed_chars\"",
             "browser_type_result_does_not_echo_typed_text",
+            "\"pressed\": true",
+            "\"key_chars\"",
+            "browser_press_result_does_not_echo_key_text",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }

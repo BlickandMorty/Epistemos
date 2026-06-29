@@ -327,7 +327,8 @@ async fn press_impl(manager: &BrowserManager, input: &Value) -> Result<Value, To
     manager.run_existing("press", &[key.to_string()]).await?;
     Ok(json!({
         "success": true,
-        "pressed": key,
+        "pressed": true,
+        "key_chars": key.chars().count(),
     }))
 }
 
@@ -846,6 +847,30 @@ esac
         let parsed: Value = serde_json::from_str(&output).unwrap();
         assert_eq!(parsed["typed"], json!(true));
         assert_eq!(parsed["typed_chars"], json!(18));
+        assert!(!output.contains("sk-secret-password"));
+    }
+
+    #[tokio::test]
+    async fn browser_press_result_does_not_echo_key_text() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+
+        let manager = BrowserManager::new();
+        BrowserActionHandler::new(manager.clone(), BrowserAction::Navigate)
+            .execute(&json!({ "url": "https://example.com/login" }))
+            .await
+            .unwrap();
+        let output = BrowserActionHandler::new(manager, BrowserAction::Press)
+            .execute(&json!({
+                "key": "sk-secret-password"
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["pressed"], json!(true));
+        assert_eq!(parsed["key_chars"], json!(18));
         assert!(!output.contains("sk-secret-password"));
     }
 
