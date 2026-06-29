@@ -239,8 +239,9 @@ targets:
 
 ## 6. Risks / do-avoid
 Risks: (1) verify ts-gyb `bridge.core.*` selectors vs vendored `Bridge/Web/Generated/` first; (2)
-`AppKitExtensions` symbol clashes; (3) two competing chromes if drifting to Option B — keep the swap to one
-seam; (4) MAS entitlement leakage — never sign with MarkEdit's `Info.entitlements`; (5) 3rd WKWebView family
+`AppKitExtensions` symbol clashes; (3) MarkEdit chrome is now used for BOTH code + markdown (L3-CHROME REVISED) —
+the risk is LOSING grafted v1 affordances (preview button/LSP/Outline), so verify each is wired into MarkEdit's
+chrome; (4) MAS entitlement leakage — never sign with MarkEdit's `Info.entitlements`; (5) 3rd WKWebView family
 memory — route through the pressure handler; (6) CoreEditor vite/yarn must run before xcodebuild (lock-hash gate).
 DO: vendor under `LocalPackages/MarkEdit/`, keep MIT `LICENSE`, ProvenanceGate clean-import; keep CoreEditor (updated
 decision); keep Epdoc as the note editor. AVOID: 2nd `@main`/`NSDocumentController`, hand-editing `.xcodeproj`,
