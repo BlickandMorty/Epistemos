@@ -10,6 +10,8 @@ import WebKit
 
 @Suite("Plan 3 browser-use Web UI shell")
 struct BrowserUseWebUIViewTests {
+    private static let gradioDryRunSubmitMarker = "Epistemos browser-use WebUI dry-run task-submit complete"
+
     @Test("loopback guard allows only local Gradio URLs")
     func loopbackGuardAllowsOnlyLocalGradioURLs() {
         #expect(BrowserUseLoopbackGuard.allows(url: URL(string: "http://127.0.0.1:7788/")))
@@ -125,24 +127,70 @@ struct BrowserUseWebUIViewTests {
         #expect(controlsText.contains("Submit Task"))
 
         let taskText = "Open a local dry-run fixture without submitting."
-        let filledTask = try await evaluateString(
-            """
-            (() => {
-              const task = '\(taskText)';
-              const textarea = document.querySelector('#user_input textarea') || document.querySelector('textarea');
-              if (!textarea) { return 'missing textarea'; }
-              const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-              setter.call(textarea, task);
-              textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: task }));
-              textarea.dispatchEvent(new Event('change', { bubbles: true }));
-              return textarea.value || '';
-            })()
-            """,
-            in: webView
-        )
-        #expect(filledTask == taskText)
+        #expect(try await fillGradioTask(taskText, in: webView) == taskText)
 
         let remoteURL = try #require(URL(string: "http://example.com:7788/browser-use-gradio-webview-smoke"))
+        webView.load(URLRequest(url: remoteURL))
+        try await waitUntil { blockedURL?.host == "example.com" }
+        #expect(blockedURL == remoteURL)
+        #expect(webView.url?.host == "127.0.0.1")
+    }
+
+    @Test("WKWebView smoke submits real Gradio dry-run task")
+    @MainActor
+    func wkWebViewSubmitsRealGradioDryRunTask() async throws {
+        let port = try await freeLoopbackPort()
+        let smoke = try BrowserUseGradioWebUISmokeProcess(
+            repoRoot: repositoryRoot(),
+            port: port,
+            dryRunSubmit: true
+        )
+        try smoke.start()
+        defer { smoke.stop() }
+        try await smoke.waitUntilReady()
+
+        var blockedURL: URL?
+        let hostingView = NSHostingView(
+            rootView: BrowserUseLoopbackWebView(url: smoke.loopbackURL) { url in
+                blockedURL = url
+            }
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 960, height: 720)
+
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        defer { window.close() }
+
+        let webView = try await waitForWebView(in: hostingView)
+        #expect(!webView.configuration.websiteDataStore.isPersistent)
+
+        _ = try await waitForBodyText(
+            in: webView,
+            containing: "Browser Use WebUI",
+            attempts: 400
+        )
+        _ = try await waitForGradioRunAgentControls(in: webView)
+
+        let taskText = "Epistemos no-provider dry-run submit smoke."
+        #expect(try await fillGradioTask(taskText, in: webView) == taskText)
+        let submitClickResult = try await clickGradioSubmitTask(in: webView)
+        #expect(submitClickResult.contains("Submit Task"))
+
+        let completedText = try await waitForBodyText(
+            in: webView,
+            containing: Self.gradioDryRunSubmitMarker,
+            attempts: 600
+        )
+        #expect(completedText.contains(taskText))
+        #expect(completedText.contains(Self.gradioDryRunSubmitMarker))
+        #expect(webView.url?.host == "127.0.0.1")
+
+        let remoteURL = try #require(URL(string: "http://example.com:7788/browser-use-gradio-submit-smoke"))
         webView.load(URLRequest(url: remoteURL))
         try await waitUntil { blockedURL?.host == "example.com" }
         #expect(blockedURL == remoteURL)
@@ -337,6 +385,59 @@ struct BrowserUseWebUIViewTests {
     }
 
     @MainActor
+    private func fillGradioTask(_ taskText: String, in webView: WKWebView) async throws -> String {
+        let taskLiteral = try javaScriptStringLiteral(taskText)
+        return try await evaluateString(
+            """
+            (() => {
+              const task = \(taskLiteral);
+              const textarea = document.querySelector('#user_input textarea') || document.querySelector('textarea');
+              if (!textarea) { return 'missing textarea'; }
+              const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+              setter.call(textarea, task);
+              textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: task }));
+              textarea.dispatchEvent(new Event('change', { bubbles: true }));
+              return textarea.value || '';
+            })()
+            """,
+            in: webView
+        )
+    }
+
+    @MainActor
+    private func clickGradioSubmitTask(in webView: WKWebView) async throws -> String {
+        try await evaluateString(
+            """
+            (() => {
+              const textFor = (element) => (element.innerText || element.textContent || '').replace(/\\s+/g, ' ').trim();
+              const visible = (element) => !element.closest('.visually-hidden')
+                && element.getClientRects().length > 0
+                && getComputedStyle(element).visibility !== 'hidden';
+              const button = Array.from(document.querySelectorAll('button'))
+                .filter((element) => {
+                  const text = textFor(element);
+                  return visible(element) && text.endsWith('Submit Task') && !text.includes('Submit Response');
+                })[0];
+              if (!button) { return 'missing Submit Task'; }
+              button.scrollIntoView({ block: 'center', inline: 'center' });
+              button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
+              button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+              button.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+              button.click();
+              return textFor(button);
+            })()
+            """,
+            in: webView
+        )
+    }
+
+    private func javaScriptStringLiteral(_ text: String) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: [text])
+        let arrayLiteral = try #require(String(data: data, encoding: .utf8))
+        return String(arrayLiteral.dropFirst().dropLast())
+    }
+
+    @MainActor
     private func evaluateString(_ javaScript: String, in webView: WKWebView) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             webView.evaluateJavaScript(javaScript) { value, error in
@@ -410,7 +511,7 @@ private nonisolated final class BrowserUseGradioWebUISmokeProcess: @unchecked Se
     private let logURL: URL
     private let stateRoot: URL
 
-    init(repoRoot: URL, port: Int) throws {
+    init(repoRoot: URL, port: Int, dryRunSubmit: Bool = false) throws {
         let fileManager = FileManager.default
         let vendorRoot = repoRoot.appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)
         let python = repoRoot.appendingPathComponent("build/browser-use-pro/.venv/bin/python")
@@ -463,7 +564,7 @@ private nonisolated final class BrowserUseGradioWebUISmokeProcess: @unchecked Se
         process.currentDirectoryURL = stateRoot
         process.standardOutput = logHandle
         process.standardError = logHandle
-        process.environment = [
+        var environment = [
             "HOME": stateRoot.appendingPathComponent("home", isDirectory: true).path,
             "BROWSER_USE_HOME": stateRoot.appendingPathComponent("browser-use-home", isDirectory: true).path,
             "PLAYWRIGHT_BROWSERS_PATH": playwright.path,
@@ -476,6 +577,10 @@ private nonisolated final class BrowserUseGradioWebUISmokeProcess: @unchecked Se
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
             "TMPDIR": fileManager.temporaryDirectory.path,
         ]
+        if dryRunSubmit {
+            environment["EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT"] = "1"
+        }
+        process.environment = environment
     }
 
     func start() throws {

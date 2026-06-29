@@ -11,14 +11,18 @@ struct BrowserUseCodepackPlan3Tests {
         )
 
         #expect(plan.contains("browser-use vendor codepack and staged"))
-        #expect(plan.contains("final signed Pro packaging and full UI smoke still remaining"))
+        #expect(plan.contains("final signed Pro packaging still remaining"))
+        #expect(plan.contains("task-submit dry-run UI smokes have landed"))
         #expect(plan.contains("vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed"))
         #expect(codepack.contains("staged Pro code"))
         #expect(codepack.contains("This records the landed Pro-only vendor/runtime staging lane"))
         #expect(codepack.contains("Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`"))
         #expect(codepack.contains("A local WKWebView fixture dry-run shell smoke also landed"))
         #expect(codepack.contains("A real Gradio WKWebView shell/control smoke also landed"))
-        #expect(codepack.contains("Still pending: signing/notarization into final Pro resources and full real Gradio WKWebView task-submit smoke"))
+        #expect(codepack.contains("A full real Gradio WKWebView task-submit smoke also landed"))
+        #expect(codepack.contains("EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT"))
+        #expect(codepack.contains("Still pending: signing/notarization into final Pro resources"))
+        #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and full real Gradio WKWebView task-submit smoke"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and live browser tool smoke"))
         #expect(codepack.contains("web_ui_runtime_compatibility"))
         #expect(codepack.contains("upstream browser-use source pin and file count remain separately auditable"))
@@ -117,7 +121,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Loopback server smoke harness"))
         #expect(codepack.contains("local WKWebView fixture dry-run shell smoke also landed"))
         #expect(codepack.contains("real Gradio WKWebView shell/control smoke also landed"))
-        #expect(codepack.contains("full real Gradio WKWebView task-submit smoke still pending"))
+        #expect(codepack.contains("real Gradio WKWebView shell/control plus task-submit dry-run smokes landed"))
         #expect(codepack.contains("optional LangChain MCP/provider packages are no longer imported at UI module load"))
         #expect(codepack.contains("Gradio 6 `buttons=[\"copy\"]` API"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
@@ -128,7 +132,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("wheelhouse, and Chromium payload landed"))
         #expect(codepack.contains("live browser-use fixture smoke landed"))
         #expect(codepack.contains("This is landed, but it is not a WKWebView or task-submit smoke"))
-        #expect(codepack.contains("Full task-submit smoke still pending"))
+        #expect(codepack.contains("Full task-submit smoke landed"))
+        #expect(codepack.contains("web_ui_dry_run_submit"))
     }
 
     @Test("browser-use plan preserves browser settings and MAS boundary")
@@ -426,13 +431,18 @@ struct BrowserUseCodepackPlan3Tests {
         }
     }
 
-    @Test("browser-use Web UI tests cover real Gradio shell smoke without task submit")
-    func browserUseWebUITestsCoverRealGradioShellSmokeWithoutTaskSubmit() throws {
+    @Test("browser-use Web UI tests cover real Gradio shell and task-submit dry-run smokes")
+    func browserUseWebUITestsCoverRealGradioShellAndTaskSubmitDryRunSmokes() throws {
         let tests = try Self.loadSource("EpistemosTests/BrowserUseWebUIViewTests.swift")
 
         for required in [
             "BrowserUseGradioWebUISmokeProcess",
             "wkWebViewLoadsRealGradioShellControlsWithoutSubmitting",
+            "wkWebViewSubmitsRealGradioDryRunTask",
+            "dryRunSubmit: true",
+            "EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT",
+            "Epistemos browser-use WebUI dry-run task-submit complete",
+            "clickGradioSubmitTask",
             "web-ui/webui.py",
             "--ip",
             "127.0.0.1",
@@ -449,6 +459,7 @@ struct BrowserUseCodepackPlan3Tests {
             "Submit Task",
             "document.querySelector('#user_input textarea')",
             "http://example.com:7788/browser-use-gradio-webview-smoke",
+            "http://example.com:7788/browser-use-gradio-submit-smoke",
         ] {
             #expect(tests.contains(required), "Missing browser-use Web UI real Gradio smoke string: \(required)")
         }
@@ -513,6 +524,7 @@ struct BrowserUseCodepackPlan3Tests {
         let packaging = try #require(manifest["packaging_artifacts"] as? [String: Any])
         let agentBrowserAdapter = try #require(packaging["agent_browser_adapter"] as? [String: Any])
         let webUIRuntimeCompatibility = try #require(packaging["web_ui_runtime_compatibility"] as? [String: Any])
+        let webUIDryRunSubmit = try #require(packaging["web_ui_dry_run_submit"] as? [String: Any])
         let buildScript = try #require(packaging["build_script"] as? [String: Any])
         let buildManifest = try #require(packaging["build_manifest"] as? [String: Any])
         let requirementsLock = try #require(packaging["requirements_lock"] as? [String: Any])
@@ -528,6 +540,16 @@ struct BrowserUseCodepackPlan3Tests {
                 atPath: try Self.sourceURL("agent_core/vendor/browser-use/\(relativePath)").path
             ))
         }
+        #expect(webUIDryRunSubmit["status"] as? String == "landed")
+        #expect(
+            webUIDryRunSubmit["expected_path"] as? String
+                == "web-ui/src/webui/components/browser_use_agent_tab.py"
+        )
+        #expect(webUIDryRunSubmit["env_var"] as? String == "EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT")
+        #expect(
+            webUIDryRunSubmit["marker"] as? String
+                == "Epistemos browser-use WebUI dry-run task-submit complete"
+        )
         #expect(buildScript["status"] as? String == "landed")
         #expect(buildScript["expected_path"] as? String == "build-pro-payload.sh")
         #expect(buildManifest["status"] as? String == "generated")
@@ -711,6 +733,15 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(llmProvider.contains("def _missing_provider_class"))
         #expect(llmProvider.contains("is not staged in the browser-use Pro payload"))
         #expect(agentTab.contains("buttons=[\"copy\"]"))
+        #expect(agentTab.contains("EPISTEMOS_DRY_RUN_SUBMIT_ENV"))
+        #expect(agentTab.contains("EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT"))
+        #expect(agentTab.contains("Epistemos browser-use WebUI dry-run task-submit complete"))
+        #expect(agentTab.contains("if _epistemos_dry_run_submit_enabled():"))
+        let dryRunHook = try #require(agentTab.range(of: "if _epistemos_dry_run_submit_enabled():"))
+        let llmSetup = try #require(agentTab.range(of: "main_llm = await _initialize_llm"))
+        let browserSetup = try #require(agentTab.range(of: "Launching new browser instance."))
+        #expect(dryRunHook.lowerBound < llmSetup.lowerBound)
+        #expect(dryRunHook.lowerBound < browserSetup.lowerBound)
         #expect(!agentTab.contains("type=\"messages\""))
         #expect(!agentTab.contains("show_copy_button"))
         #expect(!webUIManager.contains("type=\"messages\""))

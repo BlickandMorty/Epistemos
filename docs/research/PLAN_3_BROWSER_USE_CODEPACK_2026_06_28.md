@@ -39,7 +39,8 @@ The full source trees are now staged under `agent_core/vendor/browser-use/` with
 hash, upstream file count, included path families, excluded `.git`, `full_clone: true`, and the MAS SourceMirror
 exclusion. It also records the Epistemos `web_ui_runtime_compatibility` overlay: narrow browser-use compatibility shims
 for old web-ui imports (`browser_use.browser.browser`, `browser_use.browser.context`, `browser_use.controller.*`) while
-the upstream browser-use source pin and file count remain separately auditable.
+the upstream browser-use source pin and file count remain separately auditable. The manifest separately records
+`web_ui_dry_run_submit`, the opt-in no-provider hook used only by the real Gradio WKWebView task-submit smoke.
 `agent_core/vendor/browser-use/requirements.in` installs local editable `./browser-use` and `./cdp-use`, then repeats
 web-ui dependencies while overriding stale pins that conflict with the vendored `browser-use` 0.13.2 tree:
 `browser-use==0.1.48` is replaced by the local source, `gradio==5.27.0` is raised to `6.19.0` for Pillow 12.2.0
@@ -59,8 +60,10 @@ child process. A local WKWebView fixture dry-run shell smoke also landed: it loa
 non-persistent shell, submits a no-provider fixture action, and verifies non-loopback navigation blocking. A real
 Gradio WKWebView shell/control smoke also landed: it starts the staged loopback Gradio server, loads it in the
 non-persistent shell, opens the Run Agent tab, fills the task box without clicking Submit, and verifies non-loopback
-navigation blocking. Still pending: signing/notarization into final Pro resources and full real Gradio WKWebView
-task-submit smoke. The
+navigation blocking. A full real Gradio WKWebView task-submit smoke also landed with the Epistemos-only
+`EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT` no-provider hook: it clicks the real Submit Task event, completes before
+LLM/provider/browser setup, observes the deterministic `Epistemos browser-use WebUI dry-run task-submit complete` marker,
+and verifies non-loopback navigation blocking. Still pending: signing/notarization into final Pro resources. The
 manifest marks the build script and adapter contract as `landed`, and marks the generated lock/build manifest,
 wheelhouse, and Playwright payload as staged instead of pretending the signed Pro package exists.
 
@@ -271,7 +274,7 @@ New Plan 3 files should live outside Plan 1/Plan 2 ownership, for example:
   fixture smoke landed.**
 - `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` — WKWebView shell for the loopback Gradio UI with honest status.
   **Loopback guard, user-initiated shell, local WKWebView fixture dry-run shell smoke, and real Gradio WKWebView
-  shell/control smoke landed; full real Gradio WKWebView task-submit smoke still pending.**
+  shell/control plus task-submit dry-run smokes landed.**
 - `Epistemos/Views/Settings/BrowserUseSettingsView.swift` — settings mirror + diagnostics.
 
 Do not edit `Epistemos/Goose/*`, `Epistemos/Agent/*`, or Plan 2 editor surfaces for the Pro shell. Goose access should
@@ -329,14 +332,15 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   loopback root URL, writes non-secret `result.json`/`webui.log` evidence, and kills the child process on pass, timeout,
   or early exit. This is landed, but it is not a WKWebView or task-submit smoke.
 - Web-ui compatibility guard: the vendor manifest must record the Epistemos overlay shims separately from upstream
-  source counts; the pinned web-ui must import/build a Gradio Blocks object without eager LangChain MCP/provider package
-  imports; and the staged Gradio 6 Chatbot constructor must not use removed `type="messages"` or `show_copy_button`
-  parameters.
+  source counts, including the `web_ui_dry_run_submit` no-provider hook; the pinned web-ui must import/build a Gradio
+  Blocks object without eager LangChain MCP/provider package imports; and the staged Gradio 6 Chatbot constructor must not
+  use removed `type="messages"` or `show_copy_button` parameters.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
   non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
   navigation, loads a local loopback fixture, submits a no-provider fixture action, starts the staged real Gradio UI,
-  opens its Run Agent tab, fills the task input without submitting, tears down delegates/processes, and proves it does
-  not reference native Browser, Goose/Agent, or Plan 2 editor/PDF surfaces.
+  opens its Run Agent tab, fills the task input without submitting, submits a separate no-provider dry-run task through
+  the real Gradio Submit Task event, tears down delegates/processes, and proves it does not reference native Browser,
+  Goose/Agent, or Plan 2 editor/PDF surfaces.
 - Adapter source test: `BrowserUseAdapterPlan3Tests.swift` verifies `epistemos_agent_browser.py` supports the existing
   `agent-browser --json` command set, delegates to `browser_use.skill_cli` only after runtime commands begin, keeps
   session files under `AGENT_BROWSER_SOCKET_DIR`/`BROWSER_USE_HOME`, keeps console/errors compatibility stubs runtime
@@ -344,8 +348,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   references.
 - Python lock test after script execution: `browser-use`, `web-ui`, and `cdp-use` import from vendored/local paths;
   stale `browser-use==0.1.48` from web-ui is not installed.
-- Full task-submit smoke still pending: submit an agent task through the real Gradio UI with deterministic provider
-  test credentials or a no-provider upstream dry-run hook, then stop cleanly.
+- Full task-submit smoke landed: `BrowserUseWebUIViewTests.swift` submits an agent task through the real Gradio UI using
+  the `EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT` no-provider hook, observes the completion marker, then stops cleanly.
 - Tool smoke: `browser_navigate` to a local fixture, `browser_snapshot`, `browser_click`, `browser_close`; prove session
   reuse, owner-only session/screenshot directories, and bounded/redacted output.
 - App Store audit: the `EPISTEMOS_APP_STORE MAS_SANDBOX` compile branch returns unavailable before launch planning,
@@ -361,7 +365,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
    settings/env contract landed.**
 5. Add runtime supervisor + loopback WebView shell. **Runtime launch contract and WKWebView loopback shell landed;
    loopback health gating, loopback server smoke harness, local WKWebView fixture dry-run shell smoke, and real Gradio
-   WKWebView shell/control smoke landed; full real Gradio WKWebView task-submit smoke still pending.**
+   WKWebView shell/control plus task-submit dry-run smokes landed.**
 6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
    **Source-only adapter contract, Rust discovery wiring, and live tool smoke landed.**
 7. Run the full Pro smoke suite, then the MAS boundary audit.
