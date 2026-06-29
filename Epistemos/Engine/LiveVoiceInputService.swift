@@ -26,6 +26,7 @@ public final class LiveVoiceInputService {
 
     private var streamTask: Task<Void, Never>?
     private var finalTranscriptBuffer: [String] = []
+    private var startGeneration = UUID()
 
     private init() {}
 
@@ -59,6 +60,8 @@ public final class LiveVoiceInputService {
 
     public func start() async {
         stop()
+        let generation = UUID()
+        startGeneration = generation
         partialTranscript = ""
         finalTranscript = ""
         finalTranscriptBuffer.removeAll()
@@ -72,6 +75,10 @@ public final class LiveVoiceInputService {
 
         do {
             let readiness = await EpistemosSpeechAnalyzer.shared.readiness()
+            guard isCurrentStart(generation) else {
+                finishCancelledStartIfCurrent(generation)
+                return
+            }
             guard readiness == .available || readiness == .modelDownloadRequired else {
                 state = .unavailable(Self.message(for: readiness))
                 return
@@ -79,28 +86,42 @@ public final class LiveVoiceInputService {
 
             let stream = try await EpistemosSpeechAnalyzer.shared.startLive { [weak self] progress in
                 Task { @MainActor [weak self] in
+                    guard self?.isCurrentStart(generation) == true else { return }
                     self?.modelDownloadProgress = progress
                 }
+            }
+            guard isCurrentStart(generation) else {
+                EpistemosSpeechAnalyzer.shared.stop()
+                finishCancelledStartIfCurrent(generation)
+                return
             }
             state = .recording
             streamTask = Task { @MainActor [weak self] in
                 defer {
-                    if let self, case .recording = self.state {
+                    guard let self, self.startGeneration == generation else { return }
+                    if case .recording = self.state {
                         self.state = .idle
                     }
-                    self?.streamTask = nil
+                    self.streamTask = nil
                 }
                 for await result in stream {
+                    guard self?.isCurrentStart(generation) == true else { break }
                     self?.handle(result)
                 }
             }
         } catch {
+            EpistemosSpeechAnalyzer.shared.stop()
+            guard isCurrentStart(generation) else {
+                finishCancelledStartIfCurrent(generation)
+                return
+            }
             stop()
             state = .error(Self.message(for: error))
         }
     }
 
     public func stop() {
+        startGeneration = UUID()
         streamTask?.cancel()
         streamTask = nil
         if #available(macOS 26.0, *) {
@@ -130,6 +151,18 @@ public final class LiveVoiceInputService {
         finalTranscript = ""
         guard !pending.isEmpty else { return nil }
         return pending.joined(separator: "\n\n")
+    }
+
+    private func isCurrentStart(_ generation: UUID) -> Bool {
+        startGeneration == generation && !Task.isCancelled
+    }
+
+    private func finishCancelledStartIfCurrent(_ generation: UUID) {
+        guard startGeneration == generation else { return }
+        modelDownloadProgress = nil
+        if case .preparing = state {
+            state = .idle
+        }
     }
 
     @available(macOS 26.0, *)

@@ -78,6 +78,7 @@ public final class EpistemosSpeechAnalyzer {
     private var transcriber: SpeechTranscriber?
     private var resultsTask: Task<Void, Never>?
     private var analyzeTask: Task<Void, Never>?
+    private var didInstallInputTap = false
 
     private init() {}
 
@@ -121,6 +122,8 @@ public final class EpistemosSpeechAnalyzer {
     public func startLive(
         onModelDownload: ((Double) -> Void)? = nil
     ) async throws -> AsyncStream<LiveResult> {
+        stopInternal()
+
         // Ensure microphone permission (synchronous request via
         // AVCaptureDevice; the SpeechAnalyzer-side asset request is
         // separate).
@@ -224,6 +227,7 @@ public final class EpistemosSpeechAnalyzer {
             }
             inputCont.yield(input)
         }
+        didInstallInputTap = true
         do {
             try engine.start()
         } catch {
@@ -244,7 +248,10 @@ public final class EpistemosSpeechAnalyzer {
     private func stopInternal() {
         if engine.isRunning {
             engine.stop()
+        }
+        if didInstallInputTap {
             engine.inputNode.removeTap(onBus: 0)
+            didInstallInputTap = false
         }
         inputContinuation?.finish()
         inputContinuation = nil

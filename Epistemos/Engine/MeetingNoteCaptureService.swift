@@ -57,6 +57,7 @@ final class MeetingNoteCaptureService {
     private var stoppedAt: Date?
     @ObservationIgnored
     private var autoStopSilenceTask: Task<Void, Never>?
+    private var captureGeneration = UUID()
 
     private(set) var state: State = .idle
     private(set) var partialTranscript = ""
@@ -94,16 +95,26 @@ final class MeetingNoteCaptureService {
 
     func start() async {
         cancelAutoStopSilence()
+        let generation = UUID()
+        captureGeneration = generation
         resetTranscript()
         startedAt = now()
         stoppedAt = nil
         state = .preparing
         await voiceInput.start()
+        guard isCurrentCapture(generation) else {
+            voiceInput.stop()
+            if captureGeneration == generation {
+                state = .idle
+            }
+            return
+        }
         refreshFromVoiceInput()
         syncStateFromVoiceInput()
     }
 
     func stop() {
+        captureGeneration = UUID()
         cancelAutoStopSilence()
         refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
         voiceInput.stop()
@@ -116,6 +127,7 @@ final class MeetingNoteCaptureService {
     }
 
     func discard() {
+        captureGeneration = UUID()
         cancelAutoStopSilence()
         voiceInput.tearDown()
         resetTranscript()
@@ -163,6 +175,7 @@ final class MeetingNoteCaptureService {
 
     @discardableResult
     func finalize(modelContext: ModelContext) async throws -> CaptureResult {
+        captureGeneration = UUID()
         refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
         cancelAutoStopSilence()
         voiceInput.stop()
@@ -259,6 +272,10 @@ final class MeetingNoteCaptureService {
         if startedAt != nil, stoppedAt == nil {
             stoppedAt = now()
         }
+    }
+
+    private func isCurrentCapture(_ generation: UUID) -> Bool {
+        captureGeneration == generation && !Task.isCancelled
     }
 
     private static func renderTranscript(

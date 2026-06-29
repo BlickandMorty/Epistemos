@@ -182,6 +182,38 @@ struct MeetingNoteCaptureServiceTests {
         #expect(service.state == .idle)
     }
 
+    @Test("stop during preparing prevents a late mic start from reviving recording")
+    func stopDuringPreparingCancelsLateStart() async {
+        let voice = FakeMeetingVoiceInput()
+        var resumeStart: (() -> Void)?
+        voice.onStart = {
+            await withCheckedContinuation { continuation in
+                resumeStart = {
+                    voice.state = .recording
+                    continuation.resume()
+                }
+            }
+        }
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        let startTask = Task { @MainActor in
+            await service.start()
+        }
+        for _ in 0..<5 where resumeStart == nil {
+            await Task.yield()
+        }
+
+        #expect(service.state == .preparing)
+        service.stop()
+        #expect(service.state == .idle)
+
+        resumeStart?()
+        await startTask.value
+
+        #expect(service.state == .idle)
+        #expect(voice.stopCallCount >= 1)
+    }
+
     @Test("service source stays off direct SpeechAnalyzer and hidden runtime paths")
     func sourceBoundaries() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/MeetingNoteCaptureService.swift")
@@ -230,8 +262,13 @@ private final class FakeMeetingVoiceInput: MeetingVoiceInputProviding {
     var modelDownloadProgress: Double?
     var finalTranscripts: [String] = []
     var stopCallCount = 0
+    var onStart: (@MainActor () async -> Void)?
 
     func start() async {
+        if let onStart {
+            await onStart()
+            return
+        }
         state = .recording
     }
 
