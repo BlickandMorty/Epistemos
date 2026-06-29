@@ -159,7 +159,7 @@ validated before runtime import and must be loopback-only with no URL credential
   client-secret/id-token/auth-code assignments and URL credential/query/fragment tokens. The screenshot path policy
   is isolated in `agent_core/src/tools/browser_screenshot.rs`: screenshots are created under an owner-only private root,
   the adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`, stdout path parsing stays bounded to quote/punctuation-tolerant `.png` tokens, and returned
-  paths must resolve inside that root before vision sees them. The browser tool schema definitions are isolated in
+  paths must resolve inside that owner-only, non-symlink-routed root before vision sees them. The browser tool schema definitions are isolated in
   `agent_core/src/tools/browser_schema.rs` and re-exported by the runtime bridge so the registry surface stays
   unchanged. The private directory policy is isolated in `agent_core/src/tools/browser_private.rs`: Rust rejects
   pre-existing symlink paths and non-current-user ownership for those private browser directories before launch or chmod, so

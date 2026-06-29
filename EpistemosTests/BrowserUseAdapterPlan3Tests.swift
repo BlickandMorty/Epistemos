@@ -60,6 +60,7 @@ struct BrowserUseAdapterPlan3Tests {
             "AGENT_BROWSER_SOCKET_DIR must not include symlink component",
             "AGENT_BROWSER_SOCKET_DIR must be owner-only",
             "AGENT_BROWSER_SCREENSHOT_DIR",
+            "AGENT_BROWSER_SCREENSHOT_DIR must be owner-only",
             "confine_screenshot_path",
             "screenshot path resolved outside private screenshot directory",
             "screenshot returned non-string path",
