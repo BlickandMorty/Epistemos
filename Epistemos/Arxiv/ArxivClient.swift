@@ -61,6 +61,8 @@ nonisolated struct ArxivClient: Sendable {
                 throw ArxivClientError.invalidResponse
             }
             return try Self.parseSearchResponse(data)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as ArxivClientError {
             throw error
         } catch {

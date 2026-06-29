@@ -47,6 +47,7 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
 }
 
 nonisolated enum ArxivIngestError: LocalizedError, Equatable, Sendable {
+    case cancelled
     case downloadFailed(String)
     case pdfImportRejected(LiteParseImportResult)
     case fileWriteFailed(String)
@@ -54,6 +55,8 @@ nonisolated enum ArxivIngestError: LocalizedError, Equatable, Sendable {
 
     var errorDescription: String? {
         switch self {
+        case .cancelled:
+            return "arXiv ingest was cancelled."
         case .downloadFailed(let message):
             return "Could not download the arXiv PDF: \(message)"
         case .pdfImportRejected(let result):
@@ -96,7 +99,10 @@ enum ArxivIngestService {
     ) async -> Outcome {
         let downloadedPDF: URL
         do {
+            try Task.checkCancellation()
             downloadedPDF = try await downloader.download(from: paper.pdfURL)
+        } catch is CancellationError {
+            return .rejected(.cancelled)
         } catch let error as ArxivIngestError {
             return .rejected(error)
         } catch {
@@ -104,9 +110,19 @@ enum ArxivIngestService {
         }
         defer { try? FileManager.default.removeItem(at: downloadedPDF) }
 
-        let parseResult = await Task.detached(priority: .userInitiated) {
-            importer.importToMarkdown(pdfPath: downloadedPDF.path)
-        }.value
+        let parseResult: LiteParseImportResult
+        do {
+            try Task.checkCancellation()
+            parseResult = try await runDetachedCancellable {
+                try Task.checkCancellation()
+                return importer.importToMarkdown(pdfPath: downloadedPDF.path)
+            }
+            try Task.checkCancellation()
+        } catch is CancellationError {
+            return .rejected(.cancelled)
+        } catch {
+            return .rejected(.pdfImportRejected(.failed(error.localizedDescription)))
+        }
         guard case .markdown(let markdown) = parseResult else {
             return .rejected(.pdfImportRejected(parseResult))
         }
@@ -114,10 +130,14 @@ enum ArxivIngestService {
         let note = ArxivNoteDraft(paper: paper, parsedMarkdown: markdown)
         let materializedFiles: MaterializedImportFiles
         do {
+            try Task.checkCancellation()
             materializedFiles = try await materializeImportedFiles(
                 note: note,
                 downloadedPDF: downloadedPDF,
                 vaultURL: vaultURL)
+            try Task.checkCancellation()
+        } catch is CancellationError {
+            return .rejected(.cancelled)
         } catch let error as ArxivIngestError {
             return .rejected(error)
         } catch {
@@ -137,6 +157,13 @@ enum ArxivIngestService {
         frontMatter["source_pdf"] = materializedFiles.sourcePDFRelativePath
         page.frontMatter = frontMatter
 
+        do {
+            try Task.checkCancellation()
+        } catch {
+            removeMaterializedFiles(materializedFiles)
+            return .rejected(.cancelled)
+        }
+
         modelContext.insert(page)
         do {
             try modelContext.save()
@@ -144,8 +171,7 @@ enum ArxivIngestService {
             return .imported(pageID: page.id, title: page.title)
         } catch {
             modelContext.delete(page)
-            try? FileManager.default.removeItem(at: materializedFiles.noteURL)
-            try? FileManager.default.removeItem(at: materializedFiles.pdfURL)
+            removeMaterializedFiles(materializedFiles)
             NoteFileStorage.deleteBody(pageId: page.id)
             return .rejected(.modelSaveFailed(error.localizedDescription))
         }
@@ -156,43 +182,75 @@ enum ArxivIngestService {
         downloadedPDF: URL,
         vaultURL: URL
     ) async throws -> MaterializedImportFiles {
-        try await Task.detached(priority: .userInitiated) {
+        try await runDetachedCancellable {
             let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
             var selectedURLs: (noteURL: URL, pdfURL: URL)?
 
             do {
+                try Task.checkCancellation()
                 try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
                 guard Plan3VaultPath.resolvesInsideVault(dirURL, in: vaultURL) else {
                     throw ArxivIngestError.fileWriteFailed(Plan3VaultPath.outsideVaultMessage)
                 }
+                try Task.checkCancellation()
                 let urls = uniquePairedFileURLs(directory: dirURL, baseName: note.safeBaseName)
                 selectedURLs = urls
                 guard
                     let sourcePDFRelativePath = Plan3VaultPath.vaultRelativePath(for: urls.pdfURL, in: vaultURL),
-                    Plan3VaultPath.resolvesInsideVault(urls.noteURL, in: vaultURL)
+                    Plan3VaultPath.resolvesInsideVault(urls.noteURL, in: vaultURL),
+                    Plan3VaultPath.resolvesInsideVault(urls.pdfURL, in: vaultURL)
                 else {
                     throw ArxivIngestError.fileWriteFailed(Plan3VaultPath.outsideVaultMessage)
                 }
+                try Task.checkCancellation()
                 try FileManager.default.copyItem(at: downloadedPDF, to: urls.pdfURL)
+                try Task.checkCancellation()
                 try Data(note.markdownBody.utf8).write(to: urls.noteURL, options: .atomic)
+                try Task.checkCancellation()
                 return MaterializedImportFiles(
                     noteURL: urls.noteURL,
                     pdfURL: urls.pdfURL,
                     sourcePDFRelativePath: sourcePDFRelativePath)
+            } catch is CancellationError {
+                if let selectedURLs {
+                    removeMaterializedURLs(noteURL: selectedURLs.noteURL, pdfURL: selectedURLs.pdfURL)
+                }
+                throw CancellationError()
             } catch let error as ArxivIngestError {
                 if let selectedURLs {
-                    try? FileManager.default.removeItem(at: selectedURLs.noteURL)
-                    try? FileManager.default.removeItem(at: selectedURLs.pdfURL)
+                    removeMaterializedURLs(noteURL: selectedURLs.noteURL, pdfURL: selectedURLs.pdfURL)
                 }
                 throw error
             } catch {
                 if let selectedURLs {
-                    try? FileManager.default.removeItem(at: selectedURLs.noteURL)
-                    try? FileManager.default.removeItem(at: selectedURLs.pdfURL)
+                    removeMaterializedURLs(noteURL: selectedURLs.noteURL, pdfURL: selectedURLs.pdfURL)
                 }
                 throw ArxivIngestError.fileWriteFailed(error.localizedDescription)
             }
-        }.value
+        }
+    }
+
+    nonisolated private static func runDetachedCancellable<Value: Sendable>(
+        priority: TaskPriority = .userInitiated,
+        operation: @escaping @Sendable () throws -> Value
+    ) async throws -> Value {
+        let task = Task.detached(priority: priority) {
+            try operation()
+        }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    nonisolated private static func removeMaterializedFiles(_ files: MaterializedImportFiles) {
+        removeMaterializedURLs(noteURL: files.noteURL, pdfURL: files.pdfURL)
+    }
+
+    nonisolated private static func removeMaterializedURLs(noteURL: URL, pdfURL: URL) {
+        try? FileManager.default.removeItem(at: noteURL)
+        try? FileManager.default.removeItem(at: pdfURL)
     }
 
     nonisolated private static func uniquePairedFileURLs(directory: URL, baseName: String) -> (noteURL: URL, pdfURL: URL) {

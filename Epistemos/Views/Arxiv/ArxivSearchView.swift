@@ -13,6 +13,8 @@ struct ArxivSearchView: View {
     @State private var statusMessage: String?
     @State private var ingestingIDs: Set<String> = []
     @State private var importedIDs: Set<String> = []
+    @State private var searchTask: Task<Void, Never>?
+    @State private var ingestTasks: [String: Task<Void, Never>] = [:]
 
     private let client = ArxivClient()
 
@@ -37,11 +39,11 @@ struct ArxivSearchView: View {
                 TextField("Search papers", text: $query)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit {
-                        Task { await search() }
+                        startSearch()
                     }
 
                 Button {
-                    Task { await search() }
+                    startSearch()
                 } label: {
                     if isSearching {
                         ProgressView().controlSize(.small)
@@ -89,6 +91,9 @@ struct ArxivSearchView: View {
         }
         .padding(20)
         .frame(minWidth: 680, minHeight: 520)
+        .onDisappear {
+            cancelActiveTasks()
+        }
     }
 
     private func paperRow(_ paper: ArxivPaper) -> some View {
@@ -121,7 +126,7 @@ struct ArxivSearchView: View {
             Spacer(minLength: 16)
 
             Button {
-                Task { await ingest(paper) }
+                startIngest(paper)
             } label: {
                 if ingestingIDs.contains(paper.id) {
                     ProgressView().controlSize(.small)
@@ -137,6 +142,33 @@ struct ArxivSearchView: View {
         .padding(.vertical, 12)
     }
 
+    private func startSearch() {
+        guard !isSearching else { return }
+        searchTask?.cancel()
+        searchTask = Task {
+            await search()
+            searchTask = nil
+        }
+    }
+
+    private func startIngest(_ paper: ArxivPaper) {
+        guard !ingestingIDs.contains(paper.id), !importedIDs.contains(paper.id) else { return }
+        ingestTasks[paper.id]?.cancel()
+        ingestTasks[paper.id] = Task {
+            await ingest(paper)
+            ingestTasks[paper.id] = nil
+        }
+    }
+
+    private func cancelActiveTasks() {
+        searchTask?.cancel()
+        searchTask = nil
+        for task in ingestTasks.values {
+            task.cancel()
+        }
+        ingestTasks.removeAll()
+    }
+
     private func search() async {
         guard ArxivPullGateStatus.status().isActive else { return }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -148,6 +180,8 @@ struct ArxivSearchView: View {
         do {
             papers = try await client.search(query: trimmed, maxResults: 12)
             statusMessage = papers.isEmpty ? "No arXiv papers matched." : "\(papers.count) papers found."
+        } catch is CancellationError {
+            statusMessage = nil
         } catch {
             papers = []
             statusMessage = error.localizedDescription
@@ -173,6 +207,8 @@ struct ArxivSearchView: View {
         case .imported(_, let title):
             importedIDs.insert(paper.id)
             statusMessage = "Added \(title)."
+        case .rejected(.cancelled):
+            statusMessage = nil
         case .rejected(let error):
             statusMessage = error.localizedDescription
         }

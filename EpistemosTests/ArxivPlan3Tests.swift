@@ -279,6 +279,41 @@ struct ArxivPlan3Tests {
     }
 
     @MainActor
+    @Test("cancelled ingest does not materialize a vault note")
+    func cancelledIngestDoesNotMaterializeVaultNote() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-ingest-cancel-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let sourcePDF = root.appendingPathComponent("download.pdf")
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let task = Task { @MainActor in
+            await ArxivIngestService.ingest(
+                paper: try Self.paper(),
+                vaultURL: vault,
+                modelContext: context,
+                graphState: nil,
+                importer: SlowArxivImporter(delay: 0.12),
+                downloader: FakeArxivDownloader(fileURL: sourcePDF)
+            )
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+        task.cancel()
+
+        let outcome = try await task.value
+        #expect(outcome == .rejected(.cancelled))
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(ArxivIngestService.importDirectory).path))
+    }
+
+    @MainActor
     @Test("ingest rejects download failure without writing a vault note")
     func ingestRejectsDownloadFailureWithoutVaultNote() async throws {
         let root = FileManager.default.temporaryDirectory
@@ -345,6 +380,15 @@ private struct FakeArxivImporter: LiteParsePDFImporter {
 
     func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
         result
+    }
+}
+
+private struct SlowArxivImporter: LiteParsePDFImporter {
+    let delay: TimeInterval
+
+    func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
+        Thread.sleep(forTimeInterval: delay)
+        return .markdown("Converted after cancellation.")
     }
 }
 
