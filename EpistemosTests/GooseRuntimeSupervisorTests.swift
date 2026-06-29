@@ -921,6 +921,15 @@ struct GooseWebUIStagingTests {
             "Perplexity",
             "xAI",
         ]
+        // #9/#17/#28: the case-sensitive provider-name set above is blind to a hardcoded MODEL
+        // roster (lowercase model ids). Add hyphenated model-id stems + Claude/OpenAI model
+        // families, matched case-insensitively. These are SAFE against false-positives on the
+        // legitimate UPPERCASE `*_API_KEY` credential-passthrough env-var lists (which use
+        // underscores, e.g. GEMINI_API_KEY, never the hyphenated `gemini-` model-id form).
+        let forbiddenModelStems = [
+            "gpt-", "claude-", "gemini-", "llama-", "deepseek-", "o1-", "o3-",
+            "mixtral", "qwen", "sonnet", "haiku", "opus",
+        ]
         var hits: [String] = []
         for file in files {
             let relativePath = file.path.components(separatedBy: "/Epistemos/").last.map { "Epistemos/\($0)" } ?? file.lastPathComponent
@@ -928,6 +937,10 @@ struct GooseWebUIStagingTests {
             for (index, line) in lines.enumerated() {
                 for token in forbiddenRosterTokens where line.contains(token) {
                     hits.append("\(relativePath):\(index + 1):\(token)")
+                }
+                let lowercased = line.lowercased()
+                for stem in forbiddenModelStems where lowercased.contains(stem) {
+                    hits.append("\(relativePath):\(index + 1):\(stem)")
                 }
                 if line.contains("Ollama"), !line.contains("checkForOllama") {
                     hits.append("\(relativePath):\(index + 1):Ollama")
