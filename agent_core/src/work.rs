@@ -1018,16 +1018,16 @@ mod tests {
         use vendored_goose::retry::SuccessCheck;
         let mut exec = ShellRetryExecutor;
         // `true` exits 0 → check passes; `false` exits 1 → fails (real hardened subprocess).
-        assert!(exec.run_success_checks(&[SuccessCheck::Shell { command: "true".into() }]));
-        assert!(!exec.run_success_checks(&[SuccessCheck::Shell { command: "false".into() }]));
+        assert!(exec.run_success_checks(&[SuccessCheck::Shell { command: "true".into() }], None));
+        assert!(!exec.run_success_checks(&[SuccessCheck::Shell { command: "false".into() }], None));
         // ALL-must-pass: one failing check fails the whole set.
         assert!(!exec.run_success_checks(&[
             SuccessCheck::Shell { command: "true".into() },
             SuccessCheck::Shell { command: "false".into() },
-        ]));
+        ], None));
         // An empty check list trivially passes; on_failure is best-effort + never panics.
-        assert!(exec.run_success_checks(&[]));
-        exec.run_on_failure("true");
+        assert!(exec.run_success_checks(&[], None));
+        exec.run_on_failure("true", None);
     }
 
     #[test]

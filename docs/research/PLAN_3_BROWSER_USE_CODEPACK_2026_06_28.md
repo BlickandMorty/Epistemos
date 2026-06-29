@@ -171,8 +171,8 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. Runtime
   environment setup happens only after adapter arguments are accepted. The Rust bridge never trusts ambient
   `BROWSER_CDP_URL`; the only CDP override env is `EPISTEMOS_BROWSER_USE_CDP_URL`, and it must point at localhost,
-  127.0.0.1, or [::1]. `browser_vision` also rejects screenshot paths that resolve outside the private screenshot
-  directory before handing the image to any external vision provider. The
+  127.0.0.1, or [::1] with no URL username/password credentials or fragment. `browser_vision` also rejects screenshot
+  paths that resolve outside the private screenshot directory before handing the image to any external vision provider. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve

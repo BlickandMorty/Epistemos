@@ -232,9 +232,19 @@ fn validate_cdp_url(raw: &str) -> Result<(), ToolError> {
             "{BROWSER_USE_CDP_URL_ENV} must include a loopback host"
         )));
     };
-    if !matches!(host, "127.0.0.1" | "localhost" | "::1") {
+    if !matches!(host, "127.0.0.1" | "localhost" | "::1" | "[::1]") {
         return Err(ToolError::InvalidArguments(format!(
             "{BROWSER_USE_CDP_URL_ENV} must point at localhost, 127.0.0.1, or [::1]"
+        )));
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(ToolError::InvalidArguments(format!(
+            "{BROWSER_USE_CDP_URL_ENV} must not include username or password credentials"
+        )));
+    }
+    if parsed.fragment().is_some() {
+        return Err(ToolError::InvalidArguments(format!(
+            "{BROWSER_USE_CDP_URL_ENV} must not include a URL fragment"
         )));
     }
     Ok(())
@@ -426,6 +436,8 @@ mod tests {
             "file:///tmp/browser",
             "http://192.168.0.2:9222",
             "ws://example.com/devtools/browser/session",
+            "http://user:pass@127.0.0.1:9222",
+            "ws://127.0.0.1:9222/devtools/browser/session#token",
             "not a url",
         ] {
             let err = validate_cdp_url(rejected).unwrap_err();
