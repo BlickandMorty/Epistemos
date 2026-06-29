@@ -1,0 +1,55 @@
+# PLAN 5 — Note Companion (embedded mini-Goose-chat for the MD doc) build prompt (SAVED — paste later)
+
+> 🛑 **SAVED / NOT YET ACTIVE (owner 2026-06-29).** Do NOT launch until the owner says go. Drafted to the same
+> strictness as Plan 1/2/3 and parked. This CLOSES a real seam: the note-scoped mini-Goose-chat panel embedded in the
+> Epdoc editor (the "Tolaria mini-chat"). Plan 2 builds the note-context PLUMBING but explicitly NOT the panel UI
+> (EDITOR_CANONICAL_PLAN:310); Plan 1 owns the main Goose surface but not an embedded note panel — so today this falls
+> between them and would NOT ship. Plan 5 owns the panel + the wiring. The DETAIL already lives in the codepack below
+> (code + build-vs-exists ledger) — this paste is lean.
+
+---
+
+```
+[$thermo-nuclear-code-quality-review](/Users/jojo/.codex/skills/thermo-nuclear-code-quality-review/SKILL.md)
+
+★ LOOP MODE — NEVER STOP until I (the owner) type "stop". Continuous loop, not a one-shot. Work the build order item by item; after each, immediately continue. When complete, DO NOT declare "done" / DO NOT idle — keep looping: (a) full-app thermonuclear pass + fix, (b) harden the weakest companion/plumbing path, (c) deepen the note-aware affordances, (d) re-verify green, repeat. Only the owner's "stop" ends it. Commit at every clean point.
+
+WORK MODE — DEEP CODE, NOT TEST VOLUME: primary activity each cycle = deep code review + edge-case hardening of the real companion/plumbing code paths (run the thermonuclear skill as the main loop). Write a test ONLY to lock a specific bug you just fixed — no coverage-padding suites.
+
+You are building PLAN 5 = the NOTE COMPANION — a compact, note-scoped Goose chat panel EMBEDDED in the Epdoc editor (the "mini-Goose-chat for the MD doc" / Tolaria surface). It is a reskinned Goose WEBVIEW scoped to the open note — NOT a native chat UI (Option 1). Build it deeply hardened, contradiction-free, nothing lost.
+
+READ FIRST (the codepack + plan win on conflict — DETAIL is there; do not re-spec it):
+  - docs/research/GOOSE_MINICHAT_CODEPACK_2026_06_27.md  (THE detail — §3 ActiveEpdocTracker/NoteContextProvider, §4 the exact Goose/MCP gaps, §5 historical VM sketch = plumbing semantics ONLY, §6 build-vs-exists ledger)
+  - docs/research/EDITOR_CANONICAL_PLAN_2026_06_27.md §6 (Goose note-context plumbing — superseded-in-scope 2026-06-29) + the MiniChatTarget note (line ~434)
+  - docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md (Option 1: chat stays Goose WebView; native = frame + Models only — NO native chat)
+  - docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md (transparent-over-glass, tokens/springs, graph DO NOT TOUCH, A/B bar)
+  - docs/prompts/PROMPT_PLAN_4_ICONS.md (the companion's model/provider/tool icons come from Plan 4's mono set)
+  - Project rules: CLAUDE.md (NON-NEGOTIABLE CONSTRAINTS — STREAM EVERYTHING / forward every token; PRESERVE THINKING BLOCKS; no subprocess on MAS; keys in Keychain; @Observable; never block @MainActor; DispatchQueue.main.async in UniFFI callbacks). RESEARCH-FIRST: read before editing, verify code/disk before asserting, tag [VERIFIED-CODE].
+
+OPTION 1 COMPLIANCE (LOCKED — do not relitigate): the companion is the Plan-1-owned Goose WebView/reskin, SCOPED to the open note and mounted compactly in the editor. Do NOT build a separate native transcript/composer. The historical native MiniChatViewModel sketch (codepack §5) is mined for SESSION/CONTEXT SEMANTICS ONLY (scoping, cancel, context refresh) — never shipped as a native chat surface.
+
+BUILD ORDER (verify-first; much is specced-but-unbuilt per the codepack §6 — check live code before building):
+  (1) PLUMBING (build-now, zero-Goose-dep; codepack §3) — ActiveEpdocTracker (frontmost EpdocDocument via NSWindow key) + NoteContextProvider (bounded head/tail body via the EXISTING ProseMirrorMarkdownProjector) → WorkNativeMCPHost.updateContext on note change. (VERIFY: these are NOT in code today — build + test them.)
+  (2) THE PANEL — mount a COMPACT, note-scoped reskinned Goose WebView in a dock slot in the Epdoc editor chrome (Plan-2 host slot; coordinate). Dock/undock + "open in full Goose" escape hatch (GooseSurfaceWindowController). Transparent-over-glass + unified tokens/springs (reskin, do not restyle Goose's logic).
+  (3) SESSION SCOPING (codepack §2/§4) — ONE shared Goose session, cwd=vault root constant, re-scoped per note via _meta {epistemos.note} + a re-seed preamble + the live epistemos.context.snapshot MCP pull. Tear down on panel close / vault switch; keep alive across note switches.
+  (4) GOOSE-BOUNDARY GAPS (codepack §4, coordinate with Plan 1) — newSession passes mcpServers (1-line; today dropped); add session/cancel (no cancel today); add Epdoc UI-steering affordances open_note/highlightEditor/replaceSelection on GooseWebNativeAffordanceBridge (EXISTS); AGENTS.md vault guidance.
+  (5) EDITOR AFFORDANCES — [[wikilink]] reference resolve (EpdocDocumentLocator), selection-aware "explain this" from caretChanged, inline per-edit approval via the EXISTING GooseACPPermissionPanel.
+  (6) ICONS — the companion header model badge + tool-card provider/tool marks use Plan 4's themified mono SVGs (when Plan 4 is active; until then, the existing ProviderLogoView/IntegrationBrandMarkView).
+
+★ NATIVENESS (BINDING — detail in the doctrine; lean here): the panel is a WebView made INDISTINGUISHABLE from native — transparent-over-real-glass (non-opaque WKWebView over NSVisualEffectView), unified tokens, deeply-fluid ProMotion + MINIMAL springs, A/B pixel-diff = the bar. GRAPH = DO NOT TOUCH. CODE-RESEARCH (real openable code, in-repo first) + RESEARCH-BETWEEN-IMPLEMENTATION (read before edit, exhaustive, no-contradiction/preserve-nuance/break-nothing).
+
+HARD GATES / FORBIDDEN:
+  × A separate NATIVE chat UI (Option 1 violation) — the companion is the reskinned Goose WebView only.
+  × A Goose process/session per note (explodes count + loses continuity) — ONE session, re-scoped via _meta + MCP snapshot.
+  × Buffering streamed tokens or stripping thinking blocks (STREAM EVERYTHING; PRESERVE THINKING BLOCKS).
+  × Subprocess/Python on the MAS path; keys in UserDefaults (Keychain); editing .xcodeproj (xcodegen); committing model files.
+  × Touching the graph (DO NOT TOUCH).
+  × Build-green ≠ done. PROVEN-DONE: panel live in-app, scoped to the frontmost note, streams a real Goose turn that can read the note via epistemos.context.snapshot, cancel works, affordances route into Epdoc, witnessed live (Swift Testing @Test compile-verify + manual run; headless app-hosted runs crash-loop → push logic to pure helpers). Zero regressions.
+
+PARALLELISM / NO-COLLISION (sits BETWEEN Plan 1 and Plan 2 — coordinate, do not stomp):
+  - You OWN: the embedded companion panel + its compact chrome, the note-context plumbing (ActiveEpdocTracker/NoteContextProvider/_meta builders/snapshot wiring), the editor affordance routes, session scoping/cancel semantics.
+  - COORDINATE (shared seams): the Epdoc host dock slot (Plan 2 editor chrome) · the Goose WebView/reskin + Epistemos/Goose/* + the newSession/cancel/affordance Goose-side changes (Plan 1) · Plan 4 supplies the icons.
+  - Do NOT: restyle Goose's internal chat logic (reskin only); build a second chat UI anywhere; duplicate the main Goose surface.
+
+Commit at clean points (main-only, never lose work). When unsure, RESEARCH-FIRST then act. Stop only when I say stop; after the build order is complete with PROVEN-DONE evidence, keep looping through full-app thermo passes, weakest-path hardening, deeper note-aware affordances, and re-verification.
+```

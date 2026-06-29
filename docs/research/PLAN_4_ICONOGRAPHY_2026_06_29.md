@@ -105,7 +105,14 @@
   `SkillsSettingsView`, browser-use Pro diagnostics → via `IntegrationBrandMarkView`.
 - **Integrations/tools:** arXiv/Browser/Meeting headers, `CoworkConnectorDirectory`, `LandingFeatureButton`
   `integrationBrand` map, GitHub, Hugging Face (model-download UI).
-- **Goose web:** its own settings/integration rows — same vendored SVGs + `--icon-ink` token (unified look).
+- **Goose surface (Plan-1 web — PRIMARY for model/provider icons):** Goose's own model selector, provider rows,
+  settings, and integration rows render through Goose's React UI (lucide + its own marks). Inject the vendored mono
+  SVGs + the `--icon-ink` token into the Goose reskin so Goose's icons match the app. ⚠️ **Coordinated seam** —
+  Plan 1 owns `Epistemos/Goose/*` web; Plan 4 supplies the SVG set + token, Plan 1 (or coordinated) wires the swap.
+- **Mini-Goose-chat / note companion (the Tolaria surface):** the note-scoped Goose WebView panel embedded in the
+  Epdoc editor (model badge in its header, provider/tool icons in its tool cards) gets the same vendored mono SVGs +
+  `--icon-ink`. Because it is a Goose WebView, it inherits the Goose-surface treatment above — but name it explicitly
+  so it is not missed. (Ownership of the panel itself = see the Note-Companion plan; Plan 4 only supplies its icons.)
 - Any NEW call site renders through the spine views — never inline a one-off `Image(...)` for a brand.
 
 ## §7 — BOUNDARIES / NO-COLLISION (Plans 1/2/3 run concurrently)
