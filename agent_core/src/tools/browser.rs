@@ -35,6 +35,7 @@ const MAX_BROWSER_ERROR_CHARS: usize = 512;
 const BROWSER_USE_AGENT_BROWSER_ENV: &str = "EPISTEMOS_BROWSER_USE_AGENT_BROWSER";
 const BROWSER_USE_VENDOR_ROOT_ENV: &str = "EPISTEMOS_BROWSER_USE_VENDOR_ROOT";
 const BROWSER_USE_ADAPTER_FILENAME: &str = "epistemos_agent_browser.py";
+const AGENT_BROWSER_SCREENSHOT_DIR_ENV: &str = "AGENT_BROWSER_SCREENSHOT_DIR";
 
 #[derive(Debug)]
 struct BrowserState {
@@ -774,6 +775,9 @@ async fn run_agent_browser_command(
         command.arg(arg);
     }
     command.env("AGENT_BROWSER_SOCKET_DIR", socket_dir);
+    if command_name == "screenshot" {
+        command.env(AGENT_BROWSER_SCREENSHOT_DIR_ENV, screenshot_directory()?);
+    }
     command.env("PATH", extended_path());
     command.env("PYTHON_DOTENV_DISABLED", "true");
     command.stdin(Stdio::null());
@@ -959,13 +963,18 @@ fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
 }
 
 fn next_screenshot_path() -> Result<PathBuf, ToolError> {
+    let directory = screenshot_directory()?;
+    Ok(directory.join(format!("browser-{}.png", Uuid::new_v4().simple())))
+}
+
+fn screenshot_directory() -> Result<PathBuf, ToolError> {
     let directory = if cfg!(target_os = "macos") {
         PathBuf::from("/tmp/epistemos-browser-screenshots")
     } else {
         env::temp_dir().join("epistemos-browser-screenshots")
     };
     create_private_browser_dir(&directory)?;
-    Ok(directory.join(format!("browser-{}.png", Uuid::new_v4().simple())))
+    Ok(directory)
 }
 
 fn path_resolves_inside(path: &Path, root: &Path) -> bool {
@@ -1299,8 +1308,10 @@ EOF
     printf '{"success":true,"data":{"gemini_api_key_present":%s,"openai_auth_mode_present":%s,"node_options_present":%s,"fake_browser_log_present":%s,"socket_dir_present":%s,"path_present":%s,"dotenv_disabled":%s}}\n' "$gemini_present" "$openai_auth_present" "$node_options_present" "$fake_log_present" "$socket_dir_present" "$path_present" "$dotenv_disabled"
     ;;
   screenshot)
+    screenshot_root_present=false
+    if [ -n "${AGENT_BROWSER_SCREENSHOT_DIR+x}" ]; then screenshot_root_present=true; fi
     printf 'fake png bytes' > "$last"
-    printf '{"success":true,"data":{"path":"%s"}}\n' "$last"
+    printf '{"success":true,"data":{"path":"%s","screenshot_root_present":%s}}\n' "$last" "$screenshot_root_present"
     ;;
   *)
     printf '{"success":true,"data":{}}\n'
@@ -1636,6 +1647,30 @@ esac
             std::os::unix::fs::symlink(&outside, &symlink).unwrap();
             assert!(!path_resolves_inside(&symlink, &root));
         }
+    }
+
+    #[tokio::test]
+    async fn browser_screenshot_exports_private_root_to_adapter() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let socket_dir = socket_dir_for_session("screenshot-root-export");
+        fs::create_dir_all(&socket_dir).unwrap();
+        let screenshot_path = screenshot_directory().unwrap().join("root-export.png");
+
+        let output = run_agent_browser_command(
+            "screenshot",
+            &[screenshot_path.display().to_string()],
+            "screenshot-root-export",
+            None,
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(output["data"]["screenshot_root_present"], json!(true));
     }
 
     #[tokio::test]

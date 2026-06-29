@@ -110,8 +110,10 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, SSRF/private URL
   blocking, owner-only browser daemon/socket/screenshot directories, and `PYTHON_DOTENV_DISABLED=true` for the
   subprocess environment. Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true` before invoking the adapter, so
-  browser-use cannot re-interpolate ambient `.env` values on this path. `browser_vision` rejects screenshot paths that
-  resolve outside the private screenshot directory before handing the image to any external vision provider. The
+  browser-use cannot re-interpolate ambient `.env` values on this path. For screenshot commands, the adapter receives
+  `AGENT_BROWSER_SCREENSHOT_DIR` and rejects requested or returned screenshot paths that resolve outside that private
+  directory. `browser_vision` also rejects screenshot paths that resolve outside the private screenshot directory before
+  handing the image to any external vision provider. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve
