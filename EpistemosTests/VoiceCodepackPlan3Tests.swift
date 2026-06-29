@@ -18,6 +18,7 @@ struct VoiceCodepackPlan3Tests {
             "Preferred voice floor is quality-first",
             "SSML/prosody fallback exists",
             "Pro Kokoro gate is honest",
+            "Readiness rejects symlink-routed or non-regular model artifacts",
             "[DONE] Patch the AVSpeech preferred voice floor",
             "[DONE] Wire or remove `agentResponseTTS`",
             "[DONE] Add `LiveVoiceInputService`",
@@ -59,6 +60,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("## Delivery order"))
         #expect(capabilities.contains("Voice — SHIPPED (Pass 8)"))
         #expect(capabilities.contains("Kokoro-82M is Pro-only status-gated"))
+        #expect(capabilities.contains("rejects symlink-routed or non-regular model artifacts"))
         #expect(capabilities.contains("no model asset, picker row, neural runtime, Python, or"))
 
         for stale in [
@@ -149,6 +151,11 @@ struct VoiceCodepackPlan3Tests {
             "manifestFileName = \"manifest.json\"",
             "modelPackageName = \"Kokoro82M.mlpackage\"",
             "artifactProblem(",
+            "firstSymlinkComponent(",
+            "destinationOfSymbolicLink",
+            "FileAttributeType == .typeRegular",
+            "FileAttributeType == .typeDirectory",
+            "path must not include symlink component",
             "resolvesInsideModelDirectory",
             "AVSpeech remains the voice runtime",
             "Picker/runtime integration must still choose this lane explicitly"
@@ -194,6 +201,42 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.state == .missingModel)
         #expect(status.detail.contains("manifest.json is a directory"))
         #expect(status.detail.contains("Kokoro82M.mlpackage is not a directory"))
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("Kokoro Pro gate rejects symlink-routed artifacts")
+    func kokoroProGateRejectsSymlinkRoutedArtifacts() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-symlink-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let outsideManifest = root.appendingPathComponent("outside-manifest.json", isDirectory: false)
+        let outsidePackage = root.appendingPathComponent("outside-package", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: outsideManifest)
+        try FileManager.default.createDirectory(at: outsidePackage, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName, isDirectory: false),
+            withDestinationURL: outsideManifest
+        )
+        try FileManager.default.createSymbolicLink(
+            at: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true),
+            withDestinationURL: outsidePackage
+        )
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!status.isReady)
+        #expect(status.state == .missingModel)
+        #expect(status.detail.contains("manifest.json path must not include symlink component"))
+        #expect(status.detail.contains("Kokoro82M.mlpackage path must not include symlink component"))
         #else
         #expect(true)
         #endif

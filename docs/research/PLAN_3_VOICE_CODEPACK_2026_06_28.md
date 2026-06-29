@@ -33,7 +33,8 @@
   plain utterance while preserving rate/pitch clamping.
 - **Pro Kokoro gate is honest:** `KokoroVoiceGateStatus` exists as a status-only gate. MAS returns unavailable, Pro
   requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `manifest.json`/`Kokoro82M.mlpackage` keeps AVSpeech as the
-  runtime. There is still no Kokoro model asset, picker row, or neural runtime.
+  runtime. Readiness rejects symlink-routed or non-regular model artifacts before reporting ready. There is still no
+  Kokoro model asset, picker row, or neural runtime.
 
 ## Delivered MAS-safe fixes
 1. **Fix the preferred voice floor.** `[DONE]` `preferredVoice()` is identifier-first over installed voices:
@@ -84,6 +85,7 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - Settings source guard proves every visible Auto/Manual row has a behavior consumer or an honest unavailable state.
 - STT source guard proves `VoiceInputButton` no longer routes only to the removed `ComposerVoiceInputService` stub.
 - macOS 26 compile guard proves `EpistemosSpeechAnalyzer` remains `@available(macOS 26.0, *)`.
+- Kokoro gate tests prove malformed, symlink-routed, or non-regular model artifacts keep AVSpeech as the runtime.
 - MAS boundary guard proves no Kokoro weights, Python, subprocess, or Chromium-like runtime enters the App Store target.
 
 ## Delivery order

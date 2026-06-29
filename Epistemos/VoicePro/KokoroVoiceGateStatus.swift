@@ -112,6 +112,9 @@ nonisolated enum KokoroVoiceGateStatus {
         rootURL: URL,
         fileManager: FileManager
     ) -> String? {
+        if let component = firstSymlinkComponent(in: url, fileManager: fileManager) {
+            return "\(name) path must not include symlink component at \(component.path)"
+        }
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             return "missing \(name)"
@@ -119,11 +122,53 @@ nonisolated enum KokoroVoiceGateStatus {
         guard resolvesInsideModelDirectory(url, relativeTo: rootURL) else {
             return "\(name) resolves outside \(modelDirectoryName)"
         }
+        let attributes: [FileAttributeKey: Any]
+        do {
+            attributes = try fileManager.attributesOfItem(atPath: url.path)
+        } catch {
+            return "\(name) attributes unavailable"
+        }
         switch kind {
         case .file:
-            return isDirectory.boolValue ? "\(name) is a directory" : nil
+            guard !isDirectory.boolValue else {
+                return "\(name) is a directory"
+            }
+            return attributes[.type] as? FileAttributeType == .typeRegular
+                ? nil
+                : "\(name) is not a regular file"
         case .directory:
-            return isDirectory.boolValue ? nil : "\(name) is not a directory"
+            guard isDirectory.boolValue else {
+                return "\(name) is not a directory"
+            }
+            return attributes[.type] as? FileAttributeType == .typeDirectory
+                ? nil
+                : "\(name) is not a real directory"
+        }
+    }
+
+    private static func firstSymlinkComponent(
+        in url: URL,
+        fileManager: FileManager
+    ) -> URL? {
+        var cursor = URL(fileURLWithPath: "/", isDirectory: true)
+        for component in URL(fileURLWithPath: url.path).standardizedFileURL.pathComponents.dropFirst() {
+            cursor = cursor.appendingPathComponent(component)
+            guard !isMacOSCompatibilitySymlink(cursor) else {
+                continue
+            }
+            if (try? fileManager.destinationOfSymbolicLink(atPath: cursor.path)) != nil {
+                return cursor
+            }
+        }
+        return nil
+    }
+
+    private static func isMacOSCompatibilitySymlink(_ url: URL) -> Bool {
+        switch url.path {
+        case "/etc", "/tmp", "/var":
+            return true
+        default:
+            return false
         }
     }
 
