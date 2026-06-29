@@ -101,6 +101,64 @@ struct ArxivPlan3Tests {
         #expect(FileManager.default.fileExists(atPath: vault.appendingPathComponent(sourcePDFRelative).path))
     }
 
+    @MainActor
+    @Test("ingest rejects parser failure without writing a vault note")
+    func ingestRejectsParserFailureWithoutVaultNote() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-ingest-reject-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let sourcePDF = root.appendingPathComponent("download.pdf")
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let outcome = await ArxivIngestService.ingest(
+            paper: try Self.paper(),
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: FakeArxivImporter(result: .notWired),
+            downloader: FakeArxivDownloader(fileURL: sourcePDF)
+        )
+
+        #expect(outcome == .rejected(.pdfImportRejected(.notWired)))
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(ArxivIngestService.importDirectory).path))
+    }
+
+    @MainActor
+    @Test("ingest rejects download failure without writing a vault note")
+    func ingestRejectsDownloadFailureWithoutVaultNote() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-ingest-download-reject-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let outcome = await ArxivIngestService.ingest(
+            paper: try Self.paper(),
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: FakeArxivImporter(result: .markdown("Should not run.")),
+            downloader: FailingArxivDownloader()
+        )
+
+        #expect(outcome == .rejected(.downloadFailed("offline")))
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(ArxivIngestService.importDirectory).path))
+    }
+
     private static func paper() throws -> ArxivPaper {
         try #require(try ArxivClient.parseSearchResponse(Data(atomFixture.utf8)).first)
     }
@@ -140,5 +198,11 @@ private struct FakeArxivImporter: LiteParsePDFImporter {
 
     func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
         result
+    }
+}
+
+private struct FailingArxivDownloader: ArxivPDFDownloading {
+    func download(from _: URL) async throws -> URL {
+        throw ArxivIngestError.downloadFailed("offline")
     }
 }
