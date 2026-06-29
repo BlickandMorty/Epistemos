@@ -273,7 +273,9 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
 - **arXiv pull — SHIPPED (Pass 6):** search arXiv, parse Atom metadata, download the PDF, convert through the local
   PDF→md importer, and write a file-first vault note with abstract, parsed full text, metadata frontmatter, and
   `source_pdf` pointing at the copied PDF under `<vault>/arXiv/`. The landing button opens `ArxivSearchView` as a sheet.
-  MAS-safe (arxiv.org API + the §1 PDF pipeline); failures create no note and report the download/parser reason.
+  MAS-safe (arxiv.org API + the §1 PDF pipeline); downloaded temp PDFs are regular-file checked, symlink rejected,
+  capped at 128 MiB, magic-sniffed, and renamed to `.pdf` before parsing; failures create no note and report the
+  download/parser reason.
 - **Meeting/lecture note — SHIPPED (Pass 9):** user-driven on-device Apple Speech/SpeechAnalyzer capture through
   `LiveVoiceInputService`, buffered by `MeetingNoteCaptureService`, then saved through `TextCapturePipeline` as a
   searchable note with `source=meeting_stt`, `source_kind=audio_transcript`, `captured_at`, `duration_seconds`, and

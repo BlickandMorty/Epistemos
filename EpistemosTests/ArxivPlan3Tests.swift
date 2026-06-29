@@ -164,14 +164,18 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("showingArxivSearch = true"))
         #expect(codepack.contains("parser rejection with no note"))
         #expect(codepack.contains("conversion and file materialization run off"))
+        #expect(codepack.contains("exceeds the 128 MiB cap"))
         #expect(capabilities.contains("arXiv pull — SHIPPED (Pass 6)"))
         #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
+        #expect(capabilities.contains("capped at 128 MiB"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
         #expect(client.contains("isCanonicalPDFPath"))
         #expect(client.contains("newStyleIDPattern"))
         #expect(client.contains("oldStyleIDPattern"))
         #expect(ingest.contains("materializeImportedFiles"))
+        #expect(ingest.contains("maxDownloadedPDFBytes"))
+        #expect(ingest.contains("destinationOfSymbolicLink"))
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
         #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))
         #expect(ingest.contains("Plan3ImportFileIO.writeData"))
@@ -230,6 +234,40 @@ struct ArxivPlan3Tests {
             #expect(error == .downloadFailed("downloaded file is not a PDF (%PDF- header missing)"))
         }
         #expect(!FileManager.default.fileExists(atPath: htmlTemp.path))
+    }
+
+    @Test("downloader rejects oversized and symlinked temp PDFs")
+    func downloaderRejectsUnsafeTempPDFEnvelope() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-download-envelope-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let oversized = root.appendingPathComponent("CFNetworkDownload_oversized.tmp")
+        try Data("%PDF-1.7\n".utf8).write(to: oversized)
+        let oversizedHandle = try FileHandle(forWritingTo: oversized)
+        try oversizedHandle.truncate(atOffset: UInt64(URLSessionArxivPDFDownloader.maxDownloadedPDFBytes + 1))
+        try oversizedHandle.close()
+        do {
+            _ = try URLSessionArxivPDFDownloader.prepareDownloadedPDF(from: oversized)
+            Issue.record("Expected oversized arXiv PDF download to be rejected")
+        } catch let error as ArxivIngestError {
+            #expect(error == .downloadFailed("downloaded PDF exceeds 128 MiB limit"))
+        }
+        #expect(!FileManager.default.fileExists(atPath: oversized.path))
+
+        let targetPDF = root.appendingPathComponent("target.pdf")
+        let symlinkPDF = root.appendingPathComponent("CFNetworkDownload_symlink.tmp")
+        try Data("%PDF-1.7\n".utf8).write(to: targetPDF)
+        try FileManager.default.createSymbolicLink(at: symlinkPDF, withDestinationURL: targetPDF)
+        do {
+            _ = try URLSessionArxivPDFDownloader.prepareDownloadedPDF(from: symlinkPDF)
+            Issue.record("Expected symlinked arXiv PDF download to be rejected")
+        } catch let error as ArxivIngestError {
+            #expect(error == .downloadFailed("downloaded file is not a regular file"))
+        }
+        #expect(!FileManager.default.fileExists(atPath: symlinkPDF.path))
+        #expect(FileManager.default.fileExists(atPath: targetPDF.path))
     }
 
     @Test("downloader rejects redirected non-arXiv final URLs")

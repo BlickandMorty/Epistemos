@@ -24,7 +24,10 @@
   worker so conversion and file materialization run off `@MainActor`; (4) file-first `SDPage` with body = abstract intro
   + parsed full text, frontmatter `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
   the §1 coexistence model), `url`. The paired PDF/Markdown writes use the shared reserved-file writer, including final
-  symlink rejection after reservation. **Honest:** failed download / `.notWired` / `.failed` → no note + the real reason.
+  symlink rejection after reservation. Downloaded temp PDFs are also rejected before import if the temp path is a symlink,
+  is not a regular file, exceeds the 128 MiB cap, or lacks `%PDF-` magic; extensionless `URLSession.download` temps are
+  moved to a `.pdf` path before `LiteParsePDFImporter` sees them. **Honest:** failed download / `.notWired` / `.failed`
+  → no note + the real reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`).
 - **`Epistemos/Arxiv/ArxivPullGateStatus.swift` [DELIVERED]** — flag `EPISTEMOS_ARXIV_PULL_V0`, default active,
@@ -40,6 +43,6 @@ MAS-safe: networking + the existing PDF pipeline; no Python, no subprocess, no f
 ## Verification
 - `EpistemosTests/ArxivPlan3Tests.swift` covers search URL construction, Atom parsing, default-on kill switch behavior,
   draft frontmatter/body composition, successful ingest into an in-memory SwiftData vault, parser rejection with no note,
-  and download rejection with no note.
+  unsafe temp PDF envelope rejection, and download rejection with no note.
 - `EpistemosTests/LandingFeatureButtonsPlan3Tests.swift` guards the landing button, arXiv sheet presentation, and
   `ArxivPullGateStatus` availability wiring.

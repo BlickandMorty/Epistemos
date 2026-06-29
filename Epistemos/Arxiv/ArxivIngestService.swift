@@ -8,6 +8,8 @@ nonisolated protocol ArxivPDFDownloading: Sendable {
 }
 
 nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
+    static let maxDownloadedPDFBytes = 128 * 1024 * 1024
+
     func download(from url: URL) async throws -> URL {
         guard let downloadURL = ArxivPDFURLPolicy.normalizedAllowedURL(url) else {
             throw ArxivIngestError.downloadFailed(ArxivPDFURLPolicy.rejectedMessage)
@@ -38,6 +40,7 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
     }
 
     static func prepareDownloadedPDF(from fileURL: URL) throws -> URL {
+        try validateDownloadedFileEnvelope(fileURL)
         switch LiteParsePDFSignature.fileStartsWithPDFMagic(fileURL.path) {
         case .match:
             break
@@ -61,6 +64,35 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
         } catch {
             try? FileManager.default.removeItem(at: fileURL)
             throw ArxivIngestError.downloadFailed("could not prepare downloaded PDF: \(error.localizedDescription)")
+        }
+    }
+
+    private static func validateDownloadedFileEnvelope(_ fileURL: URL) throws {
+        let fileManager = FileManager.default
+        if (try? fileManager.destinationOfSymbolicLink(atPath: fileURL.path)) != nil {
+            try? fileManager.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("downloaded file is not a regular file")
+        }
+
+        do {
+            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+            guard values.isRegularFile == true else {
+                try? fileManager.removeItem(at: fileURL)
+                throw ArxivIngestError.downloadFailed("downloaded file is not a regular file")
+            }
+            guard let fileSize = values.fileSize else {
+                try? fileManager.removeItem(at: fileURL)
+                throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF size")
+            }
+            guard fileSize <= maxDownloadedPDFBytes else {
+                try? fileManager.removeItem(at: fileURL)
+                throw ArxivIngestError.downloadFailed("downloaded PDF exceeds 128 MiB limit")
+            }
+        } catch let error as ArxivIngestError {
+            throw error
+        } catch {
+            try? fileManager.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(error.localizedDescription)")
         }
     }
 }
