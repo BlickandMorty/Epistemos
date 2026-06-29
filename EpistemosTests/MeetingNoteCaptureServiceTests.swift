@@ -117,6 +117,34 @@ struct MeetingNoteCaptureServiceTests {
         #expect(page.frontMatter["duration_seconds"] == "12")
     }
 
+    @Test("finalize drains final transcript without scheduling auto stop")
+    func finalizeDoesNotScheduleAutoStopWhileSaving() async throws {
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let voice = FakeMeetingVoiceInput()
+        var sleepCallCount = 0
+        let service = MeetingNoteCaptureService(
+            voiceInput: voice,
+            isAutoStopOnSilenceEnabled: { true },
+            sleep: { _ in
+                sleepCallCount += 1
+            }
+        )
+
+        await service.start()
+        voice.partialTranscript = ""
+        voice.finalTranscripts = ["Finalize the meeting note."]
+
+        _ = try await service.finalize(modelContext: context)
+        for _ in 0..<5 where sleepCallCount == 0 {
+            await Task.yield()
+        }
+
+        #expect(sleepCallCount == 0)
+        #expect(voice.stopCallCount == 1)
+        #expect(service.transcriptText == "Finalize the meeting note.")
+    }
+
     @Test("auto dictation preference stops meeting capture after final silence")
     func autoStopPreferenceStopsAfterFinalSilence() async {
         let voice = FakeMeetingVoiceInput()

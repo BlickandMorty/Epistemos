@@ -163,7 +163,8 @@ final class MeetingNoteCaptureService {
 
     @discardableResult
     func finalize(modelContext: ModelContext) async throws -> CaptureResult {
-        refreshFromVoiceInput()
+        refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
+        cancelAutoStopSilence()
         voiceInput.stop()
         freezeCaptureClock()
         let transcript = transcriptText
