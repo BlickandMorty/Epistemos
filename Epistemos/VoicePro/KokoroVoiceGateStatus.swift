@@ -34,7 +34,7 @@ nonisolated enum KokoroVoiceGateStatus {
     static func status(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         modelRoot: URL? = defaultModelRoot(),
-        fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+        fileManager: FileManager = .default
     ) -> Status {
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         return Status(
@@ -65,17 +65,29 @@ nonisolated enum KokoroVoiceGateStatus {
         let modelDirectory = modelRoot.appendingPathComponent(modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(manifestFileName, isDirectory: false)
         let modelPackageURL = modelDirectory.appendingPathComponent(modelPackageName, isDirectory: true)
-        let missing = [
-            fileExists(manifestURL) ? nil : manifestFileName,
-            fileExists(modelPackageURL) ? nil : modelPackageName,
+        let problems = [
+            artifactProblem(
+                name: manifestFileName,
+                url: manifestURL,
+                kind: .file,
+                rootURL: modelDirectory,
+                fileManager: fileManager
+            ),
+            artifactProblem(
+                name: modelPackageName,
+                url: modelPackageURL,
+                kind: .directory,
+                rootURL: modelDirectory,
+                fileManager: fileManager
+            ),
         ].compactMap { $0 }
 
-        guard missing.isEmpty else {
+        guard problems.isEmpty else {
             return Status(
                 state: .missingModel,
                 isReady: false,
                 headline: "Kokoro voice: model package missing",
-                detail: "Expected \(modelDirectory.path) with \(missing.joined(separator: ", ")). AVSpeech remains the voice runtime."
+                detail: "Expected \(modelDirectory.path), but \(problems.joined(separator: ", ")). AVSpeech remains the voice runtime."
             )
         }
 
@@ -86,5 +98,38 @@ nonisolated enum KokoroVoiceGateStatus {
             detail: "The checked Pro model package is present at \(modelDirectory.path). Picker/runtime integration must still choose this lane explicitly."
         )
         #endif
+    }
+
+    private enum ArtifactKind {
+        case file
+        case directory
+    }
+
+    private static func artifactProblem(
+        name: String,
+        url: URL,
+        kind: ArtifactKind,
+        rootURL: URL,
+        fileManager: FileManager
+    ) -> String? {
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            return "missing \(name)"
+        }
+        guard resolvesInsideModelDirectory(url, relativeTo: rootURL) else {
+            return "\(name) resolves outside \(modelDirectoryName)"
+        }
+        switch kind {
+        case .file:
+            return isDirectory.boolValue ? "\(name) is a directory" : nil
+        case .directory:
+            return isDirectory.boolValue ? nil : "\(name) is not a directory"
+        }
+    }
+
+    private static func resolvesInsideModelDirectory(_ url: URL, relativeTo rootURL: URL) -> Bool {
+        let root = rootURL.standardizedFileURL.resolvingSymlinksInPath()
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+        return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
     }
 }

@@ -1,6 +1,8 @@
 import Foundation
 import Testing
 
+@testable import Epistemos
+
 @Suite("Plan 3 Voice codepack")
 struct VoiceCodepackPlan3Tests {
     @Test("voice codepack matches the wired MAS-safe voice state")
@@ -133,6 +135,8 @@ struct VoiceCodepackPlan3Tests {
             "modelDirectoryName = \"kokoro-82m-coreml\"",
             "manifestFileName = \"manifest.json\"",
             "modelPackageName = \"Kokoro82M.mlpackage\"",
+            "artifactProblem(",
+            "resolvesInsideModelDirectory",
             "AVSpeech remains the voice runtime",
             "Picker/runtime integration must still choose this lane explicitly"
         ] {
@@ -149,5 +153,36 @@ struct VoiceCodepackPlan3Tests {
         ] {
             #expect(!gate.contains(forbidden), "Kokoro gate added forbidden runtime path: \(forbidden)")
         }
+    }
+
+    @Test("Kokoro Pro gate rejects malformed package shapes")
+    func kokoroProGateRejectsMalformedPackageShapes() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName, isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data("not a CoreML package\n".utf8).write(
+            to: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: false)
+        )
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!status.isReady)
+        #expect(status.state == .missingModel)
+        #expect(status.detail.contains("manifest.json is a directory"))
+        #expect(status.detail.contains("Kokoro82M.mlpackage is not a directory"))
+        #else
+        #expect(true)
+        #endif
     }
 }
