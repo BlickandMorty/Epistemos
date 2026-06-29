@@ -886,9 +886,32 @@ HOME with no recipes/skills/sessions yet) — i.e. the routes' real ACP methods 
 and answered, exactly what `GooseWebRouteLiveIntegrationTests` asserts, proven here
 without the app-hosted runner. So the entire read-only live ACP surface the four
 live suites depend on is DIRECTLY proven (initialize + session/new + the 7 list
-methods). The ONLY live item still requiring the owner is prompt→stream with REAL
-provider credentials (Gate 3 streaming + live `agent_thought_chunk` + Gate 5 OAuth) —
-the probe used a dummy key, fine for catalog/session but not for actual token streaming.
+methods).
+
+**Prompt→stream→end_turn PLUMBING proven** (`scratchpad/acp-prompt-probe.mjs`):
+`session/prompt` is reachable and STREAMED 6 real `session/update` notifications then
+reached `stopReason=end_turn`:
+```
+UPDATE1: usage_update (used 0, context size 128000)
+UPDATE2: available_commands_update (prompts/commands list)
+UPDATE3: session_info_update (activeRunId run_c010a68e-…)
+… → stopReason=end_turn (6 updates)
+```
+This proves the full new→prompt→stream→terminate loop and the `session/update` event
+channel (the exact events the Web UI renders) are wired and functional end-to-end via
+ACP. HONEST scope: the probe used a DUMMY provider key, so the turn ended without a
+real LLM `agentMessageChunk` completion (used=0 tokens). What is therefore proven is
+the prompt/stream/terminate PLUMBING + the live event channel; what still needs the
+OWNER is a real-credential prompt producing actual model tokens (Gate 3 successful
+stream + live `agent_thought_chunk` + Gate 5 OAuth). That single item genuinely cannot
+be automated — it requires a valid provider credential the agent does not hold.
+
+**Net live coverage (direct ACP probe, bypassing the env-blocked app-hosted suites):**
+initialize ✓, providers/catalog/list (106, GOLDEN RULE) ✓, providers/list ✓,
+providers/setup/catalog/list (32) ✓, config/extensions/list (11) ✓, sources/list
+(recipe+skill) ✓, session/new ✓, session/list ✓, session/prompt + stream + end_turn
+✓. Equivalent to the combined live sweep's ACP assertions minus only the
+real-credential token completion.
 
 ### STEP-2 code-quality review of THIS loop's grafts (toolsCache + AlertBox)
 
