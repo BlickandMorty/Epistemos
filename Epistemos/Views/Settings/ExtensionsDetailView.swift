@@ -397,7 +397,7 @@ private struct MCPServersDetailView: View {
     }
 }
 
-private func mcpServerOperationOutcome(
+nonisolated private func mcpServerOperationOutcome(
     operation: () throws -> [MCPUrlServerDirectory.ServerInfo],
     successMessage: () -> String
 ) -> MCPServerSettingsOperationOutcome {
