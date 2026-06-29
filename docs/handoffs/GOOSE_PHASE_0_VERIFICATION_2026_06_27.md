@@ -1109,3 +1109,13 @@ Re-runnable command (cached bundle, ~0.3s test phase):
 -derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
 -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile
 -only-testing:EpistemosTests/GooseWebUIStagingTests`
+
+**Re-runnable LIVE proof committed to the repo:** `bash scripts/goose-acp-live-probe.sh`
+spawns the staged `goose serve` on an ephemeral loopback port (isolated HOME + provider
+default), runs `scripts/goose-acp-live-probe.mjs` over the real ACP WebSocket, and tears
+the server down. Verified output: `LIVE_ACP_SURFACE_PASS` — initialize + catalog (106)
++ providers/list + setup-catalog (32) + config/status (65) + extensions (11) +
+sources[recipe/skill/schedule] + session new/list/load/fork (fork differs) + prompt→
+stream (10 events)→end_turn. This is the env-independent re-runnable substitute for the
+app-hosted live sweep; the only thing it can't show is real LLM token content (dummy
+key → used=0; needs an owner provider credential).
