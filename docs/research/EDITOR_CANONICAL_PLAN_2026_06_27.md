@@ -45,7 +45,12 @@ verified springs (.smooth {0.5,0} · .snappy {0.5,0.15} · .bouncy {0.5,0.3} · 
 Liquid Glass on chrome (`Theme/GlassModifiers.swift`, `Views/Shared/UnifiedFrostedGlass.swift`). GRAPH = already full
 AppKit/Metal → DO NOT TOUCH. Deeply fluid ProMotion 120fps + MINIMAL; A/B pixel-diff (web vs native) = the bar.
 CODE-RESEARCH (real openable code, in-repo file:line first) + RESEARCH-BETWEEN-IMPLEMENTATION (read before edit,
-exhaustive, no-contradiction/preserve-nuance/break-nothing). Detail + verified recipe: `GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md`.
+exhaustive, no-contradiction/preserve-nuance/break-nothing). **Retheme entry points (already exist — feed Apple
+tokens through them):** `Theme/EpistemosTheme.swift` (the Swift token source) → `EpdocEditorThemeStyle`
+(`Views/Epdoc/EpdocEditorChromeView.swift:582`; `--epdoc-bg` already transparent ✅) · `MarkEditCoreEditorView`
+theme param (currently github presets at :363 → make app-theme-aware) · `HTMLWorkspacePreviewView.themeGuardCSSOverride`
+(:45). EpistemosTheme must hold the SAME Apple values as Goose's `theme-tokens.ts` (the unified look). Detail +
+verified recipe: `GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md`.
 
 ## 0. OWNER DECISIONS — status
 ### ✅ LOCKED by the owner (2026-06-27)

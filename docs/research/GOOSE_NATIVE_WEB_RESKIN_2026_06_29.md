@@ -239,7 +239,32 @@ diff, pass only if indistinguishable. Concrete design (all in-repo APIs + MIT to
 - **WHERE:** dev-only script / test target (NOT shipped); reuse the build-time bundle infra; never runtime npm in the app.
 - Sources: WKWebView.takeSnapshot (Apple docs); pixelmatch (mapbox, MIT); odiff (dmtrKovalenko, SIMD).
 
+## ★ EDITOR + CROSS-SURFACE TOKEN UNIFICATION (R10 — extends the recipe to Plan 2 web bodies)
+The editor web bodies ALREADY have a theme-injection architecture — feed them the SAME Apple tokens (no new system):
+- **`Epistemos/Theme/EpistemosTheme.swift` = the Swift-side token SOURCE** that the native chrome + every editor
+  web body read. Make it carry the Apple values (SF Pro fonts, #0066cc palette, radius 11) → all native + editor
+  surfaces inherit them. This is the native-side TWIN of Goose's `theme-tokens.ts`.
+- **Epdoc (TipTap):** `EpdocEditorThemeStyle` (`Views/Epdoc/EpdocEditorChromeView.swift:582`) injects CSS vars from
+  EpistemosTheme — `--epdoc-bg` is ALREADY `transparent` ✅ (transparent-over-glass already wired); `--epdoc-display-
+  font` / `--epdoc-h*-font` ← `theme.epdoc*FontFamily`. Retheme = point those at SF Pro + the Apple palette/radius.
+- **CoreEditor (code body):** `Views/Notes/MarkEditCoreEditorView.swift` takes `theme: EpistemosTheme` and injects
+  (currently `themeName: github-dark/light` at :363). Map EpistemosTheme → CoreEditor CSS vars so it follows the APP
+  theme (the owner's "it only takes MarkEdit's theme" fix), not just the two github presets.
+- **HTML Workspace:** `Views/HTMLWorkspace/HTMLWorkspacePreviewView.swift:45` `themeGuardCSSOverride` is the seam →
+  push the Apple tokens through it.
+- ⇒ **THE UNIFICATION (concrete):** TWO token sources — `EpistemosTheme` (Swift, for native + editor-web) and
+  Goose's `theme-tokens.ts` (Goose-web) — must hold IDENTICAL Apple values. Then AppKit + editor-web + Goose-web all
+  render ONE look. Springs: same `{duration,bounce}` numbers everywhere (Goose = framer-motion; Epdoc/HTML-Workspace
+  = CSS `linear()` springs or shared tokens). ProvenanceGate: in-place edits to Epistemos's own theme/injector code
+  (Plan 2 owns the editor injectors; Plan 1 owns theme-tokens.ts; the doctrine keeps the VALUES identical).
+
 ## CHANGELOG
+- 2026-06-29 R10: completeness-critic — extended the recipe to Plan 2 editor web bodies. Found the editor already
+  has a theme-injection architecture: EpistemosTheme.swift (Swift token source) → EpdocEditorThemeStyle
+  (EpdocEditorChromeView.swift:582; --epdoc-bg ALREADY transparent) + MarkEditCoreEditorView (theme param; github
+  presets at :363 → make app-theme-aware) + HTMLWorkspacePreviewView.themeGuardCSSOverride. KEY UNIFICATION:
+  EpistemosTheme (Swift) and Goose's theme-tokens.ts must hold IDENTICAL Apple token values → one unified look across
+  AppKit + editor-web + Goose-web. Same spring {duration,bounce} numbers everywhere. (Editor injectors = Plan 2's.)
 - 2026-06-29 R9: closed the LAST gate (#9/#12) — specced the A/B pixel-diff harness (capture via
   WKWebView.takeSnapshot + SwiftUI ImageRenderer; normalize; diff via pixelmatch/odiff; gate ≤~2% across
   light/dark/states, per-state report; dev-only). RESEARCH IS NOW FUNCTIONALLY COMPLETE — every gap closed with

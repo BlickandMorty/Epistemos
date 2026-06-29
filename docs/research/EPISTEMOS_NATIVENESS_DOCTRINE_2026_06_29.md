@@ -13,6 +13,11 @@ tokens: SF Pro (`-apple-system`), the shadcn Apple token palette (Action Blue #0
 geometry, the macOS-26 Liquid Glass material, and the exact SwiftUI spring values. The user must never perceive
 "native part vs web part" — one app, one look. Every surface (native or web) pulls from the SAME token + motion +
 glass vocabulary so the seams vanish.
+**Two token SOURCES, identical values:** `Epistemos/Theme/EpistemosTheme.swift` (Swift — feeds the native chrome +
+the editor web bodies via their injectors: `EpdocEditorThemeStyle`, `MarkEditCoreEditorView`'s theme param,
+`HTMLWorkspacePreviewView.themeGuardCSSOverride`) and Goose's `ui/desktop/src/theme/theme-tokens.ts` (Goose-web).
+Both MUST hold the SAME Apple values (SF Pro · #0066cc palette · radius 11 · the spring `{duration,bounce}` set) →
+AppKit + editor-web + Goose-web all render one look. Keep them in lock-step (no-contradiction across the two sources).
 
 ## Graph = ALREADY full AppKit/Metal — DO NOT TOUCH
 The graph is the native REFERENCE for the feel (Metal + AppKit), not a reskin target. Match its instant,
