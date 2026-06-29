@@ -27,6 +27,13 @@ struct GooseWebSurfaceView: View {
     // native Models sheet; the WebView keeps backing the route, unchanged, when not promoted.
     @State private var router = GooseSurfaceRouter()
     @State private var nativeModelsPresented = false
+    // Review H1/H3: the supervisor reaching .running and the bridge finishing provider-sync are both
+    // ASYNC and can arrive after the initial bounded poll gave up. These track which connection the
+    // surface has already been driven for / reloaded after sync, so the status observers can drive
+    // load + post-sync reload idempotently (no double-load on the fast path).
+    @State private var drivenConnectionKey: String?
+    @State private var reloadedSyncForConnectionKey: String?
+    @State private var isRestarting = false
 
     init(theme: EpistemosTheme = .nativeDefault) {
         self.theme = theme
@@ -77,6 +84,12 @@ struct GooseWebSurfaceView: View {
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)
+        }
+        .onChange(of: acpBridge.status) { _, _ in
+            handleBridgeStatusChange()
+        }
+        .onChange(of: acpBridge.providersSyncedGeneration) { _, _ in
+            reloadSurfaceAfterProviderSync()
         }
         .onDisappear {
             runtimeHealthTask?.cancel()
@@ -321,9 +334,11 @@ struct GooseWebSurfaceView: View {
         case .connecting:
             return "connecting"
         case .connected:
-            return acpBridge.unhandledDiagnostics.isEmpty
-                ? "ready"
-                : "blocked: \(acpBridge.unhandledDiagnostics.count)"
+            // L1: when genuinely connected the row reads exactly "custom ACP Goose ready" (the owner's
+            // required string). Benign diagnostics (unhandled notifications / serverError entries that
+            // KEEP the connection alive) must not flip it off "ready" — they are surfaced separately in
+            // the diagnostics rows below. False-green is still prevented: "ready" requires .connected.
+            return "ready"
         case .failed(let message):
             return "error: \(message)"
         case .disconnected:
@@ -357,11 +372,21 @@ struct GooseWebSurfaceView: View {
     }
 
     private func startSurface() async {
+        // Reset the per-connection drive guards: a reappear (.task re-runs) restarts the supervisor,
+        // often on the SAME port/baseURL, so the new connection's key would otherwise match the stale
+        // guard and driveSurface would skip the load. Resetting here re-drives every (re)appear.
+        drivenConnectionKey = nil
+        reloadedSyncForConnectionKey = nil
         supervisor.start(secretKey: secretKey)
         await loadWhenReady()
     }
 
     private func restartSurface() async {
+        guard !isRestarting else { return }   // L3: a fast double-tap must not overlap two restarts
+        isRestarting = true
+        defer { isRestarting = false }
+        drivenConnectionKey = nil
+        reloadedSyncForConnectionKey = nil
         runtimeHealthTask?.cancel()
         runtimeHealthTask = nil
         gooseUIServer?.stop()
@@ -376,7 +401,15 @@ struct GooseWebSurfaceView: View {
 
     private func handleRuntimeStatusChange(_ status: GooseRuntimeSupervisor.Status) {
         switch status {
+        case .running(let connection):
+            // H1: .running can arrive AFTER loadWhenReady's bounded poll gave up (goosed's readiness
+            // budget is 45s, well past the 26s poll; serve on a slow cold start). Drive the surface
+            // here too — idempotently, so the fast path where loadWhenReady already drove it never
+            // double-loads. Without this the surface stuck permanently on the placeholder.
+            driveSurface(connection: connection)
         case .failed, .unavailable:
+            drivenConnectionKey = nil
+            reloadedSyncForConnectionKey = nil
             runtimeHealthTask?.cancel()
             runtimeHealthTask = nil
             gooseUIServer?.stop()
@@ -389,13 +422,53 @@ struct GooseWebSurfaceView: View {
         }
     }
 
+    /// Idempotently connect the native ACP bridge + load the Web UI for a running connection. Safe to
+    /// call from BOTH `loadWhenReady` (fast path) and the supervisor-status observer (late `.running`)
+    /// — the `drivenConnectionKey` guard makes the surface load exactly once per connection.
+    private func driveSurface(connection: GooseRuntimeConnection) {
+        let key = connection.baseURL.absoluteString
+        guard drivenConnectionKey != key else { return }
+        drivenConnectionKey = key
+        connectNativeACP(connection: connection)
+        Task { await loadGooseUI(connection: connection) }
+    }
+
+    /// Review H2: the ACP bridge can terminally fail (N consecutive reconnects during a brief goose
+    /// blip) while the supervisor stays `.running`. Provider key-sync only runs on a fresh connect, so
+    /// a stuck-failed bridge means credentials never re-mirror and the picker/Auth break with nothing
+    /// re-driving it. Re-drive the connect when the bridge is down but the runtime is healthy.
+    /// `connect()` is idempotent (its `connectionKey` guard is cleared on terminal fail), so this is a
+    /// no-op while connecting/connected and fires only once per terminal-fail transition.
+    private func handleBridgeStatusChange() {
+        guard case .running(let connection) = supervisor.status else { return }
+        switch acpBridge.status {
+        case .failed, .disconnected:
+            connectNativeACP(connection: connection)
+        default:
+            break
+        }
+    }
+
+    /// Review H3: the SPA may read Goose's provider/credential state BEFORE the native key-sync
+    /// mirrored the keys, caching an empty / "Failed to load provider credentials" result that never
+    /// self-heals. Once the sync completes, reload the SPA so it re-reads the populated state. Once
+    /// per connection, so a mid-use reconnect-resync never disrupts active navigation.
+    private func reloadSurfaceAfterProviderSync() {
+        guard case .running(let connection) = supervisor.status else { return }
+        let key = connection.baseURL.absoluteString
+        guard reloadedSyncForConnectionKey != key,
+              let gooseUIServer,
+              case .running(let baseURL) = gooseUIServer.status else { return }
+        reloadedSyncForConnectionKey = key
+        _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: "/?")))
+    }
+
     private func loadWhenReady() async {
         for _ in 0..<260 {
             guard !Task.isCancelled else { return }
             switch supervisor.status {
             case .running(let connection):
-                connectNativeACP(connection: connection)
-                await loadGooseUI(connection: connection)
+                driveSurface(connection: connection)
                 return
             case .unavailable, .failed:
                 await acpBridge.disconnect()
@@ -406,6 +479,9 @@ struct GooseWebSurfaceView: View {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
+        // H1: don't strand on a dead placeholder — the supervisor may still be coming up (goosed can
+        // exceed this poll budget). The supervisor-status observer (.running → driveSurface) loads the
+        // surface when readiness finally arrives. Show the honest "starting" placeholder meanwhile.
         loadPlaceholder()
     }
 
