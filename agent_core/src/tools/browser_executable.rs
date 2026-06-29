@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::OsString;
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -205,11 +206,17 @@ pub(crate) fn cdp_url_from_env() -> Result<Option<String>, ToolError> {
     let Some(value) = env::var_os(BROWSER_USE_CDP_URL_ENV) else {
         return Ok(None);
     };
+    cdp_url_from_env_value(value)
+}
+
+fn cdp_url_from_env_value(value: OsString) -> Result<Option<String>, ToolError> {
     if value.as_os_str().is_empty() {
         return Ok(None);
     }
 
-    let value = value.to_string_lossy();
+    let value = value.into_string().map_err(|_| {
+        ToolError::InvalidArguments(format!("{BROWSER_USE_CDP_URL_ENV} must be valid UTF-8"))
+    })?;
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return Ok(None);
@@ -424,6 +431,15 @@ mod tests {
         let message = format!("{err}");
         assert!(message.contains(BROWSER_USE_AGENT_BROWSER_ENV));
         assert!(message.contains("path must not include symlink component"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_cdp_url_env_rejects_non_utf8_values() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let err = cdp_url_from_env_value(OsString::from_vec(vec![0xff, 0xfe])).unwrap_err();
+        assert!(format!("{err}").contains("must be valid UTF-8"));
     }
 
     #[test]
