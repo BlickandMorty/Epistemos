@@ -639,11 +639,14 @@ enum GooseWebBootShim {
         "seenAnnouncementIds": [],
     ]
 
+    private static let bootstrapSerializationFailureMessage = "Epistemos failed to serialize the Goose Web boot payload."
+
     private static func jsonLiteral(_ object: Any) -> String {
         guard JSONSerialization.isValidJSONObject(object),
               let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
               let string = String(data: data, encoding: .utf8) else {
-            return "{}"
+            assertionFailure(bootstrapSerializationFailureMessage)
+            return #"(() => { throw new Error("Epistemos failed to serialize the Goose Web boot payload."); })()"#
         }
         return string
     }

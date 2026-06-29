@@ -1012,6 +1012,14 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("getConfig: { configurable: true, value: async"))
     }
 
+    @Test("bootstrap payload serialization failure stays loud")
+    func bootstrapSerializationFailureStaysLoud() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebBootShim.swift")
+        #expect(!source.contains(#"return "{}""#))
+        #expect(source.contains("assertionFailure(bootstrapSerializationFailureMessage)"))
+        #expect(source.contains(#"throw new Error("Epistemos failed to serialize the Goose Web boot payload.")"#))
+    }
+
     @Test("Goose Web UI loads through the hash route used by the Electron renderer")
     func gooseWebUIBootURLUsesHashRoute() {
         let index = URL(fileURLWithPath: "/tmp/goose-web-ui/index.html")
