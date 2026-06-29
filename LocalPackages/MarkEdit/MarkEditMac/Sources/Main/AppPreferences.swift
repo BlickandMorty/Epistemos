@@ -286,7 +286,7 @@ extension AppPreferences {
       lineHeight: Editor.lineHeight.multiplier,
       suggestWhileTyping: Assistant.suggestWhileTyping,
       standardDirectories: URL.standardDirectories,
-      runtimeInfo: RuntimeInfo(
+      runtimeInfo: MarkEditCore.RuntimeInfo(
         appVersion: Bundle.main.shortVersionString ?? "1.0.0",
         appBuild: Bundle.main.bundleVersion ?? "1",
         osVersion: ProcessInfo.processInfo.semanticOSVer,

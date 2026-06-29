@@ -85,24 +85,29 @@ extension EditorViewController {
       replacePanel.isHidden = false
     }
 
+    let shouldHideFindPanel = mode == .hidden
+    let shouldShowReplacePanel = mode == .replace
+
     // Animate layout changes
     NSAnimationContext.runAnimationGroup { context in
       context.duration = panelAnimationDuration
-      findPanel.animator().alphaValue = mode == .hidden ? 0 : 1
-      replacePanel.animator().alphaValue = mode == .replace ? 1 : 0
+      findPanel.animator().alphaValue = shouldHideFindPanel ? 0 : 1
+      replacePanel.animator().alphaValue = shouldShowReplacePanel ? 1 : 0
       layoutPanels(animated: true)
       layoutWebView(animated: true)
     } completionHandler: {
-      self.hasUnfinishedAnimations = false
+      Task { @MainActor in
+        self.hasUnfinishedAnimations = false
 
-      // Must leverage isHidden to control the visibility,
-      // because alpha = 0 still tracks mouse and visible to VoiceOver.
-      if mode == .hidden {
-        self.findPanel.isHidden = true
-      }
+        // Must leverage isHidden to control the visibility,
+        // because alpha = 0 still tracks mouse and visible to VoiceOver.
+        if shouldHideFindPanel {
+          self.findPanel.isHidden = true
+        }
 
-      if mode != .replace {
-        self.replacePanel.isHidden = true
+        if !shouldShowReplacePanel {
+          self.replacePanel.isHidden = true
+        }
       }
     }
   }

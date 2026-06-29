@@ -182,30 +182,28 @@ final class EditorViewController: NSViewController {
     webView.disableWindowOcclusionDetection()
 
     let theme = AppTheme.current.editorTheme
-    DispatchQueue.global(qos: .userInitiated).async {
-      let html = [
-        AppPreferences.editorConfig(theme: theme).toHtml,
-        AppCustomization.editorStyle.fileContents,
-        AppCustomization.stylesDirectory.directoryContents.joined(separator: "\n"),
-      ].joined(separator: "\n\n")
+    let html = [
+      AppPreferences.editorConfig(theme: theme).toHtml,
+      AppCustomization.editorStyle.fileContents,
+      AppCustomization.stylesDirectory.directoryContents.joined(separator: "\n"),
+    ].joined(separator: "\n\n")
 
-      DispatchQueue.main.async {
-        // Non-nil baseURL is required by scenarios like opening local files
-        webView.loadHTMLString(
-          html.replacingOccurrences(of: "\"{{USER_SETTINGS}}\"", with: AppRuntimeConfig.jsonLiteral),
-          baseURL: EditorWebView.baseURL
-        )
-      }
-    }
+    // Non-nil baseURL is required by scenarios like opening local files
+    webView.loadHTMLString(
+      html.replacingOccurrences(of: "\"{{USER_SETTINGS}}\"", with: AppRuntimeConfig.jsonLiteral),
+      baseURL: EditorWebView.baseURL
+    )
 
     // [macOS 15] Detect Writing Tools visibility to work around issues
     if #available(macOS 15.1, *) {
       writingToolsObservation = webView.observe(\.isWritingToolsActive) { [weak self] _, _ in
-        guard let self else {
-          return
-        }
+        Task { @MainActor [weak self] in
+          guard let self else {
+            return
+          }
 
-        self.updateWritingTools(isActive: self.webView.isWritingToolsActive)
+          self.updateWritingTools(isActive: self.webView.isWritingToolsActive)
+        }
       }
     }
 
@@ -448,7 +446,7 @@ extension EditorViewController {
  Continuation wrapper for managing the lifecycle of a preload operation.
  */
 private final class PreloadContinuation {
-  private var continuation: CheckedContinuation<Void, Never>?
+  nonisolated(unsafe) private var continuation: CheckedContinuation<Void, Never>?
 
   init(_ continuation: CheckedContinuation<Void, Never>, timeout: TimeInterval = 1.5) {
     self.continuation = continuation
@@ -461,7 +459,7 @@ private final class PreloadContinuation {
     }
   }
 
-  func resume() {
+  nonisolated func resume() {
     continuation?.resume()
     continuation = nil
   }

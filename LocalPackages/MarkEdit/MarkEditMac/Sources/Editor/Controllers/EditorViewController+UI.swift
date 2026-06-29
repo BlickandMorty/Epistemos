@@ -169,10 +169,9 @@ extension EditorViewController {
     if isActive {
       performUpdate()
     } else {
-      DispatchQueue.main.asyncAfter(
-        deadline: .now() + 0.2,
-        execute: performUpdate
-      )
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        performUpdate()
+      }
     }
   }
 
@@ -508,6 +507,14 @@ extension EditorViewController {
 private extension EditorViewController {
   final class UserDefinedMenuItem: NSMenuItem {
     var stateGetterID: String?
+
+    nonisolated override init(title string: String, action selector: Selector?, keyEquivalent charCode: String) {
+      super.init(title: string, action: selector, keyEquivalent: charCode)
+    }
+
+    nonisolated required init(coder: NSCoder) {
+      super.init(coder: coder)
+    }
   }
 
   var contentHeight: Double {
