@@ -304,7 +304,7 @@ nonisolated struct CodeEditorPolishTests {
             query: "alpha",
             caseSensitive: true,
             direction: .forward,
-            currentRange: .notFound
+            currentRange: NSRange(location: NSNotFound, length: 0)
         )
         #expect(forward == NSRange(location: 0, length: 5))
 
@@ -313,7 +313,7 @@ nonisolated struct CodeEditorPolishTests {
             query: "alpha",
             caseSensitive: true,
             direction: .backward,
-            currentRange: .notFound
+            currentRange: NSRange(location: NSNotFound, length: 0)
         )
         #expect(backward == NSRange(location: 11, length: 5))
     }
