@@ -685,3 +685,28 @@ manual pass (Cmd-3 details language + route click-through) + the provider OAuth
 login the automated suite cannot perform; those are the §7 gate. Until then,
 re-proves are change-driven (escalate on any Goose-relevant commit / working-tree
 drift) rather than re-run every cycle on an unchanged surface.
+
+## Addendum 2026-06-28 (PM #11) — re-prove GREEN on the fully-integrated project (post MarkEdit build break)
+
+A concurrent MarkEdit-chrome integration (project regen `4c8df1b3f` + ~51 Swift-6
+strict-concurrency errors across MarkEditMac sources) broke the SHARED build-for-
+testing for several cycles. Diagnosed as 100% external (zero Goose errors
+throughout) and held without touching the unrelated work, monitoring via the
+default-DD binary mtime + periodic error-count gauges (51 -> 1 -> 0). The MarkEdit
+agent finished the integration (final fix `3994d947a Mark FileWrapper bridge as
+nonisolated`); the shared build recovered.
+
+Re-prove on the integrated project (HEAD with full MarkEdit chrome):
+- `build-for-testing` **SUCCEEDED** (0 real compile errors; the only "error:" lines
+  are vite sourcemap warnings from the Goose Web UI build step).
+- Focused Goose suites **33 tests / 4 suites green** (GOLDEN RULE, parity gate, all
+  lock tests, ACP codec, Keychain key bridge).
+- Combined live sweep **5/5 suites, 78.8s** (log
+  `build/goose-phase0-claude-2026-06-28/finish-live-2026-06-28-201733.log`):
+  ProviderCatalog 0.4s, SessionLifecycle 3.8s, CustomCapability 0.8s, WebPrompt
+  31.4s, WebRoute 42.3s.
+
+The MarkEdit integration did NOT affect the Goose surface — it re-proves green at
+build + focused + live layers on the fully-integrated project. Goose Web UI staging
+also re-validated tsc-clean during the outage. STEP-1 re-prove holds on the new
+project state.
