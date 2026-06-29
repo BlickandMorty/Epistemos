@@ -242,17 +242,20 @@ Effort: **5a LOW-MEDIUM · 5b LOW · 5c LOW-MEDIUM** (transport + dispatcher alr
 
 The big ledger wanted "max out Apple-native frameworks." Baseline already in the app `[VERIFIED-CODE]`: NaturalLanguage,
 Vision (OCR), AVFoundation, Speech (STT), AVSpeech (TTS), Translation, ScreenCaptureKit, CoreSpotlight, AppIntents,
-CoreML. **Greenfield (absent):** PDFKit `PDFView`, QuickLook, VisionKit Live Text, QuickLookThumbnailing, PencilKit.
+CoreML. **Plan 3 shared components are now present:** QuickLook preview (`FilePreview.swift`), VisionKit Live Text
+overlay (`LiveTextImageView.swift`), and QuickLookThumbnailing (`FileThumbnail.swift`) under `Views/Shared/`, with
+source guards proving no Plan 1, Plan 2, or Pro-only runtime drift. **Still not Plan 3-owned:** PDFKit `PDFView`
+viewer and PencilKit annotations; the PDF viewer remains Plan 2.
 
 **Top-6 to prioritize (all MAS-safe, on-device, no new entitlement):**
 1. **PDFKit `PDFView` viewer** (high/low) — free: selection/copy, zoom, page nav, find, `PDFThumbnailView`, `PDFOutline`
    TOC, `PDFAnnotation`. Wrap as `NSViewRepresentable`. **The view half of §1 coexistence — Plan 2 owns it.**
-2. **QuickLook** (high/low) — `.quickLookPreview(_:)` previews ANY vault file (PDF/docx/iWork/images/csv) with zero
-   per-format code. One file-row action covers dozens of types.
-3. **Vision OCR + VisionKit Live Text** (high/med) — Vision (`VNRecognizeTextRequest`) already exists; add VisionKit
-   `ImageAnalyzer` + `ImageAnalysisOverlayView` for selectable Live-Text on image/PDF previews → scanned PDFs become
-   first-class searchable.
-4. **QuickLookThumbnailing** (med/low) — `QLThumbnailGenerator` real thumbnails for PDF/file rows + the Imported-PDFs folder.
+2. **QuickLook** (done as shared Plan 3 component) — `FilePreviewController`, `FilePreviewButton`, and `.filePreview(_:)`
+   preview already-granted vault URLs. Plan 2 owns consumer mounts.
+3. **Vision OCR + VisionKit Live Text** (shared component done) — `LiveTextImageView` wraps `ImageAnalyzer` +
+   `ImageAnalysisOverlayView`, returns recognized text to consumers, and does not index or edit Plan 2 surfaces itself.
+4. **QuickLookThumbnailing** (shared component done) — `FileThumbnailer` + `FileThumbnailView` produce thumbnails with
+   fallback symbols and reject invalid URLs/sizes/scales before generation.
 5. **Translation expansion** (med/low) — already wired in notes; extend to PDF selections + chat messages (near-zero effort, on-device).
 6. **AppIntents / Spotlight for PDFs** (med/low) — expose "Open/OCR/Preview file" as Shortcuts/Siri actions; index imported PDFs in system Spotlight.
 
@@ -355,8 +358,9 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 3. **Extensibility 5c vault-as-MCP-server** (LOW-MED, ~80% built — the outward moat) → 5a install UI → 5b preset.
 4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).
 5. **Browser** — lite native WKWebView tab (MAS, `PLAN_3_OBSCURA_TIER1_CODEPACK`) first; **browser-use** Chromium robot
-   (Pro, needs a vendor codepack) deferred.
-6. **Meeting/STT note · Voice · whole-app logos** (need codepacks — owed work).
+   (Pro, vendor codepack and payload now exist; continue Pro UI/MCP hardening without touching MAS).
+6. **Meeting/STT note · Voice · whole-app logos** — codepacks and first implementations now exist; continue recurring
+   hardening passes, Pro Kokoro gating, and logo utility/sidebar metadata slices.
 
 ## NOT in Plan 3 (so the three plans never blur)
 Editor/markdown/Tolaria/code-editor v2/HTML-workspace/web-clipper/wikilinks/PDF-*viewer* → **Plan 2**. Goose/Act/Work

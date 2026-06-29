@@ -15,6 +15,9 @@ struct AppleNativeCodepackPlan3Tests {
             "Epistemos/Views/Shared/FilePreview.swift",
             "Epistemos/Views/Shared/LiveTextImageView.swift",
             "Epistemos/Views/Shared/FileThumbnail.swift",
+            "**DONE:** `Epistemos/Views/Shared/FilePreview.swift`",
+            "**DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift`",
+            "**DONE:** `Epistemos/Views/Shared/FileThumbnail.swift`",
             "FilePreviewController",
             "LiveTextImageView",
             "FileThumbnailView",
@@ -57,5 +60,18 @@ struct AppleNativeCodepackPlan3Tests {
         ] {
             #expect(!codepack.contains(staleInstruction), "Apple-native codepack kept stale cross-plan instruction: \(staleInstruction)")
         }
+    }
+
+    @Test("Plan 3 capability doc reflects delivered shared Apple-native components")
+    func capabilityDocReflectsDeliveredSharedComponents() throws {
+        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+
+        #expect(plan.contains("Plan 3 shared components are now present"))
+        #expect(plan.contains("QuickLook preview (`FilePreview.swift`)"))
+        #expect(plan.contains("VisionKit Live Text"))
+        #expect(plan.contains("QuickLookThumbnailing (`FileThumbnail.swift`)"))
+        #expect(plan.contains("codepacks and first implementations now exist"))
+        #expect(!plan.contains("CoreML. **Greenfield (absent):** PDFKit `PDFView`, QuickLook, VisionKit Live Text, QuickLookThumbnailing, PencilKit."))
+        #expect(!plan.contains("Meeting/STT note · Voice · whole-app logos** (need codepacks — owed work)."))
     }
 }

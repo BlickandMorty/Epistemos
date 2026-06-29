@@ -46,6 +46,16 @@ struct LiteParseImportSeamTests {
         #expect(panel.contains("LiteParseImportHealthRow()"))
     }
 
+    @Test("EdgeParse codepack reflects the implemented PDF coexistence contract")
+    func edgeparseCodepackReflectsImplementedCoexistence() throws {
+        let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_EDGEPARSE_CODEPACK_2026_06_28.md")
+
+        #expect(codepack.contains("**DONE:** Settings keys `parsePDFOnImport`/`defaultOpenForImportedPDF`"))
+        #expect(codepack.contains("LiteParseSourcePDFLink"))
+        #expect(codepack.contains("source_pdf` resolution is vault-bound and traversal-safe"))
+        #expect(!codepack.contains("Settings keys `parsePDFOnImport`/`defaultOpenForImportedPDF` + frontmatter `source_pdf`/`source_kind` = NEW (grep: absent)"))
+    }
+
     @Test("cross-runtime flag parity: Swift flagName == Rust LITEPARSE_FLAG")
     func crossRuntimeFlagParity() throws {
         let rust = try loadMirroredSourceTextFile("agent_core/src/liteparse.rs")

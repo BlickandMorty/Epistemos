@@ -12,7 +12,9 @@
 - `SDPage.frontMatter` = `[String:String]` over JSON `frontMatterData: Data?` (`SDPage.swift:144-170`); setting
   `page.frontMatter["k"]=v` round-trips. Import writes file-first into `<vault>/Imported PDFs/`
   (`LiteParsePDFImportController.swift:14,37-59`, `needsVaultSync=false`).
-- Settings keys `parsePDFOnImport`/`defaultOpenForImportedPDF` + frontmatter `source_pdf`/`source_kind` = NEW (grep: absent).
+- **DONE:** Settings keys `parsePDFOnImport`/`defaultOpenForImportedPDF`, frontmatter `source_pdf`/`source_kind`,
+  and `ViewOriginalPDFAffordance` now exist. `LiteParseSourcePDFLink` resolves `source_pdf` only inside the current
+  vault and rejects absolute or `..` paths; Plan 2 still owns the actual `PDFView` viewer.
 
 ## 1. Vendor (clone the pure-Rust core only, pin a SHA)
 ```bash
@@ -48,14 +50,14 @@ time, `[INFERRED]`): `edgeparse_core::Document::open(path) → .to_markdown() �
 `edgeparse_unpdf::extract_markdown(path)`. Confidence threshold `EDGEPARSE_MIN_CONFIDENCE=0.55`. Register
 `pub mod pdf_parse;` at `lib.rs:170`.
 
-## 3. Swift coexistence (keep original PDF + parsed md)
-- **NEW `LiteParseImportSettings.swift`:** `parsePDFOnImport` (default **ON**), `defaultOpenForImportedPDF` (default OFF).
-- **`LiteParsePDFImportController.importPage` edits:** gate on `parsePDFOnImport` at top (honest `.rejected` when off);
+## 3. Swift coexistence (keep original PDF + parsed md) — DONE
+- **`LiteParseImportSettings.swift`:** `parsePDFOnImport` (default **ON**), `defaultOpenForImportedPDF` (default OFF).
+- **`LiteParsePDFImportController.importPage`:** gates on `parsePDFOnImport` at top (honest `.rejected` when off);
   after writing the `.md`, **`copyItem` (never move) the original `.pdf`** into `<vault>/Imported PDFs/` and set
   `page.frontMatter["source_kind"]="pdf"` + `["source_pdf"]=<copied path>` (copy is non-fatal — note still imports).
-- **NEW `ViewOriginalPDFAffordance.swift`:** a button shown when `source_kind=="pdf"` + file exists; calls an injected
+- **`ViewOriginalPDFAffordance.swift`:** a button shown when `source_kind=="pdf"` + file exists; calls an injected
   `openOriginalPDF(path)` that defaults to a **no-op stub** — the actual `PDFView` viewer is **Plan 2**; this only
-  emits the link + button.
+  emits the link + button. `source_pdf` resolution is vault-bound and traversal-safe.
 
 ## 4. What stays vs what to flip
 **Unchanged (zero edits):** `LiteParseImport.swift` decoder + `LiveLiteParsePDFImporter`; `LiteParseImportHealthRow`;

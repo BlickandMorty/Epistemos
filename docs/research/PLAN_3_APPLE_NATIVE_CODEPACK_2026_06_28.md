@@ -21,7 +21,17 @@ QuickLook, VisionKit, and QuickLookThumbnailing are first-party Apple frameworks
 it operates on already user-granted file URLs and in-memory `NSImage` values. It does not need new entitlements or
 usage strings.
 
-## 1. NEW `Epistemos/Views/Shared/FilePreview.swift`
+## Current implementation state
+
+- **DONE:** `Epistemos/Views/Shared/FilePreview.swift` provides `FilePreviewItem`, `FilePreviewController`,
+  `FilePreviewButton`, and `.filePreview(_:)`.
+- **DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift` provides a VisionKit-backed Live Text overlay when
+  VisionKit is available and an honest image fallback when it is not.
+- **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
+  invalid URL/size/scale rejection before QuickLookThumbnailing generation.
+- **Still Plan 2:** mounting these components in editor/sidebar/PDF viewer surfaces.
+
+## 1. DELIVERED `Epistemos/Views/Shared/FilePreview.swift`
 
 Build a reusable QuickLook preview layer for already-granted vault URLs:
 
@@ -33,7 +43,7 @@ Build a reusable QuickLook preview layer for already-granted vault URLs:
 The controller should drive `QLPreviewPanel` directly through `QLPreviewPanelDataSource` and
 `QLPreviewPanelDelegate`. Keep the component isolated so Plan 2 can mount it wherever its own surfaces allow.
 
-## 2. NEW `Epistemos/Views/Shared/LiveTextImageView.swift`
+## 2. DELIVERED `Epistemos/Views/Shared/LiveTextImageView.swift`
 
 Build a reusable VisionKit Live Text overlay for images:
 
@@ -44,7 +54,7 @@ Build a reusable VisionKit Live Text overlay for images:
 
 The shared view must not import or call editor/sidebar-specific types. It returns recognized text to its consumer.
 
-## 3. NEW `Epistemos/Views/Shared/FileThumbnail.swift`
+## 3. DELIVERED `Epistemos/Views/Shared/FileThumbnail.swift`
 
 Build a reusable QuickLookThumbnailing thumbnail layer:
 
