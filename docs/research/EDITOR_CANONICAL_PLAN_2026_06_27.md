@@ -47,24 +47,41 @@ strictness as the Goose plan's R-CODEREVIEW:
   changes it to 720px (the owner's readable-column target). ⚠️ **The codepacks are binary-only** — `NoteWidthResolver`
   (`enum {normal,wide}`), the `NATIVE_CONTROLS` setter, and `CommandRegistry.setContentWidth(wide:)` MUST each gain a
   `custom(px:)` path to satisfy the slider half of L2 (an explicit ADD, not yet in the codepacks).
-- **L3. CODE editor v2 = MarkEdit CoreEditor; DELETE the 3 OLD code-editor files once v2 is runtime-verified.**
-  (Owner clarified 2026-06-27: the "delete nothing" was a mis-scope — the owner DOES want the dead **code**-editor
-  files gone.) Plan 2 replaces `WebKitCodeEditorView` (the disabled-highlighting textarea) + dormant
-  `CodeEditSourceEditor` wiring + scaffold `LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` with the
-  MarkEdit CoreEditor engine ("code editor v2"). **Deletion gate (the one safety rule):** delete ONLY after a
-  MANUAL real-app run confirms v2
-  types + highlights + saves (the textarea "works" headlessly too, it just doesn't highlight); commit deletions
-  separately (easy revert). **SCOPE: code editor ONLY.** The NOTE editor (Epdoc/TipTap) and Prose/TK2 are NEVER
-  touched. This matches the R-CODEREVIEW deletion guardrail: provably-dead + not-in-flight + verified-replacement.
-  - **L3-CHROME (owner 2026-06-28): MarkEdit replaces the code EDITOR engine, not the chrome wholesale — chrome
-    is MODE-SPLIT over ONE shared CoreEditor engine.** **MD files** render in MarkEdit's chrome **VERBATIM**
-    (perfectly the same as the standalone MarkEdit.app — its toolbar/panels/Settings — with optional Epistemos
-    *additive* upgrades only, never subtractions). **CODE files** keep Epistemos's own good `CodeEditorView`
-    chrome (top bar file/lang/Ln-Col, Find, Go-to-Line, Outline, LSP-hover) — it may look "slightly different on
-    top," which is intended. **The preview button stays:** the old code editor's Live-Preview toggle →
-    `HTMLWorkspacePreviewView` ("the preview button like html has") is LOAD-BEARING and survives the swap on the
-    code path (engine-agnostic; MD mode uses MarkEdit's own Previewer instead). Canonical detail =
-    `MARKEDIT_EMBED_CODEPACK §3`.
+- **L3. CODE editor = MarkEdit (Source) engine; KEEP the old code editor as a "v1 legacy" fallback (do NOT delete).**
+  ⚠️ **SUPERSEDES the earlier "delete the 3 old code-editor files" rule** — owner 2026-06-29 wants v1 PRESERVED.
+  Plan 2 makes the MarkEdit CoreEditor engine the DEFAULT code surface (replacing `WebKitCodeEditorView` the
+  disabled-highlighting textarea + the dormant `CodeEditSourceEditor` wiring + the `LiveCodeEditorController`/
+  `SwiftTreeSitterLiveHighlighter` scaffold AS THE DEFAULT), but RETAINS the old editor as **"v1 legacy"**:
+  reachable from **Settings** + a **toggle inside the MarkEdit surface** so the owner can fall back. **NO deletion.**
+  **SCOPE: code editor ONLY** — the Note (Epdoc) and Prose/TK2 surfaces are not broken by this swap.
+  - **L3-CHROME (owner 2026-06-29, REVISED): MarkEdit's native chrome is used for BOTH code AND markdown.**
+    ⚠️ **SUPERSEDES the earlier "code = Epistemos chrome" mode-split** — the owner saw it and prefers MarkEdit's
+    native chrome for code too ("it seems better, all the native parts"). MarkEdit native chrome = the chrome for
+    the WHOLE code/text/markdown editor surface. **Preserve-list (GRAFT into MarkEdit's chrome — never lose):** the
+    Live-Preview/HTML preview button (`HTMLWorkspacePreviewView`), LSP hover/go-to-def (`CodeEditorSemanticLSP`),
+    the Outline navigator, + the other critical code-editor-v1 buttons. (MarkEdit natively brings Find/GoToLine/
+    FontPicker/Statistics — those REPLACE the Epistemos equivalents.) **Sizing:** MD matches MarkEdit's full
+    default size; CODE is a few ticks SMALLER than MarkEdit's MD default but MORE spacious/larger than today's code
+    editor (real-code density). Canonical detail = `MARKEDIT_EMBED_CODEPACK §3`.
+- **L4. THE LENS MODEL (owner 2026-06-29): markdown-on-disk is the ONE truth; THREE editors are three LENSES on it,
+  cross-synced on the same file.** Lenses: **Prose** (TK2 native focus/long-form) · **Source** (MarkEdit CoreEditor —
+  raw markdown + live preview + native chrome) · **Note** (Epdoc/TipTap WYSIWYG — a STANDALONE, isolated module).
+  A markdown document toggles across all three (the Option-A per-document toggle); a CODE file = **Source only**.
+  - **Truth rule:** all three read/write the same `.md` (L1) — NO separate lock-in format is treated as truth.
+    Epdoc/Note is engineered standalone, but its ONLY writer is the full-fidelity JS `getMarkdown()` bridge (never
+    the lossy Swift projector).
+  - **Where data loss can happen + how it's contained:** Source + Prose edit raw text → near-zero loss. The ONLY
+    loss boundary is **Note/Epdoc serializing back to markdown** — constructs Epdoc's schema doesn't model (raw
+    HTML, footnotes, exotic/nested tables, custom callouts, frontmatter edge cases) can be dropped/normalized on
+    SAVE. FOUR guardrails make cross-sync safe: (1) Epdoc writes ONLY via the full-fidelity `getMarkdown()` bridge;
+    (2) preserve-unknown PASSTHROUGH (Epdoc holds unrenderable constructs as raw md/HTML nodes so they round-trip
+    untouched); (3) write ONLY on a real edit (viewing in Note then switching away must NOT rewrite the file);
+    (4) a round-trip test that FAILS LOUD on the edge constructs (open→save must be byte-identical).
+  - **Sequence:** ship the **Source ↔ Note** toggle FIRST (both built). Add **Prose** as the third lens LATER. ⚠️
+    TK2/Prose is **unfrozen by owner approval (2026-06-29)** for this purpose only (this relaxes the "Prose/TK2
+    frozen hard-gate" elsewhere in the canon — reconcile those mentions to "don't BREAK existing Prose behavior").
+    As a lens, Prose edits markdown AS TEXT — it does NOT re-serialize a rich model and does NOT render rich blocks
+    like Epdoc.
 
 ### ⏳ RECOMMENDED — audit-verified best, pending the owner's final nod (not blocking)
 - **R1. Grammar = Obsidian/GFM** (`> [!KIND]` callouts · ` ```chart ` · `[[wikilink]]`). Follows directly from
@@ -73,10 +90,10 @@ strictness as the Goose plan's R-CODEREVIEW:
 - **R2. Minichat = native SwiftUI over the Goose ACP bridge + an "Open in Goose" webview escape hatch.**
   Maximizes nativeness (the owner's through-line) + inline per-edit approval; the webview button still gives
   "full web Goose." Honestly diverges from the owner's "native webview shell" phrasing — surfaced, not assumed.
-- **R3. Code-engine = ONE CoreEditor engine, MODE-SPLIT chrome (L3-CHROME).** CODE files = Option A (keep
-  Epistemos's code-editor chrome incl. the preview button, swap the engine to MarkEdit CoreEditor); MD files =
-  MarkEdit chrome VERBATIM (Option B for markdown). Per L3 the 3 old code-editor files are DELETED once v2 is
-  runtime-verified (code-editor scope only).
+- **R3. Code-engine = MarkEdit (Source); MarkEdit native chrome for BOTH code AND markdown (L3-CHROME REVISED).**
+  Preserve-list grafted in (preview button, LSP-hover, Outline, critical v1 buttons); code sizing a few ticks
+  smaller than MD. The old code editor is KEPT as "v1 legacy" (Settings + MarkEdit toggle) — NOT deleted (L3).
+  See L4 for the full Prose/Source/Note lens model.
 - **R4. `@codemirror/merge`** = the code-lane diff engine (it was only wrong for the *note* editor). Settled.
 - **R5. Edit-provenance = the existing Swift `AgentNoteEditProvenance` → EventStore spine**, enriched with an
   `EditClaim` metadata struct. The Rust `ClaimLedger` FFI is read-only today and Phase 8.E moved live provenance
@@ -85,19 +102,20 @@ strictness as the Goose plan's R-CODEREVIEW:
 
 ---
 
-## 1. The surface model (THREE editors, each to its strength)
-| Surface | Engine | Role | Status |
+## 1. The surface model — THE LENS MODEL (markdown-on-disk = ONE truth; three lenses on it, L4)
+A markdown document opens in any of three **lenses** (cross-synced on the same `.md`); a CODE file = **Source only**.
+| Lens / surface | Engine | Role | Status |
 |---|---|---|---|
-| **Note editor = Epdoc** | TipTap/ProseMirror in WKWebView | Tolaria-like WYSIWYG notes — the primary writing surface | LIVE, exists; revamp it |
-| **Code editor v2 = MarkEdit CoreEditor** | CodeMirror 6 in WKWebView (vendored from MarkEdit) | code/text files; REPLACES the old code editor (old files deleted after v2 runtime-verify, L3). **Chrome = mode-split (L3-CHROME): CODE files keep Epistemos chrome + preview button; MD files get MarkEdit chrome verbatim** | BUILD (replace) |
-| **Prose = TK2** | TextKit 2 / `ProseTextView2` (native) | 🔒 frozen hard-gate, long-form/focus | UNTOUCHED |
-| **(old) current code editor** | `WebKitCodeEditorView` (textarea, highlighting disabled) + 2 dormant impls | DELETE after v2 verified (L3, code-editor scope only) | REMOVE post-verify |
+| **Note** (= Epdoc) | TipTap/ProseMirror in WKWebView | WYSIWYG rich lens — **STANDALONE, isolated module**; `getMarkdown()`-only writer; the one fragile round-trip (4 guardrails, L4) | LIVE; revamp + isolate |
+| **Source** (= MarkEdit CoreEditor) | CodeMirror 6 in WKWebView (vendored from MarkEdit) | raw markdown + live preview + **MarkEdit native chrome**; the DEFAULT **code** surface AND a markdown lens (L3-CHROME) | BUILD (default) |
+| **Prose** (= TK2) | TextKit 2 / `ProseTextView2` (native) | native focus/long-form lens; edits markdown AS TEXT (no rich re-serialize) | UNFROZEN (owner 2026-06-29); wire LAST |
+| **(legacy) code editor v1** | `WebKitCodeEditorView` + dormant impls | KEPT as a **v1 legacy fallback** — Settings + a toggle inside the MarkEdit surface (NOT deleted, L3) | RETAIN as legacy |
 | **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; "another feature later" | EMBED, inert behind a flag |
-| **HTML Workspace** | `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` | AI-artifact surface (chat rewrites it into a live website/explainer); hand-edit routes to code-editor v2 | LIVE; Plan 2 owns it (§13.5) |
+| **HTML Workspace** | `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` | AI-artifact surface; hand-edit routes to the Source (MarkEdit code) surface | LIVE; Plan 2 owns it (§13.5) |
 
-Why: TipTap = the rendered/WYSIWYG "looks like Tolaria on edit" feel (Tolaria's editor *is* BlockNote = TipTap+
-Notion-UI underneath); CodeMirror = purpose-built for code (the current code editor is a textarea with
-highlighting DISABLED — see `MARKEDIT_EMBED_CODEPACK` §0); TextKit = best for very large docs.
+Why: same markdown underneath, three ways to see it — **Note** = WYSIWYG (rich, Tolaria/Notion feel), **Source** =
+raw markdown + preview + native MarkEdit chrome (also the only sensible lens for real code), **Prose** = native
+distraction-free long-form. Loss can only occur at the Note→markdown serialize boundary; the L4 guardrails contain it.
 
 ---
 

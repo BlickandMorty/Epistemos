@@ -128,46 +128,62 @@ struct MarkEditSettingsRepresentable: NSViewControllerRepresentable {
 ```
 "Closed-in / doesn't run yet" = compiles + renders behind a flag; no `Settings` scene / `Cmd+,` wired this pass.
 
-## 3. Code-editor swap — ★ CANONICAL: MODE-SPLIT CHROME over ONE shared CoreEditor engine
-★ OWNER DECISION (2026-06-28): "the markedit is replacing the old code EDITOR, not the chrome necessarily."
-MarkEdit's CoreEditor (CM6) becomes the ONE engine under BOTH modes. The CHROME differs by file type:
+## 3. Code-editor swap — ★ CANONICAL (REVISED 2026-06-29): MarkEdit native chrome for BOTH code + markdown; the Prose/Source/Note LENS MODEL
+★ OWNER DECISIONS (2026-06-29, supersede the 2026-06-28 mode-split): see plan **L3 / L3-CHROME / L4**.
+MarkEdit's CoreEditor (CM6) is the ONE engine, and **MarkEdit's native chrome is the chrome for the WHOLE
+code/text/markdown surface** (the owner saw it and prefers it for code too — "all the native parts seem better").
 
-- **MD files → MarkEdit chrome VERBATIM (Option B for markdown).** When the open document is markdown, host
-  MarkEdit's OWN `EditorViewController` with its FULL native chrome — toolbar, panels (Find/Replace, FontPicker,
-  Statistics, Goto-Line, TableOfContents), and the live Settings UI — so the MD experience is "perfectly the
-  same as the MarkEdit app." MarkEdit is purpose-built + already polished for markdown; do NOT re-skin it away.
-  Optional Epistemos UPGRADES are allowed (theme tokens, wikilink/`> [!KIND]`/```chart grammar affordances,
-  the Goose minichat seam) but they ADD to MarkEdit's chrome — they never subtract MarkEdit polish. The bar:
-  a MarkEdit user opening a `.md` file should feel zero regression vs the standalone MarkEdit.app.
-- **CODE files → Epistemos chrome (Option A for code).** When the open document is a non-markdown code file,
-  keep Epistemos's existing native SwiftUI chrome (`CodeEditorView` top bar: file/lang/Ln-Col, **the Live-Preview
-  toggle / HTML preview button**, Find, Go-to-Line, Outline, view-options, editor-settings, LSP-hover) and swap
-  ONLY the engine textarea→CoreEditor. The code chrome MAY look "slightly different in terms of the top bar" —
-  that is intended; it stays the good Epistemos code chrome, just on the real CM6 engine.
+- **MarkEdit native chrome for BOTH code AND markdown** (NOT the old per-file-type Epistemos-vs-MarkEdit split).
+  Host MarkEdit's `EditorViewController` chrome — toolbar, Find/Replace, FontPicker, Statistics, Goto-Line, the
+  Previewer, the live Settings UI — for both. **MD must be VERBATIM** vs the standalone MarkEdit.app (visual
+  fidelity §3a). Optional Epistemos additions ADD only, never subtract MarkEdit polish.
+- **PRESERVE-LIST — graft these Epistemos code-editor-v1 affordances INTO MarkEdit's chrome (never lose them):**
+  the **Live-Preview / HTML preview button** (`HTMLWorkspacePreviewView`, engine-agnostic — needs only `$text`),
+  **LSP hover/go-to-def** (`CodeEditorSemanticLSP` over `RustLSPTransport`), the **Outline** navigator, + the other
+  critical v1 buttons. (MarkEdit natively supplies Find/GoToLine/FontPicker/Statistics → those REPLACE the
+  Epistemos equivalents.)
+- **OLD CODE EDITOR = KEPT as "v1 legacy" (do NOT delete — supersedes the old L3 deletion):** reachable from
+  **Settings** + a **toggle inside the MarkEdit surface** so the owner can fall back to `WebKitCodeEditorView`.
+- **SIZING (§3a):** MD matches MarkEdit's full default font size; **CODE is a few ticks SMALLER than MarkEdit's MD
+  default but MORE spacious/larger than today's code editor** (real-code density). Inherit MarkEdit's defaults
+  (`FontPicker.defaultFontSize`, `AppPreferences.Editor.lineHeight`) — do NOT substitute a smaller Epistemos value
+  or hardcode line-height.
+- **THE LENS MODEL (plan L4):** markdown-on-disk is the ONE truth; a `.md` opens in any of three cross-synced
+  lenses — **Note** (Epdoc WYSIWYG, standalone isolated module) · **Source** (this MarkEdit surface) · **Prose**
+  (TK2 focus, wired last). A CODE file = **Source only**. Ship **Source ↔ Note** toggle first; add Prose later.
+  - **Data-loss containment:** Source + Prose edit raw text (near-zero loss). The ONLY loss boundary is **Note/Epdoc
+    serializing back to markdown**. 4 guardrails: (1) Epdoc writes ONLY via the full-fidelity `getMarkdown()` bridge;
+    (2) preserve-unknown passthrough; (3) write only on a real edit; (4) round-trip test fails loud on edge
+    constructs (raw HTML / footnotes / exotic tables / callouts / frontmatter).
+- **★ ROUTING FIX — the MarkEdit MD surface is currently ORPHANED.** `MarkEditVerbatimMarkdownChromeRepresentable`
+  (`mode: .markdownChrome`) is built but UNREACHABLE: the language detector at `CodeEditorView.swift:706` returns
+  nil for markdown → routes `.md` to the PROSE editor, so MarkEdit's MD chrome is never entered (owner: "I don't
+  see a way to access the MD version — it all routes to Prose"). WIRE the per-document lens toggle so `.md` can open
+  in the Source (MarkEdit) lens; do NOT force-route markdown away from it.
   ```swift
-  // CODE path — Option A: Epistemos chrome, CoreEditor engine.
+  // ONE MarkEdit CoreEditor surface for code + markdown; lens toggle picks Note/Source/Prose for .md.
   @ViewBuilder private var codeEditorSurface: some View {
-      MarkEditCodeEditorRepresentable(text: $text,
-          language: CodeEditorLanguage(epistemos: language), theme: ui.theme,
+      MarkEditCoreEditorView(text: $text, mode: isMarkdownDocument ? .markdownChrome : .codeChrome,
+          language: CodeEditorLanguage(epistemos: language), theme: ui.theme, fontSize: codeFontSize,
           onContentChange: { ensureContentDebouncer().enqueue($0) })
   }
   ```
-- **THE PREVIEW BUTTON IS LOAD-BEARING — preserve it.** The old code editor's `CodeEditorView` Live-Preview
-  toggle → `HTMLWorkspacePreviewView` (the "preview button like html has on the old code editor") MUST survive
-  the swap, unchanged, on the CODE path. It drives a WKWebView render of the current HTML/markdown buffer; it is
-  engine-agnostic (needs only `$text`), so it drops straight onto CoreEditor. Do NOT lose it. (MD mode gets
-  MarkEdit's own Previewer module instead; code mode keeps Epistemos's `HTMLWorkspacePreviewView`.)
-- **ROUTING SEAM:** a single `isMarkdownDocument` branch in `CodeEditorView` selects MD-chrome (mount
-  MarkEdit `EditorViewController`) vs code-chrome (mount `MarkEditCodeEditorRepresentable` inside the existing
-  SwiftUI chrome). ONE CoreEditor engine, TWO chrome wrappers — no two-competing-chrome drift because each file
-  type sees exactly one chrome.
-- **Background — the two raw options this decision fuses:** Option A = keep Epistemos chrome, swap engine
-  (now the CODE path). Option B = host MarkEdit's whole `EditorViewController` chrome (now the MD path). The
-  per-file-type split is what lets us take MarkEdit's verbatim MD polish AND Epistemos's code chrome without the
-  "two competing chromes in one surface" risk.
 - **LSP attach:** (1) keep the current one-shot Swift `CodeEditorSemanticLSP` over `RustLSPTransport` (engine-
   agnostic — needs only `$text`+cursor, which CoreEditor provides). (2) Later: a CM6 LSP-client extension in
   the CoreEditor bundle bridged to `lspSendMessageJson`/`lspPollResponseJson` (rust/swift only) — defer.
+
+## 3a. ★ VISUAL FIDELITY — the embed MUST look like the finished MarkEdit app (owner: "looks way different — larger, higher quality")
+The current embed renders SMALLER/plainer than the standalone app. Verified causes + fixes:
+- **Font size is substituted, not inherited.** `MarkEditCoreEditorView.swift:364` clamps an Epistemos-supplied
+  `fontSize`. The real app uses `AppPreferences.Editor.fontSize` defaulting to `FontPicker.defaultFontSize`
+  (`AppPreferences.swift:86`) — LARGER. FIX: MD path inherits `FontPicker.defaultFontSize` verbatim; CODE path uses
+  it minus a few ticks (still larger than today's code editor) per the §3 sizing rule.
+- **Line height is hardcoded** to `1.45` (`:831`). FIX: use `AppPreferences.Editor.lineHeight` (default `.normal`).
+- **MarkEdit default-prefs harvest was never done.** Port MarkEdit's `AppDelegate`/`AppPreferences`/`FontPicker`
+  default registration (font, size, line-height, theme) into `AppBootstrap` (the §0a harvest-hardening item).
+- **Content insets / window size:** match MarkEdit's roomy editor margins + default window dimensions; don't let
+  Epistemos theme CSS shrink/override MarkEdit's own styling on the MD path.
+- **Acceptance:** open a `.md` side-by-side with the real MarkEdit.app — font size, spacing, margins must match.
 
 ## 4. Build / signing
 xcodegen `project.yml` (NEVER hand-edit `.xcodeproj`): add local-path packages + products.
