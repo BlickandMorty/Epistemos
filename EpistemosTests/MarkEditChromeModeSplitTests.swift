@@ -106,6 +106,20 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(!source.contains("if navigationAction.navigationType == .other {\n            decisionHandler(.allow)"))
     }
 
+    @Test("CoreEditor teardown invalidates callbacks before stopping the WKWebView")
+    func markEditCoreEditorTeardownRemovesHandlersBeforeStoppingLoad() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let detach = try Self.extractFunction(
+            signature: "func detach(from webView: WKWebView)",
+            from: source
+        )
+
+        #expect(detach.contains("loadGeneration += 1"))
+        #expect(Self.offset(of: "loadGeneration += 1", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
+        #expect(Self.offset(of: "removeScriptMessageHandler", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
+        #expect(!detach.contains("loadGeneration += 1\n        loadGeneration += 1"))
+    }
+
     @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
     func markEditCoreEditorChunkLoaderRejectsTraversalAndNonChunkHosts() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")
@@ -158,15 +172,49 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
         throw MarkEditChromeModeSplitTestError.missingBlock(name)
     }
+
+    private static func extractFunction(signature: String, from source: String) throws -> String {
+        guard let nameRange = source.range(of: signature) else {
+            throw MarkEditChromeModeSplitTestError.missingFunction(signature)
+        }
+        guard let openBrace = source[nameRange.upperBound...].firstIndex(of: "{") else {
+            throw MarkEditChromeModeSplitTestError.missingFunction(signature)
+        }
+
+        var depth = 0
+        var index = openBrace
+        while index < source.endIndex {
+            let character = source[index]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return String(source[openBrace...index])
+                }
+            }
+            index = source.index(after: index)
+        }
+
+        throw MarkEditChromeModeSplitTestError.missingFunction(signature)
+    }
+
+    private static func offset(of needle: String, in haystack: String) -> Int {
+        guard let range = haystack.range(of: needle) else { return Int.max }
+        return haystack.distance(from: haystack.startIndex, to: range.lowerBound)
+    }
 }
 
 private enum MarkEditChromeModeSplitTestError: Error, CustomStringConvertible {
     case missingBlock(String)
+    case missingFunction(String)
 
     var description: String {
         switch self {
         case .missingBlock(let name):
             return "Missing CodeEditorView block: \(name)"
+        case .missingFunction(let name):
+            return "Missing MarkEdit CoreEditor function: \(name)"
         }
     }
 }

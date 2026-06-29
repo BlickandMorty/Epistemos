@@ -411,7 +411,7 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
     }
 
     func detach(from webView: WKWebView) {
-        webView.stopLoading()
+        loadGeneration += 1
         webView.navigationDelegate = nil
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: MarkEditCoreEditorBridge.messageHandlerName
@@ -420,6 +420,7 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
             forName: MarkEditCoreEditorBridge.nativeMessageHandlerName,
             contentWorld: .page
         )
+        webView.stopLoading()
         self.webView = nil
         hasLoadedEditor = false
         pendingState = nil
@@ -427,7 +428,6 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         lastAppliedState = nil
         lastSelectionRequestID = nil
         isApplyingFromSwift = false
-        loadGeneration += 1
     }
 
     func update(
