@@ -1030,7 +1030,9 @@ struct MarkEditCoreEditorState: Equatable {
     func requiresReload(comparedTo other: MarkEditCoreEditorState) -> Bool {
         mode != other.mode ||
             themeName != other.themeName ||
+            fontFace != other.fontFace ||
             fontSize != other.fontSize ||
+            lineHeight != other.lineHeight ||
             wrapLines != other.wrapLines ||
             showLineNumbers != other.showLineNumbers ||
             showInvisibles != other.showInvisibles ||

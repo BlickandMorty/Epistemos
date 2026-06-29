@@ -6,7 +6,8 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 17:06 CDT (loop cycle 8) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. Deep-pass (ultracode): (a) verified all 4 springs consistent repo-wide & **STRENGTHENED check #4** to guard all 4 (was `.smooth`-only false-green). (b) Inspected uncommitted Plan-3 WIP doc `PLAN_3_VOICE_CODEPACK` (voice mic-callback gating) — READ-ONLY, no canon drift, left untouched. HEAD at pass: `d6b5bdf55`.
+**Last auditor pass:** 2026-06-29 17:16 CDT (loop cycle 9) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. Strengthened check #4 now returns exactly the 4 canonical springs. Plan-3 committed `PLAN_3_VOICE_CODEPACK` (`d02e34691`) — diff re-scanned, voice-only, no canon-relevant content. HEAD at pass: `d02e34691`.
+<br>_Recent: cycle 8 (17:06) STRENGTHENED check #4 to guard all 4 springs (was `.smooth`-only false-green). cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
 

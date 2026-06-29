@@ -276,10 +276,20 @@ nonisolated struct CodeEditorPolishTests {
                 "Code files must render through MarkEdit CoreEditor by default, with v1 kept as an explicit fallback.")
         #expect(source.contains("theme: ui.theme"),
                 "Epistemos theme changes must feed the CoreEditor adapter.")
-        #expect(adapter.contains(#"themeName: theme.isDark ? "github-dark" : "github-light""#),
-                "CoreEditor must receive a syntax theme, not a plain body-text fallback.")
-        #expect(adapter.contains(#"fontFace: .init(family: "SF Mono", weight: nil, style: nil)"#),
+        #expect(adapter.contains("AppTheme.epistemosSourceTheme(for: theme).editorTheme"),
+                "CoreEditor should map Epistemos themes into MarkEdit source themes instead of falling back to a plain body surface.")
+        #expect(adapter.contains(#"theme.isDark ? "xcode-dark" : "xcode-light""#),
+                "The non-MarkEdit fallback still needs a real code syntax theme.")
+        #expect(adapter.contains(#"WebFontFace(family: "SF Mono", weight: nil, style: nil)"#),
                 "The code lane should keep a monospaced editor face through CoreEditor config.")
+        #expect(adapter.contains("AppPreferences.Editor.fontSize"),
+                "Markdown Source should inherit MarkEdit's editor font size.")
+        #expect(adapter.contains("AppPreferences.Editor.lineHeight.multiplier"),
+                "Markdown and code Source should inherit MarkEdit's editor line-height preference.")
+        #expect(adapter.contains("fontFace != other.fontFace"),
+                "Changing editor font face must reload CoreEditor so metrics and wrapping repaint.")
+        #expect(adapter.contains("lineHeight != other.lineHeight"),
+                "Changing MarkEdit line height must reload CoreEditor so visual metrics repaint.")
         #expect(adapter.contains("showActiveLineIndicator: true"),
                 "CoreEditor should preserve editor affordances that distinguish code from prose.")
         #expect(adapter.contains("lineWrapping: wrapLines"),
