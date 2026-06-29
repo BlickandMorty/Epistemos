@@ -1,20 +1,20 @@
-# Plan 3 — Provenance moat (clone-ready code, Pass 3)
+# Plan 3 — Provenance moat (shipped code, Pass 4)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §4`. Swift-only honest-chip fix + hover-lineage moat.
-> **★ SHIP RULE: Fix A + Moat-1 land in the SAME commit.** `VRMLabelView` must NEVER read `packet.uiLabel` — only
-> `VRMLabel.honestLabel(for:)`. Shipping the view without the gate re-introduces the "Verified from a hardcoded label"
-> bug the deleted renderer avoided by omission. `[VERIFIED-CODE]`/`[INFERRED]` tagged.
+> **Shipped invariant:** `VRMLabelView` must NEVER read `packet.uiLabel` — only `VRMLabel.honestLabel(for:)`.
+> `Verified` is visible only when an active claim has a verifiable UAS/ACS anchor; empty packets render no chip.
+> `[VERIFIED-CODE]`/`[INFERRED]` tagged.
 
 ## Verified anchors
 `VRMLabel` `AnswerPacket.swift:167-196`; `Claim{status,kind,uasAddress,acsAnchor}` `:278-326`; `ClaimStatus.active` `:269`;
 hardcoded `uiLabel=.plausibleButUnverified` (`AnswerPacketEmitter.swift:364` stub + `:397` request). Swift `Claim` has
 NO evidence-link field — use `uasAddress`/`acsAnchor` presence as "evidence chain" `[INFERRED — confirm vs ledger.rs]`.
-`VerifiedFloorChipStrip` green = `productionWired && falsifierPassed`, both caller literals (`SettingsSurfaceComponents.swift:297-319`,
-19 call sites). `RustProvenanceLedgerClient.summary().claimCount` (read-only `:23,112`) + `RustCognitiveDagClient.stats().nodeCount`
-(`:30,129`) exist, `nonisolated`, return `.empty` when FFI absent. `ChatMessage.answerPacketId` `ChatTypes.swift:307`;
-`LatestAnswerPacketSink.shared.packet(for:)` `:103`.
+`VerifiedFloorChipStrip` green = `productionWired && falsifierPassed && artifactSatisfied && liveBackingSatisfied`
+(`SettingsSurfaceComponents.swift`). `RustProvenanceLedgerClient.summary().claimCount` + `RustCognitiveDagClient.stats().nodeCount`
+exist, `nonisolated`, return `.empty` when FFI absent, and are used by `VerifiedFloorLiveBacking`. `ChatMessage.answerPacketId`
+plus `LatestAnswerPacketSink.shared.packet(for:)` are the per-turn packet bridge.
 
-## Fix A — honest label gate (`AnswerPacket.swift`, extension after `:196`)
+## Fix A — honest label gate [DELIVERED]
 `VRMLabel.honestLabel(for packet:) -> VRMLabel?`:
 - `nil` (NO CHIP) when no `.active` claims → preserves "honest by omission".
 - `.verified` ONLY if ≥1 active claim whose kind ∈ {`.empirical,.mathematical,.codeInvariant`} AND
@@ -29,16 +29,16 @@ anchored empirical/codeInvariant→verified; speculative-even-anchored→plausib
 `ClaimKind.allCases` × statuses asserting no `.verified` leaks without (active + anchored + verifiable-arm)**.
 (`ClaimKind` is `CaseIterable :38`; `ClaimStatus` is NOT — enumerate arms by hand.)
 
-## Fix B — tighten `VerifiedFloorChipStrip` (additive, source-compatible)
-Keep the existing init (19 rows compile unchanged) + add opt-in real gates that AND into green:
-`var requiresArtifactAtPath: String? = nil` (green also requires the file to exist on disk) and
-`var requiresLiveBacking: LiveBacking = .none` (`.ledger` → `RustProvenanceLedgerClient.summary().claimCount > 0`;
+## Fix B — tightened `VerifiedFloorChipStrip` [DELIVERED]
+The existing init remains source-compatible, with opt-in real gates that AND into green:
+`requiresArtifactAtPath: String? = nil` (green also requires the file to exist on disk) and
+`requiresLiveBacking: VerifiedFloorLiveBacking = .none` (`.ledger` → `RustProvenanceLedgerClient.summary().claimCount > 0`;
 `.dag` → `RustCognitiveDagClient.stats().nodeCount > 0`). `greenEligible = productionWired && falsifierPassed &&
 artifactSatisfied && liveBackingSatisfied`. Witness label shows "no artifact"/"empty" instead of "PASS" when a declared
-backing is missing — so a literal-true can no longer force green. Provenance rows opt in
-(`requiresLiveBacking: .ledger`); the other 17 default to `.none`. Adopt per-row deliberately, not blanket.
+backing is missing, so a literal-true cannot force green on rows that declare backing. `AnswerPacketHealthRow` opts into
+ledger backing with `requiresLiveBacking: .ledger`; other rows stay deliberate row-by-row adoption.
 
-## Moat-1 — `VRMLabelView` hover-lineage card (NEW `Epistemos/Views/Provenance/VRMLabelView.swift`)
+## Moat-1 — `VRMLabelView` hover-lineage card [DELIVERED]
 Chip text/color from `honestLabel(for:)` ONLY; renders **nothing** when nil. Hover popover surfaces: model + tier +
 verification score (`packet.residencySignals.map(\.verificationScore).max()`, `:204`) + generatedAt (newest claim
 `createdAtMs`) vs acceptedAt + the **claim list** (kind/status dot + a `link` glyph when anchored). Lineage fields the
@@ -46,11 +46,12 @@ packet doesn't carry (model/tier/acceptedAt) are **explicit view inputs from `Ch
 the packet. Call site (the binding that keeps it honest):
 ```swift
 if let id = message.answerPacketId, let packet = LatestAnswerPacketSink.shared.packet(for: id) {
-    VRMLabelView(packet: packet, modelLabel: message.modelDisplayName,
-                 tierLabel: message.capabilityTier, acceptedAt: message.timestamp)
+    VRMLabelView(packet: packet,
+                 modelLabel: message.resolvedModelLabel,
+                 tierLabel: message.mode?.rawValue,
+                 acceptedAt: message.createdAt)
 }
 ```
-`[INFERRED]` confirm `message.modelDisplayName/.capabilityTier/.timestamp` accessor names at the call site.
 
 ## Dependency — full retraction cascade (FLAGGED, not built now)
 The `ClaimLedger` BFS cascade (`MAX_RETRACTION_WALK_DEPTH=16`) is NOT Swift-reachable: `RustProvenanceLedgerClient` is
@@ -60,6 +61,7 @@ FFI** (`record_claim_json`/`retract_claim_json` in `bridge.rs`) + **owner sign-o
 EventStore edit-retraction chain via `AgentNoteEditProvenance` (`:28-80`) — each agent edit is a committed
 `MutationEnvelope` on the same `artifactID`; render "this was superseded by edit X" off that chain, no write FFI.
 
-## Single-commit bundle
-Fix A (`AnswerPacket.swift` + `AnswerPacketEmitter.swift`) + `VRMLabelView.swift` + `VRMLabelHonestLabelTests.swift`.
-Separately: Fix B (`SettingsSurfaceComponents.swift`) + per-row opt-in. Rust write FFI + cascade = flagged-pending sign-off.
+## Shipped bundle
+Fix A (`AnswerPacket.swift` + `AnswerPacketEmitter.swift`) + `VRMLabelView.swift` + `VRMLabelHonestLabelTests.swift`
+are shipped together. Fix B (`SettingsSurfaceComponents.swift`) + `AnswerPacketHealthRow` ledger opt-in are shipped.
+Rust write FFI + cascade remain flagged-pending owner sign-off.

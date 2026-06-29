@@ -86,6 +86,43 @@ struct VRMLabelHonestLabelTests {
         #expect(source.contains("stamped.uiLabel = .default"))
     }
 
+    @Test("Plan 3 provenance docs describe the shipped honest moat")
+    func plan3ProvenanceDocsTrackShippedMoat() throws {
+        let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_PROVENANCE_CODEPACK_2026_06_28.md")
+        let capability = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+
+        for phrase in [
+            "Fix A — honest label gate [DELIVERED]",
+            "Fix B — tightened `VerifiedFloorChipStrip` [DELIVERED]",
+            "Moat-1 — `VRMLabelView` hover-lineage card [DELIVERED]",
+            "message.resolvedModelLabel",
+            "message.mode?.rawValue",
+            "message.createdAt",
+        ] {
+            #expect(codepack.contains(phrase), "Provenance codepack must include \(phrase)")
+        }
+
+        for phrase in [
+            "`VRMLabel.honestLabel(for:)` gates every per-answer label",
+            "`VRMLabelView` renders only `honestLabel(for:)`",
+            "`requiresLiveBacking: .ledger/.dag`",
+            "Provenance moat follow-up",
+        ] {
+            #expect(capability.contains(phrase), "Capability doc must include \(phrase)")
+        }
+
+        for stale in [
+            "VRMLabelView exists nowhere",
+            "per-answer VRM chip renderer is DELETED",
+            "chip is currently honest-by-omission",
+            "NEW `Epistemos/Views/Provenance/VRMLabelView.swift`",
+            "[INFERRED]` confirm `message.modelDisplayName/.capabilityTier/.timestamp`",
+        ] {
+            #expect(!codepack.contains(stale), "Provenance codepack must not contain stale claim \(stale)")
+            #expect(!capability.contains(stale), "Capability doc must not contain stale claim \(stale)")
+        }
+    }
+
     private static func packet(
         claims: [Claim],
         storedLabel: VRMLabel = .plausibleButUnverified

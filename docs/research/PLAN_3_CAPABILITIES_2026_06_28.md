@@ -157,35 +157,27 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
 
 ## 4. Provenance moat (visible + honest)  ★ your strongest differentiator
 
-**Substrate is complete; the FFI is read-only; the chip is currently honest-by-omission.** `[VERIFIED-CODE]`
+**Substrate is complete; the FFI is read-only; the shipped Swift chip is now honestly gated.** `[VERIFIED-CODE]`
 - Rust: `ClaimLedger` with full retraction (`ledger.rs:699` `retract_claim`, `:753` depth-capped `bfs_mark_at_risk`),
   `ReplayBundle`+BLAKE3 (`replay.rs`), Cognitive DAG (live writes route here via `dispatch::on_claim_committed`).
 - FFI is **read-only** (`bridge.rs:3465/3497/3526` summary/recent/snapshot). **No claim-write / no retract FFI.**
-- Swift: `AnswerPacket`/`VRMLabel` mirror; `AgentNoteEditProvenance`→EventStore (the real, buildable per-edit
-  lineage); shipped Provenance Console (`ProvenanceConsoleView`), but its `retractionEventProvider` defaults to empty.
+- Swift: `VRMLabel.honestLabel(for:)` gates every per-answer label; `AnswerPacketEmitter` derives stored labels through
+  the honest gate for Rust-produced packets; `VRMLabelView` renders only `honestLabel(for:)` and never reads raw
+  `packet.uiLabel`; `ChatMessageVRMLabelView` hydrates packets through `LatestAnswerPacketSink`.
+- `VerifiedFloorChipStrip` green now requires `productionWired && falsifierPassed && artifactSatisfied &&
+  liveBackingSatisfied`. `requiresLiveBacking: .ledger/.dag` probes `RustProvenanceLedgerClient`/`RustCognitiveDagClient`;
+  `AnswerPacketHealthRow` opts into ledger backing.
+- `AgentNoteEditProvenance`→EventStore remains the real, buildable per-edit lineage; shipped Provenance Console
+  (`ProvenanceConsoleView`) is read-only and its `retractionEventProvider` defaults to empty.
 
-**The fake-chip finding `[VERIFIED-CODE]` (two surfaces):**
-1. **The per-answer VRM chip renderer is DELETED** — `VRMLabelView` exists nowhere (grep = 0); the Rust comment
-   claiming it renders is a stale lie. So **no "Verified" chip renders in chat today** (honest by omission). The
-   latent trap: rebuilding `VRMLabelView` bound to `AnswerPacket.uiLabel` would show "Verified" with **zero backing
-   claim** — `uiLabel` is hardcoded `.plausibleButUnverified` (`AnswerPacketEmitter.swift:397`) and the only claim is a
-   tautological "turn completed: N tokens" self-witness.
-2. **The Settings `VerifiedFloorChipStrip` green is computed from hand-written literals** (`productionWired &&
-   falsifierPassed`, both passed in per `*HealthRow.swift`). A row can ship green with no real ledger/DAG entry. **This
-   is the synthetic-chip vector that actually ships.**
+**The fake-chip vector is closed for shipped Swift per-answer chips `[VERIFIED-CODE]`:**
+1. `VRMLabelView` exists again, but it binds only to `VRMLabel.honestLabel(for:)`; empty packets render no chip, and
+   `.verified` requires an active empirical/mathematical/code-invariant claim with a UAS/ACS anchor.
+2. Settings rows can no longer force green with literals once they declare artifact or live backing. Provenance-facing
+   `AnswerPacketHealthRow` declares ledger backing; remaining rows keep source-compatible defaults until deliberately
+   opted in.
 
-**Honest fix (Swift-only, buildable now):**
-- **Fix A** — `VRMLabel.honestLabel(for:) -> VRMLabel?`: returns `.verified` ONLY if the packet has ≥1 non-self-witness
-  active claim with an evidence chain; `nil` (no chip) when claims are empty. Stop hardcoding the label; derive from
-  the produced claims. Any future `VRMLabelView` binds to this, never to raw `uiLabel`. Test: no `.verified` unless a
-  real active claim exists.
-- **Fix B** — tighten `VerifiedFloorChipStripAuditTests` so a green also requires the named falsifier artifact to exist
-  on disk AND (for ledger/DAG-backed rows) a non-zero claim/node count. Kills the literal-true loophole.
-
-**Make-it-the-moat:**
-- **Moat-1 (Swift, now):** rebuild `VRMLabelView` as a **hover-lineage card** on every assistant message — VRM label
-  (honestly gated), claim list (kind/status), residency verification score, generatedAt vs acceptedAt, agent/model/tier
-  from turn metadata. "A chip that proves itself when you hover."
+**Make-it-the-moat, remaining work:**
 - **Moat-2 retraction demo:** EventStore-based "undo this edit + downstream" is **buildable today** via
   `AgentNoteEditProvenance` sequence ordering. The **true ClaimLedger BFS cascade needs ONE new Rust FFI**
   (`record_claim_json` + `retract_claim_json`) — write through the DAG dispatch (Phase-8.E single-authority),
@@ -193,8 +185,7 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
 - **Moat-3 (now):** one-click "export this answer's verifiable lineage" via the snapshot/`.epbundle` + BLAKE3 (read-side
   already there) = the tamper-evident story.
 
-**★ Critical:** Fix A must land **in the same change** as any `VRMLabelView` rebuild, or you reintroduce the exact fake
-chip the owner is worried about. Effort: **LOW–MEDIUM** (Swift), the full retraction cascade = a gated Rust addition.
+Effort remaining: **LOW–MEDIUM** for export/demo polish; the full retraction cascade remains a gated Rust addition.
 
 ---
 
@@ -358,7 +349,7 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI).
-2. **Provenance moat Fix A+B** (LOW, honesty-critical — do before any chip is rebuilt) → then Moat-1 hover card.
+2. **Provenance moat follow-up** (LOW-MED) → lineage export + EventStore edit-retraction demo; Rust write FFI only with owner sign-off.
 3. **Extensibility 5c vault-as-MCP-server** (LOW-MED, ~80% built — the outward moat) → 5a install UI → 5b preset.
 4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).
 5. **Browser** — lite native WKWebView tab (MAS, `PLAN_3_OBSCURA_TIER1_CODEPACK`) first; **browser-use** Chromium robot
