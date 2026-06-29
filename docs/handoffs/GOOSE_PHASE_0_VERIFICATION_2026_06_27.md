@@ -666,3 +666,22 @@ shared default DerivedData must not be disturbed while other agents build agains
 it. My Goose suites ran on an isolated DerivedData throughout (CoW SourcePackages)
 to avoid the concurrent-build race, and all stayed green — so this item is closed
 on both the isolated and the owner-default caches.
+
+## Addendum 2026-06-28 (PM #10) — automated recursive proof satisfied (3+ consecutive clean passes)
+
+The recursive-proof's automated portion is met. Across the last several cycles the
+Goose surface held GREEN with NO code changes between them:
+- PM #8 (full): focused 31 + combined live 5/5 + mutations 12.
+- build-health pass: build-for-testing green incl. concurrent MarkEdit/plan3
+  commits; focused 32 green.
+- focused stability tick: 21 green.
+- this pass: combined live sweep **5/5, 47.8s**
+  (`build/goose-phase0-claude-2026-06-28/recursive-close-2026-06-28-190800.log`).
+
+Three-plus consecutive clean automated passes with no code change and no regression
+-> the automated half of "three consecutive clean passes before calling it hardened"
+is satisfied. The remaining element of the recursive proof is the one-time OWNER
+manual pass (Cmd-3 details language + route click-through) + the provider OAuth
+login the automated suite cannot perform; those are the §7 gate. Until then,
+re-proves are change-driven (escalate on any Goose-relevant commit / working-tree
+drift) rather than re-run every cycle on an unchanged surface.
