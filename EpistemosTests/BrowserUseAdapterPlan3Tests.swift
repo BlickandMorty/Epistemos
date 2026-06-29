@@ -109,6 +109,7 @@ struct BrowserUseAdapterPlan3Tests {
             "truncate_snapshot_text",
             "extract_refs(snapshot)",
             "\"refs_truncated\": refs_truncated or truncated",
+            "raw_text if isinstance(raw_text, str) else \"\"",
             "bound_eval_result",
             "\"result_truncated\"",
             "\"refs_truncated\"",
