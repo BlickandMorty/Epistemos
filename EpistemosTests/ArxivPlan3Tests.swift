@@ -147,8 +147,9 @@ struct ArxivPlan3Tests {
 
         let tempPDF = root.appendingPathComponent("CFNetworkDownload_456.tmp")
         try Data("%PDF-1.7\n".utf8).write(to: tempPDF)
+        let redirectedURL = try #require(URL(string: "https://example.com/pdf/2401.12345"))
         let response = try #require(HTTPURLResponse(
-            url: try #require(URL(string: "https://example.com/pdf/2401.12345")),
+            url: redirectedURL,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
