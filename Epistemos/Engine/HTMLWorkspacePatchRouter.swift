@@ -69,6 +69,7 @@ nonisolated public struct HTMLWorkspacePatchCommandBatch: Codable, Sendable, Equ
 }
 
 nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable {
+    case replaceDocument(HTMLWorkspaceDocumentReplacement)
     case replaceHTML(String)
     case replaceCSS(String)
     case replaceJS(String)
@@ -85,6 +86,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case css
         case js
         case json
+        case title
         case location
         case chart
         case selector
@@ -94,6 +96,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     }
 
     private enum OperationType: String, Codable {
+        case replaceDocument
+        case regenerate
         case replaceHTML
         case replaceCSS
         case replaceJS
@@ -109,6 +113,14 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(OperationType.self, forKey: .type)
         switch type {
+        case .replaceDocument, .regenerate:
+            self = .replaceDocument(HTMLWorkspaceDocumentReplacement(
+                title: try container.decodeIfPresent(String.self, forKey: .title),
+                html: try container.decode(String.self, forKey: .html),
+                css: try container.decode(String.self, forKey: .css),
+                js: try container.decode(String.self, forKey: .js),
+                dataJSON: try container.decode(String.self, forKey: .json)
+            ))
         case .replaceHTML:
             self = .replaceHTML(try container.decode(String.self, forKey: .html))
         case .replaceCSS:
@@ -143,6 +155,13 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .replaceDocument(let replacement):
+            try container.encode(OperationType.replaceDocument, forKey: .type)
+            try container.encodeIfPresent(replacement.title, forKey: .title)
+            try container.encode(replacement.html, forKey: .html)
+            try container.encode(replacement.css, forKey: .css)
+            try container.encode(replacement.js, forKey: .js)
+            try container.encode(replacement.dataJSON, forKey: .json)
         case .replaceHTML(let html):
             try container.encode(OperationType.replaceHTML, forKey: .type)
             try container.encode(html, forKey: .html)
@@ -179,6 +198,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     public func patchOperation() throws -> HTMLWorkspacePatchOperation {
         try validate()
         switch self {
+        case .replaceDocument(let replacement):
+            return .replaceDocument(replacement)
         case .replaceHTML(let html):
             return .replaceHTML(html)
         case .replaceCSS(let css):
@@ -208,6 +229,11 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
 
     private func validate() throws {
         switch self {
+        case .replaceDocument(let replacement):
+            try Self.validateHTML(replacement.html)
+            try Self.validateSource(replacement.css, kind: "CSS", maxCharacters: HTMLWorkspacePatchCommandLimits.maxCSSCharacters)
+            try Self.validateJavaScript(replacement.js)
+            try Self.validateDataJSON(replacement.dataJSON)
         case .replaceHTML(let html), .insertBlock(let html, _):
             try Self.validateHTML(html)
         case .replaceCSS(let css):
@@ -433,7 +459,7 @@ enum HTMLWorkspacePatchRouter {
             Surface Kind: htmlWorkspace
             Pane: preview
             Selected Range: none
-            Allowed Operations: replaceHTML, replaceCSS, replaceJS, replaceDataJSON, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot
+            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot
             """
             return """
             ### Attached HTML Workspace: \(snapshot.title)
@@ -446,7 +472,8 @@ enum HTMLWorkspacePatchRouter {
             ```epistemos-html-workspace-patch
             {"workspace_id":"\(snapshot.workspaceID)","expected_content_hash":"\(snapshot.contentHash)","operations":[{"type":"insertBlock","html":"<section></section>","location":"append"}]}
             ```
-            Allowed operation types: replaceHTML, replaceCSS, replaceJS, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot.
+            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot.
+            Full-surface replacement: use replaceDocument/regenerate when the user asks to rebuild the whole page; include "html", "css", "js", and "json" in one operation.
             Data operation: replaceDataJSON with a "json" string for local structured data.
             Safety: Do not request network or app bridge access. Keep behavior local/offline. Put JavaScript in replaceJS, not inline HTML event handlers.
 

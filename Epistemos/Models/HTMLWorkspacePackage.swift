@@ -945,7 +945,30 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
     """
 }
 
+nonisolated public struct HTMLWorkspaceDocumentReplacement: Sendable, Hashable {
+    public var title: String?
+    public var html: String
+    public var css: String
+    public var js: String
+    public var dataJSON: String
+
+    public init(
+        title: String? = nil,
+        html: String,
+        css: String,
+        js: String,
+        dataJSON: String
+    ) {
+        self.title = title
+        self.html = html
+        self.css = css
+        self.js = js
+        self.dataJSON = dataJSON
+    }
+}
+
 nonisolated public enum HTMLWorkspacePatchOperation: Sendable, Hashable {
+    case replaceDocument(HTMLWorkspaceDocumentReplacement)
     case replaceHTML(String)
     case replaceCSS(String)
     case replaceJS(String)
@@ -1044,6 +1067,14 @@ nonisolated public enum HTMLWorkspacePatchApplier {
     ) throws -> HTMLWorkspacePackage {
         var updated = package
         switch operation {
+        case .replaceDocument(let replacement):
+            if let title = replacement.title {
+                updated.manifest.title = title
+            }
+            updated.indexHTML = replacement.html
+            updated.styleCSS = replacement.css
+            updated.scriptJS = replacement.js
+            updated.dataJSON = replacement.dataJSON
         case .replaceHTML(let html):
             updated.indexHTML = html
         case .replaceCSS(let css):

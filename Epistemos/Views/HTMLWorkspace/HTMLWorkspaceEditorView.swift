@@ -810,17 +810,17 @@ struct HTMLWorkspaceEditorView: View {
     private func allowedOperations(for pane: HTMLWorkspaceSourcePane) -> [String] {
         switch pane {
         case .html:
-            ["replaceHTML", "insertBlock", "insertChart", "captureSnapshot"]
+            ["replaceDocument", "regenerate", "replaceHTML", "insertBlock", "insertChart", "captureSnapshot"]
         case .css:
-            ["replaceCSS", "updateStyleRule"]
+            ["replaceDocument", "regenerate", "replaceCSS", "updateStyleRule"]
         case .js:
-            ["replaceJS"]
+            ["replaceDocument", "regenerate", "replaceJS"]
         case .data:
-            ["replaceDataJSON", "insertChart"]
+            ["replaceDocument", "regenerate", "replaceDataJSON", "insertChart"]
         case .dom:
-            ["insertBlock", "insertChart"]
+            ["replaceDocument", "regenerate", "insertBlock", "insertChart"]
         case .assets:
-            ["addAsset", "captureSnapshot"]
+            ["replaceDocument", "regenerate", "addAsset", "captureSnapshot"]
         }
     }
 

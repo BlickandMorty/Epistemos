@@ -205,6 +205,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("!name.hasPrefix(\".\")"))
         #expect(packageSource.contains("CharacterSet.controlCharacters"))
         #expect(packageSource.contains("guard child.isRegularFile"))
+        #expect(packageSource.contains("HTMLWorkspaceDocumentReplacement"))
+        #expect(packageSource.contains("case replaceDocument(HTMLWorkspaceDocumentReplacement)"))
     }
 
     @Test("document surface exposes structured patch hooks without Epdoc internals")
@@ -250,6 +252,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
     @Test("HTML Workspace edits route through structured patch commands")
     func htmlWorkspaceRoutesStructuredPatches() throws {
         let routerSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspacePatchRouter.swift")
+        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
         let chatTypes = try loadMirroredSourceTextFile("Epistemos/Models/ChatTypes.swift")
 
         #expect(routerSource.contains("epistemos-html-workspace-patch"))
@@ -257,10 +260,15 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(routerSource.contains("expected_content_hash"))
         #expect(routerSource.contains("maxOperations"))
         #expect(routerSource.contains("replaceDataJSON"))
+        #expect(routerSource.contains("case replaceDocument"))
+        #expect(routerSource.contains("case regenerate"))
+        #expect(routerSource.contains("Full-surface replacement: use replaceDocument/regenerate"))
         #expect(routerSource.contains("window.webkit.messagehandlers"))
         #expect(routerSource.contains("applyPatchCommands"))
         #expect(routerSource.contains("var visible = response"))
         #expect(routerSource.contains("Allowed Operations:"))
+        #expect(routerSource.contains("replaceDocument, regenerate"))
+        #expect(editorSource.contains(#""replaceDocument", "regenerate""#))
         #expect(!routerSource.contains("var visible = parseResult.cleanedText"))
         #expect(chatTypes.contains("surfaceTarget"))
     }

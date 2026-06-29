@@ -7,7 +7,7 @@ import Foundation
 // These pin the HONEST capability ledger: the live entries are the real working ones, the deferred
 // seams are marked NOT live (no fake-green), and the summary says works-but-partial rather than
 // reading as complete. Verified against code (empty app-bridge handler, safeAPIEnabled=false, no
-// Pyodide, incremental-only patch router).
+// Pyodide, source-quad replaceDocument primitive only — no full regenerate UX).
 @Suite("SS-HW — honest HTML Workspace capability status")
 struct SSHWCapabilityStatusTests {
 
@@ -25,7 +25,7 @@ struct SSHWCapabilityStatusTests {
         #expect(deferred.contains { $0.contains("bridge") })       // app message-bridge is an empty stub
         #expect(deferred.contains { $0.contains("Python") })       // no Python today
         #expect(deferred.contains { $0.contains("DOM") })          // static regex, not live DOM
-        #expect(deferred.contains { $0.contains("regenerate") })   // incremental patches only
+        #expect(deferred.contains { $0.contains("regenerate") })   // replaceDocument primitive only
     }
 
     @Test("counts + summary are consistent + honest (works-but-partial, never 'complete')")
@@ -35,5 +35,6 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.liveCount > 0)        // it genuinely works as a renderer
         #expect(HTMLWorkspaceCapabilityStatus.deferredCount > 0)    // but it is NOT complete
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("deferred"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("regenerate UX"))
     }
 }

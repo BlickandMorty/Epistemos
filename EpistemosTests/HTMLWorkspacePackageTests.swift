@@ -206,6 +206,30 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.dataJSON.contains("\"nodes\""))
     }
 
+    @Test("replaceDocument swaps the generated source quad atomically")
+    func replaceDocumentPatchOperationAppliesAtomically() throws {
+        let original = Self.samplePackage()
+        let replacement = HTMLWorkspaceDocumentReplacement(
+            title: "Generated Explainer",
+            html: "<main><h1>Generated Explainer</h1></main>",
+            css: "main { display: grid; }",
+            js: "document.body.dataset.generated = 'true';",
+            dataJSON: #"{"generated":true}"#
+        )
+
+        let updated = try HTMLWorkspacePatchApplier.apply(.replaceDocument(replacement), to: original)
+
+        #expect(updated.manifest.id == original.manifest.id)
+        #expect(updated.manifest.sandboxPolicy == original.manifest.sandboxPolicy)
+        #expect(updated.manifest.title == "Generated Explainer")
+        #expect(updated.indexHTML == replacement.html)
+        #expect(updated.styleCSS == replacement.css)
+        #expect(updated.scriptJS == replacement.js)
+        #expect(updated.dataJSON == replacement.dataJSON)
+        #expect(updated.assets == original.assets)
+        #expect(updated.snapshots == original.snapshots)
+    }
+
     @Test("advanced structured operations are deterministic and path safe")
     func advancedStructuredPatchOperationsApply() throws {
         var package = Self.samplePackage()
@@ -333,6 +357,22 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.dataJSON.contains("series"))
         #expect(package.styleCSS.contains(".viz {"))
         #expect(package.styleCSS.contains("display: grid;"))
+
+        let regenerate = """
+        ```epistemos-html-workspace-patch
+        {"workspace_id":"html-workspace-test","operations":[{"type":"regenerate","title":"Generated Explainer","html":"<main><h1>Generated</h1></main>","css":"main { display: grid; }","js":"document.body.dataset.generated = 'true';","json":"{\\"generated\\":true}"}]}
+        ```
+        """
+        let regenerateResult = try HTMLWorkspacePatchCommandParser.parse(regenerate)
+        var regenerated = Self.samplePackage()
+        for command in regenerateResult.batches[0].operations {
+            regenerated = try HTMLWorkspacePatchApplier.apply(command.patchOperation(), to: regenerated)
+        }
+        #expect(regenerated.manifest.title == "Generated Explainer")
+        #expect(regenerated.indexHTML.contains("<h1>Generated</h1>"))
+        #expect(regenerated.styleCSS.contains("display: grid"))
+        #expect(regenerated.scriptJS.contains("generated"))
+        #expect(regenerated.dataJSON.contains("generated"))
     }
 
     @Test("Document surface metadata captures HTML Workspace panes")
@@ -425,6 +465,24 @@ nonisolated struct HTMLWorkspacePackageTests {
         """
         #expect(throws: HTMLWorkspacePatchRouterError.self) {
             _ = try HTMLWorkspacePatchCommandParser.parse(malformedData)
+        }
+
+        let unsafeWholeDocumentHTML = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceDocument","html":"<main><script>alert(1)</script></main>","css":"","js":"","json":"{}"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(unsafeWholeDocumentHTML)
+        }
+
+        let unsafeWholeDocumentJS = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceDocument","html":"<main></main>","css":"","js":"localStorage.setItem('x','y');","json":"{}"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(unsafeWholeDocumentJS)
         }
     }
 
