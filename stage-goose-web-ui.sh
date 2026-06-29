@@ -1156,12 +1156,27 @@ function recordSerializedACPRequest(name: string, phase: string): void {
 
 function serializeACPRequests(client: GooseClient): GooseClient {
   let queue = Promise.resolve();
+  // epistemos-acp-stop-bypass (#11): turn-scoped interrupt + long-running turn calls must NOT
+  // queue behind the single FIFO, otherwise Stop (cancel) / steer are dead while a prompt() is
+  // in flight (prompt does not resolve until end_turn). These issue immediately on the connection.
+  const callACPImmediate = (fn: Function, thisArg: object, args: unknown[], name: string): unknown => {
+    recordSerializedACPRequest(name, 'start');
+    const result = Reflect.apply(fn, thisArg, args);
+    Promise.resolve(result).then(
+      () => recordSerializedACPRequest(name, 'success'),
+      () => recordSerializedACPRequest(name, 'error')
+    );
+    return result;
+  };
   const proxiedGoose = new Proxy(client.goose as object, {
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver);
       if (typeof value !== 'function') return value;
       return (...args: unknown[]) => {
         const name = \`goose.\${String(property)}\`;
+        if (String(property) === 'sessionSteer_unstable') {
+          return callACPImmediate(value, target, args, name);
+        }
         const response = queue.then(
           () => {
             recordSerializedACPRequest(name, 'start');
@@ -1188,6 +1203,9 @@ function serializeACPRequests(client: GooseClient): GooseClient {
       if (typeof value !== 'function') return value;
       return (...args: unknown[]) => {
         const name = String(property);
+        if (name === 'prompt' || name === 'cancel') {
+          return callACPImmediate(value, target, args, name);
+        }
         const response = queue.then(
           () => {
             recordSerializedACPRequest(name, 'start');
