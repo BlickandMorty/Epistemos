@@ -34,6 +34,16 @@ pub(crate) fn path_resolves_inside(path: &Path, root: &Path) -> bool {
     resolved_path == resolved_root || resolved_path.starts_with(&resolved_root)
 }
 
+pub(crate) fn cleanup_screenshot_file(path: &Path) -> Result<(), ToolError> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(ToolError::ExecutionFailed(format!(
+            "browser screenshot cleanup failed: {error}"
+        ))),
+    }
+}
+
 pub(crate) fn extract_screenshot_path(text: &str) -> Option<String> {
     text.split_whitespace()
         .filter_map(normalize_screenshot_path_token)
@@ -94,5 +104,16 @@ mod tests {
             extract_screenshot_path("saved path=/tmp/browser-c.png"),
             None
         );
+    }
+
+    #[test]
+    fn browser_screenshot_cleanup_removes_file_without_requiring_existing_path() {
+        let temp = tempfile::tempdir().unwrap();
+        let screenshot = temp.path().join("cleanup.png");
+        fs::write(&screenshot, b"png").unwrap();
+
+        cleanup_screenshot_file(&screenshot).unwrap();
+        assert!(!screenshot.exists());
+        cleanup_screenshot_file(&screenshot).unwrap();
     }
 }

@@ -31,7 +31,9 @@ pub use super::browser_schema::{
     browser_get_images_schema, browser_navigate_schema, browser_press_schema,
     browser_scroll_schema, browser_snapshot_schema, browser_type_schema, browser_vision_schema,
 };
-use super::browser_screenshot::{next_screenshot_path, path_resolves_inside};
+use super::browser_screenshot::{
+    cleanup_screenshot_file, next_screenshot_path, path_resolves_inside,
+};
 use super::media::VisionAnalyzeHandler;
 use super::registry::{ToolError, ToolHandler};
 use super::web_fetch::validate_url;
@@ -380,6 +382,7 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
     }
     let provider = optional_string_field(input, "provider")?.unwrap_or("claude");
     let annotate = optional_bool_field(input, "annotate")?.unwrap_or(false);
+    let vision_handler = VisionAnalyzeHandler::new()?;
     let screenshot_path = next_screenshot_path()?;
     let screenshot_directory = screenshot_path.parent().ok_or_else(|| {
         ToolError::ExecutionFailed("browser screenshot path missing private directory".into())
@@ -412,22 +415,25 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
         )));
     }
 
-    let vision_handler = VisionAnalyzeHandler::new()?;
-    let vision_raw = vision_handler
+    let vision_result = vision_handler
         .execute(&json!({
             "image_path": actual_path.display().to_string(),
             "question": question,
             "provider": provider,
             "allow_cloud_external_requests": true,
         }))
-        .await?;
+        .await;
+    let cleanup_result = cleanup_screenshot_file(&actual_path);
+    let vision_raw = match (vision_result, cleanup_result) {
+        (Ok(vision_raw), Ok(())) => vision_raw,
+        (Err(error), Ok(())) => return Err(error),
+        (_, Err(error)) => return Err(error),
+    };
     let mut vision_value: Value = serde_json::from_str(&vision_raw)
         .map_err(|e| ToolError::ExecutionFailed(format!("parse vision response: {e}")))?;
     if let Some(object) = vision_value.as_object_mut() {
-        object.insert(
-            "screenshot_path".to_string(),
-            Value::String(actual_path.display().to_string()),
-        );
+        object.insert("screenshot_captured".to_string(), Value::Bool(true));
+        object.insert("screenshot_retained".to_string(), Value::Bool(false));
     }
     Ok(vision_value)
 }

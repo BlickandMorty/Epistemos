@@ -173,9 +173,13 @@ struct BrowserUseAdapterPlan3Tests {
             "\"pressed\": true",
             "\"key_chars\"",
             "browser_press_result_does_not_echo_key_text",
+            "cleanup_screenshot_file(&actual_path)",
+            "\"screenshot_captured\"",
+            "\"screenshot_retained\"",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }
+        #expect(!browserTool.contains("\"screenshot_path\".to_string()"))
 
         for required in [
             "find_agent_browser",
@@ -293,8 +297,10 @@ struct BrowserUseAdapterPlan3Tests {
             "path_resolves_inside",
             "extract_screenshot_path",
             "normalize_screenshot_path_token",
+            "cleanup_screenshot_file",
             "browser_vision_screenshot_paths_must_resolve_inside_private_directory",
             "browser_screenshot_extracts_quoted_or_punctuated_png_tokens",
+            "browser_screenshot_cleanup_removes_file_without_requiring_existing_path",
         ] {
             #expect(browserScreenshot.contains(required), "Missing browser screenshot policy string: \(required)")
         }
