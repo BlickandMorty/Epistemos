@@ -38,6 +38,12 @@ struct GooseWebSurfaceView: View {
     @State private var drivenConnectionKey: String?
     @State private var reloadedSyncForConnectionKey: String?
     @State private var isRestarting = false
+    // Single live source-of-truth for the route to display. The incoming `route` prop drives this via
+    // `onChange`, but the async load chain (`.task → loadWhenReady`) and the provider-sync reload must
+    // read the CURRENT desired route, not a value captured at view-appear time or a literal "/?". @State
+    // storage is shared across struct re-creations, so even a stale captured `self` reads the live value
+    // here — fixing rail clicks made during startup being dropped + the post-sync reload snapping to hub.
+    @State private var activeRoute: String
 
     init(theme: EpistemosTheme = .nativeDefault, route: String = "/?") {
         self.theme = theme
@@ -54,6 +60,7 @@ struct GooseWebSurfaceView: View {
         _nativeAffordanceBridge = State(initialValue: nativeAffordanceBridge)
         _secretKey = State(initialValue: secretKey)
         _trustedOrigins = State(initialValue: trustedOrigins)
+        _activeRoute = State(initialValue: route)
         _page = State(initialValue: Self.makePage(
             bootstrap: bootstrap,
             gooseUIRoot: Self.resolvedGooseUIRoot(),
@@ -91,8 +98,10 @@ struct GooseWebSurfaceView: View {
             handleRuntimeStatusChange(status)
         }
         .onChange(of: route) { _, newRoute in
-            // Native nav-rail drove the route: re-point the loaded WebView (no-op until the UI server
-            // is running; the initial route is applied at load time in loadGooseUI).
+            // Native nav-rail drove the route: record it as the live desired route (so a change made
+            // before the UI server is running is NOT lost — the load chain reads `activeRoute`), then
+            // re-point the loaded WebView (no-op until the UI server is running).
+            activeRoute = newRoute
             loadGooseRoute(newRoute)
         }
         .onChange(of: acpBridge.status) { _, _ in
@@ -474,7 +483,9 @@ struct GooseWebSurfaceView: View {
               let gooseUIServer,
               case .running(let baseURL) = gooseUIServer.status else { return }
         reloadedSyncForConnectionKey = key
-        _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: "/?")))
+        // Reload to the CURRENT route, not a literal "/?" — otherwise this post-sync reload snaps the
+        // WebView back to the hub while the native rail still highlights e.g. Sessions (rail/content desync).
+        _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute)))
     }
 
     private func loadWhenReady() async {
@@ -528,7 +539,7 @@ struct GooseWebSurfaceView: View {
             if case .running(let uiBaseURL) = server.status {
                 trustedOrigins.register(uiBaseURL)
             }
-            await loadGooseUIWhenReady(server, route: route, acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
+            await loadGooseUIWhenReady(server, acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
         }
@@ -668,12 +679,14 @@ struct GooseWebSurfaceView: View {
         return URL(string: "\(base)#\(fragment)") ?? URL(string: base) ?? URL(fileURLWithPath: "/")
     }
 
-    private func loadGooseUIWhenReady(_ server: WorkSPAServer, route: String, acpURL: String) async {
+    private func loadGooseUIWhenReady(_ server: WorkSPAServer, acpURL: String) async {
         for _ in 0..<80 {
             guard !Task.isCancelled else { return }
             switch server.status {
             case .running(let baseURL):
-                _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: route)))
+                // Read `activeRoute` at the actual load instant (not a value captured when this task
+                // began) so a rail click made WHILE the UI server was coming up is honored, not dropped.
+                _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute)))
                 return
             case .failed(let message):
                 _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server failed: \(message)", acpURL: acpURL))
