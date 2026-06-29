@@ -1567,6 +1567,14 @@ bash stage-goose-web-ui.sh /tmp/epistemos-goose-webui-reskin-2026-06-29
 => manifest: {"schemaVersion":1,"source":"epistemos-stage-goose-web-ui","acpMode":true}
 ```
 
+The same reskinned bundle was then staged to the runtime location the debug app loads:
+
+```text
+bash stage-goose-web-ui.sh
+=> Staged ACP Goose Web UI: /Users/jojo/Library/Application Support/Epistemos/GooseWebUI
+=> manifest: {"schemaVersion":1,"source":"epistemos-stage-goose-web-ui","acpMode":true}
+```
+
 The token map still compiles:
 
 ```text
