@@ -136,10 +136,13 @@ struct BrowserUseAdapterPlan3Tests {
             "runtime.send_command(\"shutdown\"",
             "def ensure_browser_daemon(args",
             "def send_browser_use(action",
+            "response.get(\"success\") is not True",
+            "runtime_error_message",
             "def close_session(name",
         ] {
             #expect(source.contains(required), "Missing browser-use daemon delegation string: \(required)")
         }
+        #expect(!source.contains("str(response.get(\"error\""))
         #expect(!source.contains("invalid browser-use adapter arguments: {message}"))
         #expect(!source.contains("invalid element ref: {value!r}"))
         #expect(!source.contains("does not accept argument: {value}"))

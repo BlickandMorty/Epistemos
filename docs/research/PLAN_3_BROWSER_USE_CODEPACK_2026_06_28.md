@@ -197,6 +197,7 @@ validated before runtime import and must be loopback-only with no URL credential
   strings before returning tool output. Adapter JSON error responses redact common secret assignments, token/api-key
   aliases, OAuth-style refresh/authorization codes, Bearer/Basic auth-scheme tokens, and URL
   credential/query/fragment tokens before applying an error length cap.
+  Runtime responses require `success is True`; non-string runtime error payloads are not stringified into adapter output.
   `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider,
   deletes the temporary screenshot after the provider call returns, and does not return the absolute screenshot path in

@@ -109,6 +109,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Adapter JSON error responses redact common secret assignments"))
         #expect(codepack.contains("token/api-key aliases, OAuth-style refresh/authorization codes"))
         #expect(codepack.contains("Bearer/Basic auth-scheme tokens"))
+        #expect(codepack.contains("runtime responses require `success is True`"))
         #expect(codepack.contains("preserves adapter truncation flags before returning capped refs"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
