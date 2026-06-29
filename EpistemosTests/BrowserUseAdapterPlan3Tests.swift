@@ -358,6 +358,7 @@ struct BrowserUseAdapterPlan3Tests {
             "path_resolves_inside",
             "extract_screenshot_path",
             "normalize_screenshot_path_token",
+            "MAX_SCREENSHOT_PATH_CHARS",
             "cleanup_screenshot_file",
             "browser_vision_screenshot_paths_must_resolve_inside_private_directory",
             "browser_screenshot_extracts_quoted_or_punctuated_png_tokens",

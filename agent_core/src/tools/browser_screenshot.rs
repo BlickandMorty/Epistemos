@@ -8,6 +8,7 @@ use super::browser_private::create_private_browser_dir;
 use super::registry::ToolError;
 
 pub(crate) const AGENT_BROWSER_SCREENSHOT_DIR_ENV: &str = "AGENT_BROWSER_SCREENSHOT_DIR";
+const MAX_SCREENSHOT_PATH_CHARS: usize = 4_096;
 
 pub(crate) fn next_screenshot_path() -> Result<PathBuf, ToolError> {
     let directory = screenshot_directory()?;
@@ -57,7 +58,7 @@ fn normalize_screenshot_path_token(token: &str) -> Option<String> {
             '\'' | '"' | '`' | ',' | ';' | ':' | '(' | ')' | '[' | ']'
         )
     });
-    if normalized.is_empty() {
+    if normalized.is_empty() || normalized.chars().count() > MAX_SCREENSHOT_PATH_CHARS {
         None
     } else {
         Some(normalized.to_string())
@@ -102,6 +103,13 @@ mod tests {
         assert_eq!(extract_screenshot_path("saved /tmp/browser.txt"), None);
         assert_eq!(
             extract_screenshot_path("saved path=/tmp/browser-c.png"),
+            None
+        );
+        assert_eq!(
+            extract_screenshot_path(&format!(
+                "/tmp/{}.png",
+                "a".repeat(MAX_SCREENSHOT_PATH_CHARS)
+            )),
             None
         );
     }
