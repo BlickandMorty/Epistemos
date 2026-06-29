@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated struct VaultMCPCore {
     static let maxResourceNotes = 5_000
+    static let maxResourceReadBytes = 8 * 1024 * 1024
 
     static let readToolNames = [
         "vault.search",
@@ -205,6 +206,13 @@ nonisolated struct VaultMCPCore {
 
     static func noteText(vaultRoot: URL?, relativePath: String) throws -> String {
         let url = try containedMarkdownURL(vaultRoot: vaultRoot, relativePath: relativePath)
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard values.isRegularFile == true else {
+            throw VaultMCPPathError.notRegularFile
+        }
+        if let fileSize = values.fileSize, fileSize > maxResourceReadBytes {
+            throw VaultMCPPathError.tooLarge
+        }
         return try String(contentsOf: url, encoding: .utf8)
     }
 
@@ -355,6 +363,10 @@ nonisolated struct VaultMCPCore {
             "path traversal not allowed"
         case .notMarkdown:
             "only markdown vault resources can be read"
+        case .notRegularFile:
+            "only regular markdown vault resources can be read"
+        case .tooLarge:
+            "markdown resource is too large"
         case .none:
             "read failed"
         }
@@ -378,4 +390,6 @@ private enum VaultMCPPathError: Error, Sendable {
     case noVaultRoot
     case pathTraversal
     case notMarkdown
+    case notRegularFile
+    case tooLarge
 }

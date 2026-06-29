@@ -176,6 +176,24 @@ struct VaultMCPCoreTests {
         #expect((error["message"] as? String)?.contains("path traversal") == true)
     }
 
+    @Test("resources/read rejects oversized markdown before loading it")
+    func resourcesReadRejectsOversizedMarkdown() async throws {
+        let root = try Self.makeVaultRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let huge = root.appendingPathComponent("Huge.md")
+        try Data(repeating: UInt8(ascii: "a"), count: VaultMCPCore.maxResourceReadBytes + 1)
+            .write(to: huge, options: .atomic)
+
+        let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor)
+        let response = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":9,"method":"resources/read","params":{"uri":"vault:///Huge.md"}}"#)
+        let object = try Self.jsonObject(response)
+        let error = try #require(object["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == -32602)
+        #expect((error["message"] as? String)?.contains("too large") == true)
+    }
+
     @Test("markdown resource enumeration is capped and sorted")
     func markdownResourceEnumerationIsCappedAndSorted() throws {
         let root = try Self.makeVaultRoot()
@@ -200,6 +218,7 @@ struct VaultMCPCoreTests {
         #expect(source.contains("resources/list"))
         #expect(source.contains("resources/read"))
         #expect(source.contains("maxResourceNotes"))
+        #expect(source.contains("maxResourceReadBytes"))
         #expect(source.contains("vaultURI(for:"))
         #expect(source.contains("markdownRelPaths"))
         #expect(source.contains("noteText"))
