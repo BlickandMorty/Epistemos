@@ -29,6 +29,7 @@ pub const LITEPARSE_VENDOR_SOURCE: &str = "run-llama/liteparse";
 
 const MAX_PDF_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_PDF_MIB: u64 = MAX_PDF_BYTES / 1024 / 1024;
+const PDF_MAGIC: &[u8] = b"%PDF-";
 
 /// Honest errors for a PDF→Markdown conversion. The caller surfaces these; the seam
 /// NEVER returns fake markdown and NEVER shells out for an unsupported format.
@@ -69,8 +70,8 @@ pub fn is_armed() -> bool {
     flag_is_armed(std::env::var(LITEPARSE_FLAG).ok().as_deref())
 }
 
-/// Whether `path` is a PDF the Plan 3 parser stack can process in-process. Non-PDF
-/// formats (docx/xlsx/png/...) need external binaries upstream and stay out of scope.
+/// Whether `path` carries a PDF filename extension. The live parser does not trust this
+/// by itself; it sniffs `%PDF-` bytes in `preflight_pdf_path`.
 pub fn is_supported_pdf(path: &str) -> bool {
     path.rsplit('.')
         .next()
@@ -91,10 +92,15 @@ fn reject_if_not_pdf(pdf_path: &str) -> Result<(), LiteParseError> {
 }
 
 fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
-    reject_if_not_pdf(pdf_path)?;
-
-    let metadata = std::fs::metadata(pdf_path)
-        .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file: {e}")))?;
+    let metadata = match std::fs::metadata(pdf_path) {
+        Ok(metadata) => metadata,
+        Err(e) => {
+            reject_if_not_pdf(pdf_path)?;
+            return Err(LiteParseError::Failed(format!(
+                "could not inspect PDF file: {e}"
+            )));
+        }
+    };
     if !metadata.is_file() {
         return Err(LiteParseError::Failed(
             "PDF path is not a regular file".to_string(),
@@ -108,6 +114,16 @@ fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
             "PDF is too large to parse safely ({} MiB limit)",
             MAX_PDF_MIB
         )));
+    }
+    let mut file = std::fs::File::open(pdf_path)
+        .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file: {e}")))?;
+    let mut header = [0_u8; 5];
+    std::io::Read::read_exact(&mut file, &mut header)
+        .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file header: {e}")))?;
+    if header.as_slice() != PDF_MAGIC {
+        return Err(LiteParseError::Failed(
+            "file does not start with %PDF-, so it is not a PDF".to_string(),
+        ));
     }
     Ok(())
 }
@@ -131,7 +147,15 @@ fn no_substantive_text_error() -> LiteParseError {
 /// INERT build: a PDF returns `EngineNotWired` — NEVER fake markdown.
 #[cfg(not(any(feature = "edgeparse-pdf", feature = "liteparse-pdf")))]
 pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
-    reject_if_not_pdf(pdf_path)?;
+    match preflight_pdf_path(pdf_path) {
+        Ok(()) => {}
+        Err(LiteParseError::Failed(message))
+            if message.starts_with("could not inspect PDF file:") =>
+        {
+            reject_if_not_pdf(pdf_path)?;
+        }
+        Err(error) => return Err(error),
+    }
     Err(LiteParseError::EngineNotWired)
 }
 
@@ -316,6 +340,36 @@ mod tests {
         assert!(!is_supported_pdf("doc.docx")); // Office → external binary, out of scope
         assert!(!is_supported_pdf("scan.png")); // image → ImageMagick, out of scope
         assert!(!is_supported_pdf("noext"));
+    }
+
+    #[test]
+    fn preflight_uses_pdf_magic_not_filename_extension() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the Unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("epistemos-liteparse-magic-{unique}"));
+        std::fs::create_dir_all(&dir).expect("create temp liteparse dir");
+        let extensionless_pdf = dir.join("CFNetworkDownload_temp");
+        let html_named_pdf = dir.join("paper.pdf");
+        std::fs::write(&extensionless_pdf, b"%PDF-1.7\n").expect("write extensionless pdf");
+        std::fs::write(&html_named_pdf, b"<html>not a pdf</html>").expect("write html named pdf");
+
+        assert_eq!(
+            preflight_pdf_path(extensionless_pdf.to_str().expect("utf-8 temp path")),
+            Ok(())
+        );
+        match preflight_pdf_path(html_named_pdf.to_str().expect("utf-8 temp path")) {
+            Err(LiteParseError::Failed(message)) => {
+                assert!(
+                    message.contains("does not start with %PDF-"),
+                    "unexpected error: {message}"
+                );
+            }
+            other => panic!("expected non-PDF body preflight failure, got {other:?}"),
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(not(any(feature = "edgeparse-pdf", feature = "liteparse-pdf")))]
