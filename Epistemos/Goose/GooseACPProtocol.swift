@@ -359,12 +359,7 @@ nonisolated struct GooseACPProviderInventoryEntry: Decodable, Equatable, Sendabl
         // must NOT drop the whole provider. Decode the raw array and keep the elements that decode,
         // so a usable provider (it has a providerId) always survives — matching the WebView oracle's
         // per-entry degradation and this type's own "never breaks the picker" contract.
-        let rawModels: [JSONValue]
-        if let decoded = try? container.decodeIfPresent([JSONValue].self, forKey: .models) {
-            rawModels = decoded ?? []
-        } else {
-            rawModels = []
-        }
+        let rawModels = (try? container.decodeIfPresent([JSONValue].self, forKey: .models)) ?? []
         models = rawModels.compactMap { try? $0.decoded(GooseACPProviderInventoryModel.self) }
     }
 }
