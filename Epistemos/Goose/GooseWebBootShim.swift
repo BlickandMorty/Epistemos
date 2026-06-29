@@ -329,7 +329,13 @@ enum GooseWebBootShim {
               const message = parse(data);
               if (!message || !message.method) return;
               const id = idKey(message.id);
-              if (id) requests.set(id, message.method);
+              if (id) {
+                requests.set(id, message.method);
+                // review M2: bound the pending-request map so a request that never gets a reply
+                // (long-lived surface) cannot grow it without limit. Map keeps insertion order, so
+                // dropping the oldest key is the natural eviction.
+                while (requests.size > 500) requests.delete(requests.keys().next().value);
+              }
               push({ direction: 'out', id, method: message.method });
             };
             const traceIncoming = (data) => {
@@ -338,6 +344,9 @@ enum GooseWebBootShim {
               const id = idKey(message.id);
               const method = requests.get(id) || message.method || '';
               if (message.result !== undefined || message.error !== undefined) {
+                // review M2: the request is complete — reclaim its pending-request entry so the map
+                // does not leak one entry per request over the life of the page.
+                if (id) requests.delete(id);
                 push({
                   direction: 'in',
                   id,

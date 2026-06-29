@@ -7,6 +7,10 @@ nonisolated enum GooseACPSourceType: String, Codable, Equatable, Sendable {
     case subrecipe
     case agent
     case project
+    /// Forward-compat (review L2): a source type a future goose adds that this build does not model
+    /// yet. `GooseACPSourceEntry` maps any unrecognized wire value to this case so one new type can
+    /// never throw the WHOLE `sources/list` decode. Never sent by Epistemos.
+    case unknown
 }
 
 nonisolated enum GooseACPSourceScope: Encodable, Equatable, Sendable {
@@ -82,7 +86,11 @@ nonisolated struct GooseACPSourceEntry: Decodable, Equatable, Sendable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        sourceType = try container.decode(GooseACPSourceType.self, forKey: .sourceType)
+        // review L2: decode leniently — an unrecognized source type maps to `.unknown` instead of
+        // throwing and blanking the entire sources/list (skills/recipes surface). Mirrors the
+        // per-element resilience used for provider-inventory models.
+        let rawSourceType = try container.decode(String.self, forKey: .sourceType)
+        sourceType = GooseACPSourceType(rawValue: rawSourceType) ?? .unknown
         name = try container.decode(String.self, forKey: .name)
         description = try container.decode(String.self, forKey: .description)
         content = try container.decode(String.self, forKey: .content)
