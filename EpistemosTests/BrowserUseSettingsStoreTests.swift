@@ -134,6 +134,39 @@ struct BrowserUseSettingsStoreTests {
             #expect(error.errorDescription?.contains("settings directory must not be a symlink") == true)
         }
 
+        do {
+            try BrowserUseSettingsStore(
+                settingsURL: symlinkDirectory
+                    .appendingPathComponent("write-through", isDirectory: true)
+                    .appendingPathComponent("settings.json", isDirectory: false)
+            ).save(.default)
+            Issue.record("Expected browser-use settings path below symlinked parent to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings directory path must not include symlink component") == true)
+        }
+        #expect(!FileManager.default.fileExists(
+            atPath: realDirectory
+                .appendingPathComponent("write-through", isDirectory: true)
+                .appendingPathComponent("settings.json", isDirectory: false)
+                .path
+        ))
+
+        let readThroughDirectory = realDirectory.appendingPathComponent("read-through", isDirectory: true)
+        try FileManager.default.createDirectory(at: readThroughDirectory, withIntermediateDirectories: true)
+        try JSONEncoder().encode(BrowserUseSettings.default).write(
+            to: readThroughDirectory.appendingPathComponent("settings.json", isDirectory: false)
+        )
+        do {
+            _ = try BrowserUseSettingsStore(
+                settingsURL: symlinkDirectory
+                    .appendingPathComponent("read-through", isDirectory: true)
+                    .appendingPathComponent("settings.json", isDirectory: false)
+            ).load()
+            Issue.record("Expected browser-use settings read below symlinked parent to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings directory path must not include symlink component") == true)
+        }
+
         let symlinkFile = safeDirectory.appendingPathComponent("settings.json", isDirectory: false)
         try FileManager.default.createSymbolicLink(at: symlinkFile, withDestinationURL: outsideFile)
         do {

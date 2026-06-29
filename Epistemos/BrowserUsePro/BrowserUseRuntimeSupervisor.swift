@@ -175,27 +175,40 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
         fileManager: FileManager = .default
     ) throws {
         let directory = url.deletingLastPathComponent()
-        try rejectEnvironmentSymlink(at: directory, label: "directory", fileManager: fileManager)
+        try rejectEnvironmentSymlinkPath(at: directory, label: "directory", fileManager: fileManager)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        try rejectEnvironmentSymlink(at: directory, label: "directory", fileManager: fileManager)
+        try rejectEnvironmentSymlinkPath(at: directory, label: "directory", fileManager: fileManager)
         try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
 
         let temporaryURL = directory.appendingPathComponent(".env.\(UUID().uuidString).tmp", isDirectory: false)
         do {
-            try rejectEnvironmentSymlink(at: temporaryURL, label: "temporary file", fileManager: fileManager)
-            try rejectEnvironmentSymlink(at: url, label: "file", fileManager: fileManager)
+            try rejectEnvironmentSymlinkPath(at: temporaryURL, label: "temporary file", fileManager: fileManager)
+            try rejectEnvironmentSymlinkPath(at: url, label: "file", fileManager: fileManager)
             try Data(contents.utf8).write(to: temporaryURL, options: [.atomic])
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporaryURL.path)
             if fileManager.fileExists(atPath: url.path) {
-                try rejectEnvironmentSymlink(at: url, label: "file", fileManager: fileManager)
+                try rejectEnvironmentSymlinkPath(at: url, label: "file", fileManager: fileManager)
                 try fileManager.removeItem(at: url)
             }
             try fileManager.moveItem(at: temporaryURL, to: url)
-            try rejectEnvironmentSymlink(at: url, label: "file", fileManager: fileManager)
+            try rejectEnvironmentSymlinkPath(at: url, label: "file", fileManager: fileManager)
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
             try? fileManager.removeItem(at: temporaryURL)
             throw error
+        }
+    }
+
+    private static func rejectEnvironmentSymlinkPath(
+        at url: URL,
+        label: String,
+        fileManager: FileManager
+    ) throws {
+        try rejectEnvironmentSymlink(at: url, label: label, fileManager: fileManager)
+        if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
+            throw BrowserUseRuntimeSupervisorError.unavailable(
+                "browser-use environment \(label) path must not include symlink component at \(component.path)"
+            )
         }
     }
 

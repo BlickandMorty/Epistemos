@@ -210,6 +210,24 @@ struct BrowserUseRuntimeSupervisorTests {
             #expect(error.errorDescription?.contains("environment directory must not be a symlink") == true)
         }
 
+        do {
+            try BrowserUseEnvironmentFileWriter.write(
+                "OPENAI_API_KEY=sk-test\n",
+                to: symlinkDirectory
+                    .appendingPathComponent("write-through", isDirectory: true)
+                    .appendingPathComponent(".env", isDirectory: false)
+            )
+            Issue.record("Expected browser-use env path below symlinked parent to be rejected")
+        } catch let error as BrowserUseRuntimeSupervisorError {
+            #expect(error.errorDescription?.contains("environment directory path must not include symlink component") == true)
+        }
+        #expect(!FileManager.default.fileExists(
+            atPath: realDirectory
+                .appendingPathComponent("write-through", isDirectory: true)
+                .appendingPathComponent(".env", isDirectory: false)
+                .path
+        ))
+
         let symlinkFile = safeDirectory.appendingPathComponent(".env", isDirectory: false)
         try FileManager.default.createSymbolicLink(at: symlinkFile, withDestinationURL: outsideFile)
         do {
