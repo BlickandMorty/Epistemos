@@ -1,6 +1,13 @@
 import Foundation
 import Observation
 
+/// Errors surfaced by the live read/mutate passthrough used by native Goose routes.
+nonisolated enum GooseACPBridgeError: Error, Equatable, Sendable {
+    /// The bridge has no live ACP client (not connected yet, or torn down). Native routes show an
+    /// honest blocked/empty state rather than inventing data.
+    case notConnected
+}
+
 @MainActor
 @Observable
 final class GooseACPEventBridge {
@@ -112,6 +119,39 @@ final class GooseACPEventBridge {
 
     func cancelElicitation(promptID: String) {
         respondToElicitation(promptID: promptID, response: .cancel())
+    }
+
+    // MARK: - Live read/mutate passthrough (native-route data source — Step 3 per-route migration)
+
+    /// The native SwiftUI routes (the Models picker first) read/write through the SAME live ACP
+    /// connection the WebView uses — never a second spawn, never a Swift-hardcoded roster (GOLDEN
+    /// RULE: every provider/model comes from live enumeration). These forward to the live
+    /// `GooseACPClient`; they THROW `notConnected` when the bridge has no live client so the view
+    /// renders an honest empty/error state instead of a silent fallback.
+    func liveProviderCatalog(format: String? = nil) async throws -> GooseACPProviderCatalogListResponse {
+        guard let client else { throw GooseACPBridgeError.notConnected }
+        return try await client.listGooseProviderCatalog(format: format)
+    }
+
+    func liveProviderSupportedModels(
+        providerId: String
+    ) async throws -> GooseACPProviderSupportedModelsListResponse {
+        guard let client else { throw GooseACPBridgeError.notConnected }
+        return try await client.listGooseProviderSupportedModels(providerId: providerId)
+    }
+
+    func liveDefaults() async throws -> GooseACPDefaultsReadResponse {
+        guard let client else { throw GooseACPBridgeError.notConnected }
+        return try await client.readGooseDefaults()
+    }
+
+    @discardableResult
+    func saveLiveDefaults(
+        providerId: String,
+        modelId: String?
+    ) async throws -> GooseACPDefaultsReadResponse {
+        guard let client else { throw GooseACPBridgeError.notConnected }
+        return try await client.saveGooseDefaults(providerId: providerId, modelId: modelId)
     }
 
     private func connect(

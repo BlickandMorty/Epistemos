@@ -22,6 +22,11 @@ struct GooseWebSurfaceView: View {
     @State private var showDetails = false
     @State private var runtimeHealthTask: Task<Void, Never>?
     @State private var trustedOrigins: GooseTrustedLoopbackOrigins
+    // Step 3 per-route migration: the router defaults EVERY route to the WebView (the oracle) and
+    // promotes a route to native only when explicitly enabled. `nativeModelsPresented` drives the
+    // native Models sheet; the WebView keeps backing the route, unchanged, when not promoted.
+    @State private var router = GooseSurfaceRouter()
+    @State private var nativeModelsPresented = false
 
     init(theme: EpistemosTheme = .nativeDefault) {
         self.theme = theme
@@ -63,6 +68,12 @@ struct GooseWebSurfaceView: View {
         }
         .background(background)
         .animation(.snappy(duration: 0.16), value: showDetails)
+        .sheet(isPresented: $nativeModelsPresented) {
+            // Promoted-only: defaults to .web so this sheet never opens unless the Models route is
+            // explicitly enabled. Reuses the SAME live acpBridge connection (no second spawn).
+            GooseNativeModelsView(bridge: acpBridge)
+                .frame(minWidth: 480, minHeight: 380)
+        }
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)
@@ -115,11 +126,17 @@ struct GooseWebSurfaceView: View {
             detailRow("UI origin", gooseUIServerStatusLabel)
             detailRow("custom ACP Goose", customACPStatusLabel)
             HStack(spacing: 8) {
-                Button { loadGooseRoute("/settings?section=models") } label: {
+                Button {
+                    if router.isNative(.models) {
+                        nativeModelsPresented = true
+                    } else {
+                        loadGooseRoute(GooseSurfaceRoute.models.webRoute)
+                    }
+                } label: {
                     Label("Manage models", systemImage: "slider.horizontal.3")
                 }
                 .buttonStyle(.bordered)
-                .help("Open Goose models")
+                .help(router.isNative(.models) ? "Open native models picker" : "Open Goose models")
                 Button { loadGooseRoute("/configure-providers") } label: {
                     Label("Providers", systemImage: "key")
                 }
