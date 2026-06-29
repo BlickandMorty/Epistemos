@@ -46,8 +46,20 @@ nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
 
     static func defaultPaths(
         fileManager: FileManager = .default,
-        filePath: String = #filePath
+        filePath: String = #filePath,
+        resourceRootURL: URL? = Bundle.main.resourceURL
     ) -> BrowserUseRuntimePaths? {
+        if let resourceRootURL {
+            let bundledRoot = resourceRootURL.appendingPathComponent("BrowserUsePro", isDirectory: true)
+            if fileManager.fileExists(atPath: bundledRoot.appendingPathComponent("VENDOR_MANIFEST.json").path) {
+                return BrowserUseRuntimePaths(
+                    vendorRoot: bundledRoot,
+                    buildRoot: bundledRoot,
+                    stateRoot: defaultStateRoot(fileManager: fileManager, filePath: filePath)
+                )
+            }
+        }
+
         var cursor = URL(fileURLWithPath: filePath).deletingLastPathComponent()
         for _ in 0..<8 {
             let vendorRoot = cursor.appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)

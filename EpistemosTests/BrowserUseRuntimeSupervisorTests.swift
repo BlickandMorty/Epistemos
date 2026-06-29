@@ -91,6 +91,30 @@ struct BrowserUseRuntimeSupervisorTests {
         }
     }
 
+    @Test("default paths prefer bundled Pro resources before source checkout layout")
+    func defaultPathsPreferBundledProResourcesBeforeSourceCheckoutLayout() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-bundled-\(UUID().uuidString)", isDirectory: true)
+        let resourceRoot = root.appendingPathComponent("Resources", isDirectory: true)
+        let bundledRoot = resourceRoot.appendingPathComponent("BrowserUsePro", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: bundledRoot, withIntermediateDirectories: true)
+        try Data(vendorManifestJSON(packaged: true).utf8).write(
+            to: bundledRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        )
+
+        let paths = try #require(BrowserUseRuntimePaths.defaultPaths(
+            filePath: root.appendingPathComponent("NoSourceLayout.swift").path,
+            resourceRootURL: resourceRoot
+        ))
+
+        #expect(paths.vendorRoot == bundledRoot)
+        #expect(paths.buildRoot == bundledRoot)
+        #expect(paths.webUIEntrypointURL.path.hasSuffix("BrowserUsePro/web-ui/webui.py"))
+        #expect(paths.pythonExecutableURL.path.hasSuffix("BrowserUsePro/.venv/bin/python"))
+    }
+
     @Test("environment file writer stores launch-time env outside source with owner-only permissions")
     func environmentFileWriterStoresLaunchTimeEnvOutsideSourceWithOwnerOnlyPermissions() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -189,6 +213,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseRuntimePaths",
             "BrowserUseRuntimeLaunchPlan",
             "BrowserUseEnvironmentFileWriter",
+            "resourceRootURL: URL? = Bundle.main.resourceURL",
+            "appendingPathComponent(\"BrowserUsePro\", isDirectory: true)",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
             "BrowserUseLoopbackPolicy.loopbackURL",
