@@ -7,6 +7,7 @@ struct MeetingNoteView: View {
     @State private var voiceInput: LiveVoiceInputService
     @State private var service: MeetingNoteCaptureService
     @State private var isSaving = false
+    @State private var showingDiscardConfirmation = false
 
     init(voiceInput: LiveVoiceInputService = .shared) {
         _voiceInput = State(initialValue: voiceInput)
@@ -43,6 +44,18 @@ struct MeetingNoteView: View {
         }
         .onDisappear {
             service.stop()
+        }
+        .confirmationDialog(
+            "Discard meeting transcript?",
+            isPresented: $showingDiscardConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Discard Transcript", role: .destructive) {
+                service.discard()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This clears the current transcript without creating a meeting note.")
         }
     }
 
@@ -85,7 +98,7 @@ struct MeetingNoteView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Button {
-                service.discard()
+                showingDiscardConfirmation = true
             } label: {
                 Label("Discard", systemImage: "trash")
             }

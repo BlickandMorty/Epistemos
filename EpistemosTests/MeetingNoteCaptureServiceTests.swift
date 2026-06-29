@@ -241,6 +241,9 @@ struct MeetingNoteCaptureServiceTests {
         #expect(view.contains("MeetingNoteCaptureService"))
         #expect(view.contains("voiceInput: LiveVoiceInputService = .shared"))
         #expect(view.contains("service.finalize(modelContext: modelContext)"))
+        #expect(view.contains("showingDiscardConfirmation = true"))
+        #expect(view.contains(".confirmationDialog("))
+        #expect(view.contains("Button(\"Discard Transcript\", role: .destructive)"))
         #expect(!view.contains("EpistemosSpeechAnalyzer"))
         #expect(!view.contains("NoteWindowManager.shared.open"))
 
