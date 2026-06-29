@@ -441,8 +441,17 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         }
 
         let attributes = try FileManager.default.attributesOfItem(atPath: settingsURL.path)
-        if let size = attributes[.size] as? NSNumber,
-           size.uint64Value > UInt64(Self.maxSettingsBytes) {
+        guard attributes[.type] as? FileAttributeType == .typeRegular else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file must be a regular file at \(settingsURL.path)"
+            )
+        }
+        guard let size = (attributes[.size] as? NSNumber)?.uint64Value else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file size is unavailable at \(settingsURL.path)"
+            )
+        }
+        if size > UInt64(Self.maxSettingsBytes) {
             throw BrowserUseSettingsStoreError.invalidFile(
                 "browser-use settings file exceeds \(Self.maxSettingsBytes) bytes"
             )

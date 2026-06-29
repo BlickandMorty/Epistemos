@@ -83,8 +83,8 @@ browser-use/web-ui environment names are Codable settings; API keys, cloud keys,
 IBM project ID, and VNC password are bound to Keychain environment keys. Defaults keep telemetry, cloud sync, and
 version checks off.
 `EpistemosTests/BrowserUseSettingsStoreTests.swift` verifies privacy-first `.env` rendering, injected Keychain secret
-binding, non-secret JSON round-trip behavior, owner-only settings file permissions, and symlink rejection before the
-settings store reads or writes disk. `Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path
+binding, non-secret JSON round-trip behavior, owner-only settings file permissions, regular-file settings JSON reads,
+and symlink rejection before the settings store reads or writes disk. `Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path
 guard that rejects final symlinks plus symlink components in parent paths, while allowing macOS `/var`/`/tmp`/`/etc`
 compatibility links used by temporary directories.
 `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` now lands the Pro runtime launch contract: it validates
@@ -296,9 +296,8 @@ browser-use environment shape as typed Codable settings and renders a launch-tim
 resolution, browser-use executable/profile/headless fields, logging, proxy, cloud URLs, and privacy flags. Browser debugging
 host and non-empty CDP URLs are loopback-constrained and reject URL credentials, queries, and fragments; non-empty proxy
 server URLs must use supported proxy schemes and keep credentials, paths, queries, and fragments out of non-secret JSON.
-It does not
-launch Python, Chromium, Playwright, or `webui.py`. The `.env` renderer quotes and escapes multiline/CRLF values before
-writing the launch file.
+Settings JSON reads require a regular file before size checks or decode. It does not launch Python, Chromium,
+Playwright, or `webui.py`. The `.env` renderer quotes and escapes multiline/CRLF values before writing the launch file.
 
 ## Pro runtime shape
 New Plan 3 files should live outside Plan 1/Plan 2 ownership, for example:

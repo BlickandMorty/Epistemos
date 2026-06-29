@@ -67,6 +67,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("BrowserUseSettingsView.swift"))
         #expect(codepack.contains("Gate, diagnostic Settings surface"))
         #expect(codepack.contains("settings/env contract landed"))
+        #expect(codepack.contains("Settings JSON reads require a regular file"))
         #expect(codepack.contains("Runtime launch contract and WKWebView loopback shell landed"))
         #expect(codepack.contains("WKWebView loopback shell landed"))
         #expect(codepack.contains("Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload"))
@@ -259,6 +260,8 @@ struct BrowserUseCodepackPlan3Tests {
             "settings.json",
             "JSONEncoder",
             "JSONDecoder",
+            "attributes[.type] as? FileAttributeType == .typeRegular",
+            "browser-use settings file must be a regular file",
             "Keychain.load",
             "Keychain.save",
             "Keychain.delete",

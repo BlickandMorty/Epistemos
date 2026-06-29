@@ -205,6 +205,21 @@ struct BrowserUseSettingsStoreTests {
         }
     }
 
+    @Test("settings store rejects non-regular JSON paths before loading")
+    func settingsStoreRejectsNonRegularJSONPathsBeforeLoading() throws {
+        let url = URL(fileURLWithPath: "/dev/null", isDirectory: false)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return
+        }
+
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: url).load()
+            Issue.record("Expected non-regular browser-use settings JSON to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings file must be a regular file") == true)
+        }
+    }
+
     @Test("settings store rejects symlinked JSON paths before reading or writing")
     func settingsStoreRejectsSymlinkedJSONPathsBeforeReadingOrWriting() throws {
         let root = FileManager.default.temporaryDirectory
