@@ -28,6 +28,7 @@ struct BrowserUseAdapterPlan3Tests {
             "parsed.args = command_args",
             "class JSONArgumentParser",
             "invalid browser-use adapter arguments",
+            "raise AdapterError(\"invalid browser-use adapter arguments\")",
             "command = \"unknown\"",
             "{\"success\": True, \"data\": data}",
             "json.dumps(response",
@@ -139,6 +140,7 @@ struct BrowserUseAdapterPlan3Tests {
         ] {
             #expect(source.contains(required), "Missing browser-use daemon delegation string: \(required)")
         }
+        #expect(!source.contains("invalid browser-use adapter arguments: {message}"))
         #expect(!source.contains("invalid element ref: {value!r}"))
         #expect(!source.contains("does not accept argument: {value}"))
         #expect(!source.contains("ensure_browser_daemon(args)\n\n    if command == \"open\""))

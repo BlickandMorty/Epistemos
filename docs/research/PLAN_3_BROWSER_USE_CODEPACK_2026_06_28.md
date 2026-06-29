@@ -136,7 +136,7 @@ derives daemon/socket files.
 Rust `find_agent_browser()` now discovers the bundled executable through
 `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
 `agent-browser`; live fixture smoke opened `https://example.com`, captured an `Example Domain` snapshot, and closed the
-isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload; adapter argument errors remain
+isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload; adapter argument errors remain generic and
 JSON-bounded before runtime import, so invalid or missing `--json` commands produce the same machine-readable failure
 shape without importing browser-use or emitting argparse usage on stderr. Direct adapter `--cdp` values are also
 validated before runtime import and must be loopback-only with no URL credentials, query, or fragment. Direct adapter
