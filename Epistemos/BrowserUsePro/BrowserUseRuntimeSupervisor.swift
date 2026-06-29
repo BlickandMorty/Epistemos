@@ -252,8 +252,13 @@ nonisolated private final class BrowserUseLoopbackHealthProbeResult: @unchecked 
 }
 
 nonisolated private final class BrowserUseLoopbackHealthRedirectDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let expectedOrigin: BrowserUseLoopbackOrigin
     private let lock = NSLock()
     private var problem: String?
+
+    init(expectedOrigin: BrowserUseLoopbackOrigin) {
+        self.expectedOrigin = expectedOrigin
+    }
 
     func urlSession(
         _ session: URLSession,
@@ -262,7 +267,10 @@ nonisolated private final class BrowserUseLoopbackHealthRedirectDelegate: NSObje
         newRequest request: URLRequest,
         completionHandler: @escaping (URLRequest?) -> Void
     ) {
-        if let redirectProblem = BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(request.url) {
+        if let redirectProblem = BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(
+            request.url,
+            expectedOrigin: expectedOrigin
+        ) {
             store(problem: redirectProblem)
             completionHandler(nil)
             return
@@ -474,7 +482,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     }
 
     private static func loopbackHealthProblem(for url: URL, timeout: TimeInterval) -> String? {
-        guard BrowserUseLoopbackPolicy.allows(url: url) else {
+        guard BrowserUseLoopbackPolicy.allows(url: url),
+              let expectedOrigin = BrowserUseLoopbackPolicy.origin(for: url) else {
             return "non-loopback URL"
         }
 
@@ -484,7 +493,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         configuration.timeoutIntervalForRequest = timeout
         configuration.timeoutIntervalForResource = timeout
         configuration.urlCache = nil
-        let redirectDelegate = BrowserUseLoopbackHealthRedirectDelegate()
+        let redirectDelegate = BrowserUseLoopbackHealthRedirectDelegate(expectedOrigin: expectedOrigin)
         let session = URLSession(configuration: configuration, delegate: redirectDelegate, delegateQueue: nil)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -530,14 +539,20 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         return "HTTP \(statusCode)"
     }
 
-    static func loopbackHTTPRedirectProblem(_ url: URL?) -> String? {
+    static func loopbackHTTPRedirectProblem(
+        _ url: URL?,
+        expectedOrigin: BrowserUseLoopbackOrigin? = nil
+    ) -> String? {
         guard let url else {
             return "redirected without a Location URL"
         }
-        if BrowserUseLoopbackPolicy.allows(url: url) {
-            return nil
+        guard let origin = BrowserUseLoopbackPolicy.origin(for: url) else {
+            return "redirected to non-loopback URL \(url.absoluteString)"
         }
-        return "redirected to non-loopback URL \(url.absoluteString)"
+        if let expectedOrigin, origin != expectedOrigin {
+            return "redirected to different loopback origin \(url.absoluteString)"
+        }
+        return nil
     }
 
     static func readiness(

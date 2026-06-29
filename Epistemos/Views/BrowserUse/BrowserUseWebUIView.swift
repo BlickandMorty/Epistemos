@@ -6,6 +6,13 @@ nonisolated enum BrowserUseLoopbackGuard {
     static func allows(url: URL?) -> Bool {
         BrowserUseLoopbackPolicy.allows(url: url)
     }
+
+    static func allows(url: URL?, matchingOriginOf originURL: URL) -> Bool {
+        guard let origin = BrowserUseLoopbackPolicy.origin(for: originURL) else {
+            return false
+        }
+        return origin.allows(url: url)
+    }
 }
 
 struct BrowserUseWebUIView: View {
@@ -294,12 +301,14 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
+        context.coordinator.allowedOrigin = BrowserUseLoopbackPolicy.origin(for: url)
         context.coordinator.onBlockedNavigation = onBlockedNavigation
         load(url, into: webView)
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.allowedOrigin = BrowserUseLoopbackPolicy.origin(for: url)
         context.coordinator.onBlockedNavigation = onBlockedNavigation
         guard webView.url != url else { return }
         load(url, into: webView)
@@ -317,7 +326,7 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
     }
 
     private func load(_ url: URL, into webView: WKWebView) {
-        guard BrowserUseLoopbackGuard.allows(url: url) else {
+        guard BrowserUseLoopbackGuard.allows(url: url, matchingOriginOf: self.url) else {
             onBlockedNavigation(url)
             return
         }
@@ -326,6 +335,7 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        var allowedOrigin: BrowserUseLoopbackOrigin?
         var onBlockedNavigation: ((URL) -> Void)?
 
         func webView(
@@ -333,7 +343,7 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
-            guard BrowserUseLoopbackGuard.allows(url: navigationAction.request.url) else {
+            guard allowsNavigation(to: navigationAction.request.url) else {
                 if let url = navigationAction.request.url {
                     onBlockedNavigation?(url)
                 }
@@ -355,12 +365,19 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
                 return nil
             }
 
-            if BrowserUseLoopbackGuard.allows(url: url) {
+            if allowsNavigation(to: url) {
                 webView.load(URLRequest(url: url))
             } else {
                 onBlockedNavigation?(url)
             }
             return nil
+        }
+
+        private func allowsNavigation(to url: URL?) -> Bool {
+            guard let allowedOrigin else {
+                return false
+            }
+            return allowedOrigin.allows(url: url)
         }
     }
 }

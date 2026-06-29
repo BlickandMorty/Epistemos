@@ -13,7 +13,7 @@ struct BrowserUseWebUIViewTests {
     private static let gradioDryRunSubmitMarker = "Epistemos browser-use WebUI dry-run task-submit complete"
 
     @Test("loopback guard allows only local Gradio URLs")
-    func loopbackGuardAllowsOnlyLocalGradioURLs() {
+    func loopbackGuardAllowsOnlyLocalGradioURLs() throws {
         #expect(BrowserUseLoopbackGuard.allows(url: URL(string: "http://127.0.0.1:7788/")))
         #expect(BrowserUseLoopbackGuard.allows(url: URL(string: "http://localhost:7788/")))
         #expect(BrowserUseLoopbackGuard.allows(url: URL(string: "http://[::1]:7788/")))
@@ -25,6 +25,18 @@ struct BrowserUseWebUIViewTests {
         #expect(!BrowserUseLoopbackGuard.allows(url: URL(string: "javascript:alert(1)")))
         #expect(!BrowserUseLoopbackGuard.allows(url: URL(string: "http://user:pass@127.0.0.1:7788/")))
         #expect(!BrowserUseLoopbackGuard.allows(url: URL(string: "http://127.0.0.1/")))
+        #expect(BrowserUseLoopbackGuard.allows(
+            url: URL(string: "http://127.0.0.1:7788/gradio"),
+            matchingOriginOf: try #require(URL(string: "http://127.0.0.1:7788/"))
+        ))
+        #expect(!BrowserUseLoopbackGuard.allows(
+            url: URL(string: "http://127.0.0.1:8787/"),
+            matchingOriginOf: try #require(URL(string: "http://127.0.0.1:7788/"))
+        ))
+        #expect(!BrowserUseLoopbackGuard.allows(
+            url: URL(string: "http://localhost:7788/"),
+            matchingOriginOf: try #require(URL(string: "http://127.0.0.1:7788/"))
+        ))
 
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "127.0.0.1", port: 7788)?.absoluteString == "http://127.0.0.1:7788/")
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[::1]", port: 7788)?.absoluteString == "http://[::1]:7788/")

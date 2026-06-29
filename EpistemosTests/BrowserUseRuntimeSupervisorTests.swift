@@ -362,11 +362,18 @@ struct BrowserUseRuntimeSupervisorTests {
     @Test("loopback health refuses non-loopback redirects")
     func loopbackHealthRefusesNonLoopbackRedirects() throws {
         let loopback = try #require(URL(string: "http://127.0.0.1:7788/queue"))
+        let root = try #require(URL(string: "http://127.0.0.1:7788/"))
+        let differentPort = try #require(URL(string: "http://127.0.0.1:8787/"))
+        let differentLoopbackHost = try #require(URL(string: "http://localhost:7788/"))
         let remote = try #require(URL(string: "https://example.com/"))
+        let origin = try #require(BrowserUseLoopbackPolicy.origin(for: root))
 
         #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(loopback) == nil)
         #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(remote)?.contains("non-loopback") == true)
         #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(nil)?.contains("Location URL") == true)
+        #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(loopback, expectedOrigin: origin) == nil)
+        #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(differentPort, expectedOrigin: origin)?.contains("different loopback origin") == true)
+        #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(differentLoopbackHost, expectedOrigin: origin)?.contains("different loopback origin") == true)
     }
 
     @Test("start honors cancellation before launching Pro runtime")

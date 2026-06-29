@@ -1,18 +1,31 @@
 import Foundation
 
+nonisolated struct BrowserUseLoopbackOrigin: Equatable, Sendable {
+    let host: String
+    let port: Int
+
+    func allows(url: URL?) -> Bool {
+        BrowserUseLoopbackPolicy.origin(for: url) == self
+    }
+}
+
 nonisolated enum BrowserUseLoopbackPolicy {
     static func allows(url: URL?) -> Bool {
+        origin(for: url) != nil
+    }
+
+    static func origin(for url: URL?) -> BrowserUseLoopbackOrigin? {
         guard let url,
               url.scheme?.lowercased() == "http",
               let host = url.host,
-              normalizedAllowedHost(host) != nil,
+              let normalizedHost = normalizedAllowedHost(host),
               let port = url.port,
               (1...65535).contains(port),
               url.user == nil,
               url.password == nil else {
-            return false
+            return nil
         }
-        return true
+        return BrowserUseLoopbackOrigin(host: normalizedHost, port: port)
     }
 
     static func loopbackURL(host: String, port: Int) -> URL? {
