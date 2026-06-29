@@ -1,5 +1,11 @@
 # Goose Master Build Prompt — Full Program (Phase 0 → Hybrid AppKit)
 
+> 🛑 **SUPERSEDED 2026-06-29 (Option 1 + Unification).** §7 is GREEN-LIT (Plan 1 is ON Phase 1). There is **NO
+> native chat** and **NO Gate-7 chat-primary flip** — chat + every Goose feature stays in the **reskinned WebView,
+> PERMANENTLY** (NATIVE = the frame + the Models picker only). Any "native chat / chat-primary / Gate 7 / Phase 0
+> not signed / wait for §7 sign-off" text below is HISTORICAL — do not act on it. Canon:
+> `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 **Paste this entire block to the building agent.** One goal, one sequential program. Do not mark the goal complete until **every phase exit criterion** below passes.
 
 ---
@@ -277,9 +283,12 @@ Step 3 — Native FRAME only (NO native chat, NO native feature)
 
 Step 4 — Landing tile + ⌘⇧A + cwd picker + diagnostics row (frame only)
 Step 5 — AgentNavigationRailView (native nav rail; content slot = Goose WebView)
-Step 6 — [DELETED 2026-06-27] No native settings/models/providers/auth. Settings,
-  providers, models, and OAuth are Goose features and stay in Goose's WebView — Goose
-  owns provider tokens, enumerated via its own ACP (GOLDEN RULE). No native picker.
+Step 6 — [DELETED 2026-06-27] No native settings/providers/auth MANAGEMENT. Settings,
+  providers, and OAuth are Goose features and stay in Goose's WebView — Goose owns provider
+  tokens, enumerated via its own ACP (GOLDEN RULE). ⚠️ CARVE-OUT (2026-06-29, Option 1): the
+  Models PICKER is the ONE native route, already built (`GooseNativeModelsView`, Steps 1–3) —
+  KEEP it native; do NOT revert it to web. Only the Models picker is native; settings/providers/
+  auth management stay WebView.
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 3 — Feature parity + Epistemos bridge (Steps 7–8)                     │

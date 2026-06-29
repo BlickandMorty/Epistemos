@@ -1,5 +1,9 @@
 # Goose Phase 0 - Independent Verification
 
+> 🛑 **SUPERSEDED 2026-06-29:** §7 is GREEN-LIT → the "§7 Owner Sign-Off Checklist" below is HISTORICAL (no sign-off
+> pending; Plan 1 is on Phase 1). Keep the 5 proofs green as ongoing verification, but do NOT "wait for sign-off."
+> Option 1: no native chat (chat stays WebView, reskinned). Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md`.
+
 Date: 2026-06-27
 Branch: `feat/goose-surface`
 Verifier: Codex independent Phase 0 continuation pass

@@ -1,5 +1,14 @@
 # Goose Agent AppKit Follow-On Plan
 
+> 🛑 **SUPERSEDED 2026-06-29 (owner — Option 1 + Unification; applies to this WHOLE doc, not just the route table).**
+> This document's ENTIRE native-chat plan is DEAD: **Gate 7, Step 9, `useNativeChatPath`, the native hub / transcript
+> / session-canvas / composer — ALL DELETED.** Chat + EVERY Goose feature stays in Goose's **reskinned WebView,
+> PERMANENTLY** (retheme to look native; never rebuild a Goose feature in Swift). **NATIVE = the FRAME ONLY**
+> (window / nav-rail / launcher / permission+elicitation pop-ups) **+ the Models picker** (the ONE native route,
+> already built). **§7 is GREEN-LIT** → ignore any "wait for sign-off / Phase 0 not signed" text below. Wherever
+> this doc says "native chat / Gate 7 / Step 9 / native transcript," it is HISTORICAL — DO NOT BUILD IT.
+> Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 **Date:** 2026-06-26
 **Branch context:** `feat/goose-surface` (WebView + ACP in flight; native Agent surface not started)
 **Audience:** Owner + any building agent after Phase 0 proof gate

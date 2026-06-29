@@ -1,5 +1,9 @@
 # Goose Phase 0 — Status Audit (Codex handoff vs proof gate)
 
+> 🛑 **SUPERSEDED 2026-06-29:** §7 is GREEN-LIT; Plan 1 is ON Phase 1. **IGNORE** the "DO NOT start Agent until §7
+> sign-off / Phase 0 NOT signed" instructions below — historical. Option 1: native = frame + Models picker only;
+> chat + all features stay WebView, reskinned. Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md`.
+
 **Date:** 2026-06-27
 **Branch:** `feat/goose-surface`
 **Auditor:** Phase 0 completion audit + 2026-06-27 live proof checkpoint

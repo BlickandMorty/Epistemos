@@ -96,6 +96,17 @@ verified recipe: `GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md`.
   - **Truth rule:** all three read/write the same `.md` (L1) — NO separate lock-in format is treated as truth.
     Epdoc/Note is engineered standalone, but its ONLY writer is the full-fidelity JS `getMarkdown()` bridge (never
     the lossy Swift projector).
+  - **★ NAVIGATION / UX FLOW (owner 2026-06-29 — the current routing is "messy"; THIS is the target):**
+    1. Click a note → opens in **Note (Epdoc)** by DEFAULT (the WYSIWYG lens).
+    2. **Prose** → opens the **Prose editor (TK2)**.
+    3. The **Prose editor has a button → "MarkEdit Source"** (the explicit affordance to jump to the raw-markdown
+       lens; not a hidden toggle).
+    4. **Source (MarkEdit)** carries the **FULL MarkEdit toggles/settings — its chrome VERBATIM** (Find/FontPicker/
+       Statistics/GoToLine/Previewer/Settings), **auto-mapped to the Epistemos theme** (unified look — theme the
+       MarkEdit chrome via the tokens; do NOT strip MarkEdit controls to "lightly wrap" it). Source is a LENS, not
+       the default and not source-first.
+    So the visible path is **Note (default) → Prose → [button] → Source(full MarkEdit)**, all three cross-synced on
+    the one `.md`. Fixes the half-wired `.md` routing (the orphaned MarkEdit Source route).
   - **Where data loss can happen + how it's contained:** Source + Prose edit raw text → near-zero loss. The ONLY
     loss boundary is **Note/Epdoc serializing back to markdown** — constructs Epdoc's schema doesn't model (raw
     HTML, footnotes, exotic/nested tables, custom callouts, frontmatter edge cases) can be dropped/normalized on

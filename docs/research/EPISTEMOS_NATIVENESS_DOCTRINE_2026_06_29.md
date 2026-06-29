@@ -75,7 +75,7 @@ Resources → WKURLSchemeHandler). SF Pro = system font (no bundling). SF Symbol
 body. 3. Calm/fluid web UI for unseen surfaces (Settings). 4. Native window/titlebar Liquid Glass. 5. Native
 toolbars/sidebars/launcher. 6. Native floating panels. 7. Native permission pop-ups/sheets. 8. macOS 26 material
 on already-native surfaces. 9. Native editor chrome (nested-box/title/file-logos/lens toggle — already native).
-10–11. Goose chat/pickers = WEB + Apple-reskin (NOT native — per Option 1).
+10–11. Goose chat + sessions + non-Models pickers = WEB + Apple-reskin (NOT native). **EXCEPTION: the Models picker is the ONE native route (already built, `GooseNativeModelsView`) — keep it native.** (Per Option 1; consistent with the "native Models picker" lines above.)
 
 ## ★ PER-PLAN NATIVE vs WEB SPLIT (apply this doctrine to ALL three plans)
 **Plan 1 — Goose:** NATIVE = the frame (window/nav-rail/launcher/permission pop-ups) + Models picker. WEB-reskinned
