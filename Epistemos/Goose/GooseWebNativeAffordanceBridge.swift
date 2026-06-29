@@ -77,6 +77,14 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         didReceive message: WKScriptMessage,
         replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void
     ) {
+        // review C-M3: this handler is registered in the `.page` content world (NOT forMainFrameOnly),
+        // so a foreign subframe (iframe) could otherwise reach native file/app/dialog affordances even
+        // if the nav-gate is bypassed. Defense-in-depth: only the main frame may drive native
+        // affordances — reject everything else at the WebKit boundary.
+        guard message.frameInfo.isMainFrame else {
+            replyHandler(nil, "Epistemos blocked a Goose native affordance from a non-main frame.")
+            return
+        }
         guard let body = message.body as? [String: Any] else {
             replyHandler(nil, "Malformed Epistemos Goose native affordance request.")
             return

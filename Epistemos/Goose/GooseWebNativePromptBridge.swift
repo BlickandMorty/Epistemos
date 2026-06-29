@@ -18,6 +18,13 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
         didReceive message: WKScriptMessage,
         replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void
     ) {
+        // review C-M3: handler is registered in the `.page` content world (NOT forMainFrameOnly), so
+        // reject prompt-bridge messages from non-main frames — a foreign iframe must not be able to
+        // drive permission/elicitation replies.
+        guard message.frameInfo.isMainFrame else {
+            replyHandler(nil, "Epistemos blocked a Goose prompt request from a non-main frame.")
+            return
+        }
         guard let body = message.body as? [String: Any] else {
             replyHandler(nil, "Malformed Epistemos Goose prompt request.")
             return
