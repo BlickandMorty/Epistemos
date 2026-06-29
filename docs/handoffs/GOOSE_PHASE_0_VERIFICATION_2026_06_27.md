@@ -880,6 +880,28 @@ highest-risk Goose Swift file — subprocess spawn + secret injection), **no def
   over constant components (can never be nil); acceptable but technically against the
   no-force-unwrap rule. Supports the §7 security/honesty gate.
 
+Adversarial review of the ACP decode/dispatch path (`GooseACPClient.swift` +
+`GooseACPEventBridge.swift`) — the §7 "no silent ACP drops" surface, **no defects**:
+- Per-frame containment in `event(from:)`: a KNOWN method whose payload drifted
+  (`sessionUpdate` / `requestPermission` / `createElicitation`) uses `try?` and falls
+  back to `.unhandled*` instead of throwing; any UNKNOWN method → `.unhandledRequest`/
+  `.unhandledNotification`. The read loop's terminal `fail()` (→ reconnect) is reserved
+  for transport-level + outer frame-parse errors only. Matches the passing
+  `acpPerFrameDecodeContainment` unit test.
+- Bridge closes the loop: `.unhandledRequest` → `appendUnhandledDiagnostic(.request)`
+  (structured diagnostic) **+** `respondUnsupportedRequest` → JSON-RPC **`-32601`**
+  (so `goose serve` is answered, never left hanging), wrapped in do/catch (send
+  failure → graceful `fail`, no crash) inside a `Task [weak self, client]` (no retain
+  cycle). `.unhandledNotification` → diagnostic only (no response needed). The
+  diagnostic store is a **bounded ring (max 12)** — no unbounded growth.
+- Net: unknown/drifted methods are never silently dropped (diagnostic recorded +
+  -32601 for requests) and never fatal to the connection. §7 "no silent ACP drops"
+  gate confirmed at the code level.
+
+**STEP-2 coverage so far this loop:** grafts (toolsCache + AlertBox), the
+subprocess/secret surface (`GooseRuntimeSupervisor`), and the no-silent-drops decode
+path (`GooseACPClient` + `GooseACPEventBridge`) — all reviewed, no defects.
+
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
 -derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
