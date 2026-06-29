@@ -77,6 +77,33 @@ struct LiteParseImportTests {
         }
     }
 
+    @Test("the Swift PDF preflight rejects unsafe local PDF paths before FFI")
+    func swiftPDFPreflightRejectsUnsafeLocalPDFPaths() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-preflight-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let emptyPDF = root.appendingPathComponent("empty.pdf")
+        try Data().write(to: emptyPDF)
+
+        let oversizedPDF = root.appendingPathComponent("oversized.pdf")
+        try Data("%PDF-1.7\n".utf8).write(to: oversizedPDF)
+        let oversizedHandle = try FileHandle(forWritingTo: oversizedPDF)
+        defer { try? oversizedHandle.close() }
+        try oversizedHandle.truncate(atOffset: UInt64(LiteParsePDFSignature.maxPDFBytes + 1))
+
+        let targetPDF = root.appendingPathComponent("target.pdf")
+        let symlinkPDF = root.appendingPathComponent("linked.pdf")
+        try Data("%PDF-1.7\n".utf8).write(to: targetPDF)
+        try FileManager.default.createSymbolicLink(at: symlinkPDF, withDestinationURL: targetPDF)
+
+        let importer = InertLiteParsePDFImporter()
+        #expect(importer.importToMarkdown(pdfPath: emptyPDF.path) == .failed(LiteParsePDFSignature.emptyPDFMessage))
+        #expect(importer.importToMarkdown(pdfPath: oversizedPDF.path) == .failed(LiteParsePDFSignature.tooLargePDFMessage))
+        #expect(importer.importToMarkdown(pdfPath: symlinkPDF.path) == .failed(LiteParsePDFSignature.nonRegularPDFMessage))
+    }
+
     @Test("the live importer enforces PDF-only BEFORE the FFI (non-PDF never passed down)")
     func liveImporterRejectsNonPdf() {
         guard case .unsupported = LiveLiteParsePDFImporter().importToMarkdown(pdfPath: "/a/scan.png") else {
@@ -113,6 +140,8 @@ struct LiteParseImportTests {
         #expect(src.contains("Plan3ImportFileIO.reservePairedFileURLs"))
         #expect(sharedIO.contains("O_NOFOLLOW"))
         #expect(sharedIO.contains("O_EXCL"))
+        #expect(sharedIO.contains("maxPDFBytes"))
+        #expect(sharedIO.contains("destinationOfSymbolicLink"))
         #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
         #expect(viewer.contains("maxSearchQueryLength"))
         #expect(viewer.contains("maxSearchResults"))
@@ -134,10 +163,12 @@ struct LiteParseImportTests {
         #expect(codepack.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(codepack.contains("source_pdf=<vault-relative path>"))
         #expect(codepack.contains("off-main import materialization, paired Markdown/PDF basenames"))
+        #expect(codepack.contains("512 MiB"))
         #expect(capabilities.contains("PDF→Markdown import now has a real Plan 3 parser path"))
         #expect(capabilities.contains("test-linking condition, not the shipped MAS parser state"))
         #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(rust.contains("doc.source_path = None"))
+        #expect(rust.contains("symlink_metadata"))
         #expect(rust.contains("unpdf::Unpdf::new()"))
 
         for stale in [

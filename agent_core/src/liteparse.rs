@@ -92,7 +92,7 @@ fn reject_if_not_pdf(pdf_path: &str) -> Result<(), LiteParseError> {
 }
 
 fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
-    let metadata = match std::fs::metadata(pdf_path) {
+    let metadata = match std::fs::symlink_metadata(pdf_path) {
         Ok(metadata) => metadata,
         Err(e) => {
             reject_if_not_pdf(pdf_path)?;
@@ -101,7 +101,7 @@ fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
             )));
         }
     };
-    if !metadata.is_file() {
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
         return Err(LiteParseError::Failed(
             "PDF path is not a regular file".to_string(),
         ));
@@ -367,6 +367,33 @@ mod tests {
                 );
             }
             other => panic!("expected non-PDF body preflight failure, got {other:?}"),
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preflight_rejects_symlink_pdf_before_parser() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the Unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("epistemos-liteparse-symlink-{unique}"));
+        std::fs::create_dir_all(&dir).expect("create temp liteparse dir");
+        let target = dir.join("target.pdf");
+        let symlink = dir.join("linked.pdf");
+        std::fs::write(&target, b"%PDF-1.7\n").expect("write target pdf");
+        std::os::unix::fs::symlink(&target, &symlink).expect("create symlink pdf");
+
+        match preflight_pdf_path(symlink.to_str().expect("utf-8 temp path")) {
+            Err(LiteParseError::Failed(message)) => {
+                assert!(
+                    message.contains("not a regular file"),
+                    "unexpected error: {message}"
+                );
+            }
+            other => panic!("expected symlink preflight failure, got {other:?}"),
         }
 
         let _ = std::fs::remove_dir_all(&dir);

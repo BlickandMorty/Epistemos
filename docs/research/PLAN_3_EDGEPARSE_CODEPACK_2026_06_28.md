@@ -16,8 +16,9 @@
   the `pdf+markdown,no-subprocess` scope.
 - **Swift import [DELIVERED]:** `LiteParseImportEnvelope.decode` still accepts
   `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}`. `LiveLiteParsePDFImporter` rejects non-PDF paths before
-  FFI and calls the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that binding honestly
-  fall back to `.notWired`.
+  FFI and mirrors the Rust input envelope by rejecting symlink/non-regular paths, empty files, and PDFs over 512 MiB
+  before parser dispatch. It calls the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that
+  binding honestly fall back to `.notWired`.
 - **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs conversion and file materialization off the
   main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
   basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the
@@ -32,6 +33,8 @@
 ## Rust path
 `agent_core/src/liteparse.rs` is the single parser seam:
 - Inert/no-engine builds: PDF inputs return `EngineNotWired`; non-PDF inputs return `UnsupportedFormat`.
+- Preflight uses `symlink_metadata` and rejects symlink/non-regular paths, empty files, bodies over the 512 MiB cap,
+  and files without `%PDF-` magic before EdgeParse, unpdf, or the legacy liteparse lane receives the path.
 - MAS/default builds: EdgeParse converts to Markdown in-process. Before rendering, `doc.source_path = None` prevents
   EdgeParse's optional `pdftotext` helper path.
 - Fallback: with `parser-unpdf`, empty or failed EdgeParse output falls back to `unpdf::Unpdf::new().lenient()...`.
@@ -49,8 +52,8 @@
 ## Verification
 - Rust: `cargo test -p agent_core` exercises the default EdgeParse/unpdf MAS feature set, including a real sample PDF
   fixture and the FFI envelope.
-- Swift focused guards: `EpistemosTests/LiteParseImportTests.swift` verifies envelope decoding, non-PDF rejection before
-  FFI, off-main import materialization, paired Markdown/PDF basenames, source-PDF vault confinement, and this
-  shipped-codepack status.
+- Swift focused guards: `EpistemosTests/LiteParseImportTests.swift` verifies envelope decoding, non-PDF and unsafe local
+  PDF rejection before FFI, off-main import materialization, paired Markdown/PDF basenames, source-PDF vault confinement,
+  and this shipped-codepack status.
 - Historical caveat: Swift unit-test hosts without `agent_coreFFI` still verify the honest fallback by expecting
   `.notWired` for a PDF. That is a test-linking condition, not the default MAS Rust engine state.

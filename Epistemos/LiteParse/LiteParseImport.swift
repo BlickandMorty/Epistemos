@@ -51,11 +51,18 @@ nonisolated enum LiteParseImportEnvelope {
 
 nonisolated enum LiteParsePDFSignature {
     private static let pdfMagic = Array("%PDF-".utf8)
+    static let maxPDFBytes = 512 * 1024 * 1024
     static let unsupportedPDFMessage = "Only PDF is supported here (Office/image formats need external binaries — out of scope)."
     static let invalidPDFBodyMessage = "The file does not start with %PDF-, so it is not a PDF."
+    static let nonRegularPDFMessage = "PDF path is not a regular file."
+    static let emptyPDFMessage = "PDF file is empty."
+    static let tooLargePDFMessage = "PDF is too large to parse safely (512 MiB limit)."
 
     static func validationFailure(forPath path: String) -> LiteParseImportResult? {
         let hasPDFExtension = path.lowercased().hasSuffix(".pdf")
+        if let envelopeFailure = fileEnvelopeFailure(forPath: path, hasPDFExtension: hasPDFExtension) {
+            return envelopeFailure
+        }
         switch fileStartsWithPDFMagic(path) {
         case .match:
             return nil
@@ -64,6 +71,34 @@ nonisolated enum LiteParsePDFSignature {
         case .unreadable(let message):
             return hasPDFExtension
                 ? .failed("Could not inspect the PDF file: \(message)")
+                : .unsupported(unsupportedPDFMessage)
+        }
+    }
+
+    private static func fileEnvelopeFailure(forPath path: String, hasPDFExtension: Bool) -> LiteParseImportResult? {
+        let fileManager = FileManager.default
+        if (try? fileManager.destinationOfSymbolicLink(atPath: path)) != nil {
+            return .failed(nonRegularPDFMessage)
+        }
+
+        do {
+            let values = try URL(fileURLWithPath: path).resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+            guard values.isRegularFile == true else {
+                return .failed(nonRegularPDFMessage)
+            }
+            guard let fileSize = values.fileSize else {
+                return .failed("Could not inspect the PDF file: file size is unavailable")
+            }
+            if fileSize == 0 {
+                return .failed(emptyPDFMessage)
+            }
+            if fileSize > maxPDFBytes {
+                return .failed(tooLargePDFMessage)
+            }
+            return nil
+        } catch {
+            return hasPDFExtension
+                ? .failed("Could not inspect the PDF file: \(error.localizedDescription)")
                 : .unsupported(unsupportedPDFMessage)
         }
     }

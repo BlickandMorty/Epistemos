@@ -91,6 +91,8 @@ test-linking condition, not the shipped MAS parser state.
    `liteparse_pdf_to_markdown`, so the import button, Settings row, and controller did not need a new UI contract.
 4. **PDF-only scope enforced:** Office/image inputs are rejected before FFI on Swift and as `UnsupportedFormat` in Rust;
    no subprocess/sidecar fallback is introduced.
+5. **Parser input envelope hardened:** Swift and Rust both reject symlink/non-regular PDF paths, empty files, bodies over
+   the 512 MiB cap, and missing `%PDF-` magic before the parser lane receives the path.
 
 **★ PDF viewer + md COEXISTENCE (keep BOTH the original PDF and a parsed `.md`) `[VERIFIED-CODE]`:**
 - **Data model, ZERO migration:** on import, Plan 3 writes the **original `.pdf`** into `<vault>/Imported PDFs/` and a
