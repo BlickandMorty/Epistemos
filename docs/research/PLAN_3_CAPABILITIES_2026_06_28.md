@@ -264,7 +264,7 @@ viewer and PencilKit annotations; the PDF viewer remains Plan 2.
 3. **Vision OCR + VisionKit Live Text** (shared component done) — `LiveTextImageView` wraps `ImageAnalyzer` +
    `ImageAnalysisOverlayView`, returns recognized text to consumers, and does not index or edit Plan 2 surfaces itself.
 4. **QuickLookThumbnailing** (shared component done) — `FileThumbnailer` + `FileThumbnailView` produce thumbnails with
-   fallback symbols and reject invalid URLs/sizes/scales before generation.
+   fallback symbols and reject invalid, unreadable, symlink, non-regular, size, or scale inputs before generation.
 5. **Translation expansion** (med/low) — already wired in notes; extend to PDF selections + chat messages (near-zero effort, on-device).
 6. **AppIntents / Spotlight for PDFs** (med/low) — expose "Open/OCR/Preview file" as Shortcuts/Siri actions; index imported PDFs in system Spotlight.
 

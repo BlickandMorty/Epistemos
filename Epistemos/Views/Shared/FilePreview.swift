@@ -18,7 +18,10 @@ nonisolated enum FilePreviewURLPolicy {
               fileManager.isReadableFile(atPath: url.path) else {
             return false
         }
-        return true
+        guard let fileType = try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType else {
+            return false
+        }
+        return fileType == .typeRegular
     }
 }
 

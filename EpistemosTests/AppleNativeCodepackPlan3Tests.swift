@@ -20,6 +20,8 @@ struct AppleNativeCodepackPlan3Tests {
             "**DONE:** `Epistemos/Views/Shared/FilePreview.swift`",
             "**DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift`",
             "**DONE:** `Epistemos/Views/Shared/FileThumbnail.swift`",
+            "non-regular files",
+            "including non-regular file rejection",
             "FilePreviewController",
             "LiveTextImageView",
             "FileThumbnailView",

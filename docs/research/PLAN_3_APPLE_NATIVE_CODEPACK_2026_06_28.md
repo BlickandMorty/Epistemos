@@ -25,11 +25,12 @@ usage strings.
 
 - **DONE:** `Epistemos/Views/Shared/FilePreview.swift` provides `FilePreviewItem`, `FilePreviewController`,
   `FilePreviewButton`, `.filePreview(_:)`, and a shared URL policy that rejects remote URLs, directories, unreadable
-  files, and final symlinks before Quick Look opens anything.
+  files, non-regular files, and final symlinks before Quick Look opens anything.
 - **DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift` provides a VisionKit-backed Live Text overlay when
   VisionKit is available and an honest image fallback when it is not.
 - **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
-  the same readable regular-file URL policy plus invalid size/scale rejection before QuickLookThumbnailing generation.
+  the same readable regular-file URL policy, including non-regular file rejection, plus invalid size/scale rejection
+  before QuickLookThumbnailing generation.
 - **Still Plan 2:** mounting these components in editor/sidebar/PDF viewer surfaces.
 
 ## 1. DELIVERED `Epistemos/Views/Shared/FilePreview.swift`

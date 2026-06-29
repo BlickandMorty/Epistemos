@@ -18,7 +18,10 @@ struct AppleNativeSharedViewsPlan3Tests {
             "struct FilePreviewButton",
             "func filePreview(_ previewURL: Binding<URL?>) -> some View",
             "QLPreviewPanel.shared()",
-            "destinationOfSymbolicLink(atPath:"
+            "destinationOfSymbolicLink(atPath:",
+            "attributesOfItem(atPath:",
+            "FileAttributeType",
+            ".typeRegular"
         ] {
             #expect(preview.contains(required), "FilePreview missing expected API: \(required)")
         }
@@ -78,6 +81,16 @@ struct AppleNativeSharedViewsPlan3Tests {
         #expect(!FilePreviewController.isPreviewableURL(URL(string: "https://example.com/paper.pdf")!))
         #expect(!FilePreviewController.isPreviewableURL(directory))
         #expect(!FilePreviewController.isPreviewableURL(symlink))
+    }
+
+    @Test("preview policy rejects non-regular file URLs")
+    func previewPolicyRejectsNonRegularFileURLs() {
+        let deviceURL = URL(fileURLWithPath: "/dev/null", isDirectory: false)
+        guard FileManager.default.fileExists(atPath: deviceURL.path) else {
+            return
+        }
+
+        #expect(!FilePreviewController.isPreviewableURL(deviceURL))
     }
 
     @Test("shared views stay out of Plan 1, Plan 2, and Pro-only runtimes")
