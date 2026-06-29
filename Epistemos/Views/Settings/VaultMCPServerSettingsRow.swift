@@ -10,10 +10,7 @@ struct VaultMCPServerSettingsRow: View {
     @State private var isStarting = false
     @State private var statusMessage: String?
     @State private var didCopyConfig = false
-
-    private var vaultNoteCount: Int? {
-        vaultRoot.map { VaultMCPCore.markdownRelPaths(vaultRoot: $0).count }
-    }
+    @State private var vaultNoteCount: Int?
 
     private var isRunning: Bool {
         registration != nil
@@ -81,6 +78,11 @@ struct VaultMCPServerSettingsRow: View {
         .task(id: vaultRoot?.path) {
             VaultMCPHost.shared.stopIfCurrentVaultDiffers(from: vaultRoot)
             registration = VaultMCPHost.shared.currentRegistration(for: vaultRoot)
+            if registration == nil {
+                vaultNoteCount = nil
+            } else {
+                await refreshVaultNoteCount(for: vaultRoot)
+            }
             didCopyConfig = false
             statusMessage = nil
         }
@@ -123,12 +125,18 @@ struct VaultMCPServerSettingsRow: View {
             registration = result
             isStarting = false
             statusMessage = result == nil ? "The MCP server did not become ready." : nil
+            if result == nil {
+                vaultNoteCount = nil
+            } else {
+                await refreshVaultNoteCount(for: vaultRoot)
+            }
         }
     }
 
     private func stop() {
         VaultMCPHost.shared.stop()
         registration = nil
+        vaultNoteCount = nil
         isStarting = false
         statusMessage = "Stopped."
     }
@@ -143,7 +151,25 @@ struct VaultMCPServerSettingsRow: View {
             registration = result
             isStarting = false
             statusMessage = result == nil ? "Token rotated, but the MCP server did not restart." : "Token rotated."
+            if result == nil {
+                vaultNoteCount = nil
+            } else {
+                await refreshVaultNoteCount(for: vaultRoot)
+            }
         }
+    }
+
+    private func refreshVaultNoteCount(for root: URL?) async {
+        guard let root else {
+            vaultNoteCount = nil
+            return
+        }
+        let path = root.path
+        let count = await Task.detached(priority: .utility) {
+            VaultMCPCore.markdownRelPaths(vaultRoot: root).count
+        }.value
+        guard !Task.isCancelled, vaultRoot?.path == path else { return }
+        vaultNoteCount = count
     }
 
     private func copyClientConfig() {
