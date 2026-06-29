@@ -10,6 +10,8 @@ struct AppleNativeCodepackPlan3Tests {
         )
 
         for required in [
+            "shipped code",
+            "## Shipped implementation state",
             "Plan 3 builds shared components only",
             "Plan 2 owns editor/sidebar/pdf viewer integration",
             "Epistemos/Views/Shared/FilePreview.swift",
@@ -67,6 +69,7 @@ struct AppleNativeCodepackPlan3Tests {
         let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
 
         #expect(plan.contains("Plan 3 shared components are now present"))
+        #expect(plan.contains("Apple-native maximization (shared components shipped; Plan 2 owns mounts)"))
         #expect(plan.contains("QuickLook preview (`FilePreview.swift`)"))
         #expect(plan.contains("VisionKit Live Text"))
         #expect(plan.contains("QuickLookThumbnailing (`FileThumbnail.swift`)"))

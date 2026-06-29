@@ -222,7 +222,7 @@ Effort remaining: optionally bind the Rust `MCPDispatcher.dispatch()` over UniFF
 
 ---
 
-## 6. Apple-native maximization (owner-confirmed keep; Pass-1c)
+## 6. Apple-native maximization (shared components shipped; Plan 2 owns mounts)
 
 The big ledger wanted "max out Apple-native frameworks." Baseline already in the app `[VERIFIED-CODE]`: NaturalLanguage,
 Vision (OCR), AVFoundation, Speech (STT), AVSpeech (TTS), Translation, ScreenCaptureKit, CoreSpotlight, AppIntents,

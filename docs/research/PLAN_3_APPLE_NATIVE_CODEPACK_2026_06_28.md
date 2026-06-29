@@ -1,4 +1,4 @@
-# Plan 3 - Apple-native Shared Views: QuickLook + VisionKit + Thumbnails
+# Plan 3 - Apple-native Shared Views (shipped code): QuickLook + VisionKit + Thumbnails
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md` section 6. Plan 3 builds shared components only.
 > Plan 2 owns editor/sidebar/pdf viewer integration. This codepack must not edit the Plan 2 editor, sidebar,
@@ -21,7 +21,7 @@ QuickLook, VisionKit, and QuickLookThumbnailing are first-party Apple frameworks
 it operates on already user-granted file URLs and in-memory `NSImage` values. It does not need new entitlements or
 usage strings.
 
-## Current implementation state
+## Shipped implementation state
 
 - **DONE:** `Epistemos/Views/Shared/FilePreview.swift` provides `FilePreviewItem`, `FilePreviewController`,
   `FilePreviewButton`, and `.filePreview(_:)`.
