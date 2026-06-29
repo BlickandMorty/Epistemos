@@ -37,10 +37,22 @@ Re-runnable: see the goosed probe block in the loop transcript (scratchpad/goose
   `/status` answered ~1s after; allow a larger health-poll budget.
 - ACP is preserved (`rest_router.merge(acp_router)`), so `/acp` is on the same server/port — the
   existing ACP path keeps working; REST is added alongside.
-- Binary: `goosed` 247.7 MB REPLACES `goose` 254.4 MB (net ≈ −7 MB).
-- TLS: probe used `GOOSE_TLS=false` (http) to verify routes. The shipped swap keeps `GOOSE_TLS=true`
-  + a fingerprint-pinned WKWebView `didReceiveAuthenticationChallenge` delegate (research:
-  TLS-off breaks secure-context MCP guest SDKs).
+- Binary: `goosed` 236 MB REPLACES `goose` 243 MB at cutover (net ≈ −7 MB; `ls -lh` measured
+  2026-06-29 on the aarch64 release builds). During the parity-gated transition BOTH are staged.
+- TLS (CORRECTED — earlier note was an unverified assumption): the shipped swap DEFAULTS to
+  `GOOSE_TLS=false` (http loopback), the SAME posture the currently-working `goose serve` path uses
+  (the WebView already talks http://127.0.0.1 to goose serve and works). goosed over http loopback is
+  therefore ZERO security-posture regression — loopback traffic never leaves the kernel interface.
+  Secure-context: `http://127.0.0.1` is a "potentially trustworthy" origin per the W3C Secure Contexts
+  algorithm (host in 127.0.0.0/8), so desktop WebKit normally exposes `crypto.subtle` etc. there.
+  Caveat (web-validated 2026-06-29): WebKit's loopback secure-context honoring has known edge cases
+  (openpgpjs#1624 — iOS Safari 15+ failed on *remote* localhost); desktop macOS WKWebView on true
+  127.0.0.1 is the normal-case path but not 100% guaranteed for every guest SDK.
+  DECISION: TLS stays OPT-IN (`EPISTEMOS_GOOSE_GOOSED_TLS=true`). The fingerprint-pinned WKWebView
+  `didReceiveAuthenticationChallenge` cert-pin delegate is a SCOPED-DEFERRED follow-up, built ONLY IF
+  a real MCP guest is empirically found to require an https secure-context that http://127.0.0.1 does
+  not satisfy on this WebKit — an empirical question answered WHEN the MCP-app route is wired (Step 3+),
+  not speculatively now. Building it now would be cosmetic TLS plumbing against an unproven need.
 
 ## END-TO-END RE-PROVE ON goosed — PASS (re-runnable: scripts/goosed-live-reprove.sh)
 Owner requirement: "Re-prove the full live sweep + the 3 features end-to-end on goosed." Spawned the
