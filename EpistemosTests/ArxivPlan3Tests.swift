@@ -47,15 +47,20 @@ struct ArxivPlan3Tests {
         let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_ARXIV_CODEPACK_2026_06_28.md")
         let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let ingest = try loadMirroredSourceTextFile("Epistemos/Arxiv/ArxivIngestService.swift")
 
         #expect(codepack.contains("shipped code"))
         #expect(codepack.contains("ArxivIngestService.swift` [DELIVERED]"))
         #expect(codepack.contains("showingArxivSearch = true"))
         #expect(codepack.contains("parser rejection with no note"))
+        #expect(codepack.contains("conversion and file materialization run off"))
         #expect(capabilities.contains("arXiv pull — SHIPPED (Pass 6)"))
         #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
+        #expect(ingest.contains("materializeImportedFiles"))
+        #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
+        #expect(ingest.contains("nonisolated private static func uniquePairedFileURLs"))
 
         for stale in [
             "clone-ready code",

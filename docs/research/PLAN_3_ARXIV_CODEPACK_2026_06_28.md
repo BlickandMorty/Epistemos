@@ -18,8 +18,9 @@
   Defaults plain text to `all:`; honest errors. Networking only.
 - **`Epistemos/Arxiv/ArxivIngestService.swift` [DELIVERED]** — `ingest(paper,vaultURL,modelContext,graphState,importer)`:
   (1) download the PDF into `<vault>/arXiv/` (URLSession); (2) convert via the SAME `LiteParsePDFImporter` FFI
-  (off `@MainActor` via `Task.detached` — never block main); (3) file-first `SDPage` with body = abstract intro +
-  parsed full text, frontmatter `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
+  (off `@MainActor` via `Task.detached` — never block main); (3) create the paired PDF/Markdown files in a detached
+  worker so conversion and file materialization run off `@MainActor`; (4) file-first `SDPage` with body = abstract intro
+  + parsed full text, frontmatter `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
   the §1 coexistence model), `url`. **Honest:** failed download / `.notWired` / `.failed` → no note + the real reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`).

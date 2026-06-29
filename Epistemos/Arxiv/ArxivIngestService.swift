@@ -81,26 +81,21 @@ enum ArxivIngestService {
         }
 
         let note = ArxivNoteDraft(paper: paper, parsedMarkdown: markdown)
-        let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
-        let baseName = note.safeBaseName
-        let urls = uniquePairedFileURLs(directory: dirURL, baseName: baseName)
-        let noteURL = urls.noteURL
-        let pdfURL = urls.pdfURL
-        let sourcePDFRelativePath = vaultRelativePath(for: pdfURL, in: vaultURL)
-
+        let materializedFiles: MaterializedImportFiles
         do {
-            try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: downloadedPDF, to: pdfURL)
-            try Data(note.markdownBody.utf8).write(to: noteURL, options: .atomic)
+            materializedFiles = try await materializeImportedFiles(
+                note: note,
+                downloadedPDF: downloadedPDF,
+                vaultURL: vaultURL)
+        } catch let error as ArxivIngestError {
+            return .rejected(error)
         } catch {
-            try? FileManager.default.removeItem(at: noteURL)
-            try? FileManager.default.removeItem(at: pdfURL)
             return .rejected(.fileWriteFailed(error.localizedDescription))
         }
 
-        let page = SDPage(title: noteURL.deletingPathExtension().lastPathComponent, emoji: "📄")
+        let page = SDPage(title: materializedFiles.noteURL.deletingPathExtension().lastPathComponent, emoji: "📄")
         page.format = "markdown"
-        page.filePath = noteURL.standardizedFileURL.path
+        page.filePath = materializedFiles.noteURL.standardizedFileURL.path
         page.subfolder = importDirectory
         page.saveBody(note.markdownBody)
         page.wordCount = note.markdownBody.split(whereSeparator: \.isWhitespace).count
@@ -108,7 +103,7 @@ enum ArxivIngestService {
         page.lastSyncedAt = .now
         page.needsVaultSync = false
         var frontMatter = note.frontMatter
-        frontMatter["source_pdf"] = sourcePDFRelativePath
+        frontMatter["source_pdf"] = materializedFiles.sourcePDFRelativePath
         page.frontMatter = frontMatter
 
         modelContext.insert(page)
@@ -118,14 +113,41 @@ enum ArxivIngestService {
             return .imported(pageID: page.id, title: page.title)
         } catch {
             modelContext.delete(page)
-            try? FileManager.default.removeItem(at: noteURL)
-            try? FileManager.default.removeItem(at: pdfURL)
+            try? FileManager.default.removeItem(at: materializedFiles.noteURL)
+            try? FileManager.default.removeItem(at: materializedFiles.pdfURL)
             NoteFileStorage.deleteBody(pageId: page.id)
             return .rejected(.modelSaveFailed(error.localizedDescription))
         }
     }
 
-    private static func uniquePairedFileURLs(directory: URL, baseName: String) -> (noteURL: URL, pdfURL: URL) {
+    private static func materializeImportedFiles(
+        note: ArxivNoteDraft,
+        downloadedPDF: URL,
+        vaultURL: URL
+    ) async throws -> MaterializedImportFiles {
+        try await Task.detached(priority: .userInitiated) {
+            let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
+            let urls = uniquePairedFileURLs(directory: dirURL, baseName: note.safeBaseName)
+            let sourcePDFRelativePath = vaultRelativePath(for: urls.pdfURL, in: vaultURL)
+
+            do {
+                try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: downloadedPDF, to: urls.pdfURL)
+                try Data(note.markdownBody.utf8).write(to: urls.noteURL, options: .atomic)
+            } catch {
+                try? FileManager.default.removeItem(at: urls.noteURL)
+                try? FileManager.default.removeItem(at: urls.pdfURL)
+                throw ArxivIngestError.fileWriteFailed(error.localizedDescription)
+            }
+
+            return MaterializedImportFiles(
+                noteURL: urls.noteURL,
+                pdfURL: urls.pdfURL,
+                sourcePDFRelativePath: sourcePDFRelativePath)
+        }.value
+    }
+
+    nonisolated private static func uniquePairedFileURLs(directory: URL, baseName: String) -> (noteURL: URL, pdfURL: URL) {
         let safe = baseName.replacingOccurrences(of: "/", with: "-")
         var candidateBaseName = safe
         var counter = 2
@@ -140,13 +162,19 @@ enum ArxivIngestService {
         )
     }
 
-    private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String {
+    nonisolated private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String {
         let vaultPath = vaultURL.standardizedFileURL.path
         let filePath = fileURL.standardizedFileURL.path
         let prefix = vaultPath.hasSuffix("/") ? vaultPath : vaultPath + "/"
         guard filePath.hasPrefix(prefix) else { return fileURL.lastPathComponent }
         return String(filePath.dropFirst(prefix.count))
     }
+}
+
+private struct MaterializedImportFiles: Sendable {
+    let noteURL: URL
+    let pdfURL: URL
+    let sourcePDFRelativePath: String
 }
 
 nonisolated struct ArxivNoteDraft: Equatable, Sendable {
