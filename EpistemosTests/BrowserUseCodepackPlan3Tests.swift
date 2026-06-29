@@ -53,6 +53,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("settings/env contract landed"))
         #expect(codepack.contains("Runtime launch contract landed"))
         #expect(codepack.contains("WKWebView loopback shell landed"))
+        #expect(codepack.contains("Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload"))
+        #expect(codepack.contains("verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("Behavior test"))
