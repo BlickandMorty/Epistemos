@@ -17,6 +17,9 @@ struct BrowserUseWebUIView: View {
     @State private var readiness: BrowserUseRuntimeReadiness
     @State private var loadedURL: URL?
     @State private var isStarting = false
+    @State private var startRequestID = UUID()
+    @State private var startTask: Task<Void, Never>?
+    @State private var startWorker: Task<(BrowserUseRuntimeLaunchPlan?, String?), Never>?
     @State private var blockedURL: URL?
     @State private var lastError: String?
 
@@ -153,26 +156,74 @@ struct BrowserUseWebUIView: View {
             return
         }
 
-        isStarting = true
-        defer { isStarting = false }
+        startTask?.cancel()
+        startWorker?.cancel()
 
-        do {
-            let plan = try supervisor.start(settings: settings, host: host, port: port, theme: themeName)
-            guard BrowserUseLoopbackGuard.allows(url: plan.loopbackURL) else {
-                throw BrowserUseRuntimeSupervisorError.unavailable("browser-use Pro returned a non-loopback URL.")
+        let requestID = UUID()
+        startRequestID = requestID
+        isStarting = true
+        lastError = nil
+
+        let settings = settings
+        let host = host
+        let port = port
+        let themeName = themeName
+        let worker = Task.detached(priority: .userInitiated) { [supervisor, settings, host, port, themeName] () -> (BrowserUseRuntimeLaunchPlan?, String?) in
+            do {
+                let plan = try supervisor.start(
+                    settings: settings,
+                    host: host,
+                    port: port,
+                    theme: themeName,
+                    shouldCancel: { Task.isCancelled }
+                )
+                guard !Task.isCancelled else { return (nil, nil) }
+                return (plan, nil)
+            } catch is CancellationError {
+                return (nil, nil)
+            } catch {
+                return (nil, error.localizedDescription)
             }
-            blockedURL = nil
-            lastError = nil
-            loadedURL = plan.loopbackURL
-            readiness = .ready(plan)
-        } catch {
-            loadedURL = nil
-            lastError = error.localizedDescription
-            readiness = .unavailable(error.localizedDescription)
+        }
+
+        startWorker = worker
+        startTask = Task { @MainActor in
+            let outcome = await worker.value
+            guard !Task.isCancelled, startRequestID == requestID else { return }
+            isStarting = false
+            startTask = nil
+            startWorker = nil
+
+            if let plan = outcome.0 {
+                guard BrowserUseLoopbackGuard.allows(url: plan.loopbackURL) else {
+                    let message = "browser-use Pro returned a non-loopback URL."
+                    loadedURL = nil
+                    lastError = message
+                    readiness = .unavailable(message)
+                    return
+                }
+                blockedURL = nil
+                lastError = nil
+                loadedURL = plan.loopbackURL
+                readiness = .ready(plan)
+                return
+            }
+
+            if let message = outcome.1 {
+                loadedURL = nil
+                lastError = message
+                readiness = .unavailable(message)
+            }
         }
     }
 
     private func stopRuntime() {
+        startTask?.cancel()
+        startWorker?.cancel()
+        startTask = nil
+        startWorker = nil
+        startRequestID = UUID()
+        isStarting = false
         supervisor?.stop()
         loadedURL = nil
     }

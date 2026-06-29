@@ -145,6 +145,41 @@ struct BrowserUseRuntimeSupervisorTests {
         #endif
     }
 
+    @Test("start honors cancellation before launching Pro runtime")
+    func startHonorsCancellationBeforeLaunchingProRuntime() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        var launched = false
+        let supervisor = BrowserUseRuntimeSupervisor(
+            paths: paths,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            launchProcess: { _ in
+                launched = true
+                return BrowserUseRuntimeProcessHandle {}
+            }
+        )
+
+        do {
+            _ = try supervisor.start(
+                processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+                shouldCancel: { true }
+            )
+            Issue.record("Expected browser-use runtime start cancellation to throw")
+        } catch is CancellationError {
+            // Expected: cancelled before env write or subprocess launch.
+        } catch {
+            Issue.record("Expected CancellationError, got \(error)")
+        }
+
+        #expect(!launched)
+        #expect(!FileManager.default.fileExists(atPath: paths.environmentFileURL.path))
+        #else
+        #expect(true)
+        #endif
+    }
+
     @Test("runtime supervisor source keeps subprocess launch out of MAS branch and browser boundary")
     func runtimeSupervisorSourceKeepsSubprocessLaunchOutOfMASBranchAndBrowserBoundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift")
@@ -157,7 +192,11 @@ struct BrowserUseRuntimeSupervisorTests {
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
             "BrowserUseLoopbackPolicy.loopbackURL",
+            "private let lifecycleLock = NSLock()",
+            "shouldCancel: @Sendable () -> Bool",
+            "throw CancellationError()",
             "stop()",
+            "stopLocked()",
             "process = try launchProcess(plan)",
             "private static func defaultLaunchProcess",
             "let runtime = Process()",

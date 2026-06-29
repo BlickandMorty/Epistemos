@@ -174,6 +174,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private let secretStore: BrowserUseSecretStore
     private let fileManager: FileManager
     private let launchProcess: BrowserUseRuntimeProcessLauncher
+    private let lifecycleLock = NSLock()
 
     #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private var process: BrowserUseRuntimeProcessHandle?
@@ -231,8 +232,12 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         processEnvironment: [String: String] = ProcessInfo.processInfo.environment,
         host: String = "127.0.0.1",
         port: Int = 7788,
-        theme: String = "Ocean"
+        theme: String = "Ocean",
+        shouldCancel: @Sendable () -> Bool = { false }
     ) throws -> BrowserUseRuntimeLaunchPlan {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+
         switch readiness(
             settings: settings,
             processEnvironment: processEnvironment,
@@ -243,16 +248,22 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         case .unavailable(let reason):
             throw BrowserUseRuntimeSupervisorError.unavailable(reason)
         case .ready(let plan):
+            if shouldCancel() {
+                throw CancellationError()
+            }
             try BrowserUseEnvironmentFileWriter.write(
                 plan.environmentFileContents,
                 to: plan.environmentFileURL,
                 fileManager: fileManager
             )
+            if shouldCancel() {
+                throw CancellationError()
+            }
 
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             throw BrowserUseRuntimeSupervisorError.appStoreBuild
             #else
-            stop()
+            stopLocked()
             process = try launchProcess(plan)
             return plan
             #endif
@@ -260,6 +271,12 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     }
 
     func stop() {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+        stopLocked()
+    }
+
+    private func stopLocked() {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         process?.terminate()
         process = nil
