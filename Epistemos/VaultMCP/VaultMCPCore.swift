@@ -455,6 +455,12 @@ nonisolated struct VaultMCPCore {
         guard candidatePath == rootPath || candidatePath.hasPrefix(rootPath + "/") else {
             throw VaultMCPPathError.pathTraversal
         }
+        if candidatePath != rootPath {
+            let resolvedRelativePath = String(candidatePath.dropFirst(rootPath.count + 1))
+            guard !hasHiddenPathComponent(resolvedRelativePath) else {
+                throw VaultMCPPathError.hiddenPath
+            }
+        }
         return resolvedCandidate
     }
 

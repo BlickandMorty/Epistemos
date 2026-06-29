@@ -83,6 +83,12 @@ struct VaultMCPCoreTests {
         try FileManager.default.createSymbolicLink(
             at: root.appendingPathComponent("Linked.md"),
             withDestinationURL: outside.appendingPathComponent("Secret.md"))
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
+        let hiddenNote = root.appendingPathComponent(".hidden").appendingPathComponent("Hidden.md")
+        try "hidden".write(to: hiddenNote, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("VisibleHiddenAlias.md"),
+            withDestinationURL: hiddenNote)
 
         let recorder = CallRecorder()
         let core = VaultMCPCore(vaultRoot: root, executor: { name, argumentsJSON in
@@ -94,6 +100,7 @@ struct VaultMCPCoreTests {
             #"{"name":"file.read","arguments":{"path":"../Secret.md"}}"#,
             #"{"name":"vault.read","arguments":{"path":"/tmp/Secret.md"}}"#,
             #"{"name":"vault.read","arguments":{"path":"Linked.md"}}"#,
+            #"{"name":"vault.read","arguments":{"path":"VisibleHiddenAlias.md"}}"#,
         ] {
             let response = await core.handle(
                 requestJSON: #"{"jsonrpc":"2.0","id":22,"method":"tools/call","params":\#(payload)}"#)
@@ -194,10 +201,14 @@ struct VaultMCPCoreTests {
             atomically: true,
             encoding: .utf8)
         try FileManager.default.createDirectory(at: root.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
+        let hiddenNote = root.appendingPathComponent(".hidden").appendingPathComponent("Hidden.md")
         try "Hidden".write(
-            to: root.appendingPathComponent(".hidden").appendingPathComponent("Hidden.md"),
+            to: hiddenNote,
             atomically: true,
             encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("VisibleHiddenAlias.md"),
+            withDestinationURL: hiddenNote)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
         let outsideNote = outside.appendingPathComponent("Outside.md")
         try "Outside".write(to: outsideNote, atomically: true, encoding: .utf8)
@@ -238,6 +249,9 @@ struct VaultMCPCoreTests {
             to: root.appendingPathComponent(".hidden").appendingPathComponent("Secret.md"),
             atomically: true,
             encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("VisibleSecretAlias.md"),
+            withDestinationURL: root.appendingPathComponent(".hidden").appendingPathComponent("Secret.md"))
         try "Encoded".write(
             to: folder.appendingPathComponent("Space #1.md"),
             atomically: true,
@@ -293,6 +307,13 @@ struct VaultMCPCoreTests {
         let hiddenError = try #require(hiddenObject["error"] as? [String: Any])
         #expect(hiddenError["code"] as? Int == -32602)
         #expect((hiddenError["message"] as? String)?.contains("hidden vault resources") == true)
+
+        let hiddenSymlink = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":13,"method":"resources/read","params":{"uri":"vault:///VisibleSecretAlias.md"}}"#)
+        let hiddenSymlinkObject = try Self.jsonObject(hiddenSymlink)
+        let hiddenSymlinkError = try #require(hiddenSymlinkObject["error"] as? [String: Any])
+        #expect(hiddenSymlinkError["code"] as? Int == -32602)
+        #expect((hiddenSymlinkError["message"] as? String)?.contains("hidden vault resources") == true)
     }
 
     @Test("resources/read rejects oversized markdown before loading it")
