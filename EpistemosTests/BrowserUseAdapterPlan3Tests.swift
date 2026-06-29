@@ -111,6 +111,7 @@ struct BrowserUseAdapterPlan3Tests {
             "\"refs_truncated\": refs_truncated or truncated",
             "raw_text if isinstance(raw_text, str) else \"\"",
             "bound_eval_result",
+            "[Unsupported non-JSON result]",
             "\"result_truncated\"",
             "\"refs_truncated\"",
             "ensure_browser_daemon(args)\n        data = send_browser_use(\"open\"",
