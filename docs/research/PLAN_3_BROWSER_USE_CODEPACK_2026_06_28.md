@@ -115,9 +115,11 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` is set, otherwise to a user-installed
   `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, SSRF/private URL
   blocking, owner-only browser daemon/socket/screenshot directories, and `PYTHON_DOTENV_DISABLED=true` for the
-  subprocess environment. The redaction policy is isolated in `agent_core/src/tools/browser_redaction.rs` and covers
-  credential-assignment redaction for token/api-key/password/secret variants plus split and compact auth-scheme follower
-  tokens. The private
+  subprocess environment. The executable discovery and CDP override policy is isolated in
+  `agent_core/src/tools/browser_executable.rs`: explicit `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` wins before the vendored
+  root lookup and both win before `PATH`, while `EPISTEMOS_BROWSER_USE_CDP_URL` is loopback-only. The redaction policy
+  is isolated in `agent_core/src/tools/browser_redaction.rs` and covers credential-assignment redaction for
+  token/api-key/password/secret variants plus split and compact auth-scheme follower tokens. The private
   directory policy is isolated in `agent_core/src/tools/browser_private.rs`: Rust rejects pre-existing symlink paths
   and non-current-user ownership for those private browser directories before launch or chmod, so
   session/socket/screenshot roots cannot be redirected through `/tmp` symlinks or hostile pre-created
