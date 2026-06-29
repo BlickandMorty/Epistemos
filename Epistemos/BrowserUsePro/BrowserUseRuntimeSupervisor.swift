@@ -251,6 +251,39 @@ nonisolated private final class BrowserUseLoopbackHealthProbeResult: @unchecked 
     }
 }
 
+nonisolated private final class BrowserUseLoopbackHealthRedirectDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private var problem: String?
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        if let redirectProblem = BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(request.url) {
+            store(problem: redirectProblem)
+            completionHandler(nil)
+            return
+        }
+
+        completionHandler(request)
+    }
+
+    func loadProblem() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return problem
+    }
+
+    private func store(problem: String) {
+        lock.lock()
+        self.problem = problem
+        lock.unlock()
+    }
+}
+
 nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private static let healthProbeDeadlineSeconds: TimeInterval = 20
     private static let healthProbeRequestTimeoutSeconds: TimeInterval = 1
@@ -451,7 +484,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         configuration.timeoutIntervalForRequest = timeout
         configuration.timeoutIntervalForResource = timeout
         configuration.urlCache = nil
-        let session = URLSession(configuration: configuration)
+        let redirectDelegate = BrowserUseLoopbackHealthRedirectDelegate()
+        let session = URLSession(configuration: configuration, delegate: redirectDelegate, delegateQueue: nil)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
@@ -467,6 +501,11 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 result.store(problem: "response was not HTTP")
+                return
+            }
+
+            if let redirectProblem = redirectDelegate.loadProblem() {
+                result.store(problem: redirectProblem)
                 return
             }
 
@@ -489,6 +528,16 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             return nil
         }
         return "HTTP \(statusCode)"
+    }
+
+    static func loopbackHTTPRedirectProblem(_ url: URL?) -> String? {
+        guard let url else {
+            return "redirected without a Location URL"
+        }
+        if BrowserUseLoopbackPolicy.allows(url: url) {
+            return nil
+        }
+        return "redirected to non-loopback URL \(url.absoluteString)"
     }
 
     static func readiness(

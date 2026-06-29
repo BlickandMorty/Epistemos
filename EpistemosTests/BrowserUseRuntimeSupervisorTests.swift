@@ -333,6 +333,16 @@ struct BrowserUseRuntimeSupervisorTests {
         }
     }
 
+    @Test("loopback health refuses non-loopback redirects")
+    func loopbackHealthRefusesNonLoopbackRedirects() throws {
+        let loopback = try #require(URL(string: "http://127.0.0.1:7788/queue"))
+        let remote = try #require(URL(string: "https://example.com/"))
+
+        #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(loopback) == nil)
+        #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(remote)?.contains("non-loopback") == true)
+        #expect(BrowserUseRuntimeSupervisor.loopbackHTTPRedirectProblem(nil)?.contains("Location URL") == true)
+    }
+
     @Test("start honors cancellation before launching Pro runtime")
     func startHonorsCancellationBeforeLaunchingProRuntime() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
