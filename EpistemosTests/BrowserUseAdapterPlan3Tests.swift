@@ -32,6 +32,7 @@ struct BrowserUseAdapterPlan3Tests {
             "{\"success\": True, \"data\": data}",
             "json.dumps(response",
             "extract_refs",
+            "MAX_REF_DIGITS",
             "@<browser-use-selector-index>",
         ] {
             #expect(source.contains(required), "Missing browser-use adapter contract string: \(required)")
