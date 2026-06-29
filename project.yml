@@ -51,6 +51,13 @@ targets:
           - Vault/KnowledgeGraphService.swift
       - path: LocalPackages/MarkEdit/MarkEditMac/Sources
         type: syncedFolder
+        excludes:
+          - Main/Application/**
+          - Main/AppDocumentController.swift
+          - Shortcuts/**
+          - Scripting/EditorDocument+Scripting.swift
+          - Scripting/NSColor+Scripting.swift
+          - Updater/**
       - path: build-rust/swift-bindings
         type: syncedFolder
         includes:
@@ -181,6 +188,13 @@ targets:
           - Vault/KnowledgeGraphService.swift
       - path: LocalPackages/MarkEdit/MarkEditMac/Sources
         type: syncedFolder
+        excludes:
+          - Main/Application/**
+          - Main/AppDocumentController.swift
+          - Shortcuts/**
+          - Scripting/EditorDocument+Scripting.swift
+          - Scripting/NSColor+Scripting.swift
+          - Updater/**
       - path: build-rust/swift-bindings
         type: syncedFolder
         includes:

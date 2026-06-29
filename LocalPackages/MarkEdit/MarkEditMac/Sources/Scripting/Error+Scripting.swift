@@ -32,6 +32,7 @@ enum ScriptingError: Error, LocalizedError {
     }
   }
 
+  @MainActor
   func localizedDescription() -> String {
     switch self {
     case .missingCommand:
@@ -73,6 +74,7 @@ enum ScriptingError: Error, LocalizedError {
     }
   }
 
+  @MainActor
   func applyToCommand(_ command: NSScriptCommand) {
     command.scriptErrorNumber = code
     command.scriptErrorString = localizedDescription()

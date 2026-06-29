@@ -170,6 +170,25 @@
 			);
 			target = 37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */;
 		};
+		596B3837891BA2E479B46AAC /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Scripting/EditorDocument+Scripting.swift",
+				"Scripting/NSColor+Scripting.swift",
+				Shortcuts/Extensions,
+				"Shortcuts/Extensions/AppIntent+Extension.swift",
+				Shortcuts/IntentError.swift,
+				Shortcuts/IntentProvider.swift,
+				Shortcuts/Intents,
+				Shortcuts/Intents/CreateNewDocumentIntent.swift,
+				Shortcuts/Intents/EvaluateJavaScriptIntent.swift,
+				Shortcuts/Intents/GetFileContentIntent.swift,
+				Shortcuts/Intents/UpdateFileContentIntent.swift,
+				Updater/AppUpdater.swift,
+				Updater/AppVersion.swift,
+			);
+			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
+		};
 		6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -198,6 +217,25 @@
 			);
 			target = 973D4C8C4633FC9F5CEF0985 /* Epistemos */;
 		};
+		FE63281A93C9EC2639E676E0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Scripting/EditorDocument+Scripting.swift",
+				"Scripting/NSColor+Scripting.swift",
+				Shortcuts/Extensions,
+				"Shortcuts/Extensions/AppIntent+Extension.swift",
+				Shortcuts/IntentError.swift,
+				Shortcuts/IntentProvider.swift,
+				Shortcuts/Intents,
+				Shortcuts/Intents/CreateNewDocumentIntent.swift,
+				Shortcuts/Intents/EvaluateJavaScriptIntent.swift,
+				Shortcuts/Intents/GetFileContentIntent.swift,
+				Shortcuts/Intents/UpdateFileContentIntent.swift,
+				Updater/AppUpdater.swift,
+				Updater/AppVersion.swift,
+			);
+			target = 973D4C8C4633FC9F5CEF0985 /* Epistemos */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -222,15 +260,7 @@
 			path = EpistemosWidgets;
 			sourceTree = "<group>";
 		};
-		61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = LocalPackages/MarkEdit/MarkEditMac/Sources;
-			sourceTree = "<group>";
-		};
+		61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (FE63281A93C9EC2639E676E0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 596B3837891BA2E479B46AAC /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = LocalPackages/MarkEdit/MarkEditMac/Sources; sourceTree = "<group>"; };
 		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = "build-rust/swift-bindings"; sourceTree = "<group>"; };
 		DC577E252B5002D94779881E /* Epistemos */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (C9E21D3C4068DC6525ACFB75 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Epistemos; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
