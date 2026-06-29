@@ -85,4 +85,59 @@ nonisolated struct MarkEditFullChromeWiringTests {
         #expect(epistemosChunkLoader.contains("Bundle.main.url(forResource: filename, withExtension: nil)"))
         #expect(epistemosChunkLoader.contains(#"Bundle.main.url(forResource: "index", withExtension: "html")"#))
     }
+
+    @Test("built app bundle includes CoreEditor HTML and flat chunk fallback resources")
+    func builtAppBundleIncludesCoreEditorHTMLAndFlatChunkFallbackResources() throws {
+        guard let indexURL = Bundle.main.url(forResource: "index", withExtension: "html") else {
+            throw MarkEditFullChromeWiringTestError.missingBundleResource("index.html")
+        }
+
+        let html = try String(contentsOf: indexURL, encoding: .utf8)
+        #expect(html.contains(#"window.config = "{{EDITOR_CONFIG}}";"#))
+
+        let chunkReferences = Self.chunkReferences(in: html)
+        #expect(!chunkReferences.isEmpty)
+        #expect(chunkReferences.contains { $0.hasSuffix(".js") })
+        #expect(chunkReferences.contains { $0.hasSuffix(".css") })
+        #expect(chunkReferences.contains { $0.hasSuffix(".woff2") })
+
+        for reference in chunkReferences {
+            let filename = URL(fileURLWithPath: reference).lastPathComponent
+            guard Bundle.main.url(forResource: filename, withExtension: nil) != nil else {
+                throw MarkEditFullChromeWiringTestError.missingBundleResource(filename)
+            }
+        }
+    }
+
+    private static func chunkReferences(in html: String) -> [String] {
+        let marker = "/chunk-loader/"
+        var references = Set<String>()
+        var remainder = html[...]
+
+        while let markerRange = remainder.range(of: marker) {
+            let start = markerRange.upperBound
+            let tail = remainder[start...]
+            let end = tail.firstIndex { character in
+                character == "\"" ||
+                    character == "'" ||
+                    character == ")" ||
+                    character.isWhitespace
+            } ?? tail.endIndex
+            references.insert(String(tail[..<end]))
+            remainder = tail[end...]
+        }
+
+        return references.sorted()
+    }
+}
+
+private enum MarkEditFullChromeWiringTestError: Error, CustomStringConvertible {
+    case missingBundleResource(String)
+
+    var description: String {
+        switch self {
+        case .missingBundleResource(let resource):
+            return "Missing MarkEdit CoreEditor bundle resource: \(resource)"
+        }
+    }
 }
