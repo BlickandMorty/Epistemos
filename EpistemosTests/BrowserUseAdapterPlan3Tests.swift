@@ -235,10 +235,14 @@ struct BrowserUseAdapterPlan3Tests {
 
         for required in [
             "redact_browser_error_detail",
+            "redact_url_token",
             "contains_secret_assignment",
             "redacts_following_auth_value",
             "access_token",
             "x-api-key",
+            "client_secret",
+            "id_token",
+            "auth_code",
             "opaqueBearerValue",
             "compact-bearer",
             "browser_error_redaction_covers_secret_assignment_variants",

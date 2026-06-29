@@ -152,8 +152,8 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   isolated in `agent_core/src/tools/browser_executable.rs`: explicit `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` wins before the vendored
   root lookup and both win before `PATH`, while `EPISTEMOS_BROWSER_USE_CDP_URL` requires valid UTF-8, is loopback-only,
   and rejects URL credentials, queries, and fragments. The redaction policy
-  is isolated in `agent_core/src/tools/browser_redaction.rs` and covers credential-assignment redaction for
-  token/api-key/password/secret variants plus split and compact auth-scheme follower tokens. The screenshot path policy
+  is isolated in `agent_core/src/tools/browser_redaction.rs` and covers credential-assignment redaction for token/api-key/password/secret variants plus split and compact auth-scheme follower tokens. It also covers OAuth-style
+  client-secret/id-token/auth-code assignments and URL credential/query/fragment tokens. The screenshot path policy
   is isolated in `agent_core/src/tools/browser_screenshot.rs`: screenshots are created under an owner-only private root,
   the adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`, stdout path parsing stays bounded to `.png` tokens, and returned
   paths must resolve inside that root before vision sees them. The browser tool schema definitions are isolated in

@@ -38,6 +38,10 @@ fn redact_browser_error_token(token: &str) -> String {
         || contains_secret_assignment(&lower, "api-key")
         || contains_secret_assignment(&lower, "apikey")
         || contains_secret_assignment(&lower, "x-api-key")
+        || contains_secret_assignment(&lower, "client_secret")
+        || contains_secret_assignment(&lower, "id_token")
+        || contains_secret_assignment(&lower, "auth_code")
+        || contains_secret_assignment(&lower, "authorization_code")
         || contains_secret_assignment(&lower, "password")
         || contains_secret_assignment(&lower, "secret")
         || lower.contains("bearer")
@@ -48,18 +52,21 @@ fn redact_browser_error_token(token: &str) -> String {
         return "[redacted]".to_string();
     }
 
-    if let Some(scheme_index) = token.find("://") {
-        let rest = &token[scheme_index + 3..];
-        if rest.contains('@') {
-            return format!(
-                "{}://[redacted]@{}",
-                &token[..scheme_index],
-                rest.rsplit('@').next().unwrap_or("")
-            );
-        }
+    if let Some(redacted_url) = redact_url_token(token) {
+        return redacted_url;
     }
 
     token.to_string()
+}
+
+fn redact_url_token(token: &str) -> Option<String> {
+    if let Some(scheme_index) = token.find("://") {
+        let rest = &token[scheme_index + 3..];
+        if rest.contains('@') || rest.contains('?') || rest.contains('#') {
+            return Some(format!("{}://[redacted-url]", &token[..scheme_index]));
+        }
+    }
+    None
 }
 
 fn contains_secret_assignment(lower_token: &str, key: &str) -> bool {
@@ -107,8 +114,9 @@ mod tests {
             "Authorization: Bearer opaqueBearerValue Proxy-Authorization: Basic basic-secret \
              Authorization:Bearer compact-bearer Proxy-Authorization:Basic compact-basic \
              Api-Key: split-key access_token:tok refresh_token=refresh \
-             api-key=key x-api-key:key api_key%3Dencoded password:pw secret%3Ahidden \
-             https://user:pass@example.com/path",
+             api-key=key x-api-key:key api_key%3Dencoded client_secret=client id_token:jwt auth_code=oauth-code \
+             password:pw secret%3Ahidden https://user:pass@example.com/path \
+             https://example.com/callback?code=oauth-code#id_token=jwt",
         );
 
         assert!(detail.contains("[redacted]"));
@@ -119,9 +127,12 @@ mod tests {
             "api-key",
             "x-api-key",
             "api_key",
+            "client_secret",
+            "id_token",
             "password",
             "secret",
             "user:pass",
+            "oauth-code",
             "opaqueBearerValue",
             "basic-secret",
             "compact-bearer",
@@ -130,6 +141,7 @@ mod tests {
             "tok",
             "refresh",
             "hidden",
+            "callback?code",
         ] {
             assert!(
                 !detail.contains(leaked),
