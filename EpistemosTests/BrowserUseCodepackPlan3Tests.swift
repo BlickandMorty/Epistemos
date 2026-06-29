@@ -5,8 +5,10 @@ import Testing
 struct BrowserUseCodepackPlan3Tests {
     @Test("capability doc reflects landed browser-use vendor state")
     func capabilityDocReflectsLandedBrowserUseVendorState() throws {
-        let plan = try Self.loadSource("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
-        let codepack = try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
+        let plan = Self.normalizedWhitespace(try Self.loadSource("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md"))
+        let codepack = Self.normalizedWhitespace(
+            try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
+        )
 
         #expect(plan.contains("browser-use vendor codepack and staged"))
         #expect(plan.contains("final signed Pro packaging and full UI smoke still remaining"))
@@ -25,7 +27,9 @@ struct BrowserUseCodepackPlan3Tests {
 
     @Test("browser-use vendor plan is pinned, full-clone, and Pro-only")
     func browserUseCodepackIsPinnedAndGated() throws {
-        let codepack = try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
+        let codepack = Self.normalizedWhitespace(
+            try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
+        )
 
         #expect(codepack.contains("https://github.com/browser-use/browser-use.git"))
         #expect(codepack.contains("2454d3e2551705232333c906ded8fc31ab0fc9f2"))
@@ -45,6 +49,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift"))
         #expect(codepack.contains("Epistemos/BrowserUsePro/BrowserUseSettingsStore.swift"))
         #expect(codepack.contains("Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift"))
+        #expect(codepack.contains("Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift"))
         #expect(codepack.contains("Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift"))
         #expect(codepack.contains("EpistemosTests/BrowserUseSettingsStoreTests.swift"))
         #expect(codepack.contains("EpistemosTests/BrowserUseRuntimeSupervisorTests.swift"))
@@ -53,7 +58,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("BrowserUseSettingsView.swift"))
         #expect(codepack.contains("Gate, diagnostic Settings surface"))
         #expect(codepack.contains("settings/env contract landed"))
-        #expect(codepack.contains("Runtime launch contract landed"))
+        #expect(codepack.contains("Runtime launch contract and WKWebView loopback shell landed"))
         #expect(codepack.contains("WKWebView loopback shell landed"))
         #expect(codepack.contains("Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload"))
         #expect(codepack.contains("verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery"))
@@ -70,35 +75,38 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("agent_core/src/tools/browser_schema.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_screenshot.rs"))
         #expect(codepack.contains("credential-assignment redaction for token/api-key/password/secret variants plus split and compact auth-scheme follower tokens"))
-        #expect(codepack.contains("rejects pre-existing symlink paths for those private browser directories"))
+        #expect(codepack.contains("Rust rejects pre-existing symlink paths and non-current-user ownership for those private browser directories"))
         #expect(codepack.contains("non-current-user ownership for those private browser directories"))
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
-        #expect(codepack.contains("AGENT_BROWSER_SOCKET_DIR overrides any ambient `BROWSER_USE_HOME`"))
+        #expect(codepack.contains("AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME` after validating"))
         #expect(codepack.contains("session names are capped at 64 safe characters"))
         #expect(codepack.contains("adapter argument errors remain JSON-bounded before runtime import"))
         #expect(codepack.contains("adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`"))
         #expect(codepack.contains("rejects requested or returned screenshot paths that resolve outside"))
         #expect(codepack.contains("rejects multiple screenshot output paths before runtime import"))
         #expect(codepack.contains("command-specific argument validation runs before browser-use daemon startup"))
-        #expect(codepack.contains("extra positional arguments and unexpected console/error flags are rejected before daemon startup"))
+        #expect(codepack.contains("Extra positional arguments and unexpected console/error flags are rejected before daemon startup"))
         #expect(codepack.contains("console/errors compatibility stubs avoid browser-use runtime import"))
-        #expect(codepack.contains("command arguments after `--json <command>` are preserved even when they begin with `--`"))
-        #expect(codepack.contains("runtime environment setup happens only after adapter arguments are accepted"))
+        #expect(codepack.contains("Command arguments after `--json <command>` are preserved even when they begin with `--`"))
+        #expect(codepack.contains("Runtime environment setup happens only after adapter arguments are accepted"))
         #expect(codepack.contains("never trusts ambient `BROWSER_CDP_URL`"))
         #expect(codepack.contains("EPISTEMOS_BROWSER_USE_CDP_URL"))
-        #expect(codepack.contains("browser_vision rejects screenshot paths that resolve outside"))
+        #expect(codepack.contains("`browser_vision` also rejects screenshot paths that resolve outside"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
         #expect(codepack.contains("manifest-declared artifact paths are relative-only"))
         #expect(codepack.contains("file artifacts must be files and directory artifacts must be directories"))
         #expect(codepack.contains("artifact symlinks must resolve inside the vendor root"))
         #expect(codepack.contains("absolute or parent-relative artifact paths are"))
-        #expect(codepack.contains("file-vs-directory mismatches are rejected before ready"))
+        #expect(codepack.contains("file-vs-directory mismatches and symlink escapes are rejected before ready"))
         #expect(codepack.contains("symlink escapes are rejected before ready"))
-        #expect(codepack.contains("rejects non-executable Python and file/directory artifact shape mismatches"))
-        #expect(codepack.contains("rejects runtime artifact symlink escapes before launch planning"))
-        #expect(codepack.contains("rejects a non-executable Python runtime before launch planning"))
+        #expect(codepack.contains("rejects non-executable Python, file/directory artifact shape mismatches"))
+        #expect(codepack.contains("runtime artifact symlink escapes before launch planning"))
+        #expect(codepack.contains("rejects a non-executable Python runtime and runtime artifact symlink escapes before launch planning"))
+        #expect(codepack.contains("rejects final symlinks plus symlink components in parent paths"))
+        #expect(codepack.contains("rejecting symlinked env directories/files and symlinked parent components"))
+        #expect(codepack.contains("rejects launch `.env` paths below symlinked parent directories before secrets are written"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("keeps console/errors compatibility stubs runtime"))
@@ -110,7 +118,9 @@ struct BrowserUseCodepackPlan3Tests {
 
     @Test("browser-use plan preserves browser settings and MAS boundary")
     func browserUseCodepackPreservesSettingsAndBoundary() throws {
-        let codepack = try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
+        let codepack = Self.normalizedWhitespace(
+            try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
+        )
 
         for setting in [
             "BROWSER_PATH",
@@ -305,14 +315,12 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseRuntimeReadiness",
             "BrowserUseEnvironmentFileWriter",
             "BrowserUseLoopbackPolicy.loopbackURL",
-            """
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            throw BrowserUseRuntimeSupervisorError.appStoreBuild
-            #else
-            let runtime = Process()
-            """,
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
+            "throw BrowserUseRuntimeSupervisorError.appStoreBuild",
+            "let runtime = Process()",
+            "runtime.executableURL = plan.pythonExecutableURL",
+            "try runtime.run()",
             "private let lifecycleLock = NSLock()",
             "shouldCancel: @Sendable () -> Bool",
             "throw CancellationError()",
@@ -574,6 +582,10 @@ struct BrowserUseCodepackPlan3Tests {
 
     private static func loadData(_ relativePath: String) throws -> Data {
         try Data(contentsOf: sourceURL(relativePath))
+    }
+
+    private static func normalizedWhitespace(_ source: String) -> String {
+        source.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
     private static func sourceURL(_ relativePath: String) throws -> URL {

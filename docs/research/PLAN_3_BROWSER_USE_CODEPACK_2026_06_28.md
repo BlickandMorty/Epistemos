@@ -1,8 +1,8 @@
 # Plan 3 — browser-use Pro vendor codepack (staged Pro code, Pass 7)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This records the landed Pro-only vendor/runtime staging lane
-> for the Chromium robot. It is deliberately separate from the MAS-safe `BrowserView` WKWebView tab: browser-use drives
-> Chromium over CDP; it does not and must not drive the native WKWebView Browser.
+> for the Chromium robot. browser-use drives Chromium over CDP; it is deliberately separate from the MAS-safe
+> `BrowserView` WKWebView tab and does not and must not drive the native WKWebView Browser.
 
 ## Current upstream pins `[WEB]`
 Authoritative source is the official `browser-use/*` GitHub organization, checked on 2026-06-28 with `git ls-remote`
@@ -69,12 +69,15 @@ IBM project ID, and VNC password are bound to Keychain environment keys. Default
 version checks off.
 `EpistemosTests/BrowserUseSettingsStoreTests.swift` verifies privacy-first `.env` rendering, injected Keychain secret
 binding, non-secret JSON round-trip behavior, owner-only settings file permissions, and symlink rejection before the
-settings store reads or writes disk.
+settings store reads or writes disk. `Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path
+guard that rejects final symlinks plus symlink components in parent paths, while allowing macOS `/var`/`/tmp`/`/etc`
+compatibility links used by temporary directories.
 `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` now lands the Pro runtime launch contract: it validates
 the browser-use gate plus staged payload artifacts, builds the exact `web-ui/webui.py --ip 127.0.0.1 --port 7788
 --theme Ocean` loopback plan, rejects non-executable Python, file/directory artifact shape mismatches, and runtime
 artifact symlink escapes before launch planning, writes the Keychain-combined launch `.env` under Application Support
-with owner-only permissions while rejecting symlinked env directories/files before secrets are written, and compiles the actual `Process()` launch only in
+with owner-only permissions while rejecting symlinked env directories/files and symlinked parent components before
+secrets are written, and compiles the actual `Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
 Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload when present, then falls back to the
 development source checkout layout, so Settings and launch planning resolve the same packaged Pro artifact.
@@ -291,9 +294,10 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Runtime launch contract test: `BrowserUseRuntimeSupervisorTests.swift` keeps unpackaged payloads inactive, proves the
   staged launch plan uses `web-ui/webui.py`, loopback `127.0.0.1`, Keychain-combined environment values, and owner-only
   launch `.env` permissions, rejects a non-executable Python runtime and runtime artifact symlink escapes before
-  launch planning, verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery, verifies
-  ambient process secrets/injection variables are not inherited, verifies dotenv loading is disabled for exact
-  Keychain-rendered values, and verifies the subprocess branch is Pro-only.
+  launch planning, rejects launch `.env` paths below symlinked parent directories before secrets are written, verifies
+  bundled `BrowserUsePro/` resources are preferred over source-checkout discovery, verifies ambient process
+  secrets/injection variables are not inherited, verifies dotenv loading is disabled for exact Keychain-rendered values,
+  and verifies the subprocess branch is Pro-only.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
   non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
   navigation, tears down delegates, and proves it does not reference native Browser, Goose/Agent, or Plan 2 editor/PDF
