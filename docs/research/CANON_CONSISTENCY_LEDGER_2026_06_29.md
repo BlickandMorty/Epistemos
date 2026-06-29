@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 18:25 CDT (loop cycle 16) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW (1 still open from cycle 12). Steady-state: no new plans (still 1–7). Plan-1 marked "round two fixes complete" in `GOOSE_PHASE_0_VERIFICATION` (`4cad15ac9`) — verified: SUPERSEDED banner intact, no native-chat/canon terms added. Plan-3 docs (ARXIV/CAPABILITIES/EDGEPARSE) refined, drift-scanned clean. HEAD at pass: `573111b72`.
+**Last auditor pass:** 2026-06-29 18:35 CDT (loop cycle 17) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW (1 still open from cycle 12). Steady-state: no new plans (still 1–7). Plan-3 docs (CAPABILITIES/PROVENANCE/VAULT_MCP) refined, drift-scanned clean; other commits code-only (ACP backlog bound, Vault MCP core, AnswerPacket persistence). HEAD at pass: `80f3b09da`.
 <br>_Recent: cycle 13 (17:59) tracked Plans 6/7 + Plan-4 §11 animation, widened #9 to [4-9]. cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
