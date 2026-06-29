@@ -73,12 +73,14 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 | `icons.tsx` / lucide-react | retheme | match SF Symbols weight/scale (or map key glyphs) | — | ⏳ (SF Symbols license) |
 | Settings (`settings` routes) | calm/fluid blended (not native) | per doctrine — unseen = blended web | — | ⏳ |
 
-## MOTION + PERF FINDINGS (Round 1)
-- **Motion engine = Motion (MIT).** Vanilla `animate()` (framework-agnostic — works regardless of Goose's
-  framework), real spring physics, "hybrid engine: JS + native browser APIs for 120fps GPU-accelerated."
-  → primary for interactive/interruptible springs. Bundle size + explicit interruptibility = [GAP] next round.
-- **react-spring (MIT, spring-first)** = the alt if Goose UI is React and we want hooks.
-- **Pure CSS `linear()` springs** preferred where no JS interaction needed (cheaper) — confirm WebKit support.
+## MOTION + PERF FINDINGS (reconciled at R2 pivot — supersedes the R1 "add Motion" framing)
+- **Motion engine = Goose's EXISTING framer-motion v12 (MIT)** — note framer-motion IS "Motion"'s React package
+  (motiondivision/motion = motion.dev). So we do NOT add Motion's vanilla `animate()` or react-spring; we
+  CALIBRATE the framer-motion already bundled in Goose to the verified SwiftUI springs (`.smooth {0.5,0}` ·
+  `.snappy {0.5,0.15}` · `.bouncy {0.5,0.3}` · `.interactiveSpring {0.15,0.14}`). Hybrid WAAPI/GPU 120fps, real
+  springs, interruptible — all native to framer-motion. (react-spring = reference-only; NOT adopted since
+  framer-motion is already present.)
+- **Pure CSS `linear()` springs** preferred where no JS interaction needed (cheaper) — Safari 17.2+ ✅ (R4).
 - Perf budget (from doctrine): 60/120fps, animate transform/opacity ONLY (never layout props), virtualize the
   chat transcript + sessions list, bounded webview live-set + listener teardown. Instrument fps + input latency.
 

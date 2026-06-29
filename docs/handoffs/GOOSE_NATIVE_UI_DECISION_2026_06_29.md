@@ -36,6 +36,9 @@ and the likely root of "owner still sees issues" (a graft silently breaking on a
 It also removes the 1024-line JS↔native affordance bridge + remote-origin WebView from App Review.
 
 ### Phased plan (WebView stays working throughout — no silent Phase 1)
+> ⚠️ SUPERSEDED 2026-06-29 (Option 1, see EOF Status + NATIVENESS section): ONLY **Phase 0 (router) + Slice 1
+> (native Models)** are live. **Slice 2 (native Chat) and Slice 3+ are NOT done — chat/sessions/etc. STAY WebView,
+> reskinned indistinguishable from native.** The native-Chat/per-route-promotion text below is HISTORICAL.
 - **Phase 0 — Router + toggle (build first):** `GooseSurfaceRouter` resolves each route to
   `.native` or `.web` via `UserDefaults` + env `EPISTEMOS_GOOSE_NATIVE_ROUTES`, **defaulting EVERY
   route to `.web`**. `GooseSurfaceContainerView` owns native chrome + swaps body between a native
