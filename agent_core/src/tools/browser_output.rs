@@ -23,11 +23,10 @@ pub(crate) fn normalize_image_results(raw_images: Value) -> (Value, usize, bool)
         .filter_map(|item| {
             let object = item.as_object()?;
             let src = object.get("src").and_then(Value::as_str)?;
-            if src.is_empty() || src.starts_with("data:") {
+            let Some((src, src_truncated)) = sanitize_image_src(src) else {
                 return None;
-            }
+            };
 
-            let (src, src_truncated) = truncate_image_text(src);
             let (alt, alt_truncated) = object
                 .get("alt")
                 .and_then(Value::as_str)
@@ -49,6 +48,15 @@ pub(crate) fn normalize_image_results(raw_images: Value) -> (Value, usize, bool)
         .collect::<Vec<_>>();
 
     (Value::Array(normalized), items.len(), truncated)
+}
+
+fn sanitize_image_src(src: &str) -> Option<(String, bool)> {
+    if src.is_empty() || src.starts_with("data:") {
+        return None;
+    }
+    let (src, redacted) = sanitize_url_text(src);
+    let (src, truncated) = truncate_image_text(&src);
+    Some((src, redacted || truncated))
 }
 
 pub(crate) fn normalize_console_items(raw_items: Value) -> (Value, usize, bool) {
@@ -237,7 +245,7 @@ mod tests {
         let long_alt = "b".repeat(MAX_BROWSER_IMAGE_TEXT_CHARS + 1);
         let mut items = Vec::new();
         items.push(json!({
-            "src": format!("https://example.com/{long_suffix}"),
+            "src": format!("https://user:pass@example.com/{long_suffix}?token=image-token#frag"),
             "alt": long_alt,
             "width": 640,
             "height": 480,
@@ -261,6 +269,10 @@ mod tests {
             images[0]["src"].as_str().unwrap().chars().count(),
             MAX_BROWSER_IMAGE_TEXT_CHARS
         );
+        let serialized = images[0].to_string();
+        assert!(!serialized.contains("user:pass"));
+        assert!(!serialized.contains("image-token"));
+        assert!(!serialized.contains("#frag"));
         assert_eq!(
             images[0]["alt"].as_str().unwrap().chars().count(),
             MAX_BROWSER_IMAGE_TEXT_CHARS

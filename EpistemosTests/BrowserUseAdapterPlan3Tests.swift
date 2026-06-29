@@ -324,6 +324,8 @@ struct BrowserUseAdapterPlan3Tests {
             "normalize_console_items",
             "bound_console_value",
             "sanitize_url_for_output",
+            "sanitize_image_src",
+            "image-token",
             "data:text/html",
             "javascript:alert",
             "browser_get_images_normalizes_and_bounds_page_controlled_results",

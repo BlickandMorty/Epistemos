@@ -104,6 +104,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("never trusts ambient `BROWSER_CDP_URL`"))
         #expect(codepack.contains("EPISTEMOS_BROWSER_USE_CDP_URL"))
         #expect(codepack.contains("`browser_vision` also rejects screenshot paths that resolve outside"))
+        #expect(codepack.contains("image `src` URLs are sanitized before the image text cap"))
         #expect(codepack.contains("redact non-HTTP(S) URL schemes"))
         #expect(codepack.contains("responses also cap nested result arrays"))
         #expect(codepack.contains("replace non-string eval keys"))
