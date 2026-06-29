@@ -466,8 +466,9 @@ extension EditorViewController {
       object: nil,
       queue: .main
     ) { [weak self] notification in
+      let windowNumber = (notification.object as? NSWindow)?.windowNumber
       Task { @MainActor in
-        if let window = notification.object as? NSWindow, window == textField.window {
+        if let window = textField.window, window.windowNumber == windowNumber {
           window.makeFirstResponder(textField)
           if let observer = self?.textBoxInputObserver {
             self?.textBoxInputObserver = nil

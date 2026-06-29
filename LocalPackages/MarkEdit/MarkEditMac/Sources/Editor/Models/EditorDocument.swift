@@ -553,12 +553,13 @@ extension EditorDocument: FileVersionPickerDelegate {
 
 extension EditorDocument {
   nonisolated override func read(from fileWrapper: FileWrapper, ofType typeName: String) throws {
+    let sendableFileWrapper = UncheckedSendableFileWrapper(value: fileWrapper)
     try MainActor.assumeIsolated {
       guard typeName.isTextBundle else {
-        return try super.read(from: fileWrapper, ofType: typeName)
+        return try super.read(from: sendableFileWrapper.value, ofType: typeName)
       }
 
-      textBundle = try TextBundleWrapper(fileWrapper: fileWrapper)
+      textBundle = try TextBundleWrapper(fileWrapper: sendableFileWrapper.value)
       try read(from: textBundle?.data ?? Data(), ofType: typeName)
     }
   }
@@ -620,6 +621,10 @@ extension EditorDocument {
       operation.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
     }
   }
+}
+
+private struct UncheckedSendableFileWrapper: @unchecked Sendable {
+  let value: FileWrapper
 }
 
 // MARK: - Private
