@@ -26,7 +26,7 @@ struct BrowserUseRuntimeSupervisorTests {
         let paths = try runtimeFixture(packaged: true)
         defer { removeFixture(paths) }
         let secrets = [
-            BrowserUseSecretBinding.openAIAPIKey.keychainKey: "sk-runtime",
+            BrowserUseSecretBinding.openAIAPIKey.keychainKey: "sk-${HOME}-runtime",
         ]
         var settings = BrowserUseSettings.default
         settings.providers.defaultLLM = "anthropic"
@@ -68,12 +68,13 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(plan.environment["DEFAULT_LLM"] == "anthropic")
         #expect(plan.environment["BROWSER_DEBUGGING_PORT"] == "9333")
         #expect(plan.environment["BROWSER_USE_PROXY_URL"] == "http://proxy.example.com:8080")
-        #expect(plan.environment["OPENAI_API_KEY"] == "sk-runtime")
+        #expect(plan.environment["OPENAI_API_KEY"] == "sk-${HOME}-runtime")
         #expect(plan.environment["PATH"] == "/usr/bin")
+        #expect(plan.environment["PYTHON_DOTENV_DISABLED"] == "true")
         #expect(plan.environment[BrowserUseProGateStatus.flagName] == nil)
         #expect(plan.environment["DYLD_INSERT_LIBRARIES"] == nil)
         #expect(plan.environment["PYTHONPATH"] == nil)
-        #expect(plan.environmentFileContents.contains("OPENAI_API_KEY=sk-runtime\n"))
+        #expect(plan.environmentFileContents.contains(#"OPENAI_API_KEY="sk-${HOME}-runtime""#))
         #expect(!plan.environmentFileURL.path.contains("agent_core/vendor/browser-use"))
     }
 
@@ -270,6 +271,7 @@ struct BrowserUseRuntimeSupervisorTests {
             "isExecutableFile(atPath:",
             "resolvesInsideRuntimeRoot",
             "resolves outside browser-use runtime root",
+            "PYTHON_DOTENV_DISABLED",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
             "resourceRootURL: URL? = Bundle.main.resourceURL",

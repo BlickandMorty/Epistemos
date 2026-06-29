@@ -57,6 +57,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery"))
         #expect(codepack.contains("inherits only a small POSIX environment allowlist"))
         #expect(codepack.contains("verifies ambient process secrets/injection variables are not inherited"))
+        #expect(codepack.contains("sets `PYTHON_DOTENV_DISABLED=true`"))
+        #expect(codepack.contains("does not re-interpolate Keychain-rendered values"))
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))

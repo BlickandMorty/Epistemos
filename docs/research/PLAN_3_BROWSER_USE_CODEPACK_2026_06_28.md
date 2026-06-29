@@ -79,7 +79,9 @@ Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payloa
 development source checkout layout, so Settings and launch planning resolve the same packaged Pro artifact.
 The launched Python/Chromium process inherits only a small POSIX environment allowlist (PATH/HOME/locale/temp/user
 basics); provider keys, proxy credentials, DYLD/PYTHON injection vectors, and the Pro gate flag are rendered only from
-typed settings plus Keychain-backed secret bindings.
+typed settings plus Keychain-backed secret bindings. The launch environment sets `PYTHON_DOTENV_DISABLED=true` so
+browser-use consumes the exact `Process.environment` values and does not re-interpolate Keychain-rendered values from
+the generated `.env` file.
 App Store builds return an honest unavailable readiness and keep the native Browser tab separate.
 `EpistemosTests/BrowserUseRuntimeSupervisorTests.swift` verifies packaged/unpackaged readiness, loopback launch-plan
 shape, Keychain environment propagation, secure `.env` file permissions, and source boundaries.
@@ -253,7 +255,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   staged launch plan uses `web-ui/webui.py`, loopback `127.0.0.1`, Keychain-combined environment values, and owner-only
   launch `.env` permissions, rejects a non-executable Python runtime and runtime artifact symlink escapes before
   launch planning, verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery, verifies
-  ambient process secrets/injection variables are not inherited, and verifies the subprocess branch is Pro-only.
+  ambient process secrets/injection variables are not inherited, verifies dotenv loading is disabled for exact
+  Keychain-rendered values, and verifies the subprocess branch is Pro-only.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
   non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
   navigation, tears down delegates, and proves it does not reference native Browser, Goose/Agent, or Plan 2 editor/PDF

@@ -380,7 +380,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             secretStore: secretStore
         )
         let inheritedEnvironment = inheritedRuntimeEnvironment(from: processEnvironment)
-        let environment = inheritedEnvironment.merging(browserUseEnvironment) { _, new in new }
+        var environment = inheritedEnvironment.merging(browserUseEnvironment) { _, new in new }
+        environment["PYTHON_DOTENV_DISABLED"] = "true"
         let environmentFileContents = BrowserUseEnvironmentRenderer.render(
             settings: settings,
             secretStore: secretStore
