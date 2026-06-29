@@ -10,7 +10,7 @@ import SwiftData
 // markdown (and so a real note) arrives from the Plan 3 EdgeParse/unpdf parser stack.
 @MainActor
 enum LiteParsePDFImportController {
-    static let importDirectory = "Imported PDFs"
+    nonisolated static let importDirectory = "Imported PDFs"
 
     enum Outcome: Equatable {
         case imported(pageID: String, title: String)
