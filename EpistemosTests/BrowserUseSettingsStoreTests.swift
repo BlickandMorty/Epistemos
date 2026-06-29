@@ -122,6 +122,29 @@ struct BrowserUseSettingsStoreTests {
         }
     }
 
+    @Test("settings store rejects sparse JSON whose size overflows Int32")
+    func settingsStoreRejectsSparseJSONSizeOverflowBeforeLoading() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-settings-sparse-\(UUID().uuidString)", isDirectory: true)
+        let url = directory.appendingPathComponent("settings.json", isDirectory: false)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        #expect(FileManager.default.createFile(atPath: url.path, contents: Data()))
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+        try handle.truncate(atOffset: UInt64(Int32.max) + 1)
+
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: url).load()
+            Issue.record("Expected sparse oversized browser-use settings JSON to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("exceeds \(BrowserUseSettingsStore.maxSettingsBytes) bytes") == true)
+        }
+    }
+
     @Test("settings store rejects symlinked JSON paths before reading or writing")
     func settingsStoreRejectsSymlinkedJSONPathsBeforeReadingOrWriting() throws {
         let root = FileManager.default.temporaryDirectory
