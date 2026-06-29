@@ -163,6 +163,7 @@ struct BrowserUseAdapterPlan3Tests {
             "access_token",
             "x-api-key",
             "opaqueBearerValue",
+            "compact-bearer",
             "browser_error_redaction_covers_secret_assignment_variants",
             "AGENT_BROWSER_SCREENSHOT_DIR",
             "AGENT_BROWSER_SCREENSHOT_DIR_ENV",

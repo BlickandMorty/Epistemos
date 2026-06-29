@@ -958,6 +958,13 @@ fn redacts_following_auth_value(lower_token: &str) -> bool {
     let token = lower_token.trim_matches(|value: char| {
         matches!(value, '"' | '\'' | ',' | ';' | '[' | ']' | '(' | ')')
     });
+    if token.starts_with("authorization:")
+        || token.starts_with("proxy-authorization:")
+        || token.starts_with("bearer:")
+        || token.starts_with("basic:")
+    {
+        return true;
+    }
     matches!(
         token,
         "authorization:"
@@ -1534,6 +1541,7 @@ esac
     fn browser_error_redaction_covers_secret_assignment_variants() {
         let detail = redact_browser_error_detail(
             "Authorization: Bearer opaqueBearerValue Proxy-Authorization: Basic basic-secret \
+             Authorization:Bearer compact-bearer Proxy-Authorization:Basic compact-basic \
              Api-Key: split-key access_token:tok refresh_token=refresh \
              api-key=key x-api-key:key api_key%3Dencoded password:pw secret%3Ahidden \
              https://user:pass@example.com/path",
@@ -1552,6 +1560,8 @@ esac
             "user:pass",
             "opaqueBearerValue",
             "basic-secret",
+            "compact-bearer",
+            "compact-basic",
             "split-key",
             "tok",
             "refresh",
