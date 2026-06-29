@@ -181,7 +181,8 @@ tree. Default telemetry/cloud sync should be off unless the user explicitly enab
 browser-use environment shape as typed Codable settings and renders a launch-time `.env` by combining those values with
 `BrowserUseSecretBinding` values loaded from Keychain. It covers `DEFAULT_LLM`, provider endpoints, own-browser/CDP,
 resolution, browser-use executable/profile/headless fields, logging, proxy, cloud URLs, and privacy flags. It does not
-launch Python, Chromium, Playwright, or `webui.py`.
+launch Python, Chromium, Playwright, or `webui.py`. The `.env` renderer quotes and escapes multiline/CRLF values before
+writing the launch file.
 
 ## Pro runtime shape
 New Plan 3 files should live outside Plan 1/Plan 2 ownership, for example:

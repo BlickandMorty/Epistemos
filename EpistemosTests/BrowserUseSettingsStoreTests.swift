@@ -43,6 +43,16 @@ struct BrowserUseSettingsStoreTests {
         #expect(dictionary["BROWSER_USE_PROXY_PASSWORD"] == nil)
     }
 
+    @Test("renderer escapes CRLF in quoted environment values")
+    func rendererEscapesCRLFInQuotedEnvironmentValues() {
+        let environment = BrowserUseEnvironmentRenderer.render([
+            BrowserUseEnvironmentPair(name: "MULTILINE_SECRET", value: "first\r\nsecond"),
+        ])
+
+        #expect(environment.contains(#"MULTILINE_SECRET="first\r\nsecond""#))
+        #expect(!environment.contains("first\r\nsecond"))
+    }
+
     @Test("secret store saves values by environment-key binding")
     func secretStoreSavesValuesByEnvironmentKeyBinding() {
         let harness = SecretHarness()
