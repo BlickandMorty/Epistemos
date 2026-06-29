@@ -10,6 +10,9 @@ struct SourcePDFViewerPresentation: Identifiable, Equatable {
 }
 
 struct SourcePDFViewerSheet: View {
+    private static let maxSearchQueryLength = 128
+    private static let maxSearchResults = 250
+
     let url: URL
 
     @Environment(\.dismiss) private var dismiss
@@ -165,7 +168,12 @@ struct SourcePDFViewerSheet: View {
             selectedSearchIndex = 0
             return
         }
-        searchResults = document.findString(query, withOptions: .caseInsensitive)
+        let boundedQuery = String(query.prefix(Self.maxSearchQueryLength))
+        searchResults = Array(
+            document
+                .findString(boundedQuery, withOptions: .caseInsensitive)
+                .prefix(Self.maxSearchResults)
+        )
         selectedSearchIndex = 0
     }
 
@@ -176,6 +184,10 @@ struct SourcePDFViewerSheet: View {
 }
 
 private struct SourcePDFOutlineItem: Identifiable {
+    private static let maxOutlineDepth = 12
+    private static let maxOutlineItems = 500
+    private static let maxOutlineNodes = 1_000
+
     let id: String
     let title: String
     let level: Int
@@ -184,7 +196,8 @@ private struct SourcePDFOutlineItem: Identifiable {
     static func flatten(document: PDFDocument) -> [SourcePDFOutlineItem] {
         guard let root = document.outlineRoot else { return [] }
         var items: [SourcePDFOutlineItem] = []
-        appendChildren(of: root, level: 0, path: "root", into: &items)
+        var visitedNodeCount = 0
+        appendChildren(of: root, level: 0, path: "root", into: &items, visitedNodeCount: &visitedNodeCount)
         return items
     }
 
@@ -192,10 +205,22 @@ private struct SourcePDFOutlineItem: Identifiable {
         of outline: PDFOutline,
         level: Int,
         path: String,
-        into items: inout [SourcePDFOutlineItem]
+        into items: inout [SourcePDFOutlineItem],
+        visitedNodeCount: inout Int
     ) {
+        guard level <= maxOutlineDepth,
+              visitedNodeCount < maxOutlineNodes,
+              items.count < maxOutlineItems else {
+            return
+        }
+
         for index in 0..<outline.numberOfChildren {
+            guard visitedNodeCount < maxOutlineNodes,
+                  items.count < maxOutlineItems else {
+                break
+            }
             guard let child = outline.child(at: index) else { continue }
+            visitedNodeCount += 1
             let title = child.label?.trimmingCharacters(in: .whitespacesAndNewlines)
             let itemPath = "\(path).\(index)"
             if let title, !title.isEmpty {
@@ -208,7 +233,13 @@ private struct SourcePDFOutlineItem: Identifiable {
                     )
                 )
             }
-            appendChildren(of: child, level: level + 1, path: itemPath, into: &items)
+            appendChildren(
+                of: child,
+                level: level + 1,
+                path: itemPath,
+                into: &items,
+                visitedNodeCount: &visitedNodeCount
+            )
         }
     }
 }

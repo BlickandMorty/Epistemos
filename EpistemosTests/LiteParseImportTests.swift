@@ -102,6 +102,7 @@ struct LiteParseImportTests {
     @Test("import controller preserves the original PDF via frontmatter")
     func importControllerSourcePDFContract() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParsePDFImportController.swift")
+        let viewer = try loadMirroredSourceTextFile("Epistemos/LiteParse/SourcePDFViewer.swift")
         #expect(src.contains(#"frontMatter["source_kind"] = "pdf""#))
         #expect(src.contains(#"frontMatter["source_pdf"]"#))
         let sharedIO = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParseImport.swift")
@@ -113,6 +114,12 @@ struct LiteParseImportTests {
         #expect(sharedIO.contains("O_NOFOLLOW"))
         #expect(sharedIO.contains("O_EXCL"))
         #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
+        #expect(viewer.contains("maxSearchQueryLength"))
+        #expect(viewer.contains("maxSearchResults"))
+        #expect(viewer.contains("maxOutlineDepth"))
+        #expect(viewer.contains("maxOutlineItems"))
+        #expect(viewer.contains("maxOutlineNodes"))
+        #expect(viewer.contains("visitedNodeCount"))
     }
 
     @Test("Plan 3 EdgeParse docs describe the shipped parser state")

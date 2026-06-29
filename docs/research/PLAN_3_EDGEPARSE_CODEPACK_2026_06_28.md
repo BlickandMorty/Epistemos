@@ -25,8 +25,9 @@
   and regular-file validation so a final symlink swap cannot redirect import output after reservation.
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
   `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Absolute paths,
-  `..`, missing files, and traversal attempts are rejected. Plan 2 still owns any full PDF viewer; Plan 3 only owns the
-  parse engine and storage/link contract.
+  `..`, missing files, and traversal attempts are rejected. The source-PDF sheet caps outline traversal depth/node/item
+  count and caps find-query/result state so malformed PDFs cannot force unbounded UI work. Plan 2 still owns any full PDF
+  viewer; Plan 3 only owns the parse engine and storage/link contract.
 
 ## Rust path
 `agent_core/src/liteparse.rs` is the single parser seam:
