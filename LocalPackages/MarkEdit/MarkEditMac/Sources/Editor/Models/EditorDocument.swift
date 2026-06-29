@@ -623,7 +623,7 @@ extension EditorDocument {
   }
 }
 
-private struct UncheckedSendableFileWrapper: @unchecked Sendable {
+private nonisolated struct UncheckedSendableFileWrapper: @unchecked Sendable {
   let value: FileWrapper
 }
 
