@@ -106,7 +106,9 @@ isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload. 
 - Agent browser tools: `agent_core/src/tools/browser.rs` shells out to the bundled browser-use adapter when
   `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` is set, otherwise to a user-installed
   `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, SSRF/private URL
-  blocking, and owner-only browser daemon/socket/screenshot directories. The registry exposes the 11 `browser_*` tools
+  blocking, owner-only browser daemon/socket/screenshot directories, and `PYTHON_DOTENV_DISABLED=true` for the
+  subprocess environment. Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true` before invoking the adapter, so
+  browser-use cannot re-interpolate ambient `.env` values on this path. The registry exposes the 11 `browser_*` tools
   only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve

@@ -59,6 +59,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("verifies ambient process secrets/injection variables are not inherited"))
         #expect(codepack.contains("sets `PYTHON_DOTENV_DISABLED=true`"))
         #expect(codepack.contains("does not re-interpolate Keychain-rendered values"))
+        #expect(codepack.contains("Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true`"))
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))

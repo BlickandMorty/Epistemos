@@ -766,6 +766,7 @@ async fn run_agent_browser_command(
     }
     command.env("AGENT_BROWSER_SOCKET_DIR", socket_dir);
     command.env("PATH", extended_path());
+    command.env("PYTHON_DOTENV_DISABLED", "true");
     command.stdin(Stdio::null());
     command.stdout(Stdio::from(stdout_handle));
     command.stderr(Stdio::from(stderr_handle));
@@ -1268,13 +1269,15 @@ EOF
     fake_log_present=false
     socket_dir_present=false
     path_present=false
+    dotenv_disabled=false
     if [ -n "${GEMINI_API_KEY+x}" ]; then gemini_present=true; fi
     if [ -n "${OPENAI_AUTH_MODE+x}" ]; then openai_auth_present=true; fi
     if [ -n "${NODE_OPTIONS+x}" ]; then node_options_present=true; fi
     if [ -n "${FAKE_BROWSER_LOG+x}" ]; then fake_log_present=true; fi
     if [ -n "${AGENT_BROWSER_SOCKET_DIR+x}" ]; then socket_dir_present=true; fi
     if [ -n "${PATH+x}" ]; then path_present=true; fi
-    printf '{"success":true,"data":{"gemini_api_key_present":%s,"openai_auth_mode_present":%s,"node_options_present":%s,"fake_browser_log_present":%s,"socket_dir_present":%s,"path_present":%s}}\n' "$gemini_present" "$openai_auth_present" "$node_options_present" "$fake_log_present" "$socket_dir_present" "$path_present"
+    if [ "${PYTHON_DOTENV_DISABLED:-}" = "true" ]; then dotenv_disabled=true; fi
+    printf '{"success":true,"data":{"gemini_api_key_present":%s,"openai_auth_mode_present":%s,"node_options_present":%s,"fake_browser_log_present":%s,"socket_dir_present":%s,"path_present":%s,"dotenv_disabled":%s}}\n' "$gemini_present" "$openai_auth_present" "$node_options_present" "$fake_log_present" "$socket_dir_present" "$path_present" "$dotenv_disabled"
     ;;
   screenshot)
     printf 'fake png bytes' > "$last"
@@ -1379,6 +1382,7 @@ esac
         assert_eq!(output["data"]["fake_browser_log_present"], json!(true));
         assert_eq!(output["data"]["socket_dir_present"], json!(true));
         assert_eq!(output["data"]["path_present"], json!(true));
+        assert_eq!(output["data"]["dotenv_disabled"], json!(true));
     }
 
     #[tokio::test]

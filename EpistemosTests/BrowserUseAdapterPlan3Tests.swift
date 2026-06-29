@@ -104,6 +104,7 @@ struct BrowserUseAdapterPlan3Tests {
             "create_private_browser_dir(",
             "permissions.set_mode(0o700)",
             "not an executable file",
+            "PYTHON_DOTENV_DISABLED",
             "agent-browser CLI not found",
             "browser_private_directories_are_owner_only",
             "browser_use_agent_browser_override_wins_before_path_search",
