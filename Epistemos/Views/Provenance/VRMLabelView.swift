@@ -156,9 +156,9 @@ nonisolated struct VRMLineageExport: Codable, Equatable, Sendable {
             modelLabel: modelLabel,
             tierLabel: tierLabel,
             acceptedAtMs: acceptedAt.map(Self.millisecondsSinceEpoch),
-            generatedAtMs: packet.claims.map(\.createdAtMs).max(),
+            generatedAtMs: packet.activeClaims.map(\.createdAtMs).max(),
             verificationScore: packet.residencySignals.map(\.verificationScore).max(),
-            claims: packet.claims,
+            claims: packet.activeClaims,
             residencySignals: packet.residencySignals,
             attentionMode: packet.attentionMode,
             interruptBucket: packet.interruptBucket,
@@ -193,7 +193,7 @@ private struct VRMLineageCard: View {
     @State private var didCopyLineage = false
 
     private var generatedAt: Date? {
-        packet.claims
+        packet.activeClaims
             .map(\.createdAtMs)
             .max()
             .map { Date(timeIntervalSince1970: TimeInterval($0) / 1000.0) }
@@ -233,12 +233,12 @@ private struct VRMLineageCard: View {
                 Text("Claims")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                if packet.claims.isEmpty {
+                if packet.activeClaims.isEmpty {
                     Text("No active provenance claims.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(packet.claims, id: \.id) { claim in
+                    ForEach(packet.activeClaims, id: \.id) { claim in
                         ClaimLineageRow(claim: claim)
                     }
                 }

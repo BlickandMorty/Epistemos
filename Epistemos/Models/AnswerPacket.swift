@@ -201,7 +201,7 @@ nonisolated public enum VRMLabel: String, Codable, Hashable, Sendable, CaseItera
     /// active, verifiable claim with a real UAS or ACS anchor. Empty packets
     /// render no chip.
     public static func honestLabel(for packet: AnswerPacket) -> VRMLabel? {
-        let activeClaims = packet.claims.filter { $0.status == .active }
+        let activeClaims = packet.activeClaims
         guard !activeClaims.isEmpty else { return nil }
 
         if activeClaims.contains(where: { $0.isAnchoredVerifiableClaim }) {
@@ -346,7 +346,8 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
     }
 
     public var hasEvidenceAnchor: Bool {
-        uasAddress != nil || acsAnchor != nil
+        uasAddress?.isWellFormedEvidenceAnchor == true
+            || acsAnchor?.isWellFormedEvidenceAnchor == true
     }
 
     public var isVerifiableKind: Bool {
@@ -360,6 +361,71 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
 
     public var isAnchoredVerifiableClaim: Bool {
         status == .active && isVerifiableKind && hasEvidenceAnchor
+    }
+}
+
+nonisolated public extension UasAddress {
+    var isWellFormedEvidenceAnchor: Bool {
+        Self.isValidWireToken(kind)
+            && Self.isCanonicalBlake3Hex(hash)
+    }
+
+    private static func isValidWireToken(_ value: String) -> Bool {
+        !value.isEmpty
+            && value.trimmingCharacters(in: .whitespacesAndNewlines) == value
+            && value.unicodeScalars.allSatisfy { scalar in
+                !CharacterSet.whitespacesAndNewlines.contains(scalar)
+                    && !CharacterSet.controlCharacters.contains(scalar)
+                    && scalar.value != 58
+                    && scalar.value != 64
+                    && scalar.value != 124
+            }
+    }
+
+    private static func isCanonicalBlake3Hex(_ value: String) -> Bool {
+        value.count == 64
+            && value.unicodeScalars.allSatisfy { scalar in
+                (scalar.value >= 48 && scalar.value <= 57)
+                    || (scalar.value >= 97 && scalar.value <= 102)
+            }
+    }
+}
+
+nonisolated public extension AcsAnchor {
+    var isWellFormedEvidenceAnchor: Bool {
+        Self.isValidAnchorID(anchorId)
+            && Self.foundationalTheoremIDs.contains(theoremId)
+            && Self.isValidOptionalProjectionField(sourceHash)
+            && Self.isValidOptionalProjectionField(activePacketId)
+            && Self.isValidOptionalProjectionField(compatibilityEdge)
+            && salience.isFinite
+            && (0.0...1.0).contains(salience)
+    }
+
+    private static var foundationalTheoremIDs: Set<String> {
+        ["E1", "E2", "E3", "E4", "E5", "E6", "E7"]
+    }
+
+    private static func isValidAnchorID(_ value: String) -> Bool {
+        !value.isEmpty
+            && value.trimmingCharacters(in: .whitespacesAndNewlines) == value
+            && value.unicodeScalars.allSatisfy { scalar in
+                !CharacterSet.whitespacesAndNewlines.contains(scalar)
+                    && !CharacterSet.controlCharacters.contains(scalar)
+                    && scalar.value != 64
+                    && scalar.value != 124
+            }
+    }
+
+    private static func isValidOptionalProjectionField(_ value: String?) -> Bool {
+        guard let value else { return true }
+        return !value.isEmpty
+            && value.trimmingCharacters(in: .whitespacesAndNewlines) == value
+            && value.unicodeScalars.allSatisfy { scalar in
+                !CharacterSet.whitespacesAndNewlines.contains(scalar)
+                    && !CharacterSet.controlCharacters.contains(scalar)
+                    && scalar.value != 124
+            }
     }
 }
 
@@ -431,6 +497,10 @@ nonisolated public struct AnswerPacket: Codable, Hashable, Sendable {
         case .dynamic, .unavailable:
             return !hasStaticFallbackAcknowledgement
         }
+    }
+
+    public var activeClaims: [Claim] {
+        claims.filter { $0.status == .active }
     }
 
     enum CodingKeys: String, CodingKey {

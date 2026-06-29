@@ -30,6 +30,36 @@ struct VRMLabelHonestLabelTests {
         ])) == .verified)
     }
 
+    @Test("malformed anchor objects cannot promote active claims to verified")
+    func malformedAnchorObjectsCannotPromoteVerified() {
+        let emptyUAS = Claim(
+            id: "claim-empty-uas",
+            text: "active empirical claim with empty UAS placeholder",
+            status: .active,
+            createdAtMs: 1_783_000_000_000,
+            kind: .empirical,
+            uasAddress: UasAddress(kind: "", hash: "", createdAtMs: 0)
+        )
+        let malformedACS = Claim(
+            id: "claim-bad-acs",
+            text: "active empirical claim with malformed ACS placeholder",
+            status: .active,
+            createdAtMs: 1_783_000_000_000,
+            kind: .empirical,
+            acsAnchor: AcsAnchor(
+                anchorId: "",
+                theoremId: "E1",
+                plane: .episodic,
+                residency: .verifiedFloor,
+                salience: 0.7
+            )
+        )
+
+        #expect(emptyUAS.hasEvidenceAnchor == false)
+        #expect(malformedACS.hasEvidenceAnchor == false)
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [emptyUAS, malformedACS])) == .plausibleButUnverified)
+    }
+
     @Test("anchored speculative claims do not become verified")
     func anchoredSpeculativeClaimsStayPlausible() {
         let packet = Self.packet(claims: [
@@ -87,7 +117,13 @@ struct VRMLabelHonestLabelTests {
     func lineageExportIsDeterministicAndHonest() throws {
         let packet = Self.packet(
             claims: [
-                Self.claim(kind: .empirical, status: .active, anchored: true)
+                Self.claim(kind: .empirical, status: .active, anchored: true),
+                Self.claim(
+                    kind: .empirical,
+                    status: .retracted,
+                    anchored: true,
+                    createdAtMs: 1_784_000_000_000
+                ),
             ],
             storedLabel: .blocked
         )
@@ -106,6 +142,7 @@ struct VRMLabelHonestLabelTests {
         #expect(export.modelLabel == "test-model")
         #expect(export.acceptedAtMs == 42_000)
         #expect(export.generatedAtMs == 1_783_000_000_000)
+        #expect(export.claims.map(\.status) == [.active])
         #expect(!json.contains("ui_label"))
         #expect(json.contains("\"honest_label\""))
         #expect(json.contains("\"packet_id\""))
@@ -188,18 +225,19 @@ struct VRMLabelHonestLabelTests {
     private static func claim(
         kind: ClaimKind,
         status: ClaimStatus,
-        anchored: Bool = false
+        anchored: Bool = false,
+        createdAtMs: Int64 = 1_783_000_000_000
     ) -> Claim {
         Claim(
             id: "\(kind.rawValue)-\(status.rawValue)-\(anchored)",
             text: "\(kind.rawValue) \(status.rawValue)",
             status: status,
-            createdAtMs: 1_783_000_000_000,
+            createdAtMs: createdAtMs,
             kind: kind,
             uasAddress: anchored ? UasAddress(
-                kind: "test",
-                hash: "sha256:test",
-                createdAtMs: 1_783_000_000_000
+                kind: "claim",
+                hash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                createdAtMs: createdAtMs
             ) : nil
         )
     }
