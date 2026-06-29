@@ -13,6 +13,10 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
     @ObservationIgnored private let encoder = JSONEncoder()
     @ObservationIgnored private let decoder = JSONDecoder()
 
+    isolated deinit {
+        cancelPendingPrompts()
+    }
+
     func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage,

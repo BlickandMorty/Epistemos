@@ -1037,6 +1037,62 @@ struct GooseWebNativePromptBridgeTests {
         #expect(capture.error == nil)
         #expect(bridge.pendingElicitation == nil)
     }
+
+    @Test("native prompt bridge cancels pending renderer replies on deinit")
+    func bridgeCancelsPendingRendererRepliesOnDeinit() throws {
+        let permissionCapture = GoosePromptReplyCapture()
+        let elicitationCapture = GoosePromptReplyCapture()
+
+        do {
+            let bridge = GooseWebNativePromptBridge()
+            bridge.receivePromptMessage([
+                "type": "permission",
+                "id": "native-perm-deinit",
+                "request": [
+                    "sessionId": "session-1",
+                    "toolCall": [
+                        "toolCallId": "tool-1",
+                        "title": "Write file",
+                        "kind": "edit",
+                        "status": "pending",
+                    ],
+                    "options": [
+                        ["optionId": "once", "name": "Allow once", "kind": "allow_once"],
+                    ],
+                ],
+            ]) { object, error in
+                permissionCapture.capture(object: object, error: error)
+            }
+            bridge.receivePromptMessage([
+                "type": "elicitation",
+                "id": "native-elicit-deinit",
+                "request": [
+                    "mode": "form",
+                    "sessionId": "session-1",
+                    "message": "Need a title",
+                    "requestedSchema": [
+                        "type": "object",
+                        "properties": [
+                            "title": ["type": "string", "title": "Title"],
+                        ],
+                    ],
+                ],
+            ]) { object, error in
+                elicitationCapture.capture(object: object, error: error)
+            }
+            #expect(bridge.pendingPermission != nil)
+            #expect(bridge.pendingElicitation != nil)
+        }
+
+        let permissionReply = try #require(permissionCapture.object as? [String: Any])
+        let outcome = try #require(permissionReply["outcome"] as? [String: Any])
+        #expect(outcome["outcome"] as? String == "cancelled")
+        #expect(permissionCapture.error == nil)
+
+        let elicitationReply = try #require(elicitationCapture.object as? [String: Any])
+        #expect(elicitationReply["action"] as? String == "cancel")
+        #expect(elicitationCapture.error == nil)
+    }
 }
 
 @MainActor
