@@ -1211,3 +1211,29 @@ App-target build green on the iso-DD (`** BUILD SUCCEEDED **`) across all three 
 combined live sweep stays env-blocked (degraded iso-DD test host — a test-harness artifact, not a Goose
 regression); the probes above are the env-independent re-runnable substitute. Real LLM token content
 still needs an owner provider credential (dummy key → used=0).
+
+---
+
+## 2026-06-29 (cont.) — Step-2 supervisor adversarial review + test-bundle status
+
+**Step-2 goosed supervisor review (independent agent, cross-checked vs the goose Rust source):**
+core swap verified SOUND — NO HIGH issues; the default `goose serve` path is byte-identical
+(tls=false → http → /health check → serveArguments; goosedConfig=nil; no GOOSE_ env leak —
+confirmed against `subprocessEnvironmentAllowlist`). `/status` is correctly probed unauthenticated
+(it is auth-exempt in `auth.rs`). Three fixes committed (`67c58ce6b`):
+- FINDING 1 (MED): goosed-TLS opt-in now FAILS FAST (honest `.unavailable`) instead of a 45s
+  unpinned-handshake hang (cert-pin delegate deferred — task #16). http loopback stays default.
+- FINDING 2 (LOW): `goosedStatusCheck` now requires the `"ok"` body (matches serve /health).
+- FINDING 3 (LOW): the GOOSE_TLS-always-false invariant is enforced by FINDING 1's early return.
+
+**build-for-testing — Goose-side blockers CLEARED, bundle now blocked by a Plan-3 file:**
+With the plan3 agent's VRMLabel fix landed, the shared test bundle compiles much further. It
+surfaced (and I fixed, `c7bb978cd`) a real masked Goose bug: my Step-1 `.serverError` enum case
+left `GooseLiveIntegrationTests.eventProgressSummary` non-exhaustive. After that fix, **every app
+file + every Goose test file compiles clean** — the ONLY remaining bundle compile error is
+`EpistemosTests/ArxivPlan3Tests.swift:531` (`lock()`/`unlock()` unavailable in async context), a
+**Plan-3 lane file I must not touch (NO-COLLISION)**. So `build-for-testing` green + the
+`GooseSurfaceRouterTests` execution await the other agent's Plan-3 fix; the router is proven
+meanwhile by `** BUILD SUCCEEDED **` (app target), the `NATIVE_MODELS_PARITY_PASS` probe, and the
+adversarial review confirming the HARD GATE holds (`enabledRoutes = requested ∩ nativeCapableRoutes`;
+every route defaults to `.web`).
