@@ -21,6 +21,7 @@ struct GooseWebSurfaceView: View {
     @State private var secretKey: String
     @State private var showDetails = false
     @State private var runtimeHealthTask: Task<Void, Never>?
+    @State private var trustedOrigins: GooseTrustedLoopbackOrigins
 
     init(theme: EpistemosTheme = .nativeDefault) {
         self.theme = theme
@@ -31,14 +32,17 @@ struct GooseWebSurfaceView: View {
         )
         let nativePromptBridge = GooseWebNativePromptBridge()
         let nativeAffordanceBridge = GooseWebNativeAffordanceBridge()
+        let trustedOrigins = GooseTrustedLoopbackOrigins()
         _nativePromptBridge = State(initialValue: nativePromptBridge)
         _nativeAffordanceBridge = State(initialValue: nativeAffordanceBridge)
         _secretKey = State(initialValue: secretKey)
+        _trustedOrigins = State(initialValue: trustedOrigins)
         _page = State(initialValue: Self.makePage(
             bootstrap: bootstrap,
             gooseUIRoot: Self.resolvedGooseUIRoot(),
             nativePromptBridge: nativePromptBridge,
-            nativeAffordanceBridge: nativeAffordanceBridge
+            nativeAffordanceBridge: nativeAffordanceBridge,
+            trustedOrigins: trustedOrigins
         ))
     }
 
@@ -396,6 +400,13 @@ struct GooseWebSurfaceView: View {
                 _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server failed: \(error.localizedDescription)", acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
                 return
             }
+            // H1: register the live loopback origins this surface may navigate to — the
+            // goose/goosed server and the WorkSPA UI server. Any other loopback page is denied.
+            trustedOrigins.register(connection.baseURL)
+            trustedOrigins.register(connection.acpWebSocketURL)
+            if case .running(let uiBaseURL) = server.status {
+                trustedOrigins.register(uiBaseURL)
+            }
             await loadGooseUIWhenReady(server, route: "/?", acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
@@ -436,7 +447,8 @@ struct GooseWebSurfaceView: View {
         bootstrap: GooseWebBootstrap,
         gooseUIRoot: URL?,
         nativePromptBridge: GooseWebNativePromptBridge,
-        nativeAffordanceBridge: GooseWebNativeAffordanceBridge
+        nativeAffordanceBridge: GooseWebNativeAffordanceBridge,
+        trustedOrigins: GooseTrustedLoopbackOrigins
     ) -> WebPage {
         var configuration = WebPage.Configuration()
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
@@ -464,7 +476,10 @@ struct GooseWebSurfaceView: View {
                 forMainFrameOnly: true
             )
         )
-        return WebPage(configuration: configuration, navigationDecider: GooseNavigationDecider())
+        // Pin loopback navigation to OUR servers: the goose/goosed origin is known now; the
+        // WorkSPA UI-server origin is registered when it starts (loadGooseUI). H1.
+        trustedOrigins.register(bootstrap.baseURL)
+        return WebPage(configuration: configuration, navigationDecider: GooseNavigationDecider(trustedOrigins: trustedOrigins))
     }
 
     @MainActor
@@ -478,7 +493,8 @@ struct GooseWebSurfaceView: View {
             bootstrap: bootstrap,
             gooseUIRoot: gooseUIRoot,
             nativePromptBridge: nativePromptBridge,
-            nativeAffordanceBridge: nativeAffordanceBridge
+            nativeAffordanceBridge: nativeAffordanceBridge,
+            trustedOrigins: GooseTrustedLoopbackOrigins()
         )
     }
 
@@ -587,7 +603,35 @@ struct GooseWebSurfaceView: View {
     """
 }
 
+/// SECURITY (deep-hardening 2026-06-29 H1): the trusted loopback origins (the WorkSPA UI
+/// server + the goose/goosed server) are the ONLY http/ws origins the surface may navigate
+/// to. Allowing ANY 127.0.0.1/localhost/::1 page would let a foreign local page (reached via
+/// a plain link or tool/MCP-influenced `window.location`) inherit the injected boot shim —
+/// including `getSecretKey()` and the native FS bridge. We pin to the exact registered ports.
+final class GooseTrustedLoopbackOrigins: @unchecked Sendable {
+    private let lock = NSLock()
+    private var ports: Set<Int> = []
+
+    static func isLoopback(_ host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        return host == "127.0.0.1" || host == "localhost" || host == "::1"
+    }
+
+    func register(_ url: URL?) {
+        guard let url, let port = url.port, Self.isLoopback(url.host) else { return }
+        lock.lock(); ports.insert(port); lock.unlock()
+    }
+
+    func isAllowed(_ url: URL) -> Bool {
+        guard Self.isLoopback(url.host), let port = url.port else { return false }
+        lock.lock(); defer { lock.unlock() }
+        return ports.contains(port)
+    }
+}
+
 private struct GooseNavigationDecider: WebPage.NavigationDeciding {
+    let trustedOrigins: GooseTrustedLoopbackOrigins
+
     func decidePolicy(
         for action: WebPage.NavigationAction,
         preferences: inout WebPage.NavigationPreferences
@@ -600,11 +644,8 @@ private struct GooseNavigationDecider: WebPage.NavigationDeciding {
         case "about", GooseWebSurfaceView.gooseUISchemeName:
             return .allow
         case "http", "https", "ws", "wss":
-            guard let host = url.host?.lowercased(),
-                  host == "127.0.0.1" || host == "localhost" || host == "::1" else {
-                return .cancel
-            }
-            return .allow
+            // Loopback alone is NOT enough — must be one of OUR registered server ports.
+            return trustedOrigins.isAllowed(url) ? .allow : .cancel
         default:
             return .cancel
         }
