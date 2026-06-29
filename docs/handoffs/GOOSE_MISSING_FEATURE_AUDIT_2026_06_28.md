@@ -42,4 +42,33 @@ click), `SettingsView` (`getTunnelStatus`, `.catch`'d to safe default),
 
 > Caveat: this is a multi-agent audit; each gap is verify-then-fixed before any
 > graft (the same discipline that over-flagged then corrected the earlier 39-item
-> list). #1 and #7 verified + grafted in this pass; the rest tracked.
+> list).
+
+## Verify-then-fix corrections to the audit (2026-06-28 PM)
+
+The audit's complexity ratings were optimistic on two gaps; verifying each against
+the actual code before grafting corrected them:
+
+- **#7 AlertBox — GRAFTED + tsc-validated (`80de32ab7`).** Genuinely clean: the
+  component already used `useConfig()`; rerouted the threshold SAVE through
+  `ConfigContext.upsert` (→ preference persistence) and dropped the unused import.
+- **#1 toolsCache — NOT a clean swap (deferred, task #11).** Rated "low / single
+  method swap," but it passes `extension_name` for SERVER-side filtering, while ACP
+  `toolsList_unstable({sessionId})` returns ALL session tools. It therefore needs
+  the same client-side `extension__tool` prefix filtering (display-name-vs-
+  registered-name casing) as PermissionModal — must live-verify against a real
+  extension. Gated by the (currently blocked) Swift test bundle.
+- **#2 ExtensionModal — audit's FIX IS WRONG (deferred).** The audit recommended
+  "no-op `storeSecret()` so secrets travel inside ExtensionConfig." But
+  `ExtensionConfig` carries `env_keys?: string[]` (KEY references) + `envs?: Envs`
+  (NON-secret values); the secret VALUES are stored separately via `storeSecret`
+  and referenced by `env_keys`. No-opping `storeSecret` would lose the secret
+  values and break any extension with secret env vars. The CORRECT fix is to route
+  `storeSecret` through an ACP secret-save path — but it is unverified whether one
+  exists for arbitrary extension config secrets (Goose ACP has `providersConfigSave`
+  for PROVIDER secrets; extension env secrets may have no ACP home). Needs that ACP
+  capability confirmed + a behavioral test before grafting. Do NOT apply the audit's
+  no-op approach.
+
+#7 grafted this pass; #1/#2 deferred with corrected analysis; #3–#6 are
+owner-decision / high-complexity per the table above.
