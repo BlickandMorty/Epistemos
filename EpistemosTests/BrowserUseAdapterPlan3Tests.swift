@@ -69,6 +69,8 @@ struct BrowserUseAdapterPlan3Tests {
             "screenshot returned non-PNG image bytes",
             "screenshot did not create requested output path",
             "screenshot accepts only one output path",
+            "normalize_screenshot_size",
+            "is_json_number",
             "require_exact_args",
             "require_no_args",
             "require_only_flags",
