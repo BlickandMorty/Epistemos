@@ -138,6 +138,31 @@ struct ArxivPlan3Tests {
         #expect(!FileManager.default.fileExists(atPath: htmlTemp.path))
     }
 
+    @Test("downloader rejects redirected non-arXiv final URLs")
+    func downloaderRejectsRedirectedNonArxivFinalURLs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-download-redirect-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let tempPDF = root.appendingPathComponent("CFNetworkDownload_456.tmp")
+        try Data("%PDF-1.7\n".utf8).write(to: tempPDF)
+        let response = try #require(HTTPURLResponse(
+            url: try #require(URL(string: "https://example.com/pdf/2401.12345")),
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        ))
+
+        do {
+            try URLSessionArxivPDFDownloader.validateDownloadResponse(response, downloadedFileURL: tempPDF)
+            Issue.record("Expected non-arXiv final response URL to be rejected")
+        } catch let error as ArxivIngestError {
+            #expect(error == .downloadFailed("final response URL is not an allowed arXiv PDF URL"))
+        }
+        #expect(!FileManager.default.fileExists(atPath: tempPDF.path))
+    }
+
     @MainActor
     @Test("ingest writes PDF, markdown note, and source_pdf frontmatter")
     func ingestWritesVaultNote() async throws {
