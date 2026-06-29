@@ -170,10 +170,9 @@ pub(crate) async fn run_agent_browser_command(
         )));
     }
 
-    Ok(json!({
-        "success": true,
-        "data": {},
-    }))
+    Err(ToolError::ExecutionFailed(format!(
+        "agent-browser returned empty output for '{command_name}'"
+    )))
 }
 
 fn read_limited_browser_output(path: &Path, stream: &str) -> Result<String, ToolError> {

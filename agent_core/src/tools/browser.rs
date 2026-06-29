@@ -706,6 +706,9 @@ EOF
   jsonmissingsuccess)
     printf '{"data":{"ok":true}}\n'
     ;;
+  empty)
+    exit 0
+    ;;
   envcheck)
     gemini_present=false
     openai_auth_present=false
@@ -904,6 +907,27 @@ esac
         assert!(message.contains("without success=true"));
         assert!(message.contains("stdout redacted"));
         assert!(!message.contains("\"ok\""));
+    }
+
+    #[tokio::test]
+    async fn browser_command_rejects_empty_success_output() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let socket_dir = socket_dir_for_session("empty-success-output");
+
+        let err = run_agent_browser_command(
+            "empty",
+            &[],
+            "empty-success-output",
+            None,
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap_err();
+        assert!(format!("{err}").contains("returned empty output"));
     }
 
     #[tokio::test]
