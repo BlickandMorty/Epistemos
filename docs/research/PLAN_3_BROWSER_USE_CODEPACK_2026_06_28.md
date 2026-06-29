@@ -146,7 +146,7 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` is set, otherwise to a user-installed
   `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, SSRF/private URL
   blocking, owner-only browser daemon/socket/screenshot directories, and `PYTHON_DOTENV_DISABLED=true` for the
-  subprocess environment. The command runner, bounded output reader, socket directory naming, and local daemon cleanup
+  subprocess environment. The command runner, bounded strict-UTF-8 output reader, socket directory naming, and local daemon cleanup
   are isolated in `agent_core/src/tools/browser_command.rs`. Input-shape parsing, ref normalization, and snapshot
   truncation are isolated in `agent_core/src/tools/browser_input.rs`. The executable discovery and CDP override policy is
   isolated in `agent_core/src/tools/browser_executable.rs`: explicit `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` wins before the vendored

@@ -173,13 +173,35 @@ fn read_limited_browser_output(path: &Path, stream: &str) -> Result<String, Tool
     if truncated {
         bytes.truncate(MAX_BROWSER_OUTPUT_BYTES);
     }
-    let mut text = String::from_utf8_lossy(&bytes).into_owned();
+    let mut text = decode_limited_browser_output(&bytes, truncated, stream)?;
     if truncated {
         text.push_str(&format!(
             "\n... [{stream} truncated at {MAX_BROWSER_OUTPUT_BYTES} bytes]"
         ));
     }
     Ok(text)
+}
+
+fn decode_limited_browser_output(
+    bytes: &[u8],
+    truncated: bool,
+    stream: &str,
+) -> Result<String, ToolError> {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => Ok(text.to_string()),
+        Err(error) if truncated && error.error_len().is_none() => {
+            Ok(std::str::from_utf8(&bytes[..error.valid_up_to()])
+                .map_err(|_| {
+                    ToolError::ExecutionFailed(format!(
+                        "agent-browser {stream} was not valid UTF-8"
+                    ))
+                })?
+                .to_string())
+        }
+        Err(_) => Err(ToolError::ExecutionFailed(format!(
+            "agent-browser {stream} was not valid UTF-8"
+        ))),
+    }
 }
 
 pub(crate) fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
@@ -195,4 +217,28 @@ pub(crate) fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
         }
     }
     let _ = fs::remove_dir_all(socket_dir);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn browser_output_rejects_non_utf8_without_echoing_bytes() {
+        let err = decode_limited_browser_output(&[0xff, 0xfe], false, "stdout").unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("stdout was not valid UTF-8"));
+        assert!(!message.contains("255"));
+        assert!(!message.contains("0xff"));
+    }
+
+    #[test]
+    fn browser_output_truncation_trims_incomplete_utf8_boundary() {
+        let mut bytes = vec![b'a'; MAX_BROWSER_OUTPUT_BYTES - 1];
+        bytes.push(0xe2);
+
+        let decoded = decode_limited_browser_output(&bytes, true, "stdout").unwrap();
+        assert_eq!(decoded.len(), MAX_BROWSER_OUTPUT_BYTES - 1);
+        assert!(decoded.bytes().all(|byte| byte == b'a'));
+    }
 }
