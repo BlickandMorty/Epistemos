@@ -154,7 +154,7 @@ struct BrowserUseWebUIView: View {
         let host = host
         let port = port
         let themeName = themeName
-        let worker = Task.detached(priority: .userInitiated) {
+        let worker = Task.detached(priority: .userInitiated) { () -> (BrowserUseSettings, BrowserUseRuntimeReadiness) in
             let loadedSettings = settingsStore.loadOrDefault()
             guard !Task.isCancelled else {
                 return (loadedSettings, .unavailable("browser-use Pro readiness refresh was cancelled."))
