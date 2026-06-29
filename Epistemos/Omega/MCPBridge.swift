@@ -236,6 +236,7 @@ nonisolated enum OmegaToolRegistry {
 /// logging + query access for the UI.
 @MainActor @Observable
 final class MCPBridge {
+    private static let maxDispatchRequestBytes = 1024 * 1024
 
     /// The Rust-side dispatcher (UniFFI object).
     /// Nil if the database path couldn't be resolved.
@@ -310,6 +311,13 @@ final class MCPBridge {
         _ requestJson: String,
         distribution: ToolSurfacePolicy.Distribution = .currentBuild
     ) -> String {
+        guard requestJson.utf8.count <= Self.maxDispatchRequestBytes else {
+            return Self.jsonRpcError(
+                id: NSNull(),
+                code: -32600,
+                message: "MCP request exceeds maximum size."
+            )
+        }
         if let gateResponse = policyGateResponse(
             for: requestJson,
             distribution: distribution

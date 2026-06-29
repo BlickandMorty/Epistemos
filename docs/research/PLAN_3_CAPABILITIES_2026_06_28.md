@@ -215,7 +215,8 @@ Effort remaining: **LOW–MEDIUM** for the edit-retraction demo; the full retrac
 MAS/Pro gate already enforced at `:753`). External HTTPS URL MCP now has the shipped Swift trio:
 `MCPRegistryClient` (Smithery/mcp.so/Glama/GitHub browse, network-read only), `MCPUrlServerDirectory.write/install/uninstall`
 (bare-array HTTPS config writer, no token values), and `ExtensionsDetailView` (Skills · MCP Servers · Connectors ·
-browser-use). Stdio MCP spawns remain hardened and Pro-only (`mcp/client.rs:221`).
+browser-use). `MCPBridge.dispatch` rejects oversized JSON-RPC requests before policy parsing or Rust dispatch. Stdio MCP
+spawns remain hardened and Pro-only (`mcp/client.rs:221`).
 
 **5b — Best-of preset.** Shipped: `Epistemos/Resources/best_of_preset.json`, `BestOfPreset.swift`, and
 `BestOfPresetCard`. Apply is idempotent and reversible for owned remote-MCP rows; built-ins report `.alreadyEnabled`;

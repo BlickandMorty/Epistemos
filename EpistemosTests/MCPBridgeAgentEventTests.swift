@@ -76,11 +76,39 @@ struct MCPBridgeAgentEventTests {
         #expect(captured.isEmpty)
     }
 
+    @Test("Oversized MCP requests fail before policy provenance or Rust dispatch")
+    func oversizedRequestsFailBeforePolicyProvenanceOrRustDispatch() throws {
+        var captured: [AgentProvenanceEvent] = []
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 123_456 },
+            persist: { event in
+                captured.append(event)
+                return true
+            }
+        )
+        let bridge = MCPBridge(agentProvenanceRecorder: recorder)
+        let oversizedArgument = String(repeating: "x", count: 1024 * 1024)
+        let request = """
+        {"jsonrpc":"2.0","method":"tools/call","params":{"name":"read_file","arguments":{"path":"\(oversizedArgument)"}},"id":"too-large"}
+        """
+
+        let response = bridge.dispatch(request, distribution: .coreAppStore)
+        let responseJSON = try Self.jsonObject(from: response)
+        let error = try #require(responseJSON["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == -32600)
+        #expect(error["message"] as? String == "MCP request exceeds maximum size.")
+        #expect(responseJSON["id"] is NSNull)
+        #expect(captured.isEmpty)
+    }
+
     @Test("MCPBridge policy provenance source avoids raw JSON RPC payload persistence")
     func mcpBridgePolicyProvenanceSourceAvoidsRawJSONRPCPayloadPersistence() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Omega/MCPBridge.swift")
 
         #expect(source.contains("recordToolCallPolicyDenial"))
+        #expect(source.contains("maxDispatchRequestBytes"))
+        #expect(source.contains("MCP request exceeds maximum size."))
         #expect(source.contains(#""policy_gate":"tool_surface""#))
         #expect(!source.contains("argumentsJSON: requestJson"))
         #expect(!source.contains("resultJSON: gateResponse"))
