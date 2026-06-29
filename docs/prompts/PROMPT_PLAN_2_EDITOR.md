@@ -44,8 +44,8 @@ THERMONUCLEAR DISCIPLINE (run the skill above, recurring — each build stage + 
   - NO CONTRADICTIONS: before marking a stage done, grep the plan + codepacks for any claim that contradicts it; fix the source.
 
 HARD GATES / FORBIDDEN:
-  × Touching the frozen TK2/Prose editor's behavior, or Epdoc, when doing the CODE-editor swap (L3 scope guard).
-  × Deleting the old code editor before a MANUAL real-app verify of v2.
+  × Breaking existing TK2/Prose or Epdoc behavior during the CODE-editor swap (L3 scope guard; TK2 is unfrozen only to ADD the Prose lens).
+  × Deleting the old code editor at all — it is KEPT as a v1-legacy fallback (Settings + MarkEdit toggle), NOT removed (L3 REVISED).
   × Shipping a "Verified"/canonical-md path through the LOSSY projector (use the JS getMarkdown bridge).
   × Editing .xcodeproj directly (xcodegen project.yml only); committing model files; importing nonexistent SDKs (no Anthropic/OpenAI Swift SDK).
   × Build-green ≠ done. PROVEN-DONE bar: real-state · live in-app · migrates existing data · end-to-end · witnessed (Swift Testing @Test compile-verify + a manual run for UI/runtime; per memory, headless app-hosted test runs crash-loop — push logic into pure helpers + mirror-witness).
