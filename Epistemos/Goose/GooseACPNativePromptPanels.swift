@@ -144,6 +144,9 @@ struct GooseACPElicitationPanel: View {
                     .padding(.horizontal, 10)
                 }
                 .buttonStyle(.plain)
+                .disabled(!allRequiredFilled)
+                .opacity(allRequiredFilled ? 1 : 0.5)
+                .help(allRequiredFilled ? "Submit" : "Fill all required (*) fields to submit")
                 .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
                 .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
 
@@ -228,24 +231,47 @@ struct GooseACPElicitationPanel: View {
         )
     }
 
-    private func encodedValues() -> [String: JSONValue] {
-        Dictionary(uniqueKeysWithValues: fields.map { field in
+    // review L4: every REQUIRED field must be non-empty before Submit is allowed (Submit was always
+    // enabled, letting blank required fields through as empty strings).
+    private var allRequiredFilled: Bool {
+        fields.allSatisfy { field in
+            guard field.isRequired else { return true }
             switch field.type {
             case .boolean:
-                return (field.id, .bool(boolValues[field.id, default: false]))
-            case .number:
-                let raw = textValues[field.id, default: ""]
-                if let intValue = Int(raw) {
-                    return (field.id, .int(intValue))
-                }
-                if let doubleValue = Double(raw) {
-                    return (field.id, .double(doubleValue))
-                }
-                return (field.id, .string(raw))
-            case .string, .unknown:
-                return (field.id, .string(textValues[field.id, default: ""]))
+                return true // a checkbox always carries a concrete true/false
+            case .string, .number, .unknown:
+                return !textValues[field.id, default: ""].trimmingCharacters(in: .whitespaces).isEmpty
             }
-        })
+        }
+    }
+
+    private func encodedValues() -> [String: JSONValue] {
+        var result: [String: JSONValue] = [:]
+        for field in fields {
+            switch field.type {
+            case .boolean:
+                result[field.id] = .bool(boolValues[field.id, default: false])
+            case .number:
+                // review L4: omit an empty (optional) number instead of sending `.string("")`, which
+                // the server's number schema would reject. Required-empty can't reach here (Submit is
+                // gated). A non-numeric non-empty value is preserved so the server can report it.
+                let raw = textValues[field.id, default: ""].trimmingCharacters(in: .whitespaces)
+                if raw.isEmpty { continue }
+                if let intValue = Int(raw) {
+                    result[field.id] = .int(intValue)
+                } else if let doubleValue = Double(raw) {
+                    result[field.id] = .double(doubleValue)
+                } else {
+                    result[field.id] = .string(raw)
+                }
+            case .string, .unknown:
+                // omit empty optional strings rather than emitting `""`.
+                let raw = textValues[field.id, default: ""]
+                if raw.isEmpty { continue }
+                result[field.id] = .string(raw)
+            }
+        }
+        return result
     }
 }
 

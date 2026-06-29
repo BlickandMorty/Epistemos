@@ -78,8 +78,14 @@ enum GooseWebBootShim {
         "getSecretKey": .implementedRuntime,
         "getAcpUrl": .implementedRuntime,
         "getConfig": .implementedNative,
-        "getSetting": .implementedNative,
-        "setSetting": .implementedNative,
+        // review M1: generic get/setSetting are a JS-runtime localStorage cache (shim loadSettings/
+        // saveSettings), NOT a native store — and the surface's data store is `.nonPersistent()`, so
+        // they are session-scoped (reset on relaunch). Honest tier is `.implementedRuntime`, not
+        // `.implementedNative`. (Goose's own prefs persist via ACP preferences; dedicated UI prefs —
+        // menubar/dock/wakelock/spellcheck — persist via their native affordances below.) A native
+        // generic-KV store to make these durable is a named, deferred parity item.
+        "getSetting": .implementedRuntime,
+        "setSetting": .implementedRuntime,
         "platform": .implementedNative,
         "reactReady": .compatibilityPreserved,
         "on": .compatibilityPreserved,
