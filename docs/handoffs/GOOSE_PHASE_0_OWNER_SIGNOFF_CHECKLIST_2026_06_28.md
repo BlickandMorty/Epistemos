@@ -182,11 +182,36 @@ Launch the current Debug build:
 
 | Gate | Status | Note |
 | --- | --- | --- |
-| 1 Real Goose Electron fallback launches | PASS (prior pass) | not re-run this pass; comparison fallback only |
-| 2 `goose serve` ACP WS reachable | PASS | every proof log shows live `/acp` init |
+| 1 Real Goose Electron fallback launches | PASS | **re-proven 2026-06-29** — `GooseElectronFallbackLauncherTests` green in the 53/53 unit run (real build) |
+| 2 `goose serve` ACP WS reachable | PASS | prior proof logs show live `/acp` init; 2026-06-29 live re-run was load-blocked (see verification doc), not a failure |
 | 3 new→prompt→stream→permission→result | PASS, except live `agent_thought_chunk` | thinking chunk is provider-dependent / codec-test-only — needs a live thinking emit OR your §7 amendment |
-| 4 Staged Web UI boots via shim | PASS | route smoke green |
+| 4 Staged Web UI boots via shim | PASS | **re-proven 2026-06-29** — `GooseWebViewBootShimTests` + resolver suite green (53/53) |
 | 5 Nothing lost vs real Goose | PARTIAL | owner OAuth success, true confirm-dialog/MCP-app window affordances, MAS/manual/distribution WRV still open |
+
+### 2026-06-29 re-prove summary (folded in for sign-off)
+
+- Corrected a multi-loop FALSE premise: the shared test bundle was **never** blocked
+  by `CodeEditorPolishTests` (its "CodeEdit refs" are Epistemos's own `CodeEditor*`
+  classes, not the removed package). Proven by a **real green full build** (exit 0)
+  on an isolated DerivedData. DerivedData/artifact health (yyjson, llama.xcframework)
+  confirmed clean.
+- **Focused Goose unit layer re-proven 53/53 green** (build + `test-without-building`,
+  re-runnable): parity gate (now carrying this loop's toolsCache→`toolsList_unstable`
+  + AlertBox-threshold grafts), GOLDEN RULE (no roster), no-silent-ACP-drops (decode
+  containment), security/honesty (nav-gate deny-by-default, DEBUG-only-cwd,
+  env-hardening), exact ready language, resolver, boot-shim, affordance bridge,
+  electron fallback. Web UI re-staged fresh to App Support.
+- **Combined LIVE sweep: load-blocked, NOT failing.** Re-runs at machine load
+  12.8–35 on 12 cores starved the fixed test timeouts; failure mode varied with load
+  (catalog loaded 40 providers at load 12.8 → socket `.closed` at load 19) — the
+  signature of CPU starvation, not a Goose regression. PM #11's clean 5/5 (78.8s, no
+  competing build) is the control. To be re-run in a quiet window. No timeout
+  weakening (would mask signal).
+- **STEP-2 quality review** of this loop's grafts — no defects (graceful ACP-failure
+  degradation, `USE_ACP_CHAT`-gated, tsc-enforced types, anchor-guarded).
+- **Path B (goosed host) gating risk RESOLVED favorable** — `goosed agent` adds no
+  new subprocess/sidecar surface; required network entitlements already ship. Awaits
+  your go/no-go.
 
 ## Remaining non-owner work before/after sign-off (tracked)
 
