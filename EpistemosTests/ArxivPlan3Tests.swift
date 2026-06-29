@@ -55,6 +55,37 @@ struct ArxivPlan3Tests {
         }
     }
 
+    @Test("normalizes arXiv PDF links to HTTPS and rejects downgraded final URLs")
+    func normalizesArxivPDFLinksToHTTPS() throws {
+        let atom = Self.atomFixture.replacingOccurrences(
+            of: "https://arxiv.org/pdf/2401.12345v2",
+            with: "http://arxiv.org/pdf/2401.12345v2")
+        let paper = try #require(try ArxivClient.parseSearchResponse(Data(atom.utf8)).first)
+        #expect(paper.pdfURL.absoluteString == "https://arxiv.org/pdf/2401.12345v2")
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-download-downgrade-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let tempPDF = root.appendingPathComponent("CFNetworkDownload_http.tmp")
+        try Data("%PDF-1.7\n".utf8).write(to: tempPDF)
+        let response = try #require(HTTPURLResponse(
+            url: try #require(URL(string: "http://arxiv.org/pdf/2401.12345v2")),
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        ))
+
+        do {
+            try URLSessionArxivPDFDownloader.validateDownloadResponse(response, downloadedFileURL: tempPDF)
+            Issue.record("Expected final HTTP arXiv PDF response to be rejected")
+        } catch let error as ArxivIngestError {
+            #expect(error == .downloadFailed(ArxivPDFURLPolicy.rejectedFinalURLMessage))
+        }
+        #expect(!FileManager.default.fileExists(atPath: tempPDF.path))
+    }
+
     @Test("gate defaults on and honors explicit kill switch")
     func gateStatus() {
         #expect(ArxivPullGateStatus.status(environment: [:]).isActive)
@@ -159,7 +190,7 @@ struct ArxivPlan3Tests {
             try URLSessionArxivPDFDownloader.validateDownloadResponse(response, downloadedFileURL: tempPDF)
             Issue.record("Expected non-arXiv final response URL to be rejected")
         } catch let error as ArxivIngestError {
-            #expect(error == .downloadFailed("final response URL is not an allowed arXiv PDF URL"))
+            #expect(error == .downloadFailed(ArxivPDFURLPolicy.rejectedFinalURLMessage))
         }
         #expect(!FileManager.default.fileExists(atPath: tempPDF.path))
     }

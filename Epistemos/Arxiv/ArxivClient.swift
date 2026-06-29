@@ -43,15 +43,34 @@ nonisolated enum ArxivClientError: LocalizedError, Equatable, Sendable {
 
 nonisolated enum ArxivPDFURLPolicy {
     static let rejectedMessage = "unsupported arXiv PDF URL"
+    static let rejectedFinalURLMessage = "final response URL is not an allowed HTTPS arXiv PDF URL"
 
     static func isAllowed(_ url: URL) -> Bool {
+        normalizedAllowedURL(url) != nil
+    }
+
+    static func isAllowedHTTPSResponse(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(),
+              scheme == "https" else {
+            return false
+        }
+        return normalizedAllowedURL(url) != nil
+    }
+
+    static func normalizedAllowedURL(_ url: URL) -> URL? {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let scheme = components.scheme?.lowercased(),
               scheme == "https" || scheme == "http",
               let host = url.host?.lowercased(),
               host == "arxiv.org" || host == "export.arxiv.org" else {
-            return false
+            return nil
         }
-        return url.path.lowercased().hasPrefix("/pdf/")
+        guard url.path.lowercased().hasPrefix("/pdf/") else {
+            return nil
+        }
+        components.scheme = "https"
+        components.host = host
+        return components.url
     }
 }
 
@@ -209,8 +228,8 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
         let title = attributes["title"]?.lowercased()
         let type = attributes["type"]?.lowercased()
         let looksLikePDFLink = title == "pdf" || type == "application/pdf" || href.contains("/pdf/")
-        if looksLikePDFLink && ArxivPDFURLPolicy.isAllowed(url) {
-            entry.pdfURL = url
+        if looksLikePDFLink, let normalizedURL = ArxivPDFURLPolicy.normalizedAllowedURL(url) {
+            entry.pdfURL = normalizedURL
             currentEntry = entry
         }
     }

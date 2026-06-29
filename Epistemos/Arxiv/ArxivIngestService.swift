@@ -9,11 +9,11 @@ nonisolated protocol ArxivPDFDownloading: Sendable {
 
 nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
     func download(from url: URL) async throws -> URL {
-        guard ArxivPDFURLPolicy.isAllowed(url) else {
+        guard let downloadURL = ArxivPDFURLPolicy.normalizedAllowedURL(url) else {
             throw ArxivIngestError.downloadFailed(ArxivPDFURLPolicy.rejectedMessage)
         }
 
-        let (fileURL, response) = try await URLSession.shared.download(from: url)
+        let (fileURL, response) = try await URLSession.shared.download(from: downloadURL)
         try Self.validateDownloadResponse(response, downloadedFileURL: fileURL)
         return try Self.prepareDownloadedPDF(from: fileURL)
     }
@@ -31,9 +31,9 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
             throw ArxivIngestError.downloadFailed("HTTP \(http.statusCode)")
         }
         guard let finalURL = http.url,
-              ArxivPDFURLPolicy.isAllowed(finalURL) else {
+              ArxivPDFURLPolicy.isAllowedHTTPSResponse(finalURL) else {
             try? FileManager.default.removeItem(at: fileURL)
-            throw ArxivIngestError.downloadFailed("final response URL is not an allowed arXiv PDF URL")
+            throw ArxivIngestError.downloadFailed(ArxivPDFURLPolicy.rejectedFinalURLMessage)
         }
     }
 
