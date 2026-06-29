@@ -350,6 +350,9 @@ struct BrowserUseAdapterPlan3Tests {
         ] {
             #expect(browserScreenshot.contains(required), "Missing browser screenshot policy string: \(required)")
         }
+        #expect(browserTool.contains("browser screenshot was not created in private screenshot directory"))
+        #expect(!browserTool.contains("browser screenshot was not created at"))
+        #expect(!browserTool.contains("resolved outside private screenshot directory at"))
 
         for required in [
             "browser_navigate_schema",

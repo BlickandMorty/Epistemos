@@ -456,16 +456,14 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
         .unwrap_or_else(|| screenshot_path.clone());
 
     if !actual_path.exists() {
-        return Err(ToolError::ExecutionFailed(format!(
-            "browser screenshot was not created at '{}'",
-            actual_path.display()
-        )));
+        return Err(ToolError::ExecutionFailed(
+            "browser screenshot was not created in private screenshot directory".into(),
+        ));
     }
     if !path_resolves_inside(&actual_path, screenshot_directory) {
-        return Err(ToolError::ExecutionFailed(format!(
-            "browser screenshot resolved outside private screenshot directory at '{}'",
-            actual_path.display()
-        )));
+        return Err(ToolError::ExecutionFailed(
+            "browser screenshot resolved outside private screenshot directory".into(),
+        ));
     }
 
     let vision_result = vision_handler

@@ -192,7 +192,8 @@ validated before runtime import and must be loopback-only with no URL credential
   URL credentials/query/fragment tokens before applying an error length cap.
   `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider,
-  deletes the temporary screenshot after the provider call returns, and does not return the absolute screenshot path. The
+  deletes the temporary screenshot after the provider call returns, and does not return the absolute screenshot path in
+  success or validation error output. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve
