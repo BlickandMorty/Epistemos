@@ -28,6 +28,22 @@ struct MeetingNoteCaptureServiceTests {
         #expect(service.transcriptText == "First decision\n\nSecond decision\n\nThird decision")
     }
 
+    @Test("cumulative final transcripts replace prior buffered prefixes")
+    func cumulativeFinalTranscriptsReplacePriorPrefixes() {
+        let service = MeetingNoteCaptureService(voiceInput: FakeMeetingVoiceInput())
+
+        service.recordFinal("Discuss launch")
+        service.recordFinal("Discuss launch and risk")
+        #expect(service.transcriptText == "Discuss launch and risk")
+
+        service.recordFinal("Discuss launch and risk\n\nAssign follow-up")
+        #expect(service.transcriptText == "Discuss launch and risk\n\nAssign follow-up")
+
+        service.recordPartial("Discuss launch and risk\n\nAssign follow-up.")
+        service.recordFinal("Discuss launch and risk\n\nAssign follow-up.")
+        #expect(service.transcriptText == "Discuss launch and risk\n\nAssign follow-up.")
+    }
+
     @Test("refresh consumes LiveVoiceInputService-shaped final transcript")
     func refreshConsumesVoiceInput() {
         let voice = FakeMeetingVoiceInput()
@@ -223,6 +239,7 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("VoicePreferences.shared.dictationAutoStop == .auto"))
         #expect(source.contains("runFromAudio("))
         #expect(source.contains("CaptureSourceMetadata.meetingSTT"))
+        #expect(source.contains("segment(_ candidate: String, extends existing: String)"))
         #expect(!source.contains("EpistemosSpeechAnalyzer"))
         #expect(!source.contains("Whisper"))
         #expect(!source.contains("Python"))

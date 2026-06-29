@@ -165,10 +165,19 @@ final class MeetingNoteCaptureService {
     func recordFinal(_ text: String) {
         let cleaned = Self.cleanedSegment(text)
         guard !cleaned.isEmpty else { return }
-        if finalSegments.last != cleaned {
+        let existingTranscript = Self.renderTranscript(finalSegments: finalSegments, partial: "")
+        if Self.segment(cleaned, extends: existingTranscript) {
+            finalSegments = [cleaned]
+        } else if Self.segment(existingTranscript, extends: cleaned) {
+            // Already covered by a previously delivered cumulative final.
+        } else if let last = finalSegments.last, Self.segment(cleaned, extends: last) {
+            finalSegments[finalSegments.index(before: finalSegments.endIndex)] = cleaned
+        } else if let last = finalSegments.last, Self.segment(last, extends: cleaned) {
+            // Already covered by the last final segment.
+        } else if finalSegments.last != cleaned {
             finalSegments.append(cleaned)
         }
-        if partialTranscript == cleaned {
+        if partialTranscript == cleaned || Self.segment(cleaned, extends: partialTranscript) {
             partialTranscript = ""
         }
     }
@@ -292,5 +301,20 @@ final class MeetingNoteCaptureService {
 
     private static func cleanedSegment(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func segment(_ candidate: String, extends existing: String) -> Bool {
+        guard !existing.isEmpty,
+              candidate.count > existing.count,
+              candidate.hasPrefix(existing) else {
+            return false
+        }
+        guard let firstExtraCharacter = candidate.dropFirst(existing.count).first else {
+            return false
+        }
+        if firstExtraCharacter.isWhitespace {
+            return true
+        }
+        return [".", ",", ";", ":", "!", "?"].contains(firstExtraCharacter)
     }
 }
