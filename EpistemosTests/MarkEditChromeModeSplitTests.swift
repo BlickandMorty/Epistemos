@@ -26,7 +26,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
     @Test("MarkEdit CoreEditor adapter uses vendored bundle and generated MarkEdit bridge surface")
     func markEditCoreEditorAdapterUsesVendoredBundleAndBridgeSurface() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/WebKitCodeEditorView.swift")
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
 
         #expect(source.contains("struct MarkEditCodeEditorRepresentable"))
         #expect(source.contains("struct MarkEditMarkdownEditorRepresentable"))

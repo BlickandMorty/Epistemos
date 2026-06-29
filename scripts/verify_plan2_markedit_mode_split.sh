@@ -29,12 +29,14 @@ require_not_contains() {
 }
 
 code_editor="${ROOT_DIR}/Epistemos/Views/Notes/CodeEditorView.swift"
-adapter="${ROOT_DIR}/Epistemos/Views/Notes/WebKitCodeEditorView.swift"
+adapter="${ROOT_DIR}/Epistemos/Views/Notes/MarkEditCoreEditorView.swift"
+legacy_webkit="${ROOT_DIR}/Epistemos/Views/Notes/WebKitCodeEditorView.swift"
 codepack="${ROOT_DIR}/docs/research/MARKEDIT_EMBED_CODEPACK_2026_06_27.md"
 canonical="${ROOT_DIR}/docs/research/EDITOR_CANONICAL_PLAN_2026_06_27.md"
 
 require_file "${code_editor}"
 require_file "${adapter}"
+require_file "${legacy_webkit}"
 require_file "${codepack}"
 require_file "${canonical}"
 
@@ -59,6 +61,7 @@ require_contains "${adapter}" "makeNSViewController(context: Context) -> EditorV
 require_contains "${adapter}" "MarkEditCoreEditorChunkLoader"
 require_contains "${adapter}" "Bundle.main.url(forResource: filename, withExtension: nil)"
 require_contains "${adapter}" "Bundle.main.url(forResource: \"index\", withExtension: \"html\")"
+require_contains "${legacy_webkit}" "struct WebKitCodeEditorView"
 
 if [ -d "${APP_RESOURCES_DIR}" ]; then
   index_html="${APP_RESOURCES_DIR}/index.html"
@@ -82,4 +85,3 @@ if [ -d "${APP_RESOURCES_DIR}" ]; then
 else
   echo "Plan 2 MarkEdit mode split OK; built app resources not present at ${APP_RESOURCES_DIR#${ROOT_DIR}/}, skipped bundle check."
 fi
-
