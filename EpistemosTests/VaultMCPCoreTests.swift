@@ -168,6 +168,24 @@ struct VaultMCPCoreTests {
         #expect(calls.isEmpty)
     }
 
+    @Test("oversized JSON-RPC requests are rejected before parsing")
+    func oversizedJSONRPCRequestsAreRejectedBeforeParsing() async throws {
+        let recorder = CallRecorder()
+        let core = VaultMCPCore(executor: { name, argumentsJSON in
+            await recorder.record(name: name, argumentsJSON: argumentsJSON)
+            return LocalToolResult(toolName: name, resultJson: #"{"called":true}"#, isError: false)
+        })
+
+        let response = await core.handle(
+            requestJSON: String(repeating: " ", count: VaultMCPCore.maxRequestJSONBytes + 1))
+        let object = try Self.jsonObject(response)
+        let error = try #require(object["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == -32600)
+        #expect((error["message"] as? String)?.contains("too large") == true)
+        #expect(await recorder.snapshot().isEmpty)
+    }
+
     @Test("empty or missing vault lists honest-empty resources")
     func emptyVaultListsHonestEmptyResources() async throws {
         let missing = FileManager.default.temporaryDirectory
@@ -374,6 +392,7 @@ struct VaultMCPCoreTests {
         #expect(source.contains("read-only vault server"))
         #expect(source.contains("resources/list"))
         #expect(source.contains("resources/read"))
+        #expect(source.contains("maxRequestJSONBytes"))
         #expect(source.contains("maxResourceNotes"))
         #expect(source.contains("maxResourceReadBytes"))
         #expect(source.contains("pathRequiredReadToolNameSet"))

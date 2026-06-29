@@ -28,7 +28,8 @@ the 6 graph reads); `tools/call` **canonicalizes aliases through `AgentToolNameA
 `resources/read` reads only path-contained Markdown through the same detached resource path; final reads reopen the
 resolved note with `O_NOFOLLOW`, verify a regular file with `fstat`, enforce the byte cap on the descriptor, and reject
 invalid UTF-8. Tool calls still go through the read-only executor allowlist. Empty vault → honest-empty (`resources:[]`,
-real empty search/list payloads). Pure
+real empty search/list payloads). Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap before JSON
+parsing, matching the loopback HTTP body limit. Pure
 helpers (`successResponse`/`errorResponse`/`toolCallResult`/`argumentsJSON`/`markdownRelPaths`/`noteText`) testable with
 a stub executor, no network/FFI in the file.
 

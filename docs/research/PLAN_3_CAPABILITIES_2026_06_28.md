@@ -229,7 +229,8 @@ Pro-only skill rows show `.proLocked` instead of silently enabling.
 `VaultMCPServer` (loopback `/mcp`, reuses `WorkNativeMCPServer` auth/framing helpers), `VaultMCPTokenStore` (persistent
 Keychain bearer + rotate), `VaultMCPHost` (off-by-default lifecycle), and `VaultMCPServerSettingsRow` (masked token +
 copy client config). The host uses `ChatToolTier.readOnly` plus
-`allowedToolNames: Set(VaultMCPCore.readToolNames)` while the core rejects writes before executor dispatch.
+`allowedToolNames: Set(VaultMCPCore.readToolNames)` while the core rejects writes before executor dispatch. Core
+JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch.
 
 **MAS/Pro split:**
 | Capability | MAS | Pro |

@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 
 nonisolated struct VaultMCPCore {
+    static let maxRequestJSONBytes = 8 * 1024 * 1024
     static let maxResourceNotes = 5_000
     static let maxResourceReadBytes = 8 * 1024 * 1024
 
@@ -65,6 +66,9 @@ nonisolated struct VaultMCPCore {
     }
 
     func handle(requestJSON: String) async -> String {
+        guard requestJSON.utf8.count <= Self.maxRequestJSONBytes else {
+            return Self.errorResponse(id: NSNull(), code: -32600, message: "JSON-RPC request is too large")
+        }
         guard let data = requestJSON.data(using: .utf8),
               let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let method = request["method"] as? String else {

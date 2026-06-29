@@ -22,6 +22,7 @@ struct BestOfPresetPlan3Tests {
             "`VaultMCPCore`",
             "`VaultMCPServerSettingsRow`",
             "allowedToolNames: Set(VaultMCPCore.readToolNames)",
+            "cap request bodies at 8 MiB",
         ] {
             #expect(capability.contains(required), "Capability doc missing shipped extensibility state: \(required)")
         }
@@ -59,6 +60,7 @@ struct BestOfPresetPlan3Tests {
             "VaultMCPServerSettingsRow.swift` [DELIVERED]",
             "AgentToolNameAliases.canonical",
             "ChatToolTier.readOnly",
+            "Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap",
         ] {
             #expect(vault.contains(required), "Vault MCP codepack missing shipped marker: \(required)")
         }
