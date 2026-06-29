@@ -1,6 +1,6 @@
 # Plan 3 — browser-use Pro vendor codepack (clone-ready, Pass 7)
 
-> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This is the owed Pro-only vendor plan for the Chromium
+> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This records the landed Pro-only vendor plan for the Chromium
 > robot. It is deliberately separate from the MAS-safe `BrowserView` WKWebView tab: browser-use drives Chromium over
 > CDP; it does not and must not drive the native WKWebView Browser. `[VERIFIED-CODE]`/`[WEB]`/`[INFERRED]` tagged.
 

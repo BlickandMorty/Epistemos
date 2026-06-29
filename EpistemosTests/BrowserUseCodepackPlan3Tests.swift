@@ -3,6 +3,20 @@ import Testing
 
 @Suite("Plan 3 browser-use codepack")
 struct BrowserUseCodepackPlan3Tests {
+    @Test("capability doc reflects landed browser-use vendor state")
+    func capabilityDocReflectsLandedBrowserUseVendorState() throws {
+        let plan = try Self.loadSource("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+        let codepack = try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
+
+        #expect(plan.contains("browser-use vendor codepack and staged"))
+        #expect(plan.contains("final signed Pro packaging and full UI smoke still remaining"))
+        #expect(plan.contains("landed vendor codepack/settings/payload/adapter lane"))
+        #expect(codepack.contains("This records the landed Pro-only vendor plan"))
+        #expect(!plan.contains("browser-use vendor = the owed Pro codepack"))
+        #expect(!plan.contains("Needs a vendor codepack (owed)"))
+        #expect(!codepack.contains("This is the owed Pro-only vendor plan"))
+    }
+
     @Test("browser-use vendor plan is pinned, full-clone, and Pro-only")
     func browserUseCodepackIsPinnedAndGated() throws {
         let codepack = try Self.loadSource("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")

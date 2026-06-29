@@ -143,7 +143,8 @@ real (it stays NotConfigured) · O-3 re-point `browser_*` registry at the in-app
 O-5 privacy stack · O-6 agentic scraper. All superseded by browser-use (§9).
 
 **MAS/Pro:** lite Browser tab = MAS-safe (human-driven, no robot). browser-use automation = **Pro only** (Chromium,
-honest `.unavailable` on MAS). Effort: lite tab **LOW** (Tier-1 codepack); browser-use vendor = the owed Pro codepack.
+honest `.unavailable` on MAS). Effort: lite tab **LOW** (Tier-1 codepack); browser-use vendor codepack and staged
+payload now exist, with final signed Pro packaging and full UI smoke still remaining.
 
 ---
 
@@ -316,7 +317,8 @@ Pure additive UI, MAS-safe.
 - **App Store build = lite native WKWebView "Browser" tab, human-driven, NO robot** (the Obscura Tier-1 codepack).
 - **Pro automation = vendor the REAL `browser-use`** (browser-use + web-ui + cdp-use + Python + Chromium), reskin its
   web UI in a WebView, expose to Goose as MCP tools. browser-use drives **Chromium** (not the WKWebView tab). Needs a
-  vendor codepack (owed). Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
+  landed vendor codepack/settings/payload/adapter lane; final signed Pro packaging and full UI smoke still remain.
+  Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
 - ~~Option B (native `WebKitBrowserEngine`-driven robot)~~ = **PARKED/superseded** by browser-use — do NOT build it
   (the owner cut the heavy native automation engine). The `WebKitBrowserEngine` stub stays `NotConfigured`.
 
