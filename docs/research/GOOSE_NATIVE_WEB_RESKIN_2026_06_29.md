@@ -258,7 +258,27 @@ The editor web bodies ALREADY have a theme-injection architecture — feed them 
   = CSS `linear()` springs or shared tokens). ProvenanceGate: in-place edits to Epistemos's own theme/injector code
   (Plan 2 owns the editor injectors; Plan 1 owns theme-tokens.ts; the doctrine keeps the VALUES identical).
 
+## ★ GLOBAL macOS DETAILS — scrollbars + focus ring (R11, app-wide; affects EVERY component)
+These aren't per-component — they're global tells that the token retheme misses. Apply to Goose AND the editor web bodies.
+- **Scrollbars → use the NATIVE macOS overlay scrollbars.** [VERIFIED] macOS uses overlay scrollbars system-wide;
+  WKWebView inherits them by DEFAULT, and custom `::-webkit-scrollbar` styling is largely ineffective in overlay
+  mode (the OS manages the thumb). Goose currently OVERRIDES them — `main.css:583` `scrollbar-width:none !important`,
+  `:587` `[data-radix-scroll-area-viewport]::-webkit-scrollbar`, and global `::-webkit-scrollbar{track,thumb}`
+  (607–629) — which fights the OS + reads non-native. FIX: NEUTRALIZE the global custom scrollbar rules (607–629) +
+  the blanket `scrollbar-width:none` so the native overlay scrollbars render; keep `scrollbar-width:none` ONLY where
+  a scrollbar is deliberately hidden (a specific custom-scrolled container), never globally.
+- **Focus ring → match macOS's ACCENT-colored ring**, not a thin neutral outline. Goose uses `outline:1px solid`
+  (`:563-564`) + shadcn `--color-ring`. macOS focus = the accent glow. FIX: `:focus-visible { outline: 2px solid
+  var(--color-accent,#0066cc); outline-offset: 2px; }` (or keep WebKit's UA-native ring; do NOT replace it with a
+  1px neutral line). Drive the color from the unified accent token so it matches the native chrome's focus ring.
+- ProvenanceGate: in-place CSS edits to Goose's own main.css + the editor CSS. WebKit-verified (overlay scrollbars
+  are the system default on macOS 26). Sources: WebKit/Safari scrollbar overlay behavior; macOS HIG focus ring.
+
 ## CHANGELOG
+- 2026-06-29 R11: completeness-critic — GLOBAL macOS details (apply to all web bodies). [VERIFIED] macOS overlay
+  scrollbars are the system default in WKWebView; Goose OVERRIDES them (main.css:583/587/607-629) → neutralize the
+  custom scrollbar CSS so native overlay scrollbars render. Focus ring: Goose's 1px neutral outline (:563) →
+  accent-colored ring (var(--color-accent)) matching macOS. Both global, both for Goose + editor web bodies.
 - 2026-06-29 R10: completeness-critic — extended the recipe to Plan 2 editor web bodies. Found the editor already
   has a theme-injection architecture: EpistemosTheme.swift (Swift token source) → EpdocEditorThemeStyle
   (EpdocEditorChromeView.swift:582; --epdoc-bg ALREADY transparent) + MarkEditCoreEditorView (theme param; github
