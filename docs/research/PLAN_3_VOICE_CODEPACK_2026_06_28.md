@@ -17,6 +17,10 @@
   `brainDumpHotkeyDictate`, or `perModelVoicePersona` rows until those keys have real behavior consumers.
 - **Shared mic control is now backed by live Apple STT:** `VoiceInputButton` consumes `LiveVoiceInputService.shared`,
   forwards partial/final transcript text, and no longer routes through the removed `ComposerVoiceInputService` stub.
+- **Shared mic callbacks are capture-owner gated:** because `LiveVoiceInputService.shared` is global, only the
+  `VoiceInputButton` instance that starts capture forwards partial/final transcript text or tears down the service on
+  disappearance. Other mounted buttons can reflect/stop global recording state without consuming transcript into the
+  wrong host surface.
 - **Live macOS 26 STT is surfaced:** `LiveVoiceInputService` wraps `EpistemosSpeechAnalyzer` readiness/start/stop,
   model-download progress, and partial/final transcript state for reusable UI consumption. Meeting/STT builds on this
   facade. Final SpeechAnalyzer segments are buffered and drained in order so fast final events cannot overwrite one

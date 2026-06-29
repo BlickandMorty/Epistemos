@@ -41,6 +41,7 @@ public struct VoiceInputButton: View {
     @State private var phase: Phase = .idle
     @State private var streamTask: Task<Void, Never>?
     @State private var service = LiveVoiceInputService.shared
+    @State private var ownsCapture = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(UIState.self) private var ui
 
@@ -81,14 +82,14 @@ public struct VoiceInputButton: View {
         .help(help)
         .disabled(phase == .requesting || service.isUnavailable)
         .onChange(of: service.partialTranscript) { _, newValue in
-            guard !newValue.isEmpty else { return }
+            guard ownsCapture, !newValue.isEmpty else { return }
             onPartial(newValue)
         }
         .onChange(of: service.finalTranscript) { _, newValue in
-            guard !newValue.isEmpty else { return }
+            guard ownsCapture, !newValue.isEmpty else { return }
             if let transcript = service.consumeTranscript() {
                 onFinal(transcript)
-                phase = .idle
+                syncPhaseFromService()
             }
         }
         .onChange(of: service.state) { _, _ in
@@ -164,6 +165,7 @@ public struct VoiceInputButton: View {
     }
 
     private func startInternal() {
+        ownsCapture = true
         phase = .requesting
         streamTask?.cancel()
         streamTask = Task {
@@ -182,9 +184,12 @@ public struct VoiceInputButton: View {
     }
 
     private func stopInternal() {
-        service.tearDown()
         streamTask?.cancel()
         streamTask = nil
+        if ownsCapture {
+            service.tearDown()
+            ownsCapture = false
+        }
         phase = .idle
     }
 
@@ -192,12 +197,14 @@ public struct VoiceInputButton: View {
         switch service.state {
         case .idle:
             phase = .idle
+            ownsCapture = false
         case .preparing:
             phase = .requesting
         case .recording:
             phase = .recording
         case .unavailable(let message), .error(let message):
             phase = .error(message)
+            ownsCapture = false
         }
     }
 }

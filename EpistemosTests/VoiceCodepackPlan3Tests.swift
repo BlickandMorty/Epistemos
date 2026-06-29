@@ -13,6 +13,7 @@ struct VoiceCodepackPlan3Tests {
             "Visible auto toggles are consumer-backed",
             "No-op Settings toggles are hidden",
             "Shared mic control is now backed by live Apple STT",
+            "Shared mic callbacks are capture-owner gated",
             "Live macOS 26 STT is surfaced",
             "Preferred voice floor is quality-first",
             "SSML/prosody fallback exists",
@@ -101,6 +102,18 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("finalTranscriptBuffer"))
         #expect(facade.contains("finalTranscriptBuffer.append(cleaned)"))
         #expect(facade.contains("pending.joined(separator: \"\\n\\n\")"))
+    }
+
+    @Test("voice button gates shared transcript callbacks to the capture owner")
+    func voiceButtonGatesSharedTranscriptCallbacksToCaptureOwner() throws {
+        let button = try loadMirroredSourceTextFile("Epistemos/Views/Shared/VoiceInputButton.swift")
+
+        #expect(button.contains("@State private var ownsCapture = false"))
+        #expect(button.contains("guard ownsCapture, !newValue.isEmpty else { return }\n            onPartial(newValue)"))
+        #expect(button.contains("guard ownsCapture, !newValue.isEmpty else { return }\n            if let transcript = service.consumeTranscript()"))
+        #expect(button.contains("ownsCapture = true\n        phase = .requesting"))
+        #expect(button.contains("if ownsCapture {\n            service.tearDown()"))
+        #expect(button.contains("ownsCapture = false"))
     }
 
     @Test("voice MAS path has no Pro neural or hidden runtime dependency")
