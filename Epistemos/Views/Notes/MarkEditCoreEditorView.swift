@@ -11,6 +11,7 @@ nonisolated enum MarkEditCoreEditorBridge {
     static let nativeMessageHandlerName = "bridge"
     static let chunkScheme = "chunk-loader"
     static let resourceSubpath = "CoreEditor"
+    static let baseURL = URL(string: "http://localhost/")
 }
 
 struct CoreEditorSelectionRequest: Equatable {
@@ -378,7 +379,7 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         lastSelectionRequestID = nil
         isApplyingFromSwift = false
         let html = MarkEditCoreEditorDocument.html(for: initialState)
-        webView.loadHTMLString(html, baseURL: URL(string: "https://epistemos-markedit.local/"))
+        webView.loadHTMLString(html, baseURL: MarkEditCoreEditorBridge.baseURL)
     }
 
     func detach(from webView: WKWebView) {
@@ -435,59 +436,76 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         let previousState = lastAppliedState
         let expectedLength = state.text.utf16.count
         let script = """
-        (async () => {
-          if (!window.webModules?.core?.resetEditor) {
-            return { ok: false, error: "CoreEditor resetEditor bridge is missing" };
-          }
-          if (!window.webModules?.core?.getEditorText) {
-            return { ok: false, error: "CoreEditor getEditorText bridge is missing" };
-          }
-          window.__epistemosApplyingMarkEditState = true;
-          try {
-            const resetResult = await window.webModules.core.resetEditor(\(json));
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            const editorText = window.webModules.core.getEditorText();
-            const renderedText = document.querySelector(".cm-content")?.textContent ?? "";
-            const lineCount = window.editor?.state?.doc?.lines ?? 0;
-            if (\(expectedLength) > 0 && editorText.length === 0) {
-              return {
-                ok: false,
-                error: "CoreEditor reset completed with empty editor text",
-                resetResult,
-                renderedLength: renderedText.length,
-                lineCount,
-              };
-            }
-            if (\(expectedLength) > 0 && renderedText.length === 0) {
-              return {
-                ok: false,
-                error: "CoreEditor reset completed with no rendered CodeMirror text",
-                resetResult,
-                editorLength: editorText.length,
-                lineCount,
-              };
-            }
+        if (!window.webModules?.core?.resetEditor) {
+          return { ok: false, error: "CoreEditor resetEditor bridge is missing" };
+        }
+        if (!window.webModules?.core?.getEditorText) {
+          return { ok: false, error: "CoreEditor getEditorText bridge is missing" };
+        }
+        window.__epistemosApplyingMarkEditState = true;
+        try {
+          const resetResult = await window.webModules.core.resetEditor(\(json));
+          await new Promise(resolve => {
+            let settled = false;
+            const finish = () => {
+              if (settled) { return; }
+              settled = true;
+              resolve();
+            };
+            requestAnimationFrame(() => requestAnimationFrame(finish));
+            setTimeout(finish, 100);
+          });
+          const editorText = window.webModules.core.getEditorText();
+          const renderedText = document.querySelector(".cm-content")?.textContent ?? "";
+          const lineCount = window.editor?.state?.doc?.lines ?? 0;
+          if (\(expectedLength) > 0 && editorText.length === 0) {
             return {
-              ok: resetResult === true,
+              ok: false,
+              error: "CoreEditor reset completed with empty editor text",
               resetResult,
-              editorLength: editorText.length,
               renderedLength: renderedText.length,
               lineCount,
             };
-          } catch (error) {
+          }
+          if (\(expectedLength) > 0 && renderedText.length === 0) {
             return {
               ok: false,
-              error: String(error?.stack || error?.message || error),
+              error: "CoreEditor reset completed with no rendered CodeMirror text",
+              resetResult,
+              editorLength: editorText.length,
+              lineCount,
             };
-          } finally {
-            setTimeout(() => { window.__epistemosApplyingMarkEditState = false; }, 0);
           }
-        })();
+          return {
+            ok: resetResult === true,
+            resetResult,
+            editorLength: editorText.length,
+            renderedLength: renderedText.length,
+            lineCount,
+          };
+        } catch (error) {
+          return {
+            ok: false,
+            error: String(error?.stack || error?.message || error),
+          };
+        } finally {
+          setTimeout(() => { window.__epistemosApplyingMarkEditState = false; }, 0);
+        }
         """
-        webView.evaluateJavaScript(script) { [weak self, weak webView] result, error in
+        webView.callAsyncJavaScript(script, in: nil, in: .page) { [weak self, weak webView] result in
             guard let self, generation == self.loadGeneration else { return }
             self.isApplyingFromSwift = false
-            if let report = result as? [String: Any],
+            let scriptResult: Any?
+            let scriptError: Error?
+            switch result {
+            case .success(let value):
+                scriptResult = value
+                scriptError = nil
+            case .failure(let error):
+                scriptResult = nil
+                scriptError = error
+            }
+            if let report = scriptResult as? [String: Any],
                report["ok"] as? Bool == true {
                 self.lastAppliedState = state
             } else {
@@ -496,7 +514,7 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
                 if let webView {
                     self.showLoadFailure(
                         in: webView,
-                        message: "MarkEdit CoreEditor reset failed: \(Self.resetFailureMessage(result: result, error: error))"
+                        message: "MarkEdit CoreEditor reset failed: \(Self.resetFailureMessage(result: scriptResult, error: scriptError))"
                     )
                 }
             }

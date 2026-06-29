@@ -58,11 +58,16 @@ nonisolated struct MarkEditChromeModeSplitTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
 
         #expect(source.contains(#"static let nativeMessageHandlerName = "bridge""#))
+        #expect(source.contains(#"static let baseURL = URL(string: "http://localhost/")"#))
+        #expect(source.contains("webView.loadHTMLString(html, baseURL: MarkEditCoreEditorBridge.baseURL)"))
         #expect(source.contains("WKScriptMessageHandlerWithReply"))
         #expect(source.contains("addScriptMessageHandler("))
         #expect(source.contains("removeScriptMessageHandler(\n            forName: MarkEditCoreEditorBridge.nativeMessageHandlerName,\n            contentWorld: .page"))
+        #expect(source.contains("callAsyncJavaScript(script, in: nil, in: .page)"))
+        #expect(!source.contains("(async () => {"))
+        #expect(source.contains("setTimeout(finish, 100)"))
         #expect(source.contains("CoreEditor reset completed with no rendered CodeMirror text"))
-        #expect(source.contains("resetFailureMessage(result: result, error: error)"))
+        #expect(source.contains("resetFailureMessage(result: scriptResult, error: scriptError)"))
     }
 
     @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
