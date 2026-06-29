@@ -927,6 +927,19 @@ direct probe of the exact ACP methods behind the owner's two specific complaints
   load". The Auth screen's ACP backing works; the owner's reported failure does not
   reproduce at the ACP layer (it was the dead-`@/api`-REST path the grafts replaced).
 
+**Entire owner manual-test route list backed live (ACP layer).** Every route the §7
+checklist asks the owner to click is proven reachable at its ACP backing via direct
+probe: Models→`providers/catalog/list` (106), Auth→`providers/config/status` (65),
+New Chat→`session/prompt`→stream→end_turn, Session History→`session/list`+`load`+`fork`,
+Recipes→`sources/list[recipe]`, Skills→`sources/list[skill]`,
+Scheduler→`sources/list[schedule]` (OK, empty list), Extensions→`config/extensions/list`
+(11). Apps is the only route needing the goosed-only mcp-app host (Path B, documented).
+Bonus no-silent-drops confirmation: the NON-existent `schedules/list` / `recipes/list`
+(the Web UI uses the unified `sources/list` with a `sourceType`) correctly return
+JSON-RPC **−32601 Method not found**, not a silent drop. So the owner's visual
+click-through is final confirmation of rendering, not first discovery — every route's
+real ACP method is proven live.
+
 **Live ACP surface recursive proof — THREE consecutive clean passes.** Ran the
 comprehensive read-only probe 3× back-to-back against one `goose serve`: every pass
 returned `SURFACE_REACHABLE 7/7` with `providers/catalog/list count=106` — identical,
