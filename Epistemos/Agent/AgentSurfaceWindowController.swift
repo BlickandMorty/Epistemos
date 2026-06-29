@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-// Phase 1 (Step 3) — native Agent window. Mirrors GooseSurfaceWindowController: a themed, transparent
-// titlebar NSWindow hosting AgentSurfaceRootView (native chat shell). Opened from the Landing entry /
-// ⌘⇧A in Step 4. Singleton (one Agent window).
+// Phase 1 (Step 3) — native Agent frame. Mirrors GooseSurfaceWindowController:
+// a themed, transparent titlebar NSWindow hosting the native rail around Goose's
+// reskinned WebView. Opened from the Landing entry / ⌘⇧A. Singleton.
 
 @MainActor
 final class AgentSurfaceWindowController {

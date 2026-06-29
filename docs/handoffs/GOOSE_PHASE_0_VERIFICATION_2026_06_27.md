@@ -1526,3 +1526,89 @@ app-target build BEFORE this regression landed; only the in-flight M1(a) ledger-
 elicitation-validation await the app-build unblock. → ACTION FOR OWNER/Plan-3: drop the `?` at
 `BrowserUseWebUIView.swift:250` (one char) to restore the app build for every lane. Combined with the
 earlier `ArxivPlan3Tests` test-target break, the Plan-3 lane currently has the whole repo un-buildable.
+
+## 2026-06-29 (Phase 1 Option 1) - Goose WebView reskin + live inventory re-proof
+
+Owner direction is now Phase 1 with Option 1 locked: native owns only the frame/window/nav/launcher,
+permission/elicitation popups, and Models picker. Chat and Goose feature surfaces stay permanently in
+the Goose WebView, reskinned to Epistemos/macOS. This pass stayed inside the allowed Plan 1 lane:
+`Epistemos/Goose/*`, `Epistemos/Agent/*`, and the nested Goose Web UI checkout. No editor/Plan-2 or
+Plan-3 capability files were edited.
+
+### Changes made this pass
+
+- Corrected `Epistemos/Agent/AgentSurfaceWindowController.swift` honesty text: the Agent window is a
+  native frame around the native rail plus Goose's reskinned WebView, not a native chat shell.
+- Reskinned the nested Goose Web UI token/CSS surface:
+  `.research-clones/work/goose/ui/desktop/src/theme/theme-tokens.ts` and
+  `.research-clones/work/goose/ui/desktop/src/styles/main.css`.
+- Replaced Cash/remote font token use with local system SF stacks for body text and SF Mono for code.
+- Replaced donor purple/indigo utility leaks with the Apple/Epistemos accent ramp.
+- Restored macOS-native geometry: non-zero Apple radii, native overlay scrollbars, transparent WebView
+  body, and a visible accent focus ring instead of a global flat zero-radius reset.
+
+### Verification from this pass
+
+Targeted reskin hygiene scan passed:
+
+```text
+rg -n "#5b4fc0|#7b68ee|border-radius:\s*0|scrollbar-width:\s*none|scrollbar-color:\s*#[0-9a-fA-F]|box-shadow:\s*none\s*!important|OpenCode|flat-box" \
+  .research-clones/work/goose/ui/desktop/src/styles/main.css \
+  .research-clones/work/goose/ui/desktop/src/theme/theme-tokens.ts \
+  Epistemos/Agent Epistemos/Goose
+=> no matches
+```
+
+Goose Web UI staged successfully from the nested checkout:
+
+```text
+bash stage-goose-web-ui.sh /tmp/epistemos-goose-webui-reskin-2026-06-29
+=> Staged ACP Goose Web UI: /tmp/epistemos-goose-webui-reskin-2026-06-29
+=> manifest: {"schemaVersion":1,"source":"epistemos-stage-goose-web-ui","acpMode":true}
+```
+
+The token map still compiles:
+
+```text
+cd .research-clones/work/goose/ui/desktop
+../node_modules/.bin/tsc --noEmit
+=> exit 0
+```
+
+Live Goose ACP surface re-proved:
+
+```text
+bash scripts/goose-acp-live-probe.sh
+=> LIVE_ACP_SURFACE_PASS
+=> providers/catalog/list count=106
+=> providers/setup/catalog/list count=32
+=> providers/config/status count=65
+=> config/extensions/list count=11
+=> session/prompt streamed 10 session/update events, stopReason=end_turn
+```
+
+Golden Rule static check remains clean for the native Goose/Agent lane: no Swift-owned provider/model
+roster was found in `Epistemos/Goose/*.swift`; provider/model/extension inventory remains live Goose
+ACP data, with native labels/routes only for the fixed app navigation categories.
+
+### Current build gate
+
+Full `xcodebuild ... build-for-testing` is still not claimable green from this lane. The latest run
+failed in Plan-2 editor files, outside the Goose/Agent ownership boundary:
+
+```text
+Epistemos/Views/Notes/MarkEditCoreEditorView.swift:483:19: error: cannot find type 'WebFontFace' in scope
+Epistemos/Views/Notes/MarkEditCoreEditorView.swift:508:71: error: cannot find type 'WebFontFace' in scope
+Epistemos/Views/Notes/MarkEditCoreEditorView.swift:964:19: error: cannot find type 'WebFontFace' in scope
+```
+
+`WebFontFace` exists in `LocalPackages/MarkEdit/MarkEditCore/Sources/EditorSharedTypes.swift`, so this
+is a Plan-2/MarkEdit integration or target-membership build break, not a Goose regression. Per the
+lane rules it was not edited here.
+
+### Commit hygiene note
+
+The root worktree contains unrelated dirty Plan-2 and Plan-3 files (`MarkEdit*`, `Arxiv*`) that this
+pass did not create or edit. The nested Goose checkout is also already heavily dirty from earlier
+Goose work, so the Web UI reskin changes are present in that checkout but cannot be safely committed as
+an isolated nested-repo commit without first separating prior unrelated Goose modifications.
