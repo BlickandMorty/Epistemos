@@ -23,7 +23,9 @@ FEATURE_ARGS=()
 if [ "${TARGET_NAME:-}" = "Epistemos-AppStore" ] || [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" = "com.epistemos.appstore" ]; then
     FEATURE_ARGS+=(--no-default-features --features "mas-build,lsp-runtime")
 else
-    FEATURE_ARGS+=(--no-default-features --features "pro-build,lsp-runtime")
+    # Keep the Plan 3 PDF parser wired when the direct/pro app build disables
+    # Cargo defaults. The older liteparse/PDFium path stays opt-in.
+    FEATURE_ARGS+=(--no-default-features --features "pro-build,lsp-runtime,edgeparse-pdf,parser-unpdf")
 fi
 
 CARGO_TARGET_ARGS=(--lib)

@@ -705,7 +705,7 @@ struct ReleasePackagingHardeningTests {
         let script = try loadProductionHardeningRepoTextFile("build-agent-core.sh")
 
         #expect(cargoToml.contains("[features]"))
-        #expect(cargoToml.contains("mas-build = []"))
+        #expect(cargoToml.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(cargoToml.contains("pro-build = []"))
         #expect(cargoToml.contains("mas-sandbox = []"))
         #expect(cargoToml.contains("New code should use `mas-build`"))
@@ -715,7 +715,9 @@ struct ReleasePackagingHardeningTests {
         #expect(script.contains("PRODUCT_BUNDLE_IDENTIFIER"))
         #expect(script.contains("com.epistemos.appstore"))
         #expect(script.contains("--features \"mas-build,lsp-runtime\""))
-        #expect(script.contains("--features \"pro-build,lsp-runtime\""))
+        #expect(script.contains("--features \"pro-build,lsp-runtime,edgeparse-pdf,parser-unpdf\""))
+        #expect(!script.contains("liteparse-pdf"),
+                "direct app builds must use the Plan 3 EdgeParse/unpdf parser, not the older PDFium-backed path.")
         #expect(script.contains(#"TEMP_OUTPUT="$(mktemp ../build-rust/libagent_core.XXXXXX)""#))
         #expect(!script.contains(#"libagent_core.XXXXXX.dylib"#),
                 "macOS mktemp does not randomize XXXXXX when it is followed by a suffix; concurrent Xcode builds collide on the literal temp path.")
