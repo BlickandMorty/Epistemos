@@ -66,9 +66,12 @@ nonisolated struct VaultMCPCore {
         case "tools/call":
             return await handleToolsCall(id: id, request: request)
         case "resources/list":
-            return Self.successResponse(id: id, result: ["resources": Self.resourcesList(vaultRoot: vaultRoot)])
+            let relativePaths = await Task.detached(priority: .utility) {
+                Self.markdownRelPaths(vaultRoot: vaultRoot)
+            }.value
+            return Self.successResponse(id: id, result: ["resources": Self.resourcesList(from: relativePaths)])
         case "resources/read":
-            return handleResourcesRead(id: id, request: request)
+            return await handleResourcesRead(id: id, request: request)
         default:
             return Self.errorResponse(id: id, code: -32601, message: "Method not found: \(method)")
         }
@@ -91,7 +94,7 @@ nonisolated struct VaultMCPCore {
         return Self.successResponse(id: id, result: Self.toolCallResult(from: result))
     }
 
-    private func handleResourcesRead(id: Any, request: [String: Any]) -> String {
+    private func handleResourcesRead(id: Any, request: [String: Any]) async -> String {
         guard let params = request["params"] as? [String: Any] else {
             return Self.errorResponse(id: id, code: -32602, message: "resources/read requires params")
         }
@@ -102,8 +105,16 @@ nonisolated struct VaultMCPCore {
             return Self.errorResponse(id: id, code: -32602, message: "resources/read requires vault:/// URI")
         }
 
-        do {
-            let text = try Self.noteText(vaultRoot: vaultRoot, relativePath: relativePath)
+        let readResult = await Task.detached(priority: .utility) {
+            do {
+                return ResourceReadResult.success(try Self.noteText(vaultRoot: vaultRoot, relativePath: relativePath))
+            } catch {
+                return ResourceReadResult.failure(Self.errorMessage(for: error))
+            }
+        }.value
+
+        switch readResult {
+        case .success(let text):
             return Self.successResponse(
                 id: id,
                 result: [
@@ -113,8 +124,8 @@ nonisolated struct VaultMCPCore {
                         "text": text,
                     ]],
                 ])
-        } catch {
-            return Self.errorResponse(id: id, code: -32602, message: Self.errorMessage(for: error))
+        case .failure(let message):
+            return Self.errorResponse(id: id, code: -32602, message: message)
         }
     }
 
@@ -145,7 +156,11 @@ nonisolated struct VaultMCPCore {
     }
 
     static func resourcesList(vaultRoot: URL?) -> [[String: Any]] {
-        markdownRelPaths(vaultRoot: vaultRoot).map { relativePath in
+        resourcesList(from: markdownRelPaths(vaultRoot: vaultRoot))
+    }
+
+    private static func resourcesList(from relativePaths: [String]) -> [[String: Any]] {
+        relativePaths.map { relativePath in
             [
                 "uri": vaultURI(for: relativePath),
                 "name": relativePath,
@@ -354,7 +369,12 @@ nonisolated struct VaultMCPCore {
     }
 }
 
-private enum VaultMCPPathError: Error {
+private enum ResourceReadResult: Sendable {
+    case success(String)
+    case failure(String)
+}
+
+private enum VaultMCPPathError: Error, Sendable {
     case noVaultRoot
     case pathTraversal
     case notMarkdown

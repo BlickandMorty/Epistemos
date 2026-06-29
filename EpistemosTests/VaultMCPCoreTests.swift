@@ -203,6 +203,8 @@ struct VaultMCPCoreTests {
         #expect(source.contains("vaultURI(for:"))
         #expect(source.contains("markdownRelPaths"))
         #expect(source.contains("noteText"))
+        #expect(source.contains("Task.detached(priority: .utility)"))
+        #expect(source.contains("ResourceReadResult"))
         #expect(!source.contains("Process("))
         #expect(!source.contains("NWListener"))
         #expect(!source.contains("listToolsForTier("))
