@@ -6,32 +6,26 @@
 //! commands (`browser_navigate` -> `browser_snapshot` -> `browser_click`, etc.)
 //! and uses a short socket directory on macOS to avoid Unix socket path limits.
 
-use std::env;
-use std::fs;
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tempfile::Builder;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use super::browser_executable::{cdp_url_from_env, extended_path, find_agent_browser};
+use super::browser_command::{
+    cleanup_local_daemon, run_agent_browser_command, socket_dir_for_session,
+};
+use super::browser_executable::cdp_url_from_env;
 use super::browser_private::create_private_browser_dir;
-use super::browser_redaction::redact_browser_error_detail;
 pub use super::browser_schema::{
     browser_back_schema, browser_click_schema, browser_close_schema, browser_console_schema,
     browser_get_images_schema, browser_navigate_schema, browser_press_schema,
     browser_scroll_schema, browser_snapshot_schema, browser_type_schema, browser_vision_schema,
 };
-use super::browser_screenshot::{
-    extract_screenshot_path, next_screenshot_path, path_resolves_inside, screenshot_directory,
-    AGENT_BROWSER_SCREENSHOT_DIR_ENV,
-};
+use super::browser_screenshot::{next_screenshot_path, path_resolves_inside};
 use super::media::VisionAnalyzeHandler;
 use super::registry::{ToolError, ToolHandler};
 use super::web_fetch::validate_url;
@@ -39,7 +33,6 @@ use super::web_fetch::validate_url;
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
 const SNAPSHOT_CHAR_CAP: usize = 8_000;
-const MAX_BROWSER_OUTPUT_BYTES: usize = 512 * 1024;
 
 #[derive(Debug)]
 struct BrowserState {
@@ -522,192 +515,17 @@ fn truncate_snapshot(snapshot: &str) -> (String, bool) {
     )
 }
 
-fn socket_dir_for_session(session_name: &str) -> PathBuf {
-    let base = if cfg!(target_os = "macos") {
-        PathBuf::from("/tmp")
-    } else {
-        env::temp_dir()
-    };
-    base.join(format!("agent-browser-{session_name}"))
-}
-
-async fn run_agent_browser_command(
-    command_name: &str,
-    args: &[String],
-    session_name: &str,
-    cdp_url: Option<&str>,
-    socket_dir: &Path,
-    timeout: Duration,
-) -> Result<Value, ToolError> {
-    let executable = find_agent_browser()?;
-    create_private_browser_dir(socket_dir)?;
-    let stdout_file = Builder::new()
-        .prefix("stdout-")
-        .tempfile_in(socket_dir)
-        .map_err(|e| ToolError::ExecutionFailed(format!("create browser stdout temp file: {e}")))?;
-    let stderr_file = Builder::new()
-        .prefix("stderr-")
-        .tempfile_in(socket_dir)
-        .map_err(|e| ToolError::ExecutionFailed(format!("create browser stderr temp file: {e}")))?;
-
-    let stdout_handle = stdout_file
-        .reopen()
-        .map_err(|e| ToolError::ExecutionFailed(format!("reopen browser stdout temp file: {e}")))?;
-    let stderr_handle = stderr_file
-        .reopen()
-        .map_err(|e| ToolError::ExecutionFailed(format!("reopen browser stderr temp file: {e}")))?;
-
-    let mut command = executable.into_command();
-    if let Some(cdp_url) = cdp_url {
-        command.arg("--cdp").arg(cdp_url);
-    } else {
-        command.arg("--session").arg(session_name);
-    }
-    command.arg("--json").arg(command_name);
-    for arg in args {
-        command.arg(arg);
-    }
-    command.env("AGENT_BROWSER_SOCKET_DIR", socket_dir);
-    if command_name == "screenshot" {
-        command.env(AGENT_BROWSER_SCREENSHOT_DIR_ENV, screenshot_directory()?);
-    }
-    command.env("PATH", extended_path());
-    command.env("PYTHON_DOTENV_DISABLED", "true");
-    command.stdin(Stdio::null());
-    command.stdout(Stdio::from(stdout_handle));
-    command.stderr(Stdio::from(stderr_handle));
-
-    let mut child = command
-        .spawn()
-        .map_err(|e| ToolError::ExecutionFailed(format!("spawn agent-browser: {e}")))?;
-
-    let status = match tokio::time::timeout(timeout, child.wait()).await {
-        Ok(wait_result) => wait_result
-            .map_err(|e| ToolError::ExecutionFailed(format!("wait for agent-browser: {e}")))?,
-        Err(_) => {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            return Err(ToolError::ExecutionFailed(format!(
-                "browser command '{command_name}' timed out after {}s",
-                timeout.as_secs()
-            )));
-        }
-    };
-
-    let stdout = read_limited_browser_output(stdout_file.path(), "stdout")?;
-    let stderr = read_limited_browser_output(stderr_file.path(), "stderr")?;
-    let stdout = stdout.trim().to_string();
-    let stderr = stderr.trim().to_string();
-
-    if !stdout.is_empty() {
-        if let Ok(parsed) = serde_json::from_str::<Value>(&stdout) {
-            if parsed
-                .get("success")
-                .and_then(Value::as_bool)
-                .is_some_and(|success| !success)
-            {
-                let message = parsed
-                    .get("error")
-                    .and_then(Value::as_str)
-                    .unwrap_or("agent-browser reported failure");
-                return Err(ToolError::ExecutionFailed(format!(
-                    "agent-browser '{command_name}' failed: {}",
-                    redact_browser_error_detail(message)
-                )));
-            }
-            return Ok(parsed);
-        }
-
-        if command_name == "screenshot" {
-            if let Some(path) = extract_screenshot_path(&stdout) {
-                return Ok(json!({
-                    "success": true,
-                    "data": {
-                        "path": path,
-                    }
-                }));
-            }
-        }
-
-        if !status.success() {
-            let code = status.code().unwrap_or(-1);
-            let stream = if stderr.is_empty() {
-                "stdout"
-            } else {
-                "stderr"
-            };
-            return Err(ToolError::ExecutionFailed(format!(
-                "agent-browser '{command_name}' failed with exit code {code}; {stream} redacted"
-            )));
-        }
-
-        return Err(ToolError::ExecutionFailed(format!(
-            "agent-browser returned non-JSON output for '{command_name}' (stdout redacted)"
-        )));
-    }
-
-    if !status.success() {
-        let code = status.code().unwrap_or(-1);
-        let detail = if stderr.is_empty() {
-            format!("exit code {code}")
-        } else {
-            format!("exit code {code}; stderr redacted")
-        };
-        return Err(ToolError::ExecutionFailed(format!(
-            "agent-browser '{command_name}' failed: {detail}"
-        )));
-    }
-
-    Ok(json!({
-        "success": true,
-        "data": {},
-    }))
-}
-
-fn read_limited_browser_output(path: &Path, stream: &str) -> Result<String, ToolError> {
-    let file = fs::File::open(path)
-        .map_err(|e| ToolError::ExecutionFailed(format!("read browser {stream}: {e}")))?;
-    let mut reader = file.take((MAX_BROWSER_OUTPUT_BYTES + 1) as u64);
-    let mut bytes = Vec::with_capacity(MAX_BROWSER_OUTPUT_BYTES.min(8 * 1024));
-    reader
-        .read_to_end(&mut bytes)
-        .map_err(|e| ToolError::ExecutionFailed(format!("read browser {stream}: {e}")))?;
-
-    let truncated = bytes.len() > MAX_BROWSER_OUTPUT_BYTES;
-    if truncated {
-        bytes.truncate(MAX_BROWSER_OUTPUT_BYTES);
-    }
-    let mut text = String::from_utf8_lossy(&bytes).into_owned();
-    if truncated {
-        text.push_str(&format!(
-            "\n... [{stream} truncated at {MAX_BROWSER_OUTPUT_BYTES} bytes]"
-        ));
-    }
-    Ok(text)
-}
-
-fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
-    #[cfg(unix)]
-    {
-        let pid_file = socket_dir.join(format!("{session_name}.pid"));
-        if let Ok(pid_text) = fs::read_to_string(&pid_file) {
-            if let Ok(pid) = pid_text.trim().parse::<i32>() {
-                // SAFETY: Sending SIGTERM to a pid read from agent-browser's own
-                // pidfile is the intended cleanup path for that child daemon.
-                unsafe { libc::kill(pid, libc::SIGTERM) };
-            }
-        }
-    }
-    let _ = fs::remove_dir_all(socket_dir);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use std::ffi::OsString;
+    use std::fs;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
 
+    use super::super::browser_screenshot::screenshot_directory;
     use tokio::sync::Mutex as AsyncMutex;
 
     static TEST_ENV_LOCK: std::sync::OnceLock<AsyncMutex<()>> = std::sync::OnceLock::new();

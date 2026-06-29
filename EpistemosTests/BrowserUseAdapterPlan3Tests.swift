@@ -141,6 +141,7 @@ struct BrowserUseAdapterPlan3Tests {
     @Test("Rust browser tools discover the bundled browser-use adapter before PATH fallback")
     func rustBrowserToolsDiscoverBundledAdapterBeforePathFallback() throws {
         let browserTool = try loadMirroredSourceTextFile("agent_core/src/tools/browser.rs")
+        let browserCommand = try loadMirroredSourceTextFile("agent_core/src/tools/browser_command.rs")
         let browserExecutable = try loadMirroredSourceTextFile("agent_core/src/tools/browser_executable.rs")
         let browserPrivate = try loadMirroredSourceTextFile("agent_core/src/tools/browser_private.rs")
         let browserRedaction = try loadMirroredSourceTextFile("agent_core/src/tools/browser_redaction.rs")
@@ -150,15 +151,29 @@ struct BrowserUseAdapterPlan3Tests {
 
         for required in [
             "cdp_url_from_env",
-            "find_agent_browser",
-            "PYTHON_DOTENV_DISABLED",
-            "AGENT_BROWSER_SCREENSHOT_DIR_ENV",
-            "screenshot_directory()",
+            "run_agent_browser_command",
             "browser_screenshot_exports_private_root_to_adapter",
             "path_resolves_inside",
             "browser screenshot resolved outside private screenshot directory",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
+        }
+
+        for required in [
+            "find_agent_browser",
+            "socket_dir_for_session",
+            "read_limited_browser_output",
+            "MAX_BROWSER_OUTPUT_BYTES",
+            "AGENT_BROWSER_SOCKET_DIR",
+            "AGENT_BROWSER_SCREENSHOT_DIR_ENV",
+            "screenshot_directory()",
+            "PYTHON_DOTENV_DISABLED",
+            "redact_browser_error_detail",
+            "agent-browser returned non-JSON output",
+            "agent-browser '{command_name}' failed",
+            "cleanup_local_daemon",
+        ] {
+            #expect(browserCommand.contains(required), "Missing Rust browser-use command runner string: \(required)")
         }
 
         for required in [

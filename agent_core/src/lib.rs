@@ -202,6 +202,8 @@ pub mod tools {
     #[cfg(feature = "pro-build")]
     pub mod browser;
     #[cfg(feature = "pro-build")]
+    pub mod browser_command;
+    #[cfg(feature = "pro-build")]
     pub mod browser_executable;
     #[cfg(feature = "pro-build")]
     pub mod browser_private;

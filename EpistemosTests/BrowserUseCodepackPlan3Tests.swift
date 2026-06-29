@@ -62,6 +62,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("sets `PYTHON_DOTENV_DISABLED=true`"))
         #expect(codepack.contains("does not re-interpolate Keychain-rendered values"))
         #expect(codepack.contains("Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true`"))
+        #expect(codepack.contains("agent_core/src/tools/browser_command.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_executable.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_private.rs"))
         #expect(codepack.contains("agent_core/src/tools/browser_redaction.rs"))
