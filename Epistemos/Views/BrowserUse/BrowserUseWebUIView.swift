@@ -145,6 +145,13 @@ struct BrowserUseWebUIView: View {
         readiness = supervisor?.readiness(settings: settings, host: host, port: port, theme: themeName)
             ?? .unavailable("browser-use Pro runtime source is not installed.")
         if !readiness.isReady {
+            startTask?.cancel()
+            startWorker?.cancel()
+            startTask = nil
+            startWorker = nil
+            startRequestID = UUID()
+            isStarting = false
+            supervisor?.stop()
             loadedURL = nil
         }
     }
