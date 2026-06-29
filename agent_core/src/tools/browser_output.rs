@@ -3,6 +3,7 @@ use serde_json::{json, Map, Value};
 
 const MAX_BROWSER_IMAGES: usize = 50;
 const MAX_BROWSER_IMAGE_TEXT_CHARS: usize = 512;
+const MAX_BROWSER_SNAPSHOT_REFS: usize = 500;
 const MAX_BROWSER_CONSOLE_ITEMS: usize = 100;
 const MAX_BROWSER_CONSOLE_OBJECT_FIELDS: usize = 40;
 const MAX_BROWSER_CONSOLE_KEY_CHARS: usize = 128;
@@ -67,6 +68,23 @@ pub(crate) fn normalize_console_items(raw_items: Value) -> (Value, usize, bool) 
         .collect::<Vec<_>>();
 
     (Value::Array(normalized), items.len(), truncated)
+}
+
+pub(crate) fn normalize_snapshot_refs(raw_refs: Value) -> (Value, usize, bool) {
+    let Some(refs) = raw_refs.as_object() else {
+        return (json!({}), 0, false);
+    };
+
+    let mut truncated = refs.len() > MAX_BROWSER_SNAPSHOT_REFS;
+    let mut normalized = Map::new();
+    for (key, value) in refs.iter().take(MAX_BROWSER_SNAPSHOT_REFS) {
+        let (key, key_truncated) = truncate_console_text(key, MAX_BROWSER_CONSOLE_KEY_CHARS);
+        let (value, value_truncated) = bound_console_value_ref(value, 2);
+        truncated |= key_truncated || value_truncated;
+        normalized.insert(key, value);
+    }
+
+    (Value::Object(normalized), refs.len(), truncated)
 }
 
 pub(crate) fn bound_console_value(value: Value) -> (Value, bool) {
@@ -239,6 +257,30 @@ mod tests {
             MAX_BROWSER_IMAGE_TEXT_CHARS
         );
         assert!(images[0].get("ignored").is_none());
+    }
+
+    #[test]
+    fn browser_snapshot_refs_are_bounded() {
+        let mut refs = Map::new();
+        for index in 0..(MAX_BROWSER_SNAPSHOT_REFS + 2) {
+            refs.insert(
+                format!("@e{index}"),
+                json!({
+                    "role": "button",
+                    "label": "x".repeat(MAX_BROWSER_CONSOLE_TEXT_CHARS + 1),
+                }),
+            );
+        }
+
+        let (refs, count, truncated) = normalize_snapshot_refs(Value::Object(refs));
+        let refs = refs.as_object().unwrap();
+        assert_eq!(count, MAX_BROWSER_SNAPSHOT_REFS + 2);
+        assert_eq!(refs.len(), MAX_BROWSER_SNAPSHOT_REFS);
+        assert!(truncated);
+        assert!(refs.values().next().unwrap()["label"]
+            .as_str()
+            .unwrap()
+            .contains("[Truncated:"));
     }
 
     #[test]

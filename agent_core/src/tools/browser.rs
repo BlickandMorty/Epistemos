@@ -23,7 +23,8 @@ use super::browser_input::{
     normalize_ref, optional_bool_field, optional_string_field, truncate_snapshot,
 };
 use super::browser_output::{
-    bound_console_value, normalize_console_items, normalize_image_results, sanitize_url_for_output,
+    bound_console_value, normalize_console_items, normalize_image_results, normalize_snapshot_refs,
+    sanitize_url_for_output,
 };
 use super::browser_private::create_private_browser_dir;
 pub use super::browser_schema::{
@@ -239,13 +240,13 @@ async fn snapshot_impl(manager: &BrowserManager, input: &Value) -> Result<Value,
         .and_then(|data| data.get("snapshot"))
         .and_then(Value::as_str)
         .unwrap_or("");
-    let refs = raw
+    let raw_refs = raw
         .get("data")
         .and_then(|data| data.get("refs"))
         .cloned()
         .unwrap_or_else(|| json!({}));
     let (snapshot, truncated) = truncate_snapshot(snapshot_text);
-    let element_count = refs.as_object().map(|refs| refs.len()).unwrap_or(0);
+    let (refs, element_count, refs_truncated) = normalize_snapshot_refs(raw_refs);
     Ok(json!({
         "success": true,
         "snapshot": snapshot,
@@ -253,6 +254,7 @@ async fn snapshot_impl(manager: &BrowserManager, input: &Value) -> Result<Value,
         "element_count": element_count,
         "refs": refs,
         "truncated": truncated,
+        "refs_truncated": refs_truncated,
     }))
 }
 

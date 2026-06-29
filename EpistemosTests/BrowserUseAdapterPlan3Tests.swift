@@ -266,10 +266,12 @@ struct BrowserUseAdapterPlan3Tests {
             "MAX_BROWSER_CONSOLE_ITEMS",
             "MAX_BROWSER_CONSOLE_TEXT_CHARS",
             "normalize_image_results",
+            "normalize_snapshot_refs",
             "normalize_console_items",
             "bound_console_value",
             "sanitize_url_for_output",
             "browser_get_images_normalizes_and_bounds_page_controlled_results",
+            "browser_snapshot_refs_are_bounded",
             "browser_console_output_bounds_page_controlled_values",
             "browser_url_output_drops_credentials_query_and_fragment",
         ] {

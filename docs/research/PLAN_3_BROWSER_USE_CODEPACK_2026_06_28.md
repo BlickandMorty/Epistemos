@@ -180,7 +180,8 @@ validated before runtime import and must be loopback-only with no URL credential
   `BROWSER_CDP_URL`; the only CDP override env is `EPISTEMOS_BROWSER_USE_CDP_URL`, and it must be valid UTF-8, point at
   localhost, 127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. The browser output
   policy is isolated in `agent_core/src/tools/browser_output.rs`: `browser_get_images` normalizes page-controlled image
-  metadata, caps returned image count, and truncates image text fields, while `browser_console` caps page-controlled
+  metadata, caps returned image count, and truncates image text fields; `browser_snapshot` caps and bounds returned refs;
+  and `browser_console` caps page-controlled
   console/error/evaluation arrays, object fields, and strings before returning tool output. Browser URL result fields from
   `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments before returning tool output.
   `browser_vision` also rejects screenshot
