@@ -5,6 +5,41 @@ nonisolated enum HTMLWorkspaceSafeAPI {
     static let messageHandlerName = "htmlWorkspaceSafeAPI"
 }
 
+nonisolated enum HTMLWorkspacePreviewIdentity {
+    static func viewIdentity(for package: HTMLWorkspacePackage) -> String {
+        "\(package.manifest.id)-\(contentShellHash(for: package))"
+    }
+
+    static func renderShellIdentity(
+        for package: HTMLWorkspacePackage,
+        previewTheme: HTMLWorkspacePreviewTheme?,
+        themeGuardCSSOverride: String?,
+        themeIdentity: String?
+    ) -> String {
+        let themeGuardCSS = themeGuardCSSOverride
+            ?? previewTheme?.guardCSS
+            ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
+        return [
+            package.manifest.id,
+            contentShellHash(for: package),
+            package.manifest.sandboxPolicy.contentSecurityPolicy,
+            previewTheme?.rawValue ?? "system",
+            themeGuardCSS,
+            HTMLWorkspacePreviewTheme.hostCSS,
+            themeIdentity ?? "",
+        ].joined(separator: "\u{0}")
+    }
+
+    private static func contentShellHash(for package: HTMLWorkspacePackage) -> String {
+        HTMLWorkspaceDocument.contentHash(
+            indexHTML: package.indexHTML,
+            styleCSS: package.styleCSS,
+            scriptJS: package.scriptJS,
+            dataJSON: ""
+        )
+    }
+}
+
 /// SS-HW seam upgrade: the JS-console / error-capture bridge that was a deferred stub. Injects a
 /// read-only capture script (window 'error' + unhandledrejection + console.error/warn → Swift) so
 /// the already-built console pipeline (HTMLWorkspaceConsoleError + .recordConsoleError + the console
@@ -114,10 +149,29 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             theme: previewTheme,
             themeGuardCSSOverride: themeGuardCSSOverride
         )
+        let shellIdentity = HTMLWorkspacePreviewIdentity.renderShellIdentity(
+            for: package,
+            previewTheme: previewTheme,
+            themeGuardCSSOverride: themeGuardCSSOverride,
+            themeIdentity: themeIdentity
+        )
+        if context.coordinator.canPatchDataOnly(
+            shellIdentity: shellIdentity,
+            dataJSON: package.dataJSON
+        ) {
+            context.coordinator.patchDataJSON(
+                package.dataJSON,
+                renderedFallbackHTML: rendered,
+                in: webView
+            )
+            return
+        }
         guard context.coordinator.lastRenderedHTML != rendered ||
                 context.coordinator.lastRenderedThemeIdentity != themeIdentity else { return }
         context.coordinator.lastRenderedHTML = rendered
         context.coordinator.lastRenderedThemeIdentity = themeIdentity
+        context.coordinator.lastRenderedShellIdentity = shellIdentity
+        context.coordinator.lastRenderedDataJSON = package.dataJSON
         webView.loadHTMLString(rendered, baseURL: nil)
     }
 
@@ -129,6 +183,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         var themeIdentity: String?
         var lastRenderedHTML: String?
         var lastRenderedThemeIdentity: String?
+        var lastRenderedShellIdentity: String?
+        var lastRenderedDataJSON: String?
         var messageHandlerInstalled = false
         var consoleHandlerInstalled = false
         var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
@@ -148,6 +204,56 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             self.themeGuardCSSOverride = themeGuardCSSOverride
             self.themeIdentity = themeIdentity
             self.onConsoleError = onConsoleError
+        }
+
+        func canPatchDataOnly(shellIdentity: String, dataJSON: String) -> Bool {
+            guard lastRenderedHTML != nil,
+                  lastRenderedShellIdentity == shellIdentity,
+                  lastRenderedDataJSON != dataJSON else {
+                return false
+            }
+            return true
+        }
+
+        func patchDataJSON(
+            _ dataJSON: String,
+            renderedFallbackHTML: String,
+            in webView: WKWebView
+        ) {
+            lastRenderedHTML = renderedFallbackHTML
+            lastRenderedDataJSON = dataJSON
+            let rawLiteral = Self.javaScriptStringLiteral(dataJSON)
+            let script = """
+            (() => {
+              const rawJSON = \(rawLiteral);
+              let nextData;
+              try {
+                nextData = JSON.parse(rawJSON || '{}');
+              } catch (error) {
+                nextData = { error: 'Invalid data.json' };
+                console.error('HTMLWorkspace data.json parse failed', error);
+              }
+              if (typeof window.__epistemosReplaceWorkspaceData === 'function') {
+                window.__epistemosReplaceWorkspaceData(nextData, rawJSON);
+                return 'patched';
+              }
+              return 'missing-runtime';
+            })();
+            """
+            webView.evaluateJavaScript(script) { [weak self, weak webView] result, error in
+                guard let self, let webView else { return }
+                if error != nil || (result as? String) != "patched" {
+                    webView.loadHTMLString(renderedFallbackHTML, baseURL: nil)
+                }
+            }
+        }
+
+        private static func javaScriptStringLiteral(_ value: String) -> String {
+            guard let data = try? JSONEncoder().encode(value),
+                  let literal = String(data: data, encoding: .utf8) else {
+                return "\"\""
+            }
+            return literal
         }
 
         func webView(
@@ -204,6 +310,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             }
             lastRenderedHTML = nil
             lastRenderedThemeIdentity = nil
+            lastRenderedShellIdentity = nil
+            lastRenderedDataJSON = nil
         }
 
         func userContentController(

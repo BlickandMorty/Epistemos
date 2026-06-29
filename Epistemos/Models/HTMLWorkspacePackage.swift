@@ -892,17 +892,48 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
     private static let localDOMHelperJavaScript = """
     (() => {
       const dataNode = document.getElementById('workspace-data');
-      let data = {};
-      try {
-        data = JSON.parse(dataNode?.textContent || '{}');
-      } catch (error) {
-        data = { error: 'Invalid data.json' };
-        console.error('HTMLWorkspace data.json parse failed', error);
-      }
+      const parseWorkspaceData = (raw) => {
+        try {
+          return JSON.parse(raw || '{}');
+        } catch (error) {
+          console.error('HTMLWorkspace data.json parse failed', error);
+          return { error: 'Invalid data.json' };
+        }
+      };
+      const state = {
+        data: parseWorkspaceData(dataNode?.textContent || '{}')
+      };
+      const replaceWorkspaceData = (nextData, rawJSON = null, emitEvent = true) => {
+        state.data = nextData;
+        if (dataNode) {
+          dataNode.textContent = rawJSON === null ? JSON.stringify(nextData) : String(rawJSON);
+        }
+        if (emitEvent) {
+          try {
+            window.dispatchEvent(new CustomEvent('htmlworkspace:datachange', { detail: nextData }));
+          } catch (error) {
+            console.warn('HTMLWorkspace datachange event failed', error);
+          }
+        }
+        return true;
+      };
+
+      Object.defineProperty(window, '__epistemosReplaceWorkspaceData', {
+        value(nextData, rawJSON = null) {
+          return replaceWorkspaceData(nextData, rawJSON);
+        },
+        writable: false,
+        configurable: false,
+        enumerable: false
+      });
+
+      replaceWorkspaceData(state.data, dataNode?.textContent || '{}', false);
 
       const toArray = (children) => Array.isArray(children) ? children : [children];
       const api = {
-        data,
+        get data() {
+          return state.data;
+        },
         q(selector, scope = document) {
           return scope.querySelector(selector);
         },

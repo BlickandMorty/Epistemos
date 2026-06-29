@@ -347,14 +347,7 @@ private struct GraphHTMLWorkspaceItem: Identifiable {
         return "Unsaved workspace"
     }
 
-    var contentHash: String {
-        HTMLWorkspaceDocument.contentHash(
-            indexHTML: document.package.indexHTML,
-            styleCSS: document.package.styleCSS,
-            scriptJS: document.package.scriptJS,
-            dataJSON: document.package.dataJSON
-        )
-    }
+    var previewIdentity: String { HTMLWorkspacePreviewIdentity.viewIdentity(for: document.package) }
 }
 
 private struct GraphHTMLWorkspaceDock: View {
@@ -517,7 +510,7 @@ private struct GraphHTMLWorkspaceDock: View {
                 safeAPIEnabled: false,
                 previewTheme: previewTheme
             )
-            .id("\(selected.id)-\(selected.contentHash)-\(previewTheme.rawValue)")
+            .id(selected.previewIdentity)
             .frame(height: 190)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(

@@ -31,6 +31,11 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.enabled"))
         #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.injectionScript"))
         #expect(previewSource.contains("onConsoleError != nil"))
+        #expect(previewSource.contains("canPatchDataOnly"))
+        #expect(previewSource.contains("patchDataJSON"))
+        #expect(previewSource.contains("evaluateJavaScript(script)"))
+        #expect(previewSource.contains("__epistemosReplaceWorkspaceData"))
+        #expect(previewSource.contains("lastRenderedShellIdentity"))
         #expect(previewSource.components(separatedBy: "addUserScript(").count == 2,
                 "Preview may install exactly one user script: the env-gated console capture bridge.")
         #expect(previewSource.contains("configuration.userContentController.addUserScript("),
@@ -103,6 +108,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("importHTML()"))
         #expect(editorSource.contains("exportHTML()"))
         #expect(editorSource.contains("previewRenderIdentity"))
+        #expect(editorSource.contains("HTMLWorkspacePreviewIdentity.viewIdentity(for: previewPackage)"))
         #expect(editorSource.contains("themeIdentity: workspaceThemeIdentity"))
         #expect(editorSource.contains("currentHTMLWorkspaceDocument()"))
         #expect(editorSource.contains("document.save(nil)"))

@@ -174,7 +174,7 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
                 safeAPIEnabled: false,
                 previewTheme: nil
             )
-            .id(Self.previewIdentity(for: document.package))
+            .id(HTMLWorkspacePreviewIdentity.viewIdentity(for: document.package))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.background)
         } else {
@@ -193,15 +193,6 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
             .first { $0.package.manifest.id == targetID }
     }
 
-    private static func previewIdentity(for package: HTMLWorkspacePackage) -> String {
-        let contentHash = HTMLWorkspaceDocument.contentHash(
-            indexHTML: package.indexHTML,
-            styleCSS: package.styleCSS,
-            scriptJS: package.scriptJS,
-            dataJSON: package.dataJSON
-        )
-        return "\(package.manifest.id)-\(contentHash)"
-    }
 }
 
 nonisolated struct HTMLWorkspaceMissingPanel: View {

@@ -629,18 +629,10 @@ struct HTMLWorkspaceEditorView: View {
         // preview was open → "often crashes"). With the theme OUT of the identity an
         // appearance flip instead drives updateNSView, which re-renders the LIVE
         // WebView with the new previewTheme (HTMLWorkspacePreviewView.loadPreview) —
-        // no teardown, no crash. Identity stays content-only, so genuine content
-        // edits still recreate as intended.
-        "\(previewPackage.manifest.id)-\(previewContentHash)"
-    }
-
-    private var previewContentHash: String {
-        HTMLWorkspaceDocument.contentHash(
-            indexHTML: previewPackage.indexHTML,
-            styleCSS: previewPackage.styleCSS,
-            scriptJS: previewPackage.scriptJS,
-            dataJSON: previewPackage.dataJSON
-        )
+        // no teardown, no crash. Identity stays shell-only: HTML/CSS/JS edits still
+        // recreate as intended, while data.json-only changes flow through
+        // HTMLWorkspacePreviewView's in-place data patch.
+        HTMLWorkspacePreviewIdentity.viewIdentity(for: previewPackage)
     }
 
     private var workspaceAttachment: ContextAttachment {

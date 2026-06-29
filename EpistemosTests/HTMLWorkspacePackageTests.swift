@@ -111,6 +111,9 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(darkSrcdoc.contains("data-metric-value"))
         #expect(darkSrcdoc.contains("font-synthesis: none"))
         #expect(srcdoc.contains("window, 'HTMLWorkspace'"))
+        #expect(srcdoc.contains("get data()"))
+        #expect(srcdoc.contains("__epistemosReplaceWorkspaceData"))
+        #expect(srcdoc.contains("htmlworkspace:datachange"))
         #expect(!srcdoc.contains("window.webkit.messageHandlers"),
                 "Preview HTML must not expose app bridge handlers unless an explicit safe API is enabled.")
     }
