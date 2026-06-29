@@ -110,7 +110,7 @@ final class GooseACPEventBridge {
             do {
                 try await client.respondToPermission(requestId: prompt.requestID, response: response)
             } catch {
-                self?.fail(error)
+                self?.recordResponseSendFailure(error, context: "permission")
             }
         }
     }
@@ -280,7 +280,7 @@ final class GooseACPEventBridge {
             do {
                 try await client.respondToElicitation(requestId: prompt.requestID, response: response)
             } catch {
-                self?.fail(error)
+                self?.recordResponseSendFailure(error, context: "elicitation")
             }
         }
     }
@@ -366,7 +366,7 @@ final class GooseACPEventBridge {
                 do {
                     try await client.respondUnsupportedRequest(requestId: id, method: method)
                 } catch {
-                    self?.fail(error)
+                    self?.recordResponseSendFailure(error, context: "unhandled-request")
                 }
             }
         case .unhandledNotification(let method, let params):
@@ -405,6 +405,21 @@ final class GooseACPEventBridge {
 
     private func fail(_ error: Error) {
         status = .failed(error.localizedDescription)
+    }
+
+    // M1 (WebView-host review): a transient error sending a RESPONSE (permission/elicitation/
+    // unsupported-request reply) must NOT flip the bridge to .failed. The socket and read loop are
+    // still alive (incoming events keep flowing), and the terminal `fail()` path is the only place
+    // that clears `connectionKey` — so a `.connected → .failed` here is a FALSE-RED the UI can't
+    // recover from in place (a re-connect to the same key is a no-op while the key is still set).
+    // Record it as a diagnostic and leave the live status intact; genuine connection death still
+    // surfaces through the read loop's terminal `fail()`.
+    private func recordResponseSendFailure(_ error: Error, context: String) {
+        recordDiagnostic(
+            kind: .request,
+            method: "response-send-failed(\(context))",
+            params: .string(error.localizedDescription)
+        )
     }
 }
 
