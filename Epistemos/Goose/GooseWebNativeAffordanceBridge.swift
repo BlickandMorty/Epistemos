@@ -10,15 +10,14 @@ import WebKit
 final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWithReply {
     typealias Handler = @MainActor ([Any]) throws -> Any?
 
-    nonisolated static let blockedExternalProtocols: Set<String> = [
-        "file",
-        "javascript",
-        "data",
-        "vbscript",
-        "blob",
-        "about",
-        "chrome",
-        "chrome-extension",
+    // SECURITY (deep-hardening 2026-06-29 #13/#24): deny-by-default ALLOWLIST of safe
+    // user-facing schemes. A denylist permitted smb://, ftp://, vnc://, ssh:// and arbitrary
+    // app deep-link schemes from WebView content (LSOpen of attacker-chosen handlers).
+    nonisolated static let allowedExternalSchemes: Set<String> = [
+        "http",
+        "https",
+        "mailto",
+        "tel",
     ]
 
     nonisolated private static let webProtocols: Set<String> = ["http", "https"]
@@ -33,6 +32,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private var appWindows: [String: NSWindow] = [:]
     private var appWebViews: [String: WKWebView] = [:]
     private var appWindowDelegates: [String: GooseWebNativeAppWindowDelegate] = [:]
+    private var appGuestNavDelegates: [String: GooseWebNativeAppGuestNavigationDelegate] = [:]
     private var wakelockAssertionID: IOPMAssertionID = 0
 
     init(
@@ -238,7 +238,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     nonisolated static func shouldOpenExternalURL(_ rawURL: String) -> Bool {
         guard let scheme = URL(string: rawURL)?.scheme?.lowercased() else { return false }
-        return !blockedExternalProtocols.contains(scheme)
+        return allowedExternalSchemes.contains(scheme)
     }
 
     nonisolated static func shouldOpenBrowserURL(_ rawURL: String) -> Bool {
@@ -476,6 +476,14 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let process = Process()
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
         process.arguments = ["-C", expandedPath, "worktree", "list", "--porcelain"]
+        // SECURITY (deep-hardening 2026-06-29 #23): set an explicit minimal environment instead of
+        // inheriting the full process env (which carries DYLD_*/LD_*/Malloc*/NODE_*/PYTHON* etc.).
+        let gitDir = URL(fileURLWithPath: git, isDirectory: false).deletingLastPathComponent().path
+        process.environment = [
+            "PATH": "\(gitDir):/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+            "HOME": fileManager.homeDirectoryForCurrentUser.path,
+            "LANG": "en_US.UTF-8",
+        ]
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
@@ -578,10 +586,19 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return
         }
 
+        // SECURITY (deep-hardening 2026-06-29 #14): the guest webview renders attacker-influenced
+        // HTML. Use a non-persistent data store and a navigation delegate that denies navigating
+        // the top frame off the rendered widget (no external http, no arbitrary file:, no
+        // javascript:/app-deeplink). Only the app-support render root + loopback + about: pass.
+        let guestConfiguration = WKWebViewConfiguration()
+        guestConfiguration.websiteDataStore = .nonPersistent()
         let webView = WKWebView(
             frame: .zero,
-            configuration: WKWebViewConfiguration()
+            configuration: guestConfiguration
         )
+        let guestNavDelegate = GooseWebNativeAppGuestNavigationDelegate(allowedFileRoot: applicationSupportRoot)
+        webView.navigationDelegate = guestNavDelegate
+        appGuestNavDelegates[name] = guestNavDelegate
         if let html = htmlContent(from: app) {
             webView.loadHTMLString(html, baseURL: applicationSupportRoot)
         } else if let rawURI = app["uri"] as? String,
@@ -608,6 +625,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             self?.appWindows.removeValue(forKey: name)
             self?.appWebViews.removeValue(forKey: name)
             self?.appWindowDelegates.removeValue(forKey: name)
+            self?.appGuestNavDelegates.removeValue(forKey: name)
         }
         window.delegate = delegate
         appWindows[name] = window
@@ -1025,5 +1043,42 @@ private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate 
 
     func windowWillClose(_ notification: Notification) {
         onClose()
+    }
+}
+
+/// SECURITY (deep-hardening 2026-06-29 #14): navigation gate for MCP-app guest webviews. The guest
+/// HTML is attacker-influenced, so the top frame may only render the initial widget (its
+/// app-support render root) + about:; loopback http is allowed (the guest may talk to the local
+/// goose server) but ANY external origin, arbitrary file: path, javascript:/data:/app-deeplink
+/// navigation is denied.
+private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNavigationDelegate {
+    private let allowedFileRoot: String
+
+    init(allowedFileRoot: URL?) {
+        self.allowedFileRoot = allowedFileRoot?.standardizedFileURL.path ?? ""
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        switch url.scheme?.lowercased() {
+        case "about":
+            decisionHandler(.allow)
+        case "file":
+            let path = url.standardizedFileURL.path
+            let allowed = !allowedFileRoot.isEmpty
+                && (path == allowedFileRoot || path.hasPrefix(allowedFileRoot + "/"))
+            decisionHandler(allowed ? .allow : .cancel)
+        case "http", "https", "ws", "wss":
+            decisionHandler(GooseTrustedLoopbackOrigins.isLoopback(url.host) ? .allow : .cancel)
+        default:
+            decisionHandler(.cancel)
+        }
     }
 }
