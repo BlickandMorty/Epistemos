@@ -207,6 +207,9 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             return "missing \(name) at \(relativePath)"
         }
+        guard resolvesInsideVendorRoot(url, relativeTo: manifestRoot) else {
+            return "\(name) resolves outside vendor root at \(relativePath)"
+        }
         if requiresDirectory && !isDirectory.boolValue {
             return "\(name) is not a directory at \(relativePath)"
         }
@@ -233,6 +236,12 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         }
 
         return manifestRoot.appendingPathComponent(trimmed, isDirectory: isDirectory)
+    }
+
+    private func resolvesInsideVendorRoot(_ url: URL, relativeTo manifestRoot: URL) -> Bool {
+        let root = manifestRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+        return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
     }
 }
 

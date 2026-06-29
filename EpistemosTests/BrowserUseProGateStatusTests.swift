@@ -159,6 +159,48 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest artifact symlinks cannot resolve outside the vendor root")
+    func manifestArtifactSymlinksCannotResolveOutsideVendorRoot() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-symlink-\(UUID().uuidString)", isDirectory: true)
+        let outsideURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-outside-\(UUID().uuidString).lock", isDirectory: false)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("outside lock\n".utf8).write(to: outsideURL)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outsideURL)
+        }
+
+        let manifestURL = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        try Data(Self.packagedManifestJSON.utf8).write(to: manifestURL)
+
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("requirements.lock", isDirectory: false),
+            withDestinationURL: outsideURL
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("wheels", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("playwright", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data("{}".utf8).write(to: root.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false))
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: manifestURL
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: packaged payload incomplete")
+        #expect(status.detail.contains("requirements.lock resolves outside vendor root at requirements.lock"))
+        #endif
+    }
+
     @Test("gate source stays pure and out of other plan ownership")
     func gateSourceStaysPureAndInPlan3Boundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift")
@@ -174,6 +216,7 @@ struct BrowserUseProGateStatusTests {
             "artifactURL(",
             "unsafe path",
             "is a directory at",
+            "resolves outside vendor root",
             "packaged payload incomplete",
             "BUILD_MANIFEST.json",
             "sourceMirrorGuard.requiredExclude"
