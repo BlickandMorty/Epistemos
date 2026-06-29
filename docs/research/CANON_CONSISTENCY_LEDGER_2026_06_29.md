@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 18:45 CDT (loop cycle 18) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW (1 still open from cycle 12). Steady-state: no new plans (still 1–7). Plan-3 capability docs (BROWSER_USE/CAPABILITIES/MEETING_STT/VOICE) refined, drift-scanned clean; other commits code-only (Kokoro voice gate, meeting buffers, ACP prompt-cancel, HTML Workspace live feeds). HEAD at pass: `6265b6f88`.
+**Last auditor pass:** 2026-06-29 18:55 CDT (loop cycle 19) — **10/10 ✅**, 0 locked-canon drift, **1 NEW OWNER REVIEW** (2 open total). WAVE-2 recon (`0daaf6695`) surfaced graph-CHROME items (#34 dead graph toggles, #35 graph top-bar/pill, #28 home↔graph transition) + a proposed "Plan 8 — Theming & Appearance" → potential rub with invariant #6 (Graph=DO-NOT-TOUCH); PARKED the boundary question (recon is tentative, not build-instruction; invariant grep still passes; did not banner/guess). No new PROMPT_PLAN docs (still 1–7). Plan-3 docs + settings-sidebar brand-marks drift-scanned clean. HEAD at pass: `4c2423d00`.
 <br>_Recent: cycle 13 (17:59) tracked Plans 6/7 + Plan-4 §11 animation, widened #9 to [4-9]. cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
@@ -62,6 +62,18 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   Pro/Dev-ID gated). No locked-invariant contradiction. (Full read deferred until owner activates.)
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
+- **2026-06-29 cycle 19 (Auditor) — "graph CHROME" items vs invariant #6 "Graph = DO NOT TOUCH" (boundary question;
+  NOT live drift — these are recon proposals, not build instructions; invariant grep still passes).** WAVE-2 of
+  `LOST_ITEMS_RECON_2026_06_29.md` (`0daaf6695`) surfaces graph-adjacent items and proposes routing them: **#34** dead
+  graph-appearance toggles `MetalGraphView` never reads ("wire or remove" → proposed *graph chrome*), **#35** graph
+  code-editor white top-bar + landing pill persisting onto the graph (→ *graph chrome* / Plan 2), **#28** home↔graph
+  blur-replace transition (→ Plan 4), grouped under a proposed **"Plan 8 — Theming & Appearance."** Tension: invariant
+  #6 says the graph is DO-NOT-TOUCH (already full AppKit/Metal, the feel REFERENCE). #28 (a navigation transition) and
+  #35 (chrome drawn *over* the graph) read as graph-ADJACENT, likely outside DO-NOT-TOUCH; **#34 (wiring graph appearance
+  toggles) would touch the graph's own appearance path** — closest to the line. **Auditor did NOT banner** (recon is a
+  legitimate tentative salvage ledger; preserve-nuance) and did NOT guess. **Owner decision (before any "Plan 8"/graph-chrome
+  work starts):** is *graph chrome* (appearance toggles / top-bar / transition) INSIDE the DO-NOT-TOUCH boundary (→ drop/defer
+  #34 esp.) or OUTSIDE it (chrome ≠ the Metal graph → allowed, and I'll record the clarified boundary in the doctrine)?
 - **2026-06-29 cycle 12 (Auditor) — Companion v1.6 "cosmetic-only" doctrine vs Plan-5 chat extension (NOT a locked-canon
   violation; not a fleet blocker — Plan 5 is SAVED/not-active).** Plan-5 surface (B) deliberately evolves the CompanionModel
   v1.6 "cosmetic-only, NO model/prompt/tool/MCP/runtime authority" doctrine to allow a **gated chat binding**. That v1.6
