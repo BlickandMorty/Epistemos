@@ -133,6 +133,34 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(pixelComponents.contains("foregroundStyle(accent.opacity"))
     }
 
+    @Test("settings sidebar uses registry-backed marks where sections have brands")
+    func settingsSidebarUsesRegistryBackedMarksWhereSectionsHaveBrands() throws {
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let components = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsSurfaceComponents.swift")
+        let codepack = try loadMirroredSourceTextFile(
+            "docs/research/PLAN_3_WHOLE_APP_LOGOS_CODEPACK_2026_06_28.md"
+        )
+
+        for required in [
+            "var sidebarBrand: IntegrationBrand?",
+            "case .voice:\n                .voice",
+            "case .skills:\n                .extensions",
+            "case .vault:\n                .vault",
+            "case .provenance:\n                .provenance",
+            "SettingsIntegrationBrandBadge(",
+            "brand: brand",
+            "SettingsPixelGlyphBadge("
+        ] {
+            #expect(settings.contains(required), "Settings sidebar missing brand mark path: \(required)")
+        }
+
+        #expect(components.contains("struct SettingsIntegrationBrandBadge"))
+        #expect(components.contains("IntegrationBrandMarkView(brand: brand"))
+        #expect(components.contains(".accessibilityHidden(true)"))
+        #expect(codepack.contains("settings sidebar marks"))
+        #expect(codepack.contains("Settings sidebar branded rows now use `SettingsIntegrationBrandBadge`"))
+    }
+
     @Test("integration brand registry has render-safe behavior mappings")
     func integrationBrandRegistryHasRenderSafeBehaviorMappings() {
         for brand in IntegrationBrand.allCases {

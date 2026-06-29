@@ -146,6 +146,21 @@ struct SettingsView: View {
             }
         }
 
+        var sidebarBrand: IntegrationBrand? {
+            switch self {
+            case .voice:
+                .voice
+            case .skills:
+                .extensions
+            case .vault:
+                .vault
+            case .provenance:
+                .provenance
+            default:
+                nil
+            }
+        }
+
         /// Which simplified Phase 7 category this section belongs under.
         var category: SettingsCategory {
             switch self {
@@ -452,12 +467,8 @@ private struct SettingsSidebarRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
-            SettingsPixelGlyphBadge(systemImage: section.icon,
-                theme: theme,
-                tint: iconTint,
-                size: 24
-            )
-            .frame(width: 24, height: 24)
+            sidebarBadge
+                .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(section.rawValue)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
@@ -470,6 +481,25 @@ private struct SettingsSidebarRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var sidebarBadge: some View {
+        if let brand = section.sidebarBrand {
+            SettingsIntegrationBrandBadge(
+                brand: brand,
+                theme: theme,
+                tint: iconTint,
+                size: 24
+            )
+        } else {
+            SettingsPixelGlyphBadge(
+                systemImage: section.icon,
+                theme: theme,
+                tint: iconTint,
+                size: 24
+            )
+        }
     }
 
     private var iconTint: Color {

@@ -40,6 +40,9 @@
   for every Plan 3 landing feature button, and `LandingFeatureButtonTile` passes
   that mapping into `PixelLandingCommandTile` so each Plan 3 landing shortcut
   renders a registry-backed brand mark without changing non-Plan-3 command tiles.
+- [VERIFIED-CODE] Settings sidebar branded rows now use `SettingsIntegrationBrandBadge`
+  and a typed `SettingsSection.sidebarBrand` mapping for Voice, Extensions, Vault,
+  and Provenance while unbranded rows stay on the existing local symbol badge.
 
 ## Non-Goals And Boundaries
 
@@ -94,8 +97,8 @@ touching Plan 1 or Plan 2.
    and no Plan 2 boundaries.
 7. [DONE] Run parse/source verification while any external Xcode lane is active.
 8. [DONE] Wire Plan 3 landing-feature button tiles to their registry-backed brand marks.
-9. Later slices: utility panel metadata, settings sidebar marks, and any
-   licensed official asset import.
+9. [DONE] Wire settings sidebar marks for clearly branded Plan 3 settings rows.
+10. Later slices: utility panel metadata and any licensed official asset import.
 
 ## Acceptance Gates
 

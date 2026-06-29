@@ -229,6 +229,45 @@ struct SettingsPixelGlyphBadge: View {
     }
 }
 
+struct SettingsIntegrationBrandBadge: View {
+    let brand: IntegrationBrand
+    let theme: EpistemosTheme
+    var tint: Color?
+    var size: CGFloat = 18
+
+    private var resolvedTint: Color {
+        tint ?? theme.resolved.accent.color
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(resolvedTint.opacity(theme.isDark ? 0.16 : 0.12))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(resolvedTint.opacity(theme.isDark ? 0.22 : 0.18), lineWidth: 0.55)
+
+            IntegrationBrandMarkView(brand: brand, size: size * 0.70)
+                .foregroundStyle(resolvedTint)
+
+            HStack {
+                Spacer(minLength: 0)
+                VStack {
+                    Spacer(minLength: 0)
+                    pixel(opacity: 0.34)
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+
+    private func pixel(opacity: Double) -> some View {
+        Rectangle()
+            .fill(resolvedTint.opacity(theme.isDark ? opacity * 0.78 : opacity))
+            .frame(width: 3, height: 3)
+    }
+}
+
 struct SettingsBlurGroupBoxStyle: GroupBoxStyle {
     let theme: EpistemosTheme
 

@@ -367,8 +367,9 @@ Folded in as clean Plan-3 capabilities:
   no model asset, picker row, neural runtime, Python, or subprocess enters the MAS path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
-  Meeting, and every Plan 3 landing feature button without runtime logo downloads or official-logo claims. Later slices
-  can add utility/sidebar metadata or licensed assets, but the shared fallback registry is live.
+  Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo
+  downloads or official-logo claims. Later slices can add utility metadata or licensed assets, but the shared fallback
+  registry is live.
 
 **Editor-graph items recovered → belong to PLAN 2 (not here):** graph inline-edit of doc nodes (no detached window),
 home-graph tunnel to Epdoc + HTML-workspace, the 2 data-loss fixes (Prose image drop / Epdoc lossy shadow.md), and the
