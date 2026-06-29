@@ -1254,3 +1254,21 @@ Shared `build-for-testing` remains blocked solely by `EpistemosTests/ArxivPlan3T
 (`lock()`/`unlock()` in an async context — Plan-3 lane, NO-COLLISION; the other agent's recent
 commits did not address it). All app + Goose files compile clean; `GooseSurfaceRouterTests`
 execution awaits that external Plan-3 fix.
+
+---
+
+## 2026-06-29 — DerivedData health + recursive clean pass (post WebView-host fixes)
+
+- **Owner DerivedData health (cron's flagged yyjson/llama issue) — RESOLVED, no repair needed.**
+  `~/Library/Developer/Xcode/DerivedData/Epistemos-*/SourcePackages`: `yyjson` checkout OK,
+  `llama.xcframework` present under `artifacts/ggufruntimebridge/llama/`. The ongoing builds healed
+  the original-handoff artifact errors. → The owner does NOT need any DD repair; a plain rebuild
+  picks up this session's Swift fixes. (The last built app on disk is Jun-28, which PREDATES all the
+  Jun-29 WebView-host lifecycle fixes — confirming the §7 "rebuild required" note.)
+- **Recursive clean pass (no code changes since `edd426f76`):** `goose-acp-live-probe.sh` →
+  LIVE_ACP_SURFACE_PASS (catalog 106 / GOLDEN RULE, prompt→end_turn); `goose-native-models-probe.sh`
+  → NATIVE_MODELS_PARITY_PASS (providers/list 65, default openai present). Data path + GOLDEN RULE
+  stable. (Pass 1 of 3 toward "hardened" for the latest state.)
+- Shared `build-for-testing` still blocked solely by Plan-3 `ArxivPlan3Tests.swift:531` (the async
+  `download(from:)` still calls `lock.lock()`; the other agent's `b805c9e90` refactor didn't fix it).
+  Not my lane (NO-COLLISION). All app + Goose files compile clean (`** BUILD SUCCEEDED **`).
