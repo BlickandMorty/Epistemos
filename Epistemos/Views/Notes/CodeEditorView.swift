@@ -696,14 +696,16 @@ nonisolated enum CodeLanguage {
     }
 
     static func isMarkdownDocument(filePath: String?, language: String) -> Bool {
-        let languageID = language.lowercased()
+        let languageID = language
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
         if languageID == "markdown" || languageID == "md" || languageID == "mdx" {
             return true
         }
         return isMarkdownDocument(path: filePath)
     }
 
-    /// Detect language from file extension. Returns nil for markdown/unknown (use prose editor).
+    /// Detect language from file extension. Returns nil for markdown/plain text/unknown.
     static func detect(from path: String) -> String? {
         let ext = (path as NSString).pathExtension.lowercased()
         if ext.isEmpty {
@@ -735,7 +737,7 @@ nonisolated enum CodeLanguage {
         case "yaml", "yml": return "yaml"
         case "toml": return "toml"
         case "xml", "plist", "svg": return "html"
-        case "md", "markdown", "txt": return nil // prose editor
+        case "md", "markdown", "mdx", "txt": return nil
         case "gd": return "gdscript"
         case "lua": return "lua"
         case "rb": return "ruby"
@@ -746,6 +748,13 @@ nonisolated enum CodeLanguage {
         case "wgsl", "glsl", "metal", "hlsl": return "c" // close enough for highlighting
         default: return nil
         }
+    }
+
+    static func detectEditorLanguage(from path: String) -> String? {
+        if isMarkdownDocument(path: path) {
+            return "markdown"
+        }
+        return detect(from: path)
     }
 
     /// Display name for the status bar.

@@ -15,12 +15,22 @@ import Testing
 nonisolated struct CodeEditorPolishTests {
 
     @Test("Markdown chrome routing includes MDX and language IDs")
-    func markdownChromeRoutingIncludesMdxAndLanguageIDs() {
+    func markdownChromeRoutingIncludesMdxAndLanguageIDs() throws {
         #expect(CodeLanguage.isMarkdownDocument(path: "/tmp/README.MD"))
         #expect(CodeLanguage.isMarkdownDocument(path: "/tmp/research.markdown"))
         #expect(CodeLanguage.isMarkdownDocument(path: "/tmp/component.mdx"))
         #expect(CodeLanguage.isMarkdownDocument(filePath: nil, language: "mdx"))
+        #expect(CodeLanguage.isMarkdownDocument(filePath: nil, language: " Markdown \n"))
+        #expect(CodeLanguage.detect(from: "/tmp/README.md") == nil)
+        #expect(CodeLanguage.detectEditorLanguage(from: "/tmp/README.md") == "markdown")
+        #expect(CodeLanguage.detectEditorLanguage(from: "/tmp/research.markdown") == "markdown")
+        #expect(CodeLanguage.detectEditorLanguage(from: "/tmp/component.MDX") == "markdown")
+        #expect(CodeLanguage.detect(from: "/tmp/plain.txt") == nil)
         #expect(!CodeLanguage.isMarkdownDocument(filePath: "/tmp/Package.swift", language: "swift"))
+
+        let workspaceSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        #expect(workspaceSource.contains("let lang = CodeLanguage.detectEditorLanguage(from: path)"))
+        #expect(workspaceSource.contains("CodeLanguage.detectEditorLanguage(from: filePath) != nil"))
     }
 
     // MARK: - OutlineParserCache (item 3)

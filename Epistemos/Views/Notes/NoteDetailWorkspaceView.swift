@@ -1078,11 +1078,11 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    /// Whether the current page is a code file (routed to CodeEditorView).
+    /// Whether the current page is routed to CodeEditorView (code chrome or MarkEdit markdown chrome).
     private var isCodeFile: Bool {
         guard let page = pages.first,
               let path = page.filePath,
-              CodeLanguage.detect(from: path) != nil else { return false }
+              CodeLanguage.detectEditorLanguage(from: path) != nil else { return false }
         return true
     }
 
@@ -1179,7 +1179,7 @@ struct NoteDetailWorkspaceView: View {
     private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
         Group {
             if let path = page.filePath,
-               let lang = CodeLanguage.detect(from: path) {
+               let lang = CodeLanguage.detectEditorLanguage(from: path) {
                 CodeEditorView(
                     content: cachedCodeFileContent(page: page, filePath: path),
                     language: lang,
@@ -1669,7 +1669,7 @@ struct NoteDetailWorkspaceView: View {
         codeFileLoadTask?.cancel()
         guard let page,
               let filePath = page.filePath,
-              CodeLanguage.detect(from: filePath) != nil else {
+              CodeLanguage.detectEditorLanguage(from: filePath) != nil else {
             codeFileBodySnapshot = nil
             return
         }
