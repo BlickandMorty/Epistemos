@@ -83,6 +83,7 @@ struct BrowserUseAdapterPlan3Tests {
             "truncate_url_output",
             "MAX_ERROR_OUTPUT_CHARS",
             "sanitize_error_message",
+            "exit_detail = sanitize_error_message",
             "SECRET_ASSIGNMENT_PATTERN",
             "BEARER_PATTERN",
             "\"url_redacted\"",
